@@ -132,6 +132,10 @@ struct Config {
    * @details The commit boundary itself is B + epoch_repeats + commit_revs from
    * the train's primary copy at B, so a board hearing any repeat still commits
    * in lockstep with the full K-rev construction budget (spec §6.1, §6.3.1).
+   * The foreground polls the build request between frames, so the budget an
+   * effect actually gets is K revolutions less the render in flight when the
+   * request was published; overrunning it trips the driver's commit_ok trap on
+   * every board at once. Not checkable in valid(), which sees no render times.
    */
   uint32_t commit_revs = 2;
   uint32_t beacon_period_revs = 16; /**< Beacon cadence (spec §6.4). */
