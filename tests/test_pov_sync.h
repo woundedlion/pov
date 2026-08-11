@@ -301,6 +301,13 @@ inline void test_config_validation() {
   ++re.revs_per_effect;
   HS_EXPECT_TRUE(re.valid() == nullptr);
 
+  uint32_t variable_revolutions[4] = {40, 48, 56, 64};
+  Config vr = test_config();
+  vr.effect_revolutions = variable_revolutions;
+  HS_EXPECT_TRUE(vr.valid() == nullptr);
+  variable_revolutions[2] = vr.refractory_revs;
+  HS_EXPECT_TRUE(vr.valid() != nullptr);
+
   // A beacon cadence inside the construction window would land identity
   // traffic on the commit boundary. Boundary is exclusive.
   Config bc = test_config();
@@ -2167,6 +2174,38 @@ inline void test_sim_epoch_commit() {
       double(cfg.revs_per_effect) + 6));
 }
 
+/** @brief Verifies the master schedules each epoch from its roster duration. */
+inline void test_sim_variable_effect_durations() {
+  uint32_t effect_revolutions[4] = {24, 52, 32, 64};
+  Config cfg = test_config();
+  cfg.effect_revolutions = effect_revolutions;
+  const int32_t ppm[4] = {0, 30, -25, 10};
+  Sim sim(cfg, 4, ppm);
+
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        for (auto &b : s.boards)
+          if (b.live_index != 1)
+            return false;
+        return true;
+      },
+      double(effect_revolutions[0]) + 6));
+
+  sim.run_revs(45.0);
+  for (auto &b : sim.boards)
+    HS_EXPECT_EQ(b.live_index, 1);
+
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        for (auto &b : s.boards)
+          if (b.live_index != 2)
+            return false;
+        return true;
+      },
+      12.0));
+}
+
 /**
  * @brief Verifies every board derives the same epoch seed at each handoff: the
  *        boot build uses the identity seed (epoch 0 == 1337) and the first
@@ -3182,6 +3221,7 @@ inline int run_pov_sync_tests() {
   test_sim_boot_and_phase();
   test_sim_eight_board_boot_and_phase();
   test_sim_epoch_commit();
+  test_sim_variable_effect_durations();
   test_sim_epoch_seed_lockstep();
   test_sim_commit_deadline_trap();
   test_sim_masked_windows();
