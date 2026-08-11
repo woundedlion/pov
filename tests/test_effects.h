@@ -4664,7 +4664,7 @@ inline void test_mindsplatter_particle_gradients_follow_emission_order() {
   HS_EXPECT_NE(first.front(), first.back());
   HS_EXPECT_NE(second.front(), second.back());
   WB::step_physics(effect);
-  HS_EXPECT_EQ(WB::active_particles(effect), WB::num_emitters());
+  HS_EXPECT_EQ(WB::active_particles(effect), WB::num_emitters(effect));
   for (size_t i = 0; i < WB::active_particles(effect); ++i)
     HS_EXPECT_EQ(WB::particle_color_seed(effect, i),
                  static_cast<uint16_t>(i << 8));
@@ -5023,7 +5023,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
   for (int f = 0; f < frames; ++f) {
     ms.draw_frame();
     ms.advance_display();
-    for (size_t i = 0; i < WB::num_emitters(); ++i) {
+    for (size_t i = 0; i < WB::num_emitters(ms); ++i) {
       const float ph = WB::emit_phase(ms, i);
       HS_EXPECT_GE(ph, 0.0f);
       HS_EXPECT_LT(ph, two_pi);
