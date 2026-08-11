@@ -1153,16 +1153,18 @@ Blanket `always_inline`/`HS_O3_FN` expansion of every slot arm is forbidden: a
 frame-constant switch makes prediction cheap but does not remove inactive-arm
 code from the instantiated closure.
 
-The latest documented baselines are tight but are not current admission data.
-The ShaderBall profile at `17fbf726` records a 53.99 ms render peak in a
-62.5 ms window, but covers only the then-current 13 presets, not today's 15.
+The latest ShaderBall capture at `ffbd4807` runs all 26 authored presets after
+removal of the static cost gate. The shipping image is green for 23 presets;
+presets 0, 13, and 25 spill 31/2176 frames at a 67.71 ms peak. The global-O3
+reference is green for all 26 at a 60.99 ms peak.
 The Phantasm ledger at `053ecefc` records 194,880 of 196,608 ITCM bytes occupied
 after ShadierBall's exclusion, leaving 1,728 bytes. See the
-[ShaderBall Teensy profile](../profiles/shipping/profile_shaderball_teensy_2026-08-08.md)
-and [ITCM ledger](../ledgers/itcm_ledger.md). They establish risk, not admission. Before
-implementation decisions rely on either number, regenerate a 15-preset profile
-and full-roster ELF ledger and record the commit, build flags, roster, hardware,
-and capture coverage beside the result.
+[shipping profile](../profiles/shipping/profile_shaderball_teensy_2026-08-10.md),
+[global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-10.md),
+and [ITCM ledger](../ledgers/itcm_ledger.md). The timing captures measure the
+authored bank directly; the ledger remains a separate full-roster resource
+gate. Regenerate both after preset, kernel, or roster changes and record the
+commit, build flags, roster, hardware, and capture coverage beside the result.
 
 Run a full-roster ELF/ITCM gate and on-device cycle profile after each
 fixed-topology integration stage, each large kernel, and each new projection—not
