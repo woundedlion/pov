@@ -338,7 +338,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
-├── .clang-format               LLVM-derived C++ style; CI enforces it with clang-format 18
+├── .clang-format               LLVM-derived C++ style; CI enforces it with clang-format 22
 ├── ruff.toml                   Python lint rules (defect classes only, no formatter) — the ci.yml lint job
 ├── eslint.config.mjs           JavaScript lint rules for scripts/*.mjs (recommended set) — the same job
 ├── .githooks/                  pre-commit format/test/size gate, post-commit size-trail recorder, and a reference-transaction guard keeping master fast-forward-only
