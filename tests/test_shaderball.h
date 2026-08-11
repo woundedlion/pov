@@ -885,7 +885,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(21));
+  HS_EXPECT_EQ(presets.size(), size_t(22));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_EQ(presets[0].params.source.pattern_freq, 5.0f);
   HS_EXPECT_EQ(presets[0].params.warp.outer.scale, 3.0f);
@@ -946,6 +946,45 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(wave_shear.params.colorizer.hue_shift, 0.0f);
   HS_EXPECT_EQ(wave_shear.params.colorizer.value_fade, 0.0f);
   HS_EXPECT_EQ(wave_shear.params.outer_camera.wander, 1.0f);
+  const auto &kaleidoscope_mirror = presets[21];
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.function, WB::Function::TWIN_WAVE);
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.projection,
+               WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.projection_frame,
+               WB::ProjectionFramePolicy::SPIN_WANDER);
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE);
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.warp_program.outer.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.warp_program.inner.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.signal_weight,
+               WB::SignalWeight::PROJECTION);
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.value_transfer,
+               WB::ValueTransfer::LINEAR);
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.coverage,
+               WB::CoveragePolicy::PROJECTION_WEIGHT_SQUARED);
+  HS_EXPECT_EQ(kaleidoscope_mirror.slots.colorizer, WB::Colorizer::LIQUID);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.pattern_freq, 10.158f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.speed, 0.245f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.angle_rate, 0.027f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.complexity, 0.513f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.pattern_mix, 0.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.secondary_rate, 0.8f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.projection.pole_fade, 4.971f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.projection.spin_rate, 0.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.projection.wander, 1.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.surface_lens.mix, 1.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.rotation, 0.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.cell_x, 1.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.cell_y, 1.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.offset_x, 0.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.offset_y, 0.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.breathe_depth, 0.15f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.cycle_speed, 0.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.hue_shift, 0.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.value_fade, 0.0f);
+  HS_EXPECT_EQ(kaleidoscope_mirror.params.outer_camera.wander, 1.0f);
   for (size_t index = 0; index < presets.size(); ++index)
     HS_EXPECT_TRUE(WB::seam_compatible(presets[index]));
   for (size_t index = 0; index < 15; ++index)
