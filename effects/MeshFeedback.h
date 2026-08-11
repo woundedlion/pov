@@ -117,11 +117,11 @@ public:
 
     params = presets.get();
 
-    mesh.vertices.bind(persistent_arena, MAX_SOLID_VERTICES);
-    mesh.face_counts.bind(persistent_arena, MAX_SOLID_FACES);
-    mesh.faces.bind(persistent_arena, MAX_SOLID_FACE_SLOTS);
-    mesh.face_offsets.bind(persistent_arena, MAX_SOLID_FACES);
-    edges.bind(persistent_arena, MAX_SOLID_FACE_SLOTS / 2);
+    mesh.vertices.bind(persistent_arena, Solids::MAX_SOLID_VERTICES);
+    mesh.face_counts.bind(persistent_arena, Solids::MAX_SOLID_FACES);
+    mesh.faces.bind(persistent_arena, Solids::MAX_SOLID_FACE_SLOTS);
+    mesh.face_offsets.bind(persistent_arena, Solids::MAX_SOLID_FACES);
+    edges.bind(persistent_arena, Solids::MAX_SOLID_EDGES);
     apply_params();
 
     mesh_shade = Palettes::PEACH_POP.get(0.0f);
@@ -198,23 +198,23 @@ private:
 
   friend struct ::hs_test::effects_tests::MeshFeedbackWhiteBox;
 
-  static constexpr size_t MAX_SOLID_VERTICES = 120;
-  static constexpr size_t MAX_SOLID_FACE_SLOTS = 360;
-  static constexpr size_t MAX_SOLID_FACES = 120;
+  static_assert(Solids::MAX_SOLID_VERTICES <=
+                    static_cast<size_t>(Plot::Mesh::DEDUP_CAPACITY),
+                "a bound solid must fit the wireframe edge-dedup bitset");
 
   void rebuild_mesh(BaseMesh base_mesh) {
     const Solids::Entry &entry =
         Solids::get_entry(static_cast<size_t>(base_mesh));
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh poly = entry.generate(a, b);
-      HS_CHECK(poly.vertices.size() <= MAX_SOLID_VERTICES &&
-                   poly.faces.size() <= MAX_SOLID_FACE_SLOTS &&
-                   poly.face_counts.size() <= MAX_SOLID_FACES,
+      HS_CHECK(poly.vertices.size() <= Solids::MAX_SOLID_VERTICES &&
+                   poly.faces.size() <= Solids::MAX_SOLID_FACE_SLOTS &&
+                   poly.face_counts.size() <= Solids::MAX_SOLID_FACES,
                "MeshFeedback selectable solid exceeds bounds");
       MeshOps::compile(poly, mesh, target, a);
     });
 
-    edges.bind(persistent_arena, MAX_SOLID_FACE_SLOTS / 2);
+    edges.bind(persistent_arena, Solids::MAX_SOLID_EDGES);
     Plot::Mesh::extract_edges(mesh, edges);
     active_base_mesh = base_mesh;
     mesh_ready = true;
@@ -272,10 +272,10 @@ private:
       filters;
 
   static constexpr size_t MESH_STORAGE_BYTES =
-      MAX_SOLID_VERTICES * sizeof(Vector) +
-      MAX_SOLID_FACES * (sizeof(uint8_t) + sizeof(uint16_t)) +
-      MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
-      (MAX_SOLID_FACE_SLOTS / 2) * sizeof(Plot::Mesh::Edge);
+      Solids::MAX_SOLID_VERTICES * sizeof(Vector) +
+      Solids::MAX_SOLID_FACES * (sizeof(uint8_t) + sizeof(uint16_t)) +
+      Solids::MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
+      Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge);
   static_assert(Filter::Pixel::Feedback<W, H>::STORAGE_BYTES +
                         gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
                         MESH_STORAGE_BYTES <=

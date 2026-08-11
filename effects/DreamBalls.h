@@ -215,11 +215,10 @@ private:
   };
 
   SolidData *loaded_solids = nullptr;
-  static constexpr size_t MAX_SOLID_VERTICES = 120;
-  static constexpr size_t MAX_SOLID_FACE_SLOTS = 360;
-  static constexpr size_t MAX_SOLID_FACES = 120;
-  static constexpr size_t MAX_SOLID_EDGES = MAX_SOLID_FACE_SLOTS / 2;
   static constexpr size_t FOUR_REGULAR_SOLID_COUNT = 5;
+  static_assert(Solids::MAX_SOLID_VERTICES <=
+                    static_cast<size_t>(Plot::Mesh::DEDUP_CAPACITY),
+                "a baked solid must fit the wireframe edge-dedup bitset");
 
   FastNoiseLite noise;
   Timeline timeline;
@@ -247,11 +246,13 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       2 * BakedPalette::required_arena_bytes() +
       SOLID_COUNT * sizeof(SolidData) +
-      SOLID_COUNT * (MAX_SOLID_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
-                     MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
-                     MAX_SOLID_FACES * sizeof(uint8_t) +
-                     3 * MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge)) +
-      FOUR_REGULAR_SOLID_COUNT * 2 * MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge);
+      SOLID_COUNT *
+          (Solids::MAX_SOLID_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
+           Solids::MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
+           Solids::MAX_SOLID_FACES * sizeof(uint8_t) +
+           3 * Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge)) +
+      FOUR_REGULAR_SOLID_COUNT * 2 * Solids::MAX_SOLID_EDGES *
+          sizeof(Plot::Mesh::Edge);
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "DreamBalls persistent footprint exceeds the default partition");
@@ -508,9 +509,9 @@ private:
                                          Arena &b) HS_COLD_MEMBER {
         PolyMesh m = Solids::finalize_solid(entry.generate(a, b), a);
 
-        HS_CHECK(m.vertices.size() <= MAX_SOLID_VERTICES &&
-                     m.faces.size() <= MAX_SOLID_FACE_SLOTS &&
-                     m.face_counts.size() <= MAX_SOLID_FACES,
+        HS_CHECK(m.vertices.size() <= Solids::MAX_SOLID_VERTICES &&
+                     m.faces.size() <= Solids::MAX_SOLID_FACE_SLOTS &&
+                     m.face_counts.size() <= Solids::MAX_SOLID_FACES,
                  "DreamBalls selectable solid exceeds footprint bounds");
 
         data.mesh_state.vertices.bind(target, m.vertices.size());
