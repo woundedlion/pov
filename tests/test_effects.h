@@ -2345,7 +2345,7 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
  */
 struct DreamBallsWhiteBox {
   using DB = DreamBalls<SMALL_W, SMALL_H>;
-  static constexpr int PRESETS = 7;
+  static constexpr int PRESETS = 10;
 
   static int active_bake(const DB &db) { return db.active_bake; }
   static int last_preset_idx(const DB &db) { return db.last_preset_idx; }
@@ -2465,6 +2465,42 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(triakis_icosahedron.warp_scale, 1.535f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron.alpha, 0.7f, 1e-6f);
 
+  const auto &triakis_icosahedron_six_copies = WB::preset_params(db, 7);
+  HS_EXPECT_EQ(triakis_icosahedron_six_copies.base_mesh,
+               WB::DB::BaseMesh::TRIAKIS_ICOSAHEDRON);
+  HS_EXPECT_EQ(triakis_icosahedron_six_copies.weave_topology,
+               WB::DB::WeaveTopology::AUTOMATIC);
+  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.weave_gap, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.num_copies, 6.0f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.offset_radius, 0.078f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.offset_speed, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.warp_scale, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.alpha, 0.3f, 1e-6f);
+
+  const auto &disdyakis_triacontahedron = WB::preset_params(db, 8);
+  HS_EXPECT_EQ(disdyakis_triacontahedron.base_mesh,
+               WB::DB::BaseMesh::DISDYAKIS_TRIACONTAHEDRON);
+  HS_EXPECT_EQ(disdyakis_triacontahedron.weave_topology,
+               WB::DB::WeaveTopology::AUTOMATIC);
+  HS_EXPECT_NEAR(disdyakis_triacontahedron.weave_gap, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(disdyakis_triacontahedron.num_copies, 6.0f, 1e-6f);
+  HS_EXPECT_NEAR(disdyakis_triacontahedron.offset_radius, 0.03f, 1e-6f);
+  HS_EXPECT_NEAR(disdyakis_triacontahedron.offset_speed, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(disdyakis_triacontahedron.warp_scale, 1.795f, 1e-6f);
+  HS_EXPECT_NEAR(disdyakis_triacontahedron.alpha, 0.3f, 1e-6f);
+
+  const auto &triakis_icosahedron_compact = WB::preset_params(db, 9);
+  HS_EXPECT_EQ(triakis_icosahedron_compact.base_mesh,
+               WB::DB::BaseMesh::TRIAKIS_ICOSAHEDRON);
+  HS_EXPECT_EQ(triakis_icosahedron_compact.weave_topology,
+               WB::DB::WeaveTopology::AUTOMATIC);
+  HS_EXPECT_NEAR(triakis_icosahedron_compact.weave_gap, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_compact.num_copies, 6.0f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_compact.offset_radius, 0.03f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_compact.offset_speed, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_compact.warp_scale, 1.795f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron_compact.alpha, 0.3f, 1e-6f);
+
   HS_EXPECT_TRUE(WB::preset_params(db, 0).palette ==
                  WB::blood_stream_falloff(db));
   HS_EXPECT_TRUE(WB::preset_params(db, 1).palette ==
@@ -2474,6 +2510,9 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_TRUE(WB::preset_params(db, 4).palette == &Palettes::CORAL_BLUE);
   HS_EXPECT_TRUE(WB::preset_params(db, 5).palette == &Palettes::CORAL_BLUE);
   HS_EXPECT_TRUE(WB::preset_params(db, 6).palette == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_params(db, 7).palette == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_params(db, 8).palette == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_params(db, 9).palette == &Palettes::CORAL_BLUE);
 
   // Not-paused advance chain: each step advances the selector then re-spawns, so
   // the preset is step modulo the preset count. Drive two full cycles; the bake
@@ -6082,7 +6121,7 @@ inline void check_manual_preset_navigation(size_t expected_count) {
 
 inline void test_manual_preset_navigation() {
   check_manual_preset_navigation<MindSplatter<SMALL_W, SMALL_H>>(8);
-  check_manual_preset_navigation<DreamBalls<SMALL_W, SMALL_H>>(7);
+  check_manual_preset_navigation<DreamBalls<SMALL_W, SMALL_H>>(10);
   check_manual_preset_navigation<Comets<SMALL_W, SMALL_H>>(12);
   check_manual_preset_navigation<MeshFeedback<SMALL_W, SMALL_H>>(12);
   check_manual_preset_navigation<ShapeShifter<SMALL_W, SMALL_H>>(9);
