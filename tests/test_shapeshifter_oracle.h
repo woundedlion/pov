@@ -181,12 +181,11 @@ struct ShapeShifterWhiteBox {
 
 #if HS_ENABLE_TEST_ORACLES
   template <typename F>
-  static void dispatch_plot_reference(OracleEffect &effect, Canvas &canvas,
-                                      const Basis &basis,
-                                      OracleEffect::ShapeType shape,
-                                      float radius, int sides,
-                                      const F &fragment_shader,
-                                      float shape_phase) {
+  static void
+  dispatch_plot_reference(OracleEffect &effect, Canvas &canvas,
+                          const Basis &basis, OracleEffect::ShapeType shape,
+                          float radius, int sides, const F &fragment_shader,
+                          float shape_phase) {
     using ShapeType = OracleEffect::ShapeType;
     switch (shape) {
     case ShapeType::PLANAR_POLYGON:
@@ -200,9 +199,9 @@ struct ShapeShifterWhiteBox {
           shape_phase);
       break;
     case ShapeType::FLOWER:
-      Plot::Flower::draw<ORACLE_W, ORACLE_H>(
-          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
-          {}, shape_phase);
+      Plot::Flower::draw<ORACLE_W, ORACLE_H>(effect.plot_filters, canvas, basis,
+                                             radius, sides, fragment_shader, {},
+                                             shape_phase);
       break;
     case ShapeType::PLANAR_STAR:
       Plot::Star<Plot::PlanarProjection>::draw<ORACLE_W, ORACLE_H>(
@@ -219,17 +218,15 @@ struct ShapeShifterWhiteBox {
 
   static void draw_all_reference(OracleEffect &effect, Canvas &canvas) {
     using ShapeType = OracleEffect::ShapeType;
-    const int count =
-        hs::clamp(static_cast<int>(effect.params.count), 1,
-                  OracleEffect::MAX_SHAPES);
+    const int count = hs::clamp(static_cast<int>(effect.params.count), 1,
+                                OracleEffect::MAX_SHAPES);
     if (count != effect.baked_palette_count ||
         effect.params.spacing != effect.prepared_spacing)
       effect.prepare_count(count);
     const auto &palette = effect.selected_palette();
-    const int sides = hs::clamp(
-        static_cast<int>(effect.params.sides),
-        static_cast<int>(OracleEffect::SIDES_MIN),
-        static_cast<int>(OracleEffect::SIDES_MAX));
+    const int sides = hs::clamp(static_cast<int>(effect.params.sides),
+                                static_cast<int>(OracleEffect::SIDES_MIN),
+                                static_cast<int>(OracleEffect::SIDES_MAX));
     const ShapeType shape = effect.selected_shape();
     const auto function = effect.selected_function();
     const Basis basis = make_basis(effect.orientation.get(), X_AXIS);
