@@ -170,11 +170,11 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
       };                                                                         \
       e.size = sizeof(ClassName<W, H>);                                          \
     }                                                                            \
-    /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references _reg, so  \
+    /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references reg, so   \
      * under LTO / --gc-sections the dynamic initializer could be discarded,   \
      * silently dropping the effect from the registry. */ \
     HS_REGISTRAR_ANCHOR                                                          \
-    static inline int _reg = EffectRegistry::add(                                \
+    static inline int reg = EffectRegistry::add(                                 \
         {#ClassName, HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)});                   \
   };                                                                             \
   }
