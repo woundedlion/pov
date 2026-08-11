@@ -696,12 +696,10 @@ private:
     if (!valid_config(requested_config) ||
         !resource_union_fits(requested_config, requested_config)) {
       requested_config = accepted_config;
-      display_config = accepted_config;
       rebind_parameters();
       return;
     }
     accepted_config = requested_config;
-    display_config = requested_config;
     if (is_enum && schema_selector(name))
       rebind_parameters();
   }

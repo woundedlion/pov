@@ -1430,6 +1430,7 @@ inline void test_shaderball_atomic_gui_commit() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
+  const auto rendered = WB::active_config(sb);
 
   HS_EXPECT_TRUE(
       sb.updateParameter("Function",
@@ -1441,6 +1442,7 @@ inline void test_shaderball_atomic_gui_commit() {
                      "Projection",
                      static_cast<float>(WB::Projection::PEIRCE_QUINCUNCIAL)) ==
                  ParamSetResult::APPLIED);
+  WB::refresh_display(sb);
 
   const auto &requested = WB::requested_config(sb);
   HS_EXPECT_EQ(requested.slots.function, WB::Function::PRIMITIVE_LATTICE);
@@ -1450,21 +1452,20 @@ inline void test_shaderball_atomic_gui_commit() {
                WB::WarpStageKind::NONE);
   HS_EXPECT_EQ(requested.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
   HS_EXPECT_EQ(requested.params.colorizer.hue_shift, 0.05f);
-  HS_EXPECT_EQ(WB::display_config(sb).slots.function,
-               WB::Function::PRIMITIVE_LATTICE);
-  HS_EXPECT_EQ(WB::display_config(sb).slots.projection,
-               WB::Projection::PEIRCE_QUINCUNCIAL);
+  HS_EXPECT_TRUE(WB::display_config(sb) == rendered);
   HS_EXPECT_EQ(sb.getParameters().find("Function")->get(),
-               static_cast<float>(WB::Function::PRIMITIVE_LATTICE));
+               static_cast<float>(rendered.slots.function));
   HS_EXPECT_EQ(sb.getParameters().find("Projection")->get(),
-               static_cast<float>(WB::Projection::PEIRCE_QUINCUNCIAL));
+               static_cast<float>(rendered.slots.projection));
 
   sb.draw_frame();
   sb.advance_display();
+  WB::refresh_display(sb);
   HS_EXPECT_EQ(WB::active_config(sb).slots.function,
                WB::Function::PRIMITIVE_LATTICE);
   HS_EXPECT_EQ(WB::active_config(sb).slots.projection,
                WB::Projection::PEIRCE_QUINCUNCIAL);
+  HS_EXPECT_TRUE(WB::display_config(sb) == WB::active_config(sb));
 }
 
 /** @brief Structural admission accepts curated holds and heavy stage tuples. */
