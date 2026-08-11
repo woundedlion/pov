@@ -36,8 +36,8 @@ PINS = {
 INLINE_PINS = {
     "python": "3.12",
     "numpy": "2.4.3",
-    "clang": "18",
-    "clang-format": "18.1.8",
+    "clang": "22",
+    "clang-format": "22.1.8",
     "doxygen": "1.17.0",
     "doxygen-sha256":
         "75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2",
