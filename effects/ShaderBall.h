@@ -692,7 +692,7 @@ private:
       if (intent != EditIntent::NONE)
         canonicalize_selector_edit(requested_config, intent);
     }
-    if (!hold_admitted(requested_config) ||
+    if (!valid_config(requested_config) ||
         !resource_union_fits(requested_config, requested_config)) {
       requested_config = accepted_config;
       display_config = accepted_config;
@@ -1443,11 +1443,6 @@ private:
     size_t count = 0;
     return append_config_resource_keys(from, keys, count) &&
            append_config_resource_keys(to, keys, count);
-  }
-
-  /** @brief Reports whether a config is structurally valid. */
-  static constexpr bool hold_admitted(const Config &config) {
-    return valid_config(config);
   }
 
   HS_COLD_MEMBER bool prepare_resource_union(const Config &from,
@@ -2607,7 +2602,7 @@ private:
   HS_COLD_MEMBER void apply_requested_config() {
     if (requested_config == published_config)
       return;
-    if (!hold_admitted(requested_config) ||
+    if (!valid_config(requested_config) ||
         !prepare_resource_union(requested_config, requested_config)) {
       reject_requested_config();
       return;
@@ -2690,7 +2685,7 @@ private:
   HS_COLD_MEMBER bool try_apply_config(const Config &candidate,
                                        uint16_t duration, bool staggered,
                                        bool continue_choreo) {
-    if (!hold_admitted(candidate) || duration == 0)
+    if (!valid_config(candidate) || duration == 0)
       return false;
     if (transition.active)
       return false;
@@ -3179,7 +3174,7 @@ private:
   }
 
   static constexpr bool stable_topology(const Config &from, const Config &to) {
-    return hold_admitted(from) && hold_admitted(to) &&
+    return valid_config(from) && valid_config(to) &&
            same_parameter_topology(from, to) &&
            stable_parameter_path_admitted(from, to);
   }
@@ -3198,9 +3193,10 @@ private:
            0.5f;
   }
 
+  /** @brief Reports whether both transition endpoints are admissible holds. */
   static constexpr bool transition_admitted(const Config &from,
                                             const Config &to) {
-    return hold_admitted(from) && hold_admitted(to);
+    return valid_config(from) && valid_config(to);
   }
 
   static constexpr Choreo preset_choreo(size_t index) {

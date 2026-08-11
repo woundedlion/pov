@@ -121,9 +121,6 @@ struct ShaderBallWhiteBox {
                                             const RequestedConfig &to) {
     return SB::transition_admitted(from, to);
   }
-  static constexpr bool hold_admitted(const RequestedConfig &config) {
-    return SB::hold_admitted(config);
-  }
   static constexpr bool stable_topology(const RequestedConfig &from,
                                         const RequestedConfig &to) {
     return SB::stable_topology(from, to);
@@ -533,7 +530,7 @@ inline void test_shaderball_manual_edit_timing() {
     HS_EXPECT_FALSE(WB::param_morph_active(sb));
     HS_EXPECT_EQ(WB::active_slots(sb).projection, projection);
     HS_EXPECT_EQ(WB::active_slots(sb).coverage, WB::CoveragePolicy::EDGE_FADE);
-    HS_EXPECT_TRUE(WB::hold_admitted(WB::active_config(sb)));
+    HS_EXPECT_TRUE(WB::valid_config(WB::active_config(sb)));
     HS_EXPECT_TRUE(WB::requested_config(sb) == WB::active_config(sb));
     HS_EXPECT_TRUE(WB::published_config(sb) == WB::active_config(sb));
   }
@@ -1401,32 +1398,29 @@ inline void test_shaderball_atomic_gui_commit() {
                WB::Projection::PEIRCE_QUINCUNCIAL);
 }
 
-/** @brief Structural admission does not impose an estimated work ceiling. */
-inline void test_shaderball_work_admission() {
+/** @brief Structural admission accepts curated holds and heavy stage tuples. */
+inline void test_shaderball_structural_admission() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   for (const auto &preset : presets)
-    HS_EXPECT_TRUE(WB::hold_admitted(preset));
+    HS_EXPECT_TRUE(WB::valid_config(preset));
 
   WB::RequestedConfig integrated_ridged = presets[18];
   integrated_ridged.slots.warp_program.outer.basis = WB::NoiseBasis::RIDGED3;
   integrated_ridged.slots.warp_program.outer.curl_integrator =
       WB::CurlIntegrator::MIDPOINT_2;
   HS_EXPECT_TRUE(WB::valid_config(integrated_ridged));
-  HS_EXPECT_TRUE(WB::hold_admitted(integrated_ridged));
 
   WB::RequestedConfig peirce_polar = presets[19];
   peirce_polar.slots.warp_program.inner.kind = WB::WarpStageKind::POLAR_CHART;
   peirce_polar.slots.warp_program.inner.polar_harmonic = 2;
   peirce_polar.params.source.pattern_freq = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(peirce_polar));
-  HS_EXPECT_TRUE(WB::hold_admitted(peirce_polar));
 
   WB::RequestedConfig airocean_mobius = presets[20];
   airocean_mobius.slots.surface_lens = WB::SurfaceLens::MOBIUS;
   airocean_mobius.params.surface_lens.mix = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(airocean_mobius));
-  HS_EXPECT_TRUE(WB::hold_admitted(airocean_mobius));
 
   for (WB::Projection projection :
        {WB::Projection::BONNE, WB::Projection::PEIRCE_QUINCUNCIAL,
@@ -1436,7 +1430,7 @@ inline void test_shaderball_work_admission() {
     strict.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
     strict.slots.surface_lens = WB::SurfaceLens::NONE;
     strict.params.surface_lens.mix = 0.0f;
-    HS_EXPECT_TRUE(WB::hold_admitted(strict));
+    HS_EXPECT_TRUE(WB::valid_config(strict));
   }
   WB::RequestedConfig airo_mobius = WB::legacy_config();
   airo_mobius.slots.projection = WB::Projection::AIROCEAN;
@@ -1444,7 +1438,6 @@ inline void test_shaderball_work_admission() {
   airo_mobius.slots.surface_lens = WB::SurfaceLens::MOBIUS;
   airo_mobius.params.surface_lens.mix = 0.5f;
   HS_EXPECT_TRUE(WB::valid_config(airo_mobius));
-  HS_EXPECT_TRUE(WB::hold_admitted(airo_mobius));
 
   WB::RequestedConfig from = WB::legacy_config();
   from.slots.surface_lens = WB::SurfaceLens::NONE;
@@ -1458,8 +1451,8 @@ inline void test_shaderball_work_admission() {
   WB::RequestedConfig to = from;
   to.params.warp.outer.strength = 0.5f;
   to.params.warp.outer.scale = 1.0f / 64.0f;
-  HS_EXPECT_TRUE(WB::hold_admitted(from));
-  HS_EXPECT_TRUE(WB::hold_admitted(to));
+  HS_EXPECT_TRUE(WB::valid_config(from));
+  HS_EXPECT_TRUE(WB::valid_config(to));
   HS_EXPECT_TRUE(WB::transition_admitted(from, to));
   HS_EXPECT_FALSE(WB::stable_topology(from, to));
   HS_EXPECT_FALSE(WB::stable_parameter_path_admitted(from, to));
@@ -1540,7 +1533,7 @@ inline void test_shaderball_profile_presets() {
     sb.profile_select_preset(index);
     HS_EXPECT_TRUE(WB::active_config(sb) == presets[index]);
     HS_EXPECT_TRUE(WB::requested_config(sb) == presets[index]);
-    HS_EXPECT_TRUE(WB::hold_admitted(WB::active_config(sb)));
+    HS_EXPECT_TRUE(WB::valid_config(WB::active_config(sb)));
     HS_EXPECT_FALSE(WB::transition_active(sb));
     HS_EXPECT_FALSE(WB::param_morph_active(sb));
     if (index == 16 || index == 19 || index == 20) {
@@ -2808,7 +2801,7 @@ inline int run_shaderball_tests() {
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();
   test_shaderball_atomic_gui_commit();
-  test_shaderball_work_admission();
+  test_shaderball_structural_admission();
   test_shaderball_strict_seam_admission();
   test_shaderball_additive_delta_precision();
   test_shaderball_profile_presets();
