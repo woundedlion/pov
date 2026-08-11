@@ -12,8 +12,6 @@
 namespace hs_test {
 namespace shaderball_tests {
 
-using effects_tests::FRAME_MS;
-using effects_tests::FRAME_US;
 using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;

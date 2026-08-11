@@ -50,6 +50,27 @@ inline int smoke_frames() {
 }
 
 /**
+ * @brief Per-frame clock advance in milliseconds for the roster sweeps (~30fps).
+ * @details Identical across runs, so frame-to-frame animation driven by
+ * hs::millis/micros or beatsin* is reproduced exactly rather than tracking the
+ * wall clock.
+ */
+constexpr unsigned long FRAME_MS = 33;
+/**
+ * @brief Per-frame clock advance in microseconds, paired with FRAME_MS.
+ */
+constexpr unsigned long FRAME_US = 33000;
+
+/**
+ * @brief Pins the mock clock to frame @p f of the canonical sweep cadence.
+ * @param f Zero-based frame index; f = 0 is the pre-init epoch.
+ */
+inline void pin_frame_clock(int f) {
+  hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                    static_cast<unsigned long>(f) * FRAME_US);
+}
+
+/**
  * @brief Concrete Effect that draws nothing, for tests that only need a Canvas.
  * @details A fresh effect's buffer_free() is true, so a Canvas built over it
  * does not spin in its constructor. Shows no background, so the canvas starts

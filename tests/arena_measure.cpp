@@ -14,7 +14,9 @@
  * 8 MB global arena (memory.h, HS_TEST_BUILD) so nothing OOMs mid-measure. The
  * window is HS_SMOKE_FRAMES (default 8); CI drives the 120-frame window the
  * effects sweep uses, which is where late-lifecycle allocation (slot reuse,
- * FIFO expiry, arena compaction) reaches its high-water mark.
+ * FIFO expiry, arena compaction) reaches its high-water mark. Frames advance
+ * under the injected fixed-cadence clock (hs_test::pin_frame_clock), so a
+ * time-driven effect allocates the same way whatever the runner's speed.
  *
  * CI gate: fails (non-zero exit) if the worst single-effect total (persistent +
  * both scratch arenas, the three partitions of the one device pool) exceeds
@@ -40,6 +42,7 @@ int g_measured = 0;
 template <typename Effect> void measure(const char *name) {
   ++g_measured;
   hs_test::reset_globals();
+  hs_test::pin_frame_clock(0);
   persistent_arena.reset_peak_tracking();
   scratch_arena_a.reset_peak_tracking();
   scratch_arena_b.reset_peak_tracking();
@@ -47,6 +50,7 @@ template <typename Effect> void measure(const char *name) {
   Effect effect;
   effect.init();
   for (int f = 0; f < FRAMES; ++f) {
+    hs_test::pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
   }
