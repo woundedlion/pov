@@ -783,6 +783,7 @@ public:
   /**
    * @brief Binds the slice selector to an orientation list and a slicing axis.
    * @param orientations Candidate orientations, indexed by axis projection.
+   *        Borrowed, not copied: the backing array must outlive the filter.
    * @param axis Unit axis the point is projected onto to pick an orientation.
    */
   OrientSlice(std::span<const Orientation<>> orientations, const Vector &axis)
@@ -874,7 +875,8 @@ public:
 private:
   Vector axis; /**< Unit axis points are projected onto to select a slice. */
   std::span<const Orientation<>>
-      orientations; /**< Candidate orientations indexed by projection. */
+      orientations; /**< Candidate orientations indexed by projection; borrowed,
+                         so the backing array must outlive the filter. */
 };
 
 /**
