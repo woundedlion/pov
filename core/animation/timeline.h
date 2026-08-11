@@ -22,14 +22,8 @@
 struct TimelineEvent {
   // Inline storage budget for a type-erased animation: 112 B for device/WASM.
   // The 64-bit host inflates every embedded pointer, pushing pointer-bearing
-  // animations past that budget, so
-  // HS_TEST_BUILD widens it for that build only, leaving the device footprint
-  // unchanged.
-#ifdef HS_TEST_BUILD
-  static constexpr size_t MAX_ANIM_SIZE = 256;
-#else
-  static constexpr size_t MAX_ANIM_SIZE = 112;
-#endif
+  // animations past that budget, so host effect harnesses use a 256 B slot.
+  static constexpr size_t MAX_ANIM_SIZE = HS_TIMELINE_MAX_ANIM_BYTES;
 
   uint32_t start =
       0; /**< Global frame at which the animation becomes eligible to step. */

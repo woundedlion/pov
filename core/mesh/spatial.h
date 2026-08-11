@@ -521,7 +521,7 @@ struct MeshState {
    *   entry per face, and its last offset plus that face's count must cover the
    *   whole flat faces list. With no offsets the counts must sum to the flat
    *   faces length. A present topology array must be one entry per face. The
-   *   interior offsets are audited against the prefix sum under HS_TEST_CHECK
+   *   interior offsets are audited against the prefix sum under HS_AUDIT_CHECK
    *   only: this runs per frame from MeshOps::transform, so the device pays
    *   nothing for the O(F) walk.
    */
@@ -537,7 +537,7 @@ struct MeshState {
                        face_counts_span[last] ==
                    faces_span.size(),
                "MeshState::set_view: face offsets do not span faces");
-      HS_TEST_CHECK(
+      HS_AUDIT_CHECK(
           offsets_are_prefix_sum(face_counts_span, face_offsets_span),
           "MeshState::set_view: face offsets are not the prefix sum of the "
           "face counts");

@@ -22,14 +22,13 @@
 #include <utility>
 #include <concepts>
 
-// Device/simulator arena budget is 298 KiB. The native unit-test build
-// (HS_TEST_BUILD) widens it so the effect smoke harness can exercise every
-// effect's full render path; the device footprint is unchanged. The native
-// harness is a 64-bit build, so per-effect footprints measured there can be
-// LARGER than on the 32-bit device wherever a pooled struct embeds a POINTER
-// (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut); do not treat
-// the host high-water mark as an exact device figure. Effects tune their own
-// split via configure_arenas() to fit the device budget.
+// Device/simulator arena budget is 298 KiB. Host effect harnesses use an 8 MiB
+// configuration so they can exercise every effect's full render path. The
+// native harness is a 64-bit build, so per-effect footprints measured there
+// can be LARGER than on the 32-bit device wherever a pooled struct embeds a
+// POINTER (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut). Do not
+// treat the host high-water mark as an exact device figure. Effects tune their
+// own split via configure_arenas() to fit the device budget.
 // The real device FlexRAM (RAM1) arena, sized from the measured worst-effect
 // high-water (tests/arena_measure.cpp): GSReactionDiffusion is the binding
 // tenant at ~291 KiB total (~171 KiB persistent + ~120 KiB scratch under its
@@ -37,11 +36,7 @@
 // GLOBAL_ARENA_SIZE below) so device-budget static_asserts check the real
 // figure even in the host suite.
 constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = 298 * 1024;
-#ifdef HS_TEST_BUILD
-constexpr size_t GLOBAL_ARENA_SIZE = 8 * 1024 * 1024;
-#else
-constexpr size_t GLOBAL_ARENA_SIZE = DEVICE_GLOBAL_ARENA_SIZE;
-#endif
+constexpr size_t GLOBAL_ARENA_SIZE = HS_GLOBAL_ARENA_BYTES;
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
 constexpr size_t DEFAULT_SCRATCH_B_SIZE = 16 * 1024;

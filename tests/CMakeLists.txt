@@ -44,6 +44,37 @@ endif()
 
 set(HS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
+add_library(hs_host_abi INTERFACE)
+target_compile_definitions(hs_host_abi INTERFACE
+  HS_TIMELINE_MAX_ANIM_BYTES=256)
+
+add_library(hs_host_storage INTERFACE)
+target_link_libraries(hs_host_storage INTERFACE hs_host_abi)
+target_compile_definitions(hs_host_storage INTERFACE
+  HS_GLOBAL_ARENA_BYTES=8388608)
+
+add_library(hs_host_effect_runtime INTERFACE)
+target_link_libraries(hs_host_effect_runtime INTERFACE hs_host_storage)
+target_compile_definitions(hs_host_effect_runtime INTERFACE
+  HS_EXTERNAL_PARAM_STORAGE)
+
+add_library(hs_test_whitebox INTERFACE)
+target_link_libraries(hs_test_whitebox INTERFACE hs_host_effect_runtime)
+target_compile_definitions(hs_test_whitebox INTERFACE
+  HS_ENABLE_TEST_HOOKS=1
+  HS_ENABLE_TEST_ORACLES=1
+  HS_ENABLE_EFFECT_CONTROL_API=1)
+
+add_library(hs_test_support INTERFACE)
+target_link_libraries(hs_test_support INTERFACE hs_host_storage)
+target_compile_definitions(hs_test_support INTERFACE
+  HS_ENABLE_EFFECT_REGISTRY=1
+  HS_ENABLE_PARAM_GUI_BRIDGE=1
+  HS_ENABLE_TEST_HOOKS=1
+  HS_ENABLE_TEST_ORACLES=1
+  HS_ENABLE_STRUCTURAL_AUDITS=1
+  HS_ENABLE_EFFECT_CONTROL_API=1)
+
 # The native suite is the one build where diagnostics can run: the device/WASM
 # build compiles the arena guards out, so ASan/UBSan here are the only automated
 # cover for the arena-lifetime hazards the death harness can't reach. -Werror is
@@ -61,16 +92,16 @@ add_executable(run_tests
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 
-# HS_TEST_BUILD widens the test-only inline/arena budgets (the 64-bit host
-# inflates every embedded pointer past the 32-bit device footprints); the device
-# footprint is unchanged. See core/animation/animation.h and core/engine/memory.h.
+# The host configuration widens inline/arena budgets because 64-bit pointers
+# inflate several objects past their 32-bit device footprints.
 #
 # HS_SCAN_METRICS compiles the per-pixel g_scan_metrics counters back in (off in
 # the device/WASM release build, where they would be a per-pixel global store on
 # the hot loop). The Face distance-oracle test reads exact_hits to tell culled
 # samples from evaluated ones, so the suite needs them live. See
 # core/engine/platform.h (HS_SCAN_METRIC) and core/render/sdf.h Face::distance.
-target_compile_definitions(run_tests PRIVATE HS_TEST_BUILD HS_SCAN_METRICS)
+target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS)
+target_link_libraries(run_tests PRIVATE hs_test_support)
 
 # Census of the engine's HS_CHECK sites, so the death harness can print how
 # much of the fail-fast surface its cases actually pin. Generated, never
@@ -168,7 +199,8 @@ add_executable(mindsplatter_replay_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(mindsplatter_replay_gen PRIVATE
-  HS_TEST_BUILD HS_PROFILE_MINDSPLATTER_COUNTS)
+  HS_PROFILE_MINDSPLATTER_COUNTS)
+target_link_libraries(mindsplatter_replay_gen PRIVATE hs_test_whitebox)
 target_include_directories(mindsplatter_replay_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(mindsplatter_replay_gen PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
@@ -179,8 +211,8 @@ add_executable(mindsplatter_palette_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
-target_compile_definitions(mindsplatter_palette_gen PRIVATE HS_TEST_BUILD)
 target_include_directories(mindsplatter_palette_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_link_libraries(mindsplatter_palette_gen PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_gen)
 
 add_executable(mindsplatter_replay
@@ -188,7 +220,7 @@ add_executable(mindsplatter_replay
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
-target_compile_definitions(mindsplatter_replay PRIVATE HS_TEST_BUILD)
+target_link_libraries(mindsplatter_replay PRIVATE hs_test_whitebox)
 target_include_directories(mindsplatter_replay PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(mindsplatter_replay PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
@@ -360,8 +392,8 @@ add_executable(fastmath_clamp_check
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
-target_compile_definitions(fastmath_clamp_check PRIVATE HS_TEST_BUILD)
 target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_link_libraries(fastmath_clamp_check PRIVATE hs_host_abi)
 # The WASM release math flags (CMakeLists.txt). -fno-finite-math-only MUST follow
 # -ffast-math: it re-enables the NaN/Inf semantics the contract needs. If a future
 # edit drops it, core/engine/platform.h's #error makes this TU fail to compile — exactly
@@ -385,7 +417,8 @@ add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
-target_compile_definitions(relax_bake_verify PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_VERIFY)
+target_compile_definitions(relax_bake_verify PRIVATE HS_RELAX_BAKE_VERIFY)
+target_link_libraries(relax_bake_verify PRIVATE hs_host_abi)
 # IEEE float semantics whatever the build's global flags are: the committed
 # payload is a host-IEEE-captured constant, and live fast-math arithmetic does
 # not reproduce its bits. The device loads the payload, it never re-derives it.
@@ -403,7 +436,8 @@ add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
-target_compile_definitions(relax_bake_gen PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_EXTRACT)
+target_compile_definitions(relax_bake_gen PRIVATE HS_RELAX_BAKE_EXTRACT)
+target_link_libraries(relax_bake_gen PRIVATE hs_host_abi)
 # Same IEEE pin as the verifier above: the two halves must share float semantics
 # or generation emits payloads the gate rejects.
 target_compile_options(relax_bake_gen PRIVATE -fno-fast-math)
@@ -425,7 +459,8 @@ add_executable(h_offset_renorm_check
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
-target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_BUILD HS_TEST_H_OFFSET=3)
+target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_H_OFFSET=3)
+target_link_libraries(h_offset_renorm_check PRIVATE hs_host_abi)
 target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 _hs_warnings(h_offset_renorm_check)
 _hs_sanitize(h_offset_renorm_check)
@@ -461,8 +496,9 @@ add_executable(stack_measure
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
-target_compile_definitions(stack_measure PRIVATE HS_TEST_BUILD
+target_compile_definitions(stack_measure PRIVATE
   HS_DEVICE_STACK_FLOOR_BYTES=${HS_DEVICE_STACK_FLOOR_BYTES})
+target_link_libraries(stack_measure PRIVATE hs_host_effect_runtime)
 target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 _hs_warnings(stack_measure)
@@ -478,7 +514,7 @@ add_executable(arena_measure
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
-target_compile_definitions(arena_measure PRIVATE HS_TEST_BUILD)
+target_link_libraries(arena_measure PRIVATE hs_host_effect_runtime)
 target_include_directories(arena_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 _hs_warnings(arena_measure)
@@ -498,7 +534,7 @@ foreach(_opt Os O3)
     ${HS_ROOT}/core/engine/memory.cpp
     ${HS_ROOT}/core/engine/static_storage.cpp
     ${HS_ROOT}/core/engine/reaction_graph.cpp)
-  target_compile_definitions(perf_bench_${_opt} PRIVATE HS_TEST_BUILD)
+  target_link_libraries(perf_bench_${_opt} PRIVATE hs_host_effect_runtime)
   target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
   target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)
   _hs_warnings(perf_bench_${_opt})
@@ -515,7 +551,8 @@ foreach(_aa audit search)
     ${HS_ROOT}/core/engine/memory.cpp
     ${HS_ROOT}/core/engine/static_storage.cpp
     ${HS_ROOT}/core/engine/reaction_graph.cpp)
-  target_compile_definitions(aa_${_aa} PRIVATE HS_TEST_BUILD HS_AA_AUDIT)
+  target_compile_definitions(aa_${_aa} PRIVATE HS_AA_AUDIT)
+  target_link_libraries(aa_${_aa} PRIVATE hs_host_abi)
   target_include_directories(aa_${_aa} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
   target_compile_options(aa_${_aa} PRIVATE -O2 -ffast-math -fno-finite-math-only)
   _hs_warnings(aa_${_aa})
@@ -529,8 +566,8 @@ add_executable(feedback_divergence
   ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp)
-target_compile_definitions(feedback_divergence PRIVATE HS_TEST_BUILD)
 target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_link_libraries(feedback_divergence PRIVATE hs_host_abi)
 target_compile_options(feedback_divergence PRIVATE -O2 -ffast-math -fno-finite-math-only)
 _hs_warnings(feedback_divergence)
 
@@ -540,6 +577,5 @@ _hs_warnings(feedback_divergence)
 # and diffs. unit_color pins the table itself.
 add_executable(srgb_decode_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/scripts/generate_srgb_decode.cpp)
-target_compile_definitions(srgb_decode_gen PRIVATE HS_TEST_BUILD)
 target_include_directories(srgb_decode_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 _hs_warnings(srgb_decode_gen)

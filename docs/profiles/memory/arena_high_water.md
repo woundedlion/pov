@@ -1,7 +1,7 @@
 # Arena high-water per effect (host probe)
 
 Measured 2026-07-15 with `tests/arena_measure.cpp` (host Clang `-Os`,
-288×144, `init()` + 8 frames per effect, `HS_TEST_BUILD`). Values are
+288×144, `init()` + 8 frames per effect, 8 MiB host arena). Values are
 `Arena::get_high_water_mark()` for the three partitions of the one global
 block. Two snapshots below: the survey that motivated the trail
 compression, and the post-landing state. Regenerate with:
