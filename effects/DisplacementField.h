@@ -685,6 +685,9 @@ private:
       0.0f; /**< Palette offset across the stack (turns, [0,1)). */
   static constexpr int RING_SLOTS =
       72; /**< Baked-ring pool capacity, and the Rings slider maximum. */
+  static_assert(RING_SLOTS <= INT8_MAX,
+                "slot_by_ring is int8_t with -1 as the culled sentinel; a "
+                "larger pool wraps slot indices negative");
   float *shift_pool =
       nullptr; /**< RING_SLOTS x (W + 1) pooled shift LUTs, one slot per drawn ring; entry lut_n repeats entry 0 to close the polyline. */
   Pixel *hue_pool =
