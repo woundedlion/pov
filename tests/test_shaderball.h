@@ -874,7 +874,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(22));
+  HS_EXPECT_EQ(presets.size(), size_t(24));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_EQ(presets[0].params.source.pattern_freq, 5.0f);
   HS_EXPECT_EQ(presets[0].params.warp.outer.scale, 3.0f);
@@ -974,6 +974,42 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.hue_shift, 0.0f);
   HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.value_fade, 0.0f);
   HS_EXPECT_EQ(kaleidoscope_mirror.params.outer_camera.wander, 1.0f);
+  for (size_t index = 22; index < 24; ++index) {
+    const auto &gnomonic_grid = presets[index];
+    HS_EXPECT_EQ(gnomonic_grid.slots.function, WB::Function::GRID);
+    HS_EXPECT_EQ(gnomonic_grid.slots.projection, WB::Projection::GNOMONIC);
+    HS_EXPECT_EQ(gnomonic_grid.slots.gnomonic_hemisphere,
+                 WB::GnomonicHemispherePolicy::FOLDED);
+    HS_EXPECT_EQ(gnomonic_grid.slots.projection_frame,
+                 WB::ProjectionFramePolicy::IDENTITY);
+    HS_EXPECT_EQ(gnomonic_grid.slots.surface_lens,
+                 index == 22 ? WB::SurfaceLens::KALEIDOSCOPE
+                             : WB::SurfaceLens::GLITCH);
+    HS_EXPECT_EQ(gnomonic_grid.slots.warp_program.outer.kind,
+                 WB::WarpStageKind::MIRROR_TILE);
+    HS_EXPECT_EQ(gnomonic_grid.slots.warp_program.inner.kind,
+                 WB::WarpStageKind::NONE);
+    HS_EXPECT_EQ(gnomonic_grid.slots.signal_weight,
+                 WB::SignalWeight::PROJECTION);
+    HS_EXPECT_EQ(gnomonic_grid.slots.value_transfer, WB::ValueTransfer::LINEAR);
+    HS_EXPECT_EQ(gnomonic_grid.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
+    HS_EXPECT_EQ(gnomonic_grid.slots.colorizer,
+                 WB::Colorizer::GENERATED_TRIADIC);
+    HS_EXPECT_EQ(gnomonic_grid.params.source.pattern_freq, 3.565f);
+    HS_EXPECT_EQ(gnomonic_grid.params.source.speed, 0.235f);
+    HS_EXPECT_EQ(gnomonic_grid.params.source.angle_rate, 0.0f);
+    HS_EXPECT_EQ(gnomonic_grid.params.projection.pole_fade, 1.4f);
+    HS_EXPECT_EQ(gnomonic_grid.params.projection.spin_rate, 0.0f);
+    HS_EXPECT_EQ(gnomonic_grid.params.projection.wander, 1.0f);
+    HS_EXPECT_EQ(gnomonic_grid.params.surface_lens.mix, 1.0f);
+    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.rotation, 0.29530972f);
+    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.cell_x, 5.381125f);
+    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.cell_y, 1.0f);
+    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.offset_x, 1.344f);
+    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.offset_y, -1.456f);
+    HS_EXPECT_EQ(gnomonic_grid.params.value.edge_width, 0.5f);
+    HS_EXPECT_EQ(gnomonic_grid.params.outer_camera.wander, 1.0f);
+  }
   for (size_t index = 0; index < presets.size(); ++index)
     HS_EXPECT_TRUE(WB::seam_compatible(presets[index]));
   for (size_t index = 0; index < 15; ++index)

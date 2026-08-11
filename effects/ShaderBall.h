@@ -3846,7 +3846,31 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 22> PRESETS = {{
+  static constexpr Preset gnomonic_grid_mirror_preset(SurfaceLens lens) {
+    Slots slots{Function::GRID,
+                Projection::GNOMONIC,
+                ProjectionFramePolicy::IDENTITY,
+                lens,
+                {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::EDGE_FADE,
+                Colorizer::GENERATED_TRIADIC};
+    slots.gnomonic_hemisphere = GnomonicHemispherePolicy::FOLDED;
+    WarpStageParams outer_warp;
+    outer_warp.rotation = 0.29530972f;
+    outer_warp.cell_x = 5.381125f;
+    outer_warp.cell_y = 1.0f;
+    outer_warp.offset_x = 1.344f;
+    outer_warp.offset_y = -1.456f;
+    Params params =
+        authored_params({3.565f, 0.235f, 0.0f, 0.0f, 0.0f, 0.0f}, outer_warp,
+                        {1.4f, 0.0f}, {1.0f}, {}, {1.0f});
+    params.value.edge_width = 0.5f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 24> PRESETS = {{
       {LIQUID_STEREO_SLOTS,
        authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f}, {3.0f, 0.5f, 0.5f},
                        {1.4f, 0.0f}, {1.0f}, {0.15f, 0.05f, 0.0f, 0.0f},
@@ -3917,6 +3941,8 @@ private:
       diagnostic_preset(4),
       wave_shear_liquid_preset(),
       kaleidoscope_mirror_preset(),
+      gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
+      gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
   }};
   static_assert(
       [] {
@@ -3944,7 +3970,7 @@ private:
       }(),
       "a ShaderBall preset edge lacks continuous transition admission");
 
-  static constexpr std::array<Choreo, 22> CHOREO = {{
+  static constexpr std::array<Choreo, 24> CHOREO = {{
       {30, 90, 60, true},   {30, 90, 60, true}, {30, 90, 60, true},
       {30, 90, 480, false}, {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
@@ -3952,7 +3978,7 @@ private:
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},
+      {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
   }};
   static_assert(CHOREO.size() == PRESETS.size());
 
