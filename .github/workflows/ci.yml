@@ -1168,6 +1168,173 @@ jobs:
           fi
           exit "$fail"
 
+  assertion-floors:
+    name: Assertion floors (no silent shrink)
+    # tests/run_tests.cpp pins every module's case-site count and minimum
+    # assertion count as plain constants, so a commit that deletes cases AND
+    # lowers both numbers clears every other gate. Same shape as the
+    # FORMAT_BASELINE and Teensy warning-baseline growth checks: compare the pins
+    # against the commit this run builds on, and fail on any reduction the commit
+    # does not approve.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      # Escape hatch for a deliberate reduction: one pin name per line
+      # (`<module>.cases`, `<module>.floor`, or a *_MIN_ASSERTIONS constant),
+      # added in the same commit as the reduction it approves, so the weakening
+      # is visible in that commit's diff. Empty in steady state.
+      ASSERTION_FLOOR_ALLOW_LOWER: ""
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          # The check below reads run_tests.cpp out of the commit the run builds
+          # on, which on a push is github.event.before — arbitrarily far back in
+          # a multi-commit push, so fetch the whole history rather than guess a
+          # depth.
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the provenance jobs
+        with:
+          python-version: '3.12'
+
+      - name: Assert no case-site pin or assertion floor shrank
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          SRC=tests/run_tests.cpp
+
+          # On a push, compare against the commit the branch had BEFORE it: a
+          # push lands several commits at once, and HEAD^1 is then the push's own
+          # penultimate commit, so a reduction made in any earlier commit of the
+          # same push is already present on both sides and invisible. PUSH_BEFORE
+          # is empty on a pull_request run (where HEAD^1 is the base branch and
+          # the comparison spans the whole PR), all-zeros on a freshly created
+          # ref, and unreachable after a force-push; every one of those fails to
+          # peel and falls back to HEAD^1.
+          PREV=
+          if [ -n "$PUSH_BEFORE" ]; then
+            PREV=$(git rev-parse --verify --quiet "$PUSH_BEFORE^{commit}") || PREV=
+          fi
+          # An unreachable previous copy (orphan/initial commit, or a parent
+          # predating the file) warns and skips rather than redding an
+          # otherwise-fine build.
+          if [ -z "$PREV" ] && ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
+            echo "::warning::HEAD has no reachable parent — assertion-floor shrink check skipped"
+            exit 0
+          fi
+          if ! git show "$PREV:$SRC" > /tmp/floors-prev.cpp 2>/dev/null; then
+            echo "::warning::$SRC absent in $PREV — assertion-floor shrink check skipped"
+            exit 0
+          fi
+          export PREV
+
+          python3 - /tmp/floors-prev.cpp "$SRC" <<'PY'
+          import os
+          import re
+          import sys
+
+          SRC = sys.argv[2]
+
+
+          def split_args(text):
+              """Splits a macro argument list on its top-level commas."""
+              args, depth, start = [], 0, 0
+              for i, c in enumerate(text):
+                  if c == "(":
+                      depth += 1
+                  elif c == ")":
+                      depth -= 1
+                  elif c == "," and depth == 0:
+                      args.append(text[start:i])
+                      start = i + 1
+              args.append(text[start:])
+              return [a.strip() for a in args]
+
+
+          def pins(path):
+              """Maps every case-site / assertion pin in one run_tests.cpp to its value."""
+              text = open(path, encoding="utf-8").read()
+              out = {
+                  name: int(value)
+                  for name, value in re.findall(
+                      r"constexpr int (\w+_MIN_ASSERTIONS)\s*=\s*(\d+)\s*;", text
+                  )
+              }
+              lines = text.splitlines()
+              start = next(
+                  (i for i, l in enumerate(lines) if l.startswith("#define HS_TEST_MODULE_LIST")),
+                  None,
+              )
+              if start is None:
+                  sys.exit(f"HS_TEST_MODULE_LIST not found in {path}")
+              # The roster is one backslash-continued macro; join it into one line.
+              body = []
+              for line in lines[start:]:
+                  body.append(line.rstrip().rstrip("\\"))
+                  if not line.rstrip().endswith("\\"):
+                      break
+              roster = " ".join(body)
+              i = 0
+              while True:
+                  i = roster.find('X("', i)
+                  if i < 0:
+                      break
+                  depth, j = 0, i + 1
+                  while j < len(roster):
+                      if roster[j] == "(":
+                          depth += 1
+                      elif roster[j] == ")":
+                          depth -= 1
+                          if depth == 0:
+                              break
+                      j += 1
+                  args = split_args(roster[i + 2:j])
+                  module = args[0].strip('"')
+                  out[f"{module}.cases"] = int(args[1])
+                  # A tier-selecting floor is an expression, not a literal; the
+                  # *_MIN_ASSERTIONS constants it names are pinned above.
+                  if args[3].isdigit():
+                      out[f"{module}.floor"] = int(args[3])
+                  i = j
+              if not out:
+                  sys.exit(f"no pins parsed from {path} — the roster's shape changed")
+              return out
+
+
+          prev, now = pins(sys.argv[1]), pins(SRC)
+          allow = {
+              line.strip()
+              for line in os.environ.get("ASSERTION_FLOOR_ALLOW_LOWER", "").splitlines()
+              if line.strip()
+          }
+
+          lowered = {}
+          for key, was in prev.items():
+              if key not in now:
+                  lowered[key] = f"{was} -> gone"
+              elif now[key] < was:
+                  lowered[key] = f"{was} -> {now[key]}"
+
+          unapproved = sorted(k for k in lowered if k not in allow)
+          if unapproved:
+              for key in unapproved:
+                  print(
+                      f"::error file={SRC}::{key} shrank ({lowered[key]}) — restore the cases it "
+                      f"covers, or approve the reduction by listing {key} in "
+                      f"ASSERTION_FLOOR_ALLOW_LOWER in .github/workflows/ci.yml in this commit"
+                  )
+              sys.exit(1)
+
+          for key in sorted(allow - set(lowered)):
+              print(
+                  f'::warning::ASSERTION_FLOOR_ALLOW_LOWER is stale — "{key}" approves no '
+                  "reduction in this commit"
+              )
+          print(
+              f"assertion floors: {len(now)} pins, {len(lowered)} approved reduction(s) "
+              f"against {os.environ['PREV']}."
+          )
+          PY
+
   clang-format:
     name: Formatting (clang-format)
     # Cloud counterpart of the .githooks/pre-commit format check. That hook is
@@ -1627,6 +1794,7 @@ jobs:
       - docs-markdown
       - lint
       - shard-coverage
+      - assertion-floors
       - clang-format
       - teensy-gate-tests
       - teensy-size
