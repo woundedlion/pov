@@ -1309,6 +1309,8 @@ private:
     float breathe_offset;
     PreparedTransforms transforms;
     PreparedWarpProgram prepared_warp;
+    WrappedNoisePhase source_noise_phase;
+    WrappedNoisePhase lens_noise_phase;
     ResourceBindings resources;
   };
 
@@ -1545,6 +1547,8 @@ private:
         {animated_projection ? look.transforms.projection_conj : Quaternion(),
          look.transforms.outer_conj},
         prepared_warp,
+        prepare_noise_phase(look.clocks.source_noise_time),
+        prepare_noise_phase(look.clocks.lens_noise_time),
         {resolve_warp_resource(config.slots.warp_program.outer),
          resolve_warp_resource(config.slots.warp_program.inner),
          resolve_source_resource(config), resolve_lens_resource(config),
@@ -2061,14 +2065,6 @@ private:
     return hs::lerp(current, previous, phase.mix);
   }
 
-  static float sample_wrapped_noise_basis(const FastNoiseLite &noise,
-                                          NoiseBasis basis, float x, float y,
-                                          float turns,
-                                          float time_offset = 0.0f) {
-    return sample_wrapped_noise_basis(noise, basis, x, y,
-                                      prepare_noise_phase(turns), time_offset);
-  }
-
   static Complex curl_flow(const Complex &input, const FastNoiseLite &noise,
                            const WarpStageSpec &spec,
                            const WarpStageParams &params, float distance,
@@ -2262,11 +2258,10 @@ private:
           frame.prepared_source.primary, frame.prepared_source.secondary);
     if (frame.slots.function == Function::NOISE_CONTOUR) {
       const float n = hs::clamp(
-          sample_wrapped_noise_basis(*frame.resources.source_noise,
-                                     frame.params.source.noise_basis,
-                                     frame.params.source.noise_scale * p.re,
-                                     frame.params.source.noise_scale * p.im,
-                                     frame.clocks.source_noise_time),
+          sample_wrapped_noise_basis(
+              *frame.resources.source_noise, frame.params.source.noise_basis,
+              frame.params.source.noise_scale * p.re,
+              frame.params.source.noise_scale * p.im, frame.source_noise_phase),
           -1.0f, 1.0f);
       const float contrast = frame.params.source.noise_contrast;
       return n * (1.0f + contrast) / (1.0f + contrast * fabsf(n));
@@ -2388,13 +2383,13 @@ private:
 
   static Vector tangent_noise_lens(const Vector &v, const FrameState &frame) {
     const float scale = frame.params.surface_lens.noise_scale;
-    const float time = frame.clocks.lens_noise_time;
+    const WrappedNoisePhase &phase = frame.lens_noise_phase;
     const float nx = sample_wrapped_noise_basis(
         *frame.resources.lens_noise, frame.params.surface_lens.noise_basis,
-        scale * v.x, scale * v.y, time, scale * v.z);
+        scale * v.x, scale * v.y, phase, scale * v.z);
     const float ny = sample_wrapped_noise_basis(
         *frame.resources.lens_noise, frame.params.surface_lens.noise_basis,
-        scale * v.x + 17.0f, scale * v.y - 29.0f, time, scale * v.z + 43.0f);
+        scale * v.x + 17.0f, scale * v.y - 29.0f, phase, scale * v.z + 43.0f);
     Vector tangent_a =
         fabsf(v.y) < 0.9f ? Vector(-v.z, 0.0f, v.x) : Vector(0.0f, v.z, -v.y);
     tangent_a = tangent_a.normalized();
