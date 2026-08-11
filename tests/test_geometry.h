@@ -230,20 +230,26 @@ inline void test_pixel_to_vector_float_out_of_lut_domain() {
 }
 
 /**
- * @brief Verifies vector_to_pixel inverts pixel_to_vector to within half a pixel
- *        for non-degenerate samples.
- * @details Poles are excluded, where azimuth wrap is undefined.
+ * @brief Verifies vector_to_pixel inverts pixel_to_vector to within the
+ *        angular-primitive error for non-degenerate samples.
+ * @details Poles are excluded, where azimuth wrap is undefined. The tolerances
+ *          are the suite's pinned fast_atan2 and fast_acos errors (4e-3 and
+ *          2e-4 rad, test_3dmath.h) carried into pixels at W = H = 64: 0.041 px
+ *          in x, 0.004 px in y. Measured worst case is 0.0348 px in x and
+ *          0.0010 px in y, so the bounds sit narrow enough to catch a
+ *          half-pixel index-convention shift in phi_to_y or vector_to_theta.
  */
 inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
   constexpr int W = 64, H = 64;
+  constexpr float TOL_X = 0.05f, TOL_Y = 0.005f;
   int xs[] = {3, 17, 31, 50};
   int ys[] = {8, 16, 24, 40};
   for (int x : xs) {
     for (int y : ys) {
       Vector v = pixel_to_vector<W, H>(x, y);
       PixelCoords p = vector_to_pixel<W, H>(v);
-      HS_EXPECT_NEAR(p.x, static_cast<float>(x), 0.5f);
-      HS_EXPECT_NEAR(p.y, static_cast<float>(y), 0.5f);
+      HS_EXPECT_NEAR(p.x, static_cast<float>(x), TOL_X);
+      HS_EXPECT_NEAR(p.y, static_cast<float>(y), TOL_Y);
     }
   }
 }
