@@ -2268,6 +2268,13 @@ concept PerFaceSegueDrawable = requires(const SegueT &s, const Vector &c) {
   s.face_phase(0.5f, 0.5f, 0.1f);
 };
 
+/** @brief A policy whose face_phase takes two arguments: the authoring slip
+ * MeshCarousel's per-face contract assert rejects. */
+struct TwoArgFacePhaseSegue : Segue::Base {
+  float face_offset(const Vector &, int, int) const { return 0.0f; }
+  float face_phase(float phase, float) const { return phase; }
+};
+
 /**
  * @brief Pins every per-face segue against that call pattern, so a policy
  * carrying face_offset alone trips this static_assert instead of only breaking
@@ -2293,6 +2300,9 @@ inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(Segue::SHADOWS_FRAGMENT_HOOKS<Segue::GoldConvergence>);
   static_assert(!Segue::PerFace<Segue::IrisBloom>);
   static_assert(!Segue::PerFace<Segue::GoldConvergence>);
+  static_assert(!Segue::HasFaceOffset<Segue::IrisBloom>);
+  static_assert(Segue::HasFaceOffset<TwoArgFacePhaseSegue>);
+  static_assert(!Segue::PerFace<TwoArgFacePhaseSegue>);
   static_assert(Segue::NeedsClasses<Segue::Breakdown>);
   static_assert(!Segue::NeedsClasses<Segue::TerminatorSweep>);
   static_assert(Segue::Masked<Segue::Dissolve>);
