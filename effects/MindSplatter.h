@@ -120,11 +120,18 @@ private:
       return false;
     if (change.origin != PresetChangeOrigin::AUTOMATIC) {
       presets.apply(params);
+      // An automatic Lerp may still be in flight (frozen while anims_paused);
+      // collapsing the endpoints it borrows keeps it from writing the old pair
+      // back over this selection when it resumes.
+      blend_start = presets.get();
+      blend_target = presets.get();
     } else {
-      timeline.add_pausable(0,
-                            Animation::Lerp(params, presets.prev_get(),
-                                            presets.get(), 48, ease_linear),
-                            &anims_paused);
+      blend_start = presets.prev_get();
+      blend_target = presets.get();
+      timeline.add_pausable(
+          0,
+          Animation::Lerp(params, blend_start, blend_target, 48, ease_linear),
+          &anims_paused);
     }
     return true;
   }
@@ -327,12 +334,15 @@ private:
 
   Presets<Params, 8> presets;
 
-  // orientation/noise/mobius/params are borrowed by timeline-resident
-  // animations, so they are declared here to outlive the Timeline.
+  // orientation/noise/mobius/params and the preset blend endpoints are borrowed
+  // by timeline-resident animations, so they are declared here to outlive the
+  // Timeline.
   Orientation<> orientation;
   FastNoiseLite noise;
   MobiusParams mobius; /**< Current Mobius warp parameters. */
   Params params;
+  Params blend_start;  /**< Preset Lerp source. */
+  Params blend_target; /**< Preset Lerp destination. */
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> filters;
   ParticleSystem particle_system;
