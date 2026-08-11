@@ -282,7 +282,10 @@ struct MindSplatterWhiteBox {
     return true;
   }
 
-  static size_t num_emitters() { return MS::EmitSolid::NUM_VERTS; }
+  template <int W, int H>
+  static size_t num_emitters(const MindSplatter<W, H> &ms) {
+    return MindSplatter<W, H>::emitter_vertices(ms.active_base_mesh).size();
+  }
   template <int W, int H>
   static size_t active_emitters(const MindSplatter<W, H> &ms) {
     return ms.particle_system.emitters.size();
@@ -307,7 +310,7 @@ struct MindSplatterWhiteBox {
   static float reference_hole_alpha(const Vector &p) {
     const float cos_event_horizon = fast_cosf(MS::EVENT_HORIZON);
     float alpha = 1.0f;
-    for (const Vector &axis : MS::AttractSolid::vertices) {
+    for (const Vector &axis : Solids::Octahedron::vertices) {
       const float cos_d = dot(p, axis);
       if (cos_d < cos_event_horizon)
         continue;

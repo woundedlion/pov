@@ -148,9 +148,6 @@ private:
    */
   static constexpr int NUM_PARTICLES = 1672;
 
-  typedef Solids::Cube EmitSolid;
-  typedef Solids::Octahedron AttractSolid;
-
   static constexpr int MAX_EMITTERS = Solids::Dodecahedron::NUM_VERTS;
   static constexpr int MAX_ATTRACTORS = Solids::Dodecahedron::NUM_VERTS;
 
@@ -211,7 +208,7 @@ private:
 
   static consteval bool attractors_are_signed_axes() {
     unsigned mask = 0;
-    for (const Vector &v : AttractSolid::vertices) {
+    for (const Vector &v : Solids::Octahedron::vertices) {
       if (v.x == 1.0f && v.y == 0.0f && v.z == 0.0f)
         mask |= 1u << 0;
       else if (v.x == -1.0f && v.y == 0.0f && v.z == 0.0f)
