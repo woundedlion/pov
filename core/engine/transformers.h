@@ -243,6 +243,30 @@ public:
                       std::forward<Args>(args)...);
   }
 
+  /**
+   * @brief Prepares per-frame cached state for all active entities.
+   * @details ORDERING CONTRACT: call before the derived composition
+   * (transform()/field()) whenever active params changed since their previous
+   * preparation, whether through animation or live config. It re-reads live
+   * config from template_params and refreshes each active entity's derived
+   * state. The composition reads that state but cannot verify it is current.
+   * NOT required when there are no active entities or when params are unchanged.
+   */
+  void prepare_frame() {
+    check_storage_alive();
+    for (int k = 0; k < active_slot_count; ++k) {
+      Entity &e = entities[active_slots[k]];
+      // Pull live-tunable config from template_params into the spawned entity.
+      if constexpr (HAS_REFRESH_FROM) {
+        e.params.refresh_from(template_params);
+      }
+      // Refresh derived state after copying live values.
+      if constexpr (HAS_SYNC) {
+        e.params.sync();
+      }
+    }
+  }
+
 protected:
   /**
    * @brief Compact list of the active slots, in spawn order.
@@ -418,31 +442,6 @@ private:
     }
     // If we get here, no free slots. Drop the spawn (safe failure).
     return nullptr;
-  }
-
-public:
-  /**
-   * @brief Prepares per-frame cached state for all active entities.
-   * @details ORDERING CONTRACT: call before the derived composition
-   * (transform()/field()) whenever active params changed since their previous
-   * preparation, whether through animation or live config. It re-reads live
-   * config from template_params and refreshes each active entity's derived
-   * state. The composition reads that state but cannot verify it is current.
-   * NOT required when there are no active entities or when params are unchanged.
-   */
-  void prepare_frame() {
-    check_storage_alive();
-    for (int k = 0; k < active_slot_count; ++k) {
-      Entity &e = entities[active_slots[k]];
-      // Pull live-tunable config from template_params into the spawned entity.
-      if constexpr (HAS_REFRESH_FROM) {
-        e.params.refresh_from(template_params);
-      }
-      // Refresh derived state after copying live values.
-      if constexpr (HAS_SYNC) {
-        e.params.sync();
-      }
-    }
   }
 };
 
