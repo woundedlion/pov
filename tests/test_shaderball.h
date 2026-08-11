@@ -312,7 +312,8 @@ struct ShaderBallWhiteBox {
   }
   static float wrapped_noise(const FastNoiseLite &noise, NoiseBasis basis,
                              float x, float y, float turns) {
-    return SB::sample_wrapped_noise_basis(noise, basis, x, y, turns);
+    return SB::sample_wrapped_noise_basis(noise, basis, x, y,
+                                          SB::prepare_noise_phase(turns));
   }
   static ProjectionParams lerp_projection(const ProjectionParams &a,
                                           const ProjectionParams &b, float t) {
