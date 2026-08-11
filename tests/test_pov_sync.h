@@ -1382,6 +1382,7 @@ inline void test_beacon_late_coast() {
   const Config cfg = test_config();
   const uint32_t period = cfg.cycles_per_half_rev;
 
+  uint32_t late_dropped = 0;
   // Resume the master's first post-ZERO tick of the beacon-due revolution at
   // `resume_col`; return the pulses emitted with column in [W/4, W/2) (purely
   // beacon — the ZERO boundary symbol drained at columns 0..4 below W/4).
@@ -1410,6 +1411,7 @@ inline void test_beacon_late_coast() {
       if (a.pulse && c >= cfg.W / 4 && c < cfg.W / 2)
         ++pulses;
     }
+    late_dropped = m.telemetry().beacons_late_dropped;
     return pulses;
   };
 
@@ -1429,10 +1431,13 @@ inline void test_beacon_late_coast() {
   HS_EXPECT_GT(run(cfg.W / 4), 0);
   // The last admissible start still emits.
   HS_EXPECT_GT(run(last_start), 0);
+  HS_EXPECT_EQ(late_dropped, 0u);
   // Late start past the safe bound: censored — no beacon pulses, and the HALF
   // crossing at column 144 schedules without tripping the wire-busy trap (a
   // trap would __builtin_trap the whole suite).
   HS_EXPECT_EQ(run(last_start + 1), 0);
+  // The skip is counted once for the revolution, not once per late tick.
+  HS_EXPECT_EQ(late_dropped, 1u);
 }
 
 /**
