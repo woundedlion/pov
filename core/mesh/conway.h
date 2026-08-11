@@ -1204,9 +1204,14 @@ inline constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
  * @param iterations Maximum spring-relaxation passes; stops early on
  *   convergence. Must be non-negative; 0 is a normalize-only pass-through.
  * @return Fresh relaxed PolyMesh allocated in `target`.
- * @note Unlike its sibling operators, relax tolerates a boundary mesh: a vertex
- *   with no outgoing twin is skipped, yielding a partial relaxation instead of
- * a closed-manifold trap.
+ * @note Unlike its sibling operators, relax tolerates a boundary mesh instead of
+ *   trapping, but relaxes it only partially. A vertex whose incoming half-edges
+ *   are all unpaired gets no force at all. A boundary vertex with at least one
+ *   paired incoming half-edge orbits from whichever pair the half-edge scan hit
+ *   first, and the pair->next walk stops at the boundary, so it feels only the
+ *   neighbours in that one fan segment — which ones are dropped follows
+ *   half-edge index order. The target edge length still averages over every
+ *   edge, boundary edges included.
  */
 HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
                               int iterations = 8) {
