@@ -775,6 +775,7 @@ public:
    *          never tooling_arena, which backs live wrappers the JS side holds.
    */
   static val getMaxBounds() {
+    last_mesh_op_result = MeshOpResult::OK;
     int max_v = 0;
     int max_f = 0;
     int max_i = 0;
