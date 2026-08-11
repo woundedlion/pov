@@ -187,7 +187,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
     hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 470)            \
   X("util", 7, hs_test::util_tests::run_util_tests, 288)                       \
   X("led", 6, hs_test::led_tests::run_led_tests, 24)                           \
-  X("presets", 6, hs_test::presets_tests::run_presets_tests, 23)               \
+  X("presets", 8, hs_test::presets_tests::run_presets_tests, 36)               \
   X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
   X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
   X("death", 129, hs_test::death_tests::run_death_tests, 257)
