@@ -554,10 +554,20 @@ jobs:
         # --no-tests=error: bare ctest exits 0 on an empty test list, and a
         # configure-time regression in the toolchain file's Windows branch —
         # what this job exists to cover — is exactly what would empty it.
+        #
+        # -E drops the three generated-artifact gates for the same reason the
+        # sanitizer job does: this runner provisions no numpy, so without
+        # -DHS_REQUIRE_GENERATORS=ON they can only skip. Excluding them makes
+        # that a declared gap rather than a silent one. TEST_EXCLUDE is the
+        # *generated_exclude anchor the shard matrix already carries, so the set
+        # cannot drift from the one the matrix declares.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
-        run: ctest --preset tests --output-on-failure --no-tests=error
+          TEST_EXCLUDE: *generated_exclude
+        run: >
+          ctest --preset tests --output-on-failure --no-tests=error
+          -E "${{ env.TEST_EXCLUDE }}"
 
   wasm:
     name: WASM build (Emscripten)
