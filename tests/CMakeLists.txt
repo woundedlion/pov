@@ -503,11 +503,10 @@ foreach(_opt Os O3)
 endforeach()
 
 # Drivers for the HS_AA_AUDIT mesh-scan coverage instrumentation, whose hooks
-# are compiled into core/render/scan.h and core/render/sdf.h and whose recipes
-# are documented in docs/islamicstars_next_levers.md and
-# docs/probe_path_open_items.md. Not CTests — aa_audit prints a report with no
-# pass/fail and aa_search is a brute-force parameter sweep. They stay in the
-# default build as compile guards against bit-rot, like perf_bench.
+# are compiled into core/render/scan.h and core/render/sdf.h. Not CTests —
+# aa_audit prints a report with no pass/fail and aa_search is a brute-force
+# parameter sweep. They stay in the default build as compile guards against
+# bit-rot, like perf_bench.
 foreach(_aa audit search)
   add_executable(aa_${_aa}
     ${CMAKE_CURRENT_SOURCE_DIR}/aa_${_aa}_main.cpp

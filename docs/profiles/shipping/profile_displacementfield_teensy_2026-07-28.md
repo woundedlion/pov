@@ -9,7 +9,7 @@ Raw capture: `build/prof/displacementfield_ship.log`. Replaces
 | | |
 |---|---|
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, board COM4 |
-| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; `Scan::DistortedRingStack::draw` (R2 fused driver), the ring/polyline `distance()` chain in `sdf.h`, and the effect's own `draw_rings` run inside `HS_O3` regions (docs/selective_o3_spec.md) |
+| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; `Scan::DistortedRingStack::draw` (R2 fused driver), the ring/polyline `distance()` chain in `sdf.h`, and the effect's own `draw_rings` run inside `HS_O3` regions |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | DisplacementField 288×144, single-entry playlist, tip `542a5b49` |
 | Method | `HS_PROFILE` cycle scopes, window = 32 frames, 70 s capture |
@@ -136,10 +136,9 @@ isr_dma_submit  x144/frame   min/avg/max 0.66/0.93/1.17 us   cpu 0.21%
 4. `df_hue_table_prep` — 1%, 0.88 ms.
 5. `df_prepare_fields` — 0.09 µs/frame; the field stack setup is free.
 
-Against the ledger (docs/selective_o3_spec.md): the fused-tip `-O3` ceiling for
-`df_fused_scan` was 46.0 ms against 59.1 ms at `-Os`, and the selective build
-now measures 42.07 ms at the dwell peak — the region is carrying its full
-crossing.
+The fused-tip `-O3` ceiling for `df_fused_scan` was 46.0 ms against 59.1 ms at
+`-Os`, and the selective build now measures 42.07 ms at the dwell peak — the
+region is carrying its full crossing.
 
 ## Caveats
 

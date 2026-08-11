@@ -15,8 +15,8 @@ Each effect renders one **quadrant** ≈ **10,368 px**. A display window is
 
 **Full-roster sweep, 2026-07-26** (tip `0bbc56e3`), run in parallel across two
 boards (COM3 + COM4). Numbers are the shipping image only — the `-Os` `profile`
-env, whose `HS_O3` regions (docs/selective_o3_spec.md) activate on the `-Os`
-device build, so it measures the shipping selective-O3 config by construction.
+env, whose `HS_O3` regions activate on the `-Os` device build, so it measures
+the shipping selective-O3 config by construction.
 `just profile <Effect>` regenerates one row.
 
 ## How to read the table

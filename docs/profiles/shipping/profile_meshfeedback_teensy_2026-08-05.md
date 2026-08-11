@@ -20,7 +20,7 @@ are carried over — every figure below is from the `e68a4e37` capture.
 | | |
 |---|---|
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, board COM4 |
-| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; the `Feedback::flush` body (`filter.h:1833–2344`, covering `feedback_litscan`/`feedback_populate`/`feedback_composite` and the `HS_O3_FN` `sample_bilinear_prev`) and `Plot::rasterize` (`plot.h:1614`) run inside `HS_O3` regions (docs/selective_o3_spec.md). `core/math/spherical_field.h` carries **no** `HS_O3` region — see the flush note below |
+| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; the `Feedback::flush` body (`filter.h:1833–2344`, covering `feedback_litscan`/`feedback_populate`/`feedback_composite` and the `HS_O3_FN` `sample_bilinear_prev`) and `Plot::rasterize` (`plot.h:1614`) run inside `HS_O3` regions. `core/math/spherical_field.h` carries **no** `HS_O3` region — see the flush note below |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | MeshFeedback 288×144, single-entry playlist, tip `e68a4e37` |
 | Method | `HS_PROFILE` cycle scopes, window = 16 frames, 420 s capture, `HS_PROFILE_EPOCH_REVS=3400` |

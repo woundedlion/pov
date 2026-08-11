@@ -9,7 +9,7 @@ Raw capture: `build/prof/islamicstars_ship.log`. Replaces
 | | |
 |---|---|
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, board COM4 |
-| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; the per-face SDF raster driver (R1/R2), `SDF::Face::plane_dsq_sector`, `ripple_transform` and the effect's own `transform_shape`/`draw_build_mesh` run inside `HS_O3` regions (docs/selective_o3_spec.md) |
+| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; the per-face SDF raster driver (R1/R2), `SDF::Face::plane_dsq_sector`, `ripple_transform` and the effect's own `transform_shape`/`draw_build_mesh` run inside `HS_O3` regions |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | IslamicStars 288×144, single-entry playlist, tip `542a5b49` |
 | Method | `HS_PROFILE` cycle scopes, window = 16 frames, 210 s capture, `HS_PROFILE_EPOCH_REVS=1920`, `HS_PROFILE_TRANS_SPEED=4` |
