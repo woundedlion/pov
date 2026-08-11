@@ -1389,6 +1389,8 @@ private:
  * u -> d = 1 - 2u, get(u) returns the source at acos(d)/PI.
  */
 template <typename Source> struct DotKeyed {
+  static constexpr bool WRAPS_COORDINATE = palette_wraps_coordinate<Source>();
+
   const Source &source;
   Color4 get(float u) const {
     float d = hs::clamp(1.0f - 2.0f * u, -1.0f, 1.0f);
