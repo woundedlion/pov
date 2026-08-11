@@ -556,6 +556,71 @@ private:
   }
 
   /**
+   * @brief Re-splits the arenas for the shape about to be generated.
+   * @param has_recipe Whether the shape builds through a swept recipe chain.
+   * @details Valid only with persistent at its ~baseline and both scratch
+   * arenas idle, as the caller's compact leaves them. A smooth kis/needle
+   * bridge shape gets the scratch_a-heavy split; other recipes trade unused
+   * scratch_b for persistent; whole-generated shapes keep the full generation
+   * scratch_b. Persistent takes the remainder.
+   */
+  HS_COLD_MEMBER void resplit_for_spawn(bool has_recipe) {
+    const bool bridge_split = has_recipe && build_uses_smooth_bridge();
+    const size_t split_a =
+        bridge_split ? SPLIT_SCRATCH_A_BRIDGE : SPLIT_SCRATCH_A_DEFAULT;
+    const size_t split_b =
+        bridge_split
+            ? SPLIT_SCRATCH_B_BRIDGE
+            : (has_recipe ? SPLIT_SCRATCH_B_BUILD : SPLIT_SCRATCH_B_DEFAULT);
+    device_persistent_budget = DEVICE_GLOBAL_ARENA_SIZE - split_a - split_b;
+    resplit_arenas(GLOBAL_ARENA_SIZE - split_a - split_b, split_a, split_b);
+  }
+
+  /**
+   * @brief Lays out the build chain's per-leg frame budgets and resets the
+   *        build cursor to the chain's first leg.
+   * @param sp Trans Speed divisor, >= 1.
+   * @return Frames the whole chain occupies.
+   * @details A smooth kis/needle macro spans more legs than its lowered step
+   * count: a trailing dual,kis (dt) is truncate + dual bridge + reconcile; a
+   * standalone kis (dtd) is dual bridge + truncate + dual bridge + reconcile.
+   * build_leg_frames[k] carries the dual-bridge budget the bridge splits by
+   * three; the truncate and reconcile legs draw fixed member budgets.
+   */
+  HS_COLD_MEMBER int plan_build_legs(float sp) {
+    build_step = 0;
+    build_from_pal = nullptr; // first leg departs the carousel seed slot
+    build_from_faces = 0;
+    build_total_frames = 0;
+    build_macro_sweep_frames =
+        std::max(1, static_cast<int>(SWEEP_LEG_FRAMES / sp));
+    build_reconcile_frames =
+        std::max(1, static_cast<int>(RECONCILE_LEG_FRAMES / sp));
+    const int bridge_frames =
+        std::max(1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
+    for (size_t k = 0; k < build_step_count; ++k) {
+      const Solids::Op op = build_step_chain[k].op;
+      if (dt_pair_at(k)) {
+        build_leg_frames[k] = bridge_frames; // dual bridge (DUAL step)
+        build_total_frames +=
+            build_macro_sweep_frames + bridge_frames + build_reconcile_frames;
+        ++k; // the trailing kis is consumed by the dt macro
+        continue;
+      }
+      if (standalone_kis_at(k)) {
+        build_leg_frames[k] = bridge_frames; // both dtd bridges split this
+        build_total_frames += bridge_frames + build_macro_sweep_frames +
+                              bridge_frames + build_reconcile_frames;
+        continue;
+      }
+      const int frames = std::max(1, static_cast<int>(leg_frames(op) / sp));
+      build_leg_frames[k] = frames;
+      build_total_frames += frames;
+    }
+    return build_total_frames;
+  }
+
+  /**
    * @brief Generates @p entry into the carousel's back slot with a freshly
    *        shuffled palette, makes it the front, schedules the segue and the
    *        shape's mid-display ripple burst, and queues the next spawn_shape
@@ -599,19 +664,7 @@ private:
     else
       carousel.compact_keep_front(rebake);
 
-    // Per-shape arena re-split, valid only with persistent at its ~baseline and
-    // both scratch arenas idle, as the compact above leaves them. A smooth
-    // kis/needle bridge shape gets the scratch_a-heavy split; other recipes
-    // trade unused scratch_b for persistent; whole-generated shapes keep the
-    // full generation scratch_b. Persistent takes the remainder.
-    const bool bridge_split = recipe && build_uses_smooth_bridge();
-    const size_t split_a =
-        bridge_split ? SPLIT_SCRATCH_A_BRIDGE : SPLIT_SCRATCH_A_DEFAULT;
-    const size_t split_b = bridge_split ? SPLIT_SCRATCH_B_BRIDGE
-                                        : (recipe ? SPLIT_SCRATCH_B_BUILD
-                                                  : SPLIT_SCRATCH_B_DEFAULT);
-    device_persistent_budget = DEVICE_GLOBAL_ARENA_SIZE - split_a - split_b;
-    resplit_arenas(GLOBAL_ARENA_SIZE - split_a - split_b, split_a, split_b);
+    resplit_for_spawn(recipe != nullptr);
 
     hs::generate(persistent_arena, [&](Arena &target, Arena &a,
                                        Arena &b) HS_COLD_MEMBER {
@@ -680,44 +733,7 @@ private:
     // duration is lengthened by the build span rather than the carousel
     // growing an asymmetric-window API (docs/opchain_morph_spec.md,
     // section 6.1).
-    int build_span = 0;
-    if (recipe) {
-      build_step = 0;
-      build_from_pal = nullptr; // first leg departs the carousel seed slot
-      build_from_faces = 0;
-      build_total_frames = 0;
-      build_macro_sweep_frames =
-          std::max(1, static_cast<int>(SWEEP_LEG_FRAMES / sp));
-      build_reconcile_frames =
-          std::max(1, static_cast<int>(RECONCILE_LEG_FRAMES / sp));
-      const int bridge_frames =
-          std::max(1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
-      // A smooth kis/needle macro spans more legs than its lowered step count:
-      // a trailing dual,kis (dt) is truncate + dual bridge + reconcile; a
-      // standalone kis (dtd) is dual bridge + truncate + dual bridge + reconcile.
-      // build_leg_frames[k] carries the dual-bridge budget the bridge splits by
-      // three; the truncate and reconcile legs draw fixed member budgets.
-      for (size_t k = 0; k < build_step_count; ++k) {
-        const Solids::Op op = build_step_chain[k].op;
-        if (dt_pair_at(k)) {
-          build_leg_frames[k] = bridge_frames; // dual bridge (DUAL step)
-          build_total_frames +=
-              build_macro_sweep_frames + bridge_frames + build_reconcile_frames;
-          ++k; // the trailing kis is consumed by the dt macro
-          continue;
-        }
-        if (standalone_kis_at(k)) {
-          build_leg_frames[k] = bridge_frames; // both dtd bridges split this
-          build_total_frames += bridge_frames + build_macro_sweep_frames +
-                                bridge_frames + build_reconcile_frames;
-          continue;
-        }
-        const int frames = std::max(1, static_cast<int>(leg_frames(op) / sp));
-        build_leg_frames[k] = frames;
-        build_total_frames += frames;
-      }
-      build_span = build_total_frames;
-    }
+    const int build_span = recipe ? plan_build_legs(sp) : 0;
 
     int duration = fade + build_span + still + burst_span + still + fade;
 
