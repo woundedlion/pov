@@ -219,6 +219,35 @@ class Backfill(unittest.TestCase):
                          tst.regions_from_sections(FIRMWARE))
 
 
+#: Absolute on both POSIX and Windows: a drive-less path would be resolved
+#: against the test runner's cwd drive and stop matching.
+_FAKE_COMMON = Path(Path(__file__).resolve().anchor) / "repo" / ".git"
+_FAKE_GITDIR = _FAKE_COMMON / "worktrees" / "wt"
+
+
+class DefaultPaths(unittest.TestCase):
+    """The trail is shared by every worktree; the pending record is not.
+
+    The pending record holds one commit in flight: sharing it would let two
+    worktrees committing at once stamp each other's sizes onto the wrong sha.
+    """
+
+    @staticmethod
+    def _rev_parse(args, cwd=None):
+        return {"--git-common-dir": str(_FAKE_COMMON),
+                "--absolute-git-dir": str(_FAKE_GITDIR)}[args[1]]
+
+    def test_trail_is_on_the_shared_common_dir(self):
+        with mock.patch.object(tst, "_git", self._rev_parse):
+            self.assertEqual(tst.default_trail(_FAKE_COMMON.parent),
+                             _FAKE_COMMON / tst.TRAIL_NAME)
+
+    def test_pending_is_per_worktree(self):
+        with mock.patch.object(tst, "_git", self._rev_parse):
+            self.assertEqual(tst.default_pending(_FAKE_COMMON.parent),
+                             _FAKE_GITDIR / tst.PENDING_NAME)
+
+
 def _row(sha, env, subject="s", date="2026-08-03T00:00:00-07:00", **sizes):
     full = {r: 0 for r in tst.REGIONS}
     full.update(sizes)
