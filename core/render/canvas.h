@@ -394,7 +394,8 @@ public:
     float max = 1; /**< Maximum value (for floats). */
     int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
     TargetType target_type = TargetType::FLOAT; /**< Target storage format. */
-    bool animated = false; /**< True if an animation drives this member; the GUI
+    bool animated =
+        false; /**< True if an animation drives this member; the GUI
                                surfaces these as auto-pausing sliders. */
     bool readonly = false; /**< True if this is engine-written telemetry; the
                                GUI shows it live but disables editing. */
@@ -507,8 +508,7 @@ public:
     bool is_enum() const { return option_count > 0; }
   };
   static_assert(sizeof(void *) != 4 ||
-                    sizeof(ParamDef) ==
-                        (HS_ENABLE_PARAM_GUI_BRIDGE ? 36 : 32),
+                    sizeof(ParamDef) == (HS_ENABLE_PARAM_GUI_BRIDGE ? 36 : 32),
                 "ParamDef must keep its 32-bit device footprint");
 
   /**

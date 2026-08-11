@@ -160,23 +160,23 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
  *       second includer registers that effect twice and trips the startup count
  *       check.
  */
-#define REGISTER_EFFECT(ClassName)                                               \
-  namespace {                                                                    \
-  struct ClassName##_Registrar {                                                 \
-    template <int W, int H> static void fill(FactoryEntry &e) {                  \
-      e.name = #ClassName;                                                       \
-      e.creator = []() -> std::unique_ptr<Effect> {                              \
-        return std::make_unique<ClassName<W, H>>();                              \
-      };                                                                         \
-      e.size = sizeof(ClassName<W, H>);                                          \
-    }                                                                            \
+#define REGISTER_EFFECT(ClassName)                                                \
+  namespace {                                                                     \
+  struct ClassName##_Registrar {                                                  \
+    template <int W, int H> static void fill(FactoryEntry &e) {                   \
+      e.name = #ClassName;                                                        \
+      e.creator = []() -> std::unique_ptr<Effect> {                               \
+        return std::make_unique<ClassName<W, H>>();                               \
+      };                                                                          \
+      e.size = sizeof(ClassName<W, H>);                                           \
+    }                                                                             \
     /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references reg, so   \
      * under LTO / --gc-sections the dynamic initializer could be discarded,   \
      * silently dropping the effect from the registry. */ \
-    HS_REGISTRAR_ANCHOR                                                          \
-    static inline int reg = EffectRegistry::add(                                 \
-        {#ClassName, HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)});                   \
-  };                                                                             \
+    HS_REGISTRAR_ANCHOR                                                           \
+    static inline int reg = EffectRegistry::add(                                  \
+        {#ClassName, HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)});                    \
+  };                                                                              \
   }
 
 // Emits one `&fill<W, H>,` per resolution for the REGISTER_EFFECT initializer
