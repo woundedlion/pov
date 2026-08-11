@@ -30,7 +30,7 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 
 § ShapeShifter spans nine presets; its initial unlabeled frames and later
 `Preset: 1/9` frames are one adaptive 208-count planar-star bucket.
-ShaderBall spans 26 presets and MindSplatter spans eight; each report folds its
-initial unlabeled frames into preset 1.
+The ShaderBall capture spans 26 presets and MindSplatter spans eight; each
+report folds its initial unlabeled frames into preset 1.
 
 **● refreshed 2026-08-10.**

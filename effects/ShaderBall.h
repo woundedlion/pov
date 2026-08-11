@@ -3532,6 +3532,11 @@ private:
       Colorizer::LIQUID,
       PeirceLayout::SQUARE,
       AiroceanLayout::VERTICAL};
+  static constexpr Slots KALEIDOSCOPE_LIQUID_STEREO_SLOTS = [] {
+    Slots slots = LIQUID_STEREO_SLOTS;
+    slots.surface_lens = SurfaceLens::KALEIDOSCOPE;
+    return slots;
+  }();
 
   static constexpr const char *OUTER_WARP_PARAM_NAMES[] = {
       "Outer Translation X", "Outer Translation Y", "Outer Rotation",
@@ -3718,7 +3723,22 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 26> PRESETS = {{
+  static constexpr Preset kaleidoscope_edge_fade_liquid_preset() {
+    Slots slots = KALEIDOSCOPE_LIQUID_STEREO_SLOTS;
+    slots.coverage = CoveragePolicy::EDGE_FADE;
+    Params params = authored_params(
+        {4.116f, 0.1f, 0.5f, 0.0f, 0.8f}, {19.7803f, 16.74f, 0.5f},
+        {1.4f, 0.0f}, {1.0f}, {0.15f, 0.05f, 0.657f, 0.0f}, {1.0f});
+    params.value.edge_width = 0.2575f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 28> PRESETS = {{
+      {KALEIDOSCOPE_LIQUID_STEREO_SLOTS,
+       authored_params({1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
+                       {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f},
+                       {1.0f}, {0.25410002f, 0.00015458837f, 0.201f, 0.847f},
+                       {0.0030917525f})},
       {LIQUID_STEREO_SLOTS,
        authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f}, {3.0f, 0.5f, 0.5f},
                        {1.4f, 0.0f}, {1.0f}, {0.15f, 0.05f, 0.0f, 0.0f},
@@ -3793,6 +3813,7 @@ private:
       gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
       bonne_lattice_mirror_preset(),
       peirce_lattice_preset(),
+      kaleidoscope_edge_fade_liquid_preset(),
   }};
   static_assert(
       [] {
@@ -3812,17 +3833,17 @@ private:
       }(),
       "a ShaderBall preset edge lacks continuous transition admission");
 
-  static constexpr std::array<Choreo, 26> CHOREO = {{
-      {30, 90, 60, true},   {30, 90, 60, true}, {30, 90, 60, true},
-      {30, 90, 480, false}, {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},   {0, 0, 480, false},
-  }};
+  static constexpr std::array<Choreo, PRESETS.size()> CHOREO = [] {
+    std::array<Choreo, PRESETS.size()> choreo;
+    for (Choreo &entry : choreo)
+      entry = {0, 0, 480, false};
+    choreo[0] = {30, 90, 60, true};
+    choreo[1] = {30, 90, 60, true};
+    choreo[2] = {30, 90, 60, true};
+    choreo[3] = {30, 90, 60, true};
+    choreo[4] = {30, 90, 480, false};
+    return choreo;
+  }();
   static_assert(CHOREO.size() == PRESETS.size());
 
   Orientation<> projection_walk;
@@ -3844,10 +3865,10 @@ private:
   PaletteCycler liquid_palette_cycler;
   PaletteCycler generated_palette_cycler;
 
-  Slots active_slots = LIQUID_STEREO_SLOTS;
-  RequestedConfig requested_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
-  Config published_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
-  Config accepted_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
+  Slots active_slots = PRESETS[0].slots;
+  RequestedConfig requested_config = PRESETS[0];
+  Config published_config = PRESETS[0];
+  Config accepted_config = PRESETS[0];
   bool requested_schema_bound = false;
   uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;

@@ -16,7 +16,7 @@ display window. Global O3 is a compiler ceiling, not a shippable roster image.
 
 § ShapeShifter spans 10.08–56.72 ms across nine matched preset buckets; all
 nine hold 16 fps.
-ShaderBall spans 26 presets and MindSplatter spans eight; each report folds its
-initial unlabeled frames into preset 1.
+The ShaderBall capture spans 26 presets and MindSplatter spans eight; each
+report folds its initial unlabeled frames into preset 1.
 
 **● refreshed 2026-08-10.**
