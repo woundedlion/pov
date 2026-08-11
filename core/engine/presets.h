@@ -101,6 +101,16 @@ public:
     log_selection();
   }
 
+  /** @brief Selects an entry by index and records the outgoing entry. */
+  bool select(size_t index) {
+    if (index >= Size)
+      return false;
+    prev_idx = current_idx;
+    current_idx = index;
+    log_selection();
+    return true;
+  }
+
   /**
    * @brief Copies the current entry's params into target.
    * @param target Destination params, overwritten with the current entry.

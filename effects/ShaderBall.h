@@ -99,10 +99,38 @@ public:
     publish_live_config();
   }
 
+  size_t getPresetCount() const override { return PRESETS.size(); }
+  size_t getPresetIndex() const override { return preset_index; }
+  bool selectPreset(size_t index) override {
+    if (index >= PRESETS.size())
+      return false;
+    select_preset(index);
+    return true;
+  }
+  bool nextPreset() override {
+    select_preset((preset_index + 1) % PRESETS.size());
+    return true;
+  }
+  bool previousPreset() override {
+    select_preset((preset_index + PRESETS.size() - 1) % PRESETS.size());
+    return true;
+  }
+
 #if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
   void profile_select_preset(size_t index) {
     HS_CHECK(index < PRESETS.size(),
              "ShaderBall profile preset index out of range");
+    select_preset(index);
+    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
+            static_cast<unsigned>(PRESETS.size()));
+  }
+#endif
+
+private:
+  friend struct ::hs_test::shaderball_tests::ShaderBallWhiteBox;
+
+  HS_COLD_MEMBER void select_preset(size_t index) {
+    HS_CHECK(index < PRESETS.size(), "ShaderBall preset index out of range");
     setAnimationsPaused(true);
     param_morph.active = false;
     transition.active = false;
@@ -114,15 +142,9 @@ public:
     accepted_config = PRESETS[index];
     runtime = {};
     HS_CHECK(prepare_resource_union(PRESETS[index], PRESETS[index]),
-             "ShaderBall profile preset resources exceed capacity");
+             "ShaderBall preset resources exceed capacity");
     rebind_parameters();
-    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
-            static_cast<unsigned>(PRESETS.size()));
   }
-#endif
-
-private:
-  friend struct ::hs_test::shaderball_tests::ShaderBallWhiteBox;
 
   enum class Function : uint8_t {
     TWIN_WAVE,
@@ -728,27 +750,6 @@ private:
       config.slots.warp_program.inner.kind = WarpStageKind::NONE;
   }
 
-  static void fit_selected_warp_to_device_budget(Config &config,
-                                                 bool outer_selected) {
-    if (within_hold_device_budget(device_cost(config)))
-      return;
-    WarpStageSpec &sibling = outer_selected ? config.slots.warp_program.inner
-                                            : config.slots.warp_program.outer;
-    sibling.kind = WarpStageKind::NONE;
-  }
-
-  static void fit_selected_projection_to_device_budget(Config &config) {
-    if (within_hold_device_budget(device_cost(config)))
-      return;
-    config.slots.warp_program.inner.kind = WarpStageKind::NONE;
-    if (within_hold_device_budget(device_cost(config)))
-      return;
-    config.slots.warp_program.outer.kind = WarpStageKind::NONE;
-    if (within_hold_device_budget(device_cost(config)))
-      return;
-    config.slots.surface_lens = SurfaceLens::NONE;
-  }
-
   static void canonicalize_selector_edit(Config &config, EditIntent intent) {
     WarpStageSpec &outer = config.slots.warp_program.outer;
     WarpStageSpec &inner = config.slots.warp_program.inner;
@@ -770,7 +771,6 @@ private:
         clear_strict_seam_incompatible(config);
         config.slots.coverage = CoveragePolicy::EDGE_FADE;
       }
-      fit_selected_projection_to_device_budget(config);
       break;
     case EditIntent::LENS:
       if (strict_projection(config.slots.projection) &&
@@ -796,7 +796,6 @@ private:
       if (warp_uses_noise(outer.kind))
         outer.resource_id = 0;
       canonicalize_warp_params(outer, config.params.warp.outer);
-      fit_selected_warp_to_device_budget(config, true);
       break;
     case EditIntent::INNER_WARP:
       if (inner.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
@@ -818,7 +817,6 @@ private:
       if (warp_uses_noise(inner.kind))
         inner.resource_id = 1;
       canonicalize_warp_params(inner, config.params.warp.inner);
-      fit_selected_warp_to_device_budget(config, false);
       break;
     case EditIntent::OUTER_POLAR_HARMONIC:
       if (outer.kind == WarpStageKind::POLAR_CHART &&
@@ -1327,45 +1325,6 @@ private:
     bool active = false;
   };
 
-  /** @brief Cost points charged for one scalar noise evaluation. */
-  static constexpr uint16_t NOISE_CALL_POINTS = 4;
-
-  /**
-   * @brief Largest worst-case point count a configuration may hold at.
-   * @details 61 is the worst-case cost of the most expensive entry in
-   * `PRESETS`, so the shipped roster fits the gate exactly and nothing further
-   * can be stacked on that entry: adding a Mobius lens to it costs 73 and
-   * giving the next-heaviest projection preset a polar-chart stage costs 65,
-   * both rejected. Raising the value admits configurations no preset has been
-   * measured at. This is a compile-time admission gate, never a runtime branch.
-   */
-  static constexpr uint16_t HOLD_DEVICE_POINT_BUDGET = 61;
-
-  /** @brief One configuration's static per-pixel cost, in calibrated points. */
-  struct DeviceCost {
-    /** Non-noise cost, summed over every scored stage. */
-    uint16_t fixed_points = 0;
-    /** Scalar basis evaluations per shaded pixel. */
-    uint16_t noise_calls = 0;
-    /** 1, or 2 when a lens join has to shade both branches. */
-    uint8_t shader_lookups = 1;
-
-    constexpr uint16_t worst_case_noise_calls() const {
-      return noise_calls * shader_lookups;
-    }
-
-    constexpr uint16_t worst_case_points() const {
-      return (fixed_points + NOISE_CALL_POINTS * noise_calls) * shader_lookups;
-    }
-  };
-
-  /**
-   * @brief Admission band a configuration's cost falls in.
-   * @details An authoring and transition-admission hint, not a measurement and
-   * not the hold gate; that is HOLD_DEVICE_POINT_BUDGET alone.
-   */
-  enum class CostTier : uint8_t { T0, T1, T2, T3 };
-
   struct TransitionRuntime {
     Config from_config;
     Config to_config;
@@ -1475,176 +1434,9 @@ private:
            append_config_resource_keys(to, keys, count);
   }
 
-  /** @brief Base noise evaluations one sample of a basis costs. */
-  static constexpr uint16_t scalar_noise_calls(NoiseBasis basis) {
-    return basis == NoiseBasis::SIMPLEX ? 1 : 3;
-  }
-
-  /**
-   * @brief Worst-case scalar noise evaluations one warp stage costs per pixel.
-   * @param spec The stage to price.
-   * @return Evaluations per shaded pixel, including the doubling a time-wrap
-   *         crossfade causes at its peak.
-   */
-  static constexpr uint16_t warp_noise_calls(const WarpStageSpec &spec) {
-    if (spec.kind == WarpStageKind::LEGACY_STEREO_NOISE)
-      return 6;
-    if (spec.kind == WarpStageKind::VECTOR_NOISE)
-      return 2 * scalar_noise_calls(spec.basis) *
-             (spec.basis == NoiseBasis::RIDGED3 ? 4 : 2);
-    if (spec.kind != WarpStageKind::CURL_FLOW)
-      return 0;
-    const uint16_t gradients =
-        spec.curl_integrator == CurlIntegrator::EULER_1      ? 1
-        : spec.curl_integrator == CurlIntegrator::MIDPOINT_2 ? 4
-                                                             : 8;
-    return 2 * gradients * 4 * scalar_noise_calls(spec.basis);
-  }
-
-  /** @brief Non-noise cost points a projection kernel charges per pixel. */
-  static constexpr uint16_t projection_fixed_points(Projection projection) {
-    return projection == Projection::BONNE                ? 12
-           : projection == Projection::PEIRCE_QUINCUNCIAL ? 36
-           : projection == Projection::AIROCEAN           ? 40
-                                                          : 0;
-  }
-
-  /** @brief Non-noise cost points a warp stage charges per pixel. */
-  static constexpr uint16_t warp_fixed_points(WarpStageKind kind) {
-    return kind == WarpStageKind::AFFINE_FRAME  ? 2
-           : kind == WarpStageKind::WAVE_SHEAR  ? 4
-           : kind == WarpStageKind::VORTEX      ? 6
-           : kind == WarpStageKind::MIRROR_TILE ? 6
-           : kind == WarpStageKind::POLAR_CHART ? 8
-                                                : 0;
-  }
-
-  /** @brief Non-noise cost points a surface lens charges per pixel. */
-  static constexpr uint16_t lens_fixed_points(SurfaceLens lens) {
-    return lens == SurfaceLens::MOBIUS ? 12 : lens == SurfaceLens::NONE ? 0 : 4;
-  }
-
-  /** @brief Cost points the source function charges per pixel. */
-  static constexpr uint16_t function_fixed_points(Function function) {
-    switch (function) {
-    case Function::TWIN_WAVE:
-      return 4;
-    case Function::RINGS:
-      return 3;
-    case Function::SPIRAL:
-      return 6;
-    case Function::GRID:
-      return 5;
-    case Function::COUPLED_DIRECT:
-      return 12;
-    case Function::NOISE_CONTOUR:
-      return 2;
-    case Function::PRIMITIVE_LATTICE:
-      return 6;
-    }
-    return 0;
-  }
-
-  /** @brief Cost points the value transfer charges per pixel. */
-  static constexpr uint16_t
-  value_transfer_fixed_points(ValueTransfer transfer) {
-    return transfer == ValueTransfer::RIDGE          ? 1
-           : transfer == ValueTransfer::ISO_CONTOUR  ? 2
-           : transfer == ValueTransfer::SMOOTH_BANDS ? 4
-                                                     : 0;
-  }
-
-  /** @brief Cost points the coverage policy charges per pixel. */
-  static constexpr uint16_t coverage_fixed_points(CoveragePolicy coverage) {
-    switch (coverage) {
-    case CoveragePolicy::OPAQUE:
-      return 0;
-    case CoveragePolicy::PROJECTION_WEIGHT:
-    case CoveragePolicy::PROJECTION_WEIGHT_SQUARED:
-      return 1;
-    case CoveragePolicy::VALUE_CUTOUT:
-      return 2;
-    case CoveragePolicy::EDGE_FADE:
-      return 3;
-    }
-    return 0;
-  }
-
-  /**
-   * @brief Points for the colorize stage, including the OKLab round trip a
-   *        nonzero `hue_shift` adds to the liquid colorizer.
-   */
-  static constexpr uint16_t colorizer_fixed_points(const Config &config) {
-    if (config.slots.colorizer == Colorizer::DEFORMATION_INK)
-      return 6;
-    if (config.slots.colorizer == Colorizer::LIQUID &&
-        config.params.colorizer.hue_shift != 0.0f)
-      return 18;
-    return 2;
-  }
-
-  /**
-   * @brief Worst-case per-pixel work of one config, in calibrated points.
-   * @details One point is roughly a quarter of a scalar `GetNoise` call, the
-   * unit `NOISE_CALL_POINTS` fixes. Every per-pixel stage is scored —
-   * projection, both warp stages, lens, source function, value transfer,
-   * coverage, and colorizer — because the total is the sole admission gate for
-   * GUI edits, preset holds, and transition edges. `shader_lookups` multiplies
-   * the whole pipeline, since a split lens branch reruns all of it.
-   */
-  static constexpr DeviceCost device_cost(const Config &config) {
-    DeviceCost result;
-    result.fixed_points =
-        projection_fixed_points(config.slots.projection) +
-        warp_fixed_points(config.slots.warp_program.outer.kind) +
-        warp_fixed_points(config.slots.warp_program.inner.kind) +
-        lens_fixed_points(config.slots.surface_lens) +
-        function_fixed_points(config.slots.function) +
-        value_transfer_fixed_points(config.slots.value_transfer) +
-        coverage_fixed_points(config.slots.coverage) +
-        colorizer_fixed_points(config);
-    result.noise_calls = warp_noise_calls(config.slots.warp_program.outer) +
-                         warp_noise_calls(config.slots.warp_program.inner);
-    if (config.slots.function == Function::NOISE_CONTOUR)
-      result.noise_calls +=
-          2 * scalar_noise_calls(config.params.source.noise_basis);
-    if (config.slots.surface_lens == SurfaceLens::TANGENT_NOISE)
-      result.noise_calls +=
-          4 * scalar_noise_calls(config.params.surface_lens.noise_basis);
-    if (strict_projection(config.slots.projection) &&
-        config.slots.surface_lens != SurfaceLens::NONE &&
-        config.params.surface_lens.mix > 0.0f &&
-        config.params.surface_lens.mix < 1.0f)
-      result.shader_lookups = 2;
-    return result;
-  }
-
-  /**
-   * @brief Bands a cost estimate into its admission tier.
-   * @param cost Estimate from device_cost().
-   * @return The tier its worst-case point count falls in.
-   * @details The 20/36/48 cut-offs are authored bands over the same point
-   * currency `worst_case_points()` returns, not values derived from the stage
-   * tables. Nothing in the effect branches on the result; hold admission is
-   * within_hold_device_budget() alone.
-   */
-  static constexpr CostTier cost_tier(const DeviceCost &cost) {
-    const uint16_t points = cost.worst_case_points();
-    return points <= 20   ? CostTier::T0
-           : points <= 36 ? CostTier::T1
-           : points <= 48 ? CostTier::T2
-                          : CostTier::T3;
-  }
-
-  /** @brief Reports whether a cost estimate clears HOLD_DEVICE_POINT_BUDGET. */
-  static constexpr bool within_hold_device_budget(const DeviceCost &cost) {
-    return cost.worst_case_points() <= HOLD_DEVICE_POINT_BUDGET;
-  }
-
-  /** @brief Reports whether a config is valid and cheap enough to hold. */
+  /** @brief Reports whether a config is structurally valid. */
   static constexpr bool hold_admitted(const Config &config) {
-    return valid_config(config) &&
-           within_hold_device_budget(device_cost(config));
+    return valid_config(config);
   }
 
   HS_COLD_MEMBER bool prepare_resource_union(const Config &from,
@@ -3314,18 +3106,6 @@ private:
     return safe_program_bounds(worst);
   }
 
-  static constexpr bool hold_path_admitted(const Config &from,
-                                           const Config &to) {
-    Config worst = from;
-    if (strict_projection(from.slots.projection) &&
-        from.slots.surface_lens != SurfaceLens::NONE &&
-        from.params.surface_lens.mix != to.params.surface_lens.mix)
-      worst.params.surface_lens.mix = 0.5f;
-    worst.params.colorizer.hue_shift = max_abs_value(
-        from.params.colorizer.hue_shift, to.params.colorizer.hue_shift);
-    return within_hold_device_budget(device_cost(worst));
-  }
-
   static constexpr bool polar_pair_stable(const Config &from,
                                           const Config &to) {
     const bool has_polar =
@@ -3341,8 +3121,7 @@ private:
                             from.params.warp.outer, to.params.warp.outer) &&
            curl_pair_stable(from.slots.warp_program.inner,
                             from.params.warp.inner, to.params.warp.inner) &&
-           polar_pair_stable(from, to) && safe_program_path(from, to) &&
-           hold_path_admitted(from, to);
+           polar_pair_stable(from, to) && safe_program_path(from, to);
   }
 
   static constexpr bool same_parameter_topology(const Config &from,
@@ -3402,8 +3181,17 @@ private:
     return hold_admitted(from) && hold_admitted(to);
   }
 
+  static constexpr Choreo preset_choreo(size_t index) {
+#ifdef HS_PROFILE_SHADERBALL_FAST_CYCLE
+    (void)index;
+    return {32, 32, 2, false};
+#else
+    return CHOREO[index];
+#endif
+  }
+
   HS_COLD_MEMBER void enter_preset() {
-    const Choreo &choreo = CHOREO[preset_index];
+    const Choreo choreo = preset_choreo(preset_index);
     timeline.add_pausable(
         0,
         Animation::RandomTimer(choreo.dwell_min, choreo.dwell_max,
@@ -3412,7 +3200,7 @@ private:
   }
 
   HS_COLD_MEMBER void begin_blend() {
-    const Choreo &choreo = CHOREO[preset_index];
+    const Choreo choreo = preset_choreo(preset_index);
     const size_t next_index = (preset_index + 1) % PRESETS.size();
     const Preset &to = PRESETS[next_index];
     if (try_apply_config(to, choreo.blend_frames, choreo.staggered, true)) {
@@ -4017,14 +3805,6 @@ private:
         return true;
       }(),
       "a ShaderBall preset lies outside its registered range");
-  static_assert(
-      [] {
-        for (const Preset &preset : PRESETS)
-          if (!hold_admitted(preset))
-            return false;
-        return true;
-      }(),
-      "a ShaderBall preset exceeds the calibrated device hold budget");
   static_assert(
       [] {
         for (size_t index = 0; index < PRESETS.size(); ++index)

@@ -117,6 +117,17 @@ public:
     draw_all(canvas);
   }
 
+  size_t getPresetCount() const override { return PRESETS.size(); }
+  size_t getPresetIndex() const override { return presets.current_index(); }
+  bool selectPreset(size_t index) override {
+    if (!presets.select(index))
+      return false;
+    setAnimationsPaused(true);
+    presets.apply(params);
+    phase = 0.0f;
+    return true;
+  }
+
 #if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
   void profile_select_preset(size_t index) {
     HS_CHECK(index < PRESETS.size(),

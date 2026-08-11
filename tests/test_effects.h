@@ -6038,6 +6038,28 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
  * module (tests/test_effects_smoke.h), which is IEEE-agnostic and so runs on the
  * fast-math axis this module is excluded from.
  */
+template <typename EffectT>
+inline void check_manual_preset_navigation(size_t expected_count) {
+  reset_effect_globals();
+  EffectT effect;
+  effect.init();
+  HS_EXPECT_EQ(effect.getPresetCount(), expected_count);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
+  HS_EXPECT_TRUE(effect.previousPreset());
+  HS_EXPECT_EQ(effect.getPresetIndex(), expected_count - 1);
+  HS_EXPECT_TRUE(effect.nextPreset());
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
+  HS_EXPECT_TRUE(effect.animations_paused());
+}
+
+inline void test_manual_preset_navigation() {
+  check_manual_preset_navigation<MindSplatter<SMALL_W, SMALL_H>>(8);
+  check_manual_preset_navigation<DreamBalls<SMALL_W, SMALL_H>>(5);
+  check_manual_preset_navigation<Comets<SMALL_W, SMALL_H>>(12);
+  check_manual_preset_navigation<MeshFeedback<SMALL_W, SMALL_H>>(12);
+  check_manual_preset_navigation<ShapeShifter<SMALL_W, SMALL_H>>(9);
+}
+
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
 
@@ -6063,6 +6085,7 @@ inline int run_effects_tests() {
   test_chaoticstrings_preset_and_fire_duty_cycle();
   test_shapeshifter_preset_defaults();
   test_shapeshifter_slider_selections_render();
+  test_manual_preset_navigation();
   test_hankinsolids_manual_pause_holds_morph();
   test_stereo_noise_warp_delta_invariant();
   test_every_effect_renders_while_paused();
