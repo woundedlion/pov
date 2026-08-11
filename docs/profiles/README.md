@@ -46,7 +46,7 @@ peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-10.md)§ ● | projection closure shader | 🔴 67.71 (3)<br>🟢 60.37 (23) | 🔴 31/235 (13.2%)<br>🟢 0/1941 (0%) | 2026-08-10 22:40 |
+| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-11.md)§ ● | projection closure shader | 🔴 370.11 (8)<br>🟢 59.00 (21) | 🔴 233/444 (52.5%)<br>🟢 0/1428 (0%) | 2026-08-11 14:19 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
@@ -75,7 +75,7 @@ directly. Size deltas are O3 minus shipping.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShaderBall](O3/profile_shaderball_teensy_2026-08-10.md)§ ● | projection closure shader | 🔴 67.71 (3)<br>🟢 60.37 (23) | 🟢 60.99 (26) | 🔴 31/235 (13.2%)<br>🟢 0/1941 (0%) | 🟢 0/2208 (0%) | +46,584 B | +43,776 B | ship 2026-08-10 22:40<br>O3 2026-08-10 22:43 |
+| [ShaderBall](O3/profile_shaderball_teensy_2026-08-11.md)§ ● | projection closure shader | 🔴 370.11 (8)<br>🟢 59.00 (21) | 🔴 97.47 (5)<br>🟢 62.25 (24) | 🔴 233/444 (52.5%)<br>🟢 0/1428 (0%) | 🔴 168/371 (45.3%)<br>🟢 0/1837 (0%) | +28,440 B | +25,472 B | ship 2026-08-11 14:19<br>O3 2026-08-11 14:23 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
@@ -83,7 +83,7 @@ directly. Size deltas are O3 minus shipping.
 | [MindSplatter](O3/profile_mindsplatter_teensy_2026-08-07.md)§ ● | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 38.78 (8) | 🟢 0/1728 (0%) | 🟢 0/1728 (0%) | +21,464 B | +18,832 B | ship 2026-08-07 23:03<br>O3 2026-08-07 23:02 |
 | [ChaoticStrings](O3/profile_chaoticstrings_teensy_2026-08-02.md) ● | adaptive vertex build | 🟢 24.85 | 🟢 22.16 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +28,456 B | +20,688 B | ship 2026-08-02 22:21<br>O3 2026-08-02 22:23 |
 
-**● refreshed 2026-08-10.**
+**● refreshed 2026-08-11.**
 
 ## Captures of retired effects
 
@@ -100,12 +100,11 @@ ShaderBall's performance budget is sized against their per-pixel costs.
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
 38.78 ms peak while adding 21,464 B of flash and 18,832 B of ITCM.
 
-**The captured ShaderBall roster contains 26 authored projection workloads
-without a static cost gate.** Shipping is green for 23 presets; presets 0, 13,
-and 25 account for 31/2176 spilled frames at a 67.71 ms peak. Global O3 makes
-all 26 green at a 60.99 ms peak and adds 46,584 B of flash and 43,776 B of ITCM
-to the single-effect image. The current 28-preset bank has two newer entries
-that are not part of this capture.
+**The captured ShaderBall roster contains all 29 authored projection
+workloads.** Shipping is green for 21 presets and spills 233/1872 frames at a
+370.11 ms peak. Global O3 is green for 24 presets and spills 168/2208 frames at
+a 97.47 ms peak. The dodecahedral grid preset holds at 74.25 ms shipping and
+66.32 ms global O3, above the 62.5 ms display window in both configurations.
 
 **MeshFeedback is green on all 12 styles** — 0/6688 at a 57.70 ms peak
 (SlowDust), worst hold Smoke at 48.86 ms of flush. `feedback_composite` is 67%
