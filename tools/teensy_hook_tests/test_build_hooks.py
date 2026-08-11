@@ -198,6 +198,23 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
                     self.assertIn(script, resolved,
                                   f"env '{name}' does not wire {script}")
 
+    def test_every_base_hook_but_the_gate_reaches_every_env(self):
+        # Derived from [env], not from REQUIRED_SCRIPTS: a hook added there that
+        # the re-typing envs never pick up is otherwise invisible, because the
+        # hand-maintained tuple only has to be a subset of what [env] declares.
+        # The gate hook is the one line those envs drop on purpose.
+        cfg = _pio_config()
+        base = [s for s in _option_lines(cfg, "env", "extra_scripts")
+                if s != GATE_SCRIPT]
+        self.assertTrue(base, "[env] declares no extra_scripts besides the gate")
+        for name in _pio_envs():
+            resolved = _option_lines(cfg, f"env:{name}", "extra_scripts")
+            for script in base:
+                with self.subTest(env=name, script=script):
+                    self.assertIn(script, resolved,
+                                  f"env '{name}' re-types extra_scripts and "
+                                  f"drops {script}, which [env] declares")
+
     def test_base_env_declares_every_required_hook(self):
         # The [env] block is where a new required hook is added; an entry missing
         # here would make the assertion above pass vacuously for the inheritors.
