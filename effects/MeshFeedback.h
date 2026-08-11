@@ -104,6 +104,7 @@ public:
    * noise/walk/preset timers.
    */
   void init() override {
+    configure_presets(PRESETS.size());
     for (auto &e : presets.get_entries()) {
       e.params.style.noise = &noise_params;
     }
@@ -186,18 +187,15 @@ public:
     }
   }
 
-  size_t getPresetCount() const override { return PRESETS.size(); }
-  size_t getPresetIndex() const override { return presets.current_index(); }
-  bool selectPreset(size_t index) override {
-    if (!presets.select(index))
+private:
+  bool apply_preset(const PresetChange &change) override {
+    if (!presets.select(change.to))
       return false;
-    setAnimationsPaused(true);
     presets.apply(params);
     preset_frames = 0;
     return true;
   }
 
-private:
   friend struct ::hs_test::effects_tests::MeshFeedbackWhiteBox;
 
   static constexpr size_t MAX_SOLID_VERTICES = 120;
@@ -245,8 +243,7 @@ private:
     if (++preset_frames < PRESET_FRAMES)
       return;
     preset_frames = 0;
-    presets.next();
-    presets.apply(params);
+    HS_CHECK(advancePreset());
   }
 
   Params params;

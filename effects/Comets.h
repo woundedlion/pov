@@ -79,6 +79,7 @@ public:
    *          timer, plus the periodic palette/path rollover.
    */
   void init() override {
+    configure_presets(FUNCTIONS.size());
     node = static_cast<Node *>(
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
     new (node) Node();
@@ -106,8 +107,7 @@ public:
                                    Animation::PeriodicTimer(
                                        2 * (int)params.cycle_duration,
                                        [this](Canvas &) {
-                                         functions.next();
-                                         update_path();
+                                         HS_CHECK(advancePreset());
                                          update_palette();
                                        },
                                        true),
@@ -162,17 +162,14 @@ public:
     });
   }
 
-  size_t getPresetCount() const override { return FUNCTIONS.size(); }
-  size_t getPresetIndex() const override { return functions.current_index(); }
-  bool selectPreset(size_t index) override {
-    if (!functions.select(index))
+private:
+  bool apply_preset(const PresetChange &change) override {
+    if (!functions.select(change.to))
       return false;
-    setAnimationsPaused(true);
     update_path();
     return true;
   }
 
-private:
   // Test seam: asserts the closing-loop invariant the smoke harness cannot
   // observe.
   friend struct ::hs_test::effects_tests::CometsWhiteBox;

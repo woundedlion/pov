@@ -34,6 +34,7 @@ public:
 
   /** @brief Initializes slots, clocks, palette resources, and choreography. */
   HS_COLD_MEMBER void init() override {
+    configure_presets(PRESETS.size());
 #if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
     set_parameter_updated_hook(&ShaderBall::dispatch_parameter_updated);
 #endif
@@ -68,6 +69,7 @@ public:
       HS_PROFILE(sb_timeline_step);
       timeline.step(canvas);
     }
+    advance_preset_choreography();
 
     apply_requested_config();
     prepare_param_morph();
@@ -99,28 +101,11 @@ public:
     publish_live_config();
   }
 
-  size_t getPresetCount() const override { return PRESETS.size(); }
-  size_t getPresetIndex() const override { return preset_index; }
-  bool selectPreset(size_t index) override {
-    if (index >= PRESETS.size())
-      return false;
-    select_preset(index);
-    return true;
-  }
-  bool nextPreset() override {
-    select_preset((preset_index + 1) % PRESETS.size());
-    return true;
-  }
-  bool previousPreset() override {
-    select_preset((preset_index + PRESETS.size() - 1) % PRESETS.size());
-    return true;
-  }
-
 #if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
   void profile_select_preset(size_t index) {
     HS_CHECK(index < PRESETS.size(),
              "ShaderBall profile preset index out of range");
-    select_preset(index);
+    HS_CHECK(selectPreset(index), "ShaderBall profile preset selection failed");
     hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
             static_cast<unsigned>(PRESETS.size()));
   }
@@ -129,12 +114,22 @@ public:
 private:
   friend struct ::hs_test::shaderball_tests::ShaderBallWhiteBox;
 
-  HS_COLD_MEMBER void select_preset(size_t index) {
-    HS_CHECK(index < PRESETS.size(), "ShaderBall preset index out of range");
-    setAnimationsPaused(true);
+  HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
+    const size_t index = change.to;
+    if (change.origin == PresetChangeOrigin::AUTOMATIC) {
+      const Choreo choreo = preset_choreo(change.from);
+      const Preset &to = PRESETS[index];
+      if (!try_apply_config(to, choreo.blend_frames, choreo.staggered, true))
+        return false;
+      requested_config = to;
+      published_config = to;
+      accepted_config = to;
+      rebind_parameters();
+      return true;
+    }
+
     param_morph.active = false;
     transition.active = false;
-    preset_index = index;
     active_slots = PRESETS[index].slots;
     blend.params = PRESETS[index].params;
     requested_config = PRESETS[index];
@@ -144,6 +139,12 @@ private:
     HS_CHECK(prepare_resource_union(PRESETS[index], PRESETS[index]),
              "ShaderBall preset resources exceed capacity");
     rebind_parameters();
+    return true;
+  }
+
+  HS_COLD_MEMBER void preset_changed(const PresetChange &) override {
+    if (!param_morph.active && !transition.active)
+      enter_preset();
   }
 
   enum class Function : uint8_t {
@@ -3191,34 +3192,30 @@ private:
   }
 
   HS_COLD_MEMBER void enter_preset() {
-    const Choreo choreo = preset_choreo(preset_index);
-    timeline.add_pausable(
-        0,
-        Animation::RandomTimer(choreo.dwell_min, choreo.dwell_max,
-                               [this](Canvas &) { begin_blend(); }),
-        &anims_paused);
+    const Choreo choreo = preset_choreo(getPresetIndex());
+    preset_dwell_remaining = static_cast<uint16_t>(
+        hs::rand_int(choreo.dwell_min, choreo.dwell_max + 1));
+    preset_dwell_armed = true;
+  }
+
+  HS_COLD_MEMBER void advance_preset_choreography() {
+    if (anims_paused || !preset_dwell_armed)
+      return;
+    if (preset_dwell_remaining > 0 && --preset_dwell_remaining > 0)
+      return;
+    preset_dwell_armed = false;
+    begin_blend();
   }
 
   HS_COLD_MEMBER void begin_blend() {
-    const Choreo choreo = preset_choreo(preset_index);
-    const size_t next_index = (preset_index + 1) % PRESETS.size();
-    const Preset &to = PRESETS[next_index];
-    if (try_apply_config(to, choreo.blend_frames, choreo.staggered, true)) {
-      preset_index = next_index;
+    if (advancePreset()) {
 #if defined(HS_PROFILE_ENABLE)
-      hs::log("Preset: %u/%u", static_cast<unsigned>(preset_index),
+      hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex()),
               static_cast<unsigned>(PRESETS.size()));
 #endif
-      requested_config = to;
-      published_config = to;
-      accepted_config = to;
-      rebind_parameters();
-      if (!param_morph.active && !transition.active)
-        enter_preset();
     } else {
-      timeline.add_pausable(
-          0, Animation::RandomTimer(1, 1, [this](Canvas &) { begin_blend(); }),
-          &anims_paused);
+      preset_dwell_remaining = 1;
+      preset_dwell_armed = true;
     }
   }
 
@@ -3852,7 +3849,8 @@ private:
   Config published_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
   Config accepted_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
   bool requested_schema_bound = false;
-  size_t preset_index = 0;
+  uint16_t preset_dwell_remaining = 0;
+  bool preset_dwell_armed = false;
   Blend blend{PRESETS[0].params};
   LookRuntime runtime;
   ParamMorphRuntime param_morph;

@@ -73,6 +73,7 @@ public:
    *        starts the spawn/spin/orbit animation chain.
    */
   void init() override {
+    configure_presets(PRESETS.size());
     mobius_gen.init_storage(persistent_arena);
     loaded_solids = persistent_arena.allocate_n<SolidData>(SOLID_COUNT);
     for (size_t i = 0; i < SOLID_COUNT; ++i)
@@ -141,19 +142,15 @@ public:
     }
   }
 
-  size_t getPresetCount() const override { return PRESETS.size(); }
-  size_t getPresetIndex() const override {
-    return preset_manager.current_index();
-  }
-  bool selectPreset(size_t index) override {
-    if (!preset_manager.select(index))
+private:
+  bool apply_preset(const PresetChange &change) override {
+    if (!preset_manager.select(change.to))
       return false;
-    setAnimationsPaused(true);
-    apply_selected_preset();
+    if (change.origin == PresetChangeOrigin::MANUAL)
+      apply_selected_preset();
     return true;
   }
 
-private:
   friend struct ::hs_test::effects_tests::DreamBallsWhiteBox;
 
   static constexpr float COPIES_MIN = 1.0f, COPIES_MAX = 20.0f;
@@ -592,7 +589,7 @@ private:
                           Animation::PeriodicTimer(
                               0,
                               [this](Canvas &) {
-                                preset_manager.next();
+                                HS_CHECK(advancePreset());
                                 this->spawn_sprite();
                               },
                               false),

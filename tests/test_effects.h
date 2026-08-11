@@ -6071,6 +6071,8 @@ inline void check_manual_preset_navigation(size_t expected_count) {
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), expected_count);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
+  HS_EXPECT_FALSE(effect.selectPreset(expected_count));
+  HS_EXPECT_FALSE(effect.animations_paused());
   HS_EXPECT_TRUE(effect.previousPreset());
   HS_EXPECT_EQ(effect.getPresetIndex(), expected_count - 1);
   HS_EXPECT_TRUE(effect.nextPreset());
