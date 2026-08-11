@@ -40,26 +40,41 @@ inline float factorial(int n) {
 }
 
 /**
- * @brief Associated Legendre polynomial with its sin(phi)^m factor divided out.
- * @param l Degree (l >= 0).
- * @param m Order (0 <= m <= l).
- * @param x Argument, equal to cos(phi) with |x| <= 1.
- * @return P_l^m(x) / (1 - x²)^(m/2), a polynomial in x.
- * @details Uses the standard upward recurrence: seed P_m^m, then P_{m+1}^m,
- * then recur in l. The omitted factor is restored by the caller's azimuthal
- * term, which carries it in Cartesian form.
+ * @brief Seed P_m^m of the associated Legendre recurrence, with its
+ *        sin(phi)^m factor divided out.
+ * @param m Order (m >= 0).
+ * @return (-1)^m (2m - 1)!!, independent of the polynomial argument.
  */
-inline float reduced_legendre(int l, int m, float x) {
+inline float legendre_seed(int m) {
   float pmm = 1.0f;
   float fact = 1.0f;
   for (int i = 1; i <= m; i++) {
     pmm *= -fact;
     fact += 2.0f;
   }
+  return pmm;
+}
+
+/**
+ * @brief Associated Legendre polynomial with its sin(phi)^m factor and its
+ *        P_m^m seed divided out.
+ * @param l Degree (l >= 0).
+ * @param m Order (0 <= m <= l).
+ * @param x Argument, equal to cos(phi) with |x| <= 1.
+ * @return P_l^m(x) / ((1 - x²)^(m/2) * P_m^m), a polynomial in x.
+ * @details Standard upward recurrence in l, started from a unit seed. The
+ * recurrence is linear and homogeneous in its two seeds, so the omitted P_m^m
+ * scales the whole result and callers fold it into their per-mode constant
+ * (harmonic_scale) instead of paying for it per sample. The sin(phi)^m factor
+ * is restored by the caller's azimuthal term, which carries it in Cartesian
+ * form.
+ */
+inline float reduced_legendre(int l, int m, float x) {
+  float pmm = 1.0f;
   if (l == m)
     return pmm;
 
-  float pmmp1 = x * (2.0f * m + 1.0f) * pmm;
+  float pmmp1 = x * (2.0f * m + 1.0f);
   if (l == m + 1)
     return pmmp1;
 
@@ -86,11 +101,21 @@ inline float normalization(int l, int m) {
 }
 
 /**
+ * @brief Per-mode constant factor spherical_harmonic() expects as its N.
+ * @param l Degree (l >= 0).
+ * @param m Order in [-l, l].
+ * @return normalization(l, m) times the Legendre seed P_|m|^|m|.
+ */
+inline float harmonic_scale(int l, int m) {
+  return normalization(l, m) * legendre_seed(std::abs(m));
+}
+
+/**
  * @brief Evaluate a real spherical harmonic with a precomputed norm.
  * @param l Degree (l >= 0).
  * @param m Order in [-l, l]; sign selects cos/sin azimuthal factor.
  * @param p Unit direction in the shape's local frame; y is cos(phi).
- * @param N Precomputed normalization factor for (l, m).
+ * @param N Precomputed per-mode factor from harmonic_scale(l, m).
  * @return The harmonic value.
  * @details sin(phi)^|m| * cos(|m| theta) is Re((x + iz)^|m|), and the sine
  * counterpart is Im, so the (1 - y²)^(|m|/2) factor of P_l^m is exactly what
@@ -150,7 +175,7 @@ public:
     float blend;
     Quaternion orientation_conj; /**< World->local rotation (conjugate of the
                                     shape orientation). */
-    float N1, N2; /**< Normalization factors, precomputed once per shape. */
+    float N1, N2; /**< Per-mode harmonic scales, precomputed once per shape. */
     static constexpr bool is_solid = true;
 
     /**
@@ -164,8 +189,8 @@ public:
      */
     HarmonicField(int l1, int m1, int l2, int m2, float blend, Quaternion q)
         : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend),
-          orientation_conj(q.conjugate()), N1(SHMath::normalization(l1, m1)),
-          N2(SHMath::normalization(l2, m2)) {}
+          orientation_conj(q.conjugate()), N1(SHMath::harmonic_scale(l1, m1)),
+          N2(SHMath::harmonic_scale(l2, m2)) {}
 
     /**
      * @brief Vertical scan bounds for the field.
