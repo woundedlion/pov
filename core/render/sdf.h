@@ -434,7 +434,7 @@ struct Bounds {
  * | Line              | segment dist - thickness   | 0                | unsigned angular distance to the arc segment | thickness |
  * | Face              | signed edge distance (gnomonic plane units; see Face::distance) | 0 | = dist | inradius |
  * | PlanarPolygon     | sign * max(polar*cos(local) - apothem, polar - circumradius) | polar / circumradius | polar angle from center | apothem |
- * | SphericalPolygon  | sign * angular distance to the nearest great-circle edge | polar / circumradius | polar angle from center | circumradius |
+ * | SphericalPolygon  | sign * max(angular distance to the nearest great-circle edge, polar - circumradius) | polar / circumradius | polar angle from center | circumradius |
  * | Star              | sign * max(folded edge half-plane distance, scan_dist - circumradius) | azimuth turns in [0,1), phase applied | polar angle from center | circumradius |
  * | Flower            | sign * -(polar*cos(local) - apothem) | scan_dist / circumradius | scan distance from the antipode | circumradius |
  *
@@ -3756,9 +3756,9 @@ struct SphericalPolygon {
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false requests a full scan.
-   * @details Covers the polygon body, but not the full AA fringe at vertices:
-   *   the radial direction meets each great-circle edge obliquely there while
-   *   the bounding cap pads one pixel_width.
+   * @details Covers the polygon body and its whole AA fringe: distance()
+   *   clamps against the circumscribed disc, so nothing past circumradius +
+   *   pixel_width shades.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -3771,8 +3771,13 @@ struct SphericalPolygon {
    * @tparam ComputeUVs When true, also computes the normalized radial t.
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = signed angular distance to the nearest
-   *        great-circle edge, raw_dist = polar angle, t = polar/circumradius
-   *        when ComputeUVs.
+   *        great-circle edge clamped below by polar - circumradius, raw_dist =
+   *        polar angle, t = polar/circumradius when ComputeUVs.
+   * @note The folded edge dot measures distance to the whole great circle, not
+   *       the edge arc, so past a vertex it under-estimates with a radial
+   *       gradient of cos(PI/sides). The circumscribed-disc distance
+   *       `polar - circumradius` is the tighter bound out there; both are lower
+   *       bounds of the true distance, so the max of the two is too.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -3792,7 +3797,8 @@ struct SphericalPolygon {
     // cos(local) is even, so sector folding works automatically
     float sin_p = sqrtf(std::max(0.0f, 1.0f - cos_p * cos_p));
     float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
-    float dist_edge = asinf(hs::clamp(dp, -1.0f, 1.0f));
+    float dist_edge =
+        std::max(asinf(hs::clamp(dp, -1.0f, 1.0f)), polar - circumradius);
 
     float t_val = 0.0f;
     if constexpr (ComputeUVs)
@@ -3804,6 +3810,9 @@ struct SphericalPolygon {
    * @brief Signed edge-plane dot for sine-domain solid antialiasing.
    * @param p Point on sphere (normalized).
    * @return sin of the signed angular distance to the nearest edge.
+   * @note Carries distance()'s circumscribed-disc clamp in the sine domain:
+   *       sin(polar - circumradius) expands to sin_p*cos_cap - cos_p*sin_cap,
+   *       so the tighter bound past a vertex costs no transcendental here.
    */
   float sine_distance(const Vector &p) const {
     float cos_p = hs::clamp(dot(p, basis.v), -1.0f, 1.0f);
@@ -3818,7 +3827,8 @@ struct SphericalPolygon {
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
     float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
-    return sign * hs::clamp(dp, -1.0f, 1.0f);
+    float disc = sin_p * cos_cap - cos_p * sin_cap;
+    return sign * std::max(hs::clamp(dp, -1.0f, 1.0f), disc);
   }
 };
 

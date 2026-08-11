@@ -553,6 +553,12 @@ inline void test_spherical_polygon_center_and_edge_magnitude() {
 
 /**
  * @brief Bounds sine-domain distance error across the device-width AA band.
+ * @details Where the edge dot wins, the two paths share it verbatim and differ
+ *   only by sin(x) - x (~1.7e-6 at one pixel_width). Where the
+ *   circumscribed-disc clamp wins, distance() spends fast_acos on polar while
+ *   sine_distance forms sin(polar - circumradius) from exact trig, so the gap
+ *   widens to fast_acos' ~1.3e-4 rad peak -- under 1% of a pixel_width, and the
+ *   sine path is the more accurate of the two there.
  */
 inline void test_spherical_polygon_sine_distance_aa_error() {
   constexpr int W = 288;
@@ -599,7 +605,7 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
   std::printf("spherical sine AA samples=%d max_error=%.9g rad\n", edge_samples,
               max_error);
   HS_EXPECT_GT(edge_samples, 1000);
-  HS_EXPECT_LE(max_error, 2.0e-6f);
+  HS_EXPECT_LE(max_error, 1.5e-4f);
 }
 
 /**
@@ -2078,12 +2084,13 @@ inline int expect_cull_covers_fringe(const Shape &shape, const char *label) {
 }
 
 /**
- * @brief Verifies the Star / PlanarPolygon cull covers the whole AA fringe.
- * @details Both fold a sector onto one edge and read a shallow radial gradient
- *   at the tips (|nx| = 0.309 at 5 star points, cos(PI/sides) at a polygon
- *   vertex), which without the circumscribed-disc clamp in distance() ramps
- *   coverage well past the one-pixel cap pad and steps it to zero there. The
- *   grid spans pole, equator and oblique axes at sub-pixel through
+ * @brief Verifies the Star / PlanarPolygon / SphericalPolygon cull covers the
+ *   whole AA fringe.
+ * @details All three fold a sector onto one edge and read a shallow radial
+ *   gradient at the tips (|nx| = 0.309 at 5 star points, cos(PI/sides) at a
+ *   polygon vertex), which without the circumscribed-disc clamp in distance()
+ *   ramps coverage well past the one-pixel cap pad and steps it to zero there.
+ *   The grid spans pole, equator and oblique axes at sub-pixel through
  *   near-hemisphere radii.
  */
 inline void test_star_polygon_cull_covers_aa_fringe() {
@@ -2100,6 +2107,9 @@ inline void test_star_polygon_cull_covers_aa_fringe() {
 
         SDF::PlanarPolygon poly(basis, radius * (PI_F / 2.0f), sides, 0.0f);
         total += expect_cull_covers_fringe<W, H>(poly, "planar polygon");
+
+        SDF::SphericalPolygon sphpoly(basis, radius, sides, 0.0f);
+        total += expect_cull_covers_fringe<W, H>(sphpoly, "spherical polygon");
       }
     }
   }
