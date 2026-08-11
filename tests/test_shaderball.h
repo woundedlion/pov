@@ -291,10 +291,6 @@ struct ShaderBallWhiteBox {
                               const FrameState &frame) {
     return SB::shape_material(field, projected, warped, frame);
   }
-  static float edge_fade_width(const ProjectedLookup &projected,
-                               const FrameState &frame) {
-    return SB::edge_fade_width(projected, frame);
-  }
   static Color4 colorize(const MaterialSample &sample,
                          const FrameState &frame) {
     return SB::colorize(sample, frame);
@@ -771,46 +767,39 @@ inline void test_shaderball_legacy_spatial_slots() {
   HS_EXPECT_NEAR(end.coords.im, lensed.im, 1e-6f);
 }
 
-/** @brief Paired projection seams use a broad under-fade and pixel over-fade. */
-inline void test_shaderball_subduction_edge_fade() {
+/** @brief Both sides of every projection seam use the authored fade width. */
+inline void test_shaderball_flush_edge_fade() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
   WB::FrameState frame = WB::frame(sb);
+  frame.slots.coverage = WB::CoveragePolicy::EDGE_FADE;
   frame.params.value.edge_width = 0.1f;
-  frame.params.projection.coordinate_scale = 1.0f;
+  const WB::PlanarWarpResult warped{};
   WB::ProjectedLookup under{Complex(), 0,    0, WB::boundary_cut(),
                             0.01f,     1.0f, 0};
   WB::ProjectedLookup over = under;
+  const auto coverage = [&](const WB::ProjectedLookup &projected) {
+    return WB::shape(0.0f, projected, warped, frame).coverage;
+  };
 
   frame.slots.projection = WB::Projection::BONNE;
   over.region_id = 1;
-  HS_EXPECT_EQ(WB::edge_fade_width(under, frame), 0.1f);
-  HS_EXPECT_EQ(WB::edge_fade_width(over, frame), 1.0f / 20.0f);
+  HS_EXPECT_NEAR(coverage(under), 0.028f, 1e-6f);
+  HS_EXPECT_NEAR(coverage(over), 0.028f, 1e-6f);
 
   frame.slots.projection = WB::Projection::PEIRCE_QUINCUNCIAL;
   under.region_id = 2;
   over.region_id = 3;
-  HS_EXPECT_EQ(WB::edge_fade_width(under, frame), 0.1f);
-  HS_EXPECT_EQ(WB::edge_fade_width(over, frame), 1.0f / 20.0f);
+  HS_EXPECT_NEAR(coverage(under), 0.028f, 1e-6f);
+  HS_EXPECT_NEAR(coverage(over), 0.028f, 1e-6f);
 
   frame.slots.projection = WB::Projection::AIROCEAN;
   under.edge_class = 9;
   over.edge_class = 14;
-  HS_EXPECT_EQ(WB::edge_fade_width(under, frame), 0.1f);
-  HS_EXPECT_EQ(WB::edge_fade_width(over, frame), 1.0f / 20.0f);
-
-  const uint8_t airocean_edge_pairs[][2] = {
-      {9, 14},  {13, 37}, {16, 18}, {17, 41}, {20, 56}, {24, 29}, {38, 40},
-      {42, 59}, {44, 45}, {47, 48}, {55, 58}, {62, 66}, {64, 67}};
-  for (const auto &pair : airocean_edge_pairs) {
-    HS_EXPECT_TRUE(shaderball::airocean_edge_is_under(pair[0]));
-    HS_EXPECT_FALSE(shaderball::airocean_edge_is_under(pair[1]));
-  }
-
-  frame.slots.projection = WB::Projection::STEREOGRAPHIC;
-  HS_EXPECT_EQ(WB::edge_fade_width(over, frame), 0.1f);
+  HS_EXPECT_NEAR(coverage(under), 0.028f, 1e-6f);
+  HS_EXPECT_NEAR(coverage(over), 0.028f, 1e-6f);
 }
 
 // A reference expression written out here and the implementation's own
@@ -2533,7 +2522,7 @@ inline int run_shaderball_tests() {
   test_shaderball_manual_edit_timing();
   test_shaderball_pipeline_contract();
   test_shaderball_legacy_spatial_slots();
-  test_shaderball_subduction_edge_fade();
+  test_shaderball_flush_edge_fade();
   test_shaderball_legacy_sources();
   test_shaderball_coupled_source();
   test_shaderball_preset_bank();

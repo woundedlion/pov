@@ -2436,7 +2436,7 @@ private:
                              value);
       break;
     case CoveragePolicy::EDGE_FADE:
-      coverage = smooth_ramp(0.0f, edge_fade_width(projected, frame),
+      coverage = smooth_ramp(0.0f, frame.params.value.edge_width,
                              projected.fade_edge_distance);
       break;
     case CoveragePolicy::PROJECTION_WEIGHT:
@@ -2446,29 +2446,6 @@ private:
     coverage *= projected.domain_coverage;
     return {value, coverage, warped.net_delta, warped.deformation,
             warped.path_length};
-  }
-
-  static float edge_fade_width(const ProjectedLookup &projected,
-                               const FrameState &frame) {
-    bool under = true;
-    switch (frame.slots.projection) {
-    case Projection::BONNE:
-      under = projected.region_id == 0;
-      break;
-    case Projection::PEIRCE_QUINCUNCIAL:
-      under = (projected.region_id & 1U) == 0;
-      break;
-    case Projection::AIROCEAN:
-      under = shaderball::airocean_edge_is_under(projected.edge_class);
-      break;
-    default:
-      break;
-    }
-    if (under)
-      return frame.params.value.edge_width;
-    const float pixel_width =
-        fabsf(frame.params.projection.coordinate_scale) / static_cast<float>(H);
-    return std::min(frame.params.value.edge_width, pixel_width);
   }
 
   static float sample_source(const Complex &p, const FrameState &frame) {

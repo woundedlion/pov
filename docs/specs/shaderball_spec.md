@@ -961,13 +961,10 @@ it traverses unrelated source space. The projection-specific compatibility
 predicate decides this from both branch results. All transitions between
 Airocean and another projection use the general through-clear fallback.
 
-Edge-fade ownership is asymmetric across every paired cut. A stable edge
-identity chooses the under-side, which receives the authored fade width; the
-opposite side receives only a one-pixel feather at the active render height.
-Bonne uses its two cut regions, Peirce uses alternating folded sectors, and
-Airocean uses the fixed paired net-edge identities. Unpaired singular
-boundaries retain the authored width. This makes the cut read as one sheet
-subducting beneath the other instead of two equally transparent margins.
+Both sides of every paired cut use the authored edge-fade width. Bonne, Peirce,
+and Airocean therefore meet with equal transparent margins rather than assigning
+one side of the cut to pass beneath the other. Unpaired singular boundaries use
+the same authored width.
 
 #### Projection transitions, validation, and budget
 
@@ -1016,8 +1013,8 @@ the earlier fixed stereographic implementation. The final gate established:
 - premultiplied output blending for topology-changing preset transitions;
 - projection topology metadata, host oracles, finite-output fuzzing, and seam
   ownership tests for Bonne, Peirce quincuncial, and Airocean;
-- linear and squared projection-weight coverage, value cutout, and asymmetric
-  subduction edge fade; and
+- linear and squared projection-weight coverage, value cutout, and symmetric
+  projection edge fade; and
 - native effect, smoke, arena, stack, frame-budget, and WASM integration gates.
 
 The earlier ShaderBall class and its dedicated white-box tests are removed.

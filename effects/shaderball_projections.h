@@ -659,36 +659,6 @@ inline uint8_t airocean_edge_identity(uint8_t face, uint8_t edge) {
 }
 
 /**
- * @brief Picks one half of a seam to carry the broad edge fade.
- * @param edge_identity Value from airocean_edge_identity().
- * @return True for the half that fades over the full edge width; the other
- *         half is clamped to a pixel so the seam is not fattened twice.
- * @details Each of the 13 listed identities is one half of a paired seam whose
- * partner identity returns false, so exactly one side of every pair fades
- * broadly. The partition is authored, not derivable from the tables above.
- */
-inline bool airocean_edge_is_under(uint8_t edge_identity) {
-  switch (edge_identity) {
-  case 9:
-  case 13:
-  case 16:
-  case 17:
-  case 20:
-  case 24:
-  case 38:
-  case 42:
-  case 44:
-  case 47:
-  case 55:
-  case 62:
-  case 64:
-    return true;
-  default:
-    return false;
-  }
-}
-
-/**
  * @brief Scalar triple product u . (v x w).
  * @param u First row.
  * @param v Second row.
