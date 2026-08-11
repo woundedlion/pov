@@ -382,7 +382,8 @@ EDGE_FADE:                  coverage = smoothstep(0, edge_width,
                                                   fade_edge_distance)
 ```
 
-`softness` and `edge_width` have positive floors. ShaderBall maps exactly to
+`softness` has a positive floor. An `edge_width` of zero is a hard projected
+edge; positive values use the smooth ramp above. ShaderBall maps exactly to
 `PROJECTION + LINEAR + OPAQUE`; current ShadierBall maps to
 `PROJECTION + LINEAR + PROJECTION_WEIGHT_SQUARED` for every legacy projection.
 The former `UNWEIGHTED` behavior is `NONE + LINEAR + OPAQUE`. New bounded
@@ -1008,7 +1009,7 @@ the earlier fixed stereographic implementation. The final gate established:
 - named, continuously advancing source, warp, projection, breathe, walk, and
   palette clocks;
 - the two-stage warp program, coupled/direct source, liquid colorizer, and all
-  migrated looks in the 25-preset bank;
+  migrated looks in the 26-preset bank;
 - deterministic GUI edits and exact transition endpoints;
 - premultiplied output blending for topology-changing preset transitions;
 - projection topology metadata, host oracles, finite-output fuzzing, and seam
