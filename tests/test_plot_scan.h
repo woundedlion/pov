@@ -2086,7 +2086,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
             return;
           vis = bits;
         }
-        Plot::rasterize<W, H>(filters, c, pts, shade, {.edge_visible = vis});
+        Plot::rasterize<W, H>(filters, c, pts, shade, {.edge_flags = vis});
       };
 
       std::vector<Pixel> ref(static_cast<size_t>(W) * H);
@@ -5255,7 +5255,7 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
       visible = bits.data();
     }
     Plot::rasterize<W, H, true>(sink, canvas, points, shade,
-                                {.edge_visible = visible});
+                                {.edge_flags = visible});
   };
 
   std::vector<Pixel> reference(static_cast<size_t>(W) * H);
