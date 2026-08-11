@@ -119,6 +119,57 @@ inline void test_single_entry_wraps_in_place() {
 }
 
 /**
+ * @brief Verifies select() jumps to an index, records the outgoing entry, and
+ *        rejects an out-of-range index without moving.
+ */
+inline void test_select_jumps_and_rejects_out_of_range() {
+  auto p = make_presets();
+
+  HS_EXPECT_TRUE(p.select(2));
+  HS_EXPECT_EQ(p.get().id, 3);
+  HS_EXPECT_EQ(p.prev_get().id, 1);
+  HS_EXPECT_EQ(static_cast<int>(p.current_index()), 2);
+
+  HS_EXPECT_FALSE(p.select(3));
+  HS_EXPECT_EQ(p.get().id, 3);
+  HS_EXPECT_EQ(p.prev_get().id, 1);
+  HS_EXPECT_EQ(static_cast<int>(p.current_index()), 2);
+
+  // Re-selecting the current index still records it as the outgoing entry.
+  HS_EXPECT_TRUE(p.select(2));
+  HS_EXPECT_EQ(p.prev_get().id, 3);
+}
+
+/** @brief Range predicate every entry of the fixture satisfies. */
+constexpr bool id_below_four(const DummyParams &d) { return d.id < 4; }
+/** @brief Range predicate the fixture's last entry fails. */
+constexpr bool id_below_three(const DummyParams &d) { return d.id < 3; }
+/** @brief Range predicate the fixture's first entry fails. */
+constexpr bool id_above_one(const DummyParams &d) { return d.id > 1; }
+
+/** @brief The fixture's entries, as a constant expression. */
+constexpr std::array<PresetEntry<DummyParams>, 3> CONST_ENTRIES{{
+    {DummyParams{1, 1.5f}},
+    {DummyParams{2, 2.5f}},
+    {DummyParams{3, 3.5f}},
+}};
+
+static_assert(all_presets_in_ranges(CONST_ENTRIES, id_below_four));
+static_assert(!all_presets_in_ranges(CONST_ENTRIES, id_below_three));
+
+/**
+ * @brief Verifies all_presets_in_ranges() folds the predicate over every entry.
+ * @details The static_asserts above cover the constant-expression use the helper
+ *          exists for; these calls pin that a failure at either end of the table
+ *          is reported.
+ */
+inline void test_all_presets_in_ranges_folds_predicate() {
+  HS_EXPECT_TRUE(all_presets_in_ranges(CONST_ENTRIES, id_below_four));
+  HS_EXPECT_FALSE(all_presets_in_ranges(CONST_ENTRIES, id_below_three));
+  HS_EXPECT_FALSE(all_presets_in_ranges(CONST_ENTRIES, id_above_one));
+}
+
+/**
  * @brief Verifies class template argument deduction infers the entry type and count.
  * @details Constructs Presets from an array without spelling out <DummyParams, 2>
  *          and confirms the deduced size and forward cycling.
@@ -146,6 +197,8 @@ inline int run_presets_tests() {
   test_prev_cycles_backward();
   test_apply_copies_current();
   test_single_entry_wraps_in_place();
+  test_select_jumps_and_rejects_out_of_range();
+  test_all_presets_in_ranges_folds_predicate();
   test_ctad_deduces_size();
 
   return fixture.result();
