@@ -17,7 +17,7 @@
 #include "engine/constants.h"
 #include "color/color.h"
 #include <array>
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
 #include <cstdlib>
 #endif
 
@@ -26,16 +26,9 @@
  * @brief EffectConfig, the Effect base class, and the Canvas pixel buffer.
  */
 
-// Parameter-system build predicates. The GUI-bridge surface (schema-generation
-// token, parameter-updated hook) exists in the WASM and test builds; external
-// ParamDef storage covers those plus firmware builds that opt in.
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
-#define HS_PARAM_GUI_BRIDGE 1
-#else
-#define HS_PARAM_GUI_BRIDGE 0
-#endif
-
-#if HS_PARAM_GUI_BRIDGE || defined(HS_EXTERNAL_PARAM_STORAGE)
+// External ParamDef storage covers the GUI bridge and firmware builds that opt
+// in.
+#if HS_ENABLE_PARAM_GUI_BRIDGE || defined(HS_EXTERNAL_PARAM_STORAGE)
 #define HS_PARAM_EXTERNAL_STORAGE 1
 #else
 #define HS_PARAM_EXTERNAL_STORAGE 0
@@ -116,7 +109,7 @@ public:
   using BufferReadyHook = void (*)(Effect &);
 
   bool debug_visuals = false; /**< Flag to enable visual debugging overlays. */
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
   /** @brief Forces the whole-buffer clear, for clip-clear parity tests. */
   bool force_full_buffer_clear = false;
 #endif
@@ -389,7 +382,7 @@ public:
 
     const char *name = nullptr; /**< Parameter name. */
     void *target = nullptr;     /**< Writable parameter target. */
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     const void *display_target = nullptr; /**< Optional live-value source. */
 #endif
     const char *const *options = nullptr; /**< Option labels for an enumerated
@@ -446,7 +439,7 @@ public:
      * @return The display source's value; a bool yields 1.0 or 0.0.
      */
     float get() const {
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
       return get_from(display_target != nullptr ? display_target : target);
 #else
       return get_from(target);
@@ -514,7 +507,8 @@ public:
     bool is_enum() const { return option_count > 0; }
   };
   static_assert(sizeof(void *) != 4 ||
-                    sizeof(ParamDef) == (HS_PARAM_GUI_BRIDGE ? 36 : 32),
+                    sizeof(ParamDef) ==
+                        (HS_ENABLE_PARAM_GUI_BRIDGE ? 36 : 32),
                 "ParamDef must keep its 32-bit device footprint");
 
   /**
@@ -580,7 +574,7 @@ public:
     size_t size() const { return count; }
     /** @brief Monotonic token changed whenever the descriptor schema mutates. */
     uint32_t schema_generation() const {
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
       return schema_gen;
 #else
       return 0;
@@ -604,11 +598,11 @@ public:
       return const_cast<ParamDef *>(std::as_const(*this).find(name));
     }
     void bump_schema_generation() {
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
       ++schema_gen;
 #endif
     }
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     uint32_t schema_gen = 0;
 #endif
   };
@@ -643,7 +637,7 @@ public:
       value = hs::clamp(value, def->min, def->max);
     if (def->animated)
       setAnimationsPaused(true);
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     const char *updated_name = def->name;
     const bool updated_enum = def->is_enum();
     def->set(value);
@@ -661,7 +655,7 @@ public:
    */
   const ParamList &getParameters() const { return parameters; }
 
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Refreshes values exposed through parameter display mirrors. */
   virtual void refresh_parameter_display() {}
 #endif
@@ -725,7 +719,7 @@ protected:
     return true;
   }
 
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   using ParameterUpdatedHook = void (*)(Effect *, const char *, bool);
 
   /** @brief Installs an opt-in reaction to accepted GUI parameter writes. */
@@ -767,7 +761,7 @@ protected:
   template <typename State>
   void mirror_parameter_display_state(const State &requested,
                                       const State &displayed) {
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     const std::uintptr_t requested_begin =
         reinterpret_cast<std::uintptr_t>(&requested);
     const std::uintptr_t requested_end = requested_begin + sizeof(State);
@@ -806,7 +800,7 @@ protected:
    */
   bool strobe;
   ParamList parameters; /**< List of parameters. */
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   ParameterUpdatedHook parameter_updated_hook = nullptr;
 #endif
   /**
@@ -1268,7 +1262,7 @@ public:
    */
   inline bool debug() const { return effect.debug_visuals; }
 
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
   /**
    * @brief Test-only count of buffer_free() spin iterations across all Canvas
    *        ctors in this process.
@@ -1298,7 +1292,7 @@ private:
     HS_PROFILE(canvas_buffer_wait);
     if (effect.buffer_free())
       return;
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
     const unsigned long WATCHDOG_US = buffer_free_watchdog_us();
 #else
     constexpr unsigned long WATCHDOG_US = BUFFER_FREE_WATCHDOG_US;
@@ -1307,7 +1301,7 @@ private:
     while (!effect.buffer_free()) {
       HS_CHECK(micros() - wait_start < WATCHDOG_US,
                "buffer_free watchdog timeout — display ISR stalled");
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
       s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
 #endif
     }
@@ -1326,7 +1320,7 @@ private:
    *          where the two are the same fill.
    */
   void clear_stale_pixels() {
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
     if (effect.force_full_buffer_clear) {
       clear_buffer();
       return;
@@ -1365,7 +1359,7 @@ private:
    *  that, so only a genuinely stalled display ISR trips it. */
   static constexpr unsigned long BUFFER_FREE_WATCHDOG_US = 2000000UL;
 
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
   /**
    * @brief Test-only watchdog bound, overridable via HS_BUFFER_FREE_WATCHDOG_US.
    * @return The bound in µs; BUFFER_FREE_WATCHDOG_US unless the environment
@@ -1393,7 +1387,7 @@ private:
 #endif
 
   Effect &effect; /**< Reference to the owning Effect instance. */
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
   inline static std::atomic<unsigned long> s_buffer_free_spins{0};
 #endif
 };
