@@ -99,6 +99,9 @@ public:
     }
     finish_transitions();
     publish_live_config();
+#if HS_PARAM_GUI_BRIDGE
+    publish_display_config();
+#endif
   }
 
 #if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
@@ -132,6 +135,9 @@ private:
     transition.active = false;
     active_slots = PRESETS[index].slots;
     blend.params = PRESETS[index].params;
+#if HS_PARAM_GUI_BRIDGE
+    display_config = PRESETS[index];
+#endif
     requested_config = PRESETS[index];
     published_config = PRESETS[index];
     accepted_config = PRESETS[index];
@@ -657,6 +663,9 @@ private:
                             COLORIZER_EXPORT_OPTIONS, NUM_COLORIZERS);
     register_colorizer_controls(slots.colorizer,
                                 requested_config.params.colorizer);
+#if HS_PARAM_GUI_BRIDGE
+    mirror_parameter_display_state(requested_config, display_config);
+#endif
     requested_schema_bound = true;
   }
 
@@ -689,10 +698,12 @@ private:
     if (!hold_admitted(requested_config) ||
         !resource_union_fits(requested_config, requested_config)) {
       requested_config = accepted_config;
+      display_config = accepted_config;
       rebind_parameters();
       return;
     }
     accepted_config = requested_config;
+    display_config = requested_config;
     if (is_enum && schema_selector(name))
       rebind_parameters();
   }
@@ -2617,6 +2628,9 @@ private:
     param_morph.active = false;
     active_slots = requested_config.slots;
     blend.params = requested_config.params;
+#if HS_PARAM_GUI_BRIDGE
+    display_config = requested_config;
+#endif
     published_config = requested_config;
     accepted_config = requested_config;
     if (!requested_schema_bound)
@@ -2626,6 +2640,9 @@ private:
   HS_COLD_MEMBER void reject_requested_config() {
     requested_config = published_config;
     accepted_config = published_config;
+#if HS_PARAM_GUI_BRIDGE
+    display_config = published_config;
+#endif
     rebind_parameters();
     if (transition.active && transition.continue_choreo)
       anims_paused = false;
@@ -2749,6 +2766,18 @@ private:
     requested_config = published_config;
     accepted_config = published_config;
   }
+
+#if HS_PARAM_GUI_BRIDGE
+  HS_COLD_MEMBER void publish_display_config() {
+    if (transition.active) {
+      display_config = transition.elapsed * 2 < transition.duration
+                           ? transition.from_config
+                           : transition.to_config;
+      return;
+    }
+    display_config = {active_slots, blend.params};
+  }
+#endif
 
   template <typename Enum>
   static constexpr bool enum_at_most(Enum value, Enum last) {
@@ -3866,6 +3895,9 @@ private:
   PaletteCycler generated_palette_cycler;
 
   Slots active_slots = PRESETS[0].slots;
+#if HS_PARAM_GUI_BRIDGE
+  Config display_config = PRESETS[0];
+#endif
   RequestedConfig requested_config = PRESETS[0];
   Config published_config = PRESETS[0];
   Config accepted_config = PRESETS[0];

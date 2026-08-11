@@ -104,6 +104,9 @@ struct ShaderBallWhiteBox {
   static const RequestedConfig &published_config(const SB &sb) {
     return sb.published_config;
   }
+  static const RequestedConfig &display_config(const SB &sb) {
+    return sb.display_config;
+  }
   static void request_config(SB &sb, const RequestedConfig &config) {
     sb.requested_config = config;
     sb.requested_schema_bound = false;
@@ -195,7 +198,10 @@ struct ShaderBallWhiteBox {
                                     const ThroughClearPhase &phase) {
     return SB::shade_through_clear(view, visible, phase);
   }
-  static void begin_blend(SB &sb) { sb.begin_blend(); }
+  static void begin_blend(SB &sb) {
+    sb.preset_dwell_armed = false;
+    sb.begin_blend();
+  }
   static void step_param_morph(SB &sb) {
     sb.prepare_param_morph();
     sb.advance_runtime(sb.runtime, {sb.active_slots, sb.blend.params},
@@ -1378,6 +1384,10 @@ inline void test_shaderball_atomic_gui_commit() {
                WB::WarpStageKind::NONE);
   HS_EXPECT_EQ(requested.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
   HS_EXPECT_EQ(requested.params.colorizer.hue_shift, 0.05f);
+  HS_EXPECT_EQ(WB::display_config(sb).slots.function,
+               WB::Function::PRIMITIVE_LATTICE);
+  HS_EXPECT_EQ(WB::display_config(sb).slots.projection,
+               WB::Projection::PEIRCE_QUINCUNCIAL);
   HS_EXPECT_EQ(sb.getParameters().find("Function")->get(),
                static_cast<float>(WB::Function::PRIMITIVE_LATTICE));
   HS_EXPECT_EQ(sb.getParameters().find("Projection")->get(),
@@ -1586,6 +1596,48 @@ inline void test_shaderball_manual_preset_navigation() {
   sb.advance_display();
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(7));
   HS_EXPECT_TRUE(WB::transition_active(sb) || WB::param_morph_active(sb));
+}
+
+/** @brief GUI values follow the rendered preset transition. */
+inline void test_shaderball_preset_gui_transition() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+
+  HS_EXPECT_TRUE(sb.selectPreset(1));
+  sb.setAnimationsPaused(false);
+  WB::begin_blend(sb);
+  sb.setAnimationsPaused(true);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(2));
+  HS_EXPECT_TRUE(WB::param_morph_active(sb));
+  const auto *pattern_freq = sb.getParameters().find("Pattern Freq");
+  HS_EXPECT_TRUE(pattern_freq != nullptr);
+  HS_EXPECT_NEAR(pattern_freq->get(), 5.0f, 1e-6f);
+
+  bool saw_intermediate = false;
+  for (int frame = 0; frame < 128 && WB::param_morph_active(sb); ++frame) {
+    sb.draw_frame();
+    sb.advance_display();
+    const float displayed = pattern_freq->get();
+    saw_intermediate |= displayed > 1.2f && displayed < 5.0f;
+  }
+  HS_EXPECT_TRUE(saw_intermediate);
+  HS_EXPECT_NEAR(pattern_freq->get(), 1.2f, 1e-5f);
+
+  HS_EXPECT_TRUE(sb.selectPreset(16));
+  sb.setAnimationsPaused(false);
+  WB::begin_blend(sb);
+  sb.setAnimationsPaused(true);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(17));
+  HS_EXPECT_TRUE(WB::transition_active(sb));
+  const auto *function = sb.getParameters().find("Function");
+  HS_EXPECT_TRUE(function != nullptr);
+  HS_EXPECT_EQ(function->get(),
+               static_cast<float>(WB::Function::COUPLED_DIRECT));
+  WB::settle_transition(sb);
+  HS_EXPECT_EQ(function->get(),
+               static_cast<float>(WB::Function::PRIMITIVE_LATTICE));
 }
 
 /** @brief Every GUI enum option is writable and survives its handoff. */
@@ -2748,6 +2800,7 @@ inline int run_shaderball_tests() {
   test_shaderball_additive_delta_precision();
   test_shaderball_profile_presets();
   test_shaderball_manual_preset_navigation();
+  test_shaderball_preset_gui_transition();
   test_shaderball_gui_catalog();
   test_shaderball_projection_catalog();
   test_shaderball_projection_and_admission_contracts();

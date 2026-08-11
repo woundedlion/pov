@@ -95,6 +95,10 @@ struct TestEffect : public Effect {
                       const char *const *export_options, int count) {
     register_param(n, p, options, export_options, count);
   }
+  template <typename State>
+  void mirror_display(const State &requested, const State &displayed) {
+    mirror_parameter_display_state(requested, displayed);
+  }
   void clear_params() { reset_parameters(); }
 };
 
@@ -817,6 +821,32 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
 
+/** @brief Live display mirrors do not redirect parameter writes. */
+inline void test_parameter_display_mirror() {
+  struct State {
+    float speed;
+    TestMode mode;
+  };
+  static const char *const MODES[] = {"None", "Warp", "Sparkle"};
+  static const char *const EXPORT_MODES[] = {"TestMode::NONE", "TestMode::WARP",
+                                             "TestMode::SPARKLE"};
+  TestEffect fx(4, 4);
+  State requested{1.0f, TestMode::NONE};
+  State displayed{4.0f, TestMode::SPARKLE};
+  fx.add_float("Speed", &requested.speed, 0.0f, 10.0f);
+  fx.add_typed_enum("Mode", &requested.mode, MODES, EXPORT_MODES, 3);
+  fx.add_float("Global", &fx.speed, 0.0f, 10.0f);
+  fx.mirror_display(requested, displayed);
+
+  HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Mode")->get(), 2.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Global")->get(), 1.5f);
+  HS_EXPECT_TRUE(fx.updateParameter("Speed", 7.0f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(requested.speed, 7.0f);
+  HS_EXPECT_EQ(displayed.speed, 4.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
+}
+
 /**
  * @brief Verifies the untrusted JS boundary cannot write readonly
  * (engine-written telemetry) params, even though the GUI already disables their
@@ -1101,6 +1131,7 @@ inline int run_canvas_tests() {
   test_canvas_2d_and_1d_access_and_prev();
   test_register_float_and_bool_params();
   test_update_parameter_by_name();
+  test_parameter_display_mirror();
   test_update_parameter_rejects_readonly();
   test_register_and_update_enum_param();
   test_typed_enum_and_global_param_metadata();

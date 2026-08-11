@@ -11,6 +11,7 @@
 #include <cassert>
 #include <algorithm>
 #include <atomic>
+#include <cstdint>
 #include <type_traits>
 #include <utility>
 #include "engine/constants.h"
@@ -386,7 +387,10 @@ public:
     };
 
     const char *name = nullptr; /**< Parameter name. */
-    void *target = nullptr;     /**< Pointer to the target variable. */
+    void *target = nullptr;     /**< Writable parameter target. */
+#if HS_PARAM_GUI_BRIDGE
+    const void *display_target = nullptr; /**< Optional live-value source. */
+#endif
     const char *const *options = nullptr; /**< Option labels for an enumerated
                                param (GUI dropdown), or null for a plain param.
                                Must outlive the effect (string literals). */
@@ -403,9 +407,9 @@ public:
                                GUI shows it live but disables editing. */
     bool preset = true; /**< Whether preset exports include this parameter. */
 
-    template <typename Integer> float get_integer() const {
+    template <typename Integer> static float get_integer(const void *source) {
       Integer value;
-      std::memcpy(&value, target, sizeof(value));
+      std::memcpy(&value, source, sizeof(value));
       return static_cast<float>(value);
     }
 
@@ -415,27 +419,32 @@ public:
     }
 
     /**
-     * @brief Read the current value as float (bool maps to 0/1).
-     * @return The target's value as a float; a bool target yields 1.0 or 0.0.
+     * @brief Reads the displayed value as float (bool maps to 0/1).
+     * @return The display source's value; a bool yields 1.0 or 0.0.
      */
     float get() const {
+#if HS_PARAM_GUI_BRIDGE
+      const void *source = display_target != nullptr ? display_target : target;
+#else
+      const void *source = target;
+#endif
       switch (target_type) {
       case TargetType::FLOAT:
-        return *static_cast<const float *>(target);
+        return *static_cast<const float *>(source);
       case TargetType::BOOL:
-        return *static_cast<const bool *>(target) ? 1.0f : 0.0f;
+        return *static_cast<const bool *>(source) ? 1.0f : 0.0f;
       case TargetType::INT_I8:
-        return get_integer<int8_t>();
+        return get_integer<int8_t>(source);
       case TargetType::INT_U8:
-        return get_integer<uint8_t>();
+        return get_integer<uint8_t>(source);
       case TargetType::INT_I16:
-        return get_integer<int16_t>();
+        return get_integer<int16_t>(source);
       case TargetType::INT_U16:
-        return get_integer<uint16_t>();
+        return get_integer<uint16_t>(source);
       case TargetType::INT_I32:
-        return get_integer<int32_t>();
+        return get_integer<int32_t>(source);
       case TargetType::INT_U32:
-        return get_integer<uint32_t>();
+        return get_integer<uint32_t>(source);
       }
       __builtin_unreachable();
     }
@@ -494,7 +503,8 @@ public:
      */
     bool is_enum() const { return option_count > 0; }
   };
-  static_assert(sizeof(void *) != 4 || sizeof(ParamDef) == 32,
+  static_assert(sizeof(void *) != 4 ||
+                    sizeof(ParamDef) == (HS_PARAM_GUI_BRIDGE ? 36 : 32),
                 "ParamDef must keep its 32-bit device footprint");
 
   /**
@@ -731,6 +741,36 @@ protected:
   void reset_parameters() {
     parameters.count = 0;
     parameters.bump_schema_generation();
+  }
+
+  /**
+   * @brief Reads registered values from a live mirror while writes target the
+   *        corresponding requested state.
+   * @details Targets outside @p requested retain their own value source.
+   */
+  template <typename State>
+  void mirror_parameter_display_state(const State &requested,
+                                      const State &displayed) {
+#if HS_PARAM_GUI_BRIDGE
+    const std::uintptr_t requested_begin =
+        reinterpret_cast<std::uintptr_t>(&requested);
+    const std::uintptr_t requested_end = requested_begin + sizeof(State);
+    const std::uintptr_t displayed_begin =
+        reinterpret_cast<std::uintptr_t>(&displayed);
+    for (ParamDef &parameter : parameters) {
+      const std::uintptr_t target =
+          reinterpret_cast<std::uintptr_t>(parameter.target);
+      if (target < requested_begin || target >= requested_end) {
+        parameter.display_target = nullptr;
+        continue;
+      }
+      parameter.display_target = reinterpret_cast<const void *>(
+          displayed_begin + (target - requested_begin));
+    }
+#else
+    (void)requested;
+    (void)displayed;
+#endif
   }
 
   /**
