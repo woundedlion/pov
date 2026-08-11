@@ -541,8 +541,8 @@ private:
     const uint32_t now = ARM_DWT_CYCCNT;
 
     // Complete a deferred sync pulse from the previous wake: a wake that
-    // submitted no frame has a body too short to width a same-wake pulse to
-    // spec §5.2's "tens of µs," so it holds the pin HIGH and drops it here.
+    // submitted no frame has a ~1 µs body, too short to width a same-wake
+    // pulse (spec §5.2), so it holds the pin HIGH and drops it here.
     if (sync_pulse.take_deferred_low())
       digitalWriteFast(PIN_FRAME_SYNC, LOW);
 
