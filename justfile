@@ -11,8 +11,6 @@
 # shell (a developer defaulting just to sh/pwsh would otherwise hit a syntax error).
 set windows-shell := ["cmd", "/c"]
 
-doxygen_awesome_sha := `python tools/build_pins.py doxygen-awesome`
-
 # Show the available recipes when run with no arguments.
 default:
     @just --list
@@ -81,18 +79,20 @@ docs: docs-check _doxygen-theme _doxyfile-local
     python tools/docs_images.py
 
 # Fetch the exact doxygen-awesome revision used by CI. The clone guard is split
-# per-OS; the fetch and checkout also refresh existing clones.
+# per-OS; the fetch and checkout also refresh existing clones. The pin is a
+# parameter default, not a justfile-level assignment: only that form defers the
+# backtick to this recipe, leaving every python-free recipe runnable without it.
 [unix]
-_doxygen-theme:
+_doxygen-theme sha=`python tools/build_pins.py doxygen-awesome`:
     test -d .doxygen-awesome/.git || git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
-    git -C .doxygen-awesome fetch --depth 1 origin {{doxygen_awesome_sha}}
-    git -C .doxygen-awesome checkout --detach {{doxygen_awesome_sha}}
+    git -C .doxygen-awesome fetch --depth 1 origin {{sha}}
+    git -C .doxygen-awesome checkout --detach {{sha}}
 
 [windows]
-_doxygen-theme:
+_doxygen-theme sha=`python tools/build_pins.py doxygen-awesome`:
     if not exist .doxygen-awesome\.git git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
-    git -C .doxygen-awesome fetch --depth 1 origin {{doxygen_awesome_sha}}
-    git -C .doxygen-awesome checkout --detach {{doxygen_awesome_sha}}
+    git -C .doxygen-awesome fetch --depth 1 origin {{sha}}
+    git -C .doxygen-awesome checkout --detach {{sha}}
 
 # Synthesize Doxyfile.local = Doxyfile + docs/doxygen-theme.cfg (the same theme
 # overrides docs.yml appends). The copy+append is shell-specific, so it's split
