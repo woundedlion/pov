@@ -1594,3 +1594,82 @@ jobs:
           rm -rf .pio/build_cache .pio/build
           pio run -v 2>&1 | tee teensy_build.log
           python tools/teensy_warnings.py --build-log teensy_build.log --github
+
+  ci-green:
+    name: CI green
+    # The one status branch protection keys on, so a required check covers every
+    # job here instead of a hand-maintained list that a newly added job silently
+    # escapes. `needs` names every other job in this file; the drift check below
+    # fails when one is missing.
+    # `if: always()` is load-bearing: a failed dependency SKIPS a plain job, and
+    # a skipped required check does not block a merge. Only a failed or cancelled
+    # dependency reds this — a skipped one passes.
+    needs:
+      - tests
+      - sanitizers
+      - thread-sanitizer
+      - optimized-tests
+      - code-coverage
+      - windows-tests
+      - wasm
+      - lut-provenance
+      - reaction-graph-provenance
+      - gamut-lut-provenance
+      - srgb-decode-provenance
+      - screenshot-gallery
+      - docs-markdown
+      - lint
+      - shard-coverage
+      - clang-format
+      - teensy-gate-tests
+      - teensy-size
+      - teensy-warnings
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Assert every job is a dependency and succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          WF=.github/workflows/ci.yml
+
+          # Top-level job keys: the two-space-indented `key:` lines after `jobs:`.
+          # Everything inside a job (including block-scalar bodies) is indented
+          # deeper, and the `on:` keys sit above `jobs:`.
+          awk '
+            /^jobs:[[:space:]]*$/ { injobs = 1; next }
+            injobs && /^[^[:space:]]/ { injobs = 0 }
+            injobs && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ {
+              sub(/^  /, ""); sub(/:[[:space:]]*$/, ""); print
+            }
+          ' "$WF" | grep -vx ci-green | sort > /tmp/ci-jobs.txt
+
+          # One "<job> <result>" pair per line. Written to a file rather than
+          # read through a pipeline or process substitution so a failure to
+          # decode the results fails the step instead of reading as "no failures".
+          python3 - <<'PY' > /tmp/ci-results.txt
+          import json, os
+          for job, meta in sorted(json.loads(os.environ["RESULTS"]).items()):
+              print(job, meta["result"])
+          PY
+          cut -d" " -f1 /tmp/ci-results.txt | sort > /tmp/ci-needs.txt
+
+          missing=$(comm -23 /tmp/ci-jobs.txt /tmp/ci-needs.txt)
+          if [ -n "$missing" ]; then
+            for j in $missing; do
+              echo "::error file=$WF::job '$j' is absent from ci-green's needs, so the aggregate status would go green without it"
+            done
+            exit 1
+          fi
+
+          awk '$2 != "success" && $2 != "skipped"' /tmp/ci-results.txt > /tmp/ci-bad.txt
+          if [ -s /tmp/ci-bad.txt ]; then
+            while read -r job result; do
+              echo "::error::job '$job' did not pass: $result"
+            done < /tmp/ci-bad.txt
+            exit 1
+          fi
+          echo "CI green: $(wc -l < /tmp/ci-results.txt) jobs, every one success or skipped."
