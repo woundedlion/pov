@@ -321,9 +321,9 @@ private:
       ++k;
     });
 
-    constexpr float INV_SAMPLES = 1.0f / 4.0f;
+    constexpr float INV_SAMPLES = 1.0f / Grid::SAMPLES;
     float mix_a = 0, mix_b = 0, mix_c = 0;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < Grid::SAMPLES; ++i) {
       Vector v = grid.at(x, i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
       // always_inline on the accumulator: without it GCC spends +32 B of ITCM

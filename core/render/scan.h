@@ -1924,6 +1924,9 @@ struct Shader {
    * handful of floats.
    */
   template <int W, int H> struct SsaaGrid {
+    /** @brief Sub-pixel samples per pixel supplied by the 2×2 grid. */
+    static constexpr int SAMPLES = 4;
+
     float sin_phi[2]; /**< Current row's sin(phi) at y+0.25 [0] / y-0.25 [1]. */
     float cos_phi[2]; /**< Current row's cos(phi) at y+0.25 [0] / y-0.25 [1]. */
     float cos_dtheta; /**< cos of the ±0.25 px column rotation. */
@@ -1957,8 +1960,8 @@ struct Shader {
      * @brief World-space unit vector for sample i of pixel x in the current
      *        row (see set_row).
      * @param x Pixel column.
-     * @param i Sample index in [0, 4); the low bit selects the column offset
-     * (±0.25 px) and bit 1 the row offset (±0.25 px).
+     * @param i Sample index in [0, SAMPLES); the low bit selects the column
+     * offset (±0.25 px) and bit 1 the row offset (±0.25 px).
      */
     Vector at(int x, int i) const {
       const float st = TrigLUT<W, H>::sin_theta[x];

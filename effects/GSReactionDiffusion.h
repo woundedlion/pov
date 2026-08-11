@@ -426,10 +426,13 @@ private:
       ++k;
     });
 
+    constexpr uint32_t SAMPLES = Grid::SAMPLES;
     uint32_t accum_r = 0, accum_g = 0, accum_b = 0;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < Grid::SAMPLES; ++i) {
       Vector v = grid.at(x, i);
       float tw = 0.0f, wb = 0.0f;
+      // always_inline on the accumulator is load-bearing: without it GCC
+      // spends extra ITCM on this stencil walk.
       for (int j = 0; j < RD_K + 1; ++j)
         with_wendland_weight(dist2(v, spos[j]),
                              [&](float w) __attribute__((always_inline)) {
@@ -444,9 +447,9 @@ private:
 
       float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
       Pixel sample = palette.get_color_unit(t);
-      accum_r += (static_cast<uint32_t>(sample.r) + 2u) >> 2;
-      accum_g += (static_cast<uint32_t>(sample.g) + 2u) >> 2;
-      accum_b += (static_cast<uint32_t>(sample.b) + 2u) >> 2;
+      accum_r += (static_cast<uint32_t>(sample.r) + SAMPLES / 2u) / SAMPLES;
+      accum_g += (static_cast<uint32_t>(sample.g) + SAMPLES / 2u) / SAMPLES;
+      accum_b += (static_cast<uint32_t>(sample.b) + SAMPLES / 2u) / SAMPLES;
     }
     return Pixel(static_cast<uint16_t>(accum_r > 65535u ? 65535u : accum_r),
                  static_cast<uint16_t>(accum_g > 65535u ? 65535u : accum_g),
