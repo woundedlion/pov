@@ -3802,6 +3802,88 @@ inline void test_chaoticstrings_scratch_estimate_covers_peak() {
   HS_EXPECT_LE(worst_vertices, (size_t)CS::MAX_FRAGMENTS);
 }
 
+/**
+ * @brief White-box accessor for RingSpin's ring pool (befriended in
+ *        effects/RingSpin.h).
+ */
+struct RingSpinWhiteBox {
+  using RS = RingSpin<DEFAULT_W, DEFAULT_H>;
+
+  /** @brief Sub-frame count of ring @p i's current orientation step. */
+  static int substeps(const RS &fx, int i) {
+    return fx.rings[i].orientation.length();
+  }
+  /** @brief World-space axis of ring @p i's great circle at sub-frame @p s. */
+  static Vector axis(const RS &fx, int i, int s) {
+    return fx.rings[i].orientation.orient(fx.rings[i].normal, s).normalized();
+  }
+  /** @brief Half-width in radians of the trail-head stroke. */
+  static float head_half_width(const RS &fx) {
+    return 2.0f * (2.0f * PI_F / DEFAULT_W) * fx.params.thickness;
+  }
+};
+
+/**
+ * @brief Verifies every lit RingSpin pixel sits on one of its great circles.
+ * @details RingSpin draws SDF::Ring at radius 1 (a great circle) about each
+ *          ring's rotated plane normal, so on the first frame — where the trail
+ *          holds a single orientation step — every lit pixel must lie within the
+ *          stroke half-width of some ring's equator. This catches a basis,
+ *          radius or trail-record regression that still renders a plausible
+ *          frame. Alpha 0 must then blank the frame, pinning the trail-colour
+ *          early-out.
+ */
+inline void test_ringspin_trail_hugs_its_great_circles() {
+  reset_effect_globals();
+  pin_frame_clock(0);
+  using WB = RingSpinWhiteBox;
+  WB::RS fx;
+  fx.init();
+  pin_frame_clock(1);
+  fx.draw_frame();
+  fx.advance_display();
+
+  // Polar deviation from the equator that the stroke half-width admits. The
+  // pipeline carries no Screen::AntiAlias, so there is no fringe to allow for;
+  // the measured worst case is 0.011 against this 0.035 bound.
+  const float band = std::sin(WB::head_half_width(fx));
+  int lit = 0, off_circle = 0;
+  float worst = 0.0f;
+  for (int y = 0; y < DEFAULT_H; ++y)
+    for (int x = 0; x < DEFAULT_W; ++x) {
+      const Pixel p = fx.get_pixel(x, y);
+      if (p.r == 0 && p.g == 0 && p.b == 0)
+        continue;
+      ++lit;
+      const Vector v = pixel_to_vector<DEFAULT_W, DEFAULT_H>(x, y);
+      float nearest = 1.0f;
+      for (int i = 0; i < WB::RS::NUM_RINGS; ++i)
+        for (int s = 0; s < WB::substeps(fx, i); ++s)
+          nearest = std::min(nearest, std::abs(dot(v, WB::axis(fx, i, s))));
+      worst = std::max(worst, nearest);
+      if (nearest > band)
+        ++off_circle;
+    }
+
+  std::printf("  [info] RingSpin: lit=%d off-circle=%d worst |dot|=%.6f band "
+              "%.6f\n",
+              lit, off_circle, worst, band);
+  HS_EXPECT_GT(lit, 0);
+  HS_EXPECT_EQ(off_circle, 0);
+
+  HS_EXPECT_TRUE(fx.updateParameter("Alpha", 0.0f) == ParamSetResult::APPLIED);
+  fx.draw_frame();
+  fx.advance_display();
+  int still_lit = 0;
+  for (int y = 0; y < DEFAULT_H; ++y)
+    for (int x = 0; x < DEFAULT_W; ++x) {
+      const Pixel p = fx.get_pixel(x, y);
+      if (p.r != 0 || p.g != 0 || p.b != 0)
+        ++still_lit;
+    }
+  HS_EXPECT_EQ(still_lit, 0);
+}
+
 // ---------------------------------------------------------------------------
 // Drift-prone effects: spawn-gap / emit-phase / pool-bound white-box pins.
 //
@@ -6291,6 +6373,7 @@ inline int run_effects_tests() {
     DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
     test_dynamo_trail_ceiling_bounds_the_ring();
     test_dynamo_emitted_points_counts_ring_seeds();
+    test_ringspin_trail_hugs_its_great_circles();
     test_hopf_projection_math();
     test_hopf_trail_trim_keeps_a_segment();
     test_raymarch_constexpr_sqrt_converges();

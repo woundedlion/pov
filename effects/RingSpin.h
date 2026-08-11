@@ -15,6 +15,13 @@
 #include <new> // std::launder
 #include "core/engine/engine.h"
 
+// Unit-test accessor for the ring pool's orientations and stroke geometry.
+namespace hs_test {
+namespace effects_tests {
+struct RingSpinWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Spinning great-circle rings that wander the sphere.
  * @tparam W Canvas width in pixels.
@@ -155,6 +162,8 @@ public:
   }
 
 private:
+  friend struct ::hs_test::effects_tests::RingSpinWhiteBox;
+
   Timeline timeline;
   Pipeline<W, H> filters;
   Ring *rings = nullptr;
