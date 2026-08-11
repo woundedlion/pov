@@ -2420,7 +2420,7 @@ built with `new Function` at module-creation time, and the shipped glue
 generates no code at runtime (asserted by `wasm_smoke.mjs`). `font-src` allows
 `data:` for the woff2 lil-gui inlines in its stylesheet.
 
-A page-specific local import (e.g. `solids.html` referencing `../solids.js`) is added by setting `window.daydreamExtraImports` to a `{ specifier: url }` map before the helper script.
+A page can add its own local imports by setting `window.daydreamExtraImports` to a `{ specifier: url }` map before the helper script; no page currently does.
 
 ### 10.9 Video Recording (`recorder.js`)
 
