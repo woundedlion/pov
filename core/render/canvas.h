@@ -183,6 +183,11 @@ public:
     setAnimationsPaused(true);
     return true;
   }
+  /** @brief Selects one preset without changing the animation pause state. */
+  bool synchronizePreset(size_t index) {
+    return index == preset_index ||
+           change_preset(index, PresetChangeOrigin::SYNCHRONIZED);
+  }
   /** @brief Selects and pauses the next preset. */
   bool nextPreset() {
     return preset_count > 0 && selectPreset((preset_index + 1) % preset_count);
@@ -656,13 +661,13 @@ public:
 
 protected:
   /** @brief Whether a preset move came from choreography or a user control. */
-  enum class PresetChangeOrigin : uint8_t { AUTOMATIC, MANUAL };
+  enum class PresetChangeOrigin : uint8_t { AUTOMATIC, MANUAL, SYNCHRONIZED };
 
   /** @brief One validated preset transition handed to the effect hook. */
   struct PresetChange {
     size_t from;               /**< Previously committed preset index. */
     size_t to;                 /**< Candidate preset index. */
-    PresetChangeOrigin origin; /**< Automatic or user-initiated move. */
+    PresetChangeOrigin origin; /**< Source of the preset change. */
   };
 
   /** @brief Enables the shared preset controller for this effect. */

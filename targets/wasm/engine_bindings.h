@@ -673,6 +673,13 @@ public:
     return true;
   }
 
+  bool synchronizePreset(uint32_t index) {
+    if (!current_effect || !current_effect->synchronizePreset(index))
+      return false;
+    animations_paused = current_effect->animations_paused();
+    return true;
+  }
+
   bool nextPreset() {
     if (!current_effect || !current_effect->nextPreset())
       return false;
@@ -959,6 +966,7 @@ static void bind_engine() {
       .function("getPresetCount", &HolosphereEngine::getPresetCount)
       .function("getPresetIndex", &HolosphereEngine::getPresetIndex)
       .function("selectPreset", &HolosphereEngine::selectPreset)
+      .function("synchronizePreset", &HolosphereEngine::synchronizePreset)
       .function("nextPreset", &HolosphereEngine::nextPreset)
       .function("previousPreset", &HolosphereEngine::previousPreset)
       .function("setPoleLod", &HolosphereEngine::setPoleLod)
