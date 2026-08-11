@@ -432,12 +432,15 @@ private:
 struct Shockwave : Base {
   static constexpr float BAND =
       0.3f;               /**< Wave-front softness, in phase units. */
-  Vector origin = Y_AXIS; /**< World-space wave origin. */
+  Vector origin = Y_AXIS; /**< Unit-length world-space wave origin;
+                               face_offset's acos orders faces only for a unit
+                               vector. */
   /**
    * @brief Moves the wave origin for the next transition.
-   * @param v World-space origin the wave expands from.
+   * @param v World-space direction the wave expands from; normalized into the
+   * origin.
    */
-  void retarget(const Vector &v) { origin = v; }
+  void retarget(const Vector &v) { origin = v.normalized(); }
   /**
    * @brief Orders faces by angular distance from the origin.
    * @return Position in [0, 1]: 1 at the origin, which extinguishes first.
