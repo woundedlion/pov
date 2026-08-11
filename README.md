@@ -2498,9 +2498,9 @@ static constexpr unsigned int RPM = 480;
 
 Pin assignments are in `core/render/led.h` (also included by `hardware/pov_single.h`):
 ```cpp
-static constexpr int PIN_DATA   = 11;
-static constexpr int PIN_CLOCK  = 13;
-static constexpr int PIN_RANDOM = 15;
+inline constexpr int PIN_DATA   = 11;
+inline constexpr int PIN_CLOCK  = 13;
+inline constexpr int PIN_RANDOM = 15;
 ```
 
 ### WASM Build — Holosphere repo (installs into daydream)
