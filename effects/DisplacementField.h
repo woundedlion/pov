@@ -83,7 +83,8 @@ public:
     noise_field.template_params.noise.SetSeed(hs::rand_int(0, 65536));
 
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Rings", &params.num_rings, 1.0f, 72.0f);
+    register_param("Rings", &params.num_rings, 1.0f,
+                   static_cast<float>(RING_SLOTS));
     register_param("Thickness", &params.thickness, 0.4f * THICKNESS_PX,
                    6.0f * THICKNESS_PX);
     register_param("Ball Amp", &params.ball_amp, 0.0f, 0.8f);
@@ -683,7 +684,7 @@ private:
   float color_spin =
       0.0f; /**< Palette offset across the stack (turns, [0,1)). */
   static constexpr int RING_SLOTS =
-      72; /**< Baked-ring pool capacity; matches the Rings slider max. */
+      72; /**< Baked-ring pool capacity, and the Rings slider maximum. */
   float *shift_pool =
       nullptr; /**< RING_SLOTS x (W + 1) pooled shift LUTs, one slot per drawn ring; entry lut_n repeats entry 0 to close the polyline. */
   Pixel *hue_pool =
