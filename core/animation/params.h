@@ -53,6 +53,9 @@ public:
    * integer staircase rather than a smooth sweep.
    * @param repeat If true, the transition repeats indefinitely.
    * @param paused Optional pause gate; null = always runs.
+   * @note An animation-level gate only early-returns from step(); an event's
+   * pending start delay keeps elapsing under it. Timeline::add_pausable
+   * freezes the delay too, and is what production pause paths use.
    */
   Transition(float &mutant, float to, int duration, EasingFn easing_fn,
              bool quantized = false, bool repeat = false,
