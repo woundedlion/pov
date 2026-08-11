@@ -2337,7 +2337,7 @@ struct DreamBallsWhiteBox {
   using DB = DreamBalls<SMALL_W, SMALL_H>;
   static constexpr int PRESETS = 10;
   static constexpr size_t SOLID_COUNT = DB::SOLID_COUNT;
-  static constexpr size_t MAX_SOLID_EDGES = DB::MAX_SOLID_EDGES;
+  static constexpr size_t MAX_SOLID_EDGES = Solids::MAX_SOLID_EDGES;
   static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
 
   static int active_bake(const DB &db) { return db.active_bake; }
