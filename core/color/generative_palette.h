@@ -923,10 +923,14 @@ private:
     return {lightness, chroma, hue};
   }
 
-  bool is_chromatic(const ControlKey &key) const {
+  bool is_chromatic(float chroma) const {
     return chroma_basis == ChromaBasis::LOCAL_GAMUT
-               ? key.chroma > 0.0f
-               : key.chroma >= OKLCH_ACHROMATIC_C;
+               ? chroma > 0.0f
+               : chroma >= OKLCH_ACHROMATIC_C;
+  }
+
+  bool is_chromatic(const ControlKey &key) const {
+    return is_chromatic(key.chroma);
   }
 
   float apply_easing(float progress) const {
@@ -1129,9 +1133,7 @@ private:
     const float visibility = segment.visibility;
     const float L = envelope.L * visibility;
     const float control = envelope.chroma * visibility;
-    const bool chromatic = chroma_basis == ChromaBasis::LOCAL_GAMUT
-                               ? control > 0.0f
-                               : control >= OKLCH_ACHROMATIC_C;
+    const bool chromatic = is_chromatic(control);
 
     PathEvaluation path;
     if (complementary_harmony) {
