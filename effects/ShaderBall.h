@@ -3853,7 +3853,23 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 21> PRESETS = {{
+  static constexpr Preset kaleidoscope_mirror_preset() {
+    const Slots slots{Function::TWIN_WAVE,
+                      Projection::STEREOGRAPHIC,
+                      ProjectionFramePolicy::SPIN_WANDER,
+                      SurfaceLens::KALEIDOSCOPE,
+                      {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
+                      SignalWeight::PROJECTION,
+                      ValueTransfer::LINEAR,
+                      CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
+                      Colorizer::LIQUID};
+    const Params params = authored_params(
+        {10.158f, 0.245f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
+        {4.971f, 0.0f, 1.0f}, {1.0f}, {0.15f, 0.0f, 0.0f, 0.0f}, {1.0f});
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 22> PRESETS = {{
       {LIQUID_STEREO_SLOTS,
        authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f}, {3.0f, 0.5f, 0.5f},
                        {1.4f, 0.0f}, {1.0f}, {0.15f, 0.05f, 0.0f, 0.0f},
@@ -3923,6 +3939,7 @@ private:
       diagnostic_preset(3),
       diagnostic_preset(4),
       wave_shear_liquid_preset(),
+      kaleidoscope_mirror_preset(),
   }};
   static_assert(
       [] {
@@ -3950,7 +3967,7 @@ private:
       }(),
       "a ShaderBall preset edge lacks continuous transition admission");
 
-  static constexpr std::array<Choreo, 21> CHOREO = {{
+  static constexpr std::array<Choreo, 22> CHOREO = {{
       {30, 90, 60, true},   {30, 90, 60, true}, {30, 90, 60, true},
       {30, 90, 480, false}, {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
@@ -3958,6 +3975,7 @@ private:
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
+      {0, 0, 480, false},
   }};
   static_assert(CHOREO.size() == PRESETS.size());
 
