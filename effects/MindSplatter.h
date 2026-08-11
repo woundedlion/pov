@@ -366,7 +366,7 @@ private:
   BaseMesh active_base_mesh = BaseMesh::CUBE;
   bool particle_geometry_ready = false;
 
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
   bool reference_orientation = false;
   bool reference_vertex_pass = false;
   bool reference_hole_kernel = false;
@@ -494,7 +494,7 @@ private:
     // Position pass: Mobius warp + orientation (decides cullability).
     auto vertex_shader = [&](Fragment &f) {
       f.pos = mobius_transform(f.pos, mobius);
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
       if (reference_orientation) {
         f.pos = orientation.orient(f.pos);
         return;
@@ -505,7 +505,7 @@ private:
 
     // Signed-axis event-horizon falloff from the pre-warp position.
     auto hole_shader = [&](Fragment &f, const Vector &original_pos) {
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
       if (reference_hole_kernel) {
         f.v3 *= attractor_hole_alpha(original_pos, cos_event_horizon);
         return;
@@ -537,7 +537,7 @@ private:
              "MindSplatter particle index space exceeds pool capacity");
     {
       HS_PROFILE(msp_particle_scan);
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
       if (reference_vertex_pass) {
         Plot::ParticleSystem::draw<W, H>(sink, canvas, particle_system,
                                          fragment_shader, vertex_shader,

@@ -166,7 +166,7 @@ private:
   float next_hue =
       0.0f; /**< Per-instance hue cursor, advanced per spawn; reset in init() so hue assignment stays deterministic for the fixed-seed segmented driver. */
 
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
   int spawns = 0;         /**< Rings placed into a free slot, cumulative. */
   int dropped_spawns = 0; /**< Spawn requests that found no free slot. */
 #endif
@@ -259,13 +259,13 @@ private:
         rings[i].hue = next_hue;
         constexpr float HUE_STEP = 0.13f;
         next_hue = wrap(next_hue + HUE_STEP, 1.0f);
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
         ++spawns;
 #endif
         return;
       }
     }
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
     ++dropped_spawns;
 #endif
   }

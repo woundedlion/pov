@@ -251,7 +251,7 @@ private:
                   bool &use_hue_table, bool &precompute_hue_table,
                   float &hue_domain, bool &cyclic_hue_table) {
     use_hue_table = params.hue_scale != 0.0f && lut_n > 2 * HUE_TABLE_SIZE;
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
     use_hue_table = use_hue_table && !force_exact_hue;
 #endif
     precompute_hue_table = false;
@@ -271,7 +271,7 @@ private:
     cyclic_hue_table = std::fabs(hue_extent) > 1.0f;
     hue_domain =
         cyclic_hue_table ? std::copysign(1.0f, hue_extent) : hue_extent;
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
     ++hue_table_uses;
 #endif
   }
@@ -717,8 +717,10 @@ private:
       nullptr; /**< Active-ball params validated and cached once per frame. */
   int *ball_local =
       nullptr; /**< MAX_BALLS scratch: active indices of the balls that can reach the current ring. */
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
   bool force_exact_hue = false;
+#endif
+#if HS_ENABLE_TEST_HOOKS
   int hue_table_uses = 0;
 #endif
 

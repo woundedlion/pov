@@ -12,13 +12,11 @@
 
 #include "core/engine/engine.h"
 
-#ifdef HS_TEST_BUILD
 namespace hs_test {
 namespace shapeshifter_oracle_tests {
 struct ShapeShifterWhiteBox;
 } // namespace shapeshifter_oracle_tests
 } // namespace hs_test
-#endif
 
 /**
  * @brief Draws phase-modulated concentric shapes across the sphere.
@@ -128,7 +126,7 @@ private:
   }
 
 public:
-#if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
+#if HS_ENABLE_EFFECT_CONTROL_API
   void profile_select_preset(size_t index) {
     HS_CHECK(index < PRESETS.size(),
              "ShapeShifter profile preset index out of range");
@@ -146,9 +144,7 @@ public:
 #endif
 
 private:
-#ifdef HS_TEST_BUILD
   friend struct ::hs_test::shapeshifter_oracle_tests::ShapeShifterWhiteBox;
-#endif
 
   static constexpr float ALPHA_MIN = 0.0f;
   static constexpr float ALPHA_MAX = 1.0f;
@@ -498,45 +494,6 @@ private:
       draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
   }
 
-#ifdef HS_TEST_BUILD
-  void draw_all_reference(Canvas &canvas) {
-    const int count = hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES);
-    if (count != baked_palette_count || params.spacing != prepared_spacing)
-      prepare_count(count);
-    const BakedPalette &palette = selected_palette();
-    const int sides =
-        hs::clamp(static_cast<int>(params.sides), static_cast<int>(SIDES_MIN),
-                  static_cast<int>(SIDES_MAX));
-    const ShapeType shape = selected_shape();
-    const PhaseFunction function = selected_function();
-    const Basis basis = make_basis(orientation.get(), X_AXIS);
-    const float global_alpha = alpha * preset_opacity;
-
-    const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
-    for (int ordinal = 0; ordinal < count; ++ordinal) {
-      const int i =
-          continuous_star ? count - ordinal - 1 : folded_draw_indices[ordinal];
-      const float radius_t =
-          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-      const float geometry_radius_t = spaced_radius_t[i];
-      const float radius = 2.0f * geometry_radius_t;
-      const float direction = continuous_star ? star_phase_direction(radius)
-                                              : phase_direction(radius);
-      const float contour_phase =
-          direction * params.amplitude * evaluate(function, radius_t + phase);
-      const Color4 color = palette.get(radius_t);
-      auto shader = [&](const Vector &, Fragment &fragment) {
-        fragment.color = color;
-        fragment.color.alpha *= global_alpha;
-      };
-      dispatch_plot_reference(canvas, basis, shape, radius, sides, shader,
-                              contour_phase);
-    }
-    if (shape == ShapeType::PLANAR_STAR)
-      draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
-  }
-#endif
-
   /** @brief Returns the selected Plot primitive. */
   ShapeType selected_shape() const { return params.shape; }
 
@@ -784,40 +741,6 @@ private:
       break;
     }
   }
-
-#ifdef HS_TEST_BUILD
-  template <typename F>
-  void dispatch_plot_reference(Canvas &canvas, const Basis &basis,
-                               ShapeType shape, float radius, int sides,
-                               const F &fragment_shader, float shape_phase) {
-    switch (shape) {
-    case ShapeType::PLANAR_POLYGON:
-      Plot::Polygon<Plot::PlanarProjection>::draw<W, H>(
-          plot_filters, canvas, basis, radius, sides, fragment_shader,
-          shape_phase);
-      break;
-    case ShapeType::SPHERICAL_POLYGON:
-      Plot::Polygon<Plot::GeodesicProjection>::draw<W, H>(
-          plot_filters, canvas, basis, radius, sides, fragment_shader,
-          shape_phase);
-      break;
-    case ShapeType::FLOWER:
-      Plot::Flower::draw<W, H>(plot_filters, canvas, basis, radius, sides,
-                               fragment_shader, {}, shape_phase);
-      break;
-    case ShapeType::PLANAR_STAR:
-      Plot::Star<Plot::PlanarProjection>::draw<W, H>(
-          plot_filters, canvas, basis, radius, sides, fragment_shader,
-          shape_phase);
-      break;
-    case ShapeType::SPHERICAL_STAR:
-      Plot::Star<Plot::GeodesicProjection>::draw_continuous<W, H>(
-          plot_filters, canvas, basis, radius, sides, fragment_shader,
-          shape_phase);
-      break;
-    }
-  }
-#endif
 
   static constexpr size_t PRESET_COUNT = 9;
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
