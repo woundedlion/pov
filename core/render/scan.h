@@ -1742,6 +1742,20 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 }
 HS_O3_END
 
+/**
+ * @brief Arena-hosts one per-mesh Face scratch buffer.
+ * @param arena Scratch arena supplying the storage.
+ * @return The constructed buffer, valid until the caller's ScratchScope closes.
+ * @details Default-init: every field is written by SDF::Face before it is read,
+ * and value-init would zero ~7.7 KB per mesh draw.
+ */
+HS_NOINLINE_NOCLONE inline SDF::FaceScratchBuffer *
+new_face_scratch(Arena &arena) {
+  return new (arena.allocate(sizeof(SDF::FaceScratchBuffer),
+                             alignof(SDF::FaceScratchBuffer)))
+      SDF::FaceScratchBuffer;
+}
+
 HS_O3_BEGIN
 /**
  * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face,
@@ -1786,9 +1800,7 @@ struct Mesh {
     check_canvas_dims<W, H>(canvas);
 
     ScratchScope scope(scratch_arena);
-    auto *scratch =
-        static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
-            sizeof(SDF::FaceScratchBuffer), alignof(SDF::FaceScratchBuffer)));
+    auto *scratch = new_face_scratch(scratch_arena);
 
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
