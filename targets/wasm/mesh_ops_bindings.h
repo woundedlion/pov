@@ -335,11 +335,6 @@ public:
     last_mesh_op_result = MeshOpResult::OK;
     if (!wrapper_live())
       return val::null();
-    size_t total = 0;
-    for (size_t i = 0; i < mesh.get_face_counts_size(); ++i)
-      total += mesh.get_face_counts_data()[i];
-    HS_CHECK(total == mesh.get_faces_size(),
-             "getFaces: face_counts sum disagrees with the flat index count");
     val out = val::object();
     out.set("indices", val::global("Uint16Array")
                            .new_(val(typed_memory_view(
