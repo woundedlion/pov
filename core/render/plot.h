@@ -1506,11 +1506,6 @@ static inline bool edge_fits_one_dot(const Vector &a, const Vector &b) {
 }
 HS_O3_END
 
-/** Precomputed edge byte flags consumed by rasterize(). */
-static constexpr uint8_t EDGE_VISIBLE = 1u << 0;
-static constexpr uint8_t EDGE_ONE_DOT = 1u << 1;
-static constexpr uint8_t EDGE_CLASSIFIED = 1u << 2;
-
 /**
  * @brief True when AntiAlias would emit any tap of a projected dot in @p cr.
  * @tparam W,H Rasterization resolution (pixel grid).
@@ -1629,6 +1624,13 @@ template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
  * scalar arguments — worth 1,376 B of ITCM on the device image.
  */
 struct RasterOptions {
+  /** edge_flags bit: the edge intersects the clip region. */
+  static constexpr uint8_t EDGE_VISIBLE = 1u << 0;
+  /** edge_flags bit: the edge spans at most one screen step. */
+  static constexpr uint8_t EDGE_ONE_DOT = 1u << 1;
+  /** edge_flags bit: EDGE_ONE_DOT carries a verdict; else it is unclassified. */
+  static constexpr uint8_t EDGE_CLASSIFIED = 1u << 2;
+
   /** Also draw the last→first edge. */
   bool close_loop = false;
   /**
@@ -1644,13 +1646,12 @@ struct RasterOptions {
   bool omit_end = false;
   /**
    * Optional precomputed Tier-3 edge flags, one byte per rasterized edge:
-   * points.size() - 1, or points.size() under close_loop.
-   * Bit 0 is visibility. Bits 1 and 2 optionally retain one-dot and
-   * classification-known; a plain 0/1 visibility array remains valid.
+   * points.size() - 1, or points.size() under close_loop. Each byte is
+   * EDGE_VISIBLE, optionally OR'd with EDGE_CLASSIFIED | EDGE_ONE_DOT.
    * Geodesic polylines only: a planar polyline's per-edge basis depends on
    * rasterize()'s seam pre-pass.
    */
-  const uint8_t *edge_visible = nullptr;
+  const uint8_t *edge_flags = nullptr;
   /**
    * Optional per-point screen rows, y_to_screen_row of each points[k].pos.
    * With point_cols, lets the single-dot shortcut skip the projection. Only
@@ -1742,7 +1743,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   const bool close_loop = OpenGeodesic ? false : opts.close_loop;
   const Basis *planar_basis = OpenGeodesic ? nullptr : opts.planar_basis;
   const bool omit_end = OpenGeodesic ? false : opts.omit_end;
-  const uint8_t *edge_visible = opts.edge_visible;
+  const uint8_t *edge_flags = opts.edge_flags;
   const float *point_rows = opts.point_rows;
   const float *point_cols = opts.point_cols;
   const Fragment *loop_seam = OpenGeodesic ? nullptr : opts.loop_seam;
@@ -1760,7 +1761,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // calls below can't invoke a null thunk.
   if constexpr (std::same_as<std::decay_t<FragmentShaderT>, FragmentShaderFn>)
     HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
-  HS_CHECK(edge_visible == nullptr || planar_basis == nullptr,
+  HS_CHECK(edge_flags == nullptr || planar_basis == nullptr,
            "precomputed edge visibility is geodesic-only");
   HS_CHECK(loop_seam == nullptr || close_loop,
            "a raster seam fragment requires a closed loop");
@@ -2268,8 +2269,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
 #ifdef HS_TEST_BUILD
         rebuild_planar_sampler = opts.rebuild_planar_sampler;
 #endif
-        if (edge_visible != nullptr) {
-          visible = (edge_visible[i] & EDGE_VISIBLE) != 0;
+        if (edge_flags != nullptr) {
+          visible = (edge_flags[i] & RasterOptions::EDGE_VISIBLE) != 0;
         } else if (use_planar && xc.active && !rebuild_planar_sampler) {
           planar_cull_span =
               make_planar_edge_span(curr.pos, next.pos, *planar_basis);
@@ -2283,8 +2284,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                                          use_planar ? planar_basis : nullptr);
         }
       } else {
-        visible = edge_visible != nullptr
-                      ? (edge_visible[i] & EDGE_VISIBLE) != 0
+        visible = edge_flags != nullptr
+                      ? (edge_flags[i] & RasterOptions::EDGE_VISIBLE) != 0
                       : edge_visible_in_clip<W, H>(
                             pipeline, cr, xc, curr.pos, next.pos,
                             use_planar ? planar_basis : nullptr);
@@ -2301,8 +2302,9 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // false negative falls through and re-evaluates exactly.
     const bool one_dot =
         !has_planar_basis &&
-        (edge_visible != nullptr && (edge_visible[i] & EDGE_CLASSIFIED) != 0
-             ? (edge_visible[i] & EDGE_ONE_DOT) != 0
+        (edge_flags != nullptr &&
+                 (edge_flags[i] & RasterOptions::EDGE_CLASSIFIED) != 0
+             ? (edge_flags[i] & RasterOptions::EDGE_ONE_DOT) != 0
              : edge_fits_one_dot<W, H>(curr.pos, next.pos));
     if (one_dot) {
       HS_PLOT_COUNT(one_dot);
@@ -3809,7 +3811,8 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
  * @param xc Precomputed x-clip predicate for @p cr.
  * @param trail Geodesic fragment polyline (>= 2 unit-position points).
  * @param bits Output, one byte per edge (trail.size() - 1): 0 = culled, else
- *        1; valid as rasterize()'s edge_visible input for an open polyline.
+ *        EDGE_VISIBLE; valid as rasterize()'s edge_flags input for an open
+ *        polyline.
  * @return False when no edge is visible; bits are then all zero.
  * @details The hoisted per-point coordinates and the whole-trail culls come
  * from trail_gate_prologue, shared with ParticleSystem::draw's gate.
@@ -3860,7 +3863,7 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
     const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
     const bool v = exact_geodesic_edge_visible_hoisted<W, H>(cr, xc, rows, cols,
                                                              e, ea, eb, es);
-    bits[e] = v ? 1 : 0;
+    bits[e] = v ? RasterOptions::EDGE_VISIBLE : uint8_t{0};
     any = any || v;
   }
   return any;
@@ -3969,12 +3972,12 @@ struct Mesh {
         HS_CHECK(points.size() >= 2 && points.size() <= EDGE_MAX_POINTS);
         if (points.size() == 2 && !vertex_shader) {
           // Uncut, unshaded: the whole-edge test above already ran on it.
-          bits[0] = EDGE_VISIBLE;
+          bits[0] = RasterOptions::EDGE_VISIBLE;
         } else if (!gate_trail_edges<W, H>(pipeline, cr, xc, points, bits)) {
           return;
         }
         rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                        {.edge_visible = bits});
+                        {.edge_flags = bits});
         return;
       }
     }
@@ -4363,8 +4366,9 @@ struct ParticleSystem {
                 v = v || antialiased_dot_visible_in_clip<W, H>(
                              cr, xc, rows[e + 1],
                              cols != nullptr ? cols[e + 1] : 0.0f);
-              bits[e] = EDGE_CLASSIFIED | EDGE_ONE_DOT |
-                        (v ? EDGE_VISIBLE : uint8_t{0});
+              bits[e] = RasterOptions::EDGE_CLASSIFIED |
+                        RasterOptions::EDGE_ONE_DOT |
+                        (v ? RasterOptions::EDGE_VISIBLE : uint8_t{0});
               if (!v)
                 HS_MSP_COUNT(edge_rejects);
               any = any || v;
@@ -4383,7 +4387,8 @@ struct ParticleSystem {
               v = exact_geodesic_edge_visible_hoisted<W, H>(cr, xc, rows, cols,
                                                             e, ea, eb, es);
             }
-            bits[e] = EDGE_CLASSIFIED | (v ? EDGE_VISIBLE : uint8_t{0});
+            bits[e] = RasterOptions::EDGE_CLASSIFIED |
+                      (v ? RasterOptions::EDGE_VISIBLE : uint8_t{0});
             if (!v)
               HS_MSP_COUNT(edge_rejects);
             any = any || v;
@@ -4393,8 +4398,8 @@ struct ParticleSystem {
           for (size_t e = 0; e < edges; ++e) {
             bits[e] = edge_visible_in_clip<W, H>(pipeline, cr, xc, trail[e].pos,
                                                  trail[e + 1].pos, nullptr)
-                          ? 1
-                          : 0;
+                          ? RasterOptions::EDGE_VISIBLE
+                          : uint8_t{0};
             any = any || bits[e] != 0;
           }
         }
@@ -4415,7 +4420,7 @@ struct ParticleSystem {
         HS_PROFILE(plot_ps_raster);
         rasterize<W, H, SinglePassRaster && sample_stride == 1, true>(
             pipeline, canvas, trail, fragment_shader,
-            {.edge_visible = vis,
+            {.edge_flags = vis,
              .point_rows = dot_rows,
              .point_cols = dot_cols});
       }

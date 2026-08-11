@@ -337,12 +337,12 @@ private:
       }
 
       uint8_t bits[TRAIL_LEN - 1];
-      const uint8_t *edge_visible = nullptr;
+      const uint8_t *edge_flags = nullptr;
       if (clip_active) {
         HS_PROFILE(hf_trail_gate);
         if (!Plot::gate_trail_edges<W, H>(trail_pipeline, cr, xc, points, bits))
           continue;
-        edge_visible = bits;
+        edge_flags = bits;
       }
 
       auto shader = [this](const Vector &, Fragment &f) {
@@ -355,7 +355,7 @@ private:
       {
         HS_PROFILE(hf_trail_raster);
         Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader,
-                              {.edge_visible = edge_visible});
+                              {.edge_flags = edge_flags});
       }
     }
   }
