@@ -380,18 +380,27 @@ inline uint8_t narrow_face_count(int count) {
 }
 
 /**
+ * @brief Direction a vertex orbit walks its incident half-edges.
+ * @details The two step rules traverse the same vertex in opposite senses, so a
+ * face emitted from one needs its winding flipped against the other.
+ */
+enum class OrbitDir : uint8_t {
+  PREV_PAIR, /**< Step prev->pair. */
+  PAIR_NEXT, /**< Step pair->next. */
+};
+
+/**
  * @brief Walk all half-edges orbiting a vertex, invoking visitor(curr_idx) for
  *   each.
- * @tparam OrbitMode Traversal direction: 'P' = prev->pair; 'N' = pair->next.
+ * @tparam DIR Traversal direction.
  * @tparam VisitorFn Callable accepting the current half-edge index (uint16_t).
  * @param he_mesh Half-edge connectivity to walk.
  * @param start_idx Half-edge index at which the orbit begins.
  * @param visitor Invoked once per visited half-edge with its index.
  */
-template <char OrbitMode, typename VisitorFn>
+template <OrbitDir DIR, typename VisitorFn>
 inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
                          VisitorFn &&visitor) {
-  static_assert(OrbitMode == 'P' || OrbitMode == 'N');
   uint16_t curr_idx = start_idx;
   int count = 0;
   // Anti-hang guard: a corrupt/non-manifold half-edge graph would otherwise
@@ -403,13 +412,11 @@ inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
     visitor(curr_idx);
     count++;
 
-    if constexpr (OrbitMode == 'P') {
-      // prev->pair orbit
+    if constexpr (DIR == OrbitDir::PREV_PAIR) {
       if (he_mesh.half_edges[curr_he.prev].pair == HE_NONE)
         break;
       curr_idx = he_mesh.half_edges[curr_he.prev].pair;
     } else {
-      // pair->next orbit
       if (curr_he.pair == HE_NONE)
         break;
       curr_idx = he_mesh.half_edges[curr_he.pair].next;
