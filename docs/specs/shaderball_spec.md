@@ -2,7 +2,7 @@
 
 **Status: LANDED.** `effects/ShaderBall.h` is the sole ShaderBall implementation;
 the earlier fixed stereographic implementation has been removed. The typed
-pipeline carries 21 presets and the complete vocabulary in Section 0. Sections
+pipeline carries 28 presets and the complete vocabulary in Section 0. Sections
 1–13 preserve the original merge and migration record; they are historical
 where they disagree with Section 0 or the code. References to ShadierBall below
 name the former prototype from which the final typed implementation was
