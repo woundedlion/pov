@@ -819,7 +819,8 @@ private:
   }
 #endif
 
-  static constexpr std::array<PresetEntry<Params>, 9> PRESETS = {{
+  static constexpr size_t PRESET_COUNT = 9;
+  static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{ShapeType::PLANAR_STAR, 208.0f, 7.745f, PhaseFunction::SINE, 1.0f,
         0.016f, 0.0f, AlphaFalloff::TOWARD_EQUATOR,
         RadiusSpacing::SCREEN_BALANCED}},
@@ -881,7 +882,7 @@ private:
   int prepared_planar_star_sides = 0;
   int baked_palette_count = 0;
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
-  Presets<Params, 9, Segue::Crossfade> presets{PRESETS};
+  Presets<Params, PRESET_COUNT, Segue::Crossfade> presets{PRESETS};
   Params params{};
   float alpha = 1.0f;
   float preset_opacity = 1.0f;

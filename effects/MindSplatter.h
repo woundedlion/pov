@@ -283,7 +283,8 @@ private:
   // well_strength is pre-scaled by the preset's own friction because the
   // integrator applies v <- friction*v + impulse, dragging velocity before the
   // attractor impulse.
-  static constexpr std::array<PresetEntry<Params>, 8> PRESETS{{
+  static constexpr size_t PRESET_COUNT = 8;
+  static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS{{
       {{.base_mesh = BaseMesh::CUBE,
         .friction = 0.85f,
         .well_strength = 0.85f,
@@ -332,7 +333,7 @@ private:
                 "slider range; widen the range to accommodate the preset (the "
                 "range exposes the presets, it does not clamp them)");
 
-  Presets<Params, 8> presets;
+  Presets<Params, PRESET_COUNT> presets;
 
   // orientation/noise/mobius/params and the preset blend endpoints are borrowed
   // by timeline-resident animations, so they are declared here to outlive the
