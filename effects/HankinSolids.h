@@ -44,19 +44,28 @@ public:
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters() {}
 
+  /** Render-path peak: draw_mesh transforms the mesh into scratch_a and
+   * Scan::Mesh::draw stacks an SDF::FaceScratchBuffer on top; morph frames
+   * stack the swept mesh + compile output under it. */
+  static constexpr size_t SCRATCH_A_BYTES = 24 * 1024;
+  /** Largest of the generation intermediates, the morph-cycle Persist set, and
+   * a morph frame's blended palette LUTs. */
+  static constexpr size_t SCRATCH_B_BYTES = 32 * 1024;
+  /** Persistent partition this split leaves on the device. The host arena is
+   * over-provisioned, so the graph-walk soak gates the resident persistent
+   * high-water against this figure rather than the live capacity. */
+  static constexpr size_t DEVICE_PERSISTENT_BYTES =
+      DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES - SCRATCH_B_BYTES;
+  static_assert(SCRATCH_A_BYTES + SCRATCH_B_BYTES < DEVICE_GLOBAL_ARENA_SIZE,
+                "HankinSolids scratch split leaves no device persistent arena");
+
   /**
    * @brief Sizes arenas, registers params, seeds the graph walk, and starts
    * the interlace sweep/morph cycle.
    */
   HS_COLD_MEMBER void init() override {
-    // scratch_a (24 KB) covers the render path, its largest peak: draw_mesh
-    // transforms the mesh into scratch_a, then Scan::Mesh::draw stacks an
-    // SDF::FaceScratchBuffer on top; morph frames stack the swept mesh +
-    // compile output under it. scratch_b (32 KB) covers the largest of
-    // generation intermediates, the morph-cycle Persist set, and a morph
-    // frame's blended palette LUTs.
-    configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
-                     32 * 1024);
+    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES - SCRATCH_B_BYTES,
+                     SCRATCH_A_BYTES, SCRATCH_B_BYTES);
     register_param("Intensity", &params.intensity, 0.0f, 5.0f);
     register_animated_param("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
 
