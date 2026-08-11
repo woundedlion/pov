@@ -3403,7 +3403,9 @@ struct Face {
    * @param reject_dsq Squared plane distance at/above which an outside probe
    *        is reported as the far sentinel without taking the square root.
    *        Must be conservative: only probes the caller rejects on dist may
-   *        cross it. FLT_MAX disables the cull.
+   *        cross it. FLT_MAX disables the cull. Consulted only on a
+   *        linear_dist face's edge-walk path; large faces and the convex
+   *        half-plane path ignore it.
    * @note Distances live in the face's gnomonic tangent plane. Small faces
    *       (linear_dist) report the plane distance directly; large faces convert
    *       via fast_atan2(plane, 1). Do not treat raw_dist as a metric geodesic
@@ -3420,7 +3422,9 @@ struct Face {
    * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
    * @param p Point on sphere (normalized).
    * @param res Output distance result.
-   * @param reject_dsq Conservative squared distance rejection threshold.
+   * @param reject_dsq Conservative squared distance rejection threshold,
+   *        honored only when PROBE_LINEAR is set and the probe lands outside;
+   *        the PROBE_CONVEX path ignores it.
    * @param probe_flags Distance-path flags captured after the face's last LUT
    *        binding or geometry update.
    */
