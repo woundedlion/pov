@@ -215,6 +215,50 @@ private:
     return false;
   }
 
+  /**
+   * @brief Runs the tooling boundary sequence one mesh must clear.
+   * @param verts Mesh vertex count.
+   * @param faces Mesh face count.
+   * @param indices Mesh flat face-index count.
+   * @param expansion Largest multiple of the mesh's biggest element count any
+   *        stage reaches; 1 when the call only stores the mesh it was given.
+   * @param context Call-site label prefixed to a rejection log.
+   * @return true when the caller must answer null; last_mesh_op_result carries
+   *         ARENA_UNAVAILABLE, CONNECTIVITY_OVERFLOW or ARENA_EXHAUSTED.
+   * @details Binds the arenas first, so a caller that must generate a mesh
+   *          before it can measure one calls ensure_tooling_arenas() itself and
+   *          reaches a no-op here.
+   */
+  static bool tooling_bounds_reject(size_t verts, size_t faces, size_t indices,
+                                    size_t expansion, const char *context) {
+    if (!ensure_tooling_arenas()) {
+      last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
+      return true;
+    }
+    if (hs_wasm::mesh_op_expansion_over_ceiling(
+            verts, faces, indices, expansion, MAX_MESH_CONNECTIVITY_ELEMENTS)) {
+      hs::log("WASM: %s: mesh of %zu verts / %zu faces / %zu indices expands "
+              "%zux, past the %zu-element 16-bit connectivity range — ignored",
+              context, verts, faces, indices, expansion,
+              MAX_MESH_CONNECTIVITY_ELEMENTS);
+      last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
+      return true;
+    }
+    if (hs_wasm::mesh_op_output_over_arena(verts, faces, indices, expansion,
+                                           TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
+                                           tooling_arena.get_offset(),
+                                           tooling_arena.get_capacity())) {
+      hs::log("WASM: %s: result does not fit the tooling arena (%zu of %zu "
+              "bytes used) — ignored; call clearToolingMemory() to reclaim it, "
+              "which invalidates every live mesh",
+              context, tooling_arena.get_offset(),
+              tooling_arena.get_capacity());
+      last_mesh_op_result = MeshOpResult::ARENA_EXHAUSTED;
+      return true;
+    }
+    return false;
+  }
+
 public:
   /**
    * @brief Resets all tooling arenas to empty and invalidates live wrappers.
@@ -273,30 +317,11 @@ public:
     tooling_scratch_b.reset();
     const PolyMesh generated =
         entry->generate(tooling_scratch_a, tooling_scratch_b);
-    if (hs_wasm::tooling_mesh_over_ceiling(
-            generated.vertices.size(), generated.get_face_counts_size(),
-            generated.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS)) {
-      hs::log("WASM: fromSolidName '%s' generated %zu verts / %zu faces / %zu "
-              "indices past the %zu-element 16-bit connectivity range — "
-              "ignored",
-              name.c_str(), generated.vertices.size(),
-              generated.get_face_counts_size(), generated.get_faces_size(),
-              MAX_MESH_CONNECTIVITY_ELEMENTS);
-      last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
+    const std::string context = "fromSolidName '" + name + "'";
+    if (tooling_bounds_reject(generated.vertices.size(),
+                              generated.get_face_counts_size(),
+                              generated.get_faces_size(), 1, context.c_str()))
       return nullptr;
-    }
-    if (hs_wasm::mesh_op_output_over_arena(
-            generated.vertices.size(), generated.get_face_counts_size(),
-            generated.get_faces_size(), 1, TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
-            tooling_arena.get_offset(), tooling_arena.get_capacity())) {
-      hs::log("WASM: fromSolidName '%s' does not fit the tooling arena (%zu of "
-              "%zu bytes used) — ignored; call clearToolingMemory() to reclaim "
-              "it, which invalidates every live mesh",
-              name.c_str(), tooling_arena.get_offset(),
-              tooling_arena.get_capacity());
-      last_mesh_op_result = MeshOpResult::ARENA_EXHAUSTED;
-      return nullptr;
-    }
     return std::make_unique<MeshOpsWrapper>(
         Solids::finalize_solid(generated, tooling_arena));
   }
@@ -369,32 +394,9 @@ public:
     last_mesh_op_result = MeshOpResult::OK;
     if (!wrapper_live())
       return val::null();
-    if (hs_wasm::tooling_mesh_over_ceiling(
-            mesh.vertices.size(), mesh.get_face_counts_size(),
-            mesh.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS)) {
-      hs::log("WASM: classifyFaces mesh of %zu verts / %zu faces / %zu indices "
-              "is past the %zu-element 16-bit connectivity range — ignored",
-              mesh.vertices.size(), mesh.get_face_counts_size(),
-              mesh.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS);
-      last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
+    if (tooling_bounds_reject(mesh.vertices.size(), mesh.get_face_counts_size(),
+                              mesh.get_faces_size(), 1, "classifyFaces"))
       return val::null();
-    }
-    if (!ensure_tooling_arenas()) {
-      last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
-      return val::null();
-    }
-    if (hs_wasm::mesh_op_output_over_arena(
-            mesh.vertices.size(), mesh.get_face_counts_size(),
-            mesh.get_faces_size(), 1, TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
-            tooling_arena.get_offset(), tooling_arena.get_capacity())) {
-      hs::log("WASM: classifyFaces topology block does not fit the tooling "
-              "arena (%zu of %zu bytes used) — ignored; call "
-              "clearToolingMemory() to reclaim it, which invalidates every "
-              "live mesh",
-              tooling_arena.get_offset(), tooling_arena.get_capacity());
-      last_mesh_op_result = MeshOpResult::ARENA_EXHAUSTED;
-      return val::null();
-    }
     ToolingOpGuard guard;
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
@@ -456,37 +458,12 @@ private:
     last_mesh_op_result = MeshOpResult::OK;
     if (!wrapper_live())
       return nullptr;
-    if (hs_wasm::mesh_op_expansion_over_ceiling(
-            mesh.vertices.size(), mesh.get_face_counts_size(),
-            mesh.get_faces_size(), bounds.elements,
-            MAX_MESH_CONNECTIVITY_ELEMENTS)) {
-      hs::log("WASM: MeshOps input mesh of %zu verts / %zu faces / %zu indices "
-              "expands %zux, past the %zu-element 16-bit connectivity range — "
-              "ignored",
-              mesh.vertices.size(), mesh.get_face_counts_size(),
-              mesh.get_faces_size(), bounds.elements,
-              MAX_MESH_CONNECTIVITY_ELEMENTS);
-      last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
+    if (tooling_bounds_reject(mesh.vertices.size(), mesh.get_face_counts_size(),
+                              mesh.get_faces_size(), bounds.elements,
+                              "MeshOps operator"))
       return nullptr;
-    }
-    if (!ensure_tooling_arenas()) {
-      last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
-      return nullptr;
-    }
     // Before max_vertex_valence(), the first tooling-scratch use on this path.
     ToolingOpGuard guard;
-    if (hs_wasm::mesh_op_output_over_arena(
-            mesh.vertices.size(), mesh.get_face_counts_size(),
-            mesh.get_faces_size(), bounds.elements,
-            TOOLING_ARENA_BYTES_PER_MESH_ELEMENT, tooling_arena.get_offset(),
-            tooling_arena.get_capacity())) {
-      hs::log("WASM: MeshOps result does not fit the tooling arena (%zu of %zu "
-              "bytes used) — ignored; call clearToolingMemory() to reclaim it, "
-              "which invalidates every live mesh",
-              tooling_arena.get_offset(), tooling_arena.get_capacity());
-      last_mesh_op_result = MeshOpResult::ARENA_EXHAUSTED;
-      return nullptr;
-    }
     const size_t face_degree = hs_wasm::mesh_max_face_degree(
         mesh.get_face_counts_data(), mesh.get_face_counts_size());
     const size_t valence = bounds.valence == 0 ? 0 : max_vertex_valence();
