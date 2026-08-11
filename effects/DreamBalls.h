@@ -26,7 +26,7 @@ struct DreamBallsWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Orbiting copies of a polyhedral wireframe, cycling through seven
+ * @brief Orbiting copies of a polyhedral wireframe, cycling through ten
  *        solid presets.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -89,6 +89,9 @@ public:
     entries[4].params.palette = &Palettes::CORAL_BLUE;
     entries[5].params.palette = &Palettes::CORAL_BLUE;
     entries[6].params.palette = &Palettes::CORAL_BLUE;
+    entries[7].params.palette = &Palettes::CORAL_BLUE;
+    entries[8].params.palette = &Palettes::CORAL_BLUE;
+    entries[9].params.palette = &Palettes::CORAL_BLUE;
     for (const auto &entry : entries) {
       HS_CHECK(entry.params.palette,
                "DreamBalls preset table left a null palette unpatched");
@@ -160,7 +163,7 @@ private:
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
   static constexpr float WEAVE_GAP_MIN = 0.02f, WEAVE_GAP_MAX = 0.45f;
   static constexpr float WEAVE_GAP_DEFAULT = 0.18f;
-  static constexpr size_t PRESET_COUNT = 7;
+  static constexpr size_t PRESET_COUNT = 10;
   static constexpr size_t SOLID_COUNT = Solids::BASE_MESH_COUNT;
   static constexpr const char *WEAVE_TOPOLOGY_OPTIONS[] = {
       "Automatic", "Original with defects", "Medial"};
@@ -288,6 +291,12 @@ private:
         4.515f, 0.179f, 1.89f, 1.535f, nullptr, 0.7f}},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 4.515f,
         0.131f, 1.89f, 1.535f, nullptr, 0.7f}},
+      {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
+        0.078f, 1.0f, 0.0f, nullptr, 0.3f}},
+      {{BaseMesh::DISDYAKIS_TRIACONTAHEDRON, WeaveTopology::AUTOMATIC, 0.18f,
+        6.0f, 0.03f, 1.0f, 1.795f, nullptr, 0.3f}},
+      {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
+        0.03f, 1.0f, 1.795f, nullptr, 0.3f}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &p) {
