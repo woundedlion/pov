@@ -2345,7 +2345,7 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
  */
 struct DreamBallsWhiteBox {
   using DB = DreamBalls<SMALL_W, SMALL_H>;
-  static constexpr int PRESETS = 5;
+  static constexpr int PRESETS = 7;
 
   static int active_bake(const DB &db) { return db.active_bake; }
   static int last_preset_idx(const DB &db) { return db.last_preset_idx; }
@@ -2431,7 +2431,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_EQ(WB::active_bake(db), 1);
   HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(db, 0));
 
-  const auto &snub_cube = WB::preset_params(db, WB::PRESETS - 1);
+  const auto &snub_cube = WB::preset_params(db, 4);
   HS_EXPECT_EQ(snub_cube.base_mesh, WB::DB::BaseMesh::SNUB_CUBE);
   HS_EXPECT_EQ(snub_cube.weave_topology, WB::DB::WeaveTopology::AUTOMATIC);
   HS_EXPECT_NEAR(snub_cube.weave_gap, 0.18f, 1e-6f);
@@ -2441,6 +2441,30 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(snub_cube.warp_scale, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(snub_cube.alpha, 0.3f, 1e-6f);
 
+  const auto &truncated_dodecahedron = WB::preset_params(db, 5);
+  HS_EXPECT_EQ(truncated_dodecahedron.base_mesh,
+               WB::DB::BaseMesh::TRUNCATED_DODECAHEDRON);
+  HS_EXPECT_EQ(truncated_dodecahedron.weave_topology,
+               WB::DB::WeaveTopology::AUTOMATIC);
+  HS_EXPECT_NEAR(truncated_dodecahedron.weave_gap, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_dodecahedron.num_copies, 4.515f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_dodecahedron.offset_radius, 0.179f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_dodecahedron.offset_speed, 1.89f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_dodecahedron.warp_scale, 1.535f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_dodecahedron.alpha, 0.7f, 1e-6f);
+
+  const auto &triakis_icosahedron = WB::preset_params(db, 6);
+  HS_EXPECT_EQ(triakis_icosahedron.base_mesh,
+               WB::DB::BaseMesh::TRIAKIS_ICOSAHEDRON);
+  HS_EXPECT_EQ(triakis_icosahedron.weave_topology,
+               WB::DB::WeaveTopology::AUTOMATIC);
+  HS_EXPECT_NEAR(triakis_icosahedron.weave_gap, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron.num_copies, 4.515f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron.offset_radius, 0.131f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron.offset_speed, 1.89f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron.warp_scale, 1.535f, 1e-6f);
+  HS_EXPECT_NEAR(triakis_icosahedron.alpha, 0.7f, 1e-6f);
+
   HS_EXPECT_TRUE(WB::preset_params(db, 0).palette ==
                  WB::blood_stream_falloff(db));
   HS_EXPECT_TRUE(WB::preset_params(db, 1).palette ==
@@ -2448,6 +2472,8 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_TRUE(WB::preset_params(db, 2).palette == &Palettes::RICH_SUNSET);
   HS_EXPECT_TRUE(WB::preset_params(db, 3).palette == &Palettes::LAVENDER_LAKE);
   HS_EXPECT_TRUE(WB::preset_params(db, 4).palette == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_params(db, 5).palette == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_params(db, 6).palette == &Palettes::CORAL_BLUE);
 
   // Not-paused advance chain: each step advances the selector then re-spawns, so
   // the preset is step modulo the preset count. Drive two full cycles; the bake
@@ -6054,7 +6080,7 @@ inline void check_manual_preset_navigation(size_t expected_count) {
 
 inline void test_manual_preset_navigation() {
   check_manual_preset_navigation<MindSplatter<SMALL_W, SMALL_H>>(8);
-  check_manual_preset_navigation<DreamBalls<SMALL_W, SMALL_H>>(5);
+  check_manual_preset_navigation<DreamBalls<SMALL_W, SMALL_H>>(7);
   check_manual_preset_navigation<Comets<SMALL_W, SMALL_H>>(12);
   check_manual_preset_navigation<MeshFeedback<SMALL_W, SMALL_H>>(12);
   check_manual_preset_navigation<ShapeShifter<SMALL_W, SMALL_H>>(9);
