@@ -82,8 +82,10 @@ public:
 
     register_param("Speed", &params.speed, -10.0f, 10.0f);
     register_param("Gap", &params.gap, 1.0f, GAP_MAX);
-    register_param("Trail Len", &params.trail_length, 1.0f, 100.0f);
-    register_readonly_param("Trail Cap", &params.trail_ceiling, 1.0f, 255.0f);
+    register_param("Trail Len", &params.trail_length, 1.0f,
+                   static_cast<float>(TRAIL_LEN_MAX));
+    register_readonly_param("Trail Cap", &params.trail_ceiling, 1.0f,
+                            static_cast<float>(TRAIL_LEN_MAX));
     register_param("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
 
     for (size_t i = 0; i < NUM_NODES; ++i) {
@@ -341,7 +343,8 @@ private:
 
   /**
    * @brief Longest trail, in frames, the ring can hold at the current rate.
-   * @return Frame count in [1, 255]; 255 before the first frame is measured.
+   * @return Frame count in [1, TRAIL_LEN_MAX]; TRAIL_LEN_MAX before the first
+   *         frame is measured.
    * @details Steady-state occupancy is points-per-frame x lifetime, so a longer
    *          trail than this would overrun the ring and evict live points of
    *          arbitrary age (flush()'s compaction leaves the ring unordered),
@@ -351,12 +354,12 @@ private:
    */
   int trail_length_ceiling() const {
     if (emission_points == 0)
-      return 255;
+      return TRAIL_LEN_MAX;
     const uint32_t emissions =
         static_cast<uint32_t>(std::abs(params.speed)) + 1;
     return hs::clamp(
         static_cast<int>(TRAIL_CAPACITY / (emission_points * emissions)), 1,
-        255);
+        TRAIL_LEN_MAX);
   }
 
   /**
@@ -428,6 +431,8 @@ private:
    *          shortest_distance() saturates at W/2, so a gap that can actually be
    *          reached keeps the loop making progress instead of circling forever.
    */
+  static constexpr int TRAIL_LEN_MAX =
+      100; /**< "Trail Len" slider max, and the ceiling "Trail Cap" reports. */
   static constexpr float GAP_MAX = 20.0f;
   static_assert(2.0f * GAP_MAX < static_cast<float>(W),
                 "Gap max must stay below W/2 so drag() terminates");
@@ -500,7 +505,7 @@ private:
     float trail_length = 8.0f;   /**< Active trail length. */
     float wipe_duration = 20.0f; /**< Color-wipe transition duration. */
     /** Longest trail the ring can hold, in frames (engine-written). */
-    float trail_ceiling = 255.0f;
+    float trail_ceiling = static_cast<float>(TRAIL_LEN_MAX);
   } params;
 
   // Precedes filters, whose constructor reads params.trail_length.
