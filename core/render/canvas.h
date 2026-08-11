@@ -400,8 +400,7 @@ public:
     float max = 1; /**< Maximum value (for floats). */
     int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
     TargetType target_type = TargetType::FLOAT; /**< Target storage format. */
-    bool animated =
-        false; /**< True if an animation drives this member; the GUI
+    bool animated = false; /**< True if an animation drives this member; the GUI
                                surfaces these as auto-pausing sliders. */
     bool readonly = false; /**< True if this is engine-written telemetry; the
                                GUI shows it live but disables editing. */
@@ -624,9 +623,10 @@ public:
       return ParamSetResult::READONLY;
     if (!std::isfinite(value))
       return ParamSetResult::NON_FINITE;
-    // Enum targets hold an option index: snap a fractional write (e.g. a stale
-    // deep link) to the nearest option before the range clamp.
-    if (def->is_enum())
+    // Enum and integer targets hold whole numbers: snap a fractional write
+    // (e.g. a stale deep link) to the nearest before the range clamp. An enum
+    // may be float-backed, so neither predicate implies the other.
+    if (def->is_enum() || def->is_integer())
       value = roundf(value);
     if (!def->is_bool())
       value = hs::clamp(value, def->min, def->max);

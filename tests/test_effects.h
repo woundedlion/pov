@@ -280,8 +280,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
     // An in-range target well clear of the current value, so a revert is visible.
     float target = (cur - def.min) > (def.max - cur) ? def.min + 0.25f * range
                                                      : def.min + 0.75f * range;
-    // A whole-number target stores the truncation of what it is written, so
-    // probe with a value it can actually hold or every such param reads dead.
+    // An integer target holds only whole numbers, so probe with a value it can
+    // actually hold or every such param reads dead.
     if (def.is_integer()) {
       target = floorf(target);
       if (target == cur)
