@@ -2636,8 +2636,6 @@ private:
     display_config = published_config;
 #endif
     rebind_parameters();
-    if (transition.active && transition.continue_choreo)
-      anims_paused = false;
   }
 
   static void canonicalize_mobius(MobiusParams &params) {
