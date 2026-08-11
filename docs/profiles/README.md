@@ -1,14 +1,12 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **20 effects in the Phantasm image**, plus ShaderBall,
+On-device timing for the **21 effects in the Phantasm image**,
 captured on bench-attached Teensy 4.0 boards running the shipping Phantasm
 configuration (`POVSegmented<288, 4, 480>`, board = segment 0 master,
 newlib-nano, DMA LEDs, flywheel + DMA ISRs live) via the `HS_PROFILE`
 cycle-counter harness. The full effect roster is 23, and
-`HS_PHANTASM_EFFECT_LIST` excludes three. Dynamo and Thrusters are Holosphere
+`HS_PHANTASM_EFFECT_LIST` excludes two. Dynamo and Thrusters are Holosphere
 96×20-only, never run in the 288×144 image, and are not profiled here.
-ShaderBall is held out while its 288×144 instantiation exceeds the remaining
-ITCM budget, but it renders under the same harness and carries a row below.
 
 Each effect renders one **quadrant** ≈ **10,368 px**. A display window is
 **62.5 ms**, so cadence quantizes: 16 fps (1 window), 8 fps (2), 5.3 fps (3).

@@ -75,9 +75,7 @@ public:
   void init() override {
     configure_presets(PRESETS.size());
     mobius_gen.init_storage(persistent_arena);
-    loaded_solids = persistent_arena.allocate_n<SolidData>(SOLID_COUNT);
-    for (size_t i = 0; i < SOLID_COUNT; ++i)
-      new (&loaded_solids[i]) SolidData();
+    loaded_solids = persistent_arena.make_n<SolidData>(SOLID_COUNT);
     setup_solids();
 
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);

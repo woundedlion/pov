@@ -4052,10 +4052,7 @@ struct Mesh {
     // render chain, tight DTCM stack). Held in scratch_arena_b so the per-edge
     // scratch_arena_a scopes below keep their headroom.
     ScratchScope visited_guard(scratch_arena_b);
-    auto &visited = *new (
-        scratch_arena_b.allocate(sizeof(TriangularBitset<DEDUP_CAPACITY>),
-                                 alignof(TriangularBitset<DEDUP_CAPACITY>)))
-                        TriangularBitset<DEDUP_CAPACITY>();
+    auto &visited = *scratch_arena_b.make<TriangularBitset<DEDUP_CAPACITY>>();
 
     const ClipRegion &cr = canvas.clip();
     const ClipCutBounds cb = make_clip_cut_bounds<W, H>(cr, cr.x_clip());
@@ -4108,10 +4105,7 @@ struct Mesh {
     // output `edges` lives in a separate persistent arena, so scratch_arena_b
     // cannot disturb it.
     ScratchScope visited_guard(scratch_arena_b);
-    auto &visited = *new (
-        scratch_arena_b.allocate(sizeof(TriangularBitset<DEDUP_CAPACITY>),
-                                 alignof(TriangularBitset<DEDUP_CAPACITY>)))
-                        TriangularBitset<DEDUP_CAPACITY>();
+    auto &visited = *scratch_arena_b.make<TriangularBitset<DEDUP_CAPACITY>>();
 
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
       edges.push_back({(uint16_t)u, (uint16_t)v});

@@ -347,11 +347,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
                 "emission (|A|+|B|)");
   static_assert(NormBuf::CAPACITY == 2 * IntervalBuf::CAPACITY,
                 "norm must hold 2 spans per input interval (seam split)");
-  auto &intervals =
-      *new (scratch_arena_b.allocate(sizeof(IntervalBuf), alignof(IntervalBuf)))
-          IntervalBuf();
-  auto &norm = *new (
-      scratch_arena_b.allocate(sizeof(NormBuf), alignof(NormBuf))) NormBuf();
+  auto &intervals = *scratch_arena_b.make<IntervalBuf>();
+  auto &norm = *scratch_arena_b.make<NormBuf>();
 
   const float *cos_theta =
       TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
@@ -1751,9 +1748,7 @@ HS_O3_END
  */
 HS_NOINLINE_NOCLONE inline SDF::FaceScratchBuffer *
 new_face_scratch(Arena &arena) {
-  return new (arena.allocate(sizeof(SDF::FaceScratchBuffer),
-                             alignof(SDF::FaceScratchBuffer)))
-      SDF::FaceScratchBuffer;
+  return arena.make_default<SDF::FaceScratchBuffer>();
 }
 
 HS_O3_BEGIN

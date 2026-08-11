@@ -52,6 +52,32 @@ inline uint8_t test_buf_a[64 * 1024]; /**< 64 KiB primary test arena buffer. */
 inline uint8_t
     test_buf_b[16 * 1024]; /**< 16 KiB secondary test arena buffer. */
 
+struct MoveOnlyValue {
+  int value;
+
+  explicit MoveOnlyValue(int value) : value(value) {}
+  MoveOnlyValue(const MoveOnlyValue &) = delete;
+  MoveOnlyValue &operator=(const MoveOnlyValue &) = delete;
+  MoveOnlyValue(MoveOnlyValue &&other) : value(other.value) {
+    other.value = -1;
+  }
+};
+
+struct alignas(64) MadeProbe {
+  int *reference;
+  MoveOnlyValue moved;
+
+  MadeProbe(int &reference, MoveOnlyValue &&moved)
+      : reference(&reference), moved(std::move(moved)) {}
+};
+
+struct LifetimeProbe {
+  bool *destroyed;
+
+  explicit LifetimeProbe(bool &destroyed) : destroyed(&destroyed) {}
+  ~LifetimeProbe() { *destroyed = true; }
+};
+
 // ============================================================================
 // Arena — construction, allocation, alignment
 // ============================================================================
@@ -100,6 +126,50 @@ inline void test_arena_alignment() {
   void *p32 = a.allocate(32, 32);
   HS_EXPECT_TRUE(p32 != nullptr);
   HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(p32) % 32, (uintptr_t)0);
+}
+
+/** @brief Verifies make() aligns storage and perfectly forwards arguments. */
+inline void test_arena_make_constructs() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  a.allocate(1, 1);
+  int referenced = 17;
+  MoveOnlyValue argument(29);
+
+  MadeProbe *made = a.make<MadeProbe>(referenced, std::move(argument));
+
+  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(made) % alignof(MadeProbe),
+               (uintptr_t)0);
+  HS_EXPECT_TRUE(made->reference == &referenced);
+  HS_EXPECT_EQ(made->moved.value, 29);
+  HS_EXPECT_EQ(argument.value, -1);
+  HS_EXPECT_TRUE(a.get_offset() >= sizeof(MadeProbe) + 1);
+  HS_EXPECT_EQ(a.get_high_water_mark(), a.get_offset());
+}
+
+/** @brief Verifies arena rewind does not implicitly run object destructors. */
+inline void test_arena_make_lifetime() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  bool destroyed = false;
+  LifetimeProbe *made = a.make<LifetimeProbe>(destroyed);
+
+  a.reset();
+  HS_EXPECT_FALSE(destroyed);
+  made->~LifetimeProbe();
+  HS_EXPECT_TRUE(destroyed);
+}
+
+/** @brief Verifies indexed array construction is contiguous and ordered. */
+inline void test_arena_make_n_indexed() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  MoveOnlyValue *values = a.make_n_indexed<MoveOnlyValue>(4, [](size_t index) {
+    return MoveOnlyValue(10 + static_cast<int>(index));
+  });
+
+  for (size_t index = 0; index < 4; ++index) {
+    HS_EXPECT_TRUE(&values[index] == values + index);
+    HS_EXPECT_EQ(values[index].value, 10 + static_cast<int>(index));
+  }
+  HS_EXPECT_TRUE(a.get_offset() >= 4 * sizeof(MoveOnlyValue));
 }
 
 /**
@@ -1051,6 +1121,9 @@ inline int run_memory_tests() {
   test_arena_construction();
   test_arena_basic_allocation();
   test_arena_alignment();
+  test_arena_make_constructs();
+  test_arena_make_lifetime();
+  test_arena_make_n_indexed();
   test_arena_high_water_mark();
   test_arena_lifetime_high_water_mark();
   test_arena_reset();

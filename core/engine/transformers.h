@@ -134,9 +134,7 @@ public:
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
     HS_CHECK(!entities, "TransformerPool: init_storage() called twice");
-    entities = arena.allocate_n<Entity>(CAPACITY);
-    for (int i = 0; i < CAPACITY; ++i)
-      new (&entities[i]) Entity();
+    entities = arena.make_n<Entity>(CAPACITY);
     active_slots = arena.allocate_n<int>(CAPACITY);
     active_slot_count = 0;
 #ifndef NDEBUG

@@ -38,6 +38,7 @@ public:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     set_parameter_updated_hook(&ShaderBall::dispatch_parameter_updated);
 #endif
+    state = persistent_arena.make<StateBundle>();
     use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     requested_config = PRESETS[0];
@@ -48,8 +49,9 @@ public:
     rebind_parameters();
 
     timeline.add(0, Animation::RandomWalk<W>(projection_walk, UP,
-                                             projection_walk_noise));
-    timeline.add(0, Animation::RandomWalk<W>(outer_walk, UP, outer_walk_noise));
+                                             state->projection_walk_noise));
+    timeline.add(
+        0, Animation::RandomWalk<W>(outer_walk, UP, state->outer_walk_noise));
 
     liquid_palette_cycler.init_generated(persistent_arena, next_liquid_palette,
                                          &liquid_rotation, PALETTE_DWELL_FRAMES,
@@ -74,10 +76,11 @@ public:
     apply_requested_config();
     prepare_param_morph();
     const WalkDeltas walk_deltas = sample_walk_deltas();
-    if (transition.active) {
-      advance_runtime(transition.from_runtime, transition.from_config,
+    if (state->transition.active) {
+      advance_runtime(state->transition.from_runtime,
+                      state->transition.from_config, walk_deltas);
+      advance_runtime(state->transition.to_runtime, state->transition.to_config,
                       walk_deltas);
-      advance_runtime(transition.to_runtime, transition.to_config, walk_deltas);
     } else {
       advance_runtime(runtime, {active_slots, blend.params}, walk_deltas);
     }
@@ -88,12 +91,11 @@ public:
     ++generated_palette_step_count;
 #endif
 
-    if (transition.active) {
+    if (state->transition.active) {
       draw_through_clear_transition(canvas);
     } else {
       const FrameState frame = prepare_frame();
-      auto shader = [&](const Vector &view)
-                        HS_O3_FN -> Color4 { return shade(view, frame); };
+      FrameShader shader{&frame, 1.0f};
       HS_PROFILE(sb_shader_draw);
       Scan::Shader::draw<W, H, 1>(canvas, shader);
     }
@@ -128,8 +130,8 @@ private:
       return true;
     }
 
-    param_morph.active = false;
-    transition.active = false;
+    state->param_morph.active = false;
+    state->transition.active = false;
     active_slots = PRESETS[index].slots;
     blend.params = PRESETS[index].params;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -146,7 +148,7 @@ private:
   }
 
   HS_COLD_MEMBER void preset_changed(const PresetChange &) override {
-    if (!param_morph.active && !transition.active)
+    if (!state->param_morph.active && !state->transition.active)
       enter_preset();
   }
 
@@ -212,13 +214,13 @@ private:
     int32_t seed = 1337;
     uint8_t resource_id = 0;
 
-    bool operator==(const WarpStageSpec &) const = default;
+    HS_COLD_MEMBER bool operator==(const WarpStageSpec &) const = default;
   };
   struct WarpProgram {
     WarpStageSpec outer;
     WarpStageSpec inner;
 
-    bool operator==(const WarpProgram &) const = default;
+    HS_COLD_MEMBER bool operator==(const WarpProgram &) const = default;
   };
   enum class ProjectionFramePolicy : uint8_t { IDENTITY, SPIN_WANDER };
   enum class SignalWeight : uint8_t { NONE, PROJECTION };
@@ -253,7 +255,7 @@ private:
     GnomonicHemispherePolicy gnomonic_hemisphere =
         GnomonicHemispherePolicy::FOLDED;
 
-    bool operator==(const Slots &) const = default;
+    HS_COLD_MEMBER bool operator==(const Slots &) const = default;
   };
 
   struct SourceParams {
@@ -283,9 +285,10 @@ private:
           pattern_mix(pattern_mix), secondary_rate(secondary_rate),
           angle_rate(angle_rate) {}
 
-    bool operator==(const SourceParams &) const = default;
+    HS_COLD_MEMBER bool operator==(const SourceParams &) const = default;
 
-    void lerp(const SourceParams &a, const SourceParams &b, float t) {
+    HS_COLD_MEMBER void lerp(const SourceParams &a, const SourceParams &b,
+                             float t) {
       pattern_freq = hs::lerp(a.pattern_freq, b.pattern_freq, t);
       speed = hs::lerp(a.speed, b.speed, t);
       complexity = hs::lerp(a.complexity, b.complexity, t);
@@ -337,9 +340,10 @@ private:
     constexpr WarpStageParams(float scale, float strength, float time_scale)
         : scale(scale), strength(strength), time_scale(time_scale) {}
 
-    bool operator==(const WarpStageParams &) const = default;
+    HS_COLD_MEMBER bool operator==(const WarpStageParams &) const = default;
 
-    void lerp(const WarpStageParams &a, const WarpStageParams &b, float t) {
+    HS_COLD_MEMBER void lerp(const WarpStageParams &a, const WarpStageParams &b,
+                             float t) {
       scale = hs::lerp(a.scale, b.scale, t);
       strength = hs::lerp(a.strength, b.strength, t);
       time_scale = hs::lerp(a.time_scale, b.time_scale, t);
@@ -368,7 +372,7 @@ private:
       edge_width = hs::lerp(a.edge_width, b.edge_width, t);
     }
 
-    static float lerp_angle(float a, float b, float t) {
+    HS_COLD_MEMBER static float lerp_angle(float a, float b, float t) {
       if (t == 0.0f)
         return a;
       if (t == 1.0f)
@@ -384,9 +388,10 @@ private:
     WarpStageParams outer;
     WarpStageParams inner;
 
-    bool operator==(const WarpParams &) const = default;
+    HS_COLD_MEMBER bool operator==(const WarpParams &) const = default;
 
-    void lerp(const WarpParams &a, const WarpParams &b, float t) {
+    HS_COLD_MEMBER void lerp(const WarpParams &a, const WarpParams &b,
+                             float t) {
       outer.lerp(a.outer, b.outer, t);
       inner.lerp(a.inner, b.inner, t);
     }
@@ -408,9 +413,9 @@ private:
     constexpr ProjectionParams(float pole_fade, float spin_rate, float wander)
         : pole_fade(pole_fade), spin_rate(spin_rate), wander(wander) {}
 
-    bool operator==(const ProjectionParams &) const = default;
+    HS_COLD_MEMBER bool operator==(const ProjectionParams &) const = default;
 
-    static float lerp_periodic(float a, float b, float t) {
+    HS_COLD_MEMBER static float lerp_periodic(float a, float b, float t) {
       if (t == 0.0f)
         return a;
       if (t == 1.0f)
@@ -421,7 +426,8 @@ private:
       return a + (delta - 0.5f) * t;
     }
 
-    void lerp(const ProjectionParams &a, const ProjectionParams &b, float t) {
+    HS_COLD_MEMBER void lerp(const ProjectionParams &a,
+                             const ProjectionParams &b, float t) {
       pole_fade = hs::lerp(a.pole_fade, b.pole_fade, t);
       spin_rate = hs::lerp(a.spin_rate, b.spin_rate, t);
       wander = hs::lerp(a.wander, b.wander, t);
@@ -449,7 +455,7 @@ private:
 
     constexpr SurfaceLensParams(float mix) : mix(mix) {}
 
-    bool operator==(const SurfaceLensParams &other) const {
+    HS_COLD_MEMBER bool operator==(const SurfaceLensParams &other) const {
       return mix == other.mix && amount == other.amount &&
              noise_scale == other.noise_scale &&
              noise_rate == other.noise_rate &&
@@ -466,7 +472,8 @@ private:
              mobius.d.im == other.mobius.d.im;
     }
 
-    void lerp(const SurfaceLensParams &a, const SurfaceLensParams &b, float t) {
+    HS_COLD_MEMBER void lerp(const SurfaceLensParams &a,
+                             const SurfaceLensParams &b, float t) {
       mix = hs::lerp(a.mix, b.mix, t);
       amount = hs::lerp(a.amount, b.amount, t);
       noise_scale = hs::lerp(a.noise_scale, b.noise_scale, t);
@@ -487,8 +494,9 @@ private:
     float cutout_softness = 0.05f;
     float edge_width = 0.1f;
 
-    bool operator==(const ValueParams &) const = default;
-    void lerp(const ValueParams &a, const ValueParams &b, float t) {
+    HS_COLD_MEMBER bool operator==(const ValueParams &) const = default;
+    HS_COLD_MEMBER void lerp(const ValueParams &a, const ValueParams &b,
+                             float t) {
       iso_level = hs::lerp(a.iso_level, b.iso_level, t);
       iso_width = hs::lerp(a.iso_width, b.iso_width, t);
       band_count = t < 1.0f ? a.band_count : b.band_count;
@@ -518,9 +526,10 @@ private:
         : breathe_depth(breathe_depth), cycle_speed(cycle_speed),
           hue_shift(hue_shift), value_fade(value_fade) {}
 
-    bool operator==(const ColorizerParams &) const = default;
+    HS_COLD_MEMBER bool operator==(const ColorizerParams &) const = default;
 
-    void lerp(const ColorizerParams &a, const ColorizerParams &b, float t) {
+    HS_COLD_MEMBER void lerp(const ColorizerParams &a, const ColorizerParams &b,
+                             float t) {
       breathe_depth = hs::lerp(a.breathe_depth, b.breathe_depth, t);
       cycle_speed = hs::lerp(a.cycle_speed, b.cycle_speed, t);
       hue_shift = hs::lerp(a.hue_shift, b.hue_shift, t);
@@ -538,9 +547,10 @@ private:
   struct OuterCameraParams {
     float wander;
 
-    bool operator==(const OuterCameraParams &) const = default;
+    HS_COLD_MEMBER bool operator==(const OuterCameraParams &) const = default;
 
-    void lerp(const OuterCameraParams &a, const OuterCameraParams &b, float t) {
+    HS_COLD_MEMBER void lerp(const OuterCameraParams &a,
+                             const OuterCameraParams &b, float t) {
       wander = hs::lerp(a.wander, b.wander, t);
     }
   };
@@ -554,7 +564,7 @@ private:
     ColorizerParams colorizer;
     OuterCameraParams outer_camera;
 
-    bool operator==(const Params &) const = default;
+    HS_COLD_MEMBER bool operator==(const Params &) const = default;
 
     HS_COLD_MEMBER void lerp(const Params &a, const Params &b, float t) {
       source.lerp(a.source, b.source, t);
@@ -601,7 +611,7 @@ private:
                           phase_t(t, phase, phase_count));
     }
 
-    static float phase_t(float t, int phase, int phase_count) {
+    HS_COLD_MEMBER static float phase_t(float t, int phase, int phase_count) {
       return ease_in_out_sin(hs::clamp(t * phase_count - phase, 0.0f, 1.0f));
     }
   };
@@ -610,7 +620,7 @@ private:
     Slots slots;
     Params params;
 
-    bool operator==(const Config &) const = default;
+    HS_COLD_MEMBER bool operator==(const Config &) const = default;
   };
   using RequestedConfig = Config;
   using Preset = Config;
@@ -1314,7 +1324,7 @@ private:
     uint8_t octave_version;
     uint8_t stencil_version;
 
-    bool operator==(const NoiseResourceKey &) const = default;
+    HS_COLD_MEMBER bool operator==(const NoiseResourceKey &) const = default;
   };
 
   struct FrameState {
@@ -1328,6 +1338,17 @@ private:
     WrappedNoisePhase source_noise_phase;
     WrappedNoisePhase lens_noise_phase;
     ResourceBindings resources;
+  };
+
+  struct FrameShader {
+    const FrameState *frame;
+    float alpha;
+
+    HS_FLASH_MEMBER Color4 operator()(const Vector &view) const {
+      Color4 color = shade(view, *frame);
+      color.alpha *= alpha;
+      return color;
+    }
   };
 
   struct LookRuntime {
@@ -1363,24 +1384,33 @@ private:
     bool active = false;
   };
 
+  struct StateBundle {
+    std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
+    std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
+    FastNoiseLite projection_walk_noise;
+    FastNoiseLite outer_walk_noise;
+    ParamMorphRuntime param_morph;
+    TransitionRuntime transition;
+  };
+
   struct ThroughClearPhase {
     float alpha;
     bool from_endpoint;
     bool clear;
   };
 
-  static constexpr bool warp_uses_noise(WarpStageKind kind) {
+  HS_COLD_MEMBER static constexpr bool warp_uses_noise(WarpStageKind kind) {
     return kind == WarpStageKind::LEGACY_STEREO_NOISE ||
            kind == WarpStageKind::VECTOR_NOISE ||
            kind == WarpStageKind::CURL_FLOW;
   }
 
-  static constexpr bool seam_sensitive_warp(WarpStageKind kind) {
+  HS_COLD_MEMBER static constexpr bool seam_sensitive_warp(WarpStageKind kind) {
     return kind == WarpStageKind::VECTOR_NOISE ||
            kind == WarpStageKind::CURL_FLOW;
   }
 
-  static constexpr NoiseResourceKey
+  HS_COLD_MEMBER static constexpr NoiseResourceKey
   warp_resource_key(const WarpStageSpec &spec) {
     return {
         spec.basis,
@@ -1393,7 +1423,8 @@ private:
         static_cast<uint8_t>(spec.kind == WarpStageKind::CURL_FLOW ? 1 : 0)};
   }
 
-  static constexpr NoiseResourceKey source_resource_key(const Config &config) {
+  HS_COLD_MEMBER static constexpr NoiseResourceKey
+  source_resource_key(const Config &config) {
     return {
         config.params.source.noise_basis,
         config.params.source.noise_seed,
@@ -1405,7 +1436,8 @@ private:
         0};
   }
 
-  static constexpr NoiseResourceKey lens_resource_key(const Config &config) {
+  HS_COLD_MEMBER static constexpr NoiseResourceKey
+  lens_resource_key(const Config &config) {
     return {config.params.surface_lens.noise_basis,
             config.params.surface_lens.noise_seed,
             1.0f,
@@ -1418,7 +1450,7 @@ private:
             0};
   }
 
-  static constexpr bool
+  HS_COLD_MEMBER static constexpr bool
   append_resource_key(const NoiseResourceKey &key,
                       std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> &keys,
                       size_t &count) {
@@ -1433,7 +1465,7 @@ private:
     return true;
   }
 
-  static constexpr bool append_config_resource_keys(
+  HS_COLD_MEMBER static constexpr bool append_config_resource_keys(
       const Config &config,
       std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> &keys, size_t &count) {
     if (warp_uses_noise(config.slots.warp_program.outer.kind) &&
@@ -1453,8 +1485,8 @@ private:
     return true;
   }
 
-  static constexpr bool resource_union_fits(const Config &from,
-                                            const Config &to) {
+  HS_COLD_MEMBER static constexpr bool resource_union_fits(const Config &from,
+                                                           const Config &to) {
     std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> keys{};
     size_t count = 0;
     return append_config_resource_keys(from, keys, count) &&
@@ -1470,41 +1502,46 @@ private:
       return false;
     prepared_noise_count = count;
     for (size_t index = 0; index < count; ++index) {
-      prepared_noise_keys[index] = keys[index];
-      noise_resources[index].SetNoiseType(
+      state->prepared_noise_keys[index] = keys[index];
+      state->noise_resources[index].SetNoiseType(
           FastNoiseLite::NoiseType_OpenSimplex2);
-      noise_resources[index].SetSeed(keys[index].seed);
-      noise_resources[index].SetFrequency(keys[index].generator_frequency);
+      state->noise_resources[index].SetSeed(keys[index].seed);
+      state->noise_resources[index].SetFrequency(
+          keys[index].generator_frequency);
     }
     return true;
   }
 
-  const FastNoiseLite *resolve_resource(const NoiseResourceKey &key) const {
+  HS_COLD_MEMBER const FastNoiseLite *
+  resolve_resource(const NoiseResourceKey &key) const {
     for (size_t index = 0; index < prepared_noise_count; ++index)
-      if (prepared_noise_keys[index] == key)
-        return &noise_resources[index];
+      if (state->prepared_noise_keys[index] == key)
+        return &state->noise_resources[index];
     return nullptr;
   }
 
-  const FastNoiseLite *resolve_warp_resource(const WarpStageSpec &spec) const {
+  HS_COLD_MEMBER const FastNoiseLite *
+  resolve_warp_resource(const WarpStageSpec &spec) const {
     return warp_uses_noise(spec.kind)
                ? resolve_resource(warp_resource_key(spec))
                : nullptr;
   }
 
-  const FastNoiseLite *resolve_source_resource(const Config &config) const {
+  HS_COLD_MEMBER const FastNoiseLite *
+  resolve_source_resource(const Config &config) const {
     return config.slots.function == Function::NOISE_CONTOUR
                ? resolve_resource(source_resource_key(config))
                : nullptr;
   }
 
-  const FastNoiseLite *resolve_lens_resource(const Config &config) const {
+  HS_COLD_MEMBER const FastNoiseLite *
+  resolve_lens_resource(const Config &config) const {
     return config.slots.surface_lens == SurfaceLens::TANGENT_NOISE
                ? resolve_resource(lens_resource_key(config))
                : nullptr;
   }
 
-  static WrappedNoisePhase prepare_noise_phase(float turns) {
+  HS_FLASH_MEMBER static WrappedNoisePhase prepare_noise_phase(float turns) {
     const float wrapped_turns = wrap_t(turns);
     const float current_time = wrapped_turns * NOISE_NATIVE_PERIOD;
     if (wrapped_turns <= NOISE_WRAP_START)
@@ -1515,8 +1552,8 @@ private:
             true};
   }
 
-  static PreparedWarpStage prepare_warp_stage(const WarpStageParams &params,
-                                              float stage_phase) {
+  HS_FLASH_MEMBER static PreparedWarpStage
+  prepare_warp_stage(const WarpStageParams &params, float stage_phase) {
     const float rotation_cos = cosf(params.rotation);
     const float rotation_sin = sinf(params.rotation);
     const float orbit_phase = TWO_PI_F * stage_phase;
@@ -1581,18 +1618,17 @@ private:
             from_endpoint, false};
   }
 
-  HS_NOINLINE_NOCLONE void draw_through_clear_transition(Canvas &canvas) const {
-    const ThroughClearPhase phase =
-        through_clear_phase(transition.elapsed, transition.duration);
+  HS_FLASH_MEMBER void draw_through_clear_transition(Canvas &canvas) const {
+    const ThroughClearPhase phase = through_clear_phase(
+        state->transition.elapsed, state->transition.duration);
     if (phase.clear)
       return;
     const FrameState visible =
-        phase.from_endpoint
-            ? prepare_frame(transition.from_config, transition.from_runtime)
-            : prepare_frame(transition.to_config, transition.to_runtime);
-    auto shader = [&](const Vector &view) HS_O3_FN -> Color4 {
-      return shade_through_clear(view, &visible, phase);
-    };
+        phase.from_endpoint ? prepare_frame(state->transition.from_config,
+                                            state->transition.from_runtime)
+                            : prepare_frame(state->transition.to_config,
+                                            state->transition.to_runtime);
+    FrameShader shader{&visible, phase.alpha};
     HS_PROFILE(sb_shader_draw);
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
@@ -1608,24 +1644,33 @@ private:
    * be joined in the plane, so the branches are shaded separately and their
    * outputs blended instead.
    */
-  HS_O3_FN static Color4 shade(const Vector &view, const FrameState &frame) {
+  static Color4 shade(const Vector &view, const FrameState &frame) {
     const Vector outer_local = outer_camera_lookup(view, frame);
     if (strict_projection(frame.slots.projection) &&
         frame.slots.surface_lens != SurfaceLens::NONE &&
         frame.params.surface_lens.mix > 0.0f &&
-        frame.params.surface_lens.mix < 1.0f) {
-      const ProjectedLookup direct = project_branch(outer_local, frame);
-      const ProjectedLookup lensed =
-          project_branch(apply_lens(outer_local, frame), frame);
-      if (!projection_join_compatible(direct, lensed, frame.slots.projection,
-                                      frame.params.projection.coordinate_scale))
-        return blend_outputs(shade_projected(direct, frame),
-                             shade_projected(lensed, frame),
-                             frame.params.surface_lens.mix);
-    }
+        frame.params.surface_lens.mix < 1.0f)
+      return shade_strict_lens_mix(outer_local, frame);
     const ProjectedLookup projected =
         surface_lens_project_lookup(outer_local, frame);
     return shade_projected(projected, frame);
+  }
+
+  HS_FLASH_MEMBER static Color4 shade_strict_lens_mix(const Vector &outer_local,
+                                                      const FrameState &frame) {
+    const ProjectedLookup direct = project_branch(outer_local, frame);
+    const ProjectedLookup lensed =
+        project_branch(apply_lens(outer_local, frame), frame);
+    if (!projection_join_compatible(direct, lensed, frame.slots.projection,
+                                    frame.params.projection.coordinate_scale))
+      return blend_outputs(shade_projected(direct, frame),
+                           shade_projected(lensed, frame),
+                           frame.params.surface_lens.mix);
+    return shade_projected(join_projected(direct, lensed,
+                                          frame.params.surface_lens.mix,
+                                          frame.slots.projection,
+                                          frame.params.projection.pole_fade),
+                           frame);
   }
 
   /**
@@ -1635,8 +1680,8 @@ private:
    * @param frame Frame snapshot.
    * @return Premultiplied-alpha colour for the sample.
    */
-  HS_O3_FN static Color4 shade_projected(const ProjectedLookup &projected,
-                                         const FrameState &frame) {
+  HS_FLASH_MEMBER static Color4
+  shade_projected(const ProjectedLookup &projected, const FrameState &frame) {
     const PlanarWarpResult warped = planar_warp_lookup(projected, frame);
     const Complex source_coords = condition_source_coords(warped.coords, frame);
     const float field = sample_source(source_coords, frame);
@@ -1675,19 +1720,8 @@ private:
             (BOUNDARY_CUT | BOUNDARY_SINGULAR)) == 0;
   }
 
-  static Color4 shade_through_clear(const Vector &view,
-                                    const FrameState *visible,
-                                    const ThroughClearPhase &phase) {
-    if (phase.clear)
-      return Color4();
-    HS_CHECK(visible != nullptr,
-             "through-clear visible phase requires an endpoint frame");
-    Color4 color = shade(view, *visible);
-    color.alpha *= phase.alpha;
-    return color;
-  }
-
-  static Color4 blend_outputs(const Color4 &from, const Color4 &to, float mix) {
+  HS_FLASH_MEMBER static Color4 blend_outputs(const Color4 &from,
+                                              const Color4 &to, float mix) {
     if (mix == 0.0f)
       return from;
     if (mix == 1.0f)
@@ -1731,6 +1765,12 @@ private:
     const Vector lensed = apply_lens(v, frame);
     if (mix == 1.0f)
       return project_branch(lensed, frame);
+    return surface_lens_mixed_lookup(v, lensed, frame, mix);
+  }
+
+  HS_FLASH_MEMBER static ProjectedLookup
+  surface_lens_mixed_lookup(const Vector &v, const Vector &lensed,
+                            const FrameState &frame, float mix) {
     const ProjectedLookup direct = project_branch(v, frame);
     const ProjectedLookup distorted = project_branch(lensed, frame);
     return join_projected(direct, distorted, mix, frame.slots.projection,
@@ -1760,45 +1800,95 @@ private:
             result.edge_class};
   }
 
-  HS_O3_FN static ProjectedLookup project_branch(const Vector &v,
-                                                 const FrameState &frame) {
-    const Vector local = rotate(v, frame.transforms.projection_conj);
-    const float coordinate_scale = frame.params.projection.coordinate_scale;
-    if (frame.slots.projection == Projection::BONNE)
-      return scaled_kernel_lookup(
-          projections::bonne_projection(
-              local, frame.params.projection.central_meridian,
-              (frame.slots.bonne_hemisphere == BonneHemisphere::NORTH ? 1.0f
-                                                                      : -1.0f) *
-                  frame.params.projection.bonne_standard_parallel),
-          coordinate_scale);
-    if (frame.slots.projection == Projection::PEIRCE_QUINCUNCIAL)
-      return scaled_kernel_lookup(
-          projections::peirce_projection(
-              local, frame.params.projection.central_meridian,
-              static_cast<uint8_t>(frame.slots.peirce_layout),
-              frame.params.projection.layout_scroll,
-              projection_edge_distance_required(frame)),
-          coordinate_scale);
-    if (frame.slots.projection == Projection::AIROCEAN)
-      return scaled_kernel_lookup(
-          projections::airocean_projection(
-              local, frame.params.projection.central_meridian,
-              frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
-              projection_edge_distance_required(frame)),
-          coordinate_scale);
-    const Complex coords =
-        frame.slots.projection == Projection::SINUSOIDAL
-            ? folded_sinusoidal(local, frame.params.projection.central_meridian)
-        : frame.slots.projection == Projection::EQUIRECTANGULAR
-            ? equirectangular(local, frame.params.projection.central_meridian)
-            : project_point(local, frame.slots.projection);
-    return finalize_projection(local, coords, frame.slots.projection,
+  HS_FLASH_MEMBER static ProjectedLookup
+  project_bonne(const Vector &local, const FrameState &frame) {
+    return scaled_kernel_lookup(
+        projections::bonne_projection(
+            local, frame.params.projection.central_meridian,
+            (frame.slots.bonne_hemisphere == BonneHemisphere::NORTH ? 1.0f
+                                                                    : -1.0f) *
+                frame.params.projection.bonne_standard_parallel),
+        frame.params.projection.coordinate_scale);
+  }
+
+  HS_FLASH_MEMBER static ProjectedLookup
+  project_peirce(const Vector &local, const FrameState &frame) {
+    return scaled_kernel_lookup(
+        projections::peirce_projection(
+            local, frame.params.projection.central_meridian,
+            static_cast<uint8_t>(frame.slots.peirce_layout),
+            frame.params.projection.layout_scroll,
+            projection_edge_distance_required(frame)),
+        frame.params.projection.coordinate_scale);
+  }
+
+  HS_FLASH_MEMBER static ProjectedLookup
+  project_airocean(const Vector &local, const FrameState &frame) {
+    return scaled_kernel_lookup(
+        projections::airocean_projection(
+            local, frame.params.projection.central_meridian,
+            frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
+            projection_edge_distance_required(frame)),
+        frame.params.projection.coordinate_scale);
+  }
+
+  HS_FLASH_MEMBER static ProjectedLookup
+  project_sinusoidal(const Vector &local, const FrameState &frame) {
+    return finalize_projection(
+        local,
+        folded_sinusoidal(local, frame.params.projection.central_meridian),
+        Projection::SINUSOIDAL, frame.params.projection.pole_fade);
+  }
+
+  HS_FLASH_MEMBER static ProjectedLookup
+  project_equirectangular(const Vector &local, const FrameState &frame) {
+    return finalize_projection(
+        local, equirectangular(local, frame.params.projection.central_meridian),
+        Projection::EQUIRECTANGULAR, frame.params.projection.pole_fade);
+  }
+
+  HS_FLASH_MEMBER static ProjectedLookup
+  project_gnomonic(const Vector &local, const FrameState &frame) {
+    return finalize_projection(local, gnomonic(local), Projection::GNOMONIC,
                                frame.params.projection.pole_fade,
                                frame.slots.gnomonic_hemisphere);
   }
 
-  static ProjectedLookup
+  HS_FLASH_MEMBER static ProjectedLookup
+  project_nonstereographic(const Vector &local, const FrameState &frame) {
+    if (frame.slots.projection == Projection::BONNE)
+      return project_bonne(local, frame);
+    if (frame.slots.projection == Projection::PEIRCE_QUINCUNCIAL)
+      return project_peirce(local, frame);
+    if (frame.slots.projection == Projection::AIROCEAN)
+      return project_airocean(local, frame);
+    if (frame.slots.projection == Projection::SINUSOIDAL)
+      return project_sinusoidal(local, frame);
+    if (frame.slots.projection == Projection::EQUIRECTANGULAR)
+      return project_equirectangular(local, frame);
+    if (frame.slots.projection == Projection::GNOMONIC)
+      return project_gnomonic(local, frame);
+
+    __builtin_unreachable();
+  }
+
+  HS_FLASH_MEMBER static ProjectedLookup
+  project_branch(const Vector &v, const FrameState &frame) {
+    const Vector local = rotate(v, frame.transforms.projection_conj);
+    if (frame.slots.projection != Projection::STEREOGRAPHIC)
+      return project_nonstereographic(local, frame);
+    const Complex coords = stereo(local);
+    const float r_sq = coords.re * coords.re + coords.im * coords.im;
+    return {coords,
+            0,
+            0,
+            BOUNDARY_SINGULAR,
+            std::max(0.0f, 1.0f - local.y),
+            pole_attenuation(r_sq, frame.params.projection.pole_fade),
+            0};
+  }
+
+  HS_FLASH_MEMBER static ProjectedLookup
   finalize_projection(const Vector &local, const Complex &coords,
                       Projection projection, float pole_fade,
                       GnomonicHemispherePolicy gnomonic_hemisphere =
@@ -1854,10 +1944,9 @@ private:
     __builtin_unreachable();
   }
 
-  static ProjectedLookup join_projected(const ProjectedLookup &direct,
-                                        const ProjectedLookup &lensed,
-                                        float mix, Projection projection,
-                                        float pole_fade) {
+  HS_FLASH_MEMBER static ProjectedLookup
+  join_projected(const ProjectedLookup &direct, const ProjectedLookup &lensed,
+                 float mix, Projection projection, float pole_fade) {
     if (mix == 0.0f)
       return direct;
     if (mix == 1.0f)
@@ -1909,7 +1998,7 @@ private:
    * magnitude of the summed delta, except when a lone legacy stereo stage is
    * programmed and its own displacement is reported.
    */
-  HS_O3_FN static PlanarWarpResult
+  HS_FLASH_MEMBER static PlanarWarpResult
   planar_warp_lookup(const ProjectedLookup &projected,
                      const FrameState &frame) {
     const PlanarWarpStageResult outer = warp_stage_lookup(
@@ -1937,6 +2026,124 @@ private:
             outer.path_length + inner.path_length};
   }
 
+  HS_FLASH_MEMBER static PlanarWarpStageResult
+  finish_closed_form_warp(const Complex &input, const Complex &output) {
+    const Complex delta(output.re - input.re, output.im - input.im);
+    const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
+    return {output, delta, deformation, deformation};
+  }
+
+  HS_FLASH_MEMBER static PlanarWarpStageResult
+  warp_affine_frame(const Complex &input, const WarpStageParams &params,
+                    const PreparedWarpStage &prepared) {
+    const float c = prepared.rotation_cos;
+    const float s = prepared.rotation_sin;
+    const float x = input.re - params.translation_x;
+    const float y = input.im - params.translation_y;
+    const float rx = c * x + s * y;
+    const float ry = -s * x + c * y;
+    const Complex output(rx / params.scale_x -
+                             params.shear * ry / params.scale_y,
+                         ry / params.scale_y);
+    return finish_closed_form_warp(input, output);
+  }
+
+  HS_FLASH_MEMBER static PlanarWarpStageResult
+  warp_wave_shear(const Complex &input, const WarpStageParams &params,
+                  float stage_phase, float amplitude) {
+    if (params.strength == 0.0f)
+      return {input, Complex(), 0.0f, 0.0f};
+    const float c = cosf(params.field_angle);
+    const float s = sinf(params.field_angle);
+    const float phase = params.frequency * (c * input.re + s * input.im) +
+                        TWO_PI_F * stage_phase;
+    const float offset = amplitude * sinf(phase);
+    const Complex delta(-s * offset, c * offset);
+    return {{input.re + delta.re, input.im + delta.im},
+            delta,
+            fabsf(offset),
+            fabsf(offset)};
+  }
+
+  HS_FLASH_MEMBER static PlanarWarpStageResult
+  warp_vortex(const Complex &input, const PreparedWarpStage &prepared) {
+    const float x = input.re - prepared.vortex_center_x;
+    const float y = input.im - prepared.vortex_center_y;
+    const float r_sq = x * x + y * y;
+    const float angle = prepared.vortex_angle_numerator /
+                        (1.0f + r_sq / prepared.vortex_radius_sq);
+    const float c = cosf(angle);
+    const float s = sinf(angle);
+    const Complex output(prepared.vortex_center_x + c * x - s * y,
+                         prepared.vortex_center_y + s * x + c * y);
+    return finish_closed_form_warp(input, output);
+  }
+
+  HS_FLASH_MEMBER static PlanarWarpStageResult
+  warp_vector_noise(const Complex &input, const WarpStageSpec &spec,
+                    const WarpStageParams &params, float amplitude,
+                    const FastNoiseLite &noise,
+                    const PreparedWarpStage &prepared) {
+    if (params.strength == 0.0f)
+      return {input, Complex(), 0.0f, 0.0f};
+    const float nx = sample_wrapped_noise_basis(
+        noise, spec.basis, params.scale * input.re, params.scale * input.im,
+        prepared.noise_phase);
+    float ny = sample_wrapped_noise_basis(
+        noise, spec.basis, params.scale * input.re + 31.416f,
+        params.scale * input.im - 47.853f, prepared.noise_phase, 11.0f);
+    float zero_dc_x = nx;
+    if (spec.basis == NoiseBasis::RIDGED3) {
+      zero_dc_x -= sample_wrapped_noise_basis(
+          noise, spec.basis, params.scale * input.re - 73.271f,
+          params.scale * input.im + 19.119f, prepared.noise_phase, 5.0f);
+      ny -= sample_wrapped_noise_basis(
+          noise, spec.basis, params.scale * input.re + 61.731f,
+          params.scale * input.im + 89.417f, prepared.noise_phase, -7.0f);
+    }
+    const float c = cosf(params.vector_angle);
+    const float s = sinf(params.vector_angle);
+    const Complex delta(amplitude * (c * zero_dc_x - s * ny),
+                        amplitude * (s * zero_dc_x + c * ny));
+    const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
+    return {{input.re + delta.re, input.im + delta.im},
+            delta,
+            deformation,
+            deformation};
+  }
+
+  HS_FLASH_MEMBER static PlanarWarpStageResult
+  warp_curl_flow(const Complex &input, const WarpStageSpec &spec,
+                 const WarpStageParams &params, float amplitude,
+                 const FastNoiseLite &noise,
+                 const PreparedWarpStage &prepared) {
+    if (params.strength == 0.0f)
+      return {input, Complex(), 0.0f, 0.0f};
+    Complex delta;
+    float path_length = 0.0f;
+    const Complex output = curl_flow(input, noise, spec, params, amplitude,
+                                     prepared.noise_phase, delta, path_length);
+    const float deformation =
+        spec.curl_integrator == CurlIntegrator::EULER_1
+            ? path_length
+            : sqrtf(delta.re * delta.re + delta.im * delta.im);
+    return {output, delta, deformation, path_length};
+  }
+
+  HS_FLASH_MEMBER static PlanarWarpStageResult
+  warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
+                   const WarpStageParams &params) {
+    const float radius = sqrtf(input.re * input.re + input.im * input.im);
+    const float radial = spec.polar_mode == PolarMode::LOGARITHMIC
+                             ? logf(std::max(radius, 1.0f / 4096.0f))
+                             : radius;
+    const Complex output(params.radial_scale * radial + params.radial_phase,
+                         static_cast<float>(spec.polar_harmonic) *
+                                 fast_atan2(input.im, input.re) +
+                             params.angular_phase);
+    return finish_closed_form_warp(input, output);
+  }
+
   /**
    * @brief Pulls plane coordinates back through one warp stage.
    * @param input Coordinates entering the stage.
@@ -1954,7 +2161,7 @@ private:
    * @details Path length equals the deformation for the closed-form kinds and
    * the integrated arc length for curl flow.
    */
-  HS_O3_FN static PlanarWarpStageResult
+  HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_stage_lookup(const Complex &input, const ProjectedLookup &projected,
                     const WarpStageSpec &spec, const WarpStageParams &params,
                     float stage_phase, const FastNoiseLite *stage_noise,
@@ -1962,15 +2169,7 @@ private:
                     const FrameState &frame) {
     if (spec.kind == WarpStageKind::NONE)
       return {input, Complex(), 0.0f, 0.0f};
-    const float envelope =
-        warp_envelope(projected, spec.envelope, params.edge_width);
-    const float amplitude = params.strength * envelope;
-    Complex output = input;
-    float path_length = 0.0f;
-    switch (spec.kind) {
-    case WarpStageKind::NONE:
-      break;
-    case WarpStageKind::LEGACY_STEREO_NOISE: {
+    if (spec.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
       if (params.strength == 0.0f)
         return {input, Complex(), 0.0f, 0.0f};
       const float r_sq = projected.coords.re * projected.coords.re +
@@ -1981,107 +2180,41 @@ private:
       return {result.coords, result.delta, result.displacement,
               result.displacement};
     }
-    case WarpStageKind::AFFINE_FRAME: {
-      const float c = prepared.rotation_cos;
-      const float s = prepared.rotation_sin;
-      const float x = input.re - params.translation_x;
-      const float y = input.im - params.translation_y;
-      const float rx = c * x + s * y;
-      const float ry = -s * x + c * y;
-      const Complex transformed(rx / params.scale_x -
-                                    params.shear * ry / params.scale_y,
-                                ry / params.scale_y);
-      output = transformed;
+    return warp_nonlegacy_stage(input, projected, spec, params, stage_phase,
+                                *stage_noise, prepared);
+  }
+
+  HS_FLASH_MEMBER static PlanarWarpStageResult
+  warp_nonlegacy_stage(const Complex &input, const ProjectedLookup &projected,
+                       const WarpStageSpec &spec, const WarpStageParams &params,
+                       float stage_phase, const FastNoiseLite &stage_noise,
+                       const PreparedWarpStage &prepared) {
+    const float envelope =
+        warp_envelope(projected, spec.envelope, params.edge_width);
+    const float amplitude = params.strength * envelope;
+    switch (spec.kind) {
+    case WarpStageKind::NONE:
+    case WarpStageKind::LEGACY_STEREO_NOISE:
       break;
-    }
-    case WarpStageKind::WAVE_SHEAR: {
-      if (params.strength == 0.0f)
-        return {input, Complex(), 0.0f, 0.0f};
-      const float c = cosf(params.field_angle);
-      const float s = sinf(params.field_angle);
-      const float phase = params.frequency * (c * input.re + s * input.im) +
-                          TWO_PI_F * stage_phase;
-      const float offset = amplitude * sinf(phase);
-      const Complex delta(-s * offset, c * offset);
-      return {{input.re + delta.re, input.im + delta.im},
-              delta,
-              fabsf(offset),
-              fabsf(offset)};
-    }
-    case WarpStageKind::VORTEX: {
-      const float center_x = prepared.vortex_center_x;
-      const float center_y = prepared.vortex_center_y;
-      const float x = input.re - center_x;
-      const float y = input.im - center_y;
-      const float r_sq = x * x + y * y;
-      const float angle = prepared.vortex_angle_numerator /
-                          (1.0f + r_sq / prepared.vortex_radius_sq);
-      const float c = cosf(angle);
-      const float s = sinf(angle);
-      output = {center_x + c * x - s * y, center_y + s * x + c * y};
-      break;
-    }
-    case WarpStageKind::VECTOR_NOISE: {
-      if (params.strength == 0.0f)
-        return {input, Complex(), 0.0f, 0.0f};
-      const float nx = sample_wrapped_noise_basis(
-          *stage_noise, spec.basis, params.scale * input.re,
-          params.scale * input.im, prepared.noise_phase);
-      float ny = sample_wrapped_noise_basis(
-          *stage_noise, spec.basis, params.scale * input.re + 31.416f,
-          params.scale * input.im - 47.853f, prepared.noise_phase, 11.0f);
-      float zero_dc_x = nx;
-      if (spec.basis == NoiseBasis::RIDGED3) {
-        zero_dc_x -= sample_wrapped_noise_basis(
-            *stage_noise, spec.basis, params.scale * input.re - 73.271f,
-            params.scale * input.im + 19.119f, prepared.noise_phase, 5.0f);
-        ny -= sample_wrapped_noise_basis(
-            *stage_noise, spec.basis, params.scale * input.re + 61.731f,
-            params.scale * input.im + 89.417f, prepared.noise_phase, -7.0f);
-      }
-      const float c = cosf(params.vector_angle);
-      const float s = sinf(params.vector_angle);
-      const Complex delta(amplitude * (c * zero_dc_x - s * ny),
-                          amplitude * (s * zero_dc_x + c * ny));
-      const float deformation =
-          sqrtf(delta.re * delta.re + delta.im * delta.im);
-      return {{input.re + delta.re, input.im + delta.im},
-              delta,
-              deformation,
-              deformation};
-    }
-    case WarpStageKind::CURL_FLOW: {
-      if (params.strength == 0.0f)
-        return {input, Complex(), 0.0f, 0.0f};
-      Complex delta;
-      output = curl_flow(input, *stage_noise, spec, params, amplitude,
-                         prepared.noise_phase, delta, path_length);
-      const float deformation =
-          spec.curl_integrator == CurlIntegrator::EULER_1
-              ? path_length
-              : sqrtf(delta.re * delta.re + delta.im * delta.im);
-      return {output, delta, deformation, path_length};
-    }
+    case WarpStageKind::AFFINE_FRAME:
+      return warp_affine_frame(input, params, prepared);
+    case WarpStageKind::WAVE_SHEAR:
+      return warp_wave_shear(input, params, stage_phase, amplitude);
+    case WarpStageKind::VORTEX:
+      return warp_vortex(input, prepared);
+    case WarpStageKind::VECTOR_NOISE:
+      return warp_vector_noise(input, spec, params, amplitude, stage_noise,
+                               prepared);
+    case WarpStageKind::CURL_FLOW:
+      return warp_curl_flow(input, spec, params, amplitude, stage_noise,
+                            prepared);
     case WarpStageKind::MIRROR_TILE:
-      output = mirror_tile(input, params, prepared);
-      break;
-    case WarpStageKind::POLAR_CHART: {
-      const float radius = sqrtf(input.re * input.re + input.im * input.im);
-      const float radial = spec.polar_mode == PolarMode::LOGARITHMIC
-                               ? logf(std::max(radius, 1.0f / 4096.0f))
-                               : radius;
-      output = {params.radial_scale * radial + params.radial_phase,
-                static_cast<float>(spec.polar_harmonic) *
-                        fast_atan2(input.im, input.re) +
-                    params.angular_phase};
-      break;
+      return finish_closed_form_warp(input,
+                                     mirror_tile(input, params, prepared));
+    case WarpStageKind::POLAR_CHART:
+      return warp_polar_chart(input, spec, params);
     }
-    }
-    const Complex delta(output.re - input.re, output.im - input.im);
-    const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
-    if (path_length == 0.0f)
-      path_length = deformation;
-    return {output, delta, deformation, path_length};
+    __builtin_unreachable();
   }
 
   static float warp_envelope(const ProjectedLookup &projected,
@@ -2125,11 +2258,11 @@ private:
     return hs::lerp(current, previous, phase.mix);
   }
 
-  static Complex curl_flow(const Complex &input, const FastNoiseLite &noise,
-                           const WarpStageSpec &spec,
-                           const WarpStageParams &params, float distance,
-                           const WrappedNoisePhase &noise_phase,
-                           Complex &net_delta, float &path_length) {
+  HS_FLASH_MEMBER static Complex
+  curl_flow(const Complex &input, const FastNoiseLite &noise,
+            const WarpStageSpec &spec, const WarpStageParams &params,
+            float distance, const WrappedNoisePhase &noise_phase,
+            Complex &net_delta, float &path_length) {
     if (spec.curl_integrator == CurlIntegrator::EULER_1) {
       const Complex direction =
           curl_vector(input, noise, spec.basis, params.scale, noise_phase);
@@ -2159,9 +2292,9 @@ private:
     return q;
   }
 
-  static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
-                             NoiseBasis basis, float scale,
-                             const WrappedNoisePhase &noise_phase) {
+  HS_FLASH_MEMBER static Complex
+  curl_vector(const Complex &p, const FastNoiseLite &noise, NoiseBasis basis,
+              float scale, const WrappedNoisePhase &noise_phase) {
     if (basis == NoiseBasis::SIMPLEX && !noise_phase.blends)
       return simplex_curl_vector(p, noise, scale, noise_phase.current_time);
     constexpr float STENCIL = 1.0f / 64.0f;
@@ -2180,9 +2313,9 @@ private:
     return {-scale * dy, scale * dx};
   }
 
-  static Complex simplex_curl_vector(const Complex &p,
-                                     const FastNoiseLite &noise, float scale,
-                                     float time) {
+  HS_FLASH_MEMBER static Complex simplex_curl_vector(const Complex &p,
+                                                     const FastNoiseLite &noise,
+                                                     float scale, float time) {
     constexpr float STENCIL = 1.0f / 64.0f;
     constexpr float ONE_THIRD_STENCIL = STENCIL / 3.0f;
     constexpr float TWO_THIRDS_STENCIL = 2.0f * STENCIL / 3.0f;
@@ -2209,9 +2342,9 @@ private:
     return {-scale * dy, scale * dx};
   }
 
-  static Complex mirror_tile(const Complex &input,
-                             const WarpStageParams &params,
-                             const PreparedWarpStage &prepared) {
+  HS_FLASH_MEMBER static Complex
+  mirror_tile(const Complex &input, const WarpStageParams &params,
+              const PreparedWarpStage &prepared) {
     const float c = prepared.rotation_cos;
     const float s = prepared.rotation_sin;
     const float offset_x = prepared.mirror_offset_x;
@@ -2265,14 +2398,10 @@ private:
    * [0, 1], so it changes value rather than alpha; coverage is the separate
    * alpha channel.
    */
-  static MaterialSample shape_material(float field,
-                                       const ProjectedLookup &projected,
-                                       const PlanarWarpResult &warped,
-                                       const FrameState &frame) {
-    const float weight = frame.slots.signal_weight == SignalWeight::PROJECTION
-                             ? projected.value_weight
-                             : 1.0f;
-    float value = hs::clamp((field * weight + 1.0f) * 0.5f, 0.0f, 1.0f);
+  HS_FLASH_MEMBER static MaterialSample
+  shape_nontrivial_material(float value, const ProjectedLookup &projected,
+                            const PlanarWarpResult &warped,
+                            const FrameState &frame) {
     switch (frame.slots.value_transfer) {
     case ValueTransfer::LINEAR:
       break;
@@ -2323,33 +2452,53 @@ private:
             warped.path_length};
   }
 
+  static MaterialSample shape_material(float field,
+                                       const ProjectedLookup &projected,
+                                       const PlanarWarpResult &warped,
+                                       const FrameState &frame) {
+    const float weight = frame.slots.signal_weight == SignalWeight::PROJECTION
+                             ? projected.value_weight
+                             : 1.0f;
+    const float value = hs::clamp((field * weight + 1.0f) * 0.5f, 0.0f, 1.0f);
+    if (frame.slots.value_transfer == ValueTransfer::LINEAR &&
+        frame.slots.coverage == CoveragePolicy::OPAQUE)
+      return {value, projected.domain_coverage, warped.net_delta,
+              warped.deformation, warped.path_length};
+    return shape_nontrivial_material(value, projected, warped, frame);
+  }
+
   /**
    * @brief Samples the selected source function at a planar coordinate.
    * @param p Conditioned source coordinates.
    * @param frame Frame snapshot.
    * @return Signed field value in [-1, 1].
    */
+  HS_FLASH_MEMBER static float sample_noise_contour(const Complex &p,
+                                                    const FrameState &frame) {
+    const float n = hs::clamp(
+        sample_wrapped_noise_basis(
+            *frame.resources.source_noise, frame.params.source.noise_basis,
+            frame.params.source.noise_scale * p.re,
+            frame.params.source.noise_scale * p.im, frame.source_noise_phase),
+        -1.0f, 1.0f);
+    const float contrast = frame.params.source.noise_contrast;
+    return n * (1.0f + contrast) / (1.0f + contrast * fabsf(n));
+  }
+
   static float sample_source(const Complex &p, const FrameState &frame) {
     if (frame.slots.function == Function::COUPLED_DIRECT)
       return sample_pattern(
           p, frame.params.source.complexity, frame.params.source.pattern_mix,
           frame.prepared_source.primary, frame.prepared_source.secondary);
-    if (frame.slots.function == Function::NOISE_CONTOUR) {
-      const float n = hs::clamp(
-          sample_wrapped_noise_basis(
-              *frame.resources.source_noise, frame.params.source.noise_basis,
-              frame.params.source.noise_scale * p.re,
-              frame.params.source.noise_scale * p.im, frame.source_noise_phase),
-          -1.0f, 1.0f);
-      const float contrast = frame.params.source.noise_contrast;
-      return n * (1.0f + contrast) / (1.0f + contrast * fabsf(n));
-    }
+    if (frame.slots.function == Function::NOISE_CONTOUR)
+      return sample_noise_contour(p, frame);
     if (frame.slots.function == Function::PRIMITIVE_LATTICE)
       return primitive_lattice(p, frame.params.source);
     return sample_function(frame.slots.function, p, frame.prepared_source);
   }
 
-  static float primitive_lattice(const Complex &p, const SourceParams &params) {
+  HS_FLASH_MEMBER static float primitive_lattice(const Complex &p,
+                                                 const SourceParams &params) {
     const float x = wrap_t(params.lattice_cell_scale * p.re + 0.5f) - 0.5f;
     const float y = wrap_t(params.lattice_cell_scale * p.im + 0.5f) - 0.5f;
     const float circle = sqrtf(x * x + y * y) - params.lattice_radius;
@@ -2363,7 +2512,8 @@ private:
                                      params.lattice_softness, distance);
   }
 
-  static float smooth_ramp(float edge0, float edge1, float value) {
+  HS_FLASH_MEMBER static float smooth_ramp(float edge0, float edge1,
+                                           float value) {
     return cubic_kernel((value - edge0) / (edge1 - edge0));
   }
 
@@ -2374,36 +2524,44 @@ private:
    * @return Colour whose alpha is the palette alpha scaled by the coverage.
    * @details The deformation colorizer offsets the palette coordinate by the
    * normalized displacement, path length, and delta direction; the liquid
-   * colorizer offsets it by the breathe phase.
-   */
+  * colorizer offsets it by the breathe phase.
+  */
+  HS_FLASH_MEMBER static Color4 colorize_generated(const MaterialSample &sample,
+                                                   const FrameState &frame) {
+    Color4 color = frame.resources.generated_palette->get(sample.value);
+    color.alpha *= sample.coverage;
+    return color;
+  }
+
+  HS_FLASH_MEMBER static Color4
+  colorize_deformation(const MaterialSample &sample, const FrameState &frame) {
+    const ColorizerParams &params = frame.params.colorizer;
+    const float displacement =
+        hs::clamp(sample.deformation / params.displacement_norm, 0.0f, 1.0f);
+    const float path =
+        hs::clamp(sample.path_length / params.path_norm, 0.0f, 1.0f);
+    float direction = 0.0f;
+    constexpr float DIRECTION_EPSILON_SQ = 1e-12f;
+    if (sample.net_delta.re * sample.net_delta.re +
+            sample.net_delta.im * sample.net_delta.im >
+        DIRECTION_EPSILON_SQ)
+      direction = params.direction_gain *
+                  cosf(fast_atan2(sample.net_delta.im, sample.net_delta.re) -
+                       params.direction_phase);
+    const float u =
+        wrap_t(sample.value + params.displacement_gain * displacement +
+               params.path_gain * path + direction);
+    Color4 color = frame.resources.generated_palette->get(u);
+    color.alpha *= sample.coverage;
+    return color;
+  }
+
   HS_O3_FN static Color4 colorize(const MaterialSample &sample,
                                   const FrameState &frame) {
-    if (frame.slots.colorizer == Colorizer::GENERATED_TRIADIC) {
-      Color4 color = frame.resources.generated_palette->get(sample.value);
-      color.alpha *= sample.coverage;
-      return color;
-    }
-    if (frame.slots.colorizer == Colorizer::DEFORMATION_INK) {
-      const ColorizerParams &params = frame.params.colorizer;
-      const float displacement =
-          hs::clamp(sample.deformation / params.displacement_norm, 0.0f, 1.0f);
-      const float path =
-          hs::clamp(sample.path_length / params.path_norm, 0.0f, 1.0f);
-      float direction = 0.0f;
-      constexpr float DIRECTION_EPSILON_SQ = 1e-12f;
-      if (sample.net_delta.re * sample.net_delta.re +
-              sample.net_delta.im * sample.net_delta.im >
-          DIRECTION_EPSILON_SQ)
-        direction = params.direction_gain *
-                    cosf(fast_atan2(sample.net_delta.im, sample.net_delta.re) -
-                         params.direction_phase);
-      const float u =
-          wrap_t(sample.value + params.displacement_gain * displacement +
-                 params.path_gain * path + direction);
-      Color4 color = frame.resources.generated_palette->get(u);
-      color.alpha *= sample.coverage;
-      return color;
-    }
+    if (frame.slots.colorizer == Colorizer::GENERATED_TRIADIC)
+      return colorize_generated(sample, frame);
+    if (frame.slots.colorizer == Colorizer::DEFORMATION_INK)
+      return colorize_deformation(sample, frame);
     const float value = std::min(sample.value, ONE_BELOW_UNIT);
     const float u = wrap_t(value + frame.breathe_offset);
     Color4 color = frame.resources.liquid_palette->get(u);
@@ -2415,7 +2573,8 @@ private:
     return color;
   }
 
-  static Vector apply_lens(const Vector &v, const FrameState &frame) {
+  HS_FLASH_MEMBER static Vector apply_lens(const Vector &v,
+                                           const FrameState &frame) {
     switch (frame.slots.surface_lens) {
     case SurfaceLens::NONE:
     case SurfaceLens::GLITCH:
@@ -2426,7 +2585,7 @@ private:
     case SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL:
       return apply_frame_free_lens(v, frame.slots.surface_lens);
     case SurfaceLens::MOBIUS:
-      return mobius_transform(v, frame.params.surface_lens.mobius);
+      return mobius_lens(v, frame.params.surface_lens.mobius);
     case SurfaceLens::TANGENT_NOISE:
       return tangent_noise_lens(v, frame);
     }
@@ -2477,7 +2636,13 @@ private:
                   mixed.z * inv_length);
   }
 
-  static Vector tangent_noise_lens(const Vector &v, const FrameState &frame) {
+  HS_FLASH_MEMBER static Vector mobius_lens(const Vector &v,
+                                            const MobiusParams &params) {
+    return mobius_transform(v, params);
+  }
+
+  HS_FLASH_MEMBER static Vector tangent_noise_lens(const Vector &v,
+                                                   const FrameState &frame) {
     const float scale = frame.params.surface_lens.noise_scale;
     const WrappedNoisePhase &phase = frame.lens_noise_phase;
     const float nx = sample_wrapped_noise_basis(
@@ -2508,7 +2673,7 @@ private:
     return Vector(v.x * c - v.z * s, v.y, v.x * s + v.z * c);
   }
 
-  static Vector kaleidoscope_lens(const Vector &v) {
+  HS_FLASH_MEMBER static Vector kaleidoscope_lens(const Vector &v) {
     constexpr float SECTOR = TWO_PI_F / KALEIDOSCOPE_SECTORS;
     const float radius = sqrtf(v.x * v.x + v.z * v.z);
     float azimuth = fmodf(fast_atan2(v.z, v.x) + PI_F, SECTOR);
@@ -2556,7 +2721,8 @@ private:
    *        `project_branch` instead.
    * @return Plane coordinates in the projection's native units.
    */
-  static Complex project_point(const Vector &v, Projection projection) {
+  HS_FLASH_MEMBER static Complex project_point(const Vector &v,
+                                               Projection projection) {
     switch (projection) {
     case Projection::SINUSOIDAL:
       return folded_sinusoidal(v);
@@ -2584,8 +2750,8 @@ private:
    * hemispheres onto one image, so the antimeridian carries no seam; the
    * cos(latitude) taper collapses each pole to a point.
    */
-  static Complex folded_sinusoidal(const Vector &v,
-                                   float central_meridian = 0.0f) {
+  HS_FLASH_MEMBER static Complex
+  folded_sinusoidal(const Vector &v, float central_meridian = 0.0f) {
     const float radius = sqrtf(v.x * v.x + v.z * v.z);
     return {std::fabs(projections::wrap_longitude(fast_atan2(v.z, v.x) -
                                                   central_meridian)) *
@@ -2601,22 +2767,23 @@ private:
    * @details Longitude is periodic, so the image is cut at the antimeridian and
    * each pole spreads across a full image row.
    */
-  static Complex equirectangular(const Vector &v,
-                                 float central_meridian = 0.0f) {
+  HS_FLASH_MEMBER static Complex
+  equirectangular(const Vector &v, float central_meridian = 0.0f) {
     return {
         projections::wrap_longitude(fast_atan2(v.z, v.x) - central_meridian),
         0.5f * PI_F - fast_acos(v.y)};
   }
 
-  static Complex gnomonic(const Vector &v) {
+  HS_FLASH_MEMBER static Complex gnomonic(const Vector &v) {
     float y = v.y;
     if (std::fabs(y) < GNOMONIC_AXIS_EPS)
       y = y < 0.0f ? -GNOMONIC_AXIS_EPS : GNOMONIC_AXIS_EPS;
     return {v.x / y, v.z / y};
   }
 
-  static float sample_function(Function function, const Complex &p,
-                               const SourceState &source) {
+  HS_FLASH_MEMBER static float sample_function(Function function,
+                                               const Complex &p,
+                                               const SourceState &source) {
     switch (function) {
     case Function::TWIN_WAVE:
       return twin_wave(p, source);
@@ -2634,24 +2801,28 @@ private:
     __builtin_unreachable();
   }
 
-  static float twin_wave(const Complex &p, const SourceState &source) {
+  HS_FLASH_MEMBER static float twin_wave(const Complex &p,
+                                         const SourceState &source) {
     const float rotated = p.re * source.angle_cos + p.im * source.angle_sin;
     return 0.5f * (fast_sinf(p.re + source.primary) +
                    fast_sinf(rotated + source.primary));
   }
 
-  static float rings(const Complex &p, const SourceState &source) {
+  HS_FLASH_MEMBER static float rings(const Complex &p,
+                                     const SourceState &source) {
     return fast_sinf(sqrtf(p.re * p.re + p.im * p.im) - source.primary);
   }
 
-  static float spiral(const Complex &p, const SourceState &source) {
+  HS_FLASH_MEMBER static float spiral(const Complex &p,
+                                      const SourceState &source) {
     const float radius = sqrtf(p.re * p.re + p.im * p.im);
     const float azimuth = fast_atan2(p.im, p.re);
     return fast_sinf(radius - SPIRAL_ARMS * (azimuth + source.angle) -
                      source.primary);
   }
 
-  static float grid(const Complex &p, const SourceState &source) {
+  HS_FLASH_MEMBER static float grid(const Complex &p,
+                                    const SourceState &source) {
     const float a = p.re * source.angle_cos + p.im * source.angle_sin;
     const float b = -p.re * source.angle_sin + p.im * source.angle_cos;
     return fast_sinf(a + source.primary) * fast_cosf(b - source.primary);
@@ -2742,17 +2913,19 @@ private:
   }
 
   HS_COLD_MEMBER void prepare_param_morph() {
-    if (!param_morph.active)
+    if (!state->param_morph.active)
       return;
-    const float mix = transition_mix(param_morph.elapsed, param_morph.duration);
+    const float mix =
+        transition_mix(state->param_morph.elapsed, state->param_morph.duration);
     if (mix == 0.0f)
-      blend.params = param_morph.from;
+      blend.params = state->param_morph.from;
     else if (mix == 1.0f)
-      blend.params = param_morph.to;
-    else if (param_morph.staggered)
-      blend.params.lerp_staggered(param_morph.from, param_morph.to, mix);
+      blend.params = state->param_morph.to;
+    else if (state->param_morph.staggered)
+      blend.params.lerp_staggered(state->param_morph.from,
+                                  state->param_morph.to, mix);
     else
-      blend.params.lerp(param_morph.from, param_morph.to, mix);
+      blend.params.lerp(state->param_morph.from, state->param_morph.to, mix);
   }
 
   static float transition_mix(uint16_t elapsed, uint16_t duration) {
@@ -2771,12 +2944,12 @@ private:
       reject_requested_config();
       return;
     }
-    if (transition.active)
-      runtime = transition.elapsed * 2 < transition.duration
-                    ? transition.from_runtime
-                    : transition.to_runtime;
-    transition.active = false;
-    param_morph.active = false;
+    if (state->transition.active)
+      runtime = state->transition.elapsed * 2 < state->transition.duration
+                    ? state->transition.from_runtime
+                    : state->transition.to_runtime;
+    state->transition.active = false;
+    state->param_morph.active = false;
     active_slots = requested_config.slots;
     blend.params = requested_config.params;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -2854,64 +3027,64 @@ private:
                                        bool continue_choreo) {
     if (!valid_config(candidate) || duration == 0)
       return false;
-    if (transition.active)
+    if (state->transition.active)
       return false;
     const Config current{active_slots, blend.params};
     if (!transition_admitted(current, candidate))
       return false;
     if (candidate == current) {
-      param_morph.active = false;
+      state->param_morph.active = false;
       return true;
     }
     if (stable_topology(current, candidate)) {
-      param_morph = {current.params, candidate.params, 0,   duration,
-                     staggered,      continue_choreo,  true};
+      state->param_morph = {current.params, candidate.params, 0,   duration,
+                            staggered,      continue_choreo,  true};
       return true;
     }
     if (!prepare_resource_union(current, current))
       return false;
     const uint16_t planned_duration =
         (duration & 1U) != 0 ? duration + 1 : duration;
-    param_morph.active = false;
-    transition = {current, candidate,        runtime,         runtime,
-                  0,       planned_duration, continue_choreo, true};
+    state->param_morph.active = false;
+    state->transition = {current, candidate,        runtime,         runtime,
+                         0,       planned_duration, continue_choreo, true};
     return true;
   }
 
   HS_COLD_MEMBER void finish_transitions() {
-    if (transition.active) {
-      if (transition.elapsed == transition.duration / 2)
-        HS_CHECK(
-            prepare_resource_union(transition.to_config, transition.to_config),
-            "through-clear destination resources exceed capacity");
-      if (transition.elapsed < transition.duration) {
-        ++transition.elapsed;
+    if (state->transition.active) {
+      if (state->transition.elapsed == state->transition.duration / 2)
+        HS_CHECK(prepare_resource_union(state->transition.to_config,
+                                        state->transition.to_config),
+                 "through-clear destination resources exceed capacity");
+      if (state->transition.elapsed < state->transition.duration) {
+        ++state->transition.elapsed;
         return;
       }
-      const bool continue_choreo = transition.continue_choreo;
-      runtime = transition.to_runtime;
-      active_slots = transition.to_config.slots;
-      blend.params = transition.to_config.params;
-      transition.active = false;
+      const bool continue_choreo = state->transition.continue_choreo;
+      runtime = state->transition.to_runtime;
+      active_slots = state->transition.to_config.slots;
+      blend.params = state->transition.to_config.params;
+      state->transition.active = false;
       if (continue_choreo)
         enter_preset();
       return;
     }
-    if (!param_morph.active)
+    if (!state->param_morph.active)
       return;
-    if (param_morph.elapsed < param_morph.duration) {
-      ++param_morph.elapsed;
+    if (state->param_morph.elapsed < state->param_morph.duration) {
+      ++state->param_morph.elapsed;
       return;
     }
-    const bool continue_choreo = param_morph.continue_choreo;
-    blend.params = param_morph.to;
-    param_morph.active = false;
+    const bool continue_choreo = state->param_morph.continue_choreo;
+    blend.params = state->param_morph.to;
+    state->param_morph.active = false;
     if (continue_choreo)
       enter_preset();
   }
 
   HS_COLD_MEMBER void publish_live_config() {
-    if (anims_paused || transition.active || param_morph.active ||
+    if (anims_paused || state->transition.active || state->param_morph.active ||
         requested_config != published_config)
       return;
     published_config = {active_slots, blend.params};
@@ -2921,12 +3094,13 @@ private:
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   HS_COLD_MEMBER void refresh_parameter_display() override {
-    if (transition.active) {
-      const float mix = transition_mix(transition.elapsed, transition.duration);
-      display_config.slots = mix < 0.5f ? transition.from_config.slots
-                                        : transition.to_config.slots;
-      display_config.params.lerp(transition.from_config.params,
-                                 transition.to_config.params, mix);
+    if (state->transition.active) {
+      const float mix =
+          transition_mix(state->transition.elapsed, state->transition.duration);
+      display_config.slots = mix < 0.5f ? state->transition.from_config.slots
+                                        : state->transition.to_config.slots;
+      display_config.params.lerp(state->transition.from_config.params,
+                                 state->transition.to_config.params, mix);
       return;
     }
     display_config = {active_slots, blend.params};
@@ -2934,11 +3108,12 @@ private:
 #endif
 
   template <typename Enum>
-  static constexpr bool enum_at_most(Enum value, Enum last) {
+  HS_COLD_MEMBER static constexpr bool enum_at_most(Enum value, Enum last) {
     return static_cast<uint8_t>(value) <= static_cast<uint8_t>(last);
   }
 
-  static constexpr SourceTraits source_traits(Function function) {
+  HS_COLD_MEMBER static constexpr SourceTraits
+  source_traits(Function function) {
     switch (function) {
     case Function::COUPLED_DIRECT:
       return {true, true, true, true, false, true};
@@ -2954,8 +3129,9 @@ private:
     return {true, true, false, false, false, false};
   }
 
-  static constexpr bool polar_source_compatible(const RequestedConfig &config,
-                                                const WarpStageSpec &polar) {
+  HS_COLD_MEMBER static constexpr bool
+  polar_source_compatible(const RequestedConfig &config,
+                          const WarpStageSpec &polar) {
     const SourceTraits traits = source_traits(config.slots.function);
     if (!traits.y_periodic || !traits.polar_angle_compatible)
       return false;
@@ -2964,7 +3140,8 @@ private:
     return periods == static_cast<float>(static_cast<int>(periods));
   }
 
-  static constexpr bool strict_seam_compatible(const Config &config) {
+  HS_COLD_MEMBER static constexpr bool
+  strict_seam_compatible(const Config &config) {
     if (!strict_projection(config.slots.projection))
       return true;
     return config.slots.function != Function::NOISE_CONTOUR &&
@@ -2973,7 +3150,8 @@ private:
            !seam_sensitive_warp(config.slots.warp_program.inner.kind);
   }
 
-  static constexpr bool valid_config(const RequestedConfig &candidate) {
+  HS_COLD_MEMBER static constexpr bool
+  valid_config(const RequestedConfig &candidate) {
     const Slots &slots = candidate.slots;
     if (!enum_at_most(slots.function, Function::PRIMITIVE_LATTICE) ||
         !enum_at_most(slots.projection, Projection::EQUIRECTANGULAR) ||
@@ -3030,7 +3208,8 @@ private:
     return resource_union_fits(candidate, candidate);
   }
 
-  static constexpr bool valid_warp_spec(const WarpStageSpec &spec) {
+  HS_COLD_MEMBER static constexpr bool
+  valid_warp_spec(const WarpStageSpec &spec) {
     return enum_at_most(spec.basis, NoiseBasis::RIDGED3) &&
            enum_at_most(spec.envelope, WarpEnvelope::EDGE_FADE) &&
            enum_at_most(spec.polar_mode, PolarMode::LOGARITHMIC) &&
@@ -3039,11 +3218,12 @@ private:
            spec.polar_harmonic <= POLAR_HARMONIC_MAX;
   }
 
-  static constexpr float abs_value(float value) {
+  HS_COLD_MEMBER static constexpr float abs_value(float value) {
     return value < 0.0f ? -value : value;
   }
 
-  static constexpr int curl_intervals(CurlIntegrator integrator) {
+  HS_COLD_MEMBER static constexpr int
+  curl_intervals(CurlIntegrator integrator) {
     return integrator == CurlIntegrator::EULER_1      ? 1
            : integrator == CurlIntegrator::MIDPOINT_2 ? 2
                                                       : 4;
@@ -3059,7 +3239,9 @@ private:
    * a basis leave [-1, 1] invalidates this and every curl stability check
    * built on it.
    */
-  static constexpr float noise_gradient_bound(NoiseBasis) { return 64.0f; }
+  HS_COLD_MEMBER static constexpr float noise_gradient_bound(NoiseBasis) {
+    return 64.0f;
+  }
 
   /**
    * @brief Largest curl-flow strength the stage stability inequality admits at
@@ -3068,16 +3250,17 @@ private:
    * `valid_stage_tuple` enforces — for `|strength|`, so the registered slider
    * spans exactly the admissible set instead of a range whose bulk is rejected.
    */
-  static constexpr float curl_strength_limit(const WarpStageSpec &spec,
-                                             const WarpStageParams &params) {
+  HS_COLD_MEMBER static constexpr float
+  curl_strength_limit(const WarpStageSpec &spec,
+                      const WarpStageParams &params) {
     const float scale =
         params.scale > NOISE_SCALE_MIN ? params.scale : NOISE_SCALE_MIN;
     return 0.5f * static_cast<float>(curl_intervals(spec.curl_integrator)) /
            (scale * noise_gradient_bound(spec.basis));
   }
 
-  static constexpr bool valid_stage_tuple(const WarpStageSpec &spec,
-                                          const WarpStageParams &params) {
+  HS_COLD_MEMBER static constexpr bool
+  valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
     switch (spec.kind) {
     case WarpStageKind::NONE:
       return true;
@@ -3127,7 +3310,8 @@ private:
     return false;
   }
 
-  static constexpr float projection_coordinate_bound(const Config &config) {
+  HS_COLD_MEMBER static constexpr float
+  projection_coordinate_bound(const Config &config) {
     if (config.slots.surface_lens == SurfaceLens::MOBIUS)
       return STEREO_INF;
     if (config.slots.projection == Projection::STEREOGRAPHIC)
@@ -3139,9 +3323,9 @@ private:
     return 4.0f;
   }
 
-  static constexpr float stage_coordinate_bound(const WarpStageSpec &spec,
-                                                const WarpStageParams &params,
-                                                float input_bound) {
+  HS_COLD_MEMBER static constexpr float
+  stage_coordinate_bound(const WarpStageSpec &spec,
+                         const WarpStageParams &params, float input_bound) {
     switch (spec.kind) {
     case WarpStageKind::NONE:
     case WarpStageKind::LEGACY_STEREO_NOISE:
@@ -3186,7 +3370,8 @@ private:
     return WARP_COORD_LIMIT + 1.0f;
   }
 
-  static constexpr bool safe_program_bounds(const Config &config) {
+  HS_COLD_MEMBER static constexpr bool
+  safe_program_bounds(const Config &config) {
     float bound = projection_coordinate_bound(config);
     const WarpStageSpec stages[] = {config.slots.warp_program.outer,
                                     config.slots.warp_program.inner};
@@ -3207,7 +3392,8 @@ private:
     return true;
   }
 
-  static constexpr bool valid_mobius(const MobiusParams &params) {
+  HS_COLD_MEMBER static constexpr bool
+  valid_mobius(const MobiusParams &params) {
     const float ad_re = params.a.re * params.d.re - params.a.im * params.d.im;
     const float ad_im = params.a.re * params.d.im + params.a.im * params.d.re;
     const float bc_re = params.b.re * params.c.re - params.b.im * params.c.im;
@@ -3244,22 +3430,27 @@ private:
            det_re * det_re + det_im * det_im >= 1e-6f;
   }
 
-  static constexpr bool coefficient_in_range(const Complex &coefficient) {
+  HS_COLD_MEMBER static constexpr bool
+  coefficient_in_range(const Complex &coefficient) {
     return coefficient.re >= -8.0f && coefficient.re <= 8.0f &&
            coefficient.im >= -8.0f && coefficient.im <= 8.0f;
   }
 
-  static constexpr float max_value(float a, float b) { return a > b ? a : b; }
+  HS_COLD_MEMBER static constexpr float max_value(float a, float b) {
+    return a > b ? a : b;
+  }
 
-  static constexpr float min_value(float a, float b) { return a < b ? a : b; }
+  HS_COLD_MEMBER static constexpr float min_value(float a, float b) {
+    return a < b ? a : b;
+  }
 
-  static constexpr float max_abs_value(float a, float b) {
+  HS_COLD_MEMBER static constexpr float max_abs_value(float a, float b) {
     return max_value(abs_value(a), abs_value(b));
   }
 
-  static constexpr void maximize_stage_path(WarpStageParams &out,
-                                            const WarpStageParams &a,
-                                            const WarpStageParams &b) {
+  HS_COLD_MEMBER static constexpr void
+  maximize_stage_path(WarpStageParams &out, const WarpStageParams &a,
+                      const WarpStageParams &b) {
     out.translation_x = max_abs_value(a.translation_x, b.translation_x);
     out.translation_y = max_abs_value(a.translation_y, b.translation_y);
     out.scale_x = min_value(a.scale_x, b.scale_x);
@@ -3276,8 +3467,8 @@ private:
     out.radial_scale = max_value(a.radial_scale, b.radial_scale);
   }
 
-  static constexpr bool safe_program_path(const Config &from,
-                                          const Config &to) {
+  HS_COLD_MEMBER static constexpr bool safe_program_path(const Config &from,
+                                                         const Config &to) {
     Config worst = from;
     worst.params.projection.coordinate_scale =
         max_value(from.params.projection.coordinate_scale,
@@ -3291,8 +3482,8 @@ private:
     return safe_program_bounds(worst);
   }
 
-  static constexpr bool polar_pair_stable(const Config &from,
-                                          const Config &to) {
+  HS_COLD_MEMBER static constexpr bool polar_pair_stable(const Config &from,
+                                                         const Config &to) {
     const bool has_polar =
         from.slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART ||
         from.slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
@@ -3300,8 +3491,8 @@ private:
            from.params.source.pattern_freq == to.params.source.pattern_freq;
   }
 
-  static constexpr bool stable_parameter_path_admitted(const Config &from,
-                                                       const Config &to) {
+  HS_COLD_MEMBER static constexpr bool
+  stable_parameter_path_admitted(const Config &from, const Config &to) {
     return curl_pair_stable(from.slots.warp_program.outer,
                             from.params.warp.outer, to.params.warp.outer) &&
            curl_pair_stable(from.slots.warp_program.inner,
@@ -3309,8 +3500,8 @@ private:
            polar_pair_stable(from, to) && safe_program_path(from, to);
   }
 
-  static constexpr bool same_parameter_topology(const Config &from,
-                                                const Config &to) {
+  HS_COLD_MEMBER static constexpr bool
+  same_parameter_topology(const Config &from, const Config &to) {
     return from.slots == to.slots &&
            from.params.source.noise_basis == to.params.source.noise_basis &&
            from.params.source.noise_seed == to.params.source.noise_seed &&
@@ -3341,15 +3532,16 @@ private:
                to.params.surface_lens.mobius.d.im;
   }
 
-  static constexpr bool stable_topology(const Config &from, const Config &to) {
+  HS_COLD_MEMBER static constexpr bool stable_topology(const Config &from,
+                                                       const Config &to) {
     return valid_config(from) && valid_config(to) &&
            same_parameter_topology(from, to) &&
            stable_parameter_path_admitted(from, to);
   }
 
-  static constexpr bool curl_pair_stable(const WarpStageSpec &spec,
-                                         const WarpStageParams &a,
-                                         const WarpStageParams &b) {
+  HS_COLD_MEMBER static constexpr bool
+  curl_pair_stable(const WarpStageSpec &spec, const WarpStageParams &a,
+                   const WarpStageParams &b) {
     if (spec.kind != WarpStageKind::CURL_FLOW)
       return true;
     const float scale = a.scale > b.scale ? a.scale : b.scale;
@@ -3362,12 +3554,12 @@ private:
   }
 
   /** @brief Reports whether both transition endpoints are admissible holds. */
-  static constexpr bool transition_admitted(const Config &from,
-                                            const Config &to) {
+  HS_COLD_MEMBER static constexpr bool transition_admitted(const Config &from,
+                                                           const Config &to) {
     return valid_config(from) && valid_config(to);
   }
 
-  static constexpr Choreo preset_choreo(size_t index) {
+  HS_COLD_MEMBER static constexpr Choreo preset_choreo(size_t index) {
 #ifdef HS_PROFILE_SHADERBALL_FAST_CYCLE
     (void)index;
     return {32, 32, 2, false};
@@ -3616,7 +3808,7 @@ private:
   static constexpr float SOFTNESS_MIN = 1.0f / 1024.0f;
   static constexpr float ORBIT_SPIN_RATE = TWO_PI_F / 300.0f;
 
-  static constexpr bool preset_in_ranges(const Params &p) {
+  HS_COLD_MEMBER static constexpr bool preset_in_ranges(const Params &p) {
     return warp_stage_params_in_ranges(p.warp.outer) &&
            warp_stage_params_in_ranges(p.warp.inner) &&
            p.source.pattern_freq >= PATTERN_FREQ_MIN &&
@@ -3697,7 +3889,7 @@ private:
            p.colorizer.direction_phase <= TWO_PI_F;
   }
 
-  static constexpr bool
+  HS_COLD_MEMBER static constexpr bool
   warp_stage_params_in_ranges(const WarpStageParams &params) {
     return params.scale >= WARP_SCALE_MIN && params.scale <= WARP_SCALE_MAX &&
            params.strength >= WARP_STRENGTH_MIN &&
@@ -4090,11 +4282,8 @@ private:
   Orientation<> projection_walk;
   Orientation<> outer_walk;
   Timeline timeline;
-  std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
-  std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
   size_t prepared_noise_count = 0;
-  FastNoiseLite projection_walk_noise;
-  FastNoiseLite outer_walk_noise;
+  StateBundle *state = nullptr;
 
   Quaternion base_orientation =
       make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
@@ -4118,8 +4307,6 @@ private:
   bool preset_dwell_armed = false;
   Blend blend{PRESETS[0].params};
   LookRuntime runtime;
-  ParamMorphRuntime param_morph;
-  TransitionRuntime transition;
 #if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;
   uint32_t liquid_palette_step_count = 0;
@@ -4129,7 +4316,8 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
       2 * PaletteCycler::generated_arena_bytes() +
-      PARAM_CAPACITY * sizeof(ParamDef);
+      PARAM_CAPACITY * sizeof(ParamDef) + sizeof(StateBundle) +
+      alignof(StateBundle);
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "ShaderBall persistent footprint exceeds the default partition");

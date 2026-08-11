@@ -66,13 +66,8 @@ public:
     fibers = static_cast<Spherical *>(persistent_arena.allocate(
         ACTUAL_FIBERS * sizeof(Spherical), alignof(Spherical)));
 
-    trails = static_cast<Animation::VectorTrail<TRAIL_LEN> *>(
-        persistent_arena.allocate(ACTUAL_FIBERS *
-                                      sizeof(Animation::VectorTrail<TRAIL_LEN>),
-                                  alignof(Animation::VectorTrail<TRAIL_LEN>)));
-    for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
-      new (&trails[i]) Animation::VectorTrail<TRAIL_LEN>();
-    }
+    trails = persistent_arena.make_n<Animation::VectorTrail<TRAIL_LEN>>(
+        ACTUAL_FIBERS);
 
     init_fibers();
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,

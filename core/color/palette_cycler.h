@@ -246,8 +246,7 @@ private:
   }
 
   HS_COLD_MEMBER static GenerativePalette *allocate_palette(Arena &arena) {
-    return new (arena.allocate(sizeof(GenerativePalette),
-                               alignof(GenerativePalette))) GenerativePalette();
+    return arena.make<GenerativePalette>();
   }
 
   HS_COLD_MEMBER void finish_fade() {

@@ -130,9 +130,9 @@ inline float wrap_longitude(float longitude) {
  * @return Plane coordinates in radians, with `fade_edge_distance` set to the
  *         angular distance to the antimeridian cut.
  */
-inline ProjectionKernelResult bonne_projection(const Vector &v,
-                                               float central_meridian,
-                                               float standard_parallel) {
+HS_FLASH_INLINE inline ProjectionKernelResult
+bonne_projection(const Vector &v, float central_meridian,
+                 float standard_parallel) {
   const float longitude = wrap_longitude(atan2f(v.z, v.x) - central_meridian);
   const float latitude = asinf(hs::clamp(v.y, -1.0f, 1.0f));
   const float cut_distance = cosf(latitude) * (PI_F - fabsf(longitude));
@@ -223,7 +223,7 @@ inline float peirce_sector_longitude(const Vector &v, float central_meridian) {
  *         K = 1.8540746773013719; the southern fold reflects about 2K and the
  *         strip layouts repeat every 4K.
  */
-inline ProjectionKernelResult
+HS_FLASH_INLINE inline ProjectionKernelResult
 peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
                   float scroll, bool calculate_edge_distance = true) {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
@@ -750,7 +750,7 @@ inline float point_segment_distance(const AiroceanPoint &p,
  * cut distance runs to face 18's vertex and its identity switches partway
  * along.
  */
-inline ProjectionKernelResult
+HS_FLASH_INLINE inline ProjectionKernelResult
 airocean_projection(const Vector &v, float central_meridian, bool horizontal,
                     bool calculate_edge_distance = true) {
   const float c = cosf(central_meridian);

@@ -151,7 +151,7 @@ using MergedIntervalBuffer =
  */
 template <typename Buf> inline Buf &scratch_spans(ScratchScope &scratch) {
   Arena &arena = scratch.get_arena();
-  return *new (arena.allocate(sizeof(Buf), alignof(Buf))) Buf();
+  return *arena.make<Buf>();
 }
 
 // Forward-declared so the span-count trait below can pattern-match the binary

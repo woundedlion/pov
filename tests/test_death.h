@@ -138,6 +138,15 @@ inline void case_arena_oom() {
     std::printf("x"); // keep the call live
 }
 
+/** @brief Death case: make() must preserve Arena's OOM trap contract. */
+inline void case_arena_make_oom() {
+  static uint8_t buf[sizeof(uint32_t) - 1];
+  Arena a(buf, sizeof(buf));
+  auto *p = a.make<uint32_t>(opaque<uint32_t>(7));
+  if (p == reinterpret_cast<uint32_t *>(0x1))
+    std::printf("x");
+}
+
 /**
  * @brief Death case: a zero-size arena allocation must trap.
  * @details Memory surface — a zero-size request returns a bump pointer that
@@ -2385,6 +2394,8 @@ inline const Case *all_cases(int &n) {
   static const Case cases[] = {
       {"arena_oom", case_arena_oom, "memory.h",
        "(false) Arena::allocate: out of memory"},
+      {"arena_make_oom", case_arena_make_oom, "memory.h",
+       "(false) Arena::allocate: out of memory"},
       {"arena_zero_size_alloc", case_arena_zero_size_alloc, "memory.h",
        "(size > 0) Arena::allocate: zero-size request"},
       {"arena_bad_alignment", case_arena_bad_alignment, "memory.h",
@@ -3246,7 +3257,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 129;
+  constexpr int DEATH_CASE_COUNT = 130;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a

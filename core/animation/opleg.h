@@ -1463,9 +1463,8 @@ private:
              "OpLeg: sweep changed the compiled face count");
 
     const int num_ramps = seed_side ? tr.seed_num_ramps : tr.num_ramps;
-    BakedPalette *ramps = scratch_arena_b.allocate_n<BakedPalette>(num_ramps);
+    BakedPalette *ramps = scratch_arena_b.make_n<BakedPalette>(num_ramps);
     for (int r = 0; r < num_ramps; ++r) {
-      new (&ramps[r]) BakedPalette();
       if (seed_side) {
         ramps[r] = tr.bank->entries[tr.seed_ramp_pal[r]];
         continue;
@@ -1882,8 +1881,7 @@ private:
    * @return The fresh Transients.
    */
   Transients &bind_transients(Arena &arena) {
-    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
-        Transients();
+    buf = arena.make<Transients>();
     leg_arena = &arena;
     live_end = arena.get_offset();
 #ifndef NDEBUG
