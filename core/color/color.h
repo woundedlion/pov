@@ -1046,16 +1046,20 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
 }
 
 /**
- * @brief Samples a continuous, conservative gamut envelope.
+ * @brief Samples a continuous, conservative gamut envelope along a hue
+ *        direction.
  * @param L OKLab lightness, clamped to [0,1].
- * @param h Hue in radians.
+ * @param sin_h Sine of the hue angle.
+ * @param cos_h Cosine of the hue angle.
  * @return A conservative chroma boundary that varies continuously in L and hue.
  * @details Exact clipping uses gamut_max_chroma(); relative-chroma palette
- * generation uses the hue-smoothed wrapper below.
+ * generation uses the hue-smoothed wrapper below. The direction is only binned,
+ * so it need not be exactly unit length.
  */
 // Bake-time only (relative-chroma palette generation); the per-pixel clip
 // stays on gamut_max_chroma.
-HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
+HS_FLASH_MEMBER inline float
+gamut_continuous_chroma_sample(float L, float sin_h, float cos_h) {
   // Flash master, not g_gamut_lut: this path consumes the stored minima
   // directly, so a coarse grid's width is never narrowed back.
   const GamutLut lut;
@@ -1063,7 +1067,7 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
   if (L == 0.0f || L == 1.0f)
     return 0.0f;
 
-  const float angle = diamond_angle(sinf(h), cosf(h)) * lut.angle_scale;
+  const float angle = diamond_angle(sin_h, cos_h) * lut.angle_scale;
   const float lightness = L * lut.l_scale;
   const int ai = hs::clamp(static_cast<int>(angle), 0, lut.angle_steps - 1);
   const int li = hs::clamp(static_cast<int>(lightness), 0, lut.l_steps - 1);
@@ -1100,18 +1104,38 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
 }
 
 /**
+ * @brief Samples the continuous gamut envelope at a hue angle.
+ * @param L OKLab lightness, clamped to [0,1].
+ * @param h Hue in radians.
+ * @return A conservative chroma boundary that varies continuously in L and hue.
+ */
+HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
+  return gamut_continuous_chroma_sample(L, sinf(h), cosf(h));
+}
+
+/**
  * @brief Returns a hue-smoothed, in-gamut chroma envelope.
  * @details The filtered value is capped by the center sample, so smoothing can
- * only move a color farther inside the gamut.
+ * only move a color farther inside the gamut. The four offset taps rotate the
+ * center direction by angle addition rather than calling sin/cos again.
  */
 HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
   constexpr float HUE_STEP = PI_F / 40.0f;
-  const float center = gamut_continuous_chroma_sample(L, h);
+  const float sin_h = sinf(h);
+  const float cos_h = cosf(h);
+  const float step_sin = sinf(HUE_STEP);
+  const float step_cos = cosf(HUE_STEP);
+  const float step2_sin = 2.0f * step_sin * step_cos;
+  const float step2_cos = step_cos * step_cos - step_sin * step_sin;
+  const auto tap = [&](float ds, float dc) {
+    return gamut_continuous_chroma_sample(L, sin_h * dc + cos_h * ds,
+                                          cos_h * dc - sin_h * ds);
+  };
+  const float center = gamut_continuous_chroma_sample(L, sin_h, cos_h);
   const float smoothed =
-      (gamut_continuous_chroma_sample(L, h - 2.0f * HUE_STEP) +
-       2.0f * gamut_continuous_chroma_sample(L, h - HUE_STEP) + 4.0f * center +
-       2.0f * gamut_continuous_chroma_sample(L, h + HUE_STEP) +
-       gamut_continuous_chroma_sample(L, h + 2.0f * HUE_STEP)) *
+      (tap(-step2_sin, step2_cos) + 2.0f * tap(-step_sin, step_cos) +
+       4.0f * center + 2.0f * tap(step_sin, step_cos) +
+       tap(step2_sin, step2_cos)) *
       0.1f;
   return std::min(center, smoothed);
 }
