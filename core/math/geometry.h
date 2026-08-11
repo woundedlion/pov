@@ -154,8 +154,9 @@ template <int H> inline float y_to_phi(float y) {
  * @tparam W Width (column count).
  * @tparam H Logical height; phi tables have H_VIRT = H + hs::H_OFFSET entries.
  * @details Caches sin/cos for theta (per column) and phi (per row) separately,
- * reconstructing vectors with 3 multiplies. Memory: ~(4*W + 4*H_VIRT) floats vs
- * W*H_VIRT Vectors — a ~145x reduction.
+ * reconstructing vectors with 3 multiplies. Memory: 1.25*W + 2*H_VIRT floats
+ * (sin_theta carries the folded quarter turn) vs W*H_VIRT Vectors — a ~190x
+ * reduction at 288x144.
  */
 template <int W, int H> struct TrigLUT {
   static_assert(W % 4 == 0,
