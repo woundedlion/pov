@@ -738,6 +738,7 @@ public:
     if (!current_effect)
       return val::array();
 
+    current_effect->refresh_parameter_display();
     val result = val::array();
     // Both streams walk the effect's registered ParamList in order. The
     // generation token covers effect replacement and dynamic schema rebinds.
@@ -799,6 +800,7 @@ public:
       return val(typed_memory_view(param_values.size(), param_values.data()));
     }
 
+    current_effect->refresh_parameter_display();
     // The no-reallocation contract the view rides on: the ctor reserved
     // MAX_PARAMS and clear() retains that capacity, so a fill within that bound
     // never moves the backing store. use_parameter_storage() lets an effect

@@ -216,6 +216,7 @@ struct ShaderBallWhiteBox {
       sb.advance_display();
     }
   }
+  static void refresh_display(SB &sb) { sb.refresh_parameter_display(); }
   static uint32_t walk_steps(const SB &sb) { return sb.walk_step_count; }
   static uint32_t liquid_palette_steps(const SB &sb) {
     return sb.liquid_palette_step_count;
@@ -1619,6 +1620,7 @@ inline void test_shaderball_preset_gui_transition() {
   for (int frame = 0; frame < 128 && WB::param_morph_active(sb); ++frame) {
     sb.draw_frame();
     sb.advance_display();
+    WB::refresh_display(sb);
     const float displayed = pattern_freq->get();
     saw_intermediate |= displayed > 1.2f && displayed < 5.0f;
   }
@@ -1636,6 +1638,7 @@ inline void test_shaderball_preset_gui_transition() {
   HS_EXPECT_EQ(function->get(),
                static_cast<float>(WB::Function::COUPLED_DIRECT));
   WB::settle_transition(sb);
+  WB::refresh_display(sb);
   HS_EXPECT_EQ(function->get(),
                static_cast<float>(WB::Function::PRIMITIVE_LATTICE));
 }
