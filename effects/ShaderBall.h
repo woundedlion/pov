@@ -182,7 +182,10 @@ private:
     TWIST,
     KALEIDOSCOPE,
     MOBIUS,
-    TANGENT_NOISE
+    TANGENT_NOISE,
+    KALEIDOSCOPE_TETRAHEDRAL,
+    KALEIDOSCOPE_OCTAHEDRAL,
+    KALEIDOSCOPE_DODECAHEDRAL
   };
   enum class NoiseBasis : uint8_t { SIMPLEX, FBM3, RIDGED3 };
   enum class WarpEnvelope : uint8_t { FLAT, PROJECTION_WEIGHT, EDGE_FADE };
@@ -2418,6 +2421,9 @@ private:
     case SurfaceLens::GLITCH:
     case SurfaceLens::TWIST:
     case SurfaceLens::KALEIDOSCOPE:
+    case SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL:
+    case SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL:
+    case SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL:
       return apply_frame_free_lens(v, frame.slots.surface_lens);
     case SurfaceLens::MOBIUS:
       return mobius_transform(v, frame.params.surface_lens.mobius);
@@ -2445,6 +2451,12 @@ private:
       return twist_lens(v);
     case SurfaceLens::KALEIDOSCOPE:
       return kaleidoscope_lens(v);
+    case SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL:
+      return polyhedral_kaleidoscope_lens(v, TETRAHEDRAL_MIRRORS);
+    case SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL:
+      return polyhedral_kaleidoscope_lens(v, OCTAHEDRAL_MIRRORS);
+    case SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL:
+      return polyhedral_kaleidoscope_lens(v, DODECAHEDRAL_MIRRORS);
     case SurfaceLens::MOBIUS:
     case SurfaceLens::TANGENT_NOISE:
       HS_CHECK(false, "frame-parameterized lens needs the FrameState overload");
@@ -2504,6 +2516,35 @@ private:
       azimuth = SECTOR - azimuth;
     return Vector(radius * fast_cosf(azimuth), v.y,
                   radius * fast_sinf(azimuth));
+  }
+
+  /**
+   * @brief Folds a direction into a spherical reflection-group chamber.
+   * @param v Unit direction on the sphere.
+   * @param mirrors Inward unit normals of the chamber's simple mirrors.
+   * @return A symmetry-equivalent direction inside the chamber.
+   */
+  template <size_t N>
+  static Vector
+  polyhedral_kaleidoscope_lens(Vector v, const std::array<Vector, N> &mirrors) {
+    for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
+         ++reflection) {
+      bool inside = true;
+      for (const Vector &normal : mirrors) {
+        const float distance = dot(v, normal);
+        if (distance >= -POLYHEDRAL_MIRROR_EPS)
+          continue;
+        v.x -= 2.0f * distance * normal.x;
+        v.y -= 2.0f * distance * normal.y;
+        v.z -= 2.0f * distance * normal.z;
+        inside = false;
+        break;
+      }
+      if (inside)
+        return v;
+    }
+    HS_CHECK(false, "polyhedral kaleidoscope fold did not converge");
+    return v;
   }
 
   /**
@@ -2943,7 +2984,8 @@ private:
                       GnomonicHemispherePolicy::BACK_HEMISPHERE) ||
         !enum_at_most(slots.projection_frame,
                       ProjectionFramePolicy::SPIN_WANDER) ||
-        !enum_at_most(slots.surface_lens, SurfaceLens::TANGENT_NOISE) ||
+        !enum_at_most(slots.surface_lens,
+                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL) ||
         !enum_at_most(slots.warp_program.outer.kind,
                       WarpStageKind::POLAR_CHART) ||
         !enum_at_most(slots.warp_program.inner.kind,
@@ -3394,6 +3436,17 @@ private:
   static constexpr float SPIRAL_ARMS = 3.0f;
   static constexpr float TWIST_RATE = 3.0f;
   static constexpr float KALEIDOSCOPE_SECTORS = 6.0f;
+  static constexpr float POLYHEDRAL_MIRROR_EPS = 1e-6f;
+  static constexpr int POLYHEDRAL_REFLECTION_LIMIT = 16;
+  static constexpr std::array<Vector, 3> TETRAHEDRAL_MIRRORS = {
+      Vector(1.0f, 0.0f, 0.0f), Vector(-0.5f, 0.8660254038f, 0.0f),
+      Vector(0.0f, -0.5773502692f, 0.8164965809f)};
+  static constexpr std::array<Vector, 3> OCTAHEDRAL_MIRRORS = {
+      Vector(1.0f, 0.0f, 0.0f), Vector(-0.7071067812f, 0.7071067812f, 0.0f),
+      Vector(0.0f, -0.7071067812f, 0.7071067812f)};
+  static constexpr std::array<Vector, 3> DODECAHEDRAL_MIRRORS = {
+      Vector(1.0f, 0.0f, 0.0f), Vector(-0.8090169944f, 0.3090169944f, -0.5f),
+      Vector(0.0f, 0.0f, 1.0f)};
   static constexpr float WARP_NOISE_FREQUENCY = 0.01f;
   static constexpr float STEREO_NOISE_TIME_PERIOD = 65536.0f;
   static constexpr float NOISE_NATIVE_PERIOD = 256.0f;
@@ -3455,12 +3508,25 @@ private:
       "ProjectionFramePolicy::IDENTITY", "ProjectionFramePolicy::SPIN_WANDER"};
   static constexpr int NUM_PROJECTION_FRAMES =
       std::size(PROJECTION_FRAME_OPTIONS);
-  static constexpr const char *LENS_OPTIONS[] = {
-      "None", "Glitch", "Twist", "Kaleidoscope", "Mobius", "Tangent Noise"};
+  static constexpr const char *LENS_OPTIONS[] = {"None",
+                                                 "Glitch",
+                                                 "Twist",
+                                                 "Kaleidoscope",
+                                                 "Mobius",
+                                                 "Tangent Noise",
+                                                 "Kaleidoscope (Tetrahedral)",
+                                                 "Kaleidoscope (Octahedral)",
+                                                 "Kaleidoscope (Dodecahedral)"};
   static constexpr const char *LENS_EXPORT_OPTIONS[] = {
-      "SurfaceLens::NONE",   "SurfaceLens::GLITCH",
-      "SurfaceLens::TWIST",  "SurfaceLens::KALEIDOSCOPE",
-      "SurfaceLens::MOBIUS", "SurfaceLens::TANGENT_NOISE"};
+      "SurfaceLens::NONE",
+      "SurfaceLens::GLITCH",
+      "SurfaceLens::TWIST",
+      "SurfaceLens::KALEIDOSCOPE",
+      "SurfaceLens::MOBIUS",
+      "SurfaceLens::TANGENT_NOISE",
+      "SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL",
+      "SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL",
+      "SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL"};
   static constexpr int NUM_LENSES = std::size(LENS_OPTIONS);
   static constexpr const char *WARP_OPTIONS[] = {
       "None",         "Stereo Noise", "Affine Frame", "Wave Shear", "Vortex",
