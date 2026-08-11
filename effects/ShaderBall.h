@@ -2931,30 +2931,8 @@ private:
     return true;
   }
 
-  /**
-   * @brief Parks a paused through-clear transition on the endpoint it is
-   *        nearer, so the hold lands on a drawn frame.
-   * @details The window's midpoint writes no pixels and the surrounding frames
-   * quantize to black, and a paused choreography transition never leaves the
-   * frame it stopped on. Both endpoints render at full alpha; the midpoint ties
-   * to the source, whose resource union is the one still prepared.
-   */
-  HS_COLD_MEMBER void hold_transition_endpoint() {
-    transition.elapsed =
-        transition.elapsed <= transition.duration / 2 ? 0 : transition.duration;
-  }
-
   HS_COLD_MEMBER void finish_transitions() {
     if (transition.active) {
-      if (anims_paused && transition.continue_choreo) {
-        const bool valid_manual_pending =
-            requested_config != published_config &&
-            valid_config(requested_config);
-        if (!valid_manual_pending) {
-          hold_transition_endpoint();
-          return;
-        }
-      }
       if (transition.elapsed == transition.duration / 2)
         HS_CHECK(
             prepare_resource_union(transition.to_config, transition.to_config),
@@ -2973,8 +2951,6 @@ private:
       return;
     }
     if (!param_morph.active)
-      return;
-    if (anims_paused && param_morph.continue_choreo)
       return;
     if (param_morph.elapsed < param_morph.duration) {
       ++param_morph.elapsed;
@@ -3442,10 +3418,6 @@ private:
 
   HS_COLD_MEMBER void enter_preset() {
     const Choreo &choreo = CHOREO[preset_index];
-    if (choreo.dwell_max == 0) {
-      begin_blend();
-      return;
-    }
     timeline.add_pausable(
         0,
         Animation::RandomTimer(choreo.dwell_min, choreo.dwell_max,

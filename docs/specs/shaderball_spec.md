@@ -184,13 +184,9 @@ blend lerps rates and amounts, never accumulator positions. Entering a preset
 changes velocity without resetting phase. Random walks likewise continue while
 their gain is zero, so restoring gain does not cold-start a trajectory.
 
-Manual parameter takeover pauses preset choreography. Source clocks and spatial
-walks continue unless a future control explicitly freezes the whole effect.
-Palette-resource pause is colorizer-specific for parity: ShaderBall's liquid
-`PaletteCycler` pauses on `anims_paused`, while ShadierBall's generated-triadic
-cycler intentionally continues. The north star preserves those two policies;
-unifying them later would be an explicit visual migration, not an architectural
-cleanup.
+Manual parameter takeover pauses future preset selection. An in-flight preset
+transition finishes, and source clocks, spatial walks, warp timers, and palette
+resources continue.
 
 ### 0.5 Clock ownership
 
@@ -342,8 +338,8 @@ exactly once per frame;
 aliased endpoint bindings must not double-step the same `PaletteCycler`, noise
 state, or animation. `mix` has exact 0 and 1 endpoints. The destination becomes
 the sole active state only at exact 1, after which the source can be released.
-Manual takeover edits the destination/live state and pauses choreography; it
-does not partially rewrite the captured source endpoint.
+Manual takeover edits the destination/live state and pauses future preset
+selection; it does not partially rewrite the captured source endpoint.
 
 ### 0.7 Slots, parameters, and transitions
 

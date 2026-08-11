@@ -382,7 +382,7 @@ inline void test_shaderball_clocks_wrapped() {
   hs::clear_mock_time();
 }
 
-/** @brief Pause freezes choreography while ambient motion keeps advancing. */
+/** @brief Pause gates preset selection while all live motion keeps advancing. */
 inline void test_shaderball_pause_semantics() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
@@ -459,17 +459,24 @@ inline void test_shaderball_pause_semantics() {
   }
   HS_EXPECT_NE(WB::preset_index(sb), paused_preset);
   HS_EXPECT_TRUE(WB::param_morph_active(sb));
+  const size_t active_preset = WB::preset_index(sb);
   sb.setAnimationsPaused(true);
-  const uint16_t paused_morph_elapsed = WB::param_morph_elapsed(sb);
-  for (int frame = 0; frame < 8; ++frame) {
+  for (int frame = 0; frame < 120; ++frame) {
     sb.draw_frame();
     sb.advance_display();
   }
-  HS_EXPECT_EQ(WB::param_morph_elapsed(sb), paused_morph_elapsed);
+  HS_EXPECT_EQ(WB::preset_index(sb), active_preset);
+  HS_EXPECT_FALSE(WB::param_morph_active(sb));
+  HS_EXPECT_FALSE(WB::transition_active(sb));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[active_preset]);
+  HS_EXPECT_TRUE(sb.animations_paused());
   sb.setAnimationsPaused(false);
-  sb.draw_frame();
-  sb.advance_display();
-  HS_EXPECT_EQ(WB::param_morph_elapsed(sb), paused_morph_elapsed + 1);
+  for (int frame = 0; frame < 120 && WB::preset_index(sb) == active_preset;
+       ++frame) {
+    sb.draw_frame();
+    sb.advance_display();
+  }
+  HS_EXPECT_NE(WB::preset_index(sb), active_preset);
 }
 
 /** @brief A paused topology edit commits on the next frame. */
@@ -2413,13 +2420,8 @@ inline void test_shaderball_discrete_transition() {
   }
 }
 
-/**
- * @brief A pause taken inside a through-clear transition holds a drawn frame.
- * @details The through-clear midpoint writes no pixels and a paused
- * choreography transition stops advancing, so the hold has to land on the
- * nearer endpoint or the sphere stays black for as long as the pause lasts.
- */
-inline void test_shaderball_paused_through_clear_holds_endpoint() {
+/** @brief Pause does not stretch an in-flight through-clear transition. */
+inline void test_shaderball_pause_does_not_hold_through_clear() {
   using WB = ShaderBallWhiteBox;
   auto lit_pixels = [](const WB::SB &sb) {
     size_t count = 0;
@@ -2438,48 +2440,26 @@ inline void test_shaderball_paused_through_clear_holds_endpoint() {
     }
   };
 
-  {
-    reset_effect_globals();
-    WB::SB sb;
-    sb.init();
-    WB::force_transition(sb, WB::legacy_config(), 60, true);
-    run_frames(sb, 30);
-    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(30));
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  const size_t entry_preset = WB::preset_index(sb);
+  WB::force_transition(sb, WB::legacy_config(), 60, true);
+  run_frames(sb, 30);
+  HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(30));
 
-    sb.setAnimationsPaused(true);
-    run_frames(sb, 1);
-    HS_EXPECT_EQ(lit_pixels(sb), size_t(0)); // the cleared midpoint itself
-    run_frames(sb, 4);
-    HS_EXPECT_TRUE(WB::transition_active(sb));
-    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(0));
-    HS_EXPECT_GT(lit_pixels(sb), size_t(0));
-
-    sb.setAnimationsPaused(false);
-    run_frames(sb, 1);
-    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(1));
-  }
-
-  {
-    reset_effect_globals();
-    WB::SB sb;
-    sb.init();
-    const size_t entry_preset = WB::preset_index(sb);
-    WB::force_transition(sb, WB::legacy_config(), 60, true);
-    run_frames(sb, 40);
-    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(40));
-
-    sb.setAnimationsPaused(true);
-    run_frames(sb, 3);
-    HS_EXPECT_TRUE(WB::transition_active(sb));
-    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(60));
-    HS_EXPECT_GT(lit_pixels(sb), size_t(0));
-
-    sb.setAnimationsPaused(false);
-    run_frames(sb, 1);
-    HS_EXPECT_FALSE(WB::transition_active(sb));
-    HS_EXPECT_TRUE(WB::active_config(sb) == WB::legacy_config());
-    HS_EXPECT_EQ(WB::preset_index(sb), entry_preset);
-  }
+  sb.setAnimationsPaused(true);
+  run_frames(sb, 1);
+  HS_EXPECT_EQ(lit_pixels(sb), size_t(0));
+  HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(31));
+  run_frames(sb, 4);
+  HS_EXPECT_TRUE(WB::transition_active(sb));
+  HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(35));
+  HS_EXPECT_GT(lit_pixels(sb), size_t(0));
+  run_frames(sb, 26);
+  HS_EXPECT_FALSE(WB::transition_active(sb));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::legacy_config());
+  HS_EXPECT_EQ(WB::preset_index(sb), entry_preset);
 }
 
 /** @brief Generated and liquid color resources remain independent owners. */
@@ -2530,7 +2510,7 @@ inline int run_shaderball_tests() {
   test_shaderball_kernel_catalog();
   test_shaderball_stable_preset_transition();
   test_shaderball_discrete_transition();
-  test_shaderball_paused_through_clear_holds_endpoint();
+  test_shaderball_pause_does_not_hold_through_clear();
   test_shaderball_palette_resources();
   return fixture.result();
 }
