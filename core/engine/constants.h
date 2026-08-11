@@ -160,7 +160,7 @@ struct ClipRegion {
    *          interval.
    */
   bool contains_x(int x) const {
-    if ((x_end - x_start) + 2 * margin >= w)
+    if (covers_all_columns())
       return true;
     int rs = render_x_start();
     int re = render_x_end();
@@ -211,7 +211,7 @@ struct ClipRegion {
     XClip c;
     c.rs = render_x_start();
     c.re = render_x_end();
-    c.active = (x_end - x_start) + 2 * margin < w;
+    c.active = !covers_all_columns();
     c.wrap = c.rs > c.re;
     return c;
   }
@@ -255,5 +255,15 @@ struct ClipRegion {
       return d < len;
     };
     return covers(s1, len1, s2) || covers(s2, len2, s1);
+  }
+
+private:
+  /**
+   * @brief Full-coverage predicate shared by contains_x() and x_clip().
+   * @return True when the render band (display width plus both margins) spans
+   *         the whole cylinder, so no x clipping applies.
+   */
+  bool covers_all_columns() const {
+    return (x_end - x_start) + 2 * margin >= w;
   }
 };
