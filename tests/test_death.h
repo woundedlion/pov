@@ -3151,6 +3151,13 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
 }
 
 /**
+ * @brief Ratchet floor on the HS_CHECK sites the case table pins.
+ * @details Raise it after adding cases; lower it only alongside a deliberate
+ *          removal of the engine guards those cases target.
+ */
+constexpr int MIN_COVERED_GUARD_SITES = 114;
+
+/**
  * @brief Prints what fraction of the engine's fail-fast surface is pinned.
  * @param cs The case table.
  * @param n Number of cases in it.
@@ -3159,9 +3166,10 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  *          the case table itself, so neither can drift from what it measures.
  *          Cases pinning a file the census does not know — the harness's own
  *          trap stand-ins, and any mistyped basename — count in neither and are
- *          reported separately rather than silently dropped. Advisory: the
- *          ratio is a standing report of how much of the doctrine is actually
- *          verified, not a gate.
+ *          reported separately rather than silently dropped. The pinned count is
+ *          gated against MIN_COVERED_GUARD_SITES so coverage cannot decay
+ *          silently; the ratio itself is reported but not gated, since new
+ *          engine guards move the denominator without weakening any case.
  */
 inline void report_guard_coverage(const Case *cs, int n) {
   int covered = 0;
@@ -3206,6 +3214,7 @@ inline void report_guard_coverage(const Case *cs, int n) {
     std::printf(" %s %d/%d", worst[slot]->file,
                 worst[slot]->sites - worst_gap[slot], worst[slot]->sites);
   std::printf("\n");
+  HS_EXPECT_GE(covered, MIN_COVERED_GUARD_SITES);
 }
 
 /**
