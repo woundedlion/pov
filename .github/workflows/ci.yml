@@ -258,9 +258,16 @@ jobs:
         # shard-coverage job still asserts every registered test is claimed by
         # exactly one shard. --no-tests=error for the same reason as the tests
         # job; every shard keeps tests outside the -E set.
+        #
+        # HS_BUFFER_FREE_WATCHDOG_US: the canvas ctor's spin watchdog is a trap,
+        # so a runner deschedule past it kills the shard instead of failing a
+        # test. ASan+UBSan cost the slowest module 2.7x (tests/CMakeLists.txt),
+        # which makes that reachable at the 2 s default on a 2-vCPU runner; 30 s
+        # still catches a genuinely stalled hand-off.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
+          HS_BUFFER_FREE_WATCHDOG_US: 30000000
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
