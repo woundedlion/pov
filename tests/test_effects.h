@@ -367,18 +367,6 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
 }
 
 /**
- * @brief Per-frame clock advance in milliseconds for the determinism pass (~30fps).
- * @details Identical across both runs, so any frame-to-frame animation driven by
- * hs::millis/micros or beatsin* is reproduced exactly rather than tracking the
- * wall clock.
- */
-constexpr unsigned long FRAME_MS = 33;
-/**
- * @brief Per-frame clock advance in microseconds, paired with FRAME_MS.
- */
-constexpr unsigned long FRAME_US = 33000;
-
-/**
  * @brief Renders one effect under the injected clock and copies the final buffer out.
  * @tparam E Effect class template, instantiated as E<W, H>.
  * @tparam W Render width in pixels (defaults to DEFAULT_W).
@@ -399,7 +387,7 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
   reset_effect_globals();
   // Pin the global generative-hue cursor so both runs start identical (it
   // drifts across palette constructions by design; see GenerativePalette).
-  hs::set_mock_time(0, 0);
+  pin_frame_clock(0);
 
   uint64_t fold = 1469598103934665603ull; // FNV-1a offset basis
   const auto fold_byte = [&fold](uint8_t byte) {
@@ -410,8 +398,7 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
   E<W, H> effect;
   effect.init();
   for (int f = 0; f < frames; ++f) {
-    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                      static_cast<unsigned long>(f) * FRAME_US);
+    pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
     if (frame_fold)

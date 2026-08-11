@@ -16,7 +16,9 @@
  *
  * The per-effect window is HS_SMOKE_FRAMES (default 8); CI drives the 120-frame
  * window the effects sweep uses, so the deepest call chains an effect only
- * reaches late in its lifecycle are inside the measured region.
+ * reaches late in its lifecycle are inside the measured region. Frames advance
+ * under the injected fixed-cadence clock (hs_test::pin_frame_clock), so a
+ * time-driven effect recurses the same way whatever the runner's speed.
  *
  * CI gate: fails (non-zero exit) if the worst effect exceeds BUDGET_BYTES, the
  * device's own DTCM stack reservation (see below).
@@ -89,9 +91,11 @@ __attribute__((noinline)) void paint(int chunks) {
 // One effect through the smoke_one(test_effects.h) sequence.
 template <typename Effect> __attribute__((noinline)) void run_effect() {
   hs_test::reset_globals();
+  hs_test::pin_frame_clock(0);
   Effect effect;
   effect.init();
   for (int f = 0; f < FRAMES; ++f) {
+    hs_test::pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
   }
