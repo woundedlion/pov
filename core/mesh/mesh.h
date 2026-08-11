@@ -605,10 +605,13 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
  * @param arena Arena supplying storage for the destination arrays.
  * @details Safe for memory compaction and bouncing between arenas. MeshState
  * delegates to MeshState::clone (the Cloneable interface used by Persist) so the
- * two can't drift; the generic body handles PolyMesh (no face_offsets).
+ * two can't drift; the generic body handles PolyMesh (no face_offsets). Traps if
+ * src aliases dst: copy_vector rebinds dst in place, then memcpy's the block
+ * onto itself.
  */
 template <typename MeshT>
 inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
+  HS_CHECK(&src != &dst, "MeshOps::clone src must not alias dst");
   if constexpr (std::is_same_v<MeshT, MeshState>) {
     MeshState::clone(src, dst, arena);
     return;
