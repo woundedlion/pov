@@ -614,7 +614,7 @@ inline float rand_f() {
       "rand_f()/random_to_unit assume a 32-bit-range RNG; update them "
       "if the global generator changes.");
   return random_to_unit(static_cast<uint32_t>(hs::random()()),
-                        static_cast<uint32_t>(hs::random().max()));
+                        static_cast<uint32_t>(Rng::max()));
 }
 
 /**
