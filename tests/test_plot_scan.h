@@ -1617,16 +1617,69 @@ inline void test_finish_col_span_one_period() {
   for (int s = 0; s < 4 * W; ++s) {
     const float start = static_cast<float>(s) * 0.25f;
     for (int l = 0; l <= W; l += 3) {
-      const float length = static_cast<float>(l) + 0.125f;
-      int raw_s, raw_len, exact_s, exact_len;
-      Plot::finish_col_span_one_period<W>(start, length, raw_s, raw_len);
-      Plot::finish_col_span<W>(start, length, exact_s, exact_len);
-      HS_EXPECT_GE(raw_s, 0);
-      HS_EXPECT_LT(raw_s, W);
-      HS_EXPECT_EQ(raw_s, exact_s);
-      HS_EXPECT_EQ(raw_len, exact_len);
+      for (float length :
+           {static_cast<float>(l), static_cast<float>(l) + 0.125f}) {
+        int raw_s, raw_len, exact_s, exact_len;
+        Plot::finish_col_span_one_period<W>(start, length, raw_s, raw_len);
+        Plot::finish_col_span<W>(start, length, exact_s, exact_len);
+        HS_EXPECT_GE(raw_s, 0);
+        HS_EXPECT_LT(raw_s, W);
+        HS_EXPECT_EQ(raw_s, exact_s);
+        HS_EXPECT_EQ(raw_len, exact_len);
+      }
     }
   }
+}
+
+/**
+ * @brief The conditional-add column wrap is bit-exact with wrap() over (-W, W).
+ * @details Probes report through a divergence counter rather than per-probe
+ *          assertions, which would swamp the module's assertion floor.
+ */
+inline void test_wrap_one_period_matches_modulo() {
+  constexpr int W = 288;
+  constexpr float FW = static_cast<float>(W);
+  int divergent = 0;
+  int probed = 0;
+  float first_bad = 2.0f * FW; // outside the domain, so no probe can match it
+  auto check = [&](float d) {
+    ++probed;
+    const float fast = Plot::wrap_one_period<W>(d);
+    const float exact = wrap(d, FW);
+    if (std::bit_cast<uint32_t>(fast) != std::bit_cast<uint32_t>(exact)) {
+      if (divergent == 0)
+        first_bad = d;
+      ++divergent;
+    }
+  };
+
+  // Deltas as geodesic_col_span_cols forms them: two vector_to_theta results in
+  // [0, W) subtracted.
+  for (int i = 0; i < 4 * W; ++i) {
+    const float a = static_cast<float>(i) * 0.25f;
+    for (int j = 0; j < 4 * W; j += 7)
+      check(static_cast<float>(j) * 0.25f - a);
+  }
+
+  // The seam: magnitudes where d + W rounds up to exactly W, plus both zeros
+  // and the extremes of the domain.
+  check(0.0f);
+  check(-0.0f);
+  for (uint32_t bits = 1; bits <= (1u << 20); bits <<= 1) {
+    const float tiny = std::bit_cast<float>(bits);
+    check(tiny);
+    check(-tiny);
+  }
+  const float top = std::bit_cast<float>(std::bit_cast<uint32_t>(FW) - 1u);
+  for (uint32_t back = 0; back < 64; ++back) {
+    const float d = std::bit_cast<float>(std::bit_cast<uint32_t>(top) - back);
+    check(d);
+    check(-d);
+  }
+
+  HS_EXPECT_EQ(divergent, 0);
+  HS_EXPECT_EQ(first_bad, 2.0f * FW);
+  HS_EXPECT_GT(probed, 100000);
 }
 
 /**
@@ -5277,6 +5330,7 @@ inline int run_plot_scan_tests() {
   test_gate_trail_column_cull_honors_unbounded_edge();
   test_raw_geodesic_edge_gate_parity();
   test_finish_col_span_one_period();
+  test_wrap_one_period_matches_modulo();
   test_cartesian_quadrant_gate_classification();
   test_cartesian_quadrant_gate_is_conservative();
   test_gate_trail_edges_matches_edge_visible();
