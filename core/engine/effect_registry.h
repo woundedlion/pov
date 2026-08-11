@@ -7,14 +7,14 @@
  *        REGISTER_EFFECT(ClassName) which appends to a global registry at
  *        static-init time.
  *
- * Active on the WASM build and the native test build (HS_TEST_BUILD): the
- * latter uses the registry as an anti-drift oracle (tests/test_effects.h)
- * against the HS_EFFECT_LIST roster. On the firmware target it is a no-op, so
+ * Enabled for the WASM build and registry tests. On firmware it is a no-op, so
  * effect registration pulls in no std::vector/std::function overhead.
  */
 #pragma once
 
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#include "engine/build_features.h"
+
+#if HS_ENABLE_EFFECT_REGISTRY
 
 #include "engine/constants.h"
 #include "engine/platform.h"
@@ -154,8 +154,8 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
  * @details Defines an anonymous-namespace registrar whose static initializer
  *          appends fill functions for every supported resolution. The
  *          used+retain attributes keep the dynamic initializer from being
- *          discarded under LTO / --gc-sections. Active on the WASM and native
- *          test builds; on the firmware target this macro expands to nothing.
+ *          discarded under LTO / --gc-sections. On targets without the
+ *          registry this macro expands to nothing.
  * @note Each effect header must be included by exactly one TU per binary; a
  *       second includer registers that effect twice and trips the startup count
  *       check.
@@ -185,8 +185,6 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
 #define HS_DETAIL_REG_FILL_PTR(W, H) &fill<W, H>,
 
 #else
-// Firmware target (neither WASM nor the native test build): no-op, so effect
-// registration pulls in no std::vector/std::function overhead and effects are
-// selected statically.
+// Static effect selection does not need registration machinery.
 #define REGISTER_EFFECT(ClassName)
 #endif

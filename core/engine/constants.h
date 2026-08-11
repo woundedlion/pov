@@ -247,7 +247,7 @@ struct ClipRegion {
       return true;
     if (len1 <= 0 || len2 <= 0)
       return false;
-    HS_TEST_CHECK(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w);
+    HS_AUDIT_CHECK(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w);
     auto covers = [w](int s, int len, int p) {
       int d = p - s;
       if (d < 0)

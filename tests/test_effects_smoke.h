@@ -40,8 +40,7 @@ inline int run_effects_smoke_tests() {
   // header's
   // REGISTER_EFFECT) must equal the static HS_EFFECT_LIST roster, or an effect
   // present in one and missing from the other silently drops smoke coverage
-  // below. Active because the test build defines HS_TEST_BUILD (see
-  // core/engine/effect_registry.h).
+  // below. Active because run_tests enables the effect registry.
   HS_EXPECT_EQ(EffectRegistry::entries().size(),
                static_cast<size_t>(HS_EFFECT_COUNT));
 

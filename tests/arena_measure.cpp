@@ -11,7 +11,7 @@
  * (IslamicStars, per shape spawn) discards the windowed mark on every re-split,
  * leaving the single post-window sample reporting only the peak since the last
  * one. The host build uses an
- * 8 MB global arena (memory.h, HS_TEST_BUILD) so nothing OOMs mid-measure. The
+ * 8 MiB host global arena so nothing OOMs mid-measure. The
  * window is HS_SMOKE_FRAMES (default 8); CI drives the 120-frame window the
  * effects sweep uses, which is where late-lifecycle allocation (slot reuse,
  * FIFO expiry, arena compaction) reaches its high-water mark. Frames advance

@@ -17,6 +17,12 @@
 #include "engine/memory.h"
 #include "tests/test_fixture.h"
 
+#if HS_ENABLE_TEST_HOOKS || HS_ENABLE_TEST_ORACLES ||                          \
+    HS_ENABLE_STRUCTURAL_AUDITS || HS_ENABLE_PARAM_GUI_BRIDGE ||               \
+    HS_ENABLE_EFFECT_REGISTRY || HS_ENABLE_EFFECT_CONTROL_API
+#error "perf_bench must use production render capabilities"
+#endif
+
 namespace {
 constexpr int W = 288, H = 144;
 constexpr int FRAMES = 60, WARM = 10;

@@ -15,7 +15,7 @@ What it does (spec §7.3, §7.4, §8):
     their LOAD ADDRESS against the Teensy 4 memory map (NOT an `nm` type letter:
     DTCM .bss and OCRAM .dmabuffers are both NOBITS and `nm` cannot tell them
     apart), and assert each lands in the region it must, with the arena's
-    MAGNITUDE pinned near 305,152 B (298 KiB) so a leaked HS_TEST_BUILD (8 MB)
+    MAGNITUDE pinned near 305,152 B (298 KiB) so a leaked host arena (8 MiB)
     arena fails.
   * fail-loud       — a configured layout symbol that is NOT FOUND in the ELF is a
     violation, never a silent skip: a name that never matches would make the
@@ -457,7 +457,7 @@ def evaluate(
                 v.append(Violation(
                     "symbol-too-large",
                     f"{env}: '{key}' ({name}) is {sym.size:,} B, above its "
-                    f"{hi:,} B cap (e.g. an HS_TEST_BUILD 8 MB arena leak, spec 7.4 #1)."))
+                    f"{hi:,} B cap (e.g. an 8 MiB host arena leak, spec 7.4 #1)."))
 
     return result
 
