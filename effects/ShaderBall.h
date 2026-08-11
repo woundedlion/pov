@@ -35,7 +35,7 @@ public:
   /** @brief Initializes slots, clocks, palette resources, and choreography. */
   HS_COLD_MEMBER void init() override {
     configure_presets(PRESETS.size());
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     set_parameter_updated_hook(&ShaderBall::dispatch_parameter_updated);
 #endif
     use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
@@ -83,7 +83,7 @@ public:
     }
     liquid_palette_cycler.step();
     generated_palette_cycler.step();
-#if defined(HS_TEST_BUILD)
+#if HS_ENABLE_TEST_HOOKS
     ++liquid_palette_step_count;
     ++generated_palette_step_count;
 #endif
@@ -101,7 +101,7 @@ public:
     publish_live_config();
   }
 
-#if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
+#if HS_ENABLE_EFFECT_CONTROL_API
   void profile_select_preset(size_t index) {
     HS_CHECK(index < PRESETS.size(),
              "ShaderBall profile preset index out of range");
@@ -132,7 +132,7 @@ private:
     transition.active = false;
     active_slots = PRESETS[index].slots;
     blend.params = PRESETS[index].params;
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = PRESETS[index];
 #endif
     requested_config = PRESETS[index];
@@ -661,13 +661,13 @@ private:
                             COLORIZER_EXPORT_OPTIONS, NUM_COLORIZERS);
     register_colorizer_controls(slots.colorizer,
                                 requested_config.params.colorizer);
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     mirror_parameter_display_state(requested_config, display_config);
 #endif
     requested_schema_bound = true;
   }
 
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   enum class EditIntent : uint8_t {
     NONE,
     FUNCTION,
@@ -2636,7 +2636,7 @@ private:
   }
 
   HS_COLD_MEMBER WalkDeltas sample_walk_deltas() {
-#if defined(HS_TEST_BUILD)
+#if HS_ENABLE_TEST_HOOKS
     ++walk_step_count;
 #endif
     const Quaternion projection = projection_walk.get();
@@ -2738,7 +2738,7 @@ private:
     param_morph.active = false;
     active_slots = requested_config.slots;
     blend.params = requested_config.params;
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = requested_config;
 #endif
     published_config = requested_config;
@@ -2750,7 +2750,7 @@ private:
   HS_COLD_MEMBER void reject_requested_config() {
     requested_config = published_config;
     accepted_config = published_config;
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = published_config;
 #endif
     rebind_parameters();
@@ -2878,7 +2878,7 @@ private:
     accepted_config = published_config;
   }
 
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   HS_COLD_MEMBER void refresh_parameter_display() override {
     if (transition.active) {
       const float mix = transition_mix(transition.elapsed, transition.duration);
@@ -4041,7 +4041,7 @@ private:
   PaletteCycler generated_palette_cycler;
 
   Slots active_slots = PRESETS[0].slots;
-#if HS_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   Config display_config = PRESETS[0];
 #endif
   RequestedConfig requested_config = PRESETS[0];
@@ -4054,7 +4054,7 @@ private:
   LookRuntime runtime;
   ParamMorphRuntime param_morph;
   TransitionRuntime transition;
-#if defined(HS_TEST_BUILD)
+#if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;
   uint32_t liquid_palette_step_count = 0;
   uint32_t generated_palette_step_count = 0;

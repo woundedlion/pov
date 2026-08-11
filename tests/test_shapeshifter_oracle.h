@@ -179,10 +179,92 @@ struct ShapeShifterWhiteBox {
     effect.set_clip(state.clip.y0, state.clip.y1, state.clip.x0, state.clip.x1);
   }
 
+#if HS_ENABLE_TEST_ORACLES
+  template <typename F>
+  static void dispatch_plot_reference(OracleEffect &effect, Canvas &canvas,
+                                      const Basis &basis,
+                                      OracleEffect::ShapeType shape,
+                                      float radius, int sides,
+                                      const F &fragment_shader,
+                                      float shape_phase) {
+    using ShapeType = OracleEffect::ShapeType;
+    switch (shape) {
+    case ShapeType::PLANAR_POLYGON:
+      Plot::Polygon<Plot::PlanarProjection>::draw<ORACLE_W, ORACLE_H>(
+          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
+          shape_phase);
+      break;
+    case ShapeType::SPHERICAL_POLYGON:
+      Plot::Polygon<Plot::GeodesicProjection>::draw<ORACLE_W, ORACLE_H>(
+          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
+          shape_phase);
+      break;
+    case ShapeType::FLOWER:
+      Plot::Flower::draw<ORACLE_W, ORACLE_H>(
+          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
+          {}, shape_phase);
+      break;
+    case ShapeType::PLANAR_STAR:
+      Plot::Star<Plot::PlanarProjection>::draw<ORACLE_W, ORACLE_H>(
+          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
+          shape_phase);
+      break;
+    case ShapeType::SPHERICAL_STAR:
+      Plot::Star<Plot::GeodesicProjection>::draw_continuous<ORACLE_W, ORACLE_H>(
+          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
+          shape_phase);
+      break;
+    }
+  }
+
+  static void draw_all_reference(OracleEffect &effect, Canvas &canvas) {
+    using ShapeType = OracleEffect::ShapeType;
+    const int count =
+        hs::clamp(static_cast<int>(effect.params.count), 1,
+                  OracleEffect::MAX_SHAPES);
+    if (count != effect.baked_palette_count ||
+        effect.params.spacing != effect.prepared_spacing)
+      effect.prepare_count(count);
+    const auto &palette = effect.selected_palette();
+    const int sides = hs::clamp(
+        static_cast<int>(effect.params.sides),
+        static_cast<int>(OracleEffect::SIDES_MIN),
+        static_cast<int>(OracleEffect::SIDES_MAX));
+    const ShapeType shape = effect.selected_shape();
+    const auto function = effect.selected_function();
+    const Basis basis = make_basis(effect.orientation.get(), X_AXIS);
+    const float global_alpha = effect.alpha * effect.preset_opacity;
+
+    const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
+    for (int ordinal = 0; ordinal < count; ++ordinal) {
+      const int i = continuous_star ? count - ordinal - 1
+                                    : effect.folded_draw_indices[ordinal];
+      const float radius_t =
+          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+      const float radius = 2.0f * effect.spaced_radius_t[i];
+      const float direction = continuous_star
+                                  ? effect.star_phase_direction(radius)
+                                  : effect.phase_direction(radius);
+      const float contour_phase =
+          direction * effect.params.amplitude *
+          effect.evaluate(function, radius_t + effect.phase);
+      const Color4 color = palette.get(radius_t);
+      auto shader = [&](const Vector &, Fragment &fragment) {
+        fragment.color = color;
+        fragment.color.alpha *= global_alpha;
+      };
+      dispatch_plot_reference(effect, canvas, basis, shape, radius, sides,
+                              shader, contour_phase);
+    }
+    if (shape == ShapeType::PLANAR_STAR)
+      effect.draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
+  }
+
   static void render_reference(OracleEffect &effect, Canvas &canvas) {
     effect.plot_filters.prepare(canvas);
-    effect.draw_all_reference(canvas);
+    draw_all_reference(effect, canvas);
   }
+#endif
 
   static void render_candidate(OracleEffect &effect, Canvas &canvas) {
     effect.plot_filters.prepare(canvas);
