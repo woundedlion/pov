@@ -63,9 +63,11 @@ CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 # sources: core/vendor/ and the generated color_luts.h / gamut_lut.h /
 # reaction_graph.cpp / mindsplatter_replay_corpus.h are excluded. The exclusion
 # regex below is pinned against ci.yml's copy by tools/build_pins.py --check
-# (SHARED_LITERALS). Checks the working-tree file (same partial-staging caveat
-# as the suite above). Ordered ahead of the HS_SKIP_TESTS opt-out: that flag
-# stands down the test and Teensy gates only, never this check.
+# (SHARED_LITERALS). Checks the STAGED blob, not the working-tree file, so a
+# partial `git add -p` is judged on exactly what the commit takes; the blob is
+# also LF regardless of core.autocrlf. Ordered ahead of the HS_SKIP_TESTS
+# opt-out: that flag stands down the test and Teensy gates only, never this
+# check.
 # HS_SKIP_FORMAT=1 is the one escape hatch.
 #
 # BLOCKING, and unconditionally so: an unformatted staged file fails the commit,
@@ -98,15 +100,20 @@ if [ -z "$HS_SKIP_FORMAT" ]; then
       # Heredoc, not a pipe: the loop must accumulate in this shell. IFS= read -r
       # keeps a path containing whitespace or backslashes intact.
       while IFS= read -r f; do
-        [ -f "$f" ] || continue     # deleted/renamed-away path: nothing to check
-        "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1 \
+        # deleted/renamed-away path: no staged blob to check
+        git cat-file -e ":$f" 2>/dev/null || continue
+        # --assume-filename so .clang-format resolves from the real repo path.
+        git show ":$f" \
+          | "$CF" --dry-run --Werror --style=file --assume-filename="$f" \
+            >/dev/null 2>&1 \
           || unformatted="$unformatted $f"
       done <<EOF
 $FORMAT
 EOF
       if [ -n "$unformatted" ]; then
         echo "[pre-commit] clang-format found unformatted files:$unformatted"
-        echo "[pre-commit] (fix with: $CF -i$unformatted, or bypass once with HS_SKIP_FORMAT=1 / --no-verify)"
+        echo "[pre-commit] (fix with: $CF -i$unformatted && git add$unformatted,"
+        echo "[pre-commit]  or bypass once with HS_SKIP_FORMAT=1 / --no-verify)"
         exit 1
       fi
       echo "[pre-commit] clang-format clean."
