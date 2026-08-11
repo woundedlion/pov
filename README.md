@@ -2137,6 +2137,8 @@ The authored stage order is `source → inner warp → outer warp → projection
 | **Coverage** | Opaque, Projection Weight Squared, Value Cutout, Edge Fade, Projection Weight | Computes alpha independently from color value. Linear projection weight is softer and broader than the squared form. |
 | **Colorizer** | Generated Triadic, ShaderBall Liquid, Deformation Ink | Converts shaped value, coverage, and optional warp metadata into straight-alpha color. |
 
+**Outer Wander** sits outside that table: it is always registered, and scales how much of a continuous random walk rotates the viewing direction before any stage runs, drifting the whole look. The Spin + Wander frame's own **Projection Wander** is a separate slider that drifts only the sphere's pre-projection orientation.
+
 Selector dependencies are explicit and deterministic:
 
 ```mermaid
