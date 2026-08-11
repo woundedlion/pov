@@ -547,8 +547,8 @@ inline void test_multi_boundary_tick_window() {
   HS_EXPECT_TRUE(a.flip);
   HS_EXPECT_FALSE(a.zero_crossing);
   HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::HALF);
-  HS_EXPECT_EQ(board.telemetry().flips, 3u);
-  HS_EXPECT_EQ(board.telemetry().max_coast_halves, 3u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().flips, 3u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().max_coast_halves, 3u);
 
   // The next boundary is a ZERO, and it is reported.
   const TickActions z =
@@ -556,7 +556,7 @@ inline void test_multi_boundary_tick_window() {
   HS_EXPECT_TRUE(z.flip);
   HS_EXPECT_TRUE(z.zero_crossing);
   HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::ZERO);
-  HS_EXPECT_EQ(board.telemetry().flips, 4u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().flips, 4u);
 
   // An even fold returns to the half it started from: HALF then ZERO reports
   // the ZERO, so the published window half still names the open window.
@@ -565,8 +565,8 @@ inline void test_multi_boundary_tick_window() {
   HS_EXPECT_TRUE(e.flip);
   HS_EXPECT_TRUE(e.zero_crossing);
   HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::ZERO);
-  HS_EXPECT_EQ(board.telemetry().flips, 6u);
-  HS_EXPECT_EQ(board.telemetry().max_coast_halves, 6u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().flips, 6u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().max_coast_halves, 6u);
 }
 
 /**
@@ -709,9 +709,9 @@ inline void test_beacon_partial_frame_ages_out() {
                &s);
     f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
   }
-  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
   // The aged-out partial is a dropped frame and counts as one.
-  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 1u);
   HS_EXPECT_EQ(board.content().effect_index, 2);
 }
 
@@ -790,10 +790,10 @@ inline void test_beacon_shift_needs_confirmation() {
 
   // A lone shifted frame decodes but must not change what is displayed.
   feed_digits(shift_start, shifted);
-  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
-  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 0u);
   HS_EXPECT_EQ(board.content().effect_index, 1);
-  HS_EXPECT_EQ(board.telemetry().beacon_index_corrections, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacon_index_corrections, 0u);
   HS_EXPECT_EQ(board.build_word(), 0u); // no rebuild published
 
   // A good frame agreeing with the displayed index clears the candidate.
@@ -805,18 +805,18 @@ inline void test_beacon_shift_needs_confirmation() {
   HS_EXPECT_EQ(board.content().effect_index, 1);
   feed_frame(2);
   HS_EXPECT_EQ(board.content().effect_index, 1);
-  HS_EXPECT_EQ(board.telemetry().beacon_index_corrections, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacon_index_corrections, 0u);
 
   // The second agreeing frame applies: index adopted, rebuild published.
   feed_frame(2);
   HS_EXPECT_EQ(board.content().effect_index, 2);
-  HS_EXPECT_EQ(board.telemetry().beacon_index_corrections, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacon_index_corrections, 1u);
   HS_EXPECT_EQ(SyncBoard::build_index_of(board.build_word()), 2);
   HS_EXPECT_EQ(SyncBoard::build_gen_of(board.build_word()), 1u);
   // The whole scenario rode the beacon path: nothing reached the snap gate.
-  HS_EXPECT_EQ(board.telemetry().beacons_ok, 5u);
-  HS_EXPECT_EQ(board.telemetry().symbols_accepted, 0u);
-  HS_EXPECT_EQ(board.telemetry().beacon_rev_mismatches, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 5u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacon_rev_mismatches, 0u);
   HS_EXPECT_TRUE(board.lock() == LockState::LOCKED);
 }
 
@@ -853,15 +853,15 @@ inline void test_beacon_out_of_range_index_rejected() {
 
   // Index 9 encodes and checksums cleanly, but the roster ends at 3.
   feed_frame(9, 1000u + 40u * col);
-  HS_EXPECT_EQ(board.telemetry().beacons_ok, 0u);
-  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 1u);
   HS_EXPECT_FALSE(board.content().identity_known);
   HS_EXPECT_EQ(board.build_word(), 0u); // no rebuild published
 
   // The next in-range beacon joins normally.
   feed_frame(2, 1000u + cfg.cycles_per_half_rev + 40u * col);
-  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
-  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 1u);
   HS_EXPECT_TRUE(board.content().identity_known);
   HS_EXPECT_EQ(board.content().effect_index, 2);
   HS_EXPECT_EQ(SyncBoard::build_index_of(board.build_word()), 2);
@@ -1096,14 +1096,14 @@ inline void test_suspect_timeout_acquire_uncounted() {
   const uint32_t head = 1000u + 40u * col;
   const BurstSnapshot suspect{1, head, head};
   board.tick(head + 5 * col, &suspect);
-  const uint32_t rejected = board.telemetry().symbols_rejected_gate;
+  const uint32_t rejected = board.telemetry_snapshot().symbols_rejected_gate;
 
   // Fall back to ACQUIRE before the suspect times out.
   for (int i = 0; i < cfg.reject_fallback; ++i)
     flywheel_mut(board).note_rejection();
   HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
   board.tick(head + 40 * col, nullptr); // past the interdigit window
-  HS_EXPECT_EQ(board.telemetry().symbols_rejected_gate, rejected);
+  HS_EXPECT_EQ(board.telemetry_snapshot().symbols_rejected_gate, rejected);
 }
 
 /**
@@ -1134,8 +1134,8 @@ inline void test_acquire_quiet_before_guard() {
   const BurstSnapshot digit1{1, d1, d1};
   board.tick(d1 + static_cast<uint32_t>(cfg.gap_timeout_cols) * col, &digit1);
   HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
-  HS_EXPECT_EQ(board.telemetry().symbols_accepted, 0u);
-  HS_EXPECT_EQ(board.telemetry().lock_transitions, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().lock_transitions, 0u);
 
   SyncBoard quiet(cfg);
   quiet.seed(1000u, /*is_master=*/false);
@@ -1146,7 +1146,7 @@ inline void test_acquire_quiet_before_guard() {
   quiet.tick(iso + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
              &isolated);
   HS_EXPECT_TRUE(quiet.lock() == LockState::LOCKED);
-  HS_EXPECT_EQ(quiet.telemetry().symbols_accepted, 1u);
+  HS_EXPECT_EQ(quiet.telemetry_snapshot().symbols_accepted, 1u);
   HS_EXPECT_EQ(quiet.flywheel().position(iso), cfg.W / 2);
 }
 
@@ -1183,14 +1183,14 @@ inline void test_acquire_beacon_train_joins() {
                &s);
     f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
   }
-  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
-  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 0u);
   HS_EXPECT_TRUE(board.content().identity_known);
   HS_EXPECT_EQ(board.content().effect_index, 9);
   HS_EXPECT_EQ(board.content().rev_in_effect, 5u);
   // The head reached the symbol path too, and was discarded there on its count.
-  HS_EXPECT_EQ(board.telemetry().symbols_discarded_invalid, 1u);
-  HS_EXPECT_EQ(board.telemetry().symbols_accepted, 0u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().symbols_discarded_invalid, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 0u);
   HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
 
   // The boundary path is untouched: the next isolated symbol still hard-snaps.
@@ -1200,10 +1200,10 @@ inline void test_acquire_beacon_train_joins() {
   board.tick(z + zspan + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
              &zero);
   HS_EXPECT_TRUE(board.lock() == LockState::LOCKED);
-  HS_EXPECT_EQ(board.telemetry().symbols_accepted, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 1u);
   HS_EXPECT_EQ(board.flywheel().position(z), 0);
   HS_EXPECT_EQ(board.content().effect_index, 9);
-  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
 }
 
 // ── Master emission self-censor (§5.2) ──────────────────────────────────────
@@ -1353,16 +1353,16 @@ inline void test_master_beacon_busy_retry() {
 
   SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
   HS_EXPECT_FALSE(SyncBoardTestAccess::beacon_done(board));
-  HS_EXPECT_EQ(board.telemetry().beacons_busy_dropped, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_busy_dropped, 1u);
 
   SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
   HS_EXPECT_FALSE(SyncBoardTestAccess::beacon_done(board));
-  HS_EXPECT_EQ(board.telemetry().beacons_busy_dropped, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_busy_dropped, 1u);
 
   emitter.drop_pending_emission();
   SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
   HS_EXPECT_TRUE(SyncBoardTestAccess::beacon_done(board));
-  HS_EXPECT_EQ(board.telemetry().beacons_busy_dropped, 1u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_busy_dropped, 1u);
 }
 
 // ── Master beacon late-coast bound (§6.4) ───────────────────────────────────
@@ -1411,7 +1411,7 @@ inline void test_beacon_late_coast() {
       if (a.pulse && c >= cfg.W / 4 && c < cfg.W / 2)
         ++pulses;
     }
-    late_dropped = m.telemetry().beacons_late_dropped;
+    late_dropped = m.telemetry_snapshot().beacons_late_dropped;
     return pulses;
   };
 
@@ -1456,8 +1456,8 @@ inline void test_master_fold_stall_recovers() {
   const uint32_t t0 = 1000000u;
   m.seed(t0, /*is_master=*/true);
   m.tick(t0 + 2u * period, nullptr);
-  HS_EXPECT_EQ(m.telemetry().master_stalls, 0u);
-  const uint32_t flips_before = m.telemetry().flips;
+  HS_EXPECT_EQ(m.telemetry_snapshot().master_stalls, 0u);
+  const uint32_t flips_before = m.telemetry_snapshot().flips;
   HS_EXPECT_GT(flips_before, 0u);
 
   // Resume past the int32 horizon. The epoch trails `now` by more than 2^31, so
@@ -1469,14 +1469,14 @@ inline void test_master_fold_stall_recovers() {
   HS_EXPECT_FALSE(probe.fold(stalled).crossed);
 
   m.tick(stalled, nullptr);
-  HS_EXPECT_EQ(m.telemetry().master_stalls, 1u);
+  HS_EXPECT_EQ(m.telemetry_snapshot().master_stalls, 1u);
 
   // The flywheel is anchored on `stalled` again, so ordinary half-rev wakes
   // resume crossing boundaries.
   m.tick(stalled + period, nullptr);
   m.tick(stalled + 2u * period, nullptr);
-  HS_EXPECT_GT(m.telemetry().flips, flips_before);
-  HS_EXPECT_EQ(m.telemetry().master_stalls, 1u);
+  HS_EXPECT_GT(m.telemetry_snapshot().flips, flips_before);
+  HS_EXPECT_EQ(m.telemetry_snapshot().master_stalls, 1u);
 }
 
 /**
@@ -1496,18 +1496,18 @@ inline void test_master_fold_stall_recovery_flips() {
   // A single fold leaves HALF as the last flipped boundary — the identity the
   // re-seed's ZERO reproduces on the very next crossing.
   m.tick(t0 + period, nullptr);
-  const uint32_t flips_before = m.telemetry().flips;
+  const uint32_t flips_before = m.telemetry_snapshot().flips;
   HS_EXPECT_EQ(flips_before, 1u);
 
   const uint32_t stalled = t0 + period + 0x90000000u;
   m.tick(stalled, nullptr);
-  HS_EXPECT_EQ(m.telemetry().master_stalls, 1u);
+  HS_EXPECT_EQ(m.telemetry_snapshot().master_stalls, 1u);
   // The re-anchor lands the epoch on `stalled`, so nothing crosses on that tick.
-  HS_EXPECT_EQ(m.telemetry().flips, flips_before);
+  HS_EXPECT_EQ(m.telemetry_snapshot().flips, flips_before);
 
   const TickActions a = m.tick(stalled + period, nullptr);
   HS_EXPECT_TRUE(a.flip);
-  HS_EXPECT_EQ(m.telemetry().flips, flips_before + 1u);
+  HS_EXPECT_EQ(m.telemetry_snapshot().flips, flips_before + 1u);
 }
 
 // ── Master beacon tail quiet (§6.4) ─────────────────────────────────────────
@@ -2069,7 +2069,7 @@ inline void test_sim_boot_and_phase() {
     }
   }
   for (int i = 1; i < 4; ++i) {
-    const Telemetry &tm = sim.boards[i].board.telemetry();
+    const Telemetry &tm = sim.boards[i].board.telemetry_snapshot();
     HS_EXPECT_EQ(tm.symbols_rejected_gate, 0u);
     HS_EXPECT_EQ(tm.symbols_discarded_invalid, 0u);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
@@ -2299,7 +2299,7 @@ inline void test_sim_masked_windows() {
 
   // Truncated bursts were discarded (count telemetry), never accepted as
   // the wrong boundary: phase stays sub-column-ish and content equal.
-  const Telemetry &tm2 = sim.boards[2].board.telemetry();
+  const Telemetry &tm2 = sim.boards[2].board.telemetry_snapshot();
   HS_EXPECT_GT(tm2.symbols_discarded_invalid, 5u);
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   for (int i = 1; i < 4; ++i) {
@@ -2316,12 +2316,13 @@ inline void test_sim_masked_windows() {
   const uint64_t b0 = (static_cast<uint64_t>(sim2.g / rev) + 2) * rev;
   sim2.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
   sim2.run_revs(6.0);
-  const Telemetry &tm0 = sim2.boards[0].board.telemetry();
+  const Telemetry &tm0 = sim2.boards[0].board.telemetry_snapshot();
   HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted +
                    tm0.beacons_overrun_dropped + tm0.boundary_bursts_dropped,
                0u);
   HS_EXPECT_LE(sim2.max_phase_err(), 2);
-  HS_EXPECT_EQ(sim2.boards[1].board.telemetry().symbols_rejected_gate, 0u);
+  HS_EXPECT_EQ(sim2.boards[1].board.telemetry_snapshot().symbols_rejected_gate,
+               0u);
 }
 
 // ── Scenario: EMI on the sync wire (§5.2, §5.3, §9.1) ───────────────────────
@@ -2363,9 +2364,9 @@ inline void test_sim_emi() {
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
 
-  const Telemetry &tm1 = sim.boards[1].board.telemetry();
+  const Telemetry &tm1 = sim.boards[1].board.telemetry_snapshot();
   HS_EXPECT_GT(tm1.symbols_rejected_gate, 20u); // isolated EMI all rejected
-  const Telemetry &tm2 = sim.boards[2].board.telemetry();
+  const Telemetry &tm2 = sim.boards[2].board.telemetry_snapshot();
   HS_EXPECT_GE(tm2.symbols_discarded_invalid, 2u); // corrupted bursts dropped
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   for (int i = 1; i < 4; ++i) {
@@ -2398,7 +2399,7 @@ inline void test_sim_drops_and_missed_epoch() {
   sim.boards[1].drop_from = sim.g + rev;
   sim.boards[1].drop_to = sim.g + 3 * rev;
   sim.run_revs(5.0);
-  HS_EXPECT_GE(sim.boards[1].board.telemetry().max_coast_halves, 4u);
+  HS_EXPECT_GE(sim.boards[1].board.telemetry_snapshot().max_coast_halves, 4u);
   HS_EXPECT_TRUE(sim.boards[1].board.lock() == LockState::LOCKED);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
@@ -2426,7 +2427,8 @@ inline void test_sim_drops_and_missed_epoch() {
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[3].live_index == 1; },
                     double(cfg.beacon_period_revs + cfg.join_grid_revs) + 6));
-  HS_EXPECT_EQ(sim.boards[3].board.telemetry().beacon_index_corrections, 1u);
+  HS_EXPECT_EQ(
+      sim.boards[3].board.telemetry_snapshot().beacon_index_corrections, 1u);
   HS_EXPECT_FALSE(sim.boards[3].trapped);
 }
 
@@ -2506,9 +2508,9 @@ inline void test_sim_forged_burst() {
 
   const uint64_t flips_before = sim.boards[1].flips;
   const uint32_t rejected_before =
-      sim.boards[1].board.telemetry().symbols_rejected_gate;
+      sim.boards[1].board.telemetry_snapshot().symbols_rejected_gate;
   sim.run_revs(4.0);
-  HS_EXPECT_GT(sim.boards[1].board.telemetry().symbols_rejected_gate,
+  HS_EXPECT_GT(sim.boards[1].board.telemetry_snapshot().symbols_rejected_gate,
                rejected_before);
   // Flip cadence unbroken: 2 per revolution, no extra content advance.
   const uint64_t df = sim.boards[1].flips - flips_before;
@@ -2594,7 +2596,7 @@ inline void test_sim_epoch_repeat_lockstep() {
     const uint64_t b0 = sim.g + rev;
     sim.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
     HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
-    const Telemetry &tm0 = sim.boards[0].board.telemetry();
+    const Telemetry &tm0 = sim.boards[0].board.telemetry_snapshot();
     HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted +
                      tm0.beacons_overrun_dropped + tm0.boundary_bursts_dropped,
                  0u);
@@ -2640,7 +2642,8 @@ inline void test_sim_rev_resync() {
                s.boards[0].board.content().rev_in_effect;
       },
       double(cfg.beacon_period_revs) + 2));
-  HS_EXPECT_GE(sim.boards[3].board.telemetry().beacon_rev_mismatches, 1u);
+  HS_EXPECT_GE(sim.boards[3].board.telemetry_snapshot().beacon_rev_mismatches,
+               1u);
 
   // The next epoch commits in lockstep even though board 3 ALSO misses the
   // primary copy, taking the repeat path that depends on j-inference.
@@ -2724,7 +2727,8 @@ inline void test_sim_rev_wrap_within_effect() {
       // counter from the master. Phase/frame lockstep alone catches neither —
       // those derive from the flywheel, not rev_in_effect.
       HS_EXPECT_EQ(sim.boards[i].board.content().rev_in_effect, rev);
-      HS_EXPECT_EQ(sim.boards[i].board.telemetry().beacon_rev_mismatches, 0u);
+      HS_EXPECT_EQ(
+          sim.boards[i].board.telemetry_snapshot().beacon_rev_mismatches, 0u);
     }
     if (rev >= 64)
       crossed_seam = true;
@@ -2890,11 +2894,12 @@ inline void test_budget_lost_symbol() {
   // exactly one boundary symbol (the HALF, 104 columns ahead).
   sim.boards[1].drop_from = sim.g;
   sim.boards[1].drop_to = sim.g + PERIOD;
-  const uint32_t acc_before = sim.boards[1].board.telemetry().symbols_accepted;
+  const uint32_t acc_before =
+      sim.boards[1].board.telemetry_snapshot().symbols_accepted;
 
   HS_EXPECT_LE(max_err_over(sim, 1.5), 1); // sub-column through coast+re-snap
   HS_EXPECT_TRUE(sim.boards[1].board.lock() == LockState::LOCKED);
-  const Telemetry tm = sim.boards[1].board.telemetry();
+  const Telemetry tm = sim.boards[1].board.telemetry_snapshot();
   HS_EXPECT_GE(tm.max_coast_halves, 2u);             // it did coast…
   HS_EXPECT_GE(tm.symbols_accepted, acc_before + 2); // …and re-snapped
   HS_EXPECT_EQ(tm.symbols_rejected_gate, 0u);
@@ -2978,16 +2983,17 @@ inline void test_budget_corrupted_timebase() {
   flywheel_mut(b2.board).force_lock();
   HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
 
-  const uint32_t rej_before = b2.board.telemetry().symbols_rejected_gate;
+  const uint32_t rej_before =
+      b2.board.telemetry_snapshot().symbols_rejected_gate;
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         return s.boards[2].board.lock() == LockState::LOCKED &&
                circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
       },
       3.5)); // budget: ~2.8 revs; slack for the mid-rev corruption instant
-  HS_EXPECT_GE(b2.board.telemetry().symbols_rejected_gate - rej_before,
+  HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate - rej_before,
                static_cast<uint32_t>(cfg.reject_fallback));
-  HS_EXPECT_GE(b2.board.telemetry().lock_transitions, 2u);
+  HS_EXPECT_GE(b2.board.telemetry_snapshot().lock_transitions, 2u);
 
   // Content recovers fully by the next epoch: any rev_in_effect hiccup from
   // the phase jump is resynced by the beacon rev cross-check (§6.4) well
@@ -3070,8 +3076,8 @@ inline void test_budget_acquire_mis_snap() {
   HS_EXPECT_GE(recovery_cols, 500); // the full R-rejection path, not a re-snap
   HS_EXPECT_LE(recovery_cols, 750); // §9.1 mis-snap row
   // Exactly one mis-snap, one fallback, and one clean re-snap since the reboot.
-  HS_EXPECT_EQ(b2.board.telemetry().lock_transitions, 3u);
-  HS_EXPECT_GE(b2.board.telemetry().symbols_rejected_gate,
+  HS_EXPECT_EQ(b2.board.telemetry_snapshot().lock_transitions, 3u);
+  HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate,
                static_cast<uint32_t>(cfg.reject_fallback));
   HS_EXPECT_FALSE(b2.trapped);
   // Fail-dark throughout: never live on an effect the master is not showing.
@@ -3104,10 +3110,10 @@ inline void test_budget_beacon_corruption() {
   sim.emi_pos = 0;
   std::sort(sim.emi.begin(), sim.emi.end());
 
-  const Telemetry before = sim.boards[1].board.telemetry();
+  const Telemetry before = sim.boards[1].board.telemetry_snapshot();
   const uint32_t ok_before = before.beacons_ok;
   sim.run_revs(1.0);
-  const Telemetry after = sim.boards[1].board.telemetry();
+  const Telemetry after = sim.boards[1].board.telemetry_snapshot();
   HS_EXPECT_EQ(after.beacons_rejected,
                before.beacons_rejected + 1); // dropped whole
   HS_EXPECT_EQ(after.beacons_ok, ok_before); // nothing applied
@@ -3115,7 +3121,7 @@ inline void test_budget_beacon_corruption() {
   // Recovery: the next clean beacon decodes within one period.
   HS_EXPECT_TRUE(sim.run_until(
       [ok_before](Sim &s) {
-        return s.boards[1].board.telemetry().beacons_ok > ok_before;
+        return s.boards[1].board.telemetry_snapshot().beacons_ok > ok_before;
       },
       double(cfg.beacon_period_revs) + 1));
   HS_EXPECT_EQ(sim.boards[1].live_index, sim.boards[0].live_index);
@@ -3163,7 +3169,8 @@ inline void test_budget_wire_dead() {
   for (int i = 1; i < 3; ++i) {
     // Silence is a coast, not a fault: locked, zero rejections or fallback.
     HS_EXPECT_TRUE(sim.boards[i].board.lock() == LockState::LOCKED);
-    HS_EXPECT_EQ(sim.boards[i].board.telemetry().symbols_rejected_gate, 0u);
+    HS_EXPECT_EQ(sim.boards[i].board.telemetry_snapshot().symbols_rejected_gate,
+                 0u);
     // Layer 2 self-sufficiency: ~2 flips/rev throughout, no stall.
     const uint64_t df = sim.boards[i].flips - flips_before[i];
     HS_EXPECT_GE(df, 2 * static_cast<uint64_t>(coast) - 5);
@@ -3183,7 +3190,7 @@ inline void test_budget_wire_dead() {
   HS_EXPECT_LE(e1, 3);
   HS_EXPECT_GE(e2, 1);
   HS_EXPECT_LE(e2, 2);
-  HS_EXPECT_GE(sim.boards[1].board.telemetry().max_coast_halves, 250u);
+  HS_EXPECT_GE(sim.boards[1].board.telemetry_snapshot().max_coast_halves, 250u);
 }
 
 // ── Runner ──────────────────────────────────────────────────────────────────

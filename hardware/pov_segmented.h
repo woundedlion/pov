@@ -365,12 +365,9 @@ public:
       }
 
       // Health telemetry (spec §8.6): foreground-polled, emitted only on change.
-      // Snapshot the ISR-mutated counters under an IRQ-off bracket.
       if (hs::debug && millis() - last_report >= 1000UL) {
         last_report = millis();
-        hs::disable_interrupts();
-        const pov::sync::Telemetry tm = sync.telemetry();
-        hs::enable_interrupts();
+        const pov::sync::Telemetry tm = sync.telemetry_snapshot();
         // Change detection is a byte compare, so Telemetry must have no
         // padding: a member of another width would make stale padding read as
         // a change and spam the log every poll.

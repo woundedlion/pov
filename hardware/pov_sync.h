@@ -1567,12 +1567,19 @@ public:
   static uint32_t build_gen_of(uint32_t word) { return word >> 8; }
 
   /**
-   * @brief Telemetry counters.
+   * @brief Telemetry counters, copied under an IRQ-off window.
    * @return Snapshot of the telemetry block.
-   * @warning Device callers must take the snapshot under an IRQ-off window to
-   * avoid mixing pre- and post-increment fields.
+   * @details The bracket is taken here rather than left to the caller, so a
+   * snapshot cannot mix pre- and post-increment fields. Foreground-only: it
+   * re-enables interrupts unconditionally, so an ISR or a nested IRQ-off
+   * region must not call it.
    */
-  Telemetry telemetry() const { return telemetry_counters; }
+  Telemetry telemetry_snapshot() const {
+    hs::disable_interrupts();
+    const Telemetry snapshot = telemetry_counters;
+    hs::enable_interrupts();
+    return snapshot;
+  }
   /**
    * @brief Content-layer state.
    * @return Const reference to the content tracker.
