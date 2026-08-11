@@ -78,6 +78,22 @@ inline constexpr size_t BASE_MESH_COUNT =
     static_cast<size_t>(BaseMesh::PENTAGONAL_HEXECONTAHEDRON) + 1;
 inline constexpr size_t PLATONIC_BASE_MESH_COUNT = 5;
 
+/**
+ * @brief Geometry bounds every BaseMesh satisfies, for sizing arena storage.
+ * @details The generators build at runtime, so these are authored ceilings the
+ * loaders check each compiled solid against rather than derived counts. Tight:
+ * the truncated icosidodecahedron hits 120 vertices and 180 edges, the
+ * disdyakis triacontahedron 120 faces. A mesh drawn through Plot::Mesh must
+ * also stay within its DEDUP_CAPACITY vertex ceiling.
+ */
+inline constexpr size_t MAX_SOLID_VERTICES = 120;
+/** @brief Flat face-index slots; each undirected edge is walked twice. */
+inline constexpr size_t MAX_SOLID_FACE_SLOTS = 360;
+/** @brief Face count ceiling. */
+inline constexpr size_t MAX_SOLID_FACES = 120;
+/** @brief Unique edges implied by MAX_SOLID_FACE_SLOTS. */
+inline constexpr size_t MAX_SOLID_EDGES = MAX_SOLID_FACE_SLOTS / 2;
+
 inline constexpr const char *BASE_MESH_OPTIONS[] = {
     "Tetrahedron",
     "Cube",
