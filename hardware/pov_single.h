@@ -124,6 +124,10 @@ private:
         duration <= ~0UL / 1000UL,
         "show duration too long (duration*1000 ms overflows unsigned long)");
     const unsigned long duration_ms = duration * 1000;
+    // show_col() dereferences `effect` unguarded; an overlapping run() would
+    // publish a second pointer over the one the live ISR is reading.
+    HS_CHECK(effect == nullptr,
+             "POVDisplay::run() re-entered while an effect is live");
     effect = e;
     // show_col() indexes buf[y * width + x] for y in [0, S/2), in-bounds only
     // when the effect's canvas height equals the strip's half-height.
