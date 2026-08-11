@@ -570,6 +570,113 @@ inline void test_distorted_ring_stack_matches_sequential() {
 }
 
 /**
+ * @brief Verifies rasterize_face walks the pixels scan_region walks.
+ * @details rasterize_face carries its own copy of scan_region's
+ * wrap/coalesce/clip run builder. SDF::Face satisfies ScanShape, so the same
+ * face drawn through Scan::rasterize and through Scan::rasterize_face must
+ * light the same pixels with the same coverage; a constant-color shader makes
+ * any divergence in either the run set or the AA band a framebuffer difference.
+ * Covered: a mid-latitude face, one whose azimuth wedge straddles theta=0, a
+ * pole-touching face (per-row runs plus the full-row fallback), and both a
+ * plain and a seam-wrapping x clip. Scoped to pole_lod_aggressiveness 0, which
+ * the test pins: only rasterize_face scales its block slack by the face's plane
+ * stretch, so the two decimate near-pole rows differently.
+ */
+inline void test_face_rasterize_matches_scan_region() {
+  constexpr int W = 96, H = 64;
+  constexpr int HV = H + hs::H_OFFSET;
+  const float saved_lod = pole_lod_aggressiveness;
+  pole_lod_aggressiveness = 0.0f;
+
+  // x0 == x1 leaves the frame unclipped; a margin that underflows x0 gives the
+  // seam-wrapping band.
+  auto run_case = [&](const Vector &axis, float rho, int sides, float phase,
+                      int x0, int x1, int margin) {
+    HS_CONTEXT("face", sides, x0);
+    Basis basis = make_basis(Quaternion(), axis);
+    Vector verts[8];
+    uint16_t idx[8];
+    for (int i = 0; i < sides; ++i) {
+      float a = (TWO_PI_F * i) / sides + phase;
+      verts[i] = (basis.v * cosf(rho) +
+                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(rho))
+                     .normalized();
+      idx[i] = static_cast<uint16_t>(i);
+    }
+    std::span<const Vector> vspan(verts, sides);
+    std::span<const uint16_t> ispan(idx, sides);
+    const Color4 color(Pixel(60000, 20000, 40000), 0.75f);
+
+    auto draw = [&](hs_test::StubEffect &fx, bool fused) {
+      if (x0 != x1) {
+        fx.set_clip(4, H - 3, x0, x1);
+        fx.set_margin(margin);
+      }
+      Pipeline<W, H> pipeline;
+      {
+        Canvas canvas(fx);
+        SDF::FaceScratchBuffer scratch;
+        SDF::Face face(vspan, ispan, scratch, HV, H, &canvas.clip());
+        auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
+        if (fused)
+          Scan::rasterize_face<W, H, Pipeline<W, H>>(pipeline, canvas, face,
+                                                     shader);
+        else
+          Scan::rasterize<W, H, false>(pipeline, canvas, face, shader);
+      }
+      fx.advance_display();
+    };
+
+    // One live Effect at a time: read the generic path back before the fused
+    // fixture exists.
+    std::vector<Pixel> expected(W * H);
+    {
+      hs_test::StubEffect generic(W, H);
+      draw(generic, false);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          expected[y * W + x] = generic.get_pixel(x, y);
+    }
+
+    hs_test::StubEffect fused(W, H);
+    draw(fused, true);
+
+    size_t lit = 0;
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        const Pixel &a = expected[y * W + x];
+        const Pixel &b = fused.get_pixel(x, y);
+        HS_CONTEXT("px", x, y);
+        HS_EXPECT_EQ(static_cast<int>(a.r), static_cast<int>(b.r));
+        HS_EXPECT_EQ(static_cast<int>(a.g), static_cast<int>(b.g));
+        HS_EXPECT_EQ(static_cast<int>(a.b), static_cast<int>(b.b));
+        if (a.r || a.g || a.b)
+          ++lit;
+      }
+    }
+    // Guard against both paths drawing nothing.
+    HS_EXPECT_GT(lit, (size_t)40);
+  };
+
+  // Mid-latitude hexagon, whose azimuth wedge sits around column 80.
+  const Vector mid = Vector(0.3f, 0.8f, -0.5f).normalized();
+  run_case(mid, 0.45f, 6, 0.37f, 0, 0, 0);
+  run_case(mid, 0.45f, 6, 0.37f, 62, 94, 0);
+  // Centred on theta=0, so the wedge straddles the seam. The band [90, 96) u
+  // [0, 46) that the margin wraps around the seam covers it.
+  const Vector seam = Vector(1.0f, 0.15f, 0.0f).normalized();
+  run_case(seam, 0.5f, 5, 0.0f, 0, 0, 0);
+  run_case(seam, 0.5f, 5, 0.0f, 0, 40, 6);
+  // Face over the pole: runs are rebuilt per row and the rows it cannot bound
+  // fall back to a full-width scan.
+  const Vector pole = Vector(0.02f, 1.0f, 0.0f).normalized();
+  run_case(pole, 0.35f, 4, 0.11f, 0, 0, 0);
+  run_case(pole, 0.35f, 4, 0.11f, 12, 62, 0);
+  run_case(pole, 0.35f, 4, 0.11f, 0, 40, 6);
+  pole_lod_aggressiveness = saved_lod;
+}
+
+/**
  * @brief Verifies the scan_region seam coalescer avoids double-plotting.
  * @details A span crossing x=0 must not double-plot the wrapped overlap shared
  * with another span. Drives scan_region with a sorted two-span row (a low span
@@ -1786,6 +1893,7 @@ inline int run_scan_tests() {
   test_distorted_ring_flat_matches_zero_knot_raster();
   test_ring_group_matches_sequential();
   test_distorted_ring_stack_matches_sequential();
+  test_face_rasterize_matches_scan_region();
   test_scan_shader_v2_contract();
   test_scan_region_seam_no_double_plot();
   test_scan_region_fractional_boundary_no_double_plot();
