@@ -4670,6 +4670,45 @@ inline void test_mindsplatter_particle_gradients_follow_emission_order() {
                  static_cast<uint16_t>(i << 8));
 }
 
+/**
+ * @brief A manual preset outlasts the automatic blend it interrupts.
+ * @details The automatic Lerp is frozen rather than finished while the manual
+ *          selection holds animations paused, so it resumes on unpause.
+ */
+inline void test_mindsplatter_manual_preset_survives_unpause() {
+  constexpr size_t MANUAL_PRESET = 5;
+  constexpr int BLEND_FRAMES = 48;
+  using MS = MindSplatter<SMALL_W, SMALL_H>;
+  using WB = MindSplatterWhiteBox;
+  reset_effect_globals();
+  MS effect;
+  effect.init();
+
+  WB::advance_preset(effect);
+  for (int f = 0; f < 8; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+
+  HS_EXPECT_TRUE(effect.selectPreset(MANUAL_PRESET));
+  HS_EXPECT_TRUE(effect.animations_paused());
+  effect.setAnimationsPaused(false);
+  for (int f = 0; f < BLEND_FRAMES + 8; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+
+  HS_EXPECT_EQ(effect.getPresetIndex(), MANUAL_PRESET);
+  const auto &live = WB::live_params(effect);
+  const auto &chosen = WB::preset_params(effect, MANUAL_PRESET);
+  HS_EXPECT_TRUE(live.base_mesh == chosen.base_mesh);
+  HS_EXPECT_NEAR(live.friction, chosen.friction, 1e-6f);
+  HS_EXPECT_NEAR(live.well_strength, chosen.well_strength, 1e-6f);
+  HS_EXPECT_NEAR(live.initial_speed, chosen.initial_speed, 1e-6f);
+  HS_EXPECT_NEAR(live.angular_speed, chosen.angular_speed, 1e-6f);
+  HS_EXPECT_NEAR(live.warp_scale, chosen.warp_scale, 1e-6f);
+}
+
 /** @brief Fusing the vertex pass into trail materialization is pixel exact. */
 inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
   constexpr int W = SMALL_W;
@@ -6153,6 +6192,7 @@ inline int run_effects_tests() {
   test_shapeshifter_preset_defaults();
   test_shapeshifter_slider_selections_render();
   test_manual_preset_navigation();
+  test_mindsplatter_manual_preset_survives_unpause();
   test_hankinsolids_manual_pause_holds_morph();
   test_stereo_noise_warp_delta_invariant();
   test_every_effect_renders_while_paused();

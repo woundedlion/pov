@@ -355,6 +355,21 @@ struct MindSplatterWhiteBox {
   template <int W, int H> static void next_preset(MindSplatter<W, H> &ms) {
     ms.presets.next();
   }
+  /** @brief Drives one choreography-origin preset advance. */
+  template <int W, int H> static void advance_preset(MindSplatter<W, H> &ms) {
+    HS_CHECK(ms.advancePreset(),
+             "MindSplatter automatic preset advance failed");
+  }
+  template <int W, int H>
+  static const typename MindSplatter<W, H>::Params &
+  live_params(const MindSplatter<W, H> &ms) {
+    return ms.params;
+  }
+  template <int W, int H>
+  static const typename MindSplatter<W, H>::Params &
+  preset_params(const MindSplatter<W, H> &ms, size_t index) {
+    return ms.presets.get_entries()[index].params;
+  }
   template <int W, int H>
   static size_t preset_index(const MindSplatter<W, H> &ms) {
     return ms.presets.current_index();
