@@ -3936,8 +3936,9 @@ inline void test_petalflow_spawn_gap_bounded() {
   reset_effect_globals();
   WB::PF pf;
   pf.init();
-  pf.updateParameter("Speed", 20.0f);
-  pf.updateParameter("Density", 2.5f);
+  HS_EXPECT_TRUE(pf.updateParameter("Speed", 20.0f) == ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(pf.updateParameter("Density", 2.5f) ==
+                 ParamSetResult::APPLIED);
 
   const float spacing = WB::live_spacing(pf);
   // Below this the while-loop emits at most one ring per frame, whatever the
@@ -5178,27 +5179,35 @@ inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
  *        across frames at the max angular rate.
  * @details Each emitter integrates Ang Spd into emit_phases[i] with fmodf(., 2pi)
  *          so a dropped wrap lets the phase grow unbounded (fast_sinf range
- *          reduction then bands). Run at the Ang Spd slider top so the phase
- *          laps 2pi repeatedly.
+ *          reduction then bands). The range assertions only bind once the phase
+ *          has passed 2pi at least once, so the sweep runs at the Ang Spd slider
+ *          top and counts the laps it observes.
  */
 inline void test_mindsplatter_emit_phase_wrapped() {
   using WB = MindSplatterWhiteBox;
   reset_effect_globals();
   WB::MS ms;
   ms.init();
-  ms.updateParameter("Ang Spd", 1.0f); // slider top: phase laps fast
+  HS_EXPECT_TRUE(ms.updateParameter("Ang Spd", 1.0f) ==
+                 ParamSetResult::APPLIED);
 
   const float two_pi = 2.0f * PI_F;
   const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
+  std::vector<float> previous(WB::num_emitters(ms), 0.0f);
+  int laps = 0;
   for (int f = 0; f < frames; ++f) {
     ms.draw_frame();
     ms.advance_display();
-    for (size_t i = 0; i < WB::num_emitters(ms); ++i) {
+    for (size_t i = 0; i < previous.size(); ++i) {
       const float ph = WB::emit_phase(ms, i);
       HS_EXPECT_GE(ph, 0.0f);
       HS_EXPECT_LT(ph, two_pi);
+      if (ph < previous[i])
+        ++laps;
+      previous[i] = ph;
     }
   }
+  HS_EXPECT_GT(laps, 0);
 }
 
 /** @brief Stereo warp metadata preserves its pre-add displacement invariant. */
