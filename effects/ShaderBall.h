@@ -588,37 +588,50 @@ private:
     Slots &slots = requested_config.slots;
     register_animated_param("Function", &slots.function, FUNCTION_OPTIONS,
                             FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
+    const bool polar_topology =
+        slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART ||
+        slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
+    register_source_controls(slots.function, requested_config.params.source,
+                             !polar_topology);
     register_animated_param("Projection", &slots.projection, PROJECTION_OPTIONS,
                             PROJECTION_EXPORT_OPTIONS, NUM_PROJECTIONS);
-    if (slots.projection == Projection::PEIRCE_QUINCUNCIAL)
-      register_animated_param("Peirce Layout", &slots.peirce_layout,
-                              PEIRCE_LAYOUT_OPTIONS,
-                              PEIRCE_LAYOUT_EXPORT_OPTIONS, NUM_PEIRCE_LAYOUTS);
-    if (slots.projection == Projection::AIROCEAN)
-      register_animated_param(
-          "Airocean Layout", &slots.airocean_layout, AIROCEAN_LAYOUT_OPTIONS,
-          AIROCEAN_LAYOUT_EXPORT_OPTIONS, NUM_AIROCEAN_LAYOUTS);
+    register_projection_controls(slots, requested_config.params);
     register_animated_param(
         "Projection Frame", &slots.projection_frame, PROJECTION_FRAME_OPTIONS,
         PROJECTION_FRAME_EXPORT_OPTIONS, NUM_PROJECTION_FRAMES);
+    register_projection_frame_controls(slots.projection_frame,
+                                       requested_config.params);
+    register_animated_param("Outer Wander",
+                            &requested_config.params.outer_camera.wander,
+                            WANDER_MIN, WANDER_MAX);
     register_animated_param("Lens", &slots.surface_lens, LENS_OPTIONS,
                             LENS_EXPORT_OPTIONS, NUM_LENSES);
+    register_lens_controls(slots.surface_lens,
+                           requested_config.params.surface_lens);
     register_animated_param("Outer Warp", &slots.warp_program.outer.kind,
                             WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
+    register_stage_slot_controls("Outer", slots.warp_program.outer);
+    register_active_warp_controls("Outer", slots.warp_program.outer,
+                                  requested_config.params.warp.outer);
     register_animated_param("Inner Warp", &slots.warp_program.inner.kind,
                             WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
-    register_stage_slot_controls("Outer", slots.warp_program.outer);
     register_stage_slot_controls("Inner", slots.warp_program.inner);
+    register_active_warp_controls("Inner", slots.warp_program.inner,
+                                  requested_config.params.warp.inner);
     register_animated_param("Signal Weight", &slots.signal_weight,
                             SIGNAL_OPTIONS, SIGNAL_EXPORT_OPTIONS, NUM_SIGNALS);
     register_animated_param("Value Transfer", &slots.value_transfer,
                             VALUE_TRANSFER_OPTIONS,
                             VALUE_TRANSFER_EXPORT_OPTIONS, NUM_VALUE_TRANSFERS);
+    register_value_transfer_controls(slots.value_transfer,
+                                     requested_config.params.value);
     register_animated_param("Coverage", &slots.coverage, COVERAGE_OPTIONS,
                             COVERAGE_EXPORT_OPTIONS, NUM_COVERAGE_POLICIES);
+    register_coverage_controls(slots.coverage, requested_config.params.value);
     register_animated_param("Colorizer", &slots.colorizer, COLORIZER_OPTIONS,
                             COLORIZER_EXPORT_OPTIONS, NUM_COLORIZERS);
-    register_active_parameter_controls(slots, requested_config.params);
+    register_colorizer_controls(slots.colorizer,
+                                requested_config.params.colorizer);
     requested_schema_bound = true;
   }
 
@@ -819,40 +832,30 @@ private:
   }
 #endif
 
-  HS_COLD_MEMBER void register_active_parameter_controls(Slots &slots,
-                                                         Params &params) {
-    const bool polar_topology =
-        slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART ||
-        slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
-    register_source_controls(slots.function, params.source, !polar_topology);
-    register_projection_controls(slots, params);
-    register_lens_controls(slots.surface_lens, params.surface_lens);
-    register_active_warp_controls("Outer", slots.warp_program.outer,
-                                  params.warp.outer);
-    register_active_warp_controls("Inner", slots.warp_program.inner,
-                                  params.warp.inner);
-    if (slots.value_transfer == ValueTransfer::ISO_CONTOUR) {
-      register_animated_param("Iso Level", &params.value.iso_level, 0.0f, 1.0f);
-      register_animated_param("Iso Width", &params.value.iso_width,
-                              SOFTNESS_MIN, 0.5f);
-    } else if (slots.value_transfer == ValueTransfer::SMOOTH_BANDS) {
-      register_animated_int_param("Band Count", &params.value.band_count, 1,
+  HS_COLD_MEMBER void register_value_transfer_controls(ValueTransfer transfer,
+                                                       ValueParams &params) {
+    if (transfer == ValueTransfer::ISO_CONTOUR) {
+      register_animated_param("Iso Level", &params.iso_level, 0.0f, 1.0f);
+      register_animated_param("Iso Width", &params.iso_width, SOFTNESS_MIN,
+                              0.5f);
+    } else if (transfer == ValueTransfer::SMOOTH_BANDS) {
+      register_animated_int_param("Band Count", &params.band_count, 1,
                                   BAND_COUNT_MAX);
-      register_animated_param("Band Phase", &params.value.band_phase, 0.0f,
-                              TWO_PI_F);
+      register_animated_param("Band Phase", &params.band_phase, 0.0f, TWO_PI_F);
     }
-    if (slots.coverage == CoveragePolicy::VALUE_CUTOUT) {
-      register_animated_param("Cutout Threshold",
-                              &params.value.cutout_threshold, 0.0f, 1.0f);
-      register_animated_param("Cutout Softness", &params.value.cutout_softness,
+  }
+
+  HS_COLD_MEMBER void register_coverage_controls(CoveragePolicy coverage,
+                                                 ValueParams &params) {
+    if (coverage == CoveragePolicy::VALUE_CUTOUT) {
+      register_animated_param("Cutout Threshold", &params.cutout_threshold,
+                              0.0f, 1.0f);
+      register_animated_param("Cutout Softness", &params.cutout_softness,
                               SOFTNESS_MIN, 0.5f);
-    } else if (slots.coverage == CoveragePolicy::EDGE_FADE) {
-      register_animated_param("Edge Fade Width", &params.value.edge_width,
+    } else if (coverage == CoveragePolicy::EDGE_FADE) {
+      register_animated_param("Edge Fade Width", &params.edge_width,
                               SOFTNESS_MIN, 0.5f);
     }
-    register_colorizer_controls(slots.colorizer, params.colorizer);
-    register_animated_param("Outer Wander", &params.outer_camera.wander,
-                            WANDER_MIN, WANDER_MAX);
   }
 
   HS_COLD_MEMBER void register_stage_slot_controls(const char *position,
@@ -928,6 +931,14 @@ private:
 
   HS_COLD_MEMBER void register_projection_controls(Slots &slots,
                                                    Params &params) {
+    if (slots.projection == Projection::PEIRCE_QUINCUNCIAL)
+      register_animated_param("Peirce Layout", &slots.peirce_layout,
+                              PEIRCE_LAYOUT_OPTIONS,
+                              PEIRCE_LAYOUT_EXPORT_OPTIONS, NUM_PEIRCE_LAYOUTS);
+    if (slots.projection == Projection::AIROCEAN)
+      register_animated_param(
+          "Airocean Layout", &slots.airocean_layout, AIROCEAN_LAYOUT_OPTIONS,
+          AIROCEAN_LAYOUT_EXPORT_OPTIONS, NUM_AIROCEAN_LAYOUTS);
     if (slots.projection == Projection::EQUIRECTANGULAR ||
         slots.projection == Projection::STEREOGRAPHIC ||
         slots.projection == Projection::GNOMONIC)
@@ -961,7 +972,12 @@ private:
          slots.peirce_layout == PeirceLayout::VERTICAL))
       register_animated_param("Projection Layout Scroll",
                               &params.projection.layout_scroll, -1.0f, 1.0f);
-    if (slots.projection_frame == ProjectionFramePolicy::SPIN_WANDER) {
+  }
+
+  HS_COLD_MEMBER void
+  register_projection_frame_controls(ProjectionFramePolicy frame,
+                                     Params &params) {
+    if (frame == ProjectionFramePolicy::SPIN_WANDER) {
       register_animated_param("Spin Rate", &params.projection.spin_rate,
                               SPIN_RATE_MIN, SPIN_RATE_MAX);
       register_animated_param("Projection Wander", &params.projection.wander,
