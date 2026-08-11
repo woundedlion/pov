@@ -1566,20 +1566,25 @@ inline void test_shaderball_manual_preset_navigation() {
   }
   HS_EXPECT_TRUE(WB::transition_active(sb) || WB::param_morph_active(sb));
 
-  HS_EXPECT_TRUE(sb.selectPreset(5));
+  HS_EXPECT_TRUE(sb.synchronizePreset(5));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(5));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[5]);
+  HS_EXPECT_FALSE(sb.animations_paused());
   HS_EXPECT_FALSE(WB::transition_active(sb));
   HS_EXPECT_FALSE(WB::param_morph_active(sb));
+
+  HS_EXPECT_TRUE(sb.selectPreset(6));
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(6));
   for (int frame = 0; frame < 8; ++frame) {
     sb.draw_frame();
     sb.advance_display();
   }
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(5));
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(6));
 
   sb.setAnimationsPaused(false);
   sb.draw_frame();
   sb.advance_display();
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(6));
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(7));
   HS_EXPECT_TRUE(WB::transition_active(sb) || WB::param_morph_active(sb));
 }
 

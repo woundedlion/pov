@@ -109,6 +109,7 @@ struct PresetTestEffect : public Effect {
   size_t applied_from = 0;
   size_t applied_to = 0;
   bool applied_manually = false;
+  bool applied_synchronized = false;
   size_t committed_index = 0;
   int commit_count = 0;
 
@@ -117,6 +118,7 @@ private:
     applied_from = change.from;
     applied_to = change.to;
     applied_manually = change.origin == PresetChangeOrigin::MANUAL;
+    applied_synchronized = change.origin == PresetChangeOrigin::SYNCHRONIZED;
     return accept;
   }
 
@@ -182,15 +184,23 @@ inline void test_preset_state_machine() {
   HS_EXPECT_TRUE(fx.animations_paused());
 
   fx.setAnimationsPaused(false);
-  fx.accept = false;
-  HS_EXPECT_FALSE(fx.selectPreset(2));
-  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(0));
+  HS_EXPECT_TRUE(fx.synchronizePreset(2));
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(2));
+  HS_EXPECT_TRUE(fx.applied_synchronized);
   HS_EXPECT_FALSE(fx.animations_paused());
-  HS_EXPECT_EQ(fx.commit_count, 2);
+  HS_EXPECT_EQ(fx.commit_count, 3);
+  HS_EXPECT_TRUE(fx.synchronizePreset(2));
+  HS_EXPECT_EQ(fx.commit_count, 3);
+
+  fx.accept = false;
+  HS_EXPECT_FALSE(fx.selectPreset(1));
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(2));
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.commit_count, 3);
 
   HS_EXPECT_FALSE(fx.selectPreset(3));
-  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(0));
-  HS_EXPECT_EQ(fx.commit_count, 2);
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(2));
+  HS_EXPECT_EQ(fx.commit_count, 3);
 }
 
 // ============================================================================

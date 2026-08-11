@@ -118,7 +118,7 @@ private:
   bool apply_preset(const PresetChange &change) override {
     if (!presets.select(change.to))
       return false;
-    if (change.origin == PresetChangeOrigin::MANUAL) {
+    if (change.origin != PresetChangeOrigin::AUTOMATIC) {
       presets.apply(params);
     } else {
       timeline.add_pausable(0,

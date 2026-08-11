@@ -149,7 +149,7 @@ private:
   bool apply_preset(const PresetChange &change) override {
     if (!preset_manager.select(change.to))
       return false;
-    if (change.origin == PresetChangeOrigin::MANUAL)
+    if (change.origin != PresetChangeOrigin::AUTOMATIC)
       apply_selected_preset();
     return true;
   }
