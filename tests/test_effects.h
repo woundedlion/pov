@@ -4115,6 +4115,13 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
 
 /**
  * @brief Bounds dynamic and periodic hue tables over effect palette colors.
+ * @details Every bound below is the measured worst case over the sweep with
+ * headroom: peak deltaE is 0.0015 default / 0.0053 cyclic against the 0.01
+ * bound, and the paired peaks in encoded space are 8 / 19 sRGB8 codes against
+ * 10 / 21. The sRGB8 pair is the looser gate because the encode is non-linear —
+ * the same table-interpolation error spans more 8-bit codes where the transfer
+ * curve is steep than deltaE weights it — so it is bounded rather than pinned to
+ * the perceptual figure.
  */
 inline void test_displacement_field_hue_table_fidelity() {
   reset_effect_globals();
