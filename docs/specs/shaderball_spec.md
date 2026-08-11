@@ -482,7 +482,7 @@ than silently clamped into a different schema:
 | mirror tile | cell dimensions `[1/64,8]`, offsets wrapped to their cells, wrapped rotation |
 | polar chart | radial scale `[1/64,16]`, fixed radius floor `1/4096`, harmonic integer `[1,16]`, wrapped phases |
 | noise contour | scale `[1/64,64]`, contrast `[0,8]`, time rate `[-1/64,1/64]` turns/frame |
-| primitive lattice | cell scale `[1/64,8]`, shape blend `[0,1]`, softness `[1/1024,1/4]`, radius `[1/64, 1/2-softness]` in normalized cell units |
+| primitive lattice | cell scale `[1/64,8]`, shape blend `[0,1]`, softness `[1/1024,1]`, radius `[1/64,0.49]` in normalized cell units |
 | value/coverage | levels and thresholds `[0,1]`, widths/softness `[1/1024,1/2]`, band count integer `[1,32]`, wrapped phase |
 | deformation ink | gains `[-4,4]`, normalization denominators `[1/1024,32]`, wrapped direction phase |
 
@@ -643,10 +643,10 @@ value = 1 - 2*smoothstep(-softness, softness, d)
 ```
 
 `shape_blend` is defined only on `[0,1]`; the square uses equal x/y half-
-dimensions. The range `r <= 1/2-softness` keeps the softened primitive within
-its cell. The half-open ownership rule and the even SDFs give identical values
-on neighboring cell seams; derivative parity may flip and is reported by the
-source trait rather than claimed smooth.
+dimensions. Radius remains inside the half-cell while softness may span a cell
+seam. The half-open ownership rule and the even SDFs give identical values on
+neighboring cell seams; derivative parity may flip and is reported by the source
+trait rather than claimed smooth.
 
 Every source declares Cartesian-axis use, x/y periods or nonperiodicity,
 rotation equivariance, polar-angle compatibility, and argument-conditioning

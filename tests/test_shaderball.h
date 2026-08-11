@@ -1349,6 +1349,19 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_TRUE(coverage != nullptr);
   HS_EXPECT_EQ(coverage->option_count, 5);
   HS_EXPECT_TRUE(std::strcmp(coverage->options[4], "Projection Weight") == 0);
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Function",
+                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)) ==
+      ParamSetResult::APPLIED);
+  const auto *lattice_softness = sb.getParameters().find("Lattice Softness");
+  HS_EXPECT_TRUE(lattice_softness != nullptr);
+  HS_EXPECT_EQ(lattice_softness->max, 1.0f);
+  HS_EXPECT_TRUE(sb.updateParameter("Lattice Softness", 1.0f) ==
+                 ParamSetResult::APPLIED);
+  sb.draw_frame();
+  sb.advance_display();
+  WB::settle_transition(sb);
+  HS_EXPECT_EQ(WB::active_config(sb).params.source.lattice_softness, 1.0f);
   const uint32_t schema_before = sb.getParameterSchemaGeneration();
   HS_EXPECT_TRUE(sb.updateParameter(
                      "Projection", static_cast<float>(WB::Projection::BONNE)) ==

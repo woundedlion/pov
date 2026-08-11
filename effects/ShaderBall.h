@@ -904,7 +904,7 @@ private:
       register_animated_param("Lattice Shape", &params.lattice_shape_blend,
                               0.0f, 1.0f);
       register_animated_param("Lattice Softness", &params.lattice_softness,
-                              SOFTNESS_MIN, 0.25f);
+                              SOFTNESS_MIN, 1.0f);
       register_animated_param("Lattice Radius", &params.lattice_radius,
                               1.0f / 64.0f, 0.49f);
       return;
@@ -3672,9 +3672,9 @@ private:
            p.source.lattice_shape_blend >= 0.0f &&
            p.source.lattice_shape_blend <= 1.0f &&
            p.source.lattice_softness >= SOFTNESS_MIN &&
-           p.source.lattice_softness <= 0.25f &&
+           p.source.lattice_softness <= 1.0f &&
            p.source.lattice_radius >= 1.0f / 64.0f &&
-           p.source.lattice_radius <= 0.5f - p.source.lattice_softness &&
+           p.source.lattice_radius <= 0.49f &&
            enum_at_most(p.source.noise_basis, NoiseBasis::RIDGED3) &&
            p.projection.pole_fade >= POLE_FADE_MIN &&
            p.projection.pole_fade <= POLE_FADE_MAX &&
