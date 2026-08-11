@@ -88,14 +88,16 @@ _hs_warnings(run_tests)
 
 # Opt-in sanitizers. Default OFF so the pre-commit gate and the default
 # `cmake --preset tests` stay fast (ASan ~2x); enable with -DHS_SANITIZE=ON.
-# The "sanitizers" CI job (.github/workflows/ci.yml) builds with it on every
-# push and pull request. The flavour depends on the runtime the toolchain
-# ships:
-#   * Linux/full-LLVM: ASan + UBSan with diagnostics (-fno-sanitize-recover
-#     makes the first error a hard failure rather than logged-and-continue).
-#   * Windows emsdk clang: ships no ASan runtime for the MSVC target, so use
-#     runtime-free UBSan in trap mode — a UB hit becomes an immediate trap,
-#     consistent with the engine's always-on fail-fast doctrine.
+# Two CI jobs (.github/workflows/ci.yml) build with it on every push and pull
+# request, one per flavour, because the flavour depends on the runtime the
+# toolchain ships:
+#   * Linux/full-LLVM ("sanitizers"): ASan + UBSan with diagnostics
+#     (-fno-sanitize-recover makes the first error a hard failure rather than
+#     logged-and-continue).
+#   * Windows emsdk clang ("windows-tests", one instrumented target): ships no
+#     ASan runtime for the MSVC target, so use runtime-free UBSan in trap mode —
+#     a UB hit becomes an immediate trap, consistent with the engine's always-on
+#     fail-fast doctrine.
 option(HS_SANITIZE "Build the unit tests with sanitizers (ASan+UBSan, or UBSan-trap on Windows)" OFF)
 
 # ThreadSanitizer. The canvas and pov_segmented modules drive the Effect double

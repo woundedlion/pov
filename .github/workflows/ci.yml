@@ -569,6 +569,23 @@ jobs:
           ctest --preset tests --output-on-failure --no-tests=error
           -E "${{ env.TEST_EXCLUDE }}"
 
+      # _hs_sanitize()'s WIN32 branch (UBSan in trap mode, because emsdk clang
+      # ships no ASan runtime for the MSVC target) is reachable from no other
+      # job: the sanitizers job is Linux and only ever takes the ASan branch. A
+      # second build dir instruments one CTest-registered target rather than the
+      # whole suite — enough to compile the trap flags and the
+      # -fsanitize-ignorelist path, and to run instrumented vendored
+      # FastNoiseLite code, at a fraction of a second sanitized suite build.
+      - name: Configure + build the UBSan-trap flavour
+        run: |
+          cmake --preset tests -B build/tests-ubsan -DHS_INSTALL_GIT_HOOKS=OFF -DHS_SANITIZE=ON
+          cmake --build build/tests-ubsan --target mindsplatter_replay
+
+      - name: Test the UBSan-trap build
+        run: >
+          ctest --test-dir build/tests-ubsan --output-on-failure
+          --no-tests=error -R unit_mindsplatter_replay
+
   wasm:
     name: WASM build (Emscripten)
     runs-on: ubuntu-24.04
