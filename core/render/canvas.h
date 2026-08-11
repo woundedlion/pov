@@ -186,8 +186,9 @@ public:
   }
   /** @brief Selects one preset without changing the animation pause state. */
   bool synchronizePreset(size_t index) {
-    return index == preset_index ||
-           change_preset(index, PresetChangeOrigin::SYNCHRONIZED);
+    return preset_count > 0 &&
+           (index == preset_index ||
+            change_preset(index, PresetChangeOrigin::SYNCHRONIZED));
   }
   /** @brief Selects and pauses the next preset. */
   bool nextPreset() {
