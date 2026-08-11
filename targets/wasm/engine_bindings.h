@@ -654,18 +654,47 @@ public:
    */
   bool getAnimationsPaused() const { return animations_paused; }
 
+  /**
+   * @brief Number of presets the current effect exposes for manual navigation.
+   * @return The preset count, 0 when no effect is set or the effect authored
+   *         none. A GUI reads this to decide whether to offer preset controls
+   *         at all.
+   */
   uint32_t getPresetCount() const {
     return current_effect
                ? static_cast<uint32_t>(current_effect->getPresetCount())
                : 0;
   }
 
+  /**
+   * @brief Index of the effect's currently selected preset.
+   * @return The index, 0 when no effect is set — indistinguishable from a real
+   *         selection of preset 0, so a caller tells the two apart by
+   *         getPresetCount() != 0.
+   * @details Tracks engine-driven advancement as well as the calls below: an
+   *          effect whose choreography advances its own presets moves this
+   *          without any JS call, so a mirroring GUI polls it rather than
+   *          tracking the index it last wrote.
+   */
   uint32_t getPresetIndex() const {
     return current_effect
                ? static_cast<uint32_t>(current_effect->getPresetIndex())
                : 0;
   }
 
+  /**
+   * @brief Selects one preset and freezes the effect's parameter animations.
+   * @param index Preset to select, in [0, getPresetCount()).
+   * @return true when the preset was applied; false when no effect is set, the
+   *         index is out of range, or the effect refused the preset.
+   * @details Engages the animation pause exactly as setAnimationsPaused(true)
+   *          would, so the selected preset's values are not immediately
+   *          overwritten by the animation — the manual-navigation counterpart
+   *          to synchronizePreset(), which leaves the pause alone. The pause is
+   *          retained across setEffect(), so a caller mirroring it reads it
+   *          back through getAnimationsPaused(). Parameter values move with the
+   *          preset; re-read them via getParamValues().
+   */
   bool selectPreset(uint32_t index) {
     if (!current_effect || !current_effect->selectPreset(index))
       return false;
@@ -673,6 +702,17 @@ public:
     return true;
   }
 
+  /**
+   * @brief Selects one preset without touching the animation pause state.
+   * @param index Preset to select, in [0, getPresetCount()).
+   * @return true when the preset is the active one already or was applied;
+   *         false when no effect is set, the index is out of range, or the
+   *         effect refused the preset.
+   * @details The call a GUI uses to follow engine-driven preset advancement:
+   *          selectPreset() would freeze the choreography it is trying to
+   *          mirror, this one leaves it running. A request for the active index
+   *          is a success no-op.
+   */
   bool synchronizePreset(uint32_t index) {
     if (!current_effect || !current_effect->synchronizePreset(index))
       return false;
@@ -680,6 +720,13 @@ public:
     return true;
   }
 
+  /**
+   * @brief Selects the next preset, wrapping past the last, and freezes
+   *        animations.
+   * @return true when the preset was applied; false when no effect is set, the
+   *         effect has no presets, or it refused the preset.
+   * @details Same animation pause as selectPreset().
+   */
   bool nextPreset() {
     if (!current_effect || !current_effect->nextPreset())
       return false;
@@ -687,6 +734,13 @@ public:
     return true;
   }
 
+  /**
+   * @brief Selects the previous preset, wrapping past the first, and freezes
+   *        animations.
+   * @return true when the preset was applied; false when no effect is set, the
+   *         effect has no presets, or it refused the preset.
+   * @details Same animation pause as selectPreset().
+   */
   bool previousPreset() {
     if (!current_effect || !current_effect->previousPreset())
       return false;
