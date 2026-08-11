@@ -338,12 +338,19 @@ inline void test_full_graph_walk_soak() {
   HS_EXPECT_GT(legs_at_coverage, 0);
   HS_EXPECT_LE(legs_at_coverage, SOAK_LEG_BOUND);
 
+  // The host persistent arena is over-provisioned, so only the device figure
+  // gates it; both scratch arenas run at their device sizes and are
+  // trap-enforced.
+  using Fx = HankinSolids<SOAK_W, SOAK_H>;
+  HS_EXPECT_LE(persistent_arena.get_high_water_mark(),
+               Fx::DEVICE_PERSISTENT_BYTES);
+
   std::printf(
       "  [soak] %d legs (%d frames) to full %d-node coverage; "
-      "persistent hw=%zu scratch_a hw=%zu/%zu scratch_b hw=%zu/%zu "
+      "persistent hw=%zu/%zu scratch_a hw=%zu/%zu scratch_b hw=%zu/%zu "
       "sampled frame energy=%llu\n",
       legs_at_coverage, frames, ConwayGraph::NUM_NODES,
-      persistent_arena.get_high_water_mark(),
+      persistent_arena.get_high_water_mark(), Fx::DEVICE_PERSISTENT_BYTES,
       scratch_arena_a.get_high_water_mark(), scratch_arena_a.get_capacity(),
       scratch_arena_b.get_high_water_mark(), scratch_arena_b.get_capacity(),
       static_cast<unsigned long long>(render_energy));
