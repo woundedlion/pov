@@ -1221,11 +1221,7 @@ public:
     // Clamp before the cast: w < 0 or NaN is float->int UB, and a NaN weight
     // would otherwise reach every entry's alpha.
     const float wc = hs::clamp(w, 0.0f, 1.0f);
-    const uint16_t weight = frac_to_q16(wc);
-    for (int i = 0; i < LUT_SIZE; ++i) {
-      colors[i] = from.colors[i].lerp16(to.colors[i], weight);
-      alpha_q16[i] = lerp_q16(from.alpha_q16[i], to.alpha_q16[i], weight);
-    }
+    fill_blend(from, to, wc);
   }
 
   /**
@@ -1272,11 +1268,7 @@ public:
              "BakedPalette::rebake_crossfade before endpoint bake()");
     HS_CHECK(from.colors != colors && to.colors != colors,
              "BakedPalette::rebake_crossfade endpoint aliases the output");
-    const uint16_t weight = frac_to_q16(wc);
-    for (int i = 0; i < LUT_SIZE; ++i) {
-      colors[i] = from.colors[i].lerp16(to.colors[i], weight);
-      alpha_q16[i] = lerp_q16(from.alpha_q16[i], to.alpha_q16[i], weight);
-    }
+    fill_blend(from, to, wc);
   }
 
   /**
@@ -1339,6 +1331,16 @@ public:
   void mark_aliased() { aliased = true; }
 
 private:
+  // wc must already be clamped to [0, 1].
+  HS_COLD_MEMBER void fill_blend(const BakedPalette &from,
+                                 const BakedPalette &to, float wc) {
+    const uint16_t weight = frac_to_q16(wc);
+    for (int i = 0; i < LUT_SIZE; ++i) {
+      colors[i] = from.colors[i].lerp16(to.colors[i], weight);
+      alpha_q16[i] = lerp_q16(from.alpha_q16[i], to.alpha_q16[i], weight);
+    }
+  }
+
   static __attribute__((always_inline)) uint16_t lerp_q16(uint16_t a,
                                                           uint16_t b,
                                                           uint16_t weight) {
