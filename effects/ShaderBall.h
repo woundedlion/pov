@@ -3870,7 +3870,37 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 24> PRESETS = {{
+  static constexpr Preset bonne_lattice_mirror_preset() {
+    Slots slots{Function::PRIMITIVE_LATTICE,
+                Projection::BONNE,
+                ProjectionFramePolicy::SPIN_WANDER,
+                SurfaceLens::KALEIDOSCOPE,
+                {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::EDGE_FADE,
+                Colorizer::GENERATED_TRIADIC};
+    slots.bonne_hemisphere = BonneHemisphere::NORTH;
+    WarpStageParams outer_warp;
+    outer_warp.rotation = 1.7215928f;
+    outer_warp.cell_x = 5.381125f;
+    outer_warp.cell_y = 1.0f;
+    outer_warp.offset_x = 1.344f;
+    outer_warp.offset_y = -1.456f;
+    Params params =
+        authored_params({}, outer_warp, {1.0f, 0.0f}, {1.0f}, {}, {1.0f});
+    params.source.lattice_cell_scale = 1.1494062f;
+    params.source.lattice_shape_blend = 1.0f;
+    params.source.lattice_softness = 0.26372f;
+    params.source.lattice_radius = 0.31164f;
+    params.projection.central_meridian = 0.0f;
+    params.projection.coordinate_scale = 1.0f;
+    params.projection.bonne_standard_parallel = 0.001f;
+    params.value.edge_width = 0.5f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 25> PRESETS = {{
       {LIQUID_STEREO_SLOTS,
        authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f}, {3.0f, 0.5f, 0.5f},
                        {1.4f, 0.0f}, {1.0f}, {0.15f, 0.05f, 0.0f, 0.0f},
@@ -3943,6 +3973,7 @@ private:
       kaleidoscope_mirror_preset(),
       gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
       gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
+      bonne_lattice_mirror_preset(),
   }};
   static_assert(
       [] {
@@ -3970,7 +4001,7 @@ private:
       }(),
       "a ShaderBall preset edge lacks continuous transition admission");
 
-  static constexpr std::array<Choreo, 24> CHOREO = {{
+  static constexpr std::array<Choreo, 25> CHOREO = {{
       {30, 90, 60, true},   {30, 90, 60, true}, {30, 90, 60, true},
       {30, 90, 480, false}, {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
@@ -3979,6 +4010,7 @@ private:
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
+      {0, 0, 480, false},
   }};
   static_assert(CHOREO.size() == PRESETS.size());
 
