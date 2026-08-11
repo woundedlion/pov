@@ -660,6 +660,8 @@ struct Telemetry {
   uint32_t emit_aborted = 0;  /**< Master truncated a burst mid-emission. */
   uint32_t beacons_busy_dropped =
       0; /**< Revolutions whose beacon schedule found the emitter busy. */
+  uint32_t beacons_late_dropped =
+      0; /**< Revolutions whose beacon start was too late to fit before HALF. */
   uint32_t beacons_overrun_dropped =
       0; /**< Stale overrun beacon dropped at a boundary. */
   uint32_t boundary_bursts_dropped =
@@ -1352,6 +1354,7 @@ public:
     epoch_emits_left = 0;
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
+    beacon_late_counted_this_rev = false;
     beacon_index_candidate = -1;
     build_gen = 0;
     build_request_word.store(0, std::memory_order_relaxed);
@@ -1386,6 +1389,7 @@ public:
     epoch_emits_left = 0;
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
+    beacon_late_counted_this_rev = false;
     beacon_index_candidate = -1;
     build_gen = 0;
     build_request_word.store(0, std::memory_order_relaxed);
@@ -1624,6 +1628,7 @@ private:
       return;
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
+    beacon_late_counted_this_rev = false;
     if (content_tracker.identity_known) {
       if (content_tracker.on_zero_crossing(protocol_config)) {
         a.commit = true; // B+R+K reached; driver swaps in the pending effect
@@ -1892,8 +1897,13 @@ private:
     for (int i = 0; i < 5; ++i)
       digit_sum += digits[i];
     if (x + protocol_config.beacon_frame_cols(digit_sum) >=
-        protocol_config.W / 2)
+        protocol_config.W / 2) {
+      if (!beacon_late_counted_this_rev) {
+        ++telemetry_counters.beacons_late_dropped;
+        beacon_late_counted_this_rev = true;
+      }
       return;
+    }
     if (emitter.schedule_beacon(digits, now, protocol_config))
       beacon_done_this_rev = true;
     else if (!beacon_busy_counted_this_rev) {
@@ -1935,6 +1945,7 @@ private:
       0; /**< ZERO boundaries left in the EPOCH train. */
   bool beacon_done_this_rev = false;
   bool beacon_busy_counted_this_rev = false;
+  bool beacon_late_counted_this_rev = false;
   int32_t beacon_index_candidate =
       -1; /**< Index a lone beacon named, awaiting confirmation (§6.3.4). */
   uint32_t build_gen = 0;

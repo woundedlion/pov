@@ -382,14 +382,15 @@ public:
           // formatter (~5 KB ITCM); these counters are all %lu.
           hs::log(
               "sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu bdrop=%lu "
-              "bbusy=%lu sdrop=%lu bok=%lu brej=%lu fix=%lu rmis=%lu "
-              "lock=%lu flip=%lu coast=%lu stall=%lu epi=%lu",
+              "bbusy=%lu blate=%lu sdrop=%lu bok=%lu brej=%lu fix=%lu "
+              "rmis=%lu lock=%lu flip=%lu coast=%lu stall=%lu epi=%lu",
               (unsigned long)tm.symbols_accepted,
               (unsigned long)tm.symbols_rejected_gate,
               (unsigned long)tm.symbols_discarded_invalid,
               (unsigned long)tm.emit_censored, (unsigned long)tm.emit_aborted,
               (unsigned long)tm.beacons_overrun_dropped,
               (unsigned long)tm.beacons_busy_dropped,
+              (unsigned long)tm.beacons_late_dropped,
               (unsigned long)tm.boundary_bursts_dropped,
               (unsigned long)tm.beacons_ok, (unsigned long)tm.beacons_rejected,
               (unsigned long)tm.beacon_index_corrections,
