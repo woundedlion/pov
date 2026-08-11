@@ -689,12 +689,11 @@ inline void test_shaderball_legacy_spatial_slots() {
     HS_EXPECT_EQ(stereo_actual.re, stereo_expected.re);
     HS_EXPECT_EQ(stereo_actual.im, stereo_expected.im);
 
-    const Complex equirect =
-        WB::project_point(v, WB::Projection::EQUIRECTANGULAR);
+    const Complex sinusoidal = WB::project_point(v, WB::Projection::SINUSOIDAL);
     const float radius = sqrtf(v.x * v.x + v.z * v.z);
-    HS_EXPECT_NEAR(equirect.re, std::fabs(fast_atan2(v.z, v.x)) * radius,
+    HS_EXPECT_NEAR(sinusoidal.re, std::fabs(fast_atan2(v.z, v.x)) * radius,
                    1e-6f);
-    HS_EXPECT_EQ(equirect.im, 0.5f * PI_F - fast_acos(v.y));
+    HS_EXPECT_EQ(sinusoidal.im, 0.5f * PI_F - fast_acos(v.y));
 
     const Complex gnomonic = WB::project_point(v, WB::Projection::GNOMONIC);
     HS_EXPECT_TRUE(std::isfinite(gnomonic.re));
@@ -722,11 +721,11 @@ inline void test_shaderball_legacy_spatial_slots() {
   HS_EXPECT_EQ(WB::surface_project(Vector(1.0f, 0.0f, 0.0f), landmark_frame)
                    .boundary_flags,
                WB::boundary_singular());
-  landmark_frame.slots.projection = WB::Projection::EQUIRECTANGULAR;
-  const WB::ProjectedLookup equirectangular =
+  landmark_frame.slots.projection = WB::Projection::SINUSOIDAL;
+  const WB::ProjectedLookup sinusoidal =
       WB::surface_project(Vector(1.0f, 0.0f, 0.0f), landmark_frame);
-  HS_EXPECT_EQ(equirectangular.boundary_flags, uint8_t(0));
-  HS_EXPECT_EQ(equirectangular.flags, WB::projection_folded());
+  HS_EXPECT_EQ(sinusoidal.boundary_flags, uint8_t(0));
+  HS_EXPECT_EQ(sinusoidal.flags, WB::projection_folded());
   HS_EXPECT_EQ(
       WB::surface_project(Vector(0.0f, 0.0f, -1.0f), landmark_frame).region_id,
       uint8_t(1));
@@ -755,6 +754,76 @@ inline void test_shaderball_legacy_spatial_slots() {
   // branch would miss by ~1.
   HS_EXPECT_NEAR(end.coords.re, lensed.re, 1e-6f);
   HS_EXPECT_NEAR(end.coords.im, lensed.im, 1e-6f);
+}
+
+/** @brief Equirectangular is unfolded, periodic, and cut at the antimeridian. */
+inline void test_shaderball_equirectangular_projection() {
+  using WB = ShaderBallWhiteBox;
+  auto lon_lat = [](float longitude, float latitude) {
+    const float cp = cosf(latitude);
+    return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
+  };
+  for (float longitude : {-2.5f, -0.75f, 0.0f, 0.75f, 2.5f})
+    for (float latitude : {-1.2f, -0.3f, 0.0f, 0.3f, 1.2f}) {
+      const Complex coords = WB::project_point(lon_lat(longitude, latitude),
+                                               WB::Projection::EQUIRECTANGULAR);
+      HS_EXPECT_NEAR(coords.re, longitude, 5e-3f);
+      HS_EXPECT_NEAR(coords.im, latitude, 3e-4f);
+    }
+
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  WB::FrameState frame = WB::frame(sb);
+  frame.slots.projection = WB::Projection::EQUIRECTANGULAR;
+  frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
+  frame.slots.surface_lens = WB::SurfaceLens::NONE;
+  frame.transforms.projection_conj = Quaternion();
+  frame.params.projection.central_meridian = 0.0f;
+
+  const WB::ProjectedLookup prime =
+      WB::surface_project(Vector(1.0f, 0.0f, 0.0f), frame);
+  HS_EXPECT_EQ(prime.flags, uint8_t(0));
+  HS_EXPECT_EQ(prime.boundary_flags, WB::boundary_cut());
+  HS_EXPECT_EQ(prime.region_id, uint8_t(0));
+  HS_EXPECT_NEAR(prime.coords.re, 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(prime.fade_edge_distance, PI_F, 1e-5f);
+
+  const WB::ProjectedLookup seam =
+      WB::surface_project(Vector(-1.0f, 0.0f, 0.0f), frame);
+  HS_EXPECT_NEAR(seam.fade_edge_distance, 0.0f, 1e-5f);
+
+  const WB::ProjectedLookup east =
+      WB::surface_project(Vector(0.0f, 0.0f, 1.0f), frame);
+  const WB::ProjectedLookup west =
+      WB::surface_project(Vector(0.0f, 0.0f, -1.0f), frame);
+  HS_EXPECT_NEAR(east.coords.re, 0.5f * PI_F, 5e-3f);
+  HS_EXPECT_NEAR(west.coords.re, -0.5f * PI_F, 5e-3f);
+  HS_EXPECT_EQ(east.region_id, west.region_id);
+
+  frame.params.projection.central_meridian = 0.5f * PI_F;
+  const WB::ProjectedLookup recentred =
+      WB::surface_project(Vector(0.0f, 0.0f, 1.0f), frame);
+  HS_EXPECT_NEAR(recentred.coords.re, 0.0f, 5e-3f);
+  frame.params.projection.central_meridian = 0.0f;
+
+  WB::RequestedConfig config = WB::legacy_config();
+  config.slots.projection = WB::Projection::EQUIRECTANGULAR;
+  config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+  config.slots.surface_lens = WB::SurfaceLens::NONE;
+  config.params.surface_lens.mix = 0.0f;
+  HS_EXPECT_TRUE(WB::valid_config(config));
+  WB::request_config(sb, config);
+  WB::settle_transition(sb);
+  HS_EXPECT_EQ(WB::active_slots(sb).projection,
+               WB::Projection::EQUIRECTANGULAR);
+  HS_EXPECT_TRUE(sb.getParameters().find("Pole Fade") != nullptr);
+  HS_EXPECT_TRUE(sb.getParameters().find("Central Meridian") != nullptr);
+  const Color4 color =
+      WB::shade(Vector(0.31f, 0.87f, -0.38f).normalized(), WB::frame(sb));
+  HS_EXPECT_TRUE(std::isfinite(color.alpha));
+  HS_EXPECT_GE(color.alpha, 0.0f);
+  HS_EXPECT_LE(color.alpha, 1.0f);
 }
 
 /** @brief Both sides of every projection seam use the authored fade width. */
@@ -1495,7 +1564,7 @@ inline void test_shaderball_strict_seam_admission() {
     config.params.surface_lens.mix = 0.5f;
     HS_EXPECT_FALSE(WB::valid_config(config));
 
-    config.slots.projection = WB::Projection::EQUIRECTANGULAR;
+    config.slots.projection = WB::Projection::SINUSOIDAL;
     HS_EXPECT_TRUE(WB::valid_config(config));
   }
 }
@@ -1679,12 +1748,14 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_LT(parameter_index("Colorizer"), parameter_index("Breathe Depth"));
   const auto *projection = sb.getParameters().find("Projection");
   HS_EXPECT_TRUE(projection != nullptr);
-  HS_EXPECT_EQ(projection->option_count, 6);
+  HS_EXPECT_EQ(projection->option_count, 7);
+  HS_EXPECT_TRUE(std::strcmp(projection->options[0], "Folded Sinusoidal") == 0);
   HS_EXPECT_TRUE(std::strcmp(projection->options[3], "Bonne") == 0);
   HS_EXPECT_TRUE(std::strcmp(projection->options[4], "Peirce Quincuncial") ==
                  0);
   HS_EXPECT_TRUE(std::strcmp(projection->options[5], "Dymaxion / Airocean") ==
                  0);
+  HS_EXPECT_TRUE(std::strcmp(projection->options[6], "Equirectangular") == 0);
   const auto *coverage = sb.getParameters().find("Coverage");
   HS_EXPECT_TRUE(coverage != nullptr);
   HS_EXPECT_EQ(coverage->option_count, 5);
@@ -2460,8 +2531,8 @@ inline void test_shaderball_kernel_catalog() {
   for (uint8_t value = 0; value <= 8; ++value) {
     config.slots.warp_program.outer.kind =
         static_cast<WB::WarpStageKind>(value);
-    config.slots.projection = value == 1 ? WB::Projection::STEREOGRAPHIC
-                                         : WB::Projection::EQUIRECTANGULAR;
+    config.slots.projection =
+        value == 1 ? WB::Projection::STEREOGRAPHIC : WB::Projection::SINUSOIDAL;
     config.params.warp.outer.strength = value == 0   ? 0.0f
                                         : value == 6 ? 0.005f
                                                      : 0.35f;
@@ -2477,7 +2548,7 @@ inline void test_shaderball_kernel_catalog() {
   }
   config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   config.params.warp.outer.strength = 0.0f;
-  config.slots.projection = WB::Projection::EQUIRECTANGULAR;
+  config.slots.projection = WB::Projection::SINUSOIDAL;
   for (uint8_t value = 0; value <= 5; ++value) {
     config.slots.surface_lens = static_cast<WB::SurfaceLens>(value);
     config.params.surface_lens.mix = value == 0 ? 0.0f : 0.6f;
@@ -2794,6 +2865,7 @@ inline int run_shaderball_tests() {
   test_shaderball_manual_edit_timing();
   test_shaderball_pipeline_contract();
   test_shaderball_legacy_spatial_slots();
+  test_shaderball_equirectangular_projection();
   test_shaderball_flush_edge_fade();
   test_shaderball_legacy_sources();
   test_shaderball_coupled_source();

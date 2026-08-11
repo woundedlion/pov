@@ -160,12 +160,13 @@ private:
     PRIMITIVE_LATTICE
   };
   enum class Projection : uint8_t {
-    EQUIRECTANGULAR,
+    SINUSOIDAL,
     STEREOGRAPHIC,
     GNOMONIC,
     BONNE,
     PEIRCE_QUINCUNCIAL,
-    AIROCEAN
+    AIROCEAN,
+    EQUIRECTANGULAR
   };
   enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
   enum class AiroceanLayout : uint8_t { VERTICAL, HORIZONTAL };
@@ -766,7 +767,7 @@ private:
     case EditIntent::FUNCTION:
       if (strict_projection(config.slots.projection) &&
           config.slots.function == Function::NOISE_CONTOUR)
-        config.slots.projection = Projection::EQUIRECTANGULAR;
+        config.slots.projection = Projection::SINUSOIDAL;
       clear_incompatible_polar_stages(config);
       break;
     case EditIntent::PROJECTION:
@@ -784,7 +785,7 @@ private:
     case EditIntent::LENS:
       if (strict_projection(config.slots.projection) &&
           config.slots.surface_lens == SurfaceLens::TANGENT_NOISE)
-        config.slots.projection = Projection::EQUIRECTANGULAR;
+        config.slots.projection = Projection::SINUSOIDAL;
       break;
     case EditIntent::OUTER_WARP:
       if (outer.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
@@ -793,7 +794,7 @@ private:
           inner.kind = WarpStageKind::NONE;
       } else if (seam_sensitive_warp(outer.kind) &&
                  strict_projection(config.slots.projection)) {
-        config.slots.projection = Projection::EQUIRECTANGULAR;
+        config.slots.projection = Projection::SINUSOIDAL;
       }
       if (outer.kind == WarpStageKind::POLAR_CHART) {
         inner.kind = WarpStageKind::NONE;
@@ -813,7 +814,7 @@ private:
           outer.kind = WarpStageKind::NONE;
       } else if (seam_sensitive_warp(inner.kind) &&
                  strict_projection(config.slots.projection)) {
-        config.slots.projection = Projection::EQUIRECTANGULAR;
+        config.slots.projection = Projection::SINUSOIDAL;
       }
       if (inner.kind == WarpStageKind::POLAR_CHART) {
         if (outer.kind == WarpStageKind::POLAR_CHART)
@@ -950,12 +951,14 @@ private:
       register_animated_param(
           "Airocean Layout", &slots.airocean_layout, AIROCEAN_LAYOUT_OPTIONS,
           AIROCEAN_LAYOUT_EXPORT_OPTIONS, NUM_AIROCEAN_LAYOUTS);
-    if (slots.projection == Projection::EQUIRECTANGULAR ||
+    if (slots.projection == Projection::SINUSOIDAL ||
+        slots.projection == Projection::EQUIRECTANGULAR ||
         slots.projection == Projection::STEREOGRAPHIC ||
         slots.projection == Projection::GNOMONIC)
       register_animated_param("Pole Fade", &params.projection.pole_fade,
                               POLE_FADE_MIN, POLE_FADE_MAX);
-    if (slots.projection == Projection::EQUIRECTANGULAR ||
+    if (slots.projection == Projection::SINUSOIDAL ||
+        slots.projection == Projection::EQUIRECTANGULAR ||
         strict_projection(slots.projection)) {
       register_animated_param("Central Meridian",
                               &params.projection.central_meridian, 0.0f,
@@ -1754,7 +1757,9 @@ private:
               projection_edge_distance_required(frame)),
           coordinate_scale);
     const Complex coords =
-        frame.slots.projection == Projection::EQUIRECTANGULAR
+        frame.slots.projection == Projection::SINUSOIDAL
+            ? folded_sinusoidal(local, frame.params.projection.central_meridian)
+        : frame.slots.projection == Projection::EQUIRECTANGULAR
             ? equirectangular(local, frame.params.projection.central_meridian)
             : project_point(local, frame.slots.projection);
     return finalize_projection(local, coords, frame.slots.projection,
@@ -1769,7 +1774,7 @@ private:
                           GnomonicHemispherePolicy::FOLDED) {
     const float r_sq = coords.re * coords.re + coords.im * coords.im;
     switch (projection) {
-    case Projection::EQUIRECTANGULAR:
+    case Projection::SINUSOIDAL:
       return {coords,
               static_cast<uint8_t>(local.z < 0.0f),
               0,
@@ -1777,6 +1782,14 @@ private:
               1.0f,
               pole_attenuation(r_sq, pole_fade),
               PROJECTION_FLAG_FOLDED};
+    case Projection::EQUIRECTANGULAR:
+      return {coords,
+              0,
+              0,
+              BOUNDARY_CUT,
+              PI_F - std::fabs(coords.re),
+              pole_attenuation(r_sq, pole_fade),
+              0};
     case Projection::STEREOGRAPHIC:
       return {coords,
               0,
@@ -1822,6 +1835,9 @@ private:
                          hs::lerp(direct.coords.im, lensed.coords.im, mix));
     const ProjectedLookup *selected = nullptr;
     switch (projection) {
+    case Projection::SINUSOIDAL:
+      selected = mix < 0.5f ? &direct : &lensed;
+      break;
     case Projection::EQUIRECTANGULAR:
       selected = mix < 0.5f ? &direct : &lensed;
       break;
@@ -2419,6 +2435,8 @@ private:
 
   static Complex project_point(const Vector &v, Projection projection) {
     switch (projection) {
+    case Projection::SINUSOIDAL:
+      return folded_sinusoidal(v);
     case Projection::EQUIRECTANGULAR:
       return equirectangular(v);
     case Projection::STEREOGRAPHIC:
@@ -2435,13 +2453,38 @@ private:
     __builtin_unreachable();
   }
 
-  static Complex equirectangular(const Vector &v,
-                                 float central_meridian = 0.0f) {
+  /**
+   * @brief Folded sinusoidal (Sanson-Flamsteed) pseudocylindrical projection.
+   * @param v Unit direction on the sphere.
+   * @param central_meridian Longitude placed at the image's axis, in radians.
+   * @return Plane coordinates in radians: absolute azimuth tapered by
+   *         cos(latitude), against latitude.
+   * @details Folding the azimuth about the central meridian maps both
+   * hemispheres onto one image, so the antimeridian carries no seam; the
+   * cos(latitude) taper collapses each pole to a point.
+   */
+  static Complex folded_sinusoidal(const Vector &v,
+                                   float central_meridian = 0.0f) {
     const float radius = sqrtf(v.x * v.x + v.z * v.z);
     return {std::fabs(projections::wrap_longitude(fast_atan2(v.z, v.x) -
                                                   central_meridian)) *
                 radius,
             0.5f * PI_F - fast_acos(v.y)};
+  }
+
+  /**
+   * @brief Equirectangular (plate carree) cylindrical projection.
+   * @param v Unit direction on the sphere.
+   * @param central_meridian Longitude placed at the image's axis, in radians.
+   * @return Plane coordinates in radians: wrapped longitude against latitude.
+   * @details Longitude is periodic, so the image is cut at the antimeridian and
+   * each pole spreads across a full image row.
+   */
+  static Complex equirectangular(const Vector &v,
+                                 float central_meridian = 0.0f) {
+    return {
+        projections::wrap_longitude(fast_atan2(v.z, v.x) - central_meridian),
+        0.5f * PI_F - fast_acos(v.y)};
   }
 
   static Complex gnomonic(const Vector &v) {
@@ -2809,7 +2852,7 @@ private:
   static constexpr bool valid_config(const RequestedConfig &candidate) {
     const Slots &slots = candidate.slots;
     if (!enum_at_most(slots.function, Function::PRIMITIVE_LATTICE) ||
-        !enum_at_most(slots.projection, Projection::AIROCEAN) ||
+        !enum_at_most(slots.projection, Projection::EQUIRECTANGULAR) ||
         !enum_at_most(slots.peirce_layout, PeirceLayout::VERTICAL) ||
         !enum_at_most(slots.airocean_layout, AiroceanLayout::HORIZONTAL) ||
         !enum_at_most(slots.bonne_hemisphere, BonneHemisphere::SOUTH) ||
@@ -3292,12 +3335,13 @@ private:
       "Function::PRIMITIVE_LATTICE"};
   static constexpr int NUM_FUNCTIONS = std::size(FUNCTION_OPTIONS);
   static constexpr const char *PROJECTION_OPTIONS[] = {
-      "Equirectangular", "Stereographic",      "Gnomonic",
-      "Bonne",           "Peirce Quincuncial", "Dymaxion / Airocean"};
+      "Folded Sinusoidal",  "Stereographic",       "Gnomonic",       "Bonne",
+      "Peirce Quincuncial", "Dymaxion / Airocean", "Equirectangular"};
   static constexpr const char *PROJECTION_EXPORT_OPTIONS[] = {
-      "Projection::EQUIRECTANGULAR",    "Projection::STEREOGRAPHIC",
+      "Projection::SINUSOIDAL",         "Projection::STEREOGRAPHIC",
       "Projection::GNOMONIC",           "Projection::BONNE",
-      "Projection::PEIRCE_QUINCUNCIAL", "Projection::AIROCEAN"};
+      "Projection::PEIRCE_QUINCUNCIAL", "Projection::AIROCEAN",
+      "Projection::EQUIRECTANGULAR"};
   static constexpr int NUM_PROJECTIONS = std::size(PROJECTION_OPTIONS);
   static constexpr const char *PEIRCE_LAYOUT_OPTIONS[] = {
       "Diamond", "Square", "Horizontal", "Vertical"};
@@ -3587,7 +3631,7 @@ private:
 
   static constexpr Preset diagnostic_preset(uint8_t index) {
     Slots slots{Function::COUPLED_DIRECT,
-                Projection::EQUIRECTANGULAR,
+                Projection::SINUSOIDAL,
                 ProjectionFramePolicy::IDENTITY,
                 SurfaceLens::NONE,
                 {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
