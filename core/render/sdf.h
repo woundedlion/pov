@@ -54,6 +54,10 @@ static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 /** Minimum inradius-to-circumradius ratio used to floor Face::size,
  *  preventing degenerate near-zero inradii from collapsing AA. */
 static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
+/** Distance reported in place of a true one past a shape's reject band, far
+ *  enough that no AA reach or CSG blend reads it as near-surface. The shapes
+ *  that clamp to it are exactly those with blends_smoothly == false. */
+static constexpr float FAR_SENTINEL = 100.0f;
 
 /** @brief Folds an angle into the centered interval for one sector. */
 inline float centered_sector_angle(float angle, float sector,
@@ -230,8 +234,8 @@ template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
 
 /** True when a shape's distance() reports a usable signed distance outside its
  * surface, which is what SmoothUnion's weld term needs. Ring, DistortedRing,
- * FlatDistortedRing and Face instead clamp to the far sentinel (dist = 100)
- * past their reject band. A combinator blends only if every child does; an
+ * FlatDistortedRing and Face instead clamp to FAR_SENTINEL past their reject
+ * band. A combinator blends only if every child does; an
  * unrecognized shape is assumed to. */
 template <typename T> inline constexpr bool blends_smoothly = true;
 template <> inline constexpr bool blends_smoothly<Ring> = false;
@@ -424,8 +428,8 @@ struct Bounds {
  * and Scan::Mesh replaces it with a face index.
  *
  * Per-producer register semantics (a leaf built with ComputeUVs = false
- * reports t = 0; a bounds/cull miss reports the far sentinel dist = raw_dist
- * = 100 with t = 0):
+ * reports t = 0; a bounds/cull miss reports dist = raw_dist = FAR_SENTINEL
+ * with t = 0):
  *
  * | Producer          | dist (negative inside)     | t                | raw_dist         | size |
  * |-------------------|----------------------------|------------------|------------------|------|
@@ -925,7 +929,7 @@ struct Ring {
   void distance(const Vector &p, DistanceResult &res) const {
     float d = dot(p, normal);
     if (d < cos_min || d > cos_max) {
-      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
+      res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, thickness);
       return;
     }
 
@@ -1164,7 +1168,7 @@ struct DistortedRing {
     float d = dot(p, normal);
     // Early reject: outside bounding annulus
     if (d < cos_min_limit || d > cos_max_limit) {
-      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
+      res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, thickness);
       return;
     }
     float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
@@ -1206,7 +1210,7 @@ struct DistortedRing {
   HS_O3_FN void distance_from_frame(float d, float polar, float sin_polar,
                                     float t_norm, DistanceResult &res) const {
     if (d < cos_min_limit || d > cos_max_limit) {
-      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
+      res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, thickness);
       return;
     }
     float dist;
@@ -1236,7 +1240,7 @@ private:
    * @return Geodesic distance to the nearest polyline point (radians), exact
    *         within the local tangent chart for distances up to `thickness`;
    *         past that reach either a lower bound above `thickness` (prefilter)
-   *         or the far sentinel (100), never the reach itself.
+   *         or FAR_SENTINEL, never the reach itself.
    * @details Works in the chart (azimuth * sin(polar), polar) centered on the
    * pixel: exact point-to-segment distances, searched outward from the
    * pixel's own cell. A segment o cells away is at least (o - 1) * cell_u
@@ -1341,7 +1345,7 @@ private:
     // report the reject band's far sentinel and skip the sqrt. Returning
     // thickness instead would land dist on exactly 0, which a CSG parent reads
     // as on-surface across the whole bounding annulus.
-    return best2 >= th2 ? 100.0f : sqrtf(best2);
+    return best2 >= th2 ? FAR_SENTINEL : sqrtf(best2);
   }
 };
 
@@ -1384,7 +1388,7 @@ struct FlatDistortedRing : private DistortedRing {
   void distance(const Vector &p, DistanceResult &res) const {
     float d = dot(p, normal);
     if (d < cos_min_limit || d > cos_max_limit) {
-      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
+      res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, thickness);
       return;
     }
 
@@ -3433,7 +3437,7 @@ struct Face {
       HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
       HS_PROBE_SPAN(point, hs_t);
       HS_PROBE_COUNT(n_cull_cos);
-      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
+      res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, size);
       return;
     }
     HS_PROBE_SPAN(point, hs_t);
@@ -3447,7 +3451,7 @@ struct Face {
       HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
       HS_PROBE_SPAN(project, hs_t);
       HS_PROBE_COUNT(n_cull_r);
-      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
+      res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, size);
       return;
     }
     HS_PROBE_SPAN(project, hs_t);
@@ -3509,7 +3513,7 @@ struct Face {
         // Outside probes past the (margin-carrying) reject bound skip the
         // sqrt; the caller rejects them on dist alone.
         if ((probe_flags & PROBE_LINEAR) && !inside && dsq >= reject_dsq) {
-          res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
+          res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, size);
           HS_PROBE_SPAN(pack, hs_t);
           return;
         }
