@@ -64,7 +64,8 @@ public:
            s.scale <= SCALE_MAX && s.hue_shift >= HUE_SHIFT_MIN &&
            s.hue_shift <= HUE_SHIFT_MAX;
   }
-  static constexpr std::array<PresetEntry<Params>, 12> PRESETS = {{
+  static constexpr size_t PRESET_COUNT = 12;
+  static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{BaseMesh::ICOSAHEDRON, Style::ArcingLightning()}},
       {{BaseMesh::DODECAHEDRON, Style::SlowFire()}},
       {{BaseMesh::TRUNCATED_ICOSAHEDRON, Style::EnergeticFire()}},
@@ -247,7 +248,7 @@ private:
   }
 
   Params params;
-  Presets<Params, 12> presets{PRESETS};
+  Presets<Params, PRESET_COUNT> presets{PRESETS};
   bool feedback_enabled = true;
   int preset_frames = 0;
   Animation::NoiseParams noise_params;
