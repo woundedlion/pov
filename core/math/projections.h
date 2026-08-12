@@ -339,7 +339,6 @@ peirce_projection_fast_square(const Vector &v) {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   constexpr float K = 1.8540746773013719f;
   constexpr float SHIFT = 2.0f * K;
-  const float longitude = peirce_sector_longitude(v, 0.0f);
   const float cos_a = hs::clamp((v.z + v.x) * INV_SQRT_TWO, -1.0f, 1.0f);
   const float cos_b = hs::clamp((v.z - v.x) * INV_SQRT_TWO, -1.0f, 1.0f);
   const float sin_product =
@@ -351,35 +350,62 @@ peirce_projection_fast_square(const Vector &v) {
             fast_acos(sqrtf(std::max(0.0f, 1.0f + std::min(0.0f, cos_sum))));
   float n = 0.5f * PI_F -
             fast_acos(sqrtf(fabsf(1.0f - std::max(0.0f, cos_difference))));
-  if (longitude < 0.0f)
-    m = -m;
-  if (longitude > -0.5f * PI_F && longitude < 0.5f * PI_F)
-    n = -n;
+  uint8_t sector = 0;
+  uint8_t edge_class = 0;
+  const float horizontal_sq = v.x * v.x + v.z * v.z;
+  if (horizontal_sq < 1e-12f) {
+    const float longitude = peirce_sector_longitude(v, 0.0f);
+    if (longitude < 0.0f)
+      m = -m;
+    if (longitude > -0.5f * PI_F && longitude < 0.5f * PI_F)
+      n = -n;
+    if (longitude < -0.75f * PI_F || longitude >= 0.75f * PI_F)
+      sector = 1;
+    else if (longitude < -0.25f * PI_F)
+      sector = 2;
+    else if (longitude < 0.25f * PI_F)
+      sector = 3;
+    else
+      sector = 4;
+  } else {
+    if (v.z < 0.0f)
+      m = -m;
+    if (v.x > 0.0f)
+      n = -n;
+    const float diagonal_delta = fabsf(v.x) - fabsf(v.z);
+    const bool diagonal_tie =
+        diagonal_delta * diagonal_delta <= horizontal_sq * 9.0e-12f;
+    if (v.x < 0.0f) {
+      if (v.z < 0.0f) {
+        sector = v.z < v.x || diagonal_tie ? 2 : 1;
+        edge_class = v.z > v.x || diagonal_tie ? 1 : 3;
+      } else {
+        sector = v.z + v.x <= 0.0f || diagonal_tie ? 1 : 4;
+        edge_class = v.z + v.x > 0.0f && !diagonal_tie ? 2 : 1;
+      }
+    } else if (v.z < 0.0f) {
+      sector = v.z + v.x >= 0.0f || diagonal_tie ? 3 : 2;
+      edge_class = v.z + v.x < 0.0f && !diagonal_tie ? 3 : 0;
+    } else {
+      sector = v.z >= v.x ? 4 : 3;
+      edge_class = v.z > v.x && !diagonal_tie ? 2 : 0;
+    }
+  }
   float x = peirce_elliptic_integral(m);
   float projected_y = peirce_elliptic_integral(n);
   uint8_t region = 0;
   uint8_t flags = 0;
   if (v.y < 0.0f) {
     flags = 1;
-    if (longitude < -0.75f * PI_F || longitude >= 0.75f * PI_F)
-      region = 1;
-    else if (longitude < -0.25f * PI_F)
-      region = 2;
-    else if (longitude < 0.25f * PI_F)
-      region = 3;
-    else
-      region = 4;
-    if (longitude < -0.75f * PI_F) {
+    region = sector;
+    if (sector == 1) {
       projected_y = SHIFT - projected_y;
-    } else if (longitude < -0.25f * PI_F) {
+    } else if (sector == 2) {
       x = -SHIFT - x;
-    } else if (longitude < 0.25f * PI_F) {
+    } else if (sector == 3) {
       projected_y = -SHIFT - projected_y;
-    } else if (longitude < 0.75f * PI_F) {
-      x = SHIFT - x;
     } else {
-      region = 1;
-      projected_y = SHIFT - projected_y;
+      x = SHIFT - x;
     }
   }
   const float old_x = x;
@@ -392,12 +418,6 @@ peirce_projection_fast_square(const Vector &v) {
     edge = std::min(edge,
                     0.5f * PI_F - fast_acos(hs::clamp(fold_sine, 0.0f, 1.0f)));
   }
-  const float cp = sqrtf(std::max(0.0f, 1.0f - v.y * v.y));
-  const float rotated_x = cp * cosf(longitude);
-  const float rotated_z = cp * sinf(longitude);
-  const uint8_t edge_class = fabsf(rotated_x) >= fabsf(rotated_z)
-                                 ? static_cast<uint8_t>(rotated_x < 0.0f)
-                                 : static_cast<uint8_t>(2 + (rotated_z < 0.0f));
   return {Complex(x, projected_y),
           region,
           0,
