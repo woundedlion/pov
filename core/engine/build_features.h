@@ -4,8 +4,13 @@
  */
 #pragma once
 
+// Size of the real device arena block. Deliberately not overridable: host
+// harnesses widen HS_GLOBAL_ARENA_BYTES, so this is the figure memory.h ties
+// DEVICE_GLOBAL_ARENA_SIZE to.
+#define HS_DEVICE_ARENA_BYTES 305152
+
 #ifndef HS_GLOBAL_ARENA_BYTES
-#define HS_GLOBAL_ARENA_BYTES 305152
+#define HS_GLOBAL_ARENA_BYTES HS_DEVICE_ARENA_BYTES
 #endif
 
 #ifndef HS_TIMELINE_MAX_ANIM_BYTES
