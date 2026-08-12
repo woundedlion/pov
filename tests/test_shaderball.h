@@ -105,6 +105,9 @@ struct ShaderBallWhiteBox {
   static const RequestedConfig &display_config(const SB &sb) {
     return sb.display_config;
   }
+  static const char *parameter_warning(const SB &sb, const char *name) {
+    return sb.parameter_warning(name);
+  }
   static void request_config(SB &sb, const RequestedConfig &config) {
     sb.requested_config = config;
     sb.requested_schema_bound = false;
@@ -475,7 +478,7 @@ inline void test_shaderball_pause_semantics() {
   HS_EXPECT_NE(WB::preset_index(sb), active_preset);
 }
 
-/** @brief A paused topology edit commits on the next frame. */
+/** @brief A paused invalid topology edit waits for its independent repair. */
 inline void test_shaderball_paused_selector_commit() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
@@ -491,16 +494,32 @@ inline void test_shaderball_paused_selector_commit() {
                WB::WarpStageKind::CURL_FLOW);
   HS_EXPECT_EQ(WB::requested_slots(sb).warp_program.outer.kind,
                WB::WarpStageKind::LEGACY_STEREO_NOISE);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Inner Warp") != nullptr);
   HS_EXPECT_NE(WB::active_slots(sb).warp_program.inner.kind,
                WB::WarpStageKind::CURL_FLOW);
   sb.draw_frame();
   sb.advance_display();
   HS_EXPECT_FALSE(WB::transition_active(sb));
   HS_EXPECT_FALSE(WB::param_morph_active(sb));
-  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.inner.kind,
+  HS_EXPECT_NE(WB::active_slots(sb).warp_program.inner.kind,
                WB::WarpStageKind::CURL_FLOW);
   HS_EXPECT_EQ(sb.getParameters().find("Inner Warp")->get(),
                static_cast<float>(WB::WarpStageKind::CURL_FLOW));
+  HS_EXPECT_TRUE(sb.updateParameter("Inner Warp Strength", 0.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.updateParameter("Inner Warp Time", 0.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Outer Warp",
+                         static_cast<float>(WB::WarpStageKind::NONE)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Inner Warp") == nullptr);
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.inner.kind,
+               WB::WarpStageKind::CURL_FLOW);
+  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.outer.kind,
+               WB::WarpStageKind::NONE);
 }
 
 /** @brief Manual parameter edits commit on the next frame. */
@@ -527,6 +546,14 @@ inline void test_shaderball_manual_edit_timing() {
   HS_EXPECT_TRUE(WB::requested_config(sb) == WB::active_config(sb));
   HS_EXPECT_TRUE(WB::published_config(sb) == WB::active_config(sb));
 
+  const auto initial_coverage = WB::active_slots(sb).coverage;
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Outer Warp",
+                         static_cast<float>(WB::WarpStageKind::NONE)) ==
+      ParamSetResult::APPLIED);
+  sb.draw_frame();
+  sb.advance_display();
+
   for (WB::Projection projection :
        {WB::Projection::BONNE, WB::Projection::PEIRCE_QUINCUNCIAL,
         WB::Projection::AIROCEAN}) {
@@ -539,7 +566,7 @@ inline void test_shaderball_manual_edit_timing() {
     HS_EXPECT_FALSE(WB::transition_active(sb));
     HS_EXPECT_FALSE(WB::param_morph_active(sb));
     HS_EXPECT_EQ(WB::active_slots(sb).projection, projection);
-    HS_EXPECT_EQ(WB::active_slots(sb).coverage, WB::CoveragePolicy::EDGE_FADE);
+    HS_EXPECT_EQ(WB::active_slots(sb).coverage, initial_coverage);
     HS_EXPECT_TRUE(WB::valid_config(WB::active_config(sb)));
     HS_EXPECT_TRUE(WB::requested_config(sb) == WB::active_config(sb));
     HS_EXPECT_TRUE(WB::published_config(sb) == WB::active_config(sb));
@@ -1513,17 +1540,35 @@ inline void test_shaderball_config_admission() {
     projection_change.advance_display();
     HS_EXPECT_FALSE(WB::transition_active(projection_change));
     HS_EXPECT_EQ(WB::active_slots(projection_change).projection,
+                 WB::Projection::STEREOGRAPHIC);
+    HS_EXPECT_EQ(WB::active_slots(projection_change).warp_program.outer.kind,
+                 WB::WarpStageKind::LEGACY_STEREO_NOISE);
+    HS_EXPECT_TRUE(WB::parameter_warning(projection_change, "Projection") !=
+                   nullptr);
+    HS_EXPECT_TRUE(
+        projection_change.updateParameter(
+            "Outer Warp", static_cast<float>(WB::WarpStageKind::NONE)) ==
+        ParamSetResult::APPLIED);
+    projection_change.draw_frame();
+    projection_change.advance_display();
+    HS_EXPECT_EQ(WB::active_slots(projection_change).projection,
                  WB::Projection::BONNE);
-    HS_EXPECT_EQ(WB::active_slots(projection_change).coverage,
-                 WB::CoveragePolicy::EDGE_FADE);
     HS_EXPECT_EQ(WB::active_slots(projection_change).warp_program.outer.kind,
                  WB::WarpStageKind::NONE);
+    HS_EXPECT_TRUE(WB::parameter_warning(projection_change, "Projection") ==
+                   nullptr);
   }
 
   {
     reset_effect_globals();
     WB::SB legacy_warp_change;
     legacy_warp_change.init();
+    HS_EXPECT_TRUE(
+        legacy_warp_change.updateParameter(
+            "Outer Warp", static_cast<float>(WB::WarpStageKind::NONE)) ==
+        ParamSetResult::APPLIED);
+    legacy_warp_change.draw_frame();
+    legacy_warp_change.advance_display();
     HS_EXPECT_TRUE(
         legacy_warp_change.updateParameter(
             "Projection", static_cast<float>(WB::Projection::BONNE)) ==
@@ -1540,7 +1585,21 @@ inline void test_shaderball_config_admission() {
     legacy_warp_change.advance_display();
     HS_EXPECT_FALSE(WB::transition_active(legacy_warp_change));
     HS_EXPECT_EQ(WB::active_slots(legacy_warp_change).projection,
+                 WB::Projection::BONNE);
+    HS_EXPECT_EQ(WB::active_slots(legacy_warp_change).warp_program.outer.kind,
+                 WB::WarpStageKind::NONE);
+    HS_EXPECT_TRUE(WB::parameter_warning(legacy_warp_change, "Outer Warp") !=
+                   nullptr);
+    HS_EXPECT_TRUE(
+        legacy_warp_change.updateParameter(
+            "Projection", static_cast<float>(WB::Projection::STEREOGRAPHIC)) ==
+        ParamSetResult::APPLIED);
+    legacy_warp_change.draw_frame();
+    legacy_warp_change.advance_display();
+    HS_EXPECT_EQ(WB::active_slots(legacy_warp_change).projection,
                  WB::Projection::STEREOGRAPHIC);
+    HS_EXPECT_EQ(WB::active_slots(legacy_warp_change).warp_program.outer.kind,
+                 WB::WarpStageKind::LEGACY_STEREO_NOISE);
   }
 }
 
@@ -1603,12 +1662,52 @@ inline void test_shaderball_deterministic_gui_edits() {
     HS_EXPECT_EQ(idle.generation_deltas[index],
                  worker.generation_deltas[index]);
   }
-  HS_EXPECT_EQ(idle.configs[2].slots.projection, WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(idle.configs[2].slots.projection, WB::Projection::AIROCEAN);
   HS_EXPECT_EQ(idle.configs[2].slots.warp_program.outer.kind,
                WB::WarpStageKind::LEGACY_STEREO_NOISE);
 }
 
-/** @brief Selector edits keep the GUI and active pipeline on one config. */
+/** @brief A function edit preserves both warp stages in the dodecahedral hold. */
+inline void test_shaderball_dodecahedral_lattice_edit() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  HS_EXPECT_TRUE(sb.selectPreset(28));
+
+  const WB::RequestedConfig before = WB::requested_config(sb);
+  HS_EXPECT_EQ(before.slots.function, WB::Function::GRID);
+  HS_EXPECT_EQ(before.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
+  HS_EXPECT_EQ(before.slots.warp_program.outer.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(before.slots.warp_program.inner.kind,
+               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Function",
+                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)) ==
+      ParamSetResult::APPLIED);
+  WB::RequestedConfig expected = before;
+  expected.slots.function = WB::Function::PRIMITIVE_LATTICE;
+  HS_EXPECT_TRUE(WB::requested_config(sb) == expected);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") == nullptr);
+  HS_EXPECT_EQ(sb.getParameters().find("Outer Warp")->get(),
+               static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
+  HS_EXPECT_EQ(sb.getParameters().find("Inner Warp")->get(),
+               static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE));
+
+  sb.draw_frame();
+  sb.advance_display();
+  WB::refresh_display(sb);
+  HS_EXPECT_TRUE(WB::active_config(sb) == expected);
+  HS_EXPECT_EQ(sb.getParameters().find("Outer Warp")->get(),
+               static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
+  HS_EXPECT_EQ(sb.getParameters().find("Inner Warp")->get(),
+               static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE));
+}
+
+/** @brief Invalid selectors stay visible while independent edits apply. */
 inline void test_shaderball_atomic_gui_commit() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
@@ -1633,14 +1732,17 @@ inline void test_shaderball_atomic_gui_commit() {
   HS_EXPECT_EQ(requested.slots.projection, WB::Projection::PEIRCE_QUINCUNCIAL);
   HS_EXPECT_EQ(requested.slots.surface_lens, WB::SurfaceLens::KALEIDOSCOPE);
   HS_EXPECT_EQ(requested.slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(requested.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
+               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+  HS_EXPECT_EQ(requested.slots.coverage, rendered.slots.coverage);
   HS_EXPECT_EQ(requested.params.colorizer.hue_shift, 0.05f);
   HS_EXPECT_TRUE(WB::display_config(sb) == rendered);
   HS_EXPECT_EQ(sb.getParameters().find("Function")->get(),
                static_cast<float>(rendered.slots.function));
   HS_EXPECT_EQ(sb.getParameters().find("Projection")->get(),
-               static_cast<float>(rendered.slots.projection));
+               static_cast<float>(WB::Projection::PEIRCE_QUINCUNCIAL));
+  const char *warning = WB::parameter_warning(sb, "Projection");
+  HS_EXPECT_TRUE(warning != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "Stereographic") != nullptr);
 
   sb.draw_frame();
   sb.advance_display();
@@ -1648,7 +1750,20 @@ inline void test_shaderball_atomic_gui_commit() {
   HS_EXPECT_EQ(WB::active_config(sb).slots.function,
                WB::Function::PRIMITIVE_LATTICE);
   HS_EXPECT_EQ(WB::active_config(sb).slots.projection,
+               rendered.slots.projection);
+  HS_EXPECT_EQ(WB::active_config(sb).params.colorizer.hue_shift, 0.05f);
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Outer Warp",
+                         static_cast<float>(WB::WarpStageKind::NONE)) ==
+      ParamSetResult::APPLIED);
+  sb.draw_frame();
+  sb.advance_display();
+  WB::refresh_display(sb);
+  HS_EXPECT_EQ(WB::active_config(sb).slots.projection,
                WB::Projection::PEIRCE_QUINCUNCIAL);
+  HS_EXPECT_EQ(WB::active_config(sb).slots.warp_program.outer.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Projection") == nullptr);
   HS_EXPECT_TRUE(WB::display_config(sb) == WB::active_config(sb));
 }
 
@@ -2102,7 +2217,13 @@ inline void test_shaderball_gui_catalog() {
       sb.updateParameter("Function", static_cast<float>(WB::Function::RINGS)) ==
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::requested_config(sb).slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
+               WB::WarpStageKind::POLAR_CHART);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") != nullptr);
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Outer Warp",
+                         static_cast<float>(WB::WarpStageKind::NONE)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") == nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") != nullptr);
   select_and_set_all("Value Transfer", 3, "Band Count");
   HS_EXPECT_LT(parameter_index("Value Transfer"),
@@ -2619,6 +2740,8 @@ inline void test_shaderball_projection_and_admission_contracts() {
   mobius_config.slots.surface_lens = WB::SurfaceLens::MOBIUS;
   mobius_config.params.surface_lens.mobius = mobius;
   HS_EXPECT_TRUE(WB::valid_config(mobius_config));
+  mobius_config.params.surface_lens.mobius.a.re *= 2.0f;
+  HS_EXPECT_TRUE(WB::valid_config(mobius_config));
 
   WB::RequestedConfig curl = WB::legacy_config();
   curl.slots.warp_program.outer.kind = WB::WarpStageKind::CURL_FLOW;
@@ -3058,6 +3181,7 @@ inline int run_shaderball_tests() {
   test_shaderball_preset_bank();
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();
+  test_shaderball_dodecahedral_lattice_edit();
   test_shaderball_atomic_gui_commit();
   test_shaderball_structural_admission();
   test_shaderball_strict_seam_admission();
