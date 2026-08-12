@@ -21,6 +21,7 @@
 #include "targets/wasm/param_marshal.h"   // pure, host-tested param marshaling
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <algorithm> // std::fill_n — blank-frame clear in drawFrame
+#include <cmath>
 #include <string_view>
 #include <cstring>
 #include <climits>  // INT_MAX — drawFrame pixel-index accumulator bound
@@ -280,6 +281,16 @@ enum class EffectSetResult {
 // module-global, so a second instance would corrupt the first's frames.
 static bool engine_alive = false;
 
+enum class FullConfigRestoreResult : uint8_t {
+  APPLIED,
+  NOT_SHADERBALL,
+  UNSUPPORTED_VERSION,
+  INVALID_LENGTH,
+  INVALID_VALUE,
+  INVALID_ACCEPTED,
+  INVALID_PENDING
+};
+
 /**
  * @brief JS-facing render engine driving one resolution/effect at a time.
  * @details Owns the current effect and the stable readback buffers. Every public
@@ -386,6 +397,7 @@ public:
 
     if (current_effect) {
       current_effect = nullptr;
+      current_effect_name.clear();
       // Same teardown setEffect() performs: without the re-partition the
       // destroyed effect's arena usage keeps reading as live from
       // getArenaMetrics().
@@ -453,6 +465,7 @@ public:
       init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
     });
     current_effect = entry->creator();
+    current_effect_name = name;
     current_effect->setAnimationsPaused(animations_paused);
     current_effect->init();
     param_generation.replace(current_effect->getParameterSchemaGeneration());
@@ -948,6 +961,131 @@ public:
     return sizes;
   }
 
+  /** @brief Returns the current ShaderBall's versioned full-state snapshot. */
+  val getFullConfigSnapshot() {
+    val output = val::null();
+    with_shaderball([&]<typename SB>(SB &shaderball) {
+      const typename SB::FullConfigSnapshot snapshot =
+          shaderball.capture_full_config_snapshot();
+      output = val::object();
+      output.set("schemaVersion", snapshot.schema_version);
+      output.set("accepted", uint32_array(snapshot.accepted));
+      output.set("requested", uint32_array(snapshot.requested));
+      val pending_ids = val::array();
+      size_t pending_count = 0;
+      for (size_t index = 0; index < snapshot.pending.size(); ++index)
+        if (snapshot.pending[index] != 0)
+          pending_ids.set(pending_count++, index);
+      output.set("pendingFieldIds", pending_ids);
+      output.set("hasRuntime", snapshot.has_runtime);
+      output.set("runtime", float_array(snapshot.runtime));
+    });
+    return output;
+  }
+
+  /** @brief Atomically restores a current ShaderBall full-state snapshot. */
+  FullConfigRestoreResult restoreFullConfigSnapshot(const val &input) {
+    FullConfigRestoreResult result = FullConfigRestoreResult::NOT_SHADERBALL;
+    with_shaderball([&]<typename SB>(SB &shaderball) {
+      typename SB::FullConfigSnapshot snapshot;
+      if (input.isUndefined() || input.isNull()) {
+        result = FullConfigRestoreResult::INVALID_LENGTH;
+        return;
+      }
+      const val schema_version = input["schemaVersion"];
+      if (!schema_version.isNumber()) {
+        result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
+        return;
+      }
+      const double schema_number = schema_version.as<double>();
+      if (!whole_uint32(schema_number)) {
+        result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
+        return;
+      }
+      snapshot.schema_version = static_cast<uint32_t>(schema_number);
+      if (snapshot.schema_version != SB::CONFIG_SCHEMA_VERSION) {
+        result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
+        return;
+      }
+      if (!decode_uint32_array(input["accepted"], snapshot.accepted) ||
+          !decode_uint32_array(input["requested"], snapshot.requested) ||
+          !decode_runtime(input["runtime"], snapshot.runtime)) {
+        result = FullConfigRestoreResult::INVALID_LENGTH;
+        return;
+      }
+      const val has_runtime = input["hasRuntime"];
+      if (!has_runtime.isTrue() && !has_runtime.isFalse()) {
+        result = FullConfigRestoreResult::INVALID_VALUE;
+        return;
+      }
+      snapshot.has_runtime = has_runtime.as<bool>();
+      const val pending_ids = input["pendingFieldIds"];
+      if (!is_array(pending_ids)) {
+        result = FullConfigRestoreResult::INVALID_LENGTH;
+        return;
+      }
+      const size_t pending_count = pending_ids["length"].as<size_t>();
+      if (pending_count > snapshot.pending.size()) {
+        result = FullConfigRestoreResult::INVALID_PENDING;
+        return;
+      }
+      for (size_t index = 0; index < pending_count; ++index) {
+        const val field_id = pending_ids[index];
+        if (!field_id.isNumber()) {
+          result = FullConfigRestoreResult::INVALID_PENDING;
+          return;
+        }
+        const double field_number = field_id.as<double>();
+        if (!whole_uint32(field_number) ||
+            field_number >= snapshot.pending.size()) {
+          result = FullConfigRestoreResult::INVALID_PENDING;
+          return;
+        }
+        uint8_t &pending = snapshot.pending[static_cast<size_t>(field_number)];
+        if (pending != 0) {
+          result = FullConfigRestoreResult::INVALID_PENDING;
+          return;
+        }
+        pending = 1;
+      }
+      result = map_restore_result<SB>(
+          shaderball.restore_full_config_snapshot(snapshot));
+    });
+    return result;
+  }
+
+  /** @brief Returns stable ShaderBall field IDs and diagnostic names. */
+  val getFullConfigFieldDefinitions() {
+    val output = val::null();
+    with_shaderball([&]<typename SB>(SB &) {
+      output = val::array();
+      for (size_t index = 0; index < SB::CONFIG_FIELD_COUNT; ++index) {
+        val field = val::object();
+        field.set("id", index);
+        field.set("name", SB::config_field_name(
+                              static_cast<typename SB::ConfigFieldId>(index)));
+        output.set(index, field);
+      }
+    });
+    return output;
+  }
+
+  /** @brief Returns the latest successful legacy-import notice. */
+  std::string getConfigImportNotice() {
+    std::string notice;
+    with_shaderball([&]<typename SB>(SB &shaderball) {
+      notice = shaderball.config_import_notice();
+    });
+    return notice;
+  }
+
+  /** @brief Clears the current ShaderBall legacy-import notice. */
+  void clearConfigImportNotice() {
+    with_shaderball([&]<typename SB>(SB &shaderball) {
+      shaderball.clear_config_import_notice();
+    });
+  }
+
   /**
    * @brief Enumerates the resolutions the factory can build.
    * @return JS array of [W, H] pairs, generated from the same
@@ -973,6 +1111,92 @@ public:
   }
 
 private:
+  template <typename Callback> bool with_shaderball(Callback &&callback) {
+    if (!current_effect || current_effect_name != "ShaderBall")
+      return false;
+    return dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+      callback(*static_cast<ShaderBall<W, H> *>(current_effect.get()));
+    });
+  }
+
+  static bool is_array(const val &value) {
+    return val::global("Array").call<bool>("isArray", value);
+  }
+
+  static bool whole_uint32(double value) {
+    return std::isfinite(value) && value >= 0.0 &&
+           value <= static_cast<double>(UINT32_MAX) &&
+           value == std::floor(value);
+  }
+
+  template <size_t N>
+  static val uint32_array(const std::array<uint32_t, N> &values) {
+    val output = val::array();
+    for (size_t index = 0; index < N; ++index)
+      output.set(index, values[index]);
+    return output;
+  }
+
+  template <size_t N>
+  static val float_array(const std::array<float, N> &values) {
+    val output = val::array();
+    for (size_t index = 0; index < N; ++index)
+      output.set(index, values[index]);
+    return output;
+  }
+
+  template <size_t N>
+  static bool decode_uint32_array(const val &input,
+                                  std::array<uint32_t, N> &output) {
+    if (!is_array(input) || input["length"].as<size_t>() != N)
+      return false;
+    for (size_t index = 0; index < N; ++index) {
+      const val element = input[index];
+      if (!element.isNumber())
+        return false;
+      const double number = element.as<double>();
+      if (!whole_uint32(number))
+        return false;
+      output[index] = static_cast<uint32_t>(number);
+    }
+    return true;
+  }
+
+  template <size_t N>
+  static bool decode_runtime(const val &input, std::array<float, N> &output) {
+    if (!is_array(input) || input["length"].as<size_t>() != N)
+      return false;
+    for (size_t index = 0; index < N; ++index) {
+      const val element = input[index];
+      if (!element.isNumber())
+        return false;
+      output[index] = element.as<float>();
+      if (!std::isfinite(output[index]))
+        return false;
+    }
+    return true;
+  }
+
+  template <typename SB>
+  static FullConfigRestoreResult
+  map_restore_result(typename SB::ConfigRestoreResult result) {
+    switch (result) {
+    case SB::ConfigRestoreResult::APPLIED:
+      return FullConfigRestoreResult::APPLIED;
+    case SB::ConfigRestoreResult::UNSUPPORTED_VERSION:
+      return FullConfigRestoreResult::UNSUPPORTED_VERSION;
+    case SB::ConfigRestoreResult::INVALID_LENGTH:
+      return FullConfigRestoreResult::INVALID_LENGTH;
+    case SB::ConfigRestoreResult::INVALID_VALUE:
+      return FullConfigRestoreResult::INVALID_VALUE;
+    case SB::ConfigRestoreResult::INVALID_ACCEPTED:
+      return FullConfigRestoreResult::INVALID_ACCEPTED;
+    case SB::ConfigRestoreResult::INVALID_PENDING:
+      return FullConfigRestoreResult::INVALID_PENDING;
+    }
+    __builtin_unreachable();
+  }
+
   /**
    * @brief Traps when the live effect exposes more params than were reserved.
    * @details Both param streams ride the constructor's MAX_PARAMS reserve, so
@@ -990,7 +1214,8 @@ private:
   static constexpr int CHANNELS = 3;
 
   std::unique_ptr<Effect>
-      current_effect;                 /**< Currently active effect, or null. */
+      current_effect; /**< Currently active effect, or null. */
+  std::string current_effect_name;
   std::vector<uint16_t> pixel_buffer; /**< 16-bit linear RGB readback buffer. */
   std::vector<float> param_values;    /**< Backing store for getParamValues. */
   std::vector<hs_wasm::ParamView>
@@ -1029,6 +1254,16 @@ static void bind_engine() {
       .value("UNKNOWN_EFFECT", EffectSetResult::UNKNOWN_EFFECT)
       .value("UNSUPPORTED_RESOLUTION", EffectSetResult::UNSUPPORTED_RESOLUTION);
 
+  enum_<FullConfigRestoreResult>("FullConfigRestoreResult")
+      .value("APPLIED", FullConfigRestoreResult::APPLIED)
+      .value("NOT_SHADERBALL", FullConfigRestoreResult::NOT_SHADERBALL)
+      .value("UNSUPPORTED_VERSION",
+             FullConfigRestoreResult::UNSUPPORTED_VERSION)
+      .value("INVALID_LENGTH", FullConfigRestoreResult::INVALID_LENGTH)
+      .value("INVALID_VALUE", FullConfigRestoreResult::INVALID_VALUE)
+      .value("INVALID_ACCEPTED", FullConfigRestoreResult::INVALID_ACCEPTED)
+      .value("INVALID_PENDING", FullConfigRestoreResult::INVALID_PENDING);
+
   class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
       .function("setResolution", &HolosphereEngine::setResolution)
@@ -1053,6 +1288,16 @@ static void bind_engine() {
       .function("getParamGeneration", &HolosphereEngine::getParamGeneration)
       .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics)
       .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
+      .function("getFullConfigSnapshot",
+                &HolosphereEngine::getFullConfigSnapshot)
+      .function("restoreFullConfigSnapshot",
+                &HolosphereEngine::restoreFullConfigSnapshot)
+      .function("getFullConfigFieldDefinitions",
+                &HolosphereEngine::getFullConfigFieldDefinitions)
+      .function("getConfigImportNotice",
+                &HolosphereEngine::getConfigImportNotice)
+      .function("clearConfigImportNotice",
+                &HolosphereEngine::clearConfigImportNotice)
       .class_function("getSupportedResolutions",
                       &HolosphereEngine::getSupportedResolutions)
       .function("setClip", &HolosphereEngine::setClip)
