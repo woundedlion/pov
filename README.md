@@ -2132,7 +2132,7 @@ authored image-formation pipeline.
 
 | Stage | Options | Produces or controls |
 |---|---|---|
-| **Function** | Twin Wave, Rings, Spiral, Grid, Noise Contour, Primitive Lattice | A signed scalar field sampled in the final planar coordinates. Grid blends between coupled and direct patterns with dedicated mix and complexity controls. |
+| **Function** | Twin Wave, Rings, Spiral, Grid, Noise Contour (Projected), Primitive Lattice, Noise Contour (Sphere) | A signed scalar field. The projected contour samples final planar coordinates; the sphere contour samples the post-lens direction in the inverse projection frame. Grid blends between coupled and direct patterns with dedicated mix and complexity controls. |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Dymaxion / Airocean, Equirectangular | Planar coordinates plus region/component identity, projection weight, boundary traits, stable edge identity, and fade distance. |
 | **Projection Frame** | Identity, Spin + Wander | Rotates the sphere before projection. Spin Rate and Projection Wander exist only for Spin + Wander. |
 | **Lens** | None, Glitch, Twist, Kaleidoscope, Mobius, Tangent Noise | Distorts a unit-sphere direction before projection. Lens Mix and lens-specific controls exist only for an active lens. |
@@ -2141,6 +2141,11 @@ authored image-formation pipeline.
 | **Value Transfer** | Linear, Ridge, Iso Contour, Smooth Bands | Shapes the normalized value. Iso controls appear only for Iso Contour; Band Count and Band Phase only for Smooth Bands. |
 | **Coverage** | Opaque, Projection Weight Squared, Value Cutout, Edge Fade, Projection Weight | Computes alpha independently from color value. Linear projection weight is softer and broader than the squared form. |
 | **Colorizer** | Generated Triadic, ShaderBall Liquid, Deformation Ink | Converts shaped value, coverage, and optional warp metadata into straight-alpha color. |
+
+Noise Contour (Projected) is available with Folded Sinusoidal,
+Stereographic, Gnomonic, and Equirectangular projections. Noise Contour (Sphere)
+works with every projection but rejects non-None planar warps because those
+warps have no sphere-space inverse.
 
 **Camera Wander** sits outside that table: it is always registered, and scales
 how much of a continuous random walk rotates the viewing direction before any
