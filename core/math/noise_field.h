@@ -5,8 +5,11 @@
  */
 #pragma once
 
-#include "core/math/3dmath.h"
-#include "core/vendor/FastNoiseLite.h"
+#include <array>
+
+#include "engine/util.h"
+#include "math/3dmath.h"
+#include "vendor/FastNoiseLite.h"
 
 enum class NoiseDomain : uint8_t { SPHERE_3D, PROJECTED_2D };
 enum class NoiseBasis : uint8_t { SIMPLEX, FBM3, RIDGED3 };
