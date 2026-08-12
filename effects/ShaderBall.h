@@ -647,7 +647,7 @@ private:
         slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART ||
         slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
     register_source_controls(slots.function, requested_config.params.source,
-                             !polar_topology);
+                             polar_topology);
     register_animated_param("Projection", &slots.projection, PROJECTION_OPTIONS,
                             PROJECTION_EXPORT_OPTIONS, NUM_PROJECTIONS);
     register_projection_controls(slots, requested_config.params);
@@ -904,7 +904,7 @@ private:
 
   HS_COLD_MEMBER void register_source_controls(Function function,
                                                SourceParams &params,
-                                               bool expose_pattern_frequency) {
+                                               bool polar_topology) {
     if (function == Function::NOISE_CONTOUR) {
       register_animated_param("Source Noise Scale", &params.noise_scale,
                               SOURCE_NOISE_SCALE_MIN, SOURCE_NOISE_SCALE_MAX);
@@ -926,11 +926,13 @@ private:
                               SOFTNESS_MIN, 1.0f);
       register_animated_param("Lattice Radius", &params.lattice_radius,
                               1.0f / 64.0f, 0.49f);
-      return;
+      if (!polar_topology)
+        return;
     }
-    if (expose_pattern_frequency)
-      register_animated_param("Pattern Freq", &params.pattern_freq,
-                              PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+    register_animated_param("Pattern Freq", &params.pattern_freq,
+                            PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+    if (function == Function::PRIMITIVE_LATTICE)
+      return;
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
     register_animated_param("Source Angle Rate", &params.angle_rate,
                             WAVE_SPIN_MIN, WAVE_SPIN_MAX);
