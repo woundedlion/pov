@@ -296,8 +296,14 @@ struct ShaderBallWhiteBox {
                                  const FrameState &frame) {
     const Complex source_coords =
         SB::condition_source_coords(warped.coords, frame);
-    const float field = SB::sample_source(source_coords, frame);
+    const float field = SB::sample_source(source_coords, projected, frame);
     return SB::shape_material(field, projected, warped, frame);
+  }
+  static float source(const ProjectedLookup &projected,
+                      const FrameState &frame) {
+    const Complex source_coords =
+        SB::condition_source_coords(projected.coords, frame);
+    return SB::sample_source(source_coords, projected, frame);
   }
   static MaterialSample shape(float field, const ProjectedLookup &projected,
                               const PlanarWarpResult &warped,
@@ -2381,7 +2387,12 @@ inline void test_shaderball_gui_catalog() {
   WB::SB sb;
   sb.init();
   HS_EXPECT_LE(sb.getParameters().size(), size_t(64));
-  HS_EXPECT_EQ(sb.getParameters().find("Function")->option_count, 6);
+  const auto *function = sb.getParameters().find("Function");
+  HS_EXPECT_EQ(function->option_count, 7);
+  HS_EXPECT_TRUE(
+      std::strcmp(function->options[4], "Noise Contour (Projected)") == 0);
+  HS_EXPECT_TRUE(std::strcmp(function->options[6], "Noise Contour (Sphere)") ==
+                 0);
   HS_EXPECT_TRUE(sb.getParameters().find("Complexity") != nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Mix") != nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Drift") != nullptr);
@@ -3774,6 +3785,103 @@ inline void test_shaderball_surface_noise_geometry_and_composition() {
     }
 }
 
+/** @brief Sphere contours use v_projection and reject every planar warp. */
+inline void test_shaderball_noise_contour_domains() {
+  using WB = ShaderBallWhiteBox;
+  constexpr std::array PROJECTIONS = {
+      WB::Projection::SINUSOIDAL,         WB::Projection::STEREOGRAPHIC,
+      WB::Projection::GNOMONIC,           WB::Projection::BONNE,
+      WB::Projection::PEIRCE_QUINCUNCIAL, WB::Projection::AIROCEAN,
+      WB::Projection::EQUIRECTANGULAR};
+
+  WB::RequestedConfig config = WB::legacy_config();
+  config.slots.surface_lens = WB::SurfaceLens::NONE;
+  config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+  config.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
+  config.slots.function = WB::Function::NOISE_CONTOUR;
+  for (WB::Projection projection : PROJECTIONS) {
+    config.slots.projection = projection;
+    const bool projected_admitted =
+        projection == WB::Projection::SINUSOIDAL ||
+        projection == WB::Projection::STEREOGRAPHIC ||
+        projection == WB::Projection::GNOMONIC ||
+        projection == WB::Projection::EQUIRECTANGULAR;
+    HS_EXPECT_EQ(WB::valid_config(config), projected_admitted);
+  }
+
+  config.slots.function = WB::Function::NOISE_CONTOUR_SPHERE;
+  for (WB::Projection projection : PROJECTIONS) {
+    config.slots.projection = projection;
+    HS_EXPECT_TRUE(WB::valid_config(config));
+  }
+  config.slots.warp_program.outer.kind = WB::WarpStageKind::AFFINE_FRAME;
+  HS_EXPECT_FALSE(WB::valid_config(config));
+  config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+  config.slots.warp_program.inner.kind = WB::WarpStageKind::VORTEX;
+  HS_EXPECT_FALSE(WB::valid_config(config));
+
+  {
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    config.slots.projection = WB::Projection::STEREOGRAPHIC;
+    config.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
+    WB::request_config(sb, config);
+    WB::settle_transition(sb);
+    WB::FrameState frame = WB::frame(sb);
+    frame.transforms.projection_conj = make_rotation(Y_AXIS, -0.37f);
+    const Vector point = Vector(0.4f, -0.8f, 0.3f).normalized();
+    const Vector expected = rotate(point, frame.transforms.projection_conj);
+    float sphere_reference = 0.0f;
+    for (size_t index = 0; index < PROJECTIONS.size(); ++index) {
+      frame.slots.projection = PROJECTIONS[index];
+      const WB::ProjectedLookup projected = WB::surface_project(point, frame);
+      HS_EXPECT_NEAR(projected.sphere.x, expected.x, 1e-6f);
+      HS_EXPECT_NEAR(projected.sphere.y, expected.y, 1e-6f);
+      HS_EXPECT_NEAR(projected.sphere.z, expected.z, 1e-6f);
+      const float sample = WB::source(projected, frame);
+      if (index == 0)
+        sphere_reference = sample;
+      else
+        HS_EXPECT_NEAR(sample, sphere_reference, 1e-6f);
+    }
+
+    frame.slots.function = WB::Function::NOISE_CONTOUR;
+    frame.slots.projection = WB::Projection::SINUSOIDAL;
+    const float sinusoidal =
+        WB::source(WB::surface_project(point, frame), frame);
+    frame.slots.projection = WB::Projection::STEREOGRAPHIC;
+    const float stereographic =
+        WB::source(WB::surface_project(point, frame), frame);
+    HS_EXPECT_GT(std::fabs(sinusoidal - stereographic), 1e-5f);
+  }
+
+  reset_effect_globals();
+  WB::SB gui;
+  gui.init();
+  HS_EXPECT_EQ(
+      gui.updateParameter(
+          "Function", static_cast<float>(WB::Function::NOISE_CONTOUR_SPHERE)),
+      ParamSetResult::APPLIED);
+  gui.draw_frame();
+  gui.advance_display();
+  HS_EXPECT_NE(WB::active_slots(gui).function,
+               WB::Function::NOISE_CONTOUR_SPHERE);
+  const char *warning = WB::parameter_warning(gui, "Function");
+  HS_EXPECT_TRUE(warning != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "Planar Warp 1 Stereo Noise") != nullptr);
+  HS_EXPECT_EQ(gui.updateParameter("Planar Warp 1",
+                                   static_cast<float>(WB::WarpStageKind::NONE)),
+               ParamSetResult::APPLIED);
+  gui.draw_frame();
+  gui.advance_display();
+  WB::settle_transition(gui);
+  HS_EXPECT_EQ(WB::active_slots(gui).function,
+               WB::Function::NOISE_CONTOUR_SPHERE);
+  HS_EXPECT_EQ(WB::active_slots(gui).warp_program.outer.kind,
+               WB::WarpStageKind::NONE);
+}
+
 /** @brief Module entry point for ShaderBall contract tests. */
 inline int run_shaderball_tests() {
   ModuleFixture fixture("shaderball");
@@ -3815,6 +3923,7 @@ inline int run_shaderball_tests() {
   test_shaderball_pause_does_not_hold_through_clear();
   test_shaderball_palette_resources();
   test_shaderball_surface_noise_geometry_and_composition();
+  test_shaderball_noise_contour_domains();
   return fixture.result();
 }
 

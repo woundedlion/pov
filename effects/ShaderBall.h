@@ -169,7 +169,8 @@ private:
     SPIRAL,
     GRID,
     NOISE_CONTOUR,
-    PRIMITIVE_LATTICE
+    PRIMITIVE_LATTICE,
+    NOISE_CONTOUR_SPHERE
   };
   enum class Projection : uint8_t {
     SINUSOIDAL,
@@ -949,7 +950,7 @@ private:
   HS_COLD_MEMBER void register_source_controls(Function function,
                                                SourceParams &params,
                                                bool polar_topology) {
-    if (function == Function::NOISE_CONTOUR) {
+    if (is_noise_contour(function)) {
       register_animated_param("Source Noise Scale", &params.noise_scale,
                               SOURCE_NOISE_SCALE_MIN, SOURCE_NOISE_SCALE_MAX);
       register_animated_param("Source Noise Contrast", &params.noise_contrast,
@@ -1274,18 +1275,20 @@ private:
     uint8_t traits;
     uint8_t edge_class;
     float domain_coverage;
+    Vector sphere;
 
     constexpr ProjectedLookup(Complex coords, uint8_t region_id,
                               uint8_t component_id, uint8_t boundary_flags,
                               float fade_edge_distance, float value_weight,
                               uint8_t flags, uint8_t traits = 0,
                               uint8_t edge_class = 0,
-                              float domain_coverage = 1.0f)
+                              float domain_coverage = 1.0f,
+                              Vector sphere = Vector())
         : coords(coords), region_id(region_id), component_id(component_id),
           boundary_flags(boundary_flags),
           fade_edge_distance(fade_edge_distance), value_weight(value_weight),
           flags(flags), traits(traits), edge_class(edge_class),
-          domain_coverage(domain_coverage) {}
+          domain_coverage(domain_coverage), sphere(sphere) {}
   };
 
   struct SourceTraits {
@@ -1484,7 +1487,9 @@ private:
 
   HS_COLD_MEMBER static constexpr NoiseFieldKey
   source_resource_key(const Config &config) {
-    return {NoiseDomain::PROJECTED_2D,
+    return {config.slots.function == Function::NOISE_CONTOUR_SPHERE
+                ? NoiseDomain::SPHERE_3D
+                : NoiseDomain::PROJECTED_2D,
             config.params.source.noise_basis,
             config.params.source.noise_seed,
             NoiseChannelLayout::SCALAR_V1,
@@ -1548,7 +1553,7 @@ private:
         !append_resource_key(warp_resource_key(config.slots.warp_program.inner),
                              keys, count))
       return false;
-    if (config.slots.function == Function::NOISE_CONTOUR &&
+    if (is_noise_contour(config.slots.function) &&
         !append_resource_key(source_resource_key(config), keys, count))
       return false;
     if (config.slots.surface_lens == SurfaceLens::TANGENT_NOISE &&
@@ -1604,7 +1609,7 @@ private:
 
   HS_COLD_MEMBER const FastNoiseLite *
   resolve_source_resource(const Config &config) const {
-    return config.slots.function == Function::NOISE_CONTOUR
+    return is_noise_contour(config.slots.function)
                ? resolve_resource(source_resource_key(config))
                : nullptr;
   }
@@ -1757,7 +1762,7 @@ private:
     const PlanarWarpResult warped = planar_warp_lookup(projected, frame);
     HS_SB_STAGE_SPAN(planar_warp, stage_start);
     const Complex source_coords = condition_source_coords(warped.coords, frame);
-    const float field = sample_source(source_coords, frame);
+    const float field = sample_source(source_coords, projected, frame);
     HS_SB_STAGE_SPAN(source, stage_start);
     const MaterialSample material =
         shape_material(field, projected, warped, frame);
@@ -1956,17 +1961,22 @@ private:
   HS_FLASH_MEMBER static ProjectedLookup
   project_branch(const Vector &v, const FrameState &frame) {
     const Vector local = rotate(v, frame.transforms.projection_conj);
-    if (frame.slots.projection != Projection::STEREOGRAPHIC)
-      return project_nonstereographic(local, frame);
-    const Complex coords = stereo(local);
-    const float r_sq = coords.re * coords.re + coords.im * coords.im;
-    return {coords,
-            0,
-            0,
-            BOUNDARY_SINGULAR,
-            std::max(0.0f, 1.0f - local.y),
-            pole_attenuation(r_sq, frame.params.projection.pole_fade),
-            0};
+    ProjectedLookup projected = [&]() {
+      if (frame.slots.projection != Projection::STEREOGRAPHIC)
+        return project_nonstereographic(local, frame);
+      const Complex coords = stereo(local);
+      const float r_sq = coords.re * coords.re + coords.im * coords.im;
+      return ProjectedLookup{
+          coords,
+          0,
+          0,
+          BOUNDARY_SINGULAR,
+          std::max(0.0f, 1.0f - local.y),
+          pole_attenuation(r_sq, frame.params.projection.pole_fade),
+          0};
+    }();
+    projected.sphere = local;
+    return projected;
   }
 
   __attribute__((always_inline)) static ProjectedLookup
@@ -2072,7 +2082,8 @@ private:
             selected->flags,
             selected->traits,
             selected->edge_class,
-            hs::lerp(direct.domain_coverage, lensed.domain_coverage, mix)};
+            hs::lerp(direct.domain_coverage, lensed.domain_coverage, mix),
+            nlerp_unit(direct.sphere, lensed.sphere, mix)};
   }
 
   /**
@@ -2463,7 +2474,7 @@ private:
 
   static Complex condition_source_coords(const Complex &coords,
                                          const FrameState &frame) {
-    if (frame.slots.function == Function::NOISE_CONTOUR ||
+    if (is_noise_contour(frame.slots.function) ||
         frame.slots.function == Function::PRIMITIVE_LATTICE)
       return coords;
     return stereo_pattern_args(coords, frame.params.source.pattern_freq);
@@ -2551,15 +2562,13 @@ private:
   }
 
   /**
-   * @brief Samples the selected source function at a planar coordinate.
-   * @param p Conditioned source coordinates.
+   * @brief Samples the selected noise-contour source coordinate.
+   * @param q Projected or sphere noise coordinate.
    * @param frame Frame snapshot.
    * @return Signed field value in [-1, 1].
    */
-  HS_FLASH_MEMBER static float sample_noise_contour(const Complex &p,
+  HS_FLASH_MEMBER static float sample_noise_contour(const Vector &q,
                                                     const FrameState &frame) {
-    const Vector q = noise_projected_coordinate(
-        p, frame.params.source.noise_scale, frame.clocks.source_noise_time);
     const float n =
         hs::clamp(sample_noise_octaves(*frame.resources.source_noise,
                                        frame.params.source.noise_basis, q),
@@ -2569,11 +2578,21 @@ private:
   }
 
   HS_FLASH_MEMBER static float sample_source(const Complex &p,
+                                             const ProjectedLookup &projected,
                                              const FrameState &frame) {
     if (frame.slots.function == Function::GRID)
       return grid(p, frame.params.source, frame.prepared_source);
     if (frame.slots.function == Function::NOISE_CONTOUR)
-      return sample_noise_contour(p, frame);
+      return sample_noise_contour(
+          noise_projected_coordinate(p, frame.params.source.noise_scale,
+                                     frame.clocks.source_noise_time),
+          frame);
+    if (frame.slots.function == Function::NOISE_CONTOUR_SPHERE)
+      return sample_noise_contour(
+          noise_sphere_coordinate(projected.sphere,
+                                  frame.params.source.noise_scale,
+                                  frame.clocks.source_noise_time),
+          frame);
     if (frame.slots.function == Function::PRIMITIVE_LATTICE)
       return primitive_lattice(p, frame.params.source);
     return sample_function(frame.slots.function, p, frame.prepared_source);
@@ -3010,6 +3029,7 @@ private:
       return spiral(p, source);
     case Function::GRID:
     case Function::NOISE_CONTOUR:
+    case Function::NOISE_CONTOUR_SPHERE:
     case Function::PRIMITIVE_LATTICE:
       break;
     }
@@ -3323,6 +3343,11 @@ private:
     return static_cast<uint8_t>(value) <= static_cast<uint8_t>(last);
   }
 
+  HS_COLD_MEMBER static constexpr bool is_noise_contour(Function function) {
+    return function == Function::NOISE_CONTOUR ||
+           function == Function::NOISE_CONTOUR_SPHERE;
+  }
+
   HS_COLD_MEMBER static constexpr SourceTraits
   source_traits(Function function) {
     switch (function) {
@@ -3334,6 +3359,7 @@ private:
     case Function::RINGS:
     case Function::SPIRAL:
     case Function::NOISE_CONTOUR:
+    case Function::NOISE_CONTOUR_SPHERE:
       return {true, true, false, false, false, false};
     }
     return {true, true, false, false, false, false};
@@ -3362,7 +3388,7 @@ private:
   HS_COLD_MEMBER static constexpr bool
   valid_config(const RequestedConfig &candidate) {
     const Slots &slots = candidate.slots;
-    if (!enum_at_most(slots.function, Function::PRIMITIVE_LATTICE) ||
+    if (!enum_at_most(slots.function, Function::NOISE_CONTOUR_SPHERE) ||
         !enum_at_most(slots.projection, Projection::EQUIRECTANGULAR) ||
         !enum_at_most(slots.peirce_layout, PeirceLayout::VERTICAL) ||
         !enum_at_most(slots.airocean_layout, AiroceanLayout::HORIZONTAL) ||
@@ -3386,6 +3412,10 @@ private:
         !enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) ||
         !enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) ||
         !enum_at_most(slots.colorizer, Colorizer::DEFORMATION_INK))
+      return false;
+    if (slots.function == Function::NOISE_CONTOUR_SPHERE &&
+        (slots.warp_program.outer.kind != WarpStageKind::NONE ||
+         slots.warp_program.inner.kind != WarpStageKind::NONE))
       return false;
     const int legacy_stages =
         (slots.warp_program.outer.kind == WarpStageKind::LEGACY_STEREO_NOISE) +
@@ -3591,7 +3621,7 @@ private:
     if (warp_uses_noise(candidate.slots.warp_program.inner.kind) &&
         add(warp_resource_key(candidate.slots.warp_program.inner)))
       return warning_text.data();
-    if (candidate.slots.function == Function::NOISE_CONTOUR &&
+    if (is_noise_contour(candidate.slots.function) &&
         add(source_resource_key(candidate)))
       return warning_text.data();
     if (candidate.slots.surface_lens == SurfaceLens::TANGENT_NOISE &&
@@ -3610,6 +3640,24 @@ private:
                                 const char *edited_name) const {
     const WarpStageSpec &outer = candidate.slots.warp_program.outer;
     const WarpStageSpec &inner = candidate.slots.warp_program.inner;
+    if (candidate.slots.function == Function::NOISE_CONTOUR_SPHERE &&
+        outer.kind != WarpStageKind::NONE && inner.kind != WarpStageKind::NONE)
+      return begin_warning(
+          "Noise Contour (Sphere) rejects Planar Warp 1 %s and Planar Warp 2 "
+          "%s. Set both warps to None, or select Noise Contour (Projected).",
+          WARP_OPTIONS[static_cast<uint8_t>(outer.kind)],
+          WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
+    if (candidate.slots.function == Function::NOISE_CONTOUR_SPHERE &&
+        (outer.kind != WarpStageKind::NONE ||
+         inner.kind != WarpStageKind::NONE)) {
+      const bool outer_active = outer.kind != WarpStageKind::NONE;
+      const char *position = outer_active ? "Planar Warp 1" : "Planar Warp 2";
+      const WarpStageKind kind = outer_active ? outer.kind : inner.kind;
+      return begin_warning(
+          "Noise Contour (Sphere) rejects %s %s. Set %s to None, or select "
+          "Noise Contour (Projected).",
+          position, WARP_OPTIONS[static_cast<uint8_t>(kind)], position);
+    }
     const int legacy_stages =
         (outer.kind == WarpStageKind::LEGACY_STEREO_NOISE) +
         (inner.kind == WarpStageKind::LEGACY_STEREO_NOISE);
@@ -3678,7 +3726,7 @@ private:
           "Projection %s requires seam-safe stages.",
           PROJECTION_OPTIONS[static_cast<uint8_t>(candidate.slots.projection)]);
       if (candidate.slots.function == Function::NOISE_CONTOUR)
-        append_warning(" Function Noise Contour is not seam-safe.");
+        append_warning(" Function Noise Contour (Projected) is not seam-safe.");
       if (seam_sensitive_warp(outer.kind))
         append_warning(" Planar Warp 1 %s is not seam-safe.",
                        WARP_OPTIONS[static_cast<uint8_t>(outer.kind)]);
@@ -4190,12 +4238,21 @@ private:
   static constexpr size_t PARAM_CAPACITY = 64;
 
   static constexpr const char *FUNCTION_OPTIONS[] = {
-      "Twin Wave", "Rings",         "Spiral",
-      "Grid",      "Noise Contour", "Primitive Lattice"};
+      "Twin Wave",
+      "Rings",
+      "Spiral",
+      "Grid",
+      "Noise Contour (Projected)",
+      "Primitive Lattice",
+      "Noise Contour (Sphere)"};
   static constexpr const char *FUNCTION_EXPORT_OPTIONS[] = {
-      "Function::TWIN_WAVE",     "Function::RINGS",
-      "Function::SPIRAL",        "Function::GRID",
-      "Function::NOISE_CONTOUR", "Function::PRIMITIVE_LATTICE"};
+      "Function::TWIN_WAVE",
+      "Function::RINGS",
+      "Function::SPIRAL",
+      "Function::GRID",
+      "Function::NOISE_CONTOUR",
+      "Function::PRIMITIVE_LATTICE",
+      "Function::NOISE_CONTOUR_SPHERE"};
   static constexpr int NUM_FUNCTIONS = std::size(FUNCTION_OPTIONS);
   static constexpr const char *PROJECTION_OPTIONS[] = {
       "Folded Sinusoidal",  "Stereographic",       "Gnomonic",       "Bonne",
