@@ -72,6 +72,12 @@ struct ShaderBallWhiteBox {
     sb.runtime.clocks = {value, value, value, value, value};
   }
   static FrameState frame(const SB &sb) { return sb.prepare_frame(); }
+  static FrameState preset_frame(SB &sb, size_t index) {
+    const auto &preset = SB::PRESETS[index];
+    HS_CHECK(sb.prepare_resource_union(preset, preset),
+             "ShaderBall test preset resources must fit");
+    return sb.prepare_frame(preset, sb.runtime);
+  }
   static Slots active_slots(const SB &sb) { return sb.active_slots; }
   static RequestedConfig active_config(const SB &sb) {
     return {sb.active_slots, sb.blend.params};
@@ -217,7 +223,7 @@ struct ShaderBallWhiteBox {
       return Color4();
     HS_CHECK(visible != nullptr,
              "through-clear visible phase requires an endpoint frame");
-    typename SB::FrameShader shader{visible, phase.alpha};
+    typename SB::FrameShader shader{visible, phase.alpha, nullptr};
     return shader(view);
   }
   static void begin_blend(SB &sb) {
@@ -323,6 +329,10 @@ struct ShaderBallWhiteBox {
   static Color4 shade(const Vector &v, const FrameState &frame) {
     return SB::shade(v, frame);
   }
+  static Color4 pipeline_shade(const Vector &v, const FrameState &frame) {
+    const auto function = SB::resolve_shade_function(frame.slots);
+    return function ? function(v, frame) : SB::shade(v, frame);
+  }
   static Complex project_point(const Vector &v, Projection projection) {
     return SB::project_point(v, projection);
   }
@@ -357,9 +367,6 @@ struct ShaderBallWhiteBox {
   }
   static Vector dodecahedral_reference(const Vector &v) {
     return SB::polyhedral_kaleidoscope_lens(v, SB::DODECAHEDRAL_MIRRORS);
-  }
-  static Vector tangent_noise_lens(const Vector &v, const FrameState &frame) {
-    return SB::tangent_noise_lens(v, frame);
   }
   static float sample_function(Function function, const Complex &p,
                                const SourceState &source) {
@@ -3055,6 +3062,30 @@ inline void test_shaderball_fast_peirce_square() {
   }
 }
 
+/** @brief Specialized inverse pipelines match the generic shader exactly. */
+inline void test_shaderball_specialized_inverse_pipelines() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  for (size_t preset_index : {size_t(18), size_t(20), size_t(21)}) {
+    const WB::FrameState frame = WB::preset_frame(sb, preset_index);
+    for (int latitude_step = -32; latitude_step <= 32; ++latitude_step) {
+      const float latitude = latitude_step * (0.5f * PI_F / 32.0f);
+      const float radius = cosf(latitude);
+      for (int longitude_step = 0; longitude_step < 256; ++longitude_step) {
+        const float longitude = longitude_step * (TWO_PI_F / 256.0f);
+        const Vector view(radius * cosf(longitude), sinf(latitude),
+                          radius * sinf(longitude));
+        const Color4 expected = WB::shade(view, frame);
+        const Color4 actual = WB::pipeline_shade(view, frame);
+        HS_EXPECT_TRUE(actual.color == expected.color);
+        HS_EXPECT_EQ(actual.alpha, expected.alpha);
+      }
+    }
+  }
+}
+
 /** @brief Domain policies, gauges, and analytic admission reject unsafe tuples. */
 inline void test_shaderball_projection_and_admission_contracts() {
   using WB = ShaderBallWhiteBox;
@@ -3829,6 +3860,7 @@ inline int run_shaderball_tests() {
   test_shaderball_gui_catalog();
   test_shaderball_projection_catalog();
   test_shaderball_fast_peirce_square();
+  test_shaderball_specialized_inverse_pipelines();
   test_shaderball_projection_and_admission_contracts();
   test_shaderball_kernel_catalog();
   test_shaderball_stable_preset_transition();
