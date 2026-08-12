@@ -1,8 +1,9 @@
 # ShaderBall red-preset optimization plan
 
-Status: implementation and acceptance audit complete on 2026-08-11. The
-59.00 ms target is closed for four of six intrinsic red presets; presets 27
-and 28 remain measured misses, recorded below rather than waived.
+Status: **complete on the current 23-preset bank as of 2026-08-12.** The final
+shipping cycle has 23 green buckets, zero spilled frames, and a 49.52 ms worst
+render. Earlier 29- and 22-preset investigations remain below as historical
+evidence; the final closure ledger supersedes their open holdout status.
 
 The target is a **peak render time below 59.00 ms** for every authored preset
 in the shipping selective-O3 image, followed by a full-cycle capture with no
@@ -344,3 +345,117 @@ Two presets landed concurrently after the device matrix. The recorded shipping
 and O3 cycles are the plan's 29-preset corpus; post-rebase host tests visit all
 31 presets and the 31-preset full-roster size gate passes, but the two additions
 do not have device timing claims in this ledger.
+
+## Post-curation reprofile (2026-08-11)
+
+The authored bank was subsequently curated to 22 presets. A new matched pair
+at `f80495c4` replaces the 29-preset cycle as the current roster measurement.
+Both captures ran on COM3, visited all 22 indices, wrapped 21-to-0, had no
+epoch reset, and passed cycle-counter exactness validation.
+
+| Measurement / experiment | Decision | Frame gain / loss | ITCM cost / benefit |
+|---|---|---:|---:|
+| 22-preset shipping cycle | accepted baseline: 72.95 ms peak, 198/2016 spills, 17 green + 5 red buckets | reference | no code change; full roster remains 196,152/196,608 B ITCM |
+| Matched global-O3 cycle | rejected as shipping direction: 67.22 ms peak, 135/2080 spills, same 5 red buckets | +5.73 ms worst-cycle peak, but holdouts remain | +23,296 B ITCM and +27,928 B FLASH in the single-effect image |
+| Fixed preset 19 | accepted holdout baseline: 74.56 ms peak, 69.65 ms worst-window shader, 544/544 spills | reference | no code change |
+| Generic `HS_PROFILE_DEEP` image | rejected for ShaderBall attribution: validates but exposes no child scope on the full-frame shader/private gamut path | diagnostic only | 0 B shipping; compiled out |
+| ShaderBall DWT stage image | accepted diagnostic: projection 29.781 ms/f, color 12.123, lens 7.560, source 5.662, warp 2.760, material 2.710 | diagnostic only | 0 B shipping; compiled out |
+
+Preset 19 is the shipping holdout. Its Peirce projection consumes 49.1% of
+measured stage time and about 1,677 cycles per participating pixel. The
+dodecahedral lens averages 4.84 reflections per pixel, reaches 14, and ranges
+from 6.03 to 10.82 ms/frame as the animated orientation changes. Optimize the
+Peirce kernel first, then the iterative polyhedral fold; color is the stable
+third target. Broader ITCM promotion cannot close the gap because global O3
+still leaves preset 19 at 60.81 ms and preset 21 at 61.61 ms of clean shader
+work before non-shader frame overhead.
+
+## Final 23-preset closure (2026-08-12)
+
+Preset curation and one subsequent addition produced the current 23-preset
+bank. The matched shipping baseline and final captures both use 16-frame
+windows, the fast-cycle choreography, a 1,400-revolution epoch, COM3, and the
+real segmented 288x144 driver. Both validate all 23 indices and the 22-to-0
+wrap with no epoch reset.
+
+| Cycle | Green / red | Worst peak, ms | Spilled frames | Full-roster ITCM | FLASH code |
+|---|---:|---:|---:|---:|---:|
+| Matched baseline | 6 / 17 | 88.07 | 849/1680 | 196,344 B | 401,808 B |
+| Final `dad52e09` | **23 / 0** | **49.52** | **0/1728** | **195,960 B** | 411,112 B |
+| Net | +17 / -17 | **+38.55 ms gain** | **849 spills removed** | **384 B saved** | +9,304 B |
+
+The final Phantasm image retains 648 bytes of ITCM padding, 12,864 bytes for
+local state, and 4,224 bytes of RAM2 allocator headroom. Moving the 6 KiB hue
+field from `FrameState` into persistent state reduced ShaderBall's host stack
+high-water mark from 18,271 to 7,007 bytes.
+
+### Accepted implementation ledger
+
+Positive frame gain means lower peak render time. Component A/B rows use the
+holdout capture that exercised the changed kernel; the first and last rows are
+matched full-cycle measurements.
+
+| Change | Acceptance evidence | Frame gain | ITCM cost / benefit |
+|---|---|---:|---:|
+| Exact bounded dodecahedral chamber fold | Dense exact-reference and unit-vector scans; observed reflection telemetry bounds the unrolled fold | preset 18 early holdout: **68.16 -> 58.35 ms (+9.81)** | retained without a standalone promotion |
+| Square Peirce sector renderer | Dense coordinate/fade scan and exact seam metadata | preset 19 early holdout: **74.56 -> 58.68 ms (+15.88)** | flash-resident exact oracle retained |
+| Static inverse-pipeline specializations | Exact generic-vs-specialized shade oracle; generic GUI fallback retained | preset 0: **72.28 -> 58.58 ms (+13.70)** | full all-topology expansion was trimmed to fit; retained kernels are selective |
+| Prepared surface-noise phase/direction and half-radian exponential map | Dense geometry error below 2e-7 and stage capture | preset 0: about **+5.11 ms**; surface stage about **+3.37 ms** | frame constants replace per-pixel trig; no separate promotion |
+| Single-traversal vector simplex surface noise | Vector-field version is explicitly `DIRECT_VECTOR_V2`; scalar V1 remains available; native noise tests pass | preset 18: **65.09 -> 56.76 ms (+8.33)** | raw vector kernel stays in flash to protect ITCM |
+| Skip liquid hue conversion when deformation is zero | Exact semantic shortcut | included in the final liquid-path gain | negligible measured ITCM effect |
+| Persistent 64x16 value/hue field with bilinear lookup | Added error oracle: max introduced channel error 5,278/65,535, mean 202; 911,825 ShaderBall assertions pass | preset 21: **82.28 -> 44.56 ms (+37.72)**; final worst bucket **49.52 ms** | final roster **195,960 B**, 384 B below baseline; 6 KiB persistent storage, no stack penalty |
+
+The formerly reported holdouts are all green in the final cycle:
+
+| Preset | Baseline peak, ms | Final peak, ms | Gain, ms |
+|---:|---:|---:|---:|
+| 0 | 72.28 | 49.15 | **23.13** |
+| 18 | 88.07 | 43.35 | **44.72** |
+| 19 | 86.99 | 48.02 | **38.97** |
+| 20 | 81.99 | 47.63 | **34.36** |
+| 21 | 87.44 | 44.56 | **42.88** |
+| 22 | 86.39 | 49.52 | **36.87** |
+
+### Rejected and superseded ledger
+
+| Experiment | Decision evidence | Frame gain / loss | ITCM / memory effect |
+|---|---|---:|---:|
+| Compact FastNoise gradient representation | Extra decode work dominated the smaller table | preset 18 **-3.7 ms** | 48 B ITCM and 828 B table storage saved; rejected |
+| Full static specialization of every topology | Full-roster image exceeded the bank | not profiled | **+2,624 B ITCM** over the ceiling; rejected |
+| Static transform shortcut | Slower holdout | preset 18 **-0.92 ms** | **+16 B ITCM**; rejected |
+| Flash/noinline surface leaf | Instruction fetch outweighed bank recovery | preset 18 **-3.75 ms** | **592 B ITCM saved**; rejected |
+| Shared topology helper promotion | Full-roster build failed before timing | not accepted | **+3,288 B ITCM** over the ceiling |
+| Ungated vector-noise sampler in ITCM | Full-roster build failed; raw flash sampler retained instead | not accepted | 1,144-1,480 B over the ceiling |
+| Endpoint-only hue bases | Useful partial result but did not close the animated holdout | preset 21 **82.28 -> 74.81 ms (+7.47)** | **+176 B ITCM**; superseded |
+| Endpoint 128-entry interpolated hue LUT | Interior softened values still used exact OKLab conversion | preset 21 **74.81 -> 65.44 ms (+9.37)** | another **+272 B ITCM**; superseded |
+| Nearest-bin endpoint hue LUT | Quantization and cache behavior regressed interpolation | preset 21 **65.44 -> 71.64 ms (-6.20)** | 80 B ITCM saved; rejected |
+| 16-value 2D hue field | Fast, but the value grid exceeded the accepted color-error envelope | 23/23 green, 49.29 ms worst | 3 KiB frame storage; max channel error 12,148; rejected |
+| 6 KiB hue field inside `FrameState` | Hardware timing passed, host stack gate failed | 23/23 green, 49.74 ms worst | stack **18,271 B > 12,288 B**; storage placement rejected |
+| Global O3 final twin | Compiler layout catastrophically regressed the Peirce/dodecahedral topology | shipping 49.52 vs O3 **207.37 ms** worst; preset 19 48.02 -> 205.81 ms | single-effect image **+11,904 B ITCM**, **+16,144 B FLASH**; rejected |
+
+Final validation comprises the on-device shipping cycle, the Phantasm roster
+size gate, all 68 native CTest targets, the 7,007-byte stack watermark, and the
+release WASM smoke roster at 96x20 and 288x144.
+
+## Variadic inverse-pipeline follow-on
+
+ShaderBall can benefit from the compile-time techniques used by `Filter`, but
+its inverse sampler should be a sibling abstraction rather than a direct reuse
+of the forward buffer-filter API. The proposed stage order is:
+
+```text
+OuterCamera -> SurfaceProject -> PlanarWarp -> Source -> Material -> Color
+```
+
+A variadic `InversePipeline<Stages...>` would fuse those point-sampling stages
+into one callable shader. Authored runtime slots resolve once per frame to a
+finite set of measured pipeline instantiations; arbitrary GUI combinations
+continue through the current generic fallback. Keep a single `Scan::Shader`
+driver, specialize only topology clusters that win on hardware, and leave
+large or cold kernels flash-resident. This preserves exact generic oracles and
+avoids the ITCM failure already demonstrated by instantiating every topology.
+
+The useful shared surface with `Filter` is policy/concept machinery--stage
+composition, compile-time traits, and optional fusion--not its forward
+source/destination buffer contract. This remains a design candidate; none of
+the final timing claims above depend on it.
