@@ -99,12 +99,9 @@ struct ShaderBallStageCycles {
   uint32_t material = 0;
   uint32_t color = 0;
   uint32_t mirror_tile = 0;
-  uint32_t legacy_noise = 0;
   uint32_t polyhedral_pixels = 0;
   uint32_t polyhedral_reflections = 0;
   uint32_t polyhedral_max_reflections = 0;
-  uint32_t legacy_single_samples = 0;
-  uint32_t legacy_blended_samples = 0;
 
   /** @brief Zeroes every stage total. */
   void reset() { *this = {}; }
@@ -441,12 +438,12 @@ struct CycleCounter {
   static constexpr uint32_t CYCLES_PER_US =
       600; /**< Core clock: Teensy 4 @ 600 MHz. */
 
-  const char *name;               /**< Counter label used in log output. */
-  uint64_t cycles = 0;            /**< Accumulated cycle count. 64-bit because a
+  const char *name;    /**< Counter label used in log output. */
+  uint64_t cycles = 0; /**< Accumulated cycle count. 64-bit because a
                                          32-bit accumulator overflows after only
                                          ~7 s of summed time at 600 MHz, which a
                                          multi-frame profiling run easily exceeds. */
-  uint32_t count = 0;             /**< Number of timed invocations. */
+  uint32_t count = 0;  /**< Number of timed invocations. */
   CycleCounter *parent = nullptr; /**< Enclosing counter for tree nesting. */
   CycleCounter *next =
       nullptr; /**< Next link in the intrusive registry list. */

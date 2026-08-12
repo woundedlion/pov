@@ -69,15 +69,15 @@ struct ShaderBallWhiteBox {
     sb.runtime.clocks = clocks;
   }
   static void seed_clocks(SB &sb, float value) {
-    sb.runtime.clocks = {value, value, value, value, value, value};
+    sb.runtime.clocks = {value, value, value, value, value};
   }
   static FrameState frame(const SB &sb) { return sb.prepare_frame(); }
   static Slots active_slots(const SB &sb) { return sb.active_slots; }
   static RequestedConfig active_config(const SB &sb) {
     return {sb.active_slots, sb.blend.params};
   }
-  static constexpr Slots liquid_stereo_slots() {
-    return SB::LIQUID_STEREO_SLOTS;
+  static constexpr Slots liquid_surface_noise_slots() {
+    return SB::LIQUID_SURFACE_NOISE_SLOTS;
   }
   static constexpr Slots legacy_slots() {
     return {Function::TWIN_WAVE,
@@ -145,9 +145,6 @@ struct ShaderBallWhiteBox {
   stable_parameter_path_admitted(const RequestedConfig &from,
                                  const RequestedConfig &to) {
     return SB::stable_parameter_path_admitted(from, to);
-  }
-  static constexpr float noise_time_period() {
-    return SB::STEREO_NOISE_TIME_PERIOD;
   }
   static bool transition_active(const SB &sb) {
     return sb.state->transition.active;
@@ -343,23 +340,6 @@ struct ShaderBallWhiteBox {
                              NoiseBasis basis, float scale, float time) {
     return SB::curl_vector(p, noise, basis, scale, time);
   }
-  static float wrapped_noise(const FastNoiseLite &noise, NoiseBasis basis,
-                             float x, float y, float turns) {
-    return SB::sample_wrapped_noise_basis(noise, basis, x, y,
-                                          SB::prepare_noise_phase(turns));
-  }
-  static WrappedNoisePhase legacy_noise_phase(float time) {
-    return SB::prepare_legacy_noise_phase(time);
-  }
-  static StereoWarpResult legacy_wrapped_warp(const Complex &coords,
-                                              float radius_sq,
-                                              const FastNoiseLite &noise,
-                                              float scale, float strength,
-                                              float pole_fade, float time) {
-    return SB::sample_wrapped_warp(coords, radius_sq, noise, scale, strength,
-                                   pole_fade,
-                                   SB::prepare_legacy_noise_phase(time));
-  }
   static ProjectionParams lerp_projection(const ProjectionParams &a,
                                           const ProjectionParams &b, float t) {
     ProjectionParams result;
@@ -368,9 +348,6 @@ struct ShaderBallWhiteBox {
   }
   static Vector apply_lens(const Vector &v, SurfaceLens lens) {
     return SB::apply_frame_free_lens(v, lens);
-  }
-  static Vector tangent_noise_lens(const Vector &v, const FrameState &frame) {
-    return SB::tangent_noise_lens(v, frame);
   }
   static Vector surface_noise(const Vector &v, const FrameState &frame) {
     return SB::apply_surface_noise(v, frame);
@@ -435,8 +412,8 @@ inline void test_shaderball_full_config_snapshot() {
   snapshot.requested[source_seed] = 0x80000000u;
   snapshot.accepted[inactive_phase] = shaderball_float_payload(5.75f);
   snapshot.requested[inactive_phase] = shaderball_float_payload(5.75f);
-  snapshot.runtime = {0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f,
-                      1.75f, 2.0f, 2.25f, 2.5f, 2.75f};
+  snapshot.runtime = {0.25f, 0.5f, 0.75f, 0.0f, 1.25f, 1.5f,
+                      1.75f, 0.0f, 2.25f, 2.5f, 2.75f};
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
                WB::ConfigRestoreResult::APPLIED);
   HS_EXPECT_TRUE(
@@ -538,18 +515,16 @@ inline void test_shaderball_clocks_wrapped() {
   hs::set_mock_time(0, 0);
   WB::SB sb;
   sb.init();
-  WB::seed_clocks(sb, WB::noise_time_period() * 4.0f);
+  WB::seed_clocks(sb, TWO_PI_F * 4.0f);
   for (int frame = 0; frame < 32; ++frame) {
     hs::set_mock_time(frame * FRAME_MS, frame * FRAME_US);
     sb.draw_frame();
     sb.advance_display();
     const WB::ClockState clocks = WB::clocks(sb);
-    HS_EXPECT_GE(clocks.warp_time, 0.0f);
-    HS_EXPECT_LT(clocks.warp_time, WB::noise_time_period());
     for (float phase :
          {clocks.source_primary, clocks.source_secondary, clocks.source_angle,
           clocks.projection_spin, clocks.breathe_phase,
-          clocks.source_noise_time, clocks.lens_noise_time,
+          clocks.source_noise_time, clocks.surface_noise_time,
           clocks.warp_outer_phase, clocks.warp_inner_phase}) {
       HS_EXPECT_GE(phase, 0.0f);
       HS_EXPECT_LT(phase, TWO_PI_F);
@@ -569,7 +544,7 @@ inline void test_shaderball_pause_semantics() {
   ambient.params.source.secondary_rate = 0.37f;
   ambient.params.source.angle_rate = 0.007f;
   ambient.params.source.noise_time_rate = 0.0004f;
-  ambient.params.surface_lens.noise_rate = 0.003f;
+  ambient.params.surface_noise.rate = 0.003f;
   ambient.params.warp.outer.time_scale = 0.071f;
   ambient.params.warp.inner.time_scale = 0.003f;
   ambient.params.projection.spin_rate = 0.009f;
@@ -593,12 +568,12 @@ inline void test_shaderball_pause_semantics() {
   HS_EXPECT_NE(WB::clocks(sb).source_primary, paused_clocks.source_primary);
   HS_EXPECT_NE(WB::clocks(sb).source_secondary, paused_clocks.source_secondary);
   HS_EXPECT_NE(WB::clocks(sb).source_angle, paused_clocks.source_angle);
-  HS_EXPECT_NE(WB::clocks(sb).warp_time, paused_clocks.warp_time);
   HS_EXPECT_NE(WB::clocks(sb).projection_spin, paused_clocks.projection_spin);
   HS_EXPECT_NE(WB::clocks(sb).breathe_phase, paused_clocks.breathe_phase);
   HS_EXPECT_NE(WB::clocks(sb).source_noise_time,
                paused_clocks.source_noise_time);
-  HS_EXPECT_NE(WB::clocks(sb).lens_noise_time, paused_clocks.lens_noise_time);
+  HS_EXPECT_NE(WB::clocks(sb).surface_noise_time,
+               paused_clocks.surface_noise_time);
   HS_EXPECT_NE(WB::clocks(sb).warp_outer_phase, paused_clocks.warp_outer_phase);
   HS_EXPECT_NE(WB::clocks(sb).warp_inner_phase, paused_clocks.warp_inner_phase);
   HS_EXPECT_TRUE(WB::projection_walk(sb) != paused_projection_walk);
@@ -653,50 +628,6 @@ inline void test_shaderball_pause_semantics() {
     sb.advance_display();
   }
   HS_EXPECT_NE(WB::preset_index(sb), active_preset);
-}
-
-/** @brief A paused invalid topology edit waits for its independent repair. */
-inline void test_shaderball_paused_selector_commit() {
-  using WB = ShaderBallWhiteBox;
-  reset_effect_globals();
-  WB::SB sb;
-  sb.init();
-  sb.setAnimationsPaused(true);
-
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Planar Warp 2",
-                         static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
-      ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(WB::requested_slots(sb).warp_program.inner.kind,
-               WB::WarpStageKind::CURL_FLOW);
-  HS_EXPECT_EQ(WB::requested_slots(sb).warp_program.outer.kind,
-               WB::WarpStageKind::LEGACY_STEREO_NOISE);
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 2") != nullptr);
-  HS_EXPECT_NE(WB::active_slots(sb).warp_program.inner.kind,
-               WB::WarpStageKind::CURL_FLOW);
-  sb.draw_frame();
-  sb.advance_display();
-  HS_EXPECT_FALSE(WB::transition_active(sb));
-  HS_EXPECT_FALSE(WB::param_morph_active(sb));
-  HS_EXPECT_NE(WB::active_slots(sb).warp_program.inner.kind,
-               WB::WarpStageKind::CURL_FLOW);
-  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
-               static_cast<float>(WB::WarpStageKind::CURL_FLOW));
-  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 2 Strength", 0.0f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 2 Time", 0.0f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Planar Warp 1",
-                         static_cast<float>(WB::WarpStageKind::NONE)) ==
-      ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 2") == nullptr);
-  sb.draw_frame();
-  sb.advance_display();
-  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.inner.kind,
-               WB::WarpStageKind::CURL_FLOW);
-  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
 }
 
 /** @brief Manual parameter edits commit on the next frame. */
@@ -792,48 +723,6 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_EQ(warped.coords.im, projected.coords.im);
   HS_EXPECT_EQ(warped.deformation, 0.0f);
 
-  frame.slots.warp_program.outer.kind = WB::WarpStageKind::LEGACY_STEREO_NOISE;
-  frame.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
-  frame.params.warp.outer = {1.0f, 0.7f, 0.5f};
-  const WB::PlanarWarpStageResult outer_stage = WB::warp_stage(
-      projected.coords, projected, frame.slots.warp_program.outer,
-      frame.params.warp.outer, frame);
-  const WB::PlanarWarpResult outer_only = WB::warp(projected, frame);
-  HS_EXPECT_EQ(outer_only.coords.re, outer_stage.coords.re);
-  HS_EXPECT_EQ(outer_only.coords.im, outer_stage.coords.im);
-  HS_EXPECT_EQ(outer_only.net_delta.re, outer_stage.delta.re);
-  HS_EXPECT_EQ(outer_only.net_delta.im, outer_stage.delta.im);
-  HS_EXPECT_EQ(outer_only.path_length, outer_stage.path_length);
-  HS_EXPECT_EQ(outer_stage.coords.re,
-               projected.coords.re + outer_stage.delta.re);
-  HS_EXPECT_EQ(outer_stage.coords.im,
-               projected.coords.im + outer_stage.delta.im);
-
-  frame.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
-  frame.slots.warp_program.inner.kind = WB::WarpStageKind::LEGACY_STEREO_NOISE;
-  frame.resources.inner_warp_noise = frame.resources.outer_warp_noise;
-  frame.params.warp.inner = {2.0f, 1.1f, 0.5f};
-  const WB::PlanarWarpStageResult inner_stage = WB::warp_stage(
-      projected.coords, projected, frame.slots.warp_program.inner,
-      frame.params.warp.inner, frame, /*inner=*/true);
-  const WB::PlanarWarpResult inner_only = WB::warp(projected, frame);
-  HS_EXPECT_EQ(inner_only.coords.re, inner_stage.coords.re);
-  HS_EXPECT_EQ(inner_only.coords.im, inner_stage.coords.im);
-  HS_EXPECT_EQ(inner_only.net_delta.re, inner_stage.delta.re);
-  HS_EXPECT_EQ(inner_only.net_delta.im, inner_stage.delta.im);
-  HS_EXPECT_EQ(inner_only.path_length, inner_stage.path_length);
-
-  frame.resources.outer_warp_noise = nullptr;
-  frame.params.warp.inner.strength = 0.0f;
-  const WB::PlanarWarpStageResult zero_strength = WB::warp_stage(
-      projected.coords, projected, frame.slots.warp_program.inner,
-      frame.params.warp.inner, frame, /*inner=*/true);
-  HS_EXPECT_EQ(zero_strength.coords.re, projected.coords.re);
-  HS_EXPECT_EQ(zero_strength.coords.im, projected.coords.im);
-  HS_EXPECT_EQ(zero_strength.delta.re, 0.0f);
-  HS_EXPECT_EQ(zero_strength.delta.im, 0.0f);
-  HS_EXPECT_EQ(zero_strength.deformation, 0.0f);
-
   frame.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   frame.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
   const WB::MaterialSample material = WB::material(projected, warped, frame);
@@ -925,6 +814,7 @@ inline void test_shaderball_legacy_spatial_slots() {
   landmark_frame.slots.projection = WB::Projection::STEREOGRAPHIC;
   landmark_frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
   landmark_frame.slots.surface_lens = WB::SurfaceLens::NONE;
+  landmark_frame.slots.surface_noise = WB::SurfaceNoise::NONE;
   landmark_frame.transforms.projection_conj = Quaternion();
   HS_EXPECT_EQ(WB::surface_project(Vector(0.0f, 1.0f, 0.0f), landmark_frame)
                    .fade_edge_distance,
@@ -955,6 +845,7 @@ inline void test_shaderball_legacy_spatial_slots() {
   frame.slots.projection = WB::Projection::STEREOGRAPHIC;
   frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
   frame.slots.surface_lens = WB::SurfaceLens::GLITCH;
+  frame.slots.surface_noise = WB::SurfaceNoise::NONE;
   frame.transforms.projection_conj = Quaternion();
   frame.params.surface_lens.mix = 0.0f;
   const WB::ProjectedLookup start = WB::surface_project(v, frame);
@@ -1129,6 +1020,7 @@ inline void test_shaderball_equirectangular_projection() {
   frame.slots.projection = WB::Projection::EQUIRECTANGULAR;
   frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
   frame.slots.surface_lens = WB::SurfaceLens::NONE;
+  frame.slots.surface_noise = WB::SurfaceNoise::NONE;
   frame.transforms.projection_conj = Quaternion();
   frame.params.projection.central_meridian = 0.0f;
 
@@ -1295,7 +1187,8 @@ inline void test_shaderball_preset_bank() {
                WB::ProjectionFramePolicy::SPIN_WANDER);
   HS_EXPECT_EQ(presets[0].slots.surface_lens, WB::SurfaceLens::KALEIDOSCOPE);
   HS_EXPECT_EQ(presets[0].slots.warp_program.outer.kind,
-               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(presets[0].slots.surface_noise, WB::SurfaceNoise::DIRECT);
   HS_EXPECT_EQ(presets[0].slots.warp_program.inner.kind,
                WB::WarpStageKind::NONE);
   HS_EXPECT_EQ(presets[0].slots.signal_weight, WB::SignalWeight::PROJECTION);
@@ -1511,7 +1404,8 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(edge_fade_liquid.slots.surface_lens,
                WB::SurfaceLens::KALEIDOSCOPE);
   HS_EXPECT_EQ(edge_fade_liquid.slots.warp_program.outer.kind,
-               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(edge_fade_liquid.slots.surface_noise, WB::SurfaceNoise::DIRECT);
   HS_EXPECT_EQ(edge_fade_liquid.slots.warp_program.inner.kind,
                WB::WarpStageKind::NONE);
   HS_EXPECT_EQ(edge_fade_liquid.slots.signal_weight,
@@ -1551,7 +1445,8 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(dodecahedral_grid.slots.warp_program.outer.kind,
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(dodecahedral_grid.slots.warp_program.inner.kind,
-               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.surface_noise, WB::SurfaceNoise::DIRECT);
   HS_EXPECT_EQ(dodecahedral_grid.slots.signal_weight,
                WB::SignalWeight::PROJECTION);
   HS_EXPECT_EQ(dodecahedral_grid.slots.value_transfer,
@@ -1629,7 +1524,9 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(dodecahedral_noise.slots.surface_lens,
                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
   HS_EXPECT_EQ(dodecahedral_noise.slots.warp_program.outer.kind,
-               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(dodecahedral_noise.slots.surface_noise,
+               WB::SurfaceNoise::DIRECT);
   HS_EXPECT_EQ(dodecahedral_noise.slots.warp_program.inner.kind,
                WB::WarpStageKind::NONE);
   HS_EXPECT_EQ(dodecahedral_noise.slots.signal_weight,
@@ -1668,7 +1565,9 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(dodecahedral_lattice.slots.warp_program.outer.kind,
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(dodecahedral_lattice.slots.warp_program.inner.kind,
-               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.surface_noise,
+               WB::SurfaceNoise::DIRECT);
   HS_EXPECT_EQ(dodecahedral_lattice.slots.signal_weight,
                WB::SignalWeight::PROJECTION);
   HS_EXPECT_EQ(dodecahedral_lattice.slots.value_transfer,
@@ -1751,7 +1650,8 @@ inline void test_shaderball_preset_bank() {
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
     if (index > 0 && index < 11)
-      HS_EXPECT_TRUE(WB::slots_equal(preset.slots, WB::liquid_stereo_slots()));
+      HS_EXPECT_TRUE(
+          WB::slots_equal(preset.slots, WB::liquid_surface_noise_slots()));
     HS_EXPECT_TRUE(WB::valid_config(preset));
     if (index > 0 && index < 10)
       HS_EXPECT_TRUE(WB::slots_equal(preset.slots, presets[index + 1].slots));
@@ -1869,10 +1769,10 @@ inline void test_shaderball_config_admission() {
     projection_change.advance_display();
     HS_EXPECT_FALSE(WB::transition_active(projection_change));
     HS_EXPECT_EQ(WB::active_slots(projection_change).projection,
-                 WB::Projection::STEREOGRAPHIC);
+                 WB::Projection::BONNE);
     HS_EXPECT_EQ(WB::active_slots(projection_change).warp_program.outer.kind,
-                 WB::WarpStageKind::LEGACY_STEREO_NOISE);
-    HS_EXPECT_TRUE(WB::parameter_warning(projection_change, "Projection") !=
+                 WB::WarpStageKind::NONE);
+    HS_EXPECT_TRUE(WB::parameter_warning(projection_change, "Projection") ==
                    nullptr);
     HS_EXPECT_TRUE(
         projection_change.updateParameter(
@@ -1928,7 +1828,9 @@ inline void test_shaderball_config_admission() {
     HS_EXPECT_EQ(WB::active_slots(legacy_warp_change).projection,
                  WB::Projection::STEREOGRAPHIC);
     HS_EXPECT_EQ(WB::active_slots(legacy_warp_change).warp_program.outer.kind,
-                 WB::WarpStageKind::LEGACY_STEREO_NOISE);
+                 WB::WarpStageKind::NONE);
+    HS_EXPECT_TRUE(WB::parameter_warning(legacy_warp_change, "Planar Warp 1") !=
+                   nullptr);
   }
 }
 
@@ -2010,8 +1912,7 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
   HS_EXPECT_EQ(before.slots.warp_program.outer.kind,
                WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(before.slots.warp_program.inner.kind,
-               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+  HS_EXPECT_EQ(before.slots.warp_program.inner.kind, WB::WarpStageKind::NONE);
 
   HS_EXPECT_TRUE(
       sb.updateParameter("Function",
@@ -2024,7 +1925,7 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
   HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 1")->get(),
                static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
   HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
-               static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE));
+               static_cast<float>(WB::WarpStageKind::NONE));
 
   sb.draw_frame();
   sb.advance_display();
@@ -2033,62 +1934,7 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
   HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 1")->get(),
                static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
   HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
-               static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE));
-}
-
-/** @brief Curl warnings name every violated limit and joint repairs commit. */
-inline void test_shaderball_actionable_curl_warning() {
-  using WB = ShaderBallWhiteBox;
-  reset_effect_globals();
-  WB::SB sb;
-  sb.init();
-  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Scale", 100.0f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Strength", 12.81f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Time", 0.47f) ==
-                 ParamSetResult::APPLIED);
-  sb.draw_frame();
-  sb.advance_display();
-  const WB::RequestedConfig before = WB::active_config(sb);
-
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Planar Warp 1",
-                         static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
-      ParamSetResult::APPLIED);
-  const char *warning = WB::parameter_warning(sb, "Planar Warp 1");
-  HS_EXPECT_TRUE(warning != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "Planar Warp 1 Curl Flow rejected") !=
-                 nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "Warp Strength 12.81") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "Warp Scale 100") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "Warp Time 0.47") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "Euler 1") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "0.000078125") != nullptr);
-  HS_EXPECT_TRUE(WB::active_config(sb) == before);
-  const auto *outer_warp = sb.getParameters().find("Planar Warp 1");
-  HS_EXPECT_EQ(outer_warp->get_requested(),
-               static_cast<float>(WB::WarpStageKind::CURL_FLOW));
-  HS_EXPECT_EQ(
-      static_cast<const Effect &>(sb).accepted_parameter_value(*outer_warp),
-      static_cast<float>(before.slots.warp_program.outer.kind));
-
-  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Scale", 1.0f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Strength", 0.0078125f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Time", 0.0f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1") == nullptr);
-  sb.draw_frame();
-  sb.advance_display();
-  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.outer.kind,
-               WB::WarpStageKind::CURL_FLOW);
-  HS_EXPECT_NEAR(WB::active_config(sb).params.warp.outer.scale, 1.0f, 1e-7f);
-  HS_EXPECT_NEAR(WB::active_config(sb).params.warp.outer.strength, 0.0078125f,
-                 1e-7f);
-  HS_EXPECT_NEAR(WB::active_config(sb).params.warp.outer.time_scale, 0.0f,
-                 1e-7f);
+               static_cast<float>(WB::WarpStageKind::NONE));
 }
 
 /** @brief Rejected Polar Chart selectors expose controls needed for admission. */
@@ -2152,66 +1998,6 @@ inline void test_shaderball_polar_gui_repair() {
 
   repair(true, true);
   repair(false, false);
-}
-
-/** @brief Invalid selectors stay visible while independent edits apply. */
-inline void test_shaderball_atomic_gui_commit() {
-  using WB = ShaderBallWhiteBox;
-  reset_effect_globals();
-  WB::SB sb;
-  sb.init();
-  const auto rendered = WB::active_config(sb);
-
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Function",
-                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)) ==
-      ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Hue Shift", 0.05f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter(
-                     "Projection",
-                     static_cast<float>(WB::Projection::PEIRCE_QUINCUNCIAL)) ==
-                 ParamSetResult::APPLIED);
-  WB::refresh_display(sb);
-
-  const auto &requested = WB::requested_config(sb);
-  HS_EXPECT_EQ(requested.slots.function, WB::Function::PRIMITIVE_LATTICE);
-  HS_EXPECT_EQ(requested.slots.projection, WB::Projection::PEIRCE_QUINCUNCIAL);
-  HS_EXPECT_EQ(requested.slots.surface_lens, WB::SurfaceLens::KALEIDOSCOPE);
-  HS_EXPECT_EQ(requested.slots.warp_program.outer.kind,
-               WB::WarpStageKind::LEGACY_STEREO_NOISE);
-  HS_EXPECT_EQ(requested.slots.coverage, rendered.slots.coverage);
-  HS_EXPECT_EQ(requested.params.colorizer.hue_shift, 0.05f);
-  HS_EXPECT_TRUE(WB::display_config(sb) == rendered);
-  HS_EXPECT_EQ(sb.getParameters().find("Function")->get(),
-               static_cast<float>(rendered.slots.function));
-  HS_EXPECT_EQ(sb.getParameters().find("Projection")->get(),
-               static_cast<float>(WB::Projection::PEIRCE_QUINCUNCIAL));
-  const char *warning = WB::parameter_warning(sb, "Projection");
-  HS_EXPECT_TRUE(warning != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "Stereographic") != nullptr);
-
-  sb.draw_frame();
-  sb.advance_display();
-  WB::refresh_display(sb);
-  HS_EXPECT_EQ(WB::active_config(sb).slots.function,
-               WB::Function::PRIMITIVE_LATTICE);
-  HS_EXPECT_EQ(WB::active_config(sb).slots.projection,
-               rendered.slots.projection);
-  HS_EXPECT_EQ(WB::active_config(sb).params.colorizer.hue_shift, 0.05f);
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Planar Warp 1",
-                         static_cast<float>(WB::WarpStageKind::NONE)) ==
-      ParamSetResult::APPLIED);
-  sb.draw_frame();
-  sb.advance_display();
-  WB::refresh_display(sb);
-  HS_EXPECT_EQ(WB::active_config(sb).slots.projection,
-               WB::Projection::PEIRCE_QUINCUNCIAL);
-  HS_EXPECT_EQ(WB::active_config(sb).slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Projection") == nullptr);
-  HS_EXPECT_TRUE(WB::display_config(sb) == WB::active_config(sb));
 }
 
 /** @brief Structural admission accepts curated holds and heavy stage tuples. */
@@ -2324,49 +2110,11 @@ inline void test_shaderball_strict_seam_admission() {
 
     config.slots.surface_lens = WB::SurfaceLens::TANGENT_NOISE;
     config.params.surface_lens.mix = 0.5f;
-    HS_EXPECT_TRUE(WB::valid_config(config));
+    HS_EXPECT_FALSE(WB::valid_config(config));
 
+    config.slots.surface_lens = WB::SurfaceLens::NONE;
     config.slots.projection = WB::Projection::SINUSOIDAL;
     HS_EXPECT_TRUE(WB::valid_config(config));
-  }
-}
-
-/** @brief Tangent Noise stays continuous across the former polar frame cut. */
-inline void test_shaderball_tangent_noise_sphere_field() {
-  using WB = ShaderBallWhiteBox;
-  reset_effect_globals();
-  WB::SB sb;
-  sb.init();
-
-  WB::RequestedConfig config = WB::legacy_config();
-  config.slots.surface_lens = WB::SurfaceLens::TANGENT_NOISE;
-  config.params.surface_lens.mix = 1.0f;
-  config.params.surface_lens.amount = 0.75f;
-  config.params.surface_lens.noise_scale = 4.0f;
-  HS_EXPECT_TRUE(WB::valid_config(config));
-  WB::request_config(sb, config);
-  WB::settle_transition(sb);
-
-  const auto *scale = sb.getParameters().find("Lens Noise Scale");
-  HS_EXPECT_TRUE(scale != nullptr);
-  HS_EXPECT_EQ(scale->max, 8.0f);
-
-  const WB::FrameState frame = WB::frame(sb);
-  constexpr float EPSILON = 1e-4f;
-  const auto at_latitude = [](float y) {
-    return Vector(sqrtf(1.0f - y * y), y, 0.0f);
-  };
-  const Vector below =
-      WB::tangent_noise_lens(at_latitude(0.9f - EPSILON), frame);
-  const Vector above =
-      WB::tangent_noise_lens(at_latitude(0.9f + EPSILON), frame);
-  HS_EXPECT_LT((above - below).length(), 0.02f);
-
-  for (const Vector &direction :
-       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, -1.0f, 0.0f),
-        Vector(1.0f, 0.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f)}) {
-    HS_EXPECT_NEAR(WB::tangent_noise_lens(direction, frame).length(), 1.0f,
-                   1e-5f);
   }
 }
 
@@ -2555,8 +2303,6 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_TRUE(sb.getParameters().find("Lens Mix") == nullptr);
   HS_EXPECT_LT(parameter_index("Lens"), parameter_index("Planar Warp 1"));
   HS_EXPECT_LT(parameter_index("Planar Warp 1"),
-               parameter_index("Planar Warp 1 Strength"));
-  HS_EXPECT_LT(parameter_index("Planar Warp 1 Strength"),
                parameter_index("Planar Warp 2"));
   HS_EXPECT_LT(parameter_index("Colorizer"), parameter_index("Breathe Depth"));
   const auto *projection = sb.getParameters().find("Projection");
@@ -3169,51 +2915,6 @@ inline void test_shaderball_hue_rotate_lut_gamut() {
   HS_EXPECT_LE(total_error / channels, uint64_t(256));
 }
 
-/** @brief Prepared legacy-noise wrapping matches the per-sample seam formula. */
-inline void test_shaderball_legacy_noise_phase() {
-  using WB = ShaderBallWhiteBox;
-  constexpr float PERIOD = 65536.0f;
-  constexpr float BLEND = 1024.0f;
-  constexpr float BLEND_START = PERIOD - BLEND;
-  FastNoiseLite noise(317);
-  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-  noise.SetFrequency(0.01f);
-  const Complex coords(0.37f, -0.91f);
-  const float radius_sq = coords.re * coords.re + coords.im * coords.im;
-  for (float time : {0.0f, BLEND_START, BLEND_START + 1.0f,
-                     BLEND_START + 317.0f, PERIOD - 1.0f}) {
-    const auto phase = WB::legacy_noise_phase(time);
-    const bool blends = time > BLEND_START;
-    HS_EXPECT_EQ(phase.blends, blends);
-    HS_EXPECT_EQ(phase.current_time, time);
-    HS_EXPECT_EQ(phase.previous_time, blends ? time - PERIOD : time);
-    const float expected_mix =
-        blends ? ease_in_out_sin((time - BLEND_START) / BLEND) : 0.0f;
-    HS_EXPECT_EQ(phase.mix, expected_mix);
-
-    const StereoWarpResult actual = WB::legacy_wrapped_warp(
-        coords, radius_sq, noise, 2.3f, 0.71f, 1.4f, time);
-    const StereoWarpResult current =
-        stereo_noise_warp(coords, radius_sq, noise, 2.3f, 0.71f, 1.4f, time);
-    StereoWarpResult expected = current;
-    if (blends) {
-      const StereoWarpResult previous = stereo_noise_warp(
-          coords, radius_sq, noise, 2.3f, 0.71f, 1.4f, time - PERIOD);
-      expected = {
-          {hs::lerp(current.coords.re, previous.coords.re, expected_mix),
-           hs::lerp(current.coords.im, previous.coords.im, expected_mix)},
-          {hs::lerp(current.delta.re, previous.delta.re, expected_mix),
-           hs::lerp(current.delta.im, previous.delta.im, expected_mix)},
-          hs::lerp(current.displacement, previous.displacement, expected_mix)};
-    }
-    HS_EXPECT_EQ(actual.coords.re, expected.coords.re);
-    HS_EXPECT_EQ(actual.coords.im, expected.coords.im);
-    HS_EXPECT_EQ(actual.delta.re, expected.delta.re);
-    HS_EXPECT_EQ(actual.delta.im, expected.delta.im);
-    HS_EXPECT_EQ(actual.displacement, expected.displacement);
-  }
-}
-
 /** @brief Fast square Peirce stays within renderer error and seam budgets. */
 inline void test_shaderball_fast_peirce_square() {
   float max_coordinate_error = 0.0f;
@@ -3425,15 +3126,6 @@ inline void test_shaderball_projection_and_admission_contracts() {
       WB::curl_vector(Complex(), noise, WB::NoiseBasis::SIMPLEX, 2.0f, 0.2f);
   HS_EXPECT_NEAR(curl_two.re, curl_one.re, 1e-5f);
   HS_EXPECT_NEAR(curl_two.im, curl_one.im, 1e-5f);
-  for (WB::NoiseBasis basis : {WB::NoiseBasis::SIMPLEX, WB::NoiseBasis::FBM3,
-                               WB::NoiseBasis::RIDGED3}) {
-    HS_EXPECT_NEAR(WB::wrapped_noise(noise, basis, 0.37f, -0.91f, 0.0f),
-                   WB::wrapped_noise(noise, basis, 0.37f, -0.91f, 1.0f), 1e-6f);
-    HS_EXPECT_NEAR(WB::wrapped_noise(noise, basis, 0.37f, -0.91f, 1.0f - 1e-6f),
-                   WB::wrapped_noise(noise, basis, 0.37f, -0.91f, 1e-6f),
-                   2e-3f);
-  }
-
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -3494,6 +3186,8 @@ inline void test_shaderball_kernel_catalog() {
   }
   config.slots.function = WB::Function::TWIN_WAVE;
   for (uint8_t value = 0; value <= 8; ++value) {
+    if (value == static_cast<uint8_t>(WB::WarpStageKind::LEGACY_STEREO_NOISE))
+      continue;
     config.slots.warp_program.outer.kind =
         static_cast<WB::WarpStageKind>(value);
     config.slots.projection =
@@ -3515,6 +3209,8 @@ inline void test_shaderball_kernel_catalog() {
   config.params.warp.outer.strength = 0.0f;
   config.slots.projection = WB::Projection::SINUSOIDAL;
   for (uint8_t value = 0; value <= 5; ++value) {
+    if (value == static_cast<uint8_t>(WB::SurfaceLens::TANGENT_NOISE))
+      continue;
     config.slots.surface_lens = static_cast<WB::SurfaceLens>(value);
     config.params.surface_lens.mix = value == 0 ? 0.0f : 0.6f;
     check(config);
@@ -3538,6 +3234,8 @@ inline void test_shaderball_kernel_catalog() {
   zero_params.strength = 0.0f;
   const Complex input(0.27f, -0.41f);
   for (uint8_t value = 0; value <= 6; ++value) {
+    if (value == static_cast<uint8_t>(WB::WarpStageKind::LEGACY_STEREO_NOISE))
+      continue;
     WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
     const auto identity = WB::warp_stage(input, {input, 0, 0, 0, 1.0f, 1.0f, 0},
                                          spec, zero_params, frame);
@@ -3584,12 +3282,6 @@ inline void test_shaderball_stable_preset_transition() {
       HS_EXPECT_GT(WB::live_params(sb).source.pattern_freq,
                    to.source.pattern_freq);
       HS_EXPECT_EQ(WB::live_params(sb).warp, from.warp);
-    }
-    if (WB::param_morph_elapsed(sb) == 31) {
-      HS_EXPECT_LT(WB::live_params(sb).source.pattern_freq,
-                   from.source.pattern_freq);
-      HS_EXPECT_GT(WB::live_params(sb).source.pattern_freq,
-                   to.source.pattern_freq);
     }
   }
   HS_EXPECT_FALSE(WB::param_morph_active(sb));
@@ -3997,6 +3689,13 @@ inline void test_shaderball_noise_contour_domains() {
   WB::SB gui;
   gui.init();
   HS_EXPECT_EQ(
+      gui.updateParameter("Planar Warp 1",
+                          static_cast<float>(WB::WarpStageKind::MIRROR_TILE)),
+      ParamSetResult::APPLIED);
+  gui.draw_frame();
+  gui.advance_display();
+  WB::settle_transition(gui);
+  HS_EXPECT_EQ(
       gui.updateParameter(
           "Function", static_cast<float>(WB::Function::NOISE_CONTOUR_SPHERE)),
       ParamSetResult::APPLIED);
@@ -4006,7 +3705,7 @@ inline void test_shaderball_noise_contour_domains() {
                WB::Function::NOISE_CONTOUR_SPHERE);
   const char *warning = WB::parameter_warning(gui, "Function");
   HS_EXPECT_TRUE(warning != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "Planar Warp 1 Stereo Noise") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "Planar Warp 1 Mirror Tile") != nullptr);
   HS_EXPECT_EQ(gui.updateParameter("Planar Warp 1",
                                    static_cast<float>(WB::WarpStageKind::NONE)),
                ParamSetResult::APPLIED);
@@ -4026,7 +3725,6 @@ inline int run_shaderball_tests() {
   test_shaderball_legacy_config_snapshot();
   test_shaderball_clocks_wrapped();
   test_shaderball_pause_semantics();
-  test_shaderball_paused_selector_commit();
   test_shaderball_manual_edit_timing();
   test_shaderball_pipeline_contract();
   test_shaderball_legacy_spatial_slots();
@@ -4037,17 +3735,13 @@ inline int run_shaderball_tests() {
   test_shaderball_legacy_sources();
   test_shaderball_coupled_source();
   test_shaderball_hue_rotate_lut_gamut();
-  test_shaderball_legacy_noise_phase();
   test_shaderball_preset_bank();
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();
   test_shaderball_dodecahedral_lattice_edit();
-  test_shaderball_actionable_curl_warning();
   test_shaderball_polar_gui_repair();
-  test_shaderball_atomic_gui_commit();
   test_shaderball_structural_admission();
   test_shaderball_strict_seam_admission();
-  test_shaderball_tangent_noise_sphere_field();
   test_shaderball_additive_delta_precision();
   test_shaderball_profile_presets();
   test_shaderball_manual_preset_navigation();

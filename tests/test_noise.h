@@ -189,8 +189,7 @@ inline void test_noise3d_golden_grid() {
 /**
  * @brief Checks a fixed 2D OpenSimplex2 sample grid.
  * @details Same generator config, an 8x8 grid over [-3, 3]; backs the 2D
- *          GetNoise path that stereo_noise_warp and the stereo pattern effects
- *          sample.
+ *          GetNoise path that projected noise consumers sample.
  */
 inline void test_noise2d_golden_grid() {
   static constexpr float GOLDEN[] = {
