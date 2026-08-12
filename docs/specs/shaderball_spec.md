@@ -1163,8 +1163,8 @@ global-O3 reference is green for all 26 at a 60.99 ms peak. The current
 28-preset bank has two newer entries that are not part of that capture.
 The Phantasm ledger at `053ecefc` records 194,880 of 196,608 ITCM bytes occupied
 after ShadierBall's exclusion, leaving 1,728 bytes. See the
-[shipping profile](../profiles/shipping/profile_shaderball_teensy_2026-08-10.md),
-[global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-10.md),
+[shipping profile](../profiles/shipping/profile_shaderball_teensy_2026-08-11.md),
+[global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-11.md),
 and [ITCM ledger](../ledgers/itcm_ledger.md). The timing captures measure the
 authored bank directly; the ledger remains a separate full-roster resource
 gate. Regenerate both after preset, kernel, or roster changes and record the
