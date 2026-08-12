@@ -127,8 +127,9 @@ inline float wrap_longitude(float longitude) {
  * @param v Unit direction on the sphere.
  * @param central_meridian Longitude placed at the image's axis, in radians.
  * @param standard_parallel Latitude of the parallel held true to scale, in
- *        radians; the sign selects the hemisphere the cone opens toward, and
- *        +/-pi/2 degenerates to the polar (Werner) limit.
+ *        radians; the sign selects the hemisphere the cone opens toward, 0
+ *        degenerates to the sinusoidal limit and +/-pi/2 to the polar (Werner)
+ *        limit.
  * @return Plane coordinates in radians, with `fade_edge_distance` set to the
  *         angular distance to the antimeridian cut.
  */
@@ -137,17 +138,24 @@ bonne_projection(const Vector &v, float central_meridian,
                  float standard_parallel) {
   const float longitude = wrap_longitude(atan2f(v.z, v.x) - central_meridian);
   const float latitude = asinf(hs::clamp(v.y, -1.0f, 1.0f));
-  const float cut_distance = cosf(latitude) * (PI_F - fabsf(longitude));
-  const float c = fabsf(standard_parallel) == 0.5f * PI_F
-                      ? 0.0f
-                      : cosf(standard_parallel) / sinf(standard_parallel);
-  const float rho = c + standard_parallel - latitude;
-  float e = 0.0f;
-  if (fabsf(rho) > 1e-7f)
-    e = longitude * cosf(latitude) / rho;
-  const Complex coords(rho * sinf(e),
-                       latitude - standard_parallel +
-                           2.0f * rho * sinf(0.5f * e) * sinf(0.5f * e));
+  const float cos_latitude = cosf(latitude);
+  const float cut_distance = cos_latitude * (PI_F - fabsf(longitude));
+  Complex coords;
+  if (standard_parallel == 0.0f) {
+    // cot(phi1) diverges here; the limit is the sinusoidal projection.
+    coords = Complex(longitude * cos_latitude, latitude);
+  } else {
+    const float c = fabsf(standard_parallel) == 0.5f * PI_F
+                        ? 0.0f
+                        : cosf(standard_parallel) / sinf(standard_parallel);
+    const float rho = c + standard_parallel - latitude;
+    float e = 0.0f;
+    if (fabsf(rho) > 1e-7f)
+      e = longitude * cos_latitude / rho;
+    const float half_sine = sinf(0.5f * e);
+    coords = Complex(rho * sinf(e), latitude - standard_parallel +
+                                        2.0f * rho * half_sine * half_sine);
+  }
   return {coords,
           static_cast<uint8_t>(longitude < 0.0f),
           0,
