@@ -559,11 +559,18 @@ the following normative storage IDs:
 | Surface Noise | `0 None`, `1 Direct`, `2 Curl` |
 | Surface Noise Placement | `0 Before Lens`, `1 After Lens` |
 
-All other existing enum storage IDs remain unchanged. Schema 1 uses the same
-legacy Function, Lens, and Warp numbers shown above, but Function 5 is labeled
-Noise Contour, Lens 5 is live Tangent Noise, Warp 1 is live Stereo Noise, and
-the two Surface Noise enums are absent. The decoder maps every schema-1 value
-according to the migration rules below. An unknown enum ID, schema `0`, a
+All other existing enum storage IDs remain unchanged. Schema 1 has this
+explicit legacy table:
+
+| Enum | Storage IDs in schema 1 |
+|---|---|
+| Function | `0 Twin Wave`, `1 Rings`, `2 Spiral`, `3 Grid`, `4 Coupled`, `5 Noise Contour`, `6 Primitive Lattice` |
+| Surface Lens | `0 None`, `1 Glitch`, `2 Twist`, `3 Kaleidoscope (Azimuthal 6-fold)`, `4 Mobius`, `5 Tangent Noise`, `6 Tetrahedral`, `7 Octahedral`, `8 Dodecahedral`, `9 Triangular Prism`, `10 Square Prism`, `11 Pentagonal Prism`, `12 Hexagonal Prism`, `13 Octagonal Prism` |
+| Planar Warp kind | `0 None`, `1 Stereo Noise`, `2 Affine Frame`, `3 Wave Shear`, `4 Vortex`, `5 Vector Noise`, `6 Curl Flow`, `7 Mirror Tile`, `8 Polar Chart` |
+
+Surface Noise and Surface Noise Placement are absent from schema 1. The
+decoder maps every schema-1 value according to the migration rules below. An
+unknown enum ID, schema `0`, a
 negative version, or a version greater than `2` fails the entire import with an
 actionable unsupported-version/value message; it leaves both current accepted
 and requested state unchanged. Writers emit version `2` only.
@@ -634,10 +641,10 @@ decoder then applies these rules in order:
    candidate is discarded and cleared with a named notice. Schema-1 admission
    already forbids two Stereo slots; encountering two is an invalid enum tuple,
    not a precedence case.
-5. Function ID 5 remains projected and copies basis, seed, scale, rate, contrast,
+5. Function ID 5 maps to Noise Contour (Projected) and copies basis, seed, scale, rate, contrast,
    and phase. Its field-layout version changes from legacy wrapped-Z to version
    1 `q_projected`; the notice names this visual migration. It never maps to
-   Function ID 7.
+   Function ID 6 in schema 2.
 
 All calculations above evaluate left to right as IEEE-754 binary32,
 round-to-nearest ties-to-even, then apply the listed clamp. Non-finite inputs
