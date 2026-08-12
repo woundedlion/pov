@@ -3463,7 +3463,7 @@ private:
     case SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL:
       return polyhedral_kaleidoscope_lens(v, OCTAHEDRAL_MIRRORS);
     case SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL:
-      return polyhedral_kaleidoscope_lens(v, DODECAHEDRAL_MIRRORS);
+      return dodecahedral_kaleidoscope_lens(v);
     case SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM:
       return polyhedral_kaleidoscope_lens(v, TRIANGULAR_PRISM_MIRRORS);
     case SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM:
@@ -3562,6 +3562,40 @@ private:
       }
     }
     HS_CHECK(false, "polyhedral kaleidoscope fold did not converge");
+    return v;
+  }
+
+  HS_O3_FN static Vector dodecahedral_kaleidoscope_lens(Vector v) {
+    [[maybe_unused]] uint32_t reflections = 0;
+    constexpr Vector OBLIQUE = DODECAHEDRAL_MIRRORS[1];
+    for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
+         ++reflection) {
+      if (v.x < -POLYHEDRAL_MIRROR_EPS) {
+        v.x = -v.x;
+      } else {
+        const float distance = dot(v, OBLIQUE);
+        if (distance < -POLYHEDRAL_MIRROR_EPS) {
+          v.x -= 2.0f * distance * OBLIQUE.x;
+          v.y -= 2.0f * distance * OBLIQUE.y;
+          v.z -= 2.0f * distance * OBLIQUE.z;
+        } else if (v.z < -POLYHEDRAL_MIRROR_EPS) {
+          v.z = -v.z;
+        } else {
+          HS_SB_STAGE_COUNT(++hs::g_shaderball_stage_cycles.polyhedral_pixels);
+          HS_SB_STAGE_COUNT(
+              hs::g_shaderball_stage_cycles.polyhedral_reflections +=
+              reflections);
+          HS_SB_STAGE_COUNT(
+              hs::g_shaderball_stage_cycles.polyhedral_max_reflections =
+                  std::max(
+                      hs::g_shaderball_stage_cycles.polyhedral_max_reflections,
+                      reflections));
+          return v;
+        }
+      }
+      HS_SB_STAGE_COUNT(++reflections);
+    }
+    HS_CHECK(false, "dodecahedral kaleidoscope fold did not converge");
     return v;
   }
 

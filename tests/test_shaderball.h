@@ -355,6 +355,12 @@ struct ShaderBallWhiteBox {
   static Vector surface_curl_field(const Vector &v, const FrameState &frame) {
     return SB::surface_curl_field(v, frame);
   }
+  static Vector dodecahedral_reference(const Vector &v) {
+    return SB::polyhedral_kaleidoscope_lens(v, SB::DODECAHEDRAL_MIRRORS);
+  }
+  static Vector tangent_noise_lens(const Vector &v, const FrameState &frame) {
+    return SB::tangent_noise_lens(v, frame);
+  }
   static float sample_function(Function function, const Complex &p,
                                const SourceState &source) {
     return SB::sample_function(function, p, source);
@@ -1037,6 +1043,22 @@ inline void test_shaderball_polyhedral_kaleidoscopes() {
 
   for (size_t index = 1; index < std::size(folded); ++index)
     HS_EXPECT_TRUE(folded[index - 1] != folded[index]);
+
+  for (int latitude_step = -64; latitude_step <= 64; ++latitude_step) {
+    const float latitude = latitude_step * (0.5f * PI_F / 64.0f);
+    const float radius = cosf(latitude);
+    const float y = sinf(latitude);
+    for (int longitude_step = 0; longitude_step < 1440; ++longitude_step) {
+      const float longitude = longitude_step * (TWO_PI_F / 1440.0f);
+      const Vector input(radius * cosf(longitude), y, radius * sinf(longitude));
+      const Vector expected = WB::dodecahedral_reference(input);
+      const Vector actual =
+          WB::apply_lens(input, WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
+      HS_EXPECT_EQ(actual.x, expected.x);
+      HS_EXPECT_EQ(actual.y, expected.y);
+      HS_EXPECT_EQ(actual.z, expected.z);
+    }
+  }
 
   reset_effect_globals();
   WB::SB sb;
