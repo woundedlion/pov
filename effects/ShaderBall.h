@@ -196,7 +196,9 @@ public:
                           PARAM_CAPACITY);
     requested_config = PRESETS[0];
     published_config = PRESETS[0];
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     accepted_config = PRESETS[0];
+#endif
     prepare_resource_union(PRESETS[0], PRESETS[0]);
 
     rebind_parameters();
@@ -279,8 +281,8 @@ private:
         return false;
       requested_config = to;
       published_config = to;
-      accepted_config = to;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+      accepted_config = to;
       pending_edit_count = 0;
 #endif
       rebind_parameters();
@@ -296,8 +298,8 @@ private:
 #endif
     requested_config = PRESETS[index];
     published_config = PRESETS[index];
-    accepted_config = PRESETS[index];
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+    accepted_config = PRESETS[index];
     pending_edit_count = 0;
 #endif
     runtime = {};
@@ -447,7 +449,7 @@ public:
     int32_t noise_seed = 2927;
     uint8_t noise_resource_id = 2;
 
-    constexpr SourceParams() = default;
+    HS_COLD_MEMBER constexpr SourceParams() = default;
 
     constexpr SourceParams(float pattern_freq, float speed, float complexity,
                            float pattern_mix, float secondary_rate,
@@ -506,7 +508,7 @@ public:
     float angular_phase = 0.0f;
     float edge_width = 0.1f;
 
-    constexpr WarpStageParams() = default;
+    HS_COLD_MEMBER constexpr WarpStageParams() = default;
 
     constexpr WarpStageParams(float scale, float strength, float time_scale)
         : scale(scale), strength(strength), time_scale(time_scale) {}
@@ -577,7 +579,7 @@ public:
     float bonne_standard_parallel = PI_F * 0.25f;
     float layout_scroll = 0.0f;
 
-    constexpr ProjectionParams() = default;
+    HS_COLD_MEMBER constexpr ProjectionParams() = default;
 
     constexpr ProjectionParams(float pole_fade, float spin_rate)
         : pole_fade(pole_fade), spin_rate(spin_rate) {}
@@ -622,7 +624,7 @@ public:
     MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                         0.7071067811865475f, 0.0f};
 
-    constexpr SurfaceLensParams() = default;
+    HS_COLD_MEMBER constexpr SurfaceLensParams() = default;
 
     constexpr SurfaceLensParams(float mix) : mix(mix) {}
 
@@ -713,7 +715,7 @@ public:
     float path_norm = 1.0f;
     float direction_phase = 0.0f;
 
-    constexpr ColorizerParams() = default;
+    HS_COLD_MEMBER constexpr ColorizerParams() = default;
 
     constexpr ColorizerParams(float breathe_depth, float cycle_speed,
                               float hue_shift, float value_fade)
@@ -821,6 +823,10 @@ public:
     Slots slots;
     Params params;
 
+    HS_COLD_MEMBER constexpr Config() = default;
+    constexpr Config(const Slots &slots, const Params &params)
+        : slots(slots), params(params) {}
+
     HS_COLD_MEMBER bool operator==(const Config &) const = default;
   };
   using RequestedConfig = Config;
@@ -918,11 +924,13 @@ public:
     return {sizeof(Config), 0};
   }
 
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Latest successful legacy-import notice, or an empty string. */
   const char *config_import_notice() const { return import_notice.data(); }
 
   /** @brief Clears the current legacy-import notice. */
   void clear_config_import_notice() { import_notice = {}; }
+#endif
 
 private:
   HS_COLD_MEMBER void rebind_parameters() {
@@ -1585,7 +1593,7 @@ private:
     float warp_outer_phase = 0.0f;
     float warp_inner_phase = 0.0f;
 
-    constexpr ClockState() = default;
+    HS_COLD_MEMBER constexpr ClockState() = default;
     constexpr ClockState(float source_primary, float source_secondary,
                          float source_angle, float projection_spin,
                          float breathe_phase)
@@ -1662,6 +1670,8 @@ private:
     Quaternion projection_wander;
     Quaternion outer_wander;
     PreparedTransforms transforms;
+
+    HS_COLD_MEMBER LookRuntime() = default;
   };
 
   template <typename T> static uint32_t encode_field_value(const T &value) {
@@ -2021,6 +2031,7 @@ private:
            preset_in_ranges(config.params);
   }
 
+#if HS_ENABLE_PARAM_GUI_BRIDGE
 public:
   /** @brief Captures all accepted, requested, pending, and runtime state. */
   HS_COLD_MEMBER FullConfigSnapshot capture_full_config_snapshot() const {
@@ -2148,6 +2159,7 @@ public:
     rebind_parameters();
     return ConfigRestoreResult::APPLIED;
   }
+#endif
 
 private:
   struct WalkDeltas {
@@ -2183,6 +2195,8 @@ private:
     FastNoiseLite outer_walk_noise;
     ParamMorphRuntime param_morph;
     TransitionRuntime transition;
+
+    HS_COLD_MEMBER StateBundle() = default;
   };
 
   struct ThroughClearPhase {
@@ -3762,15 +3776,17 @@ private:
     display_config = next_config;
 #endif
     published_config = next_config;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     accepted_config = next_config;
+#endif
     if (!requested_schema_bound)
       rebind_parameters();
   }
 
   HS_COLD_MEMBER void reject_requested_config() {
     requested_config = published_config;
-    accepted_config = published_config;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+    accepted_config = published_config;
     pending_edit_count = 0;
     display_config = published_config;
 #endif
@@ -3862,9 +3878,12 @@ private:
   }
 
   HS_COLD_MEMBER void publish_live_config() {
-    if (anims_paused || state->transition.active || state->param_morph.active ||
-        accepted_config != published_config)
+    if (anims_paused || state->transition.active || state->param_morph.active)
       return;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    if (accepted_config != published_config)
+      return;
+#endif
     published_config = {active_slots, blend.params};
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     Config next_requested = published_config;
@@ -3875,7 +3894,9 @@ private:
 #else
     requested_config = published_config;
 #endif
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     accepted_config = published_config;
+#endif
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -5570,13 +5591,17 @@ private:
 #endif
   RequestedConfig requested_config = PRESETS[0];
   Config published_config = PRESETS[0];
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   Config accepted_config = PRESETS[0];
+#endif
   bool requested_schema_bound = false;
   uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;
   Blend blend{PRESETS[0].params};
   LookRuntime runtime;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   std::array<char, 1024> import_notice{};
+#endif
 #if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;
   uint32_t liquid_palette_step_count = 0;

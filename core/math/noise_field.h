@@ -38,7 +38,8 @@ struct NoiseFieldKey {
   uint8_t noise_type = FastNoiseLite::NoiseType_OpenSimplex2;
   float generator_frequency = 1.0f;
 
-  constexpr bool operator==(const NoiseFieldKey &) const = default;
+  HS_COLD_MEMBER constexpr bool
+  operator==(const NoiseFieldKey &) const = default;
 };
 
 constexpr NoiseFieldKey noise_field_key(const NoiseFieldSpec &spec) {
