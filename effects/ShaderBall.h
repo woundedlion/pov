@@ -196,7 +196,12 @@ private:
     TANGENT_NOISE,
     KALEIDOSCOPE_TETRAHEDRAL,
     KALEIDOSCOPE_OCTAHEDRAL,
-    KALEIDOSCOPE_DODECAHEDRAL
+    KALEIDOSCOPE_DODECAHEDRAL,
+    KALEIDOSCOPE_TRIANGULAR_PRISM,
+    KALEIDOSCOPE_SQUARE_PRISM,
+    KALEIDOSCOPE_PENTAGONAL_PRISM,
+    KALEIDOSCOPE_HEXAGONAL_PRISM,
+    KALEIDOSCOPE_OCTAGONAL_PRISM
   };
   enum class NoiseBasis : uint8_t { SIMPLEX, FBM3, RIDGED3 };
   enum class WarpEnvelope : uint8_t { FLAT, PROJECTION_WEIGHT, EDGE_FADE };
@@ -2665,6 +2670,11 @@ private:
     case SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL:
     case SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL:
     case SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL:
+    case SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM:
+    case SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM:
+    case SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM:
+    case SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM:
+    case SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM:
       return apply_frame_free_lens(v, frame.slots.surface_lens);
     case SurfaceLens::MOBIUS:
       return mobius_lens(v, frame.params.surface_lens.mobius);
@@ -2706,6 +2716,16 @@ private:
       return polyhedral_kaleidoscope_lens(v, OCTAHEDRAL_MIRRORS);
     case SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL:
       return polyhedral_kaleidoscope_lens(v, DODECAHEDRAL_MIRRORS);
+    case SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM:
+      return polyhedral_kaleidoscope_lens(v, TRIANGULAR_PRISM_MIRRORS);
+    case SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM:
+      return polyhedral_kaleidoscope_lens(v, SQUARE_PRISM_MIRRORS);
+    case SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM:
+      return polyhedral_kaleidoscope_lens(v, PENTAGONAL_PRISM_MIRRORS);
+    case SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM:
+      return polyhedral_kaleidoscope_lens(v, HEXAGONAL_PRISM_MIRRORS);
+    case SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM:
+      return polyhedral_kaleidoscope_lens(v, OCTAGONAL_PRISM_MIRRORS);
     case SurfaceLens::MOBIUS:
     case SurfaceLens::TANGENT_NOISE:
       HS_CHECK(false, "frame-parameterized lens needs the FrameState overload");
@@ -3273,7 +3293,7 @@ private:
         !enum_at_most(slots.projection_frame,
                       ProjectionFramePolicy::SPIN_WANDER) ||
         !enum_at_most(slots.surface_lens,
-                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL) ||
+                      SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM) ||
         !enum_at_most(slots.warp_program.outer.kind,
                       WarpStageKind::POLAR_CHART) ||
         !enum_at_most(slots.warp_program.inner.kind,
@@ -4024,6 +4044,21 @@ private:
   static constexpr std::array<Vector, 3> DODECAHEDRAL_MIRRORS = {
       Vector(1.0f, 0.0f, 0.0f), Vector(-0.8090169944f, 0.3090169944f, -0.5f),
       Vector(0.0f, 0.0f, 1.0f)};
+  static constexpr std::array<Vector, 3> TRIANGULAR_PRISM_MIRRORS = {
+      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+      Vector(0.8660254038f, 0.0f, -0.5f)};
+  static constexpr std::array<Vector, 3> SQUARE_PRISM_MIRRORS = {
+      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+      Vector(0.7071067812f, 0.0f, -0.7071067812f)};
+  static constexpr std::array<Vector, 3> PENTAGONAL_PRISM_MIRRORS = {
+      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+      Vector(0.5877852523f, 0.0f, -0.8090169944f)};
+  static constexpr std::array<Vector, 3> HEXAGONAL_PRISM_MIRRORS = {
+      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+      Vector(0.5f, 0.0f, -0.8660254038f)};
+  static constexpr std::array<Vector, 3> OCTAGONAL_PRISM_MIRRORS = {
+      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+      Vector(0.3826834324f, 0.0f, -0.9238795325f)};
   static constexpr float WARP_NOISE_FREQUENCY = 0.01f;
   static constexpr float STEREO_NOISE_TIME_PERIOD = 65536.0f;
   static constexpr float NOISE_NATIVE_PERIOD = 256.0f;
@@ -4085,15 +4120,21 @@ private:
       "ProjectionFramePolicy::IDENTITY", "ProjectionFramePolicy::SPIN_WANDER"};
   static constexpr int NUM_PROJECTION_FRAMES =
       std::size(PROJECTION_FRAME_OPTIONS);
-  static constexpr const char *LENS_OPTIONS[] = {"None",
-                                                 "Glitch",
-                                                 "Twist",
-                                                 "Kaleidoscope",
-                                                 "Mobius",
-                                                 "Tangent Noise",
-                                                 "Kaleidoscope (Tetrahedral)",
-                                                 "Kaleidoscope (Octahedral)",
-                                                 "Kaleidoscope (Dodecahedral)"};
+  static constexpr const char *LENS_OPTIONS[] = {
+      "None",
+      "Glitch",
+      "Twist",
+      "Kaleidoscope (Azimuthal 6-fold)",
+      "Mobius",
+      "Tangent Noise",
+      "Kaleidoscope (Tetrahedral)",
+      "Kaleidoscope (Octahedral / Cubic)",
+      "Kaleidoscope (Dodecahedral / Icosahedral)",
+      "Kaleidoscope (Triangular Prism)",
+      "Kaleidoscope (Square Prism)",
+      "Kaleidoscope (Pentagonal Prism)",
+      "Kaleidoscope (Hexagonal Prism)",
+      "Kaleidoscope (Octagonal Prism)"};
   static constexpr const char *LENS_EXPORT_OPTIONS[] = {
       "SurfaceLens::NONE",
       "SurfaceLens::GLITCH",
@@ -4103,7 +4144,12 @@ private:
       "SurfaceLens::TANGENT_NOISE",
       "SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL",
       "SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL",
-      "SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL"};
+      "SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL",
+      "SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM",
+      "SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM",
+      "SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM",
+      "SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM",
+      "SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM"};
   static constexpr int NUM_LENSES = std::size(LENS_OPTIONS);
   static constexpr const char *WARP_OPTIONS[] = {
       "None",         "Stereo Noise", "Affine Frame", "Wave Shear", "Vortex",
