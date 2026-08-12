@@ -1687,6 +1687,15 @@ private:
     float direction_sin;
   };
 
+  struct PreparedLiquidHue {
+    static constexpr int VALUE_STEPS = 64;
+    static constexpr int HUE_STEPS = 16;
+    static constexpr size_t LUT_SIZE = VALUE_STEPS * HUE_STEPS;
+
+    Pixel *lut;
+    bool active;
+  };
+
   struct ResourceBindings {
     const FastNoiseLite *outer_warp_noise;
     const FastNoiseLite *inner_warp_noise;
@@ -1708,6 +1717,7 @@ private:
     PreparedWarpProgram prepared_warp;
     WrappedNoisePhase source_noise_phase;
     PreparedSurfaceNoise prepared_surface_noise;
+    PreparedLiquidHue prepared_liquid_hue;
     ResourceBindings resources;
   };
 
@@ -2252,6 +2262,7 @@ private:
   struct StateBundle {
     std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
     std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
+    std::array<Pixel, PreparedLiquidHue::LUT_SIZE> liquid_hue_lut;
     FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
     ParamMorphRuntime param_morph;
@@ -2463,6 +2474,17 @@ private:
         Vector(NOISE_LOOP_RADIUS * cosf(surface_phase),
                NOISE_LOOP_RADIUS * sinf(surface_phase), 0.0f),
         cosf(surface_direction), sinf(surface_direction)};
+    const float breathe_offset = fast_sinf(look.clocks.breathe_phase) *
+                                 config.params.colorizer.breathe_depth;
+    const BakedPalette *liquid_palette = &liquid_palette_cycler.palette();
+    PreparedLiquidHue prepared_liquid_hue{
+        state->liquid_hue_lut.data(),
+        config.params.colorizer.hue_shift != 0.0f &&
+            (config.slots.warp_program.outer.kind != WarpStageKind::NONE ||
+             config.slots.warp_program.inner.kind != WarpStageKind::NONE)};
+    if (prepared_liquid_hue.active)
+      prepare_liquid_hue_lut(prepared_liquid_hue, *liquid_palette,
+                             breathe_offset);
     return {
         config.slots,
         config.params,
@@ -2470,19 +2492,18 @@ private:
         {look.clocks.source_primary, look.clocks.source_secondary,
          look.clocks.source_angle, fast_cosf(look.clocks.source_angle),
          fast_sinf(look.clocks.source_angle)},
-        fast_sinf(look.clocks.breathe_phase) *
-            config.params.colorizer.breathe_depth,
+        breathe_offset,
         {animated_projection ? look.transforms.projection_conj : Quaternion(),
          look.transforms.outer_conj},
         prepared_warp,
         prepare_noise_phase(look.clocks.source_noise_time),
         prepared_surface_noise,
+        prepared_liquid_hue,
         {resolve_warp_resource(config.slots.warp_program.outer),
          resolve_warp_resource(config.slots.warp_program.inner),
          resolve_source_resource(config),
          resolve_surface_noise_resource(config),
-         &generated_palette_cycler.palette(),
-         &liquid_palette_cycler.palette()}};
+         &generated_palette_cycler.palette(), liquid_palette}};
   }
 
   static ThroughClearPhase through_clear_phase(uint16_t elapsed,
@@ -3550,9 +3571,16 @@ private:
     Color4 color = frame.resources.liquid_palette->get(u);
     color.alpha *=
         sample.coverage * (1.0f - value * frame.params.colorizer.value_fade);
-    if (frame.params.colorizer.hue_shift != 0.0f && sample.deformation != 0.0f)
-      color = hue_rotate_lut_gamut(color, -sample.deformation *
-                                              frame.params.colorizer.hue_shift);
+    if (frame.params.colorizer.hue_shift != 0.0f &&
+        sample.deformation != 0.0f) {
+      const float amount =
+          -sample.deformation * frame.params.colorizer.hue_shift;
+      if (frame.prepared_liquid_hue.active)
+        color.color =
+            sample_liquid_hue_lut(frame.prepared_liquid_hue, value, amount);
+      else
+        color = hue_rotate_lut_gamut(color, amount);
+    }
     return color;
   }
 
@@ -3594,10 +3622,15 @@ private:
   }
 
   static Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
+    const LinRGB input = pixel_to_linrgb(color.color);
+    return hue_rotate_lut_gamut(
+        {linear_rgb_to_oklab_fast(input.r, input.g, input.b), color}, amount);
+  }
+
+  static Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
     float cosine, sine;
     hue_sincos(amount, cosine, sine);
-    const LinRGB input = pixel_to_linrgb(color.color);
-    OKLab lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
+    OKLab lab = base.lab;
     const float rotated_a = lab.a * cosine - lab.b * sine;
     const float rotated_b = lab.a * sine + lab.b * cosine;
     lab = {lab.L, rotated_a, rotated_b};
@@ -3606,7 +3639,53 @@ private:
       output = oklab_to_linear_rgb(gamut_clip_lut(lab));
     return Color4(Pixel(float_to_pixel16(output.r), float_to_pixel16(output.g),
                         float_to_pixel16(output.b)),
-                  color.alpha);
+                  base.base.alpha);
+  }
+
+  HS_FLASH_MEMBER static void
+  prepare_liquid_hue_lut(PreparedLiquidHue &prepared,
+                         const BakedPalette &palette, float breathe_offset) {
+    for (int value_index = 0; value_index < PreparedLiquidHue::VALUE_STEPS;
+         ++value_index) {
+      const float value =
+          ONE_BELOW_UNIT * value_index / (PreparedLiquidHue::VALUE_STEPS - 1);
+      const HueRotateBase base =
+          make_hue_rotate_base(palette.get(wrap_t(value + breathe_offset)));
+      for (int hue_index = 0; hue_index < PreparedLiquidHue::HUE_STEPS;
+           ++hue_index) {
+        const float amount =
+            static_cast<float>(hue_index) / PreparedLiquidHue::HUE_STEPS;
+        prepared.lut[value_index * PreparedLiquidHue::HUE_STEPS + hue_index] =
+            hue_rotate_lut_gamut(base, amount).color;
+      }
+    }
+  }
+
+  __attribute__((always_inline)) static Pixel
+  sample_liquid_hue_lut(const PreparedLiquidHue &prepared, float value,
+                        float amount) {
+    const float value_position = value * (PreparedLiquidHue::VALUE_STEPS - 1);
+    const int value_low = static_cast<int>(value_position);
+    const int value_high =
+        std::min(value_low + 1, PreparedLiquidHue::VALUE_STEPS - 1);
+    const uint16_t value_weight =
+        frac_to_q16(value_position - static_cast<float>(value_low));
+
+    const float hue_position = amount * PreparedLiquidHue::HUE_STEPS;
+    int hue_low = static_cast<int>(hue_position);
+    if (hue_position < static_cast<float>(hue_low))
+      --hue_low;
+    const uint16_t hue_weight =
+        frac_to_q16(hue_position - static_cast<float>(hue_low));
+    const int hue_index_low = hue_low & (PreparedLiquidHue::HUE_STEPS - 1);
+    const int hue_index_high =
+        (hue_index_low + 1) & (PreparedLiquidHue::HUE_STEPS - 1);
+    const auto sample_row = [&](int row) {
+      const int offset = row * PreparedLiquidHue::HUE_STEPS;
+      return prepared.lut[offset + hue_index_low].lerp16(
+          prepared.lut[offset + hue_index_high], hue_weight);
+    };
+    return sample_row(value_low).lerp16(sample_row(value_high), value_weight);
   }
 
   HS_FLASH_MEMBER static Vector apply_lens(const Vector &v,
@@ -3641,7 +3720,8 @@ private:
     return lensed;
   }
 
-  static Vector surface_curl_field(const Vector &v, const FrameState &frame) {
+  HS_FLASH_MEMBER static Vector surface_curl_field(const Vector &v,
+                                                   const FrameState &frame) {
     const SurfaceNoiseParams &params = frame.params.surface_noise;
     const Vector q = noise_sphere_coordinate(
         v, params.scale, frame.prepared_surface_noise.loop_offset);
@@ -3649,8 +3729,9 @@ private:
                                v);
   }
 
-  static Vector midpoint_surface_curl_step(const Vector &v, float distance,
-                                           const FrameState &frame) {
+  HS_FLASH_MEMBER static Vector
+  midpoint_surface_curl_step(const Vector &v, float distance,
+                             const FrameState &frame) {
     const Vector first = surface_curl_field(v, frame);
     const Vector midpoint =
         sphere_exp_map_half_radian(v, 0.5f * distance * first);
