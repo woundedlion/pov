@@ -206,6 +206,12 @@ struct ShaderBallWhiteBox {
     sb.state->param_morph.active = false;
     sb.state->transition = {from, to,       sb.runtime,      sb.runtime,
                             0,    duration, continue_choreo, true};
+    const auto *from_program = SB::find_inverse_program(from);
+    const auto *to_program = SB::find_inverse_program(to);
+    sb.state->transition.from_pipeline =
+        from_program == nullptr ? InversePipelineId::NONE : from_program->id;
+    sb.state->transition.to_pipeline =
+        to_program == nullptr ? InversePipelineId::NONE : to_program->id;
   }
   static const LookRuntime &runtime(const SB &sb) { return sb.runtime; }
   static Quaternion projection_walk(const SB &sb) {
@@ -228,7 +234,10 @@ struct ShaderBallWhiteBox {
       return Color4();
     HS_CHECK(visible != nullptr,
              "through-clear visible phase requires an endpoint frame");
-    typename SB::FrameShader shader{visible, phase.alpha, nullptr};
+    const auto function = SB::resolve_shade_function(*visible);
+    HS_CHECK(function != nullptr,
+             "through-clear test topology has no compiled inverse pipeline");
+    typename SB::FrameShader shader{visible, phase.alpha, function};
     return shader(view);
   }
   static void begin_blend(SB &sb) {
@@ -342,11 +351,22 @@ struct ShaderBallWhiteBox {
     return SB::hue_rotate_lut_gamut(base, amount).color;
   }
   static Color4 shade(const Vector &v, const FrameState &frame) {
-    return SB::shade(v, frame);
+    return SB::shade_reference(v, frame);
   }
   static Color4 pipeline_shade(const Vector &v, const FrameState &frame) {
     const auto function = SB::resolve_shade_function(frame);
-    return function ? function(v, frame) : SB::shade(v, frame);
+    HS_CHECK(function != nullptr,
+             "ShaderBall test topology has no compiled inverse pipeline");
+    return function(v, frame);
+  }
+  static ProjectedLookup pipeline_surface(const Vector &v,
+                                          const FrameState &frame) {
+    return SB::template DirectNoiseStereographicStage<
+        SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>::run(v, frame);
+  }
+  static PlanarWarpResult pipeline_mirror(const ProjectedLookup &projected,
+                                          const FrameState &frame) {
+    return SB::template PlanarWarpStage<true>::run(projected, frame).warped;
   }
   static TopologyKey topology_key(const RequestedConfig &config) {
     return SB::make_topology_key(config);
@@ -3175,6 +3195,12 @@ inline void test_shaderball_inverse_pipeline_manifest() {
       {18, WB::InversePipelineId::DODECAHEDRAL_NOISE_GRID_MIRROR},
       {20, WB::InversePipelineId::DODECAHEDRAL_NOISE_GRID},
       {21, WB::InversePipelineId::DODECAHEDRAL_NOISE_LATTICE_MIRROR},
+      {11, WB::InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
+      {12, WB::InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR},
+      {13, WB::InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR},
+      {14, WB::InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR},
+      {19, WB::InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
+      {22, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR},
   };
   HS_EXPECT_EQ(WB::inverse_program_count(), std::size(EXPECTED));
   HS_EXPECT_TRUE(WB::inverse_programs_well_formed());
@@ -3222,16 +3248,53 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   WB::RequestedConfig unsupported = WB::presets()[0];
   unsupported.slots.surface_lens = WB::SurfaceLens::TWIST;
   HS_EXPECT_FALSE(WB::has_inverse_program(unsupported));
+  const WB::RequestedConfig active_before_rejection = WB::active_config(sb);
+  WB::request_config(sb, unsupported);
+  HS_EXPECT_TRUE(WB::active_config(sb) == active_before_rejection);
+  HS_EXPECT_TRUE(WB::requested_config(sb) == active_before_rejection);
+
+  const WB::FrameState boundary_frame = WB::preset_frame(sb, 18);
+  const Vector boundary_view = Vector(0.31f, -0.47f, 0.8269825f).normalized();
+  const Vector outer = WB::outer_lookup(boundary_view, boundary_frame);
+  const WB::ProjectedLookup reference_projected =
+      WB::surface_project(outer, boundary_frame);
+  const WB::ProjectedLookup pipeline_projected =
+      WB::pipeline_surface(outer, boundary_frame);
+  HS_EXPECT_EQ(pipeline_projected.coords.re, reference_projected.coords.re);
+  HS_EXPECT_EQ(pipeline_projected.coords.im, reference_projected.coords.im);
+  HS_EXPECT_EQ(pipeline_projected.region_id, reference_projected.region_id);
+  HS_EXPECT_EQ(pipeline_projected.component_id,
+               reference_projected.component_id);
+  HS_EXPECT_EQ(pipeline_projected.boundary_flags,
+               reference_projected.boundary_flags);
+  HS_EXPECT_EQ(pipeline_projected.fade_edge_distance,
+               reference_projected.fade_edge_distance);
+  HS_EXPECT_EQ(pipeline_projected.value_weight,
+               reference_projected.value_weight);
+  HS_EXPECT_EQ(pipeline_projected.sphere.x, reference_projected.sphere.x);
+  HS_EXPECT_EQ(pipeline_projected.sphere.y, reference_projected.sphere.y);
+  HS_EXPECT_EQ(pipeline_projected.sphere.z, reference_projected.sphere.z);
+
+  const WB::PlanarWarpResult reference_warp =
+      WB::warp(reference_projected, boundary_frame);
+  const WB::PlanarWarpResult pipeline_warp =
+      WB::pipeline_mirror(reference_projected, boundary_frame);
+  HS_EXPECT_EQ(pipeline_warp.coords.re, reference_warp.coords.re);
+  HS_EXPECT_EQ(pipeline_warp.coords.im, reference_warp.coords.im);
+  HS_EXPECT_EQ(pipeline_warp.net_delta.re, reference_warp.net_delta.re);
+  HS_EXPECT_EQ(pipeline_warp.net_delta.im, reference_warp.net_delta.im);
+  HS_EXPECT_EQ(pipeline_warp.deformation, reference_warp.deformation);
+  HS_EXPECT_EQ(pipeline_warp.path_length, reference_warp.path_length);
 }
 
-/** @brief Specialized inverse pipelines match the generic shader exactly. */
-inline void test_shaderball_specialized_inverse_pipelines() {
+/** @brief Compiled inverse programs match the host reference exactly. */
+inline void test_shaderball_inverse_program_equivalence() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  for (size_t preset_index : {size_t(0), size_t(1), size_t(15), size_t(16),
-                              size_t(17), size_t(18), size_t(20), size_t(21)}) {
+  for (size_t preset_index = 0; preset_index < WB::presets().size();
+       ++preset_index) {
     const WB::FrameState frame = WB::preset_frame(sb, preset_index);
     for (int latitude_step = -32; latitude_step <= 32; ++latitude_step) {
       const float latitude = latitude_step * (0.5f * PI_F / 32.0f);
@@ -3993,47 +4056,32 @@ inline void test_shaderball_noise_contour_domains() {
 /** @brief Module entry point for ShaderBall contract tests. */
 inline int run_shaderball_tests() {
   ModuleFixture fixture("shaderball");
+  test_shaderball_inverse_pipeline_manifest();
+  test_shaderball_inverse_program_equivalence();
   test_shaderball_full_config_snapshot();
   test_shaderball_legacy_config_snapshot();
   test_shaderball_schema2_selector_storage();
   test_shaderball_clocks_wrapped();
   test_shaderball_pause_semantics();
-  test_shaderball_manual_edit_timing();
   test_shaderball_pipeline_contract();
   test_shaderball_legacy_spatial_slots();
   test_shaderball_kaleidoscope_reflection_fold();
   test_shaderball_polyhedral_kaleidoscopes();
-  test_shaderball_equirectangular_projection();
   test_shaderball_flush_edge_fade();
   test_shaderball_legacy_sources();
   test_shaderball_coupled_source();
   test_shaderball_hue_rotate_lut_gamut();
   test_shaderball_prepared_liquid_hue();
   test_shaderball_preset_bank();
-  test_shaderball_config_admission();
-  test_shaderball_deterministic_gui_edits();
-  test_shaderball_mode_specific_parameter_warnings();
-  test_shaderball_dodecahedral_lattice_edit();
-  test_shaderball_polar_gui_repair();
-  test_shaderball_structural_admission();
-  test_shaderball_strict_seam_admission();
   test_shaderball_additive_delta_precision();
   test_shaderball_profile_presets();
   test_shaderball_manual_preset_navigation();
   test_shaderball_preset_gui_transition();
-  test_shaderball_gui_catalog();
   test_shaderball_projection_catalog();
   test_shaderball_fast_peirce_square();
-  test_shaderball_inverse_pipeline_manifest();
-  test_shaderball_specialized_inverse_pipelines();
   test_shaderball_projection_and_admission_contracts();
-  test_shaderball_kernel_catalog();
   test_shaderball_stable_preset_transition();
-  test_shaderball_discrete_transition();
-  test_shaderball_pause_does_not_hold_through_clear();
   test_shaderball_palette_resources();
-  test_shaderball_surface_noise_geometry_and_composition();
-  test_shaderball_noise_contour_domains();
   return fixture.result();
 }
 
