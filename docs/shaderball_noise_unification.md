@@ -15,9 +15,11 @@ import tombstone, migrate the preset bank, and delete the legacy stereo kernel
 after its last compatibility reader no longer calls it. Exact reproduction of
 the Stereo Noise look is not a goal.
 
-Move Noise Contour onto the same sphere-field sampler in a later step. It
-remains a scalar source, not a displacement mode. Sharing a noise field contract
-does not make scalar sampling and vector displacement the same operation.
+Keep the existing source as `Noise Contour (Projected)` with its serialized
+value and behavior unchanged. Add `Noise Contour (Sphere)` on the shared
+sphere-field sampler as a new source value. Both remain scalar sources, not
+displacement modes. Sharing a noise-field contract does not make scalar
+sampling and vector displacement the same operation.
 
 This design preserves the fixed planar warp program for operations that are
 intrinsically planar: Affine Frame, Wave Shear, Vortex, Projected Vector Noise,
@@ -62,7 +64,7 @@ interpretation consumed by the source.
 | Vector Noise warp | Selected projection's plane | Two scalar basis samples form a planar vector. The second channel uses fixed offsets. Ridged noise subtracts extra samples to remove its positive DC term. `Vector Angle` rotates the pair. | Stage phase in turns, mapped to a 256-unit noise path with a final 1/64-turn crossfade. | Discontinuous across projection cut boundaries or folded chart seams and sensitive to unbounded chart coordinates. |
 | Curl Flow warp | Selected projection's plane | A central-difference gradient of one scalar field is rotated 90 degrees. Simplex has a transformed-coordinate fast path. Euler or midpoint integration follows the planar field. | Same stage phase as Vector Noise. | Has the same chart seams. The conservative gradient bound forces `scale * abs(strength) * 64 / intervals <= 0.5`, producing very small useful strengths at ordinary scales. |
 | Tangent Noise lens | Unit sphere | Three decorrelated scalar samples form an ambient 3D vector. Its radial component is removed and the result is added to the unit direction and normalized. | Lens phase in turns with the common 256-unit wrap crossfade. | Sphere-safe after removal of the old polar frame switch, but mutually exclusive with every other lens and parameterized differently from the warp noise modes. |
-| Noise Contour source | Selected projection's plane | One scalar basis sample, clamped to `[-1,1]`, followed by a contrast remap. | Independent source-noise clock with the common wrap crossfade. | Discontinuous across strict projection seams. It is a value field, not a displacement field. |
+| Noise Contour (Projected) source | Selected projection's plane | One scalar basis sample, clamped to `[-1,1]`, followed by a contrast remap. | Independent source-noise clock with the common wrap crossfade. | Discontinuous across cut-layout projection seams. It is a value field, not a displacement field. |
 | MeshFeedback displacement | Unit sphere | `noise_transform` samples three OpenSimplex2 channels at offsets 0, 100, and 200, multiplies by `amplitude * 0.05`, removes the radial component, caps the tangent chord at 0.5, and renormalizes. | `NoiseParams::time += speed`; time is added to the third sampled coordinate. | The geometric construction is useful, but its scale/frequency split, amplitude calibration, time path, fixed basis, and feedback-specific coarse raster do not match ShaderBall. |
 
 ShaderBall currently stores up to eight prepared `FastNoiseLite` objects. A
@@ -132,10 +134,12 @@ side of the lens.
 
 Remove the universal Lens Mix control. A structural mapping is either `None`
 or fully active; a fractional kaleidoscope or Glitch mapping has no stable
-topological meaning. Preset transitions crossfade complete endpoint outputs,
-and continuously parameterized lenses expose controls with lens-specific
-meaning. No serialized or live configuration contains a blended sphere
-direction between identity and a lens.
+topological meaning. Lens selection and Surface Noise placement changes use
+ShaderBall's through-clear transition: render only the old endpoint while it
+fades to the clear frame, then render only the new endpoint while it fades in.
+Continuously parameterized lenses expose controls with lens-specific meaning.
+No serialized or live configuration contains a blended sphere direction
+between identity and a lens, and no frame shades both structural endpoints.
 
 ## Common sphere field
 
@@ -168,19 +172,32 @@ is a sample input and never mutable generator state. `phase` is runtime state,
 not preset state. It advances by the live rate and is forked across discrete
 transitions under ShaderBall's existing clock rules.
 
-Use an exactly periodic 3D sampling path:
+Version 1 uses an exactly periodic three-dimensional sampling path. First set
+`t = wrap_t(phase)` and `phi = 2*pi*t`, then construct the noise coordinate for
+the consumer's declared domain:
 
 ```text
-q(v, phase) = scale * v
-            + loop_radius * (cos(2*pi*phase) * A
-                           + sin(2*pi*phase) * B)
+q_sphere(v, phase) = scale * v
+                    + 32 * (cos(phi) * (1,0,0)
+                          + sin(phi) * (0,1,0))
+
+q_projected(p, phase) = (scale*p.x, scale*p.y, 0)
+                       + 32 * (cos(phi) * (0,0,1)
+                             + sin(phi) * (1,1,0)/sqrt(2))
 ```
 
-`A` and `B` are fixed orthonormal vectors selected by `loop_layout`.
-`loop_radius` and the layout are kernel-version constants, not initial UI
-controls. This path is continuous at phase wrap without blending two unrelated
-time slices. It also avoids treating one component of the sphere direction as
-both spatial Z and time.
+These planes and radius are the exact `loop_layout = 1` contract for their
+domains, not initial UI controls. `wrap_t` is applied before either trigonometric
+call, so phase 0 and every integer phase use the identical input coordinate.
+This path is continuous at phase wrap without blending two unrelated time
+slices. It also avoids treating one component of the sphere direction as both
+spatial Z and time.
+
+Version 1 channel offsets are `C0 = (0,0,0)`, `C1 = (17,-29,43)`, and
+`C2 = (-47,11,-23)`. Sphere Direct uses all three; Projected Vector Noise uses
+`C0` for X and `C1` for Y; scalar and Curl consumers use `C0`. The values,
+channel ordering, and Ridged recentering are part of `channel_layout = 1` and
+must be golden-tested rather than inferred from consumer names.
 
 FBM 3 uses lacunarity 2, gain 1/2, and normalization by 1.75. Ridged 3 applies
 `1 - abs(n)` per octave and removes or recenters its DC term before it is used
@@ -223,9 +240,26 @@ factor of `scale` makes Strength an angular travel control instead of allowing
 Scale to multiply velocity. The bounded `u` removes the current
 scale-strength inequality and its unusably small high-scale range.
 
-The tetrahedral stencil has no pole-dependent basis switch. Its version and
-radius are part of the resource key. A central six-sample reference
-implementation remains test-only for error comparisons.
+The version 1 tetrahedral stencil uses radius `h = 1/64`, directions
+`(1,1,1)`, `(1,-1,-1)`, `(-1,1,-1)`, and `(-1,-1,1)`, each divided by
+`sqrt(3)`, and computes `g = 3/(4*h) * sum(N(q+h*Di)*Di)`. It has no
+pole-dependent basis switch. Its version and radius are part of the resource
+key. A central six-sample reference implementation remains test-only for error
+comparisons.
+
+Projected Curl Flow differentiates only the two planar coordinates while
+holding phase fixed:
+
+```text
+nx = (N(q_projected + h*(1,0,0)) - N(q_projected - h*(1,0,0))) / (2*h)
+ny = (N(q_projected + h*(0,1,0)) - N(q_projected - h*(0,1,0))) / (2*h)
+u  = (ny, -nx)
+```
+
+It uses the same version 1 `h = 1/64`. Vector Angle rotates a Projected Vector
+Noise pair in the plane after channel sampling. These definitions close the
+periodic-field contract for both coordinate domains; no consumer supplies an
+implicit time axis or private wrap crossfade.
 
 ### Sphere integration
 
@@ -266,9 +300,11 @@ nonnegative Strength and the Direction control for orientation.
 
 ## Noise Contour
 
-Noise Contour should ultimately become `Noise Contour (Sphere)`. It samples the
-common scalar field at the sphere direction after the selected surface lens and
-Surface Noise stage. The existing contrast transfer remains.
+Keep the current source, numeric value, and sampling behavior under the explicit
+label `Noise Contour (Projected)`. Add `Noise Contour (Sphere)` as a new enum
+value. The new source samples the common scalar field at the sphere direction
+after the selected surface lens and Surface Noise stage. Both retain the
+existing contrast transfer.
 
 This source intentionally bypasses projection coordinates and the planar warp
 program. A requested configuration combining Sphere Noise Contour with a
@@ -276,14 +312,16 @@ non-None planar warp is invalid and remains pending with a warning; no warp is
 silently disabled. Projection can still supply value weighting and coverage,
 but it no longer creates the noise features.
 
-This behavior makes the source continuous for every projection and matches the
+Sphere behavior makes the source continuous for every projection and matches the
 fact that one low Scale value covers the whole sphere. The UI label must include
 `(Sphere)` so changing Projection and seeing the same underlying noise field is
 not surprising.
 
-If chart-space noise remains desirable, add it later as the explicitly named
-`Noise Contour (Projected)` source with seam warnings. Do not overload one
-option with a hidden domain switch.
+Projected behavior remains useful when planar warps should shape the scalar
+field. It follows the same projection compatibility matrix as Projected Vector
+Noise and Projected Curl Flow. Do not overload one option with a hidden domain
+switch, migrate an existing Projected selection to Sphere, or silently bypass
+either planar warp.
 
 ## GUI model and ranges
 
@@ -373,8 +411,7 @@ capabilities such as a basis-integrator pair.
 
 Cross-stage rejection remains only where coordinate semantics require it:
 
-- seam-sensitive planar warps may reject projections with cut or disconnected
-  chart boundaries;
+- projected-noise consumers follow the exact projection matrix below;
 - Polar Chart requires a compatible periodic Function and must be the only
   active planar warp; and
 - Noise Contour (Sphere) rejects non-None planar warps because a sphere scalar
@@ -384,6 +421,35 @@ Signal Weight, Coverage, Color, Lens, and Surface Noise do not acquire hidden
 compatibility dependencies. The admitted maximum resource union fits the fixed
 capacity, so ordinary stage combinations never surface a resource-capacity
 warning.
+
+### Projected-noise projection matrix
+
+The following rule is normative for each Projected Vector Noise or Projected
+Curl Flow stage and for the Noise Contour (Projected) source. Layout or
+hemisphere suboptions do not alter the result.
+
+| Projection | Projected-noise consumer | Reason |
+|---|---|---|
+| Folded Sinusoidal | Admit | The fold and its coverage are explicit authored chart behavior. |
+| Stereographic | Admit | One unbounded chart with an explicit pole policy. |
+| Gnomonic: Folded, Front, or Back | Admit | The selected hemisphere policy explicitly owns the cut, clipping, and singular boundary. |
+| Bonne: North or South | Reject | Its cut-layout chart is not a single connected plane for a continuous projected field. |
+| Peirce Quincuncial: every layout | Reject | Its square/diamond edge identifications are not represented in the planar sampler. |
+| Airocean: Vertical or Horizontal | Reject | Disconnected face layout boundaries are not represented in the planar sampler. |
+| Equirectangular | Admit | Its longitude cut is explicit and coordinates remain bounded. |
+
+An invalid warning identifies every offending stage or source. For example:
+
+```text
+Planar Warp 2 Projected Curl Flow cannot use Peirce Quincuncial (Diamond):
+the projected field does not join across that cut layout. Choose Folded
+Sinusoidal, Stereographic, Gnomonic, or Equirectangular; or change Planar Warp 2.
+```
+
+The engine never substitutes a projection, a planar warp, or the Sphere source.
+Independent per-mode coordinate and parameter bounds may still reject a value
+after the matrix admits the projection; that warning must name the bound and
+the exact control that can satisfy it.
 
 Browser tests must exercise the real control event path. Native admission tests
 alone cannot detect a stale HTML select after the engine has accepted a value.
@@ -411,12 +477,14 @@ prepared owners by the full key. Resource identity is an implementation detail,
 not a visual control. Preserve old resource IDs only while reading legacy
 configs.
 
-With Surface Noise, both projected planar warps, and a noise source, one
-endpoint needs at most four field owners. A discrete transition needs at most
-eight, exactly the existing fixed capacity. Admission tests must exercise the
-eight-distinct-key maximum and reject only a malformed or future schema that
-actually exceeds it. Keep the capacity until an ELF and RAM measurement proves
-changing it is useful.
+With Surface Noise, both projected planar warps, and Noise Contour (Projected),
+one endpoint needs at most four field owners. A through-clear transition may
+prepare the union of both endpoints and therefore needs at most eight, exactly
+the existing fixed capacity, but the renderer samples at most one four-owner
+endpoint in a frame. Admission tests must exercise the eight-distinct-key
+preparation maximum and reject only a malformed or future schema that actually
+exceeds it. Keep the capacity until an ELF and RAM measurement proves changing
+it is useful.
 
 Mutable phase belongs to each consumer clock, not to the shared generator. Two
 consumers may share a prepared generator while advancing different phases.
@@ -425,6 +493,21 @@ consumers may share a prepared generator while advancing different phases.
 
 Numeric compatibility and visual compatibility are separate requirements.
 
+Serialized enum storage IDs are not GUI ordinals. Each visible enum option is
+defined as `{storage_id, label, export_name}`. The parameter bridge presents a
+dense zero-based list to the dropdown and maps its visible ordinal to the
+option's storage ID before writing requested state; the reverse mapping selects
+the GUI option from requested state. Snapshots, URLs, presets, and exports store
+only storage IDs. No code casts a visible ordinal directly to an enum after an
+import tombstone creates a hole.
+
+An import-only tombstone participates only in the versioned decoder. It is
+absent from the dense visible list, cannot be selected or emitted, and produces
+the documented migration result or an explicit unsupported-value error. Tests
+must select every visible option on both sides of each numeric hole and assert
+the requested storage ID, displayed ordinal, export name, URL, and restored
+selection.
+
 1. Add a serialized ShaderBall schema version before changing option meaning.
 2. Add a new Surface Noise enum and parameter block. Do not reuse the numeric
    value of Tangent Noise or a planar warp kind.
@@ -432,17 +515,20 @@ Numeric compatibility and visual compatibility are separate requirements.
    import-only tombstones. `VECTOR_NOISE` and `CURL_FLOW` retain their numeric
    planar-warp values and export as Projected Vector Noise and Projected Curl
    Flow.
-4. Migrate every built-in preset by hand and review its rendered result. Stereo
+4. Keep the existing Noise Contour storage ID as Noise Contour (Projected), and
+   append Noise Contour (Sphere) with a new ID. Existing snapshots therefore do
+   not change noise domain during decoding.
+5. Migrate every built-in preset by hand and review its rendered result. Stereo
    Noise presets may become Direct, Curl, or no noise; preserving variety is
    more important than mechanical one-to-one mapping.
-5. Import old configs into the new model before admission. Migrate accepted and
+6. Import old configs into the new model before admission. Migrate accepted and
    requested snapshots independently. An invalid old requested value must not
    overwrite its valid accepted snapshot.
-6. Show one non-blocking import notice that names each transformed legacy
+7. Show one non-blocking import notice that names each transformed legacy
    option. This is serialization migration, not a live control side effect.
-7. Emit only the new schema from Export and URL writers. Preserve the old
+8. Emit only the new schema from Export and URL writers. Preserve the old
    reader and enum tombstones as long as stored links are supported.
-8. Remove Lens Mix from the new schema. A legacy Lens Mix of zero imports as
+9. Remove Lens Mix from the new schema. A legacy Lens Mix of zero imports as
    Lens None. A nonzero mix imports a selected structural lens at full effect.
    Tangent Noise with zero mix has no Surface Noise effect; with nonzero mix it
    is a migration candidate whose initial Strength is calibrated from Amount
@@ -539,7 +625,7 @@ config atomically, then restores requested state and pending field identifiers.
 - Add the dedicated stage, placement, Direct mode, Curl mode, exponential-map
   stepping, and explicit integrator options.
 - Remove Lens Mix from the authored schema and route lens changes through
-  complete endpoint transitions.
+  through-clear endpoint transitions.
 - Make it composable with every lens and projection.
 - Add native, WASM-contract, worker, and real browser-control tests.
 - Profile each basis/integrator/placement family on device before adding it to
@@ -553,12 +639,14 @@ config atomically, then restores requested state and pending field identifiers.
 - Remove obsolete options from GUI arrays and new exports.
 - Retain enum tombstones and import tests.
 
-### Stage 4: Noise Contour sphere migration
+### Stage 4: Noise Contour sphere option
 
 - Add the projection-local sphere direction to the source sample input.
-- Rename the source to `Noise Contour (Sphere)` and use the common scalar
-  sampler.
-- Reject non-None planar warps without changing them.
+- Rename the existing source to `Noise Contour (Projected)` without changing
+  its storage ID or behavior.
+- Append `Noise Contour (Sphere)` and use the common scalar sampler.
+- Reject non-None planar warps for the Sphere option without changing them;
+  apply the projected-noise matrix to the Projected option.
 - Retune low-frequency kaleidoscope presets.
 
 ### Stage 5: legacy deletion and optimization
@@ -585,7 +673,9 @@ config atomically, then restores requested state and pending field identifiers.
   an exact finite identity for every basis and integrator.
 - Each Euler and midpoint step passes a vector tangent to the step's own base
   point into the exponential map; all integrators preserve unit length.
-- Period phase 0 equals phase 1 for every basis and channel layout.
+- Period phase 0 equals phase 1 bit-for-bit after coordinate construction for
+  Sphere3D and Projected2D, every basis, scalar/direct/vector/curl channel
+  layout, and both projected Curl derivative axes.
 - Tetrahedral Curl agrees with the six-sample reference within a measured
   angular-error bound and has no persistent radial component.
 - Negative Curl Strength reverses local circulation.
@@ -600,6 +690,9 @@ config atomically, then restores requested state and pending field identifiers.
 - Every pair of Planar Warp 1/2 modes, including Projected Vector Noise and
   Projected Curl Flow, is either admitted or rejected by an explicitly listed
   coordinate-semantic rule; no valid pair is collapsed into one stage.
+- Every projection and layout/hemisphere suboption matches the normative
+  projected-noise matrix independently for Planar Warp 1, Planar Warp 2, and
+  Noise Contour (Projected).
 - Cut-layout projections do not reject Surface Noise and do not add a
   noise-value discontinuity at glued edges.
 - Projection-specific cut coverage may still be discontinuous where the
@@ -620,6 +713,9 @@ config atomically, then restores requested state and pending field identifiers.
 - Full-config round trips preserve inactive Lens, Surface Noise, Function, and
   both planar-warp fields while a different dynamic schema is visible, for both
   valid and pending-invalid requested snapshots.
+- Every visible enum after each tombstone hole round-trips between dense GUI
+  ordinal and stable storage ID; tombstones never appear in a dropdown or new
+  export.
 - Every rejection path has an exact, actionable warning and no generic
   fallback in expected configurations.
 
@@ -636,6 +732,8 @@ config atomically, then restores requested state and pending field identifiers.
 - New export -> import is lossless for all Surface Noise parameters.
 - Old imports produce a visible migration notice and never emit an obsolete
   option on the next export.
+- The legacy Noise Contour ID decodes as Noise Contour (Projected); selecting
+  Noise Contour (Sphere) exports only its new ID.
 - All migrated presets are valid holds and contain no import tombstones.
 
 ### Performance and memory
@@ -671,9 +769,10 @@ measuring its transition resource union and frame cost.
 ### Noise Contour and planar warps
 
 A sphere scalar source cannot honestly participate in the current planar warp
-stack. The recommendation is to reject that combination and keep a separately
-named projected source only if artists still need it. Ignoring the planar warps
-would violate the no-side-effect contract at the rendered-behavior level.
+stack, so that combination is rejected. The retained Noise Contour (Projected)
+option supports planar-warp composition under the published projection matrix.
+Ignoring the planar warps or silently changing source domain would violate the
+no-side-effect contract at the rendered-behavior level.
 
 ### Temporal motion
 
@@ -694,9 +793,10 @@ Ship one dedicated sphere-space Surface Noise stage with Direct and Curl modes,
 an explicit before/after-lens placement, angular Strength, low whole-sphere
 Scale, and bounded coordinate-free vector fields. Retain Projected Vector Noise
 and Projected Curl Flow in both planar-warp menus, remove legacy Stereo Noise,
-and migrate Tangent Noise out of the Lens menu. Move Noise Contour to the shared
-sphere scalar field after displacement migration is stable. Preserve obsolete
-numeric values only as versioned import tombstones.
+and migrate Tangent Noise out of the Lens menu. Retain Noise Contour (Projected)
+and add Noise Contour (Sphere) on the shared scalar field after displacement
+migration is stable. Preserve obsolete numeric values only as versioned import
+tombstones, with a dense-GUI-to-stable-storage adapter.
 
 This produces more combinations than Stereo Noise while eliminating its
 projection dependency. Surface Noise no longer needs projection, pole, seam,
