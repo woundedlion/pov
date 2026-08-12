@@ -219,6 +219,67 @@ static void print_modules(std::FILE *out) {
 }
 
 /**
+ * @brief Reports whether this invocation runs an effects module.
+ * @param argc Argument count as passed to main.
+ * @param argv Argument vector as passed to main; names the modules to run.
+ * @return True for an unfiltered run, or a filtered run naming effects or
+ * effects_smoke.
+ */
+static bool runs_effects(int argc, char **argv) {
+  if (argc <= 1)
+    return true;
+  for (int i = 1; i < argc; ++i)
+    if (std::strcmp(argv[i], "effects") == 0 ||
+        std::strcmp(argv[i], "effects_smoke") == 0)
+      return true;
+  return false;
+}
+
+/**
+ * @brief Verifies the environment carries the depth levers a CI run must set.
+ * @param argc Argument count as passed to main.
+ * @param argv Argument vector as passed to main.
+ * @return 0 when every lever this invocation needs is set, else 1.
+ * @details Both levers default to the shallow local tier when unset, and the
+ * effects assertion floor is selected from the same read, so a workflow that
+ * stops exporting one drops the deep smoke window and the full-resolution
+ * roster passes while still reporting green. Under CI that is a failure, the
+ * same stance the death harness takes on a suite it cannot run. HS_EFFECTS_FULL
+ * is required only when an effects module actually runs, so the jobs that
+ * select other modules are untouched.
+ */
+static int check_ci_levers(int argc, char **argv) {
+  if (!hs_test::death_tests::in_ci())
+    return 0;
+
+  int missing = 0;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *frames = std::getenv("HS_SMOKE_FRAMES");
+#pragma clang diagnostic pop
+  if (!frames || std::atoi(frames) <= 0) {
+    std::fprintf(stderr,
+                 "run_tests: CI=on but HS_SMOKE_FRAMES is unset or not a "
+                 "positive int — the run would fall back to the %d-frame local "
+                 "window and skip every frame-cyclic path. Set HS_SMOKE_FRAMES "
+                 "in the workflow step's env.\n",
+                 hs_test::DEFAULT_SMOKE_FRAMES);
+    ++missing;
+  }
+  if (runs_effects(argc, argv) &&
+      !hs_test::effects_tests::effects_full_suite()) {
+    std::fprintf(stderr,
+                 "run_tests: CI=on but HS_EFFECTS_FULL is unset or 0 — the "
+                 "effects modules would run the QUICK tier, dropping the "
+                 "288x144 roster passes and the white-box block against the "
+                 "lower QUICK assertion floor. Set HS_EFFECTS_FULL=1 in the "
+                 "workflow step's env.\n");
+    ++missing;
+  }
+  return missing ? 1 : 0;
+}
+
+/**
  * @brief Runs one roster module under its assertion floor.
  * @param m The roster entry to run.
  * @return The module's failure count, plus one if it fell below its floor.
@@ -280,8 +341,8 @@ static int check_modules(int argc, char **argv) {
  * @param argv Argument vector; argv[0] is the self path used by death tests,
  * remaining args (if any) name the modules to run, or
  * --list/-h/--help/--check-modules.
- * @return 0 on success, 1 if any test failed, 2 on an unknown module name, 3 on
- * a --check-modules divergence.
+ * @return 0 on success, 1 if any test failed or a required CI depth lever is
+ * missing, 2 on an unknown module name, 3 on a --check-modules divergence.
  * @details Dispatches the HS_DEATH_CASE child case if set, else runs the full
  * roster or only the modules named on argv.
  */
@@ -306,10 +367,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  int failures = 0;
   if (argc > 1) {
-    // Filtered run: execute only the named modules. An unknown name fails fast
-    // (exit 2) so a typo never silently runs nothing.
     if (std::strcmp(argv[1], "--list") == 0 ||
         std::strcmp(argv[1], "-h") == 0 ||
         std::strcmp(argv[1], "--help") == 0) {
@@ -319,6 +377,15 @@ int main(int argc, char **argv) {
     }
     if (std::strcmp(argv[1], "--check-modules") == 0)
       return check_modules(argc - 2, argv + 2);
+  }
+
+  if (check_ci_levers(argc, argv))
+    return 1;
+
+  int failures = 0;
+  if (argc > 1) {
+    // Filtered run: execute only the named modules. An unknown name fails fast
+    // (exit 2) so a typo never silently runs nothing.
     for (int i = 1; i < argc; ++i) {
       const TestModule *match = nullptr;
       for (const TestModule &m : MODULES) {
