@@ -57,11 +57,17 @@ struct ShaderBallWhiteBox {
   using WalkDeltas = SB::WalkDeltas;
   using ThroughClearPhase = SB::ThroughClearPhase;
   using WrappedNoisePhase = SB::WrappedNoisePhase;
+  using ConfigFieldId = SB::ConfigFieldId;
+  using ConfigRestoreResult = SB::ConfigRestoreResult;
+  using FullConfigSnapshot = SB::FullConfigSnapshot;
 
   static constexpr float AXIS_EPS = SB::GNOMONIC_AXIS_EPS;
   static constexpr uint32_t HUE_STEP = SB::HUE_STEP;
 
   static ClockState clocks(const SB &sb) { return sb.runtime.clocks; }
+  static void set_clocks(SB &sb, const ClockState &clocks) {
+    sb.runtime.clocks = clocks;
+  }
   static void seed_clocks(SB &sb, float value) {
     sb.runtime.clocks = {value, value, value, value, value, value};
   }
@@ -393,6 +399,84 @@ struct ShaderBallWhiteBox {
     return sb.liquid_palette_cycler.palette().get(value).color;
   }
 };
+
+inline uint32_t shaderball_float_payload(float value) {
+  uint32_t payload;
+  std::memcpy(&payload, &value, sizeof(payload));
+  return payload;
+}
+
+inline bool
+shaderball_snapshots_equal(const ShaderBallWhiteBox::FullConfigSnapshot &a,
+                           const ShaderBallWhiteBox::FullConfigSnapshot &b) {
+  return a.schema_version == b.schema_version && a.accepted == b.accepted &&
+         a.requested == b.requested && a.pending == b.pending &&
+         a.has_runtime == b.has_runtime && a.runtime == b.runtime;
+}
+
+/** @brief Full snapshots preserve every field and reject invalid input atomically. */
+inline void test_shaderball_full_config_snapshot() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+
+  WB::FullConfigSnapshot snapshot = sb.capture_full_config_snapshot();
+  const size_t source_seed =
+      static_cast<size_t>(WB::ConfigFieldId::SOURCE_NOISE_SEED);
+  const size_t outer_warp =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_WARP_OUTER_KIND);
+  const size_t inner_warp =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_WARP_INNER_KIND);
+  const size_t inactive_phase =
+      static_cast<size_t>(WB::ConfigFieldId::WARP_INNER_RADIAL_PHASE);
+
+  snapshot.accepted[source_seed] = 0x80000000u;
+  snapshot.requested[source_seed] = 0x80000000u;
+  snapshot.accepted[inactive_phase] = shaderball_float_payload(5.75f);
+  snapshot.requested[inactive_phase] = shaderball_float_payload(5.75f);
+  snapshot.runtime = {0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f,
+                      1.75f, 2.0f, 2.25f, 2.5f, 2.75f};
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_TRUE(
+      shaderball_snapshots_equal(sb.capture_full_config_snapshot(), snapshot));
+
+  snapshot.accepted[source_seed] = 0x7fffffffu;
+  snapshot.requested[source_seed] = 0x7fffffffu;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_EQ(sb.capture_full_config_snapshot().accepted[source_seed],
+               0x7fffffffu);
+
+  snapshot.requested[outer_warp] =
+      static_cast<uint32_t>(WB::WarpStageKind::POLAR_CHART);
+  snapshot.requested[inner_warp] =
+      static_cast<uint32_t>(WB::WarpStageKind::AFFINE_FRAME);
+  snapshot.pending[outer_warp] = 1;
+  snapshot.pending[inner_warp] = 1;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_TRUE(
+      shaderball_snapshots_equal(sb.capture_full_config_snapshot(), snapshot));
+
+  const WB::FullConfigSnapshot before_failure =
+      sb.capture_full_config_snapshot();
+  WB::FullConfigSnapshot invalid = before_failure;
+  invalid.schema_version = WB::SB::CONFIG_SCHEMA_VERSION + 1;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::UNSUPPORTED_VERSION);
+  HS_EXPECT_TRUE(shaderball_snapshots_equal(sb.capture_full_config_snapshot(),
+                                            before_failure));
+
+  invalid = before_failure;
+  invalid.accepted[static_cast<size_t>(WB::ConfigFieldId::SLOTS_FUNCTION)] =
+      0xffffffffu;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::INVALID_VALUE);
+  HS_EXPECT_TRUE(shaderball_snapshots_equal(sb.capture_full_config_snapshot(),
+                                            before_failure));
+}
 
 /** @brief Every named clock wraps in its native domain. */
 inline void test_shaderball_clocks_wrapped() {
@@ -3885,6 +3969,7 @@ inline void test_shaderball_noise_contour_domains() {
 /** @brief Module entry point for ShaderBall contract tests. */
 inline int run_shaderball_tests() {
   ModuleFixture fixture("shaderball");
+  test_shaderball_full_config_snapshot();
   test_shaderball_clocks_wrapped();
   test_shaderball_pause_semantics();
   test_shaderball_paused_selector_commit();

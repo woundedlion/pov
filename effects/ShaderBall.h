@@ -7,6 +7,7 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <type_traits>
 
 /**
  * @file ShaderBall.h
@@ -23,6 +24,154 @@ namespace shaderball_tests {
 struct ShaderBallWhiteBox;
 } // namespace shaderball_tests
 } // namespace hs_test
+
+#define HS_SHADERBALL_CONFIG_FIELDS(X)                                         \
+  X(SLOTS_FUNCTION, slots.function)                                            \
+  X(SLOTS_PROJECTION, slots.projection)                                        \
+  X(SLOTS_PROJECTION_FRAME, slots.projection_frame)                            \
+  X(SLOTS_SURFACE_LENS, slots.surface_lens)                                    \
+  X(SLOTS_WARP_OUTER_KIND, slots.warp_program.outer.kind)                      \
+  X(SLOTS_WARP_OUTER_BASIS, slots.warp_program.outer.basis)                    \
+  X(SLOTS_WARP_OUTER_ENVELOPE, slots.warp_program.outer.envelope)              \
+  X(SLOTS_WARP_OUTER_POLAR_MODE, slots.warp_program.outer.polar_mode)          \
+  X(SLOTS_WARP_OUTER_CURL_INTEGRATOR,                                          \
+    slots.warp_program.outer.curl_integrator)                                  \
+  X(SLOTS_WARP_OUTER_POLAR_HARMONIC, slots.warp_program.outer.polar_harmonic)  \
+  X(SLOTS_WARP_OUTER_SEED, slots.warp_program.outer.seed)                      \
+  X(SLOTS_WARP_OUTER_RESOURCE_ID, slots.warp_program.outer.resource_id)        \
+  X(SLOTS_WARP_INNER_KIND, slots.warp_program.inner.kind)                      \
+  X(SLOTS_WARP_INNER_BASIS, slots.warp_program.inner.basis)                    \
+  X(SLOTS_WARP_INNER_ENVELOPE, slots.warp_program.inner.envelope)              \
+  X(SLOTS_WARP_INNER_POLAR_MODE, slots.warp_program.inner.polar_mode)          \
+  X(SLOTS_WARP_INNER_CURL_INTEGRATOR,                                          \
+    slots.warp_program.inner.curl_integrator)                                  \
+  X(SLOTS_WARP_INNER_POLAR_HARMONIC, slots.warp_program.inner.polar_harmonic)  \
+  X(SLOTS_WARP_INNER_SEED, slots.warp_program.inner.seed)                      \
+  X(SLOTS_WARP_INNER_RESOURCE_ID, slots.warp_program.inner.resource_id)        \
+  X(SLOTS_SIGNAL_WEIGHT, slots.signal_weight)                                  \
+  X(SLOTS_VALUE_TRANSFER, slots.value_transfer)                                \
+  X(SLOTS_COVERAGE, slots.coverage)                                            \
+  X(SLOTS_COLORIZER, slots.colorizer)                                          \
+  X(SLOTS_PEIRCE_LAYOUT, slots.peirce_layout)                                  \
+  X(SLOTS_AIROCEAN_LAYOUT, slots.airocean_layout)                              \
+  X(SLOTS_BONNE_HEMISPHERE, slots.bonne_hemisphere)                            \
+  X(SLOTS_GNOMONIC_HEMISPHERE, slots.gnomonic_hemisphere)                      \
+  X(SLOTS_SURFACE_NOISE, slots.surface_noise)                                  \
+  X(SLOTS_SURFACE_NOISE_PLACEMENT, slots.surface_noise_placement)              \
+  X(SOURCE_PATTERN_FREQ, params.source.pattern_freq)                           \
+  X(SOURCE_SPEED, params.source.speed)                                         \
+  X(SOURCE_COMPLEXITY, params.source.complexity)                               \
+  X(SOURCE_PATTERN_MIX, params.source.pattern_mix)                             \
+  X(SOURCE_SECONDARY_RATE, params.source.secondary_rate)                       \
+  X(SOURCE_ANGLE_RATE, params.source.angle_rate)                               \
+  X(SOURCE_NOISE_SCALE, params.source.noise_scale)                             \
+  X(SOURCE_NOISE_CONTRAST, params.source.noise_contrast)                       \
+  X(SOURCE_NOISE_RATE, params.source.noise_time_rate)                          \
+  X(SOURCE_LATTICE_CELL_SCALE, params.source.lattice_cell_scale)               \
+  X(SOURCE_LATTICE_SHAPE_BLEND, params.source.lattice_shape_blend)             \
+  X(SOURCE_LATTICE_SOFTNESS, params.source.lattice_softness)                   \
+  X(SOURCE_LATTICE_RADIUS, params.source.lattice_radius)                       \
+  X(SOURCE_NOISE_BASIS, params.source.noise_basis)                             \
+  X(SOURCE_NOISE_SEED, params.source.noise_seed)                               \
+  X(SOURCE_NOISE_RESOURCE_ID, params.source.noise_resource_id)                 \
+  X(WARP_OUTER_SCALE, params.warp.outer.scale)                                 \
+  X(WARP_OUTER_STRENGTH, params.warp.outer.strength)                           \
+  X(WARP_OUTER_TIME_SCALE, params.warp.outer.time_scale)                       \
+  X(WARP_OUTER_TRANSLATION_X, params.warp.outer.translation_x)                 \
+  X(WARP_OUTER_TRANSLATION_Y, params.warp.outer.translation_y)                 \
+  X(WARP_OUTER_ROTATION, params.warp.outer.rotation)                           \
+  X(WARP_OUTER_SCALE_X, params.warp.outer.scale_x)                             \
+  X(WARP_OUTER_SCALE_Y, params.warp.outer.scale_y)                             \
+  X(WARP_OUTER_SHEAR, params.warp.outer.shear)                                 \
+  X(WARP_OUTER_FREQUENCY, params.warp.outer.frequency)                         \
+  X(WARP_OUTER_FIELD_ANGLE, params.warp.outer.field_angle)                     \
+  X(WARP_OUTER_CENTER_X, params.warp.outer.center_x)                           \
+  X(WARP_OUTER_CENTER_Y, params.warp.outer.center_y)                           \
+  X(WARP_OUTER_RADIUS, params.warp.outer.radius)                               \
+  X(WARP_OUTER_TURNS, params.warp.outer.turns)                                 \
+  X(WARP_OUTER_CENTER_ORBIT_RADIUS, params.warp.outer.center_orbit_radius)     \
+  X(WARP_OUTER_VECTOR_ANGLE, params.warp.outer.vector_angle)                   \
+  X(WARP_OUTER_CELL_X, params.warp.outer.cell_x)                               \
+  X(WARP_OUTER_CELL_Y, params.warp.outer.cell_y)                               \
+  X(WARP_OUTER_OFFSET_X, params.warp.outer.offset_x)                           \
+  X(WARP_OUTER_OFFSET_Y, params.warp.outer.offset_y)                           \
+  X(WARP_OUTER_RADIAL_SCALE, params.warp.outer.radial_scale)                   \
+  X(WARP_OUTER_RADIAL_PHASE, params.warp.outer.radial_phase)                   \
+  X(WARP_OUTER_ANGULAR_PHASE, params.warp.outer.angular_phase)                 \
+  X(WARP_OUTER_EDGE_WIDTH, params.warp.outer.edge_width)                       \
+  X(WARP_INNER_SCALE, params.warp.inner.scale)                                 \
+  X(WARP_INNER_STRENGTH, params.warp.inner.strength)                           \
+  X(WARP_INNER_TIME_SCALE, params.warp.inner.time_scale)                       \
+  X(WARP_INNER_TRANSLATION_X, params.warp.inner.translation_x)                 \
+  X(WARP_INNER_TRANSLATION_Y, params.warp.inner.translation_y)                 \
+  X(WARP_INNER_ROTATION, params.warp.inner.rotation)                           \
+  X(WARP_INNER_SCALE_X, params.warp.inner.scale_x)                             \
+  X(WARP_INNER_SCALE_Y, params.warp.inner.scale_y)                             \
+  X(WARP_INNER_SHEAR, params.warp.inner.shear)                                 \
+  X(WARP_INNER_FREQUENCY, params.warp.inner.frequency)                         \
+  X(WARP_INNER_FIELD_ANGLE, params.warp.inner.field_angle)                     \
+  X(WARP_INNER_CENTER_X, params.warp.inner.center_x)                           \
+  X(WARP_INNER_CENTER_Y, params.warp.inner.center_y)                           \
+  X(WARP_INNER_RADIUS, params.warp.inner.radius)                               \
+  X(WARP_INNER_TURNS, params.warp.inner.turns)                                 \
+  X(WARP_INNER_CENTER_ORBIT_RADIUS, params.warp.inner.center_orbit_radius)     \
+  X(WARP_INNER_VECTOR_ANGLE, params.warp.inner.vector_angle)                   \
+  X(WARP_INNER_CELL_X, params.warp.inner.cell_x)                               \
+  X(WARP_INNER_CELL_Y, params.warp.inner.cell_y)                               \
+  X(WARP_INNER_OFFSET_X, params.warp.inner.offset_x)                           \
+  X(WARP_INNER_OFFSET_Y, params.warp.inner.offset_y)                           \
+  X(WARP_INNER_RADIAL_SCALE, params.warp.inner.radial_scale)                   \
+  X(WARP_INNER_RADIAL_PHASE, params.warp.inner.radial_phase)                   \
+  X(WARP_INNER_ANGULAR_PHASE, params.warp.inner.angular_phase)                 \
+  X(WARP_INNER_EDGE_WIDTH, params.warp.inner.edge_width)                       \
+  X(PROJECTION_POLE_FADE, params.projection.pole_fade)                         \
+  X(PROJECTION_SPIN_RATE, params.projection.spin_rate)                         \
+  X(PROJECTION_WANDER, params.projection.wander)                               \
+  X(PROJECTION_CENTRAL_MERIDIAN, params.projection.central_meridian)           \
+  X(PROJECTION_COORDINATE_SCALE, params.projection.coordinate_scale)           \
+  X(PROJECTION_BONNE_STANDARD_PARALLEL,                                        \
+    params.projection.bonne_standard_parallel)                                 \
+  X(PROJECTION_LAYOUT_SCROLL, params.projection.layout_scroll)                 \
+  X(LENS_MIX, params.surface_lens.mix)                                         \
+  X(LENS_AMOUNT, params.surface_lens.amount)                                   \
+  X(LENS_NOISE_SCALE, params.surface_lens.noise_scale)                         \
+  X(LENS_NOISE_RATE, params.surface_lens.noise_rate)                           \
+  X(LENS_NOISE_BASIS, params.surface_lens.noise_basis)                         \
+  X(LENS_NOISE_SEED, params.surface_lens.noise_seed)                           \
+  X(LENS_NOISE_RESOURCE_ID, params.surface_lens.noise_resource_id)             \
+  X(LENS_MOBIUS_A_RE, params.surface_lens.mobius.a.re)                         \
+  X(LENS_MOBIUS_A_IM, params.surface_lens.mobius.a.im)                         \
+  X(LENS_MOBIUS_B_RE, params.surface_lens.mobius.b.re)                         \
+  X(LENS_MOBIUS_B_IM, params.surface_lens.mobius.b.im)                         \
+  X(LENS_MOBIUS_C_RE, params.surface_lens.mobius.c.re)                         \
+  X(LENS_MOBIUS_C_IM, params.surface_lens.mobius.c.im)                         \
+  X(LENS_MOBIUS_D_RE, params.surface_lens.mobius.d.re)                         \
+  X(LENS_MOBIUS_D_IM, params.surface_lens.mobius.d.im)                         \
+  X(VALUE_ISO_LEVEL, params.value.iso_level)                                   \
+  X(VALUE_ISO_WIDTH, params.value.iso_width)                                   \
+  X(VALUE_BAND_COUNT, params.value.band_count)                                 \
+  X(VALUE_BAND_PHASE, params.value.band_phase)                                 \
+  X(VALUE_CUTOUT_THRESHOLD, params.value.cutout_threshold)                     \
+  X(VALUE_CUTOUT_SOFTNESS, params.value.cutout_softness)                       \
+  X(VALUE_EDGE_WIDTH, params.value.edge_width)                                 \
+  X(COLOR_BREATHE_DEPTH, params.colorizer.breathe_depth)                       \
+  X(COLOR_CYCLE_SPEED, params.colorizer.cycle_speed)                           \
+  X(COLOR_HUE_SHIFT, params.colorizer.hue_shift)                               \
+  X(COLOR_VALUE_FADE, params.colorizer.value_fade)                             \
+  X(COLOR_DISPLACEMENT_GAIN, params.colorizer.displacement_gain)               \
+  X(COLOR_PATH_GAIN, params.colorizer.path_gain)                               \
+  X(COLOR_DIRECTION_GAIN, params.colorizer.direction_gain)                     \
+  X(COLOR_DISPLACEMENT_NORM, params.colorizer.displacement_norm)               \
+  X(COLOR_PATH_NORM, params.colorizer.path_norm)                               \
+  X(COLOR_DIRECTION_PHASE, params.colorizer.direction_phase)                   \
+  X(CAMERA_WANDER, params.outer_camera.wander)                                 \
+  X(SURFACE_NOISE_BASIS, params.surface_noise.basis)                           \
+  X(SURFACE_NOISE_INTEGRATOR, params.surface_noise.integrator)                 \
+  X(SURFACE_NOISE_SEED, params.surface_noise.seed)                             \
+  X(SURFACE_NOISE_SCALE, params.surface_noise.scale)                           \
+  X(SURFACE_NOISE_STRENGTH, params.surface_noise.strength)                     \
+  X(SURFACE_NOISE_RATE, params.surface_noise.rate)                             \
+  X(SURFACE_NOISE_DIRECTION, params.surface_noise.direction)
 
 /**
  * @brief Slot-based sphere shader with an immutable per-frame pullback state.
@@ -163,6 +312,7 @@ private:
       enter_preset();
   }
 
+public:
   enum class Function : uint8_t {
     TWIN_WAVE,
     RINGS,
@@ -676,6 +826,105 @@ private:
   using RequestedConfig = Config;
   using Preset = Config;
 
+  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 2;
+
+  enum class ConfigFieldId : uint16_t {
+#define HS_SHADERBALL_FIELD_ENUM(name, path) name,
+    HS_SHADERBALL_CONFIG_FIELDS(HS_SHADERBALL_FIELD_ENUM)
+#undef HS_SHADERBALL_FIELD_ENUM
+        COUNT
+  };
+
+  static constexpr size_t CONFIG_FIELD_COUNT =
+      static_cast<size_t>(ConfigFieldId::COUNT);
+
+  struct ConfigFieldLayout {
+    size_t offset;
+    size_t size;
+  };
+
+  enum class ConfigRestoreResult : uint8_t {
+    APPLIED,
+    UNSUPPORTED_VERSION,
+    INVALID_LENGTH,
+    INVALID_VALUE,
+    INVALID_ACCEPTED,
+    INVALID_PENDING
+  };
+
+  enum class RuntimeFieldId : uint8_t {
+    SOURCE_PRIMARY,
+    SOURCE_SECONDARY,
+    SOURCE_ANGLE,
+    LEGACY_WARP_TIME,
+    PROJECTION_SPIN,
+    BREATHE_PHASE,
+    SOURCE_NOISE_PHASE,
+    LEGACY_LENS_NOISE_PHASE,
+    SURFACE_NOISE_PHASE,
+    WARP_OUTER_PHASE,
+    WARP_INNER_PHASE,
+    COUNT
+  };
+
+  static constexpr size_t RUNTIME_FIELD_COUNT =
+      static_cast<size_t>(RuntimeFieldId::COUNT);
+  using ConfigValues = std::array<uint32_t, CONFIG_FIELD_COUNT>;
+  using RuntimeValues = std::array<float, RUNTIME_FIELD_COUNT>;
+
+  struct FullConfigSnapshot {
+    uint32_t schema_version = CONFIG_SCHEMA_VERSION;
+    ConfigValues accepted{};
+    ConfigValues requested{};
+    std::array<uint8_t, CONFIG_FIELD_COUNT> pending{};
+    bool has_runtime = false;
+    RuntimeValues runtime{};
+  };
+
+  struct PendingEdit {
+    const char *name = nullptr;
+    ConfigFieldId id = ConfigFieldId::COUNT;
+    size_t offset = 0;
+    size_t size = 0;
+  };
+
+  /** @brief Stable name for a full-config field ID. */
+  static constexpr const char *config_field_name(ConfigFieldId id) {
+    switch (id) {
+#define HS_SHADERBALL_FIELD_NAME(name, path)                                   \
+  case ConfigFieldId::name:                                                    \
+    return #path;
+      HS_SHADERBALL_CONFIG_FIELDS(HS_SHADERBALL_FIELD_NAME)
+#undef HS_SHADERBALL_FIELD_NAME
+    case ConfigFieldId::COUNT:
+      break;
+    }
+    return nullptr;
+  }
+
+  static ConfigFieldLayout config_field_layout(ConfigFieldId id) {
+    Config config{};
+    const uintptr_t base = reinterpret_cast<uintptr_t>(&config);
+    switch (id) {
+#define HS_SHADERBALL_FIELD_LAYOUT(name, path)                                 \
+  case ConfigFieldId::name:                                                    \
+    return {reinterpret_cast<uintptr_t>(&config.path) - base,                  \
+            sizeof(config.path)};
+      HS_SHADERBALL_CONFIG_FIELDS(HS_SHADERBALL_FIELD_LAYOUT)
+#undef HS_SHADERBALL_FIELD_LAYOUT
+    case ConfigFieldId::COUNT:
+      break;
+    }
+    return {sizeof(Config), 0};
+  }
+
+  /** @brief Latest successful legacy-import notice, or an empty string. */
+  const char *config_import_notice() const { return import_notice.data(); }
+
+  /** @brief Clears the current legacy-import notice. */
+  void clear_config_import_notice() { import_notice = {}; }
+
+private:
   HS_COLD_MEMBER void rebind_parameters() {
     reset_parameters();
     Slots &slots = requested_config.slots;
@@ -731,20 +980,27 @@ private:
     register_colorizer_controls(slots.colorizer,
                                 requested_config.params.colorizer);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+    for (size_t index = 0; index < pending_edit_count; ++index) {
+      PendingEdit &edit = pending_edits[index];
+      edit.name = nullptr;
+      const uintptr_t target =
+          reinterpret_cast<uintptr_t>(&requested_config) + edit.offset;
+      for (const ParamDef &parameter : getParameters()) {
+        if (reinterpret_cast<uintptr_t>(parameter.target) == target) {
+          edit.name = parameter.name;
+          break;
+        }
+      }
+    }
     mirror_parameter_display_state(requested_config, display_config);
     for (size_t index = 0; index < pending_edit_count; ++index)
-      show_requested_parameter_value(pending_edits[index].name);
+      if (pending_edits[index].name != nullptr)
+        show_requested_parameter_value(pending_edits[index].name);
 #endif
     requested_schema_bound = true;
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  struct PendingEdit {
-    const char *name = nullptr;
-    size_t offset = 0;
-    size_t size = 0;
-  };
-
   static void dispatch_parameter_updated(Effect *effect, const char *name,
                                          bool is_enum) {
     static_cast<ShaderBall *>(effect)->parameter_updated(name, is_enum);
@@ -760,11 +1016,14 @@ private:
                  target + size <= requested + sizeof(requested_config),
              "ShaderBall parameter target lies outside requested config");
     const size_t offset = target - requested;
+    const ConfigFieldId id = config_field_id(offset, size);
+    HS_CHECK(id != ConfigFieldId::COUNT,
+             "ShaderBall parameter lacks a stable field ID");
     const size_t before_count = pending_edit_count;
-    const bool was_pending = pending_edit_at(offset) < pending_edit_count;
-    remember_pending_edit(name, offset, size);
+    const bool was_pending = pending_edit_at(id) < pending_edit_count;
+    remember_pending_edit(name, id, offset, size);
     refresh_accepted_config();
-    const bool is_pending = pending_edit_at(offset) < pending_edit_count;
+    const bool is_pending = pending_edit_at(id) < pending_edit_count;
     if (before_count != pending_edit_count || was_pending != is_pending ||
         (is_enum && schema_selector(name)))
       rebind_parameters();
@@ -788,15 +1047,26 @@ private:
     __builtin_unreachable();
   }
 
-  size_t pending_edit_at(size_t offset) const {
+  size_t pending_edit_at(ConfigFieldId id) const {
     for (size_t index = 0; index < pending_edit_count; ++index)
-      if (pending_edits[index].offset == offset)
+      if (pending_edits[index].id == id)
         return index;
     return pending_edit_count;
   }
 
-  void remember_pending_edit(const char *name, size_t offset, size_t size) {
-    const size_t existing = pending_edit_at(offset);
+  static ConfigFieldId config_field_id(size_t offset, size_t size) {
+    for (size_t index = 0; index < CONFIG_FIELD_COUNT; ++index) {
+      const ConfigFieldId id = static_cast<ConfigFieldId>(index);
+      const ConfigFieldLayout layout = config_field_layout(id);
+      if (layout.offset == offset && layout.size == size)
+        return id;
+    }
+    return ConfigFieldId::COUNT;
+  }
+
+  void remember_pending_edit(const char *name, ConfigFieldId id, size_t offset,
+                             size_t size) {
+    const size_t existing = pending_edit_at(id);
     if (existing < pending_edit_count) {
       pending_edits[existing].name = name;
       pending_edits[existing].size = size;
@@ -804,7 +1074,7 @@ private:
     }
     HS_CHECK(pending_edit_count < pending_edits.size(),
              "ShaderBall pending edit capacity exceeded");
-    pending_edits[pending_edit_count++] = {name, offset, size};
+    pending_edits[pending_edit_count++] = {name, id, offset, size};
   }
 
   void copy_pending_value(Config &to, const Config &from,
@@ -853,7 +1123,7 @@ private:
   const char *parameter_warning(const char *name) const override {
     for (size_t index = 0; index < pending_edit_count; ++index) {
       const PendingEdit &edit = pending_edits[index];
-      if (std::strcmp(edit.name, name) != 0)
+      if (edit.name == nullptr || std::strcmp(edit.name, name) != 0)
         continue;
       return admission_warning(requested_config, edit.name);
     }
@@ -1417,6 +1687,183 @@ private:
     PreparedTransforms transforms;
   };
 
+  template <typename T> static uint32_t encode_field_value(const T &value) {
+    static_assert(sizeof(T) <= sizeof(uint32_t));
+    uint32_t payload = 0;
+    std::memcpy(&payload, &value, sizeof(T));
+    return payload;
+  }
+
+  template <typename T>
+  static bool decode_field_value(uint32_t payload, T &value) {
+    static_assert(sizeof(T) <= sizeof(uint32_t));
+    if constexpr (sizeof(T) < sizeof(uint32_t)) {
+      const uint32_t value_mask = (uint32_t{1} << (sizeof(T) * 8)) - 1;
+      if ((payload & ~value_mask) != 0)
+        return false;
+    }
+    if constexpr (std::is_same_v<T, bool>)
+      if (payload > 1)
+        return false;
+    std::memcpy(&value, &payload, sizeof(T));
+    return true;
+  }
+
+  static ConfigValues encode_config_values(const Config &config) {
+    ConfigValues values{};
+#define HS_SHADERBALL_ENCODE_FIELD(name, path)                                 \
+  values[static_cast<size_t>(ConfigFieldId::name)] =                           \
+      encode_field_value(config.path);
+    HS_SHADERBALL_CONFIG_FIELDS(HS_SHADERBALL_ENCODE_FIELD)
+#undef HS_SHADERBALL_ENCODE_FIELD
+    return values;
+  }
+
+  static bool decode_config_values(const ConfigValues &values, Config &config) {
+    bool valid = true;
+#define HS_SHADERBALL_DECODE_FIELD(name, path)                                 \
+  valid = decode_field_value(values[static_cast<size_t>(ConfigFieldId::name)], \
+                             config.path) &&                                   \
+          valid;
+    HS_SHADERBALL_CONFIG_FIELDS(HS_SHADERBALL_DECODE_FIELD)
+#undef HS_SHADERBALL_DECODE_FIELD
+    return valid;
+  }
+
+  static constexpr bool valid_snapshot_config(const Config &config) {
+    const Slots &slots = config.slots;
+    return enum_at_most(slots.function, Function::PRIMITIVE_LATTICE) &&
+           enum_at_most(slots.projection, Projection::EQUIRECTANGULAR) &&
+           enum_at_most(slots.projection_frame,
+                        ProjectionFramePolicy::SPIN_WANDER) &&
+           enum_at_most(slots.surface_lens,
+                        SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM) &&
+           enum_at_most(slots.surface_noise, SurfaceNoise::CURL) &&
+           enum_at_most(slots.surface_noise_placement,
+                        SurfaceNoisePlacement::AFTER_LENS) &&
+           enum_at_most(slots.warp_program.outer.kind,
+                        WarpStageKind::POLAR_CHART) &&
+           enum_at_most(slots.warp_program.inner.kind,
+                        WarpStageKind::POLAR_CHART) &&
+           valid_warp_spec(slots.warp_program.outer) &&
+           valid_warp_spec(slots.warp_program.inner) &&
+           enum_at_most(slots.signal_weight, SignalWeight::PROJECTION) &&
+           enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) &&
+           enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) &&
+           enum_at_most(slots.colorizer, Colorizer::DEFORMATION_INK) &&
+           enum_at_most(slots.peirce_layout, PeirceLayout::VERTICAL) &&
+           enum_at_most(slots.airocean_layout, AiroceanLayout::HORIZONTAL) &&
+           enum_at_most(slots.bonne_hemisphere, BonneHemisphere::SOUTH) &&
+           enum_at_most(slots.gnomonic_hemisphere,
+                        GnomonicHemispherePolicy::BACK_HEMISPHERE) &&
+           preset_in_ranges(config.params);
+  }
+
+public:
+  /** @brief Captures all accepted, requested, pending, and runtime state. */
+  HS_COLD_MEMBER FullConfigSnapshot capture_full_config_snapshot() const {
+    FullConfigSnapshot snapshot;
+    snapshot.accepted = encode_config_values(accepted_config);
+    snapshot.requested = encode_config_values(requested_config);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    for (size_t index = 0; index < pending_edit_count; ++index)
+      snapshot.pending[static_cast<size_t>(pending_edits[index].id)] = 1;
+#endif
+    snapshot.has_runtime = true;
+    const ClockState &clocks = runtime.clocks;
+    snapshot.runtime = {clocks.source_primary,     clocks.source_secondary,
+                        clocks.source_angle,       clocks.warp_time,
+                        clocks.projection_spin,    clocks.breathe_phase,
+                        clocks.source_noise_time,  clocks.lens_noise_time,
+                        clocks.surface_noise_time, clocks.warp_outer_phase,
+                        clocks.warp_inner_phase};
+    return snapshot;
+  }
+
+  /**
+   * @brief Atomically restores a versioned ShaderBall configuration snapshot.
+   * @return APPLIED on success; failures leave the effect and import notice
+   * unchanged.
+   */
+  HS_COLD_MEMBER ConfigRestoreResult
+  restore_full_config_snapshot(const FullConfigSnapshot &snapshot) {
+    if (snapshot.schema_version != CONFIG_SCHEMA_VERSION)
+      return ConfigRestoreResult::UNSUPPORTED_VERSION;
+
+    Config next_accepted{};
+    Config next_requested{};
+    if (!decode_config_values(snapshot.accepted, next_accepted) ||
+        !decode_config_values(snapshot.requested, next_requested) ||
+        !valid_snapshot_config(next_accepted) ||
+        !valid_snapshot_config(next_requested))
+      return ConfigRestoreResult::INVALID_VALUE;
+    if (!valid_config(next_accepted))
+      return ConfigRestoreResult::INVALID_ACCEPTED;
+
+    size_t next_pending_count = 0;
+    for (size_t index = 0; index < CONFIG_FIELD_COUNT; ++index) {
+      if (snapshot.pending[index] > 1)
+        return ConfigRestoreResult::INVALID_PENDING;
+      const bool differs =
+          snapshot.accepted[index] != snapshot.requested[index];
+      if ((snapshot.pending[index] != 0) != differs)
+        return ConfigRestoreResult::INVALID_PENDING;
+      next_pending_count += snapshot.pending[index] != 0;
+    }
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    if (next_pending_count > pending_edits.size())
+      return ConfigRestoreResult::INVALID_PENDING;
+#else
+    if (next_pending_count != 0)
+      return ConfigRestoreResult::INVALID_PENDING;
+#endif
+
+    if (snapshot.has_runtime)
+      for (float value : snapshot.runtime)
+        if (!std::isfinite(value))
+          return ConfigRestoreResult::INVALID_VALUE;
+    if (!prepare_resource_union(next_accepted, next_accepted))
+      return ConfigRestoreResult::INVALID_ACCEPTED;
+
+    state->param_morph.active = false;
+    state->transition.active = false;
+    accepted_config = next_accepted;
+    requested_config = next_requested;
+    published_config = next_accepted;
+    active_slots = next_accepted.slots;
+    blend.params = next_accepted.params;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    pending_edit_count = 0;
+    for (size_t index = 0; index < CONFIG_FIELD_COUNT; ++index) {
+      if (snapshot.pending[index] == 0)
+        continue;
+      const ConfigFieldId id = static_cast<ConfigFieldId>(index);
+      const ConfigFieldLayout layout = config_field_layout(id);
+      pending_edits[pending_edit_count++] = {nullptr, id, layout.offset,
+                                             layout.size};
+    }
+    display_config = next_requested;
+#endif
+    if (snapshot.has_runtime) {
+      ClockState &clocks = runtime.clocks;
+      clocks.source_primary = snapshot.runtime[0];
+      clocks.source_secondary = snapshot.runtime[1];
+      clocks.source_angle = snapshot.runtime[2];
+      clocks.warp_time = snapshot.runtime[3];
+      clocks.projection_spin = snapshot.runtime[4];
+      clocks.breathe_phase = snapshot.runtime[5];
+      clocks.source_noise_time = snapshot.runtime[6];
+      clocks.lens_noise_time = snapshot.runtime[7];
+      clocks.surface_noise_time = snapshot.runtime[8];
+      clocks.warp_outer_phase = snapshot.runtime[9];
+      clocks.warp_inner_phase = snapshot.runtime[10];
+    }
+    import_notice = {};
+    rebind_parameters();
+    return ConfigRestoreResult::APPLIED;
+  }
+
+private:
   struct WalkDeltas {
     Quaternion projection;
     Quaternion outer;
@@ -4997,6 +5444,7 @@ private:
   bool preset_dwell_armed = false;
   Blend blend{PRESETS[0].params};
   LookRuntime runtime;
+  std::array<char, 1024> import_notice{};
 #if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;
   uint32_t liquid_palette_step_count = 0;
