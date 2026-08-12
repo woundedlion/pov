@@ -50,7 +50,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [Frame Sync Protocol: 1-Wire Signal Datasheet](#frame-sync-protocol-1-wire-signal-datasheet)
 8. [The Effect System](#8-the-effect-system)
 9. [Effects Reference](#9-effects-reference)
-   - [ShaderBall Shader Vocabulary](#shaderball-shader-vocabulary)
+   - [ShaderBall Inverse Pipeline](#shaderball-inverse-pipeline)
 10. [The Web Simulator (Daydream)](#10-the-web-simulator-daydream)
     - [10.1 Process and Threading Model](#101-process-and-threading-model)
     - [10.2 The WASM Bridge](#102-the-wasm-bridge)
@@ -2088,47 +2088,65 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### ShaderBall
 
-Typed pullback sphere shader (extends `Effect` directly) whose presets compose a source function, sphere projection, surface lens, two planar warp stages, material shaping, coverage, and colorization. It includes the original liquid/flyby vocabulary plus Bonne, Peirce quincuncial, and Airocean (Dymaxion) projections; topology-aware seam metadata; generated triadic and deformation palettes; and continuous preset choreography. GUI edits publish directly to the live authored state, while preset changes use continuous parameter morphs, or — when the topology changes — a through-clear transition that fades the outgoing look to a cleared frame and the incoming one back up.
+Typed pullback sphere shader (extends `Effect` directly) with a closed set of 14 compiled inverse programs covering all 23 authored presets. Every program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes the original liquid/flyby looks plus authored Bonne, Peirce quincuncial, and folded-gnomonic looks; topology-aware seam metadata; generated triadic and liquid palettes; and continuous preset choreography. Continuous GUI edits publish to the active program when its preconditions still hold. A discrete edit is accepted only when its canonical topology key matches a compiled program; unsupported combinations leave the published look unchanged. Preset changes use parameter morphs within a topology and a through-clear transition between topologies.
 
 **Parameters**: the active controls are schema-driven by the selected slots. See the vocabulary and dependency map below.
 
 </td></tr></table>
 
-### ShaderBall Shader Vocabulary
+### ShaderBall Inverse Pipeline
 
-ShaderBall is a fixed typed pipeline, not a free-form node graph. Each dropdown chooses one implementation for a named stage; the sliders below it edit only that stage's parameters. A frame snapshots the selected slots, live parameters, clocks, transforms, and palette resources before the per-pixel shader starts, so the hot loop reads immutable state.
+ShaderBall is a closed set of typed programs, not a free-form node graph or a runtime switch renderer. A `TopologyKey` records every discrete choice that changes code, canonicalizing inactive layout, noise, and warp fields. The 14-entry program manifest maps an exact key and continuous precondition to a semantic `InversePipelineId` and a non-null `&InversePipeline<...>::shade` wrapper. There is no production fallback: a candidate without a matching program is rejected before it can replace the published configuration.
 
-The shader is a *pullback*: it starts at a visible point on the sphere and walks backward through camera, lens, projection, and warps to discover the source coordinate to sample. Material stages then turn that signed source value and the projection/warp metadata into RGBA.
+Frame preparation resolves that program once, snapshots the selected slots, live parameters, clocks, transforms, prepared lookup data, and borrowed palette/noise resources into an immutable `FrameState`, then validates every resource the selected program may dereference. The resulting `PreparedEndpoint` owns the frame snapshot, pipeline ID, alpha, and shade pointer. The shared `Scan::Shader` loop calls that pointer unconditionally for every visible sample. Through-clear transitions prepare and consume one endpoint at a time, so only one large frame snapshot is live on the stack.
+
+The shader is a *pullback*: it starts at a visible sphere point and walks backward to discover the source coordinate to sample. `InversePipeline` accepts exactly six empty policy types and validates their order, exact input/output carriers, return types, terminal placement, and approximation metadata at compile time. The coordinator and inline-only stages disappear into the address-taken flash wrapper; each selected policy calls its mathematical leaf directly rather than reading the slot tag it represents.
 
 ```mermaid
 flowchart LR
-  V[Sphere sample] --> OC[Camera]
-  OC --> L[Surface lens]
-  L --> PF[Projection frame]
-  PF --> P[Projection]
-  P --> PL[Projected lookup<br/>coords + weight + seam topology]
-  PL --> W1[Planar Warp 1]
-  W1 --> W2[Planar Warp 2]
-  W2 --> F[Source function]
-  F --> SW[Signal weight]
-  SW --> VT[Value transfer]
-  VT --> C[Colorizer]
-  C --> RGBA[RGBA]
-
-  PL -. projection weight .-> SW
-  PL -. projection weight / edge distance .-> W1
-  PL -. projection weight / edge distance .-> W2
-  PL -. projection weight / edge distance .-> CV[Coverage]
-  VT -. shaped value .-> CV
-  CV -. alpha .-> C
-  W1 -. displacement + path metadata .-> C
-  W2 -. displacement + path metadata .-> C
+  C[Candidate Config] --> K[Canonical TopologyKey]
+  K --> M[14-entry program manifest]
+  M -->|ID + non-null shade| E[PreparedEndpoint]
+  E --> S[Shared Scan::Shader loop]
+  S --> OC[Outer Camera]
+  OC -->|Vector| SP[Surface + Projection]
+  SP -->|ProjectedLookup| W[Planar Warp]
+  W -->|SourceInput| F[Source]
+  F -->|MaterialInput| MT[Material]
+  MT -->|MaterialSample| CL[Color]
+  CL -->|straight-alpha Color4| FB[Canvas]
 ```
 
-The two planar warps run in their displayed pullback order: **Planar Warp 1**
-then **Planar Warp 2**, followed by the source function. The numbered names
-describe execution directly without requiring the reader to reverse an
-authored image-formation pipeline.
+The fused surface/projection stage owns lens selection, optional direct surface noise, projection-frame rotation, projection, and all seam/topology metadata. The planar-warp stage runs its two authored warps in pullback order and carries both the original projection metadata and accumulated net displacement, deformation, and path length. The material stage combines signal weighting, linear value transfer, and coverage before the terminal color stage returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
+
+Two stages carry approved approximations. Fast square Peirce projection and the liquid hue LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. The former generic orchestration exists only in host builds with test hooks and test oracles enabled, where every authored preset is compared against it; Teensy and WASM production builds cannot call it.
+
+#### Compiled program roster
+
+Semantic program identities are independent of preset numbering. Presets 1–10 share one topology and therefore one compiled wrapper; all other rows are one authored topology each.
+
+| Preset(s) | Compiled program | Selected stages |
+|---|---|---|
+| 0 | `KALEIDOSCOPE_NOISE_GRID` | Stereographic direct surface noise, kaleidoscope lens, grid, opaque liquid |
+| 1–10 | `GLITCH_NOISE_GRID` | Stereographic direct surface noise, glitch lens, grid, opaque liquid |
+| 11 | `GLITCH_NOISE_GRID_WAVE_SHEAR` | Stereographic glitch lens, outer wave shear, grid, squared-weight liquid |
+| 12 | `KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR` | Stereographic kaleidoscope lens, inner mirror, twin wave, squared-weight liquid |
+| 13 | `GNOMONIC_KALEIDOSCOPE_GRID_MIRROR` | Folded gnomonic, kaleidoscope lens, outer mirror, edge-faded generated color |
+| 14 | `GNOMONIC_GLITCH_GRID_MIRROR` | Folded gnomonic, glitch lens, outer mirror, edge-faded generated color |
+| 15 | `BONNE_KALEIDOSCOPE_LATTICE_MIRROR` | North Bonne, kaleidoscope lens, outer mirror, edge-faded lattice |
+| 16 | `PEIRCE_KALEIDOSCOPE_LATTICE` | Square Peirce, kaleidoscope lens, edge-faded lattice |
+| 17 | `KALEIDOSCOPE_NOISE_GRID_EDGE_FADE` | Stereographic direct surface noise, kaleidoscope lens, edge-faded grid |
+| 18 | `DODECAHEDRAL_NOISE_GRID_MIRROR` | Stereographic direct surface noise, dodecahedral lens, outer mirror, edge-faded grid |
+| 19 | `PEIRCE_DODECAHEDRAL_GRID` | Square Peirce, dodecahedral lens, edge-faded grid |
+| 20 | `DODECAHEDRAL_NOISE_GRID` | Stereographic direct surface noise, dodecahedral lens, opaque grid |
+| 21 | `DODECAHEDRAL_NOISE_LATTICE_MIRROR` | Stereographic direct surface noise, dodecahedral lens, outer mirror, edge-faded lattice |
+| 22 | `GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR` | Folded gnomonic, dodecahedral lens, outer wave shear then inner mirror, squared-weight liquid |
+
+#### Authoring vocabulary
+
+The parameter schema retains the broader ShaderBall vocabulary below for configuration compatibility and host-reference testing. A menu entry describes a possible field value, not a promise that its Cartesian combination is compiled. Production admission still requires one of the canonical program keys above; sliders are active only when the selected schema uses them.
+
+The two planar warps run in their displayed pullback order: **Planar Warp 1** then **Planar Warp 2**, followed by the source function.
 
 | Stage | Options | Produces or controls |
 |---|---|---|
@@ -2172,11 +2190,11 @@ flowchart TD
   Colorizer --> ColorParams[Palette / breathe / hue / fade controls]
 ```
 
-Some combinations are intentionally inadmissible. Legacy stereographic noise selects Stereographic projection; seam-sensitive noise stages do not cross the cut topology of Bonne, Peirce, or Airocean; and Polar Chart constrains the compatible source. These are correctness rules between typed stages, not performance estimates or preset-specific patches.
+Schema validity still enforces semantic constraints: legacy stereographic noise selects Stereographic projection; seam-sensitive noise stages do not cross the cut topology of Bonne, Peirce, or Airocean; and Polar Chart constrains the compatible source. Passing those rules is necessary but not sufficient for production admission. The canonical key and continuous precondition must also resolve to one of the 14 compiled descriptors; ShaderBall never falls back to a generic shader for an uncompiled combination.
 
 Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** gives both sides of a paired cut the same authored fade, so the seam closes flush without a subducted edge. Glued and periodic edges remain continuous and do not fade. **Pole Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
 
-GUI sliders and dropdowns apply immediately. Automatic preset choreography remains continuous: compatible configurations morph one live state, while incompatible discrete topologies blend complete endpoint colors. Source, warp, projection, breathe, global-walk, and palette clocks keep advancing according to their named rates. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
+Admitted GUI edits apply immediately; rejected discrete combinations restore the last published configuration. Automatic preset choreography remains continuous: configurations with the same canonical topology morph one live parameter state, while topology changes use the sequential through-clear endpoints. Source, warp, projection, breathe, global-walk, and palette clocks keep advancing according to their named rates. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
 
 <table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DisplacementField" target="_blank"><img src="docs/screenshots/DisplacementField.png" alt="DisplacementField" width="280"></a></td>
