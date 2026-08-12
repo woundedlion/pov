@@ -167,6 +167,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── engine/                 Machinery: platform layer, memory, callables, rosters, effect support
 │   │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
 │   │   ├── platform_arduino_mocks.h Off-device emulation of the Arduino/FastLED API
+│   │   ├── build_features.h         Build-time feature and instrumentation switches
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
 │   │   ├── constants.h             MAX_W, MAX_H + ClipRegion segment clip rectangle
 │   │   ├── engine.h                Engine API umbrella — included by every effect
@@ -189,6 +190,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── rotate.h                Quaternion projection helpers
 │   │   ├── geometry.h              PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap, Orientation, Basis
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
+│   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
 │   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean sphere → plane kernels
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
