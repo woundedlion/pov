@@ -881,7 +881,22 @@ inline void test_shaderball_polyhedral_kaleidoscopes() {
         Vector(0.0f, -0.7071067812f, 0.7071067812f)}},
       {WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
        {Vector(1.0f, 0.0f, 0.0f), Vector(-0.8090169944f, 0.3090169944f, -0.5f),
-        Vector(0.0f, 0.0f, 1.0f)}}};
+        Vector(0.0f, 0.0f, 1.0f)}},
+      {WB::SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM,
+       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+        Vector(0.8660254038f, 0.0f, -0.5f)}},
+      {WB::SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM,
+       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+        Vector(0.7071067812f, 0.0f, -0.7071067812f)}},
+      {WB::SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM,
+       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+        Vector(0.5877852523f, 0.0f, -0.8090169944f)}},
+      {WB::SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
+       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+        Vector(0.5f, 0.0f, -0.8660254038f)}},
+      {WB::SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM,
+       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
+        Vector(0.3826834324f, 0.0f, -0.9238795325f)}}};
   const Vector direction = Vector(-0.371f, 0.557f, -0.743f).normalized();
   Vector folded[std::size(SYMMETRIES)];
 
@@ -906,23 +921,33 @@ inline void test_shaderball_polyhedral_kaleidoscopes() {
     }
   }
 
-  HS_EXPECT_TRUE(folded[0] != folded[1]);
-  HS_EXPECT_TRUE(folded[1] != folded[2]);
+  for (size_t index = 1; index < std::size(folded); ++index)
+    HS_EXPECT_TRUE(folded[index - 1] != folded[index]);
 
   reset_effect_globals();
   WB::SB sb;
   sb.init();
   const auto *lens = sb.getParameters().find("Lens");
   HS_EXPECT_TRUE(lens != nullptr);
-  HS_EXPECT_EQ(lens->option_count, 9);
+  HS_EXPECT_EQ(lens->option_count, 14);
   HS_EXPECT_EQ(std::string_view(lens->options[3]),
-               std::string_view("Kaleidoscope"));
+               std::string_view("Kaleidoscope (Azimuthal 6-fold)"));
   HS_EXPECT_EQ(std::string_view(lens->options[6]),
                std::string_view("Kaleidoscope (Tetrahedral)"));
   HS_EXPECT_EQ(std::string_view(lens->options[7]),
-               std::string_view("Kaleidoscope (Octahedral)"));
+               std::string_view("Kaleidoscope (Octahedral / Cubic)"));
   HS_EXPECT_EQ(std::string_view(lens->options[8]),
-               std::string_view("Kaleidoscope (Dodecahedral)"));
+               std::string_view("Kaleidoscope (Dodecahedral / Icosahedral)"));
+  HS_EXPECT_EQ(std::string_view(lens->options[9]),
+               std::string_view("Kaleidoscope (Triangular Prism)"));
+  HS_EXPECT_EQ(std::string_view(lens->options[10]),
+               std::string_view("Kaleidoscope (Square Prism)"));
+  HS_EXPECT_EQ(std::string_view(lens->options[11]),
+               std::string_view("Kaleidoscope (Pentagonal Prism)"));
+  HS_EXPECT_EQ(std::string_view(lens->options[12]),
+               std::string_view("Kaleidoscope (Hexagonal Prism)"));
+  HS_EXPECT_EQ(std::string_view(lens->options[13]),
+               std::string_view("Kaleidoscope (Octagonal Prism)"));
 }
 
 /** @brief Equirectangular is unfolded, periodic, and cut at the antimeridian. */
