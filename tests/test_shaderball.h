@@ -1008,7 +1008,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(29));
+  HS_EXPECT_EQ(presets.size(), size_t(30));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_EQ(presets[0].slots.function, WB::Function::COUPLED_DIRECT);
   HS_EXPECT_EQ(presets[0].slots.projection, WB::Projection::STEREOGRAPHIC);
@@ -1314,6 +1314,45 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.cycle_speed, 0.00015458837f);
   HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.hue_shift, 0.339f);
   HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.value_fade, 0.847f);
+  const auto &peirce_dodecahedral = presets[29];
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.function,
+               WB::Function::COUPLED_DIRECT);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.projection,
+               WB::Projection::PEIRCE_QUINCUNCIAL);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.peirce_layout,
+               WB::PeirceLayout::SQUARE);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.projection_frame,
+               WB::ProjectionFramePolicy::SPIN_WANDER);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.warp_program.outer.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.warp_program.inner.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.signal_weight,
+               WB::SignalWeight::PROJECTION);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.value_transfer,
+               WB::ValueTransfer::LINEAR);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.coverage,
+               WB::CoveragePolicy::EDGE_FADE);
+  HS_EXPECT_EQ(peirce_dodecahedral.slots.colorizer, WB::Colorizer::LIQUID);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.source.pattern_freq, 5.0f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.source.speed, 0.1f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.source.angle_rate, 0.0f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.source.complexity, 0.5f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.source.pattern_mix, 0.0f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.source.secondary_rate, 0.8f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.projection.central_meridian, 0.0f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.projection.coordinate_scale, 1.0f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.projection.spin_rate, 0.0f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.projection.wander, 1.0f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.outer_camera.wander, 1.0f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.surface_lens.mix, 1.0f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.value.edge_width, 0.1f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.breathe_depth, 0.15f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.cycle_speed, 0.05f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.hue_shift, 0.319f);
+  HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.value_fade, 0.2f);
   for (size_t index = 0; index < presets.size(); ++index)
     HS_EXPECT_TRUE(WB::seam_compatible(presets[index]));
   for (size_t index = 0; index < 16; ++index)
@@ -1729,11 +1768,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(29));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(30));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(28));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[28]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(29));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[29]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);

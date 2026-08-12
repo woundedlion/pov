@@ -4190,7 +4190,27 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 29> PRESETS = {{
+  static constexpr Preset peirce_dodecahedral_liquid_preset() {
+    Slots slots{Function::COUPLED_DIRECT,
+                Projection::PEIRCE_QUINCUNCIAL,
+                ProjectionFramePolicy::SPIN_WANDER,
+                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
+                {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::EDGE_FADE,
+                Colorizer::LIQUID};
+    slots.peirce_layout = PeirceLayout::SQUARE;
+    Params params =
+        authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {}, {1.0f, 0.0f},
+                        {1.0f}, {0.15f, 0.05f, 0.319f, 0.2f}, {1.0f});
+    params.projection.central_meridian = 0.0f;
+    params.projection.coordinate_scale = 1.0f;
+    params.value.edge_width = 0.1f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 30> PRESETS = {{
       {KALEIDOSCOPE_LIQUID_STEREO_SLOTS,
        authored_params({1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
                        {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f},
@@ -4272,6 +4292,7 @@ private:
       peirce_lattice_preset(),
       kaleidoscope_edge_fade_liquid_preset(),
       dodecahedral_grid_preset(),
+      peirce_dodecahedral_liquid_preset(),
   }};
   static_assert(
       [] {
