@@ -368,12 +368,9 @@ private:
     uint64_t material = 0;
     uint64_t color = 0;
     uint64_t mirror_tile = 0;
-    uint64_t legacy_noise = 0;
     uint64_t polyhedral_pixels = 0;
     uint64_t polyhedral_reflections = 0;
     uint32_t polyhedral_max_reflections = 0;
-    uint64_t legacy_single_samples = 0;
-    uint64_t legacy_blended_samples = 0;
 
     void reset() { *this = {}; }
   };
@@ -387,16 +384,12 @@ private:
     shaderball_stage_totals.material += frame.material;
     shaderball_stage_totals.color += frame.color;
     shaderball_stage_totals.mirror_tile += frame.mirror_tile;
-    shaderball_stage_totals.legacy_noise += frame.legacy_noise;
     shaderball_stage_totals.polyhedral_pixels += frame.polyhedral_pixels;
     shaderball_stage_totals.polyhedral_reflections +=
         frame.polyhedral_reflections;
-    shaderball_stage_totals.polyhedral_max_reflections = std::max(
-        shaderball_stage_totals.polyhedral_max_reflections,
-        frame.polyhedral_max_reflections);
-    shaderball_stage_totals.legacy_single_samples += frame.legacy_single_samples;
-    shaderball_stage_totals.legacy_blended_samples +=
-        frame.legacy_blended_samples;
+    shaderball_stage_totals.polyhedral_max_reflections =
+        std::max(shaderball_stage_totals.polyhedral_max_reflections,
+                 frame.polyhedral_max_reflections);
     hs::g_shaderball_stage_cycles.reset();
   }
 
@@ -410,16 +403,13 @@ private:
             hs::u64_dec(shaderball_stage_totals.source, c3),
             hs::u64_dec(shaderball_stage_totals.material, c4),
             hs::u64_dec(shaderball_stage_totals.color, c5));
-    char c6[21], c7[21], c8[21], c9[21], c10[21], c11[21];
-    hs::log("sb detail: mirror=%s legacy_noise=%s poly_pixels=%s "
-            "poly_reflections=%s poly_max=%lu noise_single=%s noise_blended=%s",
+    char c6[21], c7[21], c8[21];
+    hs::log("sb detail: mirror=%s poly_pixels=%s poly_reflections=%s "
+            "poly_max=%lu",
             hs::u64_dec(shaderball_stage_totals.mirror_tile, c6),
-            hs::u64_dec(shaderball_stage_totals.legacy_noise, c7),
-            hs::u64_dec(shaderball_stage_totals.polyhedral_pixels, c8),
-            hs::u64_dec(shaderball_stage_totals.polyhedral_reflections, c9),
-            (unsigned long)shaderball_stage_totals.polyhedral_max_reflections,
-            hs::u64_dec(shaderball_stage_totals.legacy_single_samples, c10),
-            hs::u64_dec(shaderball_stage_totals.legacy_blended_samples, c11));
+            hs::u64_dec(shaderball_stage_totals.polyhedral_pixels, c7),
+            hs::u64_dec(shaderball_stage_totals.polyhedral_reflections, c8),
+            (unsigned long)shaderball_stage_totals.polyhedral_max_reflections);
     shaderball_stage_totals.reset();
   }
 

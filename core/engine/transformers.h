@@ -787,12 +787,6 @@ inline Vector noise_transform(const Vector &v,
  * pre-add delta. Callers composing stages must accumulate `delta` rather than
  * recovering it by subtracting rounded coordinates.
  */
-struct StereoWarpResult {
-  Complex coords;     /**< Displaced coordinate. */
-  Complex delta;      /**< Pre-add displacement vector. */
-  float displacement; /**< Magnitude of the displacement vector. */
-};
-
 /**
  * @brief Smooth pole attenuation for stereographic-space effects.
  * @param r_sq Pre-computed |z|² (z.re² + z.im²).
@@ -800,9 +794,7 @@ struct StereoWarpResult {
  * @return Falloff factor 1/(1 + r²/pole_fade²) in (0, 1].
  * @details Stereographic projection sends the far pole to infinity, so |z|²
  * grows without bound near it; this falloff is 1 at the projection origin and
- * decays toward 0 with distance, taming that singularity. Shared by
- * stereo_noise_warp and the stereo pattern effect (ShaderBall) so the
- * falloff stays identical across warp and shading.
+ * decays toward 0 with distance, taming that singularity.
  */
 inline float pole_attenuation(float r_sq, float pole_fade) {
   // Floor the radius so a 0 pole_fade can't divide by zero and poison the warp.
@@ -838,35 +830,6 @@ inline Complex stereo_pattern_args(const Complex &w, float pattern_freq) {
                            STEREO_PATTERN_ARG_LIMIT),
                  hs::clamp(w.im * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
                            STEREO_PATTERN_ARG_LIMIT));
-}
-
-/**
- * @brief Applies noise-based displacement in stereographic space.
- * @param z Stereographic coordinate to warp.
- * @param r_sq Pre-computed |z|² (z.re² + z.im²).
- * @param noise FastNoiseLite instance for sampling.
- * @param scale Noise frequency scale.
- * @param strength Maximum displacement amplitude.
- * @param pole_fade Attenuation radius (larger = wider fade zone).
- * @param time Noise time coordinate (for animation).
- * @return Warped coordinate, pre-add displacement vector, and its magnitude.
- * @details Displacement is attenuated near the projection pole to prevent
- * singularity blowup. `delta` and `displacement` are computed before adding the
- * displacement to `z`, preserving small motion even when large coordinates
- * would round `coords - z` to zero.
- */
-HS_O3_FN inline StereoWarpResult
-stereo_noise_warp(const Complex &z, float r_sq, const FastNoiseLite &noise,
-                  float scale, float strength, float pole_fade, float time) {
-  float atten = pole_attenuation(r_sq, pole_fade);
-  float s = strength * atten;
-  constexpr float CHANNEL_OFFSET = 100.0f; // decorrelates dy's field from dx's
-  float dx = noise.GetNoise(z.re * scale, z.im * scale, time) * s;
-  float dy = noise.GetNoise(z.re * scale + CHANNEL_OFFSET,
-                            z.im * scale + CHANNEL_OFFSET, time) *
-             s;
-  return {Complex(z.re + dx, z.im + dy), Complex(dx, dy),
-          sqrtf(dx * dx + dy * dy)};
 }
 
 /**

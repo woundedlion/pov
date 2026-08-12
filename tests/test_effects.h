@@ -5211,21 +5211,6 @@ inline void test_mindsplatter_emit_phase_wrapped() {
   HS_EXPECT_GT(laps, 0);
 }
 
-/** @brief Stereo warp metadata preserves its pre-add displacement invariant. */
-inline void test_stereo_noise_warp_delta_invariant() {
-  FastNoiseLite noise;
-  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-  noise.SetFrequency(0.01f);
-  const Complex input(12345.0f, -23456.0f);
-  const StereoWarpResult result =
-      stereo_noise_warp(input, input.re * input.re + input.im * input.im, noise,
-                        3.0f, 17.0f, 2.0f, 1.25f);
-  HS_EXPECT_EQ(result.coords.re, input.re + result.delta.re);
-  HS_EXPECT_EQ(result.coords.im, input.im + result.delta.im);
-  HS_EXPECT_EQ(result.displacement, sqrtf(result.delta.re * result.delta.re +
-                                          result.delta.im * result.delta.im));
-}
-
 /**
  * @brief Verifies glitch_lens maps unit directions to unit directions and
  *        stays smooth through its equatorial fold.
@@ -6329,7 +6314,6 @@ inline int run_effects_tests() {
   test_manual_preset_navigation();
   test_mindsplatter_manual_preset_survives_unpause();
   test_hankinsolids_manual_pause_holds_morph();
-  test_stereo_noise_warp_delta_invariant();
   test_every_effect_renders_while_paused();
   // Arena budgets both tiers run: a mesh or fragment-count change reds these,
   // and they cost under a second between them.
