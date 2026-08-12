@@ -478,6 +478,59 @@ inline void test_shaderball_full_config_snapshot() {
                                             before_failure));
 }
 
+/** @brief Schema-1 IDs and structural noise migrate to schema-2 fields. */
+inline void test_shaderball_legacy_config_snapshot() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+
+  WB::FullConfigSnapshot legacy = sb.capture_full_config_snapshot();
+  legacy.schema_version = 1;
+  const size_t function =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_FUNCTION);
+  const size_t lens =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_SURFACE_LENS);
+  const size_t lens_mix = static_cast<size_t>(WB::ConfigFieldId::LENS_MIX);
+  const size_t lens_amount =
+      static_cast<size_t>(WB::ConfigFieldId::LENS_AMOUNT);
+  const size_t surface_noise =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_SURFACE_NOISE);
+  const size_t outer_warp =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_WARP_OUTER_KIND);
+  legacy.accepted[function] = 3;
+  legacy.requested[function] = 3;
+  legacy.accepted[lens] = 5;
+  legacy.requested[lens] = 5;
+  legacy.accepted[lens_mix] = shaderball_float_payload(0.5f);
+  legacy.requested[lens_mix] = shaderball_float_payload(0.5f);
+  legacy.accepted[lens_amount] = shaderball_float_payload(0.8f);
+  legacy.requested[lens_amount] = shaderball_float_payload(0.8f);
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(legacy),
+               WB::ConfigRestoreResult::APPLIED);
+
+  const WB::FullConfigSnapshot migrated = sb.capture_full_config_snapshot();
+  HS_EXPECT_EQ(migrated.schema_version, WB::SB::CONFIG_SCHEMA_VERSION);
+  HS_EXPECT_EQ(migrated.accepted[function],
+               static_cast<uint32_t>(WB::Function::GRID));
+  HS_EXPECT_EQ(migrated.accepted[lens],
+               static_cast<uint32_t>(WB::SurfaceLens::NONE));
+  HS_EXPECT_EQ(migrated.accepted[surface_noise],
+               static_cast<uint32_t>(WB::SurfaceNoise::DIRECT));
+  HS_EXPECT_EQ(migrated.accepted[outer_warp],
+               static_cast<uint32_t>(WB::WarpStageKind::NONE));
+  HS_EXPECT_TRUE(std::strlen(sb.config_import_notice()) > 0);
+
+  legacy = migrated;
+  legacy.schema_version = 1;
+  legacy.accepted[function] = 6;
+  legacy.requested[function] = 6;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(legacy),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_EQ(sb.capture_full_config_snapshot().accepted[function],
+               static_cast<uint32_t>(WB::Function::PRIMITIVE_LATTICE));
+}
+
 /** @brief Every named clock wraps in its native domain. */
 inline void test_shaderball_clocks_wrapped() {
   using WB = ShaderBallWhiteBox;
@@ -3970,6 +4023,7 @@ inline void test_shaderball_noise_contour_domains() {
 inline int run_shaderball_tests() {
   ModuleFixture fixture("shaderball");
   test_shaderball_full_config_snapshot();
+  test_shaderball_legacy_config_snapshot();
   test_shaderball_clocks_wrapped();
   test_shaderball_pause_semantics();
   test_shaderball_paused_selector_commit();
