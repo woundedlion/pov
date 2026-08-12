@@ -39,6 +39,7 @@
 #include "tests/test_mesh_raster.h"
 #include "tests/test_transformers.h"
 #include "tests/test_noise.h"
+#include "tests/test_noise_field.h"
 #include "tests/test_generators.h"
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
@@ -158,6 +159,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
   X("transformers", 44, hs_test::transformers_tests::run_transformers_tests,   \
     1296)                                                                      \
   X("noise", 3, hs_test::noise_tests::run_noise_tests, 201)                    \
+  X("noise_field", 7, hs_test::noise_field_tests::run_noise_field_tests, 400) \
   X("generators", 4, hs_test::generators_tests::run_generators_tests, 59)      \
   X("animation", 110, hs_test::animation_tests::run_animation_tests, 13894)    \
   X("effects", 91, hs_test::effects_tests::run_effects_tests,                  \
