@@ -483,11 +483,13 @@ than silently clamped into a different schema:
 | value/coverage | levels and thresholds `[0,1]`, widths/softness `[1/1024,1/2]`, band count integer `[1,32]`, wrapped phase |
 | deformation ink | gains `[-4,4]`, normalization denominators `[1/1024,32]`, wrapped direction phase |
 
-Möbius parameters use a normalized coefficient scale no greater than 8 and
-must satisfy a documented positive lower bound on `abs(a*d-b*c)` before that
-slot is admitted. Their projective gauge is canonical: divide by positive
+Möbius parameters use coefficient components no greater than 8 and must
+satisfy a documented positive lower bound on `abs(a*d-b*c)` before that slot is
+admitted. Authored presets use a canonical projective gauge: divide by positive
 Frobenius norm, then rotate the common complex phase so the fixed-order
 largest-magnitude coefficient is positive real; ties use coefficient order.
+GUI edits retain their literal coefficients because a common scale cancels in
+the projective transform; editing one coefficient never normalizes the others.
 Coefficient lerp is forbidden. A one-lookup Möbius morph follows the prepared
 matrix-group curve `M(t) = M0 * exp(t * log(inverse(M0) * M1))` under one fixed
 logarithm branch and is admitted only when the complete curve preserves the

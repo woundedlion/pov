@@ -394,8 +394,7 @@ public:
     float max = 1; /**< Maximum value (for floats). */
     int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
     TargetType target_type = TargetType::FLOAT; /**< Target storage format. */
-    bool animated =
-        false; /**< True if an animation drives this member; the GUI
+    bool animated = false; /**< True if an animation drives this member; the GUI
                                surfaces these as auto-pausing sliders. */
     bool readonly = false; /**< True if this is engine-written telemetry; the
                                GUI shows it live but disables editing. */
@@ -658,6 +657,16 @@ public:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Refreshes values exposed through parameter display mirrors. */
   virtual void refresh_parameter_display() {}
+
+  /**
+   * @brief Reports an actionable GUI warning for one parameter.
+   * @param name Registered parameter name.
+   * @return Warning text, or null when the parameter is valid.
+   */
+  virtual const char *parameter_warning(const char *name) const {
+    (void)name;
+    return nullptr;
+  }
 #endif
 
   /** @brief Token identifying the current ordered parameter descriptor schema. */
@@ -782,6 +791,15 @@ protected:
     (void)displayed;
 #endif
   }
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  /** @brief Shows a parameter's requested value instead of its render mirror. */
+  void show_requested_parameter_value(const char *name) {
+    ParamDef *parameter = parameters.find(name);
+    if (parameter != nullptr)
+      parameter->display_target = nullptr;
+  }
+#endif
 
   /**
    * @brief Flag indicating if the previous frame's pixels should be copied to

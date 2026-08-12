@@ -836,6 +836,8 @@ public:
       entry.set("animated", val(v.animated));
       entry.set("readonly", val(v.readonly));
       entry.set("preset", val(v.preset));
+      if (const char *warning = current_effect->parameter_warning(v.name))
+        entry.set("warning", val(warning));
       result.set(i++, entry);
     }
     return result;
