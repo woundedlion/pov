@@ -2132,7 +2132,7 @@ authored image-formation pipeline.
 
 | Stage | Options | Produces or controls |
 |---|---|---|
-| **Function** | Twin Wave, Rings, Spiral, Grid, Coupled / Direct, Noise Contour, Primitive Lattice | A signed scalar field sampled in the final planar coordinates. Function-specific controls replace irrelevant generic sliders. |
+| **Function** | Twin Wave, Rings, Spiral, Grid, Noise Contour, Primitive Lattice | A signed scalar field sampled in the final planar coordinates. Grid blends between coupled and direct patterns with dedicated mix and complexity controls. |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Dymaxion / Airocean, Equirectangular | Planar coordinates plus region/component identity, projection weight, boundary traits, stable edge identity, and fade distance. |
 | **Projection Frame** | Identity, Spin + Wander | Rotates the sphere before projection. Spin Rate and Projection Wander exist only for Spin + Wander. |
 | **Lens** | None, Glitch, Twist, Kaleidoscope, Mobius, Tangent Noise | Distorts a unit-sphere direction before projection. Lens Mix and lens-specific controls exist only for an active lens. |

@@ -166,7 +166,6 @@ private:
     RINGS,
     SPIRAL,
     GRID,
-    COUPLED_DIRECT,
     NOISE_CONTOUR,
     PRIMITIVE_LATTICE
   };
@@ -935,8 +934,7 @@ private:
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
     register_animated_param("Source Angle Rate", &params.angle_rate,
                             WAVE_SPIN_MIN, WAVE_SPIN_MAX);
-    if (function == Function::TWIN_WAVE ||
-        function == Function::COUPLED_DIRECT) {
+    if (function == Function::GRID) {
       register_animated_param("Complexity", &params.complexity, COMPLEXITY_MIN,
                               COMPLEXITY_MAX);
       register_animated_param("Pattern Mix", &params.pattern_mix,
@@ -2522,10 +2520,8 @@ private:
 
   HS_FLASH_MEMBER static float sample_source(const Complex &p,
                                              const FrameState &frame) {
-    if (frame.slots.function == Function::COUPLED_DIRECT)
-      return sample_pattern(
-          p, frame.params.source.complexity, frame.params.source.pattern_mix,
-          frame.prepared_source.primary, frame.prepared_source.secondary);
+    if (frame.slots.function == Function::GRID)
+      return grid(p, frame.params.source, frame.prepared_source);
     if (frame.slots.function == Function::NOISE_CONTOUR)
       return sample_noise_contour(p, frame);
     if (frame.slots.function == Function::PRIMITIVE_LATTICE)
@@ -2925,8 +2921,6 @@ private:
     case Function::SPIRAL:
       return spiral(p, source);
     case Function::GRID:
-      return grid(p, source);
-    case Function::COUPLED_DIRECT:
     case Function::NOISE_CONTOUR:
     case Function::PRIMITIVE_LATTICE:
       break;
@@ -2954,30 +2948,24 @@ private:
                      source.primary);
   }
 
-  HS_FLASH_MEMBER static float grid(const Complex &p,
-                                    const SourceState &source) {
-    const float a = p.re * source.angle_cos + p.im * source.angle_sin;
-    const float b = -p.re * source.angle_sin + p.im * source.angle_cos;
-    return fast_sinf(a + source.primary) * fast_cosf(b - source.primary);
-  }
-
-  HS_O3_FN static float sample_pattern(const Complex &p, float complexity,
-                                       float pattern_mix, float primary,
-                                       float secondary) {
-    if (pattern_mix == 1.0f)
-      return fast_sinf(p.re + primary) * fast_cosf(p.im - secondary);
-    float re = p.re;
-    float im = p.im;
-    if (complexity != 0.0f) {
-      re += complexity * fast_sinf(p.im + primary);
-      im += complexity * fast_cosf(p.re - secondary);
+  HS_O3_FN static float grid(const Complex &p, const SourceParams &params,
+                             const SourceState &source) {
+    const float x = p.re * source.angle_cos + p.im * source.angle_sin;
+    const float y = -p.re * source.angle_sin + p.im * source.angle_cos;
+    if (params.pattern_mix == 1.0f)
+      return fast_sinf(x + source.primary) * fast_cosf(y - source.secondary);
+    float re = x;
+    float im = y;
+    if (params.complexity != 0.0f) {
+      re += params.complexity * fast_sinf(y + source.primary);
+      im += params.complexity * fast_cosf(x - source.secondary);
     }
     const float coupled = fast_sinf(re) * fast_cosf(im);
-    if (pattern_mix == 0.0f)
+    if (params.pattern_mix == 0.0f)
       return coupled;
     const float direct =
-        fast_sinf(p.re + primary) * fast_cosf(p.im - secondary);
-    return hs::lerp(coupled, direct, pattern_mix);
+        fast_sinf(x + source.primary) * fast_cosf(y - source.secondary);
+    return hs::lerp(coupled, direct, params.pattern_mix);
   }
 
   HS_COLD_MEMBER WalkDeltas sample_walk_deltas() {
@@ -3248,14 +3236,13 @@ private:
   HS_COLD_MEMBER static constexpr SourceTraits
   source_traits(Function function) {
     switch (function) {
-    case Function::COUPLED_DIRECT:
+    case Function::GRID:
       return {true, true, true, true, false, true};
     case Function::PRIMITIVE_LATTICE:
       return {true, true, true, true, false, false};
     case Function::TWIN_WAVE:
     case Function::RINGS:
     case Function::SPIRAL:
-    case Function::GRID:
     case Function::NOISE_CONTOUR:
       return {true, true, false, false, false, false};
     }
@@ -3569,7 +3556,7 @@ private:
       if (!traits.y_periodic || !traits.polar_angle_compatible)
         return begin_warning(
             "%s Polar Chart requires a polar-periodic Function; %s is not "
-            "compatible. Select Coupled / Direct or Primitive Lattice, or "
+            "compatible. Select Grid or Primitive Lattice, or "
             "choose another %s.",
             position,
             FUNCTION_OPTIONS[static_cast<uint8_t>(candidate.slots.function)],
@@ -4078,13 +4065,12 @@ private:
   static constexpr size_t PARAM_CAPACITY = 64;
 
   static constexpr const char *FUNCTION_OPTIONS[] = {
-      "Twin Wave",        "Rings",         "Spiral",           "Grid",
-      "Coupled / Direct", "Noise Contour", "Primitive Lattice"};
+      "Twin Wave", "Rings",         "Spiral",
+      "Grid",      "Noise Contour", "Primitive Lattice"};
   static constexpr const char *FUNCTION_EXPORT_OPTIONS[] = {
-      "Function::TWIN_WAVE",        "Function::RINGS",
-      "Function::SPIRAL",           "Function::GRID",
-      "Function::COUPLED_DIRECT",   "Function::NOISE_CONTOUR",
-      "Function::PRIMITIVE_LATTICE"};
+      "Function::TWIN_WAVE",     "Function::RINGS",
+      "Function::SPIRAL",        "Function::GRID",
+      "Function::NOISE_CONTOUR", "Function::PRIMITIVE_LATTICE"};
   static constexpr int NUM_FUNCTIONS = std::size(FUNCTION_OPTIONS);
   static constexpr const char *PROJECTION_OPTIONS[] = {
       "Folded Sinusoidal",  "Stereographic",       "Gnomonic",       "Bonne",
@@ -4362,7 +4348,7 @@ private:
   }
 
   static constexpr Slots LIQUID_STEREO_SLOTS{
-      Function::COUPLED_DIRECT,
+      Function::GRID,
       Projection::STEREOGRAPHIC,
       ProjectionFramePolicy::SPIN_WANDER,
       SurfaceLens::GLITCH,
@@ -4493,7 +4479,7 @@ private:
     outer_warp.offset_x = 1.344f;
     outer_warp.offset_y = -1.456f;
     Params params =
-        authored_params({3.565f, 0.235f, 0.0f, 0.0f, 0.0f, 0.0f}, outer_warp,
+        authored_params({3.565f, 0.235f, 0.0f, 1.0f, 1.0f, 0.0f}, outer_warp,
                         {1.4f, 0.0f}, {1.0f}, {}, {1.0f});
     params.value.edge_width = 0.5f;
     return {slots, params};
@@ -4577,7 +4563,7 @@ private:
     outer_warp.cell_x = 1.8041f;
     outer_warp.cell_y = 1.7083f;
     Params params =
-        authored_params({1.532f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}, outer_warp,
+        authored_params({1.532f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f}, outer_warp,
                         {3.907f, 0.0387f, 0.0f}, {1.0f},
                         {0.25410002f, 0.00015458837f, 0.339f, 0.847f}, {1.0f});
     params.projection.wander = 0.0f;
@@ -4587,7 +4573,7 @@ private:
   }
 
   static constexpr Preset peirce_dodecahedral_liquid_preset() {
-    Slots slots{Function::COUPLED_DIRECT,
+    Slots slots{Function::GRID,
                 Projection::PEIRCE_QUINCUNCIAL,
                 ProjectionFramePolicy::SPIN_WANDER,
                 SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
@@ -4647,7 +4633,36 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 22> PRESETS = {{
+  static constexpr Preset gnomonic_wave_shear_grid_preset() {
+    Slots slots{Function::GRID,
+                Projection::GNOMONIC,
+                ProjectionFramePolicy::IDENTITY,
+                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
+                {{WarpStageKind::WAVE_SHEAR}, {WarpStageKind::MIRROR_TILE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
+                Colorizer::LIQUID};
+    slots.gnomonic_hemisphere = GnomonicHemispherePolicy::FOLDED;
+    WarpStageParams outer_warp;
+    outer_warp.strength = -0.176f;
+    outer_warp.time_scale = -0.00325f;
+    outer_warp.frequency = 1.408f;
+    outer_warp.field_angle = 2.2305307f;
+    WarpStageParams inner_warp;
+    inner_warp.rotation = 0.0f;
+    inner_warp.cell_x = 1.0f;
+    inner_warp.cell_y = 1.0f;
+    inner_warp.offset_x = 0.0f;
+    inner_warp.offset_y = 0.0f;
+    Params params = authored_params(
+        {6.3287f, 0.04f, 1.704f, 0.0f, 0.8f, 0.027f}, outer_warp,
+        {2.311f, 0.0f}, {1.0f}, {0.15f, 0.0f, 0.721f, 0.854f}, {1.0f});
+    params.warp.inner = inner_warp;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 23> PRESETS = {{
       {KALEIDOSCOPE_LIQUID_STEREO_SLOTS,
        authored_params({1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
                        {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f},
@@ -4706,6 +4721,7 @@ private:
       peirce_dodecahedral_liquid_preset(),
       dodecahedral_noise_liquid_preset(),
       dodecahedral_lattice_noise_preset(),
+      gnomonic_wave_shear_grid_preset(),
   }};
   static_assert(
       [] {

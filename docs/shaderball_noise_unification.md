@@ -553,7 +553,7 @@ the following normative storage IDs:
 
 | Enum | Storage IDs in schema 2 |
 |---|---|
-| Function | `0 Twin Wave`, `1 Rings`, `2 Spiral`, `3 Grid`, `4 Coupled / Direct`, `5 Noise Contour (Projected)`, `6 Primitive Lattice`, `7 Noise Contour (Sphere)` |
+| Function | `0 Twin Wave`, `1 Rings`, `2 Spiral`, `3 Grid`, `4 Noise Contour (Projected)`, `5 Primitive Lattice`, `6 Noise Contour (Sphere)` |
 | Surface Lens | `0 None`, `1 Glitch`, `2 Twist`, `3 Kaleidoscope (Azimuthal 6-fold)`, `4 Mobius`, `5 TANGENT_NOISE tombstone`, `6 Tetrahedral`, `7 Octahedral`, `8 Dodecahedral`, `9 Triangular Prism`, `10 Square Prism`, `11 Pentagonal Prism`, `12 Hexagonal Prism`, `13 Octagonal Prism` |
 | Planar Warp kind | `0 None`, `1 LEGACY_STEREO_NOISE tombstone`, `2 Affine Frame`, `3 Wave Shear`, `4 Vortex`, `5 Projected Vector Noise`, `6 Projected Curl Flow`, `7 Mirror Tile`, `8 Polar Chart` |
 | Surface Noise | `0 None`, `1 Direct`, `2 Curl` |
