@@ -250,10 +250,11 @@ public:
     if (state->transition.active) {
       draw_through_clear_transition(canvas);
     } else {
-      const FrameState frame = prepare_frame();
-      FrameShader shader{&frame, 1.0f, resolve_shade_function(frame)};
-      HS_PROFILE(sb_shader_draw);
-      Scan::Shader::draw<W, H, 1>(canvas, shader);
+      PreparedEndpoint prepared;
+      HS_CHECK(prepare_endpoint({active_slots, blend.params}, runtime, 1.0f,
+                                active_pipeline, prepared),
+               "ShaderBall active topology has no compiled pipeline");
+      draw_endpoint(canvas, prepared);
     }
     finish_transitions();
     publish_live_config();
@@ -293,6 +294,7 @@ private:
     state->param_morph.active = false;
     state->transition.active = false;
     active_slots = PRESETS[index].slots;
+    active_pipeline = find_inverse_program(PRESETS[index])->id;
     blend.params = PRESETS[index].params;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = PRESETS[index];
@@ -1813,6 +1815,12 @@ private:
     DODECAHEDRAL_NOISE_GRID_MIRROR,
     DODECAHEDRAL_NOISE_GRID,
     DODECAHEDRAL_NOISE_LATTICE_MIRROR,
+    GLITCH_NOISE_GRID_WAVE_SHEAR,
+    KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
+    GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
+    GNOMONIC_GLITCH_GRID_MIRROR,
+    PEIRCE_DODECAHEDRAL_GRID,
+    GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
     COUNT,
     NONE = 0xff
   };
@@ -1830,16 +1838,16 @@ private:
 
   template <typename Stage>
   struct HasInverseStageContract<
-      Stage, std::void_t<decltype(Stage::KIND), decltype(Stage::EMISSION),
-                         decltype(Stage::APPROXIMATE),
-                         decltype(Stage::TERMINAL),
-                         decltype(Stage::ORACLE), decltype(Stage::METRICS),
-                         decltype(Stage::NON_FLOATING_FIELDS_EXACT),
-                         typename Stage::Input, typename Stage::Output,
-                         decltype(Stage::run(
-                             std::declval<const typename Stage::Input &>(),
-                             std::declval<const FrameState &>()))>>
-      : std::true_type {};
+      Stage,
+      std::void_t<decltype(Stage::KIND), decltype(Stage::EMISSION),
+                  decltype(Stage::APPROXIMATE), decltype(Stage::TERMINAL),
+                  decltype(Stage::ORACLE), decltype(Stage::METRICS),
+                  decltype(Stage::NON_FLOATING_FIELDS_EXACT),
+                  typename Stage::Input, typename Stage::Output,
+                  decltype(Stage::run(
+                      std::declval<const typename Stage::Input &>(),
+                      std::declval<const FrameState &>()))>> : std::true_type {
+  };
 
   template <typename Stage,
             bool Present = HasInverseStageContract<Stage>::value>
@@ -1848,8 +1856,7 @@ private:
   template <typename Stage>
   struct HasTypedInverseStageContract<Stage, true>
       : std::bool_constant<
-            std::is_same_v<decltype(Stage::KIND),
-                           const InverseStageKind> &&
+            std::is_same_v<decltype(Stage::KIND), const InverseStageKind> &&
             std::is_same_v<decltype(Stage::EMISSION), const CodeEmission> &&
             std::is_same_v<decltype(Stage::APPROXIMATE), const bool> &&
             std::is_same_v<decltype(Stage::TERMINAL), const bool> &&
@@ -1919,8 +1926,7 @@ private:
     static constexpr bool APPROXIMATIONS =
         (((Stages::APPROXIMATE &&
            Stages::ORACLE != ApproximationOracleId::NONE &&
-           Stages::METRICS.size() != 0 &&
-           Stages::NON_FLOATING_FIELDS_EXACT &&
+           Stages::METRICS.size() != 0 && Stages::NON_FLOATING_FIELDS_EXACT &&
            has_final_framebuffer_metric<Stages>()) ||
           (!Stages::APPROXIMATE &&
            Stages::ORACLE == ApproximationOracleId::NONE &&
@@ -1936,15 +1942,13 @@ private:
         InversePipelineValidation<ARITY_VALID && CONTRACTS_VALID, Stages...>;
 
     static_assert(ARITY_VALID, "inverse pipeline: wrong stage count");
-    static_assert(CONTRACTS_VALID,
-                  "inverse pipeline: missing stage contract");
+    static_assert(CONTRACTS_VALID, "inverse pipeline: missing stage contract");
     static_assert(!ARITY_VALID || !CONTRACTS_VALID ||
                       Validation::EMPTY_POLICIES,
                   "inverse pipeline: stage policies must be empty");
     static_assert(!ARITY_VALID || !CONTRACTS_VALID || Validation::ORDER,
                   "inverse pipeline: wrong stage order");
-    static_assert(!ARITY_VALID || !CONTRACTS_VALID ||
-                      Validation::RUN_RETURNS,
+    static_assert(!ARITY_VALID || !CONTRACTS_VALID || Validation::RUN_RETURNS,
                   "inverse pipeline: wrong stage return type");
     static_assert(!ARITY_VALID || !CONTRACTS_VALID || Validation::CARRIERS,
                   "inverse pipeline: carrier mismatch");
@@ -1966,9 +1970,8 @@ private:
       using Stage = typename InverseStageAt<Index, Stages...>::Type;
       static_assert(std::is_same_v<Input, typename Stage::Input>,
                     "inverse pipeline: stage input mismatch");
-      static_assert(std::is_same_v<
-                        decltype(Stage::run(input, frame)),
-                        typename Stage::Output>,
+      static_assert(std::is_same_v<decltype(Stage::run(input, frame)),
+                                   typename Stage::Output>,
                     "inverse pipeline: wrong stage return type");
       const typename Stage::Output output = Stage::run(input, frame);
       if constexpr (Index + 1 == sizeof...(Stages))
@@ -1984,28 +1987,24 @@ private:
     static constexpr bool APPROXIMATE = false;
     static constexpr bool TERMINAL = false;
     static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE =
-        ApproximationOracleId::NONE;
+    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
     static constexpr std::array<ApproximationMetric, 0> METRICS{};
     using Input = Vector;
     using Output = Vector;
 
-    __attribute__((always_inline)) static Vector
-    run(const Vector &view, const FrameState &frame) {
+    __attribute__((always_inline)) static Vector run(const Vector &view,
+                                                     const FrameState &frame) {
       return outer_camera_lookup(view, frame);
     }
   };
 
-  template <SurfaceLens Lens>
-  struct DirectNoiseStereographicStage {
-    static constexpr InverseStageKind KIND =
-        InverseStageKind::SURFACE_PROJECT;
+  template <SurfaceLens Lens> struct DirectNoiseStereographicStage {
+    static constexpr InverseStageKind KIND = InverseStageKind::SURFACE_PROJECT;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE = false;
     static constexpr bool TERMINAL = false;
     static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE =
-        ApproximationOracleId::NONE;
+    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
     static constexpr std::array<ApproximationMetric, 0> METRICS{};
     using Input = Vector;
     using Output = ProjectedLookup;
@@ -2017,9 +2016,8 @@ private:
   };
 
   template <Projection ProjectionPolicy, SurfaceLens Lens>
-  struct LatticeSurfaceProjectStage {
-    static constexpr InverseStageKind KIND =
-        InverseStageKind::SURFACE_PROJECT;
+  struct SelectedSurfaceProjectStage {
+    static constexpr InverseStageKind KIND = InverseStageKind::SURFACE_PROJECT;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE =
         ProjectionPolicy == Projection::PEIRCE_QUINCUNCIAL;
@@ -2047,17 +2045,43 @@ private:
     __attribute__((always_inline)) static ProjectedLookup
     run(const Vector &outer_local, const FrameState &frame) {
       const Vector lensed = selected_lens_lookup<Lens>(outer_local);
-      HS_SB_STAGE_MARK(stage_start);
-      const Vector local = rotate(lensed, frame.transforms.projection_conj);
-      ProjectedLookup projected = [&]() {
-        if constexpr (ProjectionPolicy == Projection::BONNE)
-          return project_bonne(local, frame);
-        else
-          return project_peirce(local, frame);
-      }();
-      projected.sphere = local;
-      HS_SB_STAGE_SPAN(projection, stage_start);
-      return projected;
+      if constexpr (ProjectionPolicy == Projection::STEREOGRAPHIC) {
+        return profiled_stereographic_lookup(lensed, frame);
+      } else {
+        HS_SB_STAGE_MARK(stage_start);
+        const Vector local = rotate(lensed, frame.transforms.projection_conj);
+        ProjectedLookup projected = [&]() {
+          if constexpr (ProjectionPolicy == Projection::BONNE)
+            return scaled_kernel_lookup(
+                projections::bonne_projection(
+                    local, frame.params.projection.central_meridian,
+                    frame.params.projection.bonne_standard_parallel),
+                frame.params.projection.coordinate_scale);
+          else if constexpr (ProjectionPolicy ==
+                             Projection::PEIRCE_QUINCUNCIAL) {
+            if (frame.params.projection.central_meridian == 0.0f)
+              return scaled_kernel_lookup(
+                  projections::peirce_projection_fast_square(local),
+                  frame.params.projection.coordinate_scale);
+            else
+              return scaled_kernel_lookup(
+                  projections::peirce_projection(
+                      local, frame.params.projection.central_meridian,
+                      static_cast<uint8_t>(PeirceLayout::SQUARE),
+                      frame.params.projection.layout_scroll, true),
+                  frame.params.projection.coordinate_scale);
+          } else {
+            static_assert(ProjectionPolicy == Projection::GNOMONIC);
+            return finalize_projection(local, gnomonic(local),
+                                       Projection::GNOMONIC,
+                                       frame.params.projection.pole_fade,
+                                       GnomonicHemispherePolicy::FOLDED);
+          }
+        }();
+        projected.sphere = local;
+        HS_SB_STAGE_SPAN(projection, stage_start);
+        return projected;
+      }
     }
   };
 
@@ -2067,8 +2091,7 @@ private:
     static constexpr bool APPROXIMATE = false;
     static constexpr bool TERMINAL = false;
     static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE =
-        ApproximationOracleId::NONE;
+    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
     static constexpr std::array<ApproximationMetric, 0> METRICS{};
     using Input = ProjectedLookup;
     using Output = SourceInput;
@@ -2083,14 +2106,69 @@ private:
     }
   };
 
+  template <WarpStageKind Outer, WarpStageKind Inner>
+  struct SelectedPlanarWarpStage {
+    static_assert(Outer == WarpStageKind::NONE ||
+                  Outer == WarpStageKind::WAVE_SHEAR ||
+                  Outer == WarpStageKind::MIRROR_TILE);
+    static_assert(Inner == WarpStageKind::NONE ||
+                  Inner == WarpStageKind::MIRROR_TILE);
+    static constexpr InverseStageKind KIND = InverseStageKind::PLANAR_WARP;
+    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
+    static constexpr bool APPROXIMATE = false;
+    static constexpr bool TERMINAL = false;
+    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
+    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
+    static constexpr std::array<ApproximationMetric, 0> METRICS{};
+    using Input = ProjectedLookup;
+    using Output = SourceInput;
+
+    __attribute__((always_inline)) static SourceInput
+    run(const ProjectedLookup &projected, const FrameState &frame) {
+      HS_SB_STAGE_MARK(stage_start);
+      const PlanarWarpStageResult outer = selected_stage<Outer>(
+          projected.coords, frame.params.warp.outer,
+          frame.clocks.warp_outer_phase, frame.prepared_warp.outer);
+      const PlanarWarpStageResult inner = selected_stage<Inner>(
+          outer.coords, frame.params.warp.inner, frame.clocks.warp_inner_phase,
+          frame.prepared_warp.inner);
+      const Complex net_delta(outer.delta.re + inner.delta.re,
+                              outer.delta.im + inner.delta.im);
+      const PlanarWarpResult warped{
+          inner.coords, net_delta,
+          sqrtf(net_delta.re * net_delta.re + net_delta.im * net_delta.im),
+          outer.path_length + inner.path_length};
+      HS_SB_STAGE_SPAN(planar_warp, stage_start);
+      return {projected, warped};
+    }
+
+  private:
+    template <WarpStageKind Kind>
+    __attribute__((always_inline)) static PlanarWarpStageResult
+    selected_stage(const Complex &input, const WarpStageParams &params,
+                   float phase, const PreparedWarpStage &prepared) {
+      if constexpr (Kind == WarpStageKind::NONE) {
+        return {input, Complex(), 0.0f, 0.0f};
+      } else if constexpr (Kind == WarpStageKind::WAVE_SHEAR) {
+        return warp_wave_shear(input, params, phase, params.strength);
+      } else {
+        static_assert(Kind == WarpStageKind::MIRROR_TILE);
+        HS_SB_STAGE_MARK(mirror_start);
+        const PlanarWarpStageResult result = finish_closed_form_warp(
+            input, mirror_tile(input, params, prepared));
+        HS_SB_STAGE_SPAN(mirror_tile, mirror_start);
+        return result;
+      }
+    }
+  };
+
   template <Function SourcePolicy> struct SourceStage {
     static constexpr InverseStageKind KIND = InverseStageKind::SOURCE;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE = false;
     static constexpr bool TERMINAL = false;
     static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE =
-        ApproximationOracleId::NONE;
+    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
     static constexpr std::array<ApproximationMetric, 0> METRICS{};
     using Input = SourceInput;
     using Output = MaterialInput;
@@ -2103,9 +2181,13 @@ private:
         const Complex source_coords = stereo_pattern_args(
             input.warped.coords, frame.params.source.pattern_freq);
         field = grid(source_coords, frame.params.source, frame.prepared_source);
-      } else {
-        static_assert(SourcePolicy == Function::PRIMITIVE_LATTICE);
+      } else if constexpr (SourcePolicy == Function::PRIMITIVE_LATTICE) {
         field = primitive_lattice(input.warped.coords, frame.params.source);
+      } else {
+        const Complex source_coords = stereo_pattern_args(
+            input.warped.coords, frame.params.source.pattern_freq);
+        static_assert(SourcePolicy == Function::TWIN_WAVE);
+        field = twin_wave(source_coords, frame.prepared_source);
       }
       HS_SB_STAGE_SPAN(source, stage_start);
       return {input.projected, input.warped, field};
@@ -2114,14 +2196,14 @@ private:
 
   template <CoveragePolicy Coverage> struct LinearMaterialStage {
     static_assert(Coverage == CoveragePolicy::OPAQUE ||
-                  Coverage == CoveragePolicy::EDGE_FADE);
+                  Coverage == CoveragePolicy::EDGE_FADE ||
+                  Coverage == CoveragePolicy::PROJECTION_WEIGHT_SQUARED);
     static constexpr InverseStageKind KIND = InverseStageKind::MATERIAL;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE = false;
     static constexpr bool TERMINAL = false;
     static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE =
-        ApproximationOracleId::NONE;
+    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
     static constexpr std::array<ApproximationMetric, 0> METRICS{};
     using Input = MaterialInput;
     using Output = MaterialSample;
@@ -2129,9 +2211,9 @@ private:
     __attribute__((always_inline)) static MaterialSample
     run(const MaterialInput &input, const FrameState &frame) {
       HS_SB_STAGE_MARK(stage_start);
-      const float value = hs::clamp(
-          (input.field * input.projected.value_weight + 1.0f) * 0.5f, 0.0f,
-          1.0f);
+      const float value =
+          hs::clamp((input.field * input.projected.value_weight + 1.0f) * 0.5f,
+                    0.0f, 1.0f);
       float coverage = input.projected.domain_coverage;
       if constexpr (Coverage == CoveragePolicy::EDGE_FADE) {
         const float edge =
@@ -2140,10 +2222,13 @@ private:
                 : smooth_ramp(0.0f, frame.params.value.edge_width,
                               input.projected.fade_edge_distance);
         coverage *= edge;
+      } else if constexpr (Coverage ==
+                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED) {
+        coverage *= input.projected.value_weight * input.projected.value_weight;
       }
-      const MaterialSample material{
-          value, coverage, input.warped.net_delta, input.warped.deformation,
-          input.warped.path_length};
+      const MaterialSample material{value, coverage, input.warped.net_delta,
+                                    input.warped.deformation,
+                                    input.warped.path_length};
       HS_SB_STAGE_SPAN(material, stage_start);
       return material;
     }
@@ -2165,8 +2250,8 @@ private:
         return std::array<ApproximationMetric, 3>{{
             {ApproximationDomain::COLOR_CHANNEL,
              ApproximationAggregation::MAXIMUM, 5400.0f, "channel code"},
-            {ApproximationDomain::COLOR_CHANNEL,
-             ApproximationAggregation::MEAN, 256.0f, "channel code"},
+            {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
+             256.0f, "channel code"},
             {ApproximationDomain::FRAMEBUFFER,
              ApproximationAggregation::MAXIMUM, 5400.0f, "channel code"},
         }};
@@ -2193,8 +2278,8 @@ private:
           const float amount =
               -material.deformation * frame.params.colorizer.hue_shift;
           if (frame.prepared_liquid_hue.active)
-            color.color = sample_liquid_hue_lut(frame.prepared_liquid_hue,
-                                                value, amount);
+            color.color =
+                sample_liquid_hue_lut(frame.prepared_liquid_hue, value, amount);
           else
             color = hue_rotate_lut_gamut(color, amount);
         }
@@ -2204,57 +2289,102 @@ private:
     }
   };
 
-  using KaleidoscopeNoiseGridPipeline = InversePipeline<
-      OuterCameraStage,
-      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE>,
-      PlanarWarpStage<false>, SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::OPAQUE>,
-      ColorStage<Colorizer::LIQUID>>;
-  using GlitchNoiseGridPipeline = InversePipeline<
-      OuterCameraStage, DirectNoiseStereographicStage<SurfaceLens::GLITCH>,
-      PlanarWarpStage<false>, SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::OPAQUE>,
-      ColorStage<Colorizer::LIQUID>>;
+  using KaleidoscopeNoiseGridPipeline =
+      InversePipeline<OuterCameraStage,
+                      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE>,
+                      PlanarWarpStage<false>, SourceStage<Function::GRID>,
+                      LinearMaterialStage<CoveragePolicy::OPAQUE>,
+                      ColorStage<Colorizer::LIQUID>>;
+  using GlitchNoiseGridPipeline =
+      InversePipeline<OuterCameraStage,
+                      DirectNoiseStereographicStage<SurfaceLens::GLITCH>,
+                      PlanarWarpStage<false>, SourceStage<Function::GRID>,
+                      LinearMaterialStage<CoveragePolicy::OPAQUE>,
+                      ColorStage<Colorizer::LIQUID>>;
   using BonneKaleidoscopeLatticeMirrorPipeline = InversePipeline<
       OuterCameraStage,
-      LatticeSurfaceProjectStage<Projection::BONNE,
-                                 SurfaceLens::KALEIDOSCOPE>,
+      SelectedSurfaceProjectStage<Projection::BONNE, SurfaceLens::KALEIDOSCOPE>,
       PlanarWarpStage<true>, SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
       ColorStage<Colorizer::GENERATED_TRIADIC>>;
   using PeirceKaleidoscopeLatticePipeline = InversePipeline<
       OuterCameraStage,
-      LatticeSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
-                                 SurfaceLens::KALEIDOSCOPE>,
+      SelectedSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
+                                  SurfaceLens::KALEIDOSCOPE>,
       PlanarWarpStage<false>, SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
       ColorStage<Colorizer::LIQUID>>;
-  using KaleidoscopeNoiseGridEdgeFadePipeline = InversePipeline<
-      OuterCameraStage,
-      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE>,
-      PlanarWarpStage<false>, SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-      ColorStage<Colorizer::LIQUID>>;
+  using KaleidoscopeNoiseGridEdgeFadePipeline =
+      InversePipeline<OuterCameraStage,
+                      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE>,
+                      PlanarWarpStage<false>, SourceStage<Function::GRID>,
+                      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
+                      ColorStage<Colorizer::LIQUID>>;
   using DodecahedralNoiseGridMirrorPipeline = InversePipeline<
       OuterCameraStage,
-      DirectNoiseStereographicStage<
-          SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<true>, SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
       ColorStage<Colorizer::LIQUID>>;
   using DodecahedralNoiseGridPipeline = InversePipeline<
       OuterCameraStage,
-      DirectNoiseStereographicStage<
-          SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<false>, SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::OPAQUE>,
       ColorStage<Colorizer::LIQUID>>;
   using DodecahedralNoiseLatticeMirrorPipeline = InversePipeline<
       OuterCameraStage,
-      DirectNoiseStereographicStage<
-          SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<true>, SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
+      ColorStage<Colorizer::LIQUID>>;
+  using GlitchNoiseGridWaveShearPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
+                                  SurfaceLens::GLITCH>,
+      SelectedPlanarWarpStage<WarpStageKind::WAVE_SHEAR, WarpStageKind::NONE>,
+      SourceStage<Function::GRID>,
+      LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      ColorStage<Colorizer::LIQUID>>;
+  using KaleidoscopeTwinWaveInnerMirrorPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
+                                  SurfaceLens::KALEIDOSCOPE>,
+      SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::MIRROR_TILE>,
+      SourceStage<Function::TWIN_WAVE>,
+      LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      ColorStage<Colorizer::LIQUID>>;
+  using GnomonicKaleidoscopeGridMirrorPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::GNOMONIC,
+                                  SurfaceLens::KALEIDOSCOPE>,
+      SelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE, WarpStageKind::NONE>,
+      SourceStage<Function::GRID>,
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
+      ColorStage<Colorizer::GENERATED_TRIADIC>>;
+  using GnomonicGlitchGridMirrorPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::GNOMONIC, SurfaceLens::GLITCH>,
+      SelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE, WarpStageKind::NONE>,
+      SourceStage<Function::GRID>,
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
+      ColorStage<Colorizer::GENERATED_TRIADIC>>;
+  using PeirceDodecahedralGridPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
+                                  SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
+      SourceStage<Function::GRID>,
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
+      ColorStage<Colorizer::LIQUID>>;
+  using GnomonicDodecahedralGridWaveMirrorPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::GNOMONIC,
+                                  SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      SelectedPlanarWarpStage<WarpStageKind::WAVE_SHEAR,
+                              WarpStageKind::MIRROR_TILE>,
+      SourceStage<Function::GRID>,
+      LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage<Colorizer::LIQUID>>;
 
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
@@ -2272,10 +2402,12 @@ private:
            function == Function::NOISE_CONTOUR_SPHERE;
   }
 
-  static constexpr void canonicalize_warp_key(
-      WarpStageKind kind, NoiseBasis &basis, WarpEnvelope &envelope,
-      PolarMode &polar_mode, CurlIntegrator &curl_integrator,
-      uint8_t &polar_harmonic) {
+  static constexpr void canonicalize_warp_key(WarpStageKind kind,
+                                              NoiseBasis &basis,
+                                              WarpEnvelope &envelope,
+                                              PolarMode &polar_mode,
+                                              CurlIntegrator &curl_integrator,
+                                              uint8_t &polar_harmonic) {
     if (kind != WarpStageKind::NONE)
       return;
     basis = {};
@@ -2333,19 +2465,16 @@ private:
     }
     if (!source_uses_noise(key.function))
       key.source_noise_basis = {};
-    canonicalize_warp_key(
-        key.outer_warp, key.outer_warp_basis, key.outer_warp_envelope,
-        key.outer_polar_mode, key.outer_curl_integrator,
-        key.outer_polar_harmonic);
-    canonicalize_warp_key(
-        key.inner_warp, key.inner_warp_basis, key.inner_warp_envelope,
-        key.inner_polar_mode, key.inner_curl_integrator,
-        key.inner_polar_harmonic);
+    canonicalize_warp_key(key.outer_warp, key.outer_warp_basis,
+                          key.outer_warp_envelope, key.outer_polar_mode,
+                          key.outer_curl_integrator, key.outer_polar_harmonic);
+    canonicalize_warp_key(key.inner_warp, key.inner_warp_basis,
+                          key.inner_warp_envelope, key.inner_polar_mode,
+                          key.inner_curl_integrator, key.inner_polar_harmonic);
     return key;
   }
 
-  static constexpr bool direct_simplex_surface_supported(
-      const Config &config) {
+  static constexpr bool direct_simplex_surface_supported(const Config &config) {
     return config.params.surface_noise.direction == 0.0f;
   }
 
@@ -2375,11 +2504,17 @@ private:
     ShadeFunction shade_function;
 
     HS_FLASH_MEMBER Color4 operator()(const Vector &view) const {
-      Color4 color =
-          shade_function ? shade_function(view, *frame) : shade(view, *frame);
+      Color4 color = shade_function(view, *frame);
       color.alpha *= alpha;
       return color;
     }
+  };
+
+  struct PreparedEndpoint {
+    FrameState frame;
+    ShadeFunction shade;
+    InversePipelineId pipeline;
+    float alpha;
   };
 
   struct LookRuntime {
@@ -2903,6 +3038,8 @@ private:
     uint16_t duration = 0;
     bool continue_choreo = false;
     bool active = false;
+    InversePipelineId from_pipeline = InversePipelineId::NONE;
+    InversePipelineId to_pipeline = InversePipelineId::NONE;
   };
 
   struct StateBundle {
@@ -3171,28 +3308,56 @@ private:
         state->transition.elapsed, state->transition.duration);
     if (phase.clear)
       return;
-    const FrameState visible =
-        phase.from_endpoint ? prepare_frame(state->transition.from_config,
-                                            state->transition.from_runtime)
-                            : prepare_frame(state->transition.to_config,
-                                            state->transition.to_runtime);
-    FrameShader shader{&visible, phase.alpha, resolve_shade_function(visible)};
+    PreparedEndpoint prepared;
+    const Config &config = phase.from_endpoint ? state->transition.from_config
+                                               : state->transition.to_config;
+    const LookRuntime &look = phase.from_endpoint
+                                  ? state->transition.from_runtime
+                                  : state->transition.to_runtime;
+    const InversePipelineId pipeline = phase.from_endpoint
+                                           ? state->transition.from_pipeline
+                                           : state->transition.to_pipeline;
+    HS_CHECK(prepare_endpoint(config, look, phase.alpha, pipeline, prepared),
+             "ShaderBall transition topology has no compiled pipeline");
+    draw_endpoint(canvas, prepared);
+  }
+
+  HS_COLD_MEMBER bool prepare_endpoint(const Config &config,
+                                       const LookRuntime &look, float alpha,
+                                       InversePipelineId selected,
+                                       PreparedEndpoint &prepared) const {
+    const ProgramDescriptor *program = find_inverse_program(config);
+    if (program == nullptr || program->id != selected)
+      return false;
+    prepared.frame = prepare_frame(config, look);
+    if (!program->resources_ready(prepared.frame))
+      return false;
+    prepared.shade = program->shade;
+    prepared.pipeline = program->id;
+    prepared.alpha = alpha;
+    return true;
+  }
+
+  HS_FLASH_MEMBER static void draw_endpoint(Canvas &canvas,
+                                            PreparedEndpoint &prepared) {
+    FrameShader shader{&prepared.frame, prepared.alpha, prepared.shade};
     HS_PROFILE(sb_shader_draw);
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
   /**
    * @brief Shades one sphere sample by pulling it back to a source coordinate.
    * @param view Unit direction of the visible sphere point.
    * @param frame Immutable snapshot of slots, parameters, clocks, transforms,
    *        and palette resources for this frame.
-   * @return Premultiplied-alpha colour for the sample.
+   * @return Straight-alpha colour for the sample.
    * @details Walks outer camera, surface lens, and projection backward. A
    * strict projection whose two lens branches land in different regions cannot
    * be joined in the plane, so the branches are shaded separately and their
    * outputs blended instead.
    */
-  static Color4 shade(const Vector &view, const FrameState &frame) {
+  static Color4 shade_reference(const Vector &view, const FrameState &frame) {
     const Vector outer_local = outer_camera_lookup(view, frame);
     const ProjectedLookup projected =
         surface_lens_project_lookup(outer_local, frame);
@@ -3204,7 +3369,7 @@ private:
    *        colorizes.
    * @param projected Plane coordinates and seam metadata for the sample.
    * @param frame Frame snapshot.
-   * @return Premultiplied-alpha colour for the sample.
+   * @return Straight-alpha colour for the sample.
    */
   HS_FLASH_MEMBER static Color4
   shade_projected(const ProjectedLookup &projected, const FrameState &frame) {
@@ -3221,6 +3386,7 @@ private:
     HS_SB_STAGE_SPAN(color, stage_start);
     return color;
   }
+#endif
 
   __attribute__((always_inline)) static ProjectedLookup
   selected_stereographic_lookup(const Vector &v, const FrameState &frame) {
@@ -3233,7 +3399,11 @@ private:
             BOUNDARY_SINGULAR,
             std::max(0.0f, 1.0f - local.y),
             pole_attenuation(r_sq, frame.params.projection.pole_fade),
-            0};
+            0,
+            0,
+            0,
+            1.0f,
+            local};
   }
 
   __attribute__((always_inline)) static ProjectedLookup
@@ -3276,8 +3446,7 @@ private:
 
   template <SurfaceLens LENS>
   __attribute__((always_inline)) static ProjectedLookup
-  direct_noise_stereographic_lookup(const Vector &v,
-                                    const FrameState &frame) {
+  direct_noise_stereographic_lookup(const Vector &v, const FrameState &frame) {
     const Vector lensed = selected_lens_lookup<LENS>(v);
     HS_SB_STAGE_MARK(surface_start);
     const Vector displaced = apply_static_direct_surface_noise(lensed, frame);
@@ -3297,43 +3466,74 @@ private:
     HS_SB_STAGE_SPAN(mirror_tile, mirror_start);
     const Complex delta(output.re - projected.coords.re,
                         output.im - projected.coords.im);
-    return {output, delta, sqrtf(delta.re * delta.re + delta.im * delta.im),
-            0.0f};
+    const float displacement = sqrtf(delta.re * delta.re + delta.im * delta.im);
+    return {output, delta, displacement, displacement};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 8> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 14> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 8> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 14> PROGRAMS{{
         {InversePipelineId::KALEIDOSCOPE_NOISE_GRID,
-         make_topology_key(PRESETS[0]), &KaleidoscopeNoiseGridPipeline::shade,
+         make_topology_key(
+             {KALEIDOSCOPE_LIQUID_SURFACE_NOISE_SLOTS,
+              authored_surface_noise_params({}, {}, {}, {}, {}, {})}),
+         &KaleidoscopeNoiseGridPipeline::shade,
          &direct_simplex_surface_supported, &pipeline_resources_ready},
-        {InversePipelineId::GLITCH_NOISE_GRID, make_topology_key(PRESETS[1]),
+        {InversePipelineId::GLITCH_NOISE_GRID,
+         make_topology_key(
+             {LIQUID_SURFACE_NOISE_SLOTS,
+              authored_surface_noise_params({}, {}, {}, {}, {}, {})}),
          &GlitchNoiseGridPipeline::shade, &direct_simplex_surface_supported,
          &pipeline_resources_ready},
         {InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
-         make_topology_key(PRESETS[15]),
+         make_topology_key(bonne_lattice_mirror_preset()),
          &BonneKaleidoscopeLatticeMirrorPipeline::shade,
          &all_continuous_parameters_supported, &pipeline_resources_ready},
         {InversePipelineId::PEIRCE_KALEIDOSCOPE_LATTICE,
-         make_topology_key(PRESETS[16]),
+         make_topology_key(peirce_lattice_preset()),
          &PeirceKaleidoscopeLatticePipeline::shade,
          &all_continuous_parameters_supported, &pipeline_resources_ready},
         {InversePipelineId::KALEIDOSCOPE_NOISE_GRID_EDGE_FADE,
-         make_topology_key(PRESETS[17]),
+         make_topology_key(kaleidoscope_edge_fade_liquid_preset()),
          &KaleidoscopeNoiseGridEdgeFadePipeline::shade,
          &direct_simplex_surface_supported, &pipeline_resources_ready},
         {InversePipelineId::DODECAHEDRAL_NOISE_GRID_MIRROR,
-         make_topology_key(PRESETS[18]),
+         make_topology_key(dodecahedral_grid_preset()),
          &DodecahedralNoiseGridMirrorPipeline::shade,
          &direct_simplex_surface_supported, &pipeline_resources_ready},
         {InversePipelineId::DODECAHEDRAL_NOISE_GRID,
-         make_topology_key(PRESETS[20]),
+         make_topology_key(dodecahedral_noise_liquid_preset()),
          &DodecahedralNoiseGridPipeline::shade,
          &direct_simplex_surface_supported, &pipeline_resources_ready},
         {InversePipelineId::DODECAHEDRAL_NOISE_LATTICE_MIRROR,
-         make_topology_key(PRESETS[21]),
+         make_topology_key(dodecahedral_lattice_noise_preset()),
          &DodecahedralNoiseLatticeMirrorPipeline::shade,
          &direct_simplex_surface_supported, &pipeline_resources_ready},
+        {InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
+         make_topology_key(wave_shear_liquid_preset()),
+         &GlitchNoiseGridWaveShearPipeline::shade,
+         &all_continuous_parameters_supported, &pipeline_resources_ready},
+        {InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
+         make_topology_key(kaleidoscope_mirror_preset()),
+         &KaleidoscopeTwinWaveInnerMirrorPipeline::shade,
+         &all_continuous_parameters_supported, &pipeline_resources_ready},
+        {InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
+         make_topology_key(
+             gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE)),
+         &GnomonicKaleidoscopeGridMirrorPipeline::shade,
+         &all_continuous_parameters_supported, &pipeline_resources_ready},
+        {InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR,
+         make_topology_key(gnomonic_grid_mirror_preset(SurfaceLens::GLITCH)),
+         &GnomonicGlitchGridMirrorPipeline::shade,
+         &all_continuous_parameters_supported, &pipeline_resources_ready},
+        {InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
+         make_topology_key(peirce_dodecahedral_liquid_preset()),
+         &PeirceDodecahedralGridPipeline::shade,
+         &all_continuous_parameters_supported, &pipeline_resources_ready},
+        {InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
+         make_topology_key(gnomonic_wave_shear_grid_preset()),
+         &GnomonicDodecahedralGridWaveMirrorPipeline::shade,
+         &all_continuous_parameters_supported, &pipeline_resources_ready},
     }};
     return PROGRAMS;
   }
@@ -3342,8 +3542,7 @@ private:
   find_inverse_program(const Config &config) {
     const TopologyKey key = make_topology_key(config);
     for (const ProgramDescriptor &program : inverse_programs())
-      if (program.key == key &&
-          program.continuous_parameters_supported(config))
+      if (program.key == key && program.continuous_parameters_supported(config))
         return &program;
     return nullptr;
   }
@@ -3357,11 +3556,15 @@ private:
     return program;
   }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
   HS_COLD_MEMBER static typename FrameShader::ShadeFunction
   resolve_shade_function(const FrameState &frame) {
     const ProgramDescriptor *program = resolve_inverse_program(frame);
-    return program == nullptr ? nullptr : program->shade;
+    HS_CHECK(program != nullptr,
+             "ShaderBall test topology has no compiled inverse pipeline");
+    return program->shade;
   }
+#endif
 
   static constexpr bool strict_projection(Projection projection) {
     return projection == Projection::BONNE ||
@@ -3429,6 +3632,7 @@ private:
     return rotate(view, frame.transforms.outer_conj);
   }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
   static ProjectedLookup surface_lens_project_lookup(const Vector &v,
                                                      const FrameState &frame) {
     const Slots &slots = frame.slots;
@@ -3451,6 +3655,7 @@ private:
     }
     return profiled_project_branch(post_lens, frame);
   }
+#endif
 
   /**
    * @brief Rescales a projection kernel's plane coordinates into a lookup.
@@ -3692,6 +3897,7 @@ private:
    * of the authored order `source -> Warp 2 -> Warp 1 -> projection`.
    * Deformation is the magnitude of the summed delta.
    */
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
   HS_FLASH_MEMBER static PlanarWarpResult
   planar_warp_lookup(const ProjectedLookup &projected,
                      const FrameState &frame) {
@@ -3710,6 +3916,7 @@ private:
     return {inner.coords, net_delta, deformation,
             outer.path_length + inner.path_length};
   }
+#endif
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   finish_closed_form_warp(const Complex &input, const Complex &output) {
@@ -3960,6 +4167,7 @@ private:
     return {c * folded_x - s * folded_y, s * folded_x + c * folded_y};
   }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
   static Complex condition_source_coords(const Complex &coords,
                                          const FrameState &frame) {
     if (is_noise_contour(frame.slots.function) ||
@@ -4048,6 +4256,7 @@ private:
               warped.deformation, warped.path_length};
     return shape_nontrivial_material(value, projected, warped, frame);
   }
+#endif
 
   /**
    * @brief Samples the selected noise-contour source coordinate.
@@ -4065,6 +4274,7 @@ private:
     return n * (1.0f + contrast) / (1.0f + contrast * fabsf(n));
   }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
   HS_FLASH_MEMBER static float sample_source(const Complex &p,
                                              const ProjectedLookup &projected,
                                              const FrameState &frame) {
@@ -4085,6 +4295,7 @@ private:
       return primitive_lattice(p, frame.params.source);
     return sample_function(frame.slots.function, p, frame.prepared_source);
   }
+#endif
 
   HS_FLASH_MEMBER static float primitive_lattice(const Complex &p,
                                                  const SourceParams &params) {
@@ -4122,6 +4333,7 @@ private:
     return color;
   }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
   HS_FLASH_MEMBER static Color4
   colorize_deformation(const MaterialSample &sample, const FrameState &frame) {
     const ColorizerParams &params = frame.params.colorizer;
@@ -4168,6 +4380,7 @@ private:
     }
     return color;
   }
+#endif
 
   HS_FLASH_MEMBER static OKLab gamut_clip_lut(OKLab lab) {
     lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
@@ -4741,6 +4954,11 @@ private:
       return;
     }
 #endif
+    const ProgramDescriptor *next_program = find_inverse_program(next_config);
+    if (next_program == nullptr) {
+      reject_requested_config();
+      return;
+    }
     if (next_config == published_config)
       return;
     if (!prepare_resource_union(next_config, next_config)) {
@@ -4754,6 +4972,7 @@ private:
     state->transition.active = false;
     state->param_morph.active = false;
     active_slots = next_config.slots;
+    active_pipeline = next_program->id;
     blend.params = next_config.params;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = next_config;
@@ -4802,7 +5021,8 @@ private:
   HS_COLD_MEMBER bool try_apply_config(const Config &candidate,
                                        uint16_t duration, bool staggered,
                                        bool continue_choreo) {
-    if (!valid_config(candidate) || duration == 0)
+    if (!valid_config(candidate) ||
+        find_inverse_program(candidate) == nullptr || duration == 0)
       return false;
     if (state->transition.active)
       return false;
@@ -4825,6 +5045,8 @@ private:
     state->param_morph.active = false;
     state->transition = {current, candidate,        runtime,         runtime,
                          0,       planned_duration, continue_choreo, true};
+    state->transition.from_pipeline = active_pipeline;
+    state->transition.to_pipeline = find_inverse_program(candidate)->id;
     return true;
   }
 
@@ -4841,6 +5063,7 @@ private:
       const bool continue_choreo = state->transition.continue_choreo;
       runtime = state->transition.to_runtime;
       active_slots = state->transition.to_config.slots;
+      active_pipeline = state->transition.to_pipeline;
       blend.params = state->transition.to_config.params;
       state->transition.active = false;
       if (continue_choreo)
@@ -6566,6 +6789,8 @@ private:
   PaletteCycler generated_palette_cycler;
 
   Slots active_slots = PRESETS[0].slots;
+  InversePipelineId active_pipeline =
+      InversePipelineId::KALEIDOSCOPE_NOISE_GRID;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   Config display_config = PRESETS[0];
   std::array<PendingEdit, PARAM_CAPACITY> pending_edits{};
