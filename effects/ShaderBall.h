@@ -250,7 +250,7 @@ public:
       draw_through_clear_transition(canvas);
     } else {
       const FrameState frame = prepare_frame();
-      FrameShader shader{&frame, 1.0f};
+      FrameShader shader{&frame, 1.0f, resolve_shade_function(frame.slots)};
       HS_PROFILE(sb_shader_draw);
       Scan::Shader::draw<W, H, 1>(canvas, shader);
     }
@@ -1694,11 +1694,15 @@ private:
   };
 
   struct FrameShader {
+    using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
+
     const FrameState *frame;
     float alpha;
+    ShadeFunction shade_function;
 
     HS_FLASH_MEMBER Color4 operator()(const Vector &view) const {
-      Color4 color = shade(view, *frame);
+      Color4 color =
+          shade_function ? shade_function(view, *frame) : shade(view, *frame);
       color.alpha *= alpha;
       return color;
     }
@@ -2476,7 +2480,8 @@ private:
                                             state->transition.from_runtime)
                             : prepare_frame(state->transition.to_config,
                                             state->transition.to_runtime);
-    FrameShader shader{&visible, phase.alpha};
+    FrameShader shader{&visible, phase.alpha,
+                       resolve_shade_function(visible.slots)};
     HS_PROFILE(sb_shader_draw);
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
@@ -2520,6 +2525,123 @@ private:
     const Color4 color = colorize(material, frame);
     HS_SB_STAGE_SPAN(color, stage_start);
     return color;
+  }
+
+  __attribute__((always_inline)) static ProjectedLookup
+  project_stereographic_pipeline(const Vector &v, const FrameState &frame) {
+    const Vector local = rotate(v, frame.transforms.projection_conj);
+    const Complex coords = stereo(local);
+    const float r_sq = coords.re * coords.re + coords.im * coords.im;
+    return {coords,
+            0,
+            0,
+            BOUNDARY_SINGULAR,
+            std::max(0.0f, 1.0f - local.y),
+            pole_attenuation(r_sq, frame.params.projection.pole_fade),
+            0};
+  }
+
+  __attribute__((always_inline)) static ProjectedLookup
+  profiled_stereographic_pipeline(const Vector &v, const FrameState &frame) {
+    HS_SB_STAGE_MARK(stage_start);
+    const ProjectedLookup projected = project_stereographic_pipeline(v, frame);
+    HS_SB_STAGE_SPAN(projection, stage_start);
+    return projected;
+  }
+
+  __attribute__((always_inline)) static Vector
+  profiled_dodecahedral_pipeline(const Vector &v) {
+    HS_SB_STAGE_MARK(stage_start);
+    const Vector lensed = dodecahedral_kaleidoscope_lens(v);
+    HS_SB_STAGE_SPAN(lens, stage_start);
+    return lensed;
+  }
+
+  __attribute__((always_inline)) static ProjectedLookup
+  dodecahedral_stereographic_pipeline(const Vector &v,
+                                      const FrameState &frame) {
+    const Vector lensed = profiled_dodecahedral_pipeline(v);
+    const Vector displaced = apply_surface_noise(lensed, frame);
+    return profiled_stereographic_pipeline(displaced, frame);
+  }
+
+  template <bool MIRROR_FIRST>
+  __attribute__((always_inline)) static PlanarWarpResult
+  mirror_pipeline(const ProjectedLookup &projected, const FrameState &frame) {
+    if constexpr (!MIRROR_FIRST)
+      return {projected.coords, Complex(), 0.0f, 0.0f};
+    HS_SB_STAGE_MARK(mirror_start);
+    const Complex output = mirror_tile(
+        projected.coords, frame.params.warp.outer, frame.prepared_warp.outer);
+    HS_SB_STAGE_SPAN(mirror_tile, mirror_start);
+    const Complex delta(output.re - projected.coords.re,
+                        output.im - projected.coords.im);
+    return {output, delta, sqrtf(delta.re * delta.re + delta.im * delta.im),
+            0.0f};
+  }
+
+  template <Function SOURCE, bool MIRROR_FIRST, bool EDGE_FADE>
+  HS_FLASH_MEMBER static Color4
+  shade_dodecahedral_surface_noise_pipeline(const Vector &view,
+                                            const FrameState &frame) {
+    static_assert(SOURCE == Function::GRID ||
+                  SOURCE == Function::PRIMITIVE_LATTICE);
+    const Vector outer_local = outer_camera_lookup(view, frame);
+    const ProjectedLookup projected =
+        dodecahedral_stereographic_pipeline(outer_local, frame);
+
+    HS_SB_STAGE_MARK(stage_start);
+    const PlanarWarpResult warped =
+        mirror_pipeline<MIRROR_FIRST>(projected, frame);
+    HS_SB_STAGE_SPAN(planar_warp, stage_start);
+    float field;
+    if constexpr (SOURCE == Function::GRID) {
+      const Complex source_coords =
+          stereo_pattern_args(warped.coords, frame.params.source.pattern_freq);
+      field = grid(source_coords, frame.params.source, frame.prepared_source);
+    } else if constexpr (SOURCE == Function::PRIMITIVE_LATTICE) {
+      field = primitive_lattice(warped.coords, frame.params.source);
+    } else {
+      const Complex source_coords =
+          stereo_pattern_args(warped.coords, frame.params.source.pattern_freq);
+      field = sample_pattern(source_coords, frame.params.source.complexity,
+                             frame.params.source.pattern_mix,
+                             frame.prepared_source.primary,
+                             frame.prepared_source.secondary);
+    }
+    HS_SB_STAGE_SPAN(source, stage_start);
+    const float value =
+        hs::clamp((field * projected.value_weight + 1.0f) * 0.5f, 0.0f, 1.0f);
+    float coverage;
+    if constexpr (EDGE_FADE) {
+      coverage = frame.params.value.edge_width == 0.0f
+                     ? static_cast<float>(projected.fade_edge_distance > 0.0f)
+                     : smooth_ramp(0.0f, frame.params.value.edge_width,
+                                   projected.fade_edge_distance);
+      coverage *= projected.domain_coverage;
+    } else {
+      coverage = projected.domain_coverage;
+    }
+    const MaterialSample material{value, coverage, warped.net_delta,
+                                  warped.deformation, warped.path_length};
+    HS_SB_STAGE_SPAN(material, stage_start);
+    const Color4 color = colorize(material, frame);
+    HS_SB_STAGE_SPAN(color, stage_start);
+    return color;
+  }
+
+  HS_COLD_MEMBER static typename FrameShader::ShadeFunction
+  resolve_shade_function(const Slots &slots) {
+    if (slots == PRESETS[18].slots)
+      return &shade_dodecahedral_surface_noise_pipeline<Function::GRID, true,
+                                                        true>;
+    if (slots == PRESETS[20].slots)
+      return &shade_dodecahedral_surface_noise_pipeline<Function::GRID, false,
+                                                        false>;
+    if (slots == PRESETS[21].slots)
+      return &shade_dodecahedral_surface_noise_pipeline<
+          Function::PRIMITIVE_LATTICE, true, true>;
+    return nullptr;
   }
 
   static constexpr bool strict_projection(Projection projection) {
@@ -2583,8 +2705,8 @@ private:
         alpha);
   }
 
-  static Vector outer_camera_lookup(const Vector &view,
-                                    const FrameState &frame) {
+  __attribute__((always_inline)) static Vector
+  outer_camera_lookup(const Vector &view, const FrameState &frame) {
     return rotate(view, frame.transforms.outer_conj);
   }
 
@@ -3099,7 +3221,7 @@ private:
     return {-dy, dx};
   }
 
-  HS_FLASH_MEMBER static Complex
+  __attribute__((always_inline)) static Complex
   mirror_tile(const Complex &input, const WarpStageParams &params,
               const PreparedWarpStage &prepared) {
     const float c = prepared.rotation_cos;
@@ -3565,7 +3687,8 @@ private:
     return v;
   }
 
-  HS_O3_FN static Vector dodecahedral_kaleidoscope_lens(Vector v) {
+  HS_O3_FN __attribute__((always_inline)) static Vector
+  dodecahedral_kaleidoscope_lens(Vector v) {
     [[maybe_unused]] uint32_t reflections = 0;
     constexpr Vector OBLIQUE = DODECAHEDRAL_MIRRORS[1];
     for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
