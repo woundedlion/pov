@@ -3237,11 +3237,21 @@ private:
   }
 
   HS_COLD_MEMBER FrameState prepare_frame() const {
-    return prepare_frame({active_slots, blend.params}, runtime);
+    FrameState frame;
+    prepare_frame({active_slots, blend.params}, runtime, frame);
+    return frame;
   }
 
   HS_COLD_MEMBER FrameState prepare_frame(const Config &config,
                                           const LookRuntime &look) const {
+    FrameState frame;
+    prepare_frame(config, look, frame);
+    return frame;
+  }
+
+  HS_COLD_MEMBER void prepare_frame(const Config &config,
+                                    const LookRuntime &look,
+                                    FrameState &frame) const {
     const bool animated_projection =
         config.slots.projection_frame == ProjectionFramePolicy::SPIN_WANDER;
     const PreparedWarpProgram prepared_warp{
@@ -3268,25 +3278,28 @@ private:
     if (prepared_liquid_hue.active)
       prepare_liquid_hue_lut(prepared_liquid_hue, *liquid_palette,
                              breathe_offset);
-    return {
-        config.slots,
-        config.params,
-        look.clocks,
-        {look.clocks.source_primary, look.clocks.source_secondary,
-         look.clocks.source_angle, fast_cosf(look.clocks.source_angle),
-         fast_sinf(look.clocks.source_angle)},
-        breathe_offset,
-        {animated_projection ? look.transforms.projection_conj : Quaternion(),
-         look.transforms.outer_conj},
-        prepared_warp,
-        prepare_noise_phase(look.clocks.source_noise_time),
-        prepared_surface_noise,
-        prepared_liquid_hue,
-        {resolve_warp_resource(config.slots.warp_program.outer),
-         resolve_warp_resource(config.slots.warp_program.inner),
-         resolve_source_resource(config),
-         resolve_surface_noise_resource(config),
-         &generated_palette_cycler.palette(), liquid_palette}};
+    frame.slots = config.slots;
+    frame.params = config.params;
+    frame.clocks = look.clocks;
+    frame.prepared_source = {
+        look.clocks.source_primary, look.clocks.source_secondary,
+        look.clocks.source_angle, fast_cosf(look.clocks.source_angle),
+        fast_sinf(look.clocks.source_angle)};
+    frame.breathe_offset = breathe_offset;
+    frame.transforms = {animated_projection ? look.transforms.projection_conj
+                                            : Quaternion(),
+                        look.transforms.outer_conj};
+    frame.prepared_warp = prepared_warp;
+    frame.source_noise_phase =
+        prepare_noise_phase(look.clocks.source_noise_time);
+    frame.prepared_surface_noise = prepared_surface_noise;
+    frame.prepared_liquid_hue = prepared_liquid_hue;
+    frame.resources = {resolve_warp_resource(config.slots.warp_program.outer),
+                       resolve_warp_resource(config.slots.warp_program.inner),
+                       resolve_source_resource(config),
+                       resolve_surface_noise_resource(config),
+                       &generated_palette_cycler.palette(),
+                       liquid_palette};
   }
 
   static ThroughClearPhase through_clear_phase(uint16_t elapsed,
@@ -3329,7 +3342,7 @@ private:
     const ProgramDescriptor *program = find_inverse_program(config);
     if (program == nullptr || program->id != selected)
       return false;
-    prepared.frame = prepare_frame(config, look);
+    prepare_frame(config, look, prepared.frame);
     if (!program->resources_ready(prepared.frame))
       return false;
     prepared.shade = program->shade;
