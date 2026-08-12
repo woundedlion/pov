@@ -40,6 +40,9 @@
 # HS_PROFILE_MINDSPLATTER=counts|stalls builds a dedicated MindSplatter
 # instrumentation image and writes a suffixed log. Count images also enable the
 # generic Plot counters; neither image is valid for timing comparisons.
+# HS_PROFILE_SHADERBALL_STAGES=1 builds raw ShaderBall stage attribution and
+# writes a suffixed log. Its per-pixel counter reads make it unsuitable for
+# timing comparisons.
 set -eo pipefail
 . "$(dirname "$0")/device_lock.sh"
 # Without this, a short/split argument list makes `shift 4` fail and set -e
@@ -105,6 +108,19 @@ case "${HS_PROFILE_MINDSPLATTER:-}" in
     ;;
 esac
 MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}"
+SB_FLAGS=""
+SB_SUFFIX=""
+SB_MARKER=""
+if [ -n "$HS_PROFILE_SHADERBALL_STAGES" ] &&
+   [ "$HS_PROFILE_SHADERBALL_STAGES" != "0" ]; then
+  [ "$EFFECT" = ShaderBall ] || {
+    echo "HS_PROFILE_SHADERBALL_STAGES requires effect ShaderBall" >&2; exit 1;
+  }
+  SB_FLAGS="-D HS_PROFILE_SHADERBALL_STAGES"
+  SB_SUFFIX="_sb_stages"
+  SB_MARKER="sb stages:"
+fi
+MODE_SUFFIX="${MODE_SUFFIX}${SB_SUFFIX}"
 OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}
 # Every per-run artifact hangs off the log's own stem, so HS_PROFILE_OUT moves
 # the whole set. Spelling out the default naming here instead would let an
@@ -141,7 +157,7 @@ TARGET_FLAGS=""
 if [ "$EFFECT" = ShaderBall ]; then
   TARGET_FLAGS="-D HS_EXTERNAL_PARAM_STORAGE -D HS_PROFILE_EFFECT_HEAP_BYTES=8192"
 fi
-export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $TARGET_FLAGS $DEEP $MSP_FLAGS $EXTRA"
+export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $TARGET_FLAGS $DEEP $MSP_FLAGS $SB_FLAGS $EXTRA"
 
 # Cyclers emit a per-advance marker; a capture of one must contain it.
 CYCLERS="ShaderBall ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
@@ -159,6 +175,9 @@ if [ -n "$PROFILE_PRESET" ]; then
 fi
 if [ -n "$REPLAY_SUFFIX" ]; then
   MARKER="replay corpus:"
+fi
+if [ -n "$SB_MARKER" ]; then
+  MARKER="$SB_MARKER"
 fi
 
 TEENSY_TOOLS=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}

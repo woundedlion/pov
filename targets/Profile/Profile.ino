@@ -57,6 +57,8 @@
 //                            adds count-only MindSplatter path attribution.
 //   HS_PROFILE_MINDSPLATTER_STALLS
 //                            adds short-batch DWT cycle/stall attribution.
+//   HS_PROFILE_SHADERBALL_STAGES
+//                            adds raw ShaderBall pipeline cycle totals.
 
 #if defined(HS_PROFILE_MINDSPLATTER_COUNTS) &&                                 \
     defined(HS_PROFILE_MINDSPLATTER_STALLS)
@@ -209,6 +211,9 @@ public:
 #ifdef HS_PROBE_BREAKDOWN
     drain_probe_breakdown();
 #endif
+#ifdef HS_PROFILE_SHADERBALL_STAGES
+    drain_shaderball_stages();
+#endif
     render_sum += render;
     if (render > render_max)
       render_max = render;
@@ -283,6 +288,9 @@ private:
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
     dump_mindsplatter_stalls();
 #endif
+#ifdef HS_PROFILE_SHADERBALL_STAGES
+    dump_shaderball_stages();
+#endif
     hs::CycleCounter::reset_all();
     window_frames = 0;
     wall_sum = 0;
@@ -350,6 +358,73 @@ private:
             (unsigned long)cycles_to_ns(s.max), (unsigned long)total_us,
             (unsigned long)(share_c / 100u), (unsigned long)(share_c % 100u));
   }
+
+#ifdef HS_PROFILE_SHADERBALL_STAGES
+  struct ShaderBallStageTotals {
+    uint64_t lens = 0;
+    uint64_t projection = 0;
+    uint64_t planar_warp = 0;
+    uint64_t source = 0;
+    uint64_t material = 0;
+    uint64_t color = 0;
+    uint64_t mirror_tile = 0;
+    uint64_t legacy_noise = 0;
+    uint64_t polyhedral_pixels = 0;
+    uint64_t polyhedral_reflections = 0;
+    uint32_t polyhedral_max_reflections = 0;
+    uint64_t legacy_single_samples = 0;
+    uint64_t legacy_blended_samples = 0;
+
+    void reset() { *this = {}; }
+  };
+
+  void drain_shaderball_stages() {
+    const hs::ShaderBallStageCycles &frame = hs::g_shaderball_stage_cycles;
+    shaderball_stage_totals.lens += frame.lens;
+    shaderball_stage_totals.projection += frame.projection;
+    shaderball_stage_totals.planar_warp += frame.planar_warp;
+    shaderball_stage_totals.source += frame.source;
+    shaderball_stage_totals.material += frame.material;
+    shaderball_stage_totals.color += frame.color;
+    shaderball_stage_totals.mirror_tile += frame.mirror_tile;
+    shaderball_stage_totals.legacy_noise += frame.legacy_noise;
+    shaderball_stage_totals.polyhedral_pixels += frame.polyhedral_pixels;
+    shaderball_stage_totals.polyhedral_reflections +=
+        frame.polyhedral_reflections;
+    shaderball_stage_totals.polyhedral_max_reflections = std::max(
+        shaderball_stage_totals.polyhedral_max_reflections,
+        frame.polyhedral_max_reflections);
+    shaderball_stage_totals.legacy_single_samples += frame.legacy_single_samples;
+    shaderball_stage_totals.legacy_blended_samples +=
+        frame.legacy_blended_samples;
+    hs::g_shaderball_stage_cycles.reset();
+  }
+
+  void dump_shaderball_stages() {
+    char c0[21], c1[21], c2[21], c3[21], c4[21], c5[21];
+    hs::log("sb stages: lens=%s projection=%s warp=%s source=%s material=%s "
+            "color=%s",
+            hs::u64_dec(shaderball_stage_totals.lens, c0),
+            hs::u64_dec(shaderball_stage_totals.projection, c1),
+            hs::u64_dec(shaderball_stage_totals.planar_warp, c2),
+            hs::u64_dec(shaderball_stage_totals.source, c3),
+            hs::u64_dec(shaderball_stage_totals.material, c4),
+            hs::u64_dec(shaderball_stage_totals.color, c5));
+    char c6[21], c7[21], c8[21], c9[21], c10[21], c11[21];
+    hs::log("sb detail: mirror=%s legacy_noise=%s poly_pixels=%s "
+            "poly_reflections=%s poly_max=%lu noise_single=%s noise_blended=%s",
+            hs::u64_dec(shaderball_stage_totals.mirror_tile, c6),
+            hs::u64_dec(shaderball_stage_totals.legacy_noise, c7),
+            hs::u64_dec(shaderball_stage_totals.polyhedral_pixels, c8),
+            hs::u64_dec(shaderball_stage_totals.polyhedral_reflections, c9),
+            (unsigned long)shaderball_stage_totals.polyhedral_max_reflections,
+            hs::u64_dec(shaderball_stage_totals.legacy_single_samples, c10),
+            hs::u64_dec(shaderball_stage_totals.legacy_blended_samples, c11));
+    shaderball_stage_totals.reset();
+  }
+
+  ShaderBallStageTotals shaderball_stage_totals;
+#endif
 
 #ifdef HS_SCAN_METRICS
   /** @brief 64-bit window accumulators for the per-pixel scan counters. */

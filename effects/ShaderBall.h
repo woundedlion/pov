@@ -1307,6 +1307,7 @@ private:
     PreparedWarpProgram prepared_warp;
     WrappedNoisePhase source_noise_phase;
     WrappedNoisePhase lens_noise_phase;
+    WrappedNoisePhase legacy_noise_phase;
     ResourceBindings resources;
   };
 
@@ -1522,6 +1523,15 @@ private:
             true};
   }
 
+  HS_FLASH_MEMBER static WrappedNoisePhase
+  prepare_legacy_noise_phase(float time) {
+    const float blend_start = STEREO_NOISE_TIME_PERIOD - NOISE_WRAP_BLEND;
+    if (time <= blend_start)
+      return {time, time, 0.0f, false};
+    return {time, time - STEREO_NOISE_TIME_PERIOD,
+            ease_in_out_sin((time - blend_start) / NOISE_WRAP_BLEND), true};
+  }
+
   HS_FLASH_MEMBER static PreparedWarpStage
   prepare_warp_stage(const WarpStageParams &params, float stage_phase) {
     const float rotation_cos = cosf(params.rotation);
@@ -1567,6 +1577,7 @@ private:
         prepared_warp,
         prepare_noise_phase(look.clocks.source_noise_time),
         prepare_noise_phase(look.clocks.lens_noise_time),
+        prepare_legacy_noise_phase(look.clocks.warp_time),
         {resolve_warp_resource(config.slots.warp_program.outer),
          resolve_warp_resource(config.slots.warp_program.inner),
          resolve_source_resource(config), resolve_lens_resource(config),
@@ -1628,9 +1639,10 @@ private:
 
   HS_FLASH_MEMBER static Color4 shade_strict_lens_mix(const Vector &outer_local,
                                                       const FrameState &frame) {
-    const ProjectedLookup direct = project_branch(outer_local, frame);
+    const ProjectedLookup direct = profiled_project_branch(outer_local, frame);
+    const Vector lensed_direction = profiled_apply_lens(outer_local, frame);
     const ProjectedLookup lensed =
-        project_branch(apply_lens(outer_local, frame), frame);
+        profiled_project_branch(lensed_direction, frame);
     if (!projection_join_compatible(direct, lensed, frame.slots.projection,
                                     frame.params.projection.coordinate_scale))
       return blend_outputs(shade_projected(direct, frame),
@@ -1652,12 +1664,18 @@ private:
    */
   HS_FLASH_MEMBER static Color4
   shade_projected(const ProjectedLookup &projected, const FrameState &frame) {
+    HS_SB_STAGE_MARK(stage_start);
     const PlanarWarpResult warped = planar_warp_lookup(projected, frame);
+    HS_SB_STAGE_SPAN(planar_warp, stage_start);
     const Complex source_coords = condition_source_coords(warped.coords, frame);
     const float field = sample_source(source_coords, frame);
+    HS_SB_STAGE_SPAN(source, stage_start);
     const MaterialSample material =
         shape_material(field, projected, warped, frame);
-    return colorize(material, frame);
+    HS_SB_STAGE_SPAN(material, stage_start);
+    const Color4 color = colorize(material, frame);
+    HS_SB_STAGE_SPAN(color, stage_start);
+    return color;
   }
 
   static constexpr bool strict_projection(Projection projection) {
@@ -1731,18 +1749,18 @@ private:
     const Slots &slots = frame.slots;
     const float mix = frame.params.surface_lens.mix;
     if (slots.surface_lens == SurfaceLens::NONE || mix == 0.0f)
-      return project_branch(v, frame);
-    const Vector lensed = apply_lens(v, frame);
+      return profiled_project_branch(v, frame);
+    const Vector lensed = profiled_apply_lens(v, frame);
     if (mix == 1.0f)
-      return project_branch(lensed, frame);
+      return profiled_project_branch(lensed, frame);
     return surface_lens_mixed_lookup(v, lensed, frame, mix);
   }
 
   HS_FLASH_MEMBER static ProjectedLookup
   surface_lens_mixed_lookup(const Vector &v, const Vector &lensed,
                             const FrameState &frame, float mix) {
-    const ProjectedLookup direct = project_branch(v, frame);
-    const ProjectedLookup distorted = project_branch(lensed, frame);
+    const ProjectedLookup direct = profiled_project_branch(v, frame);
+    const ProjectedLookup distorted = profiled_project_branch(lensed, frame);
     return join_projected(direct, distorted, mix, frame.slots.projection,
                           frame.params.projection.pole_fade);
   }
@@ -1783,6 +1801,12 @@ private:
 
   HS_FLASH_MEMBER static ProjectedLookup
   project_peirce(const Vector &local, const FrameState &frame) {
+    if (frame.slots.peirce_layout == PeirceLayout::SQUARE &&
+        frame.params.projection.central_meridian == 0.0f &&
+        projection_edge_distance_required(frame))
+      return scaled_kernel_lookup(
+          projections::peirce_projection_fast_square(local),
+          frame.params.projection.coordinate_scale);
     return scaled_kernel_lookup(
         projections::peirce_projection(
             local, frame.params.projection.central_meridian,
@@ -1856,6 +1880,14 @@ private:
             std::max(0.0f, 1.0f - local.y),
             pole_attenuation(r_sq, frame.params.projection.pole_fade),
             0};
+  }
+
+  __attribute__((always_inline)) static ProjectedLookup
+  profiled_project_branch(const Vector &v, const FrameState &frame) {
+    HS_SB_STAGE_MARK(stage_start);
+    const ProjectedLookup projected = project_branch(v, frame);
+    HS_SB_STAGE_SPAN(projection, stage_start);
+    return projected;
   }
 
   HS_FLASH_MEMBER static ProjectedLookup
@@ -2144,9 +2176,11 @@ private:
         return {input, Complex(), 0.0f, 0.0f};
       const float r_sq = projected.coords.re * projected.coords.re +
                          projected.coords.im * projected.coords.im;
+      HS_SB_STAGE_MARK(legacy_start);
       const StereoWarpResult result = sample_wrapped_warp(
           input, r_sq, *stage_noise, params.scale, params.strength,
-          frame.params.projection.pole_fade, frame.clocks.warp_time);
+          frame.params.projection.pole_fade, frame.legacy_noise_phase);
+      HS_SB_STAGE_SPAN(legacy_noise, legacy_start);
       return {result.coords, result.delta, result.displacement,
               result.displacement};
     }
@@ -2178,9 +2212,13 @@ private:
     case WarpStageKind::CURL_FLOW:
       return warp_curl_flow(input, spec, params, amplitude, stage_noise,
                             prepared);
-    case WarpStageKind::MIRROR_TILE:
-      return finish_closed_form_warp(input,
-                                     mirror_tile(input, params, prepared));
+    case WarpStageKind::MIRROR_TILE: {
+      HS_SB_STAGE_MARK(mirror_start);
+      const PlanarWarpStageResult result =
+          finish_closed_form_warp(input, mirror_tile(input, params, prepared));
+      HS_SB_STAGE_SPAN(mirror_tile, mirror_start);
+      return result;
+    }
     case WarpStageKind::POLAR_CHART:
       return warp_polar_chart(input, spec, params);
     }
@@ -2331,21 +2369,22 @@ private:
   static StereoWarpResult sample_wrapped_warp(const Complex &z, float r_sq,
                                               const FastNoiseLite &noise,
                                               float scale, float strength,
-                                              float pole_fade, float time) {
-    const StereoWarpResult current =
-        stereo_noise_warp(z, r_sq, noise, scale, strength, pole_fade, time);
-    const float blend_start = STEREO_NOISE_TIME_PERIOD - NOISE_WRAP_BLEND;
-    if (time <= blend_start)
+                                              float pole_fade,
+                                              const WrappedNoisePhase &phase) {
+    const StereoWarpResult current = stereo_noise_warp(
+        z, r_sq, noise, scale, strength, pole_fade, phase.current_time);
+    if (!phase.blends) {
+      HS_SB_STAGE_COUNT(++hs::g_shaderball_stage_cycles.legacy_single_samples);
       return current;
-    const float mix = ease_in_out_sin((time - blend_start) / NOISE_WRAP_BLEND);
-    const StereoWarpResult next =
-        stereo_noise_warp(z, r_sq, noise, scale, strength, pole_fade,
-                          time - STEREO_NOISE_TIME_PERIOD);
-    return {{hs::lerp(current.coords.re, next.coords.re, mix),
-             hs::lerp(current.coords.im, next.coords.im, mix)},
-            {hs::lerp(current.delta.re, next.delta.re, mix),
-             hs::lerp(current.delta.im, next.delta.im, mix)},
-            hs::lerp(current.displacement, next.displacement, mix)};
+    }
+    HS_SB_STAGE_COUNT(++hs::g_shaderball_stage_cycles.legacy_blended_samples);
+    const StereoWarpResult next = stereo_noise_warp(
+        z, r_sq, noise, scale, strength, pole_fade, phase.previous_time);
+    return {{hs::lerp(current.coords.re, next.coords.re, phase.mix),
+             hs::lerp(current.coords.im, next.coords.im, phase.mix)},
+            {hs::lerp(current.delta.re, next.delta.re, phase.mix),
+             hs::lerp(current.delta.im, next.delta.im, phase.mix)},
+            hs::lerp(current.displacement, next.displacement, phase.mix)};
   }
 
   static Complex condition_source_coords(const Complex &coords,
@@ -2455,7 +2494,8 @@ private:
     return n * (1.0f + contrast) / (1.0f + contrast * fabsf(n));
   }
 
-  static float sample_source(const Complex &p, const FrameState &frame) {
+  HS_FLASH_MEMBER static float sample_source(const Complex &p,
+                                             const FrameState &frame) {
     if (frame.slots.function == Function::COUPLED_DIRECT)
       return sample_pattern(
           p, frame.params.source.complexity, frame.params.source.pattern_mix,
@@ -2538,9 +2578,62 @@ private:
     color.alpha *=
         sample.coverage * (1.0f - value * frame.params.colorizer.value_fade);
     if (frame.params.colorizer.hue_shift != 0.0f)
-      color = hue_rotate(color, -sample.deformation *
-                                    frame.params.colorizer.hue_shift);
+      color = hue_rotate_lut_gamut(color, -sample.deformation *
+                                              frame.params.colorizer.hue_shift);
     return color;
+  }
+
+  HS_FLASH_MEMBER static OKLab gamut_clip_lut(OKLab lab) {
+    lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
+    const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
+    if (!(chroma_sq > 1e-12f))
+      return {lab.L, 0.0f, 0.0f};
+    uint32_t inverse_bits;
+    std::memcpy(&inverse_bits, &chroma_sq, sizeof(inverse_bits));
+    inverse_bits = 0x5f3759dfu - (inverse_bits >> 1);
+    float inverse_chroma;
+    std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
+    inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
+    const GamutLut &lut = g_gamut_lut;
+    int angle_index =
+        static_cast<int>(diamond_angle(lab.b, lab.a) * lut.angle_scale);
+    int lightness_index = static_cast<int>(lab.L * lut.l_scale);
+    angle_index = hs::clamp(angle_index, 0, lut.angle_steps - 1);
+    lightness_index = hs::clamp(lightness_index, 0, lut.l_steps - 1);
+    const float max_chroma = std::max(
+        0.0f,
+        static_cast<float>(
+            lut.table[(lightness_index * lut.angle_steps + angle_index) * 2]) *
+                GAMUT_LUT_INV_SCALE -
+            GAMUT_CLIP_MARGIN);
+    const float scale = max_chroma * inverse_chroma;
+    return {lab.L, lab.a * scale, lab.b * scale};
+  }
+
+  static void hue_sincos(float turns, float &cosine, float &sine) {
+    const float x = 2.0f * (turns - floorf(turns + 0.5f));
+    const auto sine_turn = [](float value) {
+      const float parabolic = 4.0f * value * (1.0f - fabsf(value));
+      return parabolic * (0.775f + 0.225f * fabsf(parabolic));
+    };
+    sine = sine_turn(x);
+    cosine = sine_turn(0.5f - fabsf(x));
+  }
+
+  static Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
+    float cosine, sine;
+    hue_sincos(amount, cosine, sine);
+    const LinRGB input = pixel_to_linrgb(color.color);
+    OKLab lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
+    const float rotated_a = lab.a * cosine - lab.b * sine;
+    const float rotated_b = lab.a * sine + lab.b * cosine;
+    lab = {lab.L, rotated_a, rotated_b};
+    LinRGB output = oklab_to_linear_rgb(lab);
+    if (!linear_rgb_in_gamut(output.r, output.g, output.b))
+      output = oklab_to_linear_rgb(gamut_clip_lut(lab));
+    return Color4(Pixel(float_to_pixel16(output.r), float_to_pixel16(output.g),
+                        float_to_pixel16(output.b)),
+                  color.alpha);
   }
 
   HS_FLASH_MEMBER static Vector apply_lens(const Vector &v,
@@ -2560,6 +2653,14 @@ private:
       return tangent_noise_lens(v, frame);
     }
     __builtin_unreachable();
+  }
+
+  __attribute__((always_inline)) static Vector
+  profiled_apply_lens(const Vector &v, const FrameState &frame) {
+    HS_SB_STAGE_MARK(stage_start);
+    const Vector lensed = apply_lens(v, frame);
+    HS_SB_STAGE_SPAN(lens, stage_start);
+    return lensed;
   }
 
   /**
@@ -2644,13 +2745,22 @@ private:
   }
 
   HS_FLASH_MEMBER static Vector kaleidoscope_lens(const Vector &v) {
-    constexpr float SECTOR = TWO_PI_F / KALEIDOSCOPE_SECTORS;
-    const float radius = sqrtf(v.x * v.x + v.z * v.z);
-    float azimuth = fmodf(fast_atan2(v.z, v.x) + PI_F, SECTOR);
-    if (azimuth > 0.5f * SECTOR)
-      azimuth = SECTOR - azimuth;
-    return Vector(radius * fast_cosf(azimuth), v.y,
-                  radius * fast_sinf(azimuth));
+    constexpr float COS_60 = 0.5f;
+    constexpr float SIN_60 = 0.8660254037844386f;
+    constexpr float SQRT_3 = 1.7320508075688772f;
+    float x = fabsf(v.x);
+    float z = fabsf(v.z);
+    if (z > SQRT_3 * x) {
+      const float reflected_x = -COS_60 * x + SIN_60 * z;
+      z = SIN_60 * x + COS_60 * z;
+      x = reflected_x;
+    }
+    if (SQRT_3 * z > x) {
+      const float reflected_x = COS_60 * x + SIN_60 * z;
+      z = SIN_60 * x - COS_60 * z;
+      x = reflected_x;
+    }
+    return Vector(x, v.y, z);
   }
 
   /**
@@ -2660,8 +2770,9 @@ private:
    * @return A symmetry-equivalent direction inside the chamber.
    */
   template <size_t N>
-  static Vector
+  HS_O3_FN static Vector
   polyhedral_kaleidoscope_lens(Vector v, const std::array<Vector, N> &mirrors) {
+    [[maybe_unused]] uint32_t reflections = 0;
     for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
          ++reflection) {
       bool inside = true;
@@ -2672,11 +2783,21 @@ private:
         v.x -= 2.0f * distance * normal.x;
         v.y -= 2.0f * distance * normal.y;
         v.z -= 2.0f * distance * normal.z;
+        HS_SB_STAGE_COUNT(++reflections);
         inside = false;
         break;
       }
-      if (inside)
+      if (inside) {
+        HS_SB_STAGE_COUNT(++hs::g_shaderball_stage_cycles.polyhedral_pixels);
+        HS_SB_STAGE_COUNT(
+            hs::g_shaderball_stage_cycles.polyhedral_reflections +=
+            reflections);
+        HS_SB_STAGE_COUNT(
+            hs::g_shaderball_stage_cycles.polyhedral_max_reflections = std::max(
+                hs::g_shaderball_stage_cycles.polyhedral_max_reflections,
+                reflections));
         return v;
+      }
     }
     HS_CHECK(false, "polyhedral kaleidoscope fold did not converge");
     return v;
