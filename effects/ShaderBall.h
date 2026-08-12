@@ -5,6 +5,9 @@
  */
 #pragma once
 
+#include <cstdarg>
+#include <cstdio>
+
 /**
  * @file ShaderBall.h
  * @brief Typed pullback sphere shader with composable projection and material stages.
@@ -771,6 +774,12 @@ private:
   }
 
   void refresh_accepted_config() {
+    if (valid_config(requested_config)) {
+      accepted_config = requested_config;
+      pending_edit_count = 0;
+      return;
+    }
+
     Config candidate = requested_config;
     for (size_t index = 0; index < pending_edit_count; ++index)
       copy_pending_value(candidate, accepted_config, pending_edits[index]);
@@ -799,11 +808,21 @@ private:
       const PendingEdit &edit = pending_edits[index];
       if (std::strcmp(edit.name, name) != 0)
         continue;
-      Config candidate = accepted_config;
-      copy_pending_value(candidate, requested_config, edit);
-      return admission_warning(candidate);
+      return admission_warning(requested_config, edit.name);
     }
     return nullptr;
+  }
+
+  float accepted_parameter_value(const ParamDef &parameter) const override {
+    const uintptr_t target = reinterpret_cast<uintptr_t>(parameter.target);
+    const uintptr_t requested = reinterpret_cast<uintptr_t>(&requested_config);
+    const size_t size = parameter_target_size(parameter);
+    if (target < requested ||
+        target + size > requested + sizeof(requested_config))
+      return parameter.get_requested();
+    const size_t offset = target - requested;
+    return parameter.get_from(
+        reinterpret_cast<const uint8_t *>(&accepted_config) + offset);
   }
 
   static bool schema_selector(const char *name) {
@@ -3300,39 +3319,304 @@ private:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  static const char *admission_warning(const Config &candidate) {
+  const char *begin_warning(const char *format, ...) const {
+    va_list args;
+    va_start(args, format);
+    std::vsnprintf(warning_text.data(), warning_text.size(), format, args);
+    va_end(args);
+    return warning_text.data();
+  }
+
+  void append_warning(const char *format, ...) const {
+    const size_t length = std::strlen(warning_text.data());
+    if (length >= warning_text.size() - 1)
+      return;
+    va_list args;
+    va_start(args, format);
+    std::vsnprintf(warning_text.data() + length, warning_text.size() - length,
+                   format, args);
+    va_end(args);
+  }
+
+  bool append_range_warning(const char *label, float value, float minimum,
+                            float maximum) const {
+    if (value >= minimum && value <= maximum)
+      return false;
+    append_warning(" %s %.7g is outside [%.7g, %.7g].", label,
+                   static_cast<double>(value), static_cast<double>(minimum),
+                   static_cast<double>(maximum));
+    return true;
+  }
+
+  const char *stage_tuple_warning(const char *position,
+                                  const WarpStageSpec &spec,
+                                  const WarpStageParams &params) const {
+    begin_warning("%s %s rejected.", position,
+                  WARP_OPTIONS[static_cast<uint8_t>(spec.kind)]);
+    switch (spec.kind) {
+    case WarpStageKind::NONE:
+      break;
+    case WarpStageKind::LEGACY_STEREO_NOISE:
+      append_range_warning("Warp Scale", params.scale, 0.1f, 100.0f);
+      append_range_warning("Warp Strength", params.strength, 0.0f, 30.0f);
+      append_range_warning("Warp Time", params.time_scale, 0.05f, 1.0f);
+      break;
+    case WarpStageKind::AFFINE_FRAME:
+      append_range_warning("Translate X", params.translation_x, -4.0f, 4.0f);
+      append_range_warning("Translate Y", params.translation_y, -4.0f, 4.0f);
+      append_range_warning("Scale X", params.scale_x, 0.25f, 4.0f);
+      append_range_warning("Scale Y", params.scale_y, 0.25f, 4.0f);
+      append_range_warning("Shear", params.shear, -0.75f, 0.75f);
+      break;
+    case WarpStageKind::WAVE_SHEAR:
+      append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
+      append_range_warning("Frequency", params.frequency, 0.0f, 64.0f);
+      append_range_warning("Warp Time", params.time_scale, NOISE_RATE_MIN,
+                           NOISE_RATE_MAX);
+      break;
+    case WarpStageKind::VORTEX:
+      append_range_warning("Radius", params.radius, 1.0f / 64.0f, 8.0f);
+      append_range_warning("Turns", params.turns, -4.0f, 4.0f);
+      append_range_warning("Orbit Radius", params.center_orbit_radius, 0.0f,
+                           4.0f);
+      append_range_warning("Warp Time", params.time_scale, NOISE_RATE_MIN,
+                           NOISE_RATE_MAX);
+      break;
+    case WarpStageKind::VECTOR_NOISE:
+      append_range_warning("Warp Strength", params.strength, 0.0f, 4.0f);
+      append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f, 64.0f);
+      append_range_warning("Warp Time", params.time_scale, NOISE_RATE_MIN,
+                           NOISE_RATE_MAX);
+      break;
+    case WarpStageKind::CURL_FLOW: {
+      append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
+      append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f, 16.0f);
+      append_range_warning("Warp Time", params.time_scale, NOISE_RATE_MIN,
+                           NOISE_RATE_MAX);
+      const float strength_limit = curl_strength_limit(spec, params);
+      if (abs_value(params.strength) > strength_limit)
+        append_warning(
+            " %s at Warp Scale %.7g requires |Warp Strength| <= %.9f; "
+            "current value is %.7g.",
+            CURL_INTEGRATOR_OPTIONS[static_cast<uint8_t>(spec.curl_integrator)],
+            static_cast<double>(params.scale),
+            static_cast<double>(strength_limit),
+            static_cast<double>(params.strength));
+      break;
+    }
+    case WarpStageKind::MIRROR_TILE:
+      append_range_warning("Cell X", params.cell_x, CELL_MIN, CELL_MAX);
+      append_range_warning("Cell Y", params.cell_y, CELL_MIN, CELL_MAX);
+      break;
+    case WarpStageKind::POLAR_CHART:
+      append_range_warning("Radial Scale", params.radial_scale, 1.0f / 64.0f,
+                           16.0f);
+      break;
+    }
+    append_warning(" Set every listed control within its stated limit.");
+    return warning_text.data();
+  }
+
+  const char *program_bounds_warning(const Config &candidate) const {
+    float bound = projection_coordinate_bound(candidate);
+    const WarpStageSpec stages[] = {candidate.slots.warp_program.outer,
+                                    candidate.slots.warp_program.inner};
+    const WarpStageParams params[] = {candidate.params.warp.outer,
+                                      candidate.params.warp.inner};
+    const char *positions[] = {"Outer", "Inner"};
+    for (size_t index = 0; index < 2; ++index) {
+      if (stages[index].kind == WarpStageKind::VECTOR_NOISE ||
+          stages[index].kind == WarpStageKind::CURL_FLOW) {
+        const float lattice_bound = params[index].scale * (bound + 100.0f);
+        if (lattice_bound > NOISE_LATTICE_LIMIT) {
+          const float scale_limit = NOISE_LATTICE_LIMIT / (bound + 100.0f);
+          return begin_warning(
+              "%s %s rejected: Warp Scale %.7g produces noise coordinate "
+              "bound %.7g above %.7g. Set Warp Scale <= %.7g or choose a "
+              "projection/lens with a smaller coordinate extent.",
+              positions[index],
+              WARP_OPTIONS[static_cast<uint8_t>(stages[index].kind)],
+              static_cast<double>(params[index].scale),
+              static_cast<double>(lattice_bound),
+              static_cast<double>(NOISE_LATTICE_LIMIT),
+              static_cast<double>(scale_limit));
+        }
+      }
+      bound = stage_coordinate_bound(stages[index], params[index], bound);
+      if (bound > WARP_COORD_LIMIT)
+        return begin_warning(
+            "%s %s rejected: its predicted coordinate bound %.7g exceeds "
+            "%.7g. Reduce this warp's displacement/translation controls or "
+            "choose a projection/lens with a smaller coordinate extent.",
+            positions[index],
+            WARP_OPTIONS[static_cast<uint8_t>(stages[index].kind)],
+            static_cast<double>(bound), static_cast<double>(WARP_COORD_LIMIT));
+    }
+    const float source_bound = candidate.params.source.noise_scale * bound;
+    return begin_warning(
+        "Noise Contour rejected: Source Noise Scale %.7g produces noise "
+        "coordinate bound %.7g above %.7g. Set Source Noise Scale <= %.7g "
+        "or reduce the preceding warp extent.",
+        static_cast<double>(candidate.params.source.noise_scale),
+        static_cast<double>(source_bound),
+        static_cast<double>(NOISE_LATTICE_LIMIT),
+        static_cast<double>(NOISE_LATTICE_LIMIT / bound));
+  }
+
+  const char *resource_warning(const Config &candidate) const {
+    std::array<NoiseResourceKey, 4> keys{};
+    const char *owners[4]{};
+    size_t count = 0;
+    auto add = [&](const char *owner, const NoiseResourceKey &key) {
+      for (size_t index = 0; index < count; ++index) {
+        if (keys[index].resource_id != key.resource_id)
+          continue;
+        if (keys[index] == key)
+          return false;
+        begin_warning(
+            "%s conflicts with %s: both use noise resource %u with different "
+            "basis, seed, or sampling requirements. Disable one noise "
+            "consumer or choose a non-noise Function, Lens, or Warp for one "
+            "of them.",
+            owner, owners[index], static_cast<unsigned>(key.resource_id));
+        return true;
+      }
+      keys[count] = key;
+      owners[count++] = owner;
+      return false;
+    };
+    if (warp_uses_noise(candidate.slots.warp_program.outer.kind) &&
+        add("Outer Warp",
+            warp_resource_key(candidate.slots.warp_program.outer)))
+      return warning_text.data();
+    if (warp_uses_noise(candidate.slots.warp_program.inner.kind) &&
+        add("Inner Warp",
+            warp_resource_key(candidate.slots.warp_program.inner)))
+      return warning_text.data();
+    if (candidate.slots.function == Function::NOISE_CONTOUR &&
+        add("Function Noise Contour", source_resource_key(candidate)))
+      return warning_text.data();
+    if (candidate.slots.surface_lens == SurfaceLens::TANGENT_NOISE &&
+        add("Lens Tangent Noise", lens_resource_key(candidate)))
+      return warning_text.data();
+    return begin_warning(
+        "The active noise consumers exceed the resource limit of %u. Disable "
+        "one noise Function, Lens, or Warp.",
+        static_cast<unsigned>(MAX_NOISE_RESOURCES));
+  }
+
+  const char *admission_warning(const Config &candidate,
+                                const char *edited_name) const {
     const WarpStageSpec &outer = candidate.slots.warp_program.outer;
     const WarpStageSpec &inner = candidate.slots.warp_program.inner;
     const int legacy_stages =
         (outer.kind == WarpStageKind::LEGACY_STEREO_NOISE) +
         (inner.kind == WarpStageKind::LEGACY_STEREO_NOISE);
     if (legacy_stages > 1)
-      return "Legacy Stereo Noise can occupy only one warp stage. Set the other Warp to None or choose a different warp.";
+      return begin_warning(
+          "Outer Warp and Inner Warp are both Stereo Noise, but only one "
+          "Stereo Noise stage is allowed. Set either Outer Warp or Inner Warp "
+          "to None or another warp.");
     if (legacy_stages == 1 &&
-        candidate.slots.projection != Projection::STEREOGRAPHIC)
-      return "Legacy Stereo Noise requires Projection = Stereographic. Choose Stereographic or select a different warp.";
+        candidate.slots.projection != Projection::STEREOGRAPHIC) {
+      const char *position =
+          outer.kind == WarpStageKind::LEGACY_STEREO_NOISE ? "Outer" : "Inner";
+      return begin_warning(
+          "%s Warp Stereo Noise requires Projection = Stereographic; current "
+          "Projection is %s. Select Stereographic or choose a different %s "
+          "Warp.",
+          position,
+          PROJECTION_OPTIONS[static_cast<uint8_t>(candidate.slots.projection)],
+          position);
+    }
     if (outer.kind == WarpStageKind::POLAR_CHART &&
         inner.kind != WarpStageKind::NONE)
-      return "Outer Polar Chart cannot be combined with an Inner Warp. Set Inner Warp to None or choose a different Outer Warp.";
-    if (outer.kind == WarpStageKind::POLAR_CHART &&
-        !polar_source_compatible(candidate, outer))
-      return "Outer Polar Chart needs a periodic polar-compatible Function and a whole-number Pattern Freq × Outer Polar Harmonic. Adjust those settings or choose another warp.";
-    if (inner.kind == WarpStageKind::POLAR_CHART &&
-        !polar_source_compatible(candidate, inner))
-      return "Inner Polar Chart needs a periodic polar-compatible Function and a whole-number Pattern Freq × Inner Polar Harmonic. Adjust those settings or choose another warp.";
-    if (!strict_seam_compatible(candidate))
-      return "Bonne, Peirce Quincuncial, and Airocean require seam-safe stages. Replace Noise Contour, Tangent Noise, Vector Noise, or Curl Flow, or choose a non-strict Projection.";
-    if (!valid_stage_tuple(outer, candidate.params.warp.outer) ||
-        !valid_stage_tuple(inner, candidate.params.warp.inner))
-      return "This warp tuple is outside its safe operating region. Reduce Warp Strength or Scale, or select a higher-quality Curl Integrator.";
+      return begin_warning(
+          "Outer Warp Polar Chart cannot run while Inner Warp is %s. Set "
+          "Inner Warp to None or choose a different Outer Warp.",
+          WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
+    const WarpStageSpec *polar =
+        outer.kind == WarpStageKind::POLAR_CHART   ? &outer
+        : inner.kind == WarpStageKind::POLAR_CHART ? &inner
+                                                   : nullptr;
+    if (polar != nullptr && !polar_source_compatible(candidate, *polar)) {
+      const char *position = polar == &outer ? "Outer" : "Inner";
+      const SourceTraits traits = source_traits(candidate.slots.function);
+      if (!traits.y_periodic || !traits.polar_angle_compatible)
+        return begin_warning(
+            "%s Polar Chart requires a polar-periodic Function; %s is not "
+            "compatible. Select Coupled / Direct or Primitive Lattice, or "
+            "choose another %s Warp.",
+            position,
+            FUNCTION_OPTIONS[static_cast<uint8_t>(candidate.slots.function)],
+            position);
+      const float periods = candidate.params.source.pattern_freq *
+                            static_cast<float>(polar->polar_harmonic);
+      const float nearest_periods = floorf(periods + 0.5f);
+      const float suggested_frequency =
+          nearest_periods / static_cast<float>(polar->polar_harmonic);
+      return begin_warning(
+          "%s Polar Chart requires Pattern Freq x Polar Harmonic to be a "
+          "whole number. %.7g x %u = %.7g. Set Pattern Freq to %.7g or change "
+          "%s Polar Harmonic.",
+          position, static_cast<double>(candidate.params.source.pattern_freq),
+          static_cast<unsigned>(polar->polar_harmonic),
+          static_cast<double>(periods),
+          static_cast<double>(suggested_frequency), position);
+    }
+    if (!strict_seam_compatible(candidate)) {
+      begin_warning(
+          "Projection %s requires seam-safe stages.",
+          PROJECTION_OPTIONS[static_cast<uint8_t>(candidate.slots.projection)]);
+      if (candidate.slots.function == Function::NOISE_CONTOUR)
+        append_warning(" Function Noise Contour is not seam-safe.");
+      if (candidate.slots.surface_lens == SurfaceLens::TANGENT_NOISE)
+        append_warning(" Lens Tangent Noise is not seam-safe.");
+      if (seam_sensitive_warp(outer.kind))
+        append_warning(" Outer Warp %s is not seam-safe.",
+                       WARP_OPTIONS[static_cast<uint8_t>(outer.kind)]);
+      if (seam_sensitive_warp(inner.kind))
+        append_warning(" Inner Warp %s is not seam-safe.",
+                       WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
+      append_warning(" Replace the named stage or select Folded Sinusoidal, "
+                     "Stereographic, Gnomonic, or Equirectangular.");
+      return warning_text.data();
+    }
+    if (!preset_in_ranges(candidate.params)) {
+      const ParamDef *parameter = getParameters().find(edited_name);
+      if (parameter != nullptr)
+        return begin_warning(
+            "%s %.7g is outside its registered range [%.7g, %.7g]. Set %s "
+            "within that range.",
+            edited_name, static_cast<double>(parameter->get_requested()),
+            static_cast<double>(parameter->min),
+            static_cast<double>(parameter->max), edited_name);
+    }
+    if (!valid_stage_tuple(outer, candidate.params.warp.outer))
+      return stage_tuple_warning("Outer", outer, candidate.params.warp.outer);
+    if (!valid_stage_tuple(inner, candidate.params.warp.inner))
+      return stage_tuple_warning("Inner", inner, candidate.params.warp.inner);
     if (!safe_program_bounds(candidate))
-      return "This projection and warp combination can exceed safe coordinate bounds. Reduce warp scale, translation, or strength, or choose a bounded Projection.";
+      return program_bounds_warning(candidate);
     if (candidate.slots.surface_lens == SurfaceLens::MOBIUS &&
-        !valid_mobius(candidate.params.surface_lens.mobius))
-      return "The Möbius coefficients are degenerate: A×D and B×C are too close. Adjust this coefficient until their difference is nonzero.";
+        !valid_mobius(candidate.params.surface_lens.mobius)) {
+      const MobiusParams &m = candidate.params.surface_lens.mobius;
+      const float det_re =
+          m.a.re * m.d.re - m.a.im * m.d.im - m.b.re * m.c.re + m.b.im * m.c.im;
+      const float det_im =
+          m.a.re * m.d.im + m.a.im * m.d.re - m.b.re * m.c.im - m.b.im * m.c.re;
+      return begin_warning(
+          "Mobius Lens rejected: |A*D - B*C| is %.7g; it must be at least "
+          "0.001. Adjust the requested Mobius coefficient until the "
+          "determinant reaches 0.001 or more.",
+          static_cast<double>(sqrtf(det_re * det_re + det_im * det_im)));
+    }
     if (!resource_union_fits(candidate, candidate))
-      return "This combination needs incompatible noise resources. Disable one noise stage or choose matching noise bases.";
-    return "This value is outside ShaderBall's safe configuration. Move it toward the previous value or simplify the related stage.";
+      return resource_warning(candidate);
+    return begin_warning(
+        "%s was rejected by an unclassified ShaderBall admission rule. Keep "
+        "the requested value and report this exact configuration as a bug.",
+        edited_name);
   }
 #endif
 
@@ -4419,6 +4703,7 @@ private:
   Config display_config = PRESETS[0];
   std::array<PendingEdit, PARAM_CAPACITY> pending_edits{};
   size_t pending_edit_count = 0;
+  mutable std::array<char, 1024> warning_text{};
 #endif
   RequestedConfig requested_config = PRESETS[0];
   Config published_config = PRESETS[0];
