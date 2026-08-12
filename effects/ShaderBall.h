@@ -1775,6 +1775,8 @@ private:
 
   struct LegacyDecodeState {
     uint8_t function = 0;
+    uint8_t surface_lens = 0;
+    float lens_mix = 0.0f;
     bool tangent_noise = false;
     bool outer_stereo_noise = false;
     bool inner_stereo_noise = false;
@@ -1827,6 +1829,8 @@ private:
 
     legacy.tangent_noise =
         config.slots.surface_lens == SurfaceLens::TANGENT_NOISE;
+    legacy.surface_lens = surface_lens_storage_id(config.slots.surface_lens);
+    legacy.lens_mix = config.params.surface_lens.mix;
     legacy.outer_stereo_noise = config.slots.warp_program.outer.kind ==
                                 WarpStageKind::LEGACY_STEREO_NOISE;
     legacy.inner_stereo_noise = config.slots.warp_program.inner.kind ==
@@ -1898,6 +1902,94 @@ private:
         config.params.surface_lens.mix = 1.0f;
     }
     return true;
+  }
+
+  static const char *legacy_function_name(uint8_t id) {
+    static constexpr const char *NAMES[] = {
+        "Twin Wave",       "Rings",         "Spiral",           "Grid",
+        "Coupled Pattern", "Noise Contour", "Primitive Lattice"};
+    return id < sizeof(NAMES) / sizeof(NAMES[0]) ? NAMES[id] : "Unknown";
+  }
+
+  static const char *legacy_lens_name(uint8_t id) {
+    static constexpr const char *NAMES[] = {"None",
+                                            "Glitch",
+                                            "Twist",
+                                            "Kaleidoscope",
+                                            "Mobius",
+                                            "Tangent Noise",
+                                            "Tetrahedral",
+                                            "Octahedral",
+                                            "Dodecahedral",
+                                            "Triangular Prism",
+                                            "Square Prism",
+                                            "Pentagonal Prism",
+                                            "Hexagonal Prism",
+                                            "Octagonal Prism"};
+    return id < sizeof(NAMES) / sizeof(NAMES[0]) ? NAMES[id] : "Unknown";
+  }
+
+  template <typename... Args>
+  static void append_import_notice(std::array<char, 1024> &notice, size_t &used,
+                                   const char *format, Args... args) {
+    if (used >= notice.size())
+      return;
+    const int written = std::snprintf(notice.data() + used,
+                                      notice.size() - used, format, args...);
+    if (written > 0)
+      used += std::min(static_cast<size_t>(written), notice.size() - used);
+  }
+
+  static void append_legacy_notice(std::array<char, 1024> &notice, size_t &used,
+                                   const char *scope,
+                                   const LegacyDecodeState &legacy) {
+    append_import_notice(notice, used, " %s:", scope);
+    if (legacy.function == 3)
+      append_import_notice(notice, used, "%s",
+                           " Grid unified with Pattern Mix 1;");
+    else if (legacy.function == 4)
+      append_import_notice(notice, used, "%s", " Coupled Pattern -> Grid;");
+    else if (legacy.function == 5)
+      append_import_notice(
+          notice, used, "%s",
+          " Noise Contour -> Noise Contour (Projected), field layout changed;");
+
+    const bool tangent_effective =
+        legacy.tangent_noise && legacy.lens_mix > 0.0f;
+    if (legacy.tangent_noise) {
+      append_import_notice(notice, used, "%s",
+                           tangent_effective
+                               ? " Tangent Noise -> Surface Noise Direct;"
+                               : " Tangent Noise -> None (Lens Mix zero);");
+      append_import_notice(notice, used, "%s", " Lens Mix removed;");
+    } else if (legacy.surface_lens != 0) {
+      if (legacy.lens_mix <= 0.0f)
+        append_import_notice(notice, used, " %s -> None (Lens Mix zero);",
+                             legacy_lens_name(legacy.surface_lens));
+      else
+        append_import_notice(notice, used, " %s Lens Mix -> full effect;",
+                             legacy_lens_name(legacy.surface_lens));
+    }
+
+    if (legacy.outer_stereo_noise || legacy.inner_stereo_noise) {
+      const char *slot =
+          legacy.outer_stereo_noise ? "Planar Warp 1" : "Planar Warp 2";
+      if (tangent_effective)
+        append_import_notice(
+            notice, used,
+            " %s Stereo Noise discarded and cleared (Tangent Noise won);",
+            slot);
+      else
+        append_import_notice(
+            notice, used,
+            " %s Stereo Noise -> Surface Noise Direct; %s cleared;", slot,
+            slot);
+    }
+    if (legacy.function != 3 && legacy.function != 4 && legacy.function != 5 &&
+        !legacy.tangent_noise && legacy.surface_lens == 0 &&
+        !legacy.outer_stereo_noise && !legacy.inner_stereo_noise)
+      append_import_notice(notice, used, " %s retained;",
+                           legacy_function_name(legacy.function));
   }
 
   static constexpr bool valid_snapshot_config(const Config &config) {
@@ -2042,9 +2134,14 @@ public:
       clocks.warp_inner_phase = next_runtime[10];
     }
     if (snapshot.schema_version == 1) {
-      std::snprintf(import_notice.data(), import_notice.size(),
-                    "Imported schema 1; legacy pattern and structural noise "
-                    "fields were migrated to schema 2.");
+      import_notice = {};
+      size_t notice_size = 0;
+      append_import_notice(import_notice, notice_size, "%s",
+                           "Imported schema 1.");
+      append_legacy_notice(import_notice, notice_size, "Accepted",
+                           accepted_legacy);
+      append_legacy_notice(import_notice, notice_size, "Requested",
+                           requested_legacy);
     } else {
       import_notice = {};
     }

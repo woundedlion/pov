@@ -494,7 +494,21 @@ inline void test_shaderball_legacy_config_snapshot() {
                static_cast<uint32_t>(WB::SurfaceNoise::DIRECT));
   HS_EXPECT_EQ(migrated.accepted[outer_warp],
                static_cast<uint32_t>(WB::WarpStageKind::NONE));
-  HS_EXPECT_TRUE(std::strlen(sb.config_import_notice()) > 0);
+  HS_EXPECT_TRUE(std::strstr(sb.config_import_notice(), "Grid unified") !=
+                 nullptr);
+  HS_EXPECT_TRUE(std::strstr(sb.config_import_notice(),
+                             "Tangent Noise -> Surface Noise Direct") !=
+                 nullptr);
+  HS_EXPECT_TRUE(std::strstr(sb.config_import_notice(), "Lens Mix removed") !=
+                 nullptr);
+
+  legacy.accepted[outer_warp] = 1;
+  legacy.requested[outer_warp] = 1;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(legacy),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_TRUE(std::strstr(sb.config_import_notice(),
+                             "Planar Warp 1 Stereo Noise discarded and "
+                             "cleared (Tangent Noise won)") != nullptr);
 
   legacy = migrated;
   legacy.schema_version = 1;
