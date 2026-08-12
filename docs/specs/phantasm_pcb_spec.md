@@ -153,7 +153,8 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
   Part = **SN74AHCT125** (e.g. SN74AHCT125DR). The 5 V-tolerance caveat below is about signal
   *direction*, not package.
 - **R-LS-5 — Default the sync driver disabled at boot.** Ch C `/OE` is MASTER_EN (Teensy pin 5),
-  which **floats from power-on until `run_show()` drives it** ([pov_segmented.h — PIN_MASTER_EN, run_show()](../../hardware/pov_segmented.h));
+  which **floats from power-on until the first statement of `setup()` parks it disabled**
+  ([pov_segmented.h — PIN_MASTER_EN, park_sync_out()](../../hardware/pov_segmented.h));
   a floating `/OE` that settles LOW briefly enables a slave's bus driver — the transient phantom-master
   hazard. Fit a **pull-up R_MEN (10 kΩ) on pin 5 → 3V3** (not 5 V — keeps pin 5 safe; 3.3 V is a solid
   AHCT TTL HIGH = `/OE` disabled). Every board then boots with its sync driver **off**, enabled only
