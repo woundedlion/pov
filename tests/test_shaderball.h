@@ -60,6 +60,11 @@ struct ShaderBallWhiteBox {
   using ConfigFieldId = SB::ConfigFieldId;
   using ConfigRestoreResult = SB::ConfigRestoreResult;
   using FullConfigSnapshot = SB::FullConfigSnapshot;
+  using TopologyKey = SB::TopologyKey;
+  using InversePipelineId = SB::InversePipelineId;
+  using InverseStageKind = SB::InverseStageKind;
+  using CodeEmission = SB::CodeEmission;
+  using ApproximationOracleId = SB::ApproximationOracleId;
 
   static constexpr float AXIS_EPS = SB::GNOMONIC_AXIS_EPS;
   static constexpr uint32_t HUE_STEP = SB::HUE_STEP;
@@ -342,6 +347,51 @@ struct ShaderBallWhiteBox {
   static Color4 pipeline_shade(const Vector &v, const FrameState &frame) {
     const auto function = SB::resolve_shade_function(frame);
     return function ? function(v, frame) : SB::shade(v, frame);
+  }
+  static TopologyKey topology_key(const RequestedConfig &config) {
+    return SB::make_topology_key(config);
+  }
+  static size_t inverse_program_count() {
+    return SB::inverse_programs().size();
+  }
+  static InversePipelineId inverse_program_id(const FrameState &frame) {
+    const auto *program = SB::resolve_inverse_program(frame);
+    return program == nullptr ? InversePipelineId::NONE : program->id;
+  }
+  static bool has_inverse_program(const RequestedConfig &config) {
+    return SB::find_inverse_program(config) != nullptr;
+  }
+  static bool inverse_programs_well_formed() {
+    const auto &programs = SB::inverse_programs();
+    for (size_t index = 0; index < programs.size(); ++index) {
+      if (programs[index].shade == nullptr)
+        return false;
+      for (size_t prior = 0; prior < index; ++prior)
+        if (programs[index].id == programs[prior].id ||
+            programs[index].key == programs[prior].key ||
+            programs[index].shade == programs[prior].shade)
+          return false;
+    }
+    return true;
+  }
+  static constexpr bool inverse_stage_contracts() {
+    using ArityGate = typename SB::template InversePipelineValidation<
+        false, typename SB::OuterCameraStage>;
+    using Surface = typename SB::PeirceKaleidoscopeLatticePipeline::Validation::
+        SurfaceStage;
+    using Color =
+        typename SB::PeirceKaleidoscopeLatticePipeline::Validation::ColorStage;
+    return !ArityGate::ORDER && !ArityGate::CARRIERS &&
+           SB::PeirceKaleidoscopeLatticePipeline::Validation::ORDER &&
+           SB::PeirceKaleidoscopeLatticePipeline::Validation::RUN_RETURNS &&
+           SB::PeirceKaleidoscopeLatticePipeline::Validation::CARRIERS &&
+           SB::PeirceKaleidoscopeLatticePipeline::Validation::TERMINALS &&
+           SB::PeirceKaleidoscopeLatticePipeline::Validation::APPROXIMATIONS &&
+           Surface::KIND == InverseStageKind::SURFACE_PROJECT &&
+           Surface::EMISSION == CodeEmission::INLINE_ONLY &&
+           Surface::ORACLE == ApproximationOracleId::PEIRCE_FAST_SQUARE &&
+           Surface::NON_FLOATING_FIELDS_EXACT &&
+           Color::ORACLE == ApproximationOracleId::LIQUID_HUE_LUT;
   }
   static Complex project_point(const Vector &v, Projection projection) {
     return SB::project_point(v, projection);
@@ -3104,6 +3154,76 @@ inline void test_shaderball_fast_peirce_square() {
   }
 }
 
+/** @brief The inverse manifest has unique, canonical, selectable programs. */
+inline void test_shaderball_inverse_pipeline_manifest() {
+  using WB = ShaderBallWhiteBox;
+  static_assert(WB::inverse_stage_contracts());
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+
+  struct ExpectedProgram {
+    size_t preset;
+    WB::InversePipelineId id;
+  };
+  static constexpr ExpectedProgram EXPECTED[] = {
+      {0, WB::InversePipelineId::KALEIDOSCOPE_NOISE_GRID},
+      {1, WB::InversePipelineId::GLITCH_NOISE_GRID},
+      {15, WB::InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR},
+      {16, WB::InversePipelineId::PEIRCE_KALEIDOSCOPE_LATTICE},
+      {17, WB::InversePipelineId::KALEIDOSCOPE_NOISE_GRID_EDGE_FADE},
+      {18, WB::InversePipelineId::DODECAHEDRAL_NOISE_GRID_MIRROR},
+      {20, WB::InversePipelineId::DODECAHEDRAL_NOISE_GRID},
+      {21, WB::InversePipelineId::DODECAHEDRAL_NOISE_LATTICE_MIRROR},
+  };
+  HS_EXPECT_EQ(WB::inverse_program_count(), std::size(EXPECTED));
+  HS_EXPECT_TRUE(WB::inverse_programs_well_formed());
+  for (const ExpectedProgram &expected : EXPECTED) {
+    const WB::FrameState frame = WB::preset_frame(sb, expected.preset);
+    HS_EXPECT_EQ(WB::inverse_program_id(frame), expected.id);
+  }
+
+  WB::RequestedConfig canonical = WB::presets()[20];
+  const WB::TopologyKey expected_key = WB::topology_key(canonical);
+  canonical.slots.peirce_layout = WB::PeirceLayout::DIAMOND;
+  canonical.slots.bonne_hemisphere = WB::BonneHemisphere::SOUTH;
+  canonical.slots.gnomonic_hemisphere =
+      WB::GnomonicHemispherePolicy::BACK_HEMISPHERE;
+  canonical.params.source.noise_basis = WB::NoiseBasis::RIDGED3;
+  canonical.slots.warp_program.outer.basis = WB::NoiseBasis::FBM3;
+  canonical.slots.warp_program.outer.envelope = WB::WarpEnvelope::EDGE_FADE;
+  canonical.slots.warp_program.outer.polar_mode = WB::PolarMode::LOGARITHMIC;
+  canonical.slots.warp_program.outer.curl_integrator =
+      WB::CurlIntegrator::MIDPOINT_4;
+  canonical.slots.warp_program.outer.polar_harmonic = 13;
+  HS_EXPECT_TRUE(WB::topology_key(canonical) == expected_key);
+
+  WB::RequestedConfig no_surface_noise = WB::presets()[16];
+  const WB::TopologyKey no_surface_noise_key =
+      WB::topology_key(no_surface_noise);
+  no_surface_noise.slots.surface_noise_placement =
+      WB::SurfaceNoisePlacement::BEFORE_LENS;
+  no_surface_noise.params.surface_noise.basis = WB::NoiseBasis::RIDGED3;
+  no_surface_noise.params.surface_noise.integrator =
+      WB::SurfaceCurlIntegrator::MIDPOINT_2X;
+  HS_EXPECT_TRUE(WB::topology_key(no_surface_noise) == no_surface_noise_key);
+
+  WB::RequestedConfig precondition = WB::presets()[0];
+  HS_EXPECT_TRUE(WB::has_inverse_program(precondition));
+  for (float direction :
+       {std::nextafter(0.0f, 1.0f), std::nextafter(0.0f, -1.0f),
+        std::numeric_limits<float>::infinity(),
+        -std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::quiet_NaN()}) {
+    precondition.params.surface_noise.direction = direction;
+    HS_EXPECT_FALSE(WB::has_inverse_program(precondition));
+  }
+
+  WB::RequestedConfig unsupported = WB::presets()[0];
+  unsupported.slots.surface_lens = WB::SurfaceLens::TWIST;
+  HS_EXPECT_FALSE(WB::has_inverse_program(unsupported));
+}
+
 /** @brief Specialized inverse pipelines match the generic shader exactly. */
 inline void test_shaderball_specialized_inverse_pipelines() {
   using WB = ShaderBallWhiteBox;
@@ -3904,6 +4024,7 @@ inline int run_shaderball_tests() {
   test_shaderball_gui_catalog();
   test_shaderball_projection_catalog();
   test_shaderball_fast_peirce_square();
+  test_shaderball_inverse_pipeline_manifest();
   test_shaderball_specialized_inverse_pipelines();
   test_shaderball_projection_and_admission_contracts();
   test_shaderball_kernel_catalog();
