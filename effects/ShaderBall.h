@@ -1730,6 +1730,133 @@ private:
     return valid;
   }
 
+  struct LegacyDecodeState {
+    uint8_t function = 0;
+    bool tangent_noise = false;
+    bool outer_stereo_noise = false;
+    bool inner_stereo_noise = false;
+  };
+
+  static float legacy_clamp(float value, float minimum, float maximum) {
+    return hs::clamp(value, minimum, maximum);
+  }
+
+  static bool migrate_legacy_config(Config &config, LegacyDecodeState &legacy,
+                                    RuntimeValues &runtime_values,
+                                    bool has_runtime) {
+    legacy.function = static_cast<uint8_t>(config.slots.function);
+    switch (legacy.function) {
+    case 0:
+      config.slots.function = Function::TWIN_WAVE;
+      break;
+    case 1:
+      config.slots.function = Function::RINGS;
+      break;
+    case 2:
+      config.slots.function = Function::SPIRAL;
+      break;
+    case 3:
+      config.slots.function = Function::GRID;
+      config.params.source.pattern_mix = 1.0f;
+      config.params.source.secondary_rate = 1.0f;
+      if (has_runtime)
+        runtime_values[static_cast<size_t>(RuntimeFieldId::SOURCE_SECONDARY)] =
+            runtime_values[static_cast<size_t>(RuntimeFieldId::SOURCE_PRIMARY)];
+      break;
+    case 4:
+      config.slots.function = Function::GRID;
+      config.params.source.angle_rate = 0.0f;
+      if (has_runtime)
+        runtime_values[static_cast<size_t>(RuntimeFieldId::SOURCE_ANGLE)] =
+            0.0f;
+      break;
+    case 5:
+      config.slots.function = Function::NOISE_CONTOUR;
+      break;
+    case 6:
+      config.slots.function = Function::PRIMITIVE_LATTICE;
+      break;
+    default:
+      return false;
+    }
+
+    legacy.tangent_noise =
+        config.slots.surface_lens == SurfaceLens::TANGENT_NOISE;
+    legacy.outer_stereo_noise = config.slots.warp_program.outer.kind ==
+                                WarpStageKind::LEGACY_STEREO_NOISE;
+    legacy.inner_stereo_noise = config.slots.warp_program.inner.kind ==
+                                WarpStageKind::LEGACY_STEREO_NOISE;
+    if (legacy.outer_stereo_noise && legacy.inner_stereo_noise)
+      return false;
+
+    if (legacy.tangent_noise && config.params.surface_lens.mix > 0.0f) {
+      const SurfaceLensParams &old = config.params.surface_lens;
+      SurfaceNoiseParams &noise = config.params.surface_noise;
+      config.slots.surface_noise = SurfaceNoise::DIRECT;
+      config.slots.surface_noise_placement = SurfaceNoisePlacement::AFTER_LENS;
+      noise.basis = old.noise_basis;
+      noise.integrator = SurfaceCurlIntegrator::EULER;
+      noise.seed = old.noise_seed;
+      noise.scale = legacy_clamp(old.noise_scale, LENS_NOISE_SCALE_MIN,
+                                 LENS_NOISE_SCALE_MAX);
+      noise.strength = legacy_clamp(old.amount * old.mix, 0.0f, 0.5f);
+      noise.rate = legacy_clamp(old.noise_rate, NOISE_RATE_MIN, NOISE_RATE_MAX);
+      noise.direction = 0.0f;
+      if (has_runtime)
+        runtime_values[static_cast<size_t>(
+            RuntimeFieldId::SURFACE_NOISE_PHASE)] =
+            runtime_values[static_cast<size_t>(
+                RuntimeFieldId::LEGACY_LENS_NOISE_PHASE)];
+    }
+    if (legacy.tangent_noise)
+      config.slots.surface_lens = SurfaceLens::NONE;
+
+    WarpStageSpec *old_spec = nullptr;
+    WarpStageParams *old_params = nullptr;
+    if (legacy.outer_stereo_noise) {
+      old_spec = &config.slots.warp_program.outer;
+      old_params = &config.params.warp.outer;
+    } else if (legacy.inner_stereo_noise) {
+      old_spec = &config.slots.warp_program.inner;
+      old_params = &config.params.warp.inner;
+    }
+    if (old_spec != nullptr) {
+      if (!legacy.tangent_noise) {
+        SurfaceNoiseParams &noise = config.params.surface_noise;
+        config.slots.surface_noise = SurfaceNoise::DIRECT;
+        config.slots.surface_noise_placement =
+            SurfaceNoisePlacement::AFTER_LENS;
+        noise.basis = old_spec->basis;
+        noise.integrator = SurfaceCurlIntegrator::EULER;
+        noise.seed = old_spec->seed;
+        noise.scale = legacy_clamp(old_params->scale * 0.01f,
+                                   LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
+        noise.strength = legacy_clamp(old_params->strength / 60.0f, 0.0f, 0.5f);
+        noise.rate =
+            legacy_clamp(config.params.source.speed * old_params->time_scale /
+                             STEREO_NOISE_TIME_PERIOD,
+                         NOISE_RATE_MIN, NOISE_RATE_MAX);
+        noise.direction = 0.0f;
+        if (has_runtime)
+          runtime_values[static_cast<size_t>(
+              RuntimeFieldId::SURFACE_NOISE_PHASE)] =
+              fmodf(runtime_values[static_cast<size_t>(
+                        RuntimeFieldId::LEGACY_WARP_TIME)] /
+                            STEREO_NOISE_TIME_PERIOD +
+                        TWO_PI_F,
+                    TWO_PI_F);
+      }
+      old_spec->kind = WarpStageKind::NONE;
+    }
+    if (config.slots.surface_lens != SurfaceLens::NONE) {
+      if (config.params.surface_lens.mix <= 0.0f)
+        config.slots.surface_lens = SurfaceLens::NONE;
+      else
+        config.params.surface_lens.mix = 1.0f;
+    }
+    return true;
+  }
+
   static constexpr bool valid_snapshot_config(const Config &config) {
     const Slots &slots = config.slots;
     return enum_at_most(slots.function, Function::PRIMITIVE_LATTICE) &&
@@ -1787,28 +1914,43 @@ public:
    */
   HS_COLD_MEMBER ConfigRestoreResult
   restore_full_config_snapshot(const FullConfigSnapshot &snapshot) {
-    if (snapshot.schema_version != CONFIG_SCHEMA_VERSION)
+    if (snapshot.schema_version != 1 &&
+        snapshot.schema_version != CONFIG_SCHEMA_VERSION)
       return ConfigRestoreResult::UNSUPPORTED_VERSION;
 
     Config next_accepted{};
     Config next_requested{};
     if (!decode_config_values(snapshot.accepted, next_accepted) ||
-        !decode_config_values(snapshot.requested, next_requested) ||
-        !valid_snapshot_config(next_accepted) ||
+        !decode_config_values(snapshot.requested, next_requested))
+      return ConfigRestoreResult::INVALID_VALUE;
+    RuntimeValues next_runtime = snapshot.runtime;
+    LegacyDecodeState accepted_legacy{};
+    LegacyDecodeState requested_legacy{};
+    if (snapshot.schema_version == 1 &&
+        (!migrate_legacy_config(next_accepted, accepted_legacy, next_runtime,
+                                snapshot.has_runtime) ||
+         !migrate_legacy_config(next_requested, requested_legacy, next_runtime,
+                                snapshot.has_runtime)))
+      return ConfigRestoreResult::INVALID_VALUE;
+    if (!valid_snapshot_config(next_accepted) ||
         !valid_snapshot_config(next_requested))
       return ConfigRestoreResult::INVALID_VALUE;
     if (!valid_config(next_accepted))
       return ConfigRestoreResult::INVALID_ACCEPTED;
 
+    const ConfigValues migrated_accepted = encode_config_values(next_accepted);
+    const ConfigValues migrated_requested =
+        encode_config_values(next_requested);
     size_t next_pending_count = 0;
     for (size_t index = 0; index < CONFIG_FIELD_COUNT; ++index) {
       if (snapshot.pending[index] > 1)
         return ConfigRestoreResult::INVALID_PENDING;
       const bool differs =
-          snapshot.accepted[index] != snapshot.requested[index];
-      if ((snapshot.pending[index] != 0) != differs)
+          migrated_accepted[index] != migrated_requested[index];
+      if (snapshot.schema_version == CONFIG_SCHEMA_VERSION &&
+          (snapshot.pending[index] != 0) != differs)
         return ConfigRestoreResult::INVALID_PENDING;
-      next_pending_count += snapshot.pending[index] != 0;
+      next_pending_count += differs;
     }
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     if (next_pending_count > pending_edits.size())
@@ -1835,7 +1977,7 @@ public:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     pending_edit_count = 0;
     for (size_t index = 0; index < CONFIG_FIELD_COUNT; ++index) {
-      if (snapshot.pending[index] == 0)
+      if (migrated_accepted[index] == migrated_requested[index])
         continue;
       const ConfigFieldId id = static_cast<ConfigFieldId>(index);
       const ConfigFieldLayout layout = config_field_layout(id);
@@ -1846,19 +1988,25 @@ public:
 #endif
     if (snapshot.has_runtime) {
       ClockState &clocks = runtime.clocks;
-      clocks.source_primary = snapshot.runtime[0];
-      clocks.source_secondary = snapshot.runtime[1];
-      clocks.source_angle = snapshot.runtime[2];
-      clocks.warp_time = snapshot.runtime[3];
-      clocks.projection_spin = snapshot.runtime[4];
-      clocks.breathe_phase = snapshot.runtime[5];
-      clocks.source_noise_time = snapshot.runtime[6];
-      clocks.lens_noise_time = snapshot.runtime[7];
-      clocks.surface_noise_time = snapshot.runtime[8];
-      clocks.warp_outer_phase = snapshot.runtime[9];
-      clocks.warp_inner_phase = snapshot.runtime[10];
+      clocks.source_primary = next_runtime[0];
+      clocks.source_secondary = next_runtime[1];
+      clocks.source_angle = next_runtime[2];
+      clocks.warp_time = next_runtime[3];
+      clocks.projection_spin = next_runtime[4];
+      clocks.breathe_phase = next_runtime[5];
+      clocks.source_noise_time = next_runtime[6];
+      clocks.lens_noise_time = next_runtime[7];
+      clocks.surface_noise_time = next_runtime[8];
+      clocks.warp_outer_phase = next_runtime[9];
+      clocks.warp_inner_phase = next_runtime[10];
     }
-    import_notice = {};
+    if (snapshot.schema_version == 1) {
+      std::snprintf(import_notice.data(), import_notice.size(),
+                    "Imported schema 1; legacy pattern and structural noise "
+                    "fields were migrated to schema 2.");
+    } else {
+      import_notice = {};
+    }
     rebind_parameters();
     return ConfigRestoreResult::APPLIED;
   }
