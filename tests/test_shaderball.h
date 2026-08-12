@@ -506,14 +506,14 @@ inline void test_shaderball_paused_selector_commit() {
   sb.setAnimationsPaused(true);
 
   HS_EXPECT_TRUE(
-      sb.updateParameter("Inner Warp",
+      sb.updateParameter("Planar Warp 2",
                          static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::requested_slots(sb).warp_program.inner.kind,
                WB::WarpStageKind::CURL_FLOW);
   HS_EXPECT_EQ(WB::requested_slots(sb).warp_program.outer.kind,
                WB::WarpStageKind::LEGACY_STEREO_NOISE);
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Inner Warp") != nullptr);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 2") != nullptr);
   HS_EXPECT_NE(WB::active_slots(sb).warp_program.inner.kind,
                WB::WarpStageKind::CURL_FLOW);
   sb.draw_frame();
@@ -522,17 +522,17 @@ inline void test_shaderball_paused_selector_commit() {
   HS_EXPECT_FALSE(WB::param_morph_active(sb));
   HS_EXPECT_NE(WB::active_slots(sb).warp_program.inner.kind,
                WB::WarpStageKind::CURL_FLOW);
-  HS_EXPECT_EQ(sb.getParameters().find("Inner Warp")->get(),
+  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
                static_cast<float>(WB::WarpStageKind::CURL_FLOW));
-  HS_EXPECT_TRUE(sb.updateParameter("Inner Warp Strength", 0.0f) ==
+  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 2 Strength", 0.0f) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Inner Warp Time", 0.0f) ==
+  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 2 Time", 0.0f) ==
                  ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(
-      sb.updateParameter("Outer Warp",
+      sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::NONE)) ==
       ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Inner Warp") == nullptr);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 2") == nullptr);
   sb.draw_frame();
   sb.advance_display();
   HS_EXPECT_EQ(WB::active_slots(sb).warp_program.inner.kind,
@@ -567,7 +567,7 @@ inline void test_shaderball_manual_edit_timing() {
 
   const auto initial_coverage = WB::active_slots(sb).coverage;
   HS_EXPECT_TRUE(
-      sb.updateParameter("Outer Warp",
+      sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::NONE)) ==
       ParamSetResult::APPLIED);
   sb.draw_frame();
@@ -1674,7 +1674,7 @@ inline void test_shaderball_config_admission() {
                    nullptr);
     HS_EXPECT_TRUE(
         projection_change.updateParameter(
-            "Outer Warp", static_cast<float>(WB::WarpStageKind::NONE)) ==
+            "Planar Warp 1", static_cast<float>(WB::WarpStageKind::NONE)) ==
         ParamSetResult::APPLIED);
     projection_change.draw_frame();
     projection_change.advance_display();
@@ -1692,7 +1692,7 @@ inline void test_shaderball_config_admission() {
     legacy_warp_change.init();
     HS_EXPECT_TRUE(
         legacy_warp_change.updateParameter(
-            "Outer Warp", static_cast<float>(WB::WarpStageKind::NONE)) ==
+            "Planar Warp 1", static_cast<float>(WB::WarpStageKind::NONE)) ==
         ParamSetResult::APPLIED);
     legacy_warp_change.draw_frame();
     legacy_warp_change.advance_display();
@@ -1705,7 +1705,7 @@ inline void test_shaderball_config_admission() {
     HS_EXPECT_FALSE(WB::transition_active(legacy_warp_change));
     HS_EXPECT_TRUE(
         legacy_warp_change.updateParameter(
-            "Outer Warp",
+            "Planar Warp 1",
             static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE)) ==
         ParamSetResult::APPLIED);
     legacy_warp_change.draw_frame();
@@ -1715,7 +1715,7 @@ inline void test_shaderball_config_admission() {
                  WB::Projection::BONNE);
     HS_EXPECT_EQ(WB::active_slots(legacy_warp_change).warp_program.outer.kind,
                  WB::WarpStageKind::NONE);
-    HS_EXPECT_TRUE(WB::parameter_warning(legacy_warp_change, "Outer Warp") !=
+    HS_EXPECT_TRUE(WB::parameter_warning(legacy_warp_change, "Planar Warp 1") !=
                    nullptr);
     HS_EXPECT_TRUE(
         legacy_warp_change.updateParameter(
@@ -1760,7 +1760,7 @@ inline void test_shaderball_deterministic_gui_edits() {
     WB::SB sb;
     sb.init();
     Result result;
-    const char *names[] = {"Projection", "Projection", "Outer Warp"};
+    const char *names[] = {"Projection", "Projection", "Planar Warp 1"};
     const float values[] = {
         static_cast<float>(WB::Projection::BONNE),
         static_cast<float>(WB::Projection::AIROCEAN),
@@ -1819,18 +1819,18 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
   expected.slots.function = WB::Function::PRIMITIVE_LATTICE;
   HS_EXPECT_TRUE(WB::requested_config(sb) == expected);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") == nullptr);
-  HS_EXPECT_EQ(sb.getParameters().find("Outer Warp")->get(),
+  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 1")->get(),
                static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
-  HS_EXPECT_EQ(sb.getParameters().find("Inner Warp")->get(),
+  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
                static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE));
 
   sb.draw_frame();
   sb.advance_display();
   WB::refresh_display(sb);
   HS_EXPECT_TRUE(WB::active_config(sb) == expected);
-  HS_EXPECT_EQ(sb.getParameters().find("Outer Warp")->get(),
+  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 1")->get(),
                static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
-  HS_EXPECT_EQ(sb.getParameters().find("Inner Warp")->get(),
+  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
                static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE));
 }
 
@@ -1840,43 +1840,44 @@ inline void test_shaderball_actionable_curl_warning() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Scale", 100.0f) ==
+  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Scale", 100.0f) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Strength", 12.81f) ==
+  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Strength", 12.81f) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Time", 0.47f) ==
+  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Time", 0.47f) ==
                  ParamSetResult::APPLIED);
   sb.draw_frame();
   sb.advance_display();
   const WB::RequestedConfig before = WB::active_config(sb);
 
   HS_EXPECT_TRUE(
-      sb.updateParameter("Outer Warp",
+      sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
       ParamSetResult::APPLIED);
-  const char *warning = WB::parameter_warning(sb, "Outer Warp");
+  const char *warning = WB::parameter_warning(sb, "Planar Warp 1");
   HS_EXPECT_TRUE(warning != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "Outer Curl Flow rejected") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "Planar Warp 1 Curl Flow rejected") !=
+                 nullptr);
   HS_EXPECT_TRUE(std::strstr(warning, "Warp Strength 12.81") != nullptr);
   HS_EXPECT_TRUE(std::strstr(warning, "Warp Scale 100") != nullptr);
   HS_EXPECT_TRUE(std::strstr(warning, "Warp Time 0.47") != nullptr);
   HS_EXPECT_TRUE(std::strstr(warning, "Euler 1") != nullptr);
   HS_EXPECT_TRUE(std::strstr(warning, "0.000078125") != nullptr);
   HS_EXPECT_TRUE(WB::active_config(sb) == before);
-  const auto *outer_warp = sb.getParameters().find("Outer Warp");
+  const auto *outer_warp = sb.getParameters().find("Planar Warp 1");
   HS_EXPECT_EQ(outer_warp->get_requested(),
                static_cast<float>(WB::WarpStageKind::CURL_FLOW));
   HS_EXPECT_EQ(
       static_cast<const Effect &>(sb).accepted_parameter_value(*outer_warp),
       static_cast<float>(before.slots.warp_program.outer.kind));
 
-  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Scale", 1.0f) ==
+  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Scale", 1.0f) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Strength", 0.0078125f) ==
+  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Strength", 0.0078125f) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Time", 0.0f) ==
+  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Time", 0.0f) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Outer Warp") == nullptr);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1") == nullptr);
   sb.draw_frame();
   sb.advance_display();
   HS_EXPECT_EQ(WB::active_slots(sb).warp_program.outer.kind,
@@ -1934,7 +1935,7 @@ inline void test_shaderball_atomic_gui_commit() {
                rendered.slots.projection);
   HS_EXPECT_EQ(WB::active_config(sb).params.colorizer.hue_shift, 0.05f);
   HS_EXPECT_TRUE(
-      sb.updateParameter("Outer Warp",
+      sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::NONE)) ==
       ParamSetResult::APPLIED);
   sb.draw_frame();
@@ -2272,13 +2273,13 @@ inline void test_shaderball_gui_catalog() {
                parameter_index("Projection Frame"));
   HS_EXPECT_LT(parameter_index("Projection Frame"),
                parameter_index("Spin Rate"));
-  HS_EXPECT_LT(parameter_index("Outer Wander"), parameter_index("Lens"));
+  HS_EXPECT_LT(parameter_index("Camera Wander"), parameter_index("Lens"));
   HS_EXPECT_LT(parameter_index("Lens"), parameter_index("Lens Mix"));
-  HS_EXPECT_LT(parameter_index("Lens Mix"), parameter_index("Outer Warp"));
-  HS_EXPECT_LT(parameter_index("Outer Warp"),
-               parameter_index("Outer Warp Strength"));
-  HS_EXPECT_LT(parameter_index("Outer Warp Strength"),
-               parameter_index("Inner Warp"));
+  HS_EXPECT_LT(parameter_index("Lens Mix"), parameter_index("Planar Warp 1"));
+  HS_EXPECT_LT(parameter_index("Planar Warp 1"),
+               parameter_index("Planar Warp 1 Strength"));
+  HS_EXPECT_LT(parameter_index("Planar Warp 1 Strength"),
+               parameter_index("Planar Warp 2"));
   HS_EXPECT_LT(parameter_index("Colorizer"), parameter_index("Breathe Depth"));
   const auto *projection = sb.getParameters().find("Projection");
   HS_EXPECT_TRUE(projection != nullptr);
@@ -2348,9 +2349,9 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_EQ(WB::active_config(sb).params.value.edge_width, 0.0f);
 
   constexpr const char *ROOT_ENUMS[] = {
-      "Function",   "Projection", "Projection Frame", "Lens",
-      "Outer Warp", "Inner Warp", "Signal Weight",    "Value Transfer",
-      "Coverage",   "Colorizer"};
+      "Function",      "Projection",    "Projection Frame", "Lens",
+      "Planar Warp 1", "Planar Warp 2", "Signal Weight",    "Value Transfer",
+      "Coverage",      "Colorizer"};
   for (const char *name : ROOT_ENUMS) {
     const int option_count = sb.getParameters().find(name)->option_count;
     for (int option = 0; option < option_count; ++option) {
@@ -2428,33 +2429,33 @@ inline void test_shaderball_gui_catalog() {
     WB::settle_transition(sb);
   }
   select_and_set_all("Projection", 5, "Airocean Layout");
-  select_and_set_all("Outer Warp", 5, "Outer Noise Basis");
-  select_and_set_all("Outer Warp", 5, "Outer Warp Envelope");
-  select_and_set_all("Outer Warp", 6, "Outer Curl Integrator");
+  select_and_set_all("Planar Warp 1", 5, "Planar Warp 1 Noise Basis");
+  select_and_set_all("Planar Warp 1", 5, "Planar Warp 1 Envelope");
+  select_and_set_all("Planar Warp 1", 6, "Planar Warp 1 Curl Integrator");
   {
     reset_gui();
     HS_EXPECT_TRUE(
-        sb.updateParameter("Outer Warp",
+        sb.updateParameter("Planar Warp 1",
                            static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
         ParamSetResult::APPLIED);
     sb.draw_frame();
     sb.advance_display();
     WB::settle_transition(sb);
-    const auto *strength = sb.getParameters().find("Outer Warp Strength");
+    const auto *strength = sb.getParameters().find("Planar Warp 1 Strength");
     HS_EXPECT_TRUE(strength != nullptr);
     // 0.5 / (scale 0.1 * gradient bound 64), one Euler interval.
     const float limit = strength->max;
     HS_EXPECT_NEAR(limit, 0.078125f, 1e-6f);
     HS_EXPECT_EQ(strength->min, -limit);
-    HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Strength", 4.0f) ==
+    HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Strength", 4.0f) ==
                    ParamSetResult::APPLIED);
     sb.draw_frame();
     sb.advance_display();
     WB::settle_transition(sb);
     HS_EXPECT_EQ(WB::active_config(sb).params.warp.outer.strength, limit);
   }
-  select_and_set_all("Outer Warp", 8, "Outer Polar Mode");
-  select_and_set_all("Outer Warp", 8, "Outer Polar Harmonic");
+  select_and_set_all("Planar Warp 1", 8, "Planar Warp 1 Polar Mode");
+  select_and_set_all("Planar Warp 1", 8, "Planar Warp 1 Polar Harmonic");
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") == nullptr);
   HS_EXPECT_TRUE(
       sb.updateParameter("Function", static_cast<float>(WB::Function::RINGS)) ==
@@ -2463,7 +2464,7 @@ inline void test_shaderball_gui_catalog() {
                WB::WarpStageKind::POLAR_CHART);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") != nullptr);
   HS_EXPECT_TRUE(
-      sb.updateParameter("Outer Warp",
+      sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::NONE)) ==
       ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") == nullptr);

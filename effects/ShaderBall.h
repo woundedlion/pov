@@ -657,22 +657,22 @@ private:
         PROJECTION_FRAME_EXPORT_OPTIONS, NUM_PROJECTION_FRAMES);
     register_projection_frame_controls(slots.projection_frame,
                                        requested_config.params);
-    register_animated_param("Outer Wander",
+    register_animated_param("Camera Wander",
                             &requested_config.params.outer_camera.wander,
                             WANDER_MIN, WANDER_MAX);
     register_animated_param("Lens", &slots.surface_lens, LENS_OPTIONS,
                             LENS_EXPORT_OPTIONS, NUM_LENSES);
     register_lens_controls(slots.surface_lens,
                            requested_config.params.surface_lens);
-    register_animated_param("Outer Warp", &slots.warp_program.outer.kind,
+    register_animated_param("Planar Warp 1", &slots.warp_program.outer.kind,
                             WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
-    register_stage_slot_controls("Outer", slots.warp_program.outer);
-    register_active_warp_controls("Outer", slots.warp_program.outer,
+    register_stage_slot_controls(true, slots.warp_program.outer);
+    register_active_warp_controls(true, slots.warp_program.outer,
                                   requested_config.params.warp.outer);
-    register_animated_param("Inner Warp", &slots.warp_program.inner.kind,
+    register_animated_param("Planar Warp 2", &slots.warp_program.inner.kind,
                             WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
-    register_stage_slot_controls("Inner", slots.warp_program.inner);
-    register_active_warp_controls("Inner", slots.warp_program.inner,
+    register_stage_slot_controls(false, slots.warp_program.inner);
+    register_active_warp_controls(false, slots.warp_program.inner,
                                   requested_config.params.warp.inner);
     register_animated_param("Signal Weight", &slots.signal_weight,
                             SIGNAL_OPTIONS, SIGNAL_EXPORT_OPTIONS, NUM_SIGNALS);
@@ -839,8 +839,8 @@ private:
            std::strcmp(name, "Gnomonic Hemisphere") == 0 ||
            std::strcmp(name, "Projection Frame") == 0 ||
            std::strcmp(name, "Lens") == 0 ||
-           std::strcmp(name, "Outer Warp") == 0 ||
-           std::strcmp(name, "Inner Warp") == 0 ||
+           std::strcmp(name, "Planar Warp 1") == 0 ||
+           std::strcmp(name, "Planar Warp 2") == 0 ||
            std::strcmp(name, "Value Transfer") == 0 ||
            std::strcmp(name, "Coverage") == 0 ||
            std::strcmp(name, "Colorizer") == 0;
@@ -873,30 +873,32 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void register_stage_slot_controls(const char *position,
+  HS_COLD_MEMBER void register_stage_slot_controls(bool first,
                                                    WarpStageSpec &spec) {
-    const bool outer = position[0] == 'O';
     if (spec.kind == WarpStageKind::VECTOR_NOISE ||
         spec.kind == WarpStageKind::CURL_FLOW) {
-      register_animated_param(outer ? "Outer Noise Basis" : "Inner Noise Basis",
+      register_animated_param(first ? "Planar Warp 1 Noise Basis"
+                                    : "Planar Warp 2 Noise Basis",
                               &spec.basis, NOISE_BASIS_OPTIONS,
                               NOISE_BASIS_EXPORT_OPTIONS, NUM_NOISE_BASES);
-      register_animated_param(outer ? "Outer Warp Envelope"
-                                    : "Inner Warp Envelope",
+      register_animated_param(first ? "Planar Warp 1 Envelope"
+                                    : "Planar Warp 2 Envelope",
                               &spec.envelope, WARP_ENVELOPE_OPTIONS,
                               WARP_ENVELOPE_EXPORT_OPTIONS, NUM_WARP_ENVELOPES);
     }
     if (spec.kind == WarpStageKind::CURL_FLOW)
-      register_animated_param(
-          outer ? "Outer Curl Integrator" : "Inner Curl Integrator",
-          &spec.curl_integrator, CURL_INTEGRATOR_OPTIONS,
-          CURL_INTEGRATOR_EXPORT_OPTIONS, NUM_CURL_INTEGRATORS);
+      register_animated_param(first ? "Planar Warp 1 Curl Integrator"
+                                    : "Planar Warp 2 Curl Integrator",
+                              &spec.curl_integrator, CURL_INTEGRATOR_OPTIONS,
+                              CURL_INTEGRATOR_EXPORT_OPTIONS,
+                              NUM_CURL_INTEGRATORS);
     if (spec.kind == WarpStageKind::POLAR_CHART) {
-      register_animated_param(outer ? "Outer Polar Mode" : "Inner Polar Mode",
+      register_animated_param(first ? "Planar Warp 1 Polar Mode"
+                                    : "Planar Warp 2 Polar Mode",
                               &spec.polar_mode, POLAR_MODE_OPTIONS,
                               POLAR_MODE_EXPORT_OPTIONS, NUM_POLAR_MODES);
-      register_animated_int_param(outer ? "Outer Polar Harmonic"
-                                        : "Inner Polar Harmonic",
+      register_animated_int_param(first ? "Planar Warp 1 Polar Harmonic"
+                                        : "Planar Warp 2 Polar Harmonic",
                                   &spec.polar_harmonic, 1, POLAR_HARMONIC_MAX);
     }
   }
@@ -1037,15 +1039,14 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void register_active_warp_controls(const char *position,
+  HS_COLD_MEMBER void register_active_warp_controls(bool first,
                                                     const WarpStageSpec &spec,
                                                     WarpStageParams &params) {
     if (spec.kind == WarpStageKind::NONE)
       return;
-    const bool outer = position[0] == 'O';
     const char *const *names =
-        outer ? OUTER_WARP_PARAM_NAMES : INNER_WARP_PARAM_NAMES;
-    const char *time_name = outer ? "Outer Warp Time" : "Inner Warp Time";
+        first ? FIRST_WARP_PARAM_NAMES : SECOND_WARP_PARAM_NAMES;
+    const char *time_name = first ? "Planar Warp 1 Time" : "Planar Warp 2 Time";
     auto register_current = [&](const char *name, float *target, float minimum,
                                 float maximum) {
       register_animated_param(name, target,
@@ -1057,7 +1058,7 @@ private:
         spec.kind == WarpStageKind::VECTOR_NOISE ||
         spec.kind == WarpStageKind::CURL_FLOW) {
       const char *strength_name =
-          outer ? "Outer Warp Strength" : "Inner Warp Strength";
+          first ? "Planar Warp 1 Strength" : "Planar Warp 2 Strength";
       const bool signed_strength = spec.kind == WarpStageKind::WAVE_SHEAR ||
                                    spec.kind == WarpStageKind::CURL_FLOW;
       float strength_max = 4.0f;
@@ -1070,7 +1071,7 @@ private:
                        signed_strength ? -strength_max : 0.0f, strength_max);
     }
     if (spec.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
-      register_current(outer ? "Outer Warp Scale" : "Inner Warp Scale",
+      register_current(first ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale",
                        &params.scale, 0.1f, 100.0f);
       register_current(time_name, &params.time_scale, 0.05f, 1.0f);
       return;
@@ -1113,7 +1114,7 @@ private:
       break;
     case WarpStageKind::VECTOR_NOISE:
     case WarpStageKind::CURL_FLOW:
-      register_current(outer ? "Outer Warp Scale" : "Inner Warp Scale",
+      register_current(first ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale",
                        &params.scale, 1.0f / 64.0f,
                        spec.kind == WarpStageKind::CURL_FLOW ? 16.0f : 64.0f);
       register_current(names[WARP_NAME_VECTOR_ANGLE], &params.vector_angle,
@@ -2019,8 +2020,9 @@ private:
    * @param frame Frame snapshot.
    * @return Source-side coordinates plus the summed delta, deformation, and
    *         path length the colorizers consume.
-   * @details Pullback order is outer then inner, the reverse of the authored
-   * order `source -> inner -> outer -> projection`. Deformation is the
+   * @details Pullback order is Planar Warp 1 then Planar Warp 2, the reverse
+   * of the authored order `source -> Warp 2 -> Warp 1 -> projection`.
+   * Deformation is the
    * magnitude of the summed delta, except when a lone legacy stereo stage is
    * programmed and its own displacement is reported.
    */
@@ -3443,7 +3445,7 @@ private:
                                     candidate.slots.warp_program.inner};
     const WarpStageParams params[] = {candidate.params.warp.outer,
                                       candidate.params.warp.inner};
-    const char *positions[] = {"Outer", "Inner"};
+    const char *positions[] = {"Planar Warp 1", "Planar Warp 2"};
     for (size_t index = 0; index < 2; ++index) {
       if (stages[index].kind == WarpStageKind::VECTOR_NOISE ||
           stages[index].kind == WarpStageKind::CURL_FLOW) {
@@ -3506,11 +3508,11 @@ private:
       return false;
     };
     if (warp_uses_noise(candidate.slots.warp_program.outer.kind) &&
-        add("Outer Warp",
+        add("Planar Warp 1",
             warp_resource_key(candidate.slots.warp_program.outer)))
       return warning_text.data();
     if (warp_uses_noise(candidate.slots.warp_program.inner.kind) &&
-        add("Inner Warp",
+        add("Planar Warp 2",
             warp_resource_key(candidate.slots.warp_program.inner)))
       return warning_text.data();
     if (candidate.slots.function == Function::NOISE_CONTOUR &&
@@ -3534,17 +3536,18 @@ private:
         (inner.kind == WarpStageKind::LEGACY_STEREO_NOISE);
     if (legacy_stages > 1)
       return begin_warning(
-          "Outer Warp and Inner Warp are both Stereo Noise, but only one "
-          "Stereo Noise stage is allowed. Set either Outer Warp or Inner Warp "
+          "Planar Warp 1 and Planar Warp 2 are both Stereo Noise, but only one "
+          "Stereo Noise stage is allowed. Set either Planar Warp 1 or Planar "
+          "Warp 2 "
           "to None or another warp.");
     if (legacy_stages == 1 &&
         candidate.slots.projection != Projection::STEREOGRAPHIC) {
-      const char *position =
-          outer.kind == WarpStageKind::LEGACY_STEREO_NOISE ? "Outer" : "Inner";
+      const char *position = outer.kind == WarpStageKind::LEGACY_STEREO_NOISE
+                                 ? "Planar Warp 1"
+                                 : "Planar Warp 2";
       return begin_warning(
-          "%s Warp Stereo Noise requires Projection = Stereographic; current "
-          "Projection is %s. Select Stereographic or choose a different %s "
-          "Warp.",
+          "%s Stereo Noise requires Projection = Stereographic; current "
+          "Projection is %s. Select Stereographic or choose a different %s.",
           position,
           PROJECTION_OPTIONS[static_cast<uint8_t>(candidate.slots.projection)],
           position);
@@ -3552,21 +3555,22 @@ private:
     if (outer.kind == WarpStageKind::POLAR_CHART &&
         inner.kind != WarpStageKind::NONE)
       return begin_warning(
-          "Outer Warp Polar Chart cannot run while Inner Warp is %s. Set "
-          "Inner Warp to None or choose a different Outer Warp.",
+          "Planar Warp 1 Polar Chart cannot run while Planar Warp 2 is %s. Set "
+          "Planar Warp 2 to None or choose a different Planar Warp 1.",
           WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
     const WarpStageSpec *polar =
         outer.kind == WarpStageKind::POLAR_CHART   ? &outer
         : inner.kind == WarpStageKind::POLAR_CHART ? &inner
                                                    : nullptr;
     if (polar != nullptr && !polar_source_compatible(candidate, *polar)) {
-      const char *position = polar == &outer ? "Outer" : "Inner";
+      const char *position =
+          polar == &outer ? "Planar Warp 1" : "Planar Warp 2";
       const SourceTraits traits = source_traits(candidate.slots.function);
       if (!traits.y_periodic || !traits.polar_angle_compatible)
         return begin_warning(
             "%s Polar Chart requires a polar-periodic Function; %s is not "
             "compatible. Select Coupled / Direct or Primitive Lattice, or "
-            "choose another %s Warp.",
+            "choose another %s.",
             position,
             FUNCTION_OPTIONS[static_cast<uint8_t>(candidate.slots.function)],
             position);
@@ -3591,10 +3595,10 @@ private:
       if (candidate.slots.function == Function::NOISE_CONTOUR)
         append_warning(" Function Noise Contour is not seam-safe.");
       if (seam_sensitive_warp(outer.kind))
-        append_warning(" Outer Warp %s is not seam-safe.",
+        append_warning(" Planar Warp 1 %s is not seam-safe.",
                        WARP_OPTIONS[static_cast<uint8_t>(outer.kind)]);
       if (seam_sensitive_warp(inner.kind))
-        append_warning(" Inner Warp %s is not seam-safe.",
+        append_warning(" Planar Warp 2 %s is not seam-safe.",
                        WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
       append_warning(" Replace the named stage or select Folded Sinusoidal, "
                      "Stereographic, Gnomonic, or Equirectangular.");
@@ -3611,9 +3615,11 @@ private:
             static_cast<double>(parameter->max), edited_name);
     }
     if (!valid_stage_tuple(outer, candidate.params.warp.outer))
-      return stage_tuple_warning("Outer", outer, candidate.params.warp.outer);
+      return stage_tuple_warning("Planar Warp 1", outer,
+                                 candidate.params.warp.outer);
     if (!valid_stage_tuple(inner, candidate.params.warp.inner))
-      return stage_tuple_warning("Inner", inner, candidate.params.warp.inner);
+      return stage_tuple_warning("Planar Warp 2", inner,
+                                 candidate.params.warp.inner);
     if (!safe_program_bounds(candidate))
       return program_bounds_warning(candidate);
     if (candidate.slots.surface_lens == SurfaceLens::MOBIUS &&
@@ -4400,30 +4406,36 @@ private:
     WARP_NAME_COUNT,
   };
 
-  static constexpr const char *OUTER_WARP_PARAM_NAMES[] = {
-      "Outer Translation X", "Outer Translation Y", "Outer Rotation",
-      "Outer Scale X",       "Outer Scale Y",       "Outer Shear",
-      "Outer Frequency",     "Outer Field Angle",   "Outer Center X",
-      "Outer Center Y",      "Outer Radius",        "Outer Turns",
-      "Outer Vector Angle",  "Outer Cell X",        "Outer Cell Y",
-      "Outer Offset X",      "Outer Offset Y",      "Outer Radial Scale",
-      "Outer Radial Phase",  "Outer Angular Phase", "Outer Edge Width",
-      "Outer Center Orbit"};
-  static constexpr const char *INNER_WARP_PARAM_NAMES[] = {
-      "Inner Translation X", "Inner Translation Y", "Inner Rotation",
-      "Inner Scale X",       "Inner Scale Y",       "Inner Shear",
-      "Inner Frequency",     "Inner Field Angle",   "Inner Center X",
-      "Inner Center Y",      "Inner Radius",        "Inner Turns",
-      "Inner Vector Angle",  "Inner Cell X",        "Inner Cell Y",
-      "Inner Offset X",      "Inner Offset Y",      "Inner Radial Scale",
-      "Inner Radial Phase",  "Inner Angular Phase", "Inner Edge Width",
-      "Inner Center Orbit"};
-  static_assert(sizeof(OUTER_WARP_PARAM_NAMES) / sizeof(const char *) ==
+  static constexpr const char *FIRST_WARP_PARAM_NAMES[] = {
+      "Planar Warp 1 Translation X", "Planar Warp 1 Translation Y",
+      "Planar Warp 1 Rotation",      "Planar Warp 1 Scale X",
+      "Planar Warp 1 Scale Y",       "Planar Warp 1 Shear",
+      "Planar Warp 1 Frequency",     "Planar Warp 1 Field Angle",
+      "Planar Warp 1 Center X",      "Planar Warp 1 Center Y",
+      "Planar Warp 1 Radius",        "Planar Warp 1 Turns",
+      "Planar Warp 1 Vector Angle",  "Planar Warp 1 Cell X",
+      "Planar Warp 1 Cell Y",        "Planar Warp 1 Offset X",
+      "Planar Warp 1 Offset Y",      "Planar Warp 1 Radial Scale",
+      "Planar Warp 1 Radial Phase",  "Planar Warp 1 Angular Phase",
+      "Planar Warp 1 Edge Width",    "Planar Warp 1 Center Orbit"};
+  static constexpr const char *SECOND_WARP_PARAM_NAMES[] = {
+      "Planar Warp 2 Translation X", "Planar Warp 2 Translation Y",
+      "Planar Warp 2 Rotation",      "Planar Warp 2 Scale X",
+      "Planar Warp 2 Scale Y",       "Planar Warp 2 Shear",
+      "Planar Warp 2 Frequency",     "Planar Warp 2 Field Angle",
+      "Planar Warp 2 Center X",      "Planar Warp 2 Center Y",
+      "Planar Warp 2 Radius",        "Planar Warp 2 Turns",
+      "Planar Warp 2 Vector Angle",  "Planar Warp 2 Cell X",
+      "Planar Warp 2 Cell Y",        "Planar Warp 2 Offset X",
+      "Planar Warp 2 Offset Y",      "Planar Warp 2 Radial Scale",
+      "Planar Warp 2 Radial Phase",  "Planar Warp 2 Angular Phase",
+      "Planar Warp 2 Edge Width",    "Planar Warp 2 Center Orbit"};
+  static_assert(sizeof(FIRST_WARP_PARAM_NAMES) / sizeof(const char *) ==
                     WARP_NAME_COUNT,
-                "outer warp name table must match WarpParamName");
-  static_assert(sizeof(INNER_WARP_PARAM_NAMES) / sizeof(const char *) ==
+                "first warp name table must match WarpParamName");
+  static_assert(sizeof(SECOND_WARP_PARAM_NAMES) / sizeof(const char *) ==
                     WARP_NAME_COUNT,
-                "inner warp name table must match WarpParamName");
+                "second warp name table must match WarpParamName");
   static constexpr Params
   authored_params(SourceParams source, WarpStageParams outer_warp,
                   ProjectionParams projection, SurfaceLensParams surface_lens,
