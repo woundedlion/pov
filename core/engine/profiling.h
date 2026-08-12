@@ -89,6 +89,30 @@ struct ProbeBreakdown {
 inline ProbeBreakdown g_probe_breakdown;
 #endif
 
+#ifdef HS_PROFILE_SHADERBALL_STAGES
+/** @brief Raw per-frame ShaderBall pipeline cycle totals. */
+struct ShaderBallStageCycles {
+  uint32_t lens = 0;
+  uint32_t projection = 0;
+  uint32_t planar_warp = 0;
+  uint32_t source = 0;
+  uint32_t material = 0;
+  uint32_t color = 0;
+  uint32_t mirror_tile = 0;
+  uint32_t legacy_noise = 0;
+  uint32_t polyhedral_pixels = 0;
+  uint32_t polyhedral_reflections = 0;
+  uint32_t polyhedral_max_reflections = 0;
+  uint32_t legacy_single_samples = 0;
+  uint32_t legacy_blended_samples = 0;
+
+  /** @brief Zeroes every stage total. */
+  void reset() { *this = {}; }
+};
+
+inline ShaderBallStageCycles g_shaderball_stage_cycles;
+#endif
+
 #ifdef HS_PLOT_COUNTS
 /** @brief Count-only Plot rasterizer workload attribution. */
 struct PlotCounts {
@@ -322,6 +346,24 @@ private:
 #define HS_PROBE_SPAN(field, var) ((void)0)
 #define HS_PROBE_COUNT(field) ((void)0)
 #define HS_PROBE_TICK() ((void)0)
+#endif
+
+#ifdef HS_PROFILE_SHADERBALL_STAGES
+#define HS_SB_STAGE_MARK(var) uint32_t var = HS_OS_CYCLES()
+#define HS_SB_STAGE_SPAN(field, var)                                           \
+  do {                                                                         \
+    const uint32_t hs_now = HS_OS_CYCLES();                                    \
+    hs::g_shaderball_stage_cycles.field += hs_now - (var);                     \
+    (var) = hs_now;                                                            \
+  } while (0)
+#define HS_SB_STAGE_COUNT(stmt)                                                \
+  do {                                                                         \
+    (stmt);                                                                    \
+  } while (0)
+#else
+#define HS_SB_STAGE_MARK(var)
+#define HS_SB_STAGE_SPAN(field, var) ((void)0)
+#define HS_SB_STAGE_COUNT(stmt) ((void)0)
 #endif
 
 #ifdef HS_PLOT_COUNTS

@@ -6,7 +6,7 @@ display window. Global O3 is a compiler ceiling, not a shippable roster image.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](profile_shaderball_teensy_2026-08-11.md)§ ● | projection closure shader | 🔴 97.47 (5)<br>🟢 62.17 (24) | 🔴 168/371 (45.3%)<br>🟢 0/1837 (0%) | 2026-08-11 14:37 |
+| [ShaderBall](profile_shaderball_teensy_2026-08-11.md)§ ● | projection closure shader | 🔴 66.05 (3)<br>🟢 60.11 (26) | 🔴 96/235 (40.9%)<br>🟢 0/2037 (0%) | 2026-08-11 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.97 | 🟢 0/2048 (0%) | 2026-08-09 16:37 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:57 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.90 | 🟢 0/2048 (0%) | 2026-08-03 00:36 |

@@ -46,7 +46,7 @@ peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-11.md)§ ● | projection closure shader | 🔴 370.66 (8)<br>🟢 59.09 (21) | 🔴 233/444 (52.5%)<br>🟢 0/1428 (0%) | 2026-08-11 14:33 |
+| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-11.md)§ ● | projection closure shader | 🔴 68.96 (2)<br>🟢 59.68 (27) | 🔴 66/167 (39.5%)<br>🟢 0/2137 (0%) | 2026-08-11 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
@@ -75,7 +75,7 @@ directly. Size deltas are O3 minus shipping.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShaderBall](O3/profile_shaderball_teensy_2026-08-11.md)§ ● | projection closure shader | 🔴 370.66 (8)<br>🟢 59.09 (21) | 🔴 97.47 (5)<br>🟢 62.17 (24) | 🔴 233/444 (52.5%)<br>🟢 0/1428 (0%) | 🔴 168/371 (45.3%)<br>🟢 0/1837 (0%) | +28,440 B | +25,472 B | ship 2026-08-11 14:33<br>O3 2026-08-11 14:37 |
+| [ShaderBall](O3/profile_shaderball_teensy_2026-08-11.md)§ ● | projection closure shader | 🔴 68.96 (2)<br>🟢 59.68 (27) | 🔴 66.05 (3)<br>🟢 60.11 (26) | 🔴 66/167 (39.5%)<br>🟢 0/2137 (0%) | 🔴 96/235 (40.9%)<br>🟢 0/2037 (0%) | measured in report | measured in report | ship 2026-08-11<br>O3 2026-08-11 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |

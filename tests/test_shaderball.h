@@ -51,6 +51,7 @@ struct ShaderBallWhiteBox {
   using LookRuntime = SB::LookRuntime;
   using WalkDeltas = SB::WalkDeltas;
   using ThroughClearPhase = SB::ThroughClearPhase;
+  using WrappedNoisePhase = SB::WrappedNoisePhase;
 
   static constexpr float AXIS_EPS = SB::GNOMONIC_AXIS_EPS;
   static constexpr uint32_t HUE_STEP = SB::HUE_STEP;
@@ -297,6 +298,9 @@ struct ShaderBallWhiteBox {
                          const FrameState &frame) {
     return SB::colorize(sample, frame);
   }
+  static Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
+    return SB::hue_rotate_lut_gamut(color, amount);
+  }
   static Color4 shade(const Vector &v, const FrameState &frame) {
     return SB::shade(v, frame);
   }
@@ -322,6 +326,18 @@ struct ShaderBallWhiteBox {
                              float x, float y, float turns) {
     return SB::sample_wrapped_noise_basis(noise, basis, x, y,
                                           SB::prepare_noise_phase(turns));
+  }
+  static WrappedNoisePhase legacy_noise_phase(float time) {
+    return SB::prepare_legacy_noise_phase(time);
+  }
+  static StereoWarpResult legacy_wrapped_warp(const Complex &coords,
+                                              float radius_sq,
+                                              const FastNoiseLite &noise,
+                                              float scale, float strength,
+                                              float pole_fade, float time) {
+    return SB::sample_wrapped_warp(coords, radius_sq, noise, scale, strength,
+                                   pole_fade,
+                                   SB::prepare_legacy_noise_phase(time));
   }
   static ProjectionParams lerp_projection(const ProjectionParams &a,
                                           const ProjectionParams &b, float t) {
@@ -791,6 +807,59 @@ inline void test_shaderball_legacy_spatial_slots() {
   // branch would miss by ~1.
   HS_EXPECT_NEAR(end.coords.re, lensed.re, 1e-6f);
   HS_EXPECT_NEAR(end.coords.im, lensed.im, 1e-6f);
+}
+
+/** @brief The reflection-only six-sector fold matches the legacy polar map. */
+inline void test_shaderball_kaleidoscope_reflection_fold() {
+  using WB = ShaderBallWhiteBox;
+  constexpr float SECTOR = TWO_PI_F / 6.0f;
+  auto reference = [&](const Vector &v) {
+    const float radius = sqrtf(v.x * v.x + v.z * v.z);
+    float azimuth = fmodf(fast_atan2(v.z, v.x) + PI_F, SECTOR);
+    if (azimuth > 0.5f * SECTOR)
+      azimuth = SECTOR - azimuth;
+    return Vector(radius * fast_cosf(azimuth), v.y,
+                  radius * fast_sinf(azimuth));
+  };
+
+  float max_coordinate_error = 0.0f;
+  float max_length_error = 0.0f;
+  for (int latitude_step = -64; latitude_step <= 64; ++latitude_step) {
+    const float latitude = latitude_step * (0.5f * PI_F / 64.0f);
+    const float radius = cosf(latitude);
+    const float y = sinf(latitude);
+    for (int longitude_step = 0; longitude_step < 1440; ++longitude_step) {
+      const float longitude = longitude_step * (TWO_PI_F / 1440.0f);
+      const Vector input(radius * cosf(longitude), y, radius * sinf(longitude));
+      const Vector expected = reference(input);
+      const Vector actual =
+          WB::apply_lens(input, WB::SurfaceLens::KALEIDOSCOPE);
+      max_coordinate_error = std::max(
+          max_coordinate_error,
+          std::max(fabsf(actual.x - expected.x), fabsf(actual.z - expected.z)));
+      max_length_error =
+          std::max(max_length_error, fabsf(actual.length() - input.length()));
+    }
+  }
+  HS_EXPECT_LT(max_coordinate_error, 6e-3f);
+  HS_EXPECT_LT(max_length_error, 2e-6f);
+
+  constexpr float BOUNDARY_EPSILON = 1e-5f;
+  for (int boundary = -6; boundary <= 6; ++boundary) {
+    const float angle = boundary * (PI_F / 6.0f);
+    Vector folded[3];
+    for (int side = -1; side <= 1; ++side) {
+      const float sample_angle = angle + side * BOUNDARY_EPSILON;
+      folded[side + 1] =
+          WB::apply_lens(Vector(cosf(sample_angle), 0.0f, sinf(sample_angle)),
+                         WB::SurfaceLens::KALEIDOSCOPE);
+      HS_EXPECT_GE(folded[side + 1].z, -2e-6f);
+      HS_EXPECT_GE(folded[side + 1].x,
+                   1.7320508075688772f * folded[side + 1].z - 2e-6f);
+    }
+    HS_EXPECT_NEAR(folded[0].x, folded[2].x, 2e-5f);
+    HS_EXPECT_NEAR(folded[0].z, folded[2].z, 2e-5f);
+  }
 }
 
 /** @brief Polyhedral lenses fold every simple-mirror orbit into one chamber. */
@@ -2612,6 +2681,141 @@ inline void test_shaderball_projection_catalog() {
   }
 }
 
+/** @brief The LUT-only hue mapper stays close to the exact gamut refinement. */
+inline void test_shaderball_hue_rotate_lut_gamut() {
+  using WB = ShaderBallWhiteBox;
+  uint16_t max_channel_error = 0;
+  uint64_t total_error = 0;
+  uint64_t channels = 0;
+  for (uint32_t red = 0; red <= 65535; red += 8191) {
+    for (uint32_t green = 0; green <= 65535; green += 8191) {
+      for (uint32_t blue = 0; blue <= 65535; blue += 8191) {
+        const Color4 input(Pixel(red, green, blue), 0.75f);
+        for (int amount_step = -32; amount_step <= 32; ++amount_step) {
+          const float amount = amount_step * (1.0f / 16.0f);
+          const Color4 exact = hue_rotate(input, amount);
+          const Color4 fast = WB::hue_rotate_lut_gamut(input, amount);
+          const uint16_t exact_channels[] = {exact.color.r, exact.color.g,
+                                             exact.color.b};
+          const uint16_t fast_channels[] = {fast.color.r, fast.color.g,
+                                            fast.color.b};
+          for (int channel = 0; channel < 3; ++channel) {
+            const uint16_t a = exact_channels[channel];
+            const uint16_t b = fast_channels[channel];
+            const uint16_t error = a > b ? a - b : b - a;
+            max_channel_error = std::max(max_channel_error, error);
+            total_error += error;
+            ++channels;
+          }
+          HS_EXPECT_EQ(fast.alpha, exact.alpha);
+        }
+      }
+    }
+  }
+  HS_EXPECT_LE(max_channel_error, uint16_t(5600));
+  HS_EXPECT_LE(total_error / channels, uint64_t(256));
+}
+
+/** @brief Prepared legacy-noise wrapping matches the per-sample seam formula. */
+inline void test_shaderball_legacy_noise_phase() {
+  using WB = ShaderBallWhiteBox;
+  constexpr float PERIOD = 65536.0f;
+  constexpr float BLEND = 1024.0f;
+  constexpr float BLEND_START = PERIOD - BLEND;
+  FastNoiseLite noise(317);
+  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  noise.SetFrequency(0.01f);
+  const Complex coords(0.37f, -0.91f);
+  const float radius_sq = coords.re * coords.re + coords.im * coords.im;
+  for (float time : {0.0f, BLEND_START, BLEND_START + 1.0f,
+                     BLEND_START + 317.0f, PERIOD - 1.0f}) {
+    const auto phase = WB::legacy_noise_phase(time);
+    const bool blends = time > BLEND_START;
+    HS_EXPECT_EQ(phase.blends, blends);
+    HS_EXPECT_EQ(phase.current_time, time);
+    HS_EXPECT_EQ(phase.previous_time, blends ? time - PERIOD : time);
+    const float expected_mix =
+        blends ? ease_in_out_sin((time - BLEND_START) / BLEND) : 0.0f;
+    HS_EXPECT_EQ(phase.mix, expected_mix);
+
+    const StereoWarpResult actual = WB::legacy_wrapped_warp(
+        coords, radius_sq, noise, 2.3f, 0.71f, 1.4f, time);
+    const StereoWarpResult current =
+        stereo_noise_warp(coords, radius_sq, noise, 2.3f, 0.71f, 1.4f, time);
+    StereoWarpResult expected = current;
+    if (blends) {
+      const StereoWarpResult previous = stereo_noise_warp(
+          coords, radius_sq, noise, 2.3f, 0.71f, 1.4f, time - PERIOD);
+      expected = {
+          {hs::lerp(current.coords.re, previous.coords.re, expected_mix),
+           hs::lerp(current.coords.im, previous.coords.im, expected_mix)},
+          {hs::lerp(current.delta.re, previous.delta.re, expected_mix),
+           hs::lerp(current.delta.im, previous.delta.im, expected_mix)},
+          hs::lerp(current.displacement, previous.displacement, expected_mix)};
+    }
+    HS_EXPECT_EQ(actual.coords.re, expected.coords.re);
+    HS_EXPECT_EQ(actual.coords.im, expected.coords.im);
+    HS_EXPECT_EQ(actual.delta.re, expected.delta.re);
+    HS_EXPECT_EQ(actual.delta.im, expected.delta.im);
+    HS_EXPECT_EQ(actual.displacement, expected.displacement);
+  }
+}
+
+/** @brief Fast square Peirce stays within renderer error and seam budgets. */
+inline void test_shaderball_fast_peirce_square() {
+  float max_coordinate_error = 0.0f;
+  float max_edge_error = 0.0f;
+  bool metadata_matches = true;
+  for (int latitude_step = -64; latitude_step <= 64; ++latitude_step) {
+    const float latitude = latitude_step * (0.5f * PI_F / 64.0f);
+    const float radius = cosf(latitude);
+    for (int longitude_step = -256; longitude_step < 256; ++longitude_step) {
+      const float longitude = longitude_step * (PI_F / 256.0f);
+      const Vector input(radius * cosf(longitude), sinf(latitude),
+                         radius * sinf(longitude));
+      const auto exact =
+          projections::peirce_projection(input, 0.0f, 1, 0.0f, true);
+      const auto fast = projections::peirce_projection_fast_square(input);
+      max_coordinate_error =
+          std::max(max_coordinate_error,
+                   std::max(fabsf(fast.coords.re - exact.coords.re),
+                            fabsf(fast.coords.im - exact.coords.im)));
+      max_edge_error =
+          std::max(max_edge_error,
+                   fabsf(fast.fade_edge_distance - exact.fade_edge_distance));
+      metadata_matches &= fast.region_id == exact.region_id &&
+                          fast.component_id == exact.component_id &&
+                          fast.boundary_flags == exact.boundary_flags &&
+                          fast.flags == exact.flags &&
+                          fast.traits == exact.traits &&
+                          fast.edge_class == exact.edge_class;
+    }
+  }
+  HS_EXPECT_LT(max_coordinate_error, 1.2e-3f);
+  HS_EXPECT_LT(max_edge_error, 2e-4f);
+  HS_EXPECT_TRUE(metadata_matches);
+
+  constexpr float TIE_EPSILON = 2e-6f;
+  constexpr float LATITUDE = -0.41f;
+  const float radius = cosf(LATITUDE);
+  for (float boundary :
+       {-0.75f * PI_F, -0.25f * PI_F, 0.25f * PI_F, 0.75f * PI_F}) {
+    for (float offset : {-TIE_EPSILON, 0.0f, TIE_EPSILON}) {
+      const float longitude = boundary + offset;
+      const Vector input(radius * cosf(longitude), sinf(LATITUDE),
+                         radius * sinf(longitude));
+      const auto exact =
+          projections::peirce_projection(input, 0.0f, 1, 0.0f, true);
+      const auto fast = projections::peirce_projection_fast_square(input);
+      HS_EXPECT_EQ(fast.region_id, exact.region_id);
+      HS_EXPECT_EQ(fast.edge_class, exact.edge_class);
+      HS_EXPECT_NEAR(fast.coords.re, exact.coords.re, 1.2e-3f);
+      HS_EXPECT_NEAR(fast.coords.im, exact.coords.im, 1.2e-3f);
+      HS_EXPECT_NEAR(fast.fade_edge_distance, exact.fade_edge_distance, 2e-4f);
+    }
+  }
+}
+
 /** @brief Domain policies, gauges, and analytic admission reject unsafe tuples. */
 inline void test_shaderball_projection_and_admission_contracts() {
   using WB = ShaderBallWhiteBox;
@@ -3173,11 +3377,14 @@ inline int run_shaderball_tests() {
   test_shaderball_manual_edit_timing();
   test_shaderball_pipeline_contract();
   test_shaderball_legacy_spatial_slots();
+  test_shaderball_kaleidoscope_reflection_fold();
   test_shaderball_polyhedral_kaleidoscopes();
   test_shaderball_equirectangular_projection();
   test_shaderball_flush_edge_fade();
   test_shaderball_legacy_sources();
   test_shaderball_coupled_source();
+  test_shaderball_hue_rotate_lut_gamut();
+  test_shaderball_legacy_noise_phase();
   test_shaderball_preset_bank();
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();
@@ -3191,6 +3398,7 @@ inline int run_shaderball_tests() {
   test_shaderball_preset_gui_transition();
   test_shaderball_gui_catalog();
   test_shaderball_projection_catalog();
+  test_shaderball_fast_peirce_square();
   test_shaderball_projection_and_admission_contracts();
   test_shaderball_kernel_catalog();
   test_shaderball_stable_preset_transition();

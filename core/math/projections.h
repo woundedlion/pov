@@ -329,6 +329,88 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
 }
 
 /**
+ * @brief Fast square-layout Peirce projection for the zero-meridian renderer.
+ * @param v Unit direction on the sphere.
+ * @return Square-layout coordinates and seam metadata with approximate angular
+ *         terms.
+ */
+HS_FLASH_INLINE inline ProjectionKernelResult
+peirce_projection_fast_square(const Vector &v) {
+  constexpr float INV_SQRT_TWO = 0.7071067811865475f;
+  constexpr float K = 1.8540746773013719f;
+  constexpr float SHIFT = 2.0f * K;
+  const float longitude = peirce_sector_longitude(v, 0.0f);
+  const float cos_a = hs::clamp((v.z + v.x) * INV_SQRT_TWO, -1.0f, 1.0f);
+  const float cos_b = hs::clamp((v.z - v.x) * INV_SQRT_TWO, -1.0f, 1.0f);
+  const float sin_product =
+      sqrtf(std::max(0.0f, (1.0f - cos_a * cos_a) * (1.0f - cos_b * cos_b)));
+  const float cos_sum = hs::clamp(cos_a * cos_b - sin_product, -1.0f, 1.0f);
+  const float cos_difference =
+      hs::clamp(cos_a * cos_b + sin_product, -1.0f, 1.0f);
+  float m = 0.5f * PI_F -
+            fast_acos(sqrtf(std::max(0.0f, 1.0f + std::min(0.0f, cos_sum))));
+  float n = 0.5f * PI_F -
+            fast_acos(sqrtf(fabsf(1.0f - std::max(0.0f, cos_difference))));
+  if (longitude < 0.0f)
+    m = -m;
+  if (longitude > -0.5f * PI_F && longitude < 0.5f * PI_F)
+    n = -n;
+  float x = peirce_elliptic_integral(m);
+  float projected_y = peirce_elliptic_integral(n);
+  uint8_t region = 0;
+  uint8_t flags = 0;
+  if (v.y < 0.0f) {
+    flags = 1;
+    if (longitude < -0.75f * PI_F || longitude >= 0.75f * PI_F)
+      region = 1;
+    else if (longitude < -0.25f * PI_F)
+      region = 2;
+    else if (longitude < 0.25f * PI_F)
+      region = 3;
+    else
+      region = 4;
+    if (longitude < -0.75f * PI_F) {
+      projected_y = SHIFT - projected_y;
+    } else if (longitude < -0.25f * PI_F) {
+      x = -SHIFT - x;
+    } else if (longitude < 0.25f * PI_F) {
+      projected_y = -SHIFT - projected_y;
+    } else if (longitude < 0.75f * PI_F) {
+      x = SHIFT - x;
+    } else {
+      region = 1;
+      projected_y = SHIFT - projected_y;
+    }
+  }
+  const float old_x = x;
+  x = INV_SQRT_TWO * (x - projected_y);
+  projected_y = INV_SQRT_TWO * (old_x + projected_y);
+  float edge =
+      fast_acos(hs::clamp(std::max(fabsf(v.x), fabsf(v.z)), 0.0f, 1.0f));
+  if (v.y < 0.0f) {
+    const float fold_sine = fabsf(fabsf(v.z) - fabsf(v.x)) * INV_SQRT_TWO;
+    edge = std::min(edge,
+                    0.5f * PI_F - fast_acos(hs::clamp(fold_sine, 0.0f, 1.0f)));
+  }
+  const float cp = sqrtf(std::max(0.0f, 1.0f - v.y * v.y));
+  const float rotated_x = cp * cosf(longitude);
+  const float rotated_z = cp * sinf(longitude);
+  const uint8_t edge_class = fabsf(rotated_x) >= fabsf(rotated_z)
+                                 ? static_cast<uint8_t>(rotated_x < 0.0f)
+                                 : static_cast<uint8_t>(2 + (rotated_z < 0.0f));
+  return {Complex(x, projected_y),
+          region,
+          0,
+          2,
+          edge,
+          flags,
+          projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
+                            ProjectionTrait::PERIODIC) |
+              projection_traits(ProjectionTrait::SINGULAR),
+          edge_class};
+}
+
+/**
  * @brief A direction in the Airocean kernel's own axis convention.
  * @details PROJ's icosahedron tables are authored with z up, so the kernel
  * permutes the engine's y-up Vector into this type on entry.
