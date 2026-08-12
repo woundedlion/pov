@@ -295,7 +295,10 @@ private:
     state->param_morph.active = false;
     state->transition.active = false;
     active_slots = PRESETS[index].slots;
-    active_pipeline = find_inverse_program(PRESETS[index])->id;
+    const ProgramDescriptor *program = find_inverse_program(PRESETS[index]);
+    HS_CHECK(program != nullptr,
+             "ShaderBall preset has no compiled inverse pipeline");
+    active_pipeline = program->id;
     blend.params = PRESETS[index].params;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = PRESETS[index];
