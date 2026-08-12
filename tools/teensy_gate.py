@@ -23,7 +23,9 @@ What it does (spec §7.3, §7.4, §8):
   * schema          — load_budgets() rejects any budgets key the gate does not
     read, at every nesting level. Every ceiling is an optional `.get()`, so a
     misspelled key (`component`, `max_byte`, `regoin`) removes its check and the
-    gate reports PASS with no violations.
+    gate reports PASS with no violations. It also requires each target's region
+    objects and layout symbols to be present: evaluate() iterates only what the
+    budget declares, so a deleted `ram2` object drops the OCRAM ceiling entirely.
 """
 
 from __future__ import annotations
@@ -520,7 +522,8 @@ def declares_components(budget: dict) -> bool:
 
 
 class BudgetSchemaError(ValueError):
-    """A budgets entry carries a key the gate would never read."""
+    """A budgets entry carries a key the gate would never read, or omits a
+    required region / layout symbol."""
 
 
 # Every key the gate reads, per nesting level. Region names, component names and
@@ -531,6 +534,20 @@ _REGION_KEYS = frozenset({"max_bytes", "free_min_bytes", "components"})
 _COMPONENT_KEYS = frozenset({"max_bytes", "max_banks_from_stack_floor"})
 _DERIVED_KEYS = frozenset({"bank_bytes", "total_banks"})
 _SYMBOL_KEYS = frozenset({"name", "region", "min_bytes", "max_bytes"})
+
+# Region objects and layout symbols every target budget must declare. Both
+# loops in evaluate() iterate whatever the budget carries, so deleting a whole
+# object removes its ceiling / invariant with no violation and no unknown-key
+# error — the same false-green a misspelled key produces, one level up.
+_REQUIRED_REGIONS = frozenset({"flash", "ram1", "ram2"})
+_REQUIRED_SYMBOLS = frozenset({"arena", "framebuffer_a", "framebuffer_b"})
+
+# Layout symbols required of specific targets only: Holosphere links no
+# reaction-diffusion effect and no segmented LED controller, so neither symbol
+# exists in its ELF.
+_REQUIRED_SYMBOLS_BY_ENV: dict[str, frozenset[str]] = {
+    "phantasm": frozenset({"reaction_graph", "dma_tx_buffer"}),
+}
 
 
 def _check_keys(spec: object, allowed: frozenset[str], where: str,
@@ -565,6 +582,18 @@ def _child_map(parent: dict, key: str, where: str) -> dict:
     return value
 
 
+def _require_present(present: dict, required: frozenset[str], where: str,
+                     kind: str) -> None:
+    """Reject a budgets mapping that omits a required entry."""
+    missing = sorted(required - set(present))
+    if missing:
+        raise BudgetSchemaError(
+            f"{where}: missing required {kind}(s) "
+            f"{', '.join(repr(k) for k in missing)} - the gate iterates only "
+            f"the entries the budget declares, so a deleted one removes its "
+            f"ceiling / invariant and the gate reports PASS.")
+
+
 def validate_budgets(budgets: object) -> dict:
     """Validate a parsed budgets mapping against the gate's schema."""
     if not isinstance(budgets, dict):
@@ -573,7 +602,9 @@ def validate_budgets(budgets: object) -> dict:
             f"{type(budgets).__name__}.")
     for env, budget in budgets.items():
         _check_keys(budget, _BUDGET_KEYS, f"env '{env}'")
-        for region, spec in _child_map(budget, "regions", f"env '{env}'").items():
+        regions = _child_map(budget, "regions", f"env '{env}'")
+        _require_present(regions, _REQUIRED_REGIONS, f"env '{env}'", "region")
+        for region, spec in regions.items():
             rwhere = f"env '{env}' region '{region}'"
             _check_keys(spec, _REGION_KEYS, rwhere)
             for cname, cspec in _child_map(spec, "components", rwhere).items():
@@ -584,7 +615,12 @@ def validate_budgets(budgets: object) -> dict:
                     _check_keys(derived, _DERIVED_KEYS,
                                 f"{cwhere} max_banks_from_stack_floor",
                                 required=_DERIVED_KEYS)
-        for key, spec in _child_map(budget, "symbols", f"env '{env}'").items():
+        syms = _child_map(budget, "symbols", f"env '{env}'")
+        _require_present(
+            syms,
+            _REQUIRED_SYMBOLS | _REQUIRED_SYMBOLS_BY_ENV.get(env, frozenset()),
+            f"env '{env}'", "layout symbol")
+        for key, spec in syms.items():
             _check_keys(spec, _SYMBOL_KEYS, f"env '{env}' symbol '{key}'",
                         required=frozenset({"name"}))
     return budgets
