@@ -439,6 +439,10 @@ release WASM smoke roster at 96x20 and 288x144.
 
 ## Variadic inverse-pipeline follow-on
 
+The normative proposal is
+[`specs/inverse_sampling_pipeline_spec.md`](specs/inverse_sampling_pipeline_spec.md).
+This section is only its architectural summary.
+
 ShaderBall can benefit from the compile-time techniques used by `Filter`, but
 its inverse sampler should be a sibling abstraction rather than a direct reuse
 of the forward buffer-filter API. The proposed stage order is:
