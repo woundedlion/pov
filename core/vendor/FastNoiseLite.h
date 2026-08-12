@@ -401,6 +401,14 @@ public:
     }
   }
 
+  /// Generates one configured vector-noise sample without fractal policy.
+  template <typename FNfloat>
+  HS_FLASH_MEMBER void GetVectorNoiseSingle(FNfloat &x, FNfloat &y,
+                                             FNfloat &z) const {
+    Arguments_must_be_floating_point_values<FNfloat>();
+    DomainWarpSingle(x, y, z);
+  }
+
 private:
   template <typename T> struct Arguments_must_be_floating_point_values;
 
@@ -1935,6 +1943,10 @@ private:
   void DoSingleDomainWarp(int seed, float amp, float freq, FNfloat x, FNfloat y,
                           FNfloat z, FNfloat &xr, FNfloat &yr,
                           FNfloat &zr) const {
+#ifdef FASTNOISELITE_ONLY_OPENSIMPLEX2
+    SingleDomainWarpOpenSimplex2Gradient(seed, amp * 32.69428253173828125f,
+                                         freq, x, y, z, xr, yr, zr, false);
+#else
     switch (mDomainWarpType) {
     case DomainWarpType_OpenSimplex2:
       SingleDomainWarpOpenSimplex2Gradient(seed, amp * 32.69428253173828125f,
@@ -1948,6 +1960,7 @@ private:
       SingleDomainWarpBasicGrid(seed, amp, freq, x, y, z, xr, yr, zr);
       break;
     }
+#endif
   }
 
   // Domain Warp Single Wrapper
@@ -2269,11 +2282,11 @@ private:
   }
 
   template <typename FNfloat>
-  void SingleDomainWarpOpenSimplex2Gradient(int seed, float warpAmp,
-                                            float frequency, FNfloat x,
-                                            FNfloat y, FNfloat z, FNfloat &xr,
-                                            FNfloat &yr, FNfloat &zr,
-                                            bool outGradOnly) const {
+  HS_FLASH_MEMBER void
+  SingleDomainWarpOpenSimplex2Gradient(int seed, float warpAmp,
+                                       float frequency, FNfloat x, FNfloat y,
+                                       FNfloat z, FNfloat &xr, FNfloat &yr,
+                                       FNfloat &zr, bool outGradOnly) const {
     x *= frequency;
     y *= frequency;
     z *= frequency;

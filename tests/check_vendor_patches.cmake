@@ -31,9 +31,9 @@ endif()
 string(REGEX MATCHALL "#ifn?def FASTNOISELITE_ONLY_OPENSIMPLEX2"
   _guards "${_header}")
 list(LENGTH _guards _guard_count)
-if(NOT _guard_count EQUAL 3)
+if(NOT _guard_count EQUAL 4)
   list(APPEND _missing
-    "FastNoiseLite.h has ${_guard_count} FASTNOISELITE_ONLY_OPENSIMPLEX2 guards, expected 3")
+    "FastNoiseLite.h has ${_guard_count} FASTNOISELITE_ONLY_OPENSIMPLEX2 guards, expected 4")
 endif()
 
 if(NOT _header MATCHES "HS_O3_FN float SingleOpenSimplex2\\(")
@@ -43,6 +43,11 @@ endif()
 if(NOT _header MATCHES "float GetNoiseSingle\\(" OR
    NOT _header MATCHES "float GetNoiseSingleTransformed\\(")
   list(APPEND _missing "FastNoiseLite has lost its raw-octave sampling paths")
+endif()
+
+if(NOT _header MATCHES "void GetVectorNoiseSingle\\(" OR
+   NOT _header MATCHES "HS_FLASH_MEMBER void[\r\n ]+SingleDomainWarpOpenSimplex2Gradient\\(")
+  list(APPEND _missing "FastNoiseLite has lost its raw vector-noise path")
 endif()
 
 if(NOT _config MATCHES "#define FASTNOISELITE_ONLY_OPENSIMPLEX2")
@@ -64,4 +69,4 @@ if(_missing)
 endif()
 
 message(STATUS
-  "FastNoiseLite ${VENDORED_VERSION}: all 5 in-tree patches present")
+  "FastNoiseLite ${VENDORED_VERSION}: all 6 in-tree patches present")

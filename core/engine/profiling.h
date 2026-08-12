@@ -93,6 +93,7 @@ inline ProbeBreakdown g_probe_breakdown;
 /** @brief Raw per-frame ShaderBall pipeline cycle totals. */
 struct ShaderBallStageCycles {
   uint32_t lens = 0;
+  uint32_t surface_noise = 0;
   uint32_t projection = 0;
   uint32_t planar_warp = 0;
   uint32_t source = 0;

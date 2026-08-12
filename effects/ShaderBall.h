@@ -250,7 +250,7 @@ public:
       draw_through_clear_transition(canvas);
     } else {
       const FrameState frame = prepare_frame();
-      FrameShader shader{&frame, 1.0f, resolve_shade_function(frame.slots)};
+      FrameShader shader{&frame, 1.0f, resolve_shade_function(frame)};
       HS_PROFILE(sb_shader_draw);
       Scan::Shader::draw<W, H, 1>(canvas, shader);
     }
@@ -760,6 +760,17 @@ public:
     ColorizerParams colorizer;
     OuterCameraParams outer_camera;
     SurfaceNoiseParams surface_noise;
+
+    HS_COLD_MEMBER Params() {}
+
+    constexpr Params(SourceParams source, WarpParams warp,
+                     ProjectionParams projection,
+                     SurfaceLensParams surface_lens, ValueParams value,
+                     ColorizerParams colorizer, OuterCameraParams outer_camera,
+                     SurfaceNoiseParams surface_noise)
+        : source(source), warp(warp), projection(projection),
+          surface_lens(surface_lens), value(value), colorizer(colorizer),
+          outer_camera(outer_camera), surface_noise(surface_noise) {}
 
     HS_COLD_MEMBER bool operator==(const Params &) const = default;
 
@@ -1670,6 +1681,12 @@ private:
     PreparedWarpStage inner;
   };
 
+  struct PreparedSurfaceNoise {
+    Vector loop_offset;
+    float direction_cos;
+    float direction_sin;
+  };
+
   struct ResourceBindings {
     const FastNoiseLite *outer_warp_noise;
     const FastNoiseLite *inner_warp_noise;
@@ -1690,6 +1707,7 @@ private:
     PreparedTransforms transforms;
     PreparedWarpProgram prepared_warp;
     WrappedNoisePhase source_noise_phase;
+    PreparedSurfaceNoise prepared_surface_noise;
     ResourceBindings resources;
   };
 
@@ -2295,7 +2313,9 @@ private:
             config.params.surface_noise.seed,
             config.slots.surface_noise == SurfaceNoise::CURL
                 ? NoiseChannelLayout::CURL_V1
-                : NoiseChannelLayout::DIRECT_V1,
+                : (config.params.surface_noise.basis == NoiseBasis::SIMPLEX
+                       ? NoiseChannelLayout::DIRECT_VECTOR_V2
+                       : NoiseChannelLayout::DIRECT_V1),
             1,
             1,
             static_cast<uint8_t>(
@@ -2435,6 +2455,14 @@ private:
                            look.clocks.warp_outer_phase),
         prepare_warp_stage(config.params.warp.inner,
                            look.clocks.warp_inner_phase)};
+    const float surface_phase =
+        TWO_PI_F * wrap_t(look.clocks.surface_noise_time);
+    const float surface_direction =
+        TWO_PI_F * config.params.surface_noise.direction;
+    const PreparedSurfaceNoise prepared_surface_noise{
+        Vector(NOISE_LOOP_RADIUS * cosf(surface_phase),
+               NOISE_LOOP_RADIUS * sinf(surface_phase), 0.0f),
+        cosf(surface_direction), sinf(surface_direction)};
     return {
         config.slots,
         config.params,
@@ -2448,6 +2476,7 @@ private:
          look.transforms.outer_conj},
         prepared_warp,
         prepare_noise_phase(look.clocks.source_noise_time),
+        prepared_surface_noise,
         {resolve_warp_resource(config.slots.warp_program.outer),
          resolve_warp_resource(config.slots.warp_program.inner),
          resolve_source_resource(config),
@@ -2480,8 +2509,7 @@ private:
                                             state->transition.from_runtime)
                             : prepare_frame(state->transition.to_config,
                                             state->transition.to_runtime);
-    FrameShader shader{&visible, phase.alpha,
-                       resolve_shade_function(visible.slots)};
+    FrameShader shader{&visible, phase.alpha, resolve_shade_function(visible)};
     HS_PROFILE(sb_shader_draw);
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
@@ -2549,19 +2577,44 @@ private:
     return projected;
   }
 
+  template <SurfaceLens LENS>
   __attribute__((always_inline)) static Vector
-  profiled_dodecahedral_pipeline(const Vector &v) {
+  profiled_static_lens_pipeline(const Vector &v) {
+    static_assert(LENS == SurfaceLens::GLITCH ||
+                  LENS == SurfaceLens::KALEIDOSCOPE ||
+                  LENS == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
     HS_SB_STAGE_MARK(stage_start);
-    const Vector lensed = dodecahedral_kaleidoscope_lens(v);
+    const Vector lensed = [&]() {
+      if constexpr (LENS == SurfaceLens::GLITCH)
+        return glitch_lens(v);
+      if constexpr (LENS == SurfaceLens::KALEIDOSCOPE)
+        return kaleidoscope_lens(v);
+      return dodecahedral_kaleidoscope_lens(v);
+    }();
     HS_SB_STAGE_SPAN(lens, stage_start);
     return lensed;
   }
 
+  __attribute__((always_inline)) static Vector
+  apply_static_direct_surface_noise(const Vector &v, const FrameState &frame) {
+    const SurfaceNoiseParams &params = frame.params.surface_noise;
+    if (params.strength == 0.0f)
+      return v;
+    const Vector q = noise_sphere_coordinate(
+        v, params.scale, frame.prepared_surface_noise.loop_offset);
+    const Vector tangent =
+        sample_direct_simplex_tangent(*frame.resources.surface_noise, q, v);
+    return sphere_exp_map_half_radian(v, params.strength * tangent);
+  }
+
+  template <SurfaceLens LENS>
   __attribute__((always_inline)) static ProjectedLookup
-  dodecahedral_stereographic_pipeline(const Vector &v,
-                                      const FrameState &frame) {
-    const Vector lensed = profiled_dodecahedral_pipeline(v);
-    const Vector displaced = apply_surface_noise(lensed, frame);
+  static_surface_noise_stereographic_pipeline(const Vector &v,
+                                              const FrameState &frame) {
+    const Vector lensed = profiled_static_lens_pipeline<LENS>(v);
+    HS_SB_STAGE_MARK(surface_start);
+    const Vector displaced = apply_static_direct_surface_noise(lensed, frame);
+    HS_SB_STAGE_SPAN(surface_noise, surface_start);
     return profiled_stereographic_pipeline(displaced, frame);
   }
 
@@ -2580,15 +2633,16 @@ private:
             0.0f};
   }
 
-  template <Function SOURCE, bool MIRROR_FIRST, bool EDGE_FADE>
+  template <SurfaceLens LENS, Function SOURCE, bool MIRROR_FIRST,
+            bool EDGE_FADE>
   HS_FLASH_MEMBER static Color4
-  shade_dodecahedral_surface_noise_pipeline(const Vector &view,
-                                            const FrameState &frame) {
+  shade_static_surface_noise_pipeline(const Vector &view,
+                                      const FrameState &frame) {
     static_assert(SOURCE == Function::GRID ||
                   SOURCE == Function::PRIMITIVE_LATTICE);
     const Vector outer_local = outer_camera_lookup(view, frame);
     const ProjectedLookup projected =
-        dodecahedral_stereographic_pipeline(outer_local, frame);
+        static_surface_noise_stereographic_pipeline<LENS>(outer_local, frame);
 
     HS_SB_STAGE_MARK(stage_start);
     const PlanarWarpResult warped =
@@ -2630,17 +2684,76 @@ private:
     return color;
   }
 
+  template <Projection PROJECTION, SurfaceLens LENS, bool MIRROR_FIRST>
+  HS_FLASH_MEMBER static Color4
+  shade_static_lattice_pipeline(const Vector &view, const FrameState &frame) {
+    static_assert(PROJECTION == Projection::BONNE ||
+                  PROJECTION == Projection::PEIRCE_QUINCUNCIAL);
+    const Vector outer_local = outer_camera_lookup(view, frame);
+    const Vector lensed = profiled_static_lens_pipeline<LENS>(outer_local);
+    HS_SB_STAGE_MARK(stage_start);
+    const Vector local = rotate(lensed, frame.transforms.projection_conj);
+    ProjectedLookup projected = [&]() {
+      if constexpr (PROJECTION == Projection::BONNE)
+        return project_bonne(local, frame);
+      return project_peirce(local, frame);
+    }();
+    projected.sphere = local;
+    HS_SB_STAGE_SPAN(projection, stage_start);
+    const PlanarWarpResult warped =
+        mirror_pipeline<MIRROR_FIRST>(projected, frame);
+    HS_SB_STAGE_SPAN(planar_warp, stage_start);
+    const float field = primitive_lattice(warped.coords, frame.params.source);
+    HS_SB_STAGE_SPAN(source, stage_start);
+    const float value =
+        hs::clamp((field * projected.value_weight + 1.0f) * 0.5f, 0.0f, 1.0f);
+    const float coverage =
+        (frame.params.value.edge_width == 0.0f
+             ? static_cast<float>(projected.fade_edge_distance > 0.0f)
+             : smooth_ramp(0.0f, frame.params.value.edge_width,
+                           projected.fade_edge_distance)) *
+        projected.domain_coverage;
+    const MaterialSample material{value, coverage, warped.net_delta,
+                                  warped.deformation, warped.path_length};
+    HS_SB_STAGE_SPAN(material, stage_start);
+    const Color4 color = colorize(material, frame);
+    HS_SB_STAGE_SPAN(color, stage_start);
+    return color;
+  }
+
   HS_COLD_MEMBER static typename FrameShader::ShadeFunction
-  resolve_shade_function(const Slots &slots) {
+  resolve_shade_function(const FrameState &frame) {
+    const Slots &slots = frame.slots;
+    const bool static_direct_surface_noise =
+        frame.params.surface_noise.basis == NoiseBasis::SIMPLEX &&
+        frame.params.surface_noise.direction == 0.0f;
+    if (slots == PRESETS[15].slots)
+      return &shade_static_lattice_pipeline<Projection::BONNE,
+                                            SurfaceLens::KALEIDOSCOPE, true>;
+    if (slots == PRESETS[16].slots)
+      return &shade_static_lattice_pipeline<Projection::PEIRCE_QUINCUNCIAL,
+                                            SurfaceLens::KALEIDOSCOPE, false>;
+    if (!static_direct_surface_noise)
+      return nullptr;
+    if (slots == PRESETS[0].slots)
+      return &shade_static_surface_noise_pipeline<SurfaceLens::KALEIDOSCOPE,
+                                                  Function::GRID, false, false>;
+    if (slots == PRESETS[1].slots)
+      return &shade_static_surface_noise_pipeline<SurfaceLens::GLITCH,
+                                                  Function::GRID, false, false>;
+    if (slots == PRESETS[17].slots)
+      return &shade_static_surface_noise_pipeline<SurfaceLens::KALEIDOSCOPE,
+                                                  Function::GRID, false, true>;
     if (slots == PRESETS[18].slots)
-      return &shade_dodecahedral_surface_noise_pipeline<Function::GRID, true,
-                                                        true>;
+      return &shade_static_surface_noise_pipeline<
+          SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL, Function::GRID, true, true>;
     if (slots == PRESETS[20].slots)
-      return &shade_dodecahedral_surface_noise_pipeline<Function::GRID, false,
-                                                        false>;
+      return &shade_static_surface_noise_pipeline<
+          SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL, Function::GRID, false, false>;
     if (slots == PRESETS[21].slots)
-      return &shade_dodecahedral_surface_noise_pipeline<
-          Function::PRIMITIVE_LATTICE, true, true>;
+      return &shade_static_surface_noise_pipeline<
+          SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL, Function::PRIMITIVE_LATTICE,
+          true, true>;
     return nullptr;
   }
 
@@ -2713,19 +2826,23 @@ private:
   static ProjectedLookup surface_lens_project_lookup(const Vector &v,
                                                      const FrameState &frame) {
     const Slots &slots = frame.slots;
-    const Vector pre_lens = slots.surface_noise != SurfaceNoise::NONE &&
-                                    slots.surface_noise_placement ==
-                                        SurfaceNoisePlacement::BEFORE_LENS
-                                ? apply_surface_noise(v, frame)
-                                : v;
+    Vector pre_lens = v;
+    if (slots.surface_noise != SurfaceNoise::NONE &&
+        slots.surface_noise_placement == SurfaceNoisePlacement::BEFORE_LENS) {
+      HS_SB_STAGE_MARK(surface_start);
+      pre_lens = apply_surface_noise(v, frame);
+      HS_SB_STAGE_SPAN(surface_noise, surface_start);
+    }
     const Vector lensed = slots.surface_lens == SurfaceLens::NONE
                               ? pre_lens
                               : profiled_apply_lens(pre_lens, frame);
-    const Vector post_lens = slots.surface_noise != SurfaceNoise::NONE &&
-                                     slots.surface_noise_placement ==
-                                         SurfaceNoisePlacement::AFTER_LENS
-                                 ? apply_surface_noise(lensed, frame)
-                                 : lensed;
+    Vector post_lens = lensed;
+    if (slots.surface_noise != SurfaceNoise::NONE &&
+        slots.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS) {
+      HS_SB_STAGE_MARK(surface_start);
+      post_lens = apply_surface_noise(lensed, frame);
+      HS_SB_STAGE_SPAN(surface_noise, surface_start);
+    }
     return profiled_project_branch(post_lens, frame);
   }
 
@@ -3433,7 +3550,7 @@ private:
     Color4 color = frame.resources.liquid_palette->get(u);
     color.alpha *=
         sample.coverage * (1.0f - value * frame.params.colorizer.value_fade);
-    if (frame.params.colorizer.hue_shift != 0.0f)
+    if (frame.params.colorizer.hue_shift != 0.0f && sample.deformation != 0.0f)
       color = hue_rotate_lut_gamut(color, -sample.deformation *
                                               frame.params.colorizer.hue_shift);
     return color;
@@ -3526,8 +3643,8 @@ private:
 
   static Vector surface_curl_field(const Vector &v, const FrameState &frame) {
     const SurfaceNoiseParams &params = frame.params.surface_noise;
-    const Vector q = noise_sphere_coordinate(v, params.scale,
-                                             frame.clocks.surface_noise_time);
+    const Vector q = noise_sphere_coordinate(
+        v, params.scale, frame.prepared_surface_noise.loop_offset);
     return sample_curl_tangent(*frame.resources.surface_noise, params.basis, q,
                                v);
   }
@@ -3535,9 +3652,10 @@ private:
   static Vector midpoint_surface_curl_step(const Vector &v, float distance,
                                            const FrameState &frame) {
     const Vector first = surface_curl_field(v, frame);
-    const Vector midpoint = sphere_exp_map(v, 0.5f * distance * first);
+    const Vector midpoint =
+        sphere_exp_map_half_radian(v, 0.5f * distance * first);
     const Vector midpoint_field = surface_curl_field(midpoint, frame);
-    return sphere_exp_map(
+    return sphere_exp_map_half_radian(
         v, distance * transport_tangent(midpoint, v, midpoint_field));
   }
 
@@ -3547,14 +3665,17 @@ private:
     if (params.strength == 0.0f)
       return v;
     if (frame.slots.surface_noise == SurfaceNoise::DIRECT) {
-      const Vector q = noise_sphere_coordinate(v, params.scale,
-                                               frame.clocks.surface_noise_time);
-      const Vector tangent = sample_direct_tangent(
-          *frame.resources.surface_noise, params.basis, q, v, params.direction);
-      return sphere_exp_map(v, params.strength * tangent);
+      const Vector q = noise_sphere_coordinate(
+          v, params.scale, frame.prepared_surface_noise.loop_offset);
+      const Vector tangent =
+          sample_direct_tangent(*frame.resources.surface_noise, params.basis, q,
+                                v, frame.prepared_surface_noise.direction_cos,
+                                frame.prepared_surface_noise.direction_sin);
+      return sphere_exp_map_half_radian(v, params.strength * tangent);
     }
     if (params.integrator == SurfaceCurlIntegrator::EULER)
-      return sphere_exp_map(v, params.strength * surface_curl_field(v, frame));
+      return sphere_exp_map_half_radian(v, params.strength *
+                                               surface_curl_field(v, frame));
     if (params.integrator == SurfaceCurlIntegrator::MIDPOINT)
       return midpoint_surface_curl_step(v, params.strength, frame);
     Vector current =
