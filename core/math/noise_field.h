@@ -42,9 +42,15 @@ struct NoiseFieldKey {
 };
 
 constexpr NoiseFieldKey noise_field_key(const NoiseFieldSpec &spec) {
-  return {spec.domain, spec.basis, spec.seed, spec.channel_layout,
-          spec.octave_layout, spec.loop_layout, spec.stencil_layout,
-          FastNoiseLite::NoiseType_OpenSimplex2, 1.0f};
+  return {spec.domain,
+          spec.basis,
+          spec.seed,
+          spec.channel_layout,
+          spec.octave_layout,
+          spec.loop_layout,
+          spec.stencil_layout,
+          FastNoiseLite::NoiseType_OpenSimplex2,
+          1.0f};
 }
 
 constexpr std::array<Vector, 3> NOISE_CHANNEL_OFFSETS = {
@@ -59,16 +65,14 @@ constexpr float NOISE_STENCIL_RADIUS = 1.0f / 64.0f;
 inline Vector noise_sphere_coordinate(const Vector &v, float scale,
                                       float phase) {
   const float angle = TWO_PI_F * wrap_t(phase);
-  return scale * v +
-         Vector(NOISE_LOOP_RADIUS * cosf(angle),
-                NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
+  return scale * v + Vector(NOISE_LOOP_RADIUS * cosf(angle),
+                            NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
 }
 
 inline Vector noise_projected_coordinate(const Complex &p, float scale,
                                          float phase) {
   const float angle = TWO_PI_F * wrap_t(phase);
-  const float diagonal =
-      NOISE_LOOP_RADIUS * sinf(angle) * 0.7071067811865475f;
+  const float diagonal = NOISE_LOOP_RADIUS * sinf(angle) * 0.7071067811865475f;
   return Vector(scale * p.re + diagonal, scale * p.im + diagonal,
                 NOISE_LOOP_RADIUS * cosf(angle));
 }
@@ -92,9 +96,10 @@ inline float sample_noise_vector_channel(const FastNoiseLite &noise,
                                          NoiseBasis basis, const Vector &q,
                                          size_t channel) {
   if (basis != NoiseBasis::RIDGED3)
-    return sample_noise_octaves(noise, basis, q + NOISE_CHANNEL_OFFSETS[channel]);
-  const float a = sample_noise_octaves(noise, basis,
-                                       q + NOISE_CHANNEL_OFFSETS[channel]);
+    return sample_noise_octaves(noise, basis,
+                                q + NOISE_CHANNEL_OFFSETS[channel]);
+  const float a =
+      sample_noise_octaves(noise, basis, q + NOISE_CHANNEL_OFFSETS[channel]);
   const float b =
       sample_noise_octaves(noise, basis, q + NOISE_RIDGED_OFFSETS[channel]);
   return 0.5f * (a - b);
@@ -128,15 +133,30 @@ inline Vector tetrahedral_gradient(const Vector &q, Sample sample) {
   return (3.0f / (4.0f * NOISE_STENCIL_RADIUS)) * gradient;
 }
 
-inline Vector sample_curl_tangent(const FastNoiseLite &noise,
-                                  NoiseBasis basis, const Vector &q,
-                                  const Vector &v) {
-  const Vector gradient = tetrahedral_gradient(
-      q, [&](const Vector &point) { return sample_noise_octaves(noise, basis, point); });
+inline Vector sample_curl_tangent(const FastNoiseLite &noise, NoiseBasis basis,
+                                  const Vector &q, const Vector &v) {
+  const Vector gradient = tetrahedral_gradient(q, [&](const Vector &point) {
+    return sample_noise_octaves(noise, basis, point);
+  });
   const Vector tangent_gradient = gradient - dot(gradient, v) * v;
   Vector u = cross(v, tangent_gradient);
   const float length = u.length();
   if (length > 1.0f)
     u /= length;
   return u;
+}
+
+inline Vector sphere_exp_map(const Vector &v, const Vector &tangent) {
+  const float distance = tangent.length();
+  if (distance == 0.0f)
+    return v;
+  return cosf(distance) * v + (sinf(distance) / distance) * tangent;
+}
+
+inline Vector transport_tangent(const Vector &from, const Vector &to,
+                                const Vector &tangent_at_from) {
+  const float denominator = 1.0f + dot(from, to);
+  HS_CHECK(denominator > 0.0f, "tangent transport crosses antipodes");
+  return tangent_at_from -
+         (dot(tangent_at_from, to) / denominator) * (from + to);
 }

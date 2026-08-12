@@ -29,16 +29,16 @@ inline float reference_basis(const FastNoiseLite &noise, NoiseBasis basis,
   const float n2 = noise.GetNoise(q.x * 4.0f, q.y * 4.0f, q.z * 4.0f);
   if (basis == NoiseBasis::FBM3)
     return (4.0f * n0 + 2.0f * n1 + n2) / 7.0f;
-  const float r = (4.0f * (1.0f - std::abs(n0)) +
-                   2.0f * (1.0f - std::abs(n1)) +
+  const float r = (4.0f * (1.0f - std::abs(n0)) + 2.0f * (1.0f - std::abs(n1)) +
                    (1.0f - std::abs(n2))) /
                   7.0f;
   return 2.0f * r - 1.0f;
 }
 
 inline void test_noise_field_key_identity() {
-  NoiseFieldSpec a{NoiseDomain::SPHERE_3D, NoiseBasis::FBM3, 41, 2.0f,
-                   0.01f, 0.25f, NoiseChannelLayout::DIRECT_V1};
+  NoiseFieldSpec a{
+      NoiseDomain::SPHERE_3D,       NoiseBasis::FBM3, 41, 2.0f, 0.01f, 0.25f,
+      NoiseChannelLayout::DIRECT_V1};
   NoiseFieldSpec b = a;
   b.scale = 7.0f;
   b.rate = -0.01f;
@@ -82,18 +82,18 @@ inline void test_noise_field_ridged_channel_pairs() {
                                     q + NOISE_CHANNEL_OFFSETS[channel]);
     const float d = reference_basis(noise, NoiseBasis::RIDGED3,
                                     q + NOISE_RIDGED_OFFSETS[channel]);
-    HS_EXPECT_NEAR(sample_noise_vector_channel(noise, NoiseBasis::RIDGED3, q,
-                                              channel),
-                   0.5f * (c - d), 1e-7f);
+    HS_EXPECT_NEAR(
+        sample_noise_vector_channel(noise, NoiseBasis::RIDGED3, q, channel),
+        0.5f * (c - d), 1e-7f);
   }
 }
 
 inline void test_noise_field_direct_tangent() {
   const FastNoiseLite noise = make_noise(1337);
   constexpr std::array<Vector, 6> DIRECTIONS = {
-      Vector(1.0f, 0.0f, 0.0f),  Vector(-1.0f, 0.0f, 0.0f),
-      Vector(0.0f, 1.0f, 0.0f),  Vector(0.0f, -1.0f, 0.0f),
-      Vector(0.0f, 0.0f, 1.0f),  Vector(0.0f, 0.0f, -1.0f)};
+      Vector(1.0f, 0.0f, 0.0f), Vector(-1.0f, 0.0f, 0.0f),
+      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, -1.0f, 0.0f),
+      Vector(0.0f, 0.0f, 1.0f), Vector(0.0f, 0.0f, -1.0f)};
   for (const Vector &v : DIRECTIONS) {
     const Vector q = noise_sphere_coordinate(v, 1.0f, 0.375f);
     const Vector u0 =
@@ -109,12 +109,10 @@ inline void test_noise_field_direct_tangent() {
 }
 
 inline void test_noise_field_tetrahedral_gradient() {
-  auto linear = [](const Vector &p) {
-    return 0.25f * p.x - 0.5f * p.y + p.z;
-  };
-  constexpr std::array<Vector, 3> POINTS = {
-      Vector(0.0f, 0.0f, 0.0f), Vector(1.0f, -2.0f, 3.0f),
-      Vector(-4.0f, 0.5f, -1.25f)};
+  auto linear = [](const Vector &p) { return 0.25f * p.x - 0.5f * p.y + p.z; };
+  constexpr std::array<Vector, 3> POINTS = {Vector(0.0f, 0.0f, 0.0f),
+                                            Vector(1.0f, -2.0f, 3.0f),
+                                            Vector(-4.0f, 0.5f, -1.25f)};
   for (const Vector &q : POINTS) {
     const Vector expected(0.25f, -0.5f, 1.0f);
     const Vector actual = tetrahedral_gradient(q, linear);
@@ -142,6 +140,18 @@ inline void test_noise_field_curl_tangent() {
   }
 }
 
+inline void test_sphere_exp_map_and_transport() {
+  const Vector v(0.0f, 1.0f, 0.0f);
+  HS_EXPECT_TRUE(sphere_exp_map(v, Vector()) == v);
+  const Vector tangent(0.25f, 0.0f, -0.1f);
+  const Vector moved = sphere_exp_map(v, tangent);
+  HS_EXPECT_NEAR(moved.length(), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(fast_acos(dot(v, moved)), tangent.length(), 2e-5f);
+  const Vector transported = transport_tangent(v, moved, tangent);
+  HS_EXPECT_NEAR(dot(transported, moved), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(transported.length(), tangent.length(), 1e-6f);
+}
+
 inline int run_noise_field_tests() {
   hs_test::ModuleFixture fixture("noise_field");
   test_noise_field_key_identity();
@@ -151,6 +161,7 @@ inline int run_noise_field_tests() {
   test_noise_field_direct_tangent();
   test_noise_field_tetrahedral_gradient();
   test_noise_field_curl_tangent();
+  test_sphere_exp_map_and_transport();
   return fixture.result();
 }
 
