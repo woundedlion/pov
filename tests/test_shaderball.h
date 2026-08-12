@@ -326,6 +326,16 @@ struct ShaderBallWhiteBox {
   static Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
     return SB::hue_rotate_lut_gamut(color, amount);
   }
+  static Pixel prepared_liquid_hue(const FrameState &frame, float value,
+                                   float amount) {
+    return SB::sample_liquid_hue_lut(frame.prepared_liquid_hue, value, amount);
+  }
+  static Pixel direct_liquid_hue(const FrameState &frame, float value,
+                                 float amount) {
+    const Color4 base = frame.resources.liquid_palette->get(
+        wrap_t(value + frame.breathe_offset));
+    return SB::hue_rotate_lut_gamut(base, amount).color;
+  }
   static Color4 shade(const Vector &v, const FrameState &frame) {
     return SB::shade(v, frame);
   }
@@ -3007,6 +3017,38 @@ inline void test_shaderball_hue_rotate_lut_gamut() {
   HS_EXPECT_LE(total_error / channels, uint64_t(256));
 }
 
+/** @brief The prepared liquid hue field tracks direct palette conversion. */
+inline void test_shaderball_prepared_liquid_hue() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  const WB::FrameState frame = WB::preset_frame(sb, 21);
+  uint16_t max_channel_error = 0;
+  uint64_t total_error = 0;
+  uint64_t channels = 0;
+  for (int value_step = 0; value_step <= 64; ++value_step) {
+    const float value = value_step / 64.0f;
+    for (int amount_step = -128; amount_step <= 128; ++amount_step) {
+      const float amount = amount_step / 64.0f;
+      const Pixel direct = WB::direct_liquid_hue(frame, value, amount);
+      const Pixel prepared = WB::prepared_liquid_hue(frame, value, amount);
+      const uint16_t direct_channels[] = {direct.r, direct.g, direct.b};
+      const uint16_t prepared_channels[] = {prepared.r, prepared.g, prepared.b};
+      for (int channel = 0; channel < 3; ++channel) {
+        const uint16_t a = direct_channels[channel];
+        const uint16_t b = prepared_channels[channel];
+        const uint16_t error = a > b ? a - b : b - a;
+        max_channel_error = std::max(max_channel_error, error);
+        total_error += error;
+        ++channels;
+      }
+    }
+  }
+  HS_EXPECT_LE(max_channel_error, uint16_t(5400));
+  HS_EXPECT_LE(total_error / channels, uint64_t(220));
+}
+
 /** @brief Fast square Peirce stays within renderer error and seam budgets. */
 inline void test_shaderball_fast_peirce_square() {
   float max_coordinate_error = 0.0f;
@@ -3846,6 +3888,7 @@ inline int run_shaderball_tests() {
   test_shaderball_legacy_sources();
   test_shaderball_coupled_source();
   test_shaderball_hue_rotate_lut_gamut();
+  test_shaderball_prepared_liquid_hue();
   test_shaderball_preset_bank();
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();

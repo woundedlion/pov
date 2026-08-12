@@ -188,8 +188,10 @@ inline Vector tetrahedral_gradient(const Vector &q, Sample sample) {
   return (3.0f / (4.0f * NOISE_STENCIL_RADIUS)) * gradient;
 }
 
-inline Vector sample_curl_tangent(const FastNoiseLite &noise, NoiseBasis basis,
-                                  const Vector &q, const Vector &v) {
+HS_FLASH_INLINE inline Vector sample_curl_tangent(const FastNoiseLite &noise,
+                                                  NoiseBasis basis,
+                                                  const Vector &q,
+                                                  const Vector &v) {
   const Vector gradient = tetrahedral_gradient(q, [&](const Vector &point) {
     return sample_noise_octaves(noise, basis, point);
   });
