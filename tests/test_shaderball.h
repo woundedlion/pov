@@ -407,7 +407,7 @@ inline void test_shaderball_pause_semantics() {
   ambient.params.source.speed = 0.019f;
   ambient.params.source.secondary_rate = 0.37f;
   ambient.params.source.angle_rate = 0.007f;
-  ambient.params.source.noise_time_rate = 0.004f;
+  ambient.params.source.noise_time_rate = 0.0004f;
   ambient.params.surface_lens.noise_rate = 0.003f;
   ambient.params.warp.outer.time_scale = 0.071f;
   ambient.params.warp.inner.time_scale = 0.003f;
@@ -1104,7 +1104,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(31));
+  HS_EXPECT_EQ(presets.size(), size_t(22));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_EQ(presets[0].slots.function, WB::Function::COUPLED_DIRECT);
   HS_EXPECT_EQ(presets[0].slots.projection, WB::Projection::STEREOGRAPHIC);
@@ -1141,24 +1141,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_TRUE(choreo[0].staggered);
   HS_EXPECT_TRUE(choreo[1].staggered);
   HS_EXPECT_FALSE(choreo[7].staggered);
-  HS_EXPECT_EQ(presets[16].slots.projection, WB::Projection::BONNE);
-  HS_EXPECT_EQ(presets[17].slots.projection, WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(presets[18].slots.projection, WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(presets[19].slots.projection,
-               WB::Projection::PEIRCE_QUINCUNCIAL);
-  HS_EXPECT_EQ(presets[20].slots.projection, WB::Projection::AIROCEAN);
-  HS_EXPECT_EQ(presets[18].slots.warp_program.outer.kind,
-               WB::WarpStageKind::CURL_FLOW);
-  HS_EXPECT_EQ(presets[18].slots.warp_program.outer.basis,
-               WB::NoiseBasis::SIMPLEX);
-  HS_EXPECT_EQ(presets[18].slots.warp_program.outer.curl_integrator,
-               WB::CurlIntegrator::EULER_1);
-  HS_EXPECT_EQ(presets[19].slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(presets[19].slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(presets[20].slots.surface_lens, WB::SurfaceLens::NONE);
-  const auto &wave_shear = presets[21];
+  const auto &wave_shear = presets[11];
   HS_EXPECT_EQ(wave_shear.slots.function, WB::Function::COUPLED_DIRECT);
   HS_EXPECT_EQ(wave_shear.slots.projection, WB::Projection::STEREOGRAPHIC);
   HS_EXPECT_EQ(wave_shear.slots.projection_frame,
@@ -1192,7 +1175,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(wave_shear.params.colorizer.hue_shift, 0.0f);
   HS_EXPECT_EQ(wave_shear.params.colorizer.value_fade, 0.0f);
   HS_EXPECT_EQ(wave_shear.params.outer_camera.wander, 1.0f);
-  const auto &kaleidoscope_mirror = presets[22];
+  const auto &kaleidoscope_mirror = presets[12];
   HS_EXPECT_EQ(kaleidoscope_mirror.slots.function, WB::Function::TWIN_WAVE);
   HS_EXPECT_EQ(kaleidoscope_mirror.slots.projection,
                WB::Projection::STEREOGRAPHIC);
@@ -1231,7 +1214,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.hue_shift, 0.0f);
   HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.value_fade, 0.0f);
   HS_EXPECT_EQ(kaleidoscope_mirror.params.outer_camera.wander, 1.0f);
-  for (size_t index = 23; index < 25; ++index) {
+  for (size_t index = 13; index < 15; ++index) {
     const auto &gnomonic_grid = presets[index];
     HS_EXPECT_EQ(gnomonic_grid.slots.function, WB::Function::GRID);
     HS_EXPECT_EQ(gnomonic_grid.slots.projection, WB::Projection::GNOMONIC);
@@ -1240,7 +1223,7 @@ inline void test_shaderball_preset_bank() {
     HS_EXPECT_EQ(gnomonic_grid.slots.projection_frame,
                  WB::ProjectionFramePolicy::IDENTITY);
     HS_EXPECT_EQ(gnomonic_grid.slots.surface_lens,
-                 index == 23 ? WB::SurfaceLens::KALEIDOSCOPE
+                 index == 13 ? WB::SurfaceLens::KALEIDOSCOPE
                              : WB::SurfaceLens::GLITCH);
     HS_EXPECT_EQ(gnomonic_grid.slots.warp_program.outer.kind,
                  WB::WarpStageKind::MIRROR_TILE);
@@ -1267,7 +1250,7 @@ inline void test_shaderball_preset_bank() {
     HS_EXPECT_EQ(gnomonic_grid.params.value.edge_width, 0.5f);
     HS_EXPECT_EQ(gnomonic_grid.params.outer_camera.wander, 1.0f);
   }
-  const auto &bonne_lattice = presets[25];
+  const auto &bonne_lattice = presets[15];
   HS_EXPECT_EQ(bonne_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
   HS_EXPECT_EQ(bonne_lattice.slots.projection, WB::Projection::BONNE);
   HS_EXPECT_EQ(bonne_lattice.slots.bonne_hemisphere,
@@ -1300,7 +1283,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(bonne_lattice.params.warp.outer.offset_y, -1.456f);
   HS_EXPECT_EQ(bonne_lattice.params.value.edge_width, 0.5f);
   HS_EXPECT_EQ(bonne_lattice.params.outer_camera.wander, 1.0f);
-  const auto &peirce_lattice = presets[26];
+  const auto &peirce_lattice = presets[16];
   HS_EXPECT_EQ(peirce_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
   HS_EXPECT_EQ(peirce_lattice.slots.projection,
                WB::Projection::PEIRCE_QUINCUNCIAL);
@@ -1333,7 +1316,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(peirce_lattice.params.colorizer.cycle_speed, 0.05f);
   HS_EXPECT_EQ(peirce_lattice.params.colorizer.hue_shift, 0.0f);
   HS_EXPECT_EQ(peirce_lattice.params.colorizer.value_fade, 0.0f);
-  const auto &edge_fade_liquid = presets[27];
+  const auto &edge_fade_liquid = presets[17];
   HS_EXPECT_EQ(edge_fade_liquid.slots.function, WB::Function::COUPLED_DIRECT);
   HS_EXPECT_EQ(edge_fade_liquid.slots.projection,
                WB::Projection::STEREOGRAPHIC);
@@ -1371,7 +1354,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(edge_fade_liquid.params.colorizer.hue_shift, 0.657f);
   HS_EXPECT_EQ(edge_fade_liquid.params.colorizer.value_fade, 0.0f);
   HS_EXPECT_EQ(edge_fade_liquid.params.outer_camera.wander, 1.0f);
-  const auto &dodecahedral_grid = presets[28];
+  const auto &dodecahedral_grid = presets[18];
   HS_EXPECT_EQ(dodecahedral_grid.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(dodecahedral_grid.slots.projection,
                WB::Projection::STEREOGRAPHIC);
@@ -1410,7 +1393,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.cycle_speed, 0.00015458837f);
   HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.hue_shift, 0.339f);
   HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.value_fade, 0.847f);
-  const auto &peirce_dodecahedral = presets[29];
+  const auto &peirce_dodecahedral = presets[19];
   HS_EXPECT_EQ(peirce_dodecahedral.slots.function,
                WB::Function::COUPLED_DIRECT);
   HS_EXPECT_EQ(peirce_dodecahedral.slots.projection,
@@ -1449,7 +1432,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.cycle_speed, 0.05f);
   HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.hue_shift, 0.319f);
   HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.value_fade, 0.2f);
-  const auto &dodecahedral_noise = presets[30];
+  const auto &dodecahedral_noise = presets[20];
   HS_EXPECT_EQ(dodecahedral_noise.slots.function, WB::Function::COUPLED_DIRECT);
   HS_EXPECT_EQ(dodecahedral_noise.slots.projection,
                WB::Projection::STEREOGRAPHIC);
@@ -1485,21 +1468,62 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(dodecahedral_noise.params.colorizer.cycle_speed, 0.00015458837f);
   HS_EXPECT_EQ(dodecahedral_noise.params.colorizer.hue_shift, 0.201f);
   HS_EXPECT_EQ(dodecahedral_noise.params.colorizer.value_fade, 0.847f);
+  const auto &dodecahedral_lattice = presets[21];
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.function,
+               WB::Function::PRIMITIVE_LATTICE);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.projection,
+               WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.projection_frame,
+               WB::ProjectionFramePolicy::SPIN_WANDER);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.warp_program.outer.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.warp_program.inner.kind,
+               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.signal_weight,
+               WB::SignalWeight::PROJECTION);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.value_transfer,
+               WB::ValueTransfer::LINEAR);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.coverage,
+               WB::CoveragePolicy::EDGE_FADE);
+  HS_EXPECT_EQ(dodecahedral_lattice.slots.colorizer, WB::Colorizer::LIQUID);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.source.lattice_cell_scale,
+               0.57453126f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.source.lattice_shape_blend, 1.0f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.source.lattice_softness, 0.5454443f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.source.lattice_radius, 0.25f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.projection.pole_fade, 1.5482996f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.projection.spin_rate, 0.020879198f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.projection.wander, 0.421f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.outer_camera.wander, 0.591f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.surface_lens.mix, 1.0f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.rotation, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.cell_x, 1.0f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.cell_y, 1.0f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.offset_x, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.offset_y, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.inner.strength, 8.73f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.inner.scale, 16.0f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.inner.time_scale, 0.20772f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.value.edge_width, 0.0775f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.colorizer.breathe_depth,
+               0.25410002f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.colorizer.cycle_speed,
+               0.00015458837f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.colorizer.hue_shift, 0.562f);
+  HS_EXPECT_EQ(dodecahedral_lattice.params.colorizer.value_fade, 0.847f);
   for (size_t index = 0; index < presets.size(); ++index)
     HS_EXPECT_TRUE(WB::seam_compatible(presets[index]));
-  for (size_t index = 0; index < 16; ++index)
+  for (size_t index = 0; index < 11; ++index)
     HS_EXPECT_EQ(presets[index].slots.projection,
                  WB::Projection::STEREOGRAPHIC);
-  for (size_t index : {size_t(16), size_t(19), size_t(20)}) {
-    HS_EXPECT_EQ(presets[index].slots.coverage, WB::CoveragePolicy::EDGE_FADE);
-    HS_EXPECT_EQ(presets[index].params.value.edge_width, 0.1f);
-  }
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
-    if (index > 0 && index < 16)
+    if (index > 0 && index < 11)
       HS_EXPECT_TRUE(WB::slots_equal(preset.slots, WB::liquid_stereo_slots()));
     HS_EXPECT_TRUE(WB::valid_config(preset));
-    if (index > 0 && index < 15)
+    if (index > 0 && index < 10)
       HS_EXPECT_TRUE(WB::slots_equal(preset.slots, presets[index + 1].slots));
   }
 
@@ -1525,6 +1549,12 @@ inline void test_shaderball_config_admission() {
     HS_EXPECT_TRUE(WB::requested_slots(sb) == original);
     HS_EXPECT_FALSE(WB::transition_active(sb));
     HS_EXPECT_FALSE(WB::param_morph_active(sb));
+
+    WB::RequestedConfig low_frequency = WB::active_config(sb);
+    low_frequency.params.source.pattern_freq = 0.1f;
+    HS_EXPECT_TRUE(WB::valid_config(low_frequency));
+    low_frequency.params.source.pattern_freq = 0.099f;
+    HS_EXPECT_FALSE(WB::valid_config(low_frequency));
 
     WB::RequestedConfig candidate = WB::legacy_config();
     const auto invalid_tag = static_cast<uint8_t>(0xff);
@@ -1742,7 +1772,7 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_TRUE(sb.selectPreset(28));
+  HS_EXPECT_TRUE(sb.selectPreset(18));
 
   const WB::RequestedConfig before = WB::requested_config(sb);
   HS_EXPECT_EQ(before.slots.function, WB::Function::GRID);
@@ -1843,19 +1873,31 @@ inline void test_shaderball_structural_admission() {
   for (const auto &preset : presets)
     HS_EXPECT_TRUE(WB::valid_config(preset));
 
-  WB::RequestedConfig integrated_ridged = presets[18];
+  WB::RequestedConfig integrated_ridged = WB::legacy_config();
+  integrated_ridged.slots.warp_program.outer.kind =
+      WB::WarpStageKind::CURL_FLOW;
   integrated_ridged.slots.warp_program.outer.basis = WB::NoiseBasis::RIDGED3;
   integrated_ridged.slots.warp_program.outer.curl_integrator =
       WB::CurlIntegrator::MIDPOINT_2;
+  integrated_ridged.params.warp.outer.scale = 1.0f;
+  integrated_ridged.params.warp.outer.strength = 0.0078125f;
+  integrated_ridged.params.warp.outer.time_scale = 0.0f;
   HS_EXPECT_TRUE(WB::valid_config(integrated_ridged));
 
-  WB::RequestedConfig peirce_polar = presets[19];
+  WB::RequestedConfig peirce_polar = WB::legacy_config();
+  peirce_polar.slots.function = WB::Function::COUPLED_DIRECT;
+  peirce_polar.slots.projection = WB::Projection::PEIRCE_QUINCUNCIAL;
+  peirce_polar.slots.coverage = WB::CoveragePolicy::EDGE_FADE;
+  peirce_polar.params.value.edge_width = 0.1f;
   peirce_polar.slots.warp_program.inner.kind = WB::WarpStageKind::POLAR_CHART;
   peirce_polar.slots.warp_program.inner.polar_harmonic = 2;
   peirce_polar.params.source.pattern_freq = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(peirce_polar));
 
-  WB::RequestedConfig airocean_mobius = presets[20];
+  WB::RequestedConfig airocean_mobius = WB::legacy_config();
+  airocean_mobius.slots.projection = WB::Projection::AIROCEAN;
+  airocean_mobius.slots.coverage = WB::CoveragePolicy::EDGE_FADE;
+  airocean_mobius.params.value.edge_width = 0.1f;
   airocean_mobius.slots.surface_lens = WB::SurfaceLens::MOBIUS;
   airocean_mobius.params.surface_lens.mix = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(airocean_mobius));
@@ -1988,11 +2030,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(31));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(22));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(30));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[30]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(21));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[21]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -2044,6 +2086,8 @@ inline void test_shaderball_preset_gui_transition() {
   HS_EXPECT_TRUE(WB::param_morph_active(sb));
   const auto *pattern_freq = sb.getParameters().find("Pattern Freq");
   HS_EXPECT_TRUE(pattern_freq != nullptr);
+  HS_EXPECT_EQ(pattern_freq->min, 0.1f);
+  HS_EXPECT_EQ(pattern_freq->max, 20.0f);
   HS_EXPECT_NEAR(pattern_freq->get(), 5.0f, 1e-6f);
 
   bool saw_intermediate = false;
@@ -2057,29 +2101,29 @@ inline void test_shaderball_preset_gui_transition() {
   HS_EXPECT_TRUE(saw_intermediate);
   HS_EXPECT_NEAR(pattern_freq->get(), 1.2f, 1e-5f);
 
-  HS_EXPECT_TRUE(sb.selectPreset(16));
+  HS_EXPECT_TRUE(sb.selectPreset(20));
   sb.setAnimationsPaused(false);
   WB::begin_blend(sb);
   sb.setAnimationsPaused(true);
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(17));
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(21));
   HS_EXPECT_TRUE(WB::transition_active(sb));
   const auto *function = sb.getParameters().find("Function");
-  const auto *outer_strength = sb.getParameters().find("Outer Warp Strength");
+  const auto *projection_wander = sb.getParameters().find("Projection Wander");
   HS_EXPECT_TRUE(function != nullptr);
-  HS_EXPECT_TRUE(outer_strength != nullptr);
+  HS_EXPECT_TRUE(projection_wander != nullptr);
   HS_EXPECT_EQ(function->get(),
                static_cast<float>(WB::Function::COUPLED_DIRECT));
-  HS_EXPECT_NEAR(outer_strength->get(), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(projection_wander->get(), 0.0030917525f, 1e-6f);
   saw_intermediate = false;
   for (int frame = 0; frame < 1024 && WB::transition_active(sb); ++frame) {
     sb.draw_frame();
     sb.advance_display();
     WB::refresh_display(sb);
-    const float displayed = outer_strength->get();
-    saw_intermediate |= displayed > 0.0f && displayed < 0.6f;
+    const float displayed = projection_wander->get();
+    saw_intermediate |= displayed > 0.0030917525f && displayed < 0.421f;
   }
   HS_EXPECT_TRUE(saw_intermediate);
-  HS_EXPECT_NEAR(outer_strength->get(), 0.6f, 1e-5f);
+  HS_EXPECT_NEAR(projection_wander->get(), 0.421f, 1e-5f);
   HS_EXPECT_EQ(function->get(),
                static_cast<float>(WB::Function::PRIMITIVE_LATTICE));
 }
@@ -2231,6 +2275,15 @@ inline void test_shaderball_gui_catalog() {
     }
   };
   select_and_set_all("Function", 5, "Source Noise Basis");
+  const auto *source_noise_scale =
+      sb.getParameters().find("Source Noise Scale");
+  const auto *source_noise_rate = sb.getParameters().find("Source Noise Rate");
+  HS_EXPECT_TRUE(source_noise_scale != nullptr);
+  HS_EXPECT_TRUE(source_noise_rate != nullptr);
+  HS_EXPECT_EQ(source_noise_scale->min, 0.0f);
+  HS_EXPECT_EQ(source_noise_scale->max, 2.0f);
+  HS_EXPECT_EQ(source_noise_rate->min, -1.0f / 1024.0f);
+  HS_EXPECT_EQ(source_noise_rate->max, 1.0f / 1024.0f);
   select_and_set_all("Projection", 2, "Gnomonic Hemisphere");
   select_and_set_all("Projection", 3, "Bonne Hemisphere");
   HS_EXPECT_TRUE(sb.updateParameter("Bonne Standard Parallel", 0.9f) ==
@@ -3146,7 +3199,7 @@ inline void test_shaderball_stable_preset_transition() {
   for (size_t index = 0; index < presets.size(); ++index) {
     HS_EXPECT_TRUE(WB::valid_config(presets[index]));
     const auto &next = presets[(index + 1) % presets.size()];
-    if (index > 0 && index < 15)
+    if (index > 0 && index < 10)
       HS_EXPECT_TRUE(WB::slots_equal(presets[index].slots, next.slots));
     HS_EXPECT_TRUE(WB::transition_admitted(presets[index], next));
   }

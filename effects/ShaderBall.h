@@ -882,11 +882,11 @@ private:
                                                bool expose_pattern_frequency) {
     if (function == Function::NOISE_CONTOUR) {
       register_animated_param("Source Noise Scale", &params.noise_scale,
-                              NOISE_SCALE_MIN, NOISE_SCALE_MAX);
+                              SOURCE_NOISE_SCALE_MIN, SOURCE_NOISE_SCALE_MAX);
       register_animated_param("Source Noise Contrast", &params.noise_contrast,
                               0.0f, 8.0f);
       register_animated_param("Source Noise Rate", &params.noise_time_rate,
-                              NOISE_RATE_MIN, NOISE_RATE_MAX);
+                              SOURCE_NOISE_RATE_MIN, SOURCE_NOISE_RATE_MAX);
       register_animated_param("Source Noise Basis", &params.noise_basis,
                               NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
                               NUM_NOISE_BASES);
@@ -3888,7 +3888,7 @@ private:
   static constexpr float WARP_STRENGTH_MAX = 30.0f;
   static constexpr float WARP_TIME_MIN = -1.0f / 64.0f;
   static constexpr float WARP_TIME_MAX = 1.0f;
-  static constexpr float PATTERN_FREQ_MIN = 1.0f, PATTERN_FREQ_MAX = 20.0f;
+  static constexpr float PATTERN_FREQ_MIN = 0.1f, PATTERN_FREQ_MAX = 20.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float COMPLEXITY_MIN = 0.0f, COMPLEXITY_MAX = 3.0f;
   static constexpr float PATTERN_MIX_MIN = 0.0f, PATTERN_MIX_MAX = 1.0f;
@@ -3902,6 +3902,10 @@ private:
   static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 1.0f;
   static constexpr float VALUE_FADE_MIN = 0.0f, VALUE_FADE_MAX = 1.0f;
   static constexpr float WAVE_SPIN_MIN = 0.0f, WAVE_SPIN_MAX = 0.05f;
+  static constexpr float SOURCE_NOISE_SCALE_MIN = 0.0f;
+  static constexpr float SOURCE_NOISE_SCALE_MAX = 2.0f;
+  static constexpr float SOURCE_NOISE_RATE_MIN = -1.0f / 1024.0f;
+  static constexpr float SOURCE_NOISE_RATE_MAX = 1.0f / 1024.0f;
   static constexpr float NOISE_SCALE_MIN = 1.0f / 64.0f;
   static constexpr float NOISE_SCALE_MAX = 64.0f;
   static constexpr float NOISE_RATE_MIN = -1.0f / 64.0f;
@@ -3925,11 +3929,11 @@ private:
            p.source.secondary_rate <= PHASE2_RATE_MAX &&
            p.source.angle_rate >= WAVE_SPIN_MIN &&
            p.source.angle_rate <= WAVE_SPIN_MAX &&
-           p.source.noise_scale >= NOISE_SCALE_MIN &&
-           p.source.noise_scale <= NOISE_SCALE_MAX &&
+           p.source.noise_scale >= SOURCE_NOISE_SCALE_MIN &&
+           p.source.noise_scale <= SOURCE_NOISE_SCALE_MAX &&
            p.source.noise_contrast >= 0.0f && p.source.noise_contrast <= 8.0f &&
-           p.source.noise_time_rate >= NOISE_RATE_MIN &&
-           p.source.noise_time_rate <= NOISE_RATE_MAX &&
+           p.source.noise_time_rate >= SOURCE_NOISE_RATE_MIN &&
+           p.source.noise_time_rate <= SOURCE_NOISE_RATE_MAX &&
            p.source.lattice_cell_scale >= CELL_MIN &&
            p.source.lattice_cell_scale <= CELL_MAX &&
            p.source.lattice_shape_blend >= 0.0f &&
@@ -4104,57 +4108,6 @@ private:
             outer_camera};
   }
 
-  static constexpr Preset diagnostic_preset(uint8_t index) {
-    Slots slots{Function::COUPLED_DIRECT,
-                Projection::SINUSOIDAL,
-                ProjectionFramePolicy::IDENTITY,
-                SurfaceLens::NONE,
-                {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
-                SignalWeight::NONE,
-                ValueTransfer::LINEAR,
-                CoveragePolicy::OPAQUE,
-                Colorizer::DEFORMATION_INK};
-    Params params{};
-    if (index == 0) {
-      slots.projection = Projection::BONNE;
-      slots.warp_program.outer.kind = WarpStageKind::MIRROR_TILE;
-      slots.warp_program.inner.kind = WarpStageKind::VORTEX;
-      params.warp.outer.cell_x = 1.25f;
-      params.warp.outer.cell_y = 0.75f;
-      params.warp.inner.turns = 0.75f;
-      params.warp.inner.center_orbit_radius = 0.2f;
-      params.warp.inner.time_scale = 1.0f / 256.0f;
-    } else if (index == 1) {
-      slots.function = Function::PRIMITIVE_LATTICE;
-      slots.projection = Projection::STEREOGRAPHIC;
-      slots.warp_program.outer.kind = WarpStageKind::VECTOR_NOISE;
-      params.warp.outer.strength = 0.6f;
-      params.warp.outer.scale = 1.5f;
-      params.warp.outer.time_scale = 0.0f;
-      params.source.lattice_cell_scale = 2.0f;
-    } else if (index == 2) {
-      slots.function = Function::GRID;
-      slots.projection = Projection::STEREOGRAPHIC;
-      slots.warp_program.outer.kind = WarpStageKind::CURL_FLOW;
-      slots.warp_program.outer.basis = NoiseBasis::SIMPLEX;
-      slots.warp_program.outer.curl_integrator = CurlIntegrator::EULER_1;
-      params.warp.outer.strength = 0.0078125f;
-      params.warp.outer.scale = 1.0f;
-      params.warp.outer.time_scale = 0.0f;
-    } else if (index == 3) {
-      slots.projection = Projection::PEIRCE_QUINCUNCIAL;
-    } else {
-      slots.projection = Projection::AIROCEAN;
-    }
-    if (slots.projection == Projection::BONNE ||
-        slots.projection == Projection::PEIRCE_QUINCUNCIAL ||
-        slots.projection == Projection::AIROCEAN) {
-      slots.coverage = CoveragePolicy::EDGE_FADE;
-      params.value.edge_width = 0.1f;
-    }
-    return {slots, params};
-  }
-
   static constexpr Preset wave_shear_liquid_preset() {
     Slots slots = LIQUID_STEREO_SLOTS;
     slots.warp_program.outer.kind = WarpStageKind::WAVE_SHEAR;
@@ -4323,7 +4276,38 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 31> PRESETS = {{
+  static constexpr Preset dodecahedral_lattice_noise_preset() {
+    const Slots slots{
+        Function::PRIMITIVE_LATTICE,
+        Projection::STEREOGRAPHIC,
+        ProjectionFramePolicy::SPIN_WANDER,
+        SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
+        {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::LEGACY_STEREO_NOISE}},
+        SignalWeight::PROJECTION,
+        ValueTransfer::LINEAR,
+        CoveragePolicy::EDGE_FADE,
+        Colorizer::LIQUID};
+    SourceParams source;
+    source.lattice_cell_scale = 0.57453126f;
+    source.lattice_shape_blend = 1.0f;
+    source.lattice_softness = 0.5454443f;
+    source.lattice_radius = 0.25f;
+    WarpStageParams outer_warp;
+    outer_warp.rotation = 0.0f;
+    outer_warp.cell_x = 1.0f;
+    outer_warp.cell_y = 1.0f;
+    outer_warp.offset_x = 0.0f;
+    outer_warp.offset_y = 0.0f;
+    Params params = authored_params(
+        source, outer_warp, {1.5482996f, 0.020879198f, 0.421f}, {1.0f},
+        {0.25410002f, 0.00015458837f, 0.562f, 0.847f}, {0.591f});
+    params.projection.wander = 0.421f;
+    params.warp.inner = {16.0f, 8.73f, 0.20772f};
+    params.value.edge_width = 0.0775f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 22> PRESETS = {{
       {KALEIDOSCOPE_LIQUID_STEREO_SLOTS,
        authored_params({1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
                        {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f},
@@ -4359,44 +4343,18 @@ private:
                        {47.752f, 11.55f, 0.3f}, {1.55f, ORBIT_SPIN_RATE},
                        {0.0f}, {0.0f, 0.0f, 0.097f, 1.0f}, {0.0f})},
       {LIQUID_STEREO_SLOTS,
-       authored_params({14.262f, 0.586f, 0.0f, 1.0f, 0.7f}, {0.1f, 0.87f, 0.3f},
-                       {3.527f, ORBIT_SPIN_RATE}, {0.0f},
-                       {0.0f, 0.0f, 0.097f, 1.0f}, {0.0f})},
-      {LIQUID_STEREO_SLOTS,
        authored_params({8.0f, 0.30f, 0.0f, 1.0f, 0.7f}, {1.5f, 0.5f, 0.3f},
                        {2.0f, ORBIT_SPIN_RATE}, {0.0f},
                        {0.0f, 0.0f, 0.15f, 1.0f}, {0.0f})},
-      {LIQUID_STEREO_SLOTS,
-       authored_params({7.878f, 0.562f, 0.0f, 1.0f, 0.7f},
-                       {47.752f, 2.55f, 0.3f}, {2.843f, ORBIT_SPIN_RATE},
-                       {0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}, {0.0f})},
-      {LIQUID_STEREO_SLOTS,
-       authored_params({1.0f, 0.586f, 0.0f, 1.0f, 0.7f}, {100.0f, 8.67f, 0.3f},
-                       {3.432f, ORBIT_SPIN_RATE}, {0.0f},
-                       {0.0f, 0.0f, 0.636f, 1.0f}, {0.0f})},
-      {LIQUID_STEREO_SLOTS,
-       authored_params({13.430163f, 0.385f, 0.0f, 1.0f, 0.7f},
-                       {0.1f, 0.0f, 0.3f}, {1.627f, ORBIT_SPIN_RATE}, {0.0f},
-                       {0.0f, 0.0f, 0.10404046f, 1.0f}, {0.0f})},
       {LIQUID_STEREO_SLOTS,
        authored_params({13.430163f, 0.385f, 0.0f, 1.0f, 0.7f},
                        {0.1f, 0.0f, 0.3f}, {1.627f, ORBIT_SPIN_RATE}, {1.0f},
                        {0.0f, 0.0f, 0.10404046f, 1.0f}, {0.0f})},
       {LIQUID_STEREO_SLOTS,
        authored_params({1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
-                       {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f},
-                       {0.0f}, {0.25410002f, 0.00015458837f, 0.201f, 0.847f},
-                       {0.0030917525f})},
-      {LIQUID_STEREO_SLOTS,
-       authored_params({1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
                        {38.761299f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f},
                        {0.0f}, {0.25410002f, 0.00015458837f, 0.201f, 0.847f},
                        {0.0030917525f})},
-      diagnostic_preset(0),
-      diagnostic_preset(1),
-      diagnostic_preset(2),
-      diagnostic_preset(3),
-      diagnostic_preset(4),
       wave_shear_liquid_preset(),
       kaleidoscope_mirror_preset(),
       gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
@@ -4407,6 +4365,7 @@ private:
       dodecahedral_grid_preset(),
       peirce_dodecahedral_liquid_preset(),
       dodecahedral_noise_liquid_preset(),
+      dodecahedral_lattice_noise_preset(),
   }};
   static_assert(
       [] {
