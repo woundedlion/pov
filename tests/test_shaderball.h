@@ -546,6 +546,50 @@ inline void test_shaderball_full_config_snapshot() {
                                             before_failure));
 }
 
+/**
+ * @brief A pending surface-noise slot edit narrows the strength range while
+ * the requested value stays put.
+ */
+inline void test_shaderball_surface_noise_range_rebind() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  const size_t noise_slot =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_SURFACE_NOISE);
+  const size_t strength =
+      static_cast<size_t>(WB::ConfigFieldId::SURFACE_NOISE_STRENGTH);
+  const WB::FullConfigSnapshot settled = sb.capture_full_config_snapshot();
+
+  WB::FullConfigSnapshot pending_curl = settled;
+  pending_curl.accepted[noise_slot] =
+      static_cast<uint32_t>(WB::SurfaceNoise::CURL);
+  pending_curl.requested[noise_slot] =
+      static_cast<uint32_t>(WB::SurfaceNoise::DIRECT);
+  pending_curl.accepted[strength] = shaderball_float_payload(-0.25f);
+  pending_curl.requested[strength] = shaderball_float_payload(-0.25f);
+  pending_curl.pending[noise_slot] = 1;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(pending_curl),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_TRUE(shaderball_snapshots_equal(sb.capture_full_config_snapshot(),
+                                            pending_curl));
+  HS_EXPECT_EQ(WB::display_config(sb).slots.surface_noise,
+               WB::SurfaceNoise::DIRECT);
+  HS_EXPECT_NEAR(WB::display_config(sb).params.surface_noise.strength, -0.25f,
+                 1e-6f);
+  const char *warning = WB::parameter_warning(sb, "Surface Noise Strength");
+  HS_EXPECT_TRUE(warning != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "outside its registered range") !=
+                 nullptr);
+
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(settled),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_TRUE(
+      shaderball_snapshots_equal(sb.capture_full_config_snapshot(), settled));
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Strength") ==
+                 nullptr);
+}
+
 /** @brief Schema-1 IDs and structural noise migrate to schema-2 fields. */
 inline void test_shaderball_legacy_config_snapshot() {
   using WB = ShaderBallWhiteBox;
@@ -4059,6 +4103,7 @@ inline int run_shaderball_tests() {
   test_shaderball_inverse_pipeline_manifest();
   test_shaderball_inverse_program_equivalence();
   test_shaderball_full_config_snapshot();
+  test_shaderball_surface_noise_range_rebind();
   test_shaderball_legacy_config_snapshot();
   test_shaderball_schema2_selector_storage();
   test_shaderball_clocks_wrapped();

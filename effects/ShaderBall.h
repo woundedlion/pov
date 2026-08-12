@@ -1415,9 +1415,15 @@ private:
                             NUM_NOISE_BASES);
     register_animated_param("Surface Noise Scale", &params.scale,
                             LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
-    register_animated_param(
-        "Surface Noise Strength", &params.strength,
-        slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f, 0.5f);
+    const float strength_min =
+        slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    register_animated_param_preserving_value(
+        "Surface Noise Strength", &params.strength, strength_min, 0.5f);
+#else
+    register_animated_param("Surface Noise Strength", &params.strength,
+                            strength_min, 0.5f);
+#endif
     register_animated_param("Surface Noise Rate", &params.rate, NOISE_RATE_MIN,
                             NOISE_RATE_MAX);
     if (slots.surface_noise == SurfaceNoise::DIRECT)
