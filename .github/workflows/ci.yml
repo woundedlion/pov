@@ -186,9 +186,15 @@ jobs:
         #
         # --no-tests=error: a shard regex that matches nothing is a shard-matrix
         # bug; without it an empty shard runs zero tests and reports green.
+        #
+        # HS_BUFFER_FREE_WATCHDOG_US: the canvas ctor's spin watchdog is a trap,
+        # so a runner deschedule past it kills the shard instead of failing a
+        # test. Shards 3 and 4 carry unit_canvas / unit_pov_segmented, the two
+        # modules that spin it; 30 s still catches a genuinely stalled hand-off.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
+          HS_BUFFER_FREE_WATCHDOG_US: 30000000
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
@@ -430,9 +436,12 @@ jobs:
         # Numbered shards use the same deep window and full effects tier as Debug.
         # Each matrix entry excludes tests incompatible with its configuration.
         # --no-tests=error for the same reason as the tests job.
+        # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job: shards
+        # 3, 4 and fastmath all run unit_canvas / unit_pov_segmented.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
+          HS_BUFFER_FREE_WATCHDOG_US: 30000000
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
@@ -483,9 +492,12 @@ jobs:
         # whole roster. Deep smoke window + full effects tier, matching the
         # gating jobs, so the measured coverage is the coverage CI actually has.
         # %p keeps the death harness's re-spawned children off the parent's file.
+        # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job, with
+        # the whole roster instrumented on a 2-vCPU runner.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
+          HS_BUFFER_FREE_WATCHDOG_US: 30000000
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
 
@@ -561,9 +573,13 @@ jobs:
         # that a declared gap rather than a silent one. TEST_EXCLUDE is the
         # *generated_exclude anchor the shard matrix already carries, so the set
         # cannot drift from the one the matrix declares.
+        #
+        # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the Linux tests job:
+        # this job runs unit_canvas and unit_pov_segmented unsharded.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
+          HS_BUFFER_FREE_WATCHDOG_US: 30000000
           TEST_EXCLUDE: *generated_exclude
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
