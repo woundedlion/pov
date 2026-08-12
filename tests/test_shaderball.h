@@ -348,6 +348,9 @@ struct ShaderBallWhiteBox {
   static Vector apply_lens(const Vector &v, SurfaceLens lens) {
     return SB::apply_frame_free_lens(v, lens);
   }
+  static Vector tangent_noise_lens(const Vector &v, const FrameState &frame) {
+    return SB::tangent_noise_lens(v, frame);
+  }
   static float sample_function(Function function, const Complex &p,
                                const SourceState &source) {
     return SB::sample_function(function, p, source);
@@ -2027,10 +2030,49 @@ inline void test_shaderball_strict_seam_admission() {
 
     config.slots.surface_lens = WB::SurfaceLens::TANGENT_NOISE;
     config.params.surface_lens.mix = 0.5f;
-    HS_EXPECT_FALSE(WB::valid_config(config));
+    HS_EXPECT_TRUE(WB::valid_config(config));
 
     config.slots.projection = WB::Projection::SINUSOIDAL;
     HS_EXPECT_TRUE(WB::valid_config(config));
+  }
+}
+
+/** @brief Tangent Noise stays continuous across the former polar frame cut. */
+inline void test_shaderball_tangent_noise_sphere_field() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+
+  WB::RequestedConfig config = WB::legacy_config();
+  config.slots.surface_lens = WB::SurfaceLens::TANGENT_NOISE;
+  config.params.surface_lens.mix = 1.0f;
+  config.params.surface_lens.amount = 0.75f;
+  config.params.surface_lens.noise_scale = 4.0f;
+  HS_EXPECT_TRUE(WB::valid_config(config));
+  WB::request_config(sb, config);
+  WB::settle_transition(sb);
+
+  const auto *scale = sb.getParameters().find("Lens Noise Scale");
+  HS_EXPECT_TRUE(scale != nullptr);
+  HS_EXPECT_EQ(scale->max, 8.0f);
+
+  const WB::FrameState frame = WB::frame(sb);
+  constexpr float EPSILON = 1e-4f;
+  const auto at_latitude = [](float y) {
+    return Vector(sqrtf(1.0f - y * y), y, 0.0f);
+  };
+  const Vector below =
+      WB::tangent_noise_lens(at_latitude(0.9f - EPSILON), frame);
+  const Vector above =
+      WB::tangent_noise_lens(at_latitude(0.9f + EPSILON), frame);
+  HS_EXPECT_LT((above - below).length(), 0.02f);
+
+  for (const Vector &direction :
+       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, -1.0f, 0.0f),
+        Vector(1.0f, 0.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f)}) {
+    HS_EXPECT_NEAR(WB::tangent_noise_lens(direction, frame).length(), 1.0f,
+                   1e-5f);
   }
 }
 
@@ -3500,6 +3542,7 @@ inline int run_shaderball_tests() {
   test_shaderball_atomic_gui_commit();
   test_shaderball_structural_admission();
   test_shaderball_strict_seam_admission();
+  test_shaderball_tangent_noise_sphere_field();
   test_shaderball_additive_delta_precision();
   test_shaderball_profile_presets();
   test_shaderball_manual_preset_navigation();

@@ -1006,7 +1006,7 @@ private:
     if (lens == SurfaceLens::TANGENT_NOISE) {
       register_animated_param("Lens Amount", &params.amount, 0.0f, 4.0f);
       register_animated_param("Lens Noise Scale", &params.noise_scale,
-                              NOISE_SCALE_MIN, NOISE_SCALE_MAX);
+                              LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
       register_animated_param("Lens Noise Rate", &params.noise_rate,
                               NOISE_RATE_MIN, NOISE_RATE_MAX);
       register_animated_param("Lens Noise Basis", &params.noise_basis,
@@ -2735,25 +2735,26 @@ private:
                                                    const FrameState &frame) {
     const float scale = frame.params.surface_lens.noise_scale;
     const WrappedNoisePhase &phase = frame.lens_noise_phase;
+    const float x = scale * v.x;
+    const float y = scale * v.y;
+    const float z = scale * v.z;
     const float nx = sample_wrapped_noise_basis(
-        *frame.resources.lens_noise, frame.params.surface_lens.noise_basis,
-        scale * v.x, scale * v.y, phase, scale * v.z);
+        *frame.resources.lens_noise, frame.params.surface_lens.noise_basis, x,
+        y, phase, z);
     const float ny = sample_wrapped_noise_basis(
         *frame.resources.lens_noise, frame.params.surface_lens.noise_basis,
-        scale * v.x + 17.0f, scale * v.y - 29.0f, phase, scale * v.z + 43.0f);
-    Vector tangent_a =
-        fabsf(v.y) < 0.9f ? Vector(-v.z, 0.0f, v.x) : Vector(0.0f, v.z, -v.y);
-    tangent_a = tangent_a.normalized();
-    const Vector tangent_b(v.y * tangent_a.z - v.z * tangent_a.y,
-                           v.z * tangent_a.x - v.x * tangent_a.z,
-                           v.x * tangent_a.y - v.y * tangent_a.x);
+        x + 17.0f, y - 29.0f, phase, z + 43.0f);
+    const float nz = sample_wrapped_noise_basis(
+        *frame.resources.lens_noise, frame.params.surface_lens.noise_basis,
+        x - 47.0f, y + 11.0f, phase, z - 23.0f);
+    const float radial = nx * v.x + ny * v.y + nz * v.z;
+    const Vector tangent(nx - radial * v.x, ny - radial * v.y,
+                         nz - radial * v.z);
     const float amount = frame.params.surface_lens.amount;
-    return nlerp_unit(
-        v,
-        Vector(v.x + amount * (nx * tangent_a.x + ny * tangent_b.x),
-               v.y + amount * (nx * tangent_a.y + ny * tangent_b.y),
-               v.z + amount * (nx * tangent_a.z + ny * tangent_b.z)),
-        1.0f);
+    return nlerp_unit(v,
+                      Vector(v.x + amount * tangent.x, v.y + amount * tangent.y,
+                             v.z + amount * tangent.z),
+                      1.0f);
   }
 
   static Vector twist_lens(const Vector &v) {
@@ -3255,7 +3256,6 @@ private:
     if (!strict_projection(config.slots.projection))
       return true;
     return config.slots.function != Function::NOISE_CONTOUR &&
-           config.slots.surface_lens != SurfaceLens::TANGENT_NOISE &&
            !seam_sensitive_warp(config.slots.warp_program.outer.kind) &&
            !seam_sensitive_warp(config.slots.warp_program.inner.kind);
   }
@@ -3570,8 +3570,6 @@ private:
           PROJECTION_OPTIONS[static_cast<uint8_t>(candidate.slots.projection)]);
       if (candidate.slots.function == Function::NOISE_CONTOUR)
         append_warning(" Function Noise Contour is not seam-safe.");
-      if (candidate.slots.surface_lens == SurfaceLens::TANGENT_NOISE)
-        append_warning(" Lens Tangent Noise is not seam-safe.");
       if (seam_sensitive_warp(outer.kind))
         append_warning(" Outer Warp %s is not seam-safe.",
                        WARP_OPTIONS[static_cast<uint8_t>(outer.kind)]);
@@ -3666,7 +3664,7 @@ private:
   curl_strength_limit(const WarpStageSpec &spec,
                       const WarpStageParams &params) {
     const float scale =
-        params.scale > NOISE_SCALE_MIN ? params.scale : NOISE_SCALE_MIN;
+        params.scale > WARP_SCALE_MIN ? params.scale : WARP_SCALE_MIN;
     return 0.5f * static_cast<float>(curl_intervals(spec.curl_integrator)) /
            (scale * noise_gradient_bound(spec.basis));
   }
@@ -4190,8 +4188,8 @@ private:
   static constexpr float SOURCE_NOISE_SCALE_MAX = 2.0f;
   static constexpr float SOURCE_NOISE_RATE_MIN = -1.0f / 1024.0f;
   static constexpr float SOURCE_NOISE_RATE_MAX = 1.0f / 1024.0f;
-  static constexpr float NOISE_SCALE_MIN = 1.0f / 64.0f;
-  static constexpr float NOISE_SCALE_MAX = 64.0f;
+  static constexpr float LENS_NOISE_SCALE_MIN = 1.0f / 64.0f;
+  static constexpr float LENS_NOISE_SCALE_MAX = 8.0f;
   static constexpr float NOISE_RATE_MIN = -1.0f / 64.0f;
   static constexpr float NOISE_RATE_MAX = 1.0f / 64.0f;
   static constexpr float CELL_MIN = 1.0f / 64.0f;
@@ -4246,8 +4244,8 @@ private:
            p.surface_lens.mix >= LENS_MIX_MIN &&
            p.surface_lens.mix <= LENS_MIX_MAX &&
            p.surface_lens.amount >= 0.0f && p.surface_lens.amount <= 4.0f &&
-           p.surface_lens.noise_scale >= NOISE_SCALE_MIN &&
-           p.surface_lens.noise_scale <= NOISE_SCALE_MAX &&
+           p.surface_lens.noise_scale >= LENS_NOISE_SCALE_MIN &&
+           p.surface_lens.noise_scale <= LENS_NOISE_SCALE_MAX &&
            p.surface_lens.noise_rate >= NOISE_RATE_MIN &&
            p.surface_lens.noise_rate <= NOISE_RATE_MAX &&
            p.value.iso_level >= 0.0f && p.value.iso_level <= 1.0f &&
