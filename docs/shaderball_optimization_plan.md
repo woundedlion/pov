@@ -452,12 +452,14 @@ OuterCamera -> SurfaceProject -> PlanarWarp -> Source -> Material -> Color
 ```
 
 A variadic `InversePipeline<Stages...>` would fuse those point-sampling stages
-into one callable shader. Authored runtime slots resolve once per frame to a
-finite set of measured pipeline instantiations; arbitrary GUI combinations
-continue through the current generic fallback. Keep a single `Scan::Shader`
-driver, specialize only topology clusters that win on hardware, and leave
-large or cold kernels flash-resident. This preserves exact generic oracles and
-avoids the ITCM failure already demonstrated by instantiating every topology.
+into one callable shader. The shipping effect uses a closed, deduplicated set
+of compiled pipelines covering every authored preset and supported discrete
+GUI edit. Unsupported topology edits are rejected; there is no generic
+shipping fallback. A per-frame program selection preserves one shared
+`Scan::Shader` driver, while lens, projection, warp, source, material, and
+color dispatch are compile-time. Large or cold kernels remain flash-resident.
+The former runtime renderer survives only as a host-test oracle until coverage
+is complete, then is excluded from release links.
 
 The useful shared surface with `Filter` is policy/concept machinery--stage
 composition, compile-time traits, and optional fusion--not its forward
