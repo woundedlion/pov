@@ -345,7 +345,6 @@ public:
     TWIST,
     KALEIDOSCOPE,
     MOBIUS,
-    TANGENT_NOISE,
     KALEIDOSCOPE_TETRAHEDRAL,
     KALEIDOSCOPE_OCTAHEDRAL,
     KALEIDOSCOPE_DODECAHEDRAL,
@@ -353,7 +352,8 @@ public:
     KALEIDOSCOPE_SQUARE_PRISM,
     KALEIDOSCOPE_PENTAGONAL_PRISM,
     KALEIDOSCOPE_HEXAGONAL_PRISM,
-    KALEIDOSCOPE_OCTAGONAL_PRISM
+    KALEIDOSCOPE_OCTAGONAL_PRISM,
+    TANGENT_NOISE = 255
   };
   enum class WarpEnvelope : uint8_t { FLAT, PROJECTION_WEIGHT, EDGE_FADE };
   enum class PolarMode : uint8_t { LINEAR, LOGARITHMIC };
@@ -363,14 +363,14 @@ public:
   enum class SurfaceNoisePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
   enum class WarpStageKind : uint8_t {
     NONE,
-    LEGACY_STEREO_NOISE,
     AFFINE_FRAME,
     WAVE_SHEAR,
     VORTEX,
     VECTOR_NOISE,
     CURL_FLOW,
     MIRROR_TILE,
-    POLAR_CHART
+    POLAR_CHART,
+    LEGACY_STEREO_NOISE = 255
   };
   struct WarpStageSpec {
     WarpStageKind kind;
@@ -1693,6 +1693,12 @@ private:
       encode_field_value(config.path);
     HS_SHADERBALL_CONFIG_FIELDS(HS_SHADERBALL_ENCODE_FIELD)
 #undef HS_SHADERBALL_ENCODE_FIELD
+    values[static_cast<size_t>(ConfigFieldId::SLOTS_SURFACE_LENS)] =
+        surface_lens_storage_id(config.slots.surface_lens);
+    values[static_cast<size_t>(ConfigFieldId::SLOTS_WARP_OUTER_KIND)] =
+        warp_storage_id(config.slots.warp_program.outer.kind);
+    values[static_cast<size_t>(ConfigFieldId::SLOTS_WARP_INNER_KIND)] =
+        warp_storage_id(config.slots.warp_program.inner.kind);
     return values;
   }
 
@@ -1704,7 +1710,67 @@ private:
           valid;
     HS_SHADERBALL_CONFIG_FIELDS(HS_SHADERBALL_DECODE_FIELD)
 #undef HS_SHADERBALL_DECODE_FIELD
+    valid = decode_surface_lens_storage(
+                values[static_cast<size_t>(ConfigFieldId::SLOTS_SURFACE_LENS)],
+                config.slots.surface_lens) &&
+            valid;
+    valid =
+        decode_warp_storage(
+            values[static_cast<size_t>(ConfigFieldId::SLOTS_WARP_OUTER_KIND)],
+            config.slots.warp_program.outer.kind) &&
+        valid;
+    valid =
+        decode_warp_storage(
+            values[static_cast<size_t>(ConfigFieldId::SLOTS_WARP_INNER_KIND)],
+            config.slots.warp_program.inner.kind) &&
+        valid;
     return valid;
+  }
+
+  static constexpr uint32_t surface_lens_storage_id(SurfaceLens lens) {
+    const uint8_t value = static_cast<uint8_t>(lens);
+    if (lens == SurfaceLens::TANGENT_NOISE)
+      return 5;
+    return value < 5 ? value : value + 1;
+  }
+
+  static bool decode_surface_lens_storage(uint32_t id, SurfaceLens &lens) {
+    if (id <= 4) {
+      lens = static_cast<SurfaceLens>(id);
+      return true;
+    }
+    if (id == 5) {
+      lens = SurfaceLens::TANGENT_NOISE;
+      return true;
+    }
+    if (id <= 13) {
+      lens = static_cast<SurfaceLens>(id - 1);
+      return true;
+    }
+    return false;
+  }
+
+  static constexpr uint32_t warp_storage_id(WarpStageKind kind) {
+    if (kind == WarpStageKind::LEGACY_STEREO_NOISE)
+      return 1;
+    const uint8_t value = static_cast<uint8_t>(kind);
+    return value == 0 ? 0 : value + 1;
+  }
+
+  static bool decode_warp_storage(uint32_t id, WarpStageKind &kind) {
+    if (id == 0) {
+      kind = WarpStageKind::NONE;
+      return true;
+    }
+    if (id == 1) {
+      kind = WarpStageKind::LEGACY_STEREO_NOISE;
+      return true;
+    }
+    if (id <= 8) {
+      kind = static_cast<WarpStageKind>(id - 1);
+      return true;
+    }
+    return false;
   }
 
   struct LegacyDecodeState {
@@ -4675,7 +4741,6 @@ private:
       "Twist",
       "Kaleidoscope (Azimuthal 6-fold)",
       "Mobius",
-      "Tangent Noise",
       "Kaleidoscope (Tetrahedral)",
       "Kaleidoscope (Octahedral / Cubic)",
       "Kaleidoscope (Dodecahedral / Icosahedral)",
@@ -4690,7 +4755,6 @@ private:
       "SurfaceLens::TWIST",
       "SurfaceLens::KALEIDOSCOPE",
       "SurfaceLens::MOBIUS",
-      "SurfaceLens::TANGENT_NOISE",
       "SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL",
       "SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL",
       "SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL",
@@ -4720,7 +4784,6 @@ private:
   static constexpr int NUM_SURFACE_CURL_INTEGRATORS =
       std::size(SURFACE_CURL_INTEGRATOR_OPTIONS);
   static constexpr const char *WARP_OPTIONS[] = {"None",
-                                                 "Stereo Noise",
                                                  "Affine Frame",
                                                  "Wave Shear",
                                                  "Vortex",
@@ -4729,11 +4792,10 @@ private:
                                                  "Mirror Tile",
                                                  "Polar Chart"};
   static constexpr const char *WARP_EXPORT_OPTIONS[] = {
-      "WarpStageKind::NONE",         "WarpStageKind::LEGACY_STEREO_NOISE",
-      "WarpStageKind::AFFINE_FRAME", "WarpStageKind::WAVE_SHEAR",
-      "WarpStageKind::VORTEX",       "WarpStageKind::VECTOR_NOISE",
-      "WarpStageKind::CURL_FLOW",    "WarpStageKind::MIRROR_TILE",
-      "WarpStageKind::POLAR_CHART"};
+      "WarpStageKind::NONE",         "WarpStageKind::AFFINE_FRAME",
+      "WarpStageKind::WAVE_SHEAR",   "WarpStageKind::VORTEX",
+      "WarpStageKind::VECTOR_NOISE", "WarpStageKind::CURL_FLOW",
+      "WarpStageKind::MIRROR_TILE",  "WarpStageKind::POLAR_CHART"};
   static constexpr int NUM_WARPS = std::size(WARP_OPTIONS);
   static constexpr const char *NOISE_BASIS_OPTIONS[] = {"Simplex", "FBM 3",
                                                         "Ridged 3"};
