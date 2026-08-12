@@ -201,8 +201,8 @@ share one travel phase and one angle:
 | `source_noise_time` | basis-defined period | Source animation | noise-contour evolution and native wrap crossfade |
 | `lens_noise_time` | basis-defined period | Surface lens | tangent-noise evolution and native wrap crossfade |
 | `warp_time` | `STEREO_NOISE_TIME_PERIOD` | Warp | ShaderBall noise warp |
-| `warp_outer_phase` | 1 turn | Outer planar warp | non-legacy warp animation |
-| `warp_inner_phase` | 1 turn | Inner planar warp | non-legacy warp animation |
+| `warp_outer_phase` | 1 turn | Planar Warp 1 | non-legacy warp animation |
+| `warp_inner_phase` | 1 turn | Planar Warp 2 | non-legacy warp animation |
 | `projection_spin` | 2π | Project | ShaderBall Y spin in the projection frame |
 | `breathe_phase` | 2π | Colorize | ShaderBall breathe coordinate |
 | palette resource state | provider-defined | Colorize resource | palette sequence, provider hue, and fade/dwell progress |
@@ -254,7 +254,7 @@ The pullback lookup path is:
    `join(ProjectedLookup a, ProjectedLookup b, mix) → ProjectedLookup`.
 6. Post-join projection policy: recompute only scalar facts proven to be
    functions of joined coordinates.
-7. `WarpProgram`: outer planar lookup, then inner planar lookup → source
+7. `WarpProgram`: Planar Warp 1 lookup, then Planar Warp 2 lookup → source
    coordinate plus deformation metadata.
 8. `Coordinate conditioning`: prepare bounded function arguments.
 9. `Function`: source coordinate plus phases from `FrameState` → signed value.
@@ -396,7 +396,7 @@ The projected-domain vocabulary is a fixed two-stage program, not an arbitrary
 node graph. In authored order the stages are:
 
 ```text
-source -> inner planar warp -> outer planar warp -> projection
+source -> Planar Warp 2 -> Planar Warp 1 -> projection
 ```
 
 The pullback shader evaluates the inverse order:
@@ -426,7 +426,7 @@ branch's prepared resource.
 
 The visual pipeline has compile-time `MAX_NOISE_RESOURCES = 8`, stored in a
 fixed effect-owned array with no heap fallback. This covers the admitted maximum
-of four distinct keyed owners per endpoint—outer warp, inner warp, noise source,
+of four distinct keyed owners per endpoint—Planar Warp 1, Planar Warp 2, noise source,
 and tangent-noise lens—across a discrete transition. Random-walk generators remain
 separate dedicated owners and do not consume these slots. Before transition
 capture, candidate validation deduplicates the union of endpoint keys and
