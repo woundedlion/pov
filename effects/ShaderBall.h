@@ -4210,7 +4210,17 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 30> PRESETS = {{
+  static constexpr Preset dodecahedral_noise_liquid_preset() {
+    Slots slots = KALEIDOSCOPE_LIQUID_STEREO_SLOTS;
+    slots.surface_lens = SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL;
+    const Params params = authored_params(
+        {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f, 0.0f},
+        {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f, 0.0030917525f},
+        {1.0f}, {0.25410002f, 0.00015458837f, 0.201f, 0.847f}, {0.0030917525f});
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 31> PRESETS = {{
       {KALEIDOSCOPE_LIQUID_STEREO_SLOTS,
        authored_params({1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
                        {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f},
@@ -4293,6 +4303,7 @@ private:
       kaleidoscope_edge_fade_liquid_preset(),
       dodecahedral_grid_preset(),
       peirce_dodecahedral_liquid_preset(),
+      dodecahedral_noise_liquid_preset(),
   }};
   static_assert(
       [] {
