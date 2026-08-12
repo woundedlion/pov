@@ -373,6 +373,33 @@ class TestBudgetSchema(unittest.TestCase):
         with self.assertRaises(tg.BudgetSchemaError):
             self._load(no_bank)
 
+    def test_deleting_any_shipped_region_is_rejected(self):
+        for env, budget in BUDGETS.items():
+            for region in budget["regions"]:
+                with self.subTest(env=env, region=region):
+                    dropped = copy.deepcopy(BUDGETS)
+                    del dropped[env]["regions"][region]
+                    # The truncated budget still evaluates clean: nothing but
+                    # the schema notices that the ceiling is gone.
+                    self.assertTrue(tg.evaluate(
+                        env, dropped[env],
+                        tg.parse_teensy_size(_read("good_teensy_size.txt")),
+                        tg.parse_readelf_symbols(
+                            _read("good_readelf_syms.txt"))).passed)
+                    with self.assertRaises(tg.BudgetSchemaError) as ctx:
+                        self._load(dropped)
+                    self.assertIn(region, str(ctx.exception))
+
+    def test_deleting_any_shipped_layout_symbol_is_rejected(self):
+        for env, budget in BUDGETS.items():
+            for key in budget["symbols"]:
+                with self.subTest(env=env, symbol=key):
+                    dropped = copy.deepcopy(BUDGETS)
+                    del dropped[env]["symbols"][key]
+                    with self.assertRaises(tg.BudgetSchemaError) as ctx:
+                        self._load(dropped)
+                    self.assertIn(key, str(ctx.exception))
+
     def test_non_object_spec_rejected(self):
         budgets = copy.deepcopy(BUDGETS)
         budgets["phantasm"]["regions"] = [1, 2]
