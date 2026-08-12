@@ -330,7 +330,7 @@ struct ShaderBallWhiteBox {
     return SB::shade(v, frame);
   }
   static Color4 pipeline_shade(const Vector &v, const FrameState &frame) {
-    const auto function = SB::resolve_shade_function(frame.slots);
+    const auto function = SB::resolve_shade_function(frame);
     return function ? function(v, frame) : SB::shade(v, frame);
   }
   static Complex project_point(const Vector &v, Projection projection) {
@@ -3068,7 +3068,8 @@ inline void test_shaderball_specialized_inverse_pipelines() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  for (size_t preset_index : {size_t(18), size_t(20), size_t(21)}) {
+  for (size_t preset_index : {size_t(0), size_t(1), size_t(15), size_t(16),
+                              size_t(17), size_t(18), size_t(20), size_t(21)}) {
     const WB::FrameState frame = WB::preset_frame(sb, preset_index);
     for (int latitude_step = -32; latitude_step <= 32; ++latitude_step) {
       const float latitude = latitude_step * (0.5f * PI_F / 32.0f);

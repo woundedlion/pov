@@ -362,6 +362,7 @@ private:
 #ifdef HS_PROFILE_SHADERBALL_STAGES
   struct ShaderBallStageTotals {
     uint64_t lens = 0;
+    uint64_t surface_noise = 0;
     uint64_t projection = 0;
     uint64_t planar_warp = 0;
     uint64_t source = 0;
@@ -378,6 +379,7 @@ private:
   void drain_shaderball_stages() {
     const hs::ShaderBallStageCycles &frame = hs::g_shaderball_stage_cycles;
     shaderball_stage_totals.lens += frame.lens;
+    shaderball_stage_totals.surface_noise += frame.surface_noise;
     shaderball_stage_totals.projection += frame.projection;
     shaderball_stage_totals.planar_warp += frame.planar_warp;
     shaderball_stage_totals.source += frame.source;
@@ -394,21 +396,22 @@ private:
   }
 
   void dump_shaderball_stages() {
-    char c0[21], c1[21], c2[21], c3[21], c4[21], c5[21];
-    hs::log("sb stages: lens=%s projection=%s warp=%s source=%s material=%s "
-            "color=%s",
+    char c0[21], c1[21], c2[21], c3[21], c4[21], c5[21], c6[21];
+    hs::log("sb stages: lens=%s surface_noise=%s projection=%s warp=%s "
+            "source=%s material=%s color=%s",
             hs::u64_dec(shaderball_stage_totals.lens, c0),
-            hs::u64_dec(shaderball_stage_totals.projection, c1),
-            hs::u64_dec(shaderball_stage_totals.planar_warp, c2),
-            hs::u64_dec(shaderball_stage_totals.source, c3),
-            hs::u64_dec(shaderball_stage_totals.material, c4),
-            hs::u64_dec(shaderball_stage_totals.color, c5));
-    char c6[21], c7[21], c8[21];
+            hs::u64_dec(shaderball_stage_totals.surface_noise, c1),
+            hs::u64_dec(shaderball_stage_totals.projection, c2),
+            hs::u64_dec(shaderball_stage_totals.planar_warp, c3),
+            hs::u64_dec(shaderball_stage_totals.source, c4),
+            hs::u64_dec(shaderball_stage_totals.material, c5),
+            hs::u64_dec(shaderball_stage_totals.color, c6));
+    char c7[21], c8[21], c9[21];
     hs::log("sb detail: mirror=%s poly_pixels=%s poly_reflections=%s "
             "poly_max=%lu",
-            hs::u64_dec(shaderball_stage_totals.mirror_tile, c6),
-            hs::u64_dec(shaderball_stage_totals.polyhedral_pixels, c7),
-            hs::u64_dec(shaderball_stage_totals.polyhedral_reflections, c8),
+            hs::u64_dec(shaderball_stage_totals.mirror_tile, c7),
+            hs::u64_dec(shaderball_stage_totals.polyhedral_pixels, c8),
+            hs::u64_dec(shaderball_stage_totals.polyhedral_reflections, c9),
             (unsigned long)shaderball_stage_totals.polyhedral_max_reflections);
     shaderball_stage_totals.reset();
   }

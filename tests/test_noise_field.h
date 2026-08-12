@@ -96,6 +96,10 @@ inline void test_noise_field_direct_tangent() {
       Vector(0.0f, 0.0f, 1.0f), Vector(0.0f, 0.0f, -1.0f)};
   for (const Vector &v : DIRECTIONS) {
     const Vector q = noise_sphere_coordinate(v, 1.0f, 0.375f);
+    const Vector simplex =
+        sample_direct_tangent(noise, NoiseBasis::SIMPLEX, q, v, 1.0f, 0.0f);
+    const Vector specialized = sample_direct_simplex_tangent(noise, q, v);
+    HS_EXPECT_EQ(std::memcmp(&simplex, &specialized, sizeof(Vector)), 0);
     const Vector u0 =
         sample_direct_tangent(noise, NoiseBasis::FBM3, q, v, 0.0f);
     const Vector u1 =
@@ -152,6 +156,33 @@ inline void test_sphere_exp_map_and_transport() {
   HS_EXPECT_NEAR(transported.length(), tangent.length(), 1e-6f);
 }
 
+inline void test_half_radian_exp_map_approximation() {
+  float max_error = 0.0f;
+  for (int latitude_step = -16; latitude_step <= 16; ++latitude_step) {
+    const float latitude = latitude_step * (0.5f * PI_F / 16.0f);
+    const float radius = cosf(latitude);
+    for (int longitude_step = 0; longitude_step < 64; ++longitude_step) {
+      const float longitude = longitude_step * (TWO_PI_F / 64.0f);
+      const Vector v(radius * cosf(longitude), sinf(latitude),
+                     radius * sinf(longitude));
+      Vector tangent = cross(v, Z_AXIS);
+      if (dot(tangent, tangent) < 1e-6f)
+        tangent = cross(v, X_AXIS);
+      tangent = tangent.normalized();
+      for (int distance_step = 0; distance_step <= 64; ++distance_step) {
+        const Vector displacement = (0.5f * distance_step / 64.0f) * tangent;
+        const Vector exact = sphere_exp_map(v, displacement);
+        const Vector approximate = sphere_exp_map_half_radian(v, displacement);
+        max_error = std::max(
+            max_error, std::max(fabsf(exact.x - approximate.x),
+                                std::max(fabsf(exact.y - approximate.y),
+                                         fabsf(exact.z - approximate.z))));
+      }
+    }
+  }
+  HS_EXPECT_LT(max_error, 2e-7f);
+}
+
 inline int run_noise_field_tests() {
   hs_test::ModuleFixture fixture("noise_field");
   test_noise_field_key_identity();
@@ -162,6 +193,7 @@ inline int run_noise_field_tests() {
   test_noise_field_tetrahedral_gradient();
   test_noise_field_curl_tangent();
   test_sphere_exp_map_and_transport();
+  test_half_radian_exp_map_approximation();
   return fixture.result();
 }
 

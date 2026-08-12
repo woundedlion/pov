@@ -159,7 +159,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
   X("transformers", 44, hs_test::transformers_tests::run_transformers_tests,   \
     1296)                                                                      \
   X("noise", 3, hs_test::noise_tests::run_noise_tests, 201)                    \
-  X("noise_field", 8, hs_test::noise_field_tests::run_noise_field_tests, 400)  \
+  X("noise_field", 9, hs_test::noise_field_tests::run_noise_field_tests, 400)  \
   X("generators", 4, hs_test::generators_tests::run_generators_tests, 59)      \
   X("animation", 110, hs_test::animation_tests::run_animation_tests, 13894)    \
   X("effects", 90, hs_test::effects_tests::run_effects_tests,                  \
@@ -170,7 +170,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
-  X("shaderball", 38, hs_test::shaderball_tests::run_shaderball_tests, 70000)  \
+  X("shaderball", 39, hs_test::shaderball_tests::run_shaderball_tests, 70000)  \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
   X("shapeshifter_tiles", 2,                                                   \
