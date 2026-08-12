@@ -659,6 +659,15 @@ public:
   virtual void refresh_parameter_display() {}
 
   /**
+   * @brief Reads the value accepted for rendering for one parameter.
+   * @param parameter Registered parameter descriptor.
+   * @return Accepted value in the parameter's native numeric representation.
+   */
+  virtual float accepted_parameter_value(const ParamDef &parameter) const {
+    return parameter.get_requested();
+  }
+
+  /**
    * @brief Reports an actionable GUI warning for one parameter.
    * @param name Registered parameter name.
    * @return Warning text, or null when the parameter is valid.

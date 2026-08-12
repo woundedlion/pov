@@ -812,9 +812,11 @@ public:
         // min/max (no range).
         entry.set("value", val(v.value > 0.5f));
         entry.set("requestedValue", val(v.requested_value > 0.5f));
+        entry.set("acceptedValue", val(v.accepted_value > 0.5f));
       } else {
         entry.set("value", v.value);
         entry.set("requestedValue", v.requested_value);
+        entry.set("acceptedValue", v.accepted_value);
         entry.set("min", v.min);
         entry.set("max", v.max);
         if (v.is_integer)

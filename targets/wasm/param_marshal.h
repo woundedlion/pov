@@ -56,6 +56,7 @@ struct ParamView {
   const char *name;      /**< Parameter name, as exposed to the JS boundary. */
   float value;           /**< Rendered value in the parameter's native units. */
   float requested_value; /**< Writable target used to seed another renderer. */
+  float accepted_value;  /**< Last value admitted for rendering. */
   float min;             /**< Inclusive lower bound; ignored when is_bool. */
   float max;             /**< Inclusive upper bound; ignored when is_bool. */
   bool is_bool;          /**< True if the parameter is a boolean toggle. */
@@ -82,7 +83,8 @@ inline void collect_param_views(const Effect &effect,
                                 std::vector<ParamView> &out) {
   out.clear();
   for (const auto &def : effect.getParameters()) {
-    out.push_back(ParamView{def.name, def.get(), def.get_requested(), def.min,
+    out.push_back(ParamView{def.name, def.get(), def.get_requested(),
+                            effect.accepted_parameter_value(def), def.min,
                             def.max, def.is_bool(), def.is_integer(),
                             def.animated, def.readonly, def.preset, def.options,
                             def.option_count, def.export_options});

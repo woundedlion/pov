@@ -88,6 +88,9 @@ inline bool check_one(const char *, FieldCoverage &coverage) {
     HS_EXPECT_EQ(views[i].is_bool, def.is_bool());
     HS_EXPECT_EQ(views[i].value, def.get());
     HS_EXPECT_EQ(views[i].requested_value, def.get_requested());
+    HS_EXPECT_EQ(
+        views[i].accepted_value,
+        static_cast<const Effect &>(effect).accepted_parameter_value(def));
     HS_EXPECT_EQ(views[i].min, def.min);
     HS_EXPECT_EQ(views[i].max, def.max);
     HS_EXPECT_EQ(views[i].animated, def.animated);

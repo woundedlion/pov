@@ -1806,6 +1806,60 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
                static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE));
 }
 
+/** @brief Curl warnings name every violated limit and joint repairs commit. */
+inline void test_shaderball_actionable_curl_warning() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Scale", 100.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Strength", 12.81f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Time", 0.47f) ==
+                 ParamSetResult::APPLIED);
+  sb.draw_frame();
+  sb.advance_display();
+  const WB::RequestedConfig before = WB::active_config(sb);
+
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Outer Warp",
+                         static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
+      ParamSetResult::APPLIED);
+  const char *warning = WB::parameter_warning(sb, "Outer Warp");
+  HS_EXPECT_TRUE(warning != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "Outer Curl Flow rejected") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "Warp Strength 12.81") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "Warp Scale 100") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "Warp Time 0.47") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "Euler 1") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "0.000078125") != nullptr);
+  HS_EXPECT_TRUE(WB::active_config(sb) == before);
+  const auto *outer_warp = sb.getParameters().find("Outer Warp");
+  HS_EXPECT_EQ(outer_warp->get_requested(),
+               static_cast<float>(WB::WarpStageKind::CURL_FLOW));
+  HS_EXPECT_EQ(
+      static_cast<const Effect &>(sb).accepted_parameter_value(*outer_warp),
+      static_cast<float>(before.slots.warp_program.outer.kind));
+
+  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Scale", 1.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Strength", 0.0078125f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Time", 0.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Outer Warp") == nullptr);
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.outer.kind,
+               WB::WarpStageKind::CURL_FLOW);
+  HS_EXPECT_NEAR(WB::active_config(sb).params.warp.outer.scale, 1.0f, 1e-7f);
+  HS_EXPECT_NEAR(WB::active_config(sb).params.warp.outer.strength, 0.0078125f,
+                 1e-7f);
+  HS_EXPECT_NEAR(WB::active_config(sb).params.warp.outer.time_scale, 0.0f,
+                 1e-7f);
+}
+
 /** @brief Invalid selectors stay visible while independent edits apply. */
 inline void test_shaderball_atomic_gui_commit() {
   using WB = ShaderBallWhiteBox;
@@ -3442,6 +3496,7 @@ inline int run_shaderball_tests() {
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();
   test_shaderball_dodecahedral_lattice_edit();
+  test_shaderball_actionable_curl_warning();
   test_shaderball_atomic_gui_commit();
   test_shaderball_structural_admission();
   test_shaderball_strict_seam_admission();
