@@ -16,7 +16,9 @@ after its last compatibility reader no longer calls it. Exact reproduction of
 the Stereo Noise look is not a goal.
 
 Keep the existing source as `Noise Contour (Projected)` with its serialized
-value and behavior unchanged. Add `Noise Contour (Sphere)` on the shared
+value, projected domain, and contrast transfer unchanged. Its sampling layout
+migrates to the common periodic field and therefore need not reproduce the old
+wrapped-Z animation pixel-for-pixel. Add `Noise Contour (Sphere)` on the shared
 sphere-field sampler as a new source value. Both remain scalar sources, not
 displacement modes. Sharing a noise-field contract does not make scalar
 sampling and vector displacement the same operation.
@@ -96,6 +98,22 @@ view
   -> Planar Warp 2
   -> planar source
 ```
+
+Name the unit directions at every boundary:
+
+```text
+v_camera     = inverse_outer_camera(view)
+v_pre_lens   = SurfaceNoise(v_camera) or v_camera
+v_lensed     = Lens(v_pre_lens)
+v_post_lens  = SurfaceNoise(v_lensed) or v_lensed
+v_projection = inverse_projection_frame(v_post_lens)
+```
+
+Exactly one of `v_pre_lens` and `v_post_lens` contains a Surface Noise
+application. Projection consumes `v_projection`. Noise Contour (Sphere) also
+samples `q_sphere(v_projection, phase)`, so Projection Frame Spin + Wander
+rotates its sampling domain by the same inverse frame used by the projection;
+it does not resample `v_lensed` or either placement boundary.
 
 `Surface Noise Placement` selects which of the two marked positions is active.
 There is one field and one displacement application, not two simultaneously
@@ -199,10 +217,28 @@ Version 1 channel offsets are `C0 = (0,0,0)`, `C1 = (17,-29,43)`, and
 channel ordering, and Ridged recentering are part of `channel_layout = 1` and
 must be golden-tested rather than inferred from consumer names.
 
-FBM 3 uses lacunarity 2, gain 1/2, and normalization by 1.75. Ridged 3 applies
-`1 - abs(n)` per octave and removes or recenters its DC term before it is used
-as a vector component. These definitions are shared by source and displacement
-sampling.
+For base Simplex output `N(q)` in `[-1,1]`, version 1 defines:
+
+```text
+FBM3(q) = (N(q) + 0.5*N(2*q) + 0.25*N(4*q)) / 1.75
+R3(q)   = ((1-abs(N(q)))
+         + 0.5*(1-abs(N(2*q)))
+         + 0.25*(1-abs(N(4*q)))) / 1.75
+RidgedScalar(q) = 2*R3(q) - 1
+```
+
+Simplex and FBM vector components sample their signed scalar directly at each
+channel offset. A Ridged vector component is instead
+`R3(q+Cj) - R3(q+Dj)`, which is bounded in `[-1,1]` and cancels the positive
+mean without a fitted DC constant. Version 1 uses `D0=(-73.271,19.119,5)`,
+`D1=(61.731,89.417,-7)`, and `D2=(13.571,-59.213,97.331)`. Direct uses all
+three C/D pairs and Projected Vector uses pairs 0 and 1. Scalar sources and
+Curl potentials use `RidgedScalar`; Curl is insensitive to its constant term,
+but using the same formula makes scalar golden vectors identical. Octave
+frequency multiplication happens before channel offsets only through the
+argument: each call evaluates the complete formula at `q+Cj` or `q+Dj`.
+These formulas are `octave_layout = 1`; the C/D tables and scalar-versus-vector
+rule are `channel_layout = 1` and enter the resource key.
 
 ### Direct vector field
 
@@ -253,7 +289,7 @@ holding phase fixed:
 ```text
 nx = (N(q_projected + h*(1,0,0)) - N(q_projected - h*(1,0,0))) / (2*h)
 ny = (N(q_projected + h*(0,1,0)) - N(q_projected - h*(0,1,0))) / (2*h)
-u  = (ny, -nx)
+u  = (-ny, nx)
 ```
 
 It uses the same version 1 `h = 1/64`. Vector Angle rotates a Projected Vector
@@ -300,13 +336,16 @@ nonnegative Strength and the Direction control for orientation.
 
 ## Noise Contour
 
-Keep the current source, numeric value, and sampling behavior under the explicit
-label `Noise Contour (Projected)`. Add `Noise Contour (Sphere)` as a new enum
-value. The new source samples the common scalar field at the sphere direction
-after the selected surface lens and Surface Noise stage. Both retain the
-existing contrast transfer.
+Keep the current numeric value, projected domain, and contrast transfer under
+the explicit label `Noise Contour (Projected)`. Its version 1 sampler changes
+from the legacy wrapped-Z path to `q_projected`, using the common scalar formula.
+This is an intentional visual migration recorded in the import notice and in
+legacy/new golden fixtures. Add `Noise Contour (Sphere)` as a new enum value.
+The new source samples the common scalar field at `v_projection`, after Lens,
+the selected Surface Noise placement, and inverse Projection Frame. Both retain
+the existing contrast transfer.
 
-This source intentionally bypasses projection coordinates and the planar warp
+The Sphere source intentionally bypasses projection coordinates and the planar warp
 program. A requested configuration combining Sphere Noise Contour with a
 non-None planar warp is invalid and remains pending with a warning; no warp is
 silently disabled. Projection can still supply value weighting and coverage,
@@ -334,7 +373,7 @@ The new controls are:
 | Noise Basis | Simplex, FBM 3, Ridged 3 | Shared names and ordering for source and displacement. |
 | Noise Scale | `1/64 .. 8` | Logarithmic slider. Scale 1 is approximately sphere-sized structure; the low end is necessary for whole-sphere kaleidoscope looks. |
 | Noise Strength | Direct `0 .. 0.5` rad; Curl `-0.5 .. 0.5` rad | At most about 29 degrees of surface travel per application. |
-| Noise Rate | `-1/1024 .. 1/1024` turns/frame | Fine primary slider. Exact entry may accept up to `+/-1/64` when performance and alias tests pass. |
+| Noise Rate | Fine slider `-1/1024 .. 1/1024`; legal exact entry `-1/64 .. 1/64` turns/frame | The accepted range is fixed; the slider emphasizes controllable slow motion. |
 | Noise Direction | `0 .. 1` turn | Direct only; rotates the tangent vector around the sample direction. |
 | Curl Integrator | Euler, Midpoint, Midpoint 2x | Curl only. No automatic quality change. |
 | Noise Seed | Signed 32-bit integer | Exported and preset-authored; expose as exact entry only if the GUI supports integer editing. |
@@ -508,7 +547,28 @@ must select every visible option on both sides of each numeric hole and assert
 the requested storage ID, displayed ordinal, export name, URL, and restored
 selection.
 
-1. Add a serialized ShaderBall schema version before changing option meaning.
+The first unified format is ShaderBall config schema version `2`. A missing
+version or explicit version `1` invokes the legacy decoder. Version `2` uses
+the following normative storage IDs:
+
+| Enum | Storage IDs in schema 2 |
+|---|---|
+| Function | `0 Twin Wave`, `1 Rings`, `2 Spiral`, `3 Grid`, `4 Coupled / Direct`, `5 Noise Contour (Projected)`, `6 Primitive Lattice`, `7 Noise Contour (Sphere)` |
+| Surface Lens | `0 None`, `1 Glitch`, `2 Twist`, `3 Kaleidoscope (Azimuthal 6-fold)`, `4 Mobius`, `5 TANGENT_NOISE tombstone`, `6 Tetrahedral`, `7 Octahedral`, `8 Dodecahedral`, `9 Triangular Prism`, `10 Square Prism`, `11 Pentagonal Prism`, `12 Hexagonal Prism`, `13 Octagonal Prism` |
+| Planar Warp kind | `0 None`, `1 LEGACY_STEREO_NOISE tombstone`, `2 Affine Frame`, `3 Wave Shear`, `4 Vortex`, `5 Projected Vector Noise`, `6 Projected Curl Flow`, `7 Mirror Tile`, `8 Polar Chart` |
+| Surface Noise | `0 None`, `1 Direct`, `2 Curl` |
+| Surface Noise Placement | `0 Before Lens`, `1 After Lens` |
+
+All other existing enum storage IDs remain unchanged. Schema 1 uses the same
+legacy Function, Lens, and Warp numbers shown above, but Function 5 is labeled
+Noise Contour, Lens 5 is live Tangent Noise, Warp 1 is live Stereo Noise, and
+the two Surface Noise enums are absent. The decoder maps every schema-1 value
+according to the migration rules below. An unknown enum ID, schema `0`, a
+negative version, or a version greater than `2` fails the entire import with an
+actionable unsupported-version/value message; it leaves both current accepted
+and requested state unchanged. Writers emit version `2` only.
+
+1. Write schema version `2` before any affected option or parameter.
 2. Add a new Surface Noise enum and parameter block. Do not reuse the numeric
    value of Tangent Noise or a planar warp kind.
 3. Keep `LEGACY_STEREO_NOISE` and `TANGENT_NOISE` numeric values reserved as
@@ -531,9 +591,9 @@ selection.
 9. Remove Lens Mix from the new schema. A legacy Lens Mix of zero imports as
    Lens None. A nonzero mix imports a selected structural lens at full effect.
    Tangent Noise with zero mix has no Surface Noise effect; with nonzero mix it
-   is a migration candidate whose initial Strength is calibrated from Amount
-   and Mix before hand-retuning. Built-in presets are hand-retuned, and external
-   imports receive a notice that the fractional blend was removed.
+   follows the exact decoder below. Built-in presets are authored directly as
+   schema 2 and may be hand-retuned; external imports always use the normative
+   decoder and receive a notice that the fractional blend was removed.
 
 A legacy snapshot may contain Tangent Noise and one Stereo Noise stage
 simultaneously, while the new model contains one Surface Noise stage. Migrate
@@ -547,18 +607,45 @@ each cleared obsolete slot, and the Lens Mix conversion. This deliberately
 lossy collision policy is version-decoding behavior, never a live menu side
 effect, and does not promise to reproduce the old look.
 
-Suggested initial migration heuristics are only starting points for preset
-retuning:
+Before mapping a schema-1 config, initialize the complete Surface Noise block to
+`None, After Lens, Simplex, seed 1337, scale 1, strength 0, rate 0, direction 0,
+Euler`. Derived resource identity uses the mapped field key. The external
+decoder then applies these rules in order:
 
-- Tangent Noise -> Surface Noise Direct, After Lens; keep basis, seed, scale,
-  rate, direction 0, and clamp Amount into the new Strength range.
-- Vector Noise -> Projected Vector Noise in the same planar slot with unchanged
-  parameters.
-- Curl Flow -> Projected Curl Flow in the same planar slot with unchanged
-  parameters and integrator.
-- Stereo Noise -> Surface Noise Direct, After Lens; begin with
-  `new_scale = clamp(old_scale * 0.01, 1/64, 8)` and retune Strength per preset.
-  Pole Fade is not migrated into the noise stage.
+1. Vector Noise and Curl Flow retain IDs 5 and 6, their planar slot, parameters,
+   seed, basis, envelope, integrator, and stage phase. Their version 1 sampler
+   layout may change animation but not coordinate domain or authored values.
+2. An effective Tangent Noise lens means storage ID 5 with finite Lens Mix
+   greater than zero. Set Surface Noise to Direct, After Lens; copy basis and
+   seed; set `scale=clamp(old_noise_scale,1/64,8)`,
+   `strength=clamp(old_amount*old_mix,0,0.5)`,
+   `rate=clamp(old_noise_rate,-1/64,1/64)`, Direction 0, Euler; preserve the
+   lens-noise phase; then set Lens to None. If Mix is zero, set Lens None and
+   leave Surface Noise at its initialized values.
+3. If there was no effective Tangent candidate and exactly one planar slot is
+   Stereo Noise, set Surface Noise to Direct, After Lens; copy that stage's
+   basis and seed; set `scale=clamp(old_scale*0.01,1/64,8)`,
+   `strength=clamp(old_strength/60,0,0.5)`, and
+   `rate=clamp(old_source_speed*old_time_scale/65536,-1/64,1/64)`; set
+   Direction 0 and Euler; set its phase to `wrap_t(old_warp_time/65536)` when a
+   runtime clock is present, otherwise zero; then set only that planar slot to
+   None. Pole Fade remains a Projection parameter and is not copied.
+4. If both Tangent and Stereo candidates exist, rule 2 wins and rule 3's Stereo
+   candidate is discarded and cleared with a named notice. Schema-1 admission
+   already forbids two Stereo slots; encountering two is an invalid enum tuple,
+   not a precedence case.
+5. Function ID 5 remains projected and copies basis, seed, scale, rate, contrast,
+   and phase. Its field-layout version changes from legacy wrapped-Z to version
+   1 `q_projected`; the notice names this visual migration. It never maps to
+   Function ID 7.
+
+All calculations above evaluate left to right as IEEE-754 binary32,
+round-to-nearest ties-to-even, then apply the listed clamp. Non-finite inputs
+and values outside the schema-1 serialized ranges make an accepted snapshot
+invalid; an invalid requested snapshot remains represented as pending legacy
+input and cannot overwrite the independently decoded accepted snapshot.
+Hand-retuned built-in presets are schema-2 source data, not exceptions inside
+this decoder.
 
 Do not silently map an obsolete live menu selection while the application is
 running. Migration occurs only while decoding a versioned stored config.
@@ -572,16 +659,17 @@ always-inline specializations cannot be assumed to fit.
 
 Approximate raw noise sample counts per pixel are:
 
-| Mode | Simplex | FBM 3 |
-|---|---:|---:|
-| Direct | 3 | 9 |
-| Curl Euler | 4 | 12 |
-| Curl Midpoint | 8 | 24 |
-| Curl Midpoint 2x | 16 | 48 |
+| Mode | Simplex | FBM 3 | Ridged 3 |
+|---|---:|---:|---:|
+| Direct | 3 | 9 | 18 |
+| Curl Euler | 4 | 12 | 12 |
+| Curl Midpoint | 8 | 24 | 24 |
+| Curl Midpoint 2x | 16 | 48 | 48 |
 
-These counts exclude projection, lens, and source sampling. Ridged 3 has FBM 3
-octave count and may require additional recentering work. Midpoint 2x with FBM
-3 must not ship on Teensy solely because it is acceptable in WASM.
+These counts exclude projection, lens, and source sampling. Direct Ridged uses
+two three-octave samples for each zero-mean vector channel. Midpoint 2x with
+FBM 3 or Ridged 3 must not ship on Teensy solely because it is acceptable in
+WASM.
 
 The first implementation should keep one dispatching kernel in flash and reuse
 the existing selectively optimized OpenSimplex2 primitive. Measure before
@@ -676,6 +764,9 @@ config atomically, then restores requested state and pending field identifiers.
 - Period phase 0 equals phase 1 bit-for-bit after coordinate construction for
   Sphere3D and Projected2D, every basis, scalar/direct/vector/curl channel
   layout, and both projected Curl derivative axes.
+- Golden vectors independently cover the exact FBM3, RidgedScalar, and Ridged
+  C/D-pair formulas at every octave and channel; the implementation is not the
+  oracle that generates expected values.
 - Tetrahedral Curl agrees with the six-sample reference within a measured
   angular-error bound and has no persistent radial component.
 - Negative Curl Strength reverses local circulation.
@@ -687,6 +778,9 @@ config atomically, then restores requested state and pending field identifiers.
 - The same matrix passes with None, Glitch, Twist, Mobius, and all
   kaleidoscope solids represented in the current lens catalog.
 - `After Lens` preserves equality for symmetry-equivalent kaleidoscope inputs.
+- Changing only Projection Frame rotates `v_projection` by the documented
+  inverse frame; Noise Contour (Sphere) samples that coordinate while Surface
+  Noise continues to sample its selected pre-frame placement coordinate.
 - Every pair of Planar Warp 1/2 modes, including Projected Vector Noise and
   Projected Curl Flow, is either admitted or rejected by an explicitly listed
   coordinate-semantic rule; no valid pair is collapsed into one stage.
@@ -722,6 +816,9 @@ config atomically, then restores requested state and pending field identifiers.
 ### Compatibility
 
 - Every legacy enum number decodes deterministically.
+- Golden schema vectors cover missing/version-1/version-2/unknown versions and
+  every numeric Function, Lens, Warp, Surface Noise, and Placement ID. Unknown
+  input leaves the pre-import accepted/requested snapshot byte-for-byte intact.
 - Accepted and requested legacy snapshots migrate independently.
 - Every two-planar-noise pairing retains both planar stages. Tangent Noise plus
   Projected Vector/Curl retains the projected stages. Tangent Noise plus Stereo
@@ -729,11 +826,16 @@ config atomically, then restores requested state and pending field identifiers.
   candidate in its import notice.
 - Legacy Lens Mix zero and fractional values follow the documented conversion
   and produce a notice.
+- External Tangent and Stereo fixtures exercise the exact binary32 conversion
+  formulas at zero, interior, clamp boundary, and collision values, with and
+  without serialized runtime clocks.
 - New export -> import is lossless for all Surface Noise parameters.
 - Old imports produce a visible migration notice and never emit an obsolete
   option on the next export.
 - The legacy Noise Contour ID decodes as Noise Contour (Projected); selecting
   Noise Contour (Sphere) exports only its new ID.
+- Legacy and schema-2 Noise Contour golden fixtures pin the intentional sampler
+  layout change, copied fields, storage ID, and migration notice.
 - All migrated presets are valid holds and contain no import tombstones.
 
 ### Performance and memory
