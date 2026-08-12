@@ -2,11 +2,16 @@
 
 **Status: LANDED.** `effects/ShaderBall.h` is the sole ShaderBall implementation;
 the earlier fixed stereographic implementation has been removed. The typed
-pipeline carries 28 presets and the complete vocabulary in Section 0. Sections
-1–13 preserve the original merge and migration record; they are historical
-where they disagree with Section 0 or the code. References to ShadierBall below
-name the former prototype from which the final typed implementation was
-promoted. Section 11 remains the executed roster checklist.
+pipeline carries 23 presets. Section 0 is authoritative for the authored
+vocabulary, presets, and choreography, and for nothing beyond them: the shipping
+renderer is the variadic inverse-sampling pipeline (`InversePipeline`,
+`TopologyKey`, `ProgramDescriptor`), specified in
+[the inverse-sampling pipeline spec](inverse_sampling_pipeline_spec.md). Nothing
+in this file defines that architecture. Sections 1–13 preserve the original merge
+and migration record; they are historical where they disagree with Section 0 or
+the code. References to ShadierBall below name the former prototype from which
+the final typed implementation was promoted. Section 11 remains the executed
+roster checklist.
 
 ## 0. North star: authored field pipeline, pullback renderer
 
@@ -199,8 +204,7 @@ share one travel phase and one angle:
 | `source_secondary` | 2π | Source animation | ShaderBall's independent drift phase |
 | `source_angle` | 2π | Source animation | ShadierBall twin-wave/grid/spiral rotation |
 | `source_noise_time` | basis-defined period | Source animation | noise-contour evolution and native wrap crossfade |
-| `lens_noise_time` | basis-defined period | Surface lens | tangent-noise evolution and native wrap crossfade |
-| `warp_time` | `STEREO_NOISE_TIME_PERIOD` | Warp | ShaderBall noise warp |
+| `surface_noise_time` | 1 turn | Surface noise | sphere-space surface-noise evolution |
 | `warp_outer_phase` | 1 turn | Planar Warp 1 | non-legacy warp animation |
 | `warp_inner_phase` | 1 turn | Planar Warp 2 | non-legacy warp animation |
 | `projection_spin` | 2π | Project | ShaderBall Y spin in the projection frame |
@@ -211,17 +215,16 @@ Slots consume only the clocks they declare. An unused clock may continue to
 advance so a later transition into its consumer remains phase-continuous.
 Every animated noise consumer names its clock and native period explicitly;
 there is no implicit reuse of a `2π` source clock as a noise time axis.
-`TANGENT_NOISE` owns `lens_noise_time`; it uses the selected basis's native
-period and the same end-of-period crossfade rule as other non-periodic noise.
-Its rate is stored in turns/frame, its position is captured in `FrameState`,
-and a discrete transition forks and hands it off under the rules below. It may
-alias another noise clock only when both the clock identity and complete
-`NoiseResourceKey` are explicitly identical.
+The surface-noise slot owns `surface_noise_time`. Its rate is stored in
+turns/frame, its position is captured in `FrameState`, and a discrete transition
+forks and hands it off under the rules below. Because the clock drives a closed
+loop through the noise domain rather than a linear time axis, it is exactly
+periodic and needs no end-of-period crossfade. It may alias another noise clock
+only when both the clock identity and complete `NoiseResourceKey` are explicitly
+identical.
 `source_angle` and `projection_spin` are deliberately distinct: the first
 rotates a field in its native domain; the second changes how that field is
-framed on the sphere. The new per-stage warp phases do not replace legacy
-`warp_time`: that accumulator retains its native wrap crossfade for ShaderBall
-parity. `breathe_phase` is likewise independent of palette
+framed on the sphere. `breathe_phase` is likewise independent of palette
 generation: ShaderBall's breathe rate is preset-controlled, while both effects'
 palette providers and fade timelines advance on their own schedules and obey
 their own pause policy.
@@ -445,9 +448,8 @@ For original coordinate `p0`, evaluate `p1 = outer.lookup(p0)` and
 `p2 = inner.lookup(p1)`. The final result has `coords = p2`,
 `net_delta = outer.delta + inner.delta`, and the sum of both stage path lengths.
 Each `delta` is computed before adding it to that stage's input, so it is not
-recovered by subtracting rounded coordinates. Normally `deformation` is
-`length(net_delta)`; sole-stage `LEGACY_STEREO_NOISE` instead copies the
-existing helper's directly computed displacement scalar exactly. A direct
+recovered by subtracting rounded coordinates. `deformation` is
+`length(net_delta)`. A direct
 map's stage path is `length(delta)`; an integrated flow reports the sum of its
 integration-segment lengths. Projection metadata remains the original
 finalized post-lens `ProjectedLookup` beside this result.
@@ -457,7 +459,6 @@ The admitted stage catalog is deliberately orthogonal:
 | Stage | Pullback definition | Continuous controls | Tier |
 |---|---|---|---|
 | `NONE` | identity | none | T0 |
-| `LEGACY_STEREO_NOISE` | exact shipped `stereo_noise_warp`, consuming the shared post-join stereographic radial weight and wrapped legacy time | existing scale, strength, time scale | T1 |
 | `AFFINE_FRAME` | `q = inverse(M) * (p - translation)` using a prepared nonsingular inverse | translation, rotation, log-scale x/y, bounded shear | T0 |
 | `WAVE_SHEAR` | `q = p + A*sin(k*dot(d,p)+phase)*J*d` for unit `d` | amplitude, frequency, field angle, phase rate | T0 |
 | `VORTEX` | rotate `p-center` by `2*pi*turns/(1+(r/radius)^2)` | center, radius, turns, center orbit/rate | T0/T1 |
@@ -608,10 +609,9 @@ not replace projection region/component/edge metadata.
 
 Stereographic `pole_fade` has one owner: the shared `StereoRadialPolicy` in
 projection/value parameters. After the lens join it computes `value_weight`
-from `r_sq`. `LEGACY_STEREO_NOISE` consumes that exact weight for displacement
-attenuation; it has no independent pole-fade parameter. If the existing helper
-signature is retained during parity work, both calls receive the same
-frame-snapshot policy value by construction.
+from `r_sq`. No warp stage carries an independent pole-fade parameter; a stage
+that attenuates by projection weight reads that same shared value through the
+`PROJECTION_WEIGHT` envelope.
 
 The initial source vocabulary adds two pure planar functions:
 
@@ -651,11 +651,28 @@ its angular axis and the integral harmonic lands its seam on an exact source
 period.
 
 The added sphere-space lenses reuse existing kernels where their direction is
-valid: `MOBIUS` uses `mobius_transform` explicitly as a pullback, and
-`TANGENT_NOISE` uses the tangent-projected sphere-noise kernel with direct
-preset-owned params. One persistent lens does not justify a capacity-one pool.
-Ripple/burst lenses use `TransformerPool` only when they actually spawn and
-reclaim independent animated entities.
+valid: `MOBIUS` uses `mobius_transform` explicitly as a pullback. One persistent
+lens does not justify a capacity-one pool. Ripple/burst lenses use
+`TransformerPool` only when they actually spawn and reclaim independent animated
+entities.
+
+Sphere-space noise is a slot of its own rather than a lens, ordered against the
+surface lens by `SurfaceNoisePlacement` (`BEFORE_LENS` or `AFTER_LENS`). Each
+kind displaces the looked-up direction by an exponential map along a tangent
+vector, so the result stays on the unit sphere:
+
+| Slot | Pullback definition | Continuous controls |
+|---|---|---|
+| `NONE` | identity | none |
+| `DIRECT` | step along a tangent sampled from the selected basis and rotated by `direction` | basis, scale, strength, rate, direction |
+| `CURL` | step along the surface curl field, integrated by `EULER`, `MIDPOINT`, or `MIDPOINT_2X` | basis, scale, strength, rate, integrator |
+
+Both kinds read `surface_noise_time`, which traverses a closed loop of radius
+`NOISE_LOOP_RADIUS` through the noise domain. Scale is `[1/64, 8]`, rate is
+`[-1/64, 1/64]` turns/frame, and `direction` is `[0, 1]` turns. Strength is
+slot-dependent: `[0, 1/2]` for `DIRECT`, and `[-1/2, 1/2]` for `CURL`, whose
+sign selects the flow direction. Zero strength is exactly identity and is the
+only admitted way to hold the slot inert while its kind stays selected.
 
 `DEFORMATION_INK` exposes warp structure using an existing palette resource:
 
@@ -679,8 +696,6 @@ Composition rules are:
 
 - field evaluation always uses the progressively warped coordinate;
 - projection weight and edge fade always use the original `ProjectedLookup`;
-- `LEGACY_STEREO_NOISE` is stereographic-only, must reproduce its sole-stage
-  path exactly, and is not paired with another stage in a parity preset;
 - a same-stage continuous morph evaluates once with live parameters only after
   whole-path transition admission proves every intermediate valid; valid
   endpoints alone are insufficient;
@@ -760,10 +775,10 @@ value. Ordinary scalar `hs::lerp` across a periodic boundary is not valid.
 Slot validity is explicit rather than assumed from the Cartesian product. The
 compiled admission table covers projection, both warp stages, source traits,
 value/coverage requirements, lens join, resource tier, and transition edge.
-At minimum, `NONE` is valid for every projection and
-`LEGACY_STEREO_NOISE` is valid only for stereographic projection. The shipped
-warp consumes stereographic radial attenuation and must not be silently applied
-to Bonne, Peirce, Airocean, folded sinusoidal, or gnomonic coordinates.
+At minimum, `NONE` is valid for every projection. A stage whose definition
+consumes stereographic radial attenuation is admitted only under stereographic
+projection and must not be silently applied to Bonne, Peirce, Airocean, folded
+sinusoidal, or gnomonic coordinates.
 Preset tables are validated at compile time where possible; invalid GUI
 combinations are rejected without changing the live state.
 
@@ -998,7 +1013,7 @@ the earlier fixed stereographic implementation. The final gate established:
 - named, continuously advancing source, warp, projection, breathe, walk, and
   palette clocks;
 - the two-stage warp program, coupled/direct source, liquid colorizer, and all
-  migrated looks in the 26-preset bank;
+  migrated looks in the 23-preset bank;
 - deterministic GUI edits and exact transition endpoints;
 - premultiplied output blending for topology-changing preset transitions;
 - projection topology metadata, host oracles, finite-output fuzzing, and seam
