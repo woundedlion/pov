@@ -56,6 +56,7 @@ static_assert(show_config().valid() == nullptr,
 } // namespace
 
 FLASHMEM void setup() {
+  POV::park_sync_out();
   boot_serial();
   log_reset_cause();
   create_pov();

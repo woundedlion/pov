@@ -195,6 +195,21 @@ public:
   using EffectFactory = Effect *(*)();
 
   /**
+   * @brief Drives MASTER_EN to its disabled level, parking the external
+   *        sync-out buffer.
+   * @details Call as the first statement of setup(). MASTER_EN is the '125
+   *          channel-C /OE and only takes its board-role level in run_show();
+   *          until this runs, only the R_MEN pull-up (PCB rule R-LS-5) holds a
+   *          board's sync driver off the shared bus, and a driver that is
+   *          enabled while a peer drives the bus source-fights undetectably
+   *          (see read_id()).
+   */
+  HS_COLD_MEMBER static void park_sync_out() {
+    digitalWriteFast(PIN_MASTER_EN, HIGH);
+    pinMode(PIN_MASTER_EN, OUTPUT);
+  }
+
+  /**
    * @brief Initializes hardware: reads segment ID and configures the LED
    *        driver.
    * @details CONTRACT — construct only from setup(), never as a file-scope

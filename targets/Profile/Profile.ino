@@ -700,6 +700,7 @@ static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1).valid() ==
 } // namespace
 
 FLASHMEM void setup() {
+  POV::park_sync_out();
   boot_serial();
   hs::log("profile harness: effect=%s config=%s segments=%d rpm=%u f_cpu=%lu",
           HS_PROFILE_STR(HS_PROFILE_TARGET),
