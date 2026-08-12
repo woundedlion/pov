@@ -3248,6 +3248,8 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   };
   HS_EXPECT_EQ(WB::inverse_program_count(), std::size(EXPECTED));
   HS_EXPECT_TRUE(WB::inverse_programs_well_formed());
+  for (const WB::RequestedConfig &preset : WB::presets())
+    HS_EXPECT_TRUE(WB::has_inverse_program(preset));
   for (const ExpectedProgram &expected : EXPECTED) {
     const WB::FrameState frame = WB::preset_frame(sb, expected.preset);
     HS_EXPECT_EQ(WB::inverse_program_id(frame), expected.id);
