@@ -15,6 +15,7 @@
 
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
+#include "core/math/noise_field.h"
 #include "core/math/projections.h"
 
 namespace hs_test {
@@ -118,6 +119,7 @@ public:
 
 private:
   friend struct ::hs_test::shaderball_tests::ShaderBallWhiteBox;
+  using NoiseBasis = ::NoiseBasis;
 
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     const size_t index = change.to;
@@ -202,10 +204,12 @@ private:
     KALEIDOSCOPE_HEXAGONAL_PRISM,
     KALEIDOSCOPE_OCTAGONAL_PRISM
   };
-  enum class NoiseBasis : uint8_t { SIMPLEX, FBM3, RIDGED3 };
   enum class WarpEnvelope : uint8_t { FLAT, PROJECTION_WEIGHT, EDGE_FADE };
   enum class PolarMode : uint8_t { LINEAR, LOGARITHMIC };
   enum class CurlIntegrator : uint8_t { EULER_1, MIDPOINT_2, MIDPOINT_4 };
+  enum class SurfaceCurlIntegrator : uint8_t { EULER, MIDPOINT, MIDPOINT_2X };
+  enum class SurfaceNoise : uint8_t { NONE, DIRECT, CURL };
+  enum class SurfaceNoisePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
   enum class WarpStageKind : uint8_t {
     NONE,
     LEGACY_STEREO_NOISE,
@@ -267,6 +271,9 @@ private:
     BonneHemisphere bonne_hemisphere = BonneHemisphere::NORTH;
     GnomonicHemispherePolicy gnomonic_hemisphere =
         GnomonicHemispherePolicy::FOLDED;
+    SurfaceNoise surface_noise = SurfaceNoise::NONE;
+    SurfaceNoisePlacement surface_noise_placement =
+        SurfaceNoisePlacement::AFTER_LENS;
 
     HS_COLD_MEMBER bool operator==(const Slots &) const = default;
   };
@@ -498,6 +505,29 @@ private:
     }
   };
 
+  struct SurfaceNoiseParams {
+    NoiseBasis basis = NoiseBasis::SIMPLEX;
+    SurfaceCurlIntegrator integrator = SurfaceCurlIntegrator::EULER;
+    int32_t seed = 1337;
+    float scale = 1.0f;
+    float strength = 0.0f;
+    float rate = 0.0f;
+    float direction = 0.0f;
+
+    HS_COLD_MEMBER bool operator==(const SurfaceNoiseParams &) const = default;
+
+    HS_COLD_MEMBER void lerp(const SurfaceNoiseParams &a,
+                             const SurfaceNoiseParams &b, float t) {
+      basis = t < 1.0f ? a.basis : b.basis;
+      integrator = t < 1.0f ? a.integrator : b.integrator;
+      seed = t < 1.0f ? a.seed : b.seed;
+      scale = hs::lerp(a.scale, b.scale, t);
+      strength = hs::lerp(a.strength, b.strength, t);
+      rate = hs::lerp(a.rate, b.rate, t);
+      direction = WarpStageParams::lerp_angle(a.direction, b.direction, t);
+    }
+  };
+
   struct ValueParams {
     float iso_level = 0.5f;
     float iso_width = 0.05f;
@@ -576,6 +606,7 @@ private:
     ValueParams value;
     ColorizerParams colorizer;
     OuterCameraParams outer_camera;
+    SurfaceNoiseParams surface_noise;
 
     HS_COLD_MEMBER bool operator==(const Params &) const = default;
 
@@ -584,6 +615,7 @@ private:
       warp.lerp(a.warp, b.warp, t);
       projection.lerp(a.projection, b.projection, t);
       surface_lens.lerp(a.surface_lens, b.surface_lens, t);
+      surface_noise.lerp(a.surface_noise, b.surface_noise, t);
       value.lerp(a.value, b.value, t);
       colorizer.lerp(a.colorizer, b.colorizer, t);
       outer_camera.lerp(a.outer_camera, b.outer_camera, t);
@@ -595,7 +627,8 @@ private:
           (a.source != b.source) + (a.warp != b.warp) +
           (a.projection != b.projection) + (a.surface_lens != b.surface_lens) +
           (a.value != b.value) + (a.colorizer != b.colorizer) +
-          (a.outer_camera != b.outer_camera);
+          (a.outer_camera != b.outer_camera) +
+          (a.surface_noise != b.surface_noise);
       int phase = 0;
       source = a.source;
       warp = a.warp;
@@ -604,6 +637,7 @@ private:
       value = a.value;
       colorizer = a.colorizer;
       outer_camera = a.outer_camera;
+      surface_noise = a.surface_noise;
       if (a.source != b.source)
         source.lerp(a.source, b.source, phase_t(t, phase++, phase_count));
       if (a.warp != b.warp)
@@ -621,7 +655,10 @@ private:
                        phase_t(t, phase++, phase_count));
       if (a.outer_camera != b.outer_camera)
         outer_camera.lerp(a.outer_camera, b.outer_camera,
-                          phase_t(t, phase, phase_count));
+                          phase_t(t, phase++, phase_count));
+      if (a.surface_noise != b.surface_noise)
+        surface_noise.lerp(a.surface_noise, b.surface_noise,
+                           phase_t(t, phase, phase_count));
     }
 
     HS_COLD_MEMBER static float phase_t(float t, int phase, int phase_count) {
@@ -659,6 +696,11 @@ private:
     register_animated_param("Camera Wander",
                             &requested_config.params.outer_camera.wander,
                             WANDER_MIN, WANDER_MAX);
+    register_animated_param("Surface Noise", &slots.surface_noise,
+                            SURFACE_NOISE_OPTIONS, SURFACE_NOISE_EXPORT_OPTIONS,
+                            NUM_SURFACE_NOISE);
+    register_surface_noise_controls(slots,
+                                    requested_config.params.surface_noise);
     register_animated_param("Lens", &slots.surface_lens, LENS_OPTIONS,
                             LENS_EXPORT_OPTIONS, NUM_LENSES);
     register_lens_controls(slots.surface_lens,
@@ -837,6 +879,8 @@ private:
            std::strcmp(name, "Bonne Hemisphere") == 0 ||
            std::strcmp(name, "Gnomonic Hemisphere") == 0 ||
            std::strcmp(name, "Projection Frame") == 0 ||
+           std::strcmp(name, "Surface Noise") == 0 ||
+           std::strcmp(name, "Surface Noise Placement") == 0 ||
            std::strcmp(name, "Lens") == 0 ||
            std::strcmp(name, "Planar Warp 1") == 0 ||
            std::strcmp(name, "Planar Warp 2") == 0 ||
@@ -1008,8 +1052,6 @@ private:
                                              SurfaceLensParams &params) {
     if (lens == SurfaceLens::NONE)
       return;
-    register_animated_param("Lens Mix", &params.mix, LENS_MIX_MIN,
-                            LENS_MIX_MAX);
     if (lens == SurfaceLens::TANGENT_NOISE) {
       register_animated_param("Lens Amount", &params.amount, 0.0f, 4.0f);
       register_animated_param("Lens Noise Scale", &params.noise_scale,
@@ -1037,6 +1079,34 @@ private:
       register_animated_param("Mobius D Imag", &params.mobius.d.im, -8.0f,
                               8.0f);
     }
+  }
+
+  HS_COLD_MEMBER void
+  register_surface_noise_controls(Slots &slots, SurfaceNoiseParams &params) {
+    if (slots.surface_noise == SurfaceNoise::NONE)
+      return;
+    register_animated_param(
+        "Surface Noise Placement", &slots.surface_noise_placement,
+        SURFACE_NOISE_PLACEMENT_OPTIONS, SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS,
+        NUM_SURFACE_NOISE_PLACEMENTS);
+    register_animated_param("Surface Noise Basis", &params.basis,
+                            NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
+                            NUM_NOISE_BASES);
+    register_animated_param("Surface Noise Scale", &params.scale,
+                            LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
+    register_animated_param(
+        "Surface Noise Strength", &params.strength,
+        slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f, 0.5f);
+    register_animated_param("Surface Noise Rate", &params.rate, NOISE_RATE_MIN,
+                            NOISE_RATE_MAX);
+    if (slots.surface_noise == SurfaceNoise::DIRECT)
+      register_animated_param("Surface Noise Direction", &params.direction,
+                              0.0f, 1.0f);
+    else
+      register_animated_param("Surface Noise Integrator", &params.integrator,
+                              SURFACE_CURL_INTEGRATOR_OPTIONS,
+                              SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS,
+                              NUM_SURFACE_CURL_INTEGRATORS);
   }
 
   HS_COLD_MEMBER void register_active_warp_controls(bool first,
@@ -1258,6 +1328,7 @@ private:
     float breathe_phase = 0.0f;
     float source_noise_time = 0.0f;
     float lens_noise_time = 0.0f;
+    float surface_noise_time = 0.0f;
     float warp_outer_phase = 0.0f;
     float warp_inner_phase = 0.0f;
 
@@ -1304,23 +1375,12 @@ private:
     const FastNoiseLite *inner_warp_noise;
     const FastNoiseLite *source_noise;
     const FastNoiseLite *lens_noise;
+    const FastNoiseLite *surface_noise;
     const BakedPalette *generated_palette;
     const BakedPalette *liquid_palette;
   };
 
   static constexpr size_t MAX_NOISE_RESOURCES = 8;
-
-  struct NoiseResourceKey {
-    NoiseBasis basis;
-    int32_t seed;
-    float generator_frequency;
-    uint8_t resource_id;
-    uint8_t channel_version;
-    uint8_t octave_version;
-    uint8_t stencil_version;
-
-    HS_COLD_MEMBER bool operator==(const NoiseResourceKey &) const = default;
-  };
 
   struct FrameState {
     Slots slots;
@@ -1382,7 +1442,7 @@ private:
 
   struct StateBundle {
     std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
-    std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
+    std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
     FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
     ParamMorphRuntime param_morph;
@@ -1406,55 +1466,71 @@ private:
            kind == WarpStageKind::CURL_FLOW;
   }
 
-  HS_COLD_MEMBER static constexpr NoiseResourceKey
+  HS_COLD_MEMBER static constexpr NoiseFieldKey
   warp_resource_key(const WarpStageSpec &spec) {
     return {
+        NoiseDomain::PROJECTED_2D,
         spec.basis,
         spec.seed,
+        spec.kind == WarpStageKind::CURL_FLOW ? NoiseChannelLayout::CURL_V1
+                                              : NoiseChannelLayout::DIRECT_V1,
+        1,
+        1,
+        static_cast<uint8_t>(spec.kind == WarpStageKind::CURL_FLOW ? 1 : 0),
+        FastNoiseLite::NoiseType_OpenSimplex2,
         spec.kind == WarpStageKind::LEGACY_STEREO_NOISE ? WARP_NOISE_FREQUENCY
-                                                        : 1.0f,
-        spec.resource_id,
-        static_cast<uint8_t>(spec.kind),
-        static_cast<uint8_t>(spec.basis == NoiseBasis::SIMPLEX ? 1 : 3),
-        static_cast<uint8_t>(spec.kind == WarpStageKind::CURL_FLOW ? 1 : 0)};
+                                                        : 1.0f};
   }
 
-  HS_COLD_MEMBER static constexpr NoiseResourceKey
+  HS_COLD_MEMBER static constexpr NoiseFieldKey
   source_resource_key(const Config &config) {
-    return {
-        config.params.source.noise_basis,
-        config.params.source.noise_seed,
-        1.0f,
-        config.params.source.noise_resource_id,
-        32,
-        static_cast<uint8_t>(
-            config.params.source.noise_basis == NoiseBasis::SIMPLEX ? 1 : 3),
-        0};
+    return {NoiseDomain::PROJECTED_2D,
+            config.params.source.noise_basis,
+            config.params.source.noise_seed,
+            NoiseChannelLayout::SCALAR_V1,
+            1,
+            1,
+            0,
+            FastNoiseLite::NoiseType_OpenSimplex2,
+            1.0f};
   }
 
-  HS_COLD_MEMBER static constexpr NoiseResourceKey
+  HS_COLD_MEMBER static constexpr NoiseFieldKey
   lens_resource_key(const Config &config) {
-    return {config.params.surface_lens.noise_basis,
+    return {NoiseDomain::SPHERE_3D,
+            config.params.surface_lens.noise_basis,
             config.params.surface_lens.noise_seed,
-            1.0f,
-            config.params.surface_lens.noise_resource_id,
-            48,
-            static_cast<uint8_t>(config.params.surface_lens.noise_basis ==
-                                         NoiseBasis::SIMPLEX
-                                     ? 1
-                                     : 3),
-            0};
+            NoiseChannelLayout::DIRECT_V1,
+            1,
+            1,
+            0,
+            FastNoiseLite::NoiseType_OpenSimplex2,
+            1.0f};
+  }
+
+  HS_COLD_MEMBER static constexpr NoiseFieldKey
+  surface_noise_resource_key(const Config &config) {
+    return {NoiseDomain::SPHERE_3D,
+            config.params.surface_noise.basis,
+            config.params.surface_noise.seed,
+            config.slots.surface_noise == SurfaceNoise::CURL
+                ? NoiseChannelLayout::CURL_V1
+                : NoiseChannelLayout::DIRECT_V1,
+            1,
+            1,
+            static_cast<uint8_t>(
+                config.slots.surface_noise == SurfaceNoise::CURL ? 1 : 0),
+            FastNoiseLite::NoiseType_OpenSimplex2,
+            1.0f};
   }
 
   HS_COLD_MEMBER static constexpr bool
-  append_resource_key(const NoiseResourceKey &key,
-                      std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> &keys,
+  append_resource_key(const NoiseFieldKey &key,
+                      std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> &keys,
                       size_t &count) {
     for (size_t index = 0; index < count; ++index)
       if (keys[index] == key)
         return true;
-      else if (keys[index].resource_id == key.resource_id)
-        return false;
     if (count == keys.size())
       return false;
     keys[count++] = key;
@@ -1463,7 +1539,7 @@ private:
 
   HS_COLD_MEMBER static constexpr bool append_config_resource_keys(
       const Config &config,
-      std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> &keys, size_t &count) {
+      std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> &keys, size_t &count) {
     if (warp_uses_noise(config.slots.warp_program.outer.kind) &&
         !append_resource_key(warp_resource_key(config.slots.warp_program.outer),
                              keys, count))
@@ -1478,12 +1554,15 @@ private:
     if (config.slots.surface_lens == SurfaceLens::TANGENT_NOISE &&
         !append_resource_key(lens_resource_key(config), keys, count))
       return false;
+    if (config.slots.surface_noise != SurfaceNoise::NONE &&
+        !append_resource_key(surface_noise_resource_key(config), keys, count))
+      return false;
     return true;
   }
 
   HS_COLD_MEMBER static constexpr bool resource_union_fits(const Config &from,
                                                            const Config &to) {
-    std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> keys{};
+    std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
     size_t count = 0;
     return append_config_resource_keys(from, keys, count) &&
            append_config_resource_keys(to, keys, count);
@@ -1491,7 +1570,7 @@ private:
 
   HS_COLD_MEMBER bool prepare_resource_union(const Config &from,
                                              const Config &to) {
-    std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> keys{};
+    std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
     size_t count = 0;
     if (!append_config_resource_keys(from, keys, count) ||
         !append_config_resource_keys(to, keys, count))
@@ -1509,7 +1588,7 @@ private:
   }
 
   HS_COLD_MEMBER const FastNoiseLite *
-  resolve_resource(const NoiseResourceKey &key) const {
+  resolve_resource(const NoiseFieldKey &key) const {
     for (size_t index = 0; index < prepared_noise_count; ++index)
       if (state->prepared_noise_keys[index] == key)
         return &state->noise_resources[index];
@@ -1534,6 +1613,13 @@ private:
   resolve_lens_resource(const Config &config) const {
     return config.slots.surface_lens == SurfaceLens::TANGENT_NOISE
                ? resolve_resource(lens_resource_key(config))
+               : nullptr;
+  }
+
+  HS_COLD_MEMBER const FastNoiseLite *
+  resolve_surface_noise_resource(const Config &config) const {
+    return config.slots.surface_noise != SurfaceNoise::NONE
+               ? resolve_resource(surface_noise_resource_key(config))
                : nullptr;
   }
 
@@ -1606,6 +1692,7 @@ private:
         {resolve_warp_resource(config.slots.warp_program.outer),
          resolve_warp_resource(config.slots.warp_program.inner),
          resolve_source_resource(config), resolve_lens_resource(config),
+         resolve_surface_noise_resource(config),
          &generated_palette_cycler.palette(),
          &liquid_palette_cycler.palette()}};
   }
@@ -1652,32 +1739,9 @@ private:
    */
   static Color4 shade(const Vector &view, const FrameState &frame) {
     const Vector outer_local = outer_camera_lookup(view, frame);
-    if (strict_projection(frame.slots.projection) &&
-        frame.slots.surface_lens != SurfaceLens::NONE &&
-        frame.params.surface_lens.mix > 0.0f &&
-        frame.params.surface_lens.mix < 1.0f)
-      return shade_strict_lens_mix(outer_local, frame);
     const ProjectedLookup projected =
         surface_lens_project_lookup(outer_local, frame);
     return shade_projected(projected, frame);
-  }
-
-  HS_FLASH_MEMBER static Color4 shade_strict_lens_mix(const Vector &outer_local,
-                                                      const FrameState &frame) {
-    const ProjectedLookup direct = profiled_project_branch(outer_local, frame);
-    const Vector lensed_direction = profiled_apply_lens(outer_local, frame);
-    const ProjectedLookup lensed =
-        profiled_project_branch(lensed_direction, frame);
-    if (!projection_join_compatible(direct, lensed, frame.slots.projection,
-                                    frame.params.projection.coordinate_scale))
-      return blend_outputs(shade_projected(direct, frame),
-                           shade_projected(lensed, frame),
-                           frame.params.surface_lens.mix);
-    return shade_projected(join_projected(direct, lensed,
-                                          frame.params.surface_lens.mix,
-                                          frame.slots.projection,
-                                          frame.params.projection.pole_fade),
-                           frame);
   }
 
   /**
@@ -1772,22 +1836,20 @@ private:
   static ProjectedLookup surface_lens_project_lookup(const Vector &v,
                                                      const FrameState &frame) {
     const Slots &slots = frame.slots;
-    const float mix = frame.params.surface_lens.mix;
-    if (slots.surface_lens == SurfaceLens::NONE || mix == 0.0f)
-      return profiled_project_branch(v, frame);
-    const Vector lensed = profiled_apply_lens(v, frame);
-    if (mix == 1.0f)
-      return profiled_project_branch(lensed, frame);
-    return surface_lens_mixed_lookup(v, lensed, frame, mix);
-  }
-
-  HS_FLASH_MEMBER static ProjectedLookup
-  surface_lens_mixed_lookup(const Vector &v, const Vector &lensed,
-                            const FrameState &frame, float mix) {
-    const ProjectedLookup direct = profiled_project_branch(v, frame);
-    const ProjectedLookup distorted = profiled_project_branch(lensed, frame);
-    return join_projected(direct, distorted, mix, frame.slots.projection,
-                          frame.params.projection.pole_fade);
+    const Vector pre_lens = slots.surface_noise != SurfaceNoise::NONE &&
+                                    slots.surface_noise_placement ==
+                                        SurfaceNoisePlacement::BEFORE_LENS
+                                ? apply_surface_noise(v, frame)
+                                : v;
+    const Vector lensed = slots.surface_lens == SurfaceLens::NONE
+                              ? pre_lens
+                              : profiled_apply_lens(pre_lens, frame);
+    const Vector post_lens = slots.surface_noise != SurfaceNoise::NONE &&
+                                     slots.surface_noise_placement ==
+                                         SurfaceNoisePlacement::AFTER_LENS
+                                 ? apply_surface_noise(lensed, frame)
+                                 : lensed;
+    return profiled_project_branch(post_lens, frame);
   }
 
   /**
@@ -2110,29 +2172,17 @@ private:
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_vector_noise(const Complex &input, const WarpStageSpec &spec,
                     const WarpStageParams &params, float amplitude,
-                    const FastNoiseLite &noise,
-                    const PreparedWarpStage &prepared) {
+                    const FastNoiseLite &noise, float stage_phase) {
     if (params.strength == 0.0f)
       return {input, Complex(), 0.0f, 0.0f};
-    const float nx = sample_wrapped_noise_basis(
-        noise, spec.basis, params.scale * input.re, params.scale * input.im,
-        prepared.noise_phase);
-    float ny = sample_wrapped_noise_basis(
-        noise, spec.basis, params.scale * input.re + 31.416f,
-        params.scale * input.im - 47.853f, prepared.noise_phase, 11.0f);
-    float zero_dc_x = nx;
-    if (spec.basis == NoiseBasis::RIDGED3) {
-      zero_dc_x -= sample_wrapped_noise_basis(
-          noise, spec.basis, params.scale * input.re - 73.271f,
-          params.scale * input.im + 19.119f, prepared.noise_phase, 5.0f);
-      ny -= sample_wrapped_noise_basis(
-          noise, spec.basis, params.scale * input.re + 61.731f,
-          params.scale * input.im + 89.417f, prepared.noise_phase, -7.0f);
-    }
+    const Vector q =
+        noise_projected_coordinate(input, params.scale, stage_phase);
+    const float nx = sample_noise_vector_channel(noise, spec.basis, q, 0);
+    const float ny = sample_noise_vector_channel(noise, spec.basis, q, 1);
     const float c = cosf(params.vector_angle);
     const float s = sinf(params.vector_angle);
-    const Complex delta(amplitude * (c * zero_dc_x - s * ny),
-                        amplitude * (s * zero_dc_x + c * ny));
+    const Complex delta(amplitude * (c * nx - s * ny),
+                        amplitude * (s * nx + c * ny));
     const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
     return {{input.re + delta.re, input.im + delta.im},
             delta,
@@ -2143,14 +2193,13 @@ private:
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_curl_flow(const Complex &input, const WarpStageSpec &spec,
                  const WarpStageParams &params, float amplitude,
-                 const FastNoiseLite &noise,
-                 const PreparedWarpStage &prepared) {
+                 const FastNoiseLite &noise, float stage_phase) {
     if (params.strength == 0.0f)
       return {input, Complex(), 0.0f, 0.0f};
     Complex delta;
     float path_length = 0.0f;
     const Complex output = curl_flow(input, noise, spec, params, amplitude,
-                                     prepared.noise_phase, delta, path_length);
+                                     stage_phase, delta, path_length);
     const float deformation =
         spec.curl_integrator == CurlIntegrator::EULER_1
             ? path_length
@@ -2234,10 +2283,10 @@ private:
       return warp_vortex(input, prepared);
     case WarpStageKind::VECTOR_NOISE:
       return warp_vector_noise(input, spec, params, amplitude, stage_noise,
-                               prepared);
+                               stage_phase);
     case WarpStageKind::CURL_FLOW:
       return warp_curl_flow(input, spec, params, amplitude, stage_noise,
-                            prepared);
+                            stage_phase);
     case WarpStageKind::MIRROR_TILE: {
       HS_SB_STAGE_MARK(mirror_start);
       const PlanarWarpStageResult result =
@@ -2295,11 +2344,11 @@ private:
   HS_FLASH_MEMBER static Complex
   curl_flow(const Complex &input, const FastNoiseLite &noise,
             const WarpStageSpec &spec, const WarpStageParams &params,
-            float distance, const WrappedNoisePhase &noise_phase,
-            Complex &net_delta, float &path_length) {
+            float distance, float phase, Complex &net_delta,
+            float &path_length) {
     if (spec.curl_integrator == CurlIntegrator::EULER_1) {
       const Complex direction =
-          curl_vector(input, noise, spec.basis, params.scale, noise_phase);
+          curl_vector(input, noise, spec.basis, params.scale, phase);
       net_delta = {distance * direction.re, distance * direction.im};
       path_length =
           sqrtf(net_delta.re * net_delta.re + net_delta.im * net_delta.im);
@@ -2313,11 +2362,11 @@ private:
     net_delta = {};
     for (int index = 0; index < intervals; ++index) {
       const Complex first =
-          curl_vector(q, noise, spec.basis, params.scale, noise_phase);
+          curl_vector(q, noise, spec.basis, params.scale, phase);
       const Complex midpoint(q.re + 0.5f * step * first.re,
                              q.im + 0.5f * step * first.im);
       const Complex direction =
-          curl_vector(midpoint, noise, spec.basis, params.scale, noise_phase);
+          curl_vector(midpoint, noise, spec.basis, params.scale, phase);
       const Complex delta(step * direction.re, step * direction.im);
       q = {q.re + delta.re, q.im + delta.im};
       net_delta = {net_delta.re + delta.re, net_delta.im + delta.im};
@@ -2326,25 +2375,24 @@ private:
     return q;
   }
 
-  HS_FLASH_MEMBER static Complex
-  curl_vector(const Complex &p, const FastNoiseLite &noise, NoiseBasis basis,
-              float scale, const WrappedNoisePhase &noise_phase) {
-    if (basis == NoiseBasis::SIMPLEX && !noise_phase.blends)
-      return simplex_curl_vector(p, noise, scale, noise_phase.current_time);
-    constexpr float STENCIL = 1.0f / 64.0f;
-    const float x = scale * p.re;
-    const float y = scale * p.im;
+  HS_FLASH_MEMBER static Complex curl_vector(const Complex &p,
+                                             const FastNoiseLite &noise,
+                                             NoiseBasis basis, float scale,
+                                             float phase) {
+    const Vector q = noise_projected_coordinate(p, scale, phase);
     const float dx =
-        (sample_wrapped_noise_basis(noise, basis, x + STENCIL, y, noise_phase) -
-         sample_wrapped_noise_basis(noise, basis, x - STENCIL, y,
-                                    noise_phase)) /
-        (2.0f * STENCIL);
+        (sample_noise_octaves(noise, basis,
+                              q + Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f)) -
+         sample_noise_octaves(noise, basis,
+                              q - Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f))) /
+        (2.0f * NOISE_STENCIL_RADIUS);
     const float dy =
-        (sample_wrapped_noise_basis(noise, basis, x, y + STENCIL, noise_phase) -
-         sample_wrapped_noise_basis(noise, basis, x, y - STENCIL,
-                                    noise_phase)) /
-        (2.0f * STENCIL);
-    return {-scale * dy, scale * dx};
+        (sample_noise_octaves(noise, basis,
+                              q + Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f)) -
+         sample_noise_octaves(noise, basis,
+                              q - Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f))) /
+        (2.0f * NOISE_STENCIL_RADIUS);
+    return {-dy, dx};
   }
 
   HS_FLASH_MEMBER static Complex simplex_curl_vector(const Complex &p,
@@ -2510,12 +2558,12 @@ private:
    */
   HS_FLASH_MEMBER static float sample_noise_contour(const Complex &p,
                                                     const FrameState &frame) {
-    const float n = hs::clamp(
-        sample_wrapped_noise_basis(
-            *frame.resources.source_noise, frame.params.source.noise_basis,
-            frame.params.source.noise_scale * p.re,
-            frame.params.source.noise_scale * p.im, frame.source_noise_phase),
-        -1.0f, 1.0f);
+    const Vector q = noise_projected_coordinate(
+        p, frame.params.source.noise_scale, frame.clocks.source_noise_time);
+    const float n =
+        hs::clamp(sample_noise_octaves(*frame.resources.source_noise,
+                                       frame.params.source.noise_basis, q),
+                  -1.0f, 1.0f);
     const float contrast = frame.params.source.noise_contrast;
     return n * (1.0f + contrast) / (1.0f + contrast * fabsf(n));
   }
@@ -2690,6 +2738,44 @@ private:
     const Vector lensed = apply_lens(v, frame);
     HS_SB_STAGE_SPAN(lens, stage_start);
     return lensed;
+  }
+
+  static Vector surface_curl_field(const Vector &v, const FrameState &frame) {
+    const SurfaceNoiseParams &params = frame.params.surface_noise;
+    const Vector q = noise_sphere_coordinate(v, params.scale,
+                                             frame.clocks.surface_noise_time);
+    return sample_curl_tangent(*frame.resources.surface_noise, params.basis, q,
+                               v);
+  }
+
+  static Vector midpoint_surface_curl_step(const Vector &v, float distance,
+                                           const FrameState &frame) {
+    const Vector first = surface_curl_field(v, frame);
+    const Vector midpoint = sphere_exp_map(v, 0.5f * distance * first);
+    const Vector midpoint_field = surface_curl_field(midpoint, frame);
+    return sphere_exp_map(
+        v, distance * transport_tangent(midpoint, v, midpoint_field));
+  }
+
+  HS_FLASH_MEMBER static Vector apply_surface_noise(const Vector &v,
+                                                    const FrameState &frame) {
+    const SurfaceNoiseParams &params = frame.params.surface_noise;
+    if (params.strength == 0.0f)
+      return v;
+    if (frame.slots.surface_noise == SurfaceNoise::DIRECT) {
+      const Vector q = noise_sphere_coordinate(v, params.scale,
+                                               frame.clocks.surface_noise_time);
+      const Vector tangent = sample_direct_tangent(
+          *frame.resources.surface_noise, params.basis, q, v, params.direction);
+      return sphere_exp_map(v, params.strength * tangent);
+    }
+    if (params.integrator == SurfaceCurlIntegrator::EULER)
+      return sphere_exp_map(v, params.strength * surface_curl_field(v, frame));
+    if (params.integrator == SurfaceCurlIntegrator::MIDPOINT)
+      return midpoint_surface_curl_step(v, params.strength, frame);
+    Vector current =
+        midpoint_surface_curl_step(v, 0.5f * params.strength, frame);
+    return midpoint_surface_curl_step(current, 0.5f * params.strength, frame);
   }
 
   /**
@@ -3028,6 +3114,8 @@ private:
         wrap_t(look.clocks.source_noise_time + params.source.noise_time_rate);
     look.clocks.lens_noise_time =
         wrap_t(look.clocks.lens_noise_time + params.surface_lens.noise_rate);
+    look.clocks.surface_noise_time =
+        wrap_t(look.clocks.surface_noise_time + params.surface_noise.rate);
     look.clocks.warp_outer_phase =
         wrap_t(look.clocks.warp_outer_phase + params.warp.outer.time_scale);
     look.clocks.warp_inner_phase =
@@ -3241,7 +3329,7 @@ private:
     case Function::GRID:
       return {true, true, true, true, false, true};
     case Function::PRIMITIVE_LATTICE:
-      return {true, true, true, true, false, false};
+      return {true, true, true, true, false, true};
     case Function::TWIN_WAVE:
     case Function::RINGS:
     case Function::SPIRAL:
@@ -3285,6 +3373,9 @@ private:
                       ProjectionFramePolicy::SPIN_WANDER) ||
         !enum_at_most(slots.surface_lens,
                       SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM) ||
+        !enum_at_most(slots.surface_noise, SurfaceNoise::CURL) ||
+        !enum_at_most(slots.surface_noise_placement,
+                      SurfaceNoisePlacement::AFTER_LENS) ||
         !enum_at_most(slots.warp_program.outer.kind,
                       WarpStageKind::POLAR_CHART) ||
         !enum_at_most(slots.warp_program.inner.kind,
@@ -3307,12 +3398,14 @@ private:
         slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART;
     const bool inner_polar =
         slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
+    if ((outer_polar && slots.warp_program.inner.kind != WarpStageKind::NONE) ||
+        (inner_polar && slots.warp_program.outer.kind != WarpStageKind::NONE))
+      return false;
     if (inner_polar &&
         !polar_source_compatible(candidate, slots.warp_program.inner))
       return false;
     if (outer_polar &&
-        (slots.warp_program.inner.kind != WarpStageKind::NONE ||
-         !polar_source_compatible(candidate, slots.warp_program.outer)))
+        !polar_source_compatible(candidate, slots.warp_program.outer))
       return false;
     if (!strict_seam_compatible(candidate) ||
         !preset_in_ranges(candidate.params))
@@ -3325,6 +3418,18 @@ private:
       return false;
     if (slots.surface_lens == SurfaceLens::MOBIUS &&
         !valid_mobius(candidate.params.surface_lens.mobius))
+      return false;
+    const SurfaceNoiseParams &surface_noise = candidate.params.surface_noise;
+    if (!enum_at_most(surface_noise.basis, NoiseBasis::RIDGED3) ||
+        !enum_at_most(surface_noise.integrator,
+                      SurfaceCurlIntegrator::MIDPOINT_2X) ||
+        surface_noise.scale < LENS_NOISE_SCALE_MIN ||
+        surface_noise.scale > LENS_NOISE_SCALE_MAX ||
+        surface_noise.strength <
+            (slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f) ||
+        surface_noise.strength > 0.5f || surface_noise.rate < NOISE_RATE_MIN ||
+        surface_noise.rate > NOISE_RATE_MAX || surface_noise.direction < 0.0f ||
+        surface_noise.direction > 1.0f)
       return false;
     return resource_union_fits(candidate, candidate);
   }
@@ -3475,40 +3580,25 @@ private:
   }
 
   const char *resource_warning(const Config &candidate) const {
-    std::array<NoiseResourceKey, 4> keys{};
-    const char *owners[4]{};
+    std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
     size_t count = 0;
-    auto add = [&](const char *owner, const NoiseResourceKey &key) {
-      for (size_t index = 0; index < count; ++index) {
-        if (keys[index].resource_id != key.resource_id)
-          continue;
-        if (keys[index] == key)
-          return false;
-        begin_warning(
-            "%s conflicts with %s: both use noise resource %u with different "
-            "basis, seed, or sampling requirements. Disable one noise "
-            "consumer or choose a non-noise Function, Lens, or Warp for one "
-            "of them.",
-            owner, owners[index], static_cast<unsigned>(key.resource_id));
-        return true;
-      }
-      keys[count] = key;
-      owners[count++] = owner;
-      return false;
+    auto add = [&](const NoiseFieldKey &key) {
+      return !append_resource_key(key, keys, count);
     };
     if (warp_uses_noise(candidate.slots.warp_program.outer.kind) &&
-        add("Planar Warp 1",
-            warp_resource_key(candidate.slots.warp_program.outer)))
+        add(warp_resource_key(candidate.slots.warp_program.outer)))
       return warning_text.data();
     if (warp_uses_noise(candidate.slots.warp_program.inner.kind) &&
-        add("Planar Warp 2",
-            warp_resource_key(candidate.slots.warp_program.inner)))
+        add(warp_resource_key(candidate.slots.warp_program.inner)))
       return warning_text.data();
     if (candidate.slots.function == Function::NOISE_CONTOUR &&
-        add("Function Noise Contour", source_resource_key(candidate)))
+        add(source_resource_key(candidate)))
       return warning_text.data();
     if (candidate.slots.surface_lens == SurfaceLens::TANGENT_NOISE &&
-        add("Lens Tangent Noise", lens_resource_key(candidate)))
+        add(lens_resource_key(candidate)))
+      return warning_text.data();
+    if (candidate.slots.surface_noise != SurfaceNoise::NONE &&
+        add(surface_noise_resource_key(candidate)))
       return warning_text.data();
     return begin_warning(
         "The active noise consumers exceed the resource limit of %u. Disable "
@@ -3547,6 +3637,12 @@ private:
           "Planar Warp 1 Polar Chart cannot run while Planar Warp 2 is %s. Set "
           "Planar Warp 2 to None or choose a different Planar Warp 1.",
           WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
+    if (inner.kind == WarpStageKind::POLAR_CHART &&
+        outer.kind != WarpStageKind::NONE)
+      return begin_warning(
+          "Planar Warp 2 Polar Chart cannot run while Planar Warp 1 is %s. Set "
+          "Planar Warp 1 to None or choose a different Planar Warp 2.",
+          WARP_OPTIONS[static_cast<uint8_t>(outer.kind)]);
     const WarpStageSpec *polar =
         outer.kind == WarpStageKind::POLAR_CHART   ? &outer
         : inner.kind == WarpStageKind::POLAR_CHART ? &inner
@@ -3591,6 +3687,29 @@ private:
                        WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
       append_warning(" Replace the named stage or select Folded Sinusoidal, "
                      "Stereographic, Gnomonic, or Equirectangular.");
+      return warning_text.data();
+    }
+    const SurfaceNoiseParams &surface_noise = candidate.params.surface_noise;
+    const float minimum_surface_strength =
+        candidate.slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f;
+    if (surface_noise.scale < LENS_NOISE_SCALE_MIN ||
+        surface_noise.scale > LENS_NOISE_SCALE_MAX ||
+        surface_noise.strength < minimum_surface_strength ||
+        surface_noise.strength > 0.5f || surface_noise.rate < NOISE_RATE_MIN ||
+        surface_noise.rate > NOISE_RATE_MAX || surface_noise.direction < 0.0f ||
+        surface_noise.direction > 1.0f) {
+      begin_warning("Surface Noise %s rejected.",
+                    SURFACE_NOISE_OPTIONS[static_cast<uint8_t>(
+                        candidate.slots.surface_noise)]);
+      append_range_warning("Surface Noise Scale", surface_noise.scale,
+                           LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
+      append_range_warning("Surface Noise Strength", surface_noise.strength,
+                           minimum_surface_strength, 0.5f);
+      append_range_warning("Surface Noise Rate", surface_noise.rate,
+                           NOISE_RATE_MIN, NOISE_RATE_MAX);
+      append_range_warning("Surface Noise Direction", surface_noise.direction,
+                           0.0f, 1.0f);
+      append_warning(" Set the named Surface Noise control within its range.");
       return warning_text.data();
     }
     if (!preset_in_ranges(candidate.params)) {
@@ -3914,6 +4033,10 @@ private:
                to.params.surface_lens.noise_seed &&
            from.params.surface_lens.noise_resource_id ==
                to.params.surface_lens.noise_resource_id &&
+           from.params.surface_noise.basis == to.params.surface_noise.basis &&
+           from.params.surface_noise.integrator ==
+               to.params.surface_noise.integrator &&
+           from.params.surface_noise.seed == to.params.surface_noise.seed &&
            from.params.surface_lens.mobius.a.re ==
                to.params.surface_lens.mobius.a.re &&
            from.params.surface_lens.mobius.a.im ==
@@ -4145,6 +4268,25 @@ private:
       "SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM",
       "SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM"};
   static constexpr int NUM_LENSES = std::size(LENS_OPTIONS);
+  static constexpr const char *SURFACE_NOISE_OPTIONS[] = {"None", "Direct",
+                                                          "Curl"};
+  static constexpr const char *SURFACE_NOISE_EXPORT_OPTIONS[] = {
+      "SurfaceNoise::NONE", "SurfaceNoise::DIRECT", "SurfaceNoise::CURL"};
+  static constexpr int NUM_SURFACE_NOISE = std::size(SURFACE_NOISE_OPTIONS);
+  static constexpr const char *SURFACE_NOISE_PLACEMENT_OPTIONS[] = {
+      "Before Lens", "After Lens"};
+  static constexpr const char *SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS[] = {
+      "SurfaceNoisePlacement::BEFORE_LENS",
+      "SurfaceNoisePlacement::AFTER_LENS"};
+  static constexpr int NUM_SURFACE_NOISE_PLACEMENTS =
+      std::size(SURFACE_NOISE_PLACEMENT_OPTIONS);
+  static constexpr const char *SURFACE_CURL_INTEGRATOR_OPTIONS[] = {
+      "Euler", "Midpoint", "Midpoint 2x"};
+  static constexpr const char *SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS[] = {
+      "SurfaceCurlIntegrator::EULER", "SurfaceCurlIntegrator::MIDPOINT",
+      "SurfaceCurlIntegrator::MIDPOINT_2X"};
+  static constexpr int NUM_SURFACE_CURL_INTEGRATORS =
+      std::size(SURFACE_CURL_INTEGRATOR_OPTIONS);
   static constexpr const char *WARP_OPTIONS[] = {
       "None",         "Stereo Noise", "Affine Frame", "Wave Shear", "Vortex",
       "Vector Noise", "Curl Flow",    "Mirror Tile",  "Polar Chart"};
@@ -4288,6 +4430,17 @@ private:
            p.surface_lens.noise_scale <= LENS_NOISE_SCALE_MAX &&
            p.surface_lens.noise_rate >= NOISE_RATE_MIN &&
            p.surface_lens.noise_rate <= NOISE_RATE_MAX &&
+           p.surface_noise.scale >= LENS_NOISE_SCALE_MIN &&
+           p.surface_noise.scale <= LENS_NOISE_SCALE_MAX &&
+           p.surface_noise.strength >= -0.5f &&
+           p.surface_noise.strength <= 0.5f &&
+           p.surface_noise.rate >= NOISE_RATE_MIN &&
+           p.surface_noise.rate <= NOISE_RATE_MAX &&
+           p.surface_noise.direction >= 0.0f &&
+           p.surface_noise.direction <= 1.0f &&
+           enum_at_most(p.surface_noise.basis, NoiseBasis::RIDGED3) &&
+           enum_at_most(p.surface_noise.integrator,
+                        SurfaceCurlIntegrator::MIDPOINT_2X) &&
            p.value.iso_level >= 0.0f && p.value.iso_level <= 1.0f &&
            p.value.iso_width >= SOFTNESS_MIN && p.value.iso_width <= 0.5f &&
            p.value.band_count >= 1 && p.value.band_count <= BAND_COUNT_MAX &&
@@ -4430,10 +4583,10 @@ private:
                   ColorizerParams colorizer, OuterCameraParams outer_camera) {
     const WarpStageParams inner_warp{0.1f, 0.0f, outer_warp.time_scale};
     projection.wander = outer_camera.wander;
-    return {source,      {outer_warp, inner_warp},
-            projection,  surface_lens,
-            {},          colorizer,
-            outer_camera};
+    return {source,       {outer_warp, inner_warp},
+            projection,   surface_lens,
+            {},           colorizer,
+            outer_camera, {}};
   }
 
   static constexpr Preset wave_shear_liquid_preset() {

@@ -250,7 +250,7 @@ set(_hs_test_modules
     mesh solids
     reaction_graph color palettes easing_waves platform profiling filter
     plot_scan canvas
-    scan mesh_raster transformers noise generators animation effects
+    scan mesh_raster transformers noise noise_field generators animation effects
     effects_smoke shaderball
     shapeshifter_oracle shapeshifter_tiles dma_core hd107s
     dma_controller

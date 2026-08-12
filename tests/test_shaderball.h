@@ -26,6 +26,9 @@ struct ShaderBallWhiteBox {
   using GnomonicHemispherePolicy = SB::GnomonicHemispherePolicy;
   using ProjectionFramePolicy = SB::ProjectionFramePolicy;
   using SurfaceLens = SB::SurfaceLens;
+  using SurfaceNoise = SB::SurfaceNoise;
+  using SurfaceNoisePlacement = SB::SurfaceNoisePlacement;
+  using SurfaceCurlIntegrator = SB::SurfaceCurlIntegrator;
   using NoiseBasis = SB::NoiseBasis;
   using WarpEnvelope = SB::WarpEnvelope;
   using PolarMode = SB::PolarMode;
@@ -34,6 +37,7 @@ struct ShaderBallWhiteBox {
   using WarpStageSpec = SB::WarpStageSpec;
   using WarpStageParams = SB::WarpStageParams;
   using ProjectionParams = SB::ProjectionParams;
+  using SurfaceNoiseParams = SB::SurfaceNoiseParams;
   using SignalWeight = SB::SignalWeight;
   using ValueTransfer = SB::ValueTransfer;
   using CoveragePolicy = SB::CoveragePolicy;
@@ -88,7 +92,8 @@ struct ShaderBallWhiteBox {
              {1.0f},
              {},
              {0.0f, 0.0f, 0.0f, 0.0f},
-             {0.25f}}};
+             {0.25f},
+             {}}};
   }
   static void request_slots(SB &sb, const Slots &slots) {
     sb.requested_config.slots = slots;
@@ -172,8 +177,12 @@ struct ShaderBallWhiteBox {
     return sb.state->transition.elapsed;
   }
   static NoiseBasis prepared_noise_basis(const SB &sb, uint8_t resource_id) {
+    (void)resource_id;
     for (size_t index = 0; index < sb.prepared_noise_count; ++index)
-      if (sb.state->prepared_noise_keys[index].resource_id == resource_id)
+      if (sb.state->prepared_noise_keys[index].domain ==
+              NoiseDomain::PROJECTED_2D &&
+          sb.state->prepared_noise_keys[index].channel_layout ==
+              NoiseChannelLayout::SCALAR_V1)
         return sb.state->prepared_noise_keys[index].basis;
     return static_cast<NoiseBasis>(0xff);
   }
@@ -320,8 +329,7 @@ struct ShaderBallWhiteBox {
   }
   static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
                              NoiseBasis basis, float scale, float time) {
-    return SB::curl_vector(p, noise, basis, scale,
-                           SB::prepare_noise_phase(time));
+    return SB::curl_vector(p, noise, basis, scale, time);
   }
   static float wrapped_noise(const FastNoiseLite &noise, NoiseBasis basis,
                              float x, float y, float turns) {
@@ -351,6 +359,12 @@ struct ShaderBallWhiteBox {
   }
   static Vector tangent_noise_lens(const Vector &v, const FrameState &frame) {
     return SB::tangent_noise_lens(v, frame);
+  }
+  static Vector surface_noise(const Vector &v, const FrameState &frame) {
+    return SB::apply_surface_noise(v, frame);
+  }
+  static Vector surface_curl_field(const Vector &v, const FrameState &frame) {
+    return SB::surface_curl_field(v, frame);
   }
   static float sample_function(Function function, const Complex &p,
                                const SourceState &source) {
@@ -793,7 +807,6 @@ inline void test_shaderball_legacy_spatial_slots() {
       static_cast<uint8_t>(WB::boundary_cut() | WB::boundary_singular()));
 
   const Vector v(0.6f, 0.48f, 0.64f);
-  const Complex direct = stereo(v);
   const Complex lensed = stereo(glitch_lens(v));
   WB::FrameState frame = WB::frame(landmark_sb);
   frame.slots.projection = WB::Projection::STEREOGRAPHIC;
@@ -804,8 +817,8 @@ inline void test_shaderball_legacy_spatial_slots() {
   const WB::ProjectedLookup start = WB::surface_project(v, frame);
   frame.params.surface_lens.mix = 1.0f;
   const WB::ProjectedLookup end = WB::surface_project(v, frame);
-  HS_EXPECT_EQ(start.coords.re, direct.re);
-  HS_EXPECT_EQ(start.coords.im, direct.im);
+  HS_EXPECT_NEAR(start.coords.re, lensed.re, 1e-6f);
+  HS_EXPECT_NEAR(start.coords.im, lensed.im, 1e-6f);
   // glitch_lens' polar terms are FMA-contractable, so the reference above and
   // the pipeline's own call can round 2 ULP apart under -O2; a wrong lens
   // branch would miss by ~1.
@@ -1697,8 +1710,8 @@ inline void test_shaderball_config_admission() {
     shared_owner.slots.warp_program.inner.resource_id = 6;
     HS_EXPECT_TRUE(WB::valid_config(shared_owner));
     shared_owner.slots.warp_program.inner.basis = WB::NoiseBasis::FBM3;
-    HS_EXPECT_FALSE(WB::valid_config(shared_owner));
-    HS_EXPECT_FALSE(WB::transition_admitted(shared_owner, shared_owner));
+    HS_EXPECT_TRUE(WB::valid_config(shared_owner));
+    HS_EXPECT_TRUE(WB::transition_admitted(shared_owner, shared_owner));
   }
 
   {
@@ -1982,7 +1995,8 @@ inline void test_shaderball_polar_gui_repair() {
       HS_EXPECT_TRUE(sb.updateParameter("Pattern Freq", 1.5f) ==
                      ParamSetResult::APPLIED);
     }
-    HS_EXPECT_TRUE(WB::parameter_warning(sb, root) == nullptr);
+    const char *warning = WB::parameter_warning(sb, root);
+    HS_EXPECT(warning == nullptr, warning != nullptr ? warning : root);
     sb.draw_frame();
     sb.advance_display();
     const WB::RequestedConfig active = WB::active_config(sb);
@@ -2084,6 +2098,9 @@ inline void test_shaderball_structural_admission() {
   peirce_polar.slots.warp_program.inner.polar_harmonic = 2;
   peirce_polar.params.source.pattern_freq = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(peirce_polar));
+  peirce_polar.slots.warp_program.outer.kind = WB::WarpStageKind::MIRROR_TILE;
+  HS_EXPECT_FALSE(WB::valid_config(peirce_polar));
+  peirce_polar.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
 
   WB::RequestedConfig airocean_mobius = WB::legacy_config();
   airocean_mobius.slots.projection = WB::Projection::AIROCEAN;
@@ -2384,9 +2401,11 @@ inline void test_shaderball_gui_catalog() {
                parameter_index("Projection Frame"));
   HS_EXPECT_LT(parameter_index("Projection Frame"),
                parameter_index("Spin Rate"));
-  HS_EXPECT_LT(parameter_index("Camera Wander"), parameter_index("Lens"));
-  HS_EXPECT_LT(parameter_index("Lens"), parameter_index("Lens Mix"));
-  HS_EXPECT_LT(parameter_index("Lens Mix"), parameter_index("Planar Warp 1"));
+  HS_EXPECT_LT(parameter_index("Camera Wander"),
+               parameter_index("Surface Noise"));
+  HS_EXPECT_LT(parameter_index("Surface Noise"), parameter_index("Lens"));
+  HS_EXPECT_TRUE(sb.getParameters().find("Lens Mix") == nullptr);
+  HS_EXPECT_LT(parameter_index("Lens"), parameter_index("Planar Warp 1"));
   HS_EXPECT_LT(parameter_index("Planar Warp 1"),
                parameter_index("Planar Warp 1 Strength"));
   HS_EXPECT_LT(parameter_index("Planar Warp 1 Strength"),
@@ -3256,8 +3275,8 @@ inline void test_shaderball_projection_and_admission_contracts() {
       WB::curl_vector(Complex(), noise, WB::NoiseBasis::SIMPLEX, 1.0f, 0.2f);
   const Complex curl_two =
       WB::curl_vector(Complex(), noise, WB::NoiseBasis::SIMPLEX, 2.0f, 0.2f);
-  HS_EXPECT_NEAR(curl_two.re, 2.0f * curl_one.re, 1e-5f);
-  HS_EXPECT_NEAR(curl_two.im, 2.0f * curl_one.im, 1e-5f);
+  HS_EXPECT_NEAR(curl_two.re, curl_one.re, 1e-5f);
+  HS_EXPECT_NEAR(curl_two.im, curl_one.im, 1e-5f);
   for (WB::NoiseBasis basis : {WB::NoiseBasis::SIMPLEX, WB::NoiseBasis::FBM3,
                                WB::NoiseBasis::RIDGED3}) {
     HS_EXPECT_NEAR(WB::wrapped_noise(noise, basis, 0.37f, -0.91f, 0.0f),
@@ -3654,6 +3673,107 @@ inline void test_shaderball_palette_resources() {
                  generated.b != liquid.b);
 }
 
+inline void test_shaderball_surface_noise_geometry_and_composition() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  WB::RequestedConfig config = WB::legacy_config();
+  config.slots.surface_lens = WB::SurfaceLens::NONE;
+  config.slots.surface_noise = WB::SurfaceNoise::DIRECT;
+  config.slots.surface_noise_placement = WB::SurfaceNoisePlacement::AFTER_LENS;
+  config.params.surface_noise.basis = WB::NoiseBasis::FBM3;
+  config.params.surface_noise.scale = 2.0f;
+  config.params.surface_noise.strength = 0.3f;
+  config.params.surface_noise.rate = 0.0f;
+  WB::request_config(sb, config);
+  WB::settle_transition(sb);
+  HS_EXPECT_TRUE(sb.getParameters().find("Surface Noise Placement") != nullptr);
+  HS_EXPECT_TRUE(sb.getParameters().find("Surface Noise Direction") != nullptr);
+  HS_EXPECT_TRUE(sb.getParameters().find("Lens Mix") == nullptr);
+
+  const std::array<Vector, 8> directions = {
+      Vector(1.0f, 0.0f, 0.0f),
+      Vector(-1.0f, 0.0f, 0.0f),
+      Vector(0.0f, 1.0f, 0.0f),
+      Vector(0.0f, -1.0f, 0.0f),
+      Vector(0.0f, 0.0f, 1.0f),
+      Vector(0.0f, 0.0f, -1.0f),
+      Vector(1.0f, 2.0f, 3.0f).normalized(),
+      Vector(-2.0f, 1.0f, -0.5f).normalized()};
+  WB::FrameState frame = WB::frame(sb);
+  for (const Vector &v : directions) {
+    frame.params.surface_noise.direction = 0.0f;
+    const Vector a = WB::surface_noise(v, frame);
+    frame.params.surface_noise.direction = 1.0f;
+    const Vector b = WB::surface_noise(v, frame);
+    HS_EXPECT_NEAR(a.length(), 1.0f, 1e-5f);
+    HS_EXPECT_LE(fast_acos(hs::clamp(dot(v, a), -1.0f, 1.0f)), 0.30001f);
+    HS_EXPECT_NEAR(a.x, b.x, 1e-5f);
+    HS_EXPECT_NEAR(a.y, b.y, 1e-5f);
+    HS_EXPECT_NEAR(a.z, b.z, 1e-5f);
+    frame.params.surface_noise.strength = 0.0f;
+    const Vector identity = WB::surface_noise(v, frame);
+    HS_EXPECT_EQ(std::memcmp(&identity, &v, sizeof(Vector)), 0);
+    frame.params.surface_noise.strength = 0.3f;
+  }
+
+  config.slots.surface_noise = WB::SurfaceNoise::CURL;
+  config.params.surface_noise.basis = WB::NoiseBasis::RIDGED3;
+  for (WB::SurfaceCurlIntegrator integrator :
+       {WB::SurfaceCurlIntegrator::EULER, WB::SurfaceCurlIntegrator::MIDPOINT,
+        WB::SurfaceCurlIntegrator::MIDPOINT_2X}) {
+    config.params.surface_noise.integrator = integrator;
+    WB::request_config(sb, config);
+    WB::settle_transition(sb);
+    frame = WB::frame(sb);
+    for (const Vector &v : directions) {
+      const Vector positive = WB::surface_noise(v, frame);
+      frame.params.surface_noise.strength = -0.3f;
+      const Vector negative = WB::surface_noise(v, frame);
+      HS_EXPECT_NEAR(positive.length(), 1.0f, 1e-5f);
+      HS_EXPECT_NEAR(negative.length(), 1.0f, 1e-5f);
+      HS_EXPECT_LE(fast_acos(hs::clamp(dot(v, positive), -1.0f, 1.0f)),
+                   0.3001f);
+      frame.params.surface_noise.strength = 0.3f;
+    }
+  }
+  frame = WB::frame(sb);
+  frame.params.surface_noise.integrator = WB::SurfaceCurlIntegrator::EULER;
+  const Vector circulation = WB::surface_curl_field(directions.back(), frame);
+  frame.params.surface_noise.strength = 0.01f;
+  const Vector positive = WB::surface_noise(directions.back(), frame);
+  frame.params.surface_noise.strength = -0.01f;
+  const Vector negative = WB::surface_noise(directions.back(), frame);
+  HS_EXPECT_GT(dot(positive - directions.back(), circulation), 0.0f);
+  HS_EXPECT_LT(dot(negative - directions.back(), circulation), 0.0f);
+
+  frame = WB::frame(sb);
+  for (WB::Projection projection :
+       {WB::Projection::SINUSOIDAL, WB::Projection::STEREOGRAPHIC,
+        WB::Projection::GNOMONIC, WB::Projection::BONNE,
+        WB::Projection::PEIRCE_QUINCUNCIAL, WB::Projection::AIROCEAN,
+        WB::Projection::EQUIRECTANGULAR})
+    for (WB::SurfaceLens lens :
+         {WB::SurfaceLens::NONE, WB::SurfaceLens::GLITCH,
+          WB::SurfaceLens::TWIST, WB::SurfaceLens::KALEIDOSCOPE,
+          WB::SurfaceLens::MOBIUS, WB::SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL,
+          WB::SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL,
+          WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
+          WB::SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM,
+          WB::SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM,
+          WB::SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM,
+          WB::SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
+          WB::SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM}) {
+      frame.slots.projection = projection;
+      frame.slots.surface_lens = lens;
+      const WB::ProjectedLookup projected =
+          WB::surface_project(directions.back(), frame);
+      HS_EXPECT_TRUE(std::isfinite(projected.coords.re));
+      HS_EXPECT_TRUE(std::isfinite(projected.coords.im));
+    }
+}
+
 /** @brief Module entry point for ShaderBall contract tests. */
 inline int run_shaderball_tests() {
   ModuleFixture fixture("shaderball");
@@ -3694,6 +3814,7 @@ inline int run_shaderball_tests() {
   test_shaderball_discrete_transition();
   test_shaderball_pause_does_not_hold_through_clear();
   test_shaderball_palette_resources();
+  test_shaderball_surface_noise_geometry_and_composition();
   return fixture.result();
 }
 
