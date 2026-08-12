@@ -36,6 +36,9 @@
 // GLOBAL_ARENA_SIZE below) so device-budget static_asserts check the real
 // figure even in the host suite.
 constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = 298 * 1024;
+static_assert(DEVICE_GLOBAL_ARENA_SIZE == HS_DEVICE_ARENA_BYTES,
+              "device arena budget must equal the block HS_DEVICE_ARENA_BYTES "
+              "sizes; moving one alone traps at Arena::allocate on hardware");
 constexpr size_t GLOBAL_ARENA_SIZE = HS_GLOBAL_ARENA_BYTES;
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
