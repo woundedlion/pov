@@ -1,9 +1,10 @@
 # Variadic inverse-sampling pipeline
 
-**Status: proposed.** This specification defines a compile-time pipeline for
-ShaderBall-style pullback rendering. It does not authorize replacing the
-current generic renderer until the equivalence, size, and device-timing gates
-in this document pass.
+**Status: proposed replacement.** This specification defines the sole shipping
+renderer for ShaderBall-style pullback rendering. The monolithic
+runtime-dispatch renderer remains available only as a host-test and migration
+oracle until the equivalence, size, and device-timing gates pass; it is then
+removed from device and WASM release images.
 
 ## 1. Purpose
 
@@ -18,9 +19,10 @@ duplicates orchestration across lens, projection, warp, source, material, and
 color operations. Adding another specialization requires copying that
 orchestration and manually preserving metadata semantics.
 
-The inverse-sampling pipeline makes that orchestration a reusable compile-time
-abstraction. It must retain the generic path for arbitrary GUI configurations
-and instantiate only device-measured topology clusters.
+The inverse-sampling pipeline replaces both forms with one reusable
+compile-time abstraction. The shipping program contains the closed set of
+pipelines reachable from the authored roster and supported GUI topology edits.
+It contains no generic shading fallback.
 
 ## 2. Goals
 
@@ -30,11 +32,13 @@ The design shall:
 - inline stage boundaries for selected authored topologies;
 - preserve exact projection metadata, coverage, deformation, and alpha;
 - preserve the current single-sample surface/lens projection behavior;
-- resolve every discrete selector represented by a catalog policy once per
+- resolve every discrete selector represented by a program policy once per
   prepared frame, never per pixel; continuous-value branches already present
   in the selected kernel remain permitted and do not become template
   dimensions;
-- retain the generic runtime path as the semantic oracle and fallback;
+- exclude the runtime-dispatch renderer and its inactive switch arms from the
+  final release link;
+- keep the former generic behavior as a host-only reference oracle;
 - expose stage traits for code placement, profiling, and specialization
   accounting;
 - prevent an unrestricted Cartesian product of template instantiations;
@@ -49,6 +53,7 @@ This design does not:
 - replace `Scan::Shader` or change pixel traversal;
 - reuse `Filter::Pipeline` as the implementation type;
 - make every GUI combination a template instantiation;
+- accept a discrete GUI topology that has no compiled pipeline;
 - move continuous parameters into template arguments;
 - approximate a stage merely because it is statically selected;
 - allocate per pixel, use virtual dispatch, or require RTTI;
@@ -138,13 +143,13 @@ Version 1 carries exactly one value across every boundary. Current production
 shading applies the selected lens once and projects the result once;
 `surface_lens.mix`, `join_projected`, and `blend_outputs` do not participate in
 that path. Existing GUI compatibility keeps accepting the mix parameter, but
-the inverse-pipeline resolver shall not read it or introduce new mixing.
+program selection shall not read it or introduce new mixing.
 
 Multi-branch lens blending is a possible later semantic feature, not pipeline
-infrastructure hidden in this proposal. It requires a separately approved
-generic implementation, authored semantics for surface-noise placement on
-each branch, ordered endpoint weights, projected-versus-color join rules, and
-independent framebuffer tests before the pipeline can model it.
+infrastructure hidden in this proposal. It requires separately approved
+reference semantics for surface-noise placement on each branch, ordered
+endpoint weights, projected-versus-color join rules, and independent
+framebuffer tests before the pipeline can model it.
 
 ## 7. Stage contracts
 
@@ -242,8 +247,9 @@ struct SourceStage {
 It owns source-coordinate conditioning and one selected source function. A
 source policy must not read `frame.slots.function`. Noise basis or integrator
 choices that alter control flow may be template parameters only when the
-catalog explicitly instantiates them; other choices use a runtime leaf or the
-generic fallback.
+program set explicitly instantiates them. A large leaf may remain out of line,
+but its discrete algorithm is still chosen by its policy type rather than a
+runtime selector.
 
 ### 7.6 Material
 
@@ -338,27 +344,27 @@ text.
 
 ### 8.2 Location and access
 
-Version 1 defines the coordinator, policies, catalog, and carrier aliases as
+Version 1 defines the coordinator, policies, program set, and carrier aliases as
 private nested types of `ShaderBall<W, H>`. This gives them legal access to the
 existing private `FrameState`, `ProjectedLookup`, `PlanarWarpResult`, and
 material carriers without widening ShaderBall's public API. Code examples in
 this document omit the `ShaderBall<W, H>::` qualification for readability.
 
-The catalog is consequently instantiated per `W, H` specialization. ELF and
+The program set is consequently instantiated per `W, H` specialization. ELF and
 WASM accounting must check for duplicate bodies across the production and
 test resolutions. Moving the coordinator into `core/render` requires first
 extracting a non-template render-state/carrier interface or adding a second
 consumer with equivalent public types; Phase A does not do that.
 
-## 9. Pipeline catalog and resolution
+## 9. Closed program set and selection
 
-Only explicitly listed catalog entries are instantiated. Version 1 has
-`MAX_CATALOG_ENTRIES == 8`, matching the eight current address-taken static
-paths. A constexpr manifest names every ID and exact policy pack;
-`static_assert`s require a unique ID, unique pipeline type, and a count no
-greater than the ceiling. CI compares the manifest with the ELF census of
-address-taken pipeline wrappers. Raising the ceiling requires a reviewed
-marginal-size report, device A/B result, and optimization-ledger row.
+Only explicitly listed program entries are instantiated. The constexpr
+manifest contains exactly one entry for every canonical topology reachable
+from the shipping preset roster or an enabled discrete GUI edit. It contains
+no speculative Cartesian product and no fallback entry. CI compares the
+manifest count and IDs with the generated selectable-topology census and the
+ELF census of address-taken pipeline wrappers. A new selectable topology must
+add one measured manifest entry and one optimization-ledger row.
 
 ```cpp
 using DodecahedralNoiseGridPipeline = InversePipeline<
@@ -371,32 +377,24 @@ using DodecahedralNoiseGridPipeline = InversePipeline<
     Material::LinearEdgeFade,
     Color::Liquid>;
 
-using DodecahedralNoiseGrid = CatalogEntry<
+using DodecahedralNoiseGrid = ProgramEntry<
     InversePipelineId::DODECAHEDRAL_NOISE_GRID,
     DodecahedralNoiseGridPipeline>;
+
+using ShaderBallPrograms = InverseProgramSet<
+    DodecahedralNoiseGrid,
+    /* every other selectable topology */>;
 ```
 
-The real catalog shall use semantic names rather than preset indices. Preset
-numbers are unstable and must not appear in pipeline type names or resolver
-conditions.
+Program types and IDs use semantic names rather than preset numbers. Preset
+numbers are unstable and must not appear in type names or selection
+conditions. `ProgramEntry<ID, Pipeline>` owns the entry identity, canonical
+`TopologyKey`, continuous precondition, resource-readiness predicate, and
+non-null `&Pipeline::shade`. Two entries may not use the same ID or pipeline
+type.
 
-`CatalogEntry<ID, Pipeline>` owns the entry identity, exact `TopologyKey`,
-static-path predicate, and `&Pipeline::shade`. Pipeline identity is derived
-from its policy pack; two entries may not wrap the same pipeline type under
-different IDs. Resolution runs after `FrameState` preparation and returns the
-existing function-pointer shape:
-
-```cpp
-using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
-
-struct ResolvedInversePipeline {
-  ShadeFunction specialized;
-  InversePipelineId id;
-};
-```
-
-`make_topology_key(const FrameState&)` constructs a value-initialized key and
-copies every active discrete discriminator owned by a static stage:
+`make_topology_key(const Config&)` constructs a value-initialized key and
+copies every active discrete discriminator owned by a stage:
 
 - function, projection, projection-frame policy, and surface lens;
 - signal-weight, value-transfer, coverage, and colorizer policies;
@@ -406,14 +404,11 @@ copies every active discrete discriminator owned by a static stage:
 - both warp stages' kind, basis, envelope, polar mode, curl integrator, and
   polar harmonic.
 
-Noise seeds and resource IDs select prepared data but not code paths; stage
-policies read the already-bound resource pointers and do not key on them.
-Continuous parameters remain frame reads. Exact-value predicates record
-additional algorithmic preconditions such as zero Peirce meridian, zero
-surface-noise direction, supported layout scroll, or nonzero edge width.
-A continuous predicate is required only when a specialized implementation
-omits or changes a branch relative to the generic kernel. Otherwise the policy
-reads the continuous value and preserves the generic branch exactly.
+Noise seeds and resource IDs select prepared data but not code paths; policies
+read the bound resources and do not key on them. Continuous parameters remain
+frame reads. A continuous precondition is present only when a pipeline omits
+or changes a branch from the reference kernel. Otherwise the stage reads the
+continuous value and preserves the reference branch exactly.
 
 Key equality is memberwise; byte hashing and `memcmp` are forbidden because
 padding is not semantic. Canonicalization replaces inactive discriminators
@@ -421,47 +416,146 @@ with their enum-zero defaults: non-selected projection layouts and hemisphere
 policies; surface-noise placement, basis, and integrator when surface noise is
 `NONE`; and basis, envelope, polar mode, integrator, and harmonic for each
 `NONE` warp stage. Source noise basis is canonicalized when the selected
-source does not use noise. When a discriminator controls an active runtime
-branch it is copied unchanged. The canonicalization table is exhaustive over
+source does not use noise. The canonicalization table is exhaustive over
 `Slots`, source-noise policy, surface-noise policy, and both `WarpStageSpec`s;
 adding a discriminator fails a census test until the table classifies it.
 
-Each entry declares one constexpr canonical key. Resolver tests mutate every
-active key field one at a time and require the corresponding entry or generic
-fallback; mutating an inactive field must preserve selection. No field may be
-accidentally ignored. The resolver shall not compare against a preset object
-or preset index.
+`InverseProgramSet::find(key, config)` runs only when an authored preset is
+validated or a discrete GUI edit is proposed. It returns an
+`InversePipelineId` only for an exact canonical-key match whose continuous
+precondition passes. It has no default result. Authored presets store the
+validated ID beside their `Config`; continuous GUI edits retain it, while a
+discrete edit is committed only after `find` accepts the candidate. Rejected
+edits leave the previous selected configuration active and report
+`UNSUPPORTED_TOPOLOGY`.
 
-Successful `prepare_resource_union` remains a precondition of `prepare_frame`;
-its existing caller-side failure path must run before any `FrameShader` is
-constructed. `resources_ready_generic(frame)` validates every binding the
-generic path can dereference and is asserted in debug/test builds. Each entry
-additionally declares `resources_ready_specialized(frame)` for bindings or
-prepared tables used by that policy, including liquid LUT readiness. A
-specialized readiness failure selects null/direct generic fallback. Debug/test
-owner-generation validation occurs at `FrameShader::operator()` entry before
-either path dereferences the frame. Wrappers never receive a known-invalid
-binding.
+The GUI derives enabled discrete choices from
+`InverseProgramSet::available(current_key, edited_field)` so it normally never
+offers an unsupported combination. Continuous controls remain unchanged.
+Supporting free Cartesian composition would require compiling that Cartesian
+program set and is outside the space budget; topology controls are therefore
+curated by the manifest.
 
-Resolution outcomes are:
+The effect carries a selected configuration explicitly:
 
-1. exact catalog match and predicates satisfied: return the static pipeline;
-2. known topology but predicates not satisfied: return a null function and
-   `GENERIC_FALLBACK`;
-3. unknown or GUI-authored topology: return a null function and
-   `GENERIC_FALLBACK`.
+```cpp
+using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
 
-The resolver executes one catalog lookup per prepared endpoint frame. The
-specialized function pointer is invoked indirectly once per shaded sample.
-Null fallback preserves the current `FrameShader` direct call to generic
-`shade`; it must not replace fallback with an indirect pointer call. Only
-dispatch inside a selected wrapper is removed. During migration an otherwise
-identical profiling image can select the old static wrapper, new pipeline, or
-null/direct generic path at frame preparation; no comparison mode adds a
-per-sample selector branch. Version 1 requires the current sequential
-transition lifetime: prepare one endpoint, draw it to completion, then permit
-shared prepared backing storage to be overwritten. Holding two prepared
-endpoint frames concurrently is outside the contract.
+struct ProgramDescriptor {
+  InversePipelineId id;
+  TopologyKey key;
+  ShadeFunction shade;
+  bool (*continuous_parameters_supported)(const Config &);
+  bool (*resources_ready)(const FrameState &);
+};
+
+struct SelectedConfig {
+  Config config;
+  InversePipelineId pipeline;
+};
+
+struct PreparedEndpoint {
+  FrameState frame;
+  ShadeFunction shade;
+  InversePipelineId pipeline;
+  float alpha;
+};
+```
+
+`prepare_endpoint` verifies that the stored ID still matches the candidate's
+canonical key and continuous precondition before preparing the frame.
+Successful `prepare_resource_union` remains a caller-side prerequisite. After
+preparation, the entry's resource predicate validates every binding or table
+the pipeline can dereference, including liquid LUT readiness. Any topology,
+precondition, or resource failure rejects endpoint preparation; it never
+invokes another renderer.
+
+`FrameShader` receives a non-null `ShadeFunction` and calls it unconditionally
+for each sample. This indirect call selects one already-fused compiled
+pipeline; it is not a runtime-dispatch shading path. Dispatching once around
+`Scan::Shader::draw` would instantiate the complete scan loop for every
+pipeline type, so version 1 preserves the single shared scan instantiation and
+measures the per-sample call cost.
+
+Debug and test builds attach owner-generation tokens to prepared backing
+stores. `FrameShader::operator()` validates the token before dereferencing the
+frame. Version 1 retains sequential transition lifetime: prepare one endpoint,
+draw it to completion, and only then overwrite shared prepared storage for the
+other endpoint. Two simultaneously live prepared endpoints require distinct
+backing stores and are outside this contract.
+
+### 9.1 Effect-side usage
+
+Preset declarations bind authored values to a compiled program ID:
+
+```cpp
+static constexpr SelectedConfig PRESETS[] = {
+    {make_dodecahedral_noise_grid_config(),
+     InversePipelineId::DODECAHEDRAL_NOISE_GRID},
+    /* remaining authored presets */
+};
+```
+
+The effect prepares and draws one endpoint through the program set:
+
+```cpp
+HS_COLD_MEMBER bool prepare_endpoint(const SelectedConfig &selected,
+                                     const LookRuntime &look, float alpha,
+                                     PreparedEndpoint &out) const {
+  const ProgramDescriptor *program =
+      ShaderBallPrograms::get(selected.pipeline);
+  if (program == nullptr ||
+      program->key != make_topology_key(selected.config) ||
+      !program->continuous_parameters_supported(selected.config))
+    return false;
+
+  out.frame = prepare_frame(selected.config, look);
+  if (!program->resources_ready(out.frame))
+    return false;
+
+  out.shade = program->shade;
+  out.pipeline = program->id;
+  out.alpha = alpha;
+  return true;
+}
+
+HS_FLASH_MEMBER void draw_endpoint(Canvas &canvas,
+                                   PreparedEndpoint &prepared) const {
+  FrameShader shader{&prepared.frame, prepared.alpha, prepared.shade,
+                     prepared.pipeline};
+  Scan::Shader::draw<W, H>(canvas, shader);
+}
+```
+
+The steady-state draw site is consequently small:
+
+```cpp
+PreparedEndpoint prepared;
+if (!prepare_endpoint(active_config, runtime, 1.0f, prepared)) {
+  report_prepare_failure();
+  return;
+}
+draw_endpoint(canvas, prepared);
+```
+
+`FrameShader::operator()` contains no fallback:
+
+```cpp
+HS_FLASH_MEMBER Color4 operator()(const Vector &view) const {
+  Color4 color = shade_function(view, *frame);
+  color.alpha *= alpha;
+  return color;
+}
+```
+
+Transition code repeats `prepare_endpoint` then `draw_endpoint` for each
+visible half in the established through-clear order. GUI code submits a
+candidate `Config` to `ShaderBallPrograms::find`, with enabled discrete values
+enumerated by `available`; on failure it preserves the current
+`SelectedConfig`. Startup validates the compiled preset table and uses the
+first authored preset if persisted state names an unavailable topology. No
+effect call site refers to an individual stage after declaring the program
+set.
 
 ## 10. State, ownership, and memory
 
@@ -472,7 +566,7 @@ endpoint frames concurrently is outside the contract.
   the call stack.
 - The coordinator stores no policy subobjects; policy types are required to be
   empty as an additional accidental-member check.
-- The resolver and catalog allocate nothing.
+- The selector and program set allocate nothing.
 - No pipeline may increase the device effect heap, persistent arena, stack, or
   RAM2 use without updating the corresponding budget test and report.
 - Device records include `sizeof` and alignment for every carrier. The ARM
@@ -493,28 +587,31 @@ endpoint frames concurrently is outside the contract.
 Template fusion is constrained by the full Phantasm image, not the
 single-effect profile image.
 
-Resource attribution uses four classes of same-commit, same-toolchain link
-products: a generic-only baseline, a separate one-entry build for every
-manifest entry, and the full-catalog build. Each build retains its linker map,
-`readelf`, `nm`, and wrapper/leaf disassembly. Bytes are classified by VMA and
-section rather than symbol type. The one-entry-minus-generic delta is that
-entry's marginal cost; the full-minus-generic delta is the catalog cost.
-Shared leaves and read-only data are charged once to a named shared pool rather
-than divided among entries. A diagnostic `-fno-ipa-icf` build, or an equivalent
-address-alias report, discloses identical-code folding.
+Resource attribution uses four same-commit, same-toolchain link classes: the
+former runtime renderer as a migration baseline, an empty pipeline framework,
+a separate one-entry build for every manifest entry, and the complete shipping
+program set. Each build retains its linker map, `readelf`, `nm`, and
+wrapper/leaf disassembly. Bytes are classified by VMA and section rather than
+symbol type. The one-entry-minus-empty delta is that entry's marginal cost;
+the full-minus-empty delta is the program-set cost; and replacement savings
+are the final shipping image versus the migration baseline. Shared leaves and
+read-only data are charged once to a named shared pool. A diagnostic
+`-fno-ipa-icf` build, or an equivalent address-alias report, discloses
+identical-code folding.
 
-Each catalog entry shall report:
+Each program entry shall report:
 
 - unique and shared flash bytes;
 - unique and shared ITCM bytes;
-- retained generic-path bytes;
+- runtime-dispatch renderer bytes retained in the final image, which must be
+  zero;
 - frame-time delta for every topology using it;
 - whether identical-code folding or compiler cloning changed the accounting;
 - wrapper and out-of-line leaf VMAs and sizes.
 
 Each address-taken pipeline wrapper is `HS_FLASH_MEMBER`. Large projection,
-noise, color-preparation, and generic fallback kernels remain out-of-line flash
-leaves. ITCM placement is permitted only for a measured leaf whose full-roster
+noise, color-preparation, and other statically selected kernels may remain
+out-of-line flash leaves. ITCM placement is permitted only for a measured leaf whose full-roster
 build passes `teensy_gate`'s derived RAM1-bank calculation and explicit
 headroom ratchets. The gate records ITCM bytes consumed, ITCM bytes free before
 the next FlexRAM bank boundary, rounded bank allocation, DTCM variables, DTCM
@@ -529,13 +626,17 @@ VMAs; an inline-only stage has no independent byte or placement result.
 
 ELF validation fails on unexpected emitted `run_stage`, carrier-fold,
 `.isra`, or `.constprop` bodies and reports their VMA and size. It also fails
-when the full-catalog wrapper census differs from the checked manifest.
+when the full program-set wrapper census differs from the checked manifest.
 
-The initial implementation budget is the current set of proven static
-topology clusters, not all 23 presets and not all legal slot combinations. A
-new entry is accepted only if its device benefit passes the matched-capture
-rule in Section 14 and its flash/ITCM cost is recorded in the optimization
-ledger.
+The final ELF must contain no former top-level runtime-dispatch `shade`, no
+fallback selector, and no switch helper reachable only from that renderer.
+Shared mathematical kernels used by typed stages are not considered retained
+renderer code.
+
+The implementation budget is exactly the deduplicated set of selectable
+shipping topologies, not every legal slot combination. A new entry is accepted
+only when a new topology is intentionally exposed, the full-roster resource
+gate passes, and its flash/ITCM cost is recorded in the optimization ledger.
 
 ## 12. Instrumentation
 
@@ -551,30 +652,31 @@ Every stage position maps to one existing ShaderBall DWT bucket:
 | color | `color` |
 
 Instrumentation is compiled out of shipping images. An instrumented pipeline
-must preserve the same stage boundaries as the generic path so ratios remain
+must preserve the reference renderer's stage boundaries so ratios remain
 comparable. Absolute timing from per-pixel instrumented images is diagnostic
 only.
 
-The resolver shall expose the selected `InversePipelineId` to the profile
-harness. A cycle report must prove that expected authored topologies selected
-their static entries and that GUI/fallback tests selected the generic path.
+The selector shall expose the selected `InversePipelineId` to the profile
+harness. A cycle report must prove that every authored topology selected its
+declared program. GUI tests must prove that an unsupported discrete edit is
+rejected without changing the active program.
 
 ## 13. Correctness requirements
 
-### 13.1 Generic-path equivalence
+### 13.1 Reference-oracle equivalence
 
-Each catalog entry provides a checked-in deterministic equivalence manifest
+Each program entry provides a checked-in deterministic equivalence manifest
 naming its corpus generator and version, exact parameter cases, sample count,
 seam and singularity probes, and a numeric tolerance for every floating
 carrier member. Absence of an explicit tolerance means bitwise equality. The
-same manifest compares the static pipeline with the generic path at every
+same manifest compares the static pipeline with the host-only reference at every
 relevant stage boundary and at final output. Changing a corpus, sample count,
 or tolerance requires review with the entry; a wrapper receives no additional
 tolerance merely because it changes inlining.
 
 Tests shall cover:
 
-- all catalog topology keys;
+- all program-set topology keys;
 - the exact endpoint and interior continuous-parameter cases named by each
   entry's equivalence manifest;
 - projection cuts, singularities, regions, components, traits, and edge
@@ -584,21 +686,21 @@ Tests shall cover:
 - zero and nonzero warp strengths;
 - zero-width and nonzero-width edge coverage;
 - zero-alpha and partial-alpha color output;
-- transition endpoint preparation and fallback selection.
+- transition endpoint preparation and unsupported-topology rejection.
 
 The square Peirce surface/project policy is approximate because
 `peirce_projection_fast_square` has nonzero error against the exact Peirce
 kernel. It must declare the existing exact Peirce oracle, coordinate and edge
-budgets, and a final-framebuffer budget even though both the current generic
-path and the pipeline call the same fast kernel. Generic equivalence alone is
-not an approximation oracle.
+budgets, and a final-framebuffer budget even when the host reference and the
+pipeline call the same fast kernel. Reference equivalence alone is not an
+approximation oracle.
 
 Approximation classification follows the implementation called by the policy,
 not only the difference introduced by the wrapper. Every liquid-color policy
 that may sample `PreparedLiquidHue` is approximate and references the direct
 hue-rotation oracle, including maximum-channel, aggregate-channel, and
-final-framebuffer metrics. Sharing the same approximation with the generic
-path does not make the stage exact.
+final-framebuffer metrics. Sharing the same approximation with the host
+reference does not make the stage exact.
 
 ### 13.2 Approximate stages
 
@@ -610,20 +712,20 @@ An approximate stage requires:
 - its complete named metric list, including natural-output and framebuffer
   domains;
 - an explicit exactness declaration for non-floating metadata;
-- an identifier linking the catalog entry to its oracle test.
+- an identifier linking the program entry to its oracle test.
 
 Approximation approval belongs to the stage, not `InversePipeline`.
 
-Resolver predicate tests are table-driven. Every continuous precondition is
+Selector predicate tests are table-driven. Every continuous precondition is
 tested at its accepted value, at the adjacent representable value on each
 side, at domain endpoints, and with NaN and infinities where the carrier can
-hold them. Tests assert both the resolved ID and final equality with a direct
-generic call. Unsupported GUI topologies must never call an address-taken
-pipeline wrapper.
+hold them. Tests assert both the selected ID and final equality with the host
+reference. Unsupported GUI topologies must leave the previous selected
+configuration active and must never call an unrelated pipeline wrapper.
 
 ### 13.3 Cardinality regression
 
-Resolver and framebuffer tests shall prove that every version-1 pipeline
+Selector and framebuffer tests shall prove that every version-1 pipeline
 evaluates one surface/project sample per view direction. Dormant join helpers
 must not become reachable as an incidental consequence of the refactor.
 
@@ -646,7 +748,7 @@ flash layout is itself part of the result.
 complete root and stage counter trees, and root-cycle/wall agreement within
 0.7 ppm. A generated roster manifest is the capture oracle: every authored ID,
 both visible halves of every transition, and the last-to-first wrap must appear
-with the expected static or fallback pipeline ID. Reports retain per-ID median,
+with the expected compiled pipeline ID. Reports retain per-ID median,
 p95, maximum render and clean-shader time, spill count, and transition
 ownership. Observations are paired by pair index. For each per-ID metric, the
 noise band is `max(control) - min(control)` across the three control captures.
@@ -657,9 +759,9 @@ twice that noise band. Every per-ID candidate maximum must remain at or below
 the control maximum plus its noise band, and the final linked image must meet
 the 62.5 ms display deadline with zero spills.
 
-A pipeline entry is accepted only when all of the following hold:
+A program entry is accepted only when all of the following hold:
 
-1. The source-matched generic and candidate fixed-preset captures validate.
+1. Host-reference equivalence and candidate fixed-preset captures validate.
 2. Candidate render and clean-shader distributions pass the matched-capture
    non-regression and material-gain rules above.
 3. The full authored shipping cycle and last-to-first transition have no new
@@ -676,58 +778,57 @@ the shipping selective-O3 image.
 
 ## 15. Migration plan
 
-### Phase A: framework skeleton
+### Phase A: framework and reference harness
 
-- Add stage concepts, validated variadic `InversePipeline`, semantic topology key,
-  and resolver result.
-- Implement one identity/no-op pipeline and compare it with the generic path.
+- Move the monolithic renderer behind a host-test-only reference interface.
+- Add stage concepts, validated variadic `InversePipeline`, canonical topology
+  key, program entry, and closed program set.
+- Implement one identity/no-op pipeline and compare it with the host reference.
 - Add compile-fail tests for stage order and terminal contracts.
 
-### Phase B: re-express proven specializations
+### Phase B: complete the selectable program set
 
-- Move the existing Bonne/Peirce lattice specialization into stage policies.
-- Move the existing stereographic surface-noise grid/lattice specialization.
-- Keep old static functions until stage-boundary and framebuffer equivalence
-  pass. The matched device protocol must also compare the new pipeline with
-  the old static specialization, not only with generic fallback. Remove the
-  duplicate orchestration in the same logical change after both gates pass.
+- Re-express every deduplicated shipping and GUI-selectable topology as a
+  program entry, beginning with the existing static specializations.
+- Keep the old static wrappers only in migration builds until their program
+  replacements pass stage-boundary, framebuffer, and matched-device gates.
+- Generate the selectable-topology census and require an exact manifest match.
 
-### Phase C: semantic resolver
+### Phase C: effect integration
 
-- Replace preset-index/whole-`Slots` matching with `TopologyKey` matching and
-  explicit continuous-parameter predicates.
-- Add resolver coverage tests for every authored preset and representative GUI
-  configurations.
+- Store `InversePipelineId` in every authored `SelectedConfig`.
+- Route preset, transition, and GUI candidate preparation through the program
+  set as shown in Section 9.1.
+- Add selection and rejection tests for every authored preset and supported or
+  unsupported GUI topology.
 - Emit pipeline IDs in profile markers.
-- Add a frame-preparation-only test switch that forces null/direct generic
-  fallback; it must not add a per-sample branch.
 
-### Phase D: measured expansion
+### Phase D: remove the runtime renderer
 
-- Use stage telemetry to identify another runtime-dispatch-bound topology.
-- Add one catalog entry, measure it independently, and keep or reject it using
-  Section 14.
-- Stop expanding when the next entry does not repay its code-size cost.
+- Remove the top-level runtime-dispatch renderer and obsolete hand-written
+  wrappers from all release targets.
+- Keep the reference renderer in host tests only.
+- Prove zero retained renderer bytes by the final ELF/WASM symbol census, then
+  run the full acceptance protocol.
 
 ## 16. Required deliverables
 
 An implementation is incomplete without:
 
 - the framework and stage policies;
-- the explicit catalog and semantic resolver;
-- generic fallback preservation;
+- the closed program set and exact selectable-topology census;
+- the effect integration API in Section 9.1;
 - compile-time contract tests;
 - stage-boundary and final-color equivalence tests;
-- resolver selection/fallback tests;
+- selection, rejection, preset-census, and transition tests;
 - stack, arena, full-roster size, native, and WASM gates;
 - shipping fixed and full-cycle device captures;
 - ELF symbol/section accounting;
-- an accepted/rejected ledger entry for every new specialization.
+- an accepted/rejected ledger entry for every new program entry;
+- ELF and WASM proof that the runtime-dispatch renderer is absent.
 
-The release pipeline also builds and tests a catalog-disabled, generic-only
-image from the same revision. Operational rollback sets the catalog-disabled
-build option and republishes that image; it does not depend on retaining the
-old hand-written wrappers or changing stored presets.
+Rollback republishes the last accepted pipeline-only image. There is no
+shipping build option that restores the runtime-dispatch renderer.
 
 ## 17. Implementation decisions
 
@@ -740,7 +841,8 @@ The native CMake suite runs generated negative translation units through a
 scripted `try_compile`, requires compilation to fail, and matches the stable
 diagnostic category. The same corpus is compiled by the shipping Teensy GCC.
 
-A same-image old/new selector is an attribution aid, not an acceptance
-dependency. Use it only when the compiler retains both arms and the report
-records their addresses. The separately linked matched shipping protocol in
-Section 14 remains mandatory and decides acceptance.
+A same-image migration/reference selector is an attribution aid, not an
+acceptance dependency and never ships. Use it only when the compiler retains
+both arms and the report records their addresses. The separately linked
+matched shipping protocol in Section 14 remains mandatory and decides
+acceptance.
