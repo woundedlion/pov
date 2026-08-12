@@ -893,6 +893,31 @@ protected:
     parameters.bump_schema_generation();
   }
 
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  /**
+   * @brief Registers an animated float while preserving its requested value.
+   * @details The requested value may lie outside the published range.
+   */
+  HS_COLD_MEMBER void register_animated_param_preserving_value(const char *name,
+                                                               float *ptr,
+                                                               float min,
+                                                               float max) {
+    HS_CHECK(parameters.count < parameters.capacity(),
+             "register_param: exceeded ParamList capacity");
+    HS_CHECK(parameters.find(name) == nullptr,
+             "register_param: duplicate parameter name");
+    HS_CHECK(min <= max, "register_param: min must be <= max");
+    auto &def = parameters.data()[parameters.count++];
+    def = {};
+    def.name = name;
+    def.target = ptr;
+    def.min = min;
+    def.max = max;
+    def.animated = true;
+    parameters.bump_schema_generation();
+  }
+#endif
+
   /**
    * @brief Registers an enumerated parameter, rendered by the GUI as a dropdown.
    * @param name The name to expose.

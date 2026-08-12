@@ -1918,6 +1918,49 @@ inline void test_shaderball_deterministic_gui_edits() {
                WB::WarpStageKind::POLAR_CHART);
 }
 
+/** @brief Mode-specific ranges identify stale subordinate values. */
+inline void test_shaderball_mode_specific_parameter_warnings() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+
+  WB::RequestedConfig config = WB::legacy_config();
+  config.slots.projection = WB::Projection::SINUSOIDAL;
+  config.slots.warp_program.outer.kind = WB::WarpStageKind::VECTOR_NOISE;
+  config.params.warp.outer.scale = 1.0f;
+  config.params.warp.outer.strength = 1.0f;
+  config.params.warp.outer.time_scale = 0.0f;
+  HS_EXPECT_TRUE(WB::valid_config(config));
+  WB::request_config(sb, config);
+
+  HS_EXPECT_EQ(
+      sb.updateParameter("Planar Warp 1",
+                         static_cast<float>(WB::WarpStageKind::CURL_FLOW)),
+      ParamSetResult::APPLIED);
+
+  const auto *strength = sb.getParameters().find("Planar Warp 1 Strength");
+  HS_EXPECT_TRUE(strength != nullptr);
+  const float limit = 0.5f / 64.0f;
+  HS_EXPECT_NEAR(strength->min, -limit, 1e-7f);
+  HS_EXPECT_NEAR(strength->max, limit, 1e-7f);
+  HS_EXPECT_EQ(strength->get_requested(), 1.0f);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1") == nullptr);
+  const char *warning = WB::parameter_warning(sb, "Planar Warp 1 Strength");
+  HS_EXPECT_TRUE(warning != nullptr);
+  HS_EXPECT_TRUE(std::strstr(warning, "outside its registered range") !=
+                 nullptr);
+
+  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Strength", limit) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1 Strength") ==
+                 nullptr);
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.outer.kind,
+               WB::WarpStageKind::CURL_FLOW);
+}
+
 /** @brief A function edit preserves both warp stages in the dodecahedral hold. */
 inline void test_shaderball_dodecahedral_lattice_edit() {
   using WB = ShaderBallWhiteBox;
@@ -3752,6 +3795,7 @@ inline int run_shaderball_tests() {
   test_shaderball_preset_bank();
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();
+  test_shaderball_mode_specific_parameter_warnings();
   test_shaderball_dodecahedral_lattice_edit();
   test_shaderball_polar_gui_repair();
   test_shaderball_structural_admission();

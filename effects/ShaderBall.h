@@ -1129,13 +1129,50 @@ private:
   }
 
   const char *parameter_warning(const char *name) const override {
+    const ParamDef *parameter = getParameters().find(name);
+    if (parameter != nullptr && parameter_out_of_range(*parameter))
+      return begin_warning(
+          "%s %.7g is outside its registered range [%.7g, %.7g]. Set %s "
+          "within that range.",
+          name, static_cast<double>(parameter->get_requested()),
+          static_cast<double>(parameter->min),
+          static_cast<double>(parameter->max), name);
     for (size_t index = 0; index < pending_edit_count; ++index) {
       const PendingEdit &edit = pending_edits[index];
       if (edit.name == nullptr || std::strcmp(edit.name, name) != 0)
         continue;
+      if (schema_selector(name) && range_repairs_admission())
+        return nullptr;
       return admission_warning(requested_config, edit.name);
     }
     return nullptr;
+  }
+
+  static bool parameter_out_of_range(const ParamDef &parameter) {
+    const float value = parameter.get_requested();
+    return value < parameter.min || value > parameter.max;
+  }
+
+  bool range_repairs_admission() const {
+    Config candidate = requested_config;
+    const uintptr_t requested = reinterpret_cast<uintptr_t>(&requested_config);
+    bool repaired = false;
+    for (const ParamDef &parameter : getParameters()) {
+      if (!parameter_out_of_range(parameter))
+        continue;
+      const uintptr_t target = reinterpret_cast<uintptr_t>(parameter.target);
+      const size_t size = parameter_target_size(parameter);
+      if (target < requested ||
+          target + size > requested + sizeof(requested_config))
+        continue;
+      ParamDef candidate_parameter = parameter;
+      candidate_parameter.target =
+          reinterpret_cast<uint8_t *>(&candidate) + (target - requested);
+      candidate_parameter.set(
+          hs::clamp(parameter.get_requested(), parameter.min, parameter.max));
+      repaired = true;
+    }
+    return repaired && valid_config(candidate);
   }
 
   float accepted_parameter_value(const ParamDef &parameter) const override {
@@ -1389,9 +1426,11 @@ private:
     const char *time_name = first ? "Planar Warp 1 Time" : "Planar Warp 2 Time";
     auto register_current = [&](const char *name, float *target, float minimum,
                                 float maximum) {
-      register_animated_param(name, target,
-                              *target < minimum ? *target : minimum,
-                              *target > maximum ? *target : maximum);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+      register_animated_param_preserving_value(name, target, minimum, maximum);
+#else
+      register_animated_param(name, target, minimum, maximum);
+#endif
     };
     if (spec.kind == WarpStageKind::WAVE_SHEAR ||
         spec.kind == WarpStageKind::VECTOR_NOISE ||
