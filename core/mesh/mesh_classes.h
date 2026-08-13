@@ -510,6 +510,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       continue;
     }
 
+    HS_CHECK(bytes <= budget, "class LUT bake: grid outgrew the byte budget");
     budget -= bytes;
     out.lut_bytes += bytes;
     int16_t *data =
