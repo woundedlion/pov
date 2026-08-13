@@ -1823,8 +1823,10 @@ jobs:
     # escapes. `needs` names every other job in this file; the drift check below
     # fails when one is missing.
     # `if: always()` is load-bearing: a failed dependency SKIPS a plain job, and
-    # a skipped required check does not block a merge. Only a failed or cancelled
-    # dependency reds this — a skipped one passes.
+    # a skipped required check does not block a merge.
+    # Only `success` counts below. No job here carries an `if:`, so a skip means
+    # a job dropped out of the run — the exact way coverage is lost silently. A
+    # job that legitimately must skip needs an entry in ALLOW_SKIPPED.
     needs:
       - tests
       - sanitizers
@@ -1855,6 +1857,10 @@ jobs:
       - name: Assert every job is a dependency and succeeded
         env:
           RESULTS: ${{ toJSON(needs) }}
+          # Space-separated jobs allowed to report `skipped`. Empty: no job in
+          # this file carries an `if:`, so every one must run and succeed. Adding
+          # a conditional job means adding it here, deliberately.
+          ALLOW_SKIPPED: ''
         run: |
           WF=.github/workflows/ci.yml
 
@@ -1887,11 +1893,23 @@ jobs:
             exit 1
           fi
 
-          awk '$2 != "success" && $2 != "skipped"' /tmp/ci-results.txt > /tmp/ci-bad.txt
+          awk -v allow="$ALLOW_SKIPPED" '
+            BEGIN {
+              n = split(allow, entries, " ")
+              for (i = 1; i <= n; i++) allowed[entries[i]] = 1
+            }
+            $2 == "success" { next }
+            $2 == "skipped" && allowed[$1] { next }
+            { print }
+          ' /tmp/ci-results.txt > /tmp/ci-bad.txt
           if [ -s /tmp/ci-bad.txt ]; then
             while read -r job result; do
-              echo "::error::job '$job' did not pass: $result"
+              if [ "$result" = skipped ]; then
+                echo "::error file=$WF::job '$job' was skipped, so its checks did not run; list it in ALLOW_SKIPPED if that is intended"
+              else
+                echo "::error::job '$job' did not pass: $result"
+              fi
             done < /tmp/ci-bad.txt
             exit 1
           fi
-          echo "CI green: $(wc -l < /tmp/ci-results.txt) jobs, every one success or skipped."
+          echo "CI green: $(wc -l < /tmp/ci-results.txt) jobs, every one success."
