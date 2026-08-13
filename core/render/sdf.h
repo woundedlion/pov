@@ -2285,6 +2285,11 @@ struct FaceScratchBuffer {
       pseudo_angles; /**< Unwrapped vertex pseudo-angles for the sector walk. */
   std::array<uint32_t, MAX_VERTS + 1>
       sector_keys; /**< pseudo_angles as order-preserving integer keys. */
+#ifndef NDEBUG
+  /** Bumped by every Face that finishes building over this buffer, so a Face
+   *  holding an older value has had its geometry retargeted. Debug only. */
+  uint32_t claim_seq = 0;
+#endif
 };
 
 static_assert(sdf_max_spans<Face>::value >= FaceScratchBuffer::MAX_INTERVALS,
@@ -2325,7 +2330,8 @@ __attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
  * buffer must outlive the Face AND back no other live Face: building a second
  * Face over the same buffer silently retargets the first one's geometry. Two
  * Faces in one CSG composition (SDF::Union<Face, Face>) therefore need two
- * buffers.
+ * buffers. Debug builds stamp the claim and distance() traps on a retargeted
+ * Face; the stamp and its check are compiled out under NDEBUG.
  */
 struct Face {
   Vector center; /**< Normalized face centroid (projection axis). */
@@ -2407,6 +2413,13 @@ struct Face {
   float lut_ay, lut_by, lut_cy; /**< Grid-y affine coefficients. */
   float lut_clamp;              /**< Grid clamp bound (n - 2). */
   float lut_dequant;            /**< int16 -> plane-unit scale. */
+
+#ifndef NDEBUG
+  const FaceScratchBuffer *scratch_owner =
+      nullptr; /**< Buffer the spans view; null when the face culled before
+                    claiming one. Debug only. */
+  uint32_t scratch_claim = 0; /**< Claim this face took on that buffer. */
+#endif
 
   /**
    * @brief Builds a face's projection, bounds, and edge data.
@@ -2526,6 +2539,11 @@ struct Face {
       HS_PROFILE_DEEP(face_sectors);
       build_sectors(scratch);
     }
+
+#ifndef NDEBUG
+    scratch_owner = &scratch;
+    scratch_claim = ++scratch.claim_seq;
+#endif
   }
 
   /**
@@ -3451,6 +3469,10 @@ struct Face {
   HS_O3_FN void distance_with_flags(const Vector &p, DistanceResult &res,
                                     float reject_dsq,
                                     uint32_t probe_flags) const {
+#ifndef NDEBUG
+    HS_CHECK(!scratch_owner || scratch_owner->claim_seq == scratch_claim,
+             "SDF::Face probed after a later Face claimed its scratch buffer");
+#endif
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
     HS_PROBE_TICK();
     HS_PROBE_COUNT(n_probe);

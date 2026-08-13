@@ -1651,6 +1651,35 @@ inline void case_scan_clip_rows_out_of_bounds() {
 }
 
 /**
+ * @brief Death case: probing a Face whose scratch buffer a later Face claimed.
+ * @details The second build retargets the first face's spans, so the first no
+ *          longer describes its own geometry. Debug-only guard.
+ */
+inline void case_face_scratch_retargeted() {
+  constexpr int H = 16, HV = H + hs::H_OFFSET;
+  Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
+  Vector verts[6];
+  uint16_t idx_a[3], idx_b[3];
+  for (int i = 0; i < 6; ++i) {
+    float a = (2.0f * PI_F * i) / 6.0f;
+    verts[i] = (basis.v * cosf(0.6f) +
+                (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(0.6f))
+                   .normalized();
+  }
+  for (int i = 0; i < 3; ++i) {
+    idx_a[i] = static_cast<uint16_t>(i);
+    idx_b[i] = static_cast<uint16_t>(i + 3);
+  }
+  static SDF::FaceScratchBuffer scratch;
+  SDF::Face first(std::span<const Vector>(verts, 6),
+                  std::span<const uint16_t>(idx_a, 3), scratch, HV, H);
+  SDF::Face second(std::span<const Vector>(verts, 6),
+                   std::span<const uint16_t>(idx_b, 3), scratch, HV, H);
+  SDF::DistanceResult res;
+  first.distance(second.center, res);
+}
+
+/**
  * @brief Death case: a scan rejects a canvas that is not its <W, H>.
  * @details Direct construction exercises the guard independently of the draw
  *          primitives that call it.
@@ -2738,6 +2767,9 @@ inline const Case *all_cases(int &n) {
        "scan.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
        "cr.render_y_end() <= H) "},
+      {"face_scratch_retargeted", case_face_scratch_retargeted, "sdf.h",
+       "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
+       "SDF::Face probed after a later Face claimed its scratch buffer"},
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "scan.h",
        "(canvas.width() == W && canvas.height() == H) "},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
@@ -3433,7 +3465,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 131;
+  constexpr int DEATH_CASE_COUNT = 132;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
