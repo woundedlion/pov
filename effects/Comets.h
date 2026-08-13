@@ -95,7 +95,7 @@ public:
                                          update_palette();
                                        },
                                        true),
-                                   Timeline::Pin::PINNED);
+                                   Timeline::Pin::PINNED, &anims_paused);
   }
 
   /**
@@ -151,6 +151,12 @@ private:
     if (!functions.select(change.to))
       return false;
     update_path();
+    if (change.origin == PresetChangeOrigin::MANUAL) {
+      node->orientation.set(Quaternion());
+      node->trail.clear();
+      motion->rewind();
+      motion->reanchor();
+    }
     return true;
   }
 
