@@ -9,10 +9,12 @@
 #
 # Opt OUT of a single commit:
 #     HS_SKIP_TESTS=1 git commit ...        (or:  git commit --no-verify)
+# Narrower opt-outs: HS_SKIP_LINT=1 (Python/JS/Markdown), HS_SKIP_TEENSY=1.
 #
 # Uses the CMake "tests" preset (Ninja + auto-located Clang). Configure is cached
 # and builds are incremental, so a typical commit pays only the changed-file
-# rebuild plus the ~4s test run. Doc-only commits skip the suite entirely.
+# rebuild plus the ~4s test run. A commit staging no C++/build path skips the
+# suite entirely; a Markdown-only one still pays the seconds-long docs check.
 #
 # SCOPE: the "run or skip" decision keys on the STAGED paths (git diff --cached),
 # but the build/test below compiles the WORKING TREE, not the index. For whole-
@@ -126,42 +128,122 @@ EOF
   fi
 fi
 
-# Per-commit opt-out for the test + Teensy gates below.
+# Per-commit opt-out for the test, lint and Teensy gates below.
 if [ -n "$HS_SKIP_TESTS" ]; then
   echo "[pre-commit] HS_SKIP_TESTS set — skipping unit tests."
   exit 0
 fi
 
-# Two gates key off the staged paths. NATIVE: the host unit suite (C++/CMake),
-# including the .cmake test drivers and the Python generators CTests pin their
-# committed output against (an edit to one of those alone reds the suite and the
-# matching provenance job with nothing else staged).
+# Three gates key off the staged paths. NATIVE: the host unit suite (C++/CMake),
+# including the .cmake test drivers and the Python generators whose committed
+# output the suite consumes (an edit to one of those alone reds the suite and
+# the matching provenance job with nothing else staged).
 # TEENSY: the Teensy 4 size/layout gate, which any C++ change can move, plus the
 # build/budget/ldscript files that drive the firmware image.
+# LINT: the Python / JavaScript / Markdown tree, which no compiler sees — CI's
+# lint and docs-markdown jobs are the only thing that reads it, and both run in
+# seconds locally.
 #
-# Both classifiers are shell functions taking the newline-separated path list,
-# so tools/githook_tests drives them against a table of staged paths: these two
+# Every classifier is a shell function taking the newline-separated path list,
+# so tools/githook_tests drives them against a table of staged paths: these
 # regexes are the hook's whole routing logic, and a path class that quietly
 # stops matching skips its gate on every commit that touches only that class.
 hs_paths_native() {
-  printf '%s\n' "$1" | grep -qE '\.(h|hpp|cpp|cc|inl|cmake)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$|(^|/)scripts/generate_luts\.py$|(^|/)tools/gen_gamut_lut\.py$|(^|/)tools/teensy_size_trail\.py$'
+  printf '%s\n' "$1" | grep -qE '\.(h|hpp|cpp|cc|inl|cmake)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$|(^|/)scripts/generate_luts\.py$|(^|/)scripts/generate_reaction_graph\.py$|(^|/)tools/gen_gamut_lut\.py$|(^|/)tools/relax_bakes\.py$|(^|/)tools/teensy_size_trail\.py$'
 }
 
 hs_paths_teensy() {
   printf '%s\n' "$1" | grep -qE '\.(h|hpp|cpp|cc|inl|ino)$|(^|/)platformio\.ini$|(^|/)tools/teensy_[A-Za-z_]*\.py$|(^|/)tools/teensy_budgets\.json$|(^|/)tools/phantasm\.ld$'
 }
 
+hs_paths_lint() {
+  printf '%s\n' "$1" | grep -qE '\.(py|mjs|md)$|(^|/)ruff\.toml$|(^|/)eslint\.config\.mjs$|(^|/)package(-lock)?\.json$'
+}
+
 NATIVE=
 TEENSY=
+LINT=
 if hs_paths_native "$CHANGED"; then
   NATIVE=1
 fi
 if hs_paths_teensy "$CHANGED"; then
   TEENSY=1
 fi
-if [ -z "$NATIVE" ] && [ -z "$TEENSY" ]; then
-  echo "[pre-commit] No C++/build changes staged — skipping unit tests + Teensy gate."
+if hs_paths_lint "$CHANGED"; then
+  LINT=1
+fi
+if [ -z "$NATIVE" ] && [ -z "$TEENSY" ] && [ -z "$LINT" ]; then
+  echo "[pre-commit] Nothing a local gate covers is staged — skipping them all."
   exit 0
+fi
+
+# Probe with --version, not `command -v`: on Windows the App Execution Alias
+# stub resolves and then refuses to run.
+hs_python() {
+  for c in ${HS_PYTHON:-} python3 python; do
+    if "$c" --version >/dev/null 2>&1; then echo "$c"; return 0; fi
+  done
+  return 1
+}
+
+# ─── Python / JavaScript / Markdown checks ──────────────────────────────────
+# The same checks as `just lint`, `just docs-check` and `npm test`, which are
+# what CI's lint and docs-markdown jobs run. Each tool is skipped when it is
+# absent, exactly as the Teensy gate below is: a contributor without ruff or
+# without node_modules still commits, and CI stays the authoritative gate. ruff
+# is held to the pin — a different release gates on a different rule set, so its
+# verdict says nothing about CI's. Skip once with HS_SKIP_LINT=1.
+hs_run_lint() {
+  if PY="$(hs_python)"; then
+    if "$PY" tools/build_pins.py --check-tool ruff >/dev/null 2>&1; then
+      echo "[pre-commit] ruff..."
+      if ! ruff check --no-cache .; then
+        echo "[pre-commit] ruff found problems."
+        return 1
+      fi
+    else
+      echo "[pre-commit] ruff absent or off the pin — skipping it (CI enforces it)."
+    fi
+    # The checkers themselves, not their self-test suites: those build throwaway
+    # git trees, which is CI's docs-markdown job to run, not a commit hook's.
+    echo "[pre-commit] Markdown + build-pin checks..."
+    if ! { "$PY" tools/docs_check.py && "$PY" tools/build_pins.py --check; }; then
+      echo "[pre-commit] Markdown / build-pin checks FAILED."
+      return 1
+    fi
+  else
+    echo "[pre-commit] no working python — skipping the lint + docs checks."
+  fi
+  if command -v node >/dev/null 2>&1; then
+    echo "[pre-commit] Node script unit tests..."
+    if ! node --test scripts/*.test.mjs; then
+      echo "[pre-commit] scripts/*.test.mjs FAILED."
+      return 1
+    fi
+    # eslint comes from node_modules, which a fresh clone has not installed yet.
+    if [ -x node_modules/.bin/eslint ]; then
+      if ! node_modules/.bin/eslint .; then
+        echo "[pre-commit] eslint found problems."
+        return 1
+      fi
+    else
+      echo "[pre-commit] node_modules absent — skipping eslint (npm ci enables it)."
+    fi
+  else
+    echo "[pre-commit] node not found — skipping the JavaScript checks."
+  fi
+  echo "[pre-commit] Lint + docs checks passed."
+}
+
+if [ -n "$LINT" ] && [ -z "$HS_SKIP_LINT" ]; then
+  # git exports GIT_DIR / GIT_INDEX_FILE to its hooks, and every checker below
+  # shells out to git. Inherited, those point a checker run from anywhere back
+  # at this commit's in-flight index; unset, each resolves the repository the
+  # ordinary way.
+  if ! ( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX; hs_run_lint ); then
+    echo "[pre-commit] (bypass once with: HS_SKIP_LINT=1 git commit)"
+    exit 1
+  fi
 fi
 
 # Caveat: emscripten-only TUs (e.g. targets/wasm/wasm.cpp, guarded entirely by
@@ -204,13 +286,7 @@ if [ -n "$TEENSY" ] && [ -z "$HS_SKIP_TEENSY" ]; then
     # Capture the linked images' section sizes into a pending record; the
     # post-commit hook stamps it with the sha and appends it to the local size
     # trail. Advisory: any failure prints and the commit proceeds.
-    hs_size_trail_python() {
-      for c in ${HS_PYTHON:-} python3 python; do
-        if "$c" --version >/dev/null 2>&1; then echo "$c"; return 0; fi
-      done
-      return 1
-    }
-    if PY="$(hs_size_trail_python)"; then
+    if PY="$(hs_python)"; then
       if ! "$PY" tools/teensy_size_trail.py record --build-dir .pio/build; then
         echo "[pre-commit] size trail not recorded (see warning above) — continuing."
       fi

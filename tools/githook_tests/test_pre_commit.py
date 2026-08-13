@@ -37,9 +37,11 @@ def classify(*paths: str) -> set[str]:
     script = (
         f"{shell_function('hs_paths_native')}\n"
         f"{shell_function('hs_paths_teensy')}\n"
+        f"{shell_function('hs_paths_lint')}\n"
         "CHANGED=\"$(printf '%s\\n' \"$@\")\"\n"
         'hs_paths_native "$CHANGED" && echo native\n'
         'hs_paths_teensy "$CHANGED" && echo teensy\n'
+        'hs_paths_lint "$CHANGED" && echo lint\n'
         "exit 0\n"
     )
     done = subprocess.run(
@@ -60,26 +62,36 @@ CASES = (
     ("platformio.ini", {"teensy"}),
     ("tools/teensy_budgets.json", {"teensy"}),
     ("tools/phantasm.ld", {"teensy"}),
-    ("tools/teensy_gate.py", {"teensy"}),
-    # Pins the committed LUTs / trail that CTests and the hook itself read.
-    ("tools/teensy_size_trail.py", {"native", "teensy"}),
-    ("scripts/generate_luts.py", {"native"}),
-    ("tools/gen_gamut_lut.py", {"native"}),
+    ("tools/teensy_gate.py", {"teensy", "lint"}),
+    # Generators the tree pins committed output against; every one is Python.
+    ("tools/teensy_size_trail.py", {"native", "teensy", "lint"}),
+    ("scripts/generate_luts.py", {"native", "lint"}),
+    ("scripts/generate_reaction_graph.py", {"native", "lint"}),
+    ("tools/gen_gamut_lut.py", {"native", "lint"}),
+    ("tools/relax_bakes.py", {"native", "lint"}),
     ("CMakeLists.txt", {"native"}),
     ("tests/CMakeLists.txt", {"native"}),
     ("CMakePresets.json", {"native"}),
     ("cmake/toolchain-native-clang.cmake", {"native"}),
     ("tests/check_includes.cmake", {"native"}),
     ("tests/ubsan-ignorelist.txt", {"native"}),
+    ("README.md", {"lint"}),
+    ("docs/specs/shaderball_spec.md", {"lint"}),
+    ("scripts/wasm_smoke.mjs", {"lint"}),
+    ("tools/docs_check.py", {"lint"}),
+    ("ruff.toml", {"lint"}),
+    ("eslint.config.mjs", {"lint"}),
+    ("package.json", {"lint"}),
+    ("package-lock.json", {"lint"}),
 )
 
-#: Paths that must select neither gate, so a doc-only commit stays fast.
+#: Paths that must select no gate at all, so such a commit stays instant.
 NEITHER = (
-    "README.md",
-    "docs/specs/shaderball_spec.md",
     "docs/screenshots/Voronoi.png",
-    "package.json",
     "LICENSE",
+    "justfile",
+    ".github/workflows/ci.yml",
+    ".githooks/pre-commit",
 )
 
 
@@ -89,7 +101,7 @@ class Classification(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(classify(path), expected)
 
-    def test_documentation_and_assets_select_nothing(self):
+    def test_assets_and_ci_only_paths_select_nothing(self):
         for path in NEITHER:
             with self.subTest(path=path):
                 self.assertEqual(classify(path), set())
@@ -97,7 +109,7 @@ class Classification(unittest.TestCase):
     def test_a_mixed_commit_selects_the_union(self):
         self.assertEqual(
             classify("README.md", "platformio.ini", "CMakeLists.txt"),
-            {"native", "teensy"})
+            {"native", "teensy", "lint"})
 
     def test_no_staged_paths_select_nothing(self):
         self.assertEqual(classify(""), set())
@@ -105,16 +117,13 @@ class Classification(unittest.TestCase):
     def test_the_extension_anchors_hold(self):
         # Every extension alternative is anchored at end of line, so a path that
         # merely contains one is not a source file.
-        for path in ("docs/notes.cmake.md", "docs/inl.txt", "tools/h.json",
-                     "docs/CMakeLists.txt.md", "docs/platformio.ini.md"):
+        for path, expected in (("docs/notes.cmake.md", {"lint"}),
+                               ("docs/inl.txt", set()),
+                               ("tools/h.json", set()),
+                               ("docs/CMakeLists.txt.md", {"lint"}),
+                               ("docs/platformio.ini.md", {"lint"})):
             with self.subTest(path=path):
-                self.assertEqual(classify(path), set())
-
-    def test_a_generator_the_suite_does_not_pin_is_not_native(self):
-        # Only the generators a CTest compares committed output against are
-        # listed; adding one here without adding it to the hook would pass
-        # vacuously, so assert the negative for a generator that is not.
-        self.assertEqual(classify("tools/docs_check.py"), set())
+                self.assertEqual(classify(path), expected)
 
 
 if __name__ == "__main__":
