@@ -3540,6 +3540,41 @@ inline void test_shaderball_projection_and_admission_contracts() {
   }
 }
 
+/** @brief GUI edits with no compiled pipeline stay pending and warn. */
+inline void test_shaderball_uncompiled_topology_admission() {
+  using WB = ShaderBallWhiteBox;
+  HS_EXPECT_TRUE(WB::has_inverse_program(WB::presets()[0]));
+  {
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    HS_EXPECT_EQ(
+        sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::TWIST)),
+        ParamSetResult::APPLIED);
+    sb.draw_frame();
+    sb.advance_display();
+    HS_EXPECT_EQ(WB::active_slots(sb).surface_lens,
+                 WB::presets()[0].slots.surface_lens);
+    HS_EXPECT_EQ(WB::requested_config(sb).slots.surface_lens,
+                 WB::SurfaceLens::TWIST);
+    HS_EXPECT_TRUE(WB::parameter_warning(sb, "Lens") != nullptr);
+  }
+  {
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    HS_EXPECT_EQ(sb.updateParameter("Surface Noise Direction", 0.5f),
+                 ParamSetResult::APPLIED);
+    sb.draw_frame();
+    sb.advance_display();
+    HS_EXPECT_EQ(WB::active_config(sb).params.surface_noise.direction,
+                 WB::presets()[0].params.surface_noise.direction);
+    HS_EXPECT_EQ(WB::requested_config(sb).params.surface_noise.direction, 0.5f);
+    HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Direction") !=
+                   nullptr);
+  }
+}
+
 /** @brief Every shader catalog family produces finite bounded output. */
 inline void test_shaderball_kernel_catalog() {
   using WB = ShaderBallWhiteBox;
@@ -4127,6 +4162,7 @@ inline int run_shaderball_tests() {
   test_shaderball_projection_catalog();
   test_shaderball_fast_peirce_square();
   test_shaderball_projection_and_admission_contracts();
+  test_shaderball_uncompiled_topology_admission();
   test_shaderball_stable_preset_transition();
   test_shaderball_palette_resources();
   return fixture.result();
