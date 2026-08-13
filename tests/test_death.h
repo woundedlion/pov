@@ -1431,6 +1431,24 @@ inline void case_transformer_pool_reclaim_storage_moved() {
 }
 
 /**
+ * @brief Death case: a pool outliving its Timeline must trap.
+ * @details Transformer surface — the destructor reaches back into the timeline
+ *          to drop the pool's clear hook, and the spawned completion callbacks
+ *          reach back into the pool, so the two lifetimes are ordered. An owner
+ *          that declares them the other way gets a dead reference here rather
+ *          than at some later step().
+ */
+inline void case_transformer_pool_outlives_timeline() {
+  configure_arenas_default();
+  alignas(Timeline) static uint8_t tl_storage[sizeof(Timeline)];
+  Timeline *tl = new (tl_storage) Timeline();
+  RippleTransformer<2> rt(*tl);
+  rt.init_storage(persistent_arena);
+  tl->~Timeline();
+  // ~RippleTransformer at scope exit -> HS_CHECK
+}
+
+/**
  * @brief Concrete Effect for the canvas death cases.
  * @details Defaults to 32x16 and exposes register_param via reg.
  */
@@ -2524,6 +2542,10 @@ inline const Case *all_cases(int &n) {
        case_transformer_pool_reclaim_storage_moved, "transformers.h",
        "(e == entities && s == active_slots) TransformerPool: reclaimed "
        "storage moved"},
+      {"transformer_pool_outlives_timeline",
+       case_transformer_pool_outlives_timeline, "transformers.h",
+       "(global_timeline_live) TransformerPool outlived its Timeline: declare "
+       "the Timeline before the pools that schedule on it"},
       {"effect_double_construct", case_effect_double_construct, "canvas.h",
        "(!s_alive) Effect: a second Effect was constructed while one is "
        "still alive; buffer_a/buffer_b are shared static storage (one live "
@@ -3166,7 +3188,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  * @details Raise it after adding cases; lower it only alongside a deliberate
  *          removal of the engine guards those cases target.
  */
-constexpr int MIN_COVERED_GUARD_SITES = 114;
+constexpr int MIN_COVERED_GUARD_SITES = 115;
 
 /**
  * @brief Prints what fraction of the engine's fail-fast surface is pinned.
@@ -3257,7 +3279,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 130;
+  constexpr int DEATH_CASE_COUNT = 131;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a

@@ -901,6 +901,47 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
 }
 
 // ============================================================================
+// Transformer<> completion callbacks outliving their pool
+// ============================================================================
+
+/**
+ * @brief Verifies a spawned animation completing after its pool is destroyed
+ *        leaves the pool's storage alone.
+ * @details spawn() installs a then() callback holding the pool and a slot
+ *          index. A pool held in a narrower scope than its timeline dies with
+ *          that event still live, so the callback fires against a dead pool and
+ *          must do nothing. A second pool is built at the freed address, so the
+ *          rejection has to rest on identity rather than on the address: a
+ *          callback that ran would deactivate the new pool's only slot.
+ */
+inline void test_transformer_callback_after_pool_destroyed() {
+  using Pool = RippleTransformer<1>;
+  Timeline tl;
+  global_timeline_t = 0;
+  hs_test::StubEffect fx(8, 8);
+  Canvas cv(fx);
+
+  alignas(Pool) static uint8_t pool_storage[sizeof(Pool)];
+  Pool *first = new (pool_storage) Pool(tl);
+  first->init_storage(persistent_arena);
+  HS_EXPECT_TRUE(first->spawn(0, Vector(0, 1, 0), 0.2f, 4) != nullptr);
+  first->~Pool();
+
+  Pool *second = new (pool_storage) Pool(tl);
+  second->init_storage(persistent_arena);
+  HS_EXPECT_TRUE(second->spawn(0, Vector(1, 0, 0), 0.2f, 120) != nullptr);
+  HS_EXPECT_EQ(second->active_count(), 1);
+
+  // Steps past the first pool's ripple, firing its now-stale callback.
+  for (int i = 0; i < 8; ++i)
+    tl.step(cv);
+
+  HS_EXPECT_EQ(second->active_count(), 1);
+  HS_EXPECT_TRUE(second->spawn(0, Vector(0, 0, 1), 0.2f, 4) == nullptr);
+  second->~Pool();
+}
+
+// ============================================================================
 // Transformer<> slots are reclaimed by Timeline::clear()
 // ============================================================================
 
@@ -1643,6 +1684,7 @@ inline int run_transformers_tests() {
   test_transformer_no_entities_is_identity();
   test_transformer_spawn_applies_and_composes();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
+  test_transformer_callback_after_pool_destroyed();
   test_transformer_slots_released_by_timeline_clear();
   test_transformer_recycled_slot_composes_in_spawn_order();
   test_field_transformer_no_entities_is_zero();
