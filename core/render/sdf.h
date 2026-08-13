@@ -1821,6 +1821,14 @@ template <typename A, typename B> struct Subtract {
    *       keying off them sees a hard edge there. `raw_dist` is a per-shape
    *       unsigned or supplementary quantity, not a signed metric, so it is
    *       not negated with `dist`.
+   * @note The carve edge is anti-aliased on one side only when B clamps to
+   *       FAR_SENTINEL past its reject band (blends_smoothly == false). The
+   *       sentinel loses the max, so at the band edge the composite jumps from
+   *       B's ramp to A's own distance instead of completing the outer half of
+   *       the fringe. Ring's band is exactly its stroke, putting that step on
+   *       the carve edge itself; the other clampers carry a margin of true
+   *       distance past their surface, which absorbs the step wherever that
+   *       margin outruns the AA reach.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
