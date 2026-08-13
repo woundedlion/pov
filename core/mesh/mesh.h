@@ -831,6 +831,10 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       });
     }
 
+    // Commutative by design: the wrapping sum makes class identity the multiset
+    // of neighbour hashes, not their cyclic order, so faces whose neighbourhoods
+    // differ only by rotation or reflection share a class. Faces whose neighbour
+    // hashes merely sum equally merge with them.
     offset = 0;
     for (size_t fi = 0; fi < F; ++fi) {
       int count = face_counts[fi];
