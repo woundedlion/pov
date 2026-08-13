@@ -46,11 +46,63 @@ ZIP_EXCLUDED = {"phantasm-BOM.csv", "phantasm-CPL.csv",
                 "phantasm-jlc-gerbers.zip"}
 
 
+#: Creation stamp written over KiCad's wall clock in every exported artifact,
+#: matching the zip member date below.
+FAB_TIMESTAMP = "1980-01-01T00:00:00+00:00"
+FAB_DATE = "1980-01-01 00:00:00"
+
+#: KiCad's four export-time stamp forms: the Gerber X2 file attribute and its
+#: plain banner, the two Excellon header comments, and the job file's JSON
+#: field. Each substitution keeps the tool-version text so a toolchain upgrade
+#: still shows in the diff, and stops before the line ending: the Gerbers are
+#: CRLF and the Excellon files LF.
+TIMESTAMP_SUBSTITUTIONS = (
+    (re.compile(r"^%TF\.CreationDate,[^\r\n]*\*%(?=\r?$)", re.M),
+     f"%TF.CreationDate,{FAB_TIMESTAMP}*%"),
+    (re.compile(r"^(G04 Created by KiCad \([^\r\n]*\) date )[^\r\n]*\*(?=\r?$)",
+                re.M),
+     r"\g<1>" + FAB_DATE + "*"),
+    (re.compile(r"^(; DRILL file KiCad [^\r\n]* date )[^\r\n]*(?=\r?$)", re.M),
+     r"\g<1>" + FAB_TIMESTAMP),
+    (re.compile(r"^; #@! TF\.CreationDate,[^\r\n]*(?=\r?$)", re.M),
+     f"; #@! TF.CreationDate,{FAB_TIMESTAMP}"),
+    (re.compile(r'^([ \t]*"CreationDate": ")[^"\r\n]*(")', re.M),
+     r"\g<1>" + FAB_TIMESTAMP + r"\g<2>"),
+)
+
+
+def normalize_fab_timestamps(directory):
+    """Stamp FAB_TIMESTAMP over KiCad's export time; return the names rewritten.
+
+    Every Gerber, drill file and job file records the wall clock, so without
+    this two exports of an unchanged board differ in every artifact and a
+    re-run tells the reader nothing. The stamps are comments and metadata
+    attributes; the copper is untouched.
+    """
+    rewritten = []
+    for name in sorted(os.listdir(directory)):
+        path = os.path.join(directory, name)
+        try:
+            with open(path, encoding="utf-8", newline="") as fh:
+                text = fh.read()
+        except (OSError, UnicodeError):
+            continue
+        stamped = text
+        for pattern, replacement in TIMESTAMP_SUBSTITUTIONS:
+            stamped = pattern.sub(replacement, stamped)
+        if stamped != text:
+            with open(path, "w", encoding="utf-8", newline="") as fh:
+                fh.write(stamped)
+            rewritten.append(name)
+    return rewritten
+
+
 def zip_member(name):
     """Zip entry with fixed metadata, so an unchanged board rezips byte-identically.
 
     Source mtimes, host permissions and the packing platform all vary between
-    runs; none of them belong in the fab package.
+    runs; none of them belong in the fab package. The members themselves are
+    stamp-normalized by normalize_fab_timestamps().
     """
     info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
     info.compress_type = zipfile.ZIP_DEFLATED
@@ -772,6 +824,9 @@ def main():
         os.makedirs(JLC, exist_ok=True)
         for name in os.listdir(staged):
             os.replace(os.path.join(staged, name), os.path.join(JLC, name))
+    stamped = normalize_fab_timestamps(JLC)
+    print(f"  creation stamps: {len(stamped)} artifact(s) normalized to "
+          f"{FAB_TIMESTAMP}")
 
     print("[8/9] BOM + CPL")
     # BOM grouped by (value, footprint)
