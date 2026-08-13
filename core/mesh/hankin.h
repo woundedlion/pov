@@ -78,10 +78,13 @@ struct CompiledHankin {
    * @param dst Destination instance whose vectors are bound and filled.
    * @param arena Arena backing the destination's freshly bound vectors.
    * @details Required by Cloneable; each vector is rebound from @p arena and
-   * bulk-copied (all element types are trivially copyable).
+   * bulk-copied (all element types are trivially copyable). Traps if src
+   * aliases dst: copy_vector rebinds dst in place, then memcpy's the block onto
+   * itself.
    */
   HS_COLD_MEMBER static void clone(const CompiledHankin &src,
                                    CompiledHankin &dst, Arena &arena) {
+    HS_CHECK(&src != &dst, "CompiledHankin::clone src must not alias dst");
     HS_CHECK(src.dynamic_instructions.size() == 0 ||
                  src.corner_src == src.base_vertices.data(),
              "CompiledHankin::clone needs an owned-corner source "
