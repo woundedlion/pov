@@ -7,10 +7,10 @@
 #
 # The count comparison alone cannot see a test header that exists on disk but
 # is included nowhere, so the second half of this script walks the directory and
-# requires every test header outside NON_MODULE_HEADERS to be included by name.
-# The exemption itself is then held to the same bar: an entry must be included
-# by some other source under tests/ or tools/, so listing a header there cannot
-# buy it out of ever being compiled.
+# requires every test header outside off_roster_headers.cmake to be included by
+# name. The exemption itself is then held to the same bar: an entry must be
+# included by some other source under tests/ or tools/, so listing a header
+# there cannot buy it out of ever being compiled.
 # -D args: SRC (path to run_tests.cpp), TESTS_DIR (path to tests/),
 # TOOLS_DIR (path to tools/).
 
@@ -34,20 +34,11 @@ if(NOT _ninc EQUAL _nrow)
     "silently; add the row or drop the orphaned include.")
 endif()
 
-# Headers that are deliberately not roster modules.
-set(NON_MODULE_HEADERS
-  color_test_util.h
-  mesh_test_util.h
-  mindsplatter_replay_corpus.h
-  mindsplatter_replay_metrics.h
-  mindsplatter_whitebox.h
-  pixel_test_util.h
-  test_fixture.h
-  test_generative_palette.h
-  test_harness.h
-  test_h_offset_renorm.h
-  test_pole_wrap.h
-  vec_test_util.h)
+# Headers that are deliberately not roster modules — the same list
+# check_case_calls.cmake pins case-site counts against, so a helper added for
+# one gate cannot go missing from the other.
+include("${TESTS_DIR}/off_roster_headers.cmake")
+set(NON_MODULE_HEADERS ${HS_OFF_ROSTER_HEADER_NAMES})
 
 file(GLOB_RECURSE _headers RELATIVE "${TESTS_DIR}"
   "${TESTS_DIR}/*.h"
@@ -67,7 +58,8 @@ if(_orphans)
   message(FATAL_ERROR
     "run_tests.cpp includes no such header: ${_orphan_list}. A test header on "
     "disk that nothing includes is never compiled or run; add the include and "
-    "its roster row, delete the file, or list it in NON_MODULE_HEADERS.")
+    "its roster row, delete the file, or list it in "
+    "tests/off_roster_headers.cmake.")
 endif()
 
 # Collect every tests/ header included from a source under tests/ or tools/,
@@ -98,8 +90,9 @@ endforeach()
 if(_dead_exempt)
   string(REPLACE ";" ", " _dead_list "${_dead_exempt}")
   message(FATAL_ERROR
-    "NON_MODULE_HEADERS entry nothing includes: ${_dead_list}. The exemption "
-    "only covers headers pulled in by another source under tests/ or tools/; "
+    "off_roster_headers.cmake entry nothing includes: ${_dead_list}. The "
+    "exemption only covers headers pulled in by another source under "
+    "tests/ or tools/; "
     "an entry no one includes is never compiled, which is what this gate "
     "exists to catch. Include it, delete the file, or drop the entry.")
 endif()

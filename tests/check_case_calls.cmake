@@ -18,9 +18,10 @@
 # clang-format puts it when the signature wraps. A module's header is the one
 # defining the run_*_tests() entry point its roster row names. Headers no roster
 # row reaches — helper headers included mid-module, and entry points only a
-# standalone tool binary runs — are pinned by HELPER_CASE_COUNTS below instead,
+# standalone tool binary runs — are pinned by off_roster_headers.cmake instead,
 # so every header on disk is counted by exactly one pin and a case deleted
-# together with its call is always visible somewhere.
+# together with its call is always visible somewhere. That list is shared with
+# check_includes.cmake, which exempts the same headers from the include pin.
 #
 # A reference only counts when it is not itself a declaration: `void <case>(`
 # spans are removed before the count, so a forward declaration plus the
@@ -39,20 +40,7 @@ cmake_minimum_required(VERSION 3.29)
 file(GLOB_RECURSE _headers "${TESTS_DIR}/*.h")
 
 # Exact case-site count of every header the run_tests.cpp roster does not reach.
-# Same contract as the roster's second column: the number is exact, not a floor.
-set(HELPER_CASE_COUNTS
-  "color_test_util.h=0"
-  "mesh_test_util.h=3"
-  "mindsplatter_replay_corpus.h=0"
-  "mindsplatter_replay_metrics.h=0"
-  "mindsplatter_whitebox.h=0"
-  "pixel_test_util.h=0"
-  "test_fixture.h=0"
-  "test_generative_palette.h=25"
-  "test_h_offset_renorm.h=5"
-  "test_harness.h=0"
-  "test_pole_wrap.h=3"
-  "vec_test_util.h=0")
+include("${TESTS_DIR}/off_roster_headers.cmake")
 
 # Whole-tree code text — every header and driver .cpp under tests/ — used as
 # the fallback reference scope for cross-file calls. String bodies and comments
@@ -186,7 +174,7 @@ foreach(_row IN LISTS _rows)
   endif()
 endforeach()
 
-# Everything the roster does not reach is pinned by HELPER_CASE_COUNTS.
+# Everything the roster does not reach is pinned by the shared off-roster list.
 set(_unpinned "")
 set(_index 0)
 foreach(_file IN LISTS _all_files)
@@ -196,7 +184,7 @@ foreach(_file IN LISTS _all_files)
     continue()
   endif()
   set(_pinned "")
-  foreach(_entry IN LISTS HELPER_CASE_COUNTS)
+  foreach(_entry IN LISTS HS_OFF_ROSTER_HEADERS)
     if(_entry MATCHES "^${_file}=([0-9]+)$")
       set(_pinned "${CMAKE_MATCH_1}")
     endif()
@@ -212,23 +200,24 @@ if(_unpinned)
   string(REPLACE ";" ", " _unpinned_list "${_unpinned}")
   message(FATAL_ERROR
     "test header no case-site pin covers: ${_unpinned_list}. A header no roster "
-    "row reaches must be listed in HELPER_CASE_COUNTS in "
-    "tests/check_case_calls.cmake with its exact case count, or a case deleted "
-    "together with its call leaves no trace.")
+    "row reaches must be listed in tests/off_roster_headers.cmake with its "
+    "exact case count, or a case deleted together with its call leaves no "
+    "trace.")
 endif()
 
 if(_drift)
   string(REPLACE ";" "; " _drift_list "${_drift}")
   message(FATAL_ERROR
     "case-site count drift: ${_drift_list}. The second column of each "
-    "HS_TEST_MODULE_LIST row in tests/run_tests.cpp — and the HELPER_CASE_COUNTS "
-    "entry in this script for every header outside the roster — is the exact "
+    "HS_TEST_MODULE_LIST row in tests/run_tests.cpp — and the "
+    "tests/off_roster_headers.cmake entry for every header outside the "
+    "roster — is the exact "
     "number of `void test_*(`/`void check_*(`/`void case_*(` definitions in "
     "that header. If you added or intentionally removed cases, set the pin to "
     "the 'found' value above; otherwise a case was deleted — restore it.")
 endif()
 
-list(LENGTH HELPER_CASE_COUNTS _nhelpers)
+list(LENGTH HS_OFF_ROSTER_HEADERS _nhelpers)
 message(STATUS
   "test case call pin: all ${_sites} case definitions across the tests "
   "directory are called, and ${_nrows} roster modules plus ${_nhelpers} "
