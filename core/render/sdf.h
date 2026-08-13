@@ -1409,6 +1409,17 @@ struct FlatDistortedRing : private DistortedRing {
   }
 };
 
+/**
+ * @brief Row bounds covering either child's band, padded and clamped.
+ * @param a First child's band; culled when y_min > y_max.
+ * @param b Second child's band, same convention.
+ * @param pad Rows added on each side of the union.
+ * @param max_y Highest row the result may name (inclusive).
+ * @return Inclusive bounds over the padded union, clamped to [0, max_y], or the
+ *         culled sentinel {1, 0} when both children are culled.
+ * @details A culled child contributes nothing rather than dragging the union to
+ * its sentinel rows.
+ */
 inline Bounds union_vertical_bounds(Bounds a, Bounds b, int pad, int max_y) {
   const bool a_culled = a.y_min > a.y_max;
   const bool b_culled = b.y_min > b.y_max;
