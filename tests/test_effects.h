@@ -3057,6 +3057,13 @@ struct CometsWhiteBox {
   static const GenerativePalette::Snapshot &palette_target(const C &c) {
     return c.palette_target;
   }
+  static const Quaternion &node_orientation(const C &c) {
+    return c.node->orientation.get();
+  }
+  static size_t trail_length(const C &c) { return c.node->trail.length(); }
+  static int cycle_period(const C &c) {
+    return 2 * static_cast<int>(c.params.cycle_duration);
+  }
 };
 
 /**
@@ -3117,6 +3124,49 @@ inline void test_comets_rollover_skipped_mid_wipe() {
 
   WB::roll_palette_over(effect);
   HS_EXPECT_EQ(WB::wipe_frames_remaining(effect), WB::wipe_frames());
+}
+
+/** @brief Manual Comets selection restarts the authored path deterministically. */
+inline void test_comets_manual_preset_restarts_path() {
+  using WB = CometsWhiteBox;
+  reset_effect_globals();
+
+  WB::C effect;
+  effect.init();
+  for (int f = 0; f < 7; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+
+  constexpr size_t PRESET = 4;
+  HS_EXPECT_TRUE(effect.selectPreset(PRESET));
+  HS_EXPECT_TRUE(WB::node_orientation(effect) == Quaternion());
+  HS_EXPECT_EQ(WB::trail_length(effect), 0u);
+
+  effect.draw_frame();
+  effect.advance_display();
+  const Quaternion first_step = WB::node_orientation(effect);
+  HS_EXPECT_EQ(WB::trail_length(effect), 1u);
+
+  for (int f = 0; f < 7; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_TRUE(effect.selectPreset(PRESET));
+  HS_EXPECT_TRUE(WB::node_orientation(effect) == Quaternion());
+  HS_EXPECT_EQ(WB::trail_length(effect), 0u);
+
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_TRUE(WB::node_orientation(effect) == first_step);
+
+  // Manual selection pauses the automatic rollover timer as well as selecting
+  // the requested path.
+  for (int f = 0; f < WB::cycle_period(effect); ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_EQ(effect.getPresetIndex(), PRESET);
 }
 
 /**
@@ -6374,6 +6424,7 @@ inline int run_effects_tests() {
     test_meshfeedback_preset_rotation_syncs_noise();
     CometsWhiteBox::check_paths_close();
     test_comets_rollover_skipped_mid_wipe();
+    test_comets_manual_preset_restarts_path();
     ThrustersWhiteBox::check_warp_endpoints();
     RingShowerWhiteBox::check_radius_endpoints();
     DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
