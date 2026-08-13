@@ -873,6 +873,29 @@ inline void test_line_degenerate_zero_length() {
   HS_EXPECT_TRUE(r2.dist > 0.0f);
 }
 
+/**
+ * @brief Verifies near-coincident endpoints stay point-like, not antipodal.
+ * @details These two unit vectors are 1.2e-5 rad apart, so |cross|² lands under
+ *   EPS_CROSS_SQ — the same band a π separation occupies — while
+ *   angle_between's acos reports 4.9e-4 (quantisation, not geometry). Read as
+ *   antipodal, the arc becomes a substituted great circle: every canvas row in
+ *   bounds and no horizontal cull, i.e. a full-width scan per row for one dot.
+ */
+inline void test_line_near_coincident_endpoints_stay_point_like() {
+  Vector a(0.30058673f, -0.500977874f, 0.811584115f);
+  Vector b(0.300576329f, -0.500984192f, 0.811584175f);
+  SDF::Line ln(a, b, 0.1f);
+
+  auto bounds = ln.get_vertical_bounds<144>();
+  HS_EXPECT_TRUE(bounds.y_min > 0);
+  HS_EXPECT_TRUE(bounds.y_max < 143);
+
+  int row = (bounds.y_min + bounds.y_max) / 2;
+  bool handled =
+      ln.get_horizontal_intervals<288, 144>(row, [](float, float) {});
+  HS_EXPECT_TRUE(handled);
+}
+
 // ============================================================================
 // Torus (3D volumetric)
 // ============================================================================
@@ -3012,6 +3035,7 @@ inline int run_sdf_tests() {
   test_line_endpoint_is_on_line();
   test_line_perpendicular_off();
   test_line_degenerate_zero_length();
+  test_line_near_coincident_endpoints_stay_point_like();
 
   test_torus_on_centerline_is_inside();
   test_torus_on_surface();
