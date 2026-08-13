@@ -22,10 +22,16 @@
 # so every header on disk is counted by exactly one pin and a case deleted
 # together with its call is always visible somewhere.
 #
-# Comment spans are stripped before both the definition scan and the reference
+# A reference only counts when it is not itself a declaration: `void <case>(`
+# spans are removed before the count, so a forward declaration plus the
+# definition no longer reads as "referenced twice" and a case whose call was
+# dropped stays visible. What remains is a call or a table entry taking the
+# case's address, which is how the death module drives its cases.
+#
+# Comment spans and string bodies are stripped from both scan texts before that
 # count: the tree cross-references case names in prose, and an unstripped
-# `@details` mention would supply the second reference the real call no longer
-# does.
+# `@details` mention or diagnostic message would supply the reference the real
+# call no longer does.
 # -D args: TESTS_DIR (path to tests/).
 
 cmake_minimum_required(VERSION 3.29)
@@ -49,14 +55,17 @@ set(HELPER_CASE_COUNTS
   "vec_test_util.h=0")
 
 # Whole-tree code text — every header and driver .cpp under tests/ — used as
-# the fallback reference scope for cross-file calls. Comments are stripped: the
-# helper headers are named in prose by several modules, which would otherwise
-# read as call sites.
+# the fallback reference scope for cross-file calls. String bodies and comments
+# are stripped, in that order and for the same reasons as the per-header pass
+# below: the helper headers are named in prose by several modules and in
+# diagnostic messages, either of which would otherwise read as a call site.
 file(GLOB_RECURSE _driver_srcs "${TESTS_DIR}/*.cpp")
 set(_corpus "")
 foreach(_file IN LISTS _headers _driver_srcs)
   file(READ "${_file}" _file_text)
-  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" _file_text
+  string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _file_text
+    "${_file_text}")
+  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _file_text
     "${_file_text}")
   string(REGEX REPLACE "//[^\n]*" "" _file_text "${_file_text}")
   string(APPEND _corpus "${_file_text}")
@@ -92,14 +101,21 @@ foreach(_hdr IN LISTS _headers)
     list(APPEND _seen ${_case})
     math(EXPR _sites "${_sites} + 1")
     math(EXPR _count "${_count} + 1")
-    string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs "${_text}")
+    # Drop every declaration of the case — its definition and any forward
+    # declaration — then require one reference to survive. Counting raw
+    # occurrences instead would let a forward declaration stand in for the call.
+    string(REGEX REPLACE "void[ \t\r\n]+${_case}[ \t\r\n]*\\(" "" _scan
+      "${_text}")
+    string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs "${_scan}")
     list(LENGTH _refs _nref)
-    if(_nref LESS 2)
-      string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs
+    if(_nref LESS 1)
+      string(REGEX REPLACE "void[ \t\r\n]+${_case}[ \t\r\n]*\\(" "" _scan
         "${_corpus}")
+      string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs
+        "${_scan}")
       list(LENGTH _refs _nref)
     endif()
-    if(_nref LESS 2)
+    if(_nref LESS 1)
       list(APPEND _uncalled "${_name}:${_case}")
     endif()
   endforeach()
