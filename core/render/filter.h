@@ -2243,7 +2243,7 @@ private:
                                    grid.field.longitude_filter_width(y) > 1;
         const bool defer_filter = filter_output && !opaque;
         ::Pixel *output = defer_filter ? filtered_row : current + row;
-        while (y > control_y1 && field_y1 < grid.field_rows - 1) {
+        while (y > control_y1 && field_y1 < band.field_y_end) {
           field_y0 = field_y1;
           control_y0 = control_y1;
           ++field_y1;
