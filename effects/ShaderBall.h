@@ -3731,37 +3731,6 @@ private:
             (BOUNDARY_CUT | BOUNDARY_SINGULAR)) == 0;
   }
 
-  HS_FLASH_MEMBER static Color4 blend_outputs(const Color4 &from,
-                                              const Color4 &to, float mix) {
-    if (mix == 0.0f)
-      return from;
-    if (mix == 1.0f)
-      return to;
-    const float alpha = hs::lerp(from.alpha, to.alpha, mix);
-    if (alpha == 0.0f)
-      return Color4();
-    const float from_weight = from.alpha * (1.0f - mix);
-    const float to_weight = to.alpha * mix;
-    const float inv_alpha = 1.0f / alpha;
-    return Color4(
-        Pixel(static_cast<uint16_t>(hs::clamp(
-                  (from.color.r * from_weight + to.color.r * to_weight) *
-                          inv_alpha +
-                      0.5f,
-                  0.0f, 65535.0f)),
-              static_cast<uint16_t>(hs::clamp(
-                  (from.color.g * from_weight + to.color.g * to_weight) *
-                          inv_alpha +
-                      0.5f,
-                  0.0f, 65535.0f)),
-              static_cast<uint16_t>(hs::clamp(
-                  (from.color.b * from_weight + to.color.b * to_weight) *
-                          inv_alpha +
-                      0.5f,
-                  0.0f, 65535.0f))),
-        alpha);
-  }
-
   __attribute__((always_inline)) static Vector
   outer_camera_lookup(const Vector &view, const FrameState &frame) {
     return rotate(view, frame.transforms.outer_conj);
@@ -3857,14 +3826,17 @@ private:
   project_sinusoidal(const Vector &local, const FrameState &frame) {
     return finalize_projection(
         local,
-        folded_sinusoidal(local, frame.params.projection.central_meridian),
+        projections::folded_sinusoidal(
+            local, frame.params.projection.central_meridian),
         Projection::SINUSOIDAL, frame.params.projection.pole_fade);
   }
 
   HS_FLASH_MEMBER static ProjectedLookup
   project_equirectangular(const Vector &local, const FrameState &frame) {
     return finalize_projection(
-        local, equirectangular(local, frame.params.projection.central_meridian),
+        local,
+        projections::equirectangular(local,
+                                     frame.params.projection.central_meridian),
         Projection::EQUIRECTANGULAR, frame.params.projection.pole_fade);
   }
 
@@ -4447,11 +4419,6 @@ private:
                                      params.lattice_softness, distance);
   }
 
-  HS_FLASH_MEMBER static float smooth_ramp(float edge0, float edge1,
-                                           float value) {
-    return cubic_kernel((value - edge0) / (edge1 - edge0));
-  }
-
   /**
    * @brief Maps a shaped material sample to a palette colour.
    * @param sample Shaped value, coverage, and warp metadata.
@@ -4516,64 +4483,6 @@ private:
     return color;
   }
 #endif
-
-  HS_FLASH_MEMBER static OKLab gamut_clip_lut(OKLab lab) {
-    lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
-    const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
-    if (!(chroma_sq > 1e-12f))
-      return {lab.L, 0.0f, 0.0f};
-    uint32_t inverse_bits;
-    std::memcpy(&inverse_bits, &chroma_sq, sizeof(inverse_bits));
-    inverse_bits = 0x5f3759dfu - (inverse_bits >> 1);
-    float inverse_chroma;
-    std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
-    inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
-    const GamutLut &lut = g_gamut_lut;
-    int angle_index =
-        static_cast<int>(diamond_angle(lab.b, lab.a) * lut.angle_scale);
-    int lightness_index = static_cast<int>(lab.L * lut.l_scale);
-    angle_index = hs::clamp(angle_index, 0, lut.angle_steps - 1);
-    lightness_index = hs::clamp(lightness_index, 0, lut.l_steps - 1);
-    const float max_chroma = std::max(
-        0.0f,
-        static_cast<float>(
-            lut.table[(lightness_index * lut.angle_steps + angle_index) * 2]) *
-                GAMUT_LUT_INV_SCALE -
-            GAMUT_CLIP_MARGIN);
-    const float scale = max_chroma * inverse_chroma;
-    return {lab.L, lab.a * scale, lab.b * scale};
-  }
-
-  static void hue_sincos(float turns, float &cosine, float &sine) {
-    const float x = 2.0f * (turns - floorf(turns + 0.5f));
-    const auto sine_turn = [](float value) {
-      const float parabolic = 4.0f * value * (1.0f - fabsf(value));
-      return parabolic * (0.775f + 0.225f * fabsf(parabolic));
-    };
-    sine = sine_turn(x);
-    cosine = sine_turn(0.5f - fabsf(x));
-  }
-
-  static Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
-    const LinRGB input = pixel_to_linrgb(color.color);
-    return hue_rotate_lut_gamut(
-        {linear_rgb_to_oklab_fast(input.r, input.g, input.b), color}, amount);
-  }
-
-  static Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
-    float cosine, sine;
-    hue_sincos(amount, cosine, sine);
-    OKLab lab = base.lab;
-    const float rotated_a = lab.a * cosine - lab.b * sine;
-    const float rotated_b = lab.a * sine + lab.b * cosine;
-    lab = {lab.L, rotated_a, rotated_b};
-    LinRGB output = oklab_to_linear_rgb(lab);
-    if (!linear_rgb_in_gamut(output.r, output.g, output.b))
-      output = oklab_to_linear_rgb(gamut_clip_lut(lab));
-    return Color4(Pixel(float_to_pixel16(output.r), float_to_pixel16(output.g),
-                        float_to_pixel16(output.b)),
-                  base.base.alpha);
-  }
 
   HS_FLASH_MEMBER static void
   prepare_liquid_hue_lut(PreparedLiquidHue &prepared,
@@ -4739,18 +4648,6 @@ private:
     __builtin_unreachable();
   }
 
-  static Vector nlerp_unit(const Vector &a, const Vector &b, float t) {
-    const Vector mixed(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t,
-                       a.z + (b.z - a.z) * t);
-    const float length_sq =
-        mixed.x * mixed.x + mixed.y * mixed.y + mixed.z * mixed.z;
-    if (length_sq < 1e-8f)
-      return a;
-    const float inv_length = 1.0f / sqrtf(length_sq);
-    return Vector(mixed.x * inv_length, mixed.y * inv_length,
-                  mixed.z * inv_length);
-  }
-
   HS_FLASH_MEMBER static Vector mobius_lens(const Vector &v,
                                             const MobiusParams &params) {
     return mobius_transform(v, params);
@@ -4870,9 +4767,9 @@ private:
                                                Projection projection) {
     switch (projection) {
     case Projection::SINUSOIDAL:
-      return folded_sinusoidal(v);
+      return projections::folded_sinusoidal(v);
     case Projection::EQUIRECTANGULAR:
-      return equirectangular(v);
+      return projections::equirectangular(v);
     case Projection::STEREOGRAPHIC:
       return stereo(v);
     case Projection::GNOMONIC:
@@ -4883,40 +4780,6 @@ private:
       break;
     }
     __builtin_unreachable();
-  }
-
-  /**
-   * @brief Folded sinusoidal (Sanson-Flamsteed) pseudocylindrical projection.
-   * @param v Unit direction on the sphere.
-   * @param central_meridian Longitude placed at the image's axis, in radians.
-   * @return Plane coordinates in radians: absolute azimuth tapered by
-   *         cos(latitude), against latitude.
-   * @details Folding the azimuth about the central meridian maps both
-   * hemispheres onto one image, so the antimeridian carries no seam; the
-   * cos(latitude) taper collapses each pole to a point.
-   */
-  HS_FLASH_MEMBER static Complex
-  folded_sinusoidal(const Vector &v, float central_meridian = 0.0f) {
-    const float radius = sqrtf(v.x * v.x + v.z * v.z);
-    return {std::fabs(projections::wrap_longitude(fast_atan2(v.z, v.x) -
-                                                  central_meridian)) *
-                radius,
-            0.5f * PI_F - fast_acos(v.y)};
-  }
-
-  /**
-   * @brief Equirectangular (plate carree) cylindrical projection.
-   * @param v Unit direction on the sphere.
-   * @param central_meridian Longitude placed at the image's axis, in radians.
-   * @return Plane coordinates in radians: wrapped longitude against latitude.
-   * @details Longitude is periodic, so the image is cut at the antimeridian and
-   * each pole spreads across a full image row.
-   */
-  HS_FLASH_MEMBER static Complex
-  equirectangular(const Vector &v, float central_meridian = 0.0f) {
-    return {
-        projections::wrap_longitude(fast_atan2(v.z, v.x) - central_meridian),
-        0.5f * PI_F - fast_acos(v.y)};
   }
 
   HS_FLASH_MEMBER static Complex gnomonic(const Vector &v) {

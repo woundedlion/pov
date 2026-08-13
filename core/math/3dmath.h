@@ -104,6 +104,18 @@ __attribute__((always_inline)) inline float cubic_kernel(float t) {
 }
 
 /**
+ * @brief Smoothstep between two edges.
+ * @param edge0 Value mapped to 0.
+ * @param edge1 Value mapped to 1; must differ from edge0.
+ * @param value Argument to ramp.
+ * @return cubic_kernel of the normalized position, clamped to 0.0 - 1.0.
+ */
+HS_FLASH_INLINE inline float smooth_ramp(float edge0, float edge1,
+                                         float value) {
+  return cubic_kernel((value - edge0) / (edge1 - edge0));
+}
+
+/**
  * @brief Compile-time square root by Newton-Raphson from a unit seed.
  * @param x Radicand.
  * @return sqrt(x).
@@ -1590,6 +1602,25 @@ __attribute__((always_inline)) inline void fast_sincosf_0_pi(float x, float &s,
   assert(x >= 0.0f && x <= PI_F);
   s = bhaskara_sinf(x, 1.0f);
   c = sinf_0_2pi(x + PI_F * 0.5f);
+}
+
+/**
+ * @brief Normalized linear interpolation between two directions.
+ * @param a Starting direction.
+ * @param b Ending direction.
+ * @param t Interpolation factor (0.0 to 1.0).
+ * @return The renormalized blend, or `a` when the blend cancels to near zero.
+ */
+inline Vector nlerp_unit(const Vector &a, const Vector &b, float t) {
+  const Vector mixed(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t,
+                     a.z + (b.z - a.z) * t);
+  const float length_sq =
+      mixed.x * mixed.x + mixed.y * mixed.y + mixed.z * mixed.z;
+  if (length_sq < 1e-8f)
+    return a;
+  const float inv_length = 1.0f / sqrtf(length_sq);
+  return Vector(mixed.x * inv_length, mixed.y * inv_length,
+                mixed.z * inv_length);
 }
 
 /**

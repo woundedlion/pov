@@ -30,13 +30,13 @@
 
 /**
  * @file projections.h
- * @brief Interrupted sphere-to-plane projection kernels: Bonne, Peirce
- *        quincuncial, and Fuller Airocean.
- * @details Each kernel maps a unit direction to plane coordinates plus the
- * seam metadata a shader needs to fade a cut and to keep a glued edge
- * continuous. Kernels are pure and frame-independent; the caller applies the
- * coordinate scale and the pole attenuation. Constants derive from PROJ at the
- * commit named in the header above.
+ * @brief Sphere-to-plane projection kernels: folded sinusoidal,
+ *        equirectangular, Bonne, Peirce quincuncial, and Fuller Airocean.
+ * @details Each kernel maps a unit direction to plane coordinates; the
+ * interrupted ones add the seam metadata a shader needs to fade a cut and to
+ * keep a glued edge continuous. Kernels are pure and frame-independent; the
+ * caller applies the coordinate scale and the pole attenuation. Constants
+ * derive from PROJ at the commit named in the header above.
  */
 
 #include "core/math/3dmath.h"
@@ -120,6 +120,38 @@ inline float wrap_longitude(float longitude) {
   if (wrapped < 0.0f)
     wrapped += TWO_PI_F;
   return wrapped - PI_F;
+}
+
+/**
+ * @brief Folded sinusoidal (Sanson-Flamsteed) pseudocylindrical projection.
+ * @param v Unit direction on the sphere.
+ * @param central_meridian Longitude placed at the image's axis, in radians.
+ * @return Plane coordinates in radians: absolute azimuth tapered by
+ *         cos(latitude), against latitude.
+ * @details Folding the azimuth about the central meridian maps both
+ * hemispheres onto one image, so the antimeridian carries no seam; the
+ * cos(latitude) taper collapses each pole to a point.
+ */
+HS_FLASH_INLINE inline Complex
+folded_sinusoidal(const Vector &v, float central_meridian = 0.0f) {
+  const float radius = sqrtf(v.x * v.x + v.z * v.z);
+  return {std::fabs(wrap_longitude(fast_atan2(v.z, v.x) - central_meridian)) *
+              radius,
+          0.5f * PI_F - fast_acos(v.y)};
+}
+
+/**
+ * @brief Equirectangular (plate carree) cylindrical projection.
+ * @param v Unit direction on the sphere.
+ * @param central_meridian Longitude placed at the image's axis, in radians.
+ * @return Plane coordinates in radians: wrapped longitude against latitude.
+ * @details Longitude is periodic, so the image is cut at the antimeridian and
+ * each pole spreads across a full image row.
+ */
+HS_FLASH_INLINE inline Complex equirectangular(const Vector &v,
+                                               float central_meridian = 0.0f) {
+  return {wrap_longitude(fast_atan2(v.z, v.x) - central_meridian),
+          0.5f * PI_F - fast_acos(v.y)};
 }
 
 /**

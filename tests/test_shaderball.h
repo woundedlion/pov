@@ -266,9 +266,6 @@ struct ShaderBallWhiteBox {
   static uint32_t generated_palette_steps(const SB &sb) {
     return sb.generated_palette_step_count;
   }
-  static Color4 blend_outputs(const Color4 &from, const Color4 &to, float mix) {
-    return SB::blend_outputs(from, to, mix);
-  }
   static ProjectedLookup join(const ProjectedLookup &direct,
                               const ProjectedLookup &lensed, float mix,
                               Projection projection, float pole_fade) {
@@ -337,9 +334,6 @@ struct ShaderBallWhiteBox {
                          const FrameState &frame) {
     return SB::colorize(sample, frame);
   }
-  static Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
-    return SB::hue_rotate_lut_gamut(color, amount);
-  }
   static Pixel prepared_liquid_hue(const FrameState &frame, float value,
                                    float amount) {
     return SB::sample_liquid_hue_lut(frame.prepared_liquid_hue, value, amount);
@@ -348,7 +342,7 @@ struct ShaderBallWhiteBox {
                                  float amount) {
     const Color4 base = frame.resources.liquid_palette->get(
         wrap_t(value + frame.breathe_offset));
-    return SB::hue_rotate_lut_gamut(base, amount).color;
+    return ::hue_rotate_lut_gamut(base, amount).color;
   }
   static Color4 shade(const Vector &v, const FrameState &frame) {
     return SB::shade_reference(v, frame);
@@ -3098,7 +3092,6 @@ inline void test_shaderball_projection_catalog() {
 
 /** @brief The LUT-only hue mapper stays close to the exact gamut refinement. */
 inline void test_shaderball_hue_rotate_lut_gamut() {
-  using WB = ShaderBallWhiteBox;
   uint16_t max_channel_error = 0;
   uint64_t total_error = 0;
   uint64_t channels = 0;
@@ -3109,7 +3102,7 @@ inline void test_shaderball_hue_rotate_lut_gamut() {
         for (int amount_step = -32; amount_step <= 32; ++amount_step) {
           const float amount = amount_step * (1.0f / 16.0f);
           const Color4 exact = hue_rotate(input, amount);
-          const Color4 fast = WB::hue_rotate_lut_gamut(input, amount);
+          const Color4 fast = ::hue_rotate_lut_gamut(input, amount);
           const uint16_t exact_channels[] = {exact.color.r, exact.color.g,
                                              exact.color.b};
           const uint16_t fast_channels[] = {fast.color.r, fast.color.g,
@@ -3719,16 +3712,16 @@ inline void test_shaderball_discrete_transition() {
 
   const Color4 from_color(Pixel(10000, 20000, 30000), 0.25f);
   const Color4 to_color(Pixel(40000, 50000, 60000), 0.75f);
-  HS_EXPECT_TRUE(WB::blend_outputs(from_color, to_color, 0.0f).color ==
+  HS_EXPECT_TRUE(::blend_outputs(from_color, to_color, 0.0f).color ==
                  from_color.color);
-  HS_EXPECT_TRUE(WB::blend_outputs(from_color, to_color, 1.0f).color ==
+  HS_EXPECT_TRUE(::blend_outputs(from_color, to_color, 1.0f).color ==
                  to_color.color);
-  const Color4 middle = WB::blend_outputs(from_color, to_color, 0.5f);
+  const Color4 middle = ::blend_outputs(from_color, to_color, 0.5f);
   HS_EXPECT_EQ(middle.alpha, 0.5f);
   HS_EXPECT_EQ(middle.color.r, uint16_t(32500));
   HS_EXPECT_EQ(middle.color.g, uint16_t(42500));
   HS_EXPECT_EQ(middle.color.b, uint16_t(52500));
-  const Color4 transparent = WB::blend_outputs(
+  const Color4 transparent = ::blend_outputs(
       Color4(Pixel(65535, 0, 0), 0.0f), Color4(Pixel(0, 0, 65535), 0.0f), 0.5f);
   HS_EXPECT_EQ(transparent.alpha, 0.0f);
   HS_EXPECT_TRUE(transparent.color == Pixel());
