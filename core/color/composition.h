@@ -21,6 +21,19 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
+ * @brief Soft-limit on the |phase| a caller may hand to the fast-trig
+ * modifiers below.
+ * @details fast_sinf/fast_cosf range-reduce by `x - floor(x/2pi)*2pi`, whose
+ * error is one ULP of the argument: past this bound the reduction error crosses
+ * ~5e-4 rad and the oscillation quantizes and drifts. A free-running per-frame
+ * accumulator — the natural driver for these — passes it in hours, so the
+ * driver, not the modifier, owns the wrap: fold the accumulator back into
+ * [0, 2pi) at the source. Folding here instead would cost a per-sample floorf
+ * and could not recover the precision the driver already lost.
+ */
+inline constexpr float PALETTE_PHASE_ARG_LIMIT = 4096.0f;
+
+/**
  * @brief Linearly cycles the palette coordinate.
  *
  * Null offset driver is a deliberate "no cycling, static" mode (modify() passes
@@ -74,7 +87,8 @@ struct BreatheModifier {
    * @param driver_phase Pointer to the per-frame phase; must not be null.
    * @param amp Oscillation amplitude; defaults to 0.1.
    * @details Mandatory phase driver: a null one is trapped at construction so
-   * per-pixel modify() can dereference unconditionally.
+   * per-pixel modify() can dereference unconditionally. The driver must keep
+   * |phase| under PALETTE_PHASE_ARG_LIMIT.
    */
   BreatheModifier(const float *driver_phase, float amp = 0.1f)
       : phase(driver_phase), amplitude(amp) {
@@ -114,7 +128,8 @@ struct RippleModifier {
    * @param freq Spatial frequency of the ripple; defaults to 3.0.
    * @param amp Distortion amplitude; defaults to 0.1.
    * @details Mandatory phase driver (no default) — trap a null one at
-   * construction rather than silently passing t through on every pixel.
+   * construction rather than silently passing t through on every pixel. The
+   * driver must keep |phase| under PALETTE_PHASE_ARG_LIMIT.
    */
   RippleModifier(const float *phase, float freq = 3.0f, float amp = 0.1f)
       : phase(phase), frequency(freq), amplitude(amp) {
@@ -538,6 +553,7 @@ struct HueWobbleShade {
    * @param phase Pointer to the per-frame phase; must not be null.
    * @param freq Wobble frequency over the domain; defaults to 1.0.
    * @param depth Peak hue rotation in turns; defaults to 0.1.
+   * @details The driver must keep |phase| under PALETTE_PHASE_ARG_LIMIT.
    */
   HueWobbleShade(const float *phase, float freq = 1.0f, float depth = 0.1f)
       : phase(phase), frequency(freq), depth(depth) {
@@ -622,6 +638,7 @@ struct ChromaPulseShade {
    * @param phase Pointer to the per-frame phase; must not be null.
    * @param depth Pulse depth in [0, 1]: chroma swings over [1-depth, 1+depth].
    *        Defaults to 0.5.
+   * @details The driver must keep |phase| under PALETTE_PHASE_ARG_LIMIT.
    */
   ChromaPulseShade(const float *phase, float depth = 0.5f)
       : phase(phase), depth(depth) {
@@ -713,6 +730,7 @@ struct IridescentShade {
    * @param phase Pointer to the per-frame phase; must not be null.
    * @param freq Sheen frequency over the domain; defaults to 3.0.
    * @param weight Overlay strength; defaults to 0.25.
+   * @details The driver must keep |phase| under PALETTE_PHASE_ARG_LIMIT.
    */
   IridescentShade(const float *phase, float freq = 3.0f, float weight = 0.25f)
       : phase(phase), frequency(freq), weight(weight) {
