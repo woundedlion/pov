@@ -298,6 +298,15 @@ add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_case_calls.cmake)
 
+# Pin the device inline-storage audit's hand-written type pack against the
+# AnimationBase subclasses actually declared under core/. The per-type
+# static_assert in Timeline::add_get only fires for types a build add()s, so an
+# animation missing from the pack is measured by nothing.
+add_test(NAME unit_anim_pack COMMAND ${CMAKE_COMMAND}
+    -DCORE_DIR=${HS_ROOT}/core
+    -DANIM_HEADER=${HS_ROOT}/core/animation/animation.h
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_anim_pack.cmake)
+
 # Pin the in-tree patches to vendored FastNoiseLite.h against the patch record
 # in core/vendor/FastNoiseLite_config.h. A version bump that drops them still
 # compiles: the size guard goes inert and the sampler loses selective -O3, both
