@@ -504,7 +504,7 @@ private:
     };
 
     // Signed-axis event-horizon falloff from the pre-warp position.
-    auto hole_shader = [&](Fragment &f, const Vector &original_pos) {
+    auto hole_shader = [&](FragmentRegisters f, const Vector &original_pos) {
 #if HS_ENABLE_TEST_ORACLES
       if (reference_hole_kernel) {
         f.v3 *= attractor_hole_alpha(original_pos, cos_event_horizon);

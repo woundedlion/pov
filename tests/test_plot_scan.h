@@ -3369,7 +3369,7 @@ inline ParticleDrawCapture capture_particle_draw(const StubParticle &particle) {
     ++capture.fragment_calls;
   };
   auto vertex_shader = [&](Fragment &) { ++capture.vertex_calls; };
-  auto deferred_shader = [&](Fragment &, const Vector &) {
+  auto deferred_shader = [&](FragmentRegisters, const Vector &) {
     ++capture.deferred_calls;
   };
   {
@@ -3855,12 +3855,22 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   auto shade = [](const Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
   };
-  auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
+  std::vector<Vector> shaded_positions;
+  auto position_pass = [&](Fragment &f) {
+    f.pos = f.pos * -1.0f;
+    shaded_positions.push_back(f.pos);
+  };
   int deferred_calls[2] = {0, 0};
   int orig_mismatches = 0;
-  auto deferred_pass = [&](Fragment &f, const Vector &orig) {
-    // orig must be the pre-shader position: the negation of the shaded one.
-    if ((orig * -1.0f - f.pos).length() > 1e-4f)
+  auto deferred_pass = [&](FragmentRegisters f, const Vector &orig) {
+    // orig must be a pre-shader position: the negation of a shaded one.
+    bool matched = false;
+    for (const Vector &s : shaded_positions)
+      if ((orig * -1.0f - s).length() <= 1e-4f) {
+        matched = true;
+        break;
+      }
+    if (!matched)
       orig_mismatches++;
     deferred_calls[static_cast<size_t>(f.v2 + 0.5f)]++;
     f.v3 *= 0.5f;
@@ -3960,7 +3970,9 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
     f.color = Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
   };
   auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
-  auto deferred_pass = [](Fragment &f, const Vector &) { f.v3 *= 0.7f; };
+  auto deferred_pass = [](FragmentRegisters f, const Vector &) {
+    f.v3 *= 0.7f;
+  };
   auto combined = [](Fragment &f) {
     f.pos = f.pos * -1.0f;
     f.v3 *= 0.7f;
@@ -4037,7 +4049,9 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
     f.color = Color4(Pixel(65535, 40000, 20000), hs::clamp(f.v3, 0.0f, 1.0f));
   };
   auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
-  auto deferred_pass = [](Fragment &f, const Vector &) { f.v3 *= 0.7f; };
+  auto deferred_pass = [](FragmentRegisters f, const Vector &) {
+    f.v3 *= 0.7f;
+  };
   auto combined = [](Fragment &f) {
     f.pos = f.pos * -1.0f;
     f.v3 *= 0.7f;
