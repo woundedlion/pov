@@ -1888,6 +1888,7 @@ private:
     static constexpr bool CARRIERS = false;
     static constexpr bool TERMINALS = false;
     static constexpr bool APPROXIMATIONS = false;
+    static constexpr bool EDGE_DISTANCE = false;
   };
 
   template <typename... Stages>
@@ -1939,6 +1940,12 @@ private:
            Stages::ORACLE == ApproximationOracleId::NONE &&
            Stages::METRICS.size() == 0)) &&
          ...);
+    // A surface stage that always emits projected edge distance matches its
+    // reference lookup only where the reference also always demands it, which
+    // edge-fade coverage is what guarantees.
+    static constexpr bool EDGE_DISTANCE =
+        !SurfaceStage::EDGE_DISTANCE_UNCONDITIONAL ||
+        MaterialStage::COVERAGE == CoveragePolicy::EDGE_FADE;
   };
 
   template <typename... Stages> struct InversePipeline {
@@ -1964,6 +1971,9 @@ private:
     static_assert(!ARITY_VALID || !CONTRACTS_VALID ||
                       Validation::APPROXIMATIONS,
                   "inverse pipeline: malformed approximation metadata");
+    static_assert(!ARITY_VALID || !CONTRACTS_VALID || Validation::EDGE_DISTANCE,
+                  "inverse pipeline: unconditional projected edge distance "
+                  "needs edge-fade coverage");
 
     HS_FLASH_MEMBER static Color4 shade(const Vector &view,
                                         const FrameState &frame) {
@@ -2013,6 +2023,7 @@ private:
     static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
     static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
     static constexpr std::array<ApproximationMetric, 0> METRICS{};
+    static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = false;
     using Input = Vector;
     using Output = ProjectedLookup;
 
@@ -2046,6 +2057,10 @@ private:
       else
         return std::array<ApproximationMetric, 0>{};
     }();
+    // The Peirce branch below always produces edge distance, unlike
+    // project_peirce, which derives the need from the frame.
+    static constexpr bool EDGE_DISTANCE_UNCONDITIONAL =
+        ProjectionPolicy == Projection::PEIRCE_QUINCUNCIAL;
     using Input = Vector;
     using Output = ProjectedLookup;
 
@@ -2212,6 +2227,7 @@ private:
     static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
     static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
     static constexpr std::array<ApproximationMetric, 0> METRICS{};
+    static constexpr CoveragePolicy COVERAGE = Coverage;
     using Input = MaterialInput;
     using Output = MaterialSample;
 
