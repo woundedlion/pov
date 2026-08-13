@@ -1141,7 +1141,7 @@ private:
   }
 
   void refresh_accepted_config() {
-    if (valid_config(requested_config)) {
+    if (admissible_config(requested_config)) {
       accepted_config = requested_config;
       pending_edit_count = 0;
       return;
@@ -1150,7 +1150,7 @@ private:
     Config candidate = requested_config;
     for (size_t index = 0; index < pending_edit_count; ++index)
       copy_pending_value(candidate, accepted_config, pending_edits[index]);
-    if (valid_config(candidate))
+    if (admissible_config(candidate))
       accepted_config = candidate;
 
     bool admitted;
@@ -1159,7 +1159,7 @@ private:
       for (size_t index = 0; index < pending_edit_count;) {
         candidate = accepted_config;
         copy_pending_value(candidate, requested_config, pending_edits[index]);
-        if (!valid_config(candidate)) {
+        if (!admissible_config(candidate)) {
           ++index;
           continue;
         }
@@ -1214,7 +1214,7 @@ private:
           hs::clamp(parameter.get_requested(), parameter.min, parameter.max));
       repaired = true;
     }
-    return repaired && valid_config(candidate);
+    return repaired && admissible_config(candidate);
   }
 
   float accepted_parameter_value(const ParamDef &parameter) const override {
@@ -5305,6 +5305,17 @@ private:
     return resource_union_fits(candidate, candidate);
   }
 
+  /**
+   * @brief Admission test for a requested configuration.
+   * @details Registered ranges and stage compatibility plus the presence of a
+   * compiled inverse pipeline for the resulting topology and parameters.
+   */
+  HS_COLD_MEMBER static bool
+  admissible_config(const RequestedConfig &candidate) {
+    return valid_config(candidate) &&
+           find_inverse_program(candidate) != nullptr;
+  }
+
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   const char *begin_warning(const char *format, ...) const {
     va_list args;
@@ -5624,9 +5635,26 @@ private:
     }
     if (!resource_union_fits(candidate, candidate))
       return resource_warning(candidate);
+    if (find_inverse_program(candidate) == nullptr)
+      return uncompiled_program_warning(candidate, edited_name);
     return begin_warning(
         "%s was rejected by an unclassified ShaderBall admission rule. Keep "
         "the requested value and report this exact configuration as a bug.",
+        edited_name);
+  }
+
+  const char *uncompiled_program_warning(const Config &candidate,
+                                         const char *edited_name) const {
+    const TopologyKey key = make_topology_key(candidate);
+    for (const ProgramDescriptor &program : inverse_programs())
+      if (program.key == key)
+        return begin_warning(
+            "%s is outside what the compiled pipeline for this stage "
+            "combination supports. Restore %s or change a stage.",
+            edited_name, edited_name);
+    return begin_warning(
+        "This stage combination has no compiled pipeline. Restore %s or "
+        "select a combination reachable from a preset.",
         edited_name);
   }
 #endif
