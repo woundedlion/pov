@@ -63,6 +63,7 @@ target_link_libraries(hs_test_whitebox INTERFACE hs_host_effect_runtime)
 target_compile_definitions(hs_test_whitebox INTERFACE
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
+  HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
 
 add_library(hs_test_support INTERFACE)
@@ -72,6 +73,7 @@ target_compile_definitions(hs_test_support INTERFACE
   HS_ENABLE_PARAM_GUI_BRIDGE=1
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
+  HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=1
   HS_ENABLE_STRUCTURAL_AUDITS=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
 

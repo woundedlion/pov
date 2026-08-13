@@ -414,6 +414,50 @@ async function main() {
       engine.setAnimationsPaused(false);
     }
 
+    // ── ShaderBall authoring route ──────────────────────────────────────────
+    {
+      const R = Module.ParamSetResult;
+      const close = (a, b) => Number.isFinite(a) && Number.isFinite(b) &&
+        Math.abs(a - b) <= 1e-3 * (1 + Math.abs(b));
+      if (engine.setEffect('ShaderBall') !== ES.INSTALLED) {
+        fail('shaderball-authoring: setEffect("ShaderBall") failed');
+      } else {
+        if (engine.setParameter('Lens', 2) !== R.APPLIED) {
+          fail('shaderball-authoring: Twist lens write failed');
+        }
+        engine.drawFrame();
+        let snapshot = engine.getFullConfigSnapshot();
+        if (!snapshot || snapshot.pendingFieldIds.length !== 0) {
+          fail('shaderball-authoring: valid uncompiled Twist lens stayed pending');
+        }
+
+        engine.setEffect('ShaderBall');
+        engine.setParameter('Planar Warp 1', 4);
+        engine.setParameter('Planar Warp 1 Scale', 1);
+        engine.setParameter('Planar Warp 1 Strength', 1);
+        engine.setParameter('Planar Warp 1', 5);
+        engine.drawFrame();
+        const strength = engine.getParameterDefinitions().find(
+          (definition) => definition.name === 'Planar Warp 1 Strength');
+        if (!strength || !close(strength.value, strength.max)) {
+          fail(`shaderball-authoring: Curl Flow strength ${strength?.value} ` +
+            `was not clamped to ${strength?.max}`);
+        }
+        snapshot = engine.getFullConfigSnapshot();
+        if (!snapshot || snapshot.pendingFieldIds.length !== 0) {
+          fail('shaderball-authoring: valid Curl Flow configuration stayed pending');
+        }
+
+        engine.setParameter('Function', 6);
+        engine.drawFrame();
+        snapshot = engine.getFullConfigSnapshot();
+        if (!snapshot || snapshot.pendingFieldIds.length === 0) {
+          fail('shaderball-authoring: incompatible sphere source bypassed admission');
+        }
+      }
+      engine.setAnimationsPaused(false);
+    }
+
     // ── Embind state seam: getParamGeneration / setAnimationsPaused ───────────
     {
       const effectNames = Object.keys(engine.getEffectSizes());

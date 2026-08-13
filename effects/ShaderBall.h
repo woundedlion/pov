@@ -255,7 +255,7 @@ public:
       PreparedEndpoint prepared;
       HS_CHECK(prepare_endpoint({active_slots, blend.params}, runtime, 1.0f,
                                 active_pipeline, prepared),
-               "ShaderBall active topology has no compiled pipeline");
+               "ShaderBall active endpoint has no renderer");
       draw_endpoint(canvas, prepared);
     }
     finish_transitions();
@@ -1031,6 +1031,8 @@ private:
     register_colorizer_controls(slots.colorizer,
                                 requested_config.params.colorizer);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+    if (requested_schema_bound && clamp_registered_parameter_ranges())
+      refresh_accepted_config();
     for (size_t index = 0; index < pending_edit_count; ++index) {
       PendingEdit &edit = pending_edits[index];
       edit.name = nullptr;
@@ -1194,6 +1196,26 @@ private:
   static bool parameter_out_of_range(const ParamDef &parameter) {
     const float value = parameter.get_requested();
     return value < parameter.min || value > parameter.max;
+  }
+
+  bool clamp_registered_parameter_ranges() {
+    const uintptr_t requested = reinterpret_cast<uintptr_t>(&requested_config);
+    bool clamped = false;
+    for (const ParamDef &parameter : getParameters()) {
+      if (parameter.is_bool() || parameter.is_enum() ||
+          !parameter_out_of_range(parameter))
+        continue;
+      const uintptr_t target = reinterpret_cast<uintptr_t>(parameter.target);
+      const size_t size = parameter_target_size(parameter);
+      if (target < requested ||
+          target + size > requested + sizeof(requested_config))
+        continue;
+      ParamDef writable = parameter;
+      writable.set(
+          hs::clamp(parameter.get_requested(), parameter.min, parameter.max));
+      clamped = true;
+    }
+    return clamped;
   }
 
   bool range_repairs_admission() const {
@@ -2601,6 +2623,21 @@ private:
            frame.prepared_liquid_hue.lut != nullptr;
   }
 
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
+  static bool dynamic_resources_ready(const FrameState &frame) {
+    if (warp_uses_noise(frame.slots.warp_program.outer.kind) &&
+        frame.resources.outer_warp_noise == nullptr)
+      return false;
+    if (warp_uses_noise(frame.slots.warp_program.inner.kind) &&
+        frame.resources.inner_warp_noise == nullptr)
+      return false;
+    if (is_noise_contour(frame.slots.function) &&
+        frame.resources.source_noise == nullptr)
+      return false;
+    return pipeline_resources_ready(frame);
+  }
+#endif
+
   struct FrameShader {
     using ShadeFunction = ShaderBall::ShadeFunction;
 
@@ -3037,7 +3074,7 @@ public:
     if (!valid_snapshot_config(next_accepted) ||
         !valid_snapshot_config(next_requested))
       return ConfigRestoreResult::INVALID_VALUE;
-    if (!valid_config(next_accepted))
+    if (!admissible_config(next_accepted))
       return ConfigRestoreResult::INVALID_ACCEPTED;
 
     const ConfigValues migrated_accepted = encode_config_values(next_accepted);
@@ -3075,6 +3112,7 @@ public:
     requested_config = next_requested;
     published_config = next_accepted;
     active_slots = next_accepted.slots;
+    active_pipeline = resolve_pipeline_id(next_accepted);
     blend.params = next_accepted.params;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     pending_edit_count = 0;
@@ -3435,7 +3473,7 @@ private:
                                            ? state->transition.from_pipeline
                                            : state->transition.to_pipeline;
     HS_CHECK(prepare_endpoint(config, look, phase.alpha, pipeline, prepared),
-             "ShaderBall transition topology has no compiled pipeline");
+             "ShaderBall transition endpoint has no renderer");
     draw_endpoint(canvas, prepared);
   }
 
@@ -3444,13 +3482,28 @@ private:
                                        InversePipelineId selected,
                                        PreparedEndpoint &prepared) const {
     const ProgramDescriptor *program = find_inverse_program(config);
-    if (program == nullptr || program->id != selected)
+    ShadeFunction shade;
+    bool (*resources_ready)(const FrameState &);
+    if (program != nullptr) {
+      if (program->id != selected)
+        return false;
+      shade = program->shade;
+      resources_ready = program->resources_ready;
+    } else {
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
+      if (selected != InversePipelineId::NONE || !valid_config(config))
+        return false;
+      shade = &shade_dynamic;
+      resources_ready = &dynamic_resources_ready;
+#else
       return false;
+#endif
+    }
     prepare_frame(config, look, prepared.frame);
-    if (!program->resources_ready(prepared.frame))
+    if (!resources_ready(prepared.frame))
       return false;
-    prepared.shade = program->shade;
-    prepared.pipeline = program->id;
+    prepared.shade = shade;
+    prepared.pipeline = selected;
     prepared.alpha = alpha;
     return true;
   }
@@ -3462,7 +3515,8 @@ private:
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
-#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
+    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
   /**
    * @brief Shades one sphere sample by pulling it back to a source coordinate.
    * @param view Unit direction of the visible sphere point.
@@ -3474,7 +3528,7 @@ private:
    * be joined in the plane, so the branches are shaded separately and their
    * outputs blended instead.
    */
-  static Color4 shade_reference(const Vector &view, const FrameState &frame) {
+  static Color4 shade_dynamic(const Vector &view, const FrameState &frame) {
     const Vector outer_local = outer_camera_lookup(view, frame);
     const ProjectedLookup projected =
         surface_lens_project_lookup(outer_local, frame);
@@ -3683,6 +3737,12 @@ private:
     return nullptr;
   }
 
+  HS_COLD_MEMBER static InversePipelineId
+  resolve_pipeline_id(const Config &config) {
+    const ProgramDescriptor *program = find_inverse_program(config);
+    return program == nullptr ? InversePipelineId::NONE : program->id;
+  }
+
   HS_COLD_MEMBER static const ProgramDescriptor *
   resolve_inverse_program(const FrameState &frame) {
     const Config config{frame.slots, frame.params};
@@ -3692,7 +3752,8 @@ private:
     return program;
   }
 
-#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
+    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
   HS_COLD_MEMBER static typename FrameShader::ShadeFunction
   resolve_shade_function(const FrameState &frame) {
     const ProgramDescriptor *program = resolve_inverse_program(frame);
@@ -3737,7 +3798,8 @@ private:
     return rotate(view, frame.transforms.outer_conj);
   }
 
-#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
+    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
   static ProjectedLookup surface_lens_project_lookup(const Vector &v,
                                                      const FrameState &frame) {
     const Slots &slots = frame.slots;
@@ -4005,7 +4067,8 @@ private:
    * of the authored order `source -> Warp 2 -> Warp 1 -> projection`.
    * Deformation is the magnitude of the summed delta.
    */
-#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
+    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
   HS_FLASH_MEMBER static PlanarWarpResult
   planar_warp_lookup(const ProjectedLookup &projected,
                      const FrameState &frame) {
@@ -4275,7 +4338,8 @@ private:
     return {c * folded_x - s * folded_y, s * folded_x + c * folded_y};
   }
 
-#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
+    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
   static Complex condition_source_coords(const Complex &coords,
                                          const FrameState &frame) {
     if (is_noise_contour(frame.slots.function) ||
@@ -4382,7 +4446,8 @@ private:
     return n * (1.0f + contrast) / (1.0f + contrast * fabsf(n));
   }
 
-#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
+    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
   HS_FLASH_MEMBER static float sample_source(const Complex &p,
                                              const ProjectedLookup &projected,
                                              const FrameState &frame) {
@@ -4436,7 +4501,8 @@ private:
     return color;
   }
 
-#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
+    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
   HS_FLASH_MEMBER static Color4
   colorize_deformation(const MaterialSample &sample, const FrameState &frame) {
     const ColorizerParams &params = frame.params.colorizer;
@@ -4859,8 +4925,7 @@ private:
       return;
     }
 #endif
-    const ProgramDescriptor *next_program = find_inverse_program(next_config);
-    if (next_program == nullptr) {
+    if (!admissible_config(next_config)) {
       reject_requested_config();
       return;
     }
@@ -4877,7 +4942,7 @@ private:
     state->transition.active = false;
     state->param_morph.active = false;
     active_slots = next_config.slots;
-    active_pipeline = next_program->id;
+    active_pipeline = resolve_pipeline_id(next_config);
     blend.params = next_config.params;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = next_config;
@@ -4926,8 +4991,7 @@ private:
   HS_COLD_MEMBER bool try_apply_config(const Config &candidate,
                                        uint16_t duration, bool staggered,
                                        bool continue_choreo) {
-    if (!valid_config(candidate) ||
-        find_inverse_program(candidate) == nullptr || duration == 0)
+    if (!admissible_config(candidate) || duration == 0)
       return false;
     if (state->transition.active)
       return false;
@@ -4951,7 +5015,7 @@ private:
     state->transition = {current, candidate,        runtime,         runtime,
                          0,       planned_duration, continue_choreo, true};
     state->transition.from_pipeline = active_pipeline;
-    state->transition.to_pipeline = find_inverse_program(candidate)->id;
+    state->transition.to_pipeline = resolve_pipeline_id(candidate);
     return true;
   }
 
@@ -5150,13 +5214,18 @@ private:
 
   /**
    * @brief Admission test for a requested configuration.
-   * @details Registered ranges and stage compatibility plus the presence of a
-   * compiled inverse pipeline for the resulting topology and parameters.
+   * @details The simulator accepts every structurally valid configuration;
+   * device builds additionally require a compiled inverse pipeline.
    */
   HS_COLD_MEMBER static bool
   admissible_config(const RequestedConfig &candidate) {
-    return valid_config(candidate) &&
-           find_inverse_program(candidate) != nullptr;
+    if (!valid_config(candidate))
+      return false;
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
+    return true;
+#else
+    return find_inverse_program(candidate) != nullptr;
+#endif
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -5478,7 +5547,8 @@ private:
     }
     if (!resource_union_fits(candidate, candidate))
       return resource_warning(candidate);
-    if (find_inverse_program(candidate) == nullptr)
+    if (!HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND &&
+        find_inverse_program(candidate) == nullptr)
       return uncompiled_program_warning(candidate, edited_name);
     return begin_warning(
         "%s was rejected by an unclassified ShaderBall admission rule. Keep "

@@ -2176,7 +2176,7 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### ShaderBall
 
-Typed pullback sphere shader (extends `Effect` directly) with a closed set of 14 compiled inverse programs covering all 23 authored presets. Every program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes the original liquid/flyby looks plus authored Bonne, Peirce quincuncial, and folded-gnomonic looks; topology-aware seam metadata; generated triadic and liquid palettes; and continuous preset choreography. Continuous GUI edits publish to the active program when its preconditions still hold. A discrete edit is accepted only when its canonical topology key matches a compiled program; unsupported combinations leave the published look unchanged. Preset changes use parameter morphs within a topology and a through-clear transition between topologies.
+Typed pullback sphere shader (extends `Effect` directly) with 14 compiled inverse programs covering all 23 authored presets and a simulator-only dynamic backend for experimentation. Every compiled program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes the original liquid/flyby looks plus authored Bonne, Peirce quincuncial, and folded-gnomonic looks; topology-aware seam metadata; generated triadic and liquid palettes; and continuous preset choreography. The simulator uses a compiled wrapper whenever one matches and otherwise routes any structurally valid combination to the dynamic renderer. Teensy remains closed to the compiled roster. Preset changes use parameter morphs within a topology and a through-clear transition between topologies.
 
 **Parameters**: the active controls are schema-driven by the selected slots. See the vocabulary and dependency map below.
 
@@ -2186,9 +2186,9 @@ Typed pullback sphere shader (extends `Effect` directly) with a closed set of 14
 
 Full design record: the [ShaderBall spec](https://github.com/woundedlion/pov/blob/master/docs/specs/shaderball_spec.md) fixes the authored vocabulary, presets, and choreography; the [inverse-sampling pipeline spec](https://github.com/woundedlion/pov/blob/master/docs/specs/inverse_sampling_pipeline_spec.md) specifies the shipping renderer summarized below. The [noise unification brief](https://github.com/woundedlion/pov/blob/master/docs/shaderball_noise_unification.md) and the [red-preset optimization plan](https://github.com/woundedlion/pov/blob/master/docs/shaderball_optimization_plan.md) carry the supporting design and performance record.
 
-ShaderBall is a closed set of typed programs, not a free-form node graph or a runtime switch renderer. A `TopologyKey` records every discrete choice that changes code, canonicalizing inactive layout, noise, and warp fields. The 14-entry program manifest maps an exact key and continuous precondition to a semantic `InversePipelineId` and a non-null `&InversePipeline<...>::shade` wrapper. There is no production fallback: a candidate without a matching program is rejected before it can replace the published configuration.
+The shipping renderer is a closed set of typed programs, not a free-form node graph or a runtime switch renderer. A `TopologyKey` records every discrete choice that changes code, canonicalizing inactive layout, noise, and warp fields. The 14-entry program manifest maps an exact key and continuous precondition to a semantic `InversePipelineId` and a non-null `&InversePipeline<...>::shade` wrapper. Teensy has no fallback. The simulator first consults the same manifest, then resolves a valid unmatched configuration to a separate non-null dynamic shade function.
 
-Frame preparation resolves that program once, snapshots the selected slots, live parameters, clocks, transforms, prepared lookup data, and borrowed palette/noise resources into an immutable `FrameState`, then validates every resource the selected program may dereference. The resulting `PreparedEndpoint` owns the frame snapshot, pipeline ID, alpha, and shade pointer. The shared `Scan::Shader` loop calls that pointer unconditionally for every visible sample. Through-clear transitions prepare and consume one endpoint at a time, so only one large frame snapshot is live on the stack.
+Frame preparation resolves the backend once, snapshots the selected slots, live parameters, clocks, transforms, prepared lookup data, and borrowed palette/noise resources into an immutable `FrameState`, then validates every resource that backend may dereference. The resulting `PreparedEndpoint` owns the frame snapshot, pipeline ID (`NONE` for dynamic), alpha, and shade pointer. The shared `Scan::Shader` loop calls that pointer unconditionally for every visible sample. Through-clear transitions prepare and consume one endpoint at a time, so compiled and dynamic endpoints can transition without keeping two large frame snapshots live on the stack.
 
 The shader is a *pullback*: it starts at a visible sphere point and walks backward to discover the source coordinate to sample. `InversePipeline` accepts exactly six empty policy types and validates their order, exact input/output carriers, return types, terminal placement, and approximation metadata at compile time. The coordinator and inline-only stages disappear into the address-taken flash wrapper; each selected policy calls its mathematical leaf directly rather than reading the slot tag it represents.
 
@@ -2196,7 +2196,9 @@ The shader is a *pullback*: it starts at a visible sphere point and walks backwa
 selection — once per frame
 
   Candidate Config ──> canonical TopologyKey ──> 14-entry program manifest
-                       ──(ID + non-null shade)──> PreparedEndpoint
+                       ├─ match ────> compiled shade + semantic ID
+                       └─ no match ─> dynamic shade + NONE (simulator only)
+                                      └──> PreparedEndpoint
 
 shading — once per visible sample, through the shared Scan::Shader loop
 
@@ -2217,7 +2219,7 @@ shading — once per visible sample, through the shared Scan::Shader loop
 
 The fused surface/projection stage owns lens selection, optional direct surface noise, projection-frame rotation, projection, and all seam/topology metadata. The planar-warp stage runs its two authored warps in pullback order and carries both the original projection metadata and accumulated net displacement, deformation, and path length. The material stage combines signal weighting, linear value transfer, and coverage before the terminal color stage returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
 
-Two stages carry approved approximations. Fast square Peirce projection and the liquid hue LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. The former generic orchestration exists only in host builds with test hooks and test oracles enabled, where every authored preset is compared against it; Teensy and WASM production builds cannot call it.
+Two stages carry approved approximations. Fast square Peirce projection and the liquid hue LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. The dynamic orchestration is compiled for the simulator and native oracle tests, where every authored preset is compared against it. Teensy preprocessing excludes it.
 
 #### Compiled program roster
 
@@ -2242,7 +2244,7 @@ Semantic program identities are independent of preset numbering. Presets 1–10 
 
 #### Authoring vocabulary
 
-The parameter schema retains the broader ShaderBall vocabulary below for configuration compatibility and host-reference testing. A menu entry describes a possible field value, not a promise that its Cartesian combination is compiled. Production admission still requires one of the canonical program keys above; sliders are active only when the selected schema uses them.
+The parameter schema exposes the broader ShaderBall vocabulary below. A menu entry describes a structurally possible field value, not a promise that its Cartesian combination is compiled for Teensy. The simulator renders valid unmatched combinations dynamically; sliders are active only when the selected schema uses them.
 
 The two planar warps run in their displayed pullback order: **Planar Warp 1** then **Planar Warp 2**, followed by the source function.
 
@@ -2288,11 +2290,11 @@ Colorizer ─────────> Palette / breathe / hue / fade controls
 ```
 
 
-Schema validity still enforces semantic constraints: legacy stereographic noise selects Stereographic projection; seam-sensitive noise stages do not cross the cut topology of Bonne, Peirce, or Airocean; and Polar Chart constrains the compatible source. Passing those rules is necessary but not sufficient for production admission. The canonical key and continuous precondition must also resolve to one of the 14 compiled descriptors; ShaderBall never falls back to a generic shader for an uncompiled combination.
+Schema validity still enforces semantic constraints: legacy stereographic noise selects Stereographic projection; seam-sensitive noise stages do not cross the cut topology of Bonne, Peirce, or Airocean; and Polar Chart constrains the compatible source. These incompatible cross-stage combinations remain pending and report an actionable warning. Manifest availability is a separate concern: the simulator routes valid unmatched combinations dynamically, while Teensy requires one of the 14 compiled descriptors.
 
 Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** gives both sides of a paired cut the same authored fade, so the seam closes flush without a subducted edge. Glued and periodic edges remain continuous and do not fade. **Pole Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
 
-Admitted GUI edits apply immediately; rejected discrete combinations restore the last published configuration. Automatic preset choreography remains continuous: configurations with the same canonical topology morph one live parameter state, while topology changes use the sequential through-clear endpoints. Source, warp, projection, breathe, global-walk, and palette clocks keep advancing according to their named rates. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
+Admitted GUI edits apply immediately. Numeric writes clamp to their registered range, including stale subordinate values when a mode change narrows that range. Structurally incompatible stage combinations remain pending until another edit repairs them. Automatic preset choreography remains continuous: configurations with the same canonical topology morph one live parameter state, while topology changes use the sequential through-clear endpoints. Source, warp, projection, breathe, global-walk, and palette clocks keep advancing according to their named rates. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
 
 <table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DisplacementField" target="_blank"><img src="docs/screenshots/DisplacementField.png" alt="DisplacementField" width="280"></a></td>

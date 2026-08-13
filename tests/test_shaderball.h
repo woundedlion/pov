@@ -96,6 +96,9 @@ struct ShaderBallWhiteBox {
     return sb.prepare_frame(config, sb.runtime);
   }
   static Slots active_slots(const SB &sb) { return sb.active_slots; }
+  static InversePipelineId active_pipeline(const SB &sb) {
+    return sb.active_pipeline;
+  }
   static RequestedConfig active_config(const SB &sb) {
     return {sb.active_slots, sb.blend.params};
   }
@@ -152,6 +155,9 @@ struct ShaderBallWhiteBox {
   static bool slots_equal(const Slots &a, const Slots &b) { return a == b; }
   static constexpr bool valid_config(const RequestedConfig &config) {
     return SB::valid_config(config);
+  }
+  static bool admissible_config(const RequestedConfig &config) {
+    return SB::admissible_config(config);
   }
   static constexpr bool seam_compatible(const RequestedConfig &config) {
     return SB::strict_seam_compatible(config);
@@ -353,7 +359,7 @@ struct ShaderBallWhiteBox {
     return ::hue_rotate_lut_gamut(base, amount).color;
   }
   static Color4 shade(const Vector &v, const FrameState &frame) {
-    return SB::shade_reference(v, frame);
+    return SB::shade_dynamic(v, frame);
   }
   static Color4 pipeline_shade(const Vector &v, const FrameState &frame) {
     const auto function = SB::resolve_shade_function(frame);
@@ -549,10 +555,7 @@ inline void test_shaderball_full_config_snapshot() {
                                             before_failure));
 }
 
-/**
- * @brief A pending surface-noise slot edit narrows the strength range while
- * the requested value stays put.
- */
+/** @brief A mode edit clamps stale subordinate values to its new range. */
 inline void test_shaderball_surface_noise_range_rebind() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
@@ -574,15 +577,22 @@ inline void test_shaderball_surface_noise_range_rebind() {
   pending_curl.pending[noise_slot] = 1;
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(pending_curl),
                WB::ConfigRestoreResult::APPLIED);
-  HS_EXPECT_TRUE(shaderball_snapshots_equal(sb.capture_full_config_snapshot(),
-                                            pending_curl));
+  const WB::FullConfigSnapshot clamped = sb.capture_full_config_snapshot();
+  HS_EXPECT_EQ(clamped.accepted[noise_slot],
+               static_cast<uint32_t>(WB::SurfaceNoise::DIRECT));
+  HS_EXPECT_EQ(clamped.requested[noise_slot],
+               static_cast<uint32_t>(WB::SurfaceNoise::DIRECT));
+  HS_EXPECT_EQ(clamped.accepted[strength], shaderball_float_payload(0.0f));
+  HS_EXPECT_EQ(clamped.requested[strength], shaderball_float_payload(0.0f));
+  HS_EXPECT_EQ(clamped.pending[noise_slot], uint8_t{0});
+  sb.draw_frame();
+  sb.advance_display();
+  WB::refresh_display(sb);
   HS_EXPECT_EQ(WB::display_config(sb).slots.surface_noise,
                WB::SurfaceNoise::DIRECT);
-  HS_EXPECT_NEAR(WB::display_config(sb).params.surface_noise.strength, -0.25f,
+  HS_EXPECT_NEAR(WB::display_config(sb).params.surface_noise.strength, 0.0f,
                  1e-6f);
-  const char *warning = WB::parameter_warning(sb, "Surface Noise Strength");
-  HS_EXPECT_TRUE(warning != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "outside its registered range") !=
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Strength") ==
                  nullptr);
 
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(settled),
@@ -1279,22 +1289,20 @@ inline void test_shaderball_equirectangular_projection() {
   config.slots.surface_lens = WB::SurfaceLens::NONE;
   config.params.surface_lens.mix = 0.0f;
   HS_EXPECT_TRUE(WB::valid_config(config));
-  // No authored preset selects equirectangular, so no inverse pipeline
-  // compiles it: the selector registers its controls and reports a warning
-  // while the live projection is held.
   HS_EXPECT_FALSE(WB::has_inverse_program(config));
-  const WB::Projection live = WB::active_slots(sb).projection;
   HS_EXPECT_EQ(
       sb.updateParameter("Projection",
                          static_cast<float>(WB::Projection::EQUIRECTANGULAR)),
       ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(sb.getParameters().find("Pole Fade") != nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Central Meridian") != nullptr);
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Projection") != nullptr);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Projection") == nullptr);
   sb.draw_frame();
   sb.advance_display();
   WB::settle_transition(sb);
-  HS_EXPECT_EQ(WB::active_slots(sb).projection, live);
+  HS_EXPECT_EQ(WB::active_slots(sb).projection,
+               WB::Projection::EQUIRECTANGULAR);
+  HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
   const Color4 color = WB::shade(Vector(0.31f, 0.87f, -0.38f).normalized(),
                                  WB::config_frame(sb, config));
   HS_EXPECT_TRUE(std::isfinite(color.alpha));
@@ -1955,16 +1963,14 @@ inline void test_shaderball_config_admission() {
     candidate.slots.colorizer = static_cast<WB::Colorizer>(invalid_tag);
     HS_EXPECT_FALSE(WB::valid_config(candidate));
 
-    // Structural validity is necessary but not sufficient: a config the
-    // authored roster compiles no inverse pipeline for is held back whole.
     const WB::RequestedConfig legacy_config = WB::legacy_config();
     HS_EXPECT_TRUE(WB::valid_config(legacy_config));
     HS_EXPECT_TRUE(
         WB::transition_admitted(WB::active_config(sb), legacy_config));
     HS_EXPECT_FALSE(WB::has_inverse_program(legacy_config));
-    const WB::RequestedConfig before_legacy = WB::active_config(sb);
     WB::request_config(sb, legacy_config);
-    HS_EXPECT_TRUE(WB::active_config(sb) == before_legacy);
+    HS_EXPECT_TRUE(WB::active_config(sb) == legacy_config);
+    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
 
     const WB::RequestedConfig compiled = WB::presets()[1];
     HS_EXPECT_TRUE(WB::valid_config(compiled));
@@ -2092,15 +2098,13 @@ inline void test_shaderball_deterministic_gui_edits() {
                WB::WarpStageKind::POLAR_CHART);
 }
 
-/** @brief Mode-specific ranges identify stale subordinate values. */
+/** @brief Mode-specific ranges clamp stale subordinate values. */
 inline void test_shaderball_mode_specific_parameter_warnings() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
 
-  // Vector Noise admits strength up to 4; the curl stability limit at scale 1
-  // is 0.5/64, so the carried strength goes stale when the kind changes.
   HS_EXPECT_EQ(
       sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)),
@@ -2121,23 +2125,16 @@ inline void test_shaderball_mode_specific_parameter_warnings() {
   const float limit = 0.5f / 64.0f;
   HS_EXPECT_NEAR(strength->min, -limit, 1e-7f);
   HS_EXPECT_NEAR(strength->max, limit, 1e-7f);
-  HS_EXPECT_EQ(strength->get_requested(), 1.0f);
-  const char *warning = WB::parameter_warning(sb, "Planar Warp 1 Strength");
-  HS_EXPECT_TRUE(warning != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "outside its registered range") !=
-                 nullptr);
-
-  HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Strength", limit) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(strength->get_requested(), limit);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1 Strength") ==
                  nullptr);
-  // The repaired range no longer blocks the stage, but no inverse pipeline
-  // compiles a curl-flow warp, so the selector stays held.
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1") != nullptr);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1") == nullptr);
   sb.draw_frame();
   sb.advance_display();
   HS_EXPECT_EQ(WB::active_slots(sb).warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
+               WB::WarpStageKind::CURL_FLOW);
+  HS_EXPECT_EQ(WB::active_config(sb).params.warp.outer.strength, limit);
+  HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
 }
 
 /** @brief A function edit preserves both warp stages in the dodecahedral hold. */
@@ -2226,19 +2223,14 @@ inline void test_shaderball_polar_gui_repair() {
       HS_EXPECT_TRUE(sb.updateParameter("Pattern Freq", 1.5f) ==
                      ParamSetResult::APPLIED);
     }
-    // Every structural rule the polar chart declares is now satisfied, but no
-    // inverse pipeline compiles the stage, so the selector stays held while
-    // continuous edits beside it still land.
-    const char *warning = WB::parameter_warning(sb, root);
-    HS_EXPECT(warning != nullptr, root);
-    HS_EXPECT_TRUE(std::strstr(warning, "no compiled pipeline") != nullptr);
+    HS_EXPECT_TRUE(WB::parameter_warning(sb, root) == nullptr);
     sb.draw_frame();
     sb.advance_display();
     const WB::RequestedConfig active = WB::active_config(sb);
     const WB::WarpStageSpec &polar = first ? active.slots.warp_program.outer
                                            : active.slots.warp_program.inner;
-    HS_EXPECT_EQ(polar.kind, WB::WarpStageKind::NONE);
-    HS_EXPECT_TRUE(WB::topology_key(active) == WB::topology_key(rendered));
+    HS_EXPECT_EQ(polar.kind, WB::WarpStageKind::POLAR_CHART);
+    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
     if (frequency_last)
       HS_EXPECT_EQ(active.params.source.pattern_freq, 1.5f);
   };
@@ -2740,14 +2732,11 @@ inline void test_shaderball_gui_catalog() {
       sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::NONE)) ==
       ParamSetResult::APPLIED);
-  // Rings is not a compiled source for the live topology, so clearing the
-  // warp is not enough to admit the function edit; restoring it is.
-  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") != nullptr);
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Function",
-                         static_cast<float>(WB::active_slots(sb).function)) ==
-      ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") == nullptr);
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_EQ(WB::active_slots(sb).function, WB::Function::RINGS);
+  HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") != nullptr);
   select_and_set_all("Value Transfer", 3, "Band Count");
   HS_EXPECT_LT(parameter_index("Value Transfer"),
@@ -3336,10 +3325,10 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   WB::RequestedConfig unsupported = WB::presets()[0];
   unsupported.slots.surface_lens = WB::SurfaceLens::TWIST;
   HS_EXPECT_FALSE(WB::has_inverse_program(unsupported));
-  const WB::RequestedConfig active_before_rejection = WB::active_config(sb);
   WB::request_config(sb, unsupported);
-  HS_EXPECT_TRUE(WB::active_config(sb) == active_before_rejection);
-  HS_EXPECT_TRUE(WB::requested_config(sb) == active_before_rejection);
+  HS_EXPECT_TRUE(WB::active_config(sb) == unsupported);
+  HS_EXPECT_TRUE(WB::requested_config(sb) == unsupported);
+  HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
 
   const WB::FrameState boundary_frame = WB::preset_frame(sb, 18);
   const Vector boundary_view = Vector(0.31f, -0.47f, 0.8269825f).normalized();
@@ -3582,8 +3571,8 @@ inline void test_shaderball_projection_and_admission_contracts() {
   }
 }
 
-/** @brief GUI edits with no compiled pipeline stay pending and warn. */
-inline void test_shaderball_uncompiled_topology_admission() {
+/** @brief Valid uncompiled GUI edits render through the dynamic backend. */
+inline void test_shaderball_dynamic_backend_admission() {
   using WB = ShaderBallWhiteBox;
   HS_EXPECT_TRUE(WB::has_inverse_program(WB::presets()[0]));
   {
@@ -3595,11 +3584,18 @@ inline void test_shaderball_uncompiled_topology_admission() {
         ParamSetResult::APPLIED);
     sb.draw_frame();
     sb.advance_display();
-    HS_EXPECT_EQ(WB::active_slots(sb).surface_lens,
-                 WB::presets()[0].slots.surface_lens);
+    HS_EXPECT_EQ(WB::active_slots(sb).surface_lens, WB::SurfaceLens::TWIST);
     HS_EXPECT_EQ(WB::requested_config(sb).slots.surface_lens,
                  WB::SurfaceLens::TWIST);
-    HS_EXPECT_TRUE(WB::parameter_warning(sb, "Lens") != nullptr);
+    HS_EXPECT_TRUE(WB::parameter_warning(sb, "Lens") == nullptr);
+    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
+    const WB::FullConfigSnapshot dynamic = sb.capture_full_config_snapshot();
+    HS_EXPECT_TRUE(sb.selectPreset(1));
+    HS_EXPECT_EQ(sb.restore_full_config_snapshot(dynamic),
+                 WB::ConfigRestoreResult::APPLIED);
+    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
+    sb.draw_frame();
+    sb.advance_display();
   }
   {
     reset_effect_globals();
@@ -3609,11 +3605,11 @@ inline void test_shaderball_uncompiled_topology_admission() {
                  ParamSetResult::APPLIED);
     sb.draw_frame();
     sb.advance_display();
-    HS_EXPECT_EQ(WB::active_config(sb).params.surface_noise.direction,
-                 WB::presets()[0].params.surface_noise.direction);
+    HS_EXPECT_EQ(WB::active_config(sb).params.surface_noise.direction, 0.5f);
     HS_EXPECT_EQ(WB::requested_config(sb).params.surface_noise.direction, 0.5f);
-    HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Direction") !=
+    HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Direction") ==
                    nullptr);
+    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
   }
 }
 
@@ -4170,17 +4166,15 @@ inline void test_shaderball_noise_contour_domains() {
   gui.draw_frame();
   gui.advance_display();
   WB::settle_transition(gui);
-  // Clearing the warp settles the structural conflict, but no inverse
-  // pipeline compiles a sphere contour, so the source stays held.
   HS_EXPECT_EQ(WB::requested_config(gui).slots.function,
                WB::Function::NOISE_CONTOUR_SPHERE);
-  HS_EXPECT_NE(WB::active_slots(gui).function,
+  HS_EXPECT_EQ(WB::active_slots(gui).function,
                WB::Function::NOISE_CONTOUR_SPHERE);
   warning = WB::parameter_warning(gui, "Function");
-  HS_EXPECT_TRUE(warning != nullptr);
-  HS_EXPECT_TRUE(std::strstr(warning, "no compiled pipeline") != nullptr);
+  HS_EXPECT_TRUE(warning == nullptr);
   HS_EXPECT_EQ(WB::active_slots(gui).warp_program.outer.kind,
                WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(WB::active_pipeline(gui), WB::InversePipelineId::NONE);
 }
 
 /** @brief Module entry point for ShaderBall contract tests. */
@@ -4221,7 +4215,7 @@ inline int run_shaderball_tests() {
   test_shaderball_projection_catalog();
   test_shaderball_fast_peirce_square();
   test_shaderball_projection_and_admission_contracts();
-  test_shaderball_uncompiled_topology_admission();
+  test_shaderball_dynamic_backend_admission();
   test_shaderball_kernel_catalog();
   test_shaderball_stable_preset_transition();
   test_shaderball_discrete_transition();
