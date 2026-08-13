@@ -36,18 +36,28 @@ footprint come from the project `phantasm.kicad_sym` / `phantasm.pretty`.
 
 ## Validation
 
-Both checks run via `kicad-cli` (KiCad 10.0):
+Every bullet but the ERC one maps to executed code. The gates that read the
+committed board directly need no KiCad and run in CI
+(`python -m unittest discover -s hardware/phantasm/gen/tests`,
+`python gen/board_metadata.py --check`); the rest need a local KiCad 10
+(`kicad-cli`) and run when the fab package is regenerated.
 
 - **N=8 firmware:** `pio run -e phantasm8` compiles and links the optional
   eight-board profile; this is firmware validation, not rotor qualification.
-- **ERC: 0 errors.** A warning-inclusive KiCad 10 run reports nine
-  `lib_symbol_mismatch` notices for embedded copies of stock/custom symbols;
-  the exported connectivity is verified separately below.
-- **Netlist matches the electrical specification** — exported with
-  `kicad-cli sch export netlist` and checked against the named-net table in
-  `gen/check.py`: every net in the table must match member-for-member, keyed on
+- **ERC: 0 errors — verified once by hand.** No runner exists: `gen/` has no
+  ERC step, `erc*.rpt` is gitignored, and neither CI nor the `just` recipes
+  re-run it, so re-check it in KiCad (`kicad-cli sch erc`) after any schematic
+  change. A warning-inclusive KiCad 10 run reports nine `lib_symbol_mismatch`
+  notices for embedded copies of stock/custom symbols; the exported
+  connectivity is verified separately below.
+- **Netlist matches the electrical specification** — `gen/check.py` exports one
+  with `kicad-cli sch export netlist` and checks it against the named-net table
+  in that file: every net in the table must match member-for-member, keyed on
   `(ref, pin)` so a connector or IC pinout permutation fails. A named net outside
-  the table is reported as a `NOTE` and does not fail the gate.
+  the table is reported as a `NOTE` and does not fail the gate. CI enforces the
+  same table without KiCad: `gen/tests/test_check.py` applies it to the pad nets
+  of the committed board, so copper that stops matching the spec fails on every
+  push.
   The required connections are realized with the correct members
   (logic feed `J1 → F1 → Q_REV → FB → +5V_LOGIC`;
   series terminations `U1 out → R → J2`/bus; the pin-3 divider node ties Teensy D3,
