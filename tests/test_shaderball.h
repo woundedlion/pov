@@ -1383,7 +1383,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(23));
+  HS_EXPECT_EQ(presets.size(), size_t(24));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_TRUE(choreo[0].staggered);
   HS_EXPECT_TRUE(choreo[1].staggered);
@@ -1414,6 +1414,16 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(mirror.params.warp.inner.speed, 0.0f);
+  const auto &affine_lattice = presets[23];
+  HS_EXPECT_EQ(affine_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
+  HS_EXPECT_EQ(affine_lattice.slots.projection, WB::Projection::GNOMONIC);
+  HS_EXPECT_EQ(affine_lattice.slots.warp_program.outer.kind,
+               WB::WarpStageKind::AFFINE_FRAME);
+  HS_EXPECT_EQ(affine_lattice.slots.value_transfer,
+               WB::ValueTransfer::ISO_CONTOUR);
+  HS_EXPECT_EQ(affine_lattice.slots.coverage,
+               WB::CoveragePolicy::PROJECTION_WEIGHT);
+  HS_EXPECT_EQ(affine_lattice.params.outer_camera.wander, 1.0f);
 
   reset_effect_globals();
   WB::SB sb;
@@ -1924,11 +1934,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(23));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(24));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(22));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[22]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(23));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[23]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -2849,6 +2859,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
       {14, WB::InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR},
       {19, WB::InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
       {22, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR},
+      {23, WB::InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR},
   };
   HS_EXPECT_EQ(WB::inverse_program_count(), std::size(EXPECTED));
   HS_EXPECT_TRUE(WB::inverse_programs_well_formed());
