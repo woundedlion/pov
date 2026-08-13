@@ -466,6 +466,10 @@ public:
 
     HS_COLD_MEMBER void lerp(const SourceParams &a, const SourceParams &b,
                              float t) {
+      // Trips if the field set changes, so a new field cannot silently go
+      // uninterpolated and unsnapped.
+      static_assert(sizeof(SourceParams) == 64,
+                    "SourceParams field set changed - update lerp");
       pattern_freq = hs::lerp(a.pattern_freq, b.pattern_freq, t);
       speed = hs::lerp(a.speed, b.speed, t);
       complexity = hs::lerp(a.complexity, b.complexity, t);
@@ -482,6 +486,8 @@ public:
       lattice_softness = hs::lerp(a.lattice_softness, b.lattice_softness, t);
       lattice_radius = hs::lerp(a.lattice_radius, b.lattice_radius, t);
       noise_basis = t < 1.0f ? a.noise_basis : b.noise_basis;
+      noise_seed = t < 1.0f ? a.noise_seed : b.noise_seed;
+      noise_resource_id = t < 1.0f ? a.noise_resource_id : b.noise_resource_id;
     }
   };
 
@@ -651,6 +657,10 @@ public:
 
     HS_COLD_MEMBER void lerp(const SurfaceLensParams &a,
                              const SurfaceLensParams &b, float t) {
+      // Trips if the field set changes, so a new field cannot silently go
+      // uninterpolated and unsnapped.
+      static_assert(sizeof(SurfaceLensParams) == 60,
+                    "SurfaceLensParams field set changed - update lerp");
       mix = hs::lerp(a.mix, b.mix, t);
       amount = hs::lerp(a.amount, b.amount, t);
       noise_scale = hs::lerp(a.noise_scale, b.noise_scale, t);
