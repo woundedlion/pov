@@ -7,8 +7,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 import sexp
-import fab
-from kicad_common import F, export_netlist
+from kicad_common import F, export_netlist, find_kicad_cli
 
 # Refs whose terminals are electrically interchangeable: plain resistors,
 # non-polarized caps, the fuse, the bead, solder jumpers. Their pin numbers
@@ -88,7 +87,7 @@ def check(got):
 
 
 def main(sch):
-    ok = check(netlist_nets(export_netlist(fab.find_kicad_cli(), sch)))
+    ok = check(netlist_nets(export_netlist(find_kicad_cli(), sch)))
     print("NETLIST OK" if ok else "NETLIST MISMATCH")
     return 0 if ok else 1
 

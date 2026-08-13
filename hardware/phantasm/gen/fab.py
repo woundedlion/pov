@@ -14,7 +14,6 @@ kicad-cli is found via $KICAD_CLI, else common install paths, else PATH.
 """
 import argparse
 import csv
-import glob
 import json
 import math
 import os
@@ -26,7 +25,7 @@ import zipfile
 
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
-from kicad_common import F
+from kicad_common import F, find_kicad_cli
 
 GEN = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(GEN)                       # hardware/phantasm
@@ -256,24 +255,6 @@ PART_BY_LCSC = {
         "description": "4.5V to 5.5V quad 3-state buffer SOIC-14",
     },
 }
-
-
-def find_kicad_cli():
-    env = os.environ.get("KICAD_CLI")
-    if env and os.path.exists(env):
-        return env
-    pats = [
-        r"C:\Program Files\KiCad\*\bin\kicad-cli.exe",
-        r"C:\Program Files (x86)\KiCad\*\bin\kicad-cli.exe",
-        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
-        "/usr/bin/kicad-cli",
-        "/usr/local/bin/kicad-cli",
-    ]
-    for p in pats:
-        hits = glob.glob(p)
-        if hits:
-            return max(hits, key=sexp.kicad_version_key)   # newest version
-    return "kicad-cli"                 # assume on PATH
 
 
 KCLI = find_kicad_cli()

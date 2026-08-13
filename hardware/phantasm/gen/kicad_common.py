@@ -1,9 +1,10 @@
-"""Shared KiCad-gen helpers: netlist export + pure s-expr/format/geometry utilities.
+"""Shared KiCad-gen helpers: kicad-cli discovery + pure s-expr/format/geometry utilities.
 
-Single source of truth for the kicad-cli netlist-export call and the small
-helpers reused across pcb.py / check.py / shorts.py / builder.py /
-board_metadata.py, so a KiCad-flag or schema change touches one place.
+Single source of truth for finding kicad-cli and for the netlist-export call,
+plus the small helpers reused across pcb.py / check.py / shorts.py / builder.py
+/ board_metadata.py, so a KiCad-flag or schema change touches one place.
 """
+import glob
 import math
 import os
 import subprocess
@@ -11,6 +12,25 @@ import sys
 import tempfile
 import uuid as _uuid
 import sexp
+
+
+def find_kicad_cli():
+    """Path to kicad-cli: $KICAD_CLI, else the newest install, else the PATH name."""
+    env = os.environ.get("KICAD_CLI")
+    if env and os.path.exists(env):
+        return env
+    pats = [
+        r"C:\Program Files\KiCad\*\bin\kicad-cli.exe",
+        r"C:\Program Files (x86)\KiCad\*\bin\kicad-cli.exe",
+        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+        "/usr/bin/kicad-cli",
+        "/usr/local/bin/kicad-cli",
+    ]
+    for p in pats:
+        hits = glob.glob(p)
+        if hits:
+            return max(hits, key=sexp.kicad_version_key)   # newest version
+    return "kicad-cli"                 # assume on PATH
 
 
 UID_NAMESPACE = _uuid.UUID("73e63115-f1ba-4688-a7e5-5a689c53d6fd")

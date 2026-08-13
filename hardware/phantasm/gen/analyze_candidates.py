@@ -42,8 +42,7 @@ from collections import Counter
 import fab
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
-from fab import find_kicad_cli
-from kicad_common import F
+from kicad_common import F, find_kicad_cli
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
