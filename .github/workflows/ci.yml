@@ -1630,8 +1630,7 @@ jobs:
     # 298 KiB — free-for-locals 13,504 B over a measured 12 KiB floor, and ITCM
     # code 2,408 B under its bank-derived ceiling. Those margins are thin: a
     # re-measure belongs with every toolchain pin bump. The former
-    # TEENSY_GATE_ENABLED repo-variable guard is removed now that it goes green;
-    # promoting this to a REQUIRED check in branch protection is the follow-up.
+    # TEENSY_GATE_ENABLED repo-variable guard is removed now that it goes green.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
