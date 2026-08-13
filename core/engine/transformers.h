@@ -109,14 +109,25 @@ public:
    * @brief Constructs a pool bound to a timeline.
    * @param tl Timeline used to schedule spawned animations; retained by reference.
    */
-  TransformerPool(Timeline &tl) : timeline(tl) {}
+  HS_COLD_MEMBER TransformerPool(Timeline &tl)
+      : timeline(tl), pool_serial(next_pool_serial++) {
+    next_live = live_head;
+    live_head = this;
+  }
 
   /**
-   * @brief Drops the pool's clear hook from the timeline.
-   * @details Effects declare their Timeline before their pools, so the pool is
-   * destroyed first and the reference is still live here.
+   * @brief Drops the pool's clear hook and its liveness record.
+   * @details A spawned animation's completion callback outlives the pool
+   * whenever the timeline does; dropping the liveness record is what turns
+   * those callbacks into no-ops instead of writes through a dead pool.
    */
   HS_COLD_MEMBER ~TransformerPool() {
+    unlink_live();
+    // The timeline reference is used below, so an effect that declares its
+    // Timeline after its pools is a use-after-free, not a contract to bend.
+    HS_CHECK(global_timeline_live,
+             "TransformerPool outlived its Timeline: declare the Timeline "
+             "before the pools that schedule on it");
     if (clear_hook_registered)
       timeline.remove_clear_hook(this);
   }
@@ -287,6 +298,42 @@ private:
   bool clear_hook_registered =
       false; /**< Whether init_storage() registered the timeline clear hook. */
 
+  static inline TransformerPool *live_head =
+      nullptr; /**< Head of the live-pool list. */
+  static inline uint32_t next_pool_serial = 0; /**< Source of pool_serial. */
+  TransformerPool *next_live = nullptr; /**< Next link in the live list. */
+  uint32_t pool_serial; /**< Identity a completion callback tests against. */
+
+  /**
+   * @brief Whether @p pool is a live instance still carrying @p serial.
+   * @param pool Pool pointer captured by a completion callback; only compared,
+   *        never dereferenced unless it is found live.
+   * @param serial The pool_serial captured alongside it.
+   * @return True iff that exact pool is still constructed.
+   * @details Timeline events outlive a pool held in a narrower scope than the
+   * timeline, and their completion callbacks reach back into it. The serial
+   * separates a destroyed pool from a later one built at the same address.
+   */
+  HS_COLD_MEMBER static bool is_live(const TransformerPool *pool,
+                                     uint32_t serial) {
+    for (const TransformerPool *p = live_head; p; p = p->next_live) {
+      if (p == pool)
+        return p->pool_serial == serial;
+    }
+    return false;
+  }
+
+  /** @brief Unlinks this pool from the live list. */
+  HS_COLD_MEMBER void unlink_live() {
+    for (TransformerPool **p = &live_head; *p; p = &(*p)->next_live) {
+      if (*p == this) {
+        *p = next_live;
+        return;
+      }
+    }
+    HS_CHECK(false, "TransformerPool: destroyed pool not in the live list");
+  }
+
 #ifndef NDEBUG
   Arena *source_arena =
       nullptr; /**< Arena the slots were allocated from, for the debug stamp. */
@@ -393,7 +440,9 @@ private:
         e.active = true;
         add_active(idx);
         // Completion callback captures `this` + the slot index (both stable) to
-        // deactivate the slot and drop it from the active list.
+        // deactivate the slot and drop it from the active list, plus the serial
+        // is_live() needs to reject a pool destroyed before the callback fires.
+        const uint32_t serial = pool_serial;
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
         // The slot composes from here on, possibly before any prepare_frame(),
         // so derive its cached state from the fields the constructor seeded.
@@ -421,14 +470,20 @@ private:
           //   - Non-pinned: p must not be retained (step() compacts the event),
           //     and the HS_CHECK above pins repeats() false, so fire once at done().
           if (pin == Timeline::Pin::PINNED) {
-            p->then([this, idx, p]() {
+            // Capture order sizes the callable: the two pointers lead so the
+            // pair of 32-bit fields packs into Fn's inline storage.
+            p->then([this, p, idx, serial]() {
+              if (!is_live(this, serial))
+                return;
               if (!p->repeats()) {
                 entities[idx].active = false;
                 remove_active(idx);
               }
             });
           } else {
-            p->then([this, idx]() {
+            p->then([this, idx, serial]() {
+              if (!is_live(this, serial))
+                return;
               entities[idx].active = false;
               remove_active(idx);
             });
