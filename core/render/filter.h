@@ -217,6 +217,8 @@ template <int W, int H> struct Pipeline<W, H> {
   void plot(Canvas &cv, float x, float y, const Pixel &c, float, float alpha) {
     // Non-finite coords make the int casts below UB and bypass the wrap.
     assert(std::isfinite(x) && std::isfinite(y));
+    // y never wraps; bounded only so the cast below stays in range.
+    assert(y >= -H && y < 2 * H);
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
     // fast_wrap corrects only a single ±W offset, so xi must land in [-W, 2W).
@@ -1349,6 +1351,8 @@ public:
     assert(std::isfinite(x) && std::isfinite(y));
     // fast_wrap below corrects only a single ±W offset on floorf(x).
     assert(x >= -W && x < 2 * W);
+    // y never wraps; bounded only so the cast below stays in range.
+    assert(y >= -H && y < 2 * H);
     float y_i = floorf(y);
     float y_m = y - y_i;
 
