@@ -199,6 +199,8 @@ struct MeshClassBake {
       0; /**< Classes whose built LUT missed MIN_CLASS_HIT_SHARE and was discarded. */
   size_t lut_bytes =
       0; /**< Persistent bytes charged to kept LUTs (<= the byte budget). */
+  size_t aux_bytes =
+      0; /**< Persistent bytes claimed outside the LUT budget: the class and per-face record vectors plus every founded class's canonical polygon. */
 };
 
 /**
@@ -239,7 +241,11 @@ inline bool polygon_is_concave(const float *xy, int count) {
  * @param pixel_width One pixel in gnomonic plane units (2*pi/W) — sets the
  *        congruence epsilon and the LUT resolution target.
  * @param out Freshly default-constructed bake to populate.
- * @param budget_bytes Maximum persistent bytes available for class LUTs.
+ * @param budget_bytes Maximum persistent bytes available for class LUTs. It
+ *        bounds the LUT payloads alone: the class and per-face record vectors
+ *        and every founded class's canonical polygon are claimed outside it and
+ *        reported as MeshClassBake::aux_bytes, so a caller sizing its
+ *        persistent arena must provision lut_bytes + aux_bytes.
  * @details Greedy clustering seeded per topology class: a face joins the
  * best-matching class when its canonical polygon aligns (over cyclic offset x
  * reflection x optimal rotation) within CONGRUENCE_EPS_PX RMS, else founds a
@@ -258,6 +264,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   HS_CHECK(&persistent != &scratch,
            "build_mesh_class_bake persistent must not alias scratch");
   ScratchScope scratch_guard(scratch);
+  const size_t persistent_start = persistent.get_offset();
 
   const size_t F = mesh.get_face_counts_size();
   const uint8_t *fc = mesh.get_face_counts_data();
@@ -278,6 +285,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   out.lut_faces = 0;
   out.luts_built = 0;
   out.lut_bytes = 0;
+  out.aux_bytes = 0;
 
   constexpr int MAX_VERTS = SDF::FaceScratchBuffer::MAX_VERTS;
   const float eps_plane = CONGRUENCE_EPS_PX * pixel_width;
@@ -520,15 +528,17 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   out.predicted_hit_share =
       out.lut_faces > 0 ? hit_share_acc / out.lut_faces : 0.0f;
   out.lut_face_share = F > 0 ? static_cast<float>(out.lut_faces) / F : 0.0f;
+  out.aux_bytes = persistent.get_offset() - persistent_start - out.lut_bytes;
 
   hs::log("mesh class bake: F=%d classes=%d shared=%.1f%% worst=%.3fpx "
           "concave=%d luts=%d/%d lut_faces=%.1f%% (dropped %d cls/%d faces, "
-          "%d low-quality, %dB left) pred_hit=%.1f%%",
+          "%d low-quality, %dB left) pred_hit=%.1f%% aux=%dB",
           (int)F, (int)out.classes.size(),
           F > 0 ? 100.0f * out.shared_faces / F : 0.0f, worst_res_px,
           (int)out.concave_faces, (int)out.luts_built, n_elig,
           100.0f * out.lut_face_share, dropped_classes, dropped_faces,
-          lowq_classes, (int)budget, 100.0f * out.predicted_hit_share);
+          lowq_classes, (int)budget, 100.0f * out.predicted_hit_share,
+          (int)out.aux_bytes);
 }
 
 } // namespace MeshOps
