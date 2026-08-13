@@ -23,6 +23,7 @@
  */
 
 #include <atomic>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 
@@ -30,12 +31,27 @@
 #include "hd107s_frame.h"
 
 /**
+ * @brief The transmit/completion/watchdog contract a controller transport must
+ *        satisfy.
+ * @tparam T Candidate transport type.
+ * @details Mirrors what TeensySPIDMA exposes. Asserted on DMALEDController's
+ *          template parameter, so a non-conforming transport fails at the
+ *          instantiation site rather than inside submitFrame().
+ */
+template <class T>
+concept LedTransport = std::constructible_from<T, uint32_t> &&
+                       requires(T t, const uint8_t *data, size_t len) {
+                         t.init();
+                         { t.isComplete() } -> std::convertible_to<bool>;
+                         t.checkStaleTransfer();
+                         t.transmitAsync(data, len);
+                       };
+
+/**
  * @brief High-level double-buffered DMA LED controller for HD107S strips.
  * @tparam N Number of pixels.
- * @tparam Transport SPI/DMA transport driving the wire; defaults to TeensySPIDMA
- *         on device. Must provide the transmit/completion/watchdog contract
- *         TeensySPIDMA exposes: Transport(uint32_t clock), init(), isComplete(),
- *         checkStaleTransfer(), and transmitAsync(const uint8_t*, size_t).
+ * @tparam Transport SPI/DMA transport driving the wire, satisfying
+ *         LedTransport; defaults to TeensySPIDMA on device.
  * @note One instance per firmware image: it drives the singleton TeensySPIDMA
  *       backing the shared DMA-completion ISR, so a second begin() traps.
  * @note A static instance belongs in DMAMEM: the HD107SFrame buffers are the
@@ -51,7 +67,7 @@
  *   controller.submitFrame();          // triggers async DMA, returns immediately
  *   // ISR exits → DMA transfers in background → main loop gets more CPU
  */
-template <int N, class Transport
+template <int N, LedTransport Transport
 #ifdef ARDUINO
                  = TeensySPIDMA
 #endif
