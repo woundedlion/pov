@@ -2250,7 +2250,7 @@ struct FaceScratchBuffer {
   std::array<float, MAX_VERTS>
       edge_lengths_sq;                  /**< Per-edge squared lengths. */
   std::array<Vector, MAX_VERTS> planes; /**< Per-edge great-circle normals. */
-  std::array<std::pair<float, float>, MAX_INTERVALS>
+  std::array<Interval, MAX_INTERVALS>
       intervals;                       /**< Azimuth coverage intervals. */
   std::array<float, MAX_VERTS> thetas; /**< Per-vertex azimuth angles. */
   std::array<float, MAX_VERTS>
@@ -2345,9 +2345,8 @@ struct Face {
   int y_min, y_max; /**< Inclusive vertical row bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
   int build_width; /**< Clip width the azimuth cull ran against; 0 if unclipped. */
-  std::span<std::pair<float, float>>
-      intervals;   /**< Azimuth coverage intervals (radians). */
-  bool full_width; /**< True when the face spans all columns. */
+  std::span<Interval> intervals; /**< Azimuth coverage intervals (radians). */
+  bool full_width;               /**< True when the face spans all columns. */
   /** A pole lies on the face boundary, so the azimuth intervals take the
    *  per-row pole widening instead of full width. */
   bool pole_touch = false;
@@ -3007,8 +3006,7 @@ struct Face {
     } else {
       full_width = true;
     }
-    intervals = std::span<std::pair<float, float>>(scratch.intervals.data(),
-                                                   interval_count);
+    intervals = std::span<Interval>(scratch.intervals.data(), interval_count);
   }
 
   /**
