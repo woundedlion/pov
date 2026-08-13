@@ -6,8 +6,9 @@
 
 /**
  * @file platform.h
- * @brief Platform layer: canvas dimensions, invariant checks, PRNG, logging,
- *        timing, and the device/host split.
+ * @brief Platform layer: canvas dimensions, invariant checks, timing, clamp and
+ *        the device/host split. Pulls in the attribute, diagnostics and PRNG
+ *        headers so a single include still covers the whole platform surface.
  */
 
 #include "engine/build_features.h"
@@ -55,203 +56,16 @@
 #include <cstdint>
 #include <cstring>
 
-namespace hs {
-/**
- * @brief Small deterministic PRNG (PCG XSH-RR 64/32) — the process-wide RNG.
- * @details Models a UniformRandomBitGenerator, so hs::rand_* consume it
- *          unchanged. DETERMINISM CONTRACT: device and host both seed this
- *          identical type with 1337, so the draw stream stays bit-identical
- *          across the two builds (the sim/device parity invariant); nothing may
- *          depend on the specific values, only on reproducibility. Consume it
- *          only through hs:: helpers — a \<random\> algorithm or distribution
- *          draws an implementation-defined number of times and breaks the
- *          contract; use hs::shuffle, not std::shuffle. Reference: pcg32 by
- *          Melissa O'Neill.
- */
-class Pcg32 {
-public:
-  using result_type = uint32_t;
-  static constexpr result_type min() { return 0u; }
-  static constexpr result_type max() { return 0xFFFFFFFFu; }
-
-  explicit Pcg32(uint64_t seed = 1337u) { this->seed(seed); }
-
-  /**
-   * @brief Re-initializes the generator to the deterministic state for `s`.
-   * @param s Seed value (mirrors std::mt19937::seed).
-   */
-  void seed(uint64_t s) {
-    state = 0u;
-    inc = (STREAM_SEQ << 1u) | 1u; // stream id must be odd
-    (*this)();
-    state += s;
-    (*this)();
-  }
-
-  result_type operator()() {
-    uint64_t old = state;
-    state = old * 6364136223846793005ULL + inc;
-    uint32_t xorshifted = static_cast<uint32_t>(((old >> 18u) ^ old) >> 27u);
-    uint32_t rot = static_cast<uint32_t>(old >> 59u);
-    return (xorshifted >> rot) | (xorshifted << ((0u - rot) & 31u));
-  }
-
-private:
-  uint64_t state = 0u;
-  uint64_t inc = 0u;
-  static constexpr uint64_t STREAM_SEQ = 0x14057b7ef767814fULL;
-};
-
-/**
- * @brief Derives the shared-RNG seed for effect epoch @p epoch.
- * @param epoch Absolute effect/epoch index (beacon-synchronized on the device).
- * @return 1337 when epoch == 0 — the identity seed the determinism contract
- *         pins; otherwise a splitmix64-mixed value of (1337, epoch).
- * @details Used at effect handoff so every replica derives the same fresh
- *          per-visit draw stream locally from already-shared state (nothing is
- *          distributed). Integer-only, so device and host agree bit-for-bit.
- */
-constexpr uint64_t epoch_seed(uint32_t epoch) {
-  if (epoch == 0)
-    return 1337u;
-  uint64_t z = 1337u + uint64_t{epoch} * 0x9E3779B97F4A7C15ULL;
-  z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
-  z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
-  return z ^ (z >> 31);
-}
-
-/**
- * @brief Returns the global deterministic random number generator.
- * @return Reference to the process-wide Pcg32 seeded with 1337.
- * @details DETERMINISM CONTRACT: this `Pcg32(1337)` is the only RNG that is
- *          bit-identical device-vs-simulator; parity-sensitive effects must draw
- *          through it via `hs::random()`/`hs::rand_f`/`hs::rand_int`, not the
- *          FastLED `random8()`/`random16()`/Arduino `random()` path (that
- *          resolves to FastLED's LCG on device but this Pcg32 on the host mocks,
- *          so the two diverge; legacy effects only).
- *
- *          REENTRANCY CONTRACT: the generator is a function-local `static`, so it
- *          is main-loop-only — never call it from an ISR or any preemptive
- *          context.
- */
-inline Pcg32 &random() {
-  static Pcg32 gen(1337);
-  return gen;
-}
-
-/** @brief Global debug-logging toggle. */
-inline bool debug = false;
-} // namespace hs
-
-// ---------------------------------------------------------------------------
-// HS_O3_BEGIN / HS_O3_END: compile the enclosed function definitions at -O3 on
-// the -Os device image (selective optimization).
-// Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
-// -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
-// The fast-math flags are restated because GCC 11's optimize pragma rebuilds
-// optimization flags from defaults, dropping the command-line ones for the
-// region. no-unswitch-loops keeps GCC 15 from emitting a second copy of the
-// region's per-pixel loop bodies, which only overflows ITCM: one copy ever runs.
-// HS_O3_FN is the shared single-function attribute and backs HS_COLD_MEMBER.
-// ---------------------------------------------------------------------------
-#if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) &&            \
-    defined(__OPTIMIZE_SIZE__)
-#define HS_O3_BEGIN                                                            \
-  _Pragma("GCC push_options") _Pragma(                                         \
-      "GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\", \"no-unswitch-loops\")")
-#define HS_O3_END _Pragma("GCC pop_options")
-#define HS_O3_FN                                                               \
-  __attribute__((optimize("O3", "fast-math", "no-finite-math-only",            \
-                          "no-unswitch-loops")))
-#else
-#define HS_O3_BEGIN
-#define HS_O3_END
-#define HS_O3_FN
-#endif
-
-// ---------------------------------------------------------------------------
-// HS_COLD: keep a setup-only function off the fast ITCM banks. FLASHMEM routes it
-// to FLASH; noinline collapses per-call-site inline copies and noclone blocks the
-// .constprop/.isra IPA clones (which drop the section attribute and land in ITCM
-// regardless). Apply ONLY to internal-linkage (`static`) free functions on cold
-// paths (mesh/solid construction): a section attribute on a COMDAT (inline/template
-// member) function is a section-type conflict. Off-device it degrades to a no-op.
-// HS_FLASH_MEMBER is the COMDAT-safe variant for inline/template member
-// functions: GCC's `cold` attribute supplies a unique .text.unlikely.* section,
-// and tools/phantasm.ld routes that section to FLASH. HS_COLD_MEMBER names the
-// setup-only use; HS_FLASH_MEMBER also supports explicitly measured code
-// placement. On the -Os device image both use HS_O3_FN. HS_FLASH_INLINE is the
-// variant for a free function declared `inline`, which GCC's -Wattributes
-// rejects the noinline on; `cold` alone still supplies the .text.unlikely.*
-// section, and a variadic [[noreturn]] body is not an inline candidate anyway.
-//
-// Defined ahead of the platform branches so the trap/logging routines below can
-// carry HS_FLASH_MEMBER. HS_COLD's FLASHMEM expands at the use site, after both
-// branches have supplied it.
-// ---------------------------------------------------------------------------
-#if defined(__GNUC__) && !defined(__clang__)
-#define HS_COLD FLASHMEM __attribute__((noinline, noclone))
-#define HS_FLASH_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
-#define HS_FLASH_INLINE HS_O3_FN __attribute__((cold, noclone))
-#define HS_COLD_MEMBER HS_FLASH_MEMBER
-#define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
-#else
-#define HS_COLD FLASHMEM
-#define HS_FLASH_MEMBER
-#define HS_FLASH_INLINE
-#define HS_COLD_MEMBER
-#define HS_NOINLINE_NOCLONE __attribute__((noinline))
-#endif
-
-// ---------------------------------------------------------------------------
-// HS_PROGMEM_UNIQUE: flash placement for a table defined in a header. Use this,
-// never PROGMEM, for any COMDAT (inline/template) table.
-//
-// Teensy's PROGMEM is the single fixed section ".progmem", so every inline
-// PROGMEM variable in a translation unit lands in one section inside one COMDAT
-// group, signed by whichever symbol sits at offset 0. Two translation units that
-// pick the same signature make ld discard a whole group: the other tables in it
-// go too, their weak references resolve to address 0, and the first read faults
-// with no linker diagnostic. A per-variable section name gives each table its
-// own group, so tables dedupe individually. tools/phantasm.ld globs `.progmem*`.
-// ---------------------------------------------------------------------------
-#ifdef ARDUINO
-#define HS_PROGMEM_UNIQUE(name) __attribute__((section(".progmem." #name)))
-#else
-#define HS_PROGMEM_UNIQUE(name)
-#endif
+#include "engine/platform_attributes.h"
+#include "engine/platform_diagnostics.h"
+#include "engine/platform_rng.h"
 
 #ifdef ARDUINO
-#ifndef NDEBUG
-#define NDEBUG // Strip assert() to avoid linking newlib's __assert_func → fprintf
-#endif
-#include <Arduino.h>
 #include <FastLED.h>
 #include <cstdarg>
 #include <cstdio>
 
 namespace hs {
-/**
- * @brief Logs one formatted line to Serial on the device.
- * @param msg printf-style format string; trailing args supply the values.
- * @details Formats into a fixed 256-byte stack buffer (no heap) via the
- *          integer-only vsniprintf, which keeps newlib's float formatter out of
- *          ITCM — the device never logs a float.
- */
-HS_FLASH_INLINE inline void log(const char *msg, ...)
-    __attribute__((format(printf, 1, 2)));
-HS_FLASH_INLINE inline void log(const char *msg, ...) {
-  va_list args;
-  va_start(args, msg);
-  char buf[256];
-  vsniprintf(buf, sizeof(buf), msg, args);
-  va_end(args);
-  Serial.println(buf);
-}
-
-/** @brief Blocks until pending Serial output has drained (used before trap). */
-inline void flush_log() { Serial.flush(); }
-
 /**
  * @brief Wrapped millis() for namespace consistency.
  * @return Milliseconds since boot from the Arduino runtime.
@@ -288,14 +102,6 @@ inline uint32_t save_disable_interrupts() {
 inline void restore_interrupts(uint32_t primask) {
   __asm__ volatile("msr primask, %0" ::"r"(primask) : "memory");
 }
-// rand_f/rand_int and ScanMetrics are defined once in the shared hs namespace
-// after the #endif below.
-
-#ifdef CORE_TEENSY
-#define HS_OS_CYCLES() ARM_DWT_CYCCNT
-#else
-#define HS_OS_CYCLES() 0
-#endif
 
 /**
  * @brief Virtual rows appended below the physical LED ring (device value 3).
@@ -313,22 +119,6 @@ inline constexpr int H_OFFSET = 3;
 #else
 
 // Non-Arduino / PC Simulation Platform
-#ifndef DMAMEM
-#define DMAMEM
-#endif
-
-#ifndef PROGMEM
-#define PROGMEM
-#endif
-
-#ifndef FLASHMEM
-#define FLASHMEM
-#endif
-
-#ifndef FASTRUN
-#define FASTRUN
-#endif
-
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -375,24 +165,6 @@ inline unsigned long millis(); // defined below
 } // namespace hs
 
 #include "engine/platform_arduino_mocks.h"
-
-namespace hs {
-/**
- * @brief Logs one formatted line to stdout on the host.
- * @param fmt printf-style format string; trailing args supply the values.
- */
-inline void log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
-inline void log(const char *fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  vprintf(fmt, args);
-  va_end(args);
-  printf("\n");
-}
-
-/** @brief Flushes stdout (used before trap so the breadcrumb is not lost). */
-inline void flush_log() { fflush(stdout); }
-} // namespace hs
 
 // Mock EVERY_N_MILLIS using a simple static checker.
 // Two-level macro so __COUNTER__ expands before pasting.
@@ -553,9 +325,6 @@ inline void enable_interrupts() {}
 inline uint32_t save_disable_interrupts() { return 0; }
 /** @brief Restores a saved interrupt mask (no-op on host). */
 inline void restore_interrupts(uint32_t) {}
-// rand_f/rand_int and ScanMetrics are defined once in the shared hs namespace
-// after the #endif below.
-#define HS_OS_CYCLES() 0
 
 /**
  * @brief Virtual rows appended below the physical LED ring; 0 on host/sim.
@@ -592,103 +361,18 @@ inline unsigned long micros() { return hs::micros(); }
 #endif
 
 // ---------------------------------------------------------------------------
-// Platform-agnostic hs:: helpers (defined once; hs::random() is defined above,
-// ahead of both platform branches).
+// HS_CHECK's trap routine, defined once for both platform branches.
 // ---------------------------------------------------------------------------
 namespace hs {
 
-// Defined later in this header; forward-declared so the helpers below can HS_CHECK.
+// Forward-declared ahead of the definitions below so engine/inplace_function.h,
+// included further down, can trap through it.
 [[noreturn]] HS_FLASH_INLINE inline void
 check_fail(const char *file, int line, const char *cond, const char *fmt, ...)
     __attribute__((format(printf, 4, 5)));
 // No-message overload (HS_CHECK(cond) with no varargs); see definition below.
 [[noreturn]] HS_FLASH_INLINE inline void check_fail(const char *file, int line,
                                                     const char *cond);
-
-/**
- * @brief Maps a raw RNG draw in [0, max] onto the half-open interval [0.0, 1.0).
- * @param value Raw RNG draw, in [0, max].
- * @param max Maximum possible draw value.
- * @pre max == UINT32_MAX: the top-band clamp constant is derived for that exact
- *      divisor. rand_f()'s static_assert enforces it for the global RNG.
- * @return A float in [0.0, 1.0), clamped just below 1.0f at the top band.
- * @details The naive value/max can land on exactly 1.0f for the top band of
- *          draws: both value and the divisor 2^32-1 round UP to 2^32 in float32
- *          (2^32-1 is not representable there), so (int)(u * N) would index N —
- *          one past the end. Clamp only those top draws to the float just below
- *          1.0f; every other draw is byte-for-byte unchanged. Pure so the
- *          boundary is unit-testable without driving the global RNG to its max.
- */
-inline float random_to_unit(uint32_t value, uint32_t max) {
-  float r = static_cast<float>(value) / static_cast<float>(max);
-  constexpr float JUST_BELOW_ONE = 0x1.fffffep-1f; // nextafterf(1.0f, 0.0f)
-  return r > JUST_BELOW_ONE ? JUST_BELOW_ONE : r;
-}
-
-/**
- * @brief Generates a pseudo-random floating-point number in [0.0, 1.0).
- * @return A random float in the half-open range [0.0, 1.0).
- */
-inline float rand_f() {
-  using Rng = std::remove_reference_t<decltype(hs::random())>;
-  static_assert(
-      Rng::max() == 0xFFFFFFFFu,
-      "rand_f()/random_to_unit assume a 32-bit-range RNG; update them "
-      "if the global generator changes.");
-  return random_to_unit(static_cast<uint32_t>(hs::random()()),
-                        static_cast<uint32_t>(Rng::max()));
-}
-
-/**
- * @brief Generates a pseudo-random float in [min, max).
- * @param min Lower bound (inclusive).
- * @param max Upper bound (exclusive).
- * @return A random float in the half-open range [min, max).
- */
-inline float rand_f(float min, float max) {
-  return min + rand_f() * (max - min);
-}
-
-/**
- * @brief Generates a pseudo-random integer within a specified range.
- * @param min The minimum value (inclusive).
- * @param max The maximum value (exclusive).
- * @return A random integer in the range [min, max).
- * @note Uses `% span`, so the result is modulo-biased for ranges that do not
- * divide 2^32 evenly. Acceptable here: callers pass small setup-time ranges and
- * rely on `Pcg32` for determinism, not uniformity. The span is computed
- * unsigned: `max - min` overflows int for a span wider than INT_MAX.
- */
-inline int rand_int(int min, int max) {
-  if (max > min) {
-    const uint32_t span =
-        static_cast<uint32_t>(max) - static_cast<uint32_t>(min);
-    return static_cast<int>(static_cast<uint32_t>(min) +
-                            (hs::random()() % span));
-  }
-  return min;
-}
-
-/**
- * @brief Shuffles [first, last) using the process-wide RNG.
- * @tparam It Random-access iterator.
- * @param first Range begin.
- * @param last Range end.
- * @note Replaces std::shuffle, whose permutation AND draw count are
- * implementation-defined: the three standard libraries this project builds
- * against (device libstdc++, WASM libc++, host) each produced a different
- * sequence and desynchronized the shared stream, breaking the determinism
- * contract above. Descending Fisher-Yates, exactly one draw per step.
- */
-template <typename It> inline void shuffle(It first, It last) {
-  const int n = static_cast<int>(last - first);
-  for (int i = n - 1; i > 0; --i) {
-    const int j = rand_int(0, i + 1);
-    const auto tmp = first[i];
-    first[i] = first[j];
-    first[j] = tmp;
-  }
-}
 
 /**
  * @brief Backing routine for HS_CHECK: logs a located breadcrumb then traps.
