@@ -109,9 +109,11 @@ struct ProjectionKernelResult {
 };
 
 /**
- * @brief Wraps a longitude into (-pi, pi].
+ * @brief Wraps a longitude into [-pi, pi].
  * @param longitude Angle in radians, unbounded.
- * @return The same direction expressed in (-pi, pi].
+ * @return The same direction expressed in [-pi, pi]. Both endpoints are
+ *         reachable — the antimeridian can land on either sign — so a caller
+ *         partitioning the range must accept it on both sides.
  */
 inline float wrap_longitude(float longitude) {
   float wrapped = fmodf(longitude + PI_F, TWO_PI_F);
