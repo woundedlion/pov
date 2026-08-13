@@ -169,7 +169,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── platform_arduino_mocks.h Off-device emulation of the Arduino/FastLED API
 │   │   ├── build_features.h         Build-time feature and instrumentation switches
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
-│   │   ├── constants.h             MAX_W, MAX_H + ClipRegion segment clip rectangle
+│   │   ├── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
 │   │   ├── engine.h                Engine API umbrella — included by every effect
 │   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
@@ -218,6 +218,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
 │   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
+│   │   ├── clip.h                  ClipRegion segment clip rectangle + cylindrical render band
 │   │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
 │   │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel

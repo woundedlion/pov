@@ -16,6 +16,7 @@
 #include "math/geometry.h"
 #include "render/shading.h"
 #include "engine/constants.h"
+#include "render/clip.h"
 #include "engine/concepts.h"
 #include "engine/memory.h"
 #include "engine/static_circular_buffer.h"
