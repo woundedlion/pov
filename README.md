@@ -19,7 +19,7 @@ The project spans **two repositories** that ship as one product:
 | [**Holosphere**](https://github.com/woundedlion/pov) | C++ engine + firmware | All rendering code, effects, hardware drivers (`pov_single.h`, `pov_segmented.h`), the Emscripten/WASM target, unit tests, and this README. |
 | [**daydream**](https://github.com/woundedlion/daydream) | Web simulator | Three.js renderer, the compiled `holosphere_wasm.{js,wasm}` artifacts (output of Holosphere's WASM build), GUI/sidebar, recorder, segmented-POV Web Workers, and standalone geometry tools. |
 
-Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holosphere_wasm.wasm`, this README, and `docs/screenshots/` into the sibling `daydream/` checkout — so both repos always serve the same README. The live demo is daydream served from GitHub Pages.
+Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holosphere_wasm.wasm`, `hardware/pov_segment_map.json`, this README, and `docs/screenshots/` into the sibling `daydream/` checkout — so both repos always serve the same README. The live demo is daydream served from GitHub Pages.
 
 ---
 
@@ -2554,7 +2554,7 @@ The WASM target (`CMakeLists.txt`, `EMSCRIPTEN` branch) configures:
 - `-sSTACK_SIZE` — per build type: 8192 for release (minimal; effects use arena allocation, not deep recursion) and 65536 for debug, where `-O0` disables inlining and stack-slot coalescing and inflates frames past the release budget. Each build-type block sets it exactly once and the shared block never does, so the effective value cannot depend on link-line ordering
 - `-O3 -ffast-math -fno-finite-math-only -flto -msimd128` for release, `-O0 -g -sASSERTIONS=1` for debug (`-fno-finite-math-only` must follow `-ffast-math`, which otherwise folds `std::isfinite()` to true and lets the compiler assume no NaN/Inf — the render sink relies on real finite semantics)
 
-The install step also writes `README.md` and `docs/screenshots/` so the daydream repo always serves the same documentation as Holosphere.
+The install step also writes `hardware/pov_segment_map.json` — the segment→canvas golden the simulator's cross-check reads as the firmware reference — plus `README.md` and `docs/screenshots/` so the daydream repo always serves the same documentation as Holosphere.
 
 ### Tests — Holosphere repo
 
