@@ -17,6 +17,7 @@
 
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
+#include "core/math/lenses.h"
 #include "core/math/noise_field.h"
 #include "core/math/projections.h"
 #include "core/math/stereographic.h"
@@ -3541,8 +3542,8 @@ private:
       if constexpr (LENS == SurfaceLens::GLITCH)
         return glitch_lens(v);
       if constexpr (LENS == SurfaceLens::KALEIDOSCOPE)
-        return kaleidoscope_lens(v);
-      return dodecahedral_kaleidoscope_lens(v);
+        return lenses::kaleidoscope_lens(v);
+      return lenses::dodecahedral_kaleidoscope_lens(v);
     }();
     HS_SB_STAGE_SPAN(lens, stage_start);
     return lensed;
@@ -4621,25 +4622,32 @@ private:
     case SurfaceLens::GLITCH:
       return glitch_lens(v);
     case SurfaceLens::TWIST:
-      return twist_lens(v);
+      return lenses::twist_lens(v);
     case SurfaceLens::KALEIDOSCOPE:
-      return kaleidoscope_lens(v);
+      return lenses::kaleidoscope_lens(v);
     case SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL:
-      return polyhedral_kaleidoscope_lens(v, TETRAHEDRAL_MIRRORS);
+      return lenses::polyhedral_kaleidoscope_lens(v,
+                                                  lenses::TETRAHEDRAL_MIRRORS);
     case SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL:
-      return polyhedral_kaleidoscope_lens(v, OCTAHEDRAL_MIRRORS);
+      return lenses::polyhedral_kaleidoscope_lens(v,
+                                                  lenses::OCTAHEDRAL_MIRRORS);
     case SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL:
-      return dodecahedral_kaleidoscope_lens(v);
+      return lenses::dodecahedral_kaleidoscope_lens(v);
     case SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM:
-      return polyhedral_kaleidoscope_lens(v, TRIANGULAR_PRISM_MIRRORS);
+      return lenses::polyhedral_kaleidoscope_lens(
+          v, lenses::TRIANGULAR_PRISM_MIRRORS);
     case SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM:
-      return polyhedral_kaleidoscope_lens(v, SQUARE_PRISM_MIRRORS);
+      return lenses::polyhedral_kaleidoscope_lens(v,
+                                                  lenses::SQUARE_PRISM_MIRRORS);
     case SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM:
-      return polyhedral_kaleidoscope_lens(v, PENTAGONAL_PRISM_MIRRORS);
+      return lenses::polyhedral_kaleidoscope_lens(
+          v, lenses::PENTAGONAL_PRISM_MIRRORS);
     case SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM:
-      return polyhedral_kaleidoscope_lens(v, HEXAGONAL_PRISM_MIRRORS);
+      return lenses::polyhedral_kaleidoscope_lens(
+          v, lenses::HEXAGONAL_PRISM_MIRRORS);
     case SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM:
-      return polyhedral_kaleidoscope_lens(v, OCTAGONAL_PRISM_MIRRORS);
+      return lenses::polyhedral_kaleidoscope_lens(
+          v, lenses::OCTAGONAL_PRISM_MIRRORS);
     case SurfaceLens::MOBIUS:
     case SurfaceLens::TANGENT_NOISE:
       HS_CHECK(false, "frame-parameterized lens needs the FrameState overload");
@@ -4651,107 +4659,6 @@ private:
   HS_FLASH_MEMBER static Vector mobius_lens(const Vector &v,
                                             const MobiusParams &params) {
     return mobius_transform(v, params);
-  }
-
-  static Vector twist_lens(const Vector &v) {
-    const float angle = TWIST_RATE * v.y;
-    const float c = fast_cosf(angle);
-    const float s = fast_sinf(angle);
-    return Vector(v.x * c - v.z * s, v.y, v.x * s + v.z * c);
-  }
-
-  HS_FLASH_MEMBER static Vector kaleidoscope_lens(const Vector &v) {
-    constexpr float COS_60 = 0.5f;
-    constexpr float SIN_60 = 0.8660254037844386f;
-    constexpr float SQRT_3 = 1.7320508075688772f;
-    float x = fabsf(v.x);
-    float z = fabsf(v.z);
-    if (z > SQRT_3 * x) {
-      const float reflected_x = -COS_60 * x + SIN_60 * z;
-      z = SIN_60 * x + COS_60 * z;
-      x = reflected_x;
-    }
-    if (SQRT_3 * z > x) {
-      const float reflected_x = COS_60 * x + SIN_60 * z;
-      z = SIN_60 * x - COS_60 * z;
-      x = reflected_x;
-    }
-    return Vector(x, v.y, z);
-  }
-
-  /**
-   * @brief Folds a direction into a spherical reflection-group chamber.
-   * @param v Unit direction on the sphere.
-   * @param mirrors Inward unit normals of the chamber's simple mirrors.
-   * @return A symmetry-equivalent direction inside the chamber.
-   */
-  template <size_t N>
-  HS_O3_FN static Vector
-  polyhedral_kaleidoscope_lens(Vector v, const std::array<Vector, N> &mirrors) {
-    [[maybe_unused]] uint32_t reflections = 0;
-    for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
-         ++reflection) {
-      bool inside = true;
-      for (const Vector &normal : mirrors) {
-        const float distance = dot(v, normal);
-        if (distance >= -POLYHEDRAL_MIRROR_EPS)
-          continue;
-        v.x -= 2.0f * distance * normal.x;
-        v.y -= 2.0f * distance * normal.y;
-        v.z -= 2.0f * distance * normal.z;
-        HS_SB_STAGE_COUNT(++reflections);
-        inside = false;
-        break;
-      }
-      if (inside) {
-        HS_SB_STAGE_COUNT(++hs::g_shaderball_stage_cycles.polyhedral_pixels);
-        HS_SB_STAGE_COUNT(
-            hs::g_shaderball_stage_cycles.polyhedral_reflections +=
-            reflections);
-        HS_SB_STAGE_COUNT(
-            hs::g_shaderball_stage_cycles.polyhedral_max_reflections = std::max(
-                hs::g_shaderball_stage_cycles.polyhedral_max_reflections,
-                reflections));
-        return v;
-      }
-    }
-    HS_CHECK(false, "polyhedral kaleidoscope fold did not converge");
-    return v;
-  }
-
-  HS_O3_FN __attribute__((always_inline)) static Vector
-  dodecahedral_kaleidoscope_lens(Vector v) {
-    [[maybe_unused]] uint32_t reflections = 0;
-    constexpr Vector OBLIQUE = DODECAHEDRAL_MIRRORS[1];
-    for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
-         ++reflection) {
-      if (v.x < -POLYHEDRAL_MIRROR_EPS) {
-        v.x = -v.x;
-      } else {
-        const float distance = dot(v, OBLIQUE);
-        if (distance < -POLYHEDRAL_MIRROR_EPS) {
-          v.x -= 2.0f * distance * OBLIQUE.x;
-          v.y -= 2.0f * distance * OBLIQUE.y;
-          v.z -= 2.0f * distance * OBLIQUE.z;
-        } else if (v.z < -POLYHEDRAL_MIRROR_EPS) {
-          v.z = -v.z;
-        } else {
-          HS_SB_STAGE_COUNT(++hs::g_shaderball_stage_cycles.polyhedral_pixels);
-          HS_SB_STAGE_COUNT(
-              hs::g_shaderball_stage_cycles.polyhedral_reflections +=
-              reflections);
-          HS_SB_STAGE_COUNT(
-              hs::g_shaderball_stage_cycles.polyhedral_max_reflections =
-                  std::max(
-                      hs::g_shaderball_stage_cycles.polyhedral_max_reflections,
-                      reflections));
-          return v;
-        }
-      }
-      HS_SB_STAGE_COUNT(++reflections);
-    }
-    HS_CHECK(false, "dodecahedral kaleidoscope fold did not converge");
-    return v;
   }
 
   /**
@@ -5991,34 +5898,7 @@ private:
   static constexpr float WARP_COORD_LIMIT = 65536.0f;
   static constexpr float NOISE_LATTICE_LIMIT = 1048576.0f;
   static constexpr float SPIRAL_ARMS = 3.0f;
-  static constexpr float TWIST_RATE = 3.0f;
   static constexpr float KALEIDOSCOPE_SECTORS = 6.0f;
-  static constexpr float POLYHEDRAL_MIRROR_EPS = 1e-6f;
-  static constexpr int POLYHEDRAL_REFLECTION_LIMIT = 16;
-  static constexpr std::array<Vector, 3> TETRAHEDRAL_MIRRORS = {
-      Vector(1.0f, 0.0f, 0.0f), Vector(-0.5f, 0.8660254038f, 0.0f),
-      Vector(0.0f, -0.5773502692f, 0.8164965809f)};
-  static constexpr std::array<Vector, 3> OCTAHEDRAL_MIRRORS = {
-      Vector(1.0f, 0.0f, 0.0f), Vector(-0.7071067812f, 0.7071067812f, 0.0f),
-      Vector(0.0f, -0.7071067812f, 0.7071067812f)};
-  static constexpr std::array<Vector, 3> DODECAHEDRAL_MIRRORS = {
-      Vector(1.0f, 0.0f, 0.0f), Vector(-0.8090169944f, 0.3090169944f, -0.5f),
-      Vector(0.0f, 0.0f, 1.0f)};
-  static constexpr std::array<Vector, 3> TRIANGULAR_PRISM_MIRRORS = {
-      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-      Vector(0.8660254038f, 0.0f, -0.5f)};
-  static constexpr std::array<Vector, 3> SQUARE_PRISM_MIRRORS = {
-      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-      Vector(0.7071067812f, 0.0f, -0.7071067812f)};
-  static constexpr std::array<Vector, 3> PENTAGONAL_PRISM_MIRRORS = {
-      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-      Vector(0.5877852523f, 0.0f, -0.8090169944f)};
-  static constexpr std::array<Vector, 3> HEXAGONAL_PRISM_MIRRORS = {
-      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-      Vector(0.5f, 0.0f, -0.8660254038f)};
-  static constexpr std::array<Vector, 3> OCTAGONAL_PRISM_MIRRORS = {
-      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-      Vector(0.3826834324f, 0.0f, -0.9238795325f)};
   static constexpr float NOISE_NATIVE_PERIOD = 256.0f;
   static constexpr float NOISE_WRAP_START = 63.0f / 64.0f;
   static constexpr float ONE_BELOW_UNIT = 0x1.fffffep-1f;
