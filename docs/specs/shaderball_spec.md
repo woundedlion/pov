@@ -491,7 +491,7 @@ than silently clamped into a different schema:
 | affine | translation components `[-4,4]`, scale `[1/4,4]`, shear `[-3/4,3/4]`, wrapped rotation |
 | wave shear | amplitude `[-4,4]`, angular frequency `[0,64]`, wrapped field angle/phase |
 | vortex | center components `[-4,4]`, radius `[1/64,8]`, turns `[-4,4]` |
-| vector noise | amplitude `[0,1]`, scale `[1/64,4]`, time rate `[-1/64,1/64]` turns/frame |
+| vector noise | amplitude `[0,1]`, scale `[1/64,8]`, time rate `[-1/64,1/64]` turns/frame |
 | curl flow | signed distance `[-1,1]`, scale `[1/64,2]`, time rate `[-1/64,1/64]` turns/frame plus the stability inequality below |
 | mirror tile | cell dimensions `[1/64,8]`, offsets wrapped to their cells, wrapped rotation |
 | polar chart | radial scale `[1/64,16]`, fixed radius floor `1/4096`, harmonic integer `[1,16]`, wrapped phases |
