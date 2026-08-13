@@ -561,8 +561,12 @@ private:
 
   /**
    * @brief Spawns one falling ball with a random meridian, footprint, and
-   * speed drawn from the Speed Min/Max sliders; dropped safely if the ball
-   * pool or the timeline is full.
+   * speed drawn from the Speed Min/Max sliders; dropped safely if the ball pool
+   * or the timeline is full.
+   * @details A full pool is logged before the spawn rather than by testing
+   * spawn()'s result: consuming that return value costs ~960 B of ITCM, which
+   * the phantasm budget cannot spare. A timeline-full drop is already logged by
+   * the timeline itself.
    */
   HS_COLD_MEMBER void spawn_ball() {
     balls.template_params.radius =
@@ -572,6 +576,8 @@ private:
         hs::rand_f(std::min(params.ball_speed_min, params.ball_speed_max),
                    std::max(params.ball_speed_min, params.ball_speed_max));
     int fall_frames = std::max(2, static_cast<int>(BALL_RATE_FPS / speed));
+    if (balls.active_count() >= MAX_BALLS)
+      hs::log("DisplacementField: ball pool full, dropping spawn");
     balls.spawn(0, orientation, normal, hs::rand_f(0.0f, 2.0f * PI_F),
                 fall_frames);
   }
