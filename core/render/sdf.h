@@ -23,7 +23,7 @@
 #include "engine/util.h"
 
 #ifdef HS_AA_AUDIT
-#include "tests/aa_audit.h"
+#include "render/aa_audit.h"
 #endif
 
 /**

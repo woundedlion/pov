@@ -15,7 +15,7 @@
 #include "engine/platform.h"
 
 #ifdef HS_AA_AUDIT
-#include "tests/aa_audit.h"
+#include "render/aa_audit.h"
 #endif
 
 /**
@@ -112,6 +112,21 @@ check_fragment_shader(FragmentShaderFn fragment_shader) {
 }
 
 /**
+ * @brief Anti-aliased coverage of a solid shape at a signed distance.
+ * @param d Signed distance to the surface, negative inside.
+ * @param pixel_width Angular width of one column, the AA half-reach.
+ * @return Coverage in [0, 1]; 1 at or inside a full pixel of depth.
+ * @details The single spelling of the solid AA ramp, shared by every scan loop
+ * and by the HS_AA_AUDIT walk so an audit miss is never the two disagreeing.
+ */
+__attribute__((always_inline)) inline float solid_coverage(float d,
+                                                           float pixel_width) {
+  if (d <= -pixel_width)
+    return 1.0f;
+  return quintic_kernel(0.5f - d / (2.0f * pixel_width));
+}
+
+/**
  * @brief Processes a single pixel for rasterization: evaluates the shape SDF,
  *        computes anti-aliased coverage, runs the fragment shader, and plots.
  * @tparam W Canvas width in pixels.
@@ -169,14 +184,7 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     float alpha = 1.0f;
 
     if constexpr (solid) {
-      if (d <= -pixel_width) {
-        // FAST PATH: Pixel is fully inside the shape. Skip AA
-        alpha = 1.0f;
-      } else {
-        // SLOW PATH: Pixel is on the boundary. Calculate AA
-        float t_aa = 0.5f - d / (2.0f * pixel_width);
-        alpha = quintic_kernel(t_aa);
-      }
+      alpha = solid_coverage(d, pixel_width);
     } else {
       // Stroke falloff over the winning leaf's own half-width: result.size, not
       // shape.thickness (a CSG composite's wrapper carries a min/max thickness).
@@ -1596,11 +1604,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         float d = ares.dist;
         if (d >= pixel_width)
           continue;
-        float alpha = 1.0f;
-        if (d > -pixel_width) {
-          float t_aa = 0.5f - d / (2.0f * pixel_width);
-          alpha = quintic_kernel(t_aa);
-        }
+        const float alpha = solid_coverage(d, pixel_width);
         if (alpha <= MIN_ALPHA)
           continue;
         int gap = W;
@@ -1698,11 +1702,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
         HS_PROBE_COUNT(n_alpha);
         HS_PROBE_MARK(hs_ta);
-        float alpha = 1.0f;
-        if (d > -pixel_width) {
-          float t_aa = 0.5f - d / (2.0f * pixel_width);
-          alpha = quintic_kernel(t_aa);
-        }
+        const float alpha = solid_coverage(d, pixel_width);
         HS_PROBE_SPAN(alpha, hs_ta);
         if (alpha <= MIN_ALPHA) {
           x += span;
