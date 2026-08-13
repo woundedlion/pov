@@ -284,6 +284,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── clip.h                  ClipRegion segment clip rectangle + cylindrical render band
 │   │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
 │   │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
+│   │   ├── plot_cull.h             Plot edge samplers + screen row/column span and clip-cull kernel
+│   │   ├── plot_raster.h           Plot::rasterize: adaptive sub-stepping polyline walk
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel
 │   │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
 │   │   ├── sdf_volume.h            3D volumetric SDF shapes + domain warps for Scan::Volume
