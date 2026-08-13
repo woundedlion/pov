@@ -315,14 +315,15 @@ struct ShaderBallWhiteBox {
   static PlanarWarpStageResult
   warp_stage(const Complex &input, const ProjectedLookup &projected,
              const WarpStageSpec &spec, const WarpStageParams &params,
-             const FrameState &frame, bool inner = false) {
+             const FrameState &frame, bool inner = false,
+             const Complex &source_period = Complex()) {
     const float phase =
         inner ? frame.clocks.warp_inner_phase : frame.clocks.warp_outer_phase;
     const FastNoiseLite *noise = inner ? frame.resources.inner_warp_noise
                                        : frame.resources.outer_warp_noise;
-    return SB::warp_stage_lookup(input, projected, spec, params, phase, noise,
-                                 SB::prepare_warp_stage(spec, params, phase),
-                                 frame);
+    return SB::warp_stage_lookup(
+        input, projected, spec, params, phase, noise,
+        SB::prepare_warp_stage(spec, params, phase, source_period), frame);
   }
   static MaterialSample material(const ProjectedLookup &projected,
                                  const PlanarWarpResult &warped,
@@ -3169,8 +3170,11 @@ inline void test_shaderball_planar_warp_animation() {
   auto sample = [&](WB::WarpStageKind kind, WB::WarpStageParams params,
                     float phase) {
     frame.clocks.warp_outer_phase = phase;
+    const Complex source_period = kind == WB::WarpStageKind::AFFINE_FRAME
+                                      ? Complex(1.0f, 1.0f)
+                                      : Complex();
     return WB::warp_stage(input, projected, WB::WarpStageSpec{kind}, params,
-                          frame);
+                          frame, false, source_period);
   };
   auto expect_cycle = [&](WB::WarpStageKind kind, WB::WarpStageParams params) {
     const auto start = sample(kind, params, 0.0f);
@@ -3220,6 +3224,82 @@ inline void test_shaderball_planar_warp_animation() {
   HS_EXPECT_NEAR(affine_identity_start.coords.im, input.im, 1e-6f);
   HS_EXPECT_NEAR(affine_identity_quarter.coords.re, input.re, 1e-6f);
   HS_EXPECT_NEAR(affine_identity_quarter.coords.im, input.im, 1e-6f);
+
+  WB::WarpStageParams affine_scroll;
+  affine_scroll.translation_x = 1.0f;
+  affine_scroll.translation_y = -2.0f;
+  const auto scroll_quarter =
+      sample(WB::WarpStageKind::AFFINE_FRAME, affine_scroll, 0.25f);
+  const auto scroll_half =
+      sample(WB::WarpStageKind::AFFINE_FRAME, affine_scroll, 0.5f);
+  const auto scroll_three_quarters =
+      sample(WB::WarpStageKind::AFFINE_FRAME, affine_scroll, 0.75f);
+  HS_EXPECT_NEAR(scroll_half.coords.re - scroll_quarter.coords.re,
+                 scroll_three_quarters.coords.re - scroll_half.coords.re,
+                 1e-6f);
+  HS_EXPECT_NEAR(scroll_half.coords.im - scroll_quarter.coords.im,
+                 scroll_three_quarters.coords.im - scroll_half.coords.im,
+                 1e-6f);
+
+  WB::RequestedConfig lattice_scroll = WB::presets()[23];
+  lattice_scroll.params.source.lattice_cell_scale = 2.5f;
+  lattice_scroll.params.warp.outer.translation_x = 2.0f;
+  lattice_scroll.params.warp.outer.translation_y = -1.0f;
+  lattice_scroll.params.warp.outer.rotation = 0.0f;
+  lattice_scroll.params.warp.outer.scale_x = 1.0f;
+  lattice_scroll.params.warp.outer.scale_y = 1.0f;
+  lattice_scroll.params.warp.outer.shear = 0.0f;
+  auto lattice_field = [&](float x, float y, float phase) {
+    WB::ClockState clocks = WB::clocks(sb);
+    clocks.warp_outer_phase = phase;
+    WB::set_clocks(sb, clocks);
+    const WB::FrameState lattice_frame = WB::config_frame(sb, lattice_scroll);
+    const WB::ProjectedLookup lattice_projected(Complex(x, y), 0, 0, 0, 1.0f,
+                                                1.0f, 0);
+    const WB::PlanarWarpResult warped =
+        WB::warp(lattice_projected, lattice_frame);
+    return std::pair{
+        warped.coords,
+        WB::source(WB::ProjectedLookup(warped.coords, 0, 0, 0, 1.0f, 1.0f, 0),
+                   lattice_frame)};
+  };
+  for (int index = 0; index < 16; ++index) {
+    const float x = -0.7f + 0.093f * index;
+    const float y = 0.51f - 0.071f * index;
+    const auto start = lattice_field(x, y, 0.0f);
+    const auto seam = lattice_field(x, y, 1.0f - 1e-6f);
+    HS_EXPECT_TRUE(fabsf(start.first.re - seam.first.re) > 0.5f ||
+                   fabsf(start.first.im - seam.first.im) > 0.2f);
+    HS_EXPECT_NEAR(start.second, seam.second, 1e-3f);
+  }
+  HS_EXPECT_TRUE(WB::valid_config(lattice_scroll));
+  WB::RequestedConfig changed_winding = lattice_scroll;
+  changed_winding.params.warp.outer.translation_x = 1.0f;
+  HS_EXPECT_TRUE(WB::valid_config(changed_winding));
+  HS_EXPECT_TRUE(WB::transition_admitted(lattice_scroll, changed_winding));
+  HS_EXPECT_FALSE(
+      WB::stable_parameter_path_admitted(lattice_scroll, changed_winding));
+  WB::RequestedConfig incompatible_scroll = lattice_scroll;
+  incompatible_scroll.params.warp.outer.translation_x = 0.5f;
+  HS_EXPECT_FALSE(WB::valid_config(incompatible_scroll));
+  incompatible_scroll = lattice_scroll;
+  incompatible_scroll.slots.function = WB::Function::GRID;
+  HS_EXPECT_FALSE(WB::valid_config(incompatible_scroll));
+  incompatible_scroll = lattice_scroll;
+  incompatible_scroll.slots.warp_program.inner.kind =
+      WB::WarpStageKind::MIRROR_TILE;
+  HS_EXPECT_FALSE(WB::valid_config(incompatible_scroll));
+  incompatible_scroll = lattice_scroll;
+  incompatible_scroll.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
+  incompatible_scroll.params.color.hue_shift_amount = 0.5f;
+  HS_EXPECT_FALSE(WB::valid_config(incompatible_scroll));
+
+  HS_EXPECT_TRUE(sb.selectPreset(23));
+  HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1 Translation X", 0.6f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(WB::requested_config(sb).params.warp.outer.translation_x, 1.0f);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1 Translation X") ==
+                 nullptr);
 
   WB::WarpStageParams mirror;
   mirror.cell_x = 1.0f;
@@ -3316,8 +3396,13 @@ inline void test_shaderball_kernel_catalog() {
     config.params.source.noise_basis = WB::NoiseBasis::FBM3;
     check(config);
   }
-  config.slots.function = WB::Function::TWIN_WAVE;
   for (uint8_t value = 0; value <= 7; ++value) {
+    config.slots.function =
+        value == static_cast<uint8_t>(WB::WarpStageKind::AFFINE_FRAME)
+            ? WB::Function::PRIMITIVE_LATTICE
+        : value == static_cast<uint8_t>(WB::WarpStageKind::POLAR_CHART)
+            ? WB::Function::GRID
+            : WB::Function::TWIN_WAVE;
     config.slots.warp_program.outer.kind =
         static_cast<WB::WarpStageKind>(value);
     config.slots.projection = WB::Projection::SINUSOIDAL;
@@ -3325,12 +3410,10 @@ inline void test_shaderball_kernel_catalog() {
                                         : value == 5 ? 0.005f
                                                      : 0.35f;
     config.params.warp.outer.turns = 0.4f;
-    config.params.warp.outer.translation_x = 0.2f;
-    config.params.warp.outer.translation_y = -0.1f;
+    config.params.warp.outer.translation_x = value == 1 ? 1.0f : 0.0f;
+    config.params.warp.outer.translation_y = value == 1 ? -1.0f : 0.0f;
     config.params.warp.outer.speed = 0.0f;
     config.slots.warp_program.outer.basis = WB::NoiseBasis::SIMPLEX;
-    if (value == 7)
-      config.slots.function = WB::Function::GRID;
     check(config);
   }
   config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
