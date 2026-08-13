@@ -582,8 +582,12 @@ private:
     // display-window publish. The sequence lives in pov_handoff.h, host-tested
     // and shared with the multi-board simulator.
     const auto w = handoff.apply_wake(
-        {a.commit, a.join_boundary, a.dark, a.flip, a.zero_crossing,
-         pov::sync::SyncBoard::build_gen_of(sync.build_word())});
+        {.commit = a.commit,
+         .join_boundary = a.join_boundary,
+         .dark = a.dark,
+         .flip = a.flip,
+         .zero_crossing = a.zero_crossing,
+         .wire_gen = pov::sync::SyncBoard::build_gen_of(sync.build_word())});
     HS_CHECK(w.commit_ok,
              "epoch commit: effect init exceeded the K-revolution window");
 

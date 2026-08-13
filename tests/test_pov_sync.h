@@ -1941,8 +1941,12 @@ private:
       b.handoff.publish(&b.instance, b.pending_gen);
 
     // The device's flywheel-ISR sequence, verbatim (hardware/pov_handoff.h).
-    const auto w = b.handoff.apply_wake(
-        {a.commit, a.join_boundary, a.dark, a.flip, a.zero_crossing, gen});
+    const auto w = b.handoff.apply_wake({.commit = a.commit,
+                                         .join_boundary = a.join_boundary,
+                                         .dark = a.dark,
+                                         .flip = a.flip,
+                                         .zero_crossing = a.zero_crossing,
+                                         .wire_gen = gen});
     if (!w.commit_ok)
       b.trapped = true; // device: HS_CHECK fires
     if (w.adopted) {

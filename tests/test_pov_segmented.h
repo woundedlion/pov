@@ -457,8 +457,7 @@ inline void test_apply_wake_sequence() {
     h.adopt(&e1, 1);
     h.request_release();
     h.publish(&e2, 2);
-    const auto w = h.apply_wake({/*commit=*/true, false, false, false, false,
-                                 /*wire_gen=*/2});
+    const auto w = h.apply_wake({.commit = true, .wire_gen = 2});
     HS_EXPECT_TRUE(h.release_complete());
     HS_EXPECT_TRUE(w.commit_ok);
     HS_EXPECT_TRUE(w.adopted);
@@ -469,8 +468,7 @@ inline void test_apply_wake_sequence() {
   // Commit deadline with nothing committable: no adopt, caller traps.
   {
     EffectHandoff<FakeEffect> h;
-    const auto w =
-        h.apply_wake({/*commit=*/true, false, false, false, false, 3});
+    const auto w = h.apply_wake({.commit = true, .wire_gen = 3});
     HS_EXPECT_FALSE(w.commit_ok);
     HS_EXPECT_FALSE(w.adopted);
     HS_EXPECT_EQ(w.live, nullptr);
@@ -481,23 +479,20 @@ inline void test_apply_wake_sequence() {
   {
     EffectHandoff<FakeEffect> h;
     h.publish(&e1, 4);
-    const auto blocked = h.apply_wake(
-        {false, /*join_boundary=*/true, /*dark=*/true, false, false, 4});
+    const auto blocked =
+        h.apply_wake({.join_boundary = true, .dark = true, .wire_gen = 4});
     HS_EXPECT_FALSE(blocked.adopted);
     HS_EXPECT_EQ(h.live(), nullptr);
 
-    const auto stale = h.apply_wake(
-        {false, /*join_boundary=*/true, false, false, false, /*wire_gen=*/5});
+    const auto stale = h.apply_wake({.join_boundary = true, .wire_gen = 5});
     HS_EXPECT_FALSE(stale.adopted);
 
-    const auto joined =
-        h.apply_wake({false, /*join_boundary=*/true, false, false, false, 4});
+    const auto joined = h.apply_wake({.join_boundary = true, .wire_gen = 4});
     HS_EXPECT_TRUE(joined.adopted);
     HS_EXPECT_EQ(joined.live, &e1);
 
     // Already consumed: an occupied board does not re-join.
-    const auto again =
-        h.apply_wake({false, /*join_boundary=*/true, false, false, false, 4});
+    const auto again = h.apply_wake({.join_boundary = true, .wire_gen = 4});
     HS_EXPECT_FALSE(again.adopted);
   }
 
@@ -506,17 +501,17 @@ inline void test_apply_wake_sequence() {
   {
     EffectHandoff<FakeEffect> h;
     h.adopt(&e1, 6);
-    const auto half = h.apply_wake({false, false, false, /*flip=*/true,
-                                    /*zero_crossing=*/false, 6});
+    const auto half =
+        h.apply_wake({.flip = true, .zero_crossing = false, .wire_gen = 6});
     HS_EXPECT_TRUE(half.advance);
     HS_EXPECT_EQ(h.window_left(), 0u);
-    const auto zero = h.apply_wake(
-        {false, false, false, /*flip=*/true, /*zero_crossing=*/true, 6});
+    const auto zero =
+        h.apply_wake({.flip = true, .zero_crossing = true, .wire_gen = 6});
     HS_EXPECT_TRUE(zero.advance);
     HS_EXPECT_EQ(h.window_left(), 1u);
 
     // A wake with no flip neither advances nor republishes the window.
-    const auto still = h.apply_wake({false, false, false, false, false, 6});
+    const auto still = h.apply_wake({.wire_gen = 6});
     HS_EXPECT_FALSE(still.advance);
     HS_EXPECT_EQ(h.window_left(), 1u);
   }
@@ -526,22 +521,25 @@ inline void test_apply_wake_sequence() {
   {
     EffectHandoff<FakeEffect> h;
     h.publish(&e1, 7);
-    const auto w = h.apply_wake({/*commit=*/true, false, /*dark=*/false,
-                                 /*flip=*/true, true, 7});
+    const auto w = h.apply_wake({.commit = true,
+                                 .dark = false,
+                                 .flip = true,
+                                 .zero_crossing = true,
+                                 .wire_gen = 7});
     HS_EXPECT_TRUE(w.adopted);
     HS_EXPECT_TRUE(w.advance);
     HS_EXPECT_FALSE(w.dark);
 
     // A live effect still flips through the dark commit window.
     const auto blanked =
-        h.apply_wake({false, false, /*dark=*/true, /*flip=*/true, false, 7});
+        h.apply_wake({.dark = true, .flip = true, .wire_gen = 7});
     HS_EXPECT_TRUE(blanked.advance);
     HS_EXPECT_TRUE(blanked.dark);
 
     // Released: nothing to advance, and the gate goes dark.
     h.request_release();
     const auto empty =
-        h.apply_wake({false, false, false, /*flip=*/true, true, 7});
+        h.apply_wake({.flip = true, .zero_crossing = true, .wire_gen = 7});
     HS_EXPECT_FALSE(empty.advance);
     HS_EXPECT_TRUE(empty.dark);
     HS_EXPECT_EQ(empty.live, nullptr);
