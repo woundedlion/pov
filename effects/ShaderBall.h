@@ -3236,13 +3236,13 @@ private:
       const float phase = TWO_PI_F * wrap_t(stage_phase);
       const float phase_cos = cosf(phase);
       const float phase_sin = sinf(phase);
-      rotation += phase;
+      rotation *= phase_sin;
       prepared.transform.affine = {
           phase_cos * params.translation_x - phase_sin * params.translation_y,
           phase_sin * params.translation_x + phase_cos * params.translation_y,
-          params.scale_x,
-          params.scale_y,
-          params.shear,
+          powf(params.scale_x, phase_cos),
+          powf(params.scale_y, phase_sin),
+          params.shear * phase_cos,
       };
     } else if (spec.kind == WarpStageKind::MIRROR_TILE) {
       prepared.transform.mirror = {

@@ -3206,15 +3206,20 @@ inline void test_shaderball_planar_warp_animation() {
   for (size_t index = 0; index < std::size(affine_fields); ++index) {
     WB::WarpStageParams one_value;
     one_value.*affine_fields[index] = index == 3 || index == 4 ? 1.5f : 0.3f;
-    const auto authored =
-        sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.0f);
-    const auto animated =
+    const auto first = sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.0f);
+    const auto second =
         sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.25f);
-    HS_EXPECT_TRUE(fabsf(input.re - authored.coords.re) > 1e-4f ||
-                   fabsf(input.im - authored.coords.im) > 1e-4f);
-    HS_EXPECT_TRUE(fabsf(authored.coords.re - animated.coords.re) > 1e-4f ||
-                   fabsf(authored.coords.im - animated.coords.im) > 1e-4f);
+    HS_EXPECT_TRUE(fabsf(first.coords.re - second.coords.re) > 1e-4f ||
+                   fabsf(first.coords.im - second.coords.im) > 1e-4f);
   }
+  const auto affine_identity_start =
+      sample(WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageParams{}, 0.0f);
+  const auto affine_identity_quarter =
+      sample(WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageParams{}, 0.25f);
+  HS_EXPECT_NEAR(affine_identity_start.coords.re, input.re, 1e-6f);
+  HS_EXPECT_NEAR(affine_identity_start.coords.im, input.im, 1e-6f);
+  HS_EXPECT_NEAR(affine_identity_quarter.coords.re, input.re, 1e-6f);
+  HS_EXPECT_NEAR(affine_identity_quarter.coords.im, input.im, 1e-6f);
 
   WB::WarpStageParams mirror;
   mirror.cell_x = 1.0f;
