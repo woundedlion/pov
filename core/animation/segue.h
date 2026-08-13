@@ -162,6 +162,15 @@ inline bool fades_to_black(float phase) { return phase > 0.005f; }
  * its transition uses.
  */
 struct Base {
+  /**
+   * @brief Whether consecutive sprites coexist, so the previous transition is
+   * still drawing when the next one is scheduled.
+   * @details A policy scheduling through schedule_overlapped() must set this
+   * true. MeshCarousel holds one policy instance, so schedule()/retarget()
+   * rewrite the per-transition state the outgoing sprite still reads; the
+   * per-face policies are sequential and MeshCarousel asserts that pairing.
+   */
+  static constexpr bool OVERLAPS = false;
   /** @brief Default scheduling: one sequential sprite (see
    * schedule_sequential). @p paused is the optional event-level pause gate
    * every policy's schedule() takes and forwards. */
@@ -328,6 +337,7 @@ inline constexpr bool SHADOWS_FRAGMENT_HOOKS =
  * through black) and a single mesh renders per frame.
  */
 struct Crossfade : Base {
+  static constexpr bool OVERLAPS = true;
   int overlap = -1; /**< Frames consecutive sprites coexist; clamped to the
                          fade window, negative selects the full window. */
   /**
@@ -684,6 +694,7 @@ struct GoldConvergence : Base {
  * mask, so a solid-mesh pair cannot dissolve.
  */
 struct Dissolve : Base {
+  static constexpr bool OVERLAPS = true;
   uint32_t seed =
       0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */
   /** @brief Re-rolls the ownership pattern for the next transition; the
