@@ -174,7 +174,10 @@ template <int W, int H> struct TrigLUT {
    * @brief cos(theta) for column x, recovered from the extended sin table.
    * @param x Column in [0, W). Returns sin_theta[x + W/4] == cos(x*2*pi/W).
    */
-  static float cos_theta(int x) { return sin_theta[x + W / 4]; }
+  static float cos_theta(int x) {
+    assert(x >= 0 && x < W);
+    return sin_theta[x + W / 4];
+  }
   /**
    * @brief Fills the theta and phi tables and marks them initialized.
    * @details Ensures PhiLUT<H> is populated first to source the phi angles. The
