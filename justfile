@@ -11,6 +11,13 @@
 # shell (a developer defaulting just to sh/pwsh would otherwise hit a syntax error).
 set windows-shell := ["cmd", "/c"]
 
+# Python interpreter for every recipe that runs one. Stock Linux/macOS ship
+# `python3` only; on Windows a `python3` on PATH is usually the Store execution
+# alias, which resolves and then refuses to run. HS_PYTHON overrides, matching
+# the probe order in .githooks/pre-commit. Exported so the `_doxygen-theme`
+# parameter default can reach it from inside a backtick.
+export py := env_var_or_default("HS_PYTHON", if os_family() == "windows" { "python" } else { "python3" })
+
 # Show the available recipes when run with no arguments.
 default:
     @just --list
@@ -48,7 +55,7 @@ test:
 # releases, so the binary on PATH is held to the pin the ci.yml lint job
 # installs; the npm linters are locked by package-lock.json.
 lint:
-    python tools/build_pins.py --check-tool ruff
+    {{py}} tools/build_pins.py --check-tool ruff
     ruff check --no-cache .
     npm run lint
 
@@ -64,10 +71,10 @@ daydream_checkout := if path_exists("../daydream") == "true" {
 
 # Validate tracked Markdown using the same commands as the ci.yml docs-markdown job.
 docs-check:
-    python -m unittest discover -s tools/docs_check_tests
-    python -m unittest discover -s tools/docs_images_tests
-    python tools/docs_check.py {{daydream_checkout}}
-    python tools/build_pins.py --check
+    {{py}} -m unittest discover -s tools/docs_check_tests
+    {{py}} -m unittest discover -s tools/docs_images_tests
+    {{py}} tools/docs_check.py {{daydream_checkout}}
+    {{py}} tools/build_pins.py --check
 
 # Build Doxygen API reference locally into build/docs/html/.
 # Clones doxygen-awesome theme into .doxygen-awesome/ on first run and
@@ -76,20 +83,20 @@ docs-check:
 docs: docs-check _doxygen-theme _doxyfile-local
     cmake -E make_directory build/docs
     doxygen Doxyfile.local
-    python tools/docs_images.py
+    {{py}} tools/docs_images.py
 
 # Fetch the exact doxygen-awesome revision used by CI. The clone guard is split
 # per-OS; the fetch and checkout also refresh existing clones. The pin is a
 # parameter default, not a justfile-level assignment: only that form defers the
 # backtick to this recipe, leaving every python-free recipe runnable without it.
 [unix]
-_doxygen-theme sha=`python tools/build_pins.py doxygen-awesome`:
+_doxygen-theme sha=`"$py" tools/build_pins.py doxygen-awesome`:
     test -d .doxygen-awesome/.git || git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
     git -C .doxygen-awesome fetch --depth 1 origin {{sha}}
     git -C .doxygen-awesome checkout --detach {{sha}}
 
 [windows]
-_doxygen-theme sha=`python tools/build_pins.py doxygen-awesome`:
+_doxygen-theme sha=`%py% tools/build_pins.py doxygen-awesome`:
     if not exist .doxygen-awesome\.git git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
     git -C .doxygen-awesome fetch --depth 1 origin {{sha}}
     git -C .doxygen-awesome checkout --detach {{sha}}
@@ -120,19 +127,19 @@ install: smoke
 # The wrapper streams the pio output, then appends a combined per-env
 # FLASH/RAM1/RAM2 table from the teensy_size lines.
 teensy-size:
-    python tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8 profile profile_o3
+    {{py}} tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8 profile profile_o3
 
 # Host self-tests behind the Teensy toolchain: size/layout gate parser + layout
 # invariants + warning ratchet (spec §9.1), the PlatformIO build hook, the
 # profile log parser, the relax-bake generator, and the routed PCB metadata —
 # pure Python, no ARM toolchain. Mirrors the ci.yml teensy-gate-tests job.
 teensy-gate-test:
-    python -m unittest discover -s tools/teensy_gate_tests -v
-    python -m unittest discover -s tools/teensy_hook_tests -v
-    python -m unittest discover -s tools/profile_tests -v
-    python -m unittest discover -s tools/relax_bake_tests -v
-    python -m unittest discover -s hardware/phantasm/gen/tests -v
-    python hardware/phantasm/gen/board_metadata.py --check
+    {{py}} -m unittest discover -s tools/teensy_gate_tests -v
+    {{py}} -m unittest discover -s tools/teensy_hook_tests -v
+    {{py}} -m unittest discover -s tools/profile_tests -v
+    {{py}} -m unittest discover -s tools/relax_bake_tests -v
+    {{py}} -m unittest discover -s hardware/phantasm/gen/tests -v
+    {{py}} hardware/phantasm/gen/board_metadata.py --check
 
 # Profile one effect on an attached Teensy: build the single-effect profiling
 # image (Phantasm shipping flags + HS_PROFILE cycle counters, board = segment 0
@@ -163,4 +170,4 @@ profile-mindsplatter-replay-ab env="profile" seconds="150":
 # (or set KICAD_CLI to its full path).
 # Outputs: Gerbers + Excellon drill, JLCPCB upload zip, assembly BOM + CPL, DRC.
 pcb:
-    python hardware/phantasm/gen/fab.py
+    {{py}} hardware/phantasm/gen/fab.py
