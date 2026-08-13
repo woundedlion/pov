@@ -164,14 +164,25 @@ enum class EffectSetResult {
 // module-global, so a second instance would corrupt the first's frames.
 static bool engine_alive = false;
 
+/**
+ * @brief Outcome of restoreFullConfigSnapshot().
+ * @details Exposed to JS as the Module.FullConfigRestoreResult embind enum;
+ *          compare against its values, never by truthiness. Every value but
+ *          APPLIED leaves the effect exactly as it was.
+ */
 enum class FullConfigRestoreResult : uint8_t {
-  APPLIED,
-  NOT_SHADERBALL,
-  UNSUPPORTED_VERSION,
-  INVALID_LENGTH,
-  INVALID_VALUE,
-  INVALID_ACCEPTED,
-  INVALID_PENDING
+  APPLIED,             /**< Snapshot installed. */
+  NOT_SHADERBALL,      /**< The loaded effect has no full configuration. */
+  UNSUPPORTED_VERSION, /**< schemaVersion is neither current nor the legacy 1. */
+  INVALID_LENGTH,      /**< Snapshot missing, or an array whose length is not
+                            the field count. */
+  INVALID_VALUE,       /**< A field or runtime value outside what its slot
+                            admits. */
+  INVALID_ACCEPTED,    /**< Fields each in range but a combination the effect
+                            will not render. */
+  INVALID_PENDING,     /**< Pending list is not a set of in-range field indices,
+                            or does not match where accepted and requested
+                            differ. */
 };
 
 /**
@@ -845,7 +856,22 @@ public:
     return sizes;
   }
 
-  /** @brief Returns the current ShaderBall's versioned full-state snapshot. */
+  /**
+   * @brief Returns the current ShaderBall's versioned full-state snapshot.
+   * @return JS object {schemaVersion, accepted, requested, pendingFieldIds,
+   *         hasRuntime, runtime}, or null when the loaded effect is not
+   *         ShaderBall.
+   * @details `accepted` and `requested` are CONFIG_FIELD_COUNT-long arrays of
+   *          uint32-encoded field values in ConfigFieldId order;
+   *          getFullConfigFieldDefinitions() names the indices.
+   *          `pendingFieldIds` lists the fields carrying an unresolved edit,
+   *          which at the current schema are exactly the fields where the two
+   *          arrays differ. `runtime` is the animation clock state and is
+   *          meaningful only when `hasRuntime`. The whole configuration crosses
+   *          as one object because ShaderBall vets slots and params together:
+   *          replaying the parameter stream entry by entry walks through
+   *          combinations it refuses.
+   */
   val getFullConfigSnapshot() {
     val output = val::null();
     with_shaderball([&]<typename SB>(SB &shaderball) {
@@ -867,7 +893,22 @@ public:
     return output;
   }
 
-  /** @brief Atomically restores a current ShaderBall full-state snapshot. */
+  /**
+   * @brief Atomically restores a current ShaderBall full-state snapshot.
+   * @param input Object in getFullConfigSnapshot()'s shape.
+   * @return APPLIED, or the reason the snapshot was refused.
+   * @details Rejections leave the effect exactly as it was, so a failed restore
+   *          needs no rollback. NOT_SHADERBALL covers the loaded effect;
+   *          UNSUPPORTED_VERSION a schemaVersion that is neither the current one
+   *          nor the legacy 1; INVALID_LENGTH a missing snapshot or an array
+   *          whose length is not the field count; INVALID_VALUE a field or
+   *          runtime value outside what its slot admits; INVALID_ACCEPTED fields
+   *          each in range but a combination the effect will not render;
+   *          INVALID_PENDING a pending list that is not a set of in-range field
+   *          indices, or one that does not match where accepted and requested
+   *          differ. A legacy snapshot is migrated on the way in and leaves a
+   *          getConfigImportNotice() describing what moved.
+   */
   FullConfigRestoreResult restoreFullConfigSnapshot(const val &input) {
     FullConfigRestoreResult result = FullConfigRestoreResult::NOT_SHADERBALL;
     with_shaderball([&]<typename SB>(SB &shaderball) {
@@ -938,7 +979,15 @@ public:
     return result;
   }
 
-  /** @brief Returns stable ShaderBall field IDs and diagnostic names. */
+  /**
+   * @brief Returns stable ShaderBall field IDs and diagnostic names.
+   * @return JS array of {id, name} in ConfigFieldId order, or null when the
+   *         loaded effect is not ShaderBall.
+   * @details `id` is the index into a snapshot's accepted/requested arrays and
+   *          the value pendingFieldIds carries; `name` is the field's dotted
+   *          config path. A caller labels a field through this rather than a
+   *          hardcoded index, which moves when the schema gains a field.
+   */
   val getFullConfigFieldDefinitions() {
     val output = val::null();
     with_shaderball([&]<typename SB>(SB &) {
@@ -954,7 +1003,15 @@ public:
     return output;
   }
 
-  /** @brief Returns the latest successful legacy-import notice. */
+  /**
+   * @brief Returns the latest successful legacy-import notice.
+   * @return User-facing description of what a legacy-schema restore migrated;
+   *         empty after a current-schema restore, and when the loaded effect is
+   *         not ShaderBall.
+   * @details A message, not a status code: read
+   *          restoreFullConfigSnapshot()'s return value for the outcome and this
+   *          only to tell the user what moved.
+   */
   std::string getConfigImportNotice() {
     std::string notice;
     with_shaderball([&]<typename SB>(SB &shaderball) {
@@ -963,7 +1020,12 @@ public:
     return notice;
   }
 
-  /** @brief Clears the current ShaderBall legacy-import notice. */
+  /**
+   * @brief Clears the current ShaderBall legacy-import notice.
+   * @details Called once the notice has been shown, so the next restore's notice
+   *          is not read as stale. A no-op when the loaded effect is not
+   *          ShaderBall.
+   */
   void clearConfigImportNotice() {
     with_shaderball([&]<typename SB>(SB &shaderball) {
       shaderball.clear_config_import_notice();
