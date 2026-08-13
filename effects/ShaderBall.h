@@ -1534,7 +1534,7 @@ private:
                             NUM_NOISE_BASES);
     register_clamped_animated_param(
         "Surface Noise Scale", &params.scale, LENS_NOISE_SCALE_MIN,
-        domain_scaled_max(LENS_NOISE_SCALE_MAX, 0.75f, domain_scale));
+        LENS_NOISE_SCALE_MAX);
     const float strength_min =
         slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -1670,8 +1670,10 @@ private:
                                               float domain_scale) {
     if (mode == HueShiftMode::NONE)
       return;
-    register_animated_param("Hue Shift Amount", &params.hue_shift_amount,
-                            HUE_SHIFT_AMOUNT_MIN, HUE_SHIFT_AMOUNT_MAX);
+    register_clamped_animated_param("Hue Shift Amount",
+                                    &params.hue_shift_amount,
+                                    HUE_SHIFT_AMOUNT_MIN,
+                                    hue_shift_amount_max(mode));
     if (mode != HueShiftMode::NOISE)
       return;
     register_clamped_animated_param(
@@ -2906,7 +2908,8 @@ private:
            enum_at_most(slots.bonne_hemisphere, BonneHemisphere::SOUTH) &&
            enum_at_most(slots.gnomonic_hemisphere,
                         GnomonicHemispherePolicy::BACK_HEMISPHERE) &&
-           preset_in_ranges(config.params);
+           preset_in_ranges(config.params) &&
+           hue_shift_amount_in_range(config);
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -5106,6 +5109,19 @@ private:
     return value == static_cast<float>(static_cast<int>(value));
   }
 
+  HS_COLD_MEMBER static constexpr float
+  hue_shift_amount_max(HueShiftMode mode) {
+    return mode == HueShiftMode::NOISE ? HUE_NOISE_AMOUNT_MAX
+                                       : HUE_SHIFT_AMOUNT_MAX;
+  }
+
+  HS_COLD_MEMBER static constexpr bool
+  hue_shift_amount_in_range(const Config &config) {
+    return config.params.color.hue_shift_amount >= HUE_SHIFT_AMOUNT_MIN &&
+           config.params.color.hue_shift_amount <=
+               hue_shift_amount_max(config.slots.hue_shift);
+  }
+
   HS_COLD_MEMBER static constexpr bool
   affine_translation_compatible(const Config &config) {
     const bool outer = affine_has_translation(config.slots.warp_program.outer,
@@ -5202,7 +5218,8 @@ private:
       return false;
     if (!affine_translation_compatible(candidate) ||
         !strict_seam_compatible(candidate) ||
-        !preset_in_ranges(candidate.params))
+        !preset_in_ranges(candidate.params) ||
+        !hue_shift_amount_in_range(candidate))
       return false;
     if (!valid_stage_tuple(slots.warp_program.outer,
                            candidate.params.warp.outer) ||
@@ -6255,7 +6272,8 @@ private:
   static constexpr float WANDER_MIN = 0.0f, WANDER_MAX = 1.0f;
   static constexpr float LENS_MIX_MIN = 0.0f, LENS_MIX_MAX = 1.0f;
   static constexpr float HUE_SHIFT_AMOUNT_MIN = 0.0f;
-  static constexpr float HUE_SHIFT_AMOUNT_MAX = 1.0f;
+  static constexpr float HUE_SHIFT_AMOUNT_MAX = 4.0f;
+  static constexpr float HUE_NOISE_AMOUNT_MAX = 1.0f;
   static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
   static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
   static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;

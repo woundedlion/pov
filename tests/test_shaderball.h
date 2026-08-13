@@ -2358,7 +2358,7 @@ inline void test_shaderball_lens_domain_ranges() {
   HS_EXPECT_EQ(parameter("Source Angle Speed")->max, 0.03f);
   HS_EXPECT_EQ(parameter("Drift")->max, 1.25f);
   HS_EXPECT_EQ(parameter("Projection Spin Speed")->max, 0.04f);
-  HS_EXPECT_EQ(parameter("Surface Noise Scale")->max, 0.75f);
+  HS_EXPECT_EQ(parameter("Surface Noise Scale")->max, 8.0f);
   HS_EXPECT_EQ(parameter("Surface Noise Speed")->max, 0.002f);
   HS_EXPECT_EQ(parameter("Hue Noise Scale")->max, 2.0f);
   HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
@@ -3894,6 +3894,9 @@ inline void test_shaderball_hue_shift_modes() {
 
   WB::RequestedConfig displaced = base;
   displaced.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
+  WB::RequestedConfig max_displaced = displaced;
+  max_displaced.params.color.hue_shift_amount = 4.0f;
+  HS_EXPECT_TRUE(WB::valid_config(max_displaced));
   const WB::FrameState displacement_frame = WB::config_frame(sb, displaced);
   HS_EXPECT_TRUE(displacement_frame.resources.color_noise == nullptr);
   const Color4 undisplaced = WB::colorize(sample, displacement_frame);
@@ -3905,6 +3908,9 @@ inline void test_shaderball_hue_shift_modes() {
   HS_EXPECT_TRUE(plain.color.r != displacement_shifted.color.r ||
                  plain.color.g != displacement_shifted.color.g ||
                  plain.color.b != displacement_shifted.color.b);
+  noisy.params.color.hue_shift_amount = 4.0f;
+  HS_EXPECT_FALSE(WB::valid_config(noisy));
+  noisy.params.color.hue_shift_amount = 1.0f;
 
   const WB::TopologyKey topology = WB::topology_key(base);
   for (WB::PaletteMode palette :
@@ -3920,16 +3926,23 @@ inline void test_shaderball_hue_shift_modes() {
   for (const char *name : {"Hue Shift Mode", "Hue Shift Amount",
                            "Hue Noise Scale", "Hue Noise Speed"})
     HS_EXPECT_TRUE(sb.getParameters().find(name) != nullptr);
+  HS_EXPECT_EQ(sb.getParameters().find("Hue Shift Amount")->max, 1.0f);
   HS_EXPECT_EQ(sb.updateParameter(
                    "Hue Shift Mode",
                    static_cast<float>(WB::HueShiftMode::WARP_DISPLACEMENT)),
                ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(sb.getParameters().find("Hue Shift Amount") != nullptr);
+  HS_EXPECT_EQ(sb.getParameters().find("Hue Shift Amount")->max, 4.0f);
   HS_EXPECT_TRUE(sb.getParameters().find("Hue Noise Scale") == nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Hue Noise Speed") == nullptr);
+  HS_EXPECT_EQ(sb.updateParameter("Hue Shift Amount", 4.0f),
+               ParamSetResult::APPLIED);
   HS_EXPECT_EQ(sb.updateParameter("Hue Shift Mode",
                                   static_cast<float>(WB::HueShiftMode::NOISE)),
                ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.getParameters().find("Hue Shift Amount")->max, 1.0f);
+  HS_EXPECT_EQ(sb.getParameters().find("Hue Shift Amount")->get_requested(),
+               1.0f);
 
   sb.setAnimationsPaused(true);
   HS_EXPECT_EQ(sb.updateParameter("Hue Noise Speed", 0.0f),
