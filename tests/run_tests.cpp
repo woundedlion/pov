@@ -126,12 +126,12 @@ constexpr int EFFECT_FACTORY_QUICK_MIN_ASSERTIONS = 330;
 constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
-  X("3dmath", 47, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
+  X("3dmath", 48, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
   X("memory", 41, hs_test::memory_tests::run_memory_tests, 190)                \
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
   X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
-  X("sdf", 94, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
+  X("sdf", 95, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
   X("conway", 33, hs_test::conway_tests::run_conway_tests, 4121)               \
   X("conway_morph", 37, hs_test::conway_morph_tests::run_conway_morph_tests,   \
     302862)                                                                    \
@@ -164,7 +164,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("scan", 32, hs_test::scan_tests::run_scan_tests, 189868)                   \
   X("mesh_raster", 18, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
     2793)                                                                      \
-  X("transformers", 44, hs_test::transformers_tests::run_transformers_tests,   \
+  X("transformers", 45, hs_test::transformers_tests::run_transformers_tests,   \
     1296)                                                                      \
   X("noise", 3, hs_test::noise_tests::run_noise_tests, 201)                    \
   X("noise_field", 9, hs_test::noise_field_tests::run_noise_field_tests, 400)  \
@@ -185,7 +185,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
-  X("shaderball", 40, hs_test::shaderball_tests::run_shaderball_tests, 70000)  \
+  X("shaderball", 43, hs_test::shaderball_tests::run_shaderball_tests, 70000)  \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
   X("shapeshifter_tiles", 2,                                                   \
@@ -196,7 +196,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
     hs_test::dma_controller_tests::run_dma_controller_tests, 67)               \
   X("pov_segmented", 24,                                                       \
     hs_test::pov_segmented_tests::run_pov_segmented_tests, 263165)             \
-  X("pov_single", 3, hs_test::pov_single_tests::run_pov_single_tests, 8640)    \
+  X("pov_single", 6, hs_test::pov_single_tests::run_pov_single_tests, 8640)    \
   X("pov_sync", 48, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
   X("param_marshal", 3, hs_test::param_marshal_tests::run_param_marshal_tests, \
     2260)                                                                      \
