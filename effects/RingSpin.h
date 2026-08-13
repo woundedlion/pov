@@ -29,8 +29,10 @@ struct RingSpinWhiteBox;
  * @details Each ring's orientation follows a random-walk over the sphere and
  * leaves a motion-blur trail that fades in color and alpha along its length.
  * @note Sibling trail effects `Comets` and `ChaoticStrings` share the
- *       record + deep_tween skeleton; their bodies diverge, so propagate trail
- *       fixes by hand. Differences here: no `Screen::AntiAlias`, and
+ *       record + deep_tween skeleton; draw primitive, transform chain and
+ *       colour/fade are hand-propagated. Ring carries a plane normal, palette
+ *       and noise alongside the orientation + trail, so it does not use their
+ *       `Animation::TrailBody`. Differences here: no `Screen::AntiAlias`, and
  *       `Orientation<>` (CAP 4) not `Orientation<16>` — a great-circle ring's
  *       successive trail frames overlap almost completely, so 4 sub-frames read
  *       identically to 16.

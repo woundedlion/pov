@@ -28,10 +28,11 @@ struct ChaoticStringsWhiteBox;
  * @tparam H Canvas height in pixels.
  * @details A single node random-walks and follows a Lissajous path while a
  *          noise transformer warps its trail each frame.
- * @note Sibling trail effects `Comets` and `RingSpin` share only the
- *       record + deep_tween skeleton (in the engine); their bodies diverge in
- *       draw primitive, transform chain, and color/fade, so each renders
- *       independently and trail-rendering fixes must be propagated by hand.
+ * @note Sibling trail effects `Comets` and `RingSpin` share the
+ *       record + deep_tween skeleton (in the engine), and Comets shares the
+ *       `Animation::TrailBody` aggregate at the same capacity and substep
+ *       count. Draw primitive, transform chain and colour/fade are
+ *       hand-propagated.
  */
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
@@ -52,22 +53,8 @@ public:
     }
   };
 
-  /**
-   * @brief The single animated body: orientation, rolling trail history, and
-   *        base direction vector.
-   */
-  struct Node {
-    Orientation<ORIENTATION_SUBSTEPS>
-        orientation; /**< Current node orientation. */
-    Animation::OrientationTrail<Orientation<ORIENTATION_SUBSTEPS>, TRAIL_LENGTH>
-        trail; /**< Rolling history of orientations forming the drawn trail. */
-    Vector v;  /**< Base direction vector, seeded to +Y. */
-
-    /**
-     * @brief Constructs a Node with its base direction set to the Y axis.
-     */
-    Node() : v(Y_AXIS) {}
-  };
+  /** @brief The single animated body: orientation, trail, base direction. */
+  using Node = Animation::TrailBody<TRAIL_LENGTH, ORIENTATION_SUBSTEPS>;
 
   /**
    * @brief Constructs the effect and its members.
