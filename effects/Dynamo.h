@@ -62,8 +62,9 @@ public:
   HS_COLD_MEMBER Dynamo()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         palettes{make_palette()}, palette_normal(Z_AXIS),
-        filters(Filter::World::Trails<TRAIL_CAPACITY>(
-                    (uint32_t)params.trail_length),
+        // draw_frame() pushes the live "Trail Len" slider before the first
+        // flush(), so this seed lifetime never reaches the output.
+        filters(Filter::World::Trails<TRAIL_CAPACITY>(1),
                 Filter::World::Replicate<W>(3),
                 Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
@@ -506,7 +507,6 @@ private:
     float trail_ceiling = static_cast<float>(TRAIL_LEN_MAX);
   } params;
 
-  // Precedes filters, whose constructor reads params.trail_length.
   /**
    * @brief Filter pipeline applied to plotted points before color resolution.
    */
