@@ -4117,17 +4117,17 @@ struct Line {
       : a(start), b(end), thickness(th) {
     len = angle_between(a, b);
     bool antipodal = false;
-    if (len < 1e-6f) {
-      n = Vector(0, 0, 0);
-    } else {
-      Vector cr = cross(a, b);
-      // EPS_CROSS_SQ, not EPS_NORMALIZE_SQ: the bound is on the direction the
-      // cross carries, not on whether it normalizes at all. |cross| = sin of
-      // the endpoint separation, so 1e-8 names the same band an angular 1e-4
-      // does; above it the components' ~1e-7 of rounding leaves the arc plane
-      // and the bounding-cap axis under ~2e-3 rad of direction error, a tenth
-      // of a pixel at W = 288.
-      if (cr.x * cr.x + cr.y * cr.y + cr.z * cr.z < math::EPS_CROSS_SQ) {
+    Vector cr = cross(a, b);
+    // EPS_CROSS_SQ, not EPS_NORMALIZE_SQ: the bound is on the direction the
+    // cross carries, not on whether it normalizes at all. |cross| = sin of
+    // the endpoint separation, so 1e-8 names the same band an angular 1e-4
+    // does; above it the components' ~1e-7 of rounding leaves the arc plane
+    // and the bounding-cap axis under ~2e-3 rad of direction error, a tenth
+    // of a pixel at W = 288.
+    if (cr.x * cr.x + cr.y * cr.y + cr.z * cr.z < math::EPS_CROSS_SQ) {
+      // sin collapses at both ends of the range, so the dot's sign separates
+      // them; angle_between cannot, its acos having no resolution there.
+      if (dot(a, b) < 0.0f) {
         // Antipodal endpoints (len ~ π) leave the arc plane undefined: any great
         // circle through them serves, and distance() then measures the whole
         // circle rather than an arc (every projected point sits at
@@ -4136,8 +4136,13 @@ struct Line {
         Vector ref = (fabsf(a.y) < 0.9f) ? Vector(0, 1, 0) : Vector(1, 0, 0);
         n = cross(a, ref).normalized();
       } else {
-        n = cr.normalized();
+        // Coincident endpoints: the arc is the point `a`. len is zeroed so
+        // distance() takes the same branch.
+        len = 0.0f;
+        n = Vector(0, 0, 0);
       }
+    } else {
+      n = cr.normalized();
     }
 
     // A great-circle arc bulges toward a pole between its endpoints, so its
