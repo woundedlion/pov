@@ -755,7 +755,7 @@ public:
   };
 
   struct OuterCameraParams {
-    float wander;
+    float wander = 0.0f;
 
     HS_COLD_MEMBER bool operator==(const OuterCameraParams &) const = default;
 
@@ -775,7 +775,7 @@ public:
     OuterCameraParams outer_camera;
     SurfaceNoiseParams surface_noise;
 
-    HS_COLD_MEMBER Params() {}
+    HS_COLD_MEMBER Params() = default;
 
     constexpr Params(SourceParams source, WarpParams warp,
                      ProjectionParams projection,
