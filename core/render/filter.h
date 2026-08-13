@@ -1648,6 +1648,8 @@ public:
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
+   * @details At MAX_PIXELS the slot at index 0 is evicted; decay()'s unordered
+   * compaction leaves that point's age arbitrary.
    */
   template <typename PassFnT>
   void plot(float x, float y, const Pixel &color, float age, float alpha,
