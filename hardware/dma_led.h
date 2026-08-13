@@ -27,7 +27,7 @@
 #include <SPI.h>
 #include <DMAChannel.h>
 #include <atomic>
-#include "core/engine/platform.h" // HS_CHECK / hs::log used below; explicit, not via color.h
+#include "core/engine/platform.h" // HS_CHECK used below; explicit, not via color.h
 #include "core/color/color.h"
 
 // HD107SFrame (protocol buffer + color correction) lives in its own header so
@@ -115,11 +115,9 @@ public:
     // Trap rather than spin on an in-flight transfer: this runs in the column
     // ISR, where spinning would deadlock — the DMA-completion ISR that marks
     // transfer_complete true cannot preempt an equal/lower-priority ISR.
-    if (!transfer_complete.load(std::memory_order_relaxed)) {
-      hs::log("FATAL: transmitAsync entered with a transfer still in flight — "
-              "submitFrame() must guard with isComplete()");
-      __builtin_trap();
-    }
+    HS_CHECK(transfer_complete.load(std::memory_order_relaxed),
+             "transmitAsync entered with a transfer still in flight — "
+             "submitFrame() must guard with isComplete()");
     transfer_complete.store(false, std::memory_order_relaxed);
     transfer_start_us = micros();
     dma_channel.sourceBuffer(data, len);
@@ -144,12 +142,10 @@ public:
   void checkStaleTransfer() {
     if (transfer_complete.load(std::memory_order_relaxed))
       return;
-    if (dma::transfer_stale(transfer_start_us, micros(),
-                            TRANSFER_WATCHDOG_US)) {
-      hs::log("FATAL: DMA channel wedged — in-flight transfer outlived the "
-              "watchdog on the overrun-drop path; completion ISR never fired");
-      __builtin_trap();
-    }
+    HS_CHECK(
+        !dma::transfer_stale(transfer_start_us, micros(), TRANSFER_WATCHDOG_US),
+        "DMA channel wedged — in-flight transfer outlived the watchdog on "
+        "the overrun-drop path; completion ISR never fired");
   }
 
 private:
