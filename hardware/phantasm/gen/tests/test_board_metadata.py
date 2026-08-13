@@ -9,6 +9,7 @@ REPO_ROOT = GEN_DIR.parents[2]
 sys.path.insert(0, str(GEN_DIR))
 
 import board_metadata   # noqa: E402
+import fab   # noqa: E402
 
 
 class BoardMetadataTests(unittest.TestCase):
@@ -24,10 +25,12 @@ class BoardMetadataTests(unittest.TestCase):
         self.assertEqual(metadata.footprint_sides, (("F.Cu", 32), ("B.Cu", 0)))
         self.assertEqual(metadata.track_segments, 339)
         self.assertEqual(metadata.vias, 100)
-        self.assertEqual(metadata.zones, 6)
+        self.assertEqual(metadata.copper_pours, 2)
+        self.assertEqual(metadata.pour_layers, (("In1.Cu", 1), ("In2.Cu", 1)))
+        self.assertEqual(metadata.rule_areas, 4)
         self.assertEqual(
-            metadata.zone_layers,
-            (("F.Cu", 4), ("In1.Cu", 5), ("In2.Cu", 5), ("B.Cu", 4)),
+            metadata.rule_area_layers,
+            (("F.Cu", 4), ("In1.Cu", 4), ("In2.Cu", 4), ("B.Cu", 4)),
         )
         self.assertEqual(metadata.copper_layers, ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu"))
         self.assertEqual(
@@ -40,6 +43,34 @@ class BoardMetadataTests(unittest.TestCase):
             ),
         )
         self.assertEqual(metadata.copper_finish, "Lead-Free")
+
+    def test_pour_count_matches_the_fab_gate(self):
+        """The facts block and gen/fab.py must count copper the same way."""
+        board = REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
+        metadata = board_metadata.load_board(board)
+
+        self.assertEqual(metadata.copper_pours,
+                         fab.validate_zone_geometry(board))
+
+    def test_counts_a_keepout_rule_area_separately_from_a_pour(self):
+        metadata = board_metadata.parse_board("""
+            (kicad_pcb
+              (gr_rect (start 0 0) (end 10 10) (layer "Edge.Cuts"))
+              (general (thickness 1.6))
+              (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+              (setup (stackup
+                (layer "F.Cu" (type "copper") (thickness 0.035))
+                (layer "B.Cu" (type "copper") (thickness 0.035))
+                (copper_finish "ENIG")))
+              (zone (net 1) (layer "F.Cu") (min_thickness 0.25))
+              (zone (net 0) (layers "F.Cu" "B.Cu")
+                (keepout (tracks not_allowed) (copperpour not_allowed))))
+        """)
+
+        self.assertEqual(metadata.copper_pours, 1)
+        self.assertEqual(metadata.pour_layers, (("F.Cu", 1),))
+        self.assertEqual(metadata.rule_areas, 1)
+        self.assertEqual(metadata.rule_area_layers, (("F.Cu", 1), ("B.Cu", 1)))
 
     def test_rejects_malformed_board(self):
         with self.assertRaisesRegex(board_metadata.MetadataError, "invalid KiCad S-expression"):

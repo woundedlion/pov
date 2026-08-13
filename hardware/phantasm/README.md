@@ -86,10 +86,11 @@ committed board directly need no KiCad and run in CI
   joints (R-ASM-6).
 - **Count-floor ratchets:** `gen/fab.py` rejects a board carrying fewer than
   100 vias or fewer than 2 copper pours — floors pinned to what the committed
-  routed board holds (the via count in the facts block below; the pours are
-  the In1/In2 reference planes). Neither floor updates itself: after
-  promoting a re-route, re-measure with `gen/board_metadata.py` and
-  deliberately re-baseline the constants in `gen/fab.py`.
+  routed board holds (both counts are in the facts block below; the pours are
+  the In1/In2 reference planes, and the mounting-hole keepout rule areas are
+  counted separately because they pour no copper). Neither floor updates
+  itself: after promoting a re-route, re-measure with `gen/board_metadata.py`
+  and deliberately re-baseline the constants in `gen/fab.py`.
 - **Assembly-metadata gate:** `gen/fab.py` rejects the assembly outputs
   unless the assembled references exactly match its LCSC assignment table,
   every rotation correction names an assembled part, and every centroid row
@@ -205,7 +206,8 @@ The committed routed PCB is the source of truth for these facts. Refresh this bl
 | Footprints by side | 32 (F.Cu: 32, B.Cu: 0) |
 | Track segments | 339 |
 | Vias | 100 |
-| Copper zones | 6 (F.Cu: 4, In1.Cu: 5, In2.Cu: 5, B.Cu: 4) |
+| Copper pours | 2 (In1.Cu: 1, In2.Cu: 1) |
+| Keepout rule areas | 4 (F.Cu: 4, In1.Cu: 4, In2.Cu: 4, B.Cu: 4) |
 | Copper layers | 4 (F.Cu, In1.Cu, In2.Cu, B.Cu) |
 | Copper thicknesses | F.Cu: 0.035001 mm; In1.Cu: 0.015189 mm; In2.Cu: 0.015189 mm; B.Cu: 0.035001 mm |
 | Copper finish | Lead-Free |
