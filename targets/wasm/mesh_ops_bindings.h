@@ -161,6 +161,10 @@ enum class MeshOpResult {
 // (getLastResult()).
 static MeshOpResult last_mesh_op_result = MeshOpResult::OK;
 
+// Whether that call saturated an argument into its operator's domain
+// (getLastAdjusted()).
+static bool last_mesh_op_adjusted = false;
+
 /**
  * @brief JS-facing wrapper around a PolyMesh and the Conway/Goldberg operators.
  * @details Named to avoid collision with the MeshOps namespace. Each wrapper's
@@ -185,6 +189,17 @@ public:
   MeshOpsWrapper(PolyMesh &&m) : mesh(std::move(m)) {}
 
 private:
+  /**
+   * @brief Opens a MeshOps entry point by clearing the previous call's outcome.
+   * @details Every entry point calls this first, so getLastResult() and
+   *          getLastAdjusted() describe the call the JS caller just made and
+   *          never a stale earlier one.
+   */
+  static void begin_mesh_op() {
+    last_mesh_op_result = MeshOpResult::OK;
+    last_mesh_op_adjusted = false;
+  }
+
   /**
    * @brief Reports whether this wrapper outlived a clearToolingMemory() wipe.
    * @return true while its mesh still owns live arena storage; false — after
@@ -290,7 +305,7 @@ public:
    */
   static std::unique_ptr<MeshOpsWrapper>
   fromSolidName(const std::string &name) {
-    last_mesh_op_result = MeshOpResult::OK;
+    begin_mesh_op();
     const Solids::Entry *entry = Solids::find_entry(name);
     if (!entry) {
       hs::log("WASM: fromSolidName unknown solid '%s' — ignored", name.c_str());
@@ -322,7 +337,7 @@ public:
    *         getLastResult() then reports STALE_WRAPPER.
    */
   val getVertices() const {
-    last_mesh_op_result = MeshOpResult::OK;
+    begin_mesh_op();
     if (!wrapper_live())
       return val::null();
     std::vector<float> data;
@@ -346,7 +361,7 @@ public:
    *         getLastResult() then reports STALE_WRAPPER.
    */
   val getFaces() const {
-    last_mesh_op_result = MeshOpResult::OK;
+    begin_mesh_op();
     if (!wrapper_live())
       return val::null();
     val out = val::object();
@@ -380,7 +395,7 @@ public:
    *          the next allocation, per that memory-view contract.
    */
   val classifyFaces() {
-    last_mesh_op_result = MeshOpResult::OK;
+    begin_mesh_op();
     if (!wrapper_live())
       return val::null();
     if (tooling_bounds_reject(mesh.vertices.size(), mesh.get_face_counts_size(),
@@ -441,10 +456,12 @@ private:
    *          would widen past narrow_face_count's 8-bit side count, and a result
    *          that would overrun tooling_arena, which accumulates one finalized
    *          mesh per chained wrapper until clearToolingMemory().
+   *
+   *          Its caller has already run begin_mesh_op() and may have recorded an
+   *          argument clamp since, so this must not clear that record.
    */
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(hs_wasm::MeshOpBounds bounds, Op &&op) {
-    last_mesh_op_result = MeshOpResult::OK;
     if (!wrapper_live())
       return nullptr;
     if (tooling_bounds_reject(mesh.vertices.size(), mesh.get_face_counts_size(),
@@ -490,6 +507,25 @@ private:
     return false;
   }
 
+  /**
+   * @brief Saturates a fraction argument into its operator's domain.
+   * @param arg Fraction crossing the untrusted JS boundary.
+   * @param out_of_domain Whether @p arg sits outside that domain.
+   * @param clamped @p arg saturated into it.
+   * @param op Operator name, for the adjustment log.
+   * @param domain Domain notation for the adjustment log.
+   * @return @p clamped.
+   * @details Logs the adjustment and records it for getLastAdjusted(), the
+   *          programmatic channel a JS caller reads it through.
+   */
+  static float note_clamped_arg(float arg, bool out_of_domain, float clamped,
+                                const char *op, const char *domain) {
+    last_mesh_op_adjusted = out_of_domain;
+    if (out_of_domain)
+      hs::log("WASM: MeshOps::%s clamped %g to %s", op, arg, domain);
+    return clamped;
+  }
+
 public:
 /**
  * @brief Defines a zero-argument Conway/Goldberg operator method.
@@ -502,6 +538,7 @@ public:
  */
 #define MESHOP_0(name, elements, degree, valence)                              \
   std::unique_ptr<MeshOpsWrapper> name() {                                     \
+    begin_mesh_op();                                                           \
     return apply({elements, degree, valence},                                  \
                  [](const PolyMesh &m, Arena &a, Arena &b) {                   \
                    return MeshOps::name(m, a, b);                              \
@@ -515,18 +552,19 @@ public:
  * @param degree Multiple of the widest input face's side count.
  * @param valence Multiple of the highest input vertex valence.
  * @details Rejects a non-finite arg (finite_arg), then clamps the fraction to
- *          [0,1] (logging when it changed) so a direct/API caller passing a
- *          finite out-of-range value stays within the operator's documented
- *          domain and cannot trip truncate's or bevel's always-on HS_CHECK and
- *          abort the whole module.
+ *          [0,1] so a direct/API caller passing a finite out-of-range value
+ *          stays within the operator's documented domain and cannot trip
+ *          truncate's or bevel's always-on HS_CHECK and abort the whole module.
+ *          The clamp is recorded for getLastAdjusted() as well as logged.
  */
 #define MESHOP_1U(name, elements, degree, valence)                             \
   std::unique_ptr<MeshOpsWrapper> name(float arg) {                            \
+    begin_mesh_op();                                                           \
     if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
-    if (hs_wasm::unit_fraction_out_of_range(arg))                              \
-      hs::log("WASM: MeshOps::%s clamped %g to [0,1]", #name, arg);            \
-    float t = hs_wasm::clamp_unit_fraction(arg);                               \
+    const float t =                                                            \
+        note_clamped_arg(arg, hs_wasm::unit_fraction_out_of_range(arg),        \
+                         hs_wasm::clamp_unit_fraction(arg), #name, "[0,1]");   \
     return apply({elements, degree, valence},                                  \
                  [t](const PolyMesh &m, Arena &a, Arena &b) {                  \
                    return MeshOps::name(m, a, b, t);                           \
@@ -546,11 +584,12 @@ public:
  */
 #define MESHOP_1H(name, elements, degree, valence)                             \
   std::unique_ptr<MeshOpsWrapper> name(float arg) {                            \
+    begin_mesh_op();                                                           \
     if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
-    if (hs_wasm::half_open_fraction_out_of_range(arg))                         \
-      hs::log("WASM: MeshOps::%s clamped %g to [0,1)", #name, arg);            \
-    float t = hs_wasm::clamp_half_open_fraction(arg);                          \
+    const float t = note_clamped_arg(                                          \
+        arg, hs_wasm::half_open_fraction_out_of_range(arg),                    \
+        hs_wasm::clamp_half_open_fraction(arg), #name, "[0,1)");               \
     return apply({elements, degree, valence},                                  \
                  [t](const PolyMesh &m, Arena &a, Arena &b) {                  \
                    return MeshOps::name(m, a, b, t);                           \
@@ -582,12 +621,14 @@ public:
    *          for billions of passes, so the count is clamped rather than
    *          trusted. Bound as a double, not an i32, so a request past INT32_MAX
    *          saturates at the cap instead of wrapping negative and flooring at
-   *          0.
+   *          0. The clamp is recorded for getLastAdjusted() as well as logged.
    */
   std::unique_ptr<MeshOpsWrapper> relax(double iterations) {
+    begin_mesh_op();
     const int clamped =
         hs_wasm::clamp_relax_iterations(iterations, MAX_RELAX_ITERATIONS);
-    if (static_cast<double>(clamped) != iterations)
+    last_mesh_op_adjusted = static_cast<double>(clamped) != iterations;
+    if (last_mesh_op_adjusted)
       hs::log("WASM: MeshOps::relax clamped %g iterations to %d", iterations,
               clamped);
     return apply(hs_wasm::RELAX_BOUNDS,
@@ -616,6 +657,7 @@ public:
    *          did not ask for.
    */
   std::unique_ptr<MeshOpsWrapper> hankin(float radians) {
+    begin_mesh_op();
     if (!finite_arg(radians, "hankin"))
       return nullptr;
     if (hs_wasm::hankin_angle_out_of_range(radians, MAX_HANKIN_ANGLE)) {
@@ -641,14 +683,16 @@ public:
    *          float controls, which neither the zero-arg nor the one-float
    *          generator can express. Binding it via MESHOP_0 hardcodes the
    *          (0.5, 0.0) defaults and leaves both controls unreachable from JS;
-   *          this 2-arg form exposes them to the solids editor.
+   *          this 2-arg form exposes them to the solids editor. A clamped inset
+   *          is recorded for getLastAdjusted() as well as logged.
    */
   std::unique_ptr<MeshOpsWrapper> snub(float t, float twist) {
+    begin_mesh_op();
     if (!finite_arg(t, "snub") || !finite_arg(twist, "snub"))
       return nullptr;
-    if (hs_wasm::half_open_fraction_out_of_range(t))
-      hs::log("WASM: MeshOps::snub clamped t=%g to [0,1)", t);
-    float ct = hs_wasm::clamp_half_open_fraction(t);
+    const float ct =
+        note_clamped_arg(t, hs_wasm::half_open_fraction_out_of_range(t),
+                         hs_wasm::clamp_half_open_fraction(t), "snub", "[0,1)");
     return apply(hs_wasm::SNUB_BOUNDS,
                  [ct, twist](const PolyMesh &m, Arena &a, Arena &b) {
                    return MeshOps::snub(m, a, b, ct, twist);
@@ -764,7 +808,7 @@ public:
    *          never tooling_arena, which backs live wrappers the JS side holds.
    */
   static val getMaxBounds() {
-    last_mesh_op_result = MeshOpResult::OK;
+    begin_mesh_op();
     int max_v = 0;
     int max_f = 0;
     int max_i = 0;
@@ -832,6 +876,21 @@ public:
    *          call overwrites it.
    */
   static MeshOpResult getLastResult() { return last_mesh_op_result; }
+
+  /**
+   * @brief Reports whether the most recent MeshOps call saturated an argument
+   *        into its operator's domain.
+   * @return true when the mesh that call produced was rendered from a value
+   *         other than the one passed in.
+   * @details The fraction operators and relax clamp an out-of-domain argument
+   *          rather than reject it, so getLastResult() stays OK and the mesh
+   *          renders. A caller that only previews the mesh can ignore this; a
+   *          caller that exports the argument it passed — a chain validator, a
+   *          codegen tool — must read it, because the exported value would carry
+   *          an out-of-domain bound into the engine's always-on HS_CHECK. Read
+   *          it immediately after the call; the next one overwrites it.
+   */
+  static bool getLastAdjusted() { return last_mesh_op_adjusted; }
 };
 
 /** @brief Registers the mesh editor bridge's enum and class with Embind. */
@@ -852,6 +911,7 @@ static void bind_mesh_ops() {
   class_<MeshOpsWrapper>("MeshOps")
       .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
       .class_function("getLastResult", &MeshOpsWrapper::getLastResult)
+      .class_function("getLastAdjusted", &MeshOpsWrapper::getLastAdjusted)
       .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName)
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
       .class_function("getRecipe", &MeshOpsWrapper::getRecipe)
