@@ -260,6 +260,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
 │   ├── mesh/                   Polyhedral meshes and their operators
 │   │   ├── mesh.h                  PolyMesh, HalfEdgeMesh, MeshOps (compile, clone, etc.)
+│   │   ├── mesh_class_types.h      Congruence-class id space + the record structs the rasterizer reads
 │   │   ├── mesh_classes.h          Congruence-class clustering + canonical distance-LUT bake
 │   │   ├── spatial.h               KDTree k-nearest-neighbor search, arena-backed MeshState
 │   │   ├── conway.h                Conway operators (dual, kis, ambo, truncate, etc.)
