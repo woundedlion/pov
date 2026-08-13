@@ -491,7 +491,8 @@ struct MeshState {
    *   counts before it.
    * @param face_counts_span Per-face vertex counts.
    * @param face_offsets_span Per-face start offsets into the flat faces list;
-   *   must be one entry per face count.
+   *   any length other than one entry per face count reports false rather than
+   *   indexing past the span.
    * @return True when offset[i] equals counts[0] + ... + counts[i-1] for every
    *   face.
    * @details Exact equality at each index, which also establishes that the
@@ -501,6 +502,8 @@ struct MeshState {
    */
   static bool offsets_are_prefix_sum(ArenaSpan<uint8_t> face_counts_span,
                                      ArenaSpan<uint16_t> face_offsets_span) {
+    if (face_offsets_span.size() != face_counts_span.size())
+      return false;
     size_t running = 0;
     for (size_t i = 0; i < face_counts_span.size(); ++i) {
       if (static_cast<size_t>(face_offsets_span[i]) != running)
