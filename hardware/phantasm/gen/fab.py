@@ -502,12 +502,14 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS):
 
 
 def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS):
-    """Gate copper-pour fill features at the fab's minimum feature size.
+    """Gate copper-pour pad connection and fill features.
 
     KiCad DRC never flags these: thermal reliefs are same-net geometry, so a
     sub-process gap exports clean Gerbers that the fab resolves as a solid
     pour, tying every through-hole GND pad to the full plane and starving the
-    hand-soldered joints R-ASM-6 protects.
+    hand-soldered joints R-ASM-6 protects. `connect_pads yes` reaches the same
+    end directly, and a zone carrying no `(fill ...)` node states no relief
+    features at all.
     """
     try:
         with open(pcb_path, encoding="utf-8") as fh:
@@ -526,8 +528,21 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS):
     for index, zone in enumerate(zones, 1):
         name = sexp.val(zone, "name", [])
         label = name[0] if name else f"index {index}"
+        # (connect_pads [yes|no|thru_hole_only] (clearance X)): an absent mode
+        # token is KiCad's thermal-relief default. `yes` is a solid connection.
+        connect = sexp.val(zone, "connect_pads", [])
+        if connect and not isinstance(connect[0], list) and connect[0] == "yes":
+            diagnostics.append(
+                f"zone {label}: connect_pads yes solders every pad straight "
+                f"into the pour - through-hole GND joints need thermal "
+                f"reliefs (R-ASM-6)")
         features = [("min_thickness", zone)]
-        for fill in F(zone, "fill"):
+        fills = F(zone, "fill")
+        if not fills:
+            diagnostics.append(
+                f"zone {label}: no (fill ...) node, so "
+                f"{' and '.join(ZONE_FILL_FEATURES)} are unstated")
+        for fill in fills:
             features += [(key, fill) for key in ZONE_FILL_FEATURES]
         for key, node in features:
             value = sexp.val(node, key, [])
@@ -668,8 +683,8 @@ def main():
     except ZoneGeometryError as exc:
         sys.exit(str(exc))
     print(
-        f"  zone geometry: {num_zones} copper pours meet the "
-        f"{MIN_ZONE_FEATURE_MM:g} mm minimum fill feature")
+        f"  zone geometry: {num_zones} copper pours relieve their pads and "
+        f"meet the {MIN_ZONE_FEATURE_MM:g} mm minimum fill feature")
     os.makedirs(OUT, exist_ok=True)
     print("[4/9] DRC report + schematic parity")
     rpt = os.path.join(OUT, "phantasm-drc.json")
