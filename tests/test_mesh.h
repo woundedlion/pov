@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/mesh/mesh.h.
+ * Unit tests for core/mesh/mesh.h and core/mesh/triangular_bitset.h.
  *
  * Coverage:
  *   - PolyMesh basic API (initialize, clear, accessors)
@@ -12,6 +12,7 @@
  *     populates face_offsets)
  *   - MeshOps::clone (deep copy into a target arena)
  *   - MeshOps::classify_faces_by_topology (cube → all faces same class)
+ *   - TriangularBitset pair dedup (sizing, index bijection, bit independence)
  */
 #pragma once
 
@@ -19,6 +20,7 @@
 #include <span>
 #include "core/mesh/mesh.h"
 #include "core/mesh/solids.h"
+#include "core/mesh/triangular_bitset.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -866,6 +868,85 @@ inline void test_classify_faces_roster_hash_collision_free() {
 }
 
 // ---------------------------------------------------------------------------
+// TriangularBitset
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Verifies BITS/BYTES are the compile-time size of the upper-triangular
+ *        pair matrix.
+ * @details MAX_V*(MAX_V-1)/2 bits, ceil(bits/8) bytes.
+ */
+inline void test_tribitset_sizes() {
+  // MAX_V=10 → 10*9/2 = 45 bits → ceil(45/8) = 6 bytes
+  HS_EXPECT_EQ(TriangularBitset<10>::BITS, 45);
+  HS_EXPECT_EQ(TriangularBitset<10>::BYTES, 6);
+  // MAX_V=16 → 16*15/2 = 120 bits = 15 bytes
+  HS_EXPECT_EQ(TriangularBitset<16>::BITS, 120);
+  HS_EXPECT_EQ(TriangularBitset<16>::BYTES, 15);
+}
+
+/**
+ * @brief Verifies that after clear(), every pair reads unset.
+ */
+inline void test_tribitset_clear_and_test() {
+  TriangularBitset<8> bs;
+  bs.clear();
+  for (int a = 0; a < 8; ++a)
+    for (int b = a + 1; b < 8; ++b)
+      HS_EXPECT_FALSE(bs.test(a, b));
+}
+
+/**
+ * @brief Verifies test_and_set() returns the prior bit (false on first insert,
+ *        true thereafter) and leaves neighboring pairs untouched.
+ */
+inline void test_tribitset_test_and_set() {
+  TriangularBitset<10> bs;
+  bs.clear();
+  HS_EXPECT_FALSE(bs.test_and_set(2, 5));
+  HS_EXPECT_TRUE(bs.test_and_set(2, 5));
+  HS_EXPECT_TRUE(bs.test(2, 5));
+  HS_EXPECT_FALSE(bs.test(2, 6));
+  HS_EXPECT_FALSE(bs.test(3, 5));
+}
+
+/**
+ * @brief Verifies index(a,b) is a bijection from the MAX_V*(MAX_V-1)/2 unordered
+ *        pairs onto the bit range [0, BITS).
+ * @details No two pairs collide, and all indices are covered.
+ */
+inline void test_tribitset_index_uniqueness() {
+  constexpr int N = 8;
+  int seen[64] = {};
+  int unique = 0;
+  for (int a = 0; a < N; ++a) {
+    for (int b = a + 1; b < N; ++b) {
+      int idx = TriangularBitset<N>::index(a, b);
+      HS_EXPECT_TRUE(idx >= 0 && idx < TriangularBitset<N>::BITS);
+      HS_EXPECT_FALSE(seen[idx]);
+      seen[idx] = 1;
+      ++unique;
+    }
+  }
+  HS_EXPECT_EQ(unique, TriangularBitset<N>::BITS);
+}
+
+/**
+ * @brief Verifies setting one set of pairs leaves disjoint pairs unset (bits are
+ *        independent).
+ */
+inline void test_tribitset_all_pairs_independent() {
+  TriangularBitset<8> bs;
+  bs.clear();
+  for (int i = 0; i + 2 < 8; ++i)
+    bs.test_and_set(i, i + 2);
+  for (int i = 0; i + 2 < 8; ++i)
+    HS_EXPECT_TRUE(bs.test(i, i + 2));
+  for (int i = 0; i + 1 < 8; ++i)
+    HS_EXPECT_FALSE(bs.test(i, i + 1));
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -902,6 +983,12 @@ inline int run_mesh_tests() {
   test_classify_faces_aliased_arenas();
   test_classify_faces_truncated_cube_distinct_topology();
   test_classify_faces_roster_hash_collision_free();
+
+  test_tribitset_sizes();
+  test_tribitset_clear_and_test();
+  test_tribitset_test_and_set();
+  test_tribitset_index_uniqueness();
+  test_tribitset_all_pairs_independent();
 
   return fixture.result();
 }

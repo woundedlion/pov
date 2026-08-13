@@ -66,6 +66,7 @@
 #include "core/mesh/solids.h"
 #include "core/math/spherical_field.h"
 #include "core/mesh/spatial.h"
+#include "core/mesh/triangular_bitset.h"
 #include "core/engine/static_circular_buffer.h"
 #include "core/engine/transformers.h"
 #include "hardware/dma_led_controller.h"
@@ -2485,7 +2486,7 @@ inline const Case *all_cases(int &n) {
        "must be distinct arenas — the dtor's watermark restore assumes the "
        "backup lives in a different arena than the one it restores into"},
       {"triangular_bitset_unordered_pair",
-       case_triangular_bitset_unordered_pair, "memory.h",
+       case_triangular_bitset_unordered_pair, "triangular_bitset.h",
        "(small >= 0 && small < large && large < MAX_V) "},
       {"timeline_handled_relocation", case_timeline_handled_relocation,
        "timeline.h", "(!handled) "},

@@ -120,7 +120,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", 47, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
-  X("memory", 46, hs_test::memory_tests::run_memory_tests, 297)                \
+  X("memory", 41, hs_test::memory_tests::run_memory_tests, 190)                \
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
   X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
   X("sdf", 94, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
@@ -140,7 +140,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
   X("geometry", 35, hs_test::geometry_tests::run_geometry_tests, 4847)         \
   X("spherical_field", 13,                                                     \
     hs_test::spherical_field_tests::run_spherical_field_tests, 9391)           \
-  X("mesh", 22, hs_test::mesh_tests::run_mesh_tests, 69816)                    \
+  X("mesh", 27, hs_test::mesh_tests::run_mesh_tests, 69923)                    \
   X("solids", 34, hs_test::solids_tests::run_solids_tests, 226091)             \
   X("reaction_graph", 14,                                                      \
     hs_test::reaction_graph_tests::run_reaction_graph_tests, 40)               \
