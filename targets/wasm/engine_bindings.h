@@ -280,7 +280,7 @@ public:
 
     if (current_effect) {
       current_effect = nullptr;
-      current_effect_name.clear();
+      current_effect_type_key = nullptr;
       // Same teardown setEffect() performs: without the re-partition the
       // destroyed effect's arena usage keeps reading as live from
       // getArenaMetrics().
@@ -340,6 +340,7 @@ public:
     hs::random().seed(hs::epoch_seed(effect_loads++));
 
     current_effect.reset();
+    current_effect_type_key = nullptr;
     configure_arenas_default(); // Reset before init so effects can override
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
@@ -348,7 +349,7 @@ public:
       init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
     });
     current_effect = entry->creator();
-    current_effect_name = name;
+    current_effect_type_key = entry->type_key;
     current_effect->setAnimationsPaused(animations_paused);
     current_effect->init();
     param_generation.replace(current_effect->getParameterSchemaGeneration());
@@ -994,12 +995,26 @@ public:
   }
 
 private:
+  /**
+   * @brief Runs a callback on the live effect iff it is a ShaderBall.
+   * @param callback Templated callable invoked as callback(ShaderBall<W,H>&).
+   * @return true iff the callback ran.
+   * @details The downcast is admitted by the factory's own type key, so it is
+   *          legal by construction: a registry name that no longer maps to
+   *          ShaderBall<W,H> reports "not a ShaderBall" instead of casting to
+   *          the wrong type.
+   */
   template <typename Callback> bool with_shaderball(Callback &&callback) {
-    if (!current_effect || current_effect_name != "ShaderBall")
+    if (!current_effect)
       return false;
-    return dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+    bool invoked = false;
+    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+      if (current_effect_type_key != effect_type_key<ShaderBall<W, H>>())
+        return;
       callback(*static_cast<ShaderBall<W, H> *>(current_effect.get()));
+      invoked = true;
     });
+    return invoked;
   }
 
   static bool is_array(const val &value) {
@@ -1098,7 +1113,9 @@ private:
 
   std::unique_ptr<Effect>
       current_effect; /**< Currently active effect, or null. */
-  std::string current_effect_name;
+  const void *current_effect_type_key =
+      nullptr; /**< Concrete type the factory built current_effect as; null when
+                    there is no effect. Gates every downcast off the base. */
   std::vector<uint16_t> pixel_buffer; /**< 16-bit linear RGB readback buffer. */
   std::vector<float> param_values;    /**< Backing store for getParamValues. */
   std::vector<hs_wasm::ParamView>

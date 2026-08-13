@@ -26,15 +26,34 @@
 class Effect; // forward decl — defined in canvas.h
 
 /**
+ * @brief RTTI-free identity token for one concrete effect type.
+ * @tparam T Effect type at a fixed resolution, e.g. ShaderBall<288, 144>.
+ * @return An address unique to T for the module's lifetime.
+ * @details Lets a holder of an Effect base pointer prove which concrete type the
+ *          factory built before downcasting to it, without RTTI and without
+ *          trusting a name string.
+ */
+template <typename T> struct EffectTypeTag {
+  static constexpr char id = 0;
+};
+
+template <typename T> constexpr const void *effect_type_key() {
+  return &EffectTypeTag<T>::id;
+}
+
+/**
  * @brief Concrete factory record for one registered effect at a fixed resolution.
  * @details Populated by a registration's fill function; holds the effect's name,
- *          a creator closure that allocates an instance, and its byte size.
+ *          a creator closure that allocates an instance, the concrete type key
+ *          the creator produces, and its byte size.
  */
 struct FactoryEntry {
   std::string_view name; /**< Effect class name (string literal). */
   std::function<std::unique_ptr<Effect>()>
       creator; /**< Allocates a new effect instance. */
-  size_t size; /**< sizeof the effect at this resolution, in bytes. */
+  const void *type_key =
+      nullptr;     /**< effect_type_key() of the type creator() builds. */
+  size_t size = 0; /**< sizeof the effect at this resolution, in bytes. */
 };
 
 // Single source of truth for the supported render resolutions. Adding a resolution
@@ -160,23 +179,24 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
  *       second includer registers that effect twice and trips the startup count
  *       check.
  */
-#define REGISTER_EFFECT(ClassName)                                                \
-  namespace {                                                                     \
-  struct ClassName##_Registrar {                                                  \
-    template <int W, int H> static void fill(FactoryEntry &e) {                   \
-      e.name = #ClassName;                                                        \
-      e.creator = []() -> std::unique_ptr<Effect> {                               \
-        return std::make_unique<ClassName<W, H>>();                               \
-      };                                                                          \
-      e.size = sizeof(ClassName<W, H>);                                           \
-    }                                                                             \
+#define REGISTER_EFFECT(ClassName)                                               \
+  namespace {                                                                    \
+  struct ClassName##_Registrar {                                                 \
+    template <int W, int H> static void fill(FactoryEntry &e) {                  \
+      e.name = #ClassName;                                                       \
+      e.creator = []() -> std::unique_ptr<Effect> {                              \
+        return std::make_unique<ClassName<W, H>>();                              \
+      };                                                                         \
+      e.type_key = effect_type_key<ClassName<W, H>>();                           \
+      e.size = sizeof(ClassName<W, H>);                                          \
+    }                                                                            \
     /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references reg, so   \
      * under LTO / --gc-sections the dynamic initializer could be discarded,   \
      * silently dropping the effect from the registry. */ \
-    HS_REGISTRAR_ANCHOR                                                           \
-    static inline int reg = EffectRegistry::add(                                  \
-        {#ClassName, HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)});                    \
-  };                                                                              \
+    HS_REGISTRAR_ANCHOR                                                          \
+    static inline int reg = EffectRegistry::add(                                 \
+        {#ClassName, HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)});                   \
+  };                                                                             \
   }
 
 // Emits one `&fill<W, H>,` per resolution for the REGISTER_EFFECT initializer
