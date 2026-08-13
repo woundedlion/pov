@@ -1995,11 +1995,13 @@ struct Shader {
    * @tparam H Canvas height in pixels.
    * @param cr Clip region whose bounds are checked against the LUT extents.
    * @details Checked once per draw, not per pixel: every (x,y) the loops feed to
-   * pixel_to_vector indexes the trig LUTs within bounds.
+   * pixel_to_vector indexes the trig LUTs within bounds. The row bound is H, not
+   * the LUT's H_VIRT (H plus the pole offset): those rows also subscript the
+   * canvas, which holds H of them, so the tighter bound is the binding one.
    */
   template <int W, int H> static void check_lut_domain(const ClipRegion &cr) {
     HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
-             cr.render_y_end() <= PhiLUT<H>::H_VIRT);
+             cr.render_y_end() <= H);
   }
   // --------------------------------------------------------------------------
 

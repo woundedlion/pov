@@ -1635,6 +1635,22 @@ inline void case_scan_clip_out_of_bounds() {
 }
 
 /**
+ * @brief Death case: the shader rejects a render band past the canvas rows.
+ * @details The rows the guard admits subscript the canvas, so a band reaching
+ *          past H must be rejected even though the phi LUT holds those rows.
+ */
+inline void case_scan_clip_rows_out_of_bounds() {
+  constexpr int W = 32, H = 16;
+  ClipRegion cr;
+  cr.x_end = W;
+  cr.y_end = opaque(H + 1);
+  cr.margin = 0;
+  cr.w = W;
+  cr.h = opaque(H + 1);
+  Scan::Shader::check_lut_domain<W, H>(cr);
+}
+
+/**
  * @brief Death case: a scan rejects a canvas that is not its <W, H>.
  * @details Direct construction exercises the guard independently of the draw
  *          primitives that call it.
@@ -2717,7 +2733,11 @@ inline const Case *all_cases(int &n) {
        "non-inverted and within canvas width"},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds, "scan.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
-       "cr.render_y_end() <= PhiLUT<H>::H_VIRT) "},
+       "cr.render_y_end() <= H) "},
+      {"scan_clip_rows_out_of_bounds", case_scan_clip_rows_out_of_bounds,
+       "scan.h",
+       "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
+       "cr.render_y_end() <= H) "},
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "scan.h",
        "(canvas.width() == W && canvas.height() == H) "},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
