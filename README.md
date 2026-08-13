@@ -321,7 +321,11 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── pov_segment_map.json    Segment→canvas golden emitted from that header; read by daydream's cross-check
 │   ├── pov_single.h            Single-Teensy POV driver (Holosphere)
 │   ├── pov_single_map.h        Pure single-board strip index math (host-testable)
-│   ├── pov_sync.h              Phantasm sync protocol core: flywheel timebase, symbol codec, epoch/beacon (host-testable)
+│   ├── pov_sync.h              Phantasm per-board sync engine over the layers below (host-testable)
+│   ├── pov_sync_protocol.h     Sync ring math, Config, symbol alphabet, flip gate, edge mailbox, telemetry
+│   ├── pov_sync_flywheel.h     Layer 1: position-from-time flywheel and its snap discipline
+│   ├── pov_sync_content.h      Layer 3: index-beacon codec and the per-board content tracker
+│   ├── pov_sync_emitter.h      Master-side symbol generation with late-burst self-censoring
 │   ├── pov_handoff.h           Pure effect-handoff state machine for POVSegmented (host-testable)
 │   ├── pov_submit_gate.h       Pure LED-submit accept/drop decision for the POVSegmented ISR (host-testable)
 │   ├── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
