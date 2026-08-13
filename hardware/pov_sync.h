@@ -110,7 +110,11 @@ struct Config {
   uint32_t glitch_filter_cycles = 60000; /**< Min edge spacing (~100 µs). */
 
   // Symbol wire (spec §5.2): pitches/timeouts in columns.
-  int32_t pulse_pitch_cols = 2;  /**< Boundary-burst pulse pitch (> mask M). */
+  int32_t pulse_pitch_cols = 2; /**< Boundary-burst pulse pitch (> mask M). */
+  // beacon_pitch_cols, gap_timeout_cols and acquire_quiet_cols all feed
+  // beacon_frame_cols(), which valid() holds strictly under W/4 with a single
+  // column to spare at the shipped constants. Any of the three can only move
+  // down unless W grows with it.
   int32_t beacon_pitch_cols = 1; /**< Beacon digit pulse pitch (checksummed). */
   int32_t gap_timeout_cols = 4;  /**< Quiet time that terminates a burst. */
 
@@ -332,6 +336,8 @@ struct Config {
     // plus its tail quiet must clear W/4 or no beacon is ever scheduled.
     // Strict: the slack absorbs the sub-column offset between the W/4 instant
     // and the tick that schedules the frame.
+    // Achieved margin at the shipped constants (W = 288): 71 of 72 columns —
+    // one column. The tightest relation in this function.
     if (!(beacon_frame_cols() < W / 4))
       return "beacon_frame_cols() < W/4";
     // Demarcation: the acquisition timeout must clear the beacon's worst-case
