@@ -19,6 +19,7 @@
 #include "core/engine/engine.h"
 #include "core/math/noise_field.h"
 #include "core/math/projections.h"
+#include "core/math/stereographic.h"
 
 namespace hs_test {
 namespace shaderball_tests {
