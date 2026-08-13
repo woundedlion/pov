@@ -2176,19 +2176,27 @@ Frame preparation resolves that program once, snapshots the selected slots, live
 
 The shader is a *pullback*: it starts at a visible sphere point and walks backward to discover the source coordinate to sample. `InversePipeline` accepts exactly six empty policy types and validates their order, exact input/output carriers, return types, terminal placement, and approximation metadata at compile time. The coordinator and inline-only stages disappear into the address-taken flash wrapper; each selected policy calls its mathematical leaf directly rather than reading the slot tag it represents.
 
-```mermaid
-flowchart LR
-  C[Candidate Config] --> K[Canonical TopologyKey]
-  K --> M[14-entry program manifest]
-  M -->|ID + non-null shade| E[PreparedEndpoint]
-  E --> S[Shared Scan::Shader loop]
-  S --> OC[Outer Camera]
-  OC -->|Vector| SP[Surface + Projection]
-  SP -->|ProjectedLookup| W[Planar Warp]
-  W -->|SourceInput| F[Source]
-  F -->|MaterialInput| MT[Material]
-  MT -->|MaterialSample| CL[Color]
-  CL -->|straight-alpha Color4| FB[Canvas]
+```
+selection — once per frame
+
+  Candidate Config ──> canonical TopologyKey ──> 14-entry program manifest
+                       ──(ID + non-null shade)──> PreparedEndpoint
+
+shading — once per visible sample, through the shared Scan::Shader loop
+
+  Outer Camera
+       │ Vector
+  Surface + Projection
+       │ ProjectedLookup
+  Planar Warp
+       │ SourceInput
+  Source
+       │ MaterialInput
+  Material
+       │ MaterialSample
+  Color
+       │ straight-alpha Color4
+  Canvas
 ```
 
 The fused surface/projection stage owns lens selection, optional direct surface noise, projection-frame rotation, projection, and all seam/topology metadata. The planar-warp stage runs its two authored warps in pullback order and carries both the original projection metadata and accumulated net displacement, deformation, and path length. The material stage combines signal weighting, linear value transfer, and coverage before the terminal color stage returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
@@ -2247,22 +2255,22 @@ pre-projection orientation.
 
 Selector dependencies are explicit and deterministic:
 
-```mermaid
-flowchart TD
-  Projection -->|Bonne| Bonne[Hemisphere + standard parallel]
-  Projection -->|Peirce| Peirce[Layout; scroll for strip layouts]
-  Projection -->|Dymaxion / Airocean| Air[Net layout]
-  Projection -->|Gnomonic| Gnomonic[Hemisphere policy]
-  Projection --> CommonP[Meridian / scale / pole controls<br/>when meaningful]
-
-  Function --> Source[Function-specific source controls]
-  Lens --> LensParams[Lens Mix + selected lens controls]
-  Warp1[Planar Warp 1] --> Warp1Params[Selected stage controls]
-  Warp2[Planar Warp 2] --> Warp2Params[Selected stage controls]
-  ValueTransfer --> TransferParams[Iso or band controls]
-  Coverage --> CoverageParams[Cutout threshold or edge width]
-  Colorizer --> ColorParams[Palette / breathe / hue / fade controls]
 ```
+Projection ─┬─ Bonne ─────────────> Hemisphere + standard parallel
+            ├─ Peirce ────────────> Layout (scroll for strip layouts)
+            ├─ Dymaxion/Airocean ─> Net layout
+            ├─ Gnomonic ──────────> Hemisphere policy
+            └─ any ───────────────> Meridian / scale / pole controls, where meaningful
+
+Function ──────────> Function-specific source controls
+Lens ──────────────> Lens Mix + selected lens controls
+Planar Warp 1 ─────> Selected stage controls
+Planar Warp 2 ─────> Selected stage controls
+Value Transfer ────> Iso or band controls
+Coverage ──────────> Cutout threshold or edge width
+Colorizer ─────────> Palette / breathe / hue / fade controls
+```
+
 
 Schema validity still enforces semantic constraints: legacy stereographic noise selects Stereographic projection; seam-sensitive noise stages do not cross the cut topology of Bonne, Peirce, or Airocean; and Polar Chart constrains the compatible source. Passing those rules is necessary but not sufficient for production admission. The canonical key and continuous precondition must also resolve to one of the 14 compiled descriptors; ShaderBall never falls back to a generic shader for an uncompiled combination.
 
