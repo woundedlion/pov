@@ -1061,11 +1061,18 @@ template <typename T> constexpr bool palette_wraps_coordinate() {
  * @details Bridges a zero-overhead StaticPalette into the polymorphic
  * `const Palette*` world (preset tables, BakedPalette::bake). The virtual call
  * is paid only at bake time (cold), never on the per-pixel path.
+ *
+ * SP must not wrap its coordinate. A wrapping source folds t = 1 back to 0 and
+ * collapses a bake's last entry onto its first; BakedPalette rejects one at
+ * compile time, but the erasure to `const Palette&` this class performs is what
+ * would hide it from that check.
  */
 template <typename SP> class PaletteFacade : public Palette {
-public:
-  static constexpr bool WRAPS_COORDINATE = palette_wraps_coordinate<SP>();
+  static_assert(!palette_wraps_coordinate<SP>(),
+                "PaletteFacade cannot erase a wrapping palette: bake and "
+                "sample it through Wrap=false");
 
+public:
   /**
    * @brief Default-constructs an unbound facade (bind() before use).
    */

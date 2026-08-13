@@ -1343,8 +1343,8 @@ inline void test_baked_palette_in_range() {
  * @brief Verifies rebake samples the closed [0, 1] with divisor LUT_SIZE - 1.
  * @details The divisor fixes every entry's sampled coordinate, so a change to it
  *          shifts the whole LUT; the t = 1 endpoint pins it. StaticPalette
- *          exposes its wrapping policy, and PaletteFacade forwards it, so
- *          BakedPalette can reject Wrap=true sources at compile time.
+ *          exposes its wrapping policy, so BakedPalette can reject Wrap=true
+ *          sources at compile time.
  */
 inline void test_baked_palette_rebake_samples_closed_interval() {
   struct Ramp {
@@ -1367,8 +1367,7 @@ inline void test_baked_palette_rebake_samples_closed_interval() {
   using Unwrapped = StaticPalette<Gradient, Coords<>, Colors<>, /*Wrap=*/false>;
   static_assert(Wrapped::WRAPS_COORDINATE);
   static_assert(!Unwrapped::WRAPS_COORDINATE);
-  static_assert(PaletteFacade<Wrapped>::WRAPS_COORDINATE);
-  static_assert(!PaletteFacade<Unwrapped>::WRAPS_COORDINATE);
+  static_assert(!palette_wraps_coordinate<PaletteFacade<Unwrapped>>());
   static_assert(!palette_wraps_coordinate<Ramp>());
 }
 
