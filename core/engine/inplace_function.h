@@ -61,18 +61,22 @@ template <typename R, typename... Args> struct ipf_vtable {
 
 // Concrete operations for a captured callable C placed in the inline buffer.
 template <typename C, typename R, typename... Args> struct ipf_ops {
+  // The C was placement-new'd into an unsigned char buffer, which is not
+  // pointer-interconvertible with it; std::launder makes each access refer to
+  // the created object rather than the byte array.
   static R invoke(void *storage, Args &&...args) {
+    C &callable = *std::launder(static_cast<C *>(storage));
     if constexpr (std::is_void_v<R>) {
-      (*static_cast<C *>(storage))(std::forward<Args>(args)...);
+      callable(std::forward<Args>(args)...);
     } else {
-      return (*static_cast<C *>(storage))(std::forward<Args>(args)...);
+      return callable(std::forward<Args>(args)...);
     }
   }
   static void copy(void *dst, const void *src) {
-    ::new (dst) C(*static_cast<const C *>(src));
+    ::new (dst) C(*std::launder(static_cast<const C *>(src)));
   }
   static void move(void *dst, void *src) {
-    ::new (dst) C(std::move(*static_cast<C *>(src)));
+    ::new (dst) C(std::move(*std::launder(static_cast<C *>(src))));
   }
 
   // C++17: static constexpr data members are implicitly inline, so this needs no
