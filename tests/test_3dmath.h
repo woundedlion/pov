@@ -904,6 +904,36 @@ inline void test_rotate() {
   HS_EXPECT_VEC(via_sequential, via_composed, 5e-3f);
 }
 
+/**
+ * @brief Pins RotationMatrix to rotate(): the expanded rows must reproduce the
+ *        quaternion sandwich for every orientation, and the rows must stay
+ *        orthonormal.
+ */
+inline void test_rotation_matrix_matches_rotate() {
+  const Vector axes[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),
+                         Vector(1, 2, 3).normalized(),
+                         Vector(-2, 0.5f, 1).normalized()};
+  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),
+                            Vector(1, 2, 3), Vector(-4, 0.25f, 2)};
+
+  for (const Vector &axis : axes) {
+    for (int i = 0; i <= 12; ++i) {
+      float angle = (2.0f * PI_F * i) / 12.0f;
+      Quaternion q = make_rotation(axis, angle);
+      RotationMatrix m(q);
+      for (const Vector &v : samples) {
+        HS_EXPECT_VEC(m.apply(v), rotate(v, q), 1e-4f);
+      }
+      HS_EXPECT_NEAR(dot(m.r0, m.r0), 1.0f, 1e-5f);
+      HS_EXPECT_NEAR(dot(m.r1, m.r1), 1.0f, 1e-5f);
+      HS_EXPECT_NEAR(dot(m.r2, m.r2), 1.0f, 1e-5f);
+      HS_EXPECT_NEAR(dot(m.r0, m.r1), 0.0f, 1e-5f);
+      HS_EXPECT_NEAR(dot(m.r0, m.r2), 0.0f, 1e-5f);
+      HS_EXPECT_NEAR(dot(m.r1, m.r2), 0.0f, 1e-5f);
+    }
+  }
+}
+
 // ============================================================================
 // slerp
 // ============================================================================
@@ -1360,6 +1390,7 @@ inline int run_3dmath_tests() {
   test_make_rotation_from_to();
   test_quaternion_from_basis();
   test_rotate();
+  test_rotation_matrix_matches_rotate();
 
   test_vector_slerp();
   test_vector_slerp_antipodal_monotonic();
