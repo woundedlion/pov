@@ -728,8 +728,7 @@ def main(unplaced=False, force=False):
     lines.append("\t)")
     # nets
     for nm, i in sorted(netid.items(), key=lambda kv: kv[1]):
-        esc = nm.replace("\\", "\\\\").replace('"', '\\"')
-        lines.append(f'\t(net {i} "{esc}")')
+        lines.append(f'\t(net {i} {sexp.quote(nm)})')
     # board outline (Edge.Cuts) — <=35 mm wide strip, length minimised by packer
     lines.append(f'\t(gr_rect (start 0 0) (end {fmt(L)} {fmt(PCB_W)}) '
                  '(stroke (width 0.15) (type solid)) (fill none) (layer "Edge.Cuts") '
@@ -772,8 +771,7 @@ def main(unplaced=False, force=False):
                      f'(xy {fmt(kx0)} {fmt(ky0)}) (xy {fmt(kx1)} {fmt(ky0)}) '
                      f'(xy {fmt(kx1)} {fmt(ky1)}) (xy {fmt(kx0)} {fmt(ky1)})))')
         lines.append('\t)')
-    esc_note = NOTE.replace("\\", "\\\\").replace('"', '\\"')
-    lines.append(f'\t(gr_text "{esc_note}"'
+    lines.append(f'\t(gr_text {sexp.quote(NOTE)}'
                  f' (at 4 -4 0) (layer "Cmts.User") (uuid "{uid()}") '
                  '(effects (font (size 2 2) (thickness 0.3)) (justify left bottom)))')
     # Coordinates below annotate the QUILTER_FIXED placement; a fresh pack moves
