@@ -958,7 +958,7 @@ enum class ShadeCoord : uint8_t {
   /** The coordinate the source was sampled at, whatever Wrap is. */
   LOOKUP,
   /** The raw pre-modifier input, whatever Wrap is. */
-  INPUT,
+  RAW_INPUT,
 };
 
 /**
@@ -1062,7 +1062,7 @@ public:
     float shade_coordinate;
     if constexpr (Shade == ShadeCoord::LOOKUP)
       shade_coordinate = u;
-    else if constexpr (Shade == ShadeCoord::INPUT)
+    else if constexpr (Shade == ShadeCoord::RAW_INPUT)
       shade_coordinate = t;
     else
       shade_coordinate = Wrap ? u : t;

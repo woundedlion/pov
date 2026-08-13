@@ -2166,7 +2166,7 @@ inline void test_palette_shade_coord_policy() {
   HS_EXPECT_NEAR(matched.get(1.25f).alpha, 0.25f, 1e-5f);
 
   StaticPalette<Gradient, Coords<>, Colors<AlphaFalloffShade>, /*Wrap=*/true,
-                ShadeCoord::INPUT>
+                ShadeCoord::RAW_INPUT>
       raw;
   raw.bind(&grad, &report);
   HS_EXPECT_NEAR(raw.get(1.25f).alpha, 1.25f, 1e-5f);
