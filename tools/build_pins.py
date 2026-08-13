@@ -9,11 +9,16 @@ INLINE_SCAN must derive from the value here.
 
 SHARED_LITERALS are pinned the same way: strings two build files must spell
 identically because neither can read the other.
+
+ENGINE_RANGES name a manifest whose declared floor the pin must satisfy: the
+manifest is read by a package manager, not by this script, so it cannot take
+the pin -- --check asserts the two agree instead.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -106,6 +111,14 @@ SHARED_LITERAL_USES = (
     (r"grep -vE '([^']*)'", "format-exclude", 2),
 )
 
+# (manifest, JSON path to a `>=X` range, pin name). The range is the floor the
+# tree's own tooling needs -- `node --test`'s glob expansion needs >= 22 -- and
+# the pin is what every CI job installs, so a pin below the floor would run the
+# suite on an interpreter the manifest already rejects.
+ENGINE_RANGES = (
+    (ROOT / "package.json", ("engines", "node"), "node"),
+)
+
 
 def duplicates_pin(text: str, name: str, value: str) -> bool:
     """Return whether a dependency context contains its literal pinned value."""
@@ -172,8 +185,43 @@ def check_shared_literals() -> list[str]:
     return errors
 
 
+def _version_tuple(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.split("."))
+
+
+def check_engine_ranges() -> list[str]:
+    """Return one error per manifest whose declared floor the pin misses."""
+    errors: list[str] = []
+    for path, keys, name in ENGINE_RANGES:
+        where = path.relative_to(ROOT)
+        node = json.loads(path.read_text(encoding="utf-8"))
+        for key in keys:
+            node = node.get(key) if isinstance(node, dict) else None
+        if not isinstance(node, str):
+            errors.append(f"{where}: no {'.'.join(keys)} range for the "
+                          f"{name} pin")
+            continue
+        found = re.fullmatch(r">=\s*([0-9]+(?:\.[0-9]+)*)", node.strip())
+        if found is None:
+            errors.append(
+                f"{where}: {'.'.join(keys)} is {node!r}, which build_pins.py "
+                f"cannot compare against the {name} pin (expected '>=X')")
+            continue
+        floor = _version_tuple(found.group(1))
+        pinned = _version_tuple(PINS[name])
+        width = max(len(floor), len(pinned))
+        floor += (0,) * (width - len(floor))
+        pinned += (0,) * (width - len(pinned))
+        if pinned < floor:
+            errors.append(
+                f"{where}: {'.'.join(keys)} requires {node!r} but {name} is "
+                f"pinned to {PINS[name]} in build_pins.py")
+    return errors
+
+
 def check_consumers() -> int:
-    errors: list[str] = check_inline_pins() + check_shared_literals()
+    errors: list[str] = (check_inline_pins() + check_shared_literals()
+                         + check_engine_ranges())
     for path, references in CONSUMERS.items():
         text = path.read_text(encoding="utf-8")
         for reference in references:
@@ -194,7 +242,8 @@ def check_consumers() -> int:
             print(error)
         return 1
     print(f"build pins are single-sourced ({len(PINS)} injected, "
-          f"{len(INLINE_PINS)} inline, {len(SHARED_LITERALS)} shared literal)")
+          f"{len(INLINE_PINS)} inline, {len(SHARED_LITERALS)} shared literal, "
+          f"{len(ENGINE_RANGES)} engine range)")
     return 0
 
 
