@@ -937,8 +937,8 @@ undefined behavior, not because it is designed against.
 
 Worst-case recovery and expected frequency per failure mode, on the shipped
 DMA LED path (mask window M ≈ 0, so all masked-IRQ modes are non-events).
-Constants: gate G = 4 col, fallback R = 4 rejections, construction window
-K = 2 revs (commit at B+R+K, §6.1), beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
+Constants: gate G = 4 col, fallback R = 4 rejections, EPOCH repeats = 3,
+construction window K = 2 revs (commit at B + repeats + K, §6.1), beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
 4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; 276,480 col = 960 revs
