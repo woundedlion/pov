@@ -954,7 +954,55 @@ public:
 #endif
 
 private:
+  static constexpr float lens_domain_linear_scale(SurfaceLens lens) {
+    switch (lens) {
+    case SurfaceLens::KALEIDOSCOPE:
+      return 1.0f;
+    case SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL:
+      return 0.20412415f;
+    case SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL:
+      return 0.14433757f;
+    case SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL:
+      return 0.09128709f;
+    case SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM:
+      return 0.28867513f;
+    case SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM:
+      return 0.25f;
+    case SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM:
+      return 0.22360680f;
+    case SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM:
+      return 0.20412415f;
+    case SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM:
+      return 0.17677670f;
+    case SurfaceLens::NONE:
+    case SurfaceLens::GLITCH:
+    case SurfaceLens::TWIST:
+    case SurfaceLens::MOBIUS:
+    case SurfaceLens::TANGENT_NOISE:
+      return 1.0f;
+    }
+    __builtin_unreachable();
+  }
+
+  static constexpr float domain_scaled_max(float full_domain_max,
+                                           float minimum_max,
+                                           float domain_scale) {
+    const float scaled = full_domain_max * domain_scale;
+    return scaled > minimum_max ? scaled : minimum_max;
+  }
+
+  HS_COLD_MEMBER void register_clamped_animated_param(const char *name,
+                                                      float *target,
+                                                      float minimum,
+                                                      float maximum) {
+    const float clamped = hs::clamp(*target, minimum, maximum);
+    registered_range_clamped |= clamped != *target;
+    *target = clamped;
+    register_animated_param(name, target, minimum, maximum);
+  }
+
   HS_COLD_MEMBER void rebind_parameters() {
+    registered_range_clamped = false;
     reset_parameters();
     Slots &slots = requested_config.slots;
     register_animated_param("Function", &slots.function, FUNCTION_OPTIONS,
@@ -962,8 +1010,9 @@ private:
     const bool polar_topology =
         slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART ||
         slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
+    const float domain_scale = lens_domain_linear_scale(slots.surface_lens);
     register_source_controls(slots.function, requested_config.params.source,
-                             polar_topology);
+                             polar_topology, domain_scale);
     register_animated_param("Projection", &slots.projection, PROJECTION_OPTIONS,
                             PROJECTION_EXPORT_OPTIONS, NUM_PROJECTIONS);
     register_projection_controls(slots, requested_config.params);
@@ -971,15 +1020,18 @@ private:
         "Projection Frame", &slots.projection_frame, PROJECTION_FRAME_OPTIONS,
         PROJECTION_FRAME_EXPORT_OPTIONS, NUM_PROJECTION_FRAMES);
     register_projection_frame_controls(slots.projection_frame,
-                                       requested_config.params);
+                                       requested_config.params, domain_scale);
     register_animated_param("Camera Wander",
                             &requested_config.params.outer_camera.wander,
                             WANDER_MIN, WANDER_MAX);
     register_animated_param("Surface Noise", &slots.surface_noise,
                             SURFACE_NOISE_OPTIONS, SURFACE_NOISE_EXPORT_OPTIONS,
                             NUM_SURFACE_NOISE);
-    register_surface_noise_controls(slots,
-                                    requested_config.params.surface_noise);
+    register_surface_noise_controls(
+        slots, requested_config.params.surface_noise,
+        slots.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS
+            ? domain_scale
+            : 1.0f);
     register_animated_param("Lens", &slots.surface_lens, LENS_OPTIONS,
                             LENS_EXPORT_OPTIONS, NUM_LENSES);
     register_lens_controls(slots.surface_lens,
@@ -988,12 +1040,14 @@ private:
                             WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
     register_stage_slot_controls(true, slots.warp_program.outer);
     register_active_warp_controls(true, slots.warp_program.outer,
-                                  requested_config.params.warp.outer);
+                                  requested_config.params.warp.outer,
+                                  domain_scale);
     register_animated_param("Planar Warp 2", &slots.warp_program.inner.kind,
                             WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
     register_stage_slot_controls(false, slots.warp_program.inner);
     register_active_warp_controls(false, slots.warp_program.inner,
-                                  requested_config.params.warp.inner);
+                                  requested_config.params.warp.inner,
+                                  domain_scale);
     register_animated_param("Signal Weight", &slots.signal_weight,
                             SIGNAL_OPTIONS, SIGNAL_EXPORT_OPTIONS, NUM_SIGNALS);
     register_animated_param("Value Transfer", &slots.value_transfer,
@@ -1006,9 +1060,11 @@ private:
     register_coverage_controls(slots.coverage, requested_config.params.value);
     register_animated_param("Palette", &slots.palette, PALETTE_OPTIONS,
                             PALETTE_EXPORT_OPTIONS, NUM_PALETTES);
-    register_color_controls(requested_config.params.color);
+    register_color_controls(requested_config.params.color, domain_scale);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    if (requested_schema_bound && clamp_registered_parameter_ranges())
+    const bool post_registration_clamp = clamp_registered_parameter_ranges();
+    if (requested_schema_bound &&
+        (registered_range_clamped || post_registration_clamp))
       refresh_accepted_config();
     for (size_t index = 0; index < pending_edit_count; ++index) {
       PendingEdit &edit = pending_edits[index];
@@ -1306,22 +1362,29 @@ private:
 
   HS_COLD_MEMBER void register_source_controls(Function function,
                                                SourceParams &params,
-                                               bool polar_topology) {
+                                               bool polar_topology,
+                                               float domain_scale) {
     if (is_noise_contour(function)) {
-      register_animated_param("Source Noise Scale", &params.noise_scale,
-                              SOURCE_NOISE_SCALE_MIN, SOURCE_NOISE_SCALE_MAX);
+      register_clamped_animated_param(
+          "Source Noise Scale", &params.noise_scale, SOURCE_NOISE_SCALE_MIN,
+          domain_scaled_max(SOURCE_NOISE_SCALE_MAX, 0.5f, domain_scale));
       register_animated_param("Source Noise Contrast", &params.noise_contrast,
                               0.0f, 8.0f);
-      register_animated_param("Source Noise Speed", &params.noise_time_rate,
-                              SOURCE_NOISE_RATE_MIN, SOURCE_NOISE_RATE_MAX);
+      register_clamped_animated_param(
+          "Source Noise Speed", &params.noise_time_rate,
+          -domain_scaled_max(SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
+                             domain_scale),
+          domain_scaled_max(SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
+                            domain_scale));
       register_animated_param("Source Noise Basis", &params.noise_basis,
                               NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
                               NUM_NOISE_BASES);
       return;
     }
     if (function == Function::PRIMITIVE_LATTICE) {
-      register_animated_param("Lattice Cell Scale", &params.lattice_cell_scale,
-                              CELL_MIN, CELL_MAX);
+      register_clamped_animated_param(
+          "Lattice Cell Scale", &params.lattice_cell_scale, CELL_MIN,
+          domain_scaled_max(CELL_MAX, 1.0f, domain_scale));
       register_animated_param("Lattice Shape", &params.lattice_shape_blend,
                               0.0f, 1.0f);
       register_animated_param("Lattice Softness", &params.lattice_softness,
@@ -1331,20 +1394,25 @@ private:
       if (!polar_topology)
         return;
     }
-    register_animated_param("Pattern Freq", &params.pattern_freq,
-                            PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+    register_clamped_animated_param(
+        "Pattern Freq", &params.pattern_freq, PATTERN_FREQ_MIN,
+        domain_scaled_max(PATTERN_FREQ_MAX, 8.0f, domain_scale));
     if (function == Function::PRIMITIVE_LATTICE)
       return;
-    register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
-    register_animated_param("Source Angle Speed", &params.angle_rate,
-                            WAVE_SPIN_MIN, WAVE_SPIN_MAX);
+    register_clamped_animated_param(
+        "Speed", &params.speed, SPEED_MIN,
+        domain_scaled_max(SPEED_MAX, 0.5f, domain_scale));
+    register_clamped_animated_param(
+        "Source Angle Speed", &params.angle_rate, WAVE_SPIN_MIN,
+        domain_scaled_max(WAVE_SPIN_MAX, 0.03f, domain_scale));
     if (function == Function::GRID) {
       register_animated_param("Complexity", &params.complexity, COMPLEXITY_MIN,
                               COMPLEXITY_MAX);
       register_animated_param("Pattern Mix", &params.pattern_mix,
                               PATTERN_MIX_MIN, PATTERN_MIX_MAX);
-      register_animated_param("Drift", &params.secondary_rate, PHASE2_RATE_MIN,
-                              PHASE2_RATE_MAX);
+      register_clamped_animated_param(
+          "Drift", &params.secondary_rate, PHASE2_RATE_MIN,
+          domain_scaled_max(PHASE2_RATE_MAX, 1.25f, domain_scale));
     }
   }
 
@@ -1397,11 +1465,11 @@ private:
 
   HS_COLD_MEMBER void
   register_projection_frame_controls(ProjectionFramePolicy frame,
-                                     Params &params) {
+                                     Params &params, float domain_scale) {
     if (frame == ProjectionFramePolicy::SPIN_WANDER) {
-      register_animated_param("Projection Spin Speed",
-                              &params.projection.spin_rate, SPIN_RATE_MIN,
-                              SPIN_RATE_MAX);
+      register_clamped_animated_param(
+          "Projection Spin Speed", &params.projection.spin_rate, SPIN_RATE_MIN,
+          domain_scaled_max(SPIN_RATE_MAX, 0.04f, domain_scale));
       register_animated_param("Projection Wander", &params.projection.wander,
                               WANDER_MIN, WANDER_MAX);
     }
@@ -1432,7 +1500,8 @@ private:
   }
 
   HS_COLD_MEMBER void
-  register_surface_noise_controls(Slots &slots, SurfaceNoiseParams &params) {
+  register_surface_noise_controls(Slots &slots, SurfaceNoiseParams &params,
+                                  float domain_scale) {
     if (slots.surface_noise == SurfaceNoise::NONE)
       return;
     register_animated_param(
@@ -1442,8 +1511,9 @@ private:
     register_animated_param("Surface Noise Basis", &params.basis,
                             NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
                             NUM_NOISE_BASES);
-    register_animated_param("Surface Noise Scale", &params.scale,
-                            LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
+    register_clamped_animated_param(
+        "Surface Noise Scale", &params.scale, LENS_NOISE_SCALE_MIN,
+        domain_scaled_max(LENS_NOISE_SCALE_MAX, 0.75f, domain_scale));
     const float strength_min =
         slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -1453,8 +1523,10 @@ private:
     register_animated_param("Surface Noise Strength", &params.strength,
                             strength_min, 0.5f);
 #endif
-    register_animated_param("Surface Noise Speed", &params.rate, NOISE_RATE_MIN,
-                            NOISE_RATE_MAX);
+    const float speed_max =
+        domain_scaled_max(NOISE_RATE_MAX, 0.002f, domain_scale);
+    register_clamped_animated_param("Surface Noise Speed", &params.rate,
+                                    -speed_max, speed_max);
     if (slots.surface_noise == SurfaceNoise::DIRECT)
       register_animated_param("Surface Noise Direction", &params.direction,
                               0.0f, 1.0f);
@@ -1467,7 +1539,8 @@ private:
 
   HS_COLD_MEMBER void register_active_warp_controls(bool first,
                                                     const WarpStageSpec &spec,
-                                                    WarpStageParams &params) {
+                                                    WarpStageParams &params,
+                                                    float domain_scale) {
     if (spec.kind == WarpStageKind::NONE)
       return;
     const char *const *names =
@@ -1476,11 +1549,7 @@ private:
         first ? "Planar Warp 1 Speed" : "Planar Warp 2 Speed";
     auto register_current = [&](const char *name, float *target, float minimum,
                                 float maximum) {
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-      register_animated_param_preserving_value(name, target, minimum, maximum);
-#else
-      register_animated_param(name, target, minimum, maximum);
-#endif
+      register_clamped_animated_param(name, target, minimum, maximum);
     };
     if (spec.kind == WarpStageKind::WAVE_SHEAR ||
         spec.kind == WarpStageKind::VECTOR_NOISE ||
@@ -1496,8 +1565,9 @@ private:
       register_current(strength_name, &params.strength,
                        signed_strength ? -strength_max : 0.0f, strength_max);
     }
-    register_current(speed_name, &params.speed, NOISE_SPEED_MIN,
-                     NOISE_SPEED_MAX);
+    const float speed_max =
+        domain_scaled_max(NOISE_SPEED_MAX, 0.005f, domain_scale);
+    register_current(speed_name, &params.speed, -speed_max, speed_max);
     switch (spec.kind) {
     case WarpStageKind::AFFINE_FRAME: {
       for (int index = 0; index < 6; ++index) {
@@ -1513,7 +1583,7 @@ private:
     }
     case WarpStageKind::WAVE_SHEAR:
       register_current(names[WARP_NAME_FREQUENCY], &params.frequency, 0.0f,
-                       64.0f);
+                       domain_scaled_max(64.0f, 8.0f, domain_scale));
       register_current(names[WARP_NAME_FIELD_ANGLE], &params.field_angle, 0.0f,
                        TWO_PI_F);
       break;
@@ -1532,7 +1602,10 @@ private:
     case WarpStageKind::CURL_FLOW:
       register_current(first ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale",
                        &params.scale, 1.0f / 64.0f,
-                       spec.kind == WarpStageKind::CURL_FLOW ? 16.0f : 64.0f);
+                       domain_scaled_max(spec.kind == WarpStageKind::CURL_FLOW
+                                             ? 16.0f
+                                             : 64.0f,
+                                         8.0f, domain_scale));
       register_current(names[WARP_NAME_VECTOR_ANGLE], &params.vector_angle,
                        0.0f, TWO_PI_F);
       register_current(names[WARP_NAME_EDGE_WIDTH], &params.edge_width,
@@ -1564,13 +1637,17 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void register_color_controls(ColorParams &params) {
+  HS_COLD_MEMBER void register_color_controls(ColorParams &params,
+                                              float domain_scale) {
     register_animated_param("Hue Noise Amount", &params.hue_noise_amount,
                             HUE_NOISE_AMOUNT_MIN, HUE_NOISE_AMOUNT_MAX);
-    register_animated_param("Hue Noise Scale", &params.hue_noise_scale,
-                            HUE_NOISE_SCALE_MIN, HUE_NOISE_SCALE_MAX);
-    register_animated_param("Hue Noise Speed", &params.hue_noise_speed,
-                            NOISE_SPEED_MIN, NOISE_SPEED_MAX);
+    register_clamped_animated_param(
+        "Hue Noise Scale", &params.hue_noise_scale, HUE_NOISE_SCALE_MIN,
+        domain_scaled_max(HUE_NOISE_SCALE_MAX, 2.0f, domain_scale));
+    const float speed_max =
+        domain_scaled_max(NOISE_SPEED_MAX, 0.008f, domain_scale);
+    register_clamped_animated_param("Hue Noise Speed", &params.hue_noise_speed,
+                                    -speed_max, speed_max);
   }
 
   struct Blend {
@@ -1680,15 +1757,36 @@ private:
     bool blends;
   };
 
+  struct PreparedAffineFrame {
+    float translation_x;
+    float translation_y;
+    float scale_x;
+    float scale_y;
+    float shear;
+  };
+
+  struct PreparedMirrorTile {
+    float offset_x;
+    float offset_y;
+  };
+
+  struct PreparedVortex {
+    float center_x;
+    float center_y;
+    float radius_sq;
+    float angle_numerator;
+  };
+
+  union PreparedWarpTransform {
+    PreparedAffineFrame affine;
+    PreparedMirrorTile mirror;
+    PreparedVortex vortex;
+  };
+
   struct PreparedWarpStage {
     float rotation_cos;
     float rotation_sin;
-    float mirror_offset_x;
-    float mirror_offset_y;
-    float vortex_center_x;
-    float vortex_center_y;
-    float vortex_radius_sq;
-    float vortex_angle_numerator;
+    PreparedWarpTransform transform;
     WrappedNoisePhase noise_phase;
   };
 
@@ -3068,26 +3166,36 @@ private:
   HS_FLASH_MEMBER static PreparedWarpStage
   prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
                      float stage_phase) {
-    const float rotation =
-        params.rotation + (spec.kind == WarpStageKind::AFFINE_FRAME
-                               ? TWO_PI_F * stage_phase
-                               : 0.0f);
-    const float rotation_cos = cosf(rotation);
-    const float rotation_sin = sinf(rotation);
-    const float orbit_phase = TWO_PI_F * stage_phase;
-    const float mirror_phase =
-        spec.kind == WarpStageKind::MIRROR_TILE ? stage_phase : 0.0f;
-    return {
-        rotation_cos,
-        rotation_sin,
-        wrap_t(params.offset_x / params.cell_x + mirror_phase) * params.cell_x,
-        wrap_t(params.offset_y / params.cell_y) * params.cell_y,
-        params.center_x + params.center_orbit_radius * cosf(orbit_phase),
-        params.center_y + params.center_orbit_radius * sinf(orbit_phase),
-        params.radius * params.radius,
-        TWO_PI_F * params.turns,
-        prepare_noise_phase(stage_phase),
-    };
+    PreparedWarpStage prepared{};
+    float rotation = params.rotation;
+    if (spec.kind == WarpStageKind::AFFINE_FRAME) {
+      const float motion = 0.5f - 0.5f * cosf(TWO_PI_F * wrap_t(stage_phase));
+      rotation *= motion;
+      prepared.transform.affine = {
+          params.translation_x * motion,
+          params.translation_y * motion,
+          hs::lerp(1.0f, params.scale_x, motion),
+          hs::lerp(1.0f, params.scale_y, motion),
+          params.shear * motion,
+      };
+    } else if (spec.kind == WarpStageKind::MIRROR_TILE) {
+      prepared.transform.mirror = {
+          wrap_t(params.offset_x / params.cell_x + stage_phase) * params.cell_x,
+          wrap_t(params.offset_y / params.cell_y) * params.cell_y,
+      };
+    } else if (spec.kind == WarpStageKind::VORTEX) {
+      const float orbit_phase = TWO_PI_F * stage_phase;
+      prepared.transform.vortex = {
+          params.center_x + params.center_orbit_radius * cosf(orbit_phase),
+          params.center_y + params.center_orbit_radius * sinf(orbit_phase),
+          params.radius * params.radius,
+          TWO_PI_F * params.turns,
+      };
+    }
+    prepared.rotation_cos = cosf(rotation);
+    prepared.rotation_sin = sinf(rotation);
+    prepared.noise_phase = prepare_noise_phase(stage_phase);
+    return prepared;
   }
 
   HS_COLD_MEMBER FrameState prepare_frame() const {
@@ -3807,17 +3915,18 @@ private:
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
-  warp_affine_frame(const Complex &input, const WarpStageParams &params,
+  warp_affine_frame(const Complex &input, const WarpStageParams &,
                     const PreparedWarpStage &prepared) {
     const float c = prepared.rotation_cos;
     const float s = prepared.rotation_sin;
-    const float x = input.re - params.translation_x;
-    const float y = input.im - params.translation_y;
+    const PreparedAffineFrame &affine = prepared.transform.affine;
+    const float x = input.re - affine.translation_x;
+    const float y = input.im - affine.translation_y;
     const float rx = c * x + s * y;
     const float ry = -s * x + c * y;
-    const Complex output(rx / params.scale_x -
-                             params.shear * ry / params.scale_y,
-                         ry / params.scale_y);
+    const Complex output(rx / affine.scale_x -
+                             affine.shear * ry / affine.scale_y,
+                         ry / affine.scale_y);
     return finish_closed_form_warp(input, output);
   }
 
@@ -3840,15 +3949,16 @@ private:
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_vortex(const Complex &input, const PreparedWarpStage &prepared) {
-    const float x = input.re - prepared.vortex_center_x;
-    const float y = input.im - prepared.vortex_center_y;
+    const PreparedVortex &vortex = prepared.transform.vortex;
+    const float x = input.re - vortex.center_x;
+    const float y = input.im - vortex.center_y;
     const float r_sq = x * x + y * y;
-    const float angle = prepared.vortex_angle_numerator /
-                        (1.0f + r_sq / prepared.vortex_radius_sq);
+    const float angle =
+        vortex.angle_numerator / (1.0f + r_sq / vortex.radius_sq);
     const float c = cosf(angle);
     const float s = sinf(angle);
-    const Complex output(prepared.vortex_center_x + c * x - s * y,
-                         prepared.vortex_center_y + s * x + c * y);
+    const Complex output(vortex.center_x + c * x - s * y,
+                         vortex.center_y + s * x + c * y);
     return finish_closed_form_warp(input, output);
   }
 
@@ -4037,8 +4147,8 @@ private:
               const PreparedWarpStage &prepared) {
     const float c = prepared.rotation_cos;
     const float s = prepared.rotation_sin;
-    const float offset_x = prepared.mirror_offset_x;
-    const float offset_y = prepared.mirror_offset_y;
+    const float offset_x = prepared.transform.mirror.offset_x;
+    const float offset_y = prepared.transform.mirror.offset_y;
     const float x = c * input.re + s * input.im + offset_x;
     const float y = -s * input.re + c * input.im + offset_y;
     const float folded_x =
@@ -6448,6 +6558,7 @@ private:
   Config accepted_config = PRESETS[0];
 #endif
   bool requested_schema_bound = false;
+  bool registered_range_clamped = false;
   uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;
   Blend blend{PRESETS[0].params};

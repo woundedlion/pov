@@ -2238,6 +2238,49 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_LT(parameter_index("Band Phase"), parameter_index("Coverage"));
 }
 
+/** @brief Polyhedral lenses expose controls at their chamber scale. */
+inline void test_shaderball_lens_domain_ranges() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+
+  auto parameter = [&](const char *name) {
+    const auto *definition = sb.getParameters().find(name);
+    HS_EXPECT_TRUE(definition != nullptr);
+    return definition;
+  };
+
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 20.0f);
+  HS_EXPECT_EQ(parameter("Speed")->max, 5.0f);
+  HS_EXPECT_TRUE(sb.updateParameter("Speed", 5.0f) == ParamSetResult::APPLIED);
+
+  HS_EXPECT_TRUE(sb.updateParameter(
+                     "Lens", static_cast<float>(
+                                 WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 8.0f);
+  HS_EXPECT_EQ(parameter("Speed")->max, 0.5f);
+  HS_EXPECT_EQ(parameter("Speed")->get_requested(), 0.5f);
+  HS_EXPECT_EQ(parameter("Source Angle Speed")->max, 0.03f);
+  HS_EXPECT_EQ(parameter("Drift")->max, 1.25f);
+  HS_EXPECT_EQ(parameter("Projection Spin Speed")->max, 0.04f);
+  HS_EXPECT_EQ(parameter("Surface Noise Scale")->max, 0.75f);
+  HS_EXPECT_EQ(parameter("Surface Noise Speed")->max, 0.002f);
+  HS_EXPECT_EQ(parameter("Hue Noise Scale")->max, 2.0f);
+  HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.008f);
+
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Planar Warp 1",
+                         static_cast<float>(WB::WarpStageKind::WAVE_SHEAR)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(parameter("Planar Warp 1 Speed")->max, 0.005f);
+  HS_EXPECT_EQ(parameter("Planar Warp 1 Frequency")->max, 8.0f);
+}
+
 /** @brief New cartographic kernels preserve landmarks and stay finite. */
 inline void test_shaderball_projection_catalog() {
   using WB = ShaderBallWhiteBox;
@@ -3093,7 +3136,28 @@ inline void test_shaderball_planar_warp_animation() {
   };
 
   WB::WarpStageParams affine;
+  affine.translation_x = 0.4f;
+  affine.translation_y = -0.2f;
+  affine.rotation = 0.6f;
+  affine.scale_x = 1.5f;
+  affine.scale_y = 0.75f;
+  affine.shear = 0.25f;
   expect_cycle(WB::WarpStageKind::AFFINE_FRAME, affine);
+  float WB::WarpStageParams::*const affine_fields[] = {
+      &WB::WarpStageParams::translation_x, &WB::WarpStageParams::translation_y,
+      &WB::WarpStageParams::rotation,      &WB::WarpStageParams::scale_x,
+      &WB::WarpStageParams::scale_y,       &WB::WarpStageParams::shear,
+  };
+  for (size_t index = 0; index < std::size(affine_fields); ++index) {
+    WB::WarpStageParams one_value;
+    one_value.*affine_fields[index] = index == 3 || index == 4 ? 1.5f : 0.3f;
+    const auto identity =
+        sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.0f);
+    const auto authored =
+        sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.5f);
+    HS_EXPECT_TRUE(fabsf(identity.coords.re - authored.coords.re) > 1e-4f ||
+                   fabsf(identity.coords.im - authored.coords.im) > 1e-4f);
+  }
 
   WB::WarpStageParams mirror;
   mirror.cell_x = 1.0f;
@@ -3802,6 +3866,7 @@ inline int run_shaderball_tests() {
   test_shaderball_manual_preset_navigation();
   test_shaderball_preset_gui_transition();
   test_shaderball_gui_catalog();
+  test_shaderball_lens_domain_ranges();
   test_shaderball_projection_catalog();
   test_shaderball_fast_peirce_square();
   test_shaderball_projection_and_admission_contracts();
