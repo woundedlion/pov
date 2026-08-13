@@ -1975,6 +1975,9 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       }
       size_t step_count = 0;
       float backstop_stretch = 1.0f;
+      // Arc from the last plotted sample to the segment end; the terminal step
+      // is `remaining`, not the stretched `desired_step`.
+      [[maybe_unused]] float endpoint_gap = total_dist;
       while (current_dist < total_dist) {
         Vector p;
         if constexpr (OpenGeodesic) {
@@ -2029,12 +2032,14 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
             HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
             backstop_stretch = total_dist / current_dist;
           } else if (step_count >= 2 * max_cache) {
+            endpoint_gap = total_dist - current_dist;
             break;
           }
         }
         HS_PLOT_MAX(steps_peak, step_count);
         float remaining = total_dist - current_dist;
         if (remaining <= desired_step) {
+          endpoint_gap = remaining;
           current_dist = total_dist;
         } else if (remaining < 2.0f * desired_step) {
           current_dist += remaining * 0.5f;
@@ -2101,7 +2106,11 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         shade_fragment(next.pos, f);
         if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
           if (balanced_sampling) {
-            const float alpha_scale = desired_step / default_desired_step;
+            // Gain the endpoint by the arc it actually stands in for, floored
+            // at the default step so it never dims below the DEFAULT policy.
+            const float alpha_scale =
+                hs::clamp(endpoint_gap, default_desired_step, desired_step) /
+                default_desired_step;
             f.color.alpha = balanced_sample_alpha(f.color.alpha, alpha_scale);
           }
         }
