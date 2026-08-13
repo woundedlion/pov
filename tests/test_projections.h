@@ -172,9 +172,9 @@ inline void check_peirce_fast_square_matches_exact(const Vector &v) {
 }
 
 inline void test_peirce_fast_square_matches_exact() {
-  // Half-step azimuths: the sector seams sit at even multiples of pi/96, so no
-  // sample lands inside peirce_sector_longitude's 2e-6 snap band, where the two
-  // kernels disagree on which sector a tie belongs to.
+  // Half-step azimuths: the sector seams sit at even multiples of pi/96, so
+  // every sample lands in a sector interior. The snap band itself is covered by
+  // test_peirce_fast_square_ties_the_diagonal_band_to_its_seam.
   for (int latitude_step = 0; latitude_step <= 96; ++latitude_step) {
     const float y = -1.0f + 2.0f * latitude_step / 96.0f;
     const float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
@@ -202,6 +202,34 @@ inline void test_peirce_fast_square_on_seams_and_poles() {
     check_peirce_fast_square_matches_exact(Vector(0.0f, y, radius));
     check_peirce_fast_square_matches_exact(Vector(-radius, y, 0.0f));
     check_peirce_fast_square_matches_exact(Vector(0.0f, y, -radius));
+  }
+}
+
+inline void test_peirce_fast_square_ties_the_diagonal_band_to_its_seam() {
+  // Inside peirce_sector_longitude's snap band the exact kernel folds the
+  // azimuth onto the boundary; the fast kernel's diagonal_tie must label
+  // those samples as the seam itself, so a glued edge reads the same from
+  // either side.
+  constexpr float INV_SQRT_TWO = 0.7071067811865475f;
+  constexpr float OFFSETS[] = {-1.0e-6f, -1.0e-7f, 1.0e-7f, 1.0e-6f};
+  constexpr int QUADRANT_X[] = {1, -1, -1, 1};
+  constexpr int QUADRANT_Z[] = {1, 1, -1, -1};
+  for (int latitude_step = -6; latitude_step <= 6; ++latitude_step) {
+    const float y = latitude_step / 8.0f;
+    const float diagonal = sqrtf(1.0f - y * y) * INV_SQRT_TWO;
+    for (int quadrant = 0; quadrant < 4; ++quadrant) {
+      const float sx = static_cast<float>(QUADRANT_X[quadrant]);
+      const float sz = static_cast<float>(QUADRANT_Z[quadrant]);
+      const ProjectionKernelResult seam = peirce_projection_fast_square(
+          Vector(sx * diagonal, y, sz * diagonal));
+      for (float offset : OFFSETS) {
+        const ProjectionKernelResult banded = peirce_projection_fast_square(
+            Vector(sx * diagonal * (1.0f + offset), y,
+                   sz * diagonal * (1.0f - offset)));
+        HS_EXPECT_EQ(banded.region_id, seam.region_id);
+        HS_EXPECT_EQ(banded.edge_class, seam.edge_class);
+      }
+    }
   }
 }
 
@@ -431,6 +459,7 @@ inline int run_projections_tests() {
   test_peirce_sector_longitude_snapping();
   test_peirce_fast_square_matches_exact();
   test_peirce_fast_square_on_seams_and_poles();
+  test_peirce_fast_square_ties_the_diagonal_band_to_its_seam();
   test_peirce_square_is_the_rotated_diamond();
   test_peirce_strip_scroll_is_periodic();
   test_airocean_cut_masks_match_the_edge_lists();
