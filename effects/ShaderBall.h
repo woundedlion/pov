@@ -54,7 +54,7 @@ struct ShaderBallWhiteBox;
   X(SLOTS_SIGNAL_WEIGHT, slots.signal_weight)                                  \
   X(SLOTS_VALUE_TRANSFER, slots.value_transfer)                                \
   X(SLOTS_COVERAGE, slots.coverage)                                            \
-  X(SLOTS_COLORIZER, slots.colorizer)                                          \
+  X(SLOTS_PALETTE, slots.palette)                                              \
   X(SLOTS_PEIRCE_LAYOUT, slots.peirce_layout)                                  \
   X(SLOTS_AIROCEAN_LAYOUT, slots.airocean_layout)                              \
   X(SLOTS_BONNE_HEMISPHERE, slots.bonne_hemisphere)                            \
@@ -79,7 +79,7 @@ struct ShaderBallWhiteBox;
   X(SOURCE_NOISE_RESOURCE_ID, params.source.noise_resource_id)                 \
   X(WARP_OUTER_SCALE, params.warp.outer.scale)                                 \
   X(WARP_OUTER_STRENGTH, params.warp.outer.strength)                           \
-  X(WARP_OUTER_TIME_SCALE, params.warp.outer.time_scale)                       \
+  X(WARP_OUTER_SPEED, params.warp.outer.speed)                                 \
   X(WARP_OUTER_TRANSLATION_X, params.warp.outer.translation_x)                 \
   X(WARP_OUTER_TRANSLATION_Y, params.warp.outer.translation_y)                 \
   X(WARP_OUTER_ROTATION, params.warp.outer.rotation)                           \
@@ -104,7 +104,7 @@ struct ShaderBallWhiteBox;
   X(WARP_OUTER_EDGE_WIDTH, params.warp.outer.edge_width)                       \
   X(WARP_INNER_SCALE, params.warp.inner.scale)                                 \
   X(WARP_INNER_STRENGTH, params.warp.inner.strength)                           \
-  X(WARP_INNER_TIME_SCALE, params.warp.inner.time_scale)                       \
+  X(WARP_INNER_SPEED, params.warp.inner.speed)                                 \
   X(WARP_INNER_TRANSLATION_X, params.warp.inner.translation_x)                 \
   X(WARP_INNER_TRANSLATION_Y, params.warp.inner.translation_y)                 \
   X(WARP_INNER_ROTATION, params.warp.inner.rotation)                           \
@@ -157,16 +157,9 @@ struct ShaderBallWhiteBox;
   X(VALUE_CUTOUT_THRESHOLD, params.value.cutout_threshold)                     \
   X(VALUE_CUTOUT_SOFTNESS, params.value.cutout_softness)                       \
   X(VALUE_EDGE_WIDTH, params.value.edge_width)                                 \
-  X(COLOR_BREATHE_DEPTH, params.colorizer.breathe_depth)                       \
-  X(COLOR_CYCLE_SPEED, params.colorizer.cycle_speed)                           \
-  X(COLOR_HUE_SHIFT, params.colorizer.hue_shift)                               \
-  X(COLOR_VALUE_FADE, params.colorizer.value_fade)                             \
-  X(COLOR_DISPLACEMENT_GAIN, params.colorizer.displacement_gain)               \
-  X(COLOR_PATH_GAIN, params.colorizer.path_gain)                               \
-  X(COLOR_DIRECTION_GAIN, params.colorizer.direction_gain)                     \
-  X(COLOR_DISPLACEMENT_NORM, params.colorizer.displacement_norm)               \
-  X(COLOR_PATH_NORM, params.colorizer.path_norm)                               \
-  X(COLOR_DIRECTION_PHASE, params.colorizer.direction_phase)                   \
+  X(COLOR_HUE_NOISE_AMOUNT, params.color.hue_noise_amount)                     \
+  X(COLOR_HUE_NOISE_SCALE, params.color.hue_noise_scale)                       \
+  X(COLOR_HUE_NOISE_SPEED, params.color.hue_noise_speed)                       \
   X(CAMERA_WANDER, params.outer_camera.wander)                                 \
   X(SURFACE_NOISE_BASIS, params.surface_noise.basis)                           \
   X(SURFACE_NOISE_INTEGRATOR, params.surface_noise.integrator)                 \
@@ -211,12 +204,15 @@ public:
     timeline.add(
         0, Animation::RandomWalk<W>(outer_walk, UP, state->outer_walk_noise));
 
-    liquid_palette_cycler.init_generated(persistent_arena, next_liquid_palette,
-                                         &liquid_rotation, PALETTE_DWELL_FRAMES,
-                                         PALETTE_FADE_FRAMES, ease_in_out_sin);
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
-    generated_palette_cycler.init_generated(
+    triadic_palette_cycler.init_generated(
         persistent_arena, next_triadic_palette, &palette_hue,
+        PALETTE_DWELL_FRAMES, PALETTE_FADE_FRAMES, ease_in_out_sin);
+    complementary_palette_cycler.init_generated(
+        persistent_arena, next_complementary_palette, &complementary_hue,
+        PALETTE_DWELL_FRAMES, PALETTE_FADE_FRAMES, ease_in_out_sin);
+    analogous_palette_cycler.init_generated(
+        persistent_arena, next_analogous_palette, &analogous_hue,
         PALETTE_DWELL_FRAMES, PALETTE_FADE_FRAMES, ease_in_out_sin);
 
     enter_preset();
@@ -242,10 +238,10 @@ public:
     } else {
       advance_runtime(runtime, {active_slots, blend.params}, walk_deltas);
     }
-    liquid_palette_cycler.step();
-    generated_palette_cycler.step();
+    triadic_palette_cycler.step();
+    complementary_palette_cycler.step();
+    analogous_palette_cycler.step();
 #if HS_ENABLE_TEST_HOOKS
-    ++liquid_palette_step_count;
     ++generated_palette_step_count;
 #endif
 
@@ -415,7 +411,7 @@ public:
     EDGE_FADE,
     PROJECTION_WEIGHT
   };
-  enum class Colorizer : uint8_t { GENERATED_TRIADIC, LIQUID, DEFORMATION_INK };
+  enum class PaletteMode : uint8_t { TRIADIC, COMPLEMENTARY, ANALOGOUS };
 
   struct Slots {
     Function function;
@@ -426,7 +422,7 @@ public:
     SignalWeight signal_weight;
     ValueTransfer value_transfer;
     CoveragePolicy coverage;
-    Colorizer colorizer;
+    PaletteMode palette;
     PeirceLayout peirce_layout = PeirceLayout::SQUARE;
     AiroceanLayout airocean_layout = AiroceanLayout::VERTICAL;
     BonneHemisphere bonne_hemisphere = BonneHemisphere::NORTH;
@@ -498,7 +494,7 @@ public:
   struct WarpStageParams {
     float scale = 1.0f;
     float strength = 0.0f;
-    float time_scale = 0.1f;
+    float speed = 0.0f;
     float translation_x = 0.0f;
     float translation_y = 0.0f;
     float rotation = 0.0f;
@@ -524,8 +520,8 @@ public:
 
     HS_COLD_MEMBER constexpr WarpStageParams() = default;
 
-    constexpr WarpStageParams(float scale, float strength, float time_scale)
-        : scale(scale), strength(strength), time_scale(time_scale) {}
+    constexpr WarpStageParams(float scale, float strength, float speed)
+        : scale(scale), strength(strength), speed(speed) {}
 
     HS_COLD_MEMBER bool operator==(const WarpStageParams &) const = default;
 
@@ -533,7 +529,7 @@ public:
                              float t) {
       scale = hs::lerp(a.scale, b.scale, t);
       strength = hs::lerp(a.strength, b.strength, t);
-      time_scale = hs::lerp(a.time_scale, b.time_scale, t);
+      speed = hs::lerp(a.speed, b.speed, t);
       translation_x = hs::lerp(a.translation_x, b.translation_x, t);
       translation_y = hs::lerp(a.translation_y, b.translation_y, t);
       rotation = lerp_angle(a.rotation, b.rotation, t);
@@ -721,40 +717,24 @@ public:
     }
   };
 
-  struct ColorizerParams {
-    float breathe_depth = 0.0f;
-    float cycle_speed = 0.0f;
-    float hue_shift = 0.0f;
-    float value_fade = 0.0f;
-    float displacement_gain = 1.0f;
-    float path_gain = 0.0f;
-    float direction_gain = 0.0f;
-    float displacement_norm = 1.0f;
-    float path_norm = 1.0f;
-    float direction_phase = 0.0f;
+  struct ColorParams {
+    float hue_noise_amount = 0.0f;
+    float hue_noise_scale = 1.0f;
+    float hue_noise_speed = 0.0f;
 
-    HS_COLD_MEMBER constexpr ColorizerParams() = default;
+    HS_COLD_MEMBER constexpr ColorParams() = default;
 
-    constexpr ColorizerParams(float breathe_depth, float cycle_speed,
-                              float hue_shift, float value_fade)
-        : breathe_depth(breathe_depth), cycle_speed(cycle_speed),
-          hue_shift(hue_shift), value_fade(value_fade) {}
+    constexpr ColorParams(float amount, float scale, float speed)
+        : hue_noise_amount(amount), hue_noise_scale(scale),
+          hue_noise_speed(speed) {}
 
-    HS_COLD_MEMBER bool operator==(const ColorizerParams &) const = default;
+    HS_COLD_MEMBER bool operator==(const ColorParams &) const = default;
 
-    HS_COLD_MEMBER void lerp(const ColorizerParams &a, const ColorizerParams &b,
+    HS_COLD_MEMBER void lerp(const ColorParams &a, const ColorParams &b,
                              float t) {
-      breathe_depth = hs::lerp(a.breathe_depth, b.breathe_depth, t);
-      cycle_speed = hs::lerp(a.cycle_speed, b.cycle_speed, t);
-      hue_shift = hs::lerp(a.hue_shift, b.hue_shift, t);
-      value_fade = hs::lerp(a.value_fade, b.value_fade, t);
-      displacement_gain = hs::lerp(a.displacement_gain, b.displacement_gain, t);
-      path_gain = hs::lerp(a.path_gain, b.path_gain, t);
-      direction_gain = hs::lerp(a.direction_gain, b.direction_gain, t);
-      displacement_norm = hs::lerp(a.displacement_norm, b.displacement_norm, t);
-      path_norm = hs::lerp(a.path_norm, b.path_norm, t);
-      direction_phase =
-          WarpStageParams::lerp_angle(a.direction_phase, b.direction_phase, t);
+      hue_noise_amount = hs::lerp(a.hue_noise_amount, b.hue_noise_amount, t);
+      hue_noise_scale = hs::lerp(a.hue_noise_scale, b.hue_noise_scale, t);
+      hue_noise_speed = hs::lerp(a.hue_noise_speed, b.hue_noise_speed, t);
     }
   };
 
@@ -775,7 +755,7 @@ public:
     ProjectionParams projection;
     SurfaceLensParams surface_lens;
     ValueParams value;
-    ColorizerParams colorizer;
+    ColorParams color;
     OuterCameraParams outer_camera;
     SurfaceNoiseParams surface_noise;
 
@@ -784,10 +764,10 @@ public:
     constexpr Params(SourceParams source, WarpParams warp,
                      ProjectionParams projection,
                      SurfaceLensParams surface_lens, ValueParams value,
-                     ColorizerParams colorizer, OuterCameraParams outer_camera,
+                     ColorParams color, OuterCameraParams outer_camera,
                      SurfaceNoiseParams surface_noise)
         : source(source), warp(warp), projection(projection),
-          surface_lens(surface_lens), value(value), colorizer(colorizer),
+          surface_lens(surface_lens), value(value), color(color),
           outer_camera(outer_camera), surface_noise(surface_noise) {}
 
     HS_COLD_MEMBER bool operator==(const Params &) const = default;
@@ -799,25 +779,25 @@ public:
       surface_lens.lerp(a.surface_lens, b.surface_lens, t);
       surface_noise.lerp(a.surface_noise, b.surface_noise, t);
       value.lerp(a.value, b.value, t);
-      colorizer.lerp(a.colorizer, b.colorizer, t);
+      color.lerp(a.color, b.color, t);
       outer_camera.lerp(a.outer_camera, b.outer_camera, t);
     }
 
     HS_COLD_MEMBER void lerp_staggered(const Params &a, const Params &b,
                                        float t) {
-      const int phase_count =
-          (a.source != b.source) + (a.warp != b.warp) +
-          (a.projection != b.projection) + (a.surface_lens != b.surface_lens) +
-          (a.value != b.value) + (a.colorizer != b.colorizer) +
-          (a.outer_camera != b.outer_camera) +
-          (a.surface_noise != b.surface_noise);
+      const int phase_count = (a.source != b.source) + (a.warp != b.warp) +
+                              (a.projection != b.projection) +
+                              (a.surface_lens != b.surface_lens) +
+                              (a.value != b.value) + (a.color != b.color) +
+                              (a.outer_camera != b.outer_camera) +
+                              (a.surface_noise != b.surface_noise);
       int phase = 0;
       source = a.source;
       warp = a.warp;
       projection = a.projection;
       surface_lens = a.surface_lens;
       value = a.value;
-      colorizer = a.colorizer;
+      color = a.color;
       outer_camera = a.outer_camera;
       surface_noise = a.surface_noise;
       if (a.source != b.source)
@@ -832,9 +812,8 @@ public:
                           phase_t(t, phase++, phase_count));
       if (a.value != b.value)
         value.lerp(a.value, b.value, phase_t(t, phase++, phase_count));
-      if (a.colorizer != b.colorizer)
-        colorizer.lerp(a.colorizer, b.colorizer,
-                       phase_t(t, phase++, phase_count));
+      if (a.color != b.color)
+        color.lerp(a.color, b.color, phase_t(t, phase++, phase_count));
       if (a.outer_camera != b.outer_camera)
         outer_camera.lerp(a.outer_camera, b.outer_camera,
                           phase_t(t, phase++, phase_count));
@@ -861,20 +840,19 @@ public:
   using RequestedConfig = Config;
   using Preset = Config;
 
-  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 2;
+  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 3;
 
   /**
    * @brief Reports whether a persisted snapshot's schema version can be
    *        restored.
    * @param version Snapshot schema version to test.
-   * @return true for the current version and every legacy version
-   *         restore_full_config_snapshot() still migrates.
+   * @return true for the current version.
    * @details Single source of truth for the accepted set, so callers that
    *          pre-screen a version (the WASM bridge) cannot drift from what the
    *          effect actually accepts.
    */
   static constexpr bool config_version_supported(uint32_t version) {
-    return version == 1 || version == CONFIG_SCHEMA_VERSION;
+    return version == CONFIG_SCHEMA_VERSION;
   }
 
   enum class ConfigFieldId : uint16_t {
@@ -907,7 +885,7 @@ public:
     SOURCE_ANGLE,
     LEGACY_WARP_TIME,
     PROJECTION_SPIN,
-    BREATHE_PHASE,
+    HUE_NOISE_PHASE,
     SOURCE_NOISE_PHASE,
     LEGACY_LENS_NOISE_PHASE,
     SURFACE_NOISE_PHASE,
@@ -968,11 +946,11 @@ public:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Latest successful legacy-import notice, or an empty string. */
-  const char *config_import_notice() const { return import_notice.data(); }
+  /** @brief Reserved compatibility accessor. */
+  const char *config_import_notice() const { return ""; }
 
-  /** @brief Clears the current legacy-import notice. */
-  void clear_config_import_notice() { import_notice = {}; }
+  /** @brief Reserved compatibility no-op. */
+  void clear_config_import_notice() {}
 #endif
 
 private:
@@ -1026,10 +1004,9 @@ private:
     register_animated_param("Coverage", &slots.coverage, COVERAGE_OPTIONS,
                             COVERAGE_EXPORT_OPTIONS, NUM_COVERAGE_POLICIES);
     register_coverage_controls(slots.coverage, requested_config.params.value);
-    register_animated_param("Colorizer", &slots.colorizer, COLORIZER_OPTIONS,
-                            COLORIZER_EXPORT_OPTIONS, NUM_COLORIZERS);
-    register_colorizer_controls(slots.colorizer,
-                                requested_config.params.colorizer);
+    register_animated_param("Palette", &slots.palette, PALETTE_OPTIONS,
+                            PALETTE_EXPORT_OPTIONS, NUM_PALETTES);
+    register_color_controls(requested_config.params.color);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     if (requested_schema_bound && clamp_registered_parameter_ranges())
       refresh_accepted_config();
@@ -1267,7 +1244,7 @@ private:
            std::strcmp(name, "Planar Warp 2") == 0 ||
            std::strcmp(name, "Value Transfer") == 0 ||
            std::strcmp(name, "Coverage") == 0 ||
-           std::strcmp(name, "Colorizer") == 0;
+           std::strcmp(name, "Palette") == 0;
   }
 #endif
 
@@ -1335,7 +1312,7 @@ private:
                               SOURCE_NOISE_SCALE_MIN, SOURCE_NOISE_SCALE_MAX);
       register_animated_param("Source Noise Contrast", &params.noise_contrast,
                               0.0f, 8.0f);
-      register_animated_param("Source Noise Rate", &params.noise_time_rate,
+      register_animated_param("Source Noise Speed", &params.noise_time_rate,
                               SOURCE_NOISE_RATE_MIN, SOURCE_NOISE_RATE_MAX);
       register_animated_param("Source Noise Basis", &params.noise_basis,
                               NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
@@ -1359,7 +1336,7 @@ private:
     if (function == Function::PRIMITIVE_LATTICE)
       return;
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
-    register_animated_param("Source Angle Rate", &params.angle_rate,
+    register_animated_param("Source Angle Speed", &params.angle_rate,
                             WAVE_SPIN_MIN, WAVE_SPIN_MAX);
     if (function == Function::GRID) {
       register_animated_param("Complexity", &params.complexity, COMPLEXITY_MIN,
@@ -1422,8 +1399,9 @@ private:
   register_projection_frame_controls(ProjectionFramePolicy frame,
                                      Params &params) {
     if (frame == ProjectionFramePolicy::SPIN_WANDER) {
-      register_animated_param("Spin Rate", &params.projection.spin_rate,
-                              SPIN_RATE_MIN, SPIN_RATE_MAX);
+      register_animated_param("Projection Spin Speed",
+                              &params.projection.spin_rate, SPIN_RATE_MIN,
+                              SPIN_RATE_MAX);
       register_animated_param("Projection Wander", &params.projection.wander,
                               WANDER_MIN, WANDER_MAX);
     }
@@ -1475,7 +1453,7 @@ private:
     register_animated_param("Surface Noise Strength", &params.strength,
                             strength_min, 0.5f);
 #endif
-    register_animated_param("Surface Noise Rate", &params.rate, NOISE_RATE_MIN,
+    register_animated_param("Surface Noise Speed", &params.rate, NOISE_RATE_MIN,
                             NOISE_RATE_MAX);
     if (slots.surface_noise == SurfaceNoise::DIRECT)
       register_animated_param("Surface Noise Direction", &params.direction,
@@ -1494,7 +1472,8 @@ private:
       return;
     const char *const *names =
         first ? FIRST_WARP_PARAM_NAMES : SECOND_WARP_PARAM_NAMES;
-    const char *time_name = first ? "Planar Warp 1 Time" : "Planar Warp 2 Time";
+    const char *speed_name =
+        first ? "Planar Warp 1 Speed" : "Planar Warp 2 Speed";
     auto register_current = [&](const char *name, float *target, float minimum,
                                 float maximum) {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -1517,12 +1496,8 @@ private:
       register_current(strength_name, &params.strength,
                        signed_strength ? -strength_max : 0.0f, strength_max);
     }
-    if (spec.kind == WarpStageKind::WAVE_SHEAR ||
-        spec.kind == WarpStageKind::VORTEX ||
-        spec.kind == WarpStageKind::VECTOR_NOISE ||
-        spec.kind == WarpStageKind::CURL_FLOW)
-      register_current(time_name, &params.time_scale, NOISE_RATE_MIN,
-                       NOISE_RATE_MAX);
+    register_current(speed_name, &params.speed, NOISE_SPEED_MIN,
+                     NOISE_SPEED_MAX);
     switch (spec.kind) {
     case WarpStageKind::AFFINE_FRAME: {
       for (int index = 0; index < 6; ++index) {
@@ -1589,30 +1564,13 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void register_colorizer_controls(Colorizer colorizer,
-                                                  ColorizerParams &params) {
-    if (colorizer == Colorizer::LIQUID) {
-      register_animated_param("Breathe Depth", &params.breathe_depth,
-                              BREATHE_MIN, BREATHE_MAX);
-      register_animated_param("Cycle Speed", &params.cycle_speed,
-                              CYCLE_SPEED_MIN, CYCLE_SPEED_MAX);
-      register_animated_param("Hue Shift", &params.hue_shift, HUE_SHIFT_MIN,
-                              HUE_SHIFT_MAX);
-      register_animated_param("Value Fade", &params.value_fade, VALUE_FADE_MIN,
-                              VALUE_FADE_MAX);
-    } else if (colorizer == Colorizer::DEFORMATION_INK) {
-      register_animated_param("Ink Displacement", &params.displacement_gain,
-                              -4.0f, 4.0f);
-      register_animated_param("Ink Path", &params.path_gain, -4.0f, 4.0f);
-      register_animated_param("Ink Direction", &params.direction_gain, -4.0f,
-                              4.0f);
-      register_animated_param("Ink Displacement Norm",
-                              &params.displacement_norm, SOFTNESS_MIN, 32.0f);
-      register_animated_param("Ink Path Norm", &params.path_norm, SOFTNESS_MIN,
-                              32.0f);
-      register_animated_param("Ink Direction Phase", &params.direction_phase,
-                              0.0f, TWO_PI_F);
-    }
+  HS_COLD_MEMBER void register_color_controls(ColorParams &params) {
+    register_animated_param("Hue Noise Amount", &params.hue_noise_amount,
+                            HUE_NOISE_AMOUNT_MIN, HUE_NOISE_AMOUNT_MAX);
+    register_animated_param("Hue Noise Scale", &params.hue_noise_scale,
+                            HUE_NOISE_SCALE_MIN, HUE_NOISE_SCALE_MAX);
+    register_animated_param("Hue Noise Speed", &params.hue_noise_speed,
+                            NOISE_SPEED_MIN, NOISE_SPEED_MAX);
   }
 
   struct Blend {
@@ -1687,9 +1645,7 @@ private:
   struct MaterialSample {
     float value;
     float coverage;
-    Complex net_delta;
-    float deformation;
-    float path_length;
+    Vector sphere;
   };
 
   struct ClockState {
@@ -1697,7 +1653,7 @@ private:
     float source_secondary = 0.0f;
     float source_angle = 0.0f;
     float projection_spin = 0.0f;
-    float breathe_phase = 0.0f;
+    float hue_noise_phase = 0.0f;
     float source_noise_time = 0.0f;
     float surface_noise_time = 0.0f;
     float warp_outer_phase = 0.0f;
@@ -1706,10 +1662,10 @@ private:
     HS_COLD_MEMBER constexpr ClockState() = default;
     constexpr ClockState(float source_primary, float source_secondary,
                          float source_angle, float projection_spin,
-                         float breathe_phase)
+                         float hue_noise_phase)
         : source_primary(source_primary), source_secondary(source_secondary),
           source_angle(source_angle), projection_spin(projection_spin),
-          breathe_phase(breathe_phase) {}
+          hue_noise_phase(hue_noise_phase) {}
   };
 
   struct PreparedTransforms {
@@ -1747,7 +1703,7 @@ private:
     float direction_sin;
   };
 
-  struct PreparedLiquidHue {
+  struct PreparedHueRotation {
     static constexpr int VALUE_STEPS = 64;
     static constexpr int HUE_STEPS = 16;
     static constexpr size_t LUT_SIZE = VALUE_STEPS * HUE_STEPS;
@@ -1761,23 +1717,22 @@ private:
     const FastNoiseLite *inner_warp_noise;
     const FastNoiseLite *source_noise;
     const FastNoiseLite *surface_noise;
+    const FastNoiseLite *color_noise;
     const BakedPalette *generated_palette;
-    const BakedPalette *liquid_palette;
   };
 
-  static constexpr size_t MAX_NOISE_RESOURCES = 8;
+  static constexpr size_t MAX_NOISE_RESOURCES = 9;
 
   struct FrameState {
     Slots slots;
     Params params;
     ClockState clocks;
     SourceState prepared_source;
-    float breathe_offset;
     PreparedTransforms transforms;
     PreparedWarpProgram prepared_warp;
     WrappedNoisePhase source_noise_phase;
     PreparedSurfaceNoise prepared_surface_noise;
-    PreparedLiquidHue prepared_liquid_hue;
+    PreparedHueRotation prepared_hue_rotation;
     ResourceBindings resources;
   };
 
@@ -1810,7 +1765,7 @@ private:
   enum class ApproximationOracleId : uint8_t {
     NONE,
     PEIRCE_FAST_SQUARE,
-    LIQUID_HUE_LUT
+    HUE_ROTATION_LUT
   };
 
   enum class ApproximationDomain : uint8_t {
@@ -1837,7 +1792,6 @@ private:
     SignalWeight signal_weight{};
     ValueTransfer value_transfer{};
     CoveragePolicy coverage{};
-    Colorizer colorizer{};
     PeirceLayout peirce_layout{};
     AiroceanLayout airocean_layout{};
     BonneHemisphere bonne_hemisphere{};
@@ -2349,68 +2303,37 @@ private:
                            CoveragePolicy::PROJECTION_WEIGHT_SQUARED) {
         coverage *= input.projected.value_weight * input.projected.value_weight;
       }
-      const MaterialSample material{value, coverage, input.warped.net_delta,
-                                    input.warped.deformation,
-                                    input.warped.path_length};
+      const MaterialSample material{value, coverage, input.projected.sphere};
       HS_SB_STAGE_SPAN(material, stage_start);
       return material;
     }
   };
 
-  template <Colorizer ColorizerPolicy> struct ColorStage {
-    static_assert(ColorizerPolicy == Colorizer::GENERATED_TRIADIC ||
-                  ColorizerPolicy == Colorizer::LIQUID);
+  struct ColorStage {
     static constexpr InverseStageKind KIND = InverseStageKind::COLOR;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE = ColorizerPolicy == Colorizer::LIQUID;
+    static constexpr bool APPROXIMATE = true;
     static constexpr bool TERMINAL = true;
     static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
     static constexpr ApproximationOracleId ORACLE =
-        APPROXIMATE ? ApproximationOracleId::LIQUID_HUE_LUT
-                    : ApproximationOracleId::NONE;
-    static constexpr auto METRICS = [] {
-      if constexpr (APPROXIMATE)
-        return std::array<ApproximationMetric, 3>{{
-            {ApproximationDomain::COLOR_CHANNEL,
-             ApproximationAggregation::MAXIMUM, 5400.0f, "channel code"},
-            {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
-             256.0f, "channel code"},
-            {ApproximationDomain::FRAMEBUFFER,
-             ApproximationAggregation::MAXIMUM, 5400.0f, "channel code"},
-        }};
-      else
-        return std::array<ApproximationMetric, 0>{};
-    }();
+        ApproximationOracleId::HUE_ROTATION_LUT;
+    static constexpr std::array<ApproximationMetric, 3> METRICS{{
+        {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
+         5400.0f, "channel code"},
+        {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
+         256.0f, "channel code"},
+        {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
+         5400.0f, "channel code"},
+    }};
     using Input = MaterialSample;
     using Output = Color4;
 
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.colorizer == ColorizerPolicy;
-    }
+    static constexpr bool implements(const TopologyKey &) { return true; }
 
     __attribute__((always_inline)) static Color4
     run(const MaterialSample &material, const FrameState &frame) {
       HS_SB_STAGE_MARK(stage_start);
-      Color4 color;
-      if constexpr (ColorizerPolicy == Colorizer::GENERATED_TRIADIC) {
-        color = colorize_generated(material, frame);
-      } else {
-        const float value = std::min(material.value, ONE_BELOW_UNIT);
-        color = frame.resources.liquid_palette->get(
-            wrap_t(value + frame.breathe_offset));
-        color.alpha *= material.coverage *
-                       (1.0f - value * frame.params.colorizer.value_fade);
-        if (frame.params.colorizer.hue_shift != 0.0f &&
-            material.deformation != 0.0f) {
-          const float amount =
-              -material.deformation * frame.params.colorizer.hue_shift;
-          if (frame.prepared_liquid_hue.active)
-            color.color =
-                sample_liquid_hue_lut(frame.prepared_liquid_hue, value, amount);
-          else
-            color = hue_rotate_lut_gamut(color, amount);
-        }
-      }
+      const Color4 color = colorize_generated(material, frame);
       HS_SB_STAGE_SPAN(color, stage_start);
       return color;
     }
@@ -2420,51 +2343,44 @@ private:
       InversePipeline<OuterCameraStage,
                       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE>,
                       PlanarWarpStage<false>, SourceStage<Function::GRID>,
-                      LinearMaterialStage<CoveragePolicy::OPAQUE>,
-                      ColorStage<Colorizer::LIQUID>>;
+                      LinearMaterialStage<CoveragePolicy::OPAQUE>, ColorStage>;
   using GlitchNoiseGridPipeline =
       InversePipeline<OuterCameraStage,
                       DirectNoiseStereographicStage<SurfaceLens::GLITCH>,
                       PlanarWarpStage<false>, SourceStage<Function::GRID>,
-                      LinearMaterialStage<CoveragePolicy::OPAQUE>,
-                      ColorStage<Colorizer::LIQUID>>;
+                      LinearMaterialStage<CoveragePolicy::OPAQUE>, ColorStage>;
   using BonneKaleidoscopeLatticeMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::BONNE, SurfaceLens::KALEIDOSCOPE>,
       PlanarWarpStage<true>, SourceStage<Function::PRIMITIVE_LATTICE>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-      ColorStage<Colorizer::GENERATED_TRIADIC>>;
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   using PeirceKaleidoscopeLatticePipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
                                   SurfaceLens::KALEIDOSCOPE>,
       PlanarWarpStage<false>, SourceStage<Function::PRIMITIVE_LATTICE>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-      ColorStage<Colorizer::LIQUID>>;
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   using KaleidoscopeNoiseGridEdgeFadePipeline =
       InversePipeline<OuterCameraStage,
                       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE>,
                       PlanarWarpStage<false>, SourceStage<Function::GRID>,
                       LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-                      ColorStage<Colorizer::LIQUID>>;
+                      ColorStage>;
   using DodecahedralNoiseGridMirrorPipeline = InversePipeline<
       OuterCameraStage,
       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<true>, SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-      ColorStage<Colorizer::LIQUID>>;
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   using DodecahedralNoiseGridPipeline = InversePipeline<
       OuterCameraStage,
       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<false>, SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::OPAQUE>,
-      ColorStage<Colorizer::LIQUID>>;
+      LinearMaterialStage<CoveragePolicy::OPAQUE>, ColorStage>;
   using DodecahedralNoiseLatticeMirrorPipeline = InversePipeline<
       OuterCameraStage,
       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<true>, SourceStage<Function::PRIMITIVE_LATTICE>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-      ColorStage<Colorizer::LIQUID>>;
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   using GlitchNoiseGridWaveShearPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
@@ -2472,7 +2388,7 @@ private:
       SelectedPlanarWarpStage<WarpStageKind::WAVE_SHEAR, WarpStageKind::NONE>,
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      ColorStage<Colorizer::LIQUID>>;
+      ColorStage>;
   using KaleidoscopeTwinWaveInnerMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
@@ -2480,30 +2396,27 @@ private:
       SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::MIRROR_TILE>,
       SourceStage<Function::TWIN_WAVE>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      ColorStage<Colorizer::LIQUID>>;
+      ColorStage>;
   using GnomonicKaleidoscopeGridMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
                                   SurfaceLens::KALEIDOSCOPE>,
       SelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE, WarpStageKind::NONE>,
       SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-      ColorStage<Colorizer::GENERATED_TRIADIC>>;
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   using GnomonicGlitchGridMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC, SurfaceLens::GLITCH>,
       SelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE, WarpStageKind::NONE>,
       SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-      ColorStage<Colorizer::GENERATED_TRIADIC>>;
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   using PeirceDodecahedralGridPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
                                   SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
       SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-      ColorStage<Colorizer::LIQUID>>;
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   using GnomonicDodecahedralGridWaveMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
@@ -2512,7 +2425,7 @@ private:
                               WarpStageKind::MIRROR_TILE>,
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      ColorStage<Colorizer::LIQUID>>;
+      ColorStage>;
 
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
 
@@ -2554,7 +2467,6 @@ private:
         slots.signal_weight,
         slots.value_transfer,
         slots.coverage,
-        slots.colorizer,
         slots.peirce_layout,
         slots.airocean_layout,
         slots.bonne_hemisphere,
@@ -2613,14 +2525,13 @@ private:
     if (frame.slots.surface_noise != SurfaceNoise::NONE &&
         frame.resources.surface_noise == nullptr)
       return false;
-    if (frame.slots.colorizer == Colorizer::LIQUID &&
-        frame.resources.liquid_palette == nullptr)
+    if (frame.resources.generated_palette == nullptr)
       return false;
-    if (frame.slots.colorizer != Colorizer::LIQUID &&
-        frame.resources.generated_palette == nullptr)
+    if (frame.params.color.hue_noise_amount != 0.0f &&
+        frame.resources.color_noise == nullptr)
       return false;
-    return !frame.prepared_liquid_hue.active ||
-           frame.prepared_liquid_hue.lut != nullptr;
+    return !frame.prepared_hue_rotation.active ||
+           frame.prepared_hue_rotation.lut != nullptr;
   }
 
 #if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
@@ -2777,225 +2688,6 @@ private:
     return false;
   }
 
-  struct LegacyDecodeState {
-    uint8_t function = 0;
-    uint8_t surface_lens = 0;
-    float lens_mix = 0.0f;
-    bool tangent_noise = false;
-    bool outer_stereo_noise = false;
-    bool inner_stereo_noise = false;
-  };
-
-  static float legacy_clamp(float value, float minimum, float maximum) {
-    return hs::clamp(value, minimum, maximum);
-  }
-
-  static constexpr float LEGACY_STEREO_TIME_PERIOD = 65536.0f;
-
-  static bool migrate_legacy_config(Config &config, LegacyDecodeState &legacy,
-                                    RuntimeValues &runtime_values,
-                                    bool has_runtime) {
-    legacy.function = static_cast<uint8_t>(config.slots.function);
-    switch (legacy.function) {
-    case 0:
-      config.slots.function = Function::TWIN_WAVE;
-      break;
-    case 1:
-      config.slots.function = Function::RINGS;
-      break;
-    case 2:
-      config.slots.function = Function::SPIRAL;
-      break;
-    case 3:
-      config.slots.function = Function::GRID;
-      config.params.source.pattern_mix = 1.0f;
-      config.params.source.secondary_rate = 1.0f;
-      if (has_runtime)
-        runtime_values[static_cast<size_t>(RuntimeFieldId::SOURCE_SECONDARY)] =
-            runtime_values[static_cast<size_t>(RuntimeFieldId::SOURCE_PRIMARY)];
-      break;
-    case 4:
-      config.slots.function = Function::GRID;
-      config.params.source.angle_rate = 0.0f;
-      if (has_runtime)
-        runtime_values[static_cast<size_t>(RuntimeFieldId::SOURCE_ANGLE)] =
-            0.0f;
-      break;
-    case 5:
-      config.slots.function = Function::NOISE_CONTOUR;
-      break;
-    case 6:
-      config.slots.function = Function::PRIMITIVE_LATTICE;
-      break;
-    default:
-      return false;
-    }
-
-    legacy.tangent_noise =
-        config.slots.surface_lens == SurfaceLens::TANGENT_NOISE;
-    legacy.surface_lens = surface_lens_storage_id(config.slots.surface_lens);
-    legacy.lens_mix = config.params.surface_lens.mix;
-    legacy.outer_stereo_noise = config.slots.warp_program.outer.kind ==
-                                WarpStageKind::LEGACY_STEREO_NOISE;
-    legacy.inner_stereo_noise = config.slots.warp_program.inner.kind ==
-                                WarpStageKind::LEGACY_STEREO_NOISE;
-    if (legacy.outer_stereo_noise && legacy.inner_stereo_noise)
-      return false;
-
-    if (legacy.tangent_noise && config.params.surface_lens.mix > 0.0f) {
-      const SurfaceLensParams &old = config.params.surface_lens;
-      SurfaceNoiseParams &noise = config.params.surface_noise;
-      config.slots.surface_noise = SurfaceNoise::DIRECT;
-      config.slots.surface_noise_placement = SurfaceNoisePlacement::AFTER_LENS;
-      noise.basis = old.noise_basis;
-      noise.integrator = SurfaceCurlIntegrator::EULER;
-      noise.seed = old.noise_seed;
-      noise.scale = legacy_clamp(old.noise_scale, LENS_NOISE_SCALE_MIN,
-                                 LENS_NOISE_SCALE_MAX);
-      noise.strength = legacy_clamp(old.amount * old.mix, 0.0f, 0.5f);
-      noise.rate = legacy_clamp(old.noise_rate, NOISE_RATE_MIN, NOISE_RATE_MAX);
-      noise.direction = 0.0f;
-      if (has_runtime)
-        runtime_values[static_cast<size_t>(
-            RuntimeFieldId::SURFACE_NOISE_PHASE)] =
-            runtime_values[static_cast<size_t>(
-                RuntimeFieldId::LEGACY_LENS_NOISE_PHASE)];
-    }
-    if (legacy.tangent_noise)
-      config.slots.surface_lens = SurfaceLens::NONE;
-
-    WarpStageSpec *old_spec = nullptr;
-    WarpStageParams *old_params = nullptr;
-    if (legacy.outer_stereo_noise) {
-      old_spec = &config.slots.warp_program.outer;
-      old_params = &config.params.warp.outer;
-    } else if (legacy.inner_stereo_noise) {
-      old_spec = &config.slots.warp_program.inner;
-      old_params = &config.params.warp.inner;
-    }
-    if (old_spec != nullptr) {
-      if (!legacy.tangent_noise) {
-        SurfaceNoiseParams &noise = config.params.surface_noise;
-        config.slots.surface_noise = SurfaceNoise::DIRECT;
-        config.slots.surface_noise_placement =
-            SurfaceNoisePlacement::AFTER_LENS;
-        noise.basis = old_spec->basis;
-        noise.integrator = SurfaceCurlIntegrator::EULER;
-        noise.seed = old_spec->seed;
-        noise.scale = legacy_clamp(old_params->scale * 0.01f,
-                                   LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
-        noise.strength = legacy_clamp(old_params->strength / 60.0f, 0.0f, 0.5f);
-        noise.rate =
-            legacy_clamp(config.params.source.speed * old_params->time_scale /
-                             LEGACY_STEREO_TIME_PERIOD,
-                         NOISE_RATE_MIN, NOISE_RATE_MAX);
-        noise.direction = 0.0f;
-        if (has_runtime)
-          runtime_values[static_cast<size_t>(
-              RuntimeFieldId::SURFACE_NOISE_PHASE)] =
-              wrap_t(runtime_values[static_cast<size_t>(
-                         RuntimeFieldId::LEGACY_WARP_TIME)] /
-                     LEGACY_STEREO_TIME_PERIOD);
-      }
-      old_spec->kind = WarpStageKind::NONE;
-    }
-    if (config.slots.surface_lens != SurfaceLens::NONE) {
-      if (config.params.surface_lens.mix <= 0.0f)
-        config.slots.surface_lens = SurfaceLens::NONE;
-      else
-        config.params.surface_lens.mix = 1.0f;
-    }
-    return true;
-  }
-
-  static const char *legacy_function_name(uint8_t id) {
-    static constexpr const char *NAMES[] = {
-        "Twin Wave",       "Rings",         "Spiral",           "Grid",
-        "Coupled Pattern", "Noise Contour", "Primitive Lattice"};
-    return id < sizeof(NAMES) / sizeof(NAMES[0]) ? NAMES[id] : "Unknown";
-  }
-
-  static const char *legacy_lens_name(uint8_t id) {
-    static constexpr const char *NAMES[] = {"None",
-                                            "Glitch",
-                                            "Twist",
-                                            "Kaleidoscope",
-                                            "Mobius",
-                                            "Tangent Noise",
-                                            "Tetrahedral",
-                                            "Octahedral",
-                                            "Dodecahedral",
-                                            "Triangular Prism",
-                                            "Square Prism",
-                                            "Pentagonal Prism",
-                                            "Hexagonal Prism",
-                                            "Octagonal Prism"};
-    return id < sizeof(NAMES) / sizeof(NAMES[0]) ? NAMES[id] : "Unknown";
-  }
-
-  template <typename... Args>
-  static void append_import_notice(std::array<char, 1024> &notice, size_t &used,
-                                   const char *format, Args... args) {
-    if (used >= notice.size())
-      return;
-    const int written = std::snprintf(notice.data() + used,
-                                      notice.size() - used, format, args...);
-    if (written > 0)
-      used += std::min(static_cast<size_t>(written), notice.size() - used);
-  }
-
-  static void append_legacy_notice(std::array<char, 1024> &notice, size_t &used,
-                                   const char *scope,
-                                   const LegacyDecodeState &legacy) {
-    append_import_notice(notice, used, " %s:", scope);
-    if (legacy.function == 3)
-      append_import_notice(notice, used, "%s",
-                           " Grid unified with Pattern Mix 1;");
-    else if (legacy.function == 4)
-      append_import_notice(notice, used, "%s", " Coupled Pattern -> Grid;");
-    else if (legacy.function == 5)
-      append_import_notice(
-          notice, used, "%s",
-          " Noise Contour -> Noise Contour (Projected), field layout changed;");
-
-    const bool tangent_effective =
-        legacy.tangent_noise && legacy.lens_mix > 0.0f;
-    if (legacy.tangent_noise) {
-      append_import_notice(notice, used, "%s",
-                           tangent_effective
-                               ? " Tangent Noise -> Surface Noise Direct;"
-                               : " Tangent Noise -> None (Lens Mix zero);");
-      append_import_notice(notice, used, "%s", " Lens Mix removed;");
-    } else if (legacy.surface_lens != 0) {
-      if (legacy.lens_mix <= 0.0f)
-        append_import_notice(notice, used, " %s -> None (Lens Mix zero);",
-                             legacy_lens_name(legacy.surface_lens));
-      else
-        append_import_notice(notice, used, " %s Lens Mix -> full effect;",
-                             legacy_lens_name(legacy.surface_lens));
-    }
-
-    if (legacy.outer_stereo_noise || legacy.inner_stereo_noise) {
-      const char *slot =
-          legacy.outer_stereo_noise ? "Planar Warp 1" : "Planar Warp 2";
-      if (tangent_effective)
-        append_import_notice(
-            notice, used,
-            " %s Stereo Noise discarded and cleared (Tangent Noise won);",
-            slot);
-      else
-        append_import_notice(
-            notice, used,
-            " %s Stereo Noise -> Surface Noise Direct; %s cleared;", slot,
-            slot);
-    }
-    if (legacy.function != 3 && legacy.function != 4 && legacy.function != 5 &&
-        !legacy.tangent_noise && legacy.surface_lens == 0 &&
-        !legacy.outer_stereo_noise && !legacy.inner_stereo_noise)
-      append_import_notice(notice, used, " %s retained;",
-                           legacy_function_name(legacy.function));
-  }
-
   static constexpr bool valid_snapshot_config(const Config &config) {
     const Slots &slots = config.slots;
     return enum_at_most(slots.function, Function::NOISE_CONTOUR_SPHERE) &&
@@ -3016,7 +2708,7 @@ private:
            enum_at_most(slots.signal_weight, SignalWeight::PROJECTION) &&
            enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) &&
            enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) &&
-           enum_at_most(slots.colorizer, Colorizer::DEFORMATION_INK) &&
+           enum_at_most(slots.palette, PaletteMode::ANALOGOUS) &&
            enum_at_most(slots.peirce_layout, PeirceLayout::VERTICAL) &&
            enum_at_most(slots.airocean_layout, AiroceanLayout::HORIZONTAL) &&
            enum_at_most(slots.bonne_hemisphere, BonneHemisphere::SOUTH) &&
@@ -3040,7 +2732,7 @@ public:
     const ClockState &clocks = runtime.clocks;
     snapshot.runtime = {clocks.source_primary,     clocks.source_secondary,
                         clocks.source_angle,       0.0f,
-                        clocks.projection_spin,    clocks.breathe_phase,
+                        clocks.projection_spin,    clocks.hue_noise_phase,
                         clocks.source_noise_time,  0.0f,
                         clocks.surface_noise_time, clocks.warp_outer_phase,
                         clocks.warp_inner_phase};
@@ -3063,14 +2755,6 @@ public:
         !decode_config_values(snapshot.requested, next_requested))
       return ConfigRestoreResult::INVALID_VALUE;
     RuntimeValues next_runtime = snapshot.runtime;
-    LegacyDecodeState accepted_legacy{};
-    LegacyDecodeState requested_legacy{};
-    if (snapshot.schema_version == 1 &&
-        (!migrate_legacy_config(next_accepted, accepted_legacy, next_runtime,
-                                snapshot.has_runtime) ||
-         !migrate_legacy_config(next_requested, requested_legacy, next_runtime,
-                                snapshot.has_runtime)))
-      return ConfigRestoreResult::INVALID_VALUE;
     if (!valid_snapshot_config(next_accepted) ||
         !valid_snapshot_config(next_requested))
       return ConfigRestoreResult::INVALID_VALUE;
@@ -3086,8 +2770,7 @@ public:
         return ConfigRestoreResult::INVALID_PENDING;
       const bool differs =
           migrated_accepted[index] != migrated_requested[index];
-      if (snapshot.schema_version == CONFIG_SCHEMA_VERSION &&
-          (snapshot.pending[index] != 0) != differs)
+      if ((snapshot.pending[index] != 0) != differs)
         return ConfigRestoreResult::INVALID_PENDING;
       next_pending_count += differs;
     }
@@ -3132,23 +2815,11 @@ public:
       clocks.source_secondary = next_runtime[1];
       clocks.source_angle = next_runtime[2];
       clocks.projection_spin = next_runtime[4];
-      clocks.breathe_phase = next_runtime[5];
+      clocks.hue_noise_phase = next_runtime[5];
       clocks.source_noise_time = next_runtime[6];
       clocks.surface_noise_time = next_runtime[8];
       clocks.warp_outer_phase = next_runtime[9];
       clocks.warp_inner_phase = next_runtime[10];
-    }
-    if (snapshot.schema_version == 1) {
-      import_notice = {};
-      size_t notice_size = 0;
-      append_import_notice(import_notice, notice_size, "%s",
-                           "Imported schema 1.");
-      append_legacy_notice(import_notice, notice_size, "Accepted",
-                           accepted_legacy);
-      append_legacy_notice(import_notice, notice_size, "Requested",
-                           requested_legacy);
-    } else {
-      import_notice = {};
     }
     rebind_parameters();
     return ConfigRestoreResult::APPLIED;
@@ -3187,7 +2858,7 @@ private:
   struct StateBundle {
     std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
     std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
-    std::array<Pixel, PreparedLiquidHue::LUT_SIZE> liquid_hue_lut;
+    std::array<Pixel, PreparedHueRotation::LUT_SIZE> hue_rotation_lut;
     FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
     ParamMorphRuntime param_morph;
@@ -3260,6 +2931,18 @@ private:
             1.0f};
   }
 
+  HS_COLD_MEMBER static constexpr NoiseFieldKey color_noise_resource_key() {
+    return {NoiseDomain::SPHERE_3D,
+            NoiseBasis::SIMPLEX,
+            6047,
+            NoiseChannelLayout::SCALAR_V1,
+            1,
+            1,
+            0,
+            FastNoiseLite::NoiseType_OpenSimplex2,
+            1.0f};
+  }
+
   HS_COLD_MEMBER static constexpr bool
   append_resource_key(const NoiseFieldKey &key,
                       std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> &keys,
@@ -3289,6 +2972,9 @@ private:
       return false;
     if (config.slots.surface_noise != SurfaceNoise::NONE &&
         !append_resource_key(surface_noise_resource_key(config), keys, count))
+      return false;
+    if (config.params.color.hue_noise_amount != 0.0f &&
+        !append_resource_key(color_noise_resource_key(), keys, count))
       return false;
     return true;
   }
@@ -3349,6 +3035,25 @@ private:
                : nullptr;
   }
 
+  HS_COLD_MEMBER const FastNoiseLite *
+  resolve_color_noise_resource(const Config &config) const {
+    return config.params.color.hue_noise_amount != 0.0f
+               ? resolve_resource(color_noise_resource_key())
+               : nullptr;
+  }
+
+  HS_COLD_MEMBER const BakedPalette &palette_for(PaletteMode mode) const {
+    switch (mode) {
+    case PaletteMode::TRIADIC:
+      return triadic_palette_cycler.palette();
+    case PaletteMode::COMPLEMENTARY:
+      return complementary_palette_cycler.palette();
+    case PaletteMode::ANALOGOUS:
+      return analogous_palette_cycler.palette();
+    }
+    __builtin_unreachable();
+  }
+
   HS_FLASH_MEMBER static WrappedNoisePhase prepare_noise_phase(float turns) {
     const float wrapped_turns = wrap_t(turns);
     const float current_time = wrapped_turns * NOISE_NATIVE_PERIOD;
@@ -3361,14 +3066,21 @@ private:
   }
 
   HS_FLASH_MEMBER static PreparedWarpStage
-  prepare_warp_stage(const WarpStageParams &params, float stage_phase) {
-    const float rotation_cos = cosf(params.rotation);
-    const float rotation_sin = sinf(params.rotation);
+  prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
+                     float stage_phase) {
+    const float rotation =
+        params.rotation + (spec.kind == WarpStageKind::AFFINE_FRAME
+                               ? TWO_PI_F * stage_phase
+                               : 0.0f);
+    const float rotation_cos = cosf(rotation);
+    const float rotation_sin = sinf(rotation);
     const float orbit_phase = TWO_PI_F * stage_phase;
+    const float mirror_phase =
+        spec.kind == WarpStageKind::MIRROR_TILE ? stage_phase : 0.0f;
     return {
         rotation_cos,
         rotation_sin,
-        wrap_t(params.offset_x / params.cell_x) * params.cell_x,
+        wrap_t(params.offset_x / params.cell_x + mirror_phase) * params.cell_x,
         wrap_t(params.offset_y / params.cell_y) * params.cell_y,
         params.center_x + params.center_orbit_radius * cosf(orbit_phase),
         params.center_y + params.center_orbit_radius * sinf(orbit_phase),
@@ -3397,9 +3109,11 @@ private:
     const bool animated_projection =
         config.slots.projection_frame == ProjectionFramePolicy::SPIN_WANDER;
     const PreparedWarpProgram prepared_warp{
-        prepare_warp_stage(config.params.warp.outer,
+        prepare_warp_stage(config.slots.warp_program.outer,
+                           config.params.warp.outer,
                            look.clocks.warp_outer_phase),
-        prepare_warp_stage(config.params.warp.inner,
+        prepare_warp_stage(config.slots.warp_program.inner,
+                           config.params.warp.inner,
                            look.clocks.warp_inner_phase)};
     const float surface_phase =
         TWO_PI_F * wrap_t(look.clocks.surface_noise_time);
@@ -3409,17 +3123,12 @@ private:
         Vector(NOISE_LOOP_RADIUS * cosf(surface_phase),
                NOISE_LOOP_RADIUS * sinf(surface_phase), 0.0f),
         cosf(surface_direction), sinf(surface_direction)};
-    const float breathe_offset = fast_sinf(look.clocks.breathe_phase) *
-                                 config.params.colorizer.breathe_depth;
-    const BakedPalette *liquid_palette = &liquid_palette_cycler.palette();
-    PreparedLiquidHue prepared_liquid_hue{
-        state->liquid_hue_lut.data(),
-        config.params.colorizer.hue_shift != 0.0f &&
-            (config.slots.warp_program.outer.kind != WarpStageKind::NONE ||
-             config.slots.warp_program.inner.kind != WarpStageKind::NONE)};
-    if (prepared_liquid_hue.active)
-      prepare_liquid_hue_lut(prepared_liquid_hue, *liquid_palette,
-                             breathe_offset);
+    const BakedPalette *palette = &palette_for(config.slots.palette);
+    PreparedHueRotation prepared_hue_rotation{
+        state->hue_rotation_lut.data(),
+        config.params.color.hue_noise_amount != 0.0f};
+    if (prepared_hue_rotation.active)
+      prepare_hue_rotation_lut(prepared_hue_rotation, *palette);
     frame.slots = config.slots;
     frame.params = config.params;
     frame.clocks = look.clocks;
@@ -3427,7 +3136,6 @@ private:
         look.clocks.source_primary, look.clocks.source_secondary,
         look.clocks.source_angle, fast_cosf(look.clocks.source_angle),
         fast_sinf(look.clocks.source_angle)};
-    frame.breathe_offset = breathe_offset;
     frame.transforms = {animated_projection ? look.transforms.projection_conj
                                             : Quaternion(),
                         look.transforms.outer_conj};
@@ -3435,13 +3143,13 @@ private:
     frame.source_noise_phase =
         prepare_noise_phase(look.clocks.source_noise_time);
     frame.prepared_surface_noise = prepared_surface_noise;
-    frame.prepared_liquid_hue = prepared_liquid_hue;
+    frame.prepared_hue_rotation = prepared_hue_rotation;
     frame.resources = {resolve_warp_resource(config.slots.warp_program.outer),
                        resolve_warp_resource(config.slots.warp_program.inner),
                        resolve_source_resource(config),
                        resolve_surface_noise_resource(config),
-                       &generated_palette_cycler.palette(),
-                       liquid_palette};
+                       resolve_color_noise_resource(config),
+                       palette};
   }
 
   static ThroughClearPhase through_clear_phase(uint16_t elapsed,
@@ -3664,13 +3372,14 @@ private:
     static constexpr std::array<ProgramDescriptor, 14> PROGRAMS{{
         make_program<KaleidoscopeNoiseGridPipeline,
                      InversePipelineId::KALEIDOSCOPE_NOISE_GRID,
-                     make_topology_key({KALEIDOSCOPE_LIQUID_SURFACE_NOISE_SLOTS,
-                                        authored_surface_noise_params(
-                                            {}, {}, {}, {}, {}, {})})>(
+                     make_topology_key(
+                         {KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS,
+                          authored_surface_noise_params({}, {}, {}, {}, {},
+                                                        {})})>(
             &direct_simplex_surface_supported),
         make_program<GlitchNoiseGridPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID,
-                     make_topology_key({LIQUID_SURFACE_NOISE_SLOTS,
+                     make_topology_key({GENERATED_SURFACE_NOISE_SLOTS,
                                         authored_surface_noise_params(
                                             {}, {}, {}, {}, {}, {})})>(
             &direct_simplex_surface_supported),
@@ -3684,7 +3393,8 @@ private:
             &all_continuous_parameters_supported),
         make_program<KaleidoscopeNoiseGridEdgeFadePipeline,
                      InversePipelineId::KALEIDOSCOPE_NOISE_GRID_EDGE_FADE,
-                     make_topology_key(kaleidoscope_edge_fade_liquid_preset())>(
+                     make_topology_key(
+                         kaleidoscope_edge_fade_generated_preset())>(
             &direct_simplex_surface_supported),
         make_program<DodecahedralNoiseGridMirrorPipeline,
                      InversePipelineId::DODECAHEDRAL_NOISE_GRID_MIRROR,
@@ -3692,7 +3402,7 @@ private:
             &direct_simplex_surface_supported),
         make_program<DodecahedralNoiseGridPipeline,
                      InversePipelineId::DODECAHEDRAL_NOISE_GRID,
-                     make_topology_key(dodecahedral_noise_liquid_preset())>(
+                     make_topology_key(dodecahedral_noise_generated_preset())>(
             &direct_simplex_surface_supported),
         make_program<DodecahedralNoiseLatticeMirrorPipeline,
                      InversePipelineId::DODECAHEDRAL_NOISE_LATTICE_MIRROR,
@@ -3700,7 +3410,7 @@ private:
             &direct_simplex_surface_supported),
         make_program<GlitchNoiseGridWaveShearPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
-                     make_topology_key(wave_shear_liquid_preset())>(
+                     make_topology_key(wave_shear_generated_preset())>(
             &all_continuous_parameters_supported),
         make_program<KaleidoscopeTwinWaveInnerMirrorPipeline,
                      InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
@@ -3718,7 +3428,7 @@ private:
             &all_continuous_parameters_supported),
         make_program<PeirceDodecahedralGridPipeline,
                      InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
-                     make_topology_key(peirce_dodecahedral_liquid_preset())>(
+                     make_topology_key(peirce_dodecahedral_generated_preset())>(
             &all_continuous_parameters_supported),
         make_program<GnomonicDodecahedralGridWaveMirrorPipeline,
                      InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
@@ -4062,7 +3772,7 @@ private:
    *        and the weight and edge distance the stage envelopes read.
    * @param frame Frame snapshot.
    * @return Source-side coordinates plus the summed delta, deformation, and
-   *         path length the colorizers consume.
+   *         path length accumulated by the warp program.
    * @details Pullback order is Planar Warp 1 then Planar Warp 2, the reverse
    * of the authored order `source -> Warp 2 -> Warp 1 -> projection`.
    * Deformation is the magnitude of the summed delta.
@@ -4182,7 +3892,7 @@ private:
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
-                   const WarpStageParams &params) {
+                   const WarpStageParams &params, float stage_phase) {
     const float radius = sqrtf(input.re * input.re + input.im * input.im);
     const float radial = spec.polar_mode == PolarMode::LOGARITHMIC
                              ? logf(std::max(radius, 1.0f / 4096.0f))
@@ -4190,7 +3900,7 @@ private:
     const Complex output(params.radial_scale * radial + params.radial_phase,
                          static_cast<float>(spec.polar_harmonic) *
                                  fast_atan2(input.im, input.re) +
-                             params.angular_phase);
+                             params.angular_phase + TWO_PI_F * stage_phase);
     return finish_closed_form_warp(input, output);
   }
 
@@ -4254,7 +3964,7 @@ private:
       return result;
     }
     case WarpStageKind::POLAR_CHART:
-      return warp_polar_chart(input, spec, params);
+      return warp_polar_chart(input, spec, params, stage_phase);
     }
     __builtin_unreachable();
   }
@@ -4353,9 +4063,9 @@ private:
    * @param field Signed source sample, nominally in [-1, 1].
    * @param projected Projection output; supplies the signal weight, edge
    *        distance, and out-of-domain coverage.
-   * @param warped Warp output, carried through for the deformation colorizer.
+   * @param warped Warp output from the coordinate stage.
    * @param frame Frame snapshot.
-   * @return Value in [0, 1], coverage in [0, 1], and the warp metadata.
+   * @return Value and coverage in [0, 1], plus the surface coordinate.
    * @details The signal weight scales the signed field before the remap to
    * [0, 1], so it changes value rather than alpha; coverage is the separate
    * alpha channel.
@@ -4410,8 +4120,8 @@ private:
       break;
     }
     coverage *= projected.domain_coverage;
-    return {value, coverage, warped.net_delta, warped.deformation,
-            warped.path_length};
+    (void)warped;
+    return {value, coverage, projected.sphere};
   }
 
   static MaterialSample shape_material(float field,
@@ -4424,8 +4134,7 @@ private:
     const float value = hs::clamp((field * weight + 1.0f) * 0.5f, 0.0f, 1.0f);
     if (frame.slots.value_transfer == ValueTransfer::LINEAR &&
         frame.slots.coverage == CoveragePolicy::OPAQUE)
-      return {value, projected.domain_coverage, warped.net_delta,
-              warped.deformation, warped.path_length};
+      return {value, projected.domain_coverage, projected.sphere};
     return shape_nontrivial_material(value, projected, warped, frame);
   }
 #endif
@@ -4487,110 +4196,78 @@ private:
 
   /**
    * @brief Maps a shaped material sample to a palette colour.
-   * @param sample Shaped value, coverage, and warp metadata.
+   * @param sample Shaped value, coverage, and surface coordinate.
    * @param frame Frame snapshot.
    * @return Colour whose alpha is the palette alpha scaled by the coverage.
-   * @details The deformation colorizer offsets the palette coordinate by the
-   * normalized displacement, path length, and delta direction; the liquid
-  * colorizer offsets it by the breathe phase.
-  */
+   */
   HS_FLASH_MEMBER static Color4 colorize_generated(const MaterialSample &sample,
                                                    const FrameState &frame) {
     Color4 color = frame.resources.generated_palette->get(sample.value);
     color.alpha *= sample.coverage;
-    return color;
-  }
-
-#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
-    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
-  HS_FLASH_MEMBER static Color4
-  colorize_deformation(const MaterialSample &sample, const FrameState &frame) {
-    const ColorizerParams &params = frame.params.colorizer;
-    const float displacement =
-        hs::clamp(sample.deformation / params.displacement_norm, 0.0f, 1.0f);
-    const float path =
-        hs::clamp(sample.path_length / params.path_norm, 0.0f, 1.0f);
-    float direction = 0.0f;
-    constexpr float DIRECTION_EPSILON_SQ = 1e-12f;
-    if (sample.net_delta.re * sample.net_delta.re +
-            sample.net_delta.im * sample.net_delta.im >
-        DIRECTION_EPSILON_SQ)
-      direction = params.direction_gain *
-                  cosf(fast_atan2(sample.net_delta.im, sample.net_delta.re) -
-                       params.direction_phase);
-    const float u =
-        wrap_t(sample.value + params.displacement_gain * displacement +
-               params.path_gain * path + direction);
-    Color4 color = frame.resources.generated_palette->get(u);
-    color.alpha *= sample.coverage;
-    return color;
-  }
-
-  HS_O3_FN static Color4 colorize(const MaterialSample &sample,
-                                  const FrameState &frame) {
-    if (frame.slots.colorizer == Colorizer::GENERATED_TRIADIC)
-      return colorize_generated(sample, frame);
-    if (frame.slots.colorizer == Colorizer::DEFORMATION_INK)
-      return colorize_deformation(sample, frame);
-    const float value = std::min(sample.value, ONE_BELOW_UNIT);
-    const float u = wrap_t(value + frame.breathe_offset);
-    Color4 color = frame.resources.liquid_palette->get(u);
-    color.alpha *=
-        sample.coverage * (1.0f - value * frame.params.colorizer.value_fade);
-    if (frame.params.colorizer.hue_shift != 0.0f &&
-        sample.deformation != 0.0f) {
+    if (frame.params.color.hue_noise_amount != 0.0f) {
+      const Vector q = noise_sphere_coordinate(
+          sample.sphere, frame.params.color.hue_noise_scale,
+          frame.clocks.hue_noise_phase);
       const float amount =
-          -sample.deformation * frame.params.colorizer.hue_shift;
-      if (frame.prepared_liquid_hue.active)
-        color.color =
-            sample_liquid_hue_lut(frame.prepared_liquid_hue, value, amount);
+          frame.params.color.hue_noise_amount *
+          hs::clamp(frame.resources.color_noise->GetNoiseSingle(q.x, q.y, q.z),
+                    -1.0f, 1.0f);
+      if (frame.prepared_hue_rotation.active)
+        color.color = sample_hue_rotation_lut(frame.prepared_hue_rotation,
+                                              sample.value, amount);
       else
         color = hue_rotate_lut_gamut(color, amount);
     }
     return color;
   }
+
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
+    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
+  HS_O3_FN static Color4 colorize(const MaterialSample &sample,
+                                  const FrameState &frame) {
+    return colorize_generated(sample, frame);
+  }
 #endif
 
   HS_FLASH_MEMBER static void
-  prepare_liquid_hue_lut(PreparedLiquidHue &prepared,
-                         const BakedPalette &palette, float breathe_offset) {
-    for (int value_index = 0; value_index < PreparedLiquidHue::VALUE_STEPS;
+  prepare_hue_rotation_lut(PreparedHueRotation &prepared,
+                           const BakedPalette &palette) {
+    for (int value_index = 0; value_index < PreparedHueRotation::VALUE_STEPS;
          ++value_index) {
       const float value =
-          ONE_BELOW_UNIT * value_index / (PreparedLiquidHue::VALUE_STEPS - 1);
-      const HueRotateBase base =
-          make_hue_rotate_base(palette.get(wrap_t(value + breathe_offset)));
-      for (int hue_index = 0; hue_index < PreparedLiquidHue::HUE_STEPS;
+          ONE_BELOW_UNIT * value_index / (PreparedHueRotation::VALUE_STEPS - 1);
+      const HueRotateBase base = make_hue_rotate_base(palette.get(value));
+      for (int hue_index = 0; hue_index < PreparedHueRotation::HUE_STEPS;
            ++hue_index) {
         const float amount =
-            static_cast<float>(hue_index) / PreparedLiquidHue::HUE_STEPS;
-        prepared.lut[value_index * PreparedLiquidHue::HUE_STEPS + hue_index] =
+            static_cast<float>(hue_index) / PreparedHueRotation::HUE_STEPS;
+        prepared.lut[value_index * PreparedHueRotation::HUE_STEPS + hue_index] =
             hue_rotate_lut_gamut(base, amount).color;
       }
     }
   }
 
   __attribute__((always_inline)) static Pixel
-  sample_liquid_hue_lut(const PreparedLiquidHue &prepared, float value,
-                        float amount) {
-    const float value_position = value * (PreparedLiquidHue::VALUE_STEPS - 1);
+  sample_hue_rotation_lut(const PreparedHueRotation &prepared, float value,
+                          float amount) {
+    const float value_position = value * (PreparedHueRotation::VALUE_STEPS - 1);
     const int value_low = static_cast<int>(value_position);
     const int value_high =
-        std::min(value_low + 1, PreparedLiquidHue::VALUE_STEPS - 1);
+        std::min(value_low + 1, PreparedHueRotation::VALUE_STEPS - 1);
     const uint16_t value_weight =
         frac_to_q16(value_position - static_cast<float>(value_low));
 
-    const float hue_position = amount * PreparedLiquidHue::HUE_STEPS;
+    const float hue_position = amount * PreparedHueRotation::HUE_STEPS;
     int hue_low = static_cast<int>(hue_position);
     if (hue_position < static_cast<float>(hue_low))
       --hue_low;
     const uint16_t hue_weight =
         frac_to_q16(hue_position - static_cast<float>(hue_low));
-    const int hue_index_low = hue_low & (PreparedLiquidHue::HUE_STEPS - 1);
+    const int hue_index_low = hue_low & (PreparedHueRotation::HUE_STEPS - 1);
     const int hue_index_high =
-        (hue_index_low + 1) & (PreparedLiquidHue::HUE_STEPS - 1);
+        (hue_index_low + 1) & (PreparedHueRotation::HUE_STEPS - 1);
     const auto sample_row = [&](int row) {
-      const int offset = row * PreparedLiquidHue::HUE_STEPS;
+      const int offset = row * PreparedHueRotation::HUE_STEPS;
       return prepared.lut[offset + hue_index_low].lerp16(
           prepared.lut[offset + hue_index_high], hue_weight);
     };
@@ -4866,16 +4543,16 @@ private:
         fmodf(look.clocks.source_angle + params.source.angle_rate, TWO_PI_F);
     look.clocks.projection_spin = fmodf(
         look.clocks.projection_spin + params.projection.spin_rate, TWO_PI_F);
-    look.clocks.breathe_phase = fmodf(
-        look.clocks.breathe_phase + params.colorizer.cycle_speed, TWO_PI_F);
+    look.clocks.hue_noise_phase =
+        wrap_t(look.clocks.hue_noise_phase + params.color.hue_noise_speed);
     look.clocks.source_noise_time =
         wrap_t(look.clocks.source_noise_time + params.source.noise_time_rate);
     look.clocks.surface_noise_time =
         wrap_t(look.clocks.surface_noise_time + params.surface_noise.rate);
     look.clocks.warp_outer_phase =
-        wrap_t(look.clocks.warp_outer_phase + params.warp.outer.time_scale);
+        wrap_t(look.clocks.warp_outer_phase + params.warp.outer.speed);
     look.clocks.warp_inner_phase =
-        wrap_t(look.clocks.warp_inner_phase + params.warp.inner.time_scale);
+        wrap_t(look.clocks.warp_inner_phase + params.warp.inner.speed);
     update_spatial_frames(look, config, deltas);
   }
 
@@ -5162,7 +4839,7 @@ private:
         !enum_at_most(slots.signal_weight, SignalWeight::PROJECTION) ||
         !enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) ||
         !enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) ||
-        !enum_at_most(slots.colorizer, Colorizer::DEFORMATION_INK))
+        !enum_at_most(slots.palette, PaletteMode::ANALOGOUS))
       return false;
     if (slots.function == Function::NOISE_CONTOUR_SPHERE &&
         (slots.warp_program.outer.kind != WarpStageKind::NONE ||
@@ -5269,7 +4946,7 @@ private:
     case WarpStageKind::LEGACY_STEREO_NOISE:
       append_range_warning("Warp Scale", params.scale, 0.1f, 100.0f);
       append_range_warning("Warp Strength", params.strength, 0.0f, 30.0f);
-      append_range_warning("Warp Time", params.time_scale, 0.05f, 1.0f);
+      append_range_warning("Warp Speed", params.speed, 0.05f, 1.0f);
       break;
     case WarpStageKind::AFFINE_FRAME:
       append_range_warning("Translate X", params.translation_x, -4.0f, 4.0f);
@@ -5281,28 +4958,28 @@ private:
     case WarpStageKind::WAVE_SHEAR:
       append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
       append_range_warning("Frequency", params.frequency, 0.0f, 64.0f);
-      append_range_warning("Warp Time", params.time_scale, NOISE_RATE_MIN,
-                           NOISE_RATE_MAX);
+      append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
+                           NOISE_SPEED_MAX);
       break;
     case WarpStageKind::VORTEX:
       append_range_warning("Radius", params.radius, 1.0f / 64.0f, 8.0f);
       append_range_warning("Turns", params.turns, -4.0f, 4.0f);
       append_range_warning("Orbit Radius", params.center_orbit_radius, 0.0f,
                            4.0f);
-      append_range_warning("Warp Time", params.time_scale, NOISE_RATE_MIN,
-                           NOISE_RATE_MAX);
+      append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
+                           NOISE_SPEED_MAX);
       break;
     case WarpStageKind::VECTOR_NOISE:
       append_range_warning("Warp Strength", params.strength, 0.0f, 4.0f);
       append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f, 64.0f);
-      append_range_warning("Warp Time", params.time_scale, NOISE_RATE_MIN,
-                           NOISE_RATE_MAX);
+      append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
+                           NOISE_SPEED_MAX);
       break;
     case WarpStageKind::CURL_FLOW: {
       append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
       append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f, 16.0f);
-      append_range_warning("Warp Time", params.time_scale, NOISE_RATE_MIN,
-                           NOISE_RATE_MAX);
+      append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
+                           NOISE_SPEED_MAX);
       const float strength_limit = curl_strength_limit(spec, params);
       if (abs_value(params.strength) > strength_limit)
         append_warning(
@@ -5635,39 +5312,39 @@ private:
              params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
              params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
              params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
-             params.shear >= -0.75f && params.shear <= 0.75f;
+             params.shear >= -0.75f && params.shear <= 0.75f &&
+             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
     case WarpStageKind::WAVE_SHEAR:
       return params.strength >= -4.0f && params.strength <= 4.0f &&
              params.frequency >= 0.0f && params.frequency <= 64.0f &&
-             params.time_scale >= NOISE_RATE_MIN &&
-             params.time_scale <= NOISE_RATE_MAX;
+             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
     case WarpStageKind::VORTEX:
       return params.radius >= 1.0f / 64.0f && params.radius <= 8.0f &&
              params.turns >= -4.0f && params.turns <= 4.0f &&
              params.center_orbit_radius >= 0.0f &&
              params.center_orbit_radius <= 4.0f &&
-             params.time_scale >= NOISE_RATE_MIN &&
-             params.time_scale <= NOISE_RATE_MAX;
+             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
     case WarpStageKind::VECTOR_NOISE:
       return params.strength >= 0.0f && params.strength <= 4.0f &&
              params.scale >= 1.0f / 64.0f && params.scale <= 64.0f &&
-             params.time_scale >= NOISE_RATE_MIN &&
-             params.time_scale <= NOISE_RATE_MAX;
+             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
     case WarpStageKind::CURL_FLOW:
       return params.strength >= -4.0f && params.strength <= 4.0f &&
              params.scale >= 1.0f / 64.0f && params.scale <= 16.0f &&
-             params.time_scale >= NOISE_RATE_MIN &&
-             params.time_scale <= NOISE_RATE_MAX &&
+             params.speed >= NOISE_SPEED_MIN &&
+             params.speed <= NOISE_SPEED_MAX &&
              params.scale * abs_value(params.strength) *
                      noise_gradient_bound(spec.basis) /
                      curl_intervals(spec.curl_integrator) <=
                  0.5f;
     case WarpStageKind::MIRROR_TILE:
       return params.cell_x >= CELL_MIN && params.cell_x <= CELL_MAX &&
-             params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX;
+             params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
+             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
     case WarpStageKind::POLAR_CHART:
       return params.radial_scale >= 1.0f / 64.0f &&
-             params.radial_scale <= 16.0f;
+             params.radial_scale <= 16.0f && params.speed >= NOISE_SPEED_MIN &&
+             params.speed <= NOISE_SPEED_MAX;
     }
     return false;
   }
@@ -5938,27 +5615,31 @@ private:
     }
   }
 
-  static float golden_rotation(void *context, uint32_t sequence) {
-    float &rotation = *static_cast<float *>(context);
-    if (sequence > 0)
-      rotation = wrap_t(rotation + GOLDEN_HUE_STEP);
-    return rotation;
-  }
-
-  static void next_liquid_palette(void *context, uint32_t sequence,
-                                  GenerativePalette &out) {
-    out = GenerativePalette{EffectPaletteRecipes::shader_ball_liquid_at(
-        golden_rotation(context, sequence))};
-  }
-
-  static void next_triadic_palette(void *context, uint32_t sequence,
-                                   GenerativePalette &out) {
+  static void next_generated_palette(void *context, uint32_t sequence,
+                                     PaletteHarmony harmony,
+                                     GenerativePalette &out) {
     uint32_t &hue = *static_cast<uint32_t *>(context);
     if (sequence > 0)
       hue += HUE_STEP;
     out = GenerativePalette{PaletteRecipes::profile(
-        PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::ASCENDING,
+        PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
         PaletteRecipes::hue_turns(hue))};
+  }
+
+  static void next_triadic_palette(void *context, uint32_t sequence,
+                                   GenerativePalette &out) {
+    next_generated_palette(context, sequence, PaletteHarmony::TRIADIC, out);
+  }
+
+  static void next_complementary_palette(void *context, uint32_t sequence,
+                                         GenerativePalette &out) {
+    next_generated_palette(context, sequence, PaletteHarmony::COMPLEMENTARY,
+                           out);
+  }
+
+  static void next_analogous_palette(void *context, uint32_t sequence,
+                                     GenerativePalette &out) {
+    next_generated_palette(context, sequence, PaletteHarmony::ANALOGOUS, out);
   }
 
   static constexpr uint8_t BOUNDARY_CUT = 1U << 0;
@@ -5972,7 +5653,6 @@ private:
   static constexpr float NOISE_NATIVE_PERIOD = 256.0f;
   static constexpr float NOISE_WRAP_START = 63.0f / 64.0f;
   static constexpr float ONE_BELOW_UNIT = 0x1.fffffep-1f;
-  static constexpr float GOLDEN_HUE_STEP = 0.618034f;
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr int PALETTE_DWELL_FRAMES = 0;
   static constexpr int PALETTE_FADE_FRAMES = 600;
@@ -6139,19 +5819,19 @@ private:
       "CoveragePolicy::VALUE_CUTOUT", "CoveragePolicy::EDGE_FADE",
       "CoveragePolicy::PROJECTION_WEIGHT"};
   static constexpr int NUM_COVERAGE_POLICIES = std::size(COVERAGE_OPTIONS);
-  static constexpr const char *COLORIZER_OPTIONS[] = {
-      "Generated Triadic", "ShaderBall Liquid", "Deformation Ink"};
-  static constexpr const char *COLORIZER_EXPORT_OPTIONS[] = {
-      "Colorizer::GENERATED_TRIADIC", "Colorizer::LIQUID",
-      "Colorizer::DEFORMATION_INK"};
-  static constexpr int NUM_COLORIZERS = std::size(COLORIZER_OPTIONS);
+  static constexpr const char *PALETTE_OPTIONS[] = {
+      "Generated Triadic", "Generated Complementary", "Generated Analogous"};
+  static constexpr const char *PALETTE_EXPORT_OPTIONS[] = {
+      "PaletteMode::TRIADIC", "PaletteMode::COMPLEMENTARY",
+      "PaletteMode::ANALOGOUS"};
+  static constexpr int NUM_PALETTES = std::size(PALETTE_OPTIONS);
 
   static constexpr float WARP_SCALE_MIN = 1.0f / 64.0f;
   static constexpr float WARP_SCALE_MAX = 100.0f;
   static constexpr float WARP_STRENGTH_MIN = -4.0f;
   static constexpr float WARP_STRENGTH_MAX = 30.0f;
-  static constexpr float WARP_TIME_MIN = -1.0f / 64.0f;
-  static constexpr float WARP_TIME_MAX = 1.0f;
+  static constexpr float WARP_SPEED_MIN = -1.0f / 64.0f;
+  static constexpr float WARP_SPEED_MAX = 1.0f;
   static constexpr float PATTERN_FREQ_MIN = 0.1f, PATTERN_FREQ_MAX = 20.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float COMPLEXITY_MIN = 0.0f, COMPLEXITY_MAX = 3.0f;
@@ -6161,10 +5841,10 @@ private:
   static constexpr float SPIN_RATE_MIN = 0.0f, SPIN_RATE_MAX = 0.05f;
   static constexpr float WANDER_MIN = 0.0f, WANDER_MAX = 1.0f;
   static constexpr float LENS_MIX_MIN = 0.0f, LENS_MIX_MAX = 1.0f;
-  static constexpr float BREATHE_MIN = 0.0f, BREATHE_MAX = 0.3f;
-  static constexpr float CYCLE_SPEED_MIN = 0.0f, CYCLE_SPEED_MAX = 1.0f;
-  static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 1.0f;
-  static constexpr float VALUE_FADE_MIN = 0.0f, VALUE_FADE_MAX = 1.0f;
+  static constexpr float HUE_NOISE_AMOUNT_MIN = 0.0f;
+  static constexpr float HUE_NOISE_AMOUNT_MAX = 1.0f;
+  static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
+  static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
   static constexpr float WAVE_SPIN_MIN = 0.0f, WAVE_SPIN_MAX = 0.05f;
   static constexpr float SOURCE_NOISE_SCALE_MIN = 0.0f;
   static constexpr float SOURCE_NOISE_SCALE_MAX = 2.0f;
@@ -6174,6 +5854,8 @@ private:
   static constexpr float LENS_NOISE_SCALE_MAX = 8.0f;
   static constexpr float NOISE_RATE_MIN = -1.0f / 64.0f;
   static constexpr float NOISE_RATE_MAX = 1.0f / 64.0f;
+  static constexpr float NOISE_SPEED_MIN = NOISE_RATE_MIN;
+  static constexpr float NOISE_SPEED_MAX = NOISE_RATE_MAX;
   static constexpr float CELL_MIN = 1.0f / 64.0f;
   static constexpr float CELL_MAX = 8.0f;
   static constexpr float SOFTNESS_MIN = 1.0f / 1024.0f;
@@ -6250,25 +5932,12 @@ private:
            p.value.cutout_softness >= SOFTNESS_MIN &&
            p.value.cutout_softness <= 0.5f && p.value.edge_width >= 0.0f &&
            p.value.edge_width <= 0.5f &&
-           p.colorizer.breathe_depth >= BREATHE_MIN &&
-           p.colorizer.breathe_depth <= BREATHE_MAX &&
-           p.colorizer.cycle_speed >= CYCLE_SPEED_MIN &&
-           p.colorizer.cycle_speed <= CYCLE_SPEED_MAX &&
-           p.colorizer.hue_shift >= HUE_SHIFT_MIN &&
-           p.colorizer.hue_shift <= HUE_SHIFT_MAX &&
-           p.colorizer.value_fade >= VALUE_FADE_MIN &&
-           p.colorizer.value_fade <= VALUE_FADE_MAX &&
-           p.colorizer.displacement_gain >= -4.0f &&
-           p.colorizer.displacement_gain <= 4.0f &&
-           p.colorizer.path_gain >= -4.0f && p.colorizer.path_gain <= 4.0f &&
-           p.colorizer.direction_gain >= -4.0f &&
-           p.colorizer.direction_gain <= 4.0f &&
-           p.colorizer.displacement_norm >= SOFTNESS_MIN &&
-           p.colorizer.displacement_norm <= 32.0f &&
-           p.colorizer.path_norm >= SOFTNESS_MIN &&
-           p.colorizer.path_norm <= 32.0f &&
-           p.colorizer.direction_phase >= 0.0f &&
-           p.colorizer.direction_phase <= TWO_PI_F;
+           p.color.hue_noise_amount >= HUE_NOISE_AMOUNT_MIN &&
+           p.color.hue_noise_amount <= HUE_NOISE_AMOUNT_MAX &&
+           p.color.hue_noise_scale >= HUE_NOISE_SCALE_MIN &&
+           p.color.hue_noise_scale <= HUE_NOISE_SCALE_MAX &&
+           p.color.hue_noise_speed >= NOISE_SPEED_MIN &&
+           p.color.hue_noise_speed <= NOISE_SPEED_MAX;
   }
 
   HS_COLD_MEMBER static constexpr bool
@@ -6276,8 +5945,7 @@ private:
     return params.scale >= WARP_SCALE_MIN && params.scale <= WARP_SCALE_MAX &&
            params.strength >= WARP_STRENGTH_MIN &&
            params.strength <= WARP_STRENGTH_MAX &&
-           params.time_scale >= WARP_TIME_MIN &&
-           params.time_scale <= WARP_TIME_MAX &&
+           params.speed >= WARP_SPEED_MIN && params.speed <= WARP_SPEED_MAX &&
            params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
            params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
            params.rotation >= 0.0f && params.rotation <= TWO_PI_F &&
@@ -6302,7 +5970,7 @@ private:
            params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
   }
 
-  static constexpr Slots LIQUID_SURFACE_NOISE_SLOTS{
+  static constexpr Slots GENERATED_SURFACE_NOISE_SLOTS{
       Function::GRID,
       Projection::STEREOGRAPHIC,
       ProjectionFramePolicy::SPIN_WANDER,
@@ -6311,15 +5979,15 @@ private:
       SignalWeight::PROJECTION,
       ValueTransfer::LINEAR,
       CoveragePolicy::OPAQUE,
-      Colorizer::LIQUID,
+      PaletteMode::TRIADIC,
       PeirceLayout::SQUARE,
       AiroceanLayout::VERTICAL,
       BonneHemisphere::NORTH,
       GnomonicHemispherePolicy::FOLDED,
       SurfaceNoise::DIRECT,
       SurfaceNoisePlacement::AFTER_LENS};
-  static constexpr Slots KALEIDOSCOPE_LIQUID_SURFACE_NOISE_SLOTS = [] {
-    Slots slots = LIQUID_SURFACE_NOISE_SLOTS;
+  static constexpr Slots KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS = [] {
+    Slots slots = GENERATED_SURFACE_NOISE_SLOTS;
     slots.surface_lens = SurfaceLens::KALEIDOSCOPE;
     return slots;
   }();
@@ -6384,12 +6052,12 @@ private:
   static constexpr Params
   authored_params(SourceParams source, WarpStageParams outer_warp,
                   ProjectionParams projection, SurfaceLensParams surface_lens,
-                  ColorizerParams colorizer, OuterCameraParams outer_camera) {
-    const WarpStageParams inner_warp{0.1f, 0.0f, outer_warp.time_scale};
+                  ColorParams color, OuterCameraParams outer_camera) {
+    const WarpStageParams inner_warp{0.1f, 0.0f, 0.0f};
     projection.wander = outer_camera.wander;
     return {source,       {outer_warp, inner_warp},
             projection,   surface_lens,
-            {},           colorizer,
+            {},           color,
             outer_camera, {}};
   }
 
@@ -6398,7 +6066,7 @@ private:
                        const WarpStageParams &legacy_warp) {
     const float scale = legacy_warp.scale * 0.01f;
     const float strength = legacy_warp.strength / 60.0f;
-    const float rate = source.speed * legacy_warp.time_scale / 65536.0f;
+    const float rate = source.speed * legacy_warp.speed / 65536.0f;
     params.surface_noise.scale =
         scale < LENS_NOISE_SCALE_MIN
             ? LENS_NOISE_SCALE_MIN
@@ -6413,21 +6081,21 @@ private:
   static constexpr Params authored_surface_noise_params(
       SourceParams source, WarpStageParams legacy_warp,
       ProjectionParams projection, SurfaceLensParams surface_lens,
-      ColorizerParams colorizer, OuterCameraParams outer_camera) {
+      ColorParams color, OuterCameraParams outer_camera) {
     Params params = authored_params(source, legacy_warp, projection,
-                                    surface_lens, colorizer, outer_camera);
+                                    surface_lens, color, outer_camera);
     author_surface_noise(params, source, legacy_warp);
     return params;
   }
 
-  static constexpr Preset wave_shear_liquid_preset() {
-    Slots slots = LIQUID_SURFACE_NOISE_SLOTS;
+  static constexpr Preset wave_shear_generated_preset() {
+    Slots slots = GENERATED_SURFACE_NOISE_SLOTS;
     slots.warp_program.outer.kind = WarpStageKind::WAVE_SHEAR;
     slots.surface_noise = SurfaceNoise::NONE;
     slots.coverage = CoveragePolicy::PROJECTION_WEIGHT_SQUARED;
     Params params = authored_params(
         {4.439f, 0.245f, 0.5f, 0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 1.0f / 64.0f},
-        {1.0f, 0.0f, 0.0f}, {1.0f}, {0.133f, 0.05f, 0.0f, 0.0f}, {1.0f});
+        {1.0f, 0.0f, 0.0f}, {1.0f}, {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
     params.projection.wander = 0.0f;
     return {slots, params};
   }
@@ -6441,10 +6109,10 @@ private:
                       SignalWeight::PROJECTION,
                       ValueTransfer::LINEAR,
                       CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                      Colorizer::LIQUID};
+                      PaletteMode::TRIADIC};
     const Params params = authored_params(
         {10.158f, 0.245f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
-        {4.971f, 0.0f, 1.0f}, {1.0f}, {0.15f, 0.0f, 0.0f, 0.0f}, {1.0f});
+        {4.971f, 0.0f, 1.0f}, {1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f});
     return {slots, params};
   }
 
@@ -6457,7 +6125,7 @@ private:
                 SignalWeight::PROJECTION,
                 ValueTransfer::LINEAR,
                 CoveragePolicy::EDGE_FADE,
-                Colorizer::GENERATED_TRIADIC};
+                PaletteMode::TRIADIC};
     slots.gnomonic_hemisphere = GnomonicHemispherePolicy::FOLDED;
     WarpStageParams outer_warp;
     outer_warp.rotation = 0.29530972f;
@@ -6481,7 +6149,7 @@ private:
                 SignalWeight::PROJECTION,
                 ValueTransfer::LINEAR,
                 CoveragePolicy::EDGE_FADE,
-                Colorizer::GENERATED_TRIADIC};
+                PaletteMode::TRIADIC};
     slots.bonne_hemisphere = BonneHemisphere::NORTH;
     WarpStageParams outer_warp;
     outer_warp.rotation = 1.7215928f;
@@ -6511,10 +6179,10 @@ private:
                 SignalWeight::PROJECTION,
                 ValueTransfer::LINEAR,
                 CoveragePolicy::EDGE_FADE,
-                Colorizer::LIQUID};
+                PaletteMode::TRIADIC};
     slots.peirce_layout = PeirceLayout::SQUARE;
     Params params = authored_params({}, {}, {1.0f, 0.0f}, {1.0f},
-                                    {0.15f, 0.05f, 0.0f, 0.0f}, {1.0f});
+                                    {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
     params.source.lattice_cell_scale = 2.2911718f;
     params.source.lattice_shape_blend = 1.0f;
     params.source.lattice_softness = 0.5804102f;
@@ -6525,12 +6193,12 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset kaleidoscope_edge_fade_liquid_preset() {
-    Slots slots = KALEIDOSCOPE_LIQUID_SURFACE_NOISE_SLOTS;
+  static constexpr Preset kaleidoscope_edge_fade_generated_preset() {
+    Slots slots = KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS;
     slots.coverage = CoveragePolicy::EDGE_FADE;
     Params params = authored_surface_noise_params(
         {4.116f, 0.1f, 0.5f, 0.0f, 0.8f}, {19.7803f, 16.74f, 0.5f},
-        {1.4f, 0.0f}, {1.0f}, {0.15f, 0.05f, 0.657f, 0.0f}, {1.0f});
+        {1.4f, 0.0f}, {1.0f}, {0.657f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
     params.value.edge_width = 0.2575f;
     return {slots, params};
   }
@@ -6544,7 +6212,7 @@ private:
                 SignalWeight::PROJECTION,
                 ValueTransfer::LINEAR,
                 CoveragePolicy::EDGE_FADE,
-                Colorizer::LIQUID};
+                PaletteMode::TRIADIC};
     slots.surface_noise = SurfaceNoise::DIRECT;
     slots.surface_noise_placement = SurfaceNoisePlacement::AFTER_LENS;
     const SourceParams source{1.532f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f};
@@ -6553,7 +6221,7 @@ private:
     outer_warp.cell_y = 1.7083f;
     Params params =
         authored_params(source, outer_warp, {3.907f, 0.0387f, 0.0f}, {1.0f},
-                        {0.25410002f, 0.00015458837f, 0.339f, 0.847f}, {1.0f});
+                        {0.339f, 1.0f, 0.00015458837f / TWO_PI_F}, {1.0f});
     params.projection.wander = 0.0f;
     params.warp.inner = {24.8752f, 10.5f, 0.05f};
     author_surface_noise(params, source, params.warp.inner);
@@ -6561,7 +6229,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset peirce_dodecahedral_liquid_preset() {
+  static constexpr Preset peirce_dodecahedral_generated_preset() {
     Slots slots{Function::GRID,
                 Projection::PEIRCE_QUINCUNCIAL,
                 ProjectionFramePolicy::SPIN_WANDER,
@@ -6570,24 +6238,24 @@ private:
                 SignalWeight::PROJECTION,
                 ValueTransfer::LINEAR,
                 CoveragePolicy::EDGE_FADE,
-                Colorizer::LIQUID};
+                PaletteMode::TRIADIC};
     slots.peirce_layout = PeirceLayout::SQUARE;
     Params params =
         authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {}, {1.0f, 0.0f},
-                        {1.0f}, {0.15f, 0.05f, 0.319f, 0.2f}, {1.0f});
+                        {1.0f}, {0.319f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
     params.projection.central_meridian = 0.0f;
     params.projection.coordinate_scale = 1.0f;
     params.value.edge_width = 0.1f;
     return {slots, params};
   }
 
-  static constexpr Preset dodecahedral_noise_liquid_preset() {
-    Slots slots = KALEIDOSCOPE_LIQUID_SURFACE_NOISE_SLOTS;
+  static constexpr Preset dodecahedral_noise_generated_preset() {
+    Slots slots = KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS;
     slots.surface_lens = SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL;
     const Params params = authored_surface_noise_params(
         {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f, 0.0f},
         {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f, 0.0030917525f},
-        {1.0f}, {0.25410002f, 0.00015458837f, 0.201f, 0.847f}, {0.0030917525f});
+        {1.0f}, {0.201f, 1.0f, 0.00015458837f / TWO_PI_F}, {0.0030917525f});
     return {slots, params};
   }
 
@@ -6600,7 +6268,7 @@ private:
                 SignalWeight::PROJECTION,
                 ValueTransfer::LINEAR,
                 CoveragePolicy::EDGE_FADE,
-                Colorizer::LIQUID};
+                PaletteMode::TRIADIC};
     slots.surface_noise = SurfaceNoise::DIRECT;
     slots.surface_noise_placement = SurfaceNoisePlacement::AFTER_LENS;
     SourceParams source;
@@ -6616,7 +6284,7 @@ private:
     outer_warp.offset_y = 0.0f;
     Params params = authored_params(
         source, outer_warp, {1.5482996f, 0.020879198f, 0.421f}, {1.0f},
-        {0.25410002f, 0.00015458837f, 0.562f, 0.847f}, {0.591f});
+        {0.562f, 1.0f, 0.00015458837f / TWO_PI_F}, {0.591f});
     params.projection.wander = 0.421f;
     params.warp.inner = {16.0f, 8.73f, 0.20772f};
     author_surface_noise(params, source, params.warp.inner);
@@ -6633,11 +6301,11 @@ private:
                 SignalWeight::PROJECTION,
                 ValueTransfer::LINEAR,
                 CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                Colorizer::LIQUID};
+                PaletteMode::TRIADIC};
     slots.gnomonic_hemisphere = GnomonicHemispherePolicy::FOLDED;
     WarpStageParams outer_warp;
     outer_warp.strength = -0.176f;
-    outer_warp.time_scale = -0.00325f;
+    outer_warp.speed = -0.00325f;
     outer_warp.frequency = 1.408f;
     outer_warp.field_angle = 2.2305307f;
     WarpStageParams inner_warp;
@@ -6648,72 +6316,71 @@ private:
     inner_warp.offset_y = 0.0f;
     Params params = authored_params(
         {6.3287f, 0.04f, 1.704f, 0.0f, 0.8f, 0.027f}, outer_warp,
-        {2.311f, 0.0f}, {1.0f}, {0.15f, 0.0f, 0.721f, 0.854f}, {1.0f});
+        {2.311f, 0.0f}, {1.0f}, {0.721f, 1.0f, 0.0f}, {1.0f});
     params.warp.inner = inner_warp;
     return {slots, params};
   }
 
   static constexpr std::array<Preset, 23> PRESETS = {{
-      {KALEIDOSCOPE_LIQUID_SURFACE_NOISE_SLOTS,
+      {KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params(
            {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
            {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f}, {1.0f},
-           {0.25410002f, 0.00015458837f, 0.201f, 0.847f}, {0.0030917525f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
+           {0.201f, 1.0f, 0.00015458837f / TWO_PI_F}, {0.0030917525f})},
+      {GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f},
                                      {3.0f, 0.5f, 0.5f}, {1.4f, 0.0f}, {1.0f},
-                                     {0.15f, 0.05f, 0.0f, 0.0f}, {1.0f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
+                                     {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f})},
+      {GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params({1.2f, 0.05f, 3.0f, 0.0f, 0.8f},
                                      {3.0f, 0.5f, 0.5f}, {1.4f, 0.0f}, {1.0f},
-                                     {0.15f, 0.05f, 0.0f, 0.0f}, {1.0f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
+                                     {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f})},
+      {GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params({14.528f, 0.1f, 0.5f, 0.0f, 0.8f},
                                      {3.0f, 1.479f, 0.5f}, {1.0f, 0.0f}, {1.0f},
-                                     {0.15f, 0.05f, 0.0f, 0.0f}, {1.0f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
+                                     {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f})},
+      {GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params({15.763f, 0.1f, 2.950552f, 0.0f, 0.8f},
                                      {3.0f, 0.0f, 0.5f}, {1.0f, 0.0f}, {0.0f},
-                                     {0.15f, 0.05f, 0.0f, 0.0f}, {1.0f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
+                                     {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f})},
+      {GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params({3.28f, 0.1f, 2.463f, 0.0f, 0.8f},
                                      {0.1f, 13.47f, 0.5f}, {1.209f, 0.03725f},
-                                     {0.0f}, {0.19710001f, 0.02f, 0.011f, 0.0f},
+                                     {0.0f}, {0.011f, 1.0f, 0.02f / TWO_PI_F},
                                      {0.252f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
+      {GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params(
            {15.972f, 0.1f, 2.7558982f, 0.536f, 0.8f},
            {1.8421826f, 5.377862f, 0.5f}, {1.0834427f, 0.014871964f}, {0.0f},
-           {0.16880456f, 0.038022578f, 0.004391721f, 0.0f}, {0.70136297f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params({2.7f, 0.586f, 0.0f, 1.0f, 0.7f},
-                                     {47.752f, 11.55f, 0.3f},
-                                     {1.55f, ORBIT_SPIN_RATE}, {0.0f},
-                                     {0.0f, 0.0f, 0.097f, 1.0f}, {0.0f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
+           {0.004391721f, 1.0f, 0.038022578f / TWO_PI_F}, {0.70136297f})},
+      {GENERATED_SURFACE_NOISE_SLOTS,
+       authored_surface_noise_params(
+           {2.7f, 0.586f, 0.0f, 1.0f, 0.7f}, {47.752f, 11.55f, 0.3f},
+           {1.55f, ORBIT_SPIN_RATE}, {0.0f}, {0.097f, 1.0f, 0.0f}, {0.0f})},
+      {GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params(
            {8.0f, 0.30f, 0.0f, 1.0f, 0.7f}, {1.5f, 0.5f, 0.3f},
-           {2.0f, ORBIT_SPIN_RATE}, {0.0f}, {0.0f, 0.0f, 0.15f, 1.0f}, {0.0f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
+           {2.0f, ORBIT_SPIN_RATE}, {0.0f}, {0.15f, 1.0f, 0.0f}, {0.0f})},
+      {GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params({13.430163f, 0.385f, 0.0f, 1.0f, 0.7f},
                                      {0.1f, 0.0f, 0.3f},
                                      {1.627f, ORBIT_SPIN_RATE}, {1.0f},
-                                     {0.0f, 0.0f, 0.10404046f, 1.0f}, {0.0f})},
-      {LIQUID_SURFACE_NOISE_SLOTS,
+                                     {0.10404046f, 1.0f, 0.0f}, {0.0f})},
+      {GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params(
            {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
            {38.761299f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f}, {0.0f},
-           {0.25410002f, 0.00015458837f, 0.201f, 0.847f}, {0.0030917525f})},
-      wave_shear_liquid_preset(),
+           {0.201f, 1.0f, 0.00015458837f / TWO_PI_F}, {0.0030917525f})},
+      wave_shear_generated_preset(),
       kaleidoscope_mirror_preset(),
       gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
       gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
       bonne_lattice_mirror_preset(),
       peirce_lattice_preset(),
-      kaleidoscope_edge_fade_liquid_preset(),
+      kaleidoscope_edge_fade_generated_preset(),
       dodecahedral_grid_preset(),
-      peirce_dodecahedral_liquid_preset(),
-      dodecahedral_noise_liquid_preset(),
+      peirce_dodecahedral_generated_preset(),
+      dodecahedral_noise_generated_preset(),
       dodecahedral_lattice_noise_preset(),
       gnomonic_wave_shear_grid_preset(),
   }};
@@ -6759,10 +6426,12 @@ private:
   Quaternion projection_walk_prev;
   Quaternion outer_walk_prev;
 
-  float liquid_rotation = 0.0f;
   uint32_t palette_hue = 0;
-  PaletteCycler liquid_palette_cycler;
-  PaletteCycler generated_palette_cycler;
+  uint32_t complementary_hue = 0;
+  uint32_t analogous_hue = 0;
+  PaletteCycler triadic_palette_cycler;
+  PaletteCycler complementary_palette_cycler;
+  PaletteCycler analogous_palette_cycler;
 
   Slots active_slots = PRESETS[0].slots;
   InversePipelineId active_pipeline =
@@ -6783,18 +6452,14 @@ private:
   bool preset_dwell_armed = false;
   Blend blend{PRESETS[0].params};
   LookRuntime runtime;
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-  std::array<char, 1024> import_notice{};
-#endif
 #if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;
-  uint32_t liquid_palette_step_count = 0;
   uint32_t generated_palette_step_count = 0;
 #endif
 
   static constexpr size_t FOOTPRINT_BYTES =
       gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
-      2 * PaletteCycler::generated_arena_bytes() +
+      3 * PaletteCycler::generated_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(StateBundle) +
       alignof(StateBundle);
   static_assert(
