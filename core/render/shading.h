@@ -75,6 +75,30 @@ struct Fragment {
 };
 
 /**
+ * @brief Mutable view of a fragment's shading registers, without its position.
+ * @details Handed to the deferred vertex pass, which runs after the rasterizer
+ * has projected each point and classified its edges: a position written there
+ * would plot at the stale screen coordinate.
+ */
+struct FragmentRegisters {
+  float &v0;     /**< Register 0. */
+  float &v1;     /**< Register 1. */
+  float &v2;     /**< Register 2. */
+  float &v3;     /**< Register 3. */
+  float &size;   /**< Size metric. */
+  float &age;    /**< Age of the operation/trail. */
+  Color4 &color; /**< Output Color (RGBA). */
+
+  /**
+   * @brief Binds the view to one fragment's registers.
+   * @param f Fragment whose registers the view exposes.
+   */
+  FragmentRegisters(Fragment &f)
+      : v0(f.v0), v1(f.v1), v2(f.v2), v3(f.v3), size(f.size), age(f.age),
+        color(f.color) {}
+};
+
+/**
  * @brief Normalized inward depth from the nearest face edge for a rasterized
  * fragment, in face-relative units.
  * @param f Rasterized fragment; v1 holds the signed edge distance (negative

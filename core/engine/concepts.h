@@ -41,6 +41,7 @@ class Canvas; // core/render/canvas.h; used only behind references below
 // ---------------------------------------------------------------------------
 
 struct Fragment;
+struct FragmentRegisters;
 template <typename Signature> class FunctionRef;
 
 /**
@@ -227,10 +228,12 @@ using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
 using WorldTrailFn = FunctionRef<Color4(const Vector &, float)>;
 using FragmentShaderFn = FunctionRef<void(const Vector &, Fragment &)>;
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
-// Deferred per-control-point shader: receives the (position-shaded) fragment
-// and its original pre-shader position. Plot::ParticleSystem::draw runs it only
-// for trails the segment cull keeps, skipping trails that render nothing.
-using DeferredShaderRef = FunctionRef<void(Fragment &, const Vector &)>;
+// Deferred per-control-point shader: receives the (position-shaded) fragment's
+// shading registers and its original pre-shader position. Position is out of
+// reach by type: the pass runs after the rasterizer's projections and edge
+// classification. Plot::ParticleSystem::draw runs it only for trails the
+// segment cull keeps, skipping trails that render nothing.
+using DeferredShaderRef = FunctionRef<void(FragmentRegisters, const Vector &)>;
 using TweenFn = FunctionRef<void(const Quaternion &, float)>;
 using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
 // Rasterizer's clip-cull predicate: does the (world-transformed) edge a-b, with
