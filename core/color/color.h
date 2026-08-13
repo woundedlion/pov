@@ -852,28 +852,43 @@ struct GamutLut {
  */
 inline constinit GamutLut g_gamut_lut;
 
+/** @brief Coarsest downsample the per-pixel walk still resolves. tools/
+ *  gen_gamut_lut.py measured the grids below 128 x 64: the bracket grows wide
+ *  enough that the GAMUT_SCAN_STEPS walk strides over a disconnected in-gamut
+ *  interval and lands past the first exit, oversaturating by up to 0.03 chroma,
+ *  which the bisection cannot recover. */
+inline constexpr int GAMUT_LUT_MIN_ANGLE_STEPS = 128;
+inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
+
 /**
  * @brief Downsamples GAMUT_LUT into @p arena and points the clip path at it.
  * @param arena Arena to hold the copy; configure_arenas() drops the pointer
  *        before this storage is handed out again.
- * @param angle_steps Diamond-angle buckets; must divide GAMUT_LUT_ANGLE_STEPS.
- * @param l_steps Lightness buckets; must divide GAMUT_LUT_L_STEPS.
+ * @param angle_steps Diamond-angle buckets; must divide GAMUT_LUT_ANGLE_STEPS
+ *        and be at least GAMUT_LUT_MIN_ANGLE_STEPS.
+ * @param l_steps Lightness buckets; must divide GAMUT_LUT_L_STEPS and be at
+ *        least GAMUT_LUT_MIN_L_STEPS.
  * @details Optional, and only worth its arena bytes at per-pixel clip rates:
  * the flash master already serves the clip correctly and at higher resolution.
  * Call after the arenas are configured, from the owning effect's init(). A
  * coarse cell takes the minimum of the merged minima and the maximum of the
  * merged maxima, so the true boundary of every ray in the cell still lies
  * inside the stored bracket at any resolution. Cost in arena bytes is
- * gamut_lut_bytes(angle_steps, l_steps); resolution only sets how wide the
- * bracket starts, and the per-pixel bisection sets how far it is narrowed.
+ * gamut_lut_bytes(angle_steps, l_steps). Within the trapped range resolution
+ * only sets how wide the bracket starts, and the per-pixel bisection sets how
+ * far it is narrowed; below it the bracket outgrows the GAMUT_SCAN_STEPS walk
+ * (see GAMUT_LUT_MIN_ANGLE_STEPS).
  */
 HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
                                           int l_steps) {
-  HS_CHECK(angle_steps > 0 && l_steps > 0 &&
+  HS_CHECK(angle_steps >= GAMUT_LUT_MIN_ANGLE_STEPS &&
+               l_steps >= GAMUT_LUT_MIN_L_STEPS &&
                GAMUT_LUT_ANGLE_STEPS % angle_steps == 0 &&
                GAMUT_LUT_L_STEPS % l_steps == 0,
-           "init_gamut_lut: %d x %d must divide the %d x %d flash master",
-           angle_steps, l_steps, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
+           "init_gamut_lut: %d x %d must divide the %d x %d flash master and "
+           "be at least %d x %d",
+           angle_steps, l_steps, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS,
+           GAMUT_LUT_MIN_ANGLE_STEPS, GAMUT_LUT_MIN_L_STEPS);
 
   const int sa = GAMUT_LUT_ANGLE_STEPS / angle_steps;
   const int sl = GAMUT_LUT_L_STEPS / l_steps;
