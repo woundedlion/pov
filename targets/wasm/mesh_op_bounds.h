@@ -3,13 +3,14 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * @file mesh_op_bounds.h
- * @brief Pure (no-Emscripten) mesh-operator roster and growth factors.
+ * @brief Pure (no-Emscripten) mesh-operator roster, growth factors and
+ *        byte-per-element budgets.
  *
  * Every MeshOps boundary guard in wasm.cpp prices a JS-driven operator chain
- * against these factors, so a factor smaller than an operator's real expansion
- * lets a chain reach an engine trap the guard exists to keep out of reach. The
- * roster and the factors carry no Emscripten dependency, so they live here and
- * are measured against the real operators without the toolchain — see
+ * against these numbers, so one smaller than an operator's real expansion or
+ * footprint lets a chain reach an engine trap the guard exists to keep out of
+ * reach. They carry no Emscripten dependency, so they live here and are measured
+ * against the real operators without the toolchain — see
  * tests/test_wasm_predicates.h. wasm.cpp keeps the logging/embind shell on top.
  */
 #pragma once
@@ -102,6 +103,26 @@ inline constexpr MeshOpBounds RELAX_BOUNDS{1, 1, 0};
 inline constexpr MeshOpBounds HANKIN_BOUNDS{4, 2, 2};
 /** @brief snub growth factors. */
 inline constexpr MeshOpBounds SNUB_BOUNDS{5, 1, 1};
+
+/**
+ * @brief Worst-case scratch bytes one operator allocates per element of its
+ *        largest stage, counting vertices, faces and flat face indices alike.
+ * @details The heaviest operator keeps an intermediate mesh, its output and its
+ *          index scratch live in one arena. Measured against the real operators
+ *          by tests/test_wasm_predicates.h; wasm.cpp ties it to the tooling
+ *          scratch arena size.
+ */
+inline constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
+
+/**
+ * @brief Tooling-arena bytes a finalized mesh retains per element.
+ * @details One Vector of vertex, one uint8_t of side count, one uint16_t of
+ *          index and the uint16_t topology code classifyFaces() later binds
+ *          into the same arena, with slack for the four blocks' alignment
+ *          padding. Measured against the real operators by
+ *          tests/test_wasm_predicates.h.
+ */
+inline constexpr size_t TOOLING_ARENA_BYTES_PER_MESH_ELEMENT = 20;
 
 /** @brief One operator's declared growth factors, by name. */
 struct MeshOpBoundsEntry {

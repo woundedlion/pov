@@ -8,8 +8,8 @@
  * integers crossing the embind boundary before they reach engine code that would
  * trap (clip bounds) or run unbounded (relax iterations). They compile only
  * under Emscripten inside wasm.cpp, so the pure predicates are extracted and
- * exercised here without the toolchain; the growth factors are measured against
- * the real operators.
+ * exercised here without the toolchain; the growth factors and the two
+ * byte-per-element budgets are measured against the real operators.
  */
 #pragma once
 
@@ -316,6 +316,9 @@ inline uint8_t mesh_op_input_buf[64 * 1024];
 inline uint8_t mesh_op_target_buf[256 * 1024];
 /** @brief Arena holding a probed operator's intermediate stages. */
 inline uint8_t mesh_op_temp_buf[256 * 1024];
+/** @brief Arena standing in for the bridge's tooling arena: the finalized copy
+ *         of a probed operator's output plus its topology block. */
+inline uint8_t mesh_op_finalized_buf[256 * 1024];
 
 /** @brief One roster operator bound to a concrete call. */
 struct MeshOpProbe {
@@ -368,13 +371,16 @@ inline constexpr size_t FIXED_EMITTER_DEGREE = 6;
  * @param in Input mesh, allocated from an arena neither @p target nor @p temp.
  * @param target Arena receiving the output mesh; reset here.
  * @param temp Arena for the operator's intermediates; reset here.
+ * @param finalized Arena standing in for the bridge's tooling arena; reset here.
  * @details A declared factor below the real expansion is the dangerous
  *          direction: the boundary guard then admits a mesh whose operator
  *          reaches build_half_edge_mesh's or narrow_face_count's always-on
- *          HS_CHECK and takes the module down.
+ *          HS_CHECK and takes the module down. The two byte-per-element budgets
+ *          are checked the same way: a budget below the real footprint lets a
+ *          chain reach Arena::allocate's trap instead of a JS-visible rejection.
  */
 inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
-                                 Arena &target, Arena &temp) {
+                                 Arena &target, Arena &temp, Arena &finalized) {
   const hs_wasm::MeshOpBoundsEntry *row =
       hs_wasm::find_mesh_op_bounds(probe.name);
   HS_EXPECT_TRUE(row != nullptr);
@@ -392,6 +398,8 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
 
   target.reset();
   temp.reset();
+  target.reset_high_water_mark();
+  temp.reset_high_water_mark();
   const PolyMesh out = probe.run(in, target, temp);
 
   const size_t out_elements = hs_wasm::mesh_largest_element_count(
@@ -404,6 +412,22 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
   HS_EXPECT_LE(out_degree, std::max({FIXED_EMITTER_DEGREE,
                                      row->bounds.face_degree * in_degree,
                                      row->bounds.valence * in_valence}));
+
+  // The guard prices an operator's scratch at elements x
+  // TOOLING_BYTES_PER_MESH_ELEMENT and the scratch arenas hold exactly the
+  // 16-bit ceiling's worth, so the real high-water mark must fit that price.
+  HS_EXPECT_LE(
+      std::max(target.get_high_water_mark(), temp.get_high_water_mark()),
+      hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT * row->bounds.elements *
+          in_elements);
+
+  // What the tooling arena retains per live wrapper: the finalized copy plus the
+  // topology block classifyFaces() binds into the same arena.
+  finalized.reset();
+  PolyMesh kept = Solids::finalize_solid(out, finalized);
+  MeshOps::classify_faces_by_topology(kept, target, temp, finalized);
+  HS_EXPECT_LE(finalized.get_offset(),
+               hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT * out_elements);
 }
 
 /**
@@ -412,14 +436,16 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
  * @param input Arena the input solid is rebuilt in.
  * @param target Arena receiving each operator's output.
  * @param temp Arena for each operator's intermediates.
+ * @param finalized Arena receiving each operator's finalized output.
  */
 template <typename Solid>
-inline void probe_solid_growth(Arena &input, Arena &target, Arena &temp) {
+inline void probe_solid_growth(Arena &input, Arena &target, Arena &temp,
+                               Arena &finalized) {
   input.reset();
   PolyMesh in;
   build_solid<Solid>(in, input);
   for (const MeshOpProbe &probe : MESH_OP_PROBES)
-    check_mesh_op_growth(probe, in, target, temp);
+    check_mesh_op_growth(probe, in, target, temp, finalized);
 }
 
 /**
@@ -430,6 +456,7 @@ inline void test_mesh_op_growth_factors() {
   Arena input(mesh_op_input_buf, sizeof(mesh_op_input_buf));
   Arena target(mesh_op_target_buf, sizeof(mesh_op_target_buf));
   Arena temp(mesh_op_temp_buf, sizeof(mesh_op_temp_buf));
+  Arena finalized(mesh_op_finalized_buf, sizeof(mesh_op_finalized_buf));
 
   // An operator on the roster with no probe here would ship an unmeasured
   // factor.
@@ -437,11 +464,11 @@ inline void test_mesh_op_growth_factors() {
 
   // Face degree and vertex valence differ across these five (3/3, 4/3, 3/4,
   // 3/5, 5/3), so a factor keyed to the wrong measurement cannot pass on all.
-  probe_solid_growth<Solids::Tetrahedron>(input, target, temp);
-  probe_solid_growth<Solids::Cube>(input, target, temp);
-  probe_solid_growth<Solids::Octahedron>(input, target, temp);
-  probe_solid_growth<Solids::Icosahedron>(input, target, temp);
-  probe_solid_growth<Solids::Dodecahedron>(input, target, temp);
+  probe_solid_growth<Solids::Tetrahedron>(input, target, temp, finalized);
+  probe_solid_growth<Solids::Cube>(input, target, temp, finalized);
+  probe_solid_growth<Solids::Octahedron>(input, target, temp, finalized);
+  probe_solid_growth<Solids::Icosahedron>(input, target, temp, finalized);
+  probe_solid_growth<Solids::Dodecahedron>(input, target, temp, finalized);
 }
 
 /**

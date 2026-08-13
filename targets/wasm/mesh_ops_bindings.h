@@ -41,13 +41,6 @@ static Arena tooling_arena(nullptr, 0);
 static Arena tooling_scratch_a(nullptr, 0);
 static Arena tooling_scratch_b(nullptr, 0);
 
-// Worst-case scratch bytes one operator allocates per element of its largest
-// stage, counting vertices, faces and flat face indices alike. The heaviest
-// operator (meta = kis of dual of ambo) keeps an intermediate mesh, its output and
-// its index scratch live in one arena, at 12 bytes per vertex and 6 per index;
-// this bound covers that with margin.
-static constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
-
 // Largest element count any operator stage may reach. Half-edge construction and
 // the topology classifier both narrow face/index counts to uint16_t behind an
 // always-on HS_CHECK, so a mesh past this must be rejected at the JS boundary
@@ -55,16 +48,12 @@ static constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
 // elements, so the same ceiling also keeps Arena::allocate's trap out of reach.
 static constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS = UINT16_MAX;
 static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
-                  TOOLING_SCRATCH_BYTES / TOOLING_BYTES_PER_MESH_ELEMENT,
+                  TOOLING_SCRATCH_BYTES /
+                      hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT,
               "a stage at the 16-bit ceiling must still fit a scratch arena");
 
-// Tooling-arena bytes a finalized mesh retains per element: one Vector of
-// vertex, one uint8_t of side count, one uint16_t of index and the uint16_t
-// topology code classifyFaces() later binds into the same arena, with slack for
-// the four blocks' alignment padding.
-static constexpr size_t TOOLING_ARENA_BYTES_PER_MESH_ELEMENT = 20;
 static_assert(sizeof(Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
-                  TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
+                  hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
               "finalized mesh element must fit its predicted arena bytes");
 
 // Widest face a mesh can hold: PolyMesh stores per-face side counts as uint8_t
@@ -244,10 +233,10 @@ private:
       last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
       return true;
     }
-    if (hs_wasm::mesh_op_output_over_arena(verts, faces, indices, expansion,
-                                           TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
-                                           tooling_arena.get_offset(),
-                                           tooling_arena.get_capacity())) {
+    if (hs_wasm::mesh_op_output_over_arena(
+            verts, faces, indices, expansion,
+            hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
+            tooling_arena.get_offset(), tooling_arena.get_capacity())) {
       hs::log("WASM: %s: result does not fit the tooling arena (%zu of %zu "
               "bytes used) — ignored; call clearToolingMemory() to reclaim it, "
               "which invalidates every live mesh",
