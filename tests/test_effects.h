@@ -176,11 +176,15 @@ inline void reset_effect_globals() {
  * frames, and reads back every pixel without tripping an assert/OOB/hang, and
  * that get_pixel still aliases the displayed buffer once another frame has been
  * rendered and flipped in. Runs the dead-slider lint once on
- * the <SMALL_W,SMALL_H> pass, which both depth tiers execute.
+ * the <SMALL_W,SMALL_H> pass, which both depth tiers execute. Finally requires
+ * the effect to have overflowed no timeline event over its whole lifetime: a
+ * drop is the one soft-degrade in the animation subsystem, and only this
+ * per-effect delta attributes it.
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void smoke_one(const char *name) {
   reset_effect_globals();
+  const uint32_t dropped_before = Timeline::dropped_events();
 
   E<W, H> effect;
   effect.init();
@@ -242,6 +246,18 @@ inline void smoke_one(const char *name) {
     lint_dead_sliders(effect, name);
     lint_animated_pause(effect, name);
   }
+
+  // A full timeline soft-drops: add() discards add_get()'s nullptr, so a chain
+  // that re-arms itself from a .then() callback ends for good. The counter is
+  // monotonic and process-wide, so this per-effect delta is the only thing that
+  // attributes a drop to the effect that overflowed the table.
+  const uint32_t dropped = Timeline::dropped_events() - dropped_before;
+  if (dropped != 0)
+    std::printf("  TIMELINE FULL %-20s dropped %u animation(s) over %d frames "
+                "@ %dx%d (Timeline::MAX_EVENTS is %d)\n",
+                name, static_cast<unsigned>(dropped), frames, W, H,
+                Timeline::MAX_EVENTS);
+  HS_EXPECT_EQ(dropped, 0u);
 }
 
 /**
