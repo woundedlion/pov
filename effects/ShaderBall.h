@@ -1572,13 +1572,6 @@ private:
                                 float maximum) {
       register_clamped_animated_param(name, target, minimum, maximum);
     };
-    if (spec.kind == WarpStageKind::CURL_FLOW) {
-      const float scale_max =
-          domain_scaled_max(CURL_WARP_SCALE_MAX, 1.0f, domain_scale);
-      const float scale = hs::clamp(params.scale, 1.0f / 64.0f, scale_max);
-      registered_range_clamped |= scale != params.scale;
-      params.scale = scale;
-    }
     if (spec.kind == WarpStageKind::WAVE_SHEAR ||
         spec.kind == WarpStageKind::VECTOR_NOISE ||
         spec.kind == WarpStageKind::CURL_FLOW) {
@@ -1634,20 +1627,18 @@ private:
                        &params.center_orbit_radius, 0.0f, 4.0f);
       break;
     case WarpStageKind::VECTOR_NOISE:
-    case WarpStageKind::CURL_FLOW: {
-      const float noise_scale_max =
-          spec.kind == WarpStageKind::VECTOR_NOISE
-              ? (domain_scale < 1.0f ? VECTOR_WARP_SMALL_DOMAIN_SCALE_MAX
-                                     : VECTOR_WARP_SCALE_MAX)
-              : domain_scaled_max(CURL_WARP_SCALE_MAX, 1.0f, domain_scale);
+    case WarpStageKind::CURL_FLOW:
       register_current(first ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale",
-                       &params.scale, 1.0f / 64.0f, noise_scale_max);
+                       &params.scale, 1.0f / 64.0f,
+                       domain_scaled_max(spec.kind == WarpStageKind::CURL_FLOW
+                                             ? CURL_WARP_SCALE_MAX
+                                             : VECTOR_WARP_SCALE_MAX,
+                                         1.0f, domain_scale));
       register_current(names[WARP_NAME_VECTOR_ANGLE], &params.vector_angle,
                        0.0f, TWO_PI_F);
       register_current(names[WARP_NAME_EDGE_WIDTH], &params.edge_width,
                        SOFTNESS_MIN, 0.5f);
       break;
-    }
     case WarpStageKind::MIRROR_TILE:
       register_current(names[WARP_NAME_ROTATION], &params.rotation, 0.0f,
                        TWO_PI_F);
@@ -5271,7 +5262,7 @@ private:
       append_range_warning("Warp Strength", params.strength, 0.0f,
                            VECTOR_WARP_STRENGTH_MAX);
       append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f,
-                           VECTOR_WARP_SMALL_DOMAIN_SCALE_MAX);
+                           VECTOR_WARP_SCALE_MAX);
       append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
                            NOISE_SPEED_MAX);
       break;
@@ -5658,7 +5649,7 @@ private:
       return params.strength >= 0.0f &&
              params.strength <= VECTOR_WARP_STRENGTH_MAX &&
              params.scale >= 1.0f / 64.0f &&
-             params.scale <= VECTOR_WARP_SMALL_DOMAIN_SCALE_MAX &&
+             params.scale <= VECTOR_WARP_SCALE_MAX &&
              params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
     case WarpStageKind::CURL_FLOW:
       return params.strength >= -CURL_WARP_STRENGTH_MAX &&
@@ -6198,7 +6189,6 @@ private:
   static constexpr float WARP_STRENGTH_MIN = -4.0f;
   static constexpr float WARP_STRENGTH_MAX = 30.0f;
   static constexpr float VECTOR_WARP_SCALE_MAX = 4.0f;
-  static constexpr float VECTOR_WARP_SMALL_DOMAIN_SCALE_MAX = 8.0f;
   static constexpr float VECTOR_WARP_STRENGTH_MAX = 1.0f;
   static constexpr float CURL_WARP_SCALE_MAX = 2.0f;
   static constexpr float CURL_WARP_STRENGTH_MAX = 1.0f;
