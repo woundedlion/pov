@@ -249,6 +249,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
 │   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean sphere → plane kernels
+│   │   ├── stereographic.h         Stereographic pole attenuation, pattern normalization, glitch lens
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
 │   ├── mesh/                   Polyhedral meshes and their operators
