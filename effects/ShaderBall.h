@@ -3186,14 +3186,16 @@ private:
     PreparedWarpStage prepared{};
     float rotation = params.rotation;
     if (spec.kind == WarpStageKind::AFFINE_FRAME) {
-      const float motion = 0.5f - 0.5f * cosf(TWO_PI_F * wrap_t(stage_phase));
-      rotation *= motion;
+      const float phase = TWO_PI_F * wrap_t(stage_phase);
+      const float phase_cos = cosf(phase);
+      const float phase_sin = sinf(phase);
+      rotation += phase;
       prepared.transform.affine = {
-          params.translation_x * motion,
-          params.translation_y * motion,
-          hs::lerp(1.0f, params.scale_x, motion),
-          hs::lerp(1.0f, params.scale_y, motion),
-          params.shear * motion,
+          phase_cos * params.translation_x - phase_sin * params.translation_y,
+          phase_sin * params.translation_x + phase_cos * params.translation_y,
+          params.scale_x,
+          params.scale_y,
+          params.shear,
       };
     } else if (spec.kind == WarpStageKind::MIRROR_TILE) {
       prepared.transform.mirror = {
