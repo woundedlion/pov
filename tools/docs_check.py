@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Validate fences, links, anchors, and path claims in tracked Markdown."""
+"""Validate fences, links, anchors, and path claims in tracked Markdown.
+
+Structure only. A green run means every fence closes, every link, anchor and
+backticked repo path resolves, and every tree fence matches the tracked tree --
+not that the prose is true. A wrong number in a sentence, a renamed symbol in a
+table, and any path written without backticks or a link are all invisible here.
+"""
 
 from __future__ import annotations
 
