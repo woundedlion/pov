@@ -11,6 +11,11 @@
 import { pathToFileURL } from 'node:url';
 import { join, isAbsolute } from 'node:path';
 import { access } from 'node:fs/promises';
+import {
+  darknessProblems,
+  paramStreamProblems,
+  stackCreepBudget,
+} from './wasm_smoke_predicates.mjs';
 
 const DEFAULT_JS = 'build/wasm-release/holosphere_wasm.js';
 const jsArg = process.argv[2] || process.env.WASM_JS || DEFAULT_JS;
@@ -22,13 +27,12 @@ const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 3);
 
 // The stack has no allocator trap and stack_high_water_mark() saturates at
 // capacity, so `hwm > capacity` can never fire for it. Gate on an absolute byte
-// budget instead (meaningful against any build's stack size); the min with the
-// capacity fraction covers a hypothetical sub-ceiling stack. Creep tripwire, not
-// a bound: the HWM under-reports (see stack_high_water_mark() in wasm.cpp).
+// budget instead (meaningful against any build's stack size); stackCreepBudget()
+// mins it with the capacity fraction. Creep tripwire, not a bound: the HWM
+// under-reports (see stack_high_water_mark() in wasm.cpp).
 // The 2048 default is calibrated on the -O3 release build; -O0 debug frames run
 // severalfold larger, so ci.yml overrides via WASM_SMOKE_STACK_CEILING.
 const STACK_HWM_CEILING_BYTES = Number(process.env.WASM_SMOKE_STACK_CEILING ?? 2048);
-const STACK_MAX_FILL = 0.75;
 
 // main() lets a fatal precondition set exitCode and return, so buffered stdout
 // flushes rather than being cut off by process.exit().
@@ -107,16 +111,6 @@ async function main() {
   // and the length checks below cannot see it either. Keys are "Name@WxH".
   const darkEffects = new Set();
   const sweptEffects = new Set();
-
-  // RingShower expands its rings from zero radius and lights around frame 24,
-  // so a short window is black by design; tests/test_effects.h carries the same
-  // exemption. The per-load RNG reseed moves that by a few frames, so the set
-  // is pinned exactly only outside the ambiguous band — inside it, an
-  // unexpected dark effect still fails but a lit RingShower does not.
-  const DARK_EXEMPT = 'RingShower';
-  const DARK_BAND = [24, 48];
-  const expectedDark = FRAMES_PER_EFFECT < DARK_BAND[0]
-    ? 'exempt-dark' : FRAMES_PER_EFFECT >= DARK_BAND[1] ? 'lit' : 'either';
 
   // Run-wide counter for the per-frame telemetry the simulator reads: a single
   // effect reporting false is legitimate, an all-false sweep is not.
@@ -215,8 +209,7 @@ async function main() {
         // The stack traps nowhere: guard it with the creep budget, not
         // hwm > capacity (unreachable — see STACK_HWM_CEILING_BYTES).
         const stack = m.stack;
-        const stackGate = Math.min(STACK_HWM_CEILING_BYTES, stack && stack.capacity > 0
-          ? stack.capacity * STACK_MAX_FILL : STACK_HWM_CEILING_BYTES);
+        const stackGate = stackCreepBudget(stack, STACK_HWM_CEILING_BYTES);
         if (!stack) {
           fail(`${name}: getArenaMetrics() omits the stack region`);
         } else if (stack.high_water_mark === 0) {
@@ -244,77 +237,23 @@ async function main() {
         // Exercise the embind param seam (getParameterDefinitions() +
         // getParamValues()) the GUI rides every frame: assert the two streams
         // stay zippable and well-formed.
-        const defs = engine.getParameterDefinitions();
-        const values = engine.getParamValues();
-        if (!Array.isArray(defs)) {
-          fail(`${name}: getParameterDefinitions() did not return an array`);
-        } else {
-          // Both calls share param_marshal.h's ordering. Length guards a split;
-          // the per-index check below catches a reorder (length alone is blind
-          // to transposition).
-          if (values.length !== defs.length) {
-            fail(`${name}: getParamValues() length ${values.length} != ` +
-              `getParameterDefinitions() length ${defs.length} (param order seam drifted)`);
-          }
-          for (let i = 0; i < defs.length; i++) {
-            const d = defs[i];
-            if (typeof d.name !== 'string' || d.name.length === 0) {
-              fail(`${name}: param ${i} has no name`);
-            }
-            // The value stream carries no names; values[i] must reproduce
-            // defs[i].value (same getParameters() pass, no drawFrame between),
-            // so a transposition trips here.
-            const sv = i < values.length ? values[i] : undefined;
-            if (i < values.length && !Number.isFinite(sv)) {
-              fail(`${name}: param "${d.name}" value-stream entry ${sv} is not finite`);
-            }
-            if (typeof d.value === 'boolean') {
-              // wasm.cpp collapses a bool def's value to `raw > 0.5`; the value
-              // stream keeps the raw float, so reconstruct and compare.
-              if (i < values.length && d.value !== (sv > 0.5)) {
-                fail(`${name}: param "${d.name}" (index ${i}) def bool ${d.value} ` +
-                  `!= value-stream ${sv} > 0.5 (param order seam transposed)`);
-              }
-              continue; // bools omit min/max (wasm.cpp)
-            }
-            // Float def: the stream entry must equal the def's value at this
-            // index, or the two streams are not zippable.
-            if (i < values.length && Number.isFinite(sv) && sv !== d.value) {
-              fail(`${name}: param "${d.name}" (index ${i}) def value ${d.value} ` +
-                `!= value-stream ${sv} (param order seam transposed)`);
-            }
-            // Float params carry a finite, ordered range bracketing their value.
-            const eps = 1e-4 * (1 + Math.abs(d.max - d.min));
-            if (!Number.isFinite(d.min) || !Number.isFinite(d.max) || d.min > d.max) {
-              fail(`${name}: param "${d.name}" has a non-finite/inverted range [${d.min}, ${d.max}]`);
-            } else if (!Number.isFinite(d.value) || d.value < d.min - eps || d.value > d.max + eps) {
-              fail(`${name}: param "${d.name}" value ${d.value} outside [${d.min}, ${d.max}]`);
-            }
-          }
+        for (const problem of paramStreamProblems(engine.getParameterDefinitions(),
+          engine.getParamValues())) {
+          fail(`${name}: ${problem}`);
         }
       }
     }
 
-    // The exemption is only meaningful while it names a live roster entry;
-    // a rename would otherwise silently drop the pin (tests/test_effects.h
-    // makes the same check a static_assert).
-    if (!sweptEffects.has(DARK_EXEMPT)) {
-      fail(`the all-black exemption names "${DARK_EXEMPT}", which is not in the ` +
-        `rendered roster — the exemption is stale`);
-    }
-    const wantDark = new Set(expectedDark === 'exempt-dark'
-      ? RESOLUTIONS.map(([w, h]) => `${DARK_EXEMPT}@${w}x${h}`) : []);
-    for (const key of darkEffects) {
-      if (wantDark.has(key)) continue;
-      if (expectedDark === 'either' && key.startsWith(`${DARK_EXEMPT}@`)) continue;
-      fail(`${key}: every pixel is zero after ${FRAMES_PER_EFFECT} frame(s) — ` +
-        `its draw path or the framebuffer view is dead`);
-    }
-    for (const key of wantDark) {
-      if (!darkEffects.has(key)) {
-        fail(`${key}: lit after ${FRAMES_PER_EFFECT} frame(s), but the all-black ` +
-          `exemption still claims it is dark`);
-      }
+    // RingShower expands its rings from zero radius and lights around frame 24,
+    // so a short window is black by design; tests/test_effects.h carries the
+    // same exemption, as a static_assert on the roster entry.
+    for (const problem of darknessProblems({
+      frames: FRAMES_PER_EFFECT,
+      resolutions: RESOLUTIONS,
+      sweptEffects,
+      darkKeys: darkEffects,
+    })) {
+      fail(problem);
     }
     console.log(`\nall-black: ${darkEffects.size} of ${sweptEffects.size * RESOLUTIONS.length} ` +
       `effect/resolution passes rendered no lit pixel` +

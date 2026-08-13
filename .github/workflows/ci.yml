@@ -1006,7 +1006,7 @@ jobs:
       # wiring pin for the other direction (see its header).
       - name: Every scripts/*.test.mjs unit test runs
         run: |
-          bash tools/check_test_files.sh 4 'scripts/*.test.mjs'
+          bash tools/check_test_files.sh 5 'scripts/*.test.mjs'
           node --test scripts/*.test.mjs
 
       - name: Gallery covers every registered effect
