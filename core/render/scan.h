@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <utility>
 #include "render/sdf.h"
-#include "mesh/mesh_classes.h"
+#include "mesh/mesh_class_types.h"
 #include "color/color.h"
 #include "render/filter.h"
 #include "engine/static_circular_buffer.h"
