@@ -2264,7 +2264,7 @@ Planar-warp **Speed** advances the stage's wrapped phase in cycles per frame. Af
 
 Polyhedral kaleidoscope lenses contract spatial-frequency and animation-speed slider ranges to the linear size of one symmetry chamber. This keeps the tetrahedral through dodecahedral and prismatic lenses controllable without changing their stored units or shader math: frequency is still measured in the stage's native domain and Speed is still cycles per frame. Switching to a smaller chamber clamps any affected authoring values into its displayed range; switching back restores the wider range, not the discarded out-of-range value.
 
-Hue noise is evaluated from the post-lens sphere direction, not planar coordinates. It therefore works with every generated palette and does not require a planar warp. **Hue Noise Amount** sets the maximum hue rotation, **Hue Noise Scale** sets the spatial frequency on the sphere, and **Hue Noise Speed** moves through the periodic noise field.
+Hue noise is evaluated from the post-lens sphere direction, not planar coordinates. It therefore works with every generated palette and does not require a planar warp. **Hue Noise Amount** sets the maximum hue rotation, **Hue Noise Scale** sets the spatial frequency on the sphere, and **Hue Noise Speed** moves through the periodic noise field within `-0.001` to `0.001` cycles per frame. Zero freezes the field at its current phase.
 
 Noise Contour (Projected) is available with Folded Sinusoidal,
 Stereographic, Gnomonic, and Equirectangular projections. Noise Contour (Sphere)

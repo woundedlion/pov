@@ -1644,10 +1644,8 @@ private:
     register_clamped_animated_param(
         "Hue Noise Scale", &params.hue_noise_scale, HUE_NOISE_SCALE_MIN,
         domain_scaled_max(HUE_NOISE_SCALE_MAX, 2.0f, domain_scale));
-    const float speed_max =
-        domain_scaled_max(NOISE_SPEED_MAX, 0.008f, domain_scale);
     register_clamped_animated_param("Hue Noise Speed", &params.hue_noise_speed,
-                                    -speed_max, speed_max);
+                                    -HUE_NOISE_SPEED_MAX, HUE_NOISE_SPEED_MAX);
   }
 
   struct Blend {
@@ -2852,6 +2850,8 @@ public:
     if (!decode_config_values(snapshot.accepted, next_accepted) ||
         !decode_config_values(snapshot.requested, next_requested))
       return ConfigRestoreResult::INVALID_VALUE;
+    normalize_config_ranges(next_accepted);
+    normalize_config_ranges(next_requested);
     RuntimeValues next_runtime = snapshot.runtime;
     if (!valid_snapshot_config(next_accepted) ||
         !valid_snapshot_config(next_requested))
@@ -5955,6 +5955,7 @@ private:
   static constexpr float HUE_NOISE_AMOUNT_MAX = 1.0f;
   static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
   static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
+  static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
   static constexpr float WAVE_SPIN_MIN = 0.0f, WAVE_SPIN_MAX = 0.05f;
   static constexpr float SOURCE_NOISE_SCALE_MIN = 0.0f;
   static constexpr float SOURCE_NOISE_SCALE_MAX = 2.0f;
@@ -6046,8 +6047,8 @@ private:
            p.color.hue_noise_amount <= HUE_NOISE_AMOUNT_MAX &&
            p.color.hue_noise_scale >= HUE_NOISE_SCALE_MIN &&
            p.color.hue_noise_scale <= HUE_NOISE_SCALE_MAX &&
-           p.color.hue_noise_speed >= NOISE_SPEED_MIN &&
-           p.color.hue_noise_speed <= NOISE_SPEED_MAX;
+           p.color.hue_noise_speed >= -HUE_NOISE_SPEED_MAX &&
+           p.color.hue_noise_speed <= HUE_NOISE_SPEED_MAX;
   }
 
   HS_COLD_MEMBER static constexpr bool
@@ -6165,10 +6166,18 @@ private:
                   ColorParams color, OuterCameraParams outer_camera) {
     const WarpStageParams inner_warp{0.1f, 0.0f, 0.0f};
     projection.wander = outer_camera.wander;
+    color.hue_noise_speed = hs::clamp(
+        color.hue_noise_speed, -HUE_NOISE_SPEED_MAX, HUE_NOISE_SPEED_MAX);
     return {source,       {outer_warp, inner_warp},
             projection,   surface_lens,
             {},           color,
             outer_camera, {}};
+  }
+
+  static constexpr void normalize_config_ranges(Config &config) {
+    config.params.color.hue_noise_speed =
+        hs::clamp(config.params.color.hue_noise_speed, -HUE_NOISE_SPEED_MAX,
+                  HUE_NOISE_SPEED_MAX);
   }
 
   static constexpr void
