@@ -68,8 +68,21 @@ struct NoColorCorrection {
 };
 /**
  * @brief No-op stub: the DMA pipeline applies no temperature correction.
+ * @details A distinct type, not an alias of NoColorCorrection: the FastLED
+ * branch defines two, and overload/if-constexpr dispatch must resolve the same
+ * way on both.
  */
-using NoTempCorrection = NoColorCorrection;
+struct NoTempCorrection {
+  NoTempCorrection() {
+    HS_CHECK(!correction_guard_live(),
+             "at most one correction guard may be live at a time (see contract "
+             "above)");
+    correction_guard_live() = true;
+  }
+  ~NoTempCorrection() { correction_guard_live() = false; }
+  NoTempCorrection(const NoTempCorrection &) = delete;
+  NoTempCorrection &operator=(const NoTempCorrection &) = delete;
+};
 #else
 // CONTRACT — restore-to-baseline, NOT save/restore: the destructors reinstate
 // the engine's canonical baseline (TypicalLEDStrip color, Candle temperature),
