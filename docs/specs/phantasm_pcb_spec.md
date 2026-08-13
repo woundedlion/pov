@@ -43,7 +43,7 @@ Companion documents:
 | 11 (MOSI) | LED **DATA** → DI | out | → '125 ch A → 33 Ω → strip DI |
 | 13 (SCK)  | LED **CLK** → CI  | out | → '125 ch B → 33 Ω → strip CI |
 | 3  | **FRAME_SYNC** | in/out | OUTPUT on master, INPUT on slaves (mutually exclusive); drive via '125 ch C, receive via divider |
-| 5  | **MASTER_EN** | out | LOW on master; gates '125 ch C `/OE`; **R_MEN 10 kΩ pull-up → 3V3** (boot-safe disable, R-LS-5) ([pov_segmented.h:132,252-266](../../hardware/pov_segmented.h#L132)) |
+| 5  | **MASTER_EN** | out | LOW on master; gates '125 ch C `/OE`; **R_MEN 10 kΩ pull-up → 3V3** (boot-safe disable, R-LS-5) ([pov_segmented.h — PIN_MASTER_EN, run_show()](../../hardware/pov_segmented.h)) |
 | 21 | **ID0** | in (PULLUP) | strap bit 0; ground = bit set |
 | 22 | **ID1** | in (PULLUP) | strap bit 1; ground = bit set |
 | 23 | **ID2** | in (PULLUP) | strap bit 2 — read at N=8; unread at N≤4 |
@@ -153,7 +153,7 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
   Part = **SN74AHCT125** (e.g. SN74AHCT125DR). The 5 V-tolerance caveat below is about signal
   *direction*, not package.
 - **R-LS-5 — Default the sync driver disabled at boot.** Ch C `/OE` is MASTER_EN (Teensy pin 5),
-  which **floats from power-on until `run_show()` drives it** ([pov_segmented.h:238,252-266](../../hardware/pov_segmented.h#L238));
+  which **floats from power-on until `run_show()` drives it** ([pov_segmented.h — PIN_MASTER_EN, run_show()](../../hardware/pov_segmented.h));
   a floating `/OE` that settles LOW briefly enables a slave's bus driver — the transient phantom-master
   hazard. Fit a **pull-up R_MEN (10 kΩ) on pin 5 → 3V3** (not 5 V — keeps pin 5 safe; 3.3 V is a solid
   AHCT TTL HIGH = `/OE` disabled). Every board then boots with its sync driver **off**, enabled only
@@ -467,7 +467,7 @@ hand-soldered by you.
 
 > **Pin 3 is one physical node.** `SYNC_OUT` and `SYNC_RX` are the two roles of the *same* Teensy
 > pin-3 net: the master drives it (pin 3 = OUTPUT → ch C), slaves sense the bus through the divider
-> (pin 3 = INPUT). The roles are **mutually exclusive per board** ([pov_segmented.h:251-266](../../hardware/pov_segmented.h#L251));
+> (pin 3 = INPUT). The roles are **mutually exclusive per board** ([pov_segmented.h — run_show()](../../hardware/pov_segmented.h));
 > on the master the divider is bypassed because pin 3 is a driven output.
 
 > **Strip +5 V / GND are _not_ on the card.** They come from the off-board power harness
