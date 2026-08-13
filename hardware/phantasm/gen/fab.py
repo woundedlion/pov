@@ -486,18 +486,32 @@ class PlotOriginError(ValueError):
     pass
 
 
-def validate_plot_origin(pcb_path):
+class BoardReadError(ValueError):
+    pass
+
+
+def read_board(pcb_path, error=BoardReadError, what="board"):
+    """Parse a KiCad board; raise `error` naming `what` when it cannot be read.
+
+    The board is 400 KB of s-expressions and the geometry gates each need the
+    whole tree, so main() reads it once and hands the result to all three.
+    """
+    try:
+        with open(pcb_path, encoding="utf-8") as fh:
+            return sexp.parse(fh.read())[0]
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise error(f"cannot read {what}: {pcb_path}") from exc
+
+
+def validate_plot_origin(pcb_path, board=None):
     """Return the board plot origin, or raise unless it is absolute (0, 0).
 
     Gerbers, drill, and centroid all export in absolute board coordinates. A
     non-zero `aux_axis_origin` shifts only the origin-relative exports, so the
     frames would diverge and JLC would place every part off-board.
     """
-    try:
-        with open(pcb_path, encoding="utf-8") as fh:
-            root = sexp.parse(fh.read())[0]
-    except (OSError, UnicodeError, ValueError) as exc:
-        raise PlotOriginError(f"cannot read PCB setup: {pcb_path}") from exc
+    root = board if board is not None else read_board(
+        pcb_path, PlotOriginError, "PCB setup")
 
     origin = (0.0, 0.0)
     for setup in F(root, "setup"):
@@ -519,12 +533,9 @@ def validate_plot_origin(pcb_path):
     return origin
 
 
-def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS):
-    try:
-        with open(pcb_path, encoding="utf-8") as fh:
-            root = sexp.parse(fh.read())[0]
-    except (OSError, UnicodeError, ValueError) as exc:
-        raise ViaGeometryError(f"cannot read PCB vias: {pcb_path}") from exc
+def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
+    root = board if board is not None else read_board(
+        pcb_path, ViaGeometryError, "PCB vias")
 
     diagnostics = []
     vias = F(root, "via")
@@ -579,7 +590,7 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS):
     return len(vias)
 
 
-def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS):
+def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
     """Gate copper-pour pad connection and fill features.
 
     KiCad DRC never flags these: thermal reliefs are same-net geometry, so a
@@ -589,11 +600,8 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS):
     end directly, and a zone carrying no `(fill ...)` node states no relief
     features at all.
     """
-    try:
-        with open(pcb_path, encoding="utf-8") as fh:
-            root = sexp.parse(fh.read())[0]
-    except (OSError, UnicodeError, ValueError) as exc:
-        raise ZoneGeometryError(f"cannot read PCB zones: {pcb_path}") from exc
+    root = board if board is not None else read_board(
+        pcb_path, ZoneGeometryError, "PCB zones")
 
     diagnostics = []
     # A rule area carries a keepout node and pours no copper. Its net is not
@@ -738,16 +746,20 @@ def main():
     print(f"kicad-cli: {KCLI}")
     if not os.path.exists(PCB):
         sys.exit(f"board not found: {PCB}")
+    try:
+        board = read_board(PCB)
+    except BoardReadError as exc:
+        sys.exit(str(exc))
     print("[1/9] Plot origin")
     try:
-        validate_plot_origin(PCB)
+        validate_plot_origin(PCB, board=board)
     except PlotOriginError as exc:
         sys.exit(str(exc))
     print("  plot origin: absolute board coordinates for gerbers, drill, "
           "and centroid")
     print("[2/9] Via geometry")
     try:
-        num_vias = validate_via_geometry(PCB)
+        num_vias = validate_via_geometry(PCB, board=board)
     except ViaGeometryError as exc:
         sys.exit(str(exc))
     print(
@@ -757,7 +769,7 @@ def main():
         f"{MIN_VIA_COPPER_SPACING_MM:g} mm copper spacing")
     print("[3/9] Zone geometry")
     try:
-        num_zones = validate_zone_geometry(PCB)
+        num_zones = validate_zone_geometry(PCB, board=board)
     except ZoneGeometryError as exc:
         sys.exit(str(exc))
     print(
