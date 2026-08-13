@@ -921,7 +921,8 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_LE(material.value, 1.0f);
   HS_EXPECT_EQ(material.coverage,
                projected.value_weight * projected.value_weight);
-  HS_EXPECT_EQ(material.warp_displacement, warped.path_length);
+  HS_EXPECT_EQ(material.warp_displacement,
+               projected.surface_path_length + warped.path_length);
   WB::PlanarWarpResult accumulated = warped;
   accumulated.deformation = 0.0f;
   accumulated.path_length = 0.75f;
@@ -937,10 +938,12 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_EQ(WB::shape(3.0f, projected, warped, frame).value, 1.0f);
   HS_EXPECT_EQ(WB::shape(-3.0f, projected, warped, frame).value, 0.0f);
 
-  const WB::ProjectedLookup direct_meta{
+  WB::ProjectedLookup direct_meta{
       Complex(1.0f, 2.0f), 3, 4, WB::boundary_singular(), 0.25f, 0.1f, 0x10};
-  const WB::ProjectedLookup lensed_meta{
+  WB::ProjectedLookup lensed_meta{
       Complex(3.0f, 4.0f), 7, 8, WB::boundary_singular(), 0.75f, 0.9f, 0x20};
+  direct_meta.surface_path_length = 0.25f;
+  lensed_meta.surface_path_length = 0.75f;
   const WB::ProjectedLookup joined = WB::join(
       direct_meta, lensed_meta, 0.75f, WB::Projection::STEREOGRAPHIC, 2.0f);
   const WB::ProjectedLookup direct_endpoint = WB::join(
@@ -956,6 +959,8 @@ inline void test_shaderball_pipeline_contract() {
                direct_meta.fade_edge_distance);
   HS_EXPECT_EQ(direct_endpoint.value_weight, direct_meta.value_weight);
   HS_EXPECT_EQ(direct_endpoint.flags, direct_meta.flags);
+  HS_EXPECT_EQ(direct_endpoint.surface_path_length,
+               direct_meta.surface_path_length);
   HS_EXPECT_EQ(lensed_endpoint.coords.re, lensed_meta.coords.re);
   HS_EXPECT_EQ(lensed_endpoint.coords.im, lensed_meta.coords.im);
   HS_EXPECT_EQ(lensed_endpoint.region_id, lensed_meta.region_id);
@@ -965,6 +970,8 @@ inline void test_shaderball_pipeline_contract() {
                lensed_meta.fade_edge_distance);
   HS_EXPECT_EQ(lensed_endpoint.value_weight, lensed_meta.value_weight);
   HS_EXPECT_EQ(lensed_endpoint.flags, lensed_meta.flags);
+  HS_EXPECT_EQ(lensed_endpoint.surface_path_length,
+               lensed_meta.surface_path_length);
   HS_EXPECT_EQ(joined.coords.re, 2.5f);
   HS_EXPECT_EQ(joined.coords.im, 3.5f);
   HS_EXPECT_EQ(joined.region_id, uint8_t(7));
@@ -974,6 +981,7 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_EQ(joined.flags, uint8_t(0x20));
   HS_EXPECT_EQ(joined.value_weight,
                pole_attenuation(2.5f * 2.5f + 3.5f * 3.5f, 2.0f));
+  HS_EXPECT_EQ(joined.surface_path_length, 0.625f);
 }
 
 /** @brief Legacy projection and lens slots retain their shipped kernels. */
@@ -2975,7 +2983,10 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   HS_EXPECT_TRUE(WB::requested_config(sb) == unsupported);
   HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
 
-  const WB::FrameState boundary_frame = WB::preset_frame(sb, 18);
+  WB::RequestedConfig boundary_config = WB::presets()[18];
+  boundary_config.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
+  boundary_config.params.color.hue_shift_amount = 1.0f;
+  const WB::FrameState boundary_frame = WB::config_frame(sb, boundary_config);
   const Vector boundary_view = Vector(0.31f, -0.47f, 0.8269825f).normalized();
   const Vector outer = WB::outer_lookup(boundary_view, boundary_frame);
   const WB::ProjectedLookup reference_projected =
@@ -2996,6 +3007,9 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   HS_EXPECT_EQ(pipeline_projected.sphere.x, reference_projected.sphere.x);
   HS_EXPECT_EQ(pipeline_projected.sphere.y, reference_projected.sphere.y);
   HS_EXPECT_EQ(pipeline_projected.sphere.z, reference_projected.sphere.z);
+  HS_EXPECT_GT(reference_projected.surface_path_length, 0.0f);
+  HS_EXPECT_EQ(pipeline_projected.surface_path_length,
+               reference_projected.surface_path_length);
 
   const WB::PlanarWarpResult reference_warp =
       WB::warp(reference_projected, boundary_frame);
@@ -4008,6 +4022,25 @@ inline void test_shaderball_surface_noise_geometry_and_composition() {
   const Vector negative = WB::surface_noise(directions.back(), frame);
   HS_EXPECT_GT(dot(positive - directions.back(), circulation), 0.0f);
   HS_EXPECT_LT(dot(negative - directions.back(), circulation), 0.0f);
+
+  config.slots.surface_noise = WB::SurfaceNoise::DIRECT;
+  config.params.surface_noise.basis = WB::NoiseBasis::FBM3;
+  config.params.surface_noise.strength = 0.3f;
+  config.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
+  config.params.color.hue_shift_amount = 1.0f;
+  frame = WB::config_frame(sb, config);
+  const WB::ProjectedLookup displaced_projected =
+      WB::surface_project(directions.back(), frame);
+  const WB::PlanarWarpResult unwarped = WB::warp(displaced_projected, frame);
+  const WB::MaterialSample displaced_material =
+      WB::material(displaced_projected, unwarped, frame);
+  HS_EXPECT_GT(displaced_projected.surface_path_length, 0.0f);
+  HS_EXPECT_EQ(displaced_material.warp_displacement,
+               displaced_projected.surface_path_length);
+  WB::MaterialSample undisplaced_material = displaced_material;
+  undisplaced_material.warp_displacement = 0.0f;
+  HS_EXPECT_TRUE(WB::colorize(displaced_material, frame).color !=
+                 WB::colorize(undisplaced_material, frame).color);
 
   frame = WB::config_frame(sb, config);
   for (WB::Projection projection :

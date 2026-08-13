@@ -1712,6 +1712,7 @@ private:
     uint8_t edge_class;
     float domain_coverage;
     Vector sphere;
+    float surface_path_length;
 
     constexpr ProjectedLookup(Complex coords, uint8_t region_id,
                               uint8_t component_id, uint8_t boundary_flags,
@@ -1719,12 +1720,14 @@ private:
                               uint8_t flags, uint8_t traits = 0,
                               uint8_t edge_class = 0,
                               float domain_coverage = 1.0f,
-                              Vector sphere = Vector())
+                              Vector sphere = Vector(),
+                              float surface_path_length = 0.0f)
         : coords(coords), region_id(region_id), component_id(component_id),
           boundary_flags(boundary_flags),
           fade_edge_distance(fade_edge_distance), value_weight(value_weight),
           flags(flags), traits(traits), edge_class(edge_class),
-          domain_coverage(domain_coverage), sphere(sphere) {}
+          domain_coverage(domain_coverage), sphere(sphere),
+          surface_path_length(surface_path_length) {}
   };
 
   struct SourceTraits {
@@ -1740,6 +1743,11 @@ private:
     Complex coords;
     Complex net_delta;
     float deformation;
+    float path_length;
+  };
+
+  struct SurfaceNoiseResult {
+    Vector sphere;
     float path_length;
   };
 
@@ -2438,7 +2446,8 @@ private:
         coverage *= input.projected.value_weight * input.projected.value_weight;
       }
       const MaterialSample material{value, coverage, input.projected.sphere,
-                                    input.warped.path_length};
+                                    input.projected.surface_path_length +
+                                        input.warped.path_length};
       HS_SB_STAGE_SPAN(material, stage_start);
       return material;
     }
@@ -2475,7 +2484,8 @@ private:
                              2.0f * frame.params.value.iso_width, distance);
       const MaterialSample material{
           value, input.projected.value_weight * input.projected.domain_coverage,
-          input.projected.sphere, input.warped.path_length};
+          input.projected.sphere,
+          input.projected.surface_path_length + input.warped.path_length};
       HS_SB_STAGE_SPAN(material, stage_start);
       return material;
     }
@@ -3515,16 +3525,26 @@ private:
     return lensed;
   }
 
-  __attribute__((always_inline)) static Vector
+  __attribute__((always_inline)) static float
+  surface_noise_path_length(const Vector &step, const FrameState &frame) {
+    if (!frame.prepared_hue_rotation.active ||
+        frame.slots.hue_shift != HueShiftMode::WARP_DISPLACEMENT)
+      return 0.0f;
+    return sqrtf(dot(step, step));
+  }
+
+  __attribute__((always_inline)) static SurfaceNoiseResult
   apply_static_direct_surface_noise(const Vector &v, const FrameState &frame) {
     const SurfaceNoiseParams &params = frame.params.surface_noise;
     if (params.strength == 0.0f)
-      return v;
+      return {v, 0.0f};
     const Vector q = noise_sphere_coordinate(
         v, params.scale, frame.prepared_surface_noise.loop_offset);
     const Vector tangent =
         sample_direct_simplex_tangent(*frame.resources.surface_noise, q, v);
-    return sphere_exp_map_half_radian(v, params.strength * tangent);
+    const Vector step = params.strength * tangent;
+    const float path_length = surface_noise_path_length(step, frame);
+    return {sphere_exp_map_half_radian(v, step), path_length};
   }
 
   template <SurfaceLens LENS>
@@ -3532,9 +3552,13 @@ private:
   direct_noise_stereographic_lookup(const Vector &v, const FrameState &frame) {
     const Vector lensed = selected_lens_lookup<LENS>(v);
     HS_SB_STAGE_MARK(surface_start);
-    const Vector displaced = apply_static_direct_surface_noise(lensed, frame);
+    const SurfaceNoiseResult displaced =
+        apply_static_direct_surface_noise(lensed, frame);
     HS_SB_STAGE_SPAN(surface_noise, surface_start);
-    return profiled_stereographic_lookup(displaced, frame);
+    ProjectedLookup projected =
+        profiled_stereographic_lookup(displaced.sphere, frame);
+    projected.surface_path_length = displaced.path_length;
+    return projected;
   }
 
   template <bool MIRROR_FIRST>
@@ -3723,10 +3747,13 @@ private:
                                                      const FrameState &frame) {
     const Slots &slots = frame.slots;
     Vector pre_lens = v;
+    float surface_path_length = 0.0f;
     if (slots.surface_noise != SurfaceNoise::NONE &&
         slots.surface_noise_placement == SurfaceNoisePlacement::BEFORE_LENS) {
       HS_SB_STAGE_MARK(surface_start);
-      pre_lens = apply_surface_noise(v, frame);
+      const SurfaceNoiseResult displaced = apply_surface_noise_result(v, frame);
+      pre_lens = displaced.sphere;
+      surface_path_length = displaced.path_length;
       HS_SB_STAGE_SPAN(surface_noise, surface_start);
     }
     const Vector lensed = slots.surface_lens == SurfaceLens::NONE
@@ -3736,10 +3763,15 @@ private:
     if (slots.surface_noise != SurfaceNoise::NONE &&
         slots.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS) {
       HS_SB_STAGE_MARK(surface_start);
-      post_lens = apply_surface_noise(lensed, frame);
+      const SurfaceNoiseResult displaced =
+          apply_surface_noise_result(lensed, frame);
+      post_lens = displaced.sphere;
+      surface_path_length = displaced.path_length;
       HS_SB_STAGE_SPAN(surface_noise, surface_start);
     }
-    return profiled_project_branch(post_lens, frame);
+    ProjectedLookup projected = profiled_project_branch(post_lens, frame);
+    projected.surface_path_length = surface_path_length;
+    return projected;
   }
 #endif
 
@@ -3972,7 +4004,9 @@ private:
             selected->traits,
             selected->edge_class,
             hs::lerp(direct.domain_coverage, lensed.domain_coverage, mix),
-            nlerp_unit(direct.sphere, lensed.sphere, mix)};
+            nlerp_unit(direct.sphere, lensed.sphere, mix),
+            hs::lerp(direct.surface_path_length, lensed.surface_path_length,
+                     mix)};
   }
 
   /**
@@ -4334,7 +4368,8 @@ private:
       break;
     }
     coverage *= projected.domain_coverage;
-    return {value, coverage, projected.sphere, warped.path_length};
+    return {value, coverage, projected.sphere,
+            projected.surface_path_length + warped.path_length};
   }
 
   static MaterialSample shape_material(float field,
@@ -4348,7 +4383,7 @@ private:
     if (frame.slots.value_transfer == ValueTransfer::LINEAR &&
         frame.slots.coverage == CoveragePolicy::OPAQUE)
       return {value, projected.domain_coverage, projected.sphere,
-              warped.path_length};
+              projected.surface_path_length + warped.path_length};
     return shape_nontrivial_material(value, projected, warped, frame);
   }
 #endif
@@ -4556,22 +4591,29 @@ private:
                                v);
   }
 
-  HS_FLASH_MEMBER static Vector
+  HS_FLASH_MEMBER static SurfaceNoiseResult
+  finish_surface_noise_step(const Vector &v, const Vector &step,
+                            const FrameState &frame) {
+    const float path_length = surface_noise_path_length(step, frame);
+    return {sphere_exp_map_half_radian(v, step), path_length};
+  }
+
+  HS_FLASH_MEMBER static SurfaceNoiseResult
   midpoint_surface_curl_step(const Vector &v, float distance,
                              const FrameState &frame) {
     const Vector first = surface_curl_field(v, frame);
     const Vector midpoint =
         sphere_exp_map_half_radian(v, 0.5f * distance * first);
     const Vector midpoint_field = surface_curl_field(midpoint, frame);
-    return sphere_exp_map_half_radian(
-        v, distance * transport_tangent(midpoint, v, midpoint_field));
+    return finish_surface_noise_step(
+        v, distance * transport_tangent(midpoint, v, midpoint_field), frame);
   }
 
-  HS_FLASH_MEMBER static Vector apply_surface_noise(const Vector &v,
-                                                    const FrameState &frame) {
+  HS_FLASH_MEMBER static SurfaceNoiseResult
+  apply_surface_noise_result(const Vector &v, const FrameState &frame) {
     const SurfaceNoiseParams &params = frame.params.surface_noise;
     if (params.strength == 0.0f)
-      return v;
+      return {v, 0.0f};
     if (frame.slots.surface_noise == SurfaceNoise::DIRECT) {
       const Vector q = noise_sphere_coordinate(
           v, params.scale, frame.prepared_surface_noise.loop_offset);
@@ -4579,16 +4621,24 @@ private:
           sample_direct_tangent(*frame.resources.surface_noise, params.basis, q,
                                 v, frame.prepared_surface_noise.direction_cos,
                                 frame.prepared_surface_noise.direction_sin);
-      return sphere_exp_map_half_radian(v, params.strength * tangent);
+      return finish_surface_noise_step(v, params.strength * tangent, frame);
     }
     if (params.integrator == SurfaceCurlIntegrator::EULER)
-      return sphere_exp_map_half_radian(v, params.strength *
-                                               surface_curl_field(v, frame));
+      return finish_surface_noise_step(
+          v, params.strength * surface_curl_field(v, frame), frame);
     if (params.integrator == SurfaceCurlIntegrator::MIDPOINT)
       return midpoint_surface_curl_step(v, params.strength, frame);
-    Vector current =
+    const SurfaceNoiseResult first =
         midpoint_surface_curl_step(v, 0.5f * params.strength, frame);
-    return midpoint_surface_curl_step(current, 0.5f * params.strength, frame);
+    SurfaceNoiseResult second = midpoint_surface_curl_step(
+        first.sphere, 0.5f * params.strength, frame);
+    second.path_length += first.path_length;
+    return second;
+  }
+
+  HS_FLASH_MEMBER static Vector apply_surface_noise(const Vector &v,
+                                                    const FrameState &frame) {
+    return apply_surface_noise_result(v, frame).sphere;
   }
 
   /**
