@@ -190,12 +190,15 @@ private:
    * @param band_r World-angle radius of the ring's displaced band.
    * @return Bit c set for chunk c of BAKE_CHUNKS, 0 when the whole ring misses
    * the clip and CHUNK_MASK when the pad spans the ring.
-   * @details Chunk c owns bake columns [c * lut_n / BAKE_CHUNKS, (c + 1) *
-   * lut_n / BAKE_CHUNKS); a clear bit skips that span's field and hue bake and
-   * leaves its columns stale. The raw per-chunk clip test is therefore widened
-   * by pad_chunks neighbors on both sides, since the rasterizer's soft stroke
+   * @details Chunk c owns bake columns [ceil(c * lut_n / BAKE_CHUNKS),
+   * ceil((c + 1) * lut_n / BAKE_CHUNKS)); the boundaries round up, so a chunk's
+   * span sits up to one column later than the even split whose midpoint this
+   * test samples. A clear bit skips that span's field and hue bake and leaves
+   * its columns stale. The raw per-chunk clip test is therefore widened by
+   * pad_chunks neighbors on both sides, since the rasterizer's soft stroke
    * reaches params.thickness of azimuth away from a knot — that many chunks at
-   * the band's smallest circumference.
+   * the band's smallest circumference. pad_chunks is at least 1, so the same
+   * widening also absorbs the one-column rounding overhang.
    */
   __attribute__((always_inline)) uint32_t
   visible_chunk_mask(const Basis &basis, float theta, float cos_t, float sin_t,
