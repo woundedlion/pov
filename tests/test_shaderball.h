@@ -3196,7 +3196,10 @@ inline void test_shaderball_fast_peirce_square() {
   const float radius = cosf(LATITUDE);
   for (float boundary :
        {-0.75f * PI_F, -0.25f * PI_F, 0.25f * PI_F, 0.75f * PI_F}) {
-    for (float offset : {-TIE_EPSILON, 0.0f, TIE_EPSILON}) {
+    // Half the snap width: at the band edge itself the exact kernel's snap
+    // turns on atan2f round-trip error and goes different ways per quadrant,
+    // so the two kernels' tie predicates are not comparable there.
+    for (float offset : {-0.5f * TIE_EPSILON, 0.0f, 0.5f * TIE_EPSILON}) {
       const float longitude = boundary + offset;
       const Vector input(radius * cosf(longitude), sinf(LATITUDE),
                          radius * sinf(longitude));

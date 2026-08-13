@@ -429,7 +429,7 @@ peirce_projection_fast_square(const Vector &v) {
       sector = v.z + v.x >= 0.0f || diagonal_tie ? 3 : 2;
       edge_class = v.z + v.x < 0.0f && !diagonal_tie ? 3 : 0;
     } else {
-      sector = v.z >= v.x ? 4 : 3;
+      sector = v.z >= v.x || diagonal_tie ? 4 : 3;
       edge_class = v.z > v.x && !diagonal_tie ? 2 : 0;
     }
   }
