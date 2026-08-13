@@ -23,7 +23,9 @@
  *     (relaxed); the acquire pairs with publish()'s release.
  *   - request_release()/service_release() are a counter handshake: the
  *     foreground bumps req, the ISR drops the live pointer and copies req to
- *     ack. release_complete() is the foreground's wait predicate.
+ *     ack (release). release_complete() is the foreground's wait predicate and
+ *     loads ack with acquire, so the ISR's live_effect = nullptr is ordered
+ *     before the caller's delete.
  *
  * Free of FastLED/Teensy/timer dependencies; templated on the effect pointee so
  * the host tests drive it with a stand-in type.
@@ -95,7 +97,7 @@ public:
    * @return True once the ISR has acknowledged every outstanding release.
    */
   bool release_complete() const {
-    return release_ack.load(std::memory_order_relaxed) ==
+    return release_ack.load(std::memory_order_acquire) ==
            release_req.load(std::memory_order_relaxed);
   }
 
@@ -132,14 +134,16 @@ public:
 
   /**
    * @brief Services a pending teardown request: drop the live pointer and ack.
-   * @details Idempotent — a no-op when no release is outstanding.
+   * @details Idempotent — a no-op when no release is outstanding. The ack is a
+   *          release store, pairing with release_complete()'s acquire load; the
+   *          barrier is paid only on the wake that services a request.
    */
   void service_release() {
     if (release_ack.load(std::memory_order_relaxed) !=
         release_req.load(std::memory_order_relaxed)) {
       live_effect = nullptr;
       release_ack.store(release_req.load(std::memory_order_relaxed),
-                        std::memory_order_relaxed);
+                        std::memory_order_release);
     }
   }
 
