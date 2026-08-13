@@ -69,14 +69,16 @@ class ViaGeometryTests(unittest.TestCase):
 
 
 class ZoneGeometryTests(unittest.TestCase):
-    def validate(self, min_thickness, thermal_gap, bridge_width="0.1016"):
+    def validate(self, min_thickness, thermal_gap, bridge_width="0.1016",
+                 connect_pads="", fill='(fill yes (thermal_gap {gap}) '
+                                      '(thermal_bridge_width {bridge}))'):
         with tempfile.TemporaryDirectory() as directory:
             pcb = Path(directory) / "test.kicad_pcb"
             pcb.write_text(
                 '(kicad_pcb (zone (net "GND") (name "GND_IN1") '
+                f'{connect_pads}'
                 f'(min_thickness {min_thickness}) '
-                f'(fill yes (thermal_gap {thermal_gap}) '
-                f'(thermal_bridge_width {bridge_width}))))',
+                + fill.format(gap=thermal_gap, bridge=bridge_width) + "))",
                 encoding="utf-8")
             return fab.validate_zone_geometry(pcb, min_pours=1)
 
@@ -100,6 +102,30 @@ class ZoneGeometryTests(unittest.TestCase):
                 fab.ZoneGeometryError,
                 "GND_IN1: thermal_bridge_width 0.05 mm is below 0.1016 mm"):
             self.validate("0.1016", "0.1016", "0.05")
+
+    def test_accepts_the_thermal_relief_default(self):
+        self.assertEqual(
+            self.validate("0.1016", "0.1016",
+                          connect_pads="(connect_pads (clearance 0.1016)) "), 1)
+
+    def test_accepts_reliefs_on_through_hole_pads_only(self):
+        self.assertEqual(
+            self.validate("0.1016", "0.1016",
+                          connect_pads="(connect_pads thru_hole_only "
+                                       "(clearance 0.1016)) "), 1)
+
+    def test_rejects_solidly_connected_pads(self):
+        with self.assertRaisesRegex(
+                fab.ZoneGeometryError,
+                "GND_IN1: connect_pads yes solders every pad"):
+            self.validate("0.1016", "0.1016",
+                          connect_pads="(connect_pads yes (clearance 0.1016)) ")
+
+    def test_rejects_a_pour_with_no_fill_node(self):
+        with self.assertRaisesRegex(
+                fab.ZoneGeometryError,
+                "GND_IN1: no .fill .... node"):
+            self.validate("0.1016", "0.1016", fill="")
 
     def keepout_count(self, net_node):
         with tempfile.TemporaryDirectory() as directory:
