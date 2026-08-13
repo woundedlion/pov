@@ -2179,6 +2179,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha);
     }
 
+    // The size() - 1 cannot underflow: HS_CHECK(sim_dist > 0) above implies the
+    // simulation pushed at least one step.
     size_t loop_limit = omit_last ? steps_cache.size() - 1 : steps_cache.size();
     float current_dist = 0.0f;
 
