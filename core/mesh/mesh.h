@@ -276,7 +276,11 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
                      const uint8_t *counts, size_t num_faces,
                      const uint16_t *faces_arr, size_t total_indices) {
   require_flat_face_length(counts, num_faces, total_indices);
-  HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX,
+  // Vertices carry narrow_index's ceiling so an oversized mesh trips here
+  // rather than inside a downstream operator's emitter; total_indices counts
+  // half-edges, which are only ever stored as uint16_t.
+  HS_CHECK(num_verts <= static_cast<size_t>(INT16_MAX) + 1 &&
+               total_indices <= UINT16_MAX,
            "half-edge mesh exceeds 16-bit index range");
   // The pairing-record allocation below rejects a zero-size request.
   HS_CHECK(total_indices > 0,
