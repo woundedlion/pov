@@ -261,6 +261,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── recipe.h                Recipe lowering to primitive Conway steps + replay
 │   │   ├── hankin.h                Hankin pattern compilation and update system
 │   │   ├── solids.h                Platonic + Archimedean + Catalan + Islamic solid registry
+│   │   ├── triangular_bitset.h     Upper-triangular pair bitset (wireframe edge dedup)
 │   │   └── relax_bakes_generated.h Baked relaxed-mesh vertices (from tools/relax_bakes.py)
 │   ├── color/                  Color math and palettes
 │   │   ├── color.h                 Pixel (16-bit linear), Color4, blend helpers, palettes
