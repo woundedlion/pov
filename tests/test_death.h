@@ -3258,7 +3258,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  * @details Raise it after adding cases; lower it only alongside a deliberate
  *          removal of the engine guards those cases target.
  */
-constexpr int MIN_COVERED_GUARD_SITES = 115;
+constexpr int MIN_COVERED_GUARD_SITES = 117;
 
 /** @brief One file's approved count of guard sites no case pins. */
 struct GuardGapAllowance {
@@ -3293,23 +3293,23 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"memory.h", 3},
     {"reaction_graph.h", 2},
     {"static_circular_buffer.h", 4},
-    {"transformers.h", 3},
+    {"transformers.h", 4},
     {"3dmath.h", 6},
     {"geometry.h", 16},
     {"noise_field.h", 1},
     {"spherical_field.h", 2},
     {"waves.h", 1},
-    {"conway.h", 31},
+    {"conway.h", 34},
     {"conway_graph.h", 1},
-    {"hankin.h", 9},
+    {"hankin.h", 10},
     {"mesh.h", 10},
-    {"mesh_classes.h", 4},
+    {"mesh_classes.h", 5},
     {"recipe.h", 9},
     {"solids.h", 7},
     {"spatial.h", 8},
     {"canvas.h", 25},
     {"filter.h", 12},
-    {"led.h", 2},
+    {"led.h", 3},
     {"plot.h", 13},
     {"plot_cull.h", 1},
     {"plot_raster.h", 6},
@@ -3330,9 +3330,9 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"MobiusGrid.h", 1},
     {"ReactionDiffusionBase.h", 2},
     {"RingShower.h", 1},
-    {"ShaderBall.h", 15},
+    {"ShaderBall.h", 16},
     {"ShapeShifter.h", 3},
-    {"dma_led.h", 2},
+    {"dma_led.h", 4},
     {"pov_segmented.h", 9},
     {"pov_single.h", 9},
     {"phantasm_target.h", 2},
@@ -3467,7 +3467,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 132;
+  constexpr int DEATH_CASE_COUNT = 134;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
