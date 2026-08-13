@@ -2212,12 +2212,12 @@ shading — once per visible sample, through the shared Scan::Shader loop
        │ MaterialInput
   Material
        │ MaterialSample
-  Color
+  Colorize
        │ straight-alpha Color4
   Canvas
 ```
 
-The fused surface/projection stage owns lens selection, optional direct surface noise, projection-frame rotation, projection, and all seam/topology metadata. The planar-warp stage runs its two authored warps in pullback order and carries the original projection metadata plus its accumulated geometry. The material stage combines signal weighting, value transfer, and coverage. The terminal color stage samples the selected generated harmony, optionally rotates its hue with sphere-space noise, and returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
+The fused surface/projection stage owns lens selection, optional direct surface noise, projection-frame rotation, projection, and all seam/topology metadata. The planar-warp stage runs its two authored warps in pullback order and carries the original projection metadata plus both net deformation and accumulated path length. The material stage combines signal weighting, value transfer, and coverage while carrying that total warp displacement into Colorize. The terminal Colorize stage samples the selected generated harmony, optionally rotates its hue with sphere-space noise or total warp displacement, and returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
 
 Two stages carry approved approximations. Fast square Peirce projection and the hue-rotation LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. The dynamic orchestration is compiled for the simulator and native oracle tests, where every authored preset is compared against it. Teensy preprocessing excludes it.
 
@@ -2258,13 +2258,13 @@ The two planar warps run in their displayed pullback order: **Planar Warp 1** th
 | **Signal Weight** | None, Projection | Optionally multiplies the signed source signal by the projection's weight before remapping it to `[0, 1]`. It changes value, not alpha. |
 | **Value Transfer** | Linear, Ridge, Iso Contour, Smooth Bands | Shapes the normalized value. Iso controls appear only for Iso Contour; Band Count and Band Phase only for Smooth Bands. |
 | **Coverage** | Opaque, Projection Weight Squared, Value Cutout, Edge Fade, Projection Weight | Computes alpha independently from color value. Linear projection weight is softer and broader than the squared form. |
-| **Palette** | Generated Triadic, Generated Complementary, Generated Analogous | Converts shaped value and coverage into straight-alpha color. Hue Noise Amount, Scale, and Speed apply to every palette. |
+| **Colorize** | Palette: Generated Triadic, Generated Complementary, Generated Analogous. Hue Shift Mode: None, Noise, Total Warp Displacement | Converts shaped value and coverage into straight-alpha color. Hue Shift Amount controls either sphere-space noise rotation or rotation proportional to the accumulated displacement of both planar warps. |
 
 Planar-warp **Speed** advances the stage's wrapped phase in cycles per frame. Affine Frame smoothly travels from the identity transform through all six authored values and back each cycle: Translation X/Y slide the frame, Rotation turns it, Scale X/Y resize it, and Shear slants it. Mirror Tile translates its mirror lattice by one local X cell, producing a seamless repeating scroll while its Y offset remains manual. Polar Chart advances only Angular Phase by one turn; Radial Phase remains manual. Wave Shear advances its wave, Vortex orbits its center, and the two projected-noise modes move through their periodic noise field.
 
-Polyhedral kaleidoscope lenses contract spatial-frequency and animation-speed slider ranges to the linear size of one symmetry chamber. This keeps the tetrahedral through dodecahedral and prismatic lenses controllable without changing their stored units or shader math: frequency is still measured in the stage's native domain and Speed is still cycles per frame. Switching to a smaller chamber clamps any affected authoring values into its displayed range; switching back restores the wider range, not the discarded out-of-range value.
+Polyhedral kaleidoscope lenses contract animation-speed and warp/noise-frequency slider ranges to the linear size of one symmetry chamber. Grid Pattern Freq and Lattice Cell Scale retain their full source-density ceilings under every lens, so small dodecahedral and prismatic chambers can still hold dense patterns. The stored units and shader math do not change: frequency remains measured in the stage's native domain and Speed remains cycles per frame. Switching to a smaller chamber clamps affected authoring values into its displayed range; switching back restores the wider range, not the discarded out-of-range value.
 
-Hue noise is evaluated from the post-lens sphere direction, not planar coordinates. It therefore works with every generated palette and does not require a planar warp. **Hue Noise Amount** sets the maximum hue rotation, **Hue Noise Scale** sets the spatial frequency on the sphere, and **Hue Noise Speed** moves through the periodic noise field within `-0.001` to `0.001` cycles per frame. Zero freezes the field at its current phase.
+**Hue Shift Mode** selects the Colorize input. Noise evaluates the post-lens sphere direction, so it works without a planar warp; **Hue Shift Amount** sets its maximum hue rotation, **Hue Noise Scale** sets its spatial frequency, and **Hue Noise Speed** moves through the periodic field within `-0.001` to `0.001` cycles per frame. Zero freezes the field at its current phase. Total Warp Displacement instead rotates hue by Hue Shift Amount times the sum of the distances applied by Planar Warp 1 and Planar Warp 2. It uses accumulated path length rather than net offset, so opposing warps both remain visible in the color.
 
 Noise Contour (Projected) is available with Folded Sinusoidal,
 Stereographic, Gnomonic, and Equirectangular projections. Noise Contour (Sphere)
@@ -2292,7 +2292,7 @@ Planar Warp 1 ─────> Selected stage controls
 Planar Warp 2 ─────> Selected stage controls
 Value Transfer ────> Iso or band controls
 Coverage ──────────> Cutout threshold or edge width
-Palette ───────────> Generated harmony + shared hue-noise controls
+Colorize ──────────> Palette + selected hue-shift source
 ```
 
 
@@ -2300,7 +2300,7 @@ Schema validity still enforces the cross-stage constraints that have a geometric
 
 Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** gives both sides of a paired cut the same authored fade, so the seam closes flush without a subducted edge. Glued and periodic edges remain continuous and do not fade. **Pole Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
 
-Admitted GUI edits apply immediately. Numeric writes clamp to their registered range, including stale subordinate values when a mode change narrows that range. Structurally incompatible stage combinations remain pending until another edit repairs them. Automatic preset choreography remains continuous: configurations with the same canonical topology morph one live parameter state, while topology changes use the sequential through-clear endpoints. Source, warp, projection, hue-noise, global-walk, and palette clocks keep advancing according to their named speeds. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
+Admitted GUI edits apply immediately. Numeric writes clamp to their registered range, including stale subordinate values when a mode change narrows that range. Structurally incompatible stage combinations remain pending until another edit repairs them. Automatic preset choreography remains continuous: configurations with the same canonical topology morph one live parameter state, while topology changes use the sequential through-clear endpoints. Source, warp, projection, hue-shift noise, global-walk, and palette clocks keep advancing according to their named speeds. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
 
 <table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DisplacementField" target="_blank"><img src="docs/screenshots/DisplacementField.png" alt="DisplacementField" width="280"></a></td>

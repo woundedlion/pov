@@ -55,6 +55,7 @@ struct ShaderBallWhiteBox;
   X(SLOTS_VALUE_TRANSFER, slots.value_transfer)                                \
   X(SLOTS_COVERAGE, slots.coverage)                                            \
   X(SLOTS_PALETTE, slots.palette)                                              \
+  X(SLOTS_HUE_SHIFT, slots.hue_shift)                                          \
   X(SLOTS_PEIRCE_LAYOUT, slots.peirce_layout)                                  \
   X(SLOTS_AIROCEAN_LAYOUT, slots.airocean_layout)                              \
   X(SLOTS_BONNE_HEMISPHERE, slots.bonne_hemisphere)                            \
@@ -157,7 +158,7 @@ struct ShaderBallWhiteBox;
   X(VALUE_CUTOUT_THRESHOLD, params.value.cutout_threshold)                     \
   X(VALUE_CUTOUT_SOFTNESS, params.value.cutout_softness)                       \
   X(VALUE_EDGE_WIDTH, params.value.edge_width)                                 \
-  X(COLOR_HUE_NOISE_AMOUNT, params.color.hue_noise_amount)                     \
+  X(COLOR_HUE_SHIFT_AMOUNT, params.color.hue_shift_amount)                     \
   X(COLOR_HUE_NOISE_SCALE, params.color.hue_noise_scale)                       \
   X(COLOR_HUE_NOISE_SPEED, params.color.hue_noise_speed)                       \
   X(CAMERA_WANDER, params.outer_camera.wander)                                 \
@@ -412,6 +413,7 @@ public:
     PROJECTION_WEIGHT
   };
   enum class PaletteMode : uint8_t { TRIADIC, COMPLEMENTARY, ANALOGOUS };
+  enum class HueShiftMode : uint8_t { NONE, NOISE, WARP_DISPLACEMENT };
 
   struct Slots {
     Function function;
@@ -431,6 +433,7 @@ public:
     SurfaceNoise surface_noise = SurfaceNoise::NONE;
     SurfaceNoisePlacement surface_noise_placement =
         SurfaceNoisePlacement::AFTER_LENS;
+    HueShiftMode hue_shift = HueShiftMode::NOISE;
 
     HS_COLD_MEMBER bool operator==(const Slots &) const = default;
   };
@@ -718,21 +721,21 @@ public:
   };
 
   struct ColorParams {
-    float hue_noise_amount = 0.0f;
+    float hue_shift_amount = 0.0f;
     float hue_noise_scale = 1.0f;
     float hue_noise_speed = 0.0f;
 
     HS_COLD_MEMBER constexpr ColorParams() = default;
 
     constexpr ColorParams(float amount, float scale, float speed)
-        : hue_noise_amount(amount), hue_noise_scale(scale),
+        : hue_shift_amount(amount), hue_noise_scale(scale),
           hue_noise_speed(speed) {}
 
     HS_COLD_MEMBER bool operator==(const ColorParams &) const = default;
 
     HS_COLD_MEMBER void lerp(const ColorParams &a, const ColorParams &b,
                              float t) {
-      hue_noise_amount = hs::lerp(a.hue_noise_amount, b.hue_noise_amount, t);
+      hue_shift_amount = hs::lerp(a.hue_shift_amount, b.hue_shift_amount, t);
       hue_noise_scale = hs::lerp(a.hue_noise_scale, b.hue_noise_scale, t);
       hue_noise_speed = hs::lerp(a.hue_noise_speed, b.hue_noise_speed, t);
     }
@@ -840,7 +843,7 @@ public:
   using RequestedConfig = Config;
   using Preset = Config;
 
-  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 3;
+  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 4;
 
   /**
    * @brief Reports whether a persisted snapshot's schema version can be
@@ -1060,7 +1063,11 @@ private:
     register_coverage_controls(slots.coverage, requested_config.params.value);
     register_animated_param("Palette", &slots.palette, PALETTE_OPTIONS,
                             PALETTE_EXPORT_OPTIONS, NUM_PALETTES);
-    register_color_controls(requested_config.params.color, domain_scale);
+    register_animated_param("Hue Shift Mode", &slots.hue_shift,
+                            HUE_SHIFT_OPTIONS, HUE_SHIFT_EXPORT_OPTIONS,
+                            NUM_HUE_SHIFT_MODES);
+    register_color_controls(slots.hue_shift, requested_config.params.color,
+                            domain_scale);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     const bool post_registration_clamp = clamp_registered_parameter_ranges();
     if (requested_schema_bound &&
@@ -1300,7 +1307,8 @@ private:
            std::strcmp(name, "Planar Warp 2") == 0 ||
            std::strcmp(name, "Value Transfer") == 0 ||
            std::strcmp(name, "Coverage") == 0 ||
-           std::strcmp(name, "Palette") == 0;
+           std::strcmp(name, "Palette") == 0 ||
+           std::strcmp(name, "Hue Shift Mode") == 0;
   }
 #endif
 
@@ -1383,8 +1391,7 @@ private:
     }
     if (function == Function::PRIMITIVE_LATTICE) {
       register_clamped_animated_param(
-          "Lattice Cell Scale", &params.lattice_cell_scale, CELL_MIN,
-          domain_scaled_max(CELL_MAX, 1.0f, domain_scale));
+          "Lattice Cell Scale", &params.lattice_cell_scale, CELL_MIN, CELL_MAX);
       register_animated_param("Lattice Shape", &params.lattice_shape_blend,
                               0.0f, 1.0f);
       register_animated_param("Lattice Softness", &params.lattice_softness,
@@ -1394,9 +1401,8 @@ private:
       if (!polar_topology)
         return;
     }
-    register_clamped_animated_param(
-        "Pattern Freq", &params.pattern_freq, PATTERN_FREQ_MIN,
-        domain_scaled_max(PATTERN_FREQ_MAX, 8.0f, domain_scale));
+    register_clamped_animated_param("Pattern Freq", &params.pattern_freq,
+                                    PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
     if (function == Function::PRIMITIVE_LATTICE)
       return;
     register_clamped_animated_param(
@@ -1637,10 +1643,15 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void register_color_controls(ColorParams &params,
+  HS_COLD_MEMBER void register_color_controls(HueShiftMode mode,
+                                              ColorParams &params,
                                               float domain_scale) {
-    register_animated_param("Hue Noise Amount", &params.hue_noise_amount,
-                            HUE_NOISE_AMOUNT_MIN, HUE_NOISE_AMOUNT_MAX);
+    if (mode == HueShiftMode::NONE)
+      return;
+    register_animated_param("Hue Shift Amount", &params.hue_shift_amount,
+                            HUE_SHIFT_AMOUNT_MIN, HUE_SHIFT_AMOUNT_MAX);
+    if (mode != HueShiftMode::NOISE)
+      return;
     register_clamped_animated_param(
         "Hue Noise Scale", &params.hue_noise_scale, HUE_NOISE_SCALE_MIN,
         domain_scaled_max(HUE_NOISE_SCALE_MAX, 2.0f, domain_scale));
@@ -1721,6 +1732,7 @@ private:
     float value;
     float coverage;
     Vector sphere;
+    float warp_displacement;
   };
 
   struct ClockState {
@@ -2399,7 +2411,8 @@ private:
                            CoveragePolicy::PROJECTION_WEIGHT_SQUARED) {
         coverage *= input.projected.value_weight * input.projected.value_weight;
       }
-      const MaterialSample material{value, coverage, input.projected.sphere};
+      const MaterialSample material{value, coverage, input.projected.sphere,
+                                    input.warped.path_length};
       HS_SB_STAGE_SPAN(material, stage_start);
       return material;
     }
@@ -2623,7 +2636,8 @@ private:
       return false;
     if (frame.resources.generated_palette == nullptr)
       return false;
-    if (frame.params.color.hue_noise_amount != 0.0f &&
+    if (frame.slots.hue_shift == HueShiftMode::NOISE &&
+        frame.params.color.hue_shift_amount != 0.0f &&
         frame.resources.color_noise == nullptr)
       return false;
     return !frame.prepared_hue_rotation.active ||
@@ -2805,6 +2819,7 @@ private:
            enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) &&
            enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) &&
            enum_at_most(slots.palette, PaletteMode::ANALOGOUS) &&
+           enum_at_most(slots.hue_shift, HueShiftMode::WARP_DISPLACEMENT) &&
            enum_at_most(slots.peirce_layout, PeirceLayout::VERTICAL) &&
            enum_at_most(slots.airocean_layout, AiroceanLayout::HORIZONTAL) &&
            enum_at_most(slots.bonne_hemisphere, BonneHemisphere::SOUTH) &&
@@ -3071,7 +3086,8 @@ private:
     if (config.slots.surface_noise != SurfaceNoise::NONE &&
         !append_resource_key(surface_noise_resource_key(config), keys, count))
       return false;
-    if (config.params.color.hue_noise_amount != 0.0f &&
+    if (config.slots.hue_shift == HueShiftMode::NOISE &&
+        config.params.color.hue_shift_amount != 0.0f &&
         !append_resource_key(color_noise_resource_key(), keys, count))
       return false;
     return true;
@@ -3135,9 +3151,10 @@ private:
 
   HS_COLD_MEMBER const FastNoiseLite *
   resolve_color_noise_resource(const Config &config) const {
-    return config.params.color.hue_noise_amount != 0.0f
-               ? resolve_resource(color_noise_resource_key())
-               : nullptr;
+    if (config.slots.hue_shift != HueShiftMode::NOISE ||
+        config.params.color.hue_shift_amount == 0.0f)
+      return nullptr;
+    return resolve_resource(color_noise_resource_key());
   }
 
   HS_COLD_MEMBER const BakedPalette &palette_for(PaletteMode mode) const {
@@ -3234,7 +3251,8 @@ private:
     const BakedPalette *palette = &palette_for(config.slots.palette);
     PreparedHueRotation prepared_hue_rotation{
         state->hue_rotation_lut.data(),
-        config.params.color.hue_noise_amount != 0.0f};
+        config.slots.hue_shift != HueShiftMode::NONE &&
+            config.params.color.hue_shift_amount != 0.0f};
     if (prepared_hue_rotation.active)
       prepare_hue_rotation_lut(prepared_hue_rotation, *palette);
     frame.slots = config.slots;
@@ -4230,8 +4248,7 @@ private:
       break;
     }
     coverage *= projected.domain_coverage;
-    (void)warped;
-    return {value, coverage, projected.sphere};
+    return {value, coverage, projected.sphere, warped.path_length};
   }
 
   static MaterialSample shape_material(float field,
@@ -4244,7 +4261,8 @@ private:
     const float value = hs::clamp((field * weight + 1.0f) * 0.5f, 0.0f, 1.0f);
     if (frame.slots.value_transfer == ValueTransfer::LINEAR &&
         frame.slots.coverage == CoveragePolicy::OPAQUE)
-      return {value, projected.domain_coverage, projected.sphere};
+      return {value, projected.domain_coverage, projected.sphere,
+              warped.path_length};
     return shape_nontrivial_material(value, projected, warped, frame);
   }
 #endif
@@ -4314,20 +4332,25 @@ private:
                                                    const FrameState &frame) {
     Color4 color = frame.resources.generated_palette->get(sample.value);
     color.alpha *= sample.coverage;
-    if (frame.params.color.hue_noise_amount != 0.0f) {
+    if (!frame.prepared_hue_rotation.active)
+      return color;
+
+    float amount = 0.0f;
+    if (frame.slots.hue_shift == HueShiftMode::NOISE) {
       const Vector q = noise_sphere_coordinate(
           sample.sphere, frame.params.color.hue_noise_scale,
           frame.clocks.hue_noise_phase);
-      const float amount =
-          frame.params.color.hue_noise_amount *
+      amount =
+          frame.params.color.hue_shift_amount *
           hs::clamp(frame.resources.color_noise->GetNoiseSingle(q.x, q.y, q.z),
                     -1.0f, 1.0f);
-      if (frame.prepared_hue_rotation.active)
-        color.color = sample_hue_rotation_lut(frame.prepared_hue_rotation,
-                                              sample.value, amount);
-      else
-        color = hue_rotate_lut_gamut(color, amount);
+    } else if (frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT) {
+      amount = wrap_t(frame.params.color.hue_shift_amount *
+                      sample.warp_displacement);
     }
+    if (amount != 0.0f)
+      color.color = sample_hue_rotation_lut(frame.prepared_hue_rotation,
+                                            sample.value, amount);
     return color;
   }
 
@@ -4949,7 +4972,8 @@ private:
         !enum_at_most(slots.signal_weight, SignalWeight::PROJECTION) ||
         !enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) ||
         !enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) ||
-        !enum_at_most(slots.palette, PaletteMode::ANALOGOUS))
+        !enum_at_most(slots.palette, PaletteMode::ANALOGOUS) ||
+        !enum_at_most(slots.hue_shift, HueShiftMode::WARP_DISPLACEMENT))
       return false;
     if (slots.function == Function::NOISE_CONTOUR_SPHERE &&
         (slots.warp_program.outer.kind != WarpStageKind::NONE ||
@@ -5935,6 +5959,12 @@ private:
       "PaletteMode::TRIADIC", "PaletteMode::COMPLEMENTARY",
       "PaletteMode::ANALOGOUS"};
   static constexpr int NUM_PALETTES = std::size(PALETTE_OPTIONS);
+  static constexpr const char *HUE_SHIFT_OPTIONS[] = {
+      "None", "Noise", "Total Warp Displacement"};
+  static constexpr const char *HUE_SHIFT_EXPORT_OPTIONS[] = {
+      "HueShiftMode::NONE", "HueShiftMode::NOISE",
+      "HueShiftMode::WARP_DISPLACEMENT"};
+  static constexpr int NUM_HUE_SHIFT_MODES = std::size(HUE_SHIFT_OPTIONS);
 
   static constexpr float WARP_SCALE_MIN = 1.0f / 64.0f;
   static constexpr float WARP_SCALE_MAX = 100.0f;
@@ -5951,8 +5981,8 @@ private:
   static constexpr float SPIN_RATE_MIN = 0.0f, SPIN_RATE_MAX = 0.05f;
   static constexpr float WANDER_MIN = 0.0f, WANDER_MAX = 1.0f;
   static constexpr float LENS_MIX_MIN = 0.0f, LENS_MIX_MAX = 1.0f;
-  static constexpr float HUE_NOISE_AMOUNT_MIN = 0.0f;
-  static constexpr float HUE_NOISE_AMOUNT_MAX = 1.0f;
+  static constexpr float HUE_SHIFT_AMOUNT_MIN = 0.0f;
+  static constexpr float HUE_SHIFT_AMOUNT_MAX = 1.0f;
   static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
   static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
   static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
@@ -6043,8 +6073,8 @@ private:
            p.value.cutout_softness >= SOFTNESS_MIN &&
            p.value.cutout_softness <= 0.5f && p.value.edge_width >= 0.0f &&
            p.value.edge_width <= 0.5f &&
-           p.color.hue_noise_amount >= HUE_NOISE_AMOUNT_MIN &&
-           p.color.hue_noise_amount <= HUE_NOISE_AMOUNT_MAX &&
+           p.color.hue_shift_amount >= HUE_SHIFT_AMOUNT_MIN &&
+           p.color.hue_shift_amount <= HUE_SHIFT_AMOUNT_MAX &&
            p.color.hue_noise_scale >= HUE_NOISE_SCALE_MIN &&
            p.color.hue_noise_scale <= HUE_NOISE_SCALE_MAX &&
            p.color.hue_noise_speed >= -HUE_NOISE_SPEED_MAX &&
