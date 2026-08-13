@@ -2074,6 +2074,21 @@ inline void case_sdf_angular_repeat_nonunit_axis() {
 }
 
 /**
+ * @brief Death case: a knot ring with no cells must trap.
+ * @details SDF surface — the per-pixel cell index divides the azimuth by
+ *          2π/n, so n == 0 wraps to knots[-1] on every probe.
+ */
+inline void case_sdf_distorted_ring_zero_knots() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const float knots[1] = {0.0f};
+  SDF::KnotPrefilter pf;
+  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(0),
+                          opaque(0.0f), pf); // no knot cells -> trap
+  if (ring.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a twist warp around a zero-radius torus must trap.
  * @details SDF warp surface — the Lipschitz bound scales by 2/R, so a zero
  *          major radius hands the rasterizer a non-finite step bound.
@@ -2765,6 +2780,8 @@ inline const Case *all_cases(int &n) {
        "(sides >= 3) "},
       {"sdf_angular_repeat_nonunit_axis", case_sdf_angular_repeat_nonunit_axis,
        "sdf.h", "(fabsf(ax.length() - 1.0f) < 1e-3f) "},
+      {"sdf_distorted_ring_zero_knots", case_sdf_distorted_ring_zero_knots,
+       "sdf.h", "(kn != nullptr && n >= 1) "},
       {"sdf_twist_zero_major_radius", case_sdf_twist_zero_major_radius,
        "sdf_volume.h", "(R > 0.0f) "},
       {"opleg_edge_sweep_no_edge", case_opleg_edge_sweep_no_edge, "opleg.h",
