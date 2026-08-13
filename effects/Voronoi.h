@@ -83,13 +83,17 @@ public:
         seed_sites();
 
       float s = logf(params.speed + 1.0f) * 0.005f;
+      // Every site turns by the same angle, so the half-angle trig is shared;
+      // only the axis differs. Expands make_rotation(site.axis, s) exactly.
+      const float half_cos = cosf(s / 2);
+      const float half_sin = sinf(s / 2);
 
       for (size_t i = 0; i < sites_buffer.size(); ++i) {
         auto &site = sites_buffer[i];
         // Renormalize: rotate() drifts |pos| off the unit sphere over a long run,
         // and the unit-site invariants (nearest-by-Euclidean == nearest-by-max-dot,
         // and the border acosf(dot) staying in range) require unit vectors.
-        Quaternion q = make_rotation(site.axis, s);
+        Quaternion q = Quaternion(half_cos, half_sin * site.axis).normalized();
         site.pos = rotate(site.pos, q).normalized();
       }
     }
