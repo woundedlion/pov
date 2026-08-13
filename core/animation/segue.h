@@ -465,11 +465,15 @@ struct TerminatorSweep : Base {
    * face index into the frame range, divided by the scheduled window. Computed
    * once per face (not per fragment), so it must stay a pure function of the
    * index, the seed and the sliders — the frame bounds are read live so a
-   * mid-transition slider move takes effect on the next frame. */
+   * mid-transition slider move takes effect on the next frame. The bounds are
+   * independent sliders, so the range is normalized here rather than assumed
+   * ordered. */
   float face_fade_frac(int i) const {
     float t = hash01(static_cast<uint32_t>(i), fade_seed);
-    float lo = std::min(1.0f, fade_frames_min * inv_window);
-    float hi = std::min(1.0f, fade_frames_max * inv_window);
+    float lo =
+        std::min(1.0f, std::min(fade_frames_min, fade_frames_max) * inv_window);
+    float hi =
+        std::min(1.0f, std::max(fade_frames_min, fade_frames_max) * inv_window);
     return lo + (hi - lo) * t;
   }
   /**
