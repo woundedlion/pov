@@ -91,32 +91,30 @@ public:
       return;
     }
     AnimationBase::step(canvas);
-    draw_frame(canvas);
+    draw_frame(canvas, t);
   }
 
   /**
-   * @brief Draws the current envelope without advancing its timer; a sprite
-   * paused before its first step holds the plateau.
+   * @brief Draws the current envelope without advancing its timer.
    * @details t stays 0 for the whole pause, and that is the zero end of a
    * fade-in ramp: reporting it would multiply the consumer's draw to nothing
-   * until the pause lifts.
+   * until the pause lifts. Frame 1 — the opacity the first unpaused step would
+   * report — is held instead, so the pause never shows a frame brighter than
+   * the sprite itself would draw.
    */
   void step_paused(Canvas &canvas) override {
-    if (t == 0) {
-      draw_fn(canvas, 1.0f);
-      return;
-    }
-    draw_frame(canvas);
+    draw_frame(canvas, t == 0 ? 1u : t);
   }
 
 private:
-  void draw_frame(Canvas &canvas) {
+  void draw_frame(Canvas &canvas, uint32_t frame) {
     // Trapezoid envelope as the MIN of an independent fade-in and fade-out ramp.
     // Computing both keeps opacity continuous when the windows overlap (the
     // durations are independent GUI sliders), degrading to a triangle.
     float fade_in = 1.0f;
-    if (fade_in_duration > 0 && t < static_cast<uint32_t>(fade_in_duration)) {
-      float progress = static_cast<float>(t) / fade_in_duration;
+    if (fade_in_duration > 0 &&
+        frame < static_cast<uint32_t>(fade_in_duration)) {
+      float progress = static_cast<float>(frame) / fade_in_duration;
       fade_in = fade_in_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
 
@@ -125,10 +123,10 @@ private:
     // overflow safety).
     float fade_out = 1.0f;
     if (duration >= 0 && fade_out_duration > 0 &&
-        t + static_cast<uint32_t>(fade_out_duration) >=
+        frame + static_cast<uint32_t>(fade_out_duration) >=
             static_cast<uint32_t>(duration)) {
       float elapsed =
-          static_cast<float>(t + static_cast<uint32_t>(fade_out_duration) -
+          static_cast<float>(frame + static_cast<uint32_t>(fade_out_duration) -
                              static_cast<uint32_t>(duration));
       float progress = elapsed / fade_out_duration;
       fade_out = 1.0f - fade_out_easing(hs::clamp(progress, 0.0f, 1.0f));
