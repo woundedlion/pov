@@ -12,8 +12,12 @@
  * @file composition.h
  * @brief Palette-composition layer for color.h: the coordinate/color modifiers,
  *        the StaticPalette composition template, and baked-palette storage.
- *
- * Included by color.h after the palette core.
+ * @details A fragment of color.h, spliced in after generative_palette.h, not a
+ * standalone header. It builds on color.h's Palette interface and its
+ * Pixel/Color4 types and cannot include color.h back, because color.h includes
+ * this file — the two would form an include cycle. The split keeps one logical
+ * header navigable; the gate above reports a direct include as a single
+ * diagnostic instead of a wall of undefined types.
  */
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -7,7 +7,11 @@
 /**
  * @file color.h
  * @brief Pixel and Color4, the linear-light color types, with blending, sRGB
- *        conversion and the palette core.
+ *        conversion, the palette core and the fragment includes.
+ * @details generative_palette.h and composition.h are fragments of this header,
+ * spliced in at the end: they build on the types defined above and this header
+ * is their only include site, so they are gated on HS_COLOR_INTERNAL rather
+ * than including color.h back.
  */
 
 #include <algorithm>
@@ -1796,10 +1800,6 @@ private:
   Pixel entries[256];
 };
 
-#define HS_COLOR_INTERNAL
-#include "color/generative_palette.h"
-#undef HS_COLOR_INTERNAL
-
 /**
  * @brief A palette defined by a mathematical cosine wave function.
  * C(t) = A + B * cos(2 * PI * (C * t + D))
@@ -1901,5 +1901,6 @@ public:
 };
 
 #define HS_COLOR_INTERNAL
+#include "color/generative_palette.h"
 #include "color/composition.h"
 #undef HS_COLOR_INTERNAL
