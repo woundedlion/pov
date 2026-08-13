@@ -7,9 +7,10 @@ name: Docs
 on:
   push:
     branches: [master]
-    # Run for API-reference inputs and every Markdown change. Markdown link
-    # validation is NOT gated here — it runs unfiltered in ci.yml, so a rename
-    # outside these paths cannot break a documented link unnoticed.
+    # Run for API-reference inputs and every Markdown change. The build job
+    # validates the Markdown it is about to publish, but this filter means a
+    # rename outside these paths reaches no run here; ci.yml runs the same
+    # checker unfiltered, so a documented link cannot break unnoticed.
     paths:
       - '**.h'
       - '**.cpp'
@@ -21,6 +22,7 @@ on:
       - 'docs/doxygen-theme.cfg'
       - 'docs/screenshots/**'
       - 'tools/build_pins.py'
+      - 'tools/docs_check.py'
       - 'tools/docs_images.py'
       - 'justfile'
       - '.github/workflows/docs.yml'
@@ -38,6 +40,7 @@ on:
       - 'docs/doxygen-theme.cfg'
       - 'docs/screenshots/**'
       - 'tools/build_pins.py'
+      - 'tools/docs_check.py'
       - 'tools/docs_images.py'
       - 'justfile'
       - '.github/workflows/docs.yml'
@@ -72,6 +75,16 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
+
+      # The Markdown this job is about to publish is validated before it is
+      # served: a broken link or a stale repository-map fence would otherwise
+      # deploy from a commit whose ci.yml docs-markdown job is red, and `deploy`
+      # needs this job. No --checkout: the `tree daydream` fence is drawn from a
+      # sibling repository whose HEAD moves independently, and blocking a docs
+      # deploy on that would couple this workflow to another repo's churn.
+      # ci.yml gates that fence unfiltered.
+      - name: Validate tracked Markdown
+        run: python tools/docs_check.py
 
       # Pin Doxygen to an exact release binary (apt's version trails and lacks
       # newer config tags this Doxyfile uses). Graphviz comes from the pinned
