@@ -231,6 +231,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
 │   │   ├── effect_registry.h       Self-registering factory: REGISTER_EFFECT macro
+│   │   ├── effect_params.h         ParamDef descriptors + the fixed-capacity ParamList registry
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>
