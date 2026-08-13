@@ -3392,6 +3392,26 @@ inline void test_periodic_timer_set_period_reschedules_from_now() {
 }
 
 /**
+ * @brief Verifies PeriodicTimer::set_period called every frame with an
+ * unchanged period still lets the timer fire.
+ * @details A PeriodicTimer never reaches done(), so an unconditional reset()
+ * would push the trigger past every frame forever with nothing to record it.
+ * Period 4 over 8 frames must fire at t=4 and t=8.
+ */
+inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
+  struct {
+    int fires = 0;
+  } st;
+  Animation::PeriodicTimer timer(
+      4, [&st](Canvas &) { st.fires++; }, /*repeat=*/true);
+  for (int frame = 1; frame <= 8; ++frame) {
+    timer.set_period(4); // live-slider write with no change
+    timer.step(fake_canvas());
+  }
+  HS_EXPECT_EQ(st.fires, 2);
+}
+
+/**
  * @brief Verifies MobiusFlow::step keeps the transform's a·d product at unity
  * (a and d are conjugate-reciprocal) while actually moving the parameters.
  */
@@ -3631,6 +3651,7 @@ inline int run_animation_tests() {
   test_finish_terminates_a_repeating_animation();
   test_finished_param_animation_progress_is_finite();
   test_periodic_timer_set_period_reschedules_from_now();
+  test_periodic_timer_set_period_unchanged_does_not_defer();
   test_mobiusflow_step_preserves_unit_product();
   test_particle_system_emitter_dispatch();
   test_motion_set_duration_reanchors_no_teleport();
