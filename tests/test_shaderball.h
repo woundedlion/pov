@@ -41,7 +41,7 @@ struct ShaderBallWhiteBox {
   using SignalWeight = SB::SignalWeight;
   using ValueTransfer = SB::ValueTransfer;
   using CoveragePolicy = SB::CoveragePolicy;
-  using Colorizer = SB::Colorizer;
+  using PaletteMode = SB::PaletteMode;
   using Slots = SB::Slots;
   using SourceParams = SB::SourceParams;
   using Params = SB::Params;
@@ -102,8 +102,8 @@ struct ShaderBallWhiteBox {
   static RequestedConfig active_config(const SB &sb) {
     return {sb.active_slots, sb.blend.params};
   }
-  static constexpr Slots liquid_surface_noise_slots() {
-    return SB::LIQUID_SURFACE_NOISE_SLOTS;
+  static constexpr Slots generated_surface_noise_slots() {
+    return SB::GENERATED_SURFACE_NOISE_SLOTS;
   }
   static constexpr Slots legacy_slots() {
     return {Function::TWIN_WAVE,
@@ -114,7 +114,7 @@ struct ShaderBallWhiteBox {
             SignalWeight::PROJECTION,
             ValueTransfer::LINEAR,
             CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-            Colorizer::GENERATED_TRIADIC};
+            PaletteMode::TRIADIC};
   }
   static constexpr RequestedConfig legacy_config() {
     return {legacy_slots(),
@@ -123,7 +123,7 @@ struct ShaderBallWhiteBox {
              {2.0f, 0.0f, 0.0f},
              {1.0f},
              {},
-             {0.0f, 0.0f, 0.0f, 0.0f},
+             {0.0f, 1.0f, 0.0f},
              {0.25f},
              {}}};
   }
@@ -274,9 +274,6 @@ struct ShaderBallWhiteBox {
   }
   static void refresh_display(SB &sb) { sb.refresh_parameter_display(); }
   static uint32_t walk_steps(const SB &sb) { return sb.walk_step_count; }
-  static uint32_t liquid_palette_steps(const SB &sb) {
-    return sb.liquid_palette_step_count;
-  }
   static uint32_t generated_palette_steps(const SB &sb) {
     return sb.generated_palette_step_count;
   }
@@ -323,7 +320,8 @@ struct ShaderBallWhiteBox {
     const FastNoiseLite *noise = inner ? frame.resources.inner_warp_noise
                                        : frame.resources.outer_warp_noise;
     return SB::warp_stage_lookup(input, projected, spec, params, phase, noise,
-                                 SB::prepare_warp_stage(params, phase), frame);
+                                 SB::prepare_warp_stage(spec, params, phase),
+                                 frame);
   }
   static MaterialSample material(const ProjectedLookup &projected,
                                  const PlanarWarpResult &warped,
@@ -348,14 +346,14 @@ struct ShaderBallWhiteBox {
                          const FrameState &frame) {
     return SB::colorize(sample, frame);
   }
-  static Pixel prepared_liquid_hue(const FrameState &frame, float value,
-                                   float amount) {
-    return SB::sample_liquid_hue_lut(frame.prepared_liquid_hue, value, amount);
+  static Pixel prepared_hue_rotation(const FrameState &frame, float value,
+                                     float amount) {
+    return SB::sample_hue_rotation_lut(frame.prepared_hue_rotation, value,
+                                       amount);
   }
-  static Pixel direct_liquid_hue(const FrameState &frame, float value,
-                                 float amount) {
-    const Color4 base = frame.resources.liquid_palette->get(
-        wrap_t(value + frame.breathe_offset));
+  static Pixel direct_hue_rotation(const FrameState &frame, float value,
+                                   float amount) {
+    const Color4 base = frame.resources.generated_palette->get(value);
     return ::hue_rotate_lut_gamut(base, amount).color;
   }
   static Color4 shade(const Vector &v, const FrameState &frame) {
@@ -419,7 +417,7 @@ struct ShaderBallWhiteBox {
            Surface::EMISSION == CodeEmission::INLINE_ONLY &&
            Surface::ORACLE == ApproximationOracleId::PEIRCE_FAST_SQUARE &&
            Surface::NON_FLOATING_FIELDS_EXACT &&
-           Color::ORACLE == ApproximationOracleId::LIQUID_HUE_LUT;
+           Color::ORACLE == ApproximationOracleId::HUE_ROTATION_LUT;
   }
   static Complex project_point(const Vector &v, Projection projection) {
     return SB::project_point(v, projection);
@@ -471,11 +469,19 @@ struct ShaderBallWhiteBox {
                            GenerativePalette &out) {
     SB::next_triadic_palette(&hue, sequence, out);
   }
-  static Pixel generated_color(const SB &sb, float value) {
-    return sb.generated_palette_cycler.palette().get(value).color;
+  static void make_complementary(uint32_t &hue, uint32_t sequence,
+                                 GenerativePalette &out) {
+    SB::next_complementary_palette(&hue, sequence, out);
   }
-  static Pixel liquid_color(const SB &sb, float value) {
-    return sb.liquid_palette_cycler.palette().get(value).color;
+  static void make_analogous(uint32_t &hue, uint32_t sequence,
+                             GenerativePalette &out) {
+    SB::next_analogous_palette(&hue, sequence, out);
+  }
+  static Pixel palette_color(const SB &sb, PaletteMode mode, float value) {
+    return sb.palette_for(mode).get(value).color;
+  }
+  static Pixel generated_color(const SB &sb, float value) {
+    return palette_color(sb, PaletteMode::TRIADIC, value);
   }
 };
 
@@ -503,10 +509,7 @@ inline void test_shaderball_full_config_snapshot() {
   WB::FullConfigSnapshot snapshot = sb.capture_full_config_snapshot();
   const size_t source_seed =
       static_cast<size_t>(WB::ConfigFieldId::SOURCE_NOISE_SEED);
-  const size_t outer_warp =
-      static_cast<size_t>(WB::ConfigFieldId::SLOTS_WARP_OUTER_KIND);
-  const size_t inner_warp =
-      static_cast<size_t>(WB::ConfigFieldId::SLOTS_WARP_INNER_KIND);
+  const size_t palette = static_cast<size_t>(WB::ConfigFieldId::SLOTS_PALETTE);
   const size_t inactive_phase =
       static_cast<size_t>(WB::ConfigFieldId::WARP_INNER_RADIAL_PHASE);
 
@@ -528,10 +531,9 @@ inline void test_shaderball_full_config_snapshot() {
   HS_EXPECT_EQ(sb.capture_full_config_snapshot().accepted[source_seed],
                0x7fffffffu);
 
-  snapshot.requested[outer_warp] = 8;
-  snapshot.requested[inner_warp] = 2;
-  snapshot.pending[outer_warp] = 1;
-  snapshot.pending[inner_warp] = 1;
+  snapshot.requested[palette] =
+      static_cast<uint32_t>(WB::PaletteMode::COMPLEMENTARY);
+  snapshot.pending[palette] = 1;
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
                WB::ConfigRestoreResult::APPLIED);
   HS_EXPECT_TRUE(
@@ -603,75 +605,24 @@ inline void test_shaderball_surface_noise_range_rebind() {
                  nullptr);
 }
 
-/** @brief Schema-1 IDs and structural noise migrate to schema-2 fields. */
-inline void test_shaderball_legacy_config_snapshot() {
+/** @brief Incompatible snapshot layouts are rejected atomically. */
+inline void test_shaderball_incompatible_config_snapshot() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
 
-  WB::FullConfigSnapshot legacy = sb.capture_full_config_snapshot();
-  legacy.schema_version = 1;
-  const size_t function =
-      static_cast<size_t>(WB::ConfigFieldId::SLOTS_FUNCTION);
-  const size_t lens =
-      static_cast<size_t>(WB::ConfigFieldId::SLOTS_SURFACE_LENS);
-  const size_t lens_mix = static_cast<size_t>(WB::ConfigFieldId::LENS_MIX);
-  const size_t lens_amount =
-      static_cast<size_t>(WB::ConfigFieldId::LENS_AMOUNT);
-  const size_t surface_noise =
-      static_cast<size_t>(WB::ConfigFieldId::SLOTS_SURFACE_NOISE);
-  const size_t outer_warp =
-      static_cast<size_t>(WB::ConfigFieldId::SLOTS_WARP_OUTER_KIND);
-  legacy.accepted[function] = 3;
-  legacy.requested[function] = 3;
-  legacy.accepted[lens] = 5;
-  legacy.requested[lens] = 5;
-  legacy.accepted[lens_mix] = shaderball_float_payload(0.5f);
-  legacy.requested[lens_mix] = shaderball_float_payload(0.5f);
-  legacy.accepted[lens_amount] = shaderball_float_payload(0.8f);
-  legacy.requested[lens_amount] = shaderball_float_payload(0.8f);
-  HS_EXPECT_EQ(sb.restore_full_config_snapshot(legacy),
-               WB::ConfigRestoreResult::APPLIED);
-
-  const WB::FullConfigSnapshot migrated = sb.capture_full_config_snapshot();
-  HS_EXPECT_EQ(migrated.schema_version, WB::SB::CONFIG_SCHEMA_VERSION);
-  HS_EXPECT_EQ(migrated.accepted[function],
-               static_cast<uint32_t>(WB::Function::GRID));
-  HS_EXPECT_EQ(migrated.accepted[lens],
-               static_cast<uint32_t>(WB::SurfaceLens::NONE));
-  HS_EXPECT_EQ(migrated.accepted[surface_noise],
-               static_cast<uint32_t>(WB::SurfaceNoise::DIRECT));
-  HS_EXPECT_EQ(migrated.accepted[outer_warp],
-               static_cast<uint32_t>(WB::WarpStageKind::NONE));
-  HS_EXPECT_TRUE(std::strstr(sb.config_import_notice(), "Grid unified") !=
-                 nullptr);
-  HS_EXPECT_TRUE(std::strstr(sb.config_import_notice(),
-                             "Tangent Noise -> Surface Noise Direct") !=
-                 nullptr);
-  HS_EXPECT_TRUE(std::strstr(sb.config_import_notice(), "Lens Mix removed") !=
-                 nullptr);
-
-  legacy.accepted[outer_warp] = 1;
-  legacy.requested[outer_warp] = 1;
-  HS_EXPECT_EQ(sb.restore_full_config_snapshot(legacy),
-               WB::ConfigRestoreResult::APPLIED);
-  HS_EXPECT_TRUE(std::strstr(sb.config_import_notice(),
-                             "Planar Warp 1 Stereo Noise discarded and "
-                             "cleared (Tangent Noise won)") != nullptr);
-
-  legacy = migrated;
-  legacy.schema_version = 1;
-  legacy.accepted[function] = 6;
-  legacy.requested[function] = 6;
-  HS_EXPECT_EQ(sb.restore_full_config_snapshot(legacy),
-               WB::ConfigRestoreResult::APPLIED);
-  HS_EXPECT_EQ(sb.capture_full_config_snapshot().accepted[function],
-               static_cast<uint32_t>(WB::Function::PRIMITIVE_LATTICE));
+  const WB::FullConfigSnapshot current = sb.capture_full_config_snapshot();
+  WB::FullConfigSnapshot incompatible = current;
+  incompatible.schema_version = WB::SB::CONFIG_SCHEMA_VERSION - 1;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(incompatible),
+               WB::ConfigRestoreResult::UNSUPPORTED_VERSION);
+  HS_EXPECT_TRUE(
+      shaderball_snapshots_equal(sb.capture_full_config_snapshot(), current));
 }
 
-/** @brief Dense live selectors preserve sparse schema-2 storage IDs. */
-inline void test_shaderball_schema2_selector_storage() {
+/** @brief Dense live selectors preserve sparse snapshot storage IDs. */
+inline void test_shaderball_selector_storage() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
   WB::SB sb;
@@ -700,7 +651,7 @@ inline void test_shaderball_schema2_selector_storage() {
     };
     set_outer(WB::ConfigFieldId::WARP_OUTER_SCALE, 1.0f);
     set_outer(WB::ConfigFieldId::WARP_OUTER_STRENGTH, 0.0f);
-    set_outer(WB::ConfigFieldId::WARP_OUTER_TIME_SCALE, 0.0f);
+    set_outer(WB::ConfigFieldId::WARP_OUTER_SPEED, 0.0f);
     set_outer(WB::ConfigFieldId::WARP_OUTER_SCALE_X, 1.0f);
     set_outer(WB::ConfigFieldId::WARP_OUTER_SCALE_Y, 1.0f);
     set_outer(WB::ConfigFieldId::WARP_OUTER_FREQUENCY, 1.0f);
@@ -739,7 +690,7 @@ inline void test_shaderball_clocks_wrapped() {
     const WB::ClockState clocks = WB::clocks(sb);
     for (float phase :
          {clocks.source_primary, clocks.source_secondary, clocks.source_angle,
-          clocks.projection_spin, clocks.breathe_phase,
+          clocks.projection_spin, clocks.hue_noise_phase,
           clocks.source_noise_time, clocks.surface_noise_time,
           clocks.warp_outer_phase, clocks.warp_inner_phase}) {
       HS_EXPECT_GE(phase, 0.0f);
@@ -761,10 +712,10 @@ inline void test_shaderball_pause_semantics() {
   ambient.params.source.angle_rate = 0.007f;
   ambient.params.source.noise_time_rate = 0.0004f;
   ambient.params.surface_noise.rate = 0.003f;
-  ambient.params.warp.outer.time_scale = 0.071f;
-  ambient.params.warp.inner.time_scale = 0.003f;
+  ambient.params.warp.outer.speed = 0.071f;
+  ambient.params.warp.inner.speed = 0.003f;
   ambient.params.projection.spin_rate = 0.009f;
-  ambient.params.colorizer.cycle_speed = 0.013f;
+  ambient.params.color.hue_noise_speed = 0.013f;
   WB::request_config(sb, ambient);
   sb.setAnimationsPaused(true);
 
@@ -772,9 +723,7 @@ inline void test_shaderball_pause_semantics() {
   const Quaternion paused_projection_walk = WB::projection_walk(sb);
   const Quaternion paused_outer_walk = WB::outer_walk(sb);
   const uint32_t paused_walk_steps = WB::walk_steps(sb);
-  const uint32_t paused_liquid_steps = WB::liquid_palette_steps(sb);
   const uint32_t paused_generated_steps = WB::generated_palette_steps(sb);
-  const Pixel paused_liquid_color = WB::liquid_color(sb, 0.25f);
   const Pixel paused_generated_color = WB::generated_color(sb, 0.25f);
   const size_t paused_preset = WB::preset_index(sb);
   for (int frame = 0; frame < 120; ++frame) {
@@ -785,7 +734,7 @@ inline void test_shaderball_pause_semantics() {
   HS_EXPECT_NE(WB::clocks(sb).source_secondary, paused_clocks.source_secondary);
   HS_EXPECT_NE(WB::clocks(sb).source_angle, paused_clocks.source_angle);
   HS_EXPECT_NE(WB::clocks(sb).projection_spin, paused_clocks.projection_spin);
-  HS_EXPECT_NE(WB::clocks(sb).breathe_phase, paused_clocks.breathe_phase);
+  HS_EXPECT_NE(WB::clocks(sb).hue_noise_phase, paused_clocks.hue_noise_phase);
   HS_EXPECT_NE(WB::clocks(sb).source_noise_time,
                paused_clocks.source_noise_time);
   HS_EXPECT_NE(WB::clocks(sb).surface_noise_time,
@@ -795,13 +744,8 @@ inline void test_shaderball_pause_semantics() {
   HS_EXPECT_TRUE(WB::projection_walk(sb) != paused_projection_walk);
   HS_EXPECT_TRUE(WB::outer_walk(sb) != paused_outer_walk);
   HS_EXPECT_EQ(WB::walk_steps(sb), paused_walk_steps + 120);
-  HS_EXPECT_EQ(WB::liquid_palette_steps(sb), paused_liquid_steps + 120);
   HS_EXPECT_EQ(WB::generated_palette_steps(sb), paused_generated_steps + 120);
-  const Pixel active_liquid_color = WB::liquid_color(sb, 0.25f);
   const Pixel active_generated_color = WB::generated_color(sb, 0.25f);
-  HS_EXPECT_TRUE(active_liquid_color.r != paused_liquid_color.r ||
-                 active_liquid_color.g != paused_liquid_color.g ||
-                 active_liquid_color.b != paused_liquid_color.b);
   HS_EXPECT_TRUE(active_generated_color.r != paused_generated_color.r ||
                  active_generated_color.g != paused_generated_color.g ||
                  active_generated_color.b != paused_generated_color.b);
@@ -816,7 +760,6 @@ inline void test_shaderball_pause_semantics() {
   HS_EXPECT_TRUE(WB::projection_walk(sb) != paused_projection_walk);
   HS_EXPECT_TRUE(WB::outer_walk(sb) != paused_outer_walk);
   HS_EXPECT_EQ(WB::walk_steps(sb), paused_walk_steps + 121);
-  HS_EXPECT_EQ(WB::liquid_palette_steps(sb), paused_liquid_steps + 121);
   HS_EXPECT_EQ(WB::generated_palette_steps(sb), paused_generated_steps + 121);
 
   for (int frame = 0; frame < 120 && WB::preset_index(sb) == paused_preset;
@@ -1414,496 +1357,47 @@ inline void test_shaderball_coupled_source() {
     }
   }
 }
-
-/** @brief Presets retain the legacy bank and add authored diagnostics. */
+/** @brief Presets retain the authored topology roster and generated palette path. */
 inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
   HS_EXPECT_EQ(presets.size(), size_t(23));
   HS_EXPECT_EQ(choreo.size(), presets.size());
-  HS_EXPECT_EQ(presets[0].slots.function, WB::Function::GRID);
-  HS_EXPECT_EQ(presets[0].slots.projection, WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(presets[0].slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(presets[0].slots.surface_lens, WB::SurfaceLens::KALEIDOSCOPE);
-  HS_EXPECT_EQ(presets[0].slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(presets[0].slots.surface_noise, WB::SurfaceNoise::DIRECT);
-  HS_EXPECT_EQ(presets[0].slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(presets[0].slots.signal_weight, WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(presets[0].slots.value_transfer, WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(presets[0].slots.coverage, WB::CoveragePolicy::OPAQUE);
-  HS_EXPECT_EQ(presets[0].slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(presets[0].params.source.pattern_freq, 1.0f);
-  HS_EXPECT_EQ(presets[0].params.source.speed, 0.075f);
-  HS_EXPECT_EQ(presets[0].params.source.angle_rate, 0.0f);
-  HS_EXPECT_EQ(presets[0].params.source.complexity, 0.009122372f);
-  HS_EXPECT_EQ(presets[0].params.source.pattern_mix, 1.0f);
-  HS_EXPECT_EQ(presets[0].params.source.secondary_rate, 1.146f);
-  HS_EXPECT_EQ(presets[0].params.projection.pole_fade, 1.5482996f);
-  HS_EXPECT_EQ(presets[0].params.projection.spin_rate, 0.020879198f);
-  HS_EXPECT_EQ(presets[0].params.projection.wander, 0.0030917525f);
-  HS_EXPECT_EQ(presets[0].params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(presets[0].params.warp.outer.strength, 30.0f);
-  HS_EXPECT_EQ(presets[0].params.warp.outer.scale, 50.749298f);
-  HS_EXPECT_EQ(presets[0].params.warp.outer.time_scale, 0.4699f);
-  HS_EXPECT_EQ(presets[0].params.colorizer.breathe_depth, 0.25410002f);
-  HS_EXPECT_EQ(presets[0].params.colorizer.cycle_speed, 0.00015458837f);
-  HS_EXPECT_EQ(presets[0].params.colorizer.hue_shift, 0.201f);
-  HS_EXPECT_EQ(presets[0].params.colorizer.value_fade, 0.847f);
-  HS_EXPECT_EQ(presets[0].params.outer_camera.wander, 0.0030917525f);
-  HS_EXPECT_EQ(presets[1].params.source.pattern_freq, 5.0f);
   HS_EXPECT_TRUE(choreo[0].staggered);
   HS_EXPECT_TRUE(choreo[1].staggered);
   HS_EXPECT_FALSE(choreo[7].staggered);
-  const auto &wave_shear = presets[11];
-  HS_EXPECT_EQ(wave_shear.slots.function, WB::Function::GRID);
-  HS_EXPECT_EQ(wave_shear.slots.projection, WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(wave_shear.slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(wave_shear.slots.surface_lens, WB::SurfaceLens::GLITCH);
-  HS_EXPECT_EQ(wave_shear.slots.warp_program.outer.kind,
-               WB::WarpStageKind::WAVE_SHEAR);
-  HS_EXPECT_EQ(wave_shear.slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(wave_shear.slots.signal_weight, WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(wave_shear.slots.value_transfer, WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(wave_shear.slots.coverage,
-               WB::CoveragePolicy::PROJECTION_WEIGHT_SQUARED);
-  HS_EXPECT_EQ(wave_shear.slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(wave_shear.params.source.pattern_freq, 4.439f);
-  HS_EXPECT_EQ(wave_shear.params.source.speed, 0.245f);
-  HS_EXPECT_EQ(wave_shear.params.source.angle_rate, 0.0f);
-  HS_EXPECT_EQ(wave_shear.params.source.complexity, 0.5f);
-  HS_EXPECT_EQ(wave_shear.params.source.pattern_mix, 0.0f);
-  HS_EXPECT_EQ(wave_shear.params.source.secondary_rate, 0.0f);
-  HS_EXPECT_EQ(wave_shear.params.projection.pole_fade, 1.0f);
-  HS_EXPECT_EQ(wave_shear.params.projection.spin_rate, 0.0f);
-  HS_EXPECT_EQ(wave_shear.params.projection.wander, 0.0f);
-  HS_EXPECT_EQ(wave_shear.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(wave_shear.params.warp.outer.strength, 0.5f);
-  HS_EXPECT_EQ(wave_shear.params.warp.outer.time_scale, 1.0f / 64.0f);
-  HS_EXPECT_EQ(wave_shear.params.warp.outer.frequency, 1.0f);
-  HS_EXPECT_EQ(wave_shear.params.warp.outer.field_angle, 0.0f);
-  HS_EXPECT_EQ(wave_shear.params.colorizer.breathe_depth, 0.133f);
-  HS_EXPECT_EQ(wave_shear.params.colorizer.cycle_speed, 0.05f);
-  HS_EXPECT_EQ(wave_shear.params.colorizer.hue_shift, 0.0f);
-  HS_EXPECT_EQ(wave_shear.params.colorizer.value_fade, 0.0f);
-  HS_EXPECT_EQ(wave_shear.params.outer_camera.wander, 1.0f);
-  const auto &kaleidoscope_mirror = presets[12];
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.function, WB::Function::TWIN_WAVE);
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.projection,
-               WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.surface_lens,
-               WB::SurfaceLens::KALEIDOSCOPE);
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.warp_program.inner.kind,
-               WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.signal_weight,
-               WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.value_transfer,
-               WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.coverage,
-               WB::CoveragePolicy::PROJECTION_WEIGHT_SQUARED);
-  HS_EXPECT_EQ(kaleidoscope_mirror.slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.pattern_freq, 10.158f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.speed, 0.245f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.angle_rate, 0.027f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.complexity, 0.513f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.pattern_mix, 0.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.source.secondary_rate, 0.8f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.projection.pole_fade, 4.971f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.projection.spin_rate, 0.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.rotation, 0.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.cell_x, 1.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.cell_y, 1.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.offset_x, 0.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.warp.inner.offset_y, 0.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.breathe_depth, 0.15f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.cycle_speed, 0.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.hue_shift, 0.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.colorizer.value_fade, 0.0f);
-  HS_EXPECT_EQ(kaleidoscope_mirror.params.outer_camera.wander, 1.0f);
-  for (size_t index = 13; index < 15; ++index) {
-    const auto &gnomonic_grid = presets[index];
-    HS_EXPECT_EQ(gnomonic_grid.slots.function, WB::Function::GRID);
-    HS_EXPECT_EQ(gnomonic_grid.slots.projection, WB::Projection::GNOMONIC);
-    HS_EXPECT_EQ(gnomonic_grid.slots.gnomonic_hemisphere,
-                 WB::GnomonicHemispherePolicy::FOLDED);
-    HS_EXPECT_EQ(gnomonic_grid.slots.projection_frame,
-                 WB::ProjectionFramePolicy::IDENTITY);
-    HS_EXPECT_EQ(gnomonic_grid.slots.surface_lens,
-                 index == 13 ? WB::SurfaceLens::KALEIDOSCOPE
-                             : WB::SurfaceLens::GLITCH);
-    HS_EXPECT_EQ(gnomonic_grid.slots.warp_program.outer.kind,
-                 WB::WarpStageKind::MIRROR_TILE);
-    HS_EXPECT_EQ(gnomonic_grid.slots.warp_program.inner.kind,
-                 WB::WarpStageKind::NONE);
-    HS_EXPECT_EQ(gnomonic_grid.slots.signal_weight,
-                 WB::SignalWeight::PROJECTION);
-    HS_EXPECT_EQ(gnomonic_grid.slots.value_transfer, WB::ValueTransfer::LINEAR);
-    HS_EXPECT_EQ(gnomonic_grid.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
-    HS_EXPECT_EQ(gnomonic_grid.slots.colorizer,
-                 WB::Colorizer::GENERATED_TRIADIC);
-    HS_EXPECT_EQ(gnomonic_grid.params.source.pattern_freq, 3.565f);
-    HS_EXPECT_EQ(gnomonic_grid.params.source.speed, 0.235f);
-    HS_EXPECT_EQ(gnomonic_grid.params.source.angle_rate, 0.0f);
-    HS_EXPECT_EQ(gnomonic_grid.params.source.complexity, 0.0f);
-    HS_EXPECT_EQ(gnomonic_grid.params.source.pattern_mix, 1.0f);
-    HS_EXPECT_EQ(gnomonic_grid.params.source.secondary_rate, 1.0f);
-    HS_EXPECT_EQ(gnomonic_grid.params.projection.pole_fade, 1.4f);
-    HS_EXPECT_EQ(gnomonic_grid.params.projection.spin_rate, 0.0f);
-    HS_EXPECT_EQ(gnomonic_grid.params.projection.wander, 1.0f);
-    HS_EXPECT_EQ(gnomonic_grid.params.surface_lens.mix, 1.0f);
-    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.rotation, 0.29530972f);
-    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.cell_x, 5.381125f);
-    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.cell_y, 1.0f);
-    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.offset_x, 1.344f);
-    HS_EXPECT_EQ(gnomonic_grid.params.warp.outer.offset_y, -1.456f);
-    HS_EXPECT_EQ(gnomonic_grid.params.value.edge_width, 0.5f);
-    HS_EXPECT_EQ(gnomonic_grid.params.outer_camera.wander, 1.0f);
-  }
-  const auto &bonne_lattice = presets[15];
-  HS_EXPECT_EQ(bonne_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
-  HS_EXPECT_EQ(bonne_lattice.slots.projection, WB::Projection::BONNE);
-  HS_EXPECT_EQ(bonne_lattice.slots.bonne_hemisphere,
-               WB::BonneHemisphere::NORTH);
-  HS_EXPECT_EQ(bonne_lattice.slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(bonne_lattice.slots.surface_lens, WB::SurfaceLens::KALEIDOSCOPE);
-  HS_EXPECT_EQ(bonne_lattice.slots.warp_program.outer.kind,
-               WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(bonne_lattice.slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(bonne_lattice.slots.signal_weight, WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(bonne_lattice.slots.value_transfer, WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(bonne_lattice.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
-  HS_EXPECT_EQ(bonne_lattice.slots.colorizer, WB::Colorizer::GENERATED_TRIADIC);
-  HS_EXPECT_EQ(bonne_lattice.params.source.lattice_cell_scale, 1.1494062f);
-  HS_EXPECT_EQ(bonne_lattice.params.source.lattice_shape_blend, 1.0f);
-  HS_EXPECT_EQ(bonne_lattice.params.source.lattice_softness, 0.26372f);
-  HS_EXPECT_EQ(bonne_lattice.params.source.lattice_radius, 0.31164f);
-  HS_EXPECT_EQ(bonne_lattice.params.projection.central_meridian, 0.0f);
-  HS_EXPECT_EQ(bonne_lattice.params.projection.coordinate_scale, 1.0f);
-  HS_EXPECT_EQ(bonne_lattice.params.projection.bonne_standard_parallel, 0.001f);
-  HS_EXPECT_EQ(bonne_lattice.params.projection.spin_rate, 0.0f);
-  HS_EXPECT_EQ(bonne_lattice.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(bonne_lattice.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.rotation, 1.7215928f);
-  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.cell_x, 5.381125f);
-  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.cell_y, 1.0f);
-  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.offset_x, 1.344f);
-  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.offset_y, -1.456f);
-  HS_EXPECT_EQ(bonne_lattice.params.value.edge_width, 0.5f);
-  HS_EXPECT_EQ(bonne_lattice.params.outer_camera.wander, 1.0f);
-  const auto &peirce_lattice = presets[16];
-  HS_EXPECT_EQ(peirce_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
-  HS_EXPECT_EQ(peirce_lattice.slots.projection,
-               WB::Projection::PEIRCE_QUINCUNCIAL);
-  HS_EXPECT_EQ(peirce_lattice.slots.peirce_layout, WB::PeirceLayout::SQUARE);
-  HS_EXPECT_EQ(peirce_lattice.slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(peirce_lattice.slots.surface_lens,
-               WB::SurfaceLens::KALEIDOSCOPE);
-  HS_EXPECT_EQ(peirce_lattice.slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(peirce_lattice.slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(peirce_lattice.slots.signal_weight,
-               WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(peirce_lattice.slots.value_transfer, WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(peirce_lattice.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
-  HS_EXPECT_EQ(peirce_lattice.slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(peirce_lattice.params.source.lattice_cell_scale, 2.2911718f);
-  HS_EXPECT_EQ(peirce_lattice.params.source.lattice_shape_blend, 1.0f);
-  HS_EXPECT_EQ(peirce_lattice.params.source.lattice_softness, 0.5804102f);
-  HS_EXPECT_EQ(peirce_lattice.params.source.lattice_radius, 0.25f);
-  HS_EXPECT_EQ(peirce_lattice.params.projection.central_meridian, 0.0f);
-  HS_EXPECT_EQ(peirce_lattice.params.projection.coordinate_scale, 1.0f);
-  HS_EXPECT_EQ(peirce_lattice.params.projection.spin_rate, 0.0f);
-  HS_EXPECT_EQ(peirce_lattice.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(peirce_lattice.params.outer_camera.wander, 1.0f);
-  HS_EXPECT_EQ(peirce_lattice.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(peirce_lattice.params.value.edge_width, 0.1f);
-  HS_EXPECT_EQ(peirce_lattice.params.colorizer.breathe_depth, 0.15f);
-  HS_EXPECT_EQ(peirce_lattice.params.colorizer.cycle_speed, 0.05f);
-  HS_EXPECT_EQ(peirce_lattice.params.colorizer.hue_shift, 0.0f);
-  HS_EXPECT_EQ(peirce_lattice.params.colorizer.value_fade, 0.0f);
-  const auto &edge_fade_liquid = presets[17];
-  HS_EXPECT_EQ(edge_fade_liquid.slots.function, WB::Function::GRID);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.projection,
-               WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.surface_lens,
-               WB::SurfaceLens::KALEIDOSCOPE);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.surface_noise, WB::SurfaceNoise::DIRECT);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.signal_weight,
-               WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.value_transfer,
-               WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
-  HS_EXPECT_EQ(edge_fade_liquid.slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(edge_fade_liquid.params.source.pattern_freq, 4.116f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.source.speed, 0.1f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.source.angle_rate, 0.0f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.source.complexity, 0.5f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.source.pattern_mix, 0.0f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.source.secondary_rate, 0.8f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.projection.pole_fade, 1.4f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.projection.spin_rate, 0.0f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.projection.coordinate_scale, 1.0f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.warp.outer.strength, 16.74f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.warp.outer.scale, 19.7803f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.warp.outer.time_scale, 0.5f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.value.edge_width, 0.2575f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.colorizer.breathe_depth, 0.15f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.colorizer.cycle_speed, 0.05f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.colorizer.hue_shift, 0.657f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.colorizer.value_fade, 0.0f);
-  HS_EXPECT_EQ(edge_fade_liquid.params.outer_camera.wander, 1.0f);
-  const auto &dodecahedral_grid = presets[18];
-  HS_EXPECT_EQ(dodecahedral_grid.slots.function, WB::Function::GRID);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.projection,
-               WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.surface_lens,
-               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.warp_program.outer.kind,
-               WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.surface_noise, WB::SurfaceNoise::DIRECT);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.signal_weight,
-               WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.value_transfer,
-               WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
-  HS_EXPECT_EQ(dodecahedral_grid.slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(dodecahedral_grid.params.source.pattern_freq, 1.532f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.source.speed, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.source.angle_rate, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.source.complexity, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.source.pattern_mix, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.source.secondary_rate, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.projection.pole_fade, 3.907f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.projection.spin_rate, 0.0387f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.projection.wander, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.outer_camera.wander, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.rotation, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.cell_x, 1.8041f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.cell_y, 1.7083f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.offset_x, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.offset_y, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.warp.inner.strength, 10.5f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.warp.inner.scale, 24.8752f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.warp.inner.time_scale, 0.05f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.value.edge_width, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.breathe_depth, 0.25410002f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.cycle_speed, 0.00015458837f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.hue_shift, 0.339f);
-  HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.value_fade, 0.847f);
-  const auto &peirce_dodecahedral = presets[19];
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.function, WB::Function::GRID);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.projection,
-               WB::Projection::PEIRCE_QUINCUNCIAL);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.peirce_layout,
-               WB::PeirceLayout::SQUARE);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.surface_lens,
-               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.signal_weight,
-               WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.value_transfer,
-               WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.coverage,
-               WB::CoveragePolicy::EDGE_FADE);
-  HS_EXPECT_EQ(peirce_dodecahedral.slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.source.pattern_freq, 5.0f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.source.speed, 0.1f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.source.angle_rate, 0.0f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.source.complexity, 0.5f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.source.pattern_mix, 0.0f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.source.secondary_rate, 0.8f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.projection.central_meridian, 0.0f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.projection.coordinate_scale, 1.0f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.projection.spin_rate, 0.0f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.outer_camera.wander, 1.0f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.value.edge_width, 0.1f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.breathe_depth, 0.15f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.cycle_speed, 0.05f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.hue_shift, 0.319f);
-  HS_EXPECT_EQ(peirce_dodecahedral.params.colorizer.value_fade, 0.2f);
-  const auto &dodecahedral_noise = presets[20];
-  HS_EXPECT_EQ(dodecahedral_noise.slots.function, WB::Function::GRID);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.projection,
-               WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.surface_lens,
-               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.warp_program.outer.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.surface_noise,
-               WB::SurfaceNoise::DIRECT);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.signal_weight,
-               WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.value_transfer,
-               WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.coverage, WB::CoveragePolicy::OPAQUE);
-  HS_EXPECT_EQ(dodecahedral_noise.slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(dodecahedral_noise.params.source.pattern_freq, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.source.speed, 0.075f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.source.angle_rate, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.source.complexity, 0.009122372f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.source.pattern_mix, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.source.secondary_rate, 1.146f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.projection.pole_fade, 1.5482996f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.projection.spin_rate, 0.020879198f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.projection.wander, 0.0030917525f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.outer_camera.wander, 0.0030917525f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.warp.outer.strength, 30.0f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.warp.outer.scale, 50.749298f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.warp.outer.time_scale, 0.4699f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.colorizer.breathe_depth, 0.25410002f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.colorizer.cycle_speed, 0.00015458837f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.colorizer.hue_shift, 0.201f);
-  HS_EXPECT_EQ(dodecahedral_noise.params.colorizer.value_fade, 0.847f);
-  const auto &dodecahedral_lattice = presets[21];
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.function,
-               WB::Function::PRIMITIVE_LATTICE);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.projection,
-               WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.projection_frame,
-               WB::ProjectionFramePolicy::SPIN_WANDER);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.surface_lens,
-               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.warp_program.outer.kind,
-               WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.warp_program.inner.kind,
-               WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.surface_noise,
-               WB::SurfaceNoise::DIRECT);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.signal_weight,
-               WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.value_transfer,
-               WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.coverage,
-               WB::CoveragePolicy::EDGE_FADE);
-  HS_EXPECT_EQ(dodecahedral_lattice.slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.source.lattice_cell_scale,
-               0.57453126f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.source.lattice_shape_blend, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.source.lattice_softness, 0.5454443f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.source.lattice_radius, 0.25f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.projection.pole_fade, 1.5482996f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.projection.spin_rate, 0.020879198f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.projection.wander, 0.421f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.outer_camera.wander, 0.591f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.rotation, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.cell_x, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.cell_y, 1.0f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.offset_x, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.outer.offset_y, 0.0f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.inner.strength, 8.73f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.inner.scale, 16.0f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.warp.inner.time_scale, 0.20772f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.value.edge_width, 0.0775f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.colorizer.breathe_depth,
-               0.25410002f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.colorizer.cycle_speed,
-               0.00015458837f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.colorizer.hue_shift, 0.562f);
-  HS_EXPECT_EQ(dodecahedral_lattice.params.colorizer.value_fade, 0.847f);
-  const auto &gnomonic_wave_shear = presets[22];
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.function, WB::Function::GRID);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.projection, WB::Projection::GNOMONIC);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.gnomonic_hemisphere,
-               WB::GnomonicHemispherePolicy::FOLDED);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.projection_frame,
-               WB::ProjectionFramePolicy::IDENTITY);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.surface_lens,
-               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.warp_program.outer.kind,
-               WB::WarpStageKind::WAVE_SHEAR);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.warp_program.inner.kind,
-               WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.signal_weight,
-               WB::SignalWeight::PROJECTION);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.value_transfer,
-               WB::ValueTransfer::LINEAR);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.coverage,
-               WB::CoveragePolicy::PROJECTION_WEIGHT_SQUARED);
-  HS_EXPECT_EQ(gnomonic_wave_shear.slots.colorizer, WB::Colorizer::LIQUID);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.source.pattern_freq, 6.3287f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.source.speed, 0.04f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.source.angle_rate, 0.027f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.source.complexity, 1.704f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.source.pattern_mix, 0.0f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.source.secondary_rate, 0.8f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.projection.pole_fade, 2.311f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.outer_camera.wander, 1.0f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.warp.outer.strength, -0.176f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.warp.outer.time_scale, -0.00325f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.warp.outer.frequency, 1.408f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.warp.outer.field_angle, 2.2305307f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.warp.inner.rotation, 0.0f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.warp.inner.cell_x, 1.0f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.warp.inner.cell_y, 1.0f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.warp.inner.offset_x, 0.0f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.warp.inner.offset_y, 0.0f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.colorizer.breathe_depth, 0.15f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.colorizer.cycle_speed, 0.0f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.colorizer.hue_shift, 0.721f);
-  HS_EXPECT_EQ(gnomonic_wave_shear.params.colorizer.value_fade, 0.854f);
-  for (size_t index = 0; index < presets.size(); ++index)
-    HS_EXPECT_TRUE(WB::seam_compatible(presets[index]));
-  for (size_t index = 0; index < 11; ++index)
-    HS_EXPECT_EQ(presets[index].slots.projection,
-                 WB::Projection::STEREOGRAPHIC);
+
+  bool has_hue_noise = false;
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
+    HS_EXPECT_EQ(preset.slots.palette, WB::PaletteMode::TRIADIC);
+    HS_EXPECT_TRUE(WB::seam_compatible(preset));
+    HS_EXPECT_TRUE(WB::valid_config(preset));
+    HS_EXPECT_TRUE(WB::has_inverse_program(preset));
+    has_hue_noise |= preset.params.color.hue_noise_amount != 0.0f;
     if (index > 0 && index < 11)
       HS_EXPECT_TRUE(
-          WB::slots_equal(preset.slots, WB::liquid_surface_noise_slots()));
-    HS_EXPECT_TRUE(WB::valid_config(preset));
+          WB::slots_equal(preset.slots, WB::generated_surface_noise_slots()));
     if (index > 0 && index < 10)
       HS_EXPECT_TRUE(WB::slots_equal(preset.slots, presets[index + 1].slots));
   }
+  HS_EXPECT_TRUE(has_hue_noise);
+
+  const auto &wave_shear = presets[11];
+  HS_EXPECT_EQ(wave_shear.slots.warp_program.outer.kind,
+               WB::WarpStageKind::WAVE_SHEAR);
+  HS_EXPECT_EQ(wave_shear.params.warp.outer.speed, 1.0f / 64.0f);
+  const auto &mirror = presets[12];
+  HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(mirror.params.warp.inner.speed, 0.0f);
 
   reset_effect_globals();
   WB::SB sb;
   sb.init();
   HS_EXPECT_TRUE(WB::slots_equal(WB::active_slots(sb), presets[0].slots));
 }
-
 /** @brief Whole-schema validation applies valid configs and rejects invalid. */
 inline void test_shaderball_config_admission() {
   using WB = ShaderBallWhiteBox;
@@ -1960,7 +1454,7 @@ inline void test_shaderball_config_admission() {
     candidate.slots.coverage = static_cast<WB::CoveragePolicy>(invalid_tag);
     HS_EXPECT_FALSE(WB::valid_config(candidate));
     candidate = WB::legacy_config();
-    candidate.slots.colorizer = static_cast<WB::Colorizer>(invalid_tag);
+    candidate.slots.palette = static_cast<WB::PaletteMode>(invalid_tag);
     HS_EXPECT_FALSE(WB::valid_config(candidate));
 
     const WB::RequestedConfig legacy_config = WB::legacy_config();
@@ -1997,8 +1491,8 @@ inline void test_shaderball_config_admission() {
         WB::WarpStageKind::VECTOR_NOISE;
     shared_owner.slots.warp_program.inner.kind =
         WB::WarpStageKind::VECTOR_NOISE;
-    shared_owner.params.warp.outer.time_scale = 0.0f;
-    shared_owner.params.warp.inner.time_scale = 0.0f;
+    shared_owner.params.warp.outer.speed = 0.0f;
+    shared_owner.params.warp.inner.speed = 0.0f;
     shared_owner.slots.warp_program.outer.resource_id = 6;
     shared_owner.slots.warp_program.inner.resource_id = 6;
     HS_EXPECT_TRUE(WB::valid_config(shared_owner));
@@ -2111,7 +1605,7 @@ inline void test_shaderball_mode_specific_parameter_warnings() {
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1 Scale", 1.0f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1 Time", 0.0f),
+  HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1 Speed", 0.0f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1 Strength", 1.0f),
                ParamSetResult::APPLIED);
@@ -2254,7 +1748,7 @@ inline void test_shaderball_structural_admission() {
       WB::CurlIntegrator::MIDPOINT_2;
   integrated_ridged.params.warp.outer.scale = 1.0f;
   integrated_ridged.params.warp.outer.strength = 0.0078125f;
-  integrated_ridged.params.warp.outer.time_scale = 0.0f;
+  integrated_ridged.params.warp.outer.speed = 0.0f;
   HS_EXPECT_TRUE(WB::valid_config(integrated_ridged));
 
   WB::RequestedConfig peirce_polar = WB::legacy_config();
@@ -2264,6 +1758,7 @@ inline void test_shaderball_structural_admission() {
   peirce_polar.params.value.edge_width = 0.1f;
   peirce_polar.slots.warp_program.inner.kind = WB::WarpStageKind::POLAR_CHART;
   peirce_polar.slots.warp_program.inner.polar_harmonic = 2;
+  peirce_polar.params.warp.inner.speed = 0.0f;
   peirce_polar.params.source.pattern_freq = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(peirce_polar));
   peirce_polar.slots.warp_program.outer.kind = WB::WarpStageKind::MIRROR_TILE;
@@ -2303,7 +1798,7 @@ inline void test_shaderball_structural_admission() {
   from.slots.warp_program.outer.curl_integrator = WB::CurlIntegrator::EULER_1;
   from.params.warp.outer.strength = 0.0078125f;
   from.params.warp.outer.scale = 1.0f;
-  from.params.warp.outer.time_scale = 0.0f;
+  from.params.warp.outer.speed = 0.0f;
   WB::RequestedConfig to = from;
   to.params.warp.outer.strength = 0.5f;
   to.params.warp.outer.scale = 1.0f / 64.0f;
@@ -2339,7 +1834,7 @@ inline void test_shaderball_strict_seam_admission() {
     config.slots.warp_program.outer.kind = WB::WarpStageKind::VECTOR_NOISE;
     config.params.warp.outer.scale = 1.0f;
     config.params.warp.outer.strength = 0.1f;
-    config.params.warp.outer.time_scale = 0.0f;
+    config.params.warp.outer.speed = 0.0f;
     HS_EXPECT_FALSE(WB::valid_config(config));
     config.slots.warp_program.outer.kind = WB::WarpStageKind::CURL_FLOW;
     config.params.warp.outer.scale = 1.0f;
@@ -2535,7 +2030,7 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_LT(parameter_index("Pole Fade"),
                parameter_index("Projection Frame"));
   HS_EXPECT_LT(parameter_index("Projection Frame"),
-               parameter_index("Spin Rate"));
+               parameter_index("Projection Spin Speed"));
   HS_EXPECT_LT(parameter_index("Camera Wander"),
                parameter_index("Surface Noise"));
   HS_EXPECT_LT(parameter_index("Surface Noise"), parameter_index("Lens"));
@@ -2543,7 +2038,8 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_LT(parameter_index("Lens"), parameter_index("Planar Warp 1"));
   HS_EXPECT_LT(parameter_index("Planar Warp 1"),
                parameter_index("Planar Warp 2"));
-  HS_EXPECT_LT(parameter_index("Colorizer"), parameter_index("Breathe Depth"));
+  HS_EXPECT_LT(parameter_index("Palette"), parameter_index("Hue Noise Amount"));
+  HS_EXPECT_EQ(sb.getParameters().find("Palette")->option_count, 3);
   const auto *projection = sb.getParameters().find("Projection");
   HS_EXPECT_TRUE(projection != nullptr);
   HS_EXPECT_EQ(projection->option_count, 7);
@@ -2585,8 +2081,6 @@ inline void test_shaderball_gui_catalog() {
   sb.advance_display();
   WB::settle_transition(sb);
 
-  // Only a compiled topology can be restored between sweep steps, so the
-  // sweep starts each option from the authored entry preset.
   const WB::RequestedConfig gui_base = WB::presets()[0];
   auto reset_gui = [&] {
     WB::request_config(sb, gui_base);
@@ -2610,7 +2104,7 @@ inline void test_shaderball_gui_catalog() {
   constexpr const char *ROOT_ENUMS[] = {
       "Function",      "Projection",    "Projection Frame", "Lens",
       "Planar Warp 1", "Planar Warp 2", "Signal Weight",    "Value Transfer",
-      "Coverage",      "Colorizer"};
+      "Coverage",      "Palette"};
   for (const char *name : ROOT_ENUMS) {
     const int option_count = sb.getParameters().find(name)->option_count;
     for (int option = 0; option < option_count; ++option) {
@@ -2658,7 +2152,7 @@ inline void test_shaderball_gui_catalog() {
   select_and_set_all("Function", 4, "Source Noise Basis");
   const auto *source_noise_scale =
       sb.getParameters().find("Source Noise Scale");
-  const auto *source_noise_rate = sb.getParameters().find("Source Noise Rate");
+  const auto *source_noise_rate = sb.getParameters().find("Source Noise Speed");
   HS_EXPECT_TRUE(source_noise_scale != nullptr);
   HS_EXPECT_TRUE(source_noise_rate != nullptr);
   HS_EXPECT_EQ(source_noise_scale->min, 0.0f);
@@ -3159,8 +2653,8 @@ inline void test_shaderball_hue_rotate_lut_gamut() {
   HS_EXPECT_LE(total_error / channels, uint64_t(256));
 }
 
-/** @brief The prepared liquid hue field tracks direct palette conversion. */
-inline void test_shaderball_prepared_liquid_hue() {
+/** @brief The prepared hue field tracks direct palette conversion. */
+inline void test_shaderball_prepared_hue_rotation() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
   WB::SB sb;
@@ -3173,8 +2667,8 @@ inline void test_shaderball_prepared_liquid_hue() {
     const float value = value_step / 64.0f;
     for (int amount_step = -128; amount_step <= 128; ++amount_step) {
       const float amount = amount_step / 64.0f;
-      const Pixel direct = WB::direct_liquid_hue(frame, value, amount);
-      const Pixel prepared = WB::prepared_liquid_hue(frame, value, amount);
+      const Pixel direct = WB::direct_hue_rotation(frame, value, amount);
+      const Pixel prepared = WB::prepared_hue_rotation(frame, value, amount);
       const uint16_t direct_channels[] = {direct.r, direct.g, direct.b};
       const uint16_t prepared_channels[] = {prepared.r, prepared.g, prepared.b};
       for (int channel = 0; channel < 3; ++channel) {
@@ -3525,7 +3019,7 @@ inline void test_shaderball_projection_and_admission_contracts() {
   curl.slots.warp_program.outer.curl_integrator =
       WB::CurlIntegrator::MIDPOINT_4;
   curl.params.warp.outer.scale = 1.0f;
-  curl.params.warp.outer.time_scale = 0.0f;
+  curl.params.warp.outer.speed = 0.0f;
   curl.params.warp.outer.strength = 0.03f;
   HS_EXPECT_TRUE(WB::valid_config(curl));
   curl.params.warp.outer.strength = 0.04f;
@@ -3568,6 +3062,59 @@ inline void test_shaderball_projection_and_admission_contracts() {
         WB::warp_stage(point, projected, spec, periodic_params, frame);
     HS_EXPECT_NEAR(at_zero.coords.re, at_wrap.coords.re, 2e-5f);
     HS_EXPECT_NEAR(at_zero.coords.im, at_wrap.coords.im, 2e-5f);
+  }
+}
+
+/** @brief Frame-like planar warps complete one documented cycle per phase. */
+inline void test_shaderball_planar_warp_animation() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  WB::FrameState frame = WB::frame(sb);
+  frame.resources.outer_warp_noise = nullptr;
+  const Complex input(0.31f, -0.27f);
+  const WB::ProjectedLookup projected(input, 0, 0, 0, 1.0f, 1.0f, 0);
+
+  auto sample = [&](WB::WarpStageKind kind, WB::WarpStageParams params,
+                    float phase) {
+    frame.clocks.warp_outer_phase = phase;
+    return WB::warp_stage(input, projected, WB::WarpStageSpec{kind}, params,
+                          frame);
+  };
+  auto expect_cycle = [&](WB::WarpStageKind kind, WB::WarpStageParams params) {
+    const auto start = sample(kind, params, 0.0f);
+    const auto quarter = sample(kind, params, 0.25f);
+    const auto wrapped = sample(kind, params, 1.0f);
+    HS_EXPECT_TRUE(fabsf(start.coords.re - quarter.coords.re) > 1e-4f ||
+                   fabsf(start.coords.im - quarter.coords.im) > 1e-4f);
+    HS_EXPECT_NEAR(start.coords.re, wrapped.coords.re, 2e-5f);
+    HS_EXPECT_NEAR(start.coords.im, wrapped.coords.im, 2e-5f);
+  };
+
+  WB::WarpStageParams affine;
+  expect_cycle(WB::WarpStageKind::AFFINE_FRAME, affine);
+
+  WB::WarpStageParams mirror;
+  mirror.cell_x = 1.0f;
+  mirror.cell_y = 1.0f;
+  expect_cycle(WB::WarpStageKind::MIRROR_TILE, mirror);
+
+  WB::WarpStageParams polar;
+  polar.radial_scale = 1.0f;
+  const auto polar_start = sample(WB::WarpStageKind::POLAR_CHART, polar, 0.0f);
+  const auto polar_quarter =
+      sample(WB::WarpStageKind::POLAR_CHART, polar, 0.25f);
+  HS_EXPECT_NEAR(polar_start.coords.re, polar_quarter.coords.re, 1e-6f);
+  HS_EXPECT_NEAR(polar_quarter.coords.im - polar_start.coords.im, 0.5f * PI_F,
+                 2e-5f);
+
+  for (WB::WarpStageKind kind :
+       {WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageKind::MIRROR_TILE,
+        WB::WarpStageKind::POLAR_CHART}) {
+    HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1", static_cast<float>(kind)),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_TRUE(sb.getParameters().find("Planar Warp 1 Speed") != nullptr);
   }
 }
 
@@ -3654,8 +3201,7 @@ inline void test_shaderball_kernel_catalog() {
     config.params.warp.outer.turns = 0.4f;
     config.params.warp.outer.translation_x = 0.2f;
     config.params.warp.outer.translation_y = -0.1f;
-    if (value >= 2 && value <= 5)
-      config.params.warp.outer.time_scale = 0.0f;
+    config.params.warp.outer.speed = 0.0f;
     config.slots.warp_program.outer.basis = WB::NoiseBasis::SIMPLEX;
     if (value == 7)
       config.slots.function = WB::Function::GRID;
@@ -3675,8 +3221,8 @@ inline void test_shaderball_kernel_catalog() {
     config.slots.value_transfer = static_cast<WB::ValueTransfer>(transfer);
     for (uint8_t coverage = 0; coverage <= 4; ++coverage) {
       config.slots.coverage = static_cast<WB::CoveragePolicy>(coverage);
-      for (uint8_t colorizer = 0; colorizer <= 2; ++colorizer) {
-        config.slots.colorizer = static_cast<WB::Colorizer>(colorizer);
+      for (uint8_t palette = 0; palette <= 2; ++palette) {
+        config.slots.palette = static_cast<WB::PaletteMode>(palette);
         check(config);
       }
     }
@@ -3832,17 +3378,17 @@ inline void test_shaderball_discrete_transition() {
     reset_effect_globals();
     WB::SB sb;
     sb.init();
-    WB::LookRuntime liquid_runtime;
+    WB::LookRuntime authored_runtime;
     WB::LookRuntime generated_runtime;
     const WB::WalkDeltas deltas{make_rotation(Y_AXIS, 0.2f),
                                 make_rotation(X_AXIS, 0.3f)};
-    WB::advance_runtime(sb, liquid_runtime, WB::presets()[0], deltas);
+    WB::advance_runtime(sb, authored_runtime, WB::presets()[0], deltas);
     WB::advance_runtime(sb, generated_runtime, WB::legacy_config(), deltas);
-    HS_EXPECT_EQ(liquid_runtime.clocks.source_primary, 0.075f);
+    HS_EXPECT_EQ(authored_runtime.clocks.source_primary, 0.075f);
     HS_EXPECT_EQ(generated_runtime.clocks.source_primary, 0.05f);
-    HS_EXPECT_TRUE(liquid_runtime.projection_wander !=
+    HS_EXPECT_TRUE(authored_runtime.projection_wander !=
                    generated_runtime.projection_wander);
-    HS_EXPECT_TRUE(liquid_runtime.outer_wander !=
+    HS_EXPECT_TRUE(authored_runtime.outer_wander !=
                    generated_runtime.outer_wander);
 
     const size_t original_index = WB::preset_index(sb);
@@ -3857,12 +3403,10 @@ inline void test_shaderball_discrete_transition() {
     WB::begin_blend(sb);
     HS_EXPECT_EQ(WB::preset_index(sb), original_index);
     const uint32_t walk_steps = WB::walk_steps(sb);
-    const uint32_t liquid_steps = WB::liquid_palette_steps(sb);
     const uint32_t generated_steps = WB::generated_palette_steps(sb);
     sb.draw_frame();
     sb.advance_display();
     HS_EXPECT_EQ(WB::walk_steps(sb), walk_steps + 1);
-    HS_EXPECT_EQ(WB::liquid_palette_steps(sb), liquid_steps + 1);
     HS_EXPECT_EQ(WB::generated_palette_steps(sb), generated_steps + 1);
     HS_EXPECT_EQ(WB::transition_from_runtime(sb).clocks.source_primary, 0.075f);
     HS_EXPECT_EQ(WB::transition_to_runtime(sb).clocks.source_primary, 0.05f);
@@ -3947,30 +3491,76 @@ inline void test_shaderball_pause_does_not_hold_through_clear() {
   HS_EXPECT_TRUE(WB::active_config(sb) == destination);
   HS_EXPECT_EQ(WB::preset_index(sb), entry_preset);
 }
-
-/** @brief Generated and liquid color resources remain independent owners. */
+/** @brief Generated harmonies remain independent and morph-compatible. */
 inline void test_shaderball_palette_resources() {
   using WB = ShaderBallWhiteBox;
-  uint32_t hue = 0;
-  GenerativePalette previous;
-  WB::make_triadic(hue, 0, previous);
-  for (uint32_t sequence = 1; sequence <= 8; ++sequence) {
-    GenerativePalette next;
-    WB::make_triadic(hue, sequence, next);
-    HS_EXPECT_TRUE(previous.morph_compatible(next));
-    previous = next;
-  }
-  HS_EXPECT_EQ(hue, uint32_t(8) * WB::HUE_STEP);
+  auto check_sequence = [](auto make) {
+    uint32_t hue = 0;
+    GenerativePalette previous;
+    make(hue, 0, previous);
+    for (uint32_t sequence = 1; sequence <= 8; ++sequence) {
+      GenerativePalette next;
+      make(hue, sequence, next);
+      HS_EXPECT_TRUE(previous.morph_compatible(next));
+      previous = next;
+    }
+    HS_EXPECT_EQ(hue, uint32_t(8) * WB::HUE_STEP);
+  };
+  check_sequence(WB::make_triadic);
+  check_sequence(WB::make_complementary);
+  check_sequence(WB::make_analogous);
 
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  const Pixel generated = WB::generated_color(sb, 0.25f);
-  const Pixel liquid = WB::liquid_color(sb, 0.25f);
-  HS_EXPECT_TRUE(generated.r != liquid.r || generated.g != liquid.g ||
-                 generated.b != liquid.b);
+  const Pixel triadic = WB::palette_color(sb, WB::PaletteMode::TRIADIC, 0.25f);
+  const Pixel complementary =
+      WB::palette_color(sb, WB::PaletteMode::COMPLEMENTARY, 0.25f);
+  const Pixel analogous =
+      WB::palette_color(sb, WB::PaletteMode::ANALOGOUS, 0.25f);
+  HS_EXPECT_TRUE(triadic.r != complementary.r || triadic.g != complementary.g ||
+                 triadic.b != complementary.b);
+  HS_EXPECT_TRUE(triadic.r != analogous.r || triadic.g != analogous.g ||
+                 triadic.b != analogous.b);
 }
 
+/** @brief Sphere-space hue noise works independently of planar warps. */
+inline void test_shaderball_hue_noise_palette_stage() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  WB::RequestedConfig base = WB::legacy_config();
+  base.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+  base.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
+  base.params.color = {0.0f, 2.0f, 0.0f};
+  HS_EXPECT_TRUE(WB::valid_config(base));
+
+  const WB::MaterialSample sample{0.37f, 1.0f,
+                                  Vector(0.31f, 0.87f, -0.38f).normalized()};
+  const Color4 plain = WB::colorize(sample, WB::config_frame(sb, base));
+  WB::RequestedConfig noisy = base;
+  noisy.params.color.hue_noise_amount = 1.0f;
+  const Color4 shifted = WB::colorize(sample, WB::config_frame(sb, noisy));
+  HS_EXPECT_TRUE(plain.color.r != shifted.color.r ||
+                 plain.color.g != shifted.color.g ||
+                 plain.color.b != shifted.color.b);
+
+  const WB::TopologyKey topology = WB::topology_key(base);
+  for (WB::PaletteMode palette :
+       {WB::PaletteMode::TRIADIC, WB::PaletteMode::COMPLEMENTARY,
+        WB::PaletteMode::ANALOGOUS}) {
+    noisy.slots.palette = palette;
+    HS_EXPECT_TRUE(WB::valid_config(noisy));
+    HS_EXPECT_TRUE(WB::topology_key(noisy) == topology);
+    const Color4 color = WB::colorize(sample, WB::config_frame(sb, noisy));
+    HS_EXPECT_TRUE(std::isfinite(color.alpha));
+  }
+
+  for (const char *name :
+       {"Hue Noise Amount", "Hue Noise Scale", "Hue Noise Speed"})
+    HS_EXPECT_TRUE(sb.getParameters().find(name) != nullptr);
+}
 inline void test_shaderball_surface_noise_geometry_and_composition() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
@@ -4184,8 +3774,8 @@ inline int run_shaderball_tests() {
   test_shaderball_inverse_program_equivalence();
   test_shaderball_full_config_snapshot();
   test_shaderball_surface_noise_range_rebind();
-  test_shaderball_legacy_config_snapshot();
-  test_shaderball_schema2_selector_storage();
+  test_shaderball_incompatible_config_snapshot();
+  test_shaderball_selector_storage();
   test_shaderball_clocks_wrapped();
   test_shaderball_pause_semantics();
   test_shaderball_manual_edit_timing();
@@ -4198,7 +3788,7 @@ inline int run_shaderball_tests() {
   test_shaderball_legacy_sources();
   test_shaderball_coupled_source();
   test_shaderball_hue_rotate_lut_gamut();
-  test_shaderball_prepared_liquid_hue();
+  test_shaderball_prepared_hue_rotation();
   test_shaderball_preset_bank();
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();
@@ -4215,12 +3805,14 @@ inline int run_shaderball_tests() {
   test_shaderball_projection_catalog();
   test_shaderball_fast_peirce_square();
   test_shaderball_projection_and_admission_contracts();
+  test_shaderball_planar_warp_animation();
   test_shaderball_dynamic_backend_admission();
   test_shaderball_kernel_catalog();
   test_shaderball_stable_preset_transition();
   test_shaderball_discrete_transition();
   test_shaderball_pause_does_not_hold_through_clear();
   test_shaderball_palette_resources();
+  test_shaderball_hue_noise_palette_stage();
   test_shaderball_surface_noise_geometry_and_composition();
   test_shaderball_noise_contour_domains();
   return fixture.result();

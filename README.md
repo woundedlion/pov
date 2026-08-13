@@ -1354,7 +1354,7 @@ Pixel (linear 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, 
 | `oklab_to_oklch()` | Convert OKLab (rectangular) to OKLCH (polar: Lightness, Chroma, Hue) |
 | `lerp_oklch()` | Interpolate two OKLCH values with shortest-arc hue (avoids the red→green→blue detour) |
 | `gamut_clip_preserve_chroma()` | Maps an out-of-gamut OKLab color back into the sRGB cube by reducing chroma while holding hue and lightness (walk-then-bisect on the chroma scale). The hue-preserving alternative to a per-channel RGB clip. Gated behind an in-gamut test (`oklab_to_linear_rgb_gamut`), so in-gamut colors — the vast majority — pay only the test and skip the search. |
-| `hue_rotate()` | Perceptual hue rotation — rotates the (a,b) chroma plane in OKLab, preserving lightness and chroma. Forward nonlinearity uses `fast_cbrt` (hot per-pixel path); inverse is exact. Out-of-gamut results are chroma-reduced rather than per-channel clipped, which holds hue and stabilizes the feedback loop against saturated-color drift. Used by the feedback `hue_fade` transform and `ShaderBall`'s displacement-driven hue shift. |
+| `hue_rotate()` | Perceptual hue rotation — rotates the (a,b) chroma plane in OKLab, preserving lightness and chroma. Forward nonlinearity uses `fast_cbrt` (hot per-pixel path); inverse is exact. Out-of-gamut results are chroma-reduced rather than per-channel clipped, which holds hue and stabilizes the feedback loop against saturated-color drift. Used by the feedback `hue_fade` transform and ShaderBall's sphere-space hue noise. |
 
 #### The Gamut Boundary Grid
 
@@ -2176,7 +2176,7 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### ShaderBall
 
-Typed pullback sphere shader (extends `Effect` directly) with 14 compiled inverse programs covering all 23 authored presets and a simulator-only dynamic backend for experimentation. Every compiled program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes the original liquid/flyby looks plus authored Bonne, Peirce quincuncial, and folded-gnomonic looks; topology-aware seam metadata; generated triadic and liquid palettes; and continuous preset choreography. The simulator uses a compiled wrapper whenever one matches and otherwise routes any structurally valid combination to the dynamic renderer. Teensy remains closed to the compiled roster. Preset changes use parameter morphs within a topology and a through-clear transition between topologies.
+Typed pullback sphere shader (extends `Effect` directly) with 14 compiled inverse programs covering all 23 authored presets and a simulator-only dynamic backend for experimentation. Every compiled program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes authored stereographic, Bonne, Peirce quincuncial, and folded-gnomonic looks; topology-aware seam metadata; three generated palette harmonies; sphere-space hue noise; and continuous preset choreography. The simulator uses a compiled wrapper whenever one matches and otherwise routes any structurally valid combination to the dynamic renderer. Teensy remains closed to the compiled roster. Preset changes use parameter morphs within a topology and a through-clear transition between topologies.
 
 **Parameters**: the active controls are schema-driven by the selected slots. See the vocabulary and dependency map below.
 
@@ -2217,9 +2217,9 @@ shading — once per visible sample, through the shared Scan::Shader loop
   Canvas
 ```
 
-The fused surface/projection stage owns lens selection, optional direct surface noise, projection-frame rotation, projection, and all seam/topology metadata. The planar-warp stage runs its two authored warps in pullback order and carries both the original projection metadata and accumulated net displacement, deformation, and path length. The material stage combines signal weighting, linear value transfer, and coverage before the terminal color stage returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
+The fused surface/projection stage owns lens selection, optional direct surface noise, projection-frame rotation, projection, and all seam/topology metadata. The planar-warp stage runs its two authored warps in pullback order and carries the original projection metadata plus its accumulated geometry. The material stage combines signal weighting, value transfer, and coverage. The terminal color stage samples the selected generated harmony, optionally rotates its hue with sphere-space noise, and returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
 
-Two stages carry approved approximations. Fast square Peirce projection and the liquid hue LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. The dynamic orchestration is compiled for the simulator and native oracle tests, where every authored preset is compared against it. Teensy preprocessing excludes it.
+Two stages carry approved approximations. Fast square Peirce projection and the hue-rotation LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. The dynamic orchestration is compiled for the simulator and native oracle tests, where every authored preset is compared against it. Teensy preprocessing excludes it.
 
 #### Compiled program roster
 
@@ -2227,10 +2227,10 @@ Semantic program identities are independent of preset numbering. Presets 1–10 
 
 | Preset(s) | Compiled program | Selected stages |
 |---|---|---|
-| 0 | `KALEIDOSCOPE_NOISE_GRID` | Stereographic direct surface noise, kaleidoscope lens, grid, opaque liquid |
-| 1–10 | `GLITCH_NOISE_GRID` | Stereographic direct surface noise, glitch lens, grid, opaque liquid |
-| 11 | `GLITCH_NOISE_GRID_WAVE_SHEAR` | Stereographic glitch lens, outer wave shear, grid, squared-weight liquid |
-| 12 | `KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR` | Stereographic kaleidoscope lens, inner mirror, twin wave, squared-weight liquid |
+| 0 | `KALEIDOSCOPE_NOISE_GRID` | Stereographic direct surface noise, kaleidoscope lens, grid, opaque generated color |
+| 1–10 | `GLITCH_NOISE_GRID` | Stereographic direct surface noise, glitch lens, grid, opaque generated color |
+| 11 | `GLITCH_NOISE_GRID_WAVE_SHEAR` | Stereographic glitch lens, outer wave shear, grid, squared-weight generated color |
+| 12 | `KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR` | Stereographic kaleidoscope lens, inner mirror, twin wave, squared-weight generated color |
 | 13 | `GNOMONIC_KALEIDOSCOPE_GRID_MIRROR` | Folded gnomonic, kaleidoscope lens, outer mirror, edge-faded generated color |
 | 14 | `GNOMONIC_GLITCH_GRID_MIRROR` | Folded gnomonic, glitch lens, outer mirror, edge-faded generated color |
 | 15 | `BONNE_KALEIDOSCOPE_LATTICE_MIRROR` | North Bonne, kaleidoscope lens, outer mirror, edge-faded lattice |
@@ -2240,7 +2240,7 @@ Semantic program identities are independent of preset numbering. Presets 1–10 
 | 19 | `PEIRCE_DODECAHEDRAL_GRID` | Square Peirce, dodecahedral lens, edge-faded grid |
 | 20 | `DODECAHEDRAL_NOISE_GRID` | Stereographic direct surface noise, dodecahedral lens, opaque grid |
 | 21 | `DODECAHEDRAL_NOISE_LATTICE_MIRROR` | Stereographic direct surface noise, dodecahedral lens, outer mirror, edge-faded lattice |
-| 22 | `GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR` | Folded gnomonic, dodecahedral lens, outer wave shear then inner mirror, squared-weight liquid |
+| 22 | `GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR` | Folded gnomonic, dodecahedral lens, outer wave shear then inner mirror, squared-weight generated color |
 
 #### Authoring vocabulary
 
@@ -2252,13 +2252,17 @@ The two planar warps run in their displayed pullback order: **Planar Warp 1** th
 |---|---|---|
 | **Function** | Twin Wave, Rings, Spiral, Grid, Noise Contour (Projected), Primitive Lattice, Noise Contour (Sphere) | A signed scalar field. The projected contour samples final planar coordinates; the sphere contour samples the post-lens direction in the inverse projection frame. Grid blends between coupled and direct patterns with dedicated mix and complexity controls. |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Dymaxion / Airocean, Equirectangular | Planar coordinates plus region/component identity, projection weight, boundary traits, stable edge identity, and fade distance. |
-| **Projection Frame** | Identity, Spin + Wander | Rotates the sphere before projection. Spin Rate and Projection Wander exist only for Spin + Wander. |
+| **Projection Frame** | Identity, Spin + Wander | Rotates the sphere before projection. Projection Spin Speed and Projection Wander exist only for Spin + Wander. |
 | **Lens** | None, Glitch, Twist, Kaleidoscope, Mobius | Distorts a unit-sphere direction before projection. Lens-specific controls exist only for an active lens. |
-| **Planar Warp 1 / 2** | None, Affine Frame, Wave Shear, Vortex, Projected Vector Noise, Projected Curl Flow, Mirror Tile, Polar Chart | Sequentially pulls planar coordinates backward and accumulates displacement, deformation, and path length for downstream colorizers. |
+| **Planar Warp 1 / 2** | None, Affine Frame, Wave Shear, Vortex, Projected Vector Noise, Projected Curl Flow, Mirror Tile, Polar Chart | Sequentially pulls planar coordinates backward. Every active warp exposes Speed; the meaning of one phase cycle is listed below. |
 | **Signal Weight** | None, Projection | Optionally multiplies the signed source signal by the projection's weight before remapping it to `[0, 1]`. It changes value, not alpha. |
 | **Value Transfer** | Linear, Ridge, Iso Contour, Smooth Bands | Shapes the normalized value. Iso controls appear only for Iso Contour; Band Count and Band Phase only for Smooth Bands. |
 | **Coverage** | Opaque, Projection Weight Squared, Value Cutout, Edge Fade, Projection Weight | Computes alpha independently from color value. Linear projection weight is softer and broader than the squared form. |
-| **Colorizer** | Generated Triadic, ShaderBall Liquid, Deformation Ink | Converts shaped value, coverage, and optional warp metadata into straight-alpha color. |
+| **Palette** | Generated Triadic, Generated Complementary, Generated Analogous | Converts shaped value and coverage into straight-alpha color. Hue Noise Amount, Scale, and Speed apply to every palette. |
+
+Planar-warp **Speed** advances the stage's wrapped phase in cycles per frame. Affine Frame rotates the complete affine frame once per cycle. Mirror Tile translates its mirror lattice by one local X cell, producing a seamless repeating scroll while its Y offset remains manual. Polar Chart advances only Angular Phase by one turn; Radial Phase remains manual. Wave Shear advances its wave, Vortex orbits its center, and the two projected-noise modes move through their periodic noise field.
+
+Hue noise is evaluated from the post-lens sphere direction, not planar coordinates. It therefore works with every generated palette and does not require a planar warp. **Hue Noise Amount** sets the maximum hue rotation, **Hue Noise Scale** sets the spatial frequency on the sphere, and **Hue Noise Speed** moves through the periodic noise field.
 
 Noise Contour (Projected) is available with Folded Sinusoidal,
 Stereographic, Gnomonic, and Equirectangular projections. Noise Contour (Sphere)
@@ -2281,20 +2285,20 @@ Projection ─┬─ Bonne ─────────────> Hemisphere +
             └─ any ───────────────> Meridian / scale / pole controls, where meaningful
 
 Function ──────────> Function-specific source controls
-Lens ──────────────> Lens Mix + selected lens controls
+Lens ──────────────> Selected lens controls
 Planar Warp 1 ─────> Selected stage controls
 Planar Warp 2 ─────> Selected stage controls
 Value Transfer ────> Iso or band controls
 Coverage ──────────> Cutout threshold or edge width
-Colorizer ─────────> Palette / breathe / hue / fade controls
+Palette ───────────> Generated harmony + shared hue-noise controls
 ```
 
 
-Schema validity still enforces semantic constraints: legacy stereographic noise selects Stereographic projection; seam-sensitive noise stages do not cross the cut topology of Bonne, Peirce, or Airocean; and Polar Chart constrains the compatible source. These incompatible cross-stage combinations remain pending and report an actionable warning. Manifest availability is a separate concern: the simulator routes valid unmatched combinations dynamically, while Teensy requires one of the 14 compiled descriptors.
+Schema validity still enforces the cross-stage constraints that have a geometric reason. Noise Contour (Sphere) cannot follow a planar warp. Polar Chart must be the only planar warp, requires Grid or Primitive Lattice, and requires `Pattern Freq × Polar Harmonic` to be a whole number. Seam-sensitive projected noise and warp stages cannot cross the cut topology of Bonne, Peirce, or Airocean. Unsafe coordinate bounds and excess noise resources are rejected as well. These incompatible combinations remain pending and report an actionable warning. Manifest availability is separate: the simulator routes valid unmatched combinations dynamically, while Teensy requires one of the 14 compiled descriptors.
 
 Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** gives both sides of a paired cut the same authored fade, so the seam closes flush without a subducted edge. Glued and periodic edges remain continuous and do not fade. **Pole Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
 
-Admitted GUI edits apply immediately. Numeric writes clamp to their registered range, including stale subordinate values when a mode change narrows that range. Structurally incompatible stage combinations remain pending until another edit repairs them. Automatic preset choreography remains continuous: configurations with the same canonical topology morph one live parameter state, while topology changes use the sequential through-clear endpoints. Source, warp, projection, breathe, global-walk, and palette clocks keep advancing according to their named rates. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
+Admitted GUI edits apply immediately. Numeric writes clamp to their registered range, including stale subordinate values when a mode change narrows that range. Structurally incompatible stage combinations remain pending until another edit repairs them. Automatic preset choreography remains continuous: configurations with the same canonical topology morph one live parameter state, while topology changes use the sequential through-clear endpoints. Source, warp, projection, hue-noise, global-walk, and palette clocks keep advancing according to their named speeds. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
 
 <table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DisplacementField" target="_blank"><img src="docs/screenshots/DisplacementField.png" alt="DisplacementField" width="280"></a></td>
@@ -2398,10 +2402,10 @@ Five further methods carry ShaderBall's whole configuration across a reload or i
 | Method | Description |
 |---|---|
 | `getFullConfigSnapshot()` | Return the current ShaderBall's whole state as `{schemaVersion, accepted, requested, pendingFieldIds, hasRuntime, runtime}`, or `null` when the loaded effect is not ShaderBall. `accepted` and `requested` are `CONFIG_FIELD_COUNT`-long arrays of field values encoded as `uint32`, in `ConfigFieldId` order; `pendingFieldIds` lists the indices of the fields carrying an unresolved edit; `runtime` is the animation clock state, meaningful only when `hasRuntime` |
-| `restoreFullConfigSnapshot(snapshot)` → `FullConfigRestoreResult` | Install a snapshot atomically: `Module.FullConfigRestoreResult.APPLIED`, else `NOT_SHADERBALL`, `UNSUPPORTED_VERSION` (a `schemaVersion` that is neither the current one nor the legacy `1`), `INVALID_LENGTH` (a missing snapshot, or an array whose length is not the field count), `INVALID_VALUE` (a field or runtime value outside what its slot admits), `INVALID_ACCEPTED` (fields each in range but a combination the effect will not render), or `INVALID_PENDING` (a pending list that is not a set of in-range field indices, or — at the current schema — one that does not name exactly the fields where `accepted` and `requested` differ). Compare against the enum values — never by truthiness. Every rejection leaves the effect exactly as it was, so a failed restore needs no rollback; a legacy `1` snapshot is migrated on the way in and leaves a `getConfigImportNotice()` describing what moved |
+| `restoreFullConfigSnapshot(snapshot)` → `FullConfigRestoreResult` | Install a current-schema snapshot atomically: `Module.FullConfigRestoreResult.APPLIED`, else `NOT_SHADERBALL`, `UNSUPPORTED_VERSION`, `INVALID_LENGTH` (a missing snapshot, or an array whose length is not the field count), `INVALID_VALUE` (a field or runtime value outside what its slot admits), `INVALID_ACCEPTED` (fields each in range but a combination the effect will not render), or `INVALID_PENDING` (a pending list that is not a set of in-range field indices, or does not name exactly the fields where `accepted` and `requested` differ). Compare against the enum values — never by truthiness. Every rejection leaves the effect exactly as it was, so a failed restore needs no rollback. Schema 3 replaces the removed ShaderBall color controls and older layouts are intentionally rejected. |
 | `getFullConfigFieldDefinitions()` | Return `[{id, name}]` for every field in the snapshot arrays — `id` is the index into `accepted`/`requested`/`pendingFieldIds`, `name` the stable dotted config path — or `null` when the loaded effect is not ShaderBall. Read it to label a field rather than hardcoding an index, which moves when the schema gains a field |
-| `getConfigImportNotice()` → `string` | The notice left by the most recent successful legacy-schema import, or `""` — also `""` when the loaded effect is not ShaderBall. It is a user-facing message, not a status code: an import that needed no migration leaves it empty |
-| `clearConfigImportNotice()` | Drop that notice once shown, so the next restore's notice is not read as stale. No-op when the loaded effect is not ShaderBall |
+| `getConfigImportNotice()` → `string` | Reserved compatibility accessor. It returns `""` for the current schema and when the loaded effect is not ShaderBall. |
+| `clearConfigImportNotice()` | Clear the reserved notice buffer. No-op when the loaded effect is not ShaderBall. |
 
 The bridge also exposes a `MeshOps` class — used by the `solids.html` geometry tool — with dedicated tooling arenas (an 8 MB persistent arena plus two 4 MB scratch arenas — 16 MB total, separate from the engine's 298 KiB arena) for interactive solid manipulation. `fromSolidName`, `getVertices`, `getFaces`, `classifyFaces` and the operator methods answer a rejected call with `null`; `MeshOps.getLastResult()` then names the reason as a `Module.MeshOpResult` value (`OK`, `UNKNOWN_NAME`, `CONNECTIVITY_OVERFLOW`, `FACE_DEGREE_OVERFLOW`, `ARENA_EXHAUSTED`, `NON_FINITE_ARG`, `ANGLE_OUT_OF_DOMAIN`, `STALE_WRAPPER`, or `ARENA_UNAVAILABLE`). Compare against the enum values — never by truthiness — and read it before the next such call, which overwrites it. The reasons demand opposite responses: an overflow means shrinking the op chain, `ARENA_EXHAUSTED` means calling `clearToolingMemory()`, `STALE_WRAPPER` — a wrapper used after a `clearToolingMemory()` reclaimed its storage — means rebuilding the mesh from its base solid, and `ARENA_UNAVAILABLE` — the 16 MB tooling block itself could not be allocated — means no MeshOps call can run at all, so the tool must stand down rather than retry. That last one is a reject rather than a trap for the same reason as the rest: an allocation failure in a long-lived tab must cost the page a null, not the module. A stale wrapper is rejected rather than trapped, so an interleaved wipe costs the page a null, not the module. A call that *succeeds* can still have moved what it was given: the fraction operators, `snub` and `relax` saturate a finite out-of-domain argument into the operator's domain and render from the saturated value, leaving `getLastResult()` at `OK`. `MeshOps.getLastAdjusted()` reports that, on the same read-it-before-the-next-call terms — a tool that only previews the mesh can ignore it, while one that exports the argument it passed must check it, or the exported value carries an out-of-domain bound into a firmware assert. Two class functions sit outside that contract as pure table reads — no arenas, no wrapper, no `clearToolingMemory()` pairing: `MeshOps.getRegistry()` lists every registered solid as `{name, category}` for the editor's solid picker, and `MeshOps.getRecipe(name)` returns one entry's authored op chain as `{seed, ops: [{op, param, twist}]}` in engine-native units, answering `null` for an unknown name or for a known entry that carries no recipe.
 
