@@ -3465,6 +3465,38 @@ inline void test_motion_set_duration_reanchors_no_teleport() {
 }
 
 /**
+ * @brief Verifies Motion::set_duration rescales the elapsed frame count instead
+ * of completing the motion when the new duration is below the current position.
+ * @details Without the rescale a repeating motion is instantly done(), so
+ * Timeline rewinds it, re-fires its .then() and restarts the path mid-traversal
+ * — a full-cycle desync from one drag of a live duration slider.
+ */
+inline void test_motion_set_duration_below_position_rescales() {
+  using Ori = Orientation<16>;
+  ProceduralPath path;
+  path.f = [](float t) {
+    float a = 2.0f * PI_F * t;
+    return Vector(std::cos(a), std::sin(a), 0.0f);
+  };
+  Ori o;
+  Animation::Motion<288, 16> motion(o, path, 60, /*repeat=*/true);
+
+  const Vector probe = X_AXIS;
+  for (int i = 0; i < 40; ++i)
+    motion.step(fake_canvas());
+  HS_EXPECT_FALSE(motion.done());
+  const Vector before = o.orient(probe);
+
+  // 40 frames into a 60-frame loop; 20 frames is behind that position.
+  motion.set_duration(20);
+  HS_EXPECT_FALSE(motion.done());
+
+  // Phase is preserved, so the next step stays incremental.
+  motion.step(fake_canvas());
+  HS_EXPECT_LT(angle_between(before, o.orient(probe)), 0.5f);
+}
+
+/**
  * @brief Runs every animation/easing test case in this module.
  * @return The module's failure count.
  */
@@ -3602,6 +3634,7 @@ inline int run_animation_tests() {
   test_mobiusflow_step_preserves_unit_product();
   test_particle_system_emitter_dispatch();
   test_motion_set_duration_reanchors_no_teleport();
+  test_motion_set_duration_below_position_rescales();
 
   const int result = fixture.result();
   // Unpublish before fake_cv/fake_fx destruct below.

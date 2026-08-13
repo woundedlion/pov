@@ -217,15 +217,23 @@ public:
    * @brief Live-updates the traversal duration (frames per path loop).
    * @param frames New duration in frames; any value below 1 is clamped to 1.
    * @details Clamps to 1 to avoid a divide-by-zero (0) or backward walk
-   * (negative). A changed duration reanchors the baseline (see reanchor()): the
-   * carried prev_frame was sampled under the old parameterization, so the next
-   * delta would otherwise teleport the Orientation.
+   * (negative). A changed duration rescales the elapsed `t` so the path
+   * parameter t/duration is preserved: without it, shortening the duration
+   * below the current position makes done() true at once, so Timeline rewinds
+   * the motion mid-traversal and fires post_callback() an extra time. The
+   * rescale also reanchors the baseline (see reanchor()): the carried
+   * prev_frame was sampled under the old parameterization, so the next delta
+   * would otherwise teleport the Orientation.
    */
   void set_duration(int frames) {
     int clamped = (frames < 1 ? 1 : frames);
-    if (clamped != this->duration)
+    if (clamped != this->duration) {
+      this->t = static_cast<uint32_t>(static_cast<float>(this->t) *
+                                      static_cast<float>(clamped) /
+                                      static_cast<float>(this->duration));
       have_prev_frame = false;
-    this->duration = clamped;
+      this->duration = clamped;
+    }
   }
 
   /**
