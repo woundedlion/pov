@@ -30,10 +30,12 @@ struct CometsWhiteBox;
  * @tparam H Canvas height in pixels.
  * @details The path function and color palette periodically roll over to the
  *          next entry in the function table, cross-fading via a ColorWipe.
- * @note Sibling trail effects `ChaoticStrings` and `RingSpin` share only the
- *       record + deep_tween skeleton; their draw/transform/fade diverge, so
- *       trail fixes must be propagated by hand. Comets uses an empty pipeline
- *       (no Screen::AntiAlias) since Scan::Point glows carry their own softness.
+ * @note Sibling trail effects `ChaoticStrings` and `RingSpin` share the
+ *       record + deep_tween skeleton and, with ChaoticStrings, the
+ *       `Animation::TrailBody` aggregate at the same capacity and substep
+ *       count. Draw primitive, transform chain and colour/fade are
+ *       hand-propagated. Comets uses an empty pipeline (no Screen::AntiAlias)
+ *       since Scan::Point glows carry their own softness.
  */
 template <int W, int H> class Comets : public Effect {
 public:
@@ -43,24 +45,8 @@ public:
       16; /**< Interpolation slots per Orientation, shared by the recorded trail
                and Motion. */
 
-  /**
-   * @brief Comet head state: world orientation, recorded trail, and body axis.
-   * @details Holds the head's world orientation, the recorded trail of past
-   *          orientations, and the local direction vector being drawn (the
-   *          body axis).
-   */
-  struct Node {
-    Orientation<ORIENTATION_SUBSTEPS>
-        orientation; /**< Current world orientation of the comet head. */
-    Animation::OrientationTrail<Orientation<ORIENTATION_SUBSTEPS>, TRAIL_LENGTH>
-        trail; /**< Recorded trail of past orientations. */
-    Vector v;  /**< Local direction vector drawn as the comet body axis. */
-
-    /**
-     * @brief Constructs a node with its body axis aligned to the Y axis.
-     */
-    Node() : v(Y_AXIS) {}
-  };
+  /** @brief Comet head state: world orientation, recorded trail, body axis. */
+  using Node = Animation::TrailBody<TRAIL_LENGTH, ORIENTATION_SUBSTEPS>;
 
   /**
    * @brief Constructs the effect at the templated canvas resolution.

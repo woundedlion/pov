@@ -85,6 +85,23 @@ using OrientationTrail = Trail<OrientationType, CAP>;
 template <int CAP> using VectorTrail = Trail<Vector, CAP>;
 
 /**
+ * @brief One animated body: world orientation, its recorded trail, and the
+ *        local direction vector drawn from it.
+ * @tparam CAP Orientations retained in the trail.
+ * @tparam SUBSTEPS Interpolation slots per Orientation, shared by the recorded
+ *         trail and Motion.
+ */
+template <int CAP, int SUBSTEPS> struct TrailBody {
+  Orientation<SUBSTEPS> orientation; /**< Current world orientation. */
+  OrientationTrail<Orientation<SUBSTEPS>, CAP>
+      trail; /**< Recorded past orientations. */
+  Vector v;  /**< Local direction vector drawn as the body axis. */
+
+  /** @brief Constructs a body with its direction vector on the Y axis. */
+  TrailBody() : v(Y_AXIS) {}
+};
+
+/**
  * @brief Fixed-capacity history of unit-sphere positions, quantized to snorm16.
  * @tparam CAP The maximum number of snapshots to keep.
  * @details A Trail of snorm16 triples: 3x int16 per snapshot (6 bytes vs
