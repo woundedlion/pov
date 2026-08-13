@@ -118,9 +118,10 @@ inline float shortest_distance(float a, float b, float m) {
 /**
  * @brief Invokes `apply(current)` only when `current` differs from `last`,
  * then latches `last = current`.
- * @details Live-apply a slider value only on change: several effects hold an
- *   animation handle whose setter reschedules from "now" (`set_duration`/
- *   `set_period`), so calling it every frame would perpetually defer the trigger.
+ * @details Live-apply a slider value only on change, so a per-frame push does
+ *   no work while the slider sits still. The animation setters it usually feeds
+ *   (`set_duration`/`set_period`) guard the no-change case themselves, so this
+ *   is a work filter, not a correctness gate.
  * @param current The latest parameter value to test against the cached one.
  * @param last The cached value; updated to `current` when they differ.
  * @param apply Callable receiving the new value; run only on change.
