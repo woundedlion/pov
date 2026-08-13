@@ -2366,7 +2366,7 @@ inline void test_shaderball_lens_domain_ranges() {
       sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)) ==
       ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 1.0f);
+  HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 8.0f);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Strength")->max, 1.0f);
 
   HS_EXPECT_TRUE(
@@ -2379,7 +2379,7 @@ inline void test_shaderball_lens_domain_ranges() {
                          static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 2.0f);
-  HS_EXPECT_EQ(parameter("Planar Warp 1 Strength")->max, 0.125f);
+  HS_EXPECT_EQ(parameter("Planar Warp 1 Strength")->max, 0.0625f);
 
   HS_EXPECT_TRUE(
       sb.updateParameter("Function",
