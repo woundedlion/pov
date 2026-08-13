@@ -341,12 +341,13 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   └── Profile.ino         Single-effect HS_PROFILE harness on segment 0 of the segmented rig
 │   └── wasm/
 │       ├── wasm.cpp            Emscripten binding TU — includes the binding headers below
-│       ├── engine_bindings.h   Render bridge — HolosphereEngine JS class, resolution/effect dispatch
+│       ├── engine_bindings.h   Render bridge — HolosphereEngine JS class, readback buffers, embind registration
 │       ├── mesh_ops_bindings.h Mesh editor bridge — MeshOps JS class, tooling arenas, Conway/Goldberg operators
 │       ├── mesh_op_bounds.h    Pure mesh-operator roster + growth factors behind the MeshOps guards (host-testable)
 │       ├── palette_bindings.h  Palette bridge — PaletteOps JS class, generative palette LUT bake
 │       ├── math_exports.h      Free color/palette/geometry exports the JS tool ports cross-check against
 │       ├── arena_metrics.h     Arena metrics report shared by the render and mesh editor bridges
+│       ├── effect_factory.h    Pure per-resolution effect factory + HS_RESOLUTIONS dispatch (host-testable)
 │       ├── param_marshal.h     Pure parameter definition/value marshaling, single ordering source (host-testable)
 │       └── wasm_predicates.h   Pure embind boundary validation/clamping predicates (host-testable)
 │
