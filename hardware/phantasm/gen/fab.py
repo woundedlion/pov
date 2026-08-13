@@ -393,7 +393,7 @@ def run_parity(report_path):
 
 
 def parse_components(net_path):
-    """ref -> {value, footprint, dnp, lcsc} from a kicadsexpr netlist."""
+    """ref -> {value, footprint, dnp} from a kicadsexpr netlist."""
     with open(net_path, encoding="utf-8") as fh:
         root = sexp.parse(fh.read())[0]
     comps = {}
@@ -414,7 +414,6 @@ def parse_components(net_path):
                 "value": val[0] if val else "",
                 "footprint": fp[0] if fp else "",
                 "dnp": "dnp" in props or "DNP" in props,
-                "lcsc": props.get("LCSC", ""),
             }
     return comps
 
@@ -657,20 +656,18 @@ def validate_part_catalog(assembly_metadata):
             "\n  ".join(diagnostics))
 
 
-def validate_assembly_metadata(comps, posrows, assembled):
+def validate_assembly_metadata(posrows, assembled):
+    """Return per-ref assembly metadata, or raise with every diagnostic found.
+
+    LCSC_BY_REF owns the supplier mapping; the schematic's LCSC field is never
+    consulted, so an unassigned reference is a missing part number.
+    """
     diagnostics = []
     metadata = {}
     for ref in assembled:
-        assigned_lcsc = LCSC_BY_REF.get(ref)
-        raw_lcsc = assigned_lcsc if assigned_lcsc is not None else comps[ref].get(
-            "lcsc")
-        if raw_lcsc is None:
+        lcsc = LCSC_BY_REF.get(ref, "")
+        if not lcsc:
             diagnostics.append(f"{ref}: supplier part number (LCSC) is missing")
-            lcsc = ""
-        else:
-            lcsc = str(raw_lcsc).strip()
-            if not lcsc:
-                diagnostics.append(f"{ref}: supplier part number (LCSC) is blank")
 
         pos = posrows.get(ref)
         if pos is None:
@@ -802,7 +799,7 @@ def main():
     try:
         validate_assembled_refs(assembled)
         validate_rotation_refs(assembled)
-        assembly_metadata = validate_assembly_metadata(comps, posrows, assembled)
+        assembly_metadata = validate_assembly_metadata(posrows, assembled)
     except AssemblyMetadataError as exc:
         sys.exit(str(exc))
     try:
