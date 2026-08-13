@@ -1557,6 +1557,7 @@ HS_COLD static PolyMesh meta(const PolyMesh &mesh, Arena &target, Arena &temp) {
  */
 HS_COLD static PolyMesh needle(const PolyMesh &mesh, Arena &target,
                                Arena &temp) {
+  HS_CHECK(&target != &temp, "needle: target and temp must differ");
   return kis(dual(mesh, temp, target), target, temp);
 }
 
@@ -1569,6 +1570,7 @@ HS_COLD static PolyMesh needle(const PolyMesh &mesh, Arena &target,
  *   the top of the operator block).
  */
 HS_COLD static PolyMesh zip(const PolyMesh &mesh, Arena &target, Arena &temp) {
+  HS_CHECK(&target != &temp, "zip: target and temp must differ");
   return dual(kis(mesh, temp, target), target, temp);
 }
 
