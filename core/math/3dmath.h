@@ -1212,8 +1212,11 @@ struct RotationMatrix {
   /**
    * @brief Expands a unit quaternion into its rows.
    * @param q The unit rotation quaternion.
+   * @pre `q` is unit magnitude; a non-unit q scales the rows and the error is
+   *      baked into every vector the cached object goes on to rotate.
    */
   explicit RotationMatrix(const Quaternion &q) {
+    assert(!(std::fabs(q.squared_magnitude() - 1.0f) > math::EPS_UNIT_QUAT_SQ));
     const float qr = q.r;
     const float qx = q.v.x;
     const float qy = q.v.y;
