@@ -94,7 +94,7 @@ ShaderBall's performance budget is sized against their per-pixel costs.
 
 ## What the roster looks like
 
-**Twenty effects spill nothing** in their current shipping captures.
+**Twenty-one effects spill nothing** in their current shipping captures.
 
 **MindSplatter completes all eight presets at 16 fps.** The shipping cycle has
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
