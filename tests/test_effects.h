@@ -21,6 +21,7 @@
 #include "core/render/sdf_volume.h"
 #include "core/engine/memory.h"
 #include "hardware/pov_segment_map.h"
+#include "tests/pixel_test_util.h"
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -426,10 +427,7 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
   if (frame_fold)
     *frame_fold = fold;
 
-  out.resize(static_cast<size_t>(W) * H);
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      out[static_cast<size_t>(y) * W + x] = effect.get_pixel(x, y);
+  capture_frame<W, H>(effect, out);
 }
 
 /**
@@ -2865,10 +2863,7 @@ inline void meshfeedback_capture(std::vector<Pixel> &out, int frames,
   }
   hs::clear_mock_time();
 
-  out.resize(static_cast<size_t>(SMALL_W) * SMALL_H);
-  for (int y = 0; y < SMALL_H; ++y)
-    for (int x = 0; x < SMALL_W; ++x)
-      out[static_cast<size_t>(y) * SMALL_W + x] = fx.get_pixel(x, y);
+  capture_frame<SMALL_W, SMALL_H>(fx, out);
 }
 
 /**

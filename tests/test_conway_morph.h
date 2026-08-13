@@ -41,6 +41,7 @@
 #include "core/mesh/solids.h"
 #include "core/render/canvas.h"
 #include "tests/mesh_test_util.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_conway.h" // check_euler_genus0, face_type_histogram
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -2316,16 +2317,6 @@ inline PolyMesh probe_icosidodeca_trunc5_ambo(Arena &a, Arena &b) {
       .ambo()
       .build();
 }
-inline PolyMesh probe_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
-  using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
-                              a, b)
-      .ambo()
-      .relax(100)
-      .hankin(54.0f * D2R)
-      .build();
-}
-
 /** DUAL-leg sites: the mesh each recipe applies a smooth dual to (the gyro
  * snub-derived seeds, the ambo-of-hankin and ambo-of-truncate seeds, and the
  * needle's hankin seed). */
@@ -2336,7 +2327,7 @@ inline constexpr StepLegSite DUAL_LEG_SITES[] = {
     {"icosidodecahedron_truncate5d_ambo_dual", probe_icosidodeca_trunc5_ambo,
      0.0f},
     {"truncatedIcosahedron_ambo_relax100_hk54_needle",
-     probe_ticosa_ambo_relax100_hk54, 0.0f},
+     build_ticosa_ambo_relax100_hk54, 0.0f},
 };
 
 /** @brief Max nearest-vertex distance from every vertex of @p x to @p y. */
@@ -2766,10 +2757,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       Scan::Mesh::draw<RW, RH>(filters, c, m, shader, scratch_arena_b);
     };
     auto snap = [&](std::vector<Pixel> &out) {
-      out.resize(static_cast<size_t>(RW) * RH);
-      for (int y = 0; y < RH; ++y)
-        for (int x = 0; x < RW; ++x)
-          out[static_cast<size_t>(y) * RW + x] = fx.get_pixel(x, y);
+      capture_frame<RW, RH>(fx, out);
     };
 
     // Leg 2: the medial slerp, departed from ambo(P). Crossfading handoffs,

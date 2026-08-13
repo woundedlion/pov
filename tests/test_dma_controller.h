@@ -18,6 +18,7 @@
 #include "hardware/dma_led_controller.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/test_hd107s_frame.h" // reset_correction
 
 #include <cstddef>
 #include <cstdint>
@@ -120,15 +121,6 @@ public:
 };
 
 /**
- * @brief Restores HD107SFrame's shared static correction state to unity.
- */
-inline void reset_correction() {
-  Frame::setCorrection(255, 255, 255);
-  Frame::setTemperature(255, 255, 255);
-  Frame::setBrightness(255);
-}
-
-/**
  * @brief begin() forwards to the transport's one-time init().
  */
 inline void test_begin_inits() {
@@ -144,7 +136,7 @@ inline void test_begin_inits() {
  * the transfer counter.
  */
 inline void test_submit_happy_path() {
-  reset_correction();
+  hd107s_tests::reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
@@ -165,7 +157,7 @@ inline void test_submit_happy_path() {
  * is never the one the next backFrame() exposes for writing.
  */
 inline void test_double_buffer_flip() {
-  reset_correction();
+  hd107s_tests::reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
@@ -197,7 +189,7 @@ inline void test_double_buffer_flip() {
  * watchdog is consulted, and the active buffer does not flip.
  */
 inline void test_overrun_drop() {
-  reset_correction();
+  hd107s_tests::reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
@@ -221,7 +213,7 @@ inline void test_overrun_drop() {
  * @brief withBg selects the composite (image + trailing black) transfer length.
  */
 inline void test_withbg_length() {
-  reset_correction();
+  hd107s_tests::reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
@@ -241,7 +233,7 @@ inline void test_withbg_length() {
  * end-to-end through the controller.
  */
 inline void test_end_to_end_wire_bytes() {
-  reset_correction();
+  hd107s_tests::reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
@@ -276,7 +268,8 @@ inline int run_dma_controller_tests() {
   test_overrun_drop();
   test_withbg_length();
   test_end_to_end_wire_bytes();
-  reset_correction(); // leave shared static state clean for any later module
+  // Leave the shared static state clean for any later module.
+  hd107s_tests::reset_correction<N>();
   return fixture.result();
 }
 

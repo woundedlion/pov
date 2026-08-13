@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace hs_test {
 
@@ -69,6 +70,24 @@ template <int W, int H> inline size_t count_lit_region(const StubEffect &fx) {
       if (!is_black(fx.get_pixel(x, y)))
         ++n;
   return n;
+}
+
+/**
+ * @brief Copies an effect's displayed frame into a flat row-major buffer.
+ * @tparam W Frame width in pixels.
+ * @tparam H Frame height in pixels.
+ * @tparam Fx Effect type exposing get_pixel(x, y) const.
+ * @param fx Effect whose displayed frame is read.
+ * @param out Destination, resized to W * H and indexed y * W + x.
+ * @details Reads through get_pixel rather than the raw buffer, so an effect
+ *          that overrides it with a per-pixel transform is captured as displayed.
+ */
+template <int W, int H, typename Fx>
+inline void capture_frame(const Fx &fx, std::vector<Pixel> &out) {
+  out.resize(static_cast<size_t>(W) * H);
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      out[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
 }
 
 } // namespace hs_test

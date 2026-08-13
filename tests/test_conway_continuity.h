@@ -54,6 +54,7 @@
 #include "core/render/scan.h"
 #include "effects/HankinSolids.h"
 #include "tests/mesh_test_util.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_conway_morph.h" // run_edge_op
 #include "tests/test_conway_soak.h"  // HankinWalkProbe
 #include "tests/test_fixture.h"
@@ -117,10 +118,7 @@ inline void render_faces(std::vector<Pixel> &out, const MeshState &mesh,
         scan_scratch);
   }
   fx.advance_display();
-  out.resize(static_cast<size_t>(FB_W) * FB_H);
-  for (int y = 0; y < FB_H; ++y)
-    for (int x = 0; x < FB_W; ++x)
-      out[static_cast<size_t>(y) * FB_W + x] = fx.get_pixel(x, y);
+  capture_frame<FB_W, FB_H>(fx, out);
 }
 
 /**
@@ -1834,10 +1832,7 @@ inline void capture_opening(HankinSolids<W, H> &fx, float angle, float fade,
                            terminal_fade, star_close, scratch);
   }
   fx.advance_display();
-  out.resize(static_cast<size_t>(W) * H);
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      out[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  capture_frame<W, H>(fx, out);
 }
 
 /**
