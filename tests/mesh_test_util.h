@@ -9,6 +9,7 @@
 #pragma once
 
 #include "core/mesh/mesh.h"
+#include "core/mesh/solids.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -31,6 +32,28 @@ inline void build_solid(PolyMesh &mesh, Arena &arena) {
     mesh.face_counts.push_back(fc);
   for (auto fi : Solid::faces)
     mesh.faces.push_back(static_cast<uint16_t>(fi));
+}
+
+/**
+ * @brief Builds the seed of the needle recipe's gated swaps: the ambo /
+ *        relax(100) / hankin(54 deg) prefix of
+ *        Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_STEPS.
+ * @param a Output arena for the built mesh.
+ * @param b Scratch arena for the intermediate meshes.
+ * @return The hankin(54 deg) arrival, allocated in @p a.
+ * @details Shared by the morph and opchain probe suites, which both pin shapes
+ *          against this chain; a spec change must move exactly one build here.
+ *          The relax is live at 100 iterations rather than the shipping step's
+ *          baked payload, so the probes measure the operator, not the bake.
+ */
+inline PolyMesh build_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
+      .ambo()
+      .relax(100)
+      .hankin(54.0f * D2R)
+      .build();
 }
 
 /**
@@ -104,6 +127,19 @@ inline Vector face_newell_normal(const PolyMesh &m, size_t face_idx_offset,
     n.z += (curr.x - next.x) * (curr.y + next.y);
   }
   return n;
+}
+
+/**
+ * @brief Computes a face's Newell area vector.
+ * @param m Mesh owning the vertices and face-index array.
+ * @param face_idx_offset Offset into m.faces where this face's indices begin.
+ * @param count Number of vertices (sides) in the face.
+ * @return Face normal scaled to the planar face area — half
+ *         face_newell_normal(), which carries twice the area.
+ */
+inline Vector face_area_vector(const PolyMesh &m, size_t face_idx_offset,
+                               int count) {
+  return face_newell_normal(m, face_idx_offset, count) * 0.5f;
 }
 
 /**

@@ -41,14 +41,18 @@ inline const uint8_t *pixel(const Frame &f, int i) {
 }
 
 /**
- * @brief Restores the shared static correction state to unity (255 = exact ×1.0).
+ * @brief Restores HD107SFrame<S>'s shared static correction state to unity
+ *        (255 = exact ×1.0).
+ * @tparam S Pixel count of the frame instantiation to reset; the correction
+ *           state is a static of HD107SFrame<S>, so each S carries its own.
  * @details Resets the per-channel correction, temperature, and brightness so a
  * test starts from an identity color pipeline; these are static frame settings.
+ * Shared with the DMA controller suite, which drives a different S.
  */
-inline void reset_correction() {
-  Frame::setCorrection(255, 255, 255);
-  Frame::setTemperature(255, 255, 255);
-  Frame::setBrightness(255);
+template <int S> inline void reset_correction() {
+  HD107SFrame<S>::setCorrection(255, 255, 255);
+  HD107SFrame<S>::setTemperature(255, 255, 255);
+  HD107SFrame<S>::setBrightness(255);
 }
 
 /**
@@ -127,7 +131,7 @@ inline void test_fresh_frame_skeleton() {
  * scale, and exact brightness scaling at half and zero.
  */
 inline void test_correct_pipeline() {
-  reset_correction();
+  reset_correction<N>();
   Frame f;
 
   // Zero in → zero out, regardless of factors.
@@ -159,7 +163,7 @@ inline void test_correct_pipeline() {
   HS_EXPECT_EQ(zr, 0u);
   HS_EXPECT_EQ(zg, 0u);
   HS_EXPECT_EQ(zb, 0u);
-  reset_correction();
+  reset_correction<N>();
 }
 
 /**
@@ -210,7 +214,7 @@ inline void test_correct_multifactor() {
   HS_EXPECT_EQ(mg, 65535u);
   HS_EXPECT_EQ(mb, 65535u);
 
-  reset_correction();
+  reset_correction<N>();
 }
 
 /**
@@ -218,7 +222,7 @@ inline void test_correct_multifactor() {
  * targeted pixel slot (each primary lights its own byte, neighbors untouched).
  */
 inline void test_packpixel_wire_order() {
-  reset_correction();
+  reset_correction<N>();
   Frame f;
 
   const Pixel red(CRGB(255, 0, 0));
@@ -267,7 +271,7 @@ inline void test_packpixel_shipped_brightness() {
   HS_EXPECT_EQ(pixel(f, 3)[2], 124); // G
   HS_EXPECT_EQ(pixel(f, 3)[3], 188); // R
 
-  reset_correction();
+  reset_correction<N>();
 }
 
 /**
@@ -283,7 +287,7 @@ inline int run_hd107s_tests() {
   test_correct_multifactor();
   test_packpixel_wire_order();
   test_packpixel_shipped_brightness();
-  reset_correction(); // leave shared static state clean for any later module
+  reset_correction<N>(); // leave shared static state clean for any later module
   return fixture.result();
 }
 

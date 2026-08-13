@@ -28,6 +28,7 @@
 #include "core/render/scan.h"
 #include "core/render/shading.h"
 #include "tests/mesh_test_util.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -73,10 +74,7 @@ inline void render(std::vector<Pixel> &out, const MeshState &mesh,
     Scan::Mesh::draw<PS_W, PS_H>(pipe, c, mesh, shader, scan_scratch);
   }
   fx.advance_display();
-  out.resize(static_cast<size_t>(PS_W) * PS_H);
-  for (int y = 0; y < PS_H; ++y)
-    for (int x = 0; x < PS_W; ++x)
-      out[static_cast<size_t>(y) * PS_W + x] = fx.get_pixel(x, y);
+  capture_frame<PS_W, PS_H>(fx, out);
 }
 
 /**

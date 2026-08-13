@@ -83,15 +83,6 @@ inline void face_centroids(const PolyMesh &m, std::vector<Vector> &out) {
   }
 }
 
-/** @brief Newell area vector of one face (magnitude = planar area). */
-inline Vector newell(const PolyMesh &m, size_t off, int n) {
-  Vector a(0, 0, 0);
-  for (int k = 0; k < n; ++k)
-    a = a + cross(m.vertices[m.faces[off + k]],
-                  m.vertices[m.faces[off + (k + 1) % n]]);
-  return a * 0.5f;
-}
-
 /** @brief Whether SDF::Face rejects a face outright (collapsed or off-band). */
 inline bool face_is_culled(const PolyMesh &m, size_t off, int n) {
   if (static_cast<size_t>(n) > SDF::FaceScratchBuffer::MAX_VERTS)
@@ -188,7 +179,7 @@ inline void test_chamfer_zero_area_birth_limit() {
       face_offsets(out, off);
       float born_area = 0.0f;
       for (size_t f = F; f < out.face_counts.size(); ++f) {
-        const Vector n = newell(out, off[f], out.face_counts[f]);
+        const Vector n = face_area_vector(out, off[f], out.face_counts[f]);
         born_area += std::sqrt(dot(n, n));
       }
       // Preserved faces: same side count, centroid held, and every vertex
@@ -290,7 +281,7 @@ inline void test_chamfer_sweep_holds_topology() {
       face_offsets(swept, off);
       std::vector<Vector> normal(swept.face_counts.size());
       for (size_t f = 0; f < swept.face_counts.size(); ++f) {
-        normal[f] = newell(swept, off[f], swept.face_counts[f]);
+        normal[f] = face_area_vector(swept, off[f], swept.face_counts[f]);
         Vector c(0, 0, 0);
         const int n = swept.face_counts[f];
         for (int k = 0; k < n; ++k)
@@ -434,7 +425,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
       face_offsets(swept, off);
       std::vector<Vector> normal(swept.face_counts.size());
       for (size_t f = 0; f < swept.face_counts.size(); ++f) {
-        normal[f] = newell(swept, off[f], swept.face_counts[f]);
+        normal[f] = face_area_vector(swept, off[f], swept.face_counts[f]);
         // Planar area: no face collapses or inverts anywhere in the sweep.
         min_area = std::min(min_area, std::sqrt(dot(normal[f], normal[f])));
         Vector c(0, 0, 0);
@@ -597,7 +588,8 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
       if (t <= FAR_SIDE_NEAR_LIMIT) {
         face_offsets(swept, off);
         for (size_t f = 0; f < swept.face_counts.size(); ++f) {
-          const Vector n = newell(swept, off[f], swept.face_counts[f]);
+          const Vector n =
+              face_area_vector(swept, off[f], swept.face_counts[f]);
           min_area_near = std::min(min_area_near, std::sqrt(dot(n, n)));
         }
       }
@@ -1018,16 +1010,6 @@ inline void test_build_chain_provenance_ambiguity() {
 // leg's arrival is a single mesh: dual(seed), then kis(dual(seed)) == needle.
 // ---------------------------------------------------------------------------
 
-inline PolyMesh probe_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
-  using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
-                              a, b)
-      .ambo()
-      .relax(100)
-      .hankin(54.0f * D2R)
-      .build();
-}
-
 /**
  * @brief Asserts a mesh is a closed genus-0 manifold of positive-area faces on
  *        the unit sphere; returns its compiled face count.
@@ -1041,7 +1023,7 @@ inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
   face_offsets(m, off);
   float min_area = 1e9f;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
-    const Vector n = newell(m, off[f], m.face_counts[f]);
+    const Vector n = face_area_vector(m, off[f], m.face_counts[f]);
     min_area = std::min(min_area, std::sqrt(dot(n, n)));
   }
   for (size_t v = 0; v < m.vertices.size(); ++v)
@@ -1074,7 +1056,7 @@ inline void test_needle_gated_swap_builds_on_hankin() {
     ScratchScope ga(a);
     ScratchScope gb(b);
     seed =
-        Solids::finalize_solid(probe_ticosa_ambo_relax100_hk54(a, b), persist);
+        Solids::finalize_solid(build_ticosa_ambo_relax100_hk54(a, b), persist);
   }
   size_t seed_compiled = 0;
   {
