@@ -3191,6 +3191,96 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  */
 constexpr int MIN_COVERED_GUARD_SITES = 115;
 
+/** @brief One file's approved count of guard sites no case pins. */
+struct GuardGapAllowance {
+  const char *file; /**< Source-file basename, as the census names it. */
+  int gap;          /**< Unpinned HS_CHECK sites tolerated in that file. */
+};
+
+/**
+ * @brief Per-file allowances for the sites the case table leaves unpinned.
+ * @details MIN_COVERED_GUARD_SITES is a whole-suite total, so a subsystem can
+ *          land a dozen guards with no case at all and still clear it. Every
+ *          census file's gap is gated against its row here, and a file with no
+ *          row must be fully pinned — so new guards red the death module unless
+ *          the same commit either pins them or writes the wider gap down.
+ *          Lower a row after adding cases.
+ */
+inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
+    {"animation.h", 3},
+    {"carousel.h", 3},
+    {"motion.h", 6},
+    {"opleg.h", 41},
+    {"params.h", 10},
+    {"segue.h", 1},
+    {"sprites.h", 10},
+    {"timeline.h", 9},
+    {"timers.h", 1},
+    {"color.h", 1},
+    {"composition.h", 32},
+    {"generative_palette.h", 3},
+    {"palette_cycler.h", 7},
+    {"memory.cpp", 1},
+    {"memory.h", 3},
+    {"reaction_graph.h", 2},
+    {"static_circular_buffer.h", 4},
+    {"transformers.h", 3},
+    {"3dmath.h", 6},
+    {"geometry.h", 16},
+    {"noise_field.h", 1},
+    {"spherical_field.h", 2},
+    {"waves.h", 1},
+    {"conway.h", 31},
+    {"conway_graph.h", 1},
+    {"hankin.h", 9},
+    {"mesh.h", 10},
+    {"mesh_classes.h", 4},
+    {"recipe.h", 9},
+    {"solids.h", 7},
+    {"spatial.h", 8},
+    {"canvas.h", 25},
+    {"filter.h", 12},
+    {"led.h", 2},
+    {"plot.h", 20},
+    {"scan.h", 22},
+    {"sdf.h", 16},
+    {"sdf_volume.h", 2},
+    {"shading.h", 1},
+    {"ChaoticStrings.h", 1},
+    {"Comets.h", 2},
+    {"DisplacementField.h", 1},
+    {"DreamBalls.h", 12},
+    {"Dynamo.h", 1},
+    {"GnomonicStars.h", 1},
+    {"HankinSolids.h", 13},
+    {"IslamicStars.h", 23},
+    {"MeshFeedback.h", 2},
+    {"MindSplatter.h", 4},
+    {"MobiusGrid.h", 1},
+    {"ReactionDiffusionBase.h", 2},
+    {"RingShower.h", 1},
+    {"ShaderBall.h", 15},
+    {"ShapeShifter.h", 3},
+    {"dma_led.h", 2},
+    {"pov_segmented.h", 9},
+    {"pov_single.h", 9},
+    {"phantasm_target.h", 2},
+    {"engine_bindings.h", 5},
+    {"mesh_ops_bindings.h", 2},
+};
+
+/**
+ * @brief Looks up a file's approved unpinned-site count.
+ * @param file Source-file basename from the census.
+ * @return The approved gap, or 0 for a file with no allowance row.
+ */
+inline int allowed_guard_gap(const char *file) {
+  for (const GuardGapAllowance &a : GUARD_GAP_ALLOW)
+    if (std::strcmp(a.file, file) == 0)
+      return a.gap;
+  return 0;
+}
+
 /**
  * @brief Prints what fraction of the engine's fail-fast surface is pinned.
  * @param cs The case table.
@@ -3201,13 +3291,15 @@ constexpr int MIN_COVERED_GUARD_SITES = 115;
  *          Cases pinning a file the census does not know — the harness's own
  *          trap stand-ins, and any mistyped basename — count in neither and are
  *          reported separately rather than silently dropped. The pinned count is
- *          gated against MIN_COVERED_GUARD_SITES so coverage cannot decay
- *          silently; the ratio itself is reported but not gated, since new
- *          engine guards move the denominator without weakening any case.
+ *          gated against MIN_COVERED_GUARD_SITES and each file's unpinned
+ *          remainder against GUARD_GAP_ALLOW; the ratio itself is reported but
+ *          not gated, since new engine guards move the denominator without
+ *          weakening any case.
  */
 inline void report_guard_coverage(const Case *cs, int n) {
   int covered = 0;
   int off_census = 0;
+  int unapproved_gaps = 0;
   constexpr int GAPS = 5;
   const GuardSiteCount *worst[GAPS] = {};
   int worst_gap[GAPS] = {};
@@ -3217,6 +3309,18 @@ inline void report_guard_coverage(const Case *cs, int n) {
       pinned = f.sites;
     covered += pinned;
     int gap = f.sites - pinned;
+    const int allowed = allowed_guard_gap(f.file);
+    if (gap > allowed) {
+      std::printf("  [FAIL] %s leaves %d HS_CHECK site(s) unpinned, %d "
+                  "approved — add a death case, or write the gap down as "
+                  "{\"%s\", %d} in GUARD_GAP_ALLOW\n",
+                  f.file, gap, allowed, f.file, gap);
+      ++unapproved_gaps;
+    } else if (gap < allowed) {
+      std::printf("  stale allowance: {\"%s\", %d} now over-approves — the "
+                  "file's gap is %d\n",
+                  f.file, allowed, gap);
+    }
     for (int slot = 0; slot < GAPS; ++slot) {
       if (gap <= worst_gap[slot])
         continue;
@@ -3248,7 +3352,19 @@ inline void report_guard_coverage(const Case *cs, int n) {
     std::printf(" %s %d/%d", worst[slot]->file,
                 worst[slot]->sites - worst_gap[slot], worst[slot]->sites);
   std::printf("\n");
+  for (const GuardGapAllowance &a : GUARD_GAP_ALLOW) {
+    bool in_census = false;
+    for (const GuardSiteCount &f : GUARD_SITE_COUNTS)
+      if (std::strcmp(a.file, f.file) == 0) {
+        in_census = true;
+        break;
+      }
+    if (!in_census)
+      std::printf("  stale allowance: \"%s\" names no guard-bearing file\n",
+                  a.file);
+  }
   HS_EXPECT_GE(covered, MIN_COVERED_GUARD_SITES);
+  HS_EXPECT_EQ(unapproved_gaps, 0);
 }
 
 /**
