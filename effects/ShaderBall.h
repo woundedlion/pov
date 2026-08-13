@@ -1576,6 +1576,12 @@ private:
     register_current(speed_name, &params.speed, -speed_max, speed_max);
     switch (spec.kind) {
     case WarpStageKind::AFFINE_FRAME: {
+      const float snapped_x = roundf(params.translation_x);
+      const float snapped_y = roundf(params.translation_y);
+      registered_range_clamped |= snapped_x != params.translation_x ||
+                                  snapped_y != params.translation_y;
+      params.translation_x = snapped_x;
+      params.translation_y = snapped_y;
       for (int index = 0; index < 6; ++index) {
         float *targets[] = {&params.translation_x, &params.translation_y,
                             &params.rotation,      &params.scale_x,
@@ -3229,7 +3235,8 @@ private:
 
   HS_FLASH_MEMBER static PreparedWarpStage
   prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
-                     float stage_phase) {
+                     float stage_phase,
+                     const Complex &source_period = Complex()) {
     PreparedWarpStage prepared{};
     float rotation = params.rotation;
     if (spec.kind == WarpStageKind::AFFINE_FRAME) {
@@ -3238,8 +3245,8 @@ private:
       const float phase_sin = sinf(phase);
       rotation *= phase_sin;
       prepared.transform.affine = {
-          phase_cos * params.translation_x - phase_sin * params.translation_y,
-          phase_sin * params.translation_x + phase_cos * params.translation_y,
+          wrap_t(stage_phase) * params.translation_x * source_period.re,
+          wrap_t(stage_phase) * params.translation_y * source_period.im,
           powf(params.scale_x, phase_cos),
           powf(params.scale_y, phase_sin),
           params.shear * phase_cos,
@@ -3282,13 +3289,14 @@ private:
                                     FrameState &frame) const {
     const bool animated_projection =
         config.slots.projection_frame == ProjectionFramePolicy::SPIN_WANDER;
+    const Complex source_period = source_cartesian_period(config);
     const PreparedWarpProgram prepared_warp{
         prepare_warp_stage(config.slots.warp_program.outer,
                            config.params.warp.outer,
-                           look.clocks.warp_outer_phase),
+                           look.clocks.warp_outer_phase, source_period),
         prepare_warp_stage(config.slots.warp_program.inner,
                            config.params.warp.inner,
-                           look.clocks.warp_inner_phase)};
+                           look.clocks.warp_inner_phase, source_period)};
     const float surface_phase =
         TWO_PI_F * wrap_t(look.clocks.surface_noise_time);
     const float surface_direction =
@@ -3995,13 +4003,14 @@ private:
     const float c = prepared.rotation_cos;
     const float s = prepared.rotation_sin;
     const PreparedAffineFrame &affine = prepared.transform.affine;
-    const float x = input.re - affine.translation_x;
-    const float y = input.im - affine.translation_y;
+    const float x = input.re;
+    const float y = input.im;
     const float rx = c * x + s * y;
     const float ry = -s * x + c * y;
     const Complex output(rx / affine.scale_x -
-                             affine.shear * ry / affine.scale_y,
-                         ry / affine.scale_y);
+                             affine.shear * ry / affine.scale_y -
+                             affine.translation_x,
+                         ry / affine.scale_y - affine.translation_y);
     return finish_closed_form_warp(input, output);
   }
 
@@ -4983,6 +4992,50 @@ private:
     return {true, true, false, false, false, false};
   }
 
+  HS_COLD_MEMBER static constexpr Complex
+  source_cartesian_period(const Config &config) {
+    if (config.slots.function != Function::PRIMITIVE_LATTICE ||
+        !(config.params.source.lattice_cell_scale > 0.0f))
+      return {};
+    const float period = 1.0f / config.params.source.lattice_cell_scale;
+    return {period, period};
+  }
+
+  HS_COLD_MEMBER static constexpr bool
+  affine_has_translation(const WarpStageSpec &spec,
+                         const WarpStageParams &params) {
+    return spec.kind == WarpStageKind::AFFINE_FRAME &&
+           (params.translation_x != 0.0f || params.translation_y != 0.0f);
+  }
+
+  HS_COLD_MEMBER static constexpr bool whole_affine_winding(float value) {
+    if (!(value >= -4.0f && value <= 4.0f))
+      return false;
+    return value == static_cast<float>(static_cast<int>(value));
+  }
+
+  HS_COLD_MEMBER static constexpr bool
+  affine_translation_compatible(const Config &config) {
+    const bool outer = affine_has_translation(config.slots.warp_program.outer,
+                                              config.params.warp.outer);
+    const bool inner = affine_has_translation(config.slots.warp_program.inner,
+                                              config.params.warp.inner);
+    if (!outer && !inner)
+      return true;
+    if (config.slots.function != Function::PRIMITIVE_LATTICE ||
+        (outer &&
+         config.slots.warp_program.inner.kind != WarpStageKind::NONE) ||
+        (config.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT &&
+         config.params.color.hue_shift_amount != 0.0f))
+      return false;
+    return (!outer ||
+            (whole_affine_winding(config.params.warp.outer.translation_x) &&
+             whole_affine_winding(config.params.warp.outer.translation_y))) &&
+           (!inner ||
+            (whole_affine_winding(config.params.warp.inner.translation_x) &&
+             whole_affine_winding(config.params.warp.inner.translation_y)));
+  }
+
   HS_COLD_MEMBER static constexpr bool
   polar_source_compatible(const RequestedConfig &config,
                           const WarpStageSpec &polar) {
@@ -5053,7 +5106,8 @@ private:
     if (outer_polar &&
         !polar_source_compatible(candidate, slots.warp_program.outer))
       return false;
-    if (!strict_seam_compatible(candidate) ||
+    if (!affine_translation_compatible(candidate) ||
+        !strict_seam_compatible(candidate) ||
         !preset_in_ranges(candidate.params))
       return false;
     if (!valid_stage_tuple(slots.warp_program.outer,
@@ -5197,6 +5251,7 @@ private:
 
   const char *program_bounds_warning(const Config &candidate) const {
     float bound = projection_coordinate_bound(candidate);
+    const Complex source_period = source_cartesian_period(candidate);
     const WarpStageSpec stages[] = {candidate.slots.warp_program.outer,
                                     candidate.slots.warp_program.inner};
     const WarpStageParams params[] = {candidate.params.warp.outer,
@@ -5220,7 +5275,8 @@ private:
               static_cast<double>(scale_limit));
         }
       }
-      bound = stage_coordinate_bound(stages[index], params[index], bound);
+      bound = stage_coordinate_bound(stages[index], params[index], bound,
+                                     source_period);
       if (bound > WARP_COORD_LIMIT)
         return begin_warning(
             "%s %s rejected: its predicted coordinate bound %.7g exceeds "
@@ -5342,6 +5398,37 @@ private:
           static_cast<unsigned>(polar->polar_harmonic),
           static_cast<double>(periods),
           static_cast<double>(suggested_frequency), position);
+    }
+    if (!affine_translation_compatible(candidate)) {
+      const bool outer_scroll =
+          affine_has_translation(outer, candidate.params.warp.outer);
+      const char *position = outer_scroll ? "Planar Warp 1" : "Planar Warp 2";
+      const WarpStageParams &params = outer_scroll
+                                          ? candidate.params.warp.outer
+                                          : candidate.params.warp.inner;
+      if (!whole_affine_winding(params.translation_x) ||
+          !whole_affine_winding(params.translation_y))
+        return begin_warning(
+            "%s Affine Frame translation must use whole source-cell windings. "
+            "Set Translation X and Translation Y to whole numbers.",
+            position);
+      if (candidate.slots.function != Function::PRIMITIVE_LATTICE)
+        return begin_warning(
+            "%s Affine Frame translation requires an exactly periodic "
+            "Function. Select Primitive Lattice or set both translations to "
+            "zero.",
+            position);
+      if (outer_scroll && inner.kind != WarpStageKind::NONE)
+        return begin_warning(
+            "Planar Warp 1 Affine Frame translation cannot precede Planar "
+            "Warp 2 %s because the later warp breaks its source-period seam. "
+            "Set Planar Warp 2 to None or set both translations to zero.",
+            WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
+      return begin_warning(
+          "%s Affine Frame translation cannot drive Total Warp Displacement "
+          "hue because its path length resets at the source-period seam. "
+          "Select Hue Shift None or Noise, or set both translations to zero.",
+          position);
     }
     if (!strict_seam_compatible(candidate)) {
       begin_warning(
@@ -5555,21 +5642,20 @@ private:
 
   HS_COLD_MEMBER static constexpr float
   stage_coordinate_bound(const WarpStageSpec &spec,
-                         const WarpStageParams &params, float input_bound) {
+                         const WarpStageParams &params, float input_bound,
+                         const Complex &source_period) {
     switch (spec.kind) {
     case WarpStageKind::NONE:
       return input_bound;
     case WarpStageKind::LEGACY_STEREO_NOISE:
       return WARP_COORD_LIMIT + 1.0f;
     case WarpStageKind::AFFINE_FRAME: {
-      const float rotated =
-          1.414214f * (input_bound + (abs_value(params.translation_x) >
-                                              abs_value(params.translation_y)
-                                          ? abs_value(params.translation_x)
-                                          : abs_value(params.translation_y)));
+      const float rotated = 1.414214f * input_bound;
       const float x_bound = rotated / params.scale_x +
-                            abs_value(params.shear) * rotated / params.scale_y;
-      const float y_bound = rotated / params.scale_y;
+                            abs_value(params.shear) * rotated / params.scale_y +
+                            abs_value(params.translation_x * source_period.re);
+      const float y_bound = rotated / params.scale_y +
+                            abs_value(params.translation_y * source_period.im);
       return x_bound > y_bound ? x_bound : y_bound;
     }
     case WarpStageKind::WAVE_SHEAR:
@@ -5604,6 +5690,7 @@ private:
   HS_COLD_MEMBER static constexpr bool
   safe_program_bounds(const Config &config) {
     float bound = projection_coordinate_bound(config);
+    const Complex source_period = source_cartesian_period(config);
     const WarpStageSpec stages[] = {config.slots.warp_program.outer,
                                     config.slots.warp_program.inner};
     const WarpStageParams params[] = {config.params.warp.outer,
@@ -5613,7 +5700,8 @@ private:
            stages[index].kind == WarpStageKind::CURL_FLOW) &&
           params[index].scale * (bound + 100.0f) > NOISE_LATTICE_LIMIT)
         return false;
-      bound = stage_coordinate_bound(stages[index], params[index], bound);
+      bound = stage_coordinate_bound(stages[index], params[index], bound,
+                                     source_period);
       if (bound > WARP_COORD_LIMIT)
         return false;
     }
@@ -5681,6 +5769,9 @@ private:
                   to.params.projection.coordinate_scale);
     worst.params.source.noise_scale =
         max_value(from.params.source.noise_scale, to.params.source.noise_scale);
+    worst.params.source.lattice_cell_scale =
+        min_value(from.params.source.lattice_cell_scale,
+                  to.params.source.lattice_cell_scale);
     maximize_stage_path(worst.params.warp.outer, from.params.warp.outer,
                         to.params.warp.outer);
     maximize_stage_path(worst.params.warp.inner, from.params.warp.inner,
@@ -5698,11 +5789,26 @@ private:
   }
 
   HS_COLD_MEMBER static constexpr bool
+  affine_winding_pair_stable(const WarpStageSpec &spec,
+                             const WarpStageParams &a,
+                             const WarpStageParams &b) {
+    return spec.kind != WarpStageKind::AFFINE_FRAME ||
+           (a.translation_x == b.translation_x &&
+            a.translation_y == b.translation_y);
+  }
+
+  HS_COLD_MEMBER static constexpr bool
   stable_parameter_path_admitted(const Config &from, const Config &to) {
     return curl_pair_stable(from.slots.warp_program.outer,
                             from.params.warp.outer, to.params.warp.outer) &&
            curl_pair_stable(from.slots.warp_program.inner,
                             from.params.warp.inner, to.params.warp.inner) &&
+           affine_winding_pair_stable(from.slots.warp_program.outer,
+                                      from.params.warp.outer,
+                                      to.params.warp.outer) &&
+           affine_winding_pair_stable(from.slots.warp_program.inner,
+                                      from.params.warp.inner,
+                                      to.params.warp.inner) &&
            polar_pair_stable(from, to) && safe_program_path(from, to);
   }
 
@@ -6265,6 +6371,25 @@ private:
     config.params.color.hue_noise_speed =
         hs::clamp(config.params.color.hue_noise_speed, -HUE_NOISE_SPEED_MAX,
                   HUE_NOISE_SPEED_MAX);
+    auto snap_affine = [](const WarpStageSpec &spec, WarpStageParams &params) {
+      if (spec.kind != WarpStageKind::AFFINE_FRAME)
+        return;
+      params.translation_x = snap_affine_winding(params.translation_x);
+      params.translation_y = snap_affine_winding(params.translation_y);
+    };
+    snap_affine(config.slots.warp_program.outer, config.params.warp.outer);
+    snap_affine(config.slots.warp_program.inner, config.params.warp.inner);
+  }
+
+  static constexpr float snap_affine_winding(float value) {
+    if (value <= -4.0f)
+      return -4.0f;
+    if (value >= 4.0f)
+      return 4.0f;
+    if (value != value)
+      return value;
+    return value < 0.0f ? static_cast<float>(static_cast<int>(value - 0.5f))
+                        : static_cast<float>(static_cast<int>(value + 0.5f));
   }
 
   static constexpr void
