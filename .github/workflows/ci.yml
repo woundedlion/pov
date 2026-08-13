@@ -1592,8 +1592,8 @@ jobs:
         run: |
           shopt -s nullglob
           tests=(hardware/phantasm/gen/tests/test*.py)
-          if [ "${#tests[@]}" -lt 15 ]; then
-            echo "::error::expected at least 15 hardware/phantasm/gen/tests/test*.py files, found ${#tests[@]}: ${tests[*]}"
+          if [ "${#tests[@]}" -lt 16 ]; then
+            echo "::error::expected at least 16 hardware/phantasm/gen/tests/test*.py files, found ${#tests[@]}: ${tests[*]}"
             exit 1
           fi
           python -m unittest discover -s hardware/phantasm/gen/tests -v

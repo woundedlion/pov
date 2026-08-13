@@ -20,6 +20,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
+UNPLACED_FILE = os.path.join("unplaced", "phantasm_unplaced.kicad_pcb")
+UNPLACED_REASON = (
+    "The committed unplaced board is the Quilter upload input and carries\n"
+    "  KiCad GUI edits these generators do not reproduce.")
 FP_DIR = sexp.find_kicad_data_dir("footprints", "KICAD_FOOTPRINT_DIR")
 KCLI = fab.find_kicad_cli()
 PCB_W = 32.0  # board width (mm); within the R-MECH-6 cap (<=35), trimmed to part extent
@@ -453,7 +457,7 @@ FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far en
 QUILTER_FIXED = {
     # J1's JST XA body runs along the length; it sits in the hub pocket between
     # the USB approach corridor and J4, clear of the Teensy courtyard.
-    "J1": (3.9, 21.2, 0),
+    "J1": (8.5, 18.8, 0),
     "J4": (8.5, 28.5, 90),
     "J2": (49.8, 2.77, 0),
     "J3A": (49.8, 11.7, 0),
@@ -631,7 +635,9 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
 
 def main(unplaced=False, force=False):
     reset_uid_sequence()
-    if not unplaced:
+    if unplaced:
+        require_writable(os.path.join(OUT, UNPLACED_FILE), force, UNPLACED_REASON)
+    else:
         require_writable(os.path.join(OUT, PCB_FILE), force)
     nlroot = export_netlist(KCLI, SCH)
     pad_net, netid = build_nets(nlroot)
@@ -658,7 +664,7 @@ def main(unplaced=False, force=False):
         if outside:
             sys.exit(f"ERROR locked placements outside the {fmt(L)}x{fmt(PCB_W)}mm "
                      "outline: " + ", ".join(outside))
-        OUTFILE = os.path.join("unplaced", "phantasm_unplaced.kicad_pcb")
+        OUTFILE = UNPLACED_FILE
         NOTE = (f'PHANTASM segment board UNPLACED  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
                 '(width <=35mm); mechanical and signal-integrity placements locked')
     else:
@@ -852,8 +858,9 @@ def parse_args(argv=None):
                         help="write unplaced/phantasm_unplaced.kicad_pcb for "
                              "the autoplacer instead")
     parser.add_argument("--force", action="store_true",
-                        help=f"overwrite the committed, routed {PCB_FILE} or a "
-                             "changed Teensy footprint library")
+                        help=f"overwrite the committed {PCB_FILE} / "
+                             f"{UNPLACED_FILE} or a changed Teensy footprint "
+                             "library")
     return parser.parse_args(argv)
 
 
