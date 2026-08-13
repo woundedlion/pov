@@ -3,13 +3,15 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * @file pov_single_map.h
- * @brief Pure strip index arithmetic for the single-board POV driver.
+ * @brief Pure strip index and column-cadence arithmetic for the single-board
+ *        POV driver.
  *
- * Kept free of Arduino dependencies so the load-bearing index math — which
- * physical LED samples which canvas column and row — is unit-testable on the
- * host without a Teensy. The single-board show_col() ISR derives its mapping
- * from these functions, so the host tests cover the real arithmetic. An
- * off-by-one here silently mis-paints the sphere.
+ * Kept free of Arduino dependencies so the load-bearing math — which physical
+ * LED samples which canvas column and row, how long a column lasts, and when
+ * the display buffer advances — is unit-testable on the host without a Teensy.
+ * The single-board show_col() ISR and run() loop derive their behaviour from
+ * these functions, so the host tests cover the real arithmetic. An off-by-one
+ * here silently mis-paints the sphere or freezes the strip.
  *
  * Layout (one Teensy owns the whole S-LED strip; ROWS = S/2 = canvas height):
  *   The strip spans both sides of the ring. Its first half [0, S/2) is the top
@@ -26,6 +28,7 @@
  * physical builds — do not assume one map's top-arm direction carries over.
  */
 #pragma once
+#include <cstdint>
 
 namespace pov {
 
@@ -57,5 +60,56 @@ constexpr int strip_bottom_led(int y, int S) { return S / 2 + y; }
  *          samples column x directly.
  */
 constexpr int strip_opposite_col(int x, int w) { return (x + w / 2) % w; }
+
+/**
+ * @brief Column-sweep timer period, in µs.
+ * @param cols_per_min Columns swept per minute: RPM × canvas width.
+ * @return Microseconds per column, rounded to nearest.
+ * @pre cols_per_min > 0; the driver traps a zero before calling.
+ * @details One revolution is 60 s / RPM, split into `width` columns. Rounded
+ *          rather than truncated so the sweep does not run systematically fast
+ *          and drift the image against the rotation.
+ */
+constexpr unsigned long column_interval_us(unsigned long cols_per_min) {
+  return (60000000UL + cols_per_min / 2) / cols_per_min;
+}
+
+/**
+ * @brief Worst-case duration of one column's LED transfer, in µs.
+ * @param bytes Bytes clocked out for the column (image plus any black strobe).
+ * @param clock_hz Bit clock the transport runs at, in Hz.
+ * @return Ceiling of bytes·8 / clock_hz converted to µs.
+ * @pre clock_hz > 0.
+ * @details Rounded up so the driver's `column_interval_us > transfer_us` check
+ *          never under-counts the transfer and admits a configuration that
+ *          overruns the DMA every column.
+ */
+constexpr unsigned long transfer_us(unsigned long bytes,
+                                    unsigned long clock_hz) {
+  return static_cast<unsigned long>(
+      (static_cast<uint64_t>(bytes) * 8u * 1000000u + clock_hz - 1) / clock_hz);
+}
+
+/**
+ * @brief What the column ISR does at the end of a column.
+ */
+struct ColumnStep {
+  int next_x;   /**< Rotation column the next ISR entry paints. */
+  bool advance; /**< Whether the display buffer advances at that column. */
+};
+
+/**
+ * @brief Advances the rotation column and reports the half-revolution flip.
+ * @param x Rotation column just painted, in [0, w).
+ * @param w Canvas width in columns; must be even.
+ * @return The next column, and whether a display-buffer advance falls on it.
+ * @details The two strip halves sample opposite canvas columns, so a whole
+ *          frame is painted every half revolution: the buffer advances at the
+ *          two half-revolution boundaries, columns 0 and w/2.
+ */
+constexpr ColumnStep step_column(int x, int w) {
+  const int next_x = (x + 1) % w;
+  return {next_x, next_x == 0 || next_x == w / 2};
+}
 
 } // namespace pov
