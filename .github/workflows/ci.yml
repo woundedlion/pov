@@ -1079,6 +1079,32 @@ jobs:
             exit 1
           fi
 
+  license-headers:
+    name: License headers match LICENSE
+    # LICENSE grants PolyForm outside effects/ and reserves all rights over it,
+    # with a named exception list. Generators emit headers too, so without a
+    # gate the two re-drift on every regeneration.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the docs job
+        with:
+          python-version: '3.12'
+
+      # Discover finds test files by pattern, so one deleted or renamed out of
+      # it runs fewer suites and stays green; the floor fails instead.
+      - name: Check tracked license headers
+        run: |
+          shopt -s nullglob
+          tests=(tools/license_check_tests/test*.py)
+          if [ "${#tests[@]}" -lt 1 ]; then
+            echo "::error::expected at least 1 tools/license_check_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
+            exit 1
+          fi
+          python -m unittest discover -s tools/license_check_tests
+          python tools/license_check.py
+
   lint:
     name: Lint (Python + JavaScript)
     # The C++ tree has clang-format and the firmware warning ratchet; the ~12k
@@ -1806,6 +1832,7 @@ jobs:
       - srgb-decode-provenance
       - screenshot-gallery
       - docs-markdown
+      - license-headers
       - lint
       - shard-coverage
       - assertion-floors
