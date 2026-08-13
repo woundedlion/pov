@@ -4,12 +4,20 @@
  */
 #pragma once
 
+/**
+ * @file effect_palette_recipes.h
+ * @brief The per-effect PaletteRecipe builders, plus the preset roster the
+ *        palette authoring tool opens with.
+ */
+
 #include <array>
 
-#include "core/color/color.h"
+#include "color/color.h"
 
+/** @brief PaletteRecipe builders owned by the effects that render them. */
 namespace EffectPaletteRecipes {
 
+/** @brief The BZ reaction-diffusion ramp, pinned to three authored colors. */
 HS_FLASH_MEMBER inline PaletteRecipe bz_reaction_diffusion() {
   return PaletteRecipes::from_oklch_keys(PaletteDomain::STRAIGHT,
                                          pixel_to_oklch(Pixel(36844, 10770, 3)),
@@ -17,24 +25,46 @@ HS_FLASH_MEMBER inline PaletteRecipe bz_reaction_diffusion() {
                                          pixel_to_oklch(Pixel(2059, 0, 9668)));
 }
 
+/**
+ * @brief The Comets ramp: a triadic harmony brightening along the domain.
+ * @param base_turns Base hue in turns.
+ * @return The recipe.
+ */
 HS_FLASH_MEMBER inline PaletteRecipe comets(float base_turns) {
   return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
                                  PaletteHarmony::TRIADIC, AxisCurve::ASCENDING,
                                  base_turns);
 }
 
+/**
+ * @brief The DisplacementField / RingShower ramp: an analogous mirror at
+ *        constant lightness.
+ * @param base_turns Base hue in turns.
+ * @return The recipe.
+ */
 HS_FLASH_MEMBER inline PaletteRecipe displacement_field(float base_turns) {
   return PaletteRecipes::profile(PaletteDomain::MIRROR,
                                  PaletteHarmony::ANALOGOUS, AxisCurve::CONSTANT,
                                  base_turns);
 }
 
+/**
+ * @brief The Dynamo ramp: an analogous vignette brightening along the domain.
+ * @param base_turns Base hue in turns.
+ * @return The recipe.
+ */
 HS_FLASH_MEMBER inline PaletteRecipe dynamo(float base_turns) {
   return PaletteRecipes::profile(PaletteDomain::VIGNETTE,
                                  PaletteHarmony::ANALOGOUS,
                                  AxisCurve::ASCENDING, base_turns);
 }
 
+/**
+ * @brief The Gray-Scott reaction-diffusion ramp: a split-complementary
+ *        harmony brightening along the domain.
+ * @param base_turns Base hue in turns; defaults to the authored hue.
+ * @return The recipe.
+ */
 HS_FLASH_MEMBER inline PaletteRecipe
 gs_reaction_diffusion(float base_turns = PaletteRecipes::hue_turns(160)) {
   return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
@@ -42,12 +72,19 @@ gs_reaction_diffusion(float base_turns = PaletteRecipes::hue_turns(160)) {
                                  AxisCurve::ASCENDING, base_turns, 0.50f);
 }
 
+/**
+ * @brief The MobiusGrid ramp: a split-complementary mirror at constant
+ *        lightness.
+ * @param base_turns Base hue in turns.
+ * @return The recipe.
+ */
 HS_FLASH_MEMBER inline PaletteRecipe mobius_grid(float base_turns) {
   return PaletteRecipes::profile(PaletteDomain::MIRROR,
                                  PaletteHarmony::SPLIT_COMPLEMENTARY,
                                  AxisCurve::CONSTANT, base_turns);
 }
 
+/** @brief The Raymarch ramp: a complementary pair peaking mid-domain. */
 HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
   return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
                                  PaletteHarmony::COMPLEMENTARY, AxisCurve::BELL,
@@ -57,6 +94,8 @@ HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
 /** @brief The liquid recipe at an arbitrary hue rotation; every rotation is
  *  morph-compatible with every other
  *  (see test_shader_ball_palette_rotations_morph_compatible).
+ *  @param rotation_turns Hue rotation in turns applied to every key.
+ *  @return The recipe.
  *  @details Palindromic keys: hue travels a half turn out to the complement
  *  and back while lightness dives bright-dark-bright, so the shader's wrapped
  *  palette coordinate crosses the 1 -> 0 seam without a hard line. */
@@ -77,34 +116,44 @@ shader_ball_liquid_at(float rotation_turns) {
   return recipe;
 }
 
+/** @brief The liquid recipe at its authored hue. */
 HS_FLASH_MEMBER inline PaletteRecipe shader_ball_liquid() {
   return shader_ball_liquid_at(0.0f);
 }
 
+/** @brief The flyby recipe at its authored hue. */
 HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby() {
   return PaletteRecipes::profile(
       PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
       AxisCurve::CONSTANT, PaletteRecipes::hue_turns(42));
 }
 
-/** @brief The flyby split-complementary profile at an arbitrary base hue. */
+/**
+ * @brief The flyby split-complementary profile at an arbitrary base hue.
+ * @param base_turns Base hue in turns.
+ * @return The recipe.
+ */
 HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby_at(float base_turns) {
   return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
                                  PaletteHarmony::SPLIT_COMPLEMENTARY,
                                  AxisCurve::CONSTANT, base_turns);
 }
 
+/** @brief One row of the authoring tool's preset roster. */
 struct Preset {
-  const char *name;
+  const char *name; /**< Display name. */
+  /** @brief Whether the effect randomizes this recipe's base hue at run time. */
   bool random_hue;
-  PaletteRecipe recipe;
+  PaletteRecipe recipe; /**< The recipe at its preview hue. */
 };
 
+/** @brief A base hue drawn from the 256-step hue wheel. */
 HS_FLASH_MEMBER inline float random_base_turns() {
   return PaletteRecipes::hue_turns(static_cast<uint32_t>(hs::rand_int(0, 256)));
 }
 
-inline std::array<Preset, 9> presets() {
+/** @brief The preset roster, every recipe at a fixed preview hue. */
+HS_FLASH_MEMBER inline std::array<Preset, 9> presets() {
   const float preview_hue = PaletteRecipes::hue_turns(42);
   return {{{"BZReactionDiffusion", false, bz_reaction_diffusion()},
            {"Comets", true, comets(preview_hue)},
