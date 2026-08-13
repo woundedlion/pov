@@ -2002,6 +2002,15 @@ private:
                   "inverse pipeline: unconditional projected edge distance "
                   "needs edge-fade coverage");
 
+    /**
+     * @brief True when every stage's hardcoded topology matches @p key.
+     * @details Each stage constrains the key facets it compiles in; a facet no
+     * stage names is served at runtime and left unconstrained.
+     */
+    static constexpr bool implements(const TopologyKey &key) {
+      return (Stages::implements(key) && ...);
+    }
+
     HS_FLASH_MEMBER static Color4 shade(const Vector &view,
                                         const FrameState &frame) {
       return run_stage<0>(view, frame);
@@ -2036,6 +2045,8 @@ private:
     using Input = Vector;
     using Output = Vector;
 
+    static constexpr bool implements(const TopologyKey &) { return true; }
+
     __attribute__((always_inline)) static Vector run(const Vector &view,
                                                      const FrameState &frame) {
       return outer_camera_lookup(view, frame);
@@ -2053,6 +2064,14 @@ private:
     static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = false;
     using Input = Vector;
     using Output = ProjectedLookup;
+
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.projection == Projection::STEREOGRAPHIC &&
+             key.surface_lens == Lens &&
+             key.surface_noise == SurfaceNoise::DIRECT &&
+             key.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS &&
+             key.surface_noise_basis == NoiseBasis::SIMPLEX;
+    }
 
     __attribute__((always_inline)) static ProjectedLookup
     run(const Vector &outer_local, const FrameState &frame) {
@@ -2090,6 +2109,17 @@ private:
         ProjectionPolicy == Projection::PEIRCE_QUINCUNCIAL;
     using Input = Vector;
     using Output = ProjectedLookup;
+
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.projection == ProjectionPolicy && key.surface_lens == Lens &&
+             key.surface_noise == SurfaceNoise::NONE &&
+             (ProjectionPolicy != Projection::GNOMONIC ||
+              key.gnomonic_hemisphere == GnomonicHemispherePolicy::FOLDED) &&
+             (ProjectionPolicy != Projection::PEIRCE_QUINCUNCIAL ||
+              key.peirce_layout == PeirceLayout::SQUARE) &&
+             (ProjectionPolicy != Projection::BONNE ||
+              key.bonne_hemisphere == BonneHemisphere::NORTH);
+    }
 
     __attribute__((always_inline)) static ProjectedLookup
     run(const Vector &outer_local, const FrameState &frame) {
@@ -2145,6 +2175,12 @@ private:
     using Input = ProjectedLookup;
     using Output = SourceInput;
 
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.outer_warp == (MirrorFirst ? WarpStageKind::MIRROR_TILE
+                                            : WarpStageKind::NONE) &&
+             key.inner_warp == WarpStageKind::NONE;
+    }
+
     __attribute__((always_inline)) static SourceInput
     run(const ProjectedLookup &projected, const FrameState &frame) {
       HS_SB_STAGE_MARK(stage_start);
@@ -2171,6 +2207,10 @@ private:
     static constexpr std::array<ApproximationMetric, 0> METRICS{};
     using Input = ProjectedLookup;
     using Output = SourceInput;
+
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.outer_warp == Outer && key.inner_warp == Inner;
+    }
 
     __attribute__((always_inline)) static SourceInput
     run(const ProjectedLookup &projected, const FrameState &frame) {
@@ -2222,6 +2262,10 @@ private:
     using Input = SourceInput;
     using Output = MaterialInput;
 
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.function == SourcePolicy;
+    }
+
     __attribute__((always_inline)) static MaterialInput
     run(const SourceInput &input, const FrameState &frame) {
       HS_SB_STAGE_MARK(stage_start);
@@ -2257,6 +2301,12 @@ private:
     static constexpr CoveragePolicy COVERAGE = Coverage;
     using Input = MaterialInput;
     using Output = MaterialSample;
+
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.signal_weight == SignalWeight::PROJECTION &&
+             key.value_transfer == ValueTransfer::LINEAR &&
+             key.coverage == Coverage;
+    }
 
     __attribute__((always_inline)) static MaterialSample
     run(const MaterialInput &input, const FrameState &frame) {
@@ -2310,6 +2360,10 @@ private:
     }();
     using Input = MaterialSample;
     using Output = Color4;
+
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.colorizer == ColorizerPolicy;
+    }
 
     __attribute__((always_inline)) static Color4
     run(const MaterialSample &material, const FrameState &frame) {
@@ -3532,70 +3586,89 @@ private:
     return {output, delta, displacement, displacement};
   }
 
+  /**
+   * @brief Builds one manifest row.
+   * @tparam Pipeline Compiled inverse pipeline the row selects.
+   * @tparam Id Stable identifier for the row.
+   * @tparam Key Topology the row is matched on.
+   * @param continuous Predicate over the continuous parameters @p Pipeline
+   *        serves.
+   * @details Rejects at compile time a pipeline whose stages hardcode a
+   * topology facet that @p Key does not carry.
+   */
+  template <typename Pipeline, InversePipelineId Id, TopologyKey Key>
+  static constexpr ProgramDescriptor
+  make_program(bool (*continuous)(const Config &)) {
+    static_assert(Pipeline::implements(Key),
+                  "inverse pipeline does not implement its topology key");
+    return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
+  }
+
   HS_COLD_MEMBER static const std::array<ProgramDescriptor, 14> &
   inverse_programs() {
     static constexpr std::array<ProgramDescriptor, 14> PROGRAMS{{
-        {InversePipelineId::KALEIDOSCOPE_NOISE_GRID,
-         make_topology_key(
-             {KALEIDOSCOPE_LIQUID_SURFACE_NOISE_SLOTS,
-              authored_surface_noise_params({}, {}, {}, {}, {}, {})}),
-         &KaleidoscopeNoiseGridPipeline::shade,
-         &direct_simplex_surface_supported, &pipeline_resources_ready},
-        {InversePipelineId::GLITCH_NOISE_GRID,
-         make_topology_key(
-             {LIQUID_SURFACE_NOISE_SLOTS,
-              authored_surface_noise_params({}, {}, {}, {}, {}, {})}),
-         &GlitchNoiseGridPipeline::shade, &direct_simplex_surface_supported,
-         &pipeline_resources_ready},
-        {InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
-         make_topology_key(bonne_lattice_mirror_preset()),
-         &BonneKaleidoscopeLatticeMirrorPipeline::shade,
-         &all_continuous_parameters_supported, &pipeline_resources_ready},
-        {InversePipelineId::PEIRCE_KALEIDOSCOPE_LATTICE,
-         make_topology_key(peirce_lattice_preset()),
-         &PeirceKaleidoscopeLatticePipeline::shade,
-         &all_continuous_parameters_supported, &pipeline_resources_ready},
-        {InversePipelineId::KALEIDOSCOPE_NOISE_GRID_EDGE_FADE,
-         make_topology_key(kaleidoscope_edge_fade_liquid_preset()),
-         &KaleidoscopeNoiseGridEdgeFadePipeline::shade,
-         &direct_simplex_surface_supported, &pipeline_resources_ready},
-        {InversePipelineId::DODECAHEDRAL_NOISE_GRID_MIRROR,
-         make_topology_key(dodecahedral_grid_preset()),
-         &DodecahedralNoiseGridMirrorPipeline::shade,
-         &direct_simplex_surface_supported, &pipeline_resources_ready},
-        {InversePipelineId::DODECAHEDRAL_NOISE_GRID,
-         make_topology_key(dodecahedral_noise_liquid_preset()),
-         &DodecahedralNoiseGridPipeline::shade,
-         &direct_simplex_surface_supported, &pipeline_resources_ready},
-        {InversePipelineId::DODECAHEDRAL_NOISE_LATTICE_MIRROR,
-         make_topology_key(dodecahedral_lattice_noise_preset()),
-         &DodecahedralNoiseLatticeMirrorPipeline::shade,
-         &direct_simplex_surface_supported, &pipeline_resources_ready},
-        {InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
-         make_topology_key(wave_shear_liquid_preset()),
-         &GlitchNoiseGridWaveShearPipeline::shade,
-         &all_continuous_parameters_supported, &pipeline_resources_ready},
-        {InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
-         make_topology_key(kaleidoscope_mirror_preset()),
-         &KaleidoscopeTwinWaveInnerMirrorPipeline::shade,
-         &all_continuous_parameters_supported, &pipeline_resources_ready},
-        {InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
-         make_topology_key(
-             gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE)),
-         &GnomonicKaleidoscopeGridMirrorPipeline::shade,
-         &all_continuous_parameters_supported, &pipeline_resources_ready},
-        {InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR,
-         make_topology_key(gnomonic_grid_mirror_preset(SurfaceLens::GLITCH)),
-         &GnomonicGlitchGridMirrorPipeline::shade,
-         &all_continuous_parameters_supported, &pipeline_resources_ready},
-        {InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
-         make_topology_key(peirce_dodecahedral_liquid_preset()),
-         &PeirceDodecahedralGridPipeline::shade,
-         &all_continuous_parameters_supported, &pipeline_resources_ready},
-        {InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
-         make_topology_key(gnomonic_wave_shear_grid_preset()),
-         &GnomonicDodecahedralGridWaveMirrorPipeline::shade,
-         &all_continuous_parameters_supported, &pipeline_resources_ready},
+        make_program<KaleidoscopeNoiseGridPipeline,
+                     InversePipelineId::KALEIDOSCOPE_NOISE_GRID,
+                     make_topology_key({KALEIDOSCOPE_LIQUID_SURFACE_NOISE_SLOTS,
+                                        authored_surface_noise_params(
+                                            {}, {}, {}, {}, {}, {})})>(
+            &direct_simplex_surface_supported),
+        make_program<GlitchNoiseGridPipeline,
+                     InversePipelineId::GLITCH_NOISE_GRID,
+                     make_topology_key({LIQUID_SURFACE_NOISE_SLOTS,
+                                        authored_surface_noise_params(
+                                            {}, {}, {}, {}, {}, {})})>(
+            &direct_simplex_surface_supported),
+        make_program<BonneKaleidoscopeLatticeMirrorPipeline,
+                     InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
+                     make_topology_key(bonne_lattice_mirror_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<PeirceKaleidoscopeLatticePipeline,
+                     InversePipelineId::PEIRCE_KALEIDOSCOPE_LATTICE,
+                     make_topology_key(peirce_lattice_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<KaleidoscopeNoiseGridEdgeFadePipeline,
+                     InversePipelineId::KALEIDOSCOPE_NOISE_GRID_EDGE_FADE,
+                     make_topology_key(kaleidoscope_edge_fade_liquid_preset())>(
+            &direct_simplex_surface_supported),
+        make_program<DodecahedralNoiseGridMirrorPipeline,
+                     InversePipelineId::DODECAHEDRAL_NOISE_GRID_MIRROR,
+                     make_topology_key(dodecahedral_grid_preset())>(
+            &direct_simplex_surface_supported),
+        make_program<DodecahedralNoiseGridPipeline,
+                     InversePipelineId::DODECAHEDRAL_NOISE_GRID,
+                     make_topology_key(dodecahedral_noise_liquid_preset())>(
+            &direct_simplex_surface_supported),
+        make_program<DodecahedralNoiseLatticeMirrorPipeline,
+                     InversePipelineId::DODECAHEDRAL_NOISE_LATTICE_MIRROR,
+                     make_topology_key(dodecahedral_lattice_noise_preset())>(
+            &direct_simplex_surface_supported),
+        make_program<GlitchNoiseGridWaveShearPipeline,
+                     InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
+                     make_topology_key(wave_shear_liquid_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<KaleidoscopeTwinWaveInnerMirrorPipeline,
+                     InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
+                     make_topology_key(kaleidoscope_mirror_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<GnomonicKaleidoscopeGridMirrorPipeline,
+                     InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
+                     make_topology_key(gnomonic_grid_mirror_preset(
+                         SurfaceLens::KALEIDOSCOPE))>(
+            &all_continuous_parameters_supported),
+        make_program<GnomonicGlitchGridMirrorPipeline,
+                     InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR,
+                     make_topology_key(
+                         gnomonic_grid_mirror_preset(SurfaceLens::GLITCH))>(
+            &all_continuous_parameters_supported),
+        make_program<PeirceDodecahedralGridPipeline,
+                     InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
+                     make_topology_key(peirce_dodecahedral_liquid_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<GnomonicDodecahedralGridWaveMirrorPipeline,
+                     InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
+                     make_topology_key(gnomonic_wave_shear_grid_preset())>(
+            &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
   }
