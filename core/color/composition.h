@@ -931,29 +931,40 @@ template <typename... M> struct Coords {};
 template <typename... M> struct Colors {};
 
 /**
+ * @brief Which coordinate a StaticPalette hands to its color-modifier chain.
+ */
+enum class ShadeCoord : uint8_t {
+  /** The coordinate the source was sampled at when Wrap, the raw input when
+   *  not — the historical coupling, and the default. */
+  MATCH_WRAP,
+  /** The coordinate the source was sampled at, whatever Wrap is. */
+  LOOKUP,
+  /** The raw pre-modifier input, whatever Wrap is. */
+  INPUT,
+};
+
+/**
  * @brief A compile-time composition of a Source palette, a coordinate-modifier
  * chain, and a color-modifier chain.
  * @tparam Source Source palette type exposing Color4 get(float) const.
  * @tparam CoordList Coords<> type-list of coordinate modifiers.
  * @tparam ColorList Colors<> type-list of color modifiers.
- * @tparam Wrap Selects two linked behaviours: whether the coordinate is folded
- * into [0,1) before the source lookup, and which coordinate the color-modifier
- * chain receives — the folded post-coord-modifier value when true, the raw
- * pre-modifier input when false. Flipping it for the folding alone also changes
- * what every shade() sees.
+ * @tparam Wrap Folds the coordinate into [0,1) before the source lookup.
+ * @tparam Shade Which coordinate the color-modifier chain receives.
  * @details Default construct, then bind() (ArenaVector idiom); both chains are
  * inlined by fold expression. get() applies the coord mods to t in order,
  * samples the source (wrapping the coordinate unless Wrap is false), then
- * applies the color mods with the wrapped coordinate when Wrap is true, or the
- * original coordinate when Wrap is false. Wrap=false suits inset/falloff
- * pipelines that must reach the source's exact endpoints
- * (wrap_t(1)==0 would otherwise fold the top edge). Both settings are checked
- * at compile time: `requires_wrap` on any unbounded modifier rejects Wrap=false
- * unless a later modifier declares `rebounds_input`, and `bounded_output` on the
- * final coord modifier rejects Wrap=true.
+ * applies the color mods with the coordinate Shade selects. Wrap=false suits
+ * inset/falloff pipelines that must reach the source's exact endpoints
+ * (wrap_t(1)==0 would otherwise fold the top edge). Wrap is checked at compile
+ * time: `requires_wrap` on any unbounded modifier rejects Wrap=false unless a
+ * later modifier declares `rebounds_input`, and `bounded_output` on the final
+ * coord modifier rejects Wrap=true — so a chain can force Wrap, which is why
+ * the shading coordinate is a separate knob rather than a second meaning of it.
  */
 template <typename Source, typename CoordList = Coords<>,
-          typename ColorList = Colors<>, bool Wrap = true>
+          typename ColorList = Colors<>, bool Wrap = true,
+          ShadeCoord Shade = ShadeCoord::MATCH_WRAP>
 class StaticPalette;
 
 /**
@@ -961,11 +972,12 @@ class StaticPalette;
  * @tparam Source Source palette type exposing Color4 get(float) const.
  * @tparam CMods Coordinate modifier types.
  * @tparam XMods Color modifier types.
- * @tparam Wrap Folds the coordinate before the source lookup, and selects the
- * coordinate handed to the color chain (folded value, or raw input).
+ * @tparam Wrap Folds the coordinate before the source lookup.
+ * @tparam Shade Which coordinate the color chain receives.
  */
-template <typename Source, typename... CMods, typename... XMods, bool Wrap>
-class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap> {
+template <typename Source, typename... CMods, typename... XMods, bool Wrap,
+          ShadeCoord Shade>
+class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap, Shade> {
   static_assert((CoordMod<CMods> && ...), "Coords<> entries must be CoordMods");
   static_assert((ColorMod<XMods> && ...), "Colors<> entries must be ColorMods");
   static_assert(Wrap || !coord_chain_leaves_unit<CMods...>(),
@@ -1016,8 +1028,7 @@ public:
    * @return The fully modified color.
    * @details The coord mods remap t in order; the source is sampled (wrapping
    * the coordinate unless Wrap is false); then the color mods reshape the
-   * sample with the wrapped coordinate, or the original coordinate when
-   * Wrap=false.
+   * sample with the coordinate Shade selects.
    */
   Color4 get(float t) const {
     assert(source != nullptr && "StaticPalette used before bind()!");
@@ -1030,7 +1041,13 @@ public:
       u = wrap_t(ft);
     Color4 c = source->get(u);
 
-    const float shade_coordinate = Wrap ? u : t;
+    float shade_coordinate;
+    if constexpr (Shade == ShadeCoord::LOOKUP)
+      shade_coordinate = u;
+    else if constexpr (Shade == ShadeCoord::INPUT)
+      shade_coordinate = t;
+    else
+      shade_coordinate = Wrap ? u : t;
     std::apply(
         [&](const auto *...m) { ((c = m->shade(c, shade_coordinate)), ...); },
         colors);
