@@ -1691,6 +1691,26 @@ inline void test_drift_modifier() {
 }
 
 /**
+ * @brief Largest inter-channel split a gray may carry out of an OKLab shade.
+ * @details A gray has a = b = 0, so a hue rotation or a chroma scale is the
+ * identity on it and all three channels ride the same fast_cbrt round trip;
+ * only the near-unity rows of the OKLab -> linear-RGB matrix and the
+ * float -> uint16 rounding can separate them. Measured worst over the whole
+ * 16-bit gray ramp is 1 LSB, IEEE and -ffast-math alike, so this carries 4x
+ * headroom while still being 0.006% of full scale.
+ */
+inline constexpr float ACHROMATIC_TOL = 4.0f;
+
+/**
+ * @brief Per-channel budget of an identity pass through OKLab.
+ * @details linear RGB -> fast_cbrt LMS -> OKLab and back is not exact; with the
+ * rotation angle or the chroma scale left at identity, that round trip plus the
+ * float -> uint16 rounding is the whole residue. Measured worst over the RGB
+ * cube is 7 LSB, IEEE and -ffast-math alike.
+ */
+inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
+
+/**
  * @brief Verifies HueSpinShade against the hue_rotate reference.
  * @details The folded-matrix path must agree with hue_rotate(c, amount), leave
  *          grays achromatic, preserve alpha, and refresh its memo when the
@@ -1720,9 +1740,9 @@ inline void test_hue_spin_shade() {
   Color4 gray(Pixel(30000, 30000, 30000), 1.0f);
   Color4 spun_gray = spin.shade(gray, 0.0f);
   HS_EXPECT_NEAR(static_cast<float>(spun_gray.color.r),
-                 static_cast<float>(spun_gray.color.g), 700.0f);
+                 static_cast<float>(spun_gray.color.g), ACHROMATIC_TOL);
   HS_EXPECT_NEAR(static_cast<float>(spun_gray.color.g),
-                 static_cast<float>(spun_gray.color.b), 700.0f);
+                 static_cast<float>(spun_gray.color.b), ACHROMATIC_TOL);
 
   // Moving the driver refreshes the memoized matrix.
   amount = 0.5f;
@@ -1761,13 +1781,13 @@ inline void test_hue_wobble_shade() {
       std::abs(static_cast<int>(up.color.g) - static_cast<int>(down.color.g)),
       2000);
 
-  // Zero depth rotates by 0 turns: near-identity within fast-trig tolerance.
+  // Zero depth rotates by 0 turns, leaving only the OKLab round trip.
   HueWobbleShade flat(&phase0, 1.0f, 0.0f);
   Color4 same = flat.shade(vivid, 0.4f);
   HS_EXPECT_NEAR(static_cast<float>(same.color.r),
-                 static_cast<float>(vivid.color.r), 700.0f);
+                 static_cast<float>(vivid.color.r), OKLAB_ROUND_TRIP_TOL);
   HS_EXPECT_NEAR(static_cast<float>(same.color.g),
-                 static_cast<float>(vivid.color.g), 700.0f);
+                 static_cast<float>(vivid.color.g), OKLAB_ROUND_TRIP_TOL);
 }
 
 /**
@@ -1837,22 +1857,22 @@ inline void test_chroma_pulse_shade() {
   ChromaPulseShade cut(&neg_phase, 0.3f);
   HS_EXPECT_LT(oklch_of(cut.shade(mid, 0.2f)).C, before.C * 0.9f);
 
-  // sin(0) = 0: pass-through within fast_cbrt round-trip tolerance.
+  // sin(0) = 0: pass-through within the OKLab round-trip budget.
   float zero = 0.0f;
   ChromaPulseShade flat(&zero, 0.3f);
   Color4 same = flat.shade(mid, 0.2f);
   HS_EXPECT_NEAR(static_cast<float>(same.color.r),
-                 static_cast<float>(mid.color.r), 700.0f);
+                 static_cast<float>(mid.color.r), OKLAB_ROUND_TRIP_TOL);
   HS_EXPECT_NEAR(static_cast<float>(same.color.g),
-                 static_cast<float>(mid.color.g), 700.0f);
+                 static_cast<float>(mid.color.g), OKLAB_ROUND_TRIP_TOL);
 
   // Gray has no chroma to scale.
   Color4 gray(Pixel(20000, 20000, 20000), 1.0f);
   Color4 pulsed_gray = pulse.shade(gray, 0.0f);
   HS_EXPECT_NEAR(static_cast<float>(pulsed_gray.color.r),
-                 static_cast<float>(pulsed_gray.color.g), 700.0f);
+                 static_cast<float>(pulsed_gray.color.g), ACHROMATIC_TOL);
   HS_EXPECT_NEAR(static_cast<float>(pulsed_gray.color.g),
-                 static_cast<float>(pulsed_gray.color.b), 700.0f);
+                 static_cast<float>(pulsed_gray.color.b), ACHROMATIC_TOL);
 }
 
 /**
