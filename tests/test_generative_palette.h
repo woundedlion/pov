@@ -407,7 +407,7 @@ inline void test_generative_palette_rejects_unavailable_path_minimum() {
   PaletteCompileStatus status;
   HS_EXPECT_FALSE(
       GenerativePalette::try_compile(input, output, canonical, status));
-  HS_EXPECT_EQ(status.code, PaletteCompileCode::INCOMPATIBLE_OPTIONS);
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::INVALID_ENUM);
   HS_EXPECT_EQ(status.field, PaletteRecipeField::CHROMA_BASIS);
 }
 
