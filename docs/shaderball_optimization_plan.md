@@ -399,7 +399,7 @@ matched full-cycle measurements.
 |---|---|---:|---:|
 | Exact bounded dodecahedral chamber fold | Dense exact-reference and unit-vector scans; observed reflection telemetry bounds the unrolled fold | preset 18 early holdout: **68.16 -> 58.35 ms (+9.81)** | retained without a standalone promotion |
 | Square Peirce sector renderer | Dense coordinate/fade scan and exact seam metadata | preset 19 early holdout: **74.56 -> 58.68 ms (+15.88)** | flash-resident exact oracle retained |
-| Static inverse-pipeline specializations | Exact generic-vs-specialized shade oracle; generic GUI fallback retained | preset 0: **72.28 -> 58.58 ms (+13.70)** | full all-topology expansion was trimmed to fit; retained kernels are selective |
+| Static inverse-pipeline specializations | Exact generic-vs-specialized shade oracle; unmatched GUI topologies rejected | preset 0: **72.28 -> 58.58 ms (+13.70)** | full all-topology expansion was trimmed to fit; retained kernels are selective |
 | Prepared surface-noise phase/direction and half-radian exponential map | Dense geometry error below 2e-7 and stage capture | preset 0: about **+5.11 ms**; surface stage about **+3.37 ms** | frame constants replace per-pixel trig; no separate promotion |
 | Single-traversal vector simplex surface noise | Vector-field version is explicitly `DIRECT_VECTOR_V2`; scalar V1 remains available; native noise tests pass | preset 18: **65.09 -> 56.76 ms (+8.33)** | raw vector kernel stays in flash to protect ITCM |
 | Skip liquid hue conversion when deformation is zero | Exact semantic shortcut | included in the final liquid-path gain | negligible measured ITCM effect |
@@ -437,31 +437,33 @@ Final validation comprises the on-device shipping cycle, the Phantasm roster
 size gate, all 68 native CTest targets, the 7,007-byte stack watermark, and the
 release WASM smoke roster at 96x20 and 288x144.
 
-## Variadic inverse-pipeline follow-on
+## Variadic inverse-pipeline follow-on — landed
 
-The normative proposal is
+The normative specification is
 [`specs/inverse_sampling_pipeline_spec.md`](specs/inverse_sampling_pipeline_spec.md).
 This section is only its architectural summary.
 
-ShaderBall can benefit from the compile-time techniques used by `Filter`, but
-its inverse sampler should be a sibling abstraction rather than a direct reuse
-of the forward buffer-filter API. The proposed stage order is:
+ShaderBall's inverse sampler borrows the compile-time techniques `Filter` uses
+but is a sibling abstraction rather than a reuse of the forward buffer-filter
+API. The stage order is:
 
 ```text
 OuterCamera -> SurfaceProject -> PlanarWarp -> Source -> Material -> Color
 ```
 
-A variadic `InversePipeline<Stages...>` would fuse those point-sampling stages
-into one callable shader. The shipping effect uses a closed, deduplicated set
-of compiled pipelines covering every authored preset and supported discrete
-GUI edit. Unsupported topology edits are rejected; there is no generic
-shipping fallback. A per-frame program selection preserves one shared
-`Scan::Shader` driver, while lens, projection, warp, source, material, and
-color dispatch are compile-time. Large or cold kernels remain flash-resident.
-The former runtime renderer survives only as a host-test oracle until coverage
-is complete, then is excluded from release links.
+A variadic `InversePipeline<Stages...>` fuses those point-sampling stages into
+one callable shader. The shipping effect uses a closed, deduplicated set of
+compiled pipelines covering every authored preset and supported discrete GUI
+edit. Unsupported topology edits are rejected; there is no generic shipping
+fallback. Per-frame program selection preserves one shared `Scan::Shader`
+driver, while lens, projection, warp, source, material, and color dispatch are
+compile-time. Large or cold kernels remain flash-resident. The former runtime
+renderer is excluded from release links and survives only as a host-test
+oracle.
 
-The useful shared surface with `Filter` is policy/concept machinery--stage
+The shared surface with `Filter` is policy/concept machinery--stage
 composition, compile-time traits, and optional fusion--not its forward
-source/destination buffer contract. This remains a design candidate; none of
-the final timing claims above depend on it.
+source/destination buffer contract.
+
+Design record for the noise stages the shipping pipelines sample:
+[`shaderball_noise_unification.md`](shaderball_noise_unification.md).
