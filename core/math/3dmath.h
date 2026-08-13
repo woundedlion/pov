@@ -145,7 +145,9 @@ inline float hash01(uint32_t i, uint32_t seed) {
  */
 inline float value_noise_1d(float x, uint32_t seed = 0) {
   float fx = floorf(x);
-  // int32_t first: float -> unsigned is UB for negatives.
+  // int32_t first: float -> unsigned is UB for negatives. Negated compare so a
+  // NaN coordinate trips it too.
+  assert(!(std::fabs(fx) >= 2147483648.0f));
   uint32_t ix = static_cast<uint32_t>(static_cast<int32_t>(fx));
   float f = quintic_kernel(x - fx);
   float a = hash01(ix, seed);
@@ -162,6 +164,8 @@ inline float value_noise_1d(float x, uint32_t seed = 0) {
  */
 inline float value_noise_2d(float x, float y, uint32_t seed = 0) {
   float fx = floorf(x), fy = floorf(y);
+  assert(!(std::fabs(fx) >= 2147483648.0f));
+  assert(!(std::fabs(fy) >= 2147483648.0f));
   uint32_t ix = static_cast<uint32_t>(static_cast<int32_t>(fx));
   uint32_t iy = static_cast<uint32_t>(static_cast<int32_t>(fy));
   float u = quintic_kernel(x - fx);
@@ -1483,9 +1487,9 @@ __attribute__((always_inline)) inline float fast_acos(float x) {
  * @details exp(x) = 2^(x*log2e), split into an integer power from the float
  * exponent bits and a fractional 2^f via a quartic minimax on [0,1]. Peak rel
  * error ~7.4e-4 over [-30, 0]; large-magnitude x saturates to 0.
- * @warning The domain is guarded only by a debug assert. A positive x stays
- * accurate to x ~ 88.7, saturates to +Inf up to x ~ 89.4, then wraps the packed
- * exponent past the sign bit and returns garbage of either sign.
+ * @warning The domain is guarded only by a debug assert, but every argument
+ * still yields a defined result: a positive x stays accurate to x ~ 88.0 and
+ * saturates to +Inf above it, and a NaN returns 0.
  */
 inline float fast_expf(float x) {
   assert(x <= 0.0f);
@@ -1494,9 +1498,10 @@ inline float fast_expf(float x) {
   float f = y - fi; // [0, 1)
   float p = 1.0f + f * (0.6931472f +
                         f * (0.2402212f + f * (0.0554676f + f * 0.0096784f)));
-  // Range-check in float space: an out-of-range fi would make (int)fi UB.
-  if (fi < -126.0f)
-    return 0.0f;
+  // Bounds the packed exponent on both sides so (int)fi cannot overflow; the
+  // negated compare also takes the NaN branch.
+  if (!(std::fabs(fi) <= 126.0f))
+    return fi > 0.0f ? std::numeric_limits<float>::infinity() : 0.0f;
   int i = (int)fi;
   uint32_t bits = (uint32_t)(i + 127) << 23;
   float scale;
