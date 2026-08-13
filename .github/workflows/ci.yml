@@ -1002,19 +1002,12 @@ jobs:
         run: node --check scripts/capture_screenshots.mjs
 
       # Discovered by glob, not enumerated, so a newly added scripts/*.test.mjs
-      # runs here without a workflow edit. The floor is the wiring pin for the
-      # other direction: a file deleted or renamed out of the pattern (or a glob
-      # that silently matches nothing) fails instead of running fewer tests.
+      # runs here without a workflow edit; tools/check_test_files.sh is the
+      # wiring pin for the other direction (see its header).
       - name: Every scripts/*.test.mjs unit test runs
         run: |
-          shopt -s nullglob
-          tests=(scripts/*.test.mjs)
-          if [ "${#tests[@]}" -lt 4 ]; then
-            echo "::error::expected at least 4 scripts/*.test.mjs files, found ${#tests[@]}: ${tests[*]}"
-            exit 1
-          fi
-          echo "Running ${#tests[@]} script test file(s): ${tests[*]}"
-          node --test "${tests[@]}"
+          bash tools/check_test_files.sh 4 'scripts/*.test.mjs'
+          node --test scripts/*.test.mjs
 
       - name: Gallery covers every registered effect
         run: node scripts/check_screenshots.mjs
@@ -1056,21 +1049,12 @@ jobs:
           python-version: '3.12'
 
       # Discover finds test files by pattern, so one deleted or renamed out of
-      # it runs fewer suites and stays green; the floor (same treatment as the
-      # scripts/*.test.mjs gate) fails instead.
+      # it runs fewer suites and stays green; tools/check_test_files.sh fails
+      # instead.
       - name: Validate tracked Markdown
         run: |
-          shopt -s nullglob
-          tests=(tools/docs_check_tests/test*.py)
-          if [ "${#tests[@]}" -lt 1 ]; then
-            echo "::error::expected at least 1 tools/docs_check_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
-            exit 1
-          fi
-          tests=(tools/docs_images_tests/test*.py)
-          if [ "${#tests[@]}" -lt 1 ]; then
-            echo "::error::expected at least 1 tools/docs_images_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
-            exit 1
-          fi
+          bash tools/check_test_files.sh 1 'tools/docs_check_tests/test*.py'
+          bash tools/check_test_files.sh 1 'tools/docs_images_tests/test*.py'
           python -m unittest discover -s tools/docs_check_tests
           python -m unittest discover -s tools/docs_images_tests
           # The `tree daydream` fence is drawn from the sibling's default branch
@@ -1570,52 +1554,27 @@ jobs:
         with:
           python-version: '3.12'
       # Discover finds test files by pattern, so one deleted or renamed out of
-      # it runs fewer suites and stays green; each floor (same treatment as the
-      # scripts/*.test.mjs gate) fails instead.
+      # it runs fewer suites and stays green; tools/check_test_files.sh fails
+      # instead.
       - name: Run gate parser/layout/warning self-tests
         run: |
-          shopt -s nullglob
-          tests=(tools/teensy_gate_tests/test*.py)
-          if [ "${#tests[@]}" -lt 3 ]; then
-            echo "::error::expected at least 3 tools/teensy_gate_tests/test*.py files, found ${#tests[@]}: ${tests[*]}"
-            exit 1
-          fi
+          bash tools/check_test_files.sh 3 'tools/teensy_gate_tests/test*.py'
           python -m unittest discover -s tools/teensy_gate_tests -v
       - name: Run PlatformIO build-hook self-tests
         run: |
-          shopt -s nullglob
-          tests=(tools/teensy_hook_tests/test*.py)
-          if [ "${#tests[@]}" -lt 1 ]; then
-            echo "::error::expected at least 1 tools/teensy_hook_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
-            exit 1
-          fi
+          bash tools/check_test_files.sh 1 'tools/teensy_hook_tests/test*.py'
           python -m unittest discover -s tools/teensy_hook_tests -v
       - name: Run profile log parser self-tests
         run: |
-          shopt -s nullglob
-          tests=(tools/profile_tests/test*.py)
-          if [ "${#tests[@]}" -lt 3 ]; then
-            echo "::error::expected at least 3 tools/profile_tests/test*.py files, found ${#tests[@]}: ${tests[*]}"
-            exit 1
-          fi
+          bash tools/check_test_files.sh 3 'tools/profile_tests/test*.py'
           python -m unittest discover -s tools/profile_tests -v
       - name: Run relax-bake generator self-tests
         run: |
-          shopt -s nullglob
-          tests=(tools/relax_bake_tests/test*.py)
-          if [ "${#tests[@]}" -lt 1 ]; then
-            echo "::error::expected at least 1 tools/relax_bake_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
-            exit 1
-          fi
+          bash tools/check_test_files.sh 1 'tools/relax_bake_tests/test*.py'
           python -m unittest discover -s tools/relax_bake_tests -v
       - name: Check routed PCB metadata
         run: |
-          shopt -s nullglob
-          tests=(hardware/phantasm/gen/tests/test*.py)
-          if [ "${#tests[@]}" -lt 16 ]; then
-            echo "::error::expected at least 16 hardware/phantasm/gen/tests/test*.py files, found ${#tests[@]}: ${tests[*]}"
-            exit 1
-          fi
+          bash tools/check_test_files.sh 16 'hardware/phantasm/gen/tests/test*.py'
           python -m unittest discover -s hardware/phantasm/gen/tests -v
           python hardware/phantasm/gen/board_metadata.py --check
 

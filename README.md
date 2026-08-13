@@ -383,6 +383,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   └── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster and decodes (CI)
 ├── tools/                      Firmware gates, device profiling, and asset bakes
 │   ├── build_pins.py           Shared external-tool version pins for CI and `just`
+│   ├── check_test_files.sh     Exact-count pin for every glob-discovered test-file set (CI)
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate on every link
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
