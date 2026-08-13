@@ -2121,6 +2121,50 @@ inline void test_palette_wrappers() {
   HS_EXPECT_NEAR(solid.get(0.1f).alpha, 0.7f, 1e-6f);
 }
 
+/**
+ * @brief Identity falloff function: reports the coordinate it was shaded with.
+ * @param t Normalized coordinate.
+ * @return t unchanged.
+ * @details Must be a plain function pointer to bind to AlphaFalloffShade.
+ */
+inline float identity_falloff(float t) { return t; }
+
+/**
+ * @brief Verifies ShadeCoord picks the color chain's coordinate independently
+ *        of Wrap.
+ * @details AlphaFalloffShade reports the coordinate it was handed through
+ *          alpha. MATCH_WRAP reproduces the historical coupling — the source
+ *          lookup coordinate under Wrap=true, the raw input under Wrap=false —
+ *          while LOOKUP and INPUT pin their own coordinate either way.
+ */
+inline void test_palette_shade_coord_policy() {
+  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+  AlphaFalloffShade report(identity_falloff);
+
+  StaticPalette<Gradient, Coords<>, Colors<AlphaFalloffShade>> matched;
+  matched.bind(&grad, &report);
+  HS_EXPECT_NEAR(matched.get(1.25f).alpha, 0.25f, 1e-5f);
+
+  StaticPalette<Gradient, Coords<>, Colors<AlphaFalloffShade>, /*Wrap=*/true,
+                ShadeCoord::INPUT>
+      raw;
+  raw.bind(&grad, &report);
+  HS_EXPECT_NEAR(raw.get(1.25f).alpha, 1.25f, 1e-5f);
+
+  ReverseModifier rev;
+  StaticPalette<Gradient, Coords<ReverseModifier>, Colors<AlphaFalloffShade>,
+                /*Wrap=*/false>
+      unwrapped;
+  unwrapped.bind(&grad, &rev, &report);
+  HS_EXPECT_NEAR(unwrapped.get(0.25f).alpha, 0.25f, 1e-5f);
+
+  StaticPalette<Gradient, Coords<ReverseModifier>, Colors<AlphaFalloffShade>,
+                /*Wrap=*/false, ShadeCoord::LOOKUP>
+      unwrapped_lookup;
+  unwrapped_lookup.bind(&grad, &rev, &report);
+  HS_EXPECT_NEAR(unwrapped_lookup.get(0.25f).alpha, 0.75f, 1e-5f);
+}
+
 // Clamp-before-cast / NaN-saturation checks whose contract must also hold under
 // the shipping WASM fast-math codegen. fastmath_clamp_check.cpp iterates this
 // same list, so adding a case here automatically extends both the default-IEEE
@@ -2241,6 +2285,7 @@ inline int run_color_tests() {
   test_iridescent_shade();
   test_static_palette_composition();
   test_palette_wrappers();
+  test_palette_shade_coord_policy();
 
   // Clamp-before-cast / NaN-saturation checks, shared with the fast-math pass.
   const int before_clamp = hs_test::stats().passed + hs_test::stats().failed;
