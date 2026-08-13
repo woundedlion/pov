@@ -227,10 +227,29 @@ sphere_exp_map_half_radian(const Vector &v, const Vector &tangent) {
   return cosine * v + sinc * tangent;
 }
 
+/** Conditioning bound on |cross(from, to)|^2 for transport_tangent; below it
+ *  the great circle is ill-determined. */
+inline constexpr float MIN_TRANSPORT_CROSS_SQ = 1e-4f;
+
+/**
+ * @brief Parallel-transports a tangent vector along the great circle from
+ *   @p from to @p to.
+ * @param from Unit source point.
+ * @param to Unit destination point.
+ * @param tangent_at_from Tangent vector at @p from.
+ * @return The transported vector, tangent at @p to.
+ * @details Traps once the pair is inside MIN_TRANSPORT_CROSS_SQ of antipodal
+ *   rather than only at the exact antipode: any non-tangent component of
+ *   @p tangent_at_from is amplified by 2/|cross(from, to)| there, capped at
+ *   200x by the bound. Gated on |cross|^2, which stays accurate where 1 + dot
+ *   cancels; the dot > 0 half-space short-circuits before the cross product.
+ */
 inline Vector transport_tangent(const Vector &from, const Vector &to,
                                 const Vector &tangent_at_from) {
   const float denominator = 1.0f + dot(from, to);
-  HS_CHECK(denominator > 0.0f, "tangent transport crosses antipodes");
+  HS_CHECK(denominator > 1.0f ||
+               dot(cross(from, to), cross(from, to)) > MIN_TRANSPORT_CROSS_SQ,
+           "tangent transport is within the antipodal conditioning bound");
   return tangent_at_from -
          (dot(tangent_at_from, to) / denominator) * (from + to);
 }
