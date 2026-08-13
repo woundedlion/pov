@@ -2097,6 +2097,8 @@ Typed pullback sphere shader (extends `Effect` directly) with a closed set of 14
 
 ### ShaderBall Inverse Pipeline
 
+Full design record: the [ShaderBall spec](https://github.com/woundedlion/pov/blob/master/docs/specs/shaderball_spec.md) fixes the authored vocabulary, presets, and choreography; the [inverse-sampling pipeline spec](https://github.com/woundedlion/pov/blob/master/docs/specs/inverse_sampling_pipeline_spec.md) specifies the shipping renderer summarized below. The [noise unification brief](https://github.com/woundedlion/pov/blob/master/docs/shaderball_noise_unification.md) and the [red-preset optimization plan](https://github.com/woundedlion/pov/blob/master/docs/shaderball_optimization_plan.md) carry the supporting design and performance record.
+
 ShaderBall is a closed set of typed programs, not a free-form node graph or a runtime switch renderer. A `TopologyKey` records every discrete choice that changes code, canonicalizing inactive layout, noise, and warp fields. The 14-entry program manifest maps an exact key and continuous precondition to a semantic `InversePipelineId` and a non-null `&InversePipeline<...>::shade` wrapper. There is no production fallback: a candidate without a matching program is rejected before it can replace the published configuration.
 
 Frame preparation resolves that program once, snapshots the selected slots, live parameters, clocks, transforms, prepared lookup data, and borrowed palette/noise resources into an immutable `FrameState`, then validates every resource the selected program may dereference. The resulting `PreparedEndpoint` owns the frame snapshot, pipeline ID, alpha, and shade pointer. The shared `Scan::Shader` loop calls that pointer unconditionally for every visible sample. Through-clear transitions prepare and consume one endpoint at a time, so only one large frame snapshot is live on the stack.
@@ -2492,6 +2494,8 @@ work/
 ├── Holosphere/          (this repo — C++ engine + firmware + WASM build)
 └── daydream/            (web simulator — receives WASM artifacts)
 ```
+
+Agent sessions that commit to this repo work under the ground rules in [`docs/agent_workflow.md`](https://github.com/woundedlion/pov/blob/master/docs/agent_workflow.md).
 
 ### Firmware (Arduino / Teensy 4.x) — Holosphere repo
 
