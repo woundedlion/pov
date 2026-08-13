@@ -472,7 +472,9 @@ private:
     if (!enum_in_range(recipe.chroma.curve, AxisCurve::CUSTOM))
       return fail(status, PaletteCompileCode::INVALID_ENUM,
                   PaletteRecipeField::CHROMA_CURVE);
-    if (!enum_in_range(recipe.chroma.basis, ChromaBasis::ABSOLUTE))
+    // PATH_MINIMUM is a reserved ordinal with no implementation.
+    if (!enum_in_range(recipe.chroma.basis, ChromaBasis::ABSOLUTE) ||
+        recipe.chroma.basis == ChromaBasis::PATH_MINIMUM)
       return fail(status, PaletteCompileCode::INVALID_ENUM,
                   PaletteRecipeField::CHROMA_BASIS);
     return true;
@@ -658,9 +660,6 @@ private:
           field_bit(PaletteRecipeField::FALLOFF_START);
     }
 
-    if (recipe.chroma.basis == ChromaBasis::PATH_MINIMUM)
-      return fail(status, PaletteCompileCode::INCOMPATIBLE_OPTIONS,
-                  PaletteRecipeField::CHROMA_BASIS);
     if (recipe.domain == PaletteDomain::LOOP &&
         recipe.hue.mode == HueMode::SWEEP) {
       const float turns = roundf(recipe.hue.sweep_turns);

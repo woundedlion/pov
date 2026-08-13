@@ -478,6 +478,13 @@ enum class AxisCurve : uint8_t {
   CUSTOM,
 };
 
+/**
+ * @brief The reference a chroma axis is measured against.
+ * @details PATH_MINIMUM is reserved and unimplemented: a recipe naming it fails
+ * compilation with INVALID_ENUM. Its ordinal is held rather than reclaimed
+ * because the numbering is mirrored by the palette authoring tools and by
+ * persisted recipes.
+ */
 enum class ChromaBasis : uint8_t { LOCAL_GAMUT, PATH_MINIMUM, ABSOLUTE };
 
 enum class ColorPath : uint8_t { OKLCH_ARC, OKLAB_CARTESIAN };
