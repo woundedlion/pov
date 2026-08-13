@@ -886,8 +886,7 @@ public:
         return;
       }
       snapshot.schema_version = static_cast<uint32_t>(schema_number);
-      if (snapshot.schema_version != 1 &&
-          snapshot.schema_version != SB::CONFIG_SCHEMA_VERSION) {
+      if (!SB::config_version_supported(snapshot.schema_version)) {
         result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
         return;
       }
