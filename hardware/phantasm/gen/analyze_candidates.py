@@ -79,8 +79,9 @@ def blocks(root, kind):
 
 
 def net_of(b):
+    """Net name of a segment/arc/via, from either `(net "/DATA")` or `(net 9 "/DATA")`."""
     value = sexp.val(b, "net", [])
-    return str(value[0]).rsplit("/", 1)[-1] if value else None
+    return str(value[-1]).rsplit("/", 1)[-1] if value else None
 
 
 def field(b, name):
@@ -209,6 +210,14 @@ def analyze(path):
         if n in CRIT and p:
             crit_via_pts.append(p)
 
+    # Every SI figure below is keyed on the critical net NAMES; a board that
+    # carries none of them scores a perfect 10 on nothing at all.
+    if not any(n in netlen or n in netvias for n in CRIT):
+        raise ValueError(
+            f"no critical net ({', '.join(CRIT)}) resolved by name in {path}; "
+            "copper is present but its nets are unnamed, so the SI ranking "
+            "would be scored on zeroes")
+
     # fast-net vias with a GND stitching via within 1 mm (clean return-path hop)
     near = sum(1 for p in crit_via_pts
                if min((dist(p, g) for g in gnd_pts), default=99) < 1.0)
@@ -293,16 +302,16 @@ def main(argv):
 
     R = {}
     for d in dirs:
-        try:
-            f = candidate_board(d)
-        except ValueError as exc:
-            print(exc)
-            return 1
         # name from the Candidate_N anywhere in the path (works whether a folder or a
         # .kicad_pcb file was passed, and regardless of the board's filename)
         m = re.search(r"Candidate_(\w+)", d)
         name = m.group(1) if m else os.path.splitext(os.path.basename(d))[0]
-        R[name] = analyze(f)
+        try:
+            f = candidate_board(d)
+            R[name] = analyze(f)
+        except ValueError as exc:
+            print(exc)
+            return 1
         R[name]["drc"] = run_drc(f)
 
     drc_ran = any(R[k]["drc"]["status"] != DRC_MISSING for k in R)
