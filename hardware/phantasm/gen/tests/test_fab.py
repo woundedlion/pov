@@ -571,5 +571,23 @@ class ZipMemberTests(unittest.TestCase):
         self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
 
 
+class ZipMembershipTests(unittest.TestCase):
+    EXPORTED = ("phantasm-F_Cu.gtl", "phantasm-In1_Cu.g1", "phantasm-PTH.drl",
+                "phantasm-job.gbrjob")
+
+    def test_every_exported_artifact_is_zipped(self):
+        self.assertEqual(fab.zip_members(self.EXPORTED + tuple(fab.ZIP_EXCLUDED)),
+                         sorted(self.EXPORTED))
+
+    def test_an_extension_outside_the_allowlist_is_rejected(self):
+        with self.assertRaisesRegex(
+                fab.UploadPackageError, "phantasm-User_2.gm2"):
+            fab.zip_members(self.EXPORTED + ("phantasm-User_2.gm2",))
+
+    def test_the_upload_zip_itself_is_not_a_member(self):
+        self.assertNotIn("phantasm-jlc-gerbers.zip",
+                         fab.zip_members(("phantasm-jlc-gerbers.zip",)))
+
+
 if __name__ == "__main__":
     unittest.main()

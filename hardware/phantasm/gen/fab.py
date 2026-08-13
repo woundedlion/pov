@@ -41,6 +41,9 @@ GERBER_LAYERS = ("F.Cu,In1.Cu,In2.Cu,B.Cu,F.SilkS,B.SilkS,"
 # Fab-layer + drill extensions that belong in the JLC upload zip.
 ZIP_EXT = {".gtl", ".g1", ".g2", ".gbl", ".gto", ".gbo", ".gts", ".gbs",
            ".gtp", ".gbp", ".gm1", ".drl", ".gbrjob"}
+# Everything else the run writes into jlc/: assembly data and the zip itself.
+ZIP_EXCLUDED = {"phantasm-BOM.csv", "phantasm-CPL.csv",
+                "phantasm-jlc-gerbers.zip"}
 
 
 def zip_member(name):
@@ -54,6 +57,29 @@ def zip_member(name):
     info.create_system = 3
     info.external_attr = 0o644 << 16
     return info
+
+
+class UploadPackageError(ValueError):
+    """An exported fab artifact would not reach the JLC upload zip."""
+
+
+def zip_members(names):
+    """Sorted upload-zip members, rejecting any artifact the allowlist drops.
+
+    The layer -> extension mapping is KiCad's Protel convention, so a layer
+    added to GERBER_LAYERS exports an extension ZIP_EXT need not carry. Without
+    this the file is left out of the upload and the boards come back missing a
+    layer.
+    """
+    members = sorted(n for n in names
+                     if os.path.splitext(n)[1].lower() in ZIP_EXT)
+    dropped = sorted(set(names) - set(members) - ZIP_EXCLUDED)
+    if dropped:
+        raise UploadPackageError(
+            "exported fab artifacts the JLC upload zip would drop: "
+            + ", ".join(dropped)
+            + " - add the extension to ZIP_EXT, or the name to ZIP_EXCLUDED.")
+    return members
 
 # Assembly policy: JLC reflows only top-side SMD. Exclude hand-soldered
 # through-hole (connectors, electrolytic, Teensy), solder jumpers, and DNP.
@@ -781,11 +807,14 @@ def main():
 
     print("[9/9] JLC upload zip")
     zpath = os.path.join(JLC, "phantasm-jlc-gerbers.zip")
+    try:
+        members = zip_members(os.listdir(JLC))
+    except UploadPackageError as exc:
+        sys.exit(str(exc))
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in sorted(os.listdir(JLC)):
-            if os.path.splitext(f)[1].lower() in ZIP_EXT:
-                with open(os.path.join(JLC, f), "rb") as fh:
-                    z.writestr(zip_member(f), fh.read())
+        for f in members:
+            with open(os.path.join(JLC, f), "rb") as fh:
+                z.writestr(zip_member(f), fh.read())
 
     print(f"\nDone. {len(assembled)} assembled SMD parts; "
           f"{len(groups)} BOM lines.")
