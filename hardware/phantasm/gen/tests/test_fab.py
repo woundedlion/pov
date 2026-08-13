@@ -571,6 +571,56 @@ class ZipMemberTests(unittest.TestCase):
         self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
 
 
+class TimestampNormalizationTests(unittest.TestCase):
+    """Every artifact records the export wall clock, so without normalization
+    two runs over an unchanged board differ in every file."""
+
+    # Gerbers are CRLF, Excellon and the job file LF.
+    GERBER = ("%TF.GenerationSoftware,KiCad,Pcbnew,10.0.4*%\r\n"
+              "%TF.CreationDate,{stamp}-07:00*%\r\n"
+              "G04 Created by KiCad (PCBNEW 10.0.4) date {date}*\r\n"
+              "D10*\r\nX1000Y2000D02*\r\nM02*\r\n")
+    DRILL = ("M48\n; DRILL file KiCad 10.0.4 date {stamp}\n"
+             "; #@! TF.CreationDate,{stamp}-07:00\nFMAT,2\nM30\n")
+    JOB = ('{{\n  "GeneralSpecs": {{\n'
+           '    "CreationDate": "{stamp}-07:00"\n  }}\n}}\n')
+
+    def export(self, stamp, date):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        for name, template in (("phantasm-Top Layer.gtl", self.GERBER),
+                               ("phantasm-PTH.drl", self.DRILL),
+                               ("phantasm-job.gbrjob", self.JOB)):
+            (directory / name).write_bytes(
+                template.format(stamp=stamp, date=date).encode("utf-8"))
+        rewritten = fab.normalize_fab_timestamps(directory)
+        return directory, rewritten
+
+    def test_two_exports_of_one_board_become_identical(self):
+        first, rewritten = self.export("2026-08-12T17:25:19", "2026-08-12 17:25:19")
+        second, _ = self.export("2019-03-04T01:02:03", "2019-03-04 01:02:03")
+        self.assertEqual(len(rewritten), 3)
+        for path in sorted(first.iterdir()):
+            self.assertEqual(path.read_bytes(),
+                             (second / path.name).read_bytes(), path.name)
+
+    def test_line_endings_and_tool_version_survive(self):
+        directory, _ = self.export("2026-08-12T17:25:19", "2026-08-12 17:25:19")
+        gerber = (directory / "phantasm-Top Layer.gtl").read_bytes()
+        self.assertNotIn(b"\n", gerber.replace(b"\r\n", b""))
+        self.assertIn(f"%TF.CreationDate,{fab.FAB_TIMESTAMP}*%\r\n".encode(), gerber)
+        self.assertIn(b"KiCad (PCBNEW 10.0.4) date", gerber)
+        drill = (directory / "phantasm-PTH.drl").read_bytes()
+        self.assertNotIn(b"\r", drill)
+        self.assertIn(f"date {fab.FAB_TIMESTAMP}\n".encode(), drill)
+
+    def test_an_artifact_without_a_stamp_is_untouched(self):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        (directory / "phantasm-BOM.csv").write_bytes(b"Comment,Designator\r\n")
+        self.assertEqual(fab.normalize_fab_timestamps(directory), [])
+        self.assertEqual((directory / "phantasm-BOM.csv").read_bytes(),
+                         b"Comment,Designator\r\n")
+
+
 class ZipMembershipTests(unittest.TestCase):
     EXPORTED = ("phantasm-F_Cu.gtl", "phantasm-In1_Cu.g1", "phantasm-PTH.drl",
                 "phantasm-job.gbrjob")
