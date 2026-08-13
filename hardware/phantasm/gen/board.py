@@ -14,7 +14,7 @@ import os
 import builder as B
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
-from kicad_common import require_writable
+from kicad_common import require_writable, reset_uid_sequence
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
@@ -28,6 +28,9 @@ def parse_args(argv=None):
 
 
 def main(force=False):
+    # uid() keys on call site + occurrence, so the sequence starts empty or a
+    # second call in one process would renumber every generated uuid.
+    reset_uid_sequence()
     require_writable(SCH, force)
 
     b = B.Builder("PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)",
