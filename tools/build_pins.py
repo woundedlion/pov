@@ -68,6 +68,10 @@ INLINE_SCAN = (
     ROOT / "justfile",
     ROOT / "scripts/generate_luts.py",
     ROOT / ".githooks/pre-commit",
+    # Prose, but a contributor installs what it tells them to: a stale spelling
+    # here sends them to a version the format gate then rejects.
+    ROOT / "README.md",
+    ROOT / "CONTRIBUTING.md",
 )
 
 # (pattern, pin name, expected form of the pin value). The pattern's single
@@ -80,6 +84,7 @@ INLINE_USES = (
     (r"\bllvm-\w+-(\d+)\b", "clang", lambda v: v),
     (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v),
     (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0]),
+    (r"\bclang-format (\d+)\b", "clang-format", lambda v: v.split(".")[0]),
     (r"EXPECTED_CLANG_FORMAT_MAJOR = (\d+)", "clang-format",
      lambda v: v.split(".")[0]),
     (r"HS_CLANG_FORMAT_MAJOR=(\d+)", "clang-format", lambda v: v.split(".")[0]),
