@@ -290,6 +290,10 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── plot_raster.h           Plot::rasterize: adaptive sub-stepping polyline walk
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel
 │   │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
+│   │   ├── sdf_common.h            SDF interval/bounds substrate + DistanceResult + span-emission helpers
+│   │   ├── sdf_rings.h             SDF ring leaves (Ring, DistortedRing, FlatDistortedRing)
+│   │   ├── sdf_csg.h               SDF::Union/SmoothUnion/Subtract/Intersection + AngularRepeat fold
+│   │   ├── sdf_face.h              SDF::Face mesh-face leaf + congruence-class distance LUT binding
 │   │   ├── sdf_volume.h            3D volumetric SDF shapes + domain warps for Scan::Volume
 │   │   ├── shading.h               Fragment + mesh-topology shading helpers, null shaders
 │   │   ├── aa_audit.h              Scan AA-coverage audit counters (compiled in only under HS_AA_AUDIT)
@@ -953,6 +957,8 @@ The rendering pipeline splits shape definitions from rasterization. `sdf.h` defi
 3. **`distance<ComputeUVs>(p, result)`** — signed distance from a sphere-surface point `p` to the shape boundary, plus texture coordinate and auxiliary data in `DistanceResult`.
 
 `scan.h` contains `Scan::rasterize()`, which drives the scanline loop and anti-aliasing, plus convenience wrappers that pair SDF shapes with the rasterizer.
+
+`sdf.h` is an umbrella over four fragments: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `sdf_common.h`, the ring leaves in `sdf_rings.h`, the CSG operators in `sdf_csg.h`, and `SDF::Face` with its congruence-class LUT in `sdf_face.h`; the polygon, star, flower and line leaves stay in `sdf.h` itself. Including `sdf.h` pulls in all four, so nothing outside needs to name them.
 
 The `process_pixel` function applies anti-aliasing based on shape type:
 - **Solid shapes**: quintic smoothstep over a 2-pixel AA band centered on the edge (`-pixel_width <= d <= pixel_width`). Full interior pixels (`d < -pixel_width`) skip AA math entirely. `pixel_width` is the compile-time constant `2π/W` — the angular width of one *equatorial* pixel — so the band is a fixed angular thickness at every latitude, and near the poles (where columns converge) it spans more than two columns.
