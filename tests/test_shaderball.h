@@ -42,6 +42,7 @@ struct ShaderBallWhiteBox {
   using ValueTransfer = SB::ValueTransfer;
   using CoveragePolicy = SB::CoveragePolicy;
   using PaletteMode = SB::PaletteMode;
+  using HueShiftMode = SB::HueShiftMode;
   using Slots = SB::Slots;
   using SourceParams = SB::SourceParams;
   using Params = SB::Params;
@@ -904,6 +905,12 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_LE(material.value, 1.0f);
   HS_EXPECT_EQ(material.coverage,
                projected.value_weight * projected.value_weight);
+  HS_EXPECT_EQ(material.warp_displacement, warped.path_length);
+  WB::PlanarWarpResult accumulated = warped;
+  accumulated.deformation = 0.0f;
+  accumulated.path_length = 0.75f;
+  HS_EXPECT_EQ(WB::shape(0.0f, projected, accumulated, frame).warp_displacement,
+               0.75f);
   frame.slots.coverage = WB::CoveragePolicy::PROJECTION_WEIGHT;
   HS_EXPECT_EQ(WB::material(projected, warped, frame).coverage,
                projected.value_weight);
@@ -1382,7 +1389,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_TRUE(choreo[1].staggered);
   HS_EXPECT_FALSE(choreo[7].staggered);
 
-  bool has_hue_noise = false;
+  bool has_hue_shift = false;
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
     HS_EXPECT_EQ(preset.slots.palette, WB::PaletteMode::TRIADIC);
@@ -1390,14 +1397,14 @@ inline void test_shaderball_preset_bank() {
     HS_EXPECT_TRUE(WB::valid_config(preset));
     HS_EXPECT_TRUE(WB::has_inverse_program(preset));
     HS_EXPECT_LE(fabsf(preset.params.color.hue_noise_speed), 0.001f);
-    has_hue_noise |= preset.params.color.hue_noise_amount != 0.0f;
+    has_hue_shift |= preset.params.color.hue_shift_amount != 0.0f;
     if (index > 0 && index < 11)
       HS_EXPECT_TRUE(
           WB::slots_equal(preset.slots, WB::generated_surface_noise_slots()));
     if (index > 0 && index < 10)
       HS_EXPECT_TRUE(WB::slots_equal(preset.slots, presets[index + 1].slots));
   }
-  HS_EXPECT_TRUE(has_hue_noise);
+  HS_EXPECT_TRUE(has_hue_shift);
 
   const auto &wave_shear = presets[11];
   HS_EXPECT_EQ(wave_shear.slots.warp_program.outer.kind,
@@ -2053,8 +2060,15 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_LT(parameter_index("Lens"), parameter_index("Planar Warp 1"));
   HS_EXPECT_LT(parameter_index("Planar Warp 1"),
                parameter_index("Planar Warp 2"));
-  HS_EXPECT_LT(parameter_index("Palette"), parameter_index("Hue Noise Amount"));
+  HS_EXPECT_LT(parameter_index("Palette"), parameter_index("Hue Shift Mode"));
+  HS_EXPECT_LT(parameter_index("Hue Shift Mode"),
+               parameter_index("Hue Shift Amount"));
   HS_EXPECT_EQ(sb.getParameters().find("Palette")->option_count, 3);
+  const auto *hue_shift = sb.getParameters().find("Hue Shift Mode");
+  HS_EXPECT_TRUE(hue_shift != nullptr);
+  HS_EXPECT_EQ(hue_shift->option_count, 3);
+  HS_EXPECT_TRUE(
+      std::strcmp(hue_shift->options[2], "Total Warp Displacement") == 0);
   const auto *projection = sb.getParameters().find("Projection");
   HS_EXPECT_TRUE(projection != nullptr);
   HS_EXPECT_EQ(projection->option_count, 7);
@@ -2119,7 +2133,7 @@ inline void test_shaderball_gui_catalog() {
   constexpr const char *ROOT_ENUMS[] = {
       "Function",      "Projection",    "Projection Frame", "Lens",
       "Planar Warp 1", "Planar Warp 2", "Signal Weight",    "Value Transfer",
-      "Coverage",      "Palette"};
+      "Coverage",      "Palette",       "Hue Shift Mode"};
   for (const char *name : ROOT_ENUMS) {
     const int option_count = sb.getParameters().find(name)->option_count;
     for (int option = 0; option < option_count; ++option) {
@@ -2278,7 +2292,7 @@ inline void test_shaderball_lens_domain_ranges() {
                      "Lens", static_cast<float>(
                                  WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 8.0f);
+  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 20.0f);
   HS_EXPECT_EQ(parameter("Speed")->max, 0.5f);
   HS_EXPECT_EQ(parameter("Speed")->get_requested(), 0.5f);
   HS_EXPECT_EQ(parameter("Source Angle Speed")->max, 0.03f);
@@ -2295,6 +2309,12 @@ inline void test_shaderball_lens_domain_ranges() {
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Speed")->max, 0.005f);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Frequency")->max, 8.0f);
+
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Function",
+                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(parameter("Lattice Cell Scale")->max, 8.0f);
 }
 
 /** @brief New cartographic kernels preserve landmarks and stay finite. */
@@ -3604,8 +3624,8 @@ inline void test_shaderball_palette_resources() {
                  triadic.b != analogous.b);
 }
 
-/** @brief Sphere-space hue noise works independently of planar warps. */
-inline void test_shaderball_hue_noise_palette_stage() {
+/** @brief Colorize hue modes consume their selected pipeline carrier. */
+inline void test_shaderball_hue_shift_modes() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
   WB::SB sb;
@@ -3613,18 +3633,35 @@ inline void test_shaderball_hue_noise_palette_stage() {
   WB::RequestedConfig base = WB::legacy_config();
   base.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   base.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
-  base.params.color = {0.0f, 2.0f, 0.0f};
+  base.slots.hue_shift = WB::HueShiftMode::NONE;
+  base.params.color = {1.0f, 2.0f, 0.0f};
   HS_EXPECT_TRUE(WB::valid_config(base));
 
-  const WB::MaterialSample sample{0.37f, 1.0f,
-                                  Vector(0.31f, 0.87f, -0.38f).normalized()};
+  const WB::MaterialSample sample{
+      0.37f, 1.0f, Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
   const Color4 plain = WB::colorize(sample, WB::config_frame(sb, base));
   WB::RequestedConfig noisy = base;
-  noisy.params.color.hue_noise_amount = 1.0f;
-  const Color4 shifted = WB::colorize(sample, WB::config_frame(sb, noisy));
-  HS_EXPECT_TRUE(plain.color.r != shifted.color.r ||
-                 plain.color.g != shifted.color.g ||
-                 plain.color.b != shifted.color.b);
+  noisy.slots.hue_shift = WB::HueShiftMode::NOISE;
+  const WB::FrameState noise_frame = WB::config_frame(sb, noisy);
+  HS_EXPECT_TRUE(noise_frame.resources.color_noise != nullptr);
+  const Color4 noise_shifted = WB::colorize(sample, noise_frame);
+  HS_EXPECT_TRUE(plain.color.r != noise_shifted.color.r ||
+                 plain.color.g != noise_shifted.color.g ||
+                 plain.color.b != noise_shifted.color.b);
+
+  WB::RequestedConfig displaced = base;
+  displaced.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
+  const WB::FrameState displacement_frame = WB::config_frame(sb, displaced);
+  HS_EXPECT_TRUE(displacement_frame.resources.color_noise == nullptr);
+  const Color4 undisplaced = WB::colorize(sample, displacement_frame);
+  HS_EXPECT_TRUE(undisplaced.color == plain.color);
+  WB::MaterialSample warped_sample = sample;
+  warped_sample.warp_displacement = 0.25f;
+  const Color4 displacement_shifted =
+      WB::colorize(warped_sample, displacement_frame);
+  HS_EXPECT_TRUE(plain.color.r != displacement_shifted.color.r ||
+                 plain.color.g != displacement_shifted.color.g ||
+                 plain.color.b != displacement_shifted.color.b);
 
   const WB::TopologyKey topology = WB::topology_key(base);
   for (WB::PaletteMode palette :
@@ -3637,9 +3674,19 @@ inline void test_shaderball_hue_noise_palette_stage() {
     HS_EXPECT_TRUE(std::isfinite(color.alpha));
   }
 
-  for (const char *name :
-       {"Hue Noise Amount", "Hue Noise Scale", "Hue Noise Speed"})
+  for (const char *name : {"Hue Shift Mode", "Hue Shift Amount",
+                           "Hue Noise Scale", "Hue Noise Speed"})
     HS_EXPECT_TRUE(sb.getParameters().find(name) != nullptr);
+  HS_EXPECT_EQ(sb.updateParameter(
+                   "Hue Shift Mode",
+                   static_cast<float>(WB::HueShiftMode::WARP_DISPLACEMENT)),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.getParameters().find("Hue Shift Amount") != nullptr);
+  HS_EXPECT_TRUE(sb.getParameters().find("Hue Noise Scale") == nullptr);
+  HS_EXPECT_TRUE(sb.getParameters().find("Hue Noise Speed") == nullptr);
+  HS_EXPECT_EQ(sb.updateParameter("Hue Shift Mode",
+                                  static_cast<float>(WB::HueShiftMode::NOISE)),
+               ParamSetResult::APPLIED);
 
   sb.setAnimationsPaused(true);
   HS_EXPECT_EQ(sb.updateParameter("Hue Noise Speed", 0.0f),
@@ -3912,7 +3959,7 @@ inline int run_shaderball_tests() {
   test_shaderball_discrete_transition();
   test_shaderball_pause_does_not_hold_through_clear();
   test_shaderball_palette_resources();
-  test_shaderball_hue_noise_palette_stage();
+  test_shaderball_hue_shift_modes();
   test_shaderball_surface_noise_geometry_and_composition();
   test_shaderball_noise_contour_domains();
   return fixture.result();
