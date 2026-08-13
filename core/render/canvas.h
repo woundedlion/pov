@@ -15,6 +15,7 @@
 #include <type_traits>
 #include <utility>
 #include "engine/constants.h"
+#include "render/clip.h"
 #include "color/color.h"
 #include <array>
 #if HS_ENABLE_TEST_HOOKS
