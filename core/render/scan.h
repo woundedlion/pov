@@ -285,6 +285,73 @@ HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
     norm.pop_back();
 }
 
+/**
+ * @brief Splits a column run by the clip arc and emits the surviving pieces.
+ * @tparam EmitFn Callable (int x1, int x2); an empty piece is its own no-op.
+ * @param x1 First column of the run.
+ * @param x2 One past the run's last column.
+ * @param xc Column-arc clip.
+ * @param emit Sink receiving each surviving piece.
+ * @details A wrapping arc is [rs, W) ∪ [0, re); the two pieces are disjoint
+ * (re <= rs), so no column is emitted twice.
+ */
+template <typename EmitFn>
+__attribute__((always_inline)) inline void
+clip_run(int x1, int x2, ClipRegion::XClip xc, EmitFn &&emit) {
+  if (!xc.active) {
+    emit(x1, x2);
+  } else if (xc.wrap) {
+    emit(std::max(x1, xc.rs), x2);
+    emit(x1, std::min(x2, xc.re));
+  } else {
+    emit(std::max(x1, xc.rs), std::min(x2, xc.re));
+  }
+}
+
+/**
+ * @brief Turns one row's emitted spans into clipped integer column runs.
+ * @tparam W Canvas width in pixels.
+ * @tparam IntervalBufT Source span buffer type.
+ * @tparam NormBufT Seam-split scratch buffer; holds 2 spans per source span.
+ * @tparam EmitFn Callable (int x1, int x2) receiving each run.
+ * @param handled False when the producer declined the row, which paints it
+ *                whole; the spans are then ignored.
+ * @param intervals The row's emitted spans, in fractional column units.
+ * @param norm Scratch for the seam split; clobbered.
+ * @param xc Column-arc clip applied to every run before it is emitted.
+ * @param emit Sink receiving the runs, ascending and disjoint.
+ * @details Shared by scan_region and by the fused RingGroup walk, which cannot
+ * call scan_region itself. Runs arrive in ascending column order, so a sink may
+ * treat them as one left-to-right sweep.
+ */
+template <int W, typename IntervalBufT, typename NormBufT, typename EmitFn>
+__attribute__((always_inline)) inline void
+emit_row_runs(bool handled, const IntervalBufT &intervals, NormBufT &norm,
+              ClipRegion::XClip xc, EmitFn &&emit) {
+  if (!handled) {
+    clip_run(0, W, xc, emit);
+    return;
+  }
+  if (intervals.is_empty())
+    return;
+
+  // A single span covering the full circle (len >= W) paints every column;
+  // detect it up front and skip the seam-split/sort/coalesce path. Coverage
+  // assembled from multiple abutting spans is not caught here — it falls to the
+  // slow path, which still paints every covered column.
+  for (const auto &iv : intervals) {
+    if (iv.second - iv.first >= static_cast<float>(W)) {
+      clip_run(0, W, xc, emit);
+      return;
+    }
+  }
+
+  coalesce_spans<W>(intervals, norm);
+  for (const auto &run : norm)
+    clip_run(static_cast<int>(run.first), static_cast<int>(run.second), xc,
+             emit);
+}
+
 /** Capacity of scan_region's per-row emission buffer, and so the compile-time
  *  ceiling on sdf_max_spans of any shape handed to a rasterizer. Covers a
  *  top-level Union/SmoothUnion (|A|+|B|) and Subtract (2·|A|); a top-level
@@ -379,19 +446,6 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
     }
   };
-  // Intersect a coalesced run [x1, x2) with the clip arc before walking. A
-  // wrapping arc is [rs, W) ∪ [0, re); the two pieces are disjoint (re <= rs),
-  // so no column is walked twice.
-  auto walk_clipped = [&](int x1, int x2, int y, float sp, float cp, int st) {
-    if (!xc.active) {
-      walk(x1, x2, y, sp, cp, st);
-    } else if (xc.wrap) {
-      walk(std::max(x1, xc.rs), x2, y, sp, cp, st);
-      walk(x1, std::min(x2, xc.re), y, sp, cp, st);
-    } else {
-      walk(std::max(x1, xc.rs), std::min(x2, xc.re), y, sp, cp, st);
-    }
-  };
 
   // Inverted range (y_min > y_max) is a no-op: a disjoint CSG Intersection or a
   // fully-culled Face reports y_min=1, y_max=0, and the loop never runs.
@@ -406,30 +460,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
     bool handled = get_intervals(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
-    if (handled && !intervals.is_empty()) {
-      // A single span covering the full circle (len >= W) paints every column;
-      // detect it up front and skip the seam-split/sort/coalesce path. Coverage
-      // assembled from multiple abutting spans is not caught here — it falls to
-      // the slow path, which still paints every covered column.
-      bool full_row = false;
-      for (const auto &iv : intervals) {
-        if (iv.second - iv.first >= static_cast<float>(W)) {
-          full_row = true;
-          break;
-        }
-      }
-
-      if (full_row) {
-        walk_clipped(0, W, y, sp, cp, stride);
-      } else {
-        coalesce_spans<W>(intervals, norm);
-        for (const auto &run : norm)
-          walk_clipped(static_cast<int>(run.first),
-                       static_cast<int>(run.second), y, sp, cp, stride);
-      }
-    } else if (!handled) {
-      walk_clipped(0, W, y, sp, cp, stride);
-    }
+    emit_row_runs<W>(handled, intervals, norm, xc,
+                     [&](int x1, int x2) { walk(x1, x2, y, sp, cp, stride); });
   }
 }
 
@@ -1181,7 +1213,8 @@ struct RingGroup {
     // 2 arcs per row, so small stack buffers replace the arena-backed CSG
     // interval machinery — and the walk compiles inside this O3 region, where
     // scan_region (-Os) forces the O3 pixel body out of line and calls it per
-    // pixel. Wrap/coalesce mirrors scan_region so walked pixels are identical.
+    // pixel. Runs come from the shared emit_row_runs, so the walked columns are
+    // scan_region's.
     const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
     const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
     const auto xc = cr.x_clip();
@@ -1210,17 +1243,6 @@ struct RingGroup {
         }
       }
     };
-    auto run_clipped = [&](int x1, int x2, int y, float sp, float cp) {
-      if (!xc.active) {
-        pixel_run(x1, x2, y, sp, cp);
-      } else if (xc.wrap) {
-        pixel_run(std::max(x1, xc.rs), x2, y, sp, cp);
-        pixel_run(x1, std::min(x2, xc.re), y, sp, cp);
-      } else {
-        pixel_run(std::max(x1, xc.rs), std::min(x2, xc.re), y, sp, cp);
-      }
-    };
-
     for (int y = y_lo; y <= y_hi; ++y) {
       // Band gate hoisted per row: bounds pad (0.95 * thickness) is narrower
       // than the SDF's own band, so an out-of-band row can still eval alpha >
@@ -1234,33 +1256,18 @@ struct RingGroup {
         continue;
       float sp = TrigLUT<W, H>::sin_phi[y];
       float cp = TrigLUT<W, H>::cos_phi[y];
+      auto emit = [&](int x1, int x2) { pixel_run(x1, x2, y, sp, cp); };
 
       if (cover.needs_full_row_scan(sp)) {
-        run_clipped(0, W, y, sp, cp);
+        clip_run(0, W, xc, emit);
         continue;
       }
       intervals.clear();
       cover.template get_horizontal_intervals<W, H>(y, [&](float t1, float t2) {
         SDF::push_interval(intervals, t1, t2);
       });
-      if (intervals.is_empty())
-        continue;
-
-      bool full_row = false;
-      for (const auto &iv : intervals)
-        if (iv.second - iv.first >= static_cast<float>(W)) {
-          full_row = true;
-          break;
-        }
-      if (full_row) {
-        run_clipped(0, W, y, sp, cp);
-        continue;
-      }
-
-      coalesce_spans<W>(intervals, norm);
-      for (const auto &run : norm)
-        run_clipped(static_cast<int>(run.first), static_cast<int>(run.second),
-                    y, sp, cp);
+      // The full-row case is taken above, so the covering ring always answers.
+      emit_row_runs<W>(true, intervals, norm, xc, emit);
     }
   }
 };
@@ -1534,6 +1541,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
+    // Hand-rolled rather than the shared clip_run/emit_row_runs: this consumer
+    // materializes runs into a cached array instead of walking them, and either
+    // shared spelling costs 272 B of ITCM here.
     auto add_run = [&](int x1, int x2) {
       auto push = [&](int a, int b) {
         if (a >= b)
