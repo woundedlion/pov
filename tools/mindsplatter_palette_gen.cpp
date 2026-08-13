@@ -19,7 +19,7 @@ constexpr int LUT_SIZE = 256;
 
 PaletteRecipe make_recipe(float base_turns) {
   PaletteRecipe recipe;
-  recipe.schema_version = 4;
+  recipe.schema_version = PaletteRecipe::SCHEMA_VERSION;
   recipe.input.offset = 0.0f;
   recipe.input.span = 0.624f;
   recipe.domain = PaletteDomain::STRAIGHT;
