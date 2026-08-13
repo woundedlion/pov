@@ -2674,6 +2674,7 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
 template <int W, int H>
 static inline Vector ring_tangent(int i, const Vector &u, const Vector &w,
                                   float cos_phase, float sin_phase) {
+  assert(i >= 0 && i < W);
   float cos_t = TrigLUT<W, H>::cos_theta(i) * cos_phase -
                 TrigLUT<W, H>::sin_theta[i] * sin_phase;
   float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase +
