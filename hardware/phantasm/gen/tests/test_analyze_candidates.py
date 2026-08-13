@@ -11,7 +11,7 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import analyze_candidates  # noqa: E402
-import fab  # noqa: E402
+import kicad_common  # noqa: E402
 
 
 class CandidateBoardTests(unittest.TestCase):
@@ -50,7 +50,8 @@ class ParserTests(unittest.TestCase):
         self.assertEqual([str(block[1]) for block in found], ["A", "B"])
 
     def test_uses_shared_kicad_cli_discovery(self):
-        self.assertEqual(analyze_candidates.KCLI, fab.find_kicad_cli())
+        self.assertEqual(analyze_candidates.KCLI,
+                         kicad_common.find_kicad_cli())
 
 
 SYNTHETIC_BOARD = """

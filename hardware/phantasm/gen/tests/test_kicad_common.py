@@ -1,12 +1,39 @@
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import kicad_common  # noqa: E402
+
+
+class FindKicadCliTests(unittest.TestCase):
+    """Every tool that shells out to KiCad resolves the binary through here."""
+
+    def test_env_override_wins_when_it_exists(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cli = Path(directory) / "kicad-cli"
+            cli.touch()
+            with mock.patch.dict(os.environ, {"KICAD_CLI": str(cli)}):
+                self.assertEqual(kicad_common.find_kicad_cli(), str(cli))
+
+    def test_falls_back_to_the_path_name(self):
+        with mock.patch.dict(os.environ, {"KICAD_CLI": "missing-kicad-cli"}), \
+                mock.patch.object(kicad_common.glob, "glob", return_value=[]):
+            self.assertEqual(kicad_common.find_kicad_cli(), "kicad-cli")
+
+    def test_prefers_the_newest_install(self):
+        installs = [r"C:\Program Files\KiCad\9.0\bin\kicad-cli.exe",
+                    r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"]
+        with mock.patch.dict(os.environ, {}, clear=True), \
+                mock.patch.object(kicad_common.glob, "glob",
+                                  side_effect=lambda p: installs if "Program" in p
+                                  and "x86" not in p else []):
+            self.assertEqual(kicad_common.find_kicad_cli(), installs[1])
 
 
 class RequireWritableTests(unittest.TestCase):
