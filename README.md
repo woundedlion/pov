@@ -224,6 +224,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── engine/                 Machinery: platform layer, memory, callables, rosters, effect support
 │   │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
 │   │   ├── platform_arduino_mocks.h Off-device emulation of the Arduino/FastLED API
+│   │   ├── platform_attributes.h    HS_O3 / HS_COLD / HS_PROGMEM_UNIQUE code and data placement macros
+│   │   ├── platform_diagnostics.h   hs::log / hs::flush_log sink + the HS_OS_CYCLES cycle read
+│   │   ├── platform_rng.h           Pcg32 process-wide PRNG + the hs::rand_* / hs::shuffle helpers
 │   │   ├── build_features.h         Build-time feature and instrumentation switches
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
 │   │   ├── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
