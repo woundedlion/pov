@@ -281,7 +281,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── generative_palette.h    GenerativePalette + PaletteRecipe compilation (via color.h)
 │   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
 │   │   ├── effect_palette_recipes.h Per-effect authored PaletteRecipe constructors
-│   │   ├── mindsplatter_palettes.h Generated MindSplatter palette-LUT bank (from tools/mindsplatter_palette_gen.cpp)
+│   │   ├── triadic_palette_luts.h  Generated bank of 256 triadic palette LUTs, one per base hue (from tools/mindsplatter_palette_gen.cpp)
 │   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
 │   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
