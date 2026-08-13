@@ -27,14 +27,25 @@
 #include "core/color/color.h"       // Pixel
 #include "core/color/srgb_decode.h" // linear_to_srgb8: bit-exact DTCM split-decode
 
-// arm_dcache_flush (Arduino.h) cleans dirty D-cache lines without invalidating:
-// a TX-only buffer must reach RAM but stay resident for the next frame's write.
-// No DMA on host builds, so the flush is a no-op there.
-#ifndef ARDUINO
-static inline void arm_dcache_flush(void *, uint32_t) {}
-#endif
-
 namespace hd107s {
+
+/**
+ * @brief Cleans a DMA source buffer out of the data cache.
+ * @param data First byte of the buffer the DMA engine reads.
+ * @param bytes Buffer length in bytes.
+ * @details Forwards to arm_dcache_flush (Arduino.h), which cleans dirty lines
+ *          without invalidating: a TX-only buffer must reach RAM but stay
+ *          resident for the next frame's write. No DMA on host builds, so this
+ *          is a no-op there.
+ */
+inline void dcache_flush(void *data, uint32_t bytes) {
+#ifdef ARDUINO
+  arm_dcache_flush(data, bytes);
+#else
+  (void)data;
+  (void)bytes;
+#endif
+}
 
 struct ChannelScale {
   uint8_t r;
@@ -168,11 +179,11 @@ public:
   /**
    * @brief Flushes data cache so DMA sees the buffer. Call after packPixel().
    * @details Flushes the full COMPOSITE_SIZE superset — flush() runs before
-   *          submitFrame picks a range, so cover either transfer. Uses
-   *          arm_dcache_flush (clean, no invalidate): the buffer is TX-only, so
-   *          the lines need write-back, not eviction.
+   *          submitFrame picks a range, so cover either transfer. Cleans
+   *          without invalidating: the buffer is TX-only, so the lines need
+   *          write-back, not eviction.
    */
-  void flush() { arm_dcache_flush(buffer, COMPOSITE_SIZE); }
+  void flush() { hd107s::dcache_flush(buffer, COMPOSITE_SIZE); }
 
   /**
    * @brief Returns a pointer to the start of the composite DMA buffer.
