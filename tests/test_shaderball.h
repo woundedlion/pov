@@ -42,6 +42,7 @@ struct ShaderBallWhiteBox {
   using ValueTransfer = SB::ValueTransfer;
   using CoveragePolicy = SB::CoveragePolicy;
   using PaletteMode = SB::PaletteMode;
+  using BrightnessEnvelope = SB::BrightnessEnvelope;
   using HueShiftMode = SB::HueShiftMode;
   using Slots = SB::Slots;
   using SourceParams = SB::SourceParams;
@@ -348,6 +349,10 @@ struct ShaderBallWhiteBox {
                          const FrameState &frame) {
     return SB::colorize(sample, frame);
   }
+  static float brightness_envelope(float value, BrightnessEnvelope envelope,
+                                   float frequency) {
+    return SB::brightness_envelope_coordinate(value, envelope, frequency);
+  }
   static Pixel prepared_hue_rotation(const FrameState &frame, float value,
                                      float amount) {
     return SB::sample_hue_rotation_lut(frame.prepared_hue_rotation, value,
@@ -516,11 +521,21 @@ inline void test_shaderball_full_config_snapshot() {
       static_cast<size_t>(WB::ConfigFieldId::WARP_INNER_RADIAL_PHASE);
   const size_t hue_noise_speed =
       static_cast<size_t>(WB::ConfigFieldId::COLOR_HUE_NOISE_SPEED);
+  const size_t brightness_envelope =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_BRIGHTNESS_ENVELOPE);
+  const size_t envelope_frequency =
+      static_cast<size_t>(WB::ConfigFieldId::COLOR_ENVELOPE_FREQUENCY);
 
   snapshot.accepted[source_seed] = 0x80000000u;
   snapshot.requested[source_seed] = 0x80000000u;
   snapshot.accepted[inactive_phase] = shaderball_float_payload(5.75f);
   snapshot.requested[inactive_phase] = shaderball_float_payload(5.75f);
+  snapshot.accepted[brightness_envelope] =
+      static_cast<uint32_t>(WB::BrightnessEnvelope::CUP);
+  snapshot.requested[brightness_envelope] =
+      static_cast<uint32_t>(WB::BrightnessEnvelope::CUP);
+  snapshot.accepted[envelope_frequency] = shaderball_float_payload(2.5f);
+  snapshot.requested[envelope_frequency] = shaderball_float_payload(2.5f);
   snapshot.runtime = {0.25f, 0.5f, 0.75f, 0.0f, 1.25f, 1.5f,
                       1.75f, 0.0f, 2.25f, 2.5f, 2.75f};
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
@@ -1489,6 +1504,15 @@ inline void test_shaderball_config_admission() {
     candidate = WB::legacy_config();
     candidate.slots.palette = static_cast<WB::PaletteMode>(invalid_tag);
     HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.brightness_envelope =
+        static_cast<WB::BrightnessEnvelope>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.params.color.envelope_frequency = 0.99f;
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate.params.color.envelope_frequency = 32.01f;
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
 
     const WB::RequestedConfig legacy_config = WB::legacy_config();
     HS_EXPECT_TRUE(WB::valid_config(legacy_config));
@@ -2071,10 +2095,27 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_LT(parameter_index("Lens"), parameter_index("Planar Warp 1"));
   HS_EXPECT_LT(parameter_index("Planar Warp 1"),
                parameter_index("Planar Warp 2"));
-  HS_EXPECT_LT(parameter_index("Palette"), parameter_index("Hue Shift Mode"));
+  HS_EXPECT_LT(parameter_index("Palette"),
+               parameter_index("Brightness Envelope"));
+  HS_EXPECT_LT(parameter_index("Brightness Envelope"),
+               parameter_index("Envelope Frequency"));
+  HS_EXPECT_LT(parameter_index("Envelope Frequency"),
+               parameter_index("Hue Shift Mode"));
   HS_EXPECT_LT(parameter_index("Hue Shift Mode"),
                parameter_index("Hue Shift Amount"));
   HS_EXPECT_EQ(sb.getParameters().find("Palette")->option_count, 3);
+  const auto *brightness_envelope =
+      sb.getParameters().find("Brightness Envelope");
+  HS_EXPECT_TRUE(brightness_envelope != nullptr);
+  HS_EXPECT_EQ(brightness_envelope->option_count, 4);
+  HS_EXPECT_TRUE(std::strcmp(brightness_envelope->options[0], "Cup") == 0);
+  HS_EXPECT_TRUE(std::strcmp(brightness_envelope->options[2], "Ascending") ==
+                 0);
+  const auto *envelope_frequency =
+      sb.getParameters().find("Envelope Frequency");
+  HS_EXPECT_TRUE(envelope_frequency != nullptr);
+  HS_EXPECT_EQ(envelope_frequency->min, 1.0f);
+  HS_EXPECT_EQ(envelope_frequency->max, 32.0f);
   const auto *hue_shift = sb.getParameters().find("Hue Shift Mode");
   HS_EXPECT_TRUE(hue_shift != nullptr);
   HS_EXPECT_EQ(hue_shift->option_count, 3);
@@ -2142,9 +2183,10 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_EQ(WB::active_config(sb).params.value.edge_width, 0.0f);
 
   constexpr const char *ROOT_ENUMS[] = {
-      "Function",      "Projection",    "Projection Frame", "Lens",
-      "Planar Warp 1", "Planar Warp 2", "Signal Weight",    "Value Transfer",
-      "Coverage",      "Palette",       "Hue Shift Mode"};
+      "Function",      "Projection",          "Projection Frame",
+      "Lens",          "Planar Warp 1",       "Planar Warp 2",
+      "Signal Weight", "Value Transfer",      "Coverage",
+      "Palette",       "Brightness Envelope", "Hue Shift Mode"};
   for (const char *name : ROOT_ENUMS) {
     const int option_count = sb.getParameters().find(name)->option_count;
     for (int option = 0; option < option_count; ++option) {
@@ -3454,6 +3496,11 @@ inline void test_shaderball_kernel_catalog() {
       }
     }
   }
+  for (uint8_t envelope = 0; envelope <= 3; ++envelope) {
+    config.slots.brightness_envelope =
+        static_cast<WB::BrightnessEnvelope>(envelope);
+    check(config);
+  }
 
   WB::FrameState frame = WB::frame(sb);
   frame.resources.outer_warp_noise = nullptr;
@@ -3749,6 +3796,49 @@ inline void test_shaderball_palette_resources() {
                  triadic.b != complementary.b);
   HS_EXPECT_TRUE(triadic.r != analogous.r || triadic.g != analogous.g ||
                  triadic.b != analogous.b);
+}
+
+/** @brief Colorize brightness envelopes reshape only the palette coordinate. */
+inline void test_shaderball_brightness_envelopes() {
+  using WB = ShaderBallWhiteBox;
+  using Envelope = WB::BrightnessEnvelope;
+
+  HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::CUP, 1.0f), 1.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.5f, Envelope::CUP, 1.0f), 0.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::BELL, 1.0f), 0.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.5f, Envelope::BELL, 1.0f), 1.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.25f, Envelope::ASCENDING, 1.0f),
+               0.25f);
+  HS_EXPECT_EQ(WB::brightness_envelope(1.0f, Envelope::ASCENDING, 1.0f), 1.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.25f, Envelope::DESCENDING, 1.0f),
+               0.75f);
+  HS_EXPECT_NEAR(WB::brightness_envelope(0.1f, Envelope::ASCENDING, 2.0f),
+                 WB::brightness_envelope(0.6f, Envelope::ASCENDING, 2.0f),
+                 1e-6f);
+
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  WB::RequestedConfig config = WB::legacy_config();
+  config.slots.hue_shift = WB::HueShiftMode::NONE;
+  const WB::MaterialSample sample{
+      0.37f, 0.6f, Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
+  const Color4 default_color =
+      WB::colorize(sample, WB::config_frame(sb, config));
+  HS_EXPECT_TRUE(default_color.color ==
+                 WB::palette_color(sb, config.slots.palette, sample.value));
+  HS_EXPECT_NEAR(default_color.alpha, 0.6f, 1e-6f);
+
+  config.slots.brightness_envelope = Envelope::CUP;
+  config.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
+  config.params.color.hue_shift_amount = 0.25f;
+  WB::MaterialSample shifted_sample = sample;
+  shifted_sample.value = 0.5f;
+  shifted_sample.warp_displacement = 1.0f;
+  const WB::FrameState frame = WB::config_frame(sb, config);
+  const Color4 shifted = WB::colorize(shifted_sample, frame);
+  HS_EXPECT_TRUE(shifted.color ==
+                 WB::prepared_hue_rotation(frame, 0.0f, 0.25f));
 }
 
 /** @brief Colorize hue modes consume their selected pipeline carrier. */
@@ -4086,6 +4176,7 @@ inline int run_shaderball_tests() {
   test_shaderball_discrete_transition();
   test_shaderball_pause_does_not_hold_through_clear();
   test_shaderball_palette_resources();
+  test_shaderball_brightness_envelopes();
   test_shaderball_hue_shift_modes();
   test_shaderball_surface_noise_geometry_and_composition();
   test_shaderball_noise_contour_domains();

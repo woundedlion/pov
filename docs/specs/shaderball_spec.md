@@ -358,7 +358,8 @@ The north-star discrete slots are:
 - `ValueTransfer`: linear, ridge, iso-contour, or smooth bands;
 - `CoveragePolicy`: opaque, projection weight, projection-weight squared, value
   cutout, or edge fade; and
-- `Colorizer`: generated triadic, ShaderBall liquid, and deformation ink.
+- `Colorizer`: generated triadic, complementary, or analogous palette; cup,
+  bell, ascending, or descending brightness envelope; and hue-shift mode.
 
 Value policy owns distinctions projection cannot express. Given raw field
 `f` in `[-1, 1]` and projection-supplied weight `w`, first compute
@@ -392,6 +393,21 @@ edge; positive values use the smooth ramp above. ShaderBall maps exactly to
 The former `UNWEIGHTED` behavior is `NONE + LINEAR + OPAQUE`. New bounded
 projections normally supply `w = 1` unless an explicit edge treatment says
 otherwise.
+
+Colorize maps the transferred `value` to a palette coordinate independently of
+coverage. The default `ASCENDING` envelope at frequency 1 is exact identity.
+Other cases repeat the selected profile over the unit interval. For
+`phase = wrap(min(value, 1 - ULP) * frequency)`:
+
+```text
+CUP:         palette_value = abs(2*phase - 1)
+BELL:        palette_value = 1 - abs(2*phase - 1)
+ASCENDING:   palette_value = phase
+DESCENDING:  palette_value = 1 - phase
+```
+
+`frequency` is continuous in `[1, 32]`. Both the palette lookup and hue-rotation
+lookup use `palette_value`; alpha coverage continues to use the material sample.
 
 #### 0.7.1 Fixed projected-domain warp program
 

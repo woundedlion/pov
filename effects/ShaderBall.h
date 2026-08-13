@@ -55,6 +55,7 @@ struct ShaderBallWhiteBox;
   X(SLOTS_VALUE_TRANSFER, slots.value_transfer)                                \
   X(SLOTS_COVERAGE, slots.coverage)                                            \
   X(SLOTS_PALETTE, slots.palette)                                              \
+  X(SLOTS_BRIGHTNESS_ENVELOPE, slots.brightness_envelope)                      \
   X(SLOTS_HUE_SHIFT, slots.hue_shift)                                          \
   X(SLOTS_PEIRCE_LAYOUT, slots.peirce_layout)                                  \
   X(SLOTS_AIROCEAN_LAYOUT, slots.airocean_layout)                              \
@@ -161,6 +162,7 @@ struct ShaderBallWhiteBox;
   X(COLOR_HUE_SHIFT_AMOUNT, params.color.hue_shift_amount)                     \
   X(COLOR_HUE_NOISE_SCALE, params.color.hue_noise_scale)                       \
   X(COLOR_HUE_NOISE_SPEED, params.color.hue_noise_speed)                       \
+  X(COLOR_ENVELOPE_FREQUENCY, params.color.envelope_frequency)                 \
   X(CAMERA_WANDER, params.outer_camera.wander)                                 \
   X(SURFACE_NOISE_BASIS, params.surface_noise.basis)                           \
   X(SURFACE_NOISE_INTEGRATOR, params.surface_noise.integrator)                 \
@@ -413,6 +415,7 @@ public:
     PROJECTION_WEIGHT
   };
   enum class PaletteMode : uint8_t { TRIADIC, COMPLEMENTARY, ANALOGOUS };
+  enum class BrightnessEnvelope : uint8_t { CUP, BELL, ASCENDING, DESCENDING };
   enum class HueShiftMode : uint8_t { NONE, NOISE, WARP_DISPLACEMENT };
 
   struct Slots {
@@ -434,6 +437,7 @@ public:
     SurfaceNoisePlacement surface_noise_placement =
         SurfaceNoisePlacement::AFTER_LENS;
     HueShiftMode hue_shift = HueShiftMode::NOISE;
+    BrightnessEnvelope brightness_envelope = BrightnessEnvelope::ASCENDING;
 
     HS_COLD_MEMBER bool operator==(const Slots &) const = default;
   };
@@ -724,6 +728,7 @@ public:
     float hue_shift_amount = 0.0f;
     float hue_noise_scale = 1.0f;
     float hue_noise_speed = 0.0f;
+    float envelope_frequency = 1.0f;
 
     HS_COLD_MEMBER constexpr ColorParams() = default;
 
@@ -738,6 +743,8 @@ public:
       hue_shift_amount = hs::lerp(a.hue_shift_amount, b.hue_shift_amount, t);
       hue_noise_scale = hs::lerp(a.hue_noise_scale, b.hue_noise_scale, t);
       hue_noise_speed = hs::lerp(a.hue_noise_speed, b.hue_noise_speed, t);
+      envelope_frequency =
+          hs::lerp(a.envelope_frequency, b.envelope_frequency, t);
     }
   };
 
@@ -843,7 +850,7 @@ public:
   using RequestedConfig = Config;
   using Preset = Config;
 
-  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 4;
+  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 5;
 
   /**
    * @brief Reports whether a persisted snapshot's schema version can be
@@ -1063,6 +1070,13 @@ private:
     register_coverage_controls(slots.coverage, requested_config.params.value);
     register_animated_param("Palette", &slots.palette, PALETTE_OPTIONS,
                             PALETTE_EXPORT_OPTIONS, NUM_PALETTES);
+    register_animated_param("Brightness Envelope", &slots.brightness_envelope,
+                            BRIGHTNESS_ENVELOPE_OPTIONS,
+                            BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS,
+                            NUM_BRIGHTNESS_ENVELOPES);
+    register_animated_param("Envelope Frequency",
+                            &requested_config.params.color.envelope_frequency,
+                            ENVELOPE_FREQUENCY_MIN, ENVELOPE_FREQUENCY_MAX);
     register_animated_param("Hue Shift Mode", &slots.hue_shift,
                             HUE_SHIFT_OPTIONS, HUE_SHIFT_EXPORT_OPTIONS,
                             NUM_HUE_SHIFT_MODES);
@@ -1308,6 +1322,7 @@ private:
            std::strcmp(name, "Value Transfer") == 0 ||
            std::strcmp(name, "Coverage") == 0 ||
            std::strcmp(name, "Palette") == 0 ||
+           std::strcmp(name, "Brightness Envelope") == 0 ||
            std::strcmp(name, "Hue Shift Mode") == 0;
   }
 #endif
@@ -2873,6 +2888,8 @@ private:
            enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) &&
            enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) &&
            enum_at_most(slots.palette, PaletteMode::ANALOGOUS) &&
+           enum_at_most(slots.brightness_envelope,
+                        BrightnessEnvelope::DESCENDING) &&
            enum_at_most(slots.hue_shift, HueShiftMode::WARP_DISPLACEMENT) &&
            enum_at_most(slots.peirce_layout, PeirceLayout::VERTICAL) &&
            enum_at_most(slots.airocean_layout, AiroceanLayout::HORIZONTAL) &&
@@ -4399,7 +4416,10 @@ private:
    */
   HS_FLASH_MEMBER static Color4 colorize_generated(const MaterialSample &sample,
                                                    const FrameState &frame) {
-    Color4 color = frame.resources.generated_palette->get(sample.value);
+    const float palette_value = brightness_envelope_coordinate(
+        sample.value, frame.slots.brightness_envelope,
+        frame.params.color.envelope_frequency);
+    Color4 color = frame.resources.generated_palette->get(palette_value);
     color.alpha *= sample.coverage;
     if (!frame.prepared_hue_rotation.active)
       return color;
@@ -4419,8 +4439,27 @@ private:
     }
     if (amount != 0.0f)
       color.color = sample_hue_rotation_lut(frame.prepared_hue_rotation,
-                                            sample.value, amount);
+                                            palette_value, amount);
     return color;
+  }
+
+  __attribute__((always_inline)) static float
+  brightness_envelope_coordinate(float value, BrightnessEnvelope envelope,
+                                 float frequency) {
+    if (envelope == BrightnessEnvelope::ASCENDING && frequency == 1.0f)
+      return value;
+    const float phase = wrap_t(std::min(value, ONE_BELOW_UNIT) * frequency);
+    switch (envelope) {
+    case BrightnessEnvelope::CUP:
+      return fabsf(2.0f * phase - 1.0f);
+    case BrightnessEnvelope::BELL:
+      return 1.0f - fabsf(2.0f * phase - 1.0f);
+    case BrightnessEnvelope::ASCENDING:
+      return phase;
+    case BrightnessEnvelope::DESCENDING:
+      return 1.0f - phase;
+    }
+    return phase;
   }
 
 #if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
@@ -5086,6 +5125,8 @@ private:
         !enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) ||
         !enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) ||
         !enum_at_most(slots.palette, PaletteMode::ANALOGOUS) ||
+        !enum_at_most(slots.brightness_envelope,
+                      BrightnessEnvelope::DESCENDING) ||
         !enum_at_most(slots.hue_shift, HueShiftMode::WARP_DISPLACEMENT))
       return false;
     if (slots.function == Function::NOISE_CONTOUR_SPHERE &&
@@ -6129,6 +6170,13 @@ private:
       "PaletteMode::TRIADIC", "PaletteMode::COMPLEMENTARY",
       "PaletteMode::ANALOGOUS"};
   static constexpr int NUM_PALETTES = std::size(PALETTE_OPTIONS);
+  static constexpr const char *BRIGHTNESS_ENVELOPE_OPTIONS[] = {
+      "Cup", "Bell", "Ascending", "Descending"};
+  static constexpr const char *BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS[] = {
+      "BrightnessEnvelope::CUP", "BrightnessEnvelope::BELL",
+      "BrightnessEnvelope::ASCENDING", "BrightnessEnvelope::DESCENDING"};
+  static constexpr int NUM_BRIGHTNESS_ENVELOPES =
+      std::size(BRIGHTNESS_ENVELOPE_OPTIONS);
   static constexpr const char *HUE_SHIFT_OPTIONS[] = {
       "None", "Noise", "Total Warp Displacement"};
   static constexpr const char *HUE_SHIFT_EXPORT_OPTIONS[] = {
@@ -6161,6 +6209,8 @@ private:
   static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
   static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
   static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
+  static constexpr float ENVELOPE_FREQUENCY_MIN = 1.0f;
+  static constexpr float ENVELOPE_FREQUENCY_MAX = 32.0f;
   static constexpr float WAVE_SPIN_MIN = 0.0f, WAVE_SPIN_MAX = 0.05f;
   static constexpr float SOURCE_NOISE_SCALE_MIN = 0.0f;
   static constexpr float SOURCE_NOISE_SCALE_MAX = 2.0f;
@@ -6253,7 +6303,9 @@ private:
            p.color.hue_noise_scale >= HUE_NOISE_SCALE_MIN &&
            p.color.hue_noise_scale <= HUE_NOISE_SCALE_MAX &&
            p.color.hue_noise_speed >= -HUE_NOISE_SPEED_MAX &&
-           p.color.hue_noise_speed <= HUE_NOISE_SPEED_MAX;
+           p.color.hue_noise_speed <= HUE_NOISE_SPEED_MAX &&
+           p.color.envelope_frequency >= ENVELOPE_FREQUENCY_MIN &&
+           p.color.envelope_frequency <= ENVELOPE_FREQUENCY_MAX;
   }
 
   HS_COLD_MEMBER static constexpr bool
