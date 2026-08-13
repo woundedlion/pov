@@ -412,6 +412,11 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
  * (including the ones a composed operator leaves behind in `temp`). The seed
  * sits below both marks and stays for the life of the chain.
  */
+#if defined(HS_RELAX_BAKE_VERIFY)
+/** @brief Payloads relax_baked() has re-derived and matched this run. */
+inline int relax_bakes_verified = 0;
+#endif
+
 class SolidBuilder {
   PolyMesh mesh; /**< Mesh being built; updated in place by each operator. */
   Arena *output_arena;  /**< Current output arena (swapped per op). */
@@ -586,6 +591,7 @@ public:
                        bake.vertex_bits[3 * i + 2],
                "relax bake verify: vertex differs");
     }
+    ++relax_bakes_verified;
 #else // HS_RELAX_BAKE_EXTRACT: emit the payload for the generated header.
     hs::log("RELAX_BAKE_BEGIN %s %d %lu %lu %lu %08lx %08lx", bake.name,
             static_cast<int>(bake.iterations),

@@ -9,9 +9,21 @@
  * emits the full asset stream on stdout; tools/relax_bakes.py parses it into
  * core/mesh/relax_bakes_generated.h. Because host relax is deterministic, the
  * emitted bits load unchanged on both host and device.
+ *
+ * Compiled with HS_RELAX_BAKE_VERIFY instead, the same sweep asserts each
+ * re-derivation against the committed payload (the unit_relax_bake_verify gate).
  */
 #include <cstdint>
+#include <cstdio>
 #include "core/mesh/solids.h"
+
+#if defined(HS_RELAX_BAKE_VERIFY)
+// relax_baked() steps the registries must reach. The assertions live inside
+// relax_baked(), so a sweep that reaches none of them still exits 0; this floor
+// is what distinguishes a passing gate from a gate that scored nothing. Raise it
+// for a new baked step; lower it only when one is deliberately retired.
+static constexpr int MIN_RELAX_BAKES_VERIFIED = 15;
+#endif
 
 int main() {
   static uint8_t arena_a[1 << 22];
@@ -28,5 +40,16 @@ int main() {
   for (auto reg : Solids::all_registries())
     for (const auto &e : reg)
       run(e);
+#if defined(HS_RELAX_BAKE_VERIFY)
+  if (Solids::relax_bakes_verified < MIN_RELAX_BAKES_VERIFIED) {
+    std::printf("relax bake verify: reached %d relax_baked() steps of %d — a "
+                "recipe dropped one, so its committed payload is pinned to "
+                "nothing; see tools/relax_bake_harness.cpp\n",
+                Solids::relax_bakes_verified, MIN_RELAX_BAKES_VERIFIED);
+    return 1;
+  }
+  std::printf("relax bake verify: %d relax_baked() steps re-derived\n",
+              Solids::relax_bakes_verified);
+#endif
   return 0;
 }
