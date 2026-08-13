@@ -403,8 +403,8 @@ def cmd_windows(windows, scope):
           f"{'' if exact_run else ' (wall-derived, +-1)'}")
 
 
-def cmd_presets(windows, scope, gate):
-    """One row per preset, read from its modal-call-count (clean-hold) windows."""
+def clean_hold_rows(windows, scope, gate):
+    """Per-preset clean-hold rows: (name, holds, clean, ms, calls/f, meta)."""
     gate = gate or scope
     # Windows before the first marker belong to the initial preset: index-style
     # cyclers construct on entry 0 and only log on advance, so fold the
@@ -419,7 +419,6 @@ def cmd_presets(windows, scope, gate):
             key = (w.marker["key"], w.marker.get("name"))
         groups.setdefault(key, []).append(w)
 
-    print(f"# preset   holds  clean  {scope} ms/f  calls/f  meta")
     rows = []
     for key, ws in groups.items():
         gate_counts = [round(w.calls_per_frame(gate)) for w in ws
@@ -443,12 +442,18 @@ def cmd_presets(windows, scope, gate):
         elif mk and mk["key"] == "hankin":
             meta = mk["name"]
         rows.append((key[1], len(ws), len(clean), best_ms, cf, meta))
+    return rows
+
+
+def cmd_presets(windows, scope, gate):
+    """One row per preset, read from its modal-call-count (clean-hold) windows."""
+    print(f"# preset   holds  clean  {scope} ms/f  calls/f  meta")
     for name, holds, clean, ms, cf, meta in sorted(
-            rows, key=lambda r: -r[3]):
+            clean_hold_rows(windows, scope, gate), key=lambda r: -r[3]):
         print(f"{name:>8}  {holds:5d}  {clean:5d}  {ms:8.2f}  {cf:7.1f}  {meta}")
 
 
-def cmd_buckets(windows):
+def cmd_buckets(windows, scope, gate):
     """Per-preset cadence buckets: how many presets hold 16 fps vs spill.
 
     A preset owns the FRAMES its marker was in force for, not whole windows: the
@@ -457,6 +462,11 @@ def cmd_buckets(windows):
     (whichever preset neighbours an expensive one inherits its cost). Per-frame
     attribution needs the per-frame telemetry; without it this falls back to the
     window-level split, which carries that error.
+
+    A preset's bucket holds every frame it was on screen for, including its
+    transitions in and out, so its peak render is over a superset of the frames
+    its clean holds average: a clean-hold scope time above the peak render is
+    arithmetically impossible and fails the run rather than reaching a report.
 
     Colour is binary: no spill anywhere is green; any spilled frame is red.
     """
@@ -497,11 +507,16 @@ def cmd_buckets(windows):
         colour = "green" if spill == 0 else "red"
         rows.append((key[1], colour, peak, spill, frames))
 
+    clean = {r[0]: r[3] for r in clean_hold_rows(windows, scope, gate)}
     mark = "" if exact_run else "~"
-    print(f"# preset  cadence  peak_render_ms{mark}  spilled/frames")
+    print(f"# preset  cadence  peak_render_ms{mark}  spilled/frames  "
+          f"clean {scope} ms/f")
     for name, colour, peak, spill, frames in sorted(
             rows, key=lambda r: (-r[3], -r[2])):
-        print(f"{name:>8}  {colour:>7}  {peak:11.2f}{mark}  {spill:5d}/{frames}")
+        held = clean.get(name)
+        held_s = "    n/a" if held is None else f"{held:7.2f}"
+        print(f"{name:>8}  {colour:>7}  {peak:11.2f}{mark}  "
+              f"{spill:5d}/{frames}  {held_s}")
     print("# buckets: " + " ".join(
         f"{c}={sum(1 for r in rows if r[1] == c)}"
         for c in ("green", "red")))
@@ -515,6 +530,16 @@ def cmd_buckets(windows):
     if not exact_run:
         print("#   ~ = window-mean placeholder (understates the true peak); "
               "spilled is wall-derived, +-1. Re-capture for exact peaks.")
+    # 0.01 ms absorbs the printed rounding, nothing more.
+    inverted = [(name, peak, clean[name]) for name, _, peak, _, _ in rows
+                if name in clean and clean[name] > peak + 0.01]
+    for name, peak, held in inverted:
+        print(f"preset {name}: clean-hold {scope} {held:.2f} ms/f exceeds peak "
+              f"render {peak:.2f} ms, which its own frames are a subset of",
+              file=sys.stderr)
+    if inverted:
+        print(f"# ORDERING FAILED for {len(inverted)} preset(s)", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -832,7 +857,7 @@ def main():
     elif args.mode == "presets":
         cmd_presets(windows, scope, args.gate)
     elif args.mode == "buckets":
-        return cmd_buckets(windows)
+        return cmd_buckets(windows, scope, args.gate)
     elif args.mode == "metrics":
         return cmd_metrics(windows)
     elif args.mode == "probe":

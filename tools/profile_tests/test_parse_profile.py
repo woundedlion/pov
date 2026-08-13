@@ -529,5 +529,53 @@ class FramesMode(unittest.TestCase):
         self.assertEqual(rows[2].split(), ["3", "200000", "190000", "3"])
 
 
+class BucketOrdering(unittest.TestCase):
+    """A preset's clean-hold scope time cannot exceed its own peak render.
+
+    The bucket holds every frame the preset was on screen for, transitions
+    included, so it is a superset of the frames the clean holds average over.
+    Two committed profile rows once reported the inversion.
+    """
+
+    def _run(self, render_us, shader_us_per_frame, frames=4):
+        import contextlib
+        import io
+        import tempfile
+        lines = ["Spawning Shape: solid (V=1, E=1, F=74, I=1)"]
+        for n in range(1, frames + 1):
+            lines.append(f"f {n} w={render_us + 5_000} r={render_us}")
+        lines.append(f"=== profile Fx [288x144] frames 1-{frames} "
+                     f"window=1000000 us ===")
+        lines.append(f"frame wall us: min=0 avg=0 max=0 sum=0 ({frames} frames)")
+        lines.append(f"frame render us: avg={render_us} max={render_us}")
+        lines.append(f"frame            {render_us * frames} us (100%)  "
+                     f"{frames} calls  1 cyc")
+        lines.append(f"  shader         {shader_us_per_frame * frames} us (50%)  "
+                     f"{frames} calls  1 cyc")
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "cap.log"
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            windows, _ = pp.parse(path)
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                status = pp.cmd_buckets(windows, "shader", None)
+        return status, out.getvalue(), err.getvalue()
+
+    def test_a_clean_hold_above_its_peak_render_fails(self):
+        status, _, err = self._run(34_940, 39_650)
+        self.assertEqual(status, 1)
+        self.assertIn("exceeds peak render", err)
+        self.assertIn("39.65", err)
+        self.assertIn("34.94", err)
+
+    def test_an_ordered_capture_passes_and_reports_both(self):
+        status, out, err = self._run(49_520, 43_470)
+        self.assertEqual(status, 0)
+        self.assertEqual(err, "")
+        row = [l for l in out.splitlines() if not l.startswith("#")][0]
+        self.assertIn("49.52", row)
+        self.assertIn("43.47", row)
+
+
 if __name__ == "__main__":
     unittest.main()
