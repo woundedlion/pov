@@ -736,13 +736,17 @@ inline void test_relax_reduces_edge_variance() {
 }
 
 /**
- * @brief Verifies relax runs on an open (boundary) mesh without tripping a trap
- *        and leaves every output vertex finite.
+ * @brief Verifies relax's boundary-tolerant orbit fallback does the partial
+ *        relaxation it documents, not nothing and not a collapse.
  * @details Two triangles sharing one edge: the outer edges are boundary edges
  *          (shared once), so the per-vertex orbit must fall back to the
- *          boundary-tolerant path rather than HS_CHECK-trapping.
+ *          boundary-tolerant path rather than HS_CHECK-trapping. Only the two
+ *          endpoints of the shared edge have a paired incoming half-edge, so
+ *          relax's @note says exactly those two feel a force and the other two
+ *          feel none — and the forced pair must pull the over-long shared edge
+ *          toward the mesh mean while staying on the sphere and apart.
  */
-inline void test_relax_open_mesh_finite() {
+inline void test_relax_open_mesh_partial() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
 
@@ -763,6 +767,9 @@ inline void test_relax_open_mesh_finite() {
   strip.faces.push_back(3);
   strip.faces.push_back(1);
 
+  const float shared_edge_before =
+      distance_between(strip.vertices[0], strip.vertices[1]);
+
   PolyMesh r = MeshOps::relax(strip, target, temp, /*iterations*/ 5);
 
   HS_EXPECT_EQ(r.vertices.size(), strip.vertices.size());
@@ -771,6 +778,26 @@ inline void test_relax_open_mesh_finite() {
     HS_EXPECT_TRUE(std::isfinite(r.vertices[i].y));
     HS_EXPECT_TRUE(std::isfinite(r.vertices[i].z));
   }
+  check_all_unit_vertices(r, 1e-5f);
+
+  // Vertices 0 and 1 span the one interior edge and are the only two with a
+  // paired incoming half-edge; 2 and 3 reach boundary edges alone and get no
+  // force, so they move by nothing beyond the renormalize.
+  HS_EXPECT_GT(distance_between(r.vertices[0], strip.vertices[0]), 1e-2f);
+  HS_EXPECT_GT(distance_between(r.vertices[1], strip.vertices[1]), 1e-2f);
+  HS_EXPECT_LT(distance_between(r.vertices[2], strip.vertices[2]), 1e-5f);
+  HS_EXPECT_LT(distance_between(r.vertices[3], strip.vertices[3]), 1e-5f);
+
+  // The forced pair pulls the over-long shared edge toward the mesh mean, and
+  // no two vertices merge on the way.
+  HS_EXPECT_LT(distance_between(r.vertices[0], r.vertices[1]),
+               shared_edge_before);
+  float min_separation = 1e9f;
+  for (size_t i = 0; i < r.vertices.size(); ++i)
+    for (size_t j = i + 1; j < r.vertices.size(); ++j)
+      min_separation = std::min(min_separation,
+                                distance_between(r.vertices[i], r.vertices[j]));
+  HS_EXPECT_GT(min_separation, 0.5f);
 }
 
 // ---------------------------------------------------------------------------
@@ -1334,7 +1361,7 @@ inline int run_conway_tests() {
   test_chamfer_cube();
   test_relax_preserves_topology();
   test_relax_reduces_edge_variance();
-  test_relax_open_mesh_finite();
+  test_relax_open_mesh_partial();
   test_meta_cube();
   test_meta_is_kis_dual_ambo();
   test_needle_cube();
