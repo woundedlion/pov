@@ -251,6 +251,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── rotate.h                Quaternion projection helpers
 │   │   ├── geometry.h              PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap, Orientation, Basis
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
+│   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
 │   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean sphere → plane kernels (PROJ-derived, MIT)
 │   │   ├── stereographic.h         Stereographic pole attenuation, pattern normalization, glitch lens
