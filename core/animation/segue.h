@@ -45,6 +45,9 @@
  *
  * A policy defining face_offset must define face_phase; face_fade_frac is
  * Base's (1 = fade over the whole window) unless the policy shadows it.
+ * MeshCarousel pairs each of the other optional hooks with a signature-agnostic
+ * name probe, so declaring one at the wrong signature is a compile error rather
+ * than a policy silently dropped off that hook.
  *
  * reorder and mask_pair are contracts on the effect, not the draw path: a
  * NeedsClasses policy left un-reordered fades every class as one, and a Masked
@@ -224,14 +227,86 @@ concept PerFace = HasFaceOffset<S> &&
  * hand it the per-face classes before each transition. */
 template <typename S>
 concept NeedsClasses = requires(S &s, const ArenaVector<uint16_t> &classes) {
-  s.reorder(classes);
+  { s.reorder(classes) } -> std::same_as<void>;
 };
 
 /** @brief Whether a policy splits one frame's rasterizer work between the two
  * meshes with complementary pixel masks, which the effect passes to the two
  * draws itself. */
 template <typename S>
-concept Masked = requires(const S &s) { s.mask_pair(0.5f, 0u); };
+concept Masked = requires(const S &s) {
+  typename S::MaskPair;
+  { s.mask_pair(0.5f, 0u) } -> std::same_as<typename S::MaskPair>;
+};
+
+/** @brief Whether a policy warps vertices before the effect's ripple. */
+template <typename S>
+concept HasWarp = requires(const S &s, const Vector &v) {
+  { s.warp(v, 0.5f) } -> std::same_as<Vector>;
+};
+
+/** @brief Whether a policy re-randomizes its per-transition state on a
+ * direction. */
+template <typename S>
+concept HasRetarget = requires(S &s, const Vector &v) {
+  { s.retarget(v) } -> std::same_as<void>;
+};
+
+/**
+ * @brief Signature-agnostic "the policy declares this hook name" probes.
+ * @details Each carrier declares one hook name; merged into a policy, the name
+ * is ambiguous exactly when the policy declares it too — whatever signature it
+ * carries, and including a template member the call-shaped concepts above
+ * cannot see. MeshCarousel pairs each Declares* with its hook concept, so a
+ * drifted signature is a compile error instead of a policy silently dropped off
+ * the hook. A final or non-class policy cannot be merged into and reports
+ * false.
+ */
+namespace detail {
+
+struct WarpName {
+  void warp();
+};
+struct RetargetName {
+  void retarget();
+};
+struct ReorderName {
+  void reorder();
+};
+struct MaskPairName {
+  void mask_pair();
+};
+
+template <typename S, typename Name> struct Merged : S, Name {};
+
+template <typename S>
+concept Mergeable = std::is_class_v<S> && !std::is_final_v<S>;
+
+} // namespace detail
+
+/** @brief Whether a policy declares a `warp` hook of any signature. */
+template <typename S>
+concept DeclaresWarp = detail::Mergeable<S> && !requires {
+  &detail::Merged<S, detail::WarpName>::warp;
+};
+
+/** @brief Whether a policy declares a `retarget` hook of any signature. */
+template <typename S>
+concept DeclaresRetarget = detail::Mergeable<S> && !requires {
+  &detail::Merged<S, detail::RetargetName>::retarget;
+};
+
+/** @brief Whether a policy declares a `reorder` hook of any signature. */
+template <typename S>
+concept DeclaresReorder = detail::Mergeable<S> && !requires {
+  &detail::Merged<S, detail::ReorderName>::reorder;
+};
+
+/** @brief Whether a policy declares a `mask_pair` hook of any signature. */
+template <typename S>
+concept DeclaresMaskPair = detail::Mergeable<S> && !requires {
+  &detail::Merged<S, detail::MaskPairName>::mask_pair;
+};
 
 /**
  * @brief Whether a policy shadows Base's fragment hooks (fill/grade).
