@@ -93,6 +93,21 @@ class AnalyzeTests(unittest.TestCase):
 
         self.assertEqual(self.analyze_source(source)["small_vias"], 1)
 
+    def test_reads_the_id_first_net_form(self):
+        source = (SYNTHETIC_BOARD.replace('(net "/DATA")', '(net 9 "/DATA")')
+                  .replace('(net "GND")', '(net 1 "GND")'))
+        r = self.analyze_source(source)
+
+        self.assertAlmostEqual(r["netlen"]["DATA"], 10.0)
+        self.assertAlmostEqual(r["crit_len"], 10.0)
+        self.assertEqual(r["netvias"]["GND"], 1)
+
+    def test_rejects_a_board_whose_nets_are_ids_only(self):
+        source = SYNTHETIC_BOARD.replace('(net "/DATA")', "(net 9)")
+
+        with self.assertRaisesRegex(ValueError, "no critical net"):
+            self.analyze_source(source)
+
 
 class ResolveKicadCliTests(unittest.TestCase):
     def test_absolute_install_path_is_used_as_is(self):
