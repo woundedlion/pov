@@ -1464,6 +1464,132 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
 }
 
 /**
+ * @brief Clips an OKLab color to the sRGB gamut straight off the LUT.
+ * @param lab Source color; lightness is clamped to [0, 1] first.
+ * @return The color scaled to the tabulated boundary chroma for its hue and
+ *         lightness cell, or the neutral axis when chroma underflows.
+ * @details Reads the stored cell minimum without the bracket refinement
+ * gamut_max_chroma() runs, and normalizes with one Newton step off the
+ * reciprocal-square-root seed.
+ */
+HS_FLASH_INLINE inline OKLab gamut_clip_lut(OKLab lab) {
+  lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
+  const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
+  if (!(chroma_sq > 1e-12f))
+    return {lab.L, 0.0f, 0.0f};
+  uint32_t inverse_bits;
+  std::memcpy(&inverse_bits, &chroma_sq, sizeof(inverse_bits));
+  inverse_bits = 0x5f3759dfu - (inverse_bits >> 1);
+  float inverse_chroma;
+  std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
+  inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
+  const GamutLut &lut = g_gamut_lut;
+  int angle_index =
+      static_cast<int>(diamond_angle(lab.b, lab.a) * lut.angle_scale);
+  int lightness_index = static_cast<int>(lab.L * lut.l_scale);
+  angle_index = hs::clamp(angle_index, 0, lut.angle_steps - 1);
+  lightness_index = hs::clamp(lightness_index, 0, lut.l_steps - 1);
+  const float max_chroma = std::max(
+      0.0f,
+      static_cast<float>(
+          lut.table[(lightness_index * lut.angle_steps + angle_index) * 2]) *
+              GAMUT_LUT_INV_SCALE -
+          GAMUT_CLIP_MARGIN);
+  const float scale = max_chroma * inverse_chroma;
+  return {lab.L, lab.a * scale, lab.b * scale};
+}
+
+/**
+ * @brief Cosine and sine of a turn angle from a parabolic approximation.
+ * @param turns Angle in turns; wrapped internally.
+ * @param cosine Output cosine.
+ * @param sine Output sine.
+ */
+inline void hue_sincos(float turns, float &cosine, float &sine) {
+  const float x = 2.0f * (turns - floorf(turns + 0.5f));
+  const auto sine_turn = [](float value) {
+    const float parabolic = 4.0f * value * (1.0f - fabsf(value));
+    return parabolic * (0.775f + 0.225f * fabsf(parabolic));
+  };
+  sine = sine_turn(x);
+  cosine = sine_turn(0.5f - fabsf(x));
+}
+
+/**
+ * @brief Perceptual (OKLab) hue rotation clipped straight off the gamut LUT.
+ * @param base Precomputed base from make_hue_rotate_base().
+ * @param amount Rotation in turns (0..1 = full turn).
+ * @return The hue-rotated color, carrying the base alpha.
+ * @details The cheap counterpart of hue_rotate(): approximate turn trig, and
+ * gamut_clip_lut() only when the rotated color leaves the gamut.
+ */
+inline Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
+  float cosine, sine;
+  hue_sincos(amount, cosine, sine);
+  OKLab lab = base.lab;
+  const float rotated_a = lab.a * cosine - lab.b * sine;
+  const float rotated_b = lab.a * sine + lab.b * cosine;
+  lab = {lab.L, rotated_a, rotated_b};
+  LinRGB output = oklab_to_linear_rgb(lab);
+  if (!linear_rgb_in_gamut(output.r, output.g, output.b))
+    output = oklab_to_linear_rgb(gamut_clip_lut(lab));
+  return Color4(Pixel(float_to_pixel16(output.r), float_to_pixel16(output.g),
+                      float_to_pixel16(output.b)),
+                base.base.alpha);
+}
+
+/**
+ * @brief Perceptual (OKLab) hue rotation clipped straight off the gamut LUT.
+ * @param color Source color.
+ * @param amount Rotation in turns (0..1 = full turn).
+ * @return The hue-rotated color, carrying the source alpha.
+ */
+inline Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
+  const LinRGB input = pixel_to_linrgb(color.color);
+  return hue_rotate_lut_gamut(
+      {linear_rgb_to_oklab_fast(input.r, input.g, input.b), color}, amount);
+}
+
+/**
+ * @brief Blends two straight-alpha colors in premultiplied linear space.
+ * @param from Color at mix 0.
+ * @param to Color at mix 1.
+ * @param mix Blend weight in [0, 1].
+ * @return The blend, unpremultiplied back to straight alpha; a zero-alpha
+ *         result carries zero RGB.
+ */
+HS_FLASH_INLINE inline Color4 blend_outputs(const Color4 &from,
+                                            const Color4 &to, float mix) {
+  if (mix == 0.0f)
+    return from;
+  if (mix == 1.0f)
+    return to;
+  const float alpha = hs::lerp(from.alpha, to.alpha, mix);
+  if (alpha == 0.0f)
+    return Color4();
+  const float from_weight = from.alpha * (1.0f - mix);
+  const float to_weight = to.alpha * mix;
+  const float inv_alpha = 1.0f / alpha;
+  return Color4(
+      Pixel(static_cast<uint16_t>(hs::clamp(
+                (from.color.r * from_weight + to.color.r * to_weight) *
+                        inv_alpha +
+                    0.5f,
+                0.0f, 65535.0f)),
+            static_cast<uint16_t>(hs::clamp(
+                (from.color.g * from_weight + to.color.g * to_weight) *
+                        inv_alpha +
+                    0.5f,
+                0.0f, 65535.0f)),
+            static_cast<uint16_t>(hs::clamp(
+                (from.color.b * from_weight + to.color.b * to_weight) *
+                        inv_alpha +
+                    0.5f,
+                0.0f, 65535.0f))),
+      alpha);
+}
+
+/**
  * @brief Converts OKLab (Cartesian a,b) to OKLCH (polar C, h).
  * @param lab Source color in OKLab space.
  * @return The color in OKLCH space; hue h in radians.
