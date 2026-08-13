@@ -39,6 +39,7 @@ import sys
 import tempfile
 from collections import Counter
 
+import fab
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
 from fab import find_kicad_cli
@@ -134,33 +135,33 @@ def run_drc(pcb_path):
     (the run errored out); the counts are zero for anything but DRC_OK, so callers
     must branch on status rather than read them as a clean result. Errors are
     bucketed by rule so refill-fixable zone artifacts are distinguishable from real
-    shorts/crossings."""
+    shorts/crossings. The report is read as JSON through fab's structural reader,
+    so a report whose shape changed reports as DRC_FAILED, never as clean."""
     cli = resolve_kicad_cli()
     if not cli:
         return no_drc(DRC_MISSING)
     # Unique report per call + returncode check: a shared fixed path lets a
     # kicad-cli early-exit leave a stale neighbor's report to be misattributed.
-    fd, rpt = tempfile.mkstemp(suffix=".rpt", prefix="cand_drc_")
+    fd, rpt = tempfile.mkstemp(suffix=".json", prefix="cand_drc_")
     os.close(fd)
     try:
-        r = subprocess.run([cli, "pcb", "drc", "--severity-error", pcb_path, "-o", rpt],
+        r = subprocess.run([cli, "pcb", "drc", "--severity-error",
+                            "--format", "json", pcb_path, "-o", rpt],
                            capture_output=True, timeout=120, check=False)
         if r.returncode != 0:
             return no_drc(DRC_FAILED)
-        with open(rpt, encoding="utf-8") as fh:
-            txt = fh.read()
-    except (subprocess.SubprocessError, OSError):
+        violations, unconnected_items = fab.read_drc_report(rpt)
+    except (subprocess.SubprocessError, OSError, fab.DesignRuleError):
         return no_drc(DRC_FAILED)
     finally:
         try:
             os.remove(rpt)
         except OSError:
             pass
-    by_type = Counter(re.findall(r"^\[(\w+)\]", txt, re.M))
-    m = re.search(r"Found (\d+) unconnected", txt)
-    unconnected = int(m.group(1)) if m else 0
+    by_type = Counter(str(v.get("type", "")) if isinstance(v, dict) else ""
+                      for v in violations)
     return dict(status=DRC_OK, errors=sum(by_type.values()),
-                unconnected=unconnected, by_type=by_type)
+                unconnected=len(unconnected_items), by_type=by_type)
 
 
 def analyze(path):

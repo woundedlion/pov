@@ -297,8 +297,12 @@ class DesignRuleError(ValueError):
     pass
 
 
-def require_clean_drc(report_path):
-    """Return DRC counts or raise unless both report sections are empty."""
+def read_drc_report(report_path):
+    """Return (violations, unconnected_items) from a kicad-cli JSON DRC report.
+
+    Raises unless both sections are present as lists, so a report whose shape
+    changed reads as an error rather than as zero violations.
+    """
     try:
         with open(report_path, encoding="utf-8") as fh:
             report = json.load(fh)
@@ -312,9 +316,14 @@ def require_clean_drc(report_path):
         raise DesignRuleError(
             "DRC report has no violations/unconnected_items sections: "
             f"{report_path}")
+    return report["violations"], report["unconnected_items"]
 
-    num_violations = len(report["violations"])
-    num_unconnected = len(report["unconnected_items"])
+
+def require_clean_drc(report_path):
+    """Return DRC counts or raise unless both report sections are empty."""
+    violations, unconnected_items = read_drc_report(report_path)
+    num_violations = len(violations)
+    num_unconnected = len(unconnected_items)
     if num_violations or num_unconnected:
         raise DesignRuleError(
             f"DRC failed: {num_violations} error-severity violations, "

@@ -1,6 +1,9 @@
+import json
+import subprocess
 import sys
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 from unittest import mock
 
@@ -119,6 +122,49 @@ class ResolveKicadCliTests(unittest.TestCase):
                                return_value=None):
             self.assertEqual(analyze_candidates.run_drc("board.kicad_pcb")["status"],
                              analyze_candidates.DRC_MISSING)
+
+
+class RunDrcReportTests(unittest.TestCase):
+    """The gate reads kicad-cli's JSON report, so a shape change can't read clean."""
+
+    def run_drc(self, report_text):
+        def write_report(cmd, **kwargs):
+            Path(cmd[cmd.index("-o") + 1]).write_text(report_text,
+                                                      encoding="utf-8")
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
+                               return_value="kicad-cli"), \
+                mock.patch.object(analyze_candidates.subprocess, "run",
+                                  side_effect=write_report) as run:
+            result = analyze_candidates.run_drc("board.kicad_pcb")
+        self.assertIn("json", run.call_args.args[0])
+        return result
+
+    def test_counts_violations_by_rule_and_unconnected_items(self):
+        report = self.run_drc(json.dumps({
+            "violations": [{"type": "clearance"}, {"type": "clearance"},
+                           {"type": "shorting_items"}],
+            "unconnected_items": [{"type": "unconnected_items"}],
+        }))
+
+        self.assertEqual(report["status"], analyze_candidates.DRC_OK)
+        self.assertEqual(report["errors"], 3)
+        self.assertEqual(report["unconnected"], 1)
+        self.assertEqual(report["by_type"],
+                         Counter({"clearance": 2, "shorting_items": 1}))
+        self.assertEqual(analyze_candidates.real_faults(report["by_type"]), 1)
+
+    def test_clean_report_reports_no_faults(self):
+        report = self.run_drc(json.dumps({"violations": [],
+                                          "unconnected_items": []}))
+
+        self.assertEqual(report["status"], analyze_candidates.DRC_OK)
+        self.assertEqual((report["errors"], report["unconnected"]), (0, 0))
+
+    def test_report_without_sections_fails_rather_than_reading_clean(self):
+        self.assertEqual(self.run_drc(json.dumps({"violations": []}))["status"],
+                         analyze_candidates.DRC_FAILED)
 
 
 if __name__ == "__main__":
