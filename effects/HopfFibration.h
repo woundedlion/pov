@@ -277,13 +277,14 @@ private:
    * @return Index in [0, len - 2]; the newest segment always survives, so the
    * staged polyline is never empty.
    * @details The tail fades to transparent, so leading points whose outgoing
-   * segment peaks (at its newer endpoint) below visibility are dropped.
+   * segment peaks (at its newer endpoint) below MIN_ENCODABLE_ALPHA are
+   * dropped: at that peak even a full-scale palette colour encodes to sRGB 0.
    */
   static size_t trail_trim_start(size_t len, float alpha) {
     size_t first = 0;
     while (first + 1 < len &&
            static_cast<float>(first + 1) / (len - 1) * alpha <
-               MIN_VISIBLE_ALPHA)
+               MIN_ENCODABLE_ALPHA)
       ++first;
     return first;
   }

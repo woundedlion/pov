@@ -1018,6 +1018,21 @@ inline void test_linear_to_srgb8_decode_matches_lut() {
 }
 
 /**
+ * @brief Pins MIN_ENCODABLE_ALPHA to the first linear channel that encodes off
+ *        zero.
+ * @details Per-sample culls compare a premultiplied peak against this constant,
+ *          so it must be the exact encode floor: one step lower still encodes
+ *          to sRGB 0, and no lower value may encode above it. Regenerating the
+ *          split-decode tables can move that step.
+ */
+inline void test_min_encodable_alpha_is_the_encode_floor() {
+  const int v = static_cast<int>(MIN_ENCODABLE_ALPHA * 65535.0f + 0.5f);
+  HS_EXPECT_GE(linear_to_srgb8(static_cast<uint16_t>(v)), 1);
+  for (int u = 0; u < v; ++u)
+    HS_EXPECT_EQ(linear_to_srgb8(static_cast<uint16_t>(u)), 0);
+}
+
+/**
  * @brief Verifies the 8-bit -> 16-bit linear LUT matches the float reference.
  * @details Matches the float reference (scaled to 16-bit) across all 256 entries
  *          within rounding tolerance.
@@ -2168,6 +2183,7 @@ inline int run_color_tests() {
   test_srgb_to_linear_endpoints();
   test_linear_to_srgb_endpoints();
   test_linear_to_srgb8_decode_matches_lut();
+  test_min_encodable_alpha_is_the_encode_floor();
   test_srgb_linear_lut_vs_float_reference();
   test_srgb_linear_roundtrip_lut();
   test_srgb_to_linear_interp_recovers_subpixel_precision();

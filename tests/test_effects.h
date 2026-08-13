@@ -3397,7 +3397,8 @@ inline void test_hopf_projection_math() {
  * @details render_trails() stages points [first, len) and rasterizes
  *          len - first fragments, so a trim that reached len would bind an
  *          empty polyline; the visibility gate ahead of it guarantees
- *          alpha >= MIN_VISIBLE_ALPHA, which is what bounds first at len - 2.
+ *          alpha >= MIN_VISIBLE_ALPHA, which clears the trim's own
+ *          MIN_ENCODABLE_ALPHA floor and so bounds first at len - 2.
  *          The trim must also be exact — it drops a point only when that
  *          point's outgoing segment cannot paint — and monotone in alpha, since
  *          a brighter trail can never show less of its tail.
@@ -3415,10 +3416,10 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
       HS_EXPECT_LE(first, brighter);
       // The kept segment paints; the one before it (if any) could not.
       HS_EXPECT_GE(static_cast<float>(first + 1) / (len - 1) * alpha,
-                   MIN_VISIBLE_ALPHA);
+                   MIN_ENCODABLE_ALPHA);
       if (first > 0)
         HS_EXPECT_LT(static_cast<float>(first) / (len - 1) * alpha,
-                     MIN_VISIBLE_ALPHA);
+                     MIN_ENCODABLE_ALPHA);
       brighter = first;
     }
   }
