@@ -892,11 +892,20 @@ private:
   }
 
   static Snapshot::Key encode_snapshot_key(const ControlKey &key) {
+    // One quantum must decode as chromatic, so lifting a nonzero chroma off
+    // zero below cannot land back on the achromatic side.
+    static_assert(1.0f / SNAPSHOT_AXIS_STEPS >= OKLCH_ACHROMATIC_C);
     Snapshot::Key result{};
     const uint32_t lightness = static_cast<uint32_t>(
         roundf(hs::clamp(key.L, 0.0f, 1.0f) * SNAPSHOT_AXIS_STEPS));
-    const uint32_t chroma = static_cast<uint32_t>(
-        roundf(hs::clamp(key.chroma, 0.0f, 1.0f) * SNAPSHOT_AXIS_STEPS));
+    const float key_chroma = hs::clamp(key.chroma, 0.0f, 1.0f);
+    uint32_t chroma =
+        static_cast<uint32_t>(roundf(key_chroma * SNAPSHOT_AXIS_STEPS));
+    // The quantum is coarser than either is_chromatic() threshold, so
+    // round-to-nearest alone would encode a small nonzero chroma as gray and
+    // lerp_keys would then drop the key's hue for the whole morph.
+    if (chroma == 0 && key_chroma > 0.0f)
+      chroma = 1;
     const uint32_t axes = lightness | (chroma << 12);
     result.bytes[0] = static_cast<uint8_t>(axes);
     result.bytes[1] = static_cast<uint8_t>(axes >> 8);

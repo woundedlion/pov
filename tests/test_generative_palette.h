@@ -353,6 +353,27 @@ inline void test_generative_palette_snapshot_lerp() {
   HS_EXPECT_EQ(std::memcmp(&target, &last, sizeof(last)), 0);
 }
 
+/**
+ * @brief Pins the snapshot encode against dropping a key's hue.
+ * @details The snapshot chroma quantum (1/4095) is coarser than either
+ * is_chromatic() threshold, so a chroma under half a quantum would round to
+ * gray and lerp_keys would discard the key's hue for a whole morph. The encode
+ * lifts any nonzero chroma to one quantum instead.
+ */
+inline void test_generative_palette_snapshot_keeps_faint_chroma_chromatic() {
+  PaletteRecipe recipe;
+  recipe.chroma.curve = AxisCurve::CUSTOM;
+  for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
+    recipe.chroma.custom[i] = 0.5f;
+  recipe.chroma.custom[1] = 1e-5f;
+  const GenerativePalette palette(recipe);
+  const GenerativePalette::Snapshot snapshot = palette.snapshot();
+  const float chroma = GenerativePalette::snapshot_key(snapshot, 1).chroma;
+  HS_EXPECT_GT(chroma, 0.0f);
+  HS_EXPECT_GE(chroma, OKLCH_ACHROMATIC_C);
+  HS_EXPECT_LT(chroma, 1e-3f);
+}
+
 inline void test_generative_palette_lerp_target_aliases_this() {
   const GenerativePalette from(PaletteRecipes::balanced_analogous(0.0f));
   const GenerativePalette to(PaletteRecipes::balanced_analogous(0.25f));
