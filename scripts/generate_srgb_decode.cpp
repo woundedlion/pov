@@ -1,3 +1,7 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
 // Emits core/color/srgb_decode_lut.h: the two-region split-decode tables for
 // linear16->sRGB8, derived from the exact linear_to_srgb_lut. A fine 16-wide
 // low region [0, SRGB_DECODE_VSPLIT) and a coarse 128-wide high region up to

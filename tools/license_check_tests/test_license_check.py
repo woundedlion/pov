@@ -1,0 +1,68 @@
+import sys
+import unittest
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(TOOLS))
+
+import license_check as lc  # noqa: E402
+
+POLYFORM_HEADER = ("/*\n"
+                   f" * {lc.NOTICE}\n"
+                   f" * {lc.POLYFORM}\n"
+                   " */\n")
+RESERVED_HEADER = ("/*\n"
+                   f" * {lc.NOTICE}\n"
+                   f" * {lc.RESERVED} No redistribution or use without explicit\n"
+                   " * permission.\n"
+                   " */\n")
+
+
+class TestExpectedMarker(unittest.TestCase):
+    def test_effects_are_all_rights_reserved(self):
+        self.assertEqual(lc.expected_marker("effects/Voronoi.h"), lc.RESERVED)
+
+    def test_everything_else_is_polyform(self):
+        for path in ("core/math/3dmath.h", "hardware/pov_sync.h",
+                     "tests/run_tests.cpp", "targets/wasm/wasm.cpp"):
+            self.assertEqual(lc.expected_marker(path), lc.POLYFORM, path)
+
+    def test_named_exceptions_carry_their_own_terms(self):
+        self.assertEqual(lc.expected_marker("core/engine/effects_legacy.h"),
+                         lc.RESERVED)
+        self.assertEqual(lc.expected_marker("core/math/projections.h"),
+                         "Permission is hereby granted")
+
+    def test_a_directory_exception_covers_its_contents(self):
+        self.assertIsNone(lc.expected_marker("core/vendor/FastNoiseLite.h"))
+
+
+class TestHeaderIssue(unittest.TestCase):
+    def test_matching_headers_pass(self):
+        self.assertIsNone(lc.header_issue("core/math/3dmath.h", POLYFORM_HEADER))
+        self.assertIsNone(lc.header_issue("effects/Voronoi.h", RESERVED_HEADER))
+
+    def test_reserving_rights_LICENSE_grants_is_reported(self):
+        issue = lc.header_issue("core/math/noise_field.h", RESERVED_HEADER)
+        self.assertIn(lc.POLYFORM, issue)
+
+    def test_granting_rights_LICENSE_reserves_is_reported(self):
+        issue = lc.header_issue("effects/Voronoi.h", POLYFORM_HEADER)
+        self.assertIn(lc.RESERVED, issue)
+
+    def test_a_file_with_no_notice_is_reported(self):
+        issue = lc.header_issue("core/math/3dmath.h", "#pragma once\n")
+        self.assertIn("no copyright notice", issue)
+
+    def test_the_alternate_spelling_of_the_license_name_passes(self):
+        head = POLYFORM_HEADER.replace("PolyForm", "Polyform")
+        self.assertIsNone(lc.header_issue("tests/x.h", head))
+
+    def test_a_header_past_the_scanned_window_is_reported(self):
+        head = "// " + "x" * lc.HEAD_BYTES + "\n" + POLYFORM_HEADER
+        self.assertIsNotNone(lc.header_issue("core/math/3dmath.h",
+                                             head[:lc.HEAD_BYTES]))
+
+
+if __name__ == "__main__":
+    unittest.main()

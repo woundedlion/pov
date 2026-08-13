@@ -7,6 +7,18 @@ any distributed build artifact, are Copyright 2025 Gabriel Levy. All rights
 reserved. They are not covered by the license below — no rights to use, copy,
 modify, or distribute them are granted.
 
+Exceptions outside `effects/`, each carrying its own terms in its own header:
+
+- `core/engine/effects_legacy.h` — retired effect sources, All Rights Reserved
+  on the same terms as `effects/`.
+- `core/math/projections.h` — derived from PROJ; MIT, Copyright Frank
+  Warmerdam, Gerald I. Evenden, Kristian Evers, Toby C Wilkinson and the PROJ
+  contributors.
+- `core/vendor/` — third-party sources under their own licenses.
+
+`tools/license_check.py` holds this list in executable form and CI runs it, so
+a header that drifts from these terms fails the build.
+
 # PolyForm Noncommercial License 1.0.0
 
 <https://polyformproject.org/licenses/noncommercial/1.0.0>
