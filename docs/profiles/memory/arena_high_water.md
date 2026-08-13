@@ -80,8 +80,9 @@ shipping preset-0 draw scope 96.49 → 97.30 ms (+0.84 %) vs the 2026-07-14
 baseline, and the day-apart global-O3 A/B (pre- vs post-compression)
 reproduces within ~2 % per preset, inside the ±10 % per-preset coverage
 noise. Cadence class unchanged (8 fps steady; worst preset 108.57 ms ship /
-88.92 ms O3). Full reports:
-docs/profiles/{shipping,O3}/profile_mindsplatter_teensy_2026-07-16.md.
+88.92 ms O3). That capture has since been superseded; the current reports are
+[shipping](../shipping/profile_mindsplatter_teensy_2026-08-07.md) and
+[O3](../O3/profile_mindsplatter_teensy_2026-08-07.md).
 
 A second bank (budget 272,384 B) would additionally require shrinking both
 reaction-diffusion effects, whose footprints are mutable simulation grids —
