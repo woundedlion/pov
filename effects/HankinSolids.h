@@ -471,7 +471,8 @@ private:
           const int cls = fi < static_cast<size_t>(topology_faces)
                               ? static_cast<int>(topology[fi])
                               : 0;
-          fragment_shader.set_palette(star_by_slot[wrap(cls, NUM_PALETTES)]);
+          fragment_shader.set_palette(
+              star_by_slot[MeshPaletteBank::slot_of(cls)]);
           fragment_shader.scale =
               size > math::TOLERANCE ? params.intensity / size : 0.0f;
         };
