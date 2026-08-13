@@ -91,15 +91,10 @@ private:
   /**
    * @brief Worst-case duration of one column's LED transfer, in µs.
    * @details Image frame plus the trailing black frame strobe_columns() appends,
-   * eight clocks per byte at the clock the default-constructed ledController
-   * runs at. Rounded up, so run()'s column-period check never under-counts.
+   * at the clock the default-constructed ledController runs at.
    */
-  static constexpr unsigned long COLUMN_TRANSFER_US =
-      static_cast<unsigned long>(
-          (static_cast<uint64_t>(HD107SFrame<S>::COMPOSITE_SIZE) * 8u *
-               1000000u +
-           DMALEDController<S>::DEFAULT_CLOCK_HZ - 1) /
-          DMALEDController<S>::DEFAULT_CLOCK_HZ);
+  static constexpr unsigned long COLUMN_TRANSFER_US = pov::transfer_us(
+      HD107SFrame<S>::COMPOSITE_SIZE, DMALEDController<S>::DEFAULT_CLOCK_HZ);
 #endif
 
   /**
@@ -139,14 +134,13 @@ private:
              "POVDisplay: effect canvas width must be even");
     x = 0;
     IntervalTimer timer;
-    // One column sweep period (µs), rounded to nearest; a pathological RPM/width
-    // could round it to 0 µs, an undefined IntervalTimer period.
+    // A pathological RPM/width could round the period to 0 µs, an undefined
+    // IntervalTimer period.
     static_assert(RPM > 0, "POVDisplay: RPM must be positive");
     const unsigned long cols_per_min =
         static_cast<unsigned long>(RPM) * effect->width();
     HS_CHECK(cols_per_min > 0, "column sweep rate is zero (width is 0)");
-    const unsigned long interval_us =
-        (60000000UL + cols_per_min / 2) / cols_per_min;
+    const unsigned long interval_us = pov::column_interval_us(cols_per_min);
     HS_CHECK(interval_us >= 1,
              "column interval rounded to 0 µs (RPM/width too high)");
 #if defined(USE_DMA_LEDS)
@@ -226,9 +220,9 @@ private:
     }
 #endif
 
-    x = (x + 1) % w;
-    // Advance the display buffer at each half-revolution boundary.
-    if (x == 0 || x == w / 2) {
+    const pov::ColumnStep step = pov::step_column(x, w);
+    x = step.next_x;
+    if (step.advance) {
       effect->advance_display();
     }
   }

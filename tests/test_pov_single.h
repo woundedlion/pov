@@ -2,29 +2,37 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the single-board POV index math (hardware/pov_single_map.h,
- * the pure arithmetic the Arduino-only pov_single.h driver derives its show_col()
- * ISR mapping from). This is the one place the single-arm index arithmetic
- * reaches the physical LEDs, so an off-by-one or hemisphere swap silently
- * mis-paints the sphere — the same failure mode the segmented tiling tests
- * (test_pov_segmented.h) were written to prevent. Covers the top/bottom strip
- * split (reversed vs straight), the bottom-half opposite-column x offset, and
- * that the S LED writes tile the two sampled canvas columns exactly once.
+ * Host unit tests for the single-board POV math (hardware/pov_single_map.h, the
+ * pure arithmetic the Arduino-only pov_single.h driver derives its show_col()
+ * ISR mapping and run() cadence from). This is the one place the single-arm
+ * index arithmetic reaches the physical LEDs, so an off-by-one or hemisphere
+ * swap silently mis-paints the sphere — the same failure mode the segmented
+ * tiling tests (test_pov_segmented.h) were written to prevent. Covers the
+ * top/bottom strip split (reversed vs straight), the bottom-half
+ * opposite-column x offset, that the S LED writes tile the two sampled canvas
+ * columns exactly once, the column-period and transfer-time derivations, the
+ * overrun relation between them, and the advance/flip cadence.
  */
 #pragma once
 
+#include "hardware/hd107s_frame.h"
 #include "hardware/pov_single_map.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <cstdlib>
 #include <vector>
 
 namespace hs_test {
 namespace pov_single_tests {
 
+using pov::column_interval_us;
+using pov::ColumnStep;
+using pov::step_column;
 using pov::strip_bottom_led;
 using pov::strip_opposite_col;
 using pov::strip_top_led;
+using pov::transfer_us;
 
 // Compile-time proof the mapping folds at compile time (the driver relies on it
 // being branchless, off the ISR hot path).
@@ -34,6 +42,14 @@ static_assert(strip_bottom_led(0, 40) == 20);  // y=0 -> first bottom-half LED
 static_assert(strip_bottom_led(19, 40) == 39); // y=ROWS-1 -> last LED
 static_assert(strip_opposite_col(0, 96) == 48);
 static_assert(strip_opposite_col(48, 96) == 0); // wraps back at the seam
+
+// The driver's COLUMN_TRANSFER_US is a static constexpr and the IntervalTimer
+// period is derived before the timer starts, so both must fold at compile time.
+static_assert(column_interval_us(480ul * 96ul) == 1302);
+static_assert(transfer_us(336, 12000000) == 224);
+static_assert(step_column(95, 96).next_x == 0);
+static_assert(step_column(95, 96).advance);
+static_assert(!step_column(0, 96).advance);
 
 /**
  * @brief At a fixed rotation column x, assert the strip's per-LED writes tile
@@ -159,6 +175,119 @@ inline void test_opposite_col_offset() {
 }
 
 /**
+ * @brief Verify the column-sweep period is the nearest integer µs, not the
+ * truncated one, and reproduces both shipping configurations.
+ * @details A truncating derivation runs the sweep systematically fast, drifting
+ * the image against the rotation; the half-up cases below separate the two.
+ */
+inline void test_column_interval() {
+  // Holosphere 96x20 at 480 RPM: 46,080 columns/min -> 1302 µs.
+  HS_EXPECT_EQ(column_interval_us(480ul * 96ul), 1302ul);
+  // Phantasm 288-column canvas at 480 RPM: 138,240 columns/min -> 434 µs.
+  HS_EXPECT_EQ(column_interval_us(480ul * 288ul), 434ul);
+
+  // Exact division is unrounded.
+  HS_EXPECT_EQ(column_interval_us(1000000ul), 60ul);
+  HS_EXPECT_EQ(column_interval_us(2400000ul), 25ul);
+  // Fractional parts round to nearest, half up: 37.5 -> 38, 12.5 -> 13. Both
+  // would truncate to 37 and 12.
+  HS_EXPECT_EQ(column_interval_us(1600000ul), 38ul);
+  HS_EXPECT_EQ(column_interval_us(4800000ul), 13ul);
+
+  // Swept property: the result is within half a column-rate of exact, which
+  // holds only for round-to-nearest.
+  for (unsigned long rpm : {60ul, 120ul, 480ul, 900ul, 1200ul}) {
+    for (unsigned long w : {8ul, 96ul, 288ul, 360ul}) {
+      const unsigned long cpm = rpm * w;
+      const long long err = static_cast<long long>(column_interval_us(cpm)) *
+                                static_cast<long long>(cpm) -
+                            60000000ll;
+      HS_EXPECT_TRUE(2 * std::llabs(err) <= static_cast<long long>(cpm));
+    }
+  }
+}
+
+/**
+ * @brief Verify the per-column transfer bound rounds UP, and that it stays
+ * under the column period for the shipped single-board configuration.
+ * @details run() rejects a configuration whose column period does not clear
+ * this bound; show_col() then discards submitFrame()'s overrun return with no
+ * retry latch, so a bound that rounded down would admit a config that freezes
+ * the strip on its last accepted frame.
+ */
+inline void test_transfer_bound() {
+  // Holosphere: 40 px -> 336-byte composite at 12 MHz = 224 µs exactly.
+  HS_EXPECT_EQ(transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, 12000000ul), 224ul);
+  // Phantasm segment: 72 px -> 600-byte composite at 24 MHz = 200 µs exactly.
+  HS_EXPECT_EQ(transfer_us(HD107SFrame<72>::COMPOSITE_SIZE, 24000000ul), 200ul);
+
+  // Inexact divisions round up, never down: 0.67 -> 1, 10.67 -> 11.
+  HS_EXPECT_EQ(transfer_us(1ul, 12000000ul), 1ul);
+  HS_EXPECT_EQ(transfer_us(4ul, 3000000ul), 11ul);
+
+  // Swept: the bound never under-counts, and never overshoots by a whole µs.
+  for (unsigned long bytes : {1ul, 80ul, 336ul, 600ul, 4096ul}) {
+    for (unsigned long clock : {1000000ul, 6000000ul, 12000000ul, 24000000ul}) {
+      const unsigned long us = transfer_us(bytes, clock);
+      const unsigned long long bits_us = bytes * 8ull * 1000000ull;
+      HS_EXPECT_TRUE(static_cast<unsigned long long>(us) * clock >= bits_us);
+      HS_EXPECT_TRUE(us == 0 ||
+                     (static_cast<unsigned long long>(us) - 1) * clock <
+                         bits_us);
+    }
+  }
+
+  // The shipped single-board relation run() enforces: one composite transfer
+  // fits inside a column period with room to spare.
+  HS_EXPECT_TRUE(column_interval_us(480ul * 96ul) >
+                 transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, 12000000ul));
+}
+
+/**
+ * @brief Verify the advance/flip cadence: exactly two display-buffer advances
+ * per revolution, at columns 0 and w/2, and a sweep that closes on itself.
+ * @details Each half revolution paints a whole frame (the two strip halves
+ * sample opposite canvas columns), so an off-by-one here either double-advances
+ * — tearing the frame the foreground is still drawing — or advances once per
+ * revolution, halving the frame rate and stalling the foreground in
+ * buffer_free().
+ */
+inline void test_column_step_cadence() {
+  for (int w : {8, 96, 288}) {
+    std::vector<int> visits(static_cast<size_t>(w), 0);
+    std::vector<int> advances;
+    int x = 0;
+    for (int i = 0; i < w; ++i) {
+      visits[static_cast<size_t>(x)]++;
+      const ColumnStep s = step_column(x, w);
+      HS_EXPECT_TRUE(s.next_x >= 0 && s.next_x < w);
+      // The step advances exactly one column; the wrap is the only jump.
+      HS_EXPECT_EQ(s.next_x, (x + 1) % w);
+      if (s.advance)
+        advances.push_back(s.next_x);
+      x = s.next_x;
+    }
+    // One full sweep is a single cycle over every column, closing on itself.
+    HS_EXPECT_EQ(x, 0);
+    for (int c = 0; c < w; ++c)
+      HS_EXPECT_EQ(visits[static_cast<size_t>(c)], 1);
+
+    // Two advances per revolution, at the two half-revolution boundaries.
+    HS_EXPECT_EQ(static_cast<int>(advances.size()), 2);
+    if (advances.size() == 2) {
+      HS_EXPECT_EQ(advances[0], w / 2);
+      HS_EXPECT_EQ(advances[1], 0);
+    }
+    // The advance falls on the column ABOUT to be painted, not the one just
+    // painted: the flip happens as the sweep enters the new half.
+    HS_EXPECT_TRUE(step_column(w / 2 - 1, w).advance);
+    HS_EXPECT_FALSE(step_column(w / 2, w).advance);
+    HS_EXPECT_TRUE(step_column(w - 1, w).advance);
+    HS_EXPECT_FALSE(step_column(0, w).advance);
+  }
+}
+
+/**
  * @brief Run the single-board POV index-math suite.
  * @return Number of failed expectations in the suite (0 on full pass).
  * @details Exercises the strip split and column offset directly, then the full
@@ -170,6 +299,9 @@ inline int run_pov_single_tests() {
 
   test_strip_derivation();
   test_opposite_col_offset();
+  test_column_interval();
+  test_transfer_bound();
+  test_column_step_cadence();
 
   // Holosphere 96x20: S=40, swept over representative rotation columns including
   // the x=0 and x=w/2 frame boundaries and the wrap seam.
