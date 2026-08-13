@@ -4864,6 +4864,7 @@ private:
                                   state->param_morph.to, mix);
     else
       blend.params.lerp(state->param_morph.from, state->param_morph.to, mix);
+    active_pipeline = resolve_pipeline_id({active_slots, blend.params});
   }
 
   static float transition_mix(uint16_t elapsed, uint16_t duration) {
@@ -4974,6 +4975,8 @@ private:
       return true;
     }
     if (stable_topology(current, candidate)) {
+      if (!prepare_resource_union(current, candidate))
+        return false;
       state->param_morph = {current.params, candidate.params, 0,   duration,
                             staggered,      continue_choreo,  true};
       return true;

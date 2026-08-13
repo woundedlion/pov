@@ -183,6 +183,10 @@ struct ShaderBallWhiteBox {
   static bool param_morph_active(const SB &sb) {
     return sb.state->param_morph.active;
   }
+  static bool try_apply_config(SB &sb, const RequestedConfig &config,
+                               uint16_t duration) {
+    return sb.try_apply_config(config, duration, false, false);
+  }
   static uint16_t param_morph_elapsed(const SB &sb) {
     return sb.state->param_morph.elapsed;
   }
@@ -3449,6 +3453,31 @@ inline void test_shaderball_dynamic_backend_admission() {
     HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Direction") ==
                    nullptr);
     HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
+  }
+  {
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    const WB::InversePipelineId compiled = WB::active_pipeline(sb);
+    HS_EXPECT_NE(compiled, WB::InversePipelineId::NONE);
+    WB::RequestedConfig dynamic = WB::active_config(sb);
+    dynamic.params.surface_noise.direction = 0.5f;
+    HS_EXPECT_TRUE(WB::try_apply_config(sb, dynamic, 4));
+    WB::step_param_morph(sb);
+    WB::step_param_morph(sb);
+    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
+    while (WB::param_morph_active(sb))
+      WB::step_param_morph(sb);
+    HS_EXPECT_EQ(WB::active_config(sb), dynamic);
+    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
+
+    WB::RequestedConfig restored = dynamic;
+    restored.params.surface_noise.direction = 0.0f;
+    HS_EXPECT_TRUE(WB::try_apply_config(sb, restored, 4));
+    while (WB::param_morph_active(sb))
+      WB::step_param_morph(sb);
+    HS_EXPECT_EQ(WB::active_config(sb), restored);
+    HS_EXPECT_EQ(WB::active_pipeline(sb), compiled);
   }
 }
 
