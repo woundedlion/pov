@@ -10,7 +10,7 @@
 
 #include "core/engine/memory.h"
 #include "core/render/sdf.h"
-#include "tests/aa_audit.h"
+#include "render/aa_audit.h"
 #include "tests/test_fixture.h"
 
 namespace {

@@ -284,6 +284,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
 │   │   ├── sdf_volume.h            3D volumetric SDF shapes + domain warps for Scan::Volume
 │   │   ├── shading.h               Fragment + mesh-topology shading helpers, null shaders
+│   │   ├── aa_audit.h              Scan AA-coverage audit counters (compiled in only under HS_AA_AUDIT)
 │   │   └── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below

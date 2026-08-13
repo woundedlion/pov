@@ -36,7 +36,6 @@ endif()
 
 # Headers that are deliberately not roster modules.
 set(NON_MODULE_HEADERS
-  aa_audit.h
   color_test_util.h
   mesh_test_util.h
   mindsplatter_replay_corpus.h

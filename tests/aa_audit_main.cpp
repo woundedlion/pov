@@ -21,7 +21,7 @@
 #include "core/mesh/solids.h"
 #include "core/render/canvas.h"
 #include "core/render/scan.h"
-#include "tests/aa_audit.h"
+#include "render/aa_audit.h"
 #include "tests/test_fixture.h"
 
 namespace {
