@@ -113,7 +113,7 @@ public:
    * @brief Finds the k nearest neighbors of target, sorted closest-first.
    * @param target Query point, in world units.
    * @param k Number of neighbors to return; MUST be <= MAX_K (traps via HS_CHECK
-   *        otherwise). Soft-capped only at the point count.
+   *        otherwise). Soft-capped at the point count.
    * @return Buffer of neighbors (point + source index + squared distance), closest first.
    */
   StaticCircularBuffer<Neighbor, MAX_K> nearest(const Vector &target,
@@ -124,6 +124,10 @@ public:
     if (root_index == -1 ||
         k == 0) // k is size_t; only k == 0 is the empty case
       return result;
+    // A k above the point count can never fill the set, so worst_d_sq would
+    // stay FLT_MAX and neither the candidate test nor the subtree prune would
+    // ever reject: the query degrades to a full traversal.
+    k = std::min(k, nodes.size());
 
     // Cached pruning bound: the largest squared distance in `result` and its
     // slot, FLT_MAX until the set fills to k so nothing prunes early.
