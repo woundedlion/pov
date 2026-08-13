@@ -190,10 +190,13 @@ private:
   /**
    * @brief Pushes a fresh palette at the front and animates its boundary angle
    *        from 0 up to PI, sweeping the new colors across the sphere.
-   * @details Drops the wipe if the palette buffer is full.
+   * @details Drops the wipe if the boundary buffer is full. That buffer is the
+   *          binding capacity (MAX_PALETTES - 1) and is what keeps boundary_slot
+   *          from aliasing a reissued ring slot; palettes stays one ahead of it,
+   *          so its own push is covered by the same guard.
    */
   void color_wipe() {
-    if (palettes.is_full()) {
+    if (palette_boundaries.is_full()) {
       hs::log("Palettes full, dropping color wipe!");
       return;
     }
@@ -233,9 +236,10 @@ private:
    *          shifts every entry by one. Rotating the pointer-sized LUT handles
    *          carries each existing bake to its new index, leaving one
    *          GenerativePalette evaluation pass per wipe instead of one per live
-   *          palette. Slot MAX_PALETTES-1 is always dead here (push_front is
-   *          gated on !is_full), so recycling it to the front strands no LUT
-   *          storage.
+   *          palette. Slot MAX_PALETTES-1 is always dead here (color_wipe()
+   *          drops the wipe when the boundary buffer is full, so palettes holds
+   *          at most MAX_PALETTES-1 entries before its push_front), so recycling
+   *          it to the front strands no LUT storage.
    */
   void rotate_and_rebake_front() {
     BakedPalette recycled = baked_palettes[MAX_PALETTES - 1];
