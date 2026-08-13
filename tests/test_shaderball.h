@@ -440,7 +440,8 @@ struct ShaderBallWhiteBox {
     return SB::surface_curl_field(v, frame);
   }
   static Vector dodecahedral_reference(const Vector &v) {
-    return SB::polyhedral_kaleidoscope_lens(v, SB::DODECAHEDRAL_MIRRORS);
+    return lenses::polyhedral_kaleidoscope_lens(v,
+                                                lenses::DODECAHEDRAL_MIRRORS);
   }
   static float sample_function(Function function, const Complex &p,
                                const SourceState &source) {
