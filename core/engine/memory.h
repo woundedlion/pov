@@ -72,6 +72,8 @@ class Arena {
 #ifndef NDEBUG
   uint32_t generation = 0;
   size_t rewind_floor = SIZE_MAX;
+  size_t last_rewind_target = SIZE_MAX;
+  uint32_t rewind_seq = 0;
 #endif
 
 public:
@@ -247,6 +249,10 @@ public:
   void set_offset(size_t new_offset) {
     HS_CHECK(new_offset <= offset);
 #ifndef NDEBUG
+    if (new_offset < offset) {
+      last_rewind_target = new_offset;
+      rewind_seq++;
+    }
     if (new_offset < rewind_floor)
       rewind_floor = new_offset;
 #endif
@@ -263,6 +269,7 @@ public:
 #ifndef NDEBUG
     generation++;
     rewind_floor = SIZE_MAX;
+    last_rewind_target = SIZE_MAX;
 #endif
   }
 
@@ -297,6 +304,7 @@ public:
 #ifndef NDEBUG
     generation++;
     rewind_floor = SIZE_MAX;
+    last_rewind_target = SIZE_MAX;
 #endif
   }
 
@@ -373,35 +381,60 @@ public:
   size_t get_rewind_floor() const { return rewind_floor; }
 
   /**
+   * @brief Returns the count of rewinds this arena has performed.
+   * @return Monotone counter, bumped by every set_offset() that lowers the
+   *         offset. Never reset, so a stamp taken before a reset/rebind stays
+   *         distinguishable.
+   */
+  uint32_t get_rewind_seq() const { return rewind_seq; }
+
+  /**
    * @brief Tests whether a rewind reclaimed a byte region after it was handed
    *        out.
    * @param p First byte of the region.
    * @param bytes Region length in bytes.
    * @param birth_floor get_rewind_floor() sampled when the region was handed
    *        out.
-   * @return True iff a rewind since that sample dropped the offset below the
+   * @param birth_seq get_rewind_seq() sampled when the region was handed out.
+   * @return True iff a rewind since those samples dropped the offset below the
    *         region's end.
    * @details covers() goes blind the moment fresh allocations re-cover the
    * reclaimed bytes, which is exactly when a second owner starts writing them.
-   * The floor only ever falls within a generation, so a floor below @p
-   * birth_floor is proof a rewind after the sample set it.
+   * Two independent signals, since neither alone spans every rewind: the floor
+   * only ever falls within a generation, so a floor below @p birth_floor is
+   * proof a rewind after the sample set it; and a bumped sequence proves the
+   * most recent rewind is itself post-sample, which catches the rewind that
+   * frees the region without reaching a floor set by an earlier, deeper one.
    */
-  bool reclaimed_since(const void *p, size_t bytes, size_t birth_floor) const {
-    if (rewind_floor >= birth_floor)
+  bool reclaimed_since(const void *p, size_t bytes, size_t birth_floor,
+                       uint32_t birth_seq) const {
+    const bool floor_fell = rewind_floor < birth_floor;
+    const bool rewound_since = rewind_seq != birth_seq;
+    if (!floor_fell && !rewound_since)
       return false;
     uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
     uintptr_t q = reinterpret_cast<uintptr_t>(p);
     if (q < base)
       return false;
     size_t start = static_cast<size_t>(q - base);
-    // Subtractive form: `start + bytes` could wrap for a colossal `bytes`.
-    return rewind_floor < start || rewind_floor - start < bytes;
+    if (floor_fell && cuts_region(rewind_floor, start, bytes))
+      return true;
+    return rewound_since && cuts_region(last_rewind_target, start, bytes);
   }
 #endif
 
 private:
   friend void resplit_arenas(size_t persistent, size_t scratch_a,
                              size_t scratch_b);
+
+#ifndef NDEBUG
+  /** @brief Whether an offset of @p floor leaves [start, start+bytes) above
+   *         it. */
+  static bool cuts_region(size_t floor, size_t start, size_t bytes) {
+    // Subtractive form: `start + bytes` could wrap for a colossal `bytes`.
+    return floor < start || floor - start < bytes;
+  }
+#endif
 
   /** @brief Carries the window about to be discarded into the lifetime peak. */
   void fold_lifetime_peak() {
@@ -579,6 +612,8 @@ private:
    * at which the covers() check below goes silent.
    */
   size_t birth_rewind_floor = 0;
+  /** @brief Arena rewind counter sampled when the block was allocated. */
+  uint32_t birth_rewind_seq = 0;
 
   /**
    * @brief Debug-only use-after-free check against the source arena.
@@ -597,7 +632,7 @@ private:
     }
     if (source_arena && element_capacity > 0 &&
         source_arena->reclaimed_since(elements, element_capacity * sizeof(T),
-                                      birth_rewind_floor)) {
+                                      birth_rewind_floor, birth_rewind_seq)) {
       assert(false && "ArenaVector use-after-free (block reclaimed by a rewind "
                       "and reissued)!");
     }
@@ -630,6 +665,7 @@ private:
     birth_generation = other.birth_generation;
     rebind_generation = other.rebind_generation;
     birth_rewind_floor = other.birth_rewind_floor;
+    birth_rewind_seq = other.birth_rewind_seq;
 #endif
     other.elements = nullptr;
     other.element_count = 0;
@@ -639,6 +675,7 @@ private:
     other.source_arena = nullptr;
     other.birth_generation = 0;
     other.birth_rewind_floor = 0;
+    other.birth_rewind_seq = 0;
     // rebind_generation stays: spans snapshotted it and still view live data.
 #endif
   }
@@ -756,6 +793,7 @@ public:
     source_arena = &arena;
     birth_generation = arena.get_generation();
     birth_rewind_floor = arena.get_rewind_floor();
+    birth_rewind_seq = arena.get_rewind_seq();
     rebind_generation++;
 #endif
   }
@@ -984,6 +1022,8 @@ template <typename T> class ArenaSpan {
       0; /**< Vector rebind counter at construction. */
   size_t birth_rewind_floor =
       0; /**< Arena rewind floor when the source block was allocated. */
+  uint32_t birth_rewind_seq =
+      0; /**< Arena rewind counter when the source block was allocated. */
 
   /**
    * @brief Debug-only stale-span check against arena and vector stamps.
@@ -1003,7 +1043,7 @@ template <typename T> class ArenaSpan {
     }
     if (source_arena && element_count > 0 &&
         source_arena->reclaimed_since(elements, element_count * sizeof(T),
-                                      birth_rewind_floor)) {
+                                      birth_rewind_floor, birth_rewind_seq)) {
       assert(false && "ArenaSpan use-after-free (borrowed block reclaimed by a "
                       "rewind and reissued)!");
     }
@@ -1046,7 +1086,8 @@ public:
         source_arena(source.source_arena),
         birth_generation(source.birth_generation), source_vec(&source),
         source_rebind_generation(source.rebind_generation),
-        birth_rewind_floor(source.birth_rewind_floor)
+        birth_rewind_floor(source.birth_rewind_floor),
+        birth_rewind_seq(source.birth_rewind_seq)
 #endif
   {
   }

@@ -141,6 +141,7 @@ public:
     source_arena = &arena;
     birth_generation = arena.get_generation();
     birth_rewind_floor = arena.get_rewind_floor();
+    birth_rewind_seq = arena.get_rewind_seq();
 #endif
     if (!clear_hook_registered) {
       timeline.add_clear_hook(this, [](void *self) {
@@ -174,6 +175,7 @@ public:
            "init_storage() allocated from");
     birth_generation = arena.get_generation();
     birth_rewind_floor = arena.get_rewind_floor();
+    birth_rewind_seq = arena.get_rewind_seq();
 #endif
   }
 
@@ -292,6 +294,8 @@ private:
       0; /**< Arena generation at the last init_storage()/reclaim_storage(). */
   size_t birth_rewind_floor =
       0; /**< Arena rewind floor at the last init_storage()/reclaim_storage(). */
+  uint32_t birth_rewind_seq =
+      0; /**< Arena rewind counter at the last init/reclaim_storage(). */
 
   /**
    * @brief Debug-only use-after-free check on the pool's arena blocks.
@@ -313,9 +317,9 @@ private:
     }
     if (source_arena &&
         (source_arena->reclaimed_since(entities, CAPACITY * sizeof(Entity),
-                                       birth_rewind_floor) ||
+                                       birth_rewind_floor, birth_rewind_seq) ||
          source_arena->reclaimed_since(active_slots, CAPACITY * sizeof(int),
-                                       birth_rewind_floor))) {
+                                       birth_rewind_floor, birth_rewind_seq))) {
       assert(false && "TransformerPool use-after-free (slots reclaimed by a "
                       "rewind and reissued)!");
     }
