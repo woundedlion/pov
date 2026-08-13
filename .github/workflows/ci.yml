@@ -502,6 +502,10 @@ jobs:
         run: build/tests/tests/run_tests
 
       - name: Publish coverage summary
+        # An explicit `shell: bash` is what enables pipefail — GitHub's implicit
+        # shell is `bash -e {0}`, under which tee's status 0 masks a failed
+        # llvm-cov and an empty code fence is published instead.
+        shell: bash
         run: |
           llvm-profdata-22 merge -sparse -o cov/run_tests.profdata cov/*.profraw
           {
