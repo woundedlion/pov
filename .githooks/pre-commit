@@ -138,12 +138,25 @@ fi
 # matching provenance job with nothing else staged).
 # TEENSY: the Teensy 4 size/layout gate, which any C++ change can move, plus the
 # build/budget/ldscript files that drive the firmware image.
+#
+# Both classifiers are shell functions taking the newline-separated path list,
+# so tools/githook_tests drives them against a table of staged paths: these two
+# regexes are the hook's whole routing logic, and a path class that quietly
+# stops matching skips its gate on every commit that touches only that class.
+hs_paths_native() {
+  printf '%s\n' "$1" | grep -qE '\.(h|hpp|cpp|cc|inl|cmake)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$|(^|/)scripts/generate_luts\.py$|(^|/)tools/gen_gamut_lut\.py$|(^|/)tools/teensy_size_trail\.py$'
+}
+
+hs_paths_teensy() {
+  printf '%s\n' "$1" | grep -qE '\.(h|hpp|cpp|cc|inl|ino)$|(^|/)platformio\.ini$|(^|/)tools/teensy_[A-Za-z_]*\.py$|(^|/)tools/teensy_budgets\.json$|(^|/)tools/phantasm\.ld$'
+}
+
 NATIVE=
 TEENSY=
-if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl|cmake)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$|(^|/)scripts/generate_luts\.py$|(^|/)tools/gen_gamut_lut\.py$|(^|/)tools/teensy_size_trail\.py$'; then
+if hs_paths_native "$CHANGED"; then
   NATIVE=1
 fi
-if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl|ino)$|(^|/)platformio\.ini$|(^|/)tools/teensy_[A-Za-z_]*\.py$|(^|/)tools/teensy_budgets\.json$|(^|/)tools/phantasm\.ld$'; then
+if hs_paths_teensy "$CHANGED"; then
   TEENSY=1
 fi
 if [ -z "$NATIVE" ] && [ -z "$TEENSY" ]; then

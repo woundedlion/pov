@@ -1564,6 +1564,12 @@ jobs:
         run: |
           bash tools/check_test_files.sh 1 'tools/teensy_hook_tests/test*.py'
           python -m unittest discover -s tools/teensy_hook_tests -v
+      # The pre-commit hook is the primary local gate and routes entirely on two
+      # staged-path regexes; these drive them against a fixture table.
+      - name: Run git hook classification self-tests
+        run: |
+          bash tools/check_test_files.sh 1 'tools/githook_tests/test*.py'
+          python -m unittest discover -s tools/githook_tests -v
       - name: Run profile log parser self-tests
         run: |
           bash tools/check_test_files.sh 3 'tools/profile_tests/test*.py'

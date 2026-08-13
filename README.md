@@ -405,7 +405,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── mindsplatter_replay_main.cpp  Replay comparator over that corpus (its fixtures live under tests/)
 │   ├── docs_check.py           Markdown fence/link/anchor/path validator (CI)
 │   ├── docs_images.py          Stages README images into the Doxygen output and resolves every `<img>` (CI)
-│   └── *_tests/                Host unit tests for the gate, hooks, profile parser, bakes, docs checks
+│   └── *_tests/                Host unit tests for the gate, build + git hooks, profile parser, bakes, docs checks
 ├── docs/                       Design specs, perf ledgers, and the docs/screenshots/ gallery
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
