@@ -62,6 +62,15 @@ def F(n, k):
     return [c for c in n if isinstance(c, list) and c and c[0] == k]
 
 
+def is_copper_pour(zone):
+    """True for a zone that pours copper.
+
+    A rule area carries a keepout node and pours nothing. Its net is not the
+    discriminator: gen/pcb.py writes keepouts with (net 0).
+    """
+    return not F(zone, "keepout")
+
+
 def arc_extrema(start, mid, end, collinear_error=None):
     """Axis-aligned extreme points of the arc through three (x, y) floats.
 

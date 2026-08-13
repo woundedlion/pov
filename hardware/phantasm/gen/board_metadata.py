@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 
 import sexp
-from kicad_common import arc_extrema
+from kicad_common import arc_extrema, is_copper_pour
 
 
 FACTS_START = "<!-- BEGIN ROUTED PCB FACTS -->"
@@ -28,8 +28,10 @@ class BoardMetadata:
     footprint_sides: tuple[tuple[str, int], ...]
     track_segments: int
     vias: int
-    zones: int
-    zone_layers: tuple[tuple[str, int], ...]
+    copper_pours: int
+    pour_layers: tuple[tuple[str, int], ...]
+    rule_areas: int
+    rule_area_layers: tuple[tuple[str, int], ...]
     copper_layers: tuple[str, ...]
     copper_stackup: tuple[tuple[str, Decimal], ...]
     copper_finish: str
@@ -173,9 +175,13 @@ def parse_board(text):
             raise MetadataError(f"footprint is on unsupported layer: {side}")
         footprint_counts[side] += 1
 
-    zone_counts = Counter()
-    zones = _children(root, "zone")
-    for zone in zones:
+    # Pours and keepout rule areas are both `(zone ...)` but are different
+    # facts: only the pours are copper, and gen/fab.py gates only those.
+    pour_counts = Counter()
+    rule_area_counts = Counter()
+    pours = 0
+    rule_areas = 0
+    for zone in _children(root, "zone"):
         layer_nodes = _children(zone, "layer")
         layers_nodes = _children(zone, "layers")
         if len(layer_nodes) + len(layers_nodes) != 1:
@@ -191,7 +197,12 @@ def parse_board(text):
         ))
         if not zone_layers or any(layer not in copper_layers for layer in zone_layers):
             raise MetadataError("zone has an invalid copper layer")
-        zone_counts.update(zone_layers)
+        if is_copper_pour(zone):
+            pours += 1
+            pour_counts.update(zone_layers)
+        else:
+            rule_areas += 1
+            rule_area_counts.update(zone_layers)
 
     return BoardMetadata(
         width_mm=width,
@@ -200,8 +211,12 @@ def parse_board(text):
         footprint_sides=tuple((side, footprint_counts[side]) for side in ("F.Cu", "B.Cu")),
         track_segments=len(_children(root, "segment")),
         vias=len(_children(root, "via")),
-        zones=len(zones),
-        zone_layers=tuple((layer, zone_counts[layer]) for layer in copper_layers if zone_counts[layer]),
+        copper_pours=pours,
+        pour_layers=tuple((layer, pour_counts[layer])
+                          for layer in copper_layers if pour_counts[layer]),
+        rule_areas=rule_areas,
+        rule_area_layers=tuple((layer, rule_area_counts[layer])
+                               for layer in copper_layers if rule_area_counts[layer]),
         copper_layers=copper_layers,
         copper_stackup=tuple(copper_stackup),
         copper_finish=_one_value(stackup, "copper_finish"),
@@ -223,7 +238,9 @@ def _format_decimal(value):
 def render_facts(metadata):
     dimensions = f"{_format_decimal(metadata.width_mm)} × {_format_decimal(metadata.height_mm)} mm"
     footprint_sides = ", ".join(f"{side}: {count}" for side, count in metadata.footprint_sides)
-    zone_layers = ", ".join(f"{layer}: {count}" for layer, count in metadata.zone_layers)
+    pour_layers = ", ".join(f"{layer}: {count}" for layer, count in metadata.pour_layers)
+    rule_area_layers = ", ".join(
+        f"{layer}: {count}" for layer, count in metadata.rule_area_layers)
     copper_stackup = "; ".join(
         f"{layer}: {_format_decimal(thickness)} mm"
         for layer, thickness in metadata.copper_stackup
@@ -234,7 +251,8 @@ def render_facts(metadata):
         ("Footprints by side", f"{sum(count for _, count in metadata.footprint_sides)} ({footprint_sides})"),
         ("Track segments", str(metadata.track_segments)),
         ("Vias", str(metadata.vias)),
-        ("Copper zones", f"{metadata.zones} ({zone_layers})"),
+        ("Copper pours", f"{metadata.copper_pours} ({pour_layers})"),
+        ("Keepout rule areas", f"{metadata.rule_areas} ({rule_area_layers})"),
         ("Copper layers", f"{len(metadata.copper_layers)} ({', '.join(metadata.copper_layers)})"),
         ("Copper thicknesses", copper_stackup),
         ("Copper finish", metadata.copper_finish),

@@ -25,7 +25,7 @@ import zipfile
 
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
-from kicad_common import F, find_kicad_cli
+from kicad_common import F, find_kicad_cli, is_copper_pour
 
 GEN = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(GEN)                       # hardware/phantasm
@@ -593,9 +593,7 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
         pcb_path, ZoneGeometryError, "PCB zones")
 
     diagnostics = []
-    # A rule area carries a keepout node and pours no copper. Its net is not
-    # the discriminator: gen/pcb.py writes keepouts with (net 0).
-    zones = [zone for zone in F(root, "zone") if not F(zone, "keepout")]
+    zones = [zone for zone in F(root, "zone") if is_copper_pour(zone)]
     if len(zones) < min_pours:
         diagnostics.append(
             f"board lists {len(zones)} copper pours, fewer than the "
