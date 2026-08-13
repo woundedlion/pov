@@ -512,6 +512,8 @@ inline void test_shaderball_full_config_snapshot() {
   const size_t palette = static_cast<size_t>(WB::ConfigFieldId::SLOTS_PALETTE);
   const size_t inactive_phase =
       static_cast<size_t>(WB::ConfigFieldId::WARP_INNER_RADIAL_PHASE);
+  const size_t hue_noise_speed =
+      static_cast<size_t>(WB::ConfigFieldId::COLOR_HUE_NOISE_SPEED);
 
   snapshot.accepted[source_seed] = 0x80000000u;
   snapshot.requested[source_seed] = 0x80000000u;
@@ -538,6 +540,18 @@ inline void test_shaderball_full_config_snapshot() {
                WB::ConfigRestoreResult::APPLIED);
   HS_EXPECT_TRUE(
       shaderball_snapshots_equal(sb.capture_full_config_snapshot(), snapshot));
+
+  snapshot = sb.capture_full_config_snapshot();
+  snapshot.accepted[hue_noise_speed] = shaderball_float_payload(0.01f);
+  snapshot.requested[hue_noise_speed] = shaderball_float_payload(0.01f);
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
+               WB::ConfigRestoreResult::APPLIED);
+  const WB::FullConfigSnapshot speed_clamped =
+      sb.capture_full_config_snapshot();
+  HS_EXPECT_EQ(speed_clamped.accepted[hue_noise_speed],
+               shaderball_float_payload(0.001f));
+  HS_EXPECT_EQ(speed_clamped.requested[hue_noise_speed],
+               shaderball_float_payload(0.001f));
 
   const WB::FullConfigSnapshot before_failure =
       sb.capture_full_config_snapshot();
@@ -715,7 +729,7 @@ inline void test_shaderball_pause_semantics() {
   ambient.params.warp.outer.speed = 0.071f;
   ambient.params.warp.inner.speed = 0.003f;
   ambient.params.projection.spin_rate = 0.009f;
-  ambient.params.color.hue_noise_speed = 0.013f;
+  ambient.params.color.hue_noise_speed = 0.001f;
   WB::request_config(sb, ambient);
   sb.setAnimationsPaused(true);
 
@@ -1375,6 +1389,7 @@ inline void test_shaderball_preset_bank() {
     HS_EXPECT_TRUE(WB::seam_compatible(preset));
     HS_EXPECT_TRUE(WB::valid_config(preset));
     HS_EXPECT_TRUE(WB::has_inverse_program(preset));
+    HS_EXPECT_LE(fabsf(preset.params.color.hue_noise_speed), 0.001f);
     has_hue_noise |= preset.params.color.hue_noise_amount != 0.0f;
     if (index > 0 && index < 11)
       HS_EXPECT_TRUE(
@@ -2256,6 +2271,7 @@ inline void test_shaderball_lens_domain_ranges() {
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Pattern Freq")->max, 20.0f);
   HS_EXPECT_EQ(parameter("Speed")->max, 5.0f);
+  HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
   HS_EXPECT_TRUE(sb.updateParameter("Speed", 5.0f) == ParamSetResult::APPLIED);
 
   HS_EXPECT_TRUE(sb.updateParameter(
@@ -2271,7 +2287,7 @@ inline void test_shaderball_lens_domain_ranges() {
   HS_EXPECT_EQ(parameter("Surface Noise Scale")->max, 0.75f);
   HS_EXPECT_EQ(parameter("Surface Noise Speed")->max, 0.002f);
   HS_EXPECT_EQ(parameter("Hue Noise Scale")->max, 2.0f);
-  HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.008f);
+  HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
 
   HS_EXPECT_TRUE(
       sb.updateParameter("Planar Warp 1",
@@ -3624,6 +3640,25 @@ inline void test_shaderball_hue_noise_palette_stage() {
   for (const char *name :
        {"Hue Noise Amount", "Hue Noise Scale", "Hue Noise Speed"})
     HS_EXPECT_TRUE(sb.getParameters().find(name) != nullptr);
+
+  sb.setAnimationsPaused(true);
+  HS_EXPECT_EQ(sb.updateParameter("Hue Noise Speed", 0.0f),
+               ParamSetResult::APPLIED);
+  WB::settle_transition(sb);
+  const float stopped_phase = WB::clocks(sb).hue_noise_phase;
+  for (int frame = 0; frame < 120; ++frame) {
+    sb.draw_frame();
+    sb.advance_display();
+  }
+  HS_EXPECT_EQ(WB::clocks(sb).hue_noise_phase, stopped_phase);
+
+  HS_EXPECT_EQ(sb.updateParameter("Hue Noise Speed", 0.000002f),
+               ParamSetResult::APPLIED);
+  for (int frame = 0; frame < 120; ++frame) {
+    sb.draw_frame();
+    sb.advance_display();
+  }
+  HS_EXPECT_NE(WB::clocks(sb).hue_noise_phase, stopped_phase);
 }
 inline void test_shaderball_surface_noise_geometry_and_composition() {
   using WB = ShaderBallWhiteBox;
