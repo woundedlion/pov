@@ -1576,14 +1576,14 @@ public:
    * @brief Telemetry counters, copied under an IRQ-off window.
    * @return Snapshot of the telemetry block.
    * @details The bracket is taken here rather than left to the caller, so a
-   * snapshot cannot mix pre- and post-increment fields. Foreground-only: it
-   * re-enables interrupts unconditionally, so an ISR or a nested IRQ-off
-   * region must not call it.
+   * snapshot cannot mix pre- and post-increment fields. It saves and restores
+   * the mask instead of unmasking, so a call from an ISR or from inside an
+   * IRQ-off region cannot open the surrounding critical section early.
    */
   Telemetry telemetry_snapshot() const {
-    hs::disable_interrupts();
+    const uint32_t primask = hs::save_disable_interrupts();
     const Telemetry snapshot = telemetry_counters;
-    hs::enable_interrupts();
+    hs::restore_interrupts(primask);
     return snapshot;
   }
   /**
