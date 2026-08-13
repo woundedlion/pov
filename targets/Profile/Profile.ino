@@ -694,8 +694,19 @@ Effect *construct_profiled() {
 
 const POV::EffectFactory EFFECT_FACTORIES[] = {&construct_profiled};
 
-static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1).valid() ==
-                  nullptr,
+// One hour at RPM. The epoch only rebuilds the same effect here, under the
+// K-revolution commit budget the flywheel ISR traps on, and it resets the
+// profile counters mid-capture; park the boundary past any capture.
+// HS_PROFILE_EPOCH_REVS still overrides this (pov_segmented.h).
+constexpr uint32_t PROFILE_REVOLUTIONS[] = {RPM * 60};
+
+constexpr pov::sync::Config profile_config() {
+  auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1);
+  cfg.effect_revolutions = PROFILE_REVOLUTIONS;
+  return cfg;
+}
+
+static_assert(profile_config().valid() == nullptr,
               "Profile pov::sync::Config invariants violated");
 } // namespace
 
@@ -715,5 +726,5 @@ FLASHMEM void setup() {
 
 void loop() {
   // Never returns: runs the single-entry playlist forever.
-  g_pov->run_show(EFFECT_FACTORIES, 1);
+  g_pov->run_show(EFFECT_FACTORIES, 1, PROFILE_REVOLUTIONS);
 }
