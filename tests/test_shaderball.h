@@ -3179,6 +3179,14 @@ inline void test_shaderball_planar_warp_animation() {
   affine.scale_y = 0.75f;
   affine.shear = 0.25f;
   expect_cycle(WB::WarpStageKind::AFFINE_FRAME, affine);
+  const auto affine_quarter =
+      sample(WB::WarpStageKind::AFFINE_FRAME, affine, 0.25f);
+  const auto affine_three_quarters =
+      sample(WB::WarpStageKind::AFFINE_FRAME, affine, 0.75f);
+  HS_EXPECT_TRUE(fabsf(affine_quarter.coords.re -
+                       affine_three_quarters.coords.re) > 1e-4f ||
+                 fabsf(affine_quarter.coords.im -
+                       affine_three_quarters.coords.im) > 1e-4f);
   float WB::WarpStageParams::*const affine_fields[] = {
       &WB::WarpStageParams::translation_x, &WB::WarpStageParams::translation_y,
       &WB::WarpStageParams::rotation,      &WB::WarpStageParams::scale_x,
@@ -3187,12 +3195,14 @@ inline void test_shaderball_planar_warp_animation() {
   for (size_t index = 0; index < std::size(affine_fields); ++index) {
     WB::WarpStageParams one_value;
     one_value.*affine_fields[index] = index == 3 || index == 4 ? 1.5f : 0.3f;
-    const auto identity =
-        sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.0f);
     const auto authored =
-        sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.5f);
-    HS_EXPECT_TRUE(fabsf(identity.coords.re - authored.coords.re) > 1e-4f ||
-                   fabsf(identity.coords.im - authored.coords.im) > 1e-4f);
+        sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.0f);
+    const auto animated =
+        sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.25f);
+    HS_EXPECT_TRUE(fabsf(input.re - authored.coords.re) > 1e-4f ||
+                   fabsf(input.im - authored.coords.im) > 1e-4f);
+    HS_EXPECT_TRUE(fabsf(authored.coords.re - animated.coords.re) > 1e-4f ||
+                   fabsf(authored.coords.im - animated.coords.im) > 1e-4f);
   }
 
   WB::WarpStageParams mirror;
