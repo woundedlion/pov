@@ -24,6 +24,7 @@ the fabrication source of truth and has no unconnected pads.
 | `phantasm.kicad_pcb` | Completed routed PCB with validated placement, control routing, planes, mounting, and service clearances |
 | `quilter_incremental/` | Historical protected input snapshot used for the completed control-net routing — written by `gen/make_quilter_incremental.py`, which now refuses to run because the board is routed |
 | `unplaced/phantasm_unplaced.kicad_pcb` | **4-layer** (SIG/GND/GND/SIG) outline + net-assigned footprints **staged below the board, unrouted** — for an autoplacer (Quilter). Stackup encoded in-file. Regenerate: `python gen/pcb.py --unplaced --force` |
+| `unplaced/phantasm_unplaced.kicad_pro` | **Captured artifact — no generator writes it.** Quilter-facing DRC rules and net class for the unplaced board, wider than the routed project's. Pinned by `gen/constraints.py` (`UNPLACED_RULES`, `UNPLACED_DEFAULT_CLASS`) and `gen/tests/test_constraints.py`; restore from those if it is ever lost, because `gen/heal_clearance.py` only raises a value below a minimum and would leave the routed floors in place |
 | `phantasm.kicad_sym` | Project symbol library: custom `Teensy4.0` + `+5V_RAW/+5V_LOGIC` power symbols |
 | `phantasm.pretty/` | Project footprint library: generated `Teensy4.0` footprint (2×14 0.1″ THT) |
 | `sym-lib-table` / `fp-lib-table` | Register the `phantasm` symbol / footprint libraries |
@@ -260,9 +261,11 @@ unplaced stackup is encoded in its file, so Quilter reads it on upload — no ne
 hand-enter dielectric/mil values in its UI. Net class is 0.3 mm track / 0.2 mm clearance /
 0.6 mm via (well above the 3.5 mil fab minimum).
 
-**Running a future unplaced board through Quilter** — regenerate and upload the
-contents of `unplaced/` together: `phantasm_unplaced.kicad_pcb`,
-`phantasm_unplaced.kicad_pro`, and `fp-lib-table`. There is no unplaced
+**Running a future unplaced board through Quilter** — upload the contents of
+`unplaced/` together: `phantasm_unplaced.kicad_pcb`,
+`phantasm_unplaced.kicad_pro`, and `fp-lib-table`. `gen/pcb.py --unplaced
+--force` regenerates the first and the third; the `.kicad_pro` is a captured
+artifact (see the file table). There is no unplaced
 schematic, and the `.kicad_prl` that the KiCad GUI writes is local only. Run
 `python gen/heal_clearance.py` as the final preparation step. Quilter prep:
 - **`min_clearance` must be > 0** in the uploaded `.kicad_pro` — Quilter rejects the KiCad
