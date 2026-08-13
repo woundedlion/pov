@@ -423,6 +423,11 @@ def fp_bbox(node, pads_only=False):
 
 
 def _rot_bb(bb, rot):
+    """Bounding box of `bb` rotated by a right angle.
+
+    The packer and the mounting-hole keepout gate measure parts through this,
+    so an angle it cannot rotate is an error, not the unrotated box.
+    """
     mnx, mny, mxx, mxy = bb
     pts = [(mnx, mny), (mxx, mny), (mxx, mxy), (mnx, mxy)]
     if rot == 90:
@@ -431,6 +436,8 @@ def _rot_bb(bb, rot):
         pts = [(-x, -y) for x, y in pts]
     elif rot == 270:
         pts = [(-y, x) for x, y in pts]
+    elif rot != 0:
+        raise ValueError(f"placement rotation must be 0/90/180/270: {rot!r}")
     xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
     return (min(xs), min(ys), max(xs), max(ys))
 

@@ -21,6 +21,22 @@ class FootprintBoundsTests(unittest.TestCase):
             self.assertAlmostEqual(actual, expected)
 
 
+class RotatedBoundsTests(unittest.TestCase):
+    BOX = (-1.0, -3.0, 2.0, 4.0)
+
+    def test_right_angles_swap_the_extent(self):
+        self.assertEqual(pcb._rot_bb(self.BOX, 0), self.BOX)
+        self.assertEqual(pcb._rot_bb(self.BOX, 90), (-3.0, -2.0, 4.0, 1.0))
+        self.assertEqual(pcb._rot_bb(self.BOX, 180), (-2.0, -4.0, 1.0, 3.0))
+        self.assertEqual(pcb._rot_bb(self.BOX, 270), (-4.0, -1.0, 3.0, 2.0))
+
+    def test_rejects_an_angle_it_cannot_rotate(self):
+        for rot in (45, "90", sexp.Sym("90")):
+            with self.subTest(rot=rot):
+                with self.assertRaisesRegex(ValueError, "0/90/180/270"):
+                    pcb._rot_bb(self.BOX, rot)
+
+
 class MountingKeepoutTests(unittest.TestCase):
     """Nothing may be packed onto a mounting hole: the screw head sits there."""
 
