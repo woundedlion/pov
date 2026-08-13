@@ -215,8 +215,7 @@ class SharedBoardParseTests(unittest.TestCase):
 
 class AssemblyMetadataTests(unittest.TestCase):
     def setUp(self):
-        self.ref = "X1"
-        self.comps = {self.ref: {"lcsc": " C123 "}}
+        self.ref = "U1"
         self.posrows = {
             self.ref: {
                 "PosX": " 1.25 ",
@@ -227,8 +226,7 @@ class AssemblyMetadataTests(unittest.TestCase):
         }
 
     def validate(self):
-        return fab.validate_assembly_metadata(
-            self.comps, self.posrows, [self.ref])
+        return fab.validate_assembly_metadata(self.posrows, [self.ref])
 
     def assert_diagnostic(self, expected):
         with self.assertRaises(fab.AssemblyMetadataError) as caught:
@@ -241,7 +239,7 @@ class AssemblyMetadataTests(unittest.TestCase):
         self.assertEqual(
             metadata[self.ref],
             {
-                "lcsc": "C123",
+                "lcsc": fab.LCSC_BY_REF[self.ref],
                 "pos_x": "1.25",
                 "pos_y": "-2",
                 "rotation": 370.0,
@@ -249,17 +247,12 @@ class AssemblyMetadataTests(unittest.TestCase):
             },
         )
 
-    def test_rejects_missing_supplier_part_number(self):
-        del self.comps[self.ref]["lcsc"]
+    def test_rejects_a_reference_without_a_part_assignment(self):
+        self.ref = "X1"
+        self.posrows = {self.ref: dict(self.posrows["U1"])}
 
         self.assert_diagnostic(
             f"{self.ref}: supplier part number (LCSC) is missing")
-
-    def test_rejects_blank_supplier_part_number(self):
-        self.comps[self.ref]["lcsc"] = "  "
-
-        self.assert_diagnostic(
-            f"{self.ref}: supplier part number (LCSC) is blank")
 
     def test_rejects_missing_centroid_row(self):
         self.posrows = {}
@@ -313,7 +306,7 @@ class AssemblyMetadataTests(unittest.TestCase):
             f"{self.ref}: centroid side is 'bottom'; expected 'top'")
 
     def test_aggregates_diagnostics(self):
-        self.comps[self.ref]["lcsc"] = ""
+        self.ref = "X1"
         self.posrows = {}
 
         with self.assertRaises(fab.AssemblyMetadataError) as caught:
@@ -321,7 +314,7 @@ class AssemblyMetadataTests(unittest.TestCase):
         self.assertEqual(
             caught.exception.diagnostics,
             (
-                f"{self.ref}: supplier part number (LCSC) is blank",
+                f"{self.ref}: supplier part number (LCSC) is missing",
                 f"{self.ref}: centroid row is missing",
             ),
         )
