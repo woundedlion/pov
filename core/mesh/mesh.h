@@ -507,7 +507,7 @@ require_matching_half_edges(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
 /**
  * @brief Compiles a PolyMesh into a static MeshState.
  * @param src Source dynamic mesh to compile.
- * @param dst Destination MeshState, cleared and populated in place.
+ * @param dst Destination MeshState, unbound and repopulated in place.
  * @param geom_arena Arena supplying storage for the destination arrays.
  * @param scratch Scratch arena for the transient old->new vertex remap
  * (LIFO-restored before return).
@@ -525,7 +525,10 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
            "MeshOps::compile geom_arena must not alias scratch");
   require_flat_face_length(src.get_face_counts_data(),
                            src.get_face_counts_size(), src.get_faces_size());
-  dst.clear();
+  // Unbind, not clear(): a reused MeshState's bindings may name blocks its
+  // arena has already reclaimed, and bind()'s reuse path would then write
+  // through them.
+  dst = MeshState();
 
   size_t valid_faces = 0;
   size_t valid_indices = 0;
