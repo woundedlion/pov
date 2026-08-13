@@ -2275,6 +2275,21 @@ struct TwoArgFacePhaseSegue : Segue::Base {
   float face_phase(float phase, float) const { return phase; }
 };
 
+/** @brief Policies whose optional hooks carry drifted signatures: each is named
+ * but uncallable at the contract's argument list. */
+struct DriftedWarpSegue : Segue::Base {
+  Vector warp(const Vector &v, float, int) const { return v; }
+};
+struct DriftedRetargetSegue : Segue::Base {
+  int retarget(const Vector &) { return 0; }
+};
+struct DriftedReorderSegue : Segue::Base {
+  template <typename Classes> void reorder(const Classes &, int) {}
+};
+struct DriftedMaskPairSegue : Segue::Base {
+  int mask_pair(float, uint32_t) const { return 0; }
+};
+
 /**
  * @brief Pins every per-face segue against that call pattern, so a policy
  * carrying face_offset alone trips this static_assert instead of only breaking
@@ -2287,7 +2302,9 @@ struct TwoArgFacePhaseSegue : Segue::Base {
  * Breakdown's reorder degrades it to a uniform fade, losing Dissolve's
  * mask_pair doubles the frame's rasterizer work. The Schedulable assertions
  * pin every policy against the scheduling signature the carousel calls,
- * including the pause gate a shorter override would hide.
+ * including the pause gate a shorter override would hide. The Declares*
+ * assertions pin the name probes against the drifted policies below, where the
+ * hook is present but uncallable at the contract's argument list.
  */
 inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(PerFaceSegueDrawable<Segue::TerminatorSweep>);
@@ -2307,6 +2324,29 @@ inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(!Segue::NeedsClasses<Segue::TerminatorSweep>);
   static_assert(Segue::Masked<Segue::Dissolve>);
   static_assert(!Segue::Masked<Segue::Crossfade>);
+  static_assert(Segue::HasWarp<Segue::SpinFlip>);
+  static_assert(!Segue::HasWarp<Segue::Crossfade>);
+  static_assert(Segue::HasRetarget<Segue::SpinFlip>);
+  static_assert(Segue::HasRetarget<Segue::Dissolve>);
+  static_assert(!Segue::HasRetarget<Segue::Crossfade>);
+  static_assert(Segue::DeclaresWarp<Segue::SpinFlip>);
+  static_assert(!Segue::DeclaresWarp<Segue::Crossfade>);
+  static_assert(Segue::DeclaresRetarget<Segue::TerminatorSweep>);
+  static_assert(!Segue::DeclaresRetarget<Segue::Crossfade>);
+  static_assert(Segue::DeclaresReorder<Segue::Breakdown>);
+  static_assert(!Segue::DeclaresReorder<Segue::TerminatorSweep>);
+  static_assert(Segue::DeclaresMaskPair<Segue::Dissolve>);
+  static_assert(!Segue::DeclaresMaskPair<Segue::Crossfade>);
+  // A drifted hook is seen by name and rejected by signature, so MeshCarousel
+  // traps it instead of compiling the policy off the hook.
+  static_assert(Segue::DeclaresWarp<DriftedWarpSegue> &&
+                !Segue::HasWarp<DriftedWarpSegue>);
+  static_assert(Segue::DeclaresRetarget<DriftedRetargetSegue> &&
+                !Segue::HasRetarget<DriftedRetargetSegue>);
+  static_assert(Segue::DeclaresReorder<DriftedReorderSegue> &&
+                !Segue::NeedsClasses<DriftedReorderSegue>);
+  static_assert(Segue::DeclaresMaskPair<DriftedMaskPairSegue> &&
+                !Segue::Masked<DriftedMaskPairSegue>);
   static_assert(Segue::Schedulable<Segue::Base>);
   static_assert(Segue::Schedulable<Segue::Crossfade>);
   static_assert(Segue::Schedulable<Segue::IrisBloom>);

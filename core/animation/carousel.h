@@ -48,6 +48,17 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
   static_assert(Segue::Schedulable<SegueT>,
                 "a segue's schedule() must take (timeline, draw_fn, duration, "
                 "window, paused)");
+  static_assert(!Segue::DeclaresWarp<SegueT> || Segue::HasWarp<SegueT>,
+                "a segue's warp() must be Vector warp(const Vector&, float) "
+                "const");
+  static_assert(!Segue::DeclaresRetarget<SegueT> || Segue::HasRetarget<SegueT>,
+                "a segue's retarget() must be void retarget(const Vector&)");
+  static_assert(!Segue::DeclaresReorder<SegueT> || Segue::NeedsClasses<SegueT>,
+                "a segue's reorder() must be void reorder(const "
+                "ArenaVector<uint16_t>&)");
+  static_assert(!Segue::DeclaresMaskPair<SegueT> || Segue::Masked<SegueT>,
+                "a segue's mask_pair() must be MaskPair mask_pair(float, "
+                "uint32_t) const");
 
 public:
   /**
