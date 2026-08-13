@@ -193,6 +193,26 @@ class PlotOriginTests(unittest.TestCase):
         self.assertEqual(fab.validate_plot_origin(fab.PCB), (0.0, 0.0))
 
 
+class SharedBoardParseTests(unittest.TestCase):
+    """One parse feeds every geometry gate; no gate re-reads the file."""
+
+    def test_gates_accept_a_preparsed_board(self):
+        board = fab.read_board(fab.PCB)
+        missing = "does-not-exist.kicad_pcb"
+
+        self.assertEqual(fab.validate_plot_origin(missing, board=board),
+                         (0.0, 0.0))
+        self.assertGreaterEqual(
+            fab.validate_via_geometry(missing, board=board),
+            fab.MIN_BOARD_VIAS)
+        self.assertEqual(fab.validate_zone_geometry(missing, board=board),
+                         fab.MIN_COPPER_POURS)
+
+    def test_rejects_unreadable_board(self):
+        with self.assertRaisesRegex(fab.BoardReadError, "cannot read board"):
+            fab.read_board("does-not-exist.kicad_pcb")
+
+
 class AssemblyMetadataTests(unittest.TestCase):
     def setUp(self):
         self.ref = "X1"
