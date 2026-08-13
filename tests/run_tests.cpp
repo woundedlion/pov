@@ -45,6 +45,7 @@
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
 #include "tests/test_effects_smoke.h"
+#include "tests/test_effect_factory.h"
 #include "tests/test_shaderball.h"
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_shapeshifter_tiles.h"
@@ -117,6 +118,8 @@ constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 259471;
 constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 298058;
 constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 540;
 constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
+constexpr int EFFECT_FACTORY_QUICK_MIN_ASSERTIONS = 330;
+constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", 47, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
@@ -173,6 +176,11 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
+  X("effect_factory", 4,                                                       \
+    hs_test::effect_factory_tests::run_effect_factory_tests,                   \
+    hs_test::effects_tests::effects_full_suite()                               \
+        ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
+        : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
   X("shaderball", 40, hs_test::shaderball_tests::run_shaderball_tests, 70000)  \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
