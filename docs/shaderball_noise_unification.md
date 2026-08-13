@@ -1,5 +1,11 @@
 # ShaderBall noise unification
 
+Status: **landed.** `ShaderBall::SurfaceNoise` carries the `Direct` and `Curl`
+modes, the planar-warp menus carry `Projected Vector Noise` and
+`Projected Curl Flow`, and Stereo Noise is an import tombstone
+(`LEGACY_STEREO_NOISE = 255`). The prescriptive text below is the design
+record, not outstanding work.
+
 ## Decision
 
 Replace legacy Stereo Noise and the Tangent Noise lens with one sphere-space
