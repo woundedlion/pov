@@ -1710,13 +1710,15 @@ inline void test_timeline_pause_redraws_held_sprite() {
 }
 
 /**
- * @brief Verifies a Sprite paused before its first step draws at the envelope
- * plateau instead of the zero end of its fade-in ramp.
+ * @brief Verifies a Sprite paused before its first step holds the opacity its
+ * first unpaused frame would report, not the zero end of its fade-in ramp and
+ * not a full-brightness plateau.
  * @details The pause holds t at 0, so reporting the ramp there would multiply
  * the consumer's draw to nothing for the whole pause; the effect roster is
- * paused before init() by the WASM load path.
+ * paused before init() by the WASM load path. Reporting 1.0 instead would hold
+ * the sprite brighter than any frame the transition draws.
  */
-inline void test_sprite_paused_before_first_step_holds_plateau() {
+inline void test_sprite_paused_before_first_step_holds_first_opacity() {
   Timeline timeline;
   bool paused = true;
   std::vector<float> opacity;
@@ -1731,9 +1733,10 @@ inline void test_sprite_paused_before_first_step_holds_plateau() {
     timeline.step(fake_canvas());
   HS_EXPECT_SIZE_OR_RETURN(opacity, 4);
   for (float value : opacity)
-    HS_EXPECT_NEAR(value, 1.0f, 1e-6f);
+    HS_EXPECT_NEAR(value, 0.125f, 1e-6f);
 
-  // Released, the sprite still runs its fade-in from the start.
+  // Released, the sprite still runs its fade-in from the start, resuming at the
+  // opacity the pause was holding.
   paused = false;
   timeline.step(fake_canvas());
   HS_EXPECT_NEAR(opacity.back(), 0.125f, 1e-6f);
@@ -3536,7 +3539,7 @@ inline int run_animation_tests() {
   test_sprite_overlapping_fades_stay_continuous();
   test_sprite_paused_holds_frame();
   test_timeline_pause_redraws_held_sprite();
-  test_sprite_paused_before_first_step_holds_plateau();
+  test_sprite_paused_before_first_step_holds_first_opacity();
 
   test_crossfade_segue_schedules_overlapping_sprite();
   test_crossfade_segue_clamps_fade_to_half_duration();
