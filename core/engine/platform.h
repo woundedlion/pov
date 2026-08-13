@@ -266,6 +266,28 @@ inline unsigned long micros() { return ::micros(); }
 inline void disable_interrupts() { noInterrupts(); }
 /** @brief Enables interrupts (Arduino). */
 inline void enable_interrupts() { interrupts(); }
+/**
+ * @brief Disables interrupts and returns the mask state that preceded it.
+ * @return PRIMASK as it was on entry; hand it to restore_interrupts().
+ * @details The nestable form of disable_interrupts(): a bracket closed with
+ *          enable_interrupts() unmasks unconditionally, so one entered from an
+ *          ISR or from inside another IRQ-off region would open it early.
+ */
+inline uint32_t save_disable_interrupts() {
+  // The Teensy 4 core exposes __disable_irq()/__enable_irq() but not CMSIS's
+  // PRIMASK accessors, so read and write the register directly.
+  uint32_t primask;
+  __asm__ volatile("mrs %0, primask" : "=r"(primask)::"memory");
+  noInterrupts();
+  return primask;
+}
+/**
+ * @brief Restores the mask state save_disable_interrupts() returned.
+ * @param primask The value returned by the matching save_disable_interrupts().
+ */
+inline void restore_interrupts(uint32_t primask) {
+  __asm__ volatile("msr primask, %0" ::"r"(primask) : "memory");
+}
 // rand_f/rand_int and ScanMetrics are defined once in the shared hs namespace
 // after the #endif below.
 
@@ -524,6 +546,13 @@ inline unsigned long micros() {
 inline void disable_interrupts() {}
 /** @brief Enables interrupts (no-op on host). */
 inline void enable_interrupts() {}
+/**
+ * @brief Nestable interrupt disable (no-op on host).
+ * @return Zero; the host has no mask to save.
+ */
+inline uint32_t save_disable_interrupts() { return 0; }
+/** @brief Restores a saved interrupt mask (no-op on host). */
+inline void restore_interrupts(uint32_t) {}
 // rand_f/rand_int and ScanMetrics are defined once in the shared hs namespace
 // after the #endif below.
 #define HS_OS_CYCLES() 0
