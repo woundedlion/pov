@@ -14,7 +14,7 @@
 #include "core/engine/engine.h"
 // 256 x 256 Pixels = 393,216 B of flash, about a fifth of the Teensy budget;
 // the trade is stated in tools/mindsplatter_palette_gen.cpp.
-#include "core/color/mindsplatter_palettes.h"
+#include "core/color/triadic_palette_luts.h"
 
 // Unit-test accessor for emitter and hole-kernel invariants.
 namespace hs_test {
