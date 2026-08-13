@@ -1940,6 +1940,7 @@ private:
     GNOMONIC_GLITCH_GRID_MIRROR,
     PEIRCE_DODECAHEDRAL_GRID,
     GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
+    GNOMONIC_AFFINE_LATTICE_CONTOUR,
     COUNT,
     NONE = 0xff
   };
@@ -2279,6 +2280,7 @@ private:
   template <WarpStageKind Outer, WarpStageKind Inner>
   struct SelectedPlanarWarpStage {
     static_assert(Outer == WarpStageKind::NONE ||
+                  Outer == WarpStageKind::AFFINE_FRAME ||
                   Outer == WarpStageKind::WAVE_SHEAR ||
                   Outer == WarpStageKind::MIRROR_TILE);
     static_assert(Inner == WarpStageKind::NONE ||
@@ -2323,6 +2325,8 @@ private:
                    float phase, const PreparedWarpStage &prepared) {
       if constexpr (Kind == WarpStageKind::NONE) {
         return {input, Complex(), 0.0f, 0.0f};
+      } else if constexpr (Kind == WarpStageKind::AFFINE_FRAME) {
+        return warp_affine_frame(input, params, prepared);
       } else if constexpr (Kind == WarpStageKind::WAVE_SHEAR) {
         return warp_wave_shear(input, params, phase, params.strength);
       } else {
@@ -2413,6 +2417,43 @@ private:
       }
       const MaterialSample material{value, coverage, input.projected.sphere,
                                     input.warped.path_length};
+      HS_SB_STAGE_SPAN(material, stage_start);
+      return material;
+    }
+  };
+
+  struct IsoContourProjectionWeightMaterialStage {
+    static constexpr InverseStageKind KIND = InverseStageKind::MATERIAL;
+    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
+    static constexpr bool APPROXIMATE = false;
+    static constexpr bool TERMINAL = false;
+    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
+    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
+    static constexpr std::array<ApproximationMetric, 0> METRICS{};
+    static constexpr CoveragePolicy COVERAGE =
+        CoveragePolicy::PROJECTION_WEIGHT;
+    using Input = MaterialInput;
+    using Output = MaterialSample;
+
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.signal_weight == SignalWeight::PROJECTION &&
+             key.value_transfer == ValueTransfer::ISO_CONTOUR &&
+             key.coverage == CoveragePolicy::PROJECTION_WEIGHT;
+    }
+
+    __attribute__((always_inline)) static MaterialSample
+    run(const MaterialInput &input, const FrameState &frame) {
+      HS_SB_STAGE_MARK(stage_start);
+      const float weighted =
+          hs::clamp((input.field * input.projected.value_weight + 1.0f) * 0.5f,
+                    0.0f, 1.0f);
+      const float distance = fabsf(weighted - frame.params.value.iso_level);
+      const float value =
+          1.0f - smooth_ramp(frame.params.value.iso_width,
+                             2.0f * frame.params.value.iso_width, distance);
+      const MaterialSample material{
+          value, input.projected.value_weight * input.projected.domain_coverage,
+          input.projected.sphere, input.warped.path_length};
       HS_SB_STAGE_SPAN(material, stage_start);
       return material;
     }
@@ -2535,6 +2576,12 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+  using GnomonicAffineLatticeContourPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::GNOMONIC, SurfaceLens::NONE>,
+      SelectedPlanarWarpStage<WarpStageKind::AFFINE_FRAME, WarpStageKind::NONE>,
+      SourceStage<Function::PRIMITIVE_LATTICE>,
+      IsoContourProjectionWeightMaterialStage, ColorStage>;
 
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
 
@@ -3424,16 +3471,19 @@ private:
   template <SurfaceLens LENS>
   __attribute__((always_inline)) static Vector
   selected_lens_lookup(const Vector &v) {
-    static_assert(LENS == SurfaceLens::GLITCH ||
+    static_assert(LENS == SurfaceLens::NONE || LENS == SurfaceLens::GLITCH ||
                   LENS == SurfaceLens::KALEIDOSCOPE ||
                   LENS == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
     HS_SB_STAGE_MARK(stage_start);
     const Vector lensed = [&]() {
-      if constexpr (LENS == SurfaceLens::GLITCH)
+      if constexpr (LENS == SurfaceLens::NONE)
+        return v;
+      else if constexpr (LENS == SurfaceLens::GLITCH)
         return glitch_lens(v);
-      if constexpr (LENS == SurfaceLens::KALEIDOSCOPE)
+      else if constexpr (LENS == SurfaceLens::KALEIDOSCOPE)
         return lenses::kaleidoscope_lens(v);
-      return lenses::dodecahedral_kaleidoscope_lens(v);
+      else
+        return lenses::dodecahedral_kaleidoscope_lens(v);
     }();
     HS_SB_STAGE_SPAN(lens, stage_start);
     return lensed;
@@ -3495,9 +3545,9 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 14> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 15> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 14> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 15> PROGRAMS{{
         make_program<KaleidoscopeNoiseGridPipeline,
                      InversePipelineId::KALEIDOSCOPE_NOISE_GRID,
                      make_topology_key(
@@ -3561,6 +3611,11 @@ private:
         make_program<GnomonicDodecahedralGridWaveMirrorPipeline,
                      InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
                      make_topology_key(gnomonic_wave_shear_grid_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<GnomonicAffineLatticeContourPipeline,
+                     InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR,
+                     make_topology_key(
+                         gnomonic_affine_lattice_contour_preset())>(
             &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
@@ -6472,7 +6527,53 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 23> PRESETS = {{
+  static constexpr Preset gnomonic_affine_lattice_contour_preset() {
+    const Slots slots{Function::PRIMITIVE_LATTICE,
+                      Projection::GNOMONIC,
+                      ProjectionFramePolicy::SPIN_WANDER,
+                      SurfaceLens::NONE,
+                      {{WarpStageKind::AFFINE_FRAME}, {WarpStageKind::NONE}},
+                      SignalWeight::PROJECTION,
+                      ValueTransfer::ISO_CONTOUR,
+                      CoveragePolicy::PROJECTION_WEIGHT,
+                      PaletteMode::TRIADIC};
+    Params params;
+    params.source.pattern_freq = 8.0f;
+    params.source.speed = 0.075f;
+    params.source.complexity = 0.009122372f;
+    params.source.pattern_mix = 1.0f;
+    params.source.secondary_rate = 1.146f;
+    params.source.lattice_cell_scale = 2.25125f;
+    params.source.lattice_shape_blend = 1.0f;
+    params.source.lattice_softness = 0.140839845f;
+    params.source.lattice_radius = 0.332981884f;
+    params.warp.outer.scale = 50.7493f;
+    params.warp.outer.strength = 30.0f;
+    params.warp.outer.speed = 0.015625f;
+    params.warp.outer.scale_x = 4.0f;
+    params.warp.outer.scale_y = 4.0f;
+    params.warp.inner.scale = 0.1f;
+    params.projection.spin_rate = 0.0208791979f;
+    params.projection.wander = 0.00309175253f;
+    params.surface_lens.mix = 1.0f;
+    params.value.iso_level = 0.138f;
+    params.value.iso_width = 0.227034181f;
+    params.value.band_count = 19;
+    params.value.band_phase = 6.10725641f;
+    params.value.cutout_threshold = 0.5f;
+    params.value.cutout_softness = 0.05f;
+    params.value.edge_width = 0.327f;
+    params.color.hue_shift_amount = 0.398f;
+    params.color.hue_noise_scale = 0.8300313f;
+    params.color.hue_noise_speed = 0.000212000014f;
+    params.outer_camera.wander = 1.0f;
+    params.surface_noise.scale = 0.507492959f;
+    params.surface_noise.strength = 0.5f;
+    params.surface_noise.rate = 5.377579e-7f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 24> PRESETS = {{
       {KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params(
            {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
@@ -6534,6 +6635,7 @@ private:
       dodecahedral_noise_generated_preset(),
       dodecahedral_lattice_noise_preset(),
       gnomonic_wave_shear_grid_preset(),
+      gnomonic_affine_lattice_contour_preset(),
   }};
   static_assert(
       [] {
