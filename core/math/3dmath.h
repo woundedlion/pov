@@ -833,11 +833,14 @@ inline constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
 /**
  * @brief 1 - v.y below which stereo() is inside the north-pole cap and emits the
  * sentinel magnitude instead of the raw quotient.
- * @details The crossover, not a guard band: on the unit sphere
- * |stereo(v)| = sqrt((1 + v.y) / (1 - v.y)) reaches STEREO_INF exactly here, so
- * the cap continues the projection instead of stepping. 1 - v.y is exact for
- * v.y in [0.5, 1], and its smallest nonzero value (2^-24) still quotients to
- * ~5.8e3, so only a v.y that rounds to (or past) 1 lands inside the cap.
+ * @details Placed at the algebraic crossover: on the unit sphere
+ * |stereo(v)| = sqrt((1 + v.y) / (1 - v.y)) reaches STEREO_INF exactly here.
+ * Float spacing puts that crossover out of reach, though — 1 - v.y is exact for
+ * v.y in [0.5, 1] and its smallest nonzero value (2^-24) already quotients to
+ * ~5.8e3, so the cap is entered only at 1 - v.y == 0 and the sentinel steps up
+ * ~1.7x from the largest magnitude the quotient can produce. Both magnitudes
+ * clear STEREO_INF_RECOGNIZE, so inv_stereo returns either to the pole. Any
+ * retune below 2^-24 is inert.
  */
 inline constexpr float STEREO_POLE_EPS = 2.0f / (STEREO_INF * STEREO_INF);
 
