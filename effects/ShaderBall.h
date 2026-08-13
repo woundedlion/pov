@@ -859,6 +859,20 @@ public:
 
   static constexpr uint32_t CONFIG_SCHEMA_VERSION = 2;
 
+  /**
+   * @brief Reports whether a persisted snapshot's schema version can be
+   *        restored.
+   * @param version Snapshot schema version to test.
+   * @return true for the current version and every legacy version
+   *         restore_full_config_snapshot() still migrates.
+   * @details Single source of truth for the accepted set, so callers that
+   *          pre-screen a version (the WASM bridge) cannot drift from what the
+   *          effect actually accepts.
+   */
+  static constexpr bool config_version_supported(uint32_t version) {
+    return version == 1 || version == CONFIG_SCHEMA_VERSION;
+  }
+
   enum class ConfigFieldId : uint16_t {
 #define HS_SHADERBALL_FIELD_ENUM(name, path) name,
     HS_SHADERBALL_CONFIG_FIELDS(HS_SHADERBALL_FIELD_ENUM)
@@ -2945,8 +2959,7 @@ public:
    */
   HS_COLD_MEMBER ConfigRestoreResult
   restore_full_config_snapshot(const FullConfigSnapshot &snapshot) {
-    if (snapshot.schema_version != 1 &&
-        snapshot.schema_version != CONFIG_SCHEMA_VERSION)
+    if (!config_version_supported(snapshot.schema_version))
       return ConfigRestoreResult::UNSUPPORTED_VERSION;
 
     Config next_accepted{};
