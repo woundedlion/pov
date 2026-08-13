@@ -14,6 +14,7 @@
 
 #include "math/3dmath.h"
 #include "engine/concepts.h"
+#include "engine/memory.h"
 #include <new>
 #include <type_traits>
 #include "vendor/FastNoiseLite.h"
@@ -146,10 +147,7 @@ public:
     active_slots = arena.allocate_n<int>(CAPACITY);
     active_slot_count = 0;
 #ifndef NDEBUG
-    source_arena = &arena;
-    birth_generation = arena.get_generation();
-    birth_rewind_floor = arena.get_rewind_floor();
-    birth_rewind_seq = arena.get_rewind_seq();
+    stamp.record(arena);
 #endif
     if (!clear_hook_registered) {
       timeline.add_clear_hook(this, [](void *self) {
@@ -178,12 +176,10 @@ public:
     HS_CHECK(e == entities && s == active_slots,
              "TransformerPool: reclaimed storage moved");
 #ifndef NDEBUG
-    assert(source_arena == &arena &&
+    assert(stamp.source_arena == &arena &&
            "TransformerPool::reclaim_storage() on a different arena than "
            "init_storage() allocated from");
-    birth_generation = arena.get_generation();
-    birth_rewind_floor = arena.get_rewind_floor();
-    birth_rewind_seq = arena.get_rewind_seq();
+    stamp.record(arena);
 #endif
   }
 
@@ -332,14 +328,8 @@ private:
   }
 
 #ifndef NDEBUG
-  Arena *source_arena =
-      nullptr; /**< Arena the slots were allocated from, for the debug stamp. */
-  uint32_t birth_generation =
-      0; /**< Arena generation at the last init_storage()/reclaim_storage(). */
-  size_t birth_rewind_floor =
-      0; /**< Arena rewind floor at the last init_storage()/reclaim_storage(). */
-  uint32_t birth_rewind_seq =
-      0; /**< Arena rewind counter at the last init/reclaim_storage(). */
+  ArenaBlockStamp stamp; /**< Arena state at the last
+                              init_storage()/reclaim_storage(). */
 
   /**
    * @brief Debug-only use-after-free check on the pool's arena blocks.
@@ -350,23 +340,16 @@ private:
    * detects it.
    */
   void check_storage_alive() const {
-    if (source_arena && source_arena->get_generation() != birth_generation) {
-      assert(false && "TransformerPool use-after-free!");
-    }
-    if (source_arena &&
-        (!source_arena->covers(entities, CAPACITY * sizeof(Entity)) ||
-         !source_arena->covers(active_slots, CAPACITY * sizeof(int)))) {
-      assert(false &&
-             "TransformerPool use-after-free (arena rewound below block)!");
-    }
-    if (source_arena &&
-        (source_arena->reclaimed_since(entities, CAPACITY * sizeof(Entity),
-                                       birth_rewind_floor, birth_rewind_seq) ||
-         source_arena->reclaimed_since(active_slots, CAPACITY * sizeof(int),
-                                       birth_rewind_floor, birth_rewind_seq))) {
-      assert(false && "TransformerPool use-after-free (slots reclaimed by a "
-                      "rewind and reissued)!");
-    }
+    constexpr size_t ENTITY_BYTES = CAPACITY * sizeof(Entity);
+    constexpr size_t SLOT_BYTES = CAPACITY * sizeof(int);
+    assert(!stamp.arena_reset() && "TransformerPool use-after-free!");
+    assert(!stamp.block_uncovered(entities, ENTITY_BYTES) &&
+           !stamp.block_uncovered(active_slots, SLOT_BYTES) &&
+           "TransformerPool use-after-free (arena rewound below block)!");
+    assert(!stamp.block_reissued(entities, ENTITY_BYTES) &&
+           !stamp.block_reissued(active_slots, SLOT_BYTES) &&
+           "TransformerPool use-after-free (slots reclaimed by a rewind and "
+           "reissued)!");
   }
 #else
   /**

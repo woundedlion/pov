@@ -461,6 +461,78 @@ private:
   }
 };
 
+#ifndef NDEBUG
+/**
+ * @brief Debug-only snapshot of an arena's state when it handed out a block.
+ * @details One copy per arena-resident owner (ArenaVector, ArenaSpan,
+ * TransformerPool), so the three lifetime questions a block can be asked —
+ * was the arena reset, was it rewound below the block, was the block reclaimed
+ * by a rewind and reissued — have a single set of answers. Compiled out under
+ * NDEBUG along with the Arena accessors it calls.
+ */
+struct ArenaBlockStamp {
+  Arena *source_arena = nullptr; /**< Arena the block was allocated from. */
+  uint32_t birth_generation = 0; /**< Arena generation when stamped. */
+  size_t birth_rewind_floor = 0; /**< Arena rewind floor when stamped. */
+  uint32_t birth_rewind_seq = 0; /**< Arena rewind counter when stamped. */
+
+  /**
+   * @brief Stamps against @p arena's current generation, rewind floor and
+   *        rewind counter.
+   * @param arena Arena the block was just allocated from.
+   */
+  void record(Arena &arena) {
+    source_arena = &arena;
+    birth_generation = arena.get_generation();
+    birth_rewind_floor = arena.get_rewind_floor();
+    birth_rewind_seq = arena.get_rewind_seq();
+  }
+
+  /**
+   * @brief Drops the stamp, leaving the owner untracked.
+   */
+  void clear() {
+    source_arena = nullptr;
+    birth_generation = 0;
+    birth_rewind_floor = 0;
+    birth_rewind_seq = 0;
+  }
+
+  /**
+   * @brief Whether the source arena was reset or rebound since the stamp.
+   * @return True iff the block's bytes have been reissued wholesale.
+   */
+  bool arena_reset() const {
+    return source_arena && source_arena->get_generation() != birth_generation;
+  }
+
+  /**
+   * @brief Whether a rewind dropped the arena's live extent below the block.
+   * @param p First byte of the block.
+   * @param bytes Block length in bytes; 0 owns no storage and never faults.
+   * @return True iff the region no longer lies within the live extent.
+   */
+  bool block_uncovered(const void *p, size_t bytes) const {
+    return source_arena && bytes > 0 && !source_arena->covers(p, bytes);
+  }
+
+  /**
+   * @brief Whether a rewind reclaimed the block and later allocations re-covered
+   *        it.
+   * @param p First byte of the block.
+   * @param bytes Block length in bytes; 0 owns no storage and never faults.
+   * @return True iff a rewind since the stamp freed the region.
+   * @details Catches the window block_uncovered() goes blind in — the point at
+   * which a second owner starts writing the same bytes.
+   */
+  bool block_reissued(const void *p, size_t bytes) const {
+    return source_arena && bytes > 0 &&
+           source_arena->reclaimed_since(p, bytes, birth_rewind_floor,
+                                         birth_rewind_seq);
+  }
+};
+#endif
+
 // ============================================================================
 // 2. Arena Structures
 // ============================================================================
@@ -523,8 +595,7 @@ private:
   size_t element_capacity; /**< Maximum element count the block can hold. */
   bool bound = false; /**< Whether the vector has been bound to an arena. */
 #ifndef NDEBUG
-  Arena *source_arena = nullptr; /**< Arena the block was allocated from. */
-  uint32_t birth_generation = 0; /**< Arena generation at bind time. */
+  ArenaBlockStamp stamp; /**< Arena state when the block was allocated. */
   /**
    * @brief Per-vector counter bumped on every fresh allocation in bind() (the
    * grow / re-bind path).
@@ -533,15 +604,6 @@ private:
    * its snapshotted pointer was abandoned by a re-grow of the source vector.
    */
   uint32_t rebind_generation = 0;
-  /**
-   * @brief Arena rewind floor sampled when the backing block was allocated.
-   * @details Feeds Arena::reclaimed_since(), which keeps reporting a rewind
-   * that freed the block after later allocations re-cover its bytes — the point
-   * at which the covers() check below goes silent.
-   */
-  size_t birth_rewind_floor = 0;
-  /** @brief Arena rewind counter sampled when the block was allocated. */
-  uint32_t birth_rewind_seq = 0;
 
   /**
    * @brief Debug-only use-after-free check against the source arena.
@@ -550,20 +612,13 @@ private:
    * reclaims the bytes without bumping the generation.
    */
   void check_alive() const {
-    if (source_arena && source_arena->get_generation() != birth_generation) {
-      assert(false && "ArenaVector use-after-free!");
-    }
-    if (source_arena && element_capacity > 0 &&
-        !source_arena->covers(elements, element_capacity * sizeof(T))) {
-      assert(false &&
-             "ArenaVector use-after-free (arena rewound below block)!");
-    }
-    if (source_arena && element_capacity > 0 &&
-        source_arena->reclaimed_since(elements, element_capacity * sizeof(T),
-                                      birth_rewind_floor, birth_rewind_seq)) {
-      assert(false && "ArenaVector use-after-free (block reclaimed by a rewind "
-                      "and reissued)!");
-    }
+    const size_t bytes = element_capacity * sizeof(T);
+    assert(!stamp.arena_reset() && "ArenaVector use-after-free!");
+    assert(!stamp.block_uncovered(elements, bytes) &&
+           "ArenaVector use-after-free (arena rewound below block)!");
+    assert(!stamp.block_reissued(elements, bytes) &&
+           "ArenaVector use-after-free (block reclaimed by a rewind and "
+           "reissued)!");
   }
 #else
   /**
@@ -589,21 +644,15 @@ private:
     element_capacity = other.element_capacity;
     bound = other.bound;
 #ifndef NDEBUG
-    source_arena = other.source_arena;
-    birth_generation = other.birth_generation;
+    stamp = other.stamp;
     rebind_generation = other.rebind_generation;
-    birth_rewind_floor = other.birth_rewind_floor;
-    birth_rewind_seq = other.birth_rewind_seq;
 #endif
     other.elements = nullptr;
     other.element_count = 0;
     other.element_capacity = 0;
     other.bound = false;
 #ifndef NDEBUG
-    other.source_arena = nullptr;
-    other.birth_generation = 0;
-    other.birth_rewind_floor = 0;
-    other.birth_rewind_seq = 0;
+    other.stamp.clear();
     // rebind_generation stays: spans snapshotted it and still view live data.
 #endif
   }
@@ -685,8 +734,8 @@ public:
     // Rebinding a still-bound vector after its source arena was reset, or to a
     // different arena, is a contract violation (the old block is already dead). A
     // same-arena/same-generation grow is not stale and reallocates below.
-    assert((!bound || (source_arena == &arena &&
-                       birth_generation == arena.get_generation())) &&
+    assert((!bound || (stamp.source_arena == &arena &&
+                       stamp.birth_generation == arena.get_generation())) &&
            "ArenaVector::bind() on a stale binding: clear the handle before "
            "resetting or changing its arena");
 #endif
@@ -718,10 +767,7 @@ public:
     element_capacity = min_capacity;
     bound = true;
 #ifndef NDEBUG
-    source_arena = &arena;
-    birth_generation = arena.get_generation();
-    birth_rewind_floor = arena.get_rewind_floor();
-    birth_rewind_seq = arena.get_rewind_seq();
+    stamp.record(arena);
     rebind_generation++;
 #endif
   }
@@ -942,39 +988,27 @@ template <typename T> class ArenaSpan {
   const T *elements;    /**< Snapshotted pointer to the borrowed data. */
   size_t element_count; /**< Number of viewed elements. */
 #ifndef NDEBUG
-  Arena *source_arena = nullptr; /**< Source arena for the stamp. */
-  uint32_t birth_generation = 0; /**< Arena generation at construction. */
+  ArenaBlockStamp stamp; /**< Arena state when the block was allocated. */
   const ArenaVector<T> *source_vec =
       nullptr; /**< Source vector for re-grow check. */
   uint32_t source_rebind_generation =
       0; /**< Vector rebind counter at construction. */
-  size_t birth_rewind_floor =
-      0; /**< Arena rewind floor when the source block was allocated. */
-  uint32_t birth_rewind_seq =
-      0; /**< Arena rewind counter when the source block was allocated. */
 
   /**
    * @brief Debug-only stale-span check against arena and vector stamps.
    * @details Asserts on an arena reset or a source-vector re-grow.
    */
   void check_alive() const {
-    if (source_arena && source_arena->get_generation() != birth_generation) {
-      assert(false && "ArenaSpan use-after-free!");
-    }
-    if (source_vec &&
-        source_vec->rebind_generation != source_rebind_generation) {
-      assert(false && "ArenaSpan source vector re-grown out from under span!");
-    }
-    if (source_arena && element_count > 0 &&
-        !source_arena->covers(elements, element_count * sizeof(T))) {
-      assert(false && "ArenaSpan use-after-free (arena rewound below span)!");
-    }
-    if (source_arena && element_count > 0 &&
-        source_arena->reclaimed_since(elements, element_count * sizeof(T),
-                                      birth_rewind_floor, birth_rewind_seq)) {
-      assert(false && "ArenaSpan use-after-free (borrowed block reclaimed by a "
-                      "rewind and reissued)!");
-    }
+    const size_t bytes = element_count * sizeof(T);
+    assert(!stamp.arena_reset() && "ArenaSpan use-after-free!");
+    assert((!source_vec ||
+            source_vec->rebind_generation == source_rebind_generation) &&
+           "ArenaSpan source vector re-grown out from under span!");
+    assert(!stamp.block_uncovered(elements, bytes) &&
+           "ArenaSpan use-after-free (arena rewound below span)!");
+    assert(!stamp.block_reissued(elements, bytes) &&
+           "ArenaSpan use-after-free (borrowed block reclaimed by a rewind and "
+           "reissued)!");
   }
 #else
   /**
@@ -1011,11 +1045,8 @@ public:
       : elements(source.data()), element_count(source.size())
 #ifndef NDEBUG
         ,
-        source_arena(source.source_arena),
-        birth_generation(source.birth_generation), source_vec(&source),
-        source_rebind_generation(source.rebind_generation),
-        birth_rewind_floor(source.birth_rewind_floor),
-        birth_rewind_seq(source.birth_rewind_seq)
+        stamp(source.stamp), source_vec(&source),
+        source_rebind_generation(source.rebind_generation)
 #endif
   {
   }
