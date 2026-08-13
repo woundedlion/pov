@@ -1,10 +1,11 @@
 # Variadic inverse-sampling pipeline
 
-**Status: proposed replacement.** This specification defines the sole shipping
-renderer for ShaderBall-style pullback rendering. The monolithic
-runtime-dispatch renderer remains available only as a host-test and migration
-oracle until the equivalence, size, and device-timing gates pass; it is then
-removed from device and WASM release images.
+**Status: SHIPPING.** This specification defines the sole shipping renderer for
+ShaderBall-style pullback rendering. The equivalence, size, and device-timing
+gates below have passed and the monolithic runtime-dispatch renderer is gone
+from the device and WASM release images: it survives only behind
+`HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES` as the host-test oracle every
+authored preset is compared against.
 
 ## 1. Purpose
 
@@ -803,7 +804,7 @@ the shipping selective-O3 image.
   unsupported GUI topology.
 - Emit pipeline IDs in profile markers.
 
-### Phase D: remove the runtime renderer
+### Phase D: remove the runtime renderer — executed
 
 - Remove the top-level runtime-dispatch renderer and obsolete hand-written
   wrappers from all release targets.
