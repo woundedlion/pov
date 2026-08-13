@@ -1074,6 +1074,7 @@ struct DistortedRing {
   DistortedRing(const Basis &b, float r, float th, const float *kn, int n,
                 float ph, KnotPrefilter &pf)
       : DistortedRing(b, r, th, ScalarFn{}, 0.0f, ph) {
+    HS_CHECK(kn != nullptr && n >= 1); // n == 0: knot_v(-1) reads knots[-1]
     knots = kn;
     lut_n = n;
     prefilter = &pf;
