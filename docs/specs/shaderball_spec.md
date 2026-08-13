@@ -475,8 +475,8 @@ than silently clamped into a different schema:
 | affine | translation components `[-4,4]`, scale `[1/4,4]`, shear `[-3/4,3/4]`, wrapped rotation |
 | wave shear | amplitude `[-4,4]`, angular frequency `[0,64]`, wrapped field angle/phase |
 | vortex | center components `[-4,4]`, radius `[1/64,8]`, turns `[-4,4]` |
-| vector noise | amplitude `[0,4]`, scale `[1/64,64]`, time rate `[-1/64,1/64]` turns/frame |
-| curl flow | signed distance `[-4,4]`, scale `[1/64,16]`, time rate `[-1/64,1/64]` turns/frame plus the stability inequality below |
+| vector noise | amplitude `[0,1]`, scale `[1/64,4]`, time rate `[-1/64,1/64]` turns/frame |
+| curl flow | signed distance `[-1,1]`, scale `[1/64,2]`, time rate `[-1/64,1/64]` turns/frame plus the stability inequality below |
 | mirror tile | cell dimensions `[1/64,8]`, offsets wrapped to their cells, wrapped rotation |
 | polar chart | radial scale `[1/64,16]`, fixed radius floor `1/4096`, harmonic integer `[1,16]`, wrapped phases |
 | noise contour | scale `[1/64,64]`, contrast `[0,8]`, time rate `[-1/64,1/64]` turns/frame |
@@ -508,8 +508,8 @@ final source conditioning cannot repair an unsafe intermediate. No implicit
 per-pixel saturation is allowed. A tuple whose bound cannot be proven is
 invalid.
 
-Each scalar basis publishes a conservative gradient bound `G` in its native
-coordinates. Curl with `n` integration intervals must satisfy
+The curl sampler clamps each central-difference component to `[-G,G]`, where
+`G = 4`. Curl with `n` integration intervals must satisfy
 `scale * abs(D) * G / n <= 1/2`, and every predicted intermediate must also
 remain inside `WARP_COORD_LIMIT`. This is an admission constraint in addition
 to the slider ranges, not an adaptive runtime step reduction.

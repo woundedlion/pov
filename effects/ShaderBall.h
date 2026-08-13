@@ -1564,10 +1564,11 @@ private:
           first ? "Planar Warp 1 Strength" : "Planar Warp 2 Strength";
       const bool signed_strength = spec.kind == WarpStageKind::WAVE_SHEAR ||
                                    spec.kind == WarpStageKind::CURL_FLOW;
-      float strength_max = 4.0f;
-      if (spec.kind == WarpStageKind::CURL_FLOW) {
+      float strength_max = spec.kind == WarpStageKind::VECTOR_NOISE
+                               ? VECTOR_WARP_STRENGTH_MAX
+                               : 4.0f;
+      if (spec.kind == WarpStageKind::CURL_FLOW)
         strength_max = curl_strength_limit(spec, params);
-      }
       register_current(strength_name, &params.strength,
                        signed_strength ? -strength_max : 0.0f, strength_max);
     }
@@ -1615,9 +1616,9 @@ private:
       register_current(first ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale",
                        &params.scale, 1.0f / 64.0f,
                        domain_scaled_max(spec.kind == WarpStageKind::CURL_FLOW
-                                             ? 16.0f
-                                             : 64.0f,
-                                         8.0f, domain_scale));
+                                             ? CURL_WARP_SCALE_MAX
+                                             : VECTOR_WARP_SCALE_MAX,
+                                         1.0f, domain_scale));
       register_current(names[WARP_NAME_VECTOR_ANGLE], &params.vector_angle,
                        0.0f, TWO_PI_F);
       register_current(names[WARP_NAME_EDGE_WIDTH], &params.edge_width,
@@ -4223,7 +4224,9 @@ private:
          sample_noise_octaves(noise, basis,
                               q - Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f))) /
         (2.0f * NOISE_STENCIL_RADIUS);
-    return {-dy, dx};
+    return {
+        hs::clamp(-dy, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX),
+        hs::clamp(dx, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX)};
   }
 
   __attribute__((always_inline)) static Complex
@@ -5215,14 +5218,18 @@ private:
                            NOISE_SPEED_MAX);
       break;
     case WarpStageKind::VECTOR_NOISE:
-      append_range_warning("Warp Strength", params.strength, 0.0f, 4.0f);
-      append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f, 64.0f);
+      append_range_warning("Warp Strength", params.strength, 0.0f,
+                           VECTOR_WARP_STRENGTH_MAX);
+      append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f,
+                           VECTOR_WARP_SCALE_MAX);
       append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
                            NOISE_SPEED_MAX);
       break;
     case WarpStageKind::CURL_FLOW: {
-      append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
-      append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f, 16.0f);
+      append_range_warning("Warp Strength", params.strength,
+                           -CURL_WARP_STRENGTH_MAX, CURL_WARP_STRENGTH_MAX);
+      append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f,
+                           CURL_WARP_SCALE_MAX);
       append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
                            NOISE_SPEED_MAX);
       const float strength_limit = curl_strength_limit(spec, params);
@@ -5548,18 +5555,10 @@ private:
                                                       : 4;
   }
 
-  /**
-   * @brief Conservative bound on the sampled gradient magnitude of a basis.
-   * @return 64, per unit of scaled noise coordinate.
-   * @details The bound is a property of the stencil, not of the basis, so the
-   * parameter is unnamed. Every basis returns values in [-1, 1] and the curl
-   * gradient is a central difference over the fixed stencil h = 1/64, so no
-   * component can exceed 2 / (2h) = 1/h = 64. Widening the stencil or letting
-   * a basis leave [-1, 1] invalidates this and every curl stability check
-   * built on it.
-   */
-  HS_COLD_MEMBER static constexpr float noise_gradient_bound(NoiseBasis) {
-    return 64.0f;
+  /** @brief Maximum component emitted by the bounded curl vector field. */
+  HS_COLD_MEMBER static constexpr float
+  curl_vector_component_bound(NoiseBasis) {
+    return CURL_VECTOR_COMPONENT_MAX;
   }
 
   /**
@@ -5574,8 +5573,11 @@ private:
                       const WarpStageParams &params) {
     const float scale =
         params.scale > WARP_SCALE_MIN ? params.scale : WARP_SCALE_MIN;
-    return 0.5f * static_cast<float>(curl_intervals(spec.curl_integrator)) /
-           (scale * noise_gradient_bound(spec.basis));
+    const float stable_limit =
+        0.5f * static_cast<float>(curl_intervals(spec.curl_integrator)) /
+        (scale * curl_vector_component_bound(spec.basis));
+    return stable_limit < CURL_WARP_STRENGTH_MAX ? stable_limit
+                                                 : CURL_WARP_STRENGTH_MAX;
   }
 
   HS_COLD_MEMBER static constexpr bool
@@ -5603,16 +5605,20 @@ private:
              params.center_orbit_radius <= 4.0f &&
              params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
     case WarpStageKind::VECTOR_NOISE:
-      return params.strength >= 0.0f && params.strength <= 4.0f &&
-             params.scale >= 1.0f / 64.0f && params.scale <= 64.0f &&
+      return params.strength >= 0.0f &&
+             params.strength <= VECTOR_WARP_STRENGTH_MAX &&
+             params.scale >= 1.0f / 64.0f &&
+             params.scale <= VECTOR_WARP_SCALE_MAX &&
              params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
     case WarpStageKind::CURL_FLOW:
-      return params.strength >= -4.0f && params.strength <= 4.0f &&
-             params.scale >= 1.0f / 64.0f && params.scale <= 16.0f &&
+      return params.strength >= -CURL_WARP_STRENGTH_MAX &&
+             params.strength <= CURL_WARP_STRENGTH_MAX &&
+             params.scale >= 1.0f / 64.0f &&
+             params.scale <= CURL_WARP_SCALE_MAX &&
              params.speed >= NOISE_SPEED_MIN &&
              params.speed <= NOISE_SPEED_MAX &&
              params.scale * abs_value(params.strength) *
-                     noise_gradient_bound(spec.basis) /
+                     curl_vector_component_bound(spec.basis) /
                      curl_intervals(spec.curl_integrator) <=
                  0.5f;
     case WarpStageKind::MIRROR_TILE:
@@ -5672,7 +5678,8 @@ private:
       return input_bound + 1.414214f * params.strength;
     case WarpStageKind::CURL_FLOW:
       return input_bound + 1.414214f * abs_value(params.strength) *
-                               params.scale * noise_gradient_bound(spec.basis);
+                               params.scale *
+                               curl_vector_component_bound(spec.basis);
     case WarpStageKind::MIRROR_TILE:
       return 1.414214f * (params.cell_x + params.cell_y);
     case WarpStageKind::POLAR_CHART: {
@@ -5864,7 +5871,7 @@ private:
     const float a_distance = abs_value(a.strength);
     const float b_distance = abs_value(b.strength);
     const float distance = a_distance > b_distance ? a_distance : b_distance;
-    return scale * distance * noise_gradient_bound(spec.basis) /
+    return scale * distance * curl_vector_component_bound(spec.basis) /
                curl_intervals(spec.curl_integrator) <=
            0.5f;
   }
@@ -6133,6 +6140,11 @@ private:
   static constexpr float WARP_SCALE_MAX = 100.0f;
   static constexpr float WARP_STRENGTH_MIN = -4.0f;
   static constexpr float WARP_STRENGTH_MAX = 30.0f;
+  static constexpr float VECTOR_WARP_SCALE_MAX = 4.0f;
+  static constexpr float VECTOR_WARP_STRENGTH_MAX = 1.0f;
+  static constexpr float CURL_WARP_SCALE_MAX = 2.0f;
+  static constexpr float CURL_WARP_STRENGTH_MAX = 1.0f;
+  static constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
   static constexpr float WARP_SPEED_MIN = -1.0f / 64.0f;
   static constexpr float WARP_SPEED_MAX = 1.0f;
   static constexpr float PATTERN_FREQ_MIN = 0.1f, PATTERN_FREQ_MAX = 20.0f;

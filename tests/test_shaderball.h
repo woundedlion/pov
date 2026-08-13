@@ -1649,7 +1649,7 @@ inline void test_shaderball_mode_specific_parameter_warnings() {
 
   const auto *strength = sb.getParameters().find("Planar Warp 1 Strength");
   HS_EXPECT_TRUE(strength != nullptr);
-  const float limit = 0.5f / 64.0f;
+  const float limit = 0.5f / 4.0f;
   HS_EXPECT_NEAR(strength->min, -limit, 1e-7f);
   HS_EXPECT_NEAR(strength->max, limit, 1e-7f);
   HS_EXPECT_EQ(strength->get_requested(), limit);
@@ -2242,9 +2242,8 @@ inline void test_shaderball_gui_catalog() {
     WB::settle_transition(sb);
     const auto *strength = sb.getParameters().find("Planar Warp 1 Strength");
     HS_EXPECT_TRUE(strength != nullptr);
-    // 0.5 / (scale 0.1 * gradient bound 64), one Euler interval.
     const float limit = strength->max;
-    HS_EXPECT_NEAR(limit, 0.078125f, 1e-6f);
+    HS_EXPECT_NEAR(limit, 1.0f, 1e-6f);
     HS_EXPECT_EQ(strength->min, -limit);
     HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Strength", 4.0f) ==
                    ParamSetResult::APPLIED);
@@ -2320,6 +2319,25 @@ inline void test_shaderball_lens_domain_ranges() {
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Speed")->max, 0.005f);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Frequency")->max, 8.0f);
+
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Planar Warp 1",
+                         static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 1.0f);
+  HS_EXPECT_EQ(parameter("Planar Warp 1 Strength")->max, 1.0f);
+
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 4.0f);
+
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Planar Warp 1",
+                         static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 2.0f);
+  HS_EXPECT_EQ(parameter("Planar Warp 1 Strength")->max, 0.125f);
 
   HS_EXPECT_TRUE(
       sb.updateParameter("Function",
@@ -3111,9 +3129,9 @@ inline void test_shaderball_projection_and_admission_contracts() {
       WB::CurlIntegrator::MIDPOINT_4;
   curl.params.warp.outer.scale = 1.0f;
   curl.params.warp.outer.speed = 0.0f;
-  curl.params.warp.outer.strength = 0.03f;
+  curl.params.warp.outer.strength = 0.5f;
   HS_EXPECT_TRUE(WB::valid_config(curl));
-  curl.params.warp.outer.strength = 0.04f;
+  curl.params.warp.outer.strength = 0.5001f;
   HS_EXPECT_FALSE(WB::valid_config(curl));
 
   WB::RequestedConfig affine = WB::legacy_config();
