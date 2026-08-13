@@ -3285,6 +3285,18 @@ inline void test_shaderball_planar_warp_animation() {
   HS_EXPECT_NEAR(affine_identity_quarter.coords.re, input.re, 1e-6f);
   HS_EXPECT_NEAR(affine_identity_quarter.coords.im, input.im, 1e-6f);
 
+  WB::WarpStageParams affine_scale;
+  affine_scale.scale_x = 2.0f;
+  affine_scale.scale_y = 2.0f;
+  const auto scale_start =
+      sample(WB::WarpStageKind::AFFINE_FRAME, affine_scale, 0.0f);
+  const auto scale_quarter =
+      sample(WB::WarpStageKind::AFFINE_FRAME, affine_scale, 0.25f);
+  HS_EXPECT_NEAR(scale_start.coords.re, input.re * 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(scale_start.coords.im, input.im * 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(scale_quarter.coords.re, input.re, 1e-6f);
+  HS_EXPECT_NEAR(scale_quarter.coords.im, input.im, 1e-6f);
+
   WB::WarpStageParams affine_scroll;
   affine_scroll.translation_x = 1.0f;
   affine_scroll.translation_y = -2.0f;

@@ -3266,7 +3266,7 @@ private:
           wrap_t(stage_phase) * params.translation_x * source_period.re,
           wrap_t(stage_phase) * params.translation_y * source_period.im,
           powf(params.scale_x, phase_cos),
-          powf(params.scale_y, phase_sin),
+          powf(params.scale_y, phase_cos),
           params.shear * phase_cos,
       };
     } else if (spec.kind == WarpStageKind::MIRROR_TILE) {
