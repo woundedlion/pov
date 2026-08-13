@@ -2812,12 +2812,12 @@ inline const Case *all_cases(int &n) {
        "effect_registry.h",
        "(existing.name != reg.name) effect header included by more than one "
        "translation unit: effects/DeathDuplicate.h"},
-      {"flywheel_period_zero", case_flywheel_period_zero, "pov_sync.h",
+      {"flywheel_period_zero", case_flywheel_period_zero, "pov_sync_flywheel.h",
        "(p > 0 && p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS) "
        "Flywheel: cycles_per_half_rev outside the range position()'s int32 "
        "elapsed window holds for MIN_SAFE_HALF_REVS of coast"},
       {"symbol_emitter_overlapping_burst",
-       case_symbol_emitter_overlapping_burst, "pov_sync.h",
+       case_symbol_emitter_overlapping_burst, "pov_sync_emitter.h",
        "(pulses_left == 0 && queue_pos >= queue_len) "
        "SymbolEmitter::schedule_boundary: wire busy"},
       {"y_to_phi_degenerate_height", case_y_to_phi_degenerate_height,
