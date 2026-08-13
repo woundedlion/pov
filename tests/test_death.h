@@ -775,6 +775,39 @@ inline void case_medial_aliases_input() {
   MeshOps::medial(mesh, mesh, mesh.vertices, target, temp);
 }
 
+/**
+ * @brief Death case: needle rejects one arena passed as both target and temp.
+ * @details needle is dual∘kis with the two arenas swapped between the legs, so a
+ *          single arena has the second leg reading the block the first is
+ *          overwriting.
+ */
+inline void case_needle_aliased_arenas() {
+  static uint8_t buf[64];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh mesh;
+  MeshOps::needle(mesh, arena, arena);
+}
+
+/** @brief Death case: zip rejects one arena passed as both target and temp. */
+inline void case_zip_aliased_arenas() {
+  static uint8_t buf[64];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh mesh;
+  MeshOps::zip(mesh, arena, arena);
+}
+
+/**
+ * @brief Death case: MeshOps::transform rejects a self-aliased destination.
+ * @details set_view() drops the source's owned topology before it is read, so a
+ *          self-transform would report F faces over reclaimed arena bytes.
+ */
+inline void case_mesh_transform_aliases_source() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  MeshState mesh;
+  MeshOps::transform(mesh, mesh, arena);
+}
+
 /** @brief Death case: chamfer rejects the face-collapse endpoint. */
 inline void case_chamfer_collapsed_endpoint() {
   static uint8_t target_buf[64];
@@ -1078,6 +1111,18 @@ inline void case_update_hankin_stale_topology() {
   MeshOps::update_hankin(compiled, mesh, geom, opaque(0.0f));
   if (mesh.num_faces() == opaque<size_t>(0x7fff))
     std::printf("x");
+}
+
+/**
+ * @brief Death case: CompiledHankin::clone rejects a self-aliased destination.
+ * @details Each vector is rebound from the arena before the copy, so a
+ *          self-clone memcpy's a block onto itself from a stale source pointer.
+ */
+inline void case_hankin_clone_aliases_dst() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  CompiledHankin compiled;
+  CompiledHankin::clone(compiled, compiled, arena);
 }
 
 /**
@@ -2650,6 +2695,14 @@ inline const Case *all_cases(int &n) {
        "topology range (oversized mesh?)"},
       {"medial_aliases_input", case_medial_aliases_input, "conway.h",
        "(&mesh != &out_a) medial input mesh must not alias output mesh"},
+      {"needle_aliased_arenas", case_needle_aliased_arenas, "conway.h",
+       "(&target != &temp) needle: target and temp must differ"},
+      {"zip_aliased_arenas", case_zip_aliased_arenas, "conway.h",
+       "(&target != &temp) zip: target and temp must differ"},
+      {"mesh_transform_aliases_source", case_mesh_transform_aliases_source,
+       "conway.h",
+       "(&mesh != &transformed) MeshOps::transform source mesh must not alias "
+       "the destination"},
       {"chamfer_collapsed_endpoint", case_chamfer_collapsed_endpoint,
        "conway.h", "(t >= 0.0f && t < 1.0f) chamfer: t out of [0,1)"},
       {"snub_collapsed_endpoint", case_snub_collapsed_endpoint, "conway.h",
@@ -2697,6 +2750,8 @@ inline const Case *all_cases(int &n) {
        "compiled.face_counts.size() && out_mesh.faces.size() == "
        "compiled.faces.size())) update_hankin: reused out_mesh carries "
        "a topology from a different compiled pattern (clear it first)"},
+      {"hankin_clone_aliases_dst", case_hankin_clone_aliases_dst, "hankin.h",
+       "(&src != &dst) CompiledHankin::clone src must not alias dst"},
       {"mesh_state_set_view_offsets_count_mismatch",
        case_mesh_state_set_view_offsets_count_mismatch, "spatial.h",
        "(face_offsets_span.size() == face_counts_span.size()) "
@@ -3258,7 +3313,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  * @details Raise it after adding cases; lower it only alongside a deliberate
  *          removal of the engine guards those cases target.
  */
-constexpr int MIN_COVERED_GUARD_SITES = 117;
+constexpr int MIN_COVERED_GUARD_SITES = 121;
 
 /** @brief One file's approved count of guard sites no case pins. */
 struct GuardGapAllowance {
@@ -3300,9 +3355,9 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"noise_field.h", 1},
     {"spherical_field.h", 2},
     {"waves.h", 1},
-    {"conway.h", 34},
+    {"conway.h", 31},
     {"conway_graph.h", 1},
-    {"hankin.h", 10},
+    {"hankin.h", 9},
     {"mesh.h", 10},
     {"mesh_classes.h", 5},
     {"recipe.h", 9},
@@ -3472,7 +3527,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 134;
+  constexpr int DEATH_CASE_COUNT = 138;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
