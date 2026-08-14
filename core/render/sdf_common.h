@@ -274,6 +274,34 @@ template <typename A, typename B>
 inline constexpr bool blends_smoothly<Subtract<A, B>> =
     blends_smoothly<A> && blends_smoothly<B>;
 
+/** Signed distance below which a shape's distance() always reports a true
+ * value. At or above it the shape may substitute FAR_SENTINEL, an unbounded
+ * jump that says nothing about a neighbouring probe, so a walk that vouches for
+ * a run of columns from one probe may do so only while the clearance it tests
+ * stays under this margin. A shape that never substitutes reports FLT_MAX; a
+ * combinator takes the tightest of its children. */
+template <typename T> inline constexpr float reject_margin = FLT_MAX;
+// The bounding annulus is the stroke band itself, so every probe outside the
+// stroke is a candidate for the sentinel.
+template <> inline constexpr float reject_margin<Ring> = 0.0f;
+template <> inline constexpr float reject_margin<DistortedRing> = 0.0f;
+template <> inline constexpr float reject_margin<FlatDistortedRing> = 0.0f;
+template <typename Shape>
+inline constexpr float reject_margin<AngularRepeat<Shape>> =
+    reject_margin<Shape>;
+template <typename A, typename B>
+inline constexpr float reject_margin<Union<A, B>> =
+    std::min(reject_margin<A>, reject_margin<B>);
+template <typename A, typename B>
+inline constexpr float reject_margin<SmoothUnion<A, B>> =
+    std::min(reject_margin<A>, reject_margin<B>);
+template <typename A, typename B>
+inline constexpr float reject_margin<Intersection<A, B>> =
+    std::min(reject_margin<A>, reject_margin<B>);
+template <typename A, typename B>
+inline constexpr float reject_margin<Subtract<A, B>> =
+    std::min(reject_margin<A>, reject_margin<B>);
+
 /**
  * @brief Append a scanline interval, trapping on overflow.
  * @tparam N Buffer capacity (deduced); supports both the per-shape and the
