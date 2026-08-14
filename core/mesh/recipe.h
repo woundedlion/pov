@@ -210,6 +210,7 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
     builder.chamfer(step.param);
     break;
   case Op::HANKIN:
+    HS_CHECK(step.param > 0.0f, "apply_step: HANKIN step has no contact angle");
     builder.hankin(step.param);
     break;
   case Op::RELAX:
