@@ -79,19 +79,24 @@ inline uint32_t g_planar_position_samples = 0;
 static constexpr float COS_PLANAR_ANTIPODE = 0.999f;
 
 /**
- * @brief scratch_arena_a bytes rasterize binds for its own adaptive sub-step
- * cache, on top of the caller's Fragments buffer, which stays live across the
+ * @brief Upper bound on the scratch_arena_a bytes rasterize binds for its own
+ * caches, on top of the caller's Fragments buffer, which stays live across the
  * call.
  * @tparam W Rasterization width.
+ * @param planar_segments Segment count of a planar-basis draw that derives arc
+ *        registers; 0 for a geodesic polyline, which binds no per-segment
+ *        cache.
  * @return The cache size in bytes.
  * @details Effects sizing a custom scratch-A split must budget this alongside
- * their own buffers. A planar-basis draw binds count * (sizeof(float) + 1) more
- * for its per-segment arc/seam caches, where count is the segment count.
+ * their own buffers. Covers the adaptive sub-step cache plus, under a planar
+ * basis, the per-segment arc and seam caches.
  */
-template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
+template <int W>
+inline constexpr size_t rasterize_scratch_a_bytes(size_t planar_segments = 0) {
   constexpr size_t STEPS =
       2 * static_cast<size_t>(W) > 64 ? 2 * static_cast<size_t>(W) : 64;
-  return STEPS * sizeof(float);
+  return STEPS * sizeof(float) +
+         planar_segments * (sizeof(float) + sizeof(uint8_t));
 }
 
 /**
