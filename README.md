@@ -1291,6 +1291,8 @@ PolyMesh result = MeshOps::kis(mesh, scratch_arena_a, scratch_arena_b);
 
 Conway operators take `(Arena& target, Arena& temp)`, generator functions take `(Arena& a, Arena& b)`, and `classify_faces_by_topology` takes `(Arena& scratch_a, Arena& scratch_b, Arena& persistent)`. This purely functional approach makes the memory layout during heavy geometric operations explicit at every call site.
 
+<a id="compaction-with-persist"></a>
+
 #### Compaction with `Persist<T>`
 
 `Persist<T>` is an RAII class that safely evacuates live data from the persistent arena, allowing it to be reset and defragmented, then automatically restores the data on destruction:

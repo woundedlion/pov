@@ -248,7 +248,6 @@ template <int W, int H> struct Pipeline<W, H> {
   /**
    * @brief Trail flush (base case: no stage to flush).
    * @tparam TrailFn ScreenTrailFn or WorldTrailFn.
-   * @return Never returns; instantiation is a hard error.
    * @details Dependent-false guard: fires only when flush() is named on a
    * filterless pipeline. The recursion runs through flush_stages(), so this
    * overload is reachable from outside the pipeline only.
@@ -263,7 +262,6 @@ template <int W, int H> struct Pipeline<W, H> {
   /**
    * @brief Terminal-stage flush (base case: no stage to flush).
    * @tparam T Unused; carries the dependent-false guard.
-   * @return Never returns; instantiation is a hard error.
    */
   template <typename T = void> void flush(Canvas &, float) {
     static_assert(
@@ -1540,7 +1538,6 @@ public:
   /**
    * @brief Trail flush (nothing to flush).
    * @tparam TrailFn ScreenTrailFn or WorldTrailFn.
-   * @return Never returns; instantiation is a hard error.
    * @details Dependent-false guard matching the filterless Pipeline: this sink
    * carries no history, so the call would emit nothing.
    */
@@ -1555,7 +1552,6 @@ public:
   /**
    * @brief Terminal-stage flush (nothing to flush).
    * @tparam T Unused; carries the dependent-false guard.
-   * @return Never returns; instantiation is a hard error.
    */
   template <typename T = void> void flush(Canvas &, float) {
     static_assert(
