@@ -616,9 +616,12 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
  * @details MeshOps::compile drops faces by side count only, so it never drops
  * a chamfer birth; the size-dependent reject is SDF::Face's
  * COLLAPSED_AREA_RATIO test at draw time. This bisects that boundary and
- * reports it as the chamfer analog of T_EPS.
+ * bounds it against the shipping T_EPS, which must clear the cull outright.
  */
 inline void test_chamfer_birth_epsilon() {
+  // Worst measured birth epsilon is 1.8e-6, two decades under this cap and
+  // four under T_EPS.
+  constexpr float MAX_BIRTH_EPSILON = 1e-4f;
   for (const ChamferSite &site : CHAMFER_SITES) {
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
@@ -672,6 +675,10 @@ inline void test_chamfer_birth_epsilon() {
     HS_EXPECT_EQ(cf_eps, raw_faces);
     HS_EXPECT_EQ(compiled_faces, raw_faces);
     HS_EXPECT_TRUE(clears_at_hi);
+    // The sweeps open at T_EPS, so every birth must already clear the cull
+    // there, and the boundary itself must stay decades below it.
+    HS_EXPECT_EQ(at_eps, static_cast<size_t>(0));
+    HS_EXPECT_LT(hi, MAX_BIRTH_EPSILON);
     std::printf("  [chamfer-eps] %s: births clear the SDF cull at t>=%.2e "
                 "(T_EPS=%.3f culls %zu of %zu; compile keeps %zu of %zu)\n",
                 site.name, static_cast<double>(hi),
