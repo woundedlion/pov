@@ -5035,10 +5035,18 @@ private:
 
   HS_COLD_MEMBER void apply_requested_config() {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    const size_t before_count = pending_edit_count;
-    refresh_accepted_config();
-    if (before_count != pending_edit_count)
-      rebind_parameters();
+    if (!requested_schema_bound) {
+      if (!valid_config(requested_config)) {
+        reject_requested_config();
+        return;
+      }
+      accepted_config = requested_config;
+    } else {
+      const size_t before_count = pending_edit_count;
+      refresh_accepted_config();
+      if (before_count != pending_edit_count)
+        rebind_parameters();
+    }
     const Config &next_config = accepted_config;
 #else
     const Config &next_config = requested_config;
@@ -5073,6 +5081,8 @@ private:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     accepted_config = next_config;
 #endif
+    if (!requested_schema_bound)
+      rebind_parameters();
   }
 
   HS_COLD_MEMBER void reject_requested_config() {
