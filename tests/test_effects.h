@@ -155,16 +155,19 @@ inline bool effect_may_be_dark(const char *name, int frames) {
 }
 
 /**
- * @brief Resets the process-global effect state (RNG seed, arenas, timeline) to
- *        a clean per-effect baseline.
+ * @brief Resets the process-global effect state (RNG seed, arenas, timeline,
+ *        clock) to a clean per-effect baseline.
  * @details Every effect aliases the same static double buffer, global RNG,
  *          arenas, and timeline; without this reset leftover events reference
- *          the previous (destroyed) effect instance.
+ *          the previous (destroyed) effect instance. The mock clock is released
+ *          too, so a case that wants one pins it itself rather than inheriting
+ *          whichever clock the previous case left behind.
  */
 inline void reset_effect_globals() {
   hs::random().seed(1337u);
   configure_arenas_default();
   Timeline().clear();
+  hs::clear_mock_time();
 }
 
 /**
