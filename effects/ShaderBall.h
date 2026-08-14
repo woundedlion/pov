@@ -2974,8 +2974,8 @@ private:
     return false;
   }
 
-  static constexpr bool valid_snapshot_config(const Config &config) {
-    const Slots &slots = config.slots;
+  /** @brief Tests every slot against the last enumerator its schema admits. */
+  static constexpr bool valid_slot_enums(const Slots &slots) {
     return enum_at_most(slots.function, Function::NOISE_CONTOUR_SPHERE) &&
            enum_at_most(slots.projection, Projection::EQUIRECTANGULAR) &&
            enum_at_most(slots.projection_frame,
@@ -3003,8 +3003,12 @@ private:
            enum_at_most(slots.airocean_layout, AiroceanLayout::HORIZONTAL) &&
            enum_at_most(slots.bonne_hemisphere, BonneHemisphere::SOUTH) &&
            enum_at_most(slots.gnomonic_hemisphere,
-                        GnomonicHemispherePolicy::BACK_HEMISPHERE) &&
-           preset_in_ranges(config.params) && hue_shift_amount_in_range(config);
+                        GnomonicHemispherePolicy::BACK_HEMISPHERE);
+  }
+
+  static constexpr bool valid_snapshot_config(const Config &config) {
+    return valid_slot_enums(config.slots) && preset_in_ranges(config.params) &&
+           hue_shift_amount_in_range(config);
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -5418,34 +5422,7 @@ private:
   HS_COLD_MEMBER static constexpr bool
   valid_config(const RequestedConfig &candidate) {
     const Slots &slots = candidate.slots;
-    if (!enum_at_most(slots.function, Function::NOISE_CONTOUR_SPHERE) ||
-        !enum_at_most(slots.projection, Projection::EQUIRECTANGULAR) ||
-        !enum_at_most(slots.peirce_layout, PeirceLayout::VERTICAL) ||
-        !enum_at_most(slots.airocean_layout, AiroceanLayout::HORIZONTAL) ||
-        !enum_at_most(slots.bonne_hemisphere, BonneHemisphere::SOUTH) ||
-        !enum_at_most(slots.gnomonic_hemisphere,
-                      GnomonicHemispherePolicy::BACK_HEMISPHERE) ||
-        !enum_at_most(slots.projection_frame,
-                      ProjectionFramePolicy::SPIN_WANDER) ||
-        !enum_at_most(slots.surface_lens,
-                      SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM) ||
-        !enum_at_most(slots.surface_noise, SurfaceNoise::CURL) ||
-        !enum_at_most(slots.surface_noise_placement,
-                      SurfaceNoisePlacement::AFTER_LENS) ||
-        !enum_at_most(slots.warp_program.outer.kind,
-                      WarpStageKind::POLAR_CHART) ||
-        !enum_at_most(slots.warp_program.inner.kind,
-                      WarpStageKind::POLAR_CHART) ||
-        !valid_warp_spec(slots.warp_program.outer) ||
-        !valid_warp_spec(slots.warp_program.inner) ||
-        !enum_at_most(slots.signal_weight, SignalWeight::PROJECTION) ||
-        !enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) ||
-        !enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) ||
-        !enum_at_most(slots.palette, PaletteMode::ANALOGOUS) ||
-        !enum_at_most(slots.palette_mapping, PaletteMapping::REVERSE) ||
-        !enum_at_most(slots.brightness_envelope,
-                      BrightnessEnvelope::DESCENDING) ||
-        !enum_at_most(slots.hue_shift, HueShiftMode::WARP_DISPLACEMENT))
+    if (!valid_slot_enums(slots))
       return false;
     if (slots.function == Function::NOISE_CONTOUR_SPHERE &&
         (slots.warp_program.outer.kind != WarpStageKind::NONE ||
