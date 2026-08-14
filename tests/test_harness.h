@@ -12,10 +12,52 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <type_traits>
 
 namespace hs_test {
+
+/** FNV-1a 64-bit offset basis. */
+inline constexpr uint64_t FNV1A64_BASIS = 1469598103934665603ull;
+/** FNV-1a 64-bit prime. */
+inline constexpr uint64_t FNV1A64_PRIME = 1099511628211ull;
+
+/**
+ * @brief Folds one byte into a running FNV-1a 64-bit hash.
+ * @param hash Running hash, seeded from FNV1A64_BASIS.
+ * @param byte Byte to absorb.
+ * @return The updated hash.
+ */
+inline constexpr uint64_t fnv1a64_byte(uint64_t hash, uint8_t byte) {
+  return (hash ^ byte) * FNV1A64_PRIME;
+}
+
+/**
+ * @brief Folds a 16-bit channel, low byte first.
+ * @param hash Running hash.
+ * @param channel Channel to absorb.
+ * @return The updated hash.
+ */
+inline constexpr uint64_t fnv1a64_channel(uint64_t hash, uint16_t channel) {
+  return fnv1a64_byte(fnv1a64_byte(hash, static_cast<uint8_t>(channel)),
+                      static_cast<uint8_t>(channel >> 8));
+}
+
+/**
+ * @brief Folds a byte span into a running FNV-1a 64-bit hash.
+ * @param data Span start.
+ * @param n Byte count.
+ * @param hash Seed, letting a key be built from several spans.
+ * @return The updated hash.
+ */
+inline uint64_t fnv1a64_bytes(const void *data, size_t n,
+                              uint64_t hash = FNV1A64_BASIS) {
+  const uint8_t *p = static_cast<const uint8_t *>(data);
+  for (size_t i = 0; i < n; ++i)
+    hash = fnv1a64_byte(hash, p[i]);
+  return hash;
+}
 
 /**
  * @brief Process-wide pass/fail tally shared by every test suite.

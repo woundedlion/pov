@@ -672,13 +672,8 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
  * @return The accumulated hash.
  */
 inline uint64_t fnv1a64(const void *data, size_t n,
-                        uint64_t h = 0xcbf29ce484222325ull) {
-  const uint8_t *p = static_cast<const uint8_t *>(data);
-  for (size_t i = 0; i < n; ++i) {
-    h ^= p[i];
-    h *= 0x100000001b3ull;
-  }
-  return h;
+                        uint64_t h = hs_test::FNV1A64_BASIS) {
+  return hs_test::fnv1a64_bytes(data, n, h);
 }
 
 /**
