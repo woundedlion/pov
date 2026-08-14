@@ -391,6 +391,11 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
   return mesh;
 }
 
+#if defined(HS_RELAX_BAKE_VERIFY)
+/** @brief Payloads relax_baked() has re-derived and matched this run. */
+inline int relax_bakes_verified = 0;
+#endif
+
 /**
  * @brief Fluent builder for chaining Conway operators with automatic arena
  * swapping.
@@ -411,11 +416,6 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
  * (including the ones a composed operator leaves behind in `temp`). The seed
  * sits below both marks and stays for the life of the chain.
  */
-#if defined(HS_RELAX_BAKE_VERIFY)
-/** @brief Payloads relax_baked() has re-derived and matched this run. */
-inline int relax_bakes_verified = 0;
-#endif
-
 class SolidBuilder {
   PolyMesh mesh; /**< Mesh being built; updated in place by each operator. */
   Arena *output_arena;  /**< Current output arena (swapped per op). */
