@@ -213,6 +213,7 @@ private:
   };
 
   SolidData *loaded_solids = nullptr;
+  /** @brief Registry solids the medial-edge term of FOOTPRINT_BYTES covers. */
   static constexpr size_t FOUR_REGULAR_SOLID_COUNT = 5;
   static_assert(Solids::MAX_SOLID_VERTICES <=
                     static_cast<size_t>(Plot::Mesh::DEDUP_CAPACITY),
@@ -500,6 +501,7 @@ private:
    * @details Bakes vertices, faces, tangent frames, and the unique edge list.
    */
   HS_COLD_MEMBER void setup_solids() {
+    size_t four_regular_solids = 0;
     for (size_t solid_idx = 0; solid_idx < SOLID_COUNT; ++solid_idx) {
       const Solids::Entry &entry = Solids::get_entry(solid_idx);
       auto &data = loaded_solids[solid_idx];
@@ -559,7 +561,11 @@ private:
         HS_CHECK(data.automatic_edges.size() == automatic_edge_count,
                  "DreamBalls automatic topology edge count mismatch");
       });
+      four_regular_solids += data.four_regular ? 1 : 0;
     }
+    HS_CHECK(four_regular_solids <= FOUR_REGULAR_SOLID_COUNT,
+             "DreamBalls registry holds more four-regular solids than the "
+             "persistent footprint budgets");
   }
 
   /**
