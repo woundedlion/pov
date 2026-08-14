@@ -301,15 +301,20 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
     }
     flat.advance_display();
 
+    size_t lit = 0;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         const Pixel &a = expected[y * W + x];
         const Pixel &b = flat.get_pixel(x, y);
+        if (!is_black(a))
+          ++lit;
         HS_EXPECT_NEAR(static_cast<int>(a.r), static_cast<int>(b.r), 1);
         HS_EXPECT_NEAR(static_cast<int>(a.g), static_cast<int>(b.g), 1);
         HS_EXPECT_NEAR(static_cast<int>(a.b), static_cast<int>(b.b), 1);
       }
     }
+    // Both paths drawing nothing would satisfy every comparison above.
+    HS_EXPECT_GT(lit, (size_t)0);
   };
 
   check(false);
