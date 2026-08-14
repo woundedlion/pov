@@ -457,7 +457,10 @@ private:
  * negative zero: `-0.0f < 0.0f` is false, so `x<0, y==-0.0f` returns +π where
  * std::atan2 gives -π; -π is reached only for strictly negative y.
  * @details Peak abs error ~0.0038 rad (~0.22°), worst near r ~= 0.7 in each
- * octant.
+ * octant. That bound holds only for |(x, y)| above ~1e-7: the 1e-10 origin
+ * nudge is added to |y| unconditionally, so below that magnitude the result is
+ * no longer scale-invariant — ~5e-3 rad of error at |(x, y)| ~ 1e-8, growing
+ * to the full quadrant as the magnitude approaches the nudge.
  */
 __attribute__((always_inline)) inline float fast_atan2(float y, float x) {
   // +1e-10f keeps abs_y strictly positive so the (0,0) origin stays finite
