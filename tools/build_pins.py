@@ -51,6 +51,10 @@ INLINE_PINS = {
     "doxygen": "1.17.0",
     "doxygen-sha256":
         "75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2",
+    # apt.llvm.org's signing key, which authenticates every package that host
+    # serves -- including the host's own copy of the key.
+    "llvm-key-sha256":
+        "8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d",
 }
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -98,6 +102,8 @@ INLINE_USES = (
     (r"\bdoxygen-([\w.]+)\.linux", "doxygen", lambda v: v),
     (r"\bdoxygen-([\w.]+)/bin", "doxygen", lambda v: v),
     (r"([0-9a-f]{64})  doxygen\.tar\.gz", "doxygen-sha256", lambda v: v),
+    (r"([0-9a-f]{64})  /tmp/llvm-snapshot\.gpg\.key", "llvm-key-sha256",
+     lambda v: v),
 )
 
 # Strings that must read identically in two build files. The pre-commit hook is
