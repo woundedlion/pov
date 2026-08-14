@@ -769,6 +769,14 @@ inline void scripted_next_palette(void *context, uint32_t sequence,
       PaletteRecipes::balanced_analogous(0.1f + 0.2f * sequence));
 }
 
+/** @brief PaletteCycler provider whose recipe carries a BELL chroma curve. */
+inline void scripted_tonal_palette(void *context, uint32_t sequence,
+                                   GenerativePalette &out) {
+  ++*static_cast<int *>(context);
+  out = GenerativePalette(
+      PaletteRecipes::tonal_monochrome(0.1f + 0.2f * sequence));
+}
+
 } // namespace
 
 inline void test_palette_cycler_generated_cycle() {
@@ -824,6 +832,31 @@ inline void test_palette_cycler_generated_cycle() {
   blended_lut.bake(reinit_arena, blended);
   expect_baked_equal(cycler.palette(), blended_lut);
   HS_EXPECT_EQ(provider_calls, 3);
+}
+
+/** @brief A constant-chroma write keeps the axis curve, so a generated cycle
+ *  whose recipe carries a non-constant chroma curve stays morphable. */
+inline void test_palette_cycler_generated_chroma_keeps_morph() {
+  GenerativePalette tonal(PaletteRecipes::tonal_monochrome(0.3f));
+  const GenerativePalette untouched = tonal;
+  tonal.set_constant_chroma(0.4f);
+  HS_EXPECT_TRUE(tonal.morph_compatible(untouched));
+  for (int i = 0; i <= 4; ++i)
+    HS_EXPECT_NEAR(tonal.diagnose(i * 0.25f).q, 0.4f, 1e-3f);
+
+  alignas(std::max_align_t) static uint8_t
+      buf[PaletteCycler::generated_arena_bytes() +
+          3 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+  int provider_calls = 0;
+  PaletteCycler cycler;
+  cycler.init_generated(arena, scripted_tonal_palette, &provider_calls, 0, 2);
+  cycler.set_generated_chroma(0.4f);
+  // Each finish_fade re-checks the retired slot against a fresh provider
+  // palette still carrying the recipe's curve.
+  for (int frame = 0; frame < 12; ++frame)
+    cycler.step();
+  HS_EXPECT_GT(provider_calls, 4);
 }
 
 inline void test_palette_cycler_hidden_advance_catches_up() {
