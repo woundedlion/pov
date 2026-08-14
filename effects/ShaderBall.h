@@ -2470,7 +2470,7 @@ private:
       } else if constexpr (Kind == WarpStageKind::AFFINE_FRAME) {
         return warp_affine_frame(input, params, prepared);
       } else if constexpr (Kind == WarpStageKind::WAVE_SHEAR) {
-        return warp_wave_shear(input, params, phase, params.strength);
+        return warp_wave_shear(input, params, phase, params.strength, prepared);
       } else if constexpr (Kind == WarpStageKind::VECTOR_NOISE) {
         const float amplitude =
             params.strength *
@@ -3453,9 +3453,11 @@ private:
                      float stage_phase,
                      const Complex &source_period = Complex()) {
     PreparedWarpStage prepared{};
-    float rotation = spec.kind == WarpStageKind::VECTOR_NOISE
-                         ? params.vector_angle
-                         : params.rotation;
+    float rotation = params.rotation;
+    if (spec.kind == WarpStageKind::VECTOR_NOISE)
+      rotation = params.vector_angle;
+    else if (spec.kind == WarpStageKind::WAVE_SHEAR)
+      rotation = params.field_angle;
     if (spec.kind == WarpStageKind::AFFINE_FRAME) {
       const float phase = TWO_PI_F * wrap_t(stage_phase);
       const float phase_cos = cosf(phase);
@@ -4273,11 +4275,12 @@ private:
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_wave_shear(const Complex &input, const WarpStageParams &params,
-                  float stage_phase, float amplitude) {
+                  float stage_phase, float amplitude,
+                  const PreparedWarpStage &prepared) {
     if (params.strength == 0.0f)
       return {input, Complex(), 0.0f, 0.0f};
-    const float c = cosf(params.field_angle);
-    const float s = sinf(params.field_angle);
+    const float c = prepared.rotation_cos;
+    const float s = prepared.rotation_sin;
     const float phase = params.frequency * (c * input.re + s * input.im) +
                         TWO_PI_F * stage_phase;
     const float offset = amplitude * sinf(phase);
@@ -4408,7 +4411,7 @@ private:
     case WarpStageKind::AFFINE_FRAME:
       return warp_affine_frame(input, params, prepared);
     case WarpStageKind::WAVE_SHEAR:
-      return warp_wave_shear(input, params, stage_phase, amplitude);
+      return warp_wave_shear(input, params, stage_phase, amplitude, prepared);
     case WarpStageKind::VORTEX:
       return warp_vortex(input, prepared);
     case WarpStageKind::VECTOR_NOISE:
