@@ -231,7 +231,7 @@ public:
   }
 
   /** @brief Advances mutable state, snapshots it, and renders one frame. */
-  void draw_frame() override {
+  HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     {
       HS_PROFILE(sb_timeline_step);
@@ -2194,7 +2194,7 @@ private:
       return run_stage<0>(view, frame);
     }
 
-  private:
+  protected:
     template <size_t Index, typename Input>
     __attribute__((always_inline)) static Color4
     run_stage(const Input &input, const FrameState &frame) {
@@ -2669,7 +2669,7 @@ private:
       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<true>, SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
-  using GlitchNoiseGridWaveShearPipeline = InversePipeline<
+  using GlitchNoiseGridWaveShearPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
                                   SurfaceLens::GLITCH>,
@@ -2677,6 +2677,14 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+  struct GlitchNoiseGridWaveShearPipeline
+      : GlitchNoiseGridWaveShearPipelineBase {
+    HS_O3_FN FASTRUN __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return GlitchNoiseGridWaveShearPipelineBase::template run_stage<0>(view,
+                                                                         frame);
+    }
+  };
   using KaleidoscopeTwinWaveInnerMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
@@ -2848,7 +2856,8 @@ private:
     return true;
   }
 
-  static bool pipeline_resources_ready(const FrameState &frame) {
+  HS_FLASH_MEMBER static bool
+  pipeline_resources_ready(const FrameState &frame) {
     if (frame.slots.surface_noise != SurfaceNoise::NONE &&
         frame.resources.surface_noise == nullptr)
       return false;
