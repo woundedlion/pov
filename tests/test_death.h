@@ -1309,6 +1309,29 @@ inline void case_mesh_require_vertex_manifold() {
 }
 
 /**
+ * @brief Death case: a half-edge mesh whose faces have different side counts
+ *        must trap even when the census matches.
+ * @details Mesh-topology surface — the reuse overloads walk face loops from the
+ *          half-edge mesh while sizing and indexing from the source mesh, so a
+ *          {3,4} pairing against a {4,3} source shares (V,F,I) yet emits every
+ *          face from the wrong span.
+ */
+inline void case_mesh_require_matching_face_sides() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t he_counts[] = {3, 4};
+  const uint8_t mesh_counts[] = {4, 3};
+  const uint16_t indices[] = {0, 1, 2, 3, 4, 5, 6};
+  PolyMesh he_source;
+  build_polymesh(he_source, arena, 7, he_counts, 2, indices, 7);
+  HalfEdgeMesh half_edges(arena, he_source);
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 7, mesh_counts, 2, indices, 7);
+  // face 1 starts at 3 in he_source, 4 in mesh -> HS_CHECK
+  MeshOps::require_matching_half_edges(half_edges, mesh, "death");
+}
+
+/**
  * @brief Death case: a NaN endpoint fed to slerp must trap.
  * @details Math-core surface — the NaN poisons interpolation through both
  *          branches into the final strict normalized(), which traps rather than
@@ -2830,6 +2853,10 @@ inline const Case *all_cases(int &n) {
        "mesh.h",
        "(walked == fan_size[origin]) MeshOps::death requires a vertex "
        "manifold (split vertex fan)"},
+      {"mesh_require_matching_face_sides",
+       case_mesh_require_matching_face_sides, "mesh.h",
+       "(static_cast<size_t>(he_mesh.faces[fi].half_edge) == face_offset) "
+       "MeshOps::death: half-edge mesh face sides differ from the source mesh"},
       {"slerp_nan", case_slerp_nan, "3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) "},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan, "3dmath.h",
