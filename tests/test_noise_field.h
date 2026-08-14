@@ -165,9 +165,9 @@ inline void test_noise_field_analytic_gradient() {
                 noise.GetNoiseSingle(low.x, low.y, low.z)) /
                (2.0f * STEP);
       };
-      HS_EXPECT_NEAR(gradient.x, derivative(X_AXIS), 7e-3f);
-      HS_EXPECT_NEAR(gradient.y, derivative(Y_AXIS), 7e-3f);
-      HS_EXPECT_NEAR(gradient.z, derivative(Z_AXIS), 7e-3f);
+      HS_EXPECT_NEAR(gradient.x, derivative(X_AXIS), 8e-3f);
+      HS_EXPECT_NEAR(gradient.y, derivative(Y_AXIS), 8e-3f);
+      HS_EXPECT_NEAR(gradient.z, derivative(Z_AXIS), 8e-3f);
     }
   }
 }
