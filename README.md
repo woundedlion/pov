@@ -396,7 +396,11 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── screenshot_resolution.test.mjs Node unit test for that descent (fallback, empty list, prefix names)
 │   ├── png_probe.mjs           Dependency-free PNG chunk/CRC/inflate validator behind the gallery gate
 │   ├── png_probe.test.mjs      Node unit test for the PNG validator (corrupt/empty fixtures)
-│   └── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster and decodes (CI)
+│   ├── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster and decodes (CI)
+│   ├── run_tests.mjs           `npm test`: runs the .test.mjs suite and gates each file against its floors
+│   ├── count_assertions.mjs    NODE_OPTIONS shim counting each test file's node:assert calls
+│   ├── report_cases.mjs        node:test reporter tallying per-file case and skip counts
+│   └── assertion_floors.json   Committed per-file {cases, assertions} minimums behind that gate
 ├── tools/                      Firmware gates, device profiling, and asset bakes
 │   ├── build_pins.py           Shared external-tool version pins for CI and `just`
 │   ├── check_test_files.sh     Exact-count pin for every glob-discovered test-file set (CI)
