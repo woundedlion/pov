@@ -1921,6 +1921,27 @@ inline void test_shaderball_polar_gui_repair() {
 
   repair(true, false);
   repair(false, true);
+
+  reset_effect_globals();
+  WB::SB shear;
+  shear.init();
+  HS_EXPECT_TRUE(shear.selectPreset(10));
+  shear.draw_frame();
+  shear.advance_display();
+  WB::settle_transition(shear);
+  HS_EXPECT_EQ(WB::active_slots(shear).warp_program.outer.kind,
+               WB::WarpStageKind::POLAR_CHART);
+  HS_EXPECT_EQ(WB::active_slots(shear).warp_program.inner.kind,
+               WB::WarpStageKind::WAVE_SHEAR);
+  HS_EXPECT_TRUE(WB::parameter_warning(shear, "Planar Warp 1") == nullptr);
+  HS_EXPECT_EQ(shear.updateParameter("Function",
+                                     static_cast<float>(WB::Function::RINGS)),
+               ParamSetResult::APPLIED);
+  const char *shear_warning = WB::parameter_warning(shear, "Function");
+  HS_EXPECT_TRUE(shear_warning != nullptr);
+  HS_EXPECT_TRUE(std::strstr(shear_warning, "polar-periodic Function") !=
+                 nullptr);
+  HS_EXPECT_TRUE(std::strstr(shear_warning, "Planar Warp 2") == nullptr);
 }
 
 /** @brief Structural admission accepts curated holds and heavy stage tuples. */

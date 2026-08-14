@@ -5769,10 +5769,12 @@ private:
           position, position);
     }
     if (outer.kind == WarpStageKind::POLAR_CHART &&
-        inner.kind != WarpStageKind::NONE)
+        inner.kind != WarpStageKind::NONE &&
+        inner.kind != WarpStageKind::WAVE_SHEAR)
       return begin_warning(
           "Planar Warp 1 Polar Chart cannot run while Planar Warp 2 is %s. Set "
-          "Planar Warp 2 to None or choose a different Planar Warp 1.",
+          "Planar Warp 2 to None or Wave Shear, or choose a different Planar "
+          "Warp 1.",
           WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
     if (inner.kind == WarpStageKind::POLAR_CHART &&
         outer.kind != WarpStageKind::NONE)
