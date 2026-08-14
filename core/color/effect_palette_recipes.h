@@ -73,6 +73,54 @@ gs_reaction_diffusion(float base_turns = PaletteRecipes::hue_turns(160)) {
 }
 
 /**
+ * @brief The MindSplatter trail ramp: a triadic harmony darkening along the
+ *        domain at full local-gamut chroma.
+ * @param base_turns Base hue in turns.
+ * @return The recipe.
+ * @details The recipe of record for the baked bank in
+ *          core/color/triadic_palette_luts.h.
+ */
+HS_FLASH_MEMBER inline PaletteRecipe mind_splatter(float base_turns) {
+  PaletteRecipe recipe;
+  recipe.schema_version = PaletteRecipe::SCHEMA_VERSION;
+  recipe.input.offset = 0.0f;
+  recipe.input.span = 0.624f;
+  recipe.domain = PaletteDomain::STRAIGHT;
+  recipe.easing = SegmentEase::COSINE;
+  recipe.color_path = ColorPath::OKLAB_CARTESIAN;
+  recipe.hue.mode = HueMode::HARMONY;
+  recipe.hue.harmony = PaletteHarmony::TRIADIC;
+  recipe.hue.direction = HueDirection::CLOCKWISE;
+  recipe.hue.base_turns = base_turns;
+  recipe.hue.spread_turns = 0.07f;
+  recipe.hue.sweep_turns = 1.0f;
+  recipe.hue.custom_turns = {0.0f, 0.0f, 0.0f, 0.0f};
+  recipe.lightness.curve = AxisCurve::DESCENDING;
+  recipe.lightness.center = 0.37f;
+  recipe.lightness.range = 0.5f;
+  recipe.lightness.custom = {0.0f, 0.0f, 0.0f, 0.0f};
+  recipe.chroma.curve = AxisCurve::CONSTANT;
+  recipe.chroma.basis = ChromaBasis::LOCAL_GAMUT;
+  recipe.chroma.center = 0.95f;
+  recipe.chroma.range = 0.0f;
+  recipe.chroma.headroom = 0.94f;
+  recipe.chroma.custom = {0.0f, 0.0f, 0.0f, 0.0f};
+  recipe.hue_torsion = 0.0f;
+  recipe.falloff_start = 0.9f;
+  return recipe;
+}
+
+/**
+ * @brief Base hue of one entry of the baked MindSplatter bank.
+ * @param index Entry index in [0, count).
+ * @param count Bank size.
+ * @return The base hue in turns.
+ */
+HS_FLASH_MEMBER inline float mind_splatter_bank_turns(int index, int count) {
+  return 0.08611111f + static_cast<float>(index) / static_cast<float>(count);
+}
+
+/**
  * @brief The MobiusGrid ramp: a split-complementary mirror at constant
  *        lightness.
  * @param base_turns Base hue in turns.

@@ -3,6 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
 #include <cstdio>
@@ -16,36 +17,6 @@ namespace {
 // decision, not a cosmetic one.
 constexpr int PALETTE_COUNT = 256;
 constexpr int LUT_SIZE = 256;
-
-PaletteRecipe make_recipe(float base_turns) {
-  PaletteRecipe recipe;
-  recipe.schema_version = PaletteRecipe::SCHEMA_VERSION;
-  recipe.input.offset = 0.0f;
-  recipe.input.span = 0.624f;
-  recipe.domain = PaletteDomain::STRAIGHT;
-  recipe.easing = SegmentEase::COSINE;
-  recipe.color_path = ColorPath::OKLAB_CARTESIAN;
-  recipe.hue.mode = HueMode::HARMONY;
-  recipe.hue.harmony = PaletteHarmony::TRIADIC;
-  recipe.hue.direction = HueDirection::CLOCKWISE;
-  recipe.hue.base_turns = base_turns;
-  recipe.hue.spread_turns = 0.07f;
-  recipe.hue.sweep_turns = 1.0f;
-  recipe.hue.custom_turns = {0.0f, 0.0f, 0.0f, 0.0f};
-  recipe.lightness.curve = AxisCurve::DESCENDING;
-  recipe.lightness.center = 0.37f;
-  recipe.lightness.range = 0.5f;
-  recipe.lightness.custom = {0.0f, 0.0f, 0.0f, 0.0f};
-  recipe.chroma.curve = AxisCurve::CONSTANT;
-  recipe.chroma.basis = ChromaBasis::LOCAL_GAMUT;
-  recipe.chroma.center = 0.95f;
-  recipe.chroma.range = 0.0f;
-  recipe.chroma.headroom = 0.94f;
-  recipe.chroma.custom = {0.0f, 0.0f, 0.0f, 0.0f};
-  recipe.hue_torsion = 0.0f;
-  recipe.falloff_start = 0.9f;
-  return recipe;
-}
 
 } // namespace
 
@@ -79,8 +50,8 @@ int main(int argc, char **argv) {
          "HS_PROGMEM_UNIQUE(MINDSPLATTER_PALETTES) = {\n";
 
   for (int hue = 0; hue < PALETTE_COUNT; ++hue) {
-    const PaletteRecipe recipe =
-        make_recipe(0.08611111f + static_cast<float>(hue) / PALETTE_COUNT);
+    const PaletteRecipe recipe = EffectPaletteRecipes::mind_splatter(
+        EffectPaletteRecipes::mind_splatter_bank_turns(hue, PALETTE_COUNT));
     GenerativePalette palette;
     PaletteRecipe canonical;
     PaletteCompileStatus status;

@@ -217,6 +217,20 @@ target_include_directories(mindsplatter_palette_gen PRIVATE ${HS_ROOT} ${HS_ROOT
 target_link_libraries(mindsplatter_palette_gen PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_gen)
 
+# Tolerance pin for the bank mindsplatter_palette_gen emits. Its own TU rather
+# than a run_tests module: the committed bank is 393,216 B of static data no
+# other test reads.
+add_executable(mindsplatter_palette_check
+  ${CMAKE_CURRENT_SOURCE_DIR}/mindsplatter_palette_check.cpp
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+target_include_directories(mindsplatter_palette_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_link_libraries(mindsplatter_palette_check PRIVATE hs_host_abi)
+_hs_warnings(mindsplatter_palette_check)
+_hs_sanitize(mindsplatter_palette_check)
+add_test(NAME unit_mindsplatter_palette COMMAND mindsplatter_palette_check)
+
 add_executable(mindsplatter_replay
   ${HS_ROOT}/tools/mindsplatter_replay_main.cpp
   ${HS_ROOT}/core/engine/memory.cpp
