@@ -1281,8 +1281,9 @@ jobs:
   assertion-floors:
     name: Assertion floors (no silent shrink)
     # tests/run_tests.cpp pins every module's case-site count and minimum
-    # assertion count as plain constants, so a commit that deletes cases AND
-    # lowers both numbers clears every other gate. Same shape as the
+    # assertion count as plain constants, and tools/relax_bake_harness.cpp pins
+    # the relax-bake step floor the same way, so a commit that deletes cases AND
+    # lowers the numbers clears every other gate. Same shape as the
     # FORMAT_BASELINE and Teensy warning-baseline growth checks: compare the pins
     # against the commit this run builds on, and fail on any reduction the commit
     # does not approve.
@@ -1290,9 +1291,10 @@ jobs:
     timeout-minutes: 10
     env:
       # Escape hatch for a deliberate reduction: one pin name per line
-      # (`<module>.cases`, `<module>.floor`, or a *_MIN_ASSERTIONS constant),
-      # added in the same commit as the reduction it approves, so the weakening
-      # is visible in that commit's diff. Empty in steady state.
+      # (`<module>.cases`, `<module>.floor`, a *_MIN_ASSERTIONS constant, or
+      # MIN_RELAX_BAKES_VERIFIED), added in the same commit as the reduction it
+      # approves, so the weakening is visible in that commit's diff. Empty in
+      # steady state.
       ASSERTION_FLOOR_ALLOW_LOWER: ""
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -1335,14 +1337,25 @@ jobs:
             echo "::warning::$SRC absent in $PREV — assertion-floor shrink check skipped"
             exit 0
           fi
+          # MIN_RELAX_BAKES_VERIFIED is the same class of pin: it separates a
+          # relax-bake gate that re-derived every payload from one that scored
+          # nothing. An older PREV predating the file yields an empty copy, which
+          # reads as "no pin then" and so cannot shrink.
+          HARNESS=tools/relax_bake_harness.cpp
+          git show "$PREV:$HARNESS" > /tmp/floors-prev-harness.cpp 2>/dev/null \
+            || : > /tmp/floors-prev-harness.cpp
           export PREV
 
-          python3 - /tmp/floors-prev.cpp "$SRC" <<'PY'
+          python3 - /tmp/floors-prev.cpp "$SRC" /tmp/floors-prev-harness.cpp "$HARNESS" <<'PY'
           import os
           import re
           import sys
 
           SRC = sys.argv[2]
+          HARNESS = sys.argv[4]
+          HARNESS_FLOOR_RE = re.compile(
+              r"constexpr int (MIN_RELAX_BAKES_VERIFIED)\s*=\s*(\d+)\s*;"
+          )
 
 
           def split_args(text):
@@ -1410,7 +1423,21 @@ jobs:
               return out
 
 
+          def harness_pins(path):
+              """Maps the relax-bake harness's verified-step floor to its value."""
+              text = open(path, encoding="utf-8").read()
+              return {name: int(value) for name, value in HARNESS_FLOOR_RE.findall(text)}
+
+
           prev, now = pins(sys.argv[1]), pins(SRC)
+          origin = dict.fromkeys(now, SRC)
+          harness_now = harness_pins(HARNESS)
+          if not harness_now:
+              sys.exit(f"no floor parsed from {HARNESS} — the constant was renamed")
+          prev.update(harness_pins(sys.argv[3]))
+          now.update(harness_now)
+          origin.update(dict.fromkeys(harness_now, HARNESS))
+
           allow = {
               line.strip()
               for line in os.environ.get("ASSERTION_FLOOR_ALLOW_LOWER", "").splitlines()
@@ -1428,7 +1455,8 @@ jobs:
           if unapproved:
               for key in unapproved:
                   print(
-                      f"::error file={SRC}::{key} shrank ({lowered[key]}) — restore the cases it "
+                      f"::error file={origin.get(key, SRC)}::{key} shrank ({lowered[key]}) — "
+                      f"restore the cases it "
                       f"covers, or approve the reduction by listing {key} in "
                       f"ASSERTION_FLOOR_ALLOW_LOWER in .github/workflows/ci.yml in this commit"
                   )
