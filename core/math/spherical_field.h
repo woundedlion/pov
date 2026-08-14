@@ -98,6 +98,11 @@ public:
    *  south pole. */
   static constexpr int POLE_COUNT = HOffset == 0 ? 2 : 1;
 
+  /** @brief Bound a sampler's fractional row must stay under in absolute
+   *  value: NaN, an infinity, or a row this far out makes the truncation to
+   *  the lattice index UB. */
+  static constexpr float ROW_LIMIT = 1e9f;
+
   /** @brief Rings in the chain, counting both endpoint rows. */
   constexpr int ring_count() const {
     int count = 1;
@@ -427,14 +432,12 @@ private:
    * @brief Resolves a fractional coordinate to its bilinear footprint.
    * @param x Fractional longitude in [-W, 2W).
    * @param y Fractional latitude row; rows outside [0, H) are allowed but must
-   *   stay finite and inside int range.
+   *   stay under ROW_LIMIT in absolute value.
    * @details Wraps the columns across the seam; the row is left for the
    * caller's pole policy.
    */
   __attribute__((always_inline)) static Footprint bilinear_footprint(float x,
                                                                      float y) {
-    // NaN, an infinity, or a row this far out makes the truncation below UB.
-    [[maybe_unused]] constexpr float ROW_LIMIT = 1e9f;
     assert(std::fabs(y) < ROW_LIMIT);
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
