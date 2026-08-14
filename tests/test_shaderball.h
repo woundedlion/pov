@@ -1857,16 +1857,17 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
 /** @brief Rejected Polar Chart selectors expose controls needed for admission. */
 inline void test_shaderball_polar_gui_repair() {
   using WB = ShaderBallWhiteBox;
-  auto repair = [](bool first, bool frequency_last) {
+  auto repair = [](bool first, bool lattice) {
     reset_effect_globals();
     WB::SB sb;
     sb.init();
     WB::RequestedConfig base = WB::legacy_config();
     base.slots.function =
-        frequency_last ? WB::Function::GRID : WB::Function::PRIMITIVE_LATTICE;
+        lattice ? WB::Function::PRIMITIVE_LATTICE : WB::Function::GRID;
     base.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
     base.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
-    base.params.source.pattern_freq = frequency_last ? 1.3f : 1.5f;
+    base.params.source.pattern_freq = 1.3f;
+    base.params.source.lattice_cell_scale = 1.0f;
     WB::request_config(sb, base);
     const WB::RequestedConfig rendered = WB::active_config(sb);
     const char *root = first ? "Planar Warp 1" : "Planar Warp 2";
@@ -1876,13 +1877,15 @@ inline void test_shaderball_polar_gui_repair() {
         first ? "Planar Warp 1 Polar Harmonic" : "Planar Warp 2 Polar Harmonic";
     const char *radial_scale =
         first ? "Planar Warp 1 Radial Scale" : "Planar Warp 2 Radial Scale";
+    const char *density = lattice ? "Lattice Cell Scale" : "Pattern Freq";
+    const float repaired = lattice ? 8.0f / (TWO_PI_F * 2.0f) : 1.5f;
 
     HS_EXPECT_TRUE(
         sb.updateParameter(
             root, static_cast<float>(WB::WarpStageKind::POLAR_CHART)) ==
         ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(WB::active_config(sb) == rendered);
-    HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") != nullptr);
+    HS_EXPECT_TRUE(sb.getParameters().find(density) != nullptr);
     HS_EXPECT_TRUE(sb.getParameters().find(mode) != nullptr);
     HS_EXPECT_TRUE(sb.getParameters().find(harmonic) != nullptr);
     HS_EXPECT_TRUE(sb.getParameters().find(radial_scale) != nullptr);
@@ -1895,12 +1898,10 @@ inline void test_shaderball_polar_gui_repair() {
 
     HS_EXPECT_TRUE(sb.updateParameter(harmonic, 2.0f) ==
                    ParamSetResult::APPLIED);
-    if (frequency_last) {
-      HS_EXPECT_TRUE(WB::active_config(sb) == rendered);
-      HS_EXPECT_TRUE(WB::parameter_warning(sb, root) != nullptr);
-      HS_EXPECT_TRUE(sb.updateParameter("Pattern Freq", 1.5f) ==
-                     ParamSetResult::APPLIED);
-    }
+    HS_EXPECT_TRUE(WB::active_config(sb) == rendered);
+    HS_EXPECT_TRUE(WB::parameter_warning(sb, root) != nullptr);
+    HS_EXPECT_TRUE(sb.updateParameter(density, repaired) ==
+                   ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(WB::parameter_warning(sb, root) == nullptr);
     sb.draw_frame();
     sb.advance_display();
@@ -1909,12 +1910,13 @@ inline void test_shaderball_polar_gui_repair() {
                                            : active.slots.warp_program.inner;
     HS_EXPECT_EQ(polar.kind, WB::WarpStageKind::POLAR_CHART);
     HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
-    if (frequency_last)
-      HS_EXPECT_EQ(active.params.source.pattern_freq, 1.5f);
+    HS_EXPECT_EQ(lattice ? active.params.source.lattice_cell_scale
+                         : active.params.source.pattern_freq,
+                 repaired);
   };
 
-  repair(true, true);
-  repair(false, false);
+  repair(true, false);
+  repair(false, true);
 }
 
 /** @brief Structural admission accepts curated holds and heavy stage tuples. */
