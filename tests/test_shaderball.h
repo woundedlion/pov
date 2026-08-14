@@ -59,7 +59,6 @@ struct ShaderBallWhiteBox {
   using LookRuntime = SB::LookRuntime;
   using WalkDeltas = SB::WalkDeltas;
   using ThroughClearPhase = SB::ThroughClearPhase;
-  using WrappedNoisePhase = SB::WrappedNoisePhase;
   using ConfigFieldId = SB::ConfigFieldId;
   using ConfigRestoreResult = SB::ConfigRestoreResult;
   using FullConfigSnapshot = SB::FullConfigSnapshot;

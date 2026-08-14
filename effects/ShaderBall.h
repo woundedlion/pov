@@ -1853,13 +1853,6 @@ private:
     Quaternion outer_conj;
   };
 
-  struct WrappedNoisePhase {
-    float current_time;
-    float previous_time;
-    float mix;
-    bool blends;
-  };
-
   struct PreparedAffineFrame {
     float translation_x;
     float translation_y;
@@ -1890,7 +1883,6 @@ private:
     float rotation_cos;
     float rotation_sin;
     PreparedWarpTransform transform;
-    WrappedNoisePhase noise_phase;
   };
 
   struct PreparedWarpProgram {
@@ -1931,7 +1923,6 @@ private:
     SourceState prepared_source;
     PreparedTransforms transforms;
     PreparedWarpProgram prepared_warp;
-    WrappedNoisePhase source_noise_phase;
     PreparedSurfaceNoise prepared_surface_noise;
     PreparedHueRotation prepared_hue_rotation;
     ResourceBindings resources;
@@ -3405,17 +3396,6 @@ private:
     analogous_palette_cycler.set_generated_chroma(chroma);
   }
 
-  HS_FLASH_MEMBER static WrappedNoisePhase prepare_noise_phase(float turns) {
-    const float wrapped_turns = wrap_t(turns);
-    const float current_time = wrapped_turns * NOISE_NATIVE_PERIOD;
-    if (wrapped_turns <= NOISE_WRAP_START)
-      return {current_time, current_time, 0.0f, false};
-    return {current_time, current_time - NOISE_NATIVE_PERIOD,
-            ease_in_out_sin((wrapped_turns - NOISE_WRAP_START) /
-                            (1.0f - NOISE_WRAP_START)),
-            true};
-  }
-
   HS_FLASH_MEMBER static PreparedWarpStage
   prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
                      float stage_phase,
@@ -3450,7 +3430,6 @@ private:
     }
     prepared.rotation_cos = cosf(rotation);
     prepared.rotation_sin = sinf(rotation);
-    prepared.noise_phase = prepare_noise_phase(stage_phase);
     return prepared;
   }
 
@@ -3506,8 +3485,6 @@ private:
                                             : Quaternion(),
                         look.transforms.outer_conj};
     frame.prepared_warp = prepared_warp;
-    frame.source_noise_phase =
-        prepare_noise_phase(look.clocks.source_noise_time);
     frame.prepared_surface_noise = prepared_surface_noise;
     frame.prepared_hue_rotation = prepared_hue_rotation;
     frame.resources = {resolve_warp_resource(config.slots.warp_program.outer),
@@ -6277,8 +6254,6 @@ private:
   static constexpr float NOISE_LATTICE_LIMIT = 1048576.0f;
   static constexpr float SPIRAL_ARMS = 3.0f;
   static constexpr float KALEIDOSCOPE_SECTORS = 6.0f;
-  static constexpr float NOISE_NATIVE_PERIOD = 256.0f;
-  static constexpr float NOISE_WRAP_START = 63.0f / 64.0f;
   static constexpr float ONE_BELOW_UNIT = 0x1.fffffep-1f;
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr int PALETTE_DWELL_FRAMES = 0;
