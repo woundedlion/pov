@@ -5557,11 +5557,7 @@ private:
                   WARP_OPTIONS[static_cast<uint8_t>(spec.kind)]);
     switch (spec.kind) {
     case WarpStageKind::NONE:
-      break;
     case WarpStageKind::LEGACY_STEREO_NOISE:
-      append_range_warning("Warp Scale", params.scale, 0.1f, 100.0f);
-      append_range_warning("Warp Strength", params.strength, 0.0f, 30.0f);
-      append_range_warning("Warp Speed", params.speed, 0.05f, 1.0f);
       break;
     case WarpStageKind::AFFINE_FRAME:
       append_range_warning("Translate X", params.translation_x, -4.0f, 4.0f);
@@ -5716,20 +5712,6 @@ private:
           "Noise Contour (Sphere) rejects %s %s. Set %s to None, or select "
           "Noise Contour (Projected).",
           position, WARP_OPTIONS[static_cast<uint8_t>(kind)], position);
-    }
-    if (candidate.slots.surface_lens == SurfaceLens::TANGENT_NOISE)
-      return begin_warning(
-          "Tangent Noise is import-only. Select Lens None and use Surface "
-          "Noise Direct.");
-    if (outer.kind == WarpStageKind::LEGACY_STEREO_NOISE ||
-        inner.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
-      const char *position = outer.kind == WarpStageKind::LEGACY_STEREO_NOISE
-                                 ? "Planar Warp 1"
-                                 : "Planar Warp 2";
-      return begin_warning(
-          "%s Stereo Noise is import-only. Set %s to None and use Surface "
-          "Noise Direct.",
-          position, position);
     }
     if (outer.kind == WarpStageKind::POLAR_CHART &&
         inner.kind != WarpStageKind::NONE &&
