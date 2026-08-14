@@ -68,8 +68,11 @@ int main(int argc, char **argv) {
          " */\n"
          "#pragma once\n\n"
          "#include \"core/color/color.h\"\n\n"
-         "inline constexpr int MINDSPLATTER_PALETTE_COUNT = 256;\n"
-         "inline constexpr int MINDSPLATTER_PALETTE_LUT_SIZE = 256;\n\n"
+      << "inline constexpr int MINDSPLATTER_PALETTE_COUNT = " << PALETTE_COUNT
+      << ";\n"
+         "inline constexpr int MINDSPLATTER_PALETTE_LUT_SIZE = "
+      << LUT_SIZE
+      << ";\n\n"
          "// clang-format off\n"
          "inline const Pixel MINDSPLATTER_PALETTES"
          "[MINDSPLATTER_PALETTE_COUNT][MINDSPLATTER_PALETTE_LUT_SIZE] "
@@ -99,7 +102,7 @@ int main(int argc, char **argv) {
   }
   out << "};\n"
          "// clang-format on\n\n"
-         "static_assert(sizeof(MINDSPLATTER_PALETTES) == 256 * 256 * "
-         "sizeof(Pixel));\n";
+         "static_assert(sizeof(MINDSPLATTER_PALETTES) == "
+      << PALETTE_COUNT << " * " << LUT_SIZE << " * sizeof(Pixel));\n";
   return 0;
 }
