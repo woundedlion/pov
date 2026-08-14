@@ -63,7 +63,8 @@ public:
         persistent_arena.allocate_n<const Animation::BumpParams *>(MAX_BALLS);
     ball_local = persistent_arena.allocate_n<int>(MAX_BALLS);
     shift_pool = persistent_arena.allocate_n<float>(RING_SLOTS * (W + 1));
-    hue_pool = persistent_arena.allocate_n<Pixel>(RING_SLOTS * (W + 1));
+    // Zeroed, not raw: a culled azimuth chunk leaves its columns unbaked.
+    hue_pool = persistent_arena.make_n<Pixel>(RING_SLOTS * (W + 1));
     slot_frag_alpha = persistent_arena.allocate_n<float>(RING_SLOTS);
     slot_lut_n = persistent_arena.allocate_n<int>(RING_SLOTS);
     slot_by_ring = persistent_arena.allocate_n<int8_t>(RING_SLOTS);
@@ -437,9 +438,9 @@ private:
               cos_a = next_cos;
             }
           } else {
-            // hlut stays stale here (uninitialised arena bytes on the first
-            // bake); the pad_chunks widening of `visible` above is what keeps a
-            // rasterized pixel from ever sampling a culled chunk's columns.
+            // hlut stays stale here; the pad_chunks widening of `visible` above
+            // is what keeps a rasterized pixel from ever sampling a culled
+            // chunk's columns.
             for (; x < x_end; ++x) {
               // DistortedRing's constructor scans every knot, including
               // skipped cells; leaving them stale perturbs its shift bounds.
