@@ -2763,19 +2763,29 @@ private:
            function == Function::NOISE_CONTOUR_SPHERE;
   }
 
+  /** @brief Whether the stage scales its amplitude by the warp envelope. */
+  static constexpr bool warp_uses_envelope(WarpStageKind kind) {
+    return kind == WarpStageKind::WAVE_SHEAR ||
+           kind == WarpStageKind::VECTOR_NOISE ||
+           kind == WarpStageKind::CURL_FLOW;
+  }
+
   static constexpr void canonicalize_warp_key(WarpStageKind kind,
                                               NoiseBasis &basis,
                                               WarpEnvelope &envelope,
                                               PolarMode &polar_mode,
                                               CurlIntegrator &curl_integrator,
                                               uint8_t &polar_harmonic) {
-    if (kind != WarpStageKind::NONE)
-      return;
-    basis = {};
-    envelope = {};
-    polar_mode = {};
-    curl_integrator = {};
-    polar_harmonic = 0;
+    if (!warp_uses_noise(kind))
+      basis = {};
+    if (!warp_uses_envelope(kind))
+      envelope = {};
+    if (kind != WarpStageKind::CURL_FLOW)
+      curl_integrator = {};
+    if (kind != WarpStageKind::POLAR_CHART) {
+      polar_mode = {};
+      polar_harmonic = 0;
+    }
   }
 
   static constexpr TopologyKey make_topology_key(const Config &config) {

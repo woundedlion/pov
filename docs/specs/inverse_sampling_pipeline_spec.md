@@ -415,8 +415,10 @@ Key equality is memberwise; byte hashing and `memcmp` are forbidden because
 padding is not semantic. Canonicalization replaces inactive discriminators
 with their enum-zero defaults: non-selected projection layouts and hemisphere
 policies; surface-noise placement, basis, and integrator when surface noise is
-`NONE`; and basis, envelope, polar mode, integrator, and harmonic for each
-`NONE` warp stage. Source noise basis is canonicalized when the selected
+`NONE`; and, for each warp stage, every discriminator its selected kind does
+not read — basis unless the kind samples noise, envelope unless the kind
+scales its amplitude by one, integrator unless the kind is curl flow, and
+polar mode and harmonic unless the kind is the polar chart. Source noise basis is canonicalized when the selected
 source does not use noise. The canonicalization table is exhaustive over
 `Slots`, source-noise policy, surface-noise policy, and both `WarpStageSpec`s;
 adding a discriminator fails a census test until the table classifies it.
