@@ -291,6 +291,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── plot_cull.h             Plot edge samplers + screen row/column span and clip-cull kernel
 │   │   ├── plot_raster.h           Plot::rasterize: adaptive sub-stepping polyline walk
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel
+│   │   ├── filter_feedback.h       Filter::Pixel::Feedback: full-screen feedback loop + warp cache
 │   │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
 │   │   ├── sdf_common.h            SDF interval/bounds substrate + DistanceResult + span-emission helpers
 │   │   ├── sdf_rings.h             SDF ring leaves (Ring, DistortedRing, FlatDistortedRing)
