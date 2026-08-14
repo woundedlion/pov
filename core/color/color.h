@@ -1562,12 +1562,16 @@ inline Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
  * @brief Blends two straight-alpha colors in premultiplied linear space.
  * @param from Color at mix 0.
  * @param to Color at mix 1.
- * @param mix Blend weight in [0, 1].
+ * @param mix Blend weight; clamped to [0, 1].
  * @return The blend, unpremultiplied back to straight alpha; a zero-alpha
  *         result carries zero RGB.
+ * @details Weighting is premultiplied, so a transparent endpoint contributes
+ * no RGB — the opposite of Color4::lerp(), which interpolates color and alpha
+ * independently.
  */
 HS_FLASH_INLINE inline Color4 blend_outputs(const Color4 &from,
                                             const Color4 &to, float mix) {
+  mix = hs::clamp(mix, 0.0f, 1.0f);
   if (mix == 0.0f)
     return from;
   if (mix == 1.0f)
