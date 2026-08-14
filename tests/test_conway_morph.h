@@ -1596,8 +1596,7 @@ inline constexpr float HANKIN_FLAT_FACE = 1e-4f;
 
 /** @brief Per-step stability metrics of one sweep sample. */
 struct HankinStepStats {
-  float theta = 0;  /**< Contact angle of this sample, radians. */
-  int fallback = 0; /**< Dynamic vertices on the FALLBACK branch. */
+  float theta = 0; /**< Contact angle of this sample, radians. */
   int branch_flips =
       0; /**< Vertices whose branch changed vs the previous step. */
   float max_disp = 0;  /**< Largest single-vertex chord vs the previous step. */
@@ -1625,8 +1624,6 @@ inline void hankin_step_stats(const CompiledHankin &compiled,
                               const std::vector<Vector> &curr_normals,
                               HankinStepStats &stats) {
   for (size_t i = 0; i < curr.size(); ++i) {
-    if (curr[i].branch == HankinBranch::FALLBACK)
-      ++stats.fallback;
     stats.max_far_ratio = std::max(stats.max_far_ratio, curr[i].far_ratio);
     const Vector cn = normalized_or(
         compiled.base_vertices[compiled.dynamic_instructions[i].v_corner],
@@ -1703,30 +1700,14 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
   return sum;
 }
 
-/** @brief Prints one per-step table row set. */
-inline void hankin_print_table(const char *label,
-                               const std::vector<HankinStepStats> &table) {
-  std::printf("      %s: s theta_deg  fb flip  max_disp mean_disp nflip flat "
-              "far_ratio  corner\n",
-              label);
-  for (size_t s = 0; s < table.size(); ++s) {
-    const HankinStepStats &r = table[s];
-    std::printf("        %16s%2zu %9.3f %3d %4d %9.5f %9.5f %5d %4d %9.2f "
-                "%7.4f\n",
-                "", s, r.theta * 180.0f / PI_F, r.fallback, r.branch_flips,
-                r.max_disp, r.mean_disp, r.normal_flips, r.flat_faces,
-                r.max_far_ratio, r.max_corner_chord);
-  }
-}
-
 /**
  * @brief Measures per-frame sweep stability of the four Phase-1 hankin legs
  *        under the shipping re-solve (uniform and eased theta) and under a
  *        slerp-from-corner parameterization.
- * @details Reports fallback-branch population, branch flips, per-step vertex
- * chords and face-normal reversals; asserts the slerp path is branch-flip and
- * normal-flip free and that its endpoints reproduce the collapsed form and the
- * theta_star solve.
+ * @details Reports branch flips, per-step vertex chords and face-normal
+ * reversals; asserts the slerp path is normal-flip free and that its endpoints
+ * reproduce the collapsed form and the theta_star solve. Slerp carries the
+ * arrival branch at every k, so its branch-flip count is zero by construction.
  */
 inline void test_hankin_sweep_vertex_stability() {
   constexpr int SAMPLES = 32;
@@ -1834,7 +1815,6 @@ inline void test_hankin_sweep_vertex_stability() {
       }
     }
 
-    hankin_print_table("resolve-eased", tables[1]);
     for (int mode = 0; mode < 3; ++mode) {
       const HankinSweepSummary sum = hankin_summarize(tables[mode]);
       std::printf("      %s  branch_flips=%d normal_flips=%d (in %d steps) "
