@@ -234,6 +234,22 @@ public:
   /** @brief The display LUT effects shade from. */
   const BakedPalette &palette() const { return display; }
 
+  /** @brief Sets generated endpoint chroma and rebakes the current display.
+   *  @param chroma Gamut-relative chroma in [0, 1].
+   *  @details Valid after init_generated(). */
+  HS_COLD_MEMBER void set_generated_chroma(float chroma) {
+    from_slot->set_constant_chroma(chroma);
+    to_slot->set_constant_chroma(chroma);
+    if (!fade_active) {
+      display.rebake(*from_slot);
+      return;
+    }
+    const float progress = static_cast<float>(frame) / static_cast<float>(fade);
+    const float weight = easing != nullptr ? easing(progress) : progress;
+    morph->lerp(*from_slot, *to_slot, weight);
+    display.rebake(*morph);
+  }
+
   /** @brief Index of the entry currently dwelt on or faded away from. */
   int current_index() const { return current; }
 
