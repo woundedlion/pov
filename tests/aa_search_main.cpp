@@ -41,17 +41,20 @@ int missed_for(int sides, float rho, float phi, float spin) {
   std::vector<uint8_t> vis(static_cast<size_t>(W) * H, 0);
   int y_lo = face.y_min < 0 ? 0 : face.y_min;
   int y_hi = face.y_max > H - 1 ? H - 1 : face.y_max;
-  bool handled =
-      face.get_horizontal_intervals<W, H>(y_lo, [&](float f1, float f2) {
-        int x1 = static_cast<int>(f1), x2 = static_cast<int>(f2);
-        for (int x = x1; x <= x2; ++x)
-          for (int y = y_lo; y <= y_hi; ++y)
+  // The interval protocol is per row: a pole-touching face widens its pad
+  // toward the pole, so one row's spans do not describe the band.
+  for (int y = y_lo; y <= y_hi; ++y) {
+    bool handled =
+        face.get_horizontal_intervals<W, H>(y, [&](float f1, float f2) {
+          int x1 = static_cast<int>(floorf(f1));
+          int x2 = static_cast<int>(floorf(f2));
+          for (int x = x1; x <= x2; ++x)
             vis[static_cast<size_t>(y) * W + ((x % W) + W) % W] = 1;
-      });
-  if (!handled)
-    for (int y = y_lo; y <= y_hi; ++y)
+        });
+    if (!handled)
       for (int x = 0; x < W; ++x)
         vis[static_cast<size_t>(y) * W + x] = 1;
+  }
 
   const float *ct = TrigLUT<W, H>::sin_theta.data() + W / 4;
   const float *st = TrigLUT<W, H>::sin_theta.data();
