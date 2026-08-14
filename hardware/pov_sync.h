@@ -132,26 +132,8 @@ public:
   HS_COLD_MEMBER void configure(const Config &cfg) {
     protocol_config = cfg;
     fly = Flywheel(cfg);
-    gate = FlipGate{};
-    content_tracker = ContentTracker{};
-    beacon_parser = BeaconParser{};
-    emitter = SymbolEmitter{};
-    edge_mailbox = EdgeMailbox{};
-    telemetry_counters = Telemetry{};
     is_master_board = false;
-    last_rendered_x = -1;
-    halves_since_snap = 0;
-    have_prev_burst = false;
-    prev_burst_end = 0;
-    suspect_pending = false;
-    suspect_last_cycles = 0;
-    epoch_emits_left = 0;
-    beacon_done_this_rev = false;
-    beacon_busy_counted_this_rev = false;
-    beacon_late_counted_this_rev = false;
-    beacon_index_candidate = -1;
-    build_gen = 0;
-    build_request_word.store(0, std::memory_order_relaxed);
+    reset_runtime_state();
   }
 
   /**
@@ -165,28 +147,10 @@ public:
   void seed(uint32_t now, bool is_master) {
     is_master_board = is_master;
     fly.seed(now);
-    gate = FlipGate{};
-    content_tracker = ContentTracker{};
-    telemetry_counters = Telemetry{};
     // A reboot must not inherit wire state from the prior incarnation: a stale
     // mailbox burst would feed ACQUIRE's unconditional hard-snap, and a stale
     // emitter queue would resume a half-sent beacon/boundary train (spec §8.5).
-    edge_mailbox = EdgeMailbox{};
-    emitter = SymbolEmitter{};
-    beacon_parser.reset();
-    last_rendered_x = -1;
-    halves_since_snap = 0;
-    have_prev_burst = false;
-    prev_burst_end = 0;
-    suspect_pending = false;
-    suspect_last_cycles = 0;
-    epoch_emits_left = 0;
-    beacon_done_this_rev = false;
-    beacon_busy_counted_this_rev = false;
-    beacon_late_counted_this_rev = false;
-    beacon_index_candidate = -1;
-    build_gen = 0;
-    build_request_word.store(0, std::memory_order_relaxed);
+    reset_runtime_state();
     if (is_master) {
       fly.force_lock();
       content_tracker.identity_known = true;
@@ -412,6 +376,34 @@ private:
    * ISR-owned under the spec §8 single-writer model.
    */
   ContentTracker &content_mut() { return content_tracker; }
+
+  /**
+   * @brief Restores every member except protocol_config, the flywheel and the
+   * board role to its post-construction value.
+   * @details The single reset both configure() and seed() run, so the two
+   * cannot drift apart; each owns the three members left out.
+   */
+  HS_COLD_MEMBER void reset_runtime_state() {
+    gate = FlipGate{};
+    content_tracker = ContentTracker{};
+    beacon_parser = BeaconParser{};
+    emitter = SymbolEmitter{};
+    edge_mailbox = EdgeMailbox{};
+    telemetry_counters = Telemetry{};
+    last_rendered_x = -1;
+    halves_since_snap = 0;
+    have_prev_burst = false;
+    prev_burst_end = 0;
+    suspect_pending = false;
+    suspect_last_cycles = 0;
+    epoch_emits_left = 0;
+    beacon_done_this_rev = false;
+    beacon_busy_counted_this_rev = false;
+    beacon_late_counted_this_rev = false;
+    beacon_index_candidate = -1;
+    build_gen = 0;
+    build_request_word.store(0, std::memory_order_relaxed);
+  }
 
   // ── Flip + content events (both paths funnel here) ───────────────────────
 
