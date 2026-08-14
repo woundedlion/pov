@@ -3401,9 +3401,13 @@ inline void test_shaderball_inverse_program_equivalence() {
   for (size_t preset_index = 0; preset_index < WB::presets().size();
        ++preset_index) {
     const WB::FrameState frame = WB::preset_frame(sb, preset_index);
+    HS_CONTEXT("preset", static_cast<long long>(preset_index));
     for (int latitude_step = -32; latitude_step <= 32; ++latitude_step) {
       const float latitude = latitude_step * (0.5f * PI_F / 32.0f);
       const float radius = cosf(latitude);
+      // Per-ring, not per-sample: a frame pushed inside the 256-step longitude
+      // loop costs more than the shading it labels.
+      HS_CONTEXT("latitude step", latitude_step);
       for (int longitude_step = 0; longitude_step < 256; ++longitude_step) {
         const float longitude = longitude_step * (TWO_PI_F / 256.0f);
         const Vector view(radius * cosf(longitude), sinf(latitude),
@@ -3976,7 +3980,7 @@ inline void test_shaderball_discrete_transition() {
   const Color4 transparent = ::blend_outputs(
       Color4(Pixel(65535, 0, 0), 0.0f), Color4(Pixel(0, 0, 65535), 0.0f), 0.5f);
   HS_EXPECT_EQ(transparent.alpha, 0.0f);
-  HS_EXPECT_TRUE(transparent.color == Pixel());
+  HS_EXPECT_EQ(transparent.color, Pixel());
 
   {
     reset_effect_globals();
@@ -3988,7 +3992,7 @@ inline void test_shaderball_discrete_transition() {
     const auto clear_phase = WB::through_clear_phase(30, 60);
     const Color4 clear = WB::shade_through_clear(view, nullptr, clear_phase);
     HS_EXPECT_EQ(clear.alpha, 0.0f);
-    HS_EXPECT_TRUE(clear.color == Pixel());
+    HS_EXPECT_EQ(clear.color, Pixel());
     const auto from_phase = WB::through_clear_phase(15, 60);
     const Color4 from_only = WB::shade_through_clear(view, &valid, from_phase);
     HS_EXPECT_TRUE(std::isfinite(from_only.alpha));
@@ -4000,11 +4004,11 @@ inline void test_shaderball_discrete_transition() {
     const auto through_start = WB::through_clear_phase(0, 60);
     const Color4 exact_start =
         WB::shade_through_clear(view, &valid, through_start);
-    HS_EXPECT_TRUE(exact_start.color == expected.color);
+    HS_EXPECT_EQ(exact_start.color, expected.color);
     HS_EXPECT_EQ(exact_start.alpha, expected.alpha);
     const auto through_end = WB::through_clear_phase(60, 60);
     const Color4 exact_end = WB::shade_through_clear(view, &valid, through_end);
-    HS_EXPECT_TRUE(exact_end.color == expected.color);
+    HS_EXPECT_EQ(exact_end.color, expected.color);
     HS_EXPECT_EQ(exact_end.alpha, expected.alpha);
   }
 
@@ -4253,8 +4257,8 @@ inline void test_shaderball_brightness_envelopes() {
       0.37f, 0.6f, Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
   const Color4 default_color =
       WB::colorize(sample, WB::config_frame(sb, config));
-  HS_EXPECT_TRUE(default_color.color ==
-                 WB::palette_color(sb, config.slots.palette, sample.value));
+  HS_EXPECT_EQ(default_color.color,
+               WB::palette_color(sb, config.slots.palette, sample.value));
   HS_EXPECT_NEAR(default_color.alpha, 0.6f, 1e-6f);
 
   config.slots.palette_mapping = Mapping::CUP;
@@ -4265,15 +4269,15 @@ inline void test_shaderball_brightness_envelopes() {
   shifted_sample.warp_displacement = 1.0f;
   WB::FrameState frame = WB::config_frame(sb, config);
   const Color4 shifted_without_brightness = WB::colorize(shifted_sample, frame);
-  HS_EXPECT_TRUE(shifted_without_brightness.color ==
-                 WB::prepared_hue_rotation(frame, 0.0f, 0.25f));
+  HS_EXPECT_EQ(shifted_without_brightness.color,
+               WB::prepared_hue_rotation(frame, 0.0f, 0.25f));
 
   config.slots.brightness_envelope = Envelope::CUP;
   config.params.color.brightness_depth = 0.5f;
   frame = WB::config_frame(sb, config);
   const Color4 shifted = WB::colorize(shifted_sample, frame);
   const Pixel expected = shifted_without_brightness.color * 0.5f;
-  HS_EXPECT_TRUE(shifted.color == expected);
+  HS_EXPECT_EQ(shifted.color, expected);
   const auto normalized_ratio = [](uint16_t a, uint16_t b) {
     return static_cast<float>(a) / static_cast<float>(b);
   };
@@ -4329,7 +4333,7 @@ inline void test_shaderball_hue_shift_modes() {
   const WB::FrameState displacement_frame = WB::config_frame(sb, displaced);
   HS_EXPECT_TRUE(displacement_frame.resources.color_noise == nullptr);
   const Color4 undisplaced = WB::colorize(sample, displacement_frame);
-  HS_EXPECT_TRUE(undisplaced.color == plain.color);
+  HS_EXPECT_EQ(undisplaced.color, plain.color);
   WB::MaterialSample warped_sample = sample;
   warped_sample.warp_displacement = 0.25f;
   const Color4 displacement_shifted =
