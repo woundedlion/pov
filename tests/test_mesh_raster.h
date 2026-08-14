@@ -569,14 +569,18 @@ inline void test_clip_band_matches_full() {
       Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch);
     }
     fx.advance_display();
-    size_t mismatches = 0;
+    size_t mismatches = 0, ref_lit = 0;
     for (int y = b.y0; y < b.y1; ++y)
       for (int x = b.x0; x < b.x1; ++x) {
         const Pixel &p = fx.get_pixel(x, y);
         const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+        if (!is_black(r))
+          ++ref_lit;
         if (p.r != r.r || p.g != r.g || p.b != r.b)
           ++mismatches;
       }
+    // The band carries geometry, so agreeing with it is not agreeing on black.
+    HS_EXPECT_GT(ref_lit, (size_t)0);
     HS_EXPECT_EQ(mismatches, (size_t)0);
   }
 }
