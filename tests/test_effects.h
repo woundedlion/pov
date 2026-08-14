@@ -2836,6 +2836,10 @@ struct MeshFeedbackWhiteBox {
     return fx.presets.current_index();
   }
   static int preset_frames(const MF &fx) { return fx.preset_frames; }
+  static size_t mesh_storage_mark(const MF &fx) { return fx.mesh_storage_mark; }
+  static void rebuild_mesh(MF &fx, MF::BaseMesh base_mesh) {
+    fx.rebuild_mesh(base_mesh);
+  }
 };
 
 /**
@@ -3003,6 +3007,29 @@ inline void test_meshfeedback_base_mesh_selector() {
   HS_EXPECT_EQ(WB::active_base_mesh(effect), selected);
   HS_EXPECT_GT(WB::mesh_vertices(effect), 0u);
   HS_EXPECT_GT(WB::mesh_edges(effect), 0u);
+}
+
+/** @brief Verifies repeated MeshFeedback mesh changes reuse arena storage. */
+inline void test_meshfeedback_mesh_rebuild_reuses_storage() {
+  using WB = MeshFeedbackWhiteBox;
+  using MF = WB::MF;
+  reset_effect_globals();
+
+  MF effect;
+  effect.init();
+
+  const size_t storage_mark = WB::mesh_storage_mark(effect);
+  std::array<size_t, Solids::BASE_MESH_COUNT> first_cycle_offsets{};
+  for (size_t i = 0; i < Solids::BASE_MESH_COUNT; ++i) {
+    WB::rebuild_mesh(effect, static_cast<MF::BaseMesh>(i));
+    first_cycle_offsets[i] = persistent_arena.get_offset();
+    HS_EXPECT_GT(first_cycle_offsets[i], storage_mark);
+  }
+
+  for (size_t i = 0; i < Solids::BASE_MESH_COUNT; ++i) {
+    WB::rebuild_mesh(effect, static_cast<MF::BaseMesh>(i));
+    HS_EXPECT_EQ(persistent_arena.get_offset(), first_cycle_offsets[i]);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -6353,6 +6380,7 @@ inline int run_effects_tests() {
 
   test_mindsplatter_base_mesh_selector();
   test_meshfeedback_base_mesh_selector();
+  test_meshfeedback_mesh_rebuild_reuses_storage();
   test_mindsplatter_replay_snapshot_exact();
   test_mindsplatter_saturated_quadrant_sink_parity();
   test_mindsplatter_octahedral_hole_alpha_equivalence();

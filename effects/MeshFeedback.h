@@ -118,13 +118,6 @@ public:
 
     params = presets.get();
 
-    mesh.vertices.bind(persistent_arena, Solids::MAX_SOLID_VERTICES);
-    mesh.face_counts.bind(persistent_arena, Solids::MAX_SOLID_FACES);
-    mesh.faces.bind(persistent_arena, Solids::MAX_SOLID_FACE_SLOTS);
-    mesh.face_offsets.bind(persistent_arena, Solids::MAX_SOLID_FACES);
-    edges.bind(persistent_arena, Solids::MAX_SOLID_EDGES);
-    apply_params();
-
     mesh_shade = Palettes::PEACH_POP.get(0.0f);
 
     register_animated_param(
@@ -146,6 +139,8 @@ public:
     filters.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
         persistent_arena);
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
+    mesh_storage_mark = persistent_arena.get_offset();
+    apply_params();
 
     timeline.add(0, Animation::Noise(noise_params));
     timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, walk_noise));
@@ -204,6 +199,10 @@ private:
                 "a bound solid must fit the wireframe edge-dedup bitset");
 
   void rebuild_mesh(BaseMesh base_mesh) {
+    mesh = MeshState();
+    edges = ArenaVector<Plot::Mesh::Edge>();
+    persistent_arena.set_offset(mesh_storage_mark);
+
     const Solids::Entry &entry =
         Solids::get_entry(static_cast<size_t>(base_mesh));
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
@@ -265,6 +264,7 @@ private:
   MeshState mesh;
   ArenaVector<Plot::Mesh::Edge>
       edges; /**< Unique edge list (topology is static). */
+  size_t mesh_storage_mark = 0;
   BaseMesh active_base_mesh = BaseMesh::ICOSAHEDRON;
   bool mesh_ready = false;
 
