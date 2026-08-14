@@ -3238,7 +3238,9 @@ private:
             config.params.surface_noise.basis,
             config.params.surface_noise.seed,
             config.slots.surface_noise == SurfaceNoise::CURL
-                ? NoiseChannelLayout::CURL_V1
+                ? (config.params.surface_noise.basis == NoiseBasis::SIMPLEX
+                       ? NoiseChannelLayout::CURL_ANALYTIC_V2
+                       : NoiseChannelLayout::CURL_V1)
                 : (config.params.surface_noise.basis == NoiseBasis::SIMPLEX
                        ? NoiseChannelLayout::DIRECT_VECTOR_V2
                        : NoiseChannelLayout::DIRECT_V1),

@@ -352,6 +352,14 @@ public:
     return GenNoiseSingle(mSeed, x, y, z);
   }
 
+  HS_FLASH_MEMBER void GetNoiseGradientSingle(float x, float y, float z,
+                                               float &xg, float &yg,
+                                               float &zg) const {
+    TransformNoiseCoordinate(x, y, z);
+    SingleOpenSimplex2Gradient(mSeed, x, y, z, xg, yg, zg);
+    TransformNoiseGradient(xg, yg, zg);
+  }
+
   /// <summary>
   /// 2D warps the input position using current domain warp settings
   /// </summary>
@@ -554,6 +562,19 @@ private:
     return xd * xg + yd * yg + zd * zg;
   }
 
+  float GradCoordGradient(int seed, int xPrimed, int yPrimed, int zPrimed,
+                          float xd, float yd, float zd, float &xg, float &yg,
+                          float &zg) const {
+    int hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+    hash ^= hash >> 15;
+    hash &= 63 << 2;
+
+    xg = Lookup<float>::Gradients3D[hash];
+    yg = Lookup<float>::Gradients3D[hash | 1];
+    zg = Lookup<float>::Gradients3D[hash | 2];
+    return xd * xg + yd * yg + zd * zg;
+  }
+
   void GradCoordOut(int seed, int xPrimed, int yPrimed, float &xo,
                     float &yo) const {
     int hash = Hash(seed, xPrimed, yPrimed) & (255 << 1);
@@ -711,6 +732,37 @@ private:
       z = r - z;
     } break;
     default:
+      break;
+    }
+  }
+
+  void TransformNoiseGradient(float &xg, float &yg, float &zg) const {
+    constexpr float SKEW = 0.211324865405187f;
+    constexpr float INV_SQRT_3 = 0.577350269189626f;
+    const float x = xg;
+    const float y = yg;
+    const float z = zg;
+    switch (mTransformType3D) {
+    case TransformType3D_ImproveXYPlanes:
+      xg = mFrequency * ((1.0f - SKEW) * x - SKEW * y + INV_SQRT_3 * z);
+      yg = mFrequency * (-SKEW * x + (1.0f - SKEW) * y + INV_SQRT_3 * z);
+      zg = mFrequency * (-INV_SQRT_3 * x - INV_SQRT_3 * y + INV_SQRT_3 * z);
+      break;
+    case TransformType3D_ImproveXZPlanes:
+      xg = mFrequency * ((1.0f - SKEW) * x + INV_SQRT_3 * y - SKEW * z);
+      yg = mFrequency * (-INV_SQRT_3 * x + INV_SQRT_3 * y - INV_SQRT_3 * z);
+      zg = mFrequency * (-SKEW * x + INV_SQRT_3 * y + (1.0f - SKEW) * z);
+      break;
+    case TransformType3D_DefaultOpenSimplex2: {
+      const float reflection = (2.0f / 3.0f) * (x + y + z);
+      xg = mFrequency * (reflection - x);
+      yg = mFrequency * (reflection - y);
+      zg = mFrequency * (reflection - z);
+    } break;
+    default:
+      xg *= mFrequency;
+      yg *= mFrequency;
+      zg *= mFrequency;
       break;
     }
   }
@@ -1091,6 +1143,112 @@ private:
     }
 
     return value * 32.69428253173828125f;
+  }
+
+  HS_O3_FN void SingleOpenSimplex2Gradient(int seed, float x, float y, float z,
+                                           float &gradientX,
+                                           float &gradientY,
+                                           float &gradientZ) const {
+    int i = FastRound(x);
+    int j = FastRound(y);
+    int k = FastRound(z);
+    float x0 = x - i;
+    float y0 = y - j;
+    float z0 = z - k;
+
+    int xNSign = (int)(-1.0f - x0) | 1;
+    int yNSign = (int)(-1.0f - y0) | 1;
+    int zNSign = (int)(-1.0f - z0) | 1;
+
+    float ax0 = xNSign * -x0;
+    float ay0 = yNSign * -y0;
+    float az0 = zNSign * -z0;
+
+    i *= PrimeX;
+    j *= PrimeY;
+    k *= PrimeZ;
+
+    gradientX = 0.0f;
+    gradientY = 0.0f;
+    gradientZ = 0.0f;
+    float a = (0.6f - x0 * x0) - (y0 * y0 + z0 * z0);
+
+    for (int l = 0;; ++l) {
+      if (a > 0.0f) {
+        float xg, yg, zg;
+        const float value =
+            GradCoordGradient(seed, i, j, k, x0, y0, z0, xg, yg, zg);
+        const float a2 = a * a;
+        const float a3 = a2 * a;
+        const float a4 = a2 * a2;
+        const float ramp = -8.0f * a3 * value;
+        gradientX += a4 * xg + ramp * x0;
+        gradientY += a4 * yg + ramp * y0;
+        gradientZ += a4 * zg + ramp * z0;
+      }
+
+      float b = a + 1.0f;
+      int i1 = i;
+      int j1 = j;
+      int k1 = k;
+      float x1 = x0;
+      float y1 = y0;
+      float z1 = z0;
+
+      if (ax0 >= ay0 && ax0 >= az0) {
+        x1 += xNSign;
+        b -= xNSign * 2 * x1;
+        i1 -= xNSign * PrimeX;
+      } else if (ay0 > ax0 && ay0 >= az0) {
+        y1 += yNSign;
+        b -= yNSign * 2 * y1;
+        j1 -= yNSign * PrimeY;
+      } else {
+        z1 += zNSign;
+        b -= zNSign * 2 * z1;
+        k1 -= zNSign * PrimeZ;
+      }
+
+      if (b > 0.0f) {
+        float xg, yg, zg;
+        const float value =
+            GradCoordGradient(seed, i1, j1, k1, x1, y1, z1, xg, yg, zg);
+        const float b2 = b * b;
+        const float b3 = b2 * b;
+        const float b4 = b2 * b2;
+        const float ramp = -8.0f * b3 * value;
+        gradientX += b4 * xg + ramp * x1;
+        gradientY += b4 * yg + ramp * y1;
+        gradientZ += b4 * zg + ramp * z1;
+      }
+
+      if (l == 1)
+        break;
+
+      ax0 = 0.5f - ax0;
+      ay0 = 0.5f - ay0;
+      az0 = 0.5f - az0;
+
+      x0 = xNSign * ax0;
+      y0 = yNSign * ay0;
+      z0 = zNSign * az0;
+
+      a += (0.75f - ax0) - (ay0 + az0);
+
+      i += (xNSign >> 1) & PrimeX;
+      j += (yNSign >> 1) & PrimeY;
+      k += (zNSign >> 1) & PrimeZ;
+
+      xNSign = -xNSign;
+      yNSign = -yNSign;
+      zNSign = -zNSign;
+      seed = ~seed;
+    }
+
+    constexpr float NORMALIZATION = 32.69428253173828125f;
+    gradientX *= NORMALIZATION;
+    gradientY *= NORMALIZATION;
+    gradientZ *= NORMALIZATION;
   }
 
   // OpenSimplex2S Noise

@@ -50,6 +50,11 @@ if(NOT _header MATCHES "void GetVectorNoiseSingle\\(" OR
   list(APPEND _missing "FastNoiseLite has lost its raw vector-noise path")
 endif()
 
+if(NOT _header MATCHES "void GetNoiseGradientSingle\\(" OR
+   NOT _header MATCHES "void SingleOpenSimplex2Gradient\\(")
+  list(APPEND _missing "FastNoiseLite has lost its analytic gradient path")
+endif()
+
 if(NOT _config MATCHES "#define FASTNOISELITE_ONLY_OPENSIMPLEX2")
   list(APPEND _missing
     "FastNoiseLite_config.h no longer defines FASTNOISELITE_ONLY_OPENSIMPLEX2")
@@ -69,4 +74,4 @@ if(_missing)
 endif()
 
 message(STATUS
-  "FastNoiseLite ${VENDORED_VERSION}: all 6 in-tree patches present")
+  "FastNoiseLite ${VENDORED_VERSION}: all 7 in-tree patches present")
