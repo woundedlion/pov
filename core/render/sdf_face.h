@@ -4,23 +4,17 @@
  */
 #pragma once
 
-#include <array>
 #include <algorithm>
+#include <array>
 #include <bit>
-#include <cmath>
-#include <cstdint>
-#include <new>
 #include <cfloat>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <span>
-#include <type_traits>
 #include "math/geometry.h"
-#include "render/shading.h"
 #include "engine/constants.h"
 #include "render/clip.h"
-#include "engine/concepts.h"
-#include "engine/memory.h"
-#include "engine/static_circular_buffer.h"
-#include "engine/util.h"
 #include "render/sdf_common.h"
 
 #ifdef HS_AA_AUDIT
