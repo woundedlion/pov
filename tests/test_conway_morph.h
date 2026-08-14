@@ -40,6 +40,7 @@
 #include "core/mesh/recipe.h"
 #include "core/mesh/solids.h"
 #include "core/render/canvas.h"
+#include "effects/HankinSolids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_conway.h" // check_euler_genus0, face_type_histogram
@@ -929,10 +930,13 @@ inline void test_edge_sweeps_hold_topology() {
 // host high-water marks are a conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
 
+/** The arena split is canvas-independent; this instantiation names it. */
+using HankinFx = HankinSolids<96, 20>;
+
 constexpr size_t MORPH_SCRATCH_A_BUDGET =
-    24 * 1024; /**< HankinSolids scratch_a split. */
+    HankinFx::SCRATCH_A_BYTES; /**< HankinSolids scratch_a split. */
 constexpr size_t MORPH_SCRATCH_B_BUDGET =
-    32 * 1024; /**< HankinSolids scratch_b split. */
+    HankinFx::SCRATCH_B_BYTES; /**< HankinSolids scratch_b split. */
 
 /**
  * @brief Verifies every edge's per-frame scratch peak (op + compile into a
@@ -3375,10 +3379,11 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 // persistent/scratch high-water against IslamicStars' configured split.
 // ---------------------------------------------------------------------------
 
+/** IslamicStars keeps its split private, so these mirror it by value. */
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    116 * 1024; /**< IslamicStars default scratch_a split. */
+    116 * 1024; /**< IslamicStars::SPLIT_SCRATCH_A_DEFAULT. */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    72 * 1024; /**< IslamicStars recipe-build scratch_b split. */
+    72 * 1024; /**< IslamicStars::SPLIT_SCRATCH_B_BUILD. */
 /** Device persistent budget of IslamicStars' arena split. */
 constexpr size_t ISLAMIC_PERSISTENT_BUDGET = DEVICE_GLOBAL_ARENA_SIZE -
                                              ISLAMIC_SCRATCH_A_BUDGET -
