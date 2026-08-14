@@ -33,6 +33,9 @@ PINS = {
     "node": "24.13.0",
     "platformio": "6.1.19",
     "ruff": "0.14.4",
+    # PyPI's shellcheck-py, whose version is the shellcheck release plus a
+    # packaging suffix.
+    "shellcheck": "0.11.0.1",
 }
 
 # Versions the build files must spell out literally: a setup-action input, an
