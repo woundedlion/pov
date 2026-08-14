@@ -1,6 +1,6 @@
 # ShaderBall 59 ms quest plan
 
-Status: **planned; no performance implementation has begun.**
+Status: **complete at `c5cb0bb4`; two-board shipping gate passed.**
 
 The shipping gate is a peak render time below **59.00 ms** for every authored
 ShaderBall preset and every transition frame in the selective-O3 Phantasm
@@ -188,6 +188,39 @@ The quest ledger will use this shape:
 
 | SHA | Experiment | Preset/run | Peak before -> after | Ship/O3 symbol delta | Phantasm ITCM/RAM delta | Tests | Decision |
 |---|---|---|---:|---:|---:|---|---|
+
+## Quest outcome and experiment ledger
+
+The final normal-choreography captures on COM3 and COM4 each contain 648
+16-frame windows, all 17 presets, a 16→0 wrap, no reset, and zero spills.
+Worst render is 58.23 ms on COM3 and 58.06 ms on COM4. The full evidence and
+per-preset table are in
+`docs/profiles/shipping/profile_shaderball_teensy_2026-08-14.md`.
+
+| SHA | Retained experiment | Primary effect | Decision |
+|---|---|---|---|
+| `387c046f`–`e367a443` | Analytic/specialized Simplex curl and fused Euler step | Presets 13/14 fall below 50 ms | Keep; exact structural arithmetic removal |
+| `ff2ea771`–`b92ac517` | Skip/defer hidden palette rebakes | Transition preparation | Keep |
+| `67577f49` | Persistent spherical hue-noise cache | Noise-colored presets | Keep; bounded field/oracle tests pass |
+| `8cb5bf5a` | Couple Simplex vector channels | Preset 16 | Keep |
+| `36265e3e`–`357be008` | Remove redundant palette RGB lookup and split hue sampler | Shared color path | Keep |
+| `1a9644ee`–`7fe8dc4c` | Rebalance cold flash code and keep presets 0, 8, and 10 in ITCM | 0/8/10 | Keep; full-roster memory gate passes |
+| `a2e39bc0` | Prepare vector-warp trigonometry and loop offsets | Preset 16 | Keep; closes the original worst holdout |
+| `056ad3f3` | Prepare exact wave-shear direction | Preset 11 | Keep |
+| `70e31a4c` | Stop advancing discarded transition source runtime | All transitions after midpoint | Keep |
+| `cd79895e` | Update only the visible transition palette | Preset 10 transition, about 64.6→50.2 ms | Keep |
+| `b31cda1c` | Resume normal choreography after selected-preset profiling | Measurement harness | Keep |
+| `58335255` | Pin preset 11 pipeline in ITCM; move cold boot/control code to flash | Preset 11, about 77→51 ms | Keep; 168 B ITCM margin |
+| `0125443d` | Page-align preset-9 flash shader | Preset 9 | Keep; both full cycles pass, 58.23 ms worst |
+| `c5cb0bb4` | Page-align preset-4 flash shader | 4→5 transition, 65.98→41.64 ms bucket peak | Keep; final gate-closing change |
+
+Rejected A/Bs included reciprocal-square-root curl (`94fbacdf`), older vector
+phase preparation (`e5abfd18`), nearest hue quantization (`c716070b` and
+`894b89d3`), a global-O3 preset-10 shader, preset-16 ITCM placement, and cold
+`SolidBuilder` wrappers that increased COMDAT code. The 1 KiB preset-9
+alignment (`3af89af1`) was also superseded because it peaked at 59.32/60.12 ms
+on the two boards. Diagnostic stage/subtraction images were never used as
+acceptance evidence.
 
 ## Acceptance gates
 
