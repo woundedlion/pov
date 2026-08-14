@@ -23,12 +23,10 @@ struct Audit {
   long long missed = 0;  /**< Shaded pixels outside the runs. */
   long long probe_rows[MAX_ROWS] = {};
   long long missed_rows[MAX_ROWS] = {};
-  long long painted_rows[MAX_ROWS] = {};
   double missed_alpha_sum = 0.0;
   double missed_alpha_max = 0.0;
   long long alpha_hist[10] = {}; /**< Missed-pixel alpha, 10 deciles. */
   int max_gap_cols = 0;          /**< Widest column gap to a run edge. */
-  int frames = 0;
   bool enabled = false;   /**< Run the brute-force coverage comparison. */
   bool full_scan = false; /**< Force every face to the full-width scan. */
 
@@ -36,9 +34,8 @@ struct Audit {
     probes = painted = missed = 0;
     missed_alpha_sum = missed_alpha_max = 0.0;
     max_gap_cols = 0;
-    frames = 0;
     for (int i = 0; i < MAX_ROWS; ++i)
-      missed_rows[i] = painted_rows[i] = probe_rows[i] = 0;
+      missed_rows[i] = probe_rows[i] = 0;
     for (int i = 0; i < 10; ++i)
       alpha_hist[i] = 0;
   }
@@ -66,11 +63,7 @@ struct Audit {
       probe_rows[y] += len;
   }
 
-  void note_painted(int y) {
-    ++painted;
-    if (y >= 0 && y < MAX_ROWS)
-      ++painted_rows[y];
-  }
+  void note_painted() { ++painted; }
 };
 
 inline Audit g_audit;

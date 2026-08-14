@@ -1635,7 +1635,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
             gap = g;
         }
         if (in_run)
-          hs_aa::g_audit.note_painted(y);
+          hs_aa::g_audit.note_painted();
         else
           hs_aa::g_audit.note_missed(y, alpha, gap);
       }
