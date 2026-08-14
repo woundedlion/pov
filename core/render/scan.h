@@ -1218,6 +1218,11 @@ struct RingGroup {
     const auto xc = cr.x_clip();
     StaticCircularBuffer<SDF::Interval, 4> intervals;
     StaticCircularBuffer<SDF::Interval, 8> norm;
+    static_assert(decltype(intervals)::CAPACITY >=
+                      SDF::sdf_max_spans<SDF::Ring>::value,
+                  "intervals must hold the covering Ring's per-row emission");
+    static_assert(decltype(norm)::CAPACITY == 2 * decltype(intervals)::CAPACITY,
+                  "norm must hold 2 spans per input interval (seam split)");
     int active[MAX_RINGS];
     int n_active = 0;
 
@@ -1533,9 +1538,13 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     HS_PROFILE_DEEP(raster_setup);
     num_runs = 0;
 
-    // Face emits <= 2 spans; each wraps into <= 2 pieces, each clip-split into
-    // <= 2 runs.
+    // Each span wraps into <= 2 seam pieces, each clip-split into <= 2 runs.
     StaticCircularBuffer<SDF::Interval, 4> intervals;
+    static_assert(decltype(intervals)::CAPACITY >=
+                      SDF::sdf_max_spans<SDF::Face>::value,
+                  "intervals must hold a Face's per-row emission");
+    static_assert(MAX_RUNS >= 4 * SDF::sdf_max_spans<SDF::Face>::value,
+                  "runs must hold every span seam-split and clip-split");
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
@@ -1573,6 +1582,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         add_run(0, W);
       } else {
         StaticCircularBuffer<SDF::Interval, 8> norm;
+        static_assert(decltype(norm)::CAPACITY ==
+                          2 * decltype(intervals)::CAPACITY,
+                      "norm must hold 2 spans per input interval (seam split)");
         coalesce_spans<W>(intervals, norm);
         for (const auto &run : norm)
           add_run(static_cast<int>(run.first), static_cast<int>(run.second));
