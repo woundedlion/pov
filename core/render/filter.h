@@ -58,6 +58,10 @@ using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
  * past the display band for a segment worker to still write the stage's taps.
  * `is_pipeline`: the type is a whole pipeline rather than a stage, so it may not
  * be listed inside a `Pipeline<>`.
+ * `world_transform_is_identity`: the stage forwards world points unmoved (it may
+ * still mask or recolor), so the clip cull may run against the source geometry.
+ * A world stage that moves points must instead define `cull_edge` or set
+ * `crosses_segments`.
  * A stage overrides any of these by redeclaring it.
  */
 template <bool Is2d, bool HasHistory> struct FilterTraits {
@@ -71,6 +75,7 @@ template <bool Is2d, bool HasHistory> struct FilterTraits {
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
   static constexpr bool reads_outside_band = has_history;
+  static constexpr bool world_transform_is_identity = is_2d;
   static constexpr int segment_margin = 0;
 };
 
@@ -139,6 +144,7 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = false;
   static constexpr bool reads_outside_band = false;
+  static constexpr bool world_transform_is_identity = true;
   static constexpr int segment_margin = 0;
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_reads_outside_band = false;
@@ -341,6 +347,8 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
       Head::emits_nonunit_world || Next::emits_nonunit_world;
   static constexpr bool requires_unit_world_input =
       Head::requires_unit_world_input || Next::requires_unit_world_input;
+  static constexpr bool world_transform_is_identity =
+      Head::world_transform_is_identity && Next::world_transform_is_identity;
 
   /**
    * @brief True when any stage overrides cull_edge (re-emits clip-cull edges
@@ -492,6 +500,17 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
       "a direct sink such as Screen::DirectAntiAliasSink) — it writes the "
       "Canvas itself and takes no downstream `pass` callback. Use it on its "
       "own, or list the stage it replaces (Screen::AntiAlias).");
+
+  static_assert(
+      Head::world_transform_is_identity || has_cull_edge<Head> ||
+          Head::crosses_segments,
+      "A World stage that moves geometry must let the clip cull follow it, or "
+      "the rasterizer culls edges by their SOURCE latitude and drops the ones "
+      "the transform moves into a segment band. Override cull_edge() to "
+      "re-emit the edge under the transform (World::Orient), or set "
+      "crosses_segments = true so the effect renders the full canvas "
+      "(World::Mobius). A stage that only masks or recolors declares "
+      "world_transform_is_identity = true.");
 
   static_assert(
       !Head::has_history || Head::is_2d ||
@@ -885,6 +904,8 @@ private:
 class Hole : public Is3D {
 public:
   static constexpr bool requires_unit_world_input = true;
+  /** @brief Attenuates alpha only; world points pass through unmoved. */
+  static constexpr bool world_transform_is_identity = true;
   /**
    * @brief Constructs a hole centered at @p origin with angular @p radius.
    * @param origin Center of the hole (unit vector).
