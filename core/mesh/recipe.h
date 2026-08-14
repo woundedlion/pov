@@ -194,15 +194,19 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
                                 bool allow_composite) {
   switch (step.op) {
   case Op::TRUNCATE:
+    HS_CHECK(step.param > 0.0f, "apply_step: TRUNCATE step has no depth");
     builder.truncate(step.param);
     break;
   case Op::EXPAND:
+    HS_CHECK(step.param > 0.0f, "apply_step: EXPAND step has no amount");
     builder.expand(step.param);
     break;
   case Op::SNUB:
+    HS_CHECK(step.param > 0.0f, "apply_step: SNUB step has no inset");
     builder.snub(step.param, step.twist);
     break;
   case Op::CHAMFER:
+    HS_CHECK(step.param > 0.0f, "apply_step: CHAMFER step has no thickness");
     builder.chamfer(step.param);
     break;
   case Op::HANKIN:
