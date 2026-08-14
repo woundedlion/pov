@@ -39,7 +39,7 @@
  * derive from PROJ at the commit named in the header above.
  */
 
-#include "core/math/3dmath.h"
+#include "math/3dmath.h"
 
 namespace projections {
 
