@@ -466,6 +466,8 @@ private:
     if (n_slots == 0)
       return;
 
+    // v2 is the stroke coverage the scan applies again on plot, so the ring
+    // edge ramps as coverage squared.
     auto ring_shader = [this](int s, const Vector &, Fragment &f) {
       const Pixel *hue = hue_pool + s * (W + 1);
       float x = wrap_t(f.v0) * slot_lut_n[s];
