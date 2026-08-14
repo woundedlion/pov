@@ -133,10 +133,13 @@ public:
   /** @brief Sets every control key to one chroma.
    *  @param chroma Chroma in [0, 1], read in the palette's ChromaBasis:
    *  gamut-relative under LOCAL_GAMUT, absolute OKLCh chroma under ABSOLUTE,
-   *  where values past the hue's gamut boundary render out of gamut. */
+   *  where values past the hue's gamut boundary render out of gamut.
+   *  @details Collapses the chroma axis to a single value and keeps its curve,
+   *  which every curve then evaluates to that value; rewriting the curve would
+   *  break morph_compatible() against palettes the caller has not touched. */
   HS_COLD_MEMBER void set_constant_chroma(float chroma) {
     chroma = hs::clamp(chroma, 0.0f, 1.0f);
-    chroma_axis = {chroma, chroma, AxisCurve::CONSTANT};
+    chroma_axis = {chroma, chroma, chroma_axis.curve};
     for (int i = 0; i < key_count; ++i)
       keys[i].chroma = chroma;
   }
