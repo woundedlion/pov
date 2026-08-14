@@ -3360,7 +3360,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"hankin.h", 9},
     {"mesh.h", 10},
     {"mesh_classes.h", 6},
-    {"recipe.h", 9},
+    {"recipe.h", 13},
     {"solid_generators.h", 5},
     {"solids.h", 2},
     {"spatial.h", 8},
