@@ -860,6 +860,43 @@ inline void test_edge_endpoints_match_registry() {
 /** Samples per edge sweep. */
 constexpr int SWEEP_SAMPLES = 16;
 
+/**
+ * @brief Per-leg accumulator for the invariants every OpLeg draw callback
+ *        shares: a compiled face count matching the shading and constant
+ *        across the leg, in-range ramp indices, and a vertex list that keeps
+ *        its count and order frame to frame.
+ */
+struct LegDrawProbe {
+  size_t drawn = 0;           /**< Frames handed to the callback. */
+  size_t faces = 0;           /**< Face count latched on the first frame. */
+  float worst_step = 0.0f;    /**< Largest per-vertex motion between frames. */
+  std::vector<Vector> prev_v; /**< Previous frame's vertices. */
+
+  /**
+   * @brief Folds one drawn frame in.
+   * @param m Compiled mesh handed to the callback.
+   * @param sh Shading handed alongside it.
+   */
+  void observe(const MeshState &m, const Animation::OpLeg::Shading &sh) {
+    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+    if (drawn == 0)
+      faces = sh.faces;
+    else
+      HS_EXPECT_EQ(sh.faces, faces);
+    for (size_t f = 0; f < sh.faces; ++f)
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
+                   Animation::OpLeg::MAX_BLEND_PAIRS);
+    if (!prev_v.empty()) {
+      HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
+      for (size_t i = 0; i < m.vertices.size(); ++i)
+        worst_step =
+            std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
+    }
+    prev_v.assign(m.vertices.begin(), m.vertices.end());
+    ++drawn;
+  }
+};
+
 /** Raw mesh counts a Conway operator is required to produce. */
 struct OpCounts {
   size_t v; /**< Vertices. */
@@ -2038,29 +2075,9 @@ inline void test_opleg_hankin_sweep_smoke() {
   // 1.84 chord on ambo-of-hankin seeds), which draws as lines crossing the
   // pattern; the bound is what stops that parameterization coming back.
   constexpr float MAX_STEP_CHORD = 0.15f;
-  size_t drawn_frames = 0;
-  size_t drawn_faces = 0;
-  float worst_step = 0.0f;
-  std::vector<Vector> prev_v;
+  LegDrawProbe probe;
   auto cb = [&](Canvas &, const MeshState &m,
-                const Animation::OpLeg::Shading &sh) {
-    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
-    if (drawn_frames == 0)
-      drawn_faces = sh.faces;
-    else
-      HS_EXPECT_EQ(sh.faces, drawn_faces);
-    for (size_t f = 0; f < sh.faces; ++f)
-      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
-                   Animation::OpLeg::MAX_BLEND_PAIRS);
-    if (!prev_v.empty()) {
-      HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
-      for (size_t i = 0; i < m.vertices.size(); ++i)
-        worst_step =
-            std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
-    }
-    prev_v.assign(m.vertices.begin(), m.vertices.end());
-    ++drawn_frames;
-  };
+                const Animation::OpLeg::Shading &sh) { probe.observe(m, sh); };
 
   using Solids::IslamicStarPatterns::D2R;
   constexpr int SWEEP = 8;
@@ -2086,12 +2103,12 @@ inline void test_opleg_hankin_sweep_smoke() {
     }
     fx.advance_display();
   }
-  HS_EXPECT_EQ(drawn_frames, (size_t)SWEEP);
-  HS_EXPECT_EQ(drawn_faces, landing.faces);
-  HS_EXPECT_LT(worst_step, MAX_STEP_CHORD);
+  HS_EXPECT_EQ(probe.drawn, (size_t)SWEEP);
+  HS_EXPECT_EQ(probe.faces, landing.faces);
+  HS_EXPECT_LT(probe.worst_step, MAX_STEP_CHORD);
   std::printf("  [opleg hankin] worst per-frame vertex step %.4f chord "
               "(bound %.2f)\n",
-              (double)worst_step, (double)MAX_STEP_CHORD);
+              (double)probe.worst_step, (double)MAX_STEP_CHORD);
 }
 
 // ---------------------------------------------------------------------------
@@ -2727,25 +2744,9 @@ inline void test_opleg_medial_leg_smoke() {
                                   .prev_faces = prev_faces,
                                   .prev_face_centroid = centroid.data()};
 
-    size_t drawn = 0, leg_faces = 0;
-    float worst_step = 0.0f;
-    std::vector<Vector> prev_v;
+    LegDrawProbe probe;
     auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
-      HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
-      if (drawn == 0)
-        leg_faces = sh.faces;
-      else
-        HS_EXPECT_EQ(sh.faces, leg_faces);
-      for (size_t f = 0; f < sh.faces; ++f)
-        HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
-      if (!prev_v.empty()) {
-        HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
-        for (size_t i = 0; i < m.vertices.size(); ++i)
-          worst_step =
-              std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
-      }
-      prev_v.assign(m.vertices.begin(), m.vertices.end());
-      ++drawn;
+      probe.observe(m, sh);
     };
 
     OpLeg anim(P, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff);
@@ -2763,14 +2764,14 @@ inline void test_opleg_medial_leg_smoke() {
       }
       fx.advance_display();
     }
-    HS_EXPECT_EQ(drawn, (size_t)SWEEP);
-    HS_EXPECT_EQ(landing.faces, leg_faces);
-    HS_EXPECT_LT(worst_step, MAX_STEP_CHORD);
+    HS_EXPECT_EQ(probe.drawn, (size_t)SWEEP);
+    HS_EXPECT_EQ(landing.faces, probe.faces);
+    HS_EXPECT_LT(probe.worst_step, MAX_STEP_CHORD);
     HS_EXPECT_TRUE(landing.from_palette != nullptr);
 
     std::printf("  [opleg medial] %s: F=%zu across %d frames, worst step "
                 "%.4f%s\n",
-                site.name, landing.faces, SWEEP, (double)worst_step,
+                site.name, landing.faces, SWEEP, (double)probe.worst_step,
                 hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
 }
@@ -3131,27 +3132,11 @@ check_step_leg_smoke(StepLegKind kind, const StepLegSite &site, int frames,
   OpLeg::BookendClasses bookend{.topology = endpoint.topology.data(),
                                 .faces = endpoint.face_counts.size()};
 
-  size_t drawn_frames = 0, drawn_faces = 0;
-  float worst_step = 0.0f;
-  std::vector<Vector> prev_v;
+  LegDrawProbe probe;
   auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
-    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
-    if (drawn_frames == 0)
-      drawn_faces = sh.faces;
-    else
-      HS_EXPECT_EQ(sh.faces, drawn_faces);
-    for (size_t f = 0; f < sh.faces; ++f)
-      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
-    if (!prev_v.empty()) {
-      HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
-      for (size_t i = 0; i < m.vertices.size(); ++i)
-        worst_step =
-            std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
-    }
-    prev_v.assign(m.vertices.begin(), m.vertices.end());
+    probe.observe(m, sh);
     if (frames_out)
-      frames_out->push_back(prev_v);
-    ++drawn_frames;
+      frames_out->push_back(probe.prev_v);
   };
 
   hs_test::StubEffect fx(288, 144);
@@ -3167,8 +3152,8 @@ check_step_leg_smoke(StepLegKind kind, const StepLegSite &site, int frames,
       }
       fx.advance_display();
     }
-    HS_EXPECT_EQ(drawn_frames, (size_t)frames);
-    HS_EXPECT_EQ(drawn_faces, landing.faces);
+    HS_EXPECT_EQ(probe.drawn, (size_t)frames);
+    HS_EXPECT_EQ(probe.faces, landing.faces);
   };
 
   switch (kind) {
@@ -3196,13 +3181,13 @@ check_step_leg_smoke(StepLegKind kind, const StepLegSite &site, int frames,
     break;
   }
 
-  HS_EXPECT_LT(worst_step, max_step_chord);
+  HS_EXPECT_LT(probe.worst_step, max_step_chord);
   const char *label = kind == StepLegKind::TRUNCATE ? "truncate"
                       : kind == StepLegKind::SNUB   ? "snub"
                                                     : "relax";
   std::printf("  [opleg %s] %s: %zu faces, worst per-frame vertex step %.4f "
               "chord (bound %.2f)%s\n",
-              label, site.name, drawn_faces, (double)worst_step,
+              label, site.name, probe.faces, (double)probe.worst_step,
               (double)max_step_chord,
               hs_test::stats().failed != failed_before ? " FAILED" : "");
 }
