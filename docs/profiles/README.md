@@ -46,8 +46,8 @@ peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-11.md)§ ● | inverse shader pipeline | 🟢 49.52 (23) | 🟢 0/1728 (0%) | 2026-08-12 10:23 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
+| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 58.23 (17) | 🟢 0/10368 (0%) | 2026-08-14 05:27 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
@@ -73,9 +73,13 @@ peak.
 Both peak columns precede the spill columns so the codegen delta reads
 directly. Size deltas are O3 minus shipping.
 
+ShaderBall's row below remains the matched 2026-08-13 compiler comparison.
+Its current 2026-08-14 shipping result appears in the table above; no
+current-source global-O3 twin was retained.
+
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShaderBall](O3/profile_shaderball_teensy_2026-08-11.md)§ ● | inverse shader pipeline | 🟢 49.52 (23) | 🔴 207.37 (2)<br>🟢 50.40 (21) | 🟢 0/1728 (0%) | 🔴 66/136 (48.5%)<br>🟢 0/1416 (0%) | +16,144 B | +11,904 B | ship 2026-08-12 10:23<br>O3 2026-08-12 10:32 |
+| [ShaderBall](O3/profile_shaderball_teensy_2026-08-13.md)§ ● | inverse shader pipeline | 🔴 147.35 (12)<br>🟢 49.35 (5) | 🔴 244.46 (12)<br>🟢 61.23 (5) | 🔴 664/962 (69.0%)<br>🟢 0/510 (0%) | 🔴 510/930 (54.8%)<br>🟢 0/510 (0%) | +15,336 B | +11,536 B | ship 2026-08-13 23:12<br>O3 2026-08-13 23:15 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
@@ -83,7 +87,7 @@ directly. Size deltas are O3 minus shipping.
 | [MindSplatter](O3/profile_mindsplatter_teensy_2026-08-07.md)§ ● | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 38.78 (8) | 🟢 0/1728 (0%) | 🟢 0/1728 (0%) | +21,464 B | +18,832 B | ship 2026-08-07 23:03<br>O3 2026-08-07 23:02 |
 | [ChaoticStrings](O3/profile_chaoticstrings_teensy_2026-08-02.md) ● | adaptive vertex build | 🟢 24.85 | 🟢 22.16 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +28,456 B | +20,688 B | ship 2026-08-02 22:21<br>O3 2026-08-02 22:23 |
 
-**● refreshed 2026-08-11.**
+**● refreshed 2026-08-14.**
 
 ## Captures of retired effects
 
@@ -100,11 +104,11 @@ ShaderBall's performance budget is sized against their per-pixel costs.
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
 38.78 ms peak while adding 21,464 B of flash and 18,832 B of ITCM.
 
-**The captured ShaderBall roster contains all 23 curated presets.** Shipping
-is green for all 23, with 0/1728 spills at a 49.52 ms peak. The matched
-baseline had only six green buckets and spilled 849/1680 frames at an 88.07 ms
-peak. Global O3 is rejected: preset 19 regresses to a 205.81 ms peak and owns
-64 of the twin's 66 spilled frames.
+**The captured ShaderBall roster contains all 17 curated presets.** Two
+independent shipping cycles have 17 green cadence buckets, zero spills in
+10,368 frames each, and 58.23/58.06 ms peaks. The matched global-O3 comparison
+remains the 2026-08-13 pre-optimization pair; it is not evidence for the
+current shipping source.
 
 **MeshFeedback is green on all 12 styles** — 0/6688 at a 57.70 ms peak
 (SlowDust), worst hold Smoke at 48.86 ms of flush. `feedback_composite` is 67%

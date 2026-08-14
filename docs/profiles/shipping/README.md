@@ -6,8 +6,8 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](profile_shaderball_teensy_2026-08-11.md)§ ● | inverse shader pipeline | 🟢 49.52 (23) | 🟢 0/1728 (0%) | 2026-08-12 10:23 |
 | [DisplacementField](profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
+| [ShaderBall](profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 58.23 (17) | 🟢 0/10368 (0%) | 2026-08-14 05:27 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
@@ -30,7 +30,7 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 
 § ShapeShifter spans nine presets; its initial unlabeled frames and later
 `Preset: 1/9` frames are one adaptive 208-count planar-star bucket.
-The ShaderBall capture spans 23 presets and MindSplatter spans eight; each
-report folds its initial unlabeled frames into preset 1.
+The ShaderBall capture spans 17 presets and MindSplatter spans eight; each
+report folds its initial unlabeled frames into preset 0.
 
-**● refreshed 2026-08-12.**
+**● refreshed 2026-08-14.**

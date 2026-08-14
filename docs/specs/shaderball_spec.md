@@ -1187,13 +1187,13 @@ Blanket `always_inline`/`HS_O3_FN` expansion of every slot arm is forbidden: a
 frame-constant switch makes prediction cheap but does not remove inactive-arm
 code from the instantiated closure.
 
-The shipping selective-O3 capture runs all 23 authored presets green against the
-62.5 ms display window. Its source-matched global-O3 twin is a rejected
-diagnostic ceiling that leaves two presets red. The ITCM ledger records 194,880
-of 196,608 phantasm ITCM bytes at `053ecefc`, with ShaderBall excluded from the
-phantasm roster while it grows. Take the spill, peak, and byte figures from the
-[shipping profile](../profiles/shipping/profile_shaderball_teensy_2026-08-11.md),
-[global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-11.md),
+The shipping selective-O3 capture runs all 17 authored presets green against
+the 62.5 ms display window. The latest global-O3 report is source-matched to the
+2026-08-13 pre-optimization shipping capture, not the current shipping source.
+The full-roster memory gate includes ShaderBall. Take the spill, peak, and byte
+figures from the
+[shipping profile](../profiles/shipping/profile_shaderball_teensy_2026-08-14.md),
+[global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-13.md),
 and [ITCM ledger](../ledgers/itcm_ledger.md) rather than restating them here.
 The timing captures measure the authored bank directly; the ledger remains a
 separate full-roster resource gate. Regenerate both after preset, kernel, or
