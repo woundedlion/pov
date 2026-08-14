@@ -48,6 +48,9 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
   static_assert(Segue::Schedulable<SegueT>,
                 "a segue's schedule() must take (timeline, draw_fn, duration, "
                 "window, paused)");
+  static_assert(Segue::HasPhaseHooks<SegueT>,
+                "a segue's visible(), opacity() and face_fade_frac() must keep "
+                "Base's signatures");
   static_assert(!Segue::DeclaresWarp<SegueT> || Segue::HasWarp<SegueT>,
                 "a segue's warp() must be Vector warp(const Vector&, float) "
                 "const");

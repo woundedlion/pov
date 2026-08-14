@@ -219,6 +219,17 @@ concept Schedulable =
       } -> std::same_as<int>;
     };
 
+/** @brief Whether a policy keeps Base's global-phase hook signatures. Every
+ * policy inherits them, so this fails only on one that shadows a hook at a
+ * drifted signature — a float `visible` converts silently to true, and a
+ * `face_fade_frac` of another arity hides Base's without replacing it. */
+template <typename S>
+concept HasPhaseHooks = requires(const S &s) {
+  { s.visible(0.5f) } -> std::same_as<bool>;
+  { s.opacity(0.5f) } -> std::same_as<float>;
+  { s.face_fade_frac(0) } -> std::same_as<float>;
+};
+
 /** @brief Whether a policy defines the per-face ordering hook, with or without
  * the face_phase that makes the set usable. MeshCarousel asserts the two
  * together, so a face_phase of the wrong arity is rejected rather than dropping
@@ -745,5 +756,33 @@ struct Dissolve : Base {
                                -1, paused);
   }
 };
+
+/**
+ * @brief A pack of policies with the folds the conformance net and the
+ * roster-wide tests run over.
+ * @tparam Ts The policies.
+ */
+template <typename... Ts> struct PolicyList {
+  /** @brief Whether every listed policy keeps the hook signatures the carousel
+   * and the draw path call. */
+  static constexpr bool CONFORMING =
+      ((Schedulable<Ts> && HasPhaseHooks<Ts>) && ...);
+
+  /**
+   * @brief Invokes @p fn once per policy, on a default-constructed instance.
+   * @param fn Callable taking any policy.
+   */
+  template <typename Fn> static void for_each(Fn &&fn) { (fn(Ts{}), ...); }
+};
+
+/** @brief Every shipped policy, Base first. A policy left off this roster is
+ * checked only where it is instantiated. */
+using AllPolicies =
+    PolicyList<Base, Crossfade, IrisBloom, Lace, TerminatorSweep, Shockwave,
+               Breakdown, SpinFlip, GoldConvergence, Dissolve>;
+
+static_assert(AllPolicies::CONFORMING,
+              "a segue policy shadows schedule(), visible(), opacity() or "
+              "face_fade_frac() at a drifted signature");
 
 } // namespace Segue
