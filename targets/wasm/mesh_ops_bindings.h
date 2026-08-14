@@ -759,7 +759,8 @@ public:
    * @brief Returns a solid's authored recipe chain for the editor.
    * @param name Registry name to look up.
    * @return JS object {seed: string, ops: [{op: string, param, twist}]}, or
-   *         null for an unknown name or an entry without a recipe.
+   *         null for an unknown name (getLastResult() then reports
+   *         UNKNOWN_NAME) or for a known entry without a recipe (OK).
    * @details Pure table read: no arenas, no wrapper, no clearToolingMemory()
    *          pairing. Params cross in engine-native units (radians for hankin,
    *          raw t, relax iteration count), matching the MeshOps op bindings.
@@ -769,9 +770,11 @@ public:
    *          without logging.
    */
   static val getRecipe(const std::string &name) {
+    begin_mesh_op();
     const Solids::Entry *entry = Solids::find_entry(name);
     if (!entry) {
       hs::log("WASM: getRecipe unknown solid '%s' — ignored", name.c_str());
+      last_mesh_op_result = MeshOpResult::UNKNOWN_NAME;
       return val::null();
     }
     if (!entry->recipe)
