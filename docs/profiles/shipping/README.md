@@ -7,13 +7,13 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [DisplacementField](profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
-| [ShaderBall](profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 58.23 (historical 17) | 🟢 0/10368 (0%) | 2026-08-14 05:27 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
 | [IslamicStars](profile_islamicstars_teensy_2026-07-28.md)§ | per-face SDF + opchain build legs | 🟢 56.91 (24) | 🟢 0/3328 (0%) | 2026-07-28 17:34 |
 | [RingSpin](profile_ringspin_teensy_2026-07-25.md) | fused ring-group raster | 🟢 56.47 | 🟢 0/1088 (0%) | 2026-07-26 11:44 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
+| [ShaderBall](profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 55.69 (12) | 🟢 0/10368 (0%) | 2026-08-14 11:00 |
 | [Raymarch](profile_raymarch_teensy_2026-07-25.md) | volume ray-march | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-09.md)§ ● | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
@@ -30,8 +30,9 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 
 § ShapeShifter spans nine presets; its initial unlabeled frames and later
 `Preset: 1/9` frames are one adaptive 208-count planar-star bucket.
-The ShaderBall capture spans the former 17-preset bank and predates the current
-12-preset roster; its report preserves the old indices and their remap.
+ShaderBall spans the current 12-preset bank; independent COM3 and COM4 cycles
+both peak at 55.69 ms with no spills and preserve the historical remap in the
+report.
 MindSplatter spans eight presets. Each report folds its initial unlabeled
 frames into preset 0.
 

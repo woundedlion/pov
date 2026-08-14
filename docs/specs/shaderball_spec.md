@@ -1188,15 +1188,14 @@ frame-constant switch makes prediction cheap but does not remove inactive-arm
 code from the instantiated closure.
 
 The current shipping bank has 12 authored presets after former presets 5, 6,
-7, 9, and 10 were retired. The retained selective-O3 capture runs the former
-17-preset bank green against the 62.5 ms display window; its report preserves
-the captured indices and the exact current remap. A fresh two-board cycle is
-required to attest the current bank. The latest global-O3 report is
-source-matched to the 2026-08-13 pre-optimization shipping capture, not the
-current shipping source. The full-roster memory gate includes ShaderBall. Take
-the spill, peak, and byte figures from the
+7, 9, and 10 were retired. Two source-matched selective-O3 captures run every
+current preset green against the 62.5 ms display window, while the matched
+global-O3 reference has five red presets and is rejected for shipping. The
+shipping report preserves the former 17-preset indices and exact current
+remap. The full-roster memory gate includes ShaderBall. Take the spill, peak,
+and byte figures from the
 [shipping profile](../profiles/shipping/profile_shaderball_teensy_2026-08-14.md),
-[global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-13.md),
+[global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-14.md),
 and [ITCM ledger](../ledgers/itcm_ledger.md) rather than restating them here.
 The timing captures measure the authored bank directly; the ledger remains a
 separate full-roster resource gate. Regenerate both after preset, kernel, or

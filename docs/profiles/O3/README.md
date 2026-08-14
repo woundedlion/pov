@@ -2,11 +2,12 @@
 
 Ranked paired captures for the single-effect `profile_o3` reference image.
 Peak is worst-frame render time; spilled counts frames above the 62.5 ms
-display window. Global O3 is a compiler ceiling, not a shippable roster image.
+display window. Global O3 is a compiler reference, not a shippable roster
+image or a guaranteed speed ceiling.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](profile_shaderball_teensy_2026-08-13.md)§ ● | inverse shader pipeline | 🔴 244.46 (12)<br>🟢 61.23 (5) | 🔴 510/930 (54.8%)<br>🟢 0/510 (0%) | 2026-08-13 23:15 |
+| [ShaderBall](profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🔴 84.64 (5)<br>🟢 60.54 (7) | 🔴 1440/2405 (59.9%)<br>🟢 0/6523 (0%) | 2026-08-14 11:12 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.97 | 🟢 0/2048 (0%) | 2026-08-09 16:37 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:57 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.90 | 🟢 0/2048 (0%) | 2026-08-03 00:36 |
@@ -16,8 +17,9 @@ display window. Global O3 is a compiler ceiling, not a shippable roster image.
 
 § ShapeShifter spans 10.08–56.72 ms across nine matched preset buckets; all
 nine hold 16 fps.
-The ShaderBall capture spans the former 17-preset bank and predates the current
-12-preset roster. MindSplatter spans eight presets. Each report folds its
-initial unlabeled frames into preset 0.
+ShaderBall spans the current 12-preset bank. Its five red global-O3 presets
+spill 1,440/2,405 frames; the seven green presets spill none. MindSplatter
+spans eight presets. Each report folds its initial unlabeled frames into
+preset 0.
 
-**● refreshed 2026-08-13.**
+**● refreshed 2026-08-14.**

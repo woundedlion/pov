@@ -1,14 +1,14 @@
 # ShaderBall 59 ms quest plan
 
-Status: **historical 17-preset quest complete at `c5cb0bb4`; current
-12-preset two-board revalidation pending.**
+Status: **complete.** The 12-preset roster landed at `43bd0b41`; source
+`c06c5fbc` passes the two-board shipping gate.
 
 The shipping gate is a peak render time below **59.00 ms** for every authored
 ShaderBall preset and every transition frame in the selective-O3 Phantasm
 image. Development targets **56.00 ms** so normal orientation, interrupt, and
-measurement variation cannot turn a nominal pass into a field failure. Current
-acceptance requires a complete 12-preset on-device cycle on each board with
-zero spilled frames, not a host benchmark or a single favorable window.
+measurement variation cannot turn a nominal pass into a field failure. Final
+acceptance is a complete 12-preset on-device cycle on each board with zero
+spilled frames, not a host benchmark or a single favorable window.
 
 This plan supersedes the completion claim for the former 23-preset bank in
 `shaderball_optimization_plan.md`. That document remains the historical
@@ -47,12 +47,10 @@ presets, wraps 16 to 0, agrees with the DWT root counter within 0.2 ppm, and
 reports a 147.35 ms peak with 664 of 1,472 frames spilled. Five buckets are
 green and twelve are red.
 
-The current report pair is not a matched compiler comparison. The attested
-shipping log names source `f0821319`, the O3 log names `d0848a94`, and the
-reports name `6f2e7e77`. All three revisions precede current master
-`74120cb4`. The shipping numbers are useful for prioritization, but neither
-the shipping/O3 delta nor either report's source label is acceptance evidence.
-A clean current-master matched pair is the first measurement task.
+The initial report pair was not a matched compiler comparison: its shipping
+log named `f0821319`, its O3 log named `d0848a94`, and both reports named
+`6f2e7e77`. The final reports replace that ambiguity with four provenance-
+attested captures from source `c06c5fbc`, two boards per configuration.
 
 | Preset | Authored topology | Peak, ms | Clean shader, ms | Gap to 59 ms |
 |---:|---|---:|---:|---:|
@@ -218,16 +216,13 @@ The quest ledger will use this shape:
 
 ## Quest outcome and experiment ledger
 
-The final pre-reduction normal-choreography captures on COM3 and COM4 each
-contain 648 16-frame windows, all 17 former presets, a 16→0 wrap, no reset, and
-zero spills. Worst render is 58.23 ms on COM3 and 58.06 ms on COM4. The full
-historical evidence and per-preset table are in
-`docs/profiles/shipping/profile_shaderball_teensy_2026-08-14.md`.
-
-The 12-preset roster changes the manifest and code layout, so those measurements
-do not establish its timing or memory footprint. Independent current-source
-COM3 and COM4 cycles remain planned; results belong in the shipping report and
-the pending ledger row below only after capture attestation.
+The final current-source shipping captures on COM3 and COM4 each contain 648
+16-frame windows, all 12 presets, an 11→0 wrap, no reset, and zero spills.
+Both peak at 55.69 ms. The matched global-O3 captures each contain 558 windows;
+five presets are red, each board spills 1,440/8,928 frames, and the worst peak
+is 84.64 ms. The full per-preset evidence is in the
+[shipping](profiles/shipping/profile_shaderball_teensy_2026-08-14.md) and
+[global-O3](profiles/O3/profile_shaderball_teensy_2026-08-14.md) reports.
 
 `N/R` means the per-experiment artifact was not retained. Cumulative timing is
 shown only where it is the narrowest honest attribution; it is not presented
@@ -236,7 +231,8 @@ RAM1/RAM2 floors were unchanged.
 
 | SHA | Experiment | Preset/run | Peak before -> after | Ship/O3 symbol delta | Phantasm ITCM/RAM delta | Tests | Decision |
 |---|---|---|---:|---|---|---|---|
-| Pending | Retire former presets 5, 6, 7, 9, and 10; renumber retained bank | Current 0–11 full cycle, dual boards | Historical 17-preset peak 58.23 ms -> pending | Pending reduced-manifest build | Pending full-roster ELF | Host roster checks and dual-board captures pending | Await current-source acceptance |
+| `43bd0b41` | Retire former presets 5, 6, 7, 9, and 10; renumber retained bank | Current 0–11 full cycle, dual boards | Historical pre-reduction 58.23 -> final-source 55.69 ms; isolated A/B N/R | Final-source ship named symbols 41,076 B; per-commit delta N/R | Cumulative current vs pre-reduction: -1,296 B ITCM, RAM Δ0, flash -5,416 B | Phantasm gate; two validated 648-window shipping cycles | Keep; current bank passes with 3.31 ms headroom |
+| `c06c5fbc` | Compare source-matched global O3 with shipping selective O3 | Current 0–11 full cycle, dual boards | Ship 55.69 -> O3 84.64 ms | O3 - ship named symbols: +1,172 B flash / +976 B ITCM (+2,148 B total); whole profile +13,000/+12,352 B | Phantasm ITCM/RAM Δ0 | Four validated cycles; O3 has 5 red presets and 1,440/8,928 spills per board | Reject global O3; keep selective O3 |
 | `387c046f` | Derive Simplex curl analytically | 13/14 fixed | Chain: 107.89/97.91 -> 48.41/49.04 ms; isolated A/B N/R | Ship shared curl leaf: N/R; O3: N/R | Per-commit N/R | Native curl/oracle suite | Keep |
 | `d7e9303a` | Specialize the Simplex curl surface path | 13/14 fixed | Chain result above; isolated A/B N/R | Ship specialized leaf: N/R; O3: N/R | Per-commit N/R | Native ShaderBall oracle | Keep |
 | `e367a443` | Fuse the Simplex Euler surface step | 13/14 fixed | Chain result above; isolated A/B N/R | Ship fused leaf: N/R; O3: N/R | Per-commit N/R | Native ShaderBall oracle | Keep |
@@ -268,20 +264,21 @@ RAM1/RAM2 floors were unchanged.
 | Uncommitted | Compile preset 10 shader with global O3 | 10 fixed | Regression; exact peak N/R | Ship/O3 body delta N/R | N/R | Build, disassembly, device A/B | Reject |
 | Uncommitted | Move `SolidBuilder` cold wrappers to flash | Full roster size | Timing N/A | Ship COMDAT: about +4.6 KiB | ITCM benefit defeated by duplicate code; RAM Δ0 | Full-roster build gate | Reject |
 
-The final pre-reduction Phantasm footprint is 196,440/196,608 B ITCM, 314,880 B RAM1
-variables with 12,800 B local free, and 520,064 B RAM2 variables with 4,224 B
-allocator free. Against the attested 2026-08-13 baseline, the cumulative ITCM
-delta is +800 B; RAM1/RAM2 floor deltas are zero. No unmatched O3 build is
-treated as evidence: every `O3: N/R` cell explicitly records that the required
-matched symbol artifact was not retained. The 12-preset footprint is pending a
-fresh full-roster build.
+The final Phantasm footprint is 195,144/196,608 B ITCM with 1,464 B padding,
+314,880 B RAM1 variables with 12,800 B local free, and 520,064 B RAM2
+variables with 4,224 B allocator free. The roster reduction reclaimed 1,296 B
+of ITCM and 5,416 B of
+flash from the attested pre-reduction image; RAM1/RAM2 floors are unchanged.
+Historical `O3: N/R` cells still mean the required per-experiment matched
+artifact was not retained. The final source-matched compiler comparison is the
+explicit `c06c5fbc` row above.
 
 ## Acceptance gates
 
 - Two validated current-source shipping cycles visit all 12 presets, wrap
   11-to-0, have zero epoch resets, and report **every peak render <59.00 ms**.
-- Every fixed run for current presets 0–11 is below 59.00 ms; anything above
-  56.00 ms is repeated and called out as low margin.
+- Every current preset bucket on both boards is below 59.00 ms; anything above
+  56.00 ms requires a repeat and a low-margin callout.
 - No transition frame, including the 11-to-0 wrap, exceeds 59.00 ms.
 - The full Phantasm image passes FLASH, ITCM, DTCM/stack, RAM2, and allocator
   floors. The profile image alone cannot satisfy this gate.
