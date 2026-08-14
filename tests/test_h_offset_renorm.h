@@ -98,8 +98,8 @@ inline void test_energy_conserved_through_clip_boundary() {
   Filter::Screen::AntiAlias<W, H> aa;
   const float in_alpha = 0.8f;
 
-  for (float y = static_cast<float>(H - 2);
-       y < static_cast<float>(H + 1) + 1e-3f; y += 0.1f) {
+  for (int step = 0; step <= 30; ++step) {
+    const float y = static_cast<float>(H - 2) + 0.1f * static_cast<float>(step);
     int count = 0;
     float energy = deposited_energy(aa, 10.37f, y, in_alpha, &count);
 
@@ -151,7 +151,8 @@ inline void test_boundary_energy_independent_of_x_fraction() {
   const float in_alpha = 0.5f;
   const float y = static_cast<float>(H - 1) + 0.25f;
 
-  for (float xf = 0.05f; xf < 1.0f; xf += 0.05f) {
+  for (int step = 1; step < 20; ++step) {
+    const float xf = 0.05f * static_cast<float>(step);
     float energy = deposited_energy(aa, 12.0f + xf, y, in_alpha);
     HS_EXPECT_NEAR(energy, in_alpha, 1e-4f);
   }
