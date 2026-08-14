@@ -413,15 +413,6 @@ struct ShaderBallWhiteBox {
              "ShaderBall test topology has no compiled inverse pipeline");
     return function(v, frame);
   }
-  static ProjectedLookup pipeline_surface(const Vector &v,
-                                          const FrameState &frame) {
-    return SB::template DirectNoiseStereographicStage<
-        SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>::run(v, frame);
-  }
-  static PlanarWarpResult pipeline_mirror(const ProjectedLookup &projected,
-                                          const FrameState &frame) {
-    return SB::template PlanarWarpStage<true>::run(projected, frame).warped;
-  }
   static TopologyKey topology_key(const RequestedConfig &config) {
     return SB::make_topology_key(config);
   }
@@ -451,16 +442,16 @@ struct ShaderBallWhiteBox {
   static constexpr bool inverse_stage_contracts() {
     using ArityGate = typename SB::template InversePipelineValidation<
         false, typename SB::OuterCameraStage>;
-    using Surface = typename SB::PeirceKaleidoscopeLatticePipeline::Validation::
-        SurfaceStage;
+    using Surface =
+        typename SB::PeirceDodecahedralGridPipeline::Validation::SurfaceStage;
     using Color =
-        typename SB::PeirceKaleidoscopeLatticePipeline::Validation::ColorStage;
+        typename SB::PeirceDodecahedralGridPipeline::Validation::ColorStage;
     return !ArityGate::ORDER && !ArityGate::CARRIERS &&
-           SB::PeirceKaleidoscopeLatticePipeline::Validation::ORDER &&
-           SB::PeirceKaleidoscopeLatticePipeline::Validation::RUN_RETURNS &&
-           SB::PeirceKaleidoscopeLatticePipeline::Validation::CARRIERS &&
-           SB::PeirceKaleidoscopeLatticePipeline::Validation::TERMINALS &&
-           SB::PeirceKaleidoscopeLatticePipeline::Validation::APPROXIMATIONS &&
+           SB::PeirceDodecahedralGridPipeline::Validation::ORDER &&
+           SB::PeirceDodecahedralGridPipeline::Validation::RUN_RETURNS &&
+           SB::PeirceDodecahedralGridPipeline::Validation::CARRIERS &&
+           SB::PeirceDodecahedralGridPipeline::Validation::TERMINALS &&
+           SB::PeirceDodecahedralGridPipeline::Validation::APPROXIMATIONS &&
            Surface::KIND == InverseStageKind::SURFACE_PROJECT &&
            Surface::EMISSION == CodeEmission::INLINE_ONLY &&
            Surface::ORACLE == ApproximationOracleId::PEIRCE_FAST_SQUARE &&
@@ -800,7 +791,7 @@ inline void test_shaderball_pause_semantics() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  WB::RequestedConfig ambient = WB::presets()[7];
+  WB::RequestedConfig ambient = WB::presets()[6];
   ambient.params.source.speed = 0.019f;
   ambient.params.source.secondary_rate = 0.37f;
   ambient.params.source.angle_rate = 0.007f;
@@ -1469,7 +1460,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(17));
+  HS_EXPECT_EQ(presets.size(), size_t(12));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   for (const auto &entry : choreo) {
     HS_EXPECT_FALSE(entry.staggered);
@@ -1482,9 +1473,7 @@ inline void test_shaderball_preset_bank() {
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
     const WB::PaletteMode expected_palette =
-        index == 9    ? WB::PaletteMode::COMPLEMENTARY
-        : index == 15 ? WB::PaletteMode::ANALOGOUS
-                      : WB::PaletteMode::TRIADIC;
+        index == 10 ? WB::PaletteMode::ANALOGOUS : WB::PaletteMode::TRIADIC;
     HS_EXPECT_EQ(preset.slots.palette, expected_palette);
     HS_EXPECT_TRUE(WB::seam_compatible(preset));
     HS_EXPECT_TRUE(WB::valid_config(preset));
@@ -1502,7 +1491,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(mirror.params.warp.inner.speed, 0.0f);
-  const auto &affine_lattice = presets[12];
+  const auto &affine_lattice = presets[7];
   HS_EXPECT_EQ(affine_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
   HS_EXPECT_EQ(affine_lattice.slots.projection, WB::Projection::GNOMONIC);
   HS_EXPECT_EQ(affine_lattice.slots.warp_program.outer.kind,
@@ -1518,8 +1507,8 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(affine_lattice.params.warp.outer.scale_x, 1.0f);
   HS_EXPECT_EQ(affine_lattice.params.warp.outer.scale_y, 1.0f);
   HS_EXPECT_EQ(affine_lattice.params.outer_camera.wander, 1.0f);
-  const auto &fine_curl = presets[13];
-  const auto &coarse_curl = presets[14];
+  const auto &fine_curl = presets[8];
+  const auto &coarse_curl = presets[9];
   HS_EXPECT_EQ(fine_curl.slots.function, WB::Function::PRIMITIVE_LATTICE);
   HS_EXPECT_EQ(fine_curl.slots.projection, WB::Projection::SINUSOIDAL);
   HS_EXPECT_EQ(fine_curl.slots.surface_noise, WB::SurfaceNoise::CURL);
@@ -1528,7 +1517,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_TRUE(WB::slots_equal(fine_curl.slots, coarse_curl.slots));
   HS_EXPECT_EQ(fine_curl.params.surface_noise.scale, 1.78815627f);
   HS_EXPECT_EQ(coarse_curl.params.surface_noise.scale, 3.29720306f);
-  const auto &polar_wave = presets[15];
+  const auto &polar_wave = presets[10];
   HS_EXPECT_EQ(polar_wave.slots.surface_lens,
                WB::SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM);
   HS_EXPECT_EQ(polar_wave.slots.warp_program.outer.kind,
@@ -1536,7 +1525,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(polar_wave.slots.warp_program.inner.kind,
                WB::WarpStageKind::WAVE_SHEAR);
   HS_EXPECT_EQ(polar_wave.slots.palette, WB::PaletteMode::ANALOGOUS);
-  const auto &vector_mirror = presets[16];
+  const auto &vector_mirror = presets[11];
   HS_EXPECT_EQ(vector_mirror.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(vector_mirror.slots.projection, WB::Projection::GNOMONIC);
   HS_EXPECT_EQ(vector_mirror.slots.surface_lens,
@@ -1831,15 +1820,16 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_TRUE(sb.selectPreset(7));
+  HS_EXPECT_TRUE(sb.selectPreset(11));
 
   const WB::RequestedConfig before = WB::requested_config(sb);
   HS_EXPECT_EQ(before.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(before.slots.surface_lens,
                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
   HS_EXPECT_EQ(before.slots.warp_program.outer.kind,
+               WB::WarpStageKind::VECTOR_NOISE);
+  HS_EXPECT_EQ(before.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(before.slots.warp_program.inner.kind, WB::WarpStageKind::NONE);
 
   HS_EXPECT_TRUE(
       sb.updateParameter("Function",
@@ -1850,18 +1840,18 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
   HS_EXPECT_TRUE(WB::requested_config(sb) == expected);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") == nullptr);
   HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 1")->get(),
-               static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
+               static_cast<float>(WB::WarpStageKind::VECTOR_NOISE));
   HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
-               static_cast<float>(WB::WarpStageKind::NONE));
+               static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
 
   sb.draw_frame();
   sb.advance_display();
   WB::refresh_display(sb);
   HS_EXPECT_TRUE(WB::active_config(sb) == expected);
   HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 1")->get(),
-               static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
+               static_cast<float>(WB::WarpStageKind::VECTOR_NOISE));
   HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
-               static_cast<float>(WB::WarpStageKind::NONE));
+               static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
 }
 
 /** @brief Rejected Polar Chart selectors expose controls needed for admission. */
@@ -2082,7 +2072,7 @@ inline void test_shaderball_profile_presets() {
     HS_EXPECT_TRUE(WB::valid_config(WB::active_config(sb)));
     HS_EXPECT_FALSE(WB::transition_active(sb));
     HS_EXPECT_FALSE(WB::param_morph_active(sb));
-    if (index == 5 || index == 8 || index == 9 || index == 16) {
+    if (index == 5 || index == 11) {
       const auto projected = WB::surface_project(
           Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sb));
       HS_EXPECT_TRUE(std::isfinite(projected.fade_edge_distance));
@@ -2096,11 +2086,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(17));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(12));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(16));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[16]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(11));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[11]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -2144,11 +2134,11 @@ inline void test_shaderball_preset_gui_transition() {
   WB::SB sb;
   sb.init();
 
-  HS_EXPECT_TRUE(sb.selectPreset(13));
+  HS_EXPECT_TRUE(sb.selectPreset(8));
   sb.setAnimationsPaused(false);
   WB::begin_blend(sb);
   sb.setAnimationsPaused(true);
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(14));
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(9));
   HS_EXPECT_TRUE(WB::param_morph_active(sb));
   const auto *noise_scale = sb.getParameters().find("Surface Noise Scale");
   HS_EXPECT_TRUE(noise_scale != nullptr);
@@ -2165,28 +2155,28 @@ inline void test_shaderball_preset_gui_transition() {
   HS_EXPECT_TRUE(saw_intermediate);
   HS_EXPECT_NEAR(noise_scale->get(), 3.29720306f, 1e-5f);
 
-  HS_EXPECT_TRUE(sb.selectPreset(9));
+  HS_EXPECT_TRUE(sb.selectPreset(6));
   sb.setAnimationsPaused(false);
   WB::begin_blend(sb);
   sb.setAnimationsPaused(true);
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(10));
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(7));
   HS_EXPECT_TRUE(WB::transition_active(sb));
   const auto *function = sb.getParameters().find("Function");
   const auto *projection_wander = sb.getParameters().find("Projection Wander");
   HS_EXPECT_TRUE(function != nullptr);
   HS_EXPECT_TRUE(projection_wander != nullptr);
   HS_EXPECT_EQ(function->get(), static_cast<float>(WB::Function::GRID));
-  HS_EXPECT_NEAR(projection_wander->get(), 0.0030917525f, 1e-6f);
+  HS_EXPECT_NEAR(projection_wander->get(), 1.0f, 1e-6f);
   saw_intermediate = false;
   for (int frame = 0; frame < 1024 && WB::transition_active(sb); ++frame) {
     sb.draw_frame();
     sb.advance_display();
     WB::refresh_display(sb);
     const float displayed = projection_wander->get();
-    saw_intermediate |= displayed > 0.0030917525f && displayed < 0.421f;
+    saw_intermediate |= displayed > 0.0030917525f && displayed < 1.0f;
   }
   HS_EXPECT_TRUE(saw_intermediate);
-  HS_EXPECT_NEAR(projection_wander->get(), 0.421f, 1e-5f);
+  HS_EXPECT_NEAR(projection_wander->get(), 0.0030917525f, 1e-5f);
   HS_EXPECT_EQ(function->get(),
                static_cast<float>(WB::Function::PRIMITIVE_LATTICE));
 }
@@ -2467,7 +2457,14 @@ inline void test_shaderball_lens_domain_ranges() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_TRUE(sb.selectPreset(7));
+  WB::RequestedConfig config = WB::legacy_config();
+  config.slots.function = WB::Function::GRID;
+  config.slots.projection_frame = WB::ProjectionFramePolicy::SPIN_WANDER;
+  config.slots.surface_lens = WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL;
+  config.slots.surface_noise = WB::SurfaceNoise::DIRECT;
+  config.params.surface_noise.strength = 0.1f;
+  config.params.warp.outer.scale = 4.0f;
+  WB::request_config(sb, config);
 
   auto parameter = [&](const char *name) {
     const auto *definition = sb.getParameters().find(name);
@@ -2952,7 +2949,7 @@ inline void test_shaderball_prepared_hue_rotation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  const WB::FrameState frame = WB::preset_frame(sb, 10);
+  const WB::FrameState frame = WB::preset_frame(sb, 11);
   uint16_t max_channel_error = 0;
   uint64_t total_error = 0;
   uint64_t channels = 0;
@@ -2987,9 +2984,12 @@ inline void test_shaderball_prepared_hue_noise() {
   float max_error = 0.0f;
   double total_error = 0.0;
   uint64_t samples = 0;
-  for (size_t preset : {size_t(12), size_t(13), size_t(16)}) {
+  static constexpr std::array PRESETS_AND_PHASES = {
+      std::pair{size_t(7), 13.0f}, std::pair{size_t(8), 14.0f},
+      std::pair{size_t(11), 17.0f}};
+  for (const auto &[preset, phase] : PRESETS_AND_PHASES) {
     WB::ClockState clocks = WB::clocks(sb);
-    clocks.hue_noise_phase = 0.137f * static_cast<float>(preset + 1);
+    clocks.hue_noise_phase = 0.137f * phase;
     WB::set_clocks(sb, clocks);
     const WB::FrameState frame = WB::preset_frame(sb, preset);
     HS_EXPECT_TRUE(frame.prepared_hue_noise.active);
@@ -3021,9 +3021,12 @@ inline void test_shaderball_prepared_hue_noise_color() {
   uint16_t max_channel_error = 0;
   uint64_t total_error = 0;
   uint64_t channels = 0;
-  for (size_t preset : {size_t(12), size_t(13), size_t(16)}) {
+  static constexpr std::array PRESETS_AND_PHASES = {
+      std::pair{size_t(7), 13.0f}, std::pair{size_t(8), 14.0f},
+      std::pair{size_t(11), 17.0f}};
+  for (const auto &[preset, phase] : PRESETS_AND_PHASES) {
     WB::ClockState clocks = WB::clocks(sb);
-    clocks.hue_noise_phase = 0.137f * static_cast<float>(preset + 1);
+    clocks.hue_noise_phase = 0.137f * phase;
     WB::set_clocks(sb, clocks);
     const WB::FrameState frame = WB::preset_frame(sb, preset);
     for (int latitude_step = -24; latitude_step <= 24; ++latitude_step) {
@@ -3130,21 +3133,16 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   };
   static constexpr ExpectedProgram EXPECTED[] = {
       {4, WB::InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR},
-      {5, WB::InversePipelineId::PEIRCE_KALEIDOSCOPE_LATTICE},
-      {6, WB::InversePipelineId::KALEIDOSCOPE_NOISE_GRID_EDGE_FADE},
-      {7, WB::InversePipelineId::DODECAHEDRAL_NOISE_GRID_MIRROR},
-      {9, WB::InversePipelineId::DODECAHEDRAL_NOISE_GRID},
-      {10, WB::InversePipelineId::DODECAHEDRAL_NOISE_LATTICE_MIRROR},
       {0, WB::InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {1, WB::InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR},
       {2, WB::InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR},
       {3, WB::InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR},
-      {8, WB::InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
-      {11, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR},
-      {12, WB::InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR},
-      {13, WB::InversePipelineId::SINUSOIDAL_CURL_LATTICE},
-      {15, WB::InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE},
-      {16, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR},
+      {5, WB::InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
+      {6, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR},
+      {7, WB::InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR},
+      {8, WB::InversePipelineId::SINUSOIDAL_CURL_LATTICE},
+      {10, WB::InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE},
+      {11, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR},
   };
   HS_EXPECT_EQ(WB::inverse_program_count(), std::size(EXPECTED));
   HS_EXPECT_TRUE(WB::inverse_programs_well_formed());
@@ -3155,7 +3153,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
     HS_EXPECT_EQ(WB::inverse_program_id(frame), expected.id);
   }
 
-  WB::RequestedConfig canonical = WB::presets()[9];
+  WB::RequestedConfig canonical = WB::presets()[1];
   const WB::TopologyKey expected_key = WB::topology_key(canonical);
   canonical.slots.peirce_layout = WB::PeirceLayout::DIAMOND;
   canonical.slots.bonne_hemisphere = WB::BonneHemisphere::SOUTH;
@@ -3170,7 +3168,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   canonical.slots.warp_program.outer.polar_harmonic = 13;
   HS_EXPECT_TRUE(WB::topology_key(canonical) == expected_key);
 
-  WB::RequestedConfig no_surface_noise = WB::presets()[5];
+  WB::RequestedConfig no_surface_noise = WB::presets()[4];
   const WB::TopologyKey no_surface_noise_key =
       WB::topology_key(no_surface_noise);
   no_surface_noise.slots.surface_noise_placement =
@@ -3180,17 +3178,6 @@ inline void test_shaderball_inverse_pipeline_manifest() {
       WB::SurfaceCurlIntegrator::MIDPOINT_2X;
   HS_EXPECT_TRUE(WB::topology_key(no_surface_noise) == no_surface_noise_key);
 
-  WB::RequestedConfig precondition = WB::presets()[7];
-  HS_EXPECT_TRUE(WB::has_inverse_program(precondition));
-  for (float direction :
-       {std::nextafter(0.0f, 1.0f), std::nextafter(0.0f, -1.0f),
-        std::numeric_limits<float>::infinity(),
-        -std::numeric_limits<float>::infinity(),
-        std::numeric_limits<float>::quiet_NaN()}) {
-    precondition.params.surface_noise.direction = direction;
-    HS_EXPECT_FALSE(WB::has_inverse_program(precondition));
-  }
-
   WB::RequestedConfig unsupported = WB::presets()[0];
   unsupported.slots.surface_lens = WB::SurfaceLens::TWIST;
   HS_EXPECT_FALSE(WB::has_inverse_program(unsupported));
@@ -3198,44 +3185,6 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   HS_EXPECT_TRUE(WB::active_config(sb) == unsupported);
   HS_EXPECT_TRUE(WB::requested_config(sb) == unsupported);
   HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
-
-  WB::RequestedConfig boundary_config = WB::presets()[7];
-  boundary_config.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
-  boundary_config.params.color.hue_shift_amount = 1.0f;
-  const WB::FrameState boundary_frame = WB::config_frame(sb, boundary_config);
-  const Vector boundary_view = Vector(0.31f, -0.47f, 0.8269825f).normalized();
-  const Vector outer = WB::outer_lookup(boundary_view, boundary_frame);
-  const WB::ProjectedLookup reference_projected =
-      WB::surface_project(outer, boundary_frame);
-  const WB::ProjectedLookup pipeline_projected =
-      WB::pipeline_surface(outer, boundary_frame);
-  HS_EXPECT_EQ(pipeline_projected.coords.re, reference_projected.coords.re);
-  HS_EXPECT_EQ(pipeline_projected.coords.im, reference_projected.coords.im);
-  HS_EXPECT_EQ(pipeline_projected.region_id, reference_projected.region_id);
-  HS_EXPECT_EQ(pipeline_projected.component_id,
-               reference_projected.component_id);
-  HS_EXPECT_EQ(pipeline_projected.boundary_flags,
-               reference_projected.boundary_flags);
-  HS_EXPECT_EQ(pipeline_projected.fade_edge_distance,
-               reference_projected.fade_edge_distance);
-  HS_EXPECT_EQ(pipeline_projected.value_weight,
-               reference_projected.value_weight);
-  HS_EXPECT_EQ(pipeline_projected.sphere.x, reference_projected.sphere.x);
-  HS_EXPECT_EQ(pipeline_projected.sphere.y, reference_projected.sphere.y);
-  HS_EXPECT_EQ(pipeline_projected.sphere.z, reference_projected.sphere.z);
-  HS_EXPECT_GT(reference_projected.surface_path_length, 0.0f);
-  HS_EXPECT_EQ(pipeline_projected.surface_path_length,
-               reference_projected.surface_path_length);
-
-  const WB::PlanarWarpResult reference_warp =
-      WB::warp(reference_projected, boundary_frame);
-  const WB::PlanarWarpResult pipeline_warp =
-      WB::pipeline_mirror(reference_projected, boundary_frame);
-  HS_EXPECT_EQ(pipeline_warp.coords.re, reference_warp.coords.re);
-  HS_EXPECT_EQ(pipeline_warp.coords.im, reference_warp.coords.im);
-  HS_EXPECT_EQ(pipeline_warp.net_delta.re, reference_warp.net_delta.re);
-  HS_EXPECT_EQ(pipeline_warp.net_delta.im, reference_warp.net_delta.im);
-  HS_EXPECT_EQ(pipeline_warp.path_length, reference_warp.path_length);
 }
 
 /** @brief Compiled inverse programs match the host reference exactly. */
@@ -3542,7 +3491,7 @@ inline void test_shaderball_planar_warp_animation() {
                  scroll_three_quarters.coords.im - scroll_half.coords.im,
                  1e-6f);
 
-  WB::RequestedConfig lattice_scroll = WB::presets()[12];
+  WB::RequestedConfig lattice_scroll = WB::presets()[7];
   lattice_scroll.params.source.lattice_cell_scale = 2.5f;
   lattice_scroll.params.warp.outer.translation_x = 2.0f;
   lattice_scroll.params.warp.outer.translation_y = -1.0f;
@@ -3595,7 +3544,7 @@ inline void test_shaderball_planar_warp_animation() {
   incompatible_scroll.params.color.hue_shift_amount = 0.5f;
   HS_EXPECT_FALSE(WB::valid_config(incompatible_scroll));
 
-  HS_EXPECT_TRUE(sb.selectPreset(12));
+  HS_EXPECT_TRUE(sb.selectPreset(7));
   HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1 Translation X", 0.6f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::requested_config(sb).params.warp.outer.translation_x, 1.0f);
@@ -3650,47 +3599,6 @@ inline void test_shaderball_dynamic_backend_admission() {
     HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
     sb.draw_frame();
     sb.advance_display();
-  }
-  {
-    reset_effect_globals();
-    WB::SB sb;
-    sb.init();
-    HS_EXPECT_TRUE(sb.selectPreset(7));
-    HS_EXPECT_EQ(sb.updateParameter("Surface Noise Direction", 0.5f),
-                 ParamSetResult::APPLIED);
-    sb.draw_frame();
-    sb.advance_display();
-    HS_EXPECT_EQ(WB::active_config(sb).params.surface_noise.direction, 0.5f);
-    HS_EXPECT_EQ(WB::requested_config(sb).params.surface_noise.direction, 0.5f);
-    HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Direction") ==
-                   nullptr);
-    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
-  }
-  {
-    reset_effect_globals();
-    WB::SB sb;
-    sb.init();
-    HS_EXPECT_TRUE(sb.selectPreset(7));
-    const WB::InversePipelineId compiled = WB::active_pipeline(sb);
-    HS_EXPECT_NE(compiled, WB::InversePipelineId::NONE);
-    WB::RequestedConfig dynamic = WB::active_config(sb);
-    dynamic.params.surface_noise.direction = 0.5f;
-    HS_EXPECT_TRUE(WB::try_apply_config(sb, dynamic, 4));
-    WB::step_param_morph(sb);
-    WB::step_param_morph(sb);
-    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
-    while (WB::param_morph_active(sb))
-      WB::step_param_morph(sb);
-    HS_EXPECT_EQ(WB::active_config(sb), dynamic);
-    HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
-
-    WB::RequestedConfig restored = dynamic;
-    restored.params.surface_noise.direction = 0.0f;
-    HS_EXPECT_TRUE(WB::try_apply_config(sb, restored, 4));
-    while (WB::param_morph_active(sb))
-      WB::step_param_morph(sb);
-    HS_EXPECT_EQ(WB::active_config(sb), restored);
-    HS_EXPECT_EQ(WB::active_pipeline(sb), compiled);
   }
 }
 
@@ -3799,9 +3707,9 @@ inline void test_shaderball_stable_preset_transition() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_TRUE(sb.selectPreset(13));
-  const WB::Params from = WB::presets()[13].params;
-  const WB::Params to = WB::presets()[14].params;
+  HS_EXPECT_TRUE(sb.selectPreset(8));
+  const WB::Params from = WB::presets()[8].params;
+  const WB::Params to = WB::presets()[9].params;
   const size_t initial_index = WB::preset_index(sb);
   WB::begin_blend(sb);
   HS_EXPECT_EQ(WB::preset_index(sb), initial_index + 1);
@@ -3892,7 +3800,7 @@ inline void test_shaderball_discrete_transition() {
     sb.setAnimationsPaused(true);
     // The noise seed is outside the topology key, so both endpoints compile
     // the same pipeline over different prepared fields.
-    WB::RequestedConfig from = WB::presets()[7];
+    WB::RequestedConfig from = WB::presets()[8];
     WB::request_config(sb, from);
     WB::settle_transition(sb);
     const int32_t from_seed = from.params.surface_noise.seed;
@@ -3932,7 +3840,7 @@ inline void test_shaderball_discrete_transition() {
     WB::LookRuntime generated_runtime;
     const WB::WalkDeltas deltas{make_rotation(Y_AXIS, 0.2f),
                                 make_rotation(X_AXIS, 0.3f)};
-    const WB::RequestedConfig &authored = WB::presets()[10];
+    const WB::RequestedConfig &authored = WB::presets()[11];
     WB::advance_runtime(sb, authored_runtime, authored, deltas);
     WB::advance_runtime(sb, generated_runtime, WB::legacy_config(), deltas);
     HS_EXPECT_EQ(authored_runtime.clocks.source_primary,

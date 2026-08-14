@@ -2025,11 +2025,6 @@ private:
 
   enum class InversePipelineId : uint8_t {
     BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
-    PEIRCE_KALEIDOSCOPE_LATTICE,
-    KALEIDOSCOPE_NOISE_GRID_EDGE_FADE,
-    DODECAHEDRAL_NOISE_GRID_MIRROR,
-    DODECAHEDRAL_NOISE_GRID,
-    DODECAHEDRAL_NOISE_LATTICE_MIRROR,
     GLITCH_NOISE_GRID_WAVE_SHEAR,
     KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
     GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
@@ -2235,32 +2230,6 @@ private:
     __attribute__((always_inline)) static Vector run(const Vector &view,
                                                      const FrameState &frame) {
       return outer_camera_lookup(view, frame);
-    }
-  };
-
-  template <SurfaceLens Lens> struct DirectNoiseStereographicStage {
-    static constexpr InverseStageKind KIND = InverseStageKind::SURFACE_PROJECT;
-    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE = false;
-    static constexpr bool TERMINAL = false;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
-    static constexpr std::array<ApproximationMetric, 0> METRICS{};
-    static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = false;
-    using Input = Vector;
-    using Output = ProjectedLookup;
-
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.projection == Projection::STEREOGRAPHIC &&
-             key.surface_lens == Lens &&
-             key.surface_noise == SurfaceNoise::DIRECT &&
-             key.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS &&
-             key.surface_noise_basis == NoiseBasis::SIMPLEX;
-    }
-
-    __attribute__((always_inline)) static ProjectedLookup
-    run(const Vector &outer_local, const FrameState &frame) {
-      return direct_noise_stereographic_lookup<Lens>(outer_local, frame);
     }
   };
 
@@ -2658,48 +2627,6 @@ private:
           view, frame);
     }
   };
-  using PeirceKaleidoscopeLatticePipeline = InversePipeline<
-      OuterCameraStage,
-      SelectedSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
-                                  SurfaceLens::KALEIDOSCOPE>,
-      PlanarWarpStage<false>, SourceStage<Function::PRIMITIVE_LATTICE>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
-  using KaleidoscopeNoiseGridEdgeFadePipeline =
-      InversePipeline<OuterCameraStage,
-                      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE>,
-                      PlanarWarpStage<false>, SourceStage<Function::GRID>,
-                      LinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-                      ColorStage>;
-  using DodecahedralNoiseGridMirrorPipeline = InversePipeline<
-      OuterCameraStage,
-      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
-      PlanarWarpStage<true>, SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
-  using DodecahedralNoiseGridPipelineBase = InversePipeline<
-      OuterCameraStage,
-      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
-      PlanarWarpStage<false>, SourceStage<Function::GRID>,
-      LinearMaterialStage<CoveragePolicy::OPAQUE>, ColorStage>;
-  struct DodecahedralNoiseGridPipeline : DodecahedralNoiseGridPipelineBase {
-    HS_FLASH_MEMBER __attribute__((noinline, aligned(4096))) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return DodecahedralNoiseGridPipelineBase::template run_stage<0>(view,
-                                                                      frame);
-    }
-  };
-  using DodecahedralNoiseLatticeMirrorPipelineBase = InversePipeline<
-      OuterCameraStage,
-      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
-      PlanarWarpStage<true>, SourceStage<Function::PRIMITIVE_LATTICE>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
-  struct DodecahedralNoiseLatticeMirrorPipeline
-      : DodecahedralNoiseLatticeMirrorPipelineBase {
-    FASTRUN __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return DodecahedralNoiseLatticeMirrorPipelineBase::template run_stage<0>(
-          view, frame);
-    }
-  };
   using GlitchNoiseGridWaveShearPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
@@ -2892,10 +2819,6 @@ private:
                           key.inner_warp_envelope, key.inner_polar_mode,
                           key.inner_curl_integrator, key.inner_polar_harmonic);
     return key;
-  }
-
-  static constexpr bool direct_simplex_surface_supported(const Config &config) {
-    return config.params.surface_noise.direction == 0.0f;
   }
 
   static constexpr bool all_continuous_parameters_supported(const Config &) {
@@ -3782,34 +3705,6 @@ private:
     return sqrtf(dot(step, step));
   }
 
-  __attribute__((always_inline)) static SurfaceNoiseResult
-  apply_static_direct_surface_noise(const Vector &v, const FrameState &frame) {
-    const SurfaceNoiseParams &params = frame.params.surface_noise;
-    if (params.strength == 0.0f)
-      return {v, 0.0f};
-    const Vector q = noise_sphere_coordinate(
-        v, params.scale, frame.prepared_surface_noise.loop_offset);
-    const Vector tangent =
-        sample_direct_simplex_tangent(*frame.resources.surface_noise, q, v);
-    const Vector step = params.strength * tangent;
-    const float path_length = surface_noise_path_length(step, frame);
-    return {sphere_exp_map_half_radian(v, step), path_length};
-  }
-
-  template <SurfaceLens LENS>
-  __attribute__((always_inline)) static ProjectedLookup
-  direct_noise_stereographic_lookup(const Vector &v, const FrameState &frame) {
-    const Vector lensed = selected_lens_lookup<LENS>(v);
-    HS_SB_STAGE_MARK(surface_start);
-    const SurfaceNoiseResult displaced =
-        apply_static_direct_surface_noise(lensed, frame);
-    HS_SB_STAGE_SPAN(surface_noise, surface_start);
-    ProjectedLookup projected =
-        profiled_stereographic_lookup(displaced.sphere, frame);
-    projected.surface_path_length = displaced.path_length;
-    return projected;
-  }
-
   template <bool MIRROR_FIRST>
   __attribute__((always_inline)) static PlanarWarpResult
   selected_mirror_lookup(const ProjectedLookup &projected,
@@ -3844,34 +3739,13 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 16> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 11> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 16> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 11> PROGRAMS{{
         make_program<BonneKaleidoscopeLatticeMirrorPipeline,
                      InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
                      make_topology_key(bonne_lattice_mirror_preset())>(
             &all_continuous_parameters_supported),
-        make_program<PeirceKaleidoscopeLatticePipeline,
-                     InversePipelineId::PEIRCE_KALEIDOSCOPE_LATTICE,
-                     make_topology_key(peirce_lattice_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<KaleidoscopeNoiseGridEdgeFadePipeline,
-                     InversePipelineId::KALEIDOSCOPE_NOISE_GRID_EDGE_FADE,
-                     make_topology_key(
-                         kaleidoscope_edge_fade_generated_preset())>(
-            &direct_simplex_surface_supported),
-        make_program<DodecahedralNoiseGridMirrorPipeline,
-                     InversePipelineId::DODECAHEDRAL_NOISE_GRID_MIRROR,
-                     make_topology_key(dodecahedral_grid_preset())>(
-            &direct_simplex_surface_supported),
-        make_program<DodecahedralNoiseGridPipeline,
-                     InversePipelineId::DODECAHEDRAL_NOISE_GRID,
-                     make_topology_key(dodecahedral_noise_generated_preset())>(
-            &direct_simplex_surface_supported),
-        make_program<DodecahedralNoiseLatticeMirrorPipeline,
-                     InversePipelineId::DODECAHEDRAL_NOISE_LATTICE_MIRROR,
-                     make_topology_key(dodecahedral_lattice_noise_preset())>(
-            &direct_simplex_surface_supported),
         make_program<GlitchNoiseGridWaveShearPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
                      make_topology_key(wave_shear_generated_preset())>(
@@ -7081,65 +6955,6 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset peirce_lattice_preset() {
-    Slots slots{Function::PRIMITIVE_LATTICE,
-                Projection::PEIRCE_QUINCUNCIAL,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE,
-                {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
-                CoveragePolicy::EDGE_FADE,
-                PaletteMode::TRIADIC};
-    slots.peirce_layout = PeirceLayout::SQUARE;
-    Params params = authored_params({}, {}, {1.0f, 0.0f}, {1.0f},
-                                    {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
-    params.source.lattice_cell_scale = 2.2911718f;
-    params.source.lattice_shape_blend = 1.0f;
-    params.source.lattice_softness = 0.5804102f;
-    params.source.lattice_radius = 0.25f;
-    params.projection.central_meridian = 0.0f;
-    params.projection.coordinate_scale = 1.0f;
-    params.value.edge_width = 0.1f;
-    return {slots, params};
-  }
-
-  static constexpr Preset kaleidoscope_edge_fade_generated_preset() {
-    Slots slots = KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS;
-    slots.coverage = CoveragePolicy::EDGE_FADE;
-    Params params = authored_surface_noise_params(
-        {4.116f, 0.1f, 0.5f, 0.0f, 0.8f}, {19.7803f, 16.74f, 0.5f},
-        {1.4f, 0.0f}, {1.0f}, {0.657f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
-    params.value.edge_width = 0.2575f;
-    return {slots, params};
-  }
-
-  static constexpr Preset dodecahedral_grid_preset() {
-    Slots slots{Function::GRID,
-                Projection::STEREOGRAPHIC,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
-                {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
-                CoveragePolicy::EDGE_FADE,
-                PaletteMode::TRIADIC};
-    slots.surface_noise = SurfaceNoise::DIRECT;
-    slots.surface_noise_placement = SurfaceNoisePlacement::AFTER_LENS;
-    const SourceParams source{1.532f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f};
-    WarpStageParams outer_warp;
-    outer_warp.cell_x = 1.8041f;
-    outer_warp.cell_y = 1.7083f;
-    Params params =
-        authored_params(source, outer_warp, {3.907f, 0.0387f, 0.0f}, {1.0f},
-                        {0.339f, 1.0f, 0.00015458837f / TWO_PI_F}, {1.0f});
-    params.projection.wander = 0.0f;
-    params.warp.inner = {24.8752f, 10.5f, 0.05f};
-    author_surface_noise(params, source, params.warp.inner);
-    params.value.edge_width = 0.0f;
-    return {slots, params};
-  }
-
   static constexpr Preset peirce_dodecahedral_generated_preset() {
     Slots slots{Function::GRID,
                 Projection::PEIRCE_QUINCUNCIAL,
@@ -7157,56 +6972,6 @@ private:
     params.projection.central_meridian = 0.0f;
     params.projection.coordinate_scale = 1.0f;
     params.value.edge_width = 0.1f;
-    return {slots, params};
-  }
-
-  static constexpr Preset dodecahedral_noise_generated_preset() {
-    Slots slots = KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS;
-    slots.surface_lens = SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL;
-    slots.palette = PaletteMode::COMPLEMENTARY;
-    slots.palette_mapping = PaletteMapping::CUP;
-    slots.hue_shift = HueShiftMode::WARP_DISPLACEMENT;
-    Params params = authored_surface_noise_params(
-        {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f, 0.0f},
-        {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f, 0.0030917525f},
-        {1.0f}, {-0.201f, 1.0f, 0.0f}, {0.0030917525f});
-    params.color.palette_chroma = 0.8871875f;
-    params.color.phase_oscillation_depth = 0.25410002f;
-    params.color.phase_oscillation_speed = 0.00015458837f / TWO_PI_F;
-    params.color.value_opacity_high = 0.153f;
-    return {slots, params};
-  }
-
-  static constexpr Preset dodecahedral_lattice_noise_preset() {
-    Slots slots{Function::PRIMITIVE_LATTICE,
-                Projection::STEREOGRAPHIC,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
-                {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
-                CoveragePolicy::EDGE_FADE,
-                PaletteMode::TRIADIC};
-    slots.surface_noise = SurfaceNoise::DIRECT;
-    slots.surface_noise_placement = SurfaceNoisePlacement::AFTER_LENS;
-    SourceParams source;
-    source.lattice_cell_scale = 0.57453126f;
-    source.lattice_shape_blend = 1.0f;
-    source.lattice_softness = 0.5454443f;
-    source.lattice_radius = 0.25f;
-    WarpStageParams outer_warp;
-    outer_warp.rotation = 0.0f;
-    outer_warp.cell_x = 1.0f;
-    outer_warp.cell_y = 1.0f;
-    outer_warp.offset_x = 0.0f;
-    outer_warp.offset_y = 0.0f;
-    Params params = authored_params(
-        source, outer_warp, {1.5482996f, 0.020879198f, 0.421f}, {1.0f},
-        {0.562f, 1.0f, 0.00015458837f / TWO_PI_F}, {0.591f});
-    params.projection.wander = 0.421f;
-    params.warp.inner = {16.0f, 8.73f, 0.20772f};
-    author_surface_noise(params, source, params.warp.inner);
-    params.value.edge_width = 0.0775f;
     return {slots, params};
   }
 
@@ -7399,18 +7164,13 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 17> PRESETS = {{
+  static constexpr std::array<Preset, 12> PRESETS = {{
       wave_shear_generated_preset(),
       kaleidoscope_mirror_preset(),
       gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
       gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
       bonne_lattice_mirror_preset(),
-      peirce_lattice_preset(),
-      kaleidoscope_edge_fade_generated_preset(),
-      dodecahedral_grid_preset(),
       peirce_dodecahedral_generated_preset(),
-      dodecahedral_noise_generated_preset(),
-      dodecahedral_lattice_noise_preset(),
       gnomonic_wave_shear_grid_preset(),
       gnomonic_affine_lattice_contour_preset(),
       sinusoidal_lattice_curl_preset(1.78815627f),
