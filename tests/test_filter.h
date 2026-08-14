@@ -2813,20 +2813,41 @@ inline void test_world_trails_clamps_out_of_range() {
 /**
  * @brief Verifies the ring is a hard-bounded buffer: pushing past Cap evicts the
  *        oldest entries so size() saturates at Cap.
+ * @details The flush() probe decodes which entries survived, so a ring that
+ * evicted the newest, or refused the overflowing plots outright, is separated
+ * from one that evicted the oldest; size() alone cannot tell them apart.
  */
 inline void test_world_trails_ring_evicts_oldest() {
   constexpr int Cap = 4;
+  constexpr int Overflow = 3;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
   Filter::World::Trails<Cap> trails(/*lifetime=*/100);
   trails.init_storage(arena);
 
   auto noop = [](const Vector &, const Pixel &, float, float) {};
-  for (int i = 0; i < Cap + 3; ++i) {
-    Vector v = Vector(static_cast<float>(i + 1), 1.0f, 0.5f).normalized();
-    trails.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
+  Vector pushed[Cap + Overflow];
+  for (int i = 0; i < Cap + Overflow; ++i) {
+    pushed[i] = Vector(static_cast<float>(i + 1), 1.0f, 0.5f).normalized();
+    trails.plot(pushed[i], Pixel(1, 1, 1), 0.0f, 1.0f, noop);
   }
   HS_EXPECT_EQ(trails.size(), (size_t)Cap);
+
+  // Survivors are the last Cap pushed, still in push order.
+  auto trail = [](const Vector &, float) {
+    return Color4(Pixel(60000, 60000, 60000), 1.0f);
+  };
+  std::vector<Vector> decoded;
+  trails.flush(WorldTrailFn(trail), 1.0f,
+               [&](const Vector &v, const Pixel &, float, float) {
+                 decoded.push_back(v);
+               });
+  HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
+  for (int i = 0; i < Cap; ++i) {
+    HS_EXPECT_NEAR(decoded[i].x, pushed[Overflow + i].x, 1e-4f);
+    HS_EXPECT_NEAR(decoded[i].y, pushed[Overflow + i].y, 1e-4f);
+    HS_EXPECT_NEAR(decoded[i].z, pushed[Overflow + i].z, 1e-4f);
+  }
 }
 
 /**
