@@ -2684,7 +2684,7 @@ private:
           view, frame);
     }
   };
-  using GlitchNoiseGridWaveShearPipelineBase = InversePipeline<
+  using GlitchNoiseGridWaveShearPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
                                   SurfaceLens::GLITCH>,
@@ -2692,14 +2692,6 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
-  struct GlitchNoiseGridWaveShearPipeline
-      : GlitchNoiseGridWaveShearPipelineBase {
-    FASTRUN __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return GlitchNoiseGridWaveShearPipelineBase::template run_stage<0>(view,
-                                                                         frame);
-    }
-  };
   using KaleidoscopeTwinWaveInnerMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
@@ -2721,13 +2713,20 @@ private:
       SelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE, WarpStageKind::NONE>,
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
-  using PeirceDodecahedralGridPipeline = InversePipeline<
+  using PeirceDodecahedralGridPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
                                   SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
+  struct PeirceDodecahedralGridPipeline : PeirceDodecahedralGridPipelineBase {
+    FASTRUN __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return PeirceDodecahedralGridPipelineBase::template run_stage<0>(view,
+                                                                       frame);
+    }
+  };
   using GnomonicDodecahedralGridWaveMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
