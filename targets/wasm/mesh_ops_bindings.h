@@ -227,14 +227,19 @@ private:
    * @param expansion Largest multiple of the mesh's biggest element count any
    *        stage reaches; 1 when the call only stores the mesh it was given.
    * @param context Call-site label prefixed to a rejection log.
+   * @param bytes_per_element Tooling-arena bytes the call retains per output
+   *        element; defaults to a whole finalized mesh.
    * @return true when the caller must answer null; last_mesh_op_result carries
    *         ARENA_UNAVAILABLE, CONNECTIVITY_OVERFLOW or ARENA_EXHAUSTED.
    * @details Binds the arenas first, so a caller that must generate a mesh
    *          before it can measure one calls ensure_tooling_arenas() itself and
    *          reaches a no-op here.
    */
-  static bool tooling_bounds_reject(size_t verts, size_t faces, size_t indices,
-                                    size_t expansion, const char *context) {
+  static bool
+  tooling_bounds_reject(size_t verts, size_t faces, size_t indices,
+                        size_t expansion, const char *context,
+                        size_t bytes_per_element =
+                            hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT) {
     if (!ensure_tooling_arenas()) {
       last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
       return true;
@@ -249,8 +254,7 @@ private:
       return true;
     }
     if (hs_wasm::mesh_op_output_over_arena(
-            verts, faces, indices, expansion,
-            hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
+            verts, faces, indices, expansion, bytes_per_element,
             tooling_arena.get_offset(), tooling_arena.get_capacity())) {
       hs::log("WASM: %s: result does not fit the tooling arena (%zu of %zu "
               "bytes used) — ignored; call clearToolingMemory() to reclaim it, "
@@ -398,8 +402,11 @@ public:
     begin_mesh_op();
     if (!wrapper_live())
       return val::null();
+    // Only the topology block lands in tooling_arena — one uint16_t per face,
+    // not a second finalized mesh.
     if (tooling_bounds_reject(mesh.vertices.size(), mesh.get_face_counts_size(),
-                              mesh.get_faces_size(), 1, "classifyFaces"))
+                              mesh.get_faces_size(), 1, "classifyFaces",
+                              sizeof(uint16_t)))
       return val::null();
     ToolingOpGuard guard;
     tooling_scratch_a.reset();
