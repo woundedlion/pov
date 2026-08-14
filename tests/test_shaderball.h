@@ -3902,10 +3902,20 @@ inline void test_shaderball_discrete_transition() {
     }
     HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(30));
     HS_EXPECT_EQ(WB::prepared_surface_noise_seed(sb), from_seed);
+    const float source_phase_at_clear =
+        WB::transition_from_runtime(sb).clocks.source_primary;
+    const float destination_phase_at_clear =
+        WB::transition_to_runtime(sb).clocks.source_primary;
     sb.draw_frame();
     sb.advance_display();
     HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(31));
     HS_EXPECT_EQ(WB::prepared_surface_noise_seed(sb), from_seed + 91);
+    HS_EXPECT_EQ(WB::transition_from_runtime(sb).clocks.source_primary,
+                 source_phase_at_clear);
+    HS_EXPECT_NEAR(
+        WB::transition_to_runtime(sb).clocks.source_primary,
+        fmodf(destination_phase_at_clear + to.params.source.speed, TWO_PI_F),
+        1e-6f);
   }
 
   {
