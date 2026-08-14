@@ -724,6 +724,10 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   const uint8_t *face_counts = mesh.get_face_counts_data();
   const uint16_t *faces = mesh.get_faces_data();
   require_flat_face_length(face_counts, F, I);
+  // All faces zero-sided: no edges to hash, and the half-edge allocations below
+  // reject zero-size requests. Every face keeps the class 0 pushed above.
+  if (I == 0)
+    return;
 
   ArenaVector<uint32_t> face_hashes;
   face_hashes.bind(scratch_a, F);
