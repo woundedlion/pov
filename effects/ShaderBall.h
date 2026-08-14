@@ -4639,19 +4639,24 @@ private:
         sample.value, frame.slots.palette_mapping,
         frame.params.color.mapping_frequency,
         frame.params.color.mapping_phase + oscillation);
-    Color4 color = frame.resources.generated_palette->get(palette_value);
-    if (frame.prepared_hue_rotation.active) {
-      float amount = 0.0f;
-      if (frame.slots.hue_shift == HueShiftMode::NOISE) {
-        amount = frame.params.color.hue_shift_amount *
-                 sample_hue_noise_lut(frame.prepared_hue_noise, sample.sphere);
-      } else if (frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT) {
-        amount = wrap_t(frame.params.color.hue_shift_amount *
-                        sample.warp_displacement);
+    Color4 color;
+    if (frame.prepared_hue_rotation.active &&
+        frame.slots.hue_shift == HueShiftMode::NOISE) {
+      const float amount =
+          frame.params.color.hue_shift_amount *
+          sample_hue_noise_lut(frame.prepared_hue_noise, sample.sphere);
+      color = Color4(sample_hue_rotation_lut(frame.prepared_hue_rotation,
+                                             palette_value, amount),
+                     1.0f);
+    } else {
+      color = frame.resources.generated_palette->get(palette_value);
+      if (frame.prepared_hue_rotation.active) {
+        const float amount = wrap_t(frame.params.color.hue_shift_amount *
+                                    sample.warp_displacement);
+        if (amount != 0.0f)
+          color.color = sample_hue_rotation_lut(frame.prepared_hue_rotation,
+                                                palette_value, amount);
       }
-      if (amount != 0.0f)
-        color.color = sample_hue_rotation_lut(frame.prepared_hue_rotation,
-                                              palette_value, amount);
     }
     color.color =
         color.color *
