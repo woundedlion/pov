@@ -146,6 +146,107 @@ inline void test_shader_respects_clip_band() {
   HS_EXPECT_TRUE(is_black(fx.get_pixel(0, 12)));
 }
 
+/**
+ * @brief Verifies every Shader entry point paints exactly the columns the clip
+ *        arc admits, with the values an unclipped draw produced.
+ * @details The draws walk the arc's pieces instead of testing every column, so
+ * pin the painted output against the unclipped render filtered by
+ * XClip::clipped — under a plain arc and under one whose margin wraps the band
+ * across the seam.
+ */
+inline void test_shader_clip_arc_matches_predicate() {
+  constexpr int W = 32, H = 16;
+
+  auto positional = [](const Vector &v) {
+    return Color4(Pixel(static_cast<uint16_t>((v.x * 0.5f + 0.5f) * 60000.0f),
+                        static_cast<uint16_t>((v.z * 0.5f + 0.5f) * 60000.0f),
+                        30000),
+                  1.0f);
+  };
+
+  // 0/1: single-callback draw at 1x and 4x. 2: split vertex/fragment draw.
+  // 3: draw_grid.
+  auto draw_variant = [&](Canvas &c, int variant) {
+    switch (variant) {
+    case 0:
+      Scan::Shader::draw<W, H, 1>(c, positional);
+      break;
+    case 1:
+      Scan::Shader::draw<W, H, 4>(c, positional);
+      break;
+    case 2:
+      Scan::Shader::draw<W, H, 1>(
+          c, [&](const Vector &v, Fragment &f) { f.color = positional(v); },
+          [](Fragment &f) { f.v0 = 1.0f; });
+      break;
+    default:
+      Scan::Shader::draw_grid<W, H>(
+          c, [](Fragment &) {},
+          [&](Fragment &, const Scan::Shader::SsaaGrid<W, H> &grid, int x) {
+            Color4 s = positional(grid.at(x, 0));
+            return s.color * s.alpha;
+          });
+      break;
+    }
+  };
+
+  auto render = [&](int variant, int x0, int x1, int margin,
+                    std::vector<Pixel> &out) {
+    hs_test::StubEffect fx(W, H);
+    fx.set_clip(0, H, x0, x1);
+    fx.set_margin(margin);
+    {
+      Canvas c(fx);
+      draw_variant(c, variant);
+    }
+    fx.advance_display();
+    out.resize(W * H);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        out[y * W + x] = fx.get_pixel(x, y);
+  };
+
+  struct Band {
+    int x0, x1, margin;
+  };
+  // A plain arc, and one whose margin underflows column 0 into a wrapped band.
+  const Band bands[] = {{8, 20, 2}, {0, 10, 3}};
+
+  for (int variant = 0; variant < 4; ++variant) {
+    HS_CONTEXT("variant", variant, 0);
+    // One live Effect at a time: read the unclipped render back before the
+    // clipped fixture exists.
+    std::vector<Pixel> reference;
+    render(variant, 0, W, 0, reference);
+
+    for (const Band &b : bands) {
+      ClipRegion cr;
+      cr.w = W;
+      cr.h = H;
+      cr.y_end = H;
+      cr.x_start = b.x0;
+      cr.x_end = b.x1;
+      cr.margin = b.margin;
+      const ClipRegion::XClip xc = cr.x_clip();
+      HS_EXPECT_TRUE(xc.active);
+
+      std::vector<Pixel> got;
+      render(variant, b.x0, b.x1, b.margin, got);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          HS_CONTEXT("px", x, y);
+          // Outside the arc the canvas keeps the frame clear.
+          const Pixel expected =
+              xc.clipped(x) ? Pixel(0, 0, 0) : reference[y * W + x];
+          const Pixel &g = got[y * W + x];
+          HS_EXPECT_EQ((int)g.r, (int)expected.r);
+          HS_EXPECT_EQ((int)g.g, (int)expected.g);
+          HS_EXPECT_EQ((int)g.b, (int)expected.b);
+        }
+    }
+  }
+}
+
 // ============================================================================
 // Scan::Ring::draw — SDF rasterize() path through a Pipeline sink
 // ============================================================================
@@ -1890,6 +1991,7 @@ inline int run_scan_tests() {
   test_shader_ssaa_premultiplies_partial_coverage();
   test_shader_positional_maps_latitude();
   test_shader_respects_clip_band();
+  test_shader_clip_arc_matches_predicate();
   test_ring_rasterize_produces_bounded_output();
   test_ring_rasterize_lit_pixels_on_band();
   test_ring_rasterize_lights_expected_row();

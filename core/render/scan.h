@@ -311,6 +311,34 @@ clip_run(int x1, int x2, ClipRegion::XClip xc, EmitFn &&emit) {
 }
 
 /**
+ * @brief Walks the canvas columns a clip arc admits, skipping the rest whole.
+ * @tparam W Canvas width in pixels.
+ * @tparam BodyFn Callable (int x).
+ * @param xc Column-arc clip.
+ * @param body Sink receiving each surviving column, in the same ascending order
+ *        a per-column `clipped()` test would leave.
+ * @details The arc's pieces are collected before they are walked, so `body`
+ * inlines once rather than once per clip_run emission.
+ */
+template <int W, typename BodyFn>
+__attribute__((always_inline)) inline void
+walk_clip_columns(ClipRegion::XClip xc, BodyFn &&body) {
+  int lo[2];
+  int hi[2];
+  int pieces = 0;
+  clip_run(0, W, xc, [&](int x1, int x2) {
+    if (x1 >= x2)
+      return;
+    lo[pieces] = x1;
+    hi[pieces] = x2;
+    ++pieces;
+  });
+  for (int i = 0; i < pieces; ++i)
+    for (int x = lo[i]; x < hi[i]; ++x)
+      body(x);
+}
+
+/**
  * @brief Turns one row's emitted spans into clipped integer column runs.
  * @tparam W Canvas width in pixels.
  * @tparam IntervalBufT Source span buffer type.
@@ -2052,13 +2080,11 @@ struct Shader {
 
     if constexpr (SAMPLES == 1) {
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        for (int x = 0; x < W; ++x) {
-          if (xc.clipped(x))
-            continue;
+        walk_clip_columns<W>(xc, [&](int x) {
           Vector v = pixel_to_vector<W, H>(x, y);
           Color4 sample = shader(v);
           canvas(x, y) = sample.color * sample.alpha;
-        }
+        });
       }
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
@@ -2068,9 +2094,7 @@ struct Shader {
 
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         grid.set_row(y);
-        for (int x = 0; x < W; ++x) {
-          if (xc.clipped(x))
-            continue;
+        walk_clip_columns<W>(xc, [&](int x) {
           // Premultiplied SSAA: accumulate each sample's coverage-weighted color
           // (color * alpha / N), matching the SAMPLES==1 path.
           Pixel accum(0, 0, 0);
@@ -2081,7 +2105,7 @@ struct Shader {
           }
 
           canvas(x, y) = accum;
-        }
+        });
       }
     }
   }
@@ -2121,9 +2145,7 @@ struct Shader {
       check_lut_domain<W, H>(cr);
       const auto xc = cr.x_clip();
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        for (int x = 0; x < W; ++x) {
-          if (xc.clipped(x))
-            continue;
+        walk_clip_columns<W>(xc, [&](int x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
           Fragment frag_base;
           frag_base.pos = center_v;
@@ -2132,7 +2154,7 @@ struct Shader {
           // Premultiply by alpha, matching the single-callback overload and the
           // process_pixel/Volume contract.
           canvas(x, y) = frag_base.color.color * frag_base.color.alpha;
-        }
+        });
       }
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
@@ -2145,9 +2167,7 @@ struct Shader {
       const auto xc = cr.x_clip();
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         grid.set_row(y);
-        for (int x = 0; x < W; ++x) {
-          if (xc.clipped(x))
-            continue;
+        walk_clip_columns<W>(xc, [&](int x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
 
           Fragment frag_base;
@@ -2171,7 +2191,7 @@ struct Shader {
           }
 
           canvas(x, y) = accum;
-        }
+        });
       }
     }
   }
@@ -2206,14 +2226,12 @@ struct Shader {
     SsaaGrid<W, H> grid;
     for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
       grid.set_row(y);
-      for (int x = 0; x < W; ++x) {
-        if (xc.clipped(x))
-          continue;
+      walk_clip_columns<W>(xc, [&](int x) {
         Fragment frag_base;
         frag_base.pos = pixel_to_vector<W, H>(x, y);
         vertex_shader(frag_base);
         canvas(x, y) = pixel_shader(frag_base, grid, x);
-      }
+      });
     }
   }
 };
