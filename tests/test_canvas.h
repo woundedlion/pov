@@ -966,12 +966,21 @@ inline void test_typed_enum_storage_widths() {
  * @brief Verifies ParamList holds its full capacity of registered params.
  */
 inline void test_paramlist_fills_to_capacity() {
+  // The storage the static arrays below are sized from. An effect that armed
+  // external storage would report a larger capacity(), which the equality
+  // guard catches before the loop can run past the arrays.
+  constexpr size_t FIXED_CAP = sizeof(ParamList::elements) / sizeof(ParamDef);
+  static_assert(FIXED_CAP <= 100, "the \"pNN\" names below hold two digits");
+
   TestEffect fx(4, 4);
-  static float vals[32];
+  const size_t cap = fx.getParameters().capacity();
+  HS_EXPECT_EQ(cap, FIXED_CAP);
+
+  static float vals[FIXED_CAP];
   // Unique names "pNN": register_param traps on duplicates, and ParamDef stores
   // the char* by pointer, so the names need static storage.
-  static char names[32][4];
-  for (int i = 0; i < 32; ++i) {
+  static char names[FIXED_CAP][4];
+  for (size_t i = 0; i < cap; ++i) {
     vals[i] = static_cast<float>(i);
     names[i][0] = 'p';
     names[i][1] = static_cast<char>('0' + i / 10);
@@ -979,7 +988,7 @@ inline void test_paramlist_fills_to_capacity() {
     names[i][3] = '\0';
     fx.add_float(names[i], &vals[i], 0.0f, 100.0f);
   }
-  HS_EXPECT_EQ(fx.getParameters().size(), (size_t)32);
+  HS_EXPECT_EQ(fx.getParameters().size(), cap);
 }
 
 /** @brief Parameter descriptor mutations advance the public schema token. */
