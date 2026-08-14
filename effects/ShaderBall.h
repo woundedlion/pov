@@ -2391,8 +2391,13 @@ private:
     using Input = ProjectedLookup;
     using Output = SourceInput;
 
+    // Wave shear runs at raw strength here, so it only covers a flat envelope.
     static constexpr bool implements(const TopologyKey &key) {
-      return key.outer_warp == Outer && key.inner_warp == Inner;
+      return key.outer_warp == Outer && key.inner_warp == Inner &&
+             (Outer != WarpStageKind::WAVE_SHEAR ||
+              key.outer_warp_envelope == WarpEnvelope::FLAT) &&
+             (Inner != WarpStageKind::WAVE_SHEAR ||
+              key.inner_warp_envelope == WarpEnvelope::FLAT);
     }
 
     __attribute__((always_inline)) static SourceInput
