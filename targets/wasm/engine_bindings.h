@@ -207,7 +207,6 @@ public:
              "HolosphereEngine is a singleton: delete() the live instance "
              "before constructing another (its Effect and arenas are shared "
              "module-global storage)");
-    engine_alive = true;
     // The scan reads pole_lod_aggressiveness as a module global; claim it for
     // this instance so a fresh engine never inherits a predecessor's setting.
     pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
@@ -241,6 +240,10 @@ public:
     HS_CHECK(bootstrap_effect_set,
              "the first HS_EFFECT_LIST entry must be registered and buildable "
              "at the first HS_RESOLUTIONS row");
+
+    // Last: a bootstrap trap the JS caller catches must not leave the singleton
+    // flag latched against every later construction.
+    engine_alive = true;
   }
 
   /**
