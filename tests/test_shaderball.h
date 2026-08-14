@@ -1812,17 +1812,15 @@ inline void test_shaderball_deterministic_gui_edits() {
     std::array<uint32_t, 3> generation_deltas{};
   };
   auto schema_hash = [](const WB::SB &sb) {
-    uint64_t hash = 1469598103934665603ULL;
+    uint64_t hash = hs_test::FNV1A64_BASIS;
     auto append = [&](const char *text) {
-      for (; *text != '\0'; ++text) {
-        hash ^= static_cast<uint8_t>(*text);
-        hash *= 1099511628211ULL;
-      }
+      for (; *text != '\0'; ++text)
+        hash = hs_test::fnv1a64_byte(hash, static_cast<uint8_t>(*text));
     };
     for (const Effect::ParamDef &def : sb.getParameters()) {
       append(def.name);
-      hash ^= static_cast<uint32_t>(def.option_count);
-      hash *= 1099511628211ULL;
+      hash =
+          hs_test::fnv1a64_byte(hash, static_cast<uint8_t>(def.option_count));
       for (int option = 0; option < def.option_count; ++option)
         append(def.options[option]);
     }

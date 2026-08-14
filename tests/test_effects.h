@@ -406,10 +406,9 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
   // drifts across palette constructions by design; see GenerativePalette).
   pin_frame_clock(0);
 
-  uint64_t fold = 1469598103934665603ull; // FNV-1a offset basis
+  uint64_t fold = hs_test::FNV1A64_BASIS;
   const auto fold_byte = [&fold](uint8_t byte) {
-    fold ^= byte;
-    fold *= 1099511628211ull; // FNV-1a prime
+    fold = hs_test::fnv1a64_byte(fold, byte);
   };
 
   E<W, H> effect;
@@ -4442,7 +4441,7 @@ inline void test_displacement_field_clip_tiles_full() {
     fx.init();
     if (clip)
       fx.set_clip(q.y0, q.y1, q.x0, q.x1);
-    uint64_t fold = 1469598103934665603ull; // FNV-1a offset basis
+    uint64_t fold = hs_test::FNV1A64_BASIS;
     for (int f = 0; f < frames; ++f) {
       hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
                         static_cast<unsigned long>(f) * FRAME_US);
@@ -4456,12 +4455,8 @@ inline void test_displacement_field_clip_tiles_full() {
               ++lit;
             ++sampled_pixels;
           }
-          for (uint16_t c : {p.r, p.g, p.b}) {
-            fold ^= c & 0xFF;
-            fold *= 1099511628211ull; // FNV-1a prime
-            fold ^= c >> 8;
-            fold *= 1099511628211ull;
-          }
+          for (uint16_t c : {p.r, p.g, p.b})
+            fold = hs_test::fnv1a64_channel(fold, c);
         }
     }
     hs::clear_mock_time();
@@ -5577,16 +5572,13 @@ inline void test_shapeshifter_slider_selections_render() {
     ss.advance_display();
 
     uint64_t acc = 0;
-    uint64_t fold = 1469598103934665603ull; // FNV-1a offset basis
+    uint64_t fold = hs_test::FNV1A64_BASIS;
     for (int y = 0; y < SMALL_H; ++y)
       for (int x = 0; x < SMALL_W; ++x) {
         const Pixel &pixel = ss.get_pixel(x, y);
         acc += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
         for (uint16_t channel : {pixel.r, pixel.g, pixel.b})
-          for (int byte = 0; byte < 2; ++byte) {
-            fold ^= (channel >> (8 * byte)) & 0xFF;
-            fold *= 1099511628211ull; // FNV-1a prime
-          }
+          fold = hs_test::fnv1a64_channel(fold, channel);
       }
     HS_EXPECT_GT(acc, 0u);
     return fold;
