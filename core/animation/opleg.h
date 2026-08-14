@@ -487,7 +487,8 @@ public:
 
       // Hoist classes before the snorm16 pack unless the exact bookend already
       // supplies them; quantization can split classifier angle buckets.
-      hoist_arrival_topology(arrival, bookend, arena, tr.topo);
+      tr.topo_is_bookend =
+          hoist_arrival_topology(arrival, bookend, arena, tr.topo);
 
       // Only the star points are stored: the midpoint prefix is already in the
       // compiled topology, and each star point's collapsed position is its own
@@ -580,7 +581,8 @@ public:
       tr.relaxed.bind(arena, arrival.vertices.size());
       tr.relaxed.append_bulk(arrival.vertices.data(), arrival.vertices.size());
 
-      hoist_arrival_topology(arrival, bookend, arena, tr.topo);
+      tr.topo_is_bookend =
+          hoist_arrival_topology(arrival, bookend, arena, tr.topo);
 
       // The opening frame is the seed verbatim, so its face centroids are the
       // provenance source.
@@ -676,7 +678,7 @@ public:
       for (size_t i = 0; i < medial_verts; ++i)
         med.vertices[i] = med_b[i];
 
-      hoist_arrival_topology(med, bookend, arena, tr.topo);
+      tr.topo_is_bookend = hoist_arrival_topology(med, bookend, arena, tr.topo);
       tr.landing.arrival_topology = &tr.seed;
       tr.landing.arrival_point = tr.medial_b.data();
       tr.landing.arrival_points = tr.medial_b.size();
@@ -756,7 +758,8 @@ public:
       copy_topology(arrival, scratch_arena_a, from_mesh.face_counts,
                     from_mesh.faces);
 
-      hoist_arrival_topology(arrival, bookend, arena, tr.topo);
+      tr.topo_is_bookend =
+          hoist_arrival_topology(arrival, bookend, arena, tr.topo);
 
       // The opening frame is the identity mesh verbatim (the packed a_e), so its
       // face centroids are the geometric provenance source.
@@ -1055,8 +1058,11 @@ private:
                      (MEDIAL_SLERP). */
     ArenaVector<uint16_t>
         topo; /**< Hoisted arrival classification (drawn grouping). */
+    bool topo_is_bookend = false; /**< topo holds the bookend classification
+                                     verbatim, so target_topo is not built. */
     ArenaVector<uint16_t>
-        target_topo; /**< Per-swept-face target class (bookend grouping). */
+        target_topo; /**< Per-swept-face target class (bookend grouping); empty
+                        when topo already carries it. */
     ArenaVector<uint8_t> face_ramp; /**< Face -> (from, to) ramp pair. */
     ArenaVector<uint16_t>
         seed_topo; /**< Seed classification (GATED_SWAP closing half). */
@@ -1173,7 +1179,8 @@ private:
       HS_CHECK(tr.relaxed.size() == arrival.vertices.size(),
                "OpLeg: relax changed the vertex count");
     }
-    hoist_arrival_topology(*classified, bookend, arena, tr.topo);
+    tr.topo_is_bookend =
+        hoist_arrival_topology(*classified, bookend, arena, tr.topo);
 
     // Geometric provenance needs the mesh the first frame draws: the
     // relaxed start on a reverse settling leg (settle_alpha == 1 there),
@@ -1424,20 +1431,24 @@ private:
     }
   }
 
-  /** @brief Hoists arrival classes, reusing an exact bookend classification. */
-  HS_COLD_MEMBER static void
+  /**
+   * @brief Hoists arrival classes, reusing an exact bookend classification.
+   * @return Whether the bookend classification was reused verbatim.
+   */
+  HS_COLD_MEMBER static bool
   hoist_arrival_topology(PolyMesh &arrival, const BookendClasses &bookend,
                          Arena &arena, ArenaVector<uint16_t> &topology) {
     const size_t faces = arrival.face_counts.size();
     if (bookend.topology && bookend.faces == faces) {
       topology.bind(arena, faces);
       topology.append_bulk(bookend.topology, faces);
-      return;
+      return true;
     }
     MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                         scratch_arena_b, arena);
     topology = std::move(arrival.topology);
     HS_CHECK(topology.size() == faces);
+    return false;
   }
 
   /**
@@ -1667,7 +1678,9 @@ private:
     HS_CHECK(!bookend.topology || bookend.faces == total ||
                  bookend.faces == survivors,
              "OpLeg: bookend face count matches neither mapping");
-    if (!bookend.topology) {
+    // A hoisted bookend classification covers every face, so the loop below
+    // would copy it back verbatim.
+    if (!bookend.topology || tr.topo_is_bookend) {
       tr.target_topo.clear();
       return tr.topo.data();
     }
