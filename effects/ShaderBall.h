@@ -4783,7 +4783,7 @@ private:
     }
   }
 
-  __attribute__((always_inline)) static float
+  HS_FLASH_MEMBER static float
   sample_hue_noise_lut(const PreparedHueNoise &prepared, const Vector &v) {
     const float ax = fabsf(v.x);
     const float ay = fabsf(v.y);
