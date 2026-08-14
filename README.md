@@ -335,7 +335,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── pov_sync_content.h      Layer 3: index-beacon codec and the per-board content tracker
 │   ├── pov_sync_emitter.h      Master-side symbol generation with late-burst self-censoring
 │   ├── pov_handoff.h           Pure effect-handoff state machine for POVSegmented (host-testable)
-│   ├── pov_submit_gate.h       Pure LED-submit accept/drop decision for the POVSegmented ISR (host-testable)
+│   ├── pov_submit_gate.h       Pure LED-submit accept/drop and sync-pulse width decisions for the POVSegmented ISR (host-testable)
 │   ├── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
 │   └── phantasm/               KiCad 10 project for the per-segment carrier board
 │       ├── README.md               Project entry point and validation matrix
