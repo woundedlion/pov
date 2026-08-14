@@ -286,6 +286,9 @@ template <typename T> inline constexpr float reject_margin = FLT_MAX;
 template <> inline constexpr float reject_margin<Ring> = 0.0f;
 template <> inline constexpr float reject_margin<DistortedRing> = 0.0f;
 template <> inline constexpr float reject_margin<FlatDistortedRing> = 0.0f;
+// The cull disk clears the polygon by BOUNDS_MARGIN_WIDE of gnomonic-plane
+// distance; a large face reports that as atan(BOUNDS_MARGIN_WIDE) radians.
+template <> inline constexpr float reject_margin<Face> = 0.0996f;
 template <typename Shape>
 inline constexpr float reject_margin<AngularRepeat<Shape>> =
     reject_margin<Shape>;

@@ -1755,12 +1755,15 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         // Columns this one shade covers. Only a canvas-aligned block that fits
         // in the run and that the surface cannot cross qualifies; anything
         // holding an edge stays per-column, so coverage is identical either way
-        // and only the shade's source column moves.
+        // and only the shade's source column moves. The clear side additionally
+        // needs the probe to carry a distance rather than the cull's sentinel;
+        // an inside probe is never culled.
         int span = 1;
         if constexpr (POLE_LOD_ENABLED) {
           if (stride > 1 && x % stride == 0 && x + stride <= rx2 &&
               (d <= -pixel_width - block_slack ||
-               d >= pixel_width + block_slack))
+               (d >= pixel_width + block_slack &&
+                probe_bounds_block<SDF::Face>(pixel_width, block_slack))))
             span = stride;
         }
 
