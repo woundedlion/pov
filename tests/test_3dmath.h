@@ -1200,6 +1200,10 @@ inline void test_gnomonic_roundtrip() {
   // A magnitude far past the sentinel must not square to infinity.
   HS_EXPECT_VEC(inv_gnomonic(Complex(3e30f, 4e30f), 1.0f),
                 Vector(0.6f, 0.0f, 0.8f), 1e-3f);
+  // The sentinel test is radial: a diagonal point past the recognition radius
+  // snaps back even though neither component reaches it alone.
+  HS_EXPECT_VEC(inv_gnomonic(Complex(4e3f, 4e3f), 1.0f),
+                Vector(0.70710678f, 0.0f, 0.70710678f), 1e-3f);
 
   // Near-equator inputs get clamped to STEREO_INF
   Complex zEq = gnomonic(Vector(1.0f, 1e-10f, 0.0f));
