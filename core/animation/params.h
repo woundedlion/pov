@@ -796,7 +796,7 @@ public:
    * @param duration Duration in frames (-1 for indefinite).
    */
   Noise(NoiseParams &params, int duration = -1)
-      : AnimationBase(duration, true), params(params) {}
+      : AnimationBase(duration, false), params(params) {}
 
   /**
    * @brief Steps the animation, advancing the noise time field.
@@ -979,7 +979,7 @@ public:
    * @param params Reference to the NoiseProductParams to animate.
    */
   NoiseProduct(NoiseProductParams &params)
-      : AnimationBase(-1, true), params(params) {}
+      : AnimationBase(-1, false), params(params) {}
 
   /**
    * @brief Steps the animation, integrating the field time.
