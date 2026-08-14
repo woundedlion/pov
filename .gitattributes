@@ -4,6 +4,15 @@
 # interpreter path any shell resolves.
 *.sh text eol=lf
 
+# First-party and vendored C++. The pre-commit clang-format gate judges the
+# STAGED blob and states that blob is LF regardless of core.autocrlf; only this
+# pin makes that true for a contributor with core.autocrlf=false.
+*.h text eol=lf
+*.hpp text eol=lf
+*.cpp text eol=lf
+*.cc text eol=lf
+*.inl text eol=lf
+
 # Generated tables. Their generators emit LF on every host, so pin the checked-in
 # bytes to LF regardless of core.autocrlf.
 core/color/color_luts.h text eol=lf
