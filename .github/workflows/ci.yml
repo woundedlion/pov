@@ -1003,11 +1003,14 @@ jobs:
 
       # Discovered by glob, not enumerated, so a newly added scripts/*.test.mjs
       # runs here without a workflow edit; tools/check_test_files.sh is the
-      # wiring pin for the other direction (see its header).
+      # wiring pin for the other direction (see its header). Driven through
+      # `npm test` so the package.json entry point is the gated command rather
+      # than a second spelling of it; the suite has no runtime deps, so no
+      # `npm ci` is needed here.
       - name: Every scripts/*.test.mjs unit test runs
         run: |
           bash tools/check_test_files.sh 5 'scripts/*.test.mjs'
-          node --test scripts/*.test.mjs
+          npm test
 
       - name: Gallery covers every registered effect
         run: node scripts/check_screenshots.mjs
