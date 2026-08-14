@@ -253,7 +253,7 @@ inline void test_full_graph_walk_soak() {
   // Arena high-water marks at the moment coverage completed.
   size_t hw_at_coverage = 0, scratch_a_at_coverage = 0,
          scratch_b_at_coverage = 0;
-  while (frames < SOAK_FRAME_CAP && legs < SOAK_LEG_BOUND) {
+  while (frames < SOAK_FRAME_CAP && legs < SOAK_LEG_BOUND + SOAK_EXTRA_LEGS) {
     fx.draw_frame();
     fx.advance_display();
     ++frames;
