@@ -76,6 +76,35 @@ struct GateReport {
 };
 
 /**
+ * @brief Rehashes the corpus's own bytes the way mindsplatter_replay_gen
+ *        recorded them: the restore blob, then every expanded golden channel.
+ * @param corpus Corpus under replay.
+ * @return FNV-1a over the state bytes followed by the whole framebuffer.
+ * @details framebuffer_hash covers only the golden pixels; this also covers the
+ * restore blob, so the two together pin every byte the corpus carries.
+ */
+uint64_t rehash_corpus(const mindsplatter_replay::Corpus &corpus) {
+  uint64_t hash = 1469598103934665603ull;
+  for (size_t i = 0; i < corpus.state_size; ++i)
+    hash = (hash ^ corpus.state[i]) * 1099511628211ull;
+  size_t entry = 0;
+  for (size_t index = 0; index < static_cast<size_t>(WIDTH) * HEIGHT; ++index) {
+    while (entry < corpus.framebuffer_entries &&
+           corpus.framebuffer[entry].index < index)
+      ++entry;
+    const bool lit = entry < corpus.framebuffer_entries &&
+                     corpus.framebuffer[entry].index == index;
+    const uint16_t channels[] = {
+        lit ? corpus.framebuffer[entry].r : uint16_t{0},
+        lit ? corpus.framebuffer[entry].g : uint16_t{0},
+        lit ? corpus.framebuffer[entry].b : uint16_t{0}};
+    for (uint16_t channel : channels)
+      hash = mindsplatter_replay::hash_channel(hash, channel);
+  }
+  return hash;
+}
+
+/**
  * @brief Renders one reference/candidate pass over the effect's current clip
  *        and gates the difference metrics.
  * @param effect Restored replay effect; its clip selects the compared region.
@@ -190,6 +219,13 @@ int main() {
               corpus.search_adaptive_samples, corpus.search_long_edges,
               corpus.peak_clip);
   bool accepted = true;
+  const uint64_t rehashed = rehash_corpus(corpus);
+  if (rehashed != corpus.corpus_hash) {
+    std::printf("replay corpus hash mismatch: rehashed=%llu recorded=%llu\n",
+                static_cast<unsigned long long>(rehashed),
+                static_cast<unsigned long long>(corpus.corpus_hash));
+    accepted = false;
+  }
   std::vector<Pixel> reference(static_cast<size_t>(WIDTH) * HEIGHT);
   for (int frame = 0; frame < REPLAY_FRAMES; ++frame) {
     char label[16];
