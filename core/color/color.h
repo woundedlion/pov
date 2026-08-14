@@ -1468,15 +1468,17 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
 }
 
 /**
- * @brief Clips an OKLab color to the sRGB gamut straight off the LUT.
+ * @brief Rescales an OKLab color onto the tabulated sRGB gamut boundary.
  * @param lab Source color; lightness is clamped to [0, 1] first.
  * @return The color scaled to the tabulated boundary chroma for its hue and
  *         lightness cell, or the neutral axis when chroma underflows.
- * @details Reads the stored cell minimum without the bracket refinement
- * gamut_max_chroma() runs, and normalizes with one Newton step off the
- * reciprocal-square-root seed.
+ * @details Scales unconditionally, so an in-gamut color is pushed outward to
+ * the boundary; call only once the color is known to be out of gamut. Reads
+ * the stored cell minimum without the bracket refinement gamut_max_chroma()
+ * runs, and normalizes with one Newton step off the reciprocal-square-root
+ * seed.
  */
-HS_FLASH_INLINE inline OKLab gamut_clip_lut(OKLab lab) {
+HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
   lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
   const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
   if (!(chroma_sq > 1e-12f))
@@ -1527,7 +1529,7 @@ inline void hue_sincos(float turns, float &cosine, float &sine) {
  * @param amount Rotation in turns (0..1 = full turn).
  * @return The hue-rotated color, carrying the base alpha.
  * @details The cheap counterpart of hue_rotate(): approximate turn trig, and
- * gamut_clip_lut() only when the rotated color leaves the gamut.
+ * gamut_scale_to_boundary_lut() only when the rotated color leaves the gamut.
  */
 inline Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
   float cosine, sine;
@@ -1538,7 +1540,7 @@ inline Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
   lab = {lab.L, rotated_a, rotated_b};
   LinRGB output = oklab_to_linear_rgb(lab);
   if (!linear_rgb_in_gamut(output.r, output.g, output.b))
-    output = oklab_to_linear_rgb(gamut_clip_lut(lab));
+    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
   return Color4(Pixel(float_to_pixel16(output.r), float_to_pixel16(output.g),
                       float_to_pixel16(output.b)),
                 base.base.alpha);
