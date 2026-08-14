@@ -832,12 +832,16 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
  * @brief Recover a truncate edge's two cut vertices in half-edge walk order.
  * @param he_mesh Half-edge connectivity describing the edge.
  * @param edge_to_vert Per-half-edge table of the edge's two cut-vertex indices,
- *   stored canonically as {near-k1, near-k2} with k1 = min(endpoint indices).
+ *   stored canonically as {k1-side, k2-side} with k1 = min(endpoint indices):
+ *   the point at fraction t from k1 first, the point at fraction t from k2
+ *   second.
  * @param he_idx Half-edge (tail->head) whose oriented cut pair is recovered.
  * @return {tail-side cut, head-side cut}; the stored order is reversed when the
  *   tail is not the canonical k1.
  * @details Centralizes winding so every caller emits a consistent order instead
- *   of re-deriving the `vi==k1` test inline.
+ *   of re-deriving the `vi==k1` test inline. The sides are combinatorial, not
+ *   metric: at t > 0.5 the two cut points cross past each other, so the
+ *   tail-side cut lies geometrically nearer the head.
  */
 inline std::pair<uint16_t, uint16_t>
 truncate_oriented_cut(const HalfEdgeMesh &he_mesh,
@@ -925,7 +929,8 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) {
           // Orbit walks the half-edges leaving this vertex; each contributes
-          // its tail-side cut (the cut point nearest the shared vertex).
+          // its tail-side cut, the one cut of the pair assigned to the shared
+          // vertex (nearest it only for t < 0.5).
           return truncate_oriented_cut(he_mesh, edge_to_vert, idx).first;
         });
   }
