@@ -2886,7 +2886,7 @@ inline const Case *all_cases(int &n) {
        case_plot_extract_edges_vertex_over_capacity, "plot.h",
        "(large < DEDUP_CAPACITY) "},
       {"feedback_downsample_indivisible", case_feedback_downsample_indivisible,
-       "filter.h",
+       "filter_feedback.h",
        "(downsample > 0 && W % downsample == 0) feedback downsample 5 must "
        "be > 0 and divide width 32"},
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
@@ -3426,7 +3426,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"solids.h", 2},
     {"spatial.h", 8},
     {"canvas.h", 25},
-    {"filter.h", 12},
+    {"filter.h", 5},
+    {"filter_feedback.h", 7},
     {"led.h", 3},
     {"plot.h", 13},
     {"plot_cull.h", 1},
