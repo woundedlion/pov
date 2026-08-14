@@ -2387,7 +2387,7 @@ private:
                                                const FrameState &frame) {
       HS_SB_STAGE_MARK(surface_start);
       const SurfaceNoiseResult displaced =
-          apply_surface_noise_result(outer_local, frame);
+          apply_simplex_euler_surface_noise_result(outer_local, frame);
       HS_SB_STAGE_SPAN(surface_noise, surface_start);
       HS_SB_STAGE_MARK(projection_start);
       const Vector local =
@@ -4751,11 +4751,29 @@ private:
                                v);
   }
 
+  HS_FLASH_MEMBER static Vector
+  surface_simplex_curl_field(const Vector &v, const FrameState &frame) {
+    const SurfaceNoiseParams &params = frame.params.surface_noise;
+    const Vector q = noise_sphere_coordinate(
+        v, params.scale, frame.prepared_surface_noise.loop_offset);
+    return sample_simplex_curl_tangent(*frame.resources.surface_noise, q, v);
+  }
+
   HS_FLASH_MEMBER static SurfaceNoiseResult
   finish_surface_noise_step(const Vector &v, const Vector &step,
                             const FrameState &frame) {
     const float path_length = surface_noise_path_length(step, frame);
     return {sphere_exp_map_half_radian(v, step), path_length};
+  }
+
+  HS_FLASH_MEMBER static SurfaceNoiseResult
+  apply_simplex_euler_surface_noise_result(const Vector &v,
+                                           const FrameState &frame) {
+    const float strength = frame.params.surface_noise.strength;
+    if (strength == 0.0f)
+      return {v, 0.0f};
+    return finish_surface_noise_step(
+        v, strength * surface_simplex_curl_field(v, frame), frame);
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
