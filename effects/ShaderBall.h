@@ -4751,14 +4751,6 @@ private:
                                v);
   }
 
-  HS_FLASH_MEMBER static Vector
-  surface_simplex_curl_field(const Vector &v, const FrameState &frame) {
-    const SurfaceNoiseParams &params = frame.params.surface_noise;
-    const Vector q = noise_sphere_coordinate(
-        v, params.scale, frame.prepared_surface_noise.loop_offset);
-    return sample_simplex_curl_tangent(*frame.resources.surface_noise, q, v);
-  }
-
   HS_FLASH_MEMBER static SurfaceNoiseResult
   finish_surface_noise_step(const Vector &v, const Vector &step,
                             const FrameState &frame) {
@@ -4769,11 +4761,16 @@ private:
   HS_FLASH_MEMBER static SurfaceNoiseResult
   apply_simplex_euler_surface_noise_result(const Vector &v,
                                            const FrameState &frame) {
-    const float strength = frame.params.surface_noise.strength;
-    if (strength == 0.0f)
+    const SurfaceNoiseParams &params = frame.params.surface_noise;
+    if (params.strength == 0.0f)
       return {v, 0.0f};
-    return finish_surface_noise_step(
-        v, strength * surface_simplex_curl_field(v, frame), frame);
+    const Vector q = noise_sphere_coordinate(
+        v, params.scale, frame.prepared_surface_noise.loop_offset);
+    const Vector tangent =
+        sample_simplex_curl_tangent(*frame.resources.surface_noise, q, v);
+    const Vector step = params.strength * tangent;
+    return {sphere_exp_map_half_radian(v, step),
+            surface_noise_path_length(step, frame)};
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
