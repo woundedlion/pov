@@ -40,7 +40,7 @@
 namespace Scan {
 
 /** @brief Coverage/alpha at or below which a fragment is dropped unplotted. */
-static constexpr float MIN_ALPHA = 0.001f;
+inline constexpr float MIN_ALPHA = 0.001f;
 
 /**
  * @brief Columns one shade may cover at a row's colatitude.
