@@ -9,14 +9,21 @@ is deterministic, the emitted bits load unchanged on host and device; the
 `relax_bake_verify` ctest (HS_RELAX_BAKE_VERIFY) re-derives them and asserts
 bit-exact equality, so a stale asset fails the suite.
 
+That gate covers the payload values only. `check` covers the file's form —
+banner, chunking, declaration layout — by re-emitting the header from a fresh
+dump and diffing the full text, so a legitimate regeneration cannot arrive
+buried in a reformat the emitter drifted into meanwhile.
+
 Usage:
     <build>/relax_bake_gen | python tools/relax_bakes.py emit --stdin
     python tools/relax_bakes.py emit --dump captured_dump.txt
+    <build>/relax_bake_gen | python tools/relax_bakes.py check --stdin
 """
 
 from __future__ import annotations
 
 import argparse
+import difflib
 from pathlib import Path
 import sys
 
@@ -137,26 +144,59 @@ def emit_header(bakes: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def emit(args: argparse.Namespace) -> None:
+def read_dump(args: argparse.Namespace) -> str:
+    """Read the harness dump from stdin or the named file."""
     if args.stdin:
-        text = sys.stdin.read()
-    else:
-        text = Path(args.dump).read_text(encoding="utf-8", errors="replace")
-    bakes = parse_dump(text)
+        return sys.stdin.read()
+    return Path(args.dump).read_text(encoding="utf-8", errors="replace")
+
+
+def emit(args: argparse.Namespace) -> None:
+    bakes = parse_dump(read_dump(args))
     ASSET.write_text(emit_header(bakes), encoding="utf-8", newline="\n")
     raw = sum(len(b["bits"]) * 4 for b in bakes)
     print(f"wrote {ASSET.relative_to(ROOT)}: {len(bakes)} bakes, {raw} bytes")
+
+
+def check(args: argparse.Namespace) -> None:
+    """Re-emit the header from a dump and diff the full text against the asset."""
+    bakes = parse_dump(read_dump(args))
+    generated = emit_header(bakes)
+    # read_text decodes universal newlines, so a CRLF checkout compares equal.
+    committed = ASSET.read_text(encoding="utf-8")
+    name = ASSET.relative_to(ROOT).as_posix()
+    if generated != committed:
+        diff = difflib.unified_diff(committed.splitlines(),
+                                    generated.splitlines(),
+                                    fromfile=name, tofile="regenerated",
+                                    lineterm="")
+        for line in list(diff)[:40]:
+            print(line, file=sys.stderr)
+        sys.exit(
+            f"{name} is out of sync with tools/relax_bakes.py; regenerate with: "
+            "relax_bake_gen | python tools/relax_bakes.py emit --stdin")
+    print(f"{name} matches the regenerated header in full: "
+          f"{len(bakes)} bake payload(s).")
+
+
+def add_dump_source(parser: argparse.ArgumentParser) -> None:
+    """Add the mutually exclusive --stdin / --dump input selection."""
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--stdin", action="store_true",
+                       help="read the harness dump from stdin")
+    group.add_argument("--dump", help="read the harness dump from a file")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     emit_parser = sub.add_parser("emit", help="write the header from a dump")
-    group = emit_parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--stdin", action="store_true",
-                       help="read the harness dump from stdin")
-    group.add_argument("--dump", help="read the harness dump from a file")
+    add_dump_source(emit_parser)
     emit_parser.set_defaults(func=emit)
+    check_parser = sub.add_parser(
+        "check", help="diff the header re-emitted from a dump against the asset")
+    add_dump_source(check_parser)
+    check_parser.set_defaults(func=check)
     args = parser.parse_args()
     args.func(args)
 

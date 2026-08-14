@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Host tests for the relax-bake header generator (tools/relax_bakes.py)."""
 
+import argparse
 import sys
+import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 
@@ -123,6 +126,48 @@ class EmitHeader(unittest.TestCase):
             "3u * foo_bar.vertex_count);",
             header,
         )
+
+
+class Check(unittest.TestCase):
+    """The `check` subcommand: re-emit from a dump, diff against the asset."""
+
+    def setUp(self):
+        self.dump, _ = make_dump("foo", 100, [(1, 2, 3), (4, 5, 6)], 0xABCD1234)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.asset = Path(self.tmp.name) / "relax_bakes_generated.h"
+        for name, value in (("ROOT", Path(self.tmp.name)), ("ASSET", self.asset)):
+            patcher = unittest.mock.patch.object(relax_bakes, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.args = argparse.Namespace(stdin=False, dump=None)
+
+    def write_asset(self, text):
+        self.asset.write_text(text, encoding="utf-8", newline="\n")
+        self.args.dump = str(Path(self.tmp.name) / "dump.txt")
+        Path(self.args.dump).write_text(self.dump, encoding="utf-8")
+
+    def test_accepts_a_matching_asset(self):
+        self.write_asset(relax_bakes.emit_header(relax_bakes.parse_dump(self.dump)))
+        relax_bakes.check(self.args)
+
+    def test_accepts_a_crlf_checkout(self):
+        header = relax_bakes.emit_header(relax_bakes.parse_dump(self.dump))
+        self.write_asset(header)
+        self.asset.write_bytes(header.replace("\n", "\r\n").encode("utf-8"))
+        relax_bakes.check(self.args)
+
+    def test_rejects_a_drifted_form(self):
+        header = relax_bakes.emit_header(relax_bakes.parse_dump(self.dump))
+        self.write_asset(header.replace("// clang-format off\n", ""))
+        with self.assertRaises(SystemExit):
+            relax_bakes.check(self.args)
+
+    def test_rejects_drifted_bits(self):
+        header = relax_bakes.emit_header(relax_bakes.parse_dump(self.dump))
+        self.write_asset(header.replace("0x00000001u", "0x00000009u"))
+        with self.assertRaises(SystemExit):
+            relax_bakes.check(self.args)
 
 
 if __name__ == "__main__":

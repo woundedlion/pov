@@ -456,6 +456,19 @@ target_compile_options(relax_bake_gen PRIVATE -fno-fast-math)
 target_include_directories(relax_bake_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 _hs_warnings(relax_bake_gen)
 
+# Pin the asset's FORM against the emitter: unit_relax_bake_verify above proves
+# the committed payloads re-derive bit-exact, but nothing re-ran the emitter, so
+# a drift in the banner or the chunking would surface only as a large spurious
+# reformat inside the next legitimate regeneration.
+add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
+    -DPYTHON_EXE=${HS_PYTHON}
+    -DSCRIPT=${HS_ROOT}/tools/relax_bakes.py
+    -DHARNESS=$<TARGET_FILE:relax_bake_gen>
+    -DDUMP=${CMAKE_CURRENT_BINARY_DIR}/relax_bakes.dump
+    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_relax_bakes.cmake)
+set_tests_properties(unit_relax_bake_form PROPERTIES SKIP_RETURN_CODE 77)
+
 # The south-pole Y-clip renormalization in the rasterizer (Screen::AntiAlias's
 # bilinear-tap fold, and the H_VIRT handling threaded through geometry/scan/plot/
 # sdf) only does real work when hs::H_OFFSET > 0 — the hardware value, fixed to 0
