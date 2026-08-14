@@ -359,6 +359,10 @@ private:
     const float radius_t = 0.5f / static_cast<float>(count);
     draw_planar_star_pole_cap(canvas, basis, spaced_radius_t[0], radius_t,
                               sides, palette);
+    // At count 1 both caps resolve to identical arguments; drawing the second
+    // would composite the same pixels twice.
+    if (count == 1)
+      return;
     draw_planar_star_pole_cap(canvas, basis, spaced_radius_t[count - 1],
                               1.0f - radius_t, sides, palette);
   }
