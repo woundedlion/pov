@@ -2304,33 +2304,6 @@ private:
     }
   };
 
-  template <bool MirrorFirst> struct PlanarWarpStage {
-    static constexpr InverseStageKind KIND = InverseStageKind::PLANAR_WARP;
-    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE = false;
-    static constexpr bool TERMINAL = false;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
-    static constexpr std::array<ApproximationMetric, 0> METRICS{};
-    using Input = ProjectedLookup;
-    using Output = SourceInput;
-
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.outer_warp == (MirrorFirst ? WarpStageKind::MIRROR_TILE
-                                            : WarpStageKind::NONE) &&
-             key.inner_warp == WarpStageKind::NONE;
-    }
-
-    __attribute__((always_inline)) static SourceInput
-    run(const ProjectedLookup &projected, const FrameState &frame) {
-      HS_SB_STAGE_MARK(stage_start);
-      const PlanarWarpResult warped =
-          selected_mirror_lookup<MirrorFirst>(projected, frame);
-      HS_SB_STAGE_SPAN(planar_warp, stage_start);
-      return {projected, warped};
-    }
-  };
-
   struct SinusoidalCurlSurfaceStage {
     static constexpr InverseStageKind KIND = InverseStageKind::SURFACE_PROJECT;
     static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
@@ -2608,7 +2581,8 @@ private:
   using BonneKaleidoscopeLatticeMirrorPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::BONNE, SurfaceLens::KALEIDOSCOPE>,
-      PlanarWarpStage<true>, SourceStage<Function::PRIMITIVE_LATTICE>,
+      SelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE, WarpStageKind::NONE>,
+      SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   struct BonneKaleidoscopeLatticeMirrorPipeline
       : BonneKaleidoscopeLatticeMirrorPipelineBase {
@@ -3694,22 +3668,6 @@ private:
         frame.slots.hue_shift != HueShiftMode::WARP_DISPLACEMENT)
       return 0.0f;
     return sqrtf(dot(step, step));
-  }
-
-  template <bool MIRROR_FIRST>
-  __attribute__((always_inline)) static PlanarWarpResult
-  selected_mirror_lookup(const ProjectedLookup &projected,
-                         const FrameState &frame) {
-    if constexpr (!MIRROR_FIRST)
-      return {projected.coords, Complex(), 0.0f};
-    HS_SB_STAGE_MARK(mirror_start);
-    const Complex output = mirror_tile(
-        projected.coords, frame.params.warp.outer, frame.prepared_warp.outer);
-    HS_SB_STAGE_SPAN(mirror_tile, mirror_start);
-    const Complex delta(output.re - projected.coords.re,
-                        output.im - projected.coords.im);
-    const float displacement = sqrtf(delta.re * delta.re + delta.im * delta.im);
-    return {output, delta, displacement};
   }
 
   /**
