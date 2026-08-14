@@ -135,6 +135,16 @@ struct Interval {
  *  accumulate-only. */
 using IntervalBuffer = StaticCircularBuffer<Interval, INTERVAL_SPAN_CAP>;
 
+/** Spans AngularRepeat may emit in one row before it falls back to a full
+ *  scan. Fixed independently of the child so a repeat's compile-time span bound
+ *  stays inside the CSG budget whatever it wraps. */
+inline constexpr size_t ANGULAR_REPEAT_SPAN_CAP = 8;
+
+/** Azimuth slop, in radians, between the point AngularRepeat's fold hands the
+ *  child and the exact sector-shifted one: fast_atan2's ~0.0038 rad plus the
+ *  fast_sinf/fast_cosf reconstruction of the folded direction. */
+inline constexpr float ANGULAR_REPEAT_FOLD_SLOP = 0.01f;
+
 /** Per-row accumulator for a binary CSG op that merges BOTH children's spans
  *  into one buffer (Union/SmoothUnion). Each child can contribute up to
  *  INTERVAL_SPAN_CAP spans, so the union accumulator is sized to hold both. */
@@ -222,10 +232,10 @@ template <> struct sdf_max_spans<Line> {
 template <> struct sdf_max_spans<Face> {
   static constexpr size_t value = 2;
 };
-// AngularRepeat's copies cover the full azimuth, so it always requests a full
-// scan and emits nothing.
+// AngularRepeat replays the child's spans once per copy, capped independently
+// of the child (past the cap it requests a full scan and emits nothing).
 template <typename Shape> struct sdf_max_spans<AngularRepeat<Shape>> {
-  static constexpr size_t value = 0;
+  static constexpr size_t value = ANGULAR_REPEAT_SPAN_CAP;
 };
 template <typename A, typename B> struct sdf_max_spans<Union<A, B>> {
   static constexpr size_t value =
