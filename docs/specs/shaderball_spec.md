@@ -1455,7 +1455,7 @@ Three continuous controls replace the discrete camera modality:
   midpoint and costs a second pattern evaluation across the open interval,
   which is the cost §9 budgets.
 
-`apply_glitch_lens` is effect-local; nothing else uses it. It ships as a
+`lenses::glitch_lens` lives in `core/math/lenses.h` beside its peers. It ships as a
 closed-form rational map with no hemisphere fold and no pole guard — its
 denominator `1 + 3y²` is at least 1, so the map is finite everywhere on the
 sphere and needs neither.
