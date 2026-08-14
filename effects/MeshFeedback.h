@@ -11,6 +11,7 @@
  */
 
 #include "core/engine/engine.h"
+#include "core/render/filter_feedback.h"
 
 // Unit-test accessor reaching the private style/noise/preset bookkeeping.
 namespace hs_test {

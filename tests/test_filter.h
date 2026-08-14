@@ -42,6 +42,7 @@
 #include <span>
 
 #include "core/render/filter.h"
+#include "core/render/filter_feedback.h"
 #include "core/render/canvas.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
