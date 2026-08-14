@@ -155,8 +155,7 @@ struct Line {
    */
   static void sample(Fragments &points, const Fragment &f1, const Fragment &f2,
                      int density = 1) {
-    if (density < 1)
-      density = 1;
+    HS_CHECK(density >= 1);
 
     const GeodesicEdgeSpan es = make_geodesic_edge_span(f1.pos, f2.pos);
     if (!es.have_axis) {
