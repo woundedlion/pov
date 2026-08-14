@@ -1487,7 +1487,9 @@ HS_FLASH_INLINE inline OKLab gamut_clip_lut(OKLab lab) {
   float inverse_chroma;
   std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
   inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
-  const GamutLut &lut = g_gamut_lut;
+  // Flash master, not g_gamut_lut: this path consumes the stored minima
+  // directly, so a coarse grid's width is never narrowed back.
+  const GamutLut lut;
   int angle_index =
       static_cast<int>(diamond_angle(lab.b, lab.a) * lut.angle_scale);
   int lightness_index = static_cast<int>(lab.L * lut.l_scale);
