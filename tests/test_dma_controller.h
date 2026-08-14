@@ -7,9 +7,9 @@
  * transport, so these run it against MockStrip — a recording double standing in
  * for the Arduino-only TeensySPIDMA — to cover the orchestration the pure-math
  * (test_dma_core.h) and wire-format (test_hd107s_frame.h) suites cannot reach:
- * the double-buffer flip, the overrun-drop path (and its watchdog consult), the
- * with_bg transfer-length select, and the end-to-end byte stream a real strip
- * would clock in. The register/eDMA/ISR internals of TeensySPIDMA stay
+ * the clock forwarded into the transport, the double-buffer flip, the
+ * overrun-drop path (and its watchdog consult), the with_bg transfer-length
+ * select, and the end-to-end byte stream a real strip would clock in. The register/eDMA/ISR internals of TeensySPIDMA stay
  * hardware-only and out of host-test scope (see the wedged-channel death case in
  * test_death.h for the overrun-drop watchdog trap).
  */
@@ -129,6 +129,28 @@ inline void test_begin_inits() {
   HS_EXPECT_EQ(MockStrip::state().init_calls, 0);
   ctl.begin();
   HS_EXPECT_EQ(MockStrip::state().init_calls, 1);
+}
+
+/**
+ * @brief The controller hands its SPI clock to the transport it constructs.
+ * @details The override is the 24 MHz the Phantasm driver passes. It has to
+ *          differ from MockStrip's own default argument, which coincides with
+ *          DEFAULT_CLOCK_HZ: at the default rate a controller that dropped the
+ *          forward would leave exactly the expected value behind.
+ */
+inline void test_ctor_forwards_clock() {
+  using Controller = DMALEDController<N, MockStrip>;
+  constexpr uint32_t OVERRIDE_CLOCK_HZ = 24000000;
+  static_assert(OVERRIDE_CLOCK_HZ != Controller::DEFAULT_CLOCK_HZ,
+                "the override must not coincide with the transport default");
+
+  MockStrip::reset();
+  Controller ctl;
+  HS_EXPECT_EQ(MockStrip::state().clock, Controller::DEFAULT_CLOCK_HZ);
+
+  MockStrip::reset();
+  Controller fast(OVERRIDE_CLOCK_HZ);
+  HS_EXPECT_EQ(MockStrip::state().clock, OVERRIDE_CLOCK_HZ);
 }
 
 /**
@@ -263,6 +285,7 @@ inline void test_end_to_end_wire_bytes() {
 inline int run_dma_controller_tests() {
   hs_test::ModuleFixture fixture("dma_controller");
   test_begin_inits();
+  test_ctor_forwards_clock();
   test_submit_happy_path();
   test_double_buffer_flip();
   test_overrun_drop();

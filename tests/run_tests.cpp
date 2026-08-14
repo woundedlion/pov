@@ -192,7 +192,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
     hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests, 62)       \
   X("dma_core", 4, hs_test::dma_core_tests::run_dma_core_tests, 12)            \
   X("hd107s", 7, hs_test::hd107s_tests::run_hd107s_tests, 288)                 \
-  X("dma_controller", 6,                                                       \
+  X("dma_controller", 7,                                                       \
     hs_test::dma_controller_tests::run_dma_controller_tests, 67)               \
   X("pov_segmented", 24,                                                       \
     hs_test::pov_segmented_tests::run_pov_segmented_tests, 263165)             \
