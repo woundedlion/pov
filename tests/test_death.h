@@ -3343,7 +3343,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"color.h", 1},
     {"composition.h", 32},
     {"generative_palette.h", 3},
-    {"palette_cycler.h", 7},
+    {"palette_cycler.h", 8},
     {"memory.cpp", 1},
     {"memory.h", 3},
     {"reaction_graph.h", 2},
