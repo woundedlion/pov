@@ -200,6 +200,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   const size_t persistent_start = persistent.get_offset();
 
   const size_t F = mesh.get_face_counts_size();
+  const size_t V = mesh.vertices.size();
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
@@ -245,8 +246,11 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
              "mesh face span exceeds face index array");
     const uint16_t *idx = fi + fo[f];
     Vector center(0, 0, 0);
-    for (int k = 0; k < count; ++k)
+    for (int k = 0; k < count; ++k) {
+      HS_CHECK(static_cast<size_t>(idx[k]) < V,
+               "mesh face vertex index out of range");
       center = center + mesh.vertices[idx[k]];
+    }
     center = normalized_or(center, mesh.vertices[idx[0]]);
     Vector u = cross(center, least_parallel_axis(center)).normalized();
     Vector w = cross(center, u).normalized();
