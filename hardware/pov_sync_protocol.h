@@ -266,7 +266,7 @@ struct Config {
    * order that makes each one's preconditions (nonzero divisors, non-negative
    * casts) already established.
    */
-  constexpr const char *valid() const {
+  HS_FLASH_MEMBER constexpr const char *valid() const {
     if (!(W > 0))
       return "W > 0";
     if (!(W % 2 == 0))

@@ -451,14 +451,14 @@ protected:
   };
 
   /** @brief Enables the shared preset controller for this effect. */
-  void configure_presets(size_t count) {
+  HS_FLASH_MEMBER void configure_presets(size_t count) {
     HS_CHECK(count > 0, "preset count must be positive");
     HS_CHECK(preset_count == 0, "presets already configured");
     preset_count = count;
   }
 
   /** @brief Advances choreography through the shared preset controller. */
-  bool advancePreset() {
+  HS_FLASH_MEMBER bool advancePreset() {
     return preset_count > 0 && change_preset((preset_index + 1) % preset_count,
                                              PresetChangeOrigin::AUTOMATIC);
   }
@@ -889,7 +889,7 @@ private:
    * into both GCC constructor variants (C1/C2). Invoked from the ctor (not init())
    * because derived init() overrides do not chain to Effect::init().
    */
-  void __attribute__((noinline)) clear_buffers() {
+  HS_FLASH_MEMBER void __attribute__((noinline)) clear_buffers() {
     bufs[0] = buffer_a;
     std::fill_n(bufs[0], MAX_W * MAX_H, Pixel(0, 0, 0));
     bufs[1] = buffer_b;
