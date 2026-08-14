@@ -2587,6 +2587,21 @@ inline void case_opleg_gated_swap_incomplete_handoff() {
 }
 
 /**
+ * @brief Death case: a shading lookup past the leg's face table must trap.
+ * @details OpLeg surface — the ramp index is read straight from the per-face
+ *          table, so an out-of-range face would shade through whatever follows
+ *          it instead of failing.
+ */
+inline void case_opleg_shading_face_out_of_range() {
+  static BakedPalette ramps[1];
+  static const uint8_t face_ramp[1] = {0};
+  const Animation::OpLeg::Shading shading{
+      .ramps = ramps, .face_ramp = face_ramp, .faces = opaque<size_t>(1)};
+  if (&shading.ramp_for(opaque<size_t>(3)) == ramps)
+    std::printf("x");
+}
+
+/**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
@@ -3049,6 +3064,8 @@ inline const Case *all_cases(int &n) {
        case_opleg_gated_swap_incomplete_handoff, "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
        "OpLeg: gated swap leg has an incomplete palette handoff"},
+      {"opleg_shading_face_out_of_range", case_opleg_shading_face_out_of_range,
+       "opleg.h", "(face < faces) OpLeg::Shading: ramp face out of range"},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
@@ -3637,7 +3654,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 143;
+  constexpr int DEATH_CASE_COUNT = 144;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a

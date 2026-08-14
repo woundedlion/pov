@@ -175,11 +175,11 @@ public:
     /**
      * @brief The face's pre-blended ramp.
      * @param face Face index.
-     * @return The blended LUT to sample; an out-of-range face falls back to
-     * ramp 0 rather than reading past the table.
+     * @return The blended LUT to sample.
      */
     const BakedPalette &ramp_for(size_t face) const {
-      return ramps[face < faces ? face_ramp[face] : 0];
+      HS_CHECK(face < faces, "OpLeg::Shading: ramp face out of range");
+      return ramps[face_ramp[face]];
     }
   };
 
