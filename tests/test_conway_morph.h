@@ -2678,6 +2678,14 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   constexpr int SWEEP = 24;
   constexpr int RW = 288, RH = 144;
   constexpr float SEAM_MATCH_TOL = 0.02f;
+  // A continuous seam leaves a core of pixels the palette swap never touches;
+  // a mis-keyed one repaints nearly the whole frame. Both that core and the
+  // in-leg control's scale together with the shading and the camera, so gate
+  // their ratio rather than an absolute share of the frame: measured minimum
+  // across sites 0.213 (needle), against 0.133 for a mis-keyed seam.
+  constexpr float SEAM_QUIET_RATIO = 0.15f;
+  // Measured maximum across sites 6.14M; a mis-keyed needle reaches 8.4M.
+  constexpr long long SEAM_SUMABS_MAX = 7300000ll;
 
   static Pipeline<RW, RH> filters;
 
@@ -2906,16 +2914,18 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     diff(snaps[0], snaps[1], seam_sum, seam_px);
     diff(snaps[1], snaps[2], ctrl_sum, ctrl_px);
 
-    // A mis-keyed seam is a near-total flip (>=96% of pixels changed, needle
-    // sumabs 8.4M); a continuous one carries only the swap's shading residual
-    // (measured maxima across sites: 93.6% / 6.2M).
-    HS_EXPECT_LT(seam_px, RW * RH * 95 / 100);
-    HS_EXPECT_LT(seam_sum, 7300000ll);
+    const int seam_quiet = RW * RH - seam_px;
+    const int ctrl_quiet = RW * RH - ctrl_px;
+    const float quiet_ratio =
+        static_cast<float>(seam_quiet) / static_cast<float>(ctrl_quiet);
+    HS_EXPECT_GT(quiet_ratio, SEAM_QUIET_RATIO);
+    HS_EXPECT_LT(seam_sum, SEAM_SUMABS_MAX);
 
     std::printf("  [opleg seam] %s: F=%zu blocks %zu/%zu, seam diff "
-                "sumabs=%lld px=%d (control %lld/%d)%s\n",
+                "sumabs=%lld px=%d (control %lld/%d) quiet=%.3f/%.3f%s\n",
                 site.name, nf, DF, nf - DF, seam_sum, seam_px, ctrl_sum,
-                ctrl_px,
+                ctrl_px, static_cast<double>(quiet_ratio),
+                static_cast<double>(SEAM_QUIET_RATIO),
                 hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
 }
