@@ -2347,6 +2347,45 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
 }
 
 /**
+ * @brief Verifies a Y-axis AngularRepeat culls to its copies' columns without
+ *        dropping any of them.
+ * @details A Y-axis fold shifts azimuth by a whole sector and holds latitude,
+ *   so the child's spans replayed once per copy bound every copy. The cull has
+ *   to cover the whole AA fringe and to actually narrow the row — a full-width
+ *   fallback satisfies the coverage half on its own, so the span count and the
+ *   visited-pixel budget are asserted alongside it.
+ */
+inline void test_angular_repeat_y_axis_cull_narrows_rows() {
+  constexpr int W = 288, H = 144;
+  constexpr int REPS = 5;
+  init_geometry_luts<W, H>();
+  // Small star on the equator at azimuth 0, the sector the fold emits.
+  Basis basis = make_basis(Quaternion(), Vector(1, 0, 0));
+  SDF::Star star(basis, /*radius=*/0.15f, /*sides=*/5, 0.0f);
+  SDF::AngularRepeat<SDF::Star> rep(star, REPS, Vector(0, 1, 0));
+  int fringe = expect_cull_covers_fringe<W, H>(rep, "angular repeat y axis");
+  HS_EXPECT_GT(fringe, 0);
+
+  int spans = 0;
+  bool handled =
+      rep.get_horizontal_intervals<W, H>(H / 2, [&](float, float) { ++spans; });
+  HS_EXPECT_TRUE(handled);
+  HS_EXPECT_EQ(spans, REPS);
+
+  std::vector<uint8_t> visited;
+  cull_visited<W, H>(rep, visited);
+  int visited_px = 0;
+  for (uint8_t v : visited)
+    visited_px += v;
+  auto bounds = rep.get_vertical_bounds<H>();
+  const int rows =
+      std::min(H - 1, bounds.y_max) - std::max(0, bounds.y_min) + 1;
+  HS_EXPECT_GT(rows, 0);
+  // Five narrow copies cannot reach half the band a full-width scan visits.
+  HS_EXPECT_LT(visited_px, rows * W / 2);
+}
+
+/**
  * @brief Verifies the arc-extrema cull widens phi to a Line's great-circle bulge.
  * @details The Line's two endpoints share a latitude but its great-circle arc
  *   bulges to a pole between them. Endpoint-only vertical bounds clip the polar
@@ -3093,6 +3132,7 @@ inline int run_sdf_tests() {
   test_smooth_union_cull_covers_interior_over_leaf_pairs();
   test_smooth_union_scans_rows_past_both_children();
   test_angular_repeat_non_y_axis_cull_covers_copies();
+  test_angular_repeat_y_axis_cull_narrows_rows();
   test_line_arc_bulge_cull_covers_interior();
   test_line_antipodal_cull_covers_interior();
   test_line_thick_cap_past_pi_cull_covers_interior();

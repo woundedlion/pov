@@ -718,15 +718,62 @@ template <typename Shape> struct AngularRepeat {
   }
 
   /**
-   * @brief Always requests a full-width scan (copies cover the full azimuth).
+   * @brief Replays the child's spans once per copy for a Y-axis fold.
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
-   * @tparam OutputIt Sink type (unused).
-   * @return Always false (full scan).
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True when the emitted spans describe the row; false requests a
+   *         full scan.
+   * @details A Y-axis fold shifts a pixel's azimuth by a whole sector and holds
+   * its latitude, so every column a copy covers is a child column shifted by a
+   * multiple of W / repetitions. Replaying every child span at every shift is a
+   * superset of the covered columns — a child span outside the sector the fold
+   * actually emits has no pre-image — which is the direction the cull contract
+   * allows. Any other axis rotates the copies off the row, so the child's spans
+   * cannot bound them and the row falls back to a full scan.
    */
   template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int, OutputIt) const {
-    return false;
+  bool get_horizontal_intervals(int y, OutputIt out) const {
+    if (fabsf(axis.y) < 1.0f - TOLERANCE)
+      return false;
+
+    ScratchScope scratch(scratch_arena_b);
+    IntervalBuffer &child = scratch_spans<IntervalBuffer>(scratch);
+    bool overflow = false;
+    bool handled = shape.template get_horizontal_intervals<W, H>(
+        y, [&](float start, float end) {
+          if (child.is_full())
+            overflow = true;
+          else
+            child.push_back({start, end});
+        });
+    // Nothing is emitted before every fallback below: the protocol pairs a
+    // false return with an empty emission.
+    if (!handled || overflow)
+      return false;
+    if (child.is_empty())
+      return true;
+    if (child.size() * static_cast<size_t>(repetitions) >
+        ANGULAR_REPEAT_SPAN_CAP)
+      return false;
+
+    const float step = static_cast<float>(W) / static_cast<float>(repetitions);
+    const float pad =
+        1.0f + ANGULAR_REPEAT_FOLD_SLOP * static_cast<float>(W) / TWO_PI_F;
+    for (size_t i = 0; i < child.size(); ++i)
+      // Copies of a span this wide abut, covering every column anyway, and a
+      // padded span at least a sector long would break the len <= W contract.
+      if (child[i].second - child[i].first + 2.0f * pad >= step)
+        return false;
+
+    for (size_t i = 0; i < child.size(); ++i)
+      for (int k = 0; k < repetitions; ++k) {
+        const float shift = static_cast<float>(k) * step;
+        out(child[i].first + shift - pad, child[i].second + shift + pad);
+      }
+    return true;
   }
 
   /**
