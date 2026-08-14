@@ -4363,6 +4363,12 @@ inline void test_azimuthal_project_radius_is_geodesic_angle() {
  * @details plane->sphere->plane and sphere->plane->sphere both return the
  *          input, away from the antipodal band where the azimuth is unstable.
  */
+/** Relative allowance on a plane->sphere->plane roundtrip, scaled by (R + 1)
+ * so it holds at the chart centre and at the R -> pi rim alike. The chart runs
+ * through a float acos and an atan2, whose error grows with R; the sampled
+ * radii stop 0.05 short of both degenerate spots. */
+constexpr float AZ_ROUNDTRIP_REL_TOL = 2e-2f;
+
 inline void test_azimuthal_roundtrip_identity() {
   hs::random().seed(0xB33F);
   int fwd = 0, inv = 0;
@@ -4374,8 +4380,8 @@ inline void test_azimuthal_roundtrip_identity() {
     float Px = R * std::cos(th), Py = R * std::sin(th);
     Vector s = Plot::azimuthal_unproject(Px, Py, basis);
     auto rp = Plot::azimuthal_project(s, basis);
-    HS_EXPECT_NEAR(rp.first, Px, 2e-2f * (R + 1.0f));
-    HS_EXPECT_NEAR(rp.second, Py, 2e-2f * (R + 1.0f));
+    HS_EXPECT_NEAR(rp.first, Px, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
+    HS_EXPECT_NEAR(rp.second, Py, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
     // Only a roundtrip clear of the chart's degenerate spots — the center,
     // where the azimuth is undefined, and the antipodal band — inverts.
     if (std::hypot(rp.first, rp.second) > math::EPS_GEOMETRIC &&

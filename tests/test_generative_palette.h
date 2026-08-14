@@ -550,17 +550,29 @@ inline void expect_baked_equal(const BakedPalette &a, const BakedPalette &b) {
   }
 }
 
-/** @brief Asserts two baked LUTs agree within a channel tolerance. */
-inline void expect_baked_near(const BakedPalette &a, const BakedPalette &b,
-                              int tolerance) {
+/**
+ * @brief Asserts two baked LUTs agree within a channel tolerance.
+ * @param a First LUT.
+ * @param b Second LUT.
+ * @param tolerance Largest permitted per-channel difference, 16-bit scale.
+ * @return The worst per-channel difference seen.
+ */
+inline int expect_baked_near(const BakedPalette &a, const BakedPalette &b,
+                             int tolerance) {
+  int worst = 0;
   for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
     const float t = i / 255.0f;
     const Pixel pa = a.get(t).color;
     const Pixel pb = b.get(t).color;
-    HS_EXPECT_TRUE(std::abs(int(pa.r) - int(pb.r)) <= tolerance);
-    HS_EXPECT_TRUE(std::abs(int(pa.g) - int(pb.g)) <= tolerance);
-    HS_EXPECT_TRUE(std::abs(int(pa.b) - int(pb.b)) <= tolerance);
+    const int deltas[3] = {std::abs(int(pa.r) - int(pb.r)),
+                           std::abs(int(pa.g) - int(pb.g)),
+                           std::abs(int(pa.b) - int(pb.b))};
+    for (int d : deltas) {
+      worst = std::max(worst, d);
+      HS_EXPECT_LE(d, tolerance);
+    }
   }
+  return worst;
 }
 
 } // namespace
@@ -632,6 +644,14 @@ inline void test_generative_palette_morph_compatible() {
   HS_EXPECT_FALSE(loop_one.morph_compatible(GenerativePalette(two_turn)));
 }
 
+/** Worst channel gap measured at a 0.001 lerp step from either endpoint. */
+constexpr int MEASURED_LERP_ENDPOINT_DELTA = 80;
+/** Headroom over the measured gap. */
+constexpr int LERP_ENDPOINT_HEADROOM = 2;
+/** Endpoint-approach allowance for a 0.001 lerp step, 16-bit scale. */
+constexpr int LERP_ENDPOINT_TOLERANCE =
+    MEASURED_LERP_ENDPOINT_DELTA * LERP_ENDPOINT_HEADROOM;
+
 inline void test_generative_palette_lerp_mixed_curves_continuous() {
   const GenerativePalette from(PaletteRecipes::balanced_analogous(0.1f));
   PaletteRecipe custom_recipe = PaletteRecipes::balanced_analogous(0.1f);
@@ -654,11 +674,13 @@ inline void test_generative_palette_lerp_mixed_curves_continuous() {
   GenerativePalette morph;
   morph.lerp(from, to, 0.999f);
   morph_lut.rebake(morph);
-  expect_baked_near(morph_lut, to_lut, 2500);
+  std::printf("  [lerp-endpoint] to worst=%d\n",
+              expect_baked_near(morph_lut, to_lut, LERP_ENDPOINT_TOLERANCE));
 
   morph.lerp(from, to, 0.001f);
   morph_lut.rebake(morph);
-  expect_baked_near(morph_lut, from_lut, 2500);
+  std::printf("  [lerp-endpoint] from worst=%d\n",
+              expect_baked_near(morph_lut, from_lut, LERP_ENDPOINT_TOLERANCE));
 }
 
 inline void test_generative_palette_lerp_interpolates_loop_seam() {

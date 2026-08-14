@@ -1076,6 +1076,11 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_EQ(joined.surface_path_length, 0.625f);
 }
 
+/** Unit-length allowance on a lens output. The lenses renormalize through a
+ * fast reciprocal square root, and glitch/twist additionally displace before
+ * it, so the result is unit to a few parts in a thousand rather than to ULP. */
+constexpr float LENS_UNIT_TOL = 4e-3f;
+
 /** @brief Legacy projection and lens slots retain their shipped kernels. */
 inline void test_shaderball_legacy_spatial_slots() {
   using WB = ShaderBallWhiteBox;
@@ -1101,7 +1106,7 @@ inline void test_shaderball_legacy_spatial_slots() {
     for (WB::SurfaceLens lens :
          {WB::SurfaceLens::GLITCH, WB::SurfaceLens::TWIST,
           WB::SurfaceLens::KALEIDOSCOPE})
-      HS_EXPECT_NEAR(WB::apply_lens(v, lens).length(), 1.0f, 4e-3f);
+      HS_EXPECT_NEAR(WB::apply_lens(v, lens).length(), 1.0f, LENS_UNIT_TOL);
   }
 
   reset_effect_globals();
@@ -1311,6 +1316,13 @@ inline void test_shaderball_polyhedral_kaleidoscopes() {
                std::string_view("Kaleidoscope (Octagonal Prism)"));
 }
 
+/** Longitude roundtrip allowance. Equirectangular is deliberately folded and
+ * tapered near the poles, so the recovered longitude carries the taper's
+ * residual; latitude comes straight out of an asin and is far tighter. */
+constexpr float EQUIRECT_LON_TOL = 5e-3f;
+/** Latitude roundtrip allowance: one float asin of a normalized component. */
+constexpr float EQUIRECT_LAT_TOL = 3e-4f;
+
 /** @brief Equirectangular is unfolded, periodic, and cut at the antimeridian. */
 inline void test_shaderball_equirectangular_projection() {
   using WB = ShaderBallWhiteBox;
@@ -1322,8 +1334,8 @@ inline void test_shaderball_equirectangular_projection() {
     for (float latitude : {-1.2f, -0.3f, 0.0f, 0.3f, 1.2f}) {
       const Complex coords = WB::project_point(lon_lat(longitude, latitude),
                                                WB::Projection::EQUIRECTANGULAR);
-      HS_EXPECT_NEAR(coords.re, longitude, 5e-3f);
-      HS_EXPECT_NEAR(coords.im, latitude, 3e-4f);
+      HS_EXPECT_NEAR(coords.re, longitude, EQUIRECT_LON_TOL);
+      HS_EXPECT_NEAR(coords.im, latitude, EQUIRECT_LAT_TOL);
     }
 
   reset_effect_globals();
@@ -3141,6 +3153,20 @@ inline void test_shaderball_projection_catalog() {
   }
 }
 
+/** Worst single-channel gap measured between the LUT mapper and the exact
+ * gamut refinement, 16-bit scale. */
+constexpr uint16_t MEASURED_HUE_LUT_MAX_ERROR = 5529;
+/** Mean per-channel gap measured over the same sweep. */
+constexpr uint64_t MEASURED_HUE_LUT_MEAN_ERROR = 203;
+/** Headroom over the measured single-pixel worst case. */
+constexpr uint16_t HUE_LUT_PEAK_HEADROOM = 2;
+/** Headroom over the measured whole-sweep mean. */
+constexpr uint64_t HUE_LUT_MEAN_HEADROOM = 2;
+constexpr uint16_t HUE_LUT_MAX_CHANNEL_ERROR =
+    MEASURED_HUE_LUT_MAX_ERROR * HUE_LUT_PEAK_HEADROOM;
+constexpr uint64_t HUE_LUT_MEAN_CHANNEL_ERROR =
+    MEASURED_HUE_LUT_MEAN_ERROR * HUE_LUT_MEAN_HEADROOM;
+
 /** @brief The LUT-only hue mapper stays close to the exact gamut refinement. */
 inline void test_shaderball_hue_rotate_lut_gamut() {
   uint16_t max_channel_error = 0;
@@ -3171,8 +3197,10 @@ inline void test_shaderball_hue_rotate_lut_gamut() {
       }
     }
   }
-  HS_EXPECT_LE(max_channel_error, uint16_t(5600));
-  HS_EXPECT_LE(total_error / channels, uint64_t(256));
+  std::printf("  [hue-lut] max=%u mean=%llu\n", max_channel_error,
+              static_cast<unsigned long long>(total_error / channels));
+  HS_EXPECT_LE(max_channel_error, HUE_LUT_MAX_CHANNEL_ERROR);
+  HS_EXPECT_LE(total_error / channels, HUE_LUT_MEAN_CHANNEL_ERROR);
 }
 
 /** @brief The prepared hue field tracks direct palette conversion. */

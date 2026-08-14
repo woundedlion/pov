@@ -1094,6 +1094,12 @@ inline void test_orientation_upsample_then_collapse() {
  * ideal Lissajous internal angles; they must stay at the first cycle's tiny
  * discretization residual.
  */
+/** Internal-angle allowance after 600 cycles, radians. The path is sampled at
+ * 40 frames per cycle, so a phase carries a fixed discretization residual; a
+ * warping delta chain would instead grow this without bound, decades below the
+ * bound long before it. */
+constexpr float MOTION_WARP_TOL = 0.1f;
+
 inline void test_motion_repeating_does_not_drift() {
   using Ori = Orientation<16>;
   constexpr int duration = 40;
@@ -1126,7 +1132,7 @@ inline void test_motion_repeating_does_not_drift() {
   for (int fr = 2; fr < duration; ++fr) {
     const Vector ideal_fr = path.f((float)fr / duration);
     HS_EXPECT_NEAR(angle_between(late_heads[anchor], late_heads[fr]),
-                   angle_between(ideal_anchor, ideal_fr), 0.1f);
+                   angle_between(ideal_anchor, ideal_fr), MOTION_WARP_TOL);
   }
 }
 

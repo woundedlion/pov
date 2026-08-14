@@ -228,6 +228,15 @@ inline void check_pairwise_vertex_cover(const PolyMesh &got,
  *          with exactly corners_per_source of them within tol of each seed
  *          corner — pinning emission order, side counts, and geometry at once.
  */
+/** Corner-match radius at a truncate's T_EPS end, where each seed corner has
+ * split into two cut vertices. Above the widest T_EPS cut on the registry
+ * seeds and far below their closest corner spacing, so a match cannot alias
+ * onto a neighbouring corner. */
+constexpr float PRIMARY_CORNER_TOL_TRUNCATE = 0.08f;
+/** Same radius for the expand/snub/chamfer eps ends, whose single corner per
+ * source moves less. */
+constexpr float PRIMARY_CORNER_TOL_SINGLE = 0.06f;
+
 inline void check_primary_faces_match_seed(const PolyMesh &seed,
                                            const PolyMesh &out,
                                            int corners_per_source, float tol) {
@@ -547,7 +556,7 @@ inline void test_ops_at_t_eps_primary_faces_match_seed() {
       PolyMesh seed = build_morph_seed(s, aux, temp);
       PolyMesh out = MeshOps::truncate(seed, target, temp, T_EPS);
       check_primary_faces_match_seed(seed, out, /*corners_per_source*/ 2,
-                                     /*tol*/ 0.08f);
+                                     PRIMARY_CORNER_TOL_TRUNCATE);
     }
     {
       Arena target(morph_target_buf, sizeof(morph_target_buf));
@@ -556,7 +565,7 @@ inline void test_ops_at_t_eps_primary_faces_match_seed() {
       PolyMesh seed = build_morph_seed(s, aux, temp);
       PolyMesh out = MeshOps::expand(seed, target, temp, T_EPS);
       check_primary_faces_match_seed(seed, out, /*corners_per_source*/ 1,
-                                     /*tol*/ 0.06f);
+                                     PRIMARY_CORNER_TOL_SINGLE);
     }
     {
       Arena target(morph_target_buf, sizeof(morph_target_buf));
@@ -565,7 +574,7 @@ inline void test_ops_at_t_eps_primary_faces_match_seed() {
       PolyMesh seed = build_morph_seed(s, aux, temp);
       PolyMesh out = MeshOps::snub(seed, target, temp, T_EPS, 0.0f);
       check_primary_faces_match_seed(seed, out, /*corners_per_source*/ 1,
-                                     /*tol*/ 0.06f);
+                                     PRIMARY_CORNER_TOL_SINGLE);
     }
   }
 }
@@ -787,8 +796,9 @@ inline void test_edge_endpoints_match_registry() {
       if (e.t_from == 0.0f) {
         PolyMesh got = run_edge_op(e, seed, oa, ob, T_EPS, e.twist_from);
         const int per_corner = e.op == ConwayGraph::MorphOp::TRUNCATE ? 2 : 1;
-        const float tol =
-            e.op == ConwayGraph::MorphOp::TRUNCATE ? 0.08f : 0.06f;
+        const float tol = e.op == ConwayGraph::MorphOp::TRUNCATE
+                              ? PRIMARY_CORNER_TOL_TRUNCATE
+                              : PRIMARY_CORNER_TOL_SINGLE;
         check_primary_faces_match_seed(seed, got, per_corner, tol);
       } else {
         Arena ra(morph_target_buf, HALF);
