@@ -1870,10 +1870,16 @@ private:
     float angle_numerator;
   };
 
+  struct PreparedNoiseLoop {
+    float diagonal;
+    float z;
+  };
+
   union PreparedWarpTransform {
     PreparedAffineFrame affine;
     PreparedMirrorTile mirror;
     PreparedVortex vortex;
+    PreparedNoiseLoop noise_loop;
   };
 
   struct PreparedWarpStage {
@@ -2469,7 +2475,8 @@ private:
         const float amplitude =
             params.strength *
             warp_envelope(projected, spec.envelope, params.edge_width);
-        return warp_vector_noise(input, spec, params, amplitude, *noise, phase);
+        return warp_vector_noise(input, spec, params, amplitude, *noise,
+                                 prepared);
       } else if constexpr (Kind == WarpStageKind::POLAR_CHART) {
         return warp_polar_chart(input, spec, params, phase);
       } else {
@@ -3446,7 +3453,9 @@ private:
                      float stage_phase,
                      const Complex &source_period = Complex()) {
     PreparedWarpStage prepared{};
-    float rotation = params.rotation;
+    float rotation = spec.kind == WarpStageKind::VECTOR_NOISE
+                         ? params.vector_angle
+                         : params.rotation;
     if (spec.kind == WarpStageKind::AFFINE_FRAME) {
       const float phase = TWO_PI_F * wrap_t(stage_phase);
       const float phase_cos = cosf(phase);
@@ -3471,6 +3480,12 @@ private:
           params.center_y + params.center_orbit_radius * sinf(orbit_phase),
           params.radius * params.radius,
           TWO_PI_F * params.turns,
+      };
+    } else if (spec.kind == WarpStageKind::VECTOR_NOISE) {
+      const float angle = TWO_PI_F * wrap_t(stage_phase);
+      prepared.transform.noise_loop = {
+          NOISE_LOOP_RADIUS * sinf(angle) * 0.7071067811865475f,
+          NOISE_LOOP_RADIUS * cosf(angle),
       };
     }
     prepared.rotation_cos = cosf(rotation);
@@ -4291,11 +4306,13 @@ private:
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_vector_noise(const Complex &input, const WarpStageSpec &spec,
                     const WarpStageParams &params, float amplitude,
-                    const FastNoiseLite &noise, float stage_phase) {
+                    const FastNoiseLite &noise,
+                    const PreparedWarpStage &prepared) {
     if (params.strength == 0.0f)
       return {input, Complex(), 0.0f, 0.0f};
-    const Vector q =
-        noise_projected_coordinate(input, params.scale, stage_phase);
+    const PreparedNoiseLoop &loop = prepared.transform.noise_loop;
+    const Vector q(params.scale * input.re + loop.diagonal,
+                   params.scale * input.im + loop.diagonal, loop.z);
     float nx;
     float ny;
     if (spec.basis == NoiseBasis::SIMPLEX) {
@@ -4306,8 +4323,8 @@ private:
       nx = sample_noise_vector_channel(noise, spec.basis, q, 0);
       ny = sample_noise_vector_channel(noise, spec.basis, q, 1);
     }
-    const float c = cosf(params.vector_angle);
-    const float s = sinf(params.vector_angle);
+    const float c = prepared.rotation_cos;
+    const float s = prepared.rotation_sin;
     const Complex delta(amplitude * (c * nx - s * ny),
                         amplitude * (s * nx + c * ny));
     const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
@@ -4396,7 +4413,7 @@ private:
       return warp_vortex(input, prepared);
     case WarpStageKind::VECTOR_NOISE:
       return warp_vector_noise(input, spec, params, amplitude, *stage_noise,
-                               stage_phase);
+                               prepared);
     case WarpStageKind::CURL_FLOW:
       return warp_curl_flow(input, spec, params, amplitude, *stage_noise,
                             stage_phase);
