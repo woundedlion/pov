@@ -2178,7 +2178,7 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### ShaderBall
 
-Typed pullback sphere shader (extends `Effect` directly) with 17 compiled inverse programs covering all 27 authored presets and a simulator-only dynamic backend for experimentation. Every compiled program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes authored stereographic, Bonne, Peirce quincuncial, folded-sinusoidal, and folded-gnomonic looks; topology-aware seam metadata; three generated palette harmonies; sphere-space hue noise; and continuous preset choreography. The simulator uses a compiled wrapper whenever one matches and otherwise routes any structurally valid combination to the dynamic renderer. Teensy remains closed to the compiled roster. Preset changes use parameter morphs within a topology and a through-clear transition between topologies.
+Typed pullback sphere shader (extends `Effect` directly) with 16 compiled inverse programs covering all 17 authored presets and a simulator-only dynamic backend for experimentation. Every compiled program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes authored stereographic, Bonne, Peirce quincuncial, folded-sinusoidal, and folded-gnomonic looks; topology-aware seam metadata; three generated palette harmonies; sphere-space hue noise; and continuous preset choreography. The simulator uses a compiled wrapper whenever one matches and otherwise routes any structurally valid combination to the dynamic renderer. Teensy remains closed to the compiled roster. Preset changes use parameter morphs within a topology and a through-clear transition between topologies.
 
 **Parameters**: the active controls are schema-driven by the selected slots. See the vocabulary and dependency map below.
 
@@ -2188,7 +2188,7 @@ Typed pullback sphere shader (extends `Effect` directly) with 17 compiled invers
 
 Full design record: the [ShaderBall spec](https://github.com/woundedlion/pov/blob/master/docs/specs/shaderball_spec.md) fixes the authored vocabulary, presets, and choreography; the [inverse-sampling pipeline spec](https://github.com/woundedlion/pov/blob/master/docs/specs/inverse_sampling_pipeline_spec.md) specifies the shipping renderer summarized below. The [noise unification brief](https://github.com/woundedlion/pov/blob/master/docs/shaderball_noise_unification.md) and the [red-preset optimization plan](https://github.com/woundedlion/pov/blob/master/docs/shaderball_optimization_plan.md) carry the supporting design and performance record.
 
-The shipping renderer is a closed set of typed programs, not a free-form node graph or a runtime switch renderer. A `TopologyKey` records every discrete choice that changes code, canonicalizing inactive layout, noise, and warp fields. The 17-entry program manifest maps an exact key and continuous precondition to a semantic `InversePipelineId` and a non-null `&InversePipeline<...>::shade` wrapper. Teensy has no fallback. The simulator first consults the same manifest, then resolves a valid unmatched configuration to a separate non-null dynamic shade function.
+The shipping renderer is a closed set of typed programs, not a free-form node graph or a runtime switch renderer. A `TopologyKey` records every discrete choice that changes code, canonicalizing inactive layout, noise, and warp fields. The 16-entry program manifest maps an exact key and continuous precondition to a semantic `InversePipelineId` and a non-null `&InversePipeline<...>::shade` wrapper. Teensy has no fallback. The simulator first consults the same manifest, then resolves a valid unmatched configuration to a separate non-null dynamic shade function.
 
 Frame preparation resolves the backend once, snapshots the selected slots, live parameters, clocks, transforms, prepared lookup data, and borrowed palette/noise resources into an immutable `FrameState`, then validates every resource that backend may dereference. The resulting `PreparedEndpoint` owns the frame snapshot, pipeline ID (`NONE` for dynamic), alpha, and shade pointer. The shared `Scan::Shader` loop calls that pointer unconditionally for every visible sample. Through-clear transitions prepare and consume one endpoint at a time, so compiled and dynamic endpoints can transition without keeping two large frame snapshots live on the stack.
 
@@ -2197,7 +2197,7 @@ The shader is a *pullback*: it starts at a visible sphere point and walks backwa
 ```
 selection — once per frame
 
-  Candidate Config ──> canonical TopologyKey ──> 17-entry program manifest
+  Candidate Config ──> canonical TopologyKey ──> 16-entry program manifest
                        ├─ match ────> compiled shade + semantic ID
                        └─ no match ─> dynamic shade + NONE (simulator only)
                                       └──> PreparedEndpoint
@@ -2225,27 +2225,26 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 
 #### Compiled program roster
 
-Semantic program identities are independent of preset numbering. Presets 1–10 share one topology and therefore one compiled wrapper, as do presets 24–25, which differ only in a continuous surface-noise scale the key does not record; all other rows are one authored topology each.
+Semantic program identities are independent of preset numbering. Presets 13–14 share one topology and therefore one compiled wrapper, differing only in a continuous surface-noise scale the key does not record; all other rows are one authored topology each.
 
 | Preset(s) | Compiled program | Selected stages |
 |---|---|---|
-| 0 | `KALEIDOSCOPE_NOISE_GRID` | Stereographic direct surface noise, kaleidoscope lens, grid, opaque generated color |
-| 1–10 | `GLITCH_NOISE_GRID` | Stereographic direct surface noise, glitch lens, grid, opaque generated color |
-| 11 | `GLITCH_NOISE_GRID_WAVE_SHEAR` | Stereographic glitch lens, outer wave shear, grid, squared-weight generated color |
-| 12 | `KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR` | Stereographic kaleidoscope lens, inner mirror, twin wave, squared-weight generated color |
-| 13 | `GNOMONIC_KALEIDOSCOPE_GRID_MIRROR` | Folded gnomonic, kaleidoscope lens, outer mirror, edge-faded generated color |
-| 14 | `GNOMONIC_GLITCH_GRID_MIRROR` | Folded gnomonic, glitch lens, outer mirror, edge-faded generated color |
-| 15 | `BONNE_KALEIDOSCOPE_LATTICE_MIRROR` | North Bonne, kaleidoscope lens, outer mirror, edge-faded lattice |
-| 16 | `PEIRCE_KALEIDOSCOPE_LATTICE` | Square Peirce, kaleidoscope lens, edge-faded lattice |
-| 17 | `KALEIDOSCOPE_NOISE_GRID_EDGE_FADE` | Stereographic direct surface noise, kaleidoscope lens, edge-faded grid |
-| 18 | `DODECAHEDRAL_NOISE_GRID_MIRROR` | Stereographic direct surface noise, dodecahedral lens, outer mirror, edge-faded grid |
-| 19 | `PEIRCE_DODECAHEDRAL_GRID` | Square Peirce, dodecahedral lens, edge-faded grid |
-| 20 | `DODECAHEDRAL_NOISE_GRID` | Stereographic direct surface noise, dodecahedral lens, opaque grid |
-| 21 | `DODECAHEDRAL_NOISE_LATTICE_MIRROR` | Stereographic direct surface noise, dodecahedral lens, outer mirror, edge-faded lattice |
-| 22 | `GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR` | Folded gnomonic, dodecahedral lens, outer wave shear then inner mirror, squared-weight generated color |
-| 23 | `GNOMONIC_AFFINE_LATTICE_CONTOUR` | Folded gnomonic, outer affine frame, iso-contour value transfer, projection-weight lattice |
-| 24–25 | `SINUSOIDAL_CURL_LATTICE` | Folded sinusoidal curl surface noise, projection-weight lattice |
-| 26 | `STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE` | Stereographic, triangular-prism kaleidoscope lens, outer polar chart then inner wave shear, squared-weight lattice |
+| 0 | `GLITCH_NOISE_GRID_WAVE_SHEAR` | Stereographic glitch lens, outer wave shear, grid, squared-weight generated color |
+| 1 | `KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR` | Stereographic kaleidoscope lens, inner mirror, twin wave, squared-weight generated color |
+| 2 | `GNOMONIC_KALEIDOSCOPE_GRID_MIRROR` | Folded gnomonic, kaleidoscope lens, outer mirror, edge-faded generated color |
+| 3 | `GNOMONIC_GLITCH_GRID_MIRROR` | Folded gnomonic, glitch lens, outer mirror, edge-faded generated color |
+| 4 | `BONNE_KALEIDOSCOPE_LATTICE_MIRROR` | North Bonne, kaleidoscope lens, outer mirror, edge-faded lattice |
+| 5 | `PEIRCE_KALEIDOSCOPE_LATTICE` | Square Peirce, kaleidoscope lens, edge-faded lattice |
+| 6 | `KALEIDOSCOPE_NOISE_GRID_EDGE_FADE` | Stereographic direct surface noise, kaleidoscope lens, edge-faded grid |
+| 7 | `DODECAHEDRAL_NOISE_GRID_MIRROR` | Stereographic direct surface noise, dodecahedral lens, outer mirror, edge-faded grid |
+| 8 | `PEIRCE_DODECAHEDRAL_GRID` | Square Peirce, dodecahedral lens, edge-faded grid |
+| 9 | `DODECAHEDRAL_NOISE_GRID` | Stereographic direct surface noise, dodecahedral lens, opaque grid |
+| 10 | `DODECAHEDRAL_NOISE_LATTICE_MIRROR` | Stereographic direct surface noise, dodecahedral lens, outer mirror, edge-faded lattice |
+| 11 | `GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR` | Folded gnomonic, dodecahedral lens, outer wave shear then inner mirror, squared-weight generated color |
+| 12 | `GNOMONIC_AFFINE_LATTICE_CONTOUR` | Folded gnomonic, outer affine frame, iso-contour value transfer, projection-weight lattice |
+| 13–14 | `SINUSOIDAL_CURL_LATTICE` | Folded sinusoidal curl surface noise, projection-weight lattice |
+| 15 | `STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE` | Stereographic, triangular-prism kaleidoscope lens, outer polar chart then inner wave shear, squared-weight lattice |
+| 16 | `GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR` | Folded gnomonic, dodecahedral lens, outer projected vector noise then inner mirror, squared-weight generated color |
 
 #### Authoring vocabulary
 
@@ -2301,7 +2300,7 @@ Colorize ──────────> Palette + selected hue-shift source
 ```
 
 
-Schema validity still enforces the cross-stage constraints that have a geometric reason. Noise Contour (Sphere) cannot follow a planar warp. Polar Chart must be the only planar warp, requires Grid or Primitive Lattice, and requires `Pattern Freq × Polar Harmonic` to be a whole number. Seam-sensitive projected noise and warp stages cannot cross the cut topology of Bonne, Peirce, or Airocean. Unsafe coordinate bounds and excess noise resources are rejected as well. These incompatible combinations remain pending and report an actionable warning. Manifest availability is separate: the simulator routes valid unmatched combinations dynamically, while Teensy requires one of the 17 compiled descriptors.
+Schema validity still enforces the cross-stage constraints that have a geometric reason. Noise Contour (Sphere) cannot follow a planar warp. Polar Chart must be the only planar warp, requires Grid or Primitive Lattice, and requires `Pattern Freq × Polar Harmonic` to be a whole number. Seam-sensitive projected noise and warp stages cannot cross the cut topology of Bonne, Peirce, or Airocean. Unsafe coordinate bounds and excess noise resources are rejected as well. These incompatible combinations remain pending and report an actionable warning. Manifest availability is separate: the simulator routes valid unmatched combinations dynamically, while Teensy requires one of the 16 compiled descriptors.
 
 Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** gives both sides of a paired cut the same authored fade, so the seam closes flush without a subducted edge. Glued and periodic edges remain continuous and do not fade. **Pole Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
 
