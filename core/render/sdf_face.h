@@ -77,27 +77,27 @@ struct AlignCorr {
 };
 
 /**
- * @brief Correlates a canonical polygon against a centered 2D projection under
- *        a cyclic vertex offset + optional reflection.
+ * @brief Pairs canonical vertices with a centered 2D projection under a cyclic
+ *        vertex offset + optional reflection.
  * @tparam GetZ Accessor invoked as get_z(j, zx, zy), returning the centered
  *         projection vertex j.
- * @param canon_xy Canonical centered polygon, x/y pairs, canonical order.
+ * @tparam Visit Invoked as visit(k, zx, zy) for canonical vertex k and its
+ *         paired projection vertex, already conjugated for the mirror family.
  * @param count Vertex count.
  * @param vert_offset Projection index corresponding to canonical vertex 0.
  * @param reflected Mirror family: conjugate each vertex and walk the
  *        projection indices in reverse (a mirrored face winds the opposite way
  *        in a consistently-wound mesh).
  * @param get_z Centered-projection vertex accessor.
- * @return The correlation sums; the least-squares residual is
- *         cc + zz - 2*|r|, and the optimal rotation is r / |r|.
- * @details Single source for the correspondence convention — bake-time
- * clustering (mesh_classes.h) and the per-frame Face::bind_class_lut both
- * route through it, so the (offset, reflected) encoding cannot drift.
+ * @param visit Per-correspondence sink.
+ * @details Single source for the correspondence convention — the correlation
+ * below, bake-time clustering (mesh_classes.h) and the per-frame
+ * Face::bind_class_lut all route through it, so the (offset, reflected)
+ * encoding cannot drift.
  */
-template <typename GetZ>
-inline AlignCorr align_correlate(const float *canon_xy, int count,
-                                 int vert_offset, bool reflected, GetZ get_z) {
-  AlignCorr a{0.0f, 0.0f, 0.0f, 0.0f};
+template <typename GetZ, typename Visit>
+inline void align_walk(int count, int vert_offset, bool reflected, GetZ get_z,
+                       Visit visit) {
   int j = vert_offset;
   for (int k = 0; k < count; ++k) {
     float zx, zy;
@@ -110,13 +110,36 @@ inline AlignCorr align_correlate(const float *canon_xy, int count,
       if (++j == count)
         j = 0;
     }
-    float cx = canon_xy[2 * k], cy = canon_xy[2 * k + 1];
-    // canon * conj(z)
-    a.rr += cx * zx + cy * zy;
-    a.ri += cy * zx - cx * zy;
-    a.cc += cx * cx + cy * cy;
-    a.zz += zx * zx + zy * zy;
+    visit(k, zx, zy);
   }
+}
+
+/**
+ * @brief Correlates a canonical polygon against a centered 2D projection under
+ *        a cyclic vertex offset + optional reflection.
+ * @tparam GetZ Accessor invoked as get_z(j, zx, zy), returning the centered
+ *         projection vertex j.
+ * @param canon_xy Canonical centered polygon, x/y pairs, canonical order.
+ * @param count Vertex count.
+ * @param vert_offset Projection index corresponding to canonical vertex 0.
+ * @param reflected Mirror family (see align_walk).
+ * @param get_z Centered-projection vertex accessor.
+ * @return The correlation sums; the least-squares residual is
+ *         cc + zz - 2*|r|, and the optimal rotation is r / |r|.
+ */
+template <typename GetZ>
+inline AlignCorr align_correlate(const float *canon_xy, int count,
+                                 int vert_offset, bool reflected, GetZ get_z) {
+  AlignCorr a{0.0f, 0.0f, 0.0f, 0.0f};
+  align_walk(count, vert_offset, reflected, get_z,
+             [&](int k, float zx, float zy) {
+               float cx = canon_xy[2 * k], cy = canon_xy[2 * k + 1];
+               // canon * conj(z)
+               a.rr += cx * zx + cy * zy;
+               a.ri += cy * zx - cx * zy;
+               a.cc += cx * cx + cy * cy;
+               a.zz += zx * zx + zy * zy;
+             });
   return a;
 }
 
@@ -795,26 +818,19 @@ struct Face {
     // distances (faces separating under ripple). Faces bent beyond range keep
     // the exact path.
     float max_dev_sq = 0.0f;
-    {
-      int j = vert_offset;
-      for (int k = 0; k < count; ++k) {
-        float zx = poly_2d[j].x - mx;
-        float zy = poly_2d[j].y - my;
-        if (reflected) {
-          zy = -zy;
-          if (--j < 0)
-            j = count - 1;
-        } else {
-          if (++j == count)
-            j = 0;
-        }
-        float ex = canon_xy[2 * k] - (c * zx - s * zy);
-        float ey = canon_xy[2 * k + 1] - (s * zx + c * zy);
-        float dev_sq = ex * ex + ey * ey;
-        if (dev_sq > max_dev_sq)
-          max_dev_sq = dev_sq;
-      }
-    }
+    align_walk(
+        count, vert_offset, reflected,
+        [&](int j, float &zx, float &zy) {
+          zx = poly_2d[j].x - mx;
+          zy = poly_2d[j].y - my;
+        },
+        [&](int k, float zx, float zy) {
+          float ex = canon_xy[2 * k] - (c * zx - s * zy);
+          float ey = canon_xy[2 * k + 1] - (s * zx + c * zy);
+          float dev_sq = ex * ex + ey * ey;
+          if (dev_sq > max_dev_sq)
+            max_dev_sq = dev_sq;
+        });
     float max_dev = sqrtf(max_dev_sq);
     if (max_dev > ALIGN_MAX_DEV_DIAGS * lut->safe_dist)
       return false;
