@@ -4,6 +4,14 @@
  */
 #pragma once
 
+/**
+ * @file noise_field.h
+ * @brief Sphere-domain noise sampling: field specs and their cache keys, the
+ *        looped sample coordinates, the octave/basis kernels, the scalar,
+ *        direct and curl tangent-field kernels, and the sphere exponential
+ *        map and parallel transport that advect a point along one.
+ */
+
 #include <array>
 
 #include "engine/util.h"
@@ -205,6 +213,13 @@ HS_FLASH_INLINE inline Vector sample_curl_tangent(const FastNoiseLite &noise,
   return u;
 }
 
+/**
+ * @brief Advances a unit point along the great circle its tangent selects.
+ * @param v Unit point on the sphere.
+ * @param tangent Tangent at @p v; its length is the arc travelled in radians.
+ * @return The unit point reached after that arc.
+ * @details Exact at any arc length; costs a length, a sinf and a cosf.
+ */
 inline Vector sphere_exp_map(const Vector &v, const Vector &tangent) {
   const float distance = tangent.length();
   if (distance == 0.0f)
@@ -212,6 +227,16 @@ inline Vector sphere_exp_map(const Vector &v, const Vector &tangent) {
   return cosf(distance) * v + (sinf(distance) / distance) * tangent;
 }
 
+/**
+ * @brief sphere_exp_map for short arcs, with the transcendentals unrolled.
+ * @param v Unit point on the sphere.
+ * @param tangent Tangent at @p v; its length is the arc travelled in radians.
+ * @return The unit point reached after that arc.
+ * @details cos and sin/x carried to their degree-6 Taylor terms, so the arc
+ *   must stay within about half a radian: truncation error is under ~1e-7
+ *   there, and grows as the eighth power of the arc beyond it. Takes the
+ *   squared length, so it needs no sqrt and no branch at a zero tangent.
+ */
 HS_FLASH_INLINE inline Vector
 sphere_exp_map_half_radian(const Vector &v, const Vector &tangent) {
   const float distance_sq = dot(tangent, tangent);
