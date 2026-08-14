@@ -45,8 +45,18 @@ public:
   /**
    * @brief Constructs the driver, initializing the LED strip and hardware-
    * specific optimizations (correction, temperature, brightness).
-   * @details Seeds FastLED's legacy LCG to 1337; modern effects draw from the
-   * separate hs::random() Pcg32(1337) reproduced by the simulator.
+   * @details CONTRACT — construct only from setup(), never as a file-scope
+   *          global. This constructor performs hardware I/O directly: it seeds
+   *          the Arduino RNG and brings up the LED transport (DMA SPI or
+   *          FastLED), all valid only once the Arduino core is initialized.
+   *          dma_led.h deliberately keeps hardware bring-up out of its
+   *          constructor (an explicit begin()) and warns against
+   *          constructor-time I/O; this class diverges on purpose because its
+   *          sole instantiation site is the Holosphere setup(). Do not promote
+   *          this object to a global or construct it before setup().
+   *
+   *          Seeds FastLED's legacy LCG to 1337; modern effects draw from the
+   *          separate hs::random() Pcg32(1337) reproduced by the simulator.
    */
   POVDisplay() {
     randomSeed(
