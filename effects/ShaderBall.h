@@ -3048,10 +3048,8 @@ public:
     FullConfigSnapshot snapshot;
     snapshot.accepted = encode_config_values(accepted_config);
     snapshot.requested = encode_config_values(requested_config);
-#if HS_ENABLE_PARAM_GUI_BRIDGE
     for (size_t index = 0; index < pending_edit_count; ++index)
       snapshot.pending[static_cast<size_t>(pending_edits[index].id)] = 1;
-#endif
     snapshot.has_runtime = true;
     const ClockState &clocks = runtime.clocks;
     snapshot.runtime = {
@@ -3101,13 +3099,8 @@ public:
         return ConfigRestoreResult::INVALID_PENDING;
       next_pending_count += differs;
     }
-#if HS_ENABLE_PARAM_GUI_BRIDGE
     if (next_pending_count > pending_edits.size())
       return ConfigRestoreResult::INVALID_PENDING;
-#else
-    if (next_pending_count != 0)
-      return ConfigRestoreResult::INVALID_PENDING;
-#endif
 
     if (snapshot.has_runtime)
       for (float value : snapshot.runtime)
@@ -3124,7 +3117,6 @@ public:
     active_slots = next_accepted.slots;
     active_pipeline = resolve_pipeline_id(next_accepted);
     blend.params = next_accepted.params;
-#if HS_ENABLE_PARAM_GUI_BRIDGE
     pending_edit_count = 0;
     for (size_t index = 0; index < CONFIG_FIELD_COUNT; ++index) {
       if (migrated_accepted[index] == migrated_requested[index])
@@ -3135,7 +3127,6 @@ public:
                                              layout.size};
     }
     display_config = next_requested;
-#endif
     if (snapshot.has_runtime) {
       ClockState &clocks = runtime.clocks;
       clocks.source_primary = next_runtime[0];
