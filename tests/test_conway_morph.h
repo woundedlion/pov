@@ -1866,13 +1866,17 @@ inline void test_hankin_sweep_vertex_stability() {
                 THETA_EPS, eps_chord, eps_chord * 64.0f);
 
     // The slerp path's k = 0 form is the exact collapse, where every rosette
-    // face has zero area; a K_EPS floor is its THETA_EPS analog. Report the
-    // smallest k that lifts every face above HANKIN_FLAT_FACE.
+    // face has zero area; a K_EPS floor is its THETA_EPS analog. The smallest
+    // k that lifts every face above HANKIN_FLAT_FACE is the first probe on
+    // every site, so a leg that opened its first drawn frame on a sub-area
+    // face would need a k_eps above one step.
+    constexpr int K_STEPS = 200;
+    constexpr float K_EPS_BUDGET = 1.0f / K_STEPS;
     float k_eps = 1.0f;
     std::vector<HankinSolve> probe(arrival.size());
     std::vector<Vector> probe_normals;
-    for (int q = 1; q <= 200; ++q) {
-      const float k = static_cast<float>(q) / 200.0f;
+    for (int q = 1; q <= K_STEPS; ++q) {
+      const float k = static_cast<float>(q) / K_STEPS;
       for (size_t i = 0; i < arrival.size(); ++i)
         probe[i] = {slerp(collapsed[i].pos, arrival[i].pos, k),
                     arrival[i].branch, 0.0f};
@@ -1887,6 +1891,7 @@ inline void test_hankin_sweep_vertex_stability() {
     }
     std::printf("      slerp k_eps (first k with no sub-area face) = %.3f\n",
                 k_eps);
+    HS_EXPECT_LE(k_eps, K_EPS_BUDGET);
   }
 }
 
