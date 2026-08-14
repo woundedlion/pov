@@ -1552,8 +1552,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       if (!xc.active) {
         push(x1, x2);
       } else if (xc.wrap) {
-        push(std::max(x1, xc.rs), x2);
         push(x1, std::min(x2, xc.re));
+        push(std::max(x1, xc.rs), x2);
       } else {
         push(std::max(x1, xc.rs), std::min(x2, xc.re));
       }
