@@ -545,9 +545,36 @@ inline void test_registry_names_unique_and_roundtrip() {
 // ---------------------------------------------------------------------------
 
 /**
+ * @brief Asserts two meshes are bitwise identical: same counts and same bytes
+ *        for vertices, face_counts, and faces.
+ * @param m1,m2 Meshes to compare.
+ */
+inline void check_bitwise_equal_meshes(const PolyMesh &m1, const PolyMesh &m2) {
+  HS_EXPECT_EQ(m1.vertices.size(), m2.vertices.size());
+  HS_EXPECT_EQ(m1.face_counts.size(), m2.face_counts.size());
+  HS_EXPECT_EQ(m1.faces.size(), m2.faces.size());
+  if (m1.vertices.size() != m2.vertices.size() ||
+      m1.face_counts.size() != m2.face_counts.size() ||
+      m1.faces.size() != m2.faces.size())
+    return;
+  HS_EXPECT_EQ(std::memcmp(m1.vertices.data(), m2.vertices.data(),
+                           m1.vertices.size() * sizeof(Vector)),
+               0);
+  HS_EXPECT_EQ(std::memcmp(m1.face_counts.data(), m2.face_counts.data(),
+                           m1.face_counts.size() * sizeof(uint8_t)),
+               0);
+  HS_EXPECT_EQ(std::memcmp(m1.faces.data(), m2.faces.data(),
+                           m1.faces.size() * sizeof(uint16_t)),
+               0);
+}
+
+/**
  * @brief Builds the entry at `index` twice into separate arenas and asserts the
- *        two meshes match in counts, vertex positions (1e-6), and face indices.
+ *        two meshes are bitwise identical.
  * @param index Registry entry index to build twice.
+ * @details A generator is deterministic or it is not: the same input through
+ * the same code path twice must reproduce every float bit. A near-equality
+ * window would admit a generator whose output drifts below the tolerance.
  */
 inline void check_determinism_for_index(size_t index) {
   Arena geom1(solids_geom_a, sizeof(solids_geom_a));
@@ -556,17 +583,7 @@ inline void check_determinism_for_index(size_t index) {
   Arena geom2(solids_geom_b, sizeof(solids_geom_b));
   PolyMesh m2 = build_index(index, geom2);
 
-  HS_EXPECT_EQ(m1.vertices.size(), m2.vertices.size());
-  HS_EXPECT_EQ(m1.face_counts.size(), m2.face_counts.size());
-  HS_EXPECT_EQ(m1.faces.size(), m2.faces.size());
-
-  for (size_t i = 0; i < m1.vertices.size(); ++i) {
-    HS_EXPECT_NEAR(m1.vertices[i].x, m2.vertices[i].x, 1e-6f);
-    HS_EXPECT_NEAR(m1.vertices[i].y, m2.vertices[i].y, 1e-6f);
-    HS_EXPECT_NEAR(m1.vertices[i].z, m2.vertices[i].z, 1e-6f);
-  }
-  for (size_t i = 0; i < m1.faces.size(); ++i)
-    HS_EXPECT_EQ(m1.faces[i], m2.faces[i]);
+  check_bitwise_equal_meshes(m1, m2);
 }
 
 /**
@@ -943,30 +960,6 @@ inline void test_hankin_solids_fit_hankinsolids_persistent_budget() {
 
 /** Lowered-step buffer capacity (deepest chain is 6 steps, meta emits 3). */
 constexpr size_t MAX_LOWERED_STEPS = 32;
-
-/**
- * @brief Asserts two meshes are bitwise identical: same counts and same bytes
- *        for vertices, face_counts, and faces.
- * @param m1,m2 Meshes to compare.
- */
-inline void check_bitwise_equal_meshes(const PolyMesh &m1, const PolyMesh &m2) {
-  HS_EXPECT_EQ(m1.vertices.size(), m2.vertices.size());
-  HS_EXPECT_EQ(m1.face_counts.size(), m2.face_counts.size());
-  HS_EXPECT_EQ(m1.faces.size(), m2.faces.size());
-  if (m1.vertices.size() != m2.vertices.size() ||
-      m1.face_counts.size() != m2.face_counts.size() ||
-      m1.faces.size() != m2.faces.size())
-    return;
-  HS_EXPECT_EQ(std::memcmp(m1.vertices.data(), m2.vertices.data(),
-                           m1.vertices.size() * sizeof(Vector)),
-               0);
-  HS_EXPECT_EQ(std::memcmp(m1.face_counts.data(), m2.face_counts.data(),
-                           m1.face_counts.size() * sizeof(uint8_t)),
-               0);
-  HS_EXPECT_EQ(std::memcmp(m1.faces.data(), m2.faces.data(),
-                           m1.faces.size() * sizeof(uint16_t)),
-               0);
-}
 
 /**
  * @brief Verifies build_recipe replays every non-null recipe bitwise-identical

@@ -149,7 +149,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("spherical_field", 13,                                                     \
     hs_test::spherical_field_tests::run_spherical_field_tests, 9391)           \
   X("mesh", 27, hs_test::mesh_tests::run_mesh_tests, 69923)                    \
-  X("solids", 34, hs_test::solids_tests::run_solids_tests, 226091)             \
+  X("solids", 34, hs_test::solids_tests::run_solids_tests, 95084)              \
   X("reaction_graph", 14,                                                      \
     hs_test::reaction_graph_tests::run_reaction_graph_tests, 40)               \
   X("color", 68, hs_test::color_tests::run_color_tests, 408950)                \
