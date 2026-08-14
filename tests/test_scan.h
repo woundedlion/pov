@@ -999,12 +999,13 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
  * shape that reports FAR_SENTINEL past a zero-margin reject band bounds
  * nothing, so an ungated block test drops whole runs of opaque columns here.
  * Drives the stroke path (Scan::Ring, whose bounding annulus is the stroke band
- * itself) and both face rasterizers across rows whose stride exceeds 1.
+ * itself), both face rasterizers, and the folded-sector solids down both the
+ * shaded and the constant-color scan, across rows whose stride exceeds 1.
  */
 inline void test_pole_lod_shading_matches_undecimated() {
   constexpr int W = 96, H = 64;
   constexpr int HV = H + hs::H_OFFSET;
-  const float saved_lod = pole_lod_aggressiveness;
+  const ScopedPoleLod scoped_lod(0.0f);
   const Color4 color(Pixel(60000, 45000, 30000), 1.0f);
 
   auto readback = [](hs_test::StubEffect &fx) {
@@ -1081,6 +1082,26 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return readback(fx);
   };
 
+  auto draw_folded = [&](auto tag, float lod, const Vector &axis, float radius,
+                         int sides, bool typed) {
+    using ShapeT = typename decltype(tag)::type;
+    pole_lod_aggressiveness = lod;
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas c(fx);
+      Basis basis = make_basis(Quaternion(), axis);
+      if (typed)
+        ShapeT::template draw_solid<W, H>(pipe, c, basis, radius, sides, color);
+      else
+        ShapeT::template draw<W, H, false>(
+            pipe, c, basis, radius, sides,
+            [&](const Vector &, Fragment &f) { f.color = color; });
+    }
+    fx.advance_display();
+    return readback(fx);
+  };
+
   // The rows the draws reach must actually be decimated, or the comparison is
   // vacuous.
   pole_lod_aggressiveness = 1.0f;
@@ -1109,7 +1130,33 @@ inline void test_pole_lod_shading_matches_undecimated() {
               draw_face(1.0f, fc.tilt, fc.rho, 3, fc.phase, fused));
     }
 
-  pole_lod_aggressiveness = saved_lod;
+  // Cap axis tilted off the canvas pole at a near-hemispherical radius, so the
+  // rim -- where the fold's polar/sin(polar) term peaks -- crosses the
+  // decimated rows.
+  const Vector rim_axis = Vector(1.0f, 0.5f, 0.0f).normalized();
+  // Flower's petals meet at the antipode of basis.v, so that axis sits by the
+  // canvas pole: across it the sign alternates over a vanishing arc, which no
+  // finite slack bounds.
+  const Vector fold_axis = Vector(0.10f, -1.0f, 0.0f).normalized();
+  // 4.0 is inside the live WASM range and lengthens every run, so a slack that
+  // undercuts the shape's own stretch mis-shades a fringe column there.
+  for (float lod : {1.0f, 4.0f})
+    for (bool typed : {false, true}) {
+      HS_CONTEXT("folded", static_cast<int>(lod), typed);
+      compare(draw_folded(std::type_identity<Scan::PlanarPolygon>{}, 0.0f,
+                          rim_axis, 0.99f, 3, typed),
+              draw_folded(std::type_identity<Scan::PlanarPolygon>{}, lod,
+                          rim_axis, 0.99f, 3, typed));
+      compare(draw_folded(std::type_identity<Scan::Star>{}, 0.0f, rim_axis,
+                          0.99f, 4, typed),
+              draw_folded(std::type_identity<Scan::Star>{}, lod, rim_axis,
+                          0.99f, 4, typed));
+      for (int petals : {3, 6})
+        compare(draw_folded(std::type_identity<Scan::Flower>{}, 0.0f, fold_axis,
+                            0.6f, petals, typed),
+                draw_folded(std::type_identity<Scan::Flower>{}, lod, fold_axis,
+                            0.6f, petals, typed));
+    }
 }
 
 /**
