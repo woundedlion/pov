@@ -934,7 +934,6 @@ inline void test_shaderball_pipeline_contract() {
   const WB::PlanarWarpResult warped = WB::warp(projected, frame);
   HS_EXPECT_EQ(warped.coords.re, projected.coords.re);
   HS_EXPECT_EQ(warped.coords.im, projected.coords.im);
-  HS_EXPECT_EQ(warped.deformation, 0.0f);
 
   frame.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   frame.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
@@ -946,7 +945,6 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_EQ(material.warp_displacement,
                projected.surface_path_length + warped.path_length);
   WB::PlanarWarpResult accumulated = warped;
-  accumulated.deformation = 0.0f;
   accumulated.path_length = 0.75f;
   HS_EXPECT_EQ(WB::shape(0.0f, projected, accumulated, frame).warp_displacement,
                0.75f);
@@ -3113,7 +3111,6 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   HS_EXPECT_EQ(pipeline_warp.coords.im, reference_warp.coords.im);
   HS_EXPECT_EQ(pipeline_warp.net_delta.re, reference_warp.net_delta.re);
   HS_EXPECT_EQ(pipeline_warp.net_delta.im, reference_warp.net_delta.im);
-  HS_EXPECT_EQ(pipeline_warp.deformation, reference_warp.deformation);
   HS_EXPECT_EQ(pipeline_warp.path_length, reference_warp.path_length);
 }
 
