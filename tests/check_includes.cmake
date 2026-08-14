@@ -22,7 +22,20 @@ cmake_minimum_required(VERSION 3.29)
 file(READ "${SRC}" _text)
 
 string(REGEX MATCHALL "#include \"tests/test_[A-Za-z0-9_]+\\.h(pp)?\"" _includes "${_text}")
-string(REGEX MATCHALL "X\\(\"[A-Za-z0-9_]+\"" _rows "${_text}")
+
+# Count roster rows inside the HS_TEST_MODULE_LIST block only, the span
+# check_case_calls.cmake extracts: an X(" written anywhere else in the file
+# would otherwise pad the count and mask the orphaned include this gate exists
+# to catch.
+string(FIND "${_text}" "#define HS_TEST_MODULE_LIST(X)" _begin)
+string(FIND "${_text}" "#define HS_TEST_MODULE_ENTRY" _end)
+if(_begin LESS 0 OR _end LESS _begin)
+  message(FATAL_ERROR
+    "cannot find the HS_TEST_MODULE_LIST block in ${SRC}")
+endif()
+math(EXPR _span "${_end} - ${_begin}")
+string(SUBSTRING "${_text}" ${_begin} ${_span} _roster)
+string(REGEX MATCHALL "X\\(\"[A-Za-z0-9_]+\"" _rows "${_roster}")
 
 list(LENGTH _includes _ninc)
 list(LENGTH _rows _nrow)
