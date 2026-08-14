@@ -1257,6 +1257,56 @@ class TestStripJsoncComments(unittest.TestCase):
         self.assertEqual(cfg, {"x": 1, "s": "10 // 2"})
 
 
+class TestToolingFailureExits(unittest.TestCase):
+    """A tooling break exits 2 (cannot-run), never 1 (budget violation).
+
+    An uncaught exception exits 1, which every status-reading caller reads as a
+    size regression — the misattribution the gate's exit contract exists to
+    prevent.
+    """
+
+    def _run(self, **over):
+        argv = {"--budgets": str(TOOLS / "teensy_budgets.json"),
+                "--teensy-size": str(FIX / "good_teensy_size.txt"),
+                "--readelf-syms": str(FIX / "good_readelf_syms.txt")}
+        argv.update(over)
+        err, out = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+            rc = tg.main(["--env", "holosphere"]
+                         + [a for pair in argv.items() for a in pair
+                            if pair[1] is not None])
+        return rc, err.getvalue() + out.getvalue()
+
+    def test_malformed_budgets_json_is_cannot_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "budgets.json"
+            path.write_text('{ "holosphere": { ', encoding="utf-8")
+            rc, text = self._run(**{"--budgets": str(path)})
+        self.assertEqual(rc, 2, msg=text)
+
+    def test_unterminated_jsonc_comment_is_cannot_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "budgets.json"
+            path.write_text('{ /* never closed\n"a": 1}', encoding="utf-8")
+            rc, text = self._run(**{"--budgets": str(path)})
+        self.assertEqual(rc, 2, msg=text)
+
+    def test_missing_budgets_file_is_cannot_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rc, text = self._run(**{"--budgets": str(Path(tmp) / "no.json")})
+        self.assertEqual(rc, 2, msg=text)
+
+    def test_missing_capture_file_is_cannot_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gone = str(Path(tmp) / "gone.txt")
+            for flag in ("--teensy-size", "--readelf-syms"):
+                with self.subTest(flag=flag):
+                    rc, text = self._run(**{flag: gone})
+                    self.assertEqual(rc, 2, msg=text)
+            rc, text = self._run(**{"--size-a": gone, "--teensy-size": None})
+        self.assertEqual(rc, 2, msg=text)
+
+
 class TestGateExtra(unittest.TestCase):
     """The PlatformIO post-build glue: toolchain discovery + exit(2) guards."""
 

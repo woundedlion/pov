@@ -695,25 +695,37 @@ def main(argv: list[str] | None = None) -> int:
               f"({exc}). This is a budgets-file error, not a size-budget "
               f"violation.", file=sys.stderr)
         return 2
+    except (OSError, ValueError) as exc:
+        # Unreadable file, malformed JSON, unterminated JSONC comment: the gate
+        # never evaluated a budget, so its verdict is cannot-run, not FAIL.
+        print(f"::error::teensy-gate: cannot load budgets from {args.budgets} "
+              f"({exc}). This is a budgets-file error, not a size-budget "
+              f"violation.", file=sys.stderr)
+        return 2
     if args.env not in budgets:
         print(f"::error::no budget for env '{args.env}' in {args.budgets}",
               file=sys.stderr)
         return 2
 
     used_size_a_fallback = False
-    if args.teensy_size:
-        sizes = parse_teensy_size(read_capture(args.teensy_size))
-    elif args.size_a:
-        used_size_a_fallback = True
-        try:
+    try:
+        if args.teensy_size:
+            sizes = parse_teensy_size(read_capture(args.teensy_size))
+        elif args.size_a:
+            used_size_a_fallback = True
             sizes = fallback_sizes_from_size_a(read_capture(args.size_a))
-        except SizeAFormatError as exc:
-            print(f"::error::teensy-gate: invalid `size -A` output ({exc}). "
-                  f"This is a tooling/format error, not a size-budget "
-                  f"violation.")
-            return 2
-    else:
-        p.error("one of --teensy-size or --size-a is required")
+        else:
+            p.error("one of --teensy-size or --size-a is required")
+    except SizeAFormatError as exc:
+        print(f"::error::teensy-gate: invalid `size -A` output ({exc}). "
+              f"This is a tooling/format error, not a size-budget "
+              f"violation.")
+        return 2
+    except OSError as exc:
+        print(f"::error::teensy-gate: cannot read the captured size output "
+              f"({exc}). This is a tooling error, not a size-budget violation.",
+              file=sys.stderr)
+        return 2
 
     if used_size_a_fallback and declares_components(budgets[args.env]):
         print(f"::error::teensy-gate: env '{args.env}' declares per-component "
@@ -722,9 +734,15 @@ def main(argv: list[str] | None = None) -> int:
               f"size-budget violation — re-run with --teensy-size.")
         return 2
 
-    symbols = parse_readelf_symbols(read_capture(args.readelf_syms))
-    sections = (parse_readelf_sections(read_capture(args.readelf_secs))
-                if args.readelf_secs else {})
+    try:
+        symbols = parse_readelf_symbols(read_capture(args.readelf_syms))
+        sections = (parse_readelf_sections(read_capture(args.readelf_secs))
+                    if args.readelf_secs else {})
+    except OSError as exc:
+        print(f"::error::teensy-gate: cannot read the captured readelf output "
+              f"({exc}). This is a tooling error, not a size-budget violation.",
+              file=sys.stderr)
+        return 2
 
     result = evaluate(args.env, budgets[args.env], sizes, symbols, sections)
     if used_size_a_fallback:
