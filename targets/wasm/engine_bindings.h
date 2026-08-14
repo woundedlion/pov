@@ -930,10 +930,16 @@ public:
         result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
         return;
       }
-      if (!decode_uint32_array(input["accepted"], snapshot.accepted) ||
-          !decode_uint32_array(input["requested"], snapshot.requested) ||
-          !decode_runtime(input["runtime"], snapshot.runtime)) {
-        result = FullConfigRestoreResult::INVALID_LENGTH;
+      ArrayDecode decoded =
+          decode_uint32_array(input["accepted"], snapshot.accepted);
+      if (decoded == ArrayDecode::OK)
+        decoded = decode_uint32_array(input["requested"], snapshot.requested);
+      if (decoded == ArrayDecode::OK)
+        decoded = decode_runtime(input["runtime"], snapshot.runtime);
+      if (decoded != ArrayDecode::OK) {
+        result = decoded == ArrayDecode::BAD_LENGTH
+                     ? FullConfigRestoreResult::INVALID_LENGTH
+                     : FullConfigRestoreResult::INVALID_VALUE;
         return;
       }
       const val has_runtime = input["hasRuntime"];
@@ -1069,6 +1075,13 @@ private:
     return invoked;
   }
 
+  /** @brief Why a snapshot array failed to decode. */
+  enum class ArrayDecode : uint8_t {
+    OK,
+    BAD_LENGTH, /**< Not an array, or not the field count long. */
+    BAD_VALUE,  /**< An element outside what its slot admits. */
+  };
+
   static bool is_array(const val &value) {
     return val::global("Array").call<bool>("isArray", value);
   }
@@ -1096,35 +1109,36 @@ private:
   }
 
   template <size_t N>
-  static bool decode_uint32_array(const val &input,
-                                  std::array<uint32_t, N> &output) {
+  static ArrayDecode decode_uint32_array(const val &input,
+                                         std::array<uint32_t, N> &output) {
     if (!is_array(input) || input["length"].as<size_t>() != N)
-      return false;
+      return ArrayDecode::BAD_LENGTH;
     for (size_t index = 0; index < N; ++index) {
       const val element = input[index];
       if (!element.isNumber())
-        return false;
+        return ArrayDecode::BAD_VALUE;
       const double number = element.as<double>();
       if (!whole_uint32(number))
-        return false;
+        return ArrayDecode::BAD_VALUE;
       output[index] = static_cast<uint32_t>(number);
     }
-    return true;
+    return ArrayDecode::OK;
   }
 
   template <size_t N>
-  static bool decode_runtime(const val &input, std::array<float, N> &output) {
+  static ArrayDecode decode_runtime(const val &input,
+                                    std::array<float, N> &output) {
     if (!is_array(input) || input["length"].as<size_t>() != N)
-      return false;
+      return ArrayDecode::BAD_LENGTH;
     for (size_t index = 0; index < N; ++index) {
       const val element = input[index];
       if (!element.isNumber())
-        return false;
+        return ArrayDecode::BAD_VALUE;
       output[index] = element.as<float>();
       if (!std::isfinite(output[index]))
-        return false;
+        return ArrayDecode::BAD_VALUE;
     }
-    return true;
+    return ArrayDecode::OK;
   }
 
   template <typename SB>
