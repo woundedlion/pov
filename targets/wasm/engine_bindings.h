@@ -378,6 +378,8 @@ public:
    * @param x1 Exclusive right column, with x0 <= x1 <= pixel_width.
    * @param y0 Inclusive top row of the clip band in [0, pixel_height].
    * @param y1 Exclusive bottom row of the clip band, with y0 <= y1 <= pixel_height.
+   *           All four must be integral; a fractional or NaN number is
+   *           INVALID_BOUNDS.
    * @return APPLIED if the band was installed, FULL_FRAME_KEPT if the bounds
    *         were accepted but the effect reports Effect::needs_full_frame() and
    *         so keeps the full-canvas clip, otherwise the rejection reason:
@@ -392,19 +394,22 @@ public:
    *          positionally, so a y-first order would let a transposed JS call pass
    *          the range check and silently clip the wrong axis. Rejects malformed
    *          input at the untyped JS boundary rather than trapping, since a trap
-   *          there aborts the whole WASM module. Segment workers always pass
+   *          there aborts the whole WASM module. Bounds arrive as doubles: an
+   *          i32 embind parameter coerces NaN and out-of-range JS numbers to 0
+   *          with no range check in a release build, installing an empty band
+   *          under an APPLIED result. Segment workers always pass
    *          valid, ordered, in-range bounds. A cross-segment stateful effect
    *          (Effect::needs_full_frame()) keeps the full-canvas clip instead of
    *          narrowing to the band — see docs/segmented_stateful_effects_spec.md.
    */
-  ClipSetResult setClip(int x0, int x1, int y0, int y1) {
+  ClipSetResult setClip(double x0, double x1, double y0, double y1) {
     if (!current_effect)
       return ClipSetResult::NO_EFFECT;
     // Reject malformed bounds from the untyped JS boundary (negatives would feed
     // ClipRegion's modulo arithmetic); reject-and-return, never trap.
     if (!hs_wasm::clip_bounds_valid(x0, x1, y0, y1, pixel_width,
                                     pixel_height)) {
-      hs::log("WASM: setClip bounds out of range (x0=%d,x1=%d,y0=%d,y1=%d) — "
+      hs::log("WASM: setClip bounds out of range (x0=%g,x1=%g,y0=%g,y1=%g) — "
               "ignored",
               x0, x1, y0, y1);
       return ClipSetResult::INVALID_BOUNDS;
@@ -414,7 +419,8 @@ public:
     // keep the full clip. See docs/segmented_stateful_effects_spec.md.
     if (current_effect->needs_full_frame())
       return ClipSetResult::FULL_FRAME_KEPT;
-    current_effect->set_clip(y0, y1, x0, x1);
+    current_effect->set_clip(static_cast<int>(y0), static_cast<int>(y1),
+                             static_cast<int>(x0), static_cast<int>(x1));
     return ClipSetResult::APPLIED;
   }
 

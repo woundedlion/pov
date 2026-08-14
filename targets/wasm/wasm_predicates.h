@@ -44,16 +44,25 @@ inline float clamp_pole_lod_aggressiveness(float aggressiveness) {
  * @param y1 Exclusive bottom row.
  * @param width Canvas width; x1 must not exceed it.
  * @param height Canvas height; y1 must not exceed it.
- * @return true iff the band is non-negative, ordered, and within the canvas.
+ * @return true iff every bound is integral and the band is non-negative,
+ *         ordered, and within the canvas.
  * @details Negatives would feed ClipRegion's modulo arithmetic; a transposed
  *          (y-first) JS call must fail the range check rather than clip the
  *          wrong axis. Rejecting here keeps the untyped boundary from trapping
- *          the whole WASM module.
+ *          the whole WASM module. The bounds are taken as doubles because an
+ *          i32 embind parameter coerces without a range check in a release
+ *          build: NaN and 2^31 both arrive as 0, which passes every ordering
+ *          test as an empty band — a black render reported as a success.
  */
-inline bool clip_bounds_valid(int x0, int x1, int y0, int y1, int width,
-                              int height) {
-  return x0 >= 0 && y0 >= 0 && x0 <= x1 && x1 <= width && y0 <= y1 &&
-         y1 <= height;
+inline bool clip_bounds_valid(double x0, double x1, double y0, double y1,
+                              int width, int height) {
+  const double bounds[4] = {x0, x1, y0, y1};
+  for (const double bound : bounds) {
+    // NaN fails the ordered comparison, so it needs no separate test.
+    if (!(bound >= 0.0) || bound != std::floor(bound))
+      return false;
+  }
+  return x0 <= x1 && x1 <= width && y0 <= y1 && y1 <= height;
 }
 
 /**
