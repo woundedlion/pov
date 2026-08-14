@@ -73,7 +73,7 @@ struct Ring {
          thickness < RING_LINEARIZE_TAN_FRAC * std::abs(tanf(target_angle)));
     inv_sin_target = safe_approx ? (1.0f / sinf(target_angle)) : 0.0f;
 
-    r_val = ap.R_val;
+    r_val = ap.r_val;
     alpha_angle = ap.alpha_angle;
   }
 
@@ -269,7 +269,7 @@ struct DistortedRing {
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     max_thickness = thickness + max_distortion;
 
-    r_val = ap.R_val;
+    r_val = ap.r_val;
     alpha_angle = ap.alpha_angle;
 
     float ang_min = std::max(0.0f, target_angle - max_thickness);

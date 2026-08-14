@@ -36,7 +36,7 @@ struct PlanarPolygon {
   float sector;       /**< Angular width of one polygon sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float apothem;           /**< Precomputed inradius (radians). */
-  float ny, R_val,
+  float ny, r_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
   float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
@@ -66,7 +66,7 @@ struct PlanarPolygon {
 
     CapBounds cb = cap_bounds(basis.v, circumradius, invert);
     ny = cb.ny;
-    R_val = cb.R_val;
+    r_val = cb.r_val;
     alpha_angle = cb.alpha_angle;
     phi_min = cb.phi_min;
     phi_max = cb.phi_max;
@@ -104,7 +104,7 @@ struct PlanarPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, R_val,
+    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, r_val,
                                      alpha_angle, y, out);
   }
 
@@ -158,7 +158,7 @@ struct SphericalPolygon {
   float edge_nv;      /**< Edge normal dotted with the center axis. */
   float edge_nu;      /**< Edge normal dotted with the u-axis. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
-  float ny, R_val,
+  float ny, r_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
   float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
   float sign;             /**< +1 fills the polygon, -1 its complement. */
@@ -216,7 +216,7 @@ struct SphericalPolygon {
 
     CapBounds cb = cap_bounds(basis.v, circumradius, invert);
     ny = cb.ny;
-    R_val = cb.R_val;
+    r_val = cb.r_val;
     alpha_angle = cb.alpha_angle;
     phi_min = cb.phi_min;
     phi_max = cb.phi_max;
@@ -254,7 +254,7 @@ struct SphericalPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, R_val,
+    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, r_val,
                                      alpha_angle, y, out);
   }
 
@@ -328,12 +328,12 @@ struct Star {
   static constexpr bool is_solid =
       true; /**< Star renders as a filled region. */
 
-  float nx, ny,
+  float edge_nx, edge_ny,
       plane_d;        /**< 2D edge plane (normal and offset) for one point. */
   float circumradius; /**< Angular radius from center to point tip (radians). */
 
-  float scan_ny, scan_r,
-      scan_alpha; /**< Axis y-component, XZ projection length and azimuth. */
+  float ny, r_val,
+      alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
   float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the star, -1 its complement. */
@@ -365,15 +365,15 @@ struct Star {
     float dx = v_vx - v_t;
     float dy = v_vy;
     float len = sqrtf(dx * dx + dy * dy);
-    nx = -dy / len;
-    ny = dx / len;
-    plane_d = -(nx * v_t);
+    edge_nx = -dy / len;
+    edge_ny = dx / len;
+    plane_d = -(edge_nx * v_t);
     circumradius = outer_radius;
 
     CapBounds cb = cap_bounds(basis.v, outer_radius, invert);
-    scan_ny = cb.ny;
-    scan_r = cb.R_val;
-    scan_alpha = cb.alpha_angle;
+    ny = cb.ny;
+    r_val = cb.r_val;
+    alpha_angle = cb.alpha_angle;
     phi_min = cb.phi_min;
     phi_max = cb.phi_max;
     cos_cap = cb.cos_radius;
@@ -410,8 +410,8 @@ struct Star {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, scan_ny, scan_r,
-                                     scan_alpha, y, out);
+    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, r_val,
+                                     alpha_angle, y, out);
   }
 
   /**
@@ -424,8 +424,8 @@ struct Star {
    *        raw_dist = polar distance from center, t = normalized azimuth when
    *        ComputeUVs (0 otherwise).
    * @note Folding a sector onto one edge half-plane gives a radial gradient of
-   *       |nx| at a tip (0.309 at 5 points, 0.220 at 8), which reads a fringe
-   *       several pixels past the tip. The circumscribed-disc distance
+   *       |edge_nx| at a tip (0.309 at 5 points, 0.220 at 8), which reads a
+   *       fringe several pixels past the tip. The circumscribed-disc distance
    *       `scan_dist - circumradius` is the tighter bound out there; both are
    *       lower bounds of the true distance, so the max of the two is too.
    */
@@ -441,8 +441,8 @@ struct Star {
     float px = scan_dist * fast_cosf(local_azimuth);
     float py = scan_dist * fast_sinf(local_azimuth);
 
-    float dist_edge =
-        std::max(-(px * nx + py * ny + plane_d), scan_dist - circumradius);
+    float dist_edge = std::max(-(px * edge_nx + py * edge_ny + plane_d),
+                               scan_dist - circumradius);
 
     float t = 0.0f;
     if constexpr (ComputeUVs)
@@ -466,8 +466,8 @@ struct Flower {
                          (radians). */
   float apothem;           /**< Petal inradius offset (PI - outer radius). */
   Vector antipode;         /**< Antipode of the flower axis (scan origin). */
-  float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection
-                                        length and azimuth. */
+  float ny, r_val, alpha_angle; /**< Antipode y-component, XZ projection length
+                                     and azimuth. */
   float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the flower, -1 its complement. */
@@ -496,9 +496,9 @@ struct Flower {
     antipode = -basis.v;
 
     CapBounds cb = cap_bounds(antipode, circumradius, invert);
-    scan_ny = cb.ny;
-    scan_R = cb.R_val;
-    scan_alpha = cb.alpha_angle;
+    ny = cb.ny;
+    r_val = cb.r_val;
+    alpha_angle = cb.alpha_angle;
     phi_min = cb.phi_min;
     phi_max = cb.phi_max;
     cos_cap = cb.cos_radius;
@@ -536,8 +536,8 @@ struct Flower {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, scan_ny, scan_R,
-                                     scan_alpha, y, out);
+    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, r_val,
+                                     alpha_angle, y, out);
   }
 
   /**
