@@ -294,9 +294,11 @@ async function main() {
         // both. A negative, over-extent, or inverted band reports
         // INVALID_BOUNDS, never traps. The range check precedes the
         // needs_full_frame branch, so the rejection is deterministic regardless
-        // of the effect. INVALID_BOUNDS must stay distinct from NO_EFFECT — the
-        // pool faults on the former and must not fault on the latter — so pin
-        // the roster too.
+        // of the effect. NaN, fractional and past-i32 numbers are the coercion
+        // cases an int parameter would have delivered as 0 (an empty band under
+        // an APPLIED result). INVALID_BOUNDS must stay distinct from NO_EFFECT
+        // — the pool faults on the former and must not fault on the latter — so
+        // pin the roster too.
         const C = Module.ClipSetResult;
         for (const outcome of ['APPLIED', 'NO_EFFECT', 'INVALID_BOUNDS', 'FULL_FRAME_KEPT']) {
           if (!C || C[outcome] === undefined) fail(`Module.ClipSetResult.${outcome} is not bound`);
@@ -313,6 +315,9 @@ async function main() {
             ['x1 past the canvas width', [0, w + 1, 0, h]],
             ['y1 past the canvas height', [0, w, 0, h + 1]],
             ['an inverted (x0 > x1) band', [w, 0, 0, h]],
+            ['a NaN bound', [NaN, w, 0, h]],
+            ['a fractional bound', [0, w - 0.5, 0, h]],
+            ['a bound past the i32 range', [0, 2 ** 32, 0, h]],
           ]) {
             if (engine.setClip(...bounds) !== C.INVALID_BOUNDS) {
               fail(`write-seam: setClip did not report INVALID_BOUNDS for ${what}`);

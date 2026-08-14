@@ -62,6 +62,22 @@ inline void test_clip_bounds() {
   // A transposed (y-first) call that swaps the extents must fail the check
   // rather than clip the wrong axis.
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, H, 0, W, W, H));
+
+  // NaN is rejected on every position: an i32 parameter would coerce it to 0,
+  // which reads as an ordered empty band.
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(NAN, 48, 0, 10, W, H));
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, NAN, 0, 10, W, H));
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, 48, NAN, 10, W, H));
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, 48, 0, NAN, W, H));
+  // Infinities are rejected rather than saturating to the canvas extent.
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, INFINITY, 0, 10, W, H));
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(-INFINITY, 48, 0, 10, W, H));
+  // Fractional bounds are rejected; truncating them would move the band edge.
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0.5, 48, 0, 10, W, H));
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, 47.5, 0, 10, W, H));
+  // A JS number past the i32 range is rejected, not wrapped into the canvas.
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, 4294967296.0, 0, 10, W, H));
+  HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, 48, 0, 2147483648.0, W, H));
 }
 
 /**
