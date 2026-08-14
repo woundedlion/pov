@@ -140,12 +140,6 @@ struct ShaderBallWhiteBox;
     params.projection.bonne_standard_parallel)                                 \
   X(PROJECTION_LAYOUT_SCROLL, params.projection.layout_scroll)                 \
   X(LENS_MIX, params.surface_lens.mix)                                         \
-  X(LENS_AMOUNT, params.surface_lens.amount)                                   \
-  X(LENS_NOISE_SCALE, params.surface_lens.noise_scale)                         \
-  X(LENS_NOISE_RATE, params.surface_lens.noise_rate)                           \
-  X(LENS_NOISE_BASIS, params.surface_lens.noise_basis)                         \
-  X(LENS_NOISE_SEED, params.surface_lens.noise_seed)                           \
-  X(LENS_NOISE_RESOURCE_ID, params.surface_lens.noise_resource_id)             \
   X(LENS_MOBIUS_A_RE, params.surface_lens.mobius.a.re)                         \
   X(LENS_MOBIUS_A_IM, params.surface_lens.mobius.a.im)                         \
   X(LENS_MOBIUS_B_RE, params.surface_lens.mobius.b.re)                         \
@@ -654,12 +648,6 @@ public:
 
   struct SurfaceLensParams {
     float mix = 0.0f;
-    float amount = 1.0f;
-    float noise_scale = 1.0f;
-    float noise_rate = 0.0f;
-    NoiseBasis noise_basis = NoiseBasis::SIMPLEX;
-    int32_t noise_seed = 4253;
-    uint8_t noise_resource_id = 3;
     MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                         0.7071067811865475f, 0.0f};
 
@@ -668,13 +656,7 @@ public:
     constexpr SurfaceLensParams(float mix) : mix(mix) {}
 
     HS_COLD_MEMBER bool operator==(const SurfaceLensParams &other) const {
-      return mix == other.mix && amount == other.amount &&
-             noise_scale == other.noise_scale &&
-             noise_rate == other.noise_rate &&
-             noise_basis == other.noise_basis &&
-             noise_seed == other.noise_seed &&
-             noise_resource_id == other.noise_resource_id &&
-             mobius.a.re == other.mobius.a.re &&
+      return mix == other.mix && mobius.a.re == other.mobius.a.re &&
              mobius.a.im == other.mobius.a.im &&
              mobius.b.re == other.mobius.b.re &&
              mobius.b.im == other.mobius.b.im &&
@@ -688,15 +670,9 @@ public:
                              const SurfaceLensParams &b, float t) {
       // Trips if the field set changes, so a new field cannot silently go
       // uninterpolated and unsnapped.
-      static_assert(sizeof(SurfaceLensParams) == 60,
+      static_assert(sizeof(SurfaceLensParams) == 36,
                     "SurfaceLensParams field set changed - update lerp");
       mix = hs::lerp(a.mix, b.mix, t);
-      amount = hs::lerp(a.amount, b.amount, t);
-      noise_scale = hs::lerp(a.noise_scale, b.noise_scale, t);
-      noise_rate = hs::lerp(a.noise_rate, b.noise_rate, t);
-      noise_basis = t < 1.0f ? a.noise_basis : b.noise_basis;
-      noise_seed = t < 1.0f ? a.noise_seed : b.noise_seed;
-      noise_resource_id = t < 1.0f ? a.noise_resource_id : b.noise_resource_id;
       mobius = t < 1.0f ? a.mobius : b.mobius;
     }
   };
@@ -896,7 +872,7 @@ public:
   using RequestedConfig = Config;
   using Preset = Config;
 
-  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 6;
+  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 7;
 
   /**
    * @brief Reports whether a persisted snapshot's schema version can be
@@ -6169,12 +6145,6 @@ private:
            from.params.source.noise_resource_id ==
                to.params.source.noise_resource_id &&
            from.params.value.band_count == to.params.value.band_count &&
-           from.params.surface_lens.noise_basis ==
-               to.params.surface_lens.noise_basis &&
-           from.params.surface_lens.noise_seed ==
-               to.params.surface_lens.noise_seed &&
-           from.params.surface_lens.noise_resource_id ==
-               to.params.surface_lens.noise_resource_id &&
            from.params.surface_noise.basis == to.params.surface_noise.basis &&
            from.params.surface_noise.integrator ==
                to.params.surface_noise.integrator &&
@@ -6597,11 +6567,6 @@ private:
            p.outer_camera.wander <= WANDER_MAX &&
            p.surface_lens.mix >= LENS_MIX_MIN &&
            p.surface_lens.mix <= LENS_MIX_MAX &&
-           p.surface_lens.amount >= 0.0f && p.surface_lens.amount <= 4.0f &&
-           p.surface_lens.noise_scale >= LENS_NOISE_SCALE_MIN &&
-           p.surface_lens.noise_scale <= LENS_NOISE_SCALE_MAX &&
-           p.surface_lens.noise_rate >= NOISE_RATE_MIN &&
-           p.surface_lens.noise_rate <= NOISE_RATE_MAX &&
            p.surface_noise.scale >= LENS_NOISE_SCALE_MIN &&
            p.surface_noise.scale <= LENS_NOISE_SCALE_MAX &&
            p.surface_noise.strength >= -0.5f &&

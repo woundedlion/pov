@@ -513,9 +513,7 @@ Coefficient lerp is forbidden. A one-lookup Möbius morph follows the prepared
 matrix-group curve `M(t) = M0 * exp(t * log(inverse(M0) * M1))` under one fixed
 logarithm branch and is admitted only when the complete curve preserves the
 determinant and coordinate bounds. A branch change or failed proof uses the
-through-clear transition or snap. Tangent-noise lens amplitude is `[0,4]`,
-coordinate scale is `[1/64,64]`, and time rate uses the same range as planar
-noise.
+through-clear transition or snap.
 
 Every kernel input and intermediate must remain finite with each planar
 component no larger than `WARP_COORD_LIMIT = 65536`. Every scaled FastNoiseLite
