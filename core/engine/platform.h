@@ -554,9 +554,8 @@ inline constexpr __attribute__((always_inline)) int clamp(int v, int lo,
  * @param t Interpolation parameter (typically in [0, 1]).
  * @return a + (b - a) * t.
  * @details Qualify calls as hs::lerp instead of an unqualified `lerp`: the
- *          latter resolves to a platform-specific global overload (only the
- *          non-Arduino branch of this header defines one) or a std::lerp global
- *          leak, neither guaranteed on every build.
+ *          latter resolves to a std::lerp global leak, which is not guaranteed
+ *          on every build.
  */
 inline constexpr __attribute__((always_inline)) float lerp(float a, float b,
                                                            float t) {
