@@ -337,6 +337,13 @@ public:
   static int remaining() { return MAX_EVENTS - global_timeline_num_events; }
 
   /**
+   * @brief Event slots currently held.
+   * @return Number of live events, including one whose post_callback() is
+   * running (see remaining()).
+   */
+  static int event_count() { return global_timeline_num_events; }
+
+  /**
    * @brief Advances the timeline by one frame, stepping all active or starting
    * animations.
    * @param canvas The current canvas buffer.
