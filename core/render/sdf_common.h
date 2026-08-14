@@ -305,6 +305,43 @@ template <typename A, typename B>
 inline constexpr float reject_margin<Subtract<A, B>> =
     std::min(reject_margin<A>, reject_margin<B>);
 
+/** Stands for a distance() with no finite change-per-arc factor. */
+inline constexpr float ARC_STRETCH_UNBOUNDED = FLT_MAX;
+
+/** Most a shape's distance() can change per unit of great-circle arc, over the
+ * band within a pixel or two of its surface -- the only band a walk that
+ * vouches for a run of columns from one probe has to cross. Such a walk scales
+ * the run's arc by this; against ARC_STRETCH_UNBOUNDED no slack suffices and
+ * the run must be walked per column. A combinator takes the loosest child. The
+ * default covers reporting in plane units, which runs slightly wider than
+ * angular. */
+template <typename T> inline constexpr float arc_stretch = 1.25f;
+// Sector fold in the azimuthal-equidistant chart: the azimuth term carries
+// polar/sin(polar). In the band the circumscribed-disc clamp holds polar within
+// a few columns of the circumradius, itself <= PI/2 once a radius past a
+// hemisphere folds to the antipode, and polar/sin(polar) stays under 2 out to
+// 1.89 rad.
+template <> inline constexpr float arc_stretch<PlanarPolygon> = 2.0f;
+template <> inline constexpr float arc_stretch<Star> = 2.0f;
+// Flower measures polar from the antipode of the point it folds about and has
+// no disc clamp, so its azimuth term carries (PI - scan_dist)/sin(scan_dist)
+// and the fold axis itself is on the surface: every petal meets there.
+template <> inline constexpr float arc_stretch<Flower> = ARC_STRETCH_UNBOUNDED;
+template <typename Shape>
+inline constexpr float arc_stretch<AngularRepeat<Shape>> = arc_stretch<Shape>;
+template <typename A, typename B>
+inline constexpr float arc_stretch<Union<A, B>> =
+    std::max(arc_stretch<A>, arc_stretch<B>);
+template <typename A, typename B>
+inline constexpr float arc_stretch<SmoothUnion<A, B>> =
+    std::max(arc_stretch<A>, arc_stretch<B>);
+template <typename A, typename B>
+inline constexpr float arc_stretch<Intersection<A, B>> =
+    std::max(arc_stretch<A>, arc_stretch<B>);
+template <typename A, typename B>
+inline constexpr float arc_stretch<Subtract<A, B>> =
+    std::max(arc_stretch<A>, arc_stretch<B>);
+
 /**
  * @brief Append a scanline interval, trapping on overflow.
  * @tparam N Buffer capacity (deduced); supports both the per-shape and the

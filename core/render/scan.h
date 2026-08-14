@@ -67,25 +67,36 @@ inline int pole_lod_run(float sin_phi) {
  * @brief Clearance beyond a walk's own threshold at which one probe vouches for
  *        a whole pole-LOD block.
  * @tparam W Canvas width in pixels.
+ * @tparam ShapeT Shape the probe read distance() from.
  * @param run Columns in the block; 1 yields no slack.
  * @param sin_phi Sine of the row's colatitude.
  * @return Slack in the same units the walk's distance() reports.
- * @details Great-circle arc from a block's first column to its last: a block of
- *          longitude, foreshortened by sin(phi). A probe farther than this from
- *          the surface cannot change side anywhere in the block, provided
- *          distance() changes by at most 1.25 per unit of arc. That covers
- *          reporting in plane units, which runs slightly wider than angular; a
- *          walk whose plane stretches further (a gnomonic projection stretches
- *          by 1 + r^2) scales the result by its own factor. It does not bound
- *          the folded-sector solids (PlanarPolygon, Star, Flower), whose
- *          azimuth term carries a polar/sin(polar) factor and reaches ~1.45 at
- *          a vertex; a block there can mis-shade one AA-fringe column.
+ * @details Great-circle arc from a block's first column to its last -- a block
+ *          of longitude, foreshortened by sin(phi) -- times the shape's own
+ *          change-per-arc factor (SDF::arc_stretch). A probe farther than this
+ *          from the surface cannot change side anywhere in the block. A walk
+ *          whose reporting stretches further still (a gnomonic projection
+ *          stretches by 1 + r^2) scales the result by its own factor.
  */
-template <int W>
+template <int W, typename ShapeT>
 __attribute__((always_inline)) inline float pole_lod_slack(int run,
                                                            float sin_phi) {
-  return static_cast<float>(run - 1) * (2.0f * PI_F / W) * sin_phi * 1.25f;
+  return static_cast<float>(run - 1) * (2.0f * PI_F / W) * sin_phi *
+         SDF::arc_stretch<std::remove_cvref_t<ShapeT>>;
 }
+
+/**
+ * @brief Whether a walk over a shape may settle a whole pole-LOD block from one
+ *        probe of it.
+ * @tparam ShapeT Shape the probe reads distance() from.
+ * @details False with the knob compiled out, and false for a shape whose
+ * distance() has no finite change-per-arc factor: no slack makes one probe
+ * vouch for its neighbours, so the walk stays per column.
+ */
+template <typename ShapeT>
+inline constexpr bool pole_lod_blocks =
+    POLE_LOD_ENABLED &&
+    SDF::arc_stretch<std::remove_cvref_t<ShapeT>> < SDF::ARC_STRETCH_UNBOUNDED;
 
 /**
  * @brief Whether a probe's clearance report bounds a whole pole-LOD block.
@@ -189,10 +200,11 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
   // Strokes never splat: their coverage varies inside the band, so only the
   // all-clear case consumes the block.
   int span = 1;
-  if constexpr (POLE_LOD_ENABLED) {
+  if constexpr (pole_lod_blocks<decltype(shape)>) {
     if (max_run > 1 && !debug_bb) {
       const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
-      const float block_slack = pole_lod_slack<W>(max_run, sin_phi);
+      const float block_slack =
+          pole_lod_slack<W, decltype(shape)>(max_run, sin_phi);
       if (d >= threshold + block_slack &&
           probe_bounds_block<decltype(shape)>(threshold, block_slack))
         return max_run;
@@ -728,10 +740,11 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         // whether skipped or splatted at full coverage; edge blocks stay
         // per-column.
         int span = 1;
-        if constexpr (POLE_LOD_ENABLED) {
+        if constexpr (pole_lod_blocks<decltype(shape)>) {
           if (max_run > 1) {
             const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
-            const float block_slack = pole_lod_slack<W>(max_run, sin_phi);
+            const float block_slack =
+                pole_lod_slack<W, decltype(shape)>(max_run, sin_phi);
             if (d >= PIXEL_WIDTH + block_slack &&
                 probe_bounds_block<decltype(shape)>(PIXEL_WIDTH, block_slack))
               return max_run;
@@ -1738,8 +1751,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     const int stride = pole_lod_run(sp);
     float block_slack = 0.0f;
     float reject_dsq = base_reject_dsq;
-    if constexpr (POLE_LOD_ENABLED) {
-      block_slack = pole_lod_slack<W>(stride, sp) * plane_stretch;
+    if constexpr (pole_lod_blocks<SDF::Face>) {
+      block_slack = pole_lod_slack<W, SDF::Face>(stride, sp) * plane_stretch;
       // the block test below reads d, so the cull must not sentinel a probe
       // inside that threshold
       const float reject_rad = (pixel_width + block_slack) * 1.0002f;
@@ -1761,7 +1774,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         // needs the probe to carry a distance rather than the cull's sentinel;
         // an inside probe is never culled.
         int span = 1;
-        if constexpr (POLE_LOD_ENABLED) {
+        if constexpr (pole_lod_blocks<SDF::Face>) {
           if (stride > 1 && x % stride == 0 && x + stride <= rx2 &&
               (d <= -pixel_width - block_slack ||
                (d >= pixel_width + block_slack &&
@@ -2678,10 +2691,11 @@ struct Volume {
             // beyond the offer's own width holds for the whole block. Traced
             // hits stay per-column: shading varies along the surface, so a
             // splat would band.
-            if constexpr (POLE_LOD_ENABLED) {
+            if constexpr (pole_lod_blocks<decltype(shape)>) {
               if (max_run > 1) {
                 const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
-                const float block_slack = pole_lod_slack<W>(max_run, sin_phi);
+                const float block_slack =
+                    pole_lod_slack<W, decltype(shape)>(max_run, sin_phi);
                 if (closest_d >= aa_width + block_slack)
                   return max_run;
               }
