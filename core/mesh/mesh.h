@@ -491,8 +491,9 @@ HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * @param op Operator name, interpolated into the trap message on failure.
  * @details The reuse overloads size their output pools from `mesh` and index
  * `mesh`'s vertices through `he_mesh`, so a pair from two different meshes
- * overruns both. Runs only on the overload path: the single-shot entries build
- * their own connectivity and satisfy this by construction.
+ * overruns both. Checks the census, the per-face side counts and the vertex
+ * range. Runs only on the overload path: the single-shot entries build their
+ * own connectivity and satisfy this by construction.
  */
 HS_COLD static inline void
 require_matching_half_edges(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
@@ -501,6 +502,17 @@ require_matching_half_edges(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
                he_mesh.half_edges.size() == mesh.get_faces_size(),
            "MeshOps::%s: half-edge mesh census differs from the source mesh",
            op);
+  // Half-edge loops are laid out contiguously in face order, so matching loop
+  // entry offsets pin the per-face side counts, not just their total.
+  const uint8_t *face_counts = mesh.get_face_counts_data();
+  size_t face_offset = 0;
+  for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
+    HS_CHECK(static_cast<size_t>(he_mesh.faces[fi].half_edge) == face_offset,
+             "MeshOps::%s: half-edge mesh face sides differ from the source "
+             "mesh",
+             op);
+    face_offset += face_counts[fi];
+  }
   const size_t num_verts = mesh.vertices.size();
   for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
     HS_CHECK(he_mesh.half_edges[i].vertex < num_verts,
