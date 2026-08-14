@@ -1233,12 +1233,14 @@ private:
   }
 
   static ConfigFieldId config_field_id(size_t offset, size_t size) {
-    for (size_t index = 0; index < CONFIG_FIELD_COUNT; ++index) {
-      const ConfigFieldId id = static_cast<ConfigFieldId>(index);
-      const ConfigFieldLayout layout = config_field_layout(id);
-      if (layout.offset == offset && layout.size == size)
-        return id;
-    }
+    Config config{};
+    const uintptr_t base = reinterpret_cast<uintptr_t>(&config);
+#define HS_SHADERBALL_FIELD_MATCH(name, path)                                  \
+  if (reinterpret_cast<uintptr_t>(&config.path) - base == offset &&            \
+      sizeof(config.path) == size)                                             \
+    return ConfigFieldId::name;
+    HS_SHADERBALL_CONFIG_FIELDS(HS_SHADERBALL_FIELD_MATCH)
+#undef HS_SHADERBALL_FIELD_MATCH
     return ConfigFieldId::COUNT;
   }
 
