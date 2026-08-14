@@ -300,7 +300,7 @@ def _overlay_props(base, node):
 
 
 def _index_unit_pins(node):
-    """Return {unit -> {number -> {x,y,angle,length,name}}}."""
+    """Return {unit -> {number -> {x,y,angle,name}}}."""
     res = {}
 
     def walk(n):
