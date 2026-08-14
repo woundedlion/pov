@@ -1453,8 +1453,12 @@ public:
             float alpha) {
     assert(age >= 0.0f && alpha >= 0.0f);
     assert(prepared_for(cv));
+    // Non-finite coords make the int casts below UB and bypass the wrap.
+    assert(std::isfinite(x) && std::isfinite(y));
     // fast_wrap below corrects only a single ±W offset on floorf(x).
     assert(x >= -W && x < 2 * W);
+    // y never wraps; bounded only so the cast below stays in range.
+    assert(y >= -H && y < 2 * H);
     (void)age;
     (void)cv;
 
