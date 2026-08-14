@@ -194,7 +194,7 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
 
 // Drift guard: an effect added to (or removed from) HS_EFFECT_LIST must also be
 // deliberately added to or excluded from the Phantasm playlist above. The count
-// pins the cardinality; the name scans pin *which* three are missing, so
+// pins the cardinality; the name scans pin *which* two are missing, so
 // swapping one exclusion for another cannot ride green. Distinctness closes the
 // last hole: a duplicated entry paired with an omission holds the count and
 // passes both exclusion scans while an effect silently drops off the playlist.
