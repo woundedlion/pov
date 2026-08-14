@@ -1728,12 +1728,72 @@ inline constexpr float ACHROMATIC_TOL = 4.0f;
 inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
 
 /**
+ * @brief Agreement budget between HueSpinShade's folded matrix and hue_rotate.
+ * @details Both apply the same OKLab rotation — the spin folds it into a
+ * cbrt-LMS 3x3, hue_rotate applies it in OKLab — so they differ only by float
+ * reassociation, amplified on the way out through the LMS cube. Measured over
+ * the 17^3 channel grid at 64 rotation amounts spanning [-1, 1] turns, IEEE and
+ * -ffast-math alike: mean 0.074 LSB, worst single channel 171 LSB on the
+ * cbrt-steep saturated corner (40959, 65535, 8191) at 0.206 turns. The mean is
+ * the sharp detector, since a refolded matrix moves every sample, so it takes
+ * the tight factor; the worst channel is a discrete extremum that hops between
+ * neighbouring grid corners when the rounding shifts, so it takes the loose one.
+ */
+inline constexpr float HUE_SPIN_MEAN_HEADROOM = 1.5f;
+inline constexpr float HUE_SPIN_WORST_HEADROOM = 1.5f;
+inline constexpr float MEASURED_HUE_SPIN_MEAN_LSB = 0.074f;
+inline constexpr float MEASURED_HUE_SPIN_WORST_LSB = 171.0f;
+inline constexpr float HUE_SPIN_FOLD_MEAN_TOL =
+    MEASURED_HUE_SPIN_MEAN_LSB * HUE_SPIN_MEAN_HEADROOM;
+inline constexpr float HUE_SPIN_FOLD_TOL =
+    MEASURED_HUE_SPIN_WORST_LSB * HUE_SPIN_WORST_HEADROOM;
+
+/**
  * @brief Verifies HueSpinShade against the hue_rotate reference.
- * @details The folded-matrix path must agree with hue_rotate(c, amount), leave
- *          grays achromatic, preserve alpha, and refresh its memo when the
- *          driver moves.
+ * @details The folded-matrix path must agree with hue_rotate(c, amount) across
+ *          the channel grid and every rotation amount, leave grays achromatic,
+ *          preserve alpha, and refresh its memo when the driver moves.
  */
 inline void test_hue_spin_shade() {
+  // Whole-grid agreement: one sample cannot separate a refolded matrix from a
+  // rounding difference, so accumulate over the grid and gate mean and worst.
+  {
+    double sum = 0.0;
+    long long n = 0;
+    float worst = 0.0f;
+    for (int ai = 0; ai < 64; ++ai) {
+      float sweep_amount = -1.0f + ai * (2.0f / 63.0f);
+      HueSpinShade sweep(&sweep_amount);
+      for (int r = 0; r <= 16; ++r)
+        for (int g = 0; g <= 16; ++g)
+          for (int b = 0; b <= 16; ++b) {
+            Color4 c(Pixel(static_cast<uint16_t>(r * 65535 / 16),
+                           static_cast<uint16_t>(g * 65535 / 16),
+                           static_cast<uint16_t>(b * 65535 / 16)),
+                     1.0f);
+            Color4 got = sweep.shade(c, 0.5f);
+            Color4 want = hue_rotate(c, sweep_amount);
+            const float d =
+                std::max({std::fabs(static_cast<float>(got.color.r) -
+                                    static_cast<float>(want.color.r)),
+                          std::fabs(static_cast<float>(got.color.g) -
+                                    static_cast<float>(want.color.g)),
+                          std::fabs(static_cast<float>(got.color.b) -
+                                    static_cast<float>(want.color.b))});
+            sum += d;
+            worst = std::max(worst, d);
+            ++n;
+          }
+    }
+    const float mean = static_cast<float>(sum / static_cast<double>(n));
+    std::printf(
+        "  [hue spin fold] mean=%.4f/%.4f worst=%.1f/%.1f LSB\n",
+        static_cast<double>(mean), static_cast<double>(HUE_SPIN_FOLD_MEAN_TOL),
+        static_cast<double>(worst), static_cast<double>(HUE_SPIN_FOLD_TOL));
+    HS_EXPECT_LE(mean, HUE_SPIN_FOLD_MEAN_TOL);
+    HS_EXPECT_LE(worst, HUE_SPIN_FOLD_TOL);
+  }
+
   Color4 vivid(Pixel(52000, 9000, 3000), 0.8f);
 
   float amount = 0.25f;
@@ -1741,11 +1801,11 @@ inline void test_hue_spin_shade() {
   Color4 spun = spin.shade(vivid, 0.5f);
   Color4 ref = hue_rotate(vivid, amount);
   HS_EXPECT_NEAR(static_cast<float>(spun.color.r),
-                 static_cast<float>(ref.color.r), 96.0f);
+                 static_cast<float>(ref.color.r), HUE_SPIN_FOLD_TOL);
   HS_EXPECT_NEAR(static_cast<float>(spun.color.g),
-                 static_cast<float>(ref.color.g), 96.0f);
+                 static_cast<float>(ref.color.g), HUE_SPIN_FOLD_TOL);
   HS_EXPECT_NEAR(static_cast<float>(spun.color.b),
-                 static_cast<float>(ref.color.b), 96.0f);
+                 static_cast<float>(ref.color.b), HUE_SPIN_FOLD_TOL);
   HS_EXPECT_NEAR(spun.alpha, 0.8f, 1e-6f);
 
   // A quarter turn visibly moves the color off its input.
