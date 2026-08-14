@@ -89,12 +89,21 @@ public:
 private:
 #if defined(USE_DMA_LEDS)
   /**
+   * @brief HD107S SPI clock for the single-board DMA path, in Hz.
+   * @details Forwarded to ledController by
+   * HS_DEFINE_POV_SINGLE_LED_CONTROLLER, so the transfer budget below and the
+   * transport cannot drift apart.
+   */
+  static constexpr uint32_t SPI_CLOCK_HZ =
+      DMALEDController<S>::DEFAULT_CLOCK_HZ;
+
+  /**
    * @brief Worst-case duration of one column's LED transfer, in µs.
    * @details Image frame plus the trailing black frame strobe_columns() appends,
-   * at the clock the default-constructed ledController runs at.
+   * at SPI_CLOCK_HZ.
    */
-  static constexpr unsigned long COLUMN_TRANSFER_US = pov::transfer_us(
-      HD107SFrame<S>::COMPOSITE_SIZE, DMALEDController<S>::DEFAULT_CLOCK_HZ);
+  static constexpr unsigned long COLUMN_TRANSFER_US =
+      pov::transfer_us(HD107SFrame<S>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
 #endif
 
   /**
@@ -256,7 +265,9 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds[S];
 // instantiating single-board target invokes
 // HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM) once at file scope.
 #define HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM)                            \
-  template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController {}
+  template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController {   \
+    POVDisplay<S, RPM>::SPI_CLOCK_HZ                                           \
+  }
 #endif
 
 #endif // ARDUINO
