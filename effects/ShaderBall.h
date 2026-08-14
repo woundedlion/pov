@@ -2034,6 +2034,7 @@ private:
     PEIRCE_DODECAHEDRAL_GRID,
     GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
     GNOMONIC_AFFINE_LATTICE_CONTOUR,
+    SINUSOIDAL_CURL_LATTICE,
     COUNT,
     NONE = 0xff
   };
@@ -2370,6 +2371,45 @@ private:
     }
   };
 
+  struct SinusoidalCurlSurfaceStage {
+    static constexpr InverseStageKind KIND = InverseStageKind::SURFACE_PROJECT;
+    static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
+    static constexpr bool APPROXIMATE = false;
+    static constexpr bool TERMINAL = false;
+    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
+    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
+    static constexpr std::array<ApproximationMetric, 0> METRICS{};
+    static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = false;
+    using Input = Vector;
+    using Output = ProjectedLookup;
+
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.projection == Projection::SINUSOIDAL &&
+             key.surface_lens == SurfaceLens::NONE &&
+             key.surface_noise == SurfaceNoise::CURL &&
+             key.surface_noise_placement ==
+                 SurfaceNoisePlacement::BEFORE_LENS &&
+             key.surface_noise_basis == NoiseBasis::SIMPLEX &&
+             key.surface_curl_integrator == SurfaceCurlIntegrator::EULER;
+    }
+
+    HS_FLASH_MEMBER static ProjectedLookup run(const Vector &outer_local,
+                                               const FrameState &frame) {
+      HS_SB_STAGE_MARK(surface_start);
+      const SurfaceNoiseResult displaced =
+          apply_surface_noise_result(outer_local, frame);
+      HS_SB_STAGE_SPAN(surface_noise, surface_start);
+      HS_SB_STAGE_MARK(projection_start);
+      const Vector local =
+          rotate(displaced.sphere, frame.transforms.projection_conj);
+      ProjectedLookup projected = project_sinusoidal(local, frame);
+      projected.sphere = local;
+      projected.surface_path_length = displaced.path_length;
+      HS_SB_STAGE_SPAN(projection, projection_start);
+      return projected;
+    }
+  };
+
   template <WarpStageKind Outer, WarpStageKind Inner>
   struct SelectedPlanarWarpStage {
     static_assert(Outer == WarpStageKind::NONE ||
@@ -2472,7 +2512,8 @@ private:
   template <CoveragePolicy Coverage> struct LinearMaterialStage {
     static_assert(Coverage == CoveragePolicy::OPAQUE ||
                   Coverage == CoveragePolicy::EDGE_FADE ||
-                  Coverage == CoveragePolicy::PROJECTION_WEIGHT_SQUARED);
+                  Coverage == CoveragePolicy::PROJECTION_WEIGHT_SQUARED ||
+                  Coverage == CoveragePolicy::PROJECTION_WEIGHT);
     static constexpr InverseStageKind KIND = InverseStageKind::MATERIAL;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE = false;
@@ -2507,6 +2548,8 @@ private:
       } else if constexpr (Coverage ==
                            CoveragePolicy::PROJECTION_WEIGHT_SQUARED) {
         coverage *= input.projected.value_weight * input.projected.value_weight;
+      } else if constexpr (Coverage == CoveragePolicy::PROJECTION_WEIGHT) {
+        coverage *= input.projected.value_weight;
       }
       const MaterialSample material{value, coverage, input.projected.sphere,
                                     input.projected.surface_path_length +
@@ -2677,6 +2720,11 @@ private:
       SelectedPlanarWarpStage<WarpStageKind::AFFINE_FRAME, WarpStageKind::NONE>,
       SourceStage<Function::PRIMITIVE_LATTICE>,
       IsoContourProjectionWeightMaterialStage, ColorStage>;
+  using SinusoidalCurlLatticePipeline = InversePipeline<
+      OuterCameraStage, SinusoidalCurlSurfaceStage,
+      SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
+      SourceStage<Function::PRIMITIVE_LATTICE>,
+      LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT>, ColorStage>;
 
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
 
@@ -3671,9 +3719,9 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 15> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 16> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 15> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 16> PROGRAMS{{
         make_program<KaleidoscopeNoiseGridPipeline,
                      InversePipelineId::KALEIDOSCOPE_NOISE_GRID,
                      make_topology_key(
@@ -3742,6 +3790,10 @@ private:
                      InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR,
                      make_topology_key(
                          gnomonic_affine_lattice_contour_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<SinusoidalCurlLatticePipeline,
+                     InversePipelineId::SINUSOIDAL_CURL_LATTICE,
+                     make_topology_key(sinusoidal_lattice_curl_preset(1.0f))>(
             &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
@@ -6991,7 +7043,46 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 24> PRESETS = {{
+  static constexpr Preset sinusoidal_lattice_curl_preset(float noise_scale) {
+    Slots slots{Function::PRIMITIVE_LATTICE,
+                Projection::SINUSOIDAL,
+                ProjectionFramePolicy::SPIN_WANDER,
+                SurfaceLens::NONE,
+                {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::PROJECTION_WEIGHT,
+                PaletteMode::TRIADIC};
+    slots.palette_mapping = PaletteMapping::CUP;
+    slots.brightness_envelope = BrightnessEnvelope::CUP;
+    slots.surface_noise = SurfaceNoise::CURL;
+    slots.surface_noise_placement = SurfaceNoisePlacement::BEFORE_LENS;
+    Params params;
+    params.source.pattern_freq = 3.52279997f;
+    params.source.speed = 0.1f;
+    params.source.complexity = 0.9f;
+    params.source.pattern_mix = 1.0f;
+    params.source.secondary_rate = 0.8f;
+    params.source.lattice_cell_scale = 0.710265636f;
+    params.source.lattice_shape_blend = 1.0f;
+    params.source.lattice_softness = 0.455532223f;
+    params.source.lattice_radius = 0.290762514f;
+    params.warp.outer.strength = 1.0f;
+    params.warp.outer.speed = 0.000343749998f;
+    params.projection.pole_fade = 20.0f;
+    params.projection.wander = 1.0f;
+    params.surface_lens.mix = 1.0f;
+    params.color.hue_shift_amount = 0.268000007f;
+    params.color.hue_noise_scale = 2.0f;
+    params.color.palette_chroma = 1.0f;
+    params.color.mapping_phase = -0.165999994f;
+    params.outer_camera.wander = 1.0f;
+    params.surface_noise.scale = noise_scale;
+    params.surface_noise.strength = 0.0759999976f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 26> PRESETS = {{
       {KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params(
            {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
@@ -7054,6 +7145,8 @@ private:
       dodecahedral_lattice_noise_preset(),
       gnomonic_wave_shear_grid_preset(),
       gnomonic_affine_lattice_contour_preset(),
+      sinusoidal_lattice_curl_preset(1.78815627f),
+      sinusoidal_lattice_curl_preset(3.29720306f),
   }};
   static_assert(
       [] {

@@ -1422,7 +1422,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(24));
+  HS_EXPECT_EQ(presets.size(), size_t(26));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_TRUE(choreo[0].staggered);
   HS_EXPECT_TRUE(choreo[1].staggered);
@@ -1465,6 +1465,16 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(affine_lattice.slots.coverage,
                WB::CoveragePolicy::PROJECTION_WEIGHT);
   HS_EXPECT_EQ(affine_lattice.params.outer_camera.wander, 1.0f);
+  const auto &fine_curl = presets[24];
+  const auto &coarse_curl = presets[25];
+  HS_EXPECT_EQ(fine_curl.slots.function, WB::Function::PRIMITIVE_LATTICE);
+  HS_EXPECT_EQ(fine_curl.slots.projection, WB::Projection::SINUSOIDAL);
+  HS_EXPECT_EQ(fine_curl.slots.surface_noise, WB::SurfaceNoise::CURL);
+  HS_EXPECT_EQ(fine_curl.slots.surface_noise_placement,
+               WB::SurfaceNoisePlacement::BEFORE_LENS);
+  HS_EXPECT_TRUE(WB::slots_equal(fine_curl.slots, coarse_curl.slots));
+  HS_EXPECT_EQ(fine_curl.params.surface_noise.scale, 1.78815627f);
+  HS_EXPECT_EQ(coarse_curl.params.surface_noise.scale, 3.29720306f);
 
   reset_effect_globals();
   WB::SB sb;
@@ -2009,11 +2019,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(24));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(26));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(23));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[23]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(25));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[25]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -2977,6 +2987,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
       {19, WB::InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
       {22, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR},
       {23, WB::InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR},
+      {24, WB::InversePipelineId::SINUSOIDAL_CURL_LATTICE},
   };
   HS_EXPECT_EQ(WB::inverse_program_count(), std::size(EXPECTED));
   HS_EXPECT_TRUE(WB::inverse_programs_well_formed());
