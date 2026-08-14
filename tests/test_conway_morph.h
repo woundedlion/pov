@@ -41,6 +41,7 @@
 #include "core/mesh/solids.h"
 #include "core/render/canvas.h"
 #include "effects/HankinSolids.h"
+#include "effects/IslamicStars.h"
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_conway.h" // check_euler_genus0, face_type_histogram
@@ -3417,11 +3418,13 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 // persistent/scratch high-water against IslamicStars' configured split.
 // ---------------------------------------------------------------------------
 
-/** IslamicStars keeps its split private, so these mirror it by value. */
+/** The arena split is canvas-independent; this instantiation names it. */
+using IslamicFx = IslamicStars<288, 144>;
+
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    116 * 1024; /**< IslamicStars::SPLIT_SCRATCH_A_DEFAULT. */
+    IslamicFx::SPLIT_SCRATCH_A_DEFAULT; /**< IslamicStars scratch_a split. */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    72 * 1024; /**< IslamicStars::SPLIT_SCRATCH_B_BUILD. */
+    IslamicFx::SPLIT_SCRATCH_B_BUILD; /**< IslamicStars build scratch_b. */
 /** Device persistent budget of IslamicStars' arena split. */
 constexpr size_t ISLAMIC_PERSISTENT_BUDGET = DEVICE_GLOBAL_ARENA_SIZE -
                                              ISLAMIC_SCRATCH_A_BUDGET -

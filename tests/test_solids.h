@@ -42,6 +42,7 @@
 #include "core/mesh/recipe.h"
 #include "core/mesh/solids.h"
 #include "effects/HankinSolids.h"
+#include "effects/IslamicStars.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_conway.h" // check_consistent_winding
 #include "tests/test_fixture.h"
@@ -631,11 +632,13 @@ inline void test_determinism_complex_islamic() {
 // the host high-water mark is a conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
 
-/** IslamicStars keeps its split private, so these mirror it by value. */
+/** The arena split is canvas-independent; this instantiation names it. */
+using IslamicFx = IslamicStars<288, 144>;
+
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    116 * 1024; /**< IslamicStars::SPLIT_SCRATCH_A_DEFAULT. */
+    IslamicFx::SPLIT_SCRATCH_A_DEFAULT; /**< IslamicStars scratch_a split. */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    74 * 1024; /**< IslamicStars::SPLIT_SCRATCH_B_DEFAULT. */
+    IslamicFx::SPLIT_SCRATCH_B_DEFAULT; /**< IslamicStars scratch_b split. */
 
 /**
  * @brief Runs one Islamic recipe through a real-budget arena pair and asserts

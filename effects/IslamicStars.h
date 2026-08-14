@@ -44,6 +44,23 @@ public:
       "HS_ISLAMICSTARS_PROFILE_SHAPE is outside the Islamic solid registry");
 #endif
 
+  /** Per-shape arena split (bytes). A smooth kis/needle macro bridges
+   * truncate(seed) (~3x the seed's half-edges); rendering and classifying that
+   * tripled mesh needs a scratch_a heavier than the default, while the bridge's
+   * per-leg compaction keeps its persistent well under the default. So a bridge
+   * shape spawns on a scratch_a-heavy split; other recipe builds trade 2 KB of
+   * scratch_b for persistent; generated whole shapes retain the wider scratch_b.
+   * Each split's persistent is the device-arena remainder and both scratch
+   * arenas are hard-capped at their device sizes. Needle's measured peak is
+   * 131,770 / 70,228 / 96,600 bytes against the bridge split's 132,608 /
+   * 75,776 / 96,768: persistent is the binding arena at 168 bytes spare, so a
+   * new persistent mesh field on a bridge shape must be paid for here. */
+  static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 116 * 1024;      // 118,784
+  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 129 * 1024 + 512; // 132,608
+  static constexpr size_t SPLIT_SCRATCH_B_DEFAULT = 74 * 1024;       // 75,776
+  static constexpr size_t SPLIT_SCRATCH_B_BUILD = 72 * 1024;         // 73,728
+  static constexpr size_t SPLIT_SCRATCH_B_BRIDGE = 74 * 1024;        // 75,776
+
   /**
    * @brief Constructs the effect, binding the ripple generator to the timeline.
    */
@@ -150,22 +167,6 @@ private:
    * Conway depth at which dual(truncate(X)) matches kis(dual(X)) exactly on
    * regular seeds (docs/opchain_morph_spec.md, smooth kis/needle). */
   static constexpr float MACRO_TRUNCATE_T = 1.0f / 3.0f;
-  /** Per-shape arena split (bytes). A smooth kis/needle macro bridges
-   * truncate(seed) (~3x the seed's half-edges); rendering and classifying that
-   * tripled mesh needs a scratch_a heavier than the default, while the bridge's
-   * per-leg compaction keeps its persistent well under the default. So a bridge
-   * shape spawns on a scratch_a-heavy split; other recipe builds trade 2 KB of
-   * scratch_b for persistent; generated whole shapes retain the wider scratch_b.
-   * Each split's persistent is the device-arena remainder and both scratch
-   * arenas are hard-capped at their device sizes. Needle's measured peak is
-   * 131,770 / 70,228 / 96,600 bytes against the bridge split's 132,608 /
-   * 75,776 / 96,768: persistent is the binding arena at 168 bytes spare, so a
-   * new persistent mesh field on a bridge shape must be paid for here. */
-  static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 116 * 1024;      // 118,784
-  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 129 * 1024 + 512; // 132,608
-  static constexpr size_t SPLIT_SCRATCH_B_DEFAULT = 74 * 1024;       // 75,776
-  static constexpr size_t SPLIT_SCRATCH_B_BUILD = 72 * 1024;         // 73,728
-  static constexpr size_t SPLIT_SCRATCH_B_BRIDGE = 74 * 1024;        // 75,776
   static constexpr size_t MAX_BUILD_STEPS = 8; /**< Lowered-primitive cap. */
   static_assert(Solids::max_lowered_step_count(Solids::islamic_registry) <=
                     MAX_BUILD_STEPS,
