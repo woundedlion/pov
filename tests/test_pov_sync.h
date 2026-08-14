@@ -1379,7 +1379,8 @@ inline void test_master_beacon_busy_retry() {
  *          sized from the payload actually encoded, so the window spans many
  *          columns: the last admissible start emits fully before HALF, one
  *          column later is censored — no pulses in the beacon window and no
- *          trap at HALF.
+ *          trap at HALF. A start part-way into that last column is censored
+ *          too, since the fit charges the emitter's lateness budget as well.
  */
 inline void test_beacon_late_coast() {
   const Config cfg = test_config();
@@ -1387,9 +1388,10 @@ inline void test_beacon_late_coast() {
 
   uint32_t late_dropped = 0;
   // Resume the master's first post-ZERO tick of the beacon-due revolution at
-  // `resume_col`; return the pulses emitted with column in [W/4, W/2) (purely
-  // beacon — the ZERO boundary symbol drained at columns 0..4 below W/4).
-  auto run = [&](int32_t resume_col) -> int {
+  // `resume_col` plus `sub_col` cycles; return the pulses emitted with column in
+  // [W/4, W/2) (purely beacon — the ZERO boundary symbol drained at columns 0..4
+  // below W/4).
+  auto run = [&](int32_t resume_col, uint32_t sub_col = 0) -> int {
     SyncBoard m(cfg);
     const uint32_t t0 = 1000000u;
     m.seed(t0, /*is_master=*/true);
@@ -1408,8 +1410,10 @@ inline void test_beacon_late_coast() {
       // Round the column instant up: cycles_per_column() truncates, so a whole
       // multiple of it lands a column short past ~column 100.
       const uint32_t at =
-          epoch1 + static_cast<uint32_t>(
-                       (static_cast<uint64_t>(c) * period + 143u) / 144u);
+          epoch1 +
+          static_cast<uint32_t>((static_cast<uint64_t>(c) * period + 143u) /
+                                144u) +
+          sub_col;
       const TickActions a = m.tick(at, nullptr);
       if (a.pulse && c >= cfg.W / 4 && c < cfg.W / 2)
         ++pulses;
@@ -1440,6 +1444,12 @@ inline void test_beacon_late_coast() {
   // trap would __builtin_trap the whole suite).
   HS_EXPECT_EQ(run(last_start + 1), 0);
   // The skip is counted once for the revolution, not once per late tick.
+  HS_EXPECT_EQ(late_dropped, 1u);
+  // Resuming part-way through the last admissible column is late too: the frame
+  // is anchored on the tick, not on the column it falls in, and its last pulse
+  // may go out up to the emitter's ½-column lateness budget after its due time —
+  // together enough to leave the receiver less than its quiet window before HALF.
+  HS_EXPECT_EQ(run(last_start, COL / 2 + COL / 8), 0);
   HS_EXPECT_EQ(late_dropped, 1u);
 }
 

@@ -307,10 +307,12 @@ struct Config {
       return "7*beacon_pitch_cols + 1 > gate_cols";
     // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case frame
     // plus its tail quiet must clear W/4 or no beacon is ever scheduled.
-    // Strict: the slack absorbs the sub-column offset between the W/4 instant
-    // and the tick that schedules the frame.
+    // Strict: the slack absorbs the emitter's ½-column lateness budget, which
+    // the scheduling fit charges to the frame, plus the sub-column offset
+    // between the W/4 instant and the tick that schedules it.
     // Achieved margin at the shipped constants (W = 288): 71 of 72 columns —
-    // one column. The tightest relation in this function.
+    // one column, half of it the lateness budget. The tightest relation in this
+    // function.
     if (!(beacon_frame_cols() < W / 4))
       return "beacon_frame_cols() < W/4";
     // Demarcation: the acquisition timeout must clear the beacon's worst-case

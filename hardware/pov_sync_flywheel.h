@@ -202,6 +202,15 @@ public:
    */
   Boundary current_boundary() const { return boundary; }
   /**
+   * @brief Cycles remaining until the next boundary.
+   * @param now Current timestamp, in cycles.
+   * @return Signed cycles from @p now to the boundary one half-rev past the
+   * epoch; negative once that boundary has passed (before fold() re-bases).
+   */
+  int32_t cycles_to_next_boundary(uint32_t now) const {
+    return static_cast<int32_t>(epoch_cycles + period - now);
+  }
+  /**
    * @brief §4.3 frequency trim hook (snap-only ships; tests exercise extremes).
    * @param c New half-rev period, in cycles.
    */

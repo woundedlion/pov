@@ -687,12 +687,18 @@ private:
     // symbol is consumed rather than decoded; a tail past the boundary also
     // leaves the wire busy when the on-time HALF symbol schedules, tripping the
     // emitter's overlap trap. Skip a too-late start, mirroring the boundary
-    // symbol's own lateness self-censor.
+    // symbol's own lateness self-censor. The fit is measured in cycles against
+    // the boundary instant, not in whole columns from x: the frame is anchored
+    // on this tick, which lands part-way through column x, and its last pulse
+    // may still go out up to the emitter's lateness budget after its due time.
     int32_t digit_sum = 0;
     for (int i = 0; i < 5; ++i)
       digit_sum += digits[i];
-    if (x + protocol_config.beacon_frame_cols(digit_sum) >=
-        protocol_config.W / 2) {
+    const uint32_t frame_cycles =
+        protocol_config.col_cycles(
+            protocol_config.beacon_frame_cols(digit_sum)) +
+        protocol_config.late_censor_cycles();
+    if (static_cast<int32_t>(frame_cycles) > fly.cycles_to_next_boundary(now)) {
       if (!beacon_late_counted_this_rev) {
         ++telemetry_counters.beacons_late_dropped;
         beacon_late_counted_this_rev = true;
