@@ -167,7 +167,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("transformers", 45, hs_test::transformers_tests::run_transformers_tests,   \
     1296)                                                                      \
   X("noise", 3, hs_test::noise_tests::run_noise_tests, 201)                    \
-  X("noise_field", 9, hs_test::noise_field_tests::run_noise_field_tests, 400)  \
+  X("noise_field", 11, hs_test::noise_field_tests::run_noise_field_tests, 400) \
   X("projections", 19, hs_test::projections_tests::run_projections_tests,      \
     95876)                                                                     \
   X("generators", 4, hs_test::generators_tests::run_generators_tests, 59)      \

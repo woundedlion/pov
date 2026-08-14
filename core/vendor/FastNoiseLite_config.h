@@ -5,7 +5,7 @@
 // FastNoiseLite configuration for Holosphere. First-party: the only file in
 // core/vendor/ that is not upstream.
 //
-// PATCH RECORD — FastNoiseLite.h is upstream 1.1.1 plus six in-tree edits,
+// PATCH RECORD — FastNoiseLite.h is upstream 1.1.1 plus seven in-tree edits,
 // none of which fails to compile if a version bump drops it. They are pinned by
 // tests/check_vendor_patches.cmake (CTest: unit_vendor_patches):
 //   - the `#include "FastNoiseLite_config.h"` that pulls in this file
@@ -14,6 +14,7 @@
 //   - HS_O3_FN on SingleOpenSimplex2 (selective -O3)
 //   - raw-octave paths used by first-party basis and derivative policies
 //   - a raw vector-noise path used by spherical tangent displacement
+//   - an analytic raw OpenSimplex2 gradient path used by spherical curl
 //
 // HS_O3_FN comes from engine/platform.h below, so the vendored header is no
 // longer a standalone drop-in: a version bump has to re-apply the patches

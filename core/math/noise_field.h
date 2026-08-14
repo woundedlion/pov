@@ -24,7 +24,8 @@ enum class NoiseChannelLayout : uint8_t {
   SCALAR_V1,
   DIRECT_V1,
   CURL_V1,
-  DIRECT_VECTOR_V2
+  DIRECT_VECTOR_V2,
+  CURL_ANALYTIC_V2
 };
 
 struct NoiseFieldSpec {
@@ -198,10 +199,26 @@ inline Vector tetrahedral_gradient(const Vector &q, Sample sample) {
   return (3.0f / (4.0f * NOISE_STENCIL_RADIUS)) * gradient;
 }
 
+HS_FLASH_INLINE inline Vector
+sample_simplex_curl_tangent(const FastNoiseLite &noise, const Vector &q,
+                            const Vector &v) {
+  Vector gradient;
+  noise.GetNoiseGradientSingle(q.x, q.y, q.z, gradient.x, gradient.y,
+                               gradient.z);
+  const Vector tangent_gradient = gradient - dot(gradient, v) * v;
+  Vector u = cross(v, tangent_gradient);
+  const float length = u.length();
+  if (length > 1.0f)
+    u /= length;
+  return u;
+}
+
 HS_FLASH_INLINE inline Vector sample_curl_tangent(const FastNoiseLite &noise,
                                                   NoiseBasis basis,
                                                   const Vector &q,
                                                   const Vector &v) {
+  if (basis == NoiseBasis::SIMPLEX)
+    return sample_simplex_curl_tangent(noise, q, v);
   const Vector gradient = tetrahedral_gradient(q, [&](const Vector &point) {
     return sample_noise_octaves(noise, basis, point);
   });

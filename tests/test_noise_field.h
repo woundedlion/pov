@@ -141,6 +141,70 @@ inline void test_noise_field_tetrahedral_gradient() {
   }
 }
 
+inline void test_noise_field_analytic_gradient() {
+  constexpr float STEP = 1.0f / 2048.0f;
+  constexpr std::array<Vector, 5> POINTS = {
+      Vector(0.0f, 0.0f, 0.0f), Vector(0.25f, -0.75f, 1.5f),
+      Vector(-3.125f, 8.0f, 0.0625f), Vector(31.0f, -17.0f, 9.0f),
+      Vector(-0.499f, 0.501f, -0.001f)};
+  for (FastNoiseLite::RotationType3D rotation :
+       {FastNoiseLite::RotationType3D_None,
+        FastNoiseLite::RotationType3D_ImproveXYPlanes,
+        FastNoiseLite::RotationType3D_ImproveXZPlanes}) {
+    FastNoiseLite noise = make_noise(-991);
+    noise.SetFrequency(0.73f);
+    noise.SetRotationType3D(rotation);
+    for (const Vector &point : POINTS) {
+      Vector gradient;
+      noise.GetNoiseGradientSingle(point.x, point.y, point.z, gradient.x,
+                                   gradient.y, gradient.z);
+      const auto derivative = [&](const Vector &axis) {
+        const Vector low = point - STEP * axis;
+        const Vector high = point + STEP * axis;
+        return (noise.GetNoiseSingle(high.x, high.y, high.z) -
+                noise.GetNoiseSingle(low.x, low.y, low.z)) /
+               (2.0f * STEP);
+      };
+      HS_EXPECT_NEAR(gradient.x, derivative(X_AXIS), 7e-3f);
+      HS_EXPECT_NEAR(gradient.y, derivative(Y_AXIS), 7e-3f);
+      HS_EXPECT_NEAR(gradient.z, derivative(Z_AXIS), 7e-3f);
+    }
+  }
+}
+
+inline void test_noise_field_simplex_curl_approximation() {
+  const FastNoiseLite noise = make_noise(7127);
+  float max_error = 0.0f;
+  float total_error = 0.0f;
+  int samples = 0;
+  for (int latitude = -8; latitude <= 8; ++latitude) {
+    const float y = latitude / 8.0f;
+    const float radius = sqrtf(1.0f - y * y);
+    for (int longitude = 0; longitude < 48; ++longitude) {
+      const float angle = TWO_PI_F * longitude / 48.0f;
+      const Vector v(radius * cosf(angle), y, radius * sinf(angle));
+      const Vector q = noise_sphere_coordinate(v, 2.0f, 0.125f);
+      const Vector analytic = sample_simplex_curl_tangent(noise, q, v);
+      const Vector reference_gradient =
+          tetrahedral_gradient(q, [&](const Vector &point) {
+            return sample_noise_octaves(noise, NoiseBasis::SIMPLEX, point);
+          });
+      const Vector tangent_gradient =
+          reference_gradient - dot(reference_gradient, v) * v;
+      Vector reference = cross(v, tangent_gradient);
+      const float length = reference.length();
+      if (length > 1.0f)
+        reference /= length;
+      const float error = (analytic - reference).length();
+      max_error = std::max(max_error, error);
+      total_error += error;
+      ++samples;
+    }
+  }
+  HS_EXPECT_LT(max_error, 0.18f);
+  HS_EXPECT_LT(total_error / samples, 0.03f);
+}
+
 inline void test_noise_field_curl_tangent() {
   const FastNoiseLite noise = make_noise(7127);
   for (int latitude = -8; latitude <= 8; ++latitude) {
@@ -206,6 +270,8 @@ inline int run_noise_field_tests() {
   test_noise_field_ridged_channel_pairs();
   test_noise_field_direct_tangent();
   test_noise_field_tetrahedral_gradient();
+  test_noise_field_analytic_gradient();
+  test_noise_field_simplex_curl_approximation();
   test_noise_field_curl_tangent();
   test_sphere_exp_map_and_transport();
   test_half_radian_exp_map_approximation();
