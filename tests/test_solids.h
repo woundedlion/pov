@@ -41,6 +41,7 @@
 #include "core/color/palettes.h"
 #include "core/mesh/recipe.h"
 #include "core/mesh/solids.h"
+#include "effects/HankinSolids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -601,18 +602,19 @@ inline void test_determinism_complex_islamic() {
 // ---------------------------------------------------------------------------
 // High-water regression at the real shipping arena configuration.
 //
-// IslamicStars::spawn_shape builds each recipe through a 114 KB / 80 KB scratch
-// pair that ping-pongs WITHOUT resetting between ops, so a recipe chain's peak
-// is its high-water mark. Over-budget would otherwise surface only as a
-// device-only OOM trap. Scratch is flat POD whose only host/device delta
-// (64-bit pointers) can only make the host figure larger, so the host
-// high-water mark is a conservative upper bound on the device figure.
+// IslamicStars::spawn_shape builds each recipe through the scratch pair its
+// init() splits off, and that pair ping-pongs WITHOUT resetting between ops, so
+// a recipe chain's peak is its high-water mark. Over-budget would otherwise
+// surface only as a device-only OOM trap. Scratch is flat POD whose only
+// host/device delta (64-bit pointers) can only make the host figure larger, so
+// the host high-water mark is a conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
 
+/** IslamicStars keeps its split private, so these mirror it by value. */
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    116 * 1024; /**< IslamicStars' default scratch_a split (mirrors init()). */
+    116 * 1024; /**< IslamicStars::SPLIT_SCRATCH_A_DEFAULT. */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    74 * 1024; /**< IslamicStars' scratch_b split (mirrors init()). */
+    74 * 1024; /**< IslamicStars::SPLIT_SCRATCH_B_DEFAULT. */
 
 /**
  * @brief Runs one Islamic recipe through a real-budget arena pair and asserts
@@ -782,10 +784,13 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
 // figure, so the host high-water mark is a conservative upper bound.
 // ---------------------------------------------------------------------------
 
+/** The arena split is canvas-independent; this instantiation names it. */
+using HankinFx = HankinSolids<96, 20>;
+
 constexpr size_t HANKIN_SCRATCH_A_BUDGET =
-    24 * 1024; /**< HankinSolids scratch_a. */
+    HankinFx::SCRATCH_A_BYTES; /**< HankinSolids scratch_a. */
 constexpr size_t HANKIN_SCRATCH_B_BUDGET =
-    32 * 1024; /**< HankinSolids scratch_b. */
+    HankinFx::SCRATCH_B_BYTES; /**< HankinSolids scratch_b. */
 constexpr float HANKIN_ANGLE =
     PI_F / 4.0f; /**< Mid-sweep; counts are angle-independent. */
 
