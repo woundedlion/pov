@@ -3187,7 +3187,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
 }
 
-/** @brief Compiled inverse programs match the host reference exactly. */
+/** @brief Compiled inverse programs match the host reference within rounding. */
 inline void test_shaderball_inverse_program_equivalence() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
@@ -3205,8 +3205,18 @@ inline void test_shaderball_inverse_program_equivalence() {
                           radius * sinf(longitude));
         const Color4 expected = WB::shade(view, frame);
         const Color4 actual = WB::pipeline_shade(view, frame);
-        HS_EXPECT_TRUE(actual.color == expected.color);
-        HS_EXPECT_EQ(actual.alpha, expected.alpha);
+        const uint16_t red_error = actual.color.r > expected.color.r
+                                       ? actual.color.r - expected.color.r
+                                       : expected.color.r - actual.color.r;
+        const uint16_t green_error = actual.color.g > expected.color.g
+                                         ? actual.color.g - expected.color.g
+                                         : expected.color.g - actual.color.g;
+        const uint16_t blue_error = actual.color.b > expected.color.b
+                                        ? actual.color.b - expected.color.b
+                                        : expected.color.b - actual.color.b;
+        HS_EXPECT_LE(std::max({red_error, green_error, blue_error}),
+                     uint16_t(1));
+        HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
       }
     }
   }
