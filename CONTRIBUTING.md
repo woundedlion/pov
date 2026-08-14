@@ -36,8 +36,10 @@ component (`scan: clamp the row index before the cast`). Commit messages carry
 
 ## Gates
 
-Everything below runs locally before it runs in CI, and the same gates run in
-`.github/workflows/ci.yml` behind one aggregate `CI green` check.
+Every gate below runs in `.github/workflows/ci.yml` behind one aggregate
+`CI green` check. `.githooks/pre-commit` runs the format, lint/docs, native-suite
+and Teensy gates locally on every commit; the license-header check and the
+simulator suite have no local hook and are run by hand.
 
 - **`.githooks/pre-commit`** — four gates, each keyed on the staged paths: a
   `clang-format` check over the staged first-party sources, the Python /
@@ -55,7 +57,11 @@ Everything below runs locally before it runs in CI, and the same gates run in
   QUICK tier.
 - **Documentation:** `python tools/docs_check.py` validates fences, links,
   anchors and every backticked repo path, and the README's file map must list a
-  new tracked path. `python tools/license_check.py` checks the license headers.
+  new tracked path; the pre-commit hook and `just docs-check` both run it.
+- **License headers:** `python tools/license_check.py`. No hook and no `just`
+  recipe runs it, so a new source file needs it invoked by hand — otherwise the
+  first evidence of a missing header is a red `License headers match LICENSE`
+  job.
 - **Simulator:** in the daydream checkout, `npm ci` then `npm test`; its
   `pre-push` hook runs lint, typecheck, the import-map check and the JS suite,
   and refuses a push from a tree that cannot run them.
