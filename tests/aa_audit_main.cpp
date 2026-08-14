@@ -9,7 +9,8 @@
  *     runs never visit, and
  *   - renders the same frame twice (emitted runs vs. forced full-width scan)
  *     and diffs the framebuffers, so neighbour-face coverage is accounted for.
- * Optionally dumps both frames as raw RGB16 for PNG diffing. Not a CTest.
+ * Optionally dumps both frames as raw RGB16 for PNG diffing; --noref skips the
+ * reference render, so only the shipping frame is dumped. Not a CTest.
  */
 #include <cstdio>
 #include <cstdlib>
@@ -42,11 +43,11 @@ void white(const Vector &, Fragment &f) {
     f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
     return;
   }
-  int i = static_cast<int>(f.v2);
+  const int i = mesh_face_index(f);
   static const uint16_t lut[6][3] = {{65535, 0, 0},     {0, 65535, 0},
                                      {0, 0, 65535},     {65535, 65535, 0},
                                      {0, 65535, 65535}, {65535, 0, 65535}};
-  const uint16_t *c = lut[i % 6];
+  const uint16_t *c = lut[(i < 0 ? 0 : i) % 6];
   f.color = Color4(Pixel(c[0], c[1], c[2]), 1.0f);
 }
 
@@ -198,8 +199,10 @@ int main(int argc, char **argv) {
         char p[512];
         std::snprintf(p, sizeof(p), "%s_ship.raw", dump_prefix);
         dump(p, a_buf);
-        std::snprintf(p, sizeof(p), "%s_ref.raw", dump_prefix);
-        dump(p, b_buf);
+        if (!g_no_ref) {
+          std::snprintf(p, sizeof(p), "%s_ref.raw", dump_prefix);
+          dump(p, b_buf);
+        }
       }
 
       for (size_t i = 0; i < mesh.vertices.size(); ++i)
