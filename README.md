@@ -460,6 +460,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── README.md                   Installed from Holosphere (this file)
 ├── docs/screenshots/           Installed from Holosphere
 │
+├── main.js                     index.html's entry module: starts the simulator, once
 ├── bootstrap.js                Dynamic-import boot of daydream.js + failure overlay
 ├── daydream.js                 App entry: WASM loader, state wiring, GUI/sidebar
 ├── app_lifecycle.js            Composition-root frame adapter, display-alias heal, Test All
@@ -2356,10 +2357,11 @@ Main thread                                Web Workers (segment mode only)
 index.html → vendor-importmap.js           segment_worker.js × N
               ↓ (resolves three/lil-gui    each owns its own WASM module
               ↓  to local or CDN)
-            bootstrap.js (entry)           engine.setClip(x0,x1,y0,y1)
-              ├─ failure overlay +         engine.drawFrame()  → pixel slice
-              │  refreshModuleCache()      postMessage(Transfer pixels)
-              └─ import('./daydream.js')
+            main.js (entry)                engine.setClip(x0,x1,y0,y1)
+              └─ bootstrap.js              engine.drawFrame()  → pixel slice
+                   ├─ failure overlay +    postMessage(Transfer pixels)
+                   │  refreshModuleCache()
+                   └─ import('./daydream.js')
                    ├─ createHolosphereModule()
                    ├─ Daydream (driver.js)
                    │    ├─ Three.WebGLRenderer
@@ -2372,7 +2374,7 @@ index.html → vendor-importmap.js           segment_worker.js × N
                    └─ VideoRecorder (MediaRecorder)
 ```
 
-`index.html` loads exactly one module, `bootstrap.js`, which dynamically imports `daydream.js` inside a `try`/`catch` — the only handler for a module-graph load failure. On failure it renders the error into the page's `loading-overlay` (as `role="alert"`, with a focused **Reload** button) and falls back to the shared fatal-error banner when no overlay exists. The Reload handler first runs `refreshModuleCache()`, which re-fetches every same-origin `.js` and `.wasm` the page has already loaded with `cache: 'reload'`. That is the remedy for the deploy-skew hazard: a plain browser reload only revalidates the top-level document, so modules cached from an earlier deploy stay stale and keep failing to link against freshly fetched importers — and the WASM binary is bound to its glue by content hash, so a stale binary against fresh glue is the canonical form of the skew.
+`index.html` loads exactly one module, `main.js`, whose whole body is a call to `bootstrap.js`'s exported `bootstrap()`. Keeping the side effect in the entry module rather than in `bootstrap.js` itself is what lets `daydream.js` import the failure overlay without standing up a second simulator. `bootstrap()` dynamically imports `daydream.js` inside a `try`/`catch` — the only handler for a module-graph load failure. On failure it renders the error into the page's `loading-overlay` (as `role="alert"`, with a focused **Reload** button) and falls back to the shared fatal-error banner when no overlay exists. The Reload handler first runs `refreshModuleCache()`, which re-fetches every same-origin `.js` and `.wasm` the page has already loaded with `cache: 'reload'`. That is the remedy for the deploy-skew hazard: a plain browser reload only revalidates the top-level document, so modules cached from an earlier deploy stay stale and keep failing to link against freshly fetched importers — and the WASM binary is bound to its glue by content hash, so a stale binary against fresh glue is the canonical form of the skew.
 
 A normal page load creates one WASM instance on the main thread. The dot mesh has one instance per LED pixel; the per-frame work is `instanceColor.needsUpdate = true` after the WASM buffer view is refreshed. When the user enables Segmented POV (§10.7), `daydream.js` spawns N Web Workers, each holding its own WASM module so the four-Teensy Phantasm layout can be exercised in software.
 
