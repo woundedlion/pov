@@ -309,10 +309,9 @@ public:
    * @brief Checks whether the queued frame has been picked up for display.
    * @return True when `prev == next` (no frame still waiting to be shown), so
    *         the writer is free to claim the other buffer.
-   * @details The acquire load pairs with the release half of
-   * `advance_display()`'s fence: everything the display ISR stored before the
-   * flip — the segmented driver's display-window half — is visible to the
-   * writer this gate releases.
+   * @details The acquire load pairs with `advance_display()`'s release store:
+   * everything the display ISR stored before the flip — the segmented driver's
+   * display-window half — is visible to the writer this gate releases.
    */
   [[nodiscard]] inline bool buffer_free() const {
     return prev.load(std::memory_order_acquire) ==
@@ -330,18 +329,14 @@ public:
   void set_buffer_ready_hook(BufferReadyHook hook) { buffer_ready_hook = hook; }
   /**
    * @brief Advances the display buffer pointer to the next queued frame.
-   * @details The fence's acquire half pairs with `queue_frame()`'s release
-   * fence, so the queued frame's pixel writes are visible before any read
-   * through `prev`; its release half orders whatever the caller stored before
-   * the flip — the segmented driver's display-window publish — ahead of the
-   * `prev` store, pairing with `buffer_free()`'s acquire load. An acq_rel fence
-   * carries both halves in the one barrier an acquire fence already cost. The
-   * per-pixel loads themselves stay relaxed.
+   * @details The acquire load pairs with `queue_frame()`'s release store, so
+   * the queued frame's pixel writes are visible before any read through `prev`.
+   * The release store publishes the display flip and the caller's preceding
+   * display-window update to `buffer_free()`.
    */
   inline void advance_display() {
-    int n = next.load(std::memory_order_relaxed);
-    std::atomic_thread_fence(std::memory_order_acq_rel);
-    prev.store(n, std::memory_order_relaxed);
+    int n = next.load(std::memory_order_acquire);
+    prev.store(n, std::memory_order_release);
   }
   /** @brief Runtime parameter descriptor (see engine/effect_params.h). */
   using ParamDef = ::ParamDef;
@@ -871,15 +866,14 @@ private:
 
   /**
    * @brief Queues the newly drawn frame to be displayed.
-   * @details Publishes `cur` as the new `next`. The release fence orders the
-   * frame's pixel writes before the publish, pairing with the acquire fence in
+   * @details Publishes `cur` as the new `next`. The release store orders the
+   * frame's pixel writes before the publish, pairing with the acquire load in
    * `advance_display()`; the IRQ-off bracket keeps the publish atomic against
    * the on-device display ISR.
    */
   inline void queue_frame() {
     hs::disable_interrupts();
-    std::atomic_thread_fence(std::memory_order_release);
-    next.store(cur.load(std::memory_order_relaxed), std::memory_order_relaxed);
+    next.store(cur.load(std::memory_order_relaxed), std::memory_order_release);
     hs::enable_interrupts();
   }
 
