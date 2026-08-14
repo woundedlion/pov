@@ -185,6 +185,74 @@ struct RasterOptions {
 };
 
 /**
+ * @brief Gates one geodesic trail's edges against the clip in one hoisted pass.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam PipelineT Pipeline type; must have no world cull stage
+ *         (pipeline_hoistable_cull), so the predicate sees the raw points.
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param trail Geodesic fragment polyline (>= 2 unit-position points).
+ * @param bits Output, one byte per edge (trail.size() - 1): 0 = culled, else
+ *        EDGE_VISIBLE; valid as rasterize()'s edge_flags input for an open
+ *        polyline.
+ * @return False when no edge is visible; bits are then all zero.
+ * @details The hoisted per-point coordinates and the whole-trail culls come
+ * from trail_gate_prologue, shared with ParticleSystem::draw's gate.
+ */
+HS_O3_BEGIN
+template <int W, int H, typename PipelineT>
+static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
+                             const ClipRegion::XClip &xc,
+                             const Fragments &trail, uint8_t *bits) {
+  static_assert(pipeline_hoistable_cull<PipelineT>(),
+                "gate_trail_edges requires a pipeline with no world cull "
+                "stage; route others through edge_visible_in_clip");
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  const size_t n = trail.size();
+  HS_CHECK(n >= 2);
+  const size_t edges = n - 1;
+
+  ScratchScope span_guard(scratch_arena_a);
+  const TrailGatePrologue pro = trail_gate_prologue<W, H>(cr, xc, trail);
+  if (pro.rejected) {
+    std::fill_n(bits, edges, uint8_t{0});
+    return false;
+  }
+  const float *rows = pro.rows;
+  const float *cols = pro.cols;
+
+  bool any = false;
+  for (size_t e = 0; e < edges; ++e) {
+    const Vector &ea = trail[e].pos;
+    const Vector &eb = trail[e + 1].pos;
+
+    // Cheap row tier: the exact span's interior extremum lies within arc/2 of
+    // an endpoint and phi is 1-Lipschitz in arc length (arc <= (pi/2)*chord),
+    // so the endpoint rows widened by chord*(H_VIRT-1)/4 contain the exact
+    // span — a miss here implies the exact test below also misses, keeping
+    // the bits identical while skipping the edge's cross/normalize/acos.
+    {
+      const Vector d = eb - ea;
+      const float margin =
+          sqrtf(dot(d, d)) * (static_cast<float>(H_VIRT - 1) * 0.25f);
+      if (!cr.could_intersect_y(std::min(rows[e], rows[e + 1]) - margin,
+                                std::max(rows[e], rows[e + 1]) + margin)) {
+        bits[e] = 0;
+        continue;
+      }
+    }
+
+    const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
+    const bool v = exact_geodesic_edge_visible_hoisted<W, H>(cr, xc, rows, cols,
+                                                             e, ea, eb, es);
+    bits[e] = v ? RasterOptions::EDGE_VISIBLE : uint8_t{0};
+    any = any || v;
+  }
+  return any;
+}
+HS_O3_END
+
+/**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation

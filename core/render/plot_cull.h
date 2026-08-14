@@ -1528,4 +1528,330 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
   }
 }
 
+/**
+ * @brief Conservative test: can a spherical cap reach a clip's render region?
+ * @tparam H Canvas height in rows.
+ * @param cr Clip region to test against.
+ * @param dir Cap center direction (unit vector). A ring passes its axis with
+ * half_angle = colatitude + displacement bound (the cap of that radius
+ * contains the ring's band); a ring chunk passes its midpoint with
+ * half_angle = chunk half-arc + displacement bound.
+ * @param half_angle Cap angular radius including stroke/AA pad (radians).
+ * @return False only when no fragment inside the cap can land in the clip's
+ * render region; true is always safe.
+ * @details Rows: the cap's polar range about the display's Y axis is
+ * [beta - t2, beta + t2] (beta = center colatitude). Columns: a cap that
+ * reaches either display pole spans all longitudes; otherwise its longitude
+ * half-width about the center longitude is asin(sin t2 / sin beta), compared
+ * against the clip's column wedge with the clip margin plus one pixel of
+ * slack.
+ */
+template <int H>
+inline bool cap_may_touch_clip(const ClipRegion &cr, const Vector &dir,
+                               float half_angle) {
+  float t2 = std::min(half_angle, PI_F);
+  float beta = acosf(hs::clamp(dir.y, -1.0f, 1.0f));
+
+  float phi_lo = std::max(beta - t2, 0.0f);
+  float phi_hi = std::min(beta + t2, PI_F);
+  if (phi_to_y<H>(phi_hi) < cr.render_y_start() ||
+      phi_to_y<H>(phi_lo) >= cr.render_y_end())
+    return false;
+
+  if (cr.x_start == 0 && cr.x_end == cr.w)
+    return true;
+  if (beta <= t2 || PI_F - beta <= t2)
+    return true;
+  float dlam = asinf(hs::clamp(sinf(t2) / sinf(beta), 0.0f, 1.0f));
+  float lam_v = atan2f(dir.z, dir.x);
+  float width_px = static_cast<float>(cr.x_end - cr.x_start);
+  float half_w = (width_px * 0.5f + cr.margin + 1.0f) * (2.0f * PI_F) / cr.w;
+  float lam_c = (cr.x_start + width_px * 0.5f) * (2.0f * PI_F) / cr.w;
+  float d = std::fabs(wrap_t((lam_v - lam_c) / (2.0f * PI_F) + 0.5f) - 0.5f) *
+            (2.0f * PI_F);
+  return d <= dlam + half_w;
+}
+
+enum class CartesianTrailGateResult : uint8_t {
+  EXACT_FALLBACK,
+  LATITUDE_REJECT,
+  MERIDIAN_REJECT,
+};
+
+struct CartesianQuadrantClip {
+  float latitude_sign = 0.0f;
+  float latitude_threshold = 0.0f;
+  float meridian_sign = 0.0f;
+  float meridian_threshold = 0.0f;
+  bool active = false;
+};
+
+/**
+ * @brief Builds the Cartesian halfspace superset for a segmented quadrant.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param cr Active clip region.
+ * @return Enabled thresholds only for the four hardware quadrant shapes.
+ */
+template <int W, int H>
+static CartesianQuadrantClip
+make_cartesian_quadrant_clip(const ClipRegion &cr) {
+  CartesianQuadrantClip q;
+  if (cr.w != W || cr.h != H || cr.margin < 0 || W % 2 != 0 || H % 2 != 0 ||
+      cr.x_end - cr.x_start != W / 2 ||
+      (cr.x_start != 0 && cr.x_start != W / 2) ||
+      cr.y_end - cr.y_start != H / 2 ||
+      (cr.y_start != 0 && cr.y_start != H / 2))
+    return q;
+
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  if (cr.y_start == 0) {
+    const float boundary = static_cast<float>(cr.render_y_end()) * PI_F /
+                           static_cast<float>(H_VIRT - 1);
+    q.latitude_sign = 1.0f;
+    q.latitude_threshold = cosf(boundary);
+  } else {
+    const float boundary = static_cast<float>(cr.render_y_start()) * PI_F /
+                           static_cast<float>(H_VIRT - 1);
+    q.latitude_sign = -1.0f;
+    q.latitude_threshold = -cosf(boundary);
+  }
+
+  const float half_width =
+      PI_F * 0.5f + static_cast<float>(cr.margin + COL_FOOTPRINT) *
+                        (2.0f * PI_F / static_cast<float>(W));
+  if (half_width >= PI_F)
+    return CartesianQuadrantClip{};
+  q.meridian_sign = cr.x_start == 0 ? 1.0f : -1.0f;
+  q.meridian_threshold = cosf(half_width);
+  q.active = true;
+  return q;
+}
+
+/**
+ * @brief Conservatively rejects a geodesic trail outside a Cartesian quadrant.
+ * @param clip Precomputed quadrant halfspace thresholds.
+ * @param trail Unit-sphere geodesic polyline.
+ * @return Rejecting halfspace, or exact fallback for every uncertain case.
+ */
+HS_O3_BEGIN
+static inline CartesianTrailGateResult
+cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
+                              const Fragments &trail) {
+  if (!clip.active || trail.size() < 2)
+    return CartesianTrailGateResult::EXACT_FALLBACK;
+
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+  hs::DwtStallBatch gate_batch(hs::g_mindsplatter_stalls.trail_gate);
+#endif
+  float latitude_max = -1.0f;
+  float max_chord2 = 0.0f;
+  for (size_t k = 0; k < trail.size(); ++k) {
+    const Vector &p = trail[k].pos;
+    latitude_max = std::max(latitude_max, clip.latitude_sign * p.y);
+    if (k > 0) {
+      const Vector d = p - trail[k - 1].pos;
+      max_chord2 = std::max(max_chord2, dot(d, d));
+    }
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+#endif
+  }
+
+  // Every point on a minor arc lies within half its arc of one endpoint, and
+  // arc <= (pi/2)*chord. A unit-normal dot changes by at most angular distance.
+  const float slack = (PI_F * 0.25f) * sqrtf(max_chord2);
+  if (latitude_max + slack < clip.latitude_threshold - math::EPS_GEOMETRIC) {
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+    gate_batch.finish();
+#endif
+    return CartesianTrailGateResult::LATITUDE_REJECT;
+  }
+
+  float meridian_max = -1.0f;
+  for (const Fragment &f : trail) {
+    meridian_max = std::max(meridian_max, clip.meridian_sign * f.pos.z);
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+#endif
+  }
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+  gate_batch.step();
+  gate_batch.finish();
+#endif
+  if (meridian_max + slack < clip.meridian_threshold - math::EPS_GEOMETRIC)
+    return CartesianTrailGateResult::MERIDIAN_REJECT;
+  return CartesianTrailGateResult::EXACT_FALLBACK;
+}
+HS_O3_END
+
+static inline void
+count_cartesian_trail_gate_result(CartesianTrailGateResult result) {
+  if (result == CartesianTrailGateResult::LATITUDE_REJECT)
+    HS_MSP_COUNT(cartesian_latitude_rejects);
+  else if (result == CartesianTrailGateResult::MERIDIAN_REJECT)
+    HS_MSP_COUNT(cartesian_meridian_rejects);
+  else
+    HS_MSP_COUNT(cartesian_fallbacks);
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_CARTESIAN_COUNTS)
+  static hs::CycleCounter latitude("plot_ps_cartesian_latitude_reject");
+  static hs::CycleCounter meridian("plot_ps_cartesian_meridian_reject");
+  static hs::CycleCounter fallback("plot_ps_cartesian_fallback");
+  hs::CycleCounter *counter = &fallback;
+  if (result == CartesianTrailGateResult::LATITUDE_REJECT)
+    counter = &latitude;
+  else if (result == CartesianTrailGateResult::MERIDIAN_REJECT)
+    counter = &meridian;
+  ++counter->count;
+#else
+  (void)result;
+#endif
+}
+
+static inline void count_particle_edge_class(bool one_dot) {
+  if (one_dot)
+    HS_MSP_COUNT(one_dot_edges);
+  else
+    HS_MSP_COUNT(long_edges);
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
+  static hs::CycleCounter one_dot_count("plot_ps_edge_one_dot");
+  static hs::CycleCounter long_count("plot_ps_edge_long");
+  ++(one_dot ? one_dot_count : long_count).count;
+#else
+  (void)one_dot;
+#endif
+}
+
+static inline void count_particle_exact_gate_fallback() {
+  HS_MSP_COUNT(exact_gate_fallbacks);
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
+  static hs::CycleCounter exact_count("plot_ps_edge_exact_fallback");
+  ++exact_count.count;
+#endif
+}
+
+/**
+ * @brief Hoisted per-point screen coordinates and whole-trail cull verdict.
+ */
+struct TrailGatePrologue {
+  const float *rows; /**< Per-point screen rows, one per trail point. */
+  const float
+      *cols;     /**< Per-point screen columns, null when x-clip inactive. */
+  bool rejected; /**< The whole trail is provably outside the clip. */
+};
+
+/**
+ * @brief Computes one geodesic trail's per-point rows/columns and applies the
+ *        conservative whole-trail row and column culls.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param trail Geodesic fragment polyline (>= 2 unit-position points).
+ * @return The hoisted arrays plus whether the trail is culled whole.
+ * @details rows and cols are bump-allocated from scratch_arena_a and the helper
+ * opens no ScratchScope of its own: they stay valid until the CALLER's scope
+ * unwinds, so a caller may keep them alive past the gate.
+ */
+template <int W, int H>
+static __attribute__((always_inline)) inline TrailGatePrologue
+trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
+                    const Fragments &trail) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  const size_t n = trail.size();
+  auto *rows = static_cast<float *>(
+      scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+  hs::DwtStallBatch gate_batch(hs::g_mindsplatter_stalls.trail_gate);
+#endif
+  float row_lo_t = 1e9f, row_hi_t = -1e9f;
+  float min_sp2 = 1.0f;
+  float max_chord2 = 0.0f;
+  for (size_t k = 0; k < n; ++k) {
+    const Vector &pt = trail[k].pos;
+    rows[k] = y_to_screen_row<H>(pt.y);
+    row_lo_t = std::min(row_lo_t, rows[k]);
+    row_hi_t = std::max(row_hi_t, rows[k]);
+    min_sp2 = std::min(min_sp2, 1.0f - pt.y * pt.y);
+    if (k > 0) {
+      const Vector d = pt - trail[k - 1].pos;
+      max_chord2 = std::max(max_chord2, dot(d, d));
+    }
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+#endif
+  }
+  // arc <= (pi/2)*chord on [0, pi]; an edge's interior latitude extremum lies
+  // within arc/2 of an endpoint and phi is 1-Lipschitz in arc length, so this
+  // margin covers every per-edge bulge peak.
+  const float max_arc = (PI_F * 0.5f) * sqrtf(max_chord2);
+  const float row_margin =
+      (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / PI_F);
+  if (!cr.could_intersect_y(row_lo_t - row_margin, row_hi_t + row_margin)) {
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+    gate_batch.finish();
+#endif
+    HS_MSP_COUNT(prologue_row_rejects);
+    return {rows, nullptr, true};
+  }
+
+  float *cols = nullptr;
+  if (xc.active) {
+    cols = static_cast<float *>(
+        scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+    float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
+    bool walk_safe = true;
+    cols[0] = vector_to_theta<W>(trail[0].pos);
+    for (size_t k = 1; k < n; ++k) {
+      cols[k] = vector_to_theta<W>(trail[k].pos);
+      // A geodesic edge's column sweep never exceeds W/2 (antipodal symmetry,
+      // see geodesic_col_span_cols), so the short-way delta covers it
+      // regardless of direction — except at ~exactly W/2, where the delta's
+      // sign (which semicircle) is float noise.
+      float d = cols[k] - cols[k - 1];
+      if (d > W * 0.5f)
+        d -= W;
+      else if (d < -W * 0.5f)
+        d += W;
+      if (std::abs(d) >= W * 0.5f - 3.0f)
+        walk_safe = false;
+      // geodesic_col_span_cols refuses to bound an edge whose great-circle
+      // axis is near-horizontal, and the per-edge tier then treats it as
+      // visible; the endpoint columns walked here do not bound such an edge
+      // either. |axis.y| = |cy| / |cross| and |cross| <= 1, so testing the
+      // unnormalized cy covers every case it rejects.
+      const Vector &ca_pos = trail[k - 1].pos;
+      const Vector &cb_pos = trail[k].pos;
+      if (std::abs(ca_pos.z * cb_pos.x - ca_pos.x * cb_pos.z) < AXIS_Y_EPS)
+        walk_safe = false;
+      cum += d;
+      cum_lo = std::min(cum_lo, cum);
+      cum_hi = std::max(cum_hi, cum);
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+      gate_batch.step();
+#endif
+    }
+    // Near a pole the plotted column is float noise (same caution as the
+    // per-edge spans), so only cull by the column arc when the whole trail
+    // provably stays clear.
+    if (walk_safe && sqrtf(std::max(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
+      int col_s, col_len;
+      finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s, col_len);
+      if (!ClipRegion::arcs_overlap(xc.rs, xc.length(W), col_s, col_len, W)) {
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+        gate_batch.step();
+        gate_batch.finish();
+#endif
+        HS_MSP_COUNT(prologue_column_rejects);
+        return {rows, cols, true};
+      }
+    }
+  }
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+  gate_batch.step();
+  gate_batch.finish();
+#endif
+  return {rows, cols, false};
+}
+
 } // namespace Plot
