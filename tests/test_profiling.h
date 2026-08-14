@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #if defined(_WIN32)
 #include <io.h>      // _dup / _dup2 / _close / _fileno
@@ -37,18 +38,31 @@ namespace profiling_tests {
  * @param n Capacity of @p out.
  * @return True if the redirect was established and the report captured.
  * @details hs::log writes to C stdout, so the report is only observable through
- * an fd swap (the same idiom as test_platform.h's Serial.printf capture). The
- * temp file name carries the pid so concurrent runs sharing a CWD cannot
- * collide.
+ * an fd swap (the same idiom as test_platform.h's Serial.printf capture). A
+ * scratch file rather than that capture's pipe, since the report can outrun a
+ * pipe buffer and the write precedes any read. The file lands in the platform
+ * temp directory, so an unwritable CWD cannot fail the cases, and its name
+ * carries the pid so concurrent runs cannot collide.
  */
 inline bool capture_log_all(char *out, size_t n) {
   out[0] = '\0';
-  char path[64];
+  char path[512];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #if defined(_WIN32)
-  std::snprintf(path, sizeof(path), "profiling_log_capture_%d.tmp", _getpid());
+  const char *dir = std::getenv("TEMP");
+  if (!dir || dir[0] == '\0')
+    dir = ".";
+  std::snprintf(path, sizeof(path), "%s\\profiling_log_capture_%d.tmp", dir,
+                _getpid());
 #else
-  std::snprintf(path, sizeof(path), "profiling_log_capture_%d.tmp", getpid());
+  const char *dir = std::getenv("TMPDIR");
+  if (!dir || dir[0] == '\0')
+    dir = "/tmp";
+  std::snprintf(path, sizeof(path), "%s/profiling_log_capture_%d.tmp", dir,
+                static_cast<int>(getpid()));
 #endif
+#pragma clang diagnostic pop
   std::fflush(stdout);
 #if defined(_WIN32)
   int saved_out = _dup(1);
