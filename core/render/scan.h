@@ -293,7 +293,8 @@ HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
  * @param xc Column-arc clip.
  * @param emit Sink receiving each surviving piece.
  * @details A wrapping arc is [rs, W) ∪ [0, re); the two pieces are disjoint
- * (re <= rs), so no column is emitted twice.
+ * (re <= rs) and emitted low piece first, so no column is emitted twice and
+ * the pieces keep ascending column order.
  */
 template <typename EmitFn>
 __attribute__((always_inline)) inline void
@@ -301,8 +302,8 @@ clip_run(int x1, int x2, ClipRegion::XClip xc, EmitFn &&emit) {
   if (!xc.active) {
     emit(x1, x2);
   } else if (xc.wrap) {
-    emit(std::max(x1, xc.rs), x2);
     emit(x1, std::min(x2, xc.re));
+    emit(std::max(x1, xc.rs), x2);
   } else {
     emit(std::max(x1, xc.rs), std::min(x2, xc.re));
   }
