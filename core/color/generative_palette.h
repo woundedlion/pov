@@ -130,6 +130,15 @@ public:
   float palette_input_span() const { return input_span; }
   uint8_t palette_key_count() const { return key_count; }
 
+  /** @brief Sets every control key to one gamut-relative chroma.
+   *  @param chroma Chroma in [0, 1]. */
+  HS_COLD_MEMBER void set_constant_chroma(float chroma) {
+    chroma = hs::clamp(chroma, 0.0f, 1.0f);
+    chroma_axis = {chroma, chroma, AxisCurve::CONSTANT};
+    for (int i = 0; i < key_count; ++i)
+      keys[i].chroma = chroma;
+  }
+
   bool mirrors_domain() const { return domain == PaletteDomain::MIRROR; }
   bool loops_domain() const { return domain == PaletteDomain::LOOP; }
 
