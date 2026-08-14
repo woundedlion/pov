@@ -468,7 +468,7 @@ struct Face {
       return false;
     const int Wd = cr.w;
     const float pw = face_azimuth_pad(Wd);
-    const int band_len = ((xc.re - xc.rs) % Wd + Wd) % Wd;
+    const int band_len = xc.length(Wd);
     for (const auto &iv : intervals) {
       // Mirrors get_horizontal_intervals' radians->column mapping, so the cull
       // matches the emitted columns exactly.
