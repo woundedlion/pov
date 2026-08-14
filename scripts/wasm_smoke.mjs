@@ -132,10 +132,10 @@ async function main() {
   const RS = Module.ResolutionSetResult;
   const ES = Module.EffectSetResult;
   for (const outcome of ['RESIZED', 'ALREADY_ACTIVE', 'UNSUPPORTED']) {
-    if (!RS || !RS[outcome]) fail(`Module.ResolutionSetResult.${outcome} is not bound`);
+    if (!RS || RS[outcome] === undefined) fail(`Module.ResolutionSetResult.${outcome} is not bound`);
   }
   for (const outcome of ['INSTALLED', 'UNKNOWN_EFFECT', 'UNSUPPORTED_RESOLUTION']) {
-    if (!ES || !ES[outcome]) fail(`Module.EffectSetResult.${outcome} is not bound`);
+    if (!ES || ES[outcome] === undefined) fail(`Module.EffectSetResult.${outcome} is not bound`);
   }
   if (!RS || !ES) {
     console.error('wasm_smoke: result enums missing; every call below would misread');
@@ -299,7 +299,7 @@ async function main() {
         // the roster too.
         const C = Module.ClipSetResult;
         for (const outcome of ['APPLIED', 'NO_EFFECT', 'INVALID_BOUNDS', 'FULL_FRAME_KEPT']) {
-          if (!C || !C[outcome]) fail(`Module.ClipSetResult.${outcome} is not bound`);
+          if (!C || C[outcome] === undefined) fail(`Module.ClipSetResult.${outcome} is not bound`);
         }
         if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
           fail(`write-seam: setEffect("${effectNames[0]}") failed`);
@@ -725,7 +725,7 @@ async function main() {
          ['OK', 'UNKNOWN_NAME', 'CONNECTIVITY_OVERFLOW', 'FACE_DEGREE_OVERFLOW',
           'ARENA_EXHAUSTED', 'NON_FINITE_ARG', 'ANGLE_OUT_OF_DOMAIN',
           'STALE_WRAPPER']) {
-      if (!MR || !MR[reason]) {
+      if (!MR || MR[reason] === undefined) {
         fail(`Module.MeshOpResult.${reason} is not bound`);
       }
     }
