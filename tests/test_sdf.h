@@ -2703,6 +2703,38 @@ inline void test_face_pole_vertex_matches_full_scan() {
 // ============================================================================
 
 /**
+ * @brief Exact signed point-to-polygon distance in a Face's tangent plane.
+ * @param face Face whose packed edges and poly_2d ring bound the polygon.
+ * @param px Plane u coordinate of the probe.
+ * @param py Plane w coordinate of the probe.
+ * @return The value Face::distance must reproduce: negative inside, mapped
+ *         through fast_atan2 unless the face carries linear distance.
+ * @details Per-edge segment distance plus a crossing-parity inside test, coded
+ *          independently of every fast path it gates.
+ */
+inline float exact_plane_distance(const SDF::Face &face, float px, float py) {
+  float dmin = FLT_MAX;
+  bool inside = false;
+  for (int i = 0; i < face.count; ++i) {
+    const auto &ep = face.packed_edges[i];
+    const float wx = px - ep.vx, wy = py - ep.vy;
+    const float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
+    const float cv = hs::clamp(t, 0.0f, 1.0f);
+    const float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
+    const float dsq = bx * bx + by * by;
+    if (dsq < dmin)
+      dmin = dsq;
+    if ((ep.vy > py) != (face.poly_2d[i + 1].y > py)) {
+      const float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
+      if (px < isx)
+        inside = !inside;
+    }
+  }
+  const float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
+  return face.linear_dist ? plane_exact : fast_atan2(plane_exact, 1.0f);
+}
+
+/**
  * @brief Builds one tilted N-gon face and scans its gnomonic box against an exact oracle.
  * @param sample_total Accumulates the number of non-culled samples evaluated.
  * @param sides Number of polygon points (must be <= 8).
@@ -2759,29 +2791,10 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
       if (hs::g_scan_metrics.exact_hits == 0)
         continue; // culled (outside max_dist / behind the center)
 
-      // Independent exact oracle: point-to-polygon in the same tangent plane.
-      float dmin = FLT_MAX;
-      bool inside = false;
-      for (int i = 0; i < face.count; ++i) {
-        const auto &ep = face.packed_edges[i];
-        float wx = px - ep.vx, wy = py - ep.vy;
-        float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
-        float cv = hs::clamp(t, 0.0f, 1.0f);
-        float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
-        float dsq = bx * bx + by * by;
-        if (dsq < dmin)
-          dmin = dsq;
-        if ((ep.vy > py) != (face.poly_2d[i + 1].y > py)) {
-          float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
-          if (px < isx)
-            inside = !inside;
-        }
-      }
-      float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
-      float expected =
-          face.linear_dist ? plane_exact : fast_atan2(plane_exact, 1.0f);
+      const float expected = exact_plane_distance(face, px, py);
 
-      if (face.convex && plane_exact > 0.0f) {
+      // fast_atan2 preserves sign, so the oracle's sign is the plane sign.
+      if (face.convex && expected > 0.0f) {
         // Outside a convex face the half-plane max is a lower bound (line
         // distance, not vertex distance) that never crosses zero.
         HS_EXPECT_TRUE(res.raw_dist >= -1e-4f);
@@ -2953,27 +2966,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
       if (!took_lut && hs::g_scan_metrics.exact_hits == 0)
         continue; // culled
 
-      // Exact oracle on the copy's true edges.
-      float dmin = FLT_MAX;
-      bool inside = false;
-      for (int i = 0; i < face.count; ++i) {
-        const auto &ep = face.packed_edges[i];
-        float wx = px - ep.vx, wy = py - ep.vy;
-        float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
-        float cv = hs::clamp(t, 0.0f, 1.0f);
-        float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
-        float dsq = bx * bx + by * by;
-        if (dsq < dmin)
-          dmin = dsq;
-        if ((ep.vy > py) != (face.poly_2d[i + 1].y > py)) {
-          float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
-          if (px < isx)
-            inside = !inside;
-        }
-      }
-      float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
-      float expected =
-          face.linear_dist ? plane_exact : fast_atan2(plane_exact, 1.0f);
+      const float expected = exact_plane_distance(face, px, py);
 
       if (took_lut) {
         ++lut_samples;
