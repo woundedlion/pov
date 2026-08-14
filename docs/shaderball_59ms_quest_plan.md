@@ -1,19 +1,46 @@
 # ShaderBall 59 ms quest plan
 
-Status: **complete at `c5cb0bb4`; two-board shipping gate passed.**
+Status: **historical 17-preset quest complete at `c5cb0bb4`; current
+12-preset two-board revalidation pending.**
 
 The shipping gate is a peak render time below **59.00 ms** for every authored
 ShaderBall preset and every transition frame in the selective-O3 Phantasm
 image. Development targets **56.00 ms** so normal orientation, interrupt, and
-measurement variation cannot turn a nominal pass into a field failure. The
-final evidence is a complete 17-preset on-device cycle with zero spilled
-frames, not a host benchmark or a single favorable window.
+measurement variation cannot turn a nominal pass into a field failure. Current
+acceptance requires a complete 12-preset on-device cycle on each board with
+zero spilled frames, not a host benchmark or a single favorable window.
 
 This plan supersedes the completion claim for the former 23-preset bank in
 `shaderball_optimization_plan.md`. That document remains the historical
 optimization ledger and exact-oracle record.
 
-## Existing evidence and baseline integrity
+## Roster reduction and numbering
+
+The current bank removes former presets 5, 6, 7, 9, and 10. Historical
+profiles and experiment rows retain their captured indices; they are never
+relabelled as measurements of the renumbered programs.
+
+| Former preset | Current preset |
+|---:|---:|
+| 0 | 0 |
+| 1 | 1 |
+| 2 | 2 |
+| 3 | 3 |
+| 4 | 4 |
+| 5 | Retired |
+| 6 | Retired |
+| 7 | Retired |
+| 8 | 5 |
+| 9 | Retired |
+| 10 | Retired |
+| 11 | 6 |
+| 12 | 7 |
+| 13 | 8 |
+| 14 | 9 |
+| 15 | 10 |
+| 16 | 11 |
+
+## Historical evidence and baseline integrity
 
 The 2026-08-13 shipping report is the initial symptom map. It covers all 17
 presets, wraps 16 to 0, agrees with the DWT root counter within 0.2 ppm, and
@@ -34,14 +61,14 @@ A clean current-master matched pair is the first measurement task.
 | 13 | Sinusoidal curl lattice, fine field | 107.89 | 85.34 | 48.90 |
 | 14 | Sinusoidal curl lattice, coarse field | 97.91 | 84.98 | 38.92 |
 | 15 | Stereographic prism polar-wave lattice | 97.44 | 68.77 | 38.45 |
-| 7 | Dodecahedral grid + mirror | 82.27 | 69.73 | 23.28 |
+| 7 (retired) | Dodecahedral grid + mirror | 82.27 | 69.73 | 23.28 |
 | 8 | Peirce dodecahedral grid | 81.58 | 67.64 | 22.59 |
-| 9 | Dodecahedral noise grid | 79.59 | 51.93 | 20.60* |
+| 9 (retired) | Dodecahedral noise grid | 79.59 | 51.93 | 20.60* |
 | 11 | Gnomonic dodecahedral wave/mirror grid | 79.08 | 66.34 | 20.09 |
 | 12 | Gnomonic affine lattice contour | 78.86 | 43.91 | 19.87* |
-| 10 | Dodecahedral noise lattice + mirror | 78.25 | 56.80 | 19.26 |
-| 6 | Kaleidoscope noise grid + edge fade | 75.36 | 62.68 | 16.37 |
-| 5 | Peirce kaleidoscope lattice | 49.35 | 30.21 | pass |
+| 10 (retired) | Dodecahedral noise lattice + mirror | 78.25 | 56.80 | 19.26 |
+| 6 (retired) | Kaleidoscope noise grid + edge fade | 75.36 | 62.68 | 16.37 |
+| 5 (retired) | Peirce kaleidoscope lattice | 49.35 | 30.21 | pass |
 | 4 | Bonne kaleidoscope lattice + mirror | 49.30 | 37.94 | pass |
 | 1 | Kaleidoscope twin-wave + inner mirror | 47.81 | 19.63 | pass |
 | 3 | Gnomonic glitch grid + mirror | 33.36 | 21.33 | pass |
@@ -58,7 +85,7 @@ above the stack floor. Flash has ample room. Large lookup tables, template
 clones, and persistent fields therefore require an equal-or-larger reclaim or
 reuse of existing bounded storage.
 
-## Measurement campaign
+## Historical measurement campaign
 
 ### Establish a trustworthy baseline
 
@@ -148,7 +175,7 @@ A/B and the full-roster memory gate.
 | Approximate transcendental or reciprocal kernels with bounded domains | remaining projection/lens holdouts | 2-15 ms | Exhaust algebraic removal first; record max/mean error and boundary behavior |
 | Re-author a preset with a cheaper equivalent topology | irreducible holdout only | unbounded | Last resort; requires explicit rendered-look review and does not redefine the 59 ms gate |
 
-### Preset-family attack order
+### Historical preset-family attack order
 
 1. **Preset 16:** split dodecahedral lens, vector-noise warp, projection,
    mirror, and shared shading. It needs about a 2.5x peak-render improvement,
@@ -191,11 +218,16 @@ The quest ledger will use this shape:
 
 ## Quest outcome and experiment ledger
 
-The final normal-choreography captures on COM3 and COM4 each contain 648
-16-frame windows, all 17 presets, a 16→0 wrap, no reset, and zero spills.
-Worst render is 58.23 ms on COM3 and 58.06 ms on COM4. The full evidence and
-per-preset table are in
+The final pre-reduction normal-choreography captures on COM3 and COM4 each
+contain 648 16-frame windows, all 17 former presets, a 16→0 wrap, no reset, and
+zero spills. Worst render is 58.23 ms on COM3 and 58.06 ms on COM4. The full
+historical evidence and per-preset table are in
 `docs/profiles/shipping/profile_shaderball_teensy_2026-08-14.md`.
+
+The 12-preset roster changes the manifest and code layout, so those measurements
+do not establish its timing or memory footprint. Independent current-source
+COM3 and COM4 cycles remain planned; results belong in the shipping report and
+the pending ledger row below only after capture attestation.
 
 `N/R` means the per-experiment artifact was not retained. Cumulative timing is
 shown only where it is the narrowest honest attribution; it is not presented
@@ -204,6 +236,7 @@ RAM1/RAM2 floors were unchanged.
 
 | SHA | Experiment | Preset/run | Peak before -> after | Ship/O3 symbol delta | Phantasm ITCM/RAM delta | Tests | Decision |
 |---|---|---|---:|---|---|---|---|
+| Pending | Retire former presets 5, 6, 7, 9, and 10; renumber retained bank | Current 0–11 full cycle, dual boards | Historical 17-preset peak 58.23 ms -> pending | Pending reduced-manifest build | Pending full-roster ELF | Host roster checks and dual-board captures pending | Await current-source acceptance |
 | `387c046f` | Derive Simplex curl analytically | 13/14 fixed | Chain: 107.89/97.91 -> 48.41/49.04 ms; isolated A/B N/R | Ship shared curl leaf: N/R; O3: N/R | Per-commit N/R | Native curl/oracle suite | Keep |
 | `d7e9303a` | Specialize the Simplex curl surface path | 13/14 fixed | Chain result above; isolated A/B N/R | Ship specialized leaf: N/R; O3: N/R | Per-commit N/R | Native ShaderBall oracle | Keep |
 | `e367a443` | Fuse the Simplex Euler surface step | 13/14 fixed | Chain result above; isolated A/B N/R | Ship fused leaf: N/R; O3: N/R | Per-commit N/R | Native ShaderBall oracle | Keep |
@@ -235,20 +268,21 @@ RAM1/RAM2 floors were unchanged.
 | Uncommitted | Compile preset 10 shader with global O3 | 10 fixed | Regression; exact peak N/R | Ship/O3 body delta N/R | N/R | Build, disassembly, device A/B | Reject |
 | Uncommitted | Move `SolidBuilder` cold wrappers to flash | Full roster size | Timing N/A | Ship COMDAT: about +4.6 KiB | ITCM benefit defeated by duplicate code; RAM Δ0 | Full-roster build gate | Reject |
 
-The final Phantasm footprint is 196,440/196,608 B ITCM, 314,880 B RAM1
+The final pre-reduction Phantasm footprint is 196,440/196,608 B ITCM, 314,880 B RAM1
 variables with 12,800 B local free, and 520,064 B RAM2 variables with 4,224 B
 allocator free. Against the attested 2026-08-13 baseline, the cumulative ITCM
 delta is +800 B; RAM1/RAM2 floor deltas are zero. No unmatched O3 build is
 treated as evidence: every `O3: N/R` cell explicitly records that the required
-matched symbol artifact was not retained.
+matched symbol artifact was not retained. The 12-preset footprint is pending a
+fresh full-roster build.
 
 ## Acceptance gates
 
-- Two validated current-source shipping cycles visit all 17 presets, wrap
-  16-to-0, have zero epoch resets, and report **every peak render <59.00 ms**.
-- Every fixed run for presets 0 and 6-16 is below 59.00 ms; anything above
+- Two validated current-source shipping cycles visit all 12 presets, wrap
+  11-to-0, have zero epoch resets, and report **every peak render <59.00 ms**.
+- Every fixed run for current presets 0–11 is below 59.00 ms; anything above
   56.00 ms is repeated and called out as low margin.
-- No transition frame, including the 16-to-0 wrap, exceeds 59.00 ms.
+- No transition frame, including the 11-to-0 wrap, exceeds 59.00 ms.
 - The full Phantasm image passes FLASH, ITCM, DTCM/stack, RAM2, and allocator
   floors. The profile image alone cannot satisfy this gate.
 - Exact reference paths remain for every approximate geometry/noise/color
@@ -264,5 +298,6 @@ matched symbol artifact was not retained.
 Do not buy a timing pass by weakening the render telemetry, shortening a cycle
 before its wrap, excluding transitions, changing the 59 ms threshold, using a
 single-effect memory result, or publishing an unmatched shipping/O3 pair.
-Content changes are allowed only as an explicit last-resort re-authoring
-decision with visual review; they are never smuggled in as an optimization.
+The five-preset retirement is an explicit roster decision. Further content
+changes require a recorded re-authoring decision with visual review; they are
+never smuggled in as an optimization.

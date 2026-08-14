@@ -1187,11 +1187,14 @@ Blanket `always_inline`/`HS_O3_FN` expansion of every slot arm is forbidden: a
 frame-constant switch makes prediction cheap but does not remove inactive-arm
 code from the instantiated closure.
 
-The shipping selective-O3 capture runs all 17 authored presets green against
-the 62.5 ms display window. The latest global-O3 report is source-matched to the
-2026-08-13 pre-optimization shipping capture, not the current shipping source.
-The full-roster memory gate includes ShaderBall. Take the spill, peak, and byte
-figures from the
+The current shipping bank has 12 authored presets after former presets 5, 6,
+7, 9, and 10 were retired. The retained selective-O3 capture runs the former
+17-preset bank green against the 62.5 ms display window; its report preserves
+the captured indices and the exact current remap. A fresh two-board cycle is
+required to attest the current bank. The latest global-O3 report is
+source-matched to the 2026-08-13 pre-optimization shipping capture, not the
+current shipping source. The full-roster memory gate includes ShaderBall. Take
+the spill, peak, and byte figures from the
 [shipping profile](../profiles/shipping/profile_shaderball_teensy_2026-08-14.md),
 [global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-13.md),
 and [ITCM ledger](../ledgers/itcm_ledger.md) rather than restating them here.

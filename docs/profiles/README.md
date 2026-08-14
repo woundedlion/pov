@@ -47,7 +47,7 @@ peak.
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
-| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 58.23 (17) | 🟢 0/10368 (0%) | 2026-08-14 05:27 |
+| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 58.23 (historical 17) | 🟢 0/10368 (0%) | 2026-08-14 05:27 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
@@ -74,8 +74,8 @@ Both peak columns precede the spill columns so the codegen delta reads
 directly. Size deltas are O3 minus shipping.
 
 ShaderBall's row below remains the matched 2026-08-13 compiler comparison.
-Its current 2026-08-14 shipping result appears in the table above; no
-current-source global-O3 twin was retained.
+The 2026-08-14 shipping result above covers the former 17-preset bank; no
+current-source global-O3 twin or post-removal 12-preset capture is retained.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
@@ -104,11 +104,13 @@ ShaderBall's performance budget is sized against their per-pixel costs.
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
 38.78 ms peak while adding 21,464 B of flash and 18,832 B of ITCM.
 
-**The captured ShaderBall roster contains all 17 curated presets.** Two
-independent shipping cycles have 17 green cadence buckets, zero spills in
-10,368 frames each, and 58.23/58.06 ms peaks. The matched global-O3 comparison
-remains the 2026-08-13 pre-optimization pair; it is not evidence for the
-current shipping source.
+**ShaderBall now has 12 curated presets.** The latest retained capture predates
+that reduction: its two independent cycles cover the former 17-preset bank,
+with 17 green cadence buckets, zero spills in 10,368 frames each, and
+58.23/58.06 ms peaks. Presets 5, 6, 7, 9, and 10 in that report are retired;
+the report records the exact old-to-new remap. A fresh dual-board cycle is
+required to attest the current image. The matched global-O3 comparison remains
+the 2026-08-13 pre-optimization pair and is also historical evidence.
 
 **MeshFeedback is green on all 12 styles** — 0/6688 at a 57.70 ms peak
 (SlowDust), worst hold Smoke at 48.86 ms of flush. `feedback_composite` is 67%
