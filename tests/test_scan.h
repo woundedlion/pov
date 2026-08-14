@@ -866,11 +866,13 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
  * @brief Verifies near-pole runs are anchored to canvas columns, not to the
  *        span or the clip arc.
  * @details A run that straddled a stride block would shade from a column the
- * block does not own, so the same physical column would shade differently
- * depending on which clip segment rendered it — a visible segment seam. Drives
- * a near-pole row unclipped and under each quarter clip, asserting every
- * emitted run stays inside one block and that a column's owning block is the
- * same in all four cases.
+ * block does not own. Records the column each shade was probed at, not just the
+ * block it fell in, and pins it against the offer rule: a column is settled from
+ * its own block's anchor while the whole block fits inside the walked run, and
+ * walked at its own column otherwise. A clip arc that cuts a block therefore
+ * moves the shade source for the columns it leaves behind, so the probe column
+ * is what a seam comparison has to read. Drives a near-pole row unclipped, under
+ * each quarter clip, and under an arc whose ends fall inside blocks.
  */
 inline void test_pole_lod_runs_are_canvas_anchored() {
   constexpr int W = 288;
@@ -884,9 +886,9 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
   const int lod_stride = Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]);
   HS_EXPECT_GT(lod_stride, 1);
 
-  // block[x] = the stride block that painted column x, -1 if unpainted.
-  auto scan_blocks = [&](ClipRegion::XClip xc, std::array<int, W> &block) {
-    block.fill(-1);
+  // probe[x] = the column whose shade settled x, -1 if unvisited.
+  auto scan_probes = [&](ClipRegion::XClip xc, std::array<int, W> &probe) {
+    probe.fill(-1);
     Scan::scan_region<W, H>(
         y, y,
         [](int, auto &&out) {
@@ -897,7 +899,7 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
           for (int i = 0; i < run; ++i) {
             const int x = wx + i;
             if (x >= 0 && x < W)
-              block[static_cast<size_t>(x)] = wx / lod_stride;
+              probe[static_cast<size_t>(x)] = wx;
           }
           // Every offer lies inside one canvas-anchored block, and a
           // multi-column offer starts on its block boundary.
@@ -909,8 +911,25 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
         xc);
   };
 
+  auto expected_probe = [&](int x, int rs, int re) {
+    if (x < rs || x >= re)
+      return -1;
+    const int anchor = x - x % lod_stride;
+    return (anchor >= rs && anchor + lod_stride <= re) ? anchor : x;
+  };
+
+  auto check = [&](ClipRegion::XClip xc, int rs, int re,
+                   std::array<int, W> &probe) {
+    HS_CONTEXT("arc", rs, re);
+    scan_probes(xc, probe);
+    for (int x = 0; x < W; ++x) {
+      HS_CONTEXT("col", x);
+      HS_EXPECT_EQ(probe[static_cast<size_t>(x)], expected_probe(x, rs, re));
+    }
+  };
+
   std::array<int, W> full{};
-  scan_blocks(ClipRegion::XClip{}, full);
+  check(ClipRegion::XClip{}, 0, W, full);
 
   for (int q = 0; q < 4; ++q) {
     ClipRegion::XClip xc{};
@@ -919,10 +938,23 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
     xc.rs = q * (W / 4);
     xc.re = xc.rs + (W / 4);
     std::array<int, W> part{};
-    scan_blocks(xc, part);
-    for (int x = xc.rs; x < xc.re; ++x)
-      HS_EXPECT_EQ(part[static_cast<size_t>(x)], full[static_cast<size_t>(x)]);
+    check(xc, xc.rs, xc.re, part);
   }
+
+  // Arc ends inside a block: the columns the truncated blocks keep are walked
+  // per column, so their shade comes from a different source than unclipped.
+  ClipRegion::XClip cut{};
+  cut.active = true;
+  cut.wrap = false;
+  cut.rs = lod_stride / 2;
+  cut.re = W / 2 + lod_stride / 2 + 1;
+  std::array<int, W> part{};
+  check(cut, cut.rs, cut.re, part);
+  size_t moved = 0;
+  for (int x = cut.rs; x < cut.re; ++x)
+    if (part[static_cast<size_t>(x)] != full[static_cast<size_t>(x)])
+      ++moved;
+  HS_EXPECT_GT(moved, (size_t)0);
 
   // Aggressiveness 0 is exactly one column per run.
   pole_lod_aggressiveness = 0.0f;

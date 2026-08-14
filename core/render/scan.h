@@ -439,11 +439,13 @@ inline constexpr bool fits_top_span_cap =
  * Near-pole rows offer whole blocks of `pole_lod_aggressiveness / sin(phi)`
  * columns (constants.h) so the sink can settle physically-overlapping columns
  * with one probe; the sink keeps per-column resolution wherever its probe
- * cannot vouch for the block. Only full canvas-aligned blocks are offered —
- * partial blocks at clip or span edges go per column — so a column shades
- * identically whichever segment renders it and the pattern carries across a
- * segment seam. At aggressiveness 0 every offer is one column and the walk is
- * bit-identical to an undecimated one.
+ * cannot vouch for the block. Only full canvas-aligned blocks are offered, so an
+ * offer never straddles two blocks and a settled column always takes its shade
+ * from its own block's anchor. A block a clip or span edge truncates goes per
+ * column instead, so the columns beside a segment seam shade at full resolution
+ * rather than from the anchor the neighbouring segment would have used. At
+ * aggressiveness 0 every offer is one column and the walk is bit-identical to an
+ * undecimated one.
  *
  * Producer contract: emitted endpoints are in fractional column units and need
  * NOT lie in [0,W) — a start may be negative or a span may straddle θ=0 (this
@@ -482,8 +484,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
 
   // A full canvas-aligned block of `stride` columns is offered to the sink as
   // one call probed at the block's first column; the sink returns how many
-  // columns it consumed. Partial blocks at clip or span edges are walked per
-  // column, so a column shades identically whichever segment renders it.
+  // columns it consumed. A block the run truncates is walked per column, so a
+  // settled column is always settled from its own block's anchor.
   auto walk = [&](int x1, int x2, int y, float sp, float cp, int stride) {
     for (int x = x1; x < x2; ++x) {
       if constexpr (POLE_LOD_ENABLED) {
