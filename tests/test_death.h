@@ -53,6 +53,7 @@
 #include "core/color/color.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
+#include "core/render/filter_feedback.h"
 #include "core/engine/effect_registry.h"
 #include "core/engine/generators.h"
 #include "core/render/led.h"

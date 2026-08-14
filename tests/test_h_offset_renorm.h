@@ -12,6 +12,7 @@
 #pragma once
 
 #include "core/render/filter.h"
+#include "core/render/filter_feedback.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/test_pole_wrap.h"
