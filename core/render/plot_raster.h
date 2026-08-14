@@ -23,7 +23,8 @@
 /**
  * @file plot_raster.h
  * @brief rasterize(): the adaptive sub-stepping walk that turns a fragment
- * polyline into plotted samples.
+ * polyline into plotted samples, plus the trail gate that precomputes its
+ * per-edge flags.
  */
 
 namespace Plot {
