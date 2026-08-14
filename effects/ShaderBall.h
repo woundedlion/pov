@@ -2679,7 +2679,7 @@ private:
       ColorStage>;
   struct GlitchNoiseGridWaveShearPipeline
       : GlitchNoiseGridWaveShearPipelineBase {
-    HS_O3_FN FASTRUN __attribute__((noinline)) static Color4
+    FASTRUN __attribute__((noinline)) static Color4
     shade(const Vector &view, const FrameState &frame) {
       return GlitchNoiseGridWaveShearPipelineBase::template run_stage<0>(view,
                                                                          frame);
@@ -2722,7 +2722,7 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
-  using GnomonicDodecahedralGridVectorMirrorPipeline = InversePipeline<
+  using GnomonicDodecahedralGridVectorMirrorPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
                                   SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
@@ -2731,6 +2731,14 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+  struct GnomonicDodecahedralGridVectorMirrorPipeline
+      : GnomonicDodecahedralGridVectorMirrorPipelineBase {
+    HS_O3_FN FASTRUN __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return GnomonicDodecahedralGridVectorMirrorPipelineBase::
+          template run_stage<0>(view, frame);
+    }
+  };
   using GnomonicAffineLatticeContourPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC, SurfaceLens::NONE>,
