@@ -1118,9 +1118,11 @@ public:
   PaletteFacade() = default;
   /**
    * @brief Constructs a facade bound to a composition.
-   * @param sp Composition to forward get() to.
+   * @param sp Composition to forward get() to; must not be null.
    */
-  explicit PaletteFacade(const SP *sp) : composition(sp) {}
+  explicit PaletteFacade(const SP *sp) : composition(sp) {
+    HS_CHECK(sp != nullptr, "PaletteFacade constructed with null composition");
+  }
   /**
    * @brief Binds the facade to a composition.
    * @param sp Composition to forward get() to; must not be null.
