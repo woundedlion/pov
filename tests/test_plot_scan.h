@@ -22,9 +22,9 @@
  *     closed loop.
  *   - PlanarEdgeSampler::one_pass : analytic tangent vs the forward-difference
  *                                 operator(), and tangency/forwardness.
- *   - rasterize<SinglePass=true> : gap-free planar and geodesic edges,
- *                                 endpoints, poles, seams, long arcs, and
- *                                 quadrant clips.
+ *   - rasterize single_pass : gap-free planar and geodesic edges,
+ *                            endpoints, poles, seams, long arcs, and
+ *                            quadrant clips.
  */
 #pragma once
 
@@ -3241,8 +3241,12 @@ inline void test_rasterize_planar_policy_parity() {
     };
     {
       Canvas canvas(fx);
-      Plot::rasterize<W, H, true, false, DerivePlanarArcRegisters,
-                      InterpolateRegisters>(
+      Plot::rasterize<W, H,
+                      Plot::RasterConfig{.single_pass = true,
+                                         .derive_planar_arc_registers =
+                                             DerivePlanarArcRegisters,
+                                         .interpolate_registers =
+                                             InterpolateRegisters}>(
           pipeline, canvas, points, shader,
           {.planar_basis = &planar_basis,
            .omit_end = true,
@@ -4562,14 +4566,14 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   CapturePipeline single, cached;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H, true>(single, c, points, noop_shader,
-                                {.planar_basis = &basis});
+    Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+        single, c, points, noop_shader, {.planar_basis = &basis});
   }
   fx.advance_display();
   {
     Canvas c(fx);
-    Plot::rasterize<W, H, false>(cached, c, points, noop_shader,
-                                 {.planar_basis = &basis});
+    Plot::rasterize<W, H>(cached, c, points, noop_shader,
+                          {.planar_basis = &basis});
   }
   fx.advance_display();
 
@@ -4621,12 +4625,13 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   CapturePipeline single, cached;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H, true>(single, c, points, noop_shader, opts);
+    Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+        single, c, points, noop_shader, opts);
   }
   fx.advance_display();
   {
     Canvas c(fx);
-    Plot::rasterize<W, H, false>(cached, c, points, noop_shader, opts);
+    Plot::rasterize<W, H>(cached, c, points, noop_shader, opts);
   }
   fx.advance_display();
 
@@ -4674,9 +4679,10 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
     std::vector<float> samples;
     auto shader = [&](const Vector &, Fragment &f) { samples.push_back(f.v0); };
     if (single_pass)
-      Plot::rasterize<W, H, true>(pipeline, canvas, points, shader);
+      Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+          pipeline, canvas, points, shader);
     else
-      Plot::rasterize<W, H, false>(pipeline, canvas, points, shader);
+      Plot::rasterize<W, H>(pipeline, canvas, points, shader);
     return samples;
   };
   std::vector<float> single = draw(true);
@@ -4725,9 +4731,10 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
     {
       Canvas canvas(fx);
       if (single_pass)
-        Plot::rasterize<W, H, true>(pipeline, canvas, points, noop_shader);
+        Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+            pipeline, canvas, points, noop_shader);
       else
-        Plot::rasterize<W, H, false>(pipeline, canvas, points, noop_shader);
+        Plot::rasterize<W, H>(pipeline, canvas, points, noop_shader);
     }
     fx.advance_display();
     return Capture{pipeline.plotted, hs::g_scan_metrics.plot_backstop_hits};
@@ -4782,12 +4789,15 @@ inline void test_rasterize_default_sampling_policy_parity() {
       f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
     };
     if constexpr (ExplicitDefault) {
-      Plot::rasterize<W, H, true, false, true, true,
-                      Plot::RasterSamplingPolicy::DEFAULT>(
+      Plot::rasterize<W, H,
+                      Plot::RasterConfig{
+                          .single_pass = true,
+                          .sampling_policy =
+                              Plot::RasterSamplingPolicy::DEFAULT}>(
           pipeline, canvas, points, shader,
           {.planar_basis = &planar_basis, .omit_end = true});
     } else {
-      Plot::rasterize<W, H, true>(
+      Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
           pipeline, canvas, points, shader,
           {.planar_basis = &planar_basis, .omit_end = true});
     }
@@ -4805,8 +4815,11 @@ inline void test_rasterize_default_sampling_policy_parity() {
     auto shader = [](const Vector &, Fragment &f) {
       f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
     };
-    Plot::rasterize<W, H, true, false, true, true,
-                    Plot::RasterSamplingPolicy::SELECTABLE>(
+    Plot::rasterize<W, H,
+                    Plot::RasterConfig{
+                        .single_pass = true,
+                        .sampling_policy =
+                            Plot::RasterSamplingPolicy::SELECTABLE}>(
         selectable_default, canvas, points, shader,
         {.planar_basis = &planar_basis,
          .omit_end = true,
@@ -4868,7 +4881,9 @@ inline void test_rasterize_balanced_sampling_scope() {
       auto shader = [](const Vector &, Fragment &f) {
         f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
       };
-      Plot::rasterize<W, H, SinglePass, false, true, true, Policy>(
+      Plot::rasterize<W, H,
+                      Plot::RasterConfig{.single_pass = SinglePass,
+                                         .sampling_policy = Policy}>(
           pipeline, canvas, points, shader,
           {.planar_basis = &basis,
            .balanced_sampling =
@@ -4926,7 +4941,9 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
     auto shader = [](const Vector &, Fragment &f) {
       f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
     };
-    Plot::rasterize<W, H, true, false, true, true, Policy>(
+    Plot::rasterize<W, H,
+                    Plot::RasterConfig{.single_pass = true,
+                                       .sampling_policy = Policy}>(
         pipeline, canvas, points, shader,
         {.planar_basis = &basis,
          .balanced_sampling =
@@ -4983,8 +5000,13 @@ inline void test_rasterize_balanced_pole_guard() {
   auto shader = [](const Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
   };
-  Plot::rasterize<W, H, true, false, false, false,
-                  Plot::RasterSamplingPolicy::SELECTABLE>(
+  Plot::rasterize<W, H,
+                  Plot::RasterConfig{
+                      .single_pass = true,
+                      .derive_planar_arc_registers = false,
+                      .interpolate_registers = false,
+                      .sampling_policy =
+                          Plot::RasterSamplingPolicy::SELECTABLE}>(
       pipeline, canvas, points, shader,
       {.planar_basis = &basis, .balanced_sampling = true});
   HS_EXPECT_GT(Plot::g_planar_full_samples, uint32_t{2});
@@ -5047,7 +5069,11 @@ inline void test_rasterize_balanced_star_visual_budget() {
       auto shader = [](const Vector &, Fragment &f) {
         f.color = Color4(Pixel(65535, 65535, 65535), 0.32f);
       };
-      Plot::rasterize<W, H, true, false, false, false, Policy>(
+      Plot::rasterize<W, H,
+                      Plot::RasterConfig{.single_pass = true,
+                                         .derive_planar_arc_registers = false,
+                                         .interpolate_registers = false,
+                                         .sampling_policy = Policy}>(
           sink, canvas, points, shader,
           {.planar_basis = &planar_basis,
            .omit_end = true,
@@ -5171,8 +5197,8 @@ inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
     hs_test::StubEffect fx(W, H);
     CapturePipeline pipeline;
     Canvas canvas(fx);
-    Plot::rasterize<W, H, true>(pipeline, canvas, points, noop_shader,
-                                {.omit_end = omit_end});
+    Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+        pipeline, canvas, points, noop_shader, {.omit_end = omit_end});
     return pipeline.plotted;
   };
   const std::vector<Vector> complete = draw(false);
@@ -5217,7 +5243,8 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
 
     CapturePipeline pipeline;
     Canvas canvas(fx);
-    Plot::rasterize<W, H, true>(pipeline, canvas, points, noop_shader);
+    Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+        pipeline, canvas, points, noop_shader);
 
     HS_EXPECT_GT(pipeline.plotted.size(), size_t{2});
     HS_EXPECT_LE((max_projected_gap<W, H>(pipeline.plotted)), 1.5f);
@@ -5272,8 +5299,8 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
         return;
       visible = bits.data();
     }
-    Plot::rasterize<W, H, true>(sink, canvas, points, shade,
-                                {.edge_flags = visible});
+    Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+        sink, canvas, points, shade, {.edge_flags = visible});
   };
 
   std::vector<Pixel> reference(static_cast<size_t>(W) * H);

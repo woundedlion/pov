@@ -2127,11 +2127,14 @@ struct ParticleSystem {
       }
       {
         HS_PROFILE(plot_ps_raster);
-        rasterize<W, H, SinglePassRaster && sample_stride == 1, true>(
-            pipeline, canvas, trail, fragment_shader,
-            {.edge_flags = vis,
-             .point_rows = dot_rows,
-             .point_cols = dot_cols});
+        rasterize<W, H,
+                  RasterConfig{
+                      .single_pass = SinglePassRaster && sample_stride == 1,
+                      .open_geodesic = true}>(pipeline, canvas, trail,
+                                              fragment_shader,
+                                              {.edge_flags = vis,
+                                               .point_rows = dot_rows,
+                                               .point_cols = dot_cols});
       }
     }
   }
