@@ -532,6 +532,9 @@ struct ShaderBallWhiteBox {
   static Pixel palette_color(const SB &sb, PaletteMode mode, float value) {
     return sb.palette_for(mode).get(value).color;
   }
+  static float palette_alpha(const SB &sb, PaletteMode mode, float value) {
+    return sb.palette_for(mode).get(value).alpha;
+  }
   static Pixel generated_color(const SB &sb, float value) {
     return palette_color(sb, PaletteMode::TRIADIC, value);
   }
@@ -4051,6 +4054,11 @@ inline void test_shaderball_palette_resources() {
       WB::palette_color(sb, WB::PaletteMode::COMPLEMENTARY, 0.25f);
   const Pixel analogous =
       WB::palette_color(sb, WB::PaletteMode::ANALOGOUS, 0.25f);
+  for (WB::PaletteMode mode :
+       {WB::PaletteMode::TRIADIC, WB::PaletteMode::COMPLEMENTARY,
+        WB::PaletteMode::ANALOGOUS})
+    for (int step = 0; step <= 32; ++step)
+      HS_EXPECT_EQ(WB::palette_alpha(sb, mode, step / 32.0f), 1.0f);
   HS_EXPECT_TRUE(triadic.r != complementary.r || triadic.g != complementary.g ||
                  triadic.b != complementary.b);
   HS_EXPECT_TRUE(triadic.r != analogous.r || triadic.g != analogous.g ||
