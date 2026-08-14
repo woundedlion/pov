@@ -146,9 +146,14 @@ struct ClipRegion {
      * @brief Band length in columns, seam-unwrapped.
      * @param w Cylinder width in columns.
      * @return Column count spanned by [rs, re), counting past the seam when the
-     *         band wraps. Feeds arcs_overlap as the clip arc's length.
+     *         band wraps, and the full w when no x clipping applies. Feeds
+     *         arcs_overlap as the clip arc's length.
      */
-    constexpr int length(int w) const { return wrap ? re - rs + w : re - rs; }
+    constexpr int length(int w) const {
+      if (!active)
+        return w;
+      return wrap ? re - rs + w : re - rs;
+    }
   };
 
   /**
