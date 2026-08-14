@@ -26,3 +26,9 @@ tools/teensy_warning_baseline.txt text eol=lf
 # CRLF on Windows, and the daydream deploy gate diffs the checked-in bytes against
 # the engine's copy on a Linux runner.
 hardware/pov_segment_map.json text eol=lf
+
+# The remaining installed artifacts the deploy gate byte-compares across the two
+# repositories. The gallery PNGs are pinned binary so no host's autocrlf can
+# touch them.
+README.md text eol=lf
+docs/screenshots/** binary
