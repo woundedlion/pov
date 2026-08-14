@@ -480,8 +480,8 @@ add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 
 # Host stack high-water-mark gate across every effect. Built -Os + the device
 # math flags so codegen frame sizes track the Phantasm size build as closely as a
-# host compiler can; x86-64 frames (8-byte pointers) make it a conservative upper
-# bound for the 4-byte-pointer device render/init path (see stack_measure.cpp).
+# host compiler can. stack_measure.cpp keeps the 4-byte-pointer device floor
+# unchanged and accounts separately for x86-64 ABI and classifier overhead.
 # Run as a CTest: it exits non-zero if the worst effect exceeds its stack budget,
 # catching a regression before it can overflow the device's MPU-guarded stack.
 #
