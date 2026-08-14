@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 #include <utility>
 #include "engine/constants.h"
@@ -737,6 +738,15 @@ protected:
     HS_CHECK(parameters.find(name) == nullptr,
              "register_int_param: duplicate parameter name");
     HS_CHECK(min <= max, "register_int_param: min must be <= max");
+    // set() narrows through static_cast<Integer>(float), which is UB outside
+    // the target's range.
+    const bool range_fits =
+        static_cast<int64_t>(min) >=
+            static_cast<int64_t>(std::numeric_limits<Integer>::min()) &&
+        static_cast<int64_t>(max) <=
+            static_cast<int64_t>(std::numeric_limits<Integer>::max());
+    HS_CHECK(range_fits,
+             "register_int_param: [min,max] must fit the target integer type");
     const int value = static_cast<int>(*ptr);
     HS_CHECK(value >= min && value <= max,
              "register_int_param: default *ptr outside [min,max]");

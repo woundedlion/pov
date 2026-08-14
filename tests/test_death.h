@@ -1515,6 +1515,16 @@ struct DeathEffect : public Effect {
    * @param p Pointer to the backing float storage.
    */
   void reg(const char *n, float *p) { register_param(n, p, 0.0f, 1.0f); }
+  /**
+   * @brief Registers an integer parameter, exposing register_int_param.
+   * @param n Parameter name.
+   * @param p Pointer to the backing uint8_t storage.
+   * @param min Minimum value, inclusive.
+   * @param max Maximum value, inclusive.
+   */
+  void reg_int(const char *n, uint8_t *p, int min, int max) {
+    register_int_param(n, p, min, max);
+  }
 };
 
 /**
@@ -1643,6 +1653,18 @@ inline void case_register_param_overflow() {
     std::snprintf(names[i], sizeof(names[i]), "p%d", i);
     fx.reg(names[i], &slot);
   }
+}
+
+/**
+ * @brief Death case: an integer param bound the target cannot store must trap.
+ * @details Canvas surface — a value write narrows through
+ *          static_cast<Integer>(float), which is undefined once the registered
+ *          range leaves the storage type.
+ */
+inline void case_register_int_param_range() {
+  DeathEffect fx;
+  static uint8_t slot = 0;
+  fx.reg_int("count", &slot, 0, opaque(256));
 }
 
 /**
@@ -2808,6 +2830,9 @@ inline const Case *all_cases(int &n) {
       {"register_param_overflow", case_register_param_overflow, "canvas.h",
        "(parameters.count < parameters.capacity()) register_param: "
        "exceeded ParamList capacity"},
+      {"register_int_param_range", case_register_int_param_range, "canvas.h",
+       "(range_fits) register_int_param: [min,max] must fit the target "
+       "integer type"},
       {"set_clip_out_of_bounds", case_set_clip_out_of_bounds, "canvas.h",
        "(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 && x0 <= x1 "
        "&& x1 <= clip_region.w) set_clip band must be non-inverted and "
@@ -3527,7 +3552,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 138;
+  constexpr int DEATH_CASE_COUNT = 139;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
