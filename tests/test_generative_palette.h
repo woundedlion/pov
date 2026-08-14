@@ -267,6 +267,76 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
                    0.5f * PI_F, 1e-5f);
 }
 
+/**
+ * @brief Torsion shears hue by lightness, is range-validated, and gates morphs.
+ */
+inline void test_generative_palette_hue_torsion() {
+  constexpr float TORSION = 0.75f;
+  PaletteRecipe recipe = PaletteRecipes::profile(
+      PaletteDomain::STRAIGHT, PaletteHarmony::ANALOGOUS, AxisCurve::ASCENDING,
+      0.1f, 0.5f);
+  const GenerativePalette flat(recipe);
+  recipe.hue_torsion = TORSION;
+  const GenerativePalette sheared(recipe);
+  HS_EXPECT_NEAR(flat.palette_hue_torsion(), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(sheared.palette_hue_torsion(), TORSION, 1e-6f);
+
+  const int key_count = flat.palette_key_count();
+  HS_EXPECT_EQ(key_count, 3);
+  for (int i = 0; i < key_count; ++i) {
+    const OKLCH base = flat.resolved_oklch_key(i);
+    const OKLCH torsioned = sheared.resolved_oklch_key(i);
+    HS_EXPECT_NEAR(torsioned.L, base.L, 1e-6f);
+    HS_EXPECT_NEAR(torsioned.h, base.h + TORSION * (base.L - 0.5f), 1e-5f);
+  }
+  // The end keys sit off mid-lightness, so the shear is not a no-op.
+  const float end_shear =
+      sheared.resolved_oklch_key(0).h - flat.resolved_oklch_key(0).h;
+  HS_EXPECT_GT(fabsf(end_shear), 0.1f);
+
+  for (const float t : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+    const auto plain = flat.diagnose(t);
+    HS_EXPECT_NEAR(plain.h_final, plain.h_path, 1e-6f);
+    const auto twisted = sheared.diagnose(t);
+    HS_EXPECT_NEAR(twisted.h_final - twisted.h_path,
+                   TORSION * (twisted.L - 0.5f), 1e-5f);
+  }
+
+  GenerativePalette output;
+  PaletteRecipe canonical;
+  PaletteCompileStatus status;
+  PaletteRecipe over = PaletteRecipes::balanced_analogous(0.0f);
+  over.hue_torsion = 100.0f;
+  HS_EXPECT_FALSE(
+      GenerativePalette::try_compile(over, output, canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::HUE_LIMIT);
+  HS_EXPECT_EQ(status.field, PaletteRecipeField::HUE_TORSION);
+
+  over.hue_torsion = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_FALSE(
+      GenerativePalette::try_compile(over, output, canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::NON_FINITE);
+  HS_EXPECT_EQ(status.field, PaletteRecipeField::HUE_TORSION);
+
+  PaletteRecipe legal = PaletteRecipes::balanced_analogous(0.0f);
+  legal.hue_torsion = -TORSION;
+  HS_EXPECT_TRUE(
+      GenerativePalette::try_compile(legal, output, canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::OK);
+  HS_EXPECT_NEAR(canonical.hue_torsion, -TORSION, 1e-6f);
+  HS_EXPECT_NEAR(output.palette_hue_torsion(), -TORSION, 1e-6f);
+
+  PaletteRecipe untwisted = PaletteRecipes::balanced_analogous(0.0f);
+  PaletteRecipe twisted_recipe = untwisted;
+  twisted_recipe.hue_torsion = TORSION;
+  const GenerativePalette morph_a(untwisted);
+  const GenerativePalette morph_b(twisted_recipe);
+  HS_EXPECT_FALSE(morph_a.morph_compatible(morph_b));
+  HS_EXPECT_FALSE(morph_b.morph_compatible(morph_a));
+  untwisted.hue_torsion = TORSION;
+  HS_EXPECT_TRUE(GenerativePalette(untwisted).morph_compatible(morph_b));
+}
+
 inline void test_generative_palette_blue_cusp_is_continuous() {
   PaletteRecipe recipe;
   recipe.hue.mode = HueMode::SWEEP;
