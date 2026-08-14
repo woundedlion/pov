@@ -1902,6 +1902,15 @@ private:
     bool active;
   };
 
+  struct PreparedHueNoise {
+    static constexpr int FACE_STEPS = 24;
+    static constexpr int FACE_SIZE = FACE_STEPS * FACE_STEPS;
+    static constexpr size_t LUT_SIZE = 6 * FACE_SIZE;
+
+    int8_t *lut;
+    bool active;
+  };
+
   struct ResourceBindings {
     const FastNoiseLite *outer_warp_noise;
     const FastNoiseLite *inner_warp_noise;
@@ -1922,6 +1931,7 @@ private:
     PreparedWarpProgram prepared_warp;
     PreparedSurfaceNoise prepared_surface_noise;
     PreparedHueRotation prepared_hue_rotation;
+    PreparedHueNoise prepared_hue_noise;
     ResourceBindings resources;
   };
 
@@ -1954,7 +1964,7 @@ private:
   enum class ApproximationOracleId : uint8_t {
     NONE,
     PEIRCE_FAST_SQUARE,
-    HUE_ROTATION_LUT
+    HUE_ROTATION_AND_NOISE_LUTS
   };
 
   enum class ApproximationDomain : uint8_t {
@@ -2604,7 +2614,7 @@ private:
     static constexpr bool TERMINAL = true;
     static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
     static constexpr ApproximationOracleId ORACLE =
-        ApproximationOracleId::HUE_ROTATION_LUT;
+        ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
     static constexpr std::array<ApproximationMetric, 3> METRICS{{
         {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
          5400.0f, "channel code"},
@@ -2848,8 +2858,11 @@ private:
         frame.params.color.hue_shift_amount != 0.0f &&
         frame.resources.color_noise == nullptr)
       return false;
-    return !frame.prepared_hue_rotation.active ||
-           frame.prepared_hue_rotation.lut != nullptr;
+    if (frame.prepared_hue_rotation.active &&
+        frame.prepared_hue_rotation.lut == nullptr)
+      return false;
+    return !frame.prepared_hue_noise.active ||
+           frame.prepared_hue_noise.lut != nullptr;
   }
 
 #if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
@@ -3176,6 +3189,7 @@ private:
     std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
     std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
     std::array<Pixel, PreparedHueRotation::LUT_SIZE> hue_rotation_lut;
+    std::array<int8_t, PreparedHueNoise::LUT_SIZE> hue_noise_lut;
     FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
     ParamMorphRuntime param_morph;
@@ -3486,6 +3500,15 @@ private:
             config.params.color.hue_shift_amount != 0.0f};
     if (prepared_hue_rotation.active)
       prepare_hue_rotation_lut(prepared_hue_rotation, *palette);
+    const FastNoiseLite *color_noise = resolve_color_noise_resource(config);
+    PreparedHueNoise prepared_hue_noise{
+        state->hue_noise_lut.data(),
+        config.slots.hue_shift == HueShiftMode::NOISE &&
+            config.params.color.hue_shift_amount != 0.0f};
+    if (prepared_hue_noise.active)
+      prepare_hue_noise_lut(prepared_hue_noise, *color_noise,
+                            config.params.color.hue_noise_scale,
+                            look.clocks.hue_noise_phase);
     frame.slots = config.slots;
     frame.params = config.params;
     frame.clocks = look.clocks;
@@ -3499,11 +3522,12 @@ private:
     frame.prepared_warp = prepared_warp;
     frame.prepared_surface_noise = prepared_surface_noise;
     frame.prepared_hue_rotation = prepared_hue_rotation;
+    frame.prepared_hue_noise = prepared_hue_noise;
     frame.resources = {resolve_warp_resource(config.slots.warp_program.outer),
                        resolve_warp_resource(config.slots.warp_program.inner),
                        resolve_source_resource(config),
                        resolve_surface_noise_resource(config),
-                       resolve_color_noise_resource(config),
+                       color_noise,
                        palette};
   }
 
@@ -4609,13 +4633,8 @@ private:
     if (frame.prepared_hue_rotation.active) {
       float amount = 0.0f;
       if (frame.slots.hue_shift == HueShiftMode::NOISE) {
-        const Vector q = noise_sphere_coordinate(
-            sample.sphere, frame.params.color.hue_noise_scale,
-            frame.clocks.hue_noise_phase);
         amount = frame.params.color.hue_shift_amount *
-                 hs::clamp(
-                     frame.resources.color_noise->GetNoiseSingle(q.x, q.y, q.z),
-                     -1.0f, 1.0f);
+                 sample_hue_noise_lut(frame.prepared_hue_noise, sample.sphere);
       } else if (frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT) {
         amount = wrap_t(frame.params.color.hue_shift_amount *
                         sample.warp_displacement);
@@ -4703,6 +4722,98 @@ private:
             hue_rotate_lut_gamut(base, amount).color;
       }
     }
+  }
+
+  HS_FLASH_MEMBER static Vector hue_noise_face_direction(int face, float u,
+                                                         float v) {
+    switch (face) {
+    case 0:
+      return Vector(1.0f, v, u).normalized();
+    case 1:
+      return Vector(-1.0f, v, -u).normalized();
+    case 2:
+      return Vector(u, 1.0f, v).normalized();
+    case 3:
+      return Vector(u, -1.0f, -v).normalized();
+    case 4:
+      return Vector(u, v, 1.0f).normalized();
+    default:
+      return Vector(-u, v, -1.0f).normalized();
+    }
+  }
+
+  HS_FLASH_MEMBER static void prepare_hue_noise_lut(PreparedHueNoise &prepared,
+                                                    const FastNoiseLite &noise,
+                                                    float scale, float phase) {
+    const float angle = TWO_PI_F * wrap_t(phase);
+    const Vector loop_offset(NOISE_LOOP_RADIUS * cosf(angle),
+                             NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
+    constexpr float STEP = 2.0f / (PreparedHueNoise::FACE_STEPS - 1);
+    for (int face = 0; face < 6; ++face) {
+      const int face_offset = face * PreparedHueNoise::FACE_SIZE;
+      for (int y = 0; y < PreparedHueNoise::FACE_STEPS; ++y) {
+        const float v = -1.0f + STEP * y;
+        for (int x = 0; x < PreparedHueNoise::FACE_STEPS; ++x) {
+          const float u = -1.0f + STEP * x;
+          const Vector direction = hue_noise_face_direction(face, u, v);
+          const Vector q = scale * direction + loop_offset;
+          const float sample =
+              hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
+          const int quantized = static_cast<int>(
+              sample * 127.0f + (sample < 0.0f ? -0.5f : 0.5f));
+          prepared.lut[face_offset + y * PreparedHueNoise::FACE_STEPS + x] =
+              static_cast<int8_t>(quantized);
+        }
+      }
+    }
+  }
+
+  __attribute__((always_inline)) static float
+  sample_hue_noise_lut(const PreparedHueNoise &prepared, const Vector &v) {
+    const float ax = fabsf(v.x);
+    const float ay = fabsf(v.y);
+    const float az = fabsf(v.z);
+    int face;
+    float u;
+    float w;
+    if (ax >= ay && ax >= az) {
+      const float inverse = 1.0f / ax;
+      face = v.x >= 0.0f ? 0 : 1;
+      u = (v.x >= 0.0f ? v.z : -v.z) * inverse;
+      w = v.y * inverse;
+    } else if (ay >= az) {
+      const float inverse = 1.0f / ay;
+      face = v.y >= 0.0f ? 2 : 3;
+      u = v.x * inverse;
+      w = (v.y >= 0.0f ? v.z : -v.z) * inverse;
+    } else {
+      const float inverse = 1.0f / az;
+      face = v.z >= 0.0f ? 4 : 5;
+      u = (v.z >= 0.0f ? v.x : -v.x) * inverse;
+      w = v.y * inverse;
+    }
+
+    constexpr float SCALE =
+        0.5f * static_cast<float>(PreparedHueNoise::FACE_STEPS - 1);
+    const float x_position = (u + 1.0f) * SCALE;
+    const float y_position = (w + 1.0f) * SCALE;
+    const int x_low = std::min(static_cast<int>(x_position),
+                               PreparedHueNoise::FACE_STEPS - 2);
+    const int y_low = std::min(static_cast<int>(y_position),
+                               PreparedHueNoise::FACE_STEPS - 2);
+    const float x_fraction = x_position - x_low;
+    const float y_fraction = y_position - y_low;
+    const int offset = face * PreparedHueNoise::FACE_SIZE +
+                       y_low * PreparedHueNoise::FACE_STEPS + x_low;
+    const float row_low =
+        hs::lerp(static_cast<float>(prepared.lut[offset]),
+                 static_cast<float>(prepared.lut[offset + 1]), x_fraction);
+    const float row_high = hs::lerp(
+        static_cast<float>(prepared.lut[offset + PreparedHueNoise::FACE_STEPS]),
+        static_cast<float>(
+            prepared.lut[offset + PreparedHueNoise::FACE_STEPS + 1]),
+        x_fraction);
+    return hs::lerp(row_low, row_high, y_fraction) * (1.0f / 127.0f);
   }
 
   __attribute__((always_inline)) static Pixel

@@ -372,6 +372,35 @@ struct ShaderBallWhiteBox {
     const Color4 base = frame.resources.generated_palette->get(value);
     return ::hue_rotate_lut_gamut(base, amount).color;
   }
+  static float prepared_hue_noise(const FrameState &frame, const Vector &v) {
+    return SB::sample_hue_noise_lut(frame.prepared_hue_noise, v);
+  }
+  static float direct_hue_noise(const FrameState &frame, const Vector &v) {
+    const Vector q = noise_sphere_coordinate(
+        v, frame.params.color.hue_noise_scale, frame.clocks.hue_noise_phase);
+    return frame.resources.color_noise->GetNoiseSingle(q.x, q.y, q.z);
+  }
+  static Pixel prepared_hue_noise_color(const FrameState &frame,
+                                        const Vector &v, float value) {
+    const float palette_value = SB::palette_mapping_coordinate(
+        value, frame.slots.palette_mapping,
+        frame.params.color.mapping_frequency, frame.params.color.mapping_phase);
+    const float amount =
+        frame.params.color.hue_shift_amount * prepared_hue_noise(frame, v);
+    return SB::sample_hue_rotation_lut(frame.prepared_hue_rotation,
+                                       palette_value, amount);
+  }
+  static Pixel direct_hue_noise_color(const FrameState &frame, const Vector &v,
+                                      float value) {
+    const float palette_value = SB::palette_mapping_coordinate(
+        value, frame.slots.palette_mapping,
+        frame.params.color.mapping_frequency, frame.params.color.mapping_phase);
+    const HueRotateBase base = make_hue_rotate_base(
+        frame.resources.generated_palette->get(palette_value));
+    const float amount =
+        frame.params.color.hue_shift_amount * direct_hue_noise(frame, v);
+    return hue_rotate_lut_gamut(base, amount).color;
+  }
   static Color4 shade(const Vector &v, const FrameState &frame) {
     return SB::shade_dynamic(v, frame);
   }
@@ -433,7 +462,7 @@ struct ShaderBallWhiteBox {
            Surface::EMISSION == CodeEmission::INLINE_ONLY &&
            Surface::ORACLE == ApproximationOracleId::PEIRCE_FAST_SQUARE &&
            Surface::NON_FLOATING_FIELDS_EXACT &&
-           Color::ORACLE == ApproximationOracleId::HUE_ROTATION_LUT;
+           Color::ORACLE == ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   }
   static Complex project_point(const Vector &v, Projection projection) {
     return SB::project_point(v, projection);
@@ -2934,6 +2963,86 @@ inline void test_shaderball_prepared_hue_rotation() {
   HS_EXPECT_LE(total_error / channels, uint64_t(220));
 }
 
+/** @brief The prepared spherical hue field tracks its simplex source. */
+inline void test_shaderball_prepared_hue_noise() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  float max_error = 0.0f;
+  double total_error = 0.0;
+  uint64_t samples = 0;
+  for (size_t preset : {size_t(12), size_t(13), size_t(16)}) {
+    WB::ClockState clocks = WB::clocks(sb);
+    clocks.hue_noise_phase = 0.137f * static_cast<float>(preset + 1);
+    WB::set_clocks(sb, clocks);
+    const WB::FrameState frame = WB::preset_frame(sb, preset);
+    HS_EXPECT_TRUE(frame.prepared_hue_noise.active);
+    for (int latitude_step = -48; latitude_step <= 48; ++latitude_step) {
+      const float latitude = latitude_step * (0.5f * PI_F / 48.0f);
+      const float radius = cosf(latitude);
+      for (int longitude_step = -192; longitude_step < 192; ++longitude_step) {
+        const float longitude = longitude_step * (PI_F / 192.0f);
+        const Vector direction(radius * cosf(longitude), sinf(latitude),
+                               radius * sinf(longitude));
+        const float error = fabsf(WB::prepared_hue_noise(frame, direction) -
+                                  WB::direct_hue_noise(frame, direction));
+        max_error = std::max(max_error, error);
+        total_error += error;
+        ++samples;
+      }
+    }
+  }
+  HS_EXPECT_LE(max_error, 0.15f);
+  HS_EXPECT_LE(total_error / samples, 0.013);
+}
+
+/** @brief Prepared hue noise and rotation stay within the color-stage budget. */
+inline void test_shaderball_prepared_hue_noise_color() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  uint16_t max_channel_error = 0;
+  uint64_t total_error = 0;
+  uint64_t channels = 0;
+  for (size_t preset : {size_t(12), size_t(13), size_t(16)}) {
+    WB::ClockState clocks = WB::clocks(sb);
+    clocks.hue_noise_phase = 0.137f * static_cast<float>(preset + 1);
+    WB::set_clocks(sb, clocks);
+    const WB::FrameState frame = WB::preset_frame(sb, preset);
+    for (int latitude_step = -24; latitude_step <= 24; ++latitude_step) {
+      const float latitude = latitude_step * (0.5f * PI_F / 24.0f);
+      const float radius = cosf(latitude);
+      for (int longitude_step = -96; longitude_step < 96; ++longitude_step) {
+        const float longitude = longitude_step * (PI_F / 96.0f);
+        const Vector direction(radius * cosf(longitude), sinf(latitude),
+                               radius * sinf(longitude));
+        for (int value_step = 0; value_step <= 16; ++value_step) {
+          const float value = value_step / 16.0f;
+          const Pixel exact =
+              WB::direct_hue_noise_color(frame, direction, value);
+          const Pixel prepared =
+              WB::prepared_hue_noise_color(frame, direction, value);
+          const uint16_t exact_channels[] = {exact.r, exact.g, exact.b};
+          const uint16_t prepared_channels[] = {prepared.r, prepared.g,
+                                                prepared.b};
+          for (int channel = 0; channel < 3; ++channel) {
+            const uint16_t a = exact_channels[channel];
+            const uint16_t b = prepared_channels[channel];
+            const uint16_t error = a > b ? a - b : b - a;
+            max_channel_error = std::max(max_channel_error, error);
+            total_error += error;
+            ++channels;
+          }
+        }
+      }
+    }
+  }
+  HS_EXPECT_LE(max_channel_error, uint16_t(5400));
+  HS_EXPECT_LE(total_error / channels, uint64_t(256));
+}
+
 /** @brief Fast square Peirce stays within renderer error and seam budgets. */
 inline void test_shaderball_fast_peirce_square() {
   float max_coordinate_error = 0.0f;
@@ -4369,6 +4478,8 @@ inline int run_shaderball_tests() {
   test_shaderball_coupled_source();
   test_shaderball_hue_rotate_lut_gamut();
   test_shaderball_prepared_hue_rotation();
+  test_shaderball_prepared_hue_noise();
+  test_shaderball_prepared_hue_noise_color();
   test_shaderball_preset_bank();
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();
