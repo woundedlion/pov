@@ -1023,6 +1023,8 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
         mesh, he_mesh, out_mesh, target, V, I,
         [&](size_t, const Vector &centroid) {
           return [&mesh, &he_mesh, centroid, t](uint16_t he_idx) {
+            // Corner map keyed on the half-edge head; the quad emitter below
+            // indexes it that way.
             Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
             return corner_or(v + (centroid - v) * t, v);
           };
@@ -1124,6 +1126,8 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
       emit_shrunk_face(
           he_mesh, out_mesh, start, count,
           [&](uint16_t he_idx) {
+            // Corner map keyed on the half-edge tail, not the head as in
+            // expand/snub; the hexagon emitter below indexes it that way.
             uint16_t vi =
                 he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
             Vector v = mesh.vertices[vi];
@@ -1439,6 +1443,8 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
 
           return [&mesh, &he_mesh, centroid, t, do_twist,
                   twist_q](uint16_t he_idx) {
+            // Corner map keyed on the half-edge head; the triangle emitter
+            // below indexes it that way.
             Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
             Vector new_v = v + (centroid - v) * t;
             if (do_twist) {
