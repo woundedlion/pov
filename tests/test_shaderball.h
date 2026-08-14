@@ -214,6 +214,9 @@ struct ShaderBallWhiteBox {
   static uint16_t transition_elapsed(const SB &sb) {
     return sb.state->transition.elapsed;
   }
+  static void set_transition_elapsed(SB &sb, uint16_t elapsed) {
+    sb.state->transition.elapsed = elapsed;
+  }
   static int32_t prepared_surface_noise_seed(const SB &sb) {
     for (size_t index = 0; index < sb.prepared_noise_count; ++index)
       if (sb.state->prepared_noise_keys[index].domain == NoiseDomain::SPHERE_3D)
@@ -540,6 +543,9 @@ struct ShaderBallWhiteBox {
   }
   static void update_palette_chroma(SB &sb, float chroma) {
     sb.update_palette_chroma(chroma);
+  }
+  static float visible_palette_chroma(const SB &sb) {
+    return sb.visible_palette_chroma();
   }
 };
 
@@ -4077,6 +4083,15 @@ inline void test_shaderball_palette_resources() {
   const Pixel saturated =
       WB::palette_color(sb, WB::PaletteMode::TRIADIC, 0.25f);
   HS_EXPECT_TRUE(triadic != saturated);
+
+  WB::RequestedConfig destination = WB::presets()[1];
+  destination.params.color.palette_chroma = 0.91f;
+  WB::force_transition(sb, destination, 60, false);
+  HS_EXPECT_EQ(WB::visible_palette_chroma(sb),
+               WB::presets()[0].params.color.palette_chroma);
+  WB::set_transition_elapsed(sb, 30);
+  HS_EXPECT_EQ(WB::visible_palette_chroma(sb),
+               destination.params.color.palette_chroma);
 }
 
 /** @brief Palette mapping and brightness operate on separate color stages. */

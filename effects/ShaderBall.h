@@ -251,7 +251,7 @@ public:
     } else {
       advance_runtime(runtime, {active_slots, blend.params}, walk_deltas);
     }
-    update_palette_chroma(blend.params.color.palette_chroma);
+    update_palette_chroma(visible_palette_chroma());
     step_generated_palettes(visible_palette_mode());
 #if HS_ENABLE_TEST_HOOKS
     ++generated_palette_step_count;
@@ -3432,6 +3432,16 @@ private:
                                : state->transition.to_config.slots.palette;
   }
 
+  float visible_palette_chroma() const {
+    if (!state->transition.active)
+      return blend.params.color.palette_chroma;
+    const ThroughClearPhase phase = through_clear_phase(
+        state->transition.elapsed, state->transition.duration);
+    return phase.from_endpoint
+               ? state->transition.from_config.params.color.palette_chroma
+               : state->transition.to_config.params.color.palette_chroma;
+  }
+
   void step_generated_palettes(PaletteMode visible) {
     if (visible == PaletteMode::TRIADIC)
       triadic_palette_cycler.step();
@@ -3603,7 +3613,6 @@ private:
     const InversePipelineId pipeline = phase.from_endpoint
                                            ? state->transition.from_pipeline
                                            : state->transition.to_pipeline;
-    update_palette_chroma(config.params.color.palette_chroma);
     HS_CHECK(prepare_endpoint(config, look, phase.alpha, pipeline, prepared),
              "ShaderBall transition endpoint has no renderer");
     draw_endpoint(canvas, prepared);
