@@ -37,6 +37,7 @@
 //                            (HankinSolids, SphericalHarmonics)
 //   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init (below)
 //   HS_PROFILE_PRESET        zero-based fixed preset selected after init
+//   HS_PROFILE_AUTO_RESUME   resume choreography after selecting that preset
 //   HS_SCAN_METRICS          compiles in the per-pixel hs::g_scan_metrics probe
 //                            counters and adds the "scan totals" window line.
 //                            Every probe pays a non-atomic global increment, so
@@ -683,6 +684,9 @@ Effect *construct_profiled() {
       static_cast<Target *>(construct_effect<Target, MAX_EFFECT_HEAP_BYTES>());
 #ifdef HS_PROFILE_PRESET
   select_profile_preset(*e);
+#ifdef HS_PROFILE_AUTO_RESUME
+  e->setAnimationsPaused(false);
+#endif
 #endif
 #ifdef HS_PROFILE_TRANS_SPEED
   // Per-run knob (e.g. IslamicStars carousel speed-up so a single epoch walks the
