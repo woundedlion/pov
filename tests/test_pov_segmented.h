@@ -20,6 +20,7 @@
 #include "tests/test_harness.h"
 
 #include <atomic>
+#include <chrono>
 #include <thread>
 #include <vector>
 
@@ -660,9 +661,21 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
       draw_returned.store(true, std::memory_order_release);
     });
 
+    // The draw either returns or reaches its buffer_free spin within
+    // microseconds; the deadline turns an unsatisfiable predicate into a
+    // failure instead of a wait that runs to the shard timeout.
+    const auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    bool wait_timed_out = false;
     while (Canvas::buffer_free_spin_count() == spins_before &&
-           !draw_returned.load(std::memory_order_acquire))
+           !draw_returned.load(std::memory_order_acquire)) {
+      if (std::chrono::steady_clock::now() >= deadline) {
+        wait_timed_out = true;
+        break;
+      }
       std::this_thread::yield();
+    }
+    HS_EXPECT_FALSE(wait_timed_out);
     if (!draw_returned.load(std::memory_order_acquire))
       ++result.blocked_draws;
 
