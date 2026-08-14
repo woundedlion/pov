@@ -2132,6 +2132,256 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
 }
 
 // ============================================================================
+// Scan::Circle::draw and Scan::Point::draw — the radius-0 ring regime
+//
+// Both wrappers build an SDF::Ring with radius 0, where target_angle is 0, the
+// linearized-distance shortcut is disabled, and the axis' horizontal projection
+// can fall under MIN_HORIZONTAL_PROJ so every row takes the full-row scan. The
+// shape that regime draws is a spherical cap of angular radius `thickness`
+// centred on the basis axis, with quintic coverage from 1 at the centre to 0 at
+// the rim — the analytic oracle these cases compare against.
+// ============================================================================
+
+/**
+ * @brief Analytic coverage of a radius-0 ring at one direction.
+ * @param v Unit direction of the pixel centre.
+ * @param axis Cap centre (the ring's basis axis).
+ * @param thickness Cap angular radius in radians.
+ * @return Stroke coverage in [0, 1]; 0 at or beyond the rim.
+ * @details Mirrors SDF::Ring::distance at radius 0 op for op — the same
+ * fast_acos and the same quintic — so the comparison is exact, not approximate.
+ */
+inline float cap_coverage(const Vector &v, const Vector &axis,
+                          float thickness) {
+  const float d = dot(v, axis);
+  const float angle = fast_acos(hs::clamp(d, -1.0f, 1.0f));
+  const float sd = angle - thickness;
+  if (sd >= 0.0f || thickness <= 0.0f)
+    return 0.0f;
+  return quintic_kernel(-sd / thickness);
+}
+
+/**
+ * @brief Verifies Point::draw paints exactly the analytic spherical cap.
+ * @details Sweeps a pole-centred axis (where the ring's horizontal projection
+ * collapses and every row full-row scans) and an equatorial axis (where the row
+ * interval math runs), and requires both to reproduce cap_coverage per pixel:
+ * every covered direction lit, every uncovered one black, and the plotted
+ * channel proportional to the coverage.
+ */
+inline void test_point_draws_the_analytic_cap() {
+  constexpr int W = 96, H = 64;
+  constexpr uint16_t LEVEL = 60000;
+  constexpr float THICKNESS = 0.35f;
+  TrigLUT<W, H>::init();
+
+  const Vector axes[] = {Y_AXIS, Vector(1.0f, 0.0f, 0.0f),
+                         Vector(0.3f, -0.6f, 0.74f).normalized()};
+  for (const Vector &axis : axes) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas c(fx);
+      Scan::Point::draw<W, H>(
+          pipe, c, axis, THICKNESS, [](const Vector &, Fragment &f) {
+            f.color = Color4(Pixel(LEVEL, LEVEL, LEVEL), 1.0f);
+          });
+    }
+    fx.advance_display();
+
+    // The cap centre must be the basis axis the wrapper built, not the raw
+    // vector: make_basis can reorient, so read it back rather than assuming.
+    const Basis basis = make_basis(Quaternion(), axis);
+    size_t lit = 0, covered = 0;
+    float worst_value_error = 0.0f;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const Vector v = pixel_to_vector<W, H>(x, y);
+        const float coverage = cap_coverage(v, basis.v, THICKNESS);
+        const bool is_lit = !is_black(fx.get_pixel(x, y));
+        if (is_lit)
+          ++lit;
+        if (coverage > 0.0f)
+          ++covered;
+        // Coverage 0 is a hard cut in the shape, so an outside pixel is black.
+        if (coverage == 0.0f)
+          HS_EXPECT_FALSE(is_lit);
+        // Inside the cut, the plotted channel is the level scaled by coverage.
+        if (coverage > 0.02f) {
+          HS_EXPECT_TRUE(is_lit);
+          const float want = static_cast<float>(LEVEL) * coverage;
+          worst_value_error = std::max(
+              worst_value_error,
+              std::fabs(static_cast<float>(fx.get_pixel(x, y).r) - want));
+        }
+      }
+    HS_EXPECT_GT(covered, (size_t)0);
+    HS_EXPECT_GT(lit, (size_t)0);
+    // Blend rounding only; the coverage itself is reproduced exactly.
+    HS_EXPECT_LT(worst_value_error, 2.0f);
+  }
+}
+
+/**
+ * @brief Verifies a pole-centred cap really exercises the full-row-scan regime.
+ * @details Point::draw at +Y builds a ring whose axis has no horizontal
+ * projection, so get_horizontal_intervals refuses every row it is asked for and
+ * the rasterizer falls back to scanning whole rows. Without this the cap case
+ * above would be indistinguishable from the ordinary interval path.
+ */
+inline void test_pole_centred_cap_takes_the_full_row_scan() {
+  constexpr int W = 96, H = 64;
+  TrigLUT<W, H>::init();
+  const Basis pole = make_basis(Quaternion(), Y_AXIS);
+  const SDF::Ring degenerate(pole, 0.0f, 0.35f);
+
+  const auto rows = degenerate.get_vertical_bounds<H>();
+  HS_EXPECT_EQ(rows.y_min, 0);
+  HS_EXPECT_GT(rows.y_max, 0);
+  int full_scan_rows = 0;
+  for (int y = rows.y_min; y <= rows.y_max; ++y)
+    if (degenerate.needs_full_row_scan(TrigLUT<W, H>::sin_phi[y]))
+      ++full_scan_rows;
+  HS_EXPECT_EQ(full_scan_rows, rows.y_max - rows.y_min + 1);
+
+  // An equatorial cap of the same size answers with intervals on most rows, so
+  // the two axes above cover both sides of the branch.
+  const Basis equator = make_basis(Quaternion(), Vector(1.0f, 0.0f, 0.0f));
+  const SDF::Ring ordinary(equator, 0.0f, 0.35f);
+  const auto eq_rows = ordinary.get_vertical_bounds<H>();
+  int interval_rows = 0;
+  for (int y = eq_rows.y_min; y <= eq_rows.y_max; ++y)
+    if (!ordinary.needs_full_row_scan(TrigLUT<W, H>::sin_phi[y]))
+      ++interval_rows;
+  HS_EXPECT_GT(interval_rows, 0);
+}
+
+/**
+ * @brief Verifies the Circle and Point wrappers are their documented rings.
+ * @details Circle is a radius-0 ring whose stroke half-width is radius * pi/2;
+ * Point is a radius-0 ring of the given thickness. Both must rasterize
+ * bit-identically to the ring they claim to be, so the wrapper cannot drift
+ * from the shape its callers (ShapeShifter, Comets) were tuned against.
+ */
+inline void test_circle_and_point_match_their_rings() {
+  constexpr int W = 96, H = 64;
+  Pipeline<W, H> pipe;
+  auto shader = [](const Vector &p, Fragment &f) {
+    // Position-dependent so a mismatched basis or phase shows up as color, not
+    // only as coverage.
+    f.color =
+        Color4(Pixel(static_cast<uint16_t>(30000.0f + 20000.0f * p.x),
+                     static_cast<uint16_t>(30000.0f + 20000.0f * p.y), 50000),
+               1.0f);
+  };
+
+  const Basis basis = make_basis(Quaternion(), Vector(0.2f, 0.8f, -0.5f));
+  std::vector<Pixel> circle_frame, ring_frame;
+  {
+    hs_test::StubEffect fx(W, H);
+    {
+      Canvas c(fx);
+      Scan::Circle::draw<W, H>(pipe, c, basis, 0.4f, shader);
+    }
+    fx.advance_display();
+    capture_frame<W, H>(fx, circle_frame);
+  }
+  {
+    hs_test::StubEffect fx(W, H);
+    {
+      Canvas c(fx);
+      Scan::Ring::draw<W, H>(pipe, c, basis, 0.0f, 0.4f * (PI_F / 2.0f),
+                             shader);
+    }
+    fx.advance_display();
+    capture_frame<W, H>(fx, ring_frame);
+  }
+  size_t circle_lit = 0, circle_diff = 0;
+  for (size_t i = 0; i < circle_frame.size(); ++i) {
+    if (!is_black(circle_frame[i]))
+      ++circle_lit;
+    if (!(circle_frame[i] == ring_frame[i]))
+      ++circle_diff;
+  }
+  HS_EXPECT_GT(circle_lit, (size_t)0);
+  HS_EXPECT_EQ(circle_diff, (size_t)0);
+
+  const Vector center(-0.4f, 0.5f, 0.766f);
+  std::vector<Pixel> point_frame, point_ring_frame;
+  {
+    hs_test::StubEffect fx(W, H);
+    {
+      Canvas c(fx);
+      Scan::Point::draw<W, H>(pipe, c, center, 0.3f, shader);
+    }
+    fx.advance_display();
+    capture_frame<W, H>(fx, point_frame);
+  }
+  {
+    hs_test::StubEffect fx(W, H);
+    const Basis point_basis = make_basis(Quaternion(), center);
+    {
+      Canvas c(fx);
+      Scan::Ring::draw<W, H>(pipe, c, point_basis, 0.0f, 0.3f, shader);
+    }
+    fx.advance_display();
+    capture_frame<W, H>(fx, point_ring_frame);
+  }
+  size_t point_lit = 0, point_diff = 0;
+  for (size_t i = 0; i < point_frame.size(); ++i) {
+    if (!is_black(point_frame[i]))
+      ++point_lit;
+    if (!(point_frame[i] == point_ring_frame[i]))
+      ++point_diff;
+  }
+  HS_EXPECT_GT(point_lit, (size_t)0);
+  HS_EXPECT_EQ(point_diff, (size_t)0);
+}
+
+/**
+ * @brief Verifies a Circle's painted extent tracks its radius argument.
+ * @details radius maps to a cap of angular half-width radius * pi/2, so the
+ * lit area must grow with radius and the farthest lit direction must sit at
+ * that angle. A wrapper that dropped the pi/2 or passed radius as the ring's
+ * radius rather than its thickness fails both.
+ */
+inline void test_circle_extent_follows_its_radius() {
+  constexpr int W = 96, H = 64;
+  const Basis basis = make_basis(Quaternion(), Vector(0.0f, 0.0f, 1.0f));
+  size_t previous_lit = 0;
+  for (float radius : {0.15f, 0.3f, 0.6f}) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas c(fx);
+      Scan::Circle::draw<W, H>(
+          pipe, c, basis, radius, [](const Vector &, Fragment &f) {
+            f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+          });
+    }
+    fx.advance_display();
+
+    const float rim = radius * (PI_F / 2.0f);
+    size_t lit = 0;
+    float widest = 0.0f;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        if (!is_black(fx.get_pixel(x, y))) {
+          ++lit;
+          const Vector v = pixel_to_vector<W, H>(x, y);
+          widest = std::max(widest,
+                            fast_acos(hs::clamp(dot(v, basis.v), -1.0f, 1.0f)));
+        }
+    HS_EXPECT_GT(lit, previous_lit);
+    // No lit pixel past the rim, and the cap is sampled close enough to it
+    // that the widest lit direction is within a row of the rim.
+    HS_EXPECT_LT(widest, rim);
+    HS_EXPECT_GT(widest, rim - 2.0f * (PI_F / (H - 1)));
+    previous_lit = lit;
+  }
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -2171,6 +2421,11 @@ inline int run_scan_tests() {
   test_solid_color_path_matches_generic();
   test_spherical_sine_distance_framebuffer_error();
   test_overlapping_strokes_composite_blend();
+
+  test_point_draws_the_analytic_cap();
+  test_pole_centred_cap_takes_the_full_row_scan();
+  test_circle_and_point_match_their_rings();
+  test_circle_extent_follows_its_radius();
 
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
