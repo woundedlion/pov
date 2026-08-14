@@ -292,9 +292,6 @@ public:
     sync.configure(cfg);
 
     const bool master = (segment_id == 0);
-    // Level before direction: the GPIO data register resets to 0 and MASTER_EN
-    // is active-low, so the sync-bus driver must be enabled last.
-    digitalWriteFast(PIN_MASTER_EN, master ? LOW : HIGH);
     if (master) {
       digitalWriteFast(PIN_FRAME_SYNC, LOW);
       pinMode(PIN_FRAME_SYNC, OUTPUT);
@@ -307,6 +304,11 @@ public:
       *(portControlRegister(PIN_FRAME_SYNC)) |= IOMUXC_PAD_HYS;
     }
     pinMode(PIN_MASTER_EN, OUTPUT);
+    // park_sync_out() already left MASTER_EN an output at its disabled level, so
+    // this write is what enables the sync-bus driver: take the board-role level
+    // only once PIN_FRAME_SYNC is driven, or a pad keeper puts one spurious edge
+    // on the wire that downstream boards read as a symbol.
+    digitalWriteFast(PIN_MASTER_EN, master ? LOW : HIGH);
 
     sync.seed(ARM_DWT_CYCCNT, master);
 
