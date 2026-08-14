@@ -21,10 +21,11 @@
  * time-driven effect recurses the same way whatever the runner's speed.
  *
  * CI gate: fails (non-zero exit) if the worst effect exceeds the device's DTCM
- * stack reservation plus the host measurement allowance (see below).
+ * stack reservation (see below).
  */
 #include <cstdint>
 #include <cstdio>
+#include <new>
 
 #include "engine/effects.h"
 #include "engine/memory.h"
@@ -52,11 +53,6 @@ constexpr size_t CONTROL_BYTES = 65536;
 // is derived from the same figure, so this gate and the device budget cannot
 // drift apart.
 constexpr size_t BUDGET_BYTES = HS_DEVICE_STACK_FLOOR_BYTES;
-
-// x86-64 pointer width and the WIN-sized classifier are host-only overhead.
-constexpr size_t HOST_MEASUREMENT_ALLOWANCE_BYTES = 512;
-constexpr size_t HOST_GATE_BYTES =
-    BUDGET_BYTES + HOST_MEASUREMENT_ALLOWANCE_BYTES;
 
 volatile uint8_t *g_lo;
 int g_measured = 0;
@@ -93,19 +89,27 @@ __attribute__((noinline)) void paint(int chunks) {
                : "memory"); // defeat tail-call / dead-store elision
 }
 
+template <typename EffectT>
+__attribute__((noinline)) Effect *construct_effect() {
+  EffectT *concrete = new (std::nothrow) EffectT();
+  HS_CHECK(concrete != nullptr, "stack probe effect allocation failed");
+  concrete->init();
+  return concrete;
+}
+
 // One effect through the smoke_one(test_effects.h) sequence.
-template <typename Effect> __attribute__((noinline)) void run_effect() {
+template <typename EffectT> __attribute__((noinline)) void run_effect() {
   hs_test::reset_globals();
   hs_test::pin_frame_clock(0);
-  Effect effect;
-  effect.init();
+  Effect *effect = construct_effect<EffectT>();
   for (int f = 0; f < FRAMES; ++f) {
     hs_test::pin_frame_clock(f);
-    effect.draw_frame();
-    effect.advance_display();
+    effect->draw_frame();
+    effect->advance_display();
   }
-  volatile auto px = effect.get_pixel(0, 0); // keep the render live
+  volatile auto px = effect->get_pixel(0, 0); // keep the render live
   (void)px;
+  delete effect;
 }
 
 template <typename Effect> size_t measure(const char *name) {
@@ -175,11 +179,9 @@ int main() {
                 g_unmeasured);
     return 1;
   }
-  const bool over = worst > HOST_GATE_BYTES;
-  std::printf("\nWORST: %s = %zu B (%.1f KB)   device floor %zu B + host "
-              "allowance %zu B = %zu B   [%s]\n",
+  const bool over = worst > BUDGET_BYTES;
+  std::printf("\nWORST: %s = %zu B (%.1f KB)   device floor %zu B   [%s]\n",
               worst_name, worst, worst / 1024.0, BUDGET_BYTES,
-              HOST_MEASUREMENT_ALLOWANCE_BYTES, HOST_GATE_BYTES,
               over ? "FAIL" : "PASS");
   if (over)
     std::printf("  stack budget exceeded — a deep call chain grew; see "
