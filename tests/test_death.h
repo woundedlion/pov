@@ -60,6 +60,7 @@
 #include "core/engine/memory.h"
 #include "core/mesh/hankin.h"
 #include "core/mesh/mesh.h"
+#include "core/mesh/recipe.h"
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "core/render/sdf.h"
@@ -1329,6 +1330,23 @@ inline void case_mesh_require_matching_face_sides() {
   build_polymesh(mesh, arena, 7, mesh_counts, 2, indices, 7);
   // face 1 starts at 3 in he_source, 4 in mesh -> HS_CHECK
   MeshOps::require_matching_half_edges(half_edges, mesh, "death");
+}
+
+/**
+ * @brief Death case: a HANKIN step with no contact angle must trap.
+ * @details Recipe-replay surface — the zero default collapses every star point
+ *          onto its corner, so an authored step that forgot its angle replays
+ *          as a flat tiling instead of failing.
+ */
+inline void case_apply_step_hankin_no_angle() {
+  static uint8_t a_buf[64 * 1024];
+  static uint8_t b_buf[64 * 1024];
+  Arena a(a_buf, sizeof(a_buf));
+  Arena b(b_buf, sizeof(b_buf));
+  const Solids::OpStep steps[] = {{Solids::Op::HANKIN, opaque(0.0f)}};
+  PolyMesh mesh = Solids::build_steps(opaque<uint8_t>(1), steps, 1, a, b);
+  if (mesh.vertices.size() == opaque<size_t>(0x7fff))
+    std::printf("x");
 }
 
 /**
@@ -2857,6 +2875,9 @@ inline const Case *all_cases(int &n) {
        case_mesh_require_matching_face_sides, "mesh.h",
        "(static_cast<size_t>(he_mesh.faces[fi].half_edge) == face_offset) "
        "MeshOps::death: half-edge mesh face sides differ from the source mesh"},
+      {"apply_step_hankin_no_angle", case_apply_step_hankin_no_angle,
+       "recipe.h",
+       "(step.param > 0.0f) apply_step: HANKIN step has no contact angle"},
       {"slerp_nan", case_slerp_nan, "3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) "},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan, "3dmath.h",
@@ -3616,7 +3637,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 141;
+  constexpr int DEATH_CASE_COUNT = 142;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
