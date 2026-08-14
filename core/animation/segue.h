@@ -480,8 +480,7 @@ struct TerminatorSweep : Base {
    * ordered. */
   float face_fade_frac(int i) const {
     float t = hash01(static_cast<uint32_t>(i), fade_seed);
-    float lo =
-        std::min(1.0f, std::min(fade_frames_min, fade_frames_max) * inv_window);
+    float lo = min_fade_frac();
     float hi =
         std::min(1.0f, std::max(fade_frames_min, fade_frames_max) * inv_window);
     return lo + (hi - lo) * t;
@@ -498,14 +497,23 @@ struct TerminatorSweep : Base {
     float ff = std::max(fade_frac, 1e-4f);
     return hs::clamp((phase - offset * (1.0f - ff)) / ff, 0.0f, 1.0f);
   }
-  /** @brief Culls at low phase, where every face's fade has reached black. */
-  bool visible(float phase) const { return fades_to_black(phase); }
+  /** @brief Offset 0 is the last face the front reaches, and the shortest fade
+   * is the steepest ramp, so that pair's face-local phase bounds every face's
+   * opacity. */
+  bool visible(float phase) const {
+    return fades_to_black(face_phase(phase, 0.0f, min_fade_frac()));
+  }
   /** @brief Squared: alpha scales linear-light color, where a linear ramp
    * reads mostly-bright almost immediately; the square spreads the perceived
    * fade across the face's fade window. */
   float opacity(float phase) const { return phase * phase; }
 
 private:
+  /** @brief Shortest per-face fade length as a window fraction. */
+  float min_fade_frac() const {
+    return std::min(1.0f,
+                    std::min(fade_frames_min, fade_frames_max) * inv_window);
+  }
   /** @brief Reciprocal of the scheduled fade window in frames; set by
    * schedule(). The initializer only covers a query before the first
    * schedule(). */
