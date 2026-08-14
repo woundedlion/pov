@@ -850,6 +850,103 @@ inline void test_edge_endpoints_match_registry() {
 /** Samples per edge sweep. */
 constexpr int SWEEP_SAMPLES = 16;
 
+/** Raw mesh counts a Conway operator is required to produce. */
+struct OpCounts {
+  size_t v; /**< Vertices. */
+  size_t f; /**< Faces. */
+  size_t i; /**< Flat face indices; on a closed mesh this is 2E. */
+};
+
+/**
+ * @brief Reads a closed mesh's operand counts.
+ * @param m Closed manifold mesh.
+ * @return {V, F, I} of @p m.
+ */
+inline OpCounts mesh_op_counts(const PolyMesh &m) {
+  return {m.vertices.size(), m.face_counts.size(), m.faces.size()};
+}
+
+/**
+ * @brief Counts a closed mesh's degree-2 vertices.
+ * @param m Closed manifold mesh; each index is one face incidence.
+ * @return Vertices with exactly two incident faces.
+ * @details Truncating one produces a 2-gon the op drops, so this is the only
+ *          term the Conway forms need beyond (V, E, F). Hankin seeds carry
+ *          degree-2 star points; the registry solids carry none.
+ */
+inline size_t degree_two_vertex_count(const PolyMesh &m) {
+  std::vector<uint32_t> degree(m.vertices.size(), 0u);
+  for (size_t k = 0; k < m.faces.size(); ++k)
+    ++degree[m.faces[k]];
+  size_t n = 0;
+  for (uint32_t d : degree)
+    n += d == 2u ? 1u : 0u;
+  return n;
+}
+
+/**
+ * @brief Closed-form output counts of each Conway operator the graph sweeps.
+ * @param op Operator applied.
+ * @param seed Seed mesh.
+ * @return The counts @p op must produce from @p seed, at every sweep parameter
+ *         on the open interval.
+ * @details Standard Conway arithmetic in the seed's (V, E, F): truncate
+ *          (2E, F+V, 3E), expand (2E, F+V+E, 4E), snub (2E, F+V+2E, 5E),
+ *          chamfer (V+2E, F+E, 4E) as (V', F', E'); the returned index count
+ *          is 2E'. Truncate additionally drops the 2-gon each degree-2 vertex
+ *          would raise, costing one face and one edge apiece; the other three
+ *          are the min-degree-3 forms, which is what their seeds are. Deriving
+ *          these from the seed is what separates "constant across the sweep"
+ *          from "constant and correct": a latched sample cannot tell a
+ *          wrong-but-manifold count apart.
+ */
+inline OpCounts morph_op_counts(ConwayGraph::MorphOp op, const PolyMesh &seed) {
+  const size_t v = seed.vertices.size();
+  const size_t f = seed.face_counts.size();
+  const size_t e = seed.faces.size() / 2;
+  switch (op) {
+  case ConwayGraph::MorphOp::TRUNCATE: {
+    const size_t d2 = degree_two_vertex_count(seed);
+    return {2 * e, f + v - d2, 6 * e - 2 * d2};
+  }
+  case ConwayGraph::MorphOp::EXPAND:
+    return {2 * e, f + v + e, 8 * e};
+  case ConwayGraph::MorphOp::SNUB:
+    return {2 * e, f + v + 2 * e, 10 * e};
+  case ConwayGraph::MorphOp::CHAMFER:
+    return {v + 2 * e, f + e, 8 * e};
+  }
+  return {v, f, seed.faces.size()};
+}
+
+/**
+ * @brief Closed-form output counts of MeshOps::hankin, at any contact angle.
+ * @param seed Seed mesh.
+ * @return {3E, F+V, 8E}.
+ * @details compile_hankin lays down one midpoint per edge and one star point
+ *          per half-edge (3E vertices), one star face per seed face and one
+ *          rosette per seed vertex (F+V), and each face contributes twice its
+ *          degree in indices on both sides (4I = 8E). Degree-2 vertices raise
+ *          a quad rosette like any other, so no correction applies.
+ */
+inline OpCounts hankin_op_counts(const PolyMesh &seed) {
+  const size_t e = seed.faces.size() / 2;
+  return {3 * e, seed.face_counts.size() + seed.vertices.size(), 8 * e};
+}
+
+/**
+ * @brief Asserts a sweep sample's raw counts equal a derived expectation.
+ * @param v Sample vertex count.
+ * @param f Sample face count.
+ * @param i Sample flat index count.
+ * @param d Expected counts.
+ */
+inline void expect_op_counts(size_t v, size_t f, size_t i, const OpCounts &d) {
+  HS_EXPECT_EQ(v, d.v);
+  HS_EXPECT_EQ(f, d.f);
+  HS_EXPECT_EQ(i, d.i);
+}
+
 /**
  * @brief Sweep interval of an edge, clamped as a leg runs it.
  * @param e Edge to clamp.
@@ -903,7 +1000,7 @@ inline void test_edge_sweeps_hold_topology() {
         v0 = out.vertices.size();
         f0 = out.face_counts.size();
         i0 = out.faces.size();
-        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+        expect_op_counts(v0, f0, i0, morph_op_counts(e.op, seed));
       } else {
         HS_EXPECT_EQ(out.vertices.size(), v0);
         HS_EXPECT_EQ(out.face_counts.size(), f0);
@@ -1282,7 +1379,8 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
         f0 = swept.face_counts.size();
         i0 = swept.faces.size();
         compiled0 = compiled.face_counts.size();
-        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+        expect_op_counts(v0, f0, i0,
+                         morph_op_counts(ConwayGraph::MorphOp::TRUNCATE, seed));
       } else {
         HS_EXPECT_EQ(swept.vertices.size(), v0);
         HS_EXPECT_EQ(swept.face_counts.size(), f0);
@@ -1390,7 +1488,7 @@ inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
         f0 = swept.face_counts.size();
         i0 = swept.faces.size();
         compiled0 = compiled.face_counts.size();
-        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+        expect_op_counts(v0, f0, i0, hankin_op_counts(seed));
       } else {
         HS_EXPECT_EQ(swept.vertices.size(), v0);
         HS_EXPECT_EQ(swept.face_counts.size(), f0);
@@ -2136,7 +2234,8 @@ inline void test_truncate_leg_on_recipe_seeds_holds_topology() {
           check_sweep_sample(MeshOps::truncate(seed, a, b, t), a, b);
       if (s == 0) {
         first = fp;
-        HS_EXPECT_TRUE(fp.v > 0 && fp.f > 0 && fp.i > 0);
+        expect_op_counts(fp.v, fp.f, fp.i,
+                         morph_op_counts(ConwayGraph::MorphOp::TRUNCATE, seed));
       } else {
         expect_same_fingerprint(fp, first);
       }
@@ -2178,7 +2277,8 @@ inline void test_snub_leg_on_recipe_seeds_holds_topology() {
           check_sweep_sample(MeshOps::snub(seed, a, b, t, 0.0f), a, b);
       if (s == 0) {
         first = fp;
-        HS_EXPECT_TRUE(fp.v > 0 && fp.f > 0 && fp.i > 0);
+        expect_op_counts(fp.v, fp.f, fp.i,
+                         morph_op_counts(ConwayGraph::MorphOp::SNUB, seed));
       } else {
         expect_same_fingerprint(fp, first);
       }
@@ -2250,7 +2350,9 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
       const SweepFingerprint fp = check_sweep_sample(swept, a, b);
       if (s == 0) {
         first = fp;
-        HS_EXPECT_TRUE(fp.v > 0 && fp.f > 0 && fp.i > 0);
+        // A relax slerp moves vertices only: the seed's own counts are the
+        // expectation at every k.
+        expect_op_counts(fp.v, fp.f, fp.i, mesh_op_counts(seed));
       } else {
         expect_same_fingerprint(fp, first);
       }
