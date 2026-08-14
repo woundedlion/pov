@@ -2809,8 +2809,10 @@ inline void test_star_continuous_collapses_at_antipode() {
       make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
   Fragments points;
   points.bind(plot_arena(), 16);
+  const int sides = 7;
   Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
-      points, basis, 2.0f, 7, 0.37f);
+      points, basis, 2.0f, sides, 0.37f);
+  HS_EXPECT_EQ(points.size(), (size_t)(sides * 2 + 1));
   for (const Fragment &point : points)
     HS_EXPECT_LT(angle_between(point.pos, -basis.v), 0.001f);
 }
