@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <utility>
 #include "render/sdf.h"
+#include "render/shading.h"
 #include "mesh/mesh_class_types.h"
 #include "color/color.h"
 #include "render/filter.h"
