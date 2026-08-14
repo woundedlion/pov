@@ -183,13 +183,17 @@ if(EMSCRIPTEN)
         # Mark the SHA -dirty (git describe convention) so the gate's checkout of that
         # ref fails hard instead of deploying an unverifiable artifact. Untracked files
         # don't count (build output, node_modules); only tracked modifications do.
+        # A git that cannot answer counts as dirty: empty output from a failed call
+        # is indistinguishable from a clean tree, and recording a bare SHA for it
+        # is the unverifiable provenance this block exists to prevent.
         execute_process(
           COMMAND git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" status --porcelain --untracked-files=no
           OUTPUT_VARIABLE HS_GIT_DIRTY
-          OUTPUT_STRIP_TRAILING_WHITESPACE)
-        if(NOT \"\${HS_GIT_DIRTY}\" STREQUAL \"\")
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+          RESULT_VARIABLE HS_GIT_DIRTY_RC)
+        if(NOT HS_GIT_DIRTY_RC EQUAL 0 OR NOT \"\${HS_GIT_DIRTY}\" STREQUAL \"\")
           set(HS_ENGINE_SHA \"\${HS_ENGINE_SHA}-dirty\")
-          message(WARNING \"Engine tree has uncommitted changes; recording ${TARGET_NAME}.sha as \${HS_ENGINE_SHA}. The deploy gate will reject this ref — rebuild from a clean (committed) tree before deploying.\")
+          message(WARNING \"Engine tree has uncommitted changes (or git could not report on it); recording ${TARGET_NAME}.sha as \${HS_ENGINE_SHA}. The deploy gate will reject this ref — rebuild from a clean (committed) tree before deploying.\")
         endif()
         file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\"
              CONTENT \"\${HS_ENGINE_SHA}\\n\" @ONLY NEWLINE_STYLE LF)
