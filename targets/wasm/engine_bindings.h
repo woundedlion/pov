@@ -173,7 +173,7 @@ static bool engine_alive = false;
 enum class FullConfigRestoreResult : uint8_t {
   APPLIED,             /**< Snapshot installed. */
   NOT_SHADERBALL,      /**< The loaded effect has no full configuration. */
-  UNSUPPORTED_VERSION, /**< schemaVersion is neither current nor the legacy 1. */
+  UNSUPPORTED_VERSION, /**< schemaVersion is not the current schema. */
   INVALID_LENGTH,      /**< Snapshot missing, or an array whose length is not
                             the field count. */
   INVALID_VALUE,       /**< A field or runtime value outside what its slot
@@ -899,15 +899,13 @@ public:
    * @return APPLIED, or the reason the snapshot was refused.
    * @details Rejections leave the effect exactly as it was, so a failed restore
    *          needs no rollback. NOT_SHADERBALL covers the loaded effect;
-   *          UNSUPPORTED_VERSION a schemaVersion that is neither the current one
-   *          nor the legacy 1; INVALID_LENGTH a missing snapshot or an array
-   *          whose length is not the field count; INVALID_VALUE a field or
-   *          runtime value outside what its slot admits; INVALID_ACCEPTED fields
-   *          each in range but a combination the effect will not render;
-   *          INVALID_PENDING a pending list that is not a set of in-range field
-   *          indices, or one that does not match where accepted and requested
-   *          differ. A legacy snapshot is migrated on the way in and leaves a
-   *          getConfigImportNotice() describing what moved.
+   *          UNSUPPORTED_VERSION a schemaVersion other than the current one;
+   *          INVALID_LENGTH a missing snapshot or an array whose length is not
+   *          the field count; INVALID_VALUE a field or runtime value outside
+   *          what its slot admits; INVALID_ACCEPTED fields each in range but a
+   *          combination the effect will not render; INVALID_PENDING a pending
+   *          list that is not a set of in-range field indices, or one that does
+   *          not match where accepted and requested differ.
    */
   FullConfigRestoreResult restoreFullConfigSnapshot(const val &input) {
     FullConfigRestoreResult result = FullConfigRestoreResult::NOT_SHADERBALL;
@@ -1004,13 +1002,8 @@ public:
   }
 
   /**
-   * @brief Returns the latest successful legacy-import notice.
-   * @return User-facing description of what a legacy-schema restore migrated;
-   *         empty after a current-schema restore, and when the loaded effect is
-   *         not ShaderBall.
-   * @details A message, not a status code: read
-   *          restoreFullConfigSnapshot()'s return value for the outcome and this
-   *          only to tell the user what moved.
+   * @brief Reserved compatibility accessor.
+   * @return Empty string.
    */
   std::string getConfigImportNotice() {
     std::string notice;
@@ -1021,10 +1014,7 @@ public:
   }
 
   /**
-   * @brief Clears the current ShaderBall legacy-import notice.
-   * @details Called once the notice has been shown, so the next restore's notice
-   *          is not read as stale. A no-op when the loaded effect is not
-   *          ShaderBall.
+   * @brief Reserved compatibility no-op.
    */
   void clearConfigImportNotice() {
     with_shaderball([&]<typename SB>(SB &shaderball) {
