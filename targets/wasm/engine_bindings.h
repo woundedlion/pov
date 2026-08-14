@@ -35,25 +35,38 @@ using namespace emscripten;
 static constexpr uint8_t STACK_CANARY = 0xCD;
 
 /**
+ * @brief Lowest stack address the canary may occupy.
+ * @return The stack end, raised past the runtime's stack cookie.
+ * @details An -sASSERTIONS build (STACK_OVERFLOW_CHECK) writes two cookie words
+ *          at the stack end, shifted one word up when that end is address 0.
+ *          Painting over them would leave checkStackCookie() reporting an
+ *          overflow that never happened, so the canary starts above the widest
+ *          of those two placements.
+ */
+static uintptr_t stack_canary_floor() {
+  return emscripten_stack_get_end() + 4 * sizeof(uint32_t);
+}
+
+/**
  * @brief Paints the unused portion of the stack with a canary byte for high
  *        water mark tracking.
- * @details Writes STACK_CANARY from the current stack pointer down to the stack
- *          end. Safe to call at any time — only touches memory below the current
- *          stack pointer.
+ * @details Writes STACK_CANARY from the current stack pointer down to the canary
+ *          floor. Safe to call at any time — only touches memory below the
+ *          current stack pointer.
  */
 static void stack_paint_canary() {
   uintptr_t sp = emscripten_stack_get_current();
-  uintptr_t end = emscripten_stack_get_end();
-  if (sp > end) {
-    std::memset(reinterpret_cast<void *>(end), STACK_CANARY, sp - end);
+  uintptr_t floor = stack_canary_floor();
+  if (sp > floor) {
+    std::memset(reinterpret_cast<void *>(floor), STACK_CANARY, sp - floor);
   }
 }
 
 /**
  * @brief Computes the stack high water mark by scanning the canary region.
  * @return Number of stack bytes that have been touched, in bytes (the high
- *         water mark), found by scanning from the stack end upward to the first
- *         overwritten canary byte.
+ *         water mark), found by scanning from the canary floor upward to the
+ *         first overwritten canary byte.
  * @details This is a LOWER bound, not an exact figure: a frame that wrote the
  *          coincidental byte 0xCD, or that reserved space it never actually
  *          stored to, reads back as still-canary and under-reports. Use it as a
@@ -64,8 +77,7 @@ static void stack_paint_canary() {
  */
 static size_t stack_high_water_mark() {
   uintptr_t base = emscripten_stack_get_base();
-  uintptr_t end = emscripten_stack_get_end();
-  const uint8_t *p = reinterpret_cast<const uint8_t *>(end);
+  const uint8_t *p = reinterpret_cast<const uint8_t *>(stack_canary_floor());
   const uint8_t *top = reinterpret_cast<const uint8_t *>(base);
   constexpr size_t WORD = sizeof(uint64_t);
   constexpr uint64_t CANARY_WORD = 0x0101010101010101ull * STACK_CANARY;
