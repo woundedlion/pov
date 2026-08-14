@@ -1422,7 +1422,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(26));
+  HS_EXPECT_EQ(presets.size(), size_t(27));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_TRUE(choreo[0].staggered);
   HS_EXPECT_TRUE(choreo[1].staggered);
@@ -1431,9 +1431,11 @@ inline void test_shaderball_preset_bank() {
   bool has_hue_shift = false;
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
-    HS_EXPECT_TRUE(index == 20
-                       ? preset.slots.palette == WB::PaletteMode::COMPLEMENTARY
-                       : preset.slots.palette == WB::PaletteMode::TRIADIC);
+    const WB::PaletteMode expected_palette =
+        index == 20   ? WB::PaletteMode::COMPLEMENTARY
+        : index == 26 ? WB::PaletteMode::ANALOGOUS
+                      : WB::PaletteMode::TRIADIC;
+    HS_EXPECT_EQ(preset.slots.palette, expected_palette);
     HS_EXPECT_TRUE(WB::seam_compatible(preset));
     HS_EXPECT_TRUE(WB::valid_config(preset));
     HS_EXPECT_TRUE(WB::has_inverse_program(preset));
@@ -1475,6 +1477,14 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_TRUE(WB::slots_equal(fine_curl.slots, coarse_curl.slots));
   HS_EXPECT_EQ(fine_curl.params.surface_noise.scale, 1.78815627f);
   HS_EXPECT_EQ(coarse_curl.params.surface_noise.scale, 3.29720306f);
+  const auto &polar_wave = presets[26];
+  HS_EXPECT_EQ(polar_wave.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM);
+  HS_EXPECT_EQ(polar_wave.slots.warp_program.outer.kind,
+               WB::WarpStageKind::POLAR_CHART);
+  HS_EXPECT_EQ(polar_wave.slots.warp_program.inner.kind,
+               WB::WarpStageKind::WAVE_SHEAR);
+  HS_EXPECT_EQ(polar_wave.slots.palette, WB::PaletteMode::ANALOGOUS);
 
   reset_effect_globals();
   WB::SB sb;
@@ -2019,11 +2029,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(26));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(27));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(25));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[25]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(26));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[26]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -2988,6 +2998,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
       {22, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR},
       {23, WB::InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR},
       {24, WB::InversePipelineId::SINUSOIDAL_CURL_LATTICE},
+      {26, WB::InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE},
   };
   HS_EXPECT_EQ(WB::inverse_program_count(), std::size(EXPECTED));
   HS_EXPECT_TRUE(WB::inverse_programs_well_formed());
