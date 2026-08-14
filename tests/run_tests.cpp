@@ -185,7 +185,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
-  X("shaderball", 47, hs_test::shaderball_tests::run_shaderball_tests, 70000)  \
+  X("shaderball", 49, hs_test::shaderball_tests::run_shaderball_tests, 70000)  \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
   X("shapeshifter_tiles", 2,                                                   \
