@@ -1,8 +1,14 @@
 # ShaderBall on-device profile — Teensy 4.0, segmented mode (2026-08-14, selective O3)
 
-Final 59 ms quest capture of the curated 17-preset shipping bank. Raw captures:
+Historical final 59 ms quest capture of the former 17-preset shipping bank.
+Raw captures:
 `build/prof/shaderball_shipping_full_c5cb0bb4_com3.log` and
 `build/prof/shaderball_shipping_full_c5cb0bb4_com4.log`.
+
+The shipping bank now has 12 presets. Presets 5, 6, 7, 9, and 10 from this
+capture are retired; the remaining presets were renumbered. This report keeps
+the captured indices and measurements unchanged. A current-source dual-board
+cycle is required before these results can attest the 12-preset image.
 
 ## Setup
 
@@ -19,36 +25,59 @@ Both 648-window captures have monotonic frame numbers, visit all 17 presets,
 wrap 16→0, and contain no epoch reset. Root cycles divided by 600 MHz agree
 with wall time within 2.8 ppm.
 
+## Current roster remap
+
+| Captured preset | Current preset |
+|---:|---:|
+| 0 | 0 |
+| 1 | 1 |
+| 2 | 2 |
+| 3 | 3 |
+| 4 | 4 |
+| 5 | Retired |
+| 6 | Retired |
+| 7 | Retired |
+| 8 | 5 |
+| 9 | Retired |
+| 10 | Retired |
+| 11 | 6 |
+| 12 | 7 |
+| 13 | 8 |
+| 14 | 9 |
+| 15 | 10 |
+| 16 | 11 |
+
 ## Result
 
-Every shipping preset and transition is below **59.00 ms** on both boards.
+Every preset and transition in the captured bank is below **59.00 ms** on both boards.
 COM3 peaks at **58.23 ms** and COM4 at **58.06 ms**, both in preset 9, with
 **0/10,368 spilled frames** in each capture. The 2026-08-13 baseline peaked at
 147.35 ms and spilled 664/1,472 frames; the final peak is 60.5% lower.
 
 | Preset | Authored topology | COM3 peak, ms | COM4 peak, ms | Worst, ms |
 |---:|---|---:|---:|---:|
-| 9 | Dodecahedral noise grid | 58.23 | 58.06 | 58.23 |
+| 9 (retired) | Dodecahedral noise grid | 58.23 | 58.06 | 58.23 |
 | 8 | Peirce dodecahedral grid | 57.75 | 57.78 | 57.78 |
 | 16 | Gnomonic dodecahedral vector-noise + mirror grid | 56.19 | 56.15 | 56.19 |
 | 0 | Glitch wave-shear grid | 55.43 | 55.42 | 55.43 |
 | 11 | Gnomonic dodecahedral wave/mirror grid | 53.77 | 53.75 | 53.77 |
-| 10 | Dodecahedral noise lattice + mirror | 53.59 | 53.67 | 53.67 |
-| 7 | Dodecahedral grid + mirror | 51.15 | 51.20 | 51.20 |
+| 10 (retired) | Dodecahedral noise lattice + mirror | 53.59 | 53.67 | 53.67 |
+| 7 (retired) | Dodecahedral grid + mirror | 51.15 | 51.20 | 51.20 |
 | 14 | Sinusoidal curl lattice, coarse field | 48.94 | 49.04 | 49.04 |
 | 15 | Stereographic prism polar-wave lattice | 48.89 | 48.88 | 48.89 |
 | 13 | Sinusoidal curl lattice, fine field | 48.39 | 48.41 | 48.41 |
 | 12 | Gnomonic affine lattice contour | 45.56 | 45.56 | 45.56 |
-| 6 | Kaleidoscope noise grid + edge fade | 45.33 | 45.38 | 45.38 |
-| 5 | Peirce kaleidoscope lattice | 42.28 | 42.31 | 42.31 |
+| 6 (retired) | Kaleidoscope noise grid + edge fade | 45.33 | 45.38 | 45.38 |
+| 5 (retired) | Peirce kaleidoscope lattice | 42.28 | 42.31 | 42.31 |
 | 4 | Bonne kaleidoscope lattice + mirror | 41.59 | 41.64 | 41.64 |
 | 1 | Kaleidoscope twin-wave + inner mirror | 26.87 | 26.84 | 26.87 |
 | 3 | Gnomonic glitch grid + mirror | 25.90 | 26.07 | 26.07 |
 | 2 | Gnomonic kaleidoscope grid + mirror | 25.53 | 25.53 | 25.53 |
 
-Preset 9 has only 0.77 ms of hard-gate headroom and preset 8 has 1.22 ms.
-Their independent two-board repeats pass, but they remain the first regression
-sentinels after compiler or flash-layout changes.
+Captured preset 9 had only 0.77 ms of hard-gate headroom but is now retired.
+Captured preset 8, now current preset 5, had 1.22 ms. Its historical repeat
+passes, but any compiler, manifest, or flash-layout change requires a new
+current-source capture.
 
 ## What closed the quest
 
@@ -78,7 +107,7 @@ shader bodies occupy ITCM at `0x5a4` (preset 11, 0x2d4 bytes), `0x878`
 
 ## Full-roster size and validation
 
-The attested Phantasm image passes every memory gate:
+The captured 17-preset Phantasm image passes every memory gate:
 
 ```text
 FLASH code       427,976 B
@@ -93,6 +122,10 @@ Phantasm ELF SHA-256:
 The commit hook passes all 71 native tests plus the full-roster memory gate.
 Targeted two-board captures also verified the repaired 4→5→6→7 and
 9→10→11→12 sequences with zero spills.
+
+These size and device results predate the 12-preset roster. The reduced image
+still needs the full Phantasm memory gate and independent COM3/COM4 cycles that
+visit presets 0–11, wrap 11→0, and report every peak below 59.00 ms.
 
 ## Caveats
 
