@@ -123,6 +123,7 @@ public:
     current = 0;
     frame = 0;
     fade_active = false;
+    display_dirty = false;
 
     key_morph_mask = 0;
     bool crossfades = false;
@@ -181,6 +182,7 @@ public:
     current = 0;
     frame = 0;
     fade_active = false;
+    display_dirty = false;
     next_sequence = 2;
 
     from_slot = allocate_palette(arena);
@@ -203,6 +205,13 @@ public:
     if ((paused != nullptr && *paused) ||
         (provider == nullptr && entry_count < 2))
       return;
+    if (display_dirty && !fade_active) {
+      if (provider != nullptr)
+        display.rebake(*from_slot);
+      else
+        rebake_entry(display, entries[current]);
+      display_dirty = false;
+    }
     ++frame;
     if (!fade_active) {
       if (frame >= dwell) {
@@ -229,11 +238,12 @@ public:
     } else {
       display.rebake_crossfade(fade_from, fade_to, w);
     }
+    display_dirty = false;
   }
 
-  /** @brief Advances the cycle without rebuilding an in-progress display LUT.
-   *  @details Fade boundaries still land exactly. A later step() immediately
-   *  rebuilds the display at the current phase. */
+  /** @brief Advances the cycle without rebuilding the display LUT.
+   *  @details Timeline and provider state still land exactly. A later step()
+   *  immediately rebuilds the display at the current phase. */
   HS_COLD_MEMBER void advance_without_display() {
     if ((paused != nullptr && *paused) ||
         (provider == nullptr && entry_count < 2))
@@ -248,8 +258,11 @@ public:
       }
       return;
     }
-    if (frame >= fade)
-      finish_fade();
+    if (frame >= fade) {
+      finish_fade(false);
+      return;
+    }
+    display_dirty = true;
   }
 
   /** @brief The display LUT effects shade from. */
@@ -288,9 +301,10 @@ private:
     return arena.make<GenerativePalette>();
   }
 
-  HS_COLD_MEMBER void finish_fade() {
+  HS_COLD_MEMBER void finish_fade(bool update_display = true) {
     if (provider != nullptr) {
-      display.rebake(*to_slot);
+      if (update_display)
+        display.rebake(*to_slot);
       GenerativePalette *retired = from_slot;
       from_slot = to_slot;
       to_slot = retired;
@@ -298,9 +312,11 @@ private:
       HS_CHECK(from_slot->morph_compatible(*to_slot),
                "PaletteCycler generated palette breaks morph compatibility");
     } else {
-      rebake_entry(display, entries[next_of(current)]);
+      if (update_display)
+        rebake_entry(display, entries[next_of(current)]);
       current = next_of(current);
     }
+    display_dirty = !update_display;
     fade_active = false;
     frame = 0;
   }
@@ -362,4 +378,5 @@ private:
                 "key_morph_mask needs one bit per entry; widen it alongside "
                 "MAX_ENTRIES");
   bool fade_active = false;
+  bool display_dirty = false;
 };
