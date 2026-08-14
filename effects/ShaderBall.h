@@ -243,8 +243,9 @@ public:
     prepare_param_morph();
     const WalkDeltas walk_deltas = sample_walk_deltas();
     if (state->transition.active) {
-      advance_runtime(state->transition.from_runtime,
-                      state->transition.from_config, walk_deltas);
+      if (state->transition.elapsed < state->transition.duration / 2)
+        advance_runtime(state->transition.from_runtime,
+                        state->transition.from_config, walk_deltas);
       advance_runtime(state->transition.to_runtime, state->transition.to_config,
                       walk_deltas);
     } else {
