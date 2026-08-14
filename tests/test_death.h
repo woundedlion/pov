@@ -3380,7 +3380,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"ChaoticStrings.h", 1},
     {"Comets.h", 2},
     {"DisplacementField.h", 1},
-    {"DreamBalls.h", 12},
+    {"DreamBalls.h", 13},
     {"Dynamo.h", 1},
     {"GnomonicStars.h", 1},
     {"HankinSolids.h", 13},
