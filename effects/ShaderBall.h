@@ -2667,11 +2667,18 @@ private:
       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<true>, SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
-  using DodecahedralNoiseGridPipeline = InversePipeline<
+  using DodecahedralNoiseGridPipelineBase = InversePipeline<
       OuterCameraStage,
       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<false>, SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::OPAQUE>, ColorStage>;
+  struct DodecahedralNoiseGridPipeline : DodecahedralNoiseGridPipelineBase {
+    HS_FLASH_MEMBER __attribute__((noinline, aligned(1024))) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return DodecahedralNoiseGridPipelineBase::template run_stage<0>(view,
+                                                                      frame);
+    }
+  };
   using DodecahedralNoiseLatticeMirrorPipelineBase = InversePipeline<
       OuterCameraStage,
       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
