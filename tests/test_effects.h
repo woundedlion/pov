@@ -335,7 +335,10 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
   for (const auto &def : effect.getParameters()) {
     if (!def.animated)
       continue;
-    const float current = def.get();
+    // The write below lands on the requested value, so a schema-driven effect
+    // whose rendered slot is canonicalized away from it only round-trips
+    // through get_requested().
+    const float current = def.get_requested();
     names.push_back(def.name);
     original.push_back(current);
     target.push_back(def.is_bool()
