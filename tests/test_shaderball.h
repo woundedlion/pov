@@ -22,6 +22,7 @@ struct ShaderBallWhiteBox {
   using Function = SB::Function;
   using Projection = SB::Projection;
   using PeirceLayout = SB::PeirceLayout;
+  using AiroceanLayout = SB::AiroceanLayout;
   using BonneHemisphere = SB::BonneHemisphere;
   using GnomonicHemispherePolicy = SB::GnomonicHemispherePolicy;
   using ProjectionFramePolicy = SB::ProjectionFramePolicy;
@@ -70,6 +71,32 @@ struct ShaderBallWhiteBox {
 
   static constexpr float AXIS_EPS = SB::GNOMONIC_AXIS_EPS;
   static constexpr uint32_t HUE_STEP = SB::HUE_STEP;
+
+  static constexpr int NUM_FUNCTIONS = SB::NUM_FUNCTIONS;
+  static constexpr int NUM_PROJECTIONS = SB::NUM_PROJECTIONS;
+  static constexpr int NUM_PEIRCE_LAYOUTS = SB::NUM_PEIRCE_LAYOUTS;
+  static constexpr int NUM_AIROCEAN_LAYOUTS = SB::NUM_AIROCEAN_LAYOUTS;
+  static constexpr int NUM_BONNE_HEMISPHERES = SB::NUM_BONNE_HEMISPHERES;
+  static constexpr int NUM_GNOMONIC_HEMISPHERES = SB::NUM_GNOMONIC_HEMISPHERES;
+  static constexpr int NUM_PROJECTION_FRAMES = SB::NUM_PROJECTION_FRAMES;
+  static constexpr int NUM_LENSES = SB::NUM_LENSES;
+  static constexpr int NUM_SURFACE_NOISE = SB::NUM_SURFACE_NOISE;
+  static constexpr int NUM_SURFACE_NOISE_PLACEMENTS =
+      SB::NUM_SURFACE_NOISE_PLACEMENTS;
+  static constexpr int NUM_SURFACE_CURL_INTEGRATORS =
+      SB::NUM_SURFACE_CURL_INTEGRATORS;
+  static constexpr int NUM_WARPS = SB::NUM_WARPS;
+  static constexpr int NUM_NOISE_BASES = SB::NUM_NOISE_BASES;
+  static constexpr int NUM_POLAR_MODES = SB::NUM_POLAR_MODES;
+  static constexpr int NUM_CURL_INTEGRATORS = SB::NUM_CURL_INTEGRATORS;
+  static constexpr int NUM_WARP_ENVELOPES = SB::NUM_WARP_ENVELOPES;
+  static constexpr int NUM_SIGNALS = SB::NUM_SIGNALS;
+  static constexpr int NUM_VALUE_TRANSFERS = SB::NUM_VALUE_TRANSFERS;
+  static constexpr int NUM_COVERAGE_POLICIES = SB::NUM_COVERAGE_POLICIES;
+  static constexpr int NUM_PALETTES = SB::NUM_PALETTES;
+  static constexpr int NUM_PALETTE_MAPPINGS = SB::NUM_PALETTE_MAPPINGS;
+  static constexpr int NUM_BRIGHTNESS_ENVELOPES = SB::NUM_BRIGHTNESS_ENVELOPES;
+  static constexpr int NUM_HUE_SHIFT_MODES = SB::NUM_HUE_SHIFT_MODES;
 
   static ClockState clocks(const SB &sb) { return sb.runtime.clocks; }
   static void set_clocks(SB &sb, const ClockState &clocks) {
@@ -153,6 +180,14 @@ struct ShaderBallWhiteBox {
     sb.requested_config = config;
     sb.requested_schema_bound = false;
     sb.apply_requested_config();
+  }
+  static constexpr size_t PARAM_CAPACITY = SB::PARAM_CAPACITY;
+  /// Parameters @p config registers, independent of whether it is admissible.
+  static size_t registered_parameter_count(SB &sb,
+                                           const RequestedConfig &config) {
+    sb.requested_config = config;
+    sb.rebind_parameters();
+    return sb.getParameters().size();
   }
   static bool slots_equal(const Slots &a, const Slots &b) { return a == b; }
   static constexpr bool valid_config(const RequestedConfig &config) {
@@ -2206,6 +2241,136 @@ inline void test_shaderball_preset_gui_transition() {
   HS_EXPECT_NEAR(projection_wander->get(), 0.0030917525f, 1e-5f);
   HS_EXPECT_EQ(function->get(),
                static_cast<float>(WB::Function::PRIMITIVE_LATTICE));
+}
+
+/** @brief No reachable slot combination registers past the parameter arena. */
+inline void test_shaderball_parameter_capacity() {
+  using WB = ShaderBallWhiteBox;
+  using Slots = WB::Slots;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  WB::RequestedConfig densest = WB::legacy_config();
+
+  // Registration is per slot, so sweeping each slot in turn and keeping its
+  // densest option converges on the densest reachable configuration.
+  auto maximize = [&](auto apply, int option_count) {
+    size_t best_count = WB::registered_parameter_count(sb, densest);
+    int best_option = -1;
+    for (int option = 0; option < option_count; ++option) {
+      WB::RequestedConfig candidate = densest;
+      apply(candidate.slots, option);
+      const size_t count = WB::registered_parameter_count(sb, candidate);
+      HS_EXPECT_LE(count, WB::PARAM_CAPACITY);
+      if (count > best_count) {
+        best_count = count;
+        best_option = option;
+      }
+    }
+    if (best_option >= 0)
+      apply(densest.slots, best_option);
+  };
+
+  for (int pass = 0; pass < 2; ++pass) {
+    maximize([](Slots &s, int o) { s.function = static_cast<WB::Function>(o); },
+             WB::NUM_FUNCTIONS);
+    maximize(
+        [](Slots &s, int o) { s.projection = static_cast<WB::Projection>(o); },
+        WB::NUM_PROJECTIONS);
+    maximize([](Slots &s,
+                int o) { s.peirce_layout = static_cast<WB::PeirceLayout>(o); },
+             WB::NUM_PEIRCE_LAYOUTS);
+    maximize(
+        [](Slots &s, int o) {
+          s.airocean_layout = static_cast<WB::AiroceanLayout>(o);
+        },
+        WB::NUM_AIROCEAN_LAYOUTS);
+    maximize(
+        [](Slots &s, int o) {
+          s.bonne_hemisphere = static_cast<WB::BonneHemisphere>(o);
+        },
+        WB::NUM_BONNE_HEMISPHERES);
+    maximize(
+        [](Slots &s, int o) {
+          s.gnomonic_hemisphere = static_cast<WB::GnomonicHemispherePolicy>(o);
+        },
+        WB::NUM_GNOMONIC_HEMISPHERES);
+    maximize(
+        [](Slots &s, int o) {
+          s.projection_frame = static_cast<WB::ProjectionFramePolicy>(o);
+        },
+        WB::NUM_PROJECTION_FRAMES);
+    maximize([](Slots &s,
+                int o) { s.surface_lens = static_cast<WB::SurfaceLens>(o); },
+             WB::NUM_LENSES);
+    maximize([](Slots &s,
+                int o) { s.surface_noise = static_cast<WB::SurfaceNoise>(o); },
+             WB::NUM_SURFACE_NOISE);
+    maximize(
+        [](Slots &s, int o) {
+          s.surface_noise_placement = static_cast<WB::SurfaceNoisePlacement>(o);
+        },
+        WB::NUM_SURFACE_NOISE_PLACEMENTS);
+    for (bool outer : {true, false}) {
+      auto stage = [outer](Slots &s) -> WB::WarpStageSpec & {
+        return outer ? s.warp_program.outer : s.warp_program.inner;
+      };
+      maximize(
+          [stage](Slots &s, int o) {
+            stage(s).kind = static_cast<WB::WarpStageKind>(o);
+          },
+          WB::NUM_WARPS);
+      maximize(
+          [stage](Slots &s, int o) {
+            stage(s).basis = static_cast<WB::NoiseBasis>(o);
+          },
+          WB::NUM_NOISE_BASES);
+      maximize(
+          [stage](Slots &s, int o) {
+            stage(s).envelope = static_cast<WB::WarpEnvelope>(o);
+          },
+          WB::NUM_WARP_ENVELOPES);
+      maximize(
+          [stage](Slots &s, int o) {
+            stage(s).polar_mode = static_cast<WB::PolarMode>(o);
+          },
+          WB::NUM_POLAR_MODES);
+      maximize(
+          [stage](Slots &s, int o) {
+            stage(s).curl_integrator = static_cast<WB::CurlIntegrator>(o);
+          },
+          WB::NUM_CURL_INTEGRATORS);
+    }
+    maximize([](Slots &s,
+                int o) { s.signal_weight = static_cast<WB::SignalWeight>(o); },
+             WB::NUM_SIGNALS);
+    maximize(
+        [](Slots &s, int o) {
+          s.value_transfer = static_cast<WB::ValueTransfer>(o);
+        },
+        WB::NUM_VALUE_TRANSFERS);
+    maximize([](Slots &s,
+                int o) { s.coverage = static_cast<WB::CoveragePolicy>(o); },
+             WB::NUM_COVERAGE_POLICIES);
+    maximize(
+        [](Slots &s, int o) { s.palette = static_cast<WB::PaletteMode>(o); },
+        WB::NUM_PALETTES);
+    maximize(
+        [](Slots &s, int o) {
+          s.palette_mapping = static_cast<WB::PaletteMapping>(o);
+        },
+        WB::NUM_PALETTE_MAPPINGS);
+    maximize(
+        [](Slots &s, int o) {
+          s.brightness_envelope = static_cast<WB::BrightnessEnvelope>(o);
+        },
+        WB::NUM_BRIGHTNESS_ENVELOPES);
+    maximize(
+        [](Slots &s, int o) { s.hue_shift = static_cast<WB::HueShiftMode>(o); },
+        WB::NUM_HUE_SHIFT_MODES);
+  }
+
+  HS_EXPECT_LE(WB::registered_parameter_count(sb, densest), WB::PARAM_CAPACITY);
 }
 
 /** @brief Every GUI enum option is writable and survives its handoff. */
@@ -4489,6 +4654,7 @@ inline int run_shaderball_tests() {
   test_shaderball_profile_presets();
   test_shaderball_manual_preset_navigation();
   test_shaderball_preset_gui_transition();
+  test_shaderball_parameter_capacity();
   test_shaderball_gui_catalog();
   test_shaderball_lens_domain_ranges();
   test_shaderball_projection_catalog();
