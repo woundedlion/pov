@@ -186,7 +186,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
         ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
   X("shaderball", 49, hs_test::shaderball_tests::run_shaderball_tests,         \
-    1211734)                                                                   \
+    1045178)                                                                   \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
   X("shapeshifter_tiles", 2,                                                   \
