@@ -3012,6 +3012,33 @@ inline void test_meshfeedback_base_mesh_selector() {
   HS_EXPECT_GT(WB::mesh_edges(effect), 0u);
 }
 
+/**
+ * @brief Verifies MeshFeedback's preset export covers exactly its Params.
+ * @details A preset export emits one value per preset-flagged param into a
+ *   PresetEntry<Params> aggregate, so a param backed by a member outside Params
+ *   must be marked global or the pasted row will not compile.
+ */
+inline void test_meshfeedback_preset_export_arity() {
+  using WB = MeshFeedbackWhiteBox;
+  using MF = WB::MF;
+  reset_effect_globals();
+
+  MF effect;
+  effect.init();
+
+  const auto *feedback = effect.getParameters().find("Feedback");
+  HS_EXPECT_TRUE(feedback != nullptr);
+  if (feedback)
+    HS_EXPECT_FALSE(feedback->preset);
+
+  // base_mesh + the six registered Style scalars.
+  int preset_params = 0;
+  for (const auto &def : effect.getParameters())
+    if (def.preset)
+      ++preset_params;
+  HS_EXPECT_EQ(preset_params, 7);
+}
+
 /** @brief Verifies repeated MeshFeedback mesh changes reuse arena storage. */
 inline void test_meshfeedback_mesh_rebuild_reuses_storage() {
   using WB = MeshFeedbackWhiteBox;
@@ -6370,6 +6397,7 @@ inline int run_effects_tests() {
 
   test_mindsplatter_base_mesh_selector();
   test_meshfeedback_base_mesh_selector();
+  test_meshfeedback_preset_export_arity();
   test_meshfeedback_mesh_rebuild_reuses_storage();
   test_mindsplatter_replay_snapshot_exact();
   test_mindsplatter_saturated_quadrant_sink_parity();

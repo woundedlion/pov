@@ -135,6 +135,7 @@ public:
     register_animated_param("Hue Shift", &params.style.hue_shift, HUE_SHIFT_MIN,
                             HUE_SHIFT_MAX);
     register_param("Feedback", &feedback_enabled);
+    mark_global("Feedback");
 
     filters.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
         persistent_arena);
