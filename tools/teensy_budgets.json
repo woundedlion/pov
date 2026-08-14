@@ -58,7 +58,7 @@
       // FLASH max_bytes is the same device wall as Holosphere's, not a ratchet.
       "flash": { "max_bytes": 1900000 },
       // free_min_bytes is the DTCM stack reservation. The host stack-painting
-      // gate (tests/stack_measure.cpp) measures a worst-effect peak of 11,359 B
+      // gate (tests/stack_measure.cpp) measures a worst-effect peak of 7,519 B
       // (HankinSolids); 12 KiB covers that (host figure already over-estimates
       // the 4-byte-pointer device) plus the ISR allowance. max_bytes = 524288 -
       // 12288, so the 12 KiB stack floor is the binding RAM1 constraint.

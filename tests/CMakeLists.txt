@@ -507,8 +507,8 @@ add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 
 # Host stack high-water-mark gate across every effect. Built -Os + the device
 # math flags so codegen frame sizes track the Phantasm size build as closely as a
-# host compiler can. stack_measure.cpp keeps the 4-byte-pointer device floor
-# unchanged and accounts separately for x86-64 ABI and classifier overhead.
+# host compiler can. stack_measure.cpp heap-constructs effects like the firmware
+# factory so their object storage is not charged to the measured call stack.
 # Run as a CTest: it exits non-zero if the worst effect exceeds its stack budget,
 # catching a regression before it can overflow the device's MPU-guarded stack.
 #
