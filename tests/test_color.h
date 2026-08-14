@@ -523,18 +523,6 @@ inline void test_gamut_clip_preserves_hue() {
   }
 }
 
-/** @brief Keeps direction and angular gamut-boundary lookups equivalent. */
-inline void test_gamut_direction_lookup_matches_angle() {
-  for (int il = 1; il < 16; ++il) {
-    const float L = il / 16.0f;
-    for (int ih = 0; ih < 64; ++ih) {
-      const float h = TWO_PI_F * ih / 64.0f;
-      HS_EXPECT_EQ(gamut_max_chroma(L, cosf(h), sinf(h)),
-                   gamut_max_chroma(L, h));
-    }
-  }
-}
-
 /**
  * @brief Linear-RGB triple of an OKLab color in double precision.
  * @param L Lightness.
@@ -598,6 +586,35 @@ inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
       hi = mid;
   }
   return lo;
+}
+
+/**
+ * @brief Verifies the angular gamut-boundary lookup lands on the sRGB first
+ *        exit, and agrees with the direction overload it forwards to.
+ * @details The forwarder is one line, so the equality on its own could only
+ *          ever catch an argument transposition. The double-precision oracle is
+ *          what makes the returned chroma load-bearing: it must sit just inside
+ *          the first exit along the ray, never past it and never far below.
+ *          Lightness runs to both ends of the sixteenth grid, past the
+ *          [0.1, 0.9] band the sweeps below report, where the bracket widens.
+ */
+inline void test_gamut_direction_lookup_matches_angle() {
+  const float DEFICIT_BOUND = 5e-3f;
+  const float OVERSAT_BOUND = 1e-6f;
+  // Past the largest sRGB chroma in OKLab, so the ray always exits.
+  const double CAP = 0.5;
+  for (int il = 1; il < 16; ++il) {
+    const float L = il / 16.0f;
+    for (int ih = 0; ih < 64; ++ih) {
+      const float h = TWO_PI_F * ih / 64.0f;
+      const float got = gamut_max_chroma(L, h);
+      HS_EXPECT_EQ(got, gamut_max_chroma(L, cosf(h), sinf(h)));
+      const float ref =
+          static_cast<float>(gamut_first_exit_ref(L, cosf(h), sinf(h), CAP));
+      HS_EXPECT_LT(ref - got, DEFICIT_BOUND);
+      HS_EXPECT_LE(got - ref, OVERSAT_BOUND);
+    }
+  }
 }
 
 /**
