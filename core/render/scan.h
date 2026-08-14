@@ -920,7 +920,7 @@ struct DistortedRingStack {
     // (suppress_pole_fill); its full-scan fallback for a near-canvas-pole
     // axis (r_val below the projection floor) scans every row.
     SDF::AxisProjection ap = SDF::project_axis(shapes[0].normal);
-    const bool skip_pole_rows = ap.R_val >= SDF::MIN_HORIZONTAL_PROJ;
+    const bool skip_pole_rows = ap.r_val >= SDF::MIN_HORIZONTAL_PROJ;
 
     const Vector axis_v = shapes[0].normal;
     const Vector axis_u = shapes[0].u;
@@ -931,7 +931,7 @@ struct DistortedRingStack {
     for (int y = y_lo; y <= y_hi; ++y) {
       const float sp = TrigLUT<W, H>::sin_phi[y];
       const float cp = TrigLUT<W, H>::cos_phi[y];
-      if (skip_pole_rows && std::abs(ap.R_val * sp) < SDF::INTERVAL_DENOM_EPS)
+      if (skip_pole_rows && std::abs(ap.r_val * sp) < SDF::INTERVAL_DENOM_EPS)
         continue;
       for (int x = 0; x < W; ++x) {
         if (xc.clipped(x))

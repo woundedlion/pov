@@ -545,16 +545,16 @@ concept ScanShape =
 
 /**
  * @brief Axis components plus its scan-plane projection: XZ-projection length
- * R_val and azimuth alpha_angle.
+ * r_val and azimuth alpha_angle.
  */
 struct AxisProjection {
-  float nx, ny, nz, R_val, alpha_angle;
+  float nx, ny, nz, r_val, alpha_angle;
 };
 
 /**
  * @brief Decomposes an axis into components and its scan-plane projection.
  * @param axis The axis vector.
- * @return Components nx/ny/nz, XZ-projection length R_val, azimuth alpha_angle.
+ * @return Components nx/ny/nz, XZ-projection length r_val, azimuth alpha_angle.
  */
 inline AxisProjection project_axis(const Vector &axis) {
   return {axis.x, axis.y, axis.z, sqrtf(axis.x * axis.x + axis.z * axis.z),
@@ -566,7 +566,7 @@ inline AxisProjection project_axis(const Vector &axis) {
  * spans.
  */
 struct CapBounds {
-  float ny, R_val,
+  float ny, r_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float cos_radius, sin_radius; /**< Cap radius trig, for the scanline pad. */
@@ -587,7 +587,7 @@ inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
   float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ap.ny)));
   float margin = radius + BOUNDS_MARGIN_WIDE;
   return {ap.ny,
-          ap.R_val,
+          ap.r_val,
           ap.alpha_angle,
           invert ? 0.0f : std::max(0.0f, center_phi - margin),
           invert ? PI_F : std::min(PI_F, center_phi + margin),
@@ -598,14 +598,14 @@ inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
 /**
  * @brief Emit the single horizontal interval where a row crosses a great-circle
  * "cap" of half-angle `acos(cos_cap)` centred on an axis whose projection onto
- * the scan plane is (ny, R_val, alpha_angle). Shared by PlanarPolygon /
+ * the scan plane is (ny, r_val, alpha_angle). Shared by PlanarPolygon /
  * SphericalPolygon / Star, whose scanline math is otherwise identical.
  *
  * @tparam W Canvas width in columns.
  * @tparam OutputIt Sink type invoked as out(float start, float end).
  * @param cos_cap cos of the cap's angular radius (cosf(circumradius) etc.).
  * @param ny y-component of the cap axis.
- * @param R_val Horizontal projection length of the cap axis.
+ * @param r_val Horizontal projection length of the cap axis.
  * @param alpha_angle Azimuth of the cap axis (radians).
  * @param cos_phi Cosine of the row's polar angle.
  * @param sin_phi Sine of the row's polar angle.
@@ -614,13 +614,13 @@ inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
  *         empty) interval was handled.
  */
 template <int W, typename OutputIt>
-inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
+inline bool emit_cap_interval(float cos_cap, float ny, float r_val,
                               float alpha_angle, float cos_phi, float sin_phi,
                               OutputIt out) {
-  if (R_val < MIN_HORIZONTAL_PROJ)
+  if (r_val < MIN_HORIZONTAL_PROJ)
     return false;
 
-  float denom = R_val * sin_phi;
+  float denom = r_val * sin_phi;
   if (std::abs(denom) < INTERVAL_DENOM_EPS)
     return false;
 
@@ -649,7 +649,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
  * @param cos_cap Cosine of the bounding cap's angular radius.
  * @param sin_cap Sine of the bounding cap's angular radius.
  * @param ny y-component of the cap axis.
- * @param R_val Horizontal projection length of the cap axis.
+ * @param r_val Horizontal projection length of the cap axis.
  * @param alpha_angle Azimuth of the cap axis (radians).
  * @param y The row index.
  * @param out Sink accepting (float start, float end).
@@ -660,7 +660,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
  */
 template <int W, int H, typename OutputIt>
 inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
-                                float ny, float R_val, float alpha_angle, int y,
+                                float ny, float r_val, float alpha_angle, int y,
                                 OutputIt out) {
   if (sign < 0.0f)
     return false;
@@ -675,7 +675,7 @@ inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
       cos_cap <= -cos_pad
           ? -1.0f
           : cos_cap * cos_pad - sin_cap * TrigLUT<W, H>::sin_theta[1];
-  return emit_cap_interval<W>(cos_padded, ny, R_val, alpha_angle,
+  return emit_cap_interval<W>(cos_padded, ny, r_val, alpha_angle,
                               TrigLUT<W, H>::cos_phi[y],
                               TrigLUT<W, H>::sin_phi[y], out);
 }
