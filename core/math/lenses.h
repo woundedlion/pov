@@ -75,7 +75,7 @@ inline Vector twist_lens(const Vector &v) {
 }
 
 /**
- * @brief Folds a direction's azimuth into one sixth-turn wedge.
+ * @brief Folds a direction's azimuth into one twelfth-turn (30 degree) wedge.
  * @param v Unit direction on the sphere.
  * @return A symmetry-equivalent direction inside the wedge.
  */
