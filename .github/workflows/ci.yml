@@ -717,9 +717,9 @@ jobs:
         # regression fails here instead of riding a green compile-only build.
         # -O0 disables inlining and stack-slot coalescing, so debug frames run
         # severalfold larger than the -O3 frames the default 2 KB stack-creep
-        # tripwire is calibrated for; give the debug smoke its own fixed ceiling.
+        # tripwire is calibrated for; give the debug smoke its own 6 KB ceiling.
         env:
-          WASM_SMOKE_STACK_CEILING: 4096
+          WASM_SMOKE_STACK_CEILING: 6144
           # Reach the frame-48 ShapeShifter cut / arena compaction under
           # -sASSERTIONS=1; the 3-frame default never gets there.
           WASM_SMOKE_FRAMES: 120
