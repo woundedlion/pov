@@ -17,6 +17,9 @@
 #include "math/3dmath.h"
 
 namespace SHMath {
+/** @brief Largest n whose factorial is still finite in a float; 35! is not. */
+inline constexpr int MAX_FACTORIAL_ARGUMENT = 34;
+
 /**
  * @brief Factorial of n as a float.
  * @param n Non-negative integer whose factorial is computed; kept small.
@@ -85,9 +88,15 @@ inline float reduced_legendre(int l, int m, float x) {
  * @param l Degree (l >= 0).
  * @param m Order in [-l, l].
  * @return Normalization factor N, constant per shape.
+ * @details Traps when l + |m| exceeds 34: (l + |m|)! overflows float there and
+ * the ratio silently collapses to 0.
  */
 inline float normalization(int l, int m) {
   int abs_m = std::abs(m);
+  HS_CHECK(l + abs_m <= MAX_FACTORIAL_ARGUMENT,
+           "spherical harmonic normalization: l + |m| = %d overflows the float "
+           "factorial",
+           l + abs_m);
   float N = sqrtf(((2.0f * l + 1.0f) / (4.0f * PI_F)) *
                   (factorial(l - abs_m) / factorial(l + abs_m)));
   return (m != 0) ? sqrtf(2.0f) * N : N;

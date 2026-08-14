@@ -65,6 +65,7 @@
 #include "core/render/sdf_volume.h"
 #include "core/mesh/solids.h"
 #include "core/math/spherical_field.h"
+#include "core/math/spherical_harmonics.h"
 #include "core/mesh/spatial.h"
 #include "core/mesh/triangular_bitset.h"
 #include "core/engine/static_circular_buffer.h"
@@ -1876,6 +1877,17 @@ inline void case_spherical_field_ring_index_oob() {
 }
 
 /**
+ * @brief Death case: a harmonic mode past the float factorial range must trap.
+ * @details (l + |m|)! overflows to infinity, so the factorial ratio collapses
+ *          to 0 and every sample of the mode comes back black.
+ */
+inline void case_spherical_harmonic_normalization_overflow() {
+  const float n = SHMath::normalization(opaque(20), 20);
+  if (n == 42.0f)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: an infill band past the rendered domain must trap.
  * @details A south_infill wider than H puts every row at full longitude
  *          resolution, multiplying sample_count() by the spacing; the arena
@@ -2864,6 +2876,10 @@ inline const Case *all_cases(int &n) {
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
        "spherical_field.h",
        "(y < H - 1) SphericalFieldLayout: ring index 5 out of range"},
+      {"spherical_harmonic_normalization_overflow",
+       case_spherical_harmonic_normalization_overflow, "spherical_harmonics.h",
+       "(l + abs_m <= MAX_FACTORIAL_ARGUMENT) spherical harmonic "
+       "normalization: l + |m| = 40 overflows the float factorial"},
       {"spherical_field_infill_over_domain",
        case_spherical_field_infill_over_domain, "spherical_field.h",
        "(north_infill >= 0 && south_infill >= 0 && north_infill + south_infill "
