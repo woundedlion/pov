@@ -1109,7 +1109,7 @@ jobs:
           python tools/license_check.py
 
   lint:
-    name: Lint (Python + JavaScript)
+    name: Lint (Python + JavaScript + justfile)
     # The C++ tree has clang-format and the firmware warning ratchet; the ~12k
     # lines of Python and ~1.8k of .mjs under scripts/, tools/ and hardware/ --
     # which include the gate scripts every other job depends on -- had no static
@@ -1173,6 +1173,29 @@ jobs:
           fi
           npx eslint .
           echo "eslint clean: $count files linted."
+
+      # The justfile is the documented local entry point (README, CONTRIBUTING)
+      # and no job ran it in any form, so a parse error or a broken variable
+      # expression breaks every documented workflow behind a green run.
+      # rust-just is the PyPI distribution of the same binary, pinned like ruff.
+      - name: Install just
+        run: pip install "rust-just==${{ steps.pins.outputs.just }}"
+
+      # --summary parses the whole file and lists the public recipes;
+      # --evaluate additionally resolves every justfile-level variable, which is
+      # where the interpreter probe and the daydream-checkout switch live. An
+      # empty recipe list is a broken justfile that both still exit 0 on, so it
+      # is counted, like the two lint steps above.
+      - name: Parse the justfile
+        run: |
+          just --evaluate
+          just --summary > /tmp/just-recipes.txt
+          count=$(wc -w < /tmp/just-recipes.txt)
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no recipes — the justfile parsed to nothing"
+            exit 1
+          fi
+          echo "justfile clean: $count recipes."
 
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
