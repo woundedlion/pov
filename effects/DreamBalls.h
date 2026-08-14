@@ -597,6 +597,9 @@ private:
       if (!crossfade.visible(opacity))
         return;
       const Params &sprite_params = param_slots[bake_slot];
+      // A sub-LSB Alpha paints nothing; skip the whole weave build and plot.
+      if (sprite_params.alpha < MIN_VISIBLE_ALPHA)
+        return;
       const auto &solid =
           loaded_solids[static_cast<size_t>(sprite_params.base_mesh)];
       ScratchScope scratch_a_guard(scratch_arena_a);
