@@ -1749,9 +1749,6 @@ inline void test_csg_combinators_reject_temporary_children() {
       std::is_constructible_v<SDF::AngularRepeat<L>, L &, int, Vector &&>);
   static_assert(
       !std::is_constructible_v<SDF::AngularRepeat<L>, L &&, int, Vector &&>);
-
-  HS_EXPECT_FALSE((std::is_constructible_v<SDF::Union<L, L>, L &&, L &>));
-  HS_EXPECT_FALSE((std::is_constructible_v<SDF::AngularRepeat<L>, L &&, int>));
 }
 
 /**

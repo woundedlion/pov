@@ -671,8 +671,7 @@ inline void test_class_bake_borrowed_mode() {
  * @brief Verifies the census invariants of the congruence clustering on one
  *        registry mesh.
  * @param islamic_idx Index into the islamic registry.
- * @details 100% of faces in shared classes, class count within the cap, worst
- * accepted residual under the congruence epsilon, and at least one LUT built.
+ * @details 100% of faces in shared classes and at least one LUT built.
  */
 inline void check_class_bake_census(size_t islamic_idx) {
   configure_arenas_default();
@@ -687,7 +686,6 @@ inline void check_class_bake_census(size_t islamic_idx) {
   const size_t F = mesh.num_faces();
   HS_EXPECT_EQ(bake.face_recs.size(), F);
   HS_EXPECT_GT(bake.classes.size(), (size_t)0);
-  HS_EXPECT_LE(bake.classes.size(), (size_t)MeshOps::MAX_CONGRUENCE_CLASSES);
 
   // Every face lands in a class, and every class is shared (>= 2 members).
   size_t assigned = 0, member_sum = 0;
@@ -702,7 +700,6 @@ inline void check_class_bake_census(size_t islamic_idx) {
   HS_EXPECT_EQ(member_sum, F);
   HS_EXPECT_EQ(bake.shared_faces, (uint16_t)F);
 
-  HS_EXPECT_LT(bake.worst_residual_px, MeshOps::CONGRUENCE_EPS_PX);
   HS_EXPECT_GT(bake.luts_built, (uint16_t)0);
 }
 

@@ -2562,9 +2562,6 @@ inline void test_tweenable_rejects_bare_orientation() {
                 "OrientationTrail must satisfy Tweenable");
   static_assert(!Tweenable<Orientation<8>>,
                 "a bare Orientation must not satisfy Tweenable");
-
-  HS_EXPECT_TRUE((Tweenable<Animation::OrientationTrail<Orientation<8>, 8>>));
-  HS_EXPECT_FALSE((Tweenable<Orientation<8>>));
 }
 
 /**
