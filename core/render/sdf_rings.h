@@ -488,9 +488,10 @@ private:
    * @param sin_polar sqrtf(max(1 - d * d, POLE_SIN2_FLOOR)) for the pixel;
    *        hoisted to the caller so a ring stack pays it once per pixel.
    * @return Geodesic distance to the nearest polyline point (radians), exact
-   *         within the local tangent chart for distances up to `thickness`;
-   *         past that reach either a lower bound above `thickness` (prefilter)
-   *         or FAR_SENTINEL, never the reach itself.
+   *         within the local tangent chart for distances up to `thickness`, or
+   *         a lower bound when the outward search hits its cell budget; past
+   *         that reach either a lower bound above `thickness` (prefilter) or
+   *         FAR_SENTINEL, never the reach itself.
    * @details Works in the chart (azimuth * sin(polar), polar) centered on the
    * pixel: exact point-to-segment distances, searched outward from the
    * pixel's own cell. A segment o cells away is at least (o - 1) * cell_u
@@ -594,8 +595,12 @@ private:
     // Past the stroke reach the search leaves best2 an upper bound only, so
     // report the reject band's far sentinel and skip the sqrt. Returning
     // thickness instead would land dist on exactly 0, which a CSG parent reads
-    // as on-surface across the whole bounding annulus.
-    return best2 >= th2 ? FAR_SENTINEL : sqrtf(best2);
+    // as on-surface across the whole bounding annulus. Every unsearched point
+    // is at least a frontier |u| away, so folding the frontiers in keeps a
+    // budget-truncated search (near-pole chart compression) from sentinelling a
+    // pixel the unreached cells could still light.
+    float lb2 = std::min(best2, std::min(ul * ul, ur * ur));
+    return lb2 >= th2 ? FAR_SENTINEL : sqrtf(lb2);
   }
 };
 
