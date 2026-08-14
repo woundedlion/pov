@@ -2,7 +2,7 @@
 
 **Status: LANDED.** `effects/ShaderBall.h` is the sole ShaderBall implementation;
 the earlier fixed stereographic implementation has been removed. The typed
-pipeline carries 23 presets. Section 0 is authoritative for the authored
+pipeline carries 12 presets. Section 0 is authoritative for the authored
 vocabulary, presets, and choreography, and for nothing beyond them: the shipping
 renderer is the variadic inverse-sampling pipeline (`InversePipeline`,
 `TopologyKey`, `ProgramDescriptor`), specified in
@@ -370,11 +370,12 @@ for `PROJECTION` and 1 for `NONE`. Then apply one transfer:
 LINEAR:        value = s
 RIDGE:         value = 1 - abs(2*s - 1)
 ISO_CONTOUR:   value = 1 - smoothstep(width, 2*width, abs(s - level))
-SMOOTH_BANDS:  value = 0.5 - 0.5*cos(2*pi*(band_count*s + band_phase))
+SMOOTH_BANDS:  value = 0.5 - 0.5*cos(2*pi*band_count*s + band_phase)
 ```
 
-`width` has a positive floor, `band_count` is a positive integer, and all
-outputs clamp to `[0, 1]`. Coverage is then:
+`width` has a positive floor, `band_count` is a positive integer,
+`band_phase` is in radians, and all outputs clamp to `[0, 1]`. Coverage is
+then:
 
 ```text
 OPAQUE:                     coverage = 1
@@ -443,13 +444,14 @@ count, and arena/flash cost are part of schema validation and transition
 admission. No branch may call a configuration setter that clobbers another
 branch's prepared resource.
 
-The visual pipeline has compile-time `MAX_NOISE_RESOURCES = 8`, stored in a
+The visual pipeline has compile-time `MAX_NOISE_RESOURCES = 9`, stored in a
 fixed effect-owned array with no heap fallback. This covers the admitted maximum
-of four distinct keyed owners per endpoint—Planar Warp 1, Planar Warp 2, noise source,
-and tangent-noise lens—across a discrete transition. Random-walk generators remain
+of four distinct keyed owners per endpoint—Planar Warp 1, Planar Warp 2, noise
+source, and surface noise—across a discrete transition, plus the hue-noise owner
+whose key is endpoint-independent. Random-walk generators remain
 separate dedicated owners and do not consume these slots. Before transition
 capture, candidate validation deduplicates the union of endpoint keys and
-rejects or snaps when it exceeds eight. All eight owner objects, bindings, and
+rejects or snaps when it exceeds nine. All nine owner objects, bindings, and
 any basis-specific state count toward RAM1/persistent-arena admission even when
 the curated preset set normally uses fewer.
 
@@ -495,7 +497,7 @@ than silently clamped into a different schema:
 | curl flow | signed distance `[-1,1]`, scale `[1/64,2]`, time rate `[-1/64,1/64]` turns/frame plus the stability inequality below |
 | mirror tile | cell dimensions `[1/64,8]`, offsets wrapped to their cells, wrapped rotation |
 | polar chart | radial scale `[1/64,16]`, fixed radius floor `1/4096`, harmonic integer `[1,16]`, wrapped phases |
-| noise contour | scale `[1/64,64]`, contrast `[0,8]`, time rate `[-1/64,1/64]` turns/frame |
+| noise contour | scale `[0,2]`, contrast `[0,8]`, time rate `[-1/64,1/64]` turns/frame |
 | primitive lattice | cell scale `[1/64,8]`, shape blend `[0,1]`, softness `[1/1024,1]`, radius `[1/64,0.49]` in normalized cell units |
 | value/coverage | levels and thresholds `[0,1]`, widths/softness `[1/1024,1/2]`, band count integer `[1,32]`, wrapped phase |
 | deformation ink | gains `[-4,4]`, normalization denominators `[1/1024,32]`, wrapped direction phase |
@@ -1029,7 +1031,7 @@ the earlier fixed stereographic implementation. The final gate established:
 - named, continuously advancing source, warp, projection, breathe, walk, and
   palette clocks;
 - the two-stage warp program, coupled/direct source, liquid colorizer, and all
-  migrated looks in the 23-preset bank;
+  migrated looks in the preset bank;
 - deterministic GUI edits and exact transition endpoints;
 - premultiplied output blending for topology-changing preset transitions;
 - projection topology metadata, host oracles, finite-output fuzzing, and seam
@@ -1187,8 +1189,8 @@ Blanket `always_inline`/`HS_O3_FN` expansion of every slot arm is forbidden: a
 frame-constant switch makes prediction cheap but does not remove inactive-arm
 code from the instantiated closure.
 
-The current shipping bank has 12 authored presets after former presets 5, 6,
-7, 9, and 10 were retired. Two source-matched selective-O3 captures run every
+The shipping bank retired former presets 5, 6, 7, 9, and 10. Two
+source-matched selective-O3 captures run every
 current preset green against the 62.5 ms display window, while the matched
 global-O3 reference has five red presets and is rejected for shipping. The
 shipping report preserves the former 17-preset indices and exact current
@@ -1747,7 +1749,7 @@ daydream (separate repo, land via worktree + FF):
 
 ## 13. Curation decisions
 
-- Preset count: 12 — five wandering-liquid, five spinning-grid, and two
+- Bank composition: five wandering-liquid, five spinning-grid, and two
   mixed (grid look on the liquid palette).
 - `phase2_rate` ships preset-driven as the animated **Drift** param over
   [0, 2]. No extra live-only slider was added; pause plus slider takeover is
