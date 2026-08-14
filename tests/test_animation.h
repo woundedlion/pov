@@ -2077,16 +2077,7 @@ inline void test_segue_visible_gate_culls_only_dark_phases() {
         HS_EXPECT_LT(segue_peak_weight(seg, phase), 0.02f);
     }
   };
-  check(Segue::Base());
-  check(Segue::Crossfade());
-  check(Segue::IrisBloom());
-  check(Segue::Lace());
-  check(Segue::TerminatorSweep());
-  check(Segue::Shockwave());
-  check(Segue::Breakdown());
-  check(Segue::SpinFlip());
-  check(Segue::GoldConvergence());
-  check(Segue::Dissolve());
+  Segue::AllPolicies::for_each(check);
 
   // The gate still culls for the policies that do fade to black.
   HS_EXPECT_FALSE(Segue::Crossfade().visible(0.0f));
@@ -2324,6 +2315,12 @@ struct DriftedMaskPairSegue : Segue::Base {
   int mask_pair(float, uint32_t) const { return 0; }
 };
 
+/** @brief A policy shadowing Base's visible() with a float: every phase would
+ * read as visible. */
+struct DriftedVisibleSegue : Segue::Base {
+  float visible(float phase) const { return phase; }
+};
+
 /**
  * @brief Pins every per-face segue against that call pattern, so a policy
  * carrying face_offset alone trips this static_assert instead of only breaking
@@ -2334,11 +2331,12 @@ struct DriftedMaskPairSegue : Segue::Base {
  * either alongside face_offset would drop it silently. The NeedsClasses and
  * Masked assertions pin the two contracts an effect must honour: losing
  * Breakdown's reorder degrades it to a uniform fade, losing Dissolve's
- * mask_pair doubles the frame's rasterizer work. The Schedulable assertions
- * pin every policy against the scheduling signature the carousel calls,
- * including the pause gate a shorter override would hide. The Declares*
- * assertions pin the name probes against the drifted policies below, where the
- * hook is present but uncallable at the contract's argument list.
+ * mask_pair doubles the frame's rasterizer work. The roster assertion pins
+ * every shipped policy against the scheduling signature the carousel calls
+ * (including the pause gate a shorter override would hide) and against Base's
+ * phase-hook signatures. The Declares* assertions pin the name probes against
+ * the drifted policies below, where the hook is present but uncallable at the
+ * contract's argument list.
  */
 inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(PerFaceSegueDrawable<Segue::TerminatorSweep>);
@@ -2381,16 +2379,8 @@ inline void test_per_face_segues_satisfy_draw_contract() {
                 !Segue::NeedsClasses<DriftedReorderSegue>);
   static_assert(Segue::DeclaresMaskPair<DriftedMaskPairSegue> &&
                 !Segue::Masked<DriftedMaskPairSegue>);
-  static_assert(Segue::Schedulable<Segue::Base>);
-  static_assert(Segue::Schedulable<Segue::Crossfade>);
-  static_assert(Segue::Schedulable<Segue::IrisBloom>);
-  static_assert(Segue::Schedulable<Segue::Lace>);
-  static_assert(Segue::Schedulable<Segue::TerminatorSweep>);
-  static_assert(Segue::Schedulable<Segue::Shockwave>);
-  static_assert(Segue::Schedulable<Segue::Breakdown>);
-  static_assert(Segue::Schedulable<Segue::SpinFlip>);
-  static_assert(Segue::Schedulable<Segue::GoldConvergence>);
-  static_assert(Segue::Schedulable<Segue::Dissolve>);
+  static_assert(Segue::AllPolicies::CONFORMING);
+  static_assert(!Segue::HasPhaseHooks<DriftedVisibleSegue>);
 
   HS_EXPECT_NEAR(Segue::Base().face_fade_frac(3), 1.0f, 1e-6f);
 }
@@ -2436,16 +2426,7 @@ inline void test_segue_policies_forward_pause_gate() {
     tl.step(fake_canvas());
     HS_EXPECT_GT(probe.opacity, held);
   };
-  holds_under_pause(Segue::Base{});
-  holds_under_pause(Segue::Crossfade{});
-  holds_under_pause(Segue::IrisBloom{});
-  holds_under_pause(Segue::Lace{});
-  holds_under_pause(Segue::TerminatorSweep{});
-  holds_under_pause(Segue::Shockwave{});
-  holds_under_pause(Segue::Breakdown{});
-  holds_under_pause(Segue::SpinFlip{});
-  holds_under_pause(Segue::GoldConvergence{});
-  holds_under_pause(Segue::Dissolve{});
+  Segue::AllPolicies::for_each(holds_under_pause);
 }
 
 /**
