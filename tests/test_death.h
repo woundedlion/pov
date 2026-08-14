@@ -1760,6 +1760,7 @@ inline void case_scan_clip_rows_out_of_bounds() {
   Scan::Shader::check_lut_domain<W, H>(cr);
 }
 
+#ifndef NDEBUG
 /**
  * @brief Death case: probing a Face whose scratch buffer a later Face claimed.
  * @details The second build retargets the first face's spans, so the first no
@@ -1788,6 +1789,7 @@ inline void case_face_scratch_retargeted() {
   SDF::DistanceResult res;
   first.distance(second.center, res);
 }
+#endif
 
 /**
  * @brief Death case: a scan rejects a canvas that is not its <W, H>.
@@ -2938,9 +2940,11 @@ inline const Case *all_cases(int &n) {
        "scan.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
        "cr.render_y_end() <= H) "},
+#ifndef NDEBUG
       {"face_scratch_retargeted", case_face_scratch_retargeted, "sdf_face.h",
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
        "SDF::Face probed after a later Face claimed its scratch buffer"},
+#endif
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "scan.h",
        "(canvas.width() == W && canvas.height() == H) "},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
@@ -3503,7 +3507,13 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"sdf.h", 7},
     {"sdf_common.h", 4},
     {"sdf_csg.h", 2},
+// The census counts source text, so sdf_face.h's site count is the same either
+// way; under NDEBUG the case pinning its Debug-only claim_seq guard is gone.
+#ifndef NDEBUG
     {"sdf_face.h", 3},
+#else
+    {"sdf_face.h", 4},
+#endif
     {"sdf_volume.h", 2},
     {"shading.h", 1},
     {"ChaoticStrings.h", 1},
@@ -3661,7 +3671,11 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
+#ifndef NDEBUG
   constexpr int DEATH_CASE_COUNT = 144;
+#else
+  constexpr int DEATH_CASE_COUNT = 143;
+#endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
