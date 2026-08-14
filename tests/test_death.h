@@ -1877,6 +1877,21 @@ inline void case_spherical_field_ring_index_oob() {
 }
 
 /**
+ * @brief Death case: populating past the last ring must trap.
+ * @details next_ring() saturates at the last ring, so an overrunning band would
+ *          re-populate it and leave the caller believing it wrote fresh rings.
+ */
+inline void case_spherical_field_populate_ring_end_oob() {
+  constexpr hs::SphericalFieldLayout<32, 16, 0> layout(4);
+  static float values[layout.sample_count()];
+  hs::SphericalField<float, 32, 16, 0> field(values, layout);
+  field.populate(0, opaque(layout.ring_count()),
+                 [](const Vector &v, const auto &) { return v.y; });
+  if (values[0] == 42.0f)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a harmonic mode past the float factorial range must trap.
  * @details (l + |m|)! overflows to infinity, so the factorial ratio collapses
  *          to 0 and every sample of the mode comes back black.
@@ -2876,6 +2891,10 @@ inline const Case *all_cases(int &n) {
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
        "spherical_field.h",
        "(y < H - 1) SphericalFieldLayout: ring index 5 out of range"},
+      {"spherical_field_populate_ring_end_oob",
+       case_spherical_field_populate_ring_end_oob, "spherical_field.h",
+       "(ring_end < layout.ring_count()) SphericalField::populate: ring_end 5 "
+       "past the last ring 4"},
       {"spherical_harmonic_normalization_overflow",
        case_spherical_harmonic_normalization_overflow, "spherical_harmonics.h",
        "(l + abs_m <= MAX_FACTORIAL_ARGUMENT) spherical harmonic "
@@ -3568,7 +3587,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 139;
+  constexpr int DEATH_CASE_COUNT = 140;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a

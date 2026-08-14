@@ -561,6 +561,11 @@ public:
 
   template <typename Populate>
   void populate(int ring_begin, int ring_end, Populate &&populate_sample) {
+    // next_ring() saturates at the last ring, so an overrun would silently
+    // re-populate it instead of trapping.
+    HS_CHECK(ring_end < layout.ring_count(),
+             "SphericalField::populate: ring_end %d past the last ring %d",
+             ring_end, layout.ring_count() - 1);
     Ring ring = layout.ring(ring_begin);
     for (int ring_index = ring_begin; ring_index <= ring_end;
          ++ring_index, ring = layout.next_ring(ring)) {
