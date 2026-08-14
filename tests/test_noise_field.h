@@ -47,7 +47,22 @@ inline void test_noise_field_key_identity() {
   b.domain = NoiseDomain::PROJECTED_2D;
   HS_EXPECT_FALSE(noise_field_key(a) == noise_field_key(b));
   b = a;
+  b.basis = NoiseBasis::RIDGED3;
+  HS_EXPECT_FALSE(noise_field_key(a) == noise_field_key(b));
+  b = a;
+  b.seed = a.seed + 1;
+  HS_EXPECT_FALSE(noise_field_key(a) == noise_field_key(b));
+  b = a;
   b.channel_layout = NoiseChannelLayout::CURL_V1;
+  HS_EXPECT_FALSE(noise_field_key(a) == noise_field_key(b));
+  b = a;
+  b.octave_layout = a.octave_layout + 1;
+  HS_EXPECT_FALSE(noise_field_key(a) == noise_field_key(b));
+  b = a;
+  b.loop_layout = a.loop_layout + 1;
+  HS_EXPECT_FALSE(noise_field_key(a) == noise_field_key(b));
+  b = a;
+  b.stencil_layout = a.stencil_layout + 1;
   HS_EXPECT_FALSE(noise_field_key(a) == noise_field_key(b));
 }
 
