@@ -1057,7 +1057,7 @@ private:
 
     // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
     // is dead once the handoff centroids above are snapshotted.
-    dual_bridge_ambo_faces = dual_bridge_ambo.face_counts.size();
+    dual_bridge_ambo_faces = medial_faces;
     dual_bridge_ambo = PolyMesh();
 
     // Compact: keep only the seed P (leg 2 rebuilds its medial from it, leg 3 its
