@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file build_features.h
+ * @brief Compile-time feature switches and size budgets the rest of the engine
+ *        derives from, defaulted per target and validated here.
+ */
+
 // Size of the real device arena block. Deliberately not overridable: host
 // harnesses widen HS_GLOBAL_ARENA_BYTES, so this is the figure memory.h ties
 // DEVICE_GLOBAL_ARENA_SIZE to.
