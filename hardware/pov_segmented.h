@@ -325,9 +325,7 @@ public:
     // ── Foreground: construct effects on request, render, report ────────
     Effect *cur = nullptr;
     uint32_t built_gen = 0;
-#if defined(USE_DMA_LEDS)
     uint32_t last_overrun = ledController.getOverrunCount();
-#endif
     pov::sync::Telemetry last_tm{};
     unsigned long last_report = millis();
 
@@ -417,14 +415,12 @@ public:
               (unsigned long)tm.epochs_refractory_ignored);
           last_tm = tm;
         }
-#if defined(USE_DMA_LEDS)
         const uint32_t overruns = ledController.getOverrunCount();
         if (overruns != last_overrun) {
           Serial.print("overrun ");
           Serial.println(overruns);
           last_overrun = overruns;
         }
-#endif
       }
     }
   }
@@ -724,10 +720,8 @@ private:
   static int
       segment_id; /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
   static pov::SegmentMap segment; /**< Precomputed canvas mapping. */
-#if defined(USE_DMA_LEDS)
   static DMALEDController<PPS>
       ledController; /**< DMA SPI LED controller for the segment strip. */
-#endif
 };
 
 // ── Static member definitions ───────────────────────────────────────────
@@ -755,7 +749,6 @@ template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::segment_id = 0;
 template <int S, int N, int RPM>
 pov::SegmentMap POVSegmented<S, N, RPM>::segment{false, 0, 1};
 
-#if defined(USE_DMA_LEDS)
 // ledController has no out-of-line definition: DMAMEM survives only on an
 // explicit specialization (see DMALEDController in dma_led_controller.h). Each
 // instantiating target invokes HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)
@@ -765,6 +758,5 @@ pov::SegmentMap POVSegmented<S, N, RPM>::segment{false, 0, 1};
   DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController {  \
     POVSegmented<S, N, RPM>::SPI_CLOCK_HZ                                      \
   }
-#endif
 
 #endif // ARDUINO
