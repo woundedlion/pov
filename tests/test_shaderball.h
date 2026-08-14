@@ -416,6 +416,10 @@ struct ShaderBallWhiteBox {
   static TopologyKey topology_key(const RequestedConfig &config) {
     return SB::make_topology_key(config);
   }
+  template <WarpStageKind Outer, WarpStageKind Inner>
+  static constexpr bool planar_warp_implements(const TopologyKey &key) {
+    return SB::template SelectedPlanarWarpStage<Outer, Inner>::implements(key);
+  }
   static size_t inverse_program_count() {
     return SB::inverse_programs().size();
   }
@@ -3179,6 +3183,19 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   no_surface_noise.params.surface_noise.integrator =
       WB::SurfaceCurlIntegrator::MIDPOINT_2X;
   HS_EXPECT_TRUE(WB::topology_key(no_surface_noise) == no_surface_noise_key);
+
+  WB::TopologyKey shear_key = WB::topology_key(WB::presets()[0]);
+  HS_EXPECT_EQ(shear_key.outer_warp, WB::WarpStageKind::WAVE_SHEAR);
+  HS_EXPECT_TRUE(
+      (WB::planar_warp_implements<WB::WarpStageKind::WAVE_SHEAR,
+                                  WB::WarpStageKind::NONE>(shear_key)));
+  for (WB::WarpEnvelope envelope :
+       {WB::WarpEnvelope::PROJECTION_WEIGHT, WB::WarpEnvelope::EDGE_FADE}) {
+    shear_key.outer_warp_envelope = envelope;
+    HS_EXPECT_FALSE(
+        (WB::planar_warp_implements<WB::WarpStageKind::WAVE_SHEAR,
+                                    WB::WarpStageKind::NONE>(shear_key)));
+  }
 
   WB::RequestedConfig unsupported = WB::presets()[0];
   unsupported.slots.surface_lens = WB::SurfaceLens::TWIST;
