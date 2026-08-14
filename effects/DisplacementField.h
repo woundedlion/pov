@@ -568,7 +568,9 @@ private:
    * @details A full pool is logged before the spawn rather than by testing
    * spawn()'s result: consuming that return value costs ~960 B of ITCM, which
    * the phantasm budget cannot spare. A timeline-full drop is already logged by
-   * the timeline itself.
+   * the timeline itself. A saturated pool drops most of a phase's spawns, and
+   * hs::log blocks on the serial write, so only the first drop of each ball
+   * phase is logged.
    */
   HS_COLD_MEMBER void spawn_ball() {
     balls.template_params.radius =
@@ -578,8 +580,10 @@ private:
         hs::rand_f(std::min(params.ball_speed_min, params.ball_speed_max),
                    std::max(params.ball_speed_min, params.ball_speed_max));
     int fall_frames = std::max(2, static_cast<int>(BALL_RATE_FPS / speed));
-    if (balls.active_count() >= MAX_BALLS)
+    if (balls.active_count() >= MAX_BALLS && !logged_pool_full) {
+      logged_pool_full = true;
       hs::log("DisplacementField: ball pool full, dropping spawn");
+    }
     balls.spawn(0, orientation, normal, hs::rand_f(0.0f, 2.0f * PI_F),
                 fall_frames);
   }
@@ -602,6 +606,7 @@ private:
     phase = Phase::BALLS;
     ball_phase_left = BALL_PHASE_FRAMES;
     spawn_cooldown = 0;
+    logged_pool_full = false;
   }
 
   /**
@@ -659,6 +664,8 @@ private:
   int ball_phase_left =
       BALL_PHASE_FRAMES; /**< Frames left in this ball phase's spawning window. */
   int spawn_cooldown = 0; /**< Frames until the next ball spawn. */
+  bool logged_pool_full =
+      false; /**< Pool-full log latch; cleared on each ball phase. */
   float master_gain =
       0.0f; /**< Noise fade envelope in [0, 1]; gates the noise field, animated by Transitions. */
   int noise_hold =
