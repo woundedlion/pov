@@ -275,8 +275,10 @@ public:
                              const uint32_t *effect_revolutions = nullptr) {
     effect_factories = factories;
 
+    // F_CPU_ACTUAL, not F_CPU: the flywheel timebase counts ARM_DWT_CYCCNT
+    // ticks, which run at the clock the core actually booted to.
     pov::sync::Config cfg =
-        pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, effect_count);
+        pov::sync::phantasm_config(F_CPU_ACTUAL, RPM, CANVAS_W, effect_count);
     cfg.effect_revolutions = effect_revolutions;
 #ifdef HS_PROFILE_EPOCH_REVS
     // Profiling knob: stretch the epoch so one effect instance covers a full
