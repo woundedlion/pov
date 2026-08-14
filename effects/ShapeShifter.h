@@ -539,8 +539,13 @@ private:
     Fragments points;
     points.bind(scratch_arena_a, capacity);
     fill(points);
-    Plot::rasterize<W, H, true, false, false, false,
-                    Plot::RasterSamplingPolicy::SELECTABLE>(
+    Plot::rasterize<W, H,
+                    Plot::RasterConfig{
+                        .single_pass = true,
+                        .derive_planar_arc_registers = false,
+                        .interpolate_registers = false,
+                        .sampling_policy =
+                            Plot::RasterSamplingPolicy::SELECTABLE}>(
         plot_filters, canvas, points, fragment_shader,
         {.planar_basis = planar_basis,
          .omit_end = true,

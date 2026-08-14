@@ -95,6 +95,29 @@ template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
 }
 
 /**
+ * @brief Compile-time rasterize() configuration, passed as one NTTP.
+ * @details Named fields, so a call site reads
+ * `rasterize<W, H, RasterConfig{.single_pass = true}>` instead of ordering four
+ * bare booleans and a policy enum. Every field defaults to the plain
+ * cached-replay geodesic polyline.
+ */
+struct RasterConfig {
+  /** Emit adaptive samples immediately instead of replaying a step cache. */
+  bool single_pass = false;
+  /**
+   * Compile out planar, closed-loop, seam and omit-end support for an open
+   * geodesic polyline.
+   */
+  bool open_geodesic = false;
+  /** Recompute v0/v1 from the rendered planar perimeter. */
+  bool derive_planar_arc_registers = true;
+  /** Interpolate source fragment registers at each adaptive sample. */
+  bool interpolate_registers = true;
+  /** Adaptive screen-space sample density. */
+  RasterSamplingPolicy sampling_policy = RasterSamplingPolicy::DEFAULT;
+};
+
+/**
  * @brief Optional rasterize() behaviors beyond the plain open geodesic
  * polyline; every field defaults to that common case.
  * @details Taken BY VALUE, never by const reference: a reference escapes the
@@ -166,15 +189,7 @@ struct RasterOptions {
  * culled.
  *
  * @tparam W,H Rasterization resolution (pixel grid).
- * @tparam SinglePass Emit adaptive samples immediately instead of replaying a
- *         normalized step cache.
- * @tparam OpenGeodesic Compile out planar, closed-loop, seam and omit-end
- *         support for an open geodesic polyline.
- * @tparam DerivePlanarArcRegisters Recompute v0/v1 from the rendered planar
- *         perimeter.
- * @tparam InterpolateRegisters Interpolate source fragment registers at each
- *         adaptive sample.
- * @tparam SamplingPolicy Adaptive screen-space sample density.
+ * @tparam Cfg Compile-time behavior selection; see RasterConfig.
  * @tparam PipelineT Pipeline type.
  * @tparam FragmentShaderT Fragment shader type for direct raster pipelines.
  * @param source_pipeline Render pipeline that plots fragments.
@@ -188,16 +203,17 @@ struct RasterOptions {
  *             RasterOptions).
  */
 HS_O3_BEGIN
-template <int W, int H, bool SinglePass = false, bool OpenGeodesic = false,
-          bool DerivePlanarArcRegisters = true,
-          bool InterpolateRegisters = true,
-          RasterSamplingPolicy SamplingPolicy = RasterSamplingPolicy::DEFAULT,
-          typename PipelineT = PipelineRef,
+template <int W, int H, RasterConfig Cfg = {}, typename PipelineT = PipelineRef,
           typename FragmentShaderT = FragmentShaderFn>
 static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderT fragment_shader,
                       RasterOptions opts = {}) {
-  if constexpr (OpenGeodesic)
+  constexpr bool SINGLE_PASS = Cfg.single_pass;
+  constexpr bool OPEN_GEODESIC = Cfg.open_geodesic;
+  constexpr bool DERIVE_PLANAR_ARC_REGISTERS = Cfg.derive_planar_arc_registers;
+  constexpr bool INTERPOLATE_REGISTERS = Cfg.interpolate_registers;
+  constexpr RasterSamplingPolicy SAMPLING_POLICY = Cfg.sampling_policy;
+  if constexpr (OPEN_GEODESIC)
     assert(!opts.close_loop && opts.planar_basis == nullptr && !opts.omit_end &&
            opts.loop_seam == nullptr);
   // A direct-raster sink writes through a cached framebuffer base; the canvas
@@ -213,22 +229,20 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                                FragmentShaderFn>)) {
     PipelineRef erased(source_pipeline);
     FragmentShaderFn erased_shader(fragment_shader);
-    rasterize<W, H, SinglePass, OpenGeodesic, DerivePlanarArcRegisters,
-              InterpolateRegisters, SamplingPolicy>(erased, canvas, points,
-                                                    erased_shader, opts);
+    rasterize<W, H, Cfg>(erased, canvas, points, erased_shader, opts);
     return;
   }
   HS_PLOT_COUNT(rings);
-  const bool close_loop = OpenGeodesic ? false : opts.close_loop;
-  const Basis *planar_basis = OpenGeodesic ? nullptr : opts.planar_basis;
-  const bool omit_end = OpenGeodesic ? false : opts.omit_end;
+  const bool close_loop = OPEN_GEODESIC ? false : opts.close_loop;
+  const Basis *planar_basis = OPEN_GEODESIC ? nullptr : opts.planar_basis;
+  const bool omit_end = OPEN_GEODESIC ? false : opts.omit_end;
   const uint8_t *edge_flags = opts.edge_flags;
   const float *point_rows = opts.point_rows;
   const float *point_cols = opts.point_cols;
-  const Fragment *loop_seam = OpenGeodesic ? nullptr : opts.loop_seam;
+  const Fragment *loop_seam = OPEN_GEODESIC ? nullptr : opts.loop_seam;
   const bool balanced_sampling =
-      SamplingPolicy == RasterSamplingPolicy::BALANCED ||
-      (SamplingPolicy == RasterSamplingPolicy::SELECTABLE &&
+      SAMPLING_POLICY == RasterSamplingPolicy::BALANCED ||
+      (SAMPLING_POLICY == RasterSamplingPolicy::SELECTABLE &&
        opts.balanced_sampling);
   auto &pipeline = source_pipeline;
   size_t len = points.size();
@@ -261,24 +275,24 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // covered by the planar W/H sweep derivation. At W=288 the measured
   // pole-crossing geodesic worst case is 546 of the 2·W=576 slots. A planar
   // chart line can bow farther, so the simulation loop retains its capacity
-  // backstop. SinglePass emits as it goes and takes max_cache only as that
+  // backstop. Single-pass emits as it goes and takes max_cache only as that
   // backstop, so it never binds the storage.
   size_t max_cache = rasterize_scratch_a_bytes<W>() / sizeof(float);
 #if HS_ENABLE_TEST_ORACLES
   if (g_step_budget_override != 0 && g_step_budget_override < max_cache)
     max_cache = g_step_budget_override;
 #endif
-  if constexpr (!SinglePass)
+  if constexpr (!SINGLE_PASS)
     steps_cache.bind(scratch_arena_a, max_cache);
 
   // PLANAR ARC REGISTERS (v0/v1): under a planar basis the rendered edge bows
   // longer than the geodesic chord, so re-derive v0/v1 from the true rendered
   // arc (`cumul`/`seg_base` track it, `total_arc` normalizes v0). Skipped for
-  // geodesic polylines or when DerivePlanarArcRegisters is false.
+  // geodesic polylines or when DERIVE_PLANAR_ARC_REGISTERS is false.
   const bool has_planar_basis = (planar_basis != nullptr);
-  const bool override_uv = DerivePlanarArcRegisters && has_planar_basis;
+  const bool override_uv = DERIVE_PLANAR_ARC_REGISTERS && has_planar_basis;
   constexpr bool REUSE_PLANAR_CULL_SAMPLES =
-      SinglePass && !DerivePlanarArcRegisters && !InterpolateRegisters &&
+      SINGLE_PASS && !DERIVE_PLANAR_ARC_REGISTERS && !INTERPOLATE_REGISTERS &&
       pipeline_hoistable_cull<PipelineT>();
   auto segment_next = [&](size_t i) -> const Fragment & {
     if (loop_seam != nullptr && i + 1 == len)
@@ -328,7 +342,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // force (see the pre-pass above): `d` is the arc drawn so far within this
     // segment, `seg_base` the arc at its start. No-op for geodesic polylines.
     auto set_arc_uv = [&](Fragment &f, float d) {
-      if constexpr (!DerivePlanarArcRegisters)
+      if constexpr (!DERIVE_PLANAR_ARC_REGISTERS)
         return;
       if (!has_planar_basis)
         return;
@@ -348,7 +362,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       bool should_omit = close_loop || !is_last_segment || omit_end;
       if (!should_omit) {
         Fragment f_copy;
-        if constexpr (InterpolateRegisters)
+        if constexpr (INTERPOLATE_REGISTERS)
           f_copy = curr;
         f_copy.pos = curr.pos;
         f_copy.color = Color4(0, 0, 0, 0);
@@ -384,15 +398,15 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     auto adaptive_sample = [&](float t) -> SamplePT {
       HS_MSP_STALL_START(adaptive_start);
       SamplePT result;
-      if constexpr (SinglePass && !DerivePlanarArcRegisters &&
-                    !InterpolateRegisters && requires {
+      if constexpr (SINGLE_PASS && !DERIVE_PLANAR_ARC_REGISTERS &&
+                    !INTERPOLATE_REGISTERS && requires {
                       sample.one_pass_monotonic(t, planar_arc_interval);
                     }) {
         result = sample.one_pass_monotonic(t, planar_arc_interval);
 #if HS_ENABLE_TEST_HOOKS
         ++g_planar_full_samples;
 #endif
-      } else if constexpr (SinglePass && requires { sample.one_pass(t); })
+      } else if constexpr (SINGLE_PASS && requires { sample.one_pass(t); })
         result = sample.one_pass(t);
       else
         result = sample(t);
@@ -411,7 +425,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     if (total_dist <= first_step) {
       HS_PLOT_COUNT(one_dot);
       Fragment f;
-      if constexpr (InterpolateRegisters)
+      if constexpr (INTERPOLATE_REGISTERS)
         f = curr;
       f.pos = curr.pos;
       f.color = Color4(0, 0, 0, 0);
@@ -422,7 +436,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
       if (!close_loop && is_last_segment && !omit_end) {
         Fragment fl;
-        if constexpr (InterpolateRegisters)
+        if constexpr (INTERPOLATE_REGISTERS)
           fl = next;
         fl.pos = next.pos;
         fl.color = Color4(0, 0, 0, 0);
@@ -437,7 +451,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
 
     // Size each sub-step so consecutive samples land ~SCREEN_STEP_PX apart in
     // screen space. `smp`/`first_step` above seed the first iteration.
-    if constexpr (SinglePass) {
+    if constexpr (SINGLE_PASS) {
       HS_PROFILE_DEEP(plot_seg_single_pass);
       float current_dist = 0.0f;
       float current_t = 0.0f;
@@ -446,7 +460,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       float previous_full_step = first_step;
       Vector previous_full_tangent = smp.tan;
       bool reuse_step = false;
-      if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
+      if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
         if (balanced_sampling)
           desired_step = balanced_step(first_step);
       }
@@ -457,7 +471,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       [[maybe_unused]] float endpoint_gap = total_dist;
       while (current_dist < total_dist) {
         Vector p;
-        if constexpr (OpenGeodesic) {
+        if constexpr (OPEN_GEODESIC) {
           HS_PLOT_COUNT(normalizations);
 #if HS_ENABLE_TEST_ORACLES
           if (g_reference_screen_step) {
@@ -469,7 +483,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
             const float norm2 = dot(smp.pos, smp.pos);
             p = smp.pos * (1.5f - 0.5f * norm2);
           }
-        } else if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT &&
+        } else if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT &&
                              requires { sample.one_pass(current_t); }) {
           HS_PLOT_COUNT(normalizations);
           if (balanced_sampling) {
@@ -483,14 +497,14 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           p = smp.pos.normalized();
         }
         Fragment f;
-        if constexpr (InterpolateRegisters)
+        if constexpr (INTERPOLATE_REGISTERS)
           f = Fragment::lerp_registers(curr, next, current_t);
         f.pos = p;
         f.color = Color4(0, 0, 0, 0);
         set_arc_uv(f, current_dist);
         HS_PLOT_COUNT(shader_calls);
         shade_fragment(p, f);
-        if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
+        if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
           if (balanced_sampling) {
             const float alpha_scale = desired_step / default_desired_step;
             f.color.alpha = balanced_sample_alpha(f.color.alpha, alpha_scale);
@@ -526,7 +540,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         if (current_dist < total_dist) {
           current_t = current_dist / total_dist;
           HS_PLOT_COUNT(sim_samples);
-          if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT &&
+          if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT &&
                         requires {
                           sample.position_monotonic(current_t,
                                                     planar_arc_interval);
@@ -565,7 +579,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
             default_desired_step = adaptive_step(smp);
           }
           desired_step = default_desired_step;
-          if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
+          if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
             if (balanced_sampling)
               desired_step = balanced_step(default_desired_step);
           }
@@ -574,14 +588,14 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       }
       if (!close_loop && is_last_segment && !omit_end) {
         Fragment f;
-        if constexpr (InterpolateRegisters)
+        if constexpr (INTERPOLATE_REGISTERS)
           f = next;
         f.pos = next.pos;
         f.color = Color4(0, 0, 0, 0);
         set_arc_uv(f, total_dist);
         HS_PLOT_COUNT(shader_calls);
         shade_fragment(next.pos, f);
-        if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
+        if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
           if (balanced_sampling) {
             // Gain the endpoint by the arc it actually stands in for, floored
             // at the default step so it never dims below the DEFAULT policy.
@@ -643,7 +657,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       HS_PLOT_COUNT(normalizations);
       Vector start_pos = sample.pos(0.0f).normalized();
       Fragment f;
-      if constexpr (InterpolateRegisters)
+      if constexpr (INTERPOLATE_REGISTERS)
         f = Fragment::lerp_registers(curr, next, 0.0f);
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
@@ -678,7 +692,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       HS_PLOT_COUNT(normalizations);
       Vector p = sample.pos(t).normalized();
       Fragment f;
-      if constexpr (InterpolateRegisters)
+      if constexpr (INTERPOLATE_REGISTERS)
         f = Fragment::lerp_registers(curr, next, t);
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
@@ -700,7 +714,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // consumed only when no world stage would lift it back to a world vector.
   auto plot_dot = [&](const Fragment &src, size_t k) {
     Fragment f;
-    if constexpr (InterpolateRegisters)
+    if constexpr (INTERPOLATE_REGISTERS)
       f = src;
     f.pos = src.pos;
     f.color = Color4(0, 0, 0, 0);
