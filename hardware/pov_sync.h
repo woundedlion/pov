@@ -265,8 +265,10 @@ public:
       // outlive a counter wrap and concatenate with a fresh train. A burst
       // claimed this tick was folded in above, so a live digit train is never
       // cut here. valid() pins this window below feed()'s, so this is where a
-      // truncated train is normally dropped — count it like any other drop.
-      if (beacon_parser.active())
+      // truncated train is normally dropped — count it like any other drop. A
+      // lone digit is the isolated boundary symbol ACQUIRE feeds to both paths,
+      // not a train, so a dropped frame needs two.
+      if (beacon_parser.digit_count() >= 2)
         ++telemetry_counters.beacons_rejected;
       beacon_parser.reset();
     }

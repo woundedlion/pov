@@ -117,10 +117,10 @@ public:
    */
   void reset() { n = 0; }
   /**
-   * @brief Whether a partial frame is being assembled.
-   * @return True if at least one digit has been buffered.
+   * @brief Digits buffered in the partial frame under assembly.
+   * @return Digit count, in [0, 5).
    */
-  bool active() const { return n > 0; }
+  int32_t digit_count() const { return n; }
 
 private:
   int32_t n = 0;

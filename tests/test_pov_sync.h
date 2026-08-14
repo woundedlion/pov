@@ -647,7 +647,7 @@ inline void test_beacon_codec() {
     BurstSnapshot s2{9, 1000 + 12 * COL, 1000 + 20 * COL}; // count > 8
     HS_EXPECT_FALSE(p.feed(s2, cfg, &g, &r));
     HS_EXPECT_TRUE(r);
-    HS_EXPECT_FALSE(p.active());
+    HS_EXPECT_EQ(p.digit_count(), 0);
   }
 
   // A stale partial frame (interdigit timeout) is discarded; the burst that
@@ -691,17 +691,20 @@ inline void test_beacon_partial_frame_ages_out() {
   board.seed(1000u, /*is_master=*/false);
   flywheel_mut(board).force_lock();
 
-  // A truncated train: one data burst at column 40 (far from both boundaries,
-  // so the demarcation routes it to the parser), then silence.
+  // A truncated train: two data bursts from column 40 on (far from both
+  // boundaries, so the demarcation routes them to the parser), then silence.
   const uint32_t head = 1000u + 40u * col;
-  const BurstSnapshot partial{4, head, head + 3 * col};
-  board.tick(head + 7 * col, &partial);
-  board.tick(head + 25 * col, nullptr); // quiet past the ACQUIRE guard
+  const BurstSnapshot first{4, head, head + 3 * col};
+  board.tick(head + 7 * col, &first);
+  const uint32_t second_head = head + 8 * col;
+  const BurstSnapshot second{4, second_head, second_head + 3 * col};
+  board.tick(second_head + 7 * col, &second);
+  board.tick(head + 40 * col, nullptr); // quiet past the ACQUIRE guard
 
-  // A complete frame from column 70 on, spaced exactly as schedule_beacon does.
+  // A complete frame from column 90 on, spaced exactly as schedule_beacon does.
   uint8_t d[5];
   encode_beacon_digits(2, 3, d);
-  uint32_t f = 1000u + 70u * col;
+  uint32_t f = 1000u + 90u * col;
   for (int i = 0; i < 5; ++i) {
     const uint32_t span = static_cast<uint32_t>(d[i]) * col;
     const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
