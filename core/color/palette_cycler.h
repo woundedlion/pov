@@ -238,6 +238,8 @@ public:
    *  @param chroma Gamut-relative chroma in [0, 1].
    *  @details Valid after init_generated(). */
   HS_COLD_MEMBER void set_generated_chroma(float chroma) {
+    HS_CHECK(from_slot != nullptr && to_slot != nullptr && morph != nullptr,
+             "PaletteCycler chroma needs a generated cycle");
     from_slot->set_constant_chroma(chroma);
     to_slot->set_constant_chroma(chroma);
     if (!fade_active) {
