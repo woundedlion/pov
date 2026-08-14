@@ -91,6 +91,20 @@ FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
 }
 
 namespace {
+size_t abandoned_bytes_total = 0;
+size_t abandon_event_count = 0;
+} // namespace
+
+void note_arena_vector_abandon(size_t bytes) {
+  abandoned_bytes_total += bytes;
+  abandon_event_count++;
+}
+
+FLASHMEM size_t arena_vector_abandoned_bytes() { return abandoned_bytes_total; }
+
+FLASHMEM size_t arena_vector_abandon_count() { return abandon_event_count; }
+
+namespace {
 /** @brief Offsets of the two scratch arena bases within global_arena_block. */
 struct ScratchBases {
   size_t a; /**< Base offset of scratch arena A. */

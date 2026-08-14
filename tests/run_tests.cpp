@@ -128,7 +128,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", 48, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
-  X("memory", 41, hs_test::memory_tests::run_memory_tests, 190)                \
+  X("memory", 42, hs_test::memory_tests::run_memory_tests, 196)                \
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
   X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
   X("sdf", 98, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
