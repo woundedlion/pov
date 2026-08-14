@@ -932,6 +932,129 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
 }
 
 /**
+ * @brief Verifies near-pole decimation shades the same pixels as an
+ *        undecimated walk.
+ * @details A block is settled from one probe only where that probe bounds the
+ * whole block, so a constant-color draw lands the same framebuffer at
+ * pole_lod_aggressiveness 1.0 as at 0: a cleared block paints nothing either
+ * way, and a splatted interior block is at full coverage in every column. A
+ * shape that reports FAR_SENTINEL past a zero-margin reject band bounds
+ * nothing, so an ungated block test drops whole runs of opaque columns here.
+ * Drives the stroke path (Scan::Ring, whose bounding annulus is the stroke band
+ * itself) and both face rasterizers across rows whose stride exceeds 1.
+ */
+inline void test_pole_lod_shading_matches_undecimated() {
+  constexpr int W = 96, H = 64;
+  constexpr int HV = H + hs::H_OFFSET;
+  const float saved_lod = pole_lod_aggressiveness;
+  const Color4 color(Pixel(60000, 45000, 30000), 1.0f);
+
+  auto readback = [](hs_test::StubEffect &fx) {
+    std::vector<Pixel> out(W * H);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        out[y * W + x] = fx.get_pixel(x, y);
+    return out;
+  };
+
+  auto compare = [&](const std::vector<Pixel> &plain,
+                     const std::vector<Pixel> &decimated) {
+    size_t lit = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const Pixel &a = plain[y * W + x];
+        const Pixel &b = decimated[y * W + x];
+        HS_CONTEXT("px", x, y);
+        HS_EXPECT_EQ(static_cast<int>(a.r), static_cast<int>(b.r));
+        HS_EXPECT_EQ(static_cast<int>(a.g), static_cast<int>(b.g));
+        HS_EXPECT_EQ(static_cast<int>(a.b), static_cast<int>(b.b));
+        if (a.r || a.g || a.b)
+          ++lit;
+      }
+    HS_EXPECT_GT(lit, (size_t)40);
+  };
+
+  // Ring axis tilted just off the canvas pole, so the stroke band's two arcs
+  // cross the rows whose stride exceeds 1.
+  auto draw_ring = [&](float lod, const Vector &axis, float radius) {
+    pole_lod_aggressiveness = lod;
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas c(fx);
+      Basis basis = make_basis(Quaternion(), axis);
+      Scan::Ring::draw<W, H, false>(
+          pipe, c, basis, radius, /*thickness=*/0.05f,
+          [&](const Vector &, Fragment &f) { f.color = color; });
+    }
+    fx.advance_display();
+    return readback(fx);
+  };
+
+  auto draw_face = [&](float lod, float tilt, float rho, int sides, float phase,
+                       bool fused) {
+    pole_lod_aggressiveness = lod;
+    const Vector axis = Vector(tilt, 1.0f, 0.0f).normalized();
+    Basis basis = make_basis(Quaternion(), axis);
+    Vector verts[8];
+    uint16_t idx[8];
+    for (int i = 0; i < sides; ++i) {
+      float a = (TWO_PI_F * i) / sides + phase;
+      verts[i] = (basis.v * cosf(rho) +
+                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(rho))
+                     .normalized();
+      idx[i] = static_cast<uint16_t>(i);
+    }
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas canvas(fx);
+      SDF::FaceScratchBuffer scratch;
+      SDF::Face face(std::span<const Vector>(verts, sides),
+                     std::span<const uint16_t>(idx, sides), scratch, HV, H,
+                     &canvas.clip());
+      auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
+      if (fused)
+        Scan::rasterize_face<W, H, Pipeline<W, H>>(pipe, canvas, face, shader);
+      else
+        Scan::rasterize<W, H, false>(pipe, canvas, face, shader);
+    }
+    fx.advance_display();
+    return readback(fx);
+  };
+
+  // The rows the draws reach must actually be decimated, or the comparison is
+  // vacuous.
+  pole_lod_aggressiveness = 1.0f;
+  HS_EXPECT_GT(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[2]), 1);
+
+  for (float tilt : {0.12f, 0.3f}) {
+    HS_CONTEXT("ring", static_cast<int>(tilt * 100.0f));
+    const Vector axis = Vector(tilt, 1.0f, 0.0f).normalized();
+    const float radius = tilt / (PI_F / 2.0f);
+    compare(draw_ring(0.0f, axis, radius), draw_ring(1.0f, axis, radius));
+  }
+
+  // Triangles: the widest gap between inradius and circumradius, so the cull
+  // disk clears a vertex by least and a block probe just outside it can sit
+  // within the AA fringe's reach of the polygon. Both are small enough to take
+  // the linear_dist path, on which distance() reports the plane distance the
+  // cull margin is measured in.
+  struct FaceCase {
+    float tilt, rho, phase;
+  };
+  for (FaceCase fc :
+       {FaceCase{0.10f, 0.20f, 0.0f}, FaceCase{0.05f, 0.12f, 0.40f}})
+    for (bool fused : {false, true}) {
+      HS_CONTEXT("face", static_cast<int>(fc.tilt * 100.0f), fused);
+      compare(draw_face(0.0f, fc.tilt, fc.rho, 3, fc.phase, fused),
+              draw_face(1.0f, fc.tilt, fc.rho, 3, fc.phase, fused));
+    }
+
+  pole_lod_aggressiveness = saved_lod;
+}
+
+/**
  * @brief Verifies scan_region's clip arc matches per-column XClip::clipped.
  * @details Runs the interval path (spans straddling the seam and both wrap
  * pieces) and the full-row path under a plain arc, a seam-wrapping arc, and no
@@ -2006,6 +2129,7 @@ inline int run_scan_tests() {
   test_scan_region_fractional_boundary_no_double_plot();
   test_scan_region_clip_arc_matches_predicate();
   test_pole_lod_runs_are_canvas_anchored();
+  test_pole_lod_shading_matches_undecimated();
   test_plot_line_over_pole_reaches_row0();
   test_csg_stroke_aa_uses_winning_child_thickness();
 
