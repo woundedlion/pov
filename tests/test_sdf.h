@@ -2668,17 +2668,18 @@ inline void test_face_pole_vertex_matches_full_scan() {
 
 /**
  * @brief Builds one tilted N-gon face and scans its gnomonic box against an exact oracle.
+ * @param sample_total Accumulates the number of non-culled samples evaluated.
  * @param sides Number of polygon points (must be <= 8).
  * @param rho Angular circumradius of the face, in radians.
  * @param axis Pole direction the face's basis is built around.
  * @param rho_inner Inner-vertex radius; > 0 interleaves star points (concave).
- * @return The number of non-culled samples evaluated.
  * @details A convex face must match the oracle exactly inside and stay within
  * [0, oracle] outside (the half-plane path underestimates in vertex cones); a
  * concave face must match the oracle everywhere via the exact walk.
  */
-inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
-                                      float rho_inner = 0.0f) {
+inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
+                                       const Vector &axis,
+                                       float rho_inner = 0.0f) {
   constexpr int H = 144;
   constexpr int HV = H + hs::H_OFFSET;
   HS_EXPECT_TRUE(sides <= 8);
@@ -2755,7 +2756,7 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
       ++samples;
     }
   }
-  return samples;
+  sample_total += samples;
 }
 
 /**
@@ -2765,22 +2766,20 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
  */
 inline void test_face_distance_matches_exact_oracle() {
   int samples = 0;
-  samples +=
-      check_face_distance_oracle(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
-  samples +=
-      check_face_distance_oracle(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));
-  samples +=
-      check_face_distance_oracle(/*sides=*/6, 0.40f, Vector(-0.6f, 0.5f, 0.7f));
-  samples +=
-      check_face_distance_oracle(/*sides=*/3, 0.12f, Vector(0.4f, 0.3f, 1.0f));
-  samples +=
-      check_face_distance_oracle(/*sides=*/4, 0.50f, Vector(0.4f, 0.3f, 1.0f),
-                                 /*rho_inner=*/0.25f);
+  check_face_distance_oracle(samples, /*sides=*/3, 0.45f,
+                             Vector(0.4f, 0.3f, 1.0f));
+  check_face_distance_oracle(samples, /*sides=*/5, 0.50f,
+                             Vector(0.4f, 0.3f, 1.0f));
+  check_face_distance_oracle(samples, /*sides=*/6, 0.40f,
+                             Vector(-0.6f, 0.5f, 0.7f));
+  check_face_distance_oracle(samples, /*sides=*/3, 0.12f,
+                             Vector(0.4f, 0.3f, 1.0f));
+  check_face_distance_oracle(samples, /*sides=*/4, 0.50f,
+                             Vector(0.4f, 0.3f, 1.0f), /*rho_inner=*/0.25f);
   // Concave star: convexity detection must reject it and the exact walk must
   // reproduce the oracle everywhere.
-  samples +=
-      check_face_distance_oracle(/*sides=*/6, 0.50f, Vector(0.4f, 0.3f, 1.0f),
-                                 /*rho_inner=*/0.25f);
+  check_face_distance_oracle(samples, /*sides=*/6, 0.50f,
+                             Vector(0.4f, 0.3f, 1.0f), /*rho_inner=*/0.25f);
   // The grid actually exercised the distance path.
   HS_EXPECT_GT(samples, 1000);
 }
@@ -2814,12 +2813,13 @@ inline Vector rotate_about(const Vector &v, const Vector &k, float theta) {
 /**
  * @brief Bakes a canonical LUT from one concave star face and sweeps a
  *        transformed congruent copy against the exact oracle.
+ * @param lut_total Accumulates the number of samples served by the LUT path.
  * @param cyc Cyclic shift applied to the copy's vertex order.
  * @param reflected Mirror the copy (and reverse its order, preserving winding).
  * @param rot_angle 3D rotation applied to the copy's vertices.
- * @return The number of samples served by the LUT path.
  */
-inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
+inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
+                                 float rot_angle) {
   constexpr int H = 144;
   constexpr int HV = H + hs::H_OFFSET;
   constexpr int sides = 6, n_verts = 2 * sides;
@@ -2963,7 +2963,7 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
         face.linear_dist ? lut.safe_dist : fast_atan2(lut.safe_dist, 1.0f);
     HS_EXPECT_GT(min_lut_mag, floor_mag - 0.01f);
   }
-  return lut_samples;
+  lut_total += lut_samples;
 }
 
 /**
@@ -2972,9 +2972,9 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
  */
 inline void test_face_class_lut_matches_oracle() {
   int lut_samples = 0;
-  lut_samples += check_face_class_lut(/*cyc=*/0, /*reflected=*/false, 0.0f);
-  lut_samples += check_face_class_lut(/*cyc=*/5, /*reflected=*/false, 1.1f);
-  lut_samples += check_face_class_lut(/*cyc=*/0, /*reflected=*/true, 0.7f);
+  check_face_class_lut(lut_samples, /*cyc=*/0, /*reflected=*/false, 0.0f);
+  check_face_class_lut(lut_samples, /*cyc=*/5, /*reflected=*/false, 1.1f);
+  check_face_class_lut(lut_samples, /*cyc=*/0, /*reflected=*/true, 0.7f);
   // The sweep actually fired the LUT path.
   HS_EXPECT_GT(lut_samples, 300);
 }

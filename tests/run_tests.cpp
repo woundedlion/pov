@@ -131,7 +131,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("memory", 41, hs_test::memory_tests::run_memory_tests, 190)                \
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
   X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
-  X("sdf", 95, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
+  X("sdf", 97, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
   X("conway", 33, hs_test::conway_tests::run_conway_tests, 4121)               \
   X("conway_morph", 37, hs_test::conway_morph_tests::run_conway_morph_tests,   \
     302862)                                                                    \
