@@ -434,7 +434,7 @@ private:
   __attribute__((always_inline)) static Footprint bilinear_footprint(float x,
                                                                      float y) {
     // NaN, an infinity, or a row this far out makes the truncation below UB.
-    constexpr float ROW_LIMIT = 1e9f;
+    [[maybe_unused]] constexpr float ROW_LIMIT = 1e9f;
     assert(std::fabs(y) < ROW_LIMIT);
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
