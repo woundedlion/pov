@@ -1645,8 +1645,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         build_runs(y);
       for (size_t r = 0; r < num_runs; ++r) {
         const long long len = runs[r].second - runs[r].first;
-        hs_aa::g_audit.probes += len;
-        hs_aa::g_audit.probe_rows[y] += len;
+        hs_aa::g_audit.note_probes(y, len);
       }
     }
   }
