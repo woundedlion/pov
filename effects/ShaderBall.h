@@ -3677,7 +3677,7 @@ private:
       if constexpr (LENS == SurfaceLens::NONE)
         return v;
       else if constexpr (LENS == SurfaceLens::GLITCH)
-        return glitch_lens(v);
+        return lenses::glitch_lens(v);
       else if constexpr (LENS == SurfaceLens::KALEIDOSCOPE)
         return lenses::kaleidoscope_lens(v);
       else if constexpr (LENS == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)
@@ -4929,7 +4929,7 @@ private:
     case SurfaceLens::NONE:
       return v;
     case SurfaceLens::GLITCH:
-      return glitch_lens(v);
+      return lenses::glitch_lens(v);
     case SurfaceLens::TWIST:
       return lenses::twist_lens(v);
     case SurfaceLens::KALEIDOSCOPE:

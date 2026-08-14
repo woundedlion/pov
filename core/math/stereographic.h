@@ -7,7 +7,7 @@
 /**
  * @file stereographic.h
  * @brief Shading helpers for stereographic-space patterns: pole attenuation,
- *        pattern normalization, trig-argument clamping and the glitch lens.
+ *        pattern normalization and trig-argument clamping.
  */
 
 #include "math/3dmath.h"
@@ -53,25 +53,4 @@ inline Complex stereo_pattern_args(const Complex &w, float pattern_freq) {
                            STEREO_PATTERN_ARG_LIMIT),
                  hs::clamp(w.im * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
                            STEREO_PATTERN_ARG_LIMIT));
-}
-
-/**
- * @brief Applies a trig-free glitch lens to a sphere direction.
- * @param v Unit direction vector on the sphere.
- * @return Direction after latitude doubling and azimuth tripling; returns
- * the up vector near the lens axis.
- */
-inline Vector glitch_lens(const Vector &v) {
-  const float x2 = v.x * v.x;
-  const float z2 = v.z * v.z;
-  const float radius2 = x2 + z2;
-  constexpr float MIN_AXIS_RADIUS2 = 1e-6f;
-  if (radius2 < MIN_AXIS_RADIUS2)
-    return Vector(0.0f, 1.0f, 0.0f);
-
-  const float inverse_radius2 = 1.0f / radius2;
-  const float double_y = 2.0f * v.y;
-  return Vector(double_y * v.x * (4.0f * x2 * inverse_radius2 - 3.0f),
-                2.0f * v.y * v.y - 1.0f,
-                double_y * v.z * (3.0f - 4.0f * z2 * inverse_radius2));
 }

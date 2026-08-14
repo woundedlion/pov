@@ -5334,26 +5334,26 @@ inline void test_shaderball_glitch_lens_unit_norm() {
                          Vector(0.2f, -0.9f, 0.4f).normalized(),
                          Vector(-0.7f, 0.1f, 0.7f).normalized()};
   for (const Vector &v : dirs) {
-    HS_EXPECT_NEAR(glitch_lens(v).length(), 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(lenses::glitch_lens(v).length(), 1.0f, 1e-3f);
   }
 
-  const Vector equator_x = glitch_lens(Vector(1, 0, 0));
+  const Vector equator_x = lenses::glitch_lens(Vector(1, 0, 0));
   HS_EXPECT_NEAR(equator_x.x, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(equator_x.y, -1.0f, 1e-6f);
   HS_EXPECT_NEAR(equator_x.z, 0.0f, 1e-6f);
 
-  const Vector north = glitch_lens(Vector(0, 1, 0));
+  const Vector north = lenses::glitch_lens(Vector(0, 1, 0));
   HS_EXPECT_NEAR(north.y, 1.0f, 1e-6f);
-  const Vector south = glitch_lens(Vector(0, -1, 0));
+  const Vector south = lenses::glitch_lens(Vector(0, -1, 0));
   HS_EXPECT_NEAR(south.y, 1.0f, 1e-6f);
 
   constexpr float EPSILON = 1e-4f;
   const float radial = sqrtf(1.0f - EPSILON * EPSILON);
-  const Vector center = glitch_lens(Vector(0.8f, 0.0f, 0.6f));
+  const Vector center = lenses::glitch_lens(Vector(0.8f, 0.0f, 0.6f));
   const Vector above =
-      glitch_lens(Vector(0.8f * radial, EPSILON, 0.6f * radial));
+      lenses::glitch_lens(Vector(0.8f * radial, EPSILON, 0.6f * radial));
   const Vector below =
-      glitch_lens(Vector(0.8f * radial, -EPSILON, 0.6f * radial));
+      lenses::glitch_lens(Vector(0.8f * radial, -EPSILON, 0.6f * radial));
   const Vector forward = above - center;
   const Vector backward = center - below;
   HS_EXPECT_NEAR(forward.x, backward.x, 1e-6f);
