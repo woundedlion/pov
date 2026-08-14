@@ -1,16 +1,18 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+#pragma once
+
+/**
  * @file effect_registry.h
  * @brief Self-registering effect factory. Each effect header calls
  *        REGISTER_EFFECT(ClassName) which appends to a global registry at
  *        static-init time.
- *
- * Enabled for the WASM build and registry tests. On firmware it is a no-op, so
- * effect registration pulls in no std::vector/std::function overhead.
+ * @details Enabled for the WASM build and registry tests. On firmware it is a
+ *          no-op, so effect registration pulls in no std::vector/std::function
+ *          overhead.
  */
-#pragma once
 
 #include "engine/build_features.h"
 
