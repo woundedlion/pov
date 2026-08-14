@@ -2684,7 +2684,7 @@ private:
           view, frame);
     }
   };
-  using GlitchNoiseGridWaveShearPipeline = InversePipeline<
+  using GlitchNoiseGridWaveShearPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
                                   SurfaceLens::GLITCH>,
@@ -2692,6 +2692,14 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+  struct GlitchNoiseGridWaveShearPipeline
+      : GlitchNoiseGridWaveShearPipelineBase {
+    FASTRUN __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return GlitchNoiseGridWaveShearPipelineBase::template run_stage<0>(view,
+                                                                         frame);
+    }
+  };
   using KaleidoscopeTwinWaveInnerMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,

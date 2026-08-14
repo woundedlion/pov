@@ -412,7 +412,7 @@ private:
     }
   }
 
-  void configure_particle_geometry(BaseMesh base_mesh) {
+  HS_FLASH_MEMBER void configure_particle_geometry(BaseMesh base_mesh) {
     const std::span<const Vector> emitters = emitter_vertices(base_mesh);
     const std::span<const Vector> attractors = attractor_vertices(base_mesh);
 
