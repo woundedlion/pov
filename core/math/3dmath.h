@@ -1107,9 +1107,12 @@ inline Complex gnomonic(const Vector &v) {
  */
 inline Vector inv_gnomonic(const Complex &z, float original_sign) {
   // Clamped-to-infinity → equator, recognized from STEREO_INF_RECOGNIZE (margin
-  // snaps a Mobius-shrunk sentinel back to the limit).
-  if (std::abs(z.re) >= STEREO_INF_RECOGNIZE ||
-      std::abs(z.im) >= STEREO_INF_RECOGNIZE) {
+  // snaps a Mobius-shrunk sentinel back to the limit). Radial, matching the
+  // forward clamp: a per-component test would make the snap-back radius
+  // azimuth-dependent. Squared compare avoids a sqrt, and a magnitude past the
+  // float range overflows to infinity, which still clears the bound.
+  if (z.re * z.re + z.im * z.im >=
+      STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE) {
     // Normalize by the larger component first: squaring a magnitude well past
     // the sentinel would overflow to infinity and yield a zero vector.
     const float scale = 1.0f / std::max(std::abs(z.re), std::abs(z.im));
