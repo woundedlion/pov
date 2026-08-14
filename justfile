@@ -131,13 +131,23 @@ teensy-size:
 
 # Host self-tests behind the Teensy toolchain: size/layout gate parser + layout
 # invariants + warning ratchet (spec §9.1), the PlatformIO build hook, the
-# profile log parser, the relax-bake generator, and the routed PCB metadata —
-# pure Python, no ARM toolchain. Mirrors the ci.yml teensy-gate-tests job.
+# pre-commit hook's staged-path classifiers, the profile log parser, the
+# relax-bake generator, and the routed PCB metadata — pure Python, no ARM
+# toolchain. Mirrors the ci.yml teensy-gate-tests job, including its
+# check_test_files.sh count pins (discover stays green when a suite file is
+# deleted or renamed out of the pattern).
 teensy-gate-test:
+    bash tools/check_test_files.sh 3 "tools/teensy_gate_tests/test*.py"
     {{py}} -m unittest discover -s tools/teensy_gate_tests -v
+    bash tools/check_test_files.sh 1 "tools/teensy_hook_tests/test*.py"
     {{py}} -m unittest discover -s tools/teensy_hook_tests -v
+    bash tools/check_test_files.sh 1 "tools/githook_tests/test*.py"
+    {{py}} -m unittest discover -s tools/githook_tests -v
+    bash tools/check_test_files.sh 3 "tools/profile_tests/test*.py"
     {{py}} -m unittest discover -s tools/profile_tests -v
+    bash tools/check_test_files.sh 1 "tools/relax_bake_tests/test*.py"
     {{py}} -m unittest discover -s tools/relax_bake_tests -v
+    bash tools/check_test_files.sh 16 "hardware/phantasm/gen/tests/test*.py"
     {{py}} -m unittest discover -s hardware/phantasm/gen/tests -v
     {{py}} hardware/phantasm/gen/board_metadata.py --check
 
