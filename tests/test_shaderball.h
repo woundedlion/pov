@@ -509,6 +509,10 @@ struct ShaderBallWhiteBox {
     return SB::grid(p, params, source);
   }
   static const auto &presets() { return SB::PRESETS; }
+  static constexpr NoiseChannelLayout
+  warp_channel_layout(const WarpStageSpec &spec) {
+    return SB::warp_resource_key(spec).channel_layout;
+  }
   static const auto &choreo() { return SB::CHOREO; }
   static void make_triadic(uint32_t &hue, uint32_t sequence,
                            GenerativePalette &out) {
@@ -1532,6 +1536,8 @@ inline void test_shaderball_preset_bank() {
                WB::WarpStageKind::VECTOR_NOISE);
   HS_EXPECT_EQ(vector_mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(WB::warp_channel_layout(vector_mirror.slots.warp_program.outer),
+               NoiseChannelLayout::DIRECT_VECTOR_V2);
   HS_EXPECT_EQ(vector_mirror.params.source.pattern_freq, 4.9755f);
   HS_EXPECT_EQ(vector_mirror.params.warp.outer.strength, 0.138f);
   HS_EXPECT_EQ(vector_mirror.params.warp.outer.field_angle, 2.23053074f);
