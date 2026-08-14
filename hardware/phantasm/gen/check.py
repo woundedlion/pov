@@ -69,7 +69,12 @@ def netlist_nets(root):
 
 
 def check(got):
-    """Report every net that differs from EXPECT; return True when all match."""
+    """Report every net that differs from EXPECT; return True when all match.
+
+    A named net absent from EXPECT is printed as an advisory NOTE and does not
+    move the verdict: the gate partitions the nets it knows, it does not close
+    the set.
+    """
     ok = True
     for name, keys in sorted(EXPECT.items()):
         g = got.get(name, set())
@@ -77,7 +82,7 @@ def check(got):
             ok = False
             print(f"FAIL {name}\n   missing {sorted(keys - g)}"
                   f"\n   unexpected {sorted(g - keys)}")
-    # flag any named (non-auto) net outside the spec table
+    # note any named (non-auto) net outside the spec table
     for name, g in got.items():
         if name.startswith(("unconnected", "Net-", "PWR")):
             continue
