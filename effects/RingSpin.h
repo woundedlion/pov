@@ -131,12 +131,13 @@ public:
         alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
         int slots = 0;
         constexpr float pixel_w = 2.0f * PI_F / W;
+        constexpr float MIN_SLOT_ALPHA = 0.001f;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];
           // Length-fade comes from the palette's alpha vignette, not a t term.
           Color4 c = ring.palette->get(1.0f - t);
           c.alpha = c.alpha * params.alpha;
-          if (c.alpha <= 0.001f)
+          if (c.alpha <= MIN_SLOT_ALPHA)
             continue;
 
           // Adaptive thickness: SDF::Ring takes a half-width, so the drawn
