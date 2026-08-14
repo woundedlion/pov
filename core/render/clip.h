@@ -191,10 +191,10 @@ struct ClipRegion {
    *      divide.
    */
   static bool arcs_overlap(int s1, int len1, int s2, int len2, int w) {
-    if (len1 >= w || len2 >= w)
-      return true;
     if (len1 <= 0 || len2 <= 0)
       return false;
+    if (len1 >= w || len2 >= w)
+      return true;
     HS_AUDIT_CHECK(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w);
     auto covers = [w](int s, int len, int p) {
       int d = p - s;
