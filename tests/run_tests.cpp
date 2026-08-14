@@ -171,7 +171,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("projections", 19, hs_test::projections_tests::run_projections_tests,      \
     95876)                                                                     \
   X("generators", 4, hs_test::generators_tests::run_generators_tests, 59)      \
-  X("animation", 112, hs_test::animation_tests::run_animation_tests, 13894)    \
+  X("animation", 113, hs_test::animation_tests::run_animation_tests, 13894)    \
   X("effects", 92, hs_test::effects_tests::run_effects_tests,                  \
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_FULL_MIN_ASSERTIONS                                          \

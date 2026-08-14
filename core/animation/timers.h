@@ -32,7 +32,10 @@ public:
     if (this->t < next)
       return;
     f(canvas);
-    if (this->repeat) {
+    // repeats(), not the raw flag: a callback that cancels its own timer must
+    // fall through to finish(), or Timeline's removal branch fires .then() a
+    // second time in the same frame.
+    if (this->repeats()) {
       static_cast<Derived *>(this)->reset();
       // A repeating timer never reaches done(), so fire the per-cycle .then()
       // directly to honor the contract.

@@ -935,6 +935,37 @@ inline void test_repeating_timer_fires_then_each_cycle() {
 }
 
 /**
+ * @brief Verifies a repeating timer canceled from inside its own callback fires
+ * .then() exactly once and is removed.
+ * @details The timer fires the per-cycle hook itself, and Timeline fires it
+ * again from the removal branch; both run in the trigger frame unless the timer
+ * reads repeats() (which drops on cancel) instead of the raw repeat flag.
+ */
+inline void test_repeating_timer_canceled_in_callback_fires_then_once() {
+  Timeline tl;
+  int thens = 0;
+  struct {
+    int triggers = 0;
+    Animation::PeriodicTimer *timer = nullptr;
+  } st; // one capture keeps the callback inside TimerFn's inplace budget
+  st.timer = tl.add_get(0,
+                        Animation::PeriodicTimer(
+                            3,
+                            [&st](Canvas &) {
+                              st.triggers++;
+                              st.timer->cancel();
+                            },
+                            /*repeat=*/true)
+                            .then([&]() { thens++; }),
+                        Timeline::Pin::UNPINNED);
+  for (int i = 0; i < 9; ++i)
+    tl.step(fake_canvas()); // would trigger at t=3,6,9 without the cancel
+  HS_EXPECT_EQ(st.triggers, 1);
+  HS_EXPECT_EQ(thens, 1);
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+}
+
+/**
  * @brief Verifies clear() destroys all events and leaves the timeline reusable,
  * without rewinding the global frame cursor.
  * @details This is the in-place reset the singleton offers in lieu of
@@ -3562,6 +3593,7 @@ inline int run_animation_tests() {
   test_timeline_compaction_preserves_later_events();
   test_timeline_then_chains_follow_up_event();
   test_repeating_timer_fires_then_each_cycle();
+  test_repeating_timer_canceled_in_callback_fires_then_once();
   test_timeline_clear_destroys_events_keeping_frame();
   test_timeline_instance_boundary_reclaims_pinned_event();
   test_timeline_full_guard_rejects_overflow();
