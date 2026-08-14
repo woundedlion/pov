@@ -28,6 +28,8 @@ from pathlib import Path
 PINS = {
     "doxygen-awesome": "568f56cde6ac78b6dfcc14acd380b2e745c301ea",
     "emsdk": "5.0.0",
+    # PyPI's rust-just, so the recipe runner is installed and held like ruff.
+    "just": "1.52.0",
     "node": "24.13.0",
     "platformio": "6.1.19",
     "ruff": "0.14.4",
