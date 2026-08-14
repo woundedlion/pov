@@ -65,6 +65,11 @@ The retained implementation combines several exact structural reductions:
 - 4 KiB-aligned flash wrappers for the phase-sensitive preset-9 and preset-4
   kernels.
 
+The complete per-experiment ledger, including rejected and superseded A/Bs,
+uses the required `SHA / Experiment / Preset/run / Peak before -> after /
+Ship/O3 symbol delta / Phantasm ITCM/RAM delta / Tests / Decision` schema in
+the [quest plan](../../shaderball_59ms_quest_plan.md#quest-outcome-and-experiment-ledger).
+
 The last item was established by generated-code A/B rather than source-level
 guessing. The final Phantasm ELF places the 0x37c-byte preset-9 shader at
 `0x60035000` and the 0x300-byte preset-4 shader at `0x60036000`. The resident
