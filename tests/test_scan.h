@@ -28,6 +28,26 @@
 namespace hs_test {
 namespace scan_tests {
 
+/**
+ * @brief Pins pole_lod_aggressiveness for a scope and restores it on exit.
+ * @details The knob is process-global, so an early return between a hand-rolled
+ * save and restore would hand every later case in the module a different LOD
+ * regime.
+ */
+struct ScopedPoleLod {
+  float saved; /**< Value in force at construction. */
+  /**
+   * @brief Pins the knob.
+   * @param value Aggressiveness held for the scope.
+   */
+  explicit ScopedPoleLod(float value) : saved(pole_lod_aggressiveness) {
+    pole_lod_aggressiveness = value;
+  }
+  ~ScopedPoleLod() { pole_lod_aggressiveness = saved; }
+  ScopedPoleLod(const ScopedPoleLod &) = delete;
+  ScopedPoleLod &operator=(const ScopedPoleLod &) = delete;
+};
+
 // ============================================================================
 // Scan::Shader::draw — full-sphere per-pixel shader
 // ============================================================================
@@ -439,8 +459,7 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
 inline void test_ring_group_matches_sequential() {
   constexpr int W = 96, H = 64;
   constexpr int N = 4;
-  const float saved_lod = pole_lod_aggressiveness;
-  pole_lod_aggressiveness = 0.0f;
+  const ScopedPoleLod lod(0.0f);
 
   auto run_case = [&](const Vector &normal, bool partial_clip) {
     Basis bases[N];
@@ -516,7 +535,6 @@ inline void test_ring_group_matches_sequential() {
   // Near-pole axis: r_val under the horizontal-projection floor forces the
   // group's full-row-scan fallback.
   run_case(Vector(0.005f, 1.0f, 0.0f).normalized(), false);
-  pole_lod_aggressiveness = saved_lod;
 }
 
 /**
@@ -547,8 +565,7 @@ inline void test_ring_group_matches_sequential() {
 inline void test_distorted_ring_stack_matches_sequential() {
   constexpr int W = 96, H = 64;
   constexpr int N_RINGS = 5, LUT_N = 32;
-  const float saved_lod = pole_lod_aggressiveness;
-  pole_lod_aggressiveness = 0.0f;
+  const ScopedPoleLod lod(0.0f);
 
   const float ths[N_RINGS] = {0.07f, 0.05f, 0.09f, 0.05f, 0.07f};
   const Color4 colors[N_RINGS] = {Color4(Pixel(60000, 0, 5000), 0.9f),
@@ -672,7 +689,6 @@ inline void test_distorted_ring_stack_matches_sequential() {
   // Near-pole axis: r_val under the horizontal-projection floor forces the
   // full-row-scan fallback on both paths.
   run_case(Vector(0.005f, 1.0f, 0.0f).normalized(), false, -1);
-  pole_lod_aggressiveness = saved_lod;
 }
 
 /**
@@ -691,8 +707,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
 inline void test_face_rasterize_matches_scan_region() {
   constexpr int W = 96, H = 64;
   constexpr int HV = H + hs::H_OFFSET;
-  const float saved_lod = pole_lod_aggressiveness;
-  pole_lod_aggressiveness = 0.0f;
+  const ScopedPoleLod lod(0.0f);
 
   // x0 == x1 leaves the frame unclipped; a margin that underflows x0 gives the
   // seam-wrapping band.
@@ -779,7 +794,6 @@ inline void test_face_rasterize_matches_scan_region() {
   run_case(pole, 0.35f, 4, 0.11f, 0, 0, 0);
   run_case(pole, 0.35f, 4, 0.11f, 12, 62, 0);
   run_case(pole, 0.35f, 4, 0.11f, 0, 40, 6);
-  pole_lod_aggressiveness = saved_lod;
 }
 
 /**
@@ -881,8 +895,7 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
 
   TrigLUT<W, H>::init();
 
-  const float saved = pole_lod_aggressiveness;
-  pole_lod_aggressiveness = 1.0f;
+  const ScopedPoleLod lod(1.0f);
   const int lod_stride = Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]);
   HS_EXPECT_GT(lod_stride, 1);
 
@@ -960,7 +973,6 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
   pole_lod_aggressiveness = 0.0f;
   HS_EXPECT_EQ(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]), 1);
   HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 1);
-  pole_lod_aggressiveness = saved;
 }
 
 /**
