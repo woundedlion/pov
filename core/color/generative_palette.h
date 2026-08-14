@@ -130,8 +130,10 @@ public:
   float palette_input_span() const { return input_span; }
   uint8_t palette_key_count() const { return key_count; }
 
-  /** @brief Sets every control key to one gamut-relative chroma.
-   *  @param chroma Chroma in [0, 1]. */
+  /** @brief Sets every control key to one chroma.
+   *  @param chroma Chroma in [0, 1], read in the palette's ChromaBasis:
+   *  gamut-relative under LOCAL_GAMUT, absolute OKLCh chroma under ABSOLUTE,
+   *  where values past the hue's gamut boundary render out of gamut. */
   HS_COLD_MEMBER void set_constant_chroma(float chroma) {
     chroma = hs::clamp(chroma, 0.0f, 1.0f);
     chroma_axis = {chroma, chroma, AxisCurve::CONSTANT};
