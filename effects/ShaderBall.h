@@ -7,6 +7,7 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -2039,14 +2040,6 @@ private:
     NONE = 0xff
   };
 
-  template <size_t Index, typename First, typename... Rest>
-  struct InverseStageAt : InverseStageAt<Index - 1, Rest...> {};
-
-  template <typename First, typename... Rest>
-  struct InverseStageAt<0, First, Rest...> {
-    using Type = First;
-  };
-
   template <typename Stage, typename = void>
   struct HasInverseStageContract : std::false_type {};
 
@@ -2100,12 +2093,12 @@ private:
 
   template <typename... Stages>
   struct InversePipelineValidation<true, Stages...> {
-    using OuterStage = typename InverseStageAt<0, Stages...>::Type;
-    using SurfaceStage = typename InverseStageAt<1, Stages...>::Type;
-    using WarpStage = typename InverseStageAt<2, Stages...>::Type;
-    using SourceStage = typename InverseStageAt<3, Stages...>::Type;
-    using MaterialStage = typename InverseStageAt<4, Stages...>::Type;
-    using ColorStage = typename InverseStageAt<5, Stages...>::Type;
+    using OuterStage = std::tuple_element_t<0, std::tuple<Stages...>>;
+    using SurfaceStage = std::tuple_element_t<1, std::tuple<Stages...>>;
+    using WarpStage = std::tuple_element_t<2, std::tuple<Stages...>>;
+    using SourceStage = std::tuple_element_t<3, std::tuple<Stages...>>;
+    using MaterialStage = std::tuple_element_t<4, std::tuple<Stages...>>;
+    using ColorStage = std::tuple_element_t<5, std::tuple<Stages...>>;
 
     static constexpr bool EMPTY_POLICIES = (std::is_empty_v<Stages> && ...);
     static constexpr bool ORDER =
@@ -2200,7 +2193,7 @@ private:
     template <size_t Index, typename Input>
     __attribute__((always_inline)) static Color4
     run_stage(const Input &input, const FrameState &frame) {
-      using Stage = typename InverseStageAt<Index, Stages...>::Type;
+      using Stage = std::tuple_element_t<Index, std::tuple<Stages...>>;
       static_assert(std::is_same_v<Input, typename Stage::Input>,
                     "inverse pipeline: stage input mismatch");
       static_assert(std::is_same_v<decltype(Stage::run(input, frame)),
@@ -4329,9 +4322,17 @@ private:
     case WarpStageKind::VORTEX:
       return warp_vortex(input, prepared);
     case WarpStageKind::VECTOR_NOISE:
+      if (amplitude == 0.0f)
+        return {input, Complex(), 0.0f, 0.0f};
+      HS_CHECK(stage_noise != nullptr,
+               "ShaderBall vector warp has no noise resource");
       return warp_vector_noise(input, spec, params, amplitude, *stage_noise,
                                prepared);
     case WarpStageKind::CURL_FLOW:
+      if (amplitude == 0.0f)
+        return {input, Complex(), 0.0f, 0.0f};
+      HS_CHECK(stage_noise != nullptr,
+               "ShaderBall curl warp has no noise resource");
       return warp_curl_flow(input, spec, params, amplitude, *stage_noise,
                             stage_phase);
     case WarpStageKind::MIRROR_TILE: {
