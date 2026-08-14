@@ -197,30 +197,50 @@ Worst render is 58.23 ms on COM3 and 58.06 ms on COM4. The full evidence and
 per-preset table are in
 `docs/profiles/shipping/profile_shaderball_teensy_2026-08-14.md`.
 
-| SHA | Retained experiment | Primary effect | Decision |
-|---|---|---|---|
-| `387c046f`–`e367a443` | Analytic/specialized Simplex curl and fused Euler step | Presets 13/14 fall below 50 ms | Keep; exact structural arithmetic removal |
-| `ff2ea771`–`b92ac517` | Skip/defer hidden palette rebakes | Transition preparation | Keep |
-| `67577f49` | Persistent spherical hue-noise cache | Noise-colored presets | Keep; bounded field/oracle tests pass |
-| `8cb5bf5a` | Couple Simplex vector channels | Preset 16 | Keep |
-| `36265e3e`–`357be008` | Remove redundant palette RGB lookup and split hue sampler | Shared color path | Keep |
-| `1a9644ee`–`7fe8dc4c` | Rebalance cold flash code and keep presets 0, 8, and 10 in ITCM | 0/8/10 | Keep; full-roster memory gate passes |
-| `a2e39bc0` | Prepare vector-warp trigonometry and loop offsets | Preset 16 | Keep; closes the original worst holdout |
-| `056ad3f3` | Prepare exact wave-shear direction | Preset 11 | Keep |
-| `70e31a4c` | Stop advancing discarded transition source runtime | All transitions after midpoint | Keep |
-| `cd79895e` | Update only the visible transition palette | Preset 10 transition, about 64.6→50.2 ms | Keep |
-| `b31cda1c` | Resume normal choreography after selected-preset profiling | Measurement harness | Keep |
-| `58335255` | Pin preset 11 pipeline in ITCM; move cold boot/control code to flash | Preset 11, about 77→51 ms | Keep; 168 B ITCM margin |
-| `0125443d` | Page-align preset-9 flash shader | Preset 9 | Keep; both full cycles pass, 58.23 ms worst |
-| `c5cb0bb4` | Page-align preset-4 flash shader | 4→5 transition, 65.98→41.64 ms bucket peak | Keep; final gate-closing change |
+`N/R` means the per-experiment artifact was not retained. Cumulative timing is
+shown only where it is the narrowest honest attribution; it is not presented
+as an isolated A/B. All symbol sizes are bytes. `RAM Δ0` means the measured
+RAM1/RAM2 floors were unchanged.
 
-Rejected A/Bs included reciprocal-square-root curl (`94fbacdf`), older vector
-phase preparation (`e5abfd18`), nearest hue quantization (`c716070b` and
-`894b89d3`), a global-O3 preset-10 shader, preset-16 ITCM placement, and cold
-`SolidBuilder` wrappers that increased COMDAT code. The 1 KiB preset-9
-alignment (`3af89af1`) was also superseded because it peaked at 59.32/60.12 ms
-on the two boards. Diagnostic stage/subtraction images were never used as
-acceptance evidence.
+| SHA | Experiment | Preset/run | Peak before -> after | Ship/O3 symbol delta | Phantasm ITCM/RAM delta | Tests | Decision |
+|---|---|---|---:|---|---|---|---|
+| `387c046f` | Derive Simplex curl analytically | 13/14 fixed | Chain: 107.89/97.91 -> 48.41/49.04 ms; isolated A/B N/R | Ship shared curl leaf: N/R; O3: N/R | Per-commit N/R | Native curl/oracle suite | Keep |
+| `d7e9303a` | Specialize the Simplex curl surface path | 13/14 fixed | Chain result above; isolated A/B N/R | Ship specialized leaf: N/R; O3: N/R | Per-commit N/R | Native ShaderBall oracle | Keep |
+| `e367a443` | Fuse the Simplex Euler surface step | 13/14 fixed | Chain result above; isolated A/B N/R | Ship fused leaf: N/R; O3: N/R | Per-commit N/R | Native ShaderBall oracle | Keep |
+| `ff2ea771` | Skip hidden palette rebakes | Transition preparation | N/R | Ship palette cycler: N/R; O3: N/R | Per-commit N/R | Palette/native suite | Keep |
+| `b92ac517` | Defer hidden palette boundary rebakes | Transition preparation | N/R | Ship palette cycler: N/R; O3: N/R | Per-commit N/R | Palette/native suite | Keep |
+| `67577f49` | Cache spherical hue noise | Noise-colored presets | N/R | Ship hue-field builder/sampler: N/R; O3: N/R | RAM2 Δ0; reused bounded field storage | Noise-field and framebuffer oracles | Keep |
+| `8cb5bf5a` | Couple Simplex vector channels | 16 fixed | Chain: 147.35 -> about 55.8 ms after `a2e39bc0`; isolated A/B N/R | Ship vector-noise leaf: N/R; O3: N/R | Per-commit N/R | FastNoise and ShaderBall oracles | Keep |
+| `36265e3e` | Bypass redundant palette RGB lookup | Shared color path | N/R | Ship color leaf: N/R; O3: N/R | Per-commit N/R | Color and ShaderBall oracles | Keep |
+| `357be008` | Split the hue-field sampler | Hue-noise presets | N/R | Ship sampler: N/R; O3: N/R | RAM2 Δ0 | Hue-field and framebuffer oracles | Keep |
+| `1a9644ee` | Pin preset 0 pipeline in ITCM; move cold ShaderBall frame/setup paths to flash | 0 fixed | Flash layout -> 25.8–27.0 ms | Ship p0: 0x298 flash -> ITCM; O3: N/R | Net per-commit N/R | Native suite, Phantasm gate, device fixed run | Keep |
+| `a079e9e3` | Temporarily pin preset 16 pipeline in ITCM | 16 fixed | No repeatable useful win | Ship p16: flash -> ITCM; O3: N/R | Net per-commit N/R | Native suite, Phantasm gate, device A/B | Superseded by arithmetic work and `304caf17` |
+| `a2e39bc0` | Prepare vector-warp trig and loop offsets | 16 fixed | 147.35 -> about 55.8 ms cumulative | Ship p16: specialized body delta N/R; O3: N/R | Per-commit N/R | Native ShaderBall oracle, device fixed run | Keep |
+| `304caf17` | Pin preset 10; return preset 16 to flash; move cold handlers to flash | 10/16 fixed | p10 about 82 -> 51.40 ms; p16 stays about 55.8 ms | Ship p10: 0x42c flash -> ITCM; p16: ITCM -> flash; O3: N/R | Net per-commit N/R | Native suite, Phantasm gate, device A/B | Keep |
+| `056ad3f3` | Prepare exact wave-shear direction | 11 fixed | 66.34 -> about 44.6 ms | Ship p11 body delta: N/R; O3: N/R | Per-commit N/R | Native ShaderBall oracle, device fixed run | Keep |
+| `ddc13795` | Trade preset 0 ITCM residence for preset 8 | 0/8 fixed | p8 about 76 -> 50.9 ms; p0 regressed in flash | Ship p0: ITCM -> flash; p8: 0x2b4 flash -> ITCM; O3: N/R | Placement swap; net N/R | Native suite, Phantasm gate, device A/B | Superseded by `7fe8dc4c` |
+| `7fe8dc4c` | Keep presets 0, 8, and 10 in ITCM; move cold setup code to flash | 0/8/10 fixed | 25.83/50.94/51.40 ms | Ship p0/p8/p10: 0x298/0x2b4/0x42c in ITCM; O3: N/R | Measured final-class footprint: 196,440 B ITCM; RAM floors unchanged | Full hook, Phantasm gate, fixed device runs | Keep |
+| `70e31a4c` | Stop discarded transition-source runtime after midpoint | Full transition cycle | p10 transition 64.51 -> about 64.5 ms; no isolated timing win | Ship `draw_frame`/runtime control: N/R; O3: N/R | Per-commit N/R | Transition/runtime tests, full device cycle | Keep; exact work removal |
+| `cd79895e` | Update only the visible transition palette | 9->10->11 | p10 transition about 64.6 -> 50.2 ms | Ship palette transition path: N/R; O3: N/R | RAM Δ0; ITCM N/R | Palette/transition tests, dual targeted runs | Keep |
+| `b31cda1c` | Resume normal choreography after profile preset selection | Harness, start at 9 | Timing N/A | Profile-only symbol delta: N/R; O3: N/A | Phantasm Δ0 | Profile harness tests, targeted device capture | Keep; measurement only |
+| `58335255` | Pin preset 11; move cold boot/control code to flash | 9->10->11 | p11 about 77 -> 50.99 ms; p9 regressed about 58.7 -> 65–67 ms | Ship p11: 0x2d4 flash -> ITCM; cold flash moves: 0x3c + 0x44 + 0x40 + 0x214; O3: N/R | +0x2d4 hot / -0x2d4 cold; measured 196,440 B ITCM, 168 B free; RAM floors unchanged | Effect/pov-sync tests, 71-test hook, Phantasm gate, dual device run | Keep; p9 required follow-up |
+| `3af89af1` | Isolate preset-9 shader on a 1 KiB flash boundary | 9->10->11, dual boards | 65–67 -> 59.32/60.12 ms | Ship p9: 0x37c flash body aligned 1024; O3: N/R | ITCM/RAM Δ0; flash padding only | Full hook, dual targeted runs | Superseded; missed gate on both-board maximum |
+| `0125443d` | Page-align preset-9 shader | 9->10->11 targeted; final full cycle | 60.12 -> about 42.1 ms targeted p9 phase; final full-cycle p9 58.23 ms | Ship p9: 0x37c at `0x60035000`, aligned 4096; O3: N/R | ITCM/RAM Δ0; flash code before p4 wrapper 427,496 B | Full hook, dual targeted runs, dual full cycles | Keep; 0.77 ms final headroom |
+| `c5cb0bb4` | Page-align preset-4 shader | 4->5->6->7 targeted; final full cycle | 65.98 -> 45.69 ms targeted sequence; final p4/p5 buckets 41.64/42.31 ms | Ship p4: 0x300 at `0x60036000`, aligned 4096; O3: N/R | ITCM/RAM Δ0; final flash 427,976 B | Full hook, dual targeted runs, dual 648-window full cycles | Keep; closes gate |
+| `94fbacdf` | Replace curl normalization with reciprocal square root | 13/14 fixed | No accepted improvement; exact A/B N/R | Ship curl leaf: N/R; O3: N/R | N/R | Native oracle and device A/B | Reject; numerical/benefit tradeoff |
+| `c752085c` | Add frame-preparation attribution probes | Diagnostic image | Acceptance timing N/A | Diagnostic-only instrumentation: N/R | N/R | Diagnostic capture | Reject from shipping; attribution only |
+| `e5abfd18` | Prepare the older vector phase/layout | 16 fixed | Superseded by exact offset preparation; A/B N/R | Ship p16 body: N/R; O3: N/R | N/R | Native oracle and device A/B | Reject |
+| `c716070b` | Quantize hue lookup to nearest samples | Hue-noise presets | A/B N/R | Ship hue sampler: N/R; O3: N/R | RAM Δ0 | Hue/framebuffer oracle | Reject; quality/benefit tradeoff |
+| `894b89d3` | Combine split hue sampler with nearest lookup | Hue-noise presets | A/B N/R | Ship hue sampler: N/R; O3: N/R | RAM Δ0 | Hue/framebuffer oracle | Reject |
+| Uncommitted | Compile preset 10 shader with global O3 | 10 fixed | Regression; exact peak N/R | Ship/O3 body delta N/R | N/R | Build, disassembly, device A/B | Reject |
+| Uncommitted | Move `SolidBuilder` cold wrappers to flash | Full roster size | Timing N/A | Ship COMDAT: about +4.6 KiB | ITCM benefit defeated by duplicate code; RAM Δ0 | Full-roster build gate | Reject |
+
+The final Phantasm footprint is 196,440/196,608 B ITCM, 314,880 B RAM1
+variables with 12,800 B local free, and 520,064 B RAM2 variables with 4,224 B
+allocator free. Against the attested 2026-08-13 baseline, the cumulative ITCM
+delta is +800 B; RAM1/RAM2 floor deltas are zero. No unmatched O3 build is
+treated as evidence: every `O3: N/R` cell explicitly records that the required
+matched symbol artifact was not retained.
 
 ## Acceptance gates
 
