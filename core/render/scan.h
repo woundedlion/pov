@@ -690,13 +690,9 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         if (d >= PIXEL_WIDTH)
           return span;
 
-        float coverage = 1.0f;
-        if (d > -PIXEL_WIDTH) {
-          const float t = 0.5f - d / (2.0f * PIXEL_WIDTH);
-          coverage = quintic_kernel(t);
-          if (coverage <= MIN_ALPHA)
-            return span;
-        }
+        const float coverage = solid_coverage(d, PIXEL_WIDTH);
+        if (coverage <= MIN_ALPHA)
+          return span;
 
         const float alpha = color.alpha * coverage;
         for (int i = 0; i < span; ++i)
