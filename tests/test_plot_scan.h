@@ -2608,6 +2608,157 @@ inline void test_multiline_sample_arclength_param() {
 }
 
 // ============================================================================
+// Plot::Multiline::draw — sampling plus rasterization, through the live entry
+// point ChaoticStrings calls. The cases above cover sample() alone; these run
+// the whole draw and hold the plotted positions against an analytic
+// point-to-geodesic-arc oracle.
+// ============================================================================
+
+/**
+ * @brief Angular distance from a direction to a geodesic arc.
+ * @param p Query direction (unit).
+ * @param a,b Arc endpoints (unit, non-antipodal).
+ * @return Radians from p to the nearest point of the arc a->b.
+ * @details Drops p onto the arc's great circle and keeps that perpendicular
+ * only when the foot lands between the endpoints; otherwise the nearest point
+ * is an endpoint. Computed from the arc directly, so it shares no code with the
+ * rasterizer it judges.
+ */
+inline float arc_angular_distance(const Vector &p, const Vector &a,
+                                  const Vector &b) {
+  const Vector axis = cross(a, b);
+  const float axis_len = axis.length();
+  if (axis_len < 1e-6f)
+    return std::min(angle_between(p, a), angle_between(p, b));
+  const Vector n = axis / axis_len;
+  const float out_of_plane = dot(p, n);
+  const Vector in_plane = p - n * out_of_plane;
+  const float in_plane_len = in_plane.length();
+  if (in_plane_len > 1e-6f) {
+    const Vector foot = in_plane / in_plane_len;
+    const float span = angle_between(a, b);
+    if (angle_between(a, foot) + angle_between(foot, b) <= span + 1e-3f)
+      return std::asin(hs::clamp(std::fabs(out_of_plane), 0.0f, 1.0f));
+  }
+  return std::min(angle_between(p, a), angle_between(p, b));
+}
+
+/** @brief Four non-coplanar control directions used by the Multiline cases. */
+inline void multiline_control_points(std::vector<Vector> &out) {
+  out = {Vector(1.0f, 0.0f, 0.0f), Vector(0.3f, 0.9f, 0.2f).normalized(),
+         Vector(-0.5f, 0.2f, 0.84f).normalized(),
+         Vector(-0.2f, -0.85f, 0.49f).normalized()};
+}
+
+/**
+ * @brief Verifies Multiline::draw paints its geodesic edges and nothing else.
+ * @details Every plotted position must lie on one of the polyline's geodesic
+ * arcs, every control point must be reached, and the walk must be gap-free —
+ * the three properties a caller drawing a path depends on. The tolerance is a
+ * screen row, since the rasterizer samples at pixel centres.
+ */
+inline void test_multiline_draw_covers_only_its_geodesic_edges() {
+  constexpr int W = 128, H = 64;
+  const float row = PI_F / (H - 1);
+
+  std::vector<Vector> control;
+  multiline_control_points(control);
+
+  ScratchScope sc(plot_arena());
+  Fragments verts;
+  verts.bind(plot_arena(), control.size());
+  for (const Vector &v : control) {
+    Fragment f;
+    f.pos = v;
+    verts.push_back(f);
+  }
+
+  hs_test::StubEffect fx(W, H);
+  CapturePipeline pipe;
+  {
+    Canvas c(fx);
+    Plot::Multiline::draw<W, H>(pipe, c, verts, noop_shader);
+  }
+  fx.advance_display();
+
+  HS_EXPECT_GT(pipe.plotted.size(), (size_t)0);
+  float worst_off_path = 0.0f;
+  for (const Vector &p : pipe.plotted) {
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+    float nearest = PI_F;
+    for (size_t i = 1; i < control.size(); ++i)
+      nearest = std::min(nearest,
+                         arc_angular_distance(p, control[i - 1], control[i]));
+    worst_off_path = std::max(worst_off_path, nearest);
+  }
+  HS_EXPECT_LT(worst_off_path, row);
+
+  // Every control point is reached, so no edge was skipped.
+  for (const Vector &c : control) {
+    float nearest = PI_F;
+    for (const Vector &p : pipe.plotted)
+      nearest = std::min(nearest, angle_between(p, c));
+    HS_EXPECT_LT(nearest, row);
+  }
+
+  // The open path's seam edge is not drawn: the arc closing last->first is
+  // empty apart from where it passes near a real edge.
+  HS_EXPECT_LT(max_consecutive_gap(pipe.plotted, /*wrap=*/false), row);
+}
+
+/**
+ * @brief Verifies the closed flag draws the last->first seam edge.
+ * @details Closing routes a loop_seam fragment through draw_fragments; without
+ * it the wrap edge is silently dropped. The seam's own midpoint separates the
+ * two renders: it is off every open edge and on the closed one.
+ */
+inline void test_multiline_draw_closed_adds_the_seam_edge() {
+  constexpr int W = 128, H = 64;
+  const float row = PI_F / (H - 1);
+
+  std::vector<Vector> control;
+  multiline_control_points(control);
+  const Vector seam_midpoint = (control.back() + control.front()).normalized();
+
+  // The midpoint is only a seam witness if it is off every drawn open edge.
+  float midpoint_to_open_path = PI_F;
+  for (size_t i = 1; i < control.size(); ++i)
+    midpoint_to_open_path = std::min(
+        midpoint_to_open_path,
+        arc_angular_distance(seam_midpoint, control[i - 1], control[i]));
+  HS_EXPECT_GT(midpoint_to_open_path, 4.0f * row);
+
+  auto draw_path = [&](bool closed) {
+    ScratchScope sc(plot_arena());
+    Fragments verts;
+    verts.bind(plot_arena(), control.size());
+    for (const Vector &v : control) {
+      Fragment f;
+      f.pos = v;
+      verts.push_back(f);
+    }
+    hs_test::StubEffect fx(W, H);
+    CapturePipeline pipe;
+    {
+      Canvas c(fx);
+      Plot::Multiline::draw<W, H>(pipe, c, verts, noop_shader, closed);
+    }
+    fx.advance_display();
+    float nearest = PI_F;
+    for (const Vector &p : pipe.plotted)
+      nearest = std::min(nearest, angle_between(p, seam_midpoint));
+    return std::pair<size_t, float>{pipe.plotted.size(), nearest};
+  };
+
+  const auto open_path = draw_path(false);
+  const auto closed_path = draw_path(true);
+
+  HS_EXPECT_GT(closed_path.first, open_path.first);
+  HS_EXPECT_LT(closed_path.second, row);
+  HS_EXPECT_GT(open_path.second, 4.0f * row);
+}
+
+// ============================================================================
 // Plot::Star<Plot::PlanarProjection>::sample / Plot::Flower::sample
 // ============================================================================
 
@@ -5429,6 +5580,9 @@ inline int run_plot_scan_tests() {
   test_planar_arc_length_matches_fine_quadrature();
   test_dual_metric_radial_vs_azimuthal();
   test_planar_arc_cumul_monotone_and_endpoints();
+
+  test_multiline_draw_covers_only_its_geodesic_edges();
+  test_multiline_draw_closed_adds_the_seam_edge();
 
   test_planar_one_pass_matches_forward_difference();
   test_planar_one_pass_tangent_is_forward_and_orthogonal();
