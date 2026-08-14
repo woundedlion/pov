@@ -22,6 +22,10 @@
 #define USE_DMA_LEDS
 #endif
 
+#ifndef HS_EXTERNAL_PARAM_STORAGE
+#define HS_EXTERNAL_PARAM_STORAGE
+#endif
+
 #ifndef PHANTASM_NUM_SEGMENTS
 #define PHANTASM_NUM_SEGMENTS 4
 #endif
