@@ -2671,11 +2671,19 @@ private:
       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<false>, SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::OPAQUE>, ColorStage>;
-  using DodecahedralNoiseLatticeMirrorPipeline = InversePipeline<
+  using DodecahedralNoiseLatticeMirrorPipelineBase = InversePipeline<
       OuterCameraStage,
       DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       PlanarWarpStage<true>, SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
+  struct DodecahedralNoiseLatticeMirrorPipeline
+      : DodecahedralNoiseLatticeMirrorPipelineBase {
+    FASTRUN __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return DodecahedralNoiseLatticeMirrorPipelineBase::template run_stage<0>(
+          view, frame);
+    }
+  };
   using GlitchNoiseGridWaveShearPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
@@ -2729,7 +2737,7 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
-  using GnomonicDodecahedralGridVectorMirrorPipelineBase = InversePipeline<
+  using GnomonicDodecahedralGridVectorMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
                                   SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
@@ -2738,14 +2746,6 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
-  struct GnomonicDodecahedralGridVectorMirrorPipeline
-      : GnomonicDodecahedralGridVectorMirrorPipelineBase {
-    HS_O3_FN FASTRUN __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return GnomonicDodecahedralGridVectorMirrorPipelineBase::
-          template run_stage<0>(view, frame);
-    }
-  };
   using GnomonicAffineLatticeContourPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC, SurfaceLens::NONE>,

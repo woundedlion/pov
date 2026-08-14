@@ -184,7 +184,7 @@ public:
   }
 
 private:
-  bool apply_preset(const PresetChange &change) override {
+  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
     if (!presets.select(change.to))
       return false;
     presets.apply(params);

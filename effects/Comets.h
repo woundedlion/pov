@@ -147,7 +147,7 @@ public:
   }
 
 private:
-  bool apply_preset(const PresetChange &change) override {
+  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
     if (!functions.select(change.to))
       return false;
     update_path();

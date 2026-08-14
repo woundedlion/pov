@@ -144,7 +144,7 @@ public:
   }
 
 private:
-  bool apply_preset(const PresetChange &change) override {
+  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
     if (!preset_manager.select(change.to))
       return false;
     if (change.origin != PresetChangeOrigin::AUTOMATIC)
