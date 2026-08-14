@@ -166,8 +166,10 @@ private:
   float next_hue =
       0.0f; /**< Per-instance hue cursor, advanced per spawn; reset in init() so hue assignment stays deterministic for the fixed-seed segmented driver. */
 
-  /** @brief Latches after the first dropped spawn is logged. */
-  bool logged_pool_full = false;
+  /** @brief Dropped spawns between successive pool-full log lines. */
+  static constexpr uint32_t POOL_FULL_LOG_PERIOD = 240;
+  /** @brief Spawns dropped against a full pool, cumulative. */
+  uint32_t pool_full_drops = 0;
 
 #if HS_ENABLE_TEST_HOOKS
   int spawns = 0;         /**< Rings placed into a free slot, cumulative. */
@@ -253,8 +255,8 @@ private:
    * rho units.
    * @details Assigns the next hue and advances the hue cursor. No-op if all
    * slots are in use, which RINGS_ON_PATH sizes the pool to prevent. A
-   * saturated pool drops one spawn per opened gap every frame, so only the
-   * first drop is logged.
+   * saturated pool drops one spawn per opened gap every frame, so the drop log
+   * is throttled to one line per POOL_FULL_LOG_PERIOD drops.
    */
   HS_COLD_MEMBER void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {
@@ -273,10 +275,9 @@ private:
 #if HS_ENABLE_TEST_HOOKS
     ++dropped_spawns;
 #endif
-    if (!logged_pool_full) {
-      logged_pool_full = true;
+    if (pool_full_drops % POOL_FULL_LOG_PERIOD == 0)
       hs::log("PetalFlow: ring pool full, dropping spawn");
-    }
+    ++pool_full_drops;
   }
 
   /**
