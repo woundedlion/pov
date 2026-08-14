@@ -2848,6 +2848,63 @@ inline void test_epoch_same_tick_burst_fold() {
   }
 }
 
+/**
+ * @brief Pins ContentTracker::construction_opens and ::constructing directly:
+ *        the window opens exactly once and lasts exactly K revolutions, for
+ *        every repeat copy the board may have heard.
+ * @details The simulator only observes these through dark_now, which cannot
+ *          separate "the window opens here" from "the window is open", nor say
+ *          which predicate an off-by-one came from. The window is anchored to
+ *          the absolute commit boundary, so a board that heard the last repeat
+ *          (announce phase already spent) opens it at the accept itself rather
+ *          than at a later crossing — both spellings are covered here.
+ */
+inline void test_construction_window_predicates() {
+  const Config cfg = test_config();
+  const uint32_t RPE = cfg.revs_per_effect;
+  const uint32_t R = static_cast<uint32_t>(cfg.epoch_repeats);
+  const uint32_t K = cfg.commit_revs;
+
+  for (uint32_t j = 0; j <= R; ++j) {
+    HS_CONTEXT("copy", static_cast<long long>(j));
+    ContentTracker c;
+    c.identity_known = true;
+    c.effect_index = 0;
+    c.rev_in_effect = RPE + j;
+
+    // Nothing scheduled: neither predicate can fire off commit_pending.
+    HS_EXPECT_FALSE(c.construction_opens(cfg));
+    HS_EXPECT_FALSE(c.constructing(cfg));
+
+    HS_EXPECT_TRUE(c.on_epoch_symbol(cfg));
+    const uint32_t announce = R - j; // crossings before the window opens
+    HS_EXPECT_EQ(c.commit_in_revs, K + announce);
+    HS_EXPECT_EQ(c.construction_opens(cfg), announce == 0);
+    HS_EXPECT_EQ(c.constructing(cfg), announce == 0);
+
+    uint32_t opens = c.construction_opens(cfg) ? 1u : 0u;
+    uint32_t dark = c.constructing(cfg) ? 1u : 0u;
+    uint32_t steps = 0;
+    bool committed = false;
+    while (!committed && steps <= K + R + 1) {
+      committed = c.on_zero_crossing(cfg);
+      ++steps;
+      // Opening is a moment inside the window, never outside it.
+      HS_EXPECT_TRUE(!c.construction_opens(cfg) || c.constructing(cfg));
+      opens += c.construction_opens(cfg) ? 1u : 0u;
+      dark += c.constructing(cfg) ? 1u : 0u;
+    }
+    HS_EXPECT_TRUE(committed);
+    HS_EXPECT_EQ(steps, K + announce);
+    HS_EXPECT_EQ(opens, 1u);
+    HS_EXPECT_EQ(dark, K);
+
+    // The commit closes the window; a board past it is lit again.
+    HS_EXPECT_FALSE(c.construction_opens(cfg));
+    HS_EXPECT_FALSE(c.constructing(cfg));
+  }
+}
+
 // ── §9.1 failure-mode budget: artifact bounds and recovery times ────────────
 //
 // One scenario per spec §9.1 budget row that the tests above do not already
@@ -3262,6 +3319,7 @@ inline int run_pov_sync_tests() {
   test_sim_rev_resync();
   test_sim_rev_wrap_within_effect();
   test_epoch_same_tick_burst_fold();
+  test_construction_window_predicates();
 
   test_budget_lost_symbol();
   test_budget_emi_accepted_seam();
