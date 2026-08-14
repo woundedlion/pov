@@ -3453,8 +3453,10 @@ struct GuardGapAllowance {
  *          land a dozen guards with no case at all and still clear it. Every
  *          census file's gap is gated against its row here, and a file with no
  *          row must be fully pinned — so new guards red the death module unless
- *          the same commit either pins them or writes the wider gap down.
- *          Lower a row after adding cases.
+ *          the same commit either pins them or writes the wider gap down. Each
+ *          row is exact in both directions: a row that over-approves reds the
+ *          module too, so pinning a guard or deleting one forces the row down
+ *          in the same commit instead of leaving an allowance nothing spends.
  */
 inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"animation.h", 3},
@@ -3558,6 +3560,7 @@ inline void report_guard_coverage(const Case *cs, int n) {
   int covered = 0;
   int off_census = 0;
   int unapproved_gaps = 0;
+  int stale_allowances = 0;
   constexpr int GAPS = 5;
   const GuardSiteCount *worst[GAPS] = {};
   int worst_gap[GAPS] = {};
@@ -3575,9 +3578,10 @@ inline void report_guard_coverage(const Case *cs, int n) {
                   f.file, gap, allowed, f.file, gap);
       ++unapproved_gaps;
     } else if (gap < allowed) {
-      std::printf("  stale allowance: {\"%s\", %d} now over-approves — the "
-                  "file's gap is %d\n",
-                  f.file, allowed, gap);
+      std::printf("  [FAIL] {\"%s\", %d} over-approves — the file's gap is %d; "
+                  "lower the GUARD_GAP_ALLOW row to {\"%s\", %d}\n",
+                  f.file, allowed, gap, f.file, gap);
+      ++stale_allowances;
     }
     for (int slot = 0; slot < GAPS; ++slot) {
       if (gap <= worst_gap[slot])
@@ -3617,12 +3621,15 @@ inline void report_guard_coverage(const Case *cs, int n) {
         in_census = true;
         break;
       }
-    if (!in_census)
-      std::printf("  stale allowance: \"%s\" names no guard-bearing file\n",
+    if (!in_census) {
+      std::printf("  [FAIL] allowance \"%s\" names no guard-bearing file\n",
                   a.file);
+      ++stale_allowances;
+    }
   }
   HS_EXPECT_GE(covered, MIN_COVERED_GUARD_SITES);
   HS_EXPECT_EQ(unapproved_gaps, 0);
+  HS_EXPECT_EQ(stale_allowances, 0);
 }
 
 /**
