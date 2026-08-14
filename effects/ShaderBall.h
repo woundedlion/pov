@@ -2035,6 +2035,7 @@ private:
     GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
     GNOMONIC_AFFINE_LATTICE_CONTOUR,
     SINUSOIDAL_CURL_LATTICE,
+    STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
     COUNT,
     NONE = 0xff
   };
@@ -2415,8 +2416,10 @@ private:
     static_assert(Outer == WarpStageKind::NONE ||
                   Outer == WarpStageKind::AFFINE_FRAME ||
                   Outer == WarpStageKind::WAVE_SHEAR ||
-                  Outer == WarpStageKind::MIRROR_TILE);
+                  Outer == WarpStageKind::MIRROR_TILE ||
+                  Outer == WarpStageKind::POLAR_CHART);
     static_assert(Inner == WarpStageKind::NONE ||
+                  Inner == WarpStageKind::WAVE_SHEAR ||
                   Inner == WarpStageKind::MIRROR_TILE);
     static constexpr InverseStageKind KIND = InverseStageKind::PLANAR_WARP;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
@@ -2436,11 +2439,12 @@ private:
     run(const ProjectedLookup &projected, const FrameState &frame) {
       HS_SB_STAGE_MARK(stage_start);
       const PlanarWarpStageResult outer = selected_stage<Outer>(
-          projected.coords, frame.params.warp.outer,
-          frame.clocks.warp_outer_phase, frame.prepared_warp.outer);
+          projected.coords, frame.slots.warp_program.outer,
+          frame.params.warp.outer, frame.clocks.warp_outer_phase,
+          frame.prepared_warp.outer);
       const PlanarWarpStageResult inner = selected_stage<Inner>(
-          outer.coords, frame.params.warp.inner, frame.clocks.warp_inner_phase,
-          frame.prepared_warp.inner);
+          outer.coords, frame.slots.warp_program.inner, frame.params.warp.inner,
+          frame.clocks.warp_inner_phase, frame.prepared_warp.inner);
       const Complex net_delta(outer.delta.re + inner.delta.re,
                               outer.delta.im + inner.delta.im);
       const PlanarWarpResult warped{
@@ -2454,14 +2458,17 @@ private:
   private:
     template <WarpStageKind Kind>
     __attribute__((always_inline)) static PlanarWarpStageResult
-    selected_stage(const Complex &input, const WarpStageParams &params,
-                   float phase, const PreparedWarpStage &prepared) {
+    selected_stage(const Complex &input, const WarpStageSpec &spec,
+                   const WarpStageParams &params, float phase,
+                   const PreparedWarpStage &prepared) {
       if constexpr (Kind == WarpStageKind::NONE) {
         return {input, Complex(), 0.0f, 0.0f};
       } else if constexpr (Kind == WarpStageKind::AFFINE_FRAME) {
         return warp_affine_frame(input, params, prepared);
       } else if constexpr (Kind == WarpStageKind::WAVE_SHEAR) {
         return warp_wave_shear(input, params, phase, params.strength);
+      } else if constexpr (Kind == WarpStageKind::POLAR_CHART) {
+        return warp_polar_chart(input, spec, params, phase);
       } else {
         static_assert(Kind == WarpStageKind::MIRROR_TILE);
         HS_SB_STAGE_MARK(mirror_start);
@@ -2725,6 +2732,15 @@ private:
       SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
       SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT>, ColorStage>;
+  using StereographicPrismPolarWaveLatticePipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
+                                  SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM>,
+      SelectedPlanarWarpStage<WarpStageKind::POLAR_CHART,
+                              WarpStageKind::WAVE_SHEAR>,
+      SourceStage<Function::PRIMITIVE_LATTICE>,
+      LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      ColorStage>;
 
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
 
@@ -3633,7 +3649,8 @@ private:
   selected_lens_lookup(const Vector &v) {
     static_assert(LENS == SurfaceLens::NONE || LENS == SurfaceLens::GLITCH ||
                   LENS == SurfaceLens::KALEIDOSCOPE ||
-                  LENS == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
+                  LENS == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL ||
+                  LENS == SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM);
     HS_SB_STAGE_MARK(stage_start);
     const Vector lensed = [&]() {
       if constexpr (LENS == SurfaceLens::NONE)
@@ -3642,8 +3659,11 @@ private:
         return glitch_lens(v);
       else if constexpr (LENS == SurfaceLens::KALEIDOSCOPE)
         return lenses::kaleidoscope_lens(v);
-      else
+      else if constexpr (LENS == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)
         return lenses::dodecahedral_kaleidoscope_lens(v);
+      else
+        return lenses::polyhedral_kaleidoscope_lens(
+            v, lenses::TRIANGULAR_PRISM_MIRRORS);
     }();
     HS_SB_STAGE_SPAN(lens, stage_start);
     return lensed;
@@ -3719,9 +3739,9 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 16> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 17> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 16> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 17> PROGRAMS{{
         make_program<KaleidoscopeNoiseGridPipeline,
                      InversePipelineId::KALEIDOSCOPE_NOISE_GRID,
                      make_topology_key(
@@ -3794,6 +3814,11 @@ private:
         make_program<SinusoidalCurlLatticePipeline,
                      InversePipelineId::SINUSOIDAL_CURL_LATTICE,
                      make_topology_key(sinusoidal_lattice_curl_preset(1.0f))>(
+            &all_continuous_parameters_supported),
+        make_program<StereographicPrismPolarWaveLatticePipeline,
+                     InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
+                     make_topology_key(
+                         stereographic_prism_polar_wave_lattice_preset())>(
             &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
@@ -5375,13 +5400,20 @@ private:
         slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART;
     const bool inner_polar =
         slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
-    if ((outer_polar && slots.warp_program.inner.kind != WarpStageKind::NONE) ||
+    if ((outer_polar && slots.warp_program.inner.kind != WarpStageKind::NONE &&
+         slots.warp_program.inner.kind != WarpStageKind::WAVE_SHEAR) ||
         (inner_polar && slots.warp_program.outer.kind != WarpStageKind::NONE))
       return false;
     if (inner_polar &&
         !polar_source_compatible(candidate, slots.warp_program.inner))
       return false;
     if (outer_polar &&
+        slots.warp_program.inner.kind == WarpStageKind::WAVE_SHEAR) {
+      const SourceTraits traits = source_traits(slots.function);
+      if (!traits.y_periodic || !traits.polar_angle_compatible)
+        return false;
+    }
+    if (outer_polar && slots.warp_program.inner.kind == WarpStageKind::NONE &&
         !polar_source_compatible(candidate, slots.warp_program.outer))
       return false;
     if (!affine_translation_compatible(candidate) ||
@@ -7082,7 +7114,48 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 26> PRESETS = {{
+  static constexpr Preset stereographic_prism_polar_wave_lattice_preset() {
+    Slots slots{Function::PRIMITIVE_LATTICE,
+                Projection::STEREOGRAPHIC,
+                ProjectionFramePolicy::SPIN_WANDER,
+                SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM,
+                {{WarpStageKind::POLAR_CHART}, {WarpStageKind::WAVE_SHEAR}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
+                PaletteMode::ANALOGOUS};
+    slots.palette_mapping = PaletteMapping::CUP;
+    slots.surface_noise_placement = SurfaceNoisePlacement::BEFORE_LENS;
+    Params params;
+    params.source.pattern_freq = 3.52279997f;
+    params.source.speed = 0.1f;
+    params.source.complexity = 0.9f;
+    params.source.pattern_mix = 1.0f;
+    params.source.secondary_rate = 0.8f;
+    params.source.lattice_cell_scale = 0.774140596f;
+    params.source.lattice_shape_blend = 1.0f;
+    params.source.lattice_softness = 0.377608389f;
+    params.source.lattice_radius = 0.290762514f;
+    params.warp.outer.strength = 1.0f;
+    params.warp.outer.speed = 0.000343749998f;
+    params.warp.outer.translation_x = 4.0f;
+    params.warp.inner.speed = 0.000999999931f;
+    params.warp.inner.translation_x = -0.0f;
+    params.warp.inner.shear = 0.75f;
+    params.projection.pole_fade = 2.27300000f;
+    params.projection.wander = 1.0f;
+    params.surface_lens.mix = 1.0f;
+    params.color.hue_shift_amount = 0.268000007f;
+    params.color.hue_noise_scale = 2.0f;
+    params.color.palette_chroma = 1.0f;
+    params.color.mapping_phase = -0.165999994f;
+    params.outer_camera.wander = 1.0f;
+    params.surface_noise.scale = 3.73634386f;
+    params.surface_noise.strength = 0.0759999976f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 27> PRESETS = {{
       {KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS,
        authored_surface_noise_params(
            {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
@@ -7147,6 +7220,7 @@ private:
       gnomonic_affine_lattice_contour_preset(),
       sinusoidal_lattice_curl_preset(1.78815627f),
       sinusoidal_lattice_curl_preset(3.29720306f),
+      stereographic_prism_polar_wave_lattice_preset(),
   }};
   static_assert(
       [] {
