@@ -426,12 +426,16 @@ private:
   /**
    * @brief Resolves a fractional coordinate to its bilinear footprint.
    * @param x Fractional longitude in [-W, 2W).
-   * @param y Fractional latitude row.
+   * @param y Fractional latitude row; rows outside [0, H) are allowed but must
+   *   stay finite and inside int range.
    * @details Wraps the columns across the seam; the row is left for the
    * caller's pole policy.
    */
   __attribute__((always_inline)) static Footprint bilinear_footprint(float x,
                                                                      float y) {
+    // NaN, an infinity, or a row this far out makes the truncation below UB.
+    constexpr float ROW_LIMIT = 1e9f;
+    assert(std::fabs(y) < ROW_LIMIT);
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
     const int x0 = ::fast_wrap(static_cast<int>(floor_x), W);
