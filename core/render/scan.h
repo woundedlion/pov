@@ -1807,6 +1807,10 @@ struct Mesh {
     // Once per mesh, not per face: rasterize_face indexes the phi LUT by the
     // canvas' own rows and hands SDF::Face the template H.
     check_canvas_dims<W, H>(canvas);
+    // The per-face wrapper below is itself always non-null, so the erased
+    // shader it wraps has to be checked here or not at all.
+    if constexpr (std::is_same_v<FragmentShaderT, FragmentShaderFn>)
+      check_fragment_shader(fragment_shader);
 
     ScratchScope scope(scratch_arena);
     auto *scratch = new_face_scratch(scratch_arena);
