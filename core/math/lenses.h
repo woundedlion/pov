@@ -26,8 +26,12 @@ namespace lenses {
 inline constexpr float TWIST_RATE = 3.0f;
 /** @brief Signed mirror distance treated as "on the chamber wall". */
 inline constexpr float POLYHEDRAL_MIRROR_EPS = 1e-6f;
-/** @brief Reflections a chamber fold may take before it is declared stuck. */
-inline constexpr int POLYHEDRAL_REFLECTION_LIMIT = 16;
+/** @brief Loop passes a chamber fold may take before it is declared stuck.
+ *  @details The dodecahedral chamber is the worst case: H3's 15 positive roots
+ *  bound the fold at 15 reflections, plus the pass that confirms the direction
+ *  is inside. The excess is slack for a near-wall direction the mirror epsilon
+ *  does not catch; a converging fold exits at its own pass count. */
+inline constexpr int POLYHEDRAL_REFLECTION_LIMIT = 24;
 
 /** @brief Inward mirror normals of the tetrahedral (*332) chamber. */
 inline constexpr std::array<Vector, 3> TETRAHEDRAL_MIRRORS = {
