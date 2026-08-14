@@ -577,5 +577,22 @@ class BucketOrdering(unittest.TestCase):
         self.assertIn("43.47", row)
 
 
+class CleanHoldSelection(unittest.TestCase):
+    def test_transition_window_with_one_missing_call_is_excluded(self):
+        marker = {"key": "preset", "idx": 12, "total": 17, "name": "12"}
+        held = pp.Window("Fx", 288, 144, 1, 16, 1)
+        held.marker = marker
+        held.counters["shader"] = {
+            "us": 16 * 50_000, "calls": 16, "cyc": 0, "pct": 80}
+        transition = pp.Window("Fx", 288, 144, 17, 32, 1)
+        transition.marker = marker
+        transition.counters["shader"] = {
+            "us": 15 * 100_000, "calls": 15, "cyc": 0, "pct": 80}
+
+        rows = pp.clean_hold_rows([held, transition], "shader", None)
+
+        self.assertEqual(rows, [("12", 2, 1, 50.0, 1.0, "")])
+
+
 if __name__ == "__main__":
     unittest.main()

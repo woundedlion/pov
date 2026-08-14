@@ -421,14 +421,14 @@ def clean_hold_rows(windows, scope, gate):
 
     rows = []
     for key, ws in groups.items():
-        gate_counts = [round(w.calls_per_frame(gate)) for w in ws
-                       if w.calls_per_frame(gate) is not None]
+        gate_counts = [w.counters[gate]["calls"] for w in ws
+                       if gate in w.counters]
         clean = ws
         if gate_counts:
             modal = Counter(gate_counts).most_common(1)[0][0]
             clean = [w for w in ws
-                     if w.calls_per_frame(gate) is not None
-                     and round(w.calls_per_frame(gate)) == modal]
+                     if gate in w.counters
+                     and w.counters[gate]["calls"] == modal]
         vals = [(w.per_frame_ms(scope), w) for w in clean
                 if w.per_frame_ms(scope) is not None]
         if not vals:
