@@ -2645,11 +2645,19 @@ private:
     }
   };
 
-  using BonneKaleidoscopeLatticeMirrorPipeline = InversePipeline<
+  using BonneKaleidoscopeLatticeMirrorPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::BONNE, SurfaceLens::KALEIDOSCOPE>,
       PlanarWarpStage<true>, SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
+  struct BonneKaleidoscopeLatticeMirrorPipeline
+      : BonneKaleidoscopeLatticeMirrorPipelineBase {
+    HS_FLASH_MEMBER __attribute__((noinline, aligned(4096))) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return BonneKaleidoscopeLatticeMirrorPipelineBase::template run_stage<0>(
+          view, frame);
+    }
+  };
   using PeirceKaleidoscopeLatticePipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
