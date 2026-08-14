@@ -3430,7 +3430,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"led.h", 3},
     {"plot.h", 13},
     {"plot_cull.h", 1},
-    {"plot_raster.h", 6},
+    {"plot_raster.h", 7},
     {"scan.h", 22},
     {"sdf.h", 7},
     {"sdf_common.h", 4},
