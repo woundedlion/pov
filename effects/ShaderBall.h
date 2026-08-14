@@ -2019,8 +2019,6 @@ private:
   };
 
   enum class InversePipelineId : uint8_t {
-    KALEIDOSCOPE_NOISE_GRID,
-    GLITCH_NOISE_GRID,
     BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
     PEIRCE_KALEIDOSCOPE_LATTICE,
     KALEIDOSCOPE_NOISE_GRID_EDGE_FADE,
@@ -2036,6 +2034,7 @@ private:
     GNOMONIC_AFFINE_LATTICE_CONTOUR,
     SINUSOIDAL_CURL_LATTICE,
     STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
+    GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
     COUNT,
     NONE = 0xff
   };
@@ -2416,6 +2415,7 @@ private:
     static_assert(Outer == WarpStageKind::NONE ||
                   Outer == WarpStageKind::AFFINE_FRAME ||
                   Outer == WarpStageKind::WAVE_SHEAR ||
+                  Outer == WarpStageKind::VECTOR_NOISE ||
                   Outer == WarpStageKind::MIRROR_TILE ||
                   Outer == WarpStageKind::POLAR_CHART);
     static_assert(Inner == WarpStageKind::NONE ||
@@ -2439,12 +2439,13 @@ private:
     run(const ProjectedLookup &projected, const FrameState &frame) {
       HS_SB_STAGE_MARK(stage_start);
       const PlanarWarpStageResult outer = selected_stage<Outer>(
-          projected.coords, frame.slots.warp_program.outer,
+          projected.coords, projected, frame.slots.warp_program.outer,
           frame.params.warp.outer, frame.clocks.warp_outer_phase,
-          frame.prepared_warp.outer);
+          frame.resources.outer_warp_noise, frame.prepared_warp.outer);
       const PlanarWarpStageResult inner = selected_stage<Inner>(
-          outer.coords, frame.slots.warp_program.inner, frame.params.warp.inner,
-          frame.clocks.warp_inner_phase, frame.prepared_warp.inner);
+          outer.coords, projected, frame.slots.warp_program.inner,
+          frame.params.warp.inner, frame.clocks.warp_inner_phase,
+          frame.resources.inner_warp_noise, frame.prepared_warp.inner);
       const Complex net_delta(outer.delta.re + inner.delta.re,
                               outer.delta.im + inner.delta.im);
       const PlanarWarpResult warped{
@@ -2458,8 +2459,9 @@ private:
   private:
     template <WarpStageKind Kind>
     __attribute__((always_inline)) static PlanarWarpStageResult
-    selected_stage(const Complex &input, const WarpStageSpec &spec,
-                   const WarpStageParams &params, float phase,
+    selected_stage(const Complex &input, const ProjectedLookup &projected,
+                   const WarpStageSpec &spec, const WarpStageParams &params,
+                   float phase, const FastNoiseLite *noise,
                    const PreparedWarpStage &prepared) {
       if constexpr (Kind == WarpStageKind::NONE) {
         return {input, Complex(), 0.0f, 0.0f};
@@ -2467,6 +2469,11 @@ private:
         return warp_affine_frame(input, params, prepared);
       } else if constexpr (Kind == WarpStageKind::WAVE_SHEAR) {
         return warp_wave_shear(input, params, phase, params.strength);
+      } else if constexpr (Kind == WarpStageKind::VECTOR_NOISE) {
+        const float amplitude =
+            params.strength *
+            warp_envelope(projected, spec.envelope, params.edge_width);
+        return warp_vector_noise(input, spec, params, amplitude, *noise, phase);
       } else if constexpr (Kind == WarpStageKind::POLAR_CHART) {
         return warp_polar_chart(input, spec, params, phase);
       } else {
@@ -2634,16 +2641,6 @@ private:
     }
   };
 
-  using KaleidoscopeNoiseGridPipeline =
-      InversePipeline<OuterCameraStage,
-                      DirectNoiseStereographicStage<SurfaceLens::KALEIDOSCOPE>,
-                      PlanarWarpStage<false>, SourceStage<Function::GRID>,
-                      LinearMaterialStage<CoveragePolicy::OPAQUE>, ColorStage>;
-  using GlitchNoiseGridPipeline =
-      InversePipeline<OuterCameraStage,
-                      DirectNoiseStereographicStage<SurfaceLens::GLITCH>,
-                      PlanarWarpStage<false>, SourceStage<Function::GRID>,
-                      LinearMaterialStage<CoveragePolicy::OPAQUE>, ColorStage>;
   using BonneKaleidoscopeLatticeMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::BONNE, SurfaceLens::KALEIDOSCOPE>,
@@ -2717,6 +2714,15 @@ private:
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
                                   SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       SelectedPlanarWarpStage<WarpStageKind::WAVE_SHEAR,
+                              WarpStageKind::MIRROR_TILE>,
+      SourceStage<Function::GRID>,
+      LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      ColorStage>;
+  using GnomonicDodecahedralGridVectorMirrorPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::GNOMONIC,
+                                  SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      SelectedPlanarWarpStage<WarpStageKind::VECTOR_NOISE,
                               WarpStageKind::MIRROR_TILE>,
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
@@ -3739,22 +3745,9 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 17> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 16> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 17> PROGRAMS{{
-        make_program<KaleidoscopeNoiseGridPipeline,
-                     InversePipelineId::KALEIDOSCOPE_NOISE_GRID,
-                     make_topology_key(
-                         {KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS,
-                          authored_surface_noise_params({}, {}, {}, {}, {},
-                                                        {})})>(
-            &direct_simplex_surface_supported),
-        make_program<GlitchNoiseGridPipeline,
-                     InversePipelineId::GLITCH_NOISE_GRID,
-                     make_topology_key({GENERATED_SURFACE_NOISE_SLOTS,
-                                        authored_surface_noise_params(
-                                            {}, {}, {}, {}, {}, {})})>(
-            &direct_simplex_surface_supported),
+    static constexpr std::array<ProgramDescriptor, 16> PROGRAMS{{
         make_program<BonneKaleidoscopeLatticeMirrorPipeline,
                      InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
                      make_topology_key(bonne_lattice_mirror_preset())>(
@@ -3819,6 +3812,12 @@ private:
                      InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
                      make_topology_key(
                          stereographic_prism_polar_wave_lattice_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<
+            GnomonicDodecahedralGridVectorMirrorPipeline,
+            InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
+            make_topology_key(
+                gnomonic_dodecahedral_vector_mirror_grid_preset())>(
             &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
@@ -7045,15 +7044,16 @@ private:
     params.source.complexity = 0.009122372f;
     params.source.pattern_mix = 1.0f;
     params.source.secondary_rate = 1.146f;
-    params.source.lattice_cell_scale = 2.25125f;
+    params.source.lattice_cell_scale = 1.22925f;
     params.source.lattice_shape_blend = 1.0f;
-    params.source.lattice_softness = 0.140839845f;
+    params.source.lattice_softness = 0.1608203f;
     params.source.lattice_radius = 0.332981884f;
     params.warp.outer.scale = 50.7493f;
     params.warp.outer.strength = 30.0f;
     params.warp.outer.speed = 0.015625f;
-    params.warp.outer.scale_x = 4.0f;
-    params.warp.outer.scale_y = 4.0f;
+    params.warp.outer.translation_x = 4.0f;
+    params.warp.outer.translation_y = 4.0f;
+    params.warp.outer.shear = -0.0f;
     params.warp.inner.scale = 0.1f;
     params.projection.spin_rate = 0.0208791979f;
     params.projection.wander = 0.00309175253f;
@@ -7155,56 +7155,40 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 27> PRESETS = {{
-      {KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params(
-           {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
-           {50.749298f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f}, {1.0f},
-           {0.201f, 1.0f, 0.00015458837f / TWO_PI_F}, {0.0030917525f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f},
-                                     {3.0f, 0.5f, 0.5f}, {1.4f, 0.0f}, {1.0f},
-                                     {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params({1.2f, 0.05f, 3.0f, 0.0f, 0.8f},
-                                     {3.0f, 0.5f, 0.5f}, {1.4f, 0.0f}, {1.0f},
-                                     {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params({14.528f, 0.1f, 0.5f, 0.0f, 0.8f},
-                                     {3.0f, 1.479f, 0.5f}, {1.0f, 0.0f}, {1.0f},
-                                     {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params({15.763f, 0.1f, 2.950552f, 0.0f, 0.8f},
-                                     {3.0f, 0.0f, 0.5f}, {1.0f, 0.0f}, {0.0f},
-                                     {0.0f, 1.0f, 0.05f / TWO_PI_F}, {1.0f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params({3.28f, 0.1f, 2.463f, 0.0f, 0.8f},
-                                     {0.1f, 13.47f, 0.5f}, {1.209f, 0.03725f},
-                                     {0.0f}, {0.011f, 1.0f, 0.02f / TWO_PI_F},
-                                     {0.252f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params(
-           {15.972f, 0.1f, 2.7558982f, 0.536f, 0.8f},
-           {1.8421826f, 5.377862f, 0.5f}, {1.0834427f, 0.014871964f}, {0.0f},
-           {0.004391721f, 1.0f, 0.038022578f / TWO_PI_F}, {0.70136297f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params(
-           {2.7f, 0.586f, 0.0f, 1.0f, 0.7f}, {47.752f, 11.55f, 0.3f},
-           {1.55f, ORBIT_SPIN_RATE}, {0.0f}, {0.097f, 1.0f, 0.0f}, {0.0f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params(
-           {8.0f, 0.30f, 0.0f, 1.0f, 0.7f}, {1.5f, 0.5f, 0.3f},
-           {2.0f, ORBIT_SPIN_RATE}, {0.0f}, {0.15f, 1.0f, 0.0f}, {0.0f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params({13.430163f, 0.385f, 0.0f, 1.0f, 0.7f},
-                                     {0.1f, 0.0f, 0.3f},
-                                     {1.627f, ORBIT_SPIN_RATE}, {1.0f},
-                                     {0.10404046f, 1.0f, 0.0f}, {0.0f})},
-      {GENERATED_SURFACE_NOISE_SLOTS,
-       authored_surface_noise_params(
-           {1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f},
-           {38.761299f, 30.0f, 0.4699f}, {1.5482996f, 0.020879198f}, {0.0f},
-           {0.201f, 1.0f, 0.00015458837f / TWO_PI_F}, {0.0030917525f})},
+  static constexpr Preset gnomonic_dodecahedral_vector_mirror_grid_preset() {
+    Slots slots{Function::GRID,
+                Projection::GNOMONIC,
+                ProjectionFramePolicy::IDENTITY,
+                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
+                {{WarpStageKind::VECTOR_NOISE}, {WarpStageKind::MIRROR_TILE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
+                PaletteMode::TRIADIC};
+    slots.palette_mapping = PaletteMapping::CUP;
+    slots.brightness_envelope = BrightnessEnvelope::CUP;
+    Params params;
+    params.source.pattern_freq = 4.9755f;
+    params.source.speed = 0.04f;
+    params.source.complexity = 1.704f;
+    params.source.secondary_rate = 0.8f;
+    params.source.angle_rate = 0.027f;
+    params.warp.outer.strength = 0.138f;
+    params.warp.outer.speed = -0.00005f;
+    params.warp.outer.frequency = 1.408f;
+    params.warp.outer.field_angle = 2.23053074f;
+    params.warp.inner.speed = 0.00327999983f;
+    params.projection.pole_fade = 2.311f;
+    params.projection.wander = 1.0f;
+    params.surface_lens.mix = 1.0f;
+    params.color.hue_shift_amount = 0.721f;
+    params.color.palette_chroma = 1.0f;
+    params.color.brightness_depth = 0.655f;
+    params.outer_camera.wander = 1.0f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 17> PRESETS = {{
       wave_shear_generated_preset(),
       kaleidoscope_mirror_preset(),
       gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
@@ -7221,6 +7205,7 @@ private:
       sinusoidal_lattice_curl_preset(1.78815627f),
       sinusoidal_lattice_curl_preset(3.29720306f),
       stereographic_prism_polar_wave_lattice_preset(),
+      gnomonic_dodecahedral_vector_mirror_grid_preset(),
   }};
   static_assert(
       [] {
@@ -7244,11 +7229,6 @@ private:
     std::array<Choreo, PRESETS.size()> choreo;
     for (Choreo &entry : choreo)
       entry = {0, 0, 480, false};
-    choreo[0] = {30, 90, 60, true};
-    choreo[1] = {30, 90, 60, true};
-    choreo[2] = {30, 90, 60, true};
-    choreo[3] = {30, 90, 60, true};
-    choreo[4] = {30, 90, 480, false};
     return choreo;
   }();
   static_assert(CHOREO.size() == PRESETS.size());
@@ -7274,7 +7254,7 @@ private:
 
   Slots active_slots = PRESETS[0].slots;
   InversePipelineId active_pipeline =
-      InversePipelineId::KALEIDOSCOPE_NOISE_GRID;
+      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   Config display_config = PRESETS[0];
   std::array<PendingEdit, PARAM_CAPACITY> pending_edits{};
