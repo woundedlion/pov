@@ -49,6 +49,22 @@ namespace plot_scan_tests {
 // Local arena for sampling.
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Draws a uniform random unit vector from hs::random().
+ * @return A unit Vector; draws inside a 0.1-radius ball are rejected and
+ *         redrawn, so the normalize is well conditioned.
+ */
+inline Vector rand_unit() {
+  for (;;) {
+    const float rx = hs::rand_f(-1, 1);
+    const float ry = hs::rand_f(-1, 1);
+    const float rz = hs::rand_f(-1, 1);
+    Vector r(rx, ry, rz);
+    if (r.length() > 0.1f)
+      return r.normalized();
+  }
+}
+
 /** @brief Backing storage for the module-local sampling arena. */
 inline uint8_t plot_scan_arena_buf[256 * 1024];
 
@@ -834,16 +850,6 @@ inline void test_col_span_covers_arc() {
     int d = ((ci - s) % TW + TW) % TW;
     return d < len;
   };
-  auto rand_unit = [] {
-    for (;;) {
-      const float rx = hs::rand_f(-1, 1);
-      const float ry = hs::rand_f(-1, 1);
-      const float rz = hs::rand_f(-1, 1);
-      Vector r(rx, ry, rz);
-      if (r.length() > 0.1f)
-        return r.normalized();
-    }
-  };
 
   hs::random().seed(20260714);
   int cullable = 0;  // spans narrower than half the canvas
@@ -1019,16 +1025,6 @@ static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_stage);
 inline void test_edge_visible_in_clip_matches_span_composition() {
   constexpr int TW = 288, TH = 144;
   Pipeline<TW, TH> sink;
-  auto rand_unit = [] {
-    for (;;) {
-      const float rx = hs::rand_f(-1, 1);
-      const float ry = hs::rand_f(-1, 1);
-      const float rz = hs::rand_f(-1, 1);
-      Vector r(rx, ry, rz);
-      if (r.length() > 0.1f)
-        return r.normalized();
-    }
-  };
 
   hs::random().seed(20260716);
   const int bands[][4] = {
@@ -1350,16 +1346,6 @@ inline void test_rasterize_column_cull_pixel_parity() {
   constexpr int W = 96, H = 48;
   auto shade = [](const Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
-  };
-  auto rand_unit = [] {
-    for (;;) {
-      const float rx = hs::rand_f(-1, 1);
-      const float ry = hs::rand_f(-1, 1);
-      const float rz = hs::rand_f(-1, 1);
-      Vector r(rx, ry, rz);
-      if (r.length() > 0.1f)
-        return r.normalized();
-    }
   };
 
   hs::random().seed(0xC01C);
@@ -1763,16 +1749,6 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline{
       Filter::Screen::AntiAlias<W, H>()};
   hs::random().seed(0xCA47);
-  auto rand_unit = [] {
-    for (;;) {
-      const float px = hs::rand_f(-1, 1);
-      const float py = hs::rand_f(-1, 1);
-      const float pz = hs::rand_f(-1, 1);
-      Vector p(px, py, pz);
-      if (p.length() > 0.1f)
-        return p.normalized();
-    }
-  };
 
   const int clips[][4] = {
       {0, H / 2, 0, W / 2},
@@ -1848,16 +1824,6 @@ inline void test_gate_trail_edges_matches_edge_visible() {
   constexpr int TW = 288, TH = 144;
   Pipeline<TW, TH, Filter::Screen::AntiAlias<TW, TH>> pipeline{
       Filter::Screen::AntiAlias<TW, TH>()};
-  auto rand_unit = [] {
-    for (;;) {
-      const float rx = hs::rand_f(-1, 1);
-      const float ry = hs::rand_f(-1, 1);
-      const float rz = hs::rand_f(-1, 1);
-      Vector r(rx, ry, rz);
-      if (r.length() > 0.1f)
-        return r.normalized();
-    }
-  };
   hs::random().seed(0x60FE);
 
   const int bands[][4] = {
@@ -1935,16 +1901,6 @@ inline void test_mesh_clip_cut_separates_band() {
   constexpr int SWEEP = 128;
   Pipeline<TW, TH, Filter::Screen::AntiAlias<TW, TH>> pipeline{
       Filter::Screen::AntiAlias<TW, TH>()};
-  auto rand_unit = [] {
-    for (;;) {
-      const float rx = hs::rand_f(-1, 1);
-      const float ry = hs::rand_f(-1, 1);
-      const float rz = hs::rand_f(-1, 1);
-      Vector r(rx, ry, rz);
-      if (r.length() > 0.1f)
-        return r.normalized();
-    }
-  };
   hs::random().seed(0xC07);
 
   const int bands[][4] = {
@@ -2029,16 +1985,6 @@ inline void test_rasterize_gate_bits_pixel_parity() {
   constexpr int W = 96, H = 48;
   auto shade = [](const Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
-  };
-  auto rand_unit = [] {
-    for (;;) {
-      const float rx = hs::rand_f(-1, 1);
-      const float ry = hs::rand_f(-1, 1);
-      const float rz = hs::rand_f(-1, 1);
-      Vector r(rx, ry, rz);
-      if (r.length() > 0.1f)
-        return r.normalized();
-    }
   };
   hs::random().seed(0x617E);
 
@@ -4090,16 +4036,6 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
 inline void test_particle_system_gate_pixel_parity_random_trails() {
   constexpr int W = 96, H = 48;
   hs::random().seed(20260717);
-  auto rand_unit = [] {
-    for (;;) {
-      const float rx = hs::rand_f(-1, 1);
-      const float ry = hs::rand_f(-1, 1);
-      const float rz = hs::rand_f(-1, 1);
-      Vector r(rx, ry, rz);
-      if (r.length() > 0.1f)
-        return r.normalized();
-    }
-  };
 
   StubSystem sys;
   sys.max_life = 100;
@@ -4301,18 +4237,6 @@ inline void test_rasterize_cull_follows_filter_orientation() {
 // track that anisotropy.
 // ============================================================================
 
-/** @brief Random unit vector, rejecting near-zero draws. */
-inline Vector az_rand_unit() {
-  for (;;) {
-    const float rx = hs::rand_f(-1, 1);
-    const float ry = hs::rand_f(-1, 1);
-    const float rz = hs::rand_f(-1, 1);
-    Vector r(rx, ry, rz);
-    if (r.length() > 0.1f)
-      return r.normalized();
-  }
-}
-
 /**
  * @brief Full-precision azimuthal unprojection (libm), an oracle independent of
  *        plot.h's LUT-based fast-trig path.
@@ -4346,8 +4270,8 @@ inline void test_azimuthal_project_radius_is_geodesic_angle() {
   hs::random().seed(0xA21E);
   int mid = 0;
   for (int trial = 0; trial < 4000; ++trial) {
-    Basis basis = basis_from_normal(az_rand_unit());
-    Vector p = az_rand_unit();
+    Basis basis = basis_from_normal(rand_unit());
+    Vector p = rand_unit();
     float geo = angle_between(p, basis.v);
     auto proj = Plot::azimuthal_project(p, basis);
     float r = std::hypot(proj.first, proj.second);
@@ -4373,7 +4297,7 @@ inline void test_azimuthal_roundtrip_identity() {
   hs::random().seed(0xB33F);
   int fwd = 0, inv = 0;
   for (int trial = 0; trial < 4000; ++trial) {
-    Basis basis = basis_from_normal(az_rand_unit());
+    Basis basis = basis_from_normal(rand_unit());
 
     float R = hs::rand_f(0.05f, PI_F - 0.05f);
     float th = hs::rand_f(-PI_F, PI_F);
@@ -4388,7 +4312,7 @@ inline void test_azimuthal_roundtrip_identity() {
         dot(s, basis.v) > -Plot::COS_PLANAR_ANTIPODE)
       ++inv;
 
-    Vector p = az_rand_unit();
+    Vector p = rand_unit();
     if (dot(p, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
     auto proj = Plot::azimuthal_project(p, basis);
@@ -4410,7 +4334,7 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
   hs::random().seed(0xC0DE);
   int n = 0;
   for (int trial = 0; trial < 4000; ++trial) {
-    Basis basis = basis_from_normal(az_rand_unit());
+    Basis basis = basis_from_normal(rand_unit());
     float R = hs::rand_f(0.02f, PI_F - 0.02f);
     float th = hs::rand_f(-PI_F, PI_F);
     Vector got =
@@ -4442,7 +4366,7 @@ inline void test_planar_arc_length_matches_fine_quadrature() {
   int bows = 0;
   float max_rel_err = 0.0f;
   for (int trial = 0; trial < 3000; ++trial) {
-    Basis basis = basis_from_normal(az_rand_unit());
+    Basis basis = basis_from_normal(rand_unit());
     float R1 = hs::rand_f(0.2f, 1.2f), R2 = hs::rand_f(0.2f, 1.2f);
     float t1 = hs::rand_f(-PI_F, PI_F), t2 = t1 + hs::rand_f(0.15f, 0.8f);
     Vector a =
@@ -4490,7 +4414,7 @@ inline void test_dual_metric_radial_vs_azimuthal() {
   hs::random().seed(0xE1A5);
   int radial = 0, azi = 0;
   for (int trial = 0; trial < 2000; ++trial) {
-    Basis basis = basis_from_normal(az_rand_unit());
+    Basis basis = basis_from_normal(rand_unit());
 
     float th = hs::rand_f(-PI_F, PI_F);
     float Ra = hs::rand_f(0.1f, 0.6f), Rb = hs::rand_f(0.8f, 1.4f);
@@ -4538,7 +4462,7 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
   hs::random().seed(0xF00D);
   int checked = 0;
   for (int trial = 0; trial < 2000; ++trial) {
-    Basis basis = basis_from_normal(az_rand_unit());
+    Basis basis = basis_from_normal(rand_unit());
     float R1 = hs::rand_f(0.1f, 1.3f), R2 = hs::rand_f(0.1f, 1.3f);
     float t1 = hs::rand_f(-PI_F, PI_F), t2 = t1 + hs::rand_f(0.3f, 1.5f);
     Vector a =
@@ -4621,9 +4545,9 @@ inline void test_planar_one_pass_matches_forward_difference() {
   float worst_len = 0.0f, worst_pos = 0.0f, worst_tan_len = 0.0f;
   float worst_tan_dot = 1.0f;
   for (int trial = 0; trial < 400; ++trial) {
-    Basis basis = basis_from_normal(az_rand_unit());
-    Vector a = az_rand_unit();
-    Vector b = az_rand_unit();
+    Basis basis = basis_from_normal(rand_unit());
+    Vector a = rand_unit();
+    Vector b = rand_unit();
     // Both endpoints clear of the antipodal seam, where the planar strategy
     // is not the path the rasterizer takes.
     if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
@@ -4668,9 +4592,9 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
   int checked = 0;
   float worst_orth = 0.0f;
   for (int trial = 0; trial < 400; ++trial) {
-    Basis basis = basis_from_normal(az_rand_unit());
-    Vector a = az_rand_unit();
-    Vector b = az_rand_unit();
+    Basis basis = basis_from_normal(rand_unit());
+    Vector a = rand_unit();
+    Vector b = rand_unit();
     if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
         dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
