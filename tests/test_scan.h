@@ -442,6 +442,13 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
   check(true);
 }
 
+// AA-dust envelope of the fused ring-group scan. Both paths currently agree
+// bit-exactly on all three cases (the per-case line reports the live figure),
+// so these bound the divergence the doc below permits rather than one that is
+// spent: a handful of stroke-edge pixels at 1/128 of full scale.
+constexpr int GROUP_MAX_CHANNEL_DELTA = 512;
+constexpr int GROUP_MAX_DIFF_PIXELS = 16;
+
 /**
  * @brief Verifies RingGroup::draw matches per-ring sequential rasterizes
  *        up to interval-clip AA dust.
@@ -515,6 +522,7 @@ inline void test_ring_group_matches_sequential() {
     fused.advance_display();
 
     int diff_px = 0;
+    int worst_delta = 0;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         const Pixel &a = expected[y * W + x];
@@ -522,12 +530,18 @@ inline void test_ring_group_matches_sequential() {
         if (a.r == b.r && a.g == b.g && a.b == b.b)
           continue;
         ++diff_px;
-        HS_EXPECT_NEAR(static_cast<int>(a.r), static_cast<int>(b.r), 512);
-        HS_EXPECT_NEAR(static_cast<int>(a.g), static_cast<int>(b.g), 512);
-        HS_EXPECT_NEAR(static_cast<int>(a.b), static_cast<int>(b.b), 512);
+        const int deltas[3] = {std::abs(static_cast<int>(a.r) - b.r),
+                               std::abs(static_cast<int>(a.g) - b.g),
+                               std::abs(static_cast<int>(a.b) - b.b)};
+        for (int d : deltas) {
+          worst_delta = std::max(worst_delta, d);
+          HS_EXPECT_LE(d, GROUP_MAX_CHANNEL_DELTA);
+        }
       }
     }
-    HS_EXPECT_LE(diff_px, 16);
+    std::printf("  [ring-group] diff_px=%d worst_delta=%d\n", diff_px,
+                worst_delta);
+    HS_EXPECT_LE(diff_px, GROUP_MAX_DIFF_PIXELS);
   };
 
   run_case(Vector(0.3f, 0.8f, -0.5f).normalized(), false);
