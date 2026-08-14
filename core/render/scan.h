@@ -88,6 +88,25 @@ __attribute__((always_inline)) inline float pole_lod_slack(int run,
 }
 
 /**
+ * @brief Whether a probe's clearance report bounds a whole pole-LOD block.
+ * @tparam ShapeT Shape the probe read distance() from.
+ * @param threshold Clearance the walk tests the probe against.
+ * @param block_slack Extra clearance demanded of a block probe.
+ * @return True when a report at or above threshold + block_slack holds for
+ *         every column in the block.
+ * @details Past its reject band a shape may report FAR_SENTINEL instead of a
+ * distance (SDF::reject_margin), and the sentinel bounds nothing. The block
+ * test is trustworthy only where the widened threshold sits inside the margin,
+ * so that a sentinel implies the surface is genuinely that far away.
+ */
+template <typename ShapeT>
+__attribute__((always_inline)) inline bool
+probe_bounds_block(float threshold, float block_slack) {
+  return threshold + block_slack <=
+         SDF::reject_margin<std::remove_cvref_t<ShapeT>>;
+}
+
+/**
  * @brief Validates that the canvas is the size the scan was instantiated for.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -174,8 +193,10 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     if (max_run > 1 && !debug_bb) {
       const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
       const float block_slack = pole_lod_slack<W>(max_run, sin_phi);
-      if (d >= threshold + block_slack)
+      if (d >= threshold + block_slack &&
+          probe_bounds_block<decltype(shape)>(threshold, block_slack))
         return max_run;
+      // An inside probe is never sentineled, so the splat needs no margin.
       if (solid && d <= -pixel_width - block_slack)
         span = max_run;
     }
@@ -709,7 +730,8 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
           if (max_run > 1) {
             const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
             const float block_slack = pole_lod_slack<W>(max_run, sin_phi);
-            if (d >= PIXEL_WIDTH + block_slack)
+            if (d >= PIXEL_WIDTH + block_slack &&
+                probe_bounds_block<decltype(shape)>(PIXEL_WIDTH, block_slack))
               return max_run;
             if (d <= -PIXEL_WIDTH - block_slack)
               span = max_run;
