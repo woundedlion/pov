@@ -716,7 +716,7 @@ public:
       scale = hs::lerp(a.scale, b.scale, t);
       strength = hs::lerp(a.strength, b.strength, t);
       rate = hs::lerp(a.rate, b.rate, t);
-      direction = WarpStageParams::lerp_angle(a.direction, b.direction, t);
+      direction = ProjectionParams::lerp_periodic(a.direction, b.direction, t);
     }
   };
 
