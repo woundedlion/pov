@@ -39,8 +39,9 @@ component (`scan: clamp the row index before the cast`). Commit messages carry
 Everything below runs locally before it runs in CI, and the same gates run in
 `.github/workflows/ci.yml` behind one aggregate `CI green` check.
 
-- **`.githooks/pre-commit`** — with C++/CMake changes staged: a `clang-format`
-  check over the staged first-party sources, a build and run of the native
+- **`.githooks/pre-commit`** — four gates, each keyed on the staged paths: a
+  `clang-format` check over the staged first-party sources, the Python /
+  JavaScript / Markdown lint and docs checks, a build and run of the native
   suite, and the Teensy size/layout gate. Configuring the `tests` preset points
   `core.hooksPath` at `.githooks` for you.
 - **clang-format is pinned to major 22.** A different major reflows unrelated
@@ -59,9 +60,11 @@ Everything below runs locally before it runs in CI, and the same gates run in
   `pre-push` hook runs lint, typecheck, the import-map check and the JS suite,
   and refuses a push from a tree that cannot run them.
 
-`HS_SKIP_TESTS=1` stands the native suite and Teensy gate down for one commit.
-The format check has no such opt-out short of `--no-verify`, which disables the
-whole hook — an unformatted commit reds CI for whoever pushes next.
+`HS_SKIP_TESTS=1` stands the native suite, the lint checks and the Teensy gate
+down for one commit; `HS_SKIP_LINT=1` and `HS_SKIP_TEENSY=1` stand down one
+apiece. The format check runs ahead of all three and stands down only for
+`HS_SKIP_FORMAT=1` or `--no-verify`, which disables the whole hook — an
+unformatted commit reds CI for whoever pushes next.
 
 ## Reporting a vulnerability
 
