@@ -47,13 +47,13 @@ peak.
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
-| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 58.23 (historical 17) | 🟢 0/10368 (0%) | 2026-08-14 05:27 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-07-28.md)§ | per-face SDF + opchain build legs | 🟢 56.91 (24) | 🟢 0/3328 (0%) | 2026-07-28 17:34 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-07-25.md) | fused ring-group raster (row-local walk) | 🟢 56.47 | 🟢 0/1088 (0%) | 2026-07-26 11:44 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
+| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 55.69 (12) | 🟢 0/10368 (0%) | 2026-08-14 11:00 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-07-25.md) | volume ray-march (`-O3` march path) | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ ● | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
@@ -73,13 +73,13 @@ peak.
 Both peak columns precede the spill columns so the codegen delta reads
 directly. Size deltas are O3 minus shipping.
 
-ShaderBall's row below remains the matched 2026-08-13 compiler comparison.
-The 2026-08-14 shipping result above covers the former 17-preset bank; no
-current-source global-O3 twin or post-removal 12-preset capture is retained.
+ShaderBall's row below is the source-matched 2026-08-14 comparison for the
+current 12-preset bank. Global O3 is a measured regression, not a shipping
+candidate.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShaderBall](O3/profile_shaderball_teensy_2026-08-13.md)§ ● | inverse shader pipeline | 🔴 147.35 (12)<br>🟢 49.35 (5) | 🔴 244.46 (12)<br>🟢 61.23 (5) | 🔴 664/962 (69.0%)<br>🟢 0/510 (0%) | 🔴 510/930 (54.8%)<br>🟢 0/510 (0%) | +15,336 B | +11,536 B | ship 2026-08-13 23:12<br>O3 2026-08-13 23:15 |
+| [ShaderBall](O3/profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 55.69 (12) | 🔴 84.64 (5)<br>🟢 60.54 (7) | 🟢 0/10368 (0%) | 🔴 1440/2405 (59.9%)<br>🟢 0/6523 (0%) | +13,000 B | +12,352 B | ship 2026-08-14 11:00<br>O3 2026-08-14 11:12 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
@@ -104,13 +104,12 @@ ShaderBall's performance budget is sized against their per-pixel costs.
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
 38.78 ms peak while adding 21,464 B of flash and 18,832 B of ITCM.
 
-**ShaderBall now has 12 curated presets.** The latest retained capture predates
-that reduction: its two independent cycles cover the former 17-preset bank,
-with 17 green cadence buckets, zero spills in 10,368 frames each, and
-58.23/58.06 ms peaks. Presets 5, 6, 7, 9, and 10 in that report are retired;
-the report records the exact old-to-new remap. A fresh dual-board cycle is
-required to attest the current image. The matched global-O3 comparison remains
-the 2026-08-13 pre-optimization pair and is also historical evidence.
+**ShaderBall completes all 12 current presets below 59 ms.** Independent COM3
+and COM4 shipping cycles each cover 648 windows, wrap 11→0, spill zero of
+10,368 frames, and peak at 55.69 ms. The source-matched global-O3 reference is
+slower: five presets are red, each board spills 1,440/8,928 frames, and the
+worst peak is 84.64 ms. The report preserves the former 17-preset baseline and
+exact old-to-new remap without reassigning historical measurements.
 
 **MeshFeedback is green on all 12 styles** — 0/6688 at a 57.70 ms peak
 (SlowDust), worst hold Smoke at 48.86 ms of flush. `feedback_composite` is 67%

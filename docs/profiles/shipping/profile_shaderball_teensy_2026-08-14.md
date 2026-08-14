@@ -1,14 +1,11 @@
-# ShaderBall on-device profile — Teensy 4.0, segmented mode (2026-08-14, selective O3)
+# ShaderBall on-device profile — Teensy 4.0, segmented mode (2026-08-14, **selective -O3**)
 
-Historical final 59 ms quest capture of the former 17-preset shipping bank.
-Raw captures:
-`build/prof/shaderball_shipping_full_c5cb0bb4_com3.log` and
-`build/prof/shaderball_shipping_full_c5cb0bb4_com4.log`.
-
-The shipping bank now has 12 presets. Presets 5, 6, 7, 9, and 10 from this
-capture are retired; the remaining presets were renumbered. This report keeps
-the captured indices and measurements unchanged. A current-source dual-board
-cycle is required before these results can attest the 12-preset image.
+Final 59 ms acceptance capture of the current 12-preset shipping bank. Raw
+captures:
+`build/prof/shaderball_shipping_full_c06c5fbc_com3.log` and
+`build/prof/shaderball_shipping_full_c06c5fbc_com4.log`. Their adjacent
+`.provenance` files attest the source, compiler, ELF hashes, and archived
+artifacts.
 
 ## Setup
 
@@ -17,17 +14,90 @@ cycle is required before these results can attest the 12-preset image.
 | Hardware | Two Teensy 4.0 boards at 600 MHz, segmented POV driver, COM3 and COM4 |
 | Image | `profile`: `-Os` base plus shipping selective-O3 regions |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
-| Effect | ShaderBall 288×144, single-entry playlist, source `c5cb0bb4` |
+| Effect | ShaderBall 288×144, single-entry playlist, source `c06c5fbc` |
+| Compiler | Arm GNU Toolchain 15.2.Rel1, GCC 15.2.1 20251203 |
 | Method | Two independent 650 s captures, 16-frame windows, normal 480-revolution choreography |
 | Reproduce | `bash tools/profile_one.sh ShaderBall profile 650 16` with `HS_TEENSY_PORT` pinned per board |
 
-Both 648-window captures have monotonic frame numbers, visit all 17 presets,
-wrap 16→0, and contain no epoch reset. Root cycles divided by 600 MHz agree
-with wall time within 2.8 ppm.
+Both captures contain 648 windows and 10,368 frames. Each visits presets 0–11,
+wraps 11→0, has monotonic frame numbers, no epoch reset, and zero spilled
+frames. Root cycles divided by 600 MHz agree with wall time within 3.5 ppm on
+COM3 and 3.7 ppm on COM4.
 
-## Current roster remap
+The profile image is:
 
-| Captured preset | Current preset |
+```text
+FLASH  code 113,656 B  data 168,900 B  headers 8,260 B
+RAM1   variables 323,200 B  code 28,008 B  padding 4,760 B
+RAM1   local free 168,320 B
+RAM2   variables 520,064 B  allocator free 4,224 B
+```
+
+COM3 profile ELF SHA-256 is
+`85587dafd3300d7e1c59303c2d6cbeeefe311c3dad644fc8d5cfb6874c423ec3`;
+COM4 is
+`dae7569d441b1f49ea95b19a2117995d23676a1163e85e778ff3aca2108b6c49`.
+
+## Result
+
+Every current preset and transition is below **59.00 ms** on both boards.
+COM3 and COM4 both peak at **55.69 ms** in preset 0, leaving 3.31 ms of hard
+gate headroom. Each capture reports **0/10,368 spilled frames**.
+
+| Preset | Authored topology | COM3 peak, ms | COM4 peak, ms | Worst, ms | Clean shader, ms |
+|---:|---|---:|---:|---:|---:|
+| 0 | Glitch wave-shear grid | 55.69 | 55.69 | 55.69 | 48.33 |
+| 11 | Gnomonic dodecahedral vector-noise + mirror grid | 54.76 | 54.76 | 54.76 | 46.95 |
+| 6 | Gnomonic dodecahedral wave/mirror grid | 52.23 | 52.23 | 52.23 | 45.11 |
+| 5 | Peirce dodecahedral grid | 51.84 | 51.74 | 51.84 | 44.35 |
+| 10 | Stereographic prism polar-wave lattice | 48.28 | 48.23 | 48.28 | 40.57 |
+| 9 | Sinusoidal curl lattice, coarse field | 48.04 | 47.98 | 48.04 | 40.58 |
+| 8 | Sinusoidal curl lattice, fine field | 47.58 | 47.60 | 47.60 | 40.55 |
+| 7 | Gnomonic affine lattice contour | 44.94 | 44.94 | 44.94 | 38.02 |
+| 4 | Bonne kaleidoscope lattice + mirror | 41.30 | 41.34 | 41.34 | 38.44 |
+| 3 | Gnomonic glitch grid + mirror | 25.86 | 25.87 | 25.87 | 22.69 |
+| 1 | Kaleidoscope twin-wave + inner mirror | 25.76 | 25.72 | 25.76 | 22.70 |
+| 2 | Gnomonic kaleidoscope grid + mirror | 25.36 | 25.39 | 25.39 | 22.71 |
+
+The peak includes normal through-clear transitions. The clean-shader column is
+the worse board's maximum clean-hold `sb_shader_draw` window.
+
+## Worst-window readout
+
+COM3 frames 5361–5376 contain the pass peak and a full preset-0 hold:
+
+```text
+frame                 62.39 ms  37.43 Mcyc  100%
+  sb_shader_draw      48.33 ms  29.00 Mcyc   77%
+  canvas_buffer_wait   7.37 ms   4.42 Mcyc   11%
+  canvas_clear        92.6 us   55.6 kcyc     0%
+  sb_timeline_step    69.5 us   41.7 kcyc     0%
+```
+
+Wall min/avg/max is 60.85/62.39/63.85 ms; render averages 55.02 ms and peaks
+at 55.69 ms. The clean shader consumes about 2,797 cycles per visible sample
+across the 10,368-sample quadrant.
+
+## Column-ISR / DMA marshaling cost
+
+```text
+isr_wake        1152/frame  min/avg/max 0.64/1.96/13.78 us  cpu 3.62%
+isr_pack         144/frame  min/avg/max 6.29/7.10/9.38 us   cpu 1.63%
+isr_dma_submit   144/frame  min/avg/max 0.61/0.94/6.11 us   cpu 0.21%
+```
+
+ISR work is included in the cycle counters. Pack plus submit costs about
+1.16 ms of CPU per rendered frame in this window; LED transfer continues
+asynchronously after submission.
+
+## Historical baseline and roster remap
+
+The 2026-08-13 17-preset baseline peaked at 147.35 ms with 664/1,472 spills.
+The optimized pre-reduction capture at `c5cb0bb4` peaked at 58.23 ms with no
+spills. Those measurements keep their original indices and are not relabelled
+as current-preset results.
+
+| Former preset | Current preset |
 |---:|---:|
 | 0 | 0 |
 | 1 | 1 |
@@ -47,95 +117,51 @@ with wall time within 2.8 ppm.
 | 15 | 10 |
 | 16 | 11 |
 
-## Result
+The current peak is 3.31 ms below the gate and 2.54 ms below the historical
+pre-reduction peak. The five retired programs also remove the former 0.77 ms
+flash-layout sentinel from the shipping bank.
 
-Every preset and transition in the captured bank is below **59.00 ms** on both boards.
-COM3 peaks at **58.23 ms** and COM4 at **58.06 ms**, both in preset 9, with
-**0/10,368 spilled frames** in each capture. The 2026-08-13 baseline peaked at
-147.35 ms and spilled 664/1,472 frames; the final peak is 60.5% lower.
+## Matched global-O3 comparison
 
-| Preset | Authored topology | COM3 peak, ms | COM4 peak, ms | Worst, ms |
-|---:|---|---:|---:|---:|
-| 9 (retired) | Dodecahedral noise grid | 58.23 | 58.06 | 58.23 |
-| 8 | Peirce dodecahedral grid | 57.75 | 57.78 | 57.78 |
-| 16 | Gnomonic dodecahedral vector-noise + mirror grid | 56.19 | 56.15 | 56.19 |
-| 0 | Glitch wave-shear grid | 55.43 | 55.42 | 55.43 |
-| 11 | Gnomonic dodecahedral wave/mirror grid | 53.77 | 53.75 | 53.77 |
-| 10 (retired) | Dodecahedral noise lattice + mirror | 53.59 | 53.67 | 53.67 |
-| 7 (retired) | Dodecahedral grid + mirror | 51.15 | 51.20 | 51.20 |
-| 14 | Sinusoidal curl lattice, coarse field | 48.94 | 49.04 | 49.04 |
-| 15 | Stereographic prism polar-wave lattice | 48.89 | 48.88 | 48.89 |
-| 13 | Sinusoidal curl lattice, fine field | 48.39 | 48.41 | 48.41 |
-| 12 | Gnomonic affine lattice contour | 45.56 | 45.56 | 45.56 |
-| 6 (retired) | Kaleidoscope noise grid + edge fade | 45.33 | 45.38 | 45.38 |
-| 5 (retired) | Peirce kaleidoscope lattice | 42.28 | 42.31 | 42.31 |
-| 4 | Bonne kaleidoscope lattice + mirror | 41.59 | 41.64 | 41.64 |
-| 1 | Kaleidoscope twin-wave + inner mirror | 26.87 | 26.84 | 26.87 |
-| 3 | Gnomonic glitch grid + mirror | 25.90 | 26.07 | 26.07 |
-| 2 | Gnomonic kaleidoscope grid + mirror | 25.53 | 25.53 | 25.53 |
+The [source-matched global-O3 report](../O3/profile_shaderball_teensy_2026-08-14.md)
+uses the same source and two-board protocol. Global O3 peaks at 84.64 ms,
+spills 1,440/8,928 frames on each board, and has five red presets. It is
+rejected for ShaderBall; selective O3 is both the shipping configuration and
+the faster live result.
 
-Captured preset 9 had only 0.77 ms of hard-gate headroom but is now retired.
-Captured preset 8, now current preset 5, had 1.22 ms. Its historical repeat
-passes, but any compiler, manifest, or flash-layout change requires a new
-current-source capture.
-
-## What closed the quest
-
-The retained implementation combines several exact structural reductions:
-
-- analytic Simplex curl derivatives, a specialized curl surface path, and a
-  fused Euler step;
-- coupled three-channel vector noise and prepared vector-warp trigonometry;
-- prepared wave-shear direction and a persistent spherical hue-noise field;
-- removal of redundant palette lookup and hidden palette rebakes;
-- visible-endpoint-only palette work and stopping discarded transition runtime;
-- selective ITCM residence for presets 0, 8, 10, and 11, funded by moving
-  cold control/setup code to flash; and
-- 4 KiB-aligned flash wrappers for the phase-sensitive preset-9 and preset-4
-  kernels.
-
-The complete per-experiment ledger, including rejected and superseded A/Bs,
-uses the required `SHA / Experiment / Preset/run / Peak before -> after /
-Ship/O3 symbol delta / Phantasm ITCM/RAM delta / Tests / Decision` schema in
-the [quest plan](../../shaderball_59ms_quest_plan.md#quest-outcome-and-experiment-ledger).
-
-The last item was established by generated-code A/B rather than source-level
-guessing. The final Phantasm ELF places the 0x37c-byte preset-9 shader at
-`0x60035000` and the 0x300-byte preset-4 shader at `0x60036000`. The resident
-shader bodies occupy ITCM at `0x5a4` (preset 11, 0x2d4 bytes), `0x878`
-(preset 8, 0x2b4), `0xb2c` (preset 0, 0x298), and `0xdc4` (preset 10, 0x42c).
+The deduplicated ShaderBall-named symbol audit totals 41,076 B in shipping
+(2,806 B ITCM and 38,270 B flash) versus 43,224 B under global O3 (3,782 B
+ITCM and 39,442 B flash). Global O3 adds 2,148 B of named code while regressing
+the device peak by 28.95 ms. Whole profile-image deltas are +13,000 B flash
+code and +12,352 B ITCM.
 
 ## Full-roster size and validation
 
-The captured 17-preset Phantasm image passes every memory gate:
+The current Phantasm image passes every memory gate:
 
 ```text
-FLASH code       427,976 B
-RAM1 variables   314,880 B
-ITCM code        196,440 / 196,608 B (168 B remaining)
-RAM1 local free   12,800 B
-RAM2 allocator free 4,224 B
+FLASH code          422,560 B  (-5,416 B vs pre-reduction)
+RAM1 variables      314,880 B
+ITCM code           195,144 / 196,608 B  (1,464 B remaining)
+RAM1 padding          1,464 B
+RAM1 local free      12,800 B
+RAM2 variables      520,064 B
+RAM2 allocator free   4,224 B
 ```
 
-Phantasm ELF SHA-256:
-`e760f9618bbf679811062b293f56cbb577fdcefba1b58661f94d2ea1f3758b72`.
-The commit hook passes all 71 native tests plus the full-roster memory gate.
-Targeted two-board captures also verified the repaired 4→5→6→7 and
-9→10→11→12 sequences with zero spills.
-
-These size and device results predate the 12-preset roster. The reduced image
-still needs the full Phantasm memory gate and independent COM3/COM4 cycles that
-visit presets 0–11, wrap 11→0, and report every peak below 59.00 ms.
+The roster reduction reclaimed 1,296 B of ITCM and 5,416 B of flash. RAM1 and
+RAM2 floors are unchanged. The COM3 preflight Phantasm ELF SHA-256 is
+`3be67928a826425f1ecc9bd9bcea9b17f756b4080b160b02b797661ec62daff1`;
+the complete provenance and artifact paths are in
+`build/prof/shaderball_shipping_full_c06c5fbc_com3.provenance`.
 
 ## Caveats
 
 - Counter scopes include live flywheel/DMA ISR time.
-- Preset buckets own their following transition and therefore include the
-  through-clear choreography.
-- The final runs use normal choreography, not the accelerated diagnostic
-  cycle.
-- Page alignment is intentional performance state. Re-run the two-board full
-  cycle after compiler, linker, or nearby flash-section changes.
+- Preset buckets own their on-screen frames, including transition work.
+- The runs use normal choreography, not an accelerated diagnostic cycle.
+- Compiler, linker, manifest, or flash-layout changes require another
+  two-board full cycle.
 
 ## Harness
 
