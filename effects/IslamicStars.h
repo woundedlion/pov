@@ -637,6 +637,7 @@ private:
     // A recipe whose lowered chain contains a step no leg kind covers falls
     // back to today's whole-generate path, seed solid and all.
     const Solids::Recipe *recipe = entry.recipe;
+    build_step_count = 0;
     if (recipe) {
       build_step_count = Solids::expand_to_primitives(*recipe, build_step_chain,
                                                       MAX_BUILD_STEPS);
