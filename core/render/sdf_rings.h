@@ -552,7 +552,9 @@ private:
 
     const float th2 = thickness * thickness;
     float bound2 = std::min(best2, th2);
-    const int max_o = std::min(MAX_SEARCH_CELLS, lut_n / 2 + 1);
+    const int sweep_o = lut_n / 2 + 1; // covers every knot on both arms
+    const bool budget_capped = MAX_SEARCH_CELLS < sweep_o;
+    const int max_o = budget_capped ? MAX_SEARCH_CELLS : sweep_o;
     for (int o = 1; o <= max_o; ++o) {
       // A segment past a frontier knot can't beat that knot's |u|.
       bool right = ur * ur < bound2;
@@ -577,15 +579,22 @@ private:
       }
       bound2 = std::min(bound2, best2);
     }
+    if (best2 < th2)
+      return sqrtf(best2);
+    // A search stopped by the cell budget rather than by convergence or a full
+    // sweep leaves knots unvisited, each at least a frontier |u| away; report
+    // that bound so near-pole chart compression cannot sentinel a pixel the
+    // unreached cells could still light.
+    if (budget_capped) {
+      float frontier2 = std::min(ul * ul, ur * ur);
+      if (frontier2 < th2)
+        return sqrtf(frontier2);
+    }
     // Past the stroke reach the search leaves best2 an upper bound only, so
     // report the reject band's far sentinel and skip the sqrt. Returning
     // thickness instead would land dist on exactly 0, which a CSG parent reads
-    // as on-surface across the whole bounding annulus. Every unsearched point
-    // is at least a frontier |u| away, so folding the frontiers in keeps a
-    // budget-truncated search (near-pole chart compression) from sentinelling a
-    // pixel the unreached cells could still light.
-    float lb2 = std::min(best2, std::min(ul * ul, ur * ur));
-    return lb2 >= th2 ? FAR_SENTINEL : sqrtf(lb2);
+    // as on-surface across the whole bounding annulus.
+    return FAR_SENTINEL;
   }
 };
 
