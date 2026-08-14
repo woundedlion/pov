@@ -84,6 +84,30 @@ inline Config test_config(int effects = 4) {
 constexpr uint32_t PERIOD = 37500000u; /**< Cycles per half-rev at full rate. */
 constexpr uint32_t COL = PERIOD / 144u; /**< Cycles per column at full rate. */
 
+/**
+ * @brief Feeds a five-digit beacon train into a board, spaced exactly as
+ *        SymbolEmitter::schedule_beacon emits it.
+ * @param board Board under test.
+ * @param cfg Protocol configuration.
+ * @param col Cycles per column at the run's rate.
+ * @param start Cycle at which digit 0 opens.
+ * @param d The five encoded digits.
+ * @return The cycle just past the last digit's trailing gap.
+ */
+inline uint32_t feed_beacon_train(SyncBoard &board, const Config &cfg,
+                                  uint32_t col, uint32_t start,
+                                  const uint8_t d[5]) {
+  uint32_t f = start;
+  for (int i = 0; i < 5; ++i) {
+    const uint32_t span = static_cast<uint32_t>(d[i]) * col;
+    const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
+    board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+               &s);
+    f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
+  }
+  return f;
+}
+
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
 /**
@@ -704,14 +728,7 @@ inline void test_beacon_partial_frame_ages_out() {
   // A complete frame from column 90 on, spaced exactly as schedule_beacon does.
   uint8_t d[5];
   encode_beacon_digits(2, 3, d);
-  uint32_t f = 1000u + 90u * col;
-  for (int i = 0; i < 5; ++i) {
-    const uint32_t span = static_cast<uint32_t>(d[i]) * col;
-    const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
-    board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
-               &s);
-    f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
-  }
+  feed_beacon_train(board, cfg, col, 1000u + 90u * col, d);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
   // The aged-out partial is a dropped frame and counts as one.
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 1u);
@@ -756,14 +773,7 @@ inline void test_beacon_shift_needs_confirmation() {
     return t;
   };
   auto feed_digits = [&](uint32_t start, const uint8_t d[5]) {
-    uint32_t f = start;
-    for (int i = 0; i < 5; ++i) {
-      const uint32_t span = static_cast<uint32_t>(d[i]) * col;
-      const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
-      board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
-                 &s);
-      f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
-    }
+    feed_beacon_train(board, cfg, col, start, d);
   };
   auto feed_frame = [&](int32_t index) {
     const uint32_t start = open_frame();
@@ -844,14 +854,7 @@ inline void test_beacon_out_of_range_index_rejected() {
   auto feed_frame = [&](int32_t index, uint32_t start) {
     uint8_t d[5];
     encode_beacon_digits(index, 3, d);
-    uint32_t f = start;
-    for (int i = 0; i < 5; ++i) {
-      const uint32_t span = static_cast<uint32_t>(d[i]) * col;
-      const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
-      board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
-                 &s);
-      f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
-    }
+    feed_beacon_train(board, cfg, col, start, d);
   };
 
   // Index 9 encodes and checksums cleanly, but the roster ends at 3.
@@ -1178,14 +1181,7 @@ inline void test_acquire_beacon_train_joins() {
   uint8_t d[5];
   encode_beacon_digits(9, 5, d);
   HS_EXPECT_EQ(static_cast<int>(d[0]) + 1, 2); // head: no valid symbol count
-  uint32_t f = 1000u + 40u * col;
-  for (int i = 0; i < 5; ++i) {
-    const uint32_t span = static_cast<uint32_t>(d[i]) * col;
-    const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
-    board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
-               &s);
-    f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
-  }
+  uint32_t f = feed_beacon_train(board, cfg, col, 1000u + 40u * col, d);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 0u);
   HS_EXPECT_TRUE(board.content().identity_known);
