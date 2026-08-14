@@ -1728,6 +1728,7 @@ public:
    * @details Emptiness, stop bounds and ordering are trapped always-on
    * (construction is cold).
    */
+  HS_FLASH_MEMBER
   Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
     HS_CHECK(points.size() > 0, "Gradient requires at least one stop");
 
