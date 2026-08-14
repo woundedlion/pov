@@ -1586,6 +1586,46 @@ inline void test_shaderball_preset_bank() {
   sb.init();
   HS_EXPECT_TRUE(WB::slots_equal(WB::active_slots(sb), presets[0].slots));
 }
+/** @brief A staggered morph walks each changed parameter group in its own
+ *         time slice. */
+inline void test_shaderball_staggered_param_morph() {
+  using WB = ShaderBallWhiteBox;
+  WB::Params from;
+  from.color.palette_chroma = 0.5f;
+  WB::Params to = from;
+  to.source.speed = 0.5f;
+  to.color.palette_chroma = 0.75f;
+
+  auto staggered = [&](float t) {
+    WB::Params result;
+    result.lerp_staggered(from, to, t);
+    return result;
+  };
+
+  const WB::Params quarter = staggered(0.25f);
+  HS_EXPECT_GT(quarter.source.speed, from.source.speed);
+  HS_EXPECT_LT(quarter.source.speed, to.source.speed);
+  HS_EXPECT_EQ(quarter.color.palette_chroma, from.color.palette_chroma);
+
+  const WB::Params half = staggered(0.5f);
+  HS_EXPECT_EQ(half.source.speed, to.source.speed);
+  HS_EXPECT_EQ(half.color.palette_chroma, from.color.palette_chroma);
+  HS_EXPECT_EQ(half.projection.pole_fade, from.projection.pole_fade);
+
+  const WB::Params three_quarters = staggered(0.75f);
+  HS_EXPECT_EQ(three_quarters.source.speed, to.source.speed);
+  HS_EXPECT_GT(three_quarters.color.palette_chroma, from.color.palette_chroma);
+  HS_EXPECT_LT(three_quarters.color.palette_chroma, to.color.palette_chroma);
+
+  const WB::Params end = staggered(1.0f);
+  HS_EXPECT_EQ(end.source.speed, to.source.speed);
+  HS_EXPECT_EQ(end.color.palette_chroma, to.color.palette_chroma);
+
+  WB::Params parallel;
+  parallel.lerp(from, to, 0.5f);
+  HS_EXPECT_LT(parallel.source.speed, half.source.speed);
+  HS_EXPECT_GT(parallel.color.palette_chroma, half.color.palette_chroma);
+}
 /** @brief Whole-schema validation applies valid configs and rejects invalid. */
 inline void test_shaderball_config_admission() {
   using WB = ShaderBallWhiteBox;
@@ -4647,6 +4687,7 @@ inline int run_shaderball_tests() {
   test_shaderball_prepared_hue_noise();
   test_shaderball_prepared_hue_noise_color();
   test_shaderball_preset_bank();
+  test_shaderball_staggered_param_morph();
   test_shaderball_config_admission();
   test_shaderball_deterministic_gui_edits();
   test_shaderball_mode_specific_parameter_warnings();
