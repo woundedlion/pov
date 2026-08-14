@@ -357,6 +357,13 @@ inline void test_pipeline_get_returns_correct_filter() {
   static_assert(
       (!pipeline_contains<Absent, Pipeline<W, H, AA, Blur, CS>>::value),
       "Feedback is absent from the pipeline");
+
+  // A duplicated stage type makes get<T>() ambiguous; stage_count is what the
+  // guard in get<T>() reads. The ambiguous case is a hard compile error, so
+  // only the count itself can be asserted here.
+  static_assert(Pipeline<W, H, AA, Blur, CS>::stage_count<Blur> == 1);
+  static_assert(Pipeline<W, H, AA, Blur, CS>::stage_count<Absent> == 0);
+  static_assert(Pipeline<W, H, Blur, Blur, CS>::stage_count<Blur> == 2);
 }
 
 // ============================================================================

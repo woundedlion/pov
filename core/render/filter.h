@@ -157,6 +157,8 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool has_world_cull = false;
   /** @brief No stage runs in world space (see the recursive case). */
   static constexpr bool has_world_stage = false;
+  /** @brief Occurrences of stage type T in this pipeline (base case: none). */
+  template <typename T> static constexpr int stage_count = 0;
 
   /**
    * @brief Type-safe filter accessor (base case: T not found).
@@ -367,6 +369,11 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    */
   static constexpr bool has_world_stage = !Head::is_2d || Next::has_world_stage;
 
+  /** @brief Occurrences of stage type T across Head and the Tail. */
+  template <typename T>
+  static constexpr int stage_count =
+      (std::is_same_v<Head, T> ? 1 : 0) + Next::template stage_count<T>;
+
   /**
    * @brief Forwarding-reference constructor: builds Head and the Tail in place.
    * @tparam HArg Argument type forwarded to Head's constructor.
@@ -391,6 +398,12 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    * not T).
    */
   template <typename T> T &get() {
+    static_assert(
+        stage_count<T> <= 1,
+        "Ambiguous get<T>(): this stage type is listed more than once, so "
+        "get<T>() resolves to the first occurrence and the later ones are "
+        "unreachable. Give each slot a distinct type (a trivial subclass "
+        "inheriting the stage's constructors).");
     if constexpr (std::is_same_v<Head, T>) {
       return static_cast<T &>(*this);
     } else {
@@ -403,6 +416,12 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    * @return Const reference to the stage of type T.
    */
   template <typename T> const T &get() const {
+    static_assert(
+        stage_count<T> <= 1,
+        "Ambiguous get<T>(): this stage type is listed more than once, so "
+        "get<T>() resolves to the first occurrence and the later ones are "
+        "unreachable. Give each slot a distinct type (a trivial subclass "
+        "inheriting the stage's constructors).");
     if constexpr (std::is_same_v<Head, T>) {
       return static_cast<const T &>(*this);
     } else {
