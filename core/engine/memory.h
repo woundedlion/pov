@@ -55,6 +55,26 @@ constexpr size_t DEVICE_PERSISTENT_BUDGET =
 // ============================================================================
 
 /**
+ * @brief Records an ArenaVector move-assignment that abandoned its destination's
+ *        block.
+ * @param bytes Size of the abandoned block.
+ * @details Accumulates instead of logging the line bind() emits for a grow:
+ * move-assignment runs per frame deep inside mesh work, where the formatter's
+ * stack frame does not fit the device stack budget and one line per event would
+ * bury the log. The running total is reported by the arena's OOM trap, which is
+ * where an abandoned block otherwise surfaces as an unexplained shortfall.
+ * Out-of-line and non-template so the device image carries one copy for every
+ * element type.
+ */
+void note_arena_vector_abandon(size_t bytes);
+
+/** @brief Bytes abandoned so far by ArenaVector move-assignment. */
+size_t arena_vector_abandoned_bytes();
+
+/** @brief Move-assignments that have abandoned a block so far. */
+size_t arena_vector_abandon_count();
+
+/**
  * @brief Bump allocator over a fixed caller-owned buffer.
  * @details Allocation is offset advancement; individual frees are unsupported —
  * memory is reclaimed wholesale via reset() (rewind to 0) or set_offset()
@@ -122,8 +142,10 @@ public:
     // Subtractive form: offset <= capacity is invariant, so it cannot wrap the
     // way `offset + padding + size > capacity` would for a colossal `size`.
     if (padding > capacity - offset || size > capacity - offset - padding) {
-      hs::log("[OOM] Arena: req %zu, offset %zu, pad %zu / cap %zu", size,
-              offset, padding, capacity);
+      hs::log("[OOM] Arena: req %zu, offset %zu, pad %zu / cap %zu "
+              "(move-assign abandoned %zu B in %zu blocks)",
+              size, offset, padding, capacity, arena_vector_abandoned_bytes(),
+              arena_vector_abandon_count());
       HS_CHECK(false, "Arena::allocate: out of memory");
     }
     offset += padding;
@@ -698,8 +720,13 @@ public:
    * @return Reference to this.
    */
   ArenaVector &operator=(ArenaVector &&other) noexcept {
-    if (this != &other)
+    if (this != &other) {
+      // Overwriting a bound handle drops its block; the arena reclaims it only
+      // on the next reset.
+      if (bound && element_capacity > 0)
+        note_arena_vector_abandon(element_capacity * sizeof(T));
       steal_from(other);
+    }
     return *this;
   }
 

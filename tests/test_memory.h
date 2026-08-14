@@ -24,7 +24,9 @@
  * (an arena reset marks a live binding stale; rebinding it is then a debug
  * contract trap). A re-bind that grows is a supported pattern (it abandons the
  * old block until the next arena reset — see ArenaVector::bind), covered by
- * test_arenavec_rebind_grows.
+ * test_arenavec_rebind_grows. Move-assignment onto a bound handle abandons a
+ * block the same way and accounts the bytes for the arena's OOM report, covered
+ * by test_arenavec_move_assign_abandon_breadcrumb.
  */
 #pragma once
 
@@ -739,6 +741,34 @@ inline void test_arenavec_move_assign() {
 }
 
 /**
+ * @brief Verifies move-assignment onto a bound vector accounts the destination
+ *        block it abandons, and that an unbound destination accounts nothing.
+ */
+inline void test_arenavec_move_assign_abandon_breadcrumb() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+
+  const size_t bytes_before = arena_vector_abandoned_bytes();
+  const size_t count_before = arena_vector_abandon_count();
+
+  ArenaVector<int> fresh(a, 4);
+  ArenaVector<int> unbound_dst;
+  unbound_dst = std::move(fresh);
+  HS_EXPECT_EQ(arena_vector_abandoned_bytes(), bytes_before);
+  HS_EXPECT_EQ(arena_vector_abandon_count(), count_before);
+
+  ArenaVector<int> replacement(a, 2);
+  unbound_dst = std::move(replacement);
+  HS_EXPECT_EQ(arena_vector_abandoned_bytes(), bytes_before + 4 * sizeof(int));
+  HS_EXPECT_EQ(arena_vector_abandon_count(), count_before + 1);
+
+  // Self-move keeps the block, so it is not an abandonment.
+  ArenaVector<int> *alias = &unbound_dst;
+  unbound_dst = std::move(*alias);
+  HS_EXPECT_EQ(arena_vector_abandon_count(), count_before + 1);
+  HS_EXPECT_TRUE(unbound_dst.is_bound());
+}
+
+/**
  * @brief Verifies re-binding to a smaller-or-equal capacity reuses the existing
  *        block (same data pointer, original capacity retained) and only resets
  *        the size.
@@ -1087,6 +1117,7 @@ inline int run_memory_tests() {
   test_arenavec_iteration();
   test_arenavec_move_construct();
   test_arenavec_move_assign();
+  test_arenavec_move_assign_abandon_breadcrumb();
   test_arenavec_rebind_reuses();
   test_arenavec_rebind_grows();
 #ifndef NDEBUG
