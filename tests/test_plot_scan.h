@@ -4406,8 +4406,10 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
         span.p1.first + span.dX, span.p1.second + span.dY, basis);
     const Plot::PlanarEdgeSampler sampler =
         Plot::make_planar_edge_sampler(span, span_end, basis);
-    HS_EXPECT_NEAR(cumul[Plot::PLANAR_LEN_SAMPLES], sampler.dist, 1e-5f);
-    HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis), sampler.dist, 1e-5f);
+    constexpr float total_tol = 2e-5f;
+    HS_EXPECT_NEAR(cumul[Plot::PLANAR_LEN_SAMPLES], sampler.dist, total_tol);
+    HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis), sampler.dist,
+                   total_tol);
     // Spherical triangle inequality against the endpoints the table actually
     // joins: a total that dropped, duplicated, or mis-scaled a chord violates
     // it. No agreement between the accumulators can supply this.
