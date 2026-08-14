@@ -328,9 +328,6 @@ struct MindSplatterWhiteBox {
                                  const Quaternion &orientation) {
     return rotate(mobius_transform(v, mobius), orientation);
   }
-  static float normalized_color_seed(uint16_t seed) {
-    return MS::normalize_color_seed(seed);
-  }
   static constexpr int trail_length() { return MS::TRAIL_LEN; }
   template <int W, int H>
   static void use_reference_orientation(MindSplatter<W, H> &ms, bool enabled) {

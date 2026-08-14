@@ -260,11 +260,6 @@ private:
     return alpha;
   }
 
-  __attribute__((always_inline)) static float
-  normalize_color_seed(uint16_t seed) {
-    return static_cast<float>(seed) / 65535.0f;
-  }
-
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
   static constexpr bool preset_in_ranges(const Params &p) {

@@ -4656,19 +4656,6 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
   hs::clear_mock_time();
 }
 
-/** @brief Pins normalized color seeds bit-exactly. */
-inline void test_mindsplatter_normalized_color_seed_boundaries() {
-  using WB = MindSplatterWhiteBox;
-  for (uint32_t seed = 0; seed <= 65535; ++seed) {
-    const float reference_seed = static_cast<float>(seed) / 65535.0f;
-    const float normalized_seed =
-        WB::normalized_color_seed(static_cast<uint16_t>(seed));
-    HS_EXPECT_EQ(normalized_seed, reference_seed);
-  }
-  HS_EXPECT_EQ(WB::normalized_color_seed(0), 0.0f);
-  HS_EXPECT_EQ(WB::normalized_color_seed(65535), 1.0f);
-}
-
 /**
  * @brief Bounds the precomputed orientation matrix against quaternion rotation.
  */
@@ -6384,7 +6371,6 @@ inline int run_effects_tests() {
   test_mindsplatter_replay_snapshot_exact();
   test_mindsplatter_saturated_quadrant_sink_parity();
   test_mindsplatter_octahedral_hole_alpha_equivalence();
-  test_mindsplatter_normalized_color_seed_boundaries();
   test_mindsplatter_rotation_matrix_equivalence();
   test_mindsplatter_rotation_matrix_framebuffer_error();
   test_mindsplatter_particle_gradients_follow_emission_order();
