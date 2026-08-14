@@ -151,7 +151,7 @@ private:
   using MobiusEntity = typename MobiusWarpGnomonicTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
-      alignof(int) + MAX_POINTS * sizeof(Vector) +
+      alignof(int) + MAX_POINTS * sizeof(Vector) + alignof(Vector) +
       BakedPalette::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "GnomonicStars persistent footprint exceeds the default "
