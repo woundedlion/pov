@@ -295,10 +295,13 @@ inline SeamStats compare(const std::vector<Pixel> &a,
  * unreachable at this canvas size: the swap's irreducible coverage delta is a
  * 2-4 px band along the child edges, 6.6-15.3 % of the canvas, so the bound is
  * on the changed fraction, the changed pixels' absolute energy and the deepest
- * pixel instead. Each swap is capped at its own measured fraction plus two
- * percentage points, enough for rounding drift without accepting a widened
- * band. Fraction and energy both count only pixels past DELTA_THRESH, so a
- * uniform sub-threshold shift is invisible to the gate. */
+ * pixel instead. Every bound is two-sided around its measured value: a widened
+ * band and a collapsed seam — children that no longer partition the parent, and
+ * so leave the capture untouched — are both out of envelope. Each swap's
+ * changed fraction is bracketed by its own measured value plus or minus two
+ * percentage points, enough for rounding drift either way. Fraction and energy
+ * both count only pixels past DELTA_THRESH, so a uniform sub-threshold shift is
+ * invisible to the gate. */
 constexpr double CHANGED_FRAC_MARGIN = 0.02;
 constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
 constexpr double MEASURED_CHANGED_FRAC_KIS_CUBE = 0.1019;
@@ -308,26 +311,35 @@ constexpr double MEASURED_CHANGED_FRAC_DUAL_CUBE = 0.0662;
 constexpr double MEASURED_CHANGED_FRAC_DUAL_DODECA = 0.1217;
 constexpr double MAX_ABS_ENERGY = 0.02;
 
+/** Half the smallest absolute energy measured over the six swaps (0.96 %, dual
+ * cube). A seam that stopped moving pixels reads as zero energy. */
+constexpr double MIN_ABS_ENERGY = 0.005;
+
 /** Deepest pixel measured over the six calibration swaps, the same under
  * -ffast-math as under IEEE: a seam pixel that both children claim at half
  * coverage composites to 3/4 of the parent's fill. A child that loses its
- * share of such a pixel leaves half, so the margin stays well under 0.5. */
+ * share of such a pixel leaves half, so the margin stays well under 0.5. All
+ * six swaps reach it exactly, so the darkening is bracketed on both sides. */
 constexpr float MAX_MEASURED_PIXEL_DELTA = 0.25f;
 constexpr float PIXEL_DELTA_MARGIN = 0.05f;
 constexpr float MAX_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA + PIXEL_DELTA_MARGIN;
+constexpr float MIN_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA - PIXEL_DELTA_MARGIN;
 
 /**
  * @brief Asserts one swap's statistics against the gated-swap envelope.
  * @param st Statistics of the swap.
- * @param measured_changed_frac The swap's calibrated changed fraction; its cap
- *        is that plus CHANGED_FRAC_MARGIN.
+ * @param measured_changed_frac The swap's calibrated changed fraction; its
+ *        bracket is that plus or minus CHANGED_FRAC_MARGIN.
  */
 inline void expect_within_envelope(const SeamStats &st,
                                    double measured_changed_frac) {
-  HS_EXPECT_LE(st.changed / (double(PS_W) * PS_H),
-               measured_changed_frac + CHANGED_FRAC_MARGIN);
+  const double frac = st.changed / (double(PS_W) * PS_H);
+  HS_EXPECT_LE(frac, measured_changed_frac + CHANGED_FRAC_MARGIN);
+  HS_EXPECT_GE(frac, measured_changed_frac - CHANGED_FRAC_MARGIN);
   HS_EXPECT_LE(st.abs_energy, MAX_ABS_ENERGY);
+  HS_EXPECT_GE(st.abs_energy, MIN_ABS_ENERGY);
   HS_EXPECT_LE(st.max_dark, MAX_PIXEL_DELTA);
+  HS_EXPECT_GE(st.max_dark, MIN_PIXEL_DELTA);
   HS_EXPECT_LE(st.max_bright, MAX_PIXEL_DELTA);
 }
 
@@ -541,7 +553,6 @@ inline void measure_kis(const char *name, double measured_changed_frac) {
   // smaller brightening where the children's own gnomonic frames narrow the
   // parent's existing edge bands.
   HS_EXPECT_EQ(st.lit_a, st.lit_b);
-  HS_EXPECT_GT(st.changed, (size_t)0);
   HS_EXPECT_GT(st.energy, 0.0);
   HS_EXPECT_GT(st.max_dark, st.max_bright);
   expect_within_envelope(st, measured_changed_frac);
@@ -583,7 +594,10 @@ inline void measure_dual(const char *name, double measured_changed_frac) {
   std::snprintf(png, sizeof(png), "%s_dual_diff", name);
   dump_png(png, diff_image(a, b));
 
-  HS_EXPECT_GT(st.changed, (size_t)0);
+  // The dual's faces partition the sphere the same way the seed's do, so total
+  // coverage is unchanged; unlike kis the delta has no fixed sign, since the
+  // new edges neither contain nor are contained by the old ones.
+  HS_EXPECT_EQ(st.lit_a, st.lit_b);
   expect_within_envelope(st, measured_changed_frac);
 }
 

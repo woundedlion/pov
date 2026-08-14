@@ -138,7 +138,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("conway_continuity", 20,                                                   \
     hs_test::conway_continuity_tests::run_conway_continuity_tests, 49151)      \
   X("partition_seam", 1,                                                       \
-    hs_test::partition_seam_tests::run_partition_seam_tests, 39)               \
+    hs_test::partition_seam_tests::run_partition_seam_tests, 54)               \
   X("conway_soak", 1, hs_test::conway_soak_tests::run_conway_soak_tests, 151)  \
   X("opchain_probe", 8, hs_test::opchain_probe_tests::run_opchain_probe_tests, \
     5186)                                                                      \
