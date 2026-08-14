@@ -851,8 +851,13 @@ private:
     // the leg still starts and ends at zero slope against the static
     // bookends. Forward legs settle at the end; reverse legs un-settle over
     // the opening window, symmetrically.
-    const float progress =
-        easing_fn(static_cast<float>(frame) / static_cast<float>(duration));
+    // Clamped: the constructors pin the sweep endpoints inside the operator's
+    // topology-constant interval, so an overshooting easing (elastic, back)
+    // would extrapolate tp past t_end and change the compiled face count
+    // mid-leg.
+    const float progress = hs::clamp(
+        easing_fn(static_cast<float>(frame) / static_cast<float>(duration)),
+        0.0f, 1.0f);
     float k = progress;
     float settle_alpha = 0.0f;
     if (tr.settle_frames > 0) {

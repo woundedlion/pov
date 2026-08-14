@@ -2930,12 +2930,16 @@ enum class StepLegKind { TRUNCATE, SNUB, RELAX };
  * @param site Seed site and arrival parameter.
  * @param frames Leg length in frames.
  * @param max_step_chord Per-frame max-vertex-motion bound.
+ * @param easing Easing driving the sweep parameter.
+ * @param frames_out Optional sink receiving each drawn frame's vertices.
  * @details Mirrors the hankin smoke test's shape: the departed palettes come
  * from the seed's own classification and the bookend from the step's clean
  * endpoint, exactly as IslamicStars derives them.
  */
-inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
-                                 int frames, float max_step_chord) {
+inline void
+check_step_leg_smoke(StepLegKind kind, const StepLegSite &site, int frames,
+                     float max_step_chord, EasingFn easing = ease_in_out_sin,
+                     std::vector<std::vector<Vector>> *frames_out = nullptr) {
   using Animation::OpLeg;
   const int failed_before = hs_test::stats().failed;
 
@@ -3017,6 +3021,8 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
             std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
     }
     prev_v.assign(m.vertices.begin(), m.vertices.end());
+    if (frames_out)
+      frames_out->push_back(prev_v);
     ++drawn_frames;
   };
 
@@ -3044,7 +3050,7 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
                                     .t_start = 0.0f,
                                     .t_end = site.param,
                                     .sweep_frames = frames},
-              leg_arena, cb, handoff, bookend));
+              leg_arena, cb, handoff, bookend, OpLeg::classic_blend, easing));
     break;
   case StepLegKind::SNUB:
     run(OpLeg(seed,
@@ -3052,13 +3058,13 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
                                     .t_start = 0.0f,
                                     .t_end = site.param,
                                     .sweep_frames = frames},
-              leg_arena, cb, handoff, bookend));
+              leg_arena, cb, handoff, bookend, OpLeg::classic_blend, easing));
     break;
   case StepLegKind::RELAX:
     run(OpLeg(seed,
               OpLeg::RelaxSpec{.iterations = static_cast<int>(site.param),
                                .sweep_frames = frames},
-              leg_arena, cb, handoff, bookend));
+              leg_arena, cb, handoff, bookend, OpLeg::classic_blend, easing));
     break;
   }
 
@@ -3212,6 +3218,48 @@ inline void test_opleg_step_leg_smoke() {
   check_step_leg_smoke(StepLegKind::SNUB, SNUB_LEG_SITES[0], 24, 0.15f);
   for (const StepLegSite &site : RELAX_LEG_SITES)
     check_step_leg_smoke(StepLegKind::RELAX, site, 16, 0.15f);
+}
+
+/**
+ * @brief Drives swept legs under an easing whose range leaves [0, 1], gating
+ *        the sweep parameter against extrapolation past the arrival.
+ * @details ease_out_elastic exceeds 1 over x in [0.075, 0.225], peaking near
+ * 1.35. Unclamped, that drives the operator past the endpoint the constructor
+ * pinned inside its topology-constant interval, and past the domain the ops
+ * themselves guard (a reverse leg reaches negative t). Clamped, frames 2-5 of
+ * 24 hold the arrival exactly, which the frame-4-vs-last comparison pins; frame
+ * 1 is still mid-sweep, so a leg frozen from the start would not pass. The
+ * chord bound is loose because elastic covers half the sweep in one frame by
+ * design.
+ */
+inline void test_opleg_step_leg_overshooting_easing() {
+  constexpr StepLegSite NEAR_AMBO{"icosahedron_ambo_truncate049",
+                                  probe_icosa_ambo, 0.49f};
+  constexpr int FRAMES = 24;
+  for (int k = 0; k < 2; ++k) {
+    std::vector<std::vector<Vector>> drawn;
+    const bool truncate = k == 0;
+    check_step_leg_smoke(truncate ? StepLegKind::TRUNCATE : StepLegKind::SNUB,
+                         truncate ? NEAR_AMBO : SNUB_LEG_SITES[0], FRAMES, 2.0f,
+                         ease_out_elastic, &drawn);
+    HS_EXPECT_EQ(drawn.size(), (size_t)FRAMES);
+    const std::vector<Vector> &arrival = drawn.back();
+    const std::vector<Vector> &peak = drawn[3];
+    const std::vector<Vector> &opening = drawn[0];
+    HS_EXPECT_EQ(peak.size(), arrival.size());
+    float worst_peak = 0.0f, worst_opening = 0.0f;
+    for (size_t i = 0; i < arrival.size(); ++i) {
+      worst_peak = std::max(worst_peak, distance_between(peak[i], arrival[i]));
+      worst_opening =
+          std::max(worst_opening, distance_between(opening[i], arrival[i]));
+    }
+    HS_EXPECT_LT(worst_peak, 1e-5f);
+    HS_EXPECT_GT(worst_opening, 1e-3f);
+    std::printf("  [opleg elastic] %s: overshoot frame %.2e from arrival, "
+                "opening frame %.4f\n",
+                truncate ? "truncate" : "snub", (double)worst_peak,
+                (double)worst_opening);
+  }
 }
 
 /**
@@ -4102,6 +4150,7 @@ inline int run_conway_morph_tests() {
   test_opleg_medial_leg_smoke();
   test_opleg_dual_bridge_seam_correspondence();
   test_opleg_step_leg_smoke();
+  test_opleg_step_leg_overshooting_easing();
   test_opleg_gated_swap_smoke();
   test_opleg_edge_leg_crossfade();
   test_unsweepable_recipe_steps_are_gated();
