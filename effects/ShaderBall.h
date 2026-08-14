@@ -3221,7 +3221,9 @@ private:
             spec.seed,
             spec.kind == WarpStageKind::CURL_FLOW
                 ? NoiseChannelLayout::CURL_V1
-                : NoiseChannelLayout::DIRECT_V1,
+                : (spec.basis == NoiseBasis::SIMPLEX
+                       ? NoiseChannelLayout::DIRECT_VECTOR_V2
+                       : NoiseChannelLayout::DIRECT_V1),
             1,
             1,
             static_cast<uint8_t>(spec.kind == WarpStageKind::CURL_FLOW ? 1 : 0),
@@ -4277,8 +4279,16 @@ private:
       return {input, Complex(), 0.0f, 0.0f};
     const Vector q =
         noise_projected_coordinate(input, params.scale, stage_phase);
-    const float nx = sample_noise_vector_channel(noise, spec.basis, q, 0);
-    const float ny = sample_noise_vector_channel(noise, spec.basis, q, 1);
+    float nx;
+    float ny;
+    if (spec.basis == NoiseBasis::SIMPLEX) {
+      const Vector field = sample_simplex_vector(noise, q);
+      nx = field.x;
+      ny = field.y;
+    } else {
+      nx = sample_noise_vector_channel(noise, spec.basis, q, 0);
+      ny = sample_noise_vector_channel(noise, spec.basis, q, 1);
+    }
     const float c = cosf(params.vector_angle);
     const float s = sinf(params.vector_angle);
     const Complex delta(amplitude * (c * nx - s * ny),
