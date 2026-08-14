@@ -1109,10 +1109,11 @@ jobs:
           python tools/license_check.py
 
   lint:
-    name: Lint (Python + JavaScript + justfile)
+    name: Lint (Python + JavaScript + shell + justfile)
     # The C++ tree has clang-format and the firmware warning ratchet; the ~12k
-    # lines of Python and ~1.8k of .mjs under scripts/, tools/ and hardware/ --
-    # which include the gate scripts every other job depends on -- had no static
+    # lines of Python, ~1.8k of .mjs and the shell under scripts/, tools/,
+    # .githooks/ and hardware/ -- which include the gate scripts every other job
+    # depends on, and the hooks that enforce the landing model -- had no static
     # check at all. Both configs select defect rules only (ruff.toml,
     # eslint.config.mjs): no formatter runs and no stylistic rule is enabled, so
     # the gate reports real breakage rather than reflowing the tree.
@@ -1196,6 +1197,31 @@ jobs:
             exit 1
           fi
           echo "justfile clean: $count recipes."
+
+      # shellcheck-py is the PyPI distribution of the same binary, pinned like
+      # ruff: shellcheck's checks move between releases, so an unpinned one
+      # gates the tree on a different set than this job.
+      - name: Install shellcheck
+        run: pip install "shellcheck-py==${{ steps.pins.outputs.shellcheck }}"
+
+      # The pre-commit hook, the fast-forward-only reference-transaction hook
+      # and the profile/device scripts are where the gate logic lives, and a
+      # shellcheck-class defect there passes a gate silently rather than failing
+      # it. The file list is enumerated from the index, so an empty one is a
+      # broken gate, like the steps above.
+      # SC1091 (a source path built at runtime cannot be followed) and SC2034
+      # (device_lock.sh sets HS_DEVICE_PORT for whoever sources it, and the
+      # reference-transaction hook names a positional field it ignores) are the
+      # two checks that cannot see past one file; everything else is on.
+      - name: Lint shell
+        run: |
+          mapfile -t FILES < <(git ls-files -- '*.sh' '.githooks/*')
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "::error::no files selected — the shell path list is broken"
+            exit 1
+          fi
+          shellcheck --exclude=SC1091,SC2034 "${FILES[@]}"
+          echo "shellcheck clean: ${#FILES[@]} files linted."
 
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
