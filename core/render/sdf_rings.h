@@ -359,8 +359,8 @@ struct DistortedRing {
    * @details The ring retains its basis by reference, so binding a temporary
    * would leave every later read of basis dangling.
    */
-  DistortedRing(const Basis &&, float, float, const float *, int,
-                float) = delete;
+  DistortedRing(const Basis &&, float, float, const float *, int, float,
+                KnotPrefilter &) = delete;
 
   /**
    * @brief Maps the distorted ring's widened latitude band to its row range.
