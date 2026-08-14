@@ -1804,7 +1804,6 @@ private:
   struct PlanarWarpResult {
     Complex coords;
     Complex net_delta;
-    float deformation;
     float path_length;
   };
 
@@ -2439,10 +2438,8 @@ private:
           frame.resources.inner_warp_noise, frame.prepared_warp.inner);
       const Complex net_delta(outer.delta.re + inner.delta.re,
                               outer.delta.im + inner.delta.im);
-      const PlanarWarpResult warped{
-          inner.coords, net_delta,
-          sqrtf(net_delta.re * net_delta.re + net_delta.im * net_delta.im),
-          outer.path_length + inner.path_length};
+      const PlanarWarpResult warped{inner.coords, net_delta,
+                                    outer.path_length + inner.path_length};
       HS_SB_STAGE_SPAN(planar_warp, stage_start);
       return {projected, warped};
     }
@@ -3703,7 +3700,7 @@ private:
   selected_mirror_lookup(const ProjectedLookup &projected,
                          const FrameState &frame) {
     if constexpr (!MIRROR_FIRST)
-      return {projected.coords, Complex(), 0.0f, 0.0f};
+      return {projected.coords, Complex(), 0.0f};
     HS_SB_STAGE_MARK(mirror_start);
     const Complex output = mirror_tile(
         projected.coords, frame.params.warp.outer, frame.prepared_warp.outer);
@@ -3711,7 +3708,7 @@ private:
     const Complex delta(output.re - projected.coords.re,
                         output.im - projected.coords.im);
     const float displacement = sqrtf(delta.re * delta.re + delta.im * delta.im);
-    return {output, delta, displacement, displacement};
+    return {output, delta, displacement};
   }
 
   /**
@@ -4153,11 +4150,10 @@ private:
    * @param projected Projection output; supplies the stage input coordinates
    *        and the weight and edge distance the stage envelopes read.
    * @param frame Frame snapshot.
-   * @return Source-side coordinates plus the summed delta, deformation, and
-   *         path length accumulated by the warp program.
+   * @return Source-side coordinates plus the summed delta and path length
+   *         accumulated by the warp program.
    * @details Pullback order is Planar Warp 1 then Planar Warp 2, the reverse
    * of the authored order `source -> Warp 2 -> Warp 1 -> projection`.
-   * Deformation is the magnitude of the summed delta.
    */
 #if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
     (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
@@ -4174,10 +4170,7 @@ private:
         frame.resources.inner_warp_noise, frame.prepared_warp.inner, frame);
     const Complex net_delta(outer.delta.re + inner.delta.re,
                             outer.delta.im + inner.delta.im);
-    const float deformation =
-        sqrtf(net_delta.re * net_delta.re + net_delta.im * net_delta.im);
-    return {inner.coords, net_delta, deformation,
-            outer.path_length + inner.path_length};
+    return {inner.coords, net_delta, outer.path_length + inner.path_length};
   }
 #endif
 
