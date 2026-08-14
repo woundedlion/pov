@@ -150,8 +150,8 @@ public:
         float dist1 = acosf(hs::clamp(d0, -1.0f, 1.0f));
         float dist2 = acosf(hs::clamp(d1, -1.0f, 1.0f));
         if (dist2 - dist1 < params.border_thickness) {
-          // Paint the seam black. The Scan sink writes color*alpha, so an
-          // alpha-0 fragment collapses to (0,0,0) regardless of its RGB.
+          // Paint the seam black. The per-pixel store below writes
+          // color*alpha, so an alpha-0 sample collapses to (0,0,0).
           c = Color4(0, 0, 0, 0);
         }
       }
