@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test scripts/*.test.mjs",
+    "test": "node scripts/run_tests.mjs \"scripts/*.test.mjs\"",
     "screenshots": "node scripts/capture_screenshots.mjs",
     "wasm-smoke": "node scripts/wasm_smoke.mjs",
     "check-roster": "node scripts/check_effect_roster.mjs",
