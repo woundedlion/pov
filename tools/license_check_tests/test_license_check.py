@@ -50,6 +50,11 @@ class TestHeaderIssue(unittest.TestCase):
         issue = lc.header_issue("effects/Voronoi.h", POLYFORM_HEADER)
         self.assertIn(lc.RESERVED, issue)
 
+    def test_a_header_carrying_both_markers_is_reported(self):
+        both = POLYFORM_HEADER.replace(" */\n", f" * {lc.RESERVED}\n */\n")
+        for path in ("core/math/noise_field.h", "effects/Voronoi.h"):
+            self.assertIsNotNone(lc.header_issue(path, both), path)
+
     def test_a_file_with_no_notice_is_reported(self):
         issue = lc.header_issue("core/math/3dmath.h", "#pragma once\n")
         self.assertIn("no copyright notice", issue)

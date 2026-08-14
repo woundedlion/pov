@@ -35,6 +35,10 @@ EXCEPTIONS = {
     "core/vendor/": None,
 }
 
+# Markers that cannot stand beside each other: a header granting PolyForm while
+# reserving all rights tells a licensee two incompatible things.
+CONTRADICTIONS = {POLYFORM: RESERVED, RESERVED: POLYFORM}
+
 
 def tracked_sources(root: Path) -> list[str]:
     """Repo-relative paths of every tracked C/C++ source under root."""
@@ -63,6 +67,10 @@ def header_issue(path: str, head: str) -> str | None:
         return f"no copyright notice in the first {HEAD_BYTES} bytes"
     if marker.lower() not in folded:
         return f"header does not carry {marker!r}, which LICENSE grants this path"
+    contradiction = CONTRADICTIONS.get(marker)
+    if contradiction is not None and contradiction.lower() in folded:
+        return (f"header carries {contradiction!r} alongside {marker!r}; "
+                f"LICENSE gives this path only the latter")
     return None
 
 
