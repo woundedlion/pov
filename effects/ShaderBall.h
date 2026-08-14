@@ -4017,14 +4017,6 @@ private:
               PI_F - std::fabs(coords.re),
               pole_attenuation(r_sq, pole_fade),
               0};
-    case Projection::STEREOGRAPHIC:
-      return {coords,
-              0,
-              0,
-              BOUNDARY_SINGULAR,
-              std::max(0.0f, 1.0f - local.y),
-              pole_attenuation(r_sq, pole_fade),
-              0};
     case Projection::GNOMONIC: {
       const bool in_domain =
           gnomonic_hemisphere == GnomonicHemispherePolicy::FOLDED ||
@@ -4042,6 +4034,7 @@ private:
               0,
               in_domain ? 1.0f : 0.0f};
     }
+    case Projection::STEREOGRAPHIC:
     case Projection::BONNE:
     case Projection::PEIRCE_QUINCUNCIAL:
     case Projection::AIROCEAN:
