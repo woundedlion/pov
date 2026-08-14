@@ -31,6 +31,9 @@ set(_guard_counts "")
 set(HS_GUARD_SITE_TOTAL 0)
 foreach(_file IN LISTS _guard_files)
   file(READ "${_file}" _text)
+  # Strings first, so a `//` or `/*` inside a literal cannot open a comment span
+  # and swallow the guards that follow it.
+  string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
   string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" _text "${_text}")
   string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
   string(REGEX REPLACE "#[ \t]*define[^\n]*" "" _text "${_text}")
