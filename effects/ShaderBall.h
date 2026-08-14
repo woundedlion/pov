@@ -251,9 +251,7 @@ public:
       advance_runtime(runtime, {active_slots, blend.params}, walk_deltas);
     }
     update_palette_chroma(blend.params.color.palette_chroma);
-    triadic_palette_cycler.step();
-    complementary_palette_cycler.step();
-    analogous_palette_cycler.step();
+    step_generated_palettes(visible_palette_mode());
 #if HS_ENABLE_TEST_HOOKS
     ++generated_palette_step_count;
 #endif
@@ -3375,6 +3373,30 @@ private:
       return analogous_palette_cycler.palette();
     }
     __builtin_unreachable();
+  }
+
+  PaletteMode visible_palette_mode() const {
+    if (!state->transition.active)
+      return active_slots.palette;
+    const ThroughClearPhase phase = through_clear_phase(
+        state->transition.elapsed, state->transition.duration);
+    return phase.from_endpoint ? state->transition.from_config.slots.palette
+                               : state->transition.to_config.slots.palette;
+  }
+
+  void step_generated_palettes(PaletteMode visible) {
+    if (visible == PaletteMode::TRIADIC)
+      triadic_palette_cycler.step();
+    else
+      triadic_palette_cycler.advance_without_display();
+    if (visible == PaletteMode::COMPLEMENTARY)
+      complementary_palette_cycler.step();
+    else
+      complementary_palette_cycler.advance_without_display();
+    if (visible == PaletteMode::ANALOGOUS)
+      analogous_palette_cycler.step();
+    else
+      analogous_palette_cycler.advance_without_display();
   }
 
   HS_COLD_MEMBER void update_palette_chroma(float chroma) {
