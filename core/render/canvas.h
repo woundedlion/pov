@@ -862,14 +862,17 @@ private:
     // The new write buffer must not be the one the ISR is scanning out (prev);
     // with two buffers this holds only if buffer_free() gated the advance. Trap
     // it here (once per frame, cold) instead of tearing.
-    HS_CHECK(c != prev.load(std::memory_order_relaxed));
+    HS_CHECK(c != prev.load(std::memory_order_relaxed),
+             "advance_buffer: new write buffer is the one the display ISR is "
+             "scanning out");
     cur.store(c, std::memory_order_relaxed);
     if (persist_pixels) {
       // The trail base is the last COMPLETED frame (next). The buffer_free()
       // gate forces prev == next, so copy from next and assert the equality
       // rather than depend on the gate silently across methods.
       int last = next.load(std::memory_order_relaxed);
-      HS_CHECK(last == prev.load(std::memory_order_relaxed));
+      HS_CHECK(last == prev.load(std::memory_order_relaxed),
+               "advance_buffer: trail base is not the last completed frame");
       memcpy(bufs[c], bufs[last], sizeof(Pixel) * frame_width * frame_height);
     }
   }
