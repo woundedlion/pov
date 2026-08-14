@@ -1052,12 +1052,9 @@ private:
     Slots &slots = requested_config.slots;
     register_animated_param("Function", &slots.function, FUNCTION_OPTIONS,
                             FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
-    const bool polar_topology =
-        slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART ||
-        slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
     const float domain_scale = lens_domain_linear_scale(slots.surface_lens);
     register_source_controls(slots.function, requested_config.params.source,
-                             polar_topology, domain_scale);
+                             domain_scale);
     register_animated_param("Projection", &slots.projection, PROJECTION_OPTIONS,
                             PROJECTION_EXPORT_OPTIONS, NUM_PROJECTIONS);
     register_projection_controls(slots, requested_config.params);
@@ -1447,7 +1444,6 @@ private:
 
   HS_COLD_MEMBER void register_source_controls(Function function,
                                                SourceParams &params,
-                                               bool polar_topology,
                                                float domain_scale) {
     if (is_noise_contour(function)) {
       register_clamped_animated_param(
@@ -1475,13 +1471,10 @@ private:
                               SOFTNESS_MIN, 1.0f);
       register_animated_param("Lattice Radius", &params.lattice_radius,
                               1.0f / 64.0f, 0.49f);
-      if (!polar_topology)
-        return;
+      return;
     }
     register_clamped_animated_param("Pattern Freq", &params.pattern_freq,
                                     PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
-    if (function == Function::PRIMITIVE_LATTICE)
-      return;
     register_clamped_animated_param(
         "Speed", &params.speed, SPEED_MIN,
         domain_scaled_max(SPEED_MAX, 0.5f, domain_scale));
@@ -5423,14 +5416,25 @@ private:
              whole_affine_winding(config.params.warp.inner.translation_y)));
   }
 
+  /// Source periods spanned by one angular seam jump of a polar chart.
+  /// Primitive Lattice is periodic in its own cell scale and ignores the
+  /// pattern frequency, so its seam spans `2*pi*harmonic*cell_scale` cells.
+  HS_COLD_MEMBER static constexpr float
+  polar_seam_periods(const RequestedConfig &config,
+                     const WarpStageSpec &polar) {
+    const float harmonic = static_cast<float>(polar.polar_harmonic);
+    if (config.slots.function == Function::PRIMITIVE_LATTICE)
+      return TWO_PI_F * harmonic * config.params.source.lattice_cell_scale;
+    return config.params.source.pattern_freq * harmonic;
+  }
+
   HS_COLD_MEMBER static constexpr bool
   polar_source_compatible(const RequestedConfig &config,
                           const WarpStageSpec &polar) {
     const SourceTraits traits = source_traits(config.slots.function);
     if (!traits.y_periodic || !traits.polar_angle_compatible)
       return false;
-    const float periods = config.params.source.pattern_freq *
-                          static_cast<float>(polar.polar_harmonic);
+    const float periods = polar_seam_periods(config, polar);
     return periods == static_cast<float>(static_cast<int>(periods));
   }
 
@@ -5787,9 +5791,21 @@ private:
             position,
             FUNCTION_OPTIONS[static_cast<uint8_t>(candidate.slots.function)],
             position);
-      const float periods = candidate.params.source.pattern_freq *
-                            static_cast<float>(polar->polar_harmonic);
+      const float periods = polar_seam_periods(candidate, *polar);
       const float nearest_periods = floorf(periods + 0.5f);
+      if (candidate.slots.function == Function::PRIMITIVE_LATTICE)
+        return begin_warning(
+            "%s Polar Chart requires 2*pi x Lattice Cell Scale x Polar "
+            "Harmonic to be a whole number. %.7g x %u gives %.7g. Set Lattice "
+            "Cell Scale to %.7g or change %s Polar Harmonic.",
+            position,
+            static_cast<double>(candidate.params.source.lattice_cell_scale),
+            static_cast<unsigned>(polar->polar_harmonic),
+            static_cast<double>(periods),
+            static_cast<double>(
+                nearest_periods /
+                (TWO_PI_F * static_cast<float>(polar->polar_harmonic))),
+            position);
       const float suggested_frequency =
           nearest_periods / static_cast<float>(polar->polar_harmonic);
       return begin_warning(
