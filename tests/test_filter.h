@@ -19,7 +19,7 @@
  *   - Screen::Blur::plot — kernel passthrough (factor=0 → identity center,
  *     factor=1 → 3x3 weights sum to alpha), pole-row clip renormalization
  *   - Pixel::ChromaticShift::plot — channel-split fan-out
- *   - Pixel::Feedback — Style binding accessor, set_enabled
+ *   - Pixel::Feedback — Style binding accessor
  *
  * End-to-end (live Canvas via the test_canvas/test_scan advance_display pattern,
  * which dissolves the buffer_free() ctor spin):
@@ -683,9 +683,8 @@ inline void test_chromatic_shift_fanout() {
 // ============================================================================
 
 /**
- * @brief Verifies style() returns a live reference to the bound Style (reads,
- *        mutation, and the const overload all alias the original); set_enabled
- *        is callable.
+ * @brief Verifies style() returns a live reference to the bound Style: reads,
+ *        mutation, and the const overload all alias the original.
  */
 inline void test_feedback_style_binding() {
   constexpr int W = 32, H = 32;
@@ -703,9 +702,6 @@ inline void test_feedback_style_binding() {
   // Mutating through the accessor is visible on the original Style.
   fb.style().fade = 0.5f;
   HS_EXPECT_NEAR(style.fade, 0.5f, 1e-6f);
-
-  fb.set_enabled(false);
-  fb.set_enabled(true);
 }
 
 /**
