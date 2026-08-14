@@ -60,6 +60,12 @@ struct Audit {
       max_gap_cols = gap;
   }
 
+  void note_probes(int y, long long len) {
+    probes += len;
+    if (y >= 0 && y < MAX_ROWS)
+      probe_rows[y] += len;
+  }
+
   void note_painted(int y) {
     ++painted;
     if (y >= 0 && y < MAX_ROWS)
