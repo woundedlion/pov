@@ -180,9 +180,9 @@ enum class FullConfigRestoreResult : uint8_t {
                             admits. */
   INVALID_ACCEPTED,    /**< Fields each in range but a combination the effect
                             will not render. */
-  INVALID_PENDING,     /**< Pending list is not a set of in-range field indices,
-                            or does not match where accepted and requested
-                            differ. */
+  INVALID_PENDING,     /**< Pending list is absent, is not a set of in-range
+                            field indices, or does not match where accepted and
+                            requested differ. Retry with an empty list. */
 };
 
 /**
@@ -913,8 +913,8 @@ public:
    *          the field count; INVALID_VALUE a field or runtime value outside
    *          what its slot admits; INVALID_ACCEPTED fields each in range but a
    *          combination the effect will not render; INVALID_PENDING a pending
-   *          list that is not a set of in-range field indices, or one that does
-   *          not match where accepted and requested differ.
+   *          list that is absent, that is not a set of in-range field indices,
+   *          or that does not match where accepted and requested differ.
    */
   FullConfigRestoreResult restoreFullConfigSnapshot(const val &input) {
     FullConfigRestoreResult result = FullConfigRestoreResult::NOT_SHADERBALL;
@@ -959,7 +959,7 @@ public:
       snapshot.has_runtime = has_runtime.as<bool>();
       const val pending_ids = input["pendingFieldIds"];
       if (!is_array(pending_ids)) {
-        result = FullConfigRestoreResult::INVALID_LENGTH;
+        result = FullConfigRestoreResult::INVALID_PENDING;
         return;
       }
       const size_t pending_count = pending_ids["length"].as<size_t>();
