@@ -350,6 +350,18 @@ def head_stamp(cwd: str | Path | None = None, rev: str = "HEAD"
     return sha, date, subject
 
 
+def head_position(cwd: str | Path | None = None) -> list[str]:
+    """git-checkout arguments that put a worktree back on its current HEAD.
+
+    A branch is restored by name so HEAD reattaches to it; a detached HEAD is
+    restored by sha, detached again.
+    """
+    try:
+        return ["--force", _git(["symbolic-ref", "--short", "HEAD"], cwd)]
+    except GitError:
+        return ["--detach", "--force", _git(["rev-parse", "HEAD"], cwd)]
+
+
 # ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
@@ -493,6 +505,10 @@ def cmd_backfill(args) -> int:
 
     SLOW: one full three-image firmware link per commit (minutes each).
 
+    The worktree is force-detached at each commit, so tracked-file edits in it
+    are discarded while untracked files (the .pio build tree above all) survive.
+    Its original HEAD is restored when the range finishes or aborts.
+
     `pio run` exits non-zero when a commit fails the size gate, but the ELF is
     LINKED BEFORE the gate runs, so pio's status cannot separate an over-budget
     commit (worth trailing) from one that never compiled. The ELF mtime can: a
@@ -516,44 +532,57 @@ def cmd_backfill(args) -> int:
         return 2
     have = {(r.sha, r.env) for r in read_trail(trail)}
 
-    for rev in revs:
-        sha, date, subject = head_stamp(worktree, rev)
-        todo = [e for e in envs if (sha, e) not in have]
-        if not todo:
-            print(f"[size-trail] {sha[:8]} already trailed - skipping.")
-            continue
+    try:
+        restore = head_position(worktree)
+    except GitError as exc:
+        print(f"[size-trail] {exc}", file=sys.stderr)
+        return 2
+
+    try:
+        for rev in revs:
+            sha, date, subject = head_stamp(worktree, rev)
+            todo = [e for e in envs if (sha, e) not in have]
+            if not todo:
+                print(f"[size-trail] {sha[:8]} already trailed - skipping.")
+                continue
+            try:
+                _git(["checkout", "--detach", "--force", rev], worktree)
+            except GitError as exc:
+                print(f"[size-trail] {sha[:8]}: checkout failed ({exc})",
+                      file=sys.stderr)
+                continue
+            pio = ["pio", "run", "-d", str(worktree)]
+            for env in todo:
+                pio += ["-e", env]
+            before = {env: _elf_stamp(build_dir, env) for env in todo}
+            try:
+                subprocess.run(pio, check=False)
+            except OSError as exc:
+                print(f"[size-trail] pio not runnable ({exc})", file=sys.stderr)
+                return 2
+            linked = [env for env in todo
+                      if _elf_stamp(build_dir, env) != before[env]]
+            for env in todo:
+                if env not in linked:
+                    print(f"[size-trail] {sha[:8]}: '{env}' ELF not relinked - "
+                          f"build failed; skipping.", file=sys.stderr)
+            if not linked:
+                continue
+            found = collect(build_dir, tuple(linked),
+                            warn=lambda m: print(f"[size-trail] {sha[:8]}: {m}",
+                                                 file=sys.stderr))
+            if not found:
+                continue
+            append_rows(trail, [TrailRow(sha=sha, date=date, env=env,
+                                         sizes=sizes, subject=subject)
+                                for env, sizes in sorted(found.items())])
+            print(f"[size-trail] {sha[:8]} recorded {', '.join(sorted(found))}")
+    finally:
         try:
-            _git(["checkout", "--detach", "--force", rev], worktree)
+            _git(["checkout", *restore], worktree)
         except GitError as exc:
-            print(f"[size-trail] {sha[:8]}: checkout failed ({exc})",
-                  file=sys.stderr)
-            continue
-        pio = ["pio", "run", "-d", str(worktree)]
-        for env in todo:
-            pio += ["-e", env]
-        before = {env: _elf_stamp(build_dir, env) for env in todo}
-        try:
-            subprocess.run(pio, check=False)
-        except OSError as exc:
-            print(f"[size-trail] pio not runnable ({exc})", file=sys.stderr)
-            return 2
-        linked = [env for env in todo
-                  if _elf_stamp(build_dir, env) != before[env]]
-        for env in todo:
-            if env not in linked:
-                print(f"[size-trail] {sha[:8]}: '{env}' ELF not relinked - "
-                      f"build failed; skipping.", file=sys.stderr)
-        if not linked:
-            continue
-        found = collect(build_dir, tuple(linked),
-                        warn=lambda m: print(f"[size-trail] {sha[:8]}: {m}",
-                                             file=sys.stderr))
-        if not found:
-            continue
-        append_rows(trail, [TrailRow(sha=sha, date=date, env=env, sizes=sizes,
-                                     subject=subject)
-                            for env, sizes in sorted(found.items())])
-        print(f"[size-trail] {sha[:8]} recorded {', '.join(sorted(found))}")
+            print(f"[size-trail] {worktree} left at the range's end - "
+                  f"restore failed ({exc})", file=sys.stderr)
     return 0
 
 
@@ -597,7 +626,9 @@ def build_parser() -> argparse.ArgumentParser:
                              "(SLOW: one firmware link per commit)")
     bf.add_argument("rev_range", metavar="rev-range")
     bf.add_argument("--worktree", required=True,
-                    help="checkout to build in; it is hard-reset per commit")
+                    help="checkout to build in; force-detached at each commit "
+                         "(untracked files survive) and restored to its "
+                         "original HEAD at the end")
     bf.add_argument("--build-dir", help="default: <worktree>/.pio/build")
     bf.add_argument("--trail")
     bf.add_argument("--env", action="append")
