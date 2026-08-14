@@ -2178,7 +2178,7 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### ShaderBall
 
-Typed pullback sphere shader (extends `Effect` directly) with 14 compiled inverse programs covering all 23 authored presets and a simulator-only dynamic backend for experimentation. Every compiled program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes authored stereographic, Bonne, Peirce quincuncial, and folded-gnomonic looks; topology-aware seam metadata; three generated palette harmonies; sphere-space hue noise; and continuous preset choreography. The simulator uses a compiled wrapper whenever one matches and otherwise routes any structurally valid combination to the dynamic renderer. Teensy remains closed to the compiled roster. Preset changes use parameter morphs within a topology and a through-clear transition between topologies.
+Typed pullback sphere shader (extends `Effect` directly) with 17 compiled inverse programs covering all 27 authored presets and a simulator-only dynamic backend for experimentation. Every compiled program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes authored stereographic, Bonne, Peirce quincuncial, folded-sinusoidal, and folded-gnomonic looks; topology-aware seam metadata; three generated palette harmonies; sphere-space hue noise; and continuous preset choreography. The simulator uses a compiled wrapper whenever one matches and otherwise routes any structurally valid combination to the dynamic renderer. Teensy remains closed to the compiled roster. Preset changes use parameter morphs within a topology and a through-clear transition between topologies.
 
 **Parameters**: the active controls are schema-driven by the selected slots. See the vocabulary and dependency map below.
 
@@ -2188,7 +2188,7 @@ Typed pullback sphere shader (extends `Effect` directly) with 14 compiled invers
 
 Full design record: the [ShaderBall spec](https://github.com/woundedlion/pov/blob/master/docs/specs/shaderball_spec.md) fixes the authored vocabulary, presets, and choreography; the [inverse-sampling pipeline spec](https://github.com/woundedlion/pov/blob/master/docs/specs/inverse_sampling_pipeline_spec.md) specifies the shipping renderer summarized below. The [noise unification brief](https://github.com/woundedlion/pov/blob/master/docs/shaderball_noise_unification.md) and the [red-preset optimization plan](https://github.com/woundedlion/pov/blob/master/docs/shaderball_optimization_plan.md) carry the supporting design and performance record.
 
-The shipping renderer is a closed set of typed programs, not a free-form node graph or a runtime switch renderer. A `TopologyKey` records every discrete choice that changes code, canonicalizing inactive layout, noise, and warp fields. The 14-entry program manifest maps an exact key and continuous precondition to a semantic `InversePipelineId` and a non-null `&InversePipeline<...>::shade` wrapper. Teensy has no fallback. The simulator first consults the same manifest, then resolves a valid unmatched configuration to a separate non-null dynamic shade function.
+The shipping renderer is a closed set of typed programs, not a free-form node graph or a runtime switch renderer. A `TopologyKey` records every discrete choice that changes code, canonicalizing inactive layout, noise, and warp fields. The 17-entry program manifest maps an exact key and continuous precondition to a semantic `InversePipelineId` and a non-null `&InversePipeline<...>::shade` wrapper. Teensy has no fallback. The simulator first consults the same manifest, then resolves a valid unmatched configuration to a separate non-null dynamic shade function.
 
 Frame preparation resolves the backend once, snapshots the selected slots, live parameters, clocks, transforms, prepared lookup data, and borrowed palette/noise resources into an immutable `FrameState`, then validates every resource that backend may dereference. The resulting `PreparedEndpoint` owns the frame snapshot, pipeline ID (`NONE` for dynamic), alpha, and shade pointer. The shared `Scan::Shader` loop calls that pointer unconditionally for every visible sample. Through-clear transitions prepare and consume one endpoint at a time, so compiled and dynamic endpoints can transition without keeping two large frame snapshots live on the stack.
 
@@ -2197,7 +2197,7 @@ The shader is a *pullback*: it starts at a visible sphere point and walks backwa
 ```
 selection — once per frame
 
-  Candidate Config ──> canonical TopologyKey ──> 14-entry program manifest
+  Candidate Config ──> canonical TopologyKey ──> 17-entry program manifest
                        ├─ match ────> compiled shade + semantic ID
                        └─ no match ─> dynamic shade + NONE (simulator only)
                                       └──> PreparedEndpoint
@@ -2225,7 +2225,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 
 #### Compiled program roster
 
-Semantic program identities are independent of preset numbering. Presets 1–10 share one topology and therefore one compiled wrapper; all other rows are one authored topology each.
+Semantic program identities are independent of preset numbering. Presets 1–10 share one topology and therefore one compiled wrapper, as do presets 24–25, which differ only in a continuous surface-noise scale the key does not record; all other rows are one authored topology each.
 
 | Preset(s) | Compiled program | Selected stages |
 |---|---|---|
@@ -2243,6 +2243,9 @@ Semantic program identities are independent of preset numbering. Presets 1–10 
 | 20 | `DODECAHEDRAL_NOISE_GRID` | Stereographic direct surface noise, dodecahedral lens, opaque grid |
 | 21 | `DODECAHEDRAL_NOISE_LATTICE_MIRROR` | Stereographic direct surface noise, dodecahedral lens, outer mirror, edge-faded lattice |
 | 22 | `GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR` | Folded gnomonic, dodecahedral lens, outer wave shear then inner mirror, squared-weight generated color |
+| 23 | `GNOMONIC_AFFINE_LATTICE_CONTOUR` | Folded gnomonic, outer affine frame, iso-contour value transfer, projection-weight lattice |
+| 24–25 | `SINUSOIDAL_CURL_LATTICE` | Folded sinusoidal curl surface noise, projection-weight lattice |
+| 26 | `STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE` | Stereographic, triangular-prism kaleidoscope lens, outer polar chart then inner wave shear, squared-weight lattice |
 
 #### Authoring vocabulary
 
@@ -2298,7 +2301,7 @@ Colorize ──────────> Palette + selected hue-shift source
 ```
 
 
-Schema validity still enforces the cross-stage constraints that have a geometric reason. Noise Contour (Sphere) cannot follow a planar warp. Polar Chart must be the only planar warp, requires Grid or Primitive Lattice, and requires `Pattern Freq × Polar Harmonic` to be a whole number. Seam-sensitive projected noise and warp stages cannot cross the cut topology of Bonne, Peirce, or Airocean. Unsafe coordinate bounds and excess noise resources are rejected as well. These incompatible combinations remain pending and report an actionable warning. Manifest availability is separate: the simulator routes valid unmatched combinations dynamically, while Teensy requires one of the 14 compiled descriptors.
+Schema validity still enforces the cross-stage constraints that have a geometric reason. Noise Contour (Sphere) cannot follow a planar warp. Polar Chart must be the only planar warp, requires Grid or Primitive Lattice, and requires `Pattern Freq × Polar Harmonic` to be a whole number. Seam-sensitive projected noise and warp stages cannot cross the cut topology of Bonne, Peirce, or Airocean. Unsafe coordinate bounds and excess noise resources are rejected as well. These incompatible combinations remain pending and report an actionable warning. Manifest availability is separate: the simulator routes valid unmatched combinations dynamically, while Teensy requires one of the 17 compiled descriptors.
 
 Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** gives both sides of a paired cut the same authored fade, so the seam closes flush without a subducted edge. Glued and periodic edges remain continuous and do not fade. **Pole Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
 
