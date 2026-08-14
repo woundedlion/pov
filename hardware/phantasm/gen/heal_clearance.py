@@ -6,6 +6,10 @@ in the GUI, so this heal must run as the LAST step before any Quilter upload --
 for either the placed board (phantasm.kicad_pro) or the unplaced board
 (unplaced/phantasm_unplaced.kicad_pro). Idempotent; safe to run anytime.
 
+The unplaced board is restored to the wider constraints its candidate boards were
+produced under (constraints.UNPLACED_RULES / UNPLACED_DEFAULT_CLASS); every other
+project gets the routed board's fabrication floors.
+
 Hash-manifested snapshot directories -- those carrying SHA256SUMS.txt -- are skipped;
 rewriting one breaks its manifest.
 
@@ -16,7 +20,8 @@ import json
 import os
 import sys
 
-from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
+from constraints import (DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS,
+                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES)
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -32,12 +37,20 @@ def project_files():
     return [p for p in candidates if not is_manifested(p)]
 
 
+def minimums_for(p):
+    """The (rule, Default net class) floors project p must be restored to."""
+    if os.path.basename(os.path.dirname(p)) == "unplaced":
+        return UNPLACED_RULES, UNPLACED_DEFAULT_CLASS
+    return RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS
+
+
 def heal_project(p):
+    rule_minimums, class_minimums = minimums_for(p)
     with open(p, encoding="utf-8") as project_file:
         d = json.load(project_file)
     rules = d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})
     changes = {}
-    for field, minimum in RULE_MINIMUMS.items():
+    for field, minimum in rule_minimums.items():
         current = rules.get(field, 0) or 0
         if current < minimum:
             rules[field] = minimum
@@ -46,16 +59,11 @@ def heal_project(p):
     classes = d.setdefault("net_settings", {}).setdefault("classes", [])
     default = next((item for item in classes if item.get("name") == "Default"), None)
     if default is not None:
-        diameter = default.get("via_diameter", 0) or 0
-        drill = default.get("via_drill", 0) or 0
-        minimum_diameter = DEFAULT_CLASS_MINIMUMS["via_diameter"]
-        minimum_drill = DEFAULT_CLASS_MINIMUMS["via_drill"]
-        if diameter < minimum_diameter:
-            default["via_diameter"] = minimum_diameter
-            changes["Default.via_diameter"] = (diameter, minimum_diameter)
-        if drill < minimum_drill:
-            default["via_drill"] = minimum_drill
-            changes["Default.via_drill"] = (drill, minimum_drill)
+        for field, minimum in class_minimums.items():
+            current = default.get(field, 0) or 0
+            if current < minimum:
+                default[field] = minimum
+                changes[f"Default.{field}"] = (current, minimum)
 
     if changes:
         with open(p, "w", encoding="utf-8") as project_file:

@@ -10,6 +10,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import heal_clearance
+from constraints import UNPLACED_DEFAULT_CLASS, UNPLACED_RULES
 
 
 class MainTests(unittest.TestCase):
@@ -53,6 +54,28 @@ class MainTests(unittest.TestCase):
             healed = json.loads((root / "phantasm.kicad_pro").read_text(encoding="utf-8"))
             self.assertGreater(
                 healed["board"]["design_settings"]["rules"]["min_clearance"], 0)
+
+
+    def test_unplaced_project_gets_the_unplaced_constraints(self):
+        zeroed = json.dumps({
+            "board": {"design_settings": {"rules": {"min_clearance": 0}}},
+            "net_settings": {"classes": [{"name": "Default"}]}})
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "unplaced").mkdir()
+            project = root / "unplaced" / "phantasm_unplaced.kicad_pro"
+            project.write_text(zeroed, encoding="utf-8")
+
+            with mock.patch.object(heal_clearance, "OUT", temp_dir):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(heal_clearance.main(), 0)
+
+            healed = json.loads(project.read_text(encoding="utf-8"))
+            self.assertEqual(healed["board"]["design_settings"]["rules"],
+                             dict(UNPLACED_RULES))
+            default = healed["net_settings"]["classes"][0]
+            for field, expected in UNPLACED_DEFAULT_CLASS.items():
+                self.assertEqual(default[field], expected)
 
 
 if __name__ == "__main__":
