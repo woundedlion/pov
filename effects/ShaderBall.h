@@ -552,6 +552,8 @@ public:
 
     HS_COLD_MEMBER void lerp(const WarpStageParams &a, const WarpStageParams &b,
                              float t) {
+      static_assert(sizeof(WarpStageParams) == 100,
+                    "WarpStageParams field set changed - update lerp");
       scale = hs::lerp(a.scale, b.scale, t);
       strength = hs::lerp(a.strength, b.strength, t);
       speed = hs::lerp(a.speed, b.speed, t);
@@ -636,6 +638,8 @@ public:
 
     HS_COLD_MEMBER void lerp(const ProjectionParams &a,
                              const ProjectionParams &b, float t) {
+      static_assert(sizeof(ProjectionParams) == 28,
+                    "ProjectionParams field set changed - update lerp");
       pole_fade = hs::lerp(a.pole_fade, b.pole_fade, t);
       spin_rate = hs::lerp(a.spin_rate, b.spin_rate, t);
       wander = hs::lerp(a.wander, b.wander, t);
@@ -710,6 +714,8 @@ public:
 
     HS_COLD_MEMBER void lerp(const SurfaceNoiseParams &a,
                              const SurfaceNoiseParams &b, float t) {
+      static_assert(sizeof(SurfaceNoiseParams) == 24,
+                    "SurfaceNoiseParams field set changed - update lerp");
       basis = t < 1.0f ? a.basis : b.basis;
       integrator = t < 1.0f ? a.integrator : b.integrator;
       seed = t < 1.0f ? a.seed : b.seed;
@@ -732,6 +738,8 @@ public:
     HS_COLD_MEMBER bool operator==(const ValueParams &) const = default;
     HS_COLD_MEMBER void lerp(const ValueParams &a, const ValueParams &b,
                              float t) {
+      static_assert(sizeof(ValueParams) == 28,
+                    "ValueParams field set changed - update lerp");
       iso_level = hs::lerp(a.iso_level, b.iso_level, t);
       iso_width = hs::lerp(a.iso_width, b.iso_width, t);
       band_count = t < 1.0f ? a.band_count : b.band_count;
@@ -765,6 +773,8 @@ public:
 
     HS_COLD_MEMBER void lerp(const ColorParams &a, const ColorParams &b,
                              float t) {
+      static_assert(sizeof(ColorParams) == 44,
+                    "ColorParams field set changed - update lerp");
       hue_shift_amount = hs::lerp(a.hue_shift_amount, b.hue_shift_amount, t);
       hue_noise_scale = hs::lerp(a.hue_noise_scale, b.hue_noise_scale, t);
       hue_noise_speed = hs::lerp(a.hue_noise_speed, b.hue_noise_speed, t);
@@ -789,6 +799,8 @@ public:
 
     HS_COLD_MEMBER void lerp(const OuterCameraParams &a,
                              const OuterCameraParams &b, float t) {
+      static_assert(sizeof(OuterCameraParams) == 4,
+                    "OuterCameraParams field set changed - update lerp");
       wander = hs::lerp(a.wander, b.wander, t);
     }
   };
