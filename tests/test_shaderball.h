@@ -1098,7 +1098,7 @@ inline void test_shaderball_legacy_spatial_slots() {
       static_cast<uint8_t>(WB::boundary_cut() | WB::boundary_singular()));
 
   const Vector v(0.6f, 0.48f, 0.64f);
-  const Complex lensed = stereo(glitch_lens(v));
+  const Complex lensed = stereo(lenses::glitch_lens(v));
   WB::FrameState frame = WB::frame(landmark_sb);
   frame.slots.projection = WB::Projection::STEREOGRAPHIC;
   frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;

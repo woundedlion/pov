@@ -6,9 +6,9 @@
 
 /**
  * @file lenses.h
- * @brief Direction-domain sphere lenses: the axial twist, the hexagonal
- *        kaleidoscope wedge, and the spherical reflection-group folds with
- *        their chamber mirror tables.
+ * @brief Direction-domain sphere lenses: the glitch fold, the axial twist, the
+ *        hexagonal kaleidoscope wedge, and the spherical reflection-group folds
+ *        with their chamber mirror tables.
  */
 
 #include <algorithm>
@@ -65,6 +65,27 @@ inline constexpr std::array<Vector, 3> HEXAGONAL_PRISM_MIRRORS = {
 inline constexpr std::array<Vector, 3> OCTAGONAL_PRISM_MIRRORS = {
     Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
     Vector(0.3826834324f, 0.0f, -0.9238795325f)};
+
+/**
+ * @brief Applies a trig-free glitch lens to a sphere direction.
+ * @param v Unit direction vector on the sphere.
+ * @return Direction after latitude doubling and azimuth tripling; returns
+ * the up vector near the lens axis.
+ */
+inline Vector glitch_lens(const Vector &v) {
+  const float x2 = v.x * v.x;
+  const float z2 = v.z * v.z;
+  const float radius2 = x2 + z2;
+  constexpr float MIN_AXIS_RADIUS2 = 1e-6f;
+  if (radius2 < MIN_AXIS_RADIUS2)
+    return Vector(0.0f, 1.0f, 0.0f);
+
+  const float inverse_radius2 = 1.0f / radius2;
+  const float double_y = 2.0f * v.y;
+  return Vector(double_y * v.x * (4.0f * x2 * inverse_radius2 - 3.0f),
+                2.0f * v.y * v.y - 1.0f,
+                double_y * v.z * (3.0f - 4.0f * z2 * inverse_radius2));
+}
 
 /**
  * @brief Rotates a direction about the Y axis in proportion to its height.
