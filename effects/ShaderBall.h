@@ -2736,7 +2736,7 @@ private:
                                                                        frame);
     }
   };
-  using GnomonicDodecahedralGridWaveMirrorPipeline = InversePipeline<
+  using GnomonicDodecahedralGridWaveMirrorPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
                                   SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
@@ -2745,6 +2745,14 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+  struct GnomonicDodecahedralGridWaveMirrorPipeline
+      : GnomonicDodecahedralGridWaveMirrorPipelineBase {
+    FASTRUN __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return GnomonicDodecahedralGridWaveMirrorPipelineBase::template run_stage<
+          0>(view, frame);
+    }
+  };
   using GnomonicDodecahedralGridVectorMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
