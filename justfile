@@ -51,13 +51,41 @@ test:
     cmake --build --preset tests
     ctest --preset tests
 
-# Python and JavaScript lint checks used by CI. ruff's rule set moves between
-# releases, so the binary on PATH is held to the pin the ci.yml lint job
-# installs; the npm linters are locked by package-lock.json.
+# Python, JavaScript and shell lint checks used by CI. ruff's rule set moves
+# between releases, so the binary on PATH is held to the pin the ci.yml lint job
+# installs; the npm linters are locked by package-lock.json. The shell set is
+# the same one that job enumerates from the index -- the gate scripts and the
+# hooks, where a shellcheck-class defect passes a gate silently.
 lint:
     {{py}} tools/build_pins.py --check-tool ruff
     ruff check --no-cache .
     npm run lint
+    bash -c "git ls-files -- '*.sh' '.githooks/*' | xargs shellcheck --exclude=SC1091,SC2034"
+
+# Formatting gate over the whole tracked first-party C++ set: the ci.yml
+# clang-format job's invocation, minus its FORMAT_BASELINE subtraction (that
+# baseline is empty and meant to stay so). Majors reflow differently, so the
+# binary on PATH is held to CI's pin the way ruff is above. The exclusion regex
+# is pinned against the ci.yml and .githooks/pre-commit copies by
+# tools/build_pins.py --check.
+clang-format:
+    {{py}} tools/build_pins.py --check-tool clang-format
+    bash -c "git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' | xargs clang-format --dry-run --Werror --style=file"
+
+# Every tracked C/C++ source carries the header LICENSE grants it, plus the
+# checker's own unit tests -- the ci.yml license-headers job.
+license-headers:
+    bash tools/check_test_files.sh 1 "tools/license_check_tests/test*.py"
+    {{py}} -m unittest discover -s tools/license_check_tests
+    {{py}} tools/license_check.py
+
+# First-party warning ratchet over every platformio.ini environment -- the
+# ci.yml teensy-warnings job. The build must be COLD (a cached TU emits no
+# warnings), so the object cache and .pio/build go first and the whole firmware
+# tree recompiles; budget tens of minutes. teensy_build.log is gitignored.
+teensy-warnings:
+    bash -c "set -o pipefail; rm -rf .pio/build_cache .pio/build && pio run -v 2>&1 | tee teensy_build.log"
+    {{py}} tools/teensy_warnings.py --build-log teensy_build.log
 
 # The README's `tree daydream` fence draws the sibling checkout's tracked tree;
 # docs_check.py can only validate it against a --checkout root (ci.yml checks the

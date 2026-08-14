@@ -106,9 +106,10 @@ INLINE_USES = (
      lambda v: v),
 )
 
-# Strings that must read identically in two build files. The pre-commit hook is
-# POSIX shell run per commit and ci.yml is workflow YAML, so neither can source
-# a value from the other; --check asserts every occurrence matches this one.
+# Strings that must read identically in several build files. The pre-commit hook
+# is POSIX shell run per commit, ci.yml is workflow YAML and the justfile is a
+# recipe list, so none can source a value from another; --check asserts every
+# occurrence matches this one.
 SHARED_LITERALS = {
     # Paths the clang-format gate skips: vendored sources and generated ones.
     "format-exclude": (
@@ -122,9 +123,9 @@ SHARED_LITERALS = {
 
 # (pattern, literal name, occurrences required across INLINE_SCAN). The
 # pattern's single capture group is the literal as that file spells it; the
-# count fails a copy that was dropped or a third one added unnoticed.
+# count fails a copy that was dropped or another one added unnoticed.
 SHARED_LITERAL_USES = (
-    (r"grep -vE '([^']*)'", "format-exclude", 2),
+    (r"grep -vE '([^']*)'", "format-exclude", 3),
 )
 
 # (manifest, JSON path to a `>=X` range, pin name). The range is the floor the
