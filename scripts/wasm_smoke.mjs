@@ -33,6 +33,9 @@ const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 3);
 // The 2048 default is calibrated on the -O3 release build; -O0 debug frames run
 // severalfold larger, so ci.yml overrides via WASM_SMOKE_STACK_CEILING.
 const STACK_HWM_CEILING_BYTES = Number(process.env.WASM_SMOKE_STACK_CEILING ?? 2048);
+// ShaderBall's compiled-pipeline sweep peaks near 3.2 KB and retains half of
+// the release stack as headroom under this effect-specific ratchet.
+const SHADERBALL_STACK_HWM_CEILING_BYTES = 4096;
 
 // main() lets a fatal precondition set exitCode and return, so buffered stdout
 // flushes rather than being cut off by process.exit().
@@ -168,6 +171,20 @@ async function main() {
           fail(`setEffect("${name}") was rejected at ${w}x${h}`);
           continue;
         }
+        if (name === 'ShaderBall') {
+          const presetCount = engine.getPresetCount();
+          for (let preset = 0; preset < presetCount; preset++) {
+            if (!engine.selectPreset(preset)) {
+              fail(`ShaderBall: selectPreset(${preset}) of ${presetCount} failed`);
+              continue;
+            }
+            engine.drawFrame();
+          }
+          if (!engine.selectPreset(0)) {
+            fail('ShaderBall: could not restore preset 0 after the preset sweep');
+          }
+          engine.setAnimationsPaused(false);
+        }
         for (let f = 0; f < FRAMES_PER_EFFECT; f++) engine.drawFrame();
 
         // getPixels() aliases WASM memory; after drawing it must expose the full
@@ -209,7 +226,10 @@ async function main() {
         // The stack traps nowhere: guard it with the creep budget, not
         // hwm > capacity (unreachable — see STACK_HWM_CEILING_BYTES).
         const stack = m.stack;
-        const stackGate = stackCreepBudget(stack, STACK_HWM_CEILING_BYTES);
+        const stackCeiling = name === 'ShaderBall'
+          ? Math.max(STACK_HWM_CEILING_BYTES, SHADERBALL_STACK_HWM_CEILING_BYTES)
+          : STACK_HWM_CEILING_BYTES;
+        const stackGate = stackCreepBudget(stack, stackCeiling);
         if (!stack) {
           fail(`${name}: getArenaMetrics() omits the stack region`);
         } else if (stack.high_water_mark === 0) {
@@ -473,6 +493,11 @@ async function main() {
         // later value read: it must hold across frames, reads and param writes,
         // hold across a rejected load, and advance by exactly one per accepted
         // load (effect_loads in wasm.cpp).
+        // The authoring probe above may leave a ShaderBall schema refresh for
+        // its next frame. Settle it before measuring generation immutability.
+        engine.drawFrame();
+        engine.getParameterDefinitions();
+        engine.getParamValues();
         const g0 = engine.getParamGeneration();
         if (!Number.isInteger(g0) || g0 < 1) {
           fail(`state-seam: getParamGeneration() = ${g0}, expected a positive integer ` +
