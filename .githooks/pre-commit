@@ -79,8 +79,9 @@ CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 # wrong-major binary therefore fails too, rather than waving the commit through
 # on no evidence. Install the pinned version (pip install
 # clang-format==22.1.8) or point CLANG_FORMAT at a clang-format-$HS_CLANG_FORMAT_MAJOR
-# binary (the ci.yml jobs pass it the same way). An unparseable --version is
-# assumed to be a wrapper for the pinned binary and is trusted.
+# binary (the ci.yml jobs pass it the same way). An unparseable --version fails
+# for the same reason: a binary that cannot be identified cannot be matched to
+# CI's, so trusting it would wave the commit through on no evidence.
 HS_CLANG_FORMAT_MAJOR=22
 if [ -z "$HS_SKIP_FORMAT" ]; then
   FORMAT="$(printf '%s\n' "$CHANGED" \
@@ -91,9 +92,14 @@ if [ -z "$HS_SKIP_FORMAT" ]; then
     if command -v "$CF" >/dev/null 2>&1; then
       cf_version="$("$CF" --version 2>/dev/null | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
       echo "[pre-commit] Checking clang-format on staged first-party C++ ($CF ${cf_version:-unknown})..."
-      if [ -n "$cf_version" ] && [ "$cf_version" != "$HS_CLANG_FORMAT_MAJOR" ]; then
-        echo "[pre-commit] clang-format $cf_version differs from CI's clang-format-$HS_CLANG_FORMAT_MAJOR."
-        echo "[pre-commit] Majors reflow differently, so this binary cannot judge the gate."
+      if [ "$cf_version" != "$HS_CLANG_FORMAT_MAJOR" ]; then
+        if [ -n "$cf_version" ]; then
+          echo "[pre-commit] clang-format $cf_version differs from CI's clang-format-$HS_CLANG_FORMAT_MAJOR."
+          echo "[pre-commit] Majors reflow differently, so this binary cannot judge the gate."
+        else
+          echo "[pre-commit] $CF --version reported no major, so which clang-format this is"
+          echo "[pre-commit] cannot be established, and its verdict cannot be trusted either way."
+        fi
         echo "[pre-commit] (pip install clang-format==22.1.8, or point CLANG_FORMAT at a"
         echo "[pre-commit]  clang-format-$HS_CLANG_FORMAT_MAJOR binary; bypass once with HS_SKIP_FORMAT=1)"
         exit 1
