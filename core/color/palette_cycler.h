@@ -231,6 +231,27 @@ public:
     }
   }
 
+  /** @brief Advances the cycle without rebuilding an in-progress display LUT.
+   *  @details Fade boundaries still land exactly. A later step() immediately
+   *  rebuilds the display at the current phase. */
+  HS_COLD_MEMBER void advance_without_display() {
+    if ((paused != nullptr && *paused) ||
+        (provider == nullptr && entry_count < 2))
+      return;
+    ++frame;
+    if (!fade_active) {
+      if (frame >= dwell) {
+        if (provider == nullptr)
+          begin_fade();
+        fade_active = true;
+        frame = 0;
+      }
+      return;
+    }
+    if (frame >= fade)
+      finish_fade();
+  }
+
   /** @brief The display LUT effects shade from. */
   const BakedPalette &palette() const { return display; }
 

@@ -826,6 +826,34 @@ inline void test_palette_cycler_generated_cycle() {
   HS_EXPECT_EQ(provider_calls, 3);
 }
 
+inline void test_palette_cycler_hidden_advance_catches_up() {
+  alignas(std::max_align_t)
+      std::array<uint8_t, PaletteCycler::generated_arena_bytes() + 32>
+          full_buf{};
+  alignas(std::max_align_t)
+      std::array<uint8_t, PaletteCycler::generated_arena_bytes() + 32>
+          hidden_buf{};
+  Arena full_arena(full_buf.data(), full_buf.size());
+  Arena hidden_arena(hidden_buf.data(), hidden_buf.size());
+  int full_provider_calls = 0;
+  int hidden_provider_calls = 0;
+  PaletteCycler full;
+  PaletteCycler hidden;
+  full.init_generated(full_arena, scripted_next_palette, &full_provider_calls,
+                      0, 17);
+  hidden.init_generated(hidden_arena, scripted_next_palette,
+                        &hidden_provider_calls, 0, 17);
+
+  for (int frame = 0; frame < 50; ++frame) {
+    full.step();
+    hidden.advance_without_display();
+  }
+  full.step();
+  hidden.step();
+  expect_baked_equal(full.palette(), hidden.palette());
+  HS_EXPECT_EQ(full_provider_calls, hidden_provider_calls);
+}
+
 inline void test_palette_cycler_zero_dwell_chains_fades() {
   const GenerativePalette a(PaletteRecipes::balanced_analogous(0.2f));
   const GenerativePalette b(PaletteRecipes::balanced_analogous(0.7f));
