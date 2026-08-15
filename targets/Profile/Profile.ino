@@ -713,6 +713,10 @@ const POV::EffectFactory EFFECT_FACTORIES[] = {&construct_profiled};
 // HS_PROFILE_EPOCH_REVS still overrides this (pov_segmented.h).
 constexpr uint32_t PROFILE_REVOLUTIONS[] = {RPM * 60};
 
+// Config::effect_revolutions must span the whole roster: valid() and
+// revolutions_for_effect() index it over [0, effect_count).
+static_assert(std::size(PROFILE_REVOLUTIONS) == std::size(EFFECT_FACTORIES));
+
 constexpr pov::sync::Config profile_config() {
   auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1);
   cfg.effect_revolutions = PROFILE_REVOLUTIONS;
