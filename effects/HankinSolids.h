@@ -907,11 +907,11 @@ private:
    * @brief Draw callback for morph frames.
    * @details Held as a member for stable FunctionRef lifetime.
    */
-  Fn<void(Canvas &, const MeshState &, const Animation::OpLeg::Shading &), 8>
-      draw_conway_fn{[this](Canvas &c, const MeshState &m,
-                            const Animation::OpLeg::Shading &sh) {
-        draw_conway_mesh(c, m, sh);
-      }};
+  Fn<void(Canvas &, MeshState &, const Animation::OpLeg::Shading &), 8>
+      draw_conway_fn{
+          [this](Canvas &c, MeshState &m, const Animation::OpLeg::Shading &sh) {
+            draw_conway_mesh(c, m, sh);
+          }};
 
   /**
    * @brief User-adjustable rendering parameters.
