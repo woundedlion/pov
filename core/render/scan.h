@@ -86,6 +86,23 @@ __attribute__((always_inline)) inline float pole_lod_slack(int run,
 }
 
 /**
+ * @brief Factor from an angular step to the units a shape's distance() reports.
+ * @param shape Shape the probe reads distance() from.
+ * @return 1 for a shape reporting angular distance.
+ * @details A block probe's slack is an arc, so a shape reporting in another
+ * unit has to scale it. SDF::Face reports gnomonic-plane distance, which
+ * stretches an angular step by up to 1 + r^2; max_dist bounds r over every
+ * probe its cull admits.
+ */
+__attribute__((always_inline)) inline float report_stretch(const auto &) {
+  return 1.0f;
+}
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::Face &shape) {
+  return 1.0f + shape.max_dist_sq;
+}
+
+/**
  * @brief Whether a walk over a shape may settle a whole pole-LOD block from one
  *        probe of it.
  * @tparam ShapeT Shape the probe reads distance() from.
@@ -219,7 +236,8 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     if (max_run > 1 && !debug_bb) {
       const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
       const float block_slack =
-          pole_lod_slack<W, decltype(shape)>(max_run, sin_phi);
+          pole_lod_slack<W, decltype(shape)>(max_run, sin_phi) *
+          report_stretch(shape);
       if (d >= threshold + block_slack &&
           probe_bounds_block<decltype(shape)>(threshold, block_slack))
         return max_run;
@@ -767,7 +785,8 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
           if (max_run > 1) {
             const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
             const float block_slack =
-                pole_lod_slack<W, decltype(shape)>(max_run, sin_phi);
+                pole_lod_slack<W, decltype(shape)>(max_run, sin_phi) *
+                report_stretch(shape);
             if (d >= PIXEL_WIDTH + block_slack &&
                 probe_bounds_block<decltype(shape)>(PIXEL_WIDTH, block_slack))
               return max_run;
@@ -1759,9 +1778,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const float base_reject_rad = pixel_width * 1.0002f;
   const float base_reject_dsq = base_reject_rad * base_reject_rad;
 
-  // distance() reports gnomonic-plane units, which stretch an angular step by
-  // up to 1 + r^2; max_dist bounds r over every probe the cull admits.
-  [[maybe_unused]] const float plane_stretch = 1.0f + shape.max_dist_sq;
+  [[maybe_unused]] const float plane_stretch = report_stretch(shape);
 
   HS_PROFILE_DEEP(raster_scan);
   for (int y = y_lo; y <= y_hi; ++y) {

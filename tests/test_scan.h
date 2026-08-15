@@ -1133,10 +1133,65 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return readback(fx);
   };
 
+  // A sliver, posed so the decimated rows are the ones its projection stretches
+  // most: the circumradius reaches 0.7 gnomonic-plane units while the inradius
+  // keeps the face on the plane-distance path, whose report runs up to 1 + r^2
+  // times an angular step.
+  auto draw_sliver_face = [&](float lod, bool fused, float tilt, float spin) {
+    pole_lod_aggressiveness = lod;
+    const Vector axis = Vector(sinf(tilt), cosf(tilt), 0.0f);
+    const Basis basis = make_basis(Quaternion(), axis);
+    const float px[3] = {0.7f, -0.35f, -0.35f};
+    const float py[3] = {0.0f, 0.06f, -0.06f};
+    Vector verts[3];
+    uint16_t idx[3];
+    for (int i = 0; i < 3; ++i) {
+      const float rx = px[i] * cosf(spin) - py[i] * sinf(spin);
+      const float ry = px[i] * sinf(spin) + py[i] * cosf(spin);
+      verts[i] = (basis.v + basis.u * rx + basis.w * ry).normalized();
+      idx[i] = static_cast<uint16_t>(i);
+    }
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas canvas(fx);
+      SDF::FaceScratchBuffer scratch;
+      SDF::Face face(std::span<const Vector>(verts, 3),
+                     std::span<const uint16_t>(idx, 3), scratch, HV, H,
+                     &canvas.clip());
+      HS_EXPECT_TRUE(face.linear_dist);
+      HS_EXPECT_GT(face.max_dist_sq, 0.25f);
+      auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
+      if (fused)
+        Scan::rasterize_face<W, H, Pipeline<W, H>>(pipe, canvas, face, shader);
+      else
+        Scan::rasterize<W, H, false>(pipe, canvas, face, shader);
+    }
+    fx.advance_display();
+    return readback(fx);
+  };
+
   // The rows the draws reach must actually be decimated, or the comparison is
   // vacuous.
   pole_lod_aggressiveness = 1.0f;
   HS_EXPECT_GT(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[2]), 1);
+
+  // Poses whose decimated rows carry a per-arc report rate the shared
+  // change-per-arc factor alone undercuts.
+  struct SliverCase {
+    float tilt;
+    int spin_step;
+  };
+  for (SliverCase sc : {SliverCase{0.32f, 9}, SliverCase{0.36f, 8},
+                        SliverCase{0.46f, 7}, SliverCase{0.56f, 7}})
+    for (float lod : {1.0f, 4.0f})
+      for (bool fused : {false, true}) {
+        const float spin = (TWO_PI_F * sc.spin_step) / 48.0f;
+        HS_CONTEXT("sliver", static_cast<int>(sc.tilt * 100.0f),
+                   static_cast<int>(lod) * 2 + fused);
+        compare(draw_sliver_face(0.0f, fused, sc.tilt, spin),
+                draw_sliver_face(lod, fused, sc.tilt, spin));
+      }
 
   for (float lod : {1.0f, 4.0f})
     for (bool typed : {false, true}) {
