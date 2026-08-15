@@ -58,8 +58,8 @@ simulator suite have no local hook and are run by hand.
 - **Documentation:** `python tools/docs_check.py` validates fences, links,
   anchors and every backticked repo path, and the README's file map must list a
   new tracked path; the pre-commit hook and `just docs-check` both run it.
-- **License headers:** `python tools/license_check.py`. No hook and no `just`
-  recipe runs it, so a new source file needs it invoked by hand — otherwise the
+- **License headers:** `python tools/license_check.py`. No hook runs it; `just
+  license-headers` does, alongside the checker's own unit tests — otherwise the
   first evidence of a missing header is a red `License headers match LICENSE`
   job.
 - **Simulator:** in the daydream checkout, `npm ci` then `npm test`; its
