@@ -314,7 +314,7 @@ public:
              "OpLeg: edge sweep leg has an incomplete palette handoff");
     Transients &tr = bind_transients(arena);
 
-    MeshOps::clone(seed, tr.seed, arena);
+    clone_geometry(seed, tr.seed, arena);
     tr.seed_ref = &tr.seed;
     tr.seed_faces = seed.face_counts.size();
     tr.op = edge.op;
@@ -384,7 +384,7 @@ public:
     if (spec.borrow_seed) {
       tr.seed_ref = &seed;
     } else {
-      MeshOps::clone(seed, tr.seed, arena);
+      clone_geometry(seed, tr.seed, arena);
       tr.seed_ref = &tr.seed;
     }
     tr.seed_faces = seed.face_counts.size();
