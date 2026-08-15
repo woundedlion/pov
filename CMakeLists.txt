@@ -6,6 +6,9 @@
 cmake_minimum_required(VERSION 3.29)
 project(Holosphere CXX)
 
+set(HS_PULLBACK_CAPTURE_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH
+    "Checkout whose sources a pullback capture build compiles")
+
 # Two build modes share this file, selected by the toolchain:
 #   * Emscripten toolchain  -> WASM simulator module (daydream)   [EMSCRIPTEN]
 #   * Native clang toolchain -> unit-test executable + CTest      [else]
@@ -33,14 +36,14 @@ if(EMSCRIPTEN)
 
   set(TARGET_NAME holosphere_wasm)
   add_executable(${TARGET_NAME}
-    targets/wasm/wasm.cpp
-    core/engine/memory.cpp
-    core/engine/static_storage.cpp
-    core/engine/reaction_graph.cpp)
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/targets/wasm/wasm.cpp
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/reaction_graph.cpp)
 
   target_include_directories(${TARGET_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/core)
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
 
   # Warning hygiene for the JS bridge: targets/wasm/ is built by no other target,
   # so without this it is the one first-party TU with zero warning coverage. Not
