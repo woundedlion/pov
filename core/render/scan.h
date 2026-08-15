@@ -132,6 +132,21 @@ HS_NOINLINE_NOCLONE inline void check_canvas_dims(const Canvas &canvas) {
 }
 
 /**
+ * @brief Validates that a direct-raster pipeline was prepared for this canvas.
+ * @param pipeline Plotting pipeline the draw writes through.
+ * @param canvas Destination canvas.
+ * @details A direct-raster sink writes through a cached framebuffer base; the
+ * canvas double-buffers, so a stale base is the buffer the display is scanning
+ * out. Compiles away for a sink without the hook.
+ */
+template <typename PipelineT>
+inline void check_pipeline_prepared(PipelineT &pipeline, Canvas &canvas) {
+  if constexpr (requires { pipeline.prepared_for(canvas); })
+    HS_CHECK(pipeline.prepared_for(canvas),
+             "direct raster pipeline not prepared for this canvas");
+}
+
+/**
  * @brief Validates that a type-erased fragment shader refers to a callable.
  * @param fragment_shader Shader the draw invokes per pixel.
  * @details Checked once per draw, not per pixel: FunctionRef::operator() guards
@@ -651,6 +666,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       "INTERVAL_SPAN_CAP");
 
   check_canvas_dims<W, H>(canvas);
+  check_pipeline_prepared(pipeline, canvas);
   check_fragment_shader(fragment_shader);
   bool effective_debug = debug_bb || canvas.debug();
 
@@ -705,6 +721,7 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       "INTERVAL_SPAN_CAP");
 
   check_canvas_dims<W, H>(canvas);
+  check_pipeline_prepared(pipeline, canvas);
   bool effective_debug = debug_bb || canvas.debug();
 
   int y_lo, y_hi;
@@ -1886,6 +1903,7 @@ struct Mesh {
     // Once per mesh, not per face: rasterize_face indexes the phi LUT by the
     // canvas' own rows and hands SDF::Face the template H.
     check_canvas_dims<W, H>(canvas);
+    check_pipeline_prepared(pipeline, canvas);
     // The per-face wrapper below is itself always non-null, so the erased
     // shader it wraps has to be checked here or not at all.
     if constexpr (std::is_same_v<FragmentShaderT, FragmentShaderFn>)
