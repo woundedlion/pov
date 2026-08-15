@@ -148,18 +148,29 @@ def main(force=False):
         b.label(end, name)
 
 
-    def to_gnd_down(s, num, yrail):
+    def rail_drop(s, num, yrail, span):
+        """Drop a pin vertically onto the rail at yrail drawn over x range span.
+
+        A junction past a rail end connects nothing: the pin becomes its own net.
+        """
+        t = s.pin(num)
+        x0, x1 = span
+        if not x0 - 1e-6 <= t[0] <= x1 + 1e-6:
+            raise ValueError(
+                f"{s.ref}.{num} drops at x={t[0]:g}, outside the y={yrail:g} "
+                f"rail span {x0:g}..{x1:g}")
+        vw(t[0], t[1], yrail)
+        b.junction((t[0], yrail))
+
+
+    def to_gnd_down(s, num, yrail, span):
         """Drop a (bottom) pin straight down onto a GND rail at yrail."""
-        t = s.pin(num)
-        vw(t[0], t[1], yrail)
-        b.junction((t[0], yrail))
+        rail_drop(s, num, yrail, span)
 
 
-    def to_rail_up(s, num, yrail):
+    def to_rail_up(s, num, yrail, span):
         """Drop a (top) pin straight up onto a rail at yrail."""
-        t = s.pin(num)
-        vw(t[0], t[1], yrail)
-        b.junction((t[0], yrail))
+        rail_drop(s, num, yrail, span)
 
 
     def series_wire(src_sym, src_pin, r_sym, far_label, src_label=None):
@@ -220,31 +231,33 @@ def main(force=False):
     to_power(QREV, "1", GND)
 
     # --- +5V_LOGIC rail (post-bead) and its drops: C_IN, R_LF/C_LF damper, C_DEC1/2 ---
+    # The GND rail is drawn below, after the drops that fix its span.
     LOG_L, LOG_R = 76.2, 219.71
+    GND_L, GND_R = 88.9, 166.37
+    LOG_SPAN, GND_SPAN = (LOG_L, LOG_R), (GND_L, GND_R)
     b.wire(FB.pin("2"), (LOG_L, Y_LOG))
     hw(LOG_L, LOG_R, Y_LOG)
     pwr_sym("+5V_LOGIC", LOG_R, Y_LOG - 5.08); vw(LOG_R, Y_LOG - 5.08, Y_LOG)
     # C_IN: the card's only electrolytic, now on the logic feed (R-PWR-3/6, spec 10).
     CIN = place("Device:C_Polarized", "C_IN", "100uF", 88.9, 78.74,
                 fp="Capacitor_THT:CP_Radial_D8.0mm_P3.50mm")
-    to_rail_up(CIN, "1", Y_LOG)
-    to_gnd_down(CIN, "2", Y_GND)
+    to_rail_up(CIN, "1", Y_LOG, LOG_SPAN)
+    to_gnd_down(CIN, "2", Y_GND, GND_SPAN)
     # R_LF + C_LF bead-LC damper (R-PWR-5): LOG -> R_LF -> CLF_NODE -> C_LF -> GND
     RLF = place("Device:R", "R_LF", "1R5", 109.22, 71.12, fp=SMD08)
     CLF = place("Device:C", "C_LF", "22uF", 109.22, 86.36, fp="Capacitor_SMD:C_1206_3216Metric")
-    to_rail_up(RLF, "1", Y_LOG)
+    to_rail_up(RLF, "1", Y_LOG, LOG_SPAN)
     b.wire(RLF.pin("2"), CLF.pin("1"))   # CLF_NODE
     b.label(CLF.pin("1"), "LF_DAMP")
-    to_gnd_down(CLF, "2", Y_GND)
+    to_gnd_down(CLF, "2", Y_GND, GND_SPAN)
     # decoupling caps (R-PWR-4): one at Teensy VIN, one at U1 Vcc
     CD1 = place("Device:C", "C_DEC1", "0.1uF", 140.97, 78.74, fp=C06)
     CD2 = place("Device:C", "C_DEC2", "0.1uF", 166.37, 78.74, fp=C06)
     for c in (CD1, CD2):
-        to_rail_up(c, "1", Y_LOG)
-        to_gnd_down(c, "2", Y_GND)
+        to_rail_up(c, "1", Y_LOG, LOG_SPAN)
+        to_gnd_down(c, "2", Y_GND, GND_SPAN)
 
     # --- GND rail spanning the cap drops + its GND symbol at the right end ---
-    GND_L, GND_R = 88.9, 166.37
     hw(GND_L, GND_R, Y_GND)
     pwr_sym(GND, GND_R, Y_GND)
 
