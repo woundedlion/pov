@@ -3,7 +3,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from collections import Counter
 from pathlib import Path
 from unittest import mock
 
@@ -140,6 +139,20 @@ class ResolveKicadCliTests(unittest.TestCase):
                              analyze_candidates.DRC_MISSING)
 
 
+def zone_clearance():
+    """A missing-antipad clearance error: a via against a pour."""
+    return {"type": "clearance",
+            "items": [{"description": "Via [/DATA] on F.Cu - B.Cu"},
+                      {"description": "Zone [GND] on In1.Cu"}]}
+
+
+def track_clearance():
+    """A clearance error between two different-net tracks -- no refill clears it."""
+    return {"type": "clearance",
+            "items": [{"description": "Track [/DATA] on F.Cu, length 3.4 mm"},
+                      {"description": "Track [/CLK] on F.Cu, length 2.1 mm"}]}
+
+
 class RunDrcReportTests(unittest.TestCase):
     """The gate reads kicad-cli's JSON report, so a shape change can't read clean."""
 
@@ -157,19 +170,41 @@ class RunDrcReportTests(unittest.TestCase):
         self.assertIn("json", run.call_args.args[0])
         return result
 
-    def test_counts_violations_by_rule_and_unconnected_items(self):
+    def test_counts_violations_and_unconnected_items(self):
         report = self.run_drc(json.dumps({
-            "violations": [{"type": "clearance"}, {"type": "clearance"},
-                           {"type": "shorting_items"}],
+            "violations": [zone_clearance(), zone_clearance(),
+                           {"type": "shorting_items", "items": [
+                               {"description": "Track [/DATA] on F.Cu"},
+                               {"description": "Track [/CLK] on F.Cu"}]}],
             "unconnected_items": [{"type": "unconnected_items"}],
         }))
 
         self.assertEqual(report["status"], analyze_candidates.DRC_OK)
         self.assertEqual(report["errors"], 3)
         self.assertEqual(report["unconnected"], 1)
-        self.assertEqual(report["by_type"],
-                         Counter({"clearance": 2, "shorting_items": 1}))
-        self.assertEqual(analyze_candidates.real_faults(report["by_type"]), 1)
+        self.assertEqual(report["real"], 1)
+
+    def test_track_to_track_clearance_counts_as_a_real_fault(self):
+        report = self.run_drc(json.dumps({
+            "violations": [zone_clearance(), track_clearance()],
+            "unconnected_items": [],
+        }))
+
+        self.assertEqual(report["errors"], 2)
+        self.assertEqual(report["real"], 1)
+
+    def test_zone_clearance_is_refill_fixable(self):
+        self.assertTrue(analyze_candidates.refill_fixable(zone_clearance()))
+
+    def test_shorting_zone_is_not_refill_fixable(self):
+        self.assertFalse(analyze_candidates.refill_fixable(
+            {"type": "shorting_items",
+             "items": [{"description": "Zone [GND] on In1.Cu"},
+                       {"description": "Track [/DATA] on F.Cu"}]}))
+
+    def test_clearance_without_items_is_a_real_fault(self):
+        self.assertFalse(analyze_candidates.refill_fixable({"type": "clearance"}))
+        self.assertFalse(analyze_candidates.refill_fixable("clearance"))
 
     def test_clean_report_reports_no_faults(self):
         report = self.run_drc(json.dumps({"violations": [],

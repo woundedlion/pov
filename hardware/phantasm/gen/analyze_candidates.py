@@ -12,12 +12,13 @@ folders (or .kicad_pcb files) to override.
 
 A DRC gate runs kicad-cli on each candidate (override path with env KICAD_CLI; the
 gate is skipped if it is missing) so a geometry-clean but DRC-broken board can't win
-the ranking. Errors are split: 'refill-fixable' clearance/hole errors (Quilter exports
-pours without via antipads -- they clear on a KiCad zone refill) vs 'REAL FAULTS'
-(shorts/crossings/opens), which disqualify a candidate from the recommended pick. A
-candidate whose DRC did not produce a result reports as NOT GATED, never as clean,
-and is likewise ineligible. Via geometry is checked independently because Quilter
-may replace uploaded defaults; candidates below 0.45/0.20 mm are ineligible.
+the ranking. Errors are split: 'refill-fixable' clearance/hole errors against a zone
+(Quilter exports pours without via antipads -- they clear on a KiCad zone refill) vs
+'REAL FAULTS' (shorts/crossings/opens, and track-to-track clearance), which disqualify
+a candidate from the recommended pick. A candidate whose DRC did not produce a result
+reports as NOT GATED, never as clean, and is likewise ineligible. Via geometry is
+checked independently because Quilter may replace uploaded defaults; candidates below
+0.45/0.20 mm are ineligible.
 
 What matters here, and why:
 - The board is 4-layer SIG/GND/GND/SIG with BOTH inner layers poured GND, so any
@@ -37,7 +38,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections import Counter
 
 import fab
 import sexp
@@ -51,9 +51,13 @@ PROJ = os.path.dirname(HERE)
 # candidate so geometry-clean-but-DRC-broken boards (e.g. Quilter zone-fill
 # artifacts) can't quietly win the ranking. Set to "" / missing to skip the gate.
 KCLI = find_kicad_cli()
-# zone clearance/hole errors usually clear on a KiCad zone refill (Quilter exports
-# pours without antipads around signal vias) -- flagged separately from real faults.
+# clearance/hole errors against a pour usually clear on a KiCad zone refill (Quilter
+# exports pours without antipads around signal vias) -- flagged separately from real
+# faults. The same rule types also fire track-to-track, which no refill clears, so the
+# bucket is decided by the violation's items, not by its rule.
 REFILL_FIXABLE = {"clearance", "hole_clearance"}
+# kicad-cli describes a violating pour as `Zone [NET] on <layers>`.
+ZONE_ITEM = re.compile(r"\bzone\b", re.I)
 # run_drc outcomes; counts are meaningful only for DRC_OK
 DRC_OK = "ok"
 DRC_MISSING = "tool-missing"
@@ -107,14 +111,28 @@ def dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-def real_faults(by_type):
-    """Count DRC entries that are NOT refill-fixable zone artifacts -- real
+def refill_fixable(violation):
+    """True for a clearance/hole violation whose items name a zone -- the missing
+    antipad a KiCad zone refill clears."""
+    if not isinstance(violation, dict):
+        return False
+    if str(violation.get("type", "")) not in REFILL_FIXABLE:
+        return False
+    items = violation.get("items")
+    if not isinstance(items, list):
+        return False
+    return any(ZONE_ITEM.search(str(item.get("description", "")))
+               for item in items if isinstance(item, dict))
+
+
+def real_faults(violations):
+    """Count DRC violations that are NOT refill-fixable zone artifacts -- real
     shorts/crossings/opens that disqualify a candidate."""
-    return sum(v for t, v in by_type.items() if t not in REFILL_FIXABLE)
+    return sum(1 for v in violations if not refill_fixable(v))
 
 
 def no_drc(status):
-    return dict(status=status, errors=0, unconnected=0, by_type=Counter())
+    return dict(status=status, errors=0, unconnected=0, real=0)
 
 
 def resolve_kicad_cli():
@@ -129,13 +147,13 @@ def resolve_kicad_cli():
 
 
 def run_drc(pcb_path):
-    """Run kicad-cli DRC; return dict(status, errors, unconnected, by_type Counter).
+    """Run kicad-cli DRC; return dict(status, errors, unconnected, real).
 
     status is DRC_OK (counts are real), DRC_MISSING (no kicad-cli) or DRC_FAILED
     (the run errored out); the counts are zero for anything but DRC_OK, so callers
-    must branch on status rather than read them as a clean result. Errors are
-    bucketed by rule so refill-fixable zone artifacts are distinguishable from real
-    shorts/crossings. The report is read as JSON through fab's structural reader,
+    must branch on status rather than read them as a clean result. `real` counts the
+    errors that are not refill-fixable zone artifacts -- the shorts/crossings that
+    disqualify a candidate. The report is read as JSON through fab's structural reader,
     so a report whose shape changed reports as DRC_FAILED, never as clean."""
     cli = resolve_kicad_cli()
     if not cli:
@@ -158,10 +176,9 @@ def run_drc(pcb_path):
             os.remove(rpt)
         except OSError:
             pass
-    by_type = Counter(str(v.get("type", "")) if isinstance(v, dict) else ""
-                      for v in violations)
-    return dict(status=DRC_OK, errors=sum(by_type.values()),
-                unconnected=len(unconnected_items), by_type=by_type)
+    return dict(status=DRC_OK, errors=len(violations),
+                unconnected=len(unconnected_items),
+                real=real_faults(violations))
 
 
 def analyze(path):
@@ -337,8 +354,7 @@ def main(argv):
                         else "NOT GATED (DRC run failed)")
                 line += f" {'?':>7} {'?':>6}  {flag}"
             else:
-                err, unc = dc["errors"], dc["unconnected"]
-                real = real_faults(dc["by_type"])
+                err, unc, real = dc["errors"], dc["unconnected"], dc["real"]
                 if r["small_vias"]:
                     flag = "SMALL VIAS"
                 elif err == 0 and unc == 0:
@@ -350,8 +366,9 @@ def main(argv):
                 line += f" {err:>7} {unc:>6}  {flag}"
         print(line)
     if drc_ran:
-        print("  note: 'refill-fixable' = clearance/hole errors that clear on a KiCad zone"
-              " refill (Quilter omits via antipads); 'REAL FAULTS' = shorts/crossings/opens;"
+        print("  note: 'refill-fixable' = clearance/hole errors against a zone, which clear"
+              " on a KiCad zone refill (Quilter omits via antipads); 'REAL FAULTS' ="
+              " shorts/crossings/opens and track-to-track clearance;"
               " 'SMALL VIAS' = below 0.45/0.20 mm; 'NOT GATED' = no DRC result,"
               " candidate can't be recommended.")
 
@@ -418,10 +435,9 @@ def main(argv):
             return "?"
         if dc["status"] == DRC_FAILED:
             return "FAILED"
-        real = real_faults(dc["by_type"])
         if dc["errors"] == 0 and dc["unconnected"] == 0:
             return "ok"
-        return "REAL" if (real or dc["unconnected"]) else "refill"
+        return "REAL" if (dc["real"] or dc["unconnected"]) else "refill"
 
     for overall, k, si, erg in sorted(ranked, reverse=True):
         print(f"{k:>6} {si:>12.1f} {erg:>11.1f} {overall:>8.1f}  {drc_tag(k)}")
