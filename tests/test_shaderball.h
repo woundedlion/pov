@@ -1594,7 +1594,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(13));
+  HS_EXPECT_EQ(presets.size(), size_t(14));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   for (const auto &entry : choreo) {
     HS_EXPECT_FALSE(entry.staggered);
@@ -1606,7 +1606,7 @@ inline void test_shaderball_preset_bank() {
   bool has_hue_shift = false;
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
-    const WB::PaletteMode expected_palette = index == 10 || index == 12
+    const WB::PaletteMode expected_palette = index == 10 || index >= 12
                                                  ? WB::PaletteMode::ANALOGOUS
                                                  : WB::PaletteMode::TRIADIC;
     HS_EXPECT_EQ(preset.slots.palette, expected_palette);
@@ -1694,6 +1694,27 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(inner_mirror.params.source.complexity, 0.513f);
   HS_EXPECT_EQ(inner_mirror.params.source.secondary_rate, 0.8f);
   HS_EXPECT_EQ(inner_mirror.params.source.angle_rate, 0.0269999988f);
+  const auto &hexagonal_mirror = presets[13];
+  HS_EXPECT_EQ(hexagonal_mirror.slots.function, WB::Function::TWIN_WAVE);
+  HS_EXPECT_EQ(hexagonal_mirror.slots.projection,
+               WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(hexagonal_mirror.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM);
+  HS_EXPECT_EQ(hexagonal_mirror.slots.warp_program.outer.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(hexagonal_mirror.slots.warp_program.inner.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(hexagonal_mirror.slots.palette, WB::PaletteMode::ANALOGOUS);
+  HS_EXPECT_EQ(hexagonal_mirror.slots.palette_mapping,
+               WB::PaletteMapping::BELL);
+  HS_EXPECT_EQ(hexagonal_mirror.params.source.pattern_freq, 3.881f);
+  HS_EXPECT_EQ(hexagonal_mirror.params.source.speed, 0.128598228f);
+  HS_EXPECT_EQ(hexagonal_mirror.params.color.hue_shift_amount, 0.226f);
+  HS_EXPECT_EQ(hexagonal_mirror.params.color.hue_noise_scale, 1.47215629f);
+  HS_EXPECT_EQ(hexagonal_mirror.params.color.hue_noise_speed, 0.000138f);
+  HS_EXPECT_EQ(hexagonal_mirror.params.color.palette_chroma, 1.0f);
+  HS_EXPECT_EQ(hexagonal_mirror.params.color.mapping_frequency, 1.341f);
+  HS_EXPECT_EQ(hexagonal_mirror.params.color.mapping_phase, -1.0f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.scale, 0.1f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.speed, 0.5f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.scale, 0.1f);
@@ -2323,11 +2344,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(13));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(14));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(12));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[12]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(13));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[13]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -3611,7 +3632,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
     HS_EXPECT_EQ(preset_mask, expected.preset_mask);
     compiled_preset_mask |= preset_mask;
   }
-  HS_EXPECT_EQ(compiled_preset_mask, uint16_t(0x1fff));
+  HS_EXPECT_EQ(compiled_preset_mask, uint16_t(0x3fff));
   const auto &peirce_framebuffer =
       pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
   const auto &hue_framebuffer = pullback_oracle_metric(
