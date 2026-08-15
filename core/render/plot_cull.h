@@ -87,14 +87,6 @@ static constexpr float MIN_POLE_SCALE = 0.05f;
 static constexpr float SCREEN_STEP_PX = 0.9f;
 
 /**
- * @brief Parameter delta for the planar strategy's finite-difference tangent.
- * @details The planar (azimuthal) map has no closed-form tangent, so its screen
- * velocity is taken from a short forward difference; small enough to track the
- * arc, large enough to stay clear of float cancellation.
- */
-static constexpr float PLANAR_TAN_DT = 1.0f / 256.0f;
-
-/**
  * @brief Columns of slack added on each side of a culled column span.
  * @details Absorbs plot rounding and the AntiAlias tap spread.
  */
@@ -334,19 +326,10 @@ struct PlanarEdgeSampler {
 
   /**
    * @brief Position and unit tangent at arc fraction s in [0,1].
-   * @details The azimuthal map has no closed-form tangent, so take it from a
-   * short forward difference (backward at the s=1 end); the difference
-   * direction is the unit tangent regardless of magnitude. Feeds the same
-   * screen-velocity sub-step sampler as the geodesic path.
+   * @details Feeds the same screen-velocity sub-step sampler as the geodesic
+   * path.
    */
-  SamplePT operator()(float s) const {
-    Vector p = pos(s);
-    bool fwd = (s + PLANAR_TAN_DT <= 1.0f);
-    Vector q = pos(fwd ? s + PLANAR_TAN_DT : s - PLANAR_TAN_DT);
-    Vector d = fwd ? (q - p) : (p - q);
-    HS_PLOT_COUNT(normalizations);
-    return {p, normalized_or(d, Vector())};
-  }
+  SamplePT operator()(float s) const { return one_pass(s); }
 };
 
 /** @brief Builds the reusable arc sampler for one planar edge. */
