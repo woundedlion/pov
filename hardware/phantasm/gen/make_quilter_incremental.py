@@ -79,7 +79,9 @@ def verify_snapshot(root: Path = OUTPUT) -> None:
     manifest = root / "SHA256SUMS.txt"
     expected = {}
     for line in manifest.read_text(encoding="utf-8").splitlines():
-        digest, name = line.split("  ", 1)
+        digest, _, name = line.partition("  ")
+        if not name:
+            raise RuntimeError(f"snapshot manifest line is malformed: {line!r}")
         expected[Path(name)] = digest
 
     actual_paths = snapshot_paths(root)
