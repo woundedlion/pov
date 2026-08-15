@@ -1375,11 +1375,9 @@ private:
     // kinds carry the endpoint start_build_leg built eagerly. The palette the
     // leg landed on is snapshotted too, since the landing does not survive.
     ScratchScope a_guard(scratch_arena_a);
-    if (build_step_chain[build_step].op == Solids::Op::HANKIN) {
-      build_next_seed = PolyMesh();
+    if (build_step_chain[build_step].op == Solids::Op::HANKIN)
       Animation::OpLeg::arrival_mesh(*build_landing, build_next_seed,
                                      scratch_arena_a);
-    }
 
     if (build_step + 1 >= build_step_count) {
       // finish_build consumes the last leg's landing, so that one is reclaimed
