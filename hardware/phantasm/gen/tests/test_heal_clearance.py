@@ -56,6 +56,33 @@ class MainTests(unittest.TestCase):
                 healed["board"]["design_settings"]["rules"]["min_clearance"], 0)
 
 
+    def healed_bytes(self, source):
+        """Heal a one-project tree from raw bytes; return the rewritten bytes."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project = Path(temp_dir) / "phantasm.kicad_pro"
+            project.write_bytes(source)
+            with mock.patch.object(heal_clearance, "OUT", temp_dir):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(heal_clearance.main(), 0)
+            return project.read_bytes()
+
+    ZEROED = json.dumps(
+        {"board": {"design_settings": {"rules": {"min_clearance": 0}}}},
+        indent=2)
+
+    def test_crlf_project_stays_crlf(self):
+        healed = self.healed_bytes(
+            self.ZEROED.replace("\n", "\r\n").encode("utf-8"))
+
+        self.assertTrue(healed.endswith(b"}\r\n"))
+        self.assertNotIn(b"\n", healed.replace(b"\r\n", b""))
+
+    def test_lf_project_stays_lf(self):
+        healed = self.healed_bytes(self.ZEROED.encode("utf-8"))
+
+        self.assertTrue(healed.endswith(b"}\n"))
+        self.assertNotIn(b"\r", healed)
+
     def test_unplaced_project_gets_the_unplaced_constraints(self):
         zeroed = json.dumps({
             "board": {"design_settings": {"rules": {"min_clearance": 0}}},
