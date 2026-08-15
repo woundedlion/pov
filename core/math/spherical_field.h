@@ -331,7 +331,7 @@ public:
    */
   constexpr Row row(float y) const {
     const float bounded_y = hs::clamp(y, 0.0f, static_cast<float>(H - 1));
-    const Ring lower = ring(ring_index_at_or_before(bounded_y));
+    const Ring lower = ring_at_or_before(bounded_y).ring;
     const Ring upper = next_ring(lower);
     const int height = upper.y - lower.y;
     const float mix =
@@ -360,8 +360,11 @@ public:
    * @param y Latitude row, clamped to [0, H-1].
    */
   constexpr int ring_index_at_or_after(float y) const {
-    const int lower = ring_index_at_or_before(y);
-    return ring(lower).y < y ? std::min(lower + 1, ring_count() - 1) : lower;
+    const IndexedRing lower =
+        ring_at_or_before(hs::clamp(y, 0.0f, static_cast<float>(H - 1)));
+    // The last ring, the only one with row H-1, is its own successor.
+    return lower.ring.y < y && lower.ring.y < H - 1 ? lower.index + 1
+                                                    : lower.index;
   }
 
   /**
@@ -402,6 +405,31 @@ public:
 
 private:
   static_assert(W > 0 && H > 1 && H + HOffset > 1);
+
+  /** @brief A ring paired with its position in the chain. */
+  struct IndexedRing {
+    Ring ring;
+    int index;
+  };
+
+  /**
+   * @brief Walks the chain once to the last ring whose row is at or above y.
+   * @param bounded_y Latitude row already clamped to [0, H-1].
+   */
+  constexpr IndexedRing ring_at_or_before(float bounded_y) const {
+    int index = 0;
+    int offset = 0;
+    int y = 0;
+    while (y < H - 1) {
+      const int next = next_ring_y(y);
+      if (next > bounded_y)
+        break;
+      offset += samples_on_ring(y);
+      y = next;
+      ++index;
+    }
+    return {{y, samples_on_ring(y), offset}, index};
+  }
 
   /**
    * @brief Last row whose bilinear footprint loads directly.
