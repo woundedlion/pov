@@ -2966,7 +2966,7 @@ inline const Case *all_cases(int &n) {
       {"spherical_harmonic_normalization_overflow",
        case_spherical_harmonic_normalization_overflow, "spherical_harmonics.h",
        "(l + abs_m <= MAX_FACTORIAL_ARGUMENT) spherical harmonic "
-       "normalization: l + |m| = 40 overflows the float factorial"},
+       "normalization: l + |m| = 40 collapses the float factorial ratio"},
       {"spherical_field_infill_over_domain",
        case_spherical_field_infill_over_domain, "spherical_field.h",
        "(north_infill >= 0 && south_infill >= 0 && north_infill + south_infill "
