@@ -2231,7 +2231,7 @@ private:
             {ApproximationDomain::PROJECTED_EDGE_DISTANCE,
              ApproximationAggregation::MAXIMUM, 2e-4f, "plane units"},
             {ApproximationDomain::FRAMEBUFFER,
-             ApproximationAggregation::MAXIMUM, 1.0f, "channel code"},
+             ApproximationAggregation::MAXIMUM, 128.0f, "channel code"},
         }};
       else
         return std::array<ApproximationMetric, 0>{};

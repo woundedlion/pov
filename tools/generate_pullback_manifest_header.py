@@ -264,6 +264,35 @@ def _validate_oracle(document: dict, path: Path) -> None:
              f"{path}: a versioned deterministic corpus is required")
     _require(corpus.get("deterministic") is True,
              f"{path}: oracle corpus must be deterministic")
+    framebuffer = corpus.get("framebuffer")
+    _require(isinstance(framebuffer, dict),
+             f"{path}: framebuffer corpus is required")
+    probes = framebuffer.get("probes")
+    _require(framebuffer.get("sampling") == "pixel centers" and
+             framebuffer.get("aggregation") ==
+             "maximum absolute premultiplied linear-u16 channel delta" and
+             bool(framebuffer.get("exact_callable")) and
+             bool(framebuffer.get("optimized_callable")) and
+             isinstance(probes, list) and probes,
+             f"{path}: framebuffer pixel-center probes are required")
+    corpus_presets = corpus.get("presets")
+    _require(isinstance(corpus_presets, list) and corpus_presets,
+             f"{path}: oracle presets are required")
+    probe_presets = []
+    for probe in probes:
+        _require(isinstance(probe, dict),
+                 f"{path}: framebuffer probe must be an object")
+        preset = probe.get("preset")
+        operations = probe.get("operations")
+        _require(type(preset) is int and preset in corpus_presets,
+                 f"{path}: framebuffer probe preset is outside the oracle corpus")
+        _require(_is_number(probe.get("hue_noise_phase")),
+                 f"{path}: framebuffer hue-noise phase must be numeric")
+        _require(isinstance(operations, list) and "FULL_FRAME" in operations,
+                 f"{path}: each framebuffer probe must render a full frame")
+        probe_presets.append(preset)
+    _require(sorted(probe_presets) == sorted(corpus_presets),
+             f"{path}: framebuffer probes must cover each oracle preset once")
     metrics = document.get("metrics")
     _require(isinstance(metrics, list) and metrics,
              f"{path}: metrics must be non-empty")
@@ -273,19 +302,39 @@ def _validate_oracle(document: dict, path: Path) -> None:
         domains.add(metric.get("domain"))
         measured = metric.get("measured_baseline")
         accepted = metric.get("accepted_limit")
-        if measured is None:
-            _require(metric.get("domain") == "FRAMEBUFFER" and
-                     metric.get("measurement_status") == "requires capture",
-                     f"{path}: only uncaptured framebuffer metrics may be pending")
-            _require(_is_number(accepted) and accepted >= 0,
-                     f"{path}: pending metric accepted_limit must be nonnegative")
+        _require(_is_number(measured) and measured >= 0,
+                 f"{path}: measured_baseline must be nonnegative")
+        _require(_is_number(accepted) and accepted >= measured,
+                 f"{path}: accepted_limit must cover measured_baseline")
+        _require(bool(metric.get("unit")) and
+                 bool(metric.get("limit_provenance")) and
+                 bool(metric.get("measurement_provenance")),
+                 f"{path}: metric unit and provenance are required")
+        configurations = metric.get("configuration_baselines")
+        resolutions = metric.get("resolution_baselines")
+        if metric.get("domain") == "FRAMEBUFFER":
+            _require(isinstance(configurations, dict) and
+                     set(configurations) == {"native-debug", "wasm-release",
+                                             "wasm-strict-fp"} and
+                     all(_is_number(value) and value >= 0
+                         for value in configurations.values()),
+                     f"{path}: framebuffer configuration baselines are required")
+            _require(max(configurations.values()) == measured,
+                     f"{path}: framebuffer baseline must aggregate configurations")
+            _require(isinstance(resolutions, dict) and
+                     set(resolutions) == set(configurations) and
+                     all(isinstance(values, dict) and
+                         set(values) == {"96x20", "288x144"} and
+                         all(_is_number(value) and value >= 0
+                             for value in values.values())
+                         for values in resolutions.values()),
+                     f"{path}: framebuffer resolution baselines are required")
+            _require(all(max(resolutions[configuration].values()) == baseline
+                         for configuration, baseline in configurations.items()),
+                     f"{path}: configuration baselines must aggregate resolutions")
         else:
-            _require(_is_number(measured) and measured >= 0,
-                     f"{path}: measured_baseline must be nonnegative")
-            _require(_is_number(accepted) and accepted >= measured,
-                     f"{path}: accepted_limit must cover measured_baseline")
-        _require(bool(metric.get("unit")) and bool(metric.get("limit_provenance")),
-                 f"{path}: metric unit and limit provenance are required")
+            _require(configurations is None and resolutions is None,
+                     f"{path}: only framebuffer metrics have configuration baselines")
     _require("FRAMEBUFFER" in domains,
              f"{path}: a final-framebuffer metric is required")
 
@@ -308,6 +357,9 @@ def load_and_validate(directory: Path) -> tuple[dict, list[dict]]:
         oracle = _load(path)
         _validate_schema(oracle, schema, schema, str(path))
         _validate_oracle(oracle, path)
+        _require(oracle["corpus"]["framebuffer"]["resolutions"] ==
+                 programs["corpus"]["resolutions"],
+                 f"{path}: framebuffer resolutions must match the capture roster")
         oracles.append(oracle)
     for oracle in oracles:
         _require(oracle["base_sha"] == programs["base_sha"],

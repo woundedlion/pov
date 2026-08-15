@@ -23,6 +23,7 @@ import pullback_capture as capture  # noqa: E402
 
 
 MANIFEST_DIR = ROOT / "tests/data/pullback"
+_, ORACLES = generator.load_and_validate(MANIFEST_DIR)
 
 
 def _frame(programs, program, preset, case, resolution, probe, value=1):
@@ -88,6 +89,30 @@ def _capture(
         "toolchain": crosscheck._expected_toolchain(programs, configuration),
         "configuration": configuration,
         "corpus": programs["corpus"],
+        "oracle_metrics": [
+            {
+                "oracle_id": oracle["oracle_id"],
+                "domain": "FRAMEBUFFER",
+                "aggregation": "MAXIMUM",
+                "value": next(
+                    metric["configuration_baselines"][configuration]
+                    for metric in oracle["metrics"]
+                    if metric["domain"] == "FRAMEBUFFER"
+                ),
+                "unit": next(
+                    metric["unit"]
+                    for metric in oracle["metrics"]
+                    if metric["domain"] == "FRAMEBUFFER"
+                ),
+                "sample_count": 3,
+                "resolution_values": next(
+                    metric["resolution_baselines"][configuration]
+                    for metric in oracle["metrics"]
+                    if metric["domain"] == "FRAMEBUFFER"
+                ),
+            }
+            for oracle in ORACLES
+        ],
         "frames": frames,
     }
 
@@ -170,6 +195,18 @@ class ManifestValidation(unittest.TestCase):
                     ):
                         generator._load(path)
 
+    def test_framebuffer_configuration_baseline_aggregation_is_checked(self):
+        _, oracles = generator.load_and_validate(MANIFEST_DIR)
+        broken = copy.deepcopy(oracles[1])
+        framebuffer = next(
+            metric for metric in broken["metrics"] if metric["domain"] == "FRAMEBUFFER"
+        )
+        framebuffer["configuration_baselines"]["native-debug"] += 2
+        with self.assertRaisesRegex(generator.ManifestError, "aggregate"):
+            generator._validate_oracle(
+                broken, MANIFEST_DIR / "hue_rotation_noise_luts.json"
+            )
+
 
 class CaptureComparison(unittest.TestCase):
     def test_toolchain_mismatch_is_refused(self):
@@ -181,6 +218,23 @@ class CaptureComparison(unittest.TestCase):
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "toolchain"):
             crosscheck.compare_captures(
                 base, candidate, programs, digest, "a" * 40, "b" * 40
+            )
+
+    def test_oracle_metric_drift_is_refused(self):
+        programs, digest = _test_manifest()
+        base = _capture(programs, digest)
+        candidate = copy.deepcopy(base)
+        candidate["checkout_sha"] = "b" * 40
+        candidate["oracle_metrics"][0]["value"] += 1
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "oracle"):
+            crosscheck.compare_captures(
+                base,
+                candidate,
+                programs,
+                digest,
+                "a" * 40,
+                "b" * 40,
+                oracles=ORACLES,
             )
 
     def test_observed_toolchain_mismatch_is_refused(self):
@@ -206,6 +260,26 @@ class CaptureComparison(unittest.TestCase):
             self.assertRaisesRegex(capture.CaptureError, "manifest pin"),
         ):
             capture.attest_toolchain(Path("build"), "native-debug", programs)
+
+    def test_backend_oracle_resolution_drift_is_refused(self):
+        metrics = {}
+        for oracle in ORACLES:
+            framebuffer = next(
+                metric
+                for metric in oracle["metrics"]
+                if metric["domain"] == "FRAMEBUFFER"
+            )
+            metrics[oracle["oracle_id"]] = {
+                "value": framebuffer["resolution_baselines"]["native-debug"][
+                    "96x20"
+                ],
+                "sample_count": 3,
+            }
+        metrics["HUE_ROTATION_AND_NOISE_LUTS"]["value"] += 1
+        with self.assertRaisesRegex(capture.CaptureError, "stale"):
+            capture.validate_backend_oracles(
+                metrics, ORACLES, "native-debug", (96, 20)
+            )
 
     def test_native_deterministic_replay_passes(self):
         programs, digest = _test_manifest()
@@ -363,7 +437,7 @@ class CaptureComparison(unittest.TestCase):
         programs, _ = _test_manifest()
         specs = capture.operation_specs(programs)
         data = bytearray(b"HSPB")
-        data.extend(struct.pack("<HHHI", 2, 1, 1, len(specs)))
+        data.extend(struct.pack("<HHHIH", 3, 1, 1, len(specs), len(ORACLES)))
         for spec in specs:
             name = spec["name"].encode()
             mapping = spec["mapping"]
@@ -378,12 +452,20 @@ class CaptureComparison(unittest.TestCase):
             data.extend(name)
             data.extend(struct.pack("<HHHHI", 0, 1, 0, 60, 1))
             data.extend(struct.pack("<HHH", spec["preset"], 3, 4))
+        for oracle in ORACLES:
+            name = oracle["oracle_id"].encode()
+            data.extend(struct.pack("<H", len(name)))
+            data.extend(name)
+            data.extend(struct.pack("<HI", 0, 3))
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.bin"
             path.write_bytes(data)
-            resolution, records = capture.load_backend(path, programs)
+            resolution, records, metrics = capture.load_backend(
+                path, programs, ORACLES
+            )
         self.assertEqual(resolution, (1, 1))
         self.assertEqual(len(records), len(specs))
+        self.assertEqual(len(metrics), len(ORACLES))
         self.assertEqual(records[(11, "case:interior")]["pixels"][0], [11, 3, 4, 65535])
 
     def test_build_directories_are_isolated(self):

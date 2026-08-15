@@ -19,7 +19,19 @@
     "phases": [1.781, 1.918, 2.329],
     "latitude_steps": 49,
     "longitude_steps": 192,
-    "value_steps": 17
+    "value_steps": 17,
+    "framebuffer": {
+      "resolutions": [[96, 20], [288, 144]],
+      "sampling": "pixel centers",
+      "aggregation": "maximum absolute premultiplied linear-u16 channel delta",
+      "exact_callable": "capture ShaderBallWhiteBox::exact_hue_shade with direct noise and hue rotation",
+      "optimized_callable": "ShaderBall compiled preset-7/8/11 shade callables",
+      "probes": [
+        { "preset": 7, "hue_noise_phase": 1.781, "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "HORIZON_COLUMNS", "EQUATOR_ROW"] },
+        { "preset": 8, "hue_noise_phase": 1.918, "operations": ["FULL_FRAME", "WRAP_COLUMNS", "NORTH_ROW", "SOUTH_ROW", "POLE_BANDS"] },
+        { "preset": 11, "hue_noise_phase": 2.329, "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "MIRROR_GRID", "HORIZON_COLUMNS"] }
+      ]
+    }
   },
   "metrics": [
     {
@@ -28,7 +40,8 @@
       "measured_baseline": 4249,
       "accepted_limit": 5400,
       "unit": "16-bit channel code",
-      "limit_provenance": "existing ShaderBall combined prepared-hue stage budget"
+      "limit_provenance": "existing ShaderBall combined prepared-hue stage budget",
+      "measurement_provenance": "unit_shaderball direct-versus-prepared hue corpus at base_sha"
     },
     {
       "domain": "COLOR_CHANNEL",
@@ -36,16 +49,23 @@
       "measured_baseline": 166,
       "accepted_limit": 256,
       "unit": "16-bit channel code",
-      "limit_provenance": "existing ShaderBall combined prepared-hue stage budget"
+      "limit_provenance": "existing ShaderBall combined prepared-hue stage budget",
+      "measurement_provenance": "unit_shaderball direct-versus-prepared hue corpus at base_sha"
     },
     {
       "domain": "FRAMEBUFFER",
       "aggregation": "MAXIMUM",
-      "measured_baseline": null,
-      "measurement_status": "requires capture",
+      "measured_baseline": 2189,
+      "configuration_baselines": { "native-debug": 2188, "wasm-release": 2189, "wasm-strict-fp": 2188 },
+      "resolution_baselines": {
+        "native-debug": { "96x20": 2099, "288x144": 2188 },
+        "wasm-release": { "96x20": 2099, "288x144": 2189 },
+        "wasm-strict-fp": { "96x20": 2099, "288x144": 2188 }
+      },
       "accepted_limit": 5400,
       "unit": "16-bit channel code",
-      "limit_provenance": "color-stage maximum bounds framebuffer channels; baseline capture still required"
+      "limit_provenance": "color-stage maximum bounds framebuffer channels",
+      "measurement_provenance": "repo-owned native Debug and release/strict-FP WASM exact-versus-optimized framebuffer capture at base_sha, both roster resolutions and named preset-7/8/11 probes"
     }
   ]
 }

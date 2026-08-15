@@ -246,9 +246,81 @@ def _compare_pixels(base: list, candidate: list) -> tuple[int, int, int]:
     return maximum, differing, len(base)
 
 
+def _oracle_metric_map(capture: dict, oracles: list[dict] | None) -> dict:
+    metrics = capture.get("oracle_metrics")
+    if not isinstance(metrics, list):
+        raise CrosscheckError("capture.oracle_metrics must be an array")
+    mapped = {}
+    for metric in metrics:
+        required = {
+            "oracle_id",
+            "domain",
+            "aggregation",
+            "value",
+            "unit",
+            "sample_count",
+            "resolution_values",
+        }
+        if not isinstance(metric, dict) or set(metric) != required:
+            raise CrosscheckError("capture oracle metric fields are invalid")
+        key = (metric["oracle_id"], metric["domain"], metric["aggregation"])
+        if (
+            key in mapped
+            or key[1:] != ("FRAMEBUFFER", "MAXIMUM")
+            or type(metric["value"]) is not int
+            or metric["value"] < 0
+            or type(metric["sample_count"]) is not int
+            or metric["sample_count"] <= 0
+            or not isinstance(metric["unit"], str)
+            or not metric["unit"]
+            or not isinstance(metric["resolution_values"], dict)
+            or set(metric["resolution_values"]) != {"96x20", "288x144"}
+            or any(
+                type(value) is not int or value < 0
+                for value in metric["resolution_values"].values()
+            )
+            or max(metric["resolution_values"].values()) != metric["value"]
+        ):
+            raise CrosscheckError("capture oracle metric is invalid")
+        mapped[key] = metric
+    if oracles is not None:
+        expected = {}
+        for oracle in oracles:
+            manifest_metric = next(
+                metric
+                for metric in oracle["metrics"]
+                if metric["domain"] == "FRAMEBUFFER"
+                and metric["aggregation"] == "MAXIMUM"
+            )
+            key = (oracle["oracle_id"], "FRAMEBUFFER", "MAXIMUM")
+            expected[key] = manifest_metric
+        if mapped.keys() != expected.keys():
+            raise CrosscheckError("capture oracle metric coverage differs from manifests")
+        for key, metric in mapped.items():
+            manifest_metric = expected[key]
+            if (
+                metric["value"]
+                != manifest_metric["configuration_baselines"][
+                    capture["configuration"]
+                ]
+                or metric["unit"] != manifest_metric["unit"]
+                or metric["resolution_values"]
+                != manifest_metric["resolution_baselines"][
+                    capture["configuration"]
+                ]
+            ):
+                raise CrosscheckError("capture oracle metric differs from manifest")
+    return mapped
+
+
 def _validate_capture(
-    capture: dict, programs: dict, digest: str, configuration: str, checkout_sha: str
-) -> dict:
+    capture: dict,
+    programs: dict,
+    digest: str,
+    configuration: str,
+    checkout_sha: str,
+    oracles: list[dict] | None = None,
+) -> tuple[dict, dict]:
     required = {
         "schema_version",
         "checkout_sha",
@@ -256,6 +328,7 @@ def _validate_capture(
         "toolchain",
         "configuration",
         "corpus",
+        "oracle_metrics",
         "frames",
     }
     if set(capture) != required:
@@ -276,7 +349,7 @@ def _validate_capture(
     if frames.keys() != _expected_frame_keys(programs):
         raise CrosscheckError("capture does not cover every manifest case and probe")
     _validate_frame_operations(frames, programs)
-    return frames
+    return frames, _oracle_metric_map(capture, oracles)
 
 
 def compare_captures(
@@ -288,6 +361,7 @@ def compare_captures(
     candidate_sha: str,
     strict_base: dict | None = None,
     strict_candidate: dict | None = None,
+    oracles: list[dict] | None = None,
 ) -> None:
     if base_sha != programs["base_sha"]:
         raise CrosscheckError("base checkout SHA differs from manifest pin")
@@ -296,22 +370,34 @@ def compare_captures(
     configuration = base.get("configuration")
     if configuration not in ("native-debug", "wasm-release"):
         raise CrosscheckError(f"unsupported configuration {configuration}")
-    base_frames = _validate_capture(base, programs, digest, configuration, base_sha)
-    candidate_frames = _validate_capture(
-        candidate, programs, digest, configuration, candidate_sha
+    base_frames, base_oracles = _validate_capture(
+        base, programs, digest, configuration, base_sha, oracles
     )
+    candidate_frames, candidate_oracles = _validate_capture(
+        candidate, programs, digest, configuration, candidate_sha, oracles
+    )
+    if base_oracles != candidate_oracles:
+        raise CrosscheckError("capture oracle metrics differ")
     strict_frames = None
     if strict_base is not None or strict_candidate is not None:
         if strict_base is None or strict_candidate is None:
             raise CrosscheckError("strict-FP captures must be supplied as a pair")
-        strict_frames = (
+        strict_captures = (
             _validate_capture(
-                strict_base, programs, digest, "wasm-strict-fp", base_sha
+                strict_base, programs, digest, "wasm-strict-fp", base_sha, oracles
             ),
             _validate_capture(
-                strict_candidate, programs, digest, "wasm-strict-fp", candidate_sha
+                strict_candidate,
+                programs,
+                digest,
+                "wasm-strict-fp",
+                candidate_sha,
+                oracles,
             ),
         )
+        strict_frames = (strict_captures[0][0], strict_captures[1][0])
+        if strict_captures[0][1] != strict_captures[1][1]:
+            raise CrosscheckError("strict-FP oracle metrics differ")
         for key in strict_frames[0]:
             if strict_frames[0][key][1] != strict_frames[1][key][1]:
                 raise CrosscheckError(f"strict-FP frame differs: {key}")
@@ -505,6 +591,7 @@ def orchestrate(
                     digest,
                     base_sha,
                     candidate_sha,
+                    oracles=oracles,
                 )
                 try:
                     compare_captures(
@@ -514,6 +601,7 @@ def orchestrate(
                         digest,
                         base_sha,
                         candidate_sha,
+                        oracles=oracles,
                     )
                 except CrosscheckError as error:
                     if "requires strict-FP" not in str(error):
@@ -548,6 +636,7 @@ def orchestrate(
                         candidate_sha,
                         captures[("base", "wasm-strict-fp")],
                         captures[("candidate", "wasm-strict-fp")],
+                        oracles=oracles,
                     )
                 summary = {
                     "schema_version": 1,
@@ -641,6 +730,7 @@ def main() -> int:
                 args.candidate_sha,
                 _load_capture(args.strict_base) if args.strict_base else None,
                 _load_capture(args.strict_candidate) if args.strict_candidate else None,
+                oracles=oracles,
             )
     except (
         CrosscheckError,

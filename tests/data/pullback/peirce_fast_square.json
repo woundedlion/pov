@@ -18,7 +18,22 @@
     "latitude_steps": 129,
     "longitude_steps": 512,
     "tie_probe_epsilon": 0.000002,
-    "tie_probe_count": 12
+    "tie_probe_count": 12,
+    "presets": [5],
+    "framebuffer": {
+      "resolutions": [[96, 20], [288, 144]],
+      "sampling": "pixel centers",
+      "aggregation": "maximum absolute premultiplied linear-u16 channel delta",
+      "exact_callable": "capture ShaderBallWhiteBox::exact_peirce_shade with exact Peirce square projection",
+      "optimized_callable": "ShaderBall compiled preset-5 shade callable",
+      "probes": [
+        {
+          "preset": 5,
+          "hue_noise_phase": 0.0,
+          "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "CARDINAL_POINTS", "FRAME_PERIMETER"]
+        }
+      ]
+    }
   },
   "metrics": [
     {
@@ -27,7 +42,8 @@
       "measured_baseline": 0.00110423565,
       "accepted_limit": 0.0012,
       "unit": "plane units",
-      "limit_provenance": "existing ShaderBall fast-square oracle with 8.7 percent headroom"
+      "limit_provenance": "existing ShaderBall fast-square oracle with 8.7 percent headroom",
+      "measurement_provenance": "unit_shaderball exact-versus-fast latitude-longitude corpus at base_sha"
     },
     {
       "domain": "PROJECTED_EDGE_DISTANCE",
@@ -35,16 +51,23 @@
       "measured_baseline": 0.000126481056,
       "accepted_limit": 0.0002,
       "unit": "plane units",
-      "limit_provenance": "existing ShaderBall fast-square edge oracle"
+      "limit_provenance": "existing ShaderBall fast-square edge oracle",
+      "measurement_provenance": "unit_shaderball exact-versus-fast latitude-longitude corpus at base_sha"
     },
     {
       "domain": "FRAMEBUFFER",
       "aggregation": "MAXIMUM",
-      "measured_baseline": null,
-      "measurement_status": "requires capture",
-      "accepted_limit": 1,
+      "measured_baseline": 100,
+      "configuration_baselines": { "native-debug": 100, "wasm-release": 99, "wasm-strict-fp": 100 },
+      "resolution_baselines": {
+        "native-debug": { "96x20": 99, "288x144": 100 },
+        "wasm-release": { "96x20": 99, "288x144": 98 },
+        "wasm-strict-fp": { "96x20": 99, "288x144": 100 }
+      },
+      "accepted_limit": 128,
       "unit": "16-bit channel code",
-      "limit_provenance": "existing ShaderBall stage contract; baseline capture still required"
+      "limit_provenance": "next power-of-two envelope above the observed 100-code maximum; 28 percent headroom and below one 8-bit-equivalent linear step",
+      "measurement_provenance": "repo-owned native Debug and release/strict-FP WASM exact-versus-optimized framebuffer capture at base_sha, both roster resolutions and named preset-5 probes"
     }
   ]
 }
