@@ -378,6 +378,24 @@ _hs_warnings(pullback_manifest_check)
 _hs_sanitize(pullback_manifest_check)
 add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
 
+set(HS_PULLBACK_CAPTURE_SOURCE_ROOT "${HS_ROOT}" CACHE PATH
+    "Checkout whose ShaderBall sources the pullback capture producer builds")
+add_executable(pullback_capture_native
+  ${HS_ROOT}/tools/pullback_capture_native.cpp
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/reaction_graph.cpp)
+target_include_directories(pullback_capture_native PRIVATE
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
+target_link_libraries(pullback_capture_native PRIVATE hs_test_support)
+_hs_warnings(pullback_capture_native)
+add_test(NAME unit_pullback_capture_determinism
+  COMMAND ${CMAKE_COMMAND}
+    -DPRODUCER=$<TARGET_FILE:pullback_capture_native>
+    -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pullback_capture.cmake)
+
 # Pin core/color/color_luts.h against its generator.
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
