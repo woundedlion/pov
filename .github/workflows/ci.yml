@@ -1107,15 +1107,11 @@ jobs:
           python-version: '3.12'
 
       # Discover finds test files by pattern, so one deleted or renamed out of
-      # it runs fewer suites and stays green; the floor fails instead.
+      # it runs fewer suites and stays green; tools/check_test_files.sh fails
+      # instead.
       - name: Check tracked license headers
         run: |
-          shopt -s nullglob
-          tests=(tools/license_check_tests/test*.py)
-          if [ "${#tests[@]}" -lt 1 ]; then
-            echo "::error::expected at least 1 tools/license_check_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
-            exit 1
-          fi
+          bash tools/check_test_files.sh 1 'tools/license_check_tests/test*.py'
           python -m unittest discover -s tools/license_check_tests
           python tools/license_check.py
 
