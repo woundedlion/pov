@@ -287,9 +287,12 @@ private:
    * @param prev_idx Slot -> palette assignment the previous cycle displayed.
    * @param prev_used Slots the previous cycle put on screen at all.
    * @details A strap-bearing slot opens at its previous cycle's displayed
-   * color — or, with no on-screen predecessor, at its host star face's palette
-   * (births inherit the underlying face's colors, matching the leg-swap newborn
-   * rule) — and glides to its fresh target. resolve_host_faces must precede it:
+   * color — or, with no on-screen predecessor, at the host palette of its
+   * first emitted strap face (births inherit the underlying face's colors,
+   * matching the leg-swap newborn rule; a slot's straps can sit under hosts of
+   * differing palettes, and the first represents them as in
+   * resolve_host_faces) — and glides to its fresh target. A slot whose opening
+   * color already equals its target does not arm. resolve_host_faces must precede it:
    * the host is resolved at the sweep peak, where a centroid match is
    * unambiguous, and hankin_mesh here sits at the closed bookend.
    * Slots a star class shares (the mod-NUM_PALETTES wrap can alias a rosette
@@ -302,12 +305,16 @@ private:
     strap_blend_mask = 0;
     for (int s = 0; s < NUM_PALETTES; ++s)
       strap_from[s] = palette_idx[s];
+    // Seen is tracked apart from armed: a slot whose first face opens on its
+    // target arms nothing, and must not fall through to a later face's host.
+    bool slot_seen[NUM_PALETTES] = {};
     // host_face_palette is filled only over the compiled face range.
     const size_t faces = compiled_hankin.face_counts.size();
     for (size_t f = node_faces; f < faces; ++f) {
       const int slot = MeshPaletteBank::slot_of(hankin_mesh.topology[f]);
-      if (strap_blend_mask & (1u << slot))
+      if (slot_seen[slot])
         continue;
+      slot_seen[slot] = true;
       const int from = prev_used[slot] ? prev_idx[slot] : host_face_palette[f];
       if (from != palette_idx[slot]) {
         strap_from[slot] = from;
