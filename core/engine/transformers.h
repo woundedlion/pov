@@ -123,13 +123,14 @@ public:
    */
   HS_COLD_MEMBER ~TransformerPool() {
     unlink_live();
-    // The timeline reference is used below, so an effect that declares its
-    // Timeline after its pools is a use-after-free, not a contract to bend.
-    HS_CHECK(global_timeline_live,
-             "TransformerPool outlived its Timeline: declare the Timeline "
-             "before the pools that schedule on it");
-    if (clear_hook_registered)
+    if (clear_hook_registered) {
+      // The timeline reference is used below, so an effect that declares its
+      // Timeline after its pools is a use-after-free, not a contract to bend.
+      HS_CHECK(global_timeline_live,
+               "TransformerPool outlived its Timeline: declare the Timeline "
+               "before the pools that schedule on it");
       timeline.remove_clear_hook(this);
+    }
   }
 
   // spawn_impl's one-shot callbacks capture this+slot index; relocation would
