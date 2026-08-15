@@ -149,8 +149,10 @@ def run_gate(source, target, env):
               f"reads disables its ceiling), NOT a size-budget violation.")
         sys.exit(2)
     if pioenv not in budgets:
-        print(f"::error::no budget for env '{pioenv}' in {BUDGETS}")
-        sys.exit(1)
+        print(f"::error::teensy-gate: no budget for env '{pioenv}' in {BUDGETS}. "
+              f"This is a budgets-file error (the env is unlisted or renamed), "
+              f"NOT a size-budget violation.")
+        sys.exit(2)
 
     # The fallback synthesizes region totals with no component breakdown, so a
     # per-component ceiling would evaluate to `component-missing` — a message

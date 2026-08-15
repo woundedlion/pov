@@ -1325,6 +1325,15 @@ class TestToolingFailureExits(unittest.TestCase):
             rc, text = self._run(**{"--budgets": str(Path(tmp) / "no.json")})
         self.assertEqual(rc, 2, msg=text)
 
+    def test_unlisted_env_is_cannot_run(self):
+        # Same verdict tools/teensy_gate_extra.py gives: an env with no budget
+        # entry is a budgets-file error, not a size-budget violation.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "budgets.json"
+            path.write_text('{ "phantasm": {} }', encoding="utf-8")
+            rc, text = self._run(**{"--budgets": str(path)})
+        self.assertEqual(rc, 2, msg=text)
+
     def test_missing_capture_file_is_cannot_run(self):
         with tempfile.TemporaryDirectory() as tmp:
             gone = str(Path(tmp) / "gone.txt")
