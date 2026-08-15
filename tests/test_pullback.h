@@ -282,31 +282,71 @@ struct CountingBinding {
   using Instrumentation = CountingInstrumentation;
 };
 
-template <typename Stage, Pullback::ProfileEvent... Events>
-struct CountingStage : Stage {
+struct CountingOrientationState {
   using Binding = CountingBinding;
   using FrameState = typename Binding::FrameState;
-  using Input = typename Stage::Input;
-  using Output = typename Stage::Output;
 
-  static Output run(const Input &input, const FrameState &frame) {
-    const Output output = Stage::run(input, frame);
-    (CountingInstrumentation::span<Events>(CountingInstrumentation::mark()),
-     ...);
-    return output;
+  static const Quaternion &conjugate(const FrameState &) {
+    static constexpr Quaternion IDENTITY;
+    return IDENTITY;
+  }
+};
+
+struct CountingSurfacePolicy : Pullback::ExactPolicy {
+  static Pullback::SurfaceResult apply(const Vector &input, const TestFrame &) {
+    return {input, 0.0f};
+  }
+};
+
+struct CountingLensPolicy : Pullback::ExactPolicy {
+  static Vector apply(const Vector &input, const TestFrame &) { return input; }
+};
+
+struct CountingProjectionPolicy : Pullback::ExactPolicy {
+  static const Quaternion &frame_conjugate(const TestFrame &) {
+    static constexpr Quaternion IDENTITY;
+    return IDENTITY;
+  }
+  static Pullback::ProjectionSample project(const Vector &input,
+                                            const TestFrame &) {
+    return {Complex(input.x, input.y), 0, 0, 0, 1.0f, 1.0f, 0};
+  }
+};
+
+struct CountingMirrorPolicy : Pullback::ExactPolicy {
+  static Pullback::WarpStepResult apply(const Complex &input,
+                                        const Pullback::ProjectionSample &,
+                                        const TestFrame &) {
+    const auto start = CountingInstrumentation::mark();
+    CountingInstrumentation::span<Pullback::ProfileEvent::MIRROR_TILE>(start);
+    return {input, Complex(), 0.0f, 0.0f};
+  }
+};
+
+struct CountingSourcePolicy : Pullback::ExactPolicy {
+  static float sample(const Pullback::SourceInput &, const TestFrame &) {
+    return 0.0f;
+  }
+};
+
+struct CountingColorPolicy : Pullback::ExactPolicy {
+  static Color4 apply(const Pullback::MaterialSample &, const TestFrame &) {
+    return {};
   }
 };
 
 using CountingPipeline = Pullback::Pipeline<
-    CountingBinding, CountingStage<OuterStage>,
-    CountingStage<SurfaceStage, Pullback::ProfileEvent::LENS,
-                  Pullback::ProfileEvent::SURFACE_NOISE,
-                  Pullback::ProfileEvent::PROJECTION>,
-    CountingStage<WarpStage, Pullback::ProfileEvent::PLANAR_WARP,
-                  Pullback::ProfileEvent::MIRROR_TILE>,
-    CountingStage<SourceStage, Pullback::ProfileEvent::SOURCE>,
-    CountingStage<MaterialStage, Pullback::ProfileEvent::MATERIAL>,
-    CountingStage<ColorStage, Pullback::ProfileEvent::COLOR>>;
+    CountingBinding,
+    Pullback::Stage::OuterCamera<CountingBinding, CountingOrientationState>,
+    Pullback::Stage::SurfaceProject<
+        CountingBinding, Pullback::Surface::Identity, CountingLensPolicy,
+        CountingSurfacePolicy, CountingProjectionPolicy>,
+    Pullback::Stage::PlanarWarp<CountingBinding, CountingMirrorPolicy>,
+    Pullback::Stage::Source<CountingBinding, CountingSourcePolicy>,
+    Pullback::Stage::Material<CountingBinding, Pullback::Weight::Projection,
+                              Pullback::Transfer::Linear,
+                              Pullback::Coverage::Opaque>,
+    Pullback::Stage::Color<CountingBinding, CountingColorPolicy>>;
 
 void test_pullback_carrier_contract() {
   constexpr Pullback::ProjectionSample projected{
@@ -467,8 +507,8 @@ void test_pullback_counting_instrumentation() {
   constexpr std::array EXPECTED{Pullback::ProfileEvent::LENS,
                                 Pullback::ProfileEvent::SURFACE_NOISE,
                                 Pullback::ProfileEvent::PROJECTION,
-                                Pullback::ProfileEvent::PLANAR_WARP,
                                 Pullback::ProfileEvent::MIRROR_TILE,
+                                Pullback::ProfileEvent::PLANAR_WARP,
                                 Pullback::ProfileEvent::SOURCE,
                                 Pullback::ProfileEvent::MATERIAL,
                                 Pullback::ProfileEvent::COLOR};
