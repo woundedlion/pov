@@ -672,3 +672,25 @@ add_executable(srgb_decode_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/scripts/generate_srgb_decode.cpp)
 target_include_directories(srgb_decode_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 _hs_warnings(srgb_decode_gen)
+
+# Compile coverage for every EXCLUDE_FROM_ALL target above. Those targets are
+# out of the default build (their run rewrites a committed artifact, or is too
+# noisy to gate), so an API rename breaks their sources while every job stays
+# green. CI builds this one target instead of naming them; the list is read back
+# off the buildsystem, so a new excluded target joins it with no workflow edit.
+get_property(_hs_dir_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+set(_hs_excluded)
+foreach(_hs_target IN LISTS _hs_dir_targets)
+  get_target_property(_hs_is_excluded ${_hs_target} EXCLUDE_FROM_ALL)
+  if(_hs_is_excluded)
+    list(APPEND _hs_excluded ${_hs_target})
+  endif()
+endforeach()
+if(NOT _hs_excluded)
+  message(FATAL_ERROR
+    "no EXCLUDE_FROM_ALL targets found — excluded_targets would gate nothing; "
+    "drop it along with the CI steps that build it")
+endif()
+message(STATUS "EXCLUDE_FROM_ALL compile coverage: ${_hs_excluded}")
+add_custom_target(excluded_targets)
+add_dependencies(excluded_targets ${_hs_excluded})
