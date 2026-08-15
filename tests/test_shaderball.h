@@ -368,7 +368,7 @@ struct ShaderBallWhiteBox {
                                        : frame.resources.outer_warp_noise;
     return SB::warp_stage_lookup(
         input, projected, spec, params, phase, noise,
-        SB::prepare_warp_stage(spec, params, phase, source_period), frame);
+        SB::prepare_warp_stage(spec, params, phase, source_period));
   }
   static MaterialSample material(const ProjectedLookup &projected,
                                  const PlanarWarpResult &warped,

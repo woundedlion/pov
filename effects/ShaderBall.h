@@ -4139,11 +4139,11 @@ private:
     const PlanarWarpStageResult outer = warp_stage_lookup(
         projected.coords, projected, frame.slots.warp_program.outer,
         frame.params.warp.outer, frame.clocks.warp_outer_phase,
-        frame.resources.outer_warp_noise, frame.prepared_warp.outer, frame);
+        frame.resources.outer_warp_noise, frame.prepared_warp.outer);
     const PlanarWarpStageResult inner = warp_stage_lookup(
         outer.coords, projected, frame.slots.warp_program.inner,
         frame.params.warp.inner, frame.clocks.warp_inner_phase,
-        frame.resources.inner_warp_noise, frame.prepared_warp.inner, frame);
+        frame.resources.inner_warp_noise, frame.prepared_warp.inner);
     const Complex net_delta(outer.delta.re + inner.delta.re,
                             outer.delta.im + inner.delta.im);
     return {inner.coords, net_delta, outer.path_length + inner.path_length};
@@ -4280,7 +4280,6 @@ private:
    * @param stage_noise Noise resource bound to this stage; may be null for
    *        kinds that sample no noise.
    * @param prepared Per-frame precomputation for this stage.
-   * @param frame Frame snapshot.
    * @return Stage output coordinates, the delta it applied, its deformation,
    *         and the path length travelled.
    * @details Path length equals the deformation for the closed-form kinds and
@@ -4290,18 +4289,9 @@ private:
   warp_stage_lookup(const Complex &input, const ProjectedLookup &projected,
                     const WarpStageSpec &spec, const WarpStageParams &params,
                     float stage_phase, const FastNoiseLite *stage_noise,
-                    const PreparedWarpStage &prepared, const FrameState &) {
+                    const PreparedWarpStage &prepared) {
     if (spec.kind == WarpStageKind::NONE)
       return {input, Complex(), 0.0f, 0.0f};
-    return warp_nonlegacy_stage(input, projected, spec, params, stage_phase,
-                                stage_noise, prepared);
-  }
-
-  HS_FLASH_MEMBER static PlanarWarpStageResult
-  warp_nonlegacy_stage(const Complex &input, const ProjectedLookup &projected,
-                       const WarpStageSpec &spec, const WarpStageParams &params,
-                       float stage_phase, const FastNoiseLite *stage_noise,
-                       const PreparedWarpStage &prepared) {
     const float envelope =
         warp_envelope(projected, spec.envelope, params.edge_width);
     const float amplitude = params.strength * envelope;
