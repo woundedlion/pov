@@ -18,6 +18,7 @@ namespace pullback_tests {
 struct TestFrame {
   mutable std::array<Pullback::StageKind, 6> calls{};
   mutable size_t call_count = 0;
+  float edge_width = 0.5f;
 };
 
 struct TestBinding {
@@ -124,6 +125,86 @@ using TestPipeline =
     Pullback::Pipeline<TestBinding, OuterStage, SurfaceStage, WarpStage,
                        SourceStage, MaterialStage, ColorStage>;
 
+struct OrientationState {
+  using Binding = TestBinding;
+  using FrameState = typename Binding::FrameState;
+
+  static const Quaternion &conjugate(const FrameState &) {
+    static constexpr Quaternion IDENTITY;
+    return IDENTITY;
+  }
+};
+
+struct ProjectionPolicy : Pullback::ExactPolicy {
+  static const Quaternion &frame_conjugate(const TestFrame &) {
+    static constexpr Quaternion IDENTITY;
+    return IDENTITY;
+  }
+
+  static Pullback::ProjectionSample project(const Vector &input,
+                                            const TestFrame &) {
+    return {Complex(input.x, input.y), 1, 2, 3, 0.25f, 0.5f, 4, 5, 6, 0.8f};
+  }
+};
+
+struct WarpOne : Pullback::ExactPolicy {
+  static Pullback::WarpStepResult apply(const Complex &input,
+                                        const Pullback::ProjectionSample &,
+                                        const TestFrame &) {
+    return {Complex(input.re + 1.0f, input.im), Complex(1.0f, 0.0f), 1.0f,
+            2.0f};
+  }
+};
+
+struct WarpTwo : Pullback::ExactPolicy {
+  static Pullback::WarpStepResult apply(const Complex &input,
+                                        const Pullback::ProjectionSample &p,
+                                        const TestFrame &) {
+    return {Complex(input.re, input.im + p.coords.im),
+            Complex(0.0f, p.coords.im), 2.0f, 3.0f};
+  }
+};
+
+struct SourcePolicy : Pullback::ExactPolicy {
+  static float sample(const Pullback::SourceInput &input, const TestFrame &) {
+    return input.warped.coords.re + input.warped.coords.im;
+  }
+};
+
+struct ValueState {
+  using Binding = TestBinding;
+  using FrameState = typename Binding::FrameState;
+
+  static float edge_width(const FrameState &frame) { return frame.edge_width; }
+};
+
+struct MalformedValueState {
+  using Binding = TestBinding;
+  using FrameState = typename Binding::FrameState;
+};
+
+struct ColorPolicy : Pullback::ExactPolicy {
+  static Color4 apply(const Pullback::MaterialSample &input,
+                      const TestFrame &) {
+    return Color4(Pixel(9, 8, 7), input.coverage);
+  }
+};
+
+using CoreOuter = Pullback::Stage::OuterCamera<TestBinding, OrientationState>;
+using CoreSurface = Pullback::Stage::SurfaceProject<
+    TestBinding, Pullback::Surface::Identity, Pullback::Lens::Identity,
+    Pullback::Surface::Identity, ProjectionPolicy>;
+using CoreWarp = Pullback::Stage::PlanarWarp<TestBinding, WarpOne, WarpTwo>;
+using CoreSource = Pullback::Stage::Source<TestBinding, SourcePolicy>;
+using CoreMaterial =
+    Pullback::Stage::Material<TestBinding, Pullback::Weight::Projection,
+                              Pullback::Transfer::Linear,
+                              Pullback::Coverage::EdgeFade<ValueState>>;
+using CoreColor = Pullback::Stage::Color<TestBinding, ColorPolicy>;
+using CorePipeline =
+    Pullback::Pipeline<TestBinding, CoreOuter, CoreSurface, CoreWarp,
+                       CoreSource, CoreMaterial, CoreColor>;
+
 void test_pullback_carrier_contract() {
   constexpr Pullback::ProjectionSample projected{
       Complex(1.0f, 2.0f), 3, 4, 5, 6.0f, 0.75f, 7};
@@ -175,11 +256,19 @@ void test_pullback_evaluation_order() {
 }
 
 void test_pullback_public_surface() {
+  using FlashSource =
+      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+                              CoreSource>;
   static_assert(TestPipeline::STAGE_COUNT == 6);
   static_assert(std::is_same_v<TestPipeline::Binding, TestBinding>);
   static_assert(std::is_same_v<TestPipeline::FrameState, TestFrame>);
   static_assert(std::is_same_v<TestPipeline::stage_at<0>, OuterStage>);
   static_assert(std::is_same_v<TestPipeline::stage_at<5>, ColorStage>);
+  static_assert(FlashSource::EMISSION ==
+                Pullback::CodeEmission::OUT_OF_LINE_FLASH);
+  static_assert(Pullback::Warp::MAX_POLAR_HARMONIC == 16);
+  static_assert(Pullback::Color::HueRotationLutView::SIZE == 1024);
+  static_assert(Pullback::Color::HueNoiseLutView::SIZE == 3456);
   HS_EXPECT_TRUE(std::is_empty_v<TestPipeline>);
 }
 
@@ -191,6 +280,36 @@ void test_pullback_no_instrumentation() {
   HS_EXPECT_TRUE(std::is_empty_v<Pullback::NoInstrumentation::Token>);
 }
 
+void test_pullback_stage_combinators() {
+  TestFrame frame;
+  const Pullback::ProjectionSample projected =
+      CoreSurface::run(Vector(1.0f, 2.0f, 3.0f), frame);
+  const Pullback::SourceInput warped = CoreWarp::run(projected, frame);
+  HS_EXPECT_EQ(warped.warped.coords.re, 2.0f);
+  HS_EXPECT_EQ(warped.warped.coords.im, 4.0f);
+  HS_EXPECT_EQ(warped.warped.net_delta.re, 1.0f);
+  HS_EXPECT_EQ(warped.warped.net_delta.im, 2.0f);
+  HS_EXPECT_EQ(warped.warped.path_length, 5.0f);
+  HS_EXPECT_EQ(warped.projected.coords.re, 1.0f);
+  HS_EXPECT_EQ(warped.projected.coords.im, 2.0f);
+
+  const Color4 color = CorePipeline::evaluate(Vector(1.0f, 2.0f, 3.0f), frame);
+  HS_EXPECT_EQ(color.color.r, 9);
+  HS_EXPECT_EQ(color.color.g, 8);
+  HS_EXPECT_EQ(color.color.b, 7);
+  HS_EXPECT_EQ(color.alpha, 0.4f);
+}
+
+void test_pullback_provider_contracts() {
+  static_assert(CoreOuter::PROVIDER_VALID);
+  static_assert(
+      Pullback::Coverage::EdgeFade<ValueState>::PROVIDER_VALID<TestBinding>);
+  static_assert(!Pullback::Coverage::EdgeFade<
+                MalformedValueState>::PROVIDER_VALID<TestBinding>);
+  HS_EXPECT_TRUE(std::is_empty_v<OrientationState>);
+  HS_EXPECT_TRUE(std::is_empty_v<ValueState>);
+}
+
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
   test_pullback_carrier_contract();
@@ -198,6 +317,8 @@ inline int run_pullback_tests() {
   test_pullback_evaluation_order();
   test_pullback_public_surface();
   test_pullback_no_instrumentation();
+  test_pullback_stage_combinators();
+  test_pullback_provider_contracts();
   return fixture.result();
 }
 
