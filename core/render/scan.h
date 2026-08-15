@@ -1039,7 +1039,7 @@ struct DistortedRingStack {
       const float cp = TrigLUT<W, H>::cos_phi[y];
       if (skip_pole_rows && std::abs(ap.r_val * sp) < SDF::INTERVAL_DENOM_EPS)
         continue;
-      walk_clip_columns<W>(xc, [&](int x) {
+      walk_clip_columns<W>(xc, [&](int x) HS_FLASH_MEMBER {
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         const float d = dot(p, axis_v);
         const float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
