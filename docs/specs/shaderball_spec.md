@@ -250,8 +250,8 @@ TransitionFrame   { FrameState from, FrameState to, mix, blend_mode }
 ProjectedLookup  { coords, region_id, component_id, boundary_flags,
                    fade_edge_distance, value_weight, flags }
 StereoWarpResult { coords, displacement }       // existing
-PlanarWarpResult { coords, net_delta, deformation, path_length, flags }
-MaterialSample   { value, coverage, net_delta, deformation, path_length }
+PlanarWarpResult { coords, path_length, flags }
+MaterialSample   { value, coverage, path_length }
 ```
 
 The pullback lookup path is:
@@ -306,13 +306,13 @@ The hot loop keeps the original `ProjectedLookup` beside `PlanarWarpResult`
 rather than copying projection metadata through the warp program. Projection
 metadata remains available until the value stage; warp-local flags may add fold
 or singularity facts but never rewrite the originating projection region,
-component, or edge. Coverage reaches final alpha, while `net_delta`,
-`deformation`, and `path_length` reach deformation-aware colorizers. A stage
-reports its displacement before coordinate-addition rounding. The program
-accumulates those stage deltas rather than recovering them by subtracting large
-rounded coordinates. With legacy stereographic noise as the sole stage,
-`deformation` is the existing helper's directly computed displacement scalar;
-the liquid colorizer consumes that scalar without recomputing
+component, or edge. Coverage reaches final alpha, while `path_length` reaches
+deformation-aware colorizers. A stage reports its displacement before
+coordinate-addition rounding. The program accumulates those stage lengths
+rather than recovering them by subtracting large rounded coordinates. With
+legacy stereographic noise as the sole stage, `path_length` is the existing
+helper's directly computed displacement scalar; the liquid colorizer consumes
+that scalar without recomputing
 `length(final_coords - original_coords)`. `MaterialSample` is an effect-local
 merged shape, not a general engine type.
 
@@ -465,16 +465,14 @@ the curated preset set normally uses fewer.
 The effect-local results are:
 
 ```text
-PlanarWarpStageResult { coords, delta, deformation, path_length, flags }
-PlanarWarpResult      { coords, net_delta, deformation, path_length, flags }
+PlanarWarpStageResult { coords, delta, path_length, flags }
+PlanarWarpResult      { coords, path_length, flags }
 ```
 
 For original coordinate `p0`, evaluate `p1 = outer.lookup(p0)` and
-`p2 = inner.lookup(p1)`. The final result has `coords = p2`,
-`net_delta = outer.delta + inner.delta`, and the sum of both stage path lengths.
-Each `delta` is computed before adding it to that stage's input, so it is not
-recovered by subtracting rounded coordinates. `deformation` is
-`length(net_delta)`. A direct
+`p2 = inner.lookup(p1)`. The final result has `coords = p2` and the sum of both
+stage path lengths. Each `delta` is computed before adding it to that stage's
+input, so it is not recovered by subtracting rounded coordinates. A direct
 map's stage path is `length(delta)`; an integrated flow reports the sum of its
 integration-segment lengths. Projection metadata remains the original
 finalized post-lens `ProjectedLookup` beside this result.
@@ -714,12 +712,9 @@ Composition rules are:
   through their last differing consumer and normally blend rendered output;
 - such an early join uses `coords = lerp(q_from, q_to, mix)` and
   `stage_path = lerp(path_from, path_to, mix)`; warp flags must be identical for
-  that pixel because flags never interpolate. The unchanged stage then runs,
-  total path is the sum of joined and unchanged stage paths, and final
-  `net_delta` is the sum of the joined stage's interpolated pre-rounding delta
-  and the unchanged stage delta. `deformation` follows the normal
-  `length(net_delta)` rule; the legacy scalar exception is never an early-join
-  case. A flag mismatch uses the through-clear fallback or snap;
+  that pixel because flags never interpolate. The unchanged stage then runs and
+  total path is the sum of joined and unchanged stage paths. A flag mismatch
+  uses the through-clear fallback or snap;
 - otherwise the admitted through-clear fallback or exact snap applies; and
 - if an outer-stage blend would cross an incompatible boundary consumed by the
   unchanged inner stage, the early join is not compatible.

@@ -231,10 +231,9 @@ struct PlanarWarpStage {
 };
 ```
 
-It applies authored warp stages in pullback order, accumulates `net_delta`,
-`deformation`, and `path_length`, and preserves the original projected
-metadata. A no-warp policy emits a zero-delta result without runtime slot
-inspection.
+It applies authored warp stages in pullback order, accumulates `path_length`,
+and preserves the original projected metadata. A no-warp policy emits a
+zero-delta result without runtime slot inspection.
 
 ### 7.5 Source
 
