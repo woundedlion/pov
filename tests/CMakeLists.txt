@@ -56,7 +56,7 @@ target_compile_definitions(hs_host_storage INTERFACE
 add_library(hs_host_effect_runtime INTERFACE)
 target_link_libraries(hs_host_effect_runtime INTERFACE hs_host_storage)
 target_compile_definitions(hs_host_effect_runtime INTERFACE
-  HS_EXTERNAL_PARAM_STORAGE)
+  HS_EXTERNAL_PARAM_STORAGE=1)
 
 add_library(hs_test_whitebox INTERFACE)
 target_link_libraries(hs_test_whitebox INTERFACE hs_host_effect_runtime)
