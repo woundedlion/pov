@@ -3052,6 +3052,9 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
 /** @brief Recipe-step leg kind driven by the smoke test. */
 enum class StepLegKind { TRUNCATE, SNUB, RELAX };
 
+/** Paused redraws check_step_leg_smoke issues at its pause frame. */
+inline constexpr int PAUSED_REDRAWS = 2;
+
 /**
  * @brief Drives one recipe-step leg to completion through OpLeg, gating
  *        compiled-face-count constancy, ramp indices and per-frame motion.
@@ -3061,6 +3064,8 @@ enum class StepLegKind { TRUNCATE, SNUB, RELAX };
  * @param max_step_chord Per-frame max-vertex-motion bound.
  * @param easing Easing driving the sweep parameter.
  * @param frames_out Optional sink receiving each drawn frame's vertices.
+ * @param pause_after Leg frame after which two step_paused() redraws run; 0
+ *        drives the leg unpaused.
  * @details Mirrors the hankin smoke test's shape: the departed palettes come
  * from the seed's own classification and the bookend from the step's clean
  * endpoint, exactly as IslamicStars derives them.
@@ -3068,7 +3073,8 @@ enum class StepLegKind { TRUNCATE, SNUB, RELAX };
 inline void
 check_step_leg_smoke(StepLegKind kind, const StepLegSite &site, int frames,
                      float max_step_chord, EasingFn easing = ease_in_out_sin,
-                     std::vector<std::vector<Vector>> *frames_out = nullptr) {
+                     std::vector<std::vector<Vector>> *frames_out = nullptr,
+                     int pause_after = 0) {
   using Animation::OpLeg;
   const int failed_before = hs_test::stats().failed;
 
@@ -3151,8 +3157,18 @@ check_step_leg_smoke(StepLegKind kind, const StepLegSite &site, int frames,
         leg.step(c);
       }
       fx.advance_display();
+      if (f + 1 != pause_after)
+        continue;
+      for (int p = 0; p < PAUSED_REDRAWS; ++p) {
+        {
+          Canvas c(fx);
+          leg.step_paused(c);
+        }
+        fx.advance_display();
+      }
     }
-    HS_EXPECT_EQ(probe.drawn, (size_t)frames);
+    HS_EXPECT_EQ(probe.drawn,
+                 (size_t)(frames + (pause_after > 0 ? PAUSED_REDRAWS : 0)));
     HS_EXPECT_EQ(probe.faces, landing.faces);
   };
 
@@ -3331,6 +3347,57 @@ inline void test_opleg_step_leg_smoke() {
   check_step_leg_smoke(StepLegKind::SNUB, SNUB_LEG_SITES[0], 24, 0.15f);
   for (const StepLegSite &site : RELAX_LEG_SITES)
     check_step_leg_smoke(StepLegKind::RELAX, site, 16, 0.15f);
+}
+
+/**
+ * @brief Pins a paused leg's redraw: the held frame, drawn again, with the
+ *        sweep clock untouched.
+ * @details A paused timeline drives every event through step_paused(); a leg
+ * that dropped the redraw would blank the frame and one that advanced would run
+ * the sweep out under the pause. Both paused draws must reproduce the held
+ * frame's vertices bitwise, and the resumed frames must match the unpaused run
+ * frame for frame.
+ */
+inline void test_opleg_step_paused_holds_frame() {
+  constexpr int FRAMES = 8;
+  constexpr int PAUSE_AFTER = 4;
+  // Short leg: the chord bound is the smoke test's concern, not this one.
+  constexpr float CHORD_MAX = 1.0f;
+  std::vector<std::vector<Vector>> unpaused, held;
+  check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
+                       CHORD_MAX, ease_in_out_sin, &unpaused);
+  check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
+                       CHORD_MAX, ease_in_out_sin, &held, PAUSE_AFTER);
+  HS_EXPECT_EQ(unpaused.size(), (size_t)FRAMES);
+  HS_EXPECT_EQ(held.size(), (size_t)(FRAMES + PAUSED_REDRAWS));
+  if (held.size() != (size_t)(FRAMES + PAUSED_REDRAWS))
+    return;
+
+  auto identical = [](const std::vector<Vector> &a,
+                      const std::vector<Vector> &b) {
+    if (a.size() != b.size() || a.empty())
+      return false;
+    for (size_t i = 0; i < a.size(); ++i)
+      if (a[i].x != b[i].x || a[i].y != b[i].y || a[i].z != b[i].z)
+        return false;
+    return true;
+  };
+
+  // Every paused draw repeats the frame the leg was holding.
+  for (int p = 0; p < PAUSED_REDRAWS; ++p)
+    HS_EXPECT_TRUE(identical(held[PAUSE_AFTER - 1], held[PAUSE_AFTER + p]));
+
+  // The clock never moved: the resumed frames are the unpaused run's.
+  size_t drifted = 0;
+  for (int f = 0; f < FRAMES; ++f) {
+    const size_t k = f < PAUSE_AFTER ? (size_t)f : (size_t)(f + PAUSED_REDRAWS);
+    if (!identical(unpaused[f], held[k]))
+      ++drifted;
+  }
+  HS_EXPECT_EQ(drifted, (size_t)0);
+  std::printf("  [opleg paused] truncate: %d frames, %d paused redraws at "
+              "frame %d, %zu resumed frames drifted\n",
+              FRAMES, PAUSED_REDRAWS, PAUSE_AFTER, drifted);
 }
 
 /**
@@ -4265,6 +4332,7 @@ inline int run_conway_morph_tests() {
   test_opleg_medial_leg_smoke();
   test_opleg_dual_bridge_seam_correspondence();
   test_opleg_step_leg_smoke();
+  test_opleg_step_paused_holds_frame();
   test_opleg_step_leg_overshooting_easing();
   test_opleg_gated_swap_smoke();
   test_opleg_edge_leg_crossfade();
