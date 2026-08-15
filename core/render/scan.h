@@ -1990,6 +1990,35 @@ struct Mesh {
     draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
                     bake, erased_setup);
   }
+
+  /**
+   * @brief Rasterizes a mesh shaded from a per-face blended-ramp table.
+   * @tparam ShadingT Table exposing `const BakedPalette &ramp_for(size_t)`.
+   * @param pipeline Filter pipeline applied on plot.
+   * @param canvas Target canvas.
+   * @param mesh Mesh to rasterize, already in camera space.
+   * @param shading Per-face ramp table (an Animation::OpLeg::Shading).
+   * @param gain Edge-distance shading gain, divided by the face size.
+   * @param alpha Coverage applied to every fragment.
+   * @param scratch_arena Arena backing the scan's per-face buffers.
+   * @details Face-hoisted: the ramp and the gain/inradius gradient scale
+   * resolve once per face, leaving a multiply, a clamp and one LUT fetch per
+   * fragment.
+   */
+  template <int W, int H, typename PipelineT, typename ShadingT>
+  static void draw_opleg_shading(PipelineT &pipeline, Canvas &canvas,
+                                 const MeshState &mesh, const ShadingT &shading,
+                                 float gain, float alpha,
+                                 Arena &scratch_arena) {
+    FacePaletteShader fragment_shader;
+    fragment_shader.alpha = alpha;
+    auto select_face = [&](size_t fi, float size) {
+      fragment_shader.set_palette(&shading.ramp_for(fi));
+      fragment_shader.scale = size > math::TOLERANCE ? gain / size : 0.0f;
+    };
+    draw_specialized<W, H>(pipeline, canvas, mesh, fragment_shader,
+                           scratch_arena, nullptr, select_face);
+  }
 };
 HS_O3_END
 
