@@ -11,18 +11,16 @@ import re
 from pathlib import Path
 
 
-PROGRAM_IDS = (
-    "BONNE_KALEIDOSCOPE_LATTICE_MIRROR",
-    "GLITCH_NOISE_GRID_WAVE_SHEAR",
-    "KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR",
-    "GNOMONIC_KALEIDOSCOPE_GRID_MIRROR",
-    "GNOMONIC_GLITCH_GRID_MIRROR",
-    "PEIRCE_DODECAHEDRAL_GRID",
-    "GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR",
-    "GNOMONIC_AFFINE_LATTICE_CONTOUR",
-    "SINUSOIDAL_CURL_LATTICE",
-    "STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE",
-    "GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR",
+TOPOLOGY_FIELDS = (
+    "function", "projection", "projection_frame", "surface_lens",
+    "signal_weight", "value_transfer", "coverage", "peirce_layout",
+    "airocean_layout", "bonne_hemisphere", "gnomonic_hemisphere",
+    "surface_noise", "surface_noise_placement", "surface_noise_basis",
+    "surface_curl_integrator", "source_noise_basis", "outer_warp",
+    "outer_warp_basis", "outer_warp_envelope", "outer_polar_mode",
+    "outer_curl_integrator", "outer_polar_harmonic", "inner_warp",
+    "inner_warp_basis", "inner_warp_envelope", "inner_polar_mode",
+    "inner_curl_integrator", "inner_polar_harmonic",
 )
 ORACLE_FILES = ("peirce_fast_square.json", "hue_rotation_noise_luts.json")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -45,6 +43,108 @@ def _load(path: Path) -> dict:
         raise ManifestError(f"{path}: {error}") from error
     _require(isinstance(value, dict), f"{path}: root must be an object")
     return value
+
+
+def _schema_type_matches(value, expected: str) -> bool:
+    if expected == "object":
+        return isinstance(value, dict)
+    if expected == "array":
+        return isinstance(value, list)
+    if expected == "string":
+        return isinstance(value, str)
+    if expected == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected == "boolean":
+        return isinstance(value, bool)
+    if expected == "null":
+        return value is None
+    raise ManifestError(f"schema uses unsupported type {expected}")
+
+
+def _resolve_ref(root: dict, reference: str) -> dict:
+    _require(reference.startswith("#/$defs/"),
+             f"unsupported schema reference {reference}")
+    name = reference.removeprefix("#/$defs/")
+    resolved = root.get("$defs", {}).get(name)
+    _require(isinstance(resolved, dict), f"missing schema definition {name}")
+    return resolved
+
+
+def _validate_schema(value, schema: dict, root: dict, location: str) -> None:
+    if "$ref" in schema:
+        _validate_schema(value, _resolve_ref(root, schema["$ref"]), root,
+                         location)
+        return
+    if "oneOf" in schema:
+        matches = 0
+        errors = []
+        for alternative in schema["oneOf"]:
+            try:
+                _validate_schema(value, alternative, root, location)
+                matches += 1
+            except ManifestError as error:
+                errors.append(str(error))
+        _require(matches == 1,
+                 f"{location}: expected exactly one schema alternative; "
+                 f"matched {matches}: {'; '.join(errors)}")
+        return
+    if "const" in schema:
+        _require(value == schema["const"],
+                 f"{location}: expected {schema['const']!r}")
+    if "enum" in schema:
+        _require(value in schema["enum"],
+                 f"{location}: value is outside the allowed enum")
+    expected_types = schema.get("type")
+    if expected_types is not None:
+        if isinstance(expected_types, str):
+            expected_types = [expected_types]
+        _require(any(_schema_type_matches(value, expected)
+                     for expected in expected_types),
+                 f"{location}: expected type {' or '.join(expected_types)}")
+    if isinstance(value, str):
+        _require(len(value) >= schema.get("minLength", 0),
+                 f"{location}: string is too short")
+        if "pattern" in schema:
+            _require(re.fullmatch(schema["pattern"], value) is not None,
+                     f"{location}: string does not match {schema['pattern']}")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        _require(value >= schema.get("minimum", value),
+                 f"{location}: value is below minimum")
+        _require(value <= schema.get("maximum", value),
+                 f"{location}: value is above maximum")
+    if isinstance(value, list):
+        _require(len(value) >= schema.get("minItems", 0),
+                 f"{location}: array is too short")
+        _require(len(value) <= schema.get("maxItems", len(value)),
+                 f"{location}: array is too long")
+        if schema.get("uniqueItems"):
+            canonical = [json.dumps(item, sort_keys=True) for item in value]
+            _require(len(canonical) == len(set(canonical)),
+                     f"{location}: array entries must be unique")
+        if "items" in schema:
+            for index, item in enumerate(value):
+                _validate_schema(item, schema["items"], root,
+                                 f"{location}[{index}]")
+    if isinstance(value, dict):
+        required = schema.get("required", [])
+        missing = sorted(set(required) - value.keys())
+        _require(not missing, f"{location}: missing fields {missing}")
+        properties = schema.get("properties", {})
+        for name, item in value.items():
+            if name in properties:
+                _validate_schema(item, properties[name], root,
+                                 f"{location}.{name}")
+                continue
+            additional = schema.get("additionalProperties", True)
+            _require(additional is not False,
+                     f"{location}: unexpected field {name}")
+            if isinstance(additional, dict):
+                _validate_schema(item, additional, root,
+                                 f"{location}.{name}")
+        _require(len(value) >= schema.get("minProperties", 0),
+                 f"{location}: object has too few fields")
 
 
 def _validate_common(document: dict, path: Path) -> None:
@@ -74,12 +174,10 @@ def _validate_programs(document: dict, path: Path) -> None:
              f"{path}: both roster resolutions are required")
     programs = document.get("programs")
     _require(isinstance(programs, list), f"{path}: programs must be an array")
-    _require(len(programs) == len(PROGRAM_IDS),
-             f"{path}: expected {len(PROGRAM_IDS)} programs")
     ids = [program.get("id") for program in programs
            if isinstance(program, dict)]
-    _require(tuple(ids) == PROGRAM_IDS,
-             f"{path}: program IDs or stable order differ from the compiled manifest")
+    _require(len(ids) == len(programs) and len(ids) == len(set(ids)),
+             f"{path}: program IDs must be unique")
     covered_presets: list[int] = []
     for program in programs:
         program_id = program["id"]
@@ -91,8 +189,8 @@ def _validate_programs(document: dict, path: Path) -> None:
                  f"{path}: {program_id}.presets contains an invalid index")
         covered_presets.extend(presets)
         topology = program.get("topology_key")
-        _require(isinstance(topology, dict) and topology,
-                 f"{path}: {program_id}.topology_key must be non-empty")
+        _require(set(topology) == set(TOPOLOGY_FIELDS),
+                 f"{path}: {program_id}.topology_key fields are incomplete")
         cases = program.get("parameter_cases")
         _require(isinstance(cases, list),
                  f"{path}: {program_id}.parameter_cases must be an array")
@@ -173,11 +271,13 @@ def load_and_validate(directory: Path) -> tuple[dict, list[dict]]:
              f"{schema_path}: $defs must be an object")
     programs_path = directory / "programs.json"
     programs = _load(programs_path)
+    _validate_schema(programs, schema, schema, str(programs_path))
     _validate_programs(programs, programs_path)
     oracles = []
     for filename in ORACLE_FILES:
         path = directory / filename
         oracle = _load(path)
+        _validate_schema(oracle, schema, schema, str(path))
         _validate_oracle(oracle, path)
         oracles.append(oracle)
     for oracle in oracles:
@@ -194,13 +294,31 @@ def _canonical_bytes(documents: list[dict]) -> bytes:
                       for document in documents)
 
 
+def manifest_sha256(programs: dict, oracles: list[dict]) -> str:
+    return hashlib.sha256(_canonical_bytes([programs, *oracles])).hexdigest()
+
+
 def generate_header(programs: dict, oracles: list[dict]) -> str:
-    digest = hashlib.sha256(_canonical_bytes([programs, *oracles])).hexdigest()
+    digest = manifest_sha256(programs, oracles)
     entries = []
     for program in programs["programs"]:
         mask = sum(1 << preset for preset in program["presets"])
-        entries.append(f'    {{"{program["id"]}", 0x{mask:03x}}},')
-    oracle_entries = [f'    "{oracle["oracle_id"]}",' for oracle in oracles]
+        topology = ", ".join(str(program["topology_key"][field])
+                             for field in TOPOLOGY_FIELDS)
+        entries.append(
+            f'    {{"{program["id"]}", 0x{mask:03x}, {{{{{topology}}}}}}},')
+    metric_entries = []
+    for oracle in oracles:
+        for metric in oracle["metrics"]:
+            measured = metric["measured_baseline"]
+            metric_entries.append(
+                "    {"
+                f'"{oracle["oracle_id"]}", "{metric["domain"]}", '
+                f'"{metric["aggregation"]}", '
+                f'{str(measured is not None).lower()}, '
+                f'{measured if measured is not None else 0.0}, '
+                f'{metric["accepted_limit"]}'
+                "},")
     return "\n".join((
         "#pragma once",
         "",
@@ -212,6 +330,15 @@ def generate_header(programs: dict, oracles: list[dict]) -> str:
         "struct ProgramEntry {",
         "  std::string_view id;",
         "  uint16_t preset_mask;",
+        f"  std::array<uint8_t, {len(TOPOLOGY_FIELDS)}> topology_key;",
+        "};",
+        "struct OracleMetric {",
+        "  std::string_view oracle_id;",
+        "  std::string_view domain;",
+        "  std::string_view aggregation;",
+        "  bool measured;",
+        "  float measured_baseline;",
+        "  float accepted_limit;",
         "};",
         "",
         f'inline constexpr std::string_view BASE_SHA = "{programs["base_sha"]}";',
@@ -219,8 +346,8 @@ def generate_header(programs: dict, oracles: list[dict]) -> str:
         f"inline constexpr std::array<ProgramEntry, {len(entries)}> PROGRAMS{{{{",
         *entries,
         "}};",
-        f"inline constexpr std::array<std::string_view, {len(oracle_entries)}> ORACLES{{{{",
-        *oracle_entries,
+        f"inline constexpr std::array<OracleMetric, {len(metric_entries)}> ORACLE_METRICS{{{{",
+        *metric_entries,
         "}};",
         "}",
         "",
@@ -233,8 +360,7 @@ def generate_runtime_manifest(programs: dict, oracles: list[dict],
              "capture_sha must be a full lowercase Git SHA")
     runtime = copy.deepcopy(programs)
     runtime["capture_sha"] = capture_sha
-    runtime["manifest_sha256"] = hashlib.sha256(
-        _canonical_bytes([programs, *oracles])).hexdigest()
+    runtime["manifest_sha256"] = manifest_sha256(programs, oracles)
     return json.dumps(runtime, indent=2, sort_keys=True) + "\n"
 
 

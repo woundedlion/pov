@@ -797,7 +797,6 @@ def validate_pullback_telemetry(pullback, expected_arm, manifest, check):
               f"arm SHA {arm['sha']} matches capture metadata")
     by_preset = {}
     known_ids = set()
-    allow_dynamic = bool(manifest.get("allow_dynamic_none", False))
     for program in manifest["programs"]:
         program_id = program.get("id")
         known_ids.add(program_id)
@@ -821,7 +820,7 @@ def validate_pullback_telemetry(pullback, expected_arm, manifest, check):
             valid = False
         expected_pipeline = by_preset.get(event["preset"])
         if event["pipeline"] == "NONE":
-            valid &= allow_dynamic
+            valid = False
         else:
             valid &= event["pipeline"] in known_ids
             valid &= event["pipeline"] == expected_pipeline
@@ -831,10 +830,9 @@ def validate_pullback_telemetry(pullback, expected_arm, manifest, check):
           f"program tuples are deduplicated ({duplicate_count} duplicates)")
     check(len(valid_events) == len(events),
           "every program event has a known preset/program pairing")
-    if not allow_dynamic:
-        none_count = sum(event["pipeline"] == "NONE" for event in events)
-        check(none_count == 0,
-              f"no unexpected dynamic NONE program ({none_count} found)")
+    none_count = sum(event["pipeline"] == "NONE" for event in events)
+    check(none_count == 0,
+          f"no unexpected dynamic NONE program ({none_count} found)")
     steady = {event["preset"] for event in valid_events
               if event["endpoint"] == "steady"}
     check(steady == set(by_preset),

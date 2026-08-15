@@ -23,29 +23,44 @@ MANIFEST_DIR = ROOT / "tests/data/pullback"
 
 
 def _frame(program, case, resolution, probe, value=1):
-    pixels = [[value, value, value, 65535]]
-    payload = (f"{program}:{case}:{resolution}:{probe}:{value}".encode() +
-               bytes(channel & 0xff for pixel in pixels for channel in pixel))
-    return {
+    pixels = [[value, value, value, 65535]
+              for _ in range(resolution[0] * resolution[1])]
+    frame = {
         "program": program,
         "case": case,
         "resolution": list(resolution),
         "probe": probe,
-        "sha256": hashlib.sha256(payload).hexdigest(),
         "pixels": pixels,
     }
+    frame["sha256"] = hashlib.sha256(
+        crosscheck._canonical_frame_bytes(frame)).hexdigest()
+    return frame
 
 
-def _capture(configuration="native-debug", value=1):
-    programs, _ = generator.load_and_validate(MANIFEST_DIR)
+def _capture(programs, digest, configuration="native-debug", value=1,
+             checkout_sha="a" * 40):
     frames = [_frame(*key, value=value)
               for key in sorted(crosscheck._expected_frame_keys(programs))]
     return {
+        "schema_version": 1,
+        "checkout_sha": checkout_sha,
+        "manifest_sha256": digest,
         "toolchains": programs["toolchains"],
         "configuration": configuration,
-        "corpus_version": 1,
+        "corpus": programs["corpus"],
         "frames": frames,
     }
+
+
+def _test_manifest():
+    programs, oracles = generator.load_and_validate(MANIFEST_DIR)
+    programs = copy.deepcopy(programs)
+    programs["base_sha"] = "a" * 40
+    programs["corpus"]["resolutions"] = [[1, 1], [2, 1]]
+    for program in programs["programs"]:
+        program["tolerances"]["release_wasm_framebuffer"][
+            "max_differing_pixel_fraction"] = 1.0
+    return programs, generator.manifest_sha256(programs, oracles)
 
 
 class ManifestValidation(unittest.TestCase):
@@ -70,44 +85,103 @@ class ManifestValidation(unittest.TestCase):
             with self.assertRaises(generator.ManifestError):
                 generator._validate_programs(broken, path)
 
+    def test_nested_schema_rejects_unknown_fields(self):
+        programs, _ = generator.load_and_validate(MANIFEST_DIR)
+        schema = generator._load(MANIFEST_DIR / "schema.json")
+        broken = copy.deepcopy(programs)
+        broken["programs"][0]["tolerances"]["release_wasm_framebuffer"][
+            "unlicensed"] = 1
+        with self.assertRaisesRegex(generator.ManifestError,
+                                    "unexpected field unlicensed"):
+            generator._validate_schema(broken, schema, schema, "programs")
+
 
 class CaptureComparison(unittest.TestCase):
     def test_toolchain_mismatch_is_refused(self):
-        programs, _ = generator.load_and_validate(MANIFEST_DIR)
-        base = _capture()
+        programs, digest = _test_manifest()
+        base = _capture(programs, digest)
         candidate = copy.deepcopy(base)
+        candidate["checkout_sha"] = "b" * 40
         candidate["toolchains"]["native"]["compiler"] = "different"
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "toolchains"):
-            crosscheck.compare_captures(base, candidate, programs)
+            crosscheck.compare_captures(
+                base, candidate, programs, digest, "a" * 40, "b" * 40)
 
     def test_native_deterministic_replay_passes(self):
-        programs, _ = generator.load_and_validate(MANIFEST_DIR)
-        capture = _capture()
-        crosscheck.compare_captures(capture, copy.deepcopy(capture), programs)
+        programs, digest = _test_manifest()
+        base = _capture(programs, digest)
+        candidate = copy.deepcopy(base)
+        candidate["checkout_sha"] = "b" * 40
+        crosscheck.compare_captures(
+            base, candidate, programs, digest, "a" * 40, "b" * 40)
 
     def test_release_mismatch_requires_strict_fp_identity(self):
-        programs, _ = generator.load_and_validate(MANIFEST_DIR)
-        base = _capture("wasm-release", 1)
+        programs, digest = _test_manifest()
+        base = _capture(programs, digest, "wasm-release", 1)
         candidate = copy.deepcopy(base)
-        candidate["frames"][0]["sha256"] = "different"
+        candidate["checkout_sha"] = "b" * 40
+        candidate["frames"][0] = _frame(
+            candidate["frames"][0]["program"],
+            candidate["frames"][0]["case"],
+            candidate["frames"][0]["resolution"],
+            candidate["frames"][0]["probe"], 2)
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "strict-FP"):
-            crosscheck.compare_captures(base, candidate, programs)
-        strict_base = _capture("wasm-strict-fp", 3)
+            crosscheck.compare_captures(
+                base, candidate, programs, digest, "a" * 40, "b" * 40)
+        strict_base = _capture(programs, digest, "wasm-strict-fp", 3)
         strict_candidate = copy.deepcopy(strict_base)
-        crosscheck.compare_captures(base, candidate, programs, strict_base,
-                                    strict_candidate)
+        strict_candidate["checkout_sha"] = "b" * 40
+        crosscheck.compare_captures(
+            base, candidate, programs, digest, "a" * 40, "b" * 40,
+            strict_base, strict_candidate)
 
-    def test_build_directories_are_checkout_local(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            base = root / "base"
-            candidate = root / "candidate"
-            crosscheck.validate_isolation(base, candidate, base / "build",
-                                          candidate / "build")
-            with self.assertRaisesRegex(crosscheck.CrosscheckError, "escapes"):
-                crosscheck.validate_isolation(base, candidate, root / "shared",
-                                              candidate / "build")
+    def test_raw_hash_pixel_shape_and_provenance_are_checked(self):
+        programs, digest = _test_manifest()
+        base = _capture(programs, digest)
+        candidate = copy.deepcopy(base)
+        candidate["checkout_sha"] = "b" * 40
+        candidate["frames"][0]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "raw hash"):
+            crosscheck.compare_captures(
+                base, candidate, programs, digest, "a" * 40, "b" * 40)
+        candidate = copy.deepcopy(base)
+        candidate["checkout_sha"] = "b" * 40
+        candidate["frames"][0]["pixels"].pop()
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "pixels"):
+            crosscheck.compare_captures(
+                base, candidate, programs, digest, "a" * 40, "b" * 40)
+        candidate = copy.deepcopy(base)
+        candidate["checkout_sha"] = "b" * 40
+        candidate["manifest_sha256"] = "0" * 64
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "manifest hash"):
+            crosscheck.compare_captures(
+                base, candidate, programs, digest, "a" * 40, "b" * 40)
 
+    def test_strict_capture_provenance_and_identity_are_checked(self):
+        programs, digest = _test_manifest()
+        base = _capture(programs, digest, "wasm-release")
+        candidate = copy.deepcopy(base)
+        candidate["checkout_sha"] = "b" * 40
+        strict_base = _capture(programs, digest, "wasm-strict-fp")
+        strict_candidate = copy.deepcopy(strict_base)
+        strict_candidate["checkout_sha"] = "b" * 40
+        strict_candidate["corpus"] = {"wrong": True}
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "corpus"):
+            crosscheck.compare_captures(
+                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                strict_base, strict_candidate)
+        strict_candidate = copy.deepcopy(strict_base)
+        strict_candidate["checkout_sha"] = "b" * 40
+        strict_candidate["frames"][0] = _frame(
+            strict_candidate["frames"][0]["program"],
+            strict_candidate["frames"][0]["case"],
+            strict_candidate["frames"][0]["resolution"],
+            strict_candidate["frames"][0]["probe"], 2)
+        with self.assertRaisesRegex(crosscheck.CrosscheckError,
+                                    "strict-FP frame differs"):
+            crosscheck.compare_captures(
+                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                strict_base, strict_candidate)
 
 if __name__ == "__main__":
     unittest.main()

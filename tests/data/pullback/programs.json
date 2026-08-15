@@ -25,7 +25,7 @@
     {
       "id": "BONNE_KALEIDOSCOPE_LATTICE_MIRROR",
       "presets": [4],
-      "topology_key": { "function": "PRIMITIVE_LATTICE", "projection": "BONNE/NORTH", "lens": "KALEIDOSCOPE", "outer_warp": "MIRROR_TILE", "inner_warp": "NONE" },
+      "topology_key": { "function": 5, "projection": 3, "projection_frame": 1, "surface_lens": 3, "signal_weight": 1, "value_transfer": 0, "coverage": 3, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 6, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 0, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["central-meridian"],"singularity":["north-pole","south-pole"],"boundary":["bonne-domain"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
@@ -33,7 +33,7 @@
     {
       "id": "GLITCH_NOISE_GRID_WAVE_SHEAR",
       "presets": [0],
-      "topology_key": { "function": "GRID", "projection": "STEREOGRAPHIC", "lens": "GLITCH", "outer_warp": "WAVE_SHEAR", "inner_warp": "NONE" },
+      "topology_key": { "function": 3, "projection": 1, "projection_frame": 1, "surface_lens": 1, "signal_weight": 1, "value_transfer": 0, "coverage": 1, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 2, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 0, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["longitude-wrap"],"singularity":["stereographic-pole"],"boundary":["projection-weight"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
@@ -41,7 +41,7 @@
     {
       "id": "KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR",
       "presets": [1],
-      "topology_key": { "function": "TWIN_WAVE", "projection": "STEREOGRAPHIC", "lens": "KALEIDOSCOPE", "outer_warp": "NONE", "inner_warp": "MIRROR_TILE" },
+      "topology_key": { "function": 0, "projection": 1, "projection_frame": 1, "surface_lens": 3, "signal_weight": 1, "value_transfer": 0, "coverage": 1, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 0, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 6, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["mirror-cell"],"singularity":["stereographic-pole"],"boundary":["projection-weight"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
@@ -49,7 +49,7 @@
     {
       "id": "GNOMONIC_KALEIDOSCOPE_GRID_MIRROR",
       "presets": [2],
-      "topology_key": { "function": "GRID", "projection": "GNOMONIC/FOLDED", "lens": "KALEIDOSCOPE", "outer_warp": "MIRROR_TILE", "inner_warp": "NONE" },
+      "topology_key": { "function": 3, "projection": 2, "projection_frame": 0, "surface_lens": 3, "signal_weight": 1, "value_transfer": 0, "coverage": 3, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 6, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 0, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["fold"],"singularity":["gnomonic-horizon"],"boundary":["hemisphere"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
@@ -57,7 +57,7 @@
     {
       "id": "GNOMONIC_GLITCH_GRID_MIRROR",
       "presets": [3],
-      "topology_key": { "function": "GRID", "projection": "GNOMONIC/FOLDED", "lens": "GLITCH", "outer_warp": "MIRROR_TILE", "inner_warp": "NONE" },
+      "topology_key": { "function": 3, "projection": 2, "projection_frame": 0, "surface_lens": 1, "signal_weight": 1, "value_transfer": 0, "coverage": 3, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 6, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 0, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["fold"],"singularity":["gnomonic-horizon"],"boundary":["hemisphere"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
@@ -65,7 +65,7 @@
     {
       "id": "PEIRCE_DODECAHEDRAL_GRID",
       "presets": [5],
-      "topology_key": { "function": "GRID", "projection": "PEIRCE_QUINCUNCIAL/SQUARE", "lens": "KALEIDOSCOPE_DODECAHEDRAL", "outer_warp": "NONE", "inner_warp": "NONE" },
+      "topology_key": { "function": 3, "projection": 4, "projection_frame": 1, "surface_lens": 7, "signal_weight": 1, "value_transfer": 0, "coverage": 3, "peirce_layout": 1, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 0, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 0, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["quadrant-ties"],"singularity":["quincuncial-corners"],"boundary":["square-edge"],"transition":["from","to"]},
       "tolerances": {"carriers":{"projected.coords":0.0012,"projected.fade_edge_distance":0.0002},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":1,"max_differing_pixel_fraction":0.001}}
@@ -73,7 +73,7 @@
     {
       "id": "GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR",
       "presets": [6],
-      "topology_key": { "function": "GRID", "projection": "GNOMONIC/FOLDED", "lens": "KALEIDOSCOPE_DODECAHEDRAL", "outer_warp": "WAVE_SHEAR", "inner_warp": "MIRROR_TILE" },
+      "topology_key": { "function": 3, "projection": 2, "projection_frame": 0, "surface_lens": 7, "signal_weight": 1, "value_transfer": 0, "coverage": 1, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 2, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 6, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["fold","mirror-cell"],"singularity":["gnomonic-horizon"],"boundary":["hemisphere"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
@@ -81,7 +81,7 @@
     {
       "id": "GNOMONIC_AFFINE_LATTICE_CONTOUR",
       "presets": [7],
-      "topology_key": { "function": "PRIMITIVE_LATTICE", "projection": "GNOMONIC/FOLDED", "lens": "NONE", "outer_warp": "AFFINE_FRAME", "inner_warp": "NONE" },
+      "topology_key": { "function": 5, "projection": 2, "projection_frame": 1, "surface_lens": 0, "signal_weight": 1, "value_transfer": 2, "coverage": 4, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 1, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 0, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["fold"],"singularity":["gnomonic-horizon"],"boundary":["iso-contour"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
@@ -89,7 +89,7 @@
     {
       "id": "SINUSOIDAL_CURL_LATTICE",
       "presets": [8, 9],
-      "topology_key": { "function": "PRIMITIVE_LATTICE", "projection": "SINUSOIDAL", "lens": "NONE", "surface_noise": "CURL/SIMPLEX/EULER", "outer_warp": "NONE", "inner_warp": "NONE" },
+      "topology_key": { "function": 5, "projection": 0, "projection_frame": 1, "surface_lens": 0, "signal_weight": 1, "value_transfer": 0, "coverage": 4, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 2, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 0, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 0, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"both presets"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["longitude-wrap"],"singularity":["north-pole","south-pole"],"boundary":["pole-fade"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
@@ -97,7 +97,7 @@
     {
       "id": "STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE",
       "presets": [10],
-      "topology_key": { "function": "PRIMITIVE_LATTICE", "projection": "STEREOGRAPHIC", "lens": "KALEIDOSCOPE_TRIANGULAR_PRISM", "outer_warp": "POLAR_CHART", "inner_warp": "WAVE_SHEAR" },
+      "topology_key": { "function": 5, "projection": 1, "projection_frame": 1, "surface_lens": 8, "signal_weight": 1, "value_transfer": 0, "coverage": 1, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 7, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 1, "inner_warp": 2, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["polar-angle"],"singularity":["polar-origin","stereographic-pole"],"boundary":["projection-weight"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
@@ -105,7 +105,7 @@
     {
       "id": "GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR",
       "presets": [11],
-      "topology_key": { "function": "GRID", "projection": "GNOMONIC/FOLDED", "lens": "KALEIDOSCOPE_DODECAHEDRAL", "outer_warp": "VECTOR_NOISE", "inner_warp": "MIRROR_TILE" },
+      "topology_key": { "function": 3, "projection": 2, "projection_frame": 0, "surface_lens": 7, "signal_weight": 1, "value_transfer": 0, "coverage": 1, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 4, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 6, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["fold","mirror-cell"],"singularity":["gnomonic-horizon"],"boundary":["hemisphere"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}

@@ -7,44 +7,191 @@
     { "$ref": "#/$defs/oracleManifest" }
   ],
   "$defs": {
-    "common": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "toolchains": {
       "type": "object",
-      "required": ["schema_version", "kind", "base_sha", "toolchains"],
+      "additionalProperties": false,
+      "required": ["native", "wasm", "teensy"],
       "properties": {
-        "schema_version": { "const": 1 },
-        "base_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-        "toolchains": {
-          "type": "object",
-          "required": ["native", "wasm", "teensy"]
+        "native": {
+          "type": "object", "additionalProperties": false,
+          "required": ["compiler", "cmake", "cmake_preset", "configuration"],
+          "properties": {
+            "compiler": { "type": "string", "minLength": 1 },
+            "cmake": { "type": "string", "minLength": 1 },
+            "cmake_preset": { "type": "string", "minLength": 1 },
+            "configuration": { "type": "string", "minLength": 1 }
+          }
+        },
+        "wasm": {
+          "type": "object", "additionalProperties": false,
+          "required": ["compiler", "cmake", "cmake_preset", "configuration"],
+          "properties": {
+            "compiler": { "type": "string", "minLength": 1 },
+            "cmake": { "type": "string", "minLength": 1 },
+            "cmake_preset": { "type": "string", "minLength": 1 },
+            "configuration": { "type": "string", "minLength": 1 }
+          }
+        },
+        "teensy": {
+          "type": "object", "additionalProperties": false,
+          "required": ["compiler", "platformio", "platform", "cpu_hz"],
+          "properties": {
+            "compiler": { "type": "string", "minLength": 1 },
+            "platformio": { "type": "string", "minLength": 1 },
+            "platform": { "type": "string", "minLength": 1 },
+            "cpu_hz": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "topologyKey": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "function", "projection", "projection_frame", "surface_lens",
+        "signal_weight", "value_transfer", "coverage", "peirce_layout",
+        "airocean_layout", "bonne_hemisphere", "gnomonic_hemisphere",
+        "surface_noise", "surface_noise_placement", "surface_noise_basis",
+        "surface_curl_integrator", "source_noise_basis", "outer_warp",
+        "outer_warp_basis", "outer_warp_envelope", "outer_polar_mode",
+        "outer_curl_integrator", "outer_polar_harmonic", "inner_warp",
+        "inner_warp_basis", "inner_warp_envelope", "inner_polar_mode",
+        "inner_curl_integrator", "inner_polar_harmonic"
+      ],
+      "properties": {
+        "function": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "projection": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "projection_frame": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "surface_lens": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "signal_weight": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "value_transfer": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "coverage": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "peirce_layout": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "airocean_layout": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "bonne_hemisphere": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "gnomonic_hemisphere": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "surface_noise": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "surface_noise_placement": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "surface_noise_basis": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "surface_curl_integrator": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "source_noise_basis": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "outer_warp": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "outer_warp_basis": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "outer_warp_envelope": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "outer_polar_mode": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "outer_curl_integrator": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "outer_polar_harmonic": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "inner_warp": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "inner_warp_basis": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "inner_warp_envelope": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "inner_polar_mode": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "inner_curl_integrator": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "inner_polar_harmonic": { "type": "integer", "minimum": 0, "maximum": 255 }
+      }
+    },
+    "parameterCase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "values"],
+      "properties": {
+        "id": { "enum": ["default", "endpoint_min", "endpoint_max", "interior"] },
+        "values": { "type": "string", "minLength": 1 }
+      }
+    },
+    "probes": {
+      "type": "object", "additionalProperties": false,
+      "required": ["seam", "singularity", "boundary", "transition"],
+      "properties": {
+        "seam": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "singularity": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "boundary": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "transition": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "enum": ["from", "to"] } }
+      }
+    },
+    "program": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "presets", "topology_key", "parameter_cases", "probes", "tolerances"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+        "presets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "integer", "minimum": 0 } },
+        "topology_key": { "$ref": "#/$defs/topologyKey" },
+        "parameter_cases": { "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "items": { "$ref": "#/$defs/parameterCase" } },
+        "probes": { "$ref": "#/$defs/probes" },
+        "tolerances": {
+          "type": "object", "additionalProperties": false,
+          "required": ["carriers", "native_bit_identity", "release_wasm_framebuffer"],
+          "properties": {
+            "carriers": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0 } },
+            "native_bit_identity": { "const": true },
+            "release_wasm_framebuffer": {
+              "type": "object", "additionalProperties": false,
+              "required": ["max_channel_delta_u16", "max_differing_pixel_fraction"],
+              "properties": {
+                "max_channel_delta_u16": { "type": "integer", "minimum": 0, "maximum": 4 },
+                "max_differing_pixel_fraction": { "type": "number", "minimum": 0, "maximum": 0.001 }
+              }
+            }
+          }
         }
       }
     },
     "programManifest": {
-      "allOf": [
-        { "$ref": "#/$defs/common" },
-        {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "kind", "base_sha", "capture_sha", "toolchains", "corpus", "measurement_status", "programs"],
+      "properties": {
+        "schema_version": { "const": 1 }, "kind": { "const": "pullback-programs" },
+        "base_sha": { "$ref": "#/$defs/sha" }, "capture_sha": { "$ref": "#/$defs/sha" },
+        "toolchains": { "$ref": "#/$defs/toolchains" },
+        "corpus": {
+          "type": "object", "additionalProperties": false,
+          "required": ["generator", "version", "resolutions", "configurations", "sample_count", "seed"],
           "properties": {
-            "kind": { "const": "pullback-programs" },
-            "programs": { "type": "array", "minItems": 11, "maxItems": 11 }
-          },
-          "required": ["corpus", "programs"]
-        }
-      ]
+            "generator": { "const": "shaderball-pullback-corpus" }, "version": { "const": 1 },
+            "resolutions": { "const": [[96, 20], [288, 144]] },
+            "configurations": { "const": ["native-debug", "wasm-release", "wasm-strict-fp"] },
+            "sample_count": { "type": "integer", "minimum": 1 }, "seed": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "measurement_status": {
+          "type": "object", "additionalProperties": false,
+          "required": ["native", "wasm_release", "teensy"],
+          "properties": { "native": { "type": "string", "minLength": 1 }, "wasm_release": { "type": "string", "minLength": 1 }, "teensy": { "type": "string", "minLength": 1 } }
+        },
+        "programs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/program" } }
+      }
+    },
+    "metric": {
+      "type": "object", "additionalProperties": false,
+      "required": ["domain", "aggregation", "measured_baseline", "accepted_limit", "unit", "limit_provenance"],
+      "properties": {
+        "domain": { "enum": ["PROJECTED_COORDINATE", "PROJECTED_EDGE_DISTANCE", "COLOR_CHANNEL", "FRAMEBUFFER"] },
+        "aggregation": { "enum": ["MAXIMUM", "MEAN"] },
+        "measured_baseline": { "type": ["number", "null"], "minimum": 0 },
+        "measurement_status": { "const": "requires capture" },
+        "accepted_limit": { "type": "number", "minimum": 0 },
+        "unit": { "type": "string", "minLength": 1 }, "limit_provenance": { "type": "string", "minLength": 1 }
+      }
     },
     "oracleManifest": {
-      "allOf": [
-        { "$ref": "#/$defs/common" },
-        {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "kind", "oracle_id", "base_sha", "toolchains", "exact_callable", "optimized_callable", "non_floating_fields_exact", "corpus", "metrics"],
+      "properties": {
+        "schema_version": { "const": 1 }, "kind": { "const": "pullback-oracle" },
+        "oracle_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }, "base_sha": { "$ref": "#/$defs/sha" },
+        "toolchains": { "$ref": "#/$defs/toolchains" }, "exact_callable": { "type": "string", "minLength": 1 }, "optimized_callable": { "type": "string", "minLength": 1 },
+        "non_floating_fields_exact": { "const": true },
+        "corpus": {
+          "type": "object", "additionalProperties": false,
+          "required": ["generator", "version", "deterministic"],
           "properties": {
-            "kind": { "const": "pullback-oracle" },
-            "metrics": { "type": "array", "minItems": 1 }
-          },
-          "required": [
-            "oracle_id", "exact_callable", "non_floating_fields_exact",
-            "corpus", "metrics"
-          ]
-        }
-      ]
+            "generator": { "type": "string", "minLength": 1 }, "version": { "const": 1 }, "deterministic": { "const": true },
+            "latitude_steps": { "type": "integer", "minimum": 1 }, "longitude_steps": { "type": "integer", "minimum": 1 },
+            "tie_probe_epsilon": { "type": "number", "minimum": 0 }, "tie_probe_count": { "type": "integer", "minimum": 1 },
+            "presets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "integer", "minimum": 0 } },
+            "phases": { "type": "array", "minItems": 1, "items": { "type": "number" } }, "value_steps": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "metrics": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/metric" } }
+      }
     }
   }
 }

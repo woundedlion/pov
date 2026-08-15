@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
-"""Compare isolated base/candidate pullback framebuffer captures."""
+"""Validate and compare canonical pullback capture files.
+
+Capture production is intentionally outside this comparator. The framebuffer
+gate remains pending until a repository-owned native/WASM producer exists.
+"""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-import os
-import shlex
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
-from generate_pullback_manifest_header import ManifestError, load_and_validate
-
-
-CONFIGURATIONS = ("native-debug", "wasm-release")
+from generate_pullback_manifest_header import (
+    ManifestError,
+    SHA_RE,
+    load_and_validate,
+    manifest_sha256,
+)
 
 
 class CrosscheckError(RuntimeError):
@@ -33,7 +35,30 @@ def _load_capture(path: Path) -> dict:
     return capture
 
 
-def _frame_map(capture: dict) -> dict[tuple, dict]:
+def _canonical_frame_bytes(frame: dict) -> bytes:
+    resolution = frame.get("resolution")
+    if not isinstance(resolution, list) or len(resolution) != 2 or not all(
+            isinstance(value, int) and value > 0 for value in resolution):
+        raise CrosscheckError("frame resolution must contain two positive integers")
+    pixels = frame.get("pixels")
+    expected_count = resolution[0] * resolution[1]
+    if not isinstance(pixels, list) or len(pixels) != expected_count:
+        raise CrosscheckError(
+            f"frame has {len(pixels) if isinstance(pixels, list) else 'invalid'} "
+            f"pixels; expected {expected_count}")
+    raw = bytearray()
+    for pixel in pixels:
+        if not isinstance(pixel, list) or len(pixel) != 4:
+            raise CrosscheckError("pixels must contain four 16-bit channels")
+        for channel in pixel:
+            if not isinstance(channel, int) or isinstance(channel, bool) or not (
+                    0 <= channel <= 65535):
+                raise CrosscheckError("pixel channels must be 16-bit integers")
+            raw.extend(channel.to_bytes(2, "little"))
+    return bytes(raw)
+
+
+def _frame_map(capture: dict) -> dict[tuple, tuple[dict, str]]:
     frames = capture.get("frames")
     if not isinstance(frames, list):
         raise CrosscheckError("capture.frames must be an array")
@@ -41,12 +66,19 @@ def _frame_map(capture: dict) -> dict[tuple, dict]:
     for frame in frames:
         if not isinstance(frame, dict):
             raise CrosscheckError("capture frame must be an object")
+        if set(frame) != {
+                "program", "case", "resolution", "probe", "sha256", "pixels"}:
+            raise CrosscheckError("capture frame fields are incomplete or unknown")
         resolution = tuple(frame.get("resolution", ()))
         key = (frame.get("program"), frame.get("case"), resolution,
                frame.get("probe"))
         if key in mapped:
             raise CrosscheckError(f"duplicate capture frame {key}")
-        mapped[key] = frame
+        digest = hashlib.sha256(_canonical_frame_bytes(frame)).hexdigest()
+        reported = frame["sha256"]
+        if reported != digest:
+            raise CrosscheckError(f"frame raw hash is invalid: {key}")
+        mapped[key] = (frame, digest)
     return mapped
 
 
@@ -81,56 +113,79 @@ def _compare_pixels(base: list, candidate: list) -> tuple[int, int, int]:
     return maximum, differing, len(base)
 
 
+def _validate_capture(capture: dict, programs: dict, digest: str,
+                      configuration: str, checkout_sha: str) -> dict:
+    required = {
+        "schema_version", "checkout_sha", "manifest_sha256", "toolchains",
+        "configuration", "corpus", "frames",
+    }
+    if set(capture) != required:
+        raise CrosscheckError("capture provenance fields are incomplete or unknown")
+    if capture["schema_version"] != 1:
+        raise CrosscheckError("capture schema version mismatch")
+    if capture["checkout_sha"] != checkout_sha:
+        raise CrosscheckError("capture checkout SHA mismatch")
+    if capture["manifest_sha256"] != digest:
+        raise CrosscheckError("capture manifest hash mismatch")
+    if capture["toolchains"] != programs["toolchains"]:
+        raise CrosscheckError("capture toolchains differ from manifest pins")
+    if capture["configuration"] != configuration:
+        raise CrosscheckError("capture configuration mismatch")
+    if capture["corpus"] != programs["corpus"]:
+        raise CrosscheckError("capture corpus differs from manifest")
+    frames = _frame_map(capture)
+    if frames.keys() != _expected_frame_keys(programs):
+        raise CrosscheckError("capture does not cover every manifest case and probe")
+    return frames
+
+
 def compare_captures(base: dict, candidate: dict, programs: dict,
+                     digest: str, base_sha: str, candidate_sha: str,
                      strict_base: dict | None = None,
                      strict_candidate: dict | None = None) -> None:
-    for field in ("toolchains", "configuration", "corpus_version"):
-        if base.get(field) != candidate.get(field):
-            raise CrosscheckError(f"capture {field} mismatch")
+    if base_sha != programs["base_sha"]:
+        raise CrosscheckError("base checkout SHA differs from manifest pin")
+    if SHA_RE.fullmatch(candidate_sha) is None:
+        raise CrosscheckError("candidate checkout SHA must be a full lowercase SHA")
     configuration = base.get("configuration")
-    base_frames = _frame_map(base)
-    candidate_frames = _frame_map(candidate)
-    if base.get("toolchains") != programs["toolchains"]:
-        raise CrosscheckError("capture toolchains differ from manifest pins")
-    if base_frames.keys() != candidate_frames.keys():
-        raise CrosscheckError("capture manifests are incomplete or differ")
-    expected_keys = _expected_frame_keys(programs)
-    if base_frames.keys() != expected_keys:
-        raise CrosscheckError("capture does not cover every manifest case and probe")
+    if configuration not in ("native-debug", "wasm-release"):
+        raise CrosscheckError(f"unsupported configuration {configuration}")
+    base_frames = _validate_capture(base, programs, digest, configuration,
+                                    base_sha)
+    candidate_frames = _validate_capture(
+        candidate, programs, digest, configuration, candidate_sha)
+    strict_frames = None
+    if strict_base is not None or strict_candidate is not None:
+        if strict_base is None or strict_candidate is None:
+            raise CrosscheckError("strict-FP captures must be supplied as a pair")
+        strict_frames = (
+            _validate_capture(strict_base, programs, digest, "wasm-strict-fp",
+                              base_sha),
+            _validate_capture(strict_candidate, programs, digest,
+                              "wasm-strict-fp", candidate_sha),
+        )
+        for key in strict_frames[0]:
+            if strict_frames[0][key][1] != strict_frames[1][key][1]:
+                raise CrosscheckError(f"strict-FP frame differs: {key}")
     program_tolerances = {
         entry["id"]: entry["tolerances"] for entry in programs["programs"]
     }
     release_differences = []
-    for key, base_frame in base_frames.items():
-        candidate_frame = candidate_frames[key]
+    for key, (base_frame, base_digest) in base_frames.items():
+        candidate_frame, candidate_digest = candidate_frames[key]
         if configuration == "native-debug":
-            if base_frame.get("sha256") != candidate_frame.get("sha256"):
+            if base_digest != candidate_digest:
                 raise CrosscheckError(f"native frame differs: {key}")
             continue
-        if configuration != "wasm-release":
-            raise CrosscheckError(f"unsupported configuration {configuration}")
-        if base_frame.get("sha256") == candidate_frame.get("sha256"):
+        if base_digest == candidate_digest:
             continue
-        pixels = base_frame.get("pixels"), candidate_frame.get("pixels")
-        if not all(isinstance(value, list) for value in pixels):
-            raise CrosscheckError(f"release mismatch lacks pixels: {key}")
-        maximum, differing, count = _compare_pixels(*pixels)
+        maximum, differing, count = _compare_pixels(
+            base_frame["pixels"], candidate_frame["pixels"])
         limits = program_tolerances[key[0]]["release_wasm_framebuffer"]
         release_differences.append((key, maximum, differing, count, limits))
     if release_differences:
-        if strict_base is None or strict_candidate is None:
+        if strict_frames is None:
             raise CrosscheckError("release mismatch requires strict-FP captures")
-        if strict_base.get("configuration") != "wasm-strict-fp" or \
-                strict_candidate.get("configuration") != "wasm-strict-fp":
-            raise CrosscheckError("strict-FP captures use the wrong configuration")
-        strict_frames = _frame_map(strict_base), _frame_map(strict_candidate)
-        if strict_frames[0].keys() != base_frames.keys() or \
-                strict_frames[1].keys() != base_frames.keys():
-            raise CrosscheckError("strict-FP capture manifests differ")
-        for key in base_frames:
-            if strict_frames[0][key].get("sha256") != \
-                    strict_frames[1][key].get("sha256"):
-                raise CrosscheckError(f"strict-FP frame differs: {key}")
         for key, maximum, differing, count, limits in release_differences:
             if maximum > limits["max_channel_delta_u16"]:
                 raise CrosscheckError(
@@ -140,135 +195,26 @@ def compare_captures(base: dict, candidate: dict, programs: dict,
                     f"release differing-pixel share exceeds limit: {key}")
 
 
-def validate_isolation(base_checkout: Path, candidate_checkout: Path,
-                       base_build: Path, candidate_build: Path) -> None:
-    paths = [path.resolve() for path in (base_checkout, candidate_checkout,
-                                        base_build, candidate_build)]
-    base_checkout, candidate_checkout, base_build, candidate_build = paths
-    if base_checkout == candidate_checkout:
-        raise CrosscheckError("base and candidate checkouts are identical")
-    if base_checkout in candidate_checkout.parents or \
-            candidate_checkout in base_checkout.parents:
-        raise CrosscheckError("one checkout is nested inside the other")
-    if base_checkout not in base_build.parents:
-        raise CrosscheckError("base build directory escapes its checkout")
-    if candidate_checkout not in candidate_build.parents:
-        raise CrosscheckError("candidate build directory escapes its checkout")
-
-
-def _run_capture(command: str, checkout: Path, build: Path, manifest: Path,
-                 configuration: str, output: Path) -> None:
-    rendered = command.format(checkout=checkout, build=build, manifest=manifest,
-                              configuration=configuration, output=output)
-    environment = os.environ.copy()
-    environment["CCACHE_DISABLE"] = "1"
-    environment["CMAKE_CXX_COMPILER_LAUNCHER"] = ""
-    subprocess.run(shlex.split(rendered), cwd=checkout, env=environment,
-                   check=True)
-
-
-def orchestrate(repository: Path, base_sha: str, candidate_sha: str,
-                manifest: Path, capture_command: str, output: Path) -> None:
-    output.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="pullback-crosscheck-") as directory:
-        root = Path(directory)
-        base_checkout = root / "base"
-        candidate_checkout = root / "candidate"
-        subprocess.run(["git", "-C", str(repository), "worktree", "add",
-                        "--detach", str(base_checkout), base_sha], check=True)
-        try:
-            subprocess.run(["git", "-C", str(repository), "worktree", "add",
-                            "--detach", str(candidate_checkout), candidate_sha],
-                           check=True)
-            try:
-                base_build = base_checkout / "build" / "pullback-crosscheck"
-                candidate_build = (candidate_checkout / "build" /
-                                   "pullback-crosscheck")
-                validate_isolation(base_checkout, candidate_checkout, base_build,
-                                   candidate_build)
-                for configuration in CONFIGURATIONS:
-                    for name, checkout, build in (
-                            ("base", base_checkout, base_build),
-                            ("candidate", candidate_checkout, candidate_build)):
-                        capture = output / f"{name}-{configuration}.json"
-                        _run_capture(capture_command, checkout, build, manifest,
-                                     configuration, capture)
-                programs, _ = load_and_validate(manifest.parent)
-                base_native = _load_capture(output / "base-native-debug.json")
-                candidate_native = _load_capture(
-                    output / "candidate-native-debug.json")
-                compare_captures(base_native, candidate_native, programs)
-                base_release = _load_capture(output / "base-wasm-release.json")
-                candidate_release = _load_capture(
-                    output / "candidate-wasm-release.json")
-                try:
-                    compare_captures(base_release, candidate_release, programs)
-                except CrosscheckError as error:
-                    if "requires strict-FP" not in str(error):
-                        raise
-                    for name, checkout, build in (
-                            ("base", base_checkout, base_build),
-                            ("candidate", candidate_checkout, candidate_build)):
-                        capture = output / f"{name}-wasm-strict-fp.json"
-                        _run_capture(capture_command, checkout, build, manifest,
-                                     "wasm-strict-fp", capture)
-                    compare_captures(
-                        base_release, candidate_release, programs,
-                        _load_capture(output / "base-wasm-strict-fp.json"),
-                        _load_capture(output /
-                                      "candidate-wasm-strict-fp.json"))
-                captures = {}
-                for capture in sorted(output.glob("*.json")):
-                    captures[capture.name] = hashlib.sha256(
-                        capture.read_bytes()).hexdigest()
-                summary = {
-                    "schema_version": 1,
-                    "base_sha": base_sha,
-                    "head_sha": candidate_sha,
-                    "toolchains": programs["toolchains"],
-                    "manifest": str(manifest),
-                    "capture_sha256": captures,
-                }
-                (output / "summary.json").write_text(
-                    json.dumps(summary, indent=2, sort_keys=True) + "\n",
-                    encoding="utf-8", newline="\n")
-            finally:
-                subprocess.run(["git", "-C", str(repository), "worktree",
-                                "remove", str(candidate_checkout)], check=True)
-        finally:
-            subprocess.run(["git", "-C", str(repository), "worktree", "remove",
-                            str(base_checkout)], check=True)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    compare = subparsers.add_parser("compare")
-    compare.add_argument("--manifest-dir", type=Path, required=True)
-    compare.add_argument("--base", type=Path, required=True)
-    compare.add_argument("--candidate", type=Path, required=True)
-    compare.add_argument("--strict-base", type=Path)
-    compare.add_argument("--strict-candidate", type=Path)
-    run = subparsers.add_parser("run")
-    run.add_argument("--repository", type=Path, required=True)
-    run.add_argument("--base-sha", required=True)
-    run.add_argument("--candidate-sha", required=True)
-    run.add_argument("--manifest", type=Path, required=True)
-    run.add_argument("--capture-command", required=True)
-    run.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--manifest-dir", type=Path, required=True)
+    parser.add_argument("--base", type=Path, required=True)
+    parser.add_argument("--candidate", type=Path, required=True)
+    parser.add_argument("--base-sha", required=True)
+    parser.add_argument("--candidate-sha", required=True)
+    parser.add_argument("--strict-base", type=Path)
+    parser.add_argument("--strict-candidate", type=Path)
     args = parser.parse_args()
     try:
-        if args.command == "run":
-            orchestrate(args.repository, args.base_sha, args.candidate_sha,
-                        args.manifest, args.capture_command, args.output)
-        else:
-            programs, _ = load_and_validate(args.manifest_dir)
-            compare_captures(
-                _load_capture(args.base), _load_capture(args.candidate), programs,
-                _load_capture(args.strict_base) if args.strict_base else None,
-                _load_capture(args.strict_candidate)
-                if args.strict_candidate else None)
-    except (CrosscheckError, ManifestError, subprocess.CalledProcessError) as error:
+        programs, oracles = load_and_validate(args.manifest_dir)
+        compare_captures(
+            _load_capture(args.base), _load_capture(args.candidate), programs,
+            manifest_sha256(programs, oracles), args.base_sha,
+            args.candidate_sha,
+            _load_capture(args.strict_base) if args.strict_base else None,
+            _load_capture(args.strict_candidate)
+            if args.strict_candidate else None)
+    except (CrosscheckError, ManifestError) as error:
         print(f"pullback_crosscheck: {error}", file=sys.stderr)
         return 1
     return 0
