@@ -1,7 +1,8 @@
-# Require every test case defined in a tests/*.h header to be referenced
-# somewhere else: in the same header for module cases, or anywhere under tests/
-# for the shared assertion helpers, which are defined in one header and called
-# from others. Also pin how many cases each roster module defines.
+# Require every test case defined in a tests/*.h or tests/*.hpp header to be
+# referenced somewhere else: in the same header for module cases, or anywhere
+# under tests/ or tools/ for the shared assertion helpers, which are defined in
+# one header and called from others. Also pin how many cases each roster module
+# defines.
 # Cases are invoked by hand-written calls from the module's run_*_tests(), so
 # dropping a call leaves a definition that still compiles, and deleting a case
 # together with its call leaves no trace at all. The per-module assertion floor
@@ -33,21 +34,26 @@
 # count: the tree cross-references case names in prose, and an unstripped
 # `@details` mention or diagnostic message would supply the reference the real
 # call no longer does.
-# -D args: TESTS_DIR (path to tests/).
+# -D args: TESTS_DIR (path to tests/), TOOLS_DIR (path to tools/).
+# Both globs match check_includes.cmake's, so the two gates see one corpus: a
+# header one of them requires to be included is a header the other pins.
 
 cmake_minimum_required(VERSION 3.29)
 
-file(GLOB_RECURSE _headers "${TESTS_DIR}/*.h")
+file(GLOB_RECURSE _headers "${TESTS_DIR}/*.h" "${TESTS_DIR}/*.hpp")
 
 # Exact case-site count of every header the run_tests.cpp roster does not reach.
 include("${TESTS_DIR}/off_roster_headers.cmake")
 
-# Whole-tree code text — every header and driver .cpp under tests/ — used as
-# the fallback reference scope for cross-file calls. String bodies and comments
-# are stripped, in that order and for the same reasons as the per-header pass
-# below: the helper headers are named in prose by several modules and in
-# diagnostic messages, either of which would otherwise read as a call site.
-file(GLOB_RECURSE _driver_srcs "${TESTS_DIR}/*.cpp")
+# Whole-tree code text — every header and driver .cpp under tests/, plus the
+# sources under tools/, which is where the standalone tool binaries call the
+# helpers from — used as the fallback reference scope for cross-file calls.
+# String bodies and comments are stripped, in that order and for the same
+# reasons as the per-header pass below: the helper headers are named in prose by
+# several modules and in diagnostic messages, either of which would otherwise
+# read as a call site.
+file(GLOB_RECURSE _driver_srcs "${TESTS_DIR}/*.cpp"
+  "${TOOLS_DIR}/*.h" "${TOOLS_DIR}/*.hpp" "${TOOLS_DIR}/*.cpp")
 set(_corpus "")
 foreach(_file IN LISTS _headers _driver_srcs)
   file(READ "${_file}" _file_text)
