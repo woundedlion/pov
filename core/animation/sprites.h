@@ -161,15 +161,18 @@ template <int TRAIL_LEN = 8> struct Particle {
    * @param p Initial world-space position.
    * @param v Initial velocity vector.
    * @param seed Hue seed for palette offset.
-   * @param l Life in frames; clamped into [0, 65535]. The low clamp matters: a
-   *   negative l would otherwise narrow to a huge uint16_t (a near-immortal
-   *   particle) rather than a dead one.
+   * @param l Life in frames; clamped into [0, 65535], and a non-finite l dies
+   *   at once. Both matter: a negative l would otherwise narrow to a huge
+   *   uint16_t and a NaN takes hs::clamp's NaN->hi contract, either way a
+   *   near-immortal particle rather than a dead one.
    */
   void init(const Vector &p, const Vector &v, uint16_t seed, float l) {
     position = p;
     velocity = v;
     color_seed = seed;
-    life = static_cast<uint16_t>(hs::clamp(l, 0.0f, 65535.0f));
+    life = std::isfinite(l)
+               ? static_cast<uint16_t>(hs::clamp(l, 0.0f, 65535.0f))
+               : 0;
     history.clear();
   }
 
