@@ -200,7 +200,7 @@ private:
                     static_cast<size_t>(Plot::Mesh::DEDUP_CAPACITY),
                 "a bound solid must fit the wireframe edge-dedup bitset");
 
-  void rebuild_mesh(BaseMesh base_mesh) {
+  HS_FLASH_MEMBER void rebuild_mesh(BaseMesh base_mesh) {
     mesh = MeshState();
     edges = ArenaVector<Plot::Mesh::Edge>();
     persistent_arena.set_offset(mesh_storage_mark);
