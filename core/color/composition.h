@@ -33,7 +33,9 @@
  * accumulator — the natural driver for these — passes it in hours, so the
  * driver, not the modifier, owns the wrap: fold the accumulator back into
  * [0, 2pi) at the source. Folding here instead would cost a per-sample floorf
- * and could not recover the precision the driver already lost.
+ * and could not recover the precision the driver already lost. Each consuming
+ * body carries a stripped assert on the bound, so an unfolded driver trips in
+ * the host build and costs nothing on device.
  */
 inline constexpr float PALETTE_PHASE_ARG_LIMIT = 4096.0f;
 
@@ -105,6 +107,7 @@ struct BreatheModifier {
    * @return t plus the memoized oscillation term.
    */
   float modify(float t) const {
+    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
     if (!primed || *phase != cached_phase) {
       cached_phase = *phase;
       cached_sin = fast_sinf(*phase);
@@ -146,6 +149,7 @@ struct RippleModifier {
    * @return t plus the local sine distortion.
    */
   float modify(float t) const {
+    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
     return t + fast_sinf(t * frequency * PI_F * 2.0f + *phase) * amplitude;
   }
 };
@@ -573,6 +577,7 @@ struct HueWobbleShade {
    * @return The hue-rotated sample.
    */
   Color4 shade(Color4 c, float t) const {
+    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
     return hue_rotate(c,
                       depth * fast_sinf(t * frequency * PI_F * 2.0f + *phase));
   }
@@ -661,6 +666,7 @@ struct ChromaPulseShade {
    */
   Color4 shade(Color4 c, float t) const {
     (void)t;
+    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
     if (!primed || *phase != cached_phase) {
       cached_phase = *phase;
       cached_sin = fast_sinf(cached_phase);
@@ -750,6 +756,7 @@ struct IridescentShade {
    *         untouched.
    */
   Color4 shade(Color4 c, float t) const {
+    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
     float arg = t * frequency * PI_F * 2.0f + *phase;
     constexpr float THIRD = 2.0f * PI_F / 3.0f;
     Pixel sheen(
