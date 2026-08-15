@@ -61,7 +61,7 @@ class ElfFormatError(ValueError):
 
 
 def parse_elf_section_sizes(data: bytes) -> dict[str, int]:
-    """Return {section name: sh_size} for an ELF32 little-endian image.
+    """Return {section name: summed sh_size} for an ELF32 little-endian image.
 
     Section SIZES are the figure of interest; addresses are the gate's business
     (teensy_gate.region_for_address), not the trail's.
@@ -106,7 +106,9 @@ def parse_elf_section_sizes(data: bytes) -> dict[str, int]:
             raise ElfFormatError("unterminated section name")
         name = strtab[name_off:end].decode("utf-8", "replace")
         if name:
-            sizes[name] = size
+            # Accumulate: an image whose input sections were not merged carries
+            # a name more than once, and the last one alone under-reports it.
+            sizes[name] = sizes.get(name, 0) + size
     return sizes
 
 

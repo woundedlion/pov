@@ -34,8 +34,13 @@ _SHDR_SIZE = 40
 
 def make_elf(sections, *, ei_class=tst._ELFCLASS32, ei_data=tst._ELFDATA2LSB,
              magic=tst._ELF_MAGIC, shstrndx=None, shnum=None):
-    """Assemble a minimal ELF32 image carrying `sections` = {name: sh_size}."""
-    names = list(sections) + [".shstrtab"]
+    """Assemble a minimal ELF32 image carrying `sections` = {name: sh_size}.
+
+    A sequence of (name, sh_size) pairs also works, for an image that carries a
+    section name more than once.
+    """
+    items = list(sections.items() if isinstance(sections, dict) else sections)
+    names = [name for name, _ in items] + [".shstrtab"]
     strtab = bytearray(b"\0")
     offsets = {}
     for name in names:
@@ -47,7 +52,7 @@ def make_elf(sections, *, ei_class=tst._ELFCLASS32, ei_data=tst._ELFDATA2LSB,
     shoff += -shoff % 4
 
     headers = [b"\0" * _SHDR_SIZE]                       # SHN_UNDEF
-    for name, size in sections.items():
+    for name, size in items:
         headers.append(struct.pack(tst._SHDR32, offsets[name], 1, 0x3, 0, 0,
                                    size, 0, 0, 4, 0))
     headers.append(struct.pack(tst._SHDR32, offsets[".shstrtab"], 3, 0, 0,
@@ -105,6 +110,11 @@ class ElfParser(unittest.TestCase):
         self.assertEqual(regions["itcm"], 8)
         self.assertEqual(regions["dma"], 0)
         self.assertEqual(regions["ram1"], 8)
+
+    def test_repeated_section_name_sums_its_parts(self):
+        regions = tst.regions_from_sections(tst.parse_elf_section_sizes(
+            make_elf([(".text.itcm", 8), (".text.itcm", 4)])))
+        self.assertEqual(regions["itcm"], 12)
 
     def test_rejects_non_elf(self):
         with self.assertRaises(tst.ElfFormatError):
