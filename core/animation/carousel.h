@@ -51,6 +51,11 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
   static_assert(Segue::HasPhaseHooks<SegueT>,
                 "a segue's visible(), opacity() and face_fade_frac() must keep "
                 "Base's signatures");
+  static_assert(
+      Segue::detail::Mergeable<SegueT>,
+      "a segue must be a non-final class: the Declares* probes below "
+      "merge a name carrier into it, and a final policy answers false "
+      "to all four, passing them vacuously");
   static_assert(!Segue::DeclaresWarp<SegueT> || Segue::HasWarp<SegueT>,
                 "a segue's warp() must be Vector warp(const Vector&, float) "
                 "const");
