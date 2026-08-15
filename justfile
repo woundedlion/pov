@@ -105,6 +105,8 @@ docs-check:
     {{py}} -m unittest discover -s tools/docs_images_tests
     {{py}} tools/docs_check.py {{daydream_checkout}}
     {{py}} tools/build_pins.py --check
+    bash tools/check_test_files.sh 1 "tools/build_pins_tests/test*.py"
+    {{py}} -m unittest discover -s tools/build_pins_tests
 
 # Build Doxygen API reference locally into build/docs/html/.
 # Clones doxygen-awesome theme into .doxygen-awesome/ on first run and

@@ -1083,6 +1083,14 @@ jobs:
           fi
           python tools/build_pins.py --check
 
+      # --check above prints PASS whether or not its three checks still parse the
+      # shapes they read (workflow YAML, package.json's `>=X` range); these drive
+      # each against a fixture that must fail.
+      - name: Run build-pin gate self-tests
+        run: |
+          bash tools/check_test_files.sh 1 'tools/build_pins_tests/test*.py'
+          python -m unittest discover -s tools/build_pins_tests -v
+
       # An ignore rule is inert against an already-tracked path, so .gitignore
       # alone cannot keep a session artifact out of the repo.
       - name: No tracked-but-ignored paths
