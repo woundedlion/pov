@@ -14,20 +14,29 @@ def kicad_version_key(path):
     return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
 
 
-# Stock KiCad data directories (symbols, footprints, 3dmodels). Override with
-# the matching env var if installed elsewhere or on a newer/older KiCad version.
-def find_kicad_data_dir(kind, env_name):
-    env = os.environ.get(env_name)
-    if env and os.path.isdir(env):
-        return env
-    patterns = [
+def kicad_data_dir_patterns(kind):
+    """Stock install globs searched for a KiCad data directory, in order."""
+    return [
         fr"C:\Program Files\KiCad\*\share\kicad\{kind}",
         fr"C:\Program Files (x86)\KiCad\*\share\kicad\{kind}",
         f"/Applications/KiCad/KiCad.app/Contents/SharedSupport/{kind}",
         f"/usr/share/kicad/{kind}",
         f"/usr/local/share/kicad/{kind}",
     ]
-    for pattern in patterns:
+
+
+# Stock KiCad data directories (symbols, footprints, 3dmodels). Override with
+# the matching env var if installed elsewhere or on a newer/older KiCad version.
+def find_kicad_data_dir(kind, env_name):
+    """Locate a stock KiCad data directory, falling back to the bare `kind`.
+
+    The fallback is deliberately not a directory: callers probe the result with
+    isdir() to skip the KiCad-dependent work rather than fail at import.
+    """
+    env = os.environ.get(env_name)
+    if env and os.path.isdir(env):
+        return env
+    for pattern in kicad_data_dir_patterns(kind):
         hits = glob.glob(pattern)
         if hits:
             return max(hits, key=kicad_version_key)   # newest version
@@ -158,6 +167,11 @@ _LIB_CACHE = {}
 
 def load_lib(libname):
     if libname not in _LIB_CACHE:
+        if not os.path.isdir(KICAD_SHARE):
+            raise RuntimeError(
+                "KiCad stock symbol libraries not found; set KICAD_SYMBOL_DIR "
+                "to a share/kicad/symbols directory, or install KiCad in one "
+                "of: " + ", ".join(kicad_data_dir_patterns("symbols")))
         path = os.path.join(KICAD_SHARE, libname + ".kicad_sym")
         with open(path, "r", encoding="utf-8") as f:
             _LIB_CACHE[libname] = parse(f.read())[0]
