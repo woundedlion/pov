@@ -1,7 +1,7 @@
 # Require every test case defined in a tests/*.h or tests/*.hpp header to be
 # referenced somewhere else: in the same header for module cases, or anywhere
-# under tests/ or tools/ for the shared assertion helpers, which are defined in
-# one header and called from others. Also pin how many cases each roster module
+# under tests/ or tools/ for the off-roster helpers, which are defined in one
+# header and called from others. Also pin how many cases each roster module
 # defines.
 # Cases are invoked by hand-written calls from the module's run_*_tests(), so
 # dropping a call leaves a definition that still compiles, and deleting a case
@@ -47,7 +47,10 @@ include("${TESTS_DIR}/off_roster_headers.cmake")
 
 # Whole-tree code text — every header and driver .cpp under tests/, plus the
 # sources under tools/, which is where the standalone tool binaries call the
-# helpers from — used as the fallback reference scope for cross-file calls.
+# helpers from — used as the reference scope for the off-roster helpers only.
+# A roster module's cases are called from its own run_*_tests(), so widening
+# their scope this far would let a same-named token anywhere under tests/ stand
+# in for the call this gate exists to pin.
 # String bodies and comments are stripped, in that order and for the same
 # reasons as the per-header pass below: the helper headers are named in prose by
 # several modules and in diagnostic messages, either of which would otherwise
@@ -81,6 +84,12 @@ foreach(_hdr IN LISTS _headers)
   string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
   string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
   string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
+  # Only an off-roster helper is called from another file; a roster module's
+  # cases must be referenced inside their own header.
+  set(_cross_file FALSE)
+  if(_name IN_LIST HS_OFF_ROSTER_HEADER_NAMES)
+    set(_cross_file TRUE)
+  endif()
   string(REGEX MATCHALL
     "\n[ \t]*(inline )?(static )?void[ \t\r\n]+(test|check|case)_[A-Za-z0-9_]+\\("
     _defs "${_text}")
@@ -102,7 +111,7 @@ foreach(_hdr IN LISTS _headers)
       "${_text}")
     string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs "${_scan}")
     list(LENGTH _refs _nref)
-    if(_nref LESS 1)
+    if(_nref LESS 1 AND _cross_file)
       string(REGEX REPLACE "void[ \t\r\n]+${_case}[ \t\r\n]*\\(" "" _scan
         "${_corpus}")
       string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs
