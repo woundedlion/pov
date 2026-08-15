@@ -507,7 +507,11 @@ inline void transform_in_place(MeshState &mesh,
 // face and carry on; test_conway_ops_drop_degenerate_primary_faces pins that
 // graceful degradation, so do not turn the drop into a trap. A dropped face
 // leaves a boundary hole, so a later operator in a chain reports a generic
-// "unpaired half-edge" instead of naming the bad face.
+// "unpaired half-edge" instead of naming the bad face. The drop is also
+// load-bearing: every shipped hankin-then-ambo recipe relies on it, since ambo
+// over a hankin mesh's degree-2 star tips would otherwise emit one digon per
+// tip, whose edge carries four half-edges and traps the next connectivity
+// build.
 //
 // COMPOSITION POLARITY: every operator, primitive or composed, returns its
 // output in `target`. A composition alternates the ping-pong once per
