@@ -50,7 +50,8 @@ def power(lib_id, x, y, rot=0):
 
 
 def build(symbols=(), wires=(), labels=(), global_labels=(),
-          hierarchical_labels=(), junctions=(), sheets=()):
+          hierarchical_labels=(), junctions=(), sheets=(), buses=(),
+          bus_entries=()):
     """Parse a minimal schematic holding exactly the given geometry."""
     out = ["(kicad_sch (version 20250114) (paper \"A3\")", "(lib_symbols"]
     for lib_id in sorted({s["lib_id"] for s in symbols}):
@@ -68,6 +69,10 @@ def build(symbols=(), wires=(), labels=(), global_labels=(),
         out.append(f"(junction (at {p[0]} {p[1]}))")
     for name in sheets:
         out.append(f'(sheet (at 0 0) (property "Sheetname" "{name}" (at 0 0 0)))')
+    for (a, b) in buses:
+        out.append(f"(bus (pts (xy {a[0]} {a[1]}) (xy {b[0]} {b[1]})))")
+    for p in bus_entries:
+        out.append(f"(bus_entry (at {p[0]} {p[1]} 0) (size 2.54 2.54))")
     for s in symbols:
         out.append(f'(symbol (lib_id "{s["lib_id"]}") '
                    f'(at {s["x"]} {s["y"]} {s["rot"]})')
@@ -210,15 +215,25 @@ class EmptyScanTests(unittest.TestCase):
                 self.assertNotEqual(shorts.main(["shorts.py", str(path)]), 0)
 
 
-class HierarchicalSheetTests(unittest.TestCase):
-    """The scans never descend, so a sheet must hard-fail rather than read clean."""
+class UnscannedConnectivityTests(unittest.TestCase):
+    """The scan reads top-level wires only, so connectivity it cannot follow
+    must hard-fail rather than read clean."""
+
+    def clean_top_level(self, **extra):
+        return build(symbols=[power("power:GND", 100, 100)],
+                     wires=[((100, 100), (110, 100))], **extra)
 
     def test_sheet_fails_even_when_the_top_level_is_clean(self):
-        with self.assertRaises(ValueError):
-            shorts.analyze(build(
-                symbols=[power("power:GND", 100, 100)],
-                wires=[((100, 100), (110, 100))],
-                sheets=["power"]))
+        with self.assertRaisesRegex(ValueError, "sheet present"):
+            shorts.analyze(self.clean_top_level(sheets=["power"]))
+
+    def test_bus_fails_even_when_the_top_level_is_clean(self):
+        with self.assertRaisesRegex(ValueError, "bus present"):
+            shorts.analyze(self.clean_top_level(buses=[((120, 100), (140, 100))]))
+
+    def test_bus_entry_fails_even_when_the_top_level_is_clean(self):
+        with self.assertRaisesRegex(ValueError, "bus_entry present"):
+            shorts.analyze(self.clean_top_level(bus_entries=[(120, 100)]))
 
 
 class CommittedSchematicTests(unittest.TestCase):

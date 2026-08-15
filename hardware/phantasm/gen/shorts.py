@@ -66,12 +66,15 @@ def named_points(root):
 def geometry(root):
     """Scan the top level; return (named points, wire spans, junction points).
 
-    Malformed elements are skipped. Raises ValueError on a hierarchical sheet:
-    the scan never descends, so a sheet's contents would be invisible.
+    Malformed elements are skipped. Raises ValueError on a hierarchical sheet or
+    a bus: the scan reads plain top-level wires only, so a sheet's contents and
+    every bus member would be invisible.
     """
-    if F(root, "sheet"):
-        raise ValueError("hierarchical sheet present: this checker scans the top "
-                         "level only and would miss everything inside it")
+    unscanned = [kind for kind in ("sheet", "bus", "bus_entry") if F(root, kind)]
+    if unscanned:
+        raise ValueError(f"{', '.join(unscanned)} present: this checker scans "
+                         "top-level wires only and would miss the connectivity "
+                         "carried there")
     named = named_points(root)
     wires = []
     for c in F(root, "wire"):
