@@ -2391,8 +2391,8 @@ struct DreamBallsWhiteBox {
                              size_t vertex) {
     return DB::woven_vertex(db.loaded_solids[solid], medial, vertex);
   }
-  static auto tangent_frame(const Vector &normal) {
-    return DB::tangent_frame(normal);
+  static Vector tangent_axis(const Vector &normal) {
+    return DB::tangent_axis(normal);
   }
   static Vector parallel_transport(const Vector &from, const Vector &to,
                                    const Vector &tangent) {
@@ -2705,8 +2705,8 @@ inline void test_dreamballs_weave_topology() {
 
         const Vector from = WB::woven_vertex(db, i, !four_regular, edge.u);
         const Vector to = WB::woven_vertex(db, i, !four_regular, edge.v);
-        const auto frame = WB::tangent_frame(from);
-        const Vector offset = frame.u * 0.6f + frame.v * 0.8f;
+        const Vector frame_u = WB::tangent_axis(from);
+        const Vector offset = frame_u * 0.6f + cross(from, frame_u) * 0.8f;
         const Vector transported = WB::parallel_transport(from, to, offset);
         HS_EXPECT_NEAR(dot(transported, to), 0.0f, 2e-5f);
         HS_EXPECT_NEAR(dot(transported, transported), 1.0f, 2e-5f);
