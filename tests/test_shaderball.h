@@ -458,43 +458,6 @@ struct ShaderBallWhiteBox {
              "ShaderBall test topology has no compiled inverse pipeline");
     return function(v, frame);
   }
-  static Color4 core_pipeline_shade(const Vector &v, const FrameState &frame) {
-    switch (inverse_program_id(frame)) {
-    case InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR:
-      return SB::CoreBonneKaleidoscopeLatticeMirrorPipeline::shade(v, frame);
-    case InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR:
-      return SB::CoreGlitchNoiseGridWaveShearPipeline::shade(v, frame);
-    case InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR:
-      return SB::CoreKaleidoscopeTwinWaveInnerMirrorPipeline::shade(v, frame);
-    case InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR:
-      return SB::CoreGnomonicKaleidoscopeGridMirrorPipeline::shade(v, frame);
-    case InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR:
-      return SB::CoreGnomonicGlitchGridMirrorPipeline::shade(v, frame);
-    case InversePipelineId::PEIRCE_DODECAHEDRAL_GRID:
-      return SB::CorePeirceDodecahedralGridPipeline::shade(v, frame);
-    case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR:
-      return SB::CoreGnomonicDodecahedralGridWaveMirrorPipeline::shade(v,
-                                                                       frame);
-    case InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR:
-      return SB::CoreGnomonicAffineLatticeContourPipeline::shade(v, frame);
-    case InversePipelineId::SINUSOIDAL_CURL_LATTICE:
-      return SB::CoreSinusoidalCurlLatticePipeline::shade(v, frame);
-    case InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE:
-      return SB::CoreStereographicPrismPolarWaveLatticePipeline::shade(v,
-                                                                       frame);
-    case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR:
-      return SB::CoreGnomonicDodecahedralGridVectorMirrorPipeline::shade(v,
-                                                                         frame);
-    case InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR:
-      return SB::CoreStereographicDodecahedralGridInnerMirrorPipeline::shade(
-          v, frame);
-    case InversePipelineId::NONE:
-    case InversePipelineId::COUNT:
-      break;
-    }
-    HS_CHECK(false, "ShaderBall test topology has no core inverse pipeline");
-    return Color4{};
-  }
   static TopologyKey topology_key(const RequestedConfig &config) {
     return SB::make_topology_key(config);
   }
@@ -583,8 +546,6 @@ struct ShaderBallWhiteBox {
         false, typename SB::OuterCameraStage>;
     using Surface =
         typename SB::PeirceDodecahedralGridPipeline::Validation::SurfaceStage;
-    using CoreSurface = typename SB::CorePeirceDodecahedralGridPipeline::
-        Validation::SurfaceStage;
     using Color =
         typename SB::PeirceDodecahedralGridPipeline::Validation::ColorStage;
     return !ArityGate::ORDER && !ArityGate::CARRIERS &&
@@ -600,9 +561,6 @@ struct ShaderBallWhiteBox {
            Surface::METRICS[0].limit == 1.2e-3f &&
            Surface::METRICS[1].limit == 2e-4f &&
            Surface::METRICS[2].limit == 128.0f &&
-           CoreSurface::METRICS[0].limit == 1.2e-3f &&
-           CoreSurface::METRICS[1].limit == 2e-4f &&
-           CoreSurface::METRICS[2].limit == 128.0f &&
            Color::ORACLE == ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   }
   static float peirce_metric_limit(size_t index) {
@@ -3740,7 +3698,6 @@ inline void test_shaderball_inverse_program_equivalence() {
                           radius * sinf(longitude));
         const Color4 expected = WB::shade(view, frame);
         const Color4 actual = WB::pipeline_shade(view, frame);
-        const Color4 core = WB::core_pipeline_shade(view, frame);
         const uint16_t red_error = actual.color.r > expected.color.r
                                        ? actual.color.r - expected.color.r
                                        : expected.color.r - actual.color.r;
@@ -3753,10 +3710,6 @@ inline void test_shaderball_inverse_program_equivalence() {
         HS_EXPECT_LE(std::max({red_error, green_error, blue_error}),
                      uint16_t(1));
         HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
-        HS_EXPECT_EQ(core.color.r, actual.color.r);
-        HS_EXPECT_EQ(core.color.g, actual.color.g);
-        HS_EXPECT_EQ(core.color.b, actual.color.b);
-        HS_EXPECT_NEAR(core.alpha, actual.alpha, 1e-7f);
       }
     }
   }
@@ -3766,12 +3719,20 @@ inline void test_shaderball_inverse_program_equivalence() {
   for (int step = 0; step < 64; ++step) {
     const float longitude = step * (TWO_PI_F / 64.0f);
     const Vector view(cosf(longitude), 0.25f, sinf(longitude));
-    const Color4 legacy = WB::pipeline_shade(view.normalized(), peirce);
-    const Color4 core = WB::core_pipeline_shade(view.normalized(), peirce);
-    HS_EXPECT_EQ(core.color.r, legacy.color.r);
-    HS_EXPECT_EQ(core.color.g, legacy.color.g);
-    HS_EXPECT_EQ(core.color.b, legacy.color.b);
-    HS_EXPECT_NEAR(core.alpha, legacy.alpha, 1e-7f);
+    const Vector normalized = view.normalized();
+    const Color4 expected = WB::shade(normalized, peirce);
+    const Color4 actual = WB::pipeline_shade(normalized, peirce);
+    const uint16_t red_error = actual.color.r > expected.color.r
+                                   ? actual.color.r - expected.color.r
+                                   : expected.color.r - actual.color.r;
+    const uint16_t green_error = actual.color.g > expected.color.g
+                                     ? actual.color.g - expected.color.g
+                                     : expected.color.g - actual.color.g;
+    const uint16_t blue_error = actual.color.b > expected.color.b
+                                    ? actual.color.b - expected.color.b
+                                    : expected.color.b - actual.color.b;
+    HS_EXPECT_LE(std::max({red_error, green_error, blue_error}), uint16_t(1));
+    HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
   }
 }
 
