@@ -199,10 +199,16 @@ jobs:
         # so a runner deschedule past it kills the shard instead of failing a
         # test. Shards 3 and 4 carry unit_canvas / unit_pov_segmented, the two
         # modules that spin it; 30 s still catches a genuinely stalled hand-off.
+        #
+        # Every other job running the deep pass aliases these values instead of
+        # re-typing them, so one left behind cannot narrow that job's window.
+        # The values are aliased one by one rather than the whole mapping:
+        # workflow YAML has no merge key, and two of those jobs add a fourth
+        # variable of their own.
         env:
-          HS_SMOKE_FRAMES: 120
-          HS_EFFECTS_FULL: 1
-          HS_BUFFER_FREE_WATCHDOG_US: 30000000
+          HS_SMOKE_FRAMES: &deep_smoke_frames 120
+          HS_EFFECTS_FULL: &deep_smoke_full 1
+          HS_BUFFER_FREE_WATCHDOG_US: &deep_smoke_watchdog 30000000
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
@@ -279,9 +285,9 @@ jobs:
         # which makes that reachable at the 2 s default on a 2-vCPU runner; 30 s
         # still catches a genuinely stalled hand-off.
         env:
-          HS_SMOKE_FRAMES: 120
-          HS_EFFECTS_FULL: 1
-          HS_BUFFER_FREE_WATCHDOG_US: 30000000
+          HS_SMOKE_FRAMES: *deep_smoke_frames
+          HS_EFFECTS_FULL: *deep_smoke_full
+          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
@@ -344,8 +350,8 @@ jobs:
         # test. TSan's slowdown on a 2-vCPU runner makes that reachable at the
         # 2 s default; 30 s still catches a genuinely stalled hand-off.
         env:
-          HS_SMOKE_FRAMES: 120
-          HS_BUFFER_FREE_WATCHDOG_US: 30000000
+          HS_SMOKE_FRAMES: *deep_smoke_frames
+          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           TSAN_OPTIONS: halt_on_error=1
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -447,9 +453,9 @@ jobs:
         # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job: shards
         # 3, 4 and fastmath all run unit_canvas / unit_pov_segmented.
         env:
-          HS_SMOKE_FRAMES: 120
-          HS_EFFECTS_FULL: 1
-          HS_BUFFER_FREE_WATCHDOG_US: 30000000
+          HS_SMOKE_FRAMES: *deep_smoke_frames
+          HS_EFFECTS_FULL: *deep_smoke_full
+          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
@@ -503,9 +509,9 @@ jobs:
         # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job, with
         # the whole roster instrumented on a 2-vCPU runner.
         env:
-          HS_SMOKE_FRAMES: 120
-          HS_EFFECTS_FULL: 1
-          HS_BUFFER_FREE_WATCHDOG_US: 30000000
+          HS_SMOKE_FRAMES: *deep_smoke_frames
+          HS_EFFECTS_FULL: *deep_smoke_full
+          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
 
@@ -589,9 +595,9 @@ jobs:
         # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the Linux tests job:
         # this job runs unit_canvas and unit_pov_segmented unsharded.
         env:
-          HS_SMOKE_FRAMES: 120
-          HS_EFFECTS_FULL: 1
-          HS_BUFFER_FREE_WATCHDOG_US: 30000000
+          HS_SMOKE_FRAMES: *deep_smoke_frames
+          HS_EFFECTS_FULL: *deep_smoke_full
+          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           TEST_EXCLUDE: *generated_exclude
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
