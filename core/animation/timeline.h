@@ -450,6 +450,11 @@ public:
         if (does_repeat) {
           anim->rewind();
           anim->post_callback();
+          // A callback that cancels (or finishes) its own repeating animation
+          // leaves it done and non-repeating; completing it here keeps the
+          // removal branch from firing .then() a second time next frame.
+          if (anim->done() && !anim->repeats())
+            keep = false;
         } else {
           keep = false;
           anim->post_callback();

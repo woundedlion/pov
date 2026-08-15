@@ -794,6 +794,36 @@ inline void test_timeline_cancel_removes_repeating_animation() {
 }
 
 /**
+ * @brief Verifies a repeating animation canceled from inside its own .then()
+ * fires the callback exactly once and is removed in that frame.
+ * @details The repeating branch rewinds and fires the per-cycle callback; a
+ * cancel taken there leaves the animation done() and non-repeating, so keeping
+ * the event would route it through the removal branch on the next frame and
+ * fire .then() again.
+ */
+inline void test_timeline_repeating_canceled_in_callback_fires_then_once() {
+  Timeline tl;
+  float v = -1.0f;
+  struct {
+    int thens = 0;
+    Animation::Mutation *anim = nullptr;
+  } st; // one capture keeps the callback inside Fn's inplace budget
+  st.anim = tl.add_get(0,
+                       Animation::Mutation(
+                           v, [](float e) { return e; }, 2, ease_linear,
+                           /*repeat=*/true)
+                           .then([&st]() {
+                             st.thens++;
+                             st.anim->cancel();
+                           }),
+                       Timeline::Pin::UNPINNED);
+  for (int i = 0; i < 6; ++i)
+    tl.step(fake_canvas()); // cycles complete at t=2, 4, 6 without the cancel
+  HS_EXPECT_EQ(st.thens, 1);
+  HS_EXPECT_EQ(Timeline::event_count(), 0);
+}
+
+/**
  * @brief Verifies cancel() fires the animation's .then() as the event is
  * removed.
  * @details cancel() reaches Timeline's removal branch through done(), so the
@@ -3572,6 +3602,7 @@ inline int run_animation_tests() {
   test_timeline_accepts_maximum_start_frame();
   test_timeline_repeating_animation_rewinds_each_cycle();
   test_timeline_cancel_removes_repeating_animation();
+  test_timeline_repeating_canceled_in_callback_fires_then_once();
   test_timeline_cancel_fires_post_callback();
   test_timeline_cancel_while_paused_removes_event();
   test_timeline_compaction_preserves_later_events();
