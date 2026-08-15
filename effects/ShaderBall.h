@@ -3974,7 +3974,6 @@ private:
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
-#if defined(HS_PROFILE_ENABLE)
   static constexpr const char *pipeline_name(InversePipelineId pipeline) {
     switch (pipeline) {
     case InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR:
@@ -4007,6 +4006,7 @@ private:
     return "NONE";
   }
 
+#if defined(HS_PROFILE_ENABLE)
   static constexpr const char *profile_endpoint_name(ProfileEndpoint endpoint) {
     switch (endpoint) {
     case ProfileEndpoint::STEADY:

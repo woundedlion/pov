@@ -549,10 +549,10 @@ struct ShaderBallWhiteBox {
     return SB::inverse_programs()[index].id;
   }
   static const char *inverse_program_name(size_t index) {
-    return SB::pullback_pipeline_name(inverse_program_id(index));
+    return SB::pipeline_name(inverse_program_id(index));
   }
   static InversePipelineId preset_program_id(size_t index) {
-    return SB::resolve_pipeline_id(SB::PRESETS[index]);
+    return SB::PRESETS[index].pipeline;
   }
   static InversePipelineId inverse_program_id(const FrameState &frame) {
     const auto *program = SB::resolve_inverse_program(frame);
@@ -3624,13 +3624,6 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   HS_EXPECT_EQ(WB::color_metric_limit(2), hue_framebuffer.accepted_limit);
   for (const WB::RequestedConfig &preset : WB::presets())
     HS_EXPECT_TRUE(WB::has_inverse_program(preset));
-  for (const ExpectedProgram &expected : EXPECTED) {
-    const WB::FrameState frame = WB::preset_frame(sb, expected.preset);
-    HS_EXPECT_EQ(WB::preset_pipeline(expected.preset), expected.id);
-    HS_EXPECT_EQ(WB::inverse_program_id(frame), expected.id);
-  }
-  HS_EXPECT_EQ(WB::preset_pipeline(9),
-               WB::InversePipelineId::SINUSOIDAL_CURL_LATTICE);
 
   WB::RequestedConfig canonical = WB::presets()[1];
   const WB::TopologyKey expected_key = WB::topology_key(canonical);

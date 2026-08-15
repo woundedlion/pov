@@ -89,14 +89,12 @@ struct ShaderBallWhiteBox {
     effect.setAnimationsPaused(true);
     const auto &from = SB::PRESETS[source];
     const auto &to = SB::PRESETS[destination];
-    if (!effect.prepare_resource_union(from, to))
+    if (!effect.prepare_resource_union(from.config, to.config))
       return false;
     effect.state->param_morph.active = false;
-    effect.state->transition = {from,           to,      effect.runtime,
-                                effect.runtime, elapsed, duration,
-                                false,          true};
-    effect.state->transition.from_pipeline = SB::resolve_pipeline_id(from);
-    effect.state->transition.to_pipeline = SB::resolve_pipeline_id(to);
+    effect.state->transition = {
+        from.config, to.config, effect.runtime, effect.runtime, elapsed,
+        duration,    false,     true,           from.pipeline,  to.pipeline};
     return true;
   }
 
@@ -109,13 +107,14 @@ struct ShaderBallWhiteBox {
     if (preset >= SB::PRESETS.size())
       return false;
     effect.runtime.clocks.hue_noise_phase = hue_noise_phase;
-    const auto &config = SB::PRESETS[preset];
-    if (!effect.prepare_resource_union(config, config))
+    const auto &selected = SB::PRESETS[preset];
+    if (!effect.prepare_resource_union(selected.config, selected.config))
       return false;
-    const auto frame = effect.prepare_frame(config, effect.runtime);
-    const auto optimized = SB::resolve_shade_function(frame);
-    if (optimized == nullptr)
+    const auto frame = effect.prepare_frame(selected.config, effect.runtime);
+    const auto *program = SB::get_inverse_program(selected.pipeline);
+    if (program == nullptr || !program->resources_ready(frame))
       return false;
+    const auto optimized = program->shade;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         if (!selected_pixel<W, H>(operation, x, y))
@@ -194,8 +193,8 @@ private:
       const HueRotateBase base = make_hue_rotate_base(color);
       color = hue_rotate_lut_gamut(base, amount);
     } else if (frame.prepared_hue_rotation.active) {
-      const float amount = wrap_t(frame.params.color.hue_shift_amount *
-                                  sample.warp_displacement);
+      const float amount =
+          wrap_t(frame.params.color.hue_shift_amount * sample.path_length);
       if (amount != 0.0f)
         color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
     }
