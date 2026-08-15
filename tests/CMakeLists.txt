@@ -312,6 +312,7 @@ add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
 # that a loop-amplified module's assertion floor is too coarse to see.
 add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+    -DTOOLS_DIR=${HS_ROOT}/tools
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_case_calls.cmake)
 
 # Pin the device inline-storage audit's hand-written type pack against the
