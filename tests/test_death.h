@@ -1860,6 +1860,21 @@ inline void case_scan_canvas_dim_mismatch() {
 }
 
 /**
+ * @brief Death case: a scan rejects a direct-raster sink prepared for no
+ *        canvas.
+ * @details The sink writes through its cached framebuffer base, which the
+ *          double-buffered canvas leaves pointing at the buffer being scanned
+ *          out until prepare() runs.
+ */
+inline void case_scan_pipeline_not_prepared() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas c(fx);
+  static Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  Scan::check_pipeline_prepared(sink, c);
+}
+
+/**
  * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
  *        exceeds the TriangularBitset<128> capacity. Shared by both the
  *        face-walk draw() and the extract_edges over-capacity death cases so the
@@ -3014,6 +3029,9 @@ inline const Case *all_cases(int &n) {
 #endif
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "scan.h",
        "(canvas.width() == W && canvas.height() == H) "},
+      {"scan_pipeline_not_prepared", case_scan_pipeline_not_prepared, "scan.h",
+       "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared "
+       "for this canvas"},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
        "plot.h", "(large < DEDUP_CAPACITY) "},
       {"plot_extract_edges_vertex_over_capacity",
@@ -3510,7 +3528,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  * @details Raise it after adding cases; lower it only alongside a deliberate
  *          removal of the engine guards those cases target.
  */
-constexpr int MIN_COVERED_GUARD_SITES = 123;
+constexpr int MIN_COVERED_GUARD_SITES = 124;
 
 /** @brief One file's approved count of guard sites no case pins. */
 struct GuardGapAllowance {
@@ -3741,9 +3759,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 148;
+  constexpr int DEATH_CASE_COUNT = 149;
 #else
-  constexpr int DEATH_CASE_COUNT = 147;
+  constexpr int DEATH_CASE_COUNT = 148;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
