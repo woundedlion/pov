@@ -3504,8 +3504,14 @@ inline void test_shaderball_inverse_pipeline_manifest() {
       pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
   const auto &hue_framebuffer = pullback_oracle_metric(
       "HUE_ROTATION_AND_NOISE_LUTS", "FRAMEBUFFER", "MAXIMUM");
-  HS_EXPECT_FALSE(peirce_framebuffer.measured);
-  HS_EXPECT_FALSE(hue_framebuffer.measured);
+  HS_EXPECT_TRUE(peirce_framebuffer.measured);
+  HS_EXPECT_TRUE(hue_framebuffer.measured);
+  HS_EXPECT_EQ(peirce_framebuffer.measured_baseline, 100.0f);
+  HS_EXPECT_EQ(hue_framebuffer.measured_baseline, 2189.0f);
+  HS_EXPECT_LE(peirce_framebuffer.measured_baseline,
+               peirce_framebuffer.accepted_limit);
+  HS_EXPECT_LE(hue_framebuffer.measured_baseline,
+               hue_framebuffer.accepted_limit);
   HS_EXPECT_EQ(WB::peirce_metric_limit(2), peirce_framebuffer.accepted_limit);
   HS_EXPECT_EQ(WB::color_metric_limit(2), hue_framebuffer.accepted_limit);
 

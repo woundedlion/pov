@@ -6,40 +6,15 @@
 #include "effects/ShaderBall.h"
 #include "tests/test_effects.h"
 
+#include <algorithm>
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
-
-namespace hs_test::shaderball_tests {
-
-struct ShaderBallWhiteBox {
-  template <int W, int H>
-  static bool force_transition(ShaderBall<W, H> &effect, size_t source,
-                               size_t destination, uint16_t elapsed,
-                               uint16_t duration) {
-    using SB = ShaderBall<W, H>;
-    if (!effect.selectPreset(source))
-      return false;
-    effect.setAnimationsPaused(true);
-    const auto &from = SB::PRESETS[source];
-    const auto &to = SB::PRESETS[destination];
-    if (!effect.prepare_resource_union(from, to))
-      return false;
-    effect.state->param_morph.active = false;
-    effect.state->transition = {from,           to,      effect.runtime,
-                                effect.runtime, elapsed, duration,
-                                false,          true};
-    effect.state->transition.from_pipeline = SB::resolve_pipeline_id(from);
-    effect.state->transition.to_pipeline = SB::resolve_pipeline_id(to);
-    return true;
-  }
-};
-
-} // namespace hs_test::shaderball_tests
 
 namespace {
 
@@ -62,97 +37,14 @@ enum class Operation : uint16_t {
   FRONT_AXIS_POINT,
   THROUGH_CLEAR_FROM,
   THROUGH_CLEAR_TO,
+  FULL_FRAME,
   COUNT,
 };
 
-struct Instruction {
-  uint16_t preset;
-  Operation operation;
-  std::string name;
-};
-
-struct RecordMetadata {
-  uint16_t source = UINT16_MAX;
-  uint16_t destination = UINT16_MAX;
-  uint16_t elapsed = 0;
-  uint16_t duration = 0;
-};
-
-uint16_t read_u16(FILE *input) {
-  uint8_t bytes[2];
-  if (std::fread(bytes, sizeof(bytes), 1, input) != 1)
-    std::abort();
-  return static_cast<uint16_t>(bytes[0] | bytes[1] << 8);
-}
-
-void write_u16(FILE *output, uint16_t value) {
-  const uint8_t bytes[] = {static_cast<uint8_t>(value),
-                           static_cast<uint8_t>(value >> 8)};
-  if (std::fwrite(bytes, sizeof(bytes), 1, output) != 1)
-    std::abort();
-}
-
-void write_u32(FILE *output, uint32_t value) {
-  write_u16(output, static_cast<uint16_t>(value));
-  write_u16(output, static_cast<uint16_t>(value >> 16));
-}
-
-FILE *open_file(const char *path, const char *mode) {
-  FILE *file = nullptr;
-#ifdef _WIN32
-  if (fopen_s(&file, path, mode) != 0)
-    return nullptr;
-#else
-  file = std::fopen(path, mode);
-#endif
-  return file;
-}
-
-std::vector<Instruction> read_instructions(const char *path) {
-  FILE *input = open_file(path, "rb");
-  if (input == nullptr)
-    return {};
-  char magic[4];
-  if (std::fread(magic, sizeof(magic), 1, input) != 1 ||
-      std::memcmp(magic, "HSPO", sizeof(magic)) != 0 || read_u16(input) != 1) {
-    std::fclose(input);
-    return {};
-  }
-  const uint16_t count = read_u16(input);
-  std::vector<Instruction> instructions;
-  instructions.reserve(count);
-  for (uint16_t index = 0; index < count; ++index) {
-    const uint16_t preset = read_u16(input);
-    const auto operation = static_cast<Operation>(read_u16(input));
-    const uint16_t length = read_u16(input);
-    std::string name(length, '\0');
-    if (length == 0 || std::fread(name.data(), length, 1, input) != 1 ||
-        preset >= 12 || operation >= Operation::COUNT) {
-      std::fclose(input);
-      return {};
-    }
-    instructions.push_back({preset, operation, std::move(name)});
-  }
-  const bool complete = std::fgetc(input) == EOF;
-  std::fclose(input);
-  return complete ? instructions : std::vector<Instruction>{};
-}
-
-float case_value(const ParamDef &parameter, size_t parameter_index,
-                 Operation operation) {
-  if (operation == Operation::CASE_ENDPOINT_MIN)
-    return parameter.is_bool() ? 0.0f : parameter.min;
-  if (operation == Operation::CASE_ENDPOINT_MAX)
-    return parameter.is_bool() ? 1.0f : parameter.max;
-  constexpr std::array<float, 3> FRACTIONS{{0.25f, 0.5f, 0.75f}};
-  const float fraction = FRACTIONS[parameter_index % FRACTIONS.size()];
-  if (parameter.is_bool())
-    return fraction > 0.5f ? 1.0f : 0.0f;
-  return parameter.min + fraction * (parameter.max - parameter.min);
-}
-
 template <int W, int H> bool selected_pixel(Operation operation, int x, int y) {
   switch (operation) {
+  case Operation::FULL_FRAME:
+    return true;
   case Operation::COLUMN_ZERO:
     return x == 0;
   case Operation::WRAP_COLUMNS:
@@ -180,6 +72,274 @@ template <int W, int H> bool selected_pixel(Operation operation, int x, int y) {
   default:
     return true;
   }
+}
+
+} // namespace
+
+namespace hs_test::shaderball_tests {
+
+struct ShaderBallWhiteBox {
+  template <int W, int H>
+  static bool force_transition(ShaderBall<W, H> &effect, size_t source,
+                               size_t destination, uint16_t elapsed,
+                               uint16_t duration) {
+    using SB = ShaderBall<W, H>;
+    if (!effect.selectPreset(source))
+      return false;
+    effect.setAnimationsPaused(true);
+    const auto &from = SB::PRESETS[source];
+    const auto &to = SB::PRESETS[destination];
+    if (!effect.prepare_resource_union(from, to))
+      return false;
+    effect.state->param_morph.active = false;
+    effect.state->transition = {from,           to,      effect.runtime,
+                                effect.runtime, elapsed, duration,
+                                false,          true};
+    effect.state->transition.from_pipeline = SB::resolve_pipeline_id(from);
+    effect.state->transition.to_pipeline = SB::resolve_pipeline_id(to);
+    return true;
+  }
+
+  template <int W, int H>
+  static bool measure_oracle(ShaderBall<W, H> &effect,
+                             const std::string &oracle, size_t preset,
+                             float hue_noise_phase, Operation operation,
+                             uint16_t &maximum, uint32_t &samples) {
+    using SB = ShaderBall<W, H>;
+    if (preset >= SB::PRESETS.size())
+      return false;
+    effect.runtime.clocks.hue_noise_phase = hue_noise_phase;
+    const auto &config = SB::PRESETS[preset];
+    if (!effect.prepare_resource_union(config, config))
+      return false;
+    const auto frame = effect.prepare_frame(config, effect.runtime);
+    const auto optimized = SB::resolve_shade_function(frame);
+    if (optimized == nullptr)
+      return false;
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        if (!selected_pixel<W, H>(operation, x, y))
+          continue;
+        const Vector view = pixel_to_vector<W, H>(x, y);
+        const Color4 optimized_color = optimized(view, frame);
+        Color4 exact_color;
+        if (oracle == "PEIRCE_FAST_SQUARE")
+          exact_color = exact_peirce_shade<SB>(view, frame);
+        else if (oracle == "HUE_ROTATION_AND_NOISE_LUTS")
+          exact_color = exact_hue_shade<SB>(view, frame);
+        else
+          return false;
+        const Pixel actual = optimized_color.color * optimized_color.alpha;
+        const Pixel expected = exact_color.color * exact_color.alpha;
+        maximum =
+            std::max(maximum, std::max({channel_error(actual.r, expected.r),
+                                        channel_error(actual.g, expected.g),
+                                        channel_error(actual.b, expected.b)}));
+        samples += 3;
+      }
+    }
+    return true;
+  }
+
+private:
+  static uint16_t channel_error(uint16_t a, uint16_t b) {
+    return a > b ? a - b : b - a;
+  }
+
+  template <typename SB>
+  static Color4 exact_peirce_shade(const Vector &view,
+                                   const typename SB::FrameState &frame) {
+    const Vector outer_local = SB::outer_camera_lookup(view, frame);
+    const Vector lensed = lenses::dodecahedral_kaleidoscope_lens(outer_local);
+    const Vector local = rotate(lensed, frame.transforms.projection_conj);
+    auto projected = SB::scaled_kernel_lookup(
+        projections::peirce_projection(local, 0.0f, 1, 0.0f, true),
+        frame.params.projection.coordinate_scale);
+    projected.sphere = local;
+    return SB::shade_projected(projected, frame);
+  }
+
+  template <typename SB>
+  static Color4 exact_hue_shade(const Vector &view,
+                                const typename SB::FrameState &frame) {
+    const Vector outer_local = SB::outer_camera_lookup(view, frame);
+    const auto projected = SB::surface_lens_project_lookup(outer_local, frame);
+    const auto warped = SB::planar_warp_lookup(projected, frame);
+    const Complex source_coords =
+        SB::condition_source_coords(warped.coords, frame);
+    const float field = SB::sample_source(source_coords, projected, frame);
+    const auto material = SB::shape_material(field, projected, warped, frame);
+    return exact_colorize<SB>(material, frame);
+  }
+
+  template <typename SB>
+  static Color4 exact_colorize(const typename SB::MaterialSample &sample,
+                               const typename SB::FrameState &frame) {
+    const float oscillation =
+        frame.params.color.phase_oscillation_depth *
+        fast_sinf(TWO_PI_F * frame.clocks.palette_oscillation_phase);
+    const float palette_value = SB::palette_mapping_coordinate(
+        sample.value, frame.slots.palette_mapping,
+        frame.params.color.mapping_frequency,
+        frame.params.color.mapping_phase + oscillation);
+    Color4 color = frame.resources.generated_palette->get(palette_value);
+    if (frame.prepared_hue_rotation.active &&
+        frame.slots.hue_shift == SB::HueShiftMode::NOISE) {
+      const Vector q = noise_sphere_coordinate(
+          sample.sphere, frame.params.color.hue_noise_scale,
+          frame.clocks.hue_noise_phase);
+      const float noise =
+          frame.resources.color_noise->GetNoiseSingle(q.x, q.y, q.z);
+      const float amount = frame.params.color.hue_shift_amount * noise;
+      const HueRotateBase base = make_hue_rotate_base(color);
+      color = hue_rotate_lut_gamut(base, amount);
+    } else if (frame.prepared_hue_rotation.active) {
+      const float amount = wrap_t(frame.params.color.hue_shift_amount *
+                                  sample.warp_displacement);
+      if (amount != 0.0f)
+        color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
+    }
+    color.color =
+        color.color * SB::brightness_envelope_gain(
+                          sample.value, frame.slots.brightness_envelope,
+                          frame.params.color.brightness_depth);
+    color.alpha *=
+        sample.coverage * hs::lerp(frame.params.color.value_opacity_low,
+                                   frame.params.color.value_opacity_high,
+                                   sample.value);
+    return color;
+  }
+};
+
+} // namespace hs_test::shaderball_tests
+
+namespace {
+
+struct Instruction {
+  uint16_t preset;
+  Operation operation;
+  std::string name;
+};
+
+struct OracleInstruction {
+  std::string oracle;
+  uint16_t preset;
+  Operation operation;
+  float hue_noise_phase;
+};
+
+struct OperationSet {
+  std::vector<Instruction> frames;
+  std::vector<OracleInstruction> oracles;
+};
+
+struct OracleMetric {
+  std::string oracle;
+  uint16_t maximum = 0;
+  uint32_t samples = 0;
+};
+
+struct RecordMetadata {
+  uint16_t source = UINT16_MAX;
+  uint16_t destination = UINT16_MAX;
+  uint16_t elapsed = 0;
+  uint16_t duration = 0;
+};
+
+uint16_t read_u16(FILE *input) {
+  uint8_t bytes[2];
+  if (std::fread(bytes, sizeof(bytes), 1, input) != 1)
+    std::abort();
+  return static_cast<uint16_t>(bytes[0] | bytes[1] << 8);
+}
+
+uint32_t read_u32(FILE *input) {
+  const uint32_t low = read_u16(input);
+  return low | static_cast<uint32_t>(read_u16(input)) << 16;
+}
+
+void write_u16(FILE *output, uint16_t value) {
+  const uint8_t bytes[] = {static_cast<uint8_t>(value),
+                           static_cast<uint8_t>(value >> 8)};
+  if (std::fwrite(bytes, sizeof(bytes), 1, output) != 1)
+    std::abort();
+}
+
+void write_u32(FILE *output, uint32_t value) {
+  write_u16(output, static_cast<uint16_t>(value));
+  write_u16(output, static_cast<uint16_t>(value >> 16));
+}
+
+FILE *open_file(const char *path, const char *mode) {
+  FILE *file = nullptr;
+#ifdef _WIN32
+  if (fopen_s(&file, path, mode) != 0)
+    return nullptr;
+#else
+  file = std::fopen(path, mode);
+#endif
+  return file;
+}
+
+OperationSet read_instructions(const char *path) {
+  FILE *input = open_file(path, "rb");
+  if (input == nullptr)
+    return {};
+  char magic[4];
+  if (std::fread(magic, sizeof(magic), 1, input) != 1 ||
+      std::memcmp(magic, "HSPO", sizeof(magic)) != 0 || read_u16(input) != 2) {
+    std::fclose(input);
+    return {};
+  }
+  const uint16_t count = read_u16(input);
+  const uint16_t oracle_count = read_u16(input);
+  OperationSet operations;
+  operations.frames.reserve(count);
+  operations.oracles.reserve(oracle_count);
+  for (uint16_t index = 0; index < count; ++index) {
+    const uint16_t preset = read_u16(input);
+    const auto operation = static_cast<Operation>(read_u16(input));
+    const uint16_t length = read_u16(input);
+    std::string name(length, '\0');
+    if (length == 0 || std::fread(name.data(), length, 1, input) != 1 ||
+        preset >= 12 || operation >= Operation::COUNT) {
+      std::fclose(input);
+      return {};
+    }
+    operations.frames.push_back({preset, operation, std::move(name)});
+  }
+  for (uint16_t index = 0; index < oracle_count; ++index) {
+    const uint16_t length = read_u16(input);
+    std::string oracle(length, '\0');
+    if (length == 0 || std::fread(oracle.data(), length, 1, input) != 1) {
+      std::fclose(input);
+      return {};
+    }
+    const uint16_t preset = read_u16(input);
+    const auto operation = static_cast<Operation>(read_u16(input));
+    const float phase = std::bit_cast<float>(read_u32(input));
+    if (preset >= 12 || operation >= Operation::COUNT) {
+      std::fclose(input);
+      return {};
+    }
+    operations.oracles.push_back({std::move(oracle), preset, operation, phase});
+  }
+  const bool complete = std::fgetc(input) == EOF;
+  std::fclose(input);
+  return complete ? operations : OperationSet{};
+}
+
+float case_value(const ParamDef &parameter, size_t parameter_index,
+                 Operation operation) {
+  if (operation == Operation::CASE_ENDPOINT_MIN)
+    return parameter.is_bool() ? 0.0f : parameter.min;
+  if (operation == Operation::CASE_ENDPOINT_MAX)
+    return parameter.is_bool() ? 1.0f : parameter.max;
+  constexpr std::array<float, 3> FRACTIONS{{0.25f, 0.5f, 0.75f}};
+  const float fraction = FRACTIONS[parameter_index % FRACTIONS.size()];
+  if (parameter.is_bool())
+    return fraction > 0.5f ? 1.0f : 0.0f;
+  return parameter.min + fraction * (parameter.max - parameter.min);
 }
 
 template <int W, int H>
@@ -266,20 +426,39 @@ bool write_record(FILE *output, const Instruction &instruction,
 
 template <int W, int H>
 int capture(const char *operations_path, const char *output_path) {
-  const std::vector<Instruction> instructions =
-      read_instructions(operations_path);
-  if (instructions.empty())
+  const OperationSet operations = read_instructions(operations_path);
+  if (operations.frames.empty() || operations.oracles.empty())
     return 2;
+  std::vector<OracleMetric> metrics;
+  for (const OracleInstruction &instruction : operations.oracles) {
+    auto metric = std::find_if(metrics.begin(), metrics.end(),
+                               [&](const OracleMetric &candidate) {
+                                 return candidate.oracle == instruction.oracle;
+                               });
+    if (metric == metrics.end()) {
+      metrics.push_back({instruction.oracle});
+      metric = metrics.end() - 1;
+    }
+    hs_test::effects_tests::reset_effect_globals();
+    ShaderBall<W, H> effect;
+    effect.init();
+    if (!hs_test::shaderball_tests::ShaderBallWhiteBox::measure_oracle(
+            effect, instruction.oracle, instruction.preset,
+            instruction.hue_noise_phase, instruction.operation, metric->maximum,
+            metric->samples))
+      return 3;
+  }
   FILE *output = open_file(output_path, "wb");
   if (output == nullptr)
     return 2;
   if (std::fwrite("HSPB", 4, 1, output) != 1)
     return 2;
-  write_u16(output, 2);
+  write_u16(output, 3);
   write_u16(output, W);
   write_u16(output, H);
-  write_u32(output, static_cast<uint32_t>(instructions.size()));
-  for (const Instruction &instruction : instructions) {
+  write_u32(output, static_cast<uint32_t>(operations.frames.size()));
+  write_u16(output, static_cast<uint16_t>(metrics.size()));
+  for (const Instruction &instruction : operations.frames) {
     std::vector<Pixel> pixels;
     RecordMetadata metadata;
     if (!render_instruction<W, H>(instruction, pixels, metadata) ||
@@ -287,6 +466,13 @@ int capture(const char *operations_path, const char *output_path) {
       std::fclose(output);
       return 3;
     }
+  }
+  for (const OracleMetric &metric : metrics) {
+    write_u16(output, static_cast<uint16_t>(metric.oracle.size()));
+    if (std::fwrite(metric.oracle.data(), metric.oracle.size(), 1, output) != 1)
+      return 2;
+    write_u16(output, metric.maximum);
+    write_u32(output, metric.samples);
   }
   return std::fclose(output) == 0 ? 0 : 2;
 }

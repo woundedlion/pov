@@ -170,14 +170,40 @@
     },
     "metric": {
       "type": "object", "additionalProperties": false,
-      "required": ["domain", "aggregation", "measured_baseline", "accepted_limit", "unit", "limit_provenance"],
+      "required": ["domain", "aggregation", "measured_baseline", "accepted_limit", "unit", "limit_provenance", "measurement_provenance"],
       "properties": {
         "domain": { "enum": ["PROJECTED_COORDINATE", "PROJECTED_EDGE_DISTANCE", "COLOR_CHANNEL", "FRAMEBUFFER"] },
         "aggregation": { "enum": ["MAXIMUM", "MEAN"] },
-        "measured_baseline": { "type": ["number", "null"], "minimum": 0 },
-        "measurement_status": { "const": "requires capture" },
+        "measured_baseline": { "type": "number", "minimum": 0 },
         "accepted_limit": { "type": "number", "minimum": 0 },
-        "unit": { "type": "string", "minLength": 1 }, "limit_provenance": { "type": "string", "minLength": 1 }
+        "unit": { "type": "string", "minLength": 1 }, "limit_provenance": { "type": "string", "minLength": 1 },
+        "measurement_provenance": { "type": "string", "minLength": 1 },
+        "configuration_baselines": {
+          "type": "object", "additionalProperties": false,
+          "required": ["native-debug", "wasm-release", "wasm-strict-fp"],
+          "properties": {
+            "native-debug": { "type": "number", "minimum": 0 },
+            "wasm-release": { "type": "number", "minimum": 0 },
+            "wasm-strict-fp": { "type": "number", "minimum": 0 }
+          }
+        },
+        "resolution_baselines": {
+          "type": "object", "additionalProperties": false,
+          "required": ["native-debug", "wasm-release", "wasm-strict-fp"],
+          "properties": {
+            "native-debug": { "$ref": "#/$defs/resolutionBaselines" },
+            "wasm-release": { "$ref": "#/$defs/resolutionBaselines" },
+            "wasm-strict-fp": { "$ref": "#/$defs/resolutionBaselines" }
+          }
+        }
+      }
+    },
+    "resolutionBaselines": {
+      "type": "object", "additionalProperties": false,
+      "required": ["96x20", "288x144"],
+      "properties": {
+        "96x20": { "type": "number", "minimum": 0 },
+        "288x144": { "type": "number", "minimum": 0 }
       }
     },
     "oracleManifest": {
@@ -190,13 +216,42 @@
         "non_floating_fields_exact": { "const": true },
         "corpus": {
           "type": "object", "additionalProperties": false,
-          "required": ["generator", "version", "deterministic"],
+          "required": ["generator", "version", "deterministic", "framebuffer"],
           "properties": {
             "generator": { "type": "string", "minLength": 1 }, "version": { "const": 1 }, "deterministic": { "const": true },
             "latitude_steps": { "type": "integer", "minimum": 1 }, "longitude_steps": { "type": "integer", "minimum": 1 },
             "tie_probe_epsilon": { "type": "number", "minimum": 0 }, "tie_probe_count": { "type": "integer", "minimum": 1 },
             "presets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "integer", "minimum": 0 } },
-            "phases": { "type": "array", "minItems": 1, "items": { "type": "number" } }, "value_steps": { "type": "integer", "minimum": 1 }
+            "phases": { "type": "array", "minItems": 1, "items": { "type": "number" } }, "value_steps": { "type": "integer", "minimum": 1 },
+            "framebuffer": {
+              "type": "object", "additionalProperties": false,
+              "required": ["resolutions", "sampling", "aggregation", "exact_callable", "optimized_callable", "probes"],
+              "properties": {
+                "resolutions": {
+                  "type": "array", "minItems": 1, "uniqueItems": true,
+                  "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } }
+                },
+                "sampling": { "const": "pixel centers" },
+                "aggregation": { "const": "maximum absolute premultiplied linear-u16 channel delta" },
+                "exact_callable": { "type": "string", "minLength": 1 },
+                "optimized_callable": { "type": "string", "minLength": 1 },
+                "probes": {
+                  "type": "array", "minItems": 1, "uniqueItems": true,
+                  "items": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["preset", "hue_noise_phase", "operations"],
+                    "properties": {
+                      "preset": { "type": "integer", "minimum": 0 },
+                      "hue_noise_phase": { "type": "number" },
+                      "operations": {
+                        "type": "array", "minItems": 1, "uniqueItems": true,
+                        "items": { "enum": ["FULL_FRAME", "COLUMN_ZERO", "WRAP_COLUMNS", "NORTH_ROW", "SOUTH_ROW", "POLE_BANDS", "HORIZON_COLUMNS", "OCTANT_COLUMNS", "MIRROR_GRID", "CARDINAL_POINTS", "FRAME_PERIMETER", "EQUATOR_ROW", "FRONT_AXIS_POINT"] }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "metrics": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/metric" } }

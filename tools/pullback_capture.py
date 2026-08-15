@@ -35,6 +35,7 @@ OPERATION_CODES = {
     "FRONT_AXIS_POINT": 15,
     "THROUGH_CLEAR_FROM": 16,
     "THROUGH_CLEAR_TO": 17,
+    "FULL_FRAME": 18,
 }
 CASE_OPERATIONS = {
     "default": "CASE_DEFAULT",
@@ -86,10 +87,32 @@ def operation_specs(programs: dict) -> list[dict]:
     return specs
 
 
-def write_operations(programs: dict, path: Path) -> None:
+def oracle_operation_specs(oracles: list[dict]) -> list[dict]:
+    specs = []
+    for oracle in oracles:
+        for probe in oracle["corpus"]["framebuffer"]["probes"]:
+            for operation in probe["operations"]:
+                specs.append(
+                    {
+                        "oracle": oracle["oracle_id"],
+                        "preset": probe["preset"],
+                        "hue_noise_phase": probe["hue_noise_phase"],
+                        "mapping": operation,
+                    }
+                )
+    keys = [
+        (spec["oracle"], spec["preset"], spec["mapping"]) for spec in specs
+    ]
+    if len(keys) != len(set(keys)):
+        raise CaptureError("oracle capture operations are not unique")
+    return specs
+
+
+def write_operations(programs: dict, oracles: list[dict], path: Path) -> None:
     specs = operation_specs(programs)
+    oracle_specs = oracle_operation_specs(oracles)
     data = bytearray(b"HSPO")
-    data.extend(struct.pack("<HH", 1, len(specs)))
+    data.extend(struct.pack("<HHH", 2, len(specs), len(oracle_specs)))
     for spec in specs:
         name = spec["name"].encode("utf-8")
         mapping = spec["mapping"]
@@ -99,10 +122,27 @@ def write_operations(programs: dict, path: Path) -> None:
             struct.pack("<HHH", spec["preset"], OPERATION_CODES[mapping], len(name))
         )
         data.extend(name)
+    for spec in oracle_specs:
+        name = spec["oracle"].encode("utf-8")
+        mapping = spec["mapping"]
+        if mapping not in OPERATION_CODES:
+            raise CaptureError(f"unknown oracle operation mapping {mapping}")
+        data.extend(struct.pack("<H", len(name)))
+        data.extend(name)
+        data.extend(
+            struct.pack(
+                "<HHf",
+                spec["preset"],
+                OPERATION_CODES[mapping],
+                spec["hue_noise_phase"],
+            )
+        )
     path.write_bytes(data)
 
 
-def load_backend(path: Path, programs: dict) -> tuple[tuple[int, int], dict]:
+def load_backend(
+    path: Path, programs: dict, oracles: list[dict]
+) -> tuple[tuple[int, int], dict, dict]:
     data = path.read_bytes()
     if data[:4] != b"HSPB":
         raise CaptureError("capture backend magic mismatch")
@@ -111,8 +151,9 @@ def load_backend(path: Path, programs: dict) -> tuple[tuple[int, int], dict]:
     width, offset = _read_u16(data, offset)
     height, offset = _read_u16(data, offset)
     record_count, offset = _read_u32(data, offset)
+    oracle_count, offset = _read_u16(data, offset)
     specs = {(spec["preset"], spec["name"]): spec for spec in operation_specs(programs)}
-    if version != 2 or record_count != len(specs):
+    if version != 3 or record_count != len(specs):
         raise CaptureError("capture backend header mismatch")
     records = {}
     for _ in range(record_count):
@@ -153,9 +194,57 @@ def load_backend(path: Path, programs: dict) -> tuple[tuple[int, int], dict]:
             "elapsed": elapsed,
             "duration": duration,
         }
-    if offset != len(data) or records.keys() != specs.keys():
+    metrics = {}
+    expected_oracles = {oracle["oracle_id"] for oracle in oracles}
+    for _ in range(oracle_count):
+        name_length, offset = _read_u16(data, offset)
+        if offset + name_length > len(data):
+            raise CaptureError("capture backend oracle name is truncated")
+        try:
+            oracle = data[offset : offset + name_length].decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise CaptureError("capture backend oracle name is invalid") from error
+        offset += name_length
+        maximum, offset = _read_u16(data, offset)
+        samples, offset = _read_u32(data, offset)
+        if oracle in metrics or oracle not in expected_oracles or samples == 0:
+            raise CaptureError(f"invalid capture backend oracle metric {oracle}")
+        metrics[oracle] = {"value": maximum, "sample_count": samples}
+    if (
+        offset != len(data)
+        or records.keys() != specs.keys()
+        or metrics.keys() != expected_oracles
+    ):
         raise CaptureError("capture backend stream is incomplete or has trailing bytes")
-    return (width, height), records
+    return (width, height), records, metrics
+
+
+def validate_backend_oracles(
+    metrics: dict,
+    oracles: list[dict],
+    configuration: str,
+    resolution: tuple[int, int] | None = None,
+) -> None:
+    for oracle in oracles:
+        oracle_id = oracle["oracle_id"]
+        manifest_metric = next(
+            metric
+            for metric in oracle["metrics"]
+            if metric["domain"] == "FRAMEBUFFER"
+            and metric["aggregation"] == "MAXIMUM"
+        )
+        observed = metrics[oracle_id]["value"]
+        expected = (
+            manifest_metric["configuration_baselines"][configuration]
+            if resolution is None
+            else manifest_metric["resolution_baselines"][configuration][
+                f"{resolution[0]}x{resolution[1]}"
+            ]
+        )
+        if observed != expected:
+            raise CaptureError(
+                f"{oracle_id} framebuffer baseline is stale: {observed} != {expected}"
+            )
 
 
 def _cache_values(build_dir: Path) -> dict[str, str]:
@@ -319,9 +408,17 @@ def produce(
         text=True,
     ).stdout.strip()
     backend_records = {}
+    oracle_totals = {
+        oracle["oracle_id"]: {
+            "value": 0,
+            "sample_count": 0,
+            "resolution_values": {},
+        }
+        for oracle in oracles
+    }
     with tempfile.TemporaryDirectory(prefix="pullback-capture-") as directory:
         operations = Path(directory) / "operations.bin"
-        write_operations(programs, operations)
+        write_operations(programs, oracles, operations)
         for resolution in programs["corpus"]["resolutions"]:
             dimensions = tuple(resolution)
             backend_output = Path(directory) / f"{dimensions[0]}x{dimensions[1]}.bin"
@@ -332,11 +429,24 @@ def produce(
                 cwd=checkout,
                 check=True,
             )
-            actual_resolution, records = load_backend(backend_output, programs)
+            actual_resolution, records, oracle_metrics = load_backend(
+                backend_output, programs, oracles
+            )
             if actual_resolution != dimensions:
                 raise CaptureError("capture backend resolution mismatch")
+            validate_backend_oracles(
+                oracle_metrics, oracles, configuration, dimensions
+            )
             for key, record in records.items():
                 backend_records[(dimensions, *key)] = record
+            for oracle, metric in oracle_metrics.items():
+                oracle_totals[oracle]["value"] = max(
+                    oracle_totals[oracle]["value"], metric["value"]
+                )
+                oracle_totals[oracle]["sample_count"] += metric["sample_count"]
+                oracle_totals[oracle]["resolution_values"][
+                    f"{dimensions[0]}x{dimensions[1]}"
+                ] = metric["value"]
     frames = []
     for program in programs["programs"]:
         for preset in program["presets"]:
@@ -375,6 +485,32 @@ def produce(
                             _canonical_frame_bytes(frame)
                         ).hexdigest()
                         frames.append(frame)
+    oracle_metrics = []
+    for oracle in oracles:
+        manifest_metric = next(
+            metric
+            for metric in oracle["metrics"]
+            if metric["domain"] == "FRAMEBUFFER"
+            and metric["aggregation"] == "MAXIMUM"
+        )
+        observed = oracle_totals[oracle["oracle_id"]]
+        expected_value = manifest_metric["configuration_baselines"][configuration]
+        if observed["value"] != expected_value:
+            raise CaptureError(
+                f'{oracle["oracle_id"]} framebuffer baseline is stale: '
+                f'{observed["value"]} != {expected_value}'
+            )
+        oracle_metrics.append(
+            {
+                "oracle_id": oracle["oracle_id"],
+                "domain": "FRAMEBUFFER",
+                "aggregation": "MAXIMUM",
+                "value": observed["value"],
+                "unit": manifest_metric["unit"],
+                "sample_count": observed["sample_count"],
+                "resolution_values": observed["resolution_values"],
+            }
+        )
     capture = {
         "schema_version": 1,
         "checkout_sha": checkout_sha,
@@ -382,6 +518,7 @@ def produce(
         "toolchain": toolchain,
         "configuration": configuration,
         "corpus": programs["corpus"],
+        "oracle_metrics": oracle_metrics,
         "frames": frames,
     }
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -403,11 +540,41 @@ def main() -> int:
     parser.add_argument("--manifest-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--operations-output", type=Path)
+    parser.add_argument("--backend-audit", type=Path, nargs="+")
     args = parser.parse_args()
     try:
         if args.operations_output is not None:
-            programs, _ = load_and_validate(args.manifest_dir.resolve())
-            write_operations(programs, args.operations_output.resolve())
+            programs, oracles = load_and_validate(args.manifest_dir.resolve())
+            write_operations(programs, oracles, args.operations_output.resolve())
+            return 0
+        if args.backend_audit is not None:
+            if args.configuration is None:
+                parser.error("backend audit requires --configuration")
+            programs, oracles = load_and_validate(args.manifest_dir.resolve())
+            metrics = {
+                oracle["oracle_id"]: {"value": 0, "sample_count": 0}
+                for oracle in oracles
+            }
+            resolutions = set()
+            for path in args.backend_audit:
+                resolution, _, observed = load_backend(
+                    path.resolve(), programs, oracles
+                )
+                resolutions.add(resolution)
+                validate_backend_oracles(
+                    observed, oracles, args.configuration, resolution
+                )
+                for oracle, metric in observed.items():
+                    metrics[oracle]["value"] = max(
+                        metrics[oracle]["value"], metric["value"]
+                    )
+                    metrics[oracle]["sample_count"] += metric["sample_count"]
+            expected_resolutions = {
+                tuple(resolution) for resolution in programs["corpus"]["resolutions"]
+            }
+            if resolutions != expected_resolutions:
+                raise CaptureError("backend audit does not cover the resolution roster")
+            validate_backend_oracles(metrics, oracles, args.configuration)
             return 0
         if None in (args.configuration, args.checkout, args.build_dir, args.output):
             parser.error(
