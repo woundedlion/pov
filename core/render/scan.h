@@ -694,6 +694,10 @@ HS_NOINLINE_NOCLONE inline void
 rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                 const Color4 &color, bool debug_bb = false) {
   static_assert(std::remove_cvref_t<decltype(shape)>::is_solid);
+  static_assert(SDF::ScanShape<std::remove_cvref_t<decltype(shape)>, W, H>,
+                "Scan::rasterize_solid shape must expose is_solid, "
+                "get_vertical_bounds<H>(), get_horizontal_intervals<W, H>() "
+                "and distance<ComputeUVs>()");
   static_assert(
       fits_top_span_cap<decltype(shape)>,
       "top-level shape can emit more spans per row than scan_region's "
