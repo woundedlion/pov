@@ -63,6 +63,19 @@ class MountingKeepoutTests(unittest.TestCase):
         self.assertGreaterEqual(length - extent,
                                 pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_RADIUS)
 
+    def test_pack_keeps_every_part_inside_the_outline(self):
+        place, length = pcb.pack(dict(self.BOXES), pcb.PCB_W)
+        self.assertEqual(
+            pcb.outline_overflows(place, self.BOXES, length, list(self.BOXES)), [])
+
+    def test_a_part_too_tall_to_pack_overflows_the_outline(self):
+        boxes = dict(self.BOXES, TALL=(-1.5, -pcb.PCB_W, 1.5, pcb.PCB_W))
+        place, length = pcb.pack(boxes, pcb.PCB_W)
+        self.assertEqual(
+            [entry.split()[0]
+             for entry in pcb.outline_overflows(place, boxes, length, list(boxes))],
+            ["TALL"])
+
     def test_clash_report_names_the_hole(self):
         place = {"J1": (pcb.MOUNTING_HOLE_INSET, pcb.MOUNTING_HOLE_INSET, 0)}
         self.assertEqual(pcb.keepout_clashes(place, self.BOXES, 40.0), ["J1/H1"])

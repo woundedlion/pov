@@ -112,6 +112,18 @@ def keepout_clashes(place, pad_bxs, L):
     return out
 
 
+def outline_overflows(place, pad_bxs, L, refs):
+    """Refs of `refs` whose copper reaches past the L x PCB_W outline."""
+    out = []
+    for ref in sorted(refs):
+        x, y, rot = place[ref]
+        mnx, mny, mxx, mxy = _rot_bb(pad_bxs[ref], rot)
+        if x + mnx < 0 or y + mny < 0 or x + mxx > L or y + mxy > PCB_W:
+            out.append(f"{ref} [{x+mnx:.2f},{y+mny:.2f}]-"
+                       f"[{x+mxx:.2f},{y+mxy:.2f}]")
+    return out
+
+
 def build_nets(nlroot):
     pad_net = {}            # (ref, pad) -> netname
     names = []
@@ -660,24 +672,22 @@ def main(unplaced=False, force=False):
         L = QUILTER_LENGTH
         staged = unplaced_layout(bxs, L, PCB_W)
         PLACE = {r: QUILTER_FIXED.get(r, staged[r]) for r in bxs}
-        outside = []
-        for ref in sorted(r for r in bxs if r in QUILTER_FIXED):
-            x, y, rot = QUILTER_FIXED[ref]
-            mnx, mny, mxx, mxy = _rot_bb(pad_bxs[ref], rot)
-            if x + mnx < 0 or y + mny < 0 or x + mxx > L or y + mxy > PCB_W:
-                outside.append(f"{ref} [{x+mnx:.2f},{y+mny:.2f}]-"
-                               f"[{x+mxx:.2f},{y+mxy:.2f}]")
-        if outside:
-            sys.exit(f"ERROR locked placements outside the {fmt(L)}x{fmt(PCB_W)}mm "
-                     "outline: " + ", ".join(outside))
+        # the staged grid sits below the outline by design; only locked parts are on it
+        bounded = [r for r in bxs if r in QUILTER_FIXED]
         OUTFILE = UNPLACED_FILE
         NOTE = (f'PHANTASM segment board UNPLACED  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
                 '(width <=35mm); mechanical and signal-integrity placements locked')
     else:
         PLACE, L = pack(bxs, PCB_W)
+        bounded = list(bxs)
         OUTFILE = PCB_FILE
         NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm (width <=35mm, R-MECH-6); '
                 'shelf-packed draft, route in Pcbnew')
+
+    outside = outline_overflows(PLACE, pad_bxs, L, bounded)
+    if outside:
+        sys.exit(f"ERROR placements outside the {fmt(L)}x{fmt(PCB_W)}mm outline: "
+                 + ", ".join(outside))
 
     clashes = keepout_clashes(PLACE, pad_bxs, L)
     if clashes:
