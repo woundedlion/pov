@@ -13,7 +13,7 @@
 #include "engine/platform.h"
 #include "render/sdf.h"
 #include "mesh/mesh_class_types.h"
-#include "mesh/spatial.h"
+#include "mesh/mesh_state.h"
 
 /**
  * @file mesh_classes.h

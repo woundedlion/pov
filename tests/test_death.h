@@ -2901,11 +2901,11 @@ inline const Case *all_cases(int &n) {
       {"hankin_clone_aliases_dst", case_hankin_clone_aliases_dst, "hankin.h",
        "(&src != &dst) CompiledHankin::clone src must not alias dst"},
       {"mesh_state_set_view_offsets_count_mismatch",
-       case_mesh_state_set_view_offsets_count_mismatch, "spatial.h",
+       case_mesh_state_set_view_offsets_count_mismatch, "mesh_state.h",
        "(face_offsets_span.size() == face_counts_span.size()) "
        "MeshState::set_view: one face offset per face count required"},
       {"mesh_state_set_view_offsets_short_span",
-       case_mesh_state_set_view_offsets_short_span, "spatial.h",
+       case_mesh_state_set_view_offsets_short_span, "mesh_state.h",
        "(static_cast<size_t>(face_offsets_span[last]) + "
        "face_counts_span[last] == faces_span.size()) MeshState::set_view: "
        "face offsets do not span faces"},
@@ -3539,10 +3539,11 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"hankin.h", 9},
     {"mesh.h", 10},
     {"mesh_classes.h", 8},
+    {"mesh_state.h", 3},
     {"recipe.h", 13},
     {"solid_generators.h", 5},
     {"solids.h", 2},
-    {"spatial.h", 8},
+    {"spatial.h", 5},
     {"canvas.h", 25},
     {"filter.h", 5},
     {"filter_feedback.h", 7},

@@ -12,7 +12,7 @@
 
 #include "engine/concepts.h"
 #include "math/3dmath.h"
-#include "mesh/spatial.h"
+#include "mesh/mesh_state.h"
 #include "engine/memory.h"
 
 #include <algorithm>
