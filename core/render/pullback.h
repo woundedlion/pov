@@ -18,6 +18,7 @@
 #include "engine/memory.h"
 #include "math/geometry.h"
 #include "math/lenses.h"
+#include "math/noise_field.h"
 #include "math/projections.h"
 #include "math/stereographic.h"
 
@@ -691,6 +692,113 @@ struct Midpoint2 {};
 struct Midpoint4 {};
 struct LinearPolar {};
 struct LogarithmicPolar {};
+
+__attribute__((always_inline)) inline WarpStepResult
+finish_closed_form(const Complex &input, const Complex &output) {
+  const Complex delta(output.re - input.re, output.im - input.im);
+  const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
+  return {output, delta, deformation, deformation};
+}
+
+template <typename Prepared>
+__attribute__((always_inline)) inline WarpStepResult
+affine_frame(const Complex &input, const Prepared &prepared) {
+  const float c = prepared.rotation_cos;
+  const float s = prepared.rotation_sin;
+  const auto &affine = prepared.transform.affine;
+  const float rx = c * input.re + s * input.im;
+  const float ry = -s * input.re + c * input.im;
+  return finish_closed_form(
+      input, {rx / affine.scale_x - affine.shear * ry / affine.scale_y -
+                  affine.translation_x,
+              ry / affine.scale_y - affine.translation_y});
+}
+
+template <typename Params, typename Prepared>
+__attribute__((always_inline)) inline WarpStepResult
+wave_shear(const Complex &input, const Params &params, float phase,
+           float amplitude, const Prepared &prepared) {
+  if (params.strength == 0.0f)
+    return {input, Complex(), 0.0f, 0.0f};
+  const float c = prepared.rotation_cos;
+  const float s = prepared.rotation_sin;
+  const float angle =
+      params.frequency * (c * input.re + s * input.im) + TWO_PI_F * phase;
+  const float offset = amplitude * sinf(angle);
+  const Complex delta(-s * offset, c * offset);
+  return {{input.re + delta.re, input.im + delta.im},
+          delta,
+          fabsf(offset),
+          fabsf(offset)};
+}
+
+template <typename Params, typename Prepared>
+__attribute__((always_inline)) inline Complex
+mirror_tile_coords(const Complex &input, const Params &params,
+                   const Prepared &prepared) {
+  const float c = prepared.rotation_cos;
+  const float s = prepared.rotation_sin;
+  const float offset_x = prepared.transform.mirror.offset_x;
+  const float offset_y = prepared.transform.mirror.offset_y;
+  const float x = c * input.re + s * input.im + offset_x;
+  const float y = -s * input.re + c * input.im + offset_y;
+  const float folded_x =
+      params.cell_x * (1.0f - 2.0f * fabsf(wrap_t(x / params.cell_x) - 0.5f));
+  const float folded_y =
+      params.cell_y * (1.0f - 2.0f * fabsf(wrap_t(y / params.cell_y) - 0.5f));
+  return {c * folded_x - s * folded_y, s * folded_x + c * folded_y};
+}
+
+template <typename Params, typename Prepared>
+__attribute__((always_inline)) inline WarpStepResult
+mirror_tile(const Complex &input, const Params &params,
+            const Prepared &prepared) {
+  return finish_closed_form(input, mirror_tile_coords(input, params, prepared));
+}
+
+template <typename Params>
+__attribute__((always_inline)) inline WarpStepResult
+polar_chart(const Complex &input, const Params &params, float phase,
+            bool logarithmic, uint8_t harmonic) {
+  const float radius = sqrtf(input.re * input.re + input.im * input.im);
+  const float radial =
+      logarithmic ? logf(std::max(radius, 1.0f / 4096.0f)) : radius;
+  return finish_closed_form(
+      input, {params.radial_scale * radial + params.radial_phase,
+              static_cast<float>(harmonic) * fast_atan2(input.im, input.re) +
+                  params.angular_phase + TWO_PI_F * phase});
+}
+
+template <typename Params, typename Prepared>
+HS_FLASH_MEMBER inline WarpStepResult
+vector_noise(const Complex &input, const Params &params, float amplitude,
+             const FastNoiseLite &noise, ::NoiseBasis basis,
+             const Prepared &prepared) {
+  if (params.strength == 0.0f)
+    return {input, Complex(), 0.0f, 0.0f};
+  const auto &loop = prepared.transform.noise_loop;
+  const Vector q(params.scale * input.re + loop.diagonal,
+                 params.scale * input.im + loop.diagonal, loop.z);
+  float nx;
+  float ny;
+  if (basis == ::NoiseBasis::SIMPLEX) {
+    const Vector field = sample_simplex_vector(noise, q);
+    nx = field.x;
+    ny = field.y;
+  } else {
+    nx = sample_noise_vector_channel(noise, basis, q, 0);
+    ny = sample_noise_vector_channel(noise, basis, q, 1);
+  }
+  const float c = prepared.rotation_cos;
+  const float s = prepared.rotation_sin;
+  const Complex delta(amplitude * (c * nx - s * ny),
+                      amplitude * (s * nx + c * ny));
+  const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
+  return {{input.re + delta.re, input.im + delta.im},
+          delta,
+          deformation,
+          deformation};
+}
 
 struct Identity : ExactPolicy {
   template <typename FrameState>

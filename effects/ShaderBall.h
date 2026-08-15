@@ -3968,44 +3968,21 @@ private:
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   finish_closed_form_warp(const Complex &input, const Complex &output) {
-    const Complex delta(output.re - input.re, output.im - input.im);
-    const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
-    return {output, delta, deformation, deformation};
+    return Pullback::Warp::finish_closed_form(input, output);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_affine_frame(const Complex &input, const WarpStageParams &,
                     const PreparedWarpStage &prepared) {
-    const float c = prepared.rotation_cos;
-    const float s = prepared.rotation_sin;
-    const PreparedAffineFrame &affine = prepared.transform.affine;
-    const float x = input.re;
-    const float y = input.im;
-    const float rx = c * x + s * y;
-    const float ry = -s * x + c * y;
-    const Complex output(rx / affine.scale_x -
-                             affine.shear * ry / affine.scale_y -
-                             affine.translation_x,
-                         ry / affine.scale_y - affine.translation_y);
-    return finish_closed_form_warp(input, output);
+    return Pullback::Warp::affine_frame(input, prepared);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_wave_shear(const Complex &input, const WarpStageParams &params,
                   float stage_phase, float amplitude,
                   const PreparedWarpStage &prepared) {
-    if (params.strength == 0.0f)
-      return {input, Complex(), 0.0f, 0.0f};
-    const float c = prepared.rotation_cos;
-    const float s = prepared.rotation_sin;
-    const float phase = params.frequency * (c * input.re + s * input.im) +
-                        TWO_PI_F * stage_phase;
-    const float offset = amplitude * sinf(phase);
-    const Complex delta(-s * offset, c * offset);
-    return {{input.re + delta.re, input.im + delta.im},
-            delta,
-            fabsf(offset),
-            fabsf(offset)};
+    return Pullback::Warp::wave_shear(input, params, stage_phase, amplitude,
+                                      prepared);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
@@ -4028,30 +4005,8 @@ private:
                     const WarpStageParams &params, float amplitude,
                     const FastNoiseLite &noise,
                     const PreparedWarpStage &prepared) {
-    if (params.strength == 0.0f)
-      return {input, Complex(), 0.0f, 0.0f};
-    const PreparedNoiseLoop &loop = prepared.transform.noise_loop;
-    const Vector q(params.scale * input.re + loop.diagonal,
-                   params.scale * input.im + loop.diagonal, loop.z);
-    float nx;
-    float ny;
-    if (spec.basis == NoiseBasis::SIMPLEX) {
-      const Vector field = sample_simplex_vector(noise, q);
-      nx = field.x;
-      ny = field.y;
-    } else {
-      nx = sample_noise_vector_channel(noise, spec.basis, q, 0);
-      ny = sample_noise_vector_channel(noise, spec.basis, q, 1);
-    }
-    const float c = prepared.rotation_cos;
-    const float s = prepared.rotation_sin;
-    const Complex delta(amplitude * (c * nx - s * ny),
-                        amplitude * (s * nx + c * ny));
-    const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
-    return {{input.re + delta.re, input.im + delta.im},
-            delta,
-            deformation,
-            deformation};
+    return Pullback::Warp::vector_noise(input, params, amplitude, noise,
+                                        spec.basis, prepared);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
@@ -4074,15 +4029,9 @@ private:
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
                    const WarpStageParams &params, float stage_phase) {
-    const float radius = sqrtf(input.re * input.re + input.im * input.im);
-    const float radial = spec.polar_mode == PolarMode::LOGARITHMIC
-                             ? logf(std::max(radius, 1.0f / 4096.0f))
-                             : radius;
-    const Complex output(params.radial_scale * radial + params.radial_phase,
-                         static_cast<float>(spec.polar_harmonic) *
-                                 fast_atan2(input.im, input.re) +
-                             params.angular_phase + TWO_PI_F * stage_phase);
-    return finish_closed_form_warp(input, output);
+    return Pullback::Warp::polar_chart(
+        input, params, stage_phase, spec.polar_mode == PolarMode::LOGARITHMIC,
+        spec.polar_harmonic);
   }
 
   /**
@@ -4216,17 +4165,7 @@ private:
   __attribute__((always_inline)) static Complex
   mirror_tile(const Complex &input, const WarpStageParams &params,
               const PreparedWarpStage &prepared) {
-    const float c = prepared.rotation_cos;
-    const float s = prepared.rotation_sin;
-    const float offset_x = prepared.transform.mirror.offset_x;
-    const float offset_y = prepared.transform.mirror.offset_y;
-    const float x = c * input.re + s * input.im + offset_x;
-    const float y = -s * input.re + c * input.im + offset_y;
-    const float folded_x =
-        params.cell_x * (1.0f - 2.0f * fabsf(wrap_t(x / params.cell_x) - 0.5f));
-    const float folded_y =
-        params.cell_y * (1.0f - 2.0f * fabsf(wrap_t(y / params.cell_y) - 0.5f));
-    return {c * folded_x - s * folded_y, s * folded_x + c * folded_y};
+    return Pullback::Warp::mirror_tile_coords(input, params, prepared);
   }
 
 #if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
