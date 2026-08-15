@@ -53,3 +53,4 @@
 #include "engine/presets.h"
 #include "math/waves.h"
 #include "engine/styles.h"
+#include "engine/effect_registry.h"
