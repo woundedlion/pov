@@ -579,6 +579,8 @@ struct ShaderBallWhiteBox {
         false, typename SB::OuterCameraStage>;
     using Surface =
         typename SB::PeirceDodecahedralGridPipeline::Validation::SurfaceStage;
+    using CoreSurface = typename SB::CorePeirceDodecahedralGridPipeline::
+        Validation::SurfaceStage;
     using Color =
         typename SB::PeirceDodecahedralGridPipeline::Validation::ColorStage;
     return !ArityGate::ORDER && !ArityGate::CARRIERS &&
@@ -591,6 +593,12 @@ struct ShaderBallWhiteBox {
            Surface::EMISSION == CodeEmission::INLINE_ONLY &&
            Surface::ORACLE == ApproximationOracleId::PEIRCE_FAST_SQUARE &&
            Surface::NON_FLOATING_FIELDS_EXACT &&
+           Surface::METRICS[0].limit == 1.2e-3f &&
+           Surface::METRICS[1].limit == 2e-4f &&
+           Surface::METRICS[2].limit == 128.0f &&
+           CoreSurface::METRICS[0].limit == 1.2e-3f &&
+           CoreSurface::METRICS[1].limit == 2e-4f &&
+           CoreSurface::METRICS[2].limit == 128.0f &&
            Color::ORACLE == ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   }
   static float peirce_metric_limit(size_t index) {
