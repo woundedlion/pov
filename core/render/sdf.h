@@ -60,6 +60,9 @@ struct PlanarPolygon {
         sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(circumradius > 0.0f); // t = polar / circumradius
+    // arc_stretch<PlanarPolygon> = 2 holds only within a hemisphere; a wider
+    // shape must be built inverted, about its antipode.
+    HS_CHECK(circumradius <= PI_F / 2.0f);
     sector = TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     apothem = circumradius * cosf(PI_F / sides);
@@ -352,6 +355,9 @@ struct Star {
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // zero radius -> zero-length edge normal (NaN)
+    // arc_stretch<Star> = 2 holds only within a hemisphere; a wider shape must
+    // be built inverted, about its antipode.
+    HS_CHECK(radius <= 1.0f);
     sector = TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     float outer_radius = radius * (PI_F / 2.0f);
