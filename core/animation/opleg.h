@@ -933,10 +933,14 @@ public:
    * bitwise the leg's own final swept frame rather than MeshOps::hankin
    * evaluated at the arrival angle. A chain reads its clean endpoint from the
    * finished leg instead of carrying a second copy of it through the sweep.
+   * @p out is unbound first (as MeshOps::compile does), so a reused mesh keeps
+   * neither a binding into reclaimed storage nor the class ids of whatever it
+   * held before.
    */
   HS_COLD_MEMBER static void arrival_mesh(const Landing &landing, PolyMesh &out,
                                           Arena &arena) {
     HS_CHECK(landing.hankin, "OpLeg: leg carries no baked arrival");
+    out = PolyMesh();
     const CompiledHankin &hk = *landing.hankin;
     const size_t statics = hk.static_vertices.size();
     out.vertices.bind(arena, statics + landing.star_points);
