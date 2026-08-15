@@ -14,6 +14,7 @@
  */
 #pragma once
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -839,6 +840,15 @@ inline void test_gamut_lut_release_and_passthrough() {
   float r, g, b;
   oklab_to_linear_rgb(mapped, r, g, b);
   HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
+}
+
+/** @brief Pins the single-step normalization used by the LUT gamut path. */
+inline void test_gamut_lut_boundary_scale_rounding() {
+  const OKLab scaled =
+      gamut_scale_to_boundary_lut({0.5f, 0.4f, 0.3f});
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(scaled.L), 0x3f000000u);
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(scaled.a), 0x3e064870u);
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(scaled.b), 0x3dc96ca9u);
 }
 
 /**
@@ -2313,6 +2323,7 @@ inline int run_color_tests() {
   test_gamut_lut_clip_lands_on_first_exit();
   test_gamut_lut_downsample_preserves_bracket();
   test_gamut_lut_release_and_passthrough();
+  test_gamut_lut_boundary_scale_rounding();
   test_configure_arenas_releases_gamut_lut();
   test_oklch_to_pixel_holds_hue_out_of_gamut();
 

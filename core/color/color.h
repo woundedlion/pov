@@ -1475,14 +1475,20 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
  * @details Scales unconditionally, so an in-gamut color is pushed outward to
  * the boundary; call only once the color is known to be out of gamut. Reads
  * the stored cell minimum without the bracket refinement gamut_max_chroma()
- * runs, and normalizes through fast_rsqrt().
+ * runs, and normalizes with one Newton step off the reciprocal-square-root
+ * seed.
  */
 HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
   lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
   const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
   if (!(chroma_sq > 1e-12f))
     return {lab.L, 0.0f, 0.0f};
-  const float inverse_chroma = fast_rsqrt(chroma_sq);
+  uint32_t inverse_bits;
+  std::memcpy(&inverse_bits, &chroma_sq, sizeof(inverse_bits));
+  inverse_bits = 0x5f3759dfu - (inverse_bits >> 1);
+  float inverse_chroma;
+  std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
+  inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
   // Flash master, not g_gamut_lut: this path consumes the stored minima
   // directly, so a coarse grid's width is never narrowed back.
   const GamutLut lut;
