@@ -29,7 +29,7 @@
 #include "engine/concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn
 #include "mesh/mesh.h"       // MeshOps
 #include "engine/memory.h"
-#include "mesh/spatial.h"
+#include "mesh/mesh_state.h"
 #include "engine/static_circular_buffer.h"
 #include "math/rotate.h"
 #include "engine/util.h" // wrap_t
