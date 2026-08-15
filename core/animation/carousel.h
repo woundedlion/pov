@@ -49,8 +49,8 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
                 "a segue's schedule() must take (timeline, draw_fn, duration, "
                 "window, paused)");
   static_assert(Segue::HasPhaseHooks<SegueT>,
-                "a segue's visible(), opacity() and face_fade_frac() must keep "
-                "Base's signatures");
+                "a segue's visible(), opacity(), face_fade_frac(), fill() and "
+                "grade() must keep Base's signatures");
   static_assert(
       Segue::detail::Mergeable<SegueT>,
       "a segue must be a non-final class: the Declares* probes below "
