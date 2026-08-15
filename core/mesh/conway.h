@@ -1523,6 +1523,7 @@ snub(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
  *   the top of the operator block).
  */
 HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
+  HS_CHECK(&target != &temp, "gyro: target and temp must differ");
   return dual(snub(mesh, temp, target), target, temp);
 }
 
@@ -1598,6 +1599,7 @@ HS_COLD static PolyMesh zip(const PolyMesh &mesh, Arena &target, Arena &temp) {
  */
 HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
                               float t = 0.25f) {
+  HS_CHECK(&target != &temp, "bevel: target and temp must differ");
   return truncate(ambo(mesh, temp, target), target, temp, t);
 }
 
