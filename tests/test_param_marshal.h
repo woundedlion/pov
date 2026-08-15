@@ -42,7 +42,8 @@ constexpr int DEFAULT_H = 144;
 struct FieldCoverage {
   bool range_distinguishing = false; /**< Some param has min != max. */
   bool flags_distinguishing =
-      false; /**< Some param has animated != readonly. */
+      false;                       /**< Some param has animated != readonly. */
+  bool float_enum_present = false; /**< Some enum has a float target. */
 };
 
 /**
@@ -86,6 +87,11 @@ inline bool check_one(const char *, FieldCoverage &coverage) {
     HS_EXPECT_EQ(std::string_view(views[i].name), std::string_view(def.name));
     HS_EXPECT_EQ(views[i].value, values[i]);
     HS_EXPECT_EQ(views[i].is_bool, def.is_bool());
+    // getParameterDefinitions() emits `step: 1` off this flag, and every
+    // whole-numbered param — enums included, whatever their target type —
+    // must carry it or the GUI hands the effect a fractional option index.
+    HS_EXPECT_EQ(views[i].is_integer, def.is_integer() || def.is_enum());
+    coverage.float_enum_present |= def.is_enum() && !def.is_integer();
     HS_EXPECT_EQ(views[i].value, def.get());
     HS_EXPECT_EQ(views[i].requested_value, def.get_requested());
     HS_EXPECT_EQ(
@@ -307,6 +313,9 @@ inline int run_param_marshal_tests() {
   HS_EXPECT(coverage.flags_distinguishing,
             "no roster param has animated != readonly — a transposed "
             "animated/readonly pair in ParamView would ride green");
+  HS_EXPECT(coverage.float_enum_present,
+            "no roster param is a float-backed enum — the step-presence check "
+            "above would ride green on ParamDef::is_integer() alone");
   std::printf("  param-marshal by-name round-trip exercised on %d/%d effects "
               "(%d skipped: no editable float param)\n",
               rt_covered, rt_total, rt_total - rt_covered);
