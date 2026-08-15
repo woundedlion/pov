@@ -500,7 +500,7 @@ struct HueSpinShade {
   /**
    * @brief Per-instance memo of the rotation folded into a cbrt-LMS 3x3.
    * @details *amount is frame-constant, so the matrix is rebuilt once per
-   * frame; the per-sample cost is three fast_cbrt plus the folded transform.
+   * frame; the per-sample cost is one fast_cbrt3 plus the folded transform.
    * mutable so const shade() can update the memo.
    */
   mutable float matrix[9] = {};
@@ -533,8 +533,9 @@ struct HueSpinShade {
     }
     LinRGB rgb = pixel_to_linrgb(c.color);
     LMS lms = linear_rgb_to_lms(rgb.r, rgb.g, rgb.b);
-    lms_cbrt_transform_rgb(matrix, fast_cbrt(lms.l), fast_cbrt(lms.m),
-                           fast_cbrt(lms.s), rgb.r, rgb.g, rgb.b);
+    float cl, cm, cs;
+    fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
+    lms_cbrt_transform_rgb(matrix, cl, cm, cs, rgb.r, rgb.g, rgb.b);
     c.color = Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
                     float_to_pixel16(rgb.b));
     return c;
