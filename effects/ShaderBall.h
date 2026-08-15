@@ -3944,7 +3944,7 @@ private:
       if (selected != InversePipelineId::NONE || !valid_config(config))
         return false;
       shade = &shade_dynamic;
-      resources_ready = &dynamic_resources_ready;
+      resources_ready = &pipeline_resources_ready;
 #else
       return false;
 #endif
