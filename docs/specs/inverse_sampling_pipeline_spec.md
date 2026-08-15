@@ -345,17 +345,20 @@ text.
 
 ### 8.2 Location and access
 
-Version 1 defines the coordinator, policies, program set, and carrier aliases as
-private nested types of `ShaderBall<W, H>`. This gives them legal access to the
-existing private `FrameState`, `ProjectedLookup`, `PlanarWarpResult`, and
-material carriers without widening ShaderBall's public API. Code examples in
-this document omit the `ShaderBall<W, H>::` qualification for readability.
+Version 1 originally defined the coordinator, policies, and carrier aliases as
+private nested types of `ShaderBall<W, H>`. The pullback-catalog amendment moves
+the reusable coordinator, standard carriers, stage metadata, instrumentation
+hooks, and operator policies to `core/render/pullback.h`. ShaderBall adapts its
+private immutable `FrameState` through an empty binding and narrow state
+providers; its program set, topology keys, resource checks, and continuous
+preconditions remain effect-owned. Code examples retain their original short
+names for readability.
 
 The program set is consequently instantiated per `W, H` specialization. ELF and
 WASM accounting must check for duplicate bodies across the production and
-test resolutions. Moving the coordinator into `core/render` requires first
-extracting a non-template render-state/carrier interface or adding a second
-consumer with equivalent public types; Phase A does not do that.
+test resolutions. The coordinator is parameterized by a consumer binding, so
+promotion does not require a universal engine frame or a second shipping
+consumer.
 
 ## 9. Closed program set and selection
 
@@ -835,10 +838,11 @@ shipping build option that restores the runtime-dispatch renderer.
 
 ## 17. Implementation decisions
 
-Version 1 keeps its small type-list and validation helpers inside the private
-nested implementation. It does not extract or depend on `filter.h` utilities.
-Promotion into `core/render` requires a second concrete consumer, an explicit
-carrier interface, and a demonstrated reduction in duplicated framework code.
+The pullback-catalog amendment places its type-list, validation helpers,
+standard carriers, and policies in `core/render/pullback.h`. It remains
+independent of `filter.h`; consumers bind their own frame type and
+instrumentation adapter. Public policies are admitted by reusable semantics,
+not by the number of current shipping consumers.
 
 The native CMake suite runs generated negative translation units through a
 scripted `try_compile`, requires compilation to fail, and matches the stable

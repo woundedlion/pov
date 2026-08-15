@@ -4,8 +4,8 @@
 the earlier fixed stereographic implementation has been removed. The typed
 pipeline carries 12 presets. Section 0 is authoritative for the authored
 vocabulary, presets, and choreography, and for nothing beyond them: the shipping
-renderer is the variadic inverse-sampling pipeline (`InversePipeline`,
-`TopologyKey`, `ProgramDescriptor`), specified in
+renderer composes the reusable `Pullback::Pipeline` and operator catalog with
+ShaderBall-owned `TopologyKey` and `ProgramDescriptor` selection, specified in
 [the inverse-sampling pipeline spec](inverse_sampling_pipeline_spec.md). Nothing
 in this file defines that architecture. Sections 1–13 preserve the original merge
 and migration record; they are historical where they disagree with Section 0 or
@@ -14,6 +14,13 @@ the final typed implementation was promoted. Section 11 remains the executed
 roster checklist.
 
 ## 0. North star: authored field pipeline, pullback renderer
+
+The composition engine, standard carriers, stage contracts, instrumentation
+events, and reusable operator formulas live in `core/render/pullback.h`.
+ShaderBall owns animation, frame preparation, resource lifetime, serialized
+enums, topology admission, and its closed program manifest. Narrow empty state
+providers are the only bridge from those effect-owned records into core
+policies.
 
 The north star is an authored effect pipeline, not the textual order of a
 per-pixel shader. It should read the way an artist constructs the result:
