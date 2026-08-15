@@ -123,6 +123,16 @@ static_assert(MAX_PARAMS >=
  *          computing the same full frame. Exposed to JS as the
  *          Module.ClipSetResult embind enum; compare against its values, never
  *          by truthiness (every enum value is a truthy object).
+ *
+ *          The preset selectors (selectPreset(), synchronizePreset(),
+ *          nextPreset(), previousPreset()) keep a bare bool on purpose: they
+ *          have one success and no distinguishable failures. Every rejection —
+ *          no effect installed, no presets, index out of range — leaves the
+ *          preset index, parameter values and pause state exactly as they were,
+ *          so the caller's response is the same in all three; and the pair the
+ *          caller would need to tell them apart is already exposed as data by
+ *          getPresetCount() and getPresetIndex(). An enum here would name
+ *          states the neighbouring getters report better.
  */
 enum class ClipSetResult {
   APPLIED,         /**< Band installed; rendering is narrowed to it. */
