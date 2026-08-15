@@ -1102,10 +1102,47 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return readback(fx);
   };
 
+  // A ring carved out of a polygon. Past its stroke the ring reports the
+  // sentinel, which loses Subtract's max, so a probe one column from a carved
+  // column reports the polygon's own depth and an ungated splat paints the
+  // carve shut.
+  auto draw_carved = [&](float lod, bool typed) {
+    pole_lod_aggressiveness = lod;
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas c(fx);
+      const Basis poly_basis = make_basis(Quaternion(), Vector(0, 1, 0));
+      const Vector ring_axis = Vector(0.12f, 1.0f, 0.0f).normalized();
+      const Basis ring_basis = make_basis(Quaternion(), ring_axis);
+      SDF::PlanarPolygon poly(poly_basis, /*circumradius=*/0.35f, /*sides=*/5,
+                              0.0f);
+      // Centerline through the canvas pole: the stroke crosses the decimated
+      // rows the polygon's interior covers.
+      SDF::Ring ring(ring_basis, /*radius=*/0.12f / (PI_F / 2.0f),
+                     /*thickness=*/0.05f);
+      SDF::Subtract<SDF::PlanarPolygon, SDF::Ring> carved(poly, ring);
+      if (typed)
+        Scan::rasterize_solid<W, H>(pipe, c, carved, color);
+      else
+        Scan::rasterize<W, H, false>(
+            pipe, c, carved,
+            [&](const Vector &, Fragment &f) { f.color = color; });
+    }
+    fx.advance_display();
+    return readback(fx);
+  };
+
   // The rows the draws reach must actually be decimated, or the comparison is
   // vacuous.
   pole_lod_aggressiveness = 1.0f;
   HS_EXPECT_GT(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[2]), 1);
+
+  for (float lod : {1.0f, 4.0f})
+    for (bool typed : {false, true}) {
+      HS_CONTEXT("carved", static_cast<int>(lod), typed);
+      compare(draw_carved(0.0f, typed), draw_carved(lod, typed));
+    }
 
   for (float tilt : {0.12f, 0.3f}) {
     HS_CONTEXT("ring", static_cast<int>(tilt * 100.0f));
