@@ -776,9 +776,9 @@ __attribute__((noinline))
 #else
 __attribute__((always_inline))
 #endif
-inline ProjectionSample
-folded_sinusoidal(const Vector &input, float central_meridian,
-                  float pole_fade) {
+inline ProjectionSample folded_sinusoidal(const Vector &input,
+                                          float central_meridian,
+                                          float pole_fade) {
   const Complex coords =
       projections::folded_sinusoidal(input, central_meridian);
   const float r_sq = coords.re * coords.re + coords.im * coords.im;
