@@ -438,6 +438,7 @@ private:
    */
   __attribute__((always_inline)) static Footprint bilinear_footprint(float x,
                                                                      float y) {
+    assert(x >= -static_cast<float>(W) && x < 2.0f * static_cast<float>(W));
     assert(std::fabs(y) < ROW_LIMIT);
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
