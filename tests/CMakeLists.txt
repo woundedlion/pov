@@ -390,7 +390,6 @@ target_include_directories(pullback_capture_native PRIVATE
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
 target_compile_definitions(pullback_capture_native PRIVATE
-  HS_SHADERBALL_PULLBACK_PIPELINE=1
   HS_ENABLE_EFFECT_REGISTRY=1
   HS_ENABLE_PARAM_GUI_BRIDGE=1
   HS_ENABLE_TEST_HOOKS=1

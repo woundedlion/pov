@@ -24,18 +24,6 @@
 #include "core/math/stereographic.h"
 #include "core/render/pullback.h"
 
-#define HS_SHADERBALL_PULLBACK_LEGACY 0
-#define HS_SHADERBALL_PULLBACK_CORE 1
-
-#ifndef HS_SHADERBALL_PULLBACK_PIPELINE
-#define HS_SHADERBALL_PULLBACK_PIPELINE HS_SHADERBALL_PULLBACK_LEGACY
-#endif
-
-#if HS_SHADERBALL_PULLBACK_PIPELINE != HS_SHADERBALL_PULLBACK_LEGACY &&        \
-    HS_SHADERBALL_PULLBACK_PIPELINE != HS_SHADERBALL_PULLBACK_CORE
-#error "HS_SHADERBALL_PULLBACK_PIPELINE must select LEGACY or CORE"
-#endif
-
 namespace hs_test {
 namespace shaderball_tests {
 struct ShaderBallWhiteBox;
@@ -2255,424 +2243,29 @@ private:
   template <typename... Stages>
   using InversePipeline = Pullback::Pipeline<ShaderBallBinding, Stages...>;
 
-  struct OuterCameraStage {
-    using Binding = ShaderBallBinding;
-    using FrameState = typename Binding::FrameState;
-    static constexpr InverseStageKind KIND = InverseStageKind::OUTER_CAMERA;
-    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE = false;
-    static constexpr bool TERMINAL = false;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
-    static constexpr std::array<ApproximationMetric, 0> METRICS{};
-    using Input = Vector;
-    using Output = Vector;
-
-    static constexpr bool implements(const TopologyKey &) { return true; }
-
-    __attribute__((always_inline)) static Vector run(const Vector &view,
-                                                     const FrameState &frame) {
-      return outer_camera_lookup(view, frame);
-    }
-  };
-
-  template <Projection ProjectionPolicy, SurfaceLens Lens>
-  struct SelectedSurfaceProjectStage {
-    using Binding = ShaderBallBinding;
-    using FrameState = typename Binding::FrameState;
-    static constexpr InverseStageKind KIND = InverseStageKind::SURFACE_PROJECT;
-    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE =
-        ProjectionPolicy == Projection::PEIRCE_QUINCUNCIAL;
-    static constexpr bool TERMINAL = false;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE =
-        APPROXIMATE ? ApproximationOracleId::PEIRCE_FAST_SQUARE
-                    : ApproximationOracleId::NONE;
-    static constexpr auto METRICS = [] {
-      if constexpr (APPROXIMATE)
-        return std::array<ApproximationMetric, 3>{{
-            {ApproximationDomain::PROJECTED_COORDINATE,
-             ApproximationAggregation::MAXIMUM, 1.2e-3f, "plane units"},
-            {ApproximationDomain::PROJECTED_EDGE_DISTANCE,
-             ApproximationAggregation::MAXIMUM, 2e-4f, "plane units"},
-            {ApproximationDomain::FRAMEBUFFER,
-             ApproximationAggregation::MAXIMUM, 128.0f, "channel code"},
-        }};
-      else
-        return std::array<ApproximationMetric, 0>{};
-    }();
-    // The Peirce branch below always produces edge distance, unlike
-    // project_peirce, which derives the need from the frame.
-    static constexpr bool EDGE_DISTANCE_UNCONDITIONAL =
-        ProjectionPolicy == Projection::PEIRCE_QUINCUNCIAL;
-    using Input = Vector;
-    using Output = ProjectedLookup;
-
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.projection == ProjectionPolicy && key.surface_lens == Lens &&
-             key.surface_noise == SurfaceNoise::NONE &&
-             (ProjectionPolicy != Projection::GNOMONIC ||
-              key.gnomonic_hemisphere == GnomonicHemispherePolicy::FOLDED) &&
-             (ProjectionPolicy != Projection::PEIRCE_QUINCUNCIAL ||
-              key.peirce_layout == PeirceLayout::SQUARE) &&
-             (ProjectionPolicy != Projection::BONNE ||
-              key.bonne_hemisphere == BonneHemisphere::NORTH);
-    }
-
-    __attribute__((always_inline)) static ProjectedLookup
-    run(const Vector &outer_local, const FrameState &frame) {
-      const Vector lensed = selected_lens_lookup<Lens>(outer_local);
-      if constexpr (ProjectionPolicy == Projection::STEREOGRAPHIC) {
-        return profiled_stereographic_lookup(lensed, frame);
-      } else {
-        HS_SB_STAGE_MARK(stage_start);
-        const Vector local = rotate(lensed, frame.transforms.projection_conj);
-        ProjectedLookup projected = [&]() {
-          if constexpr (ProjectionPolicy == Projection::BONNE)
-            return Pullback::Projection::bonne(
-                local, frame.params.projection.central_meridian,
-                frame.params.projection.bonne_standard_parallel,
-                frame.params.projection.coordinate_scale);
-          else if constexpr (ProjectionPolicy ==
-                             Projection::PEIRCE_QUINCUNCIAL) {
-            if (frame.params.projection.central_meridian == 0.0f)
-              return Pullback::Projection::peirce_fast_square(
-                  local, frame.params.projection.coordinate_scale);
-            else
-              return Pullback::Projection::peirce(
-                  local, frame.params.projection.central_meridian,
-                  static_cast<uint8_t>(PeirceLayout::SQUARE),
-                  frame.params.projection.layout_scroll, true,
-                  frame.params.projection.coordinate_scale);
-          } else {
-            static_assert(ProjectionPolicy == Projection::GNOMONIC);
-            return finalize_projection(local, gnomonic(local),
-                                       Projection::GNOMONIC,
-                                       frame.params.projection.pole_fade,
-                                       GnomonicHemispherePolicy::FOLDED);
-          }
-        }();
-        projected.sphere = local;
-        HS_SB_STAGE_SPAN(projection, stage_start);
-        return projected;
-      }
-    }
-  };
-
-  struct SinusoidalCurlSurfaceStage {
-    using Binding = ShaderBallBinding;
-    using FrameState = typename Binding::FrameState;
-    static constexpr InverseStageKind KIND = InverseStageKind::SURFACE_PROJECT;
-    static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
-    static constexpr bool APPROXIMATE = false;
-    static constexpr bool TERMINAL = false;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
-    static constexpr std::array<ApproximationMetric, 0> METRICS{};
-    static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = false;
-    using Input = Vector;
-    using Output = ProjectedLookup;
-
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.projection == Projection::SINUSOIDAL &&
-             key.surface_lens == SurfaceLens::NONE &&
-             key.surface_noise == SurfaceNoise::CURL &&
-             key.surface_noise_placement ==
-                 SurfaceNoisePlacement::BEFORE_LENS &&
-             key.surface_noise_basis == NoiseBasis::SIMPLEX &&
-             key.surface_curl_integrator == SurfaceCurlIntegrator::EULER;
-    }
-
-    HS_FLASH_MEMBER static ProjectedLookup run(const Vector &outer_local,
-                                               const FrameState &frame) {
-      HS_SB_STAGE_MARK(surface_start);
-      const SurfaceNoiseResult displaced =
-          apply_simplex_euler_surface_noise_result(outer_local, frame);
-      HS_SB_STAGE_SPAN(surface_noise, surface_start);
-      HS_SB_STAGE_MARK(projection_start);
-      const Vector local =
-          rotate(displaced.sphere, frame.transforms.projection_conj);
-      ProjectedLookup projected = project_sinusoidal(local, frame);
-      projected.sphere = local;
-      projected.surface_path_length = displaced.path_length;
-      HS_SB_STAGE_SPAN(projection, projection_start);
-      return projected;
-    }
-  };
-
-  template <WarpStageKind Outer, WarpStageKind Inner>
-  struct SelectedPlanarWarpStage {
-    using Binding = ShaderBallBinding;
-    using FrameState = typename Binding::FrameState;
-    static_assert(Outer == WarpStageKind::NONE ||
-                  Outer == WarpStageKind::AFFINE_FRAME ||
-                  Outer == WarpStageKind::WAVE_SHEAR ||
-                  Outer == WarpStageKind::VECTOR_NOISE ||
-                  Outer == WarpStageKind::MIRROR_TILE ||
-                  Outer == WarpStageKind::POLAR_CHART);
-    static_assert(Inner == WarpStageKind::NONE ||
-                  Inner == WarpStageKind::WAVE_SHEAR ||
-                  Inner == WarpStageKind::MIRROR_TILE);
-    static constexpr InverseStageKind KIND = InverseStageKind::PLANAR_WARP;
-    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE = false;
-    static constexpr bool TERMINAL = false;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
-    static constexpr std::array<ApproximationMetric, 0> METRICS{};
-    using Input = ProjectedLookup;
-    using Output = SourceInput;
-
-    // Wave shear runs at raw strength here, so it only covers a flat envelope.
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.outer_warp == Outer && key.inner_warp == Inner &&
-             (Outer != WarpStageKind::WAVE_SHEAR ||
-              key.outer_warp_envelope == WarpEnvelope::FLAT) &&
-             (Inner != WarpStageKind::WAVE_SHEAR ||
-              key.inner_warp_envelope == WarpEnvelope::FLAT);
-    }
-
-    __attribute__((always_inline)) static SourceInput
-    run(const ProjectedLookup &projected, const FrameState &frame) {
-      HS_SB_STAGE_MARK(stage_start);
-      const bool path_length_required = tracks_displacement(frame);
-      const PlanarWarpStageResult outer = selected_stage<Outer>(
-          projected.coords, projected, frame.slots.warp_program.outer,
-          frame.params.warp.outer, frame.clocks.warp_outer_phase,
-          frame.resources.outer_warp_noise, frame.prepared_warp.outer,
-          path_length_required);
-      const PlanarWarpStageResult inner = selected_stage<Inner>(
-          outer.coords, projected, frame.slots.warp_program.inner,
-          frame.params.warp.inner, frame.clocks.warp_inner_phase,
-          frame.resources.inner_warp_noise, frame.prepared_warp.inner,
-          path_length_required);
-      const PlanarWarpResult warped{inner.coords,
-                                    outer.path_length + inner.path_length};
-      HS_SB_STAGE_SPAN(planar_warp, stage_start);
-      return {projected, warped};
-    }
-
-  private:
-    template <WarpStageKind Kind>
-    __attribute__((always_inline)) static PlanarWarpStageResult
-    selected_stage(const Complex &input, const ProjectedLookup &projected,
-                   const WarpStageSpec &spec, const WarpStageParams &params,
-                   float phase, const FastNoiseLite *noise,
-                   const PreparedWarpStage &prepared,
-                   bool path_length_required) {
-      if constexpr (Kind == WarpStageKind::NONE) {
-        return {input, Complex(), 0.0f};
-      } else if constexpr (Kind == WarpStageKind::AFFINE_FRAME) {
-        return warp_affine_frame(input, params, prepared, path_length_required);
-      } else if constexpr (Kind == WarpStageKind::WAVE_SHEAR) {
-        return warp_wave_shear(input, params, phase, params.strength, prepared,
-                               path_length_required);
-      } else if constexpr (Kind == WarpStageKind::VECTOR_NOISE) {
-        const float amplitude =
-            params.strength *
-            warp_envelope(projected, spec.envelope, params.edge_width);
-        return warp_vector_noise(input, spec, params, amplitude, *noise,
-                                 prepared, path_length_required);
-      } else if constexpr (Kind == WarpStageKind::POLAR_CHART) {
-        return warp_polar_chart(input, spec, params, phase,
-                                path_length_required);
-      } else {
-        static_assert(Kind == WarpStageKind::MIRROR_TILE);
-        HS_SB_STAGE_MARK(mirror_start);
-        const PlanarWarpStageResult result = finish_closed_form_warp(
-            input, mirror_tile(input, params, prepared), path_length_required);
-        HS_SB_STAGE_SPAN(mirror_tile, mirror_start);
-        return result;
-      }
-    }
-  };
-
-  template <Function SourcePolicy> struct SourceStage {
-    using Binding = ShaderBallBinding;
-    using FrameState = typename Binding::FrameState;
-    static constexpr InverseStageKind KIND = InverseStageKind::SOURCE;
-    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE = false;
-    static constexpr bool TERMINAL = false;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
-    static constexpr std::array<ApproximationMetric, 0> METRICS{};
-    using Input = SourceInput;
-    using Output = MaterialInput;
-
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.function == SourcePolicy;
-    }
-
-    __attribute__((always_inline)) static MaterialInput
-    run(const SourceInput &input, const FrameState &frame) {
-      HS_SB_STAGE_MARK(stage_start);
-      float field;
-      if constexpr (SourcePolicy == Function::GRID) {
-        const Complex source_coords = stereo_pattern_args(
-            input.warped.coords, frame.params.source.pattern_freq);
-        field = grid(source_coords, frame.params.source, frame.prepared_source);
-      } else if constexpr (SourcePolicy == Function::PRIMITIVE_LATTICE) {
-        field = primitive_lattice(input.warped.coords, frame.params.source);
-      } else {
-        const Complex source_coords = stereo_pattern_args(
-            input.warped.coords, frame.params.source.pattern_freq);
-        static_assert(SourcePolicy == Function::TWIN_WAVE);
-        field = twin_wave(source_coords, frame.prepared_source);
-      }
-      HS_SB_STAGE_SPAN(source, stage_start);
-      return {input.projected, input.warped, field};
-    }
-  };
-
-  template <CoveragePolicy Coverage> struct LinearMaterialStage {
-    using Binding = ShaderBallBinding;
-    using FrameState = typename Binding::FrameState;
-    static_assert(Coverage == CoveragePolicy::OPAQUE ||
-                  Coverage == CoveragePolicy::EDGE_FADE ||
-                  Coverage == CoveragePolicy::PROJECTION_WEIGHT_SQUARED ||
-                  Coverage == CoveragePolicy::PROJECTION_WEIGHT);
-    static constexpr InverseStageKind KIND = InverseStageKind::MATERIAL;
-    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE = false;
-    static constexpr bool TERMINAL = false;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
-    static constexpr std::array<ApproximationMetric, 0> METRICS{};
-    static constexpr CoveragePolicy COVERAGE = Coverage;
-    using Input = MaterialInput;
-    using Output = MaterialSample;
-
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.signal_weight == SignalWeight::PROJECTION &&
-             key.value_transfer == ValueTransfer::LINEAR &&
-             key.coverage == Coverage;
-    }
-
-    __attribute__((always_inline)) static MaterialSample
-    run(const MaterialInput &input, const FrameState &frame) {
-      HS_SB_STAGE_MARK(stage_start);
-      const float value =
-          hs::clamp((input.field * input.projected.value_weight + 1.0f) * 0.5f,
-                    0.0f, 1.0f);
-      float coverage = input.projected.domain_coverage;
-      if constexpr (Coverage == CoveragePolicy::EDGE_FADE) {
-        const float edge =
-            frame.params.value.edge_width == 0.0f
-                ? static_cast<float>(input.projected.fade_edge_distance > 0.0f)
-                : smooth_ramp(0.0f, frame.params.value.edge_width,
-                              input.projected.fade_edge_distance);
-        coverage *= edge;
-      } else if constexpr (Coverage ==
-                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED) {
-        coverage *= input.projected.value_weight * input.projected.value_weight;
-      } else if constexpr (Coverage == CoveragePolicy::PROJECTION_WEIGHT) {
-        coverage *= input.projected.value_weight;
-      }
-      const MaterialSample material{value, coverage, input.projected.sphere,
-                                    input.projected.surface_path_length +
-                                        input.warped.path_length};
-      HS_SB_STAGE_SPAN(material, stage_start);
-      return material;
-    }
-  };
-
-  struct IsoContourProjectionWeightMaterialStage {
-    using Binding = ShaderBallBinding;
-    using FrameState = typename Binding::FrameState;
-    static constexpr InverseStageKind KIND = InverseStageKind::MATERIAL;
-    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE = false;
-    static constexpr bool TERMINAL = false;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
-    static constexpr std::array<ApproximationMetric, 0> METRICS{};
-    static constexpr CoveragePolicy COVERAGE =
-        CoveragePolicy::PROJECTION_WEIGHT;
-    using Input = MaterialInput;
-    using Output = MaterialSample;
-
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.signal_weight == SignalWeight::PROJECTION &&
-             key.value_transfer == ValueTransfer::ISO_CONTOUR &&
-             key.coverage == CoveragePolicy::PROJECTION_WEIGHT;
-    }
-
-    __attribute__((always_inline)) static MaterialSample
-    run(const MaterialInput &input, const FrameState &frame) {
-      HS_SB_STAGE_MARK(stage_start);
-      const float weighted =
-          hs::clamp((input.field * input.projected.value_weight + 1.0f) * 0.5f,
-                    0.0f, 1.0f);
-      const float distance = fabsf(weighted - frame.params.value.iso_level);
-      const float value =
-          1.0f - smooth_ramp(frame.params.value.iso_width,
-                             2.0f * frame.params.value.iso_width, distance);
-      const MaterialSample material{
-          value, input.projected.value_weight * input.projected.domain_coverage,
-          input.projected.sphere,
-          input.projected.surface_path_length + input.warped.path_length};
-      HS_SB_STAGE_SPAN(material, stage_start);
-      return material;
-    }
-  };
-
-  struct ColorStage {
-    using Binding = ShaderBallBinding;
-    using FrameState = typename Binding::FrameState;
-    static constexpr InverseStageKind KIND = InverseStageKind::COLOR;
-    static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-    static constexpr bool APPROXIMATE = true;
-    static constexpr bool TERMINAL = true;
-    static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-    static constexpr ApproximationOracleId ORACLE =
-        ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
-    static constexpr std::array<ApproximationMetric, 3> METRICS{{
-        {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
-         5400.0f, "channel code"},
-        {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
-         256.0f, "channel code"},
-        {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
-         5400.0f, "channel code"},
-    }};
-    using Input = MaterialSample;
-    using Output = Color4;
-
-    static constexpr bool implements(const TopologyKey &) { return true; }
-
-    __attribute__((always_inline)) static Color4
-    run(const MaterialSample &material, const FrameState &frame) {
-      HS_SB_STAGE_MARK(stage_start);
-      const Color4 color = colorize_generated(material, frame);
-      HS_SB_STAGE_SPAN(color, stage_start);
-      return color;
-    }
-  };
-
 #if defined(__IMXRT1062__)
   HS_FLASH_MEMBER
 #else
   __attribute__((always_inline))
 #endif
-  static Vector core_outer_camera_lookup(const Vector &input,
-                                         const FrameState &frame) {
+  static Vector pullback_outer_camera_lookup(const Vector &input,
+                                             const FrameState &frame) {
     return rotate(input, frame.transforms.outer_conj);
   }
 
-  struct CoreOuterCameraStage
+  struct OuterCameraStage
       : Pullback::Stage::OuterCamera<ShaderBallBinding,
                                      OuterCameraStateProvider> {
     static constexpr bool implements(const TopologyKey &) { return true; }
 
     __attribute__((always_inline)) static Vector run(const Vector &input,
                                                      const FrameState &frame) {
-      return core_outer_camera_lookup(input, frame);
+      return pullback_outer_camera_lookup(input, frame);
     }
   };
 
   template <SurfaceLens LensV>
-  using CoreLensPolicy = std::conditional_t<
+  using LensPolicy = std::conditional_t<
       LensV == SurfaceLens::NONE, Pullback::Lens::Identity,
       std::conditional_t<
           LensV == SurfaceLens::GLITCH, Pullback::Lens::Glitch,
@@ -2684,7 +2277,7 @@ private:
                   Pullback::Lens::TriangularPrismKaleidoscope>>>>;
 
   template <Projection ProjectionV>
-  using CoreProjectionPolicy = std::conditional_t<
+  using ProjectionPolicy = std::conditional_t<
       ProjectionV == Projection::STEREOGRAPHIC,
       Pullback::Projection::Stereographic<ProjectionStateProvider>,
       std::conditional_t<
@@ -2698,34 +2291,44 @@ private:
               Pullback::Projection::PeirceSquare<ProjectionStateProvider>>>>;
 
   template <Projection ProjectionV, SurfaceLens LensV>
-  struct CoreSelectedSurfaceProjectStage
+  struct SelectedSurfaceProjectStage
       : Pullback::Stage::SurfaceProject<
-            ShaderBallBinding, Pullback::Surface::Identity,
-            CoreLensPolicy<LensV>, Pullback::Surface::Identity,
-            CoreProjectionPolicy<ProjectionV>> {
+            ShaderBallBinding, Pullback::Surface::Identity, LensPolicy<LensV>,
+            Pullback::Surface::Identity, ProjectionPolicy<ProjectionV>> {
     static constexpr bool implements(const TopologyKey &key) {
-      return SelectedSurfaceProjectStage<ProjectionV, LensV>::implements(key);
+      return key.projection == ProjectionV && key.surface_lens == LensV &&
+             key.surface_noise == SurfaceNoise::NONE &&
+             (ProjectionV != Projection::GNOMONIC ||
+              key.gnomonic_hemisphere == GnomonicHemispherePolicy::FOLDED) &&
+             (ProjectionV != Projection::PEIRCE_QUINCUNCIAL ||
+              key.peirce_layout == PeirceLayout::SQUARE) &&
+             (ProjectionV != Projection::BONNE ||
+              key.bonne_hemisphere == BonneHemisphere::NORTH);
     }
   };
 
-  using CoreSinusoidalCurlSurfaceImplementation =
-      Pullback::Stage::SurfaceProject<
-          ShaderBallBinding,
-          Pullback::Surface::CurlNoise<SurfaceStateProvider,
-                                       NoiseBasis::SIMPLEX,
-                                       Pullback::Surface::Euler>,
-          Pullback::Lens::Identity, Pullback::Surface::Identity,
-          Pullback::Projection::FoldedSinusoidal<ProjectionStateProvider>>;
-  struct CoreSinusoidalCurlSurfaceStage
+  using SinusoidalCurlSurfaceImplementation = Pullback::Stage::SurfaceProject<
+      ShaderBallBinding,
+      Pullback::Surface::CurlNoise<SurfaceStateProvider, NoiseBasis::SIMPLEX,
+                                   Pullback::Surface::Euler>,
+      Pullback::Lens::Identity, Pullback::Surface::Identity,
+      Pullback::Projection::FoldedSinusoidal<ProjectionStateProvider>>;
+  struct SinusoidalCurlSurfaceStage
       : Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
-                                CoreSinusoidalCurlSurfaceImplementation> {
+                                SinusoidalCurlSurfaceImplementation> {
     static constexpr bool implements(const TopologyKey &key) {
-      return SinusoidalCurlSurfaceStage::implements(key);
+      return key.projection == Projection::SINUSOIDAL &&
+             key.surface_lens == SurfaceLens::NONE &&
+             key.surface_noise == SurfaceNoise::CURL &&
+             key.surface_noise_placement ==
+                 SurfaceNoisePlacement::BEFORE_LENS &&
+             key.surface_noise_basis == NoiseBasis::SIMPLEX &&
+             key.surface_curl_integrator == SurfaceCurlIntegrator::EULER;
     }
   };
 
   template <WarpStageKind KindV, bool Outer>
-  using CoreWarpPolicy = std::conditional_t<
+  using WarpPolicy = std::conditional_t<
       KindV == WarpStageKind::NONE, Pullback::Warp::Identity,
       std::conditional_t<
           KindV == WarpStageKind::AFFINE_FRAME,
@@ -2746,17 +2349,29 @@ private:
                                                  1>>>>>>;
 
   template <WarpStageKind Outer, WarpStageKind Inner>
-  struct CoreSelectedPlanarWarpStage
-      : Pullback::Stage::PlanarWarp<ShaderBallBinding,
-                                    CoreWarpPolicy<Outer, true>,
-                                    CoreWarpPolicy<Inner, false>> {
+  struct SelectedPlanarWarpStage
+      : Pullback::Stage::PlanarWarp<ShaderBallBinding, WarpPolicy<Outer, true>,
+                                    WarpPolicy<Inner, false>> {
     static constexpr bool implements(const TopologyKey &key) {
-      return SelectedPlanarWarpStage<Outer, Inner>::implements(key);
+      static_assert(Outer == WarpStageKind::NONE ||
+                    Outer == WarpStageKind::AFFINE_FRAME ||
+                    Outer == WarpStageKind::WAVE_SHEAR ||
+                    Outer == WarpStageKind::VECTOR_NOISE ||
+                    Outer == WarpStageKind::MIRROR_TILE ||
+                    Outer == WarpStageKind::POLAR_CHART);
+      static_assert(Inner == WarpStageKind::NONE ||
+                    Inner == WarpStageKind::WAVE_SHEAR ||
+                    Inner == WarpStageKind::MIRROR_TILE);
+      return key.outer_warp == Outer && key.inner_warp == Inner &&
+             (Outer != WarpStageKind::WAVE_SHEAR ||
+              key.outer_warp_envelope == WarpEnvelope::FLAT) &&
+             (Inner != WarpStageKind::WAVE_SHEAR ||
+              key.inner_warp_envelope == WarpEnvelope::FLAT);
     }
   };
 
   template <Function FunctionV>
-  using CoreSourcePolicy = std::conditional_t<
+  using SourcePolicy = std::conditional_t<
       FunctionV == Function::GRID, Pullback::Source::Grid<SourceStateProvider>,
       std::conditional_t<
           FunctionV == Function::PRIMITIVE_LATTICE,
@@ -2764,16 +2379,15 @@ private:
           Pullback::Source::TwinWave<SourceStateProvider>>>;
 
   template <Function FunctionV>
-  struct CoreSourceStage
-      : Pullback::Stage::Source<ShaderBallBinding,
-                                CoreSourcePolicy<FunctionV>> {
+  struct SourceStage
+      : Pullback::Stage::Source<ShaderBallBinding, SourcePolicy<FunctionV>> {
     static constexpr bool implements(const TopologyKey &key) {
       return key.function == FunctionV;
     }
   };
 
   template <CoveragePolicy CoverageV>
-  using CoreCoveragePolicy = std::conditional_t<
+  using CoveragePolicyFor = std::conditional_t<
       CoverageV == CoveragePolicy::OPAQUE, Pullback::Coverage::Opaque,
       std::conditional_t<
           CoverageV == CoveragePolicy::EDGE_FADE,
@@ -2783,17 +2397,23 @@ private:
                              Pullback::Coverage::ProjectionSquared>>>;
 
   template <CoveragePolicy CoverageV>
-  struct CoreLinearMaterialStage
+  struct LinearMaterialStage
       : Pullback::Stage::Material<
             ShaderBallBinding, Pullback::Weight::Projection,
-            Pullback::Transfer::Linear, CoreCoveragePolicy<CoverageV>> {
+            Pullback::Transfer::Linear, CoveragePolicyFor<CoverageV>> {
+    static_assert(CoverageV == CoveragePolicy::OPAQUE ||
+                  CoverageV == CoveragePolicy::EDGE_FADE ||
+                  CoverageV == CoveragePolicy::PROJECTION_WEIGHT_SQUARED ||
+                  CoverageV == CoveragePolicy::PROJECTION_WEIGHT);
     static constexpr CoveragePolicy COVERAGE = CoverageV;
     static constexpr bool implements(const TopologyKey &key) {
-      return LinearMaterialStage<CoverageV>::implements(key);
+      return key.signal_weight == SignalWeight::PROJECTION &&
+             key.value_transfer == ValueTransfer::LINEAR &&
+             key.coverage == CoverageV;
     }
   };
 
-  struct CoreIsoContourMaterialStage
+  struct IsoContourProjectionWeightMaterialStage
       : Pullback::Stage::Material<
             ShaderBallBinding, Pullback::Weight::Projection,
             Pullback::Transfer::IsoContour<ValueStateProvider>,
@@ -2801,11 +2421,13 @@ private:
     static constexpr CoveragePolicy COVERAGE =
         CoveragePolicy::PROJECTION_WEIGHT;
     static constexpr bool implements(const TopologyKey &key) {
-      return IsoContourProjectionWeightMaterialStage::implements(key);
+      return key.signal_weight == SignalWeight::PROJECTION &&
+             key.value_transfer == ValueTransfer::ISO_CONTOUR &&
+             key.coverage == CoveragePolicy::PROJECTION_WEIGHT;
     }
   };
 
-  struct CoreColorStage
+  struct ColorStage
       : Pullback::Stage::Color<
             ShaderBallBinding,
             Pullback::Color::GeneratedPalette<ColorStateProvider>> {
@@ -2931,189 +2553,6 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
-
-  using CoreBonneKaleidoscopeLatticeMirrorPipelineBase = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<Projection::BONNE,
-                                      SurfaceLens::KALEIDOSCOPE>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE,
-                                  WarpStageKind::NONE>,
-      CoreSourceStage<Function::PRIMITIVE_LATTICE>,
-      CoreLinearMaterialStage<CoveragePolicy::EDGE_FADE>, CoreColorStage>;
-  struct CoreBonneKaleidoscopeLatticeMirrorPipeline
-      : CoreBonneKaleidoscopeLatticeMirrorPipelineBase {
-    HS_FLASH_MEMBER __attribute__((noinline, aligned(4096))) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return CoreBonneKaleidoscopeLatticeMirrorPipelineBase::template run_stage<
-          0>(view, frame);
-    }
-  };
-  using CoreGlitchNoiseGridWaveShearPipelineBase = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
-                                      SurfaceLens::GLITCH>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::WAVE_SHEAR,
-                                  WarpStageKind::NONE>,
-      CoreSourceStage<Function::GRID>,
-      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      CoreColorStage>;
-  struct CoreGlitchNoiseGridWaveShearPipeline
-      : CoreGlitchNoiseGridWaveShearPipelineBase {
-    FASTRUN __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return CoreGlitchNoiseGridWaveShearPipelineBase::template run_stage<0>(
-          view, frame);
-    }
-  };
-  using CoreKaleidoscopeTwinWaveInnerMirrorPipeline = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
-                                      SurfaceLens::KALEIDOSCOPE>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::NONE,
-                                  WarpStageKind::MIRROR_TILE>,
-      CoreSourceStage<Function::TWIN_WAVE>,
-      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      CoreColorStage>;
-  using CoreGnomonicKaleidoscopeGridMirrorPipeline = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC,
-                                      SurfaceLens::KALEIDOSCOPE>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE,
-                                  WarpStageKind::NONE>,
-      CoreSourceStage<Function::GRID>,
-      CoreLinearMaterialStage<CoveragePolicy::EDGE_FADE>, CoreColorStage>;
-  using CoreGnomonicGlitchGridMirrorPipeline =
-      InversePipeline<CoreOuterCameraStage,
-                      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC,
-                                                      SurfaceLens::GLITCH>,
-                      CoreSelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE,
-                                                  WarpStageKind::NONE>,
-                      CoreSourceStage<Function::GRID>,
-                      CoreLinearMaterialStage<CoveragePolicy::EDGE_FADE>,
-                      CoreColorStage>;
-  using CorePeirceDodecahedralGridPipelineBase = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
-                                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
-      CoreSourceStage<Function::GRID>,
-      CoreLinearMaterialStage<CoveragePolicy::EDGE_FADE>, CoreColorStage>;
-  struct CorePeirceDodecahedralGridPipeline
-      : CorePeirceDodecahedralGridPipelineBase {
-    FASTRUN __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return CorePeirceDodecahedralGridPipelineBase::template run_stage<0>(
-          view, frame);
-    }
-  };
-  using CoreGnomonicDodecahedralGridWaveMirrorPipelineBase = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC,
-                                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::WAVE_SHEAR,
-                                  WarpStageKind::MIRROR_TILE>,
-      CoreSourceStage<Function::GRID>,
-      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      CoreColorStage>;
-  struct CoreGnomonicDodecahedralGridWaveMirrorPipeline
-      : CoreGnomonicDodecahedralGridWaveMirrorPipelineBase {
-    FASTRUN __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return CoreGnomonicDodecahedralGridWaveMirrorPipelineBase::
-          template run_stage<0>(view, frame);
-    }
-  };
-  using CoreGnomonicDodecahedralGridVectorMirrorPipeline = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC,
-                                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::VECTOR_NOISE,
-                                  WarpStageKind::MIRROR_TILE>,
-      CoreSourceStage<Function::GRID>,
-      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      CoreColorStage>;
-  using CoreGnomonicAffineLatticeContourPipeline = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC, SurfaceLens::NONE>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::AFFINE_FRAME,
-                                  WarpStageKind::NONE>,
-      CoreSourceStage<Function::PRIMITIVE_LATTICE>, CoreIsoContourMaterialStage,
-      CoreColorStage>;
-  using CoreSinusoidalCurlLatticePipeline = InversePipeline<
-      CoreOuterCameraStage, CoreSinusoidalCurlSurfaceStage,
-      CoreSelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
-      CoreSourceStage<Function::PRIMITIVE_LATTICE>,
-      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT>,
-      CoreColorStage>;
-  using CoreStereographicPrismPolarWaveLatticePipeline = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<
-          Projection::STEREOGRAPHIC,
-          SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::POLAR_CHART,
-                                  WarpStageKind::WAVE_SHEAR>,
-      CoreSourceStage<Function::PRIMITIVE_LATTICE>,
-      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      CoreColorStage>;
-  using CoreStereographicDodecahedralGridInnerMirrorPipeline = InversePipeline<
-      CoreOuterCameraStage,
-      CoreSelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
-                                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
-      CoreSelectedPlanarWarpStage<WarpStageKind::NONE,
-                                  WarpStageKind::MIRROR_TILE>,
-      CoreSourceStage<Function::GRID>,
-      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      CoreColorStage>;
-
-#if HS_SHADERBALL_PULLBACK_PIPELINE == HS_SHADERBALL_PULLBACK_CORE
-  using ManifestBonneKaleidoscopeLatticeMirrorPipeline =
-      CoreBonneKaleidoscopeLatticeMirrorPipeline;
-  using ManifestGlitchNoiseGridWaveShearPipeline =
-      CoreGlitchNoiseGridWaveShearPipeline;
-  using ManifestKaleidoscopeTwinWaveInnerMirrorPipeline =
-      CoreKaleidoscopeTwinWaveInnerMirrorPipeline;
-  using ManifestGnomonicKaleidoscopeGridMirrorPipeline =
-      CoreGnomonicKaleidoscopeGridMirrorPipeline;
-  using ManifestGnomonicGlitchGridMirrorPipeline =
-      CoreGnomonicGlitchGridMirrorPipeline;
-  using ManifestPeirceDodecahedralGridPipeline =
-      CorePeirceDodecahedralGridPipeline;
-  using ManifestGnomonicDodecahedralGridWaveMirrorPipeline =
-      CoreGnomonicDodecahedralGridWaveMirrorPipeline;
-  using ManifestGnomonicAffineLatticeContourPipeline =
-      CoreGnomonicAffineLatticeContourPipeline;
-  using ManifestSinusoidalCurlLatticePipeline =
-      CoreSinusoidalCurlLatticePipeline;
-  using ManifestStereographicPrismPolarWaveLatticePipeline =
-      CoreStereographicPrismPolarWaveLatticePipeline;
-  using ManifestGnomonicDodecahedralGridVectorMirrorPipeline =
-      CoreGnomonicDodecahedralGridVectorMirrorPipeline;
-  using ManifestStereographicDodecahedralGridInnerMirrorPipeline =
-      CoreStereographicDodecahedralGridInnerMirrorPipeline;
-#else
-  using ManifestBonneKaleidoscopeLatticeMirrorPipeline =
-      BonneKaleidoscopeLatticeMirrorPipeline;
-  using ManifestGlitchNoiseGridWaveShearPipeline =
-      GlitchNoiseGridWaveShearPipeline;
-  using ManifestKaleidoscopeTwinWaveInnerMirrorPipeline =
-      KaleidoscopeTwinWaveInnerMirrorPipeline;
-  using ManifestGnomonicKaleidoscopeGridMirrorPipeline =
-      GnomonicKaleidoscopeGridMirrorPipeline;
-  using ManifestGnomonicGlitchGridMirrorPipeline =
-      GnomonicGlitchGridMirrorPipeline;
-  using ManifestPeirceDodecahedralGridPipeline = PeirceDodecahedralGridPipeline;
-  using ManifestGnomonicDodecahedralGridWaveMirrorPipeline =
-      GnomonicDodecahedralGridWaveMirrorPipeline;
-  using ManifestGnomonicAffineLatticeContourPipeline =
-      GnomonicAffineLatticeContourPipeline;
-  using ManifestSinusoidalCurlLatticePipeline = SinusoidalCurlLatticePipeline;
-  using ManifestStereographicPrismPolarWaveLatticePipeline =
-      StereographicPrismPolarWaveLatticePipeline;
-  using ManifestGnomonicDodecahedralGridVectorMirrorPipeline =
-      GnomonicDodecahedralGridVectorMirrorPipeline;
-  using ManifestStereographicDodecahedralGridInnerMirrorPipeline =
-      StereographicDodecahedralGridInnerMirrorPipeline;
-#endif
 
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
 
@@ -4224,58 +3663,58 @@ private:
   HS_COLD_MEMBER static const std::array<ProgramDescriptor, 12> &
   inverse_programs() {
     static constexpr std::array<ProgramDescriptor, 12> PROGRAMS{{
-        make_program<ManifestBonneKaleidoscopeLatticeMirrorPipeline,
+        make_program<BonneKaleidoscopeLatticeMirrorPipeline,
                      InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
                      make_topology_key(bonne_lattice_mirror_preset())>(
             &all_continuous_parameters_supported),
-        make_program<ManifestGlitchNoiseGridWaveShearPipeline,
+        make_program<GlitchNoiseGridWaveShearPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
                      make_topology_key(wave_shear_generated_preset())>(
             &all_continuous_parameters_supported),
-        make_program<ManifestKaleidoscopeTwinWaveInnerMirrorPipeline,
+        make_program<KaleidoscopeTwinWaveInnerMirrorPipeline,
                      InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
                      make_topology_key(kaleidoscope_mirror_preset())>(
             &all_continuous_parameters_supported),
-        make_program<ManifestGnomonicKaleidoscopeGridMirrorPipeline,
+        make_program<GnomonicKaleidoscopeGridMirrorPipeline,
                      InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
                      make_topology_key(gnomonic_grid_mirror_preset(
                          SurfaceLens::KALEIDOSCOPE))>(
             &all_continuous_parameters_supported),
-        make_program<ManifestGnomonicGlitchGridMirrorPipeline,
+        make_program<GnomonicGlitchGridMirrorPipeline,
                      InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR,
                      make_topology_key(
                          gnomonic_grid_mirror_preset(SurfaceLens::GLITCH))>(
             &all_continuous_parameters_supported),
-        make_program<ManifestPeirceDodecahedralGridPipeline,
+        make_program<PeirceDodecahedralGridPipeline,
                      InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
                      make_topology_key(peirce_dodecahedral_generated_preset())>(
             &all_continuous_parameters_supported),
-        make_program<ManifestGnomonicDodecahedralGridWaveMirrorPipeline,
+        make_program<GnomonicDodecahedralGridWaveMirrorPipeline,
                      InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
                      make_topology_key(gnomonic_wave_shear_grid_preset())>(
             &all_continuous_parameters_supported),
-        make_program<ManifestGnomonicAffineLatticeContourPipeline,
+        make_program<GnomonicAffineLatticeContourPipeline,
                      InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR,
                      make_topology_key(
                          gnomonic_affine_lattice_contour_preset())>(
             &all_continuous_parameters_supported),
-        make_program<ManifestSinusoidalCurlLatticePipeline,
+        make_program<SinusoidalCurlLatticePipeline,
                      InversePipelineId::SINUSOIDAL_CURL_LATTICE,
                      make_topology_key(sinusoidal_lattice_curl_preset(1.0f))>(
             &all_continuous_parameters_supported),
-        make_program<ManifestStereographicPrismPolarWaveLatticePipeline,
+        make_program<StereographicPrismPolarWaveLatticePipeline,
                      InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
                      make_topology_key(
                          stereographic_prism_polar_wave_lattice_preset())>(
             &all_continuous_parameters_supported),
         make_program<
-            ManifestGnomonicDodecahedralGridVectorMirrorPipeline,
+            GnomonicDodecahedralGridVectorMirrorPipeline,
             InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
             make_topology_key(
                 gnomonic_dodecahedral_vector_mirror_grid_preset())>(
             &all_continuous_parameters_supported),
         make_program<
-            ManifestStereographicDodecahedralGridInnerMirrorPipeline,
+            StereographicDodecahedralGridInnerMirrorPipeline,
             InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
             make_topology_key(
                 stereographic_dodecahedral_grid_inner_mirror_preset())>(
