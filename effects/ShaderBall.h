@@ -3528,6 +3528,10 @@ private:
     std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
     std::array<Pixel, PreparedHueRotation::LUT_SIZE> hue_rotation_lut;
     std::array<int8_t, PreparedHueNoise::LUT_SIZE> hue_noise_lut;
+    /** @brief Inputs the resident hue-noise table was built from; scale 0 marks
+     *         it unbuilt. */
+    float hue_noise_lut_scale = 0.0f;
+    float hue_noise_lut_phase = 0.0f;
     FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
     ParamMorphRuntime param_morph;
@@ -3865,10 +3869,15 @@ private:
         state->hue_noise_lut.data(),
         config.slots.hue_shift == HueShiftMode::NOISE &&
             config.params.color.hue_shift_amount != 0.0f};
-    if (prepared_hue_noise.active)
+    if (prepared_hue_noise.active &&
+        (state->hue_noise_lut_scale != config.params.color.hue_noise_scale ||
+         state->hue_noise_lut_phase != look.clocks.hue_noise_phase)) {
       prepare_hue_noise_lut(prepared_hue_noise, *color_noise,
                             config.params.color.hue_noise_scale,
                             look.clocks.hue_noise_phase);
+      state->hue_noise_lut_scale = config.params.color.hue_noise_scale;
+      state->hue_noise_lut_phase = look.clocks.hue_noise_phase;
+    }
     frame.slots = config.slots;
     frame.params = config.params;
     frame.clocks = look.clocks;
