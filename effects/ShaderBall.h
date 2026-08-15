@@ -22,6 +22,7 @@
 #include "core/math/noise_field.h"
 #include "core/math/projections.h"
 #include "core/math/stereographic.h"
+#include "core/render/pullback.h"
 
 namespace hs_test {
 namespace shaderball_tests {
@@ -1748,65 +1749,17 @@ private:
     float angle_sin;
   };
 
-  struct ProjectedLookup {
-    Complex coords;
-    uint8_t region_id;
-    uint8_t component_id;
-    uint8_t boundary_flags;
-    float fade_edge_distance;
-    float value_weight;
-    uint8_t flags;
-    uint8_t traits;
-    uint8_t edge_class;
-    float domain_coverage;
-    Vector sphere;
-    float surface_path_length;
-
-    constexpr ProjectedLookup(Complex coords, uint8_t region_id,
-                              uint8_t component_id, uint8_t boundary_flags,
-                              float fade_edge_distance, float value_weight,
-                              uint8_t flags, uint8_t traits = 0,
-                              uint8_t edge_class = 0,
-                              float domain_coverage = 1.0f,
-                              Vector sphere = Vector(),
-                              float surface_path_length = 0.0f)
-        : coords(coords), region_id(region_id), component_id(component_id),
-          boundary_flags(boundary_flags),
-          fade_edge_distance(fade_edge_distance), value_weight(value_weight),
-          flags(flags), traits(traits), edge_class(edge_class),
-          domain_coverage(domain_coverage), sphere(sphere),
-          surface_path_length(surface_path_length) {}
-  };
+  using ProjectedLookup = Pullback::ProjectionSample;
 
   struct SourceTraits {
     bool y_periodic;
     bool polar_angle_compatible;
   };
 
-  struct PlanarWarpResult {
-    Complex coords;
-    Complex net_delta;
-    float path_length;
-  };
-
-  struct SurfaceNoiseResult {
-    Vector sphere;
-    float path_length;
-  };
-
-  struct PlanarWarpStageResult {
-    Complex coords;
-    Complex delta;
-    float deformation;
-    float path_length;
-  };
-
-  struct MaterialSample {
-    float value;
-    float coverage;
-    Vector sphere;
-    float warp_displacement;
-  };
+  using PlanarWarpResult = Pullback::WarpResult;
+  using SurfaceNoiseResult = Pullback::SurfaceResult;
+  using PlanarWarpStageResult = Pullback::WarpStepResult;
+  using MaterialSample = Pullback::MaterialSample;
 
   struct ClockState {
     float source_primary = 0.0f;
@@ -1925,53 +1878,67 @@ private:
     ResourceBindings resources;
   };
 
-  struct SourceInput {
-    ProjectedLookup projected;
-    PlanarWarpResult warped;
+  struct ShaderBallInstrumentation {
+#ifdef HS_PROFILE_SHADERBALL_STAGES
+    using Token = uint32_t;
+
+    __attribute__((always_inline)) static Token mark() {
+      return HS_OS_CYCLES();
+    }
+
+    template <Pullback::ProfileEvent Event>
+    __attribute__((always_inline)) static void span(Token start) {
+      const uint32_t elapsed = HS_OS_CYCLES() - start;
+      if constexpr (Event == Pullback::ProfileEvent::LENS)
+        hs::g_shaderball_stage_cycles.lens += elapsed;
+      else if constexpr (Event == Pullback::ProfileEvent::SURFACE_NOISE)
+        hs::g_shaderball_stage_cycles.surface_noise += elapsed;
+      else if constexpr (Event == Pullback::ProfileEvent::PROJECTION)
+        hs::g_shaderball_stage_cycles.projection += elapsed;
+      else if constexpr (Event == Pullback::ProfileEvent::PLANAR_WARP)
+        hs::g_shaderball_stage_cycles.planar_warp += elapsed;
+      else if constexpr (Event == Pullback::ProfileEvent::MIRROR_TILE)
+        hs::g_shaderball_stage_cycles.mirror_tile += elapsed;
+      else if constexpr (Event == Pullback::ProfileEvent::SOURCE)
+        hs::g_shaderball_stage_cycles.source += elapsed;
+      else if constexpr (Event == Pullback::ProfileEvent::MATERIAL)
+        hs::g_shaderball_stage_cycles.material += elapsed;
+      else
+        hs::g_shaderball_stage_cycles.color += elapsed;
+    }
+#else
+    using Token = Pullback::NoInstrumentation::Token;
+
+    __attribute__((always_inline)) static Token mark() { return {}; }
+
+    template <Pullback::ProfileEvent Event>
+    __attribute__((always_inline)) static void span(Token) {
+      static_cast<void>(Event);
+    }
+#endif
   };
 
-  struct MaterialInput {
-    ProjectedLookup projected;
-    PlanarWarpResult warped;
-    float field;
+  struct ShaderBallBinding {
+    using FrameState = ShaderBall::FrameState;
+    using Instrumentation = ShaderBallInstrumentation;
+
+    template <typename... Stages> struct ExtraValidation {
+      using SurfaceStage = std::tuple_element_t<1, std::tuple<Stages...>>;
+      using MaterialStage = std::tuple_element_t<4, std::tuple<Stages...>>;
+      static constexpr bool value =
+          !SurfaceStage::EDGE_DISTANCE_UNCONDITIONAL ||
+          MaterialStage::COVERAGE == CoveragePolicy::EDGE_FADE;
+    };
   };
 
-  enum class InverseStageKind : uint8_t {
-    OUTER_CAMERA,
-    SURFACE_PROJECT,
-    PLANAR_WARP,
-    SOURCE,
-    MATERIAL,
-    COLOR
-  };
-
-  enum class CodeEmission : uint8_t {
-    INLINE_ONLY,
-    OUT_OF_LINE_FLASH,
-    OUT_OF_LINE_ITCM
-  };
-
-  enum class ApproximationOracleId : uint8_t {
-    NONE,
-    PEIRCE_FAST_SQUARE,
-    HUE_ROTATION_AND_NOISE_LUTS
-  };
-
-  enum class ApproximationDomain : uint8_t {
-    PROJECTED_COORDINATE,
-    PROJECTED_EDGE_DISTANCE,
-    COLOR_CHANNEL,
-    FRAMEBUFFER
-  };
-
-  enum class ApproximationAggregation : uint8_t { MAXIMUM, MEAN };
-
-  struct ApproximationMetric {
-    ApproximationDomain domain;
-    ApproximationAggregation aggregation;
-    float limit;
-    const char *unit;
-  };
+  using SourceInput = Pullback::SourceInput;
+  using MaterialInput = Pullback::MaterialInput;
+  using InverseStageKind = Pullback::StageKind;
+  using CodeEmission = Pullback::CodeEmission;
+  using ApproximationOracleId = Pullback::ApproximationOracleId;
+  using ApproximationDomain = Pullback::ApproximationDomain;
+  using ApproximationAggregation = Pullback::ApproximationAggregation;
+  using ApproximationMetric = Pullback::ApproximationMetric;
 
   struct TopologyKey {
     Function function{};
@@ -2022,174 +1989,25 @@ private:
     NONE = 0xff
   };
 
-  template <typename Stage, typename = void>
-  struct HasInverseStageContract : std::false_type {};
+  template <typename Stage>
+  using HasInverseStageContract =
+      Pullback::HasStageContract<Stage, ShaderBallBinding>;
 
   template <typename Stage>
-  struct HasInverseStageContract<
-      Stage,
-      std::void_t<decltype(Stage::KIND), decltype(Stage::EMISSION),
-                  decltype(Stage::APPROXIMATE), decltype(Stage::TERMINAL),
-                  decltype(Stage::ORACLE), decltype(Stage::METRICS),
-                  decltype(Stage::NON_FLOATING_FIELDS_EXACT),
-                  typename Stage::Input, typename Stage::Output,
-                  decltype(Stage::run(
-                      std::declval<const typename Stage::Input &>(),
-                      std::declval<const FrameState &>()))>> : std::true_type {
-  };
-
-  template <typename Stage,
-            bool Present = HasInverseStageContract<Stage>::value>
-  struct HasTypedInverseStageContract : std::false_type {};
-
-  template <typename Stage>
-  struct HasTypedInverseStageContract<Stage, true>
-      : std::bool_constant<
-            std::is_same_v<decltype(Stage::KIND), const InverseStageKind> &&
-            std::is_same_v<decltype(Stage::EMISSION), const CodeEmission> &&
-            std::is_same_v<decltype(Stage::APPROXIMATE), const bool> &&
-            std::is_same_v<decltype(Stage::TERMINAL), const bool> &&
-            std::is_same_v<decltype(Stage::NON_FLOATING_FIELDS_EXACT),
-                           const bool> &&
-            std::is_same_v<decltype(Stage::ORACLE),
-                           const ApproximationOracleId>> {};
-
-  template <typename Stage>
-  static constexpr bool has_final_framebuffer_metric() {
-    for (const ApproximationMetric &metric : Stage::METRICS)
-      if (metric.domain == ApproximationDomain::FRAMEBUFFER)
-        return true;
-    return false;
-  }
+  using HasTypedInverseStageContract =
+      Pullback::HasTypedStageContract<Stage, ShaderBallBinding>;
 
   template <bool LevelOneValid, typename... Stages>
-  struct InversePipelineValidation {
-    static constexpr bool EMPTY_POLICIES = false;
-    static constexpr bool ORDER = false;
-    static constexpr bool RUN_RETURNS = false;
-    static constexpr bool CARRIERS = false;
-    static constexpr bool TERMINALS = false;
-    static constexpr bool APPROXIMATIONS = false;
-    static constexpr bool EDGE_DISTANCE = false;
-  };
+  using InversePipelineValidation =
+      Pullback::PipelineValidationLevel2<LevelOneValid, ShaderBallBinding,
+                                         Stages...>;
 
   template <typename... Stages>
-  struct InversePipelineValidation<true, Stages...> {
-    using OuterStage = std::tuple_element_t<0, std::tuple<Stages...>>;
-    using SurfaceStage = std::tuple_element_t<1, std::tuple<Stages...>>;
-    using WarpStage = std::tuple_element_t<2, std::tuple<Stages...>>;
-    using SourceStage = std::tuple_element_t<3, std::tuple<Stages...>>;
-    using MaterialStage = std::tuple_element_t<4, std::tuple<Stages...>>;
-    using ColorStage = std::tuple_element_t<5, std::tuple<Stages...>>;
-
-    static constexpr bool EMPTY_POLICIES = (std::is_empty_v<Stages> && ...);
-    static constexpr bool ORDER =
-        OuterStage::KIND == InverseStageKind::OUTER_CAMERA &&
-        SurfaceStage::KIND == InverseStageKind::SURFACE_PROJECT &&
-        WarpStage::KIND == InverseStageKind::PLANAR_WARP &&
-        SourceStage::KIND == InverseStageKind::SOURCE &&
-        MaterialStage::KIND == InverseStageKind::MATERIAL &&
-        ColorStage::KIND == InverseStageKind::COLOR;
-    static constexpr bool RUN_RETURNS =
-        (std::is_same_v<decltype(Stages::run(
-                            std::declval<const typename Stages::Input &>(),
-                            std::declval<const FrameState &>())),
-                        typename Stages::Output> &&
-         ...);
-    static constexpr bool CARRIERS =
-        std::is_same_v<typename OuterStage::Input, Vector> &&
-        std::is_same_v<typename OuterStage::Output,
-                       typename SurfaceStage::Input> &&
-        std::is_same_v<typename SurfaceStage::Output,
-                       typename WarpStage::Input> &&
-        std::is_same_v<typename WarpStage::Output,
-                       typename SourceStage::Input> &&
-        std::is_same_v<typename SourceStage::Output,
-                       typename MaterialStage::Input> &&
-        std::is_same_v<typename MaterialStage::Output,
-                       typename ColorStage::Input> &&
-        std::is_same_v<typename ColorStage::Output, Color4>;
-    static constexpr bool TERMINALS =
-        !OuterStage::TERMINAL && !SurfaceStage::TERMINAL &&
-        !WarpStage::TERMINAL && !SourceStage::TERMINAL &&
-        !MaterialStage::TERMINAL && ColorStage::TERMINAL;
-    static constexpr bool APPROXIMATIONS =
-        (((Stages::APPROXIMATE &&
-           Stages::ORACLE != ApproximationOracleId::NONE &&
-           Stages::METRICS.size() != 0 && Stages::NON_FLOATING_FIELDS_EXACT &&
-           has_final_framebuffer_metric<Stages>()) ||
-          (!Stages::APPROXIMATE &&
-           Stages::ORACLE == ApproximationOracleId::NONE &&
-           Stages::METRICS.size() == 0)) &&
-         ...);
-    // A surface stage that always emits projected edge distance matches its
-    // reference lookup only where the reference also always demands it, which
-    // edge-fade coverage is what guarantees.
-    static constexpr bool EDGE_DISTANCE =
-        !SurfaceStage::EDGE_DISTANCE_UNCONDITIONAL ||
-        MaterialStage::COVERAGE == CoveragePolicy::EDGE_FADE;
-  };
-
-  template <typename... Stages> struct InversePipeline {
-    static constexpr bool ARITY_VALID = sizeof...(Stages) == 6;
-    static constexpr bool CONTRACTS_VALID =
-        (HasTypedInverseStageContract<Stages>::value && ...);
-    using Validation =
-        InversePipelineValidation<ARITY_VALID && CONTRACTS_VALID, Stages...>;
-
-    static_assert(ARITY_VALID, "inverse pipeline: wrong stage count");
-    static_assert(CONTRACTS_VALID, "inverse pipeline: missing stage contract");
-    static_assert(!ARITY_VALID || !CONTRACTS_VALID ||
-                      Validation::EMPTY_POLICIES,
-                  "inverse pipeline: stage policies must be empty");
-    static_assert(!ARITY_VALID || !CONTRACTS_VALID || Validation::ORDER,
-                  "inverse pipeline: wrong stage order");
-    static_assert(!ARITY_VALID || !CONTRACTS_VALID || Validation::RUN_RETURNS,
-                  "inverse pipeline: wrong stage return type");
-    static_assert(!ARITY_VALID || !CONTRACTS_VALID || Validation::CARRIERS,
-                  "inverse pipeline: carrier mismatch");
-    static_assert(!ARITY_VALID || !CONTRACTS_VALID || Validation::TERMINALS,
-                  "inverse pipeline: terminal contract violation");
-    static_assert(!ARITY_VALID || !CONTRACTS_VALID ||
-                      Validation::APPROXIMATIONS,
-                  "inverse pipeline: malformed approximation metadata");
-    static_assert(!ARITY_VALID || !CONTRACTS_VALID || Validation::EDGE_DISTANCE,
-                  "inverse pipeline: unconditional projected edge distance "
-                  "needs edge-fade coverage");
-
-    /**
-     * @brief True when every stage's hardcoded topology matches @p key.
-     * @details Each stage constrains the key facets it compiles in; a facet no
-     * stage names is served at runtime and left unconstrained.
-     */
-    static constexpr bool implements(const TopologyKey &key) {
-      return (Stages::implements(key) && ...);
-    }
-
-    HS_FLASH_MEMBER static Color4 shade(const Vector &view,
-                                        const FrameState &frame) {
-      return run_stage<0>(view, frame);
-    }
-
-  protected:
-    template <size_t Index, typename Input>
-    __attribute__((always_inline)) static Color4
-    run_stage(const Input &input, const FrameState &frame) {
-      using Stage = std::tuple_element_t<Index, std::tuple<Stages...>>;
-      static_assert(std::is_same_v<Input, typename Stage::Input>,
-                    "inverse pipeline: stage input mismatch");
-      static_assert(std::is_same_v<decltype(Stage::run(input, frame)),
-                                   typename Stage::Output>,
-                    "inverse pipeline: wrong stage return type");
-      const typename Stage::Output output = Stage::run(input, frame);
-      if constexpr (Index + 1 == sizeof...(Stages))
-        return output;
-      else
-        return run_stage<Index + 1>(output, frame);
-    }
-  };
+  using InversePipeline = Pullback::Pipeline<ShaderBallBinding, Stages...>;
 
   struct OuterCameraStage {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
     static constexpr InverseStageKind KIND = InverseStageKind::OUTER_CAMERA;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE = false;
@@ -2210,6 +2028,8 @@ private:
 
   template <Projection ProjectionPolicy, SurfaceLens Lens>
   struct SelectedSurfaceProjectStage {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
     static constexpr InverseStageKind KIND = InverseStageKind::SURFACE_PROJECT;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE =
@@ -2294,6 +2114,8 @@ private:
   };
 
   struct SinusoidalCurlSurfaceStage {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
     static constexpr InverseStageKind KIND = InverseStageKind::SURFACE_PROJECT;
     static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
     static constexpr bool APPROXIMATE = false;
@@ -2334,6 +2156,8 @@ private:
 
   template <WarpStageKind Outer, WarpStageKind Inner>
   struct SelectedPlanarWarpStage {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
     static_assert(Outer == WarpStageKind::NONE ||
                   Outer == WarpStageKind::AFFINE_FRAME ||
                   Outer == WarpStageKind::WAVE_SHEAR ||
@@ -2414,6 +2238,8 @@ private:
   };
 
   template <Function SourcePolicy> struct SourceStage {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
     static constexpr InverseStageKind KIND = InverseStageKind::SOURCE;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE = false;
@@ -2450,6 +2276,8 @@ private:
   };
 
   template <CoveragePolicy Coverage> struct LinearMaterialStage {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
     static_assert(Coverage == CoveragePolicy::OPAQUE ||
                   Coverage == CoveragePolicy::EDGE_FADE ||
                   Coverage == CoveragePolicy::PROJECTION_WEIGHT_SQUARED ||
@@ -2500,6 +2328,8 @@ private:
   };
 
   struct IsoContourProjectionWeightMaterialStage {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
     static constexpr InverseStageKind KIND = InverseStageKind::MATERIAL;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE = false;
@@ -2538,6 +2368,8 @@ private:
   };
 
   struct ColorStage {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
     static constexpr InverseStageKind KIND = InverseStageKind::COLOR;
     static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
     static constexpr bool APPROXIMATE = true;
@@ -4587,8 +4419,8 @@ private:
     } else {
       color = frame.resources.generated_palette->get(palette_value);
       if (frame.prepared_hue_rotation.active) {
-        const float amount = wrap_t(frame.params.color.hue_shift_amount *
-                                    sample.warp_displacement);
+        const float amount =
+            wrap_t(frame.params.color.hue_shift_amount * sample.path_length);
         if (amount != 0.0f)
           color.color = sample_hue_rotation_lut(frame.prepared_hue_rotation,
                                                 palette_value, amount);
