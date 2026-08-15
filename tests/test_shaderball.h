@@ -69,6 +69,14 @@ struct ShaderBallWhiteBox {
   using InverseStageKind = SB::InverseStageKind;
   using CodeEmission = SB::CodeEmission;
   using ApproximationOracleId = SB::ApproximationOracleId;
+  using ProjectionStateProvider = SB::ProjectionStateProvider;
+  using SurfaceStateProvider = SB::SurfaceStateProvider;
+  using LensStateProvider = SB::LensStateProvider;
+  using SourceStateProvider = SB::SourceStateProvider;
+  using ValueStateProvider = SB::ValueStateProvider;
+  using ColorStateProvider = SB::ColorStateProvider;
+  template <bool Outer>
+  using WarpStateProvider = SB::template WarpStateProvider<Outer>;
 
   static constexpr float AXIS_EPS = SB::GNOMONIC_AXIS_EPS;
   static constexpr uint32_t HUE_STEP = SB::HUE_STEP;
@@ -3510,6 +3518,56 @@ inline void test_shaderball_fast_peirce_square() {
 }
 
 /** @brief The inverse manifest has unique, canonical, selectable programs. */
+inline void test_shaderball_operator_catalog_census() {
+  using WB = ShaderBallWhiteBox;
+  static_assert(WB::NUM_FUNCTIONS == 7);
+  static_assert(WB::NUM_PROJECTIONS == 7);
+  static_assert(WB::NUM_LENSES == 13);
+  static_assert(WB::NUM_SURFACE_NOISE == 3);
+  static_assert(WB::NUM_SURFACE_CURL_INTEGRATORS == 3);
+  static_assert(WB::NUM_WARPS == 8);
+  static_assert(WB::NUM_NOISE_BASES == 3);
+  static_assert(WB::NUM_POLAR_MODES == 2);
+  static_assert(WB::NUM_CURL_INTEGRATORS == 3);
+  static_assert(WB::NUM_WARP_ENVELOPES == 3);
+  static_assert(WB::NUM_SIGNALS == 2);
+  static_assert(WB::NUM_VALUE_TRANSFERS == 4);
+  static_assert(WB::NUM_COVERAGE_POLICIES == 5);
+  static_assert(WB::NUM_PALETTE_MAPPINGS == 4);
+  static_assert(WB::NUM_BRIGHTNESS_ENVELOPES == 5);
+  static_assert(WB::NUM_HUE_SHIFT_MODES == 3);
+  static_assert(static_cast<uint8_t>(WB::SurfaceLens::TANGENT_NOISE) == 255);
+  static_assert(static_cast<uint8_t>(WB::WarpStageKind::LEGACY_STEREO_NOISE) ==
+                255);
+
+  using SurfaceDirect = Pullback::Surface::DirectNoise<WB::SurfaceStateProvider,
+                                                       NoiseBasis::RIDGED3>;
+  using SurfaceCurl =
+      Pullback::Surface::CurlNoise<WB::SurfaceStateProvider, NoiseBasis::FBM3,
+                                   Pullback::Surface::Midpoint2x>;
+  using Mobius = Pullback::Lens::Mobius<WB::LensStateProvider>;
+  using Equirectangular =
+      Pullback::Projection::Equirectangular<WB::ProjectionStateProvider>;
+  using Vortex = Pullback::Warp::Vortex<WB::WarpStateProvider<true>>;
+  using Curl =
+      Pullback::Warp::CurlFlow<WB::WarpStateProvider<true>, NoiseBasis::RIDGED3,
+                               Pullback::Warp::Midpoint4,
+                               Pullback::Warp::EdgeFadeEnvelope>;
+  using ProjectedNoise =
+      Pullback::Source::ProjectedNoise<WB::SourceStateProvider,
+                                       NoiseBasis::FBM3>;
+  using SphericalNoise =
+      Pullback::Source::SphericalNoise<WB::SourceStateProvider,
+                                       NoiseBasis::SIMPLEX>;
+  using Generated = Pullback::Color::GeneratedPalette<WB::ColorStateProvider>;
+  static_assert(std::is_empty_v<SurfaceDirect> &&
+                std::is_empty_v<SurfaceCurl> && std::is_empty_v<Mobius> &&
+                std::is_empty_v<Equirectangular> && std::is_empty_v<Vortex> &&
+                std::is_empty_v<Curl> && std::is_empty_v<ProjectedNoise> &&
+                std::is_empty_v<SphericalNoise> && std::is_empty_v<Generated>);
+  HS_EXPECT_TRUE(true);
+}
+
 inline void test_shaderball_inverse_pipeline_manifest() {
   using WB = ShaderBallWhiteBox;
   static_assert(WB::inverse_stage_contracts());
@@ -4847,6 +4905,7 @@ inline void test_shaderball_noise_contour_domains() {
 /** @brief Module entry point for ShaderBall contract tests. */
 inline int run_shaderball_tests() {
   ModuleFixture fixture("shaderball");
+  test_shaderball_operator_catalog_census();
   test_shaderball_inverse_pipeline_manifest();
   test_shaderball_inverse_program_equivalence();
   test_shaderball_full_config_snapshot();
