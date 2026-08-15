@@ -2785,6 +2785,15 @@ private:
 
   HS_FLASH_MEMBER static bool
   pipeline_resources_ready(const FrameState &frame) {
+    if (warp_uses_noise(frame.slots.warp_program.outer.kind) &&
+        frame.resources.outer_warp_noise == nullptr)
+      return false;
+    if (warp_uses_noise(frame.slots.warp_program.inner.kind) &&
+        frame.resources.inner_warp_noise == nullptr)
+      return false;
+    if (is_noise_contour(frame.slots.function) &&
+        frame.resources.source_noise == nullptr)
+      return false;
     if (frame.slots.surface_noise != SurfaceNoise::NONE &&
         frame.resources.surface_noise == nullptr)
       return false;
@@ -2800,21 +2809,6 @@ private:
     return !frame.prepared_hue_noise.active ||
            frame.prepared_hue_noise.lut != nullptr;
   }
-
-#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
-  static bool dynamic_resources_ready(const FrameState &frame) {
-    if (warp_uses_noise(frame.slots.warp_program.outer.kind) &&
-        frame.resources.outer_warp_noise == nullptr)
-      return false;
-    if (warp_uses_noise(frame.slots.warp_program.inner.kind) &&
-        frame.resources.inner_warp_noise == nullptr)
-      return false;
-    if (is_noise_contour(frame.slots.function) &&
-        frame.resources.source_noise == nullptr)
-      return false;
-    return pipeline_resources_ready(frame);
-  }
-#endif
 
   struct FrameShader {
     using ShadeFunction = ShaderBall::ShadeFunction;
@@ -3605,7 +3599,7 @@ private:
       if (selected != InversePipelineId::NONE || !valid_config(config))
         return false;
       shade = &shade_dynamic;
-      resources_ready = &dynamic_resources_ready;
+      resources_ready = &pipeline_resources_ready;
 #else
       return false;
 #endif
