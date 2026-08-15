@@ -140,24 +140,6 @@ sample_simplex_vector(const FastNoiseLite &noise, const Vector &q) {
 
 HS_FLASH_INLINE inline Vector
 sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
-                      const Vector &q, const Vector &v, float direction) {
-  Vector u;
-  if (basis == NoiseBasis::SIMPLEX)
-    u = sample_simplex_vector(noise, q);
-  else
-    u = Vector(sample_noise_vector_channel(noise, basis, q, 0),
-               sample_noise_vector_channel(noise, basis, q, 1),
-               sample_noise_vector_channel(noise, basis, q, 2));
-  u -= dot(u, v) * v;
-  const float length_sq = u.x * u.x + u.y * u.y + u.z * u.z;
-  if (length_sq > 1.0f)
-    u *= fast_rsqrt(length_sq);
-  const float angle = TWO_PI_F * direction;
-  return cosf(angle) * u + sinf(angle) * cross(v, u);
-}
-
-HS_FLASH_INLINE inline Vector
-sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
                       const Vector &q, const Vector &v, float direction_cos,
                       float direction_sin) {
   Vector u;
@@ -172,6 +154,13 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
   if (length_sq > 1.0f)
     u *= fast_rsqrt(length_sq);
   return direction_cos * u + direction_sin * cross(v, u);
+}
+
+HS_FLASH_INLINE inline Vector
+sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
+                      const Vector &q, const Vector &v, float direction) {
+  const float angle = TWO_PI_F * direction;
+  return sample_direct_tangent(noise, basis, q, v, cosf(angle), sinf(angle));
 }
 
 __attribute__((always_inline)) inline Vector
