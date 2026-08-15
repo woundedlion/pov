@@ -1387,7 +1387,7 @@ The clip reads the 256 × 128 flash master by default. An effect that clips per 
 #### Palette Modifiers
 
 Modifiers compose around any palette source at compile time via
-`StaticPalette<Source, Coords<...>, Colors<...>, Wrap>`. There are two axes: a
+`StaticPalette<Source, Coords<...>, Colors<...>, Wrap, Shade>`. There are two axes: a
 **coordinate** chain that remaps the lookup parameter `t` *before* the source is
 sampled, and a **color** chain that reshapes the resulting sample *after*, with
 the original coordinate in hand. Both chains are inlined by fold expression with
@@ -1402,6 +1402,19 @@ wave, `InsetModifier`'s clamp) clears an unbounded predecessor; `ReverseModifier
 and `MirrorModifier` are bounded on `[0,1]` but pass an out-of-range coordinate
 straight through — chaining one after a cycling modifier needs a `WrapModifier`
 between them and `Wrap=false`.
+
+`Shade` (a `ShadeCoord`, default `MATCH_WRAP`) selects which coordinate the
+color chain receives:
+
+| `ShadeCoord` | Coordinate handed to `shade()` |
+|---|---|
+| `MATCH_WRAP` | The lookup coordinate when `Wrap` is on, the raw input when it is off |
+| `LOOKUP` | The coordinate the source was sampled at, whatever `Wrap` is |
+| `RAW_INPUT` | The raw pre-modifier input, whatever `Wrap` is |
+
+It is a separate knob rather than a second meaning of `Wrap` because the
+coordinate chain can force `Wrap` through the `static_assert`s above: a shade
+that must read the un-wrapped input still composes behind a cycling modifier.
 
 Coordinate modifiers (`modify(float) -> float`):
 
@@ -1466,6 +1479,75 @@ StaticPalette<ProceduralPalette, Coords<NoiseWarpModifier>,
 | `SolidColorPalette` | Returns a single fixed color for every coordinate |
 | `PaletteFacade<SP>` | Exposes a compile-time `StaticPalette` composition through the polymorphic `Palette` API, for preset tables and baking |
 | `BakedPalette` | Precomputes any palette source (a `Palette` or a `StaticPalette`) into a fast 16-bit LUT for O(1) lookup. Arena-allocated. |
+
+#### Recipe-Compiled Palettes
+
+`GenerativePalette` is not configured field by field — it is *compiled* from a
+`PaletteRecipe`, a flat POD of authoring controls that canonicalizes into the
+control keys the palette evaluates. The recipe is the persisted form, so it
+carries a `schema_version` pinned to `PaletteRecipe::SCHEMA_VERSION`; a stored
+recipe from another schema is rejected rather than silently misread.
+
+| Field | Description |
+|---|---|
+| `input` | `PaletteInputWindow{offset, span}` — the sub-window of the source domain the recipe maps across |
+| `domain` | `PaletteDomain`: `STRAIGHT`, `MIRROR` (ping-pong), `VIGNETTE` (fades in and out at both ends), `FALLOFF` (holds, then fades out), `LOOP` (seamless, whole-turn hue winding) |
+| `easing` | `SegmentEase` between control keys: `LINEAR`, `COSINE`, `SMOOTHSTEP` |
+| `color_path` | `ColorPath::OKLCH_ARC` (polar, shortest-arc hue) or `OKLAB_CARTESIAN` (rectangular, straight through the neutral axis) |
+| `hue` | `HueControls`: `mode` (`HARMONY`, `SWEEP`, `CUSTOM`), `harmony` (`PaletteHarmony`), `direction` (`HueDirection`), `base_turns`, `spread_turns`, `sweep_turns`, `custom_turns[PALETTE_MAX_KEYS]` |
+| `lightness` | `AxisControls`: `curve` (`AxisCurve`: `CONSTANT`, `ASCENDING`, `DESCENDING`, `BELL`, `CUP`, `CUSTOM`), `center`, `range`, `custom[]` |
+| `chroma` | `ChromaControls`: the same curve/center/range/custom, plus `basis` (`ChromaBasis::LOCAL_GAMUT` or `ABSOLUTE`; `PATH_MINIMUM` holds its ordinal but is unimplemented and fails compilation) and `headroom` |
+| `hue_torsion` | Shifts each key's hue by `hue_torsion * (L - 0.5)`, so the light and dark ends drift apart |
+| `falloff_start` | Where the `FALLOFF` domain's fade reaches zero; must lie in `(2/3, 1)` under that domain, and is canonicalized back to its default under any other |
+
+Compilation both validates and normalizes.
+`GenerativePalette::try_compile(input, output, canonical, status)` returns false
+on rejection and leaves `output` untouched; the constructor takes the same path
+and fail-fast traps instead. `PaletteCompileStatus` carries the verdict:
+
+| Member | Description |
+|---|---|
+| `code` | `PaletteCompileCode`: `OK`, `INVALID_SCHEMA`, `NON_FINITE`, `INVALID_ENUM`, `HUE_LIMIT`, `NON_INTEGER_LOOP_SWEEP`, `INVALID_FALLOFF_START`, `INCOMPATIBLE_OPTIONS` |
+| `field` | The `PaletteRecipeField` naming the offending control, so an authoring tool can point at it |
+| `adjustments` | `PaletteAdjustments`: three `PaletteRecipeField` bitmasks — `wrapped_fields`, `clamped_fields`, `canonicalized_fields` — recording every silent normalization the compile applied |
+
+A successful compile also hands back the `canonical` recipe: the normalized form
+the palette was actually built from, which is what an authoring tool should
+persist rather than the raw input.
+
+The `PaletteRecipes` namespace collects the stock builders — `hue_turns()`,
+`harmony()`, `balanced_analogous()`, `profile()`, `random_profile()`,
+`from_oklch_keys()`, `from_colors()`, `isolight_spectral_loop()` and
+`tonal_monochrome()` — and `core/color/effect_palette_recipes.h` holds the
+per-effect recipes the roster renders.
+
+#### Palette Cycling
+
+`PaletteCycler` (`core/color/palette_cycler.h`) drives a display LUT through a
+sequence of palettes over time: it dwells on an entry for `dwell_frames`, then
+fades into the next over `fade_frames` (a zero dwell chains fades back to back).
+Effects call `step()` once per frame and shade from `palette()`, a
+`BakedPalette` — outside a fade the display is a bit-exact bake of the current
+entry.
+
+The fade mechanism is chosen per adjacent pair at `init()`. Two morph-compatible
+`GenerativePalette`s fade by **key-space morph**, interpolating control keys for
+perceptually coherent hue travel; every other pair — composed, prebaked, or
+morph-incompatible — falls back to a **baked-LUT crossfade**. An `Entry`
+accordingly accepts a `GenerativePalette`, any `Palette`, or a `BakedPalette`,
+so a mixed sequence of up to `MAX_ENTRIES` cycles correctly. Entries are
+caller-owned and must outlive the cycler; `Entry`'s rvalue overloads are deleted
+so a temporary cannot bind.
+
+`init_generated()` replaces the fixed entry array with a `NextPaletteFn`
+provider that fills palette *n* on demand, for an endless non-repeating cycle;
+successive palettes must stay morph-compatible and every retarget is fail-fast
+checked. Arena cost is declared up front — `display_arena_bytes()`,
+`crossfade_arena_bytes()`, `morph_arena_bytes()`, and the
+`required_arena_bytes()` / `generated_arena_bytes()` worst cases — so an effect
+sizes its arena without probing. `advance_without_display()` keeps the timeline
+and the provider moving without rebuilding the LUT; a later `step()` rebuilds it
+at the current phase.
 
 ### 7.7 The Mesh System (`core/mesh/`)
 
