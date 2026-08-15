@@ -1994,8 +1994,7 @@ private:
       return frame.prepared_surface_noise.direction_sin;
     }
     static bool path_length_required(const FrameState &frame) {
-      return frame.prepared_hue_rotation.active &&
-             frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT;
+      return tracks_displacement(frame);
     }
   };
 
@@ -2035,6 +2034,9 @@ private:
         return *frame.resources.outer_warp_noise;
       else
         return *frame.resources.inner_warp_noise;
+    }
+    static bool path_length_required(const FrameState &frame) {
+      return tracks_displacement(frame);
     }
   };
 
@@ -2433,14 +2435,17 @@ private:
     __attribute__((always_inline)) static SourceInput
     run(const ProjectedLookup &projected, const FrameState &frame) {
       HS_SB_STAGE_MARK(stage_start);
+      const bool path_length_required = tracks_displacement(frame);
       const PlanarWarpStageResult outer = selected_stage<Outer>(
           projected.coords, projected, frame.slots.warp_program.outer,
           frame.params.warp.outer, frame.clocks.warp_outer_phase,
-          frame.resources.outer_warp_noise, frame.prepared_warp.outer);
+          frame.resources.outer_warp_noise, frame.prepared_warp.outer,
+          path_length_required);
       const PlanarWarpStageResult inner = selected_stage<Inner>(
           outer.coords, projected, frame.slots.warp_program.inner,
           frame.params.warp.inner, frame.clocks.warp_inner_phase,
-          frame.resources.inner_warp_noise, frame.prepared_warp.inner);
+          frame.resources.inner_warp_noise, frame.prepared_warp.inner,
+          path_length_required);
       const Complex net_delta(outer.delta.re + inner.delta.re,
                               outer.delta.im + inner.delta.im);
       const PlanarWarpResult warped{inner.coords, net_delta,
@@ -2455,26 +2460,29 @@ private:
     selected_stage(const Complex &input, const ProjectedLookup &projected,
                    const WarpStageSpec &spec, const WarpStageParams &params,
                    float phase, const FastNoiseLite *noise,
-                   const PreparedWarpStage &prepared) {
+                   const PreparedWarpStage &prepared,
+                   bool path_length_required) {
       if constexpr (Kind == WarpStageKind::NONE) {
         return {input, Complex(), 0.0f, 0.0f};
       } else if constexpr (Kind == WarpStageKind::AFFINE_FRAME) {
-        return warp_affine_frame(input, params, prepared);
+        return warp_affine_frame(input, params, prepared, path_length_required);
       } else if constexpr (Kind == WarpStageKind::WAVE_SHEAR) {
-        return warp_wave_shear(input, params, phase, params.strength, prepared);
+        return warp_wave_shear(input, params, phase, params.strength, prepared,
+                               path_length_required);
       } else if constexpr (Kind == WarpStageKind::VECTOR_NOISE) {
         const float amplitude =
             params.strength *
             warp_envelope(projected, spec.envelope, params.edge_width);
         return warp_vector_noise(input, spec, params, amplitude, *noise,
-                                 prepared);
+                                 prepared, path_length_required);
       } else if constexpr (Kind == WarpStageKind::POLAR_CHART) {
-        return warp_polar_chart(input, spec, params, phase);
+        return warp_polar_chart(input, spec, params, phase,
+                                path_length_required);
       } else {
         static_assert(Kind == WarpStageKind::MIRROR_TILE);
         HS_SB_STAGE_MARK(mirror_start);
         const PlanarWarpStageResult result = finish_closed_form_warp(
-            input, mirror_tile(input, params, prepared));
+            input, mirror_tile(input, params, prepared), path_length_required);
         HS_SB_STAGE_SPAN(mirror_tile, mirror_start);
         return result;
       }
@@ -4154,10 +4162,16 @@ private:
     return lensed;
   }
 
+  /** @brief Whether this frame's colorizer reads displacement metadata. */
+  __attribute__((always_inline)) static bool
+  tracks_displacement(const FrameState &frame) {
+    return frame.prepared_hue_rotation.active &&
+           frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT;
+  }
+
   __attribute__((always_inline)) static float
   surface_noise_path_length(const Vector &step, const FrameState &frame) {
-    if (!frame.prepared_hue_rotation.active ||
-        frame.slots.hue_shift != HueShiftMode::WARP_DISPLACEMENT)
+    if (!tracks_displacement(frame))
       return 0.0f;
     return sqrtf(dot(step, step));
   }
@@ -4567,14 +4581,17 @@ private:
   HS_FLASH_MEMBER static PlanarWarpResult
   planar_warp_lookup(const ProjectedLookup &projected,
                      const FrameState &frame) {
+    const bool path_length_required = tracks_displacement(frame);
     const PlanarWarpStageResult outer = warp_stage_lookup(
         projected.coords, projected, frame.slots.warp_program.outer,
         frame.params.warp.outer, frame.clocks.warp_outer_phase,
-        frame.resources.outer_warp_noise, frame.prepared_warp.outer);
+        frame.resources.outer_warp_noise, frame.prepared_warp.outer,
+        path_length_required);
     const PlanarWarpStageResult inner = warp_stage_lookup(
         outer.coords, projected, frame.slots.warp_program.inner,
         frame.params.warp.inner, frame.clocks.warp_inner_phase,
-        frame.resources.inner_warp_noise, frame.prepared_warp.inner);
+        frame.resources.inner_warp_noise, frame.prepared_warp.inner,
+        path_length_required);
     const Complex net_delta(outer.delta.re + inner.delta.re,
                             outer.delta.im + inner.delta.im);
     return {inner.coords, net_delta, outer.path_length + inner.path_length};
@@ -4582,56 +4599,66 @@ private:
 #endif
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
-  finish_closed_form_warp(const Complex &input, const Complex &output) {
-    return Pullback::Warp::finish_closed_form(input, output);
+  finish_closed_form_warp(const Complex &input, const Complex &output,
+                          bool path_length_required) {
+    return Pullback::Warp::finish_closed_form(input, output,
+                                              path_length_required);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_affine_frame(const Complex &input, const WarpStageParams &,
-                    const PreparedWarpStage &prepared) {
-    return Pullback::Warp::affine_frame(input, prepared);
+                    const PreparedWarpStage &prepared,
+                    bool path_length_required) {
+    return Pullback::Warp::affine_frame(input, prepared, path_length_required);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_wave_shear(const Complex &input, const WarpStageParams &params,
                   float stage_phase, float amplitude,
-                  const PreparedWarpStage &prepared) {
+                  const PreparedWarpStage &prepared,
+                  bool path_length_required) {
     return Pullback::Warp::wave_shear(input, params, stage_phase, amplitude,
-                                      prepared);
+                                      prepared, path_length_required);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
-  warp_vortex(const Complex &input, const PreparedWarpStage &prepared) {
-    return Pullback::Warp::vortex(input, prepared);
+  warp_vortex(const Complex &input, const PreparedWarpStage &prepared,
+              bool path_length_required) {
+    return Pullback::Warp::vortex(input, prepared, path_length_required);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_vector_noise(const Complex &input, const WarpStageSpec &spec,
                     const WarpStageParams &params, float amplitude,
                     const FastNoiseLite &noise,
-                    const PreparedWarpStage &prepared) {
+                    const PreparedWarpStage &prepared,
+                    bool path_length_required) {
     return Pullback::Warp::vector_noise(input, params, amplitude, noise,
-                                        spec.basis, prepared);
+                                        spec.basis, prepared,
+                                        path_length_required);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_curl_flow(const Complex &input, const WarpStageSpec &spec,
                  const WarpStageParams &params, float amplitude,
-                 const FastNoiseLite &noise, float stage_phase) {
+                 const FastNoiseLite &noise, float stage_phase,
+                 bool path_length_required) {
     const uint8_t intervals =
         spec.curl_integrator == CurlIntegrator::EULER_1      ? 1
         : spec.curl_integrator == CurlIntegrator::MIDPOINT_2 ? 2
                                                              : 4;
     return Pullback::Warp::curl_flow(input, noise, spec.basis, intervals,
-                                     params.scale, amplitude, stage_phase);
+                                     params.scale, amplitude, stage_phase,
+                                     path_length_required);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
-                   const WarpStageParams &params, float stage_phase) {
+                   const WarpStageParams &params, float stage_phase,
+                   bool path_length_required) {
     return Pullback::Warp::polar_chart(
         input, params, stage_phase, spec.polar_mode == PolarMode::LOGARITHMIC,
-        spec.polar_harmonic);
+        spec.polar_harmonic, path_length_required);
   }
 
   /**
@@ -4645,16 +4672,20 @@ private:
    * @param stage_noise Noise resource bound to this stage; may be null for
    *        kinds that sample no noise.
    * @param prepared Per-frame precomputation for this stage.
+   * @param path_length_required Whether the frame's colorizer reads the
+   *        displacement scalars.
    * @return Stage output coordinates, the delta it applied, its deformation,
    *         and the path length travelled.
    * @details Path length equals the deformation for the closed-form kinds and
-   * the integrated arc length for curl flow.
+   * the integrated arc length for curl flow. Both scalars are zero when
+   * @p path_length_required is false.
    */
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_stage_lookup(const Complex &input, const ProjectedLookup &projected,
                     const WarpStageSpec &spec, const WarpStageParams &params,
                     float stage_phase, const FastNoiseLite *stage_noise,
-                    const PreparedWarpStage &prepared) {
+                    const PreparedWarpStage &prepared,
+                    bool path_length_required) {
     if (spec.kind == WarpStageKind::NONE)
       return {input, Complex(), 0.0f, 0.0f};
     const float envelope =
@@ -4665,34 +4696,36 @@ private:
     case WarpStageKind::LEGACY_STEREO_NOISE:
       break;
     case WarpStageKind::AFFINE_FRAME:
-      return warp_affine_frame(input, params, prepared);
+      return warp_affine_frame(input, params, prepared, path_length_required);
     case WarpStageKind::WAVE_SHEAR:
-      return warp_wave_shear(input, params, stage_phase, amplitude, prepared);
+      return warp_wave_shear(input, params, stage_phase, amplitude, prepared,
+                             path_length_required);
     case WarpStageKind::VORTEX:
-      return warp_vortex(input, prepared);
+      return warp_vortex(input, prepared, path_length_required);
     case WarpStageKind::VECTOR_NOISE:
       if (amplitude == 0.0f)
         return {input, Complex(), 0.0f, 0.0f};
       HS_CHECK(stage_noise != nullptr,
                "ShaderBall vector warp has no noise resource");
       return warp_vector_noise(input, spec, params, amplitude, *stage_noise,
-                               prepared);
+                               prepared, path_length_required);
     case WarpStageKind::CURL_FLOW:
       if (amplitude == 0.0f)
         return {input, Complex(), 0.0f, 0.0f};
       HS_CHECK(stage_noise != nullptr,
                "ShaderBall curl warp has no noise resource");
       return warp_curl_flow(input, spec, params, amplitude, *stage_noise,
-                            stage_phase);
+                            stage_phase, path_length_required);
     case WarpStageKind::MIRROR_TILE: {
       HS_SB_STAGE_MARK(mirror_start);
-      const PlanarWarpStageResult result =
-          finish_closed_form_warp(input, mirror_tile(input, params, prepared));
+      const PlanarWarpStageResult result = finish_closed_form_warp(
+          input, mirror_tile(input, params, prepared), path_length_required);
       HS_SB_STAGE_SPAN(mirror_tile, mirror_start);
       return result;
     }
     case WarpStageKind::POLAR_CHART:
-      return warp_polar_chart(input, spec, params, stage_phase);
+      return warp_polar_chart(input, spec, params, stage_phase,
+                              path_length_required);
     }
     __builtin_unreachable();
   }
@@ -4715,8 +4748,10 @@ private:
         spec.curl_integrator == CurlIntegrator::EULER_1      ? 1
         : spec.curl_integrator == CurlIntegrator::MIDPOINT_2 ? 2
                                                              : 4;
+    constexpr bool path_length_required = true;
     const PlanarWarpStageResult result = Pullback::Warp::curl_flow(
-        input, noise, spec.basis, intervals, params.scale, distance, phase);
+        input, noise, spec.basis, intervals, params.scale, distance, phase,
+        path_length_required);
     net_delta = result.delta;
     path_length = result.path_length;
     return result.coords;
@@ -4984,10 +5019,7 @@ private:
   HS_FLASH_MEMBER static SurfaceNoiseResult
   finish_surface_noise_step(const Vector &v, const Vector &step,
                             const FrameState &frame) {
-    return Pullback::Surface::finish_step(
-        v, step,
-        frame.prepared_hue_rotation.active &&
-            frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT);
+    return Pullback::Surface::finish_step(v, step, tracks_displacement(frame));
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
@@ -4997,9 +5029,7 @@ private:
         v, *frame.resources.surface_noise, NoiseBasis::SIMPLEX,
         Pullback::Surface::Integrator::EULER, frame.params.surface_noise.scale,
         frame.prepared_surface_noise.loop_offset,
-        frame.params.surface_noise.strength,
-        frame.prepared_hue_rotation.active &&
-            frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT);
+        frame.params.surface_noise.strength, tracks_displacement(frame));
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
@@ -5009,16 +5039,13 @@ private:
         v, *frame.resources.surface_noise, frame.params.surface_noise.basis,
         frame.params.surface_noise.scale,
         frame.prepared_surface_noise.loop_offset, distance,
-        frame.prepared_hue_rotation.active &&
-            frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT);
+        tracks_displacement(frame));
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
   apply_surface_noise_result(const Vector &v, const FrameState &frame) {
     const SurfaceNoiseParams &params = frame.params.surface_noise;
-    const bool path_length_required =
-        frame.prepared_hue_rotation.active &&
-        frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT;
+    const bool path_length_required = tracks_displacement(frame);
     if (frame.slots.surface_noise == SurfaceNoise::DIRECT) {
       return Pullback::Surface::direct_noise(
           v, *frame.resources.surface_noise, params.basis, params.scale,
