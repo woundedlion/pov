@@ -99,6 +99,8 @@ daydream_checkout := if path_exists("../daydream") == "true" {
 
 # Validate tracked Markdown using the same commands as the ci.yml docs-markdown job.
 docs-check:
+    bash tools/check_test_files.sh 1 "tools/docs_check_tests/test*.py"
+    bash tools/check_test_files.sh 1 "tools/docs_images_tests/test*.py"
     {{py}} -m unittest discover -s tools/docs_check_tests
     {{py}} -m unittest discover -s tools/docs_images_tests
     {{py}} tools/docs_check.py {{daydream_checkout}}
