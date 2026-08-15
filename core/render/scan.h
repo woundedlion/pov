@@ -998,9 +998,7 @@ struct DistortedRingStack {
       const float cp = TrigLUT<W, H>::cos_phi[y];
       if (skip_pole_rows && std::abs(ap.r_val * sp) < SDF::INTERVAL_DENOM_EPS)
         continue;
-      for (int x = 0; x < W; ++x) {
-        if (xc.clipped(x))
-          continue;
+      walk_clip_columns<W>(xc, [&](int x) {
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         const float d = dot(p, axis_v);
         const float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
@@ -1011,7 +1009,7 @@ struct DistortedRingStack {
         if (ihi > n_rings - 1)
           ihi = n_rings - 1;
         if (ilo > ihi)
-          continue;
+          return;
         const float dot_u = dot(p, axis_u);
         const float dot_w = dot(p, axis_w);
         float azimuth = fast_atan2(dot_w, dot_u);
@@ -1046,7 +1044,7 @@ struct DistortedRingStack {
             pipeline.plot(canvas, x, y, frag.color.color, frag.age,
                           frag.color.alpha * alpha);
         }
-      }
+      });
     }
   }
 };
