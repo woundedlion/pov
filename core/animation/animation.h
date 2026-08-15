@@ -21,6 +21,7 @@
 #include <new> // std::launder
 #include <type_traits>
 #include "math/3dmath.h"
+#include "math/stereographic.h"
 #include "engine/platform.h"
 #include "vendor/FastNoiseLite.h"
 #include "engine/generators.h"

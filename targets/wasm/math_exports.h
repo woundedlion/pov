@@ -19,6 +19,7 @@
 #include "core/engine/transformers.h"
 #include "core/math/3dmath.h"
 #include "core/math/geometry.h"
+#include "core/math/stereographic.h"
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <array>
 #include <string>
