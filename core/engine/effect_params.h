@@ -168,9 +168,9 @@ struct ParamDef {
   bool is_bool() const { return target_type == TargetType::BOOL; }
 
   /**
-   * @brief Whether the target stores whole numbers, so the GUI steps by one.
-   * @details True for both an enumerated target and a plain integer one; the
-   * two are told apart by option_count, which only the former sets.
+   * @brief Whether the target's storage is whole-numbered.
+   * @details False for a float-backed enum; callers that mean "steps by one"
+   * test is_enum() as well.
    */
   bool is_integer() const {
     return target_type != TargetType::FLOAT && target_type != TargetType::BOOL;

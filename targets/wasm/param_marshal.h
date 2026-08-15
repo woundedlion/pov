@@ -83,11 +83,11 @@ inline void collect_param_views(const Effect &effect,
                                 std::vector<ParamView> &out) {
   out.clear();
   for (const auto &def : effect.getParameters()) {
-    out.push_back(ParamView{def.name, def.get(), def.get_requested(),
-                            effect.accepted_parameter_value(def), def.min,
-                            def.max, def.is_bool(), def.is_integer(),
-                            def.animated, def.readonly, def.preset, def.options,
-                            def.option_count, def.export_options});
+    out.push_back(ParamView{
+        def.name, def.get(), def.get_requested(),
+        effect.accepted_parameter_value(def), def.min, def.max, def.is_bool(),
+        def.is_integer() || def.is_enum(), def.animated, def.readonly,
+        def.preset, def.options, def.option_count, def.export_options});
   }
 }
 
