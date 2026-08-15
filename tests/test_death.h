@@ -799,6 +799,22 @@ inline void case_zip_aliased_arenas() {
   MeshOps::zip(mesh, arena, arena);
 }
 
+/** @brief Death case: gyro rejects one arena passed as both target and temp. */
+inline void case_gyro_aliased_arenas() {
+  static uint8_t buf[64];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh mesh;
+  MeshOps::gyro(mesh, arena, arena);
+}
+
+/** @brief Death case: bevel rejects one arena passed as both target and temp. */
+inline void case_bevel_aliased_arenas() {
+  static uint8_t buf[64];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh mesh;
+  MeshOps::bevel(mesh, arena, arena);
+}
+
 /**
  * @brief Death case: MeshOps::transform rejects a self-aliased destination.
  * @details set_view() drops the source's owned topology before it is read, so a
@@ -2847,6 +2863,10 @@ inline const Case *all_cases(int &n) {
        "(&target != &temp) needle: target and temp must differ"},
       {"zip_aliased_arenas", case_zip_aliased_arenas, "conway.h",
        "(&target != &temp) zip: target and temp must differ"},
+      {"gyro_aliased_arenas", case_gyro_aliased_arenas, "conway.h",
+       "(&target != &temp) gyro: target and temp must differ"},
+      {"bevel_aliased_arenas", case_bevel_aliased_arenas, "conway.h",
+       "(&target != &temp) bevel: target and temp must differ"},
       {"mesh_transform_aliases_source", case_mesh_transform_aliases_source,
        "conway.h",
        "(&mesh != &transformed) MeshOps::transform source mesh must not alias "
@@ -3490,7 +3510,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  * @details Raise it after adding cases; lower it only alongside a deliberate
  *          removal of the engine guards those cases target.
  */
-constexpr int MIN_COVERED_GUARD_SITES = 121;
+constexpr int MIN_COVERED_GUARD_SITES = 123;
 
 /** @brief One file's approved count of guard sites no case pins. */
 struct GuardGapAllowance {
