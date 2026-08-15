@@ -1511,24 +1511,22 @@ private:
    * @brief Fills a swept mesh's vertices by slerping between two endpoints.
    * @param out Output mesh whose vertices are bound and filled.
    * @param arena Arena backing the vertex array.
-   * @param from Opening vertices (indices [shared, n) only).
+   * @param from Opening vertices.
    * @param to Arrival vertices.
    * @param n Vertex count.
-   * @param shared Prefix of @p to copied verbatim (vertices that never move).
    * @param k Slerp fraction in [0, 1]; 1 copies @p to verbatim so the closing
    * bookend swap is bitwise, not 1 ULP off.
    */
   HS_COLD_MEMBER static void slerp_vertices(PolyMesh &out, Arena &arena,
                                             const Vector *from,
                                             const Vector *to, size_t n,
-                                            size_t shared, float k) {
+                                            float k) {
     out.vertices.bind(arena, n);
     if (k >= 1.0f) {
       out.vertices.append_bulk(to, n);
       return;
     }
-    out.vertices.append_bulk(to, shared);
-    for (size_t i = shared; i < n; ++i)
+    for (size_t i = 0; i < n; ++i)
       out.vertices.push_back(slerp(from[i], to[i], k));
   }
 
@@ -1599,7 +1597,7 @@ private:
   HS_COLD_MEMBER static void relax_at(const Transients &tr, PolyMesh &out,
                                       Arena &arena, float k) {
     slerp_vertices(out, arena, tr.seed.vertices.data(), tr.relaxed.data(),
-                   tr.relaxed.size(), 0, k);
+                   tr.relaxed.size(), k);
     copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
   }
 
