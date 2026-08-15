@@ -226,10 +226,11 @@ template <int W, int H> struct Pipeline<W, H> {
     assert(std::isfinite(x) && std::isfinite(y));
     // y never wraps; bounded only so the cast below stays in range.
     assert(y >= -H && y < 2 * H);
-    int xi = static_cast<int>(std::round(x));
+    const float xr = std::round(x);
+    // fast_wrap corrects only a single ±W offset, so xr must land in [-W, 2W).
+    assert(xr >= -W && xr < 2 * W);
+    int xi = static_cast<int>(xr);
     int yi = static_cast<int>(std::round(y));
-    // fast_wrap corrects only a single ±W offset, so xi must land in [-W, 2W).
-    assert(xi >= -W && xi < 2 * W);
     if (!cv.clip().contains_y(yi))
       return;
     xi = fast_wrap(xi, W);
@@ -1810,10 +1811,12 @@ public:
             PassFnT &&pass) {
     // Non-finite coords make the int casts below UB and bypass the wrap.
     assert(std::isfinite(x) && std::isfinite(y));
-    int xi = static_cast<int>(std::round(x));
-    // fast_wrap corrects only a single ±W offset, so xi must land in [-W, 2W).
-    assert(xi >= -W && xi < 2 * W);
-    int cx = fast_wrap(xi, W);
+    // y never wraps; bounded only so the cast below stays in range.
+    assert(y >= -H && y < 2 * H);
+    const float xr = std::round(x);
+    // fast_wrap corrects only a single ±W offset, so xr must land in [-W, 2W).
+    assert(xr >= -W && xr < 2 * W);
+    int cx = fast_wrap(static_cast<int>(xr), W);
     int cy = static_cast<int>(std::round(y));
 
     float inv = 1.0f;
@@ -1906,10 +1909,10 @@ public:
     b_col.r = 0;
     b_col.g = 0;
 
-    int xi = static_cast<int>(std::round(x));
-    // fast_wrap corrects only a single ±W offset, so xi must land in [-W, 2W).
-    assert(xi >= -W && xi < 2 * W);
-    xi = fast_wrap(xi, W);
+    const float xr = std::round(x);
+    // fast_wrap corrects only a single ±W offset, so xr must land in [-W, 2W).
+    assert(xr >= -W && xr < 2 * W);
+    int xi = fast_wrap(static_cast<int>(xr), W);
     pass(static_cast<float>(fast_wrap(xi + 1, W)), y, r_col, age, alpha);
     pass(static_cast<float>(fast_wrap(xi + 2, W)), y, g_col, age, alpha);
     pass(static_cast<float>(fast_wrap(xi + 3, W)), y, b_col, age, alpha);
