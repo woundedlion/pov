@@ -2291,7 +2291,7 @@ inline void test_shaderball_additive_delta_precision() {
   const auto result = WB::warp_stage(input, projected, spec, params, frame);
   HS_EXPECT_NEAR(result.delta.re, 0.0f, 1e-8f);
   HS_EXPECT_NEAR(result.delta.im, 0.001f, 1e-7f);
-  HS_EXPECT_NEAR(result.deformation, 0.001f, 1e-7f);
+  HS_EXPECT_NEAR(result.path_length, 0.001f, 1e-7f);
   HS_EXPECT_EQ(result.coords.im, input.im);
 
   frame.prepared_hue_rotation.active = false;
@@ -2300,7 +2300,6 @@ inline void test_shaderball_additive_delta_precision() {
   HS_EXPECT_EQ(untracked.coords.im, result.coords.im);
   HS_EXPECT_EQ(untracked.delta.re, result.delta.re);
   HS_EXPECT_EQ(untracked.delta.im, result.delta.im);
-  HS_EXPECT_EQ(untracked.deformation, 0.0f);
   HS_EXPECT_EQ(untracked.path_length, 0.0f);
 }
 
@@ -4219,7 +4218,6 @@ inline void test_shaderball_kernel_catalog() {
                                          spec, zero_params, frame);
     HS_EXPECT_EQ(identity.coords.re, input.re);
     HS_EXPECT_EQ(identity.coords.im, input.im);
-    HS_EXPECT_EQ(identity.deformation, 0.0f);
     HS_EXPECT_EQ(identity.path_length, 0.0f);
   }
   for (uint8_t value = 6; value <= 7; ++value) {

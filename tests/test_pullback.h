@@ -84,8 +84,7 @@ struct WarpStage
                                    const FrameState &frame) {
     record(frame);
     return {input,
-            {Complex(input.coords.re + 2.0f, input.coords.im + 3.0f),
-             Complex(2.0f, 3.0f), 4.0f}};
+            {Complex(input.coords.re + 2.0f, input.coords.im + 3.0f), 4.0f}};
   }
 };
 
@@ -151,8 +150,7 @@ struct WarpOne : Pullback::ExactPolicy {
   static Pullback::WarpStepResult apply(const Complex &input,
                                         const Pullback::ProjectionSample &,
                                         const TestFrame &) {
-    return {Complex(input.re + 1.0f, input.im), Complex(1.0f, 0.0f), 1.0f,
-            2.0f};
+    return {Complex(input.re + 1.0f, input.im), Complex(1.0f, 0.0f), 2.0f};
   }
 };
 
@@ -161,7 +159,7 @@ struct WarpTwo : Pullback::ExactPolicy {
                                         const Pullback::ProjectionSample &p,
                                         const TestFrame &) {
     return {Complex(input.re, input.im + p.coords.im),
-            Complex(0.0f, p.coords.im), 2.0f, 3.0f};
+            Complex(0.0f, p.coords.im), 3.0f};
   }
 };
 
@@ -319,7 +317,7 @@ struct CountingMirrorPolicy : Pullback::ExactPolicy {
                                         const TestFrame &) {
     const auto start = CountingInstrumentation::mark();
     CountingInstrumentation::span<Pullback::ProfileEvent::MIRROR_TILE>(start);
-    return {input, Complex(), 0.0f, 0.0f};
+    return {input, Complex(), 0.0f};
   }
 };
 
@@ -356,10 +354,10 @@ void test_pullback_carrier_contract() {
   static_assert(std::is_trivially_copyable_v<Pullback::MaterialSample>);
   static_assert(sizeof(Pullback::ProjectionSample) == 44);
   static_assert(sizeof(Pullback::SurfaceResult) == 16);
-  static_assert(sizeof(Pullback::WarpStepResult) == 24);
-  static_assert(sizeof(Pullback::WarpResult) == 20);
-  static_assert(sizeof(Pullback::SourceInput) == 64);
-  static_assert(sizeof(Pullback::MaterialInput) == 68);
+  static_assert(sizeof(Pullback::WarpStepResult) == 20);
+  static_assert(sizeof(Pullback::WarpResult) == 12);
+  static_assert(sizeof(Pullback::SourceInput) == 56);
+  static_assert(sizeof(Pullback::MaterialInput) == 60);
   static_assert(sizeof(Pullback::MaterialSample) == 24);
   static_assert(alignof(Pullback::ProjectionSample) == 4);
   static_assert(alignof(Pullback::SurfaceResult) == 4);
@@ -376,12 +374,10 @@ void test_pullback_carrier_contract() {
   static_assert(offsetof(Pullback::ProjectionSample, surface_path_length) ==
                 40);
   static_assert(offsetof(Pullback::WarpStepResult, delta) == 8);
-  static_assert(offsetof(Pullback::WarpStepResult, deformation) == 16);
-  static_assert(offsetof(Pullback::WarpStepResult, path_length) == 20);
-  static_assert(offsetof(Pullback::WarpResult, net_delta) == 8);
-  static_assert(offsetof(Pullback::WarpResult, path_length) == 16);
+  static_assert(offsetof(Pullback::WarpStepResult, path_length) == 16);
+  static_assert(offsetof(Pullback::WarpResult, path_length) == 8);
   static_assert(offsetof(Pullback::SourceInput, warped) == 44);
-  static_assert(offsetof(Pullback::MaterialInput, field) == 64);
+  static_assert(offsetof(Pullback::MaterialInput, field) == 56);
   static_assert(offsetof(Pullback::MaterialSample, sphere) == 8);
   static_assert(offsetof(Pullback::MaterialSample, path_length) == 20);
   HS_EXPECT_EQ(projected.traits, 0);
@@ -524,8 +520,6 @@ void test_pullback_stage_combinators() {
   const Pullback::SourceInput warped = CoreWarp::run(projected, frame);
   HS_EXPECT_EQ(warped.warped.coords.re, 2.0f);
   HS_EXPECT_EQ(warped.warped.coords.im, 4.0f);
-  HS_EXPECT_EQ(warped.warped.net_delta.re, 1.0f);
-  HS_EXPECT_EQ(warped.warped.net_delta.im, 2.0f);
   HS_EXPECT_EQ(warped.warped.path_length, 5.0f);
   HS_EXPECT_EQ(warped.projected.coords.re, 1.0f);
   HS_EXPECT_EQ(warped.projected.coords.im, 2.0f);

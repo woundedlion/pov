@@ -2446,9 +2446,7 @@ private:
           frame.params.warp.inner, frame.clocks.warp_inner_phase,
           frame.resources.inner_warp_noise, frame.prepared_warp.inner,
           path_length_required);
-      const Complex net_delta(outer.delta.re + inner.delta.re,
-                              outer.delta.im + inner.delta.im);
-      const PlanarWarpResult warped{inner.coords, net_delta,
+      const PlanarWarpResult warped{inner.coords,
                                     outer.path_length + inner.path_length};
       HS_SB_STAGE_SPAN(planar_warp, stage_start);
       return {projected, warped};
@@ -2463,7 +2461,7 @@ private:
                    const PreparedWarpStage &prepared,
                    bool path_length_required) {
       if constexpr (Kind == WarpStageKind::NONE) {
-        return {input, Complex(), 0.0f, 0.0f};
+        return {input, Complex(), 0.0f};
       } else if constexpr (Kind == WarpStageKind::AFFINE_FRAME) {
         return warp_affine_frame(input, params, prepared, path_length_required);
       } else if constexpr (Kind == WarpStageKind::WAVE_SHEAR) {
@@ -4576,8 +4574,8 @@ private:
    * @param projected Projection output; supplies the stage input coordinates
    *        and the weight and edge distance the stage envelopes read.
    * @param frame Frame snapshot.
-   * @return Source-side coordinates plus the summed delta and path length
-   *         accumulated by the warp program.
+   * @return Source-side coordinates plus the path length accumulated by the
+   *         warp program.
    * @details Pullback order is Planar Warp 1 then Planar Warp 2, the reverse
    * of the authored order `source -> Warp 2 -> Warp 1 -> projection`.
    */
@@ -4597,9 +4595,7 @@ private:
         frame.params.warp.inner, frame.clocks.warp_inner_phase,
         frame.resources.inner_warp_noise, frame.prepared_warp.inner,
         path_length_required);
-    const Complex net_delta(outer.delta.re + inner.delta.re,
-                            outer.delta.im + inner.delta.im);
-    return {inner.coords, net_delta, outer.path_length + inner.path_length};
+    return {inner.coords, outer.path_length + inner.path_length};
   }
 #endif
 
@@ -4678,11 +4674,11 @@ private:
    *        kinds that sample no noise.
    * @param prepared Per-frame precomputation for this stage.
    * @param path_length_required Whether the frame's colorizer reads the
-   *        displacement scalars.
-   * @return Stage output coordinates, the delta it applied, its deformation,
-   *         and the path length travelled.
-   * @details Path length equals the deformation for the closed-form kinds and
-   * the integrated arc length for curl flow. Both scalars are zero when
+   *        displacement scalar.
+   * @return Stage output coordinates, the delta it applied, and the path length
+   *         travelled.
+   * @details Path length is the direct displacement for the closed-form kinds
+   * and the integrated arc length for curl flow. It is zero when
    * @p path_length_required is false.
    */
   HS_FLASH_MEMBER static PlanarWarpStageResult
@@ -4692,7 +4688,7 @@ private:
                     const PreparedWarpStage &prepared,
                     bool path_length_required) {
     if (spec.kind == WarpStageKind::NONE)
-      return {input, Complex(), 0.0f, 0.0f};
+      return {input, Complex(), 0.0f};
     const float envelope =
         warp_envelope(projected, spec.envelope, params.edge_width);
     const float amplitude = params.strength * envelope;
@@ -4709,14 +4705,14 @@ private:
       return warp_vortex(input, prepared, path_length_required);
     case WarpStageKind::VECTOR_NOISE:
       if (amplitude == 0.0f)
-        return {input, Complex(), 0.0f, 0.0f};
+        return {input, Complex(), 0.0f};
       HS_CHECK(stage_noise != nullptr,
                "ShaderBall vector warp has no noise resource");
       return warp_vector_noise(input, spec, params, amplitude, *stage_noise,
                                prepared, path_length_required);
     case WarpStageKind::CURL_FLOW:
       if (amplitude == 0.0f)
-        return {input, Complex(), 0.0f, 0.0f};
+        return {input, Complex(), 0.0f};
       HS_CHECK(stage_noise != nullptr,
                "ShaderBall curl warp has no noise resource");
       return warp_curl_flow(input, spec, params, amplitude, *stage_noise,
@@ -4747,8 +4743,7 @@ private:
   HS_FLASH_MEMBER static Complex
   curl_flow(const Complex &input, const FastNoiseLite &noise,
             const WarpStageSpec &spec, const WarpStageParams &params,
-            float distance, float phase, Complex &net_delta,
-            float &path_length) {
+            float distance, float phase, float &path_length) {
     const uint8_t intervals =
         spec.curl_integrator == CurlIntegrator::EULER_1      ? 1
         : spec.curl_integrator == CurlIntegrator::MIDPOINT_2 ? 2
@@ -4757,7 +4752,6 @@ private:
     const PlanarWarpStageResult result = Pullback::Warp::curl_flow(
         input, noise, spec.basis, intervals, params.scale, distance, phase,
         path_length_required);
-    net_delta = result.delta;
     path_length = result.path_length;
     return result.coords;
   }
