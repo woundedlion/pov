@@ -180,6 +180,13 @@ public:
     return protocol_config.gap_timeout_cycles();
   }
   /**
+   * @brief Burst-duration ceiling.
+   * @return Duration past which an unterminated burst is claimed, in cycles.
+   */
+  uint32_t max_burst_cycles() const {
+    return protocol_config.max_burst_cycles();
+  }
+  /**
    * @brief Glitch-filter window.
    * @return Minimum accepted edge spacing, in cycles.
    */
