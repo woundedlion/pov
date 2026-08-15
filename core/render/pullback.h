@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <concepts>
 #include <cstddef>
@@ -16,6 +17,9 @@
 #include "color/color.h"
 #include "engine/memory.h"
 #include "math/geometry.h"
+#include "math/lenses.h"
+#include "math/projections.h"
+#include "math/stereographic.h"
 
 /**
  * @file pullback.h
@@ -157,6 +161,12 @@ template <typename Stage, typename Binding,
           bool Present = HasStageContract<Stage, Binding>::value>
 struct HasTypedStageContract : std::false_type {};
 
+template <typename T> struct IsApproximationMetricArray : std::false_type {};
+
+template <size_t Size>
+struct IsApproximationMetricArray<std::array<ApproximationMetric, Size>>
+    : std::true_type {};
+
 template <typename Stage, typename Binding>
 struct HasTypedStageContract<Stage, Binding, true>
     : std::bool_constant<
@@ -169,7 +179,9 @@ struct HasTypedStageContract<Stage, Binding, true>
           std::is_same_v<decltype(Stage::NON_FLOATING_FIELDS_EXACT),
                          const bool> &&
           std::is_same_v<decltype(Stage::ORACLE),
-                         const ApproximationOracleId>> {};
+                         const ApproximationOracleId> &&
+          IsApproximationMetricArray<
+              std::remove_cv_t<decltype(Stage::METRICS)>>::value> {};
 
 template <typename Stage> consteval bool has_final_framebuffer_metric() {
   for (const ApproximationMetric &metric : Stage::METRICS)
@@ -444,7 +456,228 @@ struct Identity : ExactPolicy {
   }
 };
 
+struct Glitch : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::glitch_lens(input);
+  }
+};
+
+struct Twist : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::twist_lens(input);
+  }
+};
+
+struct Kaleidoscope : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::kaleidoscope_lens(input);
+  }
+};
+
+struct TetrahedralKaleidoscope : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::polyhedral_kaleidoscope_lens(input,
+                                                lenses::TETRAHEDRAL_MIRRORS);
+  }
+};
+
+struct OctahedralKaleidoscope : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::polyhedral_kaleidoscope_lens(input,
+                                                lenses::OCTAHEDRAL_MIRRORS);
+  }
+};
+
+struct DodecahedralKaleidoscope : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::dodecahedral_kaleidoscope_lens(input);
+  }
+};
+
+struct TriangularPrismKaleidoscope : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::polyhedral_kaleidoscope_lens(
+        input, lenses::TRIANGULAR_PRISM_MIRRORS);
+  }
+};
+
+struct SquarePrismKaleidoscope : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::polyhedral_kaleidoscope_lens(input,
+                                                lenses::SQUARE_PRISM_MIRRORS);
+  }
+};
+
+struct PentagonalPrismKaleidoscope : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::polyhedral_kaleidoscope_lens(
+        input, lenses::PENTAGONAL_PRISM_MIRRORS);
+  }
+};
+
+struct HexagonalPrismKaleidoscope : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::polyhedral_kaleidoscope_lens(
+        input, lenses::HEXAGONAL_PRISM_MIRRORS);
+  }
+};
+
+struct OctagonalPrismKaleidoscope : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return lenses::polyhedral_kaleidoscope_lens(
+        input, lenses::OCTAGONAL_PRISM_MIRRORS);
+  }
+};
+
 } // namespace Lens
+
+namespace Projection {
+
+__attribute__((always_inline)) inline ProjectionSample
+from_kernel(const projections::ProjectionKernelResult &result,
+            float coordinate_scale) {
+  return {{result.coords.re * coordinate_scale,
+           result.coords.im * coordinate_scale},
+          result.region_id,
+          result.component_id,
+          result.boundary_flags,
+          result.fade_edge_distance * fabsf(coordinate_scale),
+          1.0f,
+          result.flags,
+          result.traits,
+          result.edge_class};
+}
+
+__attribute__((always_inline)) inline ProjectionSample
+bonne(const Vector &input, float central_meridian, float standard_parallel,
+      float coordinate_scale) {
+  return from_kernel(
+      projections::bonne_projection(input, central_meridian, standard_parallel),
+      coordinate_scale);
+}
+
+__attribute__((always_inline)) inline ProjectionSample
+peirce(const Vector &input, float central_meridian, uint8_t layout,
+       float layout_scroll, bool edge_distance_required,
+       float coordinate_scale) {
+  return from_kernel(projections::peirce_projection(input, central_meridian,
+                                                    layout, layout_scroll,
+                                                    edge_distance_required),
+                     coordinate_scale);
+}
+
+__attribute__((always_inline)) inline ProjectionSample
+peirce_fast_square(const Vector &input, float coordinate_scale) {
+  return from_kernel(projections::peirce_projection_fast_square(input),
+                     coordinate_scale);
+}
+
+__attribute__((always_inline)) inline ProjectionSample
+airocean(const Vector &input, float central_meridian, bool horizontal,
+         bool edge_distance_required, float coordinate_scale) {
+  return from_kernel(projections::airocean_projection(input, central_meridian,
+                                                      horizontal,
+                                                      edge_distance_required),
+                     coordinate_scale);
+}
+
+template <typename State, bool North> struct Bonne : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static const Quaternion &frame_conjugate(const FrameState &frame) {
+    return State::conjugate(frame);
+  }
+
+  static ProjectionSample project(const Vector &input,
+                                  const FrameState &frame) {
+    const float hemisphere = North ? 1.0f : -1.0f;
+    return bonne(input, State::central_meridian(frame),
+                 hemisphere * State::standard_parallel(frame),
+                 State::coordinate_scale(frame));
+  }
+};
+
+template <typename State, uint8_t Layout, bool EdgeDistanceRequired,
+          bool FastSquare = false>
+struct Peirce : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = EdgeDistanceRequired;
+  static constexpr bool APPROXIMATE = FastSquare;
+  static constexpr ApproximationOracleId ORACLE =
+      FastSquare ? ApproximationOracleId::PEIRCE_FAST_SQUARE
+                 : ApproximationOracleId::NONE;
+  static constexpr auto METRICS = [] {
+    if constexpr (FastSquare)
+      return std::array<ApproximationMetric, 3>{
+          {{ApproximationDomain::PROJECTED_COORDINATE,
+            ApproximationAggregation::MAXIMUM, 1.2e-3f, "plane units"},
+           {ApproximationDomain::PROJECTED_EDGE_DISTANCE,
+            ApproximationAggregation::MAXIMUM, 2e-4f, "plane units"},
+           {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
+            1.0f, "channel code"}}};
+    else
+      return std::array<ApproximationMetric, 0>{};
+  }();
+
+  static const Quaternion &frame_conjugate(const FrameState &frame) {
+    return State::conjugate(frame);
+  }
+
+  static ProjectionSample project(const Vector &input,
+                                  const FrameState &frame) {
+    if constexpr (FastSquare)
+      return peirce_fast_square(input, State::coordinate_scale(frame));
+    else
+      return peirce(input, State::central_meridian(frame), Layout,
+                    State::layout_scroll(frame), EdgeDistanceRequired,
+                    State::coordinate_scale(frame));
+  }
+};
+
+template <typename State, bool Horizontal, bool EdgeDistanceRequired>
+struct Airocean : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = EdgeDistanceRequired;
+
+  static const Quaternion &frame_conjugate(const FrameState &frame) {
+    return State::conjugate(frame);
+  }
+
+  static ProjectionSample project(const Vector &input,
+                                  const FrameState &frame) {
+    return airocean(input, State::central_meridian(frame), Horizontal,
+                    EdgeDistanceRequired, State::coordinate_scale(frame));
+  }
+};
+
+} // namespace Projection
 
 namespace Warp {
 
@@ -468,6 +701,127 @@ struct Identity : ExactPolicy {
 };
 
 } // namespace Warp
+
+namespace Source {
+
+template <typename Prepared>
+HS_FLASH_MEMBER inline float twin_wave(const Complex &input,
+                                       const Prepared &prepared) {
+  const float rotated =
+      input.re * prepared.angle_cos + input.im * prepared.angle_sin;
+  return 0.5f * (fast_sinf(input.re + prepared.primary) +
+                 fast_sinf(rotated + prepared.primary));
+}
+
+template <typename Prepared>
+HS_FLASH_MEMBER inline float rings(const Complex &input,
+                                   const Prepared &prepared) {
+  return fast_sinf(sqrtf(input.re * input.re + input.im * input.im) -
+                   prepared.primary);
+}
+
+template <typename Prepared>
+HS_FLASH_MEMBER inline float spiral(const Complex &input,
+                                    const Prepared &prepared) {
+  const float radius = sqrtf(input.re * input.re + input.im * input.im);
+  const float azimuth = fast_atan2(input.im, input.re);
+  return fast_sinf(radius - 3.0f * (azimuth + prepared.angle) -
+                   prepared.primary);
+}
+
+template <typename Params, typename Prepared>
+HS_O3_FN inline float grid(const Complex &input, const Params &params,
+                           const Prepared &prepared) {
+  const float x = input.re * prepared.angle_cos + input.im * prepared.angle_sin;
+  const float y =
+      -input.re * prepared.angle_sin + input.im * prepared.angle_cos;
+  if (params.pattern_mix == 1.0f)
+    return fast_sinf(x + prepared.primary) * fast_cosf(y - prepared.secondary);
+  float re = x;
+  float im = y;
+  if (params.complexity != 0.0f) {
+    re += params.complexity * fast_sinf(y + prepared.primary);
+    im += params.complexity * fast_cosf(x - prepared.secondary);
+  }
+  const float coupled = fast_sinf(re) * fast_cosf(im);
+  if (params.pattern_mix == 0.0f)
+    return coupled;
+  const float direct =
+      fast_sinf(x + prepared.primary) * fast_cosf(y - prepared.secondary);
+  return hs::lerp(coupled, direct, params.pattern_mix);
+}
+
+template <typename Params>
+HS_FLASH_MEMBER inline float primitive_lattice(const Complex &input,
+                                               const Params &params) {
+  const float x = wrap_t(params.lattice_cell_scale * input.re + 0.5f) - 0.5f;
+  const float y = wrap_t(params.lattice_cell_scale * input.im + 0.5f) - 0.5f;
+  const float circle = sqrtf(x * x + y * y) - params.lattice_radius;
+  const float bx = fabsf(x) - params.lattice_radius;
+  const float by = fabsf(y) - params.lattice_radius;
+  const float square = sqrtf(std::max(bx, 0.0f) * std::max(bx, 0.0f) +
+                             std::max(by, 0.0f) * std::max(by, 0.0f)) +
+                       std::min(std::max(bx, by), 0.0f);
+  const float distance = hs::lerp(circle, square, params.lattice_shape_blend);
+  return 1.0f - 2.0f * ::smooth_ramp(-params.lattice_softness,
+                                     params.lattice_softness, distance);
+}
+
+template <typename State> struct TwinWave : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static float sample(const SourceInput &input, const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return twin_wave(
+        stereo_pattern_args(input.warped.coords, params.pattern_freq),
+        State::prepared(frame));
+  }
+};
+
+template <typename State> struct Rings : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static float sample(const SourceInput &input, const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return rings(stereo_pattern_args(input.warped.coords, params.pattern_freq),
+                 State::prepared(frame));
+  }
+};
+
+template <typename State> struct Spiral : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static float sample(const SourceInput &input, const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return spiral(stereo_pattern_args(input.warped.coords, params.pattern_freq),
+                  State::prepared(frame));
+  }
+};
+
+template <typename State> struct Grid : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static float sample(const SourceInput &input, const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return grid(stereo_pattern_args(input.warped.coords, params.pattern_freq),
+                params, State::prepared(frame));
+  }
+};
+
+template <typename State> struct PrimitiveLattice : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static float sample(const SourceInput &input, const FrameState &frame) {
+    return primitive_lattice(input.warped.coords, State::params(frame));
+  }
+};
+
+} // namespace Source
 
 namespace Weight {
 
@@ -530,17 +884,15 @@ template <typename State> struct SmoothBands : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame) {
-        { State::band_frequency(frame) } -> std::convertible_to<float>;
-        { State::band_softness(frame) } -> std::convertible_to<float>;
+        { State::band_count(frame) } -> std::convertible_to<float>;
+        { State::band_phase(frame) } -> std::convertible_to<float>;
       };
 
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &frame) {
-    const float phase = value * State::band_frequency(frame);
-    const float distance = fabsf((phase - floorf(phase)) - 0.5f) * 2.0f;
-    const float softness = State::band_softness(frame);
-    return 1.0f - Detail::smooth_ramp(1.0f - softness, 1.0f, distance);
+    return 0.5f - 0.5f * cosf(TWO_PI_F * State::band_count(frame) * value +
+                              State::band_phase(frame));
   }
 };
 
@@ -586,9 +938,7 @@ template <typename State> struct ValueCutout : ExactPolicy {
   apply(float value, const ProjectionSample &, const FrameState &frame) {
     const float threshold = State::cutout_threshold(frame);
     const float width = State::cutout_width(frame);
-    return width == 0.0f ? static_cast<float>(value > threshold)
-                         : Detail::smooth_ramp(threshold - width,
-                                               threshold + width, value);
+    return ::smooth_ramp(threshold - width, threshold + width, value);
   }
 };
 
