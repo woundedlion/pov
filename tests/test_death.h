@@ -1391,6 +1391,24 @@ inline void case_apply_step_hankin_no_angle() {
 }
 
 /**
+ * @brief Death case: a BEVEL step with no depth must trap.
+ * @details Recipe-replay surface — the composite lowers to ambo, truncate(t),
+ *          so a zero default is the depthless truncate the lowered replay
+ *          already traps on; the authored replay must not diverge from it.
+ */
+inline void case_apply_step_bevel_no_depth() {
+  static uint8_t a_buf[64 * 1024];
+  static uint8_t b_buf[64 * 1024];
+  Arena a(a_buf, sizeof(a_buf));
+  Arena b(b_buf, sizeof(b_buf));
+  const Solids::OpStep steps[] = {{Solids::Op::BEVEL, opaque(0.0f)}};
+  const Solids::Recipe recipe = {opaque<uint8_t>(1), steps, 1};
+  PolyMesh mesh = Solids::build_recipe(recipe, a, b);
+  if (mesh.vertices.size() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a NaN endpoint fed to slerp must trap.
  * @details Math-core surface — the NaN poisons interpolation through both
  *          branches into the final strict normalized(), which traps rather than
@@ -2975,6 +2993,8 @@ inline const Case *all_cases(int &n) {
       {"apply_step_hankin_no_angle", case_apply_step_hankin_no_angle,
        "recipe.h",
        "(step.param > 0.0f) apply_step: HANKIN step has no contact angle"},
+      {"apply_step_bevel_no_depth", case_apply_step_bevel_no_depth, "recipe.h",
+       "(step.param > 0.0f) apply_step: BEVEL step has no depth"},
       {"slerp_nan", case_slerp_nan, "3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) "},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan, "3dmath.h",
@@ -3528,7 +3548,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  * @details Raise it after adding cases; lower it only alongside a deliberate
  *          removal of the engine guards those cases target.
  */
-constexpr int MIN_COVERED_GUARD_SITES = 124;
+constexpr int MIN_COVERED_GUARD_SITES = 125;
 
 /** @brief One file's approved count of guard sites no case pins. */
 struct GuardGapAllowance {
@@ -3759,9 +3779,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 149;
+  constexpr int DEATH_CASE_COUNT = 150;
 #else
-  constexpr int DEATH_CASE_COUNT = 148;
+  constexpr int DEATH_CASE_COUNT = 149;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
