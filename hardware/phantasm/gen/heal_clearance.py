@@ -48,6 +48,9 @@ def heal_project(p):
     rule_minimums, class_minimums = minimums_for(p)
     with open(p, encoding="utf-8") as project_file:
         d = json.load(project_file)
+        # Rewrite in the file's own convention; a mixed file gets the repo's.
+        seen = project_file.newlines
+        newline = seen if isinstance(seen, str) else "\n"
     rules = d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})
     changes = {}
     for field, minimum in rule_minimums.items():
@@ -66,8 +69,9 @@ def heal_project(p):
                 changes[f"Default.{field}"] = (current, minimum)
 
     if changes:
-        with open(p, "w", encoding="utf-8") as project_file:
+        with open(p, "w", encoding="utf-8", newline=newline) as project_file:
             json.dump(d, project_file, indent=2)
+            project_file.write("\n")
         summary = ", ".join(
             f"{field} {old} -> {new}"
             for field, (old, new) in changes.items()
