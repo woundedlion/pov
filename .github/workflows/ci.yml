@@ -1308,11 +1308,7 @@ jobs:
       # MIN_RELAX_BAKES_VERIFIED), added in the same commit as the reduction it
       # approves, so the weakening is visible in that commit's diff. Empty in
       # steady state.
-      # solids.floor: the Islamic-family determinism sweep traded a per-vertex
-      # HS_EXPECT_NEAR loop for check_bitwise_equal_meshes, a strictly stronger
-      # oracle that spends 131,007 fewer assertions.
-      ASSERTION_FLOOR_ALLOW_LOWER: |
-        solids.floor
+      ASSERTION_FLOOR_ALLOW_LOWER: ""
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
