@@ -357,8 +357,7 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
         std::max(0.0f, std::min(1.0f, (value - start) / (end - start)));
     return quintic_kernel(t);
   };
-  HS_CHECK(compiled.dynamic_instructions.size() == 0 ||
-               compiled.corner_src != nullptr,
+  HS_CHECK(compiled.corner_src != nullptr,
            "update_hankin needs a compiled topology (corner_src is null after "
            "CompiledHankin::clear)");
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
