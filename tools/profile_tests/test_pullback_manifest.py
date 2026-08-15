@@ -28,6 +28,8 @@ _, ORACLES = generator.load_and_validate(MANIFEST_DIR)
 
 def _frame(programs, program, preset, case, resolution, probe, value=1):
     total = resolution[0] * resolution[1]
+    preset_count = sum(len(entry["presets"])
+                       for entry in programs["programs"])
     pixels = [[value, value, value, 65535] for _ in range(total)]
     if probe == "steady":
         operation = {"kind": "parameter-case", "selected_pixels": total}
@@ -38,8 +40,9 @@ def _frame(programs, program, preset, case, resolution, probe, value=1):
             operation = {
                 "kind": "through-clear",
                 "endpoint": endpoint,
-                "source_preset": preset if endpoint == "from" else (preset + 11) % 12,
-                "destination_preset": (preset + 1) % 12
+                "source_preset": preset if endpoint == "from"
+                else (preset + preset_count - 1) % preset_count,
+                "destination_preset": (preset + 1) % preset_count
                 if endpoint == "from"
                 else preset,
                 "elapsed": 0 if endpoint == "from" else 60,

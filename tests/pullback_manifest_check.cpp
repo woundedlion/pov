@@ -16,7 +16,7 @@ int main() {
   for (const PullbackManifest::ProgramEntry &program :
        PullbackManifest::PROGRAMS)
     preset_mask |= program.preset_mask;
-  if (preset_mask != 0x0fff)
+  if (preset_mask != 0x1fff)
     return 1;
   for (const PullbackManifest::OracleMetric &metric :
        PullbackManifest::ORACLE_METRICS)

@@ -21,6 +21,8 @@ static_assert(!HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND,
 
 namespace {
 
+constexpr uint16_t PRESET_COUNT = 13;
+
 enum class Operation : uint16_t {
   CASE_DEFAULT,
   CASE_ENDPOINT_MIN,
@@ -129,17 +131,16 @@ struct ShaderBallWhiteBox {
     if (!effect.prepare_resource_union(from_config, to_config))
       return false;
     effect.state->param_morph.active = false;
-    effect.state->transition = {
-        from_config,
-        to_config,
-        effect.runtime,
-        effect.runtime,
-        elapsed,
-        duration,
-        false,
-        true,
-        selected_pipeline<SB>(from),
-        selected_pipeline<SB>(to)};
+    effect.state->transition = {from_config,
+                                to_config,
+                                effect.runtime,
+                                effect.runtime,
+                                elapsed,
+                                duration,
+                                false,
+                                true,
+                                selected_pipeline<SB>(from),
+                                selected_pipeline<SB>(to)};
     return true;
   }
 
@@ -147,8 +148,7 @@ struct ShaderBallWhiteBox {
   static bool selected_pipeline_active(const ShaderBall<W, H> &effect,
                                        size_t preset) {
     using SB = ShaderBall<W, H>;
-    return effect.active_pipeline ==
-           selected_pipeline<SB>(SB::PRESETS[preset]);
+    return effect.active_pipeline == selected_pipeline<SB>(SB::PRESETS[preset]);
   }
 
   template <int W, int H>
@@ -247,9 +247,8 @@ private:
       const HueRotateBase base = make_hue_rotate_base(color);
       color = hue_rotate_lut_gamut(base, amount);
     } else if (frame.prepared_hue_rotation.active) {
-      const float amount =
-          wrap_t(frame.params.color.hue_shift_amount *
-                 sample_path_length(sample));
+      const float amount = wrap_t(frame.params.color.hue_shift_amount *
+                                  sample_path_length(sample));
       if (amount != 0.0f)
         color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
     }
@@ -356,7 +355,7 @@ OperationSet read_instructions(const char *path) {
     const uint16_t length = read_u16(input);
     std::string name(length, '\0');
     if (length == 0 || std::fread(name.data(), length, 1, input) != 1 ||
-        preset >= 12 || operation >= Operation::COUNT) {
+        preset >= PRESET_COUNT || operation >= Operation::COUNT) {
       std::fclose(input);
       return {};
     }
@@ -372,7 +371,7 @@ OperationSet read_instructions(const char *path) {
     const uint16_t preset = read_u16(input);
     const auto operation = static_cast<Operation>(read_u16(input));
     const float phase = std::bit_cast<float>(read_u32(input));
-    if (preset >= 12 || operation >= Operation::COUNT) {
+    if (preset >= PRESET_COUNT || operation >= Operation::COUNT) {
       std::fclose(input);
       return {};
     }
@@ -409,9 +408,12 @@ bool render_instruction(const Instruction &instruction,
   if (transition_from || transition_to) {
     constexpr uint16_t DURATION = 60;
     const uint16_t source =
-        transition_from ? instruction.preset : (instruction.preset + 11) % 12;
-    const uint16_t destination =
-        transition_from ? (instruction.preset + 1) % 12 : instruction.preset;
+        transition_from
+            ? instruction.preset
+            : (instruction.preset + PRESET_COUNT - 1) % PRESET_COUNT;
+    const uint16_t destination = transition_from
+                                     ? (instruction.preset + 1) % PRESET_COUNT
+                                     : instruction.preset;
     const uint16_t elapsed = transition_from ? 0 : DURATION;
     if (!hs_test::shaderball_tests::ShaderBallWhiteBox::force_transition(
             effect, source, destination, elapsed, DURATION))

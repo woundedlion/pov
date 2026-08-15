@@ -160,6 +160,8 @@ def _selected_pixel(mapping: str, x: int, y: int, width: int, height: int) -> bo
 
 def _validate_frame_operations(frames: dict, programs: dict) -> None:
     mappings = programs["corpus"]["probe_operations"]
+    preset_count = sum(len(program["presets"])
+                       for program in programs["programs"])
     spatial_hashes = set()
     for key, (frame, digest) in frames.items():
         _, preset, _, resolution, probe = key
@@ -178,8 +180,9 @@ def _validate_frame_operations(frames: dict, programs: dict) -> None:
             expected = {
                 "kind": "through-clear",
                 "endpoint": endpoint,
-                "source_preset": preset if endpoint == "from" else (preset + 11) % 12,
-                "destination_preset": (preset + 1) % 12
+                "source_preset": preset if endpoint == "from"
+                else (preset + preset_count - 1) % preset_count,
+                "destination_preset": (preset + 1) % preset_count
                 if endpoint == "from"
                 else preset,
                 "elapsed": 0 if endpoint == "from" else 60,

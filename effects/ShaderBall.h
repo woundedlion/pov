@@ -2228,6 +2228,7 @@ private:
     SINUSOIDAL_CURL_LATTICE,
     STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
     GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
+    STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
     COUNT,
     NONE = 0xff
   };
@@ -2922,6 +2923,14 @@ private:
       SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+  using StereographicDodecahedralGridInnerMirrorPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
+                                  SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::MIRROR_TILE>,
+      SourceStage<Function::GRID>,
+      LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      ColorStage>;
 
   using CoreBonneKaleidoscopeLatticeMirrorPipelineBase = InversePipeline<
       CoreOuterCameraStage,
@@ -3046,6 +3055,15 @@ private:
       CoreSourceStage<Function::PRIMITIVE_LATTICE>,
       CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       CoreColorStage>;
+  using CoreStereographicDodecahedralGridInnerMirrorPipeline = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
+                                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::NONE,
+                                  WarpStageKind::MIRROR_TILE>,
+      CoreSourceStage<Function::GRID>,
+      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      CoreColorStage>;
 
 #if HS_SHADERBALL_PULLBACK_PIPELINE == HS_SHADERBALL_PULLBACK_CORE
   using ManifestBonneKaleidoscopeLatticeMirrorPipeline =
@@ -3070,6 +3088,8 @@ private:
       CoreStereographicPrismPolarWaveLatticePipeline;
   using ManifestGnomonicDodecahedralGridVectorMirrorPipeline =
       CoreGnomonicDodecahedralGridVectorMirrorPipeline;
+  using ManifestStereographicDodecahedralGridInnerMirrorPipeline =
+      CoreStereographicDodecahedralGridInnerMirrorPipeline;
 #else
   using ManifestBonneKaleidoscopeLatticeMirrorPipeline =
       BonneKaleidoscopeLatticeMirrorPipeline;
@@ -3091,6 +3111,8 @@ private:
       StereographicPrismPolarWaveLatticePipeline;
   using ManifestGnomonicDodecahedralGridVectorMirrorPipeline =
       GnomonicDodecahedralGridVectorMirrorPipeline;
+  using ManifestStereographicDodecahedralGridInnerMirrorPipeline =
+      StereographicDodecahedralGridInnerMirrorPipeline;
 #endif
 
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
@@ -4018,6 +4040,8 @@ private:
       return "STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE";
     case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR:
       return "GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR";
+    case InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR:
+      return "STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR";
     case InversePipelineId::COUNT:
       return "COUNT";
     case InversePipelineId::NONE:
@@ -4197,9 +4221,9 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 11> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 12> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 11> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 12> PROGRAMS{{
         make_program<ManifestBonneKaleidoscopeLatticeMirrorPipeline,
                      InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
                      make_topology_key(bonne_lattice_mirror_preset())>(
@@ -4249,6 +4273,12 @@ private:
             InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
             make_topology_key(
                 gnomonic_dodecahedral_vector_mirror_grid_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<
+            ManifestStereographicDodecahedralGridInnerMirrorPipeline,
+            InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
+            make_topology_key(
+                stereographic_dodecahedral_grid_inner_mirror_preset())>(
             &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
@@ -7267,7 +7297,39 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 12> PRESETS = {{
+  static constexpr Config
+  stereographic_dodecahedral_grid_inner_mirror_preset() {
+    Slots slots{Function::GRID,
+                Projection::STEREOGRAPHIC,
+                ProjectionFramePolicy::SPIN_WANDER,
+                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
+                {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
+                PaletteMode::ANALOGOUS};
+    slots.palette_mapping = PaletteMapping::CUP;
+    Params params;
+    params.source.pattern_freq = 2.82629991f;
+    params.source.complexity = 0.513f;
+    params.source.secondary_rate = 0.8f;
+    params.source.angle_rate = 0.0269999988f;
+    params.warp.outer.scale = 0.1f;
+    params.warp.outer.speed = 0.5f;
+    params.warp.inner.scale = 0.1f;
+    params.warp.inner.speed = 0.00013f;
+    params.warp.inner.cell_y = 0.997703135f;
+    params.projection.pole_fade = 3.432f;
+    params.projection.wander = 1.0f;
+    params.surface_lens.mix = 1.0f;
+    params.color.hue_shift_amount = 0.366f;
+    params.color.hue_noise_scale = 1.47215629f;
+    params.color.palette_chroma = 1.0f;
+    params.outer_camera.wander = 1.0f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 13> PRESETS = {{
       {wave_shear_generated_preset(),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
@@ -7292,6 +7354,8 @@ private:
        InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE},
       {gnomonic_dodecahedral_vector_mirror_grid_preset(),
        InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR},
+      {stereographic_dodecahedral_grid_inner_mirror_preset(),
+       InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR},
   }};
   static_assert(
       [] {
