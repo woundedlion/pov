@@ -44,7 +44,7 @@ FIRST_PARTY = ("core/", "effects/", "hardware/", "targets/")
 
 # Library/toolchain roots: a path through any of these is third-party even when a
 # nested dir reuses a first-party name (e.g. .platformio/lib/Foo/effects/x.h).
-THIRD_PARTY = ("lib/", ".platformio/", "packages/")
+THIRD_PARTY = ("lib/", "libdeps/", ".platformio/", "packages/")
 
 # gcc: "<path>:<line>[:<col>]: warning: <message> [-Wflag]"
 _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
