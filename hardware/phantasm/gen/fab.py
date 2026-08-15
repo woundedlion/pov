@@ -274,6 +274,14 @@ def run(args, check=True, **kw):
             "PATH, or set KICAD_CLI to its full path") from exc
 
 
+def run_export(stage, args):
+    """Run an export step, exiting with a diagnostic like the other stages."""
+    try:
+        return run(args)
+    except subprocess.CalledProcessError as exc:
+        sys.exit(f"{stage} export failed: kicad-cli exited {exc.returncode}")
+
+
 class DesignRuleError(ValueError):
     pass
 
@@ -779,13 +787,13 @@ def main():
 
     print("[5/9] Netlist + centroid")
     net = os.path.join(OUT, "_fab.net")
-    run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
-         "-o", net, SCH])
+    run_export("netlist", [KCLI, "sch", "export", "netlist", "--format",
+                           "kicadsexpr", "-o", net, SCH])
     pos = os.path.join(OUT, "_fab_pos.csv")
     # No --use-drill-file-origin: the CPL stays in the same absolute frame as
     # the gerbers and the drill file.
-    run([KCLI, "pcb", "export", "pos", "--format", "csv", "--units", "mm",
-         "-o", pos, PCB])
+    run_export("centroid", [KCLI, "pcb", "export", "pos", "--format", "csv",
+                            "--units", "mm", "-o", pos, PCB])
     comps = parse_components(net)
     posrows = {}
     with open(pos, newline='', encoding="utf-8") as fh:
@@ -807,13 +815,14 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="phantasm-jlc-", dir=OUT) as staged:
         print("[6/9] Gerbers")
-        run([KCLI, "pcb", "export", "gerbers", "--layers", GERBER_LAYERS,
-             "-o", staged + os.sep, PCB])
+        run_export("gerber", [KCLI, "pcb", "export", "gerbers", "--layers",
+                              GERBER_LAYERS, "-o", staged + os.sep, PCB])
         print("[7/9] Drill")
         # Absolute origin, matching the gerbers and the centroid above.
-        run([KCLI, "pcb", "export", "drill", "--format", "excellon",
-             "--drill-origin", "absolute", "--excellon-units", "mm",
-             "--excellon-separate-th", "-o", staged + os.sep, PCB])
+        run_export("drill", [KCLI, "pcb", "export", "drill", "--format",
+                             "excellon", "--drill-origin", "absolute",
+                             "--excellon-units", "mm", "--excellon-separate-th",
+                             "-o", staged + os.sep, PCB])
 
         if os.path.isdir(JLC):
             for name in os.listdir(JLC):
