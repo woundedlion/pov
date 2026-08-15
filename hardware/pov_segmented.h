@@ -432,7 +432,7 @@ private:
    * @brief Samples the raw ID straps (ID_STRAPS bits, LSB = ID0).
    * @return Raw reading; floating (HIGH) bits set, grounded bits clear.
    */
-  int sample_strap() const {
+  static int sample_strap() {
     int raw = digitalReadFast(PIN_ID0);
     if constexpr (ID_STRAPS >= 2)
       raw |= digitalReadFast(PIN_ID1) << 1;
@@ -471,7 +471,7 @@ private:
    * unique soldered ID links elsewhere, per PCB rules R-ID-2 (soldered links)
    * and R-ID-4 (silkscreen truth table).
    */
-  void read_id() {
+  static void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
     if constexpr (ID_STRAPS >= 2)
       pinMode(PIN_ID1, INPUT_PULLUP);
@@ -500,7 +500,9 @@ private:
    * @details IDs [0, N/2) map to arm A and [N/2, N) map to arm B. Each arm's
    * northern bands advance in +y; its southern bands advance in -y.
    */
-  void configure_segment() { segment = pov::segment_map(segment_id, S, N); }
+  static void configure_segment() {
+    segment = pov::segment_map(segment_id, S, N);
+  }
 
   /**
    * @brief Clip @p e to this segment's quadrant for the upcoming display window.
