@@ -360,7 +360,7 @@ struct Twist {
    */
   Vector correct_normal_inv(const Vector &p, const Vector &base_n, float inv_s,
                             float cos_n) const {
-    float dh_dtheta = -twist_amp * cos_n;
+    float dh_dtheta = twist_amp * cos_n;
     float inv_s2 = inv_s * inv_s;
 
     float dh_dx = dh_dtheta * (-p.z) * inv_s2;
