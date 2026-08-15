@@ -1121,7 +1121,10 @@ inline void test_warped_volume_distance_matches_lipschitz_correction() {
   HS_EXPECT_NEAR(wv.distance(p), raw / lip, 1e-4f);
 }
 
-/** @brief Verifies Twist::correct_normal returns a unit vector and is identity at twist 0. */
+/**
+ * @brief Verifies Twist::correct_normal returns a unit vector, is identity at
+ *        twist 0, and reproduces the gradient of the warped field.
+ */
 inline void test_twist_correct_normal_unit_length() {
   Vector base_n = Vector(0.6f, 0.8f, 0.0f); // already unit
 
@@ -1137,6 +1140,29 @@ inline void test_twist_correct_normal_unit_length() {
       Vector c = tw.correct_normal(p, base_n, tw.make_ctx(p));
       HS_EXPECT_NEAR(c.length(), 1.0f, 1e-4f);
     }
+
+  // The analytic chain rule must match central differences of raw_distance,
+  // the field the normal is the gradient of.
+  const float R = 2.0f, r = 0.5f, A = 0.3f;
+  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{SDF::Torus{R, r},
+                                                     SDF::Warp::Twist{2, A, R}};
+  const float h = 1e-3f;
+  for (int i = 0; i < 16; ++i) {
+    const float theta = static_cast<float>(i) * 0.53f;
+    const float phi = static_cast<float>(i) * 0.91f;
+    const float s = R + r * std::cos(phi);
+    // A point on the warped surface: torus surface, displaced as apply() does.
+    Vector p(s * std::cos(theta),
+             r * std::sin(phi) + A * std::sin(2.0f * theta),
+             s * std::sin(theta));
+    Vector grad((wv.raw_distance(p + Vector(h, 0, 0)) -
+                 wv.raw_distance(p - Vector(h, 0, 0))),
+                (wv.raw_distance(p + Vector(0, h, 0)) -
+                 wv.raw_distance(p - Vector(0, h, 0))),
+                (wv.raw_distance(p + Vector(0, 0, h)) -
+                 wv.raw_distance(p - Vector(0, 0, h))));
+    HS_EXPECT_VEC(wv.normal(p), grad.normalized(), 5e-3f);
+  }
 }
 
 // ============================================================================
