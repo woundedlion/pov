@@ -2080,23 +2080,20 @@ private:
         const Vector local = rotate(lensed, frame.transforms.projection_conj);
         ProjectedLookup projected = [&]() {
           if constexpr (ProjectionPolicy == Projection::BONNE)
-            return scaled_kernel_lookup(
-                projections::bonne_projection(
-                    local, frame.params.projection.central_meridian,
-                    frame.params.projection.bonne_standard_parallel),
+            return Pullback::Projection::bonne(
+                local, frame.params.projection.central_meridian,
+                frame.params.projection.bonne_standard_parallel,
                 frame.params.projection.coordinate_scale);
           else if constexpr (ProjectionPolicy ==
                              Projection::PEIRCE_QUINCUNCIAL) {
             if (frame.params.projection.central_meridian == 0.0f)
-              return scaled_kernel_lookup(
-                  projections::peirce_projection_fast_square(local),
-                  frame.params.projection.coordinate_scale);
+              return Pullback::Projection::peirce_fast_square(
+                  local, frame.params.projection.coordinate_scale);
             else
-              return scaled_kernel_lookup(
-                  projections::peirce_projection(
-                      local, frame.params.projection.central_meridian,
-                      static_cast<uint8_t>(PeirceLayout::SQUARE),
-                      frame.params.projection.layout_scroll, true),
+              return Pullback::Projection::peirce(
+                  local, frame.params.projection.central_meridian,
+                  static_cast<uint8_t>(PeirceLayout::SQUARE),
+                  frame.params.projection.layout_scroll, true,
                   frame.params.projection.coordinate_scale);
           } else {
             static_assert(ProjectionPolicy == Projection::GNOMONIC);
@@ -3746,26 +3743,16 @@ private:
   __attribute__((always_inline)) static ProjectedLookup
   scaled_kernel_lookup(const projections::ProjectionKernelResult &result,
                        float coordinate_scale) {
-    return {{result.coords.re * coordinate_scale,
-             result.coords.im * coordinate_scale},
-            result.region_id,
-            result.component_id,
-            result.boundary_flags,
-            result.fade_edge_distance * fabsf(coordinate_scale),
-            1.0f,
-            result.flags,
-            result.traits,
-            result.edge_class};
+    return Pullback::Projection::from_kernel(result, coordinate_scale);
   }
 
   HS_FLASH_MEMBER static ProjectedLookup
   project_bonne(const Vector &local, const FrameState &frame) {
-    return scaled_kernel_lookup(
-        projections::bonne_projection(
-            local, frame.params.projection.central_meridian,
-            (frame.slots.bonne_hemisphere == BonneHemisphere::NORTH ? 1.0f
-                                                                    : -1.0f) *
-                frame.params.projection.bonne_standard_parallel),
+    return Pullback::Projection::bonne(
+        local, frame.params.projection.central_meridian,
+        (frame.slots.bonne_hemisphere == BonneHemisphere::NORTH ? 1.0f
+                                                                : -1.0f) *
+            frame.params.projection.bonne_standard_parallel,
         frame.params.projection.coordinate_scale);
   }
 
@@ -3774,25 +3761,22 @@ private:
     if (frame.slots.peirce_layout == PeirceLayout::SQUARE &&
         frame.params.projection.central_meridian == 0.0f &&
         projection_edge_distance_required(frame))
-      return scaled_kernel_lookup(
-          projections::peirce_projection_fast_square(local),
-          frame.params.projection.coordinate_scale);
-    return scaled_kernel_lookup(
-        projections::peirce_projection(
-            local, frame.params.projection.central_meridian,
-            static_cast<uint8_t>(frame.slots.peirce_layout),
-            frame.params.projection.layout_scroll,
-            projection_edge_distance_required(frame)),
+      return Pullback::Projection::peirce_fast_square(
+          local, frame.params.projection.coordinate_scale);
+    return Pullback::Projection::peirce(
+        local, frame.params.projection.central_meridian,
+        static_cast<uint8_t>(frame.slots.peirce_layout),
+        frame.params.projection.layout_scroll,
+        projection_edge_distance_required(frame),
         frame.params.projection.coordinate_scale);
   }
 
   HS_FLASH_MEMBER static ProjectedLookup
   project_airocean(const Vector &local, const FrameState &frame) {
-    return scaled_kernel_lookup(
-        projections::airocean_projection(
-            local, frame.params.projection.central_meridian,
-            frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
-            projection_edge_distance_required(frame)),
+    return Pullback::Projection::airocean(
+        local, frame.params.projection.central_meridian,
+        frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
+        projection_edge_distance_required(frame),
         frame.params.projection.coordinate_scale);
   }
 
