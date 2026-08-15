@@ -18,6 +18,7 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -826,7 +827,13 @@ def main():
 
         if os.path.isdir(JLC):
             for name in os.listdir(JLC):
-                os.remove(os.path.join(JLC, name))
+                stale = os.path.join(JLC, name)
+                # A stranded directory (an aborted run's temp dir) is not
+                # removable with os.remove; the package must still be cleared.
+                if os.path.isdir(stale) and not os.path.islink(stale):
+                    shutil.rmtree(stale)
+                else:
+                    os.remove(stale)
         os.makedirs(JLC, exist_ok=True)
         for name in os.listdir(staged):
             os.replace(os.path.join(staged, name), os.path.join(JLC, name))
