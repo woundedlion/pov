@@ -520,7 +520,7 @@ struct Bounds {
  * | Ring              | centerline dist - thickness | azimuth turns in [0,1), phase applied | unsigned centerline distance | thickness |
  * | DistortedRing / FlatDistortedRing | displaced-centerline dist - thickness | azimuth turns in [0,1), phase applied | unsigned distance to the displaced centerline | thickness |
  * | Line              | segment dist - thickness   | 0                | unsigned angular distance to the arc segment | thickness |
- * | Face              | signed edge distance (gnomonic plane units; see Face::distance) | 0 | = dist | inradius |
+ * | Face              | signed edge distance; gnomonic plane units on a small face, radians on a large one (see Face::distance) | 0 | = dist | inradius, in dist's metric |
  * | PlanarPolygon     | sign * max(polar*cos(local) - apothem, polar - circumradius) | polar / circumradius | polar angle from center | apothem |
  * | SphericalPolygon  | sign * max(angular distance to the nearest great-circle edge, polar - circumradius) | polar / circumradius | polar angle from center | circumradius |
  * | Star              | sign * max(folded edge half-plane distance, scan_dist - circumradius) | azimuth turns in [0,1), phase applied | polar angle from center | circumradius |

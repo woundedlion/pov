@@ -244,7 +244,8 @@ struct Face {
   Vector center; /**< Normalized face centroid (projection axis). */
   Vector basis_v, basis_u, basis_w; /**< Local tangent frame (v = center). */
   int count;                        /**< Vertex/edge count; 0 if culled. */
-  float size = 0.0f;        /**< Inradius metric for AA normalization. */
+  float size = 0.0f;        /**< Inradius metric for AA normalization; radians
+                                 unless linear_dist. */
   float radius = 0.0f;      /**< Circumradius in the 2D projection. */
   float max_dist = 0.0f;    /**< Cull radius (circumradius plus margin). */
   float max_dist_sq = 0.0f; /**< Squared cull radius. */
@@ -599,7 +600,8 @@ struct Face {
    * @brief Computes the face "size" (inradius) from the projected polygon.
    * @param scratch Scratch storage holding poly_2d.
    * @details size = minimum distance from the projected centroid to any edge,
-   * floored to a fraction of the circumradius for degenerate slivers.
+   * floored to a fraction of the circumradius for degenerate slivers. A large
+   * face converts it to radians, matching the metric distance() reports.
    */
   __attribute__((always_inline)) void
   compute_inradius(FaceScratchBuffer &scratch) {
@@ -622,6 +624,10 @@ struct Face {
     }
     size = __builtin_fmaxf(min_edge_dist, radius * MIN_SIZE_RADIUS_RATIO);
     linear_dist = size < 0.2f;
+    // distance() reports radians for a large face; the same fast_atan2 keeps
+    // dist/size exactly 1 at the inradius.
+    if (!linear_dist)
+      size = fast_atan2(size, 1.0f);
   }
 
   /**
@@ -1337,7 +1343,8 @@ struct Face {
    * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = raw_dist = the signed edge distance,
-   *        size = inradius (gnomonic plane units).
+   *        size = inradius, both in gnomonic plane units on a linear_dist
+   *        face and in radians otherwise.
    * @param reject_dsq Squared plane distance at/above which an outside probe
    *        is reported as the far sentinel without taking the square root.
    *        Must be conservative: only probes the caller rejects on dist may
