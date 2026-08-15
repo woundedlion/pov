@@ -471,7 +471,8 @@ private:
     for (size_t vertex = 0; vertex < vertex_count; ++vertex) {
       const Vector base = woven_vertex(solid, medial, vertex);
       base_vertices.push_back(base);
-      frame_u.push_back(tangent_axis(base));
+      // Medial vertices are edge midpoints, absent from the baked table.
+      frame_u.push_back(medial ? tangent_axis(base) : solid.tangent_u[vertex]);
     }
 
     offsets.bind(scratch_arena_a, vertex_count);
