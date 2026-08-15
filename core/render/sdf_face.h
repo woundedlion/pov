@@ -372,13 +372,14 @@ struct Face {
     // AA line; cull it like the phi-extent reject. The residual of an exactly
     // collapsed face is float noise (< ~1e-6 of radius^2), orders of
     // magnitude under the thinnest real sliver a sweep draws, so the
-    // threshold decision is identical sim/device.
+    // threshold decision is identical sim/device. The compare is inclusive so
+    // that coincident vertices, which zero both sides, are culled too.
     {
       float area2 = 0.0f;
       for (int i = 0; i < count; ++i)
         area2 +=
             poly_2d[i].x * poly_2d[i + 1].y - poly_2d[i + 1].x * poly_2d[i].y;
-      if (fabsf(area2) < COLLAPSED_AREA_RATIO * radius * radius) {
+      if (fabsf(area2) <= COLLAPSED_AREA_RATIO * radius * radius) {
         count = 0;
         y_min = 1;
         y_max = 0;
