@@ -21,7 +21,8 @@ set(_guard_dirs core effects hardware targets tools)
 set(_guard_files "")
 foreach(_dir IN LISTS _guard_dirs)
   file(GLOB_RECURSE _found CONFIGURE_DEPENDS
-       "${HS_ROOT}/${_dir}/*.h" "${HS_ROOT}/${_dir}/*.cpp")
+       "${HS_ROOT}/${_dir}/*.h" "${HS_ROOT}/${_dir}/*.cpp"
+       "${HS_ROOT}/${_dir}/*.ino")
   list(APPEND _guard_files ${_found})
 endforeach()
 list(SORT _guard_files)
