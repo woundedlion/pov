@@ -223,8 +223,10 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       if (d >= threshold + block_slack &&
           probe_bounds_block<decltype(shape)>(threshold, block_slack))
         return max_run;
-      // An inside probe is never sentineled, so the splat needs no margin.
-      if (solid && d <= -pixel_width - block_slack)
+      // A sentineled subtrahend loses Subtract's max, so an inside report is
+      // bounded no further than a clear one.
+      if (solid && d <= -pixel_width - block_slack &&
+          probe_bounds_block<decltype(shape)>(pixel_width, block_slack))
         span = max_run;
     }
   }
@@ -769,7 +771,10 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
             if (d >= PIXEL_WIDTH + block_slack &&
                 probe_bounds_block<decltype(shape)>(PIXEL_WIDTH, block_slack))
               return max_run;
-            if (d <= -PIXEL_WIDTH - block_slack)
+            // A sentineled subtrahend loses Subtract's max, so an inside report
+            // is bounded no further than a clear one.
+            if (d <= -PIXEL_WIDTH - block_slack &&
+                probe_bounds_block<decltype(shape)>(PIXEL_WIDTH, block_slack))
               span = max_run;
           }
         }
