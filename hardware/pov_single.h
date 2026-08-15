@@ -197,7 +197,6 @@ private:
     effect = nullptr;
   }
 
-private:
   /**
    * @brief Static function called by the IntervalTimer to display one column of
    * the frame.
