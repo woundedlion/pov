@@ -755,7 +755,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       max_count = c;
   }
 
-  int *angles = max_count > 0 ? scratch_a.allocate_n<int>(max_count) : nullptr;
+  // I > 0 above puts at least one face count above zero, so max_count is too.
+  int *angles = scratch_a.allocate_n<int>(max_count);
 
   const size_t vertex_count = mesh.vertices.size();
   size_t offset = 0;
@@ -890,15 +891,13 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   };
   std::sort(nodes, nodes + F, hash_greater);
 
-  if (F > 0) {
-    int current_id = 0;
-    mesh.topology[nodes[0].original_face] = 0;
-    for (size_t i = 1; i < F; ++i) {
-      if (nodes[i].hash != nodes[i - 1].hash) {
-        current_id++;
-      }
-      mesh.topology[nodes[i].original_face] = static_cast<uint16_t>(current_id);
+  int current_id = 0;
+  mesh.topology[nodes[0].original_face] = 0;
+  for (size_t i = 1; i < F; ++i) {
+    if (nodes[i].hash != nodes[i - 1].hash) {
+      current_id++;
     }
+    mesh.topology[nodes[i].original_face] = static_cast<uint16_t>(current_id);
   }
 }
 
