@@ -942,7 +942,7 @@ public:
    * whatever of it can still hold stale pixels.
    * @param owner The effect instance owning the buffer.
    */
-  Canvas(Effect &owner) : effect(owner) {
+  explicit Canvas(Effect &owner) : effect(owner) {
     wait_for_free_buffer();
     // Ordering is load-bearing: the hook runs post-wait but pre-clear, so the
     // clip it sets is the one clear_stale_pixels() honours.
