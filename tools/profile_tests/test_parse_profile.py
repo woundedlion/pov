@@ -623,7 +623,11 @@ class PullbackTelemetryValidation(unittest.TestCase):
 
 
 class FramesMode(unittest.TestCase):
-    """frame_rows carry a fourth preset-owner field; `frames` must unpack it."""
+    """frame_rows carry a fourth preset-owner field; `frames` must unpack it.
+
+    The spill column counts frames, like spilled_frames: a 190 ms frame misses
+    three flips but is one spilled frame.
+    """
 
     LOG = "\n".join([
         "f 1 w=70000 r=64000",
@@ -650,7 +654,11 @@ class FramesMode(unittest.TestCase):
                 sys.argv = argv
         rows = [l for l in out.getvalue().splitlines() if not l.startswith("#")]
         self.assertEqual(len(rows), 3)
-        self.assertEqual(rows[2].split(), ["3", "200000", "190000", "3"])
+        self.assertEqual(rows[0].split(), ["1", "70000", "64000", "1"])
+        self.assertEqual(rows[1].split(), ["2", "60000", "55000", "0"])
+        self.assertEqual(rows[2].split(), ["3", "200000", "190000", "1"])
+        self.assertEqual(sum(int(r.split()[3]) for r in rows),
+                         pp.spilled_frames(_window([64000, 55000, 190000])))
 
 
 class BucketOrdering(unittest.TestCase):
