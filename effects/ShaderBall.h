@@ -6765,6 +6765,8 @@ private:
 
   HS_COLD_MEMBER static constexpr bool
   warp_stage_params_in_ranges(const WarpStageParams &params) {
+    static_assert(sizeof(WarpStageParams) == 100,
+                  "WarpStageParams field set changed - update the range check");
     return params.scale >= WARP_SCALE_MIN && params.scale <= WARP_SCALE_MAX &&
            params.strength >= WARP_STRENGTH_MIN &&
            params.strength <= WARP_STRENGTH_MAX &&
@@ -6781,12 +6783,13 @@ private:
            params.center_y >= -4.0f && params.center_y <= 4.0f &&
            params.radius >= 1.0f / 64.0f && params.radius <= 8.0f &&
            params.turns >= -4.0f && params.turns <= 4.0f &&
-           params.vector_angle >= 0.0f && params.vector_angle <= TWO_PI_F &&
-           params.cell_x >= CELL_MIN && params.cell_x <= CELL_MAX &&
-           params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
-           params.offset_x >= -8.0f && params.offset_x <= 8.0f &&
-           params.offset_y >= -8.0f && params.offset_y <= 8.0f &&
-           params.radial_scale >= 1.0f / 64.0f &&
+           params.center_orbit_radius >= 0.0f &&
+           params.center_orbit_radius <= 4.0f && params.vector_angle >= 0.0f &&
+           params.vector_angle <= TWO_PI_F && params.cell_x >= CELL_MIN &&
+           params.cell_x <= CELL_MAX && params.cell_y >= CELL_MIN &&
+           params.cell_y <= CELL_MAX && params.offset_x >= -8.0f &&
+           params.offset_x <= 8.0f && params.offset_y >= -8.0f &&
+           params.offset_y <= 8.0f && params.radial_scale >= 1.0f / 64.0f &&
            params.radial_scale <= 16.0f && params.radial_phase >= 0.0f &&
            params.radial_phase <= TWO_PI_F && params.angular_phase >= 0.0f &&
            params.angular_phase <= TWO_PI_F &&
