@@ -2219,6 +2219,7 @@ private:
     STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
     GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
     STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
+    STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR,
     COUNT,
     NONE = 0xff
   };
@@ -2276,7 +2277,10 @@ private:
               std::conditional_t<
                   LensV == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
                   Pullback::Lens::DodecahedralKaleidoscope,
-                  Pullback::Lens::TriangularPrismKaleidoscope>>>>;
+                  std::conditional_t<
+                      LensV == SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
+                      Pullback::Lens::HexagonalPrismKaleidoscope,
+                      Pullback::Lens::TriangularPrismKaleidoscope>>>>>;
 
   template <Projection ProjectionV>
   using ProjectionPolicy = std::conditional_t<
@@ -2474,6 +2478,17 @@ private:
       SourceStage<Function::TWIN_WAVE>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+  using StereographicHexagonalPrismTwinWaveInnerMirrorPipeline =
+      InversePipeline<
+          OuterCameraStage,
+          SelectedSurfaceProjectStage<
+              Projection::STEREOGRAPHIC,
+              SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM>,
+          SelectedPlanarWarpStage<WarpStageKind::NONE,
+                                  WarpStageKind::MIRROR_TILE>,
+          SourceStage<Function::TWIN_WAVE>,
+          LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+          ColorStage>;
   using GnomonicKaleidoscopeGridMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
@@ -3483,6 +3498,9 @@ private:
       return "GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR";
     case InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR:
       return "STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR";
+    case InversePipelineId::
+        STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR:
+      return "STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR";
     case InversePipelineId::COUNT:
       return "COUNT";
     case InversePipelineId::NONE:
@@ -3662,9 +3680,9 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 12> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 13> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 12> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 13> PROGRAMS{{
         make_program<BonneKaleidoscopeLatticeMirrorPipeline,
                      InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
                      make_topology_key(bonne_lattice_mirror_preset())>(
@@ -3720,6 +3738,13 @@ private:
             InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
             make_topology_key(
                 stereographic_dodecahedral_grid_inner_mirror_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<
+            StereographicHexagonalPrismTwinWaveInnerMirrorPipeline,
+            InversePipelineId::
+                STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR,
+            make_topology_key(
+                stereographic_hexagonal_prism_twin_wave_mirror_preset())>(
             &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
@@ -6770,7 +6795,28 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 13> PRESETS = {{
+  static constexpr Config
+  stereographic_hexagonal_prism_twin_wave_mirror_preset() {
+    Slots slots{Function::TWIN_WAVE,
+                Projection::STEREOGRAPHIC,
+                ProjectionFramePolicy::SPIN_WANDER,
+                SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
+                {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
+                PaletteMode::ANALOGOUS};
+    slots.palette_mapping = PaletteMapping::BELL;
+    Params params = authored_params(
+        {3.881f, 0.128598228f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
+        {4.971f, 0.0f, 1.0f}, {1.0f}, {0.226f, 1.47215629f, 0.000138f}, {1.0f});
+    params.color.palette_chroma = 1.0f;
+    params.color.mapping_frequency = 1.341f;
+    params.color.mapping_phase = -1.0f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 14> PRESETS = {{
       {wave_shear_generated_preset(),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
@@ -6797,6 +6843,8 @@ private:
        InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR},
       {stereographic_dodecahedral_grid_inner_mirror_preset(),
        InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR},
+      {stereographic_hexagonal_prism_twin_wave_mirror_preset(),
+       InversePipelineId::STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR},
   }};
   static_assert(
       [] {
