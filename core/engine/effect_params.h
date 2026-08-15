@@ -199,11 +199,6 @@ struct ParamList {
   friend class Effect;
 
   std::array<ParamDef, 32> elements; /**< Default fixed-capacity storage. */
-#if HS_PARAM_EXTERNAL_STORAGE
-  ParamDef *external_elements = nullptr;
-  size_t external_capacity = 0;
-#endif
-  size_t count = 0; /**< Number of registered parameters. */
 
   const ParamDef *data() const {
 #if HS_PARAM_EXTERNAL_STORAGE
@@ -258,9 +253,15 @@ struct ParamList {
   }
 
 private:
-  // Writable accessors, reachable only by the friended Effect (see the note at
-  // the top of the struct). Kept private so value writes route through
-  // updateParameter.
+  // Storage bookkeeping and the writable accessors, reachable only by the
+  // friended Effect (see the note at the top of the struct). Kept private so
+  // value writes route through updateParameter.
+#if HS_PARAM_EXTERNAL_STORAGE
+  ParamDef *external_elements = nullptr;
+  size_t external_capacity = 0;
+#endif
+  size_t count = 0; /**< Number of registered parameters. */
+
   ParamDef *data() {
 #if HS_PARAM_EXTERNAL_STORAGE
     return external_elements != nullptr ? external_elements : elements.data();
