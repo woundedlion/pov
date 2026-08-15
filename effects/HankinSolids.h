@@ -504,18 +504,11 @@ private:
       MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
     }
 
-    FacePaletteShader fragment_shader;
-    auto select_face = [&](size_t fi, float size) {
-      fragment_shader.set_palette(&shading.ramp_for(fi));
-      fragment_shader.scale =
-          size > math::TOLERANCE ? params.intensity / size : 0.0f;
-    };
-
     {
       HS_PROFILE(hk_mesh_scan);
-      Scan::Mesh::draw_specialized<W, H>(filters, canvas, rotated_mesh,
-                                         fragment_shader, scratch_arena_a,
-                                         nullptr, select_face);
+      Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, rotated_mesh,
+                                           shading, params.intensity, 1.0f,
+                                           scratch_arena_a);
     }
   }
 

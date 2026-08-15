@@ -439,14 +439,6 @@ private:
       MeshOps::transform_in_place(mesh, ripple_gen, camera);
     }
     const SegueT &seg = carousel.segue();
-    FacePaletteShader fragment_shader;
-    fragment_shader.alpha = seg.opacity(1.0f);
-
-    auto select_face = [&](size_t fi, float size) {
-      HS_CHECK(fi < sh.faces, "IslamicStars: build shading face mismatch");
-      fragment_shader.set_palette(&sh.ramp_for(fi));
-      fragment_shader.scale = size > math::TOLERANCE ? sh.gain / size : 0.0f;
-    };
 
     {
       HS_PROFILE(is_build_scan);
@@ -454,8 +446,8 @@ private:
       // ~120.9 KB during a build leg, leaving no room for the scan's per-face
       // SDF::FaceScratchBuffer. The sprite path scans from scratch_a, where its
       // transformed copy already lives.
-      Scan::Mesh::draw_specialized<W, H>(filters, canvas, mesh, fragment_shader,
-                                         scratch_arena_b, nullptr, select_face);
+      Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, mesh, sh, sh.gain,
+                                           seg.opacity(1.0f), scratch_arena_b);
     }
   }
 
