@@ -9,6 +9,10 @@
  * Virtual canvas: 96×20
  */
 
+#ifndef HS_SHADERBALL_PULLBACK_PIPELINE
+#define HS_SHADERBALL_PULLBACK_PIPELINE HS_SHADERBALL_PULLBACK_CORE
+#endif
+
 #include <FastLED.h>
 #include <SPI.h>
 
