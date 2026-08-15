@@ -39,6 +39,17 @@
 #endif
 #endif
 
+// Arena-backed ParamDef storage for effects that outgrow ParamList's inline
+// array (Effect::use_parameter_storage). Changes ParamList/Effect layout, so it
+// must hold for every TU in an image.
+#ifndef HS_EXTERNAL_PARAM_STORAGE
+#if defined(ARDUINO)
+#define HS_EXTERNAL_PARAM_STORAGE 1
+#else
+#define HS_EXTERNAL_PARAM_STORAGE 0
+#endif
+#endif
+
 #ifndef HS_ENABLE_TEST_HOOKS
 #define HS_ENABLE_TEST_HOOKS 0
 #endif
@@ -72,6 +83,9 @@
 #endif
 #if (HS_ENABLE_PARAM_GUI_BRIDGE != 0) && (HS_ENABLE_PARAM_GUI_BRIDGE != 1)
 #error "HS_ENABLE_PARAM_GUI_BRIDGE must be 0 or 1"
+#endif
+#if (HS_EXTERNAL_PARAM_STORAGE != 0) && (HS_EXTERNAL_PARAM_STORAGE != 1)
+#error "HS_EXTERNAL_PARAM_STORAGE must be 0 or 1"
 #endif
 #if (HS_ENABLE_TEST_HOOKS != 0) && (HS_ENABLE_TEST_HOOKS != 1)
 #error "HS_ENABLE_TEST_HOOKS must be 0 or 1"
