@@ -4379,17 +4379,7 @@ private:
 
   HS_FLASH_MEMBER static float primitive_lattice(const Complex &p,
                                                  const SourceParams &params) {
-    const float x = wrap_t(params.lattice_cell_scale * p.re + 0.5f) - 0.5f;
-    const float y = wrap_t(params.lattice_cell_scale * p.im + 0.5f) - 0.5f;
-    const float circle = sqrtf(x * x + y * y) - params.lattice_radius;
-    const float bx = fabsf(x) - params.lattice_radius;
-    const float by = fabsf(y) - params.lattice_radius;
-    const float square = sqrtf(std::max(bx, 0.0f) * std::max(bx, 0.0f) +
-                               std::max(by, 0.0f) * std::max(by, 0.0f)) +
-                         std::min(std::max(bx, by), 0.0f);
-    const float distance = hs::lerp(circle, square, params.lattice_shape_blend);
-    return 1.0f - 2.0f * smooth_ramp(-params.lattice_softness,
-                                     params.lattice_softness, distance);
+    return Pullback::Source::primitive_lattice(p, params);
   }
 
   /**
@@ -4842,42 +4832,22 @@ private:
 
   HS_FLASH_MEMBER static float twin_wave(const Complex &p,
                                          const SourceState &source) {
-    const float rotated = p.re * source.angle_cos + p.im * source.angle_sin;
-    return 0.5f * (fast_sinf(p.re + source.primary) +
-                   fast_sinf(rotated + source.primary));
+    return Pullback::Source::twin_wave(p, source);
   }
 
   HS_FLASH_MEMBER static float rings(const Complex &p,
                                      const SourceState &source) {
-    return fast_sinf(sqrtf(p.re * p.re + p.im * p.im) - source.primary);
+    return Pullback::Source::rings(p, source);
   }
 
   HS_FLASH_MEMBER static float spiral(const Complex &p,
                                       const SourceState &source) {
-    const float radius = sqrtf(p.re * p.re + p.im * p.im);
-    const float azimuth = fast_atan2(p.im, p.re);
-    return fast_sinf(radius - SPIRAL_ARMS * (azimuth + source.angle) -
-                     source.primary);
+    return Pullback::Source::spiral(p, source);
   }
 
   HS_O3_FN static float grid(const Complex &p, const SourceParams &params,
                              const SourceState &source) {
-    const float x = p.re * source.angle_cos + p.im * source.angle_sin;
-    const float y = -p.re * source.angle_sin + p.im * source.angle_cos;
-    if (params.pattern_mix == 1.0f)
-      return fast_sinf(x + source.primary) * fast_cosf(y - source.secondary);
-    float re = x;
-    float im = y;
-    if (params.complexity != 0.0f) {
-      re += params.complexity * fast_sinf(y + source.primary);
-      im += params.complexity * fast_cosf(x - source.secondary);
-    }
-    const float coupled = fast_sinf(re) * fast_cosf(im);
-    if (params.pattern_mix == 0.0f)
-      return coupled;
-    const float direct =
-        fast_sinf(x + source.primary) * fast_cosf(y - source.secondary);
-    return hs::lerp(coupled, direct, params.pattern_mix);
+    return Pullback::Source::grid(p, params, source);
   }
 
   HS_COLD_MEMBER WalkDeltas sample_walk_deltas() {
