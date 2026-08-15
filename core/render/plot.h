@@ -669,6 +669,7 @@ template <typename Projection> struct Polygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
+    HS_CHECK(num_sides >= 1);
     Basis projection_basis;
     const Basis *edge_basis =
         Projection::edge_basis(basis, radius, projection_basis);
@@ -1038,6 +1039,7 @@ public:
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
+    HS_CHECK(num_sides >= 1);
     Basis projection_basis;
     const Basis *edge_basis =
         Projection::edge_basis(basis, radius, projection_basis);
@@ -1057,6 +1059,7 @@ public:
                               const Basis &basis, float radius, int num_sides,
                               FragmentShaderFn fragment_shader,
                               float phase = 0) {
+    HS_CHECK(num_sides >= 1);
     Basis projection_basis;
     const Basis *edge_basis =
         Projection::edge_basis(basis, radius, projection_basis);
@@ -1155,6 +1158,7 @@ struct Flower {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
+    HS_CHECK(num_sides >= 1);
     // Center the chart on the antipode pole, opposite the petal ring: projecting
     // the constant-radius ring through the far-pole chart bows its straight edges
     // outward into petals.
