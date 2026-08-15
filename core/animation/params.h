@@ -225,9 +225,11 @@ public:
    * @param new_speed The new amount to add to the mutant per frame.
    * @pre No live speed_src is bound; step() would otherwise clobber the manual
    *   speed each frame from the source.
+   * @pre The speed is finite; a non-finite one permanently poisons `mutant`.
    */
   void set_speed(float new_speed) {
     HS_CHECK(!speed_src, "Driver::set_speed with a live speed_src bound");
+    HS_CHECK(std::isfinite(new_speed), "Driver: set speed must be finite");
     speed = new_speed;
   }
 
