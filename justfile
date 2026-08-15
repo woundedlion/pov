@@ -171,7 +171,7 @@ teensy-gate-test:
     {{py}} -m unittest discover -s tools/teensy_hook_tests -v
     bash tools/check_test_files.sh 1 "tools/githook_tests/test*.py"
     {{py}} -m unittest discover -s tools/githook_tests -v
-    bash tools/check_test_files.sh 3 "tools/profile_tests/test*.py"
+    bash tools/check_test_files.sh 4 "tools/profile_tests/test*.py"
     {{py}} -m unittest discover -s tools/profile_tests -v
     bash tools/check_test_files.sh 1 "tools/relax_bake_tests/test*.py"
     {{py}} -m unittest discover -s tools/relax_bake_tests -v

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "kind": "pullback-oracle",
+  "oracle_id": "PEIRCE_FAST_SQUARE",
+  "base_sha": "77dc34b9b812364ffb9c200140440fad6fd3cb70",
+  "toolchains": {
+    "native": { "compiler": "clang 22", "cmake": "4.2.3", "cmake_preset": "tests", "configuration": "Debug" },
+    "wasm": { "compiler": "emsdk 5.0.0 clang", "cmake": "4.2.3", "cmake_preset": "wasm-release", "configuration": "Release" },
+    "teensy": { "compiler": "PJRC arm-none-eabi-gcc 15.2.1", "platformio": "6.1.19", "platform": "teensy@5.2.0", "cpu_hz": 600000000 }
+  },
+  "exact_callable": "projections::peirce_projection(input, 0.0f, 1, 0.0f, true)",
+  "optimized_callable": "projections::peirce_projection_fast_square(input)",
+  "non_floating_fields_exact": true,
+  "corpus": {
+    "generator": "peirce-latitude-longitude-grid",
+    "version": 1,
+    "deterministic": true,
+    "latitude_steps": 129,
+    "longitude_steps": 512,
+    "tie_probe_epsilon": 0.000002,
+    "tie_probe_count": 12
+  },
+  "metrics": [
+    {
+      "domain": "PROJECTED_COORDINATE",
+      "aggregation": "MAXIMUM",
+      "measured_baseline": 0.00110423565,
+      "accepted_limit": 0.0012,
+      "unit": "plane units",
+      "limit_provenance": "existing ShaderBall fast-square oracle with 8.7 percent headroom"
+    },
+    {
+      "domain": "PROJECTED_EDGE_DISTANCE",
+      "aggregation": "MAXIMUM",
+      "measured_baseline": 0.000126481056,
+      "accepted_limit": 0.0002,
+      "unit": "plane units",
+      "limit_provenance": "existing ShaderBall fast-square edge oracle"
+    },
+    {
+      "domain": "FRAMEBUFFER",
+      "aggregation": "MAXIMUM",
+      "measured_baseline": null,
+      "measurement_status": "requires capture",
+      "accepted_limit": 1,
+      "unit": "16-bit channel code",
+      "limit_provenance": "existing ShaderBall stage contract; baseline capture still required"
+    }
+  ]
+}

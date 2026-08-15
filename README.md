@@ -417,6 +417,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── profile_islamic_big.sh  Focused profiling loop for IslamicStars' largest mesh
 │   ├── profile_capture.py      Serial capture of the profiling image's readout
 │   ├── parse_profile.py        Capture-log parser behind the per-window/per-preset reports
+│   ├── generate_pullback_manifest_header.py  Pullback manifest validator and native-test header generator
+│   ├── pullback_crosscheck.py  Isolated base/candidate pullback framebuffer comparator
 │   ├── device_lock.sh          Host-global per-board lock every device path takes
 │   ├── pov_segment_map_export.cpp  Generator for the committed segment-map golden
 │   ├── relax_bakes.py / relax_bake_harness.cpp  Relaxed-mesh bake generator of record

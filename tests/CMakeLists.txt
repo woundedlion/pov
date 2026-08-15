@@ -346,6 +346,38 @@ option(HS_REQUIRE_GENERATORS
 # the four gates below permanently skipped, which a green run does not show.
 find_program(HS_PYTHON NAMES python3 python NO_CACHE)
 
+if(NOT HS_PYTHON)
+  message(FATAL_ERROR "Python is required to validate pullback manifests")
+endif()
+
+set(PULLBACK_MANIFEST_DIR ${HS_ROOT}/tests/data/pullback)
+set(PULLBACK_MANIFEST_HEADER
+    ${CMAKE_CURRENT_BINARY_DIR}/pullback_manifest.generated.h)
+add_custom_command(
+  OUTPUT ${PULLBACK_MANIFEST_HEADER}
+  COMMAND ${HS_PYTHON} ${HS_ROOT}/tools/generate_pullback_manifest_header.py
+          --manifest-dir ${PULLBACK_MANIFEST_DIR}
+          --output ${PULLBACK_MANIFEST_HEADER}
+  DEPENDS
+    ${HS_ROOT}/tools/generate_pullback_manifest_header.py
+    ${PULLBACK_MANIFEST_DIR}/schema.json
+    ${PULLBACK_MANIFEST_DIR}/programs.json
+    ${PULLBACK_MANIFEST_DIR}/peirce_fast_square.json
+    ${PULLBACK_MANIFEST_DIR}/hue_rotation_noise_luts.json
+  VERBATIM)
+add_custom_target(pullback_manifest_header DEPENDS ${PULLBACK_MANIFEST_HEADER})
+add_dependencies(run_tests pullback_manifest_header)
+
+add_executable(pullback_manifest_check
+  ${CMAKE_CURRENT_SOURCE_DIR}/pullback_manifest_check.cpp
+  ${PULLBACK_MANIFEST_HEADER})
+add_dependencies(pullback_manifest_check pullback_manifest_header)
+target_include_directories(pullback_manifest_check PRIVATE
+                           ${CMAKE_CURRENT_BINARY_DIR})
+_hs_warnings(pullback_manifest_check)
+_hs_sanitize(pullback_manifest_check)
+add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
+
 # Pin core/color/color_luts.h against its generator.
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}

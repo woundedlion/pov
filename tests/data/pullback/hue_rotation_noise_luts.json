@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "kind": "pullback-oracle",
+  "oracle_id": "HUE_ROTATION_AND_NOISE_LUTS",
+  "base_sha": "77dc34b9b812364ffb9c200140440fad6fd3cb70",
+  "toolchains": {
+    "native": { "compiler": "clang 22", "cmake": "4.2.3", "cmake_preset": "tests", "configuration": "Debug" },
+    "wasm": { "compiler": "emsdk 5.0.0 clang", "cmake": "4.2.3", "cmake_preset": "wasm-release", "configuration": "Release" },
+    "teensy": { "compiler": "PJRC arm-none-eabi-gcc 15.2.1", "platformio": "6.1.19", "platform": "teensy@5.2.0", "cpu_hz": 600000000 }
+  },
+  "exact_callable": "ShaderBallWhiteBox::direct_hue_noise_color",
+  "optimized_callable": "ShaderBallWhiteBox::prepared_hue_noise_color",
+  "non_floating_fields_exact": true,
+  "corpus": {
+    "generator": "shaderball-prepared-hue-grid",
+    "version": 1,
+    "deterministic": true,
+    "presets": [7, 8, 11],
+    "phases": [1.781, 1.918, 2.329],
+    "latitude_steps": 49,
+    "longitude_steps": 192,
+    "value_steps": 17
+  },
+  "metrics": [
+    {
+      "domain": "COLOR_CHANNEL",
+      "aggregation": "MAXIMUM",
+      "measured_baseline": 4249,
+      "accepted_limit": 5400,
+      "unit": "16-bit channel code",
+      "limit_provenance": "existing ShaderBall combined prepared-hue stage budget"
+    },
+    {
+      "domain": "COLOR_CHANNEL",
+      "aggregation": "MEAN",
+      "measured_baseline": 166,
+      "accepted_limit": 256,
+      "unit": "16-bit channel code",
+      "limit_provenance": "existing ShaderBall combined prepared-hue stage budget"
+    },
+    {
+      "domain": "FRAMEBUFFER",
+      "aggregation": "MAXIMUM",
+      "measured_baseline": null,
+      "measurement_status": "requires capture",
+      "accepted_limit": 5400,
+      "unit": "16-bit channel code",
+      "limit_provenance": "color-stage maximum bounds framebuffer channels; baseline capture still required"
+    }
+  ]
+}

@@ -82,6 +82,12 @@ if(EMSCRIPTEN)
     # -O0 frames rather than rely on -sASSERTIONS to merely report the abort.
     target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1"
       "-sSTACK_SIZE=65536")
+  elseif(CMAKE_BUILD_TYPE STREQUAL "PullbackStrictFP")
+    message(STATUS "WASM pullback strict-FP diagnostic build (-O3 -fno-fast-math -ffp-contract=off, no LTO)")
+    target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-fno-fast-math"
+      "-ffp-contract=off" "-msimd128")
+    target_link_options(${TARGET_NAME} PRIVATE "-O3" "-fno-fast-math"
+      "-ffp-contract=off" "-msimd128" "-sSTACK_SIZE=8192")
   else()
     # -fno-finite-math-only is required AFTER -ffast-math: -ffast-math implies
     # -ffinite-math-only, which folds std::isfinite() to constant true and lets
