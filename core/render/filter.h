@@ -1186,7 +1186,8 @@ public:
    * would wrap the trail length.
    */
   Trails(int lifetime) : lifetime(lifetime) {
-    HS_CHECK(lifetime > 0 && lifetime <= 255);
+    HS_CHECK(lifetime > 0 && lifetime <= 255,
+             "World::Trails: lifetime %d outside [1, 255]", lifetime);
   }
 
   /**
@@ -1196,7 +1197,8 @@ public:
    * age out under the new length within a few frames.
    */
   void set_lifetime(int new_lifetime) {
-    HS_CHECK(new_lifetime > 0 && new_lifetime <= 255);
+    HS_CHECK(new_lifetime > 0 && new_lifetime <= 255,
+             "World::Trails: lifetime %d outside [1, 255]", new_lifetime);
     lifetime = new_lifetime;
   }
 
@@ -1671,7 +1673,10 @@ public:
    * @brief Constructs a screen trail buffer with the given fade lifetime.
    * @param lifetime Per-frame fade divisor in frames; must be positive.
    */
-  Trails(int lifetime) : lifetime(lifetime) { HS_CHECK(lifetime > 0); }
+  Trails(int lifetime) : lifetime(lifetime) {
+    HS_CHECK(lifetime > 0, "Screen::Trails: lifetime %d must be positive",
+             lifetime);
+  }
 
   /**
    * @brief Allocates the decay-pixel storage from the persistent arena.
