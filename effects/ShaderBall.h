@@ -24,6 +24,18 @@
 #include "core/math/stereographic.h"
 #include "core/render/pullback.h"
 
+#define HS_SHADERBALL_PULLBACK_LEGACY 0
+#define HS_SHADERBALL_PULLBACK_CORE 1
+
+#ifndef HS_SHADERBALL_PULLBACK_PIPELINE
+#define HS_SHADERBALL_PULLBACK_PIPELINE HS_SHADERBALL_PULLBACK_LEGACY
+#endif
+
+#if HS_SHADERBALL_PULLBACK_PIPELINE != HS_SHADERBALL_PULLBACK_LEGACY &&        \
+    HS_SHADERBALL_PULLBACK_PIPELINE != HS_SHADERBALL_PULLBACK_CORE
+#error "HS_SHADERBALL_PULLBACK_PIPELINE must select LEGACY or CORE"
+#endif
+
 namespace hs_test {
 namespace shaderball_tests {
 struct ShaderBallWhiteBox;
@@ -1931,6 +1943,219 @@ private:
     };
   };
 
+  struct OuterCameraStateProvider {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
+
+    static const Quaternion &conjugate(const FrameState &frame) {
+      return frame.transforms.outer_conj;
+    }
+  };
+
+  struct ProjectionStateProvider {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
+
+    static const Quaternion &conjugate(const FrameState &frame) {
+      return frame.transforms.projection_conj;
+    }
+    static float pole_fade(const FrameState &frame) {
+      return frame.params.projection.pole_fade;
+    }
+    static float central_meridian(const FrameState &frame) {
+      return frame.params.projection.central_meridian;
+    }
+    static float coordinate_scale(const FrameState &frame) {
+      return frame.params.projection.coordinate_scale;
+    }
+    static float standard_parallel(const FrameState &frame) {
+      return frame.params.projection.bonne_standard_parallel;
+    }
+    static float layout_scroll(const FrameState &frame) {
+      return frame.params.projection.layout_scroll;
+    }
+  };
+
+  struct SurfaceStateProvider {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
+
+    static const FastNoiseLite &noise(const FrameState &frame) {
+      return *frame.resources.surface_noise;
+    }
+    static float scale(const FrameState &frame) {
+      return frame.params.surface_noise.scale;
+    }
+    static const Vector &loop_offset(const FrameState &frame) {
+      return frame.prepared_surface_noise.loop_offset;
+    }
+    static float strength(const FrameState &frame) {
+      return frame.params.surface_noise.strength;
+    }
+    static float direction_cos(const FrameState &frame) {
+      return frame.prepared_surface_noise.direction_cos;
+    }
+    static float direction_sin(const FrameState &frame) {
+      return frame.prepared_surface_noise.direction_sin;
+    }
+    static bool path_length_required(const FrameState &frame) {
+      return frame.prepared_hue_rotation.active &&
+             frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT;
+    }
+  };
+
+  template <bool Outer> struct WarpStateProvider {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
+
+    static const WarpStageParams &params(const FrameState &frame) {
+      if constexpr (Outer)
+        return frame.params.warp.outer;
+      else
+        return frame.params.warp.inner;
+    }
+    static const PreparedWarpStage &prepared(const FrameState &frame) {
+      if constexpr (Outer)
+        return frame.prepared_warp.outer;
+      else
+        return frame.prepared_warp.inner;
+    }
+    static float phase(const FrameState &frame) {
+      if constexpr (Outer)
+        return frame.clocks.warp_outer_phase;
+      else
+        return frame.clocks.warp_inner_phase;
+    }
+    static const FastNoiseLite &noise(const FrameState &frame) {
+      if constexpr (Outer)
+        return *frame.resources.outer_warp_noise;
+      else
+        return *frame.resources.inner_warp_noise;
+    }
+  };
+
+  struct SourceStateProvider {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
+
+    static const SourceParams &params(const FrameState &frame) {
+      return frame.params.source;
+    }
+    static const SourceState &prepared(const FrameState &frame) {
+      return frame.prepared_source;
+    }
+  };
+
+  struct ValueStateProvider {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
+
+    static float iso_level(const FrameState &frame) {
+      return frame.params.value.iso_level;
+    }
+    static float iso_width(const FrameState &frame) {
+      return frame.params.value.iso_width;
+    }
+    static float band_count(const FrameState &frame) {
+      return static_cast<float>(frame.params.value.band_count);
+    }
+    static float band_phase(const FrameState &frame) {
+      return frame.params.value.band_phase;
+    }
+    static float cutout_threshold(const FrameState &frame) {
+      return frame.params.value.cutout_threshold;
+    }
+    static float cutout_width(const FrameState &frame) {
+      return frame.params.value.cutout_softness;
+    }
+    static float edge_width(const FrameState &frame) {
+      return frame.params.value.edge_width;
+    }
+  };
+
+  static_assert(
+      static_cast<uint8_t>(PaletteMapping::CUP) ==
+          static_cast<uint8_t>(Pullback::Color::PaletteMapping::CUP) &&
+      static_cast<uint8_t>(PaletteMapping::BELL) ==
+          static_cast<uint8_t>(Pullback::Color::PaletteMapping::BELL) &&
+      static_cast<uint8_t>(PaletteMapping::LINEAR) ==
+          static_cast<uint8_t>(Pullback::Color::PaletteMapping::LINEAR) &&
+      static_cast<uint8_t>(PaletteMapping::REVERSE) ==
+          static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE));
+  static_assert(
+      static_cast<uint8_t>(BrightnessEnvelope::NONE) ==
+          static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::NONE) &&
+      static_cast<uint8_t>(BrightnessEnvelope::CUP) ==
+          static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::CUP) &&
+      static_cast<uint8_t>(BrightnessEnvelope::BELL) ==
+          static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::BELL) &&
+      static_cast<uint8_t>(BrightnessEnvelope::ASCENDING) ==
+          static_cast<uint8_t>(
+              Pullback::Color::BrightnessEnvelope::ASCENDING) &&
+      static_cast<uint8_t>(BrightnessEnvelope::DESCENDING) ==
+          static_cast<uint8_t>(
+              Pullback::Color::BrightnessEnvelope::DESCENDING));
+  static_assert(
+      static_cast<uint8_t>(HueShiftMode::NONE) ==
+          static_cast<uint8_t>(Pullback::Color::HueMode::NONE) &&
+      static_cast<uint8_t>(HueShiftMode::NOISE) ==
+          static_cast<uint8_t>(Pullback::Color::HueMode::NOISE) &&
+      static_cast<uint8_t>(HueShiftMode::WARP_DISPLACEMENT) ==
+          static_cast<uint8_t>(Pullback::Color::HueMode::PATH_LENGTH));
+
+  struct ColorStateProvider {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
+
+    static Pullback::Color::PaletteMapping mapping(const FrameState &frame) {
+      return static_cast<Pullback::Color::PaletteMapping>(
+          frame.slots.palette_mapping);
+    }
+    static float mapping_frequency(const FrameState &frame) {
+      return frame.params.color.mapping_frequency;
+    }
+    static float mapping_phase(const FrameState &frame) {
+      return frame.params.color.mapping_phase;
+    }
+    static float oscillation_depth(const FrameState &frame) {
+      return frame.params.color.phase_oscillation_depth;
+    }
+    static float oscillation_phase(const FrameState &frame) {
+      return frame.clocks.palette_oscillation_phase;
+    }
+    static Color4 palette(const FrameState &frame, float value) {
+      return frame.resources.generated_palette->get(value);
+    }
+    static Pullback::Color::HueMode hue_mode(const FrameState &frame) {
+      return static_cast<Pullback::Color::HueMode>(frame.slots.hue_shift);
+    }
+    static float hue_shift_amount(const FrameState &frame) {
+      return frame.params.color.hue_shift_amount;
+    }
+    static Pullback::Color::HueRotationLutView
+    hue_rotation(const FrameState &frame) {
+      return {frame.prepared_hue_rotation.lut,
+              frame.prepared_hue_rotation.active};
+    }
+    static Pullback::Color::HueNoiseLutView hue_noise(const FrameState &frame) {
+      return {frame.prepared_hue_noise.lut, frame.prepared_hue_noise.active};
+    }
+    static Pullback::Color::BrightnessEnvelope
+    brightness_envelope(const FrameState &frame) {
+      return static_cast<Pullback::Color::BrightnessEnvelope>(
+          frame.slots.brightness_envelope);
+    }
+    static float brightness_depth(const FrameState &frame) {
+      return frame.params.color.brightness_depth;
+    }
+    static float opacity_low(const FrameState &frame) {
+      return frame.params.color.value_opacity_low;
+    }
+    static float opacity_high(const FrameState &frame) {
+      return frame.params.color.value_opacity_high;
+    }
+  };
+
   using SourceInput = Pullback::SourceInput;
   using MaterialInput = Pullback::MaterialInput;
   using InverseStageKind = Pullback::StageKind;
@@ -2396,6 +2621,153 @@ private:
     }
   };
 
+  struct CoreOuterCameraStage
+      : Pullback::Stage::OuterCamera<ShaderBallBinding,
+                                     OuterCameraStateProvider> {
+    static constexpr bool implements(const TopologyKey &) { return true; }
+  };
+
+  template <SurfaceLens LensV>
+  using CoreLensPolicy = std::conditional_t<
+      LensV == SurfaceLens::NONE, Pullback::Lens::Identity,
+      std::conditional_t<
+          LensV == SurfaceLens::GLITCH, Pullback::Lens::Glitch,
+          std::conditional_t<
+              LensV == SurfaceLens::KALEIDOSCOPE, Pullback::Lens::Kaleidoscope,
+              std::conditional_t<
+                  LensV == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
+                  Pullback::Lens::DodecahedralKaleidoscope,
+                  Pullback::Lens::TriangularPrismKaleidoscope>>>>;
+
+  template <Projection ProjectionV>
+  using CoreProjectionPolicy = std::conditional_t<
+      ProjectionV == Projection::STEREOGRAPHIC,
+      Pullback::Projection::Stereographic<ProjectionStateProvider>,
+      std::conditional_t<
+          ProjectionV == Projection::GNOMONIC,
+          Pullback::Projection::Gnomonic<
+              ProjectionStateProvider,
+              Pullback::Projection::GnomonicHemisphere::FOLDED>,
+          std::conditional_t<
+              ProjectionV == Projection::BONNE,
+              Pullback::Projection::Bonne<ProjectionStateProvider, true>,
+              Pullback::Projection::PeirceSquare<ProjectionStateProvider>>>>;
+
+  template <Projection ProjectionV, SurfaceLens LensV>
+  struct CoreSelectedSurfaceProjectStage
+      : Pullback::Stage::SurfaceProject<
+            ShaderBallBinding, Pullback::Surface::Identity,
+            CoreLensPolicy<LensV>, Pullback::Surface::Identity,
+            CoreProjectionPolicy<ProjectionV>> {
+    static constexpr bool implements(const TopologyKey &key) {
+      return SelectedSurfaceProjectStage<ProjectionV, LensV>::implements(key);
+    }
+  };
+
+  using CoreSinusoidalCurlSurfaceImplementation =
+      Pullback::Stage::SurfaceProject<
+          ShaderBallBinding,
+          Pullback::Surface::CurlNoise<SurfaceStateProvider,
+                                       NoiseBasis::SIMPLEX,
+                                       Pullback::Surface::Euler>,
+          Pullback::Lens::Identity, Pullback::Surface::Identity,
+          Pullback::Projection::FoldedSinusoidal<ProjectionStateProvider>>;
+  struct CoreSinusoidalCurlSurfaceStage
+      : Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+                                CoreSinusoidalCurlSurfaceImplementation> {
+    static constexpr bool implements(const TopologyKey &key) {
+      return SinusoidalCurlSurfaceStage::implements(key);
+    }
+  };
+
+  template <WarpStageKind KindV, bool Outer>
+  using CoreWarpPolicy = std::conditional_t<
+      KindV == WarpStageKind::NONE, Pullback::Warp::Identity,
+      std::conditional_t<
+          KindV == WarpStageKind::AFFINE_FRAME,
+          Pullback::Warp::AffineFrame<WarpStateProvider<Outer>>,
+          std::conditional_t<
+              KindV == WarpStageKind::WAVE_SHEAR,
+              Pullback::Warp::WaveShear<WarpStateProvider<Outer>>,
+              std::conditional_t<
+                  KindV == WarpStageKind::VECTOR_NOISE,
+                  Pullback::Warp::VectorNoise<WarpStateProvider<Outer>,
+                                              NoiseBasis::SIMPLEX,
+                                              Pullback::Warp::FlatEnvelope>,
+                  std::conditional_t<
+                      KindV == WarpStageKind::MIRROR_TILE,
+                      Pullback::Warp::MirrorTile<WarpStateProvider<Outer>>,
+                      Pullback::Warp::PolarChart<WarpStateProvider<Outer>,
+                                                 Pullback::Warp::LinearPolar,
+                                                 1>>>>>>;
+
+  template <WarpStageKind Outer, WarpStageKind Inner>
+  struct CoreSelectedPlanarWarpStage
+      : Pullback::Stage::PlanarWarp<ShaderBallBinding,
+                                    CoreWarpPolicy<Outer, true>,
+                                    CoreWarpPolicy<Inner, false>> {
+    static constexpr bool implements(const TopologyKey &key) {
+      return SelectedPlanarWarpStage<Outer, Inner>::implements(key);
+    }
+  };
+
+  template <Function FunctionV>
+  using CoreSourcePolicy = std::conditional_t<
+      FunctionV == Function::GRID, Pullback::Source::Grid<SourceStateProvider>,
+      std::conditional_t<
+          FunctionV == Function::PRIMITIVE_LATTICE,
+          Pullback::Source::PrimitiveLattice<SourceStateProvider>,
+          Pullback::Source::TwinWave<SourceStateProvider>>>;
+
+  template <Function FunctionV>
+  struct CoreSourceStage
+      : Pullback::Stage::Source<ShaderBallBinding,
+                                CoreSourcePolicy<FunctionV>> {
+    static constexpr bool implements(const TopologyKey &key) {
+      return key.function == FunctionV;
+    }
+  };
+
+  template <CoveragePolicy CoverageV>
+  using CoreCoveragePolicy = std::conditional_t<
+      CoverageV == CoveragePolicy::OPAQUE, Pullback::Coverage::Opaque,
+      std::conditional_t<
+          CoverageV == CoveragePolicy::EDGE_FADE,
+          Pullback::Coverage::EdgeFade<ValueStateProvider>,
+          std::conditional_t<CoverageV == CoveragePolicy::PROJECTION_WEIGHT,
+                             Pullback::Coverage::Projection,
+                             Pullback::Coverage::ProjectionSquared>>>;
+
+  template <CoveragePolicy CoverageV>
+  struct CoreLinearMaterialStage
+      : Pullback::Stage::Material<
+            ShaderBallBinding, Pullback::Weight::Projection,
+            Pullback::Transfer::Linear, CoreCoveragePolicy<CoverageV>> {
+    static constexpr CoveragePolicy COVERAGE = CoverageV;
+    static constexpr bool implements(const TopologyKey &key) {
+      return LinearMaterialStage<CoverageV>::implements(key);
+    }
+  };
+
+  struct CoreIsoContourMaterialStage
+      : Pullback::Stage::Material<
+            ShaderBallBinding, Pullback::Weight::Projection,
+            Pullback::Transfer::IsoContour<ValueStateProvider>,
+            Pullback::Coverage::Projection> {
+    static constexpr CoveragePolicy COVERAGE =
+        CoveragePolicy::PROJECTION_WEIGHT;
+    static constexpr bool implements(const TopologyKey &key) {
+      return IsoContourProjectionWeightMaterialStage::implements(key);
+    }
+  };
+
+  struct CoreColorStage
+      : Pullback::Stage::Color<
+            ShaderBallBinding,
+            Pullback::Color::GeneratedPalette<ColorStateProvider>> {
+    static constexpr bool implements(const TopologyKey &) { return true; }
+  };
+
   using BonneKaleidoscopeLatticeMirrorPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::BONNE, SurfaceLens::KALEIDOSCOPE>,
@@ -2507,6 +2879,176 @@ private:
       SourceStage<Function::PRIMITIVE_LATTICE>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+
+  using CoreBonneKaleidoscopeLatticeMirrorPipelineBase = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<Projection::BONNE,
+                                      SurfaceLens::KALEIDOSCOPE>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE,
+                                  WarpStageKind::NONE>,
+      CoreSourceStage<Function::PRIMITIVE_LATTICE>,
+      CoreLinearMaterialStage<CoveragePolicy::EDGE_FADE>, CoreColorStage>;
+  struct CoreBonneKaleidoscopeLatticeMirrorPipeline
+      : CoreBonneKaleidoscopeLatticeMirrorPipelineBase {
+    HS_FLASH_MEMBER __attribute__((noinline, aligned(4096))) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return CoreBonneKaleidoscopeLatticeMirrorPipelineBase::template run_stage<
+          0>(view, frame);
+    }
+  };
+  using CoreGlitchNoiseGridWaveShearPipelineBase = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
+                                      SurfaceLens::GLITCH>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::WAVE_SHEAR,
+                                  WarpStageKind::NONE>,
+      CoreSourceStage<Function::GRID>,
+      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      CoreColorStage>;
+  struct CoreGlitchNoiseGridWaveShearPipeline
+      : CoreGlitchNoiseGridWaveShearPipelineBase {
+    FASTRUN __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return CoreGlitchNoiseGridWaveShearPipelineBase::template run_stage<0>(
+          view, frame);
+    }
+  };
+  using CoreKaleidoscopeTwinWaveInnerMirrorPipeline = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
+                                      SurfaceLens::KALEIDOSCOPE>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::NONE,
+                                  WarpStageKind::MIRROR_TILE>,
+      CoreSourceStage<Function::TWIN_WAVE>,
+      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      CoreColorStage>;
+  using CoreGnomonicKaleidoscopeGridMirrorPipeline = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC,
+                                      SurfaceLens::KALEIDOSCOPE>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE,
+                                  WarpStageKind::NONE>,
+      CoreSourceStage<Function::GRID>,
+      CoreLinearMaterialStage<CoveragePolicy::EDGE_FADE>, CoreColorStage>;
+  using CoreGnomonicGlitchGridMirrorPipeline =
+      InversePipeline<CoreOuterCameraStage,
+                      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC,
+                                                      SurfaceLens::GLITCH>,
+                      CoreSelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE,
+                                                  WarpStageKind::NONE>,
+                      CoreSourceStage<Function::GRID>,
+                      CoreLinearMaterialStage<CoveragePolicy::EDGE_FADE>,
+                      CoreColorStage>;
+  using CorePeirceDodecahedralGridPipelineBase = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<Projection::PEIRCE_QUINCUNCIAL,
+                                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
+      CoreSourceStage<Function::GRID>,
+      CoreLinearMaterialStage<CoveragePolicy::EDGE_FADE>, CoreColorStage>;
+  struct CorePeirceDodecahedralGridPipeline
+      : CorePeirceDodecahedralGridPipelineBase {
+    FASTRUN __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return CorePeirceDodecahedralGridPipelineBase::template run_stage<0>(
+          view, frame);
+    }
+  };
+  using CoreGnomonicDodecahedralGridWaveMirrorPipelineBase = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC,
+                                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::WAVE_SHEAR,
+                                  WarpStageKind::MIRROR_TILE>,
+      CoreSourceStage<Function::GRID>,
+      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      CoreColorStage>;
+  struct CoreGnomonicDodecahedralGridWaveMirrorPipeline
+      : CoreGnomonicDodecahedralGridWaveMirrorPipelineBase {
+    FASTRUN __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return CoreGnomonicDodecahedralGridWaveMirrorPipelineBase::
+          template run_stage<0>(view, frame);
+    }
+  };
+  using CoreGnomonicDodecahedralGridVectorMirrorPipeline = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC,
+                                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::VECTOR_NOISE,
+                                  WarpStageKind::MIRROR_TILE>,
+      CoreSourceStage<Function::GRID>,
+      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      CoreColorStage>;
+  using CoreGnomonicAffineLatticeContourPipeline = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<Projection::GNOMONIC, SurfaceLens::NONE>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::AFFINE_FRAME,
+                                  WarpStageKind::NONE>,
+      CoreSourceStage<Function::PRIMITIVE_LATTICE>, CoreIsoContourMaterialStage,
+      CoreColorStage>;
+  using CoreSinusoidalCurlLatticePipeline = InversePipeline<
+      CoreOuterCameraStage, CoreSinusoidalCurlSurfaceStage,
+      CoreSelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
+      CoreSourceStage<Function::PRIMITIVE_LATTICE>,
+      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT>,
+      CoreColorStage>;
+  using CoreStereographicPrismPolarWaveLatticePipeline = InversePipeline<
+      CoreOuterCameraStage,
+      CoreSelectedSurfaceProjectStage<
+          Projection::STEREOGRAPHIC,
+          SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM>,
+      CoreSelectedPlanarWarpStage<WarpStageKind::POLAR_CHART,
+                                  WarpStageKind::WAVE_SHEAR>,
+      CoreSourceStage<Function::PRIMITIVE_LATTICE>,
+      CoreLinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      CoreColorStage>;
+
+#if HS_SHADERBALL_PULLBACK_PIPELINE == HS_SHADERBALL_PULLBACK_CORE
+  using ManifestBonneKaleidoscopeLatticeMirrorPipeline =
+      CoreBonneKaleidoscopeLatticeMirrorPipeline;
+  using ManifestGlitchNoiseGridWaveShearPipeline =
+      CoreGlitchNoiseGridWaveShearPipeline;
+  using ManifestKaleidoscopeTwinWaveInnerMirrorPipeline =
+      CoreKaleidoscopeTwinWaveInnerMirrorPipeline;
+  using ManifestGnomonicKaleidoscopeGridMirrorPipeline =
+      CoreGnomonicKaleidoscopeGridMirrorPipeline;
+  using ManifestGnomonicGlitchGridMirrorPipeline =
+      CoreGnomonicGlitchGridMirrorPipeline;
+  using ManifestPeirceDodecahedralGridPipeline =
+      CorePeirceDodecahedralGridPipeline;
+  using ManifestGnomonicDodecahedralGridWaveMirrorPipeline =
+      CoreGnomonicDodecahedralGridWaveMirrorPipeline;
+  using ManifestGnomonicAffineLatticeContourPipeline =
+      CoreGnomonicAffineLatticeContourPipeline;
+  using ManifestSinusoidalCurlLatticePipeline =
+      CoreSinusoidalCurlLatticePipeline;
+  using ManifestStereographicPrismPolarWaveLatticePipeline =
+      CoreStereographicPrismPolarWaveLatticePipeline;
+  using ManifestGnomonicDodecahedralGridVectorMirrorPipeline =
+      CoreGnomonicDodecahedralGridVectorMirrorPipeline;
+#else
+  using ManifestBonneKaleidoscopeLatticeMirrorPipeline =
+      BonneKaleidoscopeLatticeMirrorPipeline;
+  using ManifestGlitchNoiseGridWaveShearPipeline =
+      GlitchNoiseGridWaveShearPipeline;
+  using ManifestKaleidoscopeTwinWaveInnerMirrorPipeline =
+      KaleidoscopeTwinWaveInnerMirrorPipeline;
+  using ManifestGnomonicKaleidoscopeGridMirrorPipeline =
+      GnomonicKaleidoscopeGridMirrorPipeline;
+  using ManifestGnomonicGlitchGridMirrorPipeline =
+      GnomonicGlitchGridMirrorPipeline;
+  using ManifestPeirceDodecahedralGridPipeline = PeirceDodecahedralGridPipeline;
+  using ManifestGnomonicDodecahedralGridWaveMirrorPipeline =
+      GnomonicDodecahedralGridWaveMirrorPipeline;
+  using ManifestGnomonicAffineLatticeContourPipeline =
+      GnomonicAffineLatticeContourPipeline;
+  using ManifestSinusoidalCurlLatticePipeline = SinusoidalCurlLatticePipeline;
+  using ManifestStereographicPrismPolarWaveLatticePipeline =
+      StereographicPrismPolarWaveLatticePipeline;
+  using ManifestGnomonicDodecahedralGridVectorMirrorPipeline =
+      GnomonicDodecahedralGridVectorMirrorPipeline;
+#endif
 
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
 
@@ -3574,52 +4116,52 @@ private:
   HS_COLD_MEMBER static const std::array<ProgramDescriptor, 11> &
   inverse_programs() {
     static constexpr std::array<ProgramDescriptor, 11> PROGRAMS{{
-        make_program<BonneKaleidoscopeLatticeMirrorPipeline,
+        make_program<ManifestBonneKaleidoscopeLatticeMirrorPipeline,
                      InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
                      make_topology_key(bonne_lattice_mirror_preset())>(
             &all_continuous_parameters_supported),
-        make_program<GlitchNoiseGridWaveShearPipeline,
+        make_program<ManifestGlitchNoiseGridWaveShearPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
                      make_topology_key(wave_shear_generated_preset())>(
             &all_continuous_parameters_supported),
-        make_program<KaleidoscopeTwinWaveInnerMirrorPipeline,
+        make_program<ManifestKaleidoscopeTwinWaveInnerMirrorPipeline,
                      InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
                      make_topology_key(kaleidoscope_mirror_preset())>(
             &all_continuous_parameters_supported),
-        make_program<GnomonicKaleidoscopeGridMirrorPipeline,
+        make_program<ManifestGnomonicKaleidoscopeGridMirrorPipeline,
                      InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
                      make_topology_key(gnomonic_grid_mirror_preset(
                          SurfaceLens::KALEIDOSCOPE))>(
             &all_continuous_parameters_supported),
-        make_program<GnomonicGlitchGridMirrorPipeline,
+        make_program<ManifestGnomonicGlitchGridMirrorPipeline,
                      InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR,
                      make_topology_key(
                          gnomonic_grid_mirror_preset(SurfaceLens::GLITCH))>(
             &all_continuous_parameters_supported),
-        make_program<PeirceDodecahedralGridPipeline,
+        make_program<ManifestPeirceDodecahedralGridPipeline,
                      InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
                      make_topology_key(peirce_dodecahedral_generated_preset())>(
             &all_continuous_parameters_supported),
-        make_program<GnomonicDodecahedralGridWaveMirrorPipeline,
+        make_program<ManifestGnomonicDodecahedralGridWaveMirrorPipeline,
                      InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
                      make_topology_key(gnomonic_wave_shear_grid_preset())>(
             &all_continuous_parameters_supported),
-        make_program<GnomonicAffineLatticeContourPipeline,
+        make_program<ManifestGnomonicAffineLatticeContourPipeline,
                      InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR,
                      make_topology_key(
                          gnomonic_affine_lattice_contour_preset())>(
             &all_continuous_parameters_supported),
-        make_program<SinusoidalCurlLatticePipeline,
+        make_program<ManifestSinusoidalCurlLatticePipeline,
                      InversePipelineId::SINUSOIDAL_CURL_LATTICE,
                      make_topology_key(sinusoidal_lattice_curl_preset(1.0f))>(
             &all_continuous_parameters_supported),
-        make_program<StereographicPrismPolarWaveLatticePipeline,
+        make_program<ManifestStereographicPrismPolarWaveLatticePipeline,
                      InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
                      make_topology_key(
                          stereographic_prism_polar_wave_lattice_preset())>(
             &all_continuous_parameters_supported),
         make_program<
-            GnomonicDodecahedralGridVectorMirrorPipeline,
+            ManifestGnomonicDodecahedralGridVectorMirrorPipeline,
             InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
             make_topology_key(
                 gnomonic_dodecahedral_vector_mirror_grid_preset())>(
@@ -4313,85 +4855,24 @@ private:
    */
   HS_FLASH_MEMBER static Color4 colorize_generated(const MaterialSample &sample,
                                                    const FrameState &frame) {
-    const float oscillation =
-        frame.params.color.phase_oscillation_depth *
-        fast_sinf(TWO_PI_F * frame.clocks.palette_oscillation_phase);
-    const float palette_value = palette_mapping_coordinate(
-        sample.value, frame.slots.palette_mapping,
-        frame.params.color.mapping_frequency,
-        frame.params.color.mapping_phase + oscillation);
-    Color4 color;
-    if (frame.prepared_hue_rotation.active &&
-        frame.slots.hue_shift == HueShiftMode::NOISE) {
-      const float amount =
-          frame.params.color.hue_shift_amount *
-          sample_hue_noise_lut(frame.prepared_hue_noise, sample.sphere);
-      color = Color4(sample_hue_rotation_lut(frame.prepared_hue_rotation,
-                                             palette_value, amount),
-                     1.0f);
-    } else {
-      color = frame.resources.generated_palette->get(palette_value);
-      if (frame.prepared_hue_rotation.active) {
-        const float amount =
-            wrap_t(frame.params.color.hue_shift_amount * sample.path_length);
-        if (amount != 0.0f)
-          color.color = sample_hue_rotation_lut(frame.prepared_hue_rotation,
-                                                palette_value, amount);
-      }
-    }
-    color.color =
-        color.color *
-        brightness_envelope_gain(sample.value, frame.slots.brightness_envelope,
-                                 frame.params.color.brightness_depth);
-    color.alpha *=
-        sample.coverage * hs::lerp(frame.params.color.value_opacity_low,
-                                   frame.params.color.value_opacity_high,
-                                   sample.value);
-    return color;
+    return Pullback::Color::GeneratedPalette<ColorStateProvider>::apply(sample,
+                                                                        frame);
   }
 
   __attribute__((always_inline)) static float
   palette_mapping_coordinate(float value, PaletteMapping mapping,
                              float frequency, float offset) {
-    if (mapping == PaletteMapping::LINEAR && frequency == 1.0f &&
-        offset == 0.0f)
-      return value;
-    const float phase =
-        wrap_t(std::min(value, ONE_BELOW_UNIT) * frequency + offset);
-    switch (mapping) {
-    case PaletteMapping::CUP:
-      return fabsf(2.0f * phase - 1.0f);
-    case PaletteMapping::BELL:
-      return 1.0f - fabsf(2.0f * phase - 1.0f);
-    case PaletteMapping::LINEAR:
-      return phase;
-    case PaletteMapping::REVERSE:
-      return 1.0f - phase;
-    }
-    return phase;
+    return Pullback::Color::palette_mapping_coordinate(
+        value, static_cast<Pullback::Color::PaletteMapping>(mapping), frequency,
+        offset);
   }
 
   __attribute__((always_inline)) static float
   brightness_envelope_gain(float value, BrightnessEnvelope envelope,
                            float depth) {
-    float shape = 1.0f;
-    switch (envelope) {
-    case BrightnessEnvelope::NONE:
-      return 1.0f;
-    case BrightnessEnvelope::CUP:
-      shape = fabsf(2.0f * value - 1.0f);
-      break;
-    case BrightnessEnvelope::BELL:
-      shape = 1.0f - fabsf(2.0f * value - 1.0f);
-      break;
-    case BrightnessEnvelope::ASCENDING:
-      shape = value;
-      break;
-    case BrightnessEnvelope::DESCENDING:
-      shape = 1.0f - value;
-      break;
-    }
-    return 1.0f - depth * (1.0f - shape);
+    return Pullback::Color::brightness_envelope_gain(
+        value, static_cast<Pullback::Color::BrightnessEnvelope>(envelope),
+        depth);
   }
 
 #if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
@@ -4466,77 +4947,15 @@ private:
 
   HS_FLASH_MEMBER static float
   sample_hue_noise_lut(const PreparedHueNoise &prepared, const Vector &v) {
-    const float ax = fabsf(v.x);
-    const float ay = fabsf(v.y);
-    const float az = fabsf(v.z);
-    int face;
-    float u;
-    float w;
-    if (ax >= ay && ax >= az) {
-      const float inverse = 1.0f / ax;
-      face = v.x >= 0.0f ? 0 : 1;
-      u = (v.x >= 0.0f ? v.z : -v.z) * inverse;
-      w = v.y * inverse;
-    } else if (ay >= az) {
-      const float inverse = 1.0f / ay;
-      face = v.y >= 0.0f ? 2 : 3;
-      u = v.x * inverse;
-      w = (v.y >= 0.0f ? v.z : -v.z) * inverse;
-    } else {
-      const float inverse = 1.0f / az;
-      face = v.z >= 0.0f ? 4 : 5;
-      u = (v.z >= 0.0f ? v.x : -v.x) * inverse;
-      w = v.y * inverse;
-    }
-
-    constexpr float SCALE =
-        0.5f * static_cast<float>(PreparedHueNoise::FACE_STEPS - 1);
-    const float x_position = (u + 1.0f) * SCALE;
-    const float y_position = (w + 1.0f) * SCALE;
-    const int x_low = std::min(static_cast<int>(x_position),
-                               PreparedHueNoise::FACE_STEPS - 2);
-    const int y_low = std::min(static_cast<int>(y_position),
-                               PreparedHueNoise::FACE_STEPS - 2);
-    const float x_fraction = x_position - x_low;
-    const float y_fraction = y_position - y_low;
-    const int offset = face * PreparedHueNoise::FACE_SIZE +
-                       y_low * PreparedHueNoise::FACE_STEPS + x_low;
-    const float row_low =
-        hs::lerp(static_cast<float>(prepared.lut[offset]),
-                 static_cast<float>(prepared.lut[offset + 1]), x_fraction);
-    const float row_high = hs::lerp(
-        static_cast<float>(prepared.lut[offset + PreparedHueNoise::FACE_STEPS]),
-        static_cast<float>(
-            prepared.lut[offset + PreparedHueNoise::FACE_STEPS + 1]),
-        x_fraction);
-    return hs::lerp(row_low, row_high, y_fraction) * (1.0f / 127.0f);
+    return Pullback::Color::sample_hue_noise_lut(
+        {prepared.lut, prepared.active}, v);
   }
 
   __attribute__((always_inline)) static Pixel
   sample_hue_rotation_lut(const PreparedHueRotation &prepared, float value,
                           float amount) {
-    const float value_position = value * (PreparedHueRotation::VALUE_STEPS - 1);
-    const int value_low = static_cast<int>(value_position);
-    const int value_high =
-        std::min(value_low + 1, PreparedHueRotation::VALUE_STEPS - 1);
-    const uint16_t value_weight =
-        frac_to_q16(value_position - static_cast<float>(value_low));
-
-    const float hue_position = amount * PreparedHueRotation::HUE_STEPS;
-    int hue_low = static_cast<int>(hue_position);
-    if (hue_position < static_cast<float>(hue_low))
-      --hue_low;
-    const uint16_t hue_weight =
-        frac_to_q16(hue_position - static_cast<float>(hue_low));
-    const int hue_index_low = hue_low & (PreparedHueRotation::HUE_STEPS - 1);
-    const int hue_index_high =
-        (hue_index_low + 1) & (PreparedHueRotation::HUE_STEPS - 1);
-    const auto sample_row = [&](int row) {
-      const int offset = row * PreparedHueRotation::HUE_STEPS;
-      return prepared.lut[offset + hue_index_low].lerp16(
-          prepared.lut[offset + hue_index_high], hue_weight);
-    };
-    return sample_row(value_low).lerp16(sample_row(value_high), value_weight);
+    return Pullback::Color::sample_hue_rotation_lut(
+        {prepared.lut, prepared.active}, value, amount);
   }
 
   HS_FLASH_MEMBER static Vector apply_lens(const Vector &v,
@@ -4590,16 +5009,13 @@ private:
   HS_FLASH_MEMBER static SurfaceNoiseResult
   apply_simplex_euler_surface_noise_result(const Vector &v,
                                            const FrameState &frame) {
-    const SurfaceNoiseParams &params = frame.params.surface_noise;
-    if (params.strength == 0.0f)
-      return {v, 0.0f};
-    const Vector q = noise_sphere_coordinate(
-        v, params.scale, frame.prepared_surface_noise.loop_offset);
-    const Vector tangent =
-        sample_simplex_curl_tangent(*frame.resources.surface_noise, q, v);
-    const Vector step = params.strength * tangent;
-    return {sphere_exp_map_half_radian(v, step),
-            surface_noise_path_length(step, frame)};
+    return Pullback::Surface::curl_noise(
+        v, *frame.resources.surface_noise, NoiseBasis::SIMPLEX,
+        Pullback::Surface::Integrator::EULER, frame.params.surface_noise.scale,
+        frame.prepared_surface_noise.loop_offset,
+        frame.params.surface_noise.strength,
+        frame.prepared_hue_rotation.active &&
+            frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT);
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult

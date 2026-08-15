@@ -396,6 +396,14 @@ template <typename... Policies> struct CombinedApproximation {
   static constexpr auto METRICS = Owner::METRICS;
 };
 
+template <typename Policy, typename Binding>
+consteval bool policy_provider_valid() {
+  if constexpr (requires { Policy::template PROVIDER_VALID<Binding>; })
+    return Policy::template PROVIDER_VALID<Binding>;
+  else
+    return true;
+}
+
 template <typename BindingT, StageKind KindV, typename InputT, typename OutputT,
           bool TerminalV, typename... Policies>
 struct StageContract : CombinedApproximation<Policies...> {
@@ -407,6 +415,11 @@ struct StageContract : CombinedApproximation<Policies...> {
   static constexpr StageKind KIND = KindV;
   static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
   static constexpr bool TERMINAL = TerminalV;
+
+  static_assert((std::is_empty_v<Policies> && ...),
+                "pullback stage: policies must be empty");
+  static_assert((policy_provider_valid<Policies, Binding>() && ...),
+                "pullback stage: malformed or foreign provider");
 };
 
 template <typename State, typename Binding>
@@ -437,11 +450,144 @@ inline float smooth_ramp(float low, float high, float value) {
 
 namespace Surface {
 
+enum class Integrator : uint8_t { EULER, MIDPOINT, MIDPOINT_2X };
+
+struct Euler {
+  static constexpr Integrator VALUE = Integrator::EULER;
+};
+
+struct Midpoint {
+  static constexpr Integrator VALUE = Integrator::MIDPOINT;
+};
+
+struct Midpoint2x {
+  static constexpr Integrator VALUE = Integrator::MIDPOINT_2X;
+};
+
 struct Identity : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static SurfaceResult
   apply(const Vector &input, const FrameState &) {
     return {input, 0.0f};
+  }
+};
+
+__attribute__((always_inline)) inline float path_length(const Vector &step,
+                                                        bool required) {
+  return required ? sqrtf(dot(step, step)) : 0.0f;
+}
+
+__attribute__((always_inline)) inline SurfaceResult
+finish_step(const Vector &input, const Vector &step,
+            bool path_length_required) {
+  return {sphere_exp_map_half_radian(input, step),
+          path_length(step, path_length_required)};
+}
+
+__attribute__((always_inline)) inline SurfaceResult
+direct_noise(const Vector &input, const FastNoiseLite &noise,
+             ::NoiseBasis basis, float scale, const Vector &loop_offset,
+             float strength, float direction_cos, float direction_sin,
+             bool path_length_required) {
+  if (strength == 0.0f)
+    return {input, 0.0f};
+  const Vector q = noise_sphere_coordinate(input, scale, loop_offset);
+  const Vector tangent = sample_direct_tangent(noise, basis, q, input,
+                                               direction_cos, direction_sin);
+  return finish_step(input, strength * tangent, path_length_required);
+}
+
+__attribute__((always_inline)) inline Vector
+curl_field(const Vector &input, const FastNoiseLite &noise, ::NoiseBasis basis,
+           float scale, const Vector &loop_offset) {
+  const Vector q = noise_sphere_coordinate(input, scale, loop_offset);
+  return sample_curl_tangent(noise, basis, q, input);
+}
+
+__attribute__((always_inline)) inline SurfaceResult
+curl_midpoint_step(const Vector &input, const FastNoiseLite &noise,
+                   ::NoiseBasis basis, float scale, const Vector &loop_offset,
+                   float distance, bool path_length_required) {
+  const Vector first = curl_field(input, noise, basis, scale, loop_offset);
+  const Vector midpoint =
+      sphere_exp_map_half_radian(input, 0.5f * distance * first);
+  const Vector midpoint_field =
+      curl_field(midpoint, noise, basis, scale, loop_offset);
+  return finish_step(
+      input, distance * transport_tangent(midpoint, input, midpoint_field),
+      path_length_required);
+}
+
+HS_FLASH_INLINE inline SurfaceResult
+curl_noise(const Vector &input, const FastNoiseLite &noise, ::NoiseBasis basis,
+           Integrator integrator, float scale, const Vector &loop_offset,
+           float strength, bool path_length_required) {
+  if (strength == 0.0f)
+    return {input, 0.0f};
+  if (integrator == Integrator::EULER)
+    return finish_step(
+        input, strength * curl_field(input, noise, basis, scale, loop_offset),
+        path_length_required);
+  if (integrator == Integrator::MIDPOINT)
+    return curl_midpoint_step(input, noise, basis, scale, loop_offset, strength,
+                              path_length_required);
+  const SurfaceResult first =
+      curl_midpoint_step(input, noise, basis, scale, loop_offset,
+                         0.5f * strength, path_length_required);
+  SurfaceResult second =
+      curl_midpoint_step(first.sphere, noise, basis, scale, loop_offset,
+                         0.5f * strength, path_length_required);
+  second.path_length += first.path_length;
+  return second;
+}
+
+template <typename State, ::NoiseBasis Basis> struct DirectNoise : ExactPolicy {
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
+        { State::scale(frame) } -> std::same_as<float>;
+        { State::loop_offset(frame) } -> std::same_as<const Vector &>;
+        { State::strength(frame) } -> std::same_as<float>;
+        { State::direction_cos(frame) } -> std::same_as<float>;
+        { State::direction_sin(frame) } -> std::same_as<float>;
+        { State::path_length_required(frame) } -> std::same_as<bool>;
+      };
+
+  template <typename FrameState>
+  __attribute__((always_inline)) static SurfaceResult
+  apply(const Vector &input, const FrameState &frame) {
+    return direct_noise(input, State::noise(frame), Basis, State::scale(frame),
+                        State::loop_offset(frame), State::strength(frame),
+                        State::direction_cos(frame),
+                        State::direction_sin(frame),
+                        State::path_length_required(frame));
+  }
+};
+
+template <typename State, ::NoiseBasis Basis, typename IntegratorPolicy>
+struct CurlNoise : ExactPolicy {
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
+        { State::scale(frame) } -> std::same_as<float>;
+        { State::loop_offset(frame) } -> std::same_as<const Vector &>;
+        { State::strength(frame) } -> std::same_as<float>;
+        { State::path_length_required(frame) } -> std::same_as<bool>;
+      } && requires {
+        { IntegratorPolicy::VALUE } -> std::convertible_to<Integrator>;
+      };
+
+  template <typename FrameState>
+  HS_FLASH_INLINE static SurfaceResult apply(const Vector &input,
+                                             const FrameState &frame) {
+    return curl_noise(input, State::noise(frame), Basis,
+                      IntegratorPolicy::VALUE, State::scale(frame),
+                      State::loop_offset(frame), State::strength(frame),
+                      State::path_length_required(frame));
   }
 };
 
@@ -556,6 +702,59 @@ struct OctagonalPrismKaleidoscope : ExactPolicy {
 
 namespace Projection {
 
+enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
+
+static constexpr uint8_t FOLDED_FLAG = 1U << 0;
+static constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
+
+__attribute__((always_inline)) inline ProjectionSample
+stereographic(const Vector &input, float pole_fade) {
+  const Complex coords = stereo(input);
+  const float r_sq = coords.re * coords.re + coords.im * coords.im;
+  return {coords,
+          0,
+          0,
+          static_cast<uint8_t>(ProjectionBoundary::SINGULAR),
+          std::max(0.0f, 1.0f - input.y),
+          pole_attenuation(r_sq, pole_fade),
+          0};
+}
+
+__attribute__((always_inline)) inline ProjectionSample
+folded_sinusoidal(const Vector &input, float central_meridian,
+                  float pole_fade) {
+  const Complex coords =
+      projections::folded_sinusoidal(input, central_meridian);
+  const float r_sq = coords.re * coords.re + coords.im * coords.im;
+  return {coords, static_cast<uint8_t>(input.z < 0.0f), 0,          0,
+          1.0f,   pole_attenuation(r_sq, pole_fade),    FOLDED_FLAG};
+}
+
+__attribute__((always_inline)) inline ProjectionSample
+gnomonic(const Vector &input, float pole_fade, GnomonicHemisphere hemisphere) {
+  float y = input.y;
+  if (fabsf(y) < GNOMONIC_AXIS_EPS)
+    y = y < 0.0f ? -GNOMONIC_AXIS_EPS : GNOMONIC_AXIS_EPS;
+  const Complex coords(input.x / y, input.z / y);
+  const float r_sq = coords.re * coords.re + coords.im * coords.im;
+  const bool in_domain =
+      hemisphere == GnomonicHemisphere::FOLDED ||
+      (hemisphere == GnomonicHemisphere::FRONT ? input.y >= 0.0f
+                                               : input.y < 0.0f);
+  return {
+      coords,
+      static_cast<uint8_t>(input.y < 0.0f),
+      static_cast<uint8_t>(input.y < 0.0f),
+      static_cast<uint8_t>(static_cast<uint8_t>(ProjectionBoundary::CUT) |
+                           static_cast<uint8_t>(ProjectionBoundary::SINGULAR)),
+      fabsf(input.y),
+      pole_attenuation(r_sq, pole_fade),
+      0,
+      0,
+      0,
+      in_domain ? 1.0f : 0.0f};
+}
+
 __attribute__((always_inline)) inline ProjectionSample
 from_kernel(const projections::ProjectionKernelResult &result,
             float coordinate_scale) {
@@ -595,6 +794,14 @@ peirce_fast_square(const Vector &input, float coordinate_scale) {
                      coordinate_scale);
 }
 
+template <typename State, typename Binding>
+concept FrameProvider = Detail::ProviderFor<State, Binding> &&
+                        requires(const typename Binding::FrameState &frame) {
+                          {
+                            State::conjugate(frame)
+                          } -> std::same_as<const Quaternion &>;
+                        };
+
 __attribute__((always_inline)) inline ProjectionSample
 airocean(const Vector &input, float central_meridian, bool horizontal,
          bool edge_distance_required, float coordinate_scale) {
@@ -607,6 +814,15 @@ airocean(const Vector &input, float central_meridian, bool horizontal,
 template <typename State, bool North> struct Bonne : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      FrameProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::central_meridian(frame) } -> std::same_as<float>;
+        { State::standard_parallel(frame) } -> std::same_as<float>;
+        { State::coordinate_scale(frame) } -> std::same_as<float>;
+      };
 
   static const Quaternion &frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
@@ -621,29 +837,16 @@ template <typename State, bool North> struct Bonne : ExactPolicy {
   }
 };
 
-template <typename State, uint8_t Layout, bool EdgeDistanceRequired,
-          bool FastSquare = false>
-struct Peirce : ExactPolicy {
+template <typename State> struct Stereographic : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
-  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = EdgeDistanceRequired;
-  static constexpr bool APPROXIMATE = FastSquare;
-  static constexpr ApproximationOracleId ORACLE =
-      FastSquare ? ApproximationOracleId::PEIRCE_FAST_SQUARE
-                 : ApproximationOracleId::NONE;
-  static constexpr auto METRICS = [] {
-    if constexpr (FastSquare)
-      return std::array<ApproximationMetric, 3>{
-          {{ApproximationDomain::PROJECTED_COORDINATE,
-            ApproximationAggregation::MAXIMUM, 1.2e-3f, "plane units"},
-           {ApproximationDomain::PROJECTED_EDGE_DISTANCE,
-            ApproximationAggregation::MAXIMUM, 2e-4f, "plane units"},
-           {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
-            1.0f, "channel code"}}};
-    else
-      return std::array<ApproximationMetric, 0>{};
-  }();
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      FrameProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::pole_fade(frame) } -> std::same_as<float>;
+      };
 
   static const Quaternion &frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
@@ -651,12 +854,141 @@ struct Peirce : ExactPolicy {
 
   static ProjectionSample project(const Vector &input,
                                   const FrameState &frame) {
-    if constexpr (FastSquare)
+    return stereographic(input, State::pole_fade(frame));
+  }
+};
+
+template <typename State> struct FoldedSinusoidal : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      FrameProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::central_meridian(frame) } -> std::same_as<float>;
+        { State::pole_fade(frame) } -> std::same_as<float>;
+      };
+
+  static const Quaternion &frame_conjugate(const FrameState &frame) {
+    return State::conjugate(frame);
+  }
+
+  static ProjectionSample project(const Vector &input,
+                                  const FrameState &frame) {
+    return folded_sinusoidal(input, State::central_meridian(frame),
+                             State::pole_fade(frame));
+  }
+};
+
+template <typename State, GnomonicHemisphere Hemisphere>
+struct Gnomonic : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      FrameProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::pole_fade(frame) } -> std::same_as<float>;
+      };
+
+  static const Quaternion &frame_conjugate(const FrameState &frame) {
+    return State::conjugate(frame);
+  }
+
+  static ProjectionSample project(const Vector &input,
+                                  const FrameState &frame) {
+    return gnomonic(input, State::pole_fade(frame), Hemisphere);
+  }
+};
+
+template <typename State, uint8_t Layout, bool EdgeDistanceRequired>
+struct Peirce : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = EdgeDistanceRequired;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      FrameProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::central_meridian(frame) } -> std::same_as<float>;
+        { State::layout_scroll(frame) } -> std::same_as<float>;
+        { State::coordinate_scale(frame) } -> std::same_as<float>;
+      };
+
+  static const Quaternion &frame_conjugate(const FrameState &frame) {
+    return State::conjugate(frame);
+  }
+
+  static ProjectionSample project(const Vector &input,
+                                  const FrameState &frame) {
+    return peirce(input, State::central_meridian(frame), Layout,
+                  State::layout_scroll(frame), EdgeDistanceRequired,
+                  State::coordinate_scale(frame));
+  }
+};
+
+template <typename State> struct PeirceFastSquare : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = true;
+  static constexpr bool APPROXIMATE = true;
+  static constexpr ApproximationOracleId ORACLE =
+      ApproximationOracleId::PEIRCE_FAST_SQUARE;
+  static constexpr std::array<ApproximationMetric, 3> METRICS{{
+      {ApproximationDomain::PROJECTED_COORDINATE,
+       ApproximationAggregation::MAXIMUM, 1.2e-3f, "plane units"},
+      {ApproximationDomain::PROJECTED_EDGE_DISTANCE,
+       ApproximationAggregation::MAXIMUM, 2e-4f, "plane units"},
+      {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
+       1.0f, "channel code"},
+  }};
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      FrameProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::central_meridian(frame) } -> std::same_as<float>;
+        { State::coordinate_scale(frame) } -> std::same_as<float>;
+      };
+
+  static bool preconditions(const FrameState &frame) {
+    return State::central_meridian(frame) == 0.0f;
+  }
+
+  static ProjectionSample project(const Vector &input,
+                                  const FrameState &frame) {
+    HS_CHECK(preconditions(frame),
+             "Peirce fast-square requires a zero central meridian");
+    return peirce_fast_square(input, State::coordinate_scale(frame));
+  }
+
+  static const Quaternion &frame_conjugate(const FrameState &frame) {
+    return State::conjugate(frame);
+  }
+};
+
+template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      PeirceFastSquare<State>::template PROVIDER_VALID<CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::layout_scroll(frame) } -> std::same_as<float>;
+      };
+
+  static ProjectionSample project(const Vector &input,
+                                  const FrameState &frame) {
+    if (PeirceFastSquare<State>::preconditions(frame))
       return peirce_fast_square(input, State::coordinate_scale(frame));
-    else
-      return peirce(input, State::central_meridian(frame), Layout,
-                    State::layout_scroll(frame), EdgeDistanceRequired,
-                    State::coordinate_scale(frame));
+    return peirce(input, State::central_meridian(frame), 1,
+                  State::layout_scroll(frame), true,
+                  State::coordinate_scale(frame));
   }
 };
 
@@ -666,6 +998,14 @@ struct Airocean : ExactPolicy {
   using FrameState = typename State::FrameState;
 
   static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = EdgeDistanceRequired;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      FrameProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::central_meridian(frame) } -> std::same_as<float>;
+        { State::coordinate_scale(frame) } -> std::same_as<float>;
+      };
 
   static const Quaternion &frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
@@ -692,6 +1032,24 @@ struct Midpoint2 {};
 struct Midpoint4 {};
 struct LinearPolar {};
 struct LogarithmicPolar {};
+
+template <typename State, typename Binding>
+concept PreparedProvider =
+    Detail::ProviderFor<State, Binding> &&
+    requires(const typename Binding::FrameState &frame) {
+      State::prepared(frame);
+    } &&
+    std::is_lvalue_reference_v<decltype(State::prepared(
+        std::declval<const typename Binding::FrameState &>()))>;
+
+template <typename State, typename Binding>
+concept ParamsPreparedProvider =
+    PreparedProvider<State, Binding> &&
+    requires(const typename Binding::FrameState &frame) {
+      State::params(frame);
+    } &&
+    std::is_lvalue_reference_v<decltype(State::params(
+        std::declval<const typename Binding::FrameState &>()))>;
 
 __attribute__((always_inline)) inline WarpStepResult
 finish_closed_form(const Complex &input, const Complex &output) {
@@ -808,9 +1166,150 @@ struct Identity : ExactPolicy {
   }
 };
 
+template <typename State> struct AffineFrame : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      PreparedProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::prepared(frame).rotation_cos } -> std::convertible_to<float>;
+        { State::prepared(frame).rotation_sin } -> std::convertible_to<float>;
+        State::prepared(frame).transform.affine;
+      };
+
+  static WarpStepResult apply(const Complex &input, const ProjectionSample &,
+                              const FrameState &frame) {
+    return affine_frame(input, State::prepared(frame));
+  }
+};
+
+template <typename State> struct WaveShear : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      ParamsPreparedProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).strength } -> std::convertible_to<float>;
+        { State::params(frame).frequency } -> std::convertible_to<float>;
+        { State::phase(frame) } -> std::same_as<float>;
+        { State::prepared(frame).rotation_cos } -> std::convertible_to<float>;
+        { State::prepared(frame).rotation_sin } -> std::convertible_to<float>;
+      };
+
+  static WarpStepResult apply(const Complex &input, const ProjectionSample &,
+                              const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return wave_shear(input, params, State::phase(frame), params.strength,
+                      State::prepared(frame));
+  }
+};
+
+template <typename State> struct MirrorTile : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      ParamsPreparedProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).cell_x } -> std::convertible_to<float>;
+        { State::params(frame).cell_y } -> std::convertible_to<float>;
+        { State::prepared(frame).rotation_cos } -> std::convertible_to<float>;
+        { State::prepared(frame).rotation_sin } -> std::convertible_to<float>;
+        State::prepared(frame).transform.mirror;
+      };
+
+  static WarpStepResult apply(const Complex &input, const ProjectionSample &,
+                              const FrameState &frame) {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto start = Instrumentation::mark();
+    const WarpStepResult result =
+        mirror_tile(input, State::params(frame), State::prepared(frame));
+    Instrumentation::template span<ProfileEvent::MIRROR_TILE>(start);
+    return result;
+  }
+};
+
+template <typename State, typename PolarMode, uint8_t Harmonic>
+struct PolarChart : ExactPolicy {
+  static_assert(Harmonic >= 1 && Harmonic <= MAX_POLAR_HARMONIC);
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      ParamsPreparedProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).radial_scale } -> std::convertible_to<float>;
+        { State::params(frame).radial_phase } -> std::convertible_to<float>;
+        { State::params(frame).angular_phase } -> std::convertible_to<float>;
+        { State::phase(frame) } -> std::same_as<float>;
+      };
+
+  static WarpStepResult apply(const Complex &input, const ProjectionSample &,
+                              const FrameState &frame) {
+    return polar_chart(input, State::params(frame), State::phase(frame),
+                       std::is_same_v<PolarMode, LogarithmicPolar>, Harmonic);
+  }
+};
+
+template <typename State, ::NoiseBasis BasisV, typename Envelope>
+struct VectorNoise : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      ParamsPreparedProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).strength } -> std::convertible_to<float>;
+        { State::params(frame).scale } -> std::convertible_to<float>;
+        { State::params(frame).edge_width } -> std::convertible_to<float>;
+        { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
+        { State::prepared(frame).rotation_cos } -> std::convertible_to<float>;
+        { State::prepared(frame).rotation_sin } -> std::convertible_to<float>;
+        State::prepared(frame).transform.noise_loop;
+      };
+
+  static WarpStepResult apply(const Complex &input,
+                              const ProjectionSample &projected,
+                              const FrameState &frame) {
+    const auto &params = State::params(frame);
+    float envelope = 1.0f;
+    if constexpr (std::is_same_v<Envelope, ProjectionWeightEnvelope>)
+      envelope = projected.value_weight;
+    else if constexpr (std::is_same_v<Envelope, EdgeFadeEnvelope>)
+      envelope = cubic_kernel(projected.fade_edge_distance / params.edge_width);
+    return vector_noise(input, params, params.strength * envelope,
+                        State::noise(frame), BasisV, State::prepared(frame));
+  }
+};
+
 } // namespace Warp
 
 namespace Source {
+
+template <typename State, typename Binding>
+concept ParamsProvider =
+    Detail::ProviderFor<State, Binding> &&
+    requires(const typename Binding::FrameState &frame) {
+      State::params(frame);
+    } &&
+    std::is_lvalue_reference_v<decltype(State::params(
+        std::declval<const typename Binding::FrameState &>()))>;
+
+template <typename State, typename Binding>
+concept StateProvider =
+    ParamsProvider<State, Binding> &&
+    requires(const typename Binding::FrameState &frame) {
+      State::prepared(frame);
+    } &&
+    std::is_lvalue_reference_v<decltype(State::prepared(
+        std::declval<const typename Binding::FrameState &>()))>;
 
 template <typename Prepared>
 HS_FLASH_MEMBER inline float twin_wave(const Complex &input,
@@ -879,6 +1378,16 @@ template <typename State> struct TwinWave : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      StateProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
+        { State::prepared(frame).angle_cos } -> std::convertible_to<float>;
+        { State::prepared(frame).angle_sin } -> std::convertible_to<float>;
+        { State::prepared(frame).primary } -> std::convertible_to<float>;
+      };
+
   static float sample(const SourceInput &input, const FrameState &frame) {
     const auto &params = State::params(frame);
     return twin_wave(
@@ -891,6 +1400,14 @@ template <typename State> struct Rings : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      StateProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
+        { State::prepared(frame).primary } -> std::convertible_to<float>;
+      };
+
   static float sample(const SourceInput &input, const FrameState &frame) {
     const auto &params = State::params(frame);
     return rings(stereo_pattern_args(input.warped.coords, params.pattern_freq),
@@ -901,6 +1418,15 @@ template <typename State> struct Rings : ExactPolicy {
 template <typename State> struct Spiral : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      StateProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
+        { State::prepared(frame).angle } -> std::convertible_to<float>;
+        { State::prepared(frame).primary } -> std::convertible_to<float>;
+      };
 
   static float sample(const SourceInput &input, const FrameState &frame) {
     const auto &params = State::params(frame);
@@ -913,6 +1439,19 @@ template <typename State> struct Grid : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      StateProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
+        { State::params(frame).pattern_mix } -> std::convertible_to<float>;
+        { State::params(frame).complexity } -> std::convertible_to<float>;
+        { State::prepared(frame).angle_cos } -> std::convertible_to<float>;
+        { State::prepared(frame).angle_sin } -> std::convertible_to<float>;
+        { State::prepared(frame).primary } -> std::convertible_to<float>;
+        { State::prepared(frame).secondary } -> std::convertible_to<float>;
+      };
+
   static float sample(const SourceInput &input, const FrameState &frame) {
     const auto &params = State::params(frame);
     return grid(stereo_pattern_args(input.warped.coords, params.pattern_freq),
@@ -923,6 +1462,20 @@ template <typename State> struct Grid : ExactPolicy {
 template <typename State> struct PrimitiveLattice : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      ParamsProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        {
+          State::params(frame).lattice_cell_scale
+        } -> std::convertible_to<float>;
+        {
+          State::params(frame).lattice_shape_blend
+        } -> std::convertible_to<float>;
+        { State::params(frame).lattice_softness } -> std::convertible_to<float>;
+        { State::params(frame).lattice_radius } -> std::convertible_to<float>;
+      };
 
   static float sample(const SourceInput &input, const FrameState &frame) {
     return primitive_lattice(input.warped.coords, State::params(frame));
@@ -974,8 +1527,8 @@ template <typename State> struct IsoContour : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame) {
-        { State::iso_level(frame) } -> std::convertible_to<float>;
-        { State::iso_width(frame) } -> std::convertible_to<float>;
+        { State::iso_level(frame) } -> std::same_as<float>;
+        { State::iso_width(frame) } -> std::same_as<float>;
       };
 
   template <typename FrameState>
@@ -992,8 +1545,8 @@ template <typename State> struct SmoothBands : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame) {
-        { State::band_count(frame) } -> std::convertible_to<float>;
-        { State::band_phase(frame) } -> std::convertible_to<float>;
+        { State::band_count(frame) } -> std::same_as<float>;
+        { State::band_phase(frame) } -> std::same_as<float>;
       };
 
   template <typename FrameState>
@@ -1037,8 +1590,8 @@ template <typename State> struct ValueCutout : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame) {
-        { State::cutout_threshold(frame) } -> std::convertible_to<float>;
-        { State::cutout_width(frame) } -> std::convertible_to<float>;
+        { State::cutout_threshold(frame) } -> std::same_as<float>;
+        { State::cutout_width(frame) } -> std::same_as<float>;
       };
 
   template <typename FrameState>
@@ -1055,7 +1608,7 @@ template <typename State> struct EdgeFade : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame) {
-        { State::edge_width(frame) } -> std::convertible_to<float>;
+        { State::edge_width(frame) } -> std::same_as<float>;
       };
 
   template <typename FrameState>
@@ -1071,6 +1624,8 @@ template <typename State> struct EdgeFade : ExactPolicy {
 } // namespace Coverage
 
 namespace Color {
+
+inline constexpr float UNIT_OPEN_MAX = 0x1.fffffep-1f;
 
 enum class PaletteMapping : uint8_t {
   CUP = 0,
@@ -1108,6 +1663,196 @@ struct HueNoiseLutView {
   bool active;
 };
 
+__attribute__((always_inline)) inline float
+palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
+                           float offset) {
+  if (mapping == PaletteMapping::LINEAR && frequency == 1.0f && offset == 0.0f)
+    return value;
+  const float phase =
+      wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
+  switch (mapping) {
+  case PaletteMapping::CUP:
+    return fabsf(2.0f * phase - 1.0f);
+  case PaletteMapping::BELL:
+    return 1.0f - fabsf(2.0f * phase - 1.0f);
+  case PaletteMapping::LINEAR:
+    return phase;
+  case PaletteMapping::REVERSE:
+    return 1.0f - phase;
+  }
+  return phase;
+}
+
+__attribute__((always_inline)) inline float
+brightness_envelope_gain(float value, BrightnessEnvelope envelope,
+                         float depth) {
+  float shape = 1.0f;
+  switch (envelope) {
+  case BrightnessEnvelope::NONE:
+    return 1.0f;
+  case BrightnessEnvelope::CUP:
+    shape = fabsf(2.0f * value - 1.0f);
+    break;
+  case BrightnessEnvelope::BELL:
+    shape = 1.0f - fabsf(2.0f * value - 1.0f);
+    break;
+  case BrightnessEnvelope::ASCENDING:
+    shape = value;
+    break;
+  case BrightnessEnvelope::DESCENDING:
+    shape = 1.0f - value;
+    break;
+  }
+  return 1.0f - depth * (1.0f - shape);
+}
+
+__attribute__((always_inline)) inline Pixel
+sample_hue_rotation_lut(const HueRotationLutView &view, float value,
+                        float amount) {
+  const float value_position = value * (HueRotationLutView::VALUE_STEPS - 1);
+  const int value_low = static_cast<int>(value_position);
+  const int value_high =
+      std::min(value_low + 1, HueRotationLutView::VALUE_STEPS - 1);
+  const uint16_t value_weight =
+      frac_to_q16(value_position - static_cast<float>(value_low));
+
+  const float hue_position = amount * HueRotationLutView::HUE_STEPS;
+  int hue_low = static_cast<int>(hue_position);
+  if (hue_position < static_cast<float>(hue_low))
+    --hue_low;
+  const uint16_t hue_weight =
+      frac_to_q16(hue_position - static_cast<float>(hue_low));
+  const int hue_index_low = hue_low & (HueRotationLutView::HUE_STEPS - 1);
+  const int hue_index_high =
+      (hue_index_low + 1) & (HueRotationLutView::HUE_STEPS - 1);
+  const auto sample_row = [&](int row) {
+    const int offset = row * HueRotationLutView::HUE_STEPS;
+    return view.data[offset + hue_index_low].lerp16(
+        view.data[offset + hue_index_high], hue_weight);
+  };
+  return sample_row(value_low).lerp16(sample_row(value_high), value_weight);
+}
+
+HS_FLASH_INLINE inline float sample_hue_noise_lut(const HueNoiseLutView &view,
+                                                  const Vector &direction) {
+  const float ax = fabsf(direction.x);
+  const float ay = fabsf(direction.y);
+  const float az = fabsf(direction.z);
+  int face;
+  float u;
+  float v;
+  if (ax >= ay && ax >= az) {
+    const float inverse = 1.0f / ax;
+    face = direction.x >= 0.0f ? 0 : 1;
+    u = (direction.x >= 0.0f ? direction.z : -direction.z) * inverse;
+    v = direction.y * inverse;
+  } else if (ay >= az) {
+    const float inverse = 1.0f / ay;
+    face = direction.y >= 0.0f ? 2 : 3;
+    u = direction.x * inverse;
+    v = (direction.y >= 0.0f ? direction.z : -direction.z) * inverse;
+  } else {
+    const float inverse = 1.0f / az;
+    face = direction.z >= 0.0f ? 4 : 5;
+    u = (direction.z >= 0.0f ? direction.x : -direction.x) * inverse;
+    v = direction.y * inverse;
+  }
+
+  constexpr float SCALE =
+      0.5f * static_cast<float>(HueNoiseLutView::FACE_STEPS - 1);
+  const float x_position = (u + 1.0f) * SCALE;
+  const float y_position = (v + 1.0f) * SCALE;
+  const int x_low =
+      std::min(static_cast<int>(x_position), HueNoiseLutView::FACE_STEPS - 2);
+  const int y_low =
+      std::min(static_cast<int>(y_position), HueNoiseLutView::FACE_STEPS - 2);
+  const float x_fraction = x_position - x_low;
+  const float y_fraction = y_position - y_low;
+  const int offset = face * HueNoiseLutView::FACE_SIZE +
+                     y_low * HueNoiseLutView::FACE_STEPS + x_low;
+  const float row_low =
+      hs::lerp(static_cast<float>(view.data[offset]),
+               static_cast<float>(view.data[offset + 1]), x_fraction);
+  const float row_high = hs::lerp(
+      static_cast<float>(view.data[offset + HueNoiseLutView::FACE_STEPS]),
+      static_cast<float>(view.data[offset + HueNoiseLutView::FACE_STEPS + 1]),
+      x_fraction);
+  return hs::lerp(row_low, row_high, y_fraction) * (1.0f / 127.0f);
+}
+
+template <typename State> struct GeneratedPalette : ExactPolicy {
+  static constexpr bool APPROXIMATE = true;
+  static constexpr ApproximationOracleId ORACLE =
+      ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
+  static constexpr std::array<ApproximationMetric, 3> METRICS{{
+      {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
+       5400.0f, "channel code"},
+      {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
+       256.0f, "channel code"},
+      {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
+       5400.0f, "channel code"},
+  }};
+
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame, float value) {
+        { State::mapping(frame) } -> std::same_as<PaletteMapping>;
+        { State::mapping_frequency(frame) } -> std::same_as<float>;
+        { State::mapping_phase(frame) } -> std::same_as<float>;
+        { State::oscillation_depth(frame) } -> std::same_as<float>;
+        { State::oscillation_phase(frame) } -> std::same_as<float>;
+        { State::palette(frame, value) } -> std::same_as<Color4>;
+        { State::hue_mode(frame) } -> std::same_as<HueMode>;
+        { State::hue_shift_amount(frame) } -> std::same_as<float>;
+        { State::hue_rotation(frame) } -> std::same_as<HueRotationLutView>;
+        { State::hue_noise(frame) } -> std::same_as<HueNoiseLutView>;
+        {
+          State::brightness_envelope(frame)
+        } -> std::same_as<BrightnessEnvelope>;
+        { State::brightness_depth(frame) } -> std::same_as<float>;
+        { State::opacity_low(frame) } -> std::same_as<float>;
+        { State::opacity_high(frame) } -> std::same_as<float>;
+      };
+
+  template <typename FrameState>
+  HS_FLASH_INLINE static Color4 apply(const MaterialSample &sample,
+                                      const FrameState &frame) {
+    const float oscillation =
+        State::oscillation_depth(frame) *
+        fast_sinf(TWO_PI_F * State::oscillation_phase(frame));
+    const float palette_value = palette_mapping_coordinate(
+        sample.value, State::mapping(frame), State::mapping_frequency(frame),
+        State::mapping_phase(frame) + oscillation);
+    const HueRotationLutView rotation = State::hue_rotation(frame);
+    Color4 color;
+    if (rotation.active && State::hue_mode(frame) == HueMode::NOISE) {
+      const float amount =
+          State::hue_shift_amount(frame) *
+          sample_hue_noise_lut(State::hue_noise(frame), sample.sphere);
+      color = Color4(sample_hue_rotation_lut(rotation, palette_value, amount),
+                     1.0f);
+    } else {
+      color = State::palette(frame, palette_value);
+      if (rotation.active) {
+        const float amount =
+            wrap_t(State::hue_shift_amount(frame) * sample.path_length);
+        if (amount != 0.0f)
+          color.color =
+              sample_hue_rotation_lut(rotation, palette_value, amount);
+      }
+    }
+    color.color = color.color *
+                  brightness_envelope_gain(sample.value,
+                                           State::brightness_envelope(frame),
+                                           State::brightness_depth(frame));
+    color.alpha *=
+        sample.coverage * hs::lerp(State::opacity_low(frame),
+                                   State::opacity_high(frame), sample.value);
+    return color;
+  }
+};
+
 } // namespace Color
 
 namespace Stage {
@@ -1121,7 +1866,11 @@ struct OuterCamera : Detail::StageContract<BindingT, StageKind::OUTER_CAMERA,
 
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<OrientationState, BindingT> &&
-      requires(const FrameState &frame) { OrientationState::conjugate(frame); };
+      requires(const FrameState &frame) {
+        {
+          OrientationState::conjugate(frame)
+        } -> std::same_as<const Quaternion &>;
+      };
   static_assert(PROVIDER_VALID,
                 "pullback outer camera: malformed orientation provider");
 
@@ -1146,6 +1895,7 @@ struct SurfaceProject
   using LensPolicy = LensPolicyT;
   using PostLensSurface = PostLensSurfaceT;
   using ProjectionPolicy = ProjectionPolicyT;
+  using Instrumentation = typename BindingT::Instrumentation;
 
   static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = [] {
     if constexpr (requires { ProjectionPolicy::EDGE_DISTANCE_UNCONDITIONAL; })
@@ -1154,17 +1904,60 @@ struct SurfaceProject
       return false;
   }();
 
+  static constexpr bool POLICIES_VALID =
+      requires(const Vector &input, const FrameState &frame) {
+        { PreLensSurface::apply(input, frame) } -> std::same_as<SurfaceResult>;
+        { LensPolicy::apply(input, frame) } -> std::same_as<Vector>;
+        { PostLensSurface::apply(input, frame) } -> std::same_as<SurfaceResult>;
+        {
+          ProjectionPolicy::frame_conjugate(frame)
+        } -> std::same_as<const Quaternion &>;
+        {
+          ProjectionPolicy::project(input, frame)
+        } -> std::same_as<ProjectionSample>;
+      };
+  static_assert(POLICIES_VALID,
+                "pullback surface/project: malformed policy callable");
+
   __attribute__((always_inline)) static ProjectionSample
   run(const Vector &input, const FrameState &frame) {
-    const SurfaceResult pre = PreLensSurface::apply(input, frame);
-    const Vector lensed = LensPolicy::apply(pre.sphere, frame);
-    const SurfaceResult post = PostLensSurface::apply(lensed, frame);
+    const SurfaceResult pre = apply_surface<PreLensSurface>(input, frame);
+    const Vector lensed = apply_lens(pre.sphere, frame);
+    const SurfaceResult post = apply_surface<PostLensSurface>(lensed, frame);
+    const auto projection_start = Instrumentation::mark();
     const Vector local =
         rotate(post.sphere, ProjectionPolicy::frame_conjugate(frame));
     ProjectionSample output = ProjectionPolicy::project(local, frame);
     output.sphere = local;
     output.surface_path_length = pre.path_length + post.path_length;
+    Instrumentation::template span<ProfileEvent::PROJECTION>(projection_start);
     return output;
+  }
+
+private:
+  __attribute__((always_inline)) static Vector
+  apply_lens(const Vector &input, const FrameState &frame) {
+    if constexpr (std::is_same_v<LensPolicy, Lens::Identity>) {
+      return LensPolicy::apply(input, frame);
+    } else {
+      const auto start = Instrumentation::mark();
+      const Vector result = LensPolicy::apply(input, frame);
+      Instrumentation::template span<ProfileEvent::LENS>(start);
+      return result;
+    }
+  }
+
+  template <typename SurfacePolicy>
+  __attribute__((always_inline)) static SurfaceResult
+  apply_surface(const Vector &input, const FrameState &frame) {
+    if constexpr (std::is_same_v<SurfacePolicy, Surface::Identity>) {
+      return SurfacePolicy::apply(input, frame);
+    } else {
+      const auto start = Instrumentation::mark();
+      const SurfaceResult result = SurfacePolicy::apply(input, frame);
+      Instrumentation::template span<ProfileEvent::SURFACE_NOISE>(start);
+      return result;
+    }
   }
 };
 
@@ -1177,13 +1970,27 @@ struct PlanarWarp
                             SourceInput, false, WarpPolicies...>;
   using typename Base::FrameState;
   using Policies = std::tuple<WarpPolicies...>;
+  using Instrumentation = typename BindingT::Instrumentation;
   template <size_t Index>
   using policy_at = std::tuple_element_t<Index, Policies>;
 
+  static constexpr bool POLICIES_VALID =
+      (requires(const Complex &input, const ProjectionSample &projected,
+                const FrameState &frame) {
+        {
+          WarpPolicies::apply(input, projected, frame)
+        } -> std::same_as<WarpStepResult>;
+      } &&
+       ...);
+  static_assert(POLICIES_VALID,
+                "pullback planar warp: malformed policy callable");
+
   __attribute__((always_inline)) static SourceInput
   run(const ProjectionSample &projected, const FrameState &frame) {
+    const auto start = Instrumentation::mark();
     WarpResult warped{projected.coords, Complex(), 0.0f};
     (apply_one<WarpPolicies>(projected, frame, warped), ...);
+    Instrumentation::template span<ProfileEvent::PLANAR_WARP>(start);
     return {projected, warped};
   }
 
@@ -1206,10 +2013,21 @@ struct Source : Detail::StageContract<BindingT, StageKind::SOURCE, SourceInput,
                                      MaterialInput, false, SourcePolicyT>;
   using typename Base::FrameState;
   using SourcePolicy = SourcePolicyT;
+  using Instrumentation = typename BindingT::Instrumentation;
+
+  static constexpr bool POLICY_VALID =
+      requires(const SourceInput &input, const FrameState &frame) {
+        { SourcePolicy::sample(input, frame) } -> std::same_as<float>;
+      };
+  static_assert(POLICY_VALID, "pullback source: malformed policy callable");
 
   __attribute__((always_inline)) static MaterialInput
   run(const SourceInput &input, const FrameState &frame) {
-    return {input.projected, input.warped, SourcePolicy::sample(input, frame)};
+    const auto start = Instrumentation::mark();
+    const MaterialInput result{input.projected, input.warped,
+                               SourcePolicy::sample(input, frame)};
+    Instrumentation::template span<ProfileEvent::SOURCE>(start);
+    return result;
   }
 };
 
@@ -1227,9 +2045,19 @@ struct Material
   using WeightPolicy = WeightPolicyT;
   using TransferPolicy = TransferPolicyT;
   using CoveragePolicy = CoveragePolicyT;
+  using Instrumentation = typename BindingT::Instrumentation;
+
+  static constexpr bool POLICIES_VALID = requires(
+      float value, const ProjectionSample &projected, const FrameState &frame) {
+    { WeightPolicy::apply(value, projected, frame) } -> std::same_as<float>;
+    { TransferPolicy::apply(value, frame) } -> std::same_as<float>;
+    { CoveragePolicy::apply(value, projected, frame) } -> std::same_as<float>;
+  };
+  static_assert(POLICIES_VALID, "pullback material: malformed policy callable");
 
   __attribute__((always_inline)) static MaterialSample
   run(const MaterialInput &input, const FrameState &frame) {
+    const auto start = Instrumentation::mark();
     const float weighted =
         WeightPolicy::apply(input.field, input.projected, frame);
     const float unit = Detail::clamp_unit((weighted + 1.0f) * 0.5f);
@@ -1237,8 +2065,11 @@ struct Material
     const float coverage =
         CoveragePolicy::apply(value, input.projected, frame) *
         input.projected.domain_coverage;
-    return {value, coverage, input.projected.sphere,
-            input.projected.surface_path_length + input.warped.path_length};
+    const MaterialSample result{value, coverage, input.projected.sphere,
+                                input.projected.surface_path_length +
+                                    input.warped.path_length};
+    Instrumentation::template span<ProfileEvent::MATERIAL>(start);
+    return result;
   }
 };
 
@@ -1249,10 +2080,20 @@ struct Color : Detail::StageContract<BindingT, StageKind::COLOR, MaterialSample,
                                      Color4, true, ColorPolicyT>;
   using typename Base::FrameState;
   using ColorPolicy = ColorPolicyT;
+  using Instrumentation = typename BindingT::Instrumentation;
+
+  static constexpr bool POLICY_VALID =
+      requires(const MaterialSample &input, const FrameState &frame) {
+        { ColorPolicy::apply(input, frame) } -> std::same_as<Color4>;
+      };
+  static_assert(POLICY_VALID, "pullback color: malformed policy callable");
 
   __attribute__((always_inline)) static Color4 run(const MaterialSample &input,
                                                    const FrameState &frame) {
-    return ColorPolicy::apply(input, frame);
+    const auto start = Instrumentation::mark();
+    const Color4 result = ColorPolicy::apply(input, frame);
+    Instrumentation::template span<ProfileEvent::COLOR>(start);
+    return result;
   }
 };
 
