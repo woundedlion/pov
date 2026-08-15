@@ -26,6 +26,7 @@ TOPOLOGY_FIELDS = (
 ORACLE_FILES = ("peirce_fast_square.json", "hue_rotation_noise_luts.json")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 CASE_IDS = {"default", "endpoint_min", "endpoint_max", "interior"}
+PRESET_COUNT = 13
 
 
 class ManifestError(ValueError):
@@ -206,7 +207,7 @@ def _validate_programs(document: dict, path: Path) -> None:
         presets = program.get("presets")
         _require(isinstance(presets, list) and presets,
                  f"{path}: {program_id}.presets must be non-empty")
-        _require(all(type(index) is int and 0 <= index < 12
+        _require(all(type(index) is int and 0 <= index < PRESET_COUNT
                      for index in presets),
                  f"{path}: {program_id}.presets contains an invalid index")
         covered_presets.extend(presets)
@@ -243,7 +244,7 @@ def _validate_programs(document: dict, path: Path) -> None:
                  f"{path}: {program_id} exceeds the channel-delta license")
         _require(_is_number(fraction) and 0 <= fraction <= 0.001,
                  f"{path}: {program_id} exceeds the differing-pixel license")
-    _require(sorted(covered_presets) == list(range(12)),
+    _require(sorted(covered_presets) == list(range(PRESET_COUNT)),
              f"{path}: presets must be covered exactly once")
     _require(set(probe_operations) == referenced_probes,
              f"{path}: probe operation mappings must exactly cover referenced probes")

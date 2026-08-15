@@ -2,7 +2,7 @@
 
 **Status: LANDED.** `effects/ShaderBall.h` is the sole ShaderBall implementation;
 the earlier fixed stereographic implementation has been removed. The typed
-pipeline carries 12 presets. Section 0 is authoritative for the authored
+pipeline carries 13 presets. Section 0 is authoritative for the authored
 vocabulary, presets, and choreography, and for nothing beyond them: the shipping
 renderer composes the reusable `Pullback::Pipeline` and operator catalog with
 ShaderBall-owned `TopologyKey` and `ProgramDescriptor` selection, specified in

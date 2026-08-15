@@ -518,14 +518,15 @@ class PullbackTelemetryValidation(unittest.TestCase):
 
     def _telemetry(self):
         events = []
-        for preset in range(12):
-            next_preset = (preset + 1) % 12
+        preset_count = len(self.by_preset)
+        for preset in range(preset_count):
+            next_preset = (preset + 1) % preset_count
             events.extend([
-                {"preset": preset, "total": 12,
+                {"preset": preset, "total": preset_count,
                  "pipeline": self.by_preset[preset], "endpoint": "steady"},
-                {"preset": preset, "total": 12,
+                {"preset": preset, "total": preset_count,
                  "pipeline": self.by_preset[preset], "endpoint": "from"},
-                {"preset": next_preset, "total": 12,
+                {"preset": next_preset, "total": preset_count,
                  "pipeline": self.by_preset[next_preset], "endpoint": "to"},
             ])
         return {
@@ -551,7 +552,7 @@ class PullbackTelemetryValidation(unittest.TestCase):
         import tempfile
         text = "\n".join([
             f"Pullback arm: LANDED sha={self.manifest['capture_sha'][:12]}",
-            "Pullback program: preset=0/12 "
+            "Pullback program: preset=0/13 "
             f"pipeline={self.by_preset[0]} endpoint=steady",
         ])
         with tempfile.TemporaryDirectory() as directory:
