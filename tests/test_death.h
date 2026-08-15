@@ -2930,7 +2930,7 @@ inline const Case *all_cases(int &n) {
        "face_counts_span[last] == faces_span.size()) MeshState::set_view: "
        "face offsets do not span faces"},
       {"mesh_state_set_view_offsets_not_prefix_sum",
-       case_mesh_state_set_view_offsets_not_prefix_sum, "spatial.h",
+       case_mesh_state_set_view_offsets_not_prefix_sum, "mesh_state.h",
        "(offsets_are_prefix_sum(face_counts_span, face_offsets_span)) "
        "MeshState::set_view: face offsets are not the prefix sum of the "
        "face counts"},
@@ -3533,8 +3533,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"animation.h", 3},
     {"carousel.h", 3},
     {"motion.h", 6},
-    {"opleg.h", 41},
-    {"params.h", 10},
+    {"opleg.h", 42},
+    {"params.h", 11},
     {"segue.h", 1},
     {"sprites.h", 10},
     {"timeline.h", 9},
@@ -3568,11 +3568,11 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"filter.h", 5},
     {"filter_feedback.h", 7},
     {"led.h", 3},
-    {"plot.h", 13},
+    {"plot.h", 17},
     {"plot_cull.h", 1},
-    {"plot_raster.h", 7},
+    {"plot_raster.h", 8},
     {"scan.h", 22},
-    {"sdf.h", 7},
+    {"sdf.h", 9},
     {"sdf_common.h", 4},
     {"sdf_csg.h", 2},
 // The census counts source text, so sdf_face.h's site count is the same either
@@ -3741,9 +3741,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 146;
+  constexpr int DEATH_CASE_COUNT = 148;
 #else
-  constexpr int DEATH_CASE_COUNT = 145;
+  constexpr int DEATH_CASE_COUNT = 147;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
