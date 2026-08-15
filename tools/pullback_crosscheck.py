@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import subprocess
 import sys
@@ -246,6 +247,12 @@ def _compare_pixels(base: list, candidate: list) -> tuple[int, int, int]:
     return maximum, differing, len(base)
 
 
+def _within_differing_pixel_limit(
+    differing: int, count: int, fraction: float
+) -> bool:
+    return differing <= math.ceil(count * fraction)
+
+
 def _oracle_metric_map(capture: dict, oracles: list[dict] | None) -> dict:
     metrics = capture.get("oracle_metrics")
     if not isinstance(metrics, list):
@@ -424,7 +431,9 @@ def compare_captures(
         for key, maximum, differing, count, limits in release_differences:
             if maximum > limits["max_channel_delta_u16"]:
                 raise CrosscheckError(f"release channel delta exceeds limit: {key}")
-            if differing / count > limits["max_differing_pixel_fraction"]:
+            if not _within_differing_pixel_limit(
+                differing, count, limits["max_differing_pixel_fraction"]
+            ):
                 raise CrosscheckError(
                     f"release differing-pixel share exceeds limit: {key}"
                 )

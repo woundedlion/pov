@@ -771,7 +771,12 @@ stereographic(const Vector &input, float pole_fade) {
           0};
 }
 
-__attribute__((always_inline)) inline ProjectionSample
+#if defined(__EMSCRIPTEN__)
+__attribute__((noinline))
+#else
+__attribute__((always_inline))
+#endif
+inline ProjectionSample
 folded_sinusoidal(const Vector &input, float central_meridian,
                   float pole_fade) {
   const Complex coords =
@@ -2348,6 +2353,21 @@ struct SurfaceProject
   __attribute__((always_inline)) static ProjectionSample
   run(const Vector &input, const FrameState &frame) {
     const SurfaceResult pre = apply_surface<PreLensSurface>(input, frame);
+#if defined(__EMSCRIPTEN__)
+    if constexpr (std::is_same_v<LensPolicy, Lens::Identity> &&
+                  std::is_same_v<PostLensSurface, Surface::Identity>) {
+      const auto projection_start = Instrumentation::mark();
+      const Vector local =
+          rotate(pre.sphere, ProjectionPolicy::frame_conjugate(frame));
+      ProjectionSample output = ProjectionPolicy::project(local, frame);
+      output.sphere = local;
+      output.surface_path_length = pre.path_length;
+      Instrumentation::template span<ProfileEvent::PROJECTION>(
+          projection_start);
+      return output;
+    }
+#endif
+
     const Vector lensed = apply_lens(pre.sphere, frame);
     const SurfaceResult post = apply_surface<PostLensSurface>(lensed, frame);
     const auto projection_start = Instrumentation::mark();

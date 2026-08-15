@@ -2651,9 +2651,14 @@ private:
     }
   };
 
-  HS_FLASH_MEMBER static Vector
+#if defined(__IMXRT1062__)
+  HS_FLASH_MEMBER
+#else
+  __attribute__((always_inline))
+#endif
+  static Vector
   core_outer_camera_lookup(const Vector &input, const FrameState &frame) {
-    return rotate(input, OuterCameraStateProvider::conjugate(frame));
+    return rotate(input, frame.transforms.outer_conj);
   }
 
   struct CoreOuterCameraStage

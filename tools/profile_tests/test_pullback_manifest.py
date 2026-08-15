@@ -322,6 +322,13 @@ class CaptureComparison(unittest.TestCase):
             strict_candidate,
         )
 
+    def test_release_pixel_fraction_is_rounded_to_whole_pixels(self):
+        self.assertTrue(crosscheck._within_differing_pixel_limit(2, 1920, 0.001))
+        self.assertFalse(
+            crosscheck._within_differing_pixel_limit(3, 1920, 0.001)
+        )
+        self.assertFalse(crosscheck._within_differing_pixel_limit(1, 1920, 0.0))
+
     def test_raw_hash_pixel_shape_and_provenance_are_checked(self):
         programs, digest = _test_manifest()
         base = _capture(programs, digest)
