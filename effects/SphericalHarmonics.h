@@ -42,8 +42,8 @@ public:
     int l1, m1;
     int l2, m2;
     float blend;
-    Quaternion orientation_conj; /**< World->local rotation (conjugate of the
-                                    shape orientation). */
+    RotationMatrix orientation_conj; /**< World->local rotation (conjugate of
+                                        the shape orientation). */
     float N1, N2; /**< Per-mode harmonic scales, precomputed once per shape. */
     static constexpr bool is_solid = true;
 
@@ -93,7 +93,7 @@ public:
      */
     template <bool ComputeUVs = true>
     void distance(const Vector &p, SDF::DistanceResult &res) const {
-      Vector local = rotate(p, orientation_conj);
+      Vector local = orientation_conj.apply(p);
 
       // The shape spins about an arbitrary axis, so the local frame varies
       // across a screen row even though the WORLD latitude is row-constant.
