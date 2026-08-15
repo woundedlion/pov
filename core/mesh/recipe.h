@@ -233,6 +233,7 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
     break;
   case Op::BEVEL:
     HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    HS_CHECK(step.param > 0.0f, "apply_step: BEVEL step has no depth");
     builder.bevel(step.param);
     break;
   case Op::GYRO:
