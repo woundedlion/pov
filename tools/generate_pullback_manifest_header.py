@@ -190,6 +190,9 @@ def _validate_programs(document: dict, path: Path) -> None:
              f"{path}: corpus.version must be 1")
     _require(corpus.get("resolutions") == [[96, 20], [288, 144]],
              f"{path}: both roster resolutions are required")
+    probe_operations = corpus.get("probe_operations")
+    _require(isinstance(probe_operations, dict) and probe_operations,
+             f"{path}: corpus.probe_operations must be a non-empty object")
     programs = document.get("programs")
     _require(isinstance(programs, list), f"{path}: programs must be an array")
     ids = [program.get("id") for program in programs
@@ -197,6 +200,7 @@ def _validate_programs(document: dict, path: Path) -> None:
     _require(len(ids) == len(programs) and len(ids) == len(set(ids)),
              f"{path}: program IDs must be unique")
     covered_presets: list[int] = []
+    referenced_probes: set[str] = set()
     for program in programs:
         program_id = program["id"]
         presets = program.get("presets")
@@ -221,6 +225,8 @@ def _validate_programs(document: dict, path: Path) -> None:
         for category in ("seam", "singularity", "boundary", "transition"):
             _require(isinstance(probes.get(category), list) and probes[category],
                      f"{path}: {program_id}.probes.{category} must be non-empty")
+            referenced_probes.update(
+                f"{category}:{probe}" for probe in probes[category])
         tolerances = program.get("tolerances")
         _require(isinstance(tolerances, dict),
                  f"{path}: {program_id}.tolerances must be an object")
@@ -239,6 +245,8 @@ def _validate_programs(document: dict, path: Path) -> None:
                  f"{path}: {program_id} exceeds the differing-pixel license")
     _require(sorted(covered_presets) == list(range(12)),
              f"{path}: presets must be covered exactly once")
+    _require(set(probe_operations) == referenced_probes,
+             f"{path}: probe operation mappings must exactly cover referenced probes")
 
 
 def _validate_oracle(document: dict, path: Path) -> None:

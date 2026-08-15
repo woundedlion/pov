@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 TOOLS = Path(__file__).resolve().parents[1]
@@ -24,16 +25,47 @@ import pullback_capture as capture  # noqa: E402
 MANIFEST_DIR = ROOT / "tests/data/pullback"
 
 
-def _frame(program, preset, case, resolution, probe, value=1):
-    pixels = [
-        [value, value, value, 65535] for _ in range(resolution[0] * resolution[1])
-    ]
+def _frame(programs, program, preset, case, resolution, probe, value=1):
+    total = resolution[0] * resolution[1]
+    pixels = [[value, value, value, 65535] for _ in range(total)]
+    if probe == "steady":
+        operation = {"kind": "parameter-case", "selected_pixels": total}
+    else:
+        mapping = programs["corpus"]["probe_operations"][probe]
+        if mapping in ("THROUGH_CLEAR_FROM", "THROUGH_CLEAR_TO"):
+            endpoint = "from" if mapping.endswith("FROM") else "to"
+            operation = {
+                "kind": "through-clear",
+                "endpoint": endpoint,
+                "source_preset": preset if endpoint == "from" else (preset + 11) % 12,
+                "destination_preset": (preset + 1) % 12
+                if endpoint == "from"
+                else preset,
+                "elapsed": 0 if endpoint == "from" else 60,
+                "duration": 60,
+                "selected_pixels": total,
+            }
+        else:
+            selected = 0
+            for index, pixel in enumerate(pixels):
+                x = index % resolution[0]
+                y = index // resolution[0]
+                if crosscheck._selected_pixel(mapping, x, y, *resolution):
+                    selected += 1
+                else:
+                    pixel[:3] = [0, 0, 0]
+            operation = {
+                "kind": "spatial-extract",
+                "mapping": mapping,
+                "selected_pixels": selected,
+            }
     frame = {
         "program": program,
         "preset": preset,
         "case": case,
         "resolution": list(resolution),
         "probe": probe,
+        "operation": operation,
         "pixels": pixels,
     }
     frame["sha256"] = hashlib.sha256(
@@ -46,14 +78,14 @@ def _capture(
     programs, digest, configuration="native-debug", value=1, checkout_sha="a" * 40
 ):
     frames = [
-        _frame(*key, value=value)
+        _frame(programs, *key, value=value)
         for key in sorted(crosscheck._expected_frame_keys(programs))
     ]
     return {
         "schema_version": 1,
         "checkout_sha": checkout_sha,
         "manifest_sha256": digest,
-        "toolchains": programs["toolchains"],
+        "toolchain": crosscheck._expected_toolchain(programs, configuration),
         "configuration": configuration,
         "corpus": programs["corpus"],
         "frames": frames,
@@ -64,7 +96,7 @@ def _test_manifest():
     programs, oracles = generator.load_and_validate(MANIFEST_DIR)
     programs = copy.deepcopy(programs)
     programs["base_sha"] = "a" * 40
-    programs["corpus"]["resolutions"] = [[1, 1], [2, 1]]
+    programs["corpus"]["resolutions"] = [[16, 16], [32, 24]]
     for program in programs["programs"]:
         program["tolerances"]["release_wasm_framebuffer"][
             "max_differing_pixel_fraction"
@@ -145,11 +177,35 @@ class CaptureComparison(unittest.TestCase):
         base = _capture(programs, digest)
         candidate = copy.deepcopy(base)
         candidate["checkout_sha"] = "b" * 40
-        candidate["toolchains"]["native"]["compiler"] = "different"
-        with self.assertRaisesRegex(crosscheck.CrosscheckError, "toolchains"):
+        candidate["toolchain"]["compiler"] = "different"
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "toolchain"):
             crosscheck.compare_captures(
                 base, candidate, programs, digest, "a" * 40, "b" * 40
             )
+
+    def test_observed_toolchain_mismatch_is_refused(self):
+        programs, _ = _test_manifest()
+        cache = {
+            "CMAKE_CXX_COMPILER": "clang++",
+            "CMAKE_COMMAND": "cmake",
+            "CMAKE_BUILD_TYPE": "Debug",
+            "HS_PULLBACK_CAPTURE_PRESET": "tests",
+        }
+        with (
+            mock.patch.object(capture, "_cache_values", return_value=cache),
+            mock.patch.object(
+                capture,
+                "_compiler_metadata",
+                return_value=(Path("clang++"), "22.0.0"),
+            ),
+            mock.patch.object(
+                capture,
+                "_first_line",
+                side_effect=["clang version 22.0.0", "cmake version 4.2.3"],
+            ),
+            self.assertRaisesRegex(capture.CaptureError, "manifest pin"),
+        ):
+            capture.attest_toolchain(Path("build"), "native-debug", programs)
 
     def test_native_deterministic_replay_passes(self):
         programs, digest = _test_manifest()
@@ -166,6 +222,7 @@ class CaptureComparison(unittest.TestCase):
         candidate = copy.deepcopy(base)
         candidate["checkout_sha"] = "b" * 40
         candidate["frames"][0] = _frame(
+            programs,
             candidate["frames"][0]["program"],
             candidate["frames"][0]["preset"],
             candidate["frames"][0]["case"],
@@ -216,6 +273,47 @@ class CaptureComparison(unittest.TestCase):
                 base, candidate, programs, digest, "a" * 40, "b" * 40
             )
 
+    def test_probe_operations_are_targeted_and_not_aliases(self):
+        programs, digest = _test_manifest()
+        capture_doc = _capture(programs, digest)
+        spatial = [
+            frame
+            for frame in capture_doc["frames"]
+            if frame["operation"]["kind"] == "spatial-extract"
+        ]
+        self.assertGreater(len({frame["sha256"] for frame in spatial}), 1)
+        self.assertTrue(
+            all(
+                frame["operation"]["selected_pixels"]
+                < frame["resolution"][0] * frame["resolution"][1]
+                for frame in spatial
+            )
+        )
+        candidate = copy.deepcopy(capture_doc)
+        candidate["checkout_sha"] = "b" * 40
+        target = next(
+            frame
+            for frame in candidate["frames"]
+            if frame["operation"]["kind"] == "spatial-extract"
+        )
+        mapping = target["operation"]["mapping"]
+        width, height = target["resolution"]
+        outside = next(
+            index
+            for index in range(width * height)
+            if not crosscheck._selected_pixel(
+                mapping, index % width, index // width, width, height
+            )
+        )
+        target["pixels"][outside][0] = 1
+        target["sha256"] = hashlib.sha256(
+            crosscheck._canonical_frame_bytes(target)
+        ).hexdigest()
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "outside mapping"):
+            crosscheck.compare_captures(
+                capture_doc, candidate, programs, digest, "a" * 40, "b" * 40
+            )
+
     def test_strict_capture_provenance_and_identity_are_checked(self):
         programs, digest = _test_manifest()
         base = _capture(programs, digest, "wasm-release")
@@ -239,6 +337,7 @@ class CaptureComparison(unittest.TestCase):
         strict_candidate = copy.deepcopy(strict_base)
         strict_candidate["checkout_sha"] = "b" * 40
         strict_candidate["frames"][0] = _frame(
+            programs,
             strict_candidate["frames"][0]["program"],
             strict_candidate["frames"][0]["preset"],
             strict_candidate["frames"][0]["case"],
@@ -261,20 +360,31 @@ class CaptureComparison(unittest.TestCase):
             )
 
     def test_backend_stream_is_complete(self):
+        programs, _ = _test_manifest()
+        specs = capture.operation_specs(programs)
         data = bytearray(b"HSPB")
-        data.extend(struct.pack("<HHHHHI", 1, 1, 1, 12, 4, 48))
-        for preset in range(12):
-            for case_index in range(4):
-                data.extend(
-                    struct.pack("<HHHHH", preset, case_index, preset, case_index, 65535)
+        data.extend(struct.pack("<HHHI", 2, 1, 1, len(specs)))
+        for spec in specs:
+            name = spec["name"].encode()
+            mapping = spec["mapping"]
+            data.extend(
+                struct.pack(
+                    "<HHH",
+                    spec["preset"],
+                    capture.OPERATION_CODES[mapping],
+                    len(name),
                 )
+            )
+            data.extend(name)
+            data.extend(struct.pack("<HHHHI", 0, 1, 0, 60, 1))
+            data.extend(struct.pack("<HHH", spec["preset"], 3, 4))
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.bin"
             path.write_bytes(data)
-            resolution, records = capture.load_backend(path)
+            resolution, records = capture.load_backend(path, programs)
         self.assertEqual(resolution, (1, 1))
-        self.assertEqual(len(records), 48)
-        self.assertEqual(records[(11, "interior")][0], [11, 3, 65535, 65535])
+        self.assertEqual(len(records), len(specs))
+        self.assertEqual(records[(11, "case:interior")]["pixels"][0], [11, 3, 4, 65535])
 
     def test_build_directories_are_isolated(self):
         with tempfile.TemporaryDirectory() as directory:
