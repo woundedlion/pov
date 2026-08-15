@@ -69,6 +69,15 @@
 #define HS_PROFILE_STR2(x) #x
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
 
+#ifdef HS_PROFILE_PULLBACK_TELEMETRY
+#ifndef HS_PULLBACK_ARM
+#define HS_PULLBACK_ARM LANDED
+#endif
+#ifndef HS_PULLBACK_SHORT_SHA
+#error "Pullback telemetry requires HS_PULLBACK_SHORT_SHA"
+#endif
+#endif
+
 #include "../common/phantasm_target.h"
 
 #ifdef HS_MINDSPLATTER_REPLAY
@@ -721,6 +730,10 @@ FLASHMEM void setup() {
           HS_PROFILE_STR(HS_PROFILE_TARGET),
           HS_PROFILE_STR(HS_PROFILE_CONFIG_TAG), NUM_SEGMENTS, RPM,
           (unsigned long)F_CPU);
+#ifdef HS_PROFILE_PULLBACK_TELEMETRY
+  hs::log("Pullback arm: %s sha=%s", HS_PROFILE_STR(HS_PULLBACK_ARM),
+          HS_PULLBACK_SHORT_SHA);
+#endif
   log_reset_cause();
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
   hs::enable_mindsplatter_stall_counters();

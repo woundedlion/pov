@@ -40,6 +40,7 @@ Preset markers the effects emit (one per advance), matched here:
 """
 
 import argparse
+import json
 import re
 import sys
 from collections import Counter
@@ -53,6 +54,11 @@ WALL_RE = re.compile(
     r"frame wall us: min=(\d+) avg=(\d+) max=(\d+) sum=(\d+) \((\d+) frames\)")
 RENDER_RE = re.compile(r"frame render us: avg=(\d+) max=(\d+)")
 FRAME_RE = re.compile(r"^f (\d+) w=(\d+) r=(\d+)$")
+PULLBACK_ARM_RE = re.compile(
+    r"^Pullback arm: (LEGACY|CORE|LANDED) sha=([0-9a-f]{7,40})$")
+PULLBACK_PROGRAM_RE = re.compile(
+    r"^Pullback program: preset=(\d+)/(\d+) pipeline=([A-Z0-9_]+|NONE) "
+    r"endpoint=(steady|from|to)$")
 COUNTER_RE = re.compile(
     r"^(\s*)(\S+)\s+(\d+) us \((\d+)%\)\s+(\d+) calls\s+(\d+) cyc\s*$")
 # HS_SCAN_METRICS window totals (Profile.ino dump_scan_totals).
@@ -196,7 +202,7 @@ class Window:
         return (None, False) if r is None else (r, False)
 
 
-def parse(path):
+def parse_capture(path):
     """Return (windows, effect_name). Markers are attached to trailing windows.
 
     A marker logged mid-window (the effect advanced during a frame, so frames of
@@ -213,9 +219,20 @@ def parse(path):
     frame_owner = None      # preset owning the frames streaming right now
     effect = None
     pending_frames = []
+    pullback = {"arms": [], "programs": []}
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.rstrip("\n")
+            m = PULLBACK_ARM_RE.match(line)
+            if m:
+                pullback["arms"].append({"arm": m.group(1), "sha": m.group(2)})
+                continue
+            m = PULLBACK_PROGRAM_RE.match(line)
+            if m:
+                pullback["programs"].append({
+                    "preset": int(m.group(1)), "total": int(m.group(2)),
+                    "pipeline": m.group(3), "endpoint": m.group(4)})
+                continue
             m = FRAME_RE.match(line)
             if m:
                 # A marker logged since the last frame line names the preset the
@@ -314,6 +331,12 @@ def parse(path):
                     # Between windows: no outgoing frames to protect.
                     active_marker = mk
                 break
+    return windows, effect, pullback
+
+
+def parse(path):
+    """Return the legacy two-tuple used by profile analysis commands."""
+    windows, effect, _pullback = parse_capture(path)
     return windows, effect
 
 
@@ -745,7 +768,93 @@ def cmd_msp_stalls(windows):
     return 0
 
 
-def cmd_validate(windows, effect, scope):
+def load_shaderball_program_manifest(path):
+    """Load the generated pullback program manifest used by device validation."""
+    with open(path, encoding="utf-8") as manifest_file:
+        manifest = json.load(manifest_file)
+    if manifest.get("kind") != "pullback-programs":
+        raise ValueError("ShaderBall program manifest has the wrong kind")
+    programs = manifest.get("programs")
+    if not isinstance(programs, list) or not programs:
+        raise ValueError("ShaderBall program manifest has no programs")
+    return manifest
+
+
+def validate_pullback_telemetry(pullback, expected_arm, manifest, check):
+    """Apply the matched-device arm, program, and transition coverage checks."""
+    arms = pullback["arms"]
+    check(len(arms) == 1,
+          f"exactly one pullback arm stamp ({len(arms)} found)")
+    arm = arms[0] if len(arms) == 1 else None
+    if arm is not None and expected_arm is not None:
+        check(arm["arm"] == expected_arm,
+              f"pullback arm is {expected_arm} (found {arm['arm']})")
+    if manifest is None:
+        return
+    capture_sha = manifest.get("capture_sha")
+    if arm is not None:
+        check(isinstance(capture_sha, str) and capture_sha.startswith(arm["sha"]),
+              f"arm SHA {arm['sha']} matches capture metadata")
+    by_preset = {}
+    known_ids = set()
+    allow_dynamic = bool(manifest.get("allow_dynamic_none", False))
+    for program in manifest["programs"]:
+        program_id = program.get("id")
+        known_ids.add(program_id)
+        for preset in program.get("presets", []):
+            if preset in by_preset:
+                raise ValueError(f"manifest assigns preset {preset} twice")
+            by_preset[preset] = program_id
+    preset_count = max(by_preset, default=-1) + 1
+    events = pullback["programs"]
+    check(bool(events), "pullback program telemetry is present")
+    previous = None
+    duplicate_count = 0
+    valid_events = []
+    for event in events:
+        event_tuple = (event["preset"], event["total"], event["pipeline"],
+                       event["endpoint"])
+        duplicate_count += event_tuple == previous
+        previous = event_tuple
+        valid = True
+        if event["total"] != preset_count or event["preset"] not in by_preset:
+            valid = False
+        expected_pipeline = by_preset.get(event["preset"])
+        if event["pipeline"] == "NONE":
+            valid &= allow_dynamic
+        else:
+            valid &= event["pipeline"] in known_ids
+            valid &= event["pipeline"] == expected_pipeline
+        if valid:
+            valid_events.append(event)
+    check(duplicate_count == 0,
+          f"program tuples are deduplicated ({duplicate_count} duplicates)")
+    check(len(valid_events) == len(events),
+          "every program event has a known preset/program pairing")
+    if not allow_dynamic:
+        none_count = sum(event["pipeline"] == "NONE" for event in events)
+        check(none_count == 0,
+              f"no unexpected dynamic NONE program ({none_count} found)")
+    steady = {event["preset"] for event in valid_events
+              if event["endpoint"] == "steady"}
+    check(steady == set(by_preset),
+          f"every preset has a steady program ({len(steady)}/{preset_count})")
+    transition_pairs = set()
+    for first, second in zip(valid_events, valid_events[1:]):
+        if first["endpoint"] == "from" and second["endpoint"] == "to":
+            transition_pairs.add((first["preset"], second["preset"]))
+    expected_pairs = {(preset, (preset + 1) % preset_count)
+                      for preset in range(preset_count)}
+    missing_pairs = expected_pairs - transition_pairs
+    check(not missing_pairs,
+          f"every transition has from/to halves ({len(transition_pairs)}/"
+          f"{preset_count})")
+    check((preset_count - 1, 0) in transition_pairs,
+          "last-to-first pullback transition is present")
+
+
+def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
+                 shaderball_program_manifest=None):
     ok = True
 
     def check(cond, msg):
@@ -820,9 +929,14 @@ def cmd_validate(windows, effect, scope):
     if have:
         model_us = root["cyc"] / 600.0
         ppm = abs(model_us - w.wall[3]) / w.wall[3] * 1e6
-        check(ppm < 100,
-              f"root cyc/600 vs wall sum within {ppm:.1f} ppm "
-              f"(frames {w.f_start}-{w.f_end})")
+        check(ppm <= 5,
+              f"root cyc/600 vs wall sum within 5 ppm ({ppm:.1f} ppm, "
+              f"frames {w.f_start}-{w.f_end})")
+
+    if expected_arm is not None or shaderball_program_manifest is not None:
+        validate_pullback_telemetry(
+            pullback or {"arms": [], "programs": []}, expected_arm,
+            shaderball_program_manifest, check)
 
     print(f"\n{'VALID' if ok else 'INVALID'}: {effect}")
     return ok
@@ -839,9 +953,12 @@ def main():
     ap.add_argument("--scope", help="counter label to read (default: costliest leaf)")
     ap.add_argument("--gate", help="call-count scope gating clean holds "
                                     "(default: --scope)")
+    ap.add_argument("--expected-pullback-arm",
+                    choices=["LEGACY", "CORE", "LANDED"])
+    ap.add_argument("--shaderball-program-manifest")
     args = ap.parse_args()
 
-    windows, effect = parse(args.log)
+    windows, effect, pullback = parse_capture(args.log)
     if not windows:
         print(f"no windows parsed from {args.log}", file=sys.stderr)
         return 2
@@ -869,7 +986,16 @@ def main():
     elif args.mode == "msp-stalls":
         return cmd_msp_stalls(windows)
     else:
-        return 0 if cmd_validate(windows, effect, scope) else 1
+        try:
+            manifest = (load_shaderball_program_manifest(
+                args.shaderball_program_manifest)
+                if args.shaderball_program_manifest else None)
+        except (OSError, json.JSONDecodeError, ValueError) as error:
+            print(f"invalid ShaderBall program manifest: {error}", file=sys.stderr)
+            return 2
+        return 0 if cmd_validate(
+            windows, effect, scope, pullback, args.expected_pullback_arm,
+            manifest) else 1
     return 0
 
 

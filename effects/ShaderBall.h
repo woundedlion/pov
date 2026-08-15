@@ -259,6 +259,9 @@ public:
       HS_CHECK(prepare_endpoint({active_slots, blend.params}, runtime, 1.0f,
                                 active_pipeline, prepared),
                "ShaderBall active endpoint has no renderer");
+#ifdef HS_PROFILE_PULLBACK_TELEMETRY
+      log_pullback_program(getPresetIndex(), prepared.pipeline, "steady");
+#endif
       draw_endpoint(canvas, prepared);
     }
     finish_transitions();
@@ -3520,8 +3523,70 @@ private:
                                            : state->transition.to_pipeline;
     HS_CHECK(prepare_endpoint(config, look, phase.alpha, pipeline, prepared),
              "ShaderBall transition endpoint has no renderer");
+#ifdef HS_PROFILE_PULLBACK_TELEMETRY
+    log_pullback_program(preset_index(config), prepared.pipeline,
+                         phase.from_endpoint ? "from" : "to");
+#endif
     draw_endpoint(canvas, prepared);
   }
+
+#ifdef HS_PROFILE_PULLBACK_TELEMETRY
+  static const char *pullback_pipeline_name(InversePipelineId pipeline) {
+    switch (pipeline) {
+    case InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR:
+      return "BONNE_KALEIDOSCOPE_LATTICE_MIRROR";
+    case InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR:
+      return "GLITCH_NOISE_GRID_WAVE_SHEAR";
+    case InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR:
+      return "KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR";
+    case InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR:
+      return "GNOMONIC_KALEIDOSCOPE_GRID_MIRROR";
+    case InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR:
+      return "GNOMONIC_GLITCH_GRID_MIRROR";
+    case InversePipelineId::PEIRCE_DODECAHEDRAL_GRID:
+      return "PEIRCE_DODECAHEDRAL_GRID";
+    case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR:
+      return "GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR";
+    case InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR:
+      return "GNOMONIC_AFFINE_LATTICE_CONTOUR";
+    case InversePipelineId::SINUSOIDAL_CURL_LATTICE:
+      return "SINUSOIDAL_CURL_LATTICE";
+    case InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE:
+      return "STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE";
+    case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR:
+      return "GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR";
+    case InversePipelineId::NONE:
+      return "NONE";
+    case InversePipelineId::COUNT:
+      break;
+    }
+    return "NONE";
+  }
+
+  static size_t preset_index(const Config &config) {
+    for (size_t index = 0; index < PRESETS.size(); ++index)
+      if (PRESETS[index] == config)
+        return index;
+    return 0;
+  }
+
+  void log_pullback_program(size_t preset, InversePipelineId pipeline,
+                            const char *endpoint) {
+    const uint8_t encoded_pipeline = static_cast<uint8_t>(pipeline);
+    const char encoded_endpoint = endpoint[0];
+    if (pullback_profile_preset == preset &&
+        pullback_profile_pipeline == encoded_pipeline &&
+        pullback_profile_endpoint == encoded_endpoint)
+      return;
+    pullback_profile_preset = preset;
+    pullback_profile_pipeline = encoded_pipeline;
+    pullback_profile_endpoint = encoded_endpoint;
+    hs::log("Pullback program: preset=%u/%u pipeline=%s endpoint=%s",
+            static_cast<unsigned>(preset),
+            static_cast<unsigned>(PRESETS.size()),
+            pullback_pipeline_name(pipeline), endpoint);
+  }
+#endif
 
   HS_COLD_MEMBER bool prepare_endpoint(const Config &config,
                                        const LookRuntime &look, float alpha,
@@ -7139,6 +7204,12 @@ private:
   Slots active_slots = PRESETS[0].slots;
   InversePipelineId active_pipeline =
       InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR;
+#ifdef HS_PROFILE_PULLBACK_TELEMETRY
+  size_t pullback_profile_preset = PRESETS.size();
+  uint8_t pullback_profile_pipeline =
+      static_cast<uint8_t>(InversePipelineId::COUNT);
+  char pullback_profile_endpoint = '\0';
+#endif
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   Config display_config = PRESETS[0];
   std::array<PendingEdit, PARAM_CAPACITY> pending_edits{};

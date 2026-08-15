@@ -478,6 +478,12 @@ class ValidateRequiresData(unittest.TestCase):
         ok, _ = self._validate(self._measurable(700_000, 1000))
         self.assertFalse(ok)
 
+    def test_five_ppm_boundary(self):
+        ok, _ = self._validate(self._measurable(600_002_999, 1_000_000))
+        self.assertTrue(ok)
+        ok, _ = self._validate(self._measurable(600_003_001, 1_000_000))
+        self.assertFalse(ok)
+
     def test_scope_selects_the_window_to_validate(self):
         text = "\n".join([
             "=== profile Fx [288x144] frames 1-10 window=62500 us ===",
@@ -496,6 +502,124 @@ class ValidateRequiresData(unittest.TestCase):
         ok, out = self._validate(text, "xx_render")
         self.assertFalse(ok)
         self.assertIn("frames 11-20", out)
+
+
+class PullbackTelemetryValidation(unittest.TestCase):
+    MANIFEST_PATH = (Path(__file__).resolve().parents[2] /
+                     "tests/data/pullback/programs.json")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.manifest = pp.load_shaderball_program_manifest(cls.MANIFEST_PATH)
+        cls.by_preset = {}
+        for program in cls.manifest["programs"]:
+            for preset in program["presets"]:
+                cls.by_preset[preset] = program["id"]
+
+    def _telemetry(self):
+        events = []
+        for preset in range(12):
+            next_preset = (preset + 1) % 12
+            events.extend([
+                {"preset": preset, "total": 12,
+                 "pipeline": self.by_preset[preset], "endpoint": "steady"},
+                {"preset": preset, "total": 12,
+                 "pipeline": self.by_preset[preset], "endpoint": "from"},
+                {"preset": next_preset, "total": 12,
+                 "pipeline": self.by_preset[next_preset], "endpoint": "to"},
+            ])
+        return {
+            "arms": [{"arm": "LANDED", "sha": self.manifest["capture_sha"][:12]}],
+            "programs": events,
+        }
+
+    def _validate(self, telemetry, expected="LANDED", manifest=None):
+        checks = []
+
+        def check(condition, message):
+            checks.append((condition, message))
+
+        pp.validate_pullback_telemetry(
+            telemetry, expected, manifest or self.manifest, check)
+        return all(condition for condition, _message in checks), checks
+
+    def test_complete_synthetic_cycle(self):
+        ok, _ = self._validate(self._telemetry())
+        self.assertTrue(ok)
+
+    def test_arm_and_program_records_parse(self):
+        import tempfile
+        text = "\n".join([
+            f"Pullback arm: LANDED sha={self.manifest['capture_sha'][:12]}",
+            "Pullback program: preset=0/12 "
+            f"pipeline={self.by_preset[0]} endpoint=steady",
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text(text, encoding="utf-8")
+            _windows, _effect, telemetry = pp.parse_capture(path)
+        self.assertEqual(telemetry["arms"][0]["arm"], "LANDED")
+        self.assertEqual(telemetry["programs"][0]["pipeline"],
+                         self.by_preset[0])
+
+    def test_arm_rejections(self):
+        telemetry = self._telemetry()
+        telemetry["arms"] = []
+        self.assertFalse(self._validate(telemetry)[0])
+        telemetry = self._telemetry()
+        telemetry["arms"].append(dict(telemetry["arms"][0]))
+        self.assertFalse(self._validate(telemetry)[0])
+        telemetry = self._telemetry()
+        telemetry["arms"][0]["arm"] = "CORE"
+        self.assertFalse(self._validate(telemetry)[0])
+
+    def test_sha_mismatch_is_rejected(self):
+        telemetry = self._telemetry()
+        telemetry["arms"][0]["sha"] = "0" * 12
+        self.assertFalse(self._validate(telemetry)[0])
+
+    def test_unknown_and_mismatched_programs_are_rejected(self):
+        telemetry = self._telemetry()
+        telemetry["programs"][0]["pipeline"] = "UNKNOWN_PROGRAM"
+        self.assertFalse(self._validate(telemetry)[0])
+        telemetry = self._telemetry()
+        telemetry["programs"][0]["pipeline"] = self.by_preset[1]
+        self.assertFalse(self._validate(telemetry)[0])
+
+    def test_missing_steady_is_rejected(self):
+        telemetry = self._telemetry()
+        telemetry["programs"] = [
+            event for event in telemetry["programs"]
+            if not (event["preset"] == 5 and event["endpoint"] == "steady")]
+        self.assertFalse(self._validate(telemetry)[0])
+
+    def test_missing_transition_halves_are_rejected(self):
+        for endpoint in ("from", "to"):
+            telemetry = self._telemetry()
+            removed = False
+            kept = []
+            for event in telemetry["programs"]:
+                if not removed and event["endpoint"] == endpoint:
+                    removed = True
+                    continue
+                kept.append(event)
+            telemetry["programs"] = kept
+            self.assertFalse(self._validate(telemetry)[0])
+
+    def test_dynamic_none_is_rejected(self):
+        telemetry = self._telemetry()
+        telemetry["programs"][0]["pipeline"] = "NONE"
+        self.assertFalse(self._validate(telemetry)[0])
+
+    def test_duplicate_tuple_is_rejected(self):
+        telemetry = self._telemetry()
+        telemetry["programs"].insert(1, dict(telemetry["programs"][0]))
+        self.assertFalse(self._validate(telemetry)[0])
+
+    def test_missing_last_to_first_wrap_is_rejected(self):
+        telemetry = self._telemetry()
+        telemetry["programs"] = telemetry["programs"][:-1]
+        self.assertFalse(self._validate(telemetry)[0])
 
 
 class FramesMode(unittest.TestCase):
