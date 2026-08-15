@@ -461,6 +461,22 @@ struct CycleCounter {
    */
   explicit CycleCounter(const char *n) : name(n), next(head) { head = this; }
 
+  /**
+   * @brief Unregisters the counter, so no registry walk reaches dead storage.
+   */
+  ~CycleCounter() {
+    for (CycleCounter **p = &head; *p; p = &(*p)->next) {
+      if (*p == this) {
+        *p = next;
+        return;
+      }
+    }
+  }
+
+  // The registry links every counter by address, so a counter is fixed in place.
+  CycleCounter(const CycleCounter &) = delete;
+  CycleCounter &operator=(const CycleCounter &) = delete;
+
   /** @brief Zeroes this counter's accumulated cycles and call count. */
   void reset() {
     cycles = 0;
