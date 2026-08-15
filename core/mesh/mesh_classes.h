@@ -53,6 +53,10 @@ namespace SDF {
  */
 inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
                                          int16_t *out, ClassLut &lut) {
+  HS_CHECK(count >= 3,
+           "build_canonical_distance_lut requires at least 3 polygon vertices");
+  HS_CHECK(n >= 2, "build_canonical_distance_lut requires a grid resolution "
+                   "of at least 2");
   float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
   float bb_min_y = FLT_MAX, bb_max_y = -FLT_MAX;
   for (int i = 0; i < count; ++i) {
