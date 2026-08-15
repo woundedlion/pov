@@ -3665,8 +3665,7 @@ private:
 #endif
 
   __attribute__((always_inline)) static ProjectedLookup
-  selected_stereographic_lookup(const Vector &v, const FrameState &frame) {
-    const Vector local = rotate(v, frame.transforms.projection_conj);
+  stereographic_lookup(const Vector &local, const FrameState &frame) {
     const Complex coords = stereo(local);
     const float r_sq = coords.re * coords.re + coords.im * coords.im;
     return {coords,
@@ -3680,6 +3679,12 @@ private:
             0,
             1.0f,
             local};
+  }
+
+  __attribute__((always_inline)) static ProjectedLookup
+  selected_stereographic_lookup(const Vector &v, const FrameState &frame) {
+    return stereographic_lookup(rotate(v, frame.transforms.projection_conj),
+                                frame);
   }
 
   __attribute__((always_inline)) static ProjectedLookup
@@ -4012,16 +4017,7 @@ private:
     ProjectedLookup projected = [&]() {
       if (frame.slots.projection != Projection::STEREOGRAPHIC)
         return project_nonstereographic(local, frame);
-      const Complex coords = stereo(local);
-      const float r_sq = coords.re * coords.re + coords.im * coords.im;
-      return ProjectedLookup{
-          coords,
-          0,
-          0,
-          BOUNDARY_SINGULAR,
-          std::max(0.0f, 1.0f - local.y),
-          pole_attenuation(r_sq, frame.params.projection.pole_fade),
-          0};
+      return stereographic_lookup(local, frame);
     }();
     projected.sphere = local;
     return projected;
