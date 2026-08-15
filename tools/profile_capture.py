@@ -69,6 +69,9 @@ def main():
 
     if args.seconds <= 0:
         ap.error("--seconds must be greater than zero")
+    # Before the port wait: the default lives under build/, which a fresh clone
+    # does not have, and the capture would then be lost at its very last step.
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
 
     ser = open_port(args.connect_timeout, args.port)
     print(f"profile_capture: reading {ser.port} for {args.seconds:.0f} s",
