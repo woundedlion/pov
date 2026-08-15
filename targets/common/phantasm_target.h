@@ -13,6 +13,12 @@
  */
 #pragma once
 
+// Arduino/VMicro fallback for the Teensy shipping Pullback arm. PlatformIO
+// supplies the same selection as a translation-unit-wide build flag.
+#ifndef HS_SHADERBALL_PULLBACK_PIPELINE
+#define HS_SHADERBALL_PULLBACK_PIPELINE HS_SHADERBALL_PULLBACK_CORE
+#endif
+
 // Select the DMA HD107S output path. Guarded because the PlatformIO envs also
 // pass -D USE_DMA_LEDS: an Arduino-IDE/VMicro build sees only this #define, a
 // PlatformIO build sees only the flag, and the #ifndef keeps the two from
