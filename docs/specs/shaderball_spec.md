@@ -507,7 +507,6 @@ than silently clamped into a different schema:
 | noise contour | scale `[0,2]`, contrast `[0,8]`, time rate `[-1/64,1/64]` turns/frame |
 | primitive lattice | cell scale `[1/64,8]`, shape blend `[0,1]`, softness `[1/1024,1]`, radius `[1/64,0.49]` in normalized cell units |
 | value/coverage | levels and thresholds `[0,1]`, widths/softness `[1/1024,1/2]`, band count integer `[1,32]`, wrapped phase |
-| deformation ink | gains `[-4,4]`, normalization denominators `[1/1024,32]`, wrapped direction phase |
 
 Möbius parameters use coefficient components no greater than 8 and must
 satisfy a documented positive lower bound on `abs(a*d-b*c)` before that slot is
@@ -696,24 +695,6 @@ Both kinds read `surface_noise_time`, which traverses a closed loop of radius
 slot-dependent: `[0, 1/2]` for `DIRECT`, and `[-1/2, 1/2]` for `CURL`, whose
 sign selects the flow direction. Zero strength is exactly identity and is the
 only admitted way to hold the slot inert while its kind stays selected.
-
-`DEFORMATION_INK` exposes warp structure using an existing palette resource:
-
-```text
-d = clamp(deformation / max(displacement_norm, epsilon), 0, 1)
-l = clamp(path_length / max(path_norm, epsilon), 0, 1)
-direction_term = 0 when length(net_delta) < epsilon,
-                 otherwise direction_gain*cos(
-                     atan2(net_delta.im, net_delta.re) - direction_phase)
-u = wrap(value + displacement_gain*d + path_gain*l + direction_term)
-color = selected_palette(u)
-color.alpha *= coverage
-```
-
-The normalization denominators are positive preset controls. Undefined
-zero-displacement direction contributes no color shift. Otherwise cosine makes
-the direction term periodic at the angular seam; scalar wrapping alone would
-not.
 
 Composition rules are:
 
