@@ -426,15 +426,59 @@ inline void test_mailbox() {
 
   EdgeMailbox tc;
   BurstSnapshot out;
-  HS_EXPECT_FALSE(tc.try_claim(0, 4 * COL, &out)); // no burst yet
+  const uint32_t MAXB = test_config().max_burst_cycles();
+  HS_EXPECT_FALSE(tc.try_claim(0, 4 * COL, MAXB, &out)); // no burst yet
   tc.on_edge(1000, GLITCH);
   tc.on_edge(1000 + 2 * COL, GLITCH);
-  HS_EXPECT_FALSE(tc.try_claim(1000 + 3 * COL, 4 * COL, &out)); // gap too short
-  HS_EXPECT_TRUE(tc.try_claim(1000 + 6 * COL + 1, 4 * COL, &out));
+  HS_EXPECT_FALSE(
+      tc.try_claim(1000 + 3 * COL, 4 * COL, MAXB, &out)); // gap too short
+  HS_EXPECT_TRUE(tc.try_claim(1000 + 6 * COL + 1, 4 * COL, MAXB, &out));
   HS_EXPECT_EQ(out.count, 2u);
   HS_EXPECT_EQ(out.first_cycles, 1000u);
   HS_EXPECT_EQ(out.last_cycles, 1000u + 2 * COL);
-  HS_EXPECT_FALSE(tc.try_claim(1000 + 7 * COL, 4 * COL, &out)); // reset
+  HS_EXPECT_FALSE(tc.try_claim(1000 + 7 * COL, 4 * COL, MAXB, &out)); // reset
+}
+
+/**
+ * @brief Verifies a burst the wire never lets go quiet is claimed on duration.
+ * @details Noise at the glitch filter's pass rate refreshes last_cycles on every
+ *          accepted edge, so the terminating gap never opens. Without the
+ *          duration term the mailbox stays jammed for as long as the noise
+ *          lasts: nothing claimed, nothing decoded, no telemetry counter moving.
+ */
+inline void test_mailbox_overlong_burst() {
+  const Config cfg = test_config();
+  const uint32_t GLITCH = cfg.glitch_filter_cycles;
+  const uint32_t MAXB = cfg.max_burst_cycles();
+  const uint32_t GAP = cfg.gap_timeout_cycles();
+  const uint32_t t0 = 1000u;
+
+  EdgeMailbox m;
+  BurstSnapshot out{};
+  uint32_t claimed_at = 0;
+  bool claimed = false;
+  for (uint32_t t = t0; t <= t0 + 4 * MAXB; t += GLITCH) {
+    m.on_edge(t, GLITCH);
+    if (!claimed && m.try_claim(t, GAP, MAXB, &out)) {
+      claimed = true;
+      claimed_at = t;
+    }
+  }
+  HS_EXPECT_TRUE(claimed);
+  HS_EXPECT_LE(claimed_at - t0, MAXB + GLITCH);
+  HS_EXPECT_EQ(out.first_cycles, t0);
+  // A jammed burst never lands on the odd-only alphabet, so the symbol is
+  // discarded and counted rather than snapped on.
+  HS_EXPECT_TRUE(classify_count(out.count) == Symbol::INVALID);
+
+  // The widest legitimate burst still terminates on the gap, not the bound.
+  EdgeMailbox n;
+  const uint32_t pitch = cfg.pulse_pitch_cycles();
+  for (uint32_t i = 0; i < 5; ++i)
+    n.on_edge(t0 + i * pitch, GLITCH);
+  HS_EXPECT_FALSE(n.try_claim(t0 + 4 * pitch + GAP - 1, GAP, MAXB, &out));
+  HS_EXPECT_TRUE(n.try_claim(t0 + 4 * pitch + GAP, GAP, MAXB, &out));
+  HS_EXPECT_EQ(out.count, 5u);
 }
 
 /**
@@ -497,7 +541,8 @@ inline void test_mailbox_rejects_backward_clock() {
   EdgeMailbox m;
   BurstSnapshot out{};
   m.on_edge(now + skew, GLITCH);
-  HS_EXPECT_FALSE(m.try_claim(now, 4 * COL, &out));
+  HS_EXPECT_FALSE(
+      m.try_claim(now, 4 * COL, test_config().max_burst_cycles(), &out));
 
   m.age_prior(now, GLITCH);
   // The reference survived, so a spike inside the window is still suppressed.
@@ -1922,7 +1967,8 @@ private:
     BurstSnapshot s;
     const BurstSnapshot *sp = nullptr;
     if (!b.master &&
-        b.board.mailbox().try_claim(now, b.board.gap_timeout_cycles(), &s))
+        b.board.mailbox().try_claim(now, b.board.gap_timeout_cycles(),
+                                    b.board.max_burst_cycles(), &s))
       sp = &s;
     const TickActions a = b.board.tick(now, sp);
     if (a.pulse && b.master)
@@ -3277,6 +3323,7 @@ inline int run_pov_sync_tests() {
   test_alphabet();
   test_flip_gate();
   test_mailbox();
+  test_mailbox_overlong_burst();
   test_mailbox_prior_staleness();
   test_mailbox_rejects_backward_clock();
   test_seed_clears_mailbox();

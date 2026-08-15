@@ -198,6 +198,22 @@ struct Config {
     return col_cycles(beacon_pitch_cols);
   }
   /**
+   * @brief Ceiling on a burst's total duration, in cycles.
+   * @return Widest legitimate burst span, plus the gap timeout and a column of
+   * slack.
+   * @details Sustained wire noise inside the glitch filter's pass band refreshes
+   * a burst's last edge indefinitely, so the terminating gap never opens. This
+   * bound terminates such a burst anyway; it sits above every legitimate span —
+   * five boundary pulses at pulse_pitch_cols, eight beacon pulses at
+   * beacon_pitch_cols — so a real burst always ends on the gap first.
+   */
+  constexpr uint32_t max_burst_cycles() const {
+    const int32_t span = 4 * pulse_pitch_cols > 7 * beacon_pitch_cols
+                             ? 4 * pulse_pitch_cols
+                             : 7 * beacon_pitch_cols;
+    return col_cycles(span + gap_timeout_cols + 1);
+  }
+  /**
    * @brief Emission lateness budget (spec §5.2: self-censor past ~½ column).
    * @return Half a column, in cycles.
    */
@@ -528,8 +544,9 @@ struct BurstSnapshot {
 /**
  * @brief The only state the sync-wire edge ISR writes. The publisher applies
  * the glitch filter and accumulates edge count + first/last timestamps; the
- * consumer (flywheel ISR) detects burst termination by gap timeout and claims
- * the burst with try_claim(), which tests completion and takes the burst in one
+ * consumer (flywheel ISR) detects burst termination by gap timeout or duration
+ * bound and claims the burst with try_claim(), which tests completion and takes
+ * the burst in one
  * step so the two cannot be split around an edge. On the device that call runs
  * under a brief IRQ-off window (a two-instruction copy, spec §8.2); on the host
  * it is plain.
@@ -559,6 +576,8 @@ public:
    * take it.
    * @param now Current timestamp, in cycles.
    * @param gap_timeout_cycles Quiet time that terminates a burst, in cycles.
+   * @param max_burst_cycles Duration past which an unterminated burst is
+   * claimed regardless of the gap (Config::max_burst_cycles).
    * @param[out] out Burst snapshot, written only when true is returned.
    * @return True if a burst had terminated and was claimed.
    * @details The edge ISR must not run between the completion test and the
@@ -566,11 +585,20 @@ public:
    * `now` is sampled before the bracket opens, so an edge landing in between
    * leaves `last_cycles` ahead of it; the signed re-check rejects that wrapped
    * modular difference instead of claiming a burst still in flight.
+   * The duration term takes the same re-check against `first_cycles`. It is what
+   * frees the mailbox under sustained noise, where every accepted edge pushes
+   * the gap out and the quiet term alone never fires: the burst is claimed,
+   * classified INVALID by its count, and counted.
    */
   bool try_claim(uint32_t now, uint32_t gap_timeout_cycles,
-                 BurstSnapshot *out) {
-    if (count == 0 || (now - last_cycles) < gap_timeout_cycles ||
-        static_cast<int32_t>(now - last_cycles) <= 0)
+                 uint32_t max_burst_cycles, BurstSnapshot *out) {
+    if (count == 0)
+      return false;
+    const bool quiet = (now - last_cycles) >= gap_timeout_cycles &&
+                       static_cast<int32_t>(now - last_cycles) > 0;
+    const bool overlong = (now - first_cycles) >= max_burst_cycles &&
+                          static_cast<int32_t>(now - first_cycles) > 0;
+    if (!quiet && !overlong)
       return false;
     *out = BurstSnapshot{count, first_cycles, last_cycles};
     count = 0;
