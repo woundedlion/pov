@@ -310,7 +310,7 @@ struct PlanarEdgeSampler {
   Vector pos(float s) const { return unproject(projection_fraction(s)); }
 
   /** @brief Evaluates position and analytic tangent without a second unproject. */
-  SamplePT one_pass(float s) const {
+  HS_FLASH_MEMBER SamplePT one_pass(float s) const {
     return sample_at<true>(projection_fraction(s));
   }
 
