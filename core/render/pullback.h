@@ -8,6 +8,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -347,5 +348,500 @@ protected:
       return run_stage<Index + 1>(output, frame);
   }
 };
+
+struct ExactPolicy {
+  static constexpr bool APPROXIMATE = false;
+  static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
+  static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
+  static constexpr std::array<ApproximationMetric, 0> METRICS{};
+};
+
+namespace Detail {
+
+template <typename... Policies> struct FirstApproximate {
+  using Type = ExactPolicy;
+};
+
+template <typename Head, typename... Tail>
+struct FirstApproximate<Head, Tail...> {
+  using Type = std::conditional_t<Head::APPROXIMATE, Head,
+                                  typename FirstApproximate<Tail...>::Type>;
+};
+
+template <typename... Policies> struct CombinedApproximation {
+  static constexpr size_t COUNT =
+      (static_cast<size_t>(Policies::APPROXIMATE) + ... + 0U);
+  static_assert(
+      COUNT <= 1,
+      "pullback stage: multiple approximation oracles require an explicit "
+      "combined oracle");
+  using Owner = typename FirstApproximate<Policies...>::Type;
+  static constexpr bool APPROXIMATE = Owner::APPROXIMATE;
+  static constexpr bool NON_FLOATING_FIELDS_EXACT =
+      Owner::NON_FLOATING_FIELDS_EXACT;
+  static constexpr ApproximationOracleId ORACLE = Owner::ORACLE;
+  static constexpr auto METRICS = Owner::METRICS;
+};
+
+template <typename BindingT, StageKind KindV, typename InputT, typename OutputT,
+          bool TerminalV, typename... Policies>
+struct StageContract : CombinedApproximation<Policies...> {
+  using Binding = BindingT;
+  using FrameState = typename Binding::FrameState;
+  using Input = InputT;
+  using Output = OutputT;
+
+  static constexpr StageKind KIND = KindV;
+  static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
+  static constexpr bool TERMINAL = TerminalV;
+};
+
+template <typename State, typename Binding>
+concept ProviderFor =
+    std::is_empty_v<State> && std::is_trivially_constructible_v<State> &&
+    requires {
+      typename State::Binding;
+      typename State::FrameState;
+    } && std::same_as<typename State::Binding, Binding> &&
+    std::same_as<typename State::FrameState, typename Binding::FrameState>;
+
+inline float clamp_unit(float value) {
+  if (value <= 0.0f)
+    return 0.0f;
+  if (value >= 1.0f)
+    return 1.0f;
+  return value;
+}
+
+inline float smooth_ramp(float low, float high, float value) {
+  if (low == high)
+    return static_cast<float>(value > low);
+  const float t = clamp_unit((value - low) / (high - low));
+  return t * t * (3.0f - 2.0f * t);
+}
+
+} // namespace Detail
+
+namespace Surface {
+
+struct Identity : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static SurfaceResult
+  apply(const Vector &input, const FrameState &) {
+    return {input, 0.0f};
+  }
+};
+
+} // namespace Surface
+
+namespace Lens {
+
+struct Identity : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &) {
+    return input;
+  }
+};
+
+} // namespace Lens
+
+namespace Warp {
+
+static constexpr uint8_t MAX_POLAR_HARMONIC = 16;
+
+struct FlatEnvelope {};
+struct ProjectionWeightEnvelope {};
+struct EdgeFadeEnvelope {};
+struct Euler1 {};
+struct Midpoint2 {};
+struct Midpoint4 {};
+struct LinearPolar {};
+struct LogarithmicPolar {};
+
+struct Identity : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static WarpStepResult
+  apply(const Complex &input, const ProjectionSample &, const FrameState &) {
+    return {input, Complex(), 0.0f, 0.0f};
+  }
+};
+
+} // namespace Warp
+
+namespace Weight {
+
+struct None : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static float
+  apply(float field, const ProjectionSample &, const FrameState &) {
+    return field;
+  }
+};
+
+struct Projection : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static float
+  apply(float field, const ProjectionSample &projected, const FrameState &) {
+    return field * projected.value_weight;
+  }
+};
+
+} // namespace Weight
+
+namespace Transfer {
+
+struct Linear : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static float apply(float value,
+                                                    const FrameState &) {
+    return value;
+  }
+};
+
+struct Ridge : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static float apply(float value,
+                                                    const FrameState &) {
+    return 1.0f - fabsf(2.0f * value - 1.0f);
+  }
+};
+
+template <typename State> struct IsoContour : ExactPolicy {
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::iso_level(frame) } -> std::convertible_to<float>;
+        { State::iso_width(frame) } -> std::convertible_to<float>;
+      };
+
+  template <typename FrameState>
+  __attribute__((always_inline)) static float apply(float value,
+                                                    const FrameState &frame) {
+    const float width = State::iso_width(frame);
+    const float distance = fabsf(value - State::iso_level(frame));
+    return 1.0f - Detail::smooth_ramp(width, 2.0f * width, distance);
+  }
+};
+
+template <typename State> struct SmoothBands : ExactPolicy {
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::band_frequency(frame) } -> std::convertible_to<float>;
+        { State::band_softness(frame) } -> std::convertible_to<float>;
+      };
+
+  template <typename FrameState>
+  __attribute__((always_inline)) static float apply(float value,
+                                                    const FrameState &frame) {
+    const float phase = value * State::band_frequency(frame);
+    const float distance = fabsf((phase - floorf(phase)) - 0.5f) * 2.0f;
+    const float softness = State::band_softness(frame);
+    return 1.0f - Detail::smooth_ramp(1.0f - softness, 1.0f, distance);
+  }
+};
+
+} // namespace Transfer
+
+namespace Coverage {
+
+struct Opaque : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static float
+  apply(float, const ProjectionSample &, const FrameState &) {
+    return 1.0f;
+  }
+};
+
+struct Projection : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static float
+  apply(float, const ProjectionSample &projected, const FrameState &) {
+    return projected.value_weight;
+  }
+};
+
+struct ProjectionSquared : ExactPolicy {
+  template <typename FrameState>
+  __attribute__((always_inline)) static float
+  apply(float, const ProjectionSample &projected, const FrameState &) {
+    return projected.value_weight * projected.value_weight;
+  }
+};
+
+template <typename State> struct ValueCutout : ExactPolicy {
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::cutout_threshold(frame) } -> std::convertible_to<float>;
+        { State::cutout_width(frame) } -> std::convertible_to<float>;
+      };
+
+  template <typename FrameState>
+  __attribute__((always_inline)) static float
+  apply(float value, const ProjectionSample &, const FrameState &frame) {
+    const float threshold = State::cutout_threshold(frame);
+    const float width = State::cutout_width(frame);
+    return width == 0.0f ? static_cast<float>(value > threshold)
+                         : Detail::smooth_ramp(threshold - width,
+                                               threshold + width, value);
+  }
+};
+
+template <typename State> struct EdgeFade : ExactPolicy {
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::edge_width(frame) } -> std::convertible_to<float>;
+      };
+
+  template <typename FrameState>
+  __attribute__((always_inline)) static float
+  apply(float, const ProjectionSample &projected, const FrameState &frame) {
+    const float width = State::edge_width(frame);
+    return width == 0.0f
+               ? static_cast<float>(projected.fade_edge_distance > 0.0f)
+               : Detail::smooth_ramp(0.0f, width, projected.fade_edge_distance);
+  }
+};
+
+} // namespace Coverage
+
+namespace Color {
+
+enum class PaletteMapping : uint8_t {
+  CUP = 0,
+  BELL = 1,
+  LINEAR = 2,
+  REVERSE = 3
+};
+
+enum class BrightnessEnvelope : uint8_t {
+  NONE = 0,
+  CUP = 1,
+  BELL = 2,
+  ASCENDING = 3,
+  DESCENDING = 4
+};
+
+enum class HueMode : uint8_t { NONE = 0, NOISE = 1, PATH_LENGTH = 2 };
+
+struct HueRotationLutView {
+  static constexpr int VALUE_STEPS = 64;
+  static constexpr int HUE_STEPS = 16;
+  static constexpr size_t SIZE = VALUE_STEPS * HUE_STEPS;
+
+  const Pixel *data;
+  bool active;
+};
+
+struct HueNoiseLutView {
+  static constexpr int FACE_COUNT = 6;
+  static constexpr int FACE_STEPS = 24;
+  static constexpr int FACE_SIZE = FACE_STEPS * FACE_STEPS;
+  static constexpr size_t SIZE = FACE_COUNT * FACE_SIZE;
+
+  const int8_t *data;
+  bool active;
+};
+
+} // namespace Color
+
+namespace Stage {
+
+template <typename BindingT, typename OrientationState>
+struct OuterCamera : Detail::StageContract<BindingT, StageKind::OUTER_CAMERA,
+                                           Vector, Vector, false, ExactPolicy> {
+  using Base = Detail::StageContract<BindingT, StageKind::OUTER_CAMERA, Vector,
+                                     Vector, false, ExactPolicy>;
+  using typename Base::FrameState;
+
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<OrientationState, BindingT> &&
+      requires(const FrameState &frame) { OrientationState::conjugate(frame); };
+  static_assert(PROVIDER_VALID,
+                "pullback outer camera: malformed orientation provider");
+
+  __attribute__((always_inline)) static Vector run(const Vector &input,
+                                                   const FrameState &frame) {
+    return rotate(input, OrientationState::conjugate(frame));
+  }
+};
+
+template <typename BindingT, typename PreLensSurfaceT, typename LensPolicyT,
+          typename PostLensSurfaceT, typename ProjectionPolicyT>
+struct SurfaceProject
+    : Detail::StageContract<BindingT, StageKind::SURFACE_PROJECT, Vector,
+                            ProjectionSample, false, PreLensSurfaceT,
+                            LensPolicyT, PostLensSurfaceT, ProjectionPolicyT> {
+  using Base =
+      Detail::StageContract<BindingT, StageKind::SURFACE_PROJECT, Vector,
+                            ProjectionSample, false, PreLensSurfaceT,
+                            LensPolicyT, PostLensSurfaceT, ProjectionPolicyT>;
+  using typename Base::FrameState;
+  using PreLensSurface = PreLensSurfaceT;
+  using LensPolicy = LensPolicyT;
+  using PostLensSurface = PostLensSurfaceT;
+  using ProjectionPolicy = ProjectionPolicyT;
+
+  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = [] {
+    if constexpr (requires { ProjectionPolicy::EDGE_DISTANCE_UNCONDITIONAL; })
+      return ProjectionPolicy::EDGE_DISTANCE_UNCONDITIONAL;
+    else
+      return false;
+  }();
+
+  __attribute__((always_inline)) static ProjectionSample
+  run(const Vector &input, const FrameState &frame) {
+    const SurfaceResult pre = PreLensSurface::apply(input, frame);
+    const Vector lensed = LensPolicy::apply(pre.sphere, frame);
+    const SurfaceResult post = PostLensSurface::apply(lensed, frame);
+    const Vector local =
+        rotate(post.sphere, ProjectionPolicy::frame_conjugate(frame));
+    ProjectionSample output = ProjectionPolicy::project(local, frame);
+    output.sphere = local;
+    output.surface_path_length = pre.path_length + post.path_length;
+    return output;
+  }
+};
+
+template <typename BindingT, typename... WarpPolicies>
+struct PlanarWarp
+    : Detail::StageContract<BindingT, StageKind::PLANAR_WARP, ProjectionSample,
+                            SourceInput, false, WarpPolicies...> {
+  using Base =
+      Detail::StageContract<BindingT, StageKind::PLANAR_WARP, ProjectionSample,
+                            SourceInput, false, WarpPolicies...>;
+  using typename Base::FrameState;
+  using Policies = std::tuple<WarpPolicies...>;
+  template <size_t Index>
+  using policy_at = std::tuple_element_t<Index, Policies>;
+
+  __attribute__((always_inline)) static SourceInput
+  run(const ProjectionSample &projected, const FrameState &frame) {
+    WarpResult warped{projected.coords, Complex(), 0.0f};
+    (apply_one<WarpPolicies>(projected, frame, warped), ...);
+    return {projected, warped};
+  }
+
+private:
+  template <typename Policy>
+  __attribute__((always_inline)) static void
+  apply_one(const ProjectionSample &projected, const FrameState &frame,
+            WarpResult &warped) {
+    const WarpStepResult step = Policy::apply(warped.coords, projected, frame);
+    warped.coords = step.coords;
+    warped.net_delta = warped.net_delta + step.delta;
+    warped.path_length += step.path_length;
+  }
+};
+
+template <typename BindingT, typename SourcePolicyT>
+struct Source : Detail::StageContract<BindingT, StageKind::SOURCE, SourceInput,
+                                      MaterialInput, false, SourcePolicyT> {
+  using Base = Detail::StageContract<BindingT, StageKind::SOURCE, SourceInput,
+                                     MaterialInput, false, SourcePolicyT>;
+  using typename Base::FrameState;
+  using SourcePolicy = SourcePolicyT;
+
+  __attribute__((always_inline)) static MaterialInput
+  run(const SourceInput &input, const FrameState &frame) {
+    return {input.projected, input.warped, SourcePolicy::sample(input, frame)};
+  }
+};
+
+template <typename BindingT, typename WeightPolicyT, typename TransferPolicyT,
+          typename CoveragePolicyT>
+struct Material
+    : Detail::StageContract<BindingT, StageKind::MATERIAL, MaterialInput,
+                            MaterialSample, false, WeightPolicyT,
+                            TransferPolicyT, CoveragePolicyT> {
+  using Base =
+      Detail::StageContract<BindingT, StageKind::MATERIAL, MaterialInput,
+                            MaterialSample, false, WeightPolicyT,
+                            TransferPolicyT, CoveragePolicyT>;
+  using typename Base::FrameState;
+  using WeightPolicy = WeightPolicyT;
+  using TransferPolicy = TransferPolicyT;
+  using CoveragePolicy = CoveragePolicyT;
+
+  __attribute__((always_inline)) static MaterialSample
+  run(const MaterialInput &input, const FrameState &frame) {
+    const float weighted =
+        WeightPolicy::apply(input.field, input.projected, frame);
+    const float unit = Detail::clamp_unit((weighted + 1.0f) * 0.5f);
+    const float value = TransferPolicy::apply(unit, frame);
+    const float coverage =
+        CoveragePolicy::apply(value, input.projected, frame) *
+        input.projected.domain_coverage;
+    return {value, coverage, input.projected.sphere,
+            input.projected.surface_path_length + input.warped.path_length};
+  }
+};
+
+template <typename BindingT, typename ColorPolicyT>
+struct Color : Detail::StageContract<BindingT, StageKind::COLOR, MaterialSample,
+                                     Color4, true, ColorPolicyT> {
+  using Base = Detail::StageContract<BindingT, StageKind::COLOR, MaterialSample,
+                                     Color4, true, ColorPolicyT>;
+  using typename Base::FrameState;
+  using ColorPolicy = ColorPolicyT;
+
+  __attribute__((always_inline)) static Color4 run(const MaterialSample &input,
+                                                   const FrameState &frame) {
+    return ColorPolicy::apply(input, frame);
+  }
+};
+
+template <CodeEmission EmissionV, typename StageImplementationT> struct Placed;
+
+template <typename StageImplementationT>
+struct Placed<CodeEmission::INLINE_ONLY, StageImplementationT>
+    : StageImplementationT {
+  using Input = typename StageImplementationT::Input;
+  using Output = typename StageImplementationT::Output;
+  using FrameState = typename StageImplementationT::FrameState;
+  static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
+
+  __attribute__((always_inline)) static Output run(const Input &input,
+                                                   const FrameState &frame) {
+    return StageImplementationT::run(input, frame);
+  }
+};
+
+template <typename StageImplementationT>
+struct Placed<CodeEmission::OUT_OF_LINE_FLASH, StageImplementationT>
+    : StageImplementationT {
+  using Input = typename StageImplementationT::Input;
+  using Output = typename StageImplementationT::Output;
+  using FrameState = typename StageImplementationT::FrameState;
+  static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
+
+  HS_FLASH_MEMBER static Output run(const Input &input,
+                                    const FrameState &frame) {
+    return StageImplementationT::run(input, frame);
+  }
+};
+
+template <typename StageImplementationT>
+struct Placed<CodeEmission::OUT_OF_LINE_ITCM, StageImplementationT>
+    : StageImplementationT {
+  using Input = typename StageImplementationT::Input;
+  using Output = typename StageImplementationT::Output;
+  using FrameState = typename StageImplementationT::FrameState;
+  static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_ITCM;
+
+  FASTRUN HS_NOINLINE_NOCLONE static Output run(const Input &input,
+                                                const FrameState &frame) {
+    return StageImplementationT::run(input, frame);
+  }
+};
+
+} // namespace Stage
 
 } // namespace Pullback
