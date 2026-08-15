@@ -403,6 +403,8 @@ public:
     // ambo-equivalent leg (both endpoints <= 0.5, exactly 0.5 included) keeps
     // its 0.495 cap and clean-swaps to ambo.
     const bool far_side = truncate && std::max(spec.t_start, spec.t_end) > 0.5f;
+    HS_CHECK(!truncate || std::max(spec.t_start, spec.t_end) > 0.0f,
+             "OpLeg: truncate sweep needs a positive endpoint");
     const float trunc_floor =
         std::min(ConwayGraph::T_EPS, std::max(spec.t_start, spec.t_end) *
                                          ConwayGraph::T_EPS_TRUNCATE_FRAC);
