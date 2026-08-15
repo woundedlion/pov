@@ -2643,10 +2643,20 @@ private:
     }
   };
 
+  HS_FLASH_MEMBER static Vector
+  core_outer_camera_lookup(const Vector &input, const FrameState &frame) {
+    return rotate(input, OuterCameraStateProvider::conjugate(frame));
+  }
+
   struct CoreOuterCameraStage
       : Pullback::Stage::OuterCamera<ShaderBallBinding,
                                      OuterCameraStateProvider> {
     static constexpr bool implements(const TopologyKey &) { return true; }
+
+    __attribute__((always_inline)) static Vector run(const Vector &input,
+                                                     const FrameState &frame) {
+      return core_outer_camera_lookup(input, frame);
+    }
   };
 
   template <SurfaceLens LensV>
