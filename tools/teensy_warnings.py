@@ -380,8 +380,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
     args = p.parse_args(argv)
 
-    build_log = read_build_log(args.build_log)
     prefix = "::error::" if args.github else ""
+    try:
+        build_log = read_build_log(args.build_log)
+    except OSError as exc:
+        print(f"{prefix}[teensy-warnings] FAIL - cannot read {args.build_log} "
+              f"({exc}): the ratchet has nothing to check.")
+        return 1
     compiles = count_first_party_compiles(build_log)
     if compiles == 0:
         print(f"{prefix}[teensy-warnings] FAIL - no first-party compiler "

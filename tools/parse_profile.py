@@ -956,7 +956,11 @@ def main():
     ap.add_argument("--shaderball-program-manifest")
     args = ap.parse_args()
 
-    windows, effect, pullback = parse_capture(args.log)
+    try:
+        windows, effect, pullback = parse_capture(args.log)
+    except OSError as exc:
+        print(f"cannot read {args.log}: {exc}", file=sys.stderr)
+        return 2
     if not windows:
         print(f"no windows parsed from {args.log}", file=sys.stderr)
         return 2
