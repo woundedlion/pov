@@ -99,9 +99,17 @@ struct Config {
   // Content layer (spec §6).
   uint32_t revs_per_effect =
       960; /**< Effect duration in revolutions (120 s). */
-  const uint32_t *effect_revolutions =
-      nullptr;               /**< Optional per-roster-entry effect durations. */
-  int32_t epoch_repeats = 3; /**< EPOCH redundancy repeats (spec §6.3). */
+  /**
+   * @brief Optional per-roster-entry effect durations, in revolutions.
+   * @details CONTRACT — when non-null this must point at at least
+   * effect_count entries: revolutions_for_effect() indexes it unguarded, and
+   * valid() itself sweeps [0, effect_count), so a short table reads out of
+   * bounds inside the validator. No length travels with the pointer, so hold
+   * the two together at the definition site (both sketches size the table off
+   * the same roster macro and static_assert the match).
+   */
+  const uint32_t *effect_revolutions = nullptr;
+  int32_t epoch_repeats = 3;     /**< EPOCH redundancy repeats (spec §6.3). */
   uint32_t refractory_revs = 16; /**< EPOCH dedup window (spec §6.1). */
   /**
    * @brief K: the construction window, the last K revolutions before the
@@ -139,7 +147,12 @@ struct Config {
    */
   uint32_t rejoin_budget_revs = 25;
 
-  /** @brief Returns the configured duration for one roster entry. */
+  /**
+   * @brief Returns the configured duration for one roster entry.
+   * @param effect_index Roster index in [0, effect_count).
+   * @return Duration in revolutions.
+   * @details Indexes effect_revolutions unguarded — see its length contract.
+   */
   constexpr uint32_t revolutions_for_effect(int32_t effect_index) const {
     return effect_revolutions ? effect_revolutions[effect_index]
                               : revs_per_effect;
