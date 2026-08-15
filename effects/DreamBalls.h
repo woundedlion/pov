@@ -189,20 +189,11 @@ private:
        ripples instead of pulsing in unison. */
   static constexpr float VERTEX_PHASE_STAGGER = 0.1f;
 
-  /**
-   * @brief Orthonormal tangent-plane basis (u, v) at a vertex.
-   * @details The orbit displacement is spanned by this frame before
-   *          re-projecting to the sphere.
-   */
-  struct Tangent {
-    Vector u; /**< First tangent basis vector. */
-    Vector v; /**< Second tangent basis vector, orthogonal to u. */
-  };
-
   /** @brief Precomputed solid geometry baked into the persistent arena. */
   struct SolidData {
-    MeshState mesh_state;          /**< Baked vertices and faces. */
-    ArenaVector<Tangent> tangents; /**< Per-vertex tangent frames. */
+    MeshState mesh_state; /**< Baked vertices and faces. */
+    /** First tangent-basis vector per vertex; the second is cross(vertex, u). */
+    ArenaVector<Vector> tangent_u;
     ArenaVector<Plot::Mesh::Edge>
         original_edges; /**< Unique edges of the source mesh. */
     ArenaVector<Plot::Mesh::Edge>
@@ -245,11 +236,10 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       2 * BakedPalette::required_arena_bytes() +
       SOLID_COUNT * sizeof(SolidData) +
-      SOLID_COUNT *
-          (Solids::MAX_SOLID_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
-           Solids::MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
-           Solids::MAX_SOLID_FACES * sizeof(uint8_t) +
-           3 * Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge)) +
+      SOLID_COUNT * (Solids::MAX_SOLID_VERTICES * 2 * sizeof(Vector) +
+                     Solids::MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
+                     Solids::MAX_SOLID_FACES * sizeof(uint8_t) +
+                     3 * Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge)) +
       FOUR_REGULAR_SOLID_COUNT * 2 * Solids::MAX_SOLID_EDGES *
           sizeof(Plot::Mesh::Edge);
   static_assert(
@@ -437,10 +427,14 @@ private:
     return cubic_kernel((1.0f - edge_t) / gap);
   }
 
-  HS_FLASH_MEMBER static Tangent tangent_frame(const Vector &normal) {
+  /**
+   * @brief First tangent-basis vector at a unit vertex.
+   * @details The frame's second vector is cross(normal, u), unit because normal
+   *          and u are orthonormal; callers derive it rather than store it.
+   */
+  HS_FLASH_MEMBER static Vector tangent_axis(const Vector &normal) {
     const Vector axis = std::abs(normal.y) > 0.99f ? X_AXIS : Y_AXIS;
-    const Vector u = cross(normal, axis).normalized();
-    return {u, cross(normal, u).normalized()};
+    return cross(normal, axis).normalized();
   }
 
   static Vector parallel_transport(const Vector &from, const Vector &to,
@@ -477,7 +471,7 @@ private:
     for (size_t vertex = 0; vertex < vertex_count; ++vertex) {
       const Vector base = woven_vertex(solid, medial, vertex);
       base_vertices.push_back(base);
-      frame_u.push_back(tangent_frame(base).u);
+      frame_u.push_back(tangent_axis(base));
     }
 
     offsets.bind(scratch_arena_a, vertex_count);
@@ -531,9 +525,9 @@ private:
           }
         }
 
-        data.tangents.bind(target, data.mesh_state.vertices.size());
+        data.tangent_u.bind(target, data.mesh_state.vertices.size());
         for (const auto &v : data.mesh_state.vertices)
-          data.tangents.push_back(tangent_frame(v));
+          data.tangent_u.push_back(tangent_axis(v));
 
         // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
         size_t edge_count = data.mesh_state.faces.size() / 2;
@@ -634,7 +628,8 @@ private:
    *        then re-projects onto the unit sphere.
    * @param base Source mesh whose vertices are orbited.
    * @param target Destination mesh receiving the displaced vertices.
-   * @param tangents Per-vertex (u, v) tangent frames spanning the orbit plane.
+   * @param tangent_u Per-vertex first tangent-basis vector; the second spanning
+   *        vector is cross(vertex, u).
    * @param p Render params; p.offset_radius is the orbit radius.
    * @param angle_offset Per-copy phase offset in radians.
    * @details The per-vertex phase (i * VERTEX_PHASE_STAGGER) staggers the
@@ -642,7 +637,7 @@ private:
    */
   HS_COLD_MEMBER void
   update_displaced_mesh(const MeshState &base, MeshState &target,
-                        const ArenaVector<Tangent> &tangents, const Params &p,
+                        const ArenaVector<Vector> &tangent_u, const Params &p,
                         float angle_offset) {
     size_t count = base.vertices.size();
     float r = p.offset_radius;
@@ -654,7 +649,8 @@ private:
 
     for (size_t i = 0; i < count; ++i) {
       const Vector &v = base.vertices[i];
-      const auto &tan = tangents[i];
+      const Vector &u = tangent_u[i];
+      const Vector w = cross(v, u);
 
       // orbit_phase is a fraction of a turn; scale to radians.
       float phase = i * VERTEX_PHASE_STAGGER;
@@ -663,7 +659,7 @@ private:
       float cos_a = fast_cosf(angle);
       float sin_a = fast_sinf(angle);
 
-      Vector disp = v + (tan.u * cos_a + tan.v * sin_a) * r;
+      Vector disp = v + (u * cos_a + w * sin_a) * r;
       target.vertices[i] = disp.normalized();
     }
   }
@@ -746,7 +742,7 @@ private:
       const float offset = (static_cast<float>(copy) / num_copies) * 2 * PI_F;
       {
         HS_PROFILE(db_displace);
-        update_displaced_mesh(solid.mesh_state, target, solid.tangents, p,
+        update_displaced_mesh(solid.mesh_state, target, solid.tangent_u, p,
                               offset);
       }
 
