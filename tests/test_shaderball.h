@@ -376,7 +376,8 @@ struct ShaderBallWhiteBox {
                                        : frame.resources.outer_warp_noise;
     return SB::warp_stage_lookup(
         input, projected, spec, params, phase, noise,
-        SB::prepare_warp_stage(spec, params, phase, source_period));
+        SB::prepare_warp_stage(spec, params, phase, source_period),
+        SB::tracks_displacement(frame));
   }
   static MaterialSample material(const ProjectedLookup &projected,
                                  const PlanarWarpResult &warped,
@@ -2269,7 +2270,8 @@ inline void test_shaderball_strict_seam_admission() {
   }
 }
 
-/** @brief Additive warp metadata retains sub-ULP displacement at large coordinates. */
+/** @brief Additive warp metadata retains sub-ULP displacement at large
+ *         coordinates, and reports zero when no colorizer reads it. */
 inline void test_shaderball_additive_delta_precision() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
@@ -2277,6 +2279,8 @@ inline void test_shaderball_additive_delta_precision() {
   sb.init();
   WB::FrameState frame = WB::frame(sb);
   frame.clocks.warp_outer_phase = 0.25f;
+  frame.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
+  frame.prepared_hue_rotation.active = true;
   WB::WarpStageSpec spec{WB::WarpStageKind::WAVE_SHEAR};
   WB::WarpStageParams params;
   params.strength = 0.001f;
@@ -2289,6 +2293,15 @@ inline void test_shaderball_additive_delta_precision() {
   HS_EXPECT_NEAR(result.delta.im, 0.001f, 1e-7f);
   HS_EXPECT_NEAR(result.deformation, 0.001f, 1e-7f);
   HS_EXPECT_EQ(result.coords.im, input.im);
+
+  frame.prepared_hue_rotation.active = false;
+  const auto untracked = WB::warp_stage(input, projected, spec, params, frame);
+  HS_EXPECT_EQ(untracked.coords.re, result.coords.re);
+  HS_EXPECT_EQ(untracked.coords.im, result.coords.im);
+  HS_EXPECT_EQ(untracked.delta.re, result.delta.re);
+  HS_EXPECT_EQ(untracked.delta.im, result.delta.im);
+  HS_EXPECT_EQ(untracked.deformation, 0.0f);
+  HS_EXPECT_EQ(untracked.path_length, 0.0f);
 }
 
 /** @brief Profiling can land every curated hold without choreography. */
