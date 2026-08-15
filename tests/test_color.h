@@ -1730,10 +1730,11 @@ inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
 /**
  * @brief Agreement budget between HueSpinShade's folded matrix and hue_rotate.
  * @details Both apply the same OKLab rotation — the spin folds it into a
- * cbrt-LMS 3x3, hue_rotate applies it in OKLab — so they differ only by float
- * reassociation, amplified on the way out through the LMS cube. Measured over
- * the 17^3 channel grid at 64 rotation amounts spanning [-1, 1] turns, IEEE and
- * -ffast-math alike: mean 0.074 LSB, worst single channel 171 LSB on the
+ * cbrt-LMS 3x3 and cube-roots through fast_cbrt3's shared divide, hue_rotate
+ * applies it in OKLab — so they differ only by float reassociation, amplified
+ * on the way out through the LMS cube. Measured over the 17^3 channel grid at
+ * 64 rotation amounts spanning [-1, 1] turns, IEEE and
+ * -ffast-math alike: mean 0.083 LSB, worst single channel 171 LSB on the
  * cbrt-steep saturated corner (40959, 65535, 8191) at 0.206 turns. The mean is
  * the sharp detector, since a refolded matrix moves every sample, so it takes
  * the tight factor; the worst channel is a discrete extremum that hops between
@@ -1741,7 +1742,7 @@ inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
  */
 inline constexpr float HUE_SPIN_MEAN_HEADROOM = 1.5f;
 inline constexpr float HUE_SPIN_WORST_HEADROOM = 1.5f;
-inline constexpr float MEASURED_HUE_SPIN_MEAN_LSB = 0.074f;
+inline constexpr float MEASURED_HUE_SPIN_MEAN_LSB = 0.083f;
 inline constexpr float MEASURED_HUE_SPIN_WORST_LSB = 171.0f;
 inline constexpr float HUE_SPIN_FOLD_MEAN_TOL =
     MEASURED_HUE_SPIN_MEAN_LSB * HUE_SPIN_MEAN_HEADROOM;
