@@ -17,6 +17,8 @@
 #include "engine/memory.h"
 #include "engine/platform.h"
 
+namespace MeshOps {
+
 /**
  * @brief Deep-copies n contiguous elements into a freshly-bound ArenaVector.
  * @tparam T Element type.
@@ -33,6 +35,8 @@ inline void copy_vector(ArenaVector<T> &dst, const T *src, size_t n,
   dst.bind(arena, n);
   dst.append_bulk(src, n);
 }
+
+} // namespace MeshOps
 
 /**
  * @brief Represents the state of a mesh using arena storage to avoid heap
@@ -206,14 +210,16 @@ struct MeshState {
     HS_CHECK(&src != &dst, "MeshState::clone src must not alias dst");
     // Reused dst may carry stale views; clone produces an owned-mode mesh.
     dst.set_owned();
-    copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
-    copy_vector(dst.face_counts, src.get_face_counts_data(),
-                src.get_face_counts_size(), arena);
-    copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
-    copy_vector(dst.face_offsets, src.get_face_offsets_data(),
-                src.get_face_offsets_size(), arena);
-    copy_vector(dst.topology, src.get_topology_data(), src.get_topology_size(),
-                arena);
+    MeshOps::copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(),
+                         arena);
+    MeshOps::copy_vector(dst.face_counts, src.get_face_counts_data(),
+                         src.get_face_counts_size(), arena);
+    MeshOps::copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(),
+                         arena);
+    MeshOps::copy_vector(dst.face_offsets, src.get_face_offsets_data(),
+                         src.get_face_offsets_size(), arena);
+    MeshOps::copy_vector(dst.topology, src.get_topology_data(),
+                         src.get_topology_size(), arena);
   }
 
   /**

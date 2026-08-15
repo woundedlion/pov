@@ -89,15 +89,16 @@ struct CompiledHankin {
                  src.corner_src == src.base_vertices.data(),
              "CompiledHankin::clone needs an owned-corner source "
              "(compile_hankin borrow mode has no corners to copy)");
-    copy_vector(dst.base_vertices, src.base_vertices.data(),
-                src.base_vertices.size(), arena);
-    copy_vector(dst.static_vertices, src.static_vertices.data(),
-                src.static_vertices.size(), arena);
-    copy_vector(dst.dynamic_instructions, src.dynamic_instructions.data(),
-                src.dynamic_instructions.size(), arena);
-    copy_vector(dst.face_counts, src.face_counts.data(), src.face_counts.size(),
-                arena);
-    copy_vector(dst.faces, src.faces.data(), src.faces.size(), arena);
+    MeshOps::copy_vector(dst.base_vertices, src.base_vertices.data(),
+                         src.base_vertices.size(), arena);
+    MeshOps::copy_vector(dst.static_vertices, src.static_vertices.data(),
+                         src.static_vertices.size(), arena);
+    MeshOps::copy_vector(dst.dynamic_instructions,
+                         src.dynamic_instructions.data(),
+                         src.dynamic_instructions.size(), arena);
+    MeshOps::copy_vector(dst.face_counts, src.face_counts.data(),
+                         src.face_counts.size(), arena);
+    MeshOps::copy_vector(dst.faces, src.faces.data(), src.faces.size(), arena);
     dst.static_offset = src.static_offset;
     dst.corner_src = dst.base_vertices.data();
   }
