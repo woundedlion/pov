@@ -59,7 +59,7 @@ inline std::common_type_t<T, U> wrap(T x, U m) {
  *   `t - floorf(t)` rounds up to exactly 1.0f, violating the half-open contract;
  *   the guard folds that boundary back to 0.
  */
-inline float wrap_t(float t) {
+__attribute__((always_inline)) inline float wrap_t(float t) {
   float r = t - floorf(t);
   return r >= 1.0f ? 0.0f : r;
 }

@@ -1981,7 +1981,8 @@ private:
     static float direction_sin(const FrameState &frame) {
       return frame.prepared_surface_noise.direction_sin;
     }
-    static bool path_length_required(const FrameState &frame) {
+    __attribute__((always_inline)) static bool
+    path_length_required(const FrameState &frame) {
       return tracks_displacement(frame);
     }
   };
@@ -2023,7 +2024,8 @@ private:
       else
         return *frame.resources.inner_warp_noise;
     }
-    static bool path_length_required(const FrameState &frame) {
+    __attribute__((always_inline)) static bool
+    path_length_required(const FrameState &frame) {
       return tracks_displacement(frame);
     }
   };

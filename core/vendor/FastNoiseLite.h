@@ -411,8 +411,8 @@ public:
 
   /// Generates one configured vector-noise sample without fractal policy.
   template <typename FNfloat>
-  HS_FLASH_MEMBER void GetVectorNoiseSingle(FNfloat &x, FNfloat &y,
-                                             FNfloat &z) const {
+  HS_HOT_FLASH_MEMBER void GetVectorNoiseSingle(FNfloat &x, FNfloat &y,
+                                                FNfloat &z) const {
     Arguments_must_be_floating_point_values<FNfloat>();
     DomainWarpSingle(x, y, z);
   }
@@ -2440,11 +2440,9 @@ private:
   }
 
   template <typename FNfloat>
-  HS_FLASH_MEMBER void
-  SingleDomainWarpOpenSimplex2Gradient(int seed, float warpAmp,
-                                       float frequency, FNfloat x, FNfloat y,
-                                       FNfloat z, FNfloat &xr, FNfloat &yr,
-                                       FNfloat &zr, bool outGradOnly) const {
+  HS_HOT_FLASH_MEMBER void SingleDomainWarpOpenSimplex2Gradient(
+      int seed, float warpAmp, float frequency, FNfloat x, FNfloat y, FNfloat z,
+      FNfloat &xr, FNfloat &yr, FNfloat &zr, bool outGradOnly) const {
     x *= frequency;
     y *= frequency;
     z *= frequency;

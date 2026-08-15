@@ -66,7 +66,9 @@
 // member) function is a section-type conflict. Off-device it degrades to a no-op.
 // HS_FLASH_MEMBER is the COMDAT-safe variant for inline/template member
 // functions: GCC's `cold` attribute supplies a unique .text.unlikely.* section,
-// and tools/phantasm.ld routes that section to FLASH. HS_COLD_MEMBER names the
+// and tools/phantasm.ld routes that section to FLASH. HS_HOT_FLASH_MEMBER uses
+// the corresponding .text.hot.* route for measured hot code that executes from
+// cached flash without telling the optimizer it is cold. HS_COLD_MEMBER names the
 // setup-only use; HS_FLASH_MEMBER also supports explicitly measured code
 // placement. On the -Os device image both use HS_O3_FN. HS_FLASH_INLINE is the
 // variant for a free function declared `inline`, which GCC's -Wattributes
@@ -77,12 +79,14 @@
 #define HS_COLD FLASHMEM __attribute__((noinline, noclone))
 #define HS_FLASH_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
 #define HS_FLASH_INLINE HS_O3_FN __attribute__((cold, noclone))
+#define HS_HOT_FLASH_MEMBER HS_O3_FN __attribute__((hot, noinline, noclone))
 #define HS_COLD_MEMBER HS_FLASH_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
 #else
 #define HS_COLD FLASHMEM
 #define HS_FLASH_MEMBER
 #define HS_FLASH_INLINE
+#define HS_HOT_FLASH_MEMBER
 #define HS_COLD_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline))
 #endif

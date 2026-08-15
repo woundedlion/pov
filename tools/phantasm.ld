@@ -49,6 +49,7 @@ SECTIONS
 		*(.text._ZN6Solids12SolidBuilder*)
 		*(.text._ZN7MeshOps5cloneI8PolyMeshE*)
 		*(.text._ZN12ShapeShifterILi288ELi144EE15schedule_presetEv*)
+		*(.text._ZNK10ShaderBallILi288ELi144EE11TopologyKeyeqERKS1_*)
 		*(.text._ZN8TimelineC*Ev*)
 		*(.text._ZN8TimelineD*Ev*)
 		*(.text._ZN8Timeline14destroy_eventsEv*)
@@ -67,6 +68,8 @@ SECTIONS
 		*(.text._ZN*13setup_presetsEv)
 		/* HS_COLD_MEMBER (attribute cold) sections. */
 		*(.text.unlikely*)
+		/* Selectively optimized hot leaves intentionally executed from cache. */
+		*(.text.hot*)
 		/* Annotation-unreachable cold code: compiler-generated ctors
 		 * (Animation graph nodes, PolyMesh), sort instantiations from
 		 * classify_faces_impl, setup_presets/compile_hankin inner lambdas
