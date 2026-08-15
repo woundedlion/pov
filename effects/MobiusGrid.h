@@ -123,8 +123,7 @@ public:
 
     {
       HS_PROFILE(mg_wipe_rebake);
-      step_wipe_rebake(wipe_pending, wipe_frames_remaining, baked_palette,
-                       palette);
+      wipe.step(baked_palette, palette);
     }
 
     // Integer modulo before the float cast: a float frame counter would lose
@@ -204,15 +203,13 @@ private:
    *        it.
    */
   HS_COLD_MEMBER void wipe_palette() {
-    palette_start = palette.snapshot();
-    palette_target =
-        GenerativePalette{EffectPaletteRecipes::mobius_grid(
-                              EffectPaletteRecipes::random_base_turns())}
-            .snapshot();
-    timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target,
+    wipe.arm(palette,
+             GenerativePalette{EffectPaletteRecipes::mobius_grid(
+                                   EffectPaletteRecipes::random_base_turns())}
+                 .snapshot(),
+             WIPE_FRAMES);
+    timeline.add(0, Animation::ColorWipe(palette, wipe.start, wipe.target,
                                          WIPE_FRAMES, ease_linear));
-    wipe_frames_remaining = WIPE_FRAMES;
-    wipe_pending = true;
   }
 
   /**
@@ -353,14 +350,9 @@ private:
                 "snapshots the live ColorWipe still references");
 
   GenerativePalette palette; /**< Currently displayed palette. */
-  GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
-  GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
+  PaletteWipe wipe;          /**< Cross-fade state of the palette rollover. */
   BakedPalette
       baked_palette; /**< LUT-baked copy of `palette` the shaders sample. */
-  int wipe_frames_remaining =
-      0; /**< Frames left to rebake `palette` for an in-flight wipe. */
-  bool wipe_pending =
-      false; /**< Wipe armed this frame; it first steps next frame. */
   /**
    * @brief User-tunable parameters.
    * @details num_rings/num_lines are animated counts driven by the Mutation

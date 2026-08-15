@@ -3108,13 +3108,13 @@ struct CometsWhiteBox {
   static constexpr int wipe_frames() { return C::WIPE_FRAMES; }
   static void roll_palette_over(C &c) { c.update_palette(); }
   static int wipe_frames_remaining(const C &c) {
-    return c.wipe_frames_remaining;
+    return c.wipe.frames_remaining;
   }
   static const GenerativePalette::Snapshot &palette_start(const C &c) {
-    return c.palette_start;
+    return c.wipe.start;
   }
   static const GenerativePalette::Snapshot &palette_target(const C &c) {
-    return c.palette_target;
+    return c.wipe.target;
   }
   static const Quaternion &node_orientation(const C &c) {
     return c.node->orientation.get();

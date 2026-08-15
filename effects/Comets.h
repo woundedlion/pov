@@ -120,8 +120,7 @@ public:
 
     {
       HS_PROFILE(cm_wipe_rebake);
-      step_wipe_rebake(wipe_pending, wipe_frames_remaining, baked_palette,
-                       palette);
+      wipe.step(baked_palette, palette);
     }
 
     node->trail.record(node->orientation);
@@ -220,17 +219,15 @@ private:
     // Skip while a wipe is in flight: at the Cycle Dur floor the cycle period
     // (20) is shorter than WIPE_FRAMES (48), so the timer can fire mid-wipe and a
     // second wipe would clobber the snapshots the live one still references.
-    if (wipe_frames_remaining > 0)
+    if (wipe.in_flight())
       return;
-    palette_start = palette.snapshot();
-    palette_target =
-        GenerativePalette{EffectPaletteRecipes::comets(
-                              EffectPaletteRecipes::random_base_turns())}
-            .snapshot();
-    timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target,
+    wipe.arm(palette,
+             GenerativePalette{EffectPaletteRecipes::comets(
+                                   EffectPaletteRecipes::random_base_turns())}
+                 .snapshot(),
+             WIPE_FRAMES);
+    timeline.add(0, Animation::ColorWipe(palette, wipe.start, wipe.target,
                                          WIPE_FRAMES, ease_linear));
-    wipe_frames_remaining = WIPE_FRAMES;
-    wipe_pending = true;
   }
 
   static constexpr int WIPE_FRAMES =
@@ -278,18 +275,13 @@ private:
   /** @brief Cyclic selector over FUNCTIONS for the active path/palette entry. */
   Presets<LissajousParams, 12> functions{FUNCTIONS};
   Node *node = nullptr; /**< Arena-allocated comet head state. */
-  GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
-  GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
+  PaletteWipe wipe;     /**< Cross-fade state of the palette rollover. */
   Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion =
       nullptr; /**< Handle to the infinite Motion driving the head along `path`. */
   Animation::PeriodicTimer *cycle_timer =
       nullptr; /**< Handle to the timer that rolls path/palette over. */
   int last_cycle_dur =
       -1; /**< Last applied Cycle Dur, in frames; -1 forces a first apply. */
-  int wipe_frames_remaining =
-      0; /**< Frames left to rebake `palette` for the in-flight wipe. */
-  bool wipe_pending =
-      false; /**< Wipe armed this frame; it first steps next frame. */
 
   /**
    * @brief User-tunable parameters exposed as effect sliders.
