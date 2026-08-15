@@ -1077,11 +1077,11 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_LE(material.value, 1.0f);
   HS_EXPECT_EQ(material.coverage,
                projected.value_weight * projected.value_weight);
-  HS_EXPECT_EQ(material.warp_displacement,
+  HS_EXPECT_EQ(material.path_length,
                projected.surface_path_length + warped.path_length);
   WB::PlanarWarpResult accumulated = warped;
   accumulated.path_length = 0.75f;
-  HS_EXPECT_EQ(WB::shape(0.0f, projected, accumulated, frame).warp_displacement,
+  HS_EXPECT_EQ(WB::shape(0.0f, projected, accumulated, frame).path_length,
                0.75f);
   frame.slots.coverage = WB::CoveragePolicy::PROJECTION_WEIGHT;
   HS_EXPECT_EQ(WB::material(projected, warped, frame).coverage,
@@ -4436,7 +4436,7 @@ inline void test_shaderball_brightness_envelopes() {
   config.params.color.hue_shift_amount = 0.25f;
   WB::MaterialSample shifted_sample = sample;
   shifted_sample.value = 0.5f;
-  shifted_sample.warp_displacement = 1.0f;
+  shifted_sample.path_length = 1.0f;
   WB::FrameState frame = WB::config_frame(sb, config);
   const Color4 shifted_without_brightness = WB::colorize(shifted_sample, frame);
   HS_EXPECT_EQ(shifted_without_brightness.color,
@@ -4505,7 +4505,7 @@ inline void test_shaderball_hue_shift_modes() {
   const Color4 undisplaced = WB::colorize(sample, displacement_frame);
   HS_EXPECT_EQ(undisplaced.color, plain.color);
   WB::MaterialSample warped_sample = sample;
-  warped_sample.warp_displacement = 0.25f;
+  warped_sample.path_length = 0.25f;
   const Color4 displacement_shifted =
       WB::colorize(warped_sample, displacement_frame);
   HS_EXPECT_TRUE(plain.color.r != displacement_shifted.color.r ||
@@ -4652,10 +4652,10 @@ inline void test_shaderball_surface_noise_geometry_and_composition() {
   const WB::MaterialSample displaced_material =
       WB::material(displaced_projected, unwarped, frame);
   HS_EXPECT_GT(displaced_projected.surface_path_length, 0.0f);
-  HS_EXPECT_EQ(displaced_material.warp_displacement,
+  HS_EXPECT_EQ(displaced_material.path_length,
                displaced_projected.surface_path_length);
   WB::MaterialSample undisplaced_material = displaced_material;
-  undisplaced_material.warp_displacement = 0.0f;
+  undisplaced_material.path_length = 0.0f;
   HS_EXPECT_TRUE(WB::colorize(displaced_material, frame).color !=
                  WB::colorize(undisplaced_material, frame).color);
 
