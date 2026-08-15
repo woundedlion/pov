@@ -93,10 +93,10 @@ struct StubEffect : public Effect {
  * @brief Resets the canonical process-global state to a known baseline.
  * @details Restores the default arena split, clears the shared Timeline (events
  * and frame cursor), reseeds the RNG to the device-matching seed, releases the
- * mock clock, and returns the pole-LOD knob, the scan counters and the
- * generative-hue cursor to their defaults. No Timeline may be live at the call
- * site: the temporary clears global event state through the singleton's clear()
- * the same way the per-test sites do.
+ * mock clock, and returns the pole-LOD knob and the scan counters to their
+ * defaults. No Timeline may be live at the call site: the temporary clears
+ * global event state through the singleton's clear() the same way the per-test
+ * sites do.
  */
 inline void reset_globals() {
   configure_arenas_default();

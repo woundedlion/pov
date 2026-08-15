@@ -390,15 +390,14 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
  * mid-run nondeterminism that reconverges before the final frame, which the
  * final-buffer copy alone cannot see. Ignored when nullptr.
  * @details Resets every shared global the smoke path does (RNG seed, arenas,
- * Timeline) plus the generative-hue cursor and mock clock, so two calls start
- * from an identical state.
+ * Timeline, pole-LOD knob, scan counters) and pins the mock clock to the frame
+ * cadence, so two calls start from an identical state.
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void render_capture(std::vector<Pixel> &out, int frames,
                            uint64_t *frame_fold = nullptr) {
   reset_effect_globals();
-  // Pin the global generative-hue cursor so both runs start identical (it
-  // drifts across palette constructions by design; see GenerativePalette).
+  // Pre-init epoch, so construction sees the same clock on both runs.
   pin_frame_clock(0);
 
   uint64_t fold = hs_test::FNV1A64_BASIS;
