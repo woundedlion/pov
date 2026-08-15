@@ -304,17 +304,29 @@ private:
     const float anchor_delta =
         anchor >= 0 ? wrap_angle_pi(to_keys[anchor].h - from_keys[anchor].h)
                     : 0.0f;
+    // Travel relative to the anchor accumulates one wrapped segment delta per
+    // step: wrapping the whole anchor-to-key difference instead folds a chain
+    // whose segments sum past half a turn onto the opposite arc, which is the
+    // ambiguity morph_compatible's per-segment bound exists to exclude.
+    std::array<float, PALETTE_MAX_KEYS> relative{};
+    if (anchor >= 0) {
+      auto segment_delta = [&](int i) {
+        return wrap_angle_pi((to_keys[i].h - to_keys[i - 1].h) -
+                             (from_keys[i].h - from_keys[i - 1].h));
+      };
+      for (int i = anchor + 1; i < key_count; ++i)
+        relative[i] = relative[i - 1] + segment_delta(i);
+      for (int i = anchor - 1; i >= 0; --i)
+        relative[i] = relative[i + 1] - segment_delta(i + 1);
+    }
     for (int i = 0; i < key_count; ++i) {
       const bool from_chromatic = is_chromatic(from_keys[i]);
       const bool to_chromatic = is_chromatic(to_keys[i]);
       float hue = 0.0f;
       if (from_chromatic && to_chromatic) {
-        const float delta =
-            anchor < 0
-                ? wrap_angle_pi(to_keys[i].h - from_keys[i].h)
-                : anchor_delta +
-                      wrap_angle_pi((to_keys[i].h - to_keys[anchor].h) -
-                                    (from_keys[i].h - from_keys[anchor].h));
+        const float delta = anchor < 0
+                                ? wrap_angle_pi(to_keys[i].h - from_keys[i].h)
+                                : anchor_delta + relative[i];
         hue = from_keys[i].h + delta * amount;
       } else if (from_chromatic) {
         hue = from_keys[i].h;
