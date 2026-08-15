@@ -16,6 +16,9 @@
 #include <string>
 #include <vector>
 
+static_assert(!HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND,
+              "pullback capture must exercise compiled programs");
+
 namespace {
 
 enum class Operation : uint16_t {
@@ -138,6 +141,14 @@ struct ShaderBallWhiteBox {
         selected_pipeline<SB>(from),
         selected_pipeline<SB>(to)};
     return true;
+  }
+
+  template <int W, int H>
+  static bool selected_pipeline_active(const ShaderBall<W, H> &effect,
+                                       size_t preset) {
+    using SB = ShaderBall<W, H>;
+    return effect.active_pipeline ==
+           selected_pipeline<SB>(SB::PRESETS[preset]);
   }
 
   template <int W, int H>
@@ -429,6 +440,10 @@ bool render_instruction(const Instruction &instruction,
     }
   }
   effect.draw_frame();
+  if (!transition_from && !transition_to &&
+      !hs_test::shaderball_tests::ShaderBallWhiteBox::selected_pipeline_active(
+          effect, instruction.preset))
+    return false;
   effect.advance_display();
   const Pixel *display = effect.display_buffer();
   pixels.assign(display, display + static_cast<size_t>(W) * H);

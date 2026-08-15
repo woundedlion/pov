@@ -389,7 +389,15 @@ add_executable(pullback_capture_native
 target_include_directories(pullback_capture_native PRIVATE
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
-target_link_libraries(pullback_capture_native PRIVATE hs_test_support)
+target_compile_definitions(pullback_capture_native PRIVATE
+  HS_SHADERBALL_PULLBACK_PIPELINE=1
+  HS_ENABLE_EFFECT_REGISTRY=1
+  HS_ENABLE_PARAM_GUI_BRIDGE=1
+  HS_ENABLE_TEST_HOOKS=1
+  HS_ENABLE_TEST_ORACLES=1
+  HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=0
+  HS_ENABLE_EFFECT_CONTROL_API=1)
+target_link_libraries(pullback_capture_native PRIVATE hs_host_storage)
 _hs_warnings(pullback_capture_native)
 add_test(NAME unit_pullback_capture_determinism
   COMMAND ${CMAKE_COMMAND}
