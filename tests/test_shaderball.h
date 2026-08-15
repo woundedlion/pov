@@ -116,7 +116,7 @@ struct ShaderBallWhiteBox {
   }
   static FrameState frame(const SB &sb) { return sb.prepare_frame(); }
   static FrameState preset_frame(SB &sb, size_t index) {
-    const auto &preset = SB::PRESETS[index];
+    const auto &preset = SB::PRESETS[index].config;
     HS_CHECK(sb.prepare_resource_union(preset, preset),
              "ShaderBall test preset resources must fit");
     return sb.prepare_frame(preset, sb.runtime);
@@ -646,7 +646,15 @@ struct ShaderBallWhiteBox {
                     const SourceState &source) {
     return SB::grid(p, params, source);
   }
-  static const auto &presets() { return SB::PRESETS; }
+  static constexpr auto presets() {
+    std::array<RequestedConfig, SB::PRESETS.size()> configs{};
+    for (size_t index = 0; index < configs.size(); ++index)
+      configs[index] = SB::PRESETS[index].config;
+    return configs;
+  }
+  static constexpr InversePipelineId preset_pipeline(size_t index) {
+    return SB::PRESETS[index].pipeline;
+  }
   static constexpr NoiseChannelLayout
   warp_channel_layout(const WarpStageSpec &spec) {
     return SB::warp_resource_key(spec).channel_layout;
@@ -3606,6 +3614,15 @@ inline void test_shaderball_inverse_pipeline_manifest() {
                hue_framebuffer.accepted_limit);
   HS_EXPECT_EQ(WB::peirce_metric_limit(2), peirce_framebuffer.accepted_limit);
   HS_EXPECT_EQ(WB::color_metric_limit(2), hue_framebuffer.accepted_limit);
+  for (const WB::RequestedConfig &preset : WB::presets())
+    HS_EXPECT_TRUE(WB::has_inverse_program(preset));
+  for (const ExpectedProgram &expected : EXPECTED) {
+    const WB::FrameState frame = WB::preset_frame(sb, expected.preset);
+    HS_EXPECT_EQ(WB::preset_pipeline(expected.preset), expected.id);
+    HS_EXPECT_EQ(WB::inverse_program_id(frame), expected.id);
+  }
+  HS_EXPECT_EQ(WB::preset_pipeline(9),
+               WB::InversePipelineId::SINUSOIDAL_CURL_LATTICE);
 
   WB::RequestedConfig canonical = WB::presets()[1];
   const WB::TopologyKey expected_key = WB::topology_key(canonical);
@@ -4339,7 +4356,7 @@ inline void test_shaderball_discrete_transition() {
     WB::LookRuntime generated_runtime;
     const WB::WalkDeltas deltas{make_rotation(Y_AXIS, 0.2f),
                                 make_rotation(X_AXIS, 0.3f)};
-    const WB::RequestedConfig &authored = WB::presets()[11];
+    const WB::RequestedConfig authored = WB::presets()[11];
     WB::advance_runtime(sb, authored_runtime, authored, deltas);
     WB::advance_runtime(sb, generated_runtime, WB::legacy_config(), deltas);
     HS_EXPECT_EQ(authored_runtime.clocks.source_primary,
