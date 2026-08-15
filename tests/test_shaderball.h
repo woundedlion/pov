@@ -3315,6 +3315,8 @@ inline void test_shaderball_prepared_hue_noise_color() {
       }
     }
   }
+  std::printf("  [hue-noise-color] max=%u mean=%llu\n", max_channel_error,
+              static_cast<unsigned long long>(total_error / channels));
   HS_EXPECT_LE(max_channel_error, uint16_t(5400));
   HS_EXPECT_LE(total_error / channels, uint64_t(256));
 }
@@ -3349,6 +3351,9 @@ inline void test_shaderball_fast_peirce_square() {
                           fast.edge_class == exact.edge_class;
     }
   }
+  std::printf("  [peirce-fast-square] coord=%.9g edge=%.9g\n",
+              static_cast<double>(max_coordinate_error),
+              static_cast<double>(max_edge_error));
   HS_EXPECT_LT(max_coordinate_error, 1.2e-3f);
   HS_EXPECT_LT(max_edge_error, 2e-4f);
   HS_EXPECT_TRUE(metadata_matches);

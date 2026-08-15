@@ -1695,7 +1695,7 @@ jobs:
           python -m unittest discover -s tools/githook_tests -v
       - name: Run profile log parser self-tests
         run: |
-          bash tools/check_test_files.sh 3 'tools/profile_tests/test*.py'
+          bash tools/check_test_files.sh 4 'tools/profile_tests/test*.py'
           python -m unittest discover -s tools/profile_tests -v
       - name: Run relax-bake generator self-tests
         run: |
