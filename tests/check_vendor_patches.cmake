@@ -45,8 +45,8 @@ if(NOT _header MATCHES "float GetNoiseSingle\\(" OR
   list(APPEND _missing "FastNoiseLite has lost its raw-octave sampling paths")
 endif()
 
-if(NOT _header MATCHES "void GetVectorNoiseSingle\\(" OR
-   NOT _header MATCHES "HS_FLASH_MEMBER void[\r\n ]+SingleDomainWarpOpenSimplex2Gradient\\(")
+if(NOT _header MATCHES "HS_HOT_FLASH_MEMBER void GetVectorNoiseSingle\\(" OR
+   NOT _header MATCHES "HS_HOT_FLASH_MEMBER void[\r\n ]+SingleDomainWarpOpenSimplex2Gradient\\(")
   list(APPEND _missing "FastNoiseLite has lost its raw vector-noise path")
 endif()
 

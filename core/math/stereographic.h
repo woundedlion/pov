@@ -282,7 +282,8 @@ inline Vector inv_gnomonic(const Complex &z, float original_sign) {
  * grows without bound near it; this falloff is 1 at the projection origin and
  * decays toward 0 with distance, taming that singularity.
  */
-inline float pole_attenuation(float r_sq, float pole_fade) {
+__attribute__((always_inline)) inline float pole_attenuation(float r_sq,
+                                                             float pole_fade) {
   // Floor the radius so a 0 pole_fade can't divide by zero and poison the warp.
   const float pf = pole_fade > 1e-3f ? pole_fade : 1e-3f;
   return 1.0f / (1.0f + (r_sq / (pf * pf)));
