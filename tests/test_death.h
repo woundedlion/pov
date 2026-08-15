@@ -1179,6 +1179,31 @@ inline void case_mesh_state_set_view_offsets_short_span() {
 }
 
 /**
+ * @brief Death case: face offsets that are not the counts' prefix sum must trap.
+ * @details Mesh-borrow surface — the count and span checks pass on the endpoints
+ *          alone, so an interior offset off the prefix sum would walk one face
+ *          over another's indices. The audit walk catches it.
+ */
+inline void case_mesh_state_set_view_offsets_not_prefix_sum() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> counts(arena, 2);
+  counts.push_back(opaque<uint8_t>(3));
+  counts.push_back(opaque<uint8_t>(3));
+  ArenaVector<uint16_t> faces(arena, 6);
+  for (uint16_t i = 0; i < 6; ++i)
+    faces.push_back(opaque(i));
+  ArenaVector<uint16_t> offsets(arena, 2);
+  offsets.push_back(opaque<uint16_t>(1)); // prefix sum starts at 0
+  offsets.push_back(opaque<uint16_t>(3));
+  MeshState m;
+  m.set_view(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
+             ArenaSpan<uint16_t>(offsets));
+  if (m.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
  * @brief Builds a PolyMesh from an explicit face-count and flat index list.
  * @param mesh Mesh to populate.
  * @param arena Arena backing the mesh arrays.
@@ -1726,6 +1751,21 @@ inline void case_set_clip_x_out_of_bounds() {
   constexpr int W = 32;
   DeathEffect fx;
   fx.set_clip_x(0, opaque(W + 1));
+}
+
+/**
+ * @brief Death case: an arc start outside [0, w) must trap.
+ * @details Clip surface — arcs_overlap wraps the seam-relative offset with one
+ *          conditional add instead of a modulo, which only lands in range while
+ *          both starts are already reduced; a start outside the cylinder would
+ *          silently report the wrong overlap. Both lengths are positive and
+ *          under w so the early-out branches do not preempt the guard.
+ */
+inline void case_arcs_overlap_start_out_of_range() {
+  bool hit = ClipRegion::arcs_overlap(opaque(-1), opaque(2), opaque(0),
+                                      opaque(2), opaque(8));
+  if (hit)
+    std::printf("x");
 }
 
 /**
@@ -2869,6 +2909,11 @@ inline const Case *all_cases(int &n) {
        "(static_cast<size_t>(face_offsets_span[last]) + "
        "face_counts_span[last] == faces_span.size()) MeshState::set_view: "
        "face offsets do not span faces"},
+      {"mesh_state_set_view_offsets_not_prefix_sum",
+       case_mesh_state_set_view_offsets_not_prefix_sum, "spatial.h",
+       "(offsets_are_prefix_sum(face_counts_span, face_offsets_span)) "
+       "MeshState::set_view: face offsets are not the prefix sum of the "
+       "face counts"},
       {"half_edge_zero_side_face", case_half_edge_zero_side_face, "mesh.h",
        "(count > 0) half-edge mesh face has zero sides"},
       {"half_edge_non_manifold_edge", case_half_edge_non_manifold_edge,
@@ -2933,6 +2978,8 @@ inline const Case *all_cases(int &n) {
       {"set_clip_x_out_of_bounds", case_set_clip_x_out_of_bounds, "canvas.h",
        "(x0 >= 0 && x0 <= x1 && x1 <= clip_region.w) set_clip_x band must be "
        "non-inverted and within canvas width"},
+      {"arcs_overlap_start_out_of_range", case_arcs_overlap_start_out_of_range,
+       "clip.h", "(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w) "},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds, "scan.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
        "cr.render_y_end() <= H) "},
@@ -3672,9 +3719,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 144;
+  constexpr int DEATH_CASE_COUNT = 146;
 #else
-  constexpr int DEATH_CASE_COUNT = 143;
+  constexpr int DEATH_CASE_COUNT = 145;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 

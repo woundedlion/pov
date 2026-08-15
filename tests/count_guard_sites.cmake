@@ -1,5 +1,6 @@
-# Counts the engine's HS_CHECK fail-fast sites so the death harness can print
-# what fraction of them a death case actually pins.
+# Counts the engine's fail-fast sites — HS_CHECK and the HS_AUDIT_CHECK form the
+# test build enables — so the death harness can print what fraction of them a
+# death case actually pins.
 #
 # The count is derived here rather than written down anywhere: a hand-kept
 # second list of guards is exactly the thing that drifts away from the guards.
@@ -38,7 +39,7 @@ foreach(_file IN LISTS _guard_files)
   string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
   string(REGEX REPLACE "#[ \t]*define[^\n]*" "" _text "${_text}")
   get_filename_component(_name "${_file}" NAME)
-  string(REGEX MATCHALL "HS_CHECK\\(" _hits "${_text}")
+  string(REGEX MATCHALL "HS_(AUDIT_)?CHECK\\(" _hits "${_text}")
   list(LENGTH _hits _n)
   # A few traps call the reporter directly, where the macro's expression form
   # would not satisfy a [[noreturn]] tail. platform.h is where the macro and the
