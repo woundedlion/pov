@@ -209,12 +209,12 @@ public:
     state = persistent_arena.make<StateBundle>();
     use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    requested_config = PRESETS[0];
-    published_config = PRESETS[0];
+    requested_config = PRESETS[0].config;
+    published_config = PRESETS[0].config;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    accepted_config = PRESETS[0];
+    accepted_config = PRESETS[0].config;
 #endif
-    prepare_resource_union(PRESETS[0], PRESETS[0]);
+    prepare_resource_union(PRESETS[0].config, PRESETS[0].config);
 
     rebind_parameters();
 
@@ -233,7 +233,7 @@ public:
     analogous_palette_cycler.init_generated(
         persistent_arena, next_analogous_palette, this, PALETTE_DWELL_FRAMES,
         PALETTE_FADE_FRAMES, ease_in_out_sin);
-    update_palette_chroma(PRESETS[0].params.color.palette_chroma);
+    update_palette_chroma(PRESETS[0].config.params.color.palette_chroma);
 
     enter_preset();
   }
@@ -272,9 +272,6 @@ public:
       HS_CHECK(prepare_endpoint({active_slots, blend.params}, runtime, 1.0f,
                                 active_pipeline, prepared),
                "ShaderBall active endpoint has no renderer");
-#ifdef HS_PROFILE_PULLBACK_TELEMETRY
-      log_pullback_program(getPresetIndex(), prepared.pipeline, "steady");
-#endif
       draw_endpoint(canvas, prepared);
     }
     finish_transitions();
@@ -300,12 +297,13 @@ private:
     if (change.origin == PresetChangeOrigin::AUTOMATIC) {
       const Choreo choreo = preset_choreo(change.from);
       const Preset &to = PRESETS[index];
-      if (!try_apply_config(to, choreo.blend_frames, choreo.staggered, true))
+      if (!try_apply_config(to.config, choreo.blend_frames, choreo.staggered,
+                            true))
         return false;
-      requested_config = to;
-      published_config = to;
+      requested_config = to.config;
+      published_config = to.config;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-      accepted_config = to;
+      accepted_config = to.config;
       pending_edit_count = 0;
 #endif
       rebind_parameters();
@@ -314,23 +312,21 @@ private:
 
     state->param_morph.active = false;
     state->transition.active = false;
-    active_slots = PRESETS[index].slots;
-    const ProgramDescriptor *program = find_inverse_program(PRESETS[index]);
-    HS_CHECK(program != nullptr,
-             "ShaderBall preset has no compiled inverse pipeline");
-    active_pipeline = program->id;
-    blend.params = PRESETS[index].params;
+    const SelectedConfig &selected = PRESETS[index];
+    active_slots = selected.config.slots;
+    active_pipeline = selected.pipeline;
+    blend.params = selected.config.params;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    display_config = PRESETS[index];
+    display_config = selected.config;
 #endif
-    requested_config = PRESETS[index];
-    published_config = PRESETS[index];
+    requested_config = selected.config;
+    published_config = selected.config;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    accepted_config = PRESETS[index];
+    accepted_config = selected.config;
     pending_edit_count = 0;
 #endif
     runtime = {};
-    HS_CHECK(prepare_resource_union(PRESETS[index], PRESETS[index]),
+    HS_CHECK(prepare_resource_union(selected.config, selected.config),
              "ShaderBall preset resources exceed capacity");
     rebind_parameters();
     return true;
@@ -886,7 +882,6 @@ public:
     HS_COLD_MEMBER bool operator==(const Config &) const = default;
   };
   using RequestedConfig = Config;
-  using Preset = Config;
 
   static constexpr uint32_t CONFIG_SCHEMA_VERSION = 7;
 
@@ -2235,6 +2230,12 @@ private:
     NONE = 0xff
   };
 
+  struct SelectedConfig {
+    Config config;
+    InversePipelineId pipeline;
+  };
+  using Preset = SelectedConfig;
+
   template <typename Stage>
   using HasInverseStageContract =
       Pullback::HasStageContract<Stage, ShaderBallBinding>;
@@ -3217,7 +3218,12 @@ private:
     ShadeFunction shade;
     InversePipelineId pipeline;
     float alpha;
+#if defined(HS_PROFILE_ENABLE)
+    size_t preset;
+#endif
   };
+
+  enum class ProfileEndpoint : uint8_t { STEADY, FROM, TO };
 
   struct LookRuntime {
     ClockState clocks{};
@@ -3905,14 +3911,61 @@ private:
                                            : state->transition.to_pipeline;
     HS_CHECK(prepare_endpoint(config, look, phase.alpha, pipeline, prepared),
              "ShaderBall transition endpoint has no renderer");
-#ifdef HS_PROFILE_PULLBACK_TELEMETRY
-    log_pullback_program(preset_index(config), prepared.pipeline,
-                         phase.from_endpoint ? "from" : "to");
-#endif
-    draw_endpoint(canvas, prepared);
+    draw_endpoint(canvas, prepared,
+                  phase.from_endpoint ? ProfileEndpoint::FROM
+                                      : ProfileEndpoint::TO);
   }
 
-  static const char *pullback_pipeline_name(InversePipelineId pipeline) {
+  HS_COLD_MEMBER bool prepare_endpoint(const Config &config,
+                                       const LookRuntime &look, float alpha,
+                                       InversePipelineId selected,
+                                       PreparedEndpoint &prepared) const {
+    const ProgramDescriptor *program = get_inverse_program(selected);
+    ShadeFunction shade;
+    bool (*resources_ready)(const FrameState &);
+    if (program != nullptr) {
+      if (program->key != make_topology_key(config) ||
+          !program->continuous_parameters_supported(config))
+        return false;
+      shade = program->shade;
+      resources_ready = program->resources_ready;
+    } else {
+#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
+      if (selected != InversePipelineId::NONE || !valid_config(config))
+        return false;
+      shade = &shade_dynamic;
+      resources_ready = &dynamic_resources_ready;
+#else
+      return false;
+#endif
+    }
+    prepare_frame(config, look, prepared.frame);
+    if (!resources_ready(prepared.frame))
+      return false;
+    prepared.shade = shade;
+    prepared.pipeline = selected;
+    prepared.alpha = alpha;
+#if defined(HS_PROFILE_ENABLE)
+    prepared.preset = selected_preset_index(config, selected);
+#endif
+    return true;
+  }
+
+  HS_FLASH_MEMBER void
+  draw_endpoint(Canvas &canvas, PreparedEndpoint &prepared,
+                ProfileEndpoint endpoint = ProfileEndpoint::STEADY) {
+#if defined(HS_PROFILE_ENABLE)
+    emit_pullback_program(prepared, endpoint);
+#else
+    (void)endpoint;
+#endif
+    FrameShader shader{&prepared.frame, prepared.alpha, prepared.shade};
+    HS_PROFILE(sb_shader_draw);
+    Scan::Shader::draw<W, H, 1>(canvas, shader);
+  }
+
+#if defined(HS_PROFILE_ENABLE)
+  static constexpr const char *pipeline_name(InversePipelineId pipeline) {
     switch (pipeline) {
     case InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR:
       return "BONNE_KALEIDOSCOPE_LATTICE_MIRROR";
@@ -3936,77 +3989,51 @@ private:
       return "STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE";
     case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR:
       return "GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR";
+    case InversePipelineId::COUNT:
+      return "COUNT";
     case InversePipelineId::NONE:
       return "NONE";
-    case InversePipelineId::COUNT:
-      break;
     }
     return "NONE";
   }
 
-#ifdef HS_PROFILE_PULLBACK_TELEMETRY
-  static size_t preset_index(const Config &config) {
-    for (size_t index = 0; index < PRESETS.size(); ++index)
-      if (PRESETS[index] == config)
-        return index;
-    return 0;
-  }
-
-  void log_pullback_program(size_t preset, InversePipelineId pipeline,
-                            const char *endpoint) {
-    const uint8_t encoded_pipeline = static_cast<uint8_t>(pipeline);
-    const char encoded_endpoint = endpoint[0];
-    if (pullback_profile_preset == preset &&
-        pullback_profile_pipeline == encoded_pipeline &&
-        pullback_profile_endpoint == encoded_endpoint)
-      return;
-    pullback_profile_preset = preset;
-    pullback_profile_pipeline = encoded_pipeline;
-    pullback_profile_endpoint = encoded_endpoint;
-    hs::log("Pullback program: preset=%u/%u pipeline=%s endpoint=%s",
-            static_cast<unsigned>(preset),
-            static_cast<unsigned>(PRESETS.size()),
-            pullback_pipeline_name(pipeline), endpoint);
-  }
-#endif
-
-  HS_COLD_MEMBER bool prepare_endpoint(const Config &config,
-                                       const LookRuntime &look, float alpha,
-                                       InversePipelineId selected,
-                                       PreparedEndpoint &prepared) const {
-    const ProgramDescriptor *program = find_inverse_program(config);
-    ShadeFunction shade;
-    bool (*resources_ready)(const FrameState &);
-    if (program != nullptr) {
-      if (program->id != selected)
-        return false;
-      shade = program->shade;
-      resources_ready = program->resources_ready;
-    } else {
-#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
-      if (selected != InversePipelineId::NONE || !valid_config(config))
-        return false;
-      shade = &shade_dynamic;
-      resources_ready = &pipeline_resources_ready;
-#else
-      return false;
-#endif
+  static constexpr const char *profile_endpoint_name(ProfileEndpoint endpoint) {
+    switch (endpoint) {
+    case ProfileEndpoint::STEADY:
+      return "steady";
+    case ProfileEndpoint::FROM:
+      return "from";
+    case ProfileEndpoint::TO:
+      return "to";
     }
-    prepare_frame(config, look, prepared.frame);
-    if (!resources_ready(prepared.frame))
-      return false;
-    prepared.shade = shade;
-    prepared.pipeline = selected;
-    prepared.alpha = alpha;
-    return true;
+    return "steady";
   }
 
-  HS_FLASH_MEMBER static void draw_endpoint(Canvas &canvas,
-                                            PreparedEndpoint &prepared) {
-    FrameShader shader{&prepared.frame, prepared.alpha, prepared.shade};
-    HS_PROFILE(sb_shader_draw);
-    Scan::Shader::draw<W, H, 1>(canvas, shader);
+  size_t selected_preset_index(const Config &config,
+                               InversePipelineId pipeline) const {
+    for (size_t index = 0; index < PRESETS.size(); ++index)
+      if (PRESETS[index].pipeline == pipeline &&
+          PRESETS[index].config == config)
+        return index;
+    return getPresetIndex();
   }
+
+  void emit_pullback_program(const PreparedEndpoint &prepared,
+                             ProfileEndpoint endpoint) {
+    if (profile_program_valid && profile_program_preset == prepared.preset &&
+        profile_program_pipeline == prepared.pipeline &&
+        profile_program_endpoint == endpoint)
+      return;
+    hs::log("Pullback program: preset=%u/%u pipeline=%s endpoint=%s",
+            static_cast<unsigned>(prepared.preset),
+            static_cast<unsigned>(PRESETS.size()),
+            pipeline_name(prepared.pipeline), profile_endpoint_name(endpoint));
+    profile_program_valid = true;
+    profile_program_preset = prepared.preset;
+    profile_program_pipeline = prepared.pipeline;
+    profile_program_endpoint = endpoint;
+  }
+#endif
 
 #if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
     (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
@@ -4196,6 +4223,14 @@ private:
     const TopologyKey key = make_topology_key(config);
     for (const ProgramDescriptor &program : inverse_programs())
       if (program.key == key && program.continuous_parameters_supported(config))
+        return &program;
+    return nullptr;
+  }
+
+  HS_COLD_MEMBER static const ProgramDescriptor *
+  get_inverse_program(InversePipelineId id) {
+    for (const ProgramDescriptor &program : inverse_programs())
+      if (program.id == id)
         return &program;
     return nullptr;
   }
@@ -5192,7 +5227,6 @@ private:
                                   state->param_morph.to, mix);
     else
       blend.params.lerp(state->param_morph.from, state->param_morph.to, mix);
-    active_pipeline = resolve_pipeline_id({active_slots, blend.params});
   }
 
   static float transition_mix(uint16_t elapsed, uint16_t duration) {
@@ -6894,7 +6928,7 @@ private:
     return params;
   }
 
-  static constexpr Preset wave_shear_generated_preset() {
+  static constexpr Config wave_shear_generated_preset() {
     Slots slots = GENERATED_SURFACE_NOISE_SLOTS;
     slots.warp_program.outer.kind = WarpStageKind::WAVE_SHEAR;
     slots.surface_noise = SurfaceNoise::NONE;
@@ -6906,7 +6940,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset kaleidoscope_mirror_preset() {
+  static constexpr Config kaleidoscope_mirror_preset() {
     const Slots slots{Function::TWIN_WAVE,
                       Projection::STEREOGRAPHIC,
                       ProjectionFramePolicy::SPIN_WANDER,
@@ -6922,7 +6956,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset gnomonic_grid_mirror_preset(SurfaceLens lens) {
+  static constexpr Config gnomonic_grid_mirror_preset(SurfaceLens lens) {
     Slots slots{Function::GRID,
                 Projection::GNOMONIC,
                 ProjectionFramePolicy::IDENTITY,
@@ -6946,7 +6980,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset bonne_lattice_mirror_preset() {
+  static constexpr Config bonne_lattice_mirror_preset() {
     Slots slots{Function::PRIMITIVE_LATTICE,
                 Projection::BONNE,
                 ProjectionFramePolicy::SPIN_WANDER,
@@ -6976,7 +7010,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset peirce_dodecahedral_generated_preset() {
+  static constexpr Config peirce_dodecahedral_generated_preset() {
     Slots slots{Function::GRID,
                 Projection::PEIRCE_QUINCUNCIAL,
                 ProjectionFramePolicy::SPIN_WANDER,
@@ -6996,7 +7030,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset gnomonic_wave_shear_grid_preset() {
+  static constexpr Config gnomonic_wave_shear_grid_preset() {
     Slots slots{Function::GRID,
                 Projection::GNOMONIC,
                 ProjectionFramePolicy::IDENTITY,
@@ -7025,7 +7059,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset gnomonic_affine_lattice_contour_preset() {
+  static constexpr Config gnomonic_affine_lattice_contour_preset() {
     const Slots slots{Function::PRIMITIVE_LATTICE,
                       Projection::GNOMONIC,
                       ProjectionFramePolicy::SPIN_WANDER,
@@ -7072,7 +7106,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset sinusoidal_lattice_curl_preset(float noise_scale) {
+  static constexpr Config sinusoidal_lattice_curl_preset(float noise_scale) {
     Slots slots{Function::PRIMITIVE_LATTICE,
                 Projection::SINUSOIDAL,
                 ProjectionFramePolicy::SPIN_WANDER,
@@ -7111,7 +7145,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset stereographic_prism_polar_wave_lattice_preset() {
+  static constexpr Config stereographic_prism_polar_wave_lattice_preset() {
     Slots slots{Function::PRIMITIVE_LATTICE,
                 Projection::STEREOGRAPHIC,
                 ProjectionFramePolicy::SPIN_WANDER,
@@ -7152,7 +7186,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Preset gnomonic_dodecahedral_vector_mirror_grid_preset() {
+  static constexpr Config gnomonic_dodecahedral_vector_mirror_grid_preset() {
     Slots slots{Function::GRID,
                 Projection::GNOMONIC,
                 ProjectionFramePolicy::IDENTITY,
@@ -7186,23 +7220,36 @@ private:
   }
 
   static constexpr std::array<Preset, 12> PRESETS = {{
-      wave_shear_generated_preset(),
-      kaleidoscope_mirror_preset(),
-      gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
-      gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
-      bonne_lattice_mirror_preset(),
-      peirce_dodecahedral_generated_preset(),
-      gnomonic_wave_shear_grid_preset(),
-      gnomonic_affine_lattice_contour_preset(),
-      sinusoidal_lattice_curl_preset(1.78815627f),
-      sinusoidal_lattice_curl_preset(3.29720306f),
-      stereographic_prism_polar_wave_lattice_preset(),
-      gnomonic_dodecahedral_vector_mirror_grid_preset(),
+      {wave_shear_generated_preset(),
+       InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
+      {kaleidoscope_mirror_preset(),
+       InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR},
+      {gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
+       InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR},
+      {gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
+       InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR},
+      {bonne_lattice_mirror_preset(),
+       InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR},
+      {peirce_dodecahedral_generated_preset(),
+       InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
+      {gnomonic_wave_shear_grid_preset(),
+       InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR},
+      {gnomonic_affine_lattice_contour_preset(),
+       InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR},
+      {sinusoidal_lattice_curl_preset(1.78815627f),
+       InversePipelineId::SINUSOIDAL_CURL_LATTICE},
+      {sinusoidal_lattice_curl_preset(3.29720306f),
+       InversePipelineId::SINUSOIDAL_CURL_LATTICE},
+      {stereographic_prism_polar_wave_lattice_preset(),
+       InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE},
+      {gnomonic_dodecahedral_vector_mirror_grid_preset(),
+       InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR},
   }};
   static_assert(
       [] {
         for (const Preset &preset : PRESETS)
-          if (!valid_config(preset))
+          if (!valid_config(preset.config) ||
+              preset.pipeline == InversePipelineId::NONE)
             return false;
         return true;
       }(),
@@ -7210,8 +7257,9 @@ private:
   static_assert(
       [] {
         for (size_t index = 0; index < PRESETS.size(); ++index)
-          if (!transition_admitted(PRESETS[index],
-                                   PRESETS[(index + 1) % PRESETS.size()]))
+          if (!transition_admitted(
+                  PRESETS[index].config,
+                  PRESETS[(index + 1) % PRESETS.size()].config))
             return false;
         return true;
       }(),
@@ -7244,35 +7292,34 @@ private:
   PaletteCycler complementary_palette_cycler;
   PaletteCycler analogous_palette_cycler;
 
-  Slots active_slots = PRESETS[0].slots;
-  InversePipelineId active_pipeline =
-      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR;
-#ifdef HS_PROFILE_PULLBACK_TELEMETRY
-  size_t pullback_profile_preset = PRESETS.size();
-  uint8_t pullback_profile_pipeline =
-      static_cast<uint8_t>(InversePipelineId::COUNT);
-  char pullback_profile_endpoint = '\0';
-#endif
+  Slots active_slots = PRESETS[0].config.slots;
+  InversePipelineId active_pipeline = PRESETS[0].pipeline;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  Config display_config = PRESETS[0];
+  Config display_config = PRESETS[0].config;
   std::array<PendingEdit, PARAM_CAPACITY> pending_edits{};
   size_t pending_edit_count = 0;
   mutable std::array<char, 1024> warning_text{};
 #endif
-  RequestedConfig requested_config = PRESETS[0];
-  Config published_config = PRESETS[0];
+  RequestedConfig requested_config = PRESETS[0].config;
+  Config published_config = PRESETS[0].config;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  Config accepted_config = PRESETS[0];
+  Config accepted_config = PRESETS[0].config;
 #endif
   bool requested_schema_bound = false;
   bool registered_range_clamped = false;
   uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;
-  Blend blend{PRESETS[0].params};
+  Blend blend{PRESETS[0].config.params};
   LookRuntime runtime;
 #if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;
   uint32_t generated_palette_step_count = 0;
+#endif
+#if defined(HS_PROFILE_ENABLE)
+  bool profile_program_valid = false;
+  size_t profile_program_preset = 0;
+  InversePipelineId profile_program_pipeline = InversePipelineId::NONE;
+  ProfileEndpoint profile_program_endpoint = ProfileEndpoint::STEADY;
 #endif
 
   static constexpr size_t FOOTPRINT_BYTES =
