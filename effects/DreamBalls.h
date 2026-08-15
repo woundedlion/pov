@@ -434,8 +434,7 @@ private:
   }
 
   static float under_gap_alpha(float edge_t, float gap) {
-    const float x = hs::clamp((1.0f - edge_t) / gap, 0.0f, 1.0f);
-    return x * x * (3.0f - 2.0f * x);
+    return cubic_kernel((1.0f - edge_t) / gap);
   }
 
   HS_FLASH_MEMBER static Tangent tangent_frame(const Vector &normal) {
