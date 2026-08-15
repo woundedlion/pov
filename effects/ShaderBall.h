@@ -1779,11 +1779,7 @@ private:
   };
 
   struct SourceTraits {
-    bool cartesian_x;
-    bool cartesian_y;
-    bool x_periodic;
     bool y_periodic;
-    bool rotation_equivariant;
     bool polar_angle_compatible;
   };
 
@@ -5350,17 +5346,17 @@ private:
   source_traits(Function function) {
     switch (function) {
     case Function::GRID:
-      return {true, true, true, true, false, true};
+      return {true, true};
     case Function::PRIMITIVE_LATTICE:
-      return {true, true, true, true, false, true};
+      return {true, true};
     case Function::TWIN_WAVE:
     case Function::RINGS:
     case Function::SPIRAL:
     case Function::NOISE_CONTOUR:
     case Function::NOISE_CONTOUR_SPHERE:
-      return {true, true, false, false, false, false};
+      return {false, false};
     }
-    return {true, true, false, false, false, false};
+    return {false, false};
   }
 
   HS_COLD_MEMBER static constexpr Complex
@@ -6326,7 +6322,6 @@ private:
   static constexpr float WARP_COORD_LIMIT = 65536.0f;
   static constexpr float NOISE_LATTICE_LIMIT = 1048576.0f;
   static constexpr float SPIRAL_ARMS = 3.0f;
-  static constexpr float KALEIDOSCOPE_SECTORS = 6.0f;
   static constexpr float ONE_BELOW_UNIT = 0x1.fffffep-1f;
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr int PALETTE_DWELL_FRAMES = 0;
@@ -6574,7 +6569,6 @@ private:
   static constexpr float CELL_MIN = 1.0f / 64.0f;
   static constexpr float CELL_MAX = 8.0f;
   static constexpr float SOFTNESS_MIN = 1.0f / 1024.0f;
-  static constexpr float ORBIT_SPIN_RATE = TWO_PI_F / 300.0f;
 
   HS_COLD_MEMBER static constexpr bool preset_in_ranges(const Params &p) {
     return warp_stage_params_in_ranges(p.warp.outer) &&
