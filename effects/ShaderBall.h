@@ -2004,6 +2004,15 @@ private:
     }
   };
 
+  struct LensStateProvider {
+    using Binding = ShaderBallBinding;
+    using FrameState = typename Binding::FrameState;
+
+    static const MobiusParams &params(const FrameState &frame) {
+      return frame.params.surface_lens.mobius;
+    }
+  };
+
   template <bool Outer> struct WarpStateProvider {
     using Binding = ShaderBallBinding;
     using FrameState = typename Binding::FrameState;
@@ -2043,6 +2052,18 @@ private:
     }
     static const SourceState &prepared(const FrameState &frame) {
       return frame.prepared_source;
+    }
+    static const FastNoiseLite &noise(const FrameState &frame) {
+      return *frame.resources.source_noise;
+    }
+    static float noise_scale(const FrameState &frame) {
+      return frame.params.source.noise_scale;
+    }
+    static float noise_time(const FrameState &frame) {
+      return frame.clocks.source_noise_time;
+    }
+    static float noise_contrast(const FrameState &frame) {
+      return frame.params.source.noise_contrast;
     }
   };
 
@@ -4333,11 +4354,9 @@ private:
 
   HS_FLASH_MEMBER static ProjectedLookup
   project_equirectangular(const Vector &local, const FrameState &frame) {
-    return finalize_projection(
-        local,
-        projections::equirectangular(local,
-                                     frame.params.projection.central_meridian),
-        Projection::EQUIRECTANGULAR, frame.params.projection.pole_fade);
+    return Pullback::Projection::equirectangular(
+        local, frame.params.projection.central_meridian,
+        frame.params.projection.pole_fade);
   }
 
   HS_FLASH_MEMBER static ProjectedLookup
@@ -4529,17 +4548,7 @@ private:
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_vortex(const Complex &input, const PreparedWarpStage &prepared) {
-    const PreparedVortex &vortex = prepared.transform.vortex;
-    const float x = input.re - vortex.center_x;
-    const float y = input.im - vortex.center_y;
-    const float r_sq = x * x + y * y;
-    const float angle =
-        vortex.angle_numerator / (1.0f + r_sq / vortex.radius_sq);
-    const float c = cosf(angle);
-    const float s = sinf(angle);
-    const Complex output(vortex.center_x + c * x - s * y,
-                         vortex.center_y + s * x + c * y);
-    return finish_closed_form_warp(input, output);
+    return Pullback::Warp::vortex(input, prepared);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
@@ -4555,17 +4564,12 @@ private:
   warp_curl_flow(const Complex &input, const WarpStageSpec &spec,
                  const WarpStageParams &params, float amplitude,
                  const FastNoiseLite &noise, float stage_phase) {
-    if (params.strength == 0.0f)
-      return {input, Complex(), 0.0f, 0.0f};
-    Complex delta;
-    float path_length = 0.0f;
-    const Complex output = curl_flow(input, noise, spec, params, amplitude,
-                                     stage_phase, delta, path_length);
-    const float deformation =
-        spec.curl_integrator == CurlIntegrator::EULER_1
-            ? path_length
-            : sqrtf(delta.re * delta.re + delta.im * delta.im);
-    return {output, delta, deformation, path_length};
+    const uint8_t intervals =
+        spec.curl_integrator == CurlIntegrator::EULER_1      ? 1
+        : spec.curl_integrator == CurlIntegrator::MIDPOINT_2 ? 2
+                                                             : 4;
+    return Pullback::Warp::curl_flow(input, noise, spec.basis, intervals,
+                                     params.scale, amplitude, stage_phase);
   }
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
@@ -4653,55 +4657,22 @@ private:
             const WarpStageSpec &spec, const WarpStageParams &params,
             float distance, float phase, Complex &net_delta,
             float &path_length) {
-    if (spec.curl_integrator == CurlIntegrator::EULER_1) {
-      const Complex direction =
-          curl_vector(input, noise, spec.basis, params.scale, phase);
-      net_delta = {distance * direction.re, distance * direction.im};
-      path_length =
-          sqrtf(net_delta.re * net_delta.re + net_delta.im * net_delta.im);
-      return {input.re + net_delta.re, input.im + net_delta.im};
-    }
-    const int intervals =
-        spec.curl_integrator == CurlIntegrator::MIDPOINT_2 ? 2 : 4;
-    Complex q = input;
-    const float step = distance / intervals;
-    path_length = 0.0f;
-    net_delta = {};
-    for (int index = 0; index < intervals; ++index) {
-      const Complex first =
-          curl_vector(q, noise, spec.basis, params.scale, phase);
-      const Complex midpoint(q.re + 0.5f * step * first.re,
-                             q.im + 0.5f * step * first.im);
-      const Complex direction =
-          curl_vector(midpoint, noise, spec.basis, params.scale, phase);
-      const Complex delta(step * direction.re, step * direction.im);
-      q = {q.re + delta.re, q.im + delta.im};
-      net_delta = {net_delta.re + delta.re, net_delta.im + delta.im};
-      path_length += sqrtf(delta.re * delta.re + delta.im * delta.im);
-    }
-    return q;
+    const uint8_t intervals =
+        spec.curl_integrator == CurlIntegrator::EULER_1      ? 1
+        : spec.curl_integrator == CurlIntegrator::MIDPOINT_2 ? 2
+                                                             : 4;
+    const PlanarWarpStageResult result = Pullback::Warp::curl_flow(
+        input, noise, spec.basis, intervals, params.scale, distance, phase);
+    net_delta = result.delta;
+    path_length = result.path_length;
+    return result.coords;
   }
 
   HS_FLASH_MEMBER static Complex curl_vector(const Complex &p,
                                              const FastNoiseLite &noise,
                                              NoiseBasis basis, float scale,
                                              float phase) {
-    const Vector q = noise_projected_coordinate(p, scale, phase);
-    const float dx =
-        (sample_noise_octaves(noise, basis,
-                              q + Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f)) -
-         sample_noise_octaves(noise, basis,
-                              q - Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f))) /
-        (2.0f * NOISE_STENCIL_RADIUS);
-    const float dy =
-        (sample_noise_octaves(noise, basis,
-                              q + Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f)) -
-         sample_noise_octaves(noise, basis,
-                              q - Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f))) /
-        (2.0f * NOISE_STENCIL_RADIUS);
-    return {
-        hs::clamp(-dy, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX),
-        hs::clamp(dx, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX)};
+    return Pullback::Warp::curl_vector(p, noise, basis, scale, phase);
   }
 
   __attribute__((always_inline)) static Complex
@@ -4810,12 +4781,9 @@ private:
    */
   HS_FLASH_MEMBER static float sample_noise_contour(const Vector &q,
                                                     const FrameState &frame) {
-    const float n =
-        hs::clamp(sample_noise_octaves(*frame.resources.source_noise,
-                                       frame.params.source.noise_basis, q),
-                  -1.0f, 1.0f);
-    const float contrast = frame.params.source.noise_contrast;
-    return n * (1.0f + contrast) / (1.0f + contrast * fabsf(n));
+    return Pullback::Source::noise_contour(*frame.resources.source_noise,
+                                           frame.params.source.noise_basis, q,
+                                           frame.params.source.noise_contrast);
   }
 
 #if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
@@ -4886,63 +4854,24 @@ private:
   HS_FLASH_MEMBER static void
   prepare_hue_rotation_lut(PreparedHueRotation &prepared,
                            const BakedPalette &palette) {
-    for (int value_index = 0; value_index < PreparedHueRotation::VALUE_STEPS;
-         ++value_index) {
-      const float value =
-          ONE_BELOW_UNIT * value_index / (PreparedHueRotation::VALUE_STEPS - 1);
-      const HueRotateBase base = make_hue_rotate_base(palette.get(value));
-      for (int hue_index = 0; hue_index < PreparedHueRotation::HUE_STEPS;
-           ++hue_index) {
-        const float amount =
-            static_cast<float>(hue_index) / PreparedHueRotation::HUE_STEPS;
-        prepared.lut[value_index * PreparedHueRotation::HUE_STEPS + hue_index] =
-            hue_rotate_lut_gamut(base, amount).color;
-      }
-    }
+    Pullback::Color::prepare_hue_rotation_lut(
+        std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
+            prepared.lut, PreparedHueRotation::LUT_SIZE),
+        palette);
   }
 
   HS_FLASH_MEMBER static Vector hue_noise_face_direction(int face, float u,
                                                          float v) {
-    switch (face) {
-    case 0:
-      return Vector(1.0f, v, u).normalized();
-    case 1:
-      return Vector(-1.0f, v, -u).normalized();
-    case 2:
-      return Vector(u, 1.0f, v).normalized();
-    case 3:
-      return Vector(u, -1.0f, -v).normalized();
-    case 4:
-      return Vector(u, v, 1.0f).normalized();
-    default:
-      return Vector(-u, v, -1.0f).normalized();
-    }
+    return Pullback::Color::hue_noise_face_direction(face, u, v);
   }
 
   HS_FLASH_MEMBER static void prepare_hue_noise_lut(PreparedHueNoise &prepared,
                                                     const FastNoiseLite &noise,
                                                     float scale, float phase) {
-    const float angle = TWO_PI_F * wrap_t(phase);
-    const Vector loop_offset(NOISE_LOOP_RADIUS * cosf(angle),
-                             NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
-    constexpr float STEP = 2.0f / (PreparedHueNoise::FACE_STEPS - 1);
-    for (int face = 0; face < 6; ++face) {
-      const int face_offset = face * PreparedHueNoise::FACE_SIZE;
-      for (int y = 0; y < PreparedHueNoise::FACE_STEPS; ++y) {
-        const float v = -1.0f + STEP * y;
-        for (int x = 0; x < PreparedHueNoise::FACE_STEPS; ++x) {
-          const float u = -1.0f + STEP * x;
-          const Vector direction = hue_noise_face_direction(face, u, v);
-          const Vector q = scale * direction + loop_offset;
-          const float sample =
-              hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
-          const int quantized = static_cast<int>(
-              sample * 127.0f + (sample < 0.0f ? -0.5f : 0.5f));
-          prepared.lut[face_offset + y * PreparedHueNoise::FACE_STEPS + x] =
-              static_cast<int8_t>(quantized);
-        }
-      }
-    }
+    Pullback::Color::prepare_hue_noise_lut(
+        std::span<int8_t, Pullback::Color::HueNoiseLutView::SIZE>(
+            prepared.lut, PreparedHueNoise::LUT_SIZE),
+        noise, scale, phase);
   }
 
   HS_FLASH_MEMBER static float
@@ -4992,18 +4921,19 @@ private:
 
   HS_FLASH_MEMBER static Vector surface_curl_field(const Vector &v,
                                                    const FrameState &frame) {
-    const SurfaceNoiseParams &params = frame.params.surface_noise;
-    const Vector q = noise_sphere_coordinate(
-        v, params.scale, frame.prepared_surface_noise.loop_offset);
-    return sample_curl_tangent(*frame.resources.surface_noise, params.basis, q,
-                               v);
+    return Pullback::Surface::curl_field(
+        v, *frame.resources.surface_noise, frame.params.surface_noise.basis,
+        frame.params.surface_noise.scale,
+        frame.prepared_surface_noise.loop_offset);
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
   finish_surface_noise_step(const Vector &v, const Vector &step,
                             const FrameState &frame) {
-    const float path_length = surface_noise_path_length(step, frame);
-    return {sphere_exp_map_half_radian(v, step), path_length};
+    return Pullback::Surface::finish_step(
+        v, step,
+        frame.prepared_hue_rotation.active &&
+            frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT);
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
@@ -5021,39 +4951,37 @@ private:
   HS_FLASH_MEMBER static SurfaceNoiseResult
   midpoint_surface_curl_step(const Vector &v, float distance,
                              const FrameState &frame) {
-    const Vector first = surface_curl_field(v, frame);
-    const Vector midpoint =
-        sphere_exp_map_half_radian(v, 0.5f * distance * first);
-    const Vector midpoint_field = surface_curl_field(midpoint, frame);
-    return finish_surface_noise_step(
-        v, distance * transport_tangent(midpoint, v, midpoint_field), frame);
+    return Pullback::Surface::curl_midpoint_step(
+        v, *frame.resources.surface_noise, frame.params.surface_noise.basis,
+        frame.params.surface_noise.scale,
+        frame.prepared_surface_noise.loop_offset, distance,
+        frame.prepared_hue_rotation.active &&
+            frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT);
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
   apply_surface_noise_result(const Vector &v, const FrameState &frame) {
     const SurfaceNoiseParams &params = frame.params.surface_noise;
-    if (params.strength == 0.0f)
-      return {v, 0.0f};
+    const bool path_length_required =
+        frame.prepared_hue_rotation.active &&
+        frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT;
     if (frame.slots.surface_noise == SurfaceNoise::DIRECT) {
-      const Vector q = noise_sphere_coordinate(
-          v, params.scale, frame.prepared_surface_noise.loop_offset);
-      const Vector tangent =
-          sample_direct_tangent(*frame.resources.surface_noise, params.basis, q,
-                                v, frame.prepared_surface_noise.direction_cos,
-                                frame.prepared_surface_noise.direction_sin);
-      return finish_surface_noise_step(v, params.strength * tangent, frame);
+      return Pullback::Surface::direct_noise(
+          v, *frame.resources.surface_noise, params.basis, params.scale,
+          frame.prepared_surface_noise.loop_offset, params.strength,
+          frame.prepared_surface_noise.direction_cos,
+          frame.prepared_surface_noise.direction_sin, path_length_required);
     }
-    if (params.integrator == SurfaceCurlIntegrator::EULER)
-      return finish_surface_noise_step(
-          v, params.strength * surface_curl_field(v, frame), frame);
-    if (params.integrator == SurfaceCurlIntegrator::MIDPOINT)
-      return midpoint_surface_curl_step(v, params.strength, frame);
-    const SurfaceNoiseResult first =
-        midpoint_surface_curl_step(v, 0.5f * params.strength, frame);
-    SurfaceNoiseResult second =
-        midpoint_surface_curl_step(first.sphere, 0.5f * params.strength, frame);
-    second.path_length += first.path_length;
-    return second;
+    const Pullback::Surface::Integrator integrator =
+        params.integrator == SurfaceCurlIntegrator::EULER
+            ? Pullback::Surface::Integrator::EULER
+        : params.integrator == SurfaceCurlIntegrator::MIDPOINT
+            ? Pullback::Surface::Integrator::MIDPOINT
+            : Pullback::Surface::Integrator::MIDPOINT_2X;
+    return Pullback::Surface::curl_noise(
+        v, *frame.resources.surface_noise, params.basis, integrator,
+        params.scale, frame.prepared_surface_noise.loop_offset, params.strength,
+        path_length_required);
   }
 
   HS_FLASH_MEMBER static Vector apply_surface_noise(const Vector &v,
@@ -5112,7 +5040,7 @@ private:
 
   HS_FLASH_MEMBER static Vector mobius_lens(const Vector &v,
                                             const MobiusParams &params) {
-    return mobius_transform(v, params);
+    return Pullback::Lens::mobius(v, params);
   }
 
   /**

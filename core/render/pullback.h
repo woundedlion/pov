@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cmath>
+#include <span>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -595,6 +596,33 @@ struct CurlNoise : ExactPolicy {
 
 namespace Lens {
 
+template <typename Params>
+__attribute__((always_inline)) inline Vector mobius(const Vector &input,
+                                                    const Params &params) {
+  float px = input.x;
+  float pz = input.z;
+  float scale = 1.0f - input.y;
+  if (px * px + pz * pz < STEREO_DIV_NUM_EPS_SQ &&
+      scale < STEREO_DIV_NUM_EPS_SQ) {
+    px = 1.0f;
+    pz = 0.0f;
+    scale = 0.0f;
+  }
+  const float n_re = params.a.re * px - params.a.im * pz + params.b.re * scale;
+  const float n_im = params.a.re * pz + params.a.im * px + params.b.im * scale;
+  const float m_re = params.c.re * px - params.c.im * pz + params.d.re * scale;
+  const float m_im = params.c.re * pz + params.c.im * px + params.d.im * scale;
+  const float n_sq = n_re * n_re + n_im * n_im;
+  const float m_sq = m_re * m_re + m_im * m_im;
+  const float denominator = n_sq + m_sq;
+  if (denominator < STEREO_DIV_NUM_EPS_SQ)
+    return Vector(0.0f, 1.0f, 0.0f);
+  const float inverse = 1.0f / denominator;
+  return Vector(2.0f * (n_re * m_re + n_im * m_im) * inverse,
+                (n_sq - m_sq) * inverse,
+                2.0f * (n_im * m_re - n_re * m_im) * inverse);
+}
+
 struct Identity : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
@@ -616,6 +644,27 @@ struct Twist : ExactPolicy {
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
     return lenses::twist_lens(input);
+  }
+};
+
+template <typename State> struct Mobius : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        State::params(frame).a;
+        State::params(frame).b;
+        State::params(frame).c;
+        State::params(frame).d;
+      } &&
+      std::is_lvalue_reference_v<decltype(State::params(
+          std::declval<const typename CandidateBinding::FrameState &>()))>;
+
+  static Vector apply(const Vector &input, const FrameState &frame) {
+    return mobius(input, State::params(frame));
   }
 };
 
@@ -728,6 +777,19 @@ folded_sinusoidal(const Vector &input, float central_meridian,
   const float r_sq = coords.re * coords.re + coords.im * coords.im;
   return {coords, static_cast<uint8_t>(input.z < 0.0f), 0,          0,
           1.0f,   pole_attenuation(r_sq, pole_fade),    FOLDED_FLAG};
+}
+
+__attribute__((always_inline)) inline ProjectionSample
+equirectangular(const Vector &input, float central_meridian, float pole_fade) {
+  const Complex coords = projections::equirectangular(input, central_meridian);
+  const float r_sq = coords.re * coords.re + coords.im * coords.im;
+  return {coords,
+          0,
+          0,
+          static_cast<uint8_t>(ProjectionBoundary::CUT),
+          PI_F - fabsf(coords.re),
+          pole_attenuation(r_sq, pole_fade),
+          0};
 }
 
 __attribute__((always_inline)) inline ProjectionSample
@@ -881,6 +943,29 @@ template <typename State> struct FoldedSinusoidal : ExactPolicy {
   }
 };
 
+template <typename State> struct Equirectangular : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      FrameProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::central_meridian(frame) } -> std::same_as<float>;
+        { State::pole_fade(frame) } -> std::same_as<float>;
+      };
+
+  static const Quaternion &frame_conjugate(const FrameState &frame) {
+    return State::conjugate(frame);
+  }
+
+  static ProjectionSample project(const Vector &input,
+                                  const FrameState &frame) {
+    return equirectangular(input, State::central_meridian(frame),
+                           State::pole_fade(frame));
+  }
+};
+
 template <typename State, GnomonicHemisphere Hemisphere>
 struct Gnomonic : ExactPolicy {
   using Binding = typename State::Binding;
@@ -952,13 +1037,9 @@ template <typename State> struct PeirceFastSquare : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
-        { State::central_meridian(frame) } -> std::same_as<float>;
+        { State::ZERO_CENTRAL_MERIDIAN } -> std::convertible_to<bool>;
         { State::coordinate_scale(frame) } -> std::same_as<float>;
-      };
-
-  static bool preconditions(const FrameState &frame) {
-    return State::central_meridian(frame) == 0.0f;
-  }
+      } && State::ZERO_CENTRAL_MERIDIAN;
 
   static ProjectionSample project(const Vector &input,
                                   const FrameState &frame) {
@@ -975,14 +1056,16 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
-      PeirceFastSquare<State>::template PROVIDER_VALID<CandidateBinding> &&
+      FrameProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
+        { State::central_meridian(frame) } -> std::same_as<float>;
         { State::layout_scroll(frame) } -> std::same_as<float>;
+        { State::coordinate_scale(frame) } -> std::same_as<float>;
       };
 
   static ProjectionSample project(const Vector &input,
                                   const FrameState &frame) {
-    if (PeirceFastSquare<State>::preconditions(frame))
+    if (State::central_meridian(frame) == 0.0f)
       return peirce_fast_square(input, State::coordinate_scale(frame));
     return peirce(input, State::central_meridian(frame), 1,
                   State::layout_scroll(frame), true,
@@ -1025,9 +1108,15 @@ static constexpr uint8_t MAX_POLAR_HARMONIC = 16;
 struct FlatEnvelope {};
 struct ProjectionWeightEnvelope {};
 struct EdgeFadeEnvelope {};
-struct Euler1 {};
-struct Midpoint2 {};
-struct Midpoint4 {};
+struct Euler1 {
+  static constexpr uint8_t INTERVALS = 1;
+};
+struct Midpoint2 {
+  static constexpr uint8_t INTERVALS = 2;
+};
+struct Midpoint4 {
+  static constexpr uint8_t INTERVALS = 4;
+};
 struct LinearPolar {};
 struct LogarithmicPolar {};
 
@@ -1038,7 +1127,9 @@ concept PreparedProvider =
       State::prepared(frame);
     } &&
     std::is_lvalue_reference_v<decltype(State::prepared(
-        std::declval<const typename Binding::FrameState &>()))>;
+        std::declval<const typename Binding::FrameState &>()))> &&
+    std::is_const_v<std::remove_reference_t<decltype(State::prepared(
+        std::declval<const typename Binding::FrameState &>()))>>;
 
 template <typename State, typename Binding>
 concept ParamsPreparedProvider =
@@ -1047,13 +1138,25 @@ concept ParamsPreparedProvider =
       State::params(frame);
     } &&
     std::is_lvalue_reference_v<decltype(State::params(
-        std::declval<const typename Binding::FrameState &>()))>;
+        std::declval<const typename Binding::FrameState &>()))> &&
+    std::is_const_v<std::remove_reference_t<decltype(State::params(
+        std::declval<const typename Binding::FrameState &>()))>>;
 
 __attribute__((always_inline)) inline WarpStepResult
 finish_closed_form(const Complex &input, const Complex &output) {
   const Complex delta(output.re - input.re, output.im - input.im);
   const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
   return {output, delta, deformation, deformation};
+}
+
+__attribute__((always_inline)) inline float
+envelope(const ProjectionSample &projected, float edge_width,
+         bool projection_weight, bool edge_fade) {
+  if (projection_weight)
+    return projected.value_weight;
+  if (edge_fade)
+    return cubic_kernel(projected.fade_edge_distance / edge_width);
+  return 1.0f;
 }
 
 template <typename Prepared>
@@ -1110,6 +1213,76 @@ __attribute__((always_inline)) inline WarpStepResult
 mirror_tile(const Complex &input, const Params &params,
             const Prepared &prepared) {
   return finish_closed_form(input, mirror_tile_coords(input, params, prepared));
+}
+
+template <typename Prepared>
+__attribute__((always_inline)) inline WarpStepResult
+vortex(const Complex &input, const Prepared &prepared) {
+  const auto &vortex = prepared.transform.vortex;
+  const float x = input.re - vortex.center_x;
+  const float y = input.im - vortex.center_y;
+  const float r_sq = x * x + y * y;
+  const float angle = vortex.angle_numerator / (1.0f + r_sq / vortex.radius_sq);
+  const float c = cosf(angle);
+  const float s = sinf(angle);
+  return finish_closed_form(input, {vortex.center_x + c * x - s * y,
+                                    vortex.center_y + s * x + c * y});
+}
+
+inline constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
+
+HS_FLASH_INLINE inline Complex curl_vector(const Complex &input,
+                                           const FastNoiseLite &noise,
+                                           ::NoiseBasis basis, float scale,
+                                           float phase) {
+  const Vector q = noise_projected_coordinate(input, scale, phase);
+  const float dx =
+      (sample_noise_octaves(noise, basis,
+                            q + Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f)) -
+       sample_noise_octaves(noise, basis,
+                            q - Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f))) /
+      (2.0f * NOISE_STENCIL_RADIUS);
+  const float dy =
+      (sample_noise_octaves(noise, basis,
+                            q + Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f)) -
+       sample_noise_octaves(noise, basis,
+                            q - Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f))) /
+      (2.0f * NOISE_STENCIL_RADIUS);
+  return {hs::clamp(-dy, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX),
+          hs::clamp(dx, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX)};
+}
+
+HS_FLASH_INLINE inline WarpStepResult
+curl_flow(const Complex &input, const FastNoiseLite &noise, ::NoiseBasis basis,
+          uint8_t intervals, float scale, float distance, float phase) {
+  if (distance == 0.0f)
+    return {input, Complex(), 0.0f, 0.0f};
+  if (intervals == 1) {
+    const Complex direction = curl_vector(input, noise, basis, scale, phase);
+    const Complex delta(distance * direction.re, distance * direction.im);
+    const float path_length = sqrtf(delta.re * delta.re + delta.im * delta.im);
+    return {{input.re + delta.re, input.im + delta.im},
+            delta,
+            path_length,
+            path_length};
+  }
+  Complex output = input;
+  Complex net_delta;
+  float path_length = 0.0f;
+  const float step = distance / intervals;
+  for (uint8_t index = 0; index < intervals; ++index) {
+    const Complex first = curl_vector(output, noise, basis, scale, phase);
+    const Complex midpoint(output.re + 0.5f * step * first.re,
+                           output.im + 0.5f * step * first.im);
+    const Complex direction = curl_vector(midpoint, noise, basis, scale, phase);
+    const Complex delta(step * direction.re, step * direction.im);
+    output = {output.re + delta.re, output.im + delta.im};
+    net_delta = {net_delta.re + delta.re, net_delta.im + delta.im};
+    path_length += sqrtf(delta.re * delta.re + delta.im * delta.im);
+  }
+  const float deformation =
+      sqrtf(net_delta.re * net_delta.re + net_delta.im * net_delta.im);
+  return {output, net_delta, deformation, path_length};
 }
 
 template <typename Params>
@@ -1183,7 +1356,8 @@ template <typename State> struct AffineFrame : ExactPolicy {
   }
 };
 
-template <typename State> struct WaveShear : ExactPolicy {
+template <typename State, typename Envelope = FlatEnvelope>
+struct WaveShear : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -1198,11 +1372,34 @@ template <typename State> struct WaveShear : ExactPolicy {
         { State::prepared(frame).rotation_sin } -> std::convertible_to<float>;
       };
 
-  static WarpStepResult apply(const Complex &input, const ProjectionSample &,
+  static WarpStepResult apply(const Complex &input,
+                              const ProjectionSample &projected,
                               const FrameState &frame) {
     const auto &params = State::params(frame);
-    return wave_shear(input, params, State::phase(frame), params.strength,
+    const float amplitude =
+        params.strength *
+        envelope(projected, params.edge_width,
+                 std::is_same_v<Envelope, ProjectionWeightEnvelope>,
+                 std::is_same_v<Envelope, EdgeFadeEnvelope>);
+    return wave_shear(input, params, State::phase(frame), amplitude,
                       State::prepared(frame));
+  }
+};
+
+template <typename State> struct Vortex : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      PreparedProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        State::prepared(frame).transform.vortex;
+      };
+
+  static WarpStepResult apply(const Complex &input, const ProjectionSample &,
+                              const FrameState &frame) {
+    return vortex(input, State::prepared(frame));
   }
 };
 
@@ -1287,6 +1484,41 @@ struct VectorNoise : ExactPolicy {
   }
 };
 
+template <typename State, ::NoiseBasis BasisV, typename IntegratorPolicy,
+          typename Envelope = FlatEnvelope>
+struct CurlFlow : ExactPolicy {
+  static_assert(IntegratorPolicy::INTERVALS == 1 ||
+                IntegratorPolicy::INTERVALS == 2 ||
+                IntegratorPolicy::INTERVALS == 4);
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      ParamsPreparedProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).strength } -> std::convertible_to<float>;
+        { State::params(frame).scale } -> std::convertible_to<float>;
+        { State::params(frame).edge_width } -> std::convertible_to<float>;
+        { State::phase(frame) } -> std::same_as<float>;
+        { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
+      };
+
+  static WarpStepResult apply(const Complex &input,
+                              const ProjectionSample &projected,
+                              const FrameState &frame) {
+    const auto &params = State::params(frame);
+    const float amplitude =
+        params.strength *
+        envelope(projected, params.edge_width,
+                 std::is_same_v<Envelope, ProjectionWeightEnvelope>,
+                 std::is_same_v<Envelope, EdgeFadeEnvelope>);
+    return curl_flow(input, State::noise(frame), BasisV,
+                     IntegratorPolicy::INTERVALS, params.scale, amplitude,
+                     State::phase(frame));
+  }
+};
+
 } // namespace Warp
 
 namespace Source {
@@ -1298,7 +1530,9 @@ concept ParamsProvider =
       State::params(frame);
     } &&
     std::is_lvalue_reference_v<decltype(State::params(
-        std::declval<const typename Binding::FrameState &>()))>;
+        std::declval<const typename Binding::FrameState &>()))> &&
+    std::is_const_v<std::remove_reference_t<decltype(State::params(
+        std::declval<const typename Binding::FrameState &>()))>>;
 
 template <typename State, typename Binding>
 concept StateProvider =
@@ -1307,7 +1541,9 @@ concept StateProvider =
       State::prepared(frame);
     } &&
     std::is_lvalue_reference_v<decltype(State::prepared(
-        std::declval<const typename Binding::FrameState &>()))>;
+        std::declval<const typename Binding::FrameState &>()))> &&
+    std::is_const_v<std::remove_reference_t<decltype(State::prepared(
+        std::declval<const typename Binding::FrameState &>()))>>;
 
 template <typename Prepared>
 HS_FLASH_MEMBER inline float twin_wave(const Complex &input,
@@ -1370,6 +1606,15 @@ HS_FLASH_MEMBER inline float primitive_lattice(const Complex &input,
   const float distance = hs::lerp(circle, square, params.lattice_shape_blend);
   return 1.0f - 2.0f * ::smooth_ramp(-params.lattice_softness,
                                      params.lattice_softness, distance);
+}
+
+HS_FLASH_INLINE inline float noise_contour(const FastNoiseLite &noise,
+                                           ::NoiseBasis basis,
+                                           const Vector &coordinate,
+                                           float contrast) {
+  const float sample =
+      hs::clamp(sample_noise_octaves(noise, basis, coordinate), -1.0f, 1.0f);
+  return sample * (1.0f + contrast) / (1.0f + contrast * fabsf(sample));
 }
 
 template <typename State> struct TwinWave : ExactPolicy {
@@ -1477,6 +1722,48 @@ template <typename State> struct PrimitiveLattice : ExactPolicy {
 
   static float sample(const SourceInput &input, const FrameState &frame) {
     return primitive_lattice(input.warped.coords, State::params(frame));
+  }
+};
+
+template <typename State, ::NoiseBasis BasisV>
+struct ProjectedNoise : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
+        { State::noise_scale(frame) } -> std::same_as<float>;
+        { State::noise_time(frame) } -> std::same_as<float>;
+        { State::noise_contrast(frame) } -> std::same_as<float>;
+      };
+
+  static float sample(const SourceInput &input, const FrameState &frame) {
+    return noise_contour(State::noise(frame), BasisV,
+                         noise_projected_coordinate(input.warped.coords,
+                                                    State::noise_scale(frame),
+                                                    State::noise_time(frame)),
+                         State::noise_contrast(frame));
+  }
+};
+
+template <typename State, ::NoiseBasis BasisV>
+struct SphericalNoise : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      ProjectedNoise<State, BasisV>::template PROVIDER_VALID<CandidateBinding>;
+
+  static float sample(const SourceInput &input, const FrameState &frame) {
+    return noise_contour(State::noise(frame), BasisV,
+                         noise_sphere_coordinate(input.projected.sphere,
+                                                 State::noise_scale(frame),
+                                                 State::noise_time(frame)),
+                         State::noise_contrast(frame));
   }
 };
 
@@ -1660,6 +1947,69 @@ struct HueNoiseLutView {
   const int8_t *data;
   bool active;
 };
+
+template <typename Palette>
+HS_FLASH_INLINE inline void
+prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
+                         const Palette &palette) {
+  for (int value_index = 0; value_index < HueRotationLutView::VALUE_STEPS;
+       ++value_index) {
+    const float value =
+        UNIT_OPEN_MAX * value_index / (HueRotationLutView::VALUE_STEPS - 1);
+    const HueRotateBase base = make_hue_rotate_base(palette.get(value));
+    for (int hue_index = 0; hue_index < HueRotationLutView::HUE_STEPS;
+         ++hue_index) {
+      const float amount =
+          static_cast<float>(hue_index) / HueRotationLutView::HUE_STEPS;
+      output[value_index * HueRotationLutView::HUE_STEPS + hue_index] =
+          hue_rotate_lut_gamut(base, amount).color;
+    }
+  }
+}
+
+__attribute__((always_inline)) inline Vector
+hue_noise_face_direction(int face, float u, float v) {
+  switch (face) {
+  case 0:
+    return Vector(1.0f, v, u).normalized();
+  case 1:
+    return Vector(-1.0f, v, -u).normalized();
+  case 2:
+    return Vector(u, 1.0f, v).normalized();
+  case 3:
+    return Vector(u, -1.0f, -v).normalized();
+  case 4:
+    return Vector(u, v, 1.0f).normalized();
+  default:
+    return Vector(-u, v, -1.0f).normalized();
+  }
+}
+
+HS_FLASH_INLINE inline void
+prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
+                      const FastNoiseLite &noise, float scale, float phase) {
+  const float angle = TWO_PI_F * wrap_t(phase);
+  const Vector loop_offset(NOISE_LOOP_RADIUS * cosf(angle),
+                           NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
+  constexpr float STEP = 2.0f / (HueNoiseLutView::FACE_STEPS - 1);
+  for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face) {
+    const int face_offset = face * HueNoiseLutView::FACE_SIZE;
+    for (int y = 0; y < HueNoiseLutView::FACE_STEPS; ++y) {
+      const float v = -1.0f + STEP * y;
+      for (int x = 0; x < HueNoiseLutView::FACE_STEPS; ++x) {
+        const float u = -1.0f + STEP * x;
+        const Vector direction = hue_noise_face_direction(face, u, v);
+        const Vector q = scale * direction + loop_offset;
+        const float sample =
+            hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
+        const int quantized =
+            static_cast<int>(sample * 127.0f + (sample < 0.0f ? -0.5f : 0.5f));
+        output[face_offset + y * HueNoiseLutView::FACE_STEPS + x] =
+            static_cast<int8_t>(quantized);
+      }
+    }
+  }
+}
 
 __attribute__((always_inline)) inline float
 palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
