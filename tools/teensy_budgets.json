@@ -52,7 +52,7 @@
       // arena sized down to 298 KiB from its measured worst-effect high-water
       // (GSReactionDiffusion, post snorm16-trail MindSplatter). The 32 KiB bank
       // that cut freed has since been spent on ITCM promotions. The shipping
-      // CORE Pullback image keeps at least 648 B free below its six-bank ITCM
+      // CORE Pullback image keeps at least 3,072 B free below its six-bank ITCM
       // boundary so small toolchain drift cannot silently allocate a seventh
       // bank (docs/ledgers/itcm_ledger.md).
       // FLASH max_bytes is the same device wall as Holosphere's, not a ratchet.
@@ -73,7 +73,7 @@
       "ram1":  { "max_bytes": 512000, "free_min_bytes": 12288,
                  "components": { "code": { "max_banks_from_stack_floor": {
                      "bank_bytes": 32768, "total_banks": 16,
-                     "min_headroom_bytes": 648 } } } },
+                     "min_headroom_bytes": 3072 } } } },
       // 3.5 KiB effect-object cap plus 512 B for allocator and boot overhead.
       "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },

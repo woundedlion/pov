@@ -44,6 +44,16 @@ SECTIONS
 	.text.code : {
 		KEEP(*(.startup))
 		*(.flashmem*)
+		/* Startup and topology/control sections. */
+		*(.text.startup*)
+		*(.text._ZN6Solids12SolidBuilder*)
+		*(.text._ZN7MeshOps5cloneI8PolyMeshE*)
+		*(.text._ZN12ShapeShifterILi288ELi144EE15schedule_presetEv*)
+		*(.text._ZN8TimelineC*Ev*)
+		*(.text._ZN8TimelineD*Ev*)
+		*(.text._ZN8Timeline14destroy_eventsEv*)
+		*(.text._ZN12POVSegmentedILi288ELi4ELi480EE7read_idEv*)
+		*(.text._ZN12POVSegmentedILi288ELi4ELi480EE12sample_strapEv*)
 		/* #5: cold library code + per-effect factories run from flash, not ITCM. */
 		*libm.a:*(.text .text.*)
 		*libc_nano.a:*(.text .text.*)
