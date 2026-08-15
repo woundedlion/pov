@@ -596,7 +596,7 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
     pour, tying every through-hole GND pad to the full plane and starving the
     hand-soldered joints R-ASM-6 protects. `connect_pads yes` reaches the same
     end directly, and a zone carrying no `(fill ...)` node states no relief
-    features at all.
+    features at all. A zone whose fill is not enabled pours nothing.
     """
     root = board if board is not None else read_board(
         pcb_path, ZoneGeometryError, "PCB zones")
@@ -625,6 +625,13 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
                 f"zone {label}: no (fill ...) node, so "
                 f"{' and '.join(ZONE_FILL_FEATURES)} are unstated")
         for fill in fills:
+            # (fill [yes|no] (thermal_gap X) ...): an absent enable token leaves
+            # the zone unfilled, so the plane plots as empty copper.
+            enable = fill[1] if len(fill) > 1 and not isinstance(fill[1], list) \
+                else "no"
+            if enable != "yes":
+                diagnostics.append(
+                    f"zone {label}: fill {enable} pours no copper")
             features += [(key, fill) for key in ZONE_FILL_FEATURES]
         for key, node in features:
             value = sexp.val(node, key, [])
