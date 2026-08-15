@@ -79,6 +79,38 @@ template <int W, int H> bool selected_pixel(Operation operation, int x, int y) {
 namespace hs_test::shaderball_tests {
 
 struct ShaderBallWhiteBox {
+  template <typename Selected>
+  static const auto &selected_config(const Selected &selected) {
+    if constexpr (requires { selected.config; })
+      return selected.config;
+    else
+      return selected;
+  }
+
+  template <typename SB, typename Selected>
+  static auto selected_pipeline(const Selected &selected) {
+    if constexpr (requires { selected.pipeline; })
+      return selected.pipeline;
+    else
+      return SB::resolve_pipeline_id(selected);
+  }
+
+  template <typename SB, typename Selected>
+  static const auto *selected_program(const Selected &selected) {
+    if constexpr (requires { selected.pipeline; })
+      return SB::get_inverse_program(selected.pipeline);
+    else
+      return SB::find_inverse_program(selected);
+  }
+
+  template <typename MaterialSample>
+  static float sample_path_length(const MaterialSample &sample) {
+    if constexpr (requires { sample.path_length; })
+      return sample.path_length;
+    else
+      return sample.warp_displacement;
+  }
+
   template <int W, int H>
   static bool force_transition(ShaderBall<W, H> &effect, size_t source,
                                size_t destination, uint16_t elapsed,
@@ -89,12 +121,22 @@ struct ShaderBallWhiteBox {
     effect.setAnimationsPaused(true);
     const auto &from = SB::PRESETS[source];
     const auto &to = SB::PRESETS[destination];
-    if (!effect.prepare_resource_union(from.config, to.config))
+    const auto &from_config = selected_config(from);
+    const auto &to_config = selected_config(to);
+    if (!effect.prepare_resource_union(from_config, to_config))
       return false;
     effect.state->param_morph.active = false;
     effect.state->transition = {
-        from.config, to.config, effect.runtime, effect.runtime, elapsed,
-        duration,    false,     true,           from.pipeline,  to.pipeline};
+        from_config,
+        to_config,
+        effect.runtime,
+        effect.runtime,
+        elapsed,
+        duration,
+        false,
+        true,
+        selected_pipeline<SB>(from),
+        selected_pipeline<SB>(to)};
     return true;
   }
 
@@ -108,10 +150,11 @@ struct ShaderBallWhiteBox {
       return false;
     effect.runtime.clocks.hue_noise_phase = hue_noise_phase;
     const auto &selected = SB::PRESETS[preset];
-    if (!effect.prepare_resource_union(selected.config, selected.config))
+    const auto &config = selected_config(selected);
+    if (!effect.prepare_resource_union(config, config))
       return false;
-    const auto frame = effect.prepare_frame(selected.config, effect.runtime);
-    const auto *program = SB::get_inverse_program(selected.pipeline);
+    const auto frame = effect.prepare_frame(config, effect.runtime);
+    const auto *program = selected_program<SB>(selected);
     if (program == nullptr || !program->resources_ready(frame))
       return false;
     const auto optimized = program->shade;
@@ -194,7 +237,8 @@ private:
       color = hue_rotate_lut_gamut(base, amount);
     } else if (frame.prepared_hue_rotation.active) {
       const float amount =
-          wrap_t(frame.params.color.hue_shift_amount * sample.path_length);
+          wrap_t(frame.params.color.hue_shift_amount *
+                 sample_path_length(sample));
       if (amount != 0.0f)
         color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
     }
