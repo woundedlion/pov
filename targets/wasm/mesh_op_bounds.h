@@ -153,6 +153,18 @@ inline constexpr MeshOpBoundsEntry MESHOP_BOUNDS[] = {
 /** @brief Number of rows in MESHOP_BOUNDS. */
 inline constexpr size_t MESHOP_BOUNDS_COUNT = std::size(MESHOP_BOUNDS);
 
+// The irregular rows are hand-written above, so count both roster lists back
+// against the table: an operator joining MESHOP_IRREGULAR_LIST is bound but
+// unmeasured until it gets a row here.
+#define MESHOP_COUNT_ONE(...) +1
+static_assert(
+    MESHOP_BOUNDS_COUNT ==
+        static_cast<size_t>(0 MESHOP_LIST(MESHOP_COUNT_ONE, MESHOP_COUNT_ONE,
+                                          MESHOP_COUNT_ONE)
+                                MESHOP_IRREGULAR_LIST(MESHOP_COUNT_ONE)),
+    "MESHOP_BOUNDS needs one row per roster operator");
+#undef MESHOP_COUNT_ONE
+
 /** @brief True iff every roster row declares the nonzero element factor the
  *         guards divide by. */
 constexpr bool mesh_op_elements_all_nonzero() {
