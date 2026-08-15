@@ -121,6 +121,20 @@ class ZoneGeometryTests(unittest.TestCase):
             self.validate("0.1016", "0.1016",
                           connect_pads="(connect_pads yes (clearance 0.1016)) ")
 
+    def test_rejects_an_unfilled_pour(self):
+        with self.assertRaisesRegex(
+                fab.ZoneGeometryError, "GND_IN1: fill no pours no copper"):
+            self.validate("0.1016", "0.1016",
+                          fill="(fill no (thermal_gap {gap}) "
+                               "(thermal_bridge_width {bridge}))")
+
+    def test_rejects_a_pour_with_no_fill_enable_token(self):
+        with self.assertRaisesRegex(
+                fab.ZoneGeometryError, "GND_IN1: fill no pours no copper"):
+            self.validate("0.1016", "0.1016",
+                          fill="(fill (thermal_gap {gap}) "
+                               "(thermal_bridge_width {bridge}))")
+
     def test_rejects_a_pour_with_no_fill_node(self):
         with self.assertRaisesRegex(
                 fab.ZoneGeometryError,
