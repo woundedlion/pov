@@ -106,6 +106,12 @@ INLINE_USES = (
      lambda v: v),
 )
 
+# The extensions the clang-format gate covers. ci.yml and the justfile select
+# them as a git ls-files pathspec, the pre-commit hook as a grep alternation
+# over staged paths; both spellings are derived from this one tuple, so an
+# extension added here reaches all three copies or none.
+FORMAT_EXTENSIONS = ("h", "hpp", "cpp", "cc", "inl")
+
 # Strings that must read identically in several build files. The pre-commit hook
 # is POSIX shell run per commit, ci.yml is workflow YAML and the justfile is a
 # recipe list, so none can source a value from another; --check asserts every
@@ -119,13 +125,19 @@ SHARED_LITERALS = {
         r"|(^|/)core/engine/reaction_graph\.cpp$"
         r"|(^|/)tests/mindsplatter_replay_corpus\.h$"
     ),
+    "format-globs": " ".join(f"'*.{ext}'" for ext in FORMAT_EXTENSIONS),
+    "format-extensions": r"\.(" + "|".join(FORMAT_EXTENSIONS) + r")$",
 }
 
 # (pattern, literal name, occurrences required across INLINE_SCAN). The
 # pattern's single capture group is the literal as that file spells it; the
-# count fails a copy that was dropped or another one added unnoticed.
+# count fails a copy that was dropped or another one added unnoticed. The
+# pathspec pattern is anchored on the first glob so the shellcheck gate's own
+# git ls-files pathspec is not swept in.
 SHARED_LITERAL_USES = (
     (r"grep -vE '([^']*)'", "format-exclude", 3),
+    (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs", 2),
+    (r"grep -E '([^']*)'", "format-extensions", 1),
 )
 
 # (manifest, JSON path to a `>=X` range, pin name). The range is the floor the
