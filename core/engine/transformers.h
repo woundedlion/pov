@@ -65,6 +65,8 @@ public:
         false; /**< Whether this slot currently holds a live animation. */
   };
 
+  static_assert(CAPACITY > 0, "TransformerPool requires CAPACITY >= 1");
+
   static_assert(std::is_trivially_destructible_v<ParamsT>,
                 "TransformerPool placement-news CAPACITY entities into the "
                 "arena and never destroys them, so ParamsT must own no state "
