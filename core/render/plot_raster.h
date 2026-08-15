@@ -288,8 +288,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   constexpr bool INTERPOLATE_REGISTERS = Cfg.interpolate_registers;
   constexpr RasterSamplingPolicy SAMPLING_POLICY = Cfg.sampling_policy;
   if constexpr (OPEN_GEODESIC)
-    assert(!opts.close_loop && opts.planar_basis == nullptr && !opts.omit_end &&
-           opts.loop_seam == nullptr);
+    HS_CHECK(!opts.close_loop && opts.planar_basis == nullptr &&
+                 !opts.omit_end && opts.loop_seam == nullptr,
+             "open_geodesic rasterize takes no loop, planar or omit-end "
+             "options");
   // A direct-raster sink writes through a cached framebuffer base; the canvas
   // double-buffers, so a stale base is the buffer the display is scanning out.
   if constexpr (requires { source_pipeline.prepared_for(canvas); })
