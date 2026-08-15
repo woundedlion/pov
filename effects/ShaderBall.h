@@ -3530,7 +3530,6 @@ private:
     draw_endpoint(canvas, prepared);
   }
 
-#ifdef HS_PROFILE_PULLBACK_TELEMETRY
   static const char *pullback_pipeline_name(InversePipelineId pipeline) {
     switch (pipeline) {
     case InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR:
@@ -3563,6 +3562,7 @@ private:
     return "NONE";
   }
 
+#ifdef HS_PROFILE_PULLBACK_TELEMETRY
   static size_t preset_index(const Config &config) {
     for (size_t index = 0; index < PRESETS.size(); ++index)
       if (PRESETS[index] == config)

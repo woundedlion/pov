@@ -5,6 +5,7 @@
 #pragma once
 
 #include <limits>
+#include "pullback_manifest.generated.h"
 #include "tests/test_effects.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -458,6 +459,59 @@ struct ShaderBallWhiteBox {
   static size_t inverse_program_count() {
     return SB::inverse_programs().size();
   }
+  static std::array<uint8_t, 28> topology_values(const TopologyKey &key) {
+    const auto &[function, projection, projection_frame, surface_lens,
+                 signal_weight, value_transfer, coverage, peirce_layout,
+                 airocean_layout, bonne_hemisphere, gnomonic_hemisphere,
+                 surface_noise, surface_noise_placement, surface_noise_basis,
+                 surface_curl_integrator, source_noise_basis, outer_warp,
+                 outer_warp_basis, outer_warp_envelope, outer_polar_mode,
+                 outer_curl_integrator, outer_polar_harmonic, inner_warp,
+                 inner_warp_basis, inner_warp_envelope, inner_polar_mode,
+                 inner_curl_integrator, inner_polar_harmonic] = key;
+    return {{
+        static_cast<uint8_t>(function),
+        static_cast<uint8_t>(projection),
+        static_cast<uint8_t>(projection_frame),
+        static_cast<uint8_t>(surface_lens),
+        static_cast<uint8_t>(signal_weight),
+        static_cast<uint8_t>(value_transfer),
+        static_cast<uint8_t>(coverage),
+        static_cast<uint8_t>(peirce_layout),
+        static_cast<uint8_t>(airocean_layout),
+        static_cast<uint8_t>(bonne_hemisphere),
+        static_cast<uint8_t>(gnomonic_hemisphere),
+        static_cast<uint8_t>(surface_noise),
+        static_cast<uint8_t>(surface_noise_placement),
+        static_cast<uint8_t>(surface_noise_basis),
+        static_cast<uint8_t>(surface_curl_integrator),
+        static_cast<uint8_t>(source_noise_basis),
+        static_cast<uint8_t>(outer_warp),
+        static_cast<uint8_t>(outer_warp_basis),
+        static_cast<uint8_t>(outer_warp_envelope),
+        static_cast<uint8_t>(outer_polar_mode),
+        static_cast<uint8_t>(outer_curl_integrator),
+        outer_polar_harmonic,
+        static_cast<uint8_t>(inner_warp),
+        static_cast<uint8_t>(inner_warp_basis),
+        static_cast<uint8_t>(inner_warp_envelope),
+        static_cast<uint8_t>(inner_polar_mode),
+        static_cast<uint8_t>(inner_curl_integrator),
+        inner_polar_harmonic,
+    }};
+  }
+  static const TopologyKey &inverse_program_key(size_t index) {
+    return SB::inverse_programs()[index].key;
+  }
+  static InversePipelineId inverse_program_id(size_t index) {
+    return SB::inverse_programs()[index].id;
+  }
+  static const char *inverse_program_name(size_t index) {
+    return SB::pullback_pipeline_name(inverse_program_id(index));
+  }
+  static InversePipelineId preset_program_id(size_t index) {
+    return SB::resolve_pipeline_id(SB::PRESETS[index]);
+  }
   static InversePipelineId inverse_program_id(const FrameState &frame) {
     const auto *program = SB::resolve_inverse_program(frame);
     return program == nullptr ? InversePipelineId::NONE : program->id;
@@ -496,6 +550,15 @@ struct ShaderBallWhiteBox {
            Surface::ORACLE == ApproximationOracleId::PEIRCE_FAST_SQUARE &&
            Surface::NON_FLOATING_FIELDS_EXACT &&
            Color::ORACLE == ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
+  }
+  static float peirce_metric_limit(size_t index) {
+    return SB::template SelectedSurfaceProjectStage<
+               Projection::PEIRCE_QUINCUNCIAL,
+               SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>::METRICS[index]
+        .limit;
+  }
+  static float color_metric_limit(size_t index) {
+    return SB::ColorStage::METRICS[index].limit;
   }
   static Complex project_point(const Vector &v, Projection projection) {
     return SB::project_point(v, projection);
@@ -3270,6 +3333,17 @@ inline void test_shaderball_prepared_hue_noise() {
   HS_EXPECT_LE(total_error / samples, 0.013);
 }
 
+inline const PullbackManifest::OracleMetric &
+pullback_oracle_metric(std::string_view oracle, std::string_view domain,
+                       std::string_view aggregation) {
+  for (const auto &metric : PullbackManifest::ORACLE_METRICS)
+    if (metric.oracle_id == oracle && metric.domain == domain &&
+        metric.aggregation == aggregation)
+      return metric;
+  HS_CHECK(false, "pullback oracle metric is missing from generated manifest");
+  return PullbackManifest::ORACLE_METRICS[0];
+}
+
 /** @brief Prepared hue noise and rotation stay within the color-stage budget. */
 inline void test_shaderball_prepared_hue_noise_color() {
   using WB = ShaderBallWhiteBox;
@@ -3317,8 +3391,18 @@ inline void test_shaderball_prepared_hue_noise_color() {
   }
   std::printf("  [hue-noise-color] max=%u mean=%llu\n", max_channel_error,
               static_cast<unsigned long long>(total_error / channels));
-  HS_EXPECT_LE(max_channel_error, uint16_t(5400));
-  HS_EXPECT_LE(total_error / channels, uint64_t(256));
+  const auto &maximum = pullback_oracle_metric("HUE_ROTATION_AND_NOISE_LUTS",
+                                               "COLOR_CHANNEL", "MAXIMUM");
+  const auto &mean = pullback_oracle_metric("HUE_ROTATION_AND_NOISE_LUTS",
+                                            "COLOR_CHANNEL", "MEAN");
+  HS_EXPECT_TRUE(maximum.measured);
+  HS_EXPECT_TRUE(mean.measured);
+  HS_EXPECT_EQ(max_channel_error,
+               static_cast<uint16_t>(maximum.measured_baseline));
+  HS_EXPECT_EQ(total_error / channels,
+               static_cast<uint64_t>(mean.measured_baseline));
+  HS_EXPECT_EQ(WB::color_metric_limit(0), maximum.accepted_limit);
+  HS_EXPECT_EQ(WB::color_metric_limit(1), mean.accepted_limit);
 }
 
 /** @brief Fast square Peirce stays within renderer error and seam budgets. */
@@ -3354,8 +3438,17 @@ inline void test_shaderball_fast_peirce_square() {
   std::printf("  [peirce-fast-square] coord=%.9g edge=%.9g\n",
               static_cast<double>(max_coordinate_error),
               static_cast<double>(max_edge_error));
-  HS_EXPECT_LT(max_coordinate_error, 1.2e-3f);
-  HS_EXPECT_LT(max_edge_error, 2e-4f);
+  const auto &coordinate = pullback_oracle_metric(
+      "PEIRCE_FAST_SQUARE", "PROJECTED_COORDINATE", "MAXIMUM");
+  const auto &edge = pullback_oracle_metric(
+      "PEIRCE_FAST_SQUARE", "PROJECTED_EDGE_DISTANCE", "MAXIMUM");
+  HS_EXPECT_TRUE(coordinate.measured);
+  HS_EXPECT_TRUE(edge.measured);
+  HS_EXPECT_EQ(max_coordinate_error, coordinate.measured_baseline);
+  HS_EXPECT_EQ(max_edge_error, edge.measured_baseline);
+  HS_EXPECT_EQ(ShaderBallWhiteBox::peirce_metric_limit(0),
+               coordinate.accepted_limit);
+  HS_EXPECT_EQ(ShaderBallWhiteBox::peirce_metric_limit(1), edge.accepted_limit);
   HS_EXPECT_TRUE(metadata_matches);
 
   constexpr float TIE_EPSILON = 2e-6f;
@@ -3390,31 +3483,31 @@ inline void test_shaderball_inverse_pipeline_manifest() {
   WB::SB sb;
   sb.init();
 
-  struct ExpectedProgram {
-    size_t preset;
-    WB::InversePipelineId id;
-  };
-  static constexpr ExpectedProgram EXPECTED[] = {
-      {4, WB::InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR},
-      {0, WB::InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
-      {1, WB::InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR},
-      {2, WB::InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR},
-      {3, WB::InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR},
-      {5, WB::InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
-      {6, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR},
-      {7, WB::InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR},
-      {8, WB::InversePipelineId::SINUSOIDAL_CURL_LATTICE},
-      {10, WB::InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE},
-      {11, WB::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR},
-  };
-  HS_EXPECT_EQ(WB::inverse_program_count(), std::size(EXPECTED));
+  HS_EXPECT_EQ(WB::inverse_program_count(), PullbackManifest::PROGRAMS.size());
   HS_EXPECT_TRUE(WB::inverse_programs_well_formed());
-  for (const WB::RequestedConfig &preset : WB::presets())
-    HS_EXPECT_TRUE(WB::has_inverse_program(preset));
-  for (const ExpectedProgram &expected : EXPECTED) {
-    const WB::FrameState frame = WB::preset_frame(sb, expected.preset);
-    HS_EXPECT_EQ(WB::inverse_program_id(frame), expected.id);
+  uint16_t compiled_preset_mask = 0;
+  for (size_t index = 0; index < PullbackManifest::PROGRAMS.size(); ++index) {
+    const auto &expected = PullbackManifest::PROGRAMS[index];
+    HS_EXPECT_EQ(static_cast<size_t>(WB::inverse_program_id(index)), index);
+    HS_EXPECT_TRUE(expected.id == WB::inverse_program_name(index));
+    HS_EXPECT_TRUE(expected.topology_key ==
+                   WB::topology_values(WB::inverse_program_key(index)));
+    uint16_t preset_mask = 0;
+    for (size_t preset = 0; preset < WB::presets().size(); ++preset)
+      if (WB::preset_program_id(preset) == WB::inverse_program_id(index))
+        preset_mask |= static_cast<uint16_t>(1U << preset);
+    HS_EXPECT_EQ(preset_mask, expected.preset_mask);
+    compiled_preset_mask |= preset_mask;
   }
+  HS_EXPECT_EQ(compiled_preset_mask, uint16_t(0x0fff));
+  const auto &peirce_framebuffer =
+      pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
+  const auto &hue_framebuffer = pullback_oracle_metric(
+      "HUE_ROTATION_AND_NOISE_LUTS", "FRAMEBUFFER", "MAXIMUM");
+  HS_EXPECT_FALSE(peirce_framebuffer.measured);
+  HS_EXPECT_FALSE(hue_framebuffer.measured);
+  HS_EXPECT_EQ(WB::peirce_metric_limit(2), peirce_framebuffer.accepted_limit);
+  HS_EXPECT_EQ(WB::color_metric_limit(2), hue_framebuffer.accepted_limit);
 
   WB::RequestedConfig canonical = WB::presets()[1];
   const WB::TopologyKey expected_key = WB::topology_key(canonical);
