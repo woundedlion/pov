@@ -290,11 +290,11 @@ def _check_derived_component_ceiling(
     FlexRAM splits RAM1 into `total_banks` banks of `bank_bytes` between ITCM
     (code) and DTCM (variables + stack). The invariant is minimum stack headroom,
     not a static code cap: DTCM must keep ceil((variables + free_min_bytes) /
-    bank_bytes) banks, and the component may fill every remaining bank. Any
-    input the derivation needs that is absent is a hard failure, never a
-    silent pass. On success an informational note reports the measured size,
-    ceiling, remaining bytes, and distance to the next bank boundary so
-    intra-bank growth stays visible without failing anything.
+    bank_bytes) banks. An optional minimum boundary headroom ratchet is removed
+    from that bank allocation before admitting the component. Any input the
+    derivation needs that is absent is a hard failure, never a silent pass. On
+    success an informational note reports the measured size, ratcheted ceiling,
+    remaining bytes, and distance to the next bank boundary.
     """
     v = result.violations
     bank = derived["bank_bytes"]
@@ -319,13 +319,17 @@ def _check_derived_component_ceiling(
         return
     dtcm_banks = -(-(variables + floor) // bank)  # ceil
     itcm_banks = total_banks - dtcm_banks
-    ceiling = itcm_banks * bank
+    bank_ceiling = itcm_banks * bank
+    min_headroom = derived.get("min_headroom_bytes", 0)
+    ceiling = bank_ceiling - min_headroom
     if cmeasured > ceiling:
         v.append(Violation(
             "component-over-derived-ceiling",
             f"{env}: {region.upper()} component '{cname}' uses {cmeasured:,} B, "
             f"over the derived {ceiling:,} B ceiling (by "
-            f"{cmeasured - ceiling:,} B). The binding constraint is the DTCM "
+            f"{cmeasured - ceiling:,} B). The {bank_ceiling:,} B bank "
+            f"allocation reserves {min_headroom:,} B of boundary headroom. "
+            f"The binding constraint is the DTCM "
             f"stack floor: {variables:,} B of variables + the {floor:,} B floor "
             f"need {dtcm_banks} of {total_banks} FlexRAM banks, leaving "
             f"{itcm_banks} bank(s) x {bank:,} B for '{cname}'."))
@@ -335,6 +339,7 @@ def _check_derived_component_ceiling(
         f"{cmeasured:,} B of {ceiling:,} B ({itcm_banks} x {bank:,} B banks; "
         f"{dtcm_banks} DTCM banks cover {variables:,} B variables + the "
         f"{floor:,} B stack floor); remaining {ceiling - cmeasured:,} B; "
+        f"boundary headroom ratchet {min_headroom:,} B; "
         f"{to_boundary:,} B to the next bank boundary.")
 
 
@@ -532,7 +537,9 @@ class BudgetSchemaError(ValueError):
 _BUDGET_KEYS = frozenset({"regions", "symbols"})
 _REGION_KEYS = frozenset({"max_bytes", "free_min_bytes", "components"})
 _COMPONENT_KEYS = frozenset({"max_bytes", "max_banks_from_stack_floor"})
-_DERIVED_KEYS = frozenset({"bank_bytes", "total_banks"})
+_DERIVED_KEYS = frozenset(
+    {"bank_bytes", "total_banks", "min_headroom_bytes"})
+_DERIVED_REQUIRED_KEYS = frozenset({"bank_bytes", "total_banks"})
 _SYMBOL_KEYS = frozenset({"name", "region", "min_bytes", "max_bytes"})
 
 # Region objects and layout symbols every target budget must declare. Both
@@ -614,7 +621,15 @@ def validate_budgets(budgets: object) -> dict:
                 if derived is not None:
                     _check_keys(derived, _DERIVED_KEYS,
                                 f"{cwhere} max_banks_from_stack_floor",
-                                required=_DERIVED_KEYS)
+                                required=_DERIVED_REQUIRED_KEYS)
+                    min_headroom = derived.get("min_headroom_bytes", 0)
+                    if (not isinstance(min_headroom, int) or
+                            isinstance(min_headroom, bool) or
+                            min_headroom < 0):
+                        raise BudgetSchemaError(
+                            f"{cwhere} max_banks_from_stack_floor: "
+                            f"'min_headroom_bytes' must be a non-negative "
+                            f"integer.")
         syms = _child_map(budget, "symbols", f"env '{env}'")
         _require_present(
             syms,
