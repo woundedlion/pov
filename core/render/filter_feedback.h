@@ -456,7 +456,9 @@ private:
         }
         // The last ring lands on the band's last row; short of it the weights
         // below extrapolate off a stale control pair.
-        HS_CHECK(y <= control_y1);
+        HS_CHECK(y <= control_y1,
+                 "feedback warp row %d past last control row %d", y,
+                 control_y1);
         // Interpolating outside the populated band silently corrupts pixels.
         HS_CHECK(field_y0 >= band.field_y_begin && field_y1 <= band.field_y_end,
                  "feedback warp row %d outside populated band [%d,%d]",
