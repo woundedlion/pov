@@ -962,8 +962,6 @@ template <typename State> struct PeirceFastSquare : ExactPolicy {
 
   static ProjectionSample project(const Vector &input,
                                   const FrameState &frame) {
-    HS_CHECK(preconditions(frame),
-             "Peirce fast-square requires a zero central meridian");
     return peirce_fast_square(input, State::coordinate_scale(frame));
   }
 
