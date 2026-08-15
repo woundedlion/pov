@@ -7,6 +7,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 
@@ -36,10 +37,15 @@ def _require(condition: bool, message: str) -> None:
         raise ManifestError(message)
 
 
+def _reject_json_constant(token: str):
+    raise ValueError(f"non-JSON numeric constant {token}")
+
+
 def _load(path: Path) -> dict:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        value = json.loads(path.read_text(encoding="utf-8"),
+                           parse_constant=_reject_json_constant)
+    except (OSError, ValueError) as error:
         raise ManifestError(f"{path}: {error}") from error
     _require(isinstance(value, dict), f"{path}: root must be an object")
     return value
@@ -55,12 +61,22 @@ def _schema_type_matches(value, expected: str) -> bool:
     if expected == "integer":
         return isinstance(value, int) and not isinstance(value, bool)
     if expected == "number":
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
+        return (isinstance(value, (int, float)) and
+                not isinstance(value, bool) and math.isfinite(value))
     if expected == "boolean":
         return isinstance(value, bool)
     if expected == "null":
         return value is None
     raise ManifestError(f"schema uses unsupported type {expected}")
+
+
+def _json_equal(first, second) -> bool:
+    return type(first) is type(second) and first == second
+
+
+def _is_number(value) -> bool:
+    return (isinstance(value, (int, float)) and not isinstance(value, bool) and
+            math.isfinite(value))
 
 
 def _resolve_ref(root: dict, reference: str) -> dict:
@@ -91,10 +107,10 @@ def _validate_schema(value, schema: dict, root: dict, location: str) -> None:
                  f"matched {matches}: {'; '.join(errors)}")
         return
     if "const" in schema:
-        _require(value == schema["const"],
+        _require(_json_equal(value, schema["const"]),
                  f"{location}: expected {schema['const']!r}")
     if "enum" in schema:
-        _require(value in schema["enum"],
+        _require(any(_json_equal(value, allowed) for allowed in schema["enum"]),
                  f"{location}: value is outside the allowed enum")
     expected_types = schema.get("type")
     if expected_types is not None:
@@ -109,7 +125,7 @@ def _validate_schema(value, schema: dict, root: dict, location: str) -> None:
         if "pattern" in schema:
             _require(re.fullmatch(schema["pattern"], value) is not None,
                      f"{location}: string does not match {schema['pattern']}")
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
+    if _is_number(value):
         _require(value >= schema.get("minimum", value),
                  f"{location}: value is below minimum")
         _require(value <= schema.get("maximum", value),
@@ -148,7 +164,8 @@ def _validate_schema(value, schema: dict, root: dict, location: str) -> None:
 
 
 def _validate_common(document: dict, path: Path) -> None:
-    _require(document.get("schema_version") == 1,
+    _require(type(document.get("schema_version")) is int and
+             document["schema_version"] == 1,
              f"{path}: schema_version must be 1")
     _require(SHA_RE.fullmatch(document.get("base_sha", "")) is not None,
              f"{path}: base_sha must be a full lowercase Git SHA")
@@ -169,7 +186,8 @@ def _validate_programs(document: dict, path: Path) -> None:
     _require(isinstance(corpus, dict), f"{path}: corpus must be an object")
     _require(corpus.get("generator") == "shaderball-pullback-corpus",
              f"{path}: unknown corpus generator")
-    _require(corpus.get("version") == 1, f"{path}: corpus.version must be 1")
+    _require(type(corpus.get("version")) is int and corpus["version"] == 1,
+             f"{path}: corpus.version must be 1")
     _require(corpus.get("resolutions") == [[96, 20], [288, 144]],
              f"{path}: both roster resolutions are required")
     programs = document.get("programs")
@@ -184,7 +202,7 @@ def _validate_programs(document: dict, path: Path) -> None:
         presets = program.get("presets")
         _require(isinstance(presets, list) and presets,
                  f"{path}: {program_id}.presets must be non-empty")
-        _require(all(isinstance(index, int) and 0 <= index < 12
+        _require(all(type(index) is int and 0 <= index < 12
                      for index in presets),
                  f"{path}: {program_id}.presets contains an invalid index")
         covered_presets.extend(presets)
@@ -213,9 +231,11 @@ def _validate_programs(document: dict, path: Path) -> None:
         framebuffer = tolerances.get("release_wasm_framebuffer")
         _require(isinstance(framebuffer, dict),
                  f"{path}: {program_id} release WASM tolerance is required")
-        _require(0 <= framebuffer.get("max_channel_delta_u16", -1) <= 4,
+        delta = framebuffer.get("max_channel_delta_u16")
+        fraction = framebuffer.get("max_differing_pixel_fraction")
+        _require(type(delta) is int and 0 <= delta <= 4,
                  f"{path}: {program_id} exceeds the channel-delta license")
-        _require(0 <= framebuffer.get("max_differing_pixel_fraction", -1) <= 0.001,
+        _require(_is_number(fraction) and 0 <= fraction <= 0.001,
                  f"{path}: {program_id} exceeds the differing-pixel license")
     _require(sorted(covered_presets) == list(range(12)),
              f"{path}: presets must be covered exactly once")
@@ -231,7 +251,8 @@ def _validate_oracle(document: dict, path: Path) -> None:
     _require(document.get("non_floating_fields_exact") is True,
              f"{path}: non-floating fields must be exact")
     corpus = document.get("corpus")
-    _require(isinstance(corpus, dict) and corpus.get("version") == 1,
+    _require(isinstance(corpus, dict) and
+             type(corpus.get("version")) is int and corpus["version"] == 1,
              f"{path}: a versioned deterministic corpus is required")
     _require(corpus.get("deterministic") is True,
              f"{path}: oracle corpus must be deterministic")
@@ -248,12 +269,12 @@ def _validate_oracle(document: dict, path: Path) -> None:
             _require(metric.get("domain") == "FRAMEBUFFER" and
                      metric.get("measurement_status") == "requires capture",
                      f"{path}: only uncaptured framebuffer metrics may be pending")
-            _require(isinstance(accepted, (int, float)) and accepted >= 0,
+            _require(_is_number(accepted) and accepted >= 0,
                      f"{path}: pending metric accepted_limit must be nonnegative")
         else:
-            _require(isinstance(measured, (int, float)) and measured >= 0,
+            _require(_is_number(measured) and measured >= 0,
                      f"{path}: measured_baseline must be nonnegative")
-            _require(isinstance(accepted, (int, float)) and accepted >= measured,
+            _require(_is_number(accepted) and accepted >= measured,
                      f"{path}: accepted_limit must cover measured_baseline")
         _require(bool(metric.get("unit")) and bool(metric.get("limit_provenance")),
                  f"{path}: metric unit and limit provenance are required")
