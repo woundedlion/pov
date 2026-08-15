@@ -424,6 +424,33 @@ inline void test_generative_palette_snapshot_lerp() {
 }
 
 /**
+ * @brief Pins the key-morph hue path against a chain that accumulates past half
+ *        a turn.
+ * @details Three keys whose adjacent hue deltas each stay under half a turn
+ * clear morph_compatible, yet the second key's travel relative to the anchor
+ * sums to 1.6 turns of a half — folding that whole difference into (-pi, pi]
+ * would sweep the key backwards through the arc the per-segment bound admits.
+ */
+inline void test_generative_palette_lerp_accumulates_segment_deltas() {
+  PaletteRecipe recipe;
+  recipe.hue.mode = HueMode::CUSTOM;
+  const GenerativePalette from(recipe);
+  recipe.hue.custom_turns[1] = 0.4f;
+  recipe.hue.custom_turns[2] = 0.8f;
+  const GenerativePalette to(recipe);
+  HS_EXPECT_TRUE(from.morph_compatible(to));
+  HS_EXPECT_EQ(from.palette_key_count(), (uint8_t)3);
+
+  GenerativePalette morph;
+  morph.lerp(from, to, 0.5f);
+  for (int i = 0; i < 3; ++i) {
+    const float start = from.resolved_oklch_key(i).h;
+    const float travel = to.resolved_oklch_key(i).h - start;
+    HS_EXPECT_NEAR(morph.resolved_oklch_key(i).h, start + 0.5f * travel, 1e-3f);
+  }
+}
+
+/**
  * @brief Pins the snapshot encode against dropping a key's hue.
  * @details The snapshot chroma quantum (1/4095) is coarser than either
  * is_chromatic() threshold, so a chroma under half a quantum would round to
