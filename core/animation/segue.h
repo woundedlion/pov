@@ -219,15 +219,36 @@ concept Schedulable =
       } -> std::same_as<int>;
     };
 
-/** @brief Whether a policy keeps Base's global-phase hook signatures. Every
+namespace detail {
+
+/** @brief The function type of a const pointer-to-member, dropping the class
+ * the hook was found on so an inherited and a shadowing declaration of the same
+ * signature compare equal. */
+template <typename M> struct HookSignature {};
+template <typename C, typename R, typename... A>
+struct HookSignature<R (C::*)(A...) const> {
+  using type = R(A...);
+};
+
+} // namespace detail
+
+/** @brief Whether a policy keeps Base's always-present hook signatures. Every
  * policy inherits them, so this fails only on one that shadows a hook at a
- * drifted signature — a float `visible` converts silently to true, and a
- * `face_fade_frac` of another arity hides Base's without replacing it. */
+ * drifted signature — a float `visible` converts silently to true, a
+ * `face_fade_frac` of another arity hides Base's without replacing it, and a
+ * `fill` taking its edge distance by value drops the palette-gradient
+ * renormalisation at a call site that still compiles. */
 template <typename S>
 concept HasPhaseHooks = requires(const S &s) {
   { s.visible(0.5f) } -> std::same_as<bool>;
   { s.opacity(0.5f) } -> std::same_as<float>;
   { s.face_fade_frac(0) } -> std::same_as<float>;
+  requires std::same_as<
+      typename detail::HookSignature<decltype(&S::fill)>::type,
+      float(float &, float)>;
+  requires std::same_as<
+      typename detail::HookSignature<decltype(&S::grade)>::type,
+      Color4(Color4, float)>;
 };
 
 /** @brief Whether a policy defines the per-face ordering hook, with or without

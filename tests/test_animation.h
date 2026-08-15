@@ -2357,6 +2357,18 @@ struct DriftedVisibleSegue : Segue::Base {
   float visible(float phase) const { return phase; }
 };
 
+/** @brief A policy taking fill()'s edge distance by value: the call site still
+ * compiles and the remap it writes is discarded. */
+struct DriftedFillSegue : Segue::Base {
+  float fill(float t, float) const { return t; }
+};
+
+/** @brief A policy grading through a Color4 reference: the call site still
+ * compiles and every fragment lands on the last graded color. */
+struct DriftedGradeSegue : Segue::Base {
+  Color4 grade(Color4 &c, float) const { return c; }
+};
+
 /**
  * @brief Pins every per-face segue against that call pattern, so a policy
  * carrying face_offset alone trips this static_assert instead of only breaking
@@ -2417,6 +2429,8 @@ inline void test_per_face_segues_satisfy_draw_contract() {
                 !Segue::Masked<DriftedMaskPairSegue>);
   static_assert(Segue::AllPolicies::CONFORMING);
   static_assert(!Segue::HasPhaseHooks<DriftedVisibleSegue>);
+  static_assert(!Segue::HasPhaseHooks<DriftedFillSegue>);
+  static_assert(!Segue::HasPhaseHooks<DriftedGradeSegue>);
 
   HS_EXPECT_NEAR(Segue::Base().face_fade_frac(3), 1.0f, 1e-6f);
 }
