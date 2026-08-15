@@ -95,6 +95,40 @@ class ManifestValidation(unittest.TestCase):
                                     "unexpected field unlicensed"):
             generator._validate_schema(broken, schema, schema, "programs")
 
+    def test_schema_const_rejects_boolean_versions(self):
+        programs, _ = generator.load_and_validate(MANIFEST_DIR)
+        schema = generator._load(MANIFEST_DIR / "schema.json")
+        for field_path in (("schema_version",), ("corpus", "version")):
+            broken = copy.deepcopy(programs)
+            target = broken
+            for field in field_path[:-1]:
+                target = target[field]
+            target[field_path[-1]] = True
+            with self.subTest(field=".".join(field_path)):
+                with self.assertRaises(generator.ManifestError):
+                    generator._validate_schema(
+                        broken, schema, schema, "programs")
+                with self.assertRaises(generator.ManifestError):
+                    generator._validate_programs(
+                        broken, MANIFEST_DIR / "programs.json")
+        for keyword in ("const", "enum"):
+            rule = {keyword: 1 if keyword == "const" else [1]}
+            with self.subTest(keyword=keyword):
+                with self.assertRaises(generator.ManifestError):
+                    generator._validate_schema(
+                        True, rule, {"$defs": {}}, "numeric")
+
+    def test_non_json_numeric_constants_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "invalid.json"
+            for token in ("Infinity", "NaN"):
+                with self.subTest(token=token):
+                    path.write_text(f'{{"value": {token}}}', encoding="utf-8")
+                    with self.assertRaisesRegex(
+                            generator.ManifestError,
+                            f"non-JSON numeric constant {token}"):
+                        generator._load(path)
+
 
 class CaptureComparison(unittest.TestCase):
     def test_toolchain_mismatch_is_refused(self):
