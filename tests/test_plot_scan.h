@@ -4532,12 +4532,14 @@ inline Plot::PlanarEdgeSampler planar_sampler(const Vector &a, const Vector &b,
 }
 
 /**
- * @brief one_pass's analytic tangent agrees with operator()'s forward
- *        difference, at the same position.
- * @details The two are independent derivations of the same quantity and only
- *          the analytic one runs in production (SinglePass). A sign flip or an
- *          off-by-one in projection_fraction would show here and nowhere else:
- *          the whole-effect framebuffer compare is far too loose to see it.
+ * @brief one_pass's analytic tangent agrees with a forward difference of pos(),
+ *        at the same position.
+ * @details The oracle is derived here rather than taken from the sampler: pos()
+ *          unprojects through azimuthal_unproject where sample_at inlines its
+ *          own, so the two stay independent derivations of the same quantity. A
+ *          sign flip or an off-by-one in projection_fraction would show here
+ *          and nowhere else: the whole-effect framebuffer compare is far too
+ *          loose to see it.
  */
 inline void test_planar_one_pass_matches_forward_difference() {
   hs::random().seed(0x51F1);
@@ -4560,12 +4562,18 @@ inline void test_planar_one_pass_matches_forward_difference() {
     for (int k = 0; k <= 8; ++k) {
       const float t = static_cast<float>(k) / 8.0f;
       Plot::SamplePT one = s.one_pass(t);
-      Plot::SamplePT fd = s(t);
+      // Short enough to track the arc, long enough to clear float cancellation.
+      constexpr float DT = 1.0f / 256.0f;
+      const bool fwd = (t + DT <= 1.0f);
+      const Vector fd_pos = s.pos(t);
+      const Vector step = s.pos(fwd ? t + DT : t - DT);
+      const Vector fd_tan =
+          (fwd ? (step - fd_pos) : (fd_pos - step)).normalized();
       worst_len = std::max(worst_len, std::abs(one.pos.length() - 1.0f));
-      worst_pos = std::max(worst_pos, angle_between(one.pos, fd.pos));
+      worst_pos = std::max(worst_pos, angle_between(one.pos, fd_pos));
       worst_tan_len =
           std::max(worst_tan_len, std::abs(one.tan.length() - 1.0f));
-      worst_tan_dot = std::min(worst_tan_dot, dot(one.tan, fd.tan));
+      worst_tan_dot = std::min(worst_tan_dot, dot(one.tan, fd_tan));
       ++checked;
     }
   }
