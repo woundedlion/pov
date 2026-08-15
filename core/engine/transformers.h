@@ -13,6 +13,7 @@
  */
 
 #include "math/3dmath.h"
+#include "math/stereographic.h"
 #include "engine/concepts.h"
 #include "engine/memory.h"
 #include <new>

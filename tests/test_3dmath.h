@@ -15,6 +15,7 @@
 #pragma once
 
 #include "core/math/3dmath.h"
+#include "core/math/stereographic.h"
 #include "core/math/rotate.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
