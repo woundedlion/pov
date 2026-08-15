@@ -78,6 +78,7 @@ def _frame_map(capture: dict) -> dict[tuple, tuple[dict, str]]:
             "case",
             "resolution",
             "probe",
+            "operation",
             "sha256",
             "pixels",
         }:
@@ -124,6 +125,113 @@ def _expected_frame_keys(programs: dict) -> set[tuple]:
     return expected
 
 
+def _selected_pixel(mapping: str, x: int, y: int, width: int, height: int) -> bool:
+    if mapping == "COLUMN_ZERO":
+        return x == 0
+    if mapping == "WRAP_COLUMNS":
+        return x in (0, width - 1)
+    if mapping == "NORTH_ROW":
+        return y == 0
+    if mapping == "SOUTH_ROW":
+        return y == height - 1
+    if mapping == "POLE_BANDS":
+        return y < 2 or y >= height - 2
+    if mapping == "HORIZON_COLUMNS":
+        return x in (width // 4, 3 * width // 4)
+    if mapping == "OCTANT_COLUMNS":
+        return x in (width // 8, 3 * width // 8, 5 * width // 8, 7 * width // 8)
+    if mapping == "MIRROR_GRID":
+        return x % (width // 8) == 0 or y in (
+            height // 4,
+            height // 2,
+            3 * height // 4,
+        )
+    if mapping == "CARDINAL_POINTS":
+        return y == height // 2 and x % (width // 4) == 0
+    if mapping == "FRAME_PERIMETER":
+        return x in (0, width - 1) or y in (0, height - 1)
+    if mapping == "EQUATOR_ROW":
+        return y == height // 2
+    if mapping == "FRONT_AXIS_POINT":
+        return x == 0 and y == height // 2
+    raise CrosscheckError(f"unknown spatial probe mapping {mapping}")
+
+
+def _validate_frame_operations(frames: dict, programs: dict) -> None:
+    mappings = programs["corpus"]["probe_operations"]
+    spatial_hashes = set()
+    for key, (frame, digest) in frames.items():
+        _, preset, _, resolution, probe = key
+        operation = frame["operation"]
+        if not isinstance(operation, dict):
+            raise CrosscheckError(f"frame operation must be an object: {key}")
+        pixels = frame["pixels"]
+        total = resolution[0] * resolution[1]
+        if probe == "steady":
+            if operation != {"kind": "parameter-case", "selected_pixels": total}:
+                raise CrosscheckError(f"parameter-case operation mismatch: {key}")
+            continue
+        mapping = mappings[probe]
+        if mapping in ("THROUGH_CLEAR_FROM", "THROUGH_CLEAR_TO"):
+            endpoint = "from" if mapping.endswith("FROM") else "to"
+            expected = {
+                "kind": "through-clear",
+                "endpoint": endpoint,
+                "source_preset": preset if endpoint == "from" else (preset + 11) % 12,
+                "destination_preset": (preset + 1) % 12
+                if endpoint == "from"
+                else preset,
+                "elapsed": 0 if endpoint == "from" else 60,
+                "duration": 60,
+                "selected_pixels": total,
+            }
+            if operation != expected:
+                raise CrosscheckError(f"transition endpoint operation mismatch: {key}")
+            steady_key = (key[0], preset, "default", resolution, "steady")
+            if digest != frames[steady_key][1]:
+                raise CrosscheckError(
+                    f"transition endpoint is not the steady endpoint: {key}"
+                )
+            continue
+        selected = 0
+        for index, pixel in enumerate(pixels):
+            x = index % resolution[0]
+            y = index // resolution[0]
+            if _selected_pixel(mapping, x, y, *resolution):
+                selected += 1
+            elif any(pixel[:3]):
+                raise CrosscheckError(
+                    f"spatial probe contains pixels outside mapping: {key}"
+                )
+        expected = {
+            "kind": "spatial-extract",
+            "mapping": mapping,
+            "selected_pixels": selected,
+        }
+        if operation != expected or not 0 < selected < total:
+            raise CrosscheckError(f"spatial probe operation mismatch: {key}")
+        spatial_hashes.add(digest)
+    if len(spatial_hashes) < 2:
+        raise CrosscheckError("spatial probe frames are aliases")
+
+
+def _expected_toolchain(programs: dict, configuration: str) -> dict:
+    if configuration == "native-debug":
+        pin = programs["toolchains"]["native"]
+        keys = ("compiler", "cmake", "cmake_preset", "configuration")
+        return {key: pin[key] for key in keys}
+    pin = programs["toolchains"]["wasm"]
+    if configuration == "wasm-strict-fp":
+        return {
+            "compiler": pin["compiler"],
+            "cmake": pin["cmake"],
+            "cmake_preset": pin["strict_cmake_preset"],
+            "configuration": pin["strict_configuration"],
+        }
+    keys = ("compiler", "cmake", "cmake_preset", "configuration")
+    return {key: pin[key] for key in keys}
+
+
 def _compare_pixels(base: list, candidate: list) -> tuple[int, int, int]:
     if len(base) != len(candidate):
         raise CrosscheckError("frame pixel counts differ")
@@ -145,7 +253,7 @@ def _validate_capture(
         "schema_version",
         "checkout_sha",
         "manifest_sha256",
-        "toolchains",
+        "toolchain",
         "configuration",
         "corpus",
         "frames",
@@ -158,8 +266,8 @@ def _validate_capture(
         raise CrosscheckError("capture checkout SHA mismatch")
     if capture["manifest_sha256"] != digest:
         raise CrosscheckError("capture manifest hash mismatch")
-    if capture["toolchains"] != programs["toolchains"]:
-        raise CrosscheckError("capture toolchains differ from manifest pins")
+    if capture["toolchain"] != _expected_toolchain(programs, configuration):
+        raise CrosscheckError("observed capture toolchain differs from manifest pin")
     if capture["configuration"] != configuration:
         raise CrosscheckError("capture configuration mismatch")
     if capture["corpus"] != programs["corpus"]:
@@ -167,6 +275,7 @@ def _validate_capture(
     frames = _frame_map(capture)
     if frames.keys() != _expected_frame_keys(programs):
         raise CrosscheckError("capture does not cover every manifest case and probe")
+    _validate_frame_operations(frames, programs)
     return frames
 
 
@@ -261,30 +370,19 @@ def validate_build_isolation(
 def _build_capture_backend(
     controller: Path, source: Path, build: Path, configuration: str, environment: dict
 ) -> None:
-    build_type = {
-        "native-debug": "Debug",
-        "wasm-release": "Release",
-        "wasm-strict-fp": "PullbackStrictFP",
+    preset = {
+        "native-debug": "tests",
+        "wasm-release": "wasm-release",
+        "wasm-strict-fp": "wasm-strict-fp",
     }[configuration]
-    if configuration == "native-debug":
-        toolchain = controller / "cmake/toolchain-native-clang.cmake"
-    else:
-        emsdk = environment.get("EMSDK")
-        if not emsdk:
-            raise CrosscheckError("EMSDK is required for WASM capture builds")
-        toolchain = (
-            Path(emsdk) / "upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
-        )
+    if configuration != "native-debug" and not environment.get("EMSDK"):
+        raise CrosscheckError("EMSDK is required for WASM capture builds")
     command = [
         "cmake",
-        "-S",
-        str(controller),
+        "--preset",
+        preset,
         "-B",
         str(build),
-        "-G",
-        "Ninja",
-        f"-DCMAKE_BUILD_TYPE={build_type}",
-        f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
         f"-DHS_PULLBACK_CAPTURE_SOURCE_ROOT={source}",
         "-DHS_INSTALL_GIT_HOOKS=OFF",
         "-DCMAKE_CXX_COMPILER_LAUNCHER=",
@@ -293,7 +391,7 @@ def _build_capture_backend(
     target = (
         "pullback_capture_native"
         if configuration == "native-debug"
-        else "holosphere_wasm"
+        else "pullback_capture_wasm"
     )
     _run(["cmake", "--build", str(build), "--target", target], controller, environment)
 
@@ -317,8 +415,6 @@ def _produce_capture(
             str(source),
             "--build-dir",
             str(build),
-            "--producer-root",
-            str(controller),
             "--manifest-dir",
             str(manifest_dir),
             "--output",
@@ -459,6 +555,12 @@ def orchestrate(
                     "candidate_sha": candidate_sha,
                     "manifest_sha256": digest,
                     "toolchains": programs["toolchains"],
+                    "observed_toolchains": {
+                        configuration: captures[("base", configuration)]["toolchain"]
+                        for configuration in sorted(
+                            {configuration for _, configuration in capture_paths}
+                        )
+                    },
                     "configurations": sorted(
                         {configuration for _, configuration in capture_paths}
                     ),

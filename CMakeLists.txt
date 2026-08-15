@@ -8,6 +8,8 @@ project(Holosphere CXX)
 
 set(HS_PULLBACK_CAPTURE_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH
     "Checkout whose sources a pullback capture build compiles")
+set(HS_PULLBACK_CAPTURE_PRESET "" CACHE STRING
+    "CMake preset attested by pullback capture provenance")
 
 # Two build modes share this file, selected by the toolchain:
 #   * Emscripten toolchain  -> WASM simulator module (daydream)   [EMSCRIPTEN]
@@ -128,6 +130,43 @@ if(EMSCRIPTEN)
 
   # Emscripten emits a .js loader as the "executable".
   set_target_properties(${TARGET_NAME} PROPERTIES SUFFIX ".js")
+
+  add_executable(pullback_capture_wasm
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/pullback_capture_native.cpp
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/reaction_graph.cpp)
+  target_include_directories(pullback_capture_wasm PRIVATE
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
+  target_compile_definitions(pullback_capture_wasm PRIVATE
+    HS_TIMELINE_MAX_ANIM_BYTES=256
+    HS_GLOBAL_ARENA_BYTES=8388608
+    HS_ENABLE_EFFECT_REGISTRY=1
+    HS_ENABLE_PARAM_GUI_BRIDGE=1
+    HS_ENABLE_TEST_HOOKS=1
+    HS_ENABLE_TEST_ORACLES=1
+    HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=1
+    HS_ENABLE_EFFECT_CONTROL_API=1)
+  target_compile_options(pullback_capture_wasm PRIVATE "-Wall" "-Wextra")
+  target_link_options(pullback_capture_wasm PRIVATE
+    "-sALLOW_MEMORY_GROWTH=1"
+    "-sENVIRONMENT=node"
+    "-sNODERAWFS=1")
+  if(CMAKE_BUILD_TYPE STREQUAL "PullbackStrictFP")
+    target_compile_options(pullback_capture_wasm PRIVATE "-O3"
+      "-fno-fast-math" "-ffp-contract=off" "-msimd128")
+    target_link_options(pullback_capture_wasm PRIVATE "-O3"
+      "-fno-fast-math" "-ffp-contract=off" "-msimd128"
+      "-sSTACK_SIZE=65536")
+  else()
+    target_compile_options(pullback_capture_wasm PRIVATE "-O3"
+      "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto")
+    target_link_options(pullback_capture_wasm PRIVATE "-O3"
+      "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto"
+      "-sSTACK_SIZE=65536")
+  endif()
+  set_target_properties(pullback_capture_wasm PROPERTIES SUFFIX ".cjs")
 
   # Install the simulator module + a self-contained README into the daydream
   # checkout. Defaults to the sibling-checkout layout (../daydream); override

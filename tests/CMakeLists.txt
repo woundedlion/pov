@@ -394,6 +394,9 @@ add_test(NAME unit_pullback_capture_determinism
   COMMAND ${CMAKE_COMMAND}
     -DPRODUCER=$<TARGET_FILE:pullback_capture_native>
     -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+    -DPYTHON=${HS_PYTHON}
+    -DCAPTURE_SCRIPT=${HS_ROOT}/tools/pullback_capture.py
+    -DMANIFEST_DIR=${PULLBACK_MANIFEST_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pullback_capture.cmake)
 
 # Pin core/color/color_luts.h against its generator.

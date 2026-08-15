@@ -4,8 +4,8 @@
   "oracle_id": "HUE_ROTATION_AND_NOISE_LUTS",
   "base_sha": "77dc34b9b812364ffb9c200140440fad6fd3cb70",
   "toolchains": {
-    "native": { "compiler": "clang 22", "cmake": "4.2.3", "cmake_preset": "tests", "configuration": "Debug" },
-    "wasm": { "compiler": "emsdk 5.0.0 clang", "cmake": "4.2.3", "cmake_preset": "wasm-release", "configuration": "Release" },
+    "native": { "compiler": "clang 23.0.0", "cmake": "4.2.3", "cmake_preset": "tests", "configuration": "Debug" },
+    "wasm": { "compiler": "emscripten 5.0.0 clang 23.0.0", "cmake": "4.2.3", "cmake_preset": "wasm-release", "configuration": "Release", "strict_cmake_preset": "wasm-strict-fp", "strict_configuration": "PullbackStrictFP" },
     "teensy": { "compiler": "PJRC arm-none-eabi-gcc 15.2.1", "platformio": "6.1.19", "platform": "teensy@5.2.0", "cpu_hz": 600000000 }
   },
   "exact_callable": "ShaderBallWhiteBox::direct_hue_noise_color",

@@ -25,12 +25,14 @@
         },
         "wasm": {
           "type": "object", "additionalProperties": false,
-          "required": ["compiler", "cmake", "cmake_preset", "configuration"],
+          "required": ["compiler", "cmake", "cmake_preset", "configuration", "strict_cmake_preset", "strict_configuration"],
           "properties": {
             "compiler": { "type": "string", "minLength": 1 },
             "cmake": { "type": "string", "minLength": 1 },
             "cmake_preset": { "type": "string", "minLength": 1 },
-            "configuration": { "type": "string", "minLength": 1 }
+            "configuration": { "type": "string", "minLength": 1 },
+            "strict_cmake_preset": { "type": "string", "minLength": 1 },
+            "strict_configuration": { "type": "string", "minLength": 1 }
           }
         },
         "teensy": {
@@ -143,12 +145,19 @@
         "toolchains": { "$ref": "#/$defs/toolchains" },
         "corpus": {
           "type": "object", "additionalProperties": false,
-          "required": ["generator", "version", "resolutions", "configurations", "sample_count", "seed"],
+          "required": ["generator", "version", "resolutions", "configurations", "sample_count", "seed", "probe_operations"],
           "properties": {
             "generator": { "const": "shaderball-pullback-corpus" }, "version": { "const": 1 },
             "resolutions": { "const": [[96, 20], [288, 144]] },
             "configurations": { "const": ["native-debug", "wasm-release", "wasm-strict-fp"] },
-            "sample_count": { "type": "integer", "minimum": 1 }, "seed": { "type": "integer", "minimum": 0 }
+            "sample_count": { "type": "integer", "minimum": 1 }, "seed": { "type": "integer", "minimum": 0 },
+            "probe_operations": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "enum": ["COLUMN_ZERO", "WRAP_COLUMNS", "NORTH_ROW", "SOUTH_ROW", "POLE_BANDS", "HORIZON_COLUMNS", "OCTANT_COLUMNS", "MIRROR_GRID", "CARDINAL_POINTS", "FRAME_PERIMETER", "EQUATOR_ROW", "FRONT_AXIS_POINT", "THROUGH_CLEAR_FROM", "THROUGH_CLEAR_TO"]
+              }
+            }
           }
         },
         "measurement_status": {
