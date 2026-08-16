@@ -577,10 +577,8 @@ private:
   HS_COLD_MEMBER void begin_automatic_transition() {
     if (anims_paused || transition.active)
       return;
-    if (preset_dwell_remaining > 0) {
-      --preset_dwell_remaining;
+    if (preset_dwell_remaining > 0 && --preset_dwell_remaining > 0)
       return;
-    }
     HS_CHECK(advancePreset());
 #ifdef HS_PROFILE_ENABLE
     hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex() + 1),
