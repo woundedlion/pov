@@ -32,17 +32,59 @@ template <int W, int H> class CurlLattice : public Effect {
 public:
   static constexpr std::string_view EFFECT_ID = "curl-lattice";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "54468343cd539059ed564bb192969114e01b54bd17fec194653b300a6f674f92";
+      "47f561f2a239e05843085b4dbe937aa7f1945cb8d3f0188fe48416a85137190b";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "3f15f1ba74f7d58d9933d05daa3ddcb0dcef93f5d85d53afdbafbcc7497bef51";
+      "069c5fab75ec681d086e9bcce78155c025ad3e4ba2399a9b6920888219f00e82";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
                                                               "dense-curl"};
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
   static constexpr uint16_t TRANSITION_DURATION = 480;
+
+  struct LatticeParams {
+    float lattice_cell_scale = 0.710265636f;
+    float lattice_shape_blend = 1.0f;
+    float lattice_softness = 0.455532223f;
+    float lattice_radius = 0.290762514f;
+  };
+
+  struct ProjectionParams {
+    float pole_fade = 20.0f;
+    float central_meridian = 0.0f;
+    float spin_speed = 0.0f;
+    float wander = 1.0f;
+    float camera_wander = 1.0f;
+  };
+
+  struct SurfaceNoiseParams {
+    float scale = 1.78815627f;
+    float strength = 0.0759999976f;
+    float speed = 0.0f;
+  };
+
+  struct ColorParams {
+    float palette_chroma = 1.0f;
+    float mapping_frequency = 1.0f;
+    float mapping_phase = -0.165999994f;
+    float phase_oscillation_depth = 0.0f;
+    float phase_oscillation_speed = 0.0f;
+    float brightness_depth = 1.0f;
+    float opacity_low = 1.0f;
+    float opacity_high = 1.0f;
+    float hue_shift_amount = 0.268000007f;
+    float hue_noise_scale = 2.0f;
+    float hue_noise_speed = 0.0f;
+  };
+
+  struct Params {
+    LatticeParams lattice;
+    ProjectionParams projection;
+    SurfaceNoiseParams surface_noise;
+    ColorParams color;
+  };
 
   struct ParameterSnapshot {
     uint32_t schema_version;
-    float surface_noise_scale;
+    Params params;
   };
 
   HS_COLD_MEMBER CurlLattice() : Effect(W, H, {.strobe = true}) {}
@@ -64,8 +106,59 @@ public:
     timeline.add(
         0, Animation::RandomWalk<W>(outer_walk, UP, state->outer_walk_noise));
 
-    register_animated_param("Surface Noise Scale", &params.surface_noise_scale,
+    register_animated_param("Lattice Cell Scale",
+                            &params.lattice.lattice_cell_scale, CELL_MIN,
+                            CELL_MAX);
+    register_animated_param("Lattice Shape",
+                            &params.lattice.lattice_shape_blend, 0.0f, 1.0f);
+    register_animated_param("Lattice Softness",
+                            &params.lattice.lattice_softness, SOFTNESS_MIN,
+                            1.0f);
+    register_animated_param("Lattice Radius", &params.lattice.lattice_radius,
+                            RADIUS_MIN, RADIUS_MAX);
+    register_animated_param("Pole Fade", &params.projection.pole_fade,
+                            POLE_FADE_MIN, POLE_FADE_MAX);
+    register_animated_param("Central Meridian",
+                            &params.projection.central_meridian, 0.0f,
+                            TWO_PI_F);
+    register_animated_param("Projection Spin Speed",
+                            &params.projection.spin_speed, SPIN_SPEED_MIN,
+                            SPIN_SPEED_MAX);
+    register_animated_param("Projection Wander", &params.projection.wander,
+                            0.0f, 1.0f);
+    register_animated_param("Camera Wander", &params.projection.camera_wander,
+                            0.0f, 1.0f);
+    register_animated_param("Surface Noise Scale", &params.surface_noise.scale,
                             SURFACE_SCALE_MIN, SURFACE_SCALE_MAX);
+    register_animated_param("Surface Noise Strength",
+                            &params.surface_noise.strength,
+                            SURFACE_STRENGTH_MIN, SURFACE_STRENGTH_MAX);
+    register_animated_param("Surface Noise Speed", &params.surface_noise.speed,
+                            -NOISE_SPEED_MAX, NOISE_SPEED_MAX);
+    register_animated_param("Palette Chroma", &params.color.palette_chroma,
+                            0.0f, 1.0f);
+    register_animated_param("Mapping Frequency",
+                            &params.color.mapping_frequency,
+                            MAPPING_FREQUENCY_MIN, MAPPING_FREQUENCY_MAX);
+    register_animated_param("Mapping Phase", &params.color.mapping_phase, -1.0f,
+                            1.0f);
+    register_animated_param("Phase Oscillation Depth",
+                            &params.color.phase_oscillation_depth, 0.0f, 1.0f);
+    register_animated_param(
+        "Phase Oscillation Speed", &params.color.phase_oscillation_speed,
+        -PHASE_OSCILLATION_SPEED_MAX, PHASE_OSCILLATION_SPEED_MAX);
+    register_animated_param("Brightness Depth", &params.color.brightness_depth,
+                            0.0f, 1.0f);
+    register_animated_param("Value Opacity Low", &params.color.opacity_low,
+                            0.0f, 1.0f);
+    register_animated_param("Value Opacity High", &params.color.opacity_high,
+                            0.0f, 1.0f);
+    register_animated_param("Hue Shift Amount", &params.color.hue_shift_amount,
+                            -HUE_SHIFT_AMOUNT_MAX, HUE_SHIFT_AMOUNT_MAX);
+    register_animated_param("Hue Noise Scale", &params.color.hue_noise_scale,
+                            HUE_NOISE_SCALE_MIN, HUE_NOISE_SCALE_MAX);
+    register_animated_param("Hue Noise Speed", &params.color.hue_noise_speed,
+                            -HUE_NOISE_SPEED_MAX, HUE_NOISE_SPEED_MAX);
   }
 
   HS_FLASH_MEMBER void draw_frame() override {
@@ -73,7 +166,9 @@ public:
     timeline.step(canvas);
     begin_automatic_transition();
     prepare_transition_value();
+    advance_runtime();
     update_spatial_frames();
+    update_palette_chroma();
     palette_cycler.step();
 
     const FrameState frame = prepare_frame();
@@ -84,17 +179,15 @@ public:
   }
 
   ParameterSnapshot serialize_parameters() const {
-    return {PARAMETER_SCHEMA_VERSION, params.surface_noise_scale};
+    return {PARAMETER_SCHEMA_VERSION, params};
   }
 
   bool restore_parameters(const ParameterSnapshot &snapshot) {
     if (snapshot.schema_version != PARAMETER_SCHEMA_VERSION ||
-        !std::isfinite(snapshot.surface_noise_scale) ||
-        snapshot.surface_noise_scale < SURFACE_SCALE_MIN ||
-        snapshot.surface_noise_scale > SURFACE_SCALE_MAX)
+        !params_in_range(snapshot.params))
       return false;
     transition.active = false;
-    params.surface_noise_scale = snapshot.surface_noise_scale;
+    params = snapshot.params;
     return true;
   }
 
@@ -105,19 +198,29 @@ private:
   static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
   static constexpr int32_t SURFACE_NOISE_SEED = 1337;
   static constexpr int32_t COLOR_NOISE_SEED = 6047;
+  static constexpr float CELL_MIN = 1.0f / 64.0f;
+  static constexpr float CELL_MAX = 8.0f;
+  static constexpr float SOFTNESS_MIN = 1.0f / 1024.0f;
+  static constexpr float RADIUS_MIN = 1.0f / 64.0f;
+  static constexpr float RADIUS_MAX = 0.49f;
+  static constexpr float POLE_FADE_MIN = 1.0f;
+  static constexpr float POLE_FADE_MAX = 20.0f;
+  static constexpr float SPIN_SPEED_MIN = 0.0f;
+  static constexpr float SPIN_SPEED_MAX = 0.05f;
   static constexpr float SURFACE_SCALE_MIN = 1.0f / 64.0f;
   static constexpr float SURFACE_SCALE_MAX = 64.0f;
-  static constexpr float SURFACE_NOISE_STRENGTH = 0.0759999976f;
-  static constexpr float HUE_SHIFT_AMOUNT = 0.268000007f;
-  static constexpr float HUE_NOISE_SCALE = 2.0f;
-  static constexpr float MAPPING_PHASE = -0.165999994f;
-  static constexpr float POLE_FADE = 20.0f;
+  static constexpr float SURFACE_STRENGTH_MIN = -0.5f;
+  static constexpr float SURFACE_STRENGTH_MAX = 0.5f;
+  static constexpr float NOISE_SPEED_MAX = 1.0f / 64.0f;
+  static constexpr float MAPPING_FREQUENCY_MIN = 1.0f;
+  static constexpr float MAPPING_FREQUENCY_MAX = 32.0f;
+  static constexpr float PHASE_OSCILLATION_SPEED_MAX = 0.01f;
+  static constexpr float HUE_SHIFT_AMOUNT_MAX = 1.0f;
+  static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
+  static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
+  static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
-
-  struct Params {
-    float surface_noise_scale;
-  };
 
   struct Preset {
     std::string_view id;
@@ -126,8 +229,8 @@ private:
   };
 
   static constexpr std::array<Preset, 2> PRESETS{{
-      {PRESET_IDS[0], "Open Curl", {1.78815627f}},
-      {PRESET_IDS[1], "Dense Curl", {3.29720306f}},
+      {PRESET_IDS[0], "Open Curl", {{}, {}, {1.78815627f}, {}}},
+      {PRESET_IDS[1], "Dense Curl", {{}, {}, {3.29720306f}, {}}},
   }};
 
   struct Transition {
@@ -138,13 +241,6 @@ private:
     bool active = false;
   };
 
-  struct LatticeParams {
-    float lattice_cell_scale = 0.710265636f;
-    float lattice_shape_blend = 1.0f;
-    float lattice_softness = 0.455532223f;
-    float lattice_radius = 0.290762514f;
-  };
-
   struct FrameState {
     Quaternion projection_conjugate;
     Quaternion outer_conjugate;
@@ -153,8 +249,8 @@ private:
     const BakedPalette *palette;
     const Pixel *hue_rotation_lut;
     const int8_t *hue_noise_lut;
-    LatticeParams lattice;
-    float surface_noise_scale;
+    Params params;
+    float palette_oscillation_phase;
   };
 
   struct Binding {
@@ -178,8 +274,12 @@ private:
     static const Quaternion &conjugate(const FrameState &frame) {
       return frame.projection_conjugate;
     }
-    static float central_meridian(const FrameState &) { return 0.0f; }
-    static float pole_fade(const FrameState &) { return POLE_FADE; }
+    static float central_meridian(const FrameState &frame) {
+      return frame.params.projection.central_meridian;
+    }
+    static float pole_fade(const FrameState &frame) {
+      return frame.params.projection.pole_fade;
+    }
   };
 
   struct SurfaceStateProvider {
@@ -190,12 +290,14 @@ private:
       return *frame.surface_noise;
     }
     static float scale(const FrameState &frame) {
-      return frame.surface_noise_scale;
+      return frame.params.surface_noise.scale;
     }
     static const Vector &loop_offset(const FrameState &frame) {
       return frame.surface_loop_offset;
     }
-    static float strength(const FrameState &) { return SURFACE_NOISE_STRENGTH; }
+    static float strength(const FrameState &frame) {
+      return frame.params.surface_noise.strength;
+    }
     static bool path_length_required(const FrameState &) { return false; }
   };
 
@@ -204,7 +306,7 @@ private:
     using FrameState = typename Binding::FrameState;
 
     static const LatticeParams &params(const FrameState &frame) {
-      return frame.lattice;
+      return frame.params.lattice;
     }
   };
 
@@ -215,18 +317,26 @@ private:
     static Pullback::Color::PaletteMapping mapping(const FrameState &) {
       return Pullback::Color::PaletteMapping::CUP;
     }
-    static float mapping_frequency(const FrameState &) { return 1.0f; }
-    static float mapping_phase(const FrameState &) { return MAPPING_PHASE; }
-    static float oscillation_depth(const FrameState &) { return 0.0f; }
-    static float oscillation_phase(const FrameState &) { return 0.0f; }
+    static float mapping_frequency(const FrameState &frame) {
+      return frame.params.color.mapping_frequency;
+    }
+    static float mapping_phase(const FrameState &frame) {
+      return frame.params.color.mapping_phase;
+    }
+    static float oscillation_depth(const FrameState &frame) {
+      return frame.params.color.phase_oscillation_depth;
+    }
+    static float oscillation_phase(const FrameState &frame) {
+      return frame.palette_oscillation_phase;
+    }
     static Color4 palette(const FrameState &frame, float value) {
       return frame.palette->get(value);
     }
     static Pullback::Color::HueMode hue_mode(const FrameState &) {
       return Pullback::Color::HueMode::NOISE;
     }
-    static float hue_shift_amount(const FrameState &) {
-      return HUE_SHIFT_AMOUNT;
+    static float hue_shift_amount(const FrameState &frame) {
+      return frame.params.color.hue_shift_amount;
     }
     static Pullback::Color::HueRotationLutView
     hue_rotation(const FrameState &frame) {
@@ -239,9 +349,15 @@ private:
     brightness_envelope(const FrameState &) {
       return Pullback::Color::BrightnessEnvelope::CUP;
     }
-    static float brightness_depth(const FrameState &) { return 1.0f; }
-    static float opacity_low(const FrameState &) { return 1.0f; }
-    static float opacity_high(const FrameState &) { return 1.0f; }
+    static float brightness_depth(const FrameState &frame) {
+      return frame.params.color.brightness_depth;
+    }
+    static float opacity_low(const FrameState &frame) {
+      return frame.params.color.opacity_low;
+    }
+    static float opacity_high(const FrameState &frame) {
+      return frame.params.color.opacity_high;
+    }
   };
 
   using OuterCameraStage =
@@ -279,7 +395,84 @@ private:
     FastNoiseLite color_noise;
     FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
+    float hue_noise_lut_scale = -1.0f;
+    float hue_noise_lut_phase = -1.0f;
   };
+
+  static bool in_range(float value, float minimum, float maximum) {
+    return std::isfinite(value) && value >= minimum && value <= maximum;
+  }
+
+  static bool params_in_range(const Params &value) {
+    static_assert(sizeof(Params) == 23 * sizeof(float));
+    return in_range(value.lattice.lattice_cell_scale, CELL_MIN, CELL_MAX) &&
+           in_range(value.lattice.lattice_shape_blend, 0.0f, 1.0f) &&
+           in_range(value.lattice.lattice_softness, SOFTNESS_MIN, 1.0f) &&
+           in_range(value.lattice.lattice_radius, RADIUS_MIN, RADIUS_MAX) &&
+           in_range(value.projection.pole_fade, POLE_FADE_MIN, POLE_FADE_MAX) &&
+           in_range(value.projection.central_meridian, 0.0f, TWO_PI_F) &&
+           in_range(value.projection.spin_speed, SPIN_SPEED_MIN,
+                    SPIN_SPEED_MAX) &&
+           in_range(value.projection.wander, 0.0f, 1.0f) &&
+           in_range(value.projection.camera_wander, 0.0f, 1.0f) &&
+           in_range(value.surface_noise.scale, SURFACE_SCALE_MIN,
+                    SURFACE_SCALE_MAX) &&
+           in_range(value.surface_noise.strength, SURFACE_STRENGTH_MIN,
+                    SURFACE_STRENGTH_MAX) &&
+           in_range(value.surface_noise.speed, -NOISE_SPEED_MAX,
+                    NOISE_SPEED_MAX) &&
+           in_range(value.color.palette_chroma, 0.0f, 1.0f) &&
+           in_range(value.color.mapping_frequency, MAPPING_FREQUENCY_MIN,
+                    MAPPING_FREQUENCY_MAX) &&
+           in_range(value.color.mapping_phase, -1.0f, 1.0f) &&
+           in_range(value.color.phase_oscillation_depth, 0.0f, 1.0f) &&
+           in_range(value.color.phase_oscillation_speed,
+                    -PHASE_OSCILLATION_SPEED_MAX,
+                    PHASE_OSCILLATION_SPEED_MAX) &&
+           in_range(value.color.brightness_depth, 0.0f, 1.0f) &&
+           in_range(value.color.opacity_low, 0.0f, 1.0f) &&
+           in_range(value.color.opacity_high, 0.0f, 1.0f) &&
+           in_range(value.color.hue_shift_amount, -HUE_SHIFT_AMOUNT_MAX,
+                    HUE_SHIFT_AMOUNT_MAX) &&
+           in_range(value.color.hue_noise_scale, HUE_NOISE_SCALE_MIN,
+                    HUE_NOISE_SCALE_MAX) &&
+           in_range(value.color.hue_noise_speed, -HUE_NOISE_SPEED_MAX,
+                    HUE_NOISE_SPEED_MAX);
+  }
+
+  static Params interpolate_params(const Params &from, const Params &to,
+                                   float progress) {
+    Params value;
+#define HS_CURL_LINEAR(path)                                                   \
+  value.path = FixedPipeline::linear(from.path, to.path, progress)
+    HS_CURL_LINEAR(lattice.lattice_cell_scale);
+    HS_CURL_LINEAR(lattice.lattice_shape_blend);
+    HS_CURL_LINEAR(lattice.lattice_softness);
+    HS_CURL_LINEAR(lattice.lattice_radius);
+    HS_CURL_LINEAR(projection.pole_fade);
+    value.projection.central_meridian = FixedPipeline::shortest_periodic(
+        from.projection.central_meridian, to.projection.central_meridian,
+        progress, TWO_PI_F);
+    HS_CURL_LINEAR(projection.spin_speed);
+    HS_CURL_LINEAR(projection.wander);
+    HS_CURL_LINEAR(projection.camera_wander);
+    HS_CURL_LINEAR(surface_noise.scale);
+    HS_CURL_LINEAR(surface_noise.strength);
+    HS_CURL_LINEAR(surface_noise.speed);
+    HS_CURL_LINEAR(color.palette_chroma);
+    HS_CURL_LINEAR(color.mapping_frequency);
+    HS_CURL_LINEAR(color.mapping_phase);
+    HS_CURL_LINEAR(color.phase_oscillation_depth);
+    HS_CURL_LINEAR(color.phase_oscillation_speed);
+    HS_CURL_LINEAR(color.brightness_depth);
+    HS_CURL_LINEAR(color.opacity_low);
+    HS_CURL_LINEAR(color.opacity_high);
+    HS_CURL_LINEAR(color.hue_shift_amount);
+    HS_CURL_LINEAR(color.hue_noise_scale);
+    HS_CURL_LINEAR(color.hue_noise_speed);
+#undef HS_CURL_LINEAR
+    return value;
+  }
 
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     const Params target = PRESETS[change.to].params;
@@ -303,7 +496,9 @@ private:
     Pullback::Color::prepare_hue_noise_lut(
         std::span<int8_t, Pullback::Color::HueNoiseLutView::SIZE>(
             state->hue_noise_lut),
-        state->color_noise, HUE_NOISE_SCALE, 0.0f);
+        state->color_noise, params.color.hue_noise_scale, hue_noise_phase);
+    state->hue_noise_lut_scale = params.color.hue_noise_scale;
+    state->hue_noise_lut_phase = hue_noise_phase;
   }
 
   HS_COLD_MEMBER void prepare_hue_rotation_lut() const {
@@ -329,9 +524,7 @@ private:
     const FixedPipeline::EdgeProgress progress =
         FixedPipeline::edge_progress(transition.evaluation, transition.duration,
                                      FixedPipeline::Easing::EASE_IN_OUT_SIN);
-    params.surface_noise_scale = FixedPipeline::linear(
-        transition.from.surface_noise_scale, transition.to.surface_noise_scale,
-        progress.eased);
+    params = interpolate_params(transition.from, transition.to, progress.eased);
   }
 
   HS_COLD_MEMBER void finish_transition_evaluation() {
@@ -346,34 +539,71 @@ private:
     ++transition.evaluation;
   }
 
+  static Quaternion scaled_walk_delta(const Quaternion &delta, float amount) {
+    if (amount == 1.0f)
+      return delta;
+    if (amount == 0.0f)
+      return Quaternion();
+    return slerp(Quaternion(), delta, amount);
+  }
+
   HS_COLD_MEMBER void update_spatial_frames() {
     const Quaternion projection = projection_walk.get();
     const Quaternion projection_delta =
         projection * projection_walk_previous.conjugate();
     projection_walk_previous = projection;
-    projection_wander =
-        (projection_delta.normalized() * projection_wander).normalized();
+    projection_wander = (scaled_walk_delta(projection_delta.normalized(),
+                                           params.projection.wander) *
+                         projection_wander)
+                            .normalized();
 
     const Quaternion outer = outer_walk.get();
     const Quaternion outer_delta = outer * outer_walk_previous.conjugate();
     outer_walk_previous = outer;
-    outer_wander = (outer_delta.normalized() * outer_wander).normalized();
+    outer_wander = (scaled_walk_delta(outer_delta.normalized(),
+                                      params.projection.camera_wander) *
+                    outer_wander)
+                       .normalized();
 
-    projection_conjugate = (base_orientation * projection_wander).conjugate();
+    projection_conjugate = (make_rotation(Y_AXIS, projection_spin) *
+                            base_orientation * projection_wander)
+                               .conjugate();
     outer_conjugate = outer_wander.conjugate();
   }
 
-  HS_COLD_MEMBER FrameState prepare_frame() const {
+  HS_COLD_MEMBER void advance_runtime() {
+    projection_spin =
+        fmodf(projection_spin + params.projection.spin_speed, TWO_PI_F);
+    surface_noise_phase =
+        wrap_t(surface_noise_phase + params.surface_noise.speed);
+    hue_noise_phase = wrap_t(hue_noise_phase + params.color.hue_noise_speed);
+    palette_oscillation_phase = wrap_t(palette_oscillation_phase +
+                                       params.color.phase_oscillation_speed);
+  }
+
+  HS_COLD_MEMBER void update_palette_chroma() {
+    if (palette_chroma == params.color.palette_chroma)
+      return;
+    palette_chroma = params.color.palette_chroma;
+    palette_cycler.set_generated_chroma(palette_chroma);
+  }
+
+  HS_COLD_MEMBER FrameState prepare_frame() {
+    if (state->hue_noise_lut_scale != params.color.hue_noise_scale ||
+        state->hue_noise_lut_phase != hue_noise_phase)
+      prepare_hue_noise_lut();
     prepare_hue_rotation_lut();
+    const float surface_angle = TWO_PI_F * wrap_t(surface_noise_phase);
     return {projection_conjugate,
             outer_conjugate,
-            Vector(NOISE_LOOP_RADIUS, 0.0f, 0.0f),
+            Vector(NOISE_LOOP_RADIUS * cosf(surface_angle),
+                   NOISE_LOOP_RADIUS * sinf(surface_angle), 0.0f),
             &state->surface_noise,
             &palette_cycler.palette(),
             state->hue_rotation_lut.data(),
             state->hue_noise_lut.data(),
-            {},
-            params.surface_noise_scale};
+            params,
+            palette_oscillation_phase};
   }
 
   static void next_palette(void *context, uint32_t sequence,
@@ -383,7 +613,8 @@ private:
       effect.palette_hue += HUE_STEP;
     out = GenerativePalette{PaletteRecipes::profile(
         PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::ASCENDING,
-        PaletteRecipes::hue_turns(effect.palette_hue), 1.0f)};
+        PaletteRecipes::hue_turns(effect.palette_hue),
+        effect.params.color.palette_chroma)};
   }
 
   static constexpr size_t FOOTPRINT_BYTES =
@@ -410,6 +641,11 @@ private:
   Quaternion base_orientation =
       make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
 
+  float projection_spin = 0.0f;
+  float surface_noise_phase = 0.0f;
+  float hue_noise_phase = 0.0f;
+  float palette_oscillation_phase = 0.0f;
+  float palette_chroma = -1.0f;
   uint32_t palette_hue = 0;
   PaletteCycler palette_cycler;
 };

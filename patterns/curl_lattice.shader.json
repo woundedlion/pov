@@ -11,8 +11,7 @@
           "role": "outer_camera",
           "operator": "pullback.outer_camera.v1",
           "policy": {
-            "base_orientation": "negative-z-to-negative-y",
-            "wander": "random-walk-full-strength"
+            "base_orientation": "negative-z-to-negative-y"
           }
         },
         {
@@ -23,10 +22,7 @@
             "pre_lens_surface": "curl-noise-simplex-euler",
             "lens": "identity",
             "post_lens_surface": "identity",
-            "projection": "folded-sinusoidal",
-            "projection_pole_fade": 20,
-            "projection_wander": "random-walk-full-strength",
-            "surface_noise_strength": 0.0759999976
+            "projection": "folded-sinusoidal"
           },
           "resources": ["surface-noise"]
         },
@@ -41,11 +37,7 @@
           "role": "source",
           "operator": "pullback.source.v1",
           "policy": {
-            "source": "primitive-lattice",
-            "cell_scale": 0.710265636,
-            "shape_blend": 1,
-            "softness": 0.455532223,
-            "radius": 0.290762514
+            "source": "primitive-lattice"
           }
         },
         {
@@ -65,10 +57,7 @@
           "policy": {
             "color": "generated-palette",
             "mapping": "cup",
-            "mapping_phase": -0.165999994,
             "hue_mode": "noise",
-            "hue_shift_amount": 0.268000007,
-            "hue_noise_scale": 2,
             "brightness_envelope": "cup"
           },
           "resources": ["triadic-palette", "hue-noise"]
@@ -84,6 +73,96 @@
     },
     "parameters": [
       {
+        "id": "lattice-cell-scale",
+        "binding": "source.lattice-cell-scale",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "ratio",
+        "domain": { "minimum": 0.015625, "maximum": 8 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0.710265636
+      },
+      {
+        "id": "lattice-shape",
+        "binding": "source.lattice-shape-blend",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "blend",
+        "domain": { "minimum": 0, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 1
+      },
+      {
+        "id": "lattice-softness",
+        "binding": "source.lattice-softness",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "ratio",
+        "domain": { "minimum": 0.0009765625, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0.455532223
+      },
+      {
+        "id": "lattice-radius",
+        "binding": "source.lattice-radius",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "ratio",
+        "domain": { "minimum": 0.015625, "maximum": 0.49 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0.290762514
+      },
+      {
+        "id": "pole-fade",
+        "binding": "projection.pole-fade",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "ratio",
+        "domain": { "minimum": 1, "maximum": 20 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 20
+      },
+      {
+        "id": "central-meridian",
+        "binding": "projection.central-meridian",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "radian",
+        "domain": { "minimum": 0, "maximum": 6.2831855 },
+        "interpolation": { "kind": "SHORTEST_PERIODIC", "period": 6.2831855 },
+        "default": 0
+      },
+      {
+        "id": "projection-spin-speed",
+        "binding": "projection.spin-speed",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "radian-per-frame",
+        "domain": { "minimum": 0, "maximum": 0.05 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0
+      },
+      {
+        "id": "projection-wander",
+        "binding": "projection.wander",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "blend",
+        "domain": { "minimum": 0, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 1
+      },
+      {
+        "id": "camera-wander",
+        "binding": "outer-camera.wander",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "blend",
+        "domain": { "minimum": 0, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 1
+      },
+      {
         "id": "surface-noise-scale",
         "binding": "surface-noise.scale",
         "classification": "preset",
@@ -92,6 +171,136 @@
         "domain": { "minimum": 0.015625, "maximum": 64 },
         "interpolation": { "kind": "LINEAR" },
         "default": 1.78815627
+      },
+      {
+        "id": "surface-noise-strength",
+        "binding": "surface-noise.strength",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "ratio",
+        "domain": { "minimum": -0.5, "maximum": 0.5 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0.0759999976
+      },
+      {
+        "id": "surface-noise-speed",
+        "binding": "surface-noise.speed",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "turn-per-frame",
+        "domain": { "minimum": -0.015625, "maximum": 0.015625 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0
+      },
+      {
+        "id": "palette-chroma",
+        "binding": "color.palette-chroma",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "ratio",
+        "domain": { "minimum": 0, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 1
+      },
+      {
+        "id": "mapping-frequency",
+        "binding": "color.mapping-frequency",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "cycles",
+        "domain": { "minimum": 1, "maximum": 32 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 1
+      },
+      {
+        "id": "mapping-phase",
+        "binding": "color.mapping-phase",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "turn",
+        "domain": { "minimum": -1, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": -0.165999994
+      },
+      {
+        "id": "phase-oscillation-depth",
+        "binding": "color.phase-oscillation-depth",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "turn",
+        "domain": { "minimum": 0, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0
+      },
+      {
+        "id": "phase-oscillation-speed",
+        "binding": "color.phase-oscillation-speed",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "turn-per-frame",
+        "domain": { "minimum": -0.01, "maximum": 0.01 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0
+      },
+      {
+        "id": "brightness-depth",
+        "binding": "color.brightness-depth",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "ratio",
+        "domain": { "minimum": 0, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 1
+      },
+      {
+        "id": "value-opacity-low",
+        "binding": "color.value-opacity-low",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "opacity",
+        "domain": { "minimum": 0, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 1
+      },
+      {
+        "id": "value-opacity-high",
+        "binding": "color.value-opacity-high",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "opacity",
+        "domain": { "minimum": 0, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 1
+      },
+      {
+        "id": "hue-shift-amount",
+        "binding": "color.hue-shift-amount",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "turn",
+        "domain": { "minimum": -1, "maximum": 1 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0.268000007
+      },
+      {
+        "id": "hue-noise-scale",
+        "binding": "color.hue-noise-scale",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "ratio",
+        "domain": { "minimum": 0.015625, "maximum": 8 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 2
+      },
+      {
+        "id": "hue-noise-speed",
+        "binding": "color.hue-noise-speed",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "turn-per-frame",
+        "domain": { "minimum": -0.001, "maximum": 0.001 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 0
       }
     ],
     "path_policies": [
@@ -122,11 +331,31 @@
           "manual": "snap",
           "synchronized": "snap"
         }
+      },
+      {
+        "id": "projection-spin",
+        "kind": "parameter-rate",
+        "settings": { "binding": "projection.spin-speed", "wrap": 6.2831855 }
+      },
+      {
+        "id": "surface-noise-loop",
+        "kind": "parameter-rate",
+        "settings": { "binding": "surface-noise.speed", "wrap": 1 }
+      },
+      {
+        "id": "hue-noise-loop",
+        "kind": "parameter-rate",
+        "settings": { "binding": "color.hue-noise-speed", "wrap": 1 }
+      },
+      {
+        "id": "palette-oscillation",
+        "kind": "parameter-rate",
+        "settings": { "binding": "color.phase-oscillation-speed", "wrap": 1 }
       }
     ],
     "preparation": [
       { "id": "spatial-frames", "kind": "prepare-orientation-conjugates" },
-      { "id": "surface-loop", "kind": "prepare-static-noise-loop" },
+      { "id": "surface-loop", "kind": "prepare-noise-loop" },
       { "id": "hue-luts", "kind": "prepare-hue-rotation-and-noise-luts" }
     ],
     "resources": [
@@ -143,12 +372,36 @@
       {
         "id": "triadic-palette",
         "kind": "generated-triadic-palette",
-        "settings": { "initial_hue": 0, "hue_step": 159, "chroma": 1 }
+        "settings": { "initial_hue": 0, "hue_step": 159 }
       }
     ],
     "serialization": {
-      "schema_version": 1,
-      "fields": ["surface-noise-scale"]
+      "schema_version": 2,
+      "fields": [
+        "lattice-cell-scale",
+        "lattice-shape",
+        "lattice-softness",
+        "lattice-radius",
+        "pole-fade",
+        "central-meridian",
+        "projection-spin-speed",
+        "projection-wander",
+        "camera-wander",
+        "surface-noise-scale",
+        "surface-noise-strength",
+        "surface-noise-speed",
+        "palette-chroma",
+        "mapping-frequency",
+        "mapping-phase",
+        "phase-oscillation-depth",
+        "phase-oscillation-speed",
+        "brightness-depth",
+        "value-opacity-low",
+        "value-opacity-high",
+        "hue-shift-amount",
+        "hue-noise-scale",
+        "hue-noise-speed"
+      ]
     },
     "approximation": [
       {
@@ -165,12 +418,60 @@
       {
         "preset_id": "open-curl",
         "display_name": "Open Curl",
-        "values": { "surface-noise-scale": 1.78815627 }
+        "values": {
+          "lattice-cell-scale": 0.710265636,
+          "lattice-shape": 1,
+          "lattice-softness": 0.455532223,
+          "lattice-radius": 0.290762514,
+          "pole-fade": 20,
+          "central-meridian": 0,
+          "projection-spin-speed": 0,
+          "projection-wander": 1,
+          "camera-wander": 1,
+          "surface-noise-scale": 1.78815627,
+          "surface-noise-strength": 0.0759999976,
+          "surface-noise-speed": 0,
+          "palette-chroma": 1,
+          "mapping-frequency": 1,
+          "mapping-phase": -0.165999994,
+          "phase-oscillation-depth": 0,
+          "phase-oscillation-speed": 0,
+          "brightness-depth": 1,
+          "value-opacity-low": 1,
+          "value-opacity-high": 1,
+          "hue-shift-amount": 0.268000007,
+          "hue-noise-scale": 2,
+          "hue-noise-speed": 0
+        }
       },
       {
         "preset_id": "dense-curl",
         "display_name": "Dense Curl",
-        "values": { "surface-noise-scale": 3.29720306 }
+        "values": {
+          "lattice-cell-scale": 0.710265636,
+          "lattice-shape": 1,
+          "lattice-softness": 0.455532223,
+          "lattice-radius": 0.290762514,
+          "pole-fade": 20,
+          "central-meridian": 0,
+          "projection-spin-speed": 0,
+          "projection-wander": 1,
+          "camera-wander": 1,
+          "surface-noise-scale": 3.29720306,
+          "surface-noise-strength": 0.0759999976,
+          "surface-noise-speed": 0,
+          "palette-chroma": 1,
+          "mapping-frequency": 1,
+          "mapping-phase": -0.165999994,
+          "phase-oscillation-depth": 0,
+          "phase-oscillation-speed": 0,
+          "brightness-depth": 1,
+          "value-opacity-low": 1,
+          "value-opacity-high": 1,
+          "hue-shift-amount": 0.268000007,
+          "hue-noise-scale": 2,
+          "hue-noise-speed": 0
+        }
       }
     ],
     "edges": [

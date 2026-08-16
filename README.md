@@ -2176,7 +2176,12 @@ A single head traces spherical Lissajous curves, cycling through a dozen configu
 
 A folded-sinusoidal sphere projection displaced by curl noise and shaded with a generated triadic palette. Its two presets share one fixed pipeline and vary only the surface-noise scale.
 
-**Parameters**: Surface Noise Scale
+**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice
+Radius, Pole Fade, Central Meridian, Projection Spin Speed, Projection Wander,
+Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise
+Speed, Palette Chroma, Mapping Frequency, Mapping Phase, Phase Oscillation
+Depth, Phase Oscillation Speed, Brightness Depth, Value Opacity Low, Value
+Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
 
 </td></tr></table>
 
@@ -2360,6 +2365,8 @@ Semantic program identities are independent of preset numbering. Presets 7–8 s
 `CurlLattice` promotes presets 7–8 into one registered fixed-pipeline effect.
 It declares the folded-sinusoidal curl pipeline directly;
 its two presets change only surface-noise scale and do not select a program.
+All continuous controls used by that pipeline remain available on the promoted
+effect; structural selectors stay fixed.
 
 #### Authoring vocabulary
 
