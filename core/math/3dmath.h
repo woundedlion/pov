@@ -41,6 +41,8 @@ inline constexpr float INV_PHI = 1 / PHI;
  *   TOLERANCE      — generic float compare (1e-4f)
  *   EPS_GEOMETRIC  — geometric near-equality (positions, angles) (1e-5f)
  *   EPS_LEN_SQ     — degenerate squared edge length (1e-6f)
+ *   EPS_ANTIPARALLEL_SQ — half-vector rotation's antiparallel crossover,
+ *                      compared against |cross|^2 (4e-7f)
  *   EPS_CROSS_SQ   — degenerate cross-product magnitude (squared) (1e-8f)
  *   EPS_NORMAL_SQ  — degenerate face normal (squared) (1e-9f)
  *   EPS_NORMALIZE_SQ — squared length below which normalize() has no reliable
@@ -52,6 +54,15 @@ namespace math {
 inline constexpr float TOLERANCE = 1e-4f;
 inline constexpr float EPS_GEOMETRIC = 1e-5f;
 inline constexpr float EPS_LEN_SQ = 1e-6f;
+/**
+ * @brief Squared |cross(from, to)| below which make_rotation synthesizes a π
+ *        turn instead of using the half-vector form.
+ * @details The two branches balance here: the half-vector form's angular error
+ * runs at ~2*ULP(1)/|cross| and the synthesized turn's at |cross|, so both sit
+ * near 4e-4 rad at this band. A tighter band widens the ill-conditioned branch
+ * rather than narrowing it.
+ */
+inline constexpr float EPS_ANTIPARALLEL_SQ = 4e-7f;
 inline constexpr float EPS_CROSS_SQ = 1e-8f;
 inline constexpr float EPS_NORMAL_SQ = 1e-9f;
 inline constexpr float EPS_NORMALIZE_SQ = 1e-12f;
@@ -1159,25 +1170,28 @@ inline Vector least_parallel_axis(const Vector &v) {
  * @param to The destination vector (must be unit vector).
  * @return The resulting unit rotation quaternion.
  * @details Half-vector form q = (1 + d, cross(from, to)) normalized, exact down
- * to arbitrarily small angles. The antiparallel case (d < -1 + TOLERANCE)
- * synthesizes a stable perpendicular axis and rotates by π.
+ * to arbitrarily small angles. The antiparallel case (|cross|² below
+ * EPS_ANTIPARALLEL_SQ) synthesizes a stable perpendicular axis and rotates by π.
  */
 inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   HS_CHECK(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ &&
                std::abs(dot(to, to) - 1.0f) < math::EPS_UNIT_VEC_SQ,
            "make_rotation(from, to): inputs must be unit vectors");
   float d = dot(from, to);
+  Vector axis = cross(from, to);
 
   // Antiparallel (180°): seed the cross with least_parallel_axis(from) so the
-  // axis we normalize through stays well-conditioned.
-  if (d < -1.0f + math::TOLERANCE) {
-    Vector axis = cross(least_parallel_axis(from), from);
-    axis.normalize();
-    return make_rotation(axis, PI_F);
+  // axis we normalize through stays well-conditioned. Keyed on |cross|², not d:
+  // d's ~1e-7 absolute error near -1 exceeds the crossover, so a raw-dot gate
+  // misses exact antipodes whose float dot rounds above -1.
+  if (d < 0.0f && dot(axis, axis) < math::EPS_ANTIPARALLEL_SQ) {
+    Vector perp = cross(least_parallel_axis(from), from);
+    perp.normalize();
+    return make_rotation(perp, PI_F);
   }
 
-  // |q|² = 2 + 2d, held away from zero by the antiparallel branch above.
-  return Quaternion(1.0f + d, cross(from, to)).normalized();
+  // |q|² = (1 + d)² + |cross|² >= EPS_ANTIPARALLEL_SQ, so normalized() is safe.
+  return Quaternion(1.0f + d, axis).normalized();
 }
 
 /**
