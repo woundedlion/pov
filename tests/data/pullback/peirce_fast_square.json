@@ -19,16 +19,16 @@
     "longitude_steps": 512,
     "tie_probe_epsilon": 0.000002,
     "tie_probe_count": 12,
-    "presets": [5],
+    "presets": [4],
     "framebuffer": {
       "resolutions": [[96, 20], [288, 144]],
       "sampling": "pixel centers",
       "aggregation": "maximum absolute premultiplied linear-u16 channel delta",
       "exact_callable": "capture ShaderBallWhiteBox::exact_peirce_shade with exact Peirce square projection",
-      "optimized_callable": "ShaderBall compiled preset-5 shade callable",
+      "optimized_callable": "ShaderBall compiled preset-4 shade callable",
       "probes": [
         {
-          "preset": 5,
+          "preset": 4,
           "hue_noise_phase": 0.0,
           "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "CARDINAL_POINTS", "FRAME_PERIMETER"]
         }
@@ -67,7 +67,7 @@
       "accepted_limit": 128,
       "unit": "16-bit channel code",
       "limit_provenance": "next power-of-two envelope above the observed 100-code maximum; 28 percent headroom and below one 8-bit-equivalent linear step",
-      "measurement_provenance": "repo-owned native Debug and release/strict-FP WASM exact-versus-optimized framebuffer capture at base_sha, both roster resolutions and named preset-5 probes"
+      "measurement_provenance": "repo-owned native Debug and release/strict-FP WASM exact-versus-optimized framebuffer capture at base_sha, both roster resolutions and named preset-4 probes"
     }
   ]
 }

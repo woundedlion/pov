@@ -15,7 +15,7 @@
     "generator": "shaderball-prepared-hue-grid",
     "version": 1,
     "deterministic": true,
-    "presets": [7, 8, 11],
+    "presets": [6, 7, 10],
     "phases": [1.781, 1.918, 2.329],
     "latitude_steps": 49,
     "longitude_steps": 192,
@@ -25,11 +25,11 @@
       "sampling": "pixel centers",
       "aggregation": "maximum absolute premultiplied linear-u16 channel delta",
       "exact_callable": "capture ShaderBallWhiteBox::exact_hue_shade with direct noise and hue rotation",
-      "optimized_callable": "ShaderBall compiled preset-7/8/11 shade callables",
+      "optimized_callable": "ShaderBall compiled preset-6/7/10 shade callables",
       "probes": [
-        { "preset": 7, "hue_noise_phase": 1.781, "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "HORIZON_COLUMNS", "EQUATOR_ROW"] },
-        { "preset": 8, "hue_noise_phase": 1.918, "operations": ["FULL_FRAME", "WRAP_COLUMNS", "NORTH_ROW", "SOUTH_ROW", "POLE_BANDS"] },
-        { "preset": 11, "hue_noise_phase": 2.329, "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "MIRROR_GRID", "HORIZON_COLUMNS"] }
+        { "preset": 6, "hue_noise_phase": 1.781, "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "HORIZON_COLUMNS", "EQUATOR_ROW"] },
+        { "preset": 7, "hue_noise_phase": 1.918, "operations": ["FULL_FRAME", "WRAP_COLUMNS", "NORTH_ROW", "SOUTH_ROW", "POLE_BANDS"] },
+        { "preset": 10, "hue_noise_phase": 2.329, "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "MIRROR_GRID", "HORIZON_COLUMNS"] }
       ]
     }
   },
@@ -65,7 +65,7 @@
       "accepted_limit": 5400,
       "unit": "16-bit channel code",
       "limit_provenance": "color-stage maximum bounds framebuffer channels",
-      "measurement_provenance": "repo-owned native Debug and release/strict-FP WASM exact-versus-optimized framebuffer capture at base_sha, both roster resolutions and named preset-7/8/11 probes"
+      "measurement_provenance": "repo-owned native Debug and release/strict-FP WASM exact-versus-optimized framebuffer capture at base_sha, both roster resolutions and named preset-6/7/10 probes"
     }
   ]
 }
