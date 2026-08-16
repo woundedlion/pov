@@ -3,9 +3,18 @@
 **Status: SHIPPING.** This specification defines the sole shipping renderer for
 ShaderBall-style pullback rendering. The equivalence, size, and device-timing
 gates below have passed and the monolithic runtime-dispatch renderer is gone
-from the device and WASM release images: it survives only behind
-`HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES` as the host-test oracle every
-authored preset is compared against.
+from the device image: `core/engine/build_features.h` leaves
+`HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND` at 0 off Emscripten and `#error`s if an
+Arduino build defines it to 1.
+
+**The WASM images are the deliberate exception.** That same header defaults
+`HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND` to 1 for every `__EMSCRIPTEN__` build,
+release included, so `ShaderBall::shade_dynamic` ships in the simulator as the
+fallback taken whenever an authored configuration resolves to no compiled
+program. The authoring workbench depends on that fallback; "absent from the
+release image" is a device claim only. On the host the same shading path is
+additionally reachable behind `HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES`
+as the oracle every authored preset is compared against.
 
 ## 1. Purpose
 
@@ -811,10 +820,11 @@ the shipping selective-O3 image.
 ### Phase D: remove the runtime renderer — executed
 
 - Remove the top-level runtime-dispatch renderer and obsolete hand-written
-  wrappers from all release targets.
-- Keep the reference renderer in host tests only.
-- Prove zero retained renderer bytes by the final ELF/WASM symbol census, then
-  run the full acceptance protocol.
+  wrappers from the device target.
+- Keep the reference renderer in host tests only. The Emscripten targets keep
+  the dynamic shading path as the workbench's no-compiled-program fallback.
+- Prove zero retained renderer bytes by the final device ELF symbol census,
+  then run the full acceptance protocol.
 
 ## 16. Required deliverables
 
@@ -830,10 +840,12 @@ An implementation is incomplete without:
 - shipping fixed and full-cycle device captures;
 - ELF symbol/section accounting;
 - an accepted/rejected ledger entry for every new program entry;
-- ELF and WASM proof that the runtime-dispatch renderer is absent.
+- ELF proof that the runtime-dispatch renderer is absent from the device image;
+  the WASM images retain it by design (see the status header).
 
-Rollback republishes the last accepted pipeline-only image. There is no
-shipping build option that restores the runtime-dispatch renderer.
+Rollback republishes the last accepted pipeline-only image. No build option
+restores the runtime-dispatch renderer to the device image; `build_features.h`
+rejects the attempt at compile time.
 
 ## 17. Implementation decisions
 
