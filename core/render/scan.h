@@ -2178,8 +2178,10 @@ struct Shader {
    * @param shader Maps a world-space unit vector to a final color; invoked
    *               SAMPLES× per pixel at sub-pixel offsets and averaged.
    */
-  template <int W, int H, int SAMPLES = 1, typename ShaderFn>
-  HS_O3_FN static void draw(Canvas &canvas, ShaderFn &&shader) {
+private:
+  template <int W, int H, int SAMPLES, typename ShaderFn>
+  HS_O3_FN __attribute__((always_inline)) static void
+  draw_typed(Canvas &canvas, ShaderFn &&shader) {
     // The sample-offset table has four distinct sub-pixel positions; only 1 and
     // the 2x2 grid (4) are valid.
     static_assert(SAMPLES == 1 || SAMPLES == 4,
@@ -2219,6 +2221,23 @@ struct Shader {
         });
       }
     }
+  }
+
+public:
+  template <int W, int H, int SAMPLES = 1, typename ShaderFn>
+  HS_O3_FN static void draw(Canvas &canvas, ShaderFn &&shader) {
+    draw_typed<W, H, SAMPLES>(canvas, static_cast<ShaderFn &&>(shader));
+  }
+
+  /**
+   * @brief Direct typed shader draw whose traversal executes from cached flash.
+   * @details The callable remains statically bound and is inlined into this
+   * instantiation; only its code placement differs from draw().
+   */
+  template <int W, int H, int SAMPLES = 1, typename ShaderFn>
+  HS_HOT_FLASH_MEMBER static void draw_cached(Canvas &canvas,
+                                              ShaderFn &&shader) {
+    draw_typed<W, H, SAMPLES>(canvas, static_cast<ShaderFn &&>(shader));
   }
 
   /**

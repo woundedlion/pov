@@ -178,7 +178,7 @@ public:
     palette_cycler.step();
 
     const FrameState frame = prepare_frame();
-    Scan::Shader::draw<W, H, 1>(canvas, [&frame](const Vector &view) {
+    Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](const Vector &view) {
       return RenderPipeline::shade(view, frame);
     });
     finish_transition_evaluation();
