@@ -382,6 +382,12 @@ class AssemblyPolicyTests(unittest.TestCase):
                 "rotation corrections missing from assembly: U1"):
             fab.validate_rotation_refs(assembled)
 
+    def test_d_bus_cathode_rotation(self):
+        self.assertEqual(fab.cpl_rotation("D_BUS", 90), 270)
+
+    def test_nonpolarized_resistor_rotation_is_unchanged(self):
+        self.assertEqual(fab.cpl_rotation("R_D1", 180), 180)
+
 PARITY_DESCRIPTIONS = {
     "extra_footprint": "Extra footprint",
     "footprint_symbol_mismatch": "Footprint attributes don't match symbol",
