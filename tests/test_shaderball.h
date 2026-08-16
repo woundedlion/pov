@@ -1734,6 +1734,60 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(mirror.params.warp.inner.speed, 0.0f);
+  const std::array<float, 23> kaleido_wave_values{
+      mirror.params.source.pattern_freq,
+      mirror.params.source.speed,
+      mirror.params.source.angle_rate,
+      mirror.params.projection.pole_fade,
+      mirror.params.projection.spin_rate,
+      mirror.params.projection.wander,
+      mirror.params.outer_camera.wander,
+      mirror.params.warp.inner.speed,
+      mirror.params.warp.inner.rotation,
+      mirror.params.warp.inner.cell_x,
+      mirror.params.warp.inner.cell_y,
+      mirror.params.warp.inner.offset_x,
+      mirror.params.warp.inner.offset_y,
+      mirror.params.color.palette_chroma,
+      mirror.params.color.mapping_frequency,
+      mirror.params.color.mapping_phase,
+      mirror.params.color.phase_oscillation_depth,
+      mirror.params.color.phase_oscillation_speed,
+      mirror.params.color.value_opacity_low,
+      mirror.params.color.value_opacity_high,
+      mirror.params.color.hue_shift_amount,
+      mirror.params.color.hue_noise_scale,
+      mirror.params.color.hue_noise_speed,
+  };
+  constexpr std::array<float, 23> KALEIDO_WAVE_EXPECTED{
+      4.9755f,
+      0.125f,
+      0.05f,
+      4.971f,
+      0.0f,
+      1.0f,
+      1.0f,
+      0.0f,
+      0.0f,
+      1.0f,
+      1.0f,
+      0.0f,
+      0.0f,
+      0.361f,
+      1.0f,
+      0.0f,
+      0.0f,
+      0.0f,
+      1.0f,
+      1.0f,
+      0.27f,
+      2.2033439f,
+      -0.00040800002f,
+  };
+  for (size_t index = 0; index < kaleido_wave_values.size(); ++index)
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(kaleido_wave_values[index]),
+                 std::bit_cast<uint32_t>(KALEIDO_WAVE_EXPECTED[index]));
+  HS_EXPECT_EQ(mirror.slots.palette_mapping, WB::PaletteMapping::LINEAR);
   const auto &animated_mobius = presets[20];
   HS_EXPECT_EQ(animated_mobius.params.warp.inner.speed, 0.005875f);
   HS_EXPECT_EQ(animated_mobius.params.warp.inner.rotation, 0.0f);

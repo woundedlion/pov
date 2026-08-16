@@ -6818,9 +6818,11 @@ private:
                       ValueTransfer::LINEAR,
                       CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                       PaletteMode::TRIADIC};
-    const Params params = authored_params(
-        {10.158f, 0.245f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
-        {4.971f, 0.0f, 1.0f}, {1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f});
+    Params params =
+        authored_params({4.9755f, 0.125f, 0.513f, 0.0f, 0.8f, 0.05f},
+                        {0.1f, 0.0f, 0.5f}, {4.971f, 0.0f, 1.0f}, {1.0f},
+                        {0.27f, 2.2033439f, -0.00040800002f}, {1.0f});
+    params.color.palette_chroma = 0.361f;
     return {slots, params};
   }
 
