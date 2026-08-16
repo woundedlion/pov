@@ -720,7 +720,7 @@ public:
     HS_COLD_MEMBER bool operator==(const WarpStageParams &) const = default;
 
     HS_COLD_MEMBER void lerp(const WarpStageParams &a, const WarpStageParams &b,
-                             float t) {
+                             float t, bool rotation_is_rate = false) {
       static_assert(sizeof(WarpStageParams) == 100,
                     "WarpStageParams field set changed - update lerp");
       scale = hs::lerp(a.scale, b.scale, t);
@@ -728,7 +728,8 @@ public:
       speed = hs::lerp(a.speed, b.speed, t);
       translation_x = hs::lerp(a.translation_x, b.translation_x, t);
       translation_y = hs::lerp(a.translation_y, b.translation_y, t);
-      rotation = lerp_angle(a.rotation, b.rotation, t);
+      rotation = rotation_is_rate ? hs::lerp(a.rotation, b.rotation, t)
+                                  : lerp_angle(a.rotation, b.rotation, t);
       scale_x = expf(hs::lerp(logf(a.scale_x), logf(b.scale_x), t));
       scale_y = expf(hs::lerp(logf(a.scale_y), logf(b.scale_y), t));
       shear = hs::lerp(a.shear, b.shear, t);
@@ -769,10 +770,12 @@ public:
 
     HS_COLD_MEMBER bool operator==(const WarpParams &) const = default;
 
-    HS_COLD_MEMBER void lerp(const WarpParams &a, const WarpParams &b,
-                             float t) {
-      outer.lerp(a.outer, b.outer, t);
-      inner.lerp(a.inner, b.inner, t);
+    HS_COLD_MEMBER void lerp(const WarpParams &a, const WarpParams &b, float t,
+                             const WarpProgram &program = WarpProgram{}) {
+      outer.lerp(a.outer, b.outer, t,
+                 program.outer.kind == WarpStageKind::AFFINE_FRAME);
+      inner.lerp(a.inner, b.inner, t,
+                 program.inner.kind == WarpStageKind::AFFINE_FRAME);
     }
   };
 
@@ -979,9 +982,10 @@ public:
 
     HS_COLD_MEMBER bool operator==(const Params &) const = default;
 
-    HS_COLD_MEMBER void lerp(const Params &a, const Params &b, float t) {
+    HS_COLD_MEMBER void lerp(const Params &a, const Params &b, float t,
+                             const Slots &slots = Slots{}) {
       source.lerp(a.source, b.source, t);
-      warp.lerp(a.warp, b.warp, t);
+      warp.lerp(a.warp, b.warp, t, slots.warp_program);
       projection.lerp(a.projection, b.projection, t);
       surface_lens.lerp(a.surface_lens, b.surface_lens, t);
       surface_noise.lerp(a.surface_noise, b.surface_noise, t);
@@ -991,7 +995,7 @@ public:
     }
 
     HS_COLD_MEMBER void lerp_staggered(const Params &a, const Params &b,
-                                       float t) {
+                                       float t, const Slots &slots = Slots{}) {
       const int phase_count = (a.source != b.source) + (a.warp != b.warp) +
                               (a.projection != b.projection) +
                               (a.surface_lens != b.surface_lens) +
@@ -1010,7 +1014,8 @@ public:
       if (a.source != b.source)
         source.lerp(a.source, b.source, phase_t(t, phase++, phase_count));
       if (a.warp != b.warp)
-        warp.lerp(a.warp, b.warp, phase_t(t, phase++, phase_count));
+        warp.lerp(a.warp, b.warp, phase_t(t, phase++, phase_count),
+                  slots.warp_program);
       if (a.projection != b.projection)
         projection.lerp(a.projection, b.projection,
                         phase_t(t, phase++, phase_count));
@@ -1089,11 +1094,11 @@ public:
     SOURCE_PRIMARY,
     SOURCE_SECONDARY,
     SOURCE_ANGLE,
-    LEGACY_WARP_TIME,
+    WARP_OUTER_ROTATION,
     PROJECTION_SPIN,
     HUE_NOISE_PHASE,
     SOURCE_NOISE_PHASE,
-    LEGACY_LENS_NOISE_PHASE,
+    WARP_INNER_ROTATION,
     SURFACE_NOISE_PHASE,
     WARP_OUTER_PHASE,
     WARP_INNER_PHASE,
@@ -1841,8 +1846,8 @@ private:
         float *targets[] = {&params.translation_x, &params.translation_y,
                             &params.rotation,      &params.scale_x,
                             &params.scale_y,       &params.shear};
-        const float minimum[] = {-4.0f, -4.0f, 0.0f, 0.25f, 0.25f, -0.75f};
-        const float maximum[] = {4.0f, 4.0f, TWO_PI_F, 4.0f, 4.0f, 0.75f};
+        const float minimum[] = {-4.0f, -4.0f, -PI_F, 0.25f, 0.25f, -0.75f};
+        const float maximum[] = {4.0f, 4.0f, PI_F, 4.0f, 4.0f, 0.75f};
         register_current(names[WARP_NAME_TRANSLATION_X + index], targets[index],
                          minimum[index], maximum[index]);
       }
@@ -1963,6 +1968,8 @@ private:
     float surface_noise_time = 0.0f;
     float warp_outer_phase = 0.0f;
     float warp_inner_phase = 0.0f;
+    float warp_outer_rotation = 0.0f;
+    float warp_inner_rotation = 0.0f;
     float palette_oscillation_phase = 0.0f;
 
     HS_COLD_MEMBER constexpr ClockState() = default;
@@ -3117,9 +3124,9 @@ public:
     const ClockState &clocks = runtime.clocks;
     snapshot.runtime = {
         clocks.source_primary,     clocks.source_secondary,
-        clocks.source_angle,       0.0f,
+        clocks.source_angle,       clocks.warp_outer_rotation,
         clocks.projection_spin,    clocks.hue_noise_phase,
-        clocks.source_noise_time,  0.0f,
+        clocks.source_noise_time,  clocks.warp_inner_rotation,
         clocks.surface_noise_time, clocks.warp_outer_phase,
         clocks.warp_inner_phase,   clocks.palette_oscillation_phase};
     return snapshot;
@@ -3204,9 +3211,11 @@ public:
       clocks.source_primary = next_runtime[0];
       clocks.source_secondary = next_runtime[1];
       clocks.source_angle = next_runtime[2];
+      clocks.warp_outer_rotation = next_runtime[3];
       clocks.projection_spin = next_runtime[4];
       clocks.hue_noise_phase = next_runtime[5];
       clocks.source_noise_time = next_runtime[6];
+      clocks.warp_inner_rotation = next_runtime[7];
       clocks.surface_noise_time = next_runtime[8];
       clocks.warp_outer_phase = next_runtime[9];
       clocks.warp_inner_phase = next_runtime[10];
@@ -3507,7 +3516,8 @@ private:
   HS_FLASH_MEMBER static PreparedWarpStage
   prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
                      float stage_phase,
-                     const Complex &source_period = Complex()) {
+                     const Complex &source_period = Complex(),
+                     float affine_rotation = 0.0f) {
     PreparedWarpStage prepared{};
     float rotation = params.rotation;
     if (spec.kind == WarpStageKind::VECTOR_NOISE)
@@ -3517,8 +3527,7 @@ private:
     if (spec.kind == WarpStageKind::AFFINE_FRAME) {
       const float phase = TWO_PI_F * wrap_t(stage_phase);
       const float phase_cos = cosf(phase);
-      const float phase_sin = sinf(phase);
-      rotation *= phase_sin;
+      rotation = affine_rotation;
       prepared.transform.affine = {
           wrap_t(stage_phase) * params.translation_x * source_period.re,
           wrap_t(stage_phase) * params.translation_y * source_period.im,
@@ -3573,10 +3582,12 @@ private:
     const PreparedWarpProgram prepared_warp{
         prepare_warp_stage(config.slots.warp_program.outer,
                            config.params.warp.outer,
-                           look.clocks.warp_outer_phase, source_period),
+                           look.clocks.warp_outer_phase, source_period,
+                           look.clocks.warp_outer_rotation),
         prepare_warp_stage(config.slots.warp_program.inner,
                            config.params.warp.inner,
-                           look.clocks.warp_inner_phase, source_period)};
+                           look.clocks.warp_inner_phase, source_period,
+                           look.clocks.warp_inner_rotation)};
     const float surface_phase =
         TWO_PI_F * wrap_t(look.clocks.surface_noise_time);
     const float surface_direction =
@@ -5005,6 +5016,18 @@ private:
         wrap_t(look.clocks.source_noise_time + params.source.noise_time_rate);
     look.clocks.surface_noise_time =
         wrap_t(look.clocks.surface_noise_time + params.surface_noise.rate);
+    if (config.slots.warp_program.outer.kind == WarpStageKind::AFFINE_FRAME)
+      look.clocks.warp_outer_rotation =
+          TWO_PI_F *
+          wrap_t((look.clocks.warp_outer_rotation +
+                  params.warp.outer.speed * params.warp.outer.rotation) /
+                 TWO_PI_F);
+    if (config.slots.warp_program.inner.kind == WarpStageKind::AFFINE_FRAME)
+      look.clocks.warp_inner_rotation =
+          TWO_PI_F *
+          wrap_t((look.clocks.warp_inner_rotation +
+                  params.warp.inner.speed * params.warp.inner.rotation) /
+                 TWO_PI_F);
     look.clocks.warp_outer_phase =
         wrap_t(look.clocks.warp_outer_phase + params.warp.outer.speed);
     look.clocks.warp_inner_phase =
@@ -5028,9 +5051,10 @@ private:
       blend.params = state->param_morph.to;
     else if (state->param_morph.staggered)
       blend.params.lerp_staggered(state->param_morph.from,
-                                  state->param_morph.to, mix);
+                                  state->param_morph.to, mix, active_slots);
     else
-      blend.params.lerp(state->param_morph.from, state->param_morph.to, mix);
+      blend.params.lerp(state->param_morph.from, state->param_morph.to, mix,
+                        active_slots);
   }
 
   static float transition_mix(uint16_t elapsed, uint16_t duration) {
@@ -5241,7 +5265,8 @@ private:
       display_config.slots = mix < 0.5f ? state->transition.from_config.slots
                                         : state->transition.to_config.slots;
       display_config.params.lerp(state->transition.from_config.params,
-                                 state->transition.to_config.params, mix);
+                                 state->transition.to_config.params, mix,
+                                 display_config.slots);
       return;
     }
     display_config = {active_slots, blend.params};
@@ -5484,6 +5509,7 @@ private:
     case WarpStageKind::AFFINE_FRAME:
       append_range_warning("Translate X", params.translation_x, -4.0f, 4.0f);
       append_range_warning("Translate Y", params.translation_y, -4.0f, 4.0f);
+      append_range_warning("Rotation", params.rotation, -PI_F, PI_F);
       append_range_warning("Scale X", params.scale_x, 0.25f, 4.0f);
       append_range_warning("Scale Y", params.scale_y, 0.25f, 4.0f);
       append_range_warning("Shear", params.shear, -0.75f, 0.75f);
@@ -5876,6 +5902,7 @@ private:
     case WarpStageKind::AFFINE_FRAME:
       return params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
              params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
+             params.rotation >= -PI_F && params.rotation <= PI_F &&
              params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
              params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
              params.shear >= -0.75f && params.shear <= 0.75f &&
@@ -6592,7 +6619,7 @@ private:
            params.speed >= WARP_SPEED_MIN && params.speed <= WARP_SPEED_MAX &&
            params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
            params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
-           params.rotation >= 0.0f && params.rotation <= TWO_PI_F &&
+           params.rotation >= -PI_F && params.rotation <= TWO_PI_F &&
            params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
            params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
            params.shear >= -0.75f && params.shear <= 0.75f &&
