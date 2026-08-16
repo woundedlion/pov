@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
 import {
   captureOffsetMs,
+  GALLERY_HEIGHT,
   DEFAULT_CAPTURE_OFFSET_MS,
   GALLERY_WIDTH,
 } from './screenshot_capture_config.mjs';
@@ -166,7 +167,7 @@ try {
   // floor. Daydream's driver suppresses the PiP under navigator.webdriver, so no
   // post-crop is needed.
   async function grabFrame() {
-    return await page.evaluate((outWidth) => {
+    return await page.evaluate(({ outWidth, outHeight }) => {
       const canvas = document.querySelector('#canvas');
       const SW = 96, SH = 72;
       const off = document.createElement('canvas');
@@ -180,10 +181,10 @@ try {
       }
       const thumb = document.createElement('canvas');
       thumb.width = outWidth;
-      thumb.height = Math.round(canvas.height * outWidth / canvas.width);
+      thumb.height = outHeight;
       thumb.getContext('2d').drawImage(canvas, 0, 0, thumb.width, thumb.height);
       return { dataUrl: thumb.toDataURL('image/png'), lit: lit / (SW * SH) };
-    }, GALLERY_WIDTH);
+    }, { outWidth: GALLERY_WIDTH, outHeight: GALLERY_HEIGHT });
   }
 
   // Loads one effect at one resolution and reports the effect the app actually

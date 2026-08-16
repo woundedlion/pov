@@ -37,3 +37,7 @@ and positive duration.
 `curl_lattice.shader.json` is the editable source for the off-roster
 `CurlLattice` comparison effect. Its two presets share one descriptor and vary
 only the linearly interpolated sphere-noise scale.
+
+`facet_grid.shader.json` describes the fixed stereographic dodecahedral-grid
+pipeline used by `FacetGrid`. Its three presets differ only in continuous
+source, projection, and palette-mapping parameters.

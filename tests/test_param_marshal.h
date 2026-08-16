@@ -243,6 +243,7 @@ inline void check_roster_order_pinned() {
                                               "DisplacementField",
                                               "DreamBalls",
                                               "Dynamo",
+                                              "FacetGrid",
                                               "GnomonicStars",
                                               "GSReactionDiffusion",
                                               "HankinSolids",

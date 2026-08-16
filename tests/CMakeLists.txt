@@ -268,7 +268,7 @@ set(_hs_test_modules
     plot_scan canvas
     scan mesh_raster transformers noise noise_field projections
     generators animation effects
-    effects_smoke effect_factory shaderball curl_lattice
+    effects_smoke effect_factory shaderball curl_lattice facet_grid
     shapeshifter_oracle shapeshifter_tiles dma_core hd107s
     dma_controller
     pov_segmented pov_single pov_sync param_marshal wasm_predicates util led
