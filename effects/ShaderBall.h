@@ -2207,7 +2207,6 @@ private:
   };
 
   enum class InversePipelineId : uint8_t {
-    BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
     GLITCH_NOISE_GRID_WAVE_SHEAR,
     KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
     GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
@@ -2445,20 +2444,6 @@ private:
     static constexpr bool implements(const TopologyKey &) { return true; }
   };
 
-  using BonneKaleidoscopeLatticeMirrorPipelineBase = InversePipeline<
-      OuterCameraStage,
-      SelectedSurfaceProjectStage<Projection::BONNE, SurfaceLens::KALEIDOSCOPE>,
-      SelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE, WarpStageKind::NONE>,
-      SourceStage<Function::PRIMITIVE_LATTICE>,
-      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
-  struct BonneKaleidoscopeLatticeMirrorPipeline
-      : BonneKaleidoscopeLatticeMirrorPipelineBase {
-    HS_FLASH_MEMBER __attribute__((noinline, aligned(4096))) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return BonneKaleidoscopeLatticeMirrorPipelineBase::template run_stage<0>(
-          view, frame);
-    }
-  };
   using GlitchNoiseGridWaveShearPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
@@ -3487,8 +3472,6 @@ private:
 
   static constexpr const char *pipeline_name(InversePipelineId pipeline) {
     switch (pipeline) {
-    case InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR:
-      return "BONNE_KALEIDOSCOPE_LATTICE_MIRROR";
     case InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR:
       return "GLITCH_NOISE_GRID_WAVE_SHEAR";
     case InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR:
@@ -3695,13 +3678,9 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 14> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 13> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 14> PROGRAMS{{
-        make_program<BonneKaleidoscopeLatticeMirrorPipeline,
-                     InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR,
-                     make_topology_key(bonne_lattice_mirror_preset())>(
-            &all_continuous_parameters_supported),
+    static constexpr std::array<ProgramDescriptor, 13> PROGRAMS{{
         make_program<GlitchNoiseGridWaveShearPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
                      make_topology_key(wave_shear_generated_preset())>(
@@ -6545,36 +6524,6 @@ private:
     return {slots, params};
   }
 
-  static constexpr Config bonne_lattice_mirror_preset() {
-    Slots slots{Function::PRIMITIVE_LATTICE,
-                Projection::BONNE,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE,
-                {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
-                CoveragePolicy::EDGE_FADE,
-                PaletteMode::TRIADIC};
-    slots.bonne_hemisphere = BonneHemisphere::NORTH;
-    WarpStageParams outer_warp;
-    outer_warp.rotation = 1.7215928f;
-    outer_warp.cell_x = 5.381125f;
-    outer_warp.cell_y = 1.0f;
-    outer_warp.offset_x = 1.344f;
-    outer_warp.offset_y = -1.456f;
-    Params params =
-        authored_params({}, outer_warp, {1.0f, 0.0f}, {1.0f}, {}, {1.0f});
-    params.source.lattice_cell_scale = 1.1494062f;
-    params.source.lattice_shape_blend = 1.0f;
-    params.source.lattice_softness = 0.26372f;
-    params.source.lattice_radius = 0.31164f;
-    params.projection.central_meridian = 0.0f;
-    params.projection.coordinate_scale = 1.0f;
-    params.projection.bonne_standard_parallel = 0.001f;
-    params.value.edge_width = 0.5f;
-    return {slots, params};
-  }
-
   static constexpr Config peirce_dodecahedral_generated_preset() {
     Slots slots{Function::GRID,
                 Projection::PEIRCE_QUINCUNCIAL,
@@ -6882,7 +6831,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 19> PRESETS = {{
+  static constexpr std::array<Preset, 18> PRESETS = {{
       {wave_shear_generated_preset(),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
@@ -6891,8 +6840,6 @@ private:
        InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR},
       {gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
        InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR},
-      {bonne_lattice_mirror_preset(),
-       InversePipelineId::BONNE_KALEIDOSCOPE_LATTICE_MIRROR},
       {peirce_dodecahedral_generated_preset(),
        InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
       {gnomonic_wave_shear_grid_preset(),
