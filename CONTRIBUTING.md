@@ -36,10 +36,12 @@ component (`scan: clamp the row index before the cast`). Commit messages carry
 
 ## Gates
 
-Every gate below runs in `.github/workflows/ci.yml` behind one aggregate
-`CI green` check. `.githooks/pre-commit` runs the format, lint/docs, native-suite
-and Teensy gates locally on every commit; the license-header check and the
-simulator suite have no local hook and are run by hand.
+Every gate below except the simulator suite runs in `.github/workflows/ci.yml`
+behind one aggregate `CI green` check; the simulator suite runs in daydream's
+own workflows, and no check here covers it. `.githooks/pre-commit` runs the
+format, lint/docs, native-suite and Teensy gates locally on every commit; the
+license-header check and the simulator suite have no local hook and are run by
+hand.
 
 - **`.githooks/pre-commit`** — four gates, each keyed on the staged paths: a
   `clang-format` check over the staged first-party sources, the Python /
@@ -64,7 +66,8 @@ simulator suite have no local hook and are run by hand.
   job.
 - **Simulator:** in the daydream checkout, `npm ci` then `npm test`; its
   `pre-push` hook runs lint, typecheck, the import-map check and the JS suite,
-  and refuses a push from a tree that cannot run them.
+  and refuses a push from a tree that cannot run them. This repository's CI
+  never runs it, so a green `CI green` says nothing about the simulator.
 
 `HS_SKIP_TESTS=1` stands the native suite, the lint checks and the Teensy gate
 down for one commit; `HS_SKIP_LINT=1` and `HS_SKIP_TEENSY=1` stand down one
