@@ -52,11 +52,11 @@ jobs:
             test_exclude: *generated_exclude
           - &shard3_entry
             shard: 3
-            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|generators|animation|effects|effects_smoke|effect_factory|shaderball|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
+            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|generators|animation|effects|effects_smoke|effect_factory|shaderball|curl_lattice|facet_grid|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
             test_exclude: *generated_exclude
           - &shard4_entry
             shard: 4
-            test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|util|presets|styles|shading|death|conway_morph)$"
+            test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|util|presets|styles|shading|death|conway_morph|pullback|pullback_manifest|pullback_capture_determinism)$"
             test_exclude: *generated_exclude
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
