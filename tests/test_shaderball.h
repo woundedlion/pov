@@ -1598,7 +1598,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(18));
+  HS_EXPECT_EQ(presets.size(), size_t(19));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   for (const auto &entry : choreo) {
     HS_EXPECT_FALSE(entry.staggered);
@@ -1610,9 +1610,9 @@ inline void test_shaderball_preset_bank() {
   bool has_hue_shift = false;
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
-    const WB::PaletteMode expected_palette = index == 9 || index >= 11
-                                                 ? WB::PaletteMode::ANALOGOUS
-                                                 : WB::PaletteMode::TRIADIC;
+    const WB::PaletteMode expected_palette =
+        index == 9 || (index >= 11 && index < 18) ? WB::PaletteMode::ANALOGOUS
+                                                  : WB::PaletteMode::TRIADIC;
     HS_EXPECT_EQ(preset.slots.palette, expected_palette);
     HS_EXPECT_TRUE(WB::seam_compatible(preset));
     HS_EXPECT_TRUE(WB::valid_config(preset));
@@ -1799,6 +1799,36 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(fine_equirectangular_grid.params.color.mapping_frequency,
                21.212f);
   HS_EXPECT_EQ(fine_equirectangular_grid.params.color.palette_chroma, 1.0f);
+  const auto &glitch_grid = presets[18];
+  HS_EXPECT_EQ(glitch_grid.slots.function, WB::Function::GRID);
+  HS_EXPECT_EQ(glitch_grid.slots.projection, WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(glitch_grid.slots.projection_frame,
+               WB::ProjectionFramePolicy::IDENTITY);
+  HS_EXPECT_EQ(glitch_grid.slots.surface_lens, WB::SurfaceLens::GLITCH);
+  HS_EXPECT_EQ(glitch_grid.slots.warp_program.outer.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(glitch_grid.slots.warp_program.inner.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(glitch_grid.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
+  HS_EXPECT_EQ(glitch_grid.slots.palette, WB::PaletteMode::TRIADIC);
+  HS_EXPECT_EQ(glitch_grid.slots.palette_mapping, WB::PaletteMapping::LINEAR);
+  HS_EXPECT_EQ(glitch_grid.slots.hue_shift,
+               WB::HueShiftMode::WARP_DISPLACEMENT);
+  HS_EXPECT_EQ(glitch_grid.params.source.pattern_freq, 2.5477f);
+  HS_EXPECT_EQ(glitch_grid.params.source.speed, 0.235f);
+  HS_EXPECT_EQ(glitch_grid.params.source.complexity, 1.854f);
+  HS_EXPECT_EQ(glitch_grid.params.source.secondary_rate, 1.0f);
+  HS_EXPECT_EQ(glitch_grid.params.warp.outer.rotation, 0.295309722f);
+  HS_EXPECT_EQ(glitch_grid.params.warp.outer.cell_x, 5.381125f);
+  HS_EXPECT_EQ(glitch_grid.params.warp.outer.offset_x, 1.344f);
+  HS_EXPECT_EQ(glitch_grid.params.warp.outer.offset_y, -1.456f);
+  HS_EXPECT_EQ(glitch_grid.params.projection.pole_fade, 1.4f);
+  HS_EXPECT_EQ(glitch_grid.params.projection.wander, 1.0f);
+  HS_EXPECT_EQ(glitch_grid.params.surface_lens.mix, 1.0f);
+  HS_EXPECT_EQ(glitch_grid.params.value.edge_width, 0.5f);
+  HS_EXPECT_EQ(glitch_grid.params.color.hue_shift_amount, 2.048f);
+  HS_EXPECT_EQ(glitch_grid.params.color.palette_chroma, 0.292f);
+  HS_EXPECT_EQ(glitch_grid.params.outer_camera.wander, 1.0f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.scale, 0.1f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.speed, 0.5f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.scale, 0.1f);
@@ -2428,11 +2458,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(18));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(19));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(17));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[17]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(18));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[18]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -3716,7 +3746,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
     HS_EXPECT_EQ(preset_mask, expected.preset_mask);
     compiled_preset_mask |= preset_mask;
   }
-  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0x3ffff));
+  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0x7ffff));
   const auto &peirce_framebuffer =
       pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
   const auto &hue_framebuffer = pullback_oracle_metric(

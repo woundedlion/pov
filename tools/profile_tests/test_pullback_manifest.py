@@ -138,7 +138,7 @@ class ManifestValidation(unittest.TestCase):
         first = generator.generate_header(programs, oracles)
         second = generator.generate_header(programs, oracles)
         self.assertEqual(first, second)
-        self.assertIn("0x300", first)
+        self.assertIn("0x40000", first)
         runtime = json.loads(
             generator.generate_runtime_manifest(programs, oracles, "a" * 40)
         )
