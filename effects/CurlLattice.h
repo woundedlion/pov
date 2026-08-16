@@ -169,18 +169,26 @@ public:
 
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
-    timeline.step(canvas);
-    begin_automatic_transition();
-    prepare_transition_value();
-    advance_runtime();
-    update_spatial_frames();
-    update_palette_chroma();
-    palette_cycler.step();
-
+    {
+      HS_PROFILE(cl_timeline_step);
+      timeline.step(canvas);
+    }
+    {
+      HS_PROFILE(cl_advance);
+      begin_automatic_transition();
+      prepare_transition_value();
+      advance_runtime();
+      update_spatial_frames();
+      update_palette_chroma();
+      palette_cycler.step();
+    }
     const FrameState frame = prepare_frame();
-    Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](const Vector &view) {
-      return RenderPipeline::shade(view, frame);
-    });
+    {
+      HS_PROFILE(cl_shader_draw);
+      Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](const Vector &view) {
+        return RenderPipeline::shade(view, frame);
+      });
+    }
     finish_transition_evaluation();
   }
 
@@ -548,6 +556,10 @@ private:
       return;
     }
     HS_CHECK(advancePreset());
+#ifdef HS_PROFILE_ENABLE
+    hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex() + 1),
+            static_cast<unsigned>(getPresetCount()));
+#endif
   }
 
   HS_COLD_MEMBER void prepare_transition_value() {
@@ -618,6 +630,7 @@ private:
   }
 
   HS_COLD_MEMBER FrameState prepare_frame() {
+    HS_PROFILE(cl_prepare_frame);
     if (state->hue_noise_lut_scale != params.color.hue_noise_scale ||
         state->hue_noise_lut_phase != hue_noise_phase)
       prepare_hue_noise_lut();

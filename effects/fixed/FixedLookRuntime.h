@@ -708,17 +708,26 @@ public:
 
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
-    timeline.step(canvas);
-    begin_automatic_transition();
-    prepare_transition_value();
-    advance_runtime();
-    update_spatial_frames();
-    update_palette_chroma();
-    palette_cycler.step();
+    {
+      HS_PROFILE(fx_timeline_step);
+      timeline.step(canvas);
+    }
+    {
+      HS_PROFILE(fx_advance);
+      begin_automatic_transition();
+      prepare_transition_value();
+      advance_runtime();
+      update_spatial_frames();
+      update_palette_chroma();
+      palette_cycler.step();
+    }
     const Frame frame = prepare_frame();
-    Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](const Vector &view) {
-      return Derived::shade(view, frame);
-    });
+    {
+      HS_PROFILE(fx_shader_draw);
+      Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](const Vector &view) {
+        return Derived::shade(view, frame);
+      });
+    }
     finish_transition_evaluation();
   }
 
@@ -1121,6 +1130,7 @@ private:
   }
 
   HS_COLD_MEMBER Frame prepare_frame() {
+    HS_PROFILE(fx_prepare_frame);
     if constexpr (HueV == HueMode::NOISE) {
       if (state->hue_noise_lut_scale != params.color.hue_noise_scale ||
           state->hue_noise_lut_phase != hue_noise_phase) {
