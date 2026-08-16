@@ -2118,6 +2118,18 @@ Visualizes the real spherical harmonics Yˡₘ(θ, φ) as a colored scalar field
 
 #### MobiusGrid
 
+A stereographic twin-wave field folded through an inner mirror tile and a live Möbius lens. The lens follows the original grid's 160-frame circular warp cycle while a complementary full-chroma palette tracks displacement through the fold.
+
+**Parameters**: Pattern Freq, Speed, Drift, Projection Spin Speed, Projection Wander, Mobius A/B/C/D Real/Imag, Planar Warp 1/2, Palette Mapping, Chroma, Hue Shift Amount, Outer Wander
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=MobiusRings" target="_blank"><img src="docs/screenshots/MobiusRings.png" alt="MobiusRings" width="280"></a></td>
+<td valign="top">
+
+#### MobiusRings
+
 A latitude-longitude grid that undergoes live Möbius transformation animation via `MobiusWarpCircularTransformer`.
 
 **Parameters**: Rings, Lines, Alpha

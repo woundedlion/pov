@@ -29,7 +29,7 @@
 #include "effects/IslamicStars.h"
 #include "effects/MeshFeedback.h"
 #include "effects/MindSplatter.h"
-#include "effects/MobiusGrid.h"
+#include "effects/MobiusRings.h"
 #include "effects/PetalFlow.h"
 #include "effects/PromotedShaderLooks.h"
 #include "effects/Raymarch.h"
@@ -74,14 +74,14 @@
   X(HopfFibration)                                                             \
   X(IslamicStars)                                                              \
   X(HexWave)                                                                   \
-  X(KaleidoGrid)                                                               \
+  X(AlienOcean)                                                                \
   X(KaleidoWave)                                                               \
   X(MeshFeedback)                                                              \
   X(MindSplatter)                                                              \
   X(MobiusGrid)                                                                \
+  X(MobiusRings)                                                               \
   X(PetalFlow)                                                                 \
   X(PrismLattice)                                                              \
-  X(QuincunxFacets)                                                            \
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
@@ -89,14 +89,14 @@
   X(ShapeShifter)                                                              \
   X(SignalWeave)                                                               \
   X(SphericalHarmonics)                                                        \
-  X(StereoGlitch)                                                              \
+  X(CosmicEyeball)                                                             \
   X(Thrusters)                                                                 \
   X(VectorFacets)                                                              \
   X(Voronoi)
 
 /**
  * @brief Phantasm playlist: HS_EFFECT_LIST minus Shader and the low-res-only
- *        effects Dynamo and Thrusters.
+ *        effects Dynamo, MobiusRings, and Thrusters.
  * @param X Function-like macro applied to each effect type name and its show
  *          duration in seconds.
  * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
@@ -122,21 +122,20 @@
   X(HopfFibration, 120)                                                        \
   X(HexWave, 6)                                                                \
   X(IslamicStars, 120)                                                         \
-  X(KaleidoGrid, 7)                                                            \
+  X(AlienOcean, 7)                                                             \
   X(KaleidoWave, 7)                                                            \
   X(MeshFeedback, 181)                                                         \
   X(MindSplatter, 120)                                                         \
   X(MobiusGrid, 120)                                                           \
   X(PetalFlow, 120)                                                            \
   X(PrismLattice, 6)                                                           \
-  X(QuincunxFacets, 6)                                                         \
   X(Raymarch, 120)                                                             \
   X(RingShower, 120)                                                           \
   X(RingSpin, 120)                                                             \
   X(ShapeShifter, 135)                                                         \
   X(SignalWeave, 7)                                                            \
   X(SphericalHarmonics, 120)                                                   \
-  X(StereoGlitch, 6)                                                           \
+  X(CosmicEyeball, 6)                                                          \
   X(VectorFacets, 6)                                                           \
   X(Voronoi, 120)
 
@@ -144,9 +143,8 @@
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
   X(SignalWeave, 7)                                                            \
   X(KaleidoWave, 7)                                                            \
-  X(KaleidoGrid, 7)                                                            \
+  X(AlienOcean, 7)                                                             \
   X(GlitchGrid, 6)                                                             \
-  X(QuincunxFacets, 6)                                                         \
   X(FacetWave, 6)                                                              \
   X(ContourLattice, 6)                                                         \
   X(CurlLattice, 13)                                                           \
@@ -155,7 +153,8 @@
   X(FacetGrid, 19)                                                             \
   X(HexWave, 6)                                                                \
   X(EquatorGrid, 19)                                                           \
-  X(StereoGlitch, 6)
+  X(CosmicEyeball, 6)                                                          \
+  X(MobiusGrid, 6)
 
 #define HS_SHADER_GROUP_SECONDS(name, seconds) +seconds
 constexpr int HS_SHADER_PRODUCT_GROUP_SECONDS =
@@ -264,15 +263,17 @@ static_assert(hs_phantasm_effect_list_is_distinct(),
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
-static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 3,
+static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 4,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus Shader, Dynamo and Thrusters)");
+              "(full roster minus Shader, Dynamo, MobiusRings and Thrusters)");
 static_assert(hs_in_effect_list("Shader") && hs_in_effect_list("Dynamo") &&
+                  hs_in_effect_list("MobiusRings") &&
                   hs_in_effect_list("Thrusters"),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
 static_assert(!hs_in_phantasm_effect_list("Shader") &&
                   !hs_in_phantasm_effect_list("Dynamo") &&
+                  !hs_in_phantasm_effect_list("MobiusRings") &&
                   !hs_in_phantasm_effect_list("Thrusters"),
-              "HS_PHANTASM_EFFECT_LIST must exclude Shader, Dynamo and "
-              "Thrusters");
+              "HS_PHANTASM_EFFECT_LIST must exclude Shader, Dynamo, "
+              "MobiusRings and Thrusters");

@@ -5353,32 +5353,19 @@ inline void test_shaderball_glitch_lens_unit_norm() {
   HS_EXPECT_NEAR(forward.z, backward.z, 1e-6f);
 }
 
-/**
- * @brief White-box accessor for MobiusGrid's conformal-radius pole branch and
- *        counter-rotation singularity guard (befriended in effects/MobiusGrid.h).
- */
-struct MobiusGridWhiteBox {
-  using MG = MobiusGrid<DEFAULT_W, DEFAULT_H>;
+/** @brief White-box accessor for MobiusRings' singular numeric branches. */
+struct MobiusRingsWhiteBox {
+  using MR = MobiusRings<DEFAULT_W, DEFAULT_H>;
   static float conformal_coord(float z, float phase) {
-    return MG::conformal_coord(z, phase);
+    return MR::conformal_coord(z, phase);
   }
   static Quaternion counter_rotation(const Vector &mid) {
-    return MG::counter_rotation(mid);
+    return MR::counter_rotation(mid);
   }
 };
 
-/**
- * @brief Pins MobiusGrid's two hand-derived numeric branches.
- * @details The longitude conformal-radius map R = sqrt((1+z)/(1-z)) is singular
- *          at the poles z = +/-1; the counter-rotation is undefined when the two
- *          Möbius-transformed poles cancel. A plausible frame renders even if
- *          either branch is wrong, so sweep z across the poles (coord must stay
- *          finite in [0,1], poles saturate to 1.0) and check the canceled
- *          midpoint leaves the rotation at identity while a well-defined one maps
- *          onto +Z.
- */
-inline void test_mobiusgrid_conformal_and_counter_rotation() {
-  using WB = MobiusGridWhiteBox;
+inline void test_mobius_rings_conformal_and_counter_rotation() {
+  using WB = MobiusRingsWhiteBox;
 
   const float zs[] = {-1.0f, -0.999999f, -0.5f, 0.0f, 0.5f, 0.999999f, 1.0f};
   for (float z : zs) {
@@ -6479,7 +6466,7 @@ inline int run_effects_tests() {
     test_displacement_field_clip_tiles_full();
     test_mindsplatter_emit_phase_wrapped();
     test_shaderball_glitch_lens_unit_norm();
-    test_mobiusgrid_conformal_and_counter_rotation();
+    test_mobius_rings_conformal_and_counter_rotation();
     test_islamicstars_seed_sprite_fade_in();
     test_islamicstars_recipe_build_smoke();
     test_islamicstars_roster_cycle_fits_budget();

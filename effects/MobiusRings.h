@@ -6,7 +6,7 @@
 #pragma once
 
 /**
- * @file MobiusGrid.h
+ * @file MobiusRings.h
  * @brief Rotating sphere of latitude rings and longitude lines warped through
  *        a Mobius transform.
  */
@@ -18,7 +18,7 @@
 // counter-rotation singularity guard.
 namespace hs_test {
 namespace effects_tests {
-struct MobiusGridWhiteBox;
+struct MobiusRingsWhiteBox;
 } // namespace effects_tests
 } // namespace hs_test
 
@@ -30,7 +30,7 @@ struct MobiusGridWhiteBox;
  * @details Every sampled point is pushed through a Möbius transform so the grid
  *          continuously inflates/deflates between two "holes" on the sphere.
  */
-template <int W, int H> class MobiusGrid : public Effect {
+template <int W, int H> class MobiusRings : public Effect {
   // Distinct type keys for Pipeline::get<T>; no per-subclass behaviour.
   class NorthHole : public Filter::World::Hole {
   public:
@@ -50,9 +50,9 @@ public:
    *          holes; Orient applies the spinning orientation; AntiAlias smooths
    *          the rasterized lines.
    */
-  HS_COLD_MEMBER MobiusGrid()
+  HS_COLD_MEMBER MobiusRings()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
-        palette(EffectPaletteRecipes::mobius_grid(
+        palette(EffectPaletteRecipes::mobius_rings(
             EffectPaletteRecipes::random_base_turns())),
         mobius_gen(timeline),
         filters(NorthHole(Y_AXIS, 1.2f), SouthHole(-Y_AXIS, 1.2f),
@@ -70,8 +70,9 @@ public:
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
       alignof(int) + BakedPalette::required_arena_bytes();
-  static_assert(FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
-                "MobiusGrid persistent footprint exceeds its device partition");
+  static_assert(
+      FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
+      "MobiusRings persistent footprint exceeds its device partition");
 
   /**
    * @brief Sizes the arenas, exposes the user params, and arms the timeline
@@ -90,7 +91,7 @@ public:
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     auto *warp = mobius_gen.spawn_pinned(0, 1.0f, 160, true);
-    HS_CHECK(warp, "MobiusGrid: pinned warp spawn must succeed");
+    HS_CHECK(warp, "MobiusRings: pinned warp spawn must succeed");
 
     timeline
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400,
@@ -156,7 +157,7 @@ public:
 private:
   // Test seam: reaches the conformal-radius pole branch and the
   // counter-rotation singularity guard.
-  friend struct ::hs_test::effects_tests::MobiusGridWhiteBox;
+  friend struct ::hs_test::effects_tests::MobiusRingsWhiteBox;
 
   static constexpr float CONFORMAL_LOG_MIN = -2.5f;
   static constexpr float CONFORMAL_LOG_MAX = 2.5f;
@@ -204,7 +205,7 @@ private:
    */
   HS_COLD_MEMBER void wipe_palette() {
     wipe.arm(palette,
-             GenerativePalette{EffectPaletteRecipes::mobius_grid(
+             GenerativePalette{EffectPaletteRecipes::mobius_rings(
                                    EffectPaletteRecipes::random_base_turns())}
                  .snapshot(),
              WIPE_FRAMES);
@@ -346,7 +347,7 @@ private:
   static constexpr int WIPE_PERIOD =
       120; /**< Frames between palette rollovers. */
   static_assert(WIPE_PERIOD > WIPE_FRAMES,
-                "MobiusGrid: a rollover firing mid-wipe would clobber the "
+                "MobiusRings: a rollover firing mid-wipe would clobber the "
                 "snapshots the live ColorWipe still references");
 
   GenerativePalette palette; /**< Currently displayed palette. */
@@ -386,4 +387,4 @@ private:
 };
 
 #include "core/engine/effect_registry.h"
-REGISTER_EFFECT(MobiusGrid)
+REGISTER_EFFECT(MobiusRings)
