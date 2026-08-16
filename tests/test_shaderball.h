@@ -3210,6 +3210,7 @@ inline void test_mobius_grid_circular_animation() {
   const MobiusParams animated =
       WB::active_config(effect).params.surface_lens.mobius;
   HS_EXPECT_FALSE(WB::transition_active(effect));
+  HS_EXPECT_TRUE(WB::param_morph_active(effect));
   HS_EXPECT_TRUE(animated.b.re != initial.b.re ||
                  animated.b.im != initial.b.im);
   HS_EXPECT_NEAR(animated.b.re * animated.b.re + animated.b.im * animated.b.im,
@@ -3225,8 +3226,14 @@ inline void test_mobius_grid_circular_animation() {
   const MobiusParams advanced =
       WB::active_config(effect).params.surface_lens.mobius;
   HS_EXPECT_FALSE(WB::transition_active(effect));
+  HS_EXPECT_TRUE(WB::param_morph_active(effect));
   HS_EXPECT_TRUE(advanced.b.re != animated.b.re ||
                  advanced.b.im != animated.b.im);
+  WB::refresh_display(effect);
+  const MobiusParams advanced_display =
+      WB::display_config(effect).params.surface_lens.mobius;
+  HS_EXPECT_EQ(advanced_display.b.re, advanced.b.re);
+  HS_EXPECT_EQ(advanced_display.b.im, advanced.b.im);
 
   effect.setAnimationsPaused(true);
   effect.draw_frame();
@@ -3242,6 +3249,25 @@ inline void test_mobius_grid_circular_animation() {
   const MobiusParams resumed =
       WB::active_config(effect).params.surface_lens.mobius;
   HS_EXPECT_TRUE(resumed.b.re != paused.b.re || resumed.b.im != paused.b.im);
+
+  MobiusParams previous = resumed;
+  for (int frame = 0; frame < 500; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+    const MobiusParams current =
+        WB::active_config(effect).params.surface_lens.mobius;
+    WB::refresh_display(effect);
+    const MobiusParams current_display =
+        WB::display_config(effect).params.surface_lens.mobius;
+    HS_EXPECT_EQ(current_display.b.re, current.b.re);
+    HS_EXPECT_EQ(current_display.b.im, current.b.im);
+    HS_EXPECT_NEAR(current.b.re * current.b.re + current.b.im * current.b.im,
+                   1.0f, 1e-5f);
+    const float delta_re = current.b.re - previous.b.re;
+    const float delta_im = current.b.im - previous.b.im;
+    HS_EXPECT_TRUE(delta_re * delta_re + delta_im * delta_im < 0.02f);
+    previous = current;
+  }
 }
 
 /** @brief Polyhedral lenses expose controls at their chamber scale. */
