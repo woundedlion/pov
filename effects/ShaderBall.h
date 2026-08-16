@@ -6207,6 +6207,11 @@ private:
   }
 
   HS_COLD_MEMBER void enter_preset() {
+    if (preset_count_for_view() < 2) {
+      preset_dwell_remaining = 0;
+      preset_dwell_armed = false;
+      return;
+    }
     const Choreo choreo = preset_choreo(getPresetIndex());
     preset_dwell_remaining = static_cast<uint16_t>(
         hs::rand_int(choreo.dwell_min, choreo.dwell_max + 1));

@@ -3204,22 +3204,37 @@ inline void test_mobius_grid_circular_animation() {
 
   const MobiusParams initial =
       WB::active_config(effect).params.surface_lens.mobius;
+  HS_EXPECT_FALSE(WB::transition_active(effect));
   effect.draw_frame();
   effect.advance_display();
   const MobiusParams animated =
       WB::active_config(effect).params.surface_lens.mobius;
+  HS_EXPECT_FALSE(WB::transition_active(effect));
   HS_EXPECT_TRUE(animated.b.re != initial.b.re ||
                  animated.b.im != initial.b.im);
   HS_EXPECT_NEAR(animated.b.re * animated.b.re + animated.b.im * animated.b.im,
                  1.0f, 1e-5f);
+  WB::refresh_display(effect);
+  const MobiusParams displayed =
+      WB::display_config(effect).params.surface_lens.mobius;
+  HS_EXPECT_EQ(displayed.b.re, animated.b.re);
+  HS_EXPECT_EQ(displayed.b.im, animated.b.im);
+
+  effect.draw_frame();
+  effect.advance_display();
+  const MobiusParams advanced =
+      WB::active_config(effect).params.surface_lens.mobius;
+  HS_EXPECT_FALSE(WB::transition_active(effect));
+  HS_EXPECT_TRUE(advanced.b.re != animated.b.re ||
+                 advanced.b.im != animated.b.im);
 
   effect.setAnimationsPaused(true);
   effect.draw_frame();
   effect.advance_display();
   const MobiusParams paused =
       WB::active_config(effect).params.surface_lens.mobius;
-  HS_EXPECT_EQ(paused.b.re, animated.b.re);
-  HS_EXPECT_EQ(paused.b.im, animated.b.im);
+  HS_EXPECT_EQ(paused.b.re, advanced.b.re);
+  HS_EXPECT_EQ(paused.b.im, advanced.b.im);
 
   effect.setAnimationsPaused(false);
   effect.draw_frame();
