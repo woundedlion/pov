@@ -52,8 +52,7 @@ frames into preset 0. The five fixed-pipeline cyclers hold each preset for 600
 frames and then morph over 480, so a preset owns 1,080 frames and their captures
 are sized to wrap the full cycle.
 
-This directory also holds the last captures of **Flyby**, **Liquid2D** and
-**ShaderBall**, which are not in the roster and are absent from the table above.
-ShaderBall was retired by the fixed-pipeline workbench migration (`69d4751c`),
-which turned its 13-preset program bank into the fourteen ● effects; its capture
-is kept because they inherit its pullback pipeline.
+This directory also holds the last captures of **Flyby** and **Liquid2D**, which
+are not in the roster and are absent from the table above. ShaderBall's captures
+have been deleted: the fixed-pipeline workbench migration (`69d4751c`) turned its
+13-preset program bank into the fourteen ● effects.

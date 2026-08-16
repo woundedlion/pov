@@ -88,15 +88,14 @@ in that sweep. The other rows keep their own `Captured` dates.
 Both peak columns precede the spill columns so the codegen delta reads
 directly. Size deltas are O3 minus shipping.
 
-ShaderBall's row below is the source-matched `e920b4fa` comparison of the
-optimized core pullback pipeline. ShaderBall has since been retired, but the row
-stays as the codegen reference for the pipeline the fourteen fixed-pipeline
-effects inherit; none of them has a paired O3 capture yet. Global O3 is a
-measurement reference, not a shipping candidate.
+Global O3 is a measurement reference, not a shipping candidate.
+
+The fourteen fixed-pipeline effects have no paired captures, so the pullback
+pipeline has no O3-vs-shipping codegen delta on record; profiling one of them
+under `profile_o3` would re-establish it.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShaderBall](O3/profile_shaderball_teensy_2026-08-15.md)§ ● | inverse pullback pipeline | 🟢 59.20 (13) | 🟢 50.72 (13) | 🟢 0/2208 (0%) | 🟢 0/2208 (0%) | +17,264 B | +12,480 B | ship 2026-08-15 16:35<br>O3 2026-08-15 16:32 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
@@ -108,17 +107,13 @@ measurement reference, not a shipping candidate.
 
 ## Captures of retired effects
 
-`shipping/` also holds the last captures of **Flyby** and **Liquid2D**, the two
-stereographic effects ShaderBall subsumed (`../specs/shaderball_spec.md`), and of
-**ShaderBall** itself. None is in the roster, so `just profile` cannot regenerate
-them.
+`shipping/` also holds the last captures of **Flyby** and **Liquid2D**, two
+retired stereographic effects (`../specs/shaderball_spec.md`). Neither is in the
+roster, so `just profile` cannot regenerate them.
 
-ShaderBall was retired by the fixed-pipeline workbench migration (`69d4751c`):
-its 13-preset program bank became fourteen first-class effects, and `Shader` is
-now the authoring workbench rather than a shipping effect. Its capture is kept
-because the fourteen rows below inherit its pullback pipeline, so its per-preset
-costs are the direct predecessors of theirs. Its paired shipping/O3 row also
-stays in the table above as the codegen reference for that pipeline.
+ShaderBall's captures have been deleted. The fixed-pipeline workbench migration
+(`69d4751c`) turned its 13-preset program bank into the fourteen ● effects above
+and left `Shader` as the authoring workbench rather than a shipping effect.
 
 ## What the roster looks like
 
@@ -126,14 +121,8 @@ stays in the table above as the codegen reference for that pipeline.
 
 **The fourteen fixed-pipeline effects are green, and none is near the
 ceiling.** Their peaks run 23.30 ms (GlitchGrid) to 48.67 ms (CurlLattice), so
-the heaviest of them keeps 13.83 ms of the 62.5 ms window. They replaced
-ShaderBall, which peaked at 59.20 ms with 3.30 ms of margin, so the group's
-ceiling is 10.53 ms lower. That is not a like-for-like speedup: ShaderBall's
-ceiling was its Bonne kaleidoscope lattice program, and no effect in the new
-group uses a Bonne projection, so the worst program was dropped rather than
-made faster. The structural change — a compile-time `RenderPipeline::shade`
-inlined into the scan instead of a `ShadeFunction` pointer per endpoint — is
-unmeasured on its own.
+the heaviest of them keeps 13.83 ms of the 62.5 ms window — the widest margin
+any pullback-shaded effect has held on this bench.
 
 The two heaviest are the only ones doing per-sample noise work on top of a
 closed-form pullback: CurlLattice integrates a simplex curl-noise surface
@@ -146,8 +135,8 @@ Five of them cycle presets, and their spreads are narrow — EquatorGrid 1.03×
 across three presets, FacetGrid 1.19× across four, SignalWeave 1.03× across
 four. A preset morph is a 480-frame parameter interpolation, not a structural
 change, so a transition is bounded by its two endpoints rather than being a
-cost peak of its own. This is the practical difference from ShaderBall, whose
-presets swapped whole compiled programs and spanned 3.0×.
+cost peak of its own — a preset bank cannot introduce a cost outlier the way a
+bank of separately compiled programs could.
 
 None of the fourteen has a paired global-O3 capture yet; `Scan::Shader::draw_cached`
 is already `HS_O3_FN` with cached-flash placement, so the shipping image
