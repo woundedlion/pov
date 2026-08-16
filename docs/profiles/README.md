@@ -27,8 +27,8 @@ live in each effect's report.
 
 **Spilled** is `frames whose render overran one 62.5 ms window / total (%)`.
 
-**Colour** is strict and binary per phase: 🟢 zero spilled frames · 🔴 one or
-more spilled frames. Peak ms and spill fraction are both retained because
+**Colour** is strict per phase: 🟢 zero spilled frames · 🟡 under 25% spilled ·
+🔴 25% or more spilled. Peak ms and spill fraction are both retained because
 cadence is quantized.
 
 **§ cyclers** carry one row per colour bucket, worst first, aligned across the
@@ -46,6 +46,7 @@ peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
+| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-15.md)§ ● | inverse pullback pipeline | 🟢 59.20 (13) | 🟢 0/2208 (0%) | 2026-08-15 16:35 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
@@ -53,7 +54,6 @@ peak.
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-07-28.md)§ | per-face SDF + opchain build legs | 🟢 56.91 (24) | 🟢 0/3328 (0%) | 2026-07-28 17:34 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-07-25.md) | fused ring-group raster (row-local walk) | 🟢 56.47 | 🟢 0/1088 (0%) | 2026-07-26 11:44 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
-| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 55.69 (12) | 🟢 0/10368 (0%) | 2026-08-14 11:00 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-07-25.md) | volume ray-march (`-O3` march path) | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ ● | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
@@ -73,13 +73,13 @@ peak.
 Both peak columns precede the spill columns so the codegen delta reads
 directly. Size deltas are O3 minus shipping.
 
-ShaderBall's row below is the source-matched 2026-08-14 comparison for the
-current 12-preset bank. Global O3 is a measured regression, not a shipping
-candidate.
+ShaderBall's row below is the source-matched `e920b4fa` comparison of the
+optimized core pullback pipeline. Global O3 is a measurement reference, not a
+shipping candidate.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShaderBall](O3/profile_shaderball_teensy_2026-08-14.md)§ ● | inverse shader pipeline | 🟢 55.69 (12) | 🔴 84.64 (5)<br>🟢 60.54 (7) | 🟢 0/10368 (0%) | 🔴 1440/2405 (59.9%)<br>🟢 0/6523 (0%) | +13,000 B | +12,352 B | ship 2026-08-14 11:00<br>O3 2026-08-14 11:12 |
+| [ShaderBall](O3/profile_shaderball_teensy_2026-08-15.md)§ ● | inverse pullback pipeline | 🟢 59.20 (13) | 🟢 50.72 (13) | 🟢 0/2208 (0%) | 🟢 0/2208 (0%) | +17,264 B | +12,480 B | ship 2026-08-15 16:35<br>O3 2026-08-15 16:32 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
@@ -87,7 +87,7 @@ candidate.
 | [MindSplatter](O3/profile_mindsplatter_teensy_2026-08-07.md)§ ● | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 38.78 (8) | 🟢 0/1728 (0%) | 🟢 0/1728 (0%) | +21,464 B | +18,832 B | ship 2026-08-07 23:03<br>O3 2026-08-07 23:02 |
 | [ChaoticStrings](O3/profile_chaoticstrings_teensy_2026-08-02.md) ● | adaptive vertex build | 🟢 24.85 | 🟢 22.16 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +28,456 B | +20,688 B | ship 2026-08-02 22:21<br>O3 2026-08-02 22:23 |
 
-**● refreshed 2026-08-14.**
+**● refreshed 2026-08-15.**
 
 ## Captures of retired effects
 
@@ -104,12 +104,11 @@ ShaderBall's performance budget is sized against their per-pixel costs.
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
 38.78 ms peak while adding 21,464 B of flash and 18,832 B of ITCM.
 
-**ShaderBall completes all 12 current presets below 59 ms.** Independent COM3
-and COM4 shipping cycles each cover 648 windows, wrap 11→0, spill zero of
-10,368 frames, and peak at 55.69 ms. The source-matched global-O3 reference is
-slower: five presets are red, each board spills 1,440/8,928 frames, and the
-worst peak is 84.64 ms. The report preserves the former 17-preset baseline and
-exact old-to-new remap without reassigning historical measurements.
+**ShaderBall's optimized core pullback pipeline is green across all 13
+presets.** The shipping fast cycle wraps 12→0, peaks at 59.20 ms, and spills
+0/2,208 frames. Preset 11 fell from 65.60 ms to 44.71 ms of held shader work;
+preset 4 is now the shipping ceiling at 54.64 ms. The matched global-O3
+reference peaks at 50.72 ms with zero spills.
 
 **MeshFeedback is green on all 12 styles** — 0/6688 at a 57.70 ms peak
 (SlowDust), worst hold Smoke at 48.86 ms of flush. `feedback_composite` is 67%
