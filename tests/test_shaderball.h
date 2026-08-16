@@ -4470,13 +4470,13 @@ inline void test_shaderball_planar_warp_animation() {
   HS_EXPECT_EQ(stationary.clocks.warp_outer_rotation, 0.0f);
 
   WB::RequestedConfig rotating = lattice_scroll;
+  rotating.params.warp.outer.speed = 0.0f;
   rotating.params.warp.outer.rotation = 0.3f;
   WB::LookRuntime clockwise;
   WB::LookRuntime counterclockwise;
   for (int step = 1; step <= 4; ++step) {
     WB::advance_runtime(sb, clockwise, rotating, {Quaternion(), Quaternion()});
-    const float expected = step * rotating.params.warp.outer.speed *
-                           rotating.params.warp.outer.rotation;
+    const float expected = step * rotating.params.warp.outer.rotation;
     const auto prepared = WB::prepared_warp_stage(
         rotating.slots.warp_program.outer, rotating.params.warp.outer,
         clockwise.clocks.warp_outer_phase, Complex(),
@@ -4488,8 +4488,7 @@ inline void test_shaderball_planar_warp_animation() {
   for (int step = 1; step <= 4; ++step) {
     WB::advance_runtime(sb, counterclockwise, rotating,
                         {Quaternion(), Quaternion()});
-    const float expected = step * rotating.params.warp.outer.speed *
-                           rotating.params.warp.outer.rotation;
+    const float expected = step * rotating.params.warp.outer.rotation;
     const auto prepared = WB::prepared_warp_stage(
         rotating.slots.warp_program.outer, rotating.params.warp.outer,
         counterclockwise.clocks.warp_outer_phase, Complex(),
@@ -4497,6 +4496,21 @@ inline void test_shaderball_planar_warp_animation() {
     HS_EXPECT_NEAR(prepared.rotation_cos, cosf(expected), 1e-6f);
     HS_EXPECT_NEAR(prepared.rotation_sin, sinf(expected), 1e-6f);
   }
+  WB::RequestedConfig inner_rotating = lattice_scroll;
+  inner_rotating.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+  inner_rotating.slots.warp_program.inner.kind =
+      WB::WarpStageKind::AFFINE_FRAME;
+  inner_rotating.params.warp.inner.speed = 0.0f;
+  inner_rotating.params.warp.inner.rotation = -0.2f;
+  WB::LookRuntime inner_runtime;
+  WB::advance_runtime(sb, inner_runtime, inner_rotating,
+                      {Quaternion(), Quaternion()});
+  const auto prepared_inner = WB::prepared_warp_stage(
+      inner_rotating.slots.warp_program.inner, inner_rotating.params.warp.inner,
+      inner_runtime.clocks.warp_inner_phase, Complex(),
+      inner_runtime.clocks.warp_inner_rotation);
+  HS_EXPECT_NEAR(prepared_inner.rotation_cos, cosf(-0.2f), 1e-6f);
+  HS_EXPECT_NEAR(prepared_inner.rotation_sin, sinf(-0.2f), 1e-6f);
   for (float phase : {0.0f, 0.25f, 0.5f, 0.75f}) {
     const auto prepared =
         WB::prepared_warp_stage(lattice_scroll.slots.warp_program.outer,
