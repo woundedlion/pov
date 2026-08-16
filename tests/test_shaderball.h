@@ -1629,7 +1629,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(20));
+  HS_EXPECT_EQ(presets.size(), size_t(21));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   for (const auto &entry : choreo) {
     HS_EXPECT_FALSE(entry.staggered);
@@ -1642,7 +1642,7 @@ inline void test_shaderball_preset_bank() {
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
     const WB::PaletteMode expected_palette =
-        index == 19 ? WB::PaletteMode::COMPLEMENTARY
+        index >= 19 ? WB::PaletteMode::COMPLEMENTARY
         : index == 9 || (index >= 11 && index < 18) ? WB::PaletteMode::ANALOGOUS
                                                     : WB::PaletteMode::TRIADIC;
     HS_EXPECT_EQ(preset.slots.palette, expected_palette);
@@ -1662,6 +1662,14 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(mirror.params.warp.inner.speed, 0.0f);
+  const auto &animated_mobius = presets[20];
+  HS_EXPECT_EQ(animated_mobius.params.warp.inner.speed, 0.005875f);
+  HS_EXPECT_EQ(animated_mobius.params.warp.inner.rotation, 0.0f);
+  HS_EXPECT_EQ(animated_mobius.params.warp.inner.cell_x, 0.2791094f);
+  HS_EXPECT_EQ(animated_mobius.params.warp.inner.cell_y, 6.810328f);
+  HS_EXPECT_EQ(animated_mobius.params.color.palette_chroma, 0.398f);
+  HS_EXPECT_EQ(animated_mobius.slots.palette_mapping,
+               WB::PaletteMapping::LINEAR);
   const auto &kaleido_grid = presets[2].params;
   const std::array<float, 25> kaleido_values{
       kaleido_grid.source.pattern_freq,
@@ -2554,11 +2562,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(20));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(21));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(19));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[19]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(20));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[20]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -3061,9 +3069,12 @@ inline void test_promoted_shader_palette_mapping_control() {
 
 inline void test_mobius_grid_circular_animation() {
   using WB = ShaderBallWhiteBox;
+  using FX = MobiusGrid<SMALL_W, SMALL_H>;
   reset_effect_globals();
-  MobiusGrid<SMALL_W, SMALL_H> effect;
+  FX effect;
   effect.init();
+  HS_EXPECT_EQ(effect.getPresetCount(), size_t(2));
+  HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "mobius-grid-2");
 
   const MobiusParams initial =
       WB::active_config(effect).params.surface_lens.mobius;
@@ -3885,7 +3896,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
     HS_EXPECT_EQ(preset_mask, expected.preset_mask);
     compiled_preset_mask |= preset_mask;
   }
-  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0xfffff));
+  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0x1fffff));
   const auto &peirce_framebuffer =
       pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
   const auto &hue_framebuffer = pullback_oracle_metric(

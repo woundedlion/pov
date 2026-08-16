@@ -7202,7 +7202,15 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 20> PRESETS = {{
+  static constexpr Config stereographic_mobius_animated_inner_mirror_preset() {
+    Config config = stereographic_mobius_twin_wave_inner_mirror_preset();
+    config.params.warp.inner.speed = 0.005875f;
+    config.params.warp.inner.cell_x = 0.2791094f;
+    config.params.warp.inner.cell_y = 6.810328f;
+    return config;
+  }
+
+  static constexpr std::array<Preset, 21> PRESETS = {{
       {wave_shear_generated_preset(),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
@@ -7242,6 +7250,8 @@ private:
       {stereographic_glitch_grid_mirror_preset(),
        InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR},
       {stereographic_mobius_twin_wave_inner_mirror_preset(),
+       InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR},
+      {stereographic_mobius_animated_inner_mirror_preset(),
        InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR},
   }};
   static_assert(
