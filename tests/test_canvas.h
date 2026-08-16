@@ -152,6 +152,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   bool committed = false;
   bool failsafe = false;
   int preflights = 0;
+  int restores = 0;
 
   hs::EffectTransitionStatus
   preflight(const hs::EffectTransitionRequest &request,
@@ -182,6 +183,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   }
   hs::EffectTransitionStatus
   restore_outgoing(const hs::EffectRestoreToken &) override {
+    ++restores;
     return restore_status;
   }
   hs::EffectTransitionStatus prepare_restore_frame() override {
@@ -330,6 +332,57 @@ inline void test_effect_transition_replacement_pause_and_restore() {
   HS_EXPECT_TRUE(none.failsafe);
   HS_EXPECT_EQ(failing.current_state(),
                hs::EffectTransitionState::CLEAR_FAILSAFE);
+  HS_EXPECT_EQ(none.envelopes.back(), 0.0f);
+
+  none.construct_status = hs::EffectTransitionStatus::OK;
+  HS_EXPECT_EQ(failing.request(first), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(failing.current_state(),
+               hs::EffectTransitionState::CONSTRUCTING);
+  HS_EXPECT_EQ(none.envelopes.back(), 0.0f);
+  for (int i = 0; i < 8; ++i)
+    failing.tick();
+  HS_EXPECT_TRUE(none.committed);
+  HS_EXPECT_EQ(failing.current_state(), hs::EffectTransitionState::STEADY_IN);
+  HS_EXPECT_EQ(none.envelopes.back(), 1.0f);
+}
+
+inline void test_effect_transition_failsafe_retry() {
+  TransitionAdapter adapter;
+  adapter.capability = hs::EffectRestoreCapability::NONE;
+  adapter.fenced = true;
+  adapter.construct_status = hs::EffectTransitionStatus::RESOURCE_REJECTED;
+  hs::EffectTransitionController controller(adapter);
+  const hs::EffectTransitionRequest request{
+      "signal-weave", "signal-weave", hs::EffectTransitionOrigin::AUTOMATIC, 1};
+  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  for (int i = 0; i < 5; ++i)
+    controller.tick();
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::CLEAR_FAILSAFE);
+  HS_EXPECT_EQ(controller.failure(),
+               hs::EffectTransitionStatus::RESTORE_REJECTED);
+  HS_EXPECT_EQ(adapter.restores, 0);
+
+  // a preflight advertising a restorable outgoing cannot resurrect one
+  adapter.capability = hs::EffectRestoreCapability::EXACT_STATE;
+  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::CONSTRUCTING);
+  controller.tick();
+  controller.tick();
+  HS_EXPECT_EQ(adapter.restores, 0);
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::CLEAR_FAILSAFE);
+
+  adapter.construct_status = hs::EffectTransitionStatus::OK;
+  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  for (int i = 0; i < 7; ++i)
+    controller.tick();
+  HS_EXPECT_TRUE(adapter.committed);
+  HS_EXPECT_TRUE(adapter.incoming_published);
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::STEADY_IN);
+  HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
 }
 
 inline void test_preset_state_machine() {
@@ -1291,6 +1344,7 @@ inline int run_canvas_tests() {
   test_output_envelope_endpoints();
   test_effect_transition_fenced_commit();
   test_effect_transition_replacement_pause_and_restore();
+  test_effect_transition_failsafe_retry();
   test_preset_state_machine();
   test_frame_visible_only_after_advance_display();
   test_consecutive_frames_alternate_buffers();
