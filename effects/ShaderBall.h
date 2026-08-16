@@ -6829,7 +6829,8 @@ private:
     Params params =
         authored_params({pattern_freq, 0.245f, complexity, 0.0f, 0.0f, 0.0f},
                         {1.0f, warp_strength, warp_speed}, {1.0f, 0.0f, 0.0f},
-                        {surface_mix}, {0.292f, 0.6304219f, 0.0f}, {0.0f});
+                        {surface_mix}, {0.292f, 0.6304219f, 0.0f}, {0.8f});
+    params.projection.wander = 0.0f;
     params.color.palette_chroma = 0.788f;
     params.color.mapping_phase = -0.0f;
     return {slots, params};
