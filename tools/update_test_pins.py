@@ -63,7 +63,7 @@ STRING_BODY = re.compile(r'"([^"\\\n]|\\.)*"')
 BLOCK_COMMENT = re.compile(r"/\*[^*]*\*+([^/*][^*]*\*+)*/")
 LINE_COMMENT = re.compile(r"//[^\n]*")
 CASE_DEF = re.compile(
-    r"\n[ \t]*(?:inline )?(?:static )?void[ \t\r\n]+"
+    r"\n[ \t]*(?:template[ \t]*<[^\n]*>[ \t]*)?(?:(?:inline|static)[ \t]+)*void[ \t\r\n]+"
     r"((?:test|check|case)_[A-Za-z0-9_]+)\("
 )
 ENTRY_FN = re.compile(r"\n[ \t]*(?:inline )?(?:static )?int (run_[A-Za-z0-9_]+_tests)\(")
