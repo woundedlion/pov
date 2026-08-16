@@ -1846,9 +1846,8 @@ private:
         float *targets[] = {&params.translation_x, &params.translation_y,
                             &params.rotation,      &params.scale_x,
                             &params.scale_y,       &params.shear};
-        const float minimum[] = {-4.0f, -4.0f, -PI_F / 8.0f,
-                                 0.25f, 0.25f, -0.75f};
-        const float maximum[] = {4.0f, 4.0f, PI_F / 8.0f, 4.0f, 4.0f, 0.75f};
+        const float minimum[] = {-4.0f, -4.0f, -TWO_PI_F, 0.25f, 0.25f, -0.75f};
+        const float maximum[] = {4.0f, 4.0f, TWO_PI_F, 4.0f, 4.0f, 0.75f};
         register_current(names[WARP_NAME_TRANSLATION_X + index], targets[index],
                          minimum[index], maximum[index]);
       }
@@ -5019,14 +5018,16 @@ private:
         wrap_t(look.clocks.surface_noise_time + params.surface_noise.rate);
     if (config.slots.warp_program.outer.kind == WarpStageKind::AFFINE_FRAME)
       look.clocks.warp_outer_rotation =
-          TWO_PI_F * wrap_t((look.clocks.warp_outer_rotation +
-                             params.warp.outer.rotation) /
-                            TWO_PI_F);
+          TWO_PI_F *
+          wrap_t((look.clocks.warp_outer_rotation +
+                  params.warp.outer.speed * params.warp.outer.rotation) /
+                 TWO_PI_F);
     if (config.slots.warp_program.inner.kind == WarpStageKind::AFFINE_FRAME)
       look.clocks.warp_inner_rotation =
-          TWO_PI_F * wrap_t((look.clocks.warp_inner_rotation +
-                             params.warp.inner.rotation) /
-                            TWO_PI_F);
+          TWO_PI_F *
+          wrap_t((look.clocks.warp_inner_rotation +
+                  params.warp.inner.speed * params.warp.inner.rotation) /
+                 TWO_PI_F);
     look.clocks.warp_outer_phase =
         wrap_t(look.clocks.warp_outer_phase + params.warp.outer.speed);
     look.clocks.warp_inner_phase =
@@ -5508,8 +5509,7 @@ private:
     case WarpStageKind::AFFINE_FRAME:
       append_range_warning("Translate X", params.translation_x, -4.0f, 4.0f);
       append_range_warning("Translate Y", params.translation_y, -4.0f, 4.0f);
-      append_range_warning("Rotation", params.rotation, -PI_F / 8.0f,
-                           PI_F / 8.0f);
+      append_range_warning("Rotation", params.rotation, -TWO_PI_F, TWO_PI_F);
       append_range_warning("Scale X", params.scale_x, 0.25f, 4.0f);
       append_range_warning("Scale Y", params.scale_y, 0.25f, 4.0f);
       append_range_warning("Shear", params.shear, -0.75f, 0.75f);
@@ -5902,12 +5902,11 @@ private:
     case WarpStageKind::AFFINE_FRAME:
       return params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
              params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
-             params.rotation >= -PI_F / 8.0f &&
-             params.rotation <= PI_F / 8.0f && params.scale_x >= 0.25f &&
-             params.scale_x <= 4.0f && params.scale_y >= 0.25f &&
-             params.scale_y <= 4.0f && params.shear >= -0.75f &&
-             params.shear <= 0.75f && params.speed >= NOISE_SPEED_MIN &&
-             params.speed <= NOISE_SPEED_MAX;
+             params.rotation >= -TWO_PI_F && params.rotation <= TWO_PI_F &&
+             params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
+             params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
+             params.shear >= -0.75f && params.shear <= 0.75f &&
+             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
     case WarpStageKind::WAVE_SHEAR:
       return params.strength >= -4.0f && params.strength <= 4.0f &&
              params.frequency >= 0.0f && params.frequency <= 64.0f &&
@@ -6625,7 +6624,7 @@ private:
            params.speed >= WARP_SPEED_MIN && params.speed <= WARP_SPEED_MAX &&
            params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
            params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
-           params.rotation >= -PI_F / 8.0f && params.rotation <= TWO_PI_F &&
+           params.rotation >= -TWO_PI_F && params.rotation <= TWO_PI_F &&
            params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
            params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
            params.shear >= -0.75f && params.shear <= 0.75f &&
