@@ -1594,7 +1594,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(18));
+  HS_EXPECT_EQ(presets.size(), size_t(19));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   for (const auto &entry : choreo) {
     HS_EXPECT_FALSE(entry.staggered);
@@ -1777,6 +1777,24 @@ inline void test_shaderball_preset_bank() {
       single_mapping_equirectangular_grid.params.color.mapping_frequency, 1.0f);
   HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.color.palette_chroma,
                1.0f);
+  const auto &fine_equirectangular_grid = presets[18];
+  HS_EXPECT_EQ(fine_equirectangular_grid.slots.function, WB::Function::GRID);
+  HS_EXPECT_EQ(fine_equirectangular_grid.slots.projection,
+               WB::Projection::EQUIRECTANGULAR);
+  HS_EXPECT_EQ(fine_equirectangular_grid.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
+  HS_EXPECT_EQ(fine_equirectangular_grid.slots.warp_program.inner.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(fine_equirectangular_grid.params.source.pattern_freq, 0.3985f);
+  HS_EXPECT_EQ(fine_equirectangular_grid.params.source.complexity, 3.0f);
+  HS_EXPECT_EQ(fine_equirectangular_grid.params.warp.inner.speed, 0.00058f);
+  HS_EXPECT_EQ(fine_equirectangular_grid.params.warp.inner.cell_y,
+               0.901890635f);
+  HS_EXPECT_EQ(fine_equirectangular_grid.params.projection.pole_fade, 2.14f);
+  HS_EXPECT_EQ(fine_equirectangular_grid.params.projection.wander, 0.165f);
+  HS_EXPECT_EQ(fine_equirectangular_grid.params.color.mapping_frequency,
+               21.212f);
+  HS_EXPECT_EQ(fine_equirectangular_grid.params.color.palette_chroma, 1.0f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.scale, 0.1f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.speed, 0.5f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.scale, 0.1f);
@@ -2406,11 +2424,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(18));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(19));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(17));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[17]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(18));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[18]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -3694,7 +3712,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
     HS_EXPECT_EQ(preset_mask, expected.preset_mask);
     compiled_preset_mask |= preset_mask;
   }
-  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0x3ffff));
+  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0x7ffff));
   const auto &peirce_framebuffer =
       pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
   const auto &hue_framebuffer = pullback_oracle_metric(

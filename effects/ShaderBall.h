@@ -6852,6 +6852,16 @@ private:
   }
 
   static constexpr Config
+  equirectangular_dodecahedral_fine_grid_inner_mirror_preset() {
+    Config config = equirectangular_dodecahedral_grid_inner_mirror_preset();
+    config.params.source.pattern_freq = 0.3985f;
+    config.params.warp.inner.speed = 0.00058f;
+    config.params.warp.inner.cell_y = 0.901890635f;
+    config.params.color.mapping_frequency = 21.212f;
+    return config;
+  }
+
+  static constexpr Config
   stereographic_hexagonal_prism_twin_wave_mirror_preset() {
     Slots slots{Function::TWIN_WAVE,
                 Projection::STEREOGRAPHIC,
@@ -6872,7 +6882,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 18> PRESETS = {{
+  static constexpr std::array<Preset, 19> PRESETS = {{
       {wave_shear_generated_preset(),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
@@ -6908,6 +6918,8 @@ private:
       {equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset(),
        InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
       {equirectangular_dodecahedral_grid_inner_mirror_preset(),
+       InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
+      {equirectangular_dodecahedral_fine_grid_inner_mirror_preset(),
        InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
   }};
   static_assert(
