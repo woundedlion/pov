@@ -39,5 +39,5 @@ and positive duration.
 only the linearly interpolated sphere-noise scale.
 
 `facet_grid.shader.json` describes the fixed stereographic dodecahedral-grid
-pipeline used by `FacetGrid`. Its three presets differ only in continuous
-source, projection, and palette-mapping parameters.
+pipeline used by `FacetGrid`. Its five presets differ only in continuous
+source, projection, warp, and palette-mapping parameters.

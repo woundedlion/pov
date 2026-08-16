@@ -2389,9 +2389,9 @@ All continuous controls used by that pipeline remain available on the promoted
 effect; structural selectors stay fixed.
 
 `FacetGrid` promotes presets 11 and 13–14 into a second registered
-fixed-pipeline effect. The three looks share the exact stereographic
-dodecahedral-grid pipeline and remain presets of one effect; no family metadata
-or structural selectors are needed.
+fixed-pipeline effect and adds two authored looks. All five share the exact
+stereographic dodecahedral-grid pipeline and remain presets of one effect; no
+family metadata or structural selectors are needed.
 
 #### Authoring vocabulary
 
