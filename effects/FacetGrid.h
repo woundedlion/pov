@@ -32,7 +32,7 @@ template <int W, int H> class FacetGrid : public Effect {
 public:
   static constexpr std::string_view EFFECT_ID = "facet-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "4da06f867e1b10c7ab4a4c91b4d79ac0a80f94f4b3ee06484940b00d9576419e";
+      "966c4aad90ff062c5c6ab25b2308fec6acbe406cbe5885096d71bde83284c804";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "75a78672e4b2ad32eee8bd54cd7d7b9408db1d7bff79e084a1b58ccb33b5232d";
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
@@ -230,7 +230,7 @@ private:
   static constexpr float CELL_MIN = 1.0f / 64.0f;
   static constexpr float CELL_MAX = 8.0f;
   static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
-  static constexpr float HUE_NOISE_SCALE_MAX = 2.0f;
+  static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
   static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
