@@ -159,7 +159,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 102)           \
   X("easing_waves", 9, hs_test::easing_waves_tests::run_easing_waves_tests,    \
     6080)                                                                      \
-  X("platform", 18, hs_test::platform_tests::run_platform_tests, 266686)       \
+  X("platform", 19, hs_test::platform_tests::run_platform_tests, 266686)       \
   X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \
   X("pullback", 12, hs_test::pullback_tests::run_pullback_tests, 80)           \
   X("filter", 63, hs_test::filter_tests::run_filter_tests, 10296)              \
@@ -189,7 +189,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
-  X("shaderball", 52, hs_test::shaderball_tests::run_shaderball_tests,         \
+  X("shaderball", 54, hs_test::shaderball_tests::run_shaderball_tests,         \
     1045178)                                                                   \
   X("curl_lattice", 4, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
     5000)                                                                      \

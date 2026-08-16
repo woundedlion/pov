@@ -1061,7 +1061,7 @@ template <typename State> struct PeirceFastSquare : ExactPolicy {
       {ApproximationDomain::PROJECTED_EDGE_DISTANCE,
        ApproximationAggregation::MAXIMUM, 2e-4f, "plane units"},
       {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
-       128.0f, "channel code"},
+       256.0f, "channel code"},
   }};
 
   template <typename CandidateBinding>

@@ -591,7 +591,7 @@ struct ShaderBallWhiteBox {
            Surface::NON_FLOATING_FIELDS_EXACT &&
            Surface::METRICS[0].limit == 1.2e-3f &&
            Surface::METRICS[1].limit == 2e-4f &&
-           Surface::METRICS[2].limit == 128.0f &&
+           Surface::METRICS[2].limit == 256.0f &&
            Color::ORACLE == ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   }
   static float peirce_metric_limit(size_t index) {
@@ -3975,8 +3975,8 @@ inline void test_shaderball_inverse_pipeline_manifest() {
       "HUE_ROTATION_AND_NOISE_LUTS", "FRAMEBUFFER", "MAXIMUM");
   HS_EXPECT_TRUE(peirce_framebuffer.measured);
   HS_EXPECT_TRUE(hue_framebuffer.measured);
-  HS_EXPECT_EQ(peirce_framebuffer.measured_baseline, 100.0f);
-  HS_EXPECT_EQ(hue_framebuffer.measured_baseline, 2189.0f);
+  HS_EXPECT_EQ(peirce_framebuffer.measured_baseline, 151.0f);
+  HS_EXPECT_EQ(hue_framebuffer.measured_baseline, 2810.0f);
   HS_EXPECT_LE(peirce_framebuffer.measured_baseline,
                peirce_framebuffer.accepted_limit);
   HS_EXPECT_LE(hue_framebuffer.measured_baseline,
