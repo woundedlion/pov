@@ -15,7 +15,7 @@
  */
 
 #include "effects/BZReactionDiffusion.h"
-#include "effects/ChaoticStrings.h"
+#include "effects/Fishbowl.h"
 #include "effects/Comets.h"
 #include "effects/CurlLattice.h"
 #include "effects/DisplacementField.h"
@@ -57,7 +57,7 @@
  */
 #define HS_EFFECT_LIST(X)                                                      \
   X(BZReactionDiffusion)                                                       \
-  X(ChaoticStrings)                                                            \
+  X(Fishbowl)                                                                  \
   X(Comets)                                                                    \
   X(ContourLattice)                                                            \
   X(CurlLattice)                                                               \
@@ -106,7 +106,7 @@
  */
 #define HS_PHANTASM_EFFECT_LIST(X)                                             \
   X(BZReactionDiffusion, 120)                                                  \
-  X(ChaoticStrings, 120)                                                       \
+  X(Fishbowl, 120)                                                             \
   X(Comets, 120)                                                               \
   X(ContourLattice, 6)                                                         \
   X(CurlLattice, 13)                                                           \

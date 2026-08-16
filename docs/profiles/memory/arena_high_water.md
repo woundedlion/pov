@@ -29,7 +29,7 @@ predate their merge into ShaderBall (`../../specs/shaderball_spec.md`).
 | BZReactionDiffusion | 164,352 | 115,200 | 0 | 279,552 |
 | DisplacementField | 242,404 | 0 | 0 | 242,404 |
 | Dynamo | 130,880 | 2,496 | 0 | 133,376 |
-| ChaoticStrings | 30,284 | 96,528 | 0 | 126,812 |
+| Fishbowl | 30,284 | 96,528 | 0 | 126,812 |
 | HopfFibration | 108,072 | 2,688 | 0 | 110,760 |
 | IslamicStars | 29,696 | 18,376 | 13,438 | 61,510 |
 | RingShower | 49,152 | 0 | 0 | 49,152 |

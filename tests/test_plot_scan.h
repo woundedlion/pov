@@ -2555,7 +2555,7 @@ inline void test_multiline_sample_arclength_param() {
 
 // ============================================================================
 // Plot::Multiline::draw — sampling plus rasterization, through the live entry
-// point ChaoticStrings calls. The cases above cover sample() alone; these run
+// point Fishbowl calls. The cases above cover sample() alone; these run
 // the whole draw and hold the plotted positions against an analytic
 // point-to-geodesic-arc oracle.
 // ============================================================================

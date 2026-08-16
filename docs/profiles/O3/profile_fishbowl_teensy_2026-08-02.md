@@ -1,9 +1,9 @@
-# ChaoticStrings on-device profile — Teensy 4.0, segmented mode (2026-08-02, **-O3**)
+# Fishbowl on-device profile — Teensy 4.0, segmented mode (2026-08-02, **-O3**)
 
 Point-in-time global-O3 reference paired with the
-[`shipping report`](../shipping/profile_chaoticstrings_teensy_2026-08-02.md).
-Raw capture: `build/prof/chaoticstrings_o3.log`. This is the first current O3
-twin for ChaoticStrings.
+[`shipping report`](../shipping/profile_fishbowl_teensy_2026-08-02.md).
+Raw capture: `build/prof/fishbowl_o3.log`. This is the first current O3
+twin for Fishbowl.
 
 ## Setup
 
@@ -12,9 +12,9 @@ twin for ChaoticStrings.
 | Hardware | Teensy 4.0 @ 600 MHz on COM3, POV segmented mode, flywheel + DMA ISRs live |
 | Image | `profile_o3` env: GCC 15.2.1, global `-O3 -ffast-math -fno-finite-math-only`, newlib-nano, DMA LEDs |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
-| Effect | ChaoticStrings 288×144, single-entry playlist, source snapshot `e2568f7c` |
+| Effect | Fishbowl 288×144, single-entry playlist, source snapshot `e2568f7c` |
 | Method | `HS_PROFILE` cycle scopes, window = 32 frames, 70 s capture |
-| Reproduce | `bash tools/profile_one.sh ChaoticStrings profile_o3 70 32` |
+| Reproduce | `bash tools/profile_one.sh Fishbowl profile_o3 70 32` |
 
 Image size from the exact flashed ELF: `FLASH: code:96596, data:1065048,
 headers:8780` / `RAM1: variables:314496, code:69848, padding:28456,
@@ -29,7 +29,7 @@ its map SHA-256 is
 
 Exactness cross-check: window frames 161–192 root counter cycles divided by
 600 MHz match measured wall time within **2.1 ppm**
-(`tools/parse_profile.py build/prof/chaoticstrings_o3.log validate`).
+(`tools/parse_profile.py build/prof/fishbowl_o3.log validate`).
 
 ## Frame cadence
 
@@ -124,7 +124,7 @@ isr_dma_submit   144/frame  min/avg/max 0.74/0.91/1.03 us   cpu 0.20%
 
 ## Harness
 
-`targets/Profile/Profile.ino` + `HS_PROFILE_TARGET=ChaoticStrings`,
+`targets/Profile/Profile.ino` + `HS_PROFILE_TARGET=Fishbowl`,
 `HS_PROFILE_WINDOW=32`; use the reproduce command for locked build, flash,
 capture, validation, and artifact archival.
 

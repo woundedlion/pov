@@ -3632,7 +3632,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
 #endif
     {"sdf_volume.h", 2},
     {"shading.h", 1},
-    {"ChaoticStrings.h", 1},
+    {"Fishbowl.h", 1},
     {"Comets.h", 2},
     {"CurlLattice.h", 1},
     {"FacetGrid.h", 1},
