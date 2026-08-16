@@ -4318,7 +4318,7 @@ inline void test_shaderball_planar_warp_animation() {
   HS_EXPECT_EQ(stationary.clocks.warp_outer_rotation, 0.0f);
 
   WB::RequestedConfig rotating = lattice_scroll;
-  rotating.params.warp.outer.rotation = 0.6f;
+  rotating.params.warp.outer.rotation = 0.3f;
   WB::LookRuntime clockwise;
   WB::LookRuntime counterclockwise;
   for (int step = 1; step <= 4; ++step) {
@@ -4332,7 +4332,7 @@ inline void test_shaderball_planar_warp_animation() {
     HS_EXPECT_NEAR(prepared.rotation_cos, cosf(expected), 1e-6f);
     HS_EXPECT_NEAR(prepared.rotation_sin, sinf(expected), 1e-6f);
   }
-  rotating.params.warp.outer.rotation = -0.6f;
+  rotating.params.warp.outer.rotation = -0.3f;
   for (int step = 1; step <= 4; ++step) {
     WB::advance_runtime(sb, counterclockwise, rotating,
                         {Quaternion(), Quaternion()});
@@ -4407,25 +4407,25 @@ inline void test_shaderball_planar_warp_animation() {
       sb.getParameters().find("Planar Warp 1 Rotation");
   HS_EXPECT_TRUE(affine_rotation != nullptr);
   if (affine_rotation != nullptr) {
-    HS_EXPECT_NEAR(affine_rotation->min, -PI_F, 1e-7f);
-    HS_EXPECT_NEAR(affine_rotation->max, PI_F, 1e-7f);
+    HS_EXPECT_NEAR(affine_rotation->min, -PI_F / 8.0f, 1e-7f);
+    HS_EXPECT_NEAR(affine_rotation->max, PI_F / 8.0f, 1e-7f);
   }
 
   WB::RequestedConfig signed_affine = WB::presets()[6];
-  signed_affine.params.warp.outer.rotation = -PI_F;
+  signed_affine.params.warp.outer.rotation = -PI_F / 8.0f;
   HS_EXPECT_TRUE(WB::valid_config(signed_affine));
-  signed_affine.params.warp.outer.rotation = -PI_F - 0.001f;
+  signed_affine.params.warp.outer.rotation = -PI_F / 8.0f - 0.001f;
   HS_EXPECT_FALSE(WB::valid_config(signed_affine));
-  signed_affine.params.warp.outer.rotation = PI_F;
+  signed_affine.params.warp.outer.rotation = PI_F / 8.0f;
   HS_EXPECT_TRUE(WB::valid_config(signed_affine));
-  signed_affine.params.warp.outer.rotation = PI_F + 0.001f;
+  signed_affine.params.warp.outer.rotation = PI_F / 8.0f + 0.001f;
   HS_EXPECT_FALSE(WB::valid_config(signed_affine));
 
   WB::Params from_rate = WB::presets()[6].params;
   WB::Params to_rate = from_rate;
   WB::Params midpoint_rate;
-  from_rate.warp.outer.rotation = 0.6f;
-  to_rate.warp.outer.rotation = -0.6f;
+  from_rate.warp.outer.rotation = 0.3f;
+  to_rate.warp.outer.rotation = -0.3f;
   midpoint_rate.lerp(from_rate, to_rate, 0.5f, WB::presets()[6].slots);
   HS_EXPECT_NEAR(midpoint_rate.warp.outer.rotation, 0.0f, 1e-6f);
 

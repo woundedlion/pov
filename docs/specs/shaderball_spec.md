@@ -495,7 +495,7 @@ than silently clamped into a different schema:
 
 | Family | Normative ranges |
 |---|---|
-| affine | translation components `[-4,4]`, scale `[1/4,4]`, shear `[-3/4,3/4]`, rotation advance `[-pi,pi]` radians per phase cycle |
+| affine | translation components `[-4,4]`, scale `[1/4,4]`, shear `[-3/4,3/4]`, rotation angle `[-pi/8,pi/8]` radians per phase cycle |
 | wave shear | amplitude `[-4,4]`, angular frequency `[0,64]`, wrapped field angle/phase |
 | vortex | center components `[-4,4]`, radius `[1/64,8]`, turns `[-4,4]` |
 | vector noise | amplitude `[0,1]`, scale `[1/64,4]`, time rate `[-1/64,1/64]` turns/frame |
@@ -546,7 +546,7 @@ transition or snap.
 
 `AFFINE_FRAME` controls are authored as forward field placement, while frame
 preparation stores the inverse pullback. Scale interpolates in log space with a
-positive floor. Rotation is integrated as a signed angular advance per phase
+positive floor. Rotation is a signed angle in radians integrated once per phase
 cycle, so it never reverses direction and a zero value leaves the frame fixed.
 A singular or orientation-flipping affine endpoint is invalid.
 `WAVE_SHEAR` fixes polarization perpendicular to field direction, making its
