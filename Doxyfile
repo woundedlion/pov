@@ -54,6 +54,7 @@ MARKDOWN_ID_STYLE      = GITHUB
 # Requires Graphviz; CI installs it.
 HAVE_DOT               = YES
 COLLABORATION_GRAPH    = YES
+DOT_GRAPH_MAX_NODES    = 100
 CALL_GRAPH             = NO
 
 QUIET                  = YES

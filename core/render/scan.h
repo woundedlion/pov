@@ -87,7 +87,6 @@ __attribute__((always_inline)) inline float pole_lod_slack(int run,
 
 /**
  * @brief Factor from an angular step to the units a shape's distance() reports.
- * @param shape Shape the probe reads distance() from.
  * @return 1 for a shape reporting angular distance.
  * @details A block probe's slack is an arc, so a shape reporting in another
  * unit has to scale it. SDF::Face reports gnomonic-plane distance, which
