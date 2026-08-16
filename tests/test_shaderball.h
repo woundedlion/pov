@@ -125,6 +125,11 @@ struct ShaderBallWhiteBox {
                                       const FrameState &frame) {
     return SB::SinusoidalCurlLatticePipeline::shade(view, frame);
   }
+  static Color4 stereographic_dodecahedral_grid_shade(const Vector &view,
+                                                      const FrameState &frame) {
+    return SB::StereographicDodecahedralGridInnerMirrorPipeline::shade(view,
+                                                                       frame);
+  }
   /**
    * @brief Frame snapshot for an arbitrary config, bypassing GUI admission.
    * @details Kernel coverage sweeps combinations the authored roster does not

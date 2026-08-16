@@ -76,18 +76,23 @@ const makeDocument = () => ({
   study_metadata: { notes: 'authoring only' },
 });
 
-test('curl lattice source document matches the compiled effect identity', async () => {
-  const documentSource = await readFile(
-    new URL('../patterns/curl_lattice.shader.json', import.meta.url), 'utf8');
-  const header = await readFile(
-    new URL('../effects/CurlLattice.h', import.meta.url), 'utf8');
-  const compiled = compileShaderDocument(parseShaderDocument(documentSource));
-  const descriptor = header.match(/DESCRIPTOR_DIGEST\s*=\s*\n\s*"([0-9a-f]{64})"/u);
-  const bank = header.match(/PRESET_BANK_DIGEST\s*=\s*\n\s*"([0-9a-f]{64})"/u);
-  assert.ok(descriptor);
-  assert.ok(bank);
-  assert.equal(descriptor[1], compiled.descriptor_digest);
-  assert.equal(bank[1], compiled.preset_bank_digest);
+test('shader documents match their compiled effect identities', async () => {
+  for (const [documentName, headerName] of [
+    ['curl_lattice.shader.json', 'CurlLattice.h'],
+    ['facet_grid.shader.json', 'FacetGrid.h'],
+  ]) {
+    const documentSource = await readFile(
+      new URL(`../patterns/${documentName}`, import.meta.url), 'utf8');
+    const header = await readFile(
+      new URL(`../effects/${headerName}`, import.meta.url), 'utf8');
+    const compiled = compileShaderDocument(parseShaderDocument(documentSource));
+    const descriptor = header.match(/DESCRIPTOR_DIGEST\s*=\s*\n\s*"([0-9a-f]{64})"/u);
+    const bank = header.match(/PRESET_BANK_DIGEST\s*=\s*\n\s*"([0-9a-f]{64})"/u);
+    assert.ok(descriptor);
+    assert.ok(bank);
+    assert.equal(descriptor[1], compiled.descriptor_digest);
+    assert.equal(bank[1], compiled.preset_bank_digest);
+  }
 });
 
 test('strict parsing rejects duplicate keys after NFC normalization', () => {

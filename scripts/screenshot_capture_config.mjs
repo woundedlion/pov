@@ -1,6 +1,5 @@
-// Stored gallery geometry. The capture downscales to GALLERY_WIDTH and derives
-// the height from the live canvas aspect; the CI gate pins the committed result
-// to both, so an aspect change lands as a deliberate edit here.
+// Stored gallery geometry. Captures use this exact thumbnail size so a one-pixel
+// browser-layout rounding difference cannot produce an invalid gallery asset.
 export const GALLERY_WIDTH = 640;
 export const GALLERY_HEIGHT = 539;
 

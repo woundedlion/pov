@@ -319,7 +319,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    25 headers: one per effect (24) plus the shared
+├── effects/                    26 headers: one per effect (25) plus the shared
 │                                ReactionDiffusionBase.h:
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
 │                                Raymarch.h, … — see §9 Effects Reference
@@ -2030,7 +2030,7 @@ An effect passes construction-time flags to its base as `Effect(W, H, {.strobe =
 
 All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for RingShower, Dynamo and Thrusters.
 
-The effect registry and tests carry the full 24-effect roster. The simulator sidebar exposes the curated subset for its active resolution (§10.5), omitting three effects at 288×144 and five at 96×20. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) remains the prior 21-effect subset, excluding the CurlLattice workbench effect and the two Holosphere-96×20-only effects, Dynamo and Thrusters. Full-cycle Teensy measurements for the firmware playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The effect registry and tests carry the full 25-effect roster. The simulator sidebar exposes the curated subset for its active resolution (§10.5), omitting three effects at 288×144 and five at 96×20. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) remains the prior 21-effect subset, excluding the CurlLattice and FacetGrid workbench effects and the two Holosphere-96×20-only effects, Dynamo and Thrusters. Full-cycle Teensy measurements for the firmware playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ### Core Effects (Modern Engine)
 
@@ -2182,6 +2182,26 @@ Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise
 Speed, Palette Chroma, Mapping Frequency, Mapping Phase, Phase Oscillation
 Depth, Phase Oscillation Speed, Brightness Depth, Value Opacity Low, Value
 Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=FacetGrid" target="_blank"><img src="docs/screenshots/FacetGrid.png" alt="FacetGrid" width="280"></a></td>
+<td valign="top">
+
+#### FacetGrid
+
+A generated analogous-palette grid folded through a dodecahedral kaleidoscope,
+then projected stereographically and repeated by an inner mirror tile. Its
+three presets share one fixed pipeline and vary only continuous parameters.
+
+**Parameters**: Pattern Freq, Speed, Source Angle Speed, Complexity, Pattern
+Mix, Drift, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander,
+Planar Warp 2 Speed, Planar Warp 2 Rotation, Planar Warp 2 Cell X, Planar Warp 2
+Cell Y, Planar Warp 2 Offset X, Planar Warp 2 Offset Y, Palette Chroma, Mapping
+Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed,
+Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue
+Noise Speed
 
 </td></tr></table>
 
@@ -2360,13 +2380,18 @@ Semantic program identities are independent of preset numbering. Presets 7–8 s
 | 7–8 | `SINUSOIDAL_CURL_LATTICE` | Folded sinusoidal curl surface noise, projection-weight lattice |
 | 9 | `STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE` | Stereographic, triangular-prism kaleidoscope lens, outer polar chart then inner wave shear, squared-weight lattice |
 | 10 | `GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR` | Folded gnomonic, dodecahedral lens, outer projected vector noise then inner mirror, squared-weight generated color |
-| 11 | `STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR` | Stereographic, dodecahedral lens, inner mirror, squared-weight grid |
+| 11, 13–14 | `STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR` | Stereographic, dodecahedral lens, inner mirror, squared-weight grid |
 
 `CurlLattice` promotes presets 7–8 into one registered fixed-pipeline effect.
 It declares the folded-sinusoidal curl pipeline directly;
 its two presets change only surface-noise scale and do not select a program.
 All continuous controls used by that pipeline remain available on the promoted
 effect; structural selectors stay fixed.
+
+`FacetGrid` promotes presets 11 and 13–14 into a second registered
+fixed-pipeline effect. The three looks share the exact stereographic
+dodecahedral-grid pipeline and remain presets of one effect; no family metadata
+or structural selectors are needed.
 
 #### Authoring vocabulary
 
