@@ -6,7 +6,7 @@
 #pragma once
 
 /**
- * @file ChaoticStrings.h
+ * @file Fishbowl.h
  * @brief Undulating string of orientation trails drawn as an anti-aliased
  *        multiline.
  */
@@ -17,7 +17,7 @@
 // deep_tween emits against the MAX_FRAGMENTS the scratch split is sized for.
 namespace hs_test {
 namespace effects_tests {
-struct ChaoticStringsWhiteBox;
+struct FishbowlWhiteBox;
 } // namespace effects_tests
 } // namespace hs_test
 
@@ -34,7 +34,7 @@ struct ChaoticStringsWhiteBox;
  *       count. Draw primitive, transform chain and colour/fade are
  *       hand-propagated.
  */
-template <int W, int H> class ChaoticStrings : public Effect {
+template <int W, int H> class Fishbowl : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
   static constexpr int ORIENTATION_SUBSTEPS = 16;
@@ -60,7 +60,7 @@ public:
    * @brief Constructs the effect and its members.
    * @details The path seeds to +Y until init() installs the Lissajous curve.
    */
-  HS_COLD_MEMBER ChaoticStrings()
+  HS_COLD_MEMBER Fishbowl()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([](float) { return Vector(0, 1, 0); }), orientation(),
@@ -94,7 +94,7 @@ public:
   // The custom split leaves the remainder of the device arena persistent.
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
-      "ChaoticStrings persistent footprint exceeds its partition; "
+      "Fishbowl persistent footprint exceeds its partition; "
       "retune TRAIL_LENGTH/ORIENTATION_SUBSTEPS or enlarge the split");
 
   /**
@@ -133,7 +133,7 @@ public:
     };
 
     auto *warp = noise_xform.spawn_pinned(0, -1);
-    HS_CHECK(warp, "ChaoticStrings: pinned noise spawn must succeed");
+    HS_CHECK(warp, "Fishbowl: pinned noise spawn must succeed");
 
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
@@ -229,7 +229,7 @@ public:
   }
 
 private:
-  friend struct ::hs_test::effects_tests::ChaoticStringsWhiteBox;
+  friend struct ::hs_test::effects_tests::FishbowlWhiteBox;
 
   struct DutyCycleModifier {
     static constexpr bool bounded_output = true;
@@ -302,7 +302,7 @@ private:
   static constexpr Params PRESET{1.0f,     80.0f,      0.235f, 2.88f,
                                  0.26974f, 84.832001f, 0.672f, 0.5f};
   static_assert(sizeof(Params) == 8 * sizeof(float),
-                "ChaoticStrings::Params field set changed — update PRESET's "
+                "Fishbowl::Params field set changed — update PRESET's "
                 "float list to match");
   Params params = PRESET;
 
@@ -328,4 +328,4 @@ private:
 };
 
 #include "core/engine/effect_registry.h"
-REGISTER_EFFECT(ChaoticStrings)
+REGISTER_EFFECT(Fishbowl)

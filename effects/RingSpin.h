@@ -28,7 +28,7 @@ struct RingSpinWhiteBox;
  * @tparam H Canvas height in pixels.
  * @details Each ring's orientation follows a random-walk over the sphere and
  * leaves a motion-blur trail that fades in color and alpha along its length.
- * @note Sibling trail effects `Comets` and `ChaoticStrings` share the
+ * @note Sibling trail effects `Comets` and `Fishbowl` share the
  *       record + deep_tween skeleton; draw primitive, transform chain and
  *       colour/fade are hand-propagated. Ring carries a plane normal, palette
  *       and noise alongside the orientation + trail, so it does not use their

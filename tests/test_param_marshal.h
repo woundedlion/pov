@@ -237,7 +237,7 @@ inline void check_roster_order_pinned() {
   // Independent hand-maintained copy of the intended roster order. Must NOT be
   // generated from HS_EFFECT_LIST, or the comparison becomes a tautology.
   static const char *const GOLDEN_ROSTER[] = {"BZReactionDiffusion",
-                                              "ChaoticStrings",
+                                              "Fishbowl",
                                               "Comets",
                                               "ContourLattice",
                                               "CurlLattice",

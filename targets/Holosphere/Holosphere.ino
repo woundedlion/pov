@@ -47,7 +47,7 @@ FLASHMEM static void run_show_sequence() {
   pov->show<DreamBalls<288, 144>>(120); // 117
   pov->show<IslamicStars<288, 144>>(120);
 
-  pov->show<ChaoticStrings<288, 144>>(120);0
+  pov->show<Fishbowl<288, 144>>(120);0
   pov->show<Raymarch<288, 144>>(120);
   pov->show<Voronoi<288, 144>>(120);
   pov->show<MobiusRings<96, 20>>(120);

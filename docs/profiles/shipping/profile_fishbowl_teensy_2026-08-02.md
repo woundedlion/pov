@@ -1,9 +1,9 @@
-# ChaoticStrings on-device profile — Teensy 4.0, segmented mode (2026-08-02, **selective -O3**)
+# Fishbowl on-device profile — Teensy 4.0, segmented mode (2026-08-02, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile ChaoticStrings`).
-Raw capture: `build/prof/chaoticstrings_ship.log`. This replaces the 2026-07-25
+Point-in-time snapshot (regenerate with `just profile Fishbowl`).
+Raw capture: `build/prof/fishbowl_ship.log`. This replaces the 2026-07-25
 report and is paired with
-`docs/profiles/O3/profile_chaoticstrings_teensy_2026-08-02.md`.
+`docs/profiles/O3/profile_fishbowl_teensy_2026-08-02.md`.
 
 ## Setup
 
@@ -12,9 +12,9 @@ report and is paired with
 | Hardware | Teensy 4.0 @ 600 MHz on COM3, POV segmented mode, flywheel + DMA ISRs live |
 | Image | `profile` env: GCC 15.2.1, `-Os`, newlib-nano, DMA LEDs, with selective O3 on the Plot rasterizer, geodesic strategy, and terminal blend sink |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
-| Effect | ChaoticStrings 288×144, single-entry playlist, source snapshot `e2568f7c` |
+| Effect | Fishbowl 288×144, single-entry playlist, source snapshot `e2568f7c` |
 | Method | `HS_PROFILE` cycle scopes, window = 32 frames, 70 s capture |
-| Reproduce | `bash tools/profile_one.sh ChaoticStrings profile 70 32` |
+| Reproduce | `bash tools/profile_one.sh Fishbowl profile 70 32` |
 
 Image size from the exact flashed ELF: `FLASH: code:68140, data:1065232,
 headers:8380` / `RAM1: variables:314496, code:49160, padding:16376,
@@ -29,7 +29,7 @@ its map SHA-256 is
 
 Exactness cross-check: window frames 833–864 root counter cycles divided by
 600 MHz match measured wall time within **2.1 ppm**
-(`tools/parse_profile.py build/prof/chaoticstrings_ship.log validate`).
+(`tools/parse_profile.py build/prof/fishbowl_ship.log validate`).
 
 ## Frame cadence
 
@@ -132,7 +132,7 @@ the 16 fps tier.
 
 ## Harness
 
-`targets/Profile/Profile.ino` + `HS_PROFILE_TARGET=ChaoticStrings`,
+`targets/Profile/Profile.ino` + `HS_PROFILE_TARGET=Fishbowl`,
 `HS_PROFILE_WINDOW=32`; the reproduce command builds, locks, flashes, captures,
 validates, and archives the exact artifacts.
 

@@ -30,8 +30,8 @@ struct CometsWhiteBox;
  * @tparam H Canvas height in pixels.
  * @details The path function and color palette periodically roll over to the
  *          next entry in the function table, cross-fading via a ColorWipe.
- * @note Sibling trail effects `ChaoticStrings` and `RingSpin` share the
- *       record + deep_tween skeleton and, with ChaoticStrings, the
+ * @note Sibling trail effects `Fishbowl` and `RingSpin` share the
+ *       record + deep_tween skeleton and, with Fishbowl, the
  *       `Animation::TrailBody` aggregate at the same capacity and substep
  *       count. Draw primitive, transform chain and colour/fade are
  *       hand-propagated. Comets uses an empty pipeline (no Screen::AntiAlias)

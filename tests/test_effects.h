@@ -3780,45 +3780,47 @@ inline void test_gnomonicstars_radius_px_spans_one_column() {
 }
 
 /**
- * @brief White-box accessor for ChaoticStrings' trail node (befriended in
- *        effects/ChaoticStrings.h).
+ * @brief White-box accessor for Fishbowl's trail node (befriended in
+ *        effects/Fishbowl.h).
  */
-struct ChaoticStringsWhiteBox {
-  using CS = ChaoticStrings<SMALL_W, SMALL_H>;
-  static size_t tween_vertices(const CS &fx) {
+struct FishbowlWhiteBox {
+  using EffectType = Fishbowl<SMALL_W, SMALL_H>;
+  static size_t tween_vertices(const EffectType &fx) {
     size_t n = 0;
     deep_tween(fx.node->trail, [&](const Quaternion &, float) { ++n; });
     return n;
   }
-  static Color4 sample_fire(const CS &fx, float t) {
+  static Color4 sample_fire(const EffectType &fx, float t) {
     return fx.fire_palette.get(fx.duty_mod.modify(t));
   }
   static float palette_fill_scale(size_t trail_length) {
-    return CS::palette_fill_scale(trail_length);
+    return EffectType::palette_fill_scale(trail_length);
   }
   static float palette_phase_speed(float cycle_speed, float scale_factor,
                                    size_t trail_length) {
-    return CS::palette_phase_speed(cycle_speed, scale_factor, trail_length);
+    return EffectType::palette_phase_speed(cycle_speed, scale_factor,
+                                           trail_length);
   }
-  static Color4 shade_trail(const CS &fx, float palette_t, float age_t) {
+  static Color4 shade_trail(const EffectType &fx, float palette_t,
+                            float age_t) {
     return fx.shade_trail(palette_t, age_t);
   }
   static bool needs_adaptive_midpoint(const Vector &a, const Vector &mid,
                                       const Vector &b) {
-    return CS::needs_adaptive_midpoint(a, mid, b);
+    return EffectType::needs_adaptive_midpoint(a, mid, b);
   }
 };
 
-/** @brief Verifies ChaoticStrings' sole preset and fire-palette duty window. */
-inline void test_chaoticstrings_preset_and_fire_duty_cycle() {
+/** @brief Verifies Fishbowl's sole preset and fire-palette duty window. */
+inline void test_fishbowl_preset_and_fire_duty_cycle() {
   reset_effect_globals();
-  using WB = ChaoticStringsWhiteBox;
-  WB::CS fx;
+  using WB = FishbowlWhiteBox;
+  WB::EffectType fx;
   fx.init();
 
   auto value = [&](const char *name) {
     const auto *def = fx.getParameters().find(name);
-    HS_EXPECT(def != nullptr, "ChaoticStrings parameter is missing");
+    HS_EXPECT(def != nullptr, "Fishbowl parameter is missing");
     return def ? def->get() : -1.0f;
   };
 
@@ -3846,11 +3848,11 @@ inline void test_chaoticstrings_preset_and_fire_duty_cycle() {
                  ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(WB::sample_fire(fx, 0.30f).color == black);
 
-  HS_EXPECT_EQ(WB::palette_fill_scale(1), 1.0f / WB::CS::TRAIL_LENGTH);
-  HS_EXPECT_EQ(WB::palette_fill_scale(WB::CS::TRAIL_LENGTH / 2),
-               static_cast<float>(WB::CS::TRAIL_LENGTH / 2) /
-                   WB::CS::TRAIL_LENGTH);
-  HS_EXPECT_EQ(WB::palette_fill_scale(WB::CS::TRAIL_LENGTH), 1.0f);
+  HS_EXPECT_EQ(WB::palette_fill_scale(1), 1.0f / WB::EffectType::TRAIL_LENGTH);
+  HS_EXPECT_EQ(WB::palette_fill_scale(WB::EffectType::TRAIL_LENGTH / 2),
+               static_cast<float>(WB::EffectType::TRAIL_LENGTH / 2) /
+                   WB::EffectType::TRAIL_LENGTH);
+  HS_EXPECT_EQ(WB::palette_fill_scale(WB::EffectType::TRAIL_LENGTH), 1.0f);
   const float sample_index = 12.0f;
   const float short_coord = (sample_index / 32.0f) * WB::palette_fill_scale(32);
   const float long_coord = (sample_index / 96.0f) * WB::palette_fill_scale(96);
@@ -3858,11 +3860,11 @@ inline void test_chaoticstrings_preset_and_fire_duty_cycle() {
 
   const float cycle_speed = value("Cycle Speed");
   const float scale_factor = value("Scale Factor");
-  const float coordinate_shift = scale_factor / WB::CS::TRAIL_LENGTH;
-  const float filling_speed = WB::palette_phase_speed(cycle_speed, scale_factor,
-                                                      WB::CS::TRAIL_LENGTH - 1);
-  const float saturated_speed =
-      WB::palette_phase_speed(cycle_speed, scale_factor, WB::CS::TRAIL_LENGTH);
+  const float coordinate_shift = scale_factor / WB::EffectType::TRAIL_LENGTH;
+  const float filling_speed = WB::palette_phase_speed(
+      cycle_speed, scale_factor, WB::EffectType::TRAIL_LENGTH - 1);
+  const float saturated_speed = WB::palette_phase_speed(
+      cycle_speed, scale_factor, WB::EffectType::TRAIL_LENGTH);
   HS_EXPECT_NEAR(filling_speed, cycle_speed - coordinate_shift, 1e-7f);
   HS_EXPECT_NEAR(saturated_speed - coordinate_shift, filling_speed, 1e-7f);
 
@@ -3870,13 +3872,14 @@ inline void test_chaoticstrings_preset_and_fire_duty_cycle() {
   const Vector b = Y_AXIS;
   HS_EXPECT_FALSE(WB::needs_adaptive_midpoint(a, slerp(a, b, 0.5f), b));
   HS_EXPECT_TRUE(WB::needs_adaptive_midpoint(a, Z_AXIS, b));
-  HS_EXPECT_EQ(WB::CS::MAX_FRAGMENTS,
-               2 * WB::CS::TRAIL_LENGTH * WB::CS::ORIENTATION_SUBSTEPS);
+  HS_EXPECT_EQ(WB::EffectType::MAX_FRAGMENTS,
+               2 * WB::EffectType::TRAIL_LENGTH *
+                   WB::EffectType::ORIENTATION_SUBSTEPS);
 }
 
 /**
  * @brief Verifies the scratch-A split's predicted worst case really covers a
- *        saturated ChaoticStrings frame.
+ *        saturated Fishbowl frame.
  * @details SCRATCH_A_BYTES is carved from the global arena against a closed-form
  *          worst case — the MAX_FRAGMENTS vertex buffer, the Multiline fragment
  *          buffer it binds, and rasterize's sub-step cache, all live at once.
@@ -3885,30 +3888,30 @@ inline void test_chaoticstrings_preset_and_fire_duty_cycle() {
  *          unnoticed until the split shrank. Runs past TRAIL_LENGTH frames so
  *          the trail is full when the peak is read.
  */
-inline void test_chaoticstrings_scratch_estimate_covers_peak() {
+inline void test_fishbowl_scratch_estimate_covers_peak() {
   reset_effect_globals();
-  using WB = ChaoticStringsWhiteBox;
-  using CS = WB::CS;
+  using WB = FishbowlWhiteBox;
+  using EffectType = WB::EffectType;
 
-  CS fx;
+  EffectType fx;
   fx.init();
   scratch_arena_a.reset_high_water_mark();
 
   size_t worst_vertices = 0;
-  for (int i = 0; i < CS::TRAIL_LENGTH + 4; ++i) {
+  for (int i = 0; i < EffectType::TRAIL_LENGTH + 4; ++i) {
     fx.draw_frame();
     fx.advance_display();
     worst_vertices = std::max(worst_vertices, WB::tween_vertices(fx));
   }
 
   constexpr size_t PREDICTED =
-      CS::MAX_FRAGMENTS * sizeof(typename CS::TrailVertex) +
-      (CS::MAX_FRAGMENTS + 2) * sizeof(Fragment) +
+      EffectType::MAX_FRAGMENTS * sizeof(typename EffectType::TrailVertex) +
+      (EffectType::MAX_FRAGMENTS + 2) * sizeof(Fragment) +
       Plot::rasterize_scratch_a_bytes<SMALL_W>();
   HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), PREDICTED);
   // The trail fills, so the peak above is a saturated frame and not a warm-up.
-  HS_EXPECT_GT(worst_vertices, (size_t)CS::TRAIL_LENGTH);
-  HS_EXPECT_LE(worst_vertices, (size_t)CS::MAX_FRAGMENTS);
+  HS_EXPECT_GT(worst_vertices, (size_t)EffectType::TRAIL_LENGTH);
+  HS_EXPECT_LE(worst_vertices, (size_t)EffectType::MAX_FRAGMENTS);
 }
 
 /**
@@ -6391,7 +6394,7 @@ inline int run_effects_tests() {
   test_gs_shared_stencil_error_is_bounded();
   test_gs_dissolve_frontier_fades_before_clear();
   test_gs_substep_matches_scalar_reference();
-  test_chaoticstrings_preset_and_fire_duty_cycle();
+  test_fishbowl_preset_and_fire_duty_cycle();
   test_shapeshifter_preset_defaults();
   test_shapeshifter_slider_selections_render();
   test_manual_preset_navigation();
@@ -6400,7 +6403,7 @@ inline int run_effects_tests() {
   test_every_effect_renders_while_paused();
   // Arena budgets both tiers run: a mesh or fragment-count change reds these,
   // and they cost under a second between them.
-  test_chaoticstrings_scratch_estimate_covers_peak();
+  test_fishbowl_scratch_estimate_covers_peak();
   test_hankinsolids_arena_budget_covers_every_solid();
   test_dreamballs_max_edge_solid_render();
 
