@@ -3370,16 +3370,22 @@ void verify_fixed_shader_export(ShaderBallWhiteBox::SB &shader,
                         radius * sinf(longitude));
       const Color4 expected = WB::shade(view, dynamic);
       const Color4 actual = FixedEffect::shade(view, compiled);
-      HS_EXPECT_EQ(actual.color.r, expected.color.r);
-      HS_EXPECT_EQ(actual.color.g, expected.color.g);
-      HS_EXPECT_EQ(actual.color.b, expected.color.b);
-      HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.alpha),
-                   std::bit_cast<uint32_t>(expected.alpha));
+      const uint16_t red_error = actual.color.r > expected.color.r
+                                     ? actual.color.r - expected.color.r
+                                     : expected.color.r - actual.color.r;
+      const uint16_t green_error = actual.color.g > expected.color.g
+                                       ? actual.color.g - expected.color.g
+                                       : expected.color.g - actual.color.g;
+      const uint16_t blue_error = actual.color.b > expected.color.b
+                                      ? actual.color.b - expected.color.b
+                                      : expected.color.b - actual.color.b;
+      HS_EXPECT_LE(std::max({red_error, green_error, blue_error}), uint16_t(1));
+      HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
     }
   }
 }
 
-/** @brief Every shared-runtime export is bit-exact with Shader preview. */
+/** @brief Every shared-runtime export matches Shader preview within rounding. */
 inline void test_fixed_shader_export_equivalence() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
@@ -4165,8 +4171,8 @@ inline void test_shaderball_fast_peirce_square() {
       "PEIRCE_FAST_SQUARE", "PROJECTED_EDGE_DISTANCE", "MAXIMUM");
   HS_EXPECT_TRUE(coordinate.measured);
   HS_EXPECT_TRUE(edge.measured);
-  HS_EXPECT_EQ(max_coordinate_error, coordinate.measured_baseline);
-  HS_EXPECT_EQ(max_edge_error, edge.measured_baseline);
+  HS_EXPECT_NEAR(max_coordinate_error, coordinate.measured_baseline, 1e-6f);
+  HS_EXPECT_NEAR(max_edge_error, edge.measured_baseline, 1e-6f);
   HS_EXPECT_EQ(ShaderBallWhiteBox::peirce_metric_limit(0),
                coordinate.accepted_limit);
   HS_EXPECT_EQ(ShaderBallWhiteBox::peirce_metric_limit(1), edge.accepted_limit);

@@ -844,8 +844,7 @@ inline void test_gamut_lut_release_and_passthrough() {
 
 /** @brief Pins the single-step normalization used by the LUT gamut path. */
 inline void test_gamut_lut_boundary_scale_rounding() {
-  const OKLab scaled =
-      gamut_scale_to_boundary_lut({0.5f, 0.4f, 0.3f});
+  const OKLab scaled = gamut_scale_to_boundary_lut({0.5f, 0.4f, 0.3f});
   HS_EXPECT_EQ(std::bit_cast<uint32_t>(scaled.L), 0x3f000000u);
   HS_EXPECT_EQ(std::bit_cast<uint32_t>(scaled.a), 0x3e064870u);
   HS_EXPECT_EQ(std::bit_cast<uint32_t>(scaled.b), 0x3dc96ca9u);

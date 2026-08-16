@@ -1680,8 +1680,8 @@ Holosphere:
 - `tests/test_effects.h`: white-box blocks + runner calls (§10);
   `run_tests.cpp` roster row — case count and assertion floor (§10).
 - `tests/test_param_marshal.h`: GOLDEN_ROSTER (§10).
-- `README.md`: two gallery cards → one (`?effect=ShaderBall`, later migrated to
-  `?effect=Shader` with `docs/screenshots/Shader.png`) **plus** the prose
+- `README.md`: remove both effect gallery cards and document the standalone
+  Shader workbench **plus** the prose
   references: the pipeline walkthrough naming both effects, the
   `stereo_noise_warp` section, the `hue_rotate` doc, and the gamut-LUT
   passage ("`Flyby` and `MeshFeedback` arm a copy").
