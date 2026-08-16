@@ -1,3 +1,4 @@
+import math
 import sys
 import unittest
 from pathlib import Path
@@ -6,6 +7,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pcb
 import sexp
+
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _child(node, key):
+    return next(
+        child[1:]
+        for child in node
+        if isinstance(child, list) and child and child[0] == key
+    )
 
 
 class FootprintBoundsTests(unittest.TestCase):
@@ -35,6 +47,41 @@ class RotatedBoundsTests(unittest.TestCase):
             with self.subTest(rot=rot):
                 with self.assertRaisesRegex(ValueError, "0/90/180/270"):
                     pcb._rot_bb(self.BOX, rot)
+
+
+class RoutedTraceTests(unittest.TestCase):
+    def test_master_enable_bottom_route_uses_an_obtuse_corner(self):
+        board_path = REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
+        board = sexp.parse(board_path.read_text(encoding="utf-8"))[0]
+        route_uuids = {
+            "3dca6b57-636f-4af4-a67b-e4e8047ab42c",
+            "8660a7d1-70bc-4768-a0fb-1074dad66d08",
+        }
+        segments = [
+            node
+            for node in board
+            if isinstance(node, list)
+            and node
+            and node[0] == "segment"
+            and str(_child(node, "uuid")[0]) in route_uuids
+        ]
+        self.assertEqual(len(segments), 2)
+
+        endpoints = [
+            {
+                tuple(map(float, _child(segment, "start")[:2])),
+                tuple(map(float, _child(segment, "end")[:2])),
+            }
+            for segment in segments
+        ]
+        corner, = endpoints[0] & endpoints[1]
+        outer = [next(iter(points - {corner})) for points in endpoints]
+        vectors = [(x - corner[0], y - corner[1]) for x, y in outer]
+        cosine = sum(a * b for a, b in zip(*vectors)) / math.prod(
+            math.hypot(*vector) for vector in vectors
+        )
+        angle = math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
+        self.assertGreater(angle, 90.0)
 
 
 class MountingKeepoutTests(unittest.TestCase):
