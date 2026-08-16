@@ -1690,7 +1690,7 @@ inline void test_shaderball_preset_bank() {
       collect_signal_values(wave_shear.params);
   constexpr std::array<float, 24> SIGNAL_EXPECTED{
       4.439f, 0.245f, 0.0f, 0.5f,      0.0f, 0.0f,   1.0f,       0.0f,
-      0.0f,   1.0f,   0.5f, 0.015625f, 1.0f, 0.0f,   0.788f,     1.0f,
+      0.0f,   1.0f,   0.5f, 0.015625f, 1.0f, 0.8f,   0.788f,     1.0f,
       -0.0f,  0.0f,   0.0f, 1.0f,      1.0f, 0.292f, 0.6304219f, 0.0f,
   };
   const auto &second_signal = presets[21];
@@ -1699,7 +1699,7 @@ inline void test_shaderball_preset_bank() {
       collect_signal_values(second_signal.params);
   constexpr std::array<float, 24> SECOND_SIGNAL_EXPECTED{
       3.1447f, 0.245f, 0.0f,  0.5f,        0.0f, 0.0f,   1.0f,       0.0f,
-      0.0f,    1.0f,   2.72f, 0.00690625f, 1.0f, 0.0f,   0.788f,     1.0f,
+      0.0f,    1.0f,   2.72f, 0.00690625f, 1.0f, 0.8f,   0.788f,     1.0f,
       -0.0f,   0.0f,   0.0f,  1.0f,        1.0f, 0.292f, 0.6304219f, 0.0f,
   };
   const auto &third_signal = presets[22];
@@ -1708,7 +1708,7 @@ inline void test_shaderball_preset_bank() {
       collect_signal_values(third_signal.params);
   constexpr std::array<float, 24> THIRD_SIGNAL_EXPECTED{
       7.5227f, 0.245f, 0.0f, 1.698f,      0.0f, 0.0f,   1.0f,       0.0f,
-      0.0f,    1.0f,   0.0f, 0.00690625f, 1.0f, 0.0f,   0.788f,     1.0f,
+      0.0f,    1.0f,   0.0f, 0.00690625f, 1.0f, 0.8f,   0.788f,     1.0f,
       -0.0f,   0.0f,   0.0f, 1.0f,        1.0f, 0.292f, 0.6304219f, 0.0f,
   };
   const auto &fourth_signal = presets[23];
@@ -1717,7 +1717,7 @@ inline void test_shaderball_preset_bank() {
       collect_signal_values(fourth_signal.params);
   constexpr std::array<float, 24> FOURTH_SIGNAL_EXPECTED{
       8.8162f, 0.245f, 0.0f,   1.698f,      0.0f, 0.0f,   1.0f,       0.0f,
-      0.0f,    1.0f,   1.376f, 0.00559375f, 0.0f, 0.0f,   0.788f,     1.0f,
+      0.0f,    1.0f,   1.376f, 0.00559375f, 0.0f, 0.8f,   0.788f,     1.0f,
       -0.0f,   0.0f,   0.0f,   1.0f,        1.0f, 0.292f, 0.6304219f, 0.0f,
   };
   for (size_t index = 0; index < primary_signal.size(); ++index) {
