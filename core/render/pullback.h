@@ -2269,6 +2269,55 @@ HS_FLASH_INLINE inline float sample_hue_noise_lut(const HueNoiseLutView &view,
   return hs::lerp(row_low, row_high, y_fraction) * (1.0f / 127.0f);
 }
 
+struct GeneratedPaletteState {
+  PaletteMappingWeights mapping;
+  float mapping_frequency;
+  float mapping_phase;
+  float oscillation_depth;
+  float oscillation_phase;
+  const BakedPalette *palette;
+  HueMode hue_mode;
+  float hue_shift_amount;
+  HueRotationLutView hue_rotation;
+  HueNoiseLutView hue_noise;
+  BrightnessEnvelope brightness_envelope;
+  float brightness_depth;
+  float opacity_low;
+  float opacity_high;
+};
+
+HS_HOT_FLASH_MEMBER inline Color4
+apply_generated_palette(const MaterialSample &sample,
+                        const GeneratedPaletteState &state) {
+  const float oscillation =
+      state.oscillation_depth * fast_sinf(TWO_PI_F * state.oscillation_phase);
+  const float palette_value = palette_mapping_coordinate(
+      sample.value, state.mapping, state.mapping_frequency,
+      state.mapping_phase + oscillation);
+  Color4 color;
+  if (state.hue_rotation.active && state.hue_mode == HueMode::NOISE) {
+    const float amount = state.hue_shift_amount *
+                         sample_hue_noise_lut(state.hue_noise, sample.sphere);
+    color = Color4(
+        sample_hue_rotation_lut(state.hue_rotation, palette_value, amount),
+        1.0f);
+  } else {
+    color = state.palette->get(palette_value);
+    if (state.hue_rotation.active) {
+      const float amount = wrap_t(state.hue_shift_amount * sample.path_length);
+      if (amount != 0.0f)
+        color.color =
+            sample_hue_rotation_lut(state.hue_rotation, palette_value, amount);
+    }
+  }
+  color.color = color.color * brightness_envelope_gain(
+                                  sample.value, state.brightness_envelope,
+                                  state.brightness_depth);
+  color.alpha *= sample.coverage *
+                 hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  return color;
+}
+
 template <typename State> struct GeneratedPalette : ExactPolicy {
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
@@ -2285,12 +2334,15 @@ template <typename State> struct GeneratedPalette : ExactPolicy {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
-      requires(const typename Binding::FrameState &frame, float value) {
+      requires(const typename Binding::FrameState &frame) {
+        {
+          State::mapping_weights(frame)
+        } -> std::same_as<PaletteMappingWeights>;
         { State::mapping_frequency(frame) } -> std::same_as<float>;
         { State::mapping_phase(frame) } -> std::same_as<float>;
         { State::oscillation_depth(frame) } -> std::same_as<float>;
         { State::oscillation_phase(frame) } -> std::same_as<float>;
-        { State::palette(frame, value) } -> std::same_as<Color4>;
+        { State::palette(frame) } -> std::same_as<const BakedPalette &>;
         { State::hue_mode(frame) } -> std::same_as<HueMode>;
         { State::hue_shift_amount(frame) } -> std::same_as<float>;
         { State::hue_rotation(frame) } -> std::same_as<HueRotationLutView>;
@@ -2301,58 +2353,20 @@ template <typename State> struct GeneratedPalette : ExactPolicy {
         { State::brightness_depth(frame) } -> std::same_as<float>;
         { State::opacity_low(frame) } -> std::same_as<float>;
         { State::opacity_high(frame) } -> std::same_as<float>;
-      } &&
-      (requires(const typename Binding::FrameState &frame) {
-        { State::mapping(frame) } -> std::same_as<PaletteMapping>;
-      } || requires(const typename Binding::FrameState &frame) {
-        { State::mapping_weights(frame) } ->
-            std::same_as<PaletteMappingWeights>;
-      });
+      };
 
   template <typename FrameState>
   HS_FLASH_INLINE static Color4 apply(const MaterialSample &sample,
                                       const FrameState &frame) {
-    const float oscillation =
-        State::oscillation_depth(frame) *
-        fast_sinf(TWO_PI_F * State::oscillation_phase(frame));
-    const float palette_value = [&] {
-      if constexpr (requires { State::mapping_weights(frame); })
-        return palette_mapping_coordinate(
-            sample.value, State::mapping_weights(frame),
-            State::mapping_frequency(frame),
-            State::mapping_phase(frame) + oscillation);
-      else
-        return palette_mapping_coordinate(sample.value, State::mapping(frame),
-                                          State::mapping_frequency(frame),
-                                          State::mapping_phase(frame) +
-                                              oscillation);
-    }();
-    const HueRotationLutView rotation = State::hue_rotation(frame);
-    Color4 color;
-    if (rotation.active && State::hue_mode(frame) == HueMode::NOISE) {
-      const float amount =
-          State::hue_shift_amount(frame) *
-          sample_hue_noise_lut(State::hue_noise(frame), sample.sphere);
-      color = Color4(sample_hue_rotation_lut(rotation, palette_value, amount),
-                     1.0f);
-    } else {
-      color = State::palette(frame, palette_value);
-      if (rotation.active) {
-        const float amount =
-            wrap_t(State::hue_shift_amount(frame) * sample.path_length);
-        if (amount != 0.0f)
-          color.color =
-              sample_hue_rotation_lut(rotation, palette_value, amount);
-      }
-    }
-    color.color = color.color *
-                  brightness_envelope_gain(sample.value,
-                                           State::brightness_envelope(frame),
-                                           State::brightness_depth(frame));
-    color.alpha *=
-        sample.coverage * hs::lerp(State::opacity_low(frame),
-                                   State::opacity_high(frame), sample.value);
-    return color;
+    return apply_generated_palette(
+        sample,
+        {State::mapping_weights(frame), State::mapping_frequency(frame),
+         State::mapping_phase(frame), State::oscillation_depth(frame),
+         State::oscillation_phase(frame), &State::palette(frame),
+         State::hue_mode(frame), State::hue_shift_amount(frame),
+         State::hue_rotation(frame), State::hue_noise(frame),
+         State::brightness_envelope(frame), State::brightness_depth(frame),
+         State::opacity_low(frame), State::opacity_high(frame)});
   }
 };
 
