@@ -5172,7 +5172,8 @@ private:
     Config &current = state->render_config;
     current.slots = active_slots;
     current.params = blend.params;
-    Config target = candidate;
+    Config &target = state->transition.to_config;
+    target = candidate;
     if (circular_mobius_animation_active &&
         current.slots.surface_lens == SurfaceLens::MOBIUS &&
         target.slots.surface_lens == SurfaceLens::MOBIUS)
@@ -5206,10 +5207,16 @@ private:
     const uint16_t planned_duration =
         (duration & 1U) != 0 ? duration + 1 : duration;
     state->param_morph.active = false;
-    state->transition = {current, target,           runtime,         runtime,
-                         0,       planned_duration, continue_choreo, true};
-    state->transition.from_pipeline = active_pipeline;
-    state->transition.to_pipeline = resolve_pipeline_id(target);
+    TransitionRuntime &transition = state->transition;
+    transition.from_config = current;
+    transition.from_runtime = runtime;
+    transition.to_runtime = runtime;
+    transition.elapsed = 0;
+    transition.duration = planned_duration;
+    transition.continue_choreo = continue_choreo;
+    transition.active = true;
+    transition.from_pipeline = active_pipeline;
+    transition.to_pipeline = resolve_pipeline_id(target);
     return true;
   }
 
