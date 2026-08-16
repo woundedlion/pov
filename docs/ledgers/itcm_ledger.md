@@ -161,13 +161,23 @@ sha with any figure taken from this document.
   the baseline before it was already 194,880 B (1,728 B free) — peer commits
   after the 08-06 "5,320 B free" figure had spent the difference.
 
-## State after the Projection slot (2026-08-08, `053ecefc`)
+## State at the fixed-pipeline tip (2026-08-16, `5b8abd1e`)
 
-- ShaderBall is **excluded from HS_PHANTASM_EFFECT_LIST** (COUNT − 3, named in
-  the exclusion asserts) while it grows: with the projection dispatch its
-  instantiation no longer fits the 1,728 B of phantasm headroom it would need.
-- phantasm ITCM back to 194,880 B — **1,728 B free**. The holosphere (96x20)
-  targets never included ShaderBall (their show lists are hand-curated;
-  itcm=72,192 unchanged across all ShaderBall commits).
-- Re-including it later costs ~1.7–2 KB (measure, don't assume) — pay with a
-  trim or by freeing the 11th DTCM bank.
+- phantasm ITCM 188,960 B / 196,608 B ceiling — **7,648 B free**, read from the
+  newest phantasm row of the size trail (`.git/teensy-size-trail.tsv`). The same
+  row measures the 96x20 targets at itcm 68,560 B (`holosphere`) and 68,112 B
+  (`holosphere_dma`).
+- The workbench effect is `Shader` (`effects/ShaderWorkbench.h`).
+  `HS_EFFECT_LIST` admits it only behind `HS_ENABLE_SHADER_WORKBENCH`, and
+  `HS_PHANTASM_EFFECT_LIST` excludes it outright — `HS_PHANTASM_EFFECT_COUNT ==
+  HS_EFFECT_COUNT − 3 − HS_ENABLE_SHADER_WORKBENCH`, with `Shader` named in the
+  exclusion asserts alongside Dynamo, MobiusRings and Thrusters.
+- No phantasm-headroom decision is attached to the workbench. It is
+  simulator-only by construction: `core/engine/build_features.h` leaves
+  `HS_ENABLE_SHADER_WORKBENCH` at 0 outside Emscripten and test-oracle builds and
+  `#error`s any Arduino build that forces it on, so no device image can carry it.
+  Its fourteen fixed-pipeline products (`HS_SHADER_PRODUCT_GROUP`) are all in
+  `HS_PHANTASM_EFFECT_LIST` already.
+- The 7,648 B is the whole budget for further ITCM promotions on the 33-effect
+  phantasm roster; there is still no next FlexRAM bank to reach for, so an
+  overrun is paid for by a trim.
