@@ -36,16 +36,19 @@ if(EMSCRIPTEN)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
   endif()
 
+  # Shipping module: sources come from CMAKE_CURRENT_SOURCE_DIR, the root the
+  # install rules below record provenance against. Only the capture backends
+  # follow HS_PULLBACK_CAPTURE_SOURCE_ROOT.
   set(TARGET_NAME holosphere_wasm)
   add_executable(${TARGET_NAME}
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/targets/wasm/wasm.cpp
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/reaction_graph.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/wasm.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/memory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/static_storage.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/reaction_graph.cpp)
 
   target_include_directories(${TARGET_NAME} PRIVATE
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/core)
 
   # Warning hygiene for the JS bridge: targets/wasm/ is built by no other target,
   # so without this it is the one first-party TU with zero warning coverage. Not
