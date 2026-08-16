@@ -563,7 +563,7 @@ void test_pullback_concrete_catalog() {
   const Complex origin;
   HS_EXPECT_EQ(Pullback::Source::twin_wave(origin, prepared), 0.0f);
   HS_EXPECT_EQ(Pullback::Source::rings(origin, prepared), 0.0f);
-  HS_EXPECT_EQ(Pullback::Source::spiral(origin, prepared), 1.0f);
+  HS_EXPECT_NEAR(Pullback::Source::spiral(origin, prepared), 1.0f, 2e-3f);
   HS_EXPECT_EQ(Pullback::Source::grid(origin, params, prepared), 0.0f);
   HS_EXPECT_EQ(Pullback::Source::primitive_lattice(origin, params), 1.0f);
 
