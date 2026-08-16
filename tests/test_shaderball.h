@@ -651,6 +651,9 @@ struct ShaderBallWhiteBox {
   static constexpr InversePipelineId preset_pipeline(size_t index) {
     return SB::PRESETS[index].pipeline;
   }
+  static auto encode_config(const RequestedConfig &config) {
+    return SB::encode_config_values(config);
+  }
   static constexpr NoiseChannelLayout
   warp_channel_layout(const WarpStageSpec &spec) {
     return SB::warp_resource_key(spec).channel_layout;
@@ -1620,7 +1623,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(19));
+  HS_EXPECT_EQ(presets.size(), size_t(20));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   for (const auto &entry : choreo) {
     HS_EXPECT_FALSE(entry.staggered);
@@ -1633,8 +1636,9 @@ inline void test_shaderball_preset_bank() {
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
     const WB::PaletteMode expected_palette =
-        index == 9 || (index >= 11 && index < 18) ? WB::PaletteMode::ANALOGOUS
-                                                  : WB::PaletteMode::TRIADIC;
+        index == 19 ? WB::PaletteMode::COMPLEMENTARY
+        : index == 9 || (index >= 11 && index < 18) ? WB::PaletteMode::ANALOGOUS
+                                                    : WB::PaletteMode::TRIADIC;
     HS_EXPECT_EQ(preset.slots.palette, expected_palette);
     HS_EXPECT_TRUE(WB::seam_compatible(preset));
     HS_EXPECT_TRUE(WB::valid_config(preset));
@@ -1888,6 +1892,33 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(glitch_grid.params.color.hue_shift_amount, 2.048f);
   HS_EXPECT_EQ(glitch_grid.params.color.palette_chroma, 0.292f);
   HS_EXPECT_EQ(glitch_grid.params.outer_camera.wander, 1.0f);
+  const auto &mobius_grid = presets[19];
+  constexpr std::array<uint32_t, 141> MOBIUS_GRID_EXPECTED{
+      0,          1,          1,          4,          0,          0,
+      0,          0,          0,          1,          1337,       0,
+      7,          0,          0,          0,          0,          1,
+      1337,       0,          1,          0,          1,          1,
+      2,          1,          2,          1,          0,          0,
+      0,          0,          1,          1092781867, 1048240456, 1057182712,
+      0,          1061997773, 1021128475, 1065353216, 0,          0,
+      1065353216, 0,          1028443341, 1048576000, 0,          2927,
+      2,          1036831949, 0,          1056964608, 0,          0,
+      0,          1065353216, 1065353216, 0,          1065353216, 0,
+      0,          0,          1065353216, 0,          0,          0,
+      1065353216, 1065353216, 0,          0,          1065353216, 0,
+      0,          1036831949, 1036831949, 0,          0,          0,
+      0,          0,          1065353216, 1065353216, 0,          1065353216,
+      0,          0,          0,          1065353216, 0,          0,
+      0,          1065353216, 1065353216, 0,          0,          1065353216,
+      0,          0,          1036831949, 1074169643, 0,          1065353216,
+      0,          1065353216, 1061752795, 0,          1065353216, 3213440844,
+      1050387939, 1054146036, 0,          0,          0,          1060439283,
+      0,          1056964608, 1028443341, 4,          0,          1056964608,
+      1028443341, 1036831949, 1050656375, 1065353216, 0,          1053542056,
+      1065353216, 0,          0,          0,          1065353216, 1065353216,
+      1065353216, 1065353216, 0,          0,          1337,       1065353216,
+      0,          0,          0};
+  HS_EXPECT_TRUE(WB::encode_config(mobius_grid) == MOBIUS_GRID_EXPECTED);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.scale, 0.1f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.speed, 0.5f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.scale, 0.1f);
@@ -2517,11 +2548,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(19));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(20));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(18));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[18]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(19));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[19]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -3020,6 +3051,39 @@ inline void test_promoted_shader_palette_mapping_control() {
   const auto *mapping = effect.getParameters().find("Palette Mapping");
   HS_EXPECT_TRUE(mapping != nullptr);
   HS_EXPECT_EQ(mapping->option_count, 4);
+}
+
+inline void test_mobius_grid_circular_animation() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  MobiusGrid<SMALL_W, SMALL_H> effect;
+  effect.init();
+
+  const MobiusParams initial =
+      WB::active_config(effect).params.surface_lens.mobius;
+  effect.draw_frame();
+  effect.advance_display();
+  const MobiusParams animated =
+      WB::active_config(effect).params.surface_lens.mobius;
+  HS_EXPECT_TRUE(animated.b.re != initial.b.re ||
+                 animated.b.im != initial.b.im);
+  HS_EXPECT_NEAR(animated.b.re * animated.b.re + animated.b.im * animated.b.im,
+                 1.0f, 1e-5f);
+
+  effect.setAnimationsPaused(true);
+  effect.draw_frame();
+  effect.advance_display();
+  const MobiusParams paused =
+      WB::active_config(effect).params.surface_lens.mobius;
+  HS_EXPECT_EQ(paused.b.re, animated.b.re);
+  HS_EXPECT_EQ(paused.b.im, animated.b.im);
+
+  effect.setAnimationsPaused(false);
+  effect.draw_frame();
+  effect.advance_display();
+  const MobiusParams resumed =
+      WB::active_config(effect).params.surface_lens.mobius;
+  HS_EXPECT_TRUE(resumed.b.re != paused.b.re || resumed.b.im != paused.b.im);
 }
 
 /** @brief Polyhedral lenses expose controls at their chamber scale. */
@@ -3815,7 +3879,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
     HS_EXPECT_EQ(preset_mask, expected.preset_mask);
     compiled_preset_mask |= preset_mask;
   }
-  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0x7ffff));
+  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0xfffff));
   const auto &peirce_framebuffer =
       pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
   const auto &hue_framebuffer = pullback_oracle_metric(
@@ -5221,6 +5285,7 @@ inline int run_shaderball_tests() {
   test_shaderball_parameter_capacity();
   test_shaderball_gui_catalog();
   test_promoted_shader_palette_mapping_control();
+  test_mobius_grid_circular_animation();
   test_shaderball_lens_domain_ranges();
   test_shaderball_projection_catalog();
   test_shaderball_fast_peirce_square();

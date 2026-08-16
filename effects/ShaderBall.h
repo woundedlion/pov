@@ -221,6 +221,15 @@ protected:
     fixed_topology = true;
   }
 
+  HS_COLD_MEMBER void start_circular_mobius_animation(float scale,
+                                                      int duration) {
+    timeline.add_pausable(
+        0,
+        Animation::MobiusWarpCircular(blend.params.surface_lens.mobius, scale,
+                                      duration, true),
+        &anims_paused);
+  }
+
 public:
   /** @brief Initializes slots, clocks, palette resources, and choreography. */
   HS_COLD_MEMBER void init() override {
@@ -420,8 +429,11 @@ private:
     else if constexpr (Program == 13)
       draw_typed_fixed_endpoint<StereographicGlitchGridMirrorPipeline>(
           canvas, config, look, alpha);
+    else if constexpr (Program == 14)
+      draw_typed_fixed_endpoint<StereographicMobiusTwinWaveInnerMirrorPipeline>(
+          canvas, config, look, alpha);
     else
-      static_assert(Program >= 0 && Program <= 13,
+      static_assert(Program >= 0 && Program <= 14,
                     "unsupported promoted Shader program");
   }
 
@@ -2413,6 +2425,7 @@ private:
     STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR,
     EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR,
     STEREOGRAPHIC_GLITCH_GRID_MIRROR,
+    STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR,
     COUNT,
     NONE = 0xff
   };
@@ -2477,12 +2490,15 @@ private:
           std::conditional_t<
               LensV == SurfaceLens::KALEIDOSCOPE, Pullback::Lens::Kaleidoscope,
               std::conditional_t<
-                  LensV == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
-                  Pullback::Lens::DodecahedralKaleidoscope,
+                  LensV == SurfaceLens::MOBIUS,
+                  Pullback::Lens::Mobius<LensStateProvider>,
                   std::conditional_t<
-                      LensV == SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
-                      Pullback::Lens::HexagonalPrismKaleidoscope,
-                      Pullback::Lens::TriangularPrismKaleidoscope>>>>>;
+                      LensV == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
+                      Pullback::Lens::DodecahedralKaleidoscope,
+                      std::conditional_t<
+                          LensV == SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
+                          Pullback::Lens::HexagonalPrismKaleidoscope,
+                          Pullback::Lens::TriangularPrismKaleidoscope>>>>>>;
 
   template <Projection ProjectionV>
   using ProjectionPolicy = std::conditional_t<
@@ -2666,6 +2682,14 @@ private:
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
                                   SurfaceLens::KALEIDOSCOPE>,
+      SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::MIRROR_TILE>,
+      SourceStage<Function::TWIN_WAVE>,
+      LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
+      ColorStage>;
+  using StereographicMobiusTwinWaveInnerMirrorPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
+                                  SurfaceLens::MOBIUS>,
       SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::MIRROR_TILE>,
       SourceStage<Function::TWIN_WAVE>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
@@ -3723,6 +3747,8 @@ private:
       return "EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR";
     case InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR:
       return "STEREOGRAPHIC_GLITCH_GRID_MIRROR";
+    case InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR:
+      return "STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR";
     case InversePipelineId::COUNT:
       return "COUNT";
     case InversePipelineId::NONE:
@@ -3902,9 +3928,9 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 14> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 15> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 14> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 15> PROGRAMS{{
         make_program<GlitchNoiseGridWaveShearPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
                      make_topology_key(wave_shear_generated_preset())>(
@@ -3974,6 +4000,12 @@ private:
                      InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR,
                      make_topology_key(
                          stereographic_glitch_grid_mirror_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<
+            StereographicMobiusTwinWaveInnerMirrorPipeline,
+            InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR,
+            make_topology_key(
+                stereographic_mobius_twin_wave_inner_mirror_preset())>(
             &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
@@ -7119,7 +7151,28 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 19> PRESETS = {{
+  static constexpr Config stereographic_mobius_twin_wave_inner_mirror_preset() {
+    Slots slots{Function::TWIN_WAVE,
+                Projection::STEREOGRAPHIC,
+                ProjectionFramePolicy::SPIN_WANDER,
+                SurfaceLens::MOBIUS,
+                {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
+                PaletteMode::COMPLEMENTARY};
+    slots.brightness_envelope = BrightnessEnvelope::CUP;
+    slots.hue_shift = HueShiftMode::WARP_DISPLACEMENT;
+    Params params = authored_params(
+        {10.158f, 0.245f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
+        {2.102f, 0.0f, 1.0f}, {1.0f}, {0.312f, 1.0f, 0.0f}, {1.0f});
+    params.surface_lens.mobius = {-1.072f, 0.304f, 0.416f,      0.0f,
+                                  0.0f,    0.0f,   0.70710677f, 0.0f};
+    params.color.palette_chroma = 0.398f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 20> PRESETS = {{
       {wave_shear_generated_preset(),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
@@ -7158,6 +7211,8 @@ private:
        InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
       {stereographic_glitch_grid_mirror_preset(),
        InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR},
+      {stereographic_mobius_twin_wave_inner_mirror_preset(),
+       InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR},
   }};
   static_assert(
       [] {

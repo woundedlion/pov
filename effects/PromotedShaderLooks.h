@@ -14,16 +14,16 @@
   X(Shader)                                                                    \
   X(SignalWeave)                                                               \
   X(KaleidoWave)                                                               \
-  X(KaleidoGrid)                                                               \
+  X(AlienOcean)                                                                \
   X(GlitchGrid)                                                                \
-  X(QuincunxFacets)                                                            \
   X(FacetWave)                                                                 \
   X(ContourLattice)                                                            \
   X(PrismLattice)                                                              \
   X(VectorFacets)                                                              \
   X(HexWave)                                                                   \
   X(EquatorGrid)                                                               \
-  X(StereoGlitch)
+  X(CosmicEyeball)                                                             \
+  X(MobiusGrid)
 
 template <int W, int H> class Shader : public ShaderBall<W, H> {
 public:
@@ -52,12 +52,9 @@ public:
 HS_SINGLE_PROMOTED_SHADER_LOOK(SignalWeave, "signal-weave", "signal-weave", 0,
                                0);
 HS_SINGLE_PROMOTED_SHADER_LOOK(KaleidoWave, "kaleido-wave", "twin-wave", 1, 1);
-HS_SINGLE_PROMOTED_SHADER_LOOK(KaleidoGrid, "kaleido-grid", "folded-grid", 2,
-                               2);
+HS_SINGLE_PROMOTED_SHADER_LOOK(AlienOcean, "alien-ocean", "folded-grid", 2, 2);
 HS_SINGLE_PROMOTED_SHADER_LOOK(GlitchGrid, "glitch-grid", "folded-glitch", 3,
                                3);
-HS_SINGLE_PROMOTED_SHADER_LOOK(QuincunxFacets, "quincunx-facets",
-                               "peirce-facets", 4, 4);
 HS_SINGLE_PROMOTED_SHADER_LOOK(FacetWave, "facet-wave", "wave-mirror", 5, 5);
 HS_SINGLE_PROMOTED_SHADER_LOOK(ContourLattice, "contour-lattice",
                                "affine-contour", 6, 6);
@@ -66,10 +63,27 @@ HS_SINGLE_PROMOTED_SHADER_LOOK(PrismLattice, "prism-lattice", "polar-wave", 9,
 HS_SINGLE_PROMOTED_SHADER_LOOK(VectorFacets, "vector-facets", "vector-mirror",
                                10, 9);
 HS_SINGLE_PROMOTED_SHADER_LOOK(HexWave, "hex-wave", "hex-twin-wave", 12, 11);
-HS_SINGLE_PROMOTED_SHADER_LOOK(StereoGlitch, "stereo-glitch", "mirrored-grid",
+HS_SINGLE_PROMOTED_SHADER_LOOK(CosmicEyeball, "cosmic-eyeball", "mirrored-grid",
                                18, 13);
 
 #undef HS_SINGLE_PROMOTED_SHADER_LOOK
+
+template <int W, int H> class MobiusGrid : public ShaderBall<W, H> {
+public:
+  static constexpr std::string_view EFFECT_ID = "mobius-grid";
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"mobius-grid"};
+  static constexpr std::array<uint8_t, 1> SOURCE_PRESET_INDICES{19};
+
+  HS_COLD_MEMBER void init() override {
+    this->set_fixed_preset_view(SOURCE_PRESET_INDICES);
+    ShaderBall<W, H>::init();
+    this->start_circular_mobius_animation(1.0f, 160);
+  }
+
+  HS_FLASH_MEMBER void draw_frame() override {
+    this->template draw_fixed_program_frame<14>();
+  }
+};
 
 template <int W, int H> class EquatorGrid : public ShaderBall<W, H> {
 public:
@@ -92,13 +106,13 @@ public:
 REGISTER_EFFECT(Shader)
 REGISTER_EFFECT(SignalWeave)
 REGISTER_EFFECT(KaleidoWave)
-REGISTER_EFFECT(KaleidoGrid)
+REGISTER_EFFECT(AlienOcean)
 REGISTER_EFFECT(GlitchGrid)
-REGISTER_EFFECT(QuincunxFacets)
 REGISTER_EFFECT(FacetWave)
 REGISTER_EFFECT(ContourLattice)
 REGISTER_EFFECT(PrismLattice)
 REGISTER_EFFECT(VectorFacets)
 REGISTER_EFFECT(HexWave)
 REGISTER_EFFECT(EquatorGrid)
-REGISTER_EFFECT(StereoGlitch)
+REGISTER_EFFECT(CosmicEyeball)
+REGISTER_EFFECT(MobiusGrid)

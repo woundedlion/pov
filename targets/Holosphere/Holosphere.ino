@@ -50,7 +50,7 @@ FLASHMEM static void run_show_sequence() {
   pov->show<ChaoticStrings<288, 144>>(120);0
   pov->show<Raymarch<288, 144>>(120);
   pov->show<Voronoi<288, 144>>(120);
-  pov->show<MobiusGrid<288, 144>>(120);
+  pov->show<MobiusRings<96, 20>>(120);
   pov->show<MeshFeedback<288, 144>>(120);
   pov->show<BZReactionDiffusion<288, 144>>(120);
   pov->show<GSReactionDiffusion<288, 144>>(120);

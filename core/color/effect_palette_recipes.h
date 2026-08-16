@@ -121,12 +121,12 @@ HS_FLASH_MEMBER inline float mind_splatter_bank_turns(int index, int count) {
 }
 
 /**
- * @brief The MobiusGrid ramp: a split-complementary mirror at constant
+ * @brief The MobiusRings ramp: a split-complementary mirror at constant
  *        lightness.
  * @param base_turns Base hue in turns.
  * @return The recipe.
  */
-HS_FLASH_MEMBER inline PaletteRecipe mobius_grid(float base_turns) {
+HS_FLASH_MEMBER inline PaletteRecipe mobius_rings(float base_turns) {
   return PaletteRecipes::profile(PaletteDomain::MIRROR,
                                  PaletteHarmony::SPLIT_COMPLEMENTARY,
                                  AxisCurve::CONSTANT, base_turns);
@@ -209,7 +209,7 @@ HS_FLASH_MEMBER inline std::array<Preset, 9> presets() {
             displacement_field(preview_hue)},
            {"Dynamo", true, dynamo(preview_hue)},
            {"GSReactionDiffusion", true, gs_reaction_diffusion(preview_hue)},
-           {"MobiusGrid", true, mobius_grid(preview_hue)},
+           {"MobiusRings", true, mobius_rings(preview_hue)},
            {"Raymarch", false, raymarch()},
            {"ShaderBall Liquid", false, shader_ball_liquid()},
            {"ShaderBall Flyby", false, shader_ball_flyby()}}};
