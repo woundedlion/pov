@@ -10,7 +10,8 @@ on:
     # Run for API-reference inputs and every Markdown change. The build job
     # validates the Markdown it is about to publish, but this filter means a
     # rename outside these paths reaches no run here; ci.yml runs the same
-    # checker unfiltered, so a documented link cannot break unnoticed.
+    # Markdown and image checkers unfiltered, so a documented link or image
+    # reference cannot break unnoticed.
     paths:
       - '**.h'
       - '**.cpp'
@@ -117,7 +118,7 @@ jobs:
       # files the artifact does not carry. Stage them and fail on any <img>
       # reference the artifact still cannot resolve.
       - name: Stage README images and resolve every reference
-        run: python tools/docs_images.py
+        run: python tools/docs_images.py --stage
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3

@@ -115,7 +115,7 @@ docs-check:
 docs: docs-check _doxygen-theme _doxyfile-local
     cmake -E make_directory build/docs
     doxygen Doxyfile.local
-    {{py}} tools/docs_images.py
+    {{py}} tools/docs_images.py --stage
 
 # Fetch the exact doxygen-awesome revision used by CI. The clone guard is split
 # per-OS; the fetch and checkout also refresh existing clones. The pin is a

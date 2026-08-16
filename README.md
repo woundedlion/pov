@@ -439,7 +439,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── mindsplatter_replay_gen.cpp  Golden-corpus generator of record (emits tests/mindsplatter_replay_corpus.h)
 │   ├── mindsplatter_replay_main.cpp  Replay comparator over that corpus (its fixtures live under tests/)
 │   ├── docs_check.py           Markdown fence/link/anchor/path validator (CI)
-│   ├── docs_images.py          Stages README images into the Doxygen output and resolves every `<img>` (CI)
+│   ├── docs_images.py          Resolves every documented `<img>`; `--stage` copies them into the Doxygen output (CI)
 │   ├── license_check.py        Checks every tracked C/C++ source against the terms LICENSE grants it (CI)
 │   └── *_tests/                Host unit tests for the gate, build + git hooks, profile parser, bakes, build pins, docs and license checks
 ├── docs/                       Design specs, perf ledgers, and the docs/screenshots/ gallery
