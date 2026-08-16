@@ -46,6 +46,30 @@ struct CurlLatticeWhiteBox {
 
   template <typename ReferenceFrame>
   static FrameState from_reference(const ReferenceFrame &frame) {
+    Params params;
+    params.lattice = {frame.params.source.lattice_cell_scale,
+                      frame.params.source.lattice_shape_blend,
+                      frame.params.source.lattice_softness,
+                      frame.params.source.lattice_radius};
+    params.projection = {frame.params.projection.pole_fade,
+                         frame.params.projection.central_meridian,
+                         frame.params.projection.spin_rate,
+                         frame.params.projection.wander,
+                         frame.params.outer_camera.wander};
+    params.surface_noise = {frame.params.surface_noise.scale,
+                            frame.params.surface_noise.strength,
+                            frame.params.surface_noise.rate};
+    params.color = {frame.params.color.palette_chroma,
+                    frame.params.color.mapping_frequency,
+                    frame.params.color.mapping_phase,
+                    frame.params.color.phase_oscillation_depth,
+                    frame.params.color.phase_oscillation_speed,
+                    frame.params.color.brightness_depth,
+                    frame.params.color.value_opacity_low,
+                    frame.params.color.value_opacity_high,
+                    frame.params.color.hue_shift_amount,
+                    frame.params.color.hue_noise_scale,
+                    frame.params.color.hue_noise_speed};
     return {frame.transforms.projection_conj,
             frame.transforms.outer_conj,
             frame.prepared_surface_noise.loop_offset,
@@ -53,8 +77,8 @@ struct CurlLatticeWhiteBox {
             frame.resources.generated_palette,
             frame.prepared_hue_rotation.lut,
             frame.prepared_hue_noise.lut,
-            {},
-            frame.params.surface_noise.scale};
+            params,
+            frame.clocks.palette_oscillation_phase};
   }
 
   static Color4 shade(const Vector &view, const FrameState &frame) {
@@ -75,17 +99,49 @@ void test_curl_lattice_identity_and_presets() {
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "curl-lattice");
   HS_EXPECT_EQ(WB::presets().size(), size_t{2});
-  HS_EXPECT_EQ(sizeof(WB::Params), size_t{4});
+  HS_EXPECT_EQ(sizeof(WB::Params), 23 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderBallWB::FrameState));
   HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "open-curl");
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "dense-curl");
   HS_EXPECT_TRUE(WB::presets()[0].id == "open-curl");
   HS_EXPECT_TRUE(WB::presets()[1].id == "dense-curl");
-  HS_EXPECT_NEAR(WB::presets()[0].params.surface_noise_scale, 1.78815627f,
+  HS_EXPECT_NEAR(WB::presets()[0].params.surface_noise.scale, 1.78815627f,
                  0.0f);
-  HS_EXPECT_NEAR(WB::presets()[1].params.surface_noise_scale, 3.29720306f,
+  HS_EXPECT_NEAR(WB::presets()[1].params.surface_noise.scale, 3.29720306f,
                  0.0f);
   HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{480});
+
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  static constexpr const char *CONTROL_NAMES[] = {
+      "Lattice Cell Scale",
+      "Lattice Shape",
+      "Lattice Softness",
+      "Lattice Radius",
+      "Pole Fade",
+      "Central Meridian",
+      "Projection Spin Speed",
+      "Projection Wander",
+      "Camera Wander",
+      "Surface Noise Scale",
+      "Surface Noise Strength",
+      "Surface Noise Speed",
+      "Palette Chroma",
+      "Mapping Frequency",
+      "Mapping Phase",
+      "Phase Oscillation Depth",
+      "Phase Oscillation Speed",
+      "Brightness Depth",
+      "Value Opacity Low",
+      "Value Opacity High",
+      "Hue Shift Amount",
+      "Hue Noise Scale",
+      "Hue Noise Speed",
+  };
+  HS_EXPECT_EQ(effect.getParameters().size(), std::size(CONTROL_NAMES));
+  for (const char *name : CONTROL_NAMES)
+    HS_EXPECT_TRUE(effect.getParameters().find(name) != nullptr);
 }
 
 void test_curl_lattice_transition_contract() {
@@ -100,8 +156,8 @@ void test_curl_lattice_transition_contract() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 
   WB::prepare_transition_value(effect);
-  HS_EXPECT_NEAR(WB::params(effect).surface_noise_scale,
-                 WB::presets()[0].params.surface_noise_scale, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).surface_noise.scale,
+                 WB::presets()[0].params.surface_noise.scale, 0.0f);
   WB::finish_transition_evaluation(effect);
   HS_EXPECT_EQ(WB::transition_evaluation(effect), uint16_t{1});
 
@@ -113,15 +169,15 @@ void test_curl_lattice_transition_contract() {
   WB::set_transition_evaluation(effect, FX::TRANSITION_DURATION / 2);
   WB::prepare_transition_value(effect);
   HS_EXPECT_NEAR(
-      WB::params(effect).surface_noise_scale,
-      FixedPipeline::linear(WB::presets()[0].params.surface_noise_scale,
-                            WB::presets()[1].params.surface_noise_scale, 0.5f),
+      WB::params(effect).surface_noise.scale,
+      FixedPipeline::linear(WB::presets()[0].params.surface_noise.scale,
+                            WB::presets()[1].params.surface_noise.scale, 0.5f),
       1e-6f);
 
   WB::set_transition_evaluation(effect, FX::TRANSITION_DURATION);
   WB::prepare_transition_value(effect);
-  HS_EXPECT_NEAR(WB::params(effect).surface_noise_scale,
-                 WB::presets()[1].params.surface_noise_scale, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).surface_noise.scale,
+                 WB::presets()[1].params.surface_noise.scale, 0.0f);
   WB::finish_transition_evaluation(effect);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
@@ -132,16 +188,20 @@ void test_curl_lattice_parameter_serialization() {
   WB::FX effect;
   effect.init();
   auto snapshot = effect.serialize_parameters();
-  snapshot.surface_noise_scale = 2.5f;
+  snapshot.params.surface_noise.scale = 2.5f;
+  snapshot.params.lattice.lattice_radius = 0.4f;
+  snapshot.params.color.hue_noise_speed = 0.0005f;
   HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
-  HS_EXPECT_NEAR(WB::params(effect).surface_noise_scale, 2.5f, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).surface_noise.scale, 2.5f, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).lattice.lattice_radius, 0.4f, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).color.hue_noise_speed, 0.0005f, 0.0f);
 
   snapshot.schema_version += 1;
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
   snapshot.schema_version = WB::FX::PARAMETER_SCHEMA_VERSION;
-  snapshot.surface_noise_scale = std::numeric_limits<float>::quiet_NaN();
+  snapshot.params.surface_noise.scale = std::numeric_limits<float>::quiet_NaN();
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
-  snapshot.surface_noise_scale = 65.0f;
+  snapshot.params.surface_noise.scale = 65.0f;
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
 }
 
@@ -162,9 +222,9 @@ void test_curl_lattice_shaderball_equivalence() {
         const float longitude = longitude_step * (TWO_PI_F / 37.0f);
         const Vector view(radius * cosf(longitude), sinf(latitude),
                           radius * sinf(longitude));
-        expect_color_exact(WB::shade(view, compiled),
-                           ShaderBallWB::sinusoidal_curl_shade(view,
-                                                               reference));
+        expect_color_exact(
+            WB::shade(view, compiled),
+            ShaderBallWB::sinusoidal_curl_shade(view, reference));
       }
     }
   }
