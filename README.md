@@ -100,7 +100,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
    - [The `EffectConfig` Flags](#the-effectconfig-flags)
 9. [Effects Reference](#9-effects-reference)
    - [Core Effects (Modern Engine)](#core-effects-modern-engine)
-   - [ShaderBall Inverse Pipeline](#shaderball-inverse-pipeline)
+   - [Shader Authoring Workbench](#shader-authoring-workbench)
    - [Legacy Effects](#legacy-effects-effects_legacyh)
 10. [The Web Simulator (Daydream)](#10-the-web-simulator-daydream)
     - [10.1 Process and Threading Model](#101-process-and-threading-model)
@@ -2317,18 +2317,18 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=ShaderBall" target="_blank"><img src="docs/screenshots/ShaderBall.png" alt="ShaderBall" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Shader" target="_blank"><img src="docs/screenshots/Shader.png" alt="Shader" width="280"></a></td>
 <td valign="top">
 
-#### ShaderBall
+#### Shader
 
-Typed pullback sphere shader (extends `Effect` directly) with 13 compiled inverse programs covering all 18 authored presets and a simulator-only dynamic backend for experimentation. Every compiled program fixes six policy stages at compile time: outer camera, fused surface/projection, planar warp, source, material, and color. The roster includes authored stereographic, Peirce quincuncial, equirectangular, folded-sinusoidal, and folded-gnomonic looks; topology-aware seam metadata; three generated palette harmonies; sphere-space hue noise; and continuous preset choreography. The simulator uses a compiled wrapper whenever one matches and otherwise routes any structurally valid combination to the dynamic renderer. Teensy remains closed to the compiled roster. Preset changes use parameter morphs within a topology and a through-clear transition between topologies. The [prior 12-preset dual-board shipping profile](https://github.com/woundedlion/pov/blob/master/docs/profiles/shipping/profile_shaderball_teensy_2026-08-14.md) completed with zero spills and a 55.69 ms worst frame.
+Simulator-only pullback-shader authoring workbench with the complete structural vocabulary and configurable stage folders. Its 19 legacy presets migrate to stable fixed-pipeline product effects, while unmatched custom configurations remain editable here. The firmware rosters contain only the promoted effects.
 
 **Parameters**: the active controls are schema-driven by the selected slots. See the vocabulary and dependency map below.
 
 </td></tr></table>
 
-### ShaderBall Inverse Pipeline
+### Shader Authoring Workbench
 
 Full design record: the [ShaderBall spec](https://github.com/woundedlion/pov/blob/master/docs/specs/shaderball_spec.md) fixes the authored vocabulary, presets, and choreography; the [inverse-sampling pipeline spec](https://github.com/woundedlion/pov/blob/master/docs/specs/inverse_sampling_pipeline_spec.md) specifies the shipping renderer summarized below. The [noise unification brief](https://github.com/woundedlion/pov/blob/master/docs/shaderball_noise_unification.md) and the [red-preset optimization plan](https://github.com/woundedlion/pov/blob/master/docs/shaderball_optimization_plan.md) carry the supporting design and performance record.
 
@@ -2392,7 +2392,7 @@ All continuous controls used by that pipeline remain available on the promoted
 effect; structural selectors stay fixed.
 
 `FacetGrid` promotes presets 11 and 13–14 into a second registered
-fixed-pipeline effect and adds two authored looks. All five share the exact
+fixed-pipeline effect and adds one authored look. All four share the exact
 stereographic dodecahedral-grid pipeline and remain presets of one effect; no
 family metadata or structural selectors are needed.
 
