@@ -1,7 +1,16 @@
 # First-class pullback pipeline and stage library
 
-**Status: PROPOSED, revision 6 (2026-08-14). Nothing in this document is
-shipped.** This revision supersedes revision 5's deferred framework plan.
+**Status: LANDED, revision 6 (2026-08-14).** The composition core, standard
+carriers, provider concepts, stage combinators, and concrete operator catalog
+specified here ship in `core/render/pullback.h`, which landed in `13186d7c`.
+Its consumers are `effects/ShaderBall.h`, `effects/CurlLattice.h`,
+`effects/FacetGrid.h`, and `effects/fixed/FixedLookRuntime.h` — and through the
+latter, `effects/AlienOcean.h` and the four `effects/fixed/*Looks.h` banks. The
+verification artifacts (`tests/test_pullback.h`, `tests/pullback_manifest_check.cpp`,
+`tests/data/pullback/`, `tools/pullback_capture.py`) ship with it. Section 17
+is the exception: everything listed there is a design record only, with no
+implementation in the tree. This revision supersedes revision 5's deferred
+framework plan.
 The architecture review correctly rejected shared pixel/block drivers and the
 GS/BZ/Voronoi migrations, but it coupled that rejection to the unrelated
 question of whether pullback composition and concrete pullback operators belong
