@@ -5019,16 +5019,14 @@ private:
         wrap_t(look.clocks.surface_noise_time + params.surface_noise.rate);
     if (config.slots.warp_program.outer.kind == WarpStageKind::AFFINE_FRAME)
       look.clocks.warp_outer_rotation =
-          TWO_PI_F *
-          wrap_t((look.clocks.warp_outer_rotation +
-                  params.warp.outer.speed * params.warp.outer.rotation) /
-                 TWO_PI_F);
+          TWO_PI_F * wrap_t((look.clocks.warp_outer_rotation +
+                             params.warp.outer.rotation) /
+                            TWO_PI_F);
     if (config.slots.warp_program.inner.kind == WarpStageKind::AFFINE_FRAME)
       look.clocks.warp_inner_rotation =
-          TWO_PI_F *
-          wrap_t((look.clocks.warp_inner_rotation +
-                  params.warp.inner.speed * params.warp.inner.rotation) /
-                 TWO_PI_F);
+          TWO_PI_F * wrap_t((look.clocks.warp_inner_rotation +
+                             params.warp.inner.rotation) /
+                            TWO_PI_F);
     look.clocks.warp_outer_phase =
         wrap_t(look.clocks.warp_outer_phase + params.warp.outer.speed);
     look.clocks.warp_inner_phase =
