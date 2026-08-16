@@ -3012,6 +3012,16 @@ inline void test_shaderball_gui_catalog() {
   HS_EXPECT_LT(parameter_index("Band Phase"), parameter_index("Coverage"));
 }
 
+/** @brief Fixed shader wrappers retain the morphable color-mapping control. */
+inline void test_promoted_shader_palette_mapping_control() {
+  reset_effect_globals();
+  ContourLattice<SMALL_W, SMALL_H> effect;
+  effect.init();
+  const auto *mapping = effect.getParameters().find("Palette Mapping");
+  HS_EXPECT_TRUE(mapping != nullptr);
+  HS_EXPECT_EQ(mapping->option_count, 4);
+}
+
 /** @brief Polyhedral lenses expose controls at their chamber scale. */
 inline void test_shaderball_lens_domain_ranges() {
   using WB = ShaderBallWhiteBox;
@@ -5210,6 +5220,7 @@ inline int run_shaderball_tests() {
   test_shaderball_preset_gui_transition();
   test_shaderball_parameter_capacity();
   test_shaderball_gui_catalog();
+  test_promoted_shader_palette_mapping_control();
   test_shaderball_lens_domain_ranges();
   test_shaderball_projection_catalog();
   test_shaderball_fast_peirce_square();

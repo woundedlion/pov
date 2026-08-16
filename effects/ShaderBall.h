@@ -1270,10 +1270,9 @@ private:
     register_animated_param("Palette Chroma",
                             &requested_config.params.color.palette_chroma,
                             PALETTE_CHROMA_MIN, PALETTE_CHROMA_MAX);
-    if (!fixed_topology)
-      register_animated_param(
-          "Palette Mapping", &slots.palette_mapping, PALETTE_MAPPING_OPTIONS,
-          PALETTE_MAPPING_EXPORT_OPTIONS, NUM_PALETTE_MAPPINGS);
+    register_animated_param(
+        "Palette Mapping", &slots.palette_mapping, PALETTE_MAPPING_OPTIONS,
+        PALETTE_MAPPING_EXPORT_OPTIONS, NUM_PALETTE_MAPPINGS);
     register_animated_param("Mapping Frequency",
                             &requested_config.params.color.mapping_frequency,
                             MAPPING_FREQUENCY_MIN, MAPPING_FREQUENCY_MAX);
