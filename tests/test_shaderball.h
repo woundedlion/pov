@@ -1594,7 +1594,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(16));
+  HS_EXPECT_EQ(presets.size(), size_t(18));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   for (const auto &entry : choreo) {
     HS_EXPECT_FALSE(entry.staggered);
@@ -1746,6 +1746,37 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(double_mapping_grid.params.projection.wander, 0.165f);
   HS_EXPECT_EQ(double_mapping_grid.params.color.mapping_frequency, 2.0f);
   HS_EXPECT_EQ(double_mapping_grid.params.color.palette_chroma, 1.0f);
+  const auto &equirectangular_grid = presets[16];
+  HS_EXPECT_EQ(equirectangular_grid.slots.function, WB::Function::GRID);
+  HS_EXPECT_EQ(equirectangular_grid.slots.projection,
+               WB::Projection::EQUIRECTANGULAR);
+  HS_EXPECT_EQ(equirectangular_grid.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
+  HS_EXPECT_EQ(equirectangular_grid.slots.warp_program.inner.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(equirectangular_grid.params.source.pattern_freq, 3.9407f);
+  HS_EXPECT_EQ(equirectangular_grid.params.source.complexity, 3.0f);
+  HS_EXPECT_EQ(equirectangular_grid.params.projection.pole_fade, 2.14f);
+  HS_EXPECT_EQ(equirectangular_grid.params.projection.wander, 0.165f);
+  HS_EXPECT_EQ(equirectangular_grid.params.color.mapping_frequency, 2.0f);
+  HS_EXPECT_EQ(equirectangular_grid.params.color.palette_chroma, 1.0f);
+  const auto &single_mapping_equirectangular_grid = presets[17];
+  HS_EXPECT_EQ(single_mapping_equirectangular_grid.slots.function,
+               WB::Function::GRID);
+  HS_EXPECT_EQ(single_mapping_equirectangular_grid.slots.projection,
+               WB::Projection::EQUIRECTANGULAR);
+  HS_EXPECT_EQ(single_mapping_equirectangular_grid.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
+  HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.source.pattern_freq,
+               3.9407f);
+  HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.projection.pole_fade,
+               2.14f);
+  HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.projection.wander,
+               0.165f);
+  HS_EXPECT_EQ(
+      single_mapping_equirectangular_grid.params.color.mapping_frequency, 1.0f);
+  HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.color.palette_chroma,
+               1.0f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.scale, 0.1f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.speed, 0.5f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.scale, 0.1f);
@@ -2375,11 +2406,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(16));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(18));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(15));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[15]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(17));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[17]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -3649,21 +3680,21 @@ inline void test_shaderball_inverse_pipeline_manifest() {
 
   HS_EXPECT_EQ(WB::inverse_program_count(), PullbackManifest::PROGRAMS.size());
   HS_EXPECT_TRUE(WB::inverse_programs_well_formed());
-  uint16_t compiled_preset_mask = 0;
+  uint32_t compiled_preset_mask = 0;
   for (size_t index = 0; index < PullbackManifest::PROGRAMS.size(); ++index) {
     const auto &expected = PullbackManifest::PROGRAMS[index];
     HS_EXPECT_EQ(static_cast<size_t>(WB::inverse_program_id(index)), index);
     HS_EXPECT_TRUE(expected.id == WB::inverse_program_name(index));
     HS_EXPECT_TRUE(expected.topology_key ==
                    WB::topology_values(WB::inverse_program_key(index)));
-    uint16_t preset_mask = 0;
+    uint32_t preset_mask = 0;
     for (size_t preset = 0; preset < WB::presets().size(); ++preset)
       if (WB::preset_program_id(preset) == WB::inverse_program_id(index))
-        preset_mask |= static_cast<uint16_t>(1U << preset);
+        preset_mask |= 1U << preset;
     HS_EXPECT_EQ(preset_mask, expected.preset_mask);
     compiled_preset_mask |= preset_mask;
   }
-  HS_EXPECT_EQ(compiled_preset_mask, uint16_t(0xffff));
+  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0x3ffff));
   const auto &peirce_framebuffer =
       pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
   const auto &hue_framebuffer = pullback_oracle_metric(

@@ -26,7 +26,7 @@ TOPOLOGY_FIELDS = (
 ORACLE_FILES = ("peirce_fast_square.json", "hue_rotation_noise_luts.json")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 CASE_IDS = {"default", "endpoint_min", "endpoint_max", "interior"}
-PRESET_COUNT = 16
+PRESET_COUNT = 18
 
 
 class ManifestError(ValueError):
@@ -411,7 +411,7 @@ def generate_header(programs: dict, oracles: list[dict]) -> str:
         "namespace PullbackManifest {",
         "struct ProgramEntry {",
         "  std::string_view id;",
-        "  uint16_t preset_mask;",
+        "  uint32_t preset_mask;",
         f"  std::array<uint8_t, {len(TOPOLOGY_FIELDS)}> topology_key;",
         "};",
         "struct OracleMetric {",
