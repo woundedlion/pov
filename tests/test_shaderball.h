@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <array>
+#include <bit>
 #include <limits>
 #include "pullback_manifest.generated.h"
 #include "tests/test_effects.h"
@@ -1640,6 +1642,43 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(mirror.params.warp.inner.speed, 0.0f);
+  const auto &kaleido_grid = presets[2].params;
+  const std::array<float, 25> kaleido_values{
+      kaleido_grid.source.pattern_freq,
+      kaleido_grid.source.speed,
+      kaleido_grid.source.angle_rate,
+      kaleido_grid.source.complexity,
+      kaleido_grid.source.pattern_mix,
+      kaleido_grid.source.secondary_rate,
+      kaleido_grid.projection.pole_fade,
+      kaleido_grid.outer_camera.wander,
+      kaleido_grid.warp.outer.speed,
+      kaleido_grid.warp.outer.rotation,
+      kaleido_grid.warp.outer.cell_x,
+      kaleido_grid.warp.outer.cell_y,
+      kaleido_grid.warp.outer.offset_x,
+      kaleido_grid.warp.outer.offset_y,
+      kaleido_grid.value.edge_width,
+      kaleido_grid.color.palette_chroma,
+      kaleido_grid.color.mapping_frequency,
+      kaleido_grid.color.mapping_phase,
+      kaleido_grid.color.phase_oscillation_depth,
+      kaleido_grid.color.phase_oscillation_speed,
+      kaleido_grid.color.value_opacity_low,
+      kaleido_grid.color.value_opacity_high,
+      kaleido_grid.color.hue_shift_amount,
+      kaleido_grid.color.hue_noise_scale,
+      kaleido_grid.color.hue_noise_speed,
+  };
+  constexpr std::array<float, 25> KALEIDO_EXPECTED{
+      3.565f, 0.235f, 0.0f,        0.0f,      1.0f, 1.0f,   1.4f,
+      1.0f,   0.0f,   0.29530972f, 5.381125f, 1.0f, 1.344f, -1.456f,
+      0.5f,   0.4f,   1.0f,        0.0f,      0.0f, 0.0f,   1.0f,
+      1.0f,   0.424f, 2.2033439f,  0.0f,
+  };
+  for (size_t index = 0; index < kaleido_values.size(); ++index)
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(kaleido_values[index]),
+                 std::bit_cast<uint32_t>(KALEIDO_EXPECTED[index]));
   const auto &affine_lattice = presets[6];
   HS_EXPECT_EQ(affine_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
   HS_EXPECT_EQ(affine_lattice.slots.projection, WB::Projection::GNOMONIC);
@@ -4163,12 +4202,12 @@ inline void test_shaderball_planar_warp_animation() {
       sample(WB::WarpStageKind::AFFINE_FRAME, affine_scroll, 0.5f);
   const auto scroll_three_quarters =
       sample(WB::WarpStageKind::AFFINE_FRAME, affine_scroll, 0.75f);
-  const auto base_quarter = sample(WB::WarpStageKind::AFFINE_FRAME,
-                                   WB::WarpStageParams{}, 0.25f);
-  const auto base_half = sample(WB::WarpStageKind::AFFINE_FRAME,
-                                WB::WarpStageParams{}, 0.5f);
-  const auto base_three_quarters = sample(WB::WarpStageKind::AFFINE_FRAME,
-                                          WB::WarpStageParams{}, 0.75f);
+  const auto base_quarter =
+      sample(WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageParams{}, 0.25f);
+  const auto base_half =
+      sample(WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageParams{}, 0.5f);
+  const auto base_three_quarters =
+      sample(WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageParams{}, 0.75f);
   HS_EXPECT_NEAR(scroll_quarter.coords.re - base_quarter.coords.re, -0.25f,
                  1e-6f);
   HS_EXPECT_NEAR(scroll_quarter.coords.im - base_quarter.coords.im, 0.5f,
