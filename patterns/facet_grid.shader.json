@@ -51,7 +51,6 @@
           "operator": "pullback.color.v1",
           "policy": {
             "color": "generated-palette",
-            "mapping": "cup",
             "hue_mode": "noise",
             "brightness_envelope": "none"
           },
@@ -238,6 +237,16 @@
         "default": 1
       },
       {
+        "id": "palette-mapping",
+        "binding": "color.palette-mapping",
+        "classification": "preset",
+        "storage": "enum8",
+        "unit": "mapping",
+        "domain": { "values": ["cup", "bell", "linear", "reverse"] },
+        "interpolation": { "kind": "MIXED_ENUM" },
+        "default": "cup"
+      },
+      {
         "id": "mapping-frequency",
         "binding": "color.mapping-frequency",
         "classification": "preset",
@@ -414,7 +423,7 @@
       }
     ],
     "serialization": {
-      "schema_version": 1,
+      "schema_version": 2,
       "fields": [
         "pattern-freq",
         "speed",
@@ -433,6 +442,7 @@
         "mirror-offset-x",
         "mirror-offset-y",
         "palette-chroma",
+        "palette-mapping",
         "mapping-frequency",
         "mapping-phase",
         "phase-oscillation-depth",
@@ -477,6 +487,7 @@
           "mirror-offset-x": 0,
           "mirror-offset-y": 0,
           "palette-chroma": 1,
+          "palette-mapping": "cup",
           "mapping-frequency": 1,
           "mapping-phase": 0,
           "phase-oscillation-depth": 0,
@@ -509,6 +520,7 @@
           "mirror-offset-x": 0,
           "mirror-offset-y": 0,
           "palette-chroma": 1,
+          "palette-mapping": "cup",
           "mapping-frequency": 1,
           "mapping-phase": 0,
           "phase-oscillation-depth": 0,
@@ -541,6 +553,7 @@
           "mirror-offset-x": 0,
           "mirror-offset-y": 0,
           "palette-chroma": 1,
+          "palette-mapping": "cup",
           "mapping-frequency": 2,
           "mapping-phase": 0,
           "phase-oscillation-depth": 0,
@@ -573,6 +586,7 @@
           "mirror-offset-x": 0,
           "mirror-offset-y": 0,
           "palette-chroma": 1,
+          "palette-mapping": "cup",
           "mapping-frequency": 1.558,
           "mapping-phase": 0,
           "phase-oscillation-depth": 0,

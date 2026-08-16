@@ -235,6 +235,8 @@ public:
     active_slots = initial.config.slots;
     active_pipeline = initial.pipeline;
     blend.params = initial.config.params;
+    blend.palette_mapping =
+        palette_mapping_weights(initial.config.slots.palette_mapping);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = initial.config;
 #endif
@@ -462,6 +464,8 @@ private:
     active_slots = selected.config.slots;
     active_pipeline = selected.pipeline;
     blend.params = selected.config.params;
+    blend.palette_mapping =
+        palette_mapping_weights(selected.config.slots.palette_mapping);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = selected.config;
 #endif
@@ -553,13 +557,13 @@ public:
     int32_t seed = 1337;
     uint8_t resource_id = 0;
 
-    HS_COLD_MEMBER bool operator==(const WarpStageSpec &) const = default;
+    constexpr bool operator==(const WarpStageSpec &) const = default;
   };
   struct WarpProgram {
     WarpStageSpec outer;
     WarpStageSpec inner;
 
-    HS_COLD_MEMBER bool operator==(const WarpProgram &) const = default;
+    constexpr bool operator==(const WarpProgram &) const = default;
   };
   enum class ProjectionFramePolicy : uint8_t { IDENTITY, SPIN_WANDER };
   enum class SignalWeight : uint8_t { NONE, PROJECTION };
@@ -578,6 +582,7 @@ public:
   };
   enum class PaletteMode : uint8_t { TRIADIC, COMPLEMENTARY, ANALOGOUS };
   enum class PaletteMapping : uint8_t { CUP, BELL, LINEAR, REVERSE };
+  using PaletteMappingWeights = Pullback::Color::PaletteMappingWeights;
   enum class BrightnessEnvelope : uint8_t {
     NONE,
     CUP,
@@ -609,7 +614,7 @@ public:
     PaletteMapping palette_mapping = PaletteMapping::LINEAR;
     BrightnessEnvelope brightness_envelope = BrightnessEnvelope::NONE;
 
-    HS_COLD_MEMBER bool operator==(const Slots &) const = default;
+    constexpr bool operator==(const Slots &) const = default;
   };
 
   struct SourceParams {
@@ -1907,6 +1912,7 @@ private:
 
   struct Blend {
     Params params;
+    PaletteMappingWeights palette_mapping;
   };
 
   struct Choreo {
@@ -2043,6 +2049,7 @@ private:
   struct FrameState {
     Slots slots;
     Params params;
+    PaletteMappingWeights palette_mapping;
     ClockState clocks;
     SourceState prepared_source;
     PreparedTransforms transforms;
@@ -2270,6 +2277,12 @@ private:
           static_cast<uint8_t>(Pullback::Color::PaletteMapping::LINEAR) &&
       static_cast<uint8_t>(PaletteMapping::REVERSE) ==
           static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE));
+
+  static constexpr PaletteMappingWeights
+  palette_mapping_weights(PaletteMapping mapping) {
+    return PaletteMappingWeights::single(
+        static_cast<Pullback::Color::PaletteMapping>(mapping));
+  }
   static_assert(
       static_cast<uint8_t>(BrightnessEnvelope::NONE) ==
           static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::NONE) &&
@@ -2295,9 +2308,9 @@ private:
     using Binding = ShaderBallBinding;
     using FrameState = typename Binding::FrameState;
 
-    static Pullback::Color::PaletteMapping mapping(const FrameState &frame) {
-      return static_cast<Pullback::Color::PaletteMapping>(
-          frame.slots.palette_mapping);
+    static Pullback::Color::PaletteMappingWeights
+    mapping_weights(const FrameState &frame) {
+      return frame.palette_mapping;
     }
     static float mapping_frequency(const FrameState &frame) {
       return frame.params.color.mapping_frequency;
@@ -3151,6 +3164,8 @@ public:
     active_slots = next_accepted.slots;
     active_pipeline = resolve_pipeline_id(next_accepted);
     blend.params = next_accepted.params;
+    blend.palette_mapping =
+        palette_mapping_weights(next_accepted.slots.palette_mapping);
     pending_edit_count = 0;
     for (size_t index = 0; index < CONFIG_FIELD_COUNT; ++index) {
       if (migrated_accepted[index] == migrated_requested[index])
@@ -3188,6 +3203,9 @@ private:
   struct ParamMorphRuntime {
     Params from;
     Params to;
+    PaletteMappingWeights mapping_from;
+    PaletteMappingWeights mapping_to;
+    PaletteMapping mapping_destination = PaletteMapping::LINEAR;
     uint16_t elapsed = 0;
     uint16_t duration = 0;
     bool staggered = false;
@@ -3567,6 +3585,10 @@ private:
     }
     frame.slots = config.slots;
     frame.params = config.params;
+    frame.palette_mapping =
+        state->param_morph.active
+            ? blend.palette_mapping
+            : palette_mapping_weights(config.slots.palette_mapping);
     frame.clocks = look.clocks;
     frame.prepared_source = {
         look.clocks.source_primary, look.clocks.source_secondary,
@@ -4967,6 +4989,8 @@ private:
       return;
     const float mix =
         transition_mix(state->param_morph.elapsed, state->param_morph.duration);
+    blend.palette_mapping = PaletteMappingWeights::lerp(
+        state->param_morph.mapping_from, state->param_morph.mapping_to, mix);
     if (mix == 0.0f)
       blend.params = state->param_morph.from;
     else if (mix == 1.0f)
@@ -5027,6 +5051,8 @@ private:
     active_slots = next_config.slots;
     active_pipeline = resolve_pipeline_id(next_config);
     blend.params = next_config.params;
+    blend.palette_mapping =
+        palette_mapping_weights(next_config.slots.palette_mapping);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = next_config;
 #endif
@@ -5085,13 +5111,24 @@ private:
       return false;
     if (candidate == current) {
       state->param_morph.active = false;
+      blend.palette_mapping =
+          palette_mapping_weights(current.slots.palette_mapping);
       return true;
     }
     if (stable_topology(current, candidate)) {
       if (!prepare_resource_union(current, candidate))
         return false;
-      state->param_morph = {current.params, candidate.params, 0,   duration,
-                            staggered,      continue_choreo,  true};
+      state->param_morph = {
+          current.params,
+          candidate.params,
+          blend.palette_mapping,
+          palette_mapping_weights(candidate.slots.palette_mapping),
+          candidate.slots.palette_mapping,
+          0,
+          duration,
+          staggered,
+          continue_choreo,
+          true};
       return true;
     }
     if (!prepare_resource_union(current, current))
@@ -5121,6 +5158,8 @@ private:
       active_slots = state->transition.to_config.slots;
       active_pipeline = state->transition.to_pipeline;
       blend.params = state->transition.to_config.params;
+      blend.palette_mapping =
+          palette_mapping_weights(active_slots.palette_mapping);
       state->transition.active = false;
       if (continue_choreo)
         enter_preset();
@@ -5134,6 +5173,8 @@ private:
     }
     const bool continue_choreo = state->param_morph.continue_choreo;
     blend.params = state->param_morph.to;
+    active_slots.palette_mapping = state->param_morph.mapping_destination;
+    blend.palette_mapping = state->param_morph.mapping_to;
     state->param_morph.active = false;
     if (continue_choreo)
       enter_preset();
@@ -6036,7 +6077,11 @@ private:
 
   HS_COLD_MEMBER static constexpr bool
   same_parameter_topology(const Config &from, const Config &to) {
-    return from.slots == to.slots &&
+    Slots from_slots = from.slots;
+    Slots to_slots = to.slots;
+    from_slots.palette_mapping = PaletteMapping::LINEAR;
+    to_slots.palette_mapping = PaletteMapping::LINEAR;
+    return from_slots == to_slots &&
            from.params.source.noise_basis == to.params.source.noise_basis &&
            from.params.source.noise_seed == to.params.source.noise_seed &&
            from.params.source.noise_resource_id ==
@@ -7181,7 +7226,8 @@ private:
   std::span<const uint8_t> preset_view{};
   uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;
-  Blend blend{PRESETS[0].config.params};
+  Blend blend{PRESETS[0].config.params,
+              palette_mapping_weights(PRESETS[0].config.slots.palette_mapping)};
   LookRuntime runtime;
 #if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;

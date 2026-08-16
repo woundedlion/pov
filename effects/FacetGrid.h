@@ -32,12 +32,12 @@ template <int W, int H> class FacetGrid : public Effect {
 public:
   static constexpr std::string_view EFFECT_ID = "facet-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "bc4486d1ec45ec54fc497a8024657221d9c95dae19c40c8e821adb6deae2174e";
+      "4da06f867e1b10c7ab4a4c91b4d79ac0a80f94f4b3ee06484940b00d9576419e";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "ba5c05c7bd3fa2bd2e4da1b379d18cf3e0bf3404d89ecd867503b040eb7ee912";
+      "75a78672e4b2ad32eee8bd54cd7d7b9408db1d7bff79e084a1b58ccb33b5232d";
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "coupled-grid", "direct-grid", "double-map", "stretched-grid"};
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
   static constexpr uint16_t TRANSITION_DURATION = 480;
 
   struct SourceParams {
@@ -76,6 +76,8 @@ public:
     float hue_shift_amount = 0.366f;
     float hue_noise_scale = 1.47215629f;
     float hue_noise_speed = 0.0f;
+    Pullback::Color::PaletteMapping palette_mapping =
+        Pullback::Color::PaletteMapping::CUP;
   };
 
   struct Params {
@@ -143,6 +145,10 @@ public:
                             -8.0f, 8.0f);
     register_animated_param("Palette Chroma", &params.color.palette_chroma,
                             0.0f, 1.0f);
+    register_animated_param("Palette Mapping", &params.color.palette_mapping,
+                            PALETTE_MAPPING_OPTIONS,
+                            PALETTE_MAPPING_EXPORT_OPTIONS,
+                            std::size(PALETTE_MAPPING_OPTIONS));
     register_animated_param("Mapping Frequency",
                             &params.color.mapping_frequency, 1.0f, 32.0f);
     register_animated_param("Mapping Phase", &params.color.mapping_phase, -1.0f,
@@ -191,6 +197,8 @@ public:
       return false;
     transition.active = false;
     params = snapshot.params;
+    palette_mapping = Pullback::Color::PaletteMappingWeights::single(
+        params.color.palette_mapping);
     return true;
   }
 
@@ -218,6 +226,13 @@ private:
   static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr const char *PALETTE_MAPPING_OPTIONS[] = {
+      "Cup", "Bell", "Linear", "Reverse"};
+  static constexpr const char *PALETTE_MAPPING_EXPORT_OPTIONS[] = {
+      "Pullback::Color::PaletteMapping::CUP",
+      "Pullback::Color::PaletteMapping::BELL",
+      "Pullback::Color::PaletteMapping::LINEAR",
+      "Pullback::Color::PaletteMapping::REVERSE"};
 
   struct Preset {
     std::string_view id;
@@ -262,6 +277,8 @@ private:
   struct Transition {
     Params from{};
     Params to{};
+    Pullback::Color::PaletteMappingWeights mapping_from{};
+    Pullback::Color::PaletteMappingWeights mapping_to{};
     uint16_t evaluation = 0;
     uint16_t duration = TRANSITION_DURATION;
     bool active = false;
@@ -294,6 +311,7 @@ private:
     const Pixel *hue_rotation_lut;
     const int8_t *hue_noise_lut;
     Params params;
+    Pullback::Color::PaletteMappingWeights palette_mapping;
     float palette_oscillation_phase;
   };
 
@@ -347,8 +365,9 @@ private:
   struct ColorStateProvider {
     using Binding = FacetGrid::Binding;
     using FrameState = typename Binding::FrameState;
-    static Pullback::Color::PaletteMapping mapping(const FrameState &) {
-      return Pullback::Color::PaletteMapping::CUP;
+    static Pullback::Color::PaletteMappingWeights
+    mapping_weights(const FrameState &frame) {
+      return frame.palette_mapping;
     }
     static float mapping_frequency(const FrameState &frame) {
       return frame.params.color.mapping_frequency;
@@ -431,7 +450,7 @@ private:
   }
 
   static bool params_in_range(const Params &value) {
-    static_assert(sizeof(Params) == 26 * sizeof(float));
+    static_assert(sizeof(Params) == 27 * sizeof(float));
     return in_range(value.source.pattern_freq, PATTERN_FREQ_MIN,
                     PATTERN_FREQ_MAX) &&
            in_range(value.source.speed, SPEED_MIN, SPEED_MAX) &&
@@ -451,6 +470,8 @@ private:
            in_range(value.mirror.offset_x, -8.0f, 8.0f) &&
            in_range(value.mirror.offset_y, -8.0f, 8.0f) &&
            in_range(value.color.palette_chroma, 0.0f, 1.0f) &&
+           static_cast<uint8_t>(value.color.palette_mapping) <=
+               static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE) &&
            in_range(value.color.mapping_frequency, 1.0f, 32.0f) &&
            in_range(value.color.mapping_phase, -1.0f, 1.0f) &&
            in_range(value.color.phase_oscillation_depth, 0.0f, 1.0f) &&
@@ -487,6 +508,8 @@ private:
     HS_FACET_LINEAR(mirror.offset_x);
     HS_FACET_LINEAR(mirror.offset_y);
     HS_FACET_LINEAR(color.palette_chroma);
+    value.color.palette_mapping =
+        progress < 1.0f ? from.color.palette_mapping : to.color.palette_mapping;
     HS_FACET_LINEAR(color.mapping_frequency);
     HS_FACET_LINEAR(color.mapping_phase);
     HS_FACET_LINEAR(color.phase_oscillation_depth);
@@ -505,10 +528,19 @@ private:
     if (change.origin != PresetChangeOrigin::AUTOMATIC) {
       transition.active = false;
       params = target;
+      palette_mapping = Pullback::Color::PaletteMappingWeights::single(
+          target.color.palette_mapping);
       preset_dwell_remaining = PRESET_DWELL_FRAMES;
       return true;
     }
-    transition = {params, target, 0, TRANSITION_DURATION, true};
+    transition = {params,
+                  target,
+                  palette_mapping,
+                  Pullback::Color::PaletteMappingWeights::single(
+                      target.color.palette_mapping),
+                  0,
+                  TRANSITION_DURATION,
+                  true};
     return true;
   }
 
@@ -551,6 +583,8 @@ private:
         FixedPipeline::edge_progress(transition.evaluation, transition.duration,
                                      FixedPipeline::Easing::EASE_IN_OUT_SIN);
     params = interpolate_params(transition.from, transition.to, progress.eased);
+    palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
+        transition.mapping_from, transition.mapping_to, progress.eased);
   }
 
   HS_COLD_MEMBER void finish_transition_evaluation() {
@@ -558,6 +592,7 @@ private:
       return;
     if (transition.evaluation == transition.duration) {
       params = transition.to;
+      palette_mapping = transition.mapping_to;
       transition.active = false;
       preset_dwell_remaining = PRESET_DWELL_FRAMES;
       return;
@@ -642,6 +677,7 @@ private:
             state->hue_rotation_lut.data(),
             state->hue_noise_lut.data(),
             params,
+            palette_mapping,
             palette_oscillation_phase};
   }
 
@@ -665,6 +701,9 @@ private:
 
   State *state = nullptr;
   Params params = PRESETS[0].params;
+  Pullback::Color::PaletteMappingWeights palette_mapping =
+      Pullback::Color::PaletteMappingWeights::single(
+          params.color.palette_mapping);
   Transition transition;
   uint16_t preset_dwell_remaining = PRESET_DWELL_FRAMES;
 

@@ -84,6 +84,9 @@ struct FacetGridWhiteBox {
             frame.prepared_hue_rotation.lut,
             frame.prepared_hue_noise.lut,
             params,
+            Pullback::Color::PaletteMappingWeights::single(
+                static_cast<Pullback::Color::PaletteMapping>(
+                    frame.slots.palette_mapping)),
             frame.clocks.palette_oscillation_phase};
   }
 
@@ -105,7 +108,7 @@ void test_facet_grid_identity_and_presets() {
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "facet-grid");
   HS_EXPECT_EQ(WB::presets().size(), size_t{4});
-  HS_EXPECT_EQ(sizeof(WB::Params), 26 * sizeof(float));
+  HS_EXPECT_EQ(sizeof(WB::Params), 27 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderBallWB::FrameState));
   HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "coupled-grid");
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "direct-grid");
@@ -180,6 +183,7 @@ void test_facet_grid_identity_and_presets() {
       "Planar Warp 2 Offset X",
       "Planar Warp 2 Offset Y",
       "Palette Chroma",
+      "Palette Mapping",
       "Mapping Frequency",
       "Mapping Phase",
       "Phase Oscillation Depth",
@@ -242,10 +246,14 @@ void test_facet_grid_parameter_serialization() {
   snapshot.params.source.pattern_freq = 4.0f;
   snapshot.params.mirror.cell_y = 0.75f;
   snapshot.params.color.hue_noise_speed = 0.0005f;
+  snapshot.params.color.palette_mapping =
+      Pullback::Color::PaletteMapping::REVERSE;
   HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
   HS_EXPECT_NEAR(WB::params(effect).source.pattern_freq, 4.0f, 0.0f);
   HS_EXPECT_NEAR(WB::params(effect).mirror.cell_y, 0.75f, 0.0f);
   HS_EXPECT_NEAR(WB::params(effect).color.hue_noise_speed, 0.0005f, 0.0f);
+  HS_EXPECT_EQ(WB::params(effect).color.palette_mapping,
+               Pullback::Color::PaletteMapping::REVERSE);
 
   snapshot.schema_version += 1;
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));

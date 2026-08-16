@@ -78,6 +78,9 @@ struct CurlLatticeWhiteBox {
             frame.prepared_hue_rotation.lut,
             frame.prepared_hue_noise.lut,
             params,
+            Pullback::Color::PaletteMappingWeights::single(
+                static_cast<Pullback::Color::PaletteMapping>(
+                    frame.slots.palette_mapping)),
             frame.clocks.palette_oscillation_phase};
   }
 
@@ -99,7 +102,7 @@ void test_curl_lattice_identity_and_presets() {
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "curl-lattice");
   HS_EXPECT_EQ(WB::presets().size(), size_t{2});
-  HS_EXPECT_EQ(sizeof(WB::Params), 23 * sizeof(float));
+  HS_EXPECT_EQ(sizeof(WB::Params), 24 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderBallWB::FrameState));
   HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "open-curl");
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "dense-curl");
@@ -128,6 +131,7 @@ void test_curl_lattice_identity_and_presets() {
       "Surface Noise Strength",
       "Surface Noise Speed",
       "Palette Chroma",
+      "Palette Mapping",
       "Mapping Frequency",
       "Mapping Phase",
       "Phase Oscillation Depth",
@@ -191,10 +195,13 @@ void test_curl_lattice_parameter_serialization() {
   snapshot.params.surface_noise.scale = 2.5f;
   snapshot.params.lattice.lattice_radius = 0.4f;
   snapshot.params.color.hue_noise_speed = 0.0005f;
+  snapshot.params.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
   HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
   HS_EXPECT_NEAR(WB::params(effect).surface_noise.scale, 2.5f, 0.0f);
   HS_EXPECT_NEAR(WB::params(effect).lattice.lattice_radius, 0.4f, 0.0f);
   HS_EXPECT_NEAR(WB::params(effect).color.hue_noise_speed, 0.0005f, 0.0f);
+  HS_EXPECT_EQ(WB::params(effect).color.palette_mapping,
+               Pullback::Color::PaletteMapping::BELL);
 
   snapshot.schema_version += 1;
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));

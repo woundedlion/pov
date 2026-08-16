@@ -47,6 +47,7 @@ struct ShaderBallWhiteBox {
   using CoveragePolicy = SB::CoveragePolicy;
   using PaletteMode = SB::PaletteMode;
   using PaletteMapping = SB::PaletteMapping;
+  using PaletteMappingWeights = SB::PaletteMappingWeights;
   using BrightnessEnvelope = SB::BrightnessEnvelope;
   using HueShiftMode = SB::HueShiftMode;
   using Slots = SB::Slots;
@@ -246,6 +247,9 @@ struct ShaderBallWhiteBox {
     return sb.state->param_morph.elapsed;
   }
   static const Params &live_params(const SB &sb) { return sb.blend.params; }
+  static const PaletteMappingWeights &live_palette_mapping(const SB &sb) {
+    return sb.blend.palette_mapping;
+  }
   static size_t preset_index(const SB &sb) { return sb.getPresetIndex(); }
   static float transition_mix(const SB &sb) {
     return SB::transition_mix(sb.state->transition.elapsed,
@@ -421,6 +425,12 @@ struct ShaderBallWhiteBox {
   static float palette_mapping(float value, PaletteMapping mapping,
                                float frequency, float phase = 0.0f) {
     return SB::palette_mapping_coordinate(value, mapping, frequency, phase);
+  }
+  static float palette_mapping(float value,
+                               const PaletteMappingWeights &weights,
+                               float frequency, float phase = 0.0f) {
+    return Pullback::Color::palette_mapping_coordinate(value, weights,
+                                                       frequency, phase);
   }
   static float brightness_envelope(float value, BrightnessEnvelope envelope,
                                    float depth) {
@@ -4741,6 +4751,38 @@ inline void test_shaderball_brightness_envelopes() {
   HS_EXPECT_EQ(WB::palette_mapping(0.25f, Mapping::REVERSE, 1.0f), 0.75f);
   HS_EXPECT_NEAR(WB::palette_mapping(0.25f, Mapping::CUP, 2.0f, 0.1f), 0.2f,
                  1e-6f);
+  const WB::PaletteMappingWeights mapping_mix = WB::PaletteMappingWeights::lerp(
+      WB::PaletteMappingWeights::single(Pullback::Color::PaletteMapping::CUP),
+      WB::PaletteMappingWeights::single(
+          Pullback::Color::PaletteMapping::LINEAR),
+      0.5f);
+  HS_EXPECT_NEAR(WB::palette_mapping(0.25f, mapping_mix, 1.0f), 0.375f, 1e-6f);
+
+  {
+    reset_effect_globals();
+    WB::SB mapping_effect;
+    mapping_effect.init();
+    WB::RequestedConfig mapping_target = WB::active_config(mapping_effect);
+    const Mapping mapping_source = mapping_target.slots.palette_mapping;
+    mapping_target.slots.palette_mapping =
+        mapping_source == Mapping::CUP ? Mapping::BELL : Mapping::CUP;
+    HS_EXPECT_TRUE(
+        WB::stable_topology(WB::active_config(mapping_effect), mapping_target));
+    HS_EXPECT_TRUE(WB::try_apply_config(mapping_effect, mapping_target, 10));
+    HS_EXPECT_TRUE(WB::param_morph_active(mapping_effect));
+    HS_EXPECT_FALSE(WB::transition_active(mapping_effect));
+    for (int frame = 0; frame < 6; ++frame)
+      WB::step_param_morph(mapping_effect);
+    const auto &live_mapping = WB::live_palette_mapping(mapping_effect).values;
+    HS_EXPECT_GT(live_mapping[static_cast<size_t>(mapping_source)], 0.0f);
+    HS_EXPECT_GT(
+        live_mapping[static_cast<size_t>(mapping_target.slots.palette_mapping)],
+        0.0f);
+    while (WB::param_morph_active(mapping_effect))
+      WB::step_param_morph(mapping_effect);
+    HS_EXPECT_EQ(WB::active_slots(mapping_effect).palette_mapping,
+                 mapping_target.slots.palette_mapping);
+  }
 
   HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::NONE, 1.0f), 1.0f);
   HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::CUP, 1.0f), 1.0f);
