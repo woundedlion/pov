@@ -54,7 +54,7 @@ impossible rather than handled; (e) the epoch becomes a **deadline-scheduled
 commit** (§6.1) — "atomic re-init" hid a multi-ms foreground operation with
 per-board skew; (f) a mid-revolution **index beacon** (§6.4) lets a rebooted
 board rejoin at the correct effect within ~2 s instead of trapping or
-staying wrong for 120 s. Open decisions §11.2/3/4/5/7 are resolved. The sync
+staying wrong for the rest of the effect. Open decisions §11.2/3/4/5/7 are resolved. The sync
 wire itself is assumed physically reliable — a hard, soldered line by
 construction — so wire-dead is **accepted as out of scope**, not designed for.*
 
@@ -97,7 +97,20 @@ Hardware constants (`targets/common/phantasm_target.h`, `core/engine/platform.h`
 | Half-revolution     | 62.5 ms  | one full image (two arms, 180°)    |
 | Frame rate          | 16 fps   | 2 flips/rev                        |
 | Boards (N)          | 4        | seg 0 = clock master / conductor   |
-| Effect duration     | 120 s    | = 960 revolutions                  |
+| Effect duration     | 6–181 s  | per-effect; 48–1,448 revolutions   |
+
+**Effect duration is per-entry, not uniform.** `HS_PHANTASM_EFFECT_LIST`
+(`core/engine/effects.h`) carries a duration in seconds beside every roster
+name; `targets/Phantasm/Phantasm.ino` turns that column into
+`EFFECT_REVOLUTIONS[]` as `seconds · RPM / 60`, and `run_show()` counts down
+that entry's own budget. Across the 33-entry roster the durations run 6 s
+(48 revolutions, the shortest shader-group entries) to 181 s (1,448
+revolutions, `MeshFeedback`); 120 s / 960 revolutions is the most common value
+but carries no special status in the protocol. Every fixed revolution budget
+below — the R = 3 announce repeats, the K = 2 construction window, the ~16-rev
+epoch refractory, the 16-rev beacon cadence, the 25-rev rejoin bound — is
+absolute, so each consumes a much larger share of a 48-revolution effect than
+of a 960-revolution one.
 
 **Rotor model — open-loop (load-bearing).** There is no hall/index/encoder
 input anywhere; both drivers synthesize column timing at a *fixed* frequency
@@ -602,14 +615,14 @@ The gap finding #1's fix alone leaves open. Two divergence sources:
 ### 6.1 Epoch symbol drives playlist + `t`
 
 Master is the **conductor**. It counts revolutions on its own timebase and, when
-an effect's 960 revolutions elapse, emits the **EPOCH** boundary symbol at
+the current entry's revolution budget elapses, emits the **EPOCH** symbol at
 boundary B.
 
 **The epoch commit is deadline-scheduled, not "atomic."** Effect re-init is a
 multi-millisecond *foreground* operation — arena allocation, mesh builds — not
 an ISR action, and per-board init times differ; an immediate switch would have
 boards starting the new effect on different revolutions, a whole-sphere
-mismatch every 120 s. Instead, EPOCH at boundary B means **commit at the
+mismatch at every effect boundary. Instead, EPOCH at boundary B means **commit at the
 absolute boundary B+R+K** (R = redundancy repeats, K = construction window,
 both fixed): the countdown runs in two phases. Through the **announce phase**
 (B to B+R — the revolutions carrying the repeats) every board keeps playing
@@ -636,8 +649,8 @@ beacon-synchronized absolute index (§6.4).
 
 **Epoch dedup:** an accepted EPOCH opens a refractory window (~16 revs) in
 which further EPOCH symbols are ignored — this is what makes the §6.3
-redundancy repeats idempotent. Epochs are 960 revs apart, so the window is two
-orders of magnitude clear of a real successor.
+redundancy repeats idempotent. The shortest roster entry is 48 revs, so even
+there the window clears a real successor by 3×.
 
 Between epochs `t`
 increments once per synced flip (Layer 2) — paced through the `buffer_free()`
@@ -712,7 +725,8 @@ together."
 
 ### 6.3 Epoch reliability (resolved — three stacked mechanisms)
 
-Epoch is rare (1 / 120 s) but a *missed* epoch is very visible (one segment
+Epoch is rare (once per roster entry, 6–181 s) but a *missed* epoch is very
+visible (one segment
 stuck on the previous effect). Three mechanisms stack, each catching what the
 previous one cannot:
 
@@ -721,7 +735,8 @@ previous one cannot:
    must lose all R+1 in ~R revolutions to miss the advance itself. The
    repeats are **lockstep-safe**: the symbol carries no "which repeat am I"
    payload, but none is needed — the master starts the train exactly when
-   `rev_in_effect` reaches 960, so a board hearing copy j infers j from its
+   `rev_in_effect` reaches the entry's budget
+   (`Config::revolutions_for_effect`), so a board hearing copy j infers j from its
    own (crossing-exact) revolution count and counts down to the same
    absolute B+R+K boundary as everyone else (`ContentTracker::
    on_epoch_symbol`). This also covers the master self-censoring its own
@@ -737,7 +752,8 @@ previous one cannot:
 2. **Absolute index on the beacon (§6.4):** a board that *does* miss every
    repeat — or that booted late, or rebooted mid-show — corrects at the next
    beacon *pair* (§6.3.4), normally the rev-1/rev-2 post-commit beacons ~250 ms
-   later, instead of staying on the wrong effect for up to 120 s. No board ever
+   later, instead of staying on the wrong effect for the rest of that entry
+   (up to 181 s). No board ever
    *assumes* index 0; the "all boot together at 0" assumption is gone. (A
    beacon-corrected joiner starts the effect's history
    fresh mid-flight — stateless and stateful alike, since there is no frame
@@ -971,11 +987,15 @@ Constants: gate G = 4 col, fallback R = 4 rejections, EPOCH repeats = 3,
 construction window K = 2 revs (commit at B + repeats + K, §6.1), beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
-4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; 276,480 col = 960 revs
-= 120 s. The rejoin budget is 25 revs, not the 16-rev beacon cadence: beacons
+4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; one effect = 48 revs
+= 6 s at the shortest roster entry and 1,448 revs = 181 s at the longest.
+The rejoin budget is 25 revs, not the 16-rev beacon cadence: beacons
 are suppressed for the whole commit window, so the widest beacon-to-beacon gap
 is 16 + 3 (EPOCH announce revs) + K = 21 revs, and a joiner then waits up to the
-4-rev join grid. `Config::valid()` enforces that bound.
+4-rev join grid. `Config::valid()` enforces that bound. The 25 revs are
+absolute, not a fraction of the effect: against a 48-revolution entry a
+rejoining board can be dark for more than half that effect's airtime, so a
+short entry is a worse case for rejoin visibility than a long one.
 
 | Failure mode | Worst-case artifact | Worst-case recovery | Expected frequency |
 |---|---|---|---|
@@ -983,7 +1003,7 @@ is 16 + 3 (EPOCH announce revs) + K = 21 revs, and a joiner then waits up to the
 | Lost boundary symbol (discarded burst, glitch-filtered EMI, master self-censor) | coast error 0.006 → 0.01 col | 288 col (1-rev coast) | ≈0 on DMA; harmless at any plausible rate |
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected |
 | Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (R rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | effectively never — needs a 2-coincident-error burst *during* a ~2 s ACQUIRE window, or a firmware bug; the fallback bounds it either way |
-| Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | display 144 col; `t`: ≤4,608 col via beacon (stateless) / ≤276,480 col via epoch (stateful) | ≈0 within budget; watched by the overrun/`ft` telemetry |
+| Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | display 144 col; `t`: ≤4,608 col via beacon (stateless) / ≤417,024 col via epoch (stateful, the 1,448-rev longest entry) | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel stall) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
@@ -1199,7 +1219,7 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   index sensor into master would dominate the flywheel design on three fronts at
   once: (1) pin the image to physical rotation, removing the accepted precession;
   (2) give a crystal-drift-free revolution count, removing the §6.3 "never miss
-  an epoch across 960 revs of crystal drift" fragility; and (3) provide a
+  an epoch across up to 1,448 revs of crystal drift" fragility; and (3) provide a
   hardware boundary reference more robust than any wire symbol (§5.2). The whole
   flywheel-plus-snap apparatus exists to *approximate*, open-loop, what one
   sensor would give directly. If a sensor is ever fitted, this design is its
