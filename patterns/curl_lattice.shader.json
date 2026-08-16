@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "catalog_version": 1,
+  "document_id": "curl-lattice-v1",
+  "effect_id": "curl-lattice",
+  "descriptor": {
+    "graph": {
+      "nodes": [
+        {
+          "label": "camera",
+          "role": "outer_camera",
+          "operator": "pullback.outer_camera.v1",
+          "policy": {
+            "base_orientation": "negative-z-to-negative-y",
+            "wander": "random-walk-full-strength"
+          }
+        },
+        {
+          "label": "surface",
+          "role": "surface_project",
+          "operator": "pullback.surface_project.v1",
+          "policy": {
+            "pre_lens_surface": "curl-noise-simplex-euler",
+            "lens": "identity",
+            "post_lens_surface": "identity",
+            "projection": "folded-sinusoidal",
+            "projection_pole_fade": 20,
+            "projection_wander": "random-walk-full-strength",
+            "surface_noise_strength": 0.0759999976
+          },
+          "resources": ["surface-noise"]
+        },
+        {
+          "label": "warp",
+          "role": "planar_warp",
+          "operator": "pullback.planar_warp.v1",
+          "policy": { "sequence": ["identity", "identity"] }
+        },
+        {
+          "label": "source",
+          "role": "source",
+          "operator": "pullback.source.v1",
+          "policy": {
+            "source": "primitive-lattice",
+            "cell_scale": 0.710265636,
+            "shape_blend": 1,
+            "softness": 0.455532223,
+            "radius": 0.290762514
+          }
+        },
+        {
+          "label": "material",
+          "role": "material",
+          "operator": "pullback.material.v1",
+          "policy": {
+            "weight": "projection",
+            "transfer": "linear",
+            "coverage": "projection"
+          }
+        },
+        {
+          "label": "color",
+          "role": "color",
+          "operator": "pullback.color.v1",
+          "policy": {
+            "color": "generated-palette",
+            "mapping": "cup",
+            "mapping_phase": -0.165999994,
+            "hue_mode": "noise",
+            "hue_shift_amount": 0.268000007,
+            "hue_noise_scale": 2,
+            "brightness_envelope": "cup"
+          },
+          "resources": ["triadic-palette", "hue-noise"]
+        }
+      ],
+      "edges": [
+        { "from": "camera", "to": "surface" },
+        { "from": "surface", "to": "warp" },
+        { "from": "warp", "to": "source" },
+        { "from": "source", "to": "material" },
+        { "from": "material", "to": "color" }
+      ]
+    },
+    "parameters": [
+      {
+        "id": "surface-noise-scale",
+        "binding": "surface-noise.scale",
+        "classification": "preset",
+        "storage": "binary32",
+        "unit": "ratio",
+        "domain": { "minimum": 0.015625, "maximum": 64 },
+        "interpolation": { "kind": "LINEAR" },
+        "default": 1.78815627
+      }
+    ],
+    "path_policies": [
+      { "id": "parallel", "kind": "PARALLEL" }
+    ],
+    "clocks": [
+      {
+        "id": "projection-wander",
+        "kind": "random-walk",
+        "settings": { "axis": "up", "pause": "ambient" }
+      },
+      {
+        "id": "outer-wander",
+        "kind": "random-walk",
+        "settings": { "axis": "up", "pause": "ambient" }
+      },
+      {
+        "id": "palette-cycle",
+        "kind": "generated-palette-cycle",
+        "settings": { "dwell": 0, "fade": 600, "easing": "ease-in-out-sin" }
+      },
+      {
+        "id": "transition-progress",
+        "kind": "completed-frame",
+        "settings": {
+          "pause": "parameter-animation",
+          "automatic": "morph",
+          "manual": "snap",
+          "synchronized": "snap"
+        }
+      }
+    ],
+    "preparation": [
+      { "id": "spatial-frames", "kind": "prepare-orientation-conjugates" },
+      { "id": "surface-loop", "kind": "prepare-static-noise-loop" },
+      { "id": "hue-luts", "kind": "prepare-hue-rotation-and-noise-luts" }
+    ],
+    "resources": [
+      {
+        "id": "surface-noise",
+        "kind": "simplex-sphere-curl",
+        "settings": { "seed": 1337, "generator_frequency": 1 }
+      },
+      {
+        "id": "hue-noise",
+        "kind": "simplex-sphere-scalar",
+        "settings": { "seed": 6047, "generator_frequency": 1 }
+      },
+      {
+        "id": "triadic-palette",
+        "kind": "generated-triadic-palette",
+        "settings": { "initial_hue": 0, "hue_step": 159, "chroma": 1 }
+      }
+    ],
+    "serialization": {
+      "schema_version": 1,
+      "fields": ["surface-noise-scale"]
+    },
+    "approximation": [
+      {
+        "id": "hue-luts",
+        "kind": "registered-oracle",
+        "settings": { "oracle": "hue-rotation-and-noise-luts" }
+      }
+    ],
+    "handoff": { "policy": "reset" }
+  },
+  "preset_bank": {
+    "schema_version": 1,
+    "presets": [
+      {
+        "preset_id": "open-curl",
+        "display_name": "Open Curl",
+        "values": { "surface-noise-scale": 1.78815627 }
+      },
+      {
+        "preset_id": "dense-curl",
+        "display_name": "Dense Curl",
+        "values": { "surface-noise-scale": 3.29720306 }
+      }
+    ],
+    "edges": [
+      {
+        "from": "open-curl",
+        "to": "dense-curl",
+        "path_policy": "parallel",
+        "easing": "EASE_IN_OUT_SIN",
+        "duration": 480
+      },
+      {
+        "from": "dense-curl",
+        "to": "open-curl",
+        "path_policy": "parallel",
+        "easing": "EASE_IN_OUT_SIN",
+        "duration": 480
+      }
+    ],
+    "absent_edge_fallback": {
+      "manual": "SNAP",
+      "automatic": "REJECT",
+      "synchronized": "SNAP",
+      "restore": "SNAP",
+      "authoring": "SNAP"
+    },
+    "choreography": {
+      "generated_order": ["open-curl", "dense-curl"],
+      "dwell": { "open-curl": 600, "dense-curl": 600 }
+    }
+  },
+  "effect_metadata": {
+    "display_name": "Curl Lattice",
+    "description": "A folded sinusoidal lattice flowing through sphere-space curl noise."
+  }
+}

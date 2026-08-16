@@ -2340,6 +2340,10 @@ Semantic program identities are independent of preset numbering. Presets 7–8 s
 | 10 | `GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR` | Folded gnomonic, dodecahedral lens, outer projected vector noise then inner mirror, squared-weight generated color |
 | 11 | `STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR` | Stereographic, dodecahedral lens, inner mirror, squared-weight grid |
 
+`CurlLattice` promotes presets 7–8 into one off-roster fixed-pipeline
+comparison effect. It declares the folded-sinusoidal curl pipeline directly;
+its two presets change only surface-noise scale and do not select a program.
+
 #### Authoring vocabulary
 
 The parameter schema exposes the broader ShaderBall vocabulary below. A menu entry describes a structurally possible field value, not a promise that its Cartesian combination is compiled for Teensy. The simulator renders valid unmatched combinations dynamically; sliders are active only when the selected schema uses them.

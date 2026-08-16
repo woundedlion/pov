@@ -52,6 +52,7 @@
 #include "tests/test_effects_smoke.h"
 #include "tests/test_effect_factory.h"
 #include "tests/test_shaderball.h"
+#include "tests/test_curl_lattice.h"
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_shapeshifter_tiles.h"
 #include "tests/test_dma_core.h"
@@ -189,6 +190,8 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
   X("shaderball", 52, hs_test::shaderball_tests::run_shaderball_tests,         \
     1045178)                                                                   \
+  X("curl_lattice", 4, hs_test::curl_lattice_tests::run_curl_lattice_tests,   \
+    5000)                                                                      \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
   X("shapeshifter_tiles", 2,                                                   \
