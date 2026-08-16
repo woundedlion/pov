@@ -317,6 +317,7 @@ public:
     if (current_effect) {
       current_effect = nullptr;
       current_effect_type_key = nullptr;
+      current_factory_entry = nullptr;
       // Same teardown setEffect() performs: without the re-partition the
       // destroyed effect's arena usage keeps reading as live from
       // getArenaMetrics().
@@ -380,6 +381,7 @@ public:
 
     current_effect.reset();
     current_effect_type_key = nullptr;
+    current_factory_entry = nullptr;
     configure_arenas_default(); // Reset before init so effects can override
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
@@ -389,6 +391,7 @@ public:
     });
     current_effect = entry->creator();
     current_effect_type_key = entry->type_key;
+    current_factory_entry = entry;
     current_effect->setAnimationsPaused(animations_paused);
     current_effect->init();
     param_generation.replace(current_effect->getParameterSchemaGeneration());
@@ -624,6 +627,28 @@ public:
     return current_effect
                ? static_cast<uint32_t>(current_effect->getPresetIndex())
                : 0;
+  }
+
+  /** Stable preset IDs in the same order as the numeric navigation API. */
+  val getPresetIds() const {
+    val ids = val::array();
+    if (!current_effect || !current_factory_entry ||
+        !current_factory_entry->preset_id)
+      return ids;
+    for (size_t index = 0; index < current_effect->getPresetCount(); ++index)
+      ids.set(index, std::string(current_factory_entry->preset_id(index)));
+    return ids;
+  }
+
+  /** Selects a preset through its persisted identity. */
+  bool selectPresetById(const std::string &preset_id) {
+    if (!current_effect || !current_factory_entry ||
+        !current_factory_entry->preset_id || preset_id.empty())
+      return false;
+    for (size_t index = 0; index < current_effect->getPresetCount(); ++index)
+      if (current_factory_entry->preset_id(index) == preset_id)
+        return selectPreset(static_cast<uint32_t>(index));
+    return false;
   }
 
   /**
@@ -893,10 +918,10 @@ public:
   }
 
   /**
-   * @brief Returns the current ShaderBall's versioned full-state snapshot.
+   * @brief Returns the current Shader workbench's versioned full-state snapshot.
    * @return JS object {schemaVersion, accepted, requested, pendingFieldIds,
    *         hasRuntime, runtime}, or null when the loaded effect is not
-   *         ShaderBall.
+   *         Shader workbench.
    * @details `accepted` and `requested` are CONFIG_FIELD_COUNT-long arrays of
    *          uint32-encoded field values in ConfigFieldId order;
    *          getFullConfigFieldDefinitions() names the indices.
@@ -904,15 +929,15 @@ public:
    *          which at the current schema are exactly the fields where the two
    *          arrays differ. `runtime` is the animation clock state and is
    *          meaningful only when `hasRuntime`. The whole configuration crosses
-   *          as one object because ShaderBall vets slots and params together:
+   *          as one object because Shader vets slots and params together:
    *          replaying the parameter stream entry by entry walks through
    *          combinations it refuses.
    */
   val getFullConfigSnapshot() {
     val output = val::null();
-    with_shaderball([&]<typename SB>(SB &shaderball) {
+    with_shader_workbench([&]<typename SB>(SB &shader) {
       const typename SB::FullConfigSnapshot snapshot =
-          shaderball.capture_full_config_snapshot();
+          shader.capture_full_config_snapshot();
       output = val::object();
       output.set("schemaVersion", snapshot.schema_version);
       output.set("accepted", uint32_array(snapshot.accepted));
@@ -930,7 +955,7 @@ public:
   }
 
   /**
-   * @brief Atomically restores a current ShaderBall full-state snapshot.
+   * @brief Atomically restores a current Shader workbench snapshot.
    * @param input Object in getFullConfigSnapshot()'s shape.
    * @return APPLIED, or the reason the snapshot was refused.
    * @details Rejections leave the effect exactly as it was, so a failed restore
@@ -945,7 +970,7 @@ public:
    */
   FullConfigRestoreResult restoreFullConfigSnapshot(const val &input) {
     FullConfigRestoreResult result = FullConfigRestoreResult::NOT_SHADERBALL;
-    with_shaderball([&]<typename SB>(SB &shaderball) {
+    with_shader_workbench([&]<typename SB>(SB &shader) {
       typename SB::FullConfigSnapshot snapshot;
       if (input.isUndefined() || input.isNull()) {
         result = FullConfigRestoreResult::INVALID_LENGTH;
@@ -1013,16 +1038,16 @@ public:
         }
         pending = 1;
       }
-      result = map_restore_result<SB>(
-          shaderball.restore_full_config_snapshot(snapshot));
+      result =
+          map_restore_result<SB>(shader.restore_full_config_snapshot(snapshot));
     });
     return result;
   }
 
   /**
-   * @brief Returns stable ShaderBall field IDs and diagnostic names.
+   * @brief Returns stable Shader workbench field IDs and diagnostic names.
    * @return JS array of {id, name} in ConfigFieldId order, or null when the
-   *         loaded effect is not ShaderBall.
+   *         loaded effect is not Shader.
    * @details `id` is the index into a snapshot's accepted/requested arrays and
    *          the value pendingFieldIds carries; `name` is the field's dotted
    *          config path. A caller labels a field through this rather than a
@@ -1030,7 +1055,7 @@ public:
    */
   val getFullConfigFieldDefinitions() {
     val output = val::null();
-    with_shaderball([&]<typename SB>(SB &) {
+    with_shader_workbench([&]<typename SB>(SB &) {
       output = val::array();
       for (size_t index = 0; index < SB::CONFIG_FIELD_COUNT; ++index) {
         val field = val::object();
@@ -1049,8 +1074,8 @@ public:
    */
   std::string getConfigImportNotice() {
     std::string notice;
-    with_shaderball([&]<typename SB>(SB &shaderball) {
-      notice = shaderball.config_import_notice();
+    with_shader_workbench([&]<typename SB>(SB &shader) {
+      notice = shader.config_import_notice();
     });
     return notice;
   }
@@ -1059,9 +1084,8 @@ public:
    * @brief Reserved compatibility no-op.
    */
   void clearConfigImportNotice() {
-    with_shaderball([&]<typename SB>(SB &shaderball) {
-      shaderball.clear_config_import_notice();
-    });
+    with_shader_workbench(
+        [&]<typename SB>(SB &shader) { shader.clear_config_import_notice(); });
   }
 
   /**
@@ -1090,15 +1114,15 @@ public:
 
 private:
   /**
-   * @brief Runs a callback on the live effect iff it is a ShaderBall.
-   * @param callback Templated callable invoked as callback(ShaderBall<W,H>&).
+   * @brief Runs a callback on the live effect iff it is the Shader workbench.
+   * @param callback Templated callable receiving the shader workbench backend.
    * @return true iff the callback ran.
    * @details The downcast is admitted by the factory's own type key, so it is
    *          legal by construction: a registry name that no longer maps to
-   *          ShaderBall<W,H> reports "not a ShaderBall" instead of casting to
+   *          Shader<W,H> reports "not Shader" instead of casting to
    *          the wrong type.
    */
-  template <typename Callback> bool with_shaderball(Callback &&callback) {
+  template <typename Callback> bool with_shader_workbench(Callback &&callback) {
     if (!current_effect)
       return false;
     bool invoked = false;
@@ -1222,6 +1246,8 @@ private:
   const void *current_effect_type_key =
       nullptr; /**< Concrete type the factory built current_effect as; null when
                     there is no effect. Gates every downcast off the base. */
+  const FactoryEntry *current_factory_entry =
+      nullptr; /**< Registry metadata for current_effect; WASM lifetime-static. */
   std::vector<uint16_t> pixel_buffer; /**< 16-bit linear RGB readback buffer. */
   std::vector<float> param_values;    /**< Backing store for getParamValues. */
   std::vector<hs_wasm::ParamView>
@@ -1282,7 +1308,9 @@ static void bind_engine() {
       .function("getAnimationsPaused", &HolosphereEngine::getAnimationsPaused)
       .function("getPresetCount", &HolosphereEngine::getPresetCount)
       .function("getPresetIndex", &HolosphereEngine::getPresetIndex)
+      .function("getPresetIds", &HolosphereEngine::getPresetIds)
       .function("selectPreset", &HolosphereEngine::selectPreset)
+      .function("selectPresetById", &HolosphereEngine::selectPresetById)
       .function("synchronizePreset", &HolosphereEngine::synchronizePreset)
       .function("nextPreset", &HolosphereEngine::nextPreset)
       .function("previousPreset", &HolosphereEngine::previousPreset)

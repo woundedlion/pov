@@ -55,6 +55,7 @@ struct ShaderBallWhiteBox {
   using Params = SB::Params;
   using RequestedConfig = SB::RequestedConfig;
   using SourceState = SB::SourceState;
+  using PreparedWarpStage = SB::PreparedWarpStage;
   using FrameState = SB::FrameState;
   using ProjectedLookup = SB::ProjectedLookup;
   using PlanarWarpStageResult = SB::PlanarWarpStageResult;
@@ -3193,8 +3194,219 @@ inline void test_promoted_shader_palette_mapping_control() {
   HS_EXPECT_EQ(mapping->option_count, 4);
 }
 
-inline void test_signal_weave_initial_preset_dwell() {
+template <typename FixedWarp>
+void copy_fixed_warp_to_shader(
+    const FixedWarp &source, ShaderBallWhiteBox::WarpStageParams &destination) {
+  destination.speed = source.speed;
+  if constexpr (requires { source.strength; })
+    destination.strength = source.strength;
+  if constexpr (requires { source.frequency; })
+    destination.frequency = source.frequency;
+  if constexpr (requires { source.field_angle; })
+    destination.field_angle = source.field_angle;
+  if constexpr (requires { source.scale; })
+    destination.scale = source.scale;
+  if constexpr (requires { source.vector_angle; })
+    destination.vector_angle = source.vector_angle;
+  if constexpr (requires { source.rotation; }) {
+    destination.rotation = source.rotation;
+    destination.cell_x = source.cell_x;
+    destination.cell_y = source.cell_y;
+    destination.offset_x = source.offset_x;
+    destination.offset_y = source.offset_y;
+  }
+  if constexpr (requires { source.rotation_rate; }) {
+    destination.rotation = source.rotation_rate;
+    destination.translation_x = source.translation_x;
+    destination.translation_y = source.translation_y;
+    destination.scale_x = source.scale_x;
+    destination.scale_y = source.scale_y;
+    destination.shear = source.shear;
+  }
+  if constexpr (requires { source.radial_scale; }) {
+    destination.radial_scale = source.radial_scale;
+    destination.radial_phase = source.radial_phase;
+    destination.angular_phase = source.angular_phase;
+  }
+}
+
+template <typename FixedEffect>
+ShaderBallWhiteBox::RequestedConfig
+fixed_reference_config(size_t topology_preset, size_t fixed_preset) {
   using WB = ShaderBallWhiteBox;
+  const typename FixedEffect::Params source =
+      FixedEffect::preset_params(fixed_preset);
+  WB::RequestedConfig destination = WB::presets()[topology_preset];
+
+  if constexpr (requires { source.source.pattern_freq; })
+    destination.params.source.pattern_freq = source.source.pattern_freq;
+  if constexpr (requires { source.source.speed; })
+    destination.params.source.speed = source.source.speed;
+  if constexpr (requires { source.source.complexity; })
+    destination.params.source.complexity = source.source.complexity;
+  if constexpr (requires { source.source.pattern_mix; })
+    destination.params.source.pattern_mix = source.source.pattern_mix;
+  if constexpr (requires { source.source.secondary_rate; })
+    destination.params.source.secondary_rate = source.source.secondary_rate;
+  if constexpr (requires { source.source.angle_rate; })
+    destination.params.source.angle_rate = source.source.angle_rate;
+  if constexpr (requires { source.source.noise_scale; }) {
+    destination.params.source.noise_scale = source.source.noise_scale;
+    destination.params.source.noise_contrast = source.source.noise_contrast;
+    destination.params.source.noise_time_rate = source.source.noise_time_rate;
+    destination.params.source.noise_seed = source.source.noise_seed;
+  }
+  if constexpr (requires { source.source.lattice_cell_scale; }) {
+    destination.params.source.lattice_cell_scale =
+        source.source.lattice_cell_scale;
+    destination.params.source.lattice_shape_blend =
+        source.source.lattice_shape_blend;
+    destination.params.source.lattice_softness = source.source.lattice_softness;
+    destination.params.source.lattice_radius = source.source.lattice_radius;
+  }
+
+  destination.params.projection.pole_fade = source.projection.pole_fade;
+  destination.params.projection.spin_rate = source.projection.spin_rate;
+  destination.params.projection.wander = source.projection.wander;
+  destination.params.projection.central_meridian =
+      source.projection.central_meridian;
+  destination.params.outer_camera.wander = source.projection.camera_wander;
+  copy_fixed_warp_to_shader(source.outer_warp, destination.params.warp.outer);
+  copy_fixed_warp_to_shader(source.inner_warp, destination.params.warp.inner);
+  if constexpr (requires { source.outer_warp.seed; })
+    destination.slots.warp_program.outer.seed = source.outer_warp.seed;
+  if constexpr (requires { source.inner_warp.seed; })
+    destination.slots.warp_program.inner.seed = source.inner_warp.seed;
+  if constexpr (requires { source.lens.mobius; })
+    destination.params.surface_lens.mobius = source.lens.mobius;
+  if constexpr (requires { source.value.edge_width; })
+    destination.params.value.edge_width = source.value.edge_width;
+  if constexpr (requires { source.value.iso_level; }) {
+    destination.params.value.iso_level = source.value.iso_level;
+    destination.params.value.iso_width = source.value.iso_width;
+  }
+
+  destination.params.color.hue_shift_amount = source.color.hue_shift_amount;
+  destination.params.color.hue_noise_scale = source.color.hue_noise_scale;
+  destination.params.color.hue_noise_speed = source.color.hue_noise_speed;
+  destination.params.color.palette_chroma = source.color.palette_chroma;
+  destination.params.color.mapping_frequency = source.color.mapping_frequency;
+  destination.params.color.mapping_phase = source.color.mapping_phase;
+  destination.params.color.phase_oscillation_depth =
+      source.color.phase_oscillation_depth;
+  destination.params.color.phase_oscillation_speed =
+      source.color.phase_oscillation_speed;
+  destination.params.color.brightness_depth = source.color.brightness_depth;
+  destination.params.color.value_opacity_low = source.color.opacity_low;
+  destination.params.color.value_opacity_high = source.color.opacity_high;
+  destination.slots.palette_mapping =
+      static_cast<WB::PaletteMapping>(source.color.palette_mapping);
+  return destination;
+}
+
+template <typename FixedWarp>
+FixedLook::PreparedWarp
+fixed_prepared_warp(const FixedWarp &,
+                    const ShaderBallWhiteBox::PreparedWarpStage &source) {
+  FixedLook::PreparedWarp destination{};
+  destination.rotation_cos = source.rotation_cos;
+  destination.rotation_sin = source.rotation_sin;
+  if constexpr (requires { FixedWarp{}.rotation; })
+    destination.transform.mirror = {source.transform.mirror.offset_x,
+                                    source.transform.mirror.offset_y};
+  else if constexpr (requires { FixedWarp{}.rotation_rate; })
+    destination.transform.affine = {
+        source.transform.affine.translation_x,
+        source.transform.affine.translation_y, source.transform.affine.scale_x,
+        source.transform.affine.scale_y, source.transform.affine.shear};
+  else if constexpr (requires { FixedWarp{}.vector_angle; })
+    destination.transform.noise_loop = {source.transform.noise_loop.diagonal,
+                                        source.transform.noise_loop.z};
+  return destination;
+}
+
+template <typename FixedEffect>
+typename FixedEffect::FrameState
+fixed_reference_frame(const ShaderBallWhiteBox::FrameState &source,
+                      size_t fixed_preset) {
+  const typename FixedEffect::Params params =
+      FixedEffect::preset_params(fixed_preset);
+  return {source.transforms.projection_conj,
+          source.transforms.outer_conj,
+          {source.prepared_source.primary, source.prepared_source.secondary,
+           source.prepared_source.angle, source.prepared_source.angle_cos,
+           source.prepared_source.angle_sin},
+          fixed_prepared_warp(params.outer_warp, source.prepared_warp.outer),
+          fixed_prepared_warp(params.inner_warp, source.prepared_warp.inner),
+          source.resources.outer_warp_noise,
+          source.resources.source_noise,
+          source.resources.generated_palette,
+          source.prepared_hue_rotation.lut,
+          source.prepared_hue_noise.lut,
+          params,
+          source.palette_mapping,
+          source.clocks.warp_outer_phase,
+          source.clocks.warp_inner_phase,
+          source.clocks.source_noise_time,
+          source.clocks.palette_oscillation_phase};
+}
+
+template <typename FixedEffect>
+void verify_fixed_shader_export(ShaderBallWhiteBox::SB &shader,
+                                size_t topology_preset, size_t fixed_preset) {
+  using WB = ShaderBallWhiteBox;
+  const WB::RequestedConfig config =
+      fixed_reference_config<FixedEffect>(topology_preset, fixed_preset);
+  const WB::FrameState dynamic = WB::config_frame(shader, config);
+  const typename FixedEffect::FrameState compiled =
+      fixed_reference_frame<FixedEffect>(dynamic, fixed_preset);
+  HS_CONTEXT("effect preset", static_cast<long long>(fixed_preset));
+  for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
+    const float latitude = latitude_step * (0.5f * PI_F / 9.0f);
+    const float radius = cosf(latitude);
+    for (int longitude_step = 0; longitude_step < 37; ++longitude_step) {
+      const float longitude = longitude_step * (TWO_PI_F / 37.0f);
+      const Vector view(radius * cosf(longitude), sinf(latitude),
+                        radius * sinf(longitude));
+      const Color4 expected = WB::shade(view, dynamic);
+      const Color4 actual = FixedEffect::shade(view, compiled);
+      HS_EXPECT_EQ(actual.color.r, expected.color.r);
+      HS_EXPECT_EQ(actual.color.g, expected.color.g);
+      HS_EXPECT_EQ(actual.color.b, expected.color.b);
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.alpha),
+                   std::bit_cast<uint32_t>(expected.alpha));
+    }
+  }
+}
+
+/** @brief Every shared-runtime export is bit-exact with Shader preview. */
+inline void test_fixed_shader_export_equivalence() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB shader;
+  shader.init();
+
+  verify_fixed_shader_export<SignalWeave<SMALL_W, SMALL_H>>(shader, 0, 0);
+  verify_fixed_shader_export<SignalWeave<SMALL_W, SMALL_H>>(shader, 21, 1);
+  verify_fixed_shader_export<SignalWeave<SMALL_W, SMALL_H>>(shader, 22, 2);
+  verify_fixed_shader_export<SignalWeave<SMALL_W, SMALL_H>>(shader, 23, 3);
+  verify_fixed_shader_export<KaleidoWave<SMALL_W, SMALL_H>>(shader, 1, 0);
+  verify_fixed_shader_export<AlienOcean<SMALL_W, SMALL_H>>(shader, 2, 0);
+  verify_fixed_shader_export<GlitchGrid<SMALL_W, SMALL_H>>(shader, 3, 0);
+  verify_fixed_shader_export<FacetWave<SMALL_W, SMALL_H>>(shader, 5, 0);
+  verify_fixed_shader_export<ContourLattice<SMALL_W, SMALL_H>>(shader, 6, 0);
+  verify_fixed_shader_export<PrismLattice<SMALL_W, SMALL_H>>(shader, 9, 0);
+  verify_fixed_shader_export<VectorFacets<SMALL_W, SMALL_H>>(shader, 10, 0);
+  verify_fixed_shader_export<HexWave<SMALL_W, SMALL_H>>(shader, 12, 0);
+  verify_fixed_shader_export<EquatorGrid<SMALL_W, SMALL_H>>(shader, 15, 0);
+  verify_fixed_shader_export<EquatorGrid<SMALL_W, SMALL_H>>(shader, 16, 1);
+  verify_fixed_shader_export<EquatorGrid<SMALL_W, SMALL_H>>(shader, 17, 2);
+  verify_fixed_shader_export<CosmicEyeball<SMALL_W, SMALL_H>>(shader, 18, 0);
+  verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(shader, 19, 0);
+  verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(shader, 20, 1);
+}
+
+inline void test_signal_weave_initial_preset_dwell() {
   using FX = SignalWeave<SMALL_W, SMALL_H>;
   reset_effect_globals();
   FX effect;
@@ -3206,17 +3418,13 @@ inline void test_signal_weave_initial_preset_dwell() {
     effect.advance_display();
   }
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
-  HS_EXPECT_FALSE(WB::transition_active(effect));
 
   effect.draw_frame();
   effect.advance_display();
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t(1));
-  HS_EXPECT_TRUE(WB::transition_active(effect) ||
-                 WB::param_morph_active(effect));
 }
 
 inline void test_mobius_grid_circular_animation() {
-  using WB = ShaderBallWhiteBox;
   using FX = MobiusGrid<SMALL_W, SMALL_H>;
   reset_effect_globals();
   FX effect;
@@ -3224,65 +3432,41 @@ inline void test_mobius_grid_circular_animation() {
   HS_EXPECT_EQ(effect.getPresetCount(), size_t(2));
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "mobius-grid-2");
 
-  const MobiusParams initial =
-      WB::active_config(effect).params.surface_lens.mobius;
-  HS_EXPECT_FALSE(WB::transition_active(effect));
+  const MobiusParams initial = effect.serialize_parameters().params.lens.mobius;
   effect.draw_frame();
   effect.advance_display();
   const MobiusParams animated =
-      WB::active_config(effect).params.surface_lens.mobius;
-  HS_EXPECT_FALSE(WB::transition_active(effect));
-  HS_EXPECT_TRUE(WB::param_morph_active(effect));
+      effect.serialize_parameters().params.lens.mobius;
   HS_EXPECT_TRUE(animated.b.re != initial.b.re ||
                  animated.b.im != initial.b.im);
   HS_EXPECT_NEAR(animated.b.re * animated.b.re + animated.b.im * animated.b.im,
                  1.0f, 1e-5f);
-  WB::refresh_display(effect);
-  const MobiusParams displayed =
-      WB::display_config(effect).params.surface_lens.mobius;
-  HS_EXPECT_EQ(displayed.b.re, animated.b.re);
-  HS_EXPECT_EQ(displayed.b.im, animated.b.im);
-
   effect.draw_frame();
   effect.advance_display();
   const MobiusParams advanced =
-      WB::active_config(effect).params.surface_lens.mobius;
-  HS_EXPECT_FALSE(WB::transition_active(effect));
-  HS_EXPECT_TRUE(WB::param_morph_active(effect));
+      effect.serialize_parameters().params.lens.mobius;
   HS_EXPECT_TRUE(advanced.b.re != animated.b.re ||
                  advanced.b.im != animated.b.im);
-  WB::refresh_display(effect);
-  const MobiusParams advanced_display =
-      WB::display_config(effect).params.surface_lens.mobius;
-  HS_EXPECT_EQ(advanced_display.b.re, advanced.b.re);
-  HS_EXPECT_EQ(advanced_display.b.im, advanced.b.im);
-
   effect.setAnimationsPaused(true);
   effect.draw_frame();
   effect.advance_display();
-  const MobiusParams paused =
-      WB::active_config(effect).params.surface_lens.mobius;
+  const MobiusParams paused = effect.serialize_parameters().params.lens.mobius;
   HS_EXPECT_EQ(paused.b.re, advanced.b.re);
   HS_EXPECT_EQ(paused.b.im, advanced.b.im);
 
   effect.setAnimationsPaused(false);
   effect.draw_frame();
   effect.advance_display();
-  const MobiusParams resumed =
-      WB::active_config(effect).params.surface_lens.mobius;
+  const MobiusParams resumed = effect.serialize_parameters().params.lens.mobius;
   HS_EXPECT_TRUE(resumed.b.re != paused.b.re || resumed.b.im != paused.b.im);
 
   MobiusParams previous = resumed;
-  for (int frame = 0; frame < 500; ++frame) {
+  const size_t initial_preset = effect.getPresetIndex();
+  for (int frame = 0; frame < 1400; ++frame) {
     effect.draw_frame();
     effect.advance_display();
     const MobiusParams current =
-        WB::active_config(effect).params.surface_lens.mobius;
-    WB::refresh_display(effect);
-    const MobiusParams current_display =
-        WB::display_config(effect).params.surface_lens.mobius;
-    HS_EXPECT_EQ(current_display.b.re, current.b.re);
-    HS_EXPECT_EQ(current_display.b.im, current.b.im);
+        effect.serialize_parameters().params.lens.mobius;
     HS_EXPECT_NEAR(current.b.re * current.b.re + current.b.im * current.b.im,
                    1.0f, 1e-5f);
     const float delta_re = current.b.re - previous.b.re;
@@ -3290,6 +3474,7 @@ inline void test_mobius_grid_circular_animation() {
     HS_EXPECT_TRUE(delta_re * delta_re + delta_im * delta_im < 0.02f);
     previous = current;
   }
+  HS_EXPECT_NE(effect.getPresetIndex(), initial_preset);
 }
 
 /** @brief Polyhedral lenses expose controls at their chamber scale. */
@@ -5577,6 +5762,7 @@ inline int run_shaderball_tests() {
   test_shaderball_parameter_capacity();
   test_shaderball_gui_catalog();
   test_promoted_shader_palette_mapping_control();
+  test_fixed_shader_export_equivalence();
   test_signal_weave_initial_preset_dwell();
   test_mobius_grid_circular_animation();
   test_shaderball_lens_domain_ranges();

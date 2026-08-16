@@ -1,5 +1,5 @@
 #!/bin/bash
-# profile_sweep.sh <group: g1_ship..g4_ship | check>
+# profile_sweep.sh <group: g1_ship..g6_ship | check>
 # Phantasm-roster profiling sweep, one group per invocation (see the
 # teensy-profile skill for the per-effect duration/knob rationale).
 # Covers the 288x144 Phantasm playlist. Dynamo and Thrusters are Holosphere
@@ -83,7 +83,7 @@ g1_ship)
   ;;
 g2_ship)
   run HopfFibration profile 70 32
-  run MobiusGrid profile 70 32
+  run MobiusGrid profile 150 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   run PetalFlow profile 70 32
   run Raymarch profile 70 32
   run RingShower profile 70 32
@@ -99,9 +99,25 @@ g3_ship)
 g4_ship)
   run Comets profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
   run MeshFeedback profile 420 16 "-D HS_PROFILE_EPOCH_REVS=3400"
-  run ShaderBall profile 140 16 "-D HS_PROFILE_SHADERBALL_FAST_CYCLE -D HS_PROFILE_EPOCH_REVS=1400"
   run IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"
   run DreamBalls profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
+  ;;
+g5_ship)
+  run SignalWeave profile 70 16
+  run KaleidoWave profile 70 32
+  run AlienOcean profile 70 32
+  run GlitchGrid profile 70 32
+  run FacetWave profile 70 32
+  run ContourLattice profile 70 32
+  run CurlLattice profile 140 16 "-D HS_PROFILE_EPOCH_REVS=1400"
+  ;;
+g6_ship)
+  run PrismLattice profile 70 32
+  run VectorFacets profile 70 32
+  run FacetGrid profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
+  run HexWave profile 70 32
+  run EquatorGrid profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
+  run CosmicEyeball profile 70 32
   ;;
 *) echo "unknown group $GROUP"; exit 1;;
 esac

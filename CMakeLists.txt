@@ -195,6 +195,15 @@ if(EMSCRIPTEN)
     # the engine checkout it pins, so a stale copy there fails too.
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/hardware/pov_segment_map.json"
             DESTINATION "${DAYDREAM_DIR}")
+    install(FILES
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/shader_workbench.mjs"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sha256.mjs"
+            DESTINATION "${DAYDREAM_DIR}/shader")
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/patterns/"
+            DESTINATION "${DAYDREAM_DIR}/shader/patterns"
+            FILES_MATCHING
+            PATTERN "*.shader.json"
+            PATTERN "shaderball_migration.json")
     # The gallery is mirrored, not merged: the destination is wiped first so a
     # screenshot dropped from the engine stops being served. install(DIRECTORY)
     # installs nothing for an absent or empty source, which would leave the wipe

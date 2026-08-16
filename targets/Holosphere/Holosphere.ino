@@ -60,7 +60,10 @@ FLASHMEM static void run_show_sequence() {
   pov->show<GnomonicStars<288, 144>>(120); //60
   pov->show<HankinSolids<288, 144>>(120); // 85
   pov->show<PetalFlow<288, 144>>(120); //35
-  pov->show<ShaderBall<288, 144>>(120); // 85
+#define HS_SHOW_SHADER_EFFECT(name, duration_seconds)                          \
+  pov->show<name<288, 144>>(duration_seconds);
+  HS_SHADER_PRODUCT_GROUP(HS_SHOW_SHADER_EFFECT)
+#undef HS_SHOW_SHADER_EFFECT
   pov->show<Test<288, 144>>(120); // 60
   pov->show<SphericalHarmonics<288, 144>>(120);  //49
   pov->show<Comets<288, 144>>(120); //53

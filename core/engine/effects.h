@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include "core/engine/build_features.h"
+
 /**
  * @file effects.h
  * @brief Effect roster: pulls in every effect header plus the HS_EFFECT_LIST
@@ -15,6 +17,7 @@
  */
 
 #include "effects/BZReactionDiffusion.h"
+#include "effects/AlienOcean.h"
 #include "effects/Fishbowl.h"
 #include "effects/Comets.h"
 #include "effects/CurlLattice.h"
@@ -22,6 +25,10 @@
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
 #include "effects/FacetGrid.h"
+#include "effects/fixed/GridMirrorLooks.h"
+#include "effects/fixed/GridWarpLooks.h"
+#include "effects/fixed/LatticeLooks.h"
+#include "effects/fixed/TwinWaveMirrorLooks.h"
 #include "effects/GnomonicStars.h"
 #include "effects/GSReactionDiffusion.h"
 #include "effects/HankinSolids.h"
@@ -31,7 +38,12 @@
 #include "effects/MindSplatter.h"
 #include "effects/MobiusRings.h"
 #include "effects/PetalFlow.h"
-#include "effects/PromotedShaderLooks.h"
+#if HS_ENABLE_SHADER_WORKBENCH
+#include "effects/ShaderWorkbench.h"
+#define HS_SHADER_WORKBENCH_EFFECT(X) X(Shader)
+#else
+#define HS_SHADER_WORKBENCH_EFFECT(X)
+#endif
 #include "effects/Raymarch.h"
 #include "effects/RingShower.h"
 #include "effects/RingSpin.h"
@@ -85,7 +97,7 @@
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
-  X(Shader)                                                                    \
+  HS_SHADER_WORKBENCH_EFFECT(X)                                                \
   X(ShapeShifter)                                                              \
   X(SignalWeave)                                                               \
   X(SphericalHarmonics)                                                        \
@@ -126,7 +138,7 @@
   X(KaleidoWave, 7)                                                            \
   X(MeshFeedback, 181)                                                         \
   X(MindSplatter, 120)                                                         \
-  X(MobiusGrid, 120)                                                           \
+  X(MobiusGrid, 6)                                                             \
   X(PetalFlow, 120)                                                            \
   X(PrismLattice, 6)                                                           \
   X(Raymarch, 120)                                                             \
@@ -263,10 +275,12 @@ static_assert(hs_phantasm_effect_list_is_distinct(),
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
-static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 4,
+static_assert(HS_PHANTASM_EFFECT_COUNT ==
+                  HS_EFFECT_COUNT - 3 - HS_ENABLE_SHADER_WORKBENCH,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
               "(full roster minus Shader, Dynamo, MobiusRings and Thrusters)");
-static_assert(hs_in_effect_list("Shader") && hs_in_effect_list("Dynamo") &&
+static_assert((!HS_ENABLE_SHADER_WORKBENCH || hs_in_effect_list("Shader")) &&
+                  hs_in_effect_list("Dynamo") &&
                   hs_in_effect_list("MobiusRings") &&
                   hs_in_effect_list("Thrusters"),
               "Phantasm exclusion names a non-roster effect — a rename left "

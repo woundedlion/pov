@@ -1,5 +1,5 @@
 #!/bin/bash
-# profile_one.sh <Effect> <env:profile|profile_o3> <seconds> <window> [extra flags...]
+# profile_one.sh <Effect-or-ID> <env:profile|profile_o3> <seconds> <window> [extra flags...]
 # Builds+flashes the profile image for one effect and captures its serial dump
 # to build/prof/<effect>_<tag>.log. Verifies the capture header, and for a
 # cycling effect that a preset marker appears (guards against a stale build
@@ -40,18 +40,31 @@
 # HS_PROFILE_MINDSPLATTER=counts|stalls builds a dedicated MindSplatter
 # instrumentation image and writes a suffixed log. Count images also enable the
 # generic Plot counters; neither image is valid for timing comparisons.
-# HS_PROFILE_SHADERBALL_STAGES=1 builds raw ShaderBall stage attribution and
-# writes a suffixed log. Its per-pixel counter reads make it unsuitable for
-# timing comparisons.
 set -eo pipefail
 . "$(dirname "$0")/device_lock.sh"
 # Without this, a short/split argument list makes `shift 4` fail and set -e
 # aborts with no message.
 [ $# -ge 4 ] || {
-  echo "usage: profile_one.sh <Effect> <profile|profile_o3> <seconds> <window> [extra flags...]" >&2
+  echo "usage: profile_one.sh <Effect-or-ID> <profile|profile_o3> <seconds> <window> [extra flags...]" >&2
   exit 1
 }
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
+case "$EFFECT" in
+  signal-weave) EFFECT=SignalWeave;;
+  kaleido-wave) EFFECT=KaleidoWave;;
+  alien-ocean) EFFECT=AlienOcean;;
+  glitch-grid) EFFECT=GlitchGrid;;
+  facet-wave) EFFECT=FacetWave;;
+  contour-lattice) EFFECT=ContourLattice;;
+  curl-lattice) EFFECT=CurlLattice;;
+  prism-lattice) EFFECT=PrismLattice;;
+  vector-facets) EFFECT=VectorFacets;;
+  facet-grid) EFFECT=FacetGrid;;
+  hex-wave) EFFECT=HexWave;;
+  equator-grid) EFFECT=EquatorGrid;;
+  cosmic-eyeball) EFFECT=CosmicEyeball;;
+  mobius-grid) EFFECT=MobiusGrid;;
+esac
 for n in "$SECONDS_ARG" "$WINDOW"; do
   case $n in
     ''|*[!0-9]*)
@@ -108,19 +121,6 @@ case "${HS_PROFILE_MINDSPLATTER:-}" in
     ;;
 esac
 MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}"
-SB_FLAGS=""
-SB_SUFFIX=""
-SB_MARKER=""
-if [ -n "$HS_PROFILE_SHADERBALL_STAGES" ] &&
-   [ "$HS_PROFILE_SHADERBALL_STAGES" != "0" ]; then
-  [ "$EFFECT" = ShaderBall ] || {
-    echo "HS_PROFILE_SHADERBALL_STAGES requires effect ShaderBall" >&2; exit 1;
-  }
-  SB_FLAGS="-D HS_PROFILE_SHADERBALL_STAGES"
-  SB_SUFFIX="_sb_stages"
-  SB_MARKER="sb stages:"
-fi
-MODE_SUFFIX="${MODE_SUFFIX}${SB_SUFFIX}"
 OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}
 # Every per-run artifact hangs off the log's own stem, so HS_PROFILE_OUT moves
 # the whole set. Spelling out the default naming here instead would let an
@@ -153,14 +153,10 @@ TREE=${HS_PROFILE_TREE:-$(main_tree)} ||
   { echo "cannot resolve the main checkout from $(dirname "$0")" >&2; exit 1; }
 cd "$TREE" || { echo "no such tree: $TREE" >&2; exit 1; }
 mkdir -p "$(dirname "$OUT")"
-TARGET_FLAGS=""
-if [ "$EFFECT" = ShaderBall ]; then
-  TARGET_FLAGS="-D HS_PROFILE_EFFECT_HEAP_BYTES=8192 -D HS_PROFILE_PULLBACK_TELEMETRY"
-fi
-export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $TARGET_FLAGS $DEEP $MSP_FLAGS $SB_FLAGS $EXTRA"
+export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $MSP_FLAGS $EXTRA"
 
 # Cyclers emit a per-advance marker; a capture of one must contain it.
-CYCLERS="ShaderBall ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
+CYCLERS="SignalWeave CurlLattice FacetGrid EquatorGrid MobiusGrid ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
 MARKER=""
 case " $CYCLERS " in *" $EFFECT "*)
   case "$EFFECT" in
@@ -175,9 +171,6 @@ if [ -n "$PROFILE_PRESET" ]; then
 fi
 if [ -n "$REPLAY_SUFFIX" ]; then
   MARKER="replay corpus:"
-fi
-if [ -n "$SB_MARKER" ]; then
-  MARKER="$SB_MARKER"
 fi
 
 TEENSY_TOOLS=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}

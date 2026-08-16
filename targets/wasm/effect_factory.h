@@ -52,7 +52,7 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
 template <int W, int H>
 const FactoryEntry *find_factory_entry(std::string_view name) {
   for (const auto &entry : get_factory<W, H>())
-    if (name == entry.name)
+    if (name == entry.name || name == entry.stable_id)
       return &entry;
   return nullptr;
 }

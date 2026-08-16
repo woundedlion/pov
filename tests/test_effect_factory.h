@@ -46,6 +46,7 @@ template <int W, int H> inline void verify_factory_table() {
 
   for (const FactoryEntry &entry : table) {
     HS_EXPECT_TRUE(!entry.name.empty());
+    HS_EXPECT_TRUE(!entry.stable_id.empty());
     HS_EXPECT_TRUE(static_cast<bool>(entry.creator));
     HS_EXPECT_TRUE(entry.size > 0);
   }
@@ -69,6 +70,10 @@ template <int W, int H> inline void verify_factory_lookup() {
     HS_EXPECT_TRUE(entry != nullptr);
     if (entry)
       HS_EXPECT_TRUE(entry->name == name);
+  }
+  for (const FactoryEntry &expected : get_factory<W, H>()) {
+    const FactoryEntry *entry = lookup(expected.stable_id);
+    HS_EXPECT_TRUE(entry == &expected);
   }
   HS_EXPECT_TRUE(lookup("") == nullptr);
   HS_EXPECT_TRUE(lookup("NoSuchEffect") == nullptr);
@@ -156,6 +161,26 @@ inline void test_bootstrap_rows() {
   HS_EXPECT_TRUE(std::strlen(WASM_EFFECT_NAMES[0]) > 0);
 }
 
+/** @brief Checks registry-owned stable preset identities without Effect vtable cost. */
+inline void test_fixed_preset_ids() {
+  const FactoryEntry *curl = find_factory_entry<96, 20>("curl-lattice");
+  HS_EXPECT_TRUE(curl != nullptr);
+  HS_EXPECT_TRUE(curl && curl->preset_id != nullptr);
+  if (curl && curl->preset_id) {
+    HS_EXPECT_TRUE(curl->preset_id(0) == "open-curl");
+    HS_EXPECT_TRUE(curl->preset_id(1) == "dense-curl");
+    HS_EXPECT_TRUE(curl->preset_id(2).empty());
+  }
+
+  const FactoryEntry *mobius = find_factory_entry<96, 20>("mobius-grid");
+  HS_EXPECT_TRUE(mobius != nullptr);
+  HS_EXPECT_TRUE(mobius && mobius->preset_id != nullptr);
+  if (mobius && mobius->preset_id) {
+    HS_EXPECT_TRUE(mobius->preset_id(0) == "mobius-grid");
+    HS_EXPECT_TRUE(mobius->preset_id(1) == "mobius-grid-2");
+  }
+}
+
 /**
  * @brief Checks both resolutions' factory tables and name lookups.
  */
@@ -187,6 +212,7 @@ inline int run_effect_factory_tests() {
   test_bootstrap_rows();
   test_resolution_dispatch();
   test_factory_tables();
+  test_fixed_preset_ids();
   test_factory_lifecycle();
   return fixture.result();
 }
