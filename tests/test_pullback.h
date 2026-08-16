@@ -9,6 +9,7 @@
 #include <type_traits>
 
 #include "core/render/pullback.h"
+#include "core/engine/fixed_pipeline.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -587,6 +588,58 @@ void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(projected.edge_class, 8);
 }
 
+struct AddLens : Pullback::ExactPolicy {
+  static Vector apply(const Vector &input, const TestFrame &) {
+    return Vector(input.x + 1.0f, input.y, input.z);
+  }
+};
+
+struct ScaleLens : Pullback::ExactPolicy {
+  static Vector apply(const Vector &input, const TestFrame &) {
+    return Vector(input.x * 2.0f, input.y, input.z);
+  }
+};
+
+void test_pullback_lens_sequence() {
+  using Sequence = Pullback::Lens::Sequence<AddLens, ScaleLens>;
+  static_assert(std::is_empty_v<Sequence>);
+  static_assert(!Sequence::APPROXIMATE);
+  const Vector result = Sequence::apply(Vector(3.0f, 2.0f, 1.0f), TestFrame{});
+  HS_EXPECT_EQ(result.x, 8.0f);
+  HS_EXPECT_EQ(result.y, 2.0f);
+  HS_EXPECT_EQ(result.z, 1.0f);
+}
+
+void test_fixed_pipeline_interpolation_contract() {
+  HS_EXPECT_EQ(FixedPipeline::linear(2.0f, 6.0f, 0.0f), 2.0f);
+  HS_EXPECT_EQ(FixedPipeline::linear(2.0f, 6.0f, 1.0f), 6.0f);
+  HS_EXPECT_NEAR(FixedPipeline::log_positive(1.0f, 4.0f, 0.5f), 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(FixedPipeline::shortest_periodic(0.0f, 0.5f, 0.5f, 1.0f),
+                 0.75f, 1e-6f);
+
+  const auto normalized = FixedPipeline::normalized_linear<2>(
+      {1.0f, 0.0f}, {0.0f, 1.0f}, 0.5f, 1e-6f);
+  HS_EXPECT_TRUE(normalized.valid);
+  HS_EXPECT_NEAR(normalized.values[0], 0.70710678f, 1e-6f);
+  HS_EXPECT_NEAR(normalized.values[1], 0.70710678f, 1e-6f);
+  const auto antipodal = FixedPipeline::normalized_linear<2>(
+      {1.0f, 0.0f}, {-1.0f, 0.0f}, 0.5f, 1e-6f);
+  HS_EXPECT_FALSE(antipodal.valid);
+}
+
+void test_fixed_pipeline_progress_contract() {
+  const auto start = FixedPipeline::edge_progress(
+      0, 1, FixedPipeline::Easing::EASE_IN_OUT_SIN);
+  const auto finish = FixedPipeline::edge_progress(
+      1, 1, FixedPipeline::Easing::EASE_IN_OUT_SIN);
+  HS_EXPECT_EQ(start.raw, 0.0f);
+  HS_EXPECT_EQ(start.eased, 0.0f);
+  HS_EXPECT_EQ(finish.raw, 1.0f);
+  HS_EXPECT_EQ(finish.eased, 1.0f);
+  HS_EXPECT_EQ(FixedPipeline::staggered_group_progress(0.5f, 0, 2), 1.0f);
+  HS_EXPECT_EQ(FixedPipeline::staggered_group_progress(0.5f, 1, 2), 0.0f);
+}
+
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
   test_pullback_carrier_contract();
@@ -598,6 +651,9 @@ inline int run_pullback_tests() {
   test_pullback_stage_combinators();
   test_pullback_provider_contracts();
   test_pullback_concrete_catalog();
+  test_pullback_lens_sequence();
+  test_fixed_pipeline_interpolation_contract();
+  test_fixed_pipeline_progress_contract();
   return fixture.result();
 }
 

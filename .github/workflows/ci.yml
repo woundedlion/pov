@@ -1021,7 +1021,7 @@ jobs:
       # inside a file, and node counts a file gutted to a comment as one pass.
       - name: Every scripts/*.test.mjs unit test runs
         run: |
-          bash tools/check_test_files.sh 5 'scripts/*.test.mjs'
+          bash tools/check_test_files.sh 6 'scripts/*.test.mjs'
           npm test
 
       - name: Gallery covers every registered effect

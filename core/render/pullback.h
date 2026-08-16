@@ -747,6 +747,26 @@ struct OctagonalPrismKaleidoscope : ExactPolicy {
   }
 };
 
+template <typename... Policies>
+struct Sequence : Detail::CombinedApproximation<Policies...> {
+  static_assert(sizeof...(Policies) > 0,
+                "pullback lens sequence must contain a lens");
+  static_assert((std::is_empty_v<Policies> && ...),
+                "pullback lens sequence policies must be empty");
+
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      (Detail::policy_provider_valid<Policies, Binding>() && ...);
+
+  template <typename FrameState>
+  __attribute__((always_inline)) static Vector apply(const Vector &input,
+                                                     const FrameState &frame) {
+    Vector output = input;
+    ((output = Policies::apply(output, frame)), ...);
+    return output;
+  }
+};
+
 } // namespace Lens
 
 namespace Projection {
