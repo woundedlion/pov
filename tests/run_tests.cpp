@@ -189,7 +189,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
-  X("shaderball", 54, hs_test::shaderball_tests::run_shaderball_tests,         \
+  X("shaderball", 55, hs_test::shaderball_tests::run_shaderball_tests,         \
     1045178)                                                                   \
   X("curl_lattice", 4, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
     5000)                                                                      \

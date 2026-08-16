@@ -69,6 +69,7 @@ HS_SINGLE_PROMOTED_SHADER_LOOK(CosmicEyeball, "cosmic-eyeball", "mirrored-grid",
 template <int W, int H> class SignalWeave : public ShaderBall<W, H> {
 public:
   static constexpr std::string_view EFFECT_ID = "signal-weave";
+  static constexpr uint16_t INITIAL_PRESET_DWELL_FRAMES = 120;
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "signal-weave", "signal-weave-2", "signal-weave-3", "signal-weave-4"};
   static constexpr std::array<uint8_t, 4> SOURCE_PRESET_INDICES{0, 21, 22, 23};
@@ -76,6 +77,7 @@ public:
   HS_COLD_MEMBER void init() override {
     this->set_fixed_preset_view(SOURCE_PRESET_INDICES);
     ShaderBall<W, H>::init();
+    this->hold_initial_preset(INITIAL_PRESET_DWELL_FRAMES);
   }
 
   HS_FLASH_MEMBER void draw_frame() override {
