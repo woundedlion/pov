@@ -1825,8 +1825,7 @@ private:
         float *targets[] = {&params.translation_x, &params.translation_y,
                             &params.rotation,      &params.scale_x,
                             &params.scale_y,       &params.shear};
-        const float minimum[] = {-4.0f, -4.0f, -PI_F,
-                                 0.25f, 0.25f, -0.75f};
+        const float minimum[] = {-4.0f, -4.0f, -PI_F, 0.25f, 0.25f, -0.75f};
         const float maximum[] = {4.0f, 4.0f, PI_F, 4.0f, 4.0f, 0.75f};
         register_current(names[WARP_NAME_TRANSLATION_X + index], targets[index],
                          minimum[index], maximum[index]);
@@ -3894,8 +3893,8 @@ private:
             &all_continuous_parameters_supported),
         make_program<GnomonicKaleidoscopeGridMirrorPipeline,
                      InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
-                     make_topology_key(gnomonic_grid_mirror_preset(
-                         SurfaceLens::KALEIDOSCOPE))>(
+                     make_topology_key(
+                         gnomonic_kaleidoscope_grid_mirror_preset())>(
             &all_continuous_parameters_supported),
         make_program<GnomonicGlitchGridMirrorPipeline,
                      InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR,
@@ -6738,6 +6737,14 @@ private:
     return {slots, params};
   }
 
+  static constexpr Config gnomonic_kaleidoscope_grid_mirror_preset() {
+    Config config = gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE);
+    config.params.color.palette_chroma = 0.4f;
+    config.params.color.hue_shift_amount = 0.424f;
+    config.params.color.hue_noise_scale = 2.2033439f;
+    return config;
+  }
+
   static constexpr Config peirce_dodecahedral_generated_preset() {
     Slots slots{Function::GRID,
                 Projection::PEIRCE_QUINCUNCIAL,
@@ -7074,7 +7081,7 @@ private:
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
        InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR},
-      {gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
+      {gnomonic_kaleidoscope_grid_mirror_preset(),
        InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR},
       {gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
        InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR},
