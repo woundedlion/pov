@@ -507,6 +507,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── lissajous.html          Spherical Lissajous curve designer
 │   ├── mobius.html             Möbius transformation visualizer
 │   ├── palettes.html           Procedural palette tuner
+│   ├── shader.html             Pullback Shader authoring workbench
 │   ├── solids.html             Conway operator playground (uses MeshOps bridge)
 │   ├── shared.js               Three.js scene boilerplate for the 3D tool pages
 │   ├── banner.js               Dependency-free page + fatal-error banners (no Three.js)
@@ -2322,7 +2323,7 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### Shader
 
-Simulator-only pullback-shader authoring workbench with the complete structural vocabulary and configurable stage folders. Its 19 legacy presets migrate to stable fixed-pipeline product effects, while unmatched custom configurations remain editable here. The firmware rosters contain only the promoted effects.
+Simulator-only pullback-shader authoring workbench with the complete structural vocabulary and configurable stage folders. It opens as the dedicated `tools/shader.html` route rather than a normal simulator effect card. Its 19 legacy presets migrate to stable fixed-pipeline product effects, while unmatched custom configurations route here for editing. The firmware rosters contain only the promoted effects.
 
 **Parameters**: the active controls are schema-driven by the selected slots. See the vocabulary and dependency map below.
 
@@ -2740,16 +2741,17 @@ Switching presets does a full WASM reset: `setResolution(w, h)` updates the acti
 
 ### 10.11 Geometry Tools (`daydream/tools/`)
 
-Four standalone HTML pages. Three render with their own Three.js scene; `palettes.html` renders with 2D canvas contexts. Two are backed by the engine's WASM build so their math stays identical to the C++ engine — `solids.html` via the `MeshOps` class and `palettes.html` via `PaletteOps` — and both hard-require it: a failed module load raises a fatal banner instead of falling back. `lissajous.html` and `mobius.html` implement their geometry math directly in JavaScript:
+Five standalone HTML pages. Four render with Three.js; `palettes.html` renders with 2D canvas contexts. Three are backed by the engine's WASM build so their math stays identical to the C++ engine — `shader.html` through the authoring-only `Shader` effect, `solids.html` via the `MeshOps` class, and `palettes.html` via `PaletteOps` — and all three hard-require it: a failed module load raises a fatal banner instead of falling back. `lissajous.html` and `mobius.html` implement their geometry math directly in JavaScript:
 
 | Tool | What it does |
 |---|---|
 | `lissajous.html` | Designs spherical Lissajous curves with live frequency / phase sliders; outputs a C++ `LissajousParams` initializer for the engine's Lissajous effects (`ChaoticStrings`, `Comets`). |
 | `mobius.html` | Visualizes Möbius transformations on the sphere via the engine's stereographic projection; lets you sweep the four complex coefficients, see the warp on a latitude-longitude grid, and copy a C++ `MobiusParams` initializer. |
 | `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and versioned `GenerativePalette` recipes, exports complete canonical C++ recipes, and renders engine-returned LUTs and diagnostics on 2D canvas contexts. |
+| `shader.html` | Authors pullback shaders against the complete stage vocabulary with the live sphere preview and configurable stage folders. It is the destination for unmatched legacy ShaderBall documents and is deliberately absent from the normal effect-card roster. |
 | `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas (16 MB, separate from the engine's 298 KiB arena). |
 
-The three Three.js pages reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` is `'self'` with no CDN origin.
+The four Three.js pages reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` is `'self'` with no CDN origin.
 
 ---
 
