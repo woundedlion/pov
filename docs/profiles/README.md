@@ -1,21 +1,21 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **21 effects in the Phantasm image**,
+On-device timing for the **33 effects in the Phantasm image**,
 captured on bench-attached Teensy 4.0 boards running the shipping Phantasm
 configuration (`POVSegmented<288, 4, 480>`, board = segment 0 master,
 newlib-nano, DMA LEDs, flywheel + DMA ISRs live) via the `HS_PROFILE`
-cycle-counter harness. The full effect roster is 23, and
-`HS_PHANTASM_EFFECT_LIST` excludes two. Dynamo and Thrusters are Holosphere
-96×20-only, never run in the 288×144 image, and are not profiled here.
+cycle-counter harness. The full effect roster is 36, and
+`HS_PHANTASM_EFFECT_LIST` excludes three. Dynamo, MobiusRings and Thrusters are
+Holosphere 96×20-only, never run in the 288×144 image, and are not profiled
+here; `Shader` is the authoring workbench and is not a shipping effect.
 
 Each effect renders one **quadrant** ≈ **10,368 px**. A display window is
 **62.5 ms**, so cadence quantizes: 16 fps (1 window), 8 fps (2), 5.3 fps (3).
 
-**Full-roster sweep, 2026-07-26** (tip `0bbc56e3`), run in parallel across two
-boards (COM3 + COM4). Numbers are the shipping image only — the `-Os` `profile`
-env, whose `HS_O3` regions activate on the `-Os` device build, so it measures
-the shipping selective-O3 config by construction.
-`just profile <Effect>` regenerates one row.
+Numbers are the shipping image only — the `-Os` `profile` env, whose `HS_O3`
+regions activate on the `-Os` device build, so it measures the shipping
+selective-O3 config by construction. `just profile <Effect>` regenerates one
+row.
 
 ## How to read the table
 
@@ -27,9 +27,9 @@ live in each effect's report.
 
 **Spilled** is `frames whose render overran one 62.5 ms window / total (%)`.
 
-**Colour** is strict per phase: 🟢 zero spilled frames · 🟡 under 25% spilled ·
-🔴 25% or more spilled. Peak ms and spill fraction are both retained because
-cadence is quantized.
+**Colour** is binary on the spilled column: 🟢 zero spilled frames · 🔴 any
+spill, a single spilled frame included. Peak ms is reported but does not set
+colour.
 
 **§ cyclers** carry one row per colour bucket, worst first, aligned across the
 peak and spilled columns. A preset owns exactly the frames it was on screen for,
@@ -46,7 +46,6 @@ peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-15.md)§ ● | inverse pullback pipeline | 🟢 59.20 (13) | 🟢 0/2208 (0%) | 2026-08-15 16:35 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
@@ -56,17 +55,33 @@ peak.
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-07-25.md) | volume ray-march (`-O3` march path) | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
-| [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ ● | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
+| [CurlLattice](shipping/profile_curllattice_teensy_2026-08-16.md)§ ● | curl-noise surface lattice | 🟢 48.67 (2) | 🟢 0/2208 (0%) | 2026-08-16 08:38 |
+| [VectorFacets](shipping/profile_vectorfacets_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
+| [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
 | [HankinSolids](shipping/profile_hankinsolids_teensy_2026-07-25.md)§ | per-face SDF (`-O3` driver + `ConwayMorph`) | 🟢 43.0 (19) | 🟢 0/3328 (0%) | 2026-07-26 11:55 |
 | [Comets](shipping/profile_comets_teensy_2026-07-25.md)§ | point raster | 🟢 41.56 (12) | 🟢 0/4128 (0%) | 2026-07-26 11:43 |
-| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-07.md)§ ● | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 0/1728 (0%) | 2026-08-07 23:03 |
+| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-07.md)§ | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 0/1728 (0%) | 2026-08-07 23:03 |
 | [GnomonicStars](shipping/profile_gnomonicstars_teensy_2026-07-25.md) | star raster | 🟢 38.15 | 🟢 0/1088 (0%) | 2026-07-26 11:29 |
-| [Fishbowl](shipping/profile_fishbowl_teensy_2026-08-02.md) ● | adaptive vertex build | 🟢 24.85 | 🟢 0/1088 (0%) | 2026-08-02 22:21 |
-| [MobiusGrid](shipping/profile_mobiusgrid_teensy_2026-07-25.md) | curve raster | 🟢 17.24 | 🟢 0/1088 (0%) | 2026-07-26 11:35 |
+| [FacetWave](shipping/profile_facetwave_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral wave mirror | 🟢 36.01 | 🟢 0/1088 (0%) | 2026-08-16 08:34 |
+| [EquatorGrid](shipping/profile_equatorgrid_teensy_2026-08-16.md)§ ● | equirectangular dodecahedral grid | 🟢 35.91 (3) | 🟢 0/4128 (0%) | 2026-08-16 08:41 |
+| [FacetGrid](shipping/profile_facetgrid_teensy_2026-08-16.md)§ ● | stereographic dodecahedral grid mirror | 🟢 35.52 (4) | 🟢 0/4128 (0%) | 2026-08-16 08:34 |
+| [HexWave](shipping/profile_hexwave_teensy_2026-08-16.md) ● | stereographic hex-prism twin-wave | 🟢 34.45 | 🟢 0/1088 (0%) | 2026-08-16 08:36 |
+| [SignalWeave](shipping/profile_signalweave_teensy_2026-08-16.md)§ ● | stereographic glitch wave-shear grid | 🟢 31.95 (4) | 🟢 0/4768 (0%) | 2026-08-16 08:44 |
+| [PrismLattice](shipping/profile_prismlattice_teensy_2026-08-16.md) ● | stereographic prism polar lattice | 🟢 30.79 | 🟢 0/1088 (0%) | 2026-08-16 08:28 |
+| [ContourLattice](shipping/profile_contourlattice_teensy_2026-08-16.md) ● | folded gnomonic affine lattice | 🟢 28.56 | 🟢 0/1088 (0%) | 2026-08-16 08:35 |
+| [AlienOcean](shipping/profile_alienocean_teensy_2026-08-16.md) ● | folded gnomonic kaleidoscope grid | 🟢 28.20 | 🟢 0/1088 (0%) | 2026-08-16 08:30 |
+| [KaleidoWave](shipping/profile_kaleidowave_teensy_2026-08-16.md) ● | stereographic kaleidoscope twin-wave | 🟢 27.89 | 🟢 0/1088 (0%) | 2026-08-16 08:28 |
+| [CosmicEyeball](shipping/profile_cosmiceyeball_teensy_2026-08-16.md) ● | stereographic glitch mirror grid | 🟢 25.61 | 🟢 0/1088 (0%) | 2026-08-16 08:43 |
+| [Fishbowl](shipping/profile_fishbowl_teensy_2026-08-02.md) | adaptive vertex build | 🟢 24.85 | 🟢 0/1088 (0%) | 2026-08-02 22:21 |
+| [MobiusGrid](shipping/profile_mobiusgrid_teensy_2026-08-16.md)§ ● | stereographic Möbius twin-wave | 🟢 24.20 (2) | 🟢 0/2688 (0%) | 2026-08-16 08:46 |
+| [GlitchGrid](shipping/profile_glitchgrid_teensy_2026-08-16.md) ● | folded gnomonic glitch mirror grid | 🟢 23.30 | 🟢 0/1088 (0%) | 2026-08-16 08:32 |
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-07-25.md)§ | field raster | 🟢 15.9 (24) | 🟢 0/3488 (0%) | 2026-07-26 11:59 |
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-07-25.md) | ring raster | 🟢 11.71 | 🟢 0/1088 (0%) | 2026-07-26 11:37 |
 | [Voronoi](shipping/profile_voronoi_teensy_2026-07-25.md) | block-union top-2 shade | 🟢 9.90 | 🟢 0/1088 (0%) | 2026-07-26 11:46 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
+
+**● captured 2026-08-16** — the fourteen fixed-pipeline effects, first profiled
+in that sweep. The other rows keep their own `Captured` dates.
 
 ## Paired shipping/O3 captures
 
@@ -74,8 +89,10 @@ Both peak columns precede the spill columns so the codegen delta reads
 directly. Size deltas are O3 minus shipping.
 
 ShaderBall's row below is the source-matched `e920b4fa` comparison of the
-optimized core pullback pipeline. Global O3 is a measurement reference, not a
-shipping candidate.
+optimized core pullback pipeline. ShaderBall has since been retired, but the row
+stays as the codegen reference for the pipeline the fourteen fixed-pipeline
+effects inherit; none of them has a paired O3 capture yet. Global O3 is a
+measurement reference, not a shipping candidate.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
@@ -92,23 +109,53 @@ shipping candidate.
 ## Captures of retired effects
 
 `shipping/` also holds the last captures of **Flyby** and **Liquid2D**, the two
-stereographic effects ShaderBall subsumes (`../specs/shaderball_spec.md`). Neither is
-in the roster, so `just profile` cannot regenerate them; they are kept because
-ShaderBall's performance budget is sized against their per-pixel costs.
+stereographic effects ShaderBall subsumed (`../specs/shaderball_spec.md`), and of
+**ShaderBall** itself. None is in the roster, so `just profile` cannot regenerate
+them.
+
+ShaderBall was retired by the fixed-pipeline workbench migration (`69d4751c`):
+its 13-preset program bank became fourteen first-class effects, and `Shader` is
+now the authoring workbench rather than a shipping effect. Its capture is kept
+because the fourteen rows below inherit its pullback pipeline, so its per-preset
+costs are the direct predecessors of theirs. Its paired shipping/O3 row also
+stays in the table above as the codegen reference for that pipeline.
 
 ## What the roster looks like
 
-**Twenty-one effects spill nothing** in their current shipping captures.
+**All thirty-three effects spill nothing** in their current shipping captures.
+
+**The fourteen fixed-pipeline effects are green, and none is near the
+ceiling.** Their peaks run 23.30 ms (GlitchGrid) to 48.67 ms (CurlLattice), so
+the heaviest of them keeps 13.83 ms of the 62.5 ms window. They replaced
+ShaderBall, which peaked at 59.20 ms with 3.30 ms of margin, so the group's
+ceiling is 10.53 ms lower. That is not a like-for-like speedup: ShaderBall's
+ceiling was its Bonne kaleidoscope lattice program, and no effect in the new
+group uses a Bonne projection, so the worst program was dropped rather than
+made faster. The structural change — a compile-time `RenderPipeline::shade`
+inlined into the scan instead of a `ShadeFunction` pointer per endpoint — is
+unmeasured on its own.
+
+The two heaviest are the only ones doing per-sample noise work on top of a
+closed-form pullback: CurlLattice integrates a simplex curl-noise surface
+(48.67 ms) and VectorFacets carries a `Warp::VectorNoise` lookup in its outer
+warp (47.20 ms). They are more than 11 ms clear of the rest. The other twelve
+run 23.30 to 36.01 ms on closed-form stages alone, where the shade scope is a
+third to a half of the frame and the remainder is display-sync idle.
+
+Five of them cycle presets, and their spreads are narrow — EquatorGrid 1.03×
+across three presets, FacetGrid 1.19× across four, SignalWeave 1.03× across
+four. A preset morph is a 480-frame parameter interpolation, not a structural
+change, so a transition is bounded by its two endpoints rather than being a
+cost peak of its own. This is the practical difference from ShaderBall, whose
+presets swapped whole compiled programs and spanned 3.0×.
+
+None of the fourteen has a paired global-O3 capture yet; `Scan::Shader::draw_cached`
+is already `HS_O3_FN` with cached-flash placement, so the shipping image
+compiles their whole inlined shade path at `-O3`.
 
 **MindSplatter completes all eight presets at 16 fps.** The shipping cycle has
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
 38.78 ms peak while adding 21,464 B of flash and 18,832 B of ITCM.
-
-**ShaderBall's optimized core pullback pipeline is green across all 13
-presets.** The shipping fast cycle wraps 12→0, peaks at 59.20 ms, and spills
-0/2,208 frames. Preset 11 fell from 65.60 ms to 44.71 ms of held shader work;
-preset 4 is now the shipping ceiling at 54.64 ms. The matched global-O3
-reference peaks at 50.72 ms with zero spills.
 
 **MeshFeedback is green on all 12 styles** — 0/6688 at a 57.70 ms peak
 (SlowDust), worst hold Smoke at 48.86 ms of flush. `feedback_composite` is 67%

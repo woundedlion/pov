@@ -17,9 +17,11 @@ image or a guaranteed speed ceiling.
 
 § ShapeShifter spans 10.08–56.72 ms across nine matched preset buckets; all
 nine hold 16 fps.
-ShaderBall spans the current 13-preset bank; all programs stay below the
-62.5 ms display budget and spill zero frames. MindSplatter
-spans eight presets. Each report folds its initial unlabeled frames into
-preset 0.
+ShaderBall spans its 13-preset bank; all programs stay below the 62.5 ms display
+budget and spill zero frames. It has since been retired from the roster
+(`69d4751c`), but the row stays as the codegen reference for the pullback
+pipeline the fourteen fixed-pipeline effects inherit; none of those has a paired
+O3 capture yet. MindSplatter spans eight presets. Each report folds its initial
+unlabeled frames into preset 0.
 
 **● refreshed 2026-08-15.**
