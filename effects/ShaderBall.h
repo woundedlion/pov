@@ -1825,8 +1825,8 @@ private:
         float *targets[] = {&params.translation_x, &params.translation_y,
                             &params.rotation,      &params.scale_x,
                             &params.scale_y,       &params.shear};
-        const float minimum[] = {-4.0f, -4.0f, -PI_F, 0.25f, 0.25f, -0.75f};
-        const float maximum[] = {4.0f, 4.0f, PI_F, 4.0f, 4.0f, 0.75f};
+        const float minimum[] = {-4.0f, -4.0f, 0.0f, 0.25f, 0.25f, -0.75f};
+        const float maximum[] = {4.0f, 4.0f, TWO_PI_F, 4.0f, 4.0f, 0.75f};
         register_current(names[WARP_NAME_TRANSLATION_X + index], targets[index],
                          minimum[index], maximum[index]);
       }
@@ -3476,7 +3476,8 @@ private:
     if (spec.kind == WarpStageKind::AFFINE_FRAME) {
       const float phase = TWO_PI_F * wrap_t(stage_phase);
       const float phase_cos = cosf(phase);
-      rotation += phase;
+      const float phase_sin = sinf(phase);
+      rotation *= phase_sin;
       prepared.transform.affine = {
           wrap_t(stage_phase) * params.translation_x * source_period.re,
           wrap_t(stage_phase) * params.translation_y * source_period.im,
@@ -5411,7 +5412,6 @@ private:
     case WarpStageKind::AFFINE_FRAME:
       append_range_warning("Translate X", params.translation_x, -4.0f, 4.0f);
       append_range_warning("Translate Y", params.translation_y, -4.0f, 4.0f);
-      append_range_warning("Rotation", params.rotation, -PI_F, PI_F);
       append_range_warning("Scale X", params.scale_x, 0.25f, 4.0f);
       append_range_warning("Scale Y", params.scale_y, 0.25f, 4.0f);
       append_range_warning("Shear", params.shear, -0.75f, 0.75f);
@@ -5804,7 +5804,6 @@ private:
     case WarpStageKind::AFFINE_FRAME:
       return params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
              params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
-             params.rotation >= -PI_F && params.rotation <= PI_F &&
              params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
              params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
              params.shear >= -0.75f && params.shear <= 0.75f &&
@@ -6517,7 +6516,7 @@ private:
            params.speed >= WARP_SPEED_MIN && params.speed <= WARP_SPEED_MAX &&
            params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
            params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
-           params.rotation >= -PI_F && params.rotation <= TWO_PI_F &&
+           params.rotation >= 0.0f && params.rotation <= TWO_PI_F &&
            params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
            params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
            params.shear >= -0.75f && params.shear <= 0.75f &&
