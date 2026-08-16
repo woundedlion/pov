@@ -94,6 +94,8 @@ public:
   HS_COLD_MEMBER void init() override {
     configure_presets(PRESETS.size());
     state = persistent_arena.make<State>();
+    use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
+                          PARAM_CAPACITY);
 
     configure_noise(state->surface_noise, SURFACE_NOISE_SEED);
     configure_noise(state->color_noise, COLOR_NOISE_SEED);
@@ -237,6 +239,7 @@ private:
   static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr size_t PARAM_CAPACITY = 48;
   static constexpr const char *PALETTE_MAPPING_OPTIONS[] = {
       "Cup", "Bell", "Linear", "Reverse"};
   static constexpr const char *PALETTE_MAPPING_EXPORT_OPTIONS[] = {
@@ -660,7 +663,8 @@ private:
 
   static constexpr size_t FOOTPRINT_BYTES =
       gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
-      PaletteCycler::generated_arena_bytes() + sizeof(State) + alignof(State);
+      PaletteCycler::generated_arena_bytes() +
+      PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "CurlLattice persistent footprint exceeds the default "
                 "partition");

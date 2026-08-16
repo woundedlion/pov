@@ -23,6 +23,8 @@ struct CurlLatticeWhiteBox {
   using FrameState = FX::FrameState;
   using Params = FX::Params;
 
+  static constexpr size_t PARAM_CAPACITY = FX::PARAM_CAPACITY;
+
   static constexpr const auto &presets() { return FX::PRESETS; }
   static const Params &params(const FX &effect) { return effect.params; }
   static bool transition_active(const FX &effect) {
@@ -144,6 +146,7 @@ void test_curl_lattice_identity_and_presets() {
       "Hue Noise Speed",
   };
   HS_EXPECT_EQ(effect.getParameters().size(), std::size(CONTROL_NAMES));
+  HS_EXPECT_EQ(effect.getParameters().capacity(), WB::PARAM_CAPACITY);
   for (const char *name : CONTROL_NAMES)
     HS_EXPECT_TRUE(effect.getParameters().find(name) != nullptr);
 }
