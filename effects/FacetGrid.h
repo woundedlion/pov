@@ -34,9 +34,10 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "bc4486d1ec45ec54fc497a8024657221d9c95dae19c40c8e821adb6deae2174e";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "adc0dc35ed1717a84c708dc622c570b4b69a2b9c7f8c518b34bc14908311a478";
-  static constexpr std::array<std::string_view, 3> PRESET_IDS{
-      "coupled-grid", "direct-grid", "double-map"};
+      "60b40f5ab4a1311bab88507ce7af883992467501e919c034c1dac627021e97fc";
+  static constexpr std::array<std::string_view, 5> PRESET_IDS{
+      "coupled-grid", "direct-grid", "double-map", "slanted-grid",
+      "stretched-grid"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t TRANSITION_DURATION = 480;
 
@@ -240,10 +241,29 @@ private:
     return value;
   }
 
-  static constexpr std::array<Preset, 3> PRESETS{{
+  static constexpr Params slanted_grid_params() {
+    Params value = direct_grid_params();
+    value.source.pattern_freq = 2.9059f;
+    value.projection.wander = 0.165f;
+    value.mirror.speed = 0.0027299998f;
+    value.mirror.rotation = 3.455752f;
+    value.color.mapping_frequency = 1.558f;
+    return value;
+  }
+
+  static constexpr Params stretched_grid_params() {
+    Params value = slanted_grid_params();
+    value.mirror.cell_x = 0.22321875f;
+    value.mirror.cell_y = 5.085703f;
+    return value;
+  }
+
+  static constexpr std::array<Preset, 5> PRESETS{{
       {PRESET_IDS[0], "Coupled Grid", {}},
       {PRESET_IDS[1], "Direct Grid", direct_grid_params()},
       {PRESET_IDS[2], "Double Map", double_map_params()},
+      {PRESET_IDS[3], "Slanted Grid", slanted_grid_params()},
+      {PRESET_IDS[4], "Stretched Grid", stretched_grid_params()},
   }};
 
   struct Transition {
