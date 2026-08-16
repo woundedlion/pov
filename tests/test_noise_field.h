@@ -93,10 +93,10 @@ inline void test_noise_field_ridged_channel_pairs() {
   const FastNoiseLite noise = make_noise(991);
   const Vector q(-3.0f, 8.5f, 29.0f);
   for (size_t channel = 0; channel < 3; ++channel) {
-    const float c = reference_basis(noise, NoiseBasis::RIDGED3,
-                                    q + NOISE_CHANNEL_OFFSETS[channel]);
-    const float d = reference_basis(noise, NoiseBasis::RIDGED3,
-                                    q + NOISE_RIDGED_OFFSETS[channel]);
+    const float c = sample_noise_octaves(noise, NoiseBasis::RIDGED3,
+                                         q + NOISE_CHANNEL_OFFSETS[channel]);
+    const float d = sample_noise_octaves(noise, NoiseBasis::RIDGED3,
+                                         q + NOISE_RIDGED_OFFSETS[channel]);
     HS_EXPECT_NEAR(
         sample_noise_vector_channel(noise, NoiseBasis::RIDGED3, q, channel),
         0.5f * (c - d), 1e-7f);

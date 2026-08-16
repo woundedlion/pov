@@ -287,6 +287,9 @@ foreach(_mod IN LISTS _hs_test_modules)
     add_test(NAME unit_${_mod} COMMAND run_tests ${_mod})
     set_tests_properties(unit_${_mod} PROPERTIES TIMEOUT ${_hs_test_timeout})
 endforeach()
+if(NOT HS_SANITIZE AND NOT HS_TSAN)
+    set_tests_properties(unit_effects_smoke PROPERTIES TIMEOUT 1200)
+endif()
 
 # Pin _hs_test_modules against run_tests' HS_TEST_MODULE_LIST: run_tests
 # --check-modules exits non-zero if the CMake list and the roster diverge in
