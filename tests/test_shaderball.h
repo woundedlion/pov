@@ -121,6 +121,10 @@ struct ShaderBallWhiteBox {
              "ShaderBall test preset resources must fit");
     return sb.prepare_frame(preset, sb.runtime);
   }
+  static Color4 sinusoidal_curl_shade(const Vector &view,
+                                      const FrameState &frame) {
+    return SB::SinusoidalCurlLatticePipeline::shade(view, frame);
+  }
   /**
    * @brief Frame snapshot for an arbitrary config, bypassing GUI admission.
    * @details Kernel coverage sweeps combinations the authored roster does not

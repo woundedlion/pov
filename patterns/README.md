@@ -33,3 +33,7 @@ Every continuous parameter uses binary32 storage and declares its unit, domain,
 and interpolation trait. Preset records provide one value for every parameter.
 Transition edges name a descriptor-owned path policy and a bank-owned easing
 and positive duration.
+
+`curl_lattice.shader.json` is the editable source for the off-roster
+`CurlLattice` comparison effect. Its two presets share one descriptor and vary
+only the linearly interpolated sphere-noise scale.
