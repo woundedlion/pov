@@ -600,31 +600,25 @@ private:
     ++transition.evaluation;
   }
 
-  static Quaternion scaled_walk_delta(const Quaternion &delta, float amount) {
-    if (amount == 1.0f)
-      return delta;
-    if (amount == 0.0f)
-      return Quaternion();
-    return slerp(Quaternion(), delta, amount);
-  }
-
   HS_COLD_MEMBER void update_spatial_frames() {
     const Quaternion projection = projection_walk.get();
     const Quaternion projection_delta =
         projection * projection_walk_previous.conjugate();
     projection_walk_previous = projection;
-    projection_wander = (scaled_walk_delta(projection_delta.normalized(),
-                                           params.projection.wander) *
-                         projection_wander)
-                            .normalized();
+    projection_wander =
+        (FixedPipeline::scaled_rotation_delta(projection_delta.normalized(),
+                                              params.projection.wander) *
+         projection_wander)
+            .normalized();
 
     const Quaternion outer = outer_walk.get();
     const Quaternion outer_delta = outer * outer_walk_previous.conjugate();
     outer_walk_previous = outer;
-    outer_wander = (scaled_walk_delta(outer_delta.normalized(),
-                                      params.projection.camera_wander) *
-                    outer_wander)
-                       .normalized();
+    outer_wander =
+        (FixedPipeline::scaled_rotation_delta(outer_delta.normalized(),
+                                              params.projection.camera_wander) *
+         outer_wander)
+            .normalized();
 
     projection_conjugate = (make_rotation(Y_AXIS, projection_spin) *
                             base_orientation * projection_wander)

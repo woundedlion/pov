@@ -9,6 +9,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "math/geometry.h"
+
 namespace FixedPipeline {
 
 enum class InterpolationTrait : uint8_t {
@@ -52,6 +54,15 @@ inline EdgeProgress edge_progress(uint32_t evaluation, uint32_t duration,
                         : clamp_progress(static_cast<float>(evaluation) /
                                          static_cast<float>(duration));
   return {raw, ease(easing, raw)};
+}
+
+HS_HOT_FLASH_MEMBER inline Quaternion
+scaled_rotation_delta(const Quaternion &delta, float amount) {
+  if (amount == 1.0f)
+    return delta;
+  if (amount == 0.0f)
+    return Quaternion();
+  return slerp(Quaternion(), delta, amount);
 }
 
 constexpr float staggered_group_progress(float progress, size_t group,
