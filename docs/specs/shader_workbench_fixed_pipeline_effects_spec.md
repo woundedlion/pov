@@ -755,6 +755,7 @@ CONSTRUCTING|PREPARING_FIRST_FRAME|PUBLISHING_HIDDEN_FRAME
   -- recoverable failure --> RESTORING_OUT
 RESTORING_OUT -> RESTORE_FRAME_READY -> FADING_BACK -> STEADY_OUT
 RESTORING_OUT -- failure --> CLEAR_FAILSAFE
+CLEAR_FAILSAFE -- new request --> CONSTRUCTING
 ```
 
 Before fade-out, the controller validates destination identity, factory,
@@ -788,7 +789,10 @@ commits the destination; rollback therefore exposes no temporary destination
 identity. A restored outgoing effect must prepare and
 present one complete fenced frame before `FADING_BACK`. Failure to reconstruct
 or prepare that frame enters `CLEAR_FAILSAFE`, whose retry, diagnostic, and
-fail-stop behavior is target-defined.
+fail-stop behavior is target-defined. A retry is a new request, which the
+controller accepts from `CLEAR_FAILSAFE` and resumes at `CONSTRUCTING`: teardown
+has already run, output is already clear, and no outgoing effect remains to
+restore, so that request's restore capability is `NONE`.
 
 Phase D introduces status-bearing controller adapters for destination
 preflight, effect construction/init, handoff import, and first-frame

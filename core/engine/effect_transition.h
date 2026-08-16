@@ -108,9 +108,11 @@ public:
       return EffectTransitionStatus::UNAVAILABLE;
     if (state != EffectTransitionState::STEADY_OUT &&
         state != EffectTransitionState::STEADY_IN &&
-        state != EffectTransitionState::FADING_OUT)
+        state != EffectTransitionState::FADING_OUT &&
+        state != EffectTransitionState::CLEAR_FAILSAFE)
       return EffectTransitionStatus::BUSY;
 
+    const bool cleared = state == EffectTransitionState::CLEAR_FAILSAFE;
     EffectRestoreToken next_restore;
     const EffectTransitionStatus status = adapter.preflight(next, next_restore);
     if (status != EffectTransitionStatus::OK)
@@ -120,6 +122,12 @@ public:
     handoff = next_handoff;
     restore = next_restore;
     evaluation = 0;
+    if (cleared) {
+      // post-teardown: output is already clear and no outgoing remains
+      restore.capability = EffectRestoreCapability::NONE;
+      state = EffectTransitionState::CONSTRUCTING;
+      return EffectTransitionStatus::OK;
+    }
     state = EffectTransitionState::FADING_OUT;
     adapter.set_output_envelope(1.0f);
     return EffectTransitionStatus::OK;
