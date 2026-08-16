@@ -7,6 +7,7 @@ plus the small helpers reused across pcb.py / check.py / shorts.py / builder.py
 import glob
 import math
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -14,22 +15,56 @@ import uuid as _uuid
 import sexp
 
 
+# The KiCad major every committed board, schematic and fab output was generated
+# with. Pinned in tools/build_pins.py, which asserts this spelling.
+KICAD_MAJOR = 10
+
+KICAD_CLI_PATTERNS = (
+    r"C:\Program Files\KiCad\*\bin\kicad-cli.exe",
+    r"C:\Program Files (x86)\KiCad\*\bin\kicad-cli.exe",
+    "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+    "/usr/bin/kicad-cli",
+    "/usr/local/bin/kicad-cli",
+)
+
+
+def kicad_cli_major(path):
+    """Major version of the kicad-cli at `path`, or None if unreadable.
+
+    Stock Windows installs carry the version in the path; the Unix ones do not,
+    so those are asked directly.
+    """
+    major = sexp.kicad_version_key(path)[0]
+    if major:
+        return major
+    try:
+        reported = subprocess.run([path, "--version"], capture_output=True,
+                                  text=True, check=True).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    found = re.search(r"(\d+)\.\d+", reported)
+    return int(found.group(1)) if found else None
+
+
 def find_kicad_cli():
-    """Path to kicad-cli: $KICAD_CLI, else the newest install, else the PATH name."""
+    """Path to kicad-cli: $KICAD_CLI, else a KICAD_MAJOR install, else the PATH name.
+
+    Exits when installs are present but none is KICAD_MAJOR: a newer KiCad
+    upgrades the board on open and formats the fab outputs differently.
+    """
     env = os.environ.get("KICAD_CLI")
     if env and os.path.exists(env):
         return env
-    pats = [
-        r"C:\Program Files\KiCad\*\bin\kicad-cli.exe",
-        r"C:\Program Files (x86)\KiCad\*\bin\kicad-cli.exe",
-        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
-        "/usr/bin/kicad-cli",
-        "/usr/local/bin/kicad-cli",
-    ]
-    for p in pats:
-        hits = glob.glob(p)
-        if hits:
-            return max(hits, key=sexp.kicad_version_key)   # newest version
+    hits = [hit for pattern in KICAD_CLI_PATTERNS for hit in glob.glob(pattern)]
+    pinned = [hit for hit in hits if kicad_cli_major(hit) == KICAD_MAJOR]
+    if pinned:
+        return max(pinned, key=sexp.kicad_version_key)
+    if hits:
+        sys.exit(f"the fab gates are pinned to KiCad {KICAD_MAJOR}, which is not "
+                 "installed\n"
+                 f"  found: {', '.join(hits)}\n"
+                 f"  Install KiCad {KICAD_MAJOR} or set KICAD_CLI to its "
+                 "kicad-cli.")
     return "kicad-cli"                 # assume on PATH
 
 
