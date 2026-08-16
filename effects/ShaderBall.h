@@ -2349,8 +2349,8 @@ private:
     static float oscillation_phase(const FrameState &frame) {
       return frame.clocks.palette_oscillation_phase;
     }
-    static Color4 palette(const FrameState &frame, float value) {
-      return frame.resources.generated_palette->get(value);
+    static const BakedPalette &palette(const FrameState &frame) {
+      return *frame.resources.generated_palette;
     }
     static Pullback::Color::HueMode hue_mode(const FrameState &frame) {
       return static_cast<Pullback::Color::HueMode>(frame.slots.hue_shift);
