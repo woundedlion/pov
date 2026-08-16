@@ -26,7 +26,7 @@ TOPOLOGY_FIELDS = (
 ORACLE_FILES = ("peirce_fast_square.json", "hue_rotation_noise_luts.json")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 CASE_IDS = {"default", "endpoint_min", "endpoint_max", "interior"}
-PRESET_COUNT = 14
+PRESET_COUNT = 15
 
 
 class ManifestError(ValueError):
