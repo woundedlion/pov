@@ -1180,8 +1180,8 @@ global-O3 reference has five red presets and is rejected for shipping. The
 shipping report preserves the former 17-preset indices and exact current
 remap. The full-roster memory gate includes ShaderBall. Take the spill, peak,
 and byte figures from the
-[shipping profile](../profiles/shipping/profile_shaderball_teensy_2026-08-14.md),
-[global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-14.md),
+[shipping profile](../profiles/shipping/profile_shaderball_teensy_2026-08-15.md),
+[global-O3 reference](../profiles/O3/profile_shaderball_teensy_2026-08-15.md),
 and [ITCM ledger](../ledgers/itcm_ledger.md) rather than restating them here.
 The timing captures measure the authored bank directly; the ledger remains a
 separate full-roster resource gate. Regenerate both after preset, kernel, or
@@ -1686,8 +1686,8 @@ Holosphere:
 - `tests/test_effects.h`: white-box blocks + runner calls (§10);
   `run_tests.cpp` roster row — case count and assertion floor (§10).
 - `tests/test_param_marshal.h`: GOLDEN_ROSTER (§10).
-- `README.md`: two gallery cards → one (`?effect=ShaderBall`,
-  `docs/screenshots/ShaderBall.png`, alt, heading) **plus** the prose
+- `README.md`: two gallery cards → one (`?effect=ShaderBall`, later migrated to
+  `?effect=Shader` with `docs/screenshots/Shader.png`) **plus** the prose
   references: the pipeline walkthrough naming both effects, the
   `stereo_noise_warp` section, the `hue_rotate` doc, and the gamut-LUT
   passage ("`Flyby` and `MeshFeedback` arm a copy").

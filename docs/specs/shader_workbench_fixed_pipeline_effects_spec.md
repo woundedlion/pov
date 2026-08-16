@@ -1,13 +1,13 @@
 # Shader workbench and fixed-pipeline effects
 
-**Status: PROPOSED, revision 7 (2026-08-15). Nothing in this document is
-shipped.** This proposal defines the authoring and product architecture
-that follows the extraction of the pullback pipeline and operator catalog. It
-does not change the formulas or shipping behavior specified by
+**Status: LANDED, revision 8 (2026-08-16).** The migration shipped in
+`69d4751c`. This document defines the authoring and product architecture that
+follows the extraction of the pullback pipeline and operator catalog. The
+underlying formulas and rendering behavior remain specified by
 [pullback_pipeline_spec.md](pullback_pipeline_spec.md),
 [inverse_sampling_pipeline_spec.md](inverse_sampling_pipeline_spec.md), or
-[shaderball_spec.md](shaderball_spec.md) until the migration phases in Section
-14 land.
+[shaderball_spec.md](shaderball_spec.md); Section 14 records the completed
+migration.
 
 ## 1. Decision
 
@@ -39,9 +39,9 @@ The effect's stable `effect_id` is its only shipping identity. The term
 "family" is reserved for informal product discussion and has no schema or code
 meaning.
 
-ShaderBall remains the shipping compatibility implementation while migration
-is in progress. After all retained looks have been promoted, ShaderBall shall
-leave the shipping roster. Its dynamic authoring role is replaced by Shader.
+`ShaderBall` remains only as the dynamic implementation behind the
+simulator-only `Shader` workbench and as a legacy WASM alias. It is excluded
+from firmware, where the retained looks are first-class fixed-pipeline effects.
 
 ## 2. Motivation
 
@@ -1086,34 +1086,31 @@ authoring case, especially for branch semantics.
 
 ## 18. Specification relationship
 
-Until Phase E completes, [shaderball_spec.md](shaderball_spec.md) and
-[inverse_sampling_pipeline_spec.md](inverse_sampling_pipeline_spec.md) remain
-authoritative for shipping ShaderBall behavior.
-
 [pullback_pipeline_spec.md](pullback_pipeline_spec.md) remains authoritative
 for the ownership and contracts of the core pullback catalog. This document
 does not move effect lifecycle, mutable resources, or universal frame state
-into core. It changes the eventual consumers: Shader becomes the dynamic
-authoring consumer, and fixed-pipeline effects become the shipping consumers.
+into core. `Shader` is the dynamic authoring consumer, and fixed-pipeline
+effects are the shipping consumers.
 
-When migration completes, the ShaderBall specification becomes a historical
-compatibility and migration record. Each promoted effect shall have either a
-small effect-specific specification or a generated descriptor plus hand-owned
-effect policy sufficient to define its behavior.
+[shaderball_spec.md](shaderball_spec.md) and
+[inverse_sampling_pipeline_spec.md](inverse_sampling_pipeline_spec.md) now
+serve as historical compatibility and migration records for the retired
+shipping container. Each promoted effect has a canonical generated descriptor
+plus hand-owned effect policy defining its behavior.
 
-## 19. Completion criteria
+## 19. Completion record
 
-This proposal is complete when:
+The landed migration satisfies these criteria:
 
-- Shader can save, load, snap, validate, and preview structural documents;
+- Shader saves, loads, snaps, validates, and previews structural documents;
 - canonical effect semantics include graph, interpolation, clocks,
   preparation, resources, serialization, approximation, and handoff policies;
 - stable effect/preset IDs and legacy aliases replace names and positions on
   persisted and tooling surfaces;
 - transactional export deterministically stages an added preset or new effect,
   or rejects it without changing the committed bundle;
-- at least two structurally different fixed-pipeline effects ship through the common
-  contracts without dynamic per-pixel dispatch;
+- fourteen structurally different fixed-pipeline effects ship through the
+  common contracts without dynamic per-pixel dispatch;
 - a sequential two-lens graph can be represented and, once retained, exported
   through an explicit sequence policy;
 - dynamic-versus-compiled captures are generated and pass for every export;
