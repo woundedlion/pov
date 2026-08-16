@@ -45,6 +45,11 @@ count after the peak.
 **● captured 2026-08-16** — the fourteen fixed-pipeline effects, first profiled
 in that sweep.
 
+**Nine rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids, Comets,
+GnomonicStars, SphericalHarmonics, PetalFlow, Voronoi and RingShower. Their
+per-effect reports describe the 2026-07-25 sweep that preceded it, so each
+report's headline peak is the earlier one and the peaks above are current.
+
 § ShapeShifter spans nine presets; its initial unlabeled frames and later
 `Preset: 1/9` frames are one adaptive 208-count planar-star bucket.
 MindSplatter spans eight presets. Each report folds its initial unlabeled

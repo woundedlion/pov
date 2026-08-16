@@ -5,6 +5,11 @@ Raw capture: `build/prof/ringshower_ship.log`. Replaces the 2026-07-20 report;
 half of a matched same-session ship/O3 pair from the full-roster 2026-07-25
 sweep (tip `32478115`).
 
+The roster index ([`../README.md`](../README.md)) ranks this row from a
+2026-07-26 11:40 log that postdates this report: the index peak is the current
+figure and the numbers below are the earlier capture. `just profile RingShower`
+regenerates this report against a fresh log.
+
 ## Setup
 
 | | |

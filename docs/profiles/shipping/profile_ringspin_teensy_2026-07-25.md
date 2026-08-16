@@ -9,6 +9,11 @@ swept-band trail rework (`83206a52`) briefly took peak to 36 ms but was
 destroyed the discrete-ring trail texture). This report describes the shipping
 state at tip `99f1dfa4`: the original look, rendered by the row-local walk.
 
+The roster index ([`../README.md`](../README.md)) ranks this row from a
+2026-07-26 11:44 log that postdates this report: the index peak is the current
+figure and the numbers below are the earlier capture. `just profile RingSpin`
+regenerates this report against a fresh log.
+
 ## Setup
 
 | | |

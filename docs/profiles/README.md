@@ -83,6 +83,12 @@ peak.
 **● captured 2026-08-16** — the fourteen fixed-pipeline effects, first profiled
 in that sweep. The other rows keep their own `Captured` dates.
 
+**Nine rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids, Comets,
+GnomonicStars, SphericalHarmonics, PetalFlow, Voronoi and RingShower. Their
+per-effect reports describe the 2026-07-25 sweep that preceded it, so each
+report's headline peak is the earlier one and the peaks above are current. `just
+profile <Effect>` brings a report back level with its row.
+
 ## Paired shipping/O3 captures
 
 Both peak columns precede the spill columns so the codegen delta reads
