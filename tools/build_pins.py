@@ -3,9 +3,9 @@
 
 PINS are injected (--github-output / a named lookup) and must appear in no
 build file literally. INLINE_PINS cannot be injected -- they name an action
-input, an apt package or a pip requirement resolved before this script could
-run -- so --check pins them by consistency instead: every spelling of them in
-INLINE_SCAN must derive from the value here.
+input, an apt package, a pip requirement resolved before this script could run,
+or an application installed by hand -- so --check pins them by consistency
+instead: every spelling of them in INLINE_SCAN must derive from the value here.
 
 SHARED_LITERALS are pinned the same way: strings two build files must spell
 identically because neither can read the other.
@@ -58,6 +58,9 @@ INLINE_PINS = {
     # serves -- including the host's own copy of the key.
     "llvm-key-sha256":
         "8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d",
+    # The major of the desktop KiCad install the fab gates shell out to. It is
+    # installed from KiCad's own installer, so no build file can inject it.
+    "kicad": "10",
 }
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,10 +83,12 @@ INLINE_SCAN = (
     ROOT / "justfile",
     ROOT / "scripts/generate_luts.py",
     ROOT / ".githooks/pre-commit",
+    ROOT / "hardware/phantasm/gen/kicad_common.py",
     # Prose, but a contributor installs what it tells them to: a stale spelling
     # here sends them to a version the format gate then rejects.
     ROOT / "README.md",
     ROOT / "CONTRIBUTING.md",
+    ROOT / "hardware/phantasm/README.md",
 )
 
 # (pattern, pin name, expected form of the pin value). The pattern's single
@@ -107,6 +112,8 @@ INLINE_USES = (
     (r"([0-9a-f]{64})  doxygen\.tar\.gz", "doxygen-sha256", lambda v: v),
     (r"([0-9a-f]{64})  /tmp/llvm-snapshot\.gpg\.key", "llvm-key-sha256",
      lambda v: v),
+    (r"KICAD_MAJOR = (\d+)", "kicad", lambda v: v),
+    (r"\bKiCad (\d+)\b", "kicad", lambda v: v),
 )
 
 # The extensions the clang-format gate covers. ci.yml and the justfile select
