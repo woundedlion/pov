@@ -104,14 +104,13 @@ void test_facet_grid_identity_and_presets() {
   using WB = FacetGridWhiteBox;
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "facet-grid");
-  HS_EXPECT_EQ(WB::presets().size(), size_t{5});
+  HS_EXPECT_EQ(WB::presets().size(), size_t{4});
   HS_EXPECT_EQ(sizeof(WB::Params), 26 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderBallWB::FrameState));
   HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "coupled-grid");
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "direct-grid");
   HS_EXPECT_TRUE(FX::PRESET_IDS[2] == "double-map");
-  HS_EXPECT_TRUE(FX::PRESET_IDS[3] == "slanted-grid");
-  HS_EXPECT_TRUE(FX::PRESET_IDS[4] == "stretched-grid");
+  HS_EXPECT_TRUE(FX::PRESET_IDS[3] == "stretched-grid");
   HS_EXPECT_NEAR(WB::presets()[0].params.source.complexity, 0.513f, 0.0f);
   HS_EXPECT_NEAR(WB::presets()[1].params.source.complexity, 3.0f, 0.0f);
   HS_EXPECT_NEAR(WB::presets()[2].params.color.mapping_frequency, 2.0f, 0.0f);
@@ -145,13 +144,6 @@ void test_facet_grid_identity_and_presets() {
         params.color.hue_noise_speed,
     };
   };
-  constexpr std::array<float, 26> SLANTED_EXPECTED{
-      2.9059f,    0.0f,        0.026999999f, 3.0f, 1.0f,          0.8f,
-      3.432f,     0.0f,        0.165f,       1.0f, 0.0027299998f, 3.455752f,
-      1.0f,       0.99770314f, 0.0f,         0.0f, 1.0f,          1.558f,
-      0.0f,       0.0f,        0.0f,         1.0f, 1.0f,          0.366f,
-      1.4721563f, 0.0f,
-  };
   constexpr std::array<float, 26> STRETCHED_EXPECTED{
       2.9059f,     0.0f,      0.026999999f, 3.0f, 1.0f,          0.8f,
       3.432f,      0.0f,      0.165f,       1.0f, 0.0027299998f, 3.455752f,
@@ -159,12 +151,9 @@ void test_facet_grid_identity_and_presets() {
       0.0f,        0.0f,      0.0f,         1.0f, 1.0f,          0.366f,
       1.4721563f,  0.0f,
   };
-  const std::array<float, 26> slanted_actual = values(WB::presets()[3].params);
   const std::array<float, 26> stretched_actual =
-      values(WB::presets()[4].params);
-  for (size_t index = 0; index < SLANTED_EXPECTED.size(); ++index) {
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(slanted_actual[index]),
-                 std::bit_cast<uint32_t>(SLANTED_EXPECTED[index]));
+      values(WB::presets()[3].params);
+  for (size_t index = 0; index < STRETCHED_EXPECTED.size(); ++index) {
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(stretched_actual[index]),
                  std::bit_cast<uint32_t>(STRETCHED_EXPECTED[index]));
   }
@@ -212,7 +201,7 @@ void test_facet_grid_transition_contract() {
   reset_effect_globals();
   FX effect;
   effect.init();
-  HS_EXPECT_EQ(effect.getPresetCount(), size_t{5});
+  HS_EXPECT_EQ(effect.getPresetCount(), size_t{4});
   HS_EXPECT_TRUE(WB::begin_automatic_transition(effect));
   HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});

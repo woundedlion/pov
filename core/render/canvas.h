@@ -8,6 +8,7 @@
 // stripping does not depend on include order.
 #include "engine/platform.h"
 #include <cstring>
+#include <cmath>
 #include <cassert>
 #include <algorithm>
 #include <atomic>
@@ -296,6 +297,23 @@ public:
    */
   [[nodiscard]] virtual bool overrides_get_pixel() const { return false; }
 
+  /** @brief Sets the complete-output transition envelope in [0,1]. */
+  void set_output_envelope(float value) {
+    HS_CHECK(std::isfinite(value) && value >= 0.0f && value <= 1.0f,
+             "output envelope must be finite and in [0,1]");
+    output_envelope = static_cast<uint16_t>(value * 65535.0f + 0.5f);
+  }
+
+  [[nodiscard]] uint16_t output_envelope_u16() const { return output_envelope; }
+
+  [[nodiscard]] Pixel apply_output_envelope(const Pixel &pixel) const {
+    auto scale = [this](uint16_t channel) {
+      return static_cast<uint16_t>(
+          (static_cast<uint32_t>(channel) * output_envelope + 32767u) / 65535u);
+    };
+    return {scale(pixel.r), scale(pixel.g), scale(pixel.b)};
+  }
+
   /**
    * @brief Gets the width of the effect.
    * @return The width.
@@ -552,6 +570,7 @@ protected:
    * @brief Flag indicating if the previous frame's pixels should be copied to
    * the new buffer (for trails/decay).
    */
+  uint16_t output_envelope = 65535u;
   bool persist_pixels;
   /**
    * @brief Full-canvas render gate (see needs_full_frame()); set once at

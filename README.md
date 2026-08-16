@@ -234,6 +234,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
 │   │   ├── effect_registry.h       Self-registering factory: REGISTER_EFFECT macro
+│   │   ├── effect_transition.h     Fenced one-endpoint effect transition controller
 │   │   ├── effect_params.h         ParamDef descriptors + the fixed-capacity ParamList registry
 │   │   ├── fixed_pipeline.h        Shared fixed-pipeline preset transition helpers
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
@@ -319,8 +320,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    26 headers: one per effect (25) plus the shared
-│                                ReactionDiffusionBase.h:
+├── effects/                    27 headers covering 37 effects plus shared bases:
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
 │                                Raymarch.h, … — see §9 Effects Reference
 │

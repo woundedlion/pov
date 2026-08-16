@@ -10,11 +10,49 @@
 #pragma once
 
 #include "pov_sync_protocol.h"
+#include "core/math/3dmath.h"
 
 #include <cstdint>
 
 namespace pov {
 namespace sync {
+
+/** Synchronized fade-through-clear envelope for one displayed column. */
+inline float effect_output_envelope(uint32_t rev_in_effect,
+                                    uint32_t effect_revolutions, int32_t column,
+                                    int32_t width,
+                                    uint32_t fade_revolutions = 2) {
+  if (fade_revolutions == 0 || width <= 0 || column < 0)
+    return 1.0f;
+
+  const uint64_t fade_columns = static_cast<uint64_t>(fade_revolutions) * width;
+  uint64_t elapsed_columns = 0;
+  bool fading_out = false;
+  if (rev_in_effect < fade_revolutions) {
+    elapsed_columns = static_cast<uint64_t>(rev_in_effect) * width + column;
+  } else if (effect_revolutions > fade_revolutions &&
+             rev_in_effect >= effect_revolutions - fade_revolutions) {
+    if (rev_in_effect >= effect_revolutions)
+      return 0.0f;
+    elapsed_columns =
+        static_cast<uint64_t>(rev_in_effect -
+                              (effect_revolutions - fade_revolutions)) *
+            width +
+        column;
+    fading_out = true;
+  } else {
+    return 1.0f;
+  }
+
+  if (elapsed_columns == 0)
+    return fading_out ? 1.0f : 0.0f;
+  if (elapsed_columns >= fade_columns)
+    return fading_out ? 0.0f : 1.0f;
+  const float progress =
+      static_cast<float>(elapsed_columns) / static_cast<float>(fade_columns);
+  const float eased = 0.5f - 0.5f * fast_cosf(PI_F * progress);
+  return fading_out ? 1.0f - eased : eased;
+}
 
 // ── Layer 3: beacon codec (spec §6.4) ───────────────────────────────────────
 

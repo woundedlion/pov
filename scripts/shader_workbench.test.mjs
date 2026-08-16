@@ -247,3 +247,22 @@ test('normalized interpolation evaluates complete groups and rejects antipodes',
     (error) => error.code === 'DEGENERATE_NORMALIZED_PATH',
   );
 });
+
+test('every ShaderBall preset has one stable migration destination', async () => {
+  const migration = JSON.parse(await readFile(
+    new URL('../patterns/shaderball_migration.json', import.meta.url), 'utf8'));
+  assert.equal(migration.legacy_alias, 'ShaderBall');
+  assert.equal(migration.authoring_effect, 'Shader');
+  assert.deepEqual(migration.destinations.map((entry) => entry.legacy_preset),
+    Array.from({ length: 19 }, (_, index) => index));
+  assert.equal(new Set(migration.destinations
+    .map((entry) => `${entry.effect_id}/${entry.preset_id}`)).size, 19);
+  assert.equal(migration.product_group.children
+    .reduce((total, child) => total + child.seconds, 0), 120);
+  const childIds = new Set(migration.product_group.children
+    .map((child) => child.effect_id));
+  for (const destination of migration.destinations) {
+    assert.equal(childIds.has(destination.effect_id), true,
+      `${destination.effect_id} is missing from product discovery`);
+  }
+});

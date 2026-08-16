@@ -3309,6 +3309,33 @@ inline void test_budget_wire_dead() {
   HS_EXPECT_GE(sim.boards[1].board.telemetry_snapshot().max_coast_halves, 250u);
 }
 
+inline void test_effect_output_envelope() {
+  constexpr uint32_t DURATION_REVS = 48;
+  constexpr int WIDTH = 288;
+  HS_EXPECT_EQ(effect_output_envelope(0, DURATION_REVS, 0, WIDTH), 0.0f);
+  HS_EXPECT_NEAR(effect_output_envelope(1, DURATION_REVS, 0, WIDTH), 0.5f,
+                 1e-6f);
+  HS_EXPECT_EQ(effect_output_envelope(2, DURATION_REVS, 0, WIDTH), 1.0f);
+  HS_EXPECT_EQ(effect_output_envelope(46, DURATION_REVS, 0, WIDTH), 1.0f);
+  HS_EXPECT_NEAR(effect_output_envelope(47, DURATION_REVS, 0, WIDTH), 0.5f,
+                 1e-6f);
+  HS_EXPECT_EQ(effect_output_envelope(48, DURATION_REVS, 0, WIDTH), 0.0f);
+
+  float previous_in = 0.0f;
+  float previous_out = 1.0f;
+  for (int column = 1; column < 2 * WIDTH; ++column) {
+    const uint32_t rev = static_cast<uint32_t>(column / WIDTH);
+    const int x = column % WIDTH;
+    const float fade_in = effect_output_envelope(rev, DURATION_REVS, x, WIDTH);
+    const float fade_out =
+        effect_output_envelope(46 + rev, DURATION_REVS, x, WIDTH);
+    HS_EXPECT_GE(fade_in, previous_in);
+    HS_EXPECT_LE(fade_out, previous_out);
+    previous_in = fade_in;
+    previous_out = fade_out;
+  }
+}
+
 // ── Runner ──────────────────────────────────────────────────────────────────
 
 /**
@@ -3363,6 +3390,7 @@ inline int run_pov_sync_tests() {
   test_sim_rev_wrap_within_effect();
   test_epoch_same_tick_burst_fold();
   test_construction_window_predicates();
+  test_effect_output_envelope();
 
   test_budget_lost_symbol();
   test_budget_emi_accepted_seam();

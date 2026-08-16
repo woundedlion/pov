@@ -50,7 +50,8 @@ template <typename T> constexpr const void *effect_type_key() {
  *          the creator produces, and its byte size.
  */
 struct FactoryEntry {
-  std::string_view name; /**< Effect class name (string literal). */
+  std::string_view name;      /**< Effect class name (string literal). */
+  std::string_view stable_id; /**< Persisted effect identity. */
   std::function<std::unique_ptr<Effect>()>
       creator; /**< Allocates a new effect instance. */
   const void *type_key =
@@ -186,6 +187,10 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
   struct ClassName##_Registrar {                                                 \
     template <int W, int H> static void fill(FactoryEntry &e) {                  \
       e.name = #ClassName;                                                       \
+      if constexpr (requires { ClassName<W, H>::EFFECT_ID; })                    \
+        e.stable_id = ClassName<W, H>::EFFECT_ID;                                \
+      else                                                                       \
+        e.stable_id = #ClassName;                                                \
       e.creator = []() -> std::unique_ptr<Effect> {                              \
         return std::make_unique<ClassName<W, H>>();                              \
       };                                                                         \

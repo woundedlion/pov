@@ -629,8 +629,7 @@ than silently skewing the show — and because the budget is K for every
 hearer, the trap can only mean a firmware bug, never a missed symbol. K is
 chosen comfortably above the slowest measured effect init. Construction
 itself is deterministic across boards: the driver reseeds `hs::random()`
-with `hs::epoch_seed(effect index)` for every effect build (epoch 0 keeps
-the identity seed 1337), so each visit gets a fresh stream and the new
+with the roster-position-independent stable effect seed for every build, so the new
 instance is bit-identical across boards no matter what a board rendered —
 or whether it even existed — before the epoch. The index is the
 beacon-synchronized absolute index (§6.4).
@@ -650,6 +649,37 @@ arm) a one-frame `t` offset is a visible junction seam on fast stateless
 effects, so the epoch reset is what bounds it, not per-flip equality alone. This
 replaces the `millis()`-gated `show<E>(120)` sequencing with epoch-counted
 sequencing.
+
+#### 6.1.1 Fenced fade-through-clear envelope
+
+Device fades use `F = 2` revolutions on each side of the clear interval. The
+outgoing envelope is derived from the synchronized `rev_in_effect` counter, not
+from receipt time of the EPOCH symbol: it is exactly one through the earlier
+revolutions, follows `1 - EASE_IN_OUT_SIN(progress)` over the final F
+revolutions, and is exactly zero at boundary B. A board that accepts only a
+repeat therefore has the same envelope as a board that accepted the primary.
+A late joiner derives the same value from the beacon revolution field.
+
+The output remains exactly zero from B through B+R+K. The clear presentation
+acknowledgement is the first accepted all-black DMA submission followed by the
+boundary flip that opens its display window. Outgoing resources may be released
+only after that acknowledgement. The incoming effect prepares frame zero during
+K, publishes it with a zero output envelope, and waits for the same accepted-DMA
+plus-boundary acknowledgement. Destination identity commits only after that
+hidden-frame fence at B+R+K. The envelope then follows
+`EASE_IN_OUT_SIN(progress)` for F revolutions and reaches exact one at the end.
+No wake renders both endpoints.
+
+Repeated EPOCH symbols are idempotent. Losing the primary or any proper subset
+of repeats does not affect envelope timing. A board that loses the entire train
+stays clear after its locally scheduled fade-out; the confirmed beacon recovery
+selects the destination and rejoins on the §6.5 grid with the incoming envelope
+derived from the synchronized revolution count. A replacement index confirmed
+before B replaces the pending destination. At or after the clear fence it is a
+new transaction and cannot alter the in-flight commit. Construction, handoff,
+or first-frame failure remains clear and fail-stops on Phantasm; it never
+re-publishes a partial frame or the destination identity. Content clocks may
+pause, but the synchronization-owned envelope and its commit deadlines do not.
 
 Because all boards iterate the **same** `HS_PHANTASM_EFFECT_LIST` order, the epoch mark
 need only say "advance," not "advance to N." The absolute index rides the §6.4

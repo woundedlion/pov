@@ -89,8 +89,8 @@ _SELF_REPO_PATH_RE = re.compile(
 # tree, effects from the roster macro's cardinality.
 _EFFECTS_TREE_ROW = "README.md"
 _EFFECTS_ROW_RE = re.compile(
-    r"\beffects/\s+(?P<headers>\d+) headers: one per effect "
-    r"\((?P<effects>\d+)\)")
+    r"\beffects/\s+(?P<headers>\d+) headers(?: covering (?P<effects>\d+) effects|: "
+    r"one per effect \((?P<legacy_effects>\d+)\))")
 _EFFECTS_DIR = PurePosixPath("effects")
 _EFFECT_ROSTER_SOURCE = PurePosixPath("core/engine/effects.h")
 _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
@@ -648,7 +648,7 @@ def effects_row_issues(text: str, entries: set[PurePosixPath],
                 _EFFECTS_TREE_ROW, number,
                 f"effects/ row claims {drawn_headers} headers, "
                 f"the tracked tree has {headers}"))
-        drawn_effects = int(match.group("effects"))
+        drawn_effects = int(match.group("effects") or match.group("legacy_effects"))
         if roster is None:
             issues.append(Issue(
                 _EFFECTS_TREE_ROW, number,

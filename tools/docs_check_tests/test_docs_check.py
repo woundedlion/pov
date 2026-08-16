@@ -339,6 +339,15 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(
             dc.effects_row_issues(row, entries, {"Comets", "Voronoi"}), [])
 
+    def test_matching_compact_effects_row_is_clean(self):
+        entries = {PurePosixPath("effects"),
+                   PurePosixPath("effects/Comets.h"),
+                   PurePosixPath("effects/PromotedLooks.h")}
+        row = "├── effects/  2 headers covering 3 effects plus shared bases\n"
+        self.assertEqual(
+            dc.effects_row_issues(
+                row, entries, {"Comets", "SignalWeave", "KaleidoWave"}), [])
+
     def test_effects_row_counts_are_checked_against_tree_and_roster(self):
         entries = {PurePosixPath("effects"),
                    PurePosixPath("effects/Comets.h"),
