@@ -33,7 +33,7 @@ const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 3);
 // The 2048 default is calibrated on the -O3 release build; -O0 debug frames run
 // severalfold larger, so ci.yml overrides via WASM_SMOKE_STACK_CEILING.
 const STACK_HWM_CEILING_BYTES = Number(process.env.WASM_SMOKE_STACK_CEILING ?? 2048);
-// ShaderBall's compiled-pipeline sweep peaks near 3.2 KB and retains half of
+// Shader's dynamic reference sweep peaks near 3.2 KB and retains half of
 // the release stack as headroom under this effect-specific ratchet.
 const SHADERBALL_STACK_HWM_CEILING_BYTES = 4096;
 
@@ -171,17 +171,17 @@ async function main() {
           fail(`setEffect("${name}") was rejected at ${w}x${h}`);
           continue;
         }
-        if (name === 'ShaderBall') {
+        if (name === 'Shader') {
           const presetCount = engine.getPresetCount();
           for (let preset = 0; preset < presetCount; preset++) {
             if (!engine.selectPreset(preset)) {
-              fail(`ShaderBall: selectPreset(${preset}) of ${presetCount} failed`);
+              fail(`Shader: selectPreset(${preset}) of ${presetCount} failed`);
               continue;
             }
             engine.drawFrame();
           }
           if (!engine.selectPreset(0)) {
-            fail('ShaderBall: could not restore preset 0 after the preset sweep');
+            fail('Shader: could not restore preset 0 after the preset sweep');
           }
           engine.setAnimationsPaused(false);
         }
@@ -226,7 +226,7 @@ async function main() {
         // The stack traps nowhere: guard it with the creep budget, not
         // hwm > capacity (unreachable — see STACK_HWM_CEILING_BYTES).
         const stack = m.stack;
-        const stackCeiling = name === 'ShaderBall'
+        const stackCeiling = name === 'Shader'
           ? Math.max(STACK_HWM_CEILING_BYTES, SHADERBALL_STACK_HWM_CEILING_BYTES)
           : STACK_HWM_CEILING_BYTES;
         const stackGate = stackCreepBudget(stack, stackCeiling);
@@ -439,24 +439,27 @@ async function main() {
       engine.setAnimationsPaused(false);
     }
 
-    // ── ShaderBall authoring route ──────────────────────────────────────────
+    // ── Shader authoring route ──────────────────────────────────────────────
     {
       const R = Module.ParamSetResult;
       const close = (a, b) => Number.isFinite(a) && Number.isFinite(b) &&
         Math.abs(a - b) <= 1e-3 * (1 + Math.abs(b));
       if (engine.setEffect('ShaderBall') !== ES.INSTALLED) {
-        fail('shaderball-authoring: setEffect("ShaderBall") failed');
+        fail('shader-authoring: legacy setEffect("ShaderBall") alias failed');
+      }
+      if (engine.setEffect('Shader') !== ES.INSTALLED) {
+        fail('shader-authoring: setEffect("Shader") failed');
       } else {
         if (engine.setParameter('Lens', 2) !== R.APPLIED) {
-          fail('shaderball-authoring: Twist lens write failed');
+          fail('shader-authoring: Twist lens write failed');
         }
         engine.drawFrame();
         let snapshot = engine.getFullConfigSnapshot();
         if (!snapshot || snapshot.pendingFieldIds.length !== 0) {
-          fail('shaderball-authoring: valid uncompiled Twist lens stayed pending');
+          fail('shader-authoring: valid uncompiled Twist lens stayed pending');
         }
 
-        engine.setEffect('ShaderBall');
+        engine.setEffect('Shader');
         engine.setParameter('Planar Warp 1', 4);
         engine.setParameter('Planar Warp 1 Scale', 1);
         engine.setParameter('Planar Warp 1 Strength', 1);
@@ -465,19 +468,40 @@ async function main() {
         const strength = engine.getParameterDefinitions().find(
           (definition) => definition.name === 'Planar Warp 1 Strength');
         if (!strength || !close(strength.value, strength.max)) {
-          fail(`shaderball-authoring: Curl Flow strength ${strength?.value} ` +
+          fail(`shader-authoring: Curl Flow strength ${strength?.value} ` +
             `was not clamped to ${strength?.max}`);
         }
         snapshot = engine.getFullConfigSnapshot();
         if (!snapshot || snapshot.pendingFieldIds.length !== 0) {
-          fail('shaderball-authoring: valid Curl Flow configuration stayed pending');
+          fail('shader-authoring: valid Curl Flow configuration stayed pending');
         }
 
         engine.setParameter('Function', 6);
         engine.drawFrame();
         snapshot = engine.getFullConfigSnapshot();
         if (!snapshot || snapshot.pendingFieldIds.length === 0) {
-          fail('shaderball-authoring: incompatible sphere source bypassed admission');
+          fail('shader-authoring: incompatible sphere source bypassed admission');
+        }
+      }
+      engine.setAnimationsPaused(false);
+    }
+
+    // Stable fixed-effect and preset identities are independent of C++ names
+    // and generated array positions.
+    {
+      if (engine.setEffect('mobius-grid') !== ES.INSTALLED) {
+        fail('stable-identity: setEffect("mobius-grid") failed');
+      } else {
+        const ids = Array.from(engine.getPresetIds());
+        if (ids.join(',') !== 'mobius-grid,mobius-grid-2') {
+          fail(`stable-identity: unexpected Mobius preset IDs ${ids}`);
+        }
+        if (!engine.selectPresetById('mobius-grid-2') ||
+            engine.getPresetIndex() !== 1) {
+          fail('stable-identity: mobius-grid-2 selection failed');
+        }
+        if (engine.selectPresetById('missing-preset')) {
+          fail('stable-identity: unknown preset was accepted');
         }
       }
       engine.setAnimationsPaused(false);
@@ -493,7 +517,7 @@ async function main() {
         // later value read: it must hold across frames, reads and param writes,
         // hold across a rejected load, and advance by exactly one per accepted
         // load (effect_loads in wasm.cpp).
-        // The authoring probe above may leave a ShaderBall schema refresh for
+        // The authoring probe above may leave a Shader schema refresh for
         // its next frame. Settle it before measuring generation immutability.
         engine.drawFrame();
         engine.getParameterDefinitions();

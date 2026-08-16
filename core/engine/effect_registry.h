@@ -50,6 +50,8 @@ template <typename T> constexpr const void *effect_type_key() {
  *          the creator produces, and its byte size.
  */
 struct FactoryEntry {
+  using PresetIdFn = std::string_view (*)(size_t);
+
   std::string_view name;      /**< Effect class name (string literal). */
   std::string_view stable_id; /**< Persisted effect identity. */
   std::function<std::unique_ptr<Effect>()>
@@ -57,6 +59,8 @@ struct FactoryEntry {
   const void *type_key =
       nullptr;     /**< effect_type_key() of the type creator() builds. */
   size_t size = 0; /**< sizeof the effect at this resolution, in bytes. */
+  PresetIdFn preset_id =
+      nullptr; /**< Registry-only stable preset lookup, when declared. */
 };
 
 // Single source of truth for the supported render resolutions. Adding a resolution
@@ -196,6 +200,11 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
       };                                                                         \
       e.type_key = effect_type_key<ClassName<W, H>>();                           \
       e.size = sizeof(ClassName<W, H>);                                          \
+      if constexpr (requires { ClassName<W, H>::PRESET_IDS; })                   \
+        e.preset_id = [](size_t index) -> std::string_view {                     \
+          const auto &ids = ClassName<W, H>::PRESET_IDS;                         \
+          return index < ids.size() ? ids[index] : std::string_view{};           \
+        };                                                                       \
     }                                                                            \
     /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references reg, so   \
      * under LTO / --gc-sections the dynamic initializer could be discarded,   \

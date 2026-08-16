@@ -14,6 +14,14 @@ import {
   stableStringify,
   validateShaderDocument,
 } from './shader_workbench.mjs';
+import { sha256Hex } from './sha256.mjs';
+
+test('browser-compatible SHA-256 matches the published vectors', () => {
+  assert.equal(sha256Hex(''),
+    'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+  assert.equal(sha256Hex('abc'),
+    'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+});
 
 const makeDocument = () => ({
   schema_version: 1,
@@ -76,22 +84,45 @@ const makeDocument = () => ({
   study_metadata: { notes: 'authoring only' },
 });
 
-test('shader documents match their compiled effect identities', async () => {
-  for (const [documentName, headerName] of [
-    ['curl_lattice.shader.json', 'CurlLattice.h'],
-    ['facet_grid.shader.json', 'FacetGrid.h'],
-  ]) {
+test('every promoted shader document matches its compiled effect identity', async () => {
+  const migration = JSON.parse(await readFile(
+    new URL('../patterns/shaderball_migration.json', import.meta.url), 'utf8'));
+  const headers = {
+    'alien-ocean': 'AlienOcean.h',
+    'contour-lattice': 'fixed/LatticeLooks.h',
+    'cosmic-eyeball': 'fixed/GridMirrorLooks.h',
+    'curl-lattice': 'CurlLattice.h',
+    'equator-grid': 'fixed/GridMirrorLooks.h',
+    'facet-grid': 'FacetGrid.h',
+    'facet-wave': 'fixed/GridWarpLooks.h',
+    'glitch-grid': 'fixed/GridMirrorLooks.h',
+    'hex-wave': 'fixed/TwinWaveMirrorLooks.h',
+    'kaleido-wave': 'fixed/TwinWaveMirrorLooks.h',
+    'mobius-grid': 'fixed/TwinWaveMirrorLooks.h',
+    'prism-lattice': 'fixed/LatticeLooks.h',
+    'signal-weave': 'fixed/GridWarpLooks.h',
+    'vector-facets': 'fixed/GridWarpLooks.h',
+  };
+  assert.deepEqual(Object.keys(migration.source_documents).sort(),
+    migration.product_group.children.map((child) => child.effect_id).sort());
+  for (const [effectId, documentName] of Object.entries(migration.source_documents)) {
     const documentSource = await readFile(
       new URL(`../patterns/${documentName}`, import.meta.url), 'utf8');
     const header = await readFile(
-      new URL(`../effects/${headerName}`, import.meta.url), 'utf8');
+      new URL(`../effects/${headers[effectId]}`, import.meta.url), 'utf8');
     const compiled = compileShaderDocument(parseShaderDocument(documentSource));
-    const descriptor = header.match(/DESCRIPTOR_DIGEST\s*=\s*\n\s*"([0-9a-f]{64})"/u);
-    const bank = header.match(/PRESET_BANK_DIGEST\s*=\s*\n\s*"([0-9a-f]{64})"/u);
-    assert.ok(descriptor);
-    assert.ok(bank);
-    assert.equal(descriptor[1], compiled.descriptor_digest);
-    assert.equal(bank[1], compiled.preset_bank_digest);
+    assert.equal(compiled.status, 'VALID', effectId);
+    assert.equal(compiled.document.effect_id, effectId);
+    assert.ok(header.includes(`"${compiled.descriptor_digest}"`),
+      `${effectId} descriptor digest is stale`);
+    assert.ok(header.includes(`"${compiled.preset_bank_digest}"`),
+      `${effectId} preset-bank digest is stale`);
+    const destinations = migration.destinations.filter((entry) => entry.effect_id === effectId);
+    const presetIds = new Set(compiled.document.preset_bank.presets
+      .map((preset) => preset.preset_id));
+    for (const destination of destinations)
+      assert.equal(presetIds.has(destination.preset_id), true,
+        `${effectId}/${destination.preset_id} is missing from its source document`);
   }
 });
 
@@ -278,10 +309,11 @@ test('every promoted ShaderBall preset has one stable migration destination', as
     new URL('../patterns/shaderball_migration.json', import.meta.url), 'utf8'));
   assert.equal(migration.legacy_alias, 'ShaderBall');
   assert.equal(migration.authoring_effect, 'Shader');
+  assert.deepEqual(migration.retired_legacy_presets, [4]);
   assert.deepEqual(migration.destinations.map((entry) => entry.legacy_preset),
-    Array.from({ length: 20 }, (_, index) => index).filter((index) => index !== 4));
+    Array.from({ length: 24 }, (_, index) => index).filter((index) => index !== 4));
   assert.equal(new Set(migration.destinations
-    .map((entry) => `${entry.effect_id}/${entry.preset_id}`)).size, 19);
+    .map((entry) => `${entry.effect_id}/${entry.preset_id}`)).size, 23);
   assert.equal(migration.product_group.children
     .reduce((total, child) => total + child.seconds, 0), 120);
   const childIds = new Set(migration.product_group.children

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from './sha256.mjs';
 
 export const SHADER_DOCUMENT_SCHEMA_VERSION = 1;
 export const OPERATOR_CATALOG_VERSION = 1;
@@ -639,10 +639,10 @@ export function compileShaderDocument(source, options = {}) {
     const unsupported = validateShaderDocument(document, options);
     const descriptor = canonicalDescriptor(document);
     const descriptor_json = stableStringify(descriptor);
-    const descriptor_digest = createHash('sha256').update(descriptor_json).digest('hex');
+    const descriptor_digest = sha256Hex(descriptor_json);
     const preset_bank = canonicalPresetBank(document, descriptor);
     const preset_bank_json = stableStringify(preset_bank);
-    const preset_bank_digest = createHash('sha256').update(preset_bank_json).digest('hex');
+    const preset_bank_digest = sha256Hex(preset_bank_json);
     const diagnostics = unsupported.map(({ node }) => ({
       severity: 'error',
       phase: 'target',

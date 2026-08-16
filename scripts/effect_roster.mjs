@@ -39,14 +39,9 @@ export async function loadEffectRoster() {
     await readFile(join(REPO_ROOT, 'core', 'engine', 'effects.h'), 'utf8'));
 }
 
-// The self-registering effect set, read straight from the headers on disk: every
-// effects/*.h carries exactly one REGISTER_EFFECT(ClassName). This is the
-// independent witness the HS_EFFECT_LIST roster is cross-checked against — a
-// header that registers an effect the X-macro list never names (or vice versa)
-// is roster drift the WASM count check cannot see, because an effect never
-// #included from core/engine/effects.h is absent from both the registry and the count.
-// The REGISTER_EFFECT *macro definition* lives in core/engine/effect_registry.h (not
-// effects/), so globbing effects/*.h captures only call sites.
+// The standard self-registering effect set, read recursively from effects/.
+// Shader is intentionally omitted because it is a standalone WASM-only
+// workbench, not a gallery effect.
 // Extracts the REGISTER_EFFECT call sites from one header's source text.
 export function parseRegisteredEffects(src) {
   // Strip comments first so a commented-out REGISTER_EFFECT row is not counted
@@ -59,11 +54,20 @@ export function parseRegisteredEffects(src) {
 
 export async function loadRegisteredEffects() {
   const dir = join(REPO_ROOT, 'effects');
-  const headers = (await readdir(dir)).filter(f => f.endsWith('.h'));
+  const headers = [];
+  const visit = async current => {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      const path = join(current, entry.name);
+      if (entry.isDirectory()) await visit(path);
+      else if (entry.name.endsWith('.h')) headers.push(path);
+    }
+  };
+  await visit(dir);
   const names = new Set();
-  for (const f of headers) {
-    for (const name of parseRegisteredEffects(await readFile(join(dir, f), 'utf8')))
-      names.add(name);
+  for (const path of headers) {
+    for (const name of parseRegisteredEffects(await readFile(path, 'utf8'))) {
+      if (name !== 'Shader') names.add(name);
+    }
   }
   return [...names];
 }

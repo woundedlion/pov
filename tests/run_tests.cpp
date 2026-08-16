@@ -184,12 +184,12 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
-  X("effect_factory", 4,                                                       \
+  X("effect_factory", 5,                                                       \
     hs_test::effect_factory_tests::run_effect_factory_tests,                   \
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
-  X("shaderball", 55, hs_test::shaderball_tests::run_shaderball_tests,         \
+  X("shaderball", 56, hs_test::shaderball_tests::run_shaderball_tests,         \
     1045178)                                                                   \
   X("curl_lattice", 4, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
     5000)                                                                      \

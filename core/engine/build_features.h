@@ -66,6 +66,14 @@
 #endif
 #endif
 
+#ifndef HS_ENABLE_SHADER_WORKBENCH
+#if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_ORACLES
+#define HS_ENABLE_SHADER_WORKBENCH 1
+#else
+#define HS_ENABLE_SHADER_WORKBENCH 0
+#endif
+#endif
+
 #ifndef HS_ENABLE_STRUCTURAL_AUDITS
 #define HS_ENABLE_STRUCTURAL_AUDITS 0
 #endif
@@ -96,6 +104,12 @@
 #if (HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND != 0) &&                             \
     (HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND != 1)
 #error "HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND must be 0 or 1"
+#endif
+#if (HS_ENABLE_SHADER_WORKBENCH != 0) && (HS_ENABLE_SHADER_WORKBENCH != 1)
+#error "HS_ENABLE_SHADER_WORKBENCH must be 0 or 1"
+#endif
+#if defined(ARDUINO) && HS_ENABLE_SHADER_WORKBENCH
+#error "Shader workbench is simulator-only"
 #endif
 #if defined(ARDUINO) && HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
 #error "HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND is simulator-only"
