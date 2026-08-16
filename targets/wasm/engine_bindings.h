@@ -347,12 +347,14 @@ public:
    *          setEffect(). The engine-owned animation pause state is retained.
    */
   EffectSetResult setEffect(const std::string &name) {
+    const std::string_view canonical_name =
+        name == "ShaderBall" ? std::string_view{"Shader"} : name;
     // Validate against the current resolution's factory BEFORE tearing anything
     // down, so a typo'd name keeps the prior valid state alive.
     const FactoryEntry *entry = nullptr;
     const bool dispatched =
         dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-          entry = find_factory_entry<W, H>(name);
+          entry = find_factory_entry<W, H>(canonical_name);
         });
     if (!dispatched) {
       hs::log("WASM: setEffect at unsupported resolution %dx%d — keeping "
@@ -373,7 +375,8 @@ public:
     // each later load derives a fresh seed. Replica-safe with no protocol
     // change — workers process identical message streams, so their counters
     // agree by construction.
-    hs::random().seed(hs::epoch_seed(effect_loads++));
+    hs::random().seed(hs::stable_effect_seed(entry->stable_id));
+    ++effect_loads;
 
     current_effect.reset();
     current_effect_type_key = nullptr;
@@ -473,7 +476,8 @@ public:
     static_assert(static_cast<long long>(MAX_W) * MAX_H * CHANNELS <= INT_MAX,
                   "drawFrame pixel-index accumulators are int");
     const int count = pixel_width * pixel_height;
-    if (!current_effect->overrides_get_pixel()) {
+    if (!current_effect->overrides_get_pixel() &&
+        current_effect->output_envelope_u16() == 65535u) {
       // Fast path: display_buffer()[i] == get_pixel(x, y), so copy directly.
       const Pixel *buf = current_effect->display_buffer();
       static_assert(sizeof(Pixel) == 3 * sizeof(uint16_t),
@@ -484,7 +488,8 @@ public:
       int idx = 0;
       for (int y = 0; y < pixel_height; y++) {
         for (int x = 0; x < pixel_width; x++) {
-          const Pixel &p = current_effect->get_pixel(x, y);
+          const Pixel source = current_effect->get_pixel(x, y);
+          const Pixel p = current_effect->apply_output_envelope(source);
           pixel_buffer[idx++] = p.r;
           pixel_buffer[idx++] = p.g;
           pixel_buffer[idx++] = p.b;
@@ -1098,10 +1103,14 @@ private:
       return false;
     bool invoked = false;
     dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-      if (current_effect_type_key != effect_type_key<ShaderBall<W, H>>())
-        return;
-      callback(*static_cast<ShaderBall<W, H> *>(current_effect.get()));
-      invoked = true;
+#define HS_TRY_SHADER_DERIVED(Type)                                            \
+  if (!invoked && current_effect_type_key == effect_type_key<Type<W, H>>()) {  \
+    callback(static_cast<ShaderBall<W, H> &>(                                  \
+        *static_cast<Type<W, H> *>(current_effect.get())));                    \
+    invoked = true;                                                            \
+  }
+      HS_SHADER_DERIVED_EFFECT_LIST(HS_TRY_SHADER_DERIVED)
+#undef HS_TRY_SHADER_DERIVED
     });
     return invoked;
   }

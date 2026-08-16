@@ -37,9 +37,14 @@ constexpr uint32_t EFFECT_REVOLUTIONS[] = {
     HS_PHANTASM_EFFECT_LIST(HS_DURATION_ONE)};
 #undef HS_DURATION_ONE
 
+#define HS_SEED_ONE(name, duration_seconds) hs::stable_effect_seed(#name),
+constexpr uint64_t EFFECT_SEEDS[] = {HS_PHANTASM_EFFECT_LIST(HS_SEED_ONE)};
+#undef HS_SEED_ONE
+
 static_assert(RPM % 60 == 0,
               "Phantasm show durations require whole revolutions per second");
 static_assert(std::size(EFFECT_FACTORIES) == std::size(EFFECT_REVOLUTIONS));
+static_assert(std::size(EFFECT_FACTORIES) == std::size(EFFECT_SEEDS));
 
 constexpr pov::sync::Config show_config() {
   auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W,
@@ -66,5 +71,5 @@ void loop() {
   // Never returns: the driver runs the epoch-synchronized show forever
   // using the per-entry durations from HS_PHANTASM_EFFECT_LIST.
   g_pov->run_show(EFFECT_FACTORIES, HS_PHANTASM_EFFECT_COUNT,
-                  EFFECT_REVOLUTIONS);
+                  EFFECT_REVOLUTIONS, EFFECT_SEEDS);
 }

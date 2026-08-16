@@ -272,8 +272,10 @@ public:
    *                           revolutions.
    */
   [[noreturn]] void run_show(const EffectFactory *factories, int effect_count,
-                             const uint32_t *effect_revolutions = nullptr) {
+                             const uint32_t *effect_revolutions = nullptr,
+                             const uint64_t *stable_effect_seeds = nullptr) {
     effect_factories = factories;
+    effect_seed_identities = stable_effect_seeds;
 
     // F_CPU_ACTUAL, not F_CPU: the flywheel timebase counts ARM_DWT_CYCCNT
     // ticks, which run at the clock the core actually booted to.
@@ -350,7 +352,10 @@ public:
         const int32_t effect_index = pov::sync::SyncBoard::build_index_of(bw);
         HS_CHECK(effect_index >= 0 && effect_index < effect_count,
                  "sync published an out-of-roster effect index");
-        hs::random().seed(hs::epoch_seed(static_cast<uint32_t>(effect_index)));
+        hs::random().seed(
+            effect_seed_identities
+                ? effect_seed_identities[effect_index]
+                : hs::epoch_seed(static_cast<uint32_t>(effect_index)));
         cur = effect_factories[effect_index]();
         HS_CHECK(cur->height() == ROWS,
                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
@@ -599,6 +604,8 @@ private:
     Effect *e = w.live;
     if (w.advance)
       e->advance_display();
+    if (e != nullptr && a.render_column >= 0)
+      e->set_output_envelope(sync.effect_envelope(a.render_column, CANVAS_W));
 
     // Both submit paths clear their pending state only on an accepted frame, so
     // a DMA-overrun drop is retried on the next wake (spec §5.3/§6.3 fail-dark
@@ -652,9 +659,12 @@ private:
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
       const int stride = pov::segment_row_stride(segment, w);
       int off = pov::segment_pixel_base(segment, x_col, w);
-      for (int i = 0; i < PPS; ++i, off += stride) {
-        frame.packPixel(i, buf[off]);
-      }
+      if (e->output_envelope_u16() == 65535u)
+        for (int i = 0; i < PPS; ++i, off += stride)
+          frame.packPixel(i, buf[off]);
+      else
+        for (int i = 0; i < PPS; ++i, off += stride)
+          frame.packPixel(i, e->apply_output_envelope(buf[off]));
     }
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
     return ledController.submitFrame(e->strobe_columns());
@@ -697,6 +707,7 @@ private:
   static IntervalTimer timer; /**< Flywheel wake-up timer (PIT channel).   */
   /** @brief Roster of effect constructors (HS_EFFECT_LIST order). */
   static const EffectFactory *effect_factories;
+  static const uint64_t *effect_seed_identities;
 
   /**
    * @brief Effect handoff state machine between the foreground and the ISR.
@@ -737,6 +748,9 @@ template <int S, int N, int RPM> IntervalTimer POVSegmented<S, N, RPM>::timer;
 template <int S, int N, int RPM>
 const typename POVSegmented<S, N, RPM>::EffectFactory
     *POVSegmented<S, N, RPM>::effect_factories = nullptr;
+
+template <int S, int N, int RPM>
+const uint64_t *POVSegmented<S, N, RPM>::effect_seed_identities = nullptr;
 
 template <int S, int N, int RPM>
 pov::EffectHandoff<Effect> POVSegmented<S, N, RPM>::handoff;

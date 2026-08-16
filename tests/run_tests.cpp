@@ -164,7 +164,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("pullback", 12, hs_test::pullback_tests::run_pullback_tests, 80)           \
   X("filter", 63, hs_test::filter_tests::run_filter_tests, 10296)              \
   X("plot_scan", 81, hs_test::plot_scan_tests::run_plot_scan_tests, 1069897)   \
-  X("canvas", 31, hs_test::canvas_tests::run_canvas_tests, 487)                \
+  X("canvas", 34, hs_test::canvas_tests::run_canvas_tests, 487)                \
   X("scan", 38, hs_test::scan_tests::run_scan_tests, 189868)                   \
   X("mesh_raster", 18, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
     2793)                                                                      \
@@ -205,7 +205,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("pov_segmented", 24,                                                       \
     hs_test::pov_segmented_tests::run_pov_segmented_tests, 263165)             \
   X("pov_single", 6, hs_test::pov_single_tests::run_pov_single_tests, 8640)    \
-  X("pov_sync", 50, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
+  X("pov_sync", 51, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
   X("param_marshal", 3, hs_test::param_marshal_tests::run_param_marshal_tests, \
     2260)                                                                      \
   X("wasm_predicates", 13,                                                     \
@@ -215,7 +215,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("presets", 8, hs_test::presets_tests::run_presets_tests, 36)               \
   X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
   X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
-  X("death", 150, hs_test::death_tests::run_death_tests, 259)
+  X("death", 151, hs_test::death_tests::run_death_tests, 259)
 
 // case_sites is consumed by tests/check_case_calls.cmake, not by the runtime.
 #define HS_TEST_MODULE_ENTRY(name, case_sites, fn, min_assertions)             \

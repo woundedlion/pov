@@ -15,7 +15,9 @@
 #include <atomic>
 #include <chrono>
 #include <thread>
+#include <vector>
 
+#include "core/engine/effect_transition.h"
 #include "core/render/canvas.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
@@ -132,6 +134,65 @@ private:
   }
 };
 
+struct TransitionAdapter : hs::EffectTransitionAdapter {
+  hs::EffectTransitionStatus preflight_status = hs::EffectTransitionStatus::OK;
+  hs::EffectTransitionStatus construct_status = hs::EffectTransitionStatus::OK;
+  hs::EffectTransitionStatus handoff_status = hs::EffectTransitionStatus::OK;
+  hs::EffectTransitionStatus prepare_status = hs::EffectTransitionStatus::OK;
+  hs::EffectTransitionStatus restore_status = hs::EffectTransitionStatus::OK;
+  hs::EffectTransitionStatus restore_prepare_status =
+      hs::EffectTransitionStatus::OK;
+  hs::EffectRestoreCapability capability =
+      hs::EffectRestoreCapability::EXACT_STATE;
+  std::vector<float> envelopes;
+  bool fenced = false;
+  bool destroyed = false;
+  bool incoming_published = false;
+  bool restored_published = false;
+  bool committed = false;
+  bool failsafe = false;
+  int preflights = 0;
+
+  hs::EffectTransitionStatus
+  preflight(const hs::EffectTransitionRequest &request,
+            hs::EffectRestoreToken &outgoing) override {
+    ++preflights;
+    outgoing.effect_id = "outgoing";
+    outgoing.capability = capability;
+    return request.effect_id.empty() ? hs::EffectTransitionStatus::UNAVAILABLE
+                                     : preflight_status;
+  }
+  void set_output_envelope(float value) override { envelopes.push_back(value); }
+  bool presentation_complete() const override { return fenced; }
+  void destroy_outgoing() override { destroyed = true; }
+  hs::EffectTransitionStatus
+  construct_incoming(const hs::EffectTransitionRequest &) override {
+    return construct_status;
+  }
+  hs::EffectTransitionStatus
+  import_handoff(const hs::EffectHandoffState &) override {
+    return handoff_status;
+  }
+  hs::EffectTransitionStatus prepare_incoming_frame() override {
+    return prepare_status;
+  }
+  void publish_incoming_frame() override { incoming_published = true; }
+  void commit_identity(const hs::EffectTransitionRequest &) override {
+    committed = true;
+  }
+  hs::EffectTransitionStatus
+  restore_outgoing(const hs::EffectRestoreToken &) override {
+    return restore_status;
+  }
+  hs::EffectTransitionStatus prepare_restore_frame() override {
+    return restore_prepare_status;
+  }
+  void publish_restore_frame() override { restored_published = true; }
+  void enter_clear_failsafe(hs::EffectTransitionStatus) override {
+    failsafe = true;
+  }
+};
+
 // ============================================================================
 // Construction
 // ============================================================================
@@ -168,6 +229,107 @@ inline void test_construction_dimension_boundaries() {
     HS_EXPECT_EQ(fx.height(), MAX_H);
     HS_EXPECT_TRUE(pix_eq(fx.get_pixel(MAX_W - 1, MAX_H - 1), 0, 0, 0));
   }
+}
+
+inline void test_output_envelope_endpoints() {
+  TestEffect fx(8, 8);
+  const Pixel source{65535, 32768, 1};
+  fx.set_output_envelope(0.0f);
+  HS_EXPECT_TRUE(pix_eq(fx.apply_output_envelope(source), 0, 0, 0));
+  fx.set_output_envelope(1.0f);
+  HS_EXPECT_TRUE(pix_eq(fx.apply_output_envelope(source), 65535, 32768, 1));
+  fx.set_output_envelope(0.5f);
+  HS_EXPECT_EQ(fx.output_envelope_u16(), uint16_t(32768));
+  HS_EXPECT_TRUE(pix_eq(fx.apply_output_envelope(source), 32768, 16384, 1));
+}
+
+inline void test_effect_transition_fenced_commit() {
+  TransitionAdapter adapter;
+  hs::EffectTransitionController controller(adapter);
+  const hs::EffectTransitionRequest request{
+      "facet-grid", "coupled-grid", hs::EffectTransitionOrigin::MANUAL, 2};
+  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  controller.tick();
+  controller.tick();
+  controller.tick();
+  HS_EXPECT_EQ(adapter.envelopes[1], 1.0f);
+  HS_EXPECT_EQ(adapter.envelopes[2], 0.5f);
+  HS_EXPECT_EQ(adapter.envelopes[3], 0.0f);
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::CLEAR_PRESENTED);
+  controller.tick();
+  HS_EXPECT_FALSE(adapter.destroyed);
+  adapter.fenced = true;
+  controller.tick();
+  HS_EXPECT_TRUE(adapter.destroyed);
+  controller.tick();
+  controller.tick();
+  controller.tick();
+  HS_EXPECT_TRUE(adapter.incoming_published);
+  HS_EXPECT_FALSE(adapter.committed);
+  controller.tick();
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::COMMIT_READY);
+  controller.tick();
+  HS_EXPECT_TRUE(adapter.committed);
+  controller.tick();
+  controller.tick();
+  controller.tick();
+  HS_EXPECT_EQ(adapter.envelopes[adapter.envelopes.size() - 3], 0.0f);
+  HS_EXPECT_EQ(adapter.envelopes[adapter.envelopes.size() - 2], 0.5f);
+  HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::STEADY_IN);
+}
+
+inline void test_effect_transition_replacement_pause_and_restore() {
+  TransitionAdapter adapter;
+  hs::EffectTransitionController controller(adapter);
+  hs::EffectTransitionRequest first{"signal-weave", "signal-weave",
+                                    hs::EffectTransitionOrigin::AUTOMATIC, 2};
+  HS_EXPECT_EQ(controller.request(first), hs::EffectTransitionStatus::OK);
+  controller.tick();
+  first.effect_id = "kaleido-wave";
+  HS_EXPECT_EQ(controller.request(first), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(adapter.preflights, 2);
+  controller.set_paused(true);
+  const size_t envelope_count = adapter.envelopes.size();
+  controller.tick();
+  HS_EXPECT_EQ(adapter.envelopes.size(), envelope_count);
+  controller.set_paused(false);
+  controller.tick();
+  controller.tick();
+  controller.tick();
+  adapter.fenced = true;
+  controller.tick();
+  adapter.construct_status = hs::EffectTransitionStatus::RESOURCE_REJECTED;
+  controller.tick();
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::RESTORING_OUT);
+  controller.tick();
+  HS_EXPECT_TRUE(adapter.restored_published);
+  controller.tick();
+  controller.tick();
+  controller.tick();
+  controller.tick();
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::STEADY_OUT);
+
+  TransitionAdapter none;
+  none.capability = hs::EffectRestoreCapability::NONE;
+  hs::EffectTransitionController failing(none);
+  HS_EXPECT_EQ(failing.request(first), hs::EffectTransitionStatus::OK);
+  failing.tick();
+  failing.tick();
+  failing.tick();
+  none.fenced = true;
+  failing.tick();
+  none.construct_status = hs::EffectTransitionStatus::RESOURCE_REJECTED;
+  failing.tick();
+  failing.tick();
+  HS_EXPECT_TRUE(none.failsafe);
+  HS_EXPECT_EQ(failing.current_state(),
+               hs::EffectTransitionState::CLEAR_FAILSAFE);
 }
 
 inline void test_preset_state_machine() {
@@ -1126,6 +1288,9 @@ inline int run_canvas_tests() {
 
   test_construction_dims_and_clear();
   test_construction_dimension_boundaries();
+  test_output_envelope_endpoints();
+  test_effect_transition_fenced_commit();
+  test_effect_transition_replacement_pause_and_restore();
   test_preset_state_machine();
   test_frame_visible_only_after_advance_display();
   test_consecutive_frames_alternate_buffers();

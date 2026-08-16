@@ -553,38 +553,6 @@
         }
       },
       {
-        "preset_id": "slanted-grid",
-        "display_name": "Slanted Grid",
-        "values": {
-          "pattern-freq": 2.9059,
-          "speed": 0,
-          "source-angle-speed": 0.026999999,
-          "complexity": 3,
-          "pattern-mix": 1,
-          "drift": 0.8,
-          "pole-fade": 3.432,
-          "projection-spin-speed": 0,
-          "projection-wander": 0.165,
-          "camera-wander": 1,
-          "mirror-speed": 0.0027299998,
-          "mirror-rotation": 3.455752,
-          "mirror-cell-x": 1,
-          "mirror-cell-y": 0.99770314,
-          "mirror-offset-x": 0,
-          "mirror-offset-y": 0,
-          "palette-chroma": 1,
-          "mapping-frequency": 1.558,
-          "mapping-phase": 0,
-          "phase-oscillation-depth": 0,
-          "phase-oscillation-speed": 0,
-          "value-opacity-low": 1,
-          "value-opacity-high": 1,
-          "hue-shift-amount": 0.366,
-          "hue-noise-scale": 1.4721563,
-          "hue-noise-speed": 0
-        }
-      },
-      {
         "preset_id": "stretched-grid",
         "display_name": "Stretched Grid",
         "values": {
@@ -634,13 +602,6 @@
       },
       {
         "from": "double-map",
-        "to": "slanted-grid",
-        "path_policy": "parallel",
-        "easing": "EASE_IN_OUT_SIN",
-        "duration": 480
-      },
-      {
-        "from": "slanted-grid",
         "to": "stretched-grid",
         "path_policy": "parallel",
         "easing": "EASE_IN_OUT_SIN",
@@ -666,14 +627,12 @@
         "coupled-grid",
         "direct-grid",
         "double-map",
-        "slanted-grid",
         "stretched-grid"
       ],
       "dwell": {
         "coupled-grid": 600,
         "direct-grid": 600,
         "double-map": 600,
-        "slanted-grid": 600,
         "stretched-grid": 600
       }
     }

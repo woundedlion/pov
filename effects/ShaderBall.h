@@ -7,6 +7,7 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <span>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -182,27 +183,67 @@ struct ShaderBallWhiteBox;
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H> class ShaderBall : public Effect {
+private:
+  struct FrameState;
+  struct LookRuntime;
+  struct WalkDeltas;
+  using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
+  struct FrameShader {
+    using ShadeFunction = ShaderBall::ShadeFunction;
+
+    const FrameState *frame;
+    float alpha;
+    ShadeFunction shade_function;
+
+    HS_FLASH_MEMBER Color4 operator()(const Vector &view) const {
+      Color4 color = shade_function(view, *frame);
+      color.alpha *= alpha;
+      return color;
+    }
+  };
+
 public:
+  struct Config;
   static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
   static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
 
   HS_COLD_MEMBER ShaderBall() : Effect(W, H, {.strobe = true}) {}
 
+protected:
+  HS_COLD_MEMBER void
+  set_fixed_preset_view(std::span<const uint8_t> source_indices) {
+    assert(!source_indices.empty());
+#ifndef NDEBUG
+    for (uint8_t index : source_indices)
+      assert(index < PRESETS.size());
+#endif
+    preset_view = source_indices;
+    fixed_topology = true;
+  }
+
+public:
   /** @brief Initializes slots, clocks, palette resources, and choreography. */
   HS_COLD_MEMBER void init() override {
-    configure_presets(PRESETS.size());
+    configure_presets(preset_count_for_view());
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     set_parameter_updated_hook(&ShaderBall::dispatch_parameter_updated);
 #endif
     state = persistent_arena.make<StateBundle>();
     use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    requested_config = PRESETS[0].config;
-    published_config = PRESETS[0].config;
+    const Preset &initial = preset_for_view(0);
+    active_slots = initial.config.slots;
+    active_pipeline = initial.pipeline;
+    blend.params = initial.config.params;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    accepted_config = PRESETS[0].config;
+    display_config = initial.config;
 #endif
-    prepare_resource_union(PRESETS[0].config, PRESETS[0].config);
+    requested_config = initial.config;
+    published_config = initial.config;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    accepted_config = initial.config;
+#endif
+    prepare_resource_union(initial.config, initial.config);
 
     rebind_parameters();
 
@@ -221,7 +262,8 @@ public:
     analogous_palette_cycler.init_generated(
         persistent_arena, next_analogous_palette, this, PALETTE_DWELL_FRAMES,
         PALETTE_FADE_FRAMES, ease_in_out_sin);
-    update_palette_chroma(PRESETS[0].config.params.color.palette_chroma);
+    update_palette_chroma(
+        preset_for_view(0).config.params.color.palette_chroma);
 
     enter_preset();
   }
@@ -237,6 +279,8 @@ public:
 
     apply_requested_config();
     prepare_param_morph();
+    state->render_config.slots = active_slots;
+    state->render_config.params = blend.params;
     const WalkDeltas walk_deltas = sample_walk_deltas();
     if (state->transition.active) {
       if (state->transition.elapsed < state->transition.duration / 2)
@@ -245,7 +289,7 @@ public:
       advance_runtime(state->transition.to_runtime, state->transition.to_config,
                       walk_deltas);
     } else {
-      advance_runtime(runtime, {active_slots, blend.params}, walk_deltas);
+      advance_runtime(runtime, state->render_config, walk_deltas);
     }
     update_palette_chroma(visible_palette_chroma());
     step_generated_palettes(visible_palette_mode());
@@ -257,7 +301,7 @@ public:
       draw_through_clear_transition(canvas);
     } else {
       PreparedEndpoint prepared;
-      HS_CHECK(prepare_endpoint({active_slots, blend.params}, runtime, 1.0f,
+      HS_CHECK(prepare_endpoint(state->render_config, runtime, 1.0f,
                                 active_pipeline, prepared),
                "ShaderBall active endpoint has no renderer");
       draw_endpoint(canvas, prepared);
@@ -266,13 +310,127 @@ public:
     publish_live_config();
   }
 
+protected:
+  template <int Program> HS_FLASH_MEMBER void draw_fixed_program_frame() {
+    Canvas canvas(*this);
+    {
+      HS_PROFILE(sb_timeline_step);
+      timeline.step(canvas);
+    }
+    advance_preset_choreography();
+    apply_requested_config();
+    prepare_param_morph();
+    state->render_config.slots = active_slots;
+    state->render_config.params = blend.params;
+    const WalkDeltas walk_deltas = sample_walk_deltas();
+    if (state->transition.active) {
+      if (state->transition.elapsed < state->transition.duration / 2)
+        advance_runtime(state->transition.from_runtime,
+                        state->transition.from_config, walk_deltas);
+      advance_runtime(state->transition.to_runtime, state->transition.to_config,
+                      walk_deltas);
+    } else {
+      advance_runtime(runtime, state->render_config, walk_deltas);
+    }
+    update_palette_chroma(visible_palette_chroma());
+    step_generated_palettes(visible_palette_mode());
+#if HS_ENABLE_TEST_HOOKS
+    ++generated_palette_step_count;
+#endif
+
+    if (state->transition.active) {
+      const ThroughClearPhase phase = through_clear_phase(
+          state->transition.elapsed, state->transition.duration);
+      if (!phase.clear) {
+        const Config &config = phase.from_endpoint
+                                   ? state->transition.from_config
+                                   : state->transition.to_config;
+        const LookRuntime &look = phase.from_endpoint
+                                      ? state->transition.from_runtime
+                                      : state->transition.to_runtime;
+        draw_fixed_endpoint<Program>(canvas, config, look, phase.alpha);
+      }
+    } else {
+      draw_fixed_endpoint<Program>(canvas, state->render_config, runtime, 1.0f);
+    }
+    finish_transitions();
+    publish_live_config();
+  }
+
+private:
+  template <typename Pipeline>
+  HS_FLASH_MEMBER void
+  draw_typed_fixed_endpoint(Canvas &canvas, const Config &config,
+                            const LookRuntime &look, float alpha) {
+    FrameState &frame = state->frame;
+    prepare_frame(config, look, frame);
+    HS_CHECK(pipeline_resources_ready(frame),
+             "fixed Shader endpoint resources are unavailable");
+    draw_fixed_prepared(canvas, frame, alpha, &Pipeline::shade);
+  }
+
+  HS_FLASH_MEMBER void draw_fixed_prepared(Canvas &canvas, FrameState &frame,
+                                           float alpha, ShadeFunction shade) {
+    FrameShader shader{&frame, alpha, shade};
+    HS_PROFILE(sb_shader_draw);
+    Scan::Shader::draw<W, H, 1>(canvas, shader);
+  }
+
+  template <int Program>
+  HS_FLASH_MEMBER void draw_fixed_endpoint(Canvas &canvas, const Config &config,
+                                           const LookRuntime &look,
+                                           float alpha) {
+    if constexpr (Program == 0)
+      draw_typed_fixed_endpoint<GlitchNoiseGridWaveShearPipeline>(
+          canvas, config, look, alpha);
+    else if constexpr (Program == 1)
+      draw_typed_fixed_endpoint<KaleidoscopeTwinWaveInnerMirrorPipeline>(
+          canvas, config, look, alpha);
+    else if constexpr (Program == 2)
+      draw_typed_fixed_endpoint<GnomonicKaleidoscopeGridMirrorPipeline>(
+          canvas, config, look, alpha);
+    else if constexpr (Program == 3)
+      draw_typed_fixed_endpoint<GnomonicGlitchGridMirrorPipeline>(
+          canvas, config, look, alpha);
+    else if constexpr (Program == 4)
+      draw_typed_fixed_endpoint<PeirceDodecahedralGridPipeline>(canvas, config,
+                                                                look, alpha);
+    else if constexpr (Program == 5)
+      draw_typed_fixed_endpoint<GnomonicDodecahedralGridWaveMirrorPipeline>(
+          canvas, config, look, alpha);
+    else if constexpr (Program == 6)
+      draw_typed_fixed_endpoint<GnomonicAffineLatticeContourPipeline>(
+          canvas, config, look, alpha);
+    else if constexpr (Program == 8)
+      draw_typed_fixed_endpoint<StereographicPrismPolarWaveLatticePipeline>(
+          canvas, config, look, alpha);
+    else if constexpr (Program == 9)
+      draw_typed_fixed_endpoint<GnomonicDodecahedralGridVectorMirrorPipeline>(
+          canvas, config, look, alpha);
+    else if constexpr (Program == 11)
+      draw_typed_fixed_endpoint<
+          StereographicHexagonalPrismTwinWaveInnerMirrorPipeline>(
+          canvas, config, look, alpha);
+    else if constexpr (Program == 12)
+      draw_typed_fixed_endpoint<
+          EquirectangularDodecahedralGridInnerMirrorPipeline>(canvas, config,
+                                                              look, alpha);
+    else if constexpr (Program == 13)
+      draw_typed_fixed_endpoint<StereographicGlitchGridMirrorPipeline>(
+          canvas, config, look, alpha);
+    else
+      static_assert(Program >= 0 && Program <= 13,
+                    "unsupported promoted Shader program");
+  }
+
+public:
 #if HS_ENABLE_EFFECT_CONTROL_API
   void profile_select_preset(size_t index) {
-    HS_CHECK(index < PRESETS.size(),
+    HS_CHECK(index < preset_count_for_view(),
              "ShaderBall profile preset index out of range");
     HS_CHECK(selectPreset(index), "ShaderBall profile preset selection failed");
     hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
-            static_cast<unsigned>(PRESETS.size()));
+            static_cast<unsigned>(preset_count_for_view()));
   }
 #endif
 
@@ -284,7 +442,7 @@ private:
     const size_t index = change.to;
     if (change.origin == PresetChangeOrigin::AUTOMATIC) {
       const Choreo choreo = preset_choreo(change.from);
-      const Preset &to = PRESETS[index];
+      const Preset &to = preset_for_view(index);
       if (!try_apply_config(to.config, choreo.blend_frames, choreo.staggered,
                             true))
         return false;
@@ -300,7 +458,7 @@ private:
 
     state->param_morph.active = false;
     state->transition.active = false;
-    const SelectedConfig &selected = PRESETS[index];
+    const SelectedConfig &selected = preset_for_view(index);
     active_slots = selected.config.slots;
     active_pipeline = selected.pipeline;
     blend.params = selected.config.params;
@@ -1037,64 +1195,80 @@ private:
     registered_range_clamped = false;
     reset_parameters();
     Slots &slots = requested_config.slots;
-    register_animated_param("Function", &slots.function, FUNCTION_OPTIONS,
-                            FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
+    if (!fixed_topology)
+      register_animated_param("Function", &slots.function, FUNCTION_OPTIONS,
+                              FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
     const float domain_scale = lens_domain_linear_scale(slots.surface_lens);
     register_source_controls(slots.function, requested_config.params.source,
                              domain_scale);
-    register_animated_param("Projection", &slots.projection, PROJECTION_OPTIONS,
-                            PROJECTION_EXPORT_OPTIONS, NUM_PROJECTIONS);
+    if (!fixed_topology)
+      register_animated_param("Projection", &slots.projection,
+                              PROJECTION_OPTIONS, PROJECTION_EXPORT_OPTIONS,
+                              NUM_PROJECTIONS);
     register_projection_controls(slots, requested_config.params);
-    register_animated_param(
-        "Projection Frame", &slots.projection_frame, PROJECTION_FRAME_OPTIONS,
-        PROJECTION_FRAME_EXPORT_OPTIONS, NUM_PROJECTION_FRAMES);
+    if (!fixed_topology)
+      register_animated_param(
+          "Projection Frame", &slots.projection_frame, PROJECTION_FRAME_OPTIONS,
+          PROJECTION_FRAME_EXPORT_OPTIONS, NUM_PROJECTION_FRAMES);
     register_projection_frame_controls(slots.projection_frame,
                                        requested_config.params, domain_scale);
     register_animated_param("Camera Wander",
                             &requested_config.params.outer_camera.wander,
                             WANDER_MIN, WANDER_MAX);
-    register_animated_param("Surface Noise", &slots.surface_noise,
-                            SURFACE_NOISE_OPTIONS, SURFACE_NOISE_EXPORT_OPTIONS,
-                            NUM_SURFACE_NOISE);
+    if (!fixed_topology)
+      register_animated_param("Surface Noise", &slots.surface_noise,
+                              SURFACE_NOISE_OPTIONS,
+                              SURFACE_NOISE_EXPORT_OPTIONS, NUM_SURFACE_NOISE);
     register_surface_noise_controls(
         slots, requested_config.params.surface_noise,
         slots.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS
             ? domain_scale
             : 1.0f);
-    register_animated_param("Lens", &slots.surface_lens, LENS_OPTIONS,
-                            LENS_EXPORT_OPTIONS, NUM_LENSES);
+    if (!fixed_topology)
+      register_animated_param("Lens", &slots.surface_lens, LENS_OPTIONS,
+                              LENS_EXPORT_OPTIONS, NUM_LENSES);
     register_lens_controls(slots.surface_lens,
                            requested_config.params.surface_lens);
-    register_animated_param("Planar Warp 1", &slots.warp_program.outer.kind,
-                            WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
-    register_stage_slot_controls(true, slots.warp_program.outer);
+    if (!fixed_topology) {
+      register_animated_param("Planar Warp 1", &slots.warp_program.outer.kind,
+                              WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
+      register_stage_slot_controls(true, slots.warp_program.outer);
+    }
     register_active_warp_controls(true, slots.warp_program.outer,
                                   requested_config.params.warp.outer,
                                   domain_scale);
-    register_animated_param("Planar Warp 2", &slots.warp_program.inner.kind,
-                            WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
-    register_stage_slot_controls(false, slots.warp_program.inner);
+    if (!fixed_topology) {
+      register_animated_param("Planar Warp 2", &slots.warp_program.inner.kind,
+                              WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
+      register_stage_slot_controls(false, slots.warp_program.inner);
+    }
     register_active_warp_controls(false, slots.warp_program.inner,
                                   requested_config.params.warp.inner,
                                   domain_scale);
-    register_animated_param("Signal Weight", &slots.signal_weight,
-                            SIGNAL_OPTIONS, SIGNAL_EXPORT_OPTIONS, NUM_SIGNALS);
-    register_animated_param("Value Transfer", &slots.value_transfer,
-                            VALUE_TRANSFER_OPTIONS,
-                            VALUE_TRANSFER_EXPORT_OPTIONS, NUM_VALUE_TRANSFERS);
+    if (!fixed_topology) {
+      register_animated_param("Signal Weight", &slots.signal_weight,
+                              SIGNAL_OPTIONS, SIGNAL_EXPORT_OPTIONS,
+                              NUM_SIGNALS);
+      register_animated_param(
+          "Value Transfer", &slots.value_transfer, VALUE_TRANSFER_OPTIONS,
+          VALUE_TRANSFER_EXPORT_OPTIONS, NUM_VALUE_TRANSFERS);
+    }
     register_value_transfer_controls(slots.value_transfer,
                                      requested_config.params.value);
-    register_animated_param("Coverage", &slots.coverage, COVERAGE_OPTIONS,
-                            COVERAGE_EXPORT_OPTIONS, NUM_COVERAGE_POLICIES);
+    if (!fixed_topology)
+      register_animated_param("Coverage", &slots.coverage, COVERAGE_OPTIONS,
+                              COVERAGE_EXPORT_OPTIONS, NUM_COVERAGE_POLICIES);
     register_coverage_controls(slots.coverage, requested_config.params.value);
-    register_animated_param("Palette", &slots.palette, PALETTE_OPTIONS,
-                            PALETTE_EXPORT_OPTIONS, NUM_PALETTES);
+    if (!fixed_topology)
+      register_animated_param("Palette", &slots.palette, PALETTE_OPTIONS,
+                              PALETTE_EXPORT_OPTIONS, NUM_PALETTES);
     register_animated_param("Palette Chroma",
                             &requested_config.params.color.palette_chroma,
                             PALETTE_CHROMA_MIN, PALETTE_CHROMA_MAX);
-    register_animated_param(
-        "Palette Mapping", &slots.palette_mapping, PALETTE_MAPPING_OPTIONS,
-        PALETTE_MAPPING_EXPORT_OPTIONS, NUM_PALETTE_MAPPINGS);
+    if (!fixed_topology)
+      register_animated_param(
+          "Palette Mapping", &slots.palette_mapping, PALETTE_MAPPING_OPTIONS,
+          PALETTE_MAPPING_EXPORT_OPTIONS, NUM_PALETTE_MAPPINGS);
     register_animated_param("Mapping Frequency",
                             &requested_config.params.color.mapping_frequency,
                             MAPPING_FREQUENCY_MIN, MAPPING_FREQUENCY_MAX);
@@ -1109,10 +1283,11 @@ private:
         "Phase Oscillation Speed",
         &requested_config.params.color.phase_oscillation_speed,
         -PHASE_OSCILLATION_SPEED_MAX, PHASE_OSCILLATION_SPEED_MAX);
-    register_animated_param("Brightness Envelope", &slots.brightness_envelope,
-                            BRIGHTNESS_ENVELOPE_OPTIONS,
-                            BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS,
-                            NUM_BRIGHTNESS_ENVELOPES);
+    if (!fixed_topology)
+      register_animated_param("Brightness Envelope", &slots.brightness_envelope,
+                              BRIGHTNESS_ENVELOPE_OPTIONS,
+                              BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS,
+                              NUM_BRIGHTNESS_ENVELOPES);
     if (slots.brightness_envelope != BrightnessEnvelope::NONE)
       register_animated_param("Brightness Depth",
                               &requested_config.params.color.brightness_depth,
@@ -1123,9 +1298,10 @@ private:
     register_animated_param("Value Opacity High",
                             &requested_config.params.color.value_opacity_high,
                             VALUE_OPACITY_MIN, VALUE_OPACITY_MAX);
-    register_animated_param("Hue Shift Mode", &slots.hue_shift,
-                            HUE_SHIFT_OPTIONS, HUE_SHIFT_EXPORT_OPTIONS,
-                            NUM_HUE_SHIFT_MODES);
+    if (!fixed_topology)
+      register_animated_param("Hue Shift Mode", &slots.hue_shift,
+                              HUE_SHIFT_OPTIONS, HUE_SHIFT_EXPORT_OPTIONS,
+                              NUM_HUE_SHIFT_MODES);
     register_color_controls(slots.hue_shift, requested_config.params.color,
                             domain_scale);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -1382,8 +1558,9 @@ private:
       register_animated_param("Iso Width", &params.iso_width, SOFTNESS_MIN,
                               0.5f);
     } else if (transfer == ValueTransfer::SMOOTH_BANDS) {
-      register_animated_int_param("Band Count", &params.band_count, 1,
-                                  BAND_COUNT_MAX);
+      if (!fixed_topology)
+        register_animated_int_param("Band Count", &params.band_count, 1,
+                                    BAND_COUNT_MAX);
       register_animated_param("Band Phase", &params.band_phase, 0.0f, TWO_PI_F);
     }
   }
@@ -1446,9 +1623,10 @@ private:
                              domain_scale),
           domain_scaled_max(SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
                             domain_scale));
-      register_animated_param("Source Noise Basis", &params.noise_basis,
-                              NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
-                              NUM_NOISE_BASES);
+      if (!fixed_topology)
+        register_animated_param("Source Noise Basis", &params.noise_basis,
+                                NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
+                                NUM_NOISE_BASES);
       return;
     }
     if (function == Function::PRIMITIVE_LATTICE) {
@@ -1483,11 +1661,11 @@ private:
 
   HS_COLD_MEMBER void register_projection_controls(Slots &slots,
                                                    Params &params) {
-    if (slots.projection == Projection::PEIRCE_QUINCUNCIAL)
+    if (!fixed_topology && slots.projection == Projection::PEIRCE_QUINCUNCIAL)
       register_animated_param("Peirce Layout", &slots.peirce_layout,
                               PEIRCE_LAYOUT_OPTIONS,
                               PEIRCE_LAYOUT_EXPORT_OPTIONS, NUM_PEIRCE_LAYOUTS);
-    if (slots.projection == Projection::AIROCEAN)
+    if (!fixed_topology && slots.projection == Projection::AIROCEAN)
       register_animated_param(
           "Airocean Layout", &slots.airocean_layout, AIROCEAN_LAYOUT_OPTIONS,
           AIROCEAN_LAYOUT_EXPORT_OPTIONS, NUM_AIROCEAN_LAYOUTS);
@@ -1508,11 +1686,11 @@ private:
       register_animated_param("Projection Scale",
                               &params.projection.coordinate_scale, 0.25f, 4.0f);
     }
-    if (slots.projection == Projection::BONNE)
+    if (!fixed_topology && slots.projection == Projection::BONNE)
       register_animated_param(
           "Bonne Hemisphere", &slots.bonne_hemisphere, BONNE_HEMISPHERE_OPTIONS,
           BONNE_HEMISPHERE_EXPORT_OPTIONS, NUM_BONNE_HEMISPHERES);
-    if (slots.projection == Projection::GNOMONIC)
+    if (!fixed_topology && slots.projection == Projection::GNOMONIC)
       register_animated_param("Gnomonic Hemisphere", &slots.gnomonic_hemisphere,
                               GNOMONIC_HEMISPHERE_OPTIONS,
                               GNOMONIC_HEMISPHERE_EXPORT_OPTIONS,
@@ -1569,13 +1747,15 @@ private:
                                   float domain_scale) {
     if (slots.surface_noise == SurfaceNoise::NONE)
       return;
-    register_animated_param(
-        "Surface Noise Placement", &slots.surface_noise_placement,
-        SURFACE_NOISE_PLACEMENT_OPTIONS, SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS,
-        NUM_SURFACE_NOISE_PLACEMENTS);
-    register_animated_param("Surface Noise Basis", &params.basis,
-                            NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
-                            NUM_NOISE_BASES);
+    if (!fixed_topology) {
+      register_animated_param(
+          "Surface Noise Placement", &slots.surface_noise_placement,
+          SURFACE_NOISE_PLACEMENT_OPTIONS,
+          SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS, NUM_SURFACE_NOISE_PLACEMENTS);
+      register_animated_param("Surface Noise Basis", &params.basis,
+                              NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
+                              NUM_NOISE_BASES);
+    }
     register_clamped_animated_param("Surface Noise Scale", &params.scale,
                                     LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
     const float strength_min =
@@ -1594,7 +1774,7 @@ private:
     if (slots.surface_noise == SurfaceNoise::DIRECT)
       register_animated_param("Surface Noise Direction", &params.direction,
                               0.0f, 1.0f);
-    else
+    else if (!fixed_topology)
       register_animated_param("Surface Noise Integrator", &params.integrator,
                               SURFACE_CURL_INTEGRATOR_OPTIONS,
                               SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS,
@@ -2231,6 +2411,15 @@ private:
   };
   using Preset = SelectedConfig;
 
+  size_t preset_count_for_view() const {
+    return preset_view.empty() ? PRESETS.size() : preset_view.size();
+  }
+
+  const Preset &preset_for_view(size_t index) const {
+    assert(index < preset_count_for_view());
+    return PRESETS[preset_view.empty() ? index : preset_view[index]];
+  }
+
   template <typename Stage>
   using HasInverseStageContract =
       Pullback::HasStageContract<Stage, ShaderBallBinding>;
@@ -2455,8 +2644,8 @@ private:
       ColorStage>;
   struct GlitchNoiseGridWaveShearPipeline
       : GlitchNoiseGridWaveShearPipelineBase {
-    FASTRUN __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
+    HS_HOT_FLASH_MEMBER static Color4 shade(const Vector &view,
+                                            const FrameState &frame) {
       return GlitchNoiseGridWaveShearPipelineBase::template run_stage<0>(view,
                                                                          frame);
     }
@@ -2501,8 +2690,8 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   struct PeirceDodecahedralGridPipeline : PeirceDodecahedralGridPipelineBase {
-    FASTRUN __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
+    HS_HOT_FLASH_MEMBER static Color4 shade(const Vector &view,
+                                            const FrameState &frame) {
       return PeirceDodecahedralGridPipelineBase::template run_stage<0>(view,
                                                                        frame);
     }
@@ -2518,13 +2707,13 @@ private:
       ColorStage>;
   struct GnomonicDodecahedralGridWaveMirrorPipeline
       : GnomonicDodecahedralGridWaveMirrorPipelineBase {
-    FASTRUN __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
+    HS_HOT_FLASH_MEMBER static Color4 shade(const Vector &view,
+                                            const FrameState &frame) {
       return GnomonicDodecahedralGridWaveMirrorPipelineBase::template run_stage<
           0>(view, frame);
     }
   };
-  using GnomonicDodecahedralGridVectorMirrorPipeline = InversePipeline<
+  using GnomonicDodecahedralGridVectorMirrorPipelineBase = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
                                   SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
@@ -2533,6 +2722,14 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+  struct GnomonicDodecahedralGridVectorMirrorPipeline
+      : GnomonicDodecahedralGridVectorMirrorPipelineBase {
+    HS_FLASH_MEMBER __attribute__((noinline)) static Color4
+    shade(const Vector &view, const FrameState &frame) {
+      return GnomonicDodecahedralGridVectorMirrorPipelineBase::
+          template run_stage<0>(view, frame);
+    }
+  };
   using GnomonicAffineLatticeContourPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC, SurfaceLens::NONE>,
@@ -2563,8 +2760,10 @@ private:
       ColorStage>;
   using EquirectangularDodecahedralGridInnerMirrorPipeline = InversePipeline<
       OuterCameraStage,
-      SelectedSurfaceProjectStage<Projection::EQUIRECTANGULAR,
-                                  SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+          SelectedSurfaceProjectStage<Projection::EQUIRECTANGULAR,
+                                      SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>>,
       SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::MIRROR_TILE>,
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
@@ -2576,8 +2775,6 @@ private:
       SelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE, WarpStageKind::NONE>,
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
-
-  using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
 
   struct ProgramDescriptor {
     InversePipelineId id;
@@ -2704,22 +2901,8 @@ private:
            frame.prepared_hue_noise.lut != nullptr;
   }
 
-  struct FrameShader {
-    using ShadeFunction = ShaderBall::ShadeFunction;
-
-    const FrameState *frame;
-    float alpha;
-    ShadeFunction shade_function;
-
-    HS_FLASH_MEMBER Color4 operator()(const Vector &view) const {
-      Color4 color = shade_function(view, *frame);
-      color.alpha *= alpha;
-      return color;
-    }
-  };
-
   struct PreparedEndpoint {
-    FrameState frame;
+    FrameState *frame;
     ShadeFunction shade;
     InversePipelineId pipeline;
     float alpha;
@@ -2929,6 +3112,13 @@ public:
       return ConfigRestoreResult::INVALID_VALUE;
     if (!admissible_config(next_accepted))
       return ConfigRestoreResult::INVALID_ACCEPTED;
+    if (fixed_topology) {
+      const InversePipelineId pipeline = preset_for_view(0).pipeline;
+      if (resolve_pipeline_id(next_accepted) != pipeline)
+        return ConfigRestoreResult::INVALID_ACCEPTED;
+      if (resolve_pipeline_id(next_requested) != pipeline)
+        return ConfigRestoreResult::INVALID_PENDING;
+    }
 
     const ConfigValues migrated_accepted = encode_config_values(next_accepted);
     const ConfigValues migrated_requested =
@@ -3019,6 +3209,8 @@ private:
   };
 
   struct StateBundle {
+    FrameState frame;
+    Config render_config;
     std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
     std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
     std::array<Pixel, PreparedHueRotation::LUT_SIZE> hue_rotation_lut;
@@ -3453,8 +3645,9 @@ private:
       return false;
 #endif
     }
-    prepare_frame(config, look, prepared.frame);
-    if (!resources_ready(prepared.frame))
+    prepared.frame = &state->frame;
+    prepare_frame(config, look, *prepared.frame);
+    if (!resources_ready(*prepared.frame))
       return false;
     prepared.shade = shade;
     prepared.pipeline = selected;
@@ -3473,7 +3666,7 @@ private:
 #else
     (void)endpoint;
 #endif
-    FrameShader shader{&prepared.frame, prepared.alpha, prepared.shade};
+    FrameShader shader{prepared.frame, prepared.alpha, prepared.shade};
     HS_PROFILE(sb_shader_draw);
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
@@ -3532,9 +3725,9 @@ private:
 
   size_t selected_preset_index(const Config &config,
                                InversePipelineId pipeline) const {
-    for (size_t index = 0; index < PRESETS.size(); ++index)
-      if (PRESETS[index].pipeline == pipeline &&
-          PRESETS[index].config == config)
+    for (size_t index = 0; index < preset_count_for_view(); ++index)
+      if (preset_for_view(index).pipeline == pipeline &&
+          preset_for_view(index).config == config)
         return index;
     return getPresetIndex();
   }
@@ -3547,7 +3740,7 @@ private:
       return;
     hs::log("Pullback program: preset=%u/%u pipeline=%s endpoint=%s",
             static_cast<unsigned>(prepared.preset),
-            static_cast<unsigned>(PRESETS.size()),
+            static_cast<unsigned>(preset_count_for_view()),
             pipeline_name(prepared.pipeline), profile_endpoint_name(endpoint));
     profile_program_valid = true;
     profile_program_preset = prepared.preset;
@@ -4793,7 +4986,7 @@ private:
     return ease_in_out_sin(static_cast<float>(elapsed) / duration);
   }
 
-  HS_COLD_MEMBER void apply_requested_config() {
+  __attribute__((noinline)) HS_COLD_MEMBER void apply_requested_config() {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     if (!requested_schema_bound) {
       if (!valid_config(requested_config)) {
@@ -4885,7 +5078,9 @@ private:
       return false;
     if (state->transition.active)
       return false;
-    const Config current{active_slots, blend.params};
+    Config &current = state->render_config;
+    current.slots = active_slots;
+    current.params = blend.params;
     if (!transition_admitted(current, candidate))
       return false;
     if (candidate == current) {
@@ -4944,7 +5139,7 @@ private:
       enter_preset();
   }
 
-  HS_COLD_MEMBER void publish_live_config() {
+  __attribute__((noinline)) HS_COLD_MEMBER void publish_live_config() {
     if (anims_paused || state->transition.active || state->param_morph.active)
       return;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -5923,7 +6118,7 @@ private:
     if (advancePreset()) {
 #if defined(HS_PROFILE_ENABLE)
       hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex()),
-              static_cast<unsigned>(PRESETS.size()));
+              static_cast<unsigned>(preset_count_for_view()));
 #endif
     } else {
       preset_dwell_remaining = 1;
@@ -6972,6 +7167,8 @@ private:
 #endif
   bool requested_schema_bound = false;
   bool registered_range_clamped = false;
+  bool fixed_topology = false;
+  std::span<const uint8_t> preset_view{};
   uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;
   Blend blend{PRESETS[0].config.params};
@@ -6996,6 +7193,3 @@ private:
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "ShaderBall persistent footprint exceeds the default partition");
 };
-
-#include "core/engine/effect_registry.h"
-REGISTER_EFFECT(ShaderBall)

@@ -2580,8 +2580,8 @@ struct Placed<CodeEmission::OUT_OF_LINE_FLASH, StageImplementationT>
   using FrameState = typename StageImplementationT::FrameState;
   static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
 
-  HS_FLASH_MEMBER static Output run(const Input &input,
-                                    const FrameState &frame) {
+  __attribute__((noinline)) HS_FLASH_MEMBER static Output
+  run(const Input &input, const FrameState &frame) {
     return StageImplementationT::run(input, frame);
   }
 };

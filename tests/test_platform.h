@@ -434,6 +434,14 @@ inline void test_epoch_seed() {
   HS_EXPECT_TRUE(std::adjacent_find(draws.begin(), draws.end()) == draws.end());
 }
 
+inline void test_stable_effect_seed() {
+  constexpr uint64_t curl = hs::stable_effect_seed("curl-lattice");
+  static_assert(curl == hs::stable_effect_seed("curl-lattice"));
+  static_assert(curl != hs::stable_effect_seed("facet-grid"));
+  HS_EXPECT_EQ(curl, hs::stable_effect_seed("curl-lattice"));
+  HS_EXPECT_TRUE(curl != hs::stable_effect_seed("CurlLattice"));
+}
+
 /**
  * @brief Pins Pcg32's draw stream to golden values taken from the published PCG
  *        XSH-RR 64/32 reference.
@@ -561,6 +569,7 @@ inline int run_platform_tests() {
   test_random_degenerate_range();
   test_rand_f_half_open();
   test_epoch_seed();
+  test_stable_effect_seed();
   test_pcg32_golden_stream();
   test_shuffle_golden_permutation();
   test_crgb_colorcode_constructor();

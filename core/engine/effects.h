@@ -31,10 +31,10 @@
 #include "effects/MindSplatter.h"
 #include "effects/MobiusGrid.h"
 #include "effects/PetalFlow.h"
+#include "effects/PromotedShaderLooks.h"
 #include "effects/Raymarch.h"
 #include "effects/RingShower.h"
 #include "effects/RingSpin.h"
-#include "effects/ShaderBall.h"
 #include "effects/ShapeShifter.h"
 #include "effects/SphericalHarmonics.h"
 #include "effects/Thrusters.h"
@@ -59,32 +59,44 @@
   X(BZReactionDiffusion)                                                       \
   X(ChaoticStrings)                                                            \
   X(Comets)                                                                    \
+  X(ContourLattice)                                                            \
   X(CurlLattice)                                                               \
   X(DisplacementField)                                                         \
   X(DreamBalls)                                                                \
   X(Dynamo)                                                                    \
+  X(EquatorGrid)                                                               \
   X(FacetGrid)                                                                 \
+  X(FacetWave)                                                                 \
   X(GnomonicStars)                                                             \
   X(GSReactionDiffusion)                                                       \
+  X(GlitchGrid)                                                                \
   X(HankinSolids)                                                              \
   X(HopfFibration)                                                             \
   X(IslamicStars)                                                              \
+  X(HexWave)                                                                   \
+  X(KaleidoGrid)                                                               \
+  X(KaleidoWave)                                                               \
   X(MeshFeedback)                                                              \
   X(MindSplatter)                                                              \
   X(MobiusGrid)                                                                \
   X(PetalFlow)                                                                 \
+  X(PrismLattice)                                                              \
+  X(QuincunxFacets)                                                            \
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
-  X(ShaderBall)                                                                \
+  X(Shader)                                                                    \
   X(ShapeShifter)                                                              \
+  X(SignalWeave)                                                               \
   X(SphericalHarmonics)                                                        \
+  X(StereoGlitch)                                                              \
   X(Thrusters)                                                                 \
+  X(VectorFacets)                                                              \
   X(Voronoi)
 
 /**
- * @brief Phantasm playlist: HS_EFFECT_LIST minus the workbench effects
- *        (CurlLattice, FacetGrid) and low-res-only effects (Dynamo, Thrusters).
+ * @brief Phantasm playlist: HS_EFFECT_LIST minus Shader and the low-res-only
+ *        effects Dynamo and Thrusters.
  * @param X Function-like macro applied to each effect type name and its show
  *          duration in seconds.
  * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
@@ -96,24 +108,67 @@
   X(BZReactionDiffusion, 120)                                                  \
   X(ChaoticStrings, 120)                                                       \
   X(Comets, 120)                                                               \
+  X(ContourLattice, 6)                                                         \
+  X(CurlLattice, 13)                                                           \
   X(DisplacementField, 120)                                                    \
   X(DreamBalls, 120)                                                           \
+  X(EquatorGrid, 19)                                                           \
+  X(FacetGrid, 19)                                                             \
+  X(FacetWave, 6)                                                              \
   X(GnomonicStars, 120)                                                        \
   X(GSReactionDiffusion, 120)                                                  \
+  X(GlitchGrid, 6)                                                             \
   X(HankinSolids, 120)                                                         \
   X(HopfFibration, 120)                                                        \
+  X(HexWave, 6)                                                                \
   X(IslamicStars, 120)                                                         \
+  X(KaleidoGrid, 7)                                                            \
+  X(KaleidoWave, 7)                                                            \
   X(MeshFeedback, 181)                                                         \
   X(MindSplatter, 120)                                                         \
   X(MobiusGrid, 120)                                                           \
   X(PetalFlow, 120)                                                            \
+  X(PrismLattice, 6)                                                           \
+  X(QuincunxFacets, 6)                                                         \
   X(Raymarch, 120)                                                             \
   X(RingShower, 120)                                                           \
   X(RingSpin, 120)                                                             \
-  X(ShaderBall, 120)                                                           \
   X(ShapeShifter, 135)                                                         \
+  X(SignalWeave, 7)                                                            \
   X(SphericalHarmonics, 120)                                                   \
+  X(StereoGlitch, 6)                                                           \
+  X(VectorFacets, 6)                                                           \
   X(Voronoi, 120)
+
+/** Shader promotion product group in gallery and device order. */
+#define HS_SHADER_PRODUCT_GROUP(X)                                             \
+  X(SignalWeave, 7)                                                            \
+  X(KaleidoWave, 7)                                                            \
+  X(KaleidoGrid, 7)                                                            \
+  X(GlitchGrid, 6)                                                             \
+  X(QuincunxFacets, 6)                                                         \
+  X(FacetWave, 6)                                                              \
+  X(ContourLattice, 6)                                                         \
+  X(CurlLattice, 13)                                                           \
+  X(PrismLattice, 6)                                                           \
+  X(VectorFacets, 6)                                                           \
+  X(FacetGrid, 19)                                                             \
+  X(HexWave, 6)                                                                \
+  X(EquatorGrid, 19)                                                           \
+  X(StereoGlitch, 6)
+
+#define HS_SHADER_GROUP_SECONDS(name, seconds) +seconds
+constexpr int HS_SHADER_PRODUCT_GROUP_SECONDS =
+    0 HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_SECONDS);
+#undef HS_SHADER_GROUP_SECONDS
+static_assert(HS_SHADER_PRODUCT_GROUP_SECONDS == 120,
+              "the promoted Shader group must retain ShaderBall's airtime");
+
+#define HS_SHADER_GROUP_REACHABLE(name, seconds)                               \
+  static_assert(name<96, 20>::PRESET_IDS.size() > 0,                           \
+                #name " must expose a reachable preset");
+HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_REACHABLE)
+#undef HS_SHADER_GROUP_REACHABLE
 
 /**
  * @brief Expands to +1 so HS_EFFECT_LIST can be summed into an entry count.
@@ -209,18 +264,15 @@ static_assert(hs_phantasm_effect_list_is_distinct(),
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
-static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 4,
+static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 3,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus CurlLattice, FacetGrid, Dynamo and "
-              "Thrusters)");
-static_assert(hs_in_effect_list("CurlLattice") &&
-                  hs_in_effect_list("FacetGrid") &&
-                  hs_in_effect_list("Dynamo") && hs_in_effect_list("Thrusters"),
+              "(full roster minus Shader, Dynamo and Thrusters)");
+static_assert(hs_in_effect_list("Shader") && hs_in_effect_list("Dynamo") &&
+                  hs_in_effect_list("Thrusters"),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
-static_assert(!hs_in_phantasm_effect_list("CurlLattice") &&
-                  !hs_in_phantasm_effect_list("FacetGrid") &&
+static_assert(!hs_in_phantasm_effect_list("Shader") &&
                   !hs_in_phantasm_effect_list("Dynamo") &&
                   !hs_in_phantasm_effect_list("Thrusters"),
-              "HS_PHANTASM_EFFECT_LIST must exclude CurlLattice, FacetGrid, "
-              "Dynamo and Thrusters");
+              "HS_PHANTASM_EFFECT_LIST must exclude Shader, Dynamo and "
+              "Thrusters");

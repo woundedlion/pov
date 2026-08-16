@@ -1778,6 +1778,12 @@ inline void case_set_clip_out_of_bounds() {
   fx.set_clip(0, H, 0, opaque(W + 1));
 }
 
+/** @brief Death case: the publication envelope rejects values above one. */
+inline void case_output_envelope_out_of_range() {
+  DeathEffect fx;
+  fx.set_output_envelope(opaque(1.01f));
+}
+
 /**
  * @brief Death case: set_clip_x rejects x_end beyond the canvas width.
  */
@@ -3030,6 +3036,10 @@ inline const Case *all_cases(int &n) {
        "(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 && x0 <= x1 "
        "&& x1 <= clip_region.w) set_clip band must be non-inverted and "
        "within canvas bounds"},
+      {"output_envelope_out_of_range", case_output_envelope_out_of_range,
+       "canvas.h",
+       "(std::isfinite(value) && value >= 0.0f && value <= 1.0f) output "
+       "envelope must be finite and in [0,1]"},
       {"set_clip_x_out_of_bounds", case_set_clip_x_out_of_bounds, "canvas.h",
        "(x0 >= 0 && x0 <= x1 && x1 <= clip_region.w) set_clip_x band must be "
        "non-inverted and within canvas width"},
@@ -3637,7 +3647,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"MobiusGrid.h", 1},
     {"ReactionDiffusionBase.h", 2},
     {"RingShower.h", 1},
-    {"ShaderBall.h", 15},
+    {"ShaderBall.h", 16},
     {"ShapeShifter.h", 3},
     {"dma_led.h", 4},
     {"pov_segmented.h", 9},
@@ -3781,9 +3791,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 150;
+  constexpr int DEATH_CASE_COUNT = 151;
 #else
-  constexpr int DEATH_CASE_COUNT = 149;
+  constexpr int DEATH_CASE_COUNT = 150;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
