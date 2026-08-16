@@ -546,8 +546,9 @@ transition or snap.
 
 `AFFINE_FRAME` controls are authored as forward field placement, while frame
 preparation stores the inverse pullback. Scale interpolates in log space with a
-positive floor. Rotation is an independent signed rate in radians per frame,
-so it never reverses direction and a zero value leaves the frame fixed.
+positive floor. Rotation is a signed angle in radians per phase cycle over
+`[-2π, 2π]`, producing a continuous angular rate of `Speed × Rotation`; zero
+leaves the frame fixed.
 A singular or orientation-flipping affine endpoint is invalid.
 `WAVE_SHEAR` fixes polarization perpendicular to field direction, making its
 Jacobian determinant exactly 1 for every amplitude and frequency; a folding

@@ -4470,13 +4470,20 @@ inline void test_shaderball_planar_warp_animation() {
   HS_EXPECT_EQ(stationary.clocks.warp_outer_rotation, 0.0f);
 
   WB::RequestedConfig rotating = lattice_scroll;
-  rotating.params.warp.outer.speed = 0.0f;
-  rotating.params.warp.outer.rotation = 0.3f;
+  rotating.params.warp.outer.speed = 1.0f / 64.0f;
+  rotating.params.warp.outer.rotation = TWO_PI_F;
+  WB::RequestedConfig zero_speed = rotating;
+  zero_speed.params.warp.outer.speed = 0.0f;
+  WB::LookRuntime zero_speed_runtime;
+  WB::advance_runtime(sb, zero_speed_runtime, zero_speed,
+                      {Quaternion(), Quaternion()});
+  HS_EXPECT_EQ(zero_speed_runtime.clocks.warp_outer_rotation, 0.0f);
   WB::LookRuntime clockwise;
   WB::LookRuntime counterclockwise;
   for (int step = 1; step <= 4; ++step) {
     WB::advance_runtime(sb, clockwise, rotating, {Quaternion(), Quaternion()});
-    const float expected = step * rotating.params.warp.outer.rotation;
+    const float expected = step * rotating.params.warp.outer.speed *
+                           rotating.params.warp.outer.rotation;
     const auto prepared = WB::prepared_warp_stage(
         rotating.slots.warp_program.outer, rotating.params.warp.outer,
         clockwise.clocks.warp_outer_phase, Complex(),
@@ -4484,11 +4491,12 @@ inline void test_shaderball_planar_warp_animation() {
     HS_EXPECT_NEAR(prepared.rotation_cos, cosf(expected), 1e-6f);
     HS_EXPECT_NEAR(prepared.rotation_sin, sinf(expected), 1e-6f);
   }
-  rotating.params.warp.outer.rotation = -0.3f;
+  rotating.params.warp.outer.rotation = -TWO_PI_F;
   for (int step = 1; step <= 4; ++step) {
     WB::advance_runtime(sb, counterclockwise, rotating,
                         {Quaternion(), Quaternion()});
-    const float expected = step * rotating.params.warp.outer.rotation;
+    const float expected = step * rotating.params.warp.outer.speed *
+                           rotating.params.warp.outer.rotation;
     const auto prepared = WB::prepared_warp_stage(
         rotating.slots.warp_program.outer, rotating.params.warp.outer,
         counterclockwise.clocks.warp_outer_phase, Complex(),
@@ -4500,8 +4508,8 @@ inline void test_shaderball_planar_warp_animation() {
   inner_rotating.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   inner_rotating.slots.warp_program.inner.kind =
       WB::WarpStageKind::AFFINE_FRAME;
-  inner_rotating.params.warp.inner.speed = 0.0f;
-  inner_rotating.params.warp.inner.rotation = -0.2f;
+  inner_rotating.params.warp.inner.speed = 1.0f / 64.0f;
+  inner_rotating.params.warp.inner.rotation = -TWO_PI_F;
   WB::LookRuntime inner_runtime;
   WB::advance_runtime(sb, inner_runtime, inner_rotating,
                       {Quaternion(), Quaternion()});
@@ -4509,8 +4517,10 @@ inline void test_shaderball_planar_warp_animation() {
       inner_rotating.slots.warp_program.inner, inner_rotating.params.warp.inner,
       inner_runtime.clocks.warp_inner_phase, Complex(),
       inner_runtime.clocks.warp_inner_rotation);
-  HS_EXPECT_NEAR(prepared_inner.rotation_cos, cosf(-0.2f), 1e-6f);
-  HS_EXPECT_NEAR(prepared_inner.rotation_sin, sinf(-0.2f), 1e-6f);
+  const float expected_inner = inner_rotating.params.warp.inner.speed *
+                               inner_rotating.params.warp.inner.rotation;
+  HS_EXPECT_NEAR(prepared_inner.rotation_cos, cosf(expected_inner), 1e-6f);
+  HS_EXPECT_NEAR(prepared_inner.rotation_sin, sinf(expected_inner), 1e-6f);
   for (float phase : {0.0f, 0.25f, 0.5f, 0.75f}) {
     const auto prepared =
         WB::prepared_warp_stage(lattice_scroll.slots.warp_program.outer,
@@ -4573,18 +4583,18 @@ inline void test_shaderball_planar_warp_animation() {
       sb.getParameters().find("Planar Warp 1 Rotation");
   HS_EXPECT_TRUE(affine_rotation != nullptr);
   if (affine_rotation != nullptr) {
-    HS_EXPECT_NEAR(affine_rotation->min, -PI_F / 8.0f, 1e-7f);
-    HS_EXPECT_NEAR(affine_rotation->max, PI_F / 8.0f, 1e-7f);
+    HS_EXPECT_NEAR(affine_rotation->min, -TWO_PI_F, 1e-7f);
+    HS_EXPECT_NEAR(affine_rotation->max, TWO_PI_F, 1e-7f);
   }
 
   WB::RequestedConfig signed_affine = WB::presets()[6];
-  signed_affine.params.warp.outer.rotation = -PI_F / 8.0f;
+  signed_affine.params.warp.outer.rotation = -TWO_PI_F;
   HS_EXPECT_TRUE(WB::valid_config(signed_affine));
-  signed_affine.params.warp.outer.rotation = -PI_F / 8.0f - 0.001f;
+  signed_affine.params.warp.outer.rotation = -TWO_PI_F - 0.001f;
   HS_EXPECT_FALSE(WB::valid_config(signed_affine));
-  signed_affine.params.warp.outer.rotation = PI_F / 8.0f;
+  signed_affine.params.warp.outer.rotation = TWO_PI_F;
   HS_EXPECT_TRUE(WB::valid_config(signed_affine));
-  signed_affine.params.warp.outer.rotation = PI_F / 8.0f + 0.001f;
+  signed_affine.params.warp.outer.rotation = TWO_PI_F + 0.001f;
   HS_EXPECT_FALSE(WB::valid_config(signed_affine));
 
   WB::Params from_rate = WB::presets()[6].params;
