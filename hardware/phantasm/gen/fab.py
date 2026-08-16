@@ -183,6 +183,7 @@ LCSC_BY_REF = {
 # KiCad angle of 180 reads wrong in JLC's viewer; a +270 correction (180 -> 90)
 # lands pin 1 on the silk mark. Verify each against the assembly preview.
 ROT_CORRECTION = {
+    "D_BUS": 180,  # SOD-323: JLC cathode band aligned to pad 1
     "Q_REV": 180,  # SOT-23: JLC single-lead side aligned to pad 3
     "U1": 270,    # SOIC-14: KiCad 180 -> 90, pin 1 on silk mark
 }
@@ -466,6 +467,10 @@ def validate_rotation_refs(assembled):
             "rotation corrections missing from assembly: " +
             ", ".join(unknown)
         ])
+
+
+def cpl_rotation(ref, rotation):
+    return (rotation + ROT_CORRECTION.get(ref, 0)) % 360
 
 
 class PartCatalogError(ValueError):
@@ -823,8 +828,9 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="phantasm-jlc-", dir=OUT) as staged:
         print("[6/9] Gerbers")
-        run_export("gerber", [KCLI, "pcb", "export", "gerbers", "--layers",
-                              GERBER_LAYERS, "-o", staged + os.sep, PCB])
+        run_export("gerber", [KCLI, "pcb", "export", "gerbers",
+                              "--check-zones", "--layers", GERBER_LAYERS,
+                              "-o", staged + os.sep, PCB])
         print("[7/9] Drill")
         # Absolute origin, matching the gerbers and the centroid above.
         run_export("drill", [KCLI, "pcb", "export", "drill", "--format",
@@ -877,7 +883,7 @@ def main():
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
         for r in assembled:
             p = assembly_metadata[r]
-            rot = f"{(p['rotation'] + ROT_CORRECTION.get(r, 0)) % 360:.6f}"
+            rot = f"{cpl_rotation(r, p['rotation']):.6f}"
             w.writerow([r, p["pos_x"], p["pos_y"], p["side"], rot])
 
     print("[9/9] JLC upload zip")

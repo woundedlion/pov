@@ -154,6 +154,15 @@ class GeneratedSchematicTests(unittest.TestCase):
         self.assertTrue({"U_MCU", "U1", "J1", "J2", "J3A", "J3B", "J4",
                          "D_BUS", "Q_REV", "F1", "FB"} <= refs, sorted(refs))
 
+    def test_d_bus_uses_a_polarized_symbol(self):
+        instances = [
+            inst for inst in F(self.root, "symbol")
+            if any(p[1:3] == ["Reference", "D_BUS"]
+                   for p in F(inst, "property"))
+        ]
+        self.assertEqual(len(instances), 1)
+        self.assertEqual(sexp.val(instances[0], "lib_id"), ["Device:D_Zener"])
+
 
 if __name__ == "__main__":
     unittest.main()
