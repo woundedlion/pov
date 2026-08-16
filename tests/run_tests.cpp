@@ -135,10 +135,10 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
   X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
   X("sdf", 98, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
-  X("conway", 33, hs_test::conway_tests::run_conway_tests, 4121)               \
+  X("conway", 34, hs_test::conway_tests::run_conway_tests, 4121)               \
   X("conway_morph", 39, hs_test::conway_morph_tests::run_conway_morph_tests,   \
     302862)                                                                    \
-  X("conway_continuity", 20,                                                   \
+  X("conway_continuity", 21,                                                   \
     hs_test::conway_continuity_tests::run_conway_continuity_tests, 49151)      \
   X("partition_seam", 1,                                                       \
     hs_test::partition_seam_tests::run_partition_seam_tests, 54)               \
@@ -157,7 +157,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
     hs_test::reaction_graph_tests::run_reaction_graph_tests, 40)               \
   X("color", 69, hs_test::color_tests::run_color_tests, 408953)                \
   X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 102)           \
-  X("easing_waves", 9, hs_test::easing_waves_tests::run_easing_waves_tests,    \
+  X("easing_waves", 10, hs_test::easing_waves_tests::run_easing_waves_tests,   \
     6080)                                                                      \
   X("platform", 19, hs_test::platform_tests::run_platform_tests, 266686)       \
   X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \

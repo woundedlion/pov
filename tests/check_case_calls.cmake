@@ -13,9 +13,10 @@
 # trip-count drift; the count is exact, not a floor.
 #
 # It sees definitions of the form `void test_*(` / `void check_*(` /
-# `void case_*(` at the start of a line (optionally `inline`/`static`), which is
-# how every case in the tree is written; `case_*` names the death cases the
-# death module's table drives. The name may sit on the next line, which is where
+# `void case_*(` at the start of a line (optionally `inline`/`static` in either
+# order, behind an optional single-line `template <...>` head), which is how
+# every case in the tree is written; `case_*` names the death cases the death
+# module's table drives. The name may sit on the next line, which is where
 # clang-format puts it when the signature wraps. A module's header is the one
 # defining the run_*_tests() entry point its roster row names. Headers no roster
 # row reaches — helper headers included mid-module, and entry points only a
@@ -91,7 +92,7 @@ foreach(_hdr IN LISTS _headers)
     set(_cross_file TRUE)
   endif()
   string(REGEX MATCHALL
-    "\n[ \t]*(inline )?(static )?void[ \t\r\n]+(test|check|case)_[A-Za-z0-9_]+\\("
+    "\n[ \t]*(template[ \t]*<[^\n]*>[ \t]*)?((inline|static)[ \t]+)*void[ \t\r\n]+(test|check|case)_[A-Za-z0-9_]+\\("
     _defs "${_text}")
   set(_seen "")
   set(_count 0)
