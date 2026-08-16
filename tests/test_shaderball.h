@@ -1629,7 +1629,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(21));
+  HS_EXPECT_EQ(presets.size(), size_t(24));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   for (const auto &entry : choreo) {
     HS_EXPECT_FALSE(entry.staggered);
@@ -1642,7 +1642,7 @@ inline void test_shaderball_preset_bank() {
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
     const WB::PaletteMode expected_palette =
-        index >= 19 ? WB::PaletteMode::COMPLEMENTARY
+        index == 19 || index == 20 ? WB::PaletteMode::COMPLEMENTARY
         : index == 9 || (index >= 11 && index < 18) ? WB::PaletteMode::ANALOGOUS
                                                     : WB::PaletteMode::TRIADIC;
     HS_EXPECT_EQ(preset.slots.palette, expected_palette);
@@ -1657,7 +1657,79 @@ inline void test_shaderball_preset_bank() {
   const auto &wave_shear = presets[0];
   HS_EXPECT_EQ(wave_shear.slots.warp_program.outer.kind,
                WB::WarpStageKind::WAVE_SHEAR);
-  HS_EXPECT_EQ(wave_shear.params.warp.outer.speed, 1.0f / 64.0f);
+  HS_EXPECT_EQ(wave_shear.slots.palette_mapping, WB::PaletteMapping::CUP);
+  auto collect_signal_values = [](const auto &signal) {
+    return std::array<float, 24>{
+        signal.source.pattern_freq,
+        signal.source.speed,
+        signal.source.angle_rate,
+        signal.source.complexity,
+        signal.source.pattern_mix,
+        signal.source.secondary_rate,
+        signal.projection.pole_fade,
+        signal.projection.spin_rate,
+        signal.projection.wander,
+        signal.warp.outer.scale,
+        signal.warp.outer.strength,
+        signal.warp.outer.speed,
+        signal.surface_lens.mix,
+        signal.outer_camera.wander,
+        signal.color.palette_chroma,
+        signal.color.mapping_frequency,
+        signal.color.mapping_phase,
+        signal.color.phase_oscillation_depth,
+        signal.color.phase_oscillation_speed,
+        signal.color.value_opacity_low,
+        signal.color.value_opacity_high,
+        signal.color.hue_shift_amount,
+        signal.color.hue_noise_scale,
+        signal.color.hue_noise_speed,
+    };
+  };
+  const std::array<float, 24> primary_signal =
+      collect_signal_values(wave_shear.params);
+  constexpr std::array<float, 24> SIGNAL_EXPECTED{
+      4.439f, 0.245f, 0.0f, 0.5f,      0.0f, 0.0f,   1.0f,       0.0f,
+      0.0f,   1.0f,   0.5f, 0.015625f, 1.0f, 0.0f,   0.788f,     1.0f,
+      -0.0f,  0.0f,   0.0f, 1.0f,      1.0f, 0.292f, 0.6304219f, 0.0f,
+  };
+  const auto &second_signal = presets[21];
+  HS_EXPECT_EQ(second_signal.slots.palette_mapping, WB::PaletteMapping::CUP);
+  const std::array<float, 24> secondary_signal =
+      collect_signal_values(second_signal.params);
+  constexpr std::array<float, 24> SECOND_SIGNAL_EXPECTED{
+      3.1447f, 0.245f, 0.0f,  0.5f,        0.0f, 0.0f,   1.0f,       0.0f,
+      0.0f,    1.0f,   2.72f, 0.00690625f, 1.0f, 0.0f,   0.788f,     1.0f,
+      -0.0f,   0.0f,   0.0f,  1.0f,        1.0f, 0.292f, 0.6304219f, 0.0f,
+  };
+  const auto &third_signal = presets[22];
+  HS_EXPECT_EQ(third_signal.slots.palette_mapping, WB::PaletteMapping::CUP);
+  const std::array<float, 24> tertiary_signal =
+      collect_signal_values(third_signal.params);
+  constexpr std::array<float, 24> THIRD_SIGNAL_EXPECTED{
+      7.5227f, 0.245f, 0.0f, 1.698f,      0.0f, 0.0f,   1.0f,       0.0f,
+      0.0f,    1.0f,   0.0f, 0.00690625f, 1.0f, 0.0f,   0.788f,     1.0f,
+      -0.0f,   0.0f,   0.0f, 1.0f,        1.0f, 0.292f, 0.6304219f, 0.0f,
+  };
+  const auto &fourth_signal = presets[23];
+  HS_EXPECT_EQ(fourth_signal.slots.palette_mapping, WB::PaletteMapping::CUP);
+  const std::array<float, 24> fourth_signal_values =
+      collect_signal_values(fourth_signal.params);
+  constexpr std::array<float, 24> FOURTH_SIGNAL_EXPECTED{
+      8.8162f, 0.245f, 0.0f,   1.698f,      0.0f, 0.0f,   1.0f,       0.0f,
+      0.0f,    1.0f,   1.376f, 0.00559375f, 0.0f, 0.0f,   0.788f,     1.0f,
+      -0.0f,   0.0f,   0.0f,   1.0f,        1.0f, 0.292f, 0.6304219f, 0.0f,
+  };
+  for (size_t index = 0; index < primary_signal.size(); ++index) {
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(primary_signal[index]),
+                 std::bit_cast<uint32_t>(SIGNAL_EXPECTED[index]));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(secondary_signal[index]),
+                 std::bit_cast<uint32_t>(SECOND_SIGNAL_EXPECTED[index]));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(tertiary_signal[index]),
+                 std::bit_cast<uint32_t>(THIRD_SIGNAL_EXPECTED[index]));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(fourth_signal_values[index]),
+                 std::bit_cast<uint32_t>(FOURTH_SIGNAL_EXPECTED[index]));
+  }
   const auto &mirror = presets[1];
   HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
@@ -2562,11 +2634,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(21));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(24));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(20));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[20]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(23));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[23]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
@@ -3896,7 +3968,7 @@ inline void test_shaderball_inverse_pipeline_manifest() {
     HS_EXPECT_EQ(preset_mask, expected.preset_mask);
     compiled_preset_mask |= preset_mask;
   }
-  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0x1fffff));
+  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0xffffff));
   const auto &peirce_framebuffer =
       pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
   const auto &hue_framebuffer = pullback_oracle_metric(
@@ -4567,7 +4639,7 @@ inline void test_shaderball_kernel_catalog() {
     check(config);
   }
 
-  WB::FrameState frame = WB::frame(sb);
+  WB::FrameState frame = WB::config_frame(sb, WB::presets()[0]);
   frame.resources.outer_warp_noise = nullptr;
   WB::WarpStageParams zero_params;
   zero_params.strength = 0.0f;
