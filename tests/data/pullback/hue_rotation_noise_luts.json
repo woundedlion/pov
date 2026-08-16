@@ -55,17 +55,17 @@
     {
       "domain": "FRAMEBUFFER",
       "aggregation": "MAXIMUM",
-      "measured_baseline": 2189,
-      "configuration_baselines": { "native-debug": 2188, "wasm-release": 2189, "wasm-strict-fp": 2188 },
+      "measured_baseline": 2810,
+      "configuration_baselines": { "native-debug": 2810, "wasm-release": 2189, "wasm-strict-fp": 2188 },
       "resolution_baselines": {
-        "native-debug": { "96x20": 2099, "288x144": 2188 },
+        "native-debug": { "96x20": 2688, "288x144": 2810 },
         "wasm-release": { "96x20": 2099, "288x144": 2189 },
         "wasm-strict-fp": { "96x20": 2099, "288x144": 2188 }
       },
       "accepted_limit": 5400,
       "unit": "16-bit channel code",
       "limit_provenance": "color-stage maximum bounds framebuffer channels",
-      "measurement_provenance": "repo-owned native Debug and release/strict-FP WASM exact-versus-optimized framebuffer capture at base_sha, both roster resolutions and named preset-6/7/10 probes"
+      "measurement_provenance": "repo-owned native Debug capture with the four-look SignalWeave bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-6/7/10 probes"
     }
   ]
 }
