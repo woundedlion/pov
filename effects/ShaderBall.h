@@ -6804,6 +6804,16 @@ private:
   }
 
   static constexpr Config
+  stereographic_dodecahedral_double_mapping_grid_inner_mirror_preset() {
+    Config config =
+        stereographic_dodecahedral_complex_grid_inner_mirror_preset();
+    config.params.source.pattern_freq = 3.9407f;
+    config.params.projection.wander = 0.165f;
+    config.params.color.mapping_frequency = 2.0f;
+    return config;
+  }
+
+  static constexpr Config
   stereographic_hexagonal_prism_twin_wave_mirror_preset() {
     Slots slots{Function::TWIN_WAVE,
                 Projection::STEREOGRAPHIC,
@@ -6824,7 +6834,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 15> PRESETS = {{
+  static constexpr std::array<Preset, 16> PRESETS = {{
       {wave_shear_generated_preset(),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
@@ -6854,6 +6864,8 @@ private:
       {stereographic_hexagonal_prism_twin_wave_mirror_preset(),
        InversePipelineId::STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR},
       {stereographic_dodecahedral_complex_grid_inner_mirror_preset(),
+       InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR},
+      {stereographic_dodecahedral_double_mapping_grid_inner_mirror_preset(),
        InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR},
   }};
   static_assert(
