@@ -71,8 +71,9 @@ HS_SINGLE_PROMOTED_SHADER_LOOK(CosmicEyeball, "cosmic-eyeball", "mirrored-grid",
 template <int W, int H> class MobiusGrid : public ShaderBall<W, H> {
 public:
   static constexpr std::string_view EFFECT_ID = "mobius-grid";
-  static constexpr std::array<std::string_view, 1> PRESET_IDS{"mobius-grid"};
-  static constexpr std::array<uint8_t, 1> SOURCE_PRESET_INDICES{19};
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"mobius-grid",
+                                                              "mobius-grid-2"};
+  static constexpr std::array<uint8_t, 2> SOURCE_PRESET_INDICES{19, 20};
 
   HS_COLD_MEMBER void init() override {
     this->set_fixed_preset_view(SOURCE_PRESET_INDICES);
