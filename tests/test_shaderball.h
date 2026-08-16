@@ -3193,6 +3193,28 @@ inline void test_promoted_shader_palette_mapping_control() {
   HS_EXPECT_EQ(mapping->option_count, 4);
 }
 
+inline void test_signal_weave_initial_preset_dwell() {
+  using WB = ShaderBallWhiteBox;
+  using FX = SignalWeave<SMALL_W, SMALL_H>;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
+  for (uint16_t frame = 1; frame < FX::INITIAL_PRESET_DWELL_FRAMES; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
+  HS_EXPECT_FALSE(WB::transition_active(effect));
+
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t(1));
+  HS_EXPECT_TRUE(WB::transition_active(effect) ||
+                 WB::param_morph_active(effect));
+}
+
 inline void test_mobius_grid_circular_animation() {
   using WB = ShaderBallWhiteBox;
   using FX = MobiusGrid<SMALL_W, SMALL_H>;
@@ -5555,6 +5577,7 @@ inline int run_shaderball_tests() {
   test_shaderball_parameter_capacity();
   test_shaderball_gui_catalog();
   test_promoted_shader_palette_mapping_control();
+  test_signal_weave_initial_preset_dwell();
   test_mobius_grid_circular_animation();
   test_shaderball_lens_domain_ranges();
   test_shaderball_projection_catalog();

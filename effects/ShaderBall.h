@@ -231,6 +231,12 @@ protected:
         &anims_paused);
   }
 
+  HS_COLD_MEMBER void hold_initial_preset(uint16_t frames) {
+    assert(frames > 0);
+    preset_dwell_remaining = frames;
+    preset_dwell_armed = preset_count_for_view() > 1;
+  }
+
 public:
   /** @brief Initializes slots, clocks, palette resources, and choreography. */
   HS_COLD_MEMBER void init() override {
