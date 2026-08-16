@@ -35,8 +35,8 @@ public:
       "54468343cd539059ed564bb192969114e01b54bd17fec194653b300a6f674f92";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "3f15f1ba74f7d58d9933d05daa3ddcb0dcef93f5d85d53afdbafbcc7497bef51";
-  static constexpr std::array<std::string_view, 2> PRESET_IDS{
-      "open-curl", "dense-curl"};
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
+                                                              "dense-curl"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t TRANSITION_DURATION = 480;
 
@@ -61,9 +61,8 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(projection_walk, UP,
                                              state->projection_walk_noise));
-    timeline.add(0,
-                 Animation::RandomWalk<W>(outer_walk, UP,
-                                          state->outer_walk_noise));
+    timeline.add(
+        0, Animation::RandomWalk<W>(outer_walk, UP, state->outer_walk_noise));
 
     register_animated_param("Surface Noise Scale", &params.surface_noise_scale,
                             SURFACE_SCALE_MIN, SURFACE_SCALE_MAX);
@@ -196,9 +195,7 @@ private:
     static const Vector &loop_offset(const FrameState &frame) {
       return frame.surface_loop_offset;
     }
-    static float strength(const FrameState &) {
-      return SURFACE_NOISE_STRENGTH;
-    }
+    static float strength(const FrameState &) { return SURFACE_NOISE_STRENGTH; }
     static bool path_length_required(const FrameState &) { return false; }
   };
 
@@ -235,8 +232,7 @@ private:
     hue_rotation(const FrameState &frame) {
       return {frame.hue_rotation_lut, true};
     }
-    static Pullback::Color::HueNoiseLutView
-    hue_noise(const FrameState &frame) {
+    static Pullback::Color::HueNoiseLutView hue_noise(const FrameState &frame) {
       return {frame.hue_noise_lut, true};
     }
     static Pullback::Color::BrightnessEnvelope
@@ -330,9 +326,9 @@ private:
   HS_COLD_MEMBER void prepare_transition_value() {
     if (!transition.active)
       return;
-    const FixedPipeline::EdgeProgress progress = FixedPipeline::edge_progress(
-        transition.evaluation, transition.duration,
-        FixedPipeline::Easing::EASE_IN_OUT_SIN);
+    const FixedPipeline::EdgeProgress progress =
+        FixedPipeline::edge_progress(transition.evaluation, transition.duration,
+                                     FixedPipeline::Easing::EASE_IN_OUT_SIN);
     params.surface_noise_scale = FixedPipeline::linear(
         transition.from.surface_noise_scale, transition.to.surface_noise_scale,
         progress.eased);
@@ -363,8 +359,7 @@ private:
     outer_walk_previous = outer;
     outer_wander = (outer_delta.normalized() * outer_wander).normalized();
 
-    projection_conjugate =
-        (base_orientation * projection_wander).conjugate();
+    projection_conjugate = (base_orientation * projection_wander).conjugate();
     outer_conjugate = outer_wander.conjugate();
   }
 
@@ -387,9 +382,8 @@ private:
     if (sequence > 0)
       effect.palette_hue += HUE_STEP;
     out = GenerativePalette{PaletteRecipes::profile(
-        PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
-        AxisCurve::ASCENDING, PaletteRecipes::hue_turns(effect.palette_hue),
-        1.0f)};
+        PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::ASCENDING,
+        PaletteRecipes::hue_turns(effect.palette_hue), 1.0f)};
   }
 
   static constexpr size_t FOOTPRINT_BYTES =
@@ -419,3 +413,5 @@ private:
   uint32_t palette_hue = 0;
   PaletteCycler palette_cycler;
 };
+
+REGISTER_EFFECT(CurlLattice)

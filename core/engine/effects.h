@@ -17,6 +17,7 @@
 #include "effects/BZReactionDiffusion.h"
 #include "effects/ChaoticStrings.h"
 #include "effects/Comets.h"
+#include "effects/CurlLattice.h"
 #include "effects/DisplacementField.h"
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
@@ -57,6 +58,7 @@
   X(BZReactionDiffusion)                                                       \
   X(ChaoticStrings)                                                            \
   X(Comets)                                                                    \
+  X(CurlLattice)                                                               \
   X(DisplacementField)                                                         \
   X(DreamBalls)                                                                \
   X(Dynamo)                                                                    \
@@ -79,8 +81,8 @@
   X(Voronoi)
 
 /**
- * @brief Phantasm (288x144) playlist: HS_EFFECT_LIST minus the low-res-only
- *        effects (Dynamo, Thrusters — Holosphere 96x20 only).
+ * @brief Phantasm (288x144) playlist: HS_EFFECT_LIST minus CurlLattice and the
+ *        low-res-only effects (Dynamo, Thrusters — Holosphere 96x20 only).
  * @param X Function-like macro applied to each effect type name and its show
  *          duration in seconds.
  * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
@@ -205,13 +207,15 @@ static_assert(hs_phantasm_effect_list_is_distinct(),
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
-static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 2,
+static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 3,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus Dynamo and Thrusters)");
-static_assert(hs_in_effect_list("Dynamo") && hs_in_effect_list("Thrusters"),
+              "(full roster minus CurlLattice, Dynamo and Thrusters)");
+static_assert(hs_in_effect_list("CurlLattice") && hs_in_effect_list("Dynamo") &&
+                  hs_in_effect_list("Thrusters"),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
-static_assert(!hs_in_phantasm_effect_list("Dynamo") &&
+static_assert(!hs_in_phantasm_effect_list("CurlLattice") &&
+                  !hs_in_phantasm_effect_list("Dynamo") &&
                   !hs_in_phantasm_effect_list("Thrusters"),
-              "HS_PHANTASM_EFFECT_LIST must exclude Dynamo and Thrusters "
-              "(Holosphere 96x20 only)");
+              "HS_PHANTASM_EFFECT_LIST must exclude CurlLattice, Dynamo and "
+              "Thrusters");
