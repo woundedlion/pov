@@ -44,7 +44,7 @@
   "programs": [
     {
       "id": "GLITCH_NOISE_GRID_WAVE_SHEAR",
-      "presets": [0],
+      "presets": [0, 21, 22, 23],
       "topology_key": { "function": 3, "projection": 1, "projection_frame": 1, "surface_lens": 1, "signal_weight": 1, "value_transfer": 0, "coverage": 1, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 0, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 2, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 0, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"preset"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
       "probes": {"seam":["longitude-wrap"],"singularity":["stereographic-pole"],"boundary":["projection-weight"],"transition":["from","to"]},

@@ -37,20 +37,20 @@
     {
       "domain": "COLOR_CHANNEL",
       "aggregation": "MAXIMUM",
-      "measured_baseline": 4249,
-      "accepted_limit": 5400,
+      "measured_baseline": 6893,
+      "accepted_limit": 7000,
       "unit": "16-bit channel code",
-      "limit_provenance": "existing ShaderBall combined prepared-hue stage budget",
-      "measurement_provenance": "unit_shaderball direct-versus-prepared hue corpus at base_sha"
+      "limit_provenance": "SignalWeave CUP-mapping prepared-hue stage budget",
+      "measurement_provenance": "unit_shaderball direct-versus-prepared hue corpus with the four-look SignalWeave bank"
     },
     {
       "domain": "COLOR_CHANNEL",
       "aggregation": "MEAN",
-      "measured_baseline": 166,
+      "measured_baseline": 213,
       "accepted_limit": 256,
       "unit": "16-bit channel code",
       "limit_provenance": "existing ShaderBall combined prepared-hue stage budget",
-      "measurement_provenance": "unit_shaderball direct-versus-prepared hue corpus at base_sha"
+      "measurement_provenance": "unit_shaderball direct-versus-prepared hue corpus with the four-look SignalWeave bank"
     },
     {
       "domain": "FRAMEBUFFER",

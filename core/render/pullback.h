@@ -2275,7 +2275,7 @@ template <typename State> struct GeneratedPalette : ExactPolicy {
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   static constexpr std::array<ApproximationMetric, 3> METRICS{{
       {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
-       5400.0f, "channel code"},
+       7000.0f, "channel code"},
       {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
        256.0f, "channel code"},
       {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,

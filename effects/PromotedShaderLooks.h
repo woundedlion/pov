@@ -49,8 +49,6 @@ public:
     }                                                                          \
   }
 
-HS_SINGLE_PROMOTED_SHADER_LOOK(SignalWeave, "signal-weave", "signal-weave", 0,
-                               0);
 HS_SINGLE_PROMOTED_SHADER_LOOK(KaleidoWave, "kaleido-wave", "twin-wave", 1, 1);
 HS_SINGLE_PROMOTED_SHADER_LOOK(AlienOcean, "alien-ocean", "folded-grid", 2, 2);
 HS_SINGLE_PROMOTED_SHADER_LOOK(GlitchGrid, "glitch-grid", "folded-glitch", 3,
@@ -67,6 +65,23 @@ HS_SINGLE_PROMOTED_SHADER_LOOK(CosmicEyeball, "cosmic-eyeball", "mirrored-grid",
                                18, 13);
 
 #undef HS_SINGLE_PROMOTED_SHADER_LOOK
+
+template <int W, int H> class SignalWeave : public ShaderBall<W, H> {
+public:
+  static constexpr std::string_view EFFECT_ID = "signal-weave";
+  static constexpr std::array<std::string_view, 4> PRESET_IDS{
+      "signal-weave", "signal-weave-2", "signal-weave-3", "signal-weave-4"};
+  static constexpr std::array<uint8_t, 4> SOURCE_PRESET_INDICES{0, 21, 22, 23};
+
+  HS_COLD_MEMBER void init() override {
+    this->set_fixed_preset_view(SOURCE_PRESET_INDICES);
+    ShaderBall<W, H>::init();
+  }
+
+  HS_FLASH_MEMBER void draw_frame() override {
+    this->template draw_fixed_program_frame<0>();
+  }
+};
 
 template <int W, int H> class MobiusGrid : public ShaderBall<W, H> {
 public:
