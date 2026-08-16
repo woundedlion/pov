@@ -388,6 +388,11 @@ struct ShaderBallWhiteBox {
         SB::prepare_warp_stage(spec, params, phase, source_period),
         SB::tracks_displacement(frame));
   }
+  static auto prepared_warp_stage(const WarpStageSpec &spec,
+                                  const WarpStageParams &params, float phase,
+                                  const Complex &source_period = Complex()) {
+    return SB::prepare_warp_stage(spec, params, phase, source_period);
+  }
   static MaterialSample material(const ProjectedLookup &projected,
                                  const PlanarWarpResult &warped,
                                  const FrameState &frame) {
@@ -4096,6 +4101,14 @@ inline void test_shaderball_planar_warp_animation() {
   affine.scale_y = 0.75f;
   affine.shear = 0.25f;
   expect_cycle(WB::WarpStageKind::AFFINE_FRAME, affine);
+  for (float phase : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+    const auto prepared = WB::prepared_warp_stage(
+        WB::WarpStageSpec{WB::WarpStageKind::AFFINE_FRAME}, affine, phase,
+        Complex(1.0f, 1.0f));
+    const float expected = affine.rotation + TWO_PI_F * wrap_t(phase);
+    HS_EXPECT_NEAR(prepared.rotation_cos, cosf(expected), 1e-6f);
+    HS_EXPECT_NEAR(prepared.rotation_sin, sinf(expected), 1e-6f);
+  }
   const auto affine_quarter =
       sample(WB::WarpStageKind::AFFINE_FRAME, affine, 0.25f);
   const auto affine_three_quarters =
@@ -4112,11 +4125,13 @@ inline void test_shaderball_planar_warp_animation() {
   for (size_t index = 0; index < std::size(affine_fields); ++index) {
     WB::WarpStageParams one_value;
     one_value.*affine_fields[index] = index == 3 || index == 4 ? 1.5f : 0.3f;
-    const auto first = sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.0f);
-    const auto second =
-        sample(WB::WarpStageKind::AFFINE_FRAME, one_value, 0.25f);
-    HS_EXPECT_TRUE(fabsf(first.coords.re - second.coords.re) > 1e-4f ||
-                   fabsf(first.coords.im - second.coords.im) > 1e-4f);
+    const float phase = index < 2 ? 0.25f : 0.0f;
+    const auto baseline =
+        sample(WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageParams{}, phase);
+    const auto changed =
+        sample(WB::WarpStageKind::AFFINE_FRAME, one_value, phase);
+    HS_EXPECT_TRUE(fabsf(baseline.coords.re - changed.coords.re) > 1e-4f ||
+                   fabsf(baseline.coords.im - changed.coords.im) > 1e-4f);
   }
   const auto affine_identity_start =
       sample(WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageParams{}, 0.0f);
@@ -4124,8 +4139,8 @@ inline void test_shaderball_planar_warp_animation() {
       sample(WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageParams{}, 0.25f);
   HS_EXPECT_NEAR(affine_identity_start.coords.re, input.re, 1e-6f);
   HS_EXPECT_NEAR(affine_identity_start.coords.im, input.im, 1e-6f);
-  HS_EXPECT_NEAR(affine_identity_quarter.coords.re, input.re, 1e-6f);
-  HS_EXPECT_NEAR(affine_identity_quarter.coords.im, input.im, 1e-6f);
+  HS_EXPECT_NEAR(affine_identity_quarter.coords.re, input.im, 1e-6f);
+  HS_EXPECT_NEAR(affine_identity_quarter.coords.im, -input.re, 1e-6f);
 
   WB::WarpStageParams affine_scale;
   affine_scale.scale_x = 2.0f;
@@ -4136,8 +4151,8 @@ inline void test_shaderball_planar_warp_animation() {
       sample(WB::WarpStageKind::AFFINE_FRAME, affine_scale, 0.25f);
   HS_EXPECT_NEAR(scale_start.coords.re, input.re * 0.5f, 1e-6f);
   HS_EXPECT_NEAR(scale_start.coords.im, input.im * 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(scale_quarter.coords.re, input.re, 1e-6f);
-  HS_EXPECT_NEAR(scale_quarter.coords.im, input.im, 1e-6f);
+  HS_EXPECT_NEAR(scale_quarter.coords.re, input.im, 1e-6f);
+  HS_EXPECT_NEAR(scale_quarter.coords.im, -input.re, 1e-6f);
 
   WB::WarpStageParams affine_scroll;
   affine_scroll.translation_x = 1.0f;
@@ -4148,12 +4163,24 @@ inline void test_shaderball_planar_warp_animation() {
       sample(WB::WarpStageKind::AFFINE_FRAME, affine_scroll, 0.5f);
   const auto scroll_three_quarters =
       sample(WB::WarpStageKind::AFFINE_FRAME, affine_scroll, 0.75f);
-  HS_EXPECT_NEAR(scroll_half.coords.re - scroll_quarter.coords.re,
-                 scroll_three_quarters.coords.re - scroll_half.coords.re,
+  const auto base_quarter = sample(WB::WarpStageKind::AFFINE_FRAME,
+                                   WB::WarpStageParams{}, 0.25f);
+  const auto base_half = sample(WB::WarpStageKind::AFFINE_FRAME,
+                                WB::WarpStageParams{}, 0.5f);
+  const auto base_three_quarters = sample(WB::WarpStageKind::AFFINE_FRAME,
+                                          WB::WarpStageParams{}, 0.75f);
+  HS_EXPECT_NEAR(scroll_quarter.coords.re - base_quarter.coords.re, -0.25f,
                  1e-6f);
-  HS_EXPECT_NEAR(scroll_half.coords.im - scroll_quarter.coords.im,
-                 scroll_three_quarters.coords.im - scroll_half.coords.im,
+  HS_EXPECT_NEAR(scroll_quarter.coords.im - base_quarter.coords.im, 0.5f,
                  1e-6f);
+  HS_EXPECT_NEAR(scroll_half.coords.re - base_half.coords.re, -0.5f, 1e-6f);
+  HS_EXPECT_NEAR(scroll_half.coords.im - base_half.coords.im, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(scroll_three_quarters.coords.re -
+                     base_three_quarters.coords.re,
+                 -0.75f, 1e-6f);
+  HS_EXPECT_NEAR(scroll_three_quarters.coords.im -
+                     base_three_quarters.coords.im,
+                 1.5f, 1e-6f);
 
   WB::RequestedConfig lattice_scroll = WB::presets()[6];
   lattice_scroll.params.source.lattice_cell_scale = 2.5f;
@@ -4214,6 +4241,23 @@ inline void test_shaderball_planar_warp_animation() {
   HS_EXPECT_EQ(WB::requested_config(sb).params.warp.outer.translation_x, 1.0f);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1 Translation X") ==
                  nullptr);
+  const auto *affine_rotation =
+      sb.getParameters().find("Planar Warp 1 Rotation");
+  HS_EXPECT_TRUE(affine_rotation != nullptr);
+  if (affine_rotation != nullptr) {
+    HS_EXPECT_NEAR(affine_rotation->min, -PI_F, 1e-7f);
+    HS_EXPECT_NEAR(affine_rotation->max, PI_F, 1e-7f);
+  }
+
+  WB::RequestedConfig signed_affine = WB::presets()[6];
+  signed_affine.params.warp.outer.rotation = -PI_F;
+  HS_EXPECT_TRUE(WB::valid_config(signed_affine));
+  signed_affine.params.warp.outer.rotation = -PI_F - 0.001f;
+  HS_EXPECT_FALSE(WB::valid_config(signed_affine));
+  signed_affine.params.warp.outer.rotation = PI_F;
+  HS_EXPECT_TRUE(WB::valid_config(signed_affine));
+  signed_affine.params.warp.outer.rotation = PI_F + 0.001f;
+  HS_EXPECT_FALSE(WB::valid_config(signed_affine));
 
   WB::WarpStageParams mirror;
   mirror.cell_x = 1.0f;
