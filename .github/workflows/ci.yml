@@ -1034,6 +1034,25 @@ jobs:
       - name: Effect roster matches REGISTER_EFFECT registrations
         run: node scripts/check_effect_roster.mjs
 
+  docs-images:
+    name: Documented image references resolve
+    # docs.yml stages these images into the Doxygen artifact, but that workflow
+    # is path-filtered: moving or deleting an image outside docs/screenshots/
+    # matches none of its paths, so the broken reference reaches no run there.
+    # This job needs no Doxygen build — it resolves every `<img>` in the tracked
+    # Markdown against the tracked tree, and ci.yml has no path filter.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Every documented image reference resolves
+        run: python tools/docs_images.py
+
   docs-markdown:
     name: Tracked Markdown is valid
     # Lives here rather than in docs.yml because that workflow is path-filtered
@@ -1929,6 +1948,7 @@ jobs:
       - gamut-lut-provenance
       - srgb-decode-provenance
       - screenshot-gallery
+      - docs-images
       - docs-markdown
       - license-headers
       - lint

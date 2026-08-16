@@ -60,6 +60,9 @@ hand.
 - **Documentation:** `python tools/docs_check.py` validates fences, links,
   anchors and every backticked repo path, and the README's file map must list a
   new tracked path; the pre-commit hook and `just docs-check` both run it.
+  `python tools/docs_images.py` resolves every documented `<img>` against the
+  tracked tree. It only reports; `--stage` copies the images into a built
+  Doxygen tree and is the sole mode that writes.
 - **License headers:** `python tools/license_check.py`. No hook runs it; `just
   license-headers` does, alongside the checker's own unit tests — otherwise the
   first evidence of a missing header is a red `License headers match LICENSE`
