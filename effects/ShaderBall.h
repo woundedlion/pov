@@ -2220,6 +2220,7 @@ private:
     STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
     STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR,
     EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR,
+    STEREOGRAPHIC_GLITCH_GRID_MIRROR,
     COUNT,
     NONE = 0xff
   };
@@ -2568,6 +2569,13 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
+  using StereographicGlitchGridMirrorPipeline = InversePipeline<
+      OuterCameraStage,
+      SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
+                                  SurfaceLens::GLITCH>,
+      SelectedPlanarWarpStage<WarpStageKind::MIRROR_TILE, WarpStageKind::NONE>,
+      SourceStage<Function::GRID>,
+      LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
 
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
 
@@ -3499,6 +3507,8 @@ private:
       return "STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR";
     case InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR:
       return "EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR";
+    case InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR:
+      return "STEREOGRAPHIC_GLITCH_GRID_MIRROR";
     case InversePipelineId::COUNT:
       return "COUNT";
     case InversePipelineId::NONE:
@@ -3678,9 +3688,9 @@ private:
     return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 13> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 14> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 13> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 14> PROGRAMS{{
         make_program<GlitchNoiseGridWaveShearPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
                      make_topology_key(wave_shear_generated_preset())>(
@@ -3745,6 +3755,11 @@ private:
             InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR,
             make_topology_key(
                 equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset())>(
+            &all_continuous_parameters_supported),
+        make_program<StereographicGlitchGridMirrorPipeline,
+                     InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR,
+                     make_topology_key(
+                         stereographic_glitch_grid_mirror_preset())>(
             &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
@@ -6831,7 +6846,31 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 18> PRESETS = {{
+  static constexpr Config stereographic_glitch_grid_mirror_preset() {
+    Slots slots{Function::GRID,
+                Projection::STEREOGRAPHIC,
+                ProjectionFramePolicy::IDENTITY,
+                SurfaceLens::GLITCH,
+                {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::EDGE_FADE,
+                PaletteMode::TRIADIC};
+    slots.hue_shift = HueShiftMode::WARP_DISPLACEMENT;
+    WarpStageParams outer_warp;
+    outer_warp.rotation = 0.295309722f;
+    outer_warp.cell_x = 5.381125f;
+    outer_warp.offset_x = 1.344f;
+    outer_warp.offset_y = -1.456f;
+    Params params =
+        authored_params({2.5477f, 0.235f, 1.854f, 0.0f, 1.0f, 0.0f}, outer_warp,
+                        {1.4f, 0.0f}, {1.0f}, {2.048f, 1.0f, 0.0f}, {1.0f});
+    params.value.edge_width = 0.5f;
+    params.color.palette_chroma = 0.292f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 19> PRESETS = {{
       {wave_shear_generated_preset(),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
@@ -6868,6 +6907,8 @@ private:
        InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
       {equirectangular_dodecahedral_fine_grid_inner_mirror_preset(),
        InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
+      {stereographic_glitch_grid_mirror_preset(),
+       InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR},
   }};
   static_assert(
       [] {

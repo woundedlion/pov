@@ -21,7 +21,7 @@ static_assert(!HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND,
 
 namespace {
 
-constexpr uint16_t PRESET_COUNT = 18;
+constexpr uint16_t PRESET_COUNT = 19;
 
 enum class Operation : uint16_t {
   CASE_DEFAULT,
