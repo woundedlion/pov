@@ -211,6 +211,31 @@ test('linear and log interpolation preserve exact stored endpoints', () => {
   assert.equal(interpolateValue(scale, 1, 4, 0.5), Math.fround(2));
 });
 
+test('mixed enum parameters stay in one descriptor and expose blend state', () => {
+  const first = makeDocument();
+  const mapping = {
+    id: 'palette-mapping', binding: 'color.palette-mapping',
+    classification: 'preset', storage: 'enum8', unit: 'mapping',
+    domain: { values: ['cup', 'bell', 'linear', 'reverse'] },
+    interpolation: { kind: 'MIXED_ENUM' }, default: 'cup',
+  };
+  first.descriptor.parameters.push(mapping);
+  first.descriptor.serialization.fields.push(mapping.id);
+  first.preset_bank.presets[0].values[mapping.id] = 'cup';
+  first.preset_bank.presets[1].values[mapping.id] = 'bell';
+  const second = structuredClone(first);
+  second.preset_bank.presets[1].values[mapping.id] = 'reverse';
+
+  assert.equal(compileShaderDocument(first).descriptor_digest,
+    compileShaderDocument(second).descriptor_digest);
+  assert.notEqual(compileShaderDocument(first).preset_bank_digest,
+    compileShaderDocument(second).preset_bank_digest);
+  assert.deepEqual(interpolateValue(mapping, 'cup', 'bell', 0.25),
+    { from: 'cup', to: 'bell', mix: Math.fround(0.25) });
+  assert.equal(interpolateValue(mapping, 'cup', 'bell', 0), 'cup');
+  assert.equal(interpolateValue(mapping, 'cup', 'bell', 1), 'bell');
+});
+
 test('periodic interpolation uses the negative half-period tie', () => {
   const phase = makeDocument().descriptor.parameters[1];
   assert.equal(interpolateValue(phase, 0, 0.5, 0.5), Math.fround(0.75));

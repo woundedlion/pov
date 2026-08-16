@@ -29,15 +29,16 @@ labels and declaration order do not enter semantic identity. Stage policies,
 parameter schemas, clocks, preparation, resources, serialization,
 approximation, and handoff do.
 
-Every continuous parameter uses binary32 storage and declares its unit, domain,
-and interpolation trait. Preset records provide one value for every parameter.
-Transition edges name a descriptor-owned path policy and a bank-owned easing
-and positive duration.
+Scalar parameters use binary32 storage. Discrete color mappings use enum8
+storage with `MIXED_ENUM` interpolation, which carries both mapping endpoints
+and a blend weight through the shared color stage. Preset records provide one
+value for every parameter. Transition edges name a descriptor-owned path policy
+and a bank-owned easing and positive duration.
 
 `curl_lattice.shader.json` is the editable source for the off-roster
 `CurlLattice` comparison effect. Its two presets share one descriptor and vary
 only the linearly interpolated sphere-noise scale.
 
 `facet_grid.shader.json` describes the fixed stereographic dodecahedral-grid
-pipeline used by `FacetGrid`. Its five presets differ only in continuous
-source, projection, warp, and palette-mapping parameters.
+pipeline used by `FacetGrid`. Its four presets differ only in source,
+projection, warp, and color parameters.

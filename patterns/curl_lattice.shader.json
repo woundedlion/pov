@@ -56,7 +56,6 @@
           "operator": "pullback.color.v1",
           "policy": {
             "color": "generated-palette",
-            "mapping": "cup",
             "hue_mode": "noise",
             "brightness_envelope": "cup"
           },
@@ -201,6 +200,16 @@
         "domain": { "minimum": 0, "maximum": 1 },
         "interpolation": { "kind": "LINEAR" },
         "default": 1
+      },
+      {
+        "id": "palette-mapping",
+        "binding": "color.palette-mapping",
+        "classification": "preset",
+        "storage": "enum8",
+        "unit": "mapping",
+        "domain": { "values": ["cup", "bell", "linear", "reverse"] },
+        "interpolation": { "kind": "MIXED_ENUM" },
+        "default": "cup"
       },
       {
         "id": "mapping-frequency",
@@ -376,7 +385,7 @@
       }
     ],
     "serialization": {
-      "schema_version": 2,
+      "schema_version": 3,
       "fields": [
         "lattice-cell-scale",
         "lattice-shape",
@@ -391,6 +400,7 @@
         "surface-noise-strength",
         "surface-noise-speed",
         "palette-chroma",
+        "palette-mapping",
         "mapping-frequency",
         "mapping-phase",
         "phase-oscillation-depth",
@@ -432,6 +442,7 @@
           "surface-noise-strength": 0.0759999976,
           "surface-noise-speed": 0,
           "palette-chroma": 1,
+          "palette-mapping": "cup",
           "mapping-frequency": 1,
           "mapping-phase": -0.165999994,
           "phase-oscillation-depth": 0,
@@ -461,6 +472,7 @@
           "surface-noise-strength": 0.0759999976,
           "surface-noise-speed": 0,
           "palette-chroma": 1,
+          "palette-mapping": "cup",
           "mapping-frequency": 1,
           "mapping-phase": -0.165999994,
           "phase-oscillation-depth": 0,

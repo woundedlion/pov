@@ -44,6 +44,7 @@ const INTERPOLATION_KINDS = new Set([
   'LOG_POSITIVE',
   'SHORTEST_PERIODIC',
   'NORMALIZED_LINEAR',
+  'MIXED_ENUM',
 ]);
 const EASING_KINDS = new Set(['LINEAR', 'EASE_IN_OUT_SIN']);
 const ORIGINS = [
@@ -346,17 +347,34 @@ const validateParameters = (parameters, limits) => {
       fail('schema', 'INVALID_CLASSIFICATION', `${path}.classification`, 'The field classification is invalid.');
     if (parameter.classification !== 'preset')
       fail('semantic', 'NON_PRESET_PARAMETER', `${path}.classification`, 'Continuous parameters must be classified as preset values.');
-    if (parameter.storage !== 'binary32')
-      fail('semantic', 'UNSUPPORTED_STORAGE', `${path}.storage`, 'Version 1 continuous storage is binary32.');
+    if (parameter.storage !== 'binary32' && parameter.storage !== 'enum8')
+      fail('semantic', 'UNSUPPORTED_STORAGE', `${path}.storage`, 'Version 1 storage is binary32 or enum8.');
     object(parameter.domain, `${path}.domain`);
-    exactKeys(parameter.domain, ['minimum', 'maximum'], ['minimum', 'maximum'], `${path}.domain`);
-    if (!Number.isFinite(parameter.domain.minimum) || !Number.isFinite(parameter.domain.maximum) ||
-        parameter.domain.minimum > parameter.domain.maximum)
-      fail('semantic', 'INVALID_DOMAIN', `${path}.domain`, 'The parameter domain is invalid.');
+    if (parameter.storage === 'binary32') {
+      exactKeys(parameter.domain, ['minimum', 'maximum'], ['minimum', 'maximum'], `${path}.domain`);
+      if (!Number.isFinite(parameter.domain.minimum) || !Number.isFinite(parameter.domain.maximum) ||
+          parameter.domain.minimum > parameter.domain.maximum)
+        fail('semantic', 'INVALID_DOMAIN', `${path}.domain`, 'The parameter domain is invalid.');
+    } else {
+      exactKeys(parameter.domain, ['values'], ['values'], `${path}.domain`);
+      const values = array(parameter.domain.values, `${path}.domain.values`);
+      if (values.length < 2 || values.length > 256)
+        fail('semantic', 'INVALID_ENUM_DOMAIN', `${path}.domain.values`, 'An enum8 domain needs 2 to 256 values.');
+      const unique = new Set();
+      values.forEach((value, valueIndex) => {
+        id(value, `${path}.domain.values[${valueIndex}]`);
+        if (unique.has(value))
+          fail('semantic', 'DUPLICATE_ENUM_VALUE', `${path}.domain.values[${valueIndex}]`, `Duplicate enum value "${value}".`);
+        unique.add(value);
+      });
+    }
     object(parameter.interpolation, `${path}.interpolation`);
     exactKeys(parameter.interpolation, ['kind', 'period', 'group'], ['kind'], `${path}.interpolation`);
     if (!INTERPOLATION_KINDS.has(parameter.interpolation.kind))
       fail('semantic', 'UNKNOWN_INTERPOLATION', `${path}.interpolation.kind`, 'The interpolation trait is unknown.');
+    if ((parameter.storage === 'enum8') !==
+        (parameter.interpolation.kind === 'MIXED_ENUM'))
+      fail('semantic', 'STORAGE_INTERPOLATION_MISMATCH', `${path}.interpolation.kind`, 'enum8 values require MIXED_ENUM and MIXED_ENUM requires enum8 storage.');
     if (parameter.interpolation.kind === 'SHORTEST_PERIODIC' &&
         !(Number.isFinite(parameter.interpolation.period) && parameter.interpolation.period > 0))
       fail('semantic', 'INVALID_PERIOD', `${path}.interpolation.period`, 'Periodic interpolation requires a positive period.');
@@ -373,6 +391,11 @@ const validateParameters = (parameters, limits) => {
 };
 
 const validateStoredValue = (parameter, value, path) => {
+  if (parameter.storage === 'enum8') {
+    if (typeof value !== 'string' || !parameter.domain.values.includes(value))
+      fail('semantic', 'INVALID_ENUM_VALUE', path, `The value is outside parameter "${parameter.id}" options.`);
+    return value;
+  }
   if (!Number.isFinite(value))
     fail('semantic', 'NONFINITE_VALUE', path, 'Parameter values must be finite.');
   const stored = Math.fround(value);
@@ -563,10 +586,12 @@ export function canonicalDescriptor(document) {
     ...source,
     graph,
     parameters: source.parameters.map((parameter) => {
-      const domain = {
-        minimum: Math.fround(parameter.domain.minimum),
-        maximum: Math.fround(parameter.domain.maximum),
-      };
+      const domain = parameter.storage === 'enum8'
+        ? { values: [...parameter.domain.values] }
+        : {
+            minimum: Math.fround(parameter.domain.minimum),
+            maximum: Math.fround(parameter.domain.maximum),
+          };
       const quantized = {
         ...parameter,
         domain,
@@ -684,6 +709,8 @@ export function interpolateValue(parameter, from, to, progress) {
   const t = Math.fround(progress);
   if (t <= 0) return a;
   if (t >= 1) return b;
+  if (parameter.interpolation.kind === 'MIXED_ENUM')
+    return a === b ? a : { from: a, to: b, mix: t };
   switch (parameter.interpolation.kind) {
   case 'LINEAR':
     return Math.fround(a + Math.fround(Math.fround(b - a) * t));

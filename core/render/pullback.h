@@ -2016,6 +2016,32 @@ enum class PaletteMapping : uint8_t {
   REVERSE = 3
 };
 
+struct PaletteMappingWeights {
+  std::array<float, 4> values{};
+  uint8_t exact = 0xff;
+
+  static constexpr PaletteMappingWeights single(PaletteMapping mapping) {
+    PaletteMappingWeights result;
+    result.values[static_cast<size_t>(mapping)] = 1.0f;
+    result.exact = static_cast<uint8_t>(mapping);
+    return result;
+  }
+
+  static constexpr PaletteMappingWeights lerp(const PaletteMappingWeights &a,
+                                              const PaletteMappingWeights &b,
+                                              float progress) {
+    if (progress <= 0.0f)
+      return a;
+    if (progress >= 1.0f)
+      return b;
+    PaletteMappingWeights result;
+    for (size_t index = 0; index < result.values.size(); ++index)
+      result.values[index] =
+          a.values[index] + (b.values[index] - a.values[index]) * progress;
+    return result;
+  }
+};
+
 enum class BrightnessEnvelope : uint8_t {
   NONE = 0,
   CUP = 1,
@@ -2126,6 +2152,24 @@ palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
     return 1.0f - phase;
   }
   return phase;
+}
+
+__attribute__((always_inline)) inline float
+palette_mapping_coordinate(float value, const PaletteMappingWeights &weights,
+                           float frequency, float offset) {
+  if (weights.exact < weights.values.size())
+    return palette_mapping_coordinate(
+        value, static_cast<PaletteMapping>(weights.exact), frequency, offset);
+
+  const float phase =
+      wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
+  const float cup = fabsf(2.0f * phase - 1.0f);
+  const float bell = 1.0f - cup;
+  return weights.values[static_cast<size_t>(PaletteMapping::CUP)] * cup +
+         weights.values[static_cast<size_t>(PaletteMapping::BELL)] * bell +
+         weights.values[static_cast<size_t>(PaletteMapping::LINEAR)] * phase +
+         weights.values[static_cast<size_t>(PaletteMapping::REVERSE)] *
+             (1.0f - phase);
 }
 
 __attribute__((always_inline)) inline float
@@ -2242,7 +2286,6 @@ template <typename State> struct GeneratedPalette : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame, float value) {
-        { State::mapping(frame) } -> std::same_as<PaletteMapping>;
         { State::mapping_frequency(frame) } -> std::same_as<float>;
         { State::mapping_phase(frame) } -> std::same_as<float>;
         { State::oscillation_depth(frame) } -> std::same_as<float>;
@@ -2258,7 +2301,13 @@ template <typename State> struct GeneratedPalette : ExactPolicy {
         { State::brightness_depth(frame) } -> std::same_as<float>;
         { State::opacity_low(frame) } -> std::same_as<float>;
         { State::opacity_high(frame) } -> std::same_as<float>;
-      };
+      } &&
+      (requires(const typename Binding::FrameState &frame) {
+        { State::mapping(frame) } -> std::same_as<PaletteMapping>;
+      } || requires(const typename Binding::FrameState &frame) {
+        { State::mapping_weights(frame) } ->
+            std::same_as<PaletteMappingWeights>;
+      });
 
   template <typename FrameState>
   HS_FLASH_INLINE static Color4 apply(const MaterialSample &sample,
@@ -2266,9 +2315,18 @@ template <typename State> struct GeneratedPalette : ExactPolicy {
     const float oscillation =
         State::oscillation_depth(frame) *
         fast_sinf(TWO_PI_F * State::oscillation_phase(frame));
-    const float palette_value = palette_mapping_coordinate(
-        sample.value, State::mapping(frame), State::mapping_frequency(frame),
-        State::mapping_phase(frame) + oscillation);
+    const float palette_value = [&] {
+      if constexpr (requires { State::mapping_weights(frame); })
+        return palette_mapping_coordinate(
+            sample.value, State::mapping_weights(frame),
+            State::mapping_frequency(frame),
+            State::mapping_phase(frame) + oscillation);
+      else
+        return palette_mapping_coordinate(sample.value, State::mapping(frame),
+                                          State::mapping_frequency(frame),
+                                          State::mapping_phase(frame) +
+                                              oscillation);
+    }();
     const HueRotationLutView rotation = State::hue_rotation(frame);
     Color4 color;
     if (rotation.active && State::hue_mode(frame) == HueMode::NOISE) {
