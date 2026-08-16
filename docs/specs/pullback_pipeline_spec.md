@@ -232,13 +232,11 @@ struct SurfaceResult {
 struct WarpStepResult {
   Complex coords;
   Complex delta;
-  float deformation;
   float path_length;
 };
 
 struct WarpResult {
   Complex coords;
-  Complex net_delta;
   float path_length;
 };
 
@@ -272,9 +270,12 @@ struct MaterialSample {
 - `sphere` is the projection-local sphere direction that produced the sample;
 - `surface_path_length` is accumulated by sphere-space maps before projection.
 
-`WarpResult::net_delta` is accumulated from individual step deltas, not
-recovered by subtracting large final coordinates. `path_length` is the sum of
-step path lengths. `MaterialSample::path_length` is the total surface plus
+`WarpResult` carries only what a downstream stage consumes: the warped
+coordinates and `path_length`, the sum of the step path lengths. No net
+displacement vector is accumulated across the warp chain. Each policy still
+reports a per-step `WarpStepResult::delta`, which is the value its own
+`path_length` is derived from. `MaterialSample::path_length` is the total
+surface plus
 planar path length. It replaces ShaderBall's misleading member name
 `warp_displacement`; this is a source-level rename only and shall preserve
 layout and arithmetic.
@@ -717,9 +718,9 @@ struct PlanarWarp;
 
 It maps `ProjectionSample -> SourceInput`. Starting from
 `projected.coords`, it invokes each policy in template order. For each
-`WarpStepResult`, it passes the output coordinates to the next policy, adds the
-reported `delta` to `net_delta`, and adds `path_length`. It never recovers
-delta from the final coordinate. The empty pack is exact identity.
+`WarpStepResult`, it passes the output coordinates to the next policy and adds
+the reported `path_length` to the running total. The empty pack is exact
+identity.
 
 This generalizes ShaderBall's two fixed positions without imposing two slots on
 other consumers. ShaderBall still instantiates exactly its authored outer then
@@ -763,10 +764,12 @@ compile-time policies where the compiled topology fixes them. They receive the
 original `ProjectionSample`, not progressively warped metadata. A runtime
 dynamic dispatcher may select the same policies by switch.
 
-Closed-form policies use one shared helper to calculate delta, deformation,
-and path length. Numerical policies preserve their current distinction between
-net deformation and integrated path length. Exact-zero strength bypasses all
-noise, trigonometry, and integration exactly as today.
+Closed-form policies use one shared helper to derive the step `delta` and its
+`path_length` from the input and output coordinates. Integrating policies
+report the net displacement over their sub-steps as `delta` while summing the
+individual sub-step lengths into `path_length`, so the two stay distinct. Both
+compute `path_length` only when the frame requests it. Exact-zero strength
+bypasses all noise, trigonometry, and integration exactly as today.
 
 ### 8.4 Sources
 
