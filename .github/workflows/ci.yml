@@ -1721,6 +1721,14 @@ jobs:
         run: |
           bash tools/check_test_files.sh 1 'tools/relax_bake_tests/test*.py'
           python -m unittest discover -s tools/relax_bake_tests -v
+      # The updater rewrites the ratchet the native suite is gated by, so the
+      # rules a bad floor would come through — the minimum over configurations,
+      # and carrying an unobserved entry rather than dropping it — are driven
+      # here. The tool itself never runs in CI: --write refuses when CI is set.
+      - name: Run test-pin updater self-tests
+        run: |
+          bash tools/check_test_files.sh 1 'tools/update_test_pins_tests/test*.py'
+          python -m unittest discover -s tools/update_test_pins_tests -v
       - name: Check routed PCB metadata
         run: |
           bash tools/check_test_files.sh 16 'hardware/phantasm/gen/tests/test*.py'

@@ -164,8 +164,9 @@ teensy-size:
 # Host self-tests behind the Teensy toolchain: size/layout gate parser + layout
 # invariants + warning ratchet (spec §9.1), the PlatformIO build hook, the
 # pre-commit hook's staged-path classifiers, the profile log parser, the
-# relax-bake generator, and the routed PCB metadata — pure Python, no ARM
-# toolchain. Mirrors the ci.yml teensy-gate-tests job, including its
+# relax-bake generator, the test-pin updater, and the routed PCB metadata —
+# pure Python, no ARM toolchain. Mirrors the ci.yml teensy-gate-tests job,
+# including its
 # check_test_files.sh count pins (discover stays green when a suite file is
 # deleted or renamed out of the pattern).
 teensy-gate-test:
@@ -179,6 +180,8 @@ teensy-gate-test:
     {{py}} -m unittest discover -s tools/profile_tests -v
     bash tools/check_test_files.sh 1 "tools/relax_bake_tests/test*.py"
     {{py}} -m unittest discover -s tools/relax_bake_tests -v
+    bash tools/check_test_files.sh 1 "tools/update_test_pins_tests/test*.py"
+    {{py}} -m unittest discover -s tools/update_test_pins_tests -v
     bash tools/check_test_files.sh 16 "hardware/phantasm/gen/tests/test*.py"
     {{py}} -m unittest discover -s hardware/phantasm/gen/tests -v
     {{py}} hardware/phantasm/gen/board_metadata.py --check
