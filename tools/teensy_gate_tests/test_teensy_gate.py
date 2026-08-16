@@ -103,6 +103,18 @@ def _invalid_size_a_cases():
     }
 
 
+#: teensy_size output whose component blobs carry no `name:bytes` pair (an `=`
+#: separator variant). Every region is still reported, so a parser that summed
+#: the pairs it found would report `used` 0 and clear every ceiling.
+UNPARSEABLE_TEENSY_SIZE = (
+    "teensy_size: Memory Usage on Teensy 4.0:\n"
+    "teensy_size:   FLASH: code=158788, data=13684, headers=8460"
+    "   free for files: 1883136\n"
+    "teensy_size:   RAM1: variables=351280, code=62240, padding=30496"
+    "   free for local variables: 68256\n"
+    "teensy_size:   RAM2: variables=497920   free for malloc/new: 26368\n")
+
+
 class TestAddressClassifier(unittest.TestCase):
     """The load-bearing replacement for nm — the easiest place for an off-by-one."""
 
@@ -151,6 +163,20 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(sizes["ram1"]["free"], 88512)
         self.assertEqual(sizes["ram2"]["used"], 497920)
         self.assertEqual(sizes["ram2"]["free"], 26368)
+
+    def test_parse_teensy_size_rejects_an_unparseable_component_blob(self):
+        # A blob that yields no pair sums to `used` 0, which is under every
+        # ceiling: the parse must fail loud rather than hand the gate zeros.
+        with self.assertRaises(tg.TeensySizeFormatError) as caught:
+            tg.parse_teensy_size(UNPARSEABLE_TEENSY_SIZE)
+        self.assertIn("FLASH", str(caught.exception))
+
+    def test_parse_teensy_size_rejects_an_empty_component_blob(self):
+        text = ("teensy_size:   FLASH: code:158788   free for files: 1883136\n"
+                "teensy_size:   RAM2:    free for malloc/new: 26368\n")
+        with self.assertRaises(tg.TeensySizeFormatError) as caught:
+            tg.parse_teensy_size(text)
+        self.assertIn("RAM2", str(caught.exception))
 
     def test_parse_readelf_symbols_uses_real_mangled_names(self):
         syms = {s.name: s for s in tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))}
@@ -1334,6 +1360,17 @@ class TestToolingFailureExits(unittest.TestCase):
             rc, text = self._run(**{"--budgets": str(path)})
         self.assertEqual(rc, 2, msg=text)
 
+    def test_unparseable_teensy_size_blob_is_cannot_run(self):
+        # Zeroed region totals would otherwise render PASS on an unmeasured image.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "size.txt"
+            path.write_text(UNPARSEABLE_TEENSY_SIZE, encoding="utf-8")
+            rc, text = self._run(**{"--teensy-size": str(path)})
+        self.assertEqual(rc, 2, msg=text)
+        self.assertIn("invalid teensy_size output", text)
+        self.assertIn("tooling/format error", text)
+        self.assertNotIn("PASS", text)
+
     def test_missing_capture_file_is_cannot_run(self):
         with tempfile.TemporaryDirectory() as tmp:
             gone = str(Path(tmp) / "gone.txt")
@@ -1449,6 +1486,22 @@ class TestGateExtra(unittest.TestCase):
             rc, out = self._run_gate("holosphere")
         self.assertEqual(rc, 2)
         self.assertIn("parsed no FLASH/RAM1/RAM2 regions", out)
+
+    def test_unparseable_teensy_size_blob_exits_2(self):
+        self.ge._find_teensy_size = lambda env: "teensy_size"
+
+        def _run(args, check=True):
+            if args[0] == "teensy_size":
+                return UNPARSEABLE_TEENSY_SIZE
+            if "-sW" in args:
+                return _read("good_readelf_syms.txt")
+            return _read("good_readelf_secs.txt")
+
+        self.ge._run = _run
+        rc, out = self._run_gate("holosphere")
+        self.assertEqual(rc, 2, msg=out)
+        self.assertIn("invalid teensy_size output", out)
+        self.assertNotIn("PASS", out)
 
     def test_size_a_fallback_pass_exits_advisory_not_zero(self):
         # The workflow doc and the pre-commit hook accept a build on this gate's

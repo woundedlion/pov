@@ -20,6 +20,8 @@ What it does (spec §7.3, §7.4, §8):
   * fail-loud       — a configured layout symbol that is NOT FOUND in the ELF is a
     violation, never a silent skip: a name that never matches would make the
     invariant never fire (false-green), the exact trap spec §7.4 warns about.
+    The parse layer holds the same line: a region line whose component blob
+    breaks into no `name:bytes` pairs raises instead of reporting 0 bytes used.
   * schema          — load_budgets() rejects any budgets key the gate does not
     read, at every nesting level. Every ceiling is an optional `.get()`, so a
     misspelled key (`component`, `max_byte`, `regoin`) removes its check and the
@@ -114,17 +116,28 @@ _TS_REGION_RE = re.compile(
 _TS_PAIR_RE = re.compile(r"(\w+)\s*:\s*(\d+)")
 
 
+class TeensySizeFormatError(ValueError):
+    pass
+
+
 def parse_teensy_size(text: str) -> dict[str, dict[str, int]]:
     """Parse `teensy_size` stdout into per-region {used, free} byte totals.
 
     `used` is the sum of the region's components (code/data/headers/...); `free`
     is the region's "free for ..." figure. RAM1's free is the DTCM stack
     headroom (§7.4 #4); RAM2's free is the OCRAM heap room (§8).
+
+    A region whose component blob yields no `name:bytes` pair raises: summing
+    nothing gives `used` 0, which clears every ceiling and reports PASS.
     """
     out: dict[str, dict[str, int]] = {}
     for m in _TS_REGION_RE.finditer(text):
         region = m.group(1).lower()
         components = {k.lower(): int(v) for k, v in _TS_PAIR_RE.findall(m.group(2))}
+        if not components:
+            raise TeensySizeFormatError(
+                f"region {region.upper()} reports no component:bytes pairs in "
+                f"{m.group(2)!r}")
         out[region] = {"used": sum(components.values()), "free": int(m.group(3)),
                        "components": components}
     return out
@@ -731,6 +744,11 @@ def main(argv: list[str] | None = None) -> int:
             sizes = fallback_sizes_from_size_a(read_capture(args.size_a))
         else:
             p.error("one of --teensy-size or --size-a is required")
+    except TeensySizeFormatError as exc:
+        print(f"::error::teensy-gate: invalid teensy_size output ({exc}). "
+              f"This is a tooling/format error, not a size-budget "
+              f"violation.")
+        return 2
     except SizeAFormatError as exc:
         print(f"::error::teensy-gate: invalid `size -A` output ({exc}). "
               f"This is a tooling/format error, not a size-budget "

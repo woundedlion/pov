@@ -124,6 +124,10 @@ def run_gate(source, target, env):
 
         symbols = teensy_gate.parse_readelf_symbols(_run([readelf, "-sW", elf]))
         sections = teensy_gate.parse_readelf_sections(_run([readelf, "-SW", elf]))
+    except teensy_gate.TeensySizeFormatError as exc:
+        print(f"::error::teensy-gate: invalid teensy_size output ({exc}). This "
+              f"is a tooling/format error, not a size-budget violation.")
+        sys.exit(2)
     except teensy_gate.SizeAFormatError as exc:
         print(f"::error::teensy-gate: invalid `size -A` output ({exc}). This is "
               f"a tooling/format error, not a size-budget violation.")
