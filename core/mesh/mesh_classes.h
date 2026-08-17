@@ -93,7 +93,8 @@ inline bool polygon_is_concave(const float *xy, int count) {
  *        LUTs); same lifetime as the mesh's slot.
  * @param pixel_width One pixel in gnomonic plane units (2*pi/W) — sets the
  *        congruence epsilon and the LUT resolution target.
- * @param out Freshly default-constructed bake to populate.
+ * @param out Bake to populate; unbound on entry, so a rebake through a bake
+ *        whose arena has since been compacted is safe.
  * @param budget_bytes Maximum persistent bytes available for class LUTs. It
  *        bounds the LUT payloads alone: the class and per-face record vectors
  *        and every founded class's canonical polygon are claimed outside it and
@@ -131,15 +132,12 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   HS_CHECK(mesh.get_face_offsets_size() == F,
            "build_mesh_class_bake requires one face offset per face");
 
+  // Unbind, not reuse: a rebaked bake's vectors may still name blocks its arena
+  // has already reclaimed, and bind()'s reuse path would then write through
+  // them.
+  out = MeshClassBake();
   out.classes.bind(persistent, std::min<size_t>(MAX_CONGRUENCE_CLASSES, F));
   out.face_recs.bind(persistent, F);
-
-  out.shared_faces = 0;
-  out.concave_faces = 0;
-  out.lut_faces = 0;
-  out.luts_built = 0;
-  out.lut_bytes = 0;
-  out.aux_bytes = 0;
 
   constexpr int MAX_VERTS = SDF::FaceScratchBuffer::MAX_VERTS;
   const float eps_plane = CONGRUENCE_EPS_PX * pixel_width;
