@@ -91,6 +91,11 @@ _EFFECTS_TREE_ROW = "README.md"
 _EFFECTS_ROW_RE = re.compile(
     r"\beffects/\s+(?P<headers>\d+) headers(?: covering (?P<effects>\d+) effects|: "
     r"one per effect \((?P<legacy_effects>\d+)\))")
+# The architecture diagram restates the roster's cardinality in its own words,
+# outside any tree fence and in a spelling the summary row's regex never
+# matches, so it is derivable from the same source and gated the same way.
+_EFFECTS_DIAGRAM_RE = re.compile(
+    r"\beffects/\s+\((?P<effects>\d+) visual algorithms\)")
 _EFFECTS_DIR = PurePosixPath("effects")
 _EFFECT_ROSTER_SOURCE = PurePosixPath("core/engine/effects.h")
 _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
@@ -647,7 +652,23 @@ def effects_row_issues(text: str, entries: set[PurePosixPath],
                   if entry.parent == _EFFECTS_DIR and entry.suffix == ".h")
     issues = []
     matched = False
+    diagram_matched = False
     for number, line in enumerate(text.splitlines(), 1):
+        diagram = _EFFECTS_DIAGRAM_RE.search(line)
+        if diagram:
+            diagram_matched = True
+            drawn = int(diagram.group("effects"))
+            if roster is None:
+                issues.append(Issue(
+                    _EFFECTS_TREE_ROW, number,
+                    f"architecture diagram claims {drawn} effects, but "
+                    f"{_EFFECT_ROSTER_SOURCE} defines no HS_EFFECT_LIST to "
+                    f"check it against"))
+            elif drawn != len(roster):
+                issues.append(Issue(
+                    _EFFECTS_TREE_ROW, number,
+                    f"architecture diagram claims {drawn} effects, "
+                    f"HS_EFFECT_LIST names {len(roster)}"))
         match = _EFFECTS_ROW_RE.search(line)
         if not match:
             continue
@@ -674,6 +695,11 @@ def effects_row_issues(text: str, entries: set[PurePosixPath],
         issues.append(Issue(
             _EFFECTS_TREE_ROW, 1,
             "no effects/ summary row, so its counts go unchecked"))
+    if not diagram_matched:
+        issues.append(Issue(
+            _EFFECTS_TREE_ROW, 1,
+            "no effects/ architecture-diagram row, so its effect count goes "
+            "unchecked"))
     return issues
 
 
