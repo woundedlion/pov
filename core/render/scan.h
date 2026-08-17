@@ -2805,7 +2805,8 @@ struct Volume {
                 const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
                 const float block_slack =
                     pole_lod_slack<W, decltype(shape)>(max_run, sin_phi);
-                if (closest_d >= aa_width + block_slack)
+                if (closest_d >= aa_width + block_slack &&
+                    probe_bounds_block<decltype(shape)>(aa_width, block_slack))
                   return max_run;
               }
             }
