@@ -465,7 +465,9 @@ inline constexpr uint8_t WALK_VISIT_CAP = 8;
  * @brief Pick weight of one candidate edge.
  * @param edge Index into EDGES.
  * @param legs_in_family Completed legs since the last family change.
- * @return Relative weight; bridges outweigh siblings once the family is ripe.
+ * @return Unscaled relative weight; pick_next_edge applies the recency scaling
+ *         on top, leaving a ripe bridge above the stale siblings but below the
+ *         fresh ones.
  */
 constexpr uint32_t edge_weight(int edge, int legs_in_family) {
   if (!EDGES[edge].bridge)
