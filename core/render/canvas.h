@@ -123,10 +123,13 @@ public:
     clip_region.y_end = H;
     clip_region.x_end = W;
     // Only widen: a filter fold of 0 must not shrink the coverage every effect
-    // already gets from the ClipRegion default. Routed through set_margin either
-    // way so the margin < w invariant is checked on every construction.
-    set_margin(cfg.margin > clip_region.margin ? cfg.margin
-                                               : clip_region.margin);
+    // already gets from the ClipRegion default. Capped at W - 1, the widest
+    // margin ClipRegion's single-period wrap admits; a canvas that narrow is
+    // already fully covered by its display band. Routed through set_margin so
+    // the margin invariant is checked on every construction.
+    const int widened =
+        cfg.margin > clip_region.margin ? cfg.margin : clip_region.margin;
+    set_margin(widened < W ? widened : W - 1);
   }
 
   /**
