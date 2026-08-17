@@ -155,14 +155,15 @@ install: smoke
 # Teensy 4 shipping-image gates + compile profiles (CI parity for a VMicro developer).
 # Needs PlatformIO (`pip install platformio`); the Teensy toolchain auto-installs
 # on first `pio run`. The contract is "same PASS/FAIL under the headroom'd
-# ceilings", NOT byte-identity with the VMicro/bench image (docs/teensy_ci_gate_spec.md §11).
+# ceilings" tools/teensy_budgets.json sets, NOT byte-identity with the
+# VMicro/bench image.
 # The wrapper streams the pio output, then appends a combined per-env
 # FLASH/RAM1/RAM2 table from the teensy_size lines.
 teensy-size:
     {{py}} tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8 profile profile_o3
 
 # Host self-tests behind the Teensy toolchain: size/layout gate parser + layout
-# invariants + warning ratchet (spec §9.1), the PlatformIO build hook, the
+# invariants + warning ratchet, the PlatformIO build hook, the
 # pre-commit hook's staged-path classifiers, the profile log parser, the
 # relax-bake generator, the test-pin updater, and the routed PCB metadata —
 # pure Python, no ARM toolchain. Mirrors the ci.yml teensy-gate-tests job,

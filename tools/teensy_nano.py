@@ -1,7 +1,7 @@
 Import("env")
 # ============================================================================
-# newlib-nano for the Phantasm size build (docs/teensy_ci_gate_spec.md §4.1
-# relief valve). nano swaps in the reduced libc/libstdc++ (libc_nano/
+# newlib-nano for the Phantasm size build (the platformio.ini size relief
+# valve). nano swaps in the reduced libc/libstdc++ (libc_nano/
 # libstdc++_nano): smaller stdio, malloc, and an integer-only printf whose float
 # path is gated behind a `_printf_float` weak reference we deliberately do NOT
 # request — the device formats no floats — so newlib's _dtoa_r + the %f/%g bignum

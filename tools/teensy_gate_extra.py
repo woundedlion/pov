@@ -5,7 +5,7 @@ All decision logic lives in the toolchain-free, unit-tested tools/teensy_gate.py
 this file is glue: it locates the built ELF and the ARM tools, captures their
 output, and fails `pio run` on any violation.
 
-Why a post-ACTION that exits non-zero (spec §9): a post-action that merely prints
+Why a post-ACTION that exits non-zero: a post-action that merely prints
 does NOT fail `pio run`; only a non-zero exit / raised exception propagates. So
 the gate raises on violation. Violations are emitted as GitHub `::error::`
 annotations first so they render inline on the PR (ci.yml convention).
@@ -109,7 +109,7 @@ def run_gate(source, target, env):
     # toolchain/parser break never masquerades as a size-budget "region-missing"
     # violation or an opaque SCons traceback.
     try:
-        # Region totals: prefer teensy_size (correct flash-LMA accounting, §7.3),
+        # Region totals: prefer teensy_size (correct flash-LMA accounting),
         # fall back to `size -A` VMA bucketing (undercounts flash — see teensy_gate).
         teensy_size = _find_teensy_size(env)
         used_size_a_fallback = teensy_size is None
