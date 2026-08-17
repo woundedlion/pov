@@ -534,6 +534,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── palette_canvas.js       Gradient-strip and RGB-wave canvas painters for palettes.html
 │   ├── palette_controls.js     DOM-free zoom history and locked-slider delta capping for palettes.html
 │   ├── palette_math.js         ProceduralPalette / GenerativePalette mirror + the PaletteOps bridge
+│   ├── palette_wheel.js        Hue-key wheel raster, markers and pointer arithmetic for palettes.html
 │   ├── solid_build.js          Mesh construction and validation for solids.html
 │   ├── solid_codegen.js        Op dispatch, codegen, and op-chain sequencing for solids.html
 │   ├── solid_op_rows.js        DOM construction for one op-chain row of solids.html
