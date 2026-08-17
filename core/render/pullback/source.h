@@ -1,0 +1,271 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+#pragma once
+
+#include "render/pullback/contract.h"
+
+/**
+ * @file source.h
+ * @brief Scalar source-field policies.
+ */
+
+namespace Pullback {
+
+namespace Source {
+
+template <typename State, typename Binding>
+concept ParamsProvider =
+    Detail::ProviderFor<State, Binding> &&
+    requires(const typename Binding::FrameState &frame) {
+      State::params(frame);
+    } &&
+    std::is_lvalue_reference_v<decltype(State::params(
+        std::declval<const typename Binding::FrameState &>()))> &&
+    std::is_const_v<std::remove_reference_t<decltype(State::params(
+        std::declval<const typename Binding::FrameState &>()))>>;
+
+template <typename State, typename Binding>
+concept StateProvider =
+    ParamsProvider<State, Binding> &&
+    requires(const typename Binding::FrameState &frame) {
+      State::prepared(frame);
+    } &&
+    std::is_lvalue_reference_v<decltype(State::prepared(
+        std::declval<const typename Binding::FrameState &>()))> &&
+    std::is_const_v<std::remove_reference_t<decltype(State::prepared(
+        std::declval<const typename Binding::FrameState &>()))>>;
+
+template <typename Prepared>
+HS_FLASH_MEMBER inline float twin_wave(const Complex &input,
+                                       const Prepared &prepared) {
+  const float rotated =
+      input.re * prepared.angle_cos + input.im * prepared.angle_sin;
+  return 0.5f * (fast_sinf(input.re + prepared.primary) +
+                 fast_sinf(rotated + prepared.primary));
+}
+
+template <typename Prepared>
+HS_FLASH_MEMBER inline float rings(const Complex &input,
+                                   const Prepared &prepared) {
+  return fast_sinf(sqrtf(input.re * input.re + input.im * input.im) -
+                   prepared.primary);
+}
+
+template <typename Prepared>
+HS_FLASH_MEMBER inline float spiral(const Complex &input,
+                                    const Prepared &prepared) {
+  const float radius = sqrtf(input.re * input.re + input.im * input.im);
+  const float azimuth = fast_atan2(input.im, input.re);
+  return fast_sinf(radius - 3.0f * (azimuth + prepared.angle) -
+                   prepared.primary);
+}
+
+template <typename Params, typename Prepared>
+HS_FLASH_MEMBER inline float grid(const Complex &input, const Params &params,
+                                  const Prepared &prepared) {
+  const float x = input.re * prepared.angle_cos + input.im * prepared.angle_sin;
+  const float y =
+      -input.re * prepared.angle_sin + input.im * prepared.angle_cos;
+  if (params.pattern_mix == 1.0f)
+    return fast_sinf(x + prepared.primary) * fast_cosf(y - prepared.secondary);
+  float re = x;
+  float im = y;
+  if (params.complexity != 0.0f) {
+    re += params.complexity * fast_sinf(y + prepared.primary);
+    im += params.complexity * fast_cosf(x - prepared.secondary);
+  }
+  const float coupled = fast_sinf(re) * fast_cosf(im);
+  if (params.pattern_mix == 0.0f)
+    return coupled;
+  const float direct =
+      fast_sinf(x + prepared.primary) * fast_cosf(y - prepared.secondary);
+  return hs::lerp(coupled, direct, params.pattern_mix);
+}
+
+template <typename Params>
+HS_FLASH_MEMBER inline float primitive_lattice(const Complex &input,
+                                               const Params &params) {
+  const float x = wrap_t(params.lattice_cell_scale * input.re + 0.5f) - 0.5f;
+  const float y = wrap_t(params.lattice_cell_scale * input.im + 0.5f) - 0.5f;
+  const float circle = sqrtf(x * x + y * y) - params.lattice_radius;
+  const float bx = fabsf(x) - params.lattice_radius;
+  const float by = fabsf(y) - params.lattice_radius;
+  const float square = sqrtf(std::max(bx, 0.0f) * std::max(bx, 0.0f) +
+                             std::max(by, 0.0f) * std::max(by, 0.0f)) +
+                       std::min(std::max(bx, by), 0.0f);
+  const float distance = hs::lerp(circle, square, params.lattice_shape_blend);
+  return 1.0f - 2.0f * ::smooth_ramp(-params.lattice_softness,
+                                     params.lattice_softness, distance);
+}
+
+HS_FLASH_INLINE inline float noise_contour(const FastNoiseLite &noise,
+                                           ::NoiseBasis basis,
+                                           const Vector &coordinate,
+                                           float contrast) {
+  const float sample =
+      hs::clamp(sample_noise_octaves(noise, basis, coordinate), -1.0f, 1.0f);
+  return sample * (1.0f + contrast) / (1.0f + contrast * fabsf(sample));
+}
+
+template <typename State> struct TwinWave : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      StateProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
+        { State::prepared(frame).angle_cos } -> std::convertible_to<float>;
+        { State::prepared(frame).angle_sin } -> std::convertible_to<float>;
+        { State::prepared(frame).primary } -> std::convertible_to<float>;
+      };
+
+  __attribute__((always_inline)) static float sample(const SourceInput &input,
+                                                     const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return twin_wave(
+        stereo_pattern_args(input.warped.coords, params.pattern_freq),
+        State::prepared(frame));
+  }
+};
+
+template <typename State> struct Rings : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      StateProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
+        { State::prepared(frame).primary } -> std::convertible_to<float>;
+      };
+
+  __attribute__((always_inline)) static float sample(const SourceInput &input,
+                                                     const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return rings(stereo_pattern_args(input.warped.coords, params.pattern_freq),
+                 State::prepared(frame));
+  }
+};
+
+template <typename State> struct Spiral : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      StateProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
+        { State::prepared(frame).angle } -> std::convertible_to<float>;
+        { State::prepared(frame).primary } -> std::convertible_to<float>;
+      };
+
+  __attribute__((always_inline)) static float sample(const SourceInput &input,
+                                                     const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return spiral(stereo_pattern_args(input.warped.coords, params.pattern_freq),
+                  State::prepared(frame));
+  }
+};
+
+template <typename State> struct Grid : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      StateProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
+        { State::params(frame).pattern_mix } -> std::convertible_to<float>;
+        { State::params(frame).complexity } -> std::convertible_to<float>;
+        { State::prepared(frame).angle_cos } -> std::convertible_to<float>;
+        { State::prepared(frame).angle_sin } -> std::convertible_to<float>;
+        { State::prepared(frame).primary } -> std::convertible_to<float>;
+        { State::prepared(frame).secondary } -> std::convertible_to<float>;
+      };
+
+  __attribute__((always_inline)) static float sample(const SourceInput &input,
+                                                     const FrameState &frame) {
+    const auto &params = State::params(frame);
+    return grid(stereo_pattern_args(input.warped.coords, params.pattern_freq),
+                params, State::prepared(frame));
+  }
+};
+
+template <typename State> struct PrimitiveLattice : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      ParamsProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        {
+          State::params(frame).lattice_cell_scale
+        } -> std::convertible_to<float>;
+        {
+          State::params(frame).lattice_shape_blend
+        } -> std::convertible_to<float>;
+        { State::params(frame).lattice_softness } -> std::convertible_to<float>;
+        { State::params(frame).lattice_radius } -> std::convertible_to<float>;
+      };
+
+  __attribute__((always_inline)) static float sample(const SourceInput &input,
+                                                     const FrameState &frame) {
+    return primitive_lattice(input.warped.coords, State::params(frame));
+  }
+};
+
+template <typename State, ::NoiseBasis BasisV>
+struct ProjectedNoise : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
+        { State::noise_scale(frame) } -> std::same_as<float>;
+        { State::noise_time(frame) } -> std::same_as<float>;
+        { State::noise_contrast(frame) } -> std::same_as<float>;
+      };
+
+  __attribute__((always_inline)) static float sample(const SourceInput &input,
+                                                     const FrameState &frame) {
+    return noise_contour(State::noise(frame), BasisV,
+                         noise_projected_coordinate(input.warped.coords,
+                                                    State::noise_scale(frame),
+                                                    State::noise_time(frame)),
+                         State::noise_contrast(frame));
+  }
+};
+
+template <typename State, ::NoiseBasis BasisV>
+struct SphericalNoise : ExactPolicy {
+  using Binding = typename State::Binding;
+  using FrameState = typename State::FrameState;
+
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      ProjectedNoise<State, BasisV>::template PROVIDER_VALID<CandidateBinding>;
+
+  __attribute__((always_inline)) static float sample(const SourceInput &input,
+                                                     const FrameState &frame) {
+    return noise_contour(State::noise(frame), BasisV,
+                         noise_sphere_coordinate(input.projected.sphere,
+                                                 State::noise_scale(frame),
+                                                 State::noise_time(frame)),
+                         State::noise_contrast(frame));
+  }
+};
+
+} // namespace Source
+
+} // namespace Pullback
