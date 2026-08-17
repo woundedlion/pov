@@ -121,6 +121,7 @@ public:
     handoff = next_handoff;
     restore = next_restore;
     evaluation = 0;
+    last_failure = EffectTransitionStatus::OK;
     if (cleared) {
       // post-teardown: output is already clear and no outgoing remains
       restore.capability = EffectRestoreCapability::NONE;
