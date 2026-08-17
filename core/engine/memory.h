@@ -1250,7 +1250,7 @@ struct ScratchScope {
    * @brief Constructs the scope, saving the arena's current offset.
    * @param a Arena to guard.
    */
-  ScratchScope(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
+  explicit ScratchScope(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
   /**
    * @brief Destroys the scope, rewinding the arena to the saved offset.
    * @details Enforces LIFO scope discipline before rewinding. Stack-nested scopes
