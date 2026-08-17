@@ -820,6 +820,15 @@ jobs:
             cat "$dd/holosphere_wasm.toolchain"
             exit 1
           fi
+          # The marker also records the configuration, which the emsdk line does
+          # not distinguish: this install is the wasm-release preset with the dev
+          # bindings off — the shape the deploy gate requires of a shipped module.
+          field() { awk -v k="$1" '$1 == k { print $2 }' "$dd/holosphere_wasm.toolchain"; }
+          if [ "$(field build_type)" != "Release" ] || [ "$(field dev_bindings)" != "OFF" ]; then
+            echo "::error::holosphere_wasm.toolchain records build_type '$(field build_type)' / dev_bindings '$(field dev_bindings)'; the release install must record Release / OFF"
+            cat "$dd/holosphere_wasm.toolchain"
+            exit 1
+          fi
           echo "Provenance set produced, artifact hashes verified, toolchain recorded:"
           cat "$dd/holosphere_wasm.toolchain"
 

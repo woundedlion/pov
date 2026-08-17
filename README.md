@@ -470,7 +470,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── holosphere_wasm.wasm        Installed from Holosphere's WASM build
 ├── holosphere_wasm.sha         Engine commit + tree state the module was built from
 ├── holosphere_wasm.wasm.sha256 `sha256sum -c` manifest over the installed .wasm and .js — verified by the deploy gate
-├── holosphere_wasm.toolchain   emsdk + clang versions that built the module
+├── holosphere_wasm.toolchain   emsdk + clang versions and the build configuration that produced the module
 ├── holosphere_wasm.d.ts        Hand-written declarations for the installed glue — what the typecheck sees
 ├── pov_segment_map.json        Firmware segment→canvas golden, installed from Holosphere — read by the segment cross-check
 ├── README.md                   Installed from Holosphere (this file)
