@@ -35,9 +35,9 @@ and a blend weight through the shared color stage. Preset records provide one
 value for every parameter. Transition edges name a descriptor-owned path policy
 and a bank-owned easing and positive duration.
 
-`curl_lattice.shader.json` is the editable source for the off-roster
-`CurlLattice` comparison effect. Its two presets share one descriptor and vary
-only the linearly interpolated sphere-noise scale.
+`curl_lattice.shader.json` is the editable source for the `CurlLattice`
+comparison effect. Its two presets share one descriptor and vary only the
+linearly interpolated sphere-noise scale.
 
 `facet_grid.shader.json` describes the fixed stereographic dodecahedral-grid
 pipeline used by `FacetGrid`. Its four presets differ only in source,
@@ -49,9 +49,9 @@ and backs no effect.
 Every other document is the editable source of a `FixedLook::Runtime`
 specialization. A document maps to its effect by `effect_id` == the effect's
 `EFFECT_ID`; directory placement predicts neither the base class nor the number
-of effects in a header, so the table below is the map. `CurlLattice` and
-`FacetGrid` are the two bespoke effects; `AlienOcean` shares the runtime with
-the `effects/fixed/` group but keeps a single-effect file.
+of effects in a header, so the table below is the map. `AlienOcean`,
+`CurlLattice` and `FacetGrid` share the runtime with the `effects/fixed/` group
+but keep single-effect files.
 
 | Document | Effect | Header |
 | --- | --- | --- |
