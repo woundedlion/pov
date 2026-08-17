@@ -82,9 +82,10 @@ def check(got):
             ok = False
             print(f"FAIL {name}\n   missing {sorted(keys - g)}"
                   f"\n   unexpected {sorted(g - keys)}")
-    # note any named (non-auto) net outside the spec table
+    # note any named net outside the spec table; the skipped prefixes are
+    # KiCad's own auto-generated names
     for name, g in got.items():
-        if name.startswith(("unconnected", "Net-", "PWR")):
+        if name.startswith(("unconnected", "Net-")):
             continue
         if name not in EXPECT:
             print(f"NOTE extra named net {name}: {sorted(g)}")
