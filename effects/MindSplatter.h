@@ -528,6 +528,9 @@ private:
                        alpha * opacity);
     };
 
+    // v2 mapper used as a per-particle palette bind: ParticleSystem::draw calls
+    // it before the particle's fragments are shaded, so fragment_shader always
+    // reads this particle's palette. v2 itself is unused by the shader.
     auto prepare_trail_palette = [&](const auto &p, int) {
       trail_palette = MINDSPLATTER_PALETTES[p.color_seed >> 8];
       return 0.0f;

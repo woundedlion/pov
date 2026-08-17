@@ -1512,8 +1512,12 @@ struct ParticleSystem {
    *        renders nothing, so output is identical to an undeferred shader.
    *        Put per-point work that only affects shading registers here.
    * @param particle_v2 Optional mapper from particle and pool index to v2.
-   *        Called once per materialized particle; the default stores the pool
-   *        index.
+   *        The default stores the pool index. Contract: called exactly once per
+   *        materialized particle, before that particle's fragments are emitted,
+   *        shaded, or rasterized, and before the next particle's call. A mapper
+   *        may therefore bind per-particle state the fragment or deferred shader
+   *        reads. Particles the traversal skips (drained history, fewer than two
+   *        points) are never mapped and never shaded.
    */
   template <int W, int H, bool HoistableCull, bool FuseVertex,
             bool SinglePassRaster, typename PipelineT, typename SystemT,
@@ -1787,7 +1791,8 @@ struct ParticleSystem {
    * @param fragment_shader Shader function.
    * @param vertex_shader Typed vertex shader.
    * @param deferred_shader Optional deferred vertex shader.
-   * @param particle_v2 Optional particle-to-v2 mapper.
+   * @param particle_v2 Optional particle-to-v2 mapper; see draw_impl for the
+   *        per-particle ordering the mapper may rely on.
    */
   template <int W, int H, bool SinglePassRaster = false, typename PipelineT,
             typename FragmentShaderT, typename VertexShaderFn,
