@@ -799,6 +799,8 @@ struct Face {
    */
   HS_COLD_MEMBER bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
                                      int vert_offset, bool reflected) {
+    HS_CHECK(vert_offset >= 0 && vert_offset < count,
+             "bind_class_lut: vertex offset outside the face");
     float mx = 0.0f, my = 0.0f;
     for (int i = 0; i < count; ++i) {
       mx += poly_2d[i].x;
