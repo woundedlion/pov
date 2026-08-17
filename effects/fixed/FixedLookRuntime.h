@@ -41,7 +41,6 @@ struct NoiseSourceParams {
   float noise_scale = 1.0f;
   float noise_contrast = 0.0f;
   float noise_time_rate = 0.0f;
-  int32_t noise_seed = 2927;
 };
 
 struct LatticeSourceParams {
@@ -86,7 +85,6 @@ struct VectorNoiseParams {
   float scale = 1.0f;
   float vector_angle = 0.0f;
   float edge_width = 0.1f;
-  int32_t seed = 1337;
 };
 
 struct AffineParams {
@@ -397,8 +395,7 @@ inline NoiseSourceParams interpolate(const NoiseSourceParams &a,
                                      const NoiseSourceParams &b, float t) {
   return {lerp(a.noise_scale, b.noise_scale, t),
           lerp(a.noise_contrast, b.noise_contrast, t),
-          lerp(a.noise_time_rate, b.noise_time_rate, t),
-          t < 1.0f ? a.noise_seed : b.noise_seed};
+          lerp(a.noise_time_rate, b.noise_time_rate, t)};
 }
 
 inline LatticeSourceParams interpolate(const LatticeSourceParams &a,
@@ -446,13 +443,11 @@ inline WaveShearParams interpolate(const WaveShearParams &a,
 
 inline VectorNoiseParams interpolate(const VectorNoiseParams &a,
                                      const VectorNoiseParams &b, float t) {
-  return {lerp(a.speed, b.speed, t),
-          lerp(a.strength, b.strength, t),
+  return {lerp(a.speed, b.speed, t), lerp(a.strength, b.strength, t),
           FixedPipeline::log_positive(a.scale, b.scale, t),
           FixedPipeline::shortest_periodic(a.vector_angle, b.vector_angle, t,
                                            TWO_PI_F),
-          lerp(a.edge_width, b.edge_width, t),
-          t < 1.0f ? a.seed : b.seed};
+          lerp(a.edge_width, b.edge_width, t)};
 }
 
 inline AffineParams interpolate(const AffineParams &a, const AffineParams &b,
