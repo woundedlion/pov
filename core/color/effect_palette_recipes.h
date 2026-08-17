@@ -62,11 +62,10 @@ HS_FLASH_MEMBER inline PaletteRecipe dynamo(float base_turns) {
 /**
  * @brief The Gray-Scott reaction-diffusion ramp: a split-complementary
  *        harmony brightening along the domain.
- * @param base_turns Base hue in turns; defaults to the authored hue.
+ * @param base_turns Base hue in turns.
  * @return The recipe.
  */
-HS_FLASH_MEMBER inline PaletteRecipe
-gs_reaction_diffusion(float base_turns = PaletteRecipes::hue_turns(160)) {
+HS_FLASH_MEMBER inline PaletteRecipe gs_reaction_diffusion(float base_turns) {
   return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
                                  PaletteHarmony::SPLIT_COMPLEMENTARY,
                                  AxisCurve::ASCENDING, base_turns, 0.50f);
