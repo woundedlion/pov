@@ -476,7 +476,44 @@ class CaptureComparison(unittest.TestCase):
         self.assertEqual(resolution, (1, 1))
         self.assertEqual(len(records), len(specs))
         self.assertEqual(len(metrics), len(ORACLES))
-        self.assertEqual(records[(11, "case:interior")]["pixels"][0], [11, 3, 4, 65535])
+        pixels = records[(11, "case:interior")]["pixels"]
+        self.assertEqual(pixels, struct.pack("<HHHH", 11, 3, 4, 65535))
+        # The record's byte string is what the frame hash is taken over, so it
+        # must equal what the crosschecker rebuilds from the published lists.
+        self.assertEqual(
+            pixels,
+            crosscheck._canonical_frame_bytes(
+                {"resolution": [1, 1], "pixels": [[11, 3, 4, 65535]]}
+            ),
+        )
+
+    def test_streamed_capture_matches_a_materialized_document(self):
+        # The corpus is hashed and diffed run to run, so its encoding is part
+        # of the contract: streaming the frames must not move a single byte.
+        frames = [
+            {
+                "program": "P",
+                "preset": 3,
+                "case": "default",
+                "resolution": [2, 1],
+                "probe": "steady",
+                "operation": {"kind": "parameter-case", "selected_pixels": 2},
+                "pixels": struct.pack("<HHHHHHHH", 1, 2, 3, 65535,
+                                      65535, 0, 40000, 65535),
+                "sha256": "a" * 64,
+            }
+        ]
+        head = {"schema_version": 1, "configuration": "native-debug"}
+        expanded = dict(head, frames=[
+            dict(frames[0], pixels=[[1, 2, 3, 65535], [65535, 0, 40000, 65535]])
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "nested" / "capture.json"
+            capture.write_capture(head, frames, path)
+            written = path.read_text(encoding="utf-8")
+        self.assertEqual(
+            written, json.dumps(expanded, separators=(",", ":")) + "\n"
+        )
 
     def test_build_directories_are_isolated(self):
         with tempfile.TemporaryDirectory() as directory:
