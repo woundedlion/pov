@@ -616,7 +616,12 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
 
 
 def effect_roster(source: str) -> set[str]:
-    """Names HS_EFFECT_LIST expands over, given the roster header's text."""
+    """Names HS_EFFECT_LIST expands over, given the roster header's text.
+
+    The list's one macro-expanded row, HS_SHADER_WORKBENCH_EFFECT(X), yields
+    X(Shader) only under HS_ENABLE_SHADER_WORKBENCH, which neither the firmware
+    playlist nor the gallery roster sets, so it is not among the names.
+    """
     names: set[str] = set()
     inside = False
     for line in source.splitlines():
