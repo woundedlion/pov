@@ -77,8 +77,8 @@ public:
    *   overlap.
    * @param south_infill Trailing rows given one ring each at full longitude
    *   resolution.
-   * @param equator_samples Longitude samples on the widest ring; 0 derives the
-   *   count from spacing.
+   * @param equator_samples Longitude samples on the widest ring; must be
+   *   non-negative, and 0 derives the count from spacing.
    */
   constexpr explicit SphericalFieldLayout(int spacing, int north_infill = 0,
                                           int south_infill = 0,
@@ -91,6 +91,9 @@ public:
              "SphericalFieldLayout: infills %d + %d must be non-negative and "
              "fit within H = %d",
              north_infill, south_infill, H);
+    HS_CHECK(equator_samples >= 0,
+             "SphericalFieldLayout: equator_samples %d must be >= 0",
+             equator_samples);
   }
 
   /** @brief Rows that alias a whole longitude range onto one physical point:
