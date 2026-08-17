@@ -34,6 +34,8 @@ PCB = os.path.join(PROJ, "phantasm.kicad_pcb")
 SCH = os.path.join(PROJ, "phantasm.kicad_sch")
 OUT = os.path.join(GEN, "out")
 JLC = os.path.join(OUT, "jlc")
+# Prefix of the per-run staging directory the exports are written into, under OUT.
+STAGE_PREFIX = "phantasm-jlc-"
 
 # Layers JLCPCB needs (this board names silk "F.SilkS" / "B.SilkS").
 GERBER_LAYERS = ("F.Cu,In1.Cu,In2.Cu,B.Cu,F.SilkS,B.SilkS,"
@@ -826,7 +828,14 @@ def main():
     except PartCatalogError as exc:
         sys.exit(str(exc))
 
-    with tempfile.TemporaryDirectory(prefix="phantasm-jlc-", dir=OUT) as staged:
+    # TemporaryDirectory only removes its own: an aborted run strands its
+    # staging directory under OUT, where nothing else clears it.
+    for name in os.listdir(OUT):
+        stranded = os.path.join(OUT, name)
+        if name.startswith(STAGE_PREFIX) and os.path.isdir(stranded) \
+                and not os.path.islink(stranded):
+            shutil.rmtree(stranded)
+    with tempfile.TemporaryDirectory(prefix=STAGE_PREFIX, dir=OUT) as staged:
         print("[6/9] Gerbers")
         run_export("gerber", [KCLI, "pcb", "export", "gerbers",
                               "--check-zones", "--layers", GERBER_LAYERS,
@@ -841,8 +850,6 @@ def main():
         if os.path.isdir(JLC):
             for name in os.listdir(JLC):
                 stale = os.path.join(JLC, name)
-                # A stranded directory (an aborted run's temp dir) is not
-                # removable with os.remove; the package must still be cleared.
                 if os.path.isdir(stale) and not os.path.islink(stale):
                     shutil.rmtree(stale)
                 else:
