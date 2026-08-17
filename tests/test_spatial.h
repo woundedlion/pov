@@ -38,14 +38,14 @@ inline constexpr size_t SPATIAL_BUF_SPLIT = SPATIAL_BUF_BYTES / 2;
 
 /**
  * @brief Verifies building from a zero-length span leaves the tree unbuilt
- *        (root_index == -1) and queries return nothing.
+ *        and queries return nothing.
  */
 inline void test_kdtree_empty_input() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[1] = {Vector(0, 0, 0)};
   std::span<Vector> empty(pts, 0);
   KDTree tree(arena, empty);
-  HS_EXPECT_EQ(tree.root_index, -1);
+  HS_EXPECT_TRUE(tree.empty());
 
   auto r = tree.nearest(Vector(0, 0, 0), 1);
   HS_EXPECT_TRUE(r.is_empty());
@@ -60,7 +60,7 @@ inline void test_kdtree_single_point() {
   Vector pts[1] = {Vector(3, 4, 5)};
   std::span<Vector> sp(pts, 1);
   KDTree tree(arena, sp);
-  HS_EXPECT_NE(tree.root_index, -1);
+  HS_EXPECT_FALSE(tree.empty());
 
   auto r = tree.nearest(Vector(0, 0, 0), 1);
   HS_EXPECT_SIZE_OR_RETURN(r, 1);
@@ -140,12 +140,12 @@ inline void test_kdtree_k_caps_at_size() {
 }
 
 /**
- * @brief Verifies a default-constructed (never-built) KDTree reports
- *        root_index == -1 and answers queries with an empty result.
+ * @brief Verifies a default-constructed (never-built) KDTree reports empty and
+ *        answers queries with an empty result.
  */
 inline void test_kdtree_default_unbuilt() {
   KDTree tree;
-  HS_EXPECT_EQ(tree.root_index, -1);
+  HS_EXPECT_TRUE(tree.empty());
   auto r = tree.nearest(Vector(1, 2, 3), 1);
   HS_EXPECT_TRUE(r.is_empty());
 }
