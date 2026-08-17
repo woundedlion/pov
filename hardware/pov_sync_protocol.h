@@ -259,8 +259,8 @@ struct Config {
    * the tail must clear: gap_timeout_cols terminates the last digit burst, and
    * acquire_quiet_cols is what makes the following boundary burst read as an
    * isolated symbol rather than another digit. valid()'s demarcation relation
-   * (acquire_quiet_cols >= beacon_span_cols() / 4) puts it above the gap
-   * timeout for every pitch.
+   * (acquire_quiet_cols >= 2*gap_timeout_cols + 7*beacon_pitch_cols + 1) puts
+   * it above the gap timeout for every pitch.
    */
   constexpr int32_t beacon_frame_cols(int32_t digit_sum) const {
     return beacon_span_cols(digit_sum) + acquire_quiet_cols;
@@ -345,10 +345,18 @@ struct Config {
     if (!(beacon_frame_cols() < W / 4))
       return "beacon_frame_cols() < W/4";
     // Demarcation: the acquisition timeout must clear the beacon's worst-case
-    // per-digit advance, which beacon_span_cols() / 4 bounds. The strict
-    // ordering below makes the interdigit timeout larger.
-    if (!(acquire_quiet_cols >= beacon_span_cols() / 4))
-      return "acquire_quiet_cols >= beacon_span_cols()/4";
+    // per-digit advance, or tick()'s quiet aging resets the parser mid-train.
+    // That advance runs from one digit burst's last pulse to the tick that
+    // claims the next: the emitter's inter-burst gap (gap_timeout_cols + 1),
+    // then the widest digit burst (7 * beacon_pitch_cols), then the terminating
+    // gap the mailbox waits out before claiming it (gap_timeout_cols).
+    // beacon_span_cols() / 4 is the mean advance, not this bound. Held with
+    // equality at the shipped constants, and acquire_quiet_cols cannot grow —
+    // beacon_frame_cols() < W/4 above has one column of slack — so widening
+    // this margin has to come out of the pitch or the gap.
+    if (!(acquire_quiet_cols >=
+          2 * gap_timeout_cols + 7 * beacon_pitch_cols + 1))
+      return "acquire_quiet_cols >= 2*gap_timeout + 7*beacon_pitch + 1";
     // Stale-frame window order: tick()'s poll-path reset must be the tighter
     // one, so a truncated train drops on wire silence rather than waiting for
     // the next burst to reach BeaconParser::feed.
