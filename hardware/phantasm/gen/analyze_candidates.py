@@ -286,6 +286,9 @@ def score(r):
     #  same GND net, so a signal-via plane hop is benign vs a split-plane crossing.)
     e = r["ergo"]
     erg = 10.0
+    # (rs_sync is reported for inspection but not penalised: the sync bus is a
+    #  ~868 us pulse train deliberately slowed by C_SYNC, so R_S spacing is not
+    #  a lever the way the fast-net groupings are.)
     erg -= ergo_penalty(e["decap_u1"], 5, 0.3)
     erg -= ergo_penalty(e["divider"], 4, 0.25)
     erg -= ergo_penalty(e["term_j2"], 12, 0.08)
