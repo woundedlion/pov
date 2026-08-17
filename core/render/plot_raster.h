@@ -87,17 +87,29 @@ static constexpr float COS_PLANAR_ANTIPODE = 0.999f;
  * @param planar_segments Segment count of a planar-basis draw that derives arc
  *        registers; 0 for a geodesic polyline, which binds no per-segment
  *        cache.
+ * @param trail_points Point count of a ParticleSystem::draw trail; 0 for every
+ *        other caller.
  * @return The cache size in bytes.
  * @details Effects sizing a custom scratch-A split must budget this alongside
  * their own buffers. Covers the adaptive sub-step cache plus, under a planar
  * basis, the per-segment arc and seam caches.
+ *
+ * ParticleSystem::draw allocates its trail-gate arrays — the per-edge
+ * visibility bits and the hoisted per-point rows and columns — from the same
+ * arena BEFORE the call and keeps them live across it, so @p trail_points folds
+ * those three in (with the alignment slack between the byte and float blocks).
  */
 template <int W>
-inline constexpr size_t rasterize_scratch_a_bytes(size_t planar_segments = 0) {
+inline constexpr size_t rasterize_scratch_a_bytes(size_t planar_segments = 0,
+                                                  size_t trail_points = 0) {
   constexpr size_t STEPS =
       2 * static_cast<size_t>(W) > 64 ? 2 * static_cast<size_t>(W) : 64;
   return STEPS * sizeof(float) +
-         planar_segments * (sizeof(float) + sizeof(uint8_t));
+         planar_segments * (sizeof(float) + sizeof(uint8_t)) +
+         (trail_points == 0
+              ? 0
+              : trail_points * (2 * sizeof(float) + sizeof(uint8_t)) +
+                    alignof(float));
 }
 
 /**

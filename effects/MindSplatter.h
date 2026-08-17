@@ -62,6 +62,16 @@ public:
         "MindSplatter particle pool + palette/aux overflow the device "
         "persistent arena");
 
+    // One trail at a time stages its fragments, the pre-shader positions the
+    // deferred hole shader reads, and the gate arrays in scratch_a, all live
+    // across rasterize. A live tip is appended past the stored history.
+    static constexpr size_t TRAIL_POINTS = TRAIL_LEN + 1;
+    static_assert(TRAIL_POINTS * (sizeof(Fragment) + sizeof(Vector)) +
+                          Plot::rasterize_scratch_a_bytes<W>(0, TRAIL_POINTS) <=
+                      SCRATCH_BYTES,
+                  "MindSplatter trail staging exceeds its scratch_a split; "
+                  "retune TRAIL_LEN or enlarge the split");
+
     register_animated_param(
         "Base Mesh", &params.base_mesh, Solids::BASE_MESH_OPTIONS,
         Solids::BASE_MESH_EXPORT_OPTIONS, Solids::PLATONIC_BASE_MESH_COUNT);
