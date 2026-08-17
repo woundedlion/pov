@@ -440,7 +440,10 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
 //
 // Invoking an unbound Fn diverges: hs::inplace_function traps via check_fail,
 // while the vendored teensy:: one returns a zero-initialized R. Row 9 of
-// docs/ledgers/device_host_divergence_ledger.md.
+// docs/ledgers/device_host_divergence_ledger.md. That zero return is a
+// `static_cast<R>(0)` inside the empty vtable every teensy::inplace_function
+// instantiates, so on device R must be constructible from 0: an Fn returning a
+// type without that conversion compiles on host and fails only on device.
 // ---------------------------------------------------------------------------
 #ifdef ARDUINO
 #include <inplace_function.h>
