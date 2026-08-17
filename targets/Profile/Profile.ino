@@ -747,5 +747,5 @@ FLASHMEM void setup() {
 
 void loop() {
   // Never returns: runs the single-entry playlist forever.
-  g_pov->run_show(EFFECT_FACTORIES, 1, PROFILE_REVOLUTIONS);
+  g_pov->run_show(EFFECT_FACTORIES, &PROFILE_REVOLUTIONS);
 }

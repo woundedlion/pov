@@ -265,23 +265,36 @@ public:
    * exactly the same boundary. Downstream boards join the running show via
    * the index beacon — they never assume the playlist position.
    *
+   * @tparam R            Roster length, deduced from `factories`.
    * @param factories     One constructor per roster entry (HS_EFFECT_LIST
-   *                      order — identical on every board).
-   * @param effect_count  Roster length.
+   *                      order — identical on every board). Its length is the
+   *                      roster length.
    * @param effect_revolutions Optional duration for each roster entry, in
    *                           revolutions.
+   * @param stable_effect_seeds Optional RNG identity for each roster entry;
+   *                           without it the per-visit stream is seeded from
+   *                           the roster index alone.
+   * @details Both optional tables are taken as pointers to arrays of R, so a
+   * table that does not span the roster is a compile error rather than an
+   * unguarded index: revolutions_for_effect() and Config::valid()'s own sweep
+   * read effect_revolutions over [0, R), and the per-effect reseed below reads
+   * stable_effect_seeds at the published index.
    */
-  [[noreturn]] void run_show(const EffectFactory *factories, int effect_count,
-                             const uint32_t *effect_revolutions = nullptr,
-                             const uint64_t *stable_effect_seeds = nullptr) {
+  template <int R>
+  [[noreturn]] void
+  run_show(const EffectFactory (&factories)[R],
+           const uint32_t (*effect_revolutions)[R] = nullptr,
+           const uint64_t (*stable_effect_seeds)[R] = nullptr) {
     effect_factories = factories;
-    effect_seed_identities = stable_effect_seeds;
+    effect_seed_identities =
+        stable_effect_seeds ? &(*stable_effect_seeds)[0] : nullptr;
 
     // F_CPU_ACTUAL, not F_CPU: the flywheel timebase counts ARM_DWT_CYCCNT
     // ticks, which run at the clock the core actually booted to.
     pov::sync::Config cfg =
-        pov::sync::phantasm_config(F_CPU_ACTUAL, RPM, CANVAS_W, effect_count);
-    cfg.effect_revolutions = effect_revolutions;
+        pov::sync::phantasm_config(F_CPU_ACTUAL, RPM, CANVAS_W, R);
+    cfg.effect_revolutions =
+        effect_revolutions ? &(*effect_revolutions)[0] : nullptr;
 #ifdef HS_PROFILE_EPOCH_REVS
     // Profiling knob: stretch the epoch so one effect instance covers a full
     // preset cycle in a single capture.
@@ -350,7 +363,7 @@ public:
         // per-visit stream locally, regardless of boot/join history — a board
         // wrong about the index is already building the wrong effect.
         const int32_t effect_index = pov::sync::SyncBoard::build_index_of(bw);
-        HS_CHECK(effect_index >= 0 && effect_index < effect_count,
+        HS_CHECK(effect_index >= 0 && effect_index < R,
                  "sync published an out-of-roster effect index");
         hs::random().seed(
             effect_seed_identities

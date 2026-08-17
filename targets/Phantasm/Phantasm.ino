@@ -70,6 +70,5 @@ FLASHMEM void setup() {
 void loop() {
   // Never returns: the driver runs the epoch-synchronized show forever
   // using the per-entry durations from HS_PHANTASM_EFFECT_LIST.
-  g_pov->run_show(EFFECT_FACTORIES, HS_PHANTASM_EFFECT_COUNT,
-                  EFFECT_REVOLUTIONS, EFFECT_SEEDS);
+  g_pov->run_show(EFFECT_FACTORIES, &EFFECT_REVOLUTIONS, &EFFECT_SEEDS);
 }
