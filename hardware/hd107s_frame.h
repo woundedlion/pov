@@ -178,12 +178,14 @@ public:
 
   /**
    * @brief Flushes data cache so DMA sees the buffer. Call after packPixel().
-   * @details Flushes the full COMPOSITE_SIZE superset — flush() runs before
-   *          submitFrame picks a range, so cover either transfer. Cleans
-   *          without invalidating: the buffer is TX-only, so the lines need
-   *          write-back, not eviction.
+   * @param bytes Length of the pending transfer, from the start of the
+   *              composite buffer; must cover every byte the DMA engine reads.
+   * @details Cleans without invalidating: the buffer is TX-only, so the lines
+   *          need write-back, not eviction.
    */
-  void flush() { hd107s::dcache_flush(buffer, COMPOSITE_SIZE); }
+  void flush(size_t bytes) {
+    hd107s::dcache_flush(buffer, static_cast<uint32_t>(bytes));
+  }
 
   /**
    * @brief Returns a pointer to the start of the composite DMA buffer.

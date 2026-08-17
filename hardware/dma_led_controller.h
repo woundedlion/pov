@@ -115,9 +115,9 @@ public:
       return false;
     }
     int back = dma::next_buffer(activeBuffer);
-    frames[back].flush();
     size_t len = dma::transfer_len(frames[back].size(),
                                    frames[back].sizeWithBg(), withBg);
+    frames[back].flush(len);
     spi.transmitAsync(frames[back].data(), len);
     activeBuffer = back;
     transferCount.fetch_add(1, std::memory_order_relaxed);
