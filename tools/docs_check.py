@@ -43,7 +43,10 @@ _EXPLICIT_HEADING_ID_RE = re.compile(r"[ \t]*\{#([^}\s]+)\}[ \t]*$")
 _HTML_TAG_RE = re.compile(r"<[^>]*>")
 _INLINE_LINK_TEXT_RE = re.compile(r"!?\[([^\]]*)\]\([^)]*\)|!?\[([^\]]*)\]\[[^\]]*\]")
 _SLUG_DROP_RE = re.compile(r"[^\w\- ]", re.UNICODE)
-# GitHub renders #L12 / #L12-L20 as a line range on a blob, not a document anchor.
+# GitHub renders #L12 / #L12-L20 as a line range on a blob, not a document
+# anchor. No structural check can tell whether the line still holds its subject,
+# so a repo-relative link is not allowed to pin one: link the file and name the
+# symbol in the link text, which a reader can verify and a rename breaks loudly.
 _LINE_FRAGMENT_RE = re.compile(r"^L\d+(?:-L?\d+)?$", re.IGNORECASE)
 
 # A backticked token is linted as a repo path only when it carries one of these
@@ -440,6 +443,11 @@ def _link_issue(source: PurePosixPath, line: int, target: str,
         return Issue(source.as_posix(), line,
                      f"missing repo-relative link target {target!r} "
                      f"(resolved to {resolved.as_posix()!r})")
+    if _LINE_FRAGMENT_RE.match(_fragment(target)):
+        return Issue(source.as_posix(), line,
+                     f"link target {target!r} pins a line number in "
+                     f"{resolved.as_posix()!r}, which any edit above it moves; "
+                     f"link the file and name the symbol in the link text")
     return _anchor_issue(source, line, target, resolved, anchors)
 
 

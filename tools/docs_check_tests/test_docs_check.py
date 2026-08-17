@@ -56,12 +56,13 @@ class TestDocumentationChecker(unittest.TestCase):
         anchors = {PurePosixPath("docs/other.md"): {"real-heading"}}
         issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries,
                                anchors)
-        self.assertEqual(len(issues), 3)
+        self.assertEqual(len(issues), 4)
         self.assertIn("#missing-anchor", issues[0].message)
         self.assertIn("this document", issues[0].message)
         self.assertIn("#ghost", issues[1].message)
         self.assertIn("docs/other.md", issues[1].message)
-        self.assertIn("#snakecase-heading", issues[2].message)
+        self.assertIn("pins a line number", issues[2].message)
+        self.assertIn("#snakecase-heading", issues[3].message)
 
     def test_backticked_repo_paths_are_linted(self):
         text = (FIXTURES / "backticked_paths.txt").read_text(encoding="utf-8")
@@ -242,6 +243,19 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(len(issues), 1)
         self.assertEqual(issues[0].line, 2)
         self.assertIn("docs/ghost.md", issues[0].message)
+
+    def test_line_pinned_repo_links_are_reported(self):
+        text = ("[single](../hardware/pov_sync.h#L111)\n"
+                "[range](../hardware/pov_sync.h#L405-L451)\n"
+                "[blob](https://github.com/woundedlion/pov/blob/master/"
+                "hardware/pov_sync.h#L20)\n"
+                "[plain](../hardware/pov_sync.h)\n")
+        entries = {PurePosixPath("hardware"),
+                   PurePosixPath("hardware/pov_sync.h")}
+        issues = dc.check_text(PurePosixPath("docs/spec.md"), text, entries)
+        self.assertEqual([issue.line for issue in issues], [1, 2, 3])
+        for issue in issues:
+            self.assertIn("pins a line number", issue.message)
 
     def test_links_above_the_repository_root_are_reported(self):
         text = ("[sibling](../../daydream/daydream.js)\n"
