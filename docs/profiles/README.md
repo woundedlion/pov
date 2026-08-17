@@ -121,6 +121,13 @@ ShaderBall's captures have been deleted. The fixed-pipeline workbench migration
 (`69d4751c`) turned its 13-preset program bank into the fourteen ● effects above
 and left `Shader` as the authoring workbench rather than a shipping effect.
 
+## Memory captures
+
+[`memory/arena_high_water.md`](memory/arena_high_water.md) holds the per-effect
+arena high-water marks against `DEVICE_GLOBAL_ARENA_SIZE`. Those come from a
+host probe rather than the bench, so nothing in the timing tables above depends
+on them.
+
 ## What the roster looks like
 
 **All thirty-three effects spill nothing** in their current shipping captures.
