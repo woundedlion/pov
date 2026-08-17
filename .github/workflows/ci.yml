@@ -674,8 +674,11 @@ jobs:
         run: |
           # Create a throwaway daydream checkout so the install() rules are active
           # (DAYDREAM_DIR is resolved at configure time and must already exist).
-          # This lets the job exercise the provenance/install path below.
+          # This lets the job exercise the provenance/install path below. The
+          # install refuses a destination without daydream.js, the marker that
+          # tells a daydream checkout from a mistyped path, so plant one.
           mkdir -p "${{ runner.temp }}/daydream-install"
+          touch "${{ runner.temp }}/daydream-install/daydream.js"
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
 
