@@ -748,6 +748,7 @@ public:
     params = snapshot.params;
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
         params.color.palette_mapping);
+    preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
     return true;
   }
 
