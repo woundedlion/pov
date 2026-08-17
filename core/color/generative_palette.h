@@ -148,7 +148,7 @@ public:
   bool loops_domain() const { return domain == PaletteDomain::LOOP; }
 
   Diagnostic diagnose(float t) const {
-    const Evaluated value = finish_evaluation(evaluate_path(t));
+    const Evaluated value = finish_evaluation(evaluate_path(t, true));
     return {value.lab.L,          value.C,      value.q,
             value.C_max,          value.h_path, value.h_final,
             value.fallback_mapped};
@@ -259,7 +259,7 @@ public:
   }
 
   HS_COLD_MEMBER Color4 get(float t) const override {
-    const LinRGB rgb = oklab_to_linear_rgb_gamut(evaluate_path(t).lab);
+    const LinRGB rgb = oklab_to_linear_rgb_gamut(evaluate_path(t, false).lab);
     return Color4(Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
                         float_to_pixel16(rgb.b)),
                   1.0f);
@@ -365,9 +365,12 @@ private:
 
   struct PathEvaluation {
     OKLab lab;
+    /** Zero unless the evaluation was asked for diagnostics. */
     float q;
     float h_path;
     float h_final;
+    /** Zero unless the evaluation was asked for diagnostics, or the color path
+     *  needed the envelope to realize its chroma. */
     float C_max;
   };
 
@@ -1113,10 +1116,12 @@ private:
     return {key.L, chromatic ? realized_chroma(key, h_final) : 0.0f, h_final};
   }
 
-  HS_COLD_MEMBER PathEvaluation
-  evaluate_cartesian_path(const ControlKey &left_key, bool left_chromatic,
-                          const ControlKey &right_key, bool right_chromatic,
-                          float progress, float control) const {
+  // The Cartesian path realizes chroma through resolve_key, so its envelope
+  // sample only ever feeds the diagnostics.
+  HS_COLD_MEMBER PathEvaluation evaluate_cartesian_path(
+      const ControlKey &left_key, bool left_chromatic,
+      const ControlKey &right_key, bool right_chromatic, float progress,
+      float control, bool diagnostics) const {
     const OKLab left = oklch_to_oklab(resolve_key(left_key, left_chromatic));
     const OKLab right = oklch_to_oklab(resolve_key(right_key, right_chromatic));
     const OKLab lab{left.L + (right.L - left.L) * progress,
@@ -1124,14 +1129,16 @@ private:
                     left.b + (right.b - left.b) * progress};
     const OKLCH lch = oklab_to_oklch(lab);
     const float h_path = lch.C >= OKLCH_ACHROMATIC_C ? lch.h : 0.0f;
+    if (!diagnostics)
+      return {lab, 0.0f, h_path, h_path, 0.0f};
     const float boundary = gamut_continuous_chroma(lch.L, h_path);
     return {lab, diagnostic_q(lch.C, boundary, control), h_path, h_path,
             boundary};
   }
 
-  HS_COLD_MEMBER PathEvaluation
-  evaluate_arc_path(float L, float control, float left_h, bool left_chromatic,
-                    float right_h, bool right_chromatic, float progress) const {
+  HS_COLD_MEMBER PathEvaluation evaluate_arc_path(
+      float L, float control, float left_h, bool left_chromatic, float right_h,
+      bool right_chromatic, float progress, bool diagnostics) const {
     float h_path;
     if (left_chromatic && right_chromatic)
       h_path = left_h + (right_h - left_h) * progress;
@@ -1143,12 +1150,16 @@ private:
       h_path = 0.0f;
 
     const float h_final = h_path + hue_torsion * (L - 0.5f);
-    const float boundary = gamut_continuous_chroma(L, h_final);
-    const float C = chroma_basis == ChromaBasis::LOCAL_GAMUT
-                        ? std::min(control, headroom) * boundary
-                        : std::max(0.0f, control);
-    return {oklch_to_oklab({L, C, h_final}), diagnostic_q(C, boundary, control),
-            h_path, h_final, boundary};
+    // An absolute basis takes C straight from the control, so the envelope is
+    // diagnostics-only there.
+    const bool relative = chroma_basis == ChromaBasis::LOCAL_GAMUT;
+    const float boundary =
+        (relative || diagnostics) ? gamut_continuous_chroma(L, h_final) : 0.0f;
+    const float C = relative ? std::min(control, headroom) * boundary
+                             : std::max(0.0f, control);
+    return {oklch_to_oklab({L, C, h_final}),
+            diagnostics ? diagnostic_q(C, boundary, control) : 0.0f, h_path,
+            h_final, boundary};
   }
 
   HS_COLD_MEMBER Evaluated finish_evaluation(const PathEvaluation &path) const {
@@ -1164,7 +1175,7 @@ private:
             !linear_rgb_in_gamut(r, g, blue)};
   }
 
-  HS_COLD_MEMBER PathEvaluation evaluate_path(float t) const {
+  HS_COLD_MEMBER PathEvaluation evaluate_path(float t, bool diagnostics) const {
     const Segment segment = select_segment(t);
     const ControlKey envelope = segment.envelope;
     const float progress = segment.progress;
@@ -1182,20 +1193,22 @@ private:
         const ControlKey first{L, control, keys[0].h};
         const ControlKey opposite{L, control, keys[key_count - 1].h};
         path = evaluate_cartesian_path(first, chromatic, opposite, chromatic,
-                                       relationship_position, control);
+                                       relationship_position, control,
+                                       diagnostics);
       } else {
         path = evaluate_arc_path(L, control, keys[0].h, chromatic,
                                  keys[key_count - 1].h, chromatic,
-                                 relationship_position);
+                                 relationship_position, diagnostics);
       }
     } else if (color_path == ColorPath::OKLAB_CARTESIAN) {
       const ControlKey left_key{L, control, segment.left.h};
       const ControlKey right_key{L, control, segment.right.h};
       path = evaluate_cartesian_path(left_key, chromatic, right_key, chromatic,
-                                     progress, control);
+                                     progress, control, diagnostics);
     } else {
-      path = evaluate_arc_path(L, control, segment.left.h, chromatic,
-                               segment.right.h, chromatic, progress);
+      path =
+          evaluate_arc_path(L, control, segment.left.h, chromatic,
+                            segment.right.h, chromatic, progress, diagnostics);
     }
     return path;
   }
