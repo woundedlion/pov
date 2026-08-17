@@ -134,7 +134,12 @@ if(EMSCRIPTEN)
   # Emscripten emits a .js loader as the "executable".
   set_target_properties(${TARGET_NAME} PROPERTIES SUFFIX ".js")
 
-  add_executable(pullback_capture_wasm
+  # Out of the default build: its own LTO link costs as much as the module's and
+  # nothing but a capture run consumes the .cjs, so tools/pullback_crosscheck.py
+  # names it as an explicit --target. Its four sources are compiled by the module
+  # target and by tests/'s pullback_capture_native, so excluding it hides no
+  # source from CI.
+  add_executable(pullback_capture_wasm EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/pullback_capture_native.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
