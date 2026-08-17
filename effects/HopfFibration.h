@@ -63,8 +63,7 @@ public:
     // Whole footprint lives in the persistent arena with no per-frame scratch, so
     // keep the default split (no configure_arenas()); FOOTPRINT_BYTES asserts it
     // fits the device default partition.
-    fibers = static_cast<Spherical *>(persistent_arena.allocate(
-        ACTUAL_FIBERS * sizeof(Spherical), alignof(Spherical)));
+    fibers = persistent_arena.allocate_n<Spherical>(ACTUAL_FIBERS);
 
     trails = persistent_arena.make_n<Animation::VectorTrail<TRAIL_LEN>>(
         ACTUAL_FIBERS);
