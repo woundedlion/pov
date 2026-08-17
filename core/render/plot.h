@@ -31,7 +31,7 @@ namespace Plot {
 /**
  * @brief Inner/outer radius ratio for star shapes.
  */
-static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
+inline constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 
 /**
  * @brief Apply an optional per-control-point vertex shader to every fragment.

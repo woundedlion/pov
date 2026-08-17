@@ -33,12 +33,12 @@
 #include "pov_segmented.h"
 #include "engine/effects.h"
 
-static constexpr int TOTAL_PIXELS = 288;
-static constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS;
-static constexpr unsigned int RPM = 480;
+inline constexpr int TOTAL_PIXELS = 288;
+inline constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS;
+inline constexpr unsigned int RPM = 480;
 
 /** Per-effect heap-object budget for the Phantasm playlist, in bytes. */
-static constexpr size_t HS_PHANTASM_EFFECT_HEAP_BYTES = 3584;
+inline constexpr size_t HS_PHANTASM_EFFECT_HEAP_BYTES = 3584;
 
 using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 

@@ -25,29 +25,29 @@ namespace SDF {
 
 // --- Rasterization constants ------------------------------------------------
 /** Margin added to bounding boxes for AA kernel width (small faces). */
-static constexpr float BOUNDS_MARGIN = 0.05f;
+inline constexpr float BOUNDS_MARGIN = 0.05f;
 /** Expanded margin for shapes with variable thickness or large faces. */
-static constexpr float BOUNDS_MARGIN_WIDE = 0.1f;
+inline constexpr float BOUNDS_MARGIN_WIDE = 0.1f;
 /** Minimum horizontal projection length for interval culling. */
-static constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
+inline constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
 /** Epsilon for near-zero denominators in interval math. */
-static constexpr float INTERVAL_DENOM_EPS = 1e-6f;
+inline constexpr float INTERVAL_DENOM_EPS = 1e-6f;
 /** Threshold for near-pole ring approximation safety. */
-static constexpr float POLE_SAFE_MARGIN = 0.05f;
+inline constexpr float POLE_SAFE_MARGIN = 0.05f;
 /** Ring thickness ceiling as a fraction of tan(target_angle) for the
  *  linearized centerline distance; bounds its relative error at half this. */
-static constexpr float RING_LINEARIZE_TAN_FRAC = 0.1f;
+inline constexpr float RING_LINEARIZE_TAN_FRAC = 0.1f;
 /** Pole-on-boundary tolerance, as a fraction of a face's 2D circumradius. */
-static constexpr float POLE_BOUNDARY_TOL = 1e-3f;
+inline constexpr float POLE_BOUNDARY_TOL = 1e-3f;
 /** Inner/outer radius ratio for star shapes. */
-static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
+inline constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 /** Minimum inradius-to-circumradius ratio used to floor Face::size,
  *  preventing degenerate near-zero inradii from collapsing AA. */
-static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
+inline constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
 /** Distance reported in place of a true one past a shape's reject band, far
  *  enough that no AA reach or CSG blend reads it as near-surface. The shapes
  *  that clamp to it are exactly those with blends_smoothly == false. */
-static constexpr float FAR_SENTINEL = 100.0f;
+inline constexpr float FAR_SENTINEL = 100.0f;
 
 /** @brief Folds an angle into the centered interval for one sector. */
 inline float centered_sector_angle(float angle, float sector,
@@ -77,13 +77,13 @@ basis_azimuth(const Vector &p, const Vector &u, const Vector &w, float phase) {
  *  float noise of an exactly collapsed polygon (~1e-7) and below the thinnest
  *  real sliver a mesh sweep draws (~1e-3), so the sim/device decision is
  *  identical under fast-math. */
-static constexpr float COLLAPSED_AREA_RATIO = 1e-5f;
+inline constexpr float COLLAPSED_AREA_RATIO = 1e-5f;
 
 /** Squared relative-turn epsilon for the convexity test: a turn registers only
  *  when |sin| between successive edge directions exceeds 1e-6. Shared with
  *  MeshOps::polygon_is_concave so a class is LUT-eligible exactly when its
  *  faces miss Face::build_half_planes' convex fast path. */
-static constexpr float TURN_EPS_SQ = 1e-12f;
+inline constexpr float TURN_EPS_SQ = 1e-12f;
 
 /** AA fringe pad in radians applied to a face's azimuth intervals: one pixel
  *  of falloff reach (in the plane units distance() reports, slightly wider

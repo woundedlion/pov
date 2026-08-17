@@ -45,7 +45,7 @@ struct RelaxBake {
 };
 
 /** @brief FNV-1a 32-bit offset basis, seeding every relax hash. */
-static constexpr uint32_t FNV1A_BASIS = 2166136261u;
+inline constexpr uint32_t FNV1A_BASIS = 2166136261u;
 
 /**
  * @brief One FNV-1a 32-bit round.
@@ -995,7 +995,7 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
 
 /** Default expand/cantellation factor 2-sqrt(2) ~= 0.5857: places new square
  * faces at the canonical gap. */
-static constexpr float EXPAND_DEFAULT_T = 2.0f - 1.414213562373095f;
+inline constexpr float EXPAND_DEFAULT_T = 2.0f - 1.414213562373095f;
 
 /**
  * @brief Expand's body over connectivity the caller already holds.

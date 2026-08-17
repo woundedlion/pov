@@ -503,7 +503,7 @@ enum class PaletteDomain : uint8_t {
 
 enum class SegmentEase : uint8_t { LINEAR, COSINE, SMOOTHSTEP };
 
-static constexpr uint8_t PALETTE_MAX_KEYS = 4;
+inline constexpr uint8_t PALETTE_MAX_KEYS = 4;
 
 struct HueControls {
   HueMode mode = HueMode::HARMONY;

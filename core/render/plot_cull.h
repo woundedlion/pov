@@ -35,7 +35,7 @@ namespace Plot {
  * bound that picks the interpolation strategy, not a positional near-equality
  * test, so it does not track math::EPS_GEOMETRIC.
  */
-static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
+inline constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
 
 /**
  * @brief Minimum |cross(a, b)|² for which the arc pole of a geodesic edge is
@@ -50,7 +50,7 @@ static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
  * absolute rounding, bounding the pole's direction error at ~2e-3 rad — a tenth
  * of a pixel at W=288.
  */
-static constexpr float EPS_ARC_POLE_SQ = 1e-8f;
+inline constexpr float EPS_ARC_POLE_SQ = 1e-8f;
 
 /**
  * @brief Minimum |axis.y| for which a geodesic edge's endpoint columns bound
@@ -58,7 +58,7 @@ static constexpr float EPS_ARC_POLE_SQ = 1e-8f;
  * @details Below this the great circle runs near the poles, where longitude is
  * ill-conditioned and the interior leaves the endpoint columns.
  */
-static constexpr float AXIS_Y_EPS = 1e-4f;
+inline constexpr float AXIS_Y_EPS = 1e-4f;
 
 /**
  * @brief Minimum worst-case sin(φ) over a curve for which its plotted columns
@@ -66,7 +66,7 @@ static constexpr float AXIS_Y_EPS = 1e-4f;
  * @details The azimuth Lipschitz bound scales as 1/sin(φ), and nearer the poles
  * the plotted column is float noise; below this the column cull bails.
  */
-static constexpr float MIN_SIN_PHI = 0.05f;
+inline constexpr float MIN_SIN_PHI = 0.05f;
 
 /**
  * @brief Floor on the adaptive sub-step length, as a fraction of base_step.
@@ -75,7 +75,7 @@ static constexpr float MIN_SIN_PHI = 0.05f;
  * the azimuthal velocity diverges at the poles, and this is the lower clamp that
  * bounds it. A clamp, not a tolerance.
  */
-static constexpr float MIN_POLE_SCALE = 0.05f;
+inline constexpr float MIN_POLE_SCALE = 0.05f;
 
 /**
  * @brief Target screen-space spacing (pixels) between adaptive sub-samples.
@@ -84,19 +84,19 @@ static constexpr float MIN_POLE_SCALE = 0.05f;
  * splat of neighbouring samples overlaps and the rendered curve has no holes;
  * smaller = denser = smoother but costlier.
  */
-static constexpr float SCREEN_STEP_PX = 0.9f;
+inline constexpr float SCREEN_STEP_PX = 0.9f;
 
 /**
  * @brief Columns of slack added on each side of a culled column span.
  * @details Absorbs plot rounding and the AntiAlias tap spread.
  */
-static constexpr int COL_PAD = 2;
+inline constexpr int COL_PAD = 2;
 
 /**
  * @brief Columns a padded span reaches past its fractional end.
  * @details The pad plus the boundary column ceil() adds.
  */
-static constexpr int COL_FOOTPRINT = COL_PAD + 1;
+inline constexpr int COL_FOOTPRINT = COL_PAD + 1;
 
 /**
  * @brief Columns outside the render band a clip cut is placed at.
@@ -105,14 +105,14 @@ static constexpr int COL_FOOTPRINT = COL_PAD + 1;
  * the outside piece visible and buy nothing. One column past that footprint
  * also absorbs the fast-trig error in the cut.
  */
-static constexpr int CLIP_CUT_COL_PAD = COL_FOOTPRINT + 1;
+inline constexpr int CLIP_CUT_COL_PAD = COL_FOOTPRINT + 1;
 
 /**
  * @brief Rows outside the render band a clip cut is placed at.
  * @details could_intersect_y takes the band edge itself as an intersection, and
  * the row map's fast-trig round trip moves a cut by a fraction of a row.
  */
-static constexpr int CLIP_CUT_ROW_PAD = 1;
+inline constexpr int CLIP_CUT_ROW_PAD = 1;
 
 // --- Strategy Helpers ---
 
@@ -853,7 +853,7 @@ static inline bool geodesic_col_span(const Vector &a, const Vector &b,
  * @brief Most arc fractions a clip band can cut one geodesic edge at.
  * @details Two meridians met once each, two latitude circles met twice each.
  */
-static constexpr int GEODESIC_CLIP_MAX_SPLITS = 6;
+inline constexpr int GEODESIC_CLIP_MAX_SPLITS = 6;
 
 /**
  * @brief The clip band's cut boundaries, in the terms the arc solve reads them.

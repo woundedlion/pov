@@ -15,11 +15,11 @@
 #include "math/3dmath.h"
 
 /** @brief Two Pi. */
-static constexpr float tau = 2 * PI_F;
+inline constexpr float tau = 2 * PI_F;
 /** @brief Multiplication factor to convert degrees to radians. */
-static constexpr float radians = PI_F / 180;
+inline constexpr float radians = PI_F / 180;
 /** @brief Multiplication factor to convert radians to degrees. */
-static constexpr float degrees = 180 / PI_F;
+inline constexpr float degrees = 180 / PI_F;
 
 /**
  * @brief Wraps an angle of any magnitude into [0, 2PI).
