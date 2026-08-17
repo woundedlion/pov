@@ -18,6 +18,11 @@ struct CurlLatticeWhiteBox;
 
 /**
  * @brief Fixed folded-sinusoidal lattice displaced by sphere-space curl noise.
+ * @details Supplies the render pipeline and preset bank; FixedLook::Runtime
+ * supplies parameter registration, preset choreography and the palette,
+ * camera-walk and noise clocks. The lattice source is read through a folded
+ * sinusoidal projection, so the surface stage carries the curl displacement and
+ * the warp stage is an identity.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
@@ -46,19 +51,28 @@ public:
   using Params = ParamsT;
   using FrameState = typename Base::Frame;
   using Binding = typename Base::PipelineBinding;
+  /// Registry identity, stable across class renames.
   static constexpr std::string_view EFFECT_ID = "curl-lattice";
+  /// SHA-256 of the canonicalized descriptor of
+  /// `patterns/curl_lattice.shader.json`; the browser editor matches it to
+  /// recognize an imported document as this fixed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "504e5dc75bbd656d36b94b2752c0b6e3166ce80221f9b63d63127967323c96f8";
+  /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "9b4b0152cd159b90bd3663505f53c8b6bdbcce846a37594135eff1e46aa8eaa3";
+  /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
                                                               "dense-curl"};
+  /// Bumped whenever the `Params` layout changes, rejecting stale snapshots.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  /// Frames a preset holds before the runtime begins the next transition.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool USES_CENTRAL_MERIDIAN = true;
   static constexpr int32_t SURFACE_NOISE_SEED = 1337;
 
+  /// Pullback stages, ordered from the view vector back to the source field.
   using OuterCameraStage =
       Pullback::Stage::OuterCamera<Binding,
                                    FixedLook::OuterCameraProvider<Binding>>;
@@ -92,11 +106,17 @@ public:
                          PlanarWarpStage, SourceStage, MaterialStage,
                          ColorStage>;
 
+  /**
+   * @brief Shades one pixel through the fully inlined pipeline.
+   * @param view Unit view direction for the pixel.
+   * @param frame Per-frame transforms, params and LUTs from the runtime.
+   */
   static HS_FLASH_INLINE Color4 shade(const Vector &view,
                                       const FrameState &frame) {
     return RenderPipeline::shade(view, frame);
   }
 
+  /// Params the effect starts on, and the base every preset varies from.
   static constexpr Params initial_params() {
     Params value;
     value.source = {0.710265636f, 1.0f, 0.455532223f, 0.290762514f};
@@ -112,6 +132,11 @@ public:
     return value;
   }
 
+  /**
+   * @brief Params for the preset at @p index in PRESET_IDS.
+   * @details `open-curl` is the initial look; `dense-curl` folds the lattice
+   * through a shorter surface-noise wavelength.
+   */
   static constexpr Params preset_params(size_t index) {
     Params value = initial_params();
     if (index == 1)
