@@ -477,7 +477,7 @@ private:
    *        dt): the pair builds as the smooth dt macro over both steps.
    * @param k Lowered step index.
    */
-  bool dt_pair_at(size_t k) const {
+  HS_COLD_MEMBER bool dt_pair_at(size_t k) const {
     return k + 1 < build_step_count &&
            build_step_chain[k].op == Solids::Op::DUAL &&
            build_step_chain[k + 1].op == Solids::Op::KIS;
@@ -488,7 +488,7 @@ private:
    *        such a kis builds as the dtd macro (kis = dtd).
    * @param k Lowered step index.
    */
-  bool standalone_kis_at(size_t k) const {
+  HS_COLD_MEMBER bool standalone_kis_at(size_t k) const {
     return build_step_chain[k].op == Solids::Op::KIS &&
            !(k > 0 && build_step_chain[k - 1].op == Solids::Op::DUAL);
   }
@@ -591,6 +591,10 @@ private:
         std::max(1, static_cast<int>(RECONCILE_LEG_FRAMES / sp));
     const int bridge_frames =
         std::max(1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
+    // A step this plan skips (a dt pair's trailing kis) must read 0, not the
+    // previous build's budget, so a cursor that lands there is caught.
+    for (int &frames : build_leg_frames)
+      frames = 0;
     for (size_t k = 0; k < build_step_count; ++k) {
       const Solids::Op op = build_step_chain[k].op;
       if (dt_pair_at(k)) {
@@ -818,6 +822,8 @@ private:
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
 
     const int frames = build_leg_frames[k];
+    HS_CHECK(frames > 0, "IslamicStars: build leg on a step plan_build_legs "
+                         "never budgeted");
     hs::log("Build leg: %s (%d frames)", leg_name(step.op), frames);
 
     // The swept operator's endpoints: every inflate leg opens at the clamped
@@ -987,6 +993,8 @@ private:
    */
   int dual_sub_frames(int sub) const {
     const int total = build_leg_frames[build_step];
+    HS_CHECK(total > 0, "IslamicStars: dual bridge on a step plan_build_legs "
+                        "never budgeted");
     const int third = std::max(1, total / 3);
     return sub < 2 ? third : std::max(1, total - 2 * third);
   }
@@ -1213,6 +1221,8 @@ private:
   }
   HS_COLD_MEMBER void dt_after_bridge() {
     carry_landing_to_seed(); // build_seed = dual(truncate(X, 1/3)) (identity)
+    HS_CHECK(dt_pair_at(build_step),
+             "IslamicStars: dt macro left its dual,kis pair");
     ++build_step; // advance onto the KIS index the reconcile finishes at
     schedule_reconcile(build_step - 1, /*kis_of_dual=*/true);
   }
@@ -1235,6 +1245,8 @@ private:
   }
   HS_COLD_MEMBER void dtd_after_bridge2() {
     carry_landing_to_seed(); // build_seed = dual(truncate(dual(X), 1/3))
+    HS_CHECK(standalone_kis_at(build_step),
+             "IslamicStars: dtd macro left its kis step");
     schedule_reconcile(build_step, /*kis_of_dual=*/false);
   }
 
@@ -1366,6 +1378,8 @@ private:
     // kinds carry the endpoint start_build_leg built eagerly. The palette the
     // leg landed on is snapshotted too, since the landing does not survive.
     ScratchScope a_guard(scratch_arena_a);
+    HS_CHECK(build_step < build_step_count,
+             "IslamicStars: build cursor ran past the lowered chain");
     if (build_step_chain[build_step].op == Solids::Op::HANKIN) {
       HS_CHECK(build_landing, "IslamicStars: finished leg has no landing");
       Animation::OpLeg::arrival_mesh(*build_landing, build_next_seed,
