@@ -199,7 +199,7 @@ public:
   /**
    * @brief Allocates and default-constructs a contiguous array.
    * @tparam T Element type.
-   * @param n Element count.
+   * @param n Element count (must be > 0, per allocate()).
    * @return Pointer to the first constructed element.
    */
   template <typename T> T *make_n(size_t n) {
@@ -213,7 +213,7 @@ public:
    * @brief Allocates an array and constructs each element from an index.
    * @tparam T Element type.
    * @tparam Factory Callable returning the value for an element.
-   * @param n Element count.
+   * @param n Element count (must be > 0, per allocate()).
    * @param factory Callable receiving the zero-based element index.
    * @return Pointer to the first constructed element.
    */
