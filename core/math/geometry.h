@@ -526,10 +526,7 @@ public:
    * @param i The frame index.
    * @return The const Quaternion reference.
    */
-  const Quaternion &at(int i) const {
-    HS_CHECK(i >= 0 && i < num_frames);
-    return orientations[i];
-  }
+  const Quaternion &at(int i) const { return get(i); }
 
   /**
    * @brief Replaces a quaternion at a specific historical frame index.
