@@ -371,12 +371,6 @@ public:
       return EffectSetResult::UNKNOWN_EFFECT;
     }
 
-    // Per-load RNG stream keyed by the effect's stable id, mirroring the
-    // device's per-effect reseed. Replica-safe with no protocol change — every
-    // instance loading the same effect derives the same seed locally, whatever
-    // its load history.
-    hs::random().seed(hs::stable_effect_seed(entry->stable_id));
-
     current_effect.reset();
     current_effect_type_key = nullptr;
     current_factory_entry = nullptr;
@@ -387,6 +381,12 @@ public:
     dispatch_resolution(pixel_width, pixel_height, []<int W, int H>() {
       init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
     });
+    // Per-load RNG stream keyed by the effect's stable id, mirroring the
+    // device's per-effect reseed. Reseeded after the outgoing effect is gone, so
+    // a teardown draw cannot advance the incoming stream. Replica-safe with no
+    // protocol change — every instance loading the same effect derives the same
+    // seed locally, whatever its load history.
+    hs::random().seed(hs::stable_effect_seed(entry->stable_id));
     current_effect = entry->creator();
     current_effect_type_key = entry->type_key;
     current_factory_entry = entry;
