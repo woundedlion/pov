@@ -545,7 +545,7 @@ private:
     state->hue_noise_lut_phase = hue_noise_phase;
   }
 
-  HS_COLD_MEMBER void prepare_hue_rotation_lut() const {
+  HS_COLD_MEMBER void prepare_hue_rotation_lut() {
     Pullback::Color::prepare_hue_rotation_lut(
         std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
             state->hue_rotation_lut),
