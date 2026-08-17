@@ -184,6 +184,9 @@ struct SphericalPolygon {
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // t = polar / circumradius
+    // A shape wider than a hemisphere must be built inverted, about its
+    // antipode.
+    HS_CHECK(radius <= 1.0f);
     sector = TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     circumradius = radius * (PI_F / 2.0f);
@@ -494,6 +497,9 @@ struct Flower {
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // t = scan_dist / circumradius
+    // A shape wider than a hemisphere must be built inverted, about its
+    // antipode.
+    HS_CHECK(radius <= 1.0f);
     sector = TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     float outer = radius * (PI_F / 2.0f);
