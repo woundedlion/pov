@@ -105,7 +105,7 @@ inline void expect_color_exact(const Color4 &actual, const Color4 &expected) {
                std::bit_cast<uint32_t>(expected.alpha));
 }
 
-void test_facet_grid_identity_and_presets() {
+inline void test_facet_grid_identity_and_presets() {
   using WB = FacetGridWhiteBox;
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "facet-grid");
@@ -202,7 +202,7 @@ void test_facet_grid_identity_and_presets() {
     HS_EXPECT_TRUE(effect.getParameters().find(name) != nullptr);
 }
 
-void test_facet_grid_transition_contract() {
+inline void test_facet_grid_transition_contract() {
   using WB = FacetGridWhiteBox;
   using FX = WB::FX;
   reset_effect_globals();
@@ -240,7 +240,7 @@ void test_facet_grid_transition_contract() {
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
-void test_facet_grid_parameter_serialization() {
+inline void test_facet_grid_parameter_serialization() {
   using WB = FacetGridWhiteBox;
   reset_effect_globals();
   WB::FX effect;
@@ -267,7 +267,7 @@ void test_facet_grid_parameter_serialization() {
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
 }
 
-void test_facet_grid_shaderball_equivalence() {
+inline void test_facet_grid_shaderball_equivalence() {
   using WB = FacetGridWhiteBox;
   reset_effect_globals();
   ShaderBallWB::SB shaderball;
