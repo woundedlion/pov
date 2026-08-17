@@ -32,14 +32,14 @@
 
 /**
  * @brief Manages the display loop for a single-Teensy POV rig.
- * @tparam S The number of physical segments/pixels.
+ * @tparam S Total LED count on the strip (both sides of the ring).
  * @tparam RPM The rotations per minute of the device.
  *
  * Used by Holosphere (96x20 with one Teensy owning the full strip).
  */
 template <int S, int RPM> class POVDisplay {
   static_assert(S > 0 && S % 2 == 0,
-                "POVDisplay requires an even, positive segment count S");
+                "POVDisplay requires an even, positive LED count S");
 
 public:
   /**
