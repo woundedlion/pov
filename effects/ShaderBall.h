@@ -212,11 +212,11 @@ public:
 protected:
   HS_COLD_MEMBER void
   set_fixed_preset_view(std::span<const uint8_t> source_indices) {
-    assert(!source_indices.empty());
-#ifndef NDEBUG
+    HS_CHECK(!source_indices.empty(),
+             "set_fixed_preset_view: empty preset view");
     for (uint8_t index : source_indices)
-      assert(index < PRESETS.size());
-#endif
+      HS_CHECK(index < PRESETS.size(),
+               "set_fixed_preset_view: preset index out of range");
     preset_view = source_indices;
     fixed_topology = true;
   }
@@ -232,7 +232,7 @@ protected:
   }
 
   HS_COLD_MEMBER void hold_initial_preset(uint16_t frames) {
-    assert(frames > 0);
+    HS_CHECK(frames > 0, "hold_initial_preset: zero dwell");
     preset_dwell_remaining = frames;
     preset_dwell_armed = preset_count_for_view() > 1;
   }
@@ -2455,7 +2455,8 @@ private:
   }
 
   const Preset &preset_for_view(size_t index) const {
-    assert(index < preset_count_for_view());
+    HS_CHECK(index < preset_count_for_view(),
+             "preset_for_view: index out of range");
     return PRESETS[preset_view.empty() ? index : preset_view[index]];
   }
 
