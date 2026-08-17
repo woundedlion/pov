@@ -98,6 +98,10 @@ struct MeshState {
 
   /**
    * @brief Resets to empty: clears owned buffers and drops the borrowed views.
+   * @details Every arena binding survives, so this is the wrong reset for a
+   * mesh whose arena has since been reset or rewound: bind()'s reuse path would
+   * hand the mesh back blocks the arena has already reclaimed. Replace such a
+   * mesh instead (`mesh = MeshState()`), as MeshOps::compile does.
    */
   void clear() {
     vertices.clear();
