@@ -350,9 +350,20 @@ option(HS_REQUIRE_GENERATORS
 # the four gates below permanently skipped, which a green run does not show.
 find_program(HS_PYTHON NAMES python3 python NO_CACHE)
 
-if(NOT HS_PYTHON)
+if(NOT HS_PYTHON AND HS_REQUIRE_GENERATORS)
   message(FATAL_ERROR "Python is required to validate pullback manifests")
 endif()
+
+# The pullback manifest is the one generated artifact the suite COMPILES
+# against (tests/test_shaderball.h), so a 77-skip cannot cover a missing
+# interpreter: without the header nothing builds. Instead the manifest-derived
+# assertions compile out under HS_HAVE_PULLBACK_MANIFEST=0 and the two manifest
+# CTests go unregistered, leaving the rest of the suite runnable in a bare
+# checkout. The retirement warns at configure time, and the CI job that
+# provisions the interpreter passes -DHS_REQUIRE_GENERATORS=ON, so it cannot
+# happen there.
+if(HS_PYTHON)
+target_compile_definitions(run_tests PRIVATE HS_HAVE_PULLBACK_MANIFEST=1)
 
 set(PULLBACK_MANIFEST_DIR ${HS_ROOT}/tests/data/pullback)
 set(PULLBACK_MANIFEST_HEADER
@@ -409,6 +420,15 @@ add_test(NAME unit_pullback_capture_determinism
     -DCAPTURE_SCRIPT=${HS_ROOT}/tools/pullback_capture.py
     -DMANIFEST_DIR=${PULLBACK_MANIFEST_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pullback_capture.cmake)
+else()
+target_compile_definitions(run_tests PRIVATE HS_HAVE_PULLBACK_MANIFEST=0)
+message(WARNING
+  "No python3/python found: the pullback manifest header cannot be generated, "
+  "so unit_pullback_manifest and unit_pullback_capture_determinism are not "
+  "registered and the manifest assertions in unit_shaderball compile out. "
+  "Install an interpreter, or configure with -DHS_REQUIRE_GENERATORS=ON to "
+  "make this a hard error.")
+endif()
 
 # Pin core/color/color_luts.h against its generator.
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
