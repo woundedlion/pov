@@ -329,13 +329,13 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     // corners are sign-pure and beyond the interpolation guard, weighted by
     // the class's face count. A bake-time proxy for the runtime lut_hits
     // ratio on LUT-bound faces (gate: >= MIN_CLASS_HIT_SHARE).
-    float circ = 0.0f;
+    float circ_sq = 0.0f;
     for (int k = 0; k < cls.n_verts; ++k) {
       float r2 = cls.canon_xy[2 * k] * cls.canon_xy[2 * k] +
                  cls.canon_xy[2 * k + 1] * cls.canon_xy[2 * k + 1];
-      circ = std::max(circ, r2);
+      circ_sq = std::max(circ_sq, r2);
     }
-    float max_dist = sqrtf(circ) + SDF::BOUNDS_MARGIN_WIDE;
+    float max_dist = sqrtf(circ_sq) + SDF::BOUNDS_MARGIN_WIDE;
     float max_dist_sq = max_dist * max_dist;
     float step_x = (2.0f * lut.Rx) / (n - 1);
     float step_y = (2.0f * lut.Ry) / (n - 1);
