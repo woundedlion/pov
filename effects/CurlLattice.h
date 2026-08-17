@@ -259,6 +259,10 @@ private:
       {PRESET_IDS[0], "Open Curl", {{}, {}, {1.78815627f}, {}}},
       {PRESET_IDS[1], "Dense Curl", {{}, {}, {3.29720306f}, {}}},
   }};
+  // A preset past the end of PRESET_IDS exports as an empty ID through the
+  // registry's preset_id() and the WASM getPresetIds().
+  static_assert(PRESETS.size() == PRESET_IDS.size(),
+                "every preset needs a stable ID");
 
   struct Transition {
     Params from{};
