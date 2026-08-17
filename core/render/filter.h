@@ -599,6 +599,11 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
         "(World::Trails) that this overload leaves unflushed, so its ring "
         "buffer fills to capacity and never decays. Pass both callbacks: "
         "flush(cv, worldTrailFn, screenTrailFn, alpha).");
+    static_assert(
+        any_2d_trail_history,
+        "Discarded flush() callback: this Pipeline's only 2D history is a "
+        "terminal stage (Pixel::Feedback), which composites into the Canvas "
+        "itself and takes no trail callback. Pass flush(cv, alpha) instead.");
     flush_stages(cv, trailFn, alpha);
   }
 
