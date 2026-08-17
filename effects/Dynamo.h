@@ -190,16 +190,21 @@ private:
   /**
    * @brief Pushes a fresh palette at the front and animates its boundary angle
    *        from 0 up to PI, sweeping the new colors across the sphere.
-   * @details Drops the wipe if the boundary buffer is full. That buffer is the
+   * @details Drops the wipe if the boundary buffer is full, logging once until
+   *          a wipe lands again. That buffer is the
    *          binding capacity (MAX_PALETTES - 1) and is what keeps boundary_slot
    *          from aliasing a reissued ring slot; palettes stays one ahead of it,
    *          so its own push is covered by the same guard.
    */
   void color_wipe() {
     if (palette_boundaries.is_full()) {
-      hs::log("Palettes full, dropping color wipe!");
+      if (!logged_palettes_full) {
+        logged_palettes_full = true;
+        hs::log("Dynamo: palettes full, dropping color wipe");
+      }
       return;
     }
+    logged_palettes_full = false;
 
     palettes.push_front(make_palette());
     palette_boundaries.push_front(0);
@@ -497,6 +502,9 @@ private:
 
   uint32_t emitted_points = 0;  /**< Points plotted this frame. */
   uint32_t emission_points = 0; /**< Points per strand emission, last frame. */
+
+  /** @brief Palettes-full log latch; cleared when a wipe lands. */
+  bool logged_palettes_full = false;
 
   /**
    * @brief Live slider-backed parameters for the effect.
