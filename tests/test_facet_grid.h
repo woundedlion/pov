@@ -25,7 +25,6 @@ struct FacetGridWhiteBox {
 
   static constexpr size_t PARAM_CAPACITY = FX::PARAM_CAPACITY;
 
-  static constexpr const auto &presets() { return FX::PRESETS; }
   static const Params &params(const FX &effect) { return effect.params; }
   static bool transition_active(const FX &effect) {
     return effect.transition.active;
@@ -55,33 +54,40 @@ struct FacetGridWhiteBox {
         frame.params.source.secondary_rate, frame.params.source.angle_rate};
     params.projection = {
         frame.params.projection.pole_fade, frame.params.projection.spin_rate,
-        frame.params.projection.wander, frame.params.outer_camera.wander};
-    params.mirror = {
+        frame.params.projection.wander, frame.params.outer_camera.wander,
+        frame.params.projection.central_meridian};
+    params.inner_warp = {
         frame.params.warp.inner.speed,    frame.params.warp.inner.rotation,
         frame.params.warp.inner.cell_x,   frame.params.warp.inner.cell_y,
         frame.params.warp.inner.offset_x, frame.params.warp.inner.offset_y};
-    params.color = {frame.params.color.palette_chroma,
+    params.color = {frame.params.color.hue_shift_amount,
+                    frame.params.color.hue_noise_scale,
+                    frame.params.color.hue_noise_speed,
+                    frame.params.color.palette_chroma,
                     frame.params.color.mapping_frequency,
                     frame.params.color.mapping_phase,
                     frame.params.color.phase_oscillation_depth,
                     frame.params.color.phase_oscillation_speed,
+                    frame.params.color.brightness_depth,
                     frame.params.color.value_opacity_low,
                     frame.params.color.value_opacity_high,
-                    frame.params.color.hue_shift_amount,
-                    frame.params.color.hue_noise_scale,
-                    frame.params.color.hue_noise_speed};
-    typename FX::PreparedMirror mirror{};
-    mirror.transform.mirror.offset_x =
-        frame.prepared_warp.inner.transform.mirror.offset_x;
-    mirror.transform.mirror.offset_y =
-        frame.prepared_warp.inner.transform.mirror.offset_y;
-    mirror.rotation_cos = frame.prepared_warp.inner.rotation_cos;
-    mirror.rotation_sin = frame.prepared_warp.inner.rotation_sin;
+                    static_cast<Pullback::Color::PaletteMapping>(
+                        frame.slots.palette_mapping)};
+    FixedLook::PreparedWarp inner{};
+    inner.rotation_cos = frame.prepared_warp.inner.rotation_cos;
+    inner.rotation_sin = frame.prepared_warp.inner.rotation_sin;
+    inner.transform.mirror = {
+        frame.prepared_warp.inner.transform.mirror.offset_x,
+        frame.prepared_warp.inner.transform.mirror.offset_y};
     return {frame.transforms.projection_conj,
             frame.transforms.outer_conj,
             {frame.prepared_source.primary, frame.prepared_source.secondary,
-             frame.prepared_source.angle_cos, frame.prepared_source.angle_sin},
-            mirror,
+             frame.prepared_source.angle, frame.prepared_source.angle_cos,
+             frame.prepared_source.angle_sin},
+            {},
+            inner,
+            nullptr,
+            nullptr,
             frame.resources.generated_palette,
             frame.prepared_hue_rotation.lut,
             frame.prepared_hue_noise.lut,
@@ -89,6 +95,9 @@ struct FacetGridWhiteBox {
             Pullback::Color::PaletteMappingWeights::single(
                 static_cast<Pullback::Color::PaletteMapping>(
                     frame.slots.palette_mapping)),
+            0.0f,
+            frame.clocks.warp_inner_phase,
+            0.0f,
             frame.clocks.palette_oscillation_phase};
   }
 
@@ -109,34 +118,34 @@ inline void test_facet_grid_identity_and_presets() {
   using WB = FacetGridWhiteBox;
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "facet-grid");
-  HS_EXPECT_EQ(WB::presets().size(), size_t{4});
-  HS_EXPECT_EQ(sizeof(WB::Params), 27 * sizeof(float));
+  HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{4});
+  HS_EXPECT_EQ(sizeof(WB::Params), 31 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderBallWB::FrameState));
   HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "coupled-grid");
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "direct-grid");
   HS_EXPECT_TRUE(FX::PRESET_IDS[2] == "double-map");
   HS_EXPECT_TRUE(FX::PRESET_IDS[3] == "stretched-grid");
-  HS_EXPECT_NEAR(WB::presets()[0].params.source.complexity, 0.513f, 0.0f);
-  HS_EXPECT_NEAR(WB::presets()[1].params.source.complexity, 3.0f, 0.0f);
-  HS_EXPECT_NEAR(WB::presets()[2].params.color.mapping_frequency, 2.0f, 0.0f);
+  HS_EXPECT_NEAR(FX::preset_params(0).source.complexity, 0.513f, 0.0f);
+  HS_EXPECT_NEAR(FX::preset_params(1).source.complexity, 3.0f, 0.0f);
+  HS_EXPECT_NEAR(FX::preset_params(2).color.mapping_frequency, 2.0f, 0.0f);
   const auto values = [](const WB::Params &params) {
     return std::array<float, 26>{
         params.source.pattern_freq,
         params.source.speed,
-        params.source.angle_speed,
+        params.source.angle_rate,
         params.source.complexity,
         params.source.pattern_mix,
         params.source.secondary_rate,
         params.projection.pole_fade,
-        params.projection.spin_speed,
+        params.projection.spin_rate,
         params.projection.wander,
         params.projection.camera_wander,
-        params.mirror.speed,
-        params.mirror.rotation,
-        params.mirror.cell_x,
-        params.mirror.cell_y,
-        params.mirror.offset_x,
-        params.mirror.offset_y,
+        params.inner_warp.speed,
+        params.inner_warp.rotation,
+        params.inner_warp.cell_x,
+        params.inner_warp.cell_y,
+        params.inner_warp.offset_x,
+        params.inner_warp.offset_y,
         params.color.palette_chroma,
         params.color.mapping_frequency,
         params.color.mapping_phase,
@@ -156,13 +165,13 @@ inline void test_facet_grid_identity_and_presets() {
       0.0f,        0.0f,      0.0f,         1.0f, 1.0f,          0.366f,
       1.4721563f,  0.0f,
   };
-  const std::array<float, 26> stretched_actual =
-      values(WB::presets()[3].params);
+  const std::array<float, 26> stretched_actual = values(FX::preset_params(3));
   for (size_t index = 0; index < STRETCHED_EXPECTED.size(); ++index) {
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(stretched_actual[index]),
                  std::bit_cast<uint32_t>(STRETCHED_EXPECTED[index]));
   }
   HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{480});
+  HS_EXPECT_TRUE(FixedLook::valid(FX::preset_params(3)));
 
   reset_effect_globals();
   FX effect;
@@ -170,20 +179,20 @@ inline void test_facet_grid_identity_and_presets() {
   static constexpr const char *CONTROL_NAMES[] = {
       "Pattern Freq",
       "Speed",
-      "Source Angle Speed",
       "Complexity",
       "Pattern Mix",
       "Drift",
+      "Source Angle Speed",
       "Pole Fade",
       "Projection Spin Speed",
       "Projection Wander",
       "Camera Wander",
       "Planar Warp 2 Speed",
-      "Planar Warp 2 Rotation",
-      "Planar Warp 2 Cell X",
-      "Planar Warp 2 Cell Y",
-      "Planar Warp 2 Offset X",
-      "Planar Warp 2 Offset Y",
+      "Mirror Rotation",
+      "Mirror Cell X",
+      "Mirror Cell Y",
+      "Mirror Offset X",
+      "Mirror Offset Y",
       "Palette Chroma",
       "Palette Mapping",
       "Mapping Frequency",
@@ -215,7 +224,7 @@ inline void test_facet_grid_transition_contract() {
 
   WB::prepare_transition_value(effect);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 WB::presets()[0].params.source.complexity, 0.0f);
+                 FX::preset_params(0).source.complexity, 0.0f);
   WB::finish_transition_evaluation(effect);
   HS_EXPECT_EQ(WB::transition_evaluation(effect), uint16_t{1});
 
@@ -226,16 +235,16 @@ inline void test_facet_grid_transition_contract() {
 
   WB::set_transition_evaluation(effect, FX::TRANSITION_DURATION / 2);
   WB::prepare_transition_value(effect);
-  HS_EXPECT_NEAR(
-      WB::params(effect).source.complexity,
-      FixedPipeline::linear(WB::presets()[0].params.source.complexity,
-                            WB::presets()[1].params.source.complexity, 0.5f),
-      1e-6f);
+  HS_EXPECT_NEAR(WB::params(effect).source.complexity,
+                 FixedPipeline::linear(FX::preset_params(0).source.complexity,
+                                       FX::preset_params(1).source.complexity,
+                                       0.5f),
+                 1e-6f);
 
   WB::set_transition_evaluation(effect, FX::TRANSITION_DURATION);
   WB::prepare_transition_value(effect);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 WB::presets()[1].params.source.complexity, 0.0f);
+                 FX::preset_params(1).source.complexity, 0.0f);
   WB::finish_transition_evaluation(effect);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
@@ -247,13 +256,13 @@ inline void test_facet_grid_parameter_serialization() {
   effect.init();
   auto snapshot = effect.serialize_parameters();
   snapshot.params.source.pattern_freq = 4.0f;
-  snapshot.params.mirror.cell_y = 0.75f;
+  snapshot.params.inner_warp.cell_y = 0.75f;
   snapshot.params.color.hue_noise_speed = 0.0005f;
   snapshot.params.color.palette_mapping =
       Pullback::Color::PaletteMapping::REVERSE;
   HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
   HS_EXPECT_NEAR(WB::params(effect).source.pattern_freq, 4.0f, 0.0f);
-  HS_EXPECT_NEAR(WB::params(effect).mirror.cell_y, 0.75f, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).inner_warp.cell_y, 0.75f, 0.0f);
   HS_EXPECT_NEAR(WB::params(effect).color.hue_noise_speed, 0.0005f, 0.0f);
   HS_EXPECT_EQ(WB::params(effect).color.palette_mapping,
                Pullback::Color::PaletteMapping::REVERSE);
@@ -261,9 +270,9 @@ inline void test_facet_grid_parameter_serialization() {
   snapshot.schema_version += 1;
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
   snapshot.schema_version = WB::FX::PARAMETER_SCHEMA_VERSION;
-  snapshot.params.mirror.cell_x = std::numeric_limits<float>::quiet_NaN();
+  snapshot.params.inner_warp.cell_x = std::numeric_limits<float>::quiet_NaN();
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
-  snapshot.params.mirror.cell_x = 9.0f;
+  snapshot.params.inner_warp.cell_x = 9.0f;
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
 }
 
