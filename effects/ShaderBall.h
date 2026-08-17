@@ -4509,11 +4509,9 @@ private:
 
   static float warp_envelope(const ProjectedLookup &projected,
                              WarpEnvelope envelope, float edge_width) {
-    if (envelope == WarpEnvelope::PROJECTION_WEIGHT)
-      return projected.value_weight;
-    if (envelope == WarpEnvelope::EDGE_FADE)
-      return cubic_kernel(projected.fade_edge_distance / edge_width);
-    return 1.0f;
+    return Pullback::Warp::envelope(projected, edge_width,
+                                    envelope == WarpEnvelope::PROJECTION_WEIGHT,
+                                    envelope == WarpEnvelope::EDGE_FADE);
   }
 
   HS_FLASH_MEMBER static Complex
