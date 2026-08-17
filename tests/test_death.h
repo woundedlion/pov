@@ -1749,8 +1749,7 @@ inline void case_register_param_overflow() {
   DeathEffect fx;
   static float slot = 0.0f;
   // Distinct names, so the capacity guard fires ahead of the duplicate guard.
-  constexpr int CAPACITY = static_cast<int>(
-      std::tuple_size<decltype(Effect::ParamList::elements)>::value);
+  constexpr int CAPACITY = static_cast<int>(Effect::ParamList::FIXED_CAPACITY);
   static char names[CAPACITY + 1][8];
   for (int i = 0; i < opaque(CAPACITY + 1); ++i) {
     std::snprintf(names[i], sizeof(names[i]), "p%d", i);

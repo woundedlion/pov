@@ -108,8 +108,7 @@ static size_t init_stack_peak = 0;
 // to pre-reserve the getParamValues() backing store so it never reallocates.
 static constexpr size_t MAX_PARAMS = 128;
 
-static_assert(MAX_PARAMS >=
-                  std::tuple_size<decltype(Effect::ParamList::elements)>::value,
+static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
               "MAX_PARAMS must cover ParamList's default array size");
 
 /**

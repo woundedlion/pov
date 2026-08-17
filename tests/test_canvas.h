@@ -1184,7 +1184,7 @@ inline void test_paramlist_fills_to_capacity() {
   // The storage the static arrays below are sized from. An effect that armed
   // external storage would report a larger capacity(), which the equality
   // guard catches before the loop can run past the arrays.
-  constexpr size_t FIXED_CAP = sizeof(ParamList::elements) / sizeof(ParamDef);
+  constexpr size_t FIXED_CAP = ParamList::FIXED_CAPACITY;
   static_assert(FIXED_CAP <= 100, "the \"pNN\" names below hold two digits");
 
   TestEffect fx(4, 4);

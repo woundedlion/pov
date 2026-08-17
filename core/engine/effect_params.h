@@ -197,7 +197,8 @@ struct ParamList {
   // writes through updateParameter.
   friend class Effect;
 
-  std::array<ParamDef, 32> elements; /**< Default fixed-capacity storage. */
+  /** @brief Slot count of the default inline storage. */
+  static constexpr size_t FIXED_CAPACITY = 32;
 
   const ParamDef *data() const {
 #if HS_PARAM_EXTERNAL_STORAGE
@@ -255,6 +256,8 @@ private:
   // Storage bookkeeping and the writable accessors, reachable only by the
   // friended Effect (see the note at the top of the struct). Kept private so
   // value writes route through updateParameter.
+  std::array<ParamDef, FIXED_CAPACITY>
+      elements; /**< Default fixed-capacity storage. */
 #if HS_PARAM_EXTERNAL_STORAGE
   ParamDef *external_elements = nullptr;
   size_t external_capacity = 0;
