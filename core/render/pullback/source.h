@@ -97,15 +97,10 @@ concept ParamsProvider =
         std::declval<const typename Binding::FrameState &>()))>>;
 
 template <typename State, typename Binding>
-concept StateProvider =
-    ParamsProvider<State, Binding> &&
-    requires(const typename Binding::FrameState &frame) {
-      State::prepared(frame);
-    } &&
-    std::is_lvalue_reference_v<decltype(State::prepared(
-        std::declval<const typename Binding::FrameState &>()))> &&
-    std::is_const_v<std::remove_reference_t<decltype(State::prepared(
-        std::declval<const typename Binding::FrameState &>()))>>;
+concept StateProvider = ParamsProvider<State, Binding> &&
+                        requires(const typename Binding::FrameState &frame) {
+                          State::prepare(frame);
+                        };
 
 template <typename Prepared>
 HS_FLASH_MEMBER inline float twin_wave(const Complex &input,
@@ -188,17 +183,25 @@ template <typename State> struct TwinWave : ExactPolicy {
       StateProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::params(frame).pattern_freq } -> std::convertible_to<float>;
-        { State::prepared(frame).angle_cos } -> std::convertible_to<float>;
-        { State::prepared(frame).angle_sin } -> std::convertible_to<float>;
-        { State::prepared(frame).primary } -> std::convertible_to<float>;
+        { State::prepare(frame).angle_cos } -> std::convertible_to<float>;
+        { State::prepare(frame).angle_sin } -> std::convertible_to<float>;
+        { State::prepare(frame).primary } -> std::convertible_to<float>;
       };
 
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static float sample(const SourceInput &input,
-                                                     const FrameState &frame) {
+                                                     const FrameState &frame,
+                                                     const Prepared &prepared) {
     const auto &params = State::params(frame);
     return twin_wave(
         stereo_pattern_args(input.warped.coords, params.pattern_freq),
-        State::prepared(frame));
+        prepared);
   }
 };
 
@@ -211,14 +214,22 @@ template <typename State> struct Rings : ExactPolicy {
       StateProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::params(frame).pattern_freq } -> std::convertible_to<float>;
-        { State::prepared(frame).primary } -> std::convertible_to<float>;
+        { State::prepare(frame).primary } -> std::convertible_to<float>;
       };
 
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static float sample(const SourceInput &input,
-                                                     const FrameState &frame) {
+                                                     const FrameState &frame,
+                                                     const Prepared &prepared) {
     const auto &params = State::params(frame);
     return rings(stereo_pattern_args(input.warped.coords, params.pattern_freq),
-                 State::prepared(frame));
+                 prepared);
   }
 };
 
@@ -231,15 +242,23 @@ template <typename State> struct Spiral : ExactPolicy {
       StateProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::params(frame).pattern_freq } -> std::convertible_to<float>;
-        { State::prepared(frame).angle } -> std::convertible_to<float>;
-        { State::prepared(frame).primary } -> std::convertible_to<float>;
+        { State::prepare(frame).angle } -> std::convertible_to<float>;
+        { State::prepare(frame).primary } -> std::convertible_to<float>;
       };
 
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static float sample(const SourceInput &input,
-                                                     const FrameState &frame) {
+                                                     const FrameState &frame,
+                                                     const Prepared &prepared) {
     const auto &params = State::params(frame);
     return spiral(stereo_pattern_args(input.warped.coords, params.pattern_freq),
-                  State::prepared(frame));
+                  prepared);
   }
 };
 
@@ -254,17 +273,25 @@ template <typename State> struct Grid : ExactPolicy {
         { State::params(frame).pattern_freq } -> std::convertible_to<float>;
         { State::params(frame).pattern_mix } -> std::convertible_to<float>;
         { State::params(frame).complexity } -> std::convertible_to<float>;
-        { State::prepared(frame).angle_cos } -> std::convertible_to<float>;
-        { State::prepared(frame).angle_sin } -> std::convertible_to<float>;
-        { State::prepared(frame).primary } -> std::convertible_to<float>;
-        { State::prepared(frame).secondary } -> std::convertible_to<float>;
+        { State::prepare(frame).angle_cos } -> std::convertible_to<float>;
+        { State::prepare(frame).angle_sin } -> std::convertible_to<float>;
+        { State::prepare(frame).primary } -> std::convertible_to<float>;
+        { State::prepare(frame).secondary } -> std::convertible_to<float>;
       };
 
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static float sample(const SourceInput &input,
-                                                     const FrameState &frame) {
+                                                     const FrameState &frame,
+                                                     const Prepared &prepared) {
     const auto &params = State::params(frame);
     return grid(stereo_pattern_args(input.warped.coords, params.pattern_freq),
-                params, State::prepared(frame));
+                params, prepared);
   }
 };
 

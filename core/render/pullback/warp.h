@@ -129,73 +129,70 @@ struct PreparedNoiseLoop {
   float z;        /**< Third noise coordinate. */
 };
 
-/**
- * @brief The transform half of PreparedWarp, one alternative per warp family.
- * @details The active member follows the slot's parameter family: MirrorParams
- * uses `mirror`, VectorNoiseParams `noise_loop`, AffineParams `affine`. The
- * remaining families leave the union zeroed, and their warp policies do not
- * read it.
- */
-union PreparedWarpTransform {
-  PreparedAffine affine;
-  PreparedMirror mirror;
-  PreparedNoiseLoop noise_loop;
+/** @brief Rotation-only slot state, for families with no transform. */
+struct PreparedRotation {
+  float rotation_cos; /**< Cosine of the slot's rotation angle. */
+  float rotation_sin; /**< Sine of the slot's rotation angle. */
 };
 
-/** @brief One planar warp slot's per-frame state. */
-struct PreparedWarp {
-  float rotation_cos;              /**< Cosine of the slot's rotation angle. */
-  float rotation_sin;              /**< Sine of the slot's rotation angle. */
-  PreparedWarpTransform transform; /**< Family-specific coefficients. */
+/** @brief Mirror slot state: the rotation pair plus the fold offsets. */
+struct PreparedMirrorSlot {
+  float rotation_cos;
+  float rotation_sin;
+  struct {
+    PreparedMirror mirror;
+  } transform;
 };
 
-/** @brief Stamps the rotation's cosine pair onto a prepared slot. */
-HS_FLASH_INLINE inline PreparedWarp finish_prepare(PreparedWarp prepared,
-                                                   float rotation) {
-  prepared.rotation_cos = cosf(rotation);
-  prepared.rotation_sin = sinf(rotation);
-  return prepared;
-}
+/** @brief Affine slot state: the rotation pair plus the frame coefficients. */
+struct PreparedAffineSlot {
+  float rotation_cos;
+  float rotation_sin;
+  struct {
+    PreparedAffine affine;
+  } transform;
+};
+
+/** @brief Vector-noise slot state: the rotation pair plus the loop point. */
+struct PreparedVectorNoiseSlot {
+  float rotation_cos;
+  float rotation_sin;
+  struct {
+    PreparedNoiseLoop noise_loop;
+  } transform;
+};
 
 /**
  * @brief Resolves one warp slot's per-frame rotation and transform.
- * @details One overload per parameter family, each filling the union member
- * its warp policy reads. Only the affine family rotates with the frame, so
- * only its overload takes an accumulated rotation.
+ * @details One overload per parameter family, each returning the slot type its
+ * warp policy reads. Only the affine family rotates with the frame, so only
+ * its overload takes an accumulated rotation.
  * @param warp The slot's parameters.
  * @param phase The slot's phase clock.
- * @return The slot's PreparedWarp, with the union member its family uses.
  */
-HS_FLASH_INLINE inline PreparedWarp prepare(const NoWarpParams &, float) {
-  return finish_prepare({}, 0.0f);
+HS_FLASH_INLINE inline PreparedRotation prepare(const WaveShearParams &warp,
+                                                float) {
+  return {cosf(warp.field_angle), sinf(warp.field_angle)};
 }
 
-HS_FLASH_INLINE inline PreparedWarp prepare(const PolarParams &, float) {
-  return finish_prepare({}, 0.0f);
-}
-
-HS_FLASH_INLINE inline PreparedWarp prepare(const WaveShearParams &warp,
-                                            float) {
-  return finish_prepare({}, warp.field_angle);
-}
-
-HS_FLASH_INLINE inline PreparedWarp prepare(const MirrorParams &warp,
-                                            float phase) {
-  PreparedWarp prepared{};
+HS_FLASH_INLINE inline PreparedMirrorSlot prepare(const MirrorParams &warp,
+                                                  float phase) {
+  PreparedMirrorSlot prepared{cosf(warp.rotation), sinf(warp.rotation), {}};
   prepared.transform.mirror = {
       wrap_t(warp.offset_x / warp.cell_x + phase) * warp.cell_x,
       wrap_t(warp.offset_y / warp.cell_y) * warp.cell_y};
-  return finish_prepare(prepared, warp.rotation);
+  return prepared;
 }
 
-HS_FLASH_INLINE inline PreparedWarp prepare(const VectorNoiseParams &warp,
-                                            float phase) {
-  PreparedWarp prepared{};
+HS_FLASH_INLINE inline PreparedVectorNoiseSlot
+prepare(const VectorNoiseParams &warp, float phase) {
+  PreparedVectorNoiseSlot prepared{
+      cosf(warp.vector_angle), sinf(warp.vector_angle), {}};
   const float angle = TWO_PI_F * wrap_t(phase);
   prepared.transform.noise_loop = {NOISE_LOOP_RADIUS * sinf(angle) *
                                        0.7071067811865475f,
                                    NOISE_LOOP_RADIUS * cosf(angle)};
-  return finish_prepare(prepared, warp.vector_angle);
+  return prepared;
 }
 
 /**
@@ -204,33 +201,29 @@ HS_FLASH_INLINE inline PreparedWarp prepare(const VectorNoiseParams &warp,
  * @param frame_rotation Accumulated frame rotation for the slot.
  * @param lattice_period Plane units per lattice cell.
  */
-HS_FLASH_INLINE inline PreparedWarp prepare(const AffineParams &warp,
-                                            float phase, float frame_rotation,
-                                            float lattice_period) {
-  PreparedWarp prepared{};
+HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
+                                                  float phase,
+                                                  float frame_rotation,
+                                                  float lattice_period) {
+  PreparedAffineSlot prepared{cosf(frame_rotation), sinf(frame_rotation), {}};
   const float cycle_cos = cosf(TWO_PI_F * wrap_t(phase));
   prepared.transform.affine = {
       wrap_t(phase) * warp.translation_x * lattice_period,
       wrap_t(phase) * warp.translation_y * lattice_period,
       powf(warp.scale_x, cycle_cos), powf(warp.scale_y, cycle_cos),
       warp.shear * cycle_cos};
-  return finish_prepare(prepared, frame_rotation);
+  return prepared;
 }
 
 template <typename State, typename Binding>
-concept PreparedProvider =
-    Detail::ProviderFor<State, Binding> &&
-    requires(const typename Binding::FrameState &frame) {
-      State::prepared(frame);
-    } &&
-    std::is_lvalue_reference_v<decltype(State::prepared(
-        std::declval<const typename Binding::FrameState &>()))> &&
-    std::is_const_v<std::remove_reference_t<decltype(State::prepared(
-        std::declval<const typename Binding::FrameState &>()))>>;
+concept PreparedProvider = Detail::ProviderFor<State, Binding> &&
+                           requires(const typename Binding::FrameState &frame) {
+                             State::prepare(frame);
+                           };
 
 template <typename State, typename Binding>
-concept ParamsPreparedProvider =
-    PreparedProvider<State, Binding> &&
+concept ParamsProvider =
+    Detail::ProviderFor<State, Binding> &&
     requires(const typename Binding::FrameState &frame) {
       State::params(frame);
     } &&
@@ -238,6 +231,10 @@ concept ParamsPreparedProvider =
         std::declval<const typename Binding::FrameState &>()))> &&
     std::is_const_v<std::remove_reference_t<decltype(State::params(
         std::declval<const typename Binding::FrameState &>()))>>;
+
+template <typename State, typename Binding>
+concept ParamsPreparedProvider =
+    PreparedProvider<State, Binding> && ParamsProvider<State, Binding>;
 
 /** @brief Length of a stage delta, or zero when @p required is false. */
 __attribute__((always_inline)) inline float displacement(const Complex &delta,
@@ -481,17 +478,23 @@ template <typename State> struct AffineFrame : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       PreparedProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
-        { State::prepared(frame).rotation_cos } -> std::convertible_to<float>;
-        { State::prepared(frame).rotation_sin } -> std::convertible_to<float>;
-        State::prepared(frame).transform.affine;
+        { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
+        { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
+        State::prepare(frame).transform.affine;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &,
-        const FrameState &frame) {
-    return affine_frame(input, State::prepared(frame),
-                        State::path_length_required(frame));
+  apply(const Complex &input, const ProjectionSample &, const FrameState &frame,
+        const Prepared &prepared) {
+    return affine_frame(input, prepared, State::path_length_required(frame));
   }
 };
 
@@ -507,8 +510,8 @@ struct WaveShear : ExactPolicy {
         { State::params(frame).strength } -> std::convertible_to<float>;
         { State::params(frame).frequency } -> std::convertible_to<float>;
         { State::phase(frame) } -> std::same_as<float>;
-        { State::prepared(frame).rotation_cos } -> std::convertible_to<float>;
-        { State::prepared(frame).rotation_sin } -> std::convertible_to<float>;
+        { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
+        { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       } &&
       (!std::is_same_v<Envelope, EdgeFadeEnvelope> ||
@@ -516,14 +519,20 @@ struct WaveShear : ExactPolicy {
          { State::params(frame).edge_width } -> std::convertible_to<float>;
        });
 
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static WarpStepResult
   apply(const Complex &input, const ProjectionSample &projected,
-        const FrameState &frame) {
+        const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     const float amplitude =
         params.strength * fixed_envelope<Envelope>(projected, params);
-    return wave_shear(input, params, State::phase(frame), amplitude,
-                      State::prepared(frame),
+    return wave_shear(input, params, State::phase(frame), amplitude, prepared,
                       State::path_length_required(frame));
   }
 };
@@ -536,15 +545,21 @@ template <typename State> struct Vortex : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       PreparedProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
-        State::prepared(frame).transform.vortex;
+        State::prepare(frame).transform.vortex;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &,
-        const FrameState &frame) {
-    return vortex(input, State::prepared(frame),
-                  State::path_length_required(frame));
+  apply(const Complex &input, const ProjectionSample &, const FrameState &frame,
+        const Prepared &prepared) {
+    return vortex(input, prepared, State::path_length_required(frame));
   }
 };
 
@@ -558,19 +573,26 @@ template <typename State> struct MirrorTile : ExactPolicy {
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::params(frame).cell_x } -> std::convertible_to<float>;
         { State::params(frame).cell_y } -> std::convertible_to<float>;
-        { State::prepared(frame).rotation_cos } -> std::convertible_to<float>;
-        { State::prepared(frame).rotation_sin } -> std::convertible_to<float>;
-        State::prepared(frame).transform.mirror;
+        { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
+        { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
+        State::prepare(frame).transform.mirror;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &,
-        const FrameState &frame) {
+  apply(const Complex &input, const ProjectionSample &, const FrameState &frame,
+        const Prepared &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
     const WarpStepResult result =
-        mirror_tile(input, State::params(frame), State::prepared(frame),
+        mirror_tile(input, State::params(frame), prepared,
                     State::path_length_required(frame));
     Instrumentation::template span<ProfileEvent::MIRROR_TILE>(start);
     return result;
@@ -585,7 +607,7 @@ struct PolarChart : ExactPolicy {
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
-      ParamsPreparedProvider<State, CandidateBinding> &&
+      ParamsProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::params(frame).radial_scale } -> std::convertible_to<float>;
         { State::params(frame).radial_phase } -> std::convertible_to<float>;
@@ -615,9 +637,9 @@ struct VectorNoise : ExactPolicy {
         { State::params(frame).strength } -> std::convertible_to<float>;
         { State::params(frame).scale } -> std::convertible_to<float>;
         { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
-        { State::prepared(frame).rotation_cos } -> std::convertible_to<float>;
-        { State::prepared(frame).rotation_sin } -> std::convertible_to<float>;
-        State::prepared(frame).transform.noise_loop;
+        { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
+        { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
+        State::prepare(frame).transform.noise_loop;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       } &&
       (!std::is_same_v<Envelope, EdgeFadeEnvelope> ||
@@ -625,15 +647,21 @@ struct VectorNoise : ExactPolicy {
          { State::params(frame).edge_width } -> std::convertible_to<float>;
        });
 
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static WarpStepResult
   apply(const Complex &input, const ProjectionSample &projected,
-        const FrameState &frame) {
+        const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     return vector_noise_fixed<BasisV>(
         input, params,
         params.strength * fixed_envelope<Envelope>(projected, params),
-        State::noise(frame), State::prepared(frame),
-        State::path_length_required(frame));
+        State::noise(frame), prepared, State::path_length_required(frame));
   }
 };
 
@@ -648,7 +676,7 @@ struct CurlFlow : ExactPolicy {
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
-      ParamsPreparedProvider<State, CandidateBinding> &&
+      ParamsProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::params(frame).strength } -> std::convertible_to<float>;
         { State::params(frame).scale } -> std::convertible_to<float>;

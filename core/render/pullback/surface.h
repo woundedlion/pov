@@ -28,19 +28,16 @@ struct SurfaceNoiseParams {
   float speed = 0.0f;    /**< Per-frame advance of the field's loop phase. */
 };
 
-/** @brief Surface stage per-frame state; empty unless the look displaces. */
-template <typename SurfaceT> struct PreparedSurface {};
-template <> struct PreparedSurface<SurfaceNoiseParams> {
-  const FastNoiseLite *noise; /**< The runtime's surface noise field. */
-  Vector loop_offset;         /**< This frame's point on the field's loop. */
+/** @brief This frame's point on the displacement field's closed loop. */
+struct PreparedLoop {
+  Vector loop_offset;
 };
 
-/** @brief Binds the displacement field and this frame's loop point. */
-HS_FLASH_INLINE inline PreparedSurface<SurfaceNoiseParams>
-prepare(const FastNoiseLite &noise, float phase) {
+/** @brief Resolves this frame's loop point from the loop phase. */
+HS_FLASH_INLINE inline PreparedLoop prepare(float phase) {
   const float angle = TWO_PI_F * wrap_t(phase);
-  return {&noise, Vector(NOISE_LOOP_RADIUS * cosf(angle),
-                         NOISE_LOOP_RADIUS * sinf(angle), 0.0f)};
+  return {Vector(NOISE_LOOP_RADIUS * cosf(angle),
+                 NOISE_LOOP_RADIUS * sinf(angle), 0.0f)};
 }
 
 enum class Integrator : uint8_t { EULER, MIDPOINT, MIDPOINT_2X };
@@ -135,51 +132,68 @@ curl_noise(const Vector &input, const FastNoiseLite &noise, ::NoiseBasis basis,
 }
 
 template <typename State, ::NoiseBasis Basis> struct DirectNoise : ExactPolicy {
+  using FrameState = typename State::FrameState;
+
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame) {
         { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
         { State::scale(frame) } -> std::same_as<float>;
-        { State::loop_offset(frame) } -> std::same_as<const Vector &>;
         { State::strength(frame) } -> std::same_as<float>;
-        { State::direction_cos(frame) } -> std::same_as<float>;
-        { State::direction_sin(frame) } -> std::same_as<float>;
+        { State::prepare(frame).loop_offset } -> std::convertible_to<Vector>;
+        { State::prepare(frame).direction_cos } -> std::convertible_to<float>;
+        { State::prepare(frame).direction_sin } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
-  template <typename FrameState>
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   __attribute__((always_inline)) static SurfaceResult
-  apply(const Vector &input, const FrameState &frame) {
+  apply(const Vector &input, const FrameState &frame,
+        const Prepared &prepared) {
     return direct_noise(input, State::noise(frame), Basis, State::scale(frame),
-                        State::loop_offset(frame), State::strength(frame),
-                        State::direction_cos(frame),
-                        State::direction_sin(frame),
+                        prepared.loop_offset, State::strength(frame),
+                        prepared.direction_cos, prepared.direction_sin,
                         State::path_length_required(frame));
   }
 };
 
 template <typename State, ::NoiseBasis Basis, typename IntegratorPolicy>
 struct CurlNoise : ExactPolicy {
+  using FrameState = typename State::FrameState;
+
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame) {
         { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
         { State::scale(frame) } -> std::same_as<float>;
-        { State::loop_offset(frame) } -> std::same_as<const Vector &>;
         { State::strength(frame) } -> std::same_as<float>;
+        { State::prepare(frame).loop_offset } -> std::convertible_to<Vector>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       } && requires {
         { IntegratorPolicy::VALUE } -> std::convertible_to<Integrator>;
       };
 
-  template <typename FrameState>
+  using Prepared = std::remove_cvref_t<decltype(State::prepare(
+      std::declval<const FrameState &>()))>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return State::prepare(frame);
+  }
+
   HS_FLASH_INLINE static SurfaceResult apply(const Vector &input,
-                                             const FrameState &frame) {
+                                             const FrameState &frame,
+                                             const Prepared &prepared) {
     return curl_noise(input, State::noise(frame), Basis,
                       IntegratorPolicy::VALUE, State::scale(frame),
-                      State::loop_offset(frame), State::strength(frame),
+                      prepared.loop_offset, State::strength(frame),
                       State::path_length_required(frame));
   }
 };

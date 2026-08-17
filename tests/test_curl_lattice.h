@@ -45,8 +45,10 @@ struct CurlLatticeWhiteBox {
     effect.finish_transition_evaluation();
   }
 
+  using Ctx = FixedLook::FrameState<Params>;
+
   template <typename ReferenceFrame>
-  static FrameState from_reference(const ReferenceFrame &frame) {
+  static Ctx from_reference(const ReferenceFrame &frame) {
     Params params;
     params.source = {frame.params.source.lattice_cell_scale,
                      frame.params.source.lattice_shape_blend,
@@ -74,11 +76,9 @@ struct CurlLatticeWhiteBox {
                         frame.slots.palette_mapping)};
     return {frame.transforms.projection_conj,
             frame.transforms.outer_conj,
-            {},
-            {},
-            {},
             nullptr,
             nullptr,
+            frame.resources.surface_noise,
             frame.resources.generated_palette,
             frame.prepared_hue_rotation.lut,
             frame.prepared_hue_noise.lut,
@@ -89,13 +89,16 @@ struct CurlLatticeWhiteBox {
             0.0f,
             0.0f,
             0.0f,
-            frame.clocks.palette_oscillation_phase,
-            {frame.resources.surface_noise,
-             frame.prepared_surface_noise.loop_offset}};
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            frame.clocks.surface_noise_time,
+            frame.clocks.palette_oscillation_phase};
   }
 
-  static Color4 shade(const Vector &view, const FrameState &frame) {
-    return FX::RenderPipeline::shade(view, frame);
+  static Color4 shade(const Vector &view, const Ctx &frame) {
+    return FX::RenderPipeline::shade(view, FX::RenderPipeline::prepare(frame));
   }
 };
 
@@ -279,7 +282,7 @@ inline void test_curl_lattice_shaderball_equivalence() {
   for (size_t preset : {size_t{7}, size_t{8}}) {
     const ShaderBallWB::FrameState reference =
         ShaderBallWB::preset_frame(shaderball, preset);
-    const WB::FrameState compiled = WB::from_reference(reference);
+    const WB::Ctx compiled = WB::from_reference(reference);
     for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
       const float latitude = latitude_step * (0.5f * PI_F / 9.0f);
       const float radius = cosf(latitude);

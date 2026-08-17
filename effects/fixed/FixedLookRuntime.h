@@ -43,10 +43,8 @@ using Pullback::Projection::ProjectionParams;
 using Pullback::Source::GridSourceParams;
 using Pullback::Source::LatticeSourceParams;
 using Pullback::Source::NoiseSourceParams;
-using Pullback::Source::PreparedSource;
 using Pullback::Source::TwinWaveSourceParams;
 using Pullback::Surface::NoSurfaceParams;
-using Pullback::Surface::PreparedSurface;
 using Pullback::Surface::SurfaceNoiseParams;
 using Pullback::Transfer::IsoValueParams;
 using Pullback::Transfer::LinearValueParams;
@@ -54,7 +52,6 @@ using Pullback::Warp::AffineParams;
 using Pullback::Warp::MirrorParams;
 using Pullback::Warp::NoWarpParams;
 using Pullback::Warp::PolarParams;
-using Pullback::Warp::PreparedWarp;
 using Pullback::Warp::VectorNoiseParams;
 using Pullback::Warp::WaveShearParams;
 
@@ -91,11 +88,12 @@ struct Params {
 };
 
 /**
- * @brief Everything one frame's shading reads, resolved before the scan.
- * @details Handed to `Derived::shade` by value and read through the providers
- * below. Its pointers alias the runtime's persistent state and the palette
- * cycler's current bake, so a frame outlives only the draw_frame() call that
- * built it.
+ * @brief The public frame context the pipeline's stages prepare from and
+ *        shade against, resolved before the scan.
+ * @details Read through the providers below; each stage's private prepared
+ * state lives in the pipeline's per-frame instance instead. Its pointers
+ * alias the runtime's persistent state and the palette cycler's current
+ * bake, so a frame outlives only the draw_frame() call that built it.
  * @tparam ParamsT The look's `FixedLook::Params` specialization.
  */
 template <typename ParamsT> struct FrameState {
@@ -104,12 +102,10 @@ template <typename ParamsT> struct FrameState {
   Quaternion projection_conjugate;
   /** Conjugate of the outer camera orientation. */
   Quaternion outer_conjugate;
-  PreparedSource prepared_source;
-  PreparedWarp prepared_outer;       /**< State for the first warp slot. */
-  PreparedWarp prepared_inner;       /**< State for the second warp slot. */
-  const FastNoiseLite *outer_noise;  /**< Null unless `HasOuterNoise`. */
-  const FastNoiseLite *source_noise; /**< Null unless `HasSourceNoise`. */
-  const BakedPalette *palette;       /**< The cycler's current bake. */
+  const FastNoiseLite *outer_noise;   /**< Null unless `HasOuterNoise`. */
+  const FastNoiseLite *source_noise;  /**< Null unless `HasSourceNoise`. */
+  const FastNoiseLite *surface_noise; /**< Null unless the look displaces. */
+  const BakedPalette *palette;        /**< The cycler's current bake. */
   /** Hue-rotation LUT base; current only when hue_rotation_active(). */
   const Pixel *hue_rotation_lut;
   /** Hue-noise LUT base; current only under HueMode::NOISE with an active
@@ -119,11 +115,15 @@ template <typename ParamsT> struct FrameState {
                        preset transition is in flight. */
   /** Palette mapping weights, blended across a preset transition. */
   Pullback::Color::PaletteMappingWeights palette_mapping;
+  float source_primary;            /**< Source primary phase. */
+  float source_secondary;          /**< Source secondary phase. */
+  float source_angle;              /**< Source rotation, in radians. */
   float outer_phase;               /**< First warp slot's phase. */
   float inner_phase;               /**< Second warp slot's phase. */
+  float outer_rotation;            /**< First slot's accumulated rotation. */
   float source_noise_time;         /**< Source noise time coordinate. */
+  float surface_phase;             /**< Displacement-loop phase. */
   float palette_oscillation_phase; /**< Phase of the mapping wobble. */
-  PreparedSurface<typename ParamsT::surface_type> surface;
 };
 
 /**
@@ -196,11 +196,22 @@ struct WarpProvider {
     else
       return frame.params.inner_warp;
   }
-  static const PreparedWarp &prepared(const FrameState &frame) {
-    if constexpr (Outer)
-      return frame.prepared_outer;
-    else
-      return frame.prepared_inner;
+  static auto prepare(const FrameState &frame) {
+    using WarpT = std::remove_cvref_t<decltype(params(frame))>;
+    if constexpr (std::is_same_v<WarpT, AffineParams>) {
+      static_assert(
+          requires { frame.params.source.lattice_cell_scale; },
+          "the affine warp stage translates in lattice cells and requires a "
+          "LatticeSourceParams source");
+      return Pullback::Warp::prepare(
+          params(frame), phase(frame), Outer ? frame.outer_rotation : 0.0f,
+          1.0f / frame.params.source.lattice_cell_scale);
+    } else if constexpr (std::is_same_v<WarpT, NoWarpParams> ||
+                         std::is_same_v<WarpT, PolarParams>) {
+      return Pullback::NoPrepared{};
+    } else {
+      return Pullback::Warp::prepare(params(frame), phase(frame));
+    }
   }
   static float phase(const FrameState &frame) {
     if constexpr (Outer)
@@ -225,10 +236,10 @@ template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
   static const FastNoiseLite &noise(const FrameState &frame) {
-    return *frame.surface.noise;
+    return *frame.surface_noise;
   }
-  static const Vector &loop_offset(const FrameState &frame) {
-    return frame.surface.loop_offset;
+  static Pullback::Surface::PreparedLoop prepare(const FrameState &frame) {
+    return Pullback::Surface::prepare(frame.surface_phase);
   }
   static float scale(const FrameState &frame) {
     return frame.params.surface.scale;
@@ -251,8 +262,9 @@ template <typename BindingT> struct SourceProvider {
   static const auto &params(const FrameState &frame) {
     return frame.params.source;
   }
-  static const PreparedSource &prepared(const FrameState &frame) {
-    return frame.prepared_source;
+  static Pullback::Source::PreparedSource prepare(const FrameState &frame) {
+    return Pullback::Source::prepare(
+        frame.source_primary, frame.source_secondary, frame.source_angle);
   }
   static const FastNoiseLite &noise(const FrameState &frame) {
     return *frame.source_noise;
@@ -820,7 +832,8 @@ public:
       update_palette_chroma();
       palette_cycler.step();
     }
-    const Frame frame = prepare_frame();
+    const typename Derived::RenderPipeline::Frame frame =
+        Derived::RenderPipeline::prepare(prepare_frame());
     {
       HS_PROFILE(fx_shader_draw);
       Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](const Vector &view) {
@@ -1292,29 +1305,6 @@ private:
   }
 
   /**
-   * @brief Resolves one warp slot's per-frame state via the stage's prepare().
-   * @param warp The slot's parameters.
-   * @param phase The slot's phase clock.
-   * @param frame_rotation Accumulated frame rotation; only the affine family
-   *        consumes it, and only the outer slot accumulates one.
-   */
-  template <typename WarpT>
-  HS_COLD_MEMBER PreparedWarp
-  prepare_warp(const WarpT &warp, float phase,
-               [[maybe_unused]] float frame_rotation) const {
-    if constexpr (std::is_same_v<WarpT, AffineParams>) {
-      static_assert(
-          std::is_same_v<typename Params::source_type, LatticeSourceParams>,
-          "the affine warp stage translates in lattice cells and requires a "
-          "LatticeSourceParams source");
-      return Pullback::Warp::prepare(warp, phase, frame_rotation,
-                                     1.0f / params.source.lattice_cell_scale);
-    } else {
-      return Pullback::Warp::prepare(warp, phase);
-    }
-  }
-
-  /**
    * @brief Bakes the frame's LUTs and snapshots everything the scan reads.
    * @details The hue-noise LUT is rebuilt only when its scale or phase moved,
    * while the hue-rotation LUT is rebuilt on exactly the condition
@@ -1346,27 +1336,28 @@ private:
       outer_noise = &state->outer.noise;
     if constexpr (HasSourceNoise)
       source_noise = &state->source.noise;
-    PreparedSurface<typename Params::surface_type> surface{};
+    const FastNoiseLite *surface_noise = nullptr;
     if constexpr (HAS_SURFACE_NOISE)
-      surface = Pullback::Surface::prepare(state->surface.noise, surface_phase);
+      surface_noise = &state->surface.noise;
     return {Derived::ANIMATED_PROJECTION ? projection_conjugate : Quaternion(),
             outer_conjugate,
-            Pullback::Source::prepare(source_primary, source_secondary,
-                                      source_angle),
-            prepare_warp(params.outer_warp, outer_phase, outer_rotation),
-            prepare_warp(params.inner_warp, inner_phase, 0.0f),
             outer_noise,
             source_noise,
+            surface_noise,
             &palette_cycler.palette(),
             state->hue_rotation_lut.data(),
             state->hue_noise_lut.data(),
             params,
             palette_mapping,
+            source_primary,
+            source_secondary,
+            source_angle,
             outer_phase,
             inner_phase,
+            outer_rotation,
             source_noise_time,
-            palette_oscillation_phase,
-            surface};
+            surface_phase,
+            palette_oscillation_phase};
   }
 
   HS_COLD_MEMBER void update_palette_chroma() {

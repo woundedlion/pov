@@ -49,7 +49,6 @@ class CurlLattice
 
 public:
   using Params = ParamsT;
-  using FrameState = typename Base::Frame;
   using Binding = typename Base::PipelineBinding;
   /// Registry identity, stable across class renames.
   static constexpr std::string_view EFFECT_ID = "curl-lattice";
@@ -105,6 +104,7 @@ public:
       Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
                          PlanarWarpStage, SourceStage, MaterialStage,
                          ColorStage>;
+  using FrameState = typename RenderPipeline::Frame;
 
   /**
    * @brief Shades one pixel through the fully inlined pipeline.

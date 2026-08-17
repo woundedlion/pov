@@ -31,7 +31,6 @@ class GlitchGrid
 
 public:
   using Params = ParamsT;
-  using FrameState = typename Base::Frame;
   using Binding = typename Base::PipelineBinding;
   static constexpr std::string_view EFFECT_ID = "glitch-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
@@ -68,6 +67,7 @@ public:
       Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
                          PlanarWarpStage, SourceStage, MaterialStage,
                          ColorStage>;
+  using FrameState = typename RenderPipeline::Frame;
   static HS_FLASH_INLINE Color4 shade(const Vector &view,
                                       const FrameState &frame) {
     return RenderPipeline::shade(view, frame);

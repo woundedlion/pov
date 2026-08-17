@@ -45,8 +45,10 @@ struct FacetGridWhiteBox {
     effect.finish_transition_evaluation();
   }
 
+  using Ctx = FixedLook::FrameState<Params>;
+
   template <typename ReferenceFrame>
-  static FrameState from_reference(const ReferenceFrame &frame) {
+  static Ctx from_reference(const ReferenceFrame &frame) {
     Params params;
     params.source = {
         frame.params.source.pattern_freq,   frame.params.source.speed,
@@ -73,19 +75,9 @@ struct FacetGridWhiteBox {
                     frame.params.color.value_opacity_high,
                     static_cast<Pullback::Color::PaletteMapping>(
                         frame.slots.palette_mapping)};
-    FixedLook::PreparedWarp inner{};
-    inner.rotation_cos = frame.prepared_warp.inner.rotation_cos;
-    inner.rotation_sin = frame.prepared_warp.inner.rotation_sin;
-    inner.transform.mirror = {
-        frame.prepared_warp.inner.transform.mirror.offset_x,
-        frame.prepared_warp.inner.transform.mirror.offset_y};
     return {frame.transforms.projection_conj,
             frame.transforms.outer_conj,
-            {frame.prepared_source.primary, frame.prepared_source.secondary,
-             frame.prepared_source.angle, frame.prepared_source.angle_cos,
-             frame.prepared_source.angle_sin},
-            {},
-            inner,
+            nullptr,
             nullptr,
             nullptr,
             frame.resources.generated_palette,
@@ -95,15 +87,19 @@ struct FacetGridWhiteBox {
             Pullback::Color::PaletteMappingWeights::single(
                 static_cast<Pullback::Color::PaletteMapping>(
                     frame.slots.palette_mapping)),
+            frame.clocks.source_primary,
+            frame.clocks.source_secondary,
+            frame.clocks.source_angle,
             0.0f,
             frame.clocks.warp_inner_phase,
             0.0f,
-            frame.clocks.palette_oscillation_phase,
-            {}};
+            0.0f,
+            0.0f,
+            frame.clocks.palette_oscillation_phase};
   }
 
-  static Color4 shade(const Vector &view, const FrameState &frame) {
-    return FX::RenderPipeline::shade(view, frame);
+  static Color4 shade(const Vector &view, const Ctx &frame) {
+    return FX::RenderPipeline::shade(view, FX::RenderPipeline::prepare(frame));
   }
 };
 
@@ -286,7 +282,7 @@ inline void test_facet_grid_shaderball_equivalence() {
   for (size_t preset : {size_t{11}, size_t{13}, size_t{14}}) {
     const ShaderBallWB::FrameState reference =
         ShaderBallWB::preset_frame(shaderball, preset);
-    const WB::FrameState compiled = WB::from_reference(reference);
+    const WB::Ctx compiled = WB::from_reference(reference);
     for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
       const float latitude = latitude_step * (0.5f * PI_F / 9.0f);
       const float radius = cosf(latitude);
