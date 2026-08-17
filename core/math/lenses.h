@@ -163,7 +163,10 @@ polyhedral_kaleidoscope_lens(Vector v, const std::array<Vector, N> &mirrors) {
 }
 
 /**
- * @brief Folds a direction into the dodecahedral chamber without a mirror loop.
+ * @brief Folds a direction into the dodecahedral chamber.
+ * @details Specializes polyhedral_kaleidoscope_lens for DODECAHEDRAL_MIRRORS:
+ * the scan over the mirror array is unrolled and the two axis mirrors collapse
+ * into sign flips, leaving only the fold iteration.
  * @param v Unit direction on the sphere.
  * @return A symmetry-equivalent direction inside the chamber.
  */
