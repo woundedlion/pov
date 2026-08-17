@@ -163,7 +163,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \
   X("pullback", 12, hs_test::pullback_tests::run_pullback_tests, 80)           \
   X("filter", 63, hs_test::filter_tests::run_filter_tests, 10296)              \
-  X("plot_scan", 81, hs_test::plot_scan_tests::run_plot_scan_tests, 1069897)   \
+  X("plot_scan", 82, hs_test::plot_scan_tests::run_plot_scan_tests, 1069897)   \
   X("canvas", 35, hs_test::canvas_tests::run_canvas_tests, 487)                \
   X("scan", 38, hs_test::scan_tests::run_scan_tests, 189868)                   \
   X("mesh_raster", 18, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
