@@ -112,6 +112,14 @@ public:
       return EffectTransitionStatus::BUSY;
 
     const bool cleared = state == EffectTransitionState::CLEAR_FAILSAFE;
+    const bool refading = state == EffectTransitionState::FADING_OUT;
+    // Fraction of an in-flight fade-out already spent, remapped onto the new
+    // request's tick count so the envelope carries on down instead of jumping
+    // back to full.
+    const float spent = refading
+                            ? static_cast<float>(evaluation) /
+                                  static_cast<float>(destination.fade_ticks)
+                            : 0.0f;
     EffectRestoreToken next_restore;
     const EffectTransitionStatus status = adapter.preflight(next, next_restore);
     if (status != EffectTransitionStatus::OK)
@@ -120,7 +128,8 @@ public:
     destination = next;
     handoff = next_handoff;
     restore = next_restore;
-    evaluation = 0;
+    evaluation =
+        static_cast<uint16_t>(spent * static_cast<float>(next.fade_ticks));
     last_failure = EffectTransitionStatus::OK;
     if (cleared) {
       // post-teardown: output is already clear and no outgoing remains
@@ -129,7 +138,8 @@ public:
       return EffectTransitionStatus::OK;
     }
     state = EffectTransitionState::FADING_OUT;
-    adapter.set_output_envelope(1.0f);
+    if (!refading)
+      adapter.set_output_envelope(1.0f);
     return EffectTransitionStatus::OK;
   }
 
