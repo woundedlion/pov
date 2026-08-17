@@ -123,9 +123,10 @@ public:
     clip_region.y_end = H;
     clip_region.x_end = W;
     // Only widen: a filter fold of 0 must not shrink the coverage every effect
-    // already gets from the ClipRegion default.
-    if (cfg.margin > clip_region.margin)
-      set_margin(cfg.margin);
+    // already gets from the ClipRegion default. Routed through set_margin either
+    // way so the margin < w invariant is checked on every construction.
+    set_margin(cfg.margin > clip_region.margin ? cfg.margin
+                                               : clip_region.margin);
   }
 
   /**
