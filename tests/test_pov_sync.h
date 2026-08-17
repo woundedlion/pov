@@ -169,9 +169,13 @@ inline void test_helpers() {
   HS_EXPECT_TRUE(rc.valid() != nullptr);
 
   // Demarcation: a wire timeout below the beacon's worst-case per-digit advance
-  // splits a real digit train into isolated boundary symbols.
+  // splits a real digit train into isolated boundary symbols. The shipped
+  // constants meet the bound with equality.
   Config aq = test_config();
-  aq.acquire_quiet_cols = aq.beacon_span_cols() / 4 - 1;
+  const int32_t aq_bound =
+      2 * aq.gap_timeout_cols + 7 * aq.beacon_pitch_cols + 1;
+  HS_EXPECT_EQ(aq.acquire_quiet_cols, aq_bound);
+  aq.acquire_quiet_cols = aq_bound - 1;
   HS_EXPECT_TRUE(aq.valid() != nullptr);
   ++aq.acquire_quiet_cols;
   HS_EXPECT_TRUE(aq.valid() == nullptr);
