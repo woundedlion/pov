@@ -47,6 +47,10 @@ struct PolyMesh {
 
   /**
    * @brief Resets all arrays to empty without releasing arena storage.
+   * @details Every arena binding survives, so this is the wrong reset for a
+   * mesh whose arena has since been reset or rewound: bind()'s reuse path would
+   * hand the mesh back blocks the arena has already reclaimed. Replace such a
+   * mesh instead (`mesh = PolyMesh()`), as MeshOps::compile does.
    */
   inline void clear() {
     vertices.clear();
