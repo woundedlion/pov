@@ -741,4 +741,5 @@ private:
   PaletteCycler palette_cycler;
 };
 
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(FacetGrid)
