@@ -160,17 +160,16 @@ inline void test_curl_lattice_identity_and_presets() {
   HS_EXPECT_TRUE(FixedLook::valid(FX::preset_params(1)));
 
   // The runtime rebuilds the hue-rotation LUT on the same predicate the
-  // colorizer gates its view on, so an ALWAYS gate must read live on both.
-  HS_EXPECT_TRUE(FX::HUE_GATE == FixedLook::HueGate::ALWAYS);
-  FixedLook::ColorParams zero_shift;
-  zero_shift.hue_shift_amount = 0.0f;
-  HS_EXPECT_TRUE(
-      (FixedLook::hue_rotation_active<FixedLook::HueMode::NOISE,
-                                      FixedLook::HueGate::ALWAYS>(zero_shift)));
+  // colorizer gates its view on, so both read dead at a zero shift amount.
+  FixedLook::ColorParams shift;
+  shift.hue_shift_amount = 0.0f;
   HS_EXPECT_FALSE(
-      (FixedLook::hue_rotation_active<FixedLook::HueMode::NOISE,
-                                      FixedLook::HueGate::SHIFT_AMOUNT>(
-          zero_shift)));
+      (FixedLook::hue_rotation_active<FixedLook::HueMode::NOISE>(shift)));
+  shift.hue_shift_amount = 0.25f;
+  HS_EXPECT_TRUE(
+      (FixedLook::hue_rotation_active<FixedLook::HueMode::NOISE>(shift)));
+  HS_EXPECT_TRUE(FX::preset_params(0).color.hue_shift_amount != 0.0f);
+  HS_EXPECT_TRUE(FX::preset_params(1).color.hue_shift_amount != 0.0f);
 
   reset_effect_globals();
   FX effect;
