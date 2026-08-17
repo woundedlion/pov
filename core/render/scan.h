@@ -134,6 +134,37 @@ probe_bounds_block(float threshold, float block_slack) {
 }
 
 /**
+ * @brief Extra clearance a block probe must carry, in the shape's report units.
+ * @tparam W Canvas width in columns.
+ * @tparam ShapeT Shape the probe reads distance() from.
+ * @param run Columns in the block; 1 yields no slack.
+ * @param p_y Probe's y coordinate on the unit sphere (cos of the colatitude).
+ * @param shape Shape the probe reads distance() from.
+ */
+template <int W, typename ShapeT>
+__attribute__((always_inline)) inline float
+pole_lod_block_slack(int run, float p_y, const ShapeT &shape) {
+  const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p_y * p_y));
+  return pole_lod_slack<W, ShapeT>(run, sin_phi) * report_stretch(shape);
+}
+
+/**
+ * @brief Whether one probe settles a whole pole-LOD block on one side.
+ * @tparam ShapeT Shape the probe read distance() from.
+ * @param clearance Probe's distance from the surface on the side under test;
+ *        negate a solid's report to test the interior side.
+ * @param threshold Clearance the walk tests the probe against.
+ * @param block_slack Extra clearance demanded of a block probe.
+ * @return True when the probe holds for every column in the block.
+ */
+template <typename ShapeT>
+__attribute__((always_inline)) inline bool
+pole_lod_block_settles(float clearance, float threshold, float block_slack) {
+  return clearance >= threshold + block_slack &&
+         probe_bounds_block<ShapeT>(threshold, block_slack);
+}
+
+/**
  * @brief Validates that the canvas is the size the scan was instantiated for.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -233,17 +264,13 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
   int span = 1;
   if constexpr (pole_lod_blocks<decltype(shape)>) {
     if (max_run > 1 && !debug_bb) {
-      const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
-      const float block_slack =
-          pole_lod_slack<W, decltype(shape)>(max_run, sin_phi) *
-          report_stretch(shape);
-      if (d >= threshold + block_slack &&
-          probe_bounds_block<decltype(shape)>(threshold, block_slack))
+      const float block_slack = pole_lod_block_slack<W>(max_run, p.y, shape);
+      if (pole_lod_block_settles<decltype(shape)>(d, threshold, block_slack))
         return max_run;
       // A sentineled subtrahend loses Subtract's max, so an inside report is
       // bounded no further than a clear one.
-      if (solid && d <= -pixel_width - block_slack &&
-          probe_bounds_block<decltype(shape)>(pixel_width, block_slack))
+      if (solid &&
+          pole_lod_block_settles<decltype(shape)>(-d, pixel_width, block_slack))
         span = max_run;
     }
   }
@@ -782,17 +809,15 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         int span = 1;
         if constexpr (pole_lod_blocks<decltype(shape)>) {
           if (max_run > 1) {
-            const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
             const float block_slack =
-                pole_lod_slack<W, decltype(shape)>(max_run, sin_phi) *
-                report_stretch(shape);
-            if (d >= PIXEL_WIDTH + block_slack &&
-                probe_bounds_block<decltype(shape)>(PIXEL_WIDTH, block_slack))
+                pole_lod_block_slack<W>(max_run, p.y, shape);
+            if (pole_lod_block_settles<decltype(shape)>(d, PIXEL_WIDTH,
+                                                        block_slack))
               return max_run;
             // A sentineled subtrahend loses Subtract's max, so an inside report
             // is bounded no further than a clear one.
-            if (d <= -PIXEL_WIDTH - block_slack &&
-                probe_bounds_block<decltype(shape)>(PIXEL_WIDTH, block_slack))
+            if (pole_lod_block_settles<decltype(shape)>(-d, PIXEL_WIDTH,
+                                                        block_slack))
               span = max_run;
           }
         }
@@ -1817,8 +1842,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         if constexpr (pole_lod_blocks<SDF::Face>) {
           if (stride > 1 && x % stride == 0 && x + stride <= rx2 &&
               (d <= -pixel_width - block_slack ||
-               (d >= pixel_width + block_slack &&
-                probe_bounds_block<SDF::Face>(pixel_width, block_slack))))
+               pole_lod_block_settles<SDF::Face>(d, pixel_width, block_slack)))
             span = stride;
         }
 
@@ -2802,11 +2826,10 @@ struct Volume {
             // splat would band.
             if constexpr (pole_lod_blocks<decltype(shape)>) {
               if (max_run > 1) {
-                const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
                 const float block_slack =
-                    pole_lod_slack<W, decltype(shape)>(max_run, sin_phi);
-                if (closest_d >= aa_width + block_slack &&
-                    probe_bounds_block<decltype(shape)>(aa_width, block_slack))
+                    pole_lod_block_slack<W>(max_run, p.y, shape);
+                if (pole_lod_block_settles<decltype(shape)>(closest_d, aa_width,
+                                                            block_slack))
                   return max_run;
               }
             }
