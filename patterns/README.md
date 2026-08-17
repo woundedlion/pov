@@ -48,17 +48,22 @@ and backs no effect.
 
 Every other document is the editable source of a `FixedLook::Runtime`
 specialization. A document maps to its effect by `effect_id` == the effect's
-`EFFECT_ID`; directory placement predicts neither the base class nor the number
-of effects in a header, so the table below is the map. `AlienOcean`,
-`CurlLattice` and `FacetGrid` share the runtime with the `effects/fixed/` group
-but keep single-effect files.
+`EFFECT_ID`. Each effect lives in its own header,
+`effects/<ClassName>.h`:
 
-| Document | Effect | Header |
-| --- | --- | --- |
-| `alien_ocean` | `AlienOcean` | `effects/AlienOcean.h` |
-| `curl_lattice` | `CurlLattice` | `effects/CurlLattice.h` |
-| `facet_grid` | `FacetGrid` | `effects/FacetGrid.h` |
-| `cosmic_eyeball`, `equator_grid`, `glitch_grid` | `CosmicEyeball`, `EquatorGrid`, `GlitchGrid` | `effects/fixed/GridMirrorLooks.h` |
-| `facet_wave`, `signal_weave`, `vector_facets` | `FacetWave`, `SignalWeave`, `VectorFacets` | `effects/fixed/GridWarpLooks.h` |
-| `contour_lattice`, `prism_lattice` | `ContourLattice`, `PrismLattice` | `effects/fixed/LatticeLooks.h` |
-| `hex_wave`, `kaleido_wave`, `mobius_grid` | `HexWave`, `KaleidoWave`, `MobiusGrid` | `effects/fixed/TwinWaveMirrorLooks.h` |
+| Document | Effect |
+| --- | --- |
+| `alien_ocean` | `AlienOcean` |
+| `contour_lattice` | `ContourLattice` |
+| `cosmic_eyeball` | `CosmicEyeball` |
+| `curl_lattice` | `CurlLattice` |
+| `equator_grid` | `EquatorGrid` |
+| `facet_grid` | `FacetGrid` |
+| `facet_wave` | `FacetWave` |
+| `glitch_grid` | `GlitchGrid` |
+| `hex_wave` | `HexWave` |
+| `kaleido_wave` | `KaleidoWave` |
+| `mobius_grid` | `MobiusGrid` |
+| `prism_lattice` | `PrismLattice` |
+| `signal_weave` | `SignalWeave` |
+| `vector_facets` | `VectorFacets` |
