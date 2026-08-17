@@ -129,6 +129,9 @@ if(EMSCRIPTEN)
   if(HS_WASM_DEV_BINDINGS)
     target_compile_definitions(${TARGET_NAME} PRIVATE HS_WASM_DEV_BINDINGS)
     message(STATUS "WASM dev bindings enabled (HS_WASM_DEV_BINDINGS): getMaxBounds re-exported")
+    set(HS_WASM_DEV_BINDINGS_STATE ON)
+  else()
+    set(HS_WASM_DEV_BINDINGS_STATE OFF)
   endif()
 
   # Emscripten emits a .js loader as the "executable".
@@ -305,10 +308,16 @@ if(EMSCRIPTEN)
         # A separate additive file, not extra lines in the two above: the gate feeds
         # .wasm.sha256 to `sha256sum -c` and requires .sha to be a bare 40-hex ref.
         # Written with the pair above, keeping the provenance set all-or-nothing.
+        #
+        # build_type and dev_bindings record the CONFIGURATION as well as the
+        # compiler: the same source and the same emsdk produce a different module
+        # under wasm-debug (-O0, 64 KB stack, assertions) or with
+        # -DHS_WASM_DEV_BINDINGS=ON (extra exports). Without them a module built
+        # from either rides a gate that only re-verifies source and emsdk.
         file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.toolchain\"
-             CONTENT \"emsdk ${EMSCRIPTEN_VERSION}\\nclang ${CMAKE_CXX_COMPILER_VERSION}\\n\"
+             CONTENT \"emsdk ${EMSCRIPTEN_VERSION}\\nclang ${CMAKE_CXX_COMPILER_VERSION}\\nbuild_type ${CMAKE_BUILD_TYPE}\\ndev_bindings ${HS_WASM_DEV_BINDINGS_STATE}\\n\"
              @ONLY NEWLINE_STYLE LF)
-        message(STATUS \"Wrote toolchain provenance ${TARGET_NAME}.toolchain: emsdk ${EMSCRIPTEN_VERSION}, clang ${CMAKE_CXX_COMPILER_VERSION}\")
+        message(STATUS \"Wrote toolchain provenance ${TARGET_NAME}.toolchain: emsdk ${EMSCRIPTEN_VERSION}, clang ${CMAKE_CXX_COMPILER_VERSION}, ${CMAKE_BUILD_TYPE}, dev bindings ${HS_WASM_DEV_BINDINGS_STATE}\")
       else()
         # Best-effort provenance: git is absent or this is not a working tree (an
         # exported tarball / non-git checkout). Warn and omit ALL markers so a plain
