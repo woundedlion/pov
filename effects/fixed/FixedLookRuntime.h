@@ -734,6 +734,27 @@ template <> struct OptionalNoise<true> {
   FastNoiseLite noise;
 };
 
+/**
+ * @brief Shared lifecycle for the fixed-look effects: parameter registration,
+ * preset choreography, palette cycling, camera walks and noise clocks.
+ * @details Curiously recurring: `Derived` supplies the look (its render
+ * pipeline and preset bank) and inherits everything else. Required `Derived`
+ * members are `PRESET_IDS`, `PARAMETER_SCHEMA_VERSION`, `PRESET_DWELL_FRAMES`,
+ * `ANIMATED_PROJECTION`, `shade`, `initial_params` and `preset_params`, plus an
+ * `OUTER_NOISE_SEED` / `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` for each
+ * noise field the parameter set and `Has*Noise` flags request. Optional members,
+ * detected by `requires` and defaulted when absent, are `ANIMATED_MOBIUS`,
+ * `USES_CENTRAL_MERIDIAN` and an `after_fixed_init()` hook.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Derived The effect class deriving from this runtime.
+ * @tparam ParamsT The effect's `FixedLook::Params` specialization.
+ * @tparam Harmony Palette harmony the generated palettes are drawn from.
+ * @tparam HueV Hue-rotation source: none, noise field, or path length.
+ * @tparam BrightnessV Brightness envelope applied by the color stage.
+ * @tparam HasOuterNoise Whether the outer-camera stage owns a noise field.
+ * @tparam HasSourceNoise Whether the source stage owns a noise field.
+ */
 template <int W, int H, typename Derived, typename ParamsT,
           PaletteHarmony Harmony, HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV,
