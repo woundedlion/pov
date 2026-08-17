@@ -53,7 +53,11 @@ struct FactoryEntry {
   using PresetIdFn = std::string_view (*)(size_t);
 
   std::string_view name;      /**< Effect class name (string literal). */
-  std::string_view stable_id; /**< Persisted effect identity. */
+  std::string_view stable_id; /**< Persisted effect identity: the class's
+                                 EFFECT_ID when it declares one, else its class
+                                 name. It feeds stable_effect_seed(), so an
+                                 effect without an EFFECT_ID changes its
+                                 persisted id and its seed when renamed. */
   std::function<std::unique_ptr<Effect>()>
       creator; /**< Allocates a new effect instance. */
   const void *type_key =
