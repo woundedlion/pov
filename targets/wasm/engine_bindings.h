@@ -318,6 +318,7 @@ public:
       current_effect = nullptr;
       current_effect_type_key = nullptr;
       current_factory_entry = nullptr;
+      param_views.clear();
       // Same teardown setEffect() performs: without the re-partition the
       // destroyed effect's arena usage keeps reading as live from
       // getArenaMetrics().
@@ -374,6 +375,7 @@ public:
     current_effect.reset();
     current_effect_type_key = nullptr;
     current_factory_entry = nullptr;
+    param_views.clear();
     configure_arenas_default(); // Reset before init so effects can override
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
@@ -1250,7 +1252,8 @@ private:
   std::vector<uint16_t> pixel_buffer; /**< 16-bit linear RGB readback buffer. */
   std::vector<float> param_values;    /**< Backing store for getParamValues. */
   std::vector<hs_wasm::ParamView>
-      param_views;      /**< Scratch for getParameterDefinitions. */
+      param_views; /**< Scratch for getParameterDefinitions; cleared at teardown
+                        so no name outlives the effect that owns it. */
   int pixel_width = 0;  /**< Active canvas width in pixels. */
   int pixel_height = 0; /**< Active canvas height in pixels. */
   hs_wasm::ParamGenerationTracker
