@@ -651,7 +651,7 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
     return place
 
 
-def main(unplaced=False, force=False):
+def main(unplaced=False, force=False, force_teensy_library=False):
     reset_uid_sequence()
     if unplaced:
         require_writable(os.path.join(OUT, UNPLACED_FILE), force, UNPLACED_REASON)
@@ -846,7 +846,8 @@ def main(unplaced=False, force=False):
     else:
         existing_mod_text = None
     if existing_mod_text != mod_text:
-        require_writable(mod_path, force, TEENSY_LIBRARY_REASON)
+        require_writable(mod_path, force_teensy_library, TEENSY_LIBRARY_REASON,
+                         flag="--force-teensy-library")
         with open(mod_path, "w", encoding="utf-8", newline="\n") as f:
             f.write(mod_text)
     fplt = os.path.join(OUT, "fp-lib-table")
@@ -873,11 +874,15 @@ def parse_args(argv=None):
                              "the autoplacer instead")
     parser.add_argument("--force", action="store_true",
                         help=f"overwrite the committed {PCB_FILE} / "
-                             f"{UNPLACED_FILE} or a changed Teensy footprint "
-                             "library")
+                             f"{UNPLACED_FILE}")
+    parser.add_argument("--force-teensy-library", action="store_true",
+                        help="overwrite phantasm.pretty/Teensy4.0.kicad_mod "
+                             "when the generated footprint differs; the routed "
+                             "board resolves its Teensy pads against it")
     return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
     ARGS = parse_args()
-    main(unplaced=ARGS.unplaced, force=ARGS.force)
+    main(unplaced=ARGS.unplaced, force=ARGS.force,
+         force_teensy_library=ARGS.force_teensy_library)

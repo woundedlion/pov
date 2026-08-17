@@ -133,6 +133,12 @@ class RequireWritableTests(unittest.TestCase):
         self.assertIn("It is the fabrication source.", message)
         self.assertNotIn("routing, vias, silk, hand edits", message)
 
+    def test_names_the_authorizing_flag(self):
+        self.path.write_text("routed", encoding="utf-8")
+
+        message = self.refusal(flag="--force-teensy-library")
+        self.assertIn("Re-run with --force-teensy-library", message)
+
 
 if __name__ == "__main__":
     unittest.main()

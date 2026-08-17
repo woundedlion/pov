@@ -155,17 +155,18 @@ DEFAULT_OVERWRITE_REASON = (
     "  (routing, vias, silk, hand edits).")
 
 
-def require_writable(path, force, reason=DEFAULT_OVERWRITE_REASON):
+def require_writable(path, force, reason=DEFAULT_OVERWRITE_REASON, flag="--force"):
     """Exit unless `path` is absent or `force` is set.
 
     `reason` states what the overwrite would cost, defaulting to the
     KiCad-authored routing and hand edits a committed board or schematic holds.
+    `flag` names the option that authorizes this particular overwrite.
     """
     if force or not os.path.exists(path):
         return
     sys.exit(f"refusing to overwrite {path}\n"
              f"  {reason}\n"
-             "  Re-run with --force to regenerate it from scratch anyway.")
+             f"  Re-run with {flag} to regenerate it from scratch anyway.")
 
 
 def export_netlist(kcli, sch):

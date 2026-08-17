@@ -303,6 +303,9 @@ schematic, and the `.kicad_prl` that the KiCad GUI writes is local only. Run
 > does the same for the committed `unplaced/phantasm_unplaced.kicad_pcb`, which is a
 > KiCad GUI re-save of the generator output and is the Quilter upload input.
 > `python board.py` guards `phantasm.kicad_sch` the same way.
+> Rewriting `phantasm.pretty/Teensy4.0.kicad_mod` — which the routed board
+> resolves its Teensy pads against — takes its own `--force-teensy-library`;
+> `--force` does not authorize it.
 
 `gen/sexp.py` is a small S-expression parser/serializer; `gen/builder.py` places
 stock symbols and emits the `.kicad_sch` (placement transform calibrated against

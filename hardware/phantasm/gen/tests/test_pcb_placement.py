@@ -73,5 +73,20 @@ class OutlineBoundsTests(unittest.TestCase):
         self.assertEqual(self.overflows(self.LENGTH, 10.0, refs=()), [])
 
 
+class OverwriteAuthorizationTests(unittest.TestCase):
+    """The board overwrite and the Teensy footprint library overwrite are
+    unrelated destructive writes and take separate opt-ins."""
+
+    def test_board_force_does_not_authorize_the_footprint_library(self):
+        args = pcb.parse_args(["--unplaced", "--force"])
+        self.assertTrue(args.force)
+        self.assertFalse(args.force_teensy_library)
+
+    def test_footprint_library_force_does_not_authorize_the_board(self):
+        args = pcb.parse_args(["--force-teensy-library"])
+        self.assertFalse(args.force)
+        self.assertTrue(args.force_teensy_library)
+
+
 if __name__ == "__main__":
     unittest.main()
