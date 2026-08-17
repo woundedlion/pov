@@ -767,7 +767,7 @@ inline void test_compile_hankin_recompiles_after_arena_reset() {
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(), dynamics);
   HS_EXPECT_EQ(compiled.face_counts.size(), face_count);
   HS_EXPECT_EQ(compiled.faces.size(), index_count);
-  HS_EXPECT_TRUE(compiled.corner_src == compiled.base_vertices.data());
+  HS_EXPECT_TRUE(compiled.corner_src.data() == compiled.base_vertices.data());
 
   target.reset();
   MeshOps::compile_hankin(cube, compiled, target, temp,
@@ -777,7 +777,7 @@ inline void test_compile_hankin_recompiles_after_arena_reset() {
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(), dynamics);
   HS_EXPECT_EQ(compiled.face_counts.size(), face_count);
   HS_EXPECT_EQ(compiled.faces.size(), index_count);
-  HS_EXPECT_TRUE(compiled.corner_src == cube.vertices.data());
+  HS_EXPECT_TRUE(compiled.corner_src.data() == cube.vertices.data());
 
   PolyMesh out;
   MeshOps::update_hankin(compiled, out, temp, 0.4f);
