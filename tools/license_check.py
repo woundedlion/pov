@@ -84,9 +84,14 @@ def main() -> int:
     issues = []
     stale = []
     for path in sources:
-        head = (args.root / path).read_bytes()[:HEAD_BYTES].decode(
-            "utf-8", errors="replace")
-        issue = header_issue(path, head)
+        # A tracked source can be absent from the working tree (an interrupted
+        # checkout, a sparse one). That is an issue to report, not a traceback.
+        try:
+            head = (args.root / path).read_bytes()[:HEAD_BYTES]
+        except OSError as error:
+            issues.append(f"{path}:1: tracked source is unreadable: {error}")
+            continue
+        issue = header_issue(path, head.decode("utf-8", errors="replace"))
         if issue:
             issues.append(f"{path}:1: {issue}")
     for prefix in EXCEPTIONS:
