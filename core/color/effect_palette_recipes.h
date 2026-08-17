@@ -169,13 +169,6 @@ HS_FLASH_MEMBER inline PaletteRecipe shader_ball_liquid() {
   return shader_ball_liquid_at(0.0f);
 }
 
-/** @brief The flyby recipe at its authored hue. */
-HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby() {
-  return PaletteRecipes::profile(
-      PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
-      AxisCurve::CONSTANT, PaletteRecipes::hue_turns(42));
-}
-
 /**
  * @brief The flyby split-complementary profile at an arbitrary base hue.
  * @param base_turns Base hue in turns.
@@ -185,6 +178,11 @@ HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby_at(float base_turns) {
   return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
                                  PaletteHarmony::SPLIT_COMPLEMENTARY,
                                  AxisCurve::CONSTANT, base_turns);
+}
+
+/** @brief The flyby recipe at its authored hue. */
+HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby() {
+  return shader_ball_flyby_at(PaletteRecipes::hue_turns(42));
 }
 
 /** @brief One row of the authoring tool's preset roster. */
