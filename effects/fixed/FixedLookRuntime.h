@@ -1143,10 +1143,14 @@ private:
         state->hue_noise_lut_phase = hue_noise_phase;
       }
     }
-    Pullback::Color::prepare_hue_rotation_lut(
-        std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
-            state->hue_rotation_lut),
-        palette_cycler.palette());
+    // Matches the hue_rotation() view's active flag: an inactive view is never
+    // sampled, so the rebuild would be discarded.
+    if constexpr (HueV != HueMode::NONE)
+      if (params.color.hue_shift_amount != 0.0f)
+        Pullback::Color::prepare_hue_rotation_lut(
+            std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
+                state->hue_rotation_lut),
+            palette_cycler.palette());
     const FastNoiseLite *outer_noise = nullptr;
     const FastNoiseLite *source_noise = nullptr;
     if constexpr (HasOuterNoise)
