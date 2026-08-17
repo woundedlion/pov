@@ -90,6 +90,11 @@ const codePointCompare = (left, right) => {
   return a.length - b.length;
 };
 
+// RFC 8259 insignificant whitespace. /\s/u would also skip NBSP, the Unicode
+// space separators, U+2028/U+2029 and U+FEFF, so this reader would accept
+// documents every conforming JSON parser rejects.
+const JSON_WHITESPACE = new Set([' ', '\t', '\n', '\r']);
+
 class JsonReader {
   constructor(source, limits) {
     this.source = source;
@@ -107,7 +112,7 @@ class JsonReader {
   }
 
   space() {
-    while (/\s/u.test(this.source[this.index] ?? '')) ++this.index;
+    while (JSON_WHITESPACE.has(this.source[this.index])) ++this.index;
   }
 
   value(depth, path) {

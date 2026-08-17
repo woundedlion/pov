@@ -140,6 +140,13 @@ test('strict parsing enforces byte, depth, BOM, and finite-number bounds', () =>
   assert.throws(() => parseShaderDocument('{"long":"abcd"}', { bytes: 4 }), /byte limit/u);
 });
 
+test('strict parsing skips only RFC 8259 whitespace', () => {
+  for (const gap of ['\u00a0', '\u2028', '\u3000']) {
+    assert.throws(() => parseShaderDocument(`${gap}{}`), ShaderDocumentError);
+    assert.throws(() => parseShaderDocument(`{}${gap}`), ShaderDocumentError);
+  }
+});
+
 test('the linear document validates with exhaustive parameter values', () => {
   assert.deepEqual(validateShaderDocument(makeDocument()), []);
 });
