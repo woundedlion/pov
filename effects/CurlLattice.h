@@ -58,7 +58,6 @@ public:
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool USES_CENTRAL_MERIDIAN = true;
   static constexpr int32_t SURFACE_NOISE_SEED = 1337;
-  static constexpr FixedLook::HueGate HUE_GATE = FixedLook::HueGate::ALWAYS;
 
   using OuterCameraStage =
       Pullback::Stage::OuterCamera<Binding,
@@ -87,7 +86,7 @@ public:
   using ColorStage = Pullback::Stage::Color<
       Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
                    Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::CUP, HUE_GATE>>>;
+                   Pullback::Color::BrightnessEnvelope::CUP>>>;
   using RenderPipeline =
       Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
                          PlanarWarpStage, SourceStage, MaterialStage,

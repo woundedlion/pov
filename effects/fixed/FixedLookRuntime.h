@@ -21,9 +21,6 @@ namespace FixedLook {
 
 enum class HueMode : uint8_t { NONE, NOISE, PATH_LENGTH };
 
-/// Whether the hue-rotation LUT is bypassed at a zero hue shift.
-enum class HueGate : uint8_t { SHIFT_AMOUNT, ALWAYS };
-
 struct GridSourceParams {
   float pattern_freq = 1.0f;
   float speed = 0.0f;
@@ -353,15 +350,13 @@ template <typename BindingT> struct ValueProvider {
  * @details The runtime rebuilds the LUT on exactly this condition, so the two
  * sites cannot disagree about which frames leave it stale.
  */
-template <HueMode HueV, HueGate GateV>
+template <HueMode HueV>
 inline bool hue_rotation_active(const ColorParams &color) {
-  return HueV != HueMode::NONE &&
-         (GateV == HueGate::ALWAYS || color.hue_shift_amount != 0.0f);
+  return HueV != HueMode::NONE && color.hue_shift_amount != 0.0f;
 }
 
 template <typename BindingT, HueMode HueV,
-          Pullback::Color::BrightnessEnvelope BrightnessV,
-          HueGate GateV = HueGate::SHIFT_AMOUNT>
+          Pullback::Color::BrightnessEnvelope BrightnessV>
 struct ColorProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
@@ -397,12 +392,12 @@ struct ColorProvider {
   static Pullback::Color::HueRotationLutView
   hue_rotation(const FrameState &frame) {
     return {frame.hue_rotation_lut,
-            hue_rotation_active<HueV, GateV>(frame.params.color)};
+            hue_rotation_active<HueV>(frame.params.color)};
   }
   static Pullback::Color::HueNoiseLutView hue_noise(const FrameState &frame) {
     return {frame.hue_noise_lut,
             HueV == HueMode::NOISE &&
-                hue_rotation_active<HueV, GateV>(frame.params.color)};
+                hue_rotation_active<HueV>(frame.params.color)};
   }
   static Pullback::Color::BrightnessEnvelope
   brightness_envelope(const FrameState &) {
@@ -941,13 +936,6 @@ private:
                 "FixedLook::Runtime persistent footprint exceeds the default "
                 "partition");
 
-  /// The effect's hue gate, defaulting to the shift-amount gate.
-  static constexpr HueGate hue_gate() {
-    if constexpr (requires { Derived::HUE_GATE; })
-      return Derived::HUE_GATE;
-    return HueGate::SHIFT_AMOUNT;
-  }
-
   static void configure_noise(FastNoiseLite &noise, int32_t seed) {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise.SetSeed(seed);
@@ -1257,9 +1245,7 @@ private:
         state->hue_noise_lut_phase = hue_noise_phase;
       }
     }
-    // Shares hue_rotation_active() with the colorizer's view flag: an inactive
-    // view is never sampled, so the rebuild would be discarded.
-    if (hue_rotation_active<HueV, hue_gate()>(params.color))
+    if (hue_rotation_active<HueV>(params.color))
       Pullback::Color::prepare_hue_rotation_lut(
           std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
               state->hue_rotation_lut),
