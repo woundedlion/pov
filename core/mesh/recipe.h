@@ -39,7 +39,7 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * (docs/opchain_morph_spec.md, section 3.3). EXPAND has a leg kind but no
  * recipe and no sweep coverage on a hankin seed.
  */
-inline bool is_morphable_step(const OpStep &step) {
+inline constexpr bool is_morphable_step(const OpStep &step) {
   switch (step.op) {
   case Op::TRUNCATE:
     return step.param >= ConwayGraph::T_EPS_TRUNCATE_MIN &&
@@ -63,6 +63,18 @@ inline bool is_morphable_step(const OpStep &step) {
   }
   return false;
 }
+
+// The shipping steps sitting on the coverage bounds: raising one past its bound
+// drops the whole recipe to the whole-generate fallback, silently.
+static_assert(is_morphable_step(TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[1]),
+              "shipped chamfer thickness exceeds CHAMFER_T_MAX");
+static_assert(is_morphable_step(
+                  TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[0]),
+              "shipped far-side truncate exceeds T_EPS_TRUNCATE_FAR_MAX");
+static_assert(
+    is_morphable_step(
+        TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS[2]),
+    "shipped sub-T_EPS truncate falls below T_EPS_TRUNCATE_MIN");
 
 /**
  * @brief Number of primitive steps a recipe lowers to.
