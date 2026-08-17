@@ -181,3 +181,14 @@ sha with any figure taken from this document.
 - The 7,648 B is the whole budget for further ITCM promotions on the 33-effect
   phantasm roster; there is still no next FlexRAM bank to reach for, so an
   overrun is paid for by a trim.
+
+## Instance-pipeline conversion (2026-08-17, `f33fe306`)
+
+- phantasm ITCM 192,080 B / 196,608 B ceiling — **4,528 B free**, above the
+  gate's 3,072 B minimum headroom. The conversion cost **+1,376 B** over the
+  190,704 B it landed on: pullback stages now receive their per-frame prepared
+  state as an argument, so every out-of-line stage boundary carries one more
+  pointer and each pipeline's scan loop materializes the prepared tuple's
+  address. The 96x20 targets are unchanged (68,560 / 68,112 B).
+- Flash moved +1,392 B for the same reason (266,040 B), still nowhere near the
+  device wall.

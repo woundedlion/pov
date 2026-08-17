@@ -329,7 +329,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
 │   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
 │   │   ├── clip.h                  ClipRegion segment clip rectangle + cylindrical render band
-│   │   ├── pullback.h              Typed inverse-render pipeline, carriers, stages, and policies
+│   │   ├── pullback.h              Typed inverse-render pipeline: umbrella over pullback/
+│   │   ├── pullback/               Per-stage pullback headers (contract, surface, lens,
+│   │   │                            projection, warp, source, material, color, stage)
 │   │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
 │   │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
 │   │   ├── plot_cull.h             Plot edge samplers + screen row/column span and clip-cull kernel

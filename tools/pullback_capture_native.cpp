@@ -169,12 +169,15 @@ struct ShaderBallWhiteBox {
     if (program == nullptr || !program->resources_ready(frame))
       return false;
     const auto optimized = program->shade;
+    alignas(std::max_align_t)
+        std::byte prepared_storage[SB::PREPARED_BLOB_BYTES];
+    program->prepare(frame, prepared_storage);
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         if (!selected_pixel<W, H>(operation, x, y))
           continue;
         const Vector view = pixel_to_vector<W, H>(x, y);
-        const Color4 optimized_color = optimized(view, frame);
+        const Color4 optimized_color = optimized(view, frame, prepared_storage);
         Color4 exact_color;
         if (oracle == "PEIRCE_FAST_SQUARE")
           exact_color = exact_peirce_shade<SB>(view, frame);

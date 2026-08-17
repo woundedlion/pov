@@ -144,12 +144,17 @@ struct ShaderBallWhiteBox {
   }
   static Color4 sinusoidal_curl_shade(const Vector &view,
                                       const FrameState &frame) {
-    return SB::SinusoidalCurlLatticePipeline::shade(view, frame);
+    using Pipeline = SB::SinusoidalCurlLatticePipeline;
+    const typename Pipeline::PreparedTuple prepared =
+        Pipeline::prepare_stages(frame);
+    return Pipeline::shade_prepared(view, frame, &prepared);
   }
   static Color4 stereographic_dodecahedral_grid_shade(const Vector &view,
                                                       const FrameState &frame) {
-    return SB::StereographicDodecahedralGridInnerMirrorPipeline::shade(view,
-                                                                       frame);
+    using Pipeline = SB::StereographicDodecahedralGridInnerMirrorPipeline;
+    const typename Pipeline::PreparedTuple prepared =
+        Pipeline::prepare_stages(frame);
+    return Pipeline::shade_prepared(view, frame, &prepared);
   }
   /**
    * @brief Frame snapshot for an arbitrary config, bypassing GUI admission.
@@ -334,10 +339,13 @@ struct ShaderBallWhiteBox {
       return Color4();
     HS_CHECK(visible != nullptr,
              "through-clear visible phase requires an endpoint frame");
-    const auto function = SB::resolve_shade_function(*visible);
-    HS_CHECK(function != nullptr,
+    const auto *program = SB::resolve_inverse_program(*visible);
+    HS_CHECK(program != nullptr,
              "through-clear test topology has no compiled inverse pipeline");
-    typename SB::FrameShader shader{visible, phase.alpha, function};
+    alignas(std::max_align_t) std::byte storage[SB::PREPARED_BLOB_BYTES];
+    program->prepare(*visible, storage);
+    typename SB::FrameShader shader{visible, phase.alpha, program->shade,
+                                    storage};
     return shader(view);
   }
   static void begin_blend(SB &sb) {
@@ -499,13 +507,15 @@ struct ShaderBallWhiteBox {
     return hue_rotate_lut_gamut(base, amount).color;
   }
   static Color4 shade(const Vector &v, const FrameState &frame) {
-    return SB::shade_dynamic(v, frame);
+    return SB::shade_dynamic(v, frame, nullptr);
   }
   static Color4 pipeline_shade(const Vector &v, const FrameState &frame) {
-    const auto function = SB::resolve_shade_function(frame);
-    HS_CHECK(function != nullptr,
+    const auto *program = SB::resolve_inverse_program(frame);
+    HS_CHECK(program != nullptr,
              "ShaderBall test topology has no compiled inverse pipeline");
-    return function(v, frame);
+    alignas(std::max_align_t) std::byte storage[SB::PREPARED_BLOB_BYTES];
+    program->prepare(frame, storage);
+    return program->shade(v, frame, storage);
   }
   static TopologyKey topology_key(const RequestedConfig &config) {
     return SB::make_topology_key(config);
@@ -3321,62 +3331,31 @@ fixed_reference_config(size_t topology_preset, size_t fixed_preset) {
   return destination;
 }
 
-template <typename FixedWarp>
-FixedLook::PreparedWarp
-fixed_prepared_warp(const FixedWarp &,
-                    const ShaderBallWhiteBox::PreparedWarpStage &source) {
-  FixedLook::PreparedWarp destination{};
-  destination.rotation_cos = source.rotation_cos;
-  destination.rotation_sin = source.rotation_sin;
-  if constexpr (requires { FixedWarp{}.rotation; })
-    destination.transform.mirror = {source.transform.mirror.offset_x,
-                                    source.transform.mirror.offset_y};
-  else if constexpr (requires { FixedWarp{}.rotation_rate; })
-    destination.transform.affine = {
-        source.transform.affine.translation_x,
-        source.transform.affine.translation_y, source.transform.affine.scale_x,
-        source.transform.affine.scale_y, source.transform.affine.shear};
-  else if constexpr (requires { FixedWarp{}.vector_angle; })
-    destination.transform.noise_loop = {source.transform.noise_loop.diagonal,
-                                        source.transform.noise_loop.z};
-  return destination;
-}
-
 template <typename FixedEffect>
-auto fixed_prepared_surface(const ShaderBallWhiteBox::FrameState &source) {
-  FixedLook::PreparedSurface<typename FixedEffect::Params::surface_type>
-      prepared{};
-  if constexpr (requires { prepared.noise; })
-    prepared = {source.resources.surface_noise,
-                source.prepared_surface_noise.loop_offset};
-  return prepared;
-}
-
-template <typename FixedEffect>
-typename FixedEffect::FrameState
+FixedLook::FrameState<typename FixedEffect::Params>
 fixed_reference_frame(const ShaderBallWhiteBox::FrameState &source,
                       size_t fixed_preset) {
   const typename FixedEffect::Params params =
       FixedEffect::preset_params(fixed_preset);
   return {source.transforms.projection_conj,
           source.transforms.outer_conj,
-          {source.prepared_source.primary, source.prepared_source.secondary,
-           source.prepared_source.angle, source.prepared_source.angle_cos,
-           source.prepared_source.angle_sin},
-          fixed_prepared_warp(params.outer_warp, source.prepared_warp.outer),
-          fixed_prepared_warp(params.inner_warp, source.prepared_warp.inner),
           source.resources.outer_warp_noise,
           source.resources.source_noise,
+          source.resources.surface_noise,
           source.resources.generated_palette,
           source.prepared_hue_rotation.lut,
           source.prepared_hue_noise.lut,
           params,
           source.palette_mapping,
+          source.clocks.source_primary,
+          source.clocks.source_secondary,
+          source.clocks.source_angle,
           source.clocks.warp_outer_phase,
           source.clocks.warp_inner_phase,
+          source.clocks.warp_outer_rotation,
           source.clocks.source_noise_time,
-          source.clocks.palette_oscillation_phase,
-          fixed_prepared_surface<FixedEffect>(source)};
+          source.clocks.surface_noise_time,
+          source.clocks.palette_oscillation_phase};
 }
 
 template <typename FixedEffect>
@@ -3387,7 +3366,8 @@ void verify_fixed_shader_export(ShaderBallWhiteBox::SB &shader,
       fixed_reference_config<FixedEffect>(topology_preset, fixed_preset);
   const WB::FrameState dynamic = WB::config_frame(shader, config);
   const typename FixedEffect::FrameState compiled =
-      fixed_reference_frame<FixedEffect>(dynamic, fixed_preset);
+      FixedEffect::RenderPipeline::prepare(
+          fixed_reference_frame<FixedEffect>(dynamic, fixed_preset));
   HS_CONTEXT("effect preset", static_cast<long long>(fixed_preset));
   for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
     const float latitude = latitude_step * (0.5f * PI_F / 9.0f);

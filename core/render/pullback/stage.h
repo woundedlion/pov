@@ -34,8 +34,8 @@ struct OuterCamera : Detail::StageContract<BindingT, StageKind::OUTER_CAMERA,
   static_assert(PROVIDER_VALID,
                 "pullback outer camera: malformed orientation provider");
 
-  __attribute__((always_inline)) static Vector run(const Vector &input,
-                                                   const FrameState &frame) {
+  __attribute__((always_inline)) static Vector
+  run(const Vector &input, const FrameState &frame, const NoPrepared &) {
     return rotate(input, OrientationState::conjugate(frame));
   }
 };
@@ -64,11 +64,26 @@ struct SurfaceProject
       return false;
   }();
 
+  template <typename SurfacePolicy>
+  static constexpr bool surface_policy_valid() {
+    if constexpr (Detail::PolicyPrepares<SurfacePolicy, FrameState>)
+      return requires(const Vector &input, const FrameState &frame,
+                      const typename SurfacePolicy::Prepared &prepared) {
+        {
+          SurfacePolicy::apply(input, frame, prepared)
+        } -> std::same_as<SurfaceResult>;
+      };
+    else
+      return requires(const Vector &input, const FrameState &frame) {
+        { SurfacePolicy::apply(input, frame) } -> std::same_as<SurfaceResult>;
+      };
+  }
+
   static constexpr bool POLICIES_VALID =
+      surface_policy_valid<PreLensSurface>() &&
+      surface_policy_valid<PostLensSurface>() &&
       requires(const Vector &input, const FrameState &frame) {
-        { PreLensSurface::apply(input, frame) } -> std::same_as<SurfaceResult>;
         { LensPolicy::apply(input, frame) } -> std::same_as<Vector>;
-        { PostLensSurface::apply(input, frame) } -> std::same_as<SurfaceResult>;
         {
           ProjectionPolicy::frame_conjugate(frame)
         } -> std::same_as<const Quaternion &>;
@@ -79,9 +94,20 @@ struct SurfaceProject
   static_assert(POLICIES_VALID,
                 "pullback surface/project: malformed policy callable");
 
+  struct Prepared {
+    Detail::PolicyPrepared<PreLensSurface, FrameState> pre;
+    Detail::PolicyPrepared<PostLensSurface, FrameState> post;
+  };
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return {Detail::prepare_policy<PreLensSurface>(frame),
+            Detail::prepare_policy<PostLensSurface>(frame)};
+  }
+
   __attribute__((always_inline)) static ProjectionSample
-  run(const Vector &input, const FrameState &frame) {
-    const SurfaceResult pre = apply_surface<PreLensSurface>(input, frame);
+  run(const Vector &input, const FrameState &frame, const Prepared &prepared) {
+    const SurfaceResult pre =
+        apply_surface<PreLensSurface>(input, frame, prepared.pre);
     // Emscripten-only: identity lens plus identity post-lens surface take a
     // flattened path that yields the same sample as the generic path below.
 #if defined(__EMSCRIPTEN__)
@@ -100,7 +126,8 @@ struct SurfaceProject
 #endif
 
     const Vector lensed = apply_lens(pre.sphere, frame);
-    const SurfaceResult post = apply_surface<PostLensSurface>(lensed, frame);
+    const SurfaceResult post =
+        apply_surface<PostLensSurface>(lensed, frame, prepared.post);
     const auto projection_start = Instrumentation::mark();
     const Vector local =
         rotate(post.sphere, ProjectionPolicy::frame_conjugate(frame));
@@ -124,14 +151,20 @@ private:
     }
   }
 
-  template <typename SurfacePolicy>
+  template <typename SurfacePolicy, typename PreparedT>
   __attribute__((always_inline)) static SurfaceResult
-  apply_surface(const Vector &input, const FrameState &frame) {
+  apply_surface(const Vector &input, const FrameState &frame,
+                const PreparedT &prepared) {
     if constexpr (std::is_same_v<SurfacePolicy, Surface::Identity>) {
       return SurfacePolicy::apply(input, frame);
     } else {
       const auto start = Instrumentation::mark();
-      const SurfaceResult result = SurfacePolicy::apply(input, frame);
+      const SurfaceResult result = [&] {
+        if constexpr (Detail::PolicyPrepares<SurfacePolicy, FrameState>)
+          return SurfacePolicy::apply(input, frame, prepared);
+        else
+          return SurfacePolicy::apply(input, frame);
+      }();
       Instrumentation::template span<ProfileEvent::SURFACE_NOISE>(start);
       return result;
     }
@@ -151,32 +184,68 @@ struct PlanarWarp
   template <size_t Index>
   using policy_at = std::tuple_element_t<Index, Policies>;
 
-  static constexpr bool POLICIES_VALID =
-      (requires(const Complex &input, const ProjectionSample &projected,
-                const FrameState &frame) {
+  template <typename Policy> static constexpr bool warp_policy_valid() {
+    if constexpr (Detail::PolicyPrepares<Policy, FrameState>)
+      return requires(const Complex &input, const ProjectionSample &projected,
+                      const FrameState &frame,
+                      const typename Policy::Prepared &prepared) {
         {
-          WarpPolicies::apply(input, projected, frame)
+          Policy::apply(input, projected, frame, prepared)
         } -> std::same_as<WarpStepResult>;
-      } &&
-       ...);
+      };
+    else
+      return requires(const Complex &input, const ProjectionSample &projected,
+                      const FrameState &frame) {
+        {
+          Policy::apply(input, projected, frame)
+        } -> std::same_as<WarpStepResult>;
+      };
+  }
+
+  static constexpr bool POLICIES_VALID =
+      (warp_policy_valid<WarpPolicies>() && ...);
   static_assert(POLICIES_VALID,
                 "pullback planar warp: malformed policy callable");
 
+  using Prepared =
+      std::tuple<Detail::PolicyPrepared<WarpPolicies, FrameState>...>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return {Detail::prepare_policy<WarpPolicies>(frame)...};
+  }
+
   __attribute__((always_inline)) static SourceInput
-  run(const ProjectionSample &projected, const FrameState &frame) {
+  run(const ProjectionSample &projected, const FrameState &frame,
+      const Prepared &prepared) {
     const auto start = Instrumentation::mark();
     WarpResult warped{projected.coords, 0.0f};
-    (apply_one<WarpPolicies>(projected, frame, warped), ...);
+    apply_all(projected, frame, prepared, warped,
+              std::index_sequence_for<WarpPolicies...>{});
     Instrumentation::template span<ProfileEvent::PLANAR_WARP>(start);
     return {projected, warped};
   }
 
 private:
-  template <typename Policy>
+  template <size_t... Indices>
+  __attribute__((always_inline)) static void
+  apply_all(const ProjectionSample &projected, const FrameState &frame,
+            const Prepared &prepared, WarpResult &warped,
+            std::index_sequence<Indices...>) {
+    (apply_one<policy_at<Indices>>(projected, frame,
+                                   std::get<Indices>(prepared), warped),
+     ...);
+  }
+
+  template <typename Policy, typename PreparedT>
   __attribute__((always_inline)) static void
   apply_one(const ProjectionSample &projected, const FrameState &frame,
-            WarpResult &warped) {
-    const WarpStepResult step = Policy::apply(warped.coords, projected, frame);
+            const PreparedT &prepared, WarpResult &warped) {
+    const WarpStepResult step = [&] {
+      if constexpr (Detail::PolicyPrepares<Policy, FrameState>)
+        return Policy::apply(warped.coords, projected, frame, prepared);
+      else
+        return Policy::apply(warped.coords, projected, frame);
+    }();
     warped.coords = step.coords;
     warped.path_length += step.path_length;
   }
@@ -191,17 +260,36 @@ struct Source : Detail::StageContract<BindingT, StageKind::SOURCE, SourceInput,
   using SourcePolicy = SourcePolicyT;
   using Instrumentation = typename BindingT::Instrumentation;
 
-  static constexpr bool POLICY_VALID =
-      requires(const SourceInput &input, const FrameState &frame) {
+  static constexpr bool POLICY_VALID = [] {
+    if constexpr (Detail::PolicyPrepares<SourcePolicy, FrameState>)
+      return requires(const SourceInput &input, const FrameState &frame,
+                      const typename SourcePolicy::Prepared &prepared) {
+        { SourcePolicy::sample(input, frame, prepared) } -> std::same_as<float>;
+      };
+    else
+      return requires(const SourceInput &input, const FrameState &frame) {
         { SourcePolicy::sample(input, frame) } -> std::same_as<float>;
       };
+  }();
   static_assert(POLICY_VALID, "pullback source: malformed policy callable");
 
+  using Prepared = Detail::PolicyPrepared<SourcePolicy, FrameState>;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return Detail::prepare_policy<SourcePolicy>(frame);
+  }
+
   __attribute__((always_inline)) static MaterialInput
-  run(const SourceInput &input, const FrameState &frame) {
+  run(const SourceInput &input, const FrameState &frame,
+      const Prepared &prepared) {
     const auto start = Instrumentation::mark();
-    const MaterialInput result{input.projected, input.warped,
-                               SourcePolicy::sample(input, frame)};
+    const float sampled = [&] {
+      if constexpr (Detail::PolicyPrepares<SourcePolicy, FrameState>)
+        return SourcePolicy::sample(input, frame, prepared);
+      else
+        return SourcePolicy::sample(input, frame);
+    }();
+    const MaterialInput result{input.projected, input.warped, sampled};
     Instrumentation::template span<ProfileEvent::SOURCE>(start);
     return result;
   }
@@ -232,7 +320,7 @@ struct Material
   static_assert(POLICIES_VALID, "pullback material: malformed policy callable");
 
   __attribute__((always_inline)) static MaterialSample
-  run(const MaterialInput &input, const FrameState &frame) {
+  run(const MaterialInput &input, const FrameState &frame, const NoPrepared &) {
     const auto start = Instrumentation::mark();
     const float weighted =
         WeightPolicy::apply(input.field, input.projected, frame);
@@ -265,7 +353,8 @@ struct Color : Detail::StageContract<BindingT, StageKind::COLOR, MaterialSample,
   static_assert(POLICY_VALID, "pullback color: malformed policy callable");
 
   __attribute__((always_inline)) static Color4 run(const MaterialSample &input,
-                                                   const FrameState &frame) {
+                                                   const FrameState &frame,
+                                                   const NoPrepared &) {
     const auto start = Instrumentation::mark();
     const Color4 result = ColorPolicy::apply(input, frame);
     Instrumentation::template span<ProfileEvent::COLOR>(start);
@@ -281,11 +370,12 @@ struct Placed<CodeEmission::INLINE_ONLY, StageImplementationT>
   using Input = typename StageImplementationT::Input;
   using Output = typename StageImplementationT::Output;
   using FrameState = typename StageImplementationT::FrameState;
+  using Prepared = typename StageImplementationT::Prepared;
   static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
 
-  __attribute__((always_inline)) static Output run(const Input &input,
-                                                   const FrameState &frame) {
-    return StageImplementationT::run(input, frame);
+  __attribute__((always_inline)) static Output
+  run(const Input &input, const FrameState &frame, const Prepared &prepared) {
+    return StageImplementationT::run(input, frame, prepared);
   }
 };
 
@@ -295,11 +385,12 @@ struct Placed<CodeEmission::OUT_OF_LINE_FLASH, StageImplementationT>
   using Input = typename StageImplementationT::Input;
   using Output = typename StageImplementationT::Output;
   using FrameState = typename StageImplementationT::FrameState;
+  using Prepared = typename StageImplementationT::Prepared;
   static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
 
   __attribute__((noinline)) HS_FLASH_MEMBER static Output
-  run(const Input &input, const FrameState &frame) {
-    return StageImplementationT::run(input, frame);
+  run(const Input &input, const FrameState &frame, const Prepared &prepared) {
+    return StageImplementationT::run(input, frame, prepared);
   }
 };
 
@@ -309,11 +400,12 @@ struct Placed<CodeEmission::OUT_OF_LINE_ITCM, StageImplementationT>
   using Input = typename StageImplementationT::Input;
   using Output = typename StageImplementationT::Output;
   using FrameState = typename StageImplementationT::FrameState;
+  using Prepared = typename StageImplementationT::Prepared;
   static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_ITCM;
 
-  FASTRUN HS_NOINLINE_NOCLONE static Output run(const Input &input,
-                                                const FrameState &frame) {
-    return StageImplementationT::run(input, frame);
+  FASTRUN HS_NOINLINE_NOCLONE static Output
+  run(const Input &input, const FrameState &frame, const Prepared &prepared) {
+    return StageImplementationT::run(input, frame, prepared);
   }
 };
 

@@ -44,6 +44,9 @@ struct ExactStage {
   static constexpr Pullback::ApproximationOracleId ORACLE =
       Pullback::ApproximationOracleId::NONE;
   static constexpr std::array<Pullback::ApproximationMetric, 0> METRICS{};
+  using Prepared = Pullback::NoPrepared;
+
+  static constexpr Prepared prepare(const FrameState &) { return {}; }
 
   static void record(const FrameState &frame) {
     frame.calls[frame.call_count++] = KIND;
@@ -52,7 +55,8 @@ struct ExactStage {
 
 struct OuterStage
     : ExactStage<Pullback::StageKind::OUTER_CAMERA, Vector, Vector> {
-  static Vector run(const Vector &input, const FrameState &frame) {
+  static Vector run(const Vector &input, const FrameState &frame,
+                    const Prepared &) {
     record(frame);
     return Vector(input.x + 1.0f, input.y, input.z);
   }
@@ -60,8 +64,8 @@ struct OuterStage
 
 struct SurfaceStage : ExactStage<Pullback::StageKind::SURFACE_PROJECT, Vector,
                                  Pullback::ProjectionSample> {
-  static Pullback::ProjectionSample run(const Vector &input,
-                                        const FrameState &frame) {
+  static Pullback::ProjectionSample
+  run(const Vector &input, const FrameState &frame, const Prepared &) {
     record(frame);
     return {Complex(input.x + 1.0f, input.y + 2.0f),
             3,
@@ -82,7 +86,7 @@ struct WarpStage
     : ExactStage<Pullback::StageKind::PLANAR_WARP, Pullback::ProjectionSample,
                  Pullback::SourceInput> {
   static Pullback::SourceInput run(const Pullback::ProjectionSample &input,
-                                   const FrameState &frame) {
+                                   const FrameState &frame, const Prepared &) {
     record(frame);
     return {input,
             {Complex(input.coords.re + 2.0f, input.coords.im + 3.0f), 4.0f}};
@@ -93,7 +97,8 @@ struct SourceStage
     : ExactStage<Pullback::StageKind::SOURCE, Pullback::SourceInput,
                  Pullback::MaterialInput> {
   static Pullback::MaterialInput run(const Pullback::SourceInput &input,
-                                     const FrameState &frame) {
+                                     const FrameState &frame,
+                                     const Prepared &) {
     record(frame);
     return {input.projected, input.warped,
             input.warped.coords.re + input.warped.coords.im};
@@ -104,7 +109,8 @@ struct MaterialStage
     : ExactStage<Pullback::StageKind::MATERIAL, Pullback::MaterialInput,
                  Pullback::MaterialSample> {
   static Pullback::MaterialSample run(const Pullback::MaterialInput &input,
-                                      const FrameState &frame) {
+                                      const FrameState &frame,
+                                      const Prepared &) {
     record(frame);
     return {input.field, input.projected.domain_coverage,
             input.projected.sphere,
@@ -115,7 +121,7 @@ struct MaterialStage
 struct ColorStage : ExactStage<Pullback::StageKind::COLOR,
                                Pullback::MaterialSample, Color4, true> {
   static Color4 run(const Pullback::MaterialSample &input,
-                    const FrameState &frame) {
+                    const FrameState &frame, const Prepared &) {
     record(frame);
     return Color4(Pixel(1, 2, 3), input.coverage);
   }
@@ -218,12 +224,16 @@ struct WrongOrderOuter : OuterStage {
 };
 
 struct WrongReturnOuter : OuterStage {
-  static int run(const Vector &, const FrameState &) { return 0; }
+  static int run(const Vector &, const FrameState &, const Prepared &) {
+    return 0;
+  }
 };
 
 struct WrongCarrierSurface : SurfaceStage {
   using Output = Vector;
-  static Vector run(const Vector &input, const FrameState &) { return input; }
+  static Vector run(const Vector &input, const FrameState &, const Prepared &) {
+    return input;
+  }
 };
 
 struct TerminalOuter : OuterStage {
@@ -259,8 +269,9 @@ template <typename Stage> struct RejectStage : Stage {
   using Input = typename Stage::Input;
   using Output = typename Stage::Output;
 
-  static Output run(const Input &input, const FrameState &frame) {
-    return Stage::run(input, frame);
+  static Output run(const Input &input, const FrameState &frame,
+                    const typename Stage::Prepared &prepared) {
+    return Stage::run(input, frame, prepared);
   }
 };
 
@@ -439,6 +450,7 @@ inline void test_pullback_validation_predicates() {
   HS_EXPECT_TRUE(Valid::EMPTY_POLICIES);
   HS_EXPECT_TRUE(Valid::ORDER);
   HS_EXPECT_TRUE(Valid::RUN_RETURNS);
+  HS_EXPECT_TRUE(Valid::PREPARES);
   HS_EXPECT_TRUE(Valid::CARRIERS);
   HS_EXPECT_TRUE(Valid::TERMINALS);
   HS_EXPECT_TRUE(Valid::APPROXIMATIONS);
@@ -460,11 +472,11 @@ inline void test_pullback_validation_predicates() {
 }
 
 inline void test_pullback_evaluation_order() {
-  TestFrame frame;
-  const Color4 result = TestPipeline::evaluate(Vector(1.0f, 2.0f, 3.0f), frame);
-  HS_EXPECT_EQ(frame.call_count, 6U);
-  for (size_t index = 0; index < frame.call_count; ++index)
-    HS_EXPECT_EQ(static_cast<uint8_t>(frame.calls[index]), index);
+  const TestPipeline::Frame frame = TestPipeline::prepare(TestFrame{});
+  const Color4 result = TestPipeline::shade(Vector(1.0f, 2.0f, 3.0f), frame);
+  HS_EXPECT_EQ(frame.ctx.call_count, 6U);
+  for (size_t index = 0; index < frame.ctx.call_count; ++index)
+    HS_EXPECT_EQ(static_cast<uint8_t>(frame.ctx.calls[index]), index);
   HS_EXPECT_EQ(result.color.r, 1);
   HS_EXPECT_EQ(result.color.g, 2);
   HS_EXPECT_EQ(result.color.b, 3);
@@ -498,9 +510,8 @@ inline void test_pullback_no_instrumentation() {
 
 inline void test_pullback_counting_instrumentation() {
   CountingInstrumentation::count = 0;
-  TestFrame frame;
-  static_cast<void>(
-      CountingPipeline::evaluate(Vector(1.0f, 2.0f, 3.0f), frame));
+  static_cast<void>(CountingPipeline::shade(
+      Vector(1.0f, 2.0f, 3.0f), CountingPipeline::prepare(TestFrame{})));
   constexpr std::array EXPECTED{Pullback::ProfileEvent::LENS,
                                 Pullback::ProfileEvent::SURFACE_NOISE,
                                 Pullback::ProfileEvent::PROJECTION,
@@ -516,16 +527,18 @@ inline void test_pullback_counting_instrumentation() {
 
 inline void test_pullback_stage_combinators() {
   TestFrame frame;
-  const Pullback::ProjectionSample projected =
-      CoreSurface::run(Vector(1.0f, 2.0f, 3.0f), frame);
-  const Pullback::SourceInput warped = CoreWarp::run(projected, frame);
+  const Pullback::ProjectionSample projected = CoreSurface::run(
+      Vector(1.0f, 2.0f, 3.0f), frame, CoreSurface::prepare(frame));
+  const Pullback::SourceInput warped =
+      CoreWarp::run(projected, frame, CoreWarp::prepare(frame));
   HS_EXPECT_EQ(warped.warped.coords.re, 2.0f);
   HS_EXPECT_EQ(warped.warped.coords.im, 4.0f);
   HS_EXPECT_EQ(warped.warped.path_length, 5.0f);
   HS_EXPECT_EQ(warped.projected.coords.re, 1.0f);
   HS_EXPECT_EQ(warped.projected.coords.im, 2.0f);
 
-  const Color4 color = CorePipeline::evaluate(Vector(1.0f, 2.0f, 3.0f), frame);
+  const Color4 color = CorePipeline::shade(Vector(1.0f, 2.0f, 3.0f),
+                                           CorePipeline::prepare(frame));
   HS_EXPECT_EQ(color.color.r, 9);
   HS_EXPECT_EQ(color.color.g, 8);
   HS_EXPECT_EQ(color.color.b, 7);

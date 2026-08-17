@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cmath>
+#include <new>
 #include <span>
 #include <tuple>
 #include <type_traits>
@@ -146,15 +147,18 @@ struct HasStageContract : std::false_type {};
 template <typename Stage, typename Binding>
 struct HasStageContract<
     Stage, Binding,
-    std::void_t<typename Stage::Binding, typename Stage::FrameState,
-                typename Stage::Input, typename Stage::Output,
-                decltype(Stage::KIND), decltype(Stage::EMISSION),
-                decltype(Stage::APPROXIMATE), decltype(Stage::TERMINAL),
-                decltype(Stage::ORACLE), decltype(Stage::METRICS),
-                decltype(Stage::NON_FLOATING_FIELDS_EXACT),
-                decltype(Stage::run(
-                    std::declval<const typename Stage::Input &>(),
-                    std::declval<const typename Stage::FrameState &>()))>>
+    std::void_t<
+        typename Stage::Binding, typename Stage::FrameState,
+        typename Stage::Input, typename Stage::Output, typename Stage::Prepared,
+        decltype(Stage::KIND), decltype(Stage::EMISSION),
+        decltype(Stage::APPROXIMATE), decltype(Stage::TERMINAL),
+        decltype(Stage::ORACLE), decltype(Stage::METRICS),
+        decltype(Stage::NON_FLOATING_FIELDS_EXACT),
+        decltype(Stage::prepare(
+            std::declval<const typename Stage::FrameState &>())),
+        decltype(Stage::run(std::declval<const typename Stage::Input &>(),
+                            std::declval<const typename Stage::FrameState &>(),
+                            std::declval<const typename Stage::Prepared &>()))>>
     : std::true_type {};
 
 template <typename Stage, typename Binding,
@@ -206,6 +210,7 @@ struct PipelineValidationLevel2 {
   static constexpr bool EMPTY_POLICIES = false;
   static constexpr bool ORDER = false;
   static constexpr bool RUN_RETURNS = false;
+  static constexpr bool PREPARES = false;
   static constexpr bool CARRIERS = false;
   static constexpr bool TERMINALS = false;
   static constexpr bool APPROXIMATIONS = false;
@@ -234,8 +239,14 @@ struct PipelineValidationLevel2<true, Binding, Stages...> {
   static constexpr bool RUN_RETURNS =
       (std::is_same_v<decltype(Stages::run(
                           std::declval<const typename Stages::Input &>(),
-                          std::declval<const typename Stages::FrameState &>())),
+                          std::declval<const typename Stages::FrameState &>(),
+                          std::declval<const typename Stages::Prepared &>())),
                       typename Stages::Output> &&
+       ...);
+  static constexpr bool PREPARES =
+      (std::is_same_v<decltype(Stages::prepare(
+                          std::declval<const typename Stages::FrameState &>())),
+                      typename Stages::Prepared> &&
        ...);
   static constexpr bool CARRIERS =
       std::is_same_v<typename OuterStage::Input, Vector> &&
@@ -281,6 +292,7 @@ struct PipelineValidation
   static constexpr bool EMPTY_POLICIES = Level2::EMPTY_POLICIES;
   static constexpr bool ORDER = Level2::ORDER;
   static constexpr bool RUN_RETURNS = Level2::RUN_RETURNS;
+  static constexpr bool PREPARES = Level2::PREPARES;
   static constexpr bool CARRIERS = Level2::CARRIERS;
   static constexpr bool TERMINALS = Level2::TERMINALS;
   static constexpr bool APPROXIMATIONS = Level2::APPROXIMATIONS;
@@ -317,6 +329,9 @@ template <typename BindingT, typename... Stages> struct Pipeline {
                     Validation::RUN_RETURNS,
                 "pullback pipeline: wrong stage return type");
   static_assert(!Validation::ARITY || !Validation::CONTRACTS ||
+                    Validation::PREPARES,
+                "pullback pipeline: wrong stage prepare() return type");
+  static_assert(!Validation::ARITY || !Validation::CONTRACTS ||
                     Validation::CARRIERS,
                 "pullback pipeline: carrier mismatch");
   static_assert(!Validation::ARITY || !Validation::CONTRACTS ||
@@ -329,14 +344,52 @@ template <typename BindingT, typename... Stages> struct Pipeline {
                     Validation::EXTRA_VALIDATION,
                 "pullback pipeline: consumer validation failed");
 
-  __attribute__((always_inline)) static Color4
-  evaluate(const Vector &view, const FrameState &frame) {
-    return run_stage<0>(view, frame);
+  /** Per-stage prepared state, one entry per pipeline slot. */
+  using PreparedTuple = std::tuple<typename Stages::Prepared...>;
+  static_assert(std::is_trivially_destructible_v<PreparedTuple>,
+                "pullback pipeline: prepared state must be trivially "
+                "destructible");
+
+  /**
+   * @brief One frame's complete shading state: the public frame context plus
+   *        the stages' private prepared state.
+   */
+  struct Frame {
+    FrameState ctx;
+    PreparedTuple prepared;
+  };
+
+  /** @brief Resolves every stage's prepared state from @p ctx. */
+  HS_FLASH_MEMBER static PreparedTuple prepare_stages(const FrameState &ctx) {
+    return PreparedTuple{Stages::prepare(ctx)...};
   }
 
-  HS_FLASH_MEMBER static Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return evaluate(view, frame);
+  /** @brief Bundles @p ctx with the stages' prepared state. */
+  HS_FLASH_MEMBER static Frame prepare(const FrameState &ctx) {
+    return {ctx, prepare_stages(ctx)};
+  }
+
+  /** @brief Type-erased prepare for dynamic program dispatch. */
+  HS_FLASH_MEMBER static void prepare_into(const FrameState &ctx,
+                                           void *storage) {
+    new (storage) PreparedTuple{prepare_stages(ctx)};
+  }
+
+  __attribute__((always_inline)) static Color4
+  evaluate(const Vector &view, const FrameState &ctx,
+           const PreparedTuple &prepared) {
+    return run_stage<0>(view, ctx, prepared);
+  }
+
+  HS_FLASH_MEMBER static Color4 shade(const Vector &view, const Frame &frame) {
+    return evaluate(view, frame.ctx, frame.prepared);
+  }
+
+  /** @brief Type-erased shade over prepare_into()'s storage. */
+  HS_FLASH_MEMBER static Color4 shade_prepared(const Vector &view,
+                                               const FrameState &ctx,
+                                               const void *storage) {
+    return evaluate(view, ctx, *static_cast<const PreparedTuple *>(storage));
   }
 
   template <typename Key>
@@ -348,16 +401,17 @@ template <typename BindingT, typename... Stages> struct Pipeline {
 protected:
   template <size_t Index, typename Input>
   __attribute__((always_inline)) static Color4
-  run_stage(const Input &input, const FrameState &frame) {
+  run_stage(const Input &input, const FrameState &ctx,
+            const PreparedTuple &prepared) {
     using CurrentStage = stage_at<Index>;
     static_assert(std::is_same_v<Input, typename CurrentStage::Input>,
                   "pullback pipeline: stage input mismatch");
     const typename CurrentStage::Output output =
-        CurrentStage::run(input, frame);
+        CurrentStage::run(input, ctx, std::get<Index>(prepared));
     if constexpr (Index + 1 == STAGE_COUNT)
       return output;
     else
-      return run_stage<Index + 1>(output, frame);
+      return run_stage<Index + 1>(output, ctx, prepared);
   }
 };
 
@@ -368,7 +422,40 @@ struct ExactPolicy {
   static constexpr std::array<ApproximationMetric, 0> METRICS{};
 };
 
+/** @brief Prepared type of a stage or policy with no per-frame state. */
+struct NoPrepared {};
+
 namespace Detail {
+
+/** @brief Whether @p Policy resolves per-frame prepared state. */
+template <typename Policy, typename FrameState>
+concept PolicyPrepares = requires(const FrameState &frame) {
+  { Policy::prepare(frame) } -> std::same_as<typename Policy::Prepared>;
+};
+
+template <typename Policy, typename FrameState> struct PolicyPreparedImpl {
+  using Type = NoPrepared;
+};
+
+template <typename Policy, typename FrameState>
+  requires PolicyPrepares<Policy, FrameState>
+struct PolicyPreparedImpl<Policy, FrameState> {
+  using Type = typename Policy::Prepared;
+};
+
+/** @brief The policy's Prepared type, or NoPrepared when it declares none. */
+template <typename Policy, typename FrameState>
+using PolicyPrepared = typename PolicyPreparedImpl<Policy, FrameState>::Type;
+
+/** @brief Resolves one policy's prepared state; empty when it declares none. */
+template <typename Policy, typename FrameState>
+__attribute__((always_inline)) inline PolicyPrepared<Policy, FrameState>
+prepare_policy(const FrameState &frame) {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return Policy::prepare(frame);
+  else
+    return {};
+}
 
 template <typename... Policies> struct FirstApproximate {
   using Type = ExactPolicy;
@@ -410,10 +497,15 @@ struct StageContract : CombinedApproximation<Policies...> {
   using FrameState = typename Binding::FrameState;
   using Input = InputT;
   using Output = OutputT;
+  /** Default: no per-frame prepared state; combinators with one shadow both
+      members. */
+  using Prepared = NoPrepared;
 
   static constexpr StageKind KIND = KindV;
   static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
   static constexpr bool TERMINAL = TerminalV;
+
+  static constexpr Prepared prepare(const FrameState &) { return {}; }
 
   static_assert((std::is_empty_v<Policies> && ...),
                 "pullback stage: policies must be empty");

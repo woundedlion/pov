@@ -187,16 +187,18 @@ private:
   struct FrameState;
   struct LookRuntime;
   struct WalkDeltas;
-  using ShadeFunction = Color4 (*)(const Vector &, const FrameState &);
+  using ShadeFunction = Color4 (*)(const Vector &, const FrameState &,
+                                   const void *);
   struct FrameShader {
     using ShadeFunction = ShaderBall::ShadeFunction;
 
     const FrameState *frame;
     float alpha;
     ShadeFunction shade_function;
+    const void *prepared;
 
     HS_FLASH_MEMBER Color4 operator()(const Vector &view) const {
-      Color4 color = shade_function(view, *frame);
+      Color4 color = shade_function(view, *frame, prepared);
       color.alpha *= alpha;
       return color;
     }
@@ -384,12 +386,16 @@ private:
     prepare_frame(config, look, frame);
     HS_CHECK(pipeline_resources_ready(frame),
              "fixed Shader endpoint resources are unavailable");
-    draw_fixed_prepared(canvas, frame, alpha, &Pipeline::shade);
+    const typename Pipeline::PreparedTuple prepared =
+        Pipeline::prepare_stages(frame);
+    draw_fixed_prepared(canvas, frame, alpha, &Pipeline::shade_prepared,
+                        &prepared);
   }
 
   HS_FLASH_MEMBER void draw_fixed_prepared(Canvas &canvas, FrameState &frame,
-                                           float alpha, ShadeFunction shade) {
-    FrameShader shader{&frame, alpha, shade};
+                                           float alpha, ShadeFunction shade,
+                                           const void *prepared) {
+    FrameShader shader{&frame, alpha, shade, prepared};
     HS_PROFILE(sb_shader_draw);
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
@@ -2071,18 +2077,25 @@ private:
 
   static constexpr size_t MAX_NOISE_RESOURCES = 9;
 
+  /** @brief The interpretive backend's and stage kernels' per-frame
+      scratch; the compiled pipelines carry theirs in the program's prepared
+      blob instead. */
+  struct DynamicPrepared {
+    SourceState source;
+    PreparedWarpProgram warp;
+    PreparedSurfaceNoise surface_noise;
+  };
+
   struct FrameState {
     Slots slots;
     Params params;
     PaletteMappingWeights palette_mapping;
     ClockState clocks;
-    SourceState prepared_source;
     PreparedTransforms transforms;
-    PreparedWarpProgram prepared_warp;
-    PreparedSurfaceNoise prepared_surface_noise;
     PreparedHueRotation prepared_hue_rotation;
     PreparedHueNoise prepared_hue_noise;
     ResourceBindings resources;
+    DynamicPrepared dynamic;
   };
 
   struct ShaderBallInstrumentation {
@@ -2181,17 +2194,11 @@ private:
     static float scale(const FrameState &frame) {
       return frame.params.surface_noise.scale;
     }
-    static const Vector &loop_offset(const FrameState &frame) {
-      return frame.prepared_surface_noise.loop_offset;
-    }
     static float strength(const FrameState &frame) {
       return frame.params.surface_noise.strength;
     }
-    static float direction_cos(const FrameState &frame) {
-      return frame.prepared_surface_noise.direction_cos;
-    }
-    static float direction_sin(const FrameState &frame) {
-      return frame.prepared_surface_noise.direction_sin;
+    static PreparedSurfaceNoise prepare(const FrameState &frame) {
+      return prepare_surface_noise(frame.clocks, frame.params);
     }
     __attribute__((always_inline)) static bool
     path_length_required(const FrameState &frame) {
@@ -2218,11 +2225,18 @@ private:
       else
         return frame.params.warp.inner;
     }
-    static const PreparedWarpStage &prepared(const FrameState &frame) {
+    static PreparedWarpStage prepare(const FrameState &frame) {
+      const Config config{frame.slots, frame.params};
       if constexpr (Outer)
-        return frame.prepared_warp.outer;
+        return prepare_warp_stage(
+            frame.slots.warp_program.outer, frame.params.warp.outer,
+            frame.clocks.warp_outer_phase, source_cartesian_period(config),
+            frame.clocks.warp_outer_rotation);
       else
-        return frame.prepared_warp.inner;
+        return prepare_warp_stage(
+            frame.slots.warp_program.inner, frame.params.warp.inner,
+            frame.clocks.warp_inner_phase, source_cartesian_period(config),
+            frame.clocks.warp_inner_rotation);
     }
     static float phase(const FrameState &frame) {
       if constexpr (Outer)
@@ -2249,8 +2263,8 @@ private:
     static const SourceParams &params(const FrameState &frame) {
       return frame.params.source;
     }
-    static const SourceState &prepared(const FrameState &frame) {
-      return frame.prepared_source;
+    static SourceState prepare(const FrameState &frame) {
+      return prepare_source_state(frame.clocks);
     }
     static const FastNoiseLite &noise(const FrameState &frame) {
       return *frame.resources.source_noise;
@@ -2491,8 +2505,9 @@ private:
                                      OuterCameraStateProvider> {
     static constexpr bool implements(const TopologyKey &) { return true; }
 
-    __attribute__((always_inline)) static Vector run(const Vector &input,
-                                                     const FrameState &frame) {
+    __attribute__((always_inline)) static Vector
+    run(const Vector &input, const FrameState &frame,
+        const Pullback::NoPrepared &) {
       return pullback_outer_camera_lookup(input, frame);
     }
   };
@@ -2692,10 +2707,13 @@ private:
       ColorStage>;
   struct GlitchNoiseGridWaveShearPipeline
       : GlitchNoiseGridWaveShearPipelineBase {
-    HS_HOT_FLASH_MEMBER static Color4 shade(const Vector &view,
-                                            const FrameState &frame) {
-      return GlitchNoiseGridWaveShearPipelineBase::template run_stage<0>(view,
-                                                                         frame);
+    HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const Vector &view,
+                                                     const FrameState &frame,
+                                                     const void *storage) {
+      return GlitchNoiseGridWaveShearPipelineBase::evaluate(
+          view, frame,
+          *static_cast<const typename GlitchNoiseGridWaveShearPipelineBase::
+                           PreparedTuple *>(storage));
     }
   };
   using KaleidoscopeTwinWaveInnerMirrorPipeline = InversePipeline<
@@ -2746,10 +2764,13 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::EDGE_FADE>, ColorStage>;
   struct PeirceDodecahedralGridPipeline : PeirceDodecahedralGridPipelineBase {
-    HS_HOT_FLASH_MEMBER static Color4 shade(const Vector &view,
-                                            const FrameState &frame) {
-      return PeirceDodecahedralGridPipelineBase::template run_stage<0>(view,
-                                                                       frame);
+    HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const Vector &view,
+                                                     const FrameState &frame,
+                                                     const void *storage) {
+      return PeirceDodecahedralGridPipelineBase::evaluate(
+          view, frame,
+          *static_cast<const typename PeirceDodecahedralGridPipelineBase::
+                           PreparedTuple *>(storage));
     }
   };
   using GnomonicDodecahedralGridWaveMirrorPipelineBase = InversePipeline<
@@ -2763,10 +2784,14 @@ private:
       ColorStage>;
   struct GnomonicDodecahedralGridWaveMirrorPipeline
       : GnomonicDodecahedralGridWaveMirrorPipelineBase {
-    HS_HOT_FLASH_MEMBER static Color4 shade(const Vector &view,
-                                            const FrameState &frame) {
-      return GnomonicDodecahedralGridWaveMirrorPipelineBase::template run_stage<
-          0>(view, frame);
+    HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const Vector &view,
+                                                     const FrameState &frame,
+                                                     const void *storage) {
+      return GnomonicDodecahedralGridWaveMirrorPipelineBase::evaluate(
+          view, frame,
+          *static_cast<
+              const typename GnomonicDodecahedralGridWaveMirrorPipelineBase::
+                  PreparedTuple *>(storage));
     }
   };
   using GnomonicDodecahedralGridVectorMirrorPipelineBase = InversePipeline<
@@ -2836,9 +2861,14 @@ private:
     InversePipelineId id;
     TopologyKey key;
     ShadeFunction shade;
+    void (*prepare)(const FrameState &, void *);
     bool (*continuous_parameters_supported)(const Config &);
     bool (*resources_ready)(const FrameState &);
   };
+
+  /** Capacity of the per-frame prepared blob a compiled program renders
+      from; make_program() pins every program's tuple under it. */
+  static constexpr size_t PREPARED_BLOB_BYTES = 256;
 
   static constexpr bool source_uses_noise(Function function) {
     return function == Function::NOISE_CONTOUR ||
@@ -2960,6 +2990,7 @@ private:
   struct PreparedEndpoint {
     FrameState *frame;
     ShadeFunction shade;
+    const void *prepared;
     InversePipelineId pipeline;
     float alpha;
 #if defined(HS_PROFILE_ENABLE)
@@ -3273,6 +3304,7 @@ private:
 
   struct StateBundle {
     FrameState frame;
+    alignas(std::max_align_t) std::byte prepared_blob[PREPARED_BLOB_BYTES];
     Config render_config;
     std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
     std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
@@ -3526,6 +3558,21 @@ private:
     analogous_palette_cycler.set_generated_chroma(chroma);
   }
 
+  HS_FLASH_MEMBER static SourceState
+  prepare_source_state(const ClockState &clocks) {
+    return {clocks.source_primary, clocks.source_secondary, clocks.source_angle,
+            fast_cosf(clocks.source_angle), fast_sinf(clocks.source_angle)};
+  }
+
+  HS_FLASH_MEMBER static PreparedSurfaceNoise
+  prepare_surface_noise(const ClockState &clocks, const Params &params) {
+    const float surface_phase = TWO_PI_F * wrap_t(clocks.surface_noise_time);
+    const float surface_direction = TWO_PI_F * params.surface_noise.direction;
+    return {Vector(NOISE_LOOP_RADIUS * cosf(surface_phase),
+                   NOISE_LOOP_RADIUS * sinf(surface_phase), 0.0f),
+            cosf(surface_direction), sinf(surface_direction)};
+  }
+
   HS_FLASH_MEMBER static PreparedWarpStage
   prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
                      float stage_phase,
@@ -3591,24 +3638,6 @@ private:
                                     FrameState &frame) const {
     const bool animated_projection =
         config.slots.projection_frame == ProjectionFramePolicy::SPIN_WANDER;
-    const Complex source_period = source_cartesian_period(config);
-    const PreparedWarpProgram prepared_warp{
-        prepare_warp_stage(config.slots.warp_program.outer,
-                           config.params.warp.outer,
-                           look.clocks.warp_outer_phase, source_period,
-                           look.clocks.warp_outer_rotation),
-        prepare_warp_stage(config.slots.warp_program.inner,
-                           config.params.warp.inner,
-                           look.clocks.warp_inner_phase, source_period,
-                           look.clocks.warp_inner_rotation)};
-    const float surface_phase =
-        TWO_PI_F * wrap_t(look.clocks.surface_noise_time);
-    const float surface_direction =
-        TWO_PI_F * config.params.surface_noise.direction;
-    const PreparedSurfaceNoise prepared_surface_noise{
-        Vector(NOISE_LOOP_RADIUS * cosf(surface_phase),
-               NOISE_LOOP_RADIUS * sinf(surface_phase), 0.0f),
-        cosf(surface_direction), sinf(surface_direction)};
     const BakedPalette *palette = &palette_for(config.slots.palette);
     PreparedHueRotation prepared_hue_rotation{
         state->hue_rotation_lut.data(),
@@ -3637,15 +3666,20 @@ private:
             ? blend.palette_mapping
             : palette_mapping_weights(config.slots.palette_mapping);
     frame.clocks = look.clocks;
-    frame.prepared_source = {
-        look.clocks.source_primary, look.clocks.source_secondary,
-        look.clocks.source_angle, fast_cosf(look.clocks.source_angle),
-        fast_sinf(look.clocks.source_angle)};
     frame.transforms = {animated_projection ? look.transforms.projection_conj
                                             : Quaternion(),
                         look.transforms.outer_conj};
-    frame.prepared_warp = prepared_warp;
-    frame.prepared_surface_noise = prepared_surface_noise;
+    frame.dynamic = {
+        prepare_source_state(look.clocks),
+        {prepare_warp_stage(
+             config.slots.warp_program.outer, config.params.warp.outer,
+             look.clocks.warp_outer_phase, source_cartesian_period(config),
+             look.clocks.warp_outer_rotation),
+         prepare_warp_stage(
+             config.slots.warp_program.inner, config.params.warp.inner,
+             look.clocks.warp_inner_phase, source_cartesian_period(config),
+             look.clocks.warp_inner_rotation)},
+        prepare_surface_noise(look.clocks, config.params)};
     frame.prepared_hue_rotation = prepared_hue_rotation;
     frame.prepared_hue_noise = prepared_hue_noise;
     frame.resources = {resolve_warp_resource(config.slots.warp_program.outer),
@@ -3718,6 +3752,12 @@ private:
     prepare_frame(config, look, *prepared.frame);
     if (!resources_ready(*prepared.frame))
       return false;
+    if (program != nullptr) {
+      program->prepare(*prepared.frame, state->prepared_blob);
+      prepared.prepared = state->prepared_blob;
+    } else {
+      prepared.prepared = nullptr;
+    }
     prepared.shade = shade;
     prepared.pipeline = selected;
     prepared.alpha = alpha;
@@ -3735,7 +3775,8 @@ private:
 #else
     (void)endpoint;
 #endif
-    FrameShader shader{prepared.frame, prepared.alpha, prepared.shade};
+    FrameShader shader{prepared.frame, prepared.alpha, prepared.shade,
+                       prepared.prepared};
     HS_PROFILE(sb_shader_draw);
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
@@ -3833,7 +3874,8 @@ private:
    * be joined in the plane, so the branches are shaded separately and their
    * outputs blended instead.
    */
-  static Color4 shade_dynamic(const Vector &view, const FrameState &frame) {
+  static Color4 shade_dynamic(const Vector &view, const FrameState &frame,
+                              const void *) {
     const Vector outer_local = outer_camera_lookup(view, frame);
     const ProjectedLookup projected =
         surface_lens_project_lookup(outer_local, frame);
@@ -3949,7 +3991,15 @@ private:
   make_program(bool (*continuous)(const Config &)) {
     static_assert(Pipeline::implements(Key),
                   "inverse pipeline does not implement its topology key");
-    return {Id, Key, &Pipeline::shade, continuous, &pipeline_resources_ready};
+    static_assert(sizeof(typename Pipeline::PreparedTuple) <=
+                      PREPARED_BLOB_BYTES,
+                  "prepared blob capacity exceeded");
+    return {Id,
+            Key,
+            &Pipeline::shade_prepared,
+            &Pipeline::prepare_into,
+            continuous,
+            &pipeline_resources_ready};
   }
 
   HS_COLD_MEMBER static const std::array<ProgramDescriptor, 15> &
@@ -4369,12 +4419,12 @@ private:
     const PlanarWarpStageResult outer = warp_stage_lookup(
         projected.coords, projected, frame.slots.warp_program.outer,
         frame.params.warp.outer, frame.clocks.warp_outer_phase,
-        frame.resources.outer_warp_noise, frame.prepared_warp.outer,
+        frame.resources.outer_warp_noise, frame.dynamic.warp.outer,
         path_length_required);
     const PlanarWarpStageResult inner = warp_stage_lookup(
         outer.coords, projected, frame.slots.warp_program.inner,
         frame.params.warp.inner, frame.clocks.warp_inner_phase,
-        frame.resources.inner_warp_noise, frame.prepared_warp.inner,
+        frame.resources.inner_warp_noise, frame.dynamic.warp.inner,
         path_length_required);
     return {inner.coords, outer.path_length + inner.path_length};
   }
@@ -4659,7 +4709,7 @@ private:
                                              const ProjectedLookup &projected,
                                              const FrameState &frame) {
     if (frame.slots.function == Function::GRID)
-      return grid(p, frame.params.source, frame.prepared_source);
+      return grid(p, frame.params.source, frame.dynamic.source);
     if (frame.slots.function == Function::NOISE_CONTOUR)
       return sample_noise_contour(
           noise_projected_coordinate(p, frame.params.source.noise_scale,
@@ -4673,7 +4723,7 @@ private:
           frame);
     if (frame.slots.function == Function::PRIMITIVE_LATTICE)
       return primitive_lattice(p, frame.params.source);
-    return sample_function(frame.slots.function, p, frame.prepared_source);
+    return sample_function(frame.slots.function, p, frame.dynamic.source);
   }
 #endif
 
@@ -4791,7 +4841,7 @@ private:
     return Pullback::Surface::curl_field(
         v, *frame.resources.surface_noise, frame.params.surface_noise.basis,
         frame.params.surface_noise.scale,
-        frame.prepared_surface_noise.loop_offset);
+        frame.dynamic.surface_noise.loop_offset);
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
@@ -4806,7 +4856,7 @@ private:
     return Pullback::Surface::curl_noise(
         v, *frame.resources.surface_noise, NoiseBasis::SIMPLEX,
         Pullback::Surface::Integrator::EULER, frame.params.surface_noise.scale,
-        frame.prepared_surface_noise.loop_offset,
+        frame.dynamic.surface_noise.loop_offset,
         frame.params.surface_noise.strength, tracks_displacement(frame));
   }
 
@@ -4816,7 +4866,7 @@ private:
     return Pullback::Surface::curl_midpoint_step(
         v, *frame.resources.surface_noise, frame.params.surface_noise.basis,
         frame.params.surface_noise.scale,
-        frame.prepared_surface_noise.loop_offset, distance,
+        frame.dynamic.surface_noise.loop_offset, distance,
         tracks_displacement(frame));
   }
 
@@ -4827,9 +4877,9 @@ private:
     if (frame.slots.surface_noise == SurfaceNoise::DIRECT) {
       return Pullback::Surface::direct_noise(
           v, *frame.resources.surface_noise, params.basis, params.scale,
-          frame.prepared_surface_noise.loop_offset, params.strength,
-          frame.prepared_surface_noise.direction_cos,
-          frame.prepared_surface_noise.direction_sin, path_length_required);
+          frame.dynamic.surface_noise.loop_offset, params.strength,
+          frame.dynamic.surface_noise.direction_cos,
+          frame.dynamic.surface_noise.direction_sin, path_length_required);
     }
     const Pullback::Surface::Integrator integrator =
         params.integrator == SurfaceCurlIntegrator::EULER
@@ -4839,7 +4889,7 @@ private:
             : Pullback::Surface::Integrator::MIDPOINT_2X;
     return Pullback::Surface::curl_noise(
         v, *frame.resources.surface_noise, params.basis, integrator,
-        params.scale, frame.prepared_surface_noise.loop_offset, params.strength,
+        params.scale, frame.dynamic.surface_noise.loop_offset, params.strength,
         path_length_required);
   }
 
