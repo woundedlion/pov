@@ -208,7 +208,8 @@ private:
   /**
    * @brief Choose the next harmonic and animate the morph toward it.
    * @details On completion commits it as current and recurses, yielding an
-   * endless morph chain.
+   * endless morph chain. Pausable: the chain is this effect's look
+   * choreography, so "Pause Animation" holds the current blend.
    */
   HS_COLD_MEMBER void start_morph() {
 #ifdef HS_PROFILE_ORDERED_CYCLE
@@ -222,13 +223,15 @@ private:
 #endif
     hs::log("Mode: %d/%d", next_idx, MAX_MODE_IDX);
 
-    timeline.add(0, Animation::Transition(morph_alpha, 1.0f, 64, ease_linear,
-                                          false, false)
-                        .then([this]() {
-                          current_idx = next_idx;
-                          morph_alpha = 0.0f;
-                          start_morph();
-                        }));
+    timeline.add_pausable(
+        0,
+        Animation::Transition(morph_alpha, 1.0f, 64, ease_linear, false, false)
+            .then([this]() {
+              current_idx = next_idx;
+              morph_alpha = 0.0f;
+              start_morph();
+            }),
+        &anims_paused);
   }
 
   Orientation<> orientation;  /**< Current sphere orientation. */
