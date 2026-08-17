@@ -351,11 +351,11 @@ const effects = [
   },
   {
     id: 'prism-lattice', display: 'Prism Lattice', source: 'primitive-lattice', sourceKey: 'lattice',
-    projection: 'stereographic', lens: 'triangular-prism-kaleidoscope',
+    projection: 'stereographic', lens: 'pentagonal-prism-kaleidoscope',
     outer: 'polar-chart-linear', outerKey: 'polar', inner: 'wave-shear', innerKey: 'wave',
     transfer: 'linear', coverage: 'projection-squared', palette: 'analogous', hue: 'noise',
     brightness: 'none', animatedProjection: true,
-    description: 'A polar lattice folded through a triangular prism.',
+    description: 'A polar lattice folded through a pentagonal prism.',
     presets: [{ id: 'polar-wave', name: 'Polar Wave', values: {
       'lattice-cell-scale': 0.774140596, 'lattice-shape': 1,
       'lattice-softness': 0.377608389, 'lattice-radius': 0.290762514,

@@ -117,7 +117,7 @@ public:
   using Binding = typename Base::PipelineBinding;
   static constexpr std::string_view EFFECT_ID = "prism-lattice";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "7f12a209432d5938433f977185adb1879119461db52d3ac58d1d134fb6a2efbd";
+      "541b1c7919eaded5d18ce350d120634800aad9df577c21451e90cf5863b461e6";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "1804bcfac7caac6fb58e7d4129dd922442a19cd2395832e1ce03c9e41899d064";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"polar-wave"};
@@ -129,7 +129,7 @@ public:
                                    FixedLook::OuterCameraProvider<Binding>>;
   using SurfaceStage = Pullback::Stage::SurfaceProject<
       Binding, Pullback::Surface::Identity,
-      Pullback::Lens::TriangularPrismKaleidoscope, Pullback::Surface::Identity,
+      Pullback::Lens::PentagonalPrismKaleidoscope, Pullback::Surface::Identity,
       Pullback::Projection::Stereographic<
           FixedLook::ProjectionProvider<Binding>>>;
   using PlanarWarpStage = Pullback::Stage::PlanarWarp<
