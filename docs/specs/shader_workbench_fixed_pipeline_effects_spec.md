@@ -1,6 +1,8 @@
 # Shader workbench and fixed-pipeline effects
 
-**Status: LANDED, revision 8 (2026-08-16).** The migration shipped in
+**Status: LANDED, revision 9 (2026-08-17), except §10.2 and §10.3 (code
+generation and generated-file layout), which are specified but deferred — see
+the status note on §10.** The migration shipped in
 `69d4751c`. This document defines the authoring and product architecture that
 follows the extraction of the pullback pipeline and operator catalog. The
 underlying formulas and rendering behavior remain specified by
@@ -557,6 +559,16 @@ fallback rather than silently selecting another effect.
 
 ## 10. Export and generated artifacts
 
+**Implementation status: only §10.1 classification ships.** `classifyExport` in
+`scripts/shader_workbench.mjs`, reachable as `shader_workbench_cli.mjs classify`,
+performs the non-mutating classification below. The generation, staging, and
+publication machinery of §10.2 and §10.3 is unimplemented and deferred: there is
+no `generated/` tree, no `export` or `generate` command, and no registry-manifest
+transaction. Every shipping fixed-pipeline effect header is hand-written and
+hand-owned; its `DESCRIPTOR_DIGEST` and `PRESET_BANK_DIGEST` are maintained by
+hand against the authoring document. §10.2 and §10.3 state the intended design,
+not current behavior.
+
 ### 10.1 Classification and outcomes
 
 Export first performs a non-mutating semantic classification:
@@ -585,7 +597,7 @@ The exporter shall never choose a merely similar effect, discard an operator,
 or replace a branch with an approximation without an explicit versioned
 operator and approximation oracle.
 
-### 10.2 Generated effect content
+### 10.2 Generated effect content (deferred)
 
 For a new effect, deterministic generation shall provide ordinary C++ effect
 declarations rather than a family runtime abstraction. At minimum it provides:
@@ -663,10 +675,11 @@ capability profile it intends to keep enabled and atomically publish the new
 evidence, explicitly remove profiles not reapproved, or refuse publication.
 Host-only generation success cannot preserve stale device availability.
 
-### 10.3 Generated-file layout
+### 10.3 Generated-file layout (deferred)
 
-The implementation may refine locations, but ownership shall remain visible,
-for example:
+No `generated/` tree exists; the layout below describes the deferred design. The
+implementation may refine locations, but ownership shall remain visible, for
+example:
 
 ```text
 patterns/CurlLattice.shader.json       editable authoring source
@@ -1111,13 +1124,15 @@ The landed migration satisfies these criteria:
   preparation, resources, serialization, approximation, and handoff policies;
 - stable effect/preset IDs and legacy aliases replace names and positions on
   persisted and tooling surfaces;
-- transactional export deterministically stages an added preset or new effect,
-  or rejects it without changing the committed bundle;
+- export classification deterministically separates an added preset from a new
+  effect, or rejects it, without changing the committed bundle; the staging,
+  generation, and publication transaction of §10.2 and §10.3 remains deferred;
 - fourteen structurally different fixed-pipeline effects ship through the
   common contracts without dynamic per-pixel dispatch;
 - a sequential two-lens graph can be represented and, once retained, exported
   through an explicit sequence policy;
-- dynamic-versus-compiled captures are generated and pass for every export;
+- dynamic-versus-compiled captures are generated and pass for every promoted
+  effect, from its hand-owned header rather than from a generated bundle;
 - inter-effect fade-through-clear has a fenced controller transaction and an
   approved Phantasm synchronization amendment;
 - all retained ShaderBall looks have migration destinations and compatibility
