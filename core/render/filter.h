@@ -1216,6 +1216,9 @@ public:
   void init_storage(Arena &arena) {
     items = arena.allocate_n<Item>(Capacity);
     head = tail = count = 0;
+#ifndef NDEBUG
+    stamp.record(arena);
+#endif
   }
 
   /**
@@ -1241,6 +1244,7 @@ public:
     // round, not truncate (ttl is an integer byte)
     int ttl = lifetime - static_cast<int>(age + 0.5f);
     if (ttl > 0 && items) {
+      check_storage_alive();
       push_back(encode(v, static_cast<uint8_t>(ttl)));
     }
   }
@@ -1259,6 +1263,7 @@ public:
   template <typename PassFnT>
   void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
     HS_CHECK(items, "World::Trails needs init_storage() from effect init()");
+    check_storage_alive();
     for (size_t i = 0; i < count; ++i) {
       const auto &item = at(i);
       Vector v = decode(item);
@@ -1302,6 +1307,27 @@ private:
   size_t head = 0, tail = 0,
          count = 0; /**< Ring-buffer head, tail, and live count. */
   int lifetime;     /**< Per-frame fade divisor in frames. */
+#ifndef NDEBUG
+  ArenaBlockStamp stamp; /**< Arena state when items was allocated. */
+#endif
+
+  /**
+   * @brief Debug-only use-after-free check on the arena-owned ring buffer.
+   * @details A compaction that resets or rewinds the persistent arena without a
+   * fresh init_storage() leaves items dangling; every plot()/flush() then reads
+   * and writes Capacity Items through it.
+   */
+  void check_storage_alive() const {
+#ifndef NDEBUG
+    constexpr size_t BYTES = Capacity * sizeof(Item);
+    assert(!stamp.arena_reset() && "World::Trails use-after-free!");
+    assert(!stamp.block_uncovered(items, BYTES) &&
+           "World::Trails use-after-free (arena rewound below block)!");
+    assert(!stamp.block_reissued(items, BYTES) &&
+           "World::Trails use-after-free (block reclaimed by a rewind and "
+           "reissued)!");
+#endif
+  }
 
   static constexpr float Q =
       32767.0f; /**< Quantization scale for unit-vector components. */
@@ -1690,6 +1716,9 @@ public:
   void init_storage(Arena &arena) {
     points = arena.allocate_n<DecayPixel>(MAX_PIXELS);
     num_pixels = 0;
+#ifndef NDEBUG
+    stamp.record(arena);
+#endif
   }
 
   /**
@@ -1717,6 +1746,7 @@ public:
 
     float ttl = static_cast<float>(lifetime) - age;
     if (ttl > 0.0f && points) {
+      check_storage_alive();
       if (num_pixels == MAX_PIXELS) {
         num_pixels--;
         points[0] = points[num_pixels];
@@ -1739,6 +1769,7 @@ public:
   void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
              PassFnT &&pass) {
     HS_CHECK(points, "Screen::Trails needs init_storage() from effect init()");
+    check_storage_alive();
     for (int i = 0; i < num_pixels; ++i) {
       float t = hs::clamp(1.0f - (points[i].ttl / lifetime), 0.0f, 1.0f);
       Color4 color = trailFn(points[i].x, points[i].y, t);
@@ -1775,6 +1806,27 @@ private:
   int lifetime;                 /**< Per-frame fade divisor in frames. */
   DecayPixel *points = nullptr; /**< Arena-owned array of live trail points. */
   int num_pixels = 0;           /**< Number of live points in points. */
+#ifndef NDEBUG
+  ArenaBlockStamp stamp; /**< Arena state when points was allocated. */
+#endif
+
+  /**
+   * @brief Debug-only use-after-free check on the arena-owned point array.
+   * @details A compaction that resets or rewinds the persistent arena without a
+   * fresh init_storage() leaves points dangling; every plot()/flush() then reads
+   * and writes MAX_PIXELS DecayPixels through it.
+   */
+  void check_storage_alive() const {
+#ifndef NDEBUG
+    constexpr size_t BYTES = MAX_PIXELS * sizeof(DecayPixel);
+    assert(!stamp.arena_reset() && "Screen::Trails use-after-free!");
+    assert(!stamp.block_uncovered(points, BYTES) &&
+           "Screen::Trails use-after-free (arena rewound below block)!");
+    assert(!stamp.block_reissued(points, BYTES) &&
+           "Screen::Trails use-after-free (block reclaimed by a rewind and "
+           "reissued)!");
+#endif
+  }
 };
 
 /**

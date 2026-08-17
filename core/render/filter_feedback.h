@@ -107,6 +107,9 @@ public:
     cached_warp_x = arena.allocate_n<int16_t>(CACHE_CELLS);
     cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
     warp_cache_valid = false;
+#ifndef NDEBUG
+    stamp.record(arena);
+#endif
   }
 
   /**
@@ -290,6 +293,8 @@ private:
     const bool cacheable = cached_warp_x && !band.x_clip.active &&
                            grid.downsample == CACHE_DOWNSAMPLE &&
                            stock_transform;
+    if (cacheable)
+      check_storage_alive();
 
     if (!cacheable) {
       const int cells = grid.field_rows * grid.columns;
@@ -761,6 +766,33 @@ private:
   bool warp_cache_valid = false;    /**< True when the cached field is valid. */
   int16_t *cached_warp_x = nullptr; /**< Arena-owned cached column deltas. */
   int16_t *cached_warp_y = nullptr; /**< Arena-owned cached row deltas. */
+#ifndef NDEBUG
+  ArenaBlockStamp
+      stamp; /**< Arena state when the warp fields were allocated. */
+#endif
+
+  /**
+   * @brief Debug-only use-after-free check on the arena-owned warp fields.
+   * @details A compaction that resets or rewinds the persistent arena without a
+   * fresh init_storage() leaves both pointers dangling while warp_cache_valid
+   * still reads true, so flush() reads and writes CACHE_CELLS int16s through
+   * them.
+   */
+  void check_storage_alive() const {
+#ifndef NDEBUG
+    constexpr size_t FIELD_BYTES = CACHE_CELLS * sizeof(int16_t);
+    assert(!stamp.arena_reset() &&
+           "Pixel::Feedback warp cache use-after-free!");
+    assert(!stamp.block_uncovered(cached_warp_x, FIELD_BYTES) &&
+           !stamp.block_uncovered(cached_warp_y, FIELD_BYTES) &&
+           "Pixel::Feedback warp cache use-after-free (arena rewound below "
+           "block)!");
+    assert(!stamp.block_reissued(cached_warp_x, FIELD_BYTES) &&
+           !stamp.block_reissued(cached_warp_y, FIELD_BYTES) &&
+           "Pixel::Feedback warp cache use-after-free (block reclaimed by a "
+           "rewind and reissued)!");
+#endif
+  }
 };
 
 } // namespace Pixel
