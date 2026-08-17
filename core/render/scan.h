@@ -1013,7 +1013,9 @@ struct DistortedRingStack {
    * independently. This scan shades every column, so a non-zero aggressiveness,
    * which decimates the per-ring scan_region walk, breaks that equivalence. The
    * aliased exact-pole rows are dropped, matching the per-ring path under
-   * suppress_pole_fill.
+   * suppress_pole_fill. Takes no debug flag and does not read canvas.debug():
+   * unlike RingGroup there is no per-ring fallback, so the bounding-box tint
+   * never reaches a stack.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, int n_rings,
@@ -1642,6 +1644,8 @@ HS_O3_BEGIN
  * row-independent unless it touches a pole, so for every other face the
  * wrap/sort/coalesce pass — per-row in scan_region — and the clip-arc
  * intersection run once; the per-pixel body mirrors process_pixel's solid path.
+ * Takes no debug flag and does not read canvas.debug(): the bounding-box tint
+ * would need the shared rasterizer instantiated for SDF::Face, +2.5 KB ITCM.
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
@@ -1911,6 +1915,8 @@ HS_O3_BEGIN
  * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face,
  *        threading the face index through register v2 so the shader can vary
  *        color per face.
+ * @details Every face goes through rasterize_face, so canvas.debug() does not
+ * tint a mesh.
  */
 struct Mesh {
   /**

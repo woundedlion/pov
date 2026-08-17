@@ -1088,6 +1088,11 @@ public:
   /**
    * @brief Checks if debug visuals are enabled.
    * @return True if debugging is active.
+   * @details Read by Scan::rasterize, Scan::rasterize_solid and
+   * Scan::RingGroup. The fused walks — Scan::rasterize_face (and so
+   * Scan::Mesh) and Scan::DistortedRingStack — ignore it and render
+   * identically either way; a per-shape fallback costs them the whole shared
+   * rasterizer in ITCM.
    */
   inline bool debug() const { return effect.debug_visuals; }
 
