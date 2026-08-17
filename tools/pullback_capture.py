@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 from generate_pullback_manifest_header import load_and_validate, manifest_sha256
-from pullback_crosscheck import _canonical_frame_bytes
+from pullback_crosscheck import _canonical_frame_bytes, _expected_toolchain
 
 
 OPERATION_CODES = {
@@ -289,26 +289,6 @@ def _first_line(command: list[str]) -> str:
     return lines[0]
 
 
-def expected_toolchain(programs: dict, configuration: str) -> dict:
-    if configuration == "native-debug":
-        pin = programs["toolchains"]["native"]
-        return {
-            key: pin[key]
-            for key in ("compiler", "cmake", "cmake_preset", "configuration")
-        }
-    pin = programs["toolchains"]["wasm"]
-    if configuration == "wasm-strict-fp":
-        return {
-            "compiler": pin["compiler"],
-            "cmake": pin["cmake"],
-            "cmake_preset": pin["strict_cmake_preset"],
-            "configuration": pin["strict_configuration"],
-        }
-    return {
-        key: pin[key] for key in ("compiler", "cmake", "cmake_preset", "configuration")
-    }
-
-
 def attest_toolchain(build_dir: Path, configuration: str, programs: dict) -> dict:
     cache = _cache_values(build_dir)
     compiler, clang_version = _compiler_metadata(build_dir)
@@ -340,7 +320,7 @@ def attest_toolchain(build_dir: Path, configuration: str, programs: dict) -> dic
         "cmake_preset": cache.get("HS_PULLBACK_CAPTURE_PRESET", ""),
         "configuration": cache.get("CMAKE_BUILD_TYPE", ""),
     }
-    expected = expected_toolchain(programs, configuration)
+    expected = _expected_toolchain(programs, configuration)
     if observed != expected:
         raise CaptureError(
             f"observed toolchain differs from manifest pin: {observed} != {expected}"
