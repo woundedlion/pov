@@ -867,8 +867,12 @@ protected:
         transition.mapping_from, transition.mapping_to, progress.eased);
   }
 
+  /// Advances the in-flight preset transition by one evaluation, latching the
+  /// destination params once it reaches its duration.
+  /// @details Deliberately not pause-gated: a started transition always runs to
+  /// its authored endpoint so the look never rests between two presets.
   HS_COLD_MEMBER void finish_transition_evaluation() {
-    if (!transition.active || anims_paused)
+    if (!transition.active)
       return;
     if (transition.evaluation == transition.duration) {
       MobiusParams animated_mobius;
@@ -1118,6 +1122,9 @@ private:
     }
   }
 
+  /// Retires the preset dwell and starts the next automatic preset transition.
+  /// @details Pause suppresses preset selection, so no new transition begins
+  /// while paused.
   HS_COLD_MEMBER void begin_automatic_transition() {
     if constexpr (Derived::PRESET_IDS.size() == 1)
       return;
