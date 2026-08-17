@@ -477,7 +477,12 @@ protected:
                                              PresetChangeOrigin::AUTOMATIC);
   }
 
-  /** @brief Applies a candidate preset before its index is committed. */
+  /**
+   * @brief Applies a candidate preset before its index is committed.
+   * @return True to commit the candidate index, false to veto the change.
+   * @details A veto leaves the committed index untouched and is not rolled
+   *          back, so reject before mutating any effect state.
+   */
   virtual bool apply_preset(const PresetChange &) { return false; }
   /** @brief Runs after a successful preset change has been committed. */
   virtual void preset_changed(const PresetChange &) {}
