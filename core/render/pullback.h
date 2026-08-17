@@ -2276,6 +2276,7 @@ struct GeneratedPaletteState {
   float oscillation_depth;
   float oscillation_phase;
   const BakedPalette *palette;
+  /** HueMode::NONE is carried as an inactive `hue_rotation` view. */
   HueMode hue_mode;
   float hue_shift_amount;
   HueRotationLutView hue_rotation;
