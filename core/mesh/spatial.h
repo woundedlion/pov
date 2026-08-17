@@ -64,10 +64,6 @@ public:
    */
   static constexpr size_t MAX_POINTS = static_cast<size_t>(INT16_MAX) + 1;
 
-  ArenaVector<KDNode>
-      nodes;           /**< Arena-backed node pool, one entry per point. */
-  int root_index = -1; /**< Index of the root node, or -1 if empty. */
-
   /**
    * @brief Constructs an empty tree with no nodes.
    */
@@ -110,6 +106,12 @@ public:
 
     root_index = build(points, indices, count, 0);
   }
+
+  /**
+   * @brief Whether the tree holds no points.
+   * @return True for a default-constructed tree or one built from an empty span.
+   */
+  bool empty() const { return root_index == -1; }
 
   /**
    * @brief Finds the k nearest neighbors of target, sorted closest-first.
@@ -175,6 +177,10 @@ public:
   }
 
 private:
+  ArenaVector<KDNode>
+      nodes;           /**< Arena-backed node pool, one entry per point. */
+  int root_index = -1; /**< Index of the root node, or -1 if empty. */
+
   /**
    * @brief Recursively builds a balanced subtree over indices[0..count).
    * @param points Source points indexed by entries of `indices`.
