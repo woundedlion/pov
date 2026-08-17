@@ -1899,6 +1899,39 @@ inline void case_scan_pipeline_not_prepared() {
 }
 
 /**
+ * @brief Death case: a face index past the vertex pool must trap.
+ * @details SDF::Face reads the vertex span with operator[], which only asserts,
+ *          so a stale index domain would read arbitrary memory as a Vector on
+ *          device. Scan::Mesh validates the flat index array once per mesh.
+ */
+inline void case_scan_mesh_face_index_out_of_range() {
+  constexpr int W = 32, H = 16;
+  static uint8_t geom_buf[1024];
+  static uint8_t scratch_buf[64 * 1024];
+  Arena geom(geom_buf, sizeof(geom_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+
+  MeshState mesh;
+  mesh.vertices.bind(geom, 3);
+  for (int i = 0; i < 3; ++i)
+    mesh.vertices.push_back(Vector(0.0f, 1.0f, 0.0f));
+  mesh.face_counts.bind(geom, 1);
+  mesh.face_counts.push_back(opaque<uint8_t>(3));
+  mesh.face_offsets.bind(geom, 1);
+  mesh.face_offsets.push_back(opaque<uint16_t>(0));
+  mesh.faces.bind(geom, 3);
+  mesh.faces.push_back(opaque<uint16_t>(0));
+  mesh.faces.push_back(opaque<uint16_t>(1));
+  mesh.faces.push_back(opaque<uint16_t>(3)); // only 3 vertices -> HS_CHECK
+
+  DeathEffect fx(W, H);
+  Canvas c(fx);
+  Pipeline<W, H> pipe;
+  Scan::Mesh::draw<W, H>(
+      pipe, c, mesh, [](const Vector &, Fragment &) {}, scratch);
+}
+
+/**
  * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
  *        exceeds the TriangularBitset<128> capacity. Shared by both the
  *        face-walk draw() and the extract_edges over-capacity death cases so the
@@ -3260,6 +3293,10 @@ inline const Case *all_cases(int &n) {
       {"scan_pipeline_not_prepared", case_scan_pipeline_not_prepared, "scan.h",
        "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared "
        "for this canvas"},
+      {"scan_mesh_face_index_out_of_range",
+       case_scan_mesh_face_index_out_of_range, "scan.h",
+       "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
+       "the vertex pool"},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
        "plot.h", "(large < DEDUP_CAPACITY) "},
       {"plot_extract_edges_vertex_over_capacity",
@@ -4031,9 +4068,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 165;
+  constexpr int DEATH_CASE_COUNT = 166;
 #else
-  constexpr int DEATH_CASE_COUNT = 164;
+  constexpr int DEATH_CASE_COUNT = 165;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
