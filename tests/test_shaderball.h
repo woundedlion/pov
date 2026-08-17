@@ -111,6 +111,16 @@ struct ShaderBallWhiteBox {
   static constexpr int NUM_BRIGHTNESS_ENVELOPES = SB::NUM_BRIGHTNESS_ENVELOPES;
   static constexpr int NUM_HUE_SHIFT_MODES = SB::NUM_HUE_SHIFT_MODES;
 
+  static void set_fixed_preset_view(SB &sb, std::span<const uint8_t> indices) {
+    sb.set_fixed_preset_view(indices);
+  }
+  static void hold_initial_preset(SB &sb, uint16_t frames) {
+    sb.hold_initial_preset(frames);
+  }
+  static const SB::Preset &preset_for_view(const SB &sb, size_t index) {
+    return sb.preset_for_view(index);
+  }
+
   static ClockState clocks(const SB &sb) { return sb.runtime.clocks; }
   static void set_clocks(SB &sb, const ClockState &clocks) {
     sb.runtime.clocks = clocks;
