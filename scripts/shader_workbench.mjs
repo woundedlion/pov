@@ -1,3 +1,8 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the Polyform Noncommercial License 1.0.0
+ */
+
 import { sha256Hex } from './sha256.mjs';
 
 export const SHADER_DOCUMENT_SCHEMA_VERSION = 1;
