@@ -191,7 +191,6 @@ inline void test_feedback_bottom_row_rotates_in_longitude() {
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   {
     Canvas c(fx);
@@ -200,7 +199,7 @@ inline void test_feedback_bottom_row_rotates_in_longitude() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 

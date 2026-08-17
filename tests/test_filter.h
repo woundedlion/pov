@@ -1678,8 +1678,6 @@ inline void test_feedback_flush_blends_prev_frame() {
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
 
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
-
   // Frame 1: a bright horizontal band becomes the "previous" frame.
   {
     Canvas c(fx);
@@ -1692,7 +1690,7 @@ inline void test_feedback_flush_blends_prev_frame() {
   // Frame 2: empty buffer; flush warps+blends the prev band into it.
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1709,7 +1707,7 @@ inline void test_feedback_flush_blends_prev_frame() {
   pipe.get<Filter::Pixel::Feedback<W, H>>().set_enabled(false);
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
   HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 8)));
@@ -1763,7 +1761,6 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   {
     Canvas c(fx);
@@ -1772,7 +1769,7 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1797,7 +1794,6 @@ inline void test_feedback_south_pole_uses_single_physical_sample() {
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   {
     Canvas c(fx);
@@ -1806,7 +1802,7 @@ inline void test_feedback_south_pole_uses_single_physical_sample() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1832,7 +1828,6 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   {
     Canvas c(fx);
@@ -1847,7 +1842,7 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1892,8 +1887,6 @@ inline void test_feedback_flush_respects_clip() {
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
 
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
-
   // Frame 1: bright across the WHOLE canvas becomes the "previous" frame.
   {
     Canvas c(fx);
@@ -1910,7 +1903,7 @@ inline void test_feedback_flush_respects_clip() {
   // Frame 2: empty buffer; clipped flush warps+blends only within the band.
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1964,7 +1957,6 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   // Frame 1: a full-width bright band (3 rows thick) becomes the "previous" frame.
   constexpr int R = 40; // band center, southern hemisphere
@@ -1979,7 +1971,7 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   // Frame 2: empty buffer; the melt flush warps + blends the band into it.
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2106,7 +2098,6 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   {
     Canvas c(fx);
@@ -2118,7 +2109,7 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
 
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2158,7 +2149,6 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   for (float angle : {0.15f, 0.35f, -0.25f}) {
     animated_cap_rotation_angle = angle;
@@ -2172,7 +2162,7 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
 
     {
       Canvas c(fx);
-      pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+      pipe.flush(c, 1.0f);
     }
     fx.advance_display();
 
@@ -2199,7 +2189,6 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   {
     Canvas c(fx);
@@ -2210,7 +2199,7 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2243,7 +2232,6 @@ inline void test_feedback_spherical_ring_control_rows() {
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   {
     Canvas c(fx);
@@ -2255,7 +2243,7 @@ inline void test_feedback_spherical_ring_control_rows() {
 
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2477,7 +2465,6 @@ inline void test_feedback_seam_warp_keeps_its_latitude_row() {
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   {
     Canvas c(fx);
@@ -2491,7 +2478,7 @@ inline void test_feedback_seam_warp_keeps_its_latitude_row() {
   fx.set_clip(0, H, 0, W);
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2526,7 +2513,6 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
   pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
   auto seed_rows = [&]() {
     {
       Canvas c(fx);
@@ -2550,7 +2536,7 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   fx.set_clip(0, 2, 0, W);
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
   expect_rows(0, 2);
@@ -2559,7 +2545,7 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   fx.set_clip(2, 4, 0, W);
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
   expect_rows(2, 4);
@@ -2604,9 +2590,6 @@ inline void test_feedback_warp_cache_matches_uncached() {
       pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
           persistent_arena);
 
-    auto trail = [](float, float, float) {
-      return Color4(Pixel(0, 0, 0), 0.0f);
-    };
     {
       Canvas c(fx);
       for (int y = 20; y <= 44; ++y)
@@ -2631,7 +2614,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
 
       {
         Canvas c(fx);
-        pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+        pipe.flush(c, 1.0f);
       }
       fx.advance_display();
 
@@ -2695,7 +2678,6 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   // Frame 1: seam-continuous longitude encoding becomes the "previous" frame.
   {
@@ -2713,7 +2695,7 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   // Frame 2: empty buffer; flush pulls the warped prev frame into it.
   {
     Canvas c(fx);
-    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    pipe.flush(c, 1.0f);
   }
   fx.advance_display();
 
@@ -3340,9 +3322,6 @@ inline void test_feedback_banded_diverges_from_full() {
 
     hs_test::StubEffect fx(W, H);
     fx.set_clip(cy0, cy1, 0, W);
-    auto trail = [](float, float, float) {
-      return Color4(Pixel(0, 0, 0), 0.0f);
-    };
 
     // Frame 0: seed a bright band straddling the boundary, THROUGH the clipped
     // pipeline, so a band-clipped worker only seeds rows inside its band.
@@ -3357,7 +3336,7 @@ inline void test_feedback_banded_diverges_from_full() {
     for (int f = 0; f < K; ++f) {
       {
         Canvas c(fx);
-        pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+        pipe.flush(c, 1.0f);
       }
       fx.advance_display();
     }

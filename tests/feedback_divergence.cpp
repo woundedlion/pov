@@ -121,12 +121,9 @@ struct Run {
 
   void step(int frame) {
     noise.time += 1.0f / 16.0f;
-    auto trail = [](float, float, float) {
-      return Color4(Pixel(0, 0, 0), 0.0f);
-    };
     {
       Canvas c(fx);
-      pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+      pipe.flush(c, 1.0f);
       emit(c, frame);
     }
     fx.advance_display();
