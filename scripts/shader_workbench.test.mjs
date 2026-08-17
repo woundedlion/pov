@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import {
   ShaderDocumentError,
   canonicalDescriptor,
@@ -123,6 +123,24 @@ test('every promoted shader document matches its compiled effect identity', asyn
     for (const destination of destinations)
       assert.equal(presetIds.has(destination.preset_id), true,
         `${effectId}/${destination.preset_id} is missing from its source document`);
+  }
+});
+
+test('every patterns/*.shader.json compiles and is accounted for', async () => {
+  const directory = new URL('../patterns/', import.meta.url);
+  const documents = (await readdir(directory))
+    .filter((name) => name.endsWith('.shader.json')).sort();
+  const migration = JSON.parse(await readFile(
+    new URL('shaderball_migration.json', directory), 'utf8'));
+  const promoted = new Set(Object.values(migration.source_documents));
+  // The sample a contributor copies is not in the migration manifest, so the
+  // promoted-document gate above never reaches it.
+  assert.deepEqual(documents.filter((name) => !promoted.has(name)),
+    ['example.shader.json']);
+  for (const name of documents) {
+    const compiled = compileShaderDocument(parseShaderDocument(
+      await readFile(new URL(name, directory), 'utf8')));
+    assert.equal(compiled.status, 'VALID', name);
   }
 });
 
