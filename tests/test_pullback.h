@@ -347,7 +347,7 @@ using CountingPipeline = Pullback::Pipeline<
                               Pullback::Coverage::Opaque>,
     Pullback::Stage::Color<CountingBinding, CountingColorPolicy>>;
 
-void test_pullback_carrier_contract() {
+inline void test_pullback_carrier_contract() {
   constexpr Pullback::ProjectionSample projected{
       Complex(1.0f, 2.0f), 3, 4, 5, 6.0f, 0.75f, 7};
   static_assert(std::is_trivially_copyable_v<Pullback::ProjectionSample>);
@@ -389,7 +389,7 @@ void test_pullback_carrier_contract() {
   HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::SINGULAR), 2);
 }
 
-void test_pullback_validation_predicates() {
+inline void test_pullback_validation_predicates() {
   using Valid = typename TestPipeline::Validation;
   using Short = Pullback::PipelineValidation<TestBinding, OuterStage>;
   struct MissingContract {};
@@ -459,7 +459,7 @@ void test_pullback_validation_predicates() {
   HS_EXPECT_FALSE(Rejected::EXTRA_VALIDATION);
 }
 
-void test_pullback_evaluation_order() {
+inline void test_pullback_evaluation_order() {
   TestFrame frame;
   const Color4 result = TestPipeline::evaluate(Vector(1.0f, 2.0f, 3.0f), frame);
   HS_EXPECT_EQ(frame.call_count, 6U);
@@ -471,7 +471,7 @@ void test_pullback_evaluation_order() {
   HS_EXPECT_EQ(result.alpha, 0.5f);
 }
 
-void test_pullback_public_surface() {
+inline void test_pullback_public_surface() {
   using FlashSource =
       Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
                               CoreSource>;
@@ -488,7 +488,7 @@ void test_pullback_public_surface() {
   HS_EXPECT_TRUE(std::is_empty_v<TestPipeline>);
 }
 
-void test_pullback_no_instrumentation() {
+inline void test_pullback_no_instrumentation() {
   const Pullback::NoInstrumentation::Token token =
       Pullback::NoInstrumentation::mark();
   Pullback::NoInstrumentation::span<Pullback::ProfileEvent::COLOR>(token);
@@ -496,7 +496,7 @@ void test_pullback_no_instrumentation() {
   HS_EXPECT_TRUE(std::is_empty_v<Pullback::NoInstrumentation::Token>);
 }
 
-void test_pullback_counting_instrumentation() {
+inline void test_pullback_counting_instrumentation() {
   CountingInstrumentation::count = 0;
   TestFrame frame;
   static_cast<void>(
@@ -514,7 +514,7 @@ void test_pullback_counting_instrumentation() {
     HS_EXPECT_EQ(CountingInstrumentation::events[index], EXPECTED[index]);
 }
 
-void test_pullback_stage_combinators() {
+inline void test_pullback_stage_combinators() {
   TestFrame frame;
   const Pullback::ProjectionSample projected =
       CoreSurface::run(Vector(1.0f, 2.0f, 3.0f), frame);
@@ -532,7 +532,7 @@ void test_pullback_stage_combinators() {
   HS_EXPECT_EQ(color.alpha, 0.4f);
 }
 
-void test_pullback_provider_contracts() {
+inline void test_pullback_provider_contracts() {
   static_assert(CoreOuter::PROVIDER_VALID);
   static_assert(
       Pullback::Coverage::EdgeFade<ValueState>::PROVIDER_VALID<TestBinding>);
@@ -542,7 +542,7 @@ void test_pullback_provider_contracts() {
   HS_EXPECT_TRUE(std::is_empty_v<ValueState>);
 }
 
-void test_pullback_concrete_catalog() {
+inline void test_pullback_concrete_catalog() {
   struct Prepared {
     float primary;
     float secondary;
@@ -600,7 +600,7 @@ struct ScaleLens : Pullback::ExactPolicy {
   }
 };
 
-void test_pullback_lens_sequence() {
+inline void test_pullback_lens_sequence() {
   using Sequence = Pullback::Lens::Sequence<AddLens, ScaleLens>;
   static_assert(std::is_empty_v<Sequence>);
   static_assert(!Sequence::APPROXIMATE);
@@ -610,7 +610,7 @@ void test_pullback_lens_sequence() {
   HS_EXPECT_EQ(result.z, 1.0f);
 }
 
-void test_fixed_pipeline_interpolation_contract() {
+inline void test_fixed_pipeline_interpolation_contract() {
   HS_EXPECT_EQ(FixedPipeline::linear(2.0f, 6.0f, 0.0f), 2.0f);
   HS_EXPECT_EQ(FixedPipeline::linear(2.0f, 6.0f, 1.0f), 6.0f);
   HS_EXPECT_NEAR(FixedPipeline::log_positive(1.0f, 4.0f, 0.5f), 2.0f, 1e-6f);
@@ -627,7 +627,7 @@ void test_fixed_pipeline_interpolation_contract() {
   HS_EXPECT_FALSE(antipodal.valid);
 }
 
-void test_fixed_pipeline_progress_contract() {
+inline void test_fixed_pipeline_progress_contract() {
   const auto start = FixedPipeline::edge_progress(
       0, 1, FixedPipeline::Easing::EASE_IN_OUT_SIN);
   const auto finish = FixedPipeline::edge_progress(
