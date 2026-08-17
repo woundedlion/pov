@@ -450,7 +450,8 @@ hand-soldered by you.
 | Net | Members |
 |---|---|
 | **+5V_RAW** | J1 → F1 → Q_REV (logic reverse-protect) → FB in |
-| **+5V_LOGIC** (post-bead) | FB out, R_LF, C_LF, C_IN+, Teensy VIN, U1 Vcc, C_DEC1/2 |
+| **+5V_LOGIC** (post-bead) | FB out, R_LF in, C_IN+, Teensy VIN, U1 Vcc, C_DEC1/2 |
+| **LF_DAMP** | R_LF out → C_LF + (the damping node of R-PWR-5; C_LF never sits on +5V_LOGIC directly) |
 | **3V3** | Teensy 3V3 pin → R_MEN top, J4 |
 | **GND** | single quiet logic plane: J1 GND, Teensy GND, U1 GND and ch-D input, C_IN/C_LF/C_DEC −, J3A/J3B GND, R2 bottom, strap GND, JP_SHLD (master), SIG_GND → J2 |
 | **DATA** | Teensy 11 → U1 chA in; U1 chA out → R_D1(33 Ω) → J2 DI |
