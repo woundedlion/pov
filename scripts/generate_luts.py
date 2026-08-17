@@ -114,6 +114,8 @@ def render(out, fwd, rev):
                fwd, 11)
     out.write("\n")
     out.write("// Linear (0-65535) -> sRGB (0-255)\n")
+    out.write("// Reference table only; the runtime encode path is"
+              " core/color/srgb_decode.h.\n")
     emit_array(out, f"inline const uint8_t linear_to_srgb_lut[{LINEAR_LEVELS}] HS_PROGMEM_UNIQUE(linear_to_srgb_lut)",
                rev, 15)
 
