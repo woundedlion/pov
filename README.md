@@ -1576,7 +1576,7 @@ at the current phase.
 
 ### 7.7 The Mesh System (`core/mesh/`)
 
-The mesh system is split across twelve files:
+The mesh system is split across thirteen files:
 
 - **`mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
 - **`conway.h`** — Conway mesh operators and vertex transformations
