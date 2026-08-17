@@ -2513,7 +2513,12 @@ private:
                       std::conditional_t<
                           LensV == SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
                           Pullback::Lens::HexagonalPrismKaleidoscope,
-                          Pullback::Lens::TriangularPrismKaleidoscope>>>>>>;
+                          std::conditional_t<
+                              LensV ==
+                                  SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM,
+                              Pullback::Lens::PentagonalPrismKaleidoscope,
+                              Pullback::Lens::
+                                  TriangularPrismKaleidoscope>>>>>>>;
 
   template <Projection ProjectionV>
   using ProjectionPolicy = std::conditional_t<
@@ -2795,7 +2800,7 @@ private:
   using StereographicPrismPolarWaveLatticePipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::STEREOGRAPHIC,
-                                  SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM>,
+                                  SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM>,
       SelectedPlanarWarpStage<WarpStageKind::POLAR_CHART,
                               WarpStageKind::WAVE_SHEAR>,
       SourceStage<Function::PRIMITIVE_LATTICE>,
@@ -7026,7 +7031,7 @@ private:
     Slots slots{Function::PRIMITIVE_LATTICE,
                 Projection::STEREOGRAPHIC,
                 ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM,
+                SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM,
                 {{WarpStageKind::POLAR_CHART}, {WarpStageKind::WAVE_SHEAR}},
                 SignalWeight::PROJECTION,
                 ValueTransfer::LINEAR,

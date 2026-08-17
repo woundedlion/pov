@@ -1879,7 +1879,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(coarse_curl.params.surface_noise.scale, 3.29720306f);
   const auto &polar_wave = presets[9];
   HS_EXPECT_EQ(polar_wave.slots.surface_lens,
-               WB::SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM);
+               WB::SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM);
   HS_EXPECT_EQ(polar_wave.slots.warp_program.outer.kind,
                WB::WarpStageKind::POLAR_CHART);
   HS_EXPECT_EQ(polar_wave.slots.warp_program.inner.kind,
