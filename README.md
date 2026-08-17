@@ -300,7 +300,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── sdf_common.h            SDF interval/bounds substrate + DistanceResult + span-emission helpers
 │   │   ├── sdf_rings.h             SDF ring leaves (Ring, DistortedRing, FlatDistortedRing)
 │   │   ├── sdf_csg.h               SDF::Union/SmoothUnion/Subtract/Intersection + AngularRepeat fold
-│   │   ├── sdf_face.h              SDF::Face mesh-face leaf + congruence-class distance LUT binding
+│   │   ├── sdf_face.h              SDF::Face mesh-face leaf + congruence-class distance LUT bake and binding
 │   │   ├── sdf_volume.h            3D volumetric SDF shapes + domain warps for Scan::Volume
 │   │   ├── shading.h               Fragment + mesh-topology shading helpers, null shaders
 │   │   ├── aa_audit.h              Scan AA-coverage audit counters (compiled in only under HS_AA_AUDIT)
