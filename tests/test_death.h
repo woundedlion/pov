@@ -45,6 +45,7 @@
 #include "death_guard_sites.h" // generated HS_CHECK census; see tests/CMakeLists.txt
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/test_shaderball.h" // ShaderBallWhiteBox, for the effect-side traps
 
 #include "core/math/3dmath.h"
 #include "core/animation/animation.h"
@@ -2699,6 +2700,188 @@ inline void case_opleg_shading_face_out_of_range() {
 }
 
 /**
+ * @brief Death case: a Motion over an empty path must trap on the first step.
+ * @details Animation surface — an unfilled Path samples the origin, and the
+ *          angle between two zero vectors is a NaN that reaches the Orientation
+ *          as a NaN quaternion rather than a visible fault.
+ */
+inline void case_motion_empty_path_origin_sample() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas c(fx);
+  Orientation<4> orientation;
+  static Path<32> path; // never appended -> get_point returns the origin
+  Animation::Motion<W, 4> motion(orientation, path, opaque(10));
+  motion.step(c);
+}
+
+/**
+ * @brief Death case: a negative equator sample count must trap.
+ * @details Spherical-field surface — the count sizes every ring's longitude
+ *          walk, so a negative one underflows the per-ring sample allocation.
+ */
+inline void case_spherical_field_negative_equator_samples() {
+  hs::SphericalFieldLayout<32, 16, 0> layout(4, 0, 0, opaque(-1));
+  if (layout.sample_count() == 42)
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a spherical polygon wider than a hemisphere must trap.
+ * @details SDF surface — beyond the hemisphere the cap fold changes sign, so
+ *          the shape must be built inverted about its antipode instead.
+ */
+inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  SDF::SphericalPolygon poly(b, opaque(1.5f), opaque(5), opaque(0.0f));
+  if (poly.circumradius == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a flower wider than a hemisphere must trap.
+ * @details SDF surface — the petal cap bound is taken about the antipode, so a
+ *          radius past the hemisphere inverts the band it derives.
+ */
+inline void case_sdf_flower_radius_over_hemisphere() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  SDF::Flower flower(b, opaque(1.5f), opaque(5), opaque(0.0f));
+  if (flower.circumradius == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a zero-radius flower must trap.
+ * @details SDF surface — the petal parameter divides by the circumradius, so a
+ *          zero radius hands every probe a non-finite distance.
+ */
+inline void case_sdf_flower_zero_radius() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  SDF::Flower flower(b, opaque(0.0f), opaque(5), opaque(0.0f));
+  if (flower.circumradius == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: baking a class LUT for a degenerate polygon must trap.
+ * @details SDF class-LUT surface — fewer than three vertices leaves no closed
+ *          boundary for the crossing test, so every sample would read as
+ *          outside.
+ */
+inline void case_sdf_class_lut_too_few_vertices() {
+  static const float poly_xy[4] = {-0.5f, -0.5f, 0.5f, -0.5f};
+  static int16_t grid[16];
+  SDF::ClassLut lut;
+  SDF::build_canonical_distance_lut(poly_xy, opaque(2), opaque(4), grid, lut);
+  if (lut.n == opaque(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: baking a class LUT on a single-cell grid must trap.
+ * @details SDF class-LUT surface — the cell step divides by (n - 1), so a
+ *          resolution below 2 makes the whole domain non-finite.
+ */
+inline void case_sdf_class_lut_grid_too_small() {
+  static const float poly_xy[6] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
+  static int16_t grid[16];
+  SDF::ClassLut lut;
+  SDF::build_canonical_distance_lut(poly_xy, opaque(3), opaque(1), grid, lut);
+  if (lut.n == opaque(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: binding a class LUT at a vertex offset outside the face
+ *        must trap.
+ * @details SDF class-LUT surface — the offset indexes the canonical polygon
+ *          cyclically, so an out-of-range one correlates the face against
+ *          storage past the shape.
+ */
+inline void case_sdf_bind_class_lut_offset_out_of_range() {
+  constexpr int H = 16, HV = H + hs::H_OFFSET;
+  Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
+  Vector verts[3];
+  uint16_t idx[3];
+  for (int i = 0; i < 3; ++i) {
+    float a = (2.0f * PI_F * i) / 3.0f;
+    verts[i] = (basis.v * cosf(0.6f) +
+                (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(0.6f))
+                   .normalized();
+    idx[i] = static_cast<uint16_t>(i);
+  }
+  static SDF::FaceScratchBuffer scratch;
+  SDF::Face face(std::span<const Vector>(verts, 3),
+                 std::span<const uint16_t>(idx, 3), scratch, HV, H);
+  static const float canon_xy[6] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
+  SDF::ClassLut lut;
+  if (face.bind_class_lut(&lut, canon_xy, opaque(7), false))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a distorted ring built with a null shift callback must
+ *        trap.
+ * @details SDF ring surface — the callback is invoked per azimuth on every
+ *          probe, so a null one faults deep inside the rasterizer instead.
+ */
+inline void case_sdf_distorted_ring_null_shift() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  ScalarFn shift; // default-constructed -> empty
+  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), shift, opaque(0.1f),
+                          opaque(0.0f));
+  if (ring.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: fixing a ShaderBall preset view to nothing must trap.
+ * @details Effect surface — an empty view leaves preset_count_for_view() at
+ *          zero, so preset selection would index an empty roster.
+ */
+inline void case_shaderball_empty_preset_view() {
+  using WB = shaderball_tests::ShaderBallWhiteBox;
+  WB::SB sb;
+  WB::set_fixed_preset_view(sb, std::span<const uint8_t>());
+}
+
+/**
+ * @brief Death case: a preset view naming a preset past the roster must trap.
+ * @details Effect surface — the view indirects into PRESETS, so an out-of-range
+ *          entry reads a config off the end of the table.
+ */
+inline void case_shaderball_preset_view_index_out_of_range() {
+  using WB = shaderball_tests::ShaderBallWhiteBox;
+  static const uint8_t indices[1] = {200};
+  WB::SB sb;
+  WB::set_fixed_preset_view(sb, std::span<const uint8_t>(indices, 1));
+}
+
+/**
+ * @brief Death case: a zero initial-preset dwell must trap.
+ * @details Effect surface — the dwell counts down before the first automatic
+ *          preset change, so zero would arm a countdown that never fires.
+ */
+inline void case_shaderball_zero_preset_dwell() {
+  using WB = shaderball_tests::ShaderBallWhiteBox;
+  WB::SB sb;
+  WB::hold_initial_preset(sb, opaque<uint16_t>(0));
+}
+
+/**
+ * @brief Death case: resolving a preset past the view must trap.
+ * @details Effect surface — the lookup indexes PRESETS through the view, so an
+ *          out-of-range index hands the pipeline a config read off the table.
+ */
+inline void case_shaderball_preset_for_view_out_of_range() {
+  using WB = shaderball_tests::ShaderBallWhiteBox;
+  WB::SB sb;
+  if (reinterpret_cast<uintptr_t>(
+          &WB::preset_for_view(sb, opaque<size_t>(200))) == 0x1)
+    std::printf("x");
+}
+
+/**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
@@ -3021,6 +3204,11 @@ inline const Case *all_cases(int &n) {
        "(speed_src != nullptr) Driver: live speed_src is null"},
       {"path_append_zero_samples", case_path_append_zero_samples, "motion.h",
        "(samples >= 1) "},
+      {"motion_empty_path_origin_sample", case_motion_empty_path_origin_sample,
+       "motion.h",
+       "(dot(current_v, current_v) >= math::EPS_LEN_SQ && dot(target_v, "
+       "target_v) >= math::EPS_LEN_SQ) Motion: path sampled at the origin "
+       "(empty or origin-crossing path)"},
       {"alpha_falloff_null", case_alpha_falloff_null, "composition.h",
        "(fn != nullptr) AlphaFalloffShade: falloff function must not be null"},
       {"baked_palette_rebake_aliased", case_baked_palette_rebake_aliased,
@@ -3087,6 +3275,10 @@ inline const Case *all_cases(int &n) {
        "(north_infill >= 0 && south_infill >= 0 && north_infill + south_infill "
        "<= H) SphericalFieldLayout: infills 0 + 17 must be non-negative and "
        "fit within H = 16"},
+      {"spherical_field_negative_equator_samples",
+       case_spherical_field_negative_equator_samples, "spherical_field.h",
+       "(equator_samples >= 0) SphericalFieldLayout: equator_samples -1 must "
+       "be >= 0"},
       {"feedback_negative_fade", case_feedback_negative_fade, "styles.h",
        "(std::isfinite(fade) && fade >= 0.0f) Feedback::Style::fade must be "
        "finite and >= 0"},
@@ -3128,6 +3320,40 @@ inline const Case *all_cases(int &n) {
        "math::EPS_UNIT_QUAT_SQ) "},
       {"sdf_polygon_side_count", case_sdf_polygon_side_count, "sdf.h",
        "(sides >= 3) "},
+      {"sdf_spherical_polygon_radius_over_hemisphere",
+       case_sdf_spherical_polygon_radius_over_hemisphere, "sdf.h",
+       "(radius <= 1.0f) "},
+      {"sdf_flower_radius_over_hemisphere",
+       case_sdf_flower_radius_over_hemisphere, "sdf.h", "(radius <= 1.0f) "},
+      {"sdf_flower_zero_radius", case_sdf_flower_zero_radius, "sdf.h",
+       "(radius > 0.0f) "},
+      {"sdf_class_lut_too_few_vertices", case_sdf_class_lut_too_few_vertices,
+       "sdf_face.h",
+       "(count >= 3) build_canonical_distance_lut requires at least 3 polygon "
+       "vertices"},
+      {"sdf_class_lut_grid_too_small", case_sdf_class_lut_grid_too_small,
+       "sdf_face.h",
+       "(n >= 2) build_canonical_distance_lut requires a grid resolution of at "
+       "least 2"},
+      {"sdf_bind_class_lut_offset_out_of_range",
+       case_sdf_bind_class_lut_offset_out_of_range, "sdf_face.h",
+       "(vert_offset >= 0 && vert_offset < count) bind_class_lut: vertex "
+       "offset outside the face"},
+      {"sdf_distorted_ring_null_shift", case_sdf_distorted_ring_null_shift,
+       "sdf_rings.h", "(sf) DistortedRing: shift_fn must be non-null"},
+      {"shaderball_empty_preset_view", case_shaderball_empty_preset_view,
+       "ShaderBall.h",
+       "(!source_indices.empty()) set_fixed_preset_view: empty preset view"},
+      {"shaderball_preset_view_index_out_of_range",
+       case_shaderball_preset_view_index_out_of_range, "ShaderBall.h",
+       "(index < PRESETS.size()) set_fixed_preset_view: preset index out of "
+       "range"},
+      {"shaderball_zero_preset_dwell", case_shaderball_zero_preset_dwell,
+       "ShaderBall.h", "(frames > 0) hold_initial_preset: zero dwell"},
+      {"shaderball_preset_for_view_out_of_range",
+       case_shaderball_preset_for_view_out_of_range, "ShaderBall.h",
+       "(index < preset_count_for_view()) preset_for_view: index out of "
+       "range"},
       {"sdf_angular_repeat_nonunit_axis", case_sdf_angular_repeat_nonunit_axis,
        "sdf_csg.h", "(fabsf(ax.length() - 1.0f) < 1e-3f) "},
       {"sdf_distorted_ring_zero_knots", case_sdf_distorted_ring_zero_knots,
@@ -3558,7 +3784,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  * @details Raise it after adding cases; lower it only alongside a deliberate
  *          removal of the engine guards those cases target.
  */
-constexpr int MIN_COVERED_GUARD_SITES = 125;
+constexpr int MIN_COVERED_GUARD_SITES = 137;
 
 /** @brief One file's approved count of guard sites no case pins. */
 struct GuardGapAllowance {
@@ -3589,7 +3815,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"timers.h", 1},
     {"color.h", 1},
     {"composition.h", 33},
-    {"generative_palette.h", 3},
+    {"generative_palette.h", 4},
     {"palette_cycler.h", 8},
     {"memory.cpp", 1},
     {"memory.h", 3},
@@ -3597,7 +3823,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"static_circular_buffer.h", 4},
     {"transformers.h", 4},
     {"3dmath.h", 6},
-    {"geometry.h", 16},
+    {"geometry.h", 15},
     {"lenses.h", 2},
     {"noise_field.h", 1},
     {"spherical_field.h", 2},
@@ -3606,7 +3832,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"conway_graph.h", 1},
     {"hankin.h", 9},
     {"mesh.h", 10},
-    {"mesh_classes.h", 8},
+    {"mesh_classes.h", 6},
     {"mesh_state.h", 3},
     {"recipe.h", 13},
     {"solid_generators.h", 5},
@@ -3641,7 +3867,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"Dynamo.h", 1},
     {"GnomonicStars.h", 1},
     {"HankinSolids.h", 13},
-    {"IslamicStars.h", 22},
+    {"IslamicStars.h", 23},
     {"MeshFeedback.h", 2},
     {"MindSplatter.h", 4},
     {"MobiusRings.h", 1},
@@ -3791,9 +4017,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 151;
+  constexpr int DEATH_CASE_COUNT = 164;
 #else
-  constexpr int DEATH_CASE_COUNT = 150;
+  constexpr int DEATH_CASE_COUNT = 163;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
