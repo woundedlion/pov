@@ -6,7 +6,9 @@ both read the committed schematic. These tests run the generator into a
 temporary directory and assert on what it wrote.
 
 Generating needs KiCad's stock symbol libraries (sexp.KICAD_SHARE); the checks
-that do not are kept outside that guard.
+that do not are kept outside that guard and also run against the committed
+schematic, which is a GUI re-save holding hand edits the generator does not
+reproduce.
 """
 import contextlib
 import io
@@ -125,6 +127,22 @@ class DanglingPinTests(unittest.TestCase):
     def test_an_unconnected_pin_is_reported(self):
         self.assertEqual(dangling_pins(sexp.parse(DANGLING)[0]),
                          [("R1", "2", (100.0, 103.81))])
+
+
+class CommittedSchematicTests(unittest.TestCase):
+    """Both checks read the file's own lib_symbols, so no stock library and no
+    kicad-cli is needed: they gate the shipped schematic on every push."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = sexp.parse(Path(board.SCH).read_text(encoding="utf-8"))[0]
+
+    def test_no_two_named_nets_share_a_group(self):
+        conflicts, _ = shorts.analyze(self.root)
+        self.assertEqual(conflicts, [])
+
+    def test_every_placed_pin_lands_on_the_wiring(self):
+        self.assertEqual(dangling_pins(self.root), [])
 
 
 @unittest.skipUnless(STOCK_SYMBOLS,
