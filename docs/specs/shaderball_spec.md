@@ -2,7 +2,7 @@
 
 **Status: LANDED.** `effects/ShaderBall.h` is the sole ShaderBall implementation;
 the earlier fixed stereographic implementation has been removed. The typed
-pipeline carries 13 presets. Section 0 is authoritative for the authored
+pipeline carries 24 presets. Section 0 is authoritative for the authored
 vocabulary, presets, and choreography, and for nothing beyond them: the shipping
 renderer composes the reusable `Pullback::Pipeline` and operator catalog with
 ShaderBall-owned `TopologyKey` and `ProgramDescriptor` selection, specified in
@@ -243,16 +243,31 @@ new engine type. Most boundaries remain ordinary local values. The minimum
 named records are:
 
 ```text
-FrameState       { slots, live params, source phases, prepared transforms,
-                   const resource bindings }
-TransitionRuntime { mutable from/to clocks, orientations, mix, blend_mode }
-TransitionFrame   { FrameState from, FrameState to, mix, blend_mode }
-ProjectedLookup  { coords, region_id, component_id, boundary_flags,
-                   fade_edge_distance, value_weight, flags }
-StereoWarpResult { coords, displacement }       // existing
-PlanarWarpResult { coords, path_length, flags }
-MaterialSample   { value, coverage, path_length }
+// Effect-owned, in effects/ShaderBall.h
+FrameState        { slots, params, palette_mapping, clocks, prepared_source,
+                    transforms, prepared_warp, prepared_surface_noise,
+                    prepared_hue_rotation, prepared_hue_noise, resources }
+TransitionRuntime { from_config, to_config, from_runtime, to_runtime,
+                    elapsed, duration, continue_choreo, active,
+                    from_pipeline, to_pipeline }
+
+// Engine-owned, in core/render/pullback.h; ShaderBall aliases the first two
+// as ProjectedLookup and PlanarWarpResult
+ProjectionSample  { coords, region_id, component_id, boundary_flags,
+                    fade_edge_distance, value_weight, flags, traits,
+                    edge_class, domain_coverage, sphere,
+                    surface_path_length }
+WarpResult        { coords, path_length }
+WarpStepResult    { coords, delta, path_length }
+SourceInput       { projected, warped }
+MaterialInput     { projected, warped, field }
+MaterialSample    { value, coverage, sphere, path_length }
 ```
+
+The engine-owned records are defined once in `core/render/pullback.h` and
+described field by field in [the pullback pipeline
+spec](pullback_pipeline_spec.md); the listing above names them, and that header
+is authoritative for their contents.
 
 The pullback lookup path is:
 
@@ -313,8 +328,8 @@ rather than recovering them by subtracting large rounded coordinates. With
 legacy stereographic noise as the sole stage, `path_length` is the existing
 helper's directly computed displacement scalar; the liquid colorizer consumes
 that scalar without recomputing
-`length(final_coords - original_coords)`. `MaterialSample` is an effect-local
-merged shape, not a general engine type.
+`length(final_coords - original_coords)`. `MaterialSample` is a shared engine
+carrier, not an effect-local shape.
 
 There are two clock models, selected by transition topology:
 
