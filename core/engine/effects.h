@@ -65,7 +65,9 @@
  *               the same registry-count oracle unconditionally
  *               (tests/test_effects.h), so the same drift fails the suite.
  *   Adding an effect therefore means: add the `#include` above, the
- *   REGISTER_EFFECT in its header, and one X() row here.
+ *   REGISTER_EFFECT in its header, and one X() row here. The effects/fixed/
+ *   headers each host several looks, so a look added to one of those needs only
+ *   the REGISTER_EFFECT and the X() row.
  */
 #define HS_EFFECT_LIST(X)                                                      \
   X(BZReactionDiffusion)                                                       \
