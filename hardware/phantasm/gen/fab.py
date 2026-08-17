@@ -24,6 +24,7 @@ import sys
 import tempfile
 import zipfile
 
+import check as netlist_spec
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
 from kicad_common import F, find_kicad_cli, is_copper_pour
@@ -402,6 +403,24 @@ def run_parity(report_path):
          "--severity-error", "--severity-warning", "-o", report_path, PCB],
         check=False)
     return require_schematic_parity(report_path)
+
+
+class NetlistSpecError(ValueError):
+    pass
+
+
+def validate_netlist_spec(net_path):
+    """Hold an exported netlist to check.py's named-net table; return its size.
+
+    Mismatches are printed by the table's own reporter before this raises.
+    """
+    with open(net_path, encoding="utf-8") as fh:
+        root = sexp.parse(fh.read())[0]
+    if not netlist_spec.check(netlist_spec.netlist_nets(root)):
+        raise NetlistSpecError(
+            "netlist does not match the electrical specification (see the "
+            "FAIL lines above)")
+    return len(netlist_spec.EXPECT)
 
 
 def parse_components(net_path):
@@ -804,6 +823,11 @@ def main():
     net = os.path.join(OUT, "_fab.net")
     run_export("netlist", [KCLI, "sch", "export", "netlist", "--format",
                            "kicadsexpr", "-o", net, SCH])
+    try:
+        num_spec_nets = validate_netlist_spec(net)
+    except NetlistSpecError as exc:
+        sys.exit(str(exc))
+    print(f"  netlist: {num_spec_nets} specified nets match member-for-member")
     pos = os.path.join(OUT, "_fab_pos.csv")
     # No --use-drill-file-origin: the CPL stays in the same absolute frame as
     # the gerbers and the drill file.

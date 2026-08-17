@@ -50,9 +50,10 @@ committed board directly need no KiCad and run in CI
   change. A warning-inclusive KiCad 10 run reports nine `lib_symbol_mismatch`
   notices for embedded copies of stock/custom symbols; the exported
   connectivity is verified separately below.
-- **Netlist matches the electrical specification** — `gen/check.py` exports one
-  with `kicad-cli sch export netlist` and checks it against the named-net table
-  in that file: every net in the table must match member-for-member, keyed on
+- **Netlist matches the electrical specification** — `gen/fab.py` holds the
+  netlist it exports to the named-net table in `gen/check.py`, which also runs
+  standalone against the committed schematic: every net in the table must match
+  member-for-member, keyed on
   `(ref, pin)` so a connector or IC pinout permutation fails. A named net outside
   the table is reported as a `NOTE` and does not fail the gate. CI enforces the
   same table without KiCad: `gen/tests/test_check.py` applies it to the pad nets
