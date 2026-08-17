@@ -1890,6 +1890,24 @@ HS_O3_BEGIN
  */
 struct Mesh {
   /**
+   * @brief Traps unless every flat face index addresses a vertex in the pool.
+   * @param faces Flat per-face vertex index array.
+   * @param num_indices Entries in @p faces.
+   * @param num_verts Vertices the mesh carries.
+   * @details SDF::Face reads the vertex pool through a std::span, whose
+   * operator[] only asserts, so a stale index domain would read arbitrary
+   * memory as a Vector on device. Checked once per mesh, not per face: the
+   * per-face spans are cut from exactly this array.
+   */
+  HS_COLD_MEMBER
+  static void check_face_index_domain(const uint16_t *faces, size_t num_indices,
+                                      size_t num_verts) {
+    for (size_t k = 0; k < num_indices; ++k)
+      HS_CHECK(static_cast<size_t>(faces[k]) < num_verts,
+               "mesh face index exceeds the vertex pool");
+  }
+
+  /**
    * @brief Rasterizes every face of a mesh.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
@@ -1938,6 +1956,8 @@ struct Mesh {
     const uint16_t *fi = mesh.get_faces_data();
     const uint16_t *fo = mesh.get_face_offsets_data();
     size_t fi_size = mesh.get_faces_size();
+
+    check_face_index_domain(fi, fi_size, mesh.vertices.size());
 
     // An empty bake (build skipped) is equivalent to none; a populated one
     // must cover every face — records are indexed by face order.
