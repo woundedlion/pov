@@ -4,8 +4,8 @@
 carriers, provider concepts, stage combinators, and concrete operator catalog
 specified here ship in `core/render/pullback.h`, which landed in `13186d7c`.
 Its consumers are `effects/ShaderBall.h` and `effects/fixed/FixedLookRuntime.h`
-— and through the latter, `effects/AlienOcean.h`, `effects/CurlLattice.h`,
-`effects/FacetGrid.h`, and the four `effects/fixed/*Looks.h` banks. The
+— and through the latter, the fourteen single-effect fixed-look headers in
+`effects/` (`patterns/README.md` maps each to its document). The
 verification artifacts (`tests/test_pullback.h`, `tests/pullback_manifest_check.cpp`,
 `tests/data/pullback/`, `tools/pullback_capture.py`) ship with it. Section 17
 is the exception: everything listed there is a design record only, with no

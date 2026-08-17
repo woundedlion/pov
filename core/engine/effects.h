@@ -24,11 +24,18 @@
 #include "effects/DisplacementField.h"
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
+#include "effects/ContourLattice.h"
+#include "effects/CosmicEyeball.h"
+#include "effects/EquatorGrid.h"
 #include "effects/FacetGrid.h"
-#include "effects/fixed/GridMirrorLooks.h"
-#include "effects/fixed/GridWarpLooks.h"
-#include "effects/fixed/LatticeLooks.h"
-#include "effects/fixed/TwinWaveMirrorLooks.h"
+#include "effects/FacetWave.h"
+#include "effects/GlitchGrid.h"
+#include "effects/HexWave.h"
+#include "effects/KaleidoWave.h"
+#include "effects/MobiusGrid.h"
+#include "effects/PrismLattice.h"
+#include "effects/SignalWeave.h"
+#include "effects/VectorFacets.h"
 #include "effects/GnomonicStars.h"
 #include "effects/GSReactionDiffusion.h"
 #include "effects/HankinSolids.h"
@@ -65,9 +72,7 @@
  *               the same registry-count oracle unconditionally
  *               (tests/test_effects.h), so the same drift fails the suite.
  *   Adding an effect therefore means: add the `#include` above, the
- *   REGISTER_EFFECT in its header, and one X() row here. The effects/fixed/
- *   headers each host several looks, so a look added to one of those needs only
- *   the REGISTER_EFFECT and the X() row.
+ *   REGISTER_EFFECT in its header, and one X() row here.
  */
 #define HS_EFFECT_LIST(X)                                                      \
   X(BZReactionDiffusion)                                                       \

@@ -360,10 +360,10 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    28 headers covering 36 effects plus shared bases:
+├── effects/                    39 headers covering 36 effects plus shared bases:
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
-│                                Raymarch.h, …; 5 fixed/ headers hold the shared runtime
-│                                and multi-effect product declarations — see §9
+│                                Raymarch.h, …; fixed/FixedLookRuntime.h is the shared
+│                                fixed-look runtime — see §9
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
