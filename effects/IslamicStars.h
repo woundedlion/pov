@@ -247,9 +247,9 @@ private:
   int build_reconcile_frames =
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
   /** Continuation the smooth dual bridge chains after its closing leg: plain
-   * finish_build_leg for a lone DUAL, or a macro's next stage. Set before every
-   * schedule_dual_bridge call. */
-  Fn<void(), 16> dual_bridge_done{[this] { finish_build_leg(); }};
+   * finish_build_leg for a lone DUAL, or a macro's next stage. Bound by
+   * schedule_dual_bridge from its argument, so it is never stale. */
+  Fn<void(), 16> dual_bridge_done;
 
   /**
    * @brief Draw callback for build-leg frames.
@@ -792,8 +792,7 @@ private:
     // three-leg bridge; it builds its own endpoints and chains its legs, then
     // rejoins at finish_build_leg.
     if (step.op == Solids::Op::DUAL) {
-      dual_bridge_done = [this] { finish_build_leg(); };
-      schedule_dual_bridge();
+      schedule_dual_bridge([this] { finish_build_leg(); });
       return;
     }
 
@@ -1000,8 +999,11 @@ private:
    * leg's scheduler compacts the arena before it runs, reclaiming the finished
    * legs and the endpoints they no longer need -- the heaviest gyro and
    * ambo_dual seeds run the whole bridge co-resident ~21 KB over budget.
+   * @param done Continuation the closing leg chains into. Taken by value so no
+   * caller can reach the bridge with a stale or unbound continuation.
    */
-  HS_COLD_MEMBER void schedule_dual_bridge() {
+  HS_COLD_MEMBER void schedule_dual_bridge(Fn<void(), 16> done) {
+    dual_bridge_done = std::move(done);
     ++dual_bridges_built;
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       dual_bridge_ambo =
@@ -1207,8 +1209,7 @@ private:
   }
   HS_COLD_MEMBER void dt_after_truncate() {
     carry_landing_to_seed(); // build_seed = truncate(X, 1/3)
-    dual_bridge_done = [this] { dt_after_bridge(); };
-    schedule_dual_bridge();
+    schedule_dual_bridge([this] { dt_after_bridge(); });
   }
   HS_COLD_MEMBER void dt_after_bridge() {
     carry_landing_to_seed(); // build_seed = dual(truncate(X, 1/3)) (identity)
@@ -1222,8 +1223,7 @@ private:
    * reconcile onto the exact kis(X) mesh. Runs entirely on the KIS step.
    */
   HS_COLD_MEMBER void schedule_dtd_macro() {
-    dual_bridge_done = [this] { dtd_after_bridge1(); };
-    schedule_dual_bridge();
+    schedule_dual_bridge([this] { dtd_after_bridge1(); });
   }
   HS_COLD_MEMBER void dtd_after_bridge1() {
     carry_landing_to_seed(); // build_seed = dual(X)
@@ -1231,8 +1231,7 @@ private:
   }
   HS_COLD_MEMBER void dtd_after_truncate() {
     carry_landing_to_seed(); // build_seed = truncate(dual(X), 1/3)
-    dual_bridge_done = [this] { dtd_after_bridge2(); };
-    schedule_dual_bridge();
+    schedule_dual_bridge([this] { dtd_after_bridge2(); });
   }
   HS_COLD_MEMBER void dtd_after_bridge2() {
     carry_landing_to_seed(); // build_seed = dual(truncate(dual(X), 1/3))
