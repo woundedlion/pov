@@ -79,6 +79,24 @@ constexpr uint8_t projection_traits(ProjectionTrait a, ProjectionTrait b,
   return projection_traits(a) | projection_traits(b) | projection_traits(c);
 }
 
+/** @brief Boundary kind a kernel reports at the sampled point. */
+enum class ProjectionBoundary : uint8_t {
+  NONE = 0,
+  /** Point sits on a cut edge of the image. */
+  CUT = 1U << 0,
+  /** Point sits on a locus of infinite scale. */
+  SINGULAR = 1U << 1
+};
+
+/**
+ * @brief Widens one boundary kind to the packed boundary mask.
+ * @param a Boundary kind to encode.
+ * @return The mask holding just that kind.
+ */
+constexpr uint8_t projection_boundary(ProjectionBoundary a) {
+  return static_cast<uint8_t>(a);
+}
+
 /** @brief One projection kernel's plane coordinates plus its seam metadata. */
 struct ProjectionKernelResult {
   /** Plane position in the kernel's native units. */
@@ -87,7 +105,7 @@ struct ProjectionKernelResult {
   uint8_t region_id;
   /** Disconnected component within the region. */
   uint8_t component_id;
-  /** Kernel-specific boundary kind at this point. */
+  /** ProjectionBoundary mask for this point. */
   uint8_t boundary_flags;
   /** Distance to the nearest cut in the kernel's own units; 65536 when the
    *  kernel was asked to skip it or found no cut. */
@@ -191,7 +209,7 @@ bonne_projection(const Vector &v, float central_meridian,
   return {coords,
           static_cast<uint8_t>(longitude < 0.0f),
           0,
-          1,
+          projection_boundary(ProjectionBoundary::CUT),
           std::max(0.0f, cut_distance),
           0,
           projection_traits(ProjectionTrait::CUT),
@@ -361,7 +379,7 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
   return {Complex(x, projected_y),
           region,
           0,
-          2,
+          projection_boundary(ProjectionBoundary::SINGULAR),
           edge,
           flags,
           projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
@@ -463,7 +481,7 @@ peirce_projection_fast_square(const Vector &v) {
   return {Complex(x, projected_y),
           region,
           0,
-          2,
+          projection_boundary(ProjectionBoundary::SINGULAR),
           edge,
           flags,
           projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
@@ -969,7 +987,9 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
   return {Complex(output.x, output.y),
           face,
           0,
-          static_cast<uint8_t>(cut_edge),
+          static_cast<uint8_t>(
+              cut_edge ? projection_boundary(ProjectionBoundary::CUT)
+                       : projection_boundary(ProjectionBoundary::NONE)),
           edge,
           0,
           projection_traits(cut_edge ? ProjectionTrait::CUT

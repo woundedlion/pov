@@ -6293,8 +6293,10 @@ private:
                            out);
   }
 
-  static constexpr uint8_t BOUNDARY_CUT = 1U << 0;
-  static constexpr uint8_t BOUNDARY_SINGULAR = 1U << 1;
+  static constexpr uint8_t BOUNDARY_CUT =
+      projections::projection_boundary(projections::ProjectionBoundary::CUT);
+  static constexpr uint8_t BOUNDARY_SINGULAR = projections::projection_boundary(
+      projections::ProjectionBoundary::SINGULAR);
   static constexpr uint8_t PROJECTION_FLAG_FOLDED = 1U << 0;
   static constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
   static constexpr float WARP_COORD_LIMIT = 65536.0f;

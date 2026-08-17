@@ -67,7 +67,7 @@ struct ApproximationMetric {
   const char *unit;
 };
 
-enum class ProjectionBoundary : uint8_t { CUT = 1U << 0, SINGULAR = 1U << 1 };
+using ProjectionBoundary = projections::ProjectionBoundary;
 
 struct ProjectionSample {
   Complex coords;
