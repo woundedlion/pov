@@ -42,6 +42,13 @@ constexpr size_t GLOBAL_ARENA_SIZE = HS_GLOBAL_ARENA_BYTES;
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
 constexpr size_t DEFAULT_SCRATCH_B_SIZE = 16 * 1024;
+// An HS_GLOBAL_ARENA_BYTES override at or below the scratch split would wrap the
+// unsigned subtraction below, giving the persistent arena a capacity far larger
+// than global_arena_block; its two-argument constructor passes size as its own
+// extent, so nothing traps and the first allocation writes past the block.
+static_assert(GLOBAL_ARENA_SIZE >
+                  DEFAULT_SCRATCH_A_SIZE + DEFAULT_SCRATCH_B_SIZE,
+              "HS_GLOBAL_ARENA_BYTES must exceed the default scratch split");
 constexpr size_t DEFAULT_PERSISTENT_SIZE =
     GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 // Persistent budget on the real device split (from DEVICE_GLOBAL_ARENA_SIZE, not
