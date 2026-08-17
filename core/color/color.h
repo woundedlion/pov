@@ -1512,6 +1512,9 @@ HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
  * @param turns Angle in turns; wrapped internally.
  * @param cosine Output cosine.
  * @param sine Output sine.
+ * @details Not renormalized, unlike turn_to_unit_cos_sin(): the pair is off
+ * unit length by up to 0.1%, so a rotation built from it scales the rotated
+ * vector by that much.
  */
 inline void hue_sincos(float turns, float &cosine, float &sine) {
   const float x = 2.0f * (turns - floorf(turns + 0.5f));
@@ -1530,6 +1533,8 @@ inline void hue_sincos(float turns, float &cosine, float &sine) {
  * @return The hue-rotated color, carrying the base alpha.
  * @details The cheap counterpart of hue_rotate(): approximate turn trig, and
  * gamut_scale_to_boundary_lut() only when the rotated color leaves the gamut.
+ * The trig is not renormalized, so chroma scales by up to 0.1% with @p amount;
+ * every call rotates a fresh base, so the scaling never compounds.
  */
 inline Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
   float cosine, sine;
