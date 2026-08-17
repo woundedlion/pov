@@ -2,7 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/mesh/spatial.h — KDTree, MeshState.
+ * Unit tests for core/mesh/spatial.h (KDTree) and core/mesh/mesh_state.h
+ * (MeshState).
  *
  * Tests deliberately avoid invoking the asserts in dependent types
  * (out-of-bounds, unbound access).
@@ -13,6 +14,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdint>
+#include "core/mesh/mesh_state.h"
 #include "core/mesh/spatial.h"
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"

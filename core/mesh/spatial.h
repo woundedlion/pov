@@ -7,8 +7,7 @@
 /**
  * @file spatial.h
  * @brief KDTree and the nearest-point query structures the mesh and effect
- *        code build on. Re-exports mesh_state.h so the includers predating the
- *        split still see MeshState.
+ *        code build on.
  */
 
 #include <cstdint>
@@ -19,7 +18,6 @@
 #include <cfloat>
 #include "engine/static_circular_buffer.h"
 #include "engine/memory.h"
-#include "mesh/mesh_state.h"
 
 /**
  * @brief A single node of the KDTree.
