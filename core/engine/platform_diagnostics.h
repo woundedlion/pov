@@ -26,7 +26,8 @@ namespace hs {
  * @param msg printf-style format string; trailing args supply the values.
  * @details Formats into a fixed 256-byte stack buffer (no heap) via the
  *          integer-only vsniprintf, which keeps newlib's float formatter out of
- *          ITCM — the device never logs a float.
+ *          ITCM — the device never logs a float. A longer line is truncated to
+ *          255 characters; the host sink below prints it whole.
  */
 HS_FLASH_INLINE inline void log(const char *msg, ...)
     __attribute__((format(printf, 1, 2)));
@@ -58,6 +59,8 @@ namespace hs {
 /**
  * @brief Logs one formatted line to stdout on the host.
  * @param fmt printf-style format string; trailing args supply the values.
+ * @details Formats straight to stdout, so the line length is unbounded and
+ *          float conversions work — both diverge from the device sink above.
  */
 inline void log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *fmt, ...) {
