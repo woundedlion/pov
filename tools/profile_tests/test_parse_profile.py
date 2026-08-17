@@ -662,6 +662,90 @@ class FramesMode(unittest.TestCase):
                          pp.spilled_frames(_window([64000, 55000, 190000])))
 
 
+class TruncatedTrailingWindow(unittest.TestCase):
+    """A capture cut mid-dump leaves a header whose stats never arrived.
+
+    Read as a window, its frames enter the spill denominator unmeasured and its
+    absent per-frame render marks every OTHER window's exact peak a '~'
+    placeholder -- one severed serial line downgrading a whole run.
+    """
+
+    def _log(self, path, windows=3, truncated=False):
+        lines = []
+        n = 0
+        for _ in range(windows):
+            for _ in range(4):
+                n += 1
+                lines.append(f"f {n} w=55000 r=50000")
+            lines.append(f"=== profile Fx [288x144] frames {n - 3}-{n} "
+                         f"window=250000 us ===")
+            lines.append("frame wall us: min=55000 avg=55000 max=55000 "
+                         "sum=220000 (4 frames)")
+            lines.append("frame render us: avg=50000 max=50000")
+            lines.append("frame             220000 us (100%)  4 calls  1 cyc")
+            lines.append("  fx_buffer_wait   20000 us (9%)  4 calls  1 cyc")
+        if truncated:
+            for _ in range(4):
+                n += 1
+                lines.append(f"f {n} w=55000 r=50000")
+            lines.append(f"=== profile Fx [288x144] frames {n - 3}-{n} "
+                         f"window=250000 us ===")
+            lines.append("frame wall us: min=55000 avg=550")  # cut mid-line
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return path
+
+    def _parse(self, **kw):
+        import contextlib
+        import io
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = self._log(Path(d) / "cap.log", **kw)
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                windows, _ = pp.parse(path)
+        return windows, err.getvalue()
+
+    def _windows_view(self, **kw):
+        import contextlib
+        import io
+        windows, _ = self._parse(**kw)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            pp.cmd_windows(windows, "frame")
+        return out.getvalue()
+
+    def test_the_cut_window_is_dropped_and_reported(self):
+        windows, err = self._parse(truncated=True)
+        self.assertEqual(len(windows), 3)
+        self.assertIn("13-16", err)
+
+    def test_a_complete_capture_keeps_every_window(self):
+        windows, err = self._parse()
+        self.assertEqual(len(windows), 3)
+        self.assertEqual(err, "")
+
+    def test_the_run_stays_exact_and_the_denominator_is_measured_frames(self):
+        self.assertEqual(self._windows_view(truncated=True),
+                         self._windows_view())
+        self.assertIn("peak frame render", self._windows_view(truncated=True))
+        self.assertIn("spilled 0/12 frames", self._windows_view(truncated=True))
+
+    def test_a_capture_that_never_dumps_counters_keeps_its_last_window(self):
+        # Only a window that differs from its peers is a cut dump; a build
+        # whose windows all carry no counter tree is not truncated.
+        import contextlib
+        import io
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "cap.log"
+            path.write_text("\n".join(
+                f"=== profile Fx [288x144] frames {i * 4 + 1}-{i * 4 + 4} "
+                f"window=250000 us ===" for i in range(3)) + "\n",
+                encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                parsed, _ = pp.parse(path)
+        self.assertEqual(len(parsed), 3)
+        self.assertEqual(err.getvalue(), "")
+
+
 class BucketOrdering(unittest.TestCase):
     """A preset's clean-hold scope time cannot exceed its own peak render.
 
