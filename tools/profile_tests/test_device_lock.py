@@ -310,5 +310,42 @@ class BoardSelection(unittest.TestCase):
         return pid
 
 
+class PinnedPortEnumeration(unittest.TestCase):
+    """A caller-set HS_TEENSY_PORT is checked against the loader's board list.
+
+    A board replugged onto a new COM name leaves the old pin naming nothing, and
+    locking a port no board answers on only surfaces after two image builds.
+    """
+
+    def setUp(self):
+        self.base = Path(tempfile.mkdtemp()) / "lock"
+        self.addCleanup(shutil.rmtree, self.base.parent, ignore_errors=True)
+        self.tools = self.base.parent / "tool-teensy"
+        self.tools.mkdir(parents=True)
+        loader = self.tools / "teensy_ports.exe"
+        loader.write_text("#!/bin/bash\necho '1 COM7 Teensy'\necho '2 COM9 Teensy'\n")
+        loader.chmod(0o755)
+
+    def run_pinned(self, script, pin):
+        return run_lock(script, self.base, ports=None,
+                        env={"HS_TEENSY_TOOLS": str(self.tools),
+                             "HS_TEENSY_PORT": pin})
+
+    def test_attached_pin_is_returned(self):
+        r = self.run_pinned("hs_device_ports", "COM9")
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(r.stdout.split(), ["COM9"])
+
+    def test_unattached_pin_is_reported(self):
+        r = self.run_pinned("hs_device_ports", "COM3")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("not attached", r.stderr)
+
+    def test_acquire_refuses_an_unattached_pin_without_locking(self):
+        r = self.run_pinned("hs_device_acquire E profile 60", "COM3")
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(list(self.base.parent.glob("lock-*.d")), [])
+
+
 if __name__ == "__main__":
     unittest.main()

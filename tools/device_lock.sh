@@ -60,11 +60,32 @@ _hs_now() { date +%s; }
 # seen listing a board pyserial no longer enumerated, and it is what the flash
 # resolves its USB location against. Empty output = enumerate-less host; the
 # caller falls back to the portless lock and the loader's auto-search.
+#
+# A caller-set HS_TEENSY_PORT is checked against that enumeration before it is
+# handed back: a board replugged onto a new COM name leaves the old pin naming
+# nothing, and claiming it locks a port no board answers on — the run then
+# builds two full images before the flash reports the miss. rc 1 = the pin is
+# not attached.
 hs_device_ports() {
-  if [ -n "${HS_TEENSY_PORT:-}" ]; then echo "$HS_TEENSY_PORT"; return 0; fi
   local tools=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}
-  [ -x "$tools/teensy_ports.exe" ] || return 0
-  "$tools/teensy_ports.exe" -L 2>/dev/null | awk '$2 ~ /^COM[0-9]+$/ {print $2}'
+  local attached=""
+  if [ -x "$tools/teensy_ports.exe" ]; then
+    attached=$("$tools/teensy_ports.exe" -L 2>/dev/null |
+               awk '$2 ~ /^COM[0-9]+$/ {print $2}') || attached=""
+  fi
+  if [ -n "${HS_TEENSY_PORT:-}" ]; then
+    if [ -n "$attached" ] &&
+       ! printf '%s\n' "$attached" | grep -qxF "$HS_TEENSY_PORT"; then
+      echo "device: HS_TEENSY_PORT=$HS_TEENSY_PORT is not attached." >&2
+      echo "The loader enumerates: $(printf '%s ' $attached)" >&2
+      echo "Replug that board, or unset HS_TEENSY_PORT to claim a free one." >&2
+      return 1
+    fi
+    echo "$HS_TEENSY_PORT"
+    return 0
+  fi
+  [ -n "$attached" ] && printf '%s\n' "$attached"
+  return 0
 }
 
 # Our claim token: only the holder may release, so a stale-break followed by a
@@ -179,7 +200,7 @@ hs_device_acquire() {
   while :; do
     # Re-enumerated every round: a board can be plugged in (or replugged onto a
     # new COM name) while we wait, and that board is a free one.
-    local ports; ports=$(hs_device_ports)
+    local ports; ports=$(hs_device_ports) || return 1
     [ -n "$ports" ] || ports="-"       # "-" = portless: no loader to ask
     for p in $ports; do
       port=$([ "$p" = "-" ] && echo "" || echo "$p")
@@ -244,7 +265,7 @@ hs_device_release() {
 # Reports every attached board. rc 0 if at least one is claimable.
 hs_device_status() {
   local ports p port d free=1
-  ports=$(hs_device_ports)
+  ports=$(hs_device_ports) || return 1
   [ -n "$ports" ] || ports="-"
   for p in $ports; do
     port=$([ "$p" = "-" ] && echo "" || echo "$p")
