@@ -818,6 +818,16 @@ private:
     float hue_noise_lut_phase = -1.0f;
   };
 
+  // init() takes the gamut LUT, the palette cycler's generated arena, the
+  // external ParamDef array and one State from the persistent arena.
+  static constexpr size_t FOOTPRINT_BYTES =
+      gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS) +
+      PaletteCycler::generated_arena_bytes() +
+      PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State);
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+                "FixedLook::Runtime persistent footprint exceeds the default "
+                "partition");
+
   static void configure_noise(FastNoiseLite &noise, int32_t seed) {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise.SetSeed(seed);
