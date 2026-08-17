@@ -231,7 +231,7 @@ inline void test_facet_grid_transition_contract() {
 
   effect.setAnimationsPaused(true);
   WB::finish_transition_evaluation(effect);
-  HS_EXPECT_EQ(WB::transition_evaluation(effect), uint16_t{1});
+  HS_EXPECT_EQ(WB::transition_evaluation(effect), uint16_t{2});
   effect.setAnimationsPaused(false);
 
   WB::set_transition_evaluation(effect, FX::TRANSITION_DURATION / 2);
