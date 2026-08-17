@@ -518,6 +518,15 @@ public:
   }
 
   /**
+   * @brief Binds the warp magnitude to a live external float.
+   * @param live_scale The external float to read each frame as the magnitude.
+   * @details Binding makes step() read the referent every frame, so a wired GUI
+   * slider takes effect immediately. The referent must outlive the animation.
+   */
+  void bind_scale(const float &live_scale) { scale_ref = &live_scale; }
+  void bind_scale(const float &&) = delete;
+
+  /**
    * @brief Steps the animation, updating param b.
    * @param canvas The canvas buffer (forwarded to the base step).
    */
@@ -525,14 +534,21 @@ public:
     FiniteParamAnimationBase::step(canvas);
     float progress = easing(normalized_progress());
     float angle = progress * 2 * PI_F;
-    params.get().b.re = scale * cosf(angle);
-    params.get().b.im = -scale * sinf(angle);
+    float s = scale;
+    if (scale_ref) {
+      float s2 = *scale_ref;
+      if (std::isfinite(s2))
+        s = s2;
+    }
+    params.get().b.re = s * cosf(angle);
+    params.get().b.im = -s * sinf(angle);
   }
 
 private:
   std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
   float scale;                                 /**< Warp magnitude. */
   EasingFn easing;                             /**< Easing curve. */
+  const float *scale_ref = nullptr; /**< Optional live magnitude source. */
 };
 
 /**
