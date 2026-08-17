@@ -4,7 +4,8 @@ This repository holds the Holosphere engine and firmware; the browser simulator
 lives in the sibling [daydream](https://github.com/woundedlion/daydream)
 repository and is built and installed from here. Read `README.md` §1–2 first —
 it is the architecture reference, and its file map is gated against the tracked
-tree.
+tree. [§11 Building](README.md#11-building) has the commands for all three
+targets: the Teensy firmware, the WASM module, and the native test suite.
 
 ## Licensing
 
@@ -33,6 +34,22 @@ non-fast-forward move of the ref, so a rewind needs a deliberate one-shot token
 One logical change is one commit, with an imperative subject naming the
 component (`scan: clamp the row index before the cast`). Commit messages carry
 **no `Co-Authored-By` line**.
+
+Agent sessions that commit here work under the additional ground rules in
+`docs/agent_workflow.md`, which bind worktree discipline, the host-global lock
+on the single shared Teensy, comment style, and the per-commit gates.
+
+## Design specs
+
+`docs/specs/` holds the design specifications — the pullback pipeline, the
+shader workbench and its fixed-pipeline effects, the inverse-sampling renderer,
+Phantasm's frame-sync protocol, and the Phantasm segment board. Each is the
+source of truth for one contract that spans several files, so a change that
+moves such a contract carries the spec update with it.
+
+A change that stays inside one file needs no spec. A new subsystem other code
+will be written against does: land the spec with the implementation, not after
+it.
 
 ## Gates
 
