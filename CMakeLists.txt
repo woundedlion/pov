@@ -188,7 +188,14 @@ if(EMSCRIPTEN)
   set(DAYDREAM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../daydream"
       CACHE PATH "Destination daydream checkout for the installed WASM module")
 
-  if(EXISTS "${DAYDREAM_DIR}")
+  # The install overwrites README.md and mirrors docs/screenshots by wiping the
+  # destination first, so a typo'd or stale cache value pointing at an unrelated
+  # directory deletes and overwrites paths there. Require a marker only a
+  # daydream checkout carries. daydream.js is tracked there and is written by no
+  # install rule here, so a previous run cannot have planted it.
+  set(HS_DAYDREAM_MARKER "${DAYDREAM_DIR}/daydream.js")
+
+  if(EXISTS "${HS_DAYDREAM_MARKER}")
     message(STATUS "Simulator module installs to DAYDREAM_DIR: ${DAYDREAM_DIR}")
     install(TARGETS ${TARGET_NAME} DESTINATION "${DAYDREAM_DIR}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.wasm"
@@ -311,6 +318,13 @@ if(EMSCRIPTEN)
         message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); skipping ${TARGET_NAME} provenance markers (.sha / .wasm.sha256 / .toolchain). Install completes, but the deploy gate has nothing to verify — deploy only from a git checkout.\")
       endif()
     ")
+  elseif(EXISTS "${DAYDREAM_DIR}")
+    # An existing destination without the marker is a wrong path, not a missing
+    # checkout: fail the install rather than write into it.
+    message(WARNING
+      "DAYDREAM_DIR '${DAYDREAM_DIR}' exists but holds no daydream.js — "
+      "refusing to install into it.")
+    install(CODE "message(FATAL_ERROR \"DAYDREAM_DIR '${DAYDREAM_DIR}' exists but is not a daydream checkout (no daydream.js); refusing to overwrite its README.md and wipe its docs/screenshots. Point -DDAYDREAM_DIR at the daydream checkout and re-run cmake.\")")
   else()
     message(WARNING
       "DAYDREAM_DIR '${DAYDREAM_DIR}' not found — skipping simulator-module "
