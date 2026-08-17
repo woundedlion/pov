@@ -1564,7 +1564,8 @@ inline Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
  * @param to Color at mix 1.
  * @param mix Blend weight; clamped to [0, 1].
  * @return The blend, unpremultiplied back to straight alpha; a zero-alpha
- *         result carries zero RGB.
+ *         result carries zero RGB. mix 0 and mix 1 return the corresponding
+ *         endpoint verbatim, RGB included.
  * @details Weighting is premultiplied, so a transparent endpoint contributes
  * no RGB — the opposite of Color4::lerp(), which interpolates color and alpha
  * independently.
