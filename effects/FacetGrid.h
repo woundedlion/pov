@@ -285,6 +285,10 @@ private:
       {PRESET_IDS[2], "Double Map", double_map_params()},
       {PRESET_IDS[3], "Stretched Grid", stretched_grid_params()},
   }};
+  // A preset past the end of PRESET_IDS exports as an empty ID through the
+  // registry's preset_id() and the WASM getPresetIds().
+  static_assert(PRESETS.size() == PRESET_IDS.size(),
+                "every preset needs a stable ID");
 
   struct Transition {
     Params from{};
