@@ -1143,7 +1143,7 @@ private:
    */
   HS_COLD_MEMBER void carry_landing_to_seed() {
     const size_t landed_faces = build_next_seed.face_counts.size();
-    HS_CHECK(landed_faces <= build_landing->faces,
+    HS_CHECK(build_landing && landed_faces <= build_landing->faces,
              "IslamicStars: next seed larger than the leg landing");
     HS_CHECK(landed_faces <= MAX_BUILD_FACES,
              "IslamicStars: next seed exceeds the slot palette capacity");
@@ -1367,9 +1367,11 @@ private:
     // kinds carry the endpoint start_build_leg built eagerly. The palette the
     // leg landed on is snapshotted too, since the landing does not survive.
     ScratchScope a_guard(scratch_arena_a);
-    if (build_step_chain[build_step].op == Solids::Op::HANKIN)
+    if (build_step_chain[build_step].op == Solids::Op::HANKIN) {
+      HS_CHECK(build_landing, "IslamicStars: finished leg has no landing");
       Animation::OpLeg::arrival_mesh(*build_landing, build_next_seed,
                                      scratch_arena_a);
+    }
 
     if (build_step + 1 >= build_step_count) {
       // finish_build consumes the last leg's landing, so that one is reclaimed
@@ -1401,7 +1403,7 @@ private:
     // for a normal leg, the surviving dual faces for the DUAL bridge's closing
     // truncate, whose zero-area corner births drop at the compile below).
     const size_t landed_faces = build_seed.face_counts.size();
-    HS_CHECK(landed_faces <= build_landing->faces,
+    HS_CHECK(build_landing && landed_faces <= build_landing->faces,
              "IslamicStars: finished solid larger than the leg landing");
     HS_CHECK(landed_faces <= MAX_BUILD_FACES,
              "IslamicStars: finished solid exceeds the slot palette capacity");
