@@ -89,12 +89,17 @@ inline float reduced_legendre(int l, int m, float x) {
  * @param l Degree (l >= 0).
  * @param m Order in [-l, l].
  * @return Normalization factor N, constant per shape.
- * @details Traps when l + |m| exceeds 33: the factorial ratio is subnormal at
- * 34 (1/34! = 3.4e-39, a few mantissa bits, zero under FTZ) and (l + |m|)!
- * overflows float from 35 on, so the ratio silently collapses.
+ * @details Traps on |m| > l: reduced_legendre() has no term to recur on there
+ * and returns 0, so the mode renders black. Traps when l + |m| exceeds 33: the
+ * factorial ratio is subnormal at 34 (1/34! = 3.4e-39, a few mantissa bits,
+ * zero under FTZ) and (l + |m|)! overflows float from 35 on, so the ratio
+ * silently collapses.
  */
 inline float normalization(int l, int m) {
   int abs_m = std::abs(m);
+  HS_CHECK(l >= 0 && abs_m <= l,
+           "spherical harmonic normalization: order %d is outside [-%d, %d]", m,
+           l, l);
   HS_CHECK(l + abs_m <= MAX_FACTORIAL_ARGUMENT,
            "spherical harmonic normalization: l + |m| = %d collapses the float "
            "factorial ratio",

@@ -2042,6 +2042,17 @@ inline void case_spherical_harmonic_normalization_overflow() {
 }
 
 /**
+ * @brief Death case: an order past the degree must trap.
+ * @details reduced_legendre() has no term to recur on for |m| > l and returns
+ *          0, so every sample of the mode comes back black.
+ */
+inline void case_spherical_harmonic_order_over_degree() {
+  const float n = SHMath::normalization(opaque(2), 3);
+  if (n == 42.0f)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: an infill band past the rendered domain must trap.
  * @details A south_infill wider than H puts every row at full longitude
  *          resolution, multiplying sample_count() by the spacing; the arena
@@ -3269,6 +3280,10 @@ inline const Case *all_cases(int &n) {
        case_spherical_harmonic_normalization_overflow, "spherical_harmonics.h",
        "(l + abs_m <= MAX_FACTORIAL_ARGUMENT) spherical harmonic "
        "normalization: l + |m| = 40 collapses the float factorial ratio"},
+      {"spherical_harmonic_order_over_degree",
+       case_spherical_harmonic_order_over_degree, "spherical_harmonics.h",
+       "(l >= 0 && abs_m <= l) spherical harmonic normalization: order 3 is "
+       "outside [-2, 2]"},
       {"spherical_field_infill_over_domain",
        case_spherical_field_infill_over_domain, "spherical_field.h",
        "(north_infill >= 0 && south_infill >= 0 && north_infill + south_infill "
@@ -4016,9 +4031,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 164;
+  constexpr int DEATH_CASE_COUNT = 165;
 #else
-  constexpr int DEATH_CASE_COUNT = 163;
+  constexpr int DEATH_CASE_COUNT = 164;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
