@@ -477,10 +477,17 @@ struct CycleCounter {
   CycleCounter(const CycleCounter &) = delete;
   CycleCounter &operator=(const CycleCounter &) = delete;
 
-  /** @brief Zeroes this counter's accumulated cycles and call count. */
+  /**
+   * @brief Zeroes this counter's accumulated cycles, call count and
+   *        mixed-parent flag.
+   * @details mixed_parent describes the entries just discarded, so it clears
+   * with them; the next run re-sets it if that run mixes callers. The latched
+   * parent edge survives (see log_all()).
+   */
   void reset() {
     cycles = 0;
     count = 0;
+    mixed_parent = false;
   }
 
   /**

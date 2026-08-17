@@ -223,16 +223,23 @@ inline void test_find_suffix() {
 }
 
 /**
- * @brief Verifies reset_all zeroes accumulated cycles and calls on every
- *        registered counter while leaving the tree structure in place.
+ * @brief Verifies reset_all zeroes accumulated cycles, calls and the
+ *        mixed-parent flag on every registered counter while leaving the tree
+ *        structure in place.
  */
 inline void test_reset_all_clears_counts() {
   static hs::CycleCounter outer("prof_reset_outer");
   static hs::CycleCounter inner("prof_reset_inner");
+  static hs::CycleCounter other("prof_reset_other");
   {
     hs::CycleScope so(outer);
     hs::CycleScope si(inner);
   }
+  {
+    hs::CycleScope sx(other);
+    hs::CycleScope si(inner);
+  }
+  HS_EXPECT_TRUE(inner.mixed_parent);
   outer.cycles = 4242;
   inner.cycles = 99;
 
@@ -242,6 +249,8 @@ inline void test_reset_all_clears_counts() {
   HS_EXPECT_EQ(outer.count, 0u);
   HS_EXPECT_EQ(inner.cycles, 0u);
   HS_EXPECT_EQ(inner.count, 0u);
+  // The flag describes the entries just discarded, so it cannot outlive them.
+  HS_EXPECT_FALSE(inner.mixed_parent);
   HS_EXPECT_EQ(inner.parent, &outer);
   HS_EXPECT_TRUE(outer.parent == nullptr);
 }
