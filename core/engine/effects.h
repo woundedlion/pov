@@ -111,8 +111,9 @@
  *        effects Dynamo, MobiusRings, and Thrusters.
  * @param X Function-like macro applied to each effect type name and its show
  *          duration in seconds.
- * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
- *   consumes this; the registry, tests, and gallery stay on the full roster.
+ * @details Entry order is the device show order, chosen independently of
+ *   HS_EFFECT_LIST. Only the Phantasm firmware target consumes this; the
+ *   registry, tests, and gallery stay on the full roster.
  *   The static_assert below HS_PHANTASM_EFFECT_COUNT forces this list to be
  *   revisited whenever HS_EFFECT_LIST gains or loses an entry.
  */
