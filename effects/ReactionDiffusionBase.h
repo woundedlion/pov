@@ -321,8 +321,12 @@ protected:
                                       sizeof(uint16_t);
     constexpr size_t STATE_BYTES = NSPECIES * RD_N * sizeof(StateT);
     constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);
+    // allocate() may skip up to alignof - 1 bytes ahead of each block; one pad
+    // per persistent tenant (the species arrays, the LUT, the node array).
+    constexpr size_t ALIGN_SLACK_BYTES =
+        NSPECIES * alignof(StateT) + alignof(uint16_t) + alignof(Vector);
     static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES +
-                          EXTRA_PERSISTENT_BYTES <=
+                          ALIGN_SLACK_BYTES + EXTRA_PERSISTENT_BYTES <=
                       PERSISTENT_BYTES,
                   "RD persistent arena too small for LUT + state + build peak");
     static_assert(SCRATCH_PEAK_BYTES <=
