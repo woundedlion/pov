@@ -3343,6 +3343,16 @@ fixed_prepared_warp(const FixedWarp &,
 }
 
 template <typename FixedEffect>
+auto fixed_prepared_surface(const ShaderBallWhiteBox::FrameState &source) {
+  FixedLook::PreparedSurface<typename FixedEffect::Params::surface_type>
+      prepared{};
+  if constexpr (requires { prepared.noise; })
+    prepared = {source.resources.surface_noise,
+                source.prepared_surface_noise.loop_offset};
+  return prepared;
+}
+
+template <typename FixedEffect>
 typename FixedEffect::FrameState
 fixed_reference_frame(const ShaderBallWhiteBox::FrameState &source,
                       size_t fixed_preset) {
@@ -3365,7 +3375,8 @@ fixed_reference_frame(const ShaderBallWhiteBox::FrameState &source,
           source.clocks.warp_outer_phase,
           source.clocks.warp_inner_phase,
           source.clocks.source_noise_time,
-          source.clocks.palette_oscillation_phase};
+          source.clocks.palette_oscillation_phase,
+          fixed_prepared_surface<FixedEffect>(source)};
 }
 
 template <typename FixedEffect>

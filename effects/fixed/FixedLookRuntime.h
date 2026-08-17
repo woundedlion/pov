@@ -21,6 +21,9 @@ namespace FixedLook {
 
 enum class HueMode : uint8_t { NONE, NOISE, PATH_LENGTH };
 
+/// Whether the hue-rotation LUT is bypassed at a zero hue shift.
+enum class HueGate : uint8_t { SHIFT_AMOUNT, ALWAYS };
+
 struct GridSourceParams {
   float pattern_freq = 1.0f;
   float speed = 0.0f;
@@ -48,6 +51,14 @@ struct LatticeSourceParams {
   float lattice_shape_blend = 0.0f;
   float lattice_softness = 0.05f;
   float lattice_radius = 0.25f;
+};
+
+struct NoSurfaceParams {};
+
+struct SurfaceNoiseParams {
+  float scale = 1.0f;
+  float strength = 0.0f;
+  float speed = 0.0f;
 };
 
 struct ProjectionParams {
@@ -136,17 +147,20 @@ struct ColorParams {
 };
 
 template <typename SourceT, typename OuterWarpT, typename InnerWarpT,
-          typename LensT = NoLensParams, typename ValueT = LinearValueParams>
+          typename LensT = NoLensParams, typename ValueT = LinearValueParams,
+          typename SurfaceT = NoSurfaceParams>
 struct Params {
   using source_type = SourceT;
   using outer_warp_type = OuterWarpT;
   using inner_warp_type = InnerWarpT;
   using lens_type = LensT;
   using value_type = ValueT;
+  using surface_type = SurfaceT;
   SourceT source;
   ProjectionParams projection;
   OuterWarpT outer_warp;
   InnerWarpT inner_warp;
+  SurfaceT surface;
   LensT lens;
   ValueT value;
   ColorParams color;
@@ -190,6 +204,12 @@ struct PreparedWarp {
   PreparedWarpTransform transform;
 };
 
+template <typename SurfaceT> struct PreparedSurface {};
+template <> struct PreparedSurface<SurfaceNoiseParams> {
+  const FastNoiseLite *noise;
+  Vector loop_offset;
+};
+
 template <typename ParamsT> struct FrameState {
   Quaternion projection_conjugate;
   Quaternion outer_conjugate;
@@ -207,6 +227,7 @@ template <typename ParamsT> struct FrameState {
   float inner_phase;
   float source_noise_time;
   float palette_oscillation_phase;
+  PreparedSurface<typename ParamsT::surface_type> surface;
 };
 
 template <typename FrameT> struct Binding {
@@ -272,6 +293,24 @@ struct WarpProvider {
   static bool path_length_required(const FrameState &) { return TrackPath; }
 };
 
+template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
+  using Binding = BindingT;
+  using FrameState = typename Binding::FrameState;
+  static const FastNoiseLite &noise(const FrameState &frame) {
+    return *frame.surface.noise;
+  }
+  static const Vector &loop_offset(const FrameState &frame) {
+    return frame.surface.loop_offset;
+  }
+  static float scale(const FrameState &frame) {
+    return frame.params.surface.scale;
+  }
+  static float strength(const FrameState &frame) {
+    return frame.params.surface.strength;
+  }
+  static bool path_length_required(const FrameState &) { return TrackPath; }
+};
+
 template <typename BindingT> struct SourceProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
@@ -309,8 +348,20 @@ template <typename BindingT> struct ValueProvider {
   }
 };
 
+/**
+ * @brief Whether the colorizer samples the hue-rotation LUT this frame.
+ * @details The runtime rebuilds the LUT on exactly this condition, so the two
+ * sites cannot disagree about which frames leave it stale.
+ */
+template <HueMode HueV, HueGate GateV>
+inline bool hue_rotation_active(const ColorParams &color) {
+  return HueV != HueMode::NONE &&
+         (GateV == HueGate::ALWAYS || color.hue_shift_amount != 0.0f);
+}
+
 template <typename BindingT, HueMode HueV,
-          Pullback::Color::BrightnessEnvelope BrightnessV>
+          Pullback::Color::BrightnessEnvelope BrightnessV,
+          HueGate GateV = HueGate::SHIFT_AMOUNT>
 struct ColorProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
@@ -346,13 +397,12 @@ struct ColorProvider {
   static Pullback::Color::HueRotationLutView
   hue_rotation(const FrameState &frame) {
     return {frame.hue_rotation_lut,
-            HueV != HueMode::NONE &&
-                frame.params.color.hue_shift_amount != 0.0f};
+            hue_rotation_active<HueV, GateV>(frame.params.color)};
   }
   static Pullback::Color::HueNoiseLutView hue_noise(const FrameState &frame) {
     return {frame.hue_noise_lut,
             HueV == HueMode::NOISE &&
-                frame.params.color.hue_shift_amount != 0.0f};
+                hue_rotation_active<HueV, GateV>(frame.params.color)};
   }
   static Pullback::Color::BrightnessEnvelope
   brightness_envelope(const FrameState &) {
@@ -406,6 +456,17 @@ inline LatticeSourceParams interpolate(const LatticeSourceParams &a,
       lerp(a.lattice_shape_blend, b.lattice_shape_blend, t),
       FixedPipeline::log_positive(a.lattice_softness, b.lattice_softness, t),
       lerp(a.lattice_radius, b.lattice_radius, t)};
+}
+
+inline NoSurfaceParams interpolate(const NoSurfaceParams &,
+                                   const NoSurfaceParams &, float) {
+  return {};
+}
+
+inline SurfaceNoiseParams interpolate(const SurfaceNoiseParams &a,
+                                      const SurfaceNoiseParams &b, float t) {
+  return {lerp(a.scale, b.scale, t), lerp(a.strength, b.strength, t),
+          lerp(a.speed, b.speed, t)};
 }
 
 inline ProjectionParams interpolate(const ProjectionParams &a,
@@ -517,15 +578,18 @@ inline ColorParams interpolate(const ColorParams &a, const ColorParams &b,
 }
 
 template <typename SourceT, typename OuterWarpT, typename InnerWarpT,
-          typename LensT, typename ValueT>
-inline Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT>
-interpolate(const Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT> &from,
-            const Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT> &to,
-            float progress) {
+          typename LensT, typename ValueT, typename SurfaceT>
+inline Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT, SurfaceT>
+interpolate(
+    const Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT, SurfaceT>
+        &from,
+    const Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT, SurfaceT> &to,
+    float progress) {
   return {interpolate(from.source, to.source, progress),
           interpolate(from.projection, to.projection, progress),
           interpolate(from.outer_warp, to.outer_warp, progress),
           interpolate(from.inner_warp, to.inner_warp, progress),
+          interpolate(from.surface, to.surface, progress),
           interpolate(from.lens, to.lens, progress),
           interpolate(from.value, to.value, progress),
           interpolate(from.color, to.color, progress)};
@@ -562,6 +626,14 @@ inline bool valid(const LatticeSourceParams &p) {
          finite_range(p.lattice_shape_blend, 0.0f, 1.0f) &&
          finite_range(p.lattice_softness, 1.0f / 1024.0f, 1.0f) &&
          finite_range(p.lattice_radius, 1.0f / 64.0f, 0.49f);
+}
+
+inline bool valid(const NoSurfaceParams &) { return true; }
+
+inline bool valid(const SurfaceNoiseParams &p) {
+  return finite_range(p.scale, 1.0f / 64.0f, 64.0f) &&
+         finite_range(p.strength, -0.5f, 0.5f) &&
+         finite_range(p.speed, -1.0f / 64.0f, 1.0f / 64.0f);
 }
 
 inline bool valid(const ProjectionParams &p) {
@@ -653,12 +725,13 @@ inline bool valid(const ColorParams &p) {
 }
 
 template <typename SourceT, typename OuterWarpT, typename InnerWarpT,
-          typename LensT, typename ValueT>
-inline bool
-valid(const Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT> &params) {
+          typename LensT, typename ValueT, typename SurfaceT>
+inline bool valid(const Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT,
+                               SurfaceT> &params) {
   return valid(params.source) && valid(params.projection) &&
          valid(params.outer_warp) && valid(params.inner_warp) &&
-         valid(params.lens) && valid(params.value) && valid(params.color);
+         valid(params.surface) && valid(params.lens) && valid(params.value) &&
+         valid(params.color);
 }
 
 template <bool Enabled> struct OptionalNoise {};
@@ -676,6 +749,8 @@ public:
   using Frame = FrameState<Params>;
   using PipelineBinding = Binding<Frame>;
   static constexpr uint16_t TRANSITION_DURATION = 480;
+  static constexpr bool HAS_SURFACE_NOISE =
+      !std::is_same_v<typename ParamsT::surface_type, NoSurfaceParams>;
 
   HS_COLD_MEMBER Runtime() : Effect(W, H, {.strobe = true}) {}
 
@@ -689,6 +764,8 @@ public:
       configure_noise(state->outer.noise, Derived::OUTER_NOISE_SEED);
     if constexpr (HasSourceNoise)
       configure_noise(state->source.noise, Derived::SOURCE_NOISE_SEED);
+    if constexpr (HAS_SURFACE_NOISE)
+      configure_noise(state->surface.noise, Derived::SURFACE_NOISE_SEED);
     init_gamut_lut(persistent_arena, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
     palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,
                                   ease_in_out_sin);
@@ -847,6 +924,7 @@ private:
     FastNoiseLite color_noise;
     OptionalNoise<HasOuterNoise> outer;
     OptionalNoise<HasSourceNoise> source;
+    OptionalNoise<HAS_SURFACE_NOISE> surface;
     FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
     float hue_noise_lut_scale = -1.0f;
@@ -862,6 +940,13 @@ private:
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "FixedLook::Runtime persistent footprint exceeds the default "
                 "partition");
+
+  /// The effect's hue gate, defaulting to the shift-amount gate.
+  static constexpr HueGate hue_gate() {
+    if constexpr (requires { Derived::HUE_GATE; })
+      return Derived::HUE_GATE;
+    return HueGate::SHIFT_AMOUNT;
+  }
 
   static void configure_noise(FastNoiseLite &noise, int32_t seed) {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -902,6 +987,17 @@ private:
                               1.0f / 1024.0f, 1.0f);
       register_animated_param("Lattice Radius", &source.lattice_radius,
                               1.0f / 64.0f, 0.49f);
+    }
+  }
+
+  template <typename T> void register_surface(T &surface) {
+    if constexpr (!std::is_same_v<T, NoSurfaceParams>) {
+      register_animated_param("Surface Noise Scale", &surface.scale,
+                              1.0f / 64.0f, 64.0f);
+      register_animated_param("Surface Noise Strength", &surface.strength,
+                              -0.5f, 0.5f);
+      register_animated_param("Surface Noise Speed", &surface.speed,
+                              -1.0f / 64.0f, 1.0f / 64.0f);
     }
   }
 
@@ -972,6 +1068,7 @@ private:
         register_animated_param("Central Meridian",
                                 &params.projection.central_meridian, 0.0f,
                                 TWO_PI_F);
+    register_surface(params.surface);
     register_warp(params.outer_warp, "Planar Warp 1 Speed");
     register_warp(params.inner_warp, "Planar Warp 2 Speed");
     if constexpr (requires { params.value.edge_width; })
@@ -1062,6 +1159,8 @@ private:
     if constexpr (requires { params.source.noise_time_rate; })
       source_noise_time =
           wrap_t(source_noise_time + params.source.noise_time_rate);
+    if constexpr (HAS_SURFACE_NOISE)
+      surface_phase = wrap_t(surface_phase + params.surface.speed);
     if constexpr (Derived::ANIMATED_PROJECTION)
       projection_spin =
           fmodf(projection_spin + params.projection.spin_rate, TWO_PI_F);
@@ -1158,20 +1257,26 @@ private:
         state->hue_noise_lut_phase = hue_noise_phase;
       }
     }
-    // Matches the hue_rotation() view's active flag: an inactive view is never
-    // sampled, so the rebuild would be discarded.
-    if constexpr (HueV != HueMode::NONE)
-      if (params.color.hue_shift_amount != 0.0f)
-        Pullback::Color::prepare_hue_rotation_lut(
-            std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
-                state->hue_rotation_lut),
-            palette_cycler.palette());
+    // Shares hue_rotation_active() with the colorizer's view flag: an inactive
+    // view is never sampled, so the rebuild would be discarded.
+    if (hue_rotation_active<HueV, hue_gate()>(params.color))
+      Pullback::Color::prepare_hue_rotation_lut(
+          std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
+              state->hue_rotation_lut),
+          palette_cycler.palette());
     const FastNoiseLite *outer_noise = nullptr;
     const FastNoiseLite *source_noise = nullptr;
     if constexpr (HasOuterNoise)
       outer_noise = &state->outer.noise;
     if constexpr (HasSourceNoise)
       source_noise = &state->source.noise;
+    PreparedSurface<typename Params::surface_type> surface{};
+    if constexpr (HAS_SURFACE_NOISE) {
+      const float angle = TWO_PI_F * wrap_t(surface_phase);
+      surface = {&state->surface.noise,
+                 Vector(NOISE_LOOP_RADIUS * cosf(angle),
+                        NOISE_LOOP_RADIUS * sinf(angle), 0.0f)};
+    }
     return {Derived::ANIMATED_PROJECTION ? projection_conjugate : Quaternion(),
             outer_conjugate,
             {source_primary, source_secondary, source_angle,
@@ -1188,7 +1293,8 @@ private:
             outer_phase,
             inner_phase,
             source_noise_time,
-            palette_oscillation_phase};
+            palette_oscillation_phase,
+            surface};
   }
 
   HS_COLD_MEMBER void update_palette_chroma() {
@@ -1237,6 +1343,7 @@ private:
   float source_secondary = 0.0f;
   float source_angle = 0.0f;
   float source_noise_time = 0.0f;
+  float surface_phase = 0.0f;
   float projection_spin = 0.0f;
   float hue_noise_phase = 0.0f;
   float outer_phase = 0.0f;

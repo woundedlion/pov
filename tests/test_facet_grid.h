@@ -98,7 +98,8 @@ struct FacetGridWhiteBox {
             0.0f,
             frame.clocks.warp_inner_phase,
             0.0f,
-            frame.clocks.palette_oscillation_phase};
+            frame.clocks.palette_oscillation_phase,
+            {}};
   }
 
   static Color4 shade(const Vector &view, const FrameState &frame) {
