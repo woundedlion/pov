@@ -1265,12 +1265,15 @@ public:
    * @param to The w = 1 endpoint; must be baked.
    * @param w Blend weight in (0, 1).
    * @details Walks the two source LUTs entry-wise with the fixed-point channel
-   * lerp — no per-entry float resampling.
+   * lerp — no per-entry float resampling. Neither endpoint may be this palette;
+   * the fresh allocation would retarget it before the blend reads it.
    */
   HS_COLD_MEMBER void bake_blend(Arena &arena, const BakedPalette &from,
                                  const BakedPalette &to, float w) {
     HS_CHECK(from.colors && from.alpha_q16 && to.colors && to.alpha_q16,
              "BakedPalette::bake_blend before bake()");
+    HS_CHECK(&from != this && &to != this,
+             "BakedPalette::bake_blend endpoint is the output");
     colors = arena.allocate_n<Pixel>(LUT_SIZE);
     alpha_q16 = arena.allocate_n<uint16_t>(LUT_SIZE);
     aliased = false;
@@ -1365,13 +1368,17 @@ public:
 
   /**
    * @brief Deep-copies the LUT from another BakedPalette into the given arena.
-   * @param src Source palette to copy; must already be baked.
+   * @param src Source palette to copy; must already be baked and must not be
+   * this palette.
    * @param arena Arena to allocate the new LUT from.
-   * @details Used by Persist for arena compaction.
+   * @details Used by Persist for arena compaction. The fresh allocation
+   * retargets this handle before the copy reads @p src, so a self-clone would
+   * memcpy uninitialized arena onto itself.
    */
   void clone_from(const BakedPalette &src, Arena &arena) {
     HS_CHECK(src.colors != nullptr && src.alpha_q16 != nullptr,
              "BakedPalette::clone_from before src bake()");
+    HS_CHECK(&src != this, "BakedPalette::clone_from from itself");
     colors = arena.allocate_n<Pixel>(LUT_SIZE);
     alpha_q16 = arena.allocate_n<uint16_t>(LUT_SIZE);
     aliased = false;
