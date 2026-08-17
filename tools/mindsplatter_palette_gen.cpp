@@ -75,5 +75,13 @@ int main(int argc, char **argv) {
          "// clang-format on\n\n"
          "static_assert(sizeof(MINDSPLATTER_PALETTES) == "
       << PALETTE_COUNT << " * " << LUT_SIZE << " * sizeof(Pixel));\n";
+
+  // Closed explicitly: the destructor's flush swallows its own failure, and a
+  // short write would leave a truncated header behind an exit status of 0.
+  out.close();
+  if (!out) {
+    std::fprintf(stderr, "cannot write %s\n", argv[1]);
+    return 1;
+  }
   return 0;
 }
