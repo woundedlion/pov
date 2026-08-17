@@ -66,12 +66,15 @@ constexpr size_t DEVICE_PERSISTENT_BUDGET =
  *        block.
  * @param bytes Size of the abandoned block.
  * @details Accumulates instead of logging the line bind() emits for a grow:
- * move-assignment runs per frame deep inside mesh work, where the formatter's
- * stack frame does not fit the device stack budget and one line per event would
- * bury the log. The running total is reported by the arena's OOM trap, which is
- * where an abandoned block otherwise surfaces as an unexplained shortfall.
- * Out-of-line and non-template so the device image carries one copy for every
- * element type.
+ * move-assignment runs deep inside mesh work, where the formatter's stack frame
+ * does not fit the device stack budget and one line per event would bury the
+ * log. The running total is reported by the arena's OOM trap. Out-of-line and
+ * non-template so the device image carries one copy for every element type.
+ * @note Cumulative across every arena and never decremented, so it is an upper
+ * bound on bytes dropped since boot, not a live-leak figure: the chained mesh
+ * ops that dominate it rewind their arena right after each step, reclaiming
+ * what was counted. Subtracting reclaims would need each block's source arena
+ * in release builds, which ArenaVector tracks only in debug builds.
  */
 void note_arena_vector_abandon(size_t bytes);
 
@@ -150,7 +153,8 @@ public:
     // way `offset + padding + size > capacity` would for a colossal `size`.
     if (padding > capacity - offset || size > capacity - offset - padding) {
       hs::log("[OOM] Arena: req %zu, offset %zu, pad %zu / cap %zu "
-              "(move-assign abandoned %zu B in %zu blocks)",
+              "(move-assign dropped %zu B in %zu blocks, all arenas since "
+              "boot, reclaims not subtracted)",
               size, offset, padding, capacity, arena_vector_abandoned_bytes(),
               arena_vector_abandon_count());
       HS_CHECK(false, "Arena::allocate: out of memory");
