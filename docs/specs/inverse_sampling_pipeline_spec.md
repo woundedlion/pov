@@ -631,11 +631,15 @@ headroom ratchets. The gate records ITCM bytes consumed, ITCM bytes free before
 the next FlexRAM bank boundary, rounded bank allocation, DTCM variables, DTCM
 local free bytes, stack headroom, RAM2 allocator free bytes, persistent-arena
 free bytes, and flash bytes. The 196,608-byte bank seen in the current image is
-not invariant when DTCM variables change. Unless a separately reviewed
-resource reallocation changes the ratchets, the final roster retains at least
-648 bytes of ITCM boundary headroom, 12,864 bytes of DTCM local free space,
-4,224 bytes of RAM2 allocator free space, and a 12,288-byte stack-headroom
-floor. `CodeEmission` must agree with emitted wrapper/leaf attributes and ELF
+not invariant when DTCM variables change. The ratchets are the `phantasm`
+floors in `tools/teensy_budgets.json`, and that file is authoritative: unless a
+separately reviewed resource reallocation raises them, the final roster retains
+at least 3,072 bytes of ITCM boundary headroom
+(`ram1.components.code.max_banks_from_stack_floor.min_headroom_bytes`), 12,288
+bytes of RAM1 free for DTCM locals and stack (`ram1.free_min_bytes`, which is
+also the stack-headroom floor the ITCM code ceiling is derived from), and 4,096
+bytes of RAM2 allocator free space (`ram2.free_min_bytes`).
+`CodeEmission` must agree with emitted wrapper/leaf attributes and ELF
 VMAs; an inline-only stage has no independent byte or placement result.
 
 ELF validation fails on unexpected emitted `run_stage`, carrier-fold,
@@ -759,8 +763,9 @@ repeats the protocol with separately linked shipping images because final
 flash layout is itself part of the result.
 
 `parse_profile.py validate` must report monotonic frames, no epoch reset,
-complete root and stage counter trees, and root-cycle/wall agreement within
-0.7 ppm. A generated roster manifest is the capture oracle: every authored ID,
+complete root and stage counter trees, and root-cycle/wall agreement within the
+5 ppm `tools/parse_profile.py` enforces. A generated roster manifest is the
+capture oracle: every authored ID,
 both visible halves of every transition, and the last-to-first wrap must appear
 with the expected compiled pipeline ID. Reports retain per-ID median,
 p95, maximum render and clean-shader time, spill count, and transition
