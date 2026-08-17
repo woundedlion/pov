@@ -21,20 +21,20 @@
 
 // --- Constants for Procedural Generation ---
 /** Square root of 2. */
-static constexpr float SQRT2 = 1.414213562373095f;
+inline constexpr float SQRT2 = 1.414213562373095f;
 /** Tribonacci constant t, the real root of t^3 - t^2 - t - 1 = 0 (~1.83928676).
  */
-static constexpr float TRIBONACCI_CONST = 1.839286755214161f;
+inline constexpr float TRIBONACCI_CONST = 1.839286755214161f;
 /** Snub-cube truncation parameter. */
-static constexpr float T_SNUB_CUBE = 1.0f / (1.0f + TRIBONACCI_CONST);
+inline constexpr float T_SNUB_CUBE = 1.0f / (1.0f + TRIBONACCI_CONST);
 /** Snub-cube twist. */
-static constexpr float SNUB_CUBE_TWIST = 0.28f;
+inline constexpr float SNUB_CUBE_TWIST = 0.28f;
 /** Truncated-dodecahedron/icosahedron truncation parameter. */
-static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
+inline constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
 /** Truncated-cube/cuboctahedron truncation parameter. */
-static constexpr float T_TRUNC_CUBE = 1.0f / (2.0f + SQRT2);
+inline constexpr float T_TRUNC_CUBE = 1.0f / (2.0f + SQRT2);
 /** Truncated tetra/octa/icosahedron truncation parameter. */
-static constexpr float T_TRUNC_THIRD = 1.0f / 3.0f;
+inline constexpr float T_TRUNC_THIRD = 1.0f / 3.0f;
 
 namespace Solids {
 
@@ -978,16 +978,16 @@ FLASHMEM static PolyMesh pentagonalHexecontahedron(Arena &a, Arena &b) {
 namespace IslamicStarPatterns {
 
 /** Degrees-to-radians conversion factor. */
-static constexpr float D2R = PI_F / 180.0f;
+inline constexpr float D2R = PI_F / 180.0f;
 
 /** Truncation depth of the `*_truncate5d_*` recipes, bit-exactly 5.0f * D2R
  * and named for it, consumed by truncate as a dimensionless edge fraction
  * short of the ambo pinch at t = 0.5. */
-static constexpr float TRUNCATE_T_NEAR = 0.0872664601f;
+inline constexpr float TRUNCATE_T_NEAR = 0.0872664601f;
 /** Truncation depth of the `*_truncate50d_*` recipes, bit-exactly 50.0f * D2R
  * and named for it, consumed by truncate as a dimensionless edge fraction past
  * the ambo pinch, where the cut faces self-intersect by design. */
-static constexpr float TRUNCATE_T_FAR = 0.87266463f;
+inline constexpr float TRUNCATE_T_FAR = 0.87266463f;
 
 /**
  * @brief Builds the truncatedIcosahedron_hk58_chamfer63 star pattern.

@@ -33,22 +33,22 @@ namespace Plot {
 enum class RasterSamplingPolicy { DEFAULT, BALANCED, SELECTABLE };
 
 /** @brief Balanced-policy target spacing in screen pixels. */
-static constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
+inline constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
 
 /** @brief Pole-floor multiple below which balanced sampling keeps exact cadence. */
-static constexpr float BALANCED_POLE_GUARD_SCALE = 2.0f;
+inline constexpr float BALANCED_POLE_GUARD_SCALE = 2.0f;
 
 /** @brief Minimum sin²φ for balanced step reuse; √0.12 ≈ 7 × MIN_SIN_PHI. */
-static constexpr float BALANCED_REUSE_MIN_SIN2 = 0.12f;
+inline constexpr float BALANCED_REUSE_MIN_SIN2 = 0.12f;
 
 /** @brief Step-reuse ceiling, as a fraction of base_step. */
-static constexpr float BALANCED_REUSE_MAX_STEP_SCALE = 0.9f;
+inline constexpr float BALANCED_REUSE_MAX_STEP_SCALE = 0.9f;
 
 /** @brief Minimum tangent dot between consecutive full samples to reuse a step. */
-static constexpr float BALANCED_REUSE_MIN_TANGENT_DOT = 0.995f;
+inline constexpr float BALANCED_REUSE_MIN_TANGENT_DOT = 0.995f;
 
 /** @brief Maximum relative step change, against the new step, to reuse a step. */
-static constexpr float BALANCED_REUSE_STEP_TOLERANCE = 0.1f;
+inline constexpr float BALANCED_REUSE_STEP_TOLERANCE = 0.1f;
 
 /**
  * @brief Alpha gain compensating a stretched sample spacing.
@@ -77,7 +77,7 @@ inline uint32_t g_planar_position_samples = 0;
  * basis center is below this (≈ within 2.6° of the antipode) projects to an
  * unstable azimuth, so its segment falls back to a geodesic edge. cos(π − 0.045).
  */
-static constexpr float COS_PLANAR_ANTIPODE = 0.999f;
+inline constexpr float COS_PLANAR_ANTIPODE = 0.999f;
 
 /**
  * @brief Upper bound on the scratch_arena_a bytes rasterize binds for its own

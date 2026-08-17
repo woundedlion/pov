@@ -32,7 +32,7 @@
 using namespace emscripten;
 
 // ---- Stack canary painting for high water mark tracking ----
-static constexpr uint8_t STACK_CANARY = 0xCD;
+inline constexpr uint8_t STACK_CANARY = 0xCD;
 
 /**
  * @brief Lowest stack address the canary may occupy.
@@ -106,7 +106,7 @@ static size_t init_stack_peak = 0;
 // Upper bound on a single effect's exposed parameters, including effect-local
 // fixed storage larger than ParamList's default inline array. Used
 // to pre-reserve the getParamValues() backing store so it never reallocates.
-static constexpr size_t MAX_PARAMS = 128;
+inline constexpr size_t MAX_PARAMS = 128;
 
 static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
               "MAX_PARAMS must cover ParamList's default array size");

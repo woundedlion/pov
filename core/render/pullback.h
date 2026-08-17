@@ -773,8 +773,8 @@ namespace Projection {
 
 enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
 
-static constexpr uint8_t FOLDED_FLAG = 1U << 0;
-static constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
+inline constexpr uint8_t FOLDED_FLAG = 1U << 0;
+inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
 
 __attribute__((always_inline)) inline ProjectionSample
 stereographic(const Vector &input, float pole_fade) {
@@ -1137,7 +1137,7 @@ struct Airocean : ExactPolicy {
 
 namespace Warp {
 
-static constexpr uint8_t MAX_POLAR_HARMONIC = 16;
+inline constexpr uint8_t MAX_POLAR_HARMONIC = 16;
 
 struct FlatEnvelope {};
 struct ProjectionWeightEnvelope {};

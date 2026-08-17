@@ -37,7 +37,7 @@
 namespace hs_test {
 namespace platform_tests {
 
-static constexpr double TWO_PI = 6.283185307179586;
+inline constexpr double TWO_PI = 6.283185307179586;
 
 /**
  * @brief Verifies sin8 is bit-exact with FastLED's sin8_C LUT and tracks the

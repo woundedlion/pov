@@ -39,11 +39,11 @@ namespace SDF {
 
 /** Minimum squared normalized correlation for a valid class-LUT alignment;
  *  below this the face is too deformed and keeps the exact path. */
-static constexpr float ALIGN_MIN_CORR_SQ = 0.25f;
+inline constexpr float ALIGN_MIN_CORR_SQ = 0.25f;
 /** Maximum per-vertex deviation from the aligned canonical shape (as a multiple
  *  of the LUT cell diagonal) before a face keeps the exact path. The facility
  *  fits only meshes that hold still per spawn (mesh_classes.h). */
-static constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
+inline constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
 
 /**
  * @brief Canonical congruence-class signed-distance LUT, baked once per

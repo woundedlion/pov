@@ -24,8 +24,8 @@
 
 using namespace emscripten;
 
-static constexpr size_t PALETTE_LUT_BYTES = 256 * 3;
-static constexpr size_t PALETTE_DIAGNOSTIC_FLOATS = 256 * 6;
+inline constexpr size_t PALETTE_LUT_BYTES = 256 * 3;
+inline constexpr size_t PALETTE_DIAGNOSTIC_FLOATS = 256 * 6;
 // Bake targets for every PaletteOps instance and call, handed to JS as views
 // over WASM linear memory rather than copies. See the memory-view contract on
 // compile().

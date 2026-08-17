@@ -31,8 +31,8 @@ using namespace emscripten;
 // only by MeshOpsWrapper. malloc'd lazily on first MeshOps use (start at
 // capacity 0) so engine/worker instances that never touch MeshOps don't reserve
 // 16 MB; the block lives for the module's lifetime (reset via clearToolingMemory).
-static constexpr size_t TOOLING_ARENA_BYTES = 8 * 1024 * 1024;
-static constexpr size_t TOOLING_SCRATCH_BYTES = 4 * 1024 * 1024;
+inline constexpr size_t TOOLING_ARENA_BYTES = 8 * 1024 * 1024;
+inline constexpr size_t TOOLING_SCRATCH_BYTES = 4 * 1024 * 1024;
 static Arena tooling_arena(nullptr, 0);
 // Transient single-op scratch, shared module-globally. Every MeshOps entry
 // point reset()s both at its head; valid only within one synchronous call. A
@@ -46,7 +46,7 @@ static Arena tooling_scratch_b(nullptr, 0);
 // always-on HS_CHECK, so a mesh past this must be rejected at the JS boundary
 // rather than allowed to reach one. The scratch arenas hold exactly this many
 // elements, so the same ceiling also keeps Arena::allocate's trap out of reach.
-static constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS = UINT16_MAX;
+inline constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS = UINT16_MAX;
 static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
                   TOOLING_SCRATCH_BYTES /
                       hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT,
@@ -59,7 +59,7 @@ static_assert(sizeof(Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
 // Widest face a mesh can hold: PolyMesh stores per-face side counts as uint8_t
 // and narrow_face_count traps past this, so an operator that would emit a wider
 // face must be rejected at the JS boundary.
-static constexpr size_t MAX_MESH_FACE_DEGREE = UINT8_MAX;
+inline constexpr size_t MAX_MESH_FACE_DEGREE = UINT8_MAX;
 
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
 // was built under and rejects via wrapper_live() if a wipe reclaimed its storage.
