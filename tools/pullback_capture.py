@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 from generate_pullback_manifest_header import load_and_validate, manifest_sha256
-from pullback_crosscheck import _canonical_frame_bytes, _expected_toolchain
+from pullback_crosscheck import _expected_toolchain
 
 
 OPERATION_CODES = {
@@ -178,15 +178,22 @@ def load_backend(
         expected_code = OPERATION_CODES[specs[key]["mapping"]]
         if operation_code != expected_code:
             raise CaptureError(f"capture backend operation mismatch for {key}")
-        pixels = []
-        for _pixel in range(width * height):
-            channels = []
-            for _channel in range(3):
-                channel, offset = _read_u16(data, offset)
-                channels.append(channel)
-            pixels.append([*channels, 65535])
+        end = offset + width * height * 6
+        if end > len(data):
+            raise CaptureError("capture backend stream is truncated")
+        # Corpus pixels are the backend's three little-endian 16-bit channels
+        # plus an opaque alpha, held as that byte string rather than a list per
+        # pixel: it is what the frame hash is taken over, and a full-resolution
+        # roster of four-element lists costs gigabytes.
+        channels = data[offset:end]
+        offset = end
+        pixels = bytearray(width * height * 8)
+        for byte in range(6):
+            pixels[byte::8] = channels[byte::6]
+        pixels[6::8] = b"\xff" * (width * height)
+        pixels[7::8] = b"\xff" * (width * height)
         records[key] = {
-            "pixels": pixels,
+            "pixels": bytes(pixels),
             "mapping": specs[key]["mapping"],
             "selected_pixels": selected_pixels,
             "source": source,
@@ -372,6 +379,38 @@ def _frame_operation(record: dict) -> dict:
     }
 
 
+def _pixels_json(pixels: bytes) -> str:
+    """The corpus byte string as its `[[r,g,b,a],...]` JSON array."""
+    return "[" + ",".join(
+        f"[{r},{g},{b},{a}]" for r, g, b, a in struct.iter_unpack("<HHHH", pixels)
+    ) + "]"
+
+
+def write_capture(capture: dict, frames: list[dict], path: Path) -> None:
+    """Write the capture JSON, expanding each frame's pixels as it streams.
+
+    Byte-identical to `json.dumps(capture | {"frames": frames}, separators=
+    (",", ":"))` with each frame's pixel bytes written as four-channel lists.
+    The corpus is a quarter of a gigabyte of text over ten million pixels, so
+    neither those lists nor the document are ever materialized.
+    """
+    compact = {"separators": (",", ":")}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as stream:
+        head = json.dumps(capture, **compact)
+        stream.write(head[:-1] + ("," if capture else ""))
+        stream.write('"frames":[')
+        for index, frame in enumerate(frames):
+            if index:
+                stream.write(",")
+            stream.write("{" + ",".join(
+                json.dumps(key, **compact) + ":"
+                + (_pixels_json(value) if key == "pixels"
+                   else json.dumps(value, **compact))
+                for key, value in frame.items()) + "}")
+        stream.write("]}\n")
+
+
 def produce(
     configuration: str,
     checkout: Path,
@@ -444,9 +483,7 @@ def produce(
                         "operation": _frame_operation(record),
                         "pixels": record["pixels"],
                     }
-                    frame["sha256"] = hashlib.sha256(
-                        _canonical_frame_bytes(frame)
-                    ).hexdigest()
+                    frame["sha256"] = hashlib.sha256(record["pixels"]).hexdigest()
                     frames.append(frame)
                 for category, probes in program["probes"].items():
                     for probe in probes:
@@ -462,8 +499,7 @@ def produce(
                             "pixels": record["pixels"],
                         }
                         frame["sha256"] = hashlib.sha256(
-                            _canonical_frame_bytes(frame)
-                        ).hexdigest()
+                            record["pixels"]).hexdigest()
                         frames.append(frame)
     oracle_metrics = []
     for oracle in oracles:
@@ -499,14 +535,8 @@ def produce(
         "configuration": configuration,
         "corpus": programs["corpus"],
         "oracle_metrics": oracle_metrics,
-        "frames": frames,
     }
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps(capture, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
+    write_capture(capture, frames, output)
 
 
 def main() -> int:
