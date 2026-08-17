@@ -77,6 +77,28 @@ class FindKicadCliTests(unittest.TestCase):
             self.resolve(["/usr/bin/kicad-cli"])
 
 
+class ExportNetlistTests(unittest.TestCase):
+    """The netlist gates run from a shell; a failed export must read as one."""
+
+    def export(self, error):
+        with mock.patch.object(kicad_common.subprocess, "run",
+                               side_effect=error), \
+                self.assertRaises(SystemExit) as caught:
+            kicad_common.export_netlist("kicad-cli", "phantasm.kicad_sch")
+        return str(caught.exception)
+
+    def test_reports_a_missing_kicad_cli(self):
+        message = self.export(FileNotFoundError())
+        self.assertIn("kicad-cli not found: kicad-cli", message)
+        self.assertIn("KICAD_CLI", message)
+
+    def test_reports_a_failed_export(self):
+        message = self.export(subprocess.CalledProcessError(
+            2, [], stderr="schematic is broken\n"))
+        self.assertIn("kicad-cli exited 2", message)
+        self.assertIn("phantasm.kicad_sch", message)
+
+
 class RequireWritableTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
