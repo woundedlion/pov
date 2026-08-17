@@ -1125,6 +1125,10 @@ private:
                                            0.7071067811865475f,
                                        NOISE_LOOP_RADIUS * cosf(angle)};
     } else if constexpr (std::is_same_v<WarpT, AffineParams>) {
+      static_assert(
+          std::is_same_v<typename Params::source_type, LatticeSourceParams>,
+          "the affine warp stage translates in lattice cells and requires a "
+          "LatticeSourceParams source");
       const float cycle = TWO_PI_F * wrap_t(phase);
       const float cycle_cos = cosf(cycle);
       const float period = 1.0f / params.source.lattice_cell_scale;
