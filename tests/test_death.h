@@ -2165,6 +2165,40 @@ inline void case_baked_palette_rebake_aliased() {
 }
 
 /**
+ * @brief Death case: cloning a BakedPalette from itself must trap.
+ * @details Color surface — clone_from allocates fresh storage into this handle
+ *          before reading @c src, so a self-clone memcpys uninitialized arena
+ *          onto itself and leaves the LUT filled with garbage.
+ */
+inline void case_baked_palette_clone_from_self() {
+  static uint8_t buf[4 * BakedPalette::required_arena_bytes()];
+  Arena a(buf, sizeof(buf));
+  SolidColorPalette src(Color4(Pixel(255, 0, 0), 1.0f));
+  BakedPalette lut;
+  lut.bake(a, src);
+  BakedPalette &self = *opaque(&lut);
+  lut.clone_from(self, a); // -> HS_CHECK
+}
+
+/**
+ * @brief Death case: blending a BakedPalette with itself as an endpoint must
+ *        trap.
+ * @details Color surface — bake_blend reallocates this handle before walking
+ *          the endpoints, so an endpoint that is the output reads the fresh
+ *          uninitialized arena instead of the baked LUT.
+ */
+inline void case_baked_palette_bake_blend_self() {
+  static uint8_t buf[4 * BakedPalette::required_arena_bytes()];
+  Arena a(buf, sizeof(buf));
+  SolidColorPalette src(Color4(Pixel(255, 0, 0), 1.0f));
+  BakedPalette from, dst;
+  from.bake(a, src);
+  dst.bake(a, src);
+  BakedPalette &self = *opaque(&dst);
+  dst.bake_blend(a, from, self, opaque(0.5f)); // -> HS_CHECK
+}
+
+/**
  * @brief Death case: a Gradient built from an empty stop list must trap.
  * @details Color surface — with no stops the 256-entry LUT keeps its
  *          value-initialized state, so every lookup returns black. The
@@ -3257,6 +3291,12 @@ inline const Case *all_cases(int &n) {
       {"baked_palette_rebake_aliased", case_baked_palette_rebake_aliased,
        "composition.h",
        "(!aliased) BakedPalette::rebake through an aliasing handle"},
+      {"baked_palette_clone_from_self", case_baked_palette_clone_from_self,
+       "composition.h", "(&src != this) BakedPalette::clone_from from itself"},
+      {"baked_palette_bake_blend_self", case_baked_palette_bake_blend_self,
+       "composition.h",
+       "(&from != this && &to != this) BakedPalette::bake_blend endpoint is "
+       "the output"},
       {"register_param_overflow", case_register_param_overflow, "canvas.h",
        "(parameters.count < parameters.capacity()) register_param: "
        "exceeded ParamList capacity"},
@@ -4066,9 +4106,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 166;
+  constexpr int DEATH_CASE_COUNT = 168;
 #else
-  constexpr int DEATH_CASE_COUNT = 165;
+  constexpr int DEATH_CASE_COUNT = 167;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
