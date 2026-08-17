@@ -27,10 +27,14 @@ GROUP=${1:-}
 
 # The firmware playlist, in HS_PHANTASM_EFFECT_LIST order. The macro body runs
 # from the #define to the first line without a trailing backslash.
+# Shared X-row spelling with tools/docs_check.py and scripts/effect_roster.mjs:
+# whitespace inside the parens is tolerated so a reformat to `X( Foo , 12 )`
+# cannot silently shrink one roster reader's count. Anchoring at the line start
+# is what excludes a commented-out row.
 playlist_roster() {
   tr -d '\r' < "$EFFECTS_H" \
     | sed -n '/^#define HS_PHANTASM_EFFECT_LIST(X)/,/[^\\]$/p' \
-    | sed -nE 's/^[[:space:]]*X\(([A-Za-z0-9_]+)[[:space:]]*,.*/\1/p'
+    | sed -nE 's/^[[:space:]]*X\([[:space:]]*([A-Za-z0-9_]+)[[:space:]]*,.*/\1/p'
 }
 
 # Every effect this script profiles, read off its own `run` lines.

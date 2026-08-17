@@ -94,7 +94,12 @@ _EFFECTS_ROW_RE = re.compile(
 _EFFECTS_DIR = PurePosixPath("effects")
 _EFFECT_ROSTER_SOURCE = PurePosixPath("core/engine/effects.h")
 _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
-_EFFECT_ROSTER_ENTRY_RE = re.compile(r"^\s*X\((\w+)\)")
+# Shared X-row spelling with scripts/effect_roster.mjs and tools/profile_sweep.sh:
+# whitespace inside the parens is tolerated so a reformat to `X( Foo )` cannot
+# silently shrink one roster reader's count while the others keep the full set.
+# Anchoring at the line start is what excludes a commented-out `// X(Foo)` or
+# `/* X(Foo) */` row, matching the comment stripping effect_roster.mjs does.
+_EFFECT_ROSTER_ENTRY_RE = re.compile(r"^\s*X\(\s*(\w+)\s*\)")
 
 _UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",

@@ -330,6 +330,19 @@ class TestDocumentationChecker(unittest.TestCase):
                   "  X(Comets)\n")
         self.assertEqual(dc.effect_roster(source), {"Comets", "Voronoi"})
 
+    def test_effect_roster_tolerates_whitespace_inside_the_parens(self):
+        source = ("#define HS_EFFECT_LIST(X) \\\n"
+                  "  X( Comets )             \\\n"
+                  "  X(Voronoi)\n")
+        self.assertEqual(dc.effect_roster(source), {"Comets", "Voronoi"})
+
+    def test_effect_roster_skips_commented_out_rows(self):
+        source = ("#define HS_EFFECT_LIST(X) \\\n"
+                  "  // X(Retired)           \\\n"
+                  "  /* X(AlsoRetired) */    \\\n"
+                  "  X(Voronoi)\n")
+        self.assertEqual(dc.effect_roster(source), {"Voronoi"})
+
     def test_matching_effects_row_is_clean(self):
         entries = {PurePosixPath("effects"),
                    PurePosixPath("effects/Comets.h"),
