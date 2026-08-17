@@ -2242,6 +2242,66 @@ inline void test_antialiased_dot_clip_footprint() {
       (Plot::antialiased_dot_visible_in_clip<W, H>(cr, xc, H - 2.0f, 20.0f)));
 }
 
+/**
+ * @brief Pins the one-dot gate to the taps Screen::AntiAlias actually emits.
+ * @details The gate hand-mirrors the filter's splat geometry, so a sweep of
+ * sub-pixel positions against several clip bands compares the gate's verdict
+ * with the filter's own tap set: visible iff some emitted tap lands inside the
+ * band.
+ */
+inline void test_antialiased_dot_gate_matches_antialias_taps() {
+  constexpr int W = 32, H = 24;
+  Filter::Screen::AntiAlias<W, H> aa;
+
+  struct Band {
+    int y_start, y_end, x_start, x_end, margin;
+  };
+  const Band bands[] = {
+      {0, H, 0, W, 1},      {10, 14, 0, W, 1},    {10, 14, 4, 9, 0},
+      {10, 14, 4, 9, 1},    {H - 2, H, 6, 7, 0},  {0, 2, 0, W, 0},
+      {8, 12, W - 2, 3, 0}, {8, 12, W - 1, 1, 0},
+  };
+
+  int mismatches = 0, visible = 0, hidden = 0;
+  for (const Band &b : bands) {
+    ClipRegion cr;
+    cr.w = W;
+    cr.h = H;
+    cr.margin = b.margin;
+    cr.y_start = b.y_start;
+    cr.y_end = b.y_end;
+    cr.x_start = b.x_start;
+    cr.x_end = b.x_end;
+    const ClipRegion::XClip xc = cr.x_clip();
+
+    for (int ry = -4; ry <= 4 * H + 4; ++ry) {
+      const float row = 0.25f * static_cast<float>(ry);
+      for (int rx = 0; rx < 8 * W; ++rx) {
+        const float col = 0.125f * static_cast<float>(rx);
+        bool any_tap_in_band = false;
+        aa.plot(col, row, Pixel(1, 2, 3), 0.0f, 1.0f,
+                [&](float tx, float ty, const Pixel &, float, float) {
+                  if (cr.contains_y(static_cast<int>(ty)) &&
+                      !xc.clipped(static_cast<int>(tx)))
+                    any_tap_in_band = true;
+                });
+        const bool gate =
+            Plot::antialiased_dot_visible_in_clip<W, H>(cr, xc, row, col);
+        if (gate != any_tap_in_band)
+          ++mismatches;
+        if (any_tap_in_band)
+          ++visible;
+        else
+          ++hidden;
+      }
+    }
+  }
+  HS_EXPECT_EQ(mismatches, 0);
+  // Both verdicts must occur, or the sweep proves nothing.
+  HS_EXPECT_GT(visible, 0);
+  HS_EXPECT_GT(hidden, 0);
+}
+
 // ============================================================================
 // Plot::Ring::sample
 // ============================================================================
@@ -5473,6 +5533,7 @@ inline int run_plot_scan_tests() {
   test_screen_step_matches_analytic_unclamped();
   test_edge_fits_one_dot_is_conservative();
   test_antialiased_dot_clip_footprint();
+  test_antialiased_dot_gate_matches_antialias_taps();
 
   test_ring_sample_unit_length_and_progress();
   test_ring_sample_lut_matches_direct();
