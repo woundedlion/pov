@@ -42,3 +42,23 @@ only the linearly interpolated sphere-noise scale.
 `facet_grid.shader.json` describes the fixed stereographic dodecahedral-grid
 pipeline used by `FacetGrid`. Its four presets differ only in source,
 projection, warp, and color parameters.
+
+`example.shader.json` carries no `effect_id`: it is the CLI's sample document
+and backs no effect.
+
+Every other document is the editable source of a `FixedLook::Runtime`
+specialization. A document maps to its effect by `effect_id` == the effect's
+`EFFECT_ID`; directory placement predicts neither the base class nor the number
+of effects in a header, so the table below is the map. `CurlLattice` and
+`FacetGrid` are the two bespoke effects; `AlienOcean` shares the runtime with
+the `effects/fixed/` group but keeps a single-effect file.
+
+| Document | Effect | Header |
+| --- | --- | --- |
+| `alien_ocean` | `AlienOcean` | `effects/AlienOcean.h` |
+| `curl_lattice` | `CurlLattice` | `effects/CurlLattice.h` |
+| `facet_grid` | `FacetGrid` | `effects/FacetGrid.h` |
+| `cosmic_eyeball`, `equator_grid`, `glitch_grid` | `CosmicEyeball`, `EquatorGrid`, `GlitchGrid` | `effects/fixed/GridMirrorLooks.h` |
+| `facet_wave`, `signal_weave`, `vector_facets` | `FacetWave`, `SignalWeave`, `VectorFacets` | `effects/fixed/GridWarpLooks.h` |
+| `contour_lattice`, `prism_lattice` | `ContourLattice`, `PrismLattice` | `effects/fixed/LatticeLooks.h` |
+| `hex_wave`, `kaleido_wave`, `mobius_grid` | `HexWave`, `KaleidoWave`, `MobiusGrid` | `effects/fixed/TwinWaveMirrorLooks.h` |
