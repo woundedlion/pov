@@ -497,8 +497,8 @@ struct TerminatorSweep : Base {
   }
   /**
    * @brief Orders faces along the sweep axis.
-   * @return Position in [0, 1]: 0 at the axis's negative pole, where the front
-   * starts.
+   * @return Position in [0, 1]: 1 at the axis's positive pole, which the front
+   * reaches first.
    */
   float face_offset(const Vector &center, int, int) const {
     return 0.5f * (1.0f + dot(center, axis));
