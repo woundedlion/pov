@@ -886,7 +886,7 @@ private:
       if constexpr (requires { warp.vector_angle; })
         register_animated_param("Warp Vector Angle", &warp.vector_angle, 0.0f,
                                 TWO_PI_F);
-      if constexpr (requires { warp.rotation; }) {
+      if constexpr (std::is_same_v<T, MirrorParams>) {
         register_animated_param("Mirror Rotation", &warp.rotation, 0.0f,
                                 TWO_PI_F);
         register_animated_param("Mirror Cell X", &warp.cell_x, 1.0f / 64.0f,
@@ -896,7 +896,7 @@ private:
         register_animated_param("Mirror Offset X", &warp.offset_x, -8.0f, 8.0f);
         register_animated_param("Mirror Offset Y", &warp.offset_y, -8.0f, 8.0f);
       }
-      if constexpr (requires { warp.rotation_rate; }) {
+      if constexpr (std::is_same_v<T, AffineParams>) {
         register_animated_param("Affine Rotation Rate", &warp.rotation_rate,
                                 -TWO_PI_F, TWO_PI_F);
         register_animated_param("Affine Translation X", &warp.translation_x,
@@ -909,7 +909,7 @@ private:
                                 64.0f);
         register_animated_param("Affine Shear", &warp.shear, -4.0f, 4.0f);
       }
-      if constexpr (requires { warp.radial_scale; }) {
+      if constexpr (std::is_same_v<T, PolarParams>) {
         register_animated_param("Polar Radial Scale", &warp.radial_scale,
                                 1.0f / 64.0f, 64.0f);
         register_animated_param("Polar Radial Phase", &warp.radial_phase,
@@ -1111,20 +1111,20 @@ private:
                                            bool outer) const {
     PreparedWarp prepared{};
     float rotation = 0.0f;
-    if constexpr (requires { warp.rotation; }) {
+    if constexpr (std::is_same_v<WarpT, MirrorParams>) {
       rotation = warp.rotation;
       prepared.transform.mirror = {
           wrap_t(warp.offset_x / warp.cell_x + phase) * warp.cell_x,
           wrap_t(warp.offset_y / warp.cell_y) * warp.cell_y};
-    } else if constexpr (requires { warp.field_angle; }) {
+    } else if constexpr (std::is_same_v<WarpT, WaveShearParams>) {
       rotation = warp.field_angle;
-    } else if constexpr (requires { warp.vector_angle; }) {
+    } else if constexpr (std::is_same_v<WarpT, VectorNoiseParams>) {
       rotation = warp.vector_angle;
       const float angle = TWO_PI_F * wrap_t(phase);
       prepared.transform.noise_loop = {NOISE_LOOP_RADIUS * sinf(angle) *
                                            0.7071067811865475f,
                                        NOISE_LOOP_RADIUS * cosf(angle)};
-    } else if constexpr (requires { warp.rotation_rate; }) {
+    } else if constexpr (std::is_same_v<WarpT, AffineParams>) {
       const float cycle = TWO_PI_F * wrap_t(phase);
       const float cycle_cos = cosf(cycle);
       const float period = 1.0f / params.source.lattice_cell_scale;
