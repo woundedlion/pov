@@ -169,8 +169,8 @@ public:
    *       outlive this Motion; a temporary is rejected at compile time (the
    *       rvalue overload is deleted).
    */
-  // No ctor emptiness guard (P is generic): an empty/origin-crossing path traps
-  // downstream when step() feeds the origin into angle_between()/normalized().
+  // No ctor emptiness guard: P is generic, and a borrowed path may still be
+  // filled after construction. step() traps on an origin sample instead.
   template <typename P>
   Motion(Orientation<CAP> &orientation, const P &path_obj, int duration,
          bool repeat = false, Space space = Space::World)
@@ -262,6 +262,10 @@ public:
     Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
     Vector target_v = path_fn(t_curr / this->duration);
+    HS_CHECK(dot(current_v, current_v) >= math::EPS_LEN_SQ &&
+                 dot(target_v, target_v) >= math::EPS_LEN_SQ,
+             "Motion: path sampled at the origin (empty or origin-crossing "
+             "path)");
     float total_angle = angle_between(current_v, target_v);
     int num_steps = rotation_substeps(total_angle, MAX_ANGLE);
 
