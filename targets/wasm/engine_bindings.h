@@ -1067,8 +1067,9 @@ public:
   }
 
   /**
-   * @brief Reserved compatibility accessor.
-   * @return Empty string.
+   * @brief Reads the live Shader workbench's config-import notice.
+   * @return The notice text, empty when there is none or the loaded effect is
+   *         not the Shader workbench.
    */
   std::string getConfigImportNotice() {
     std::string notice;
@@ -1079,7 +1080,7 @@ public:
   }
 
   /**
-   * @brief Reserved compatibility no-op.
+   * @brief Clears the live Shader workbench's config-import notice.
    */
   void clearConfigImportNotice() {
     with_shader_workbench(
