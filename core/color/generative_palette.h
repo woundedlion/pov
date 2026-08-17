@@ -400,7 +400,7 @@ private:
     case AxisCurve::CUP:
       return high - (high - low) * (1.0f - fabsf(position * 2.0f - 1.0f));
     case AxisCurve::CUSTOM:
-      return 0.0f;
+      HS_CHECK(false, "evaluate_axis: a CUSTOM axis is resolved by the caller");
     }
     return 0.0f;
   }
