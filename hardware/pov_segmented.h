@@ -412,13 +412,21 @@ public:
         if (std::memcmp(&tm, &last_tm, sizeof tm) != 0) {
           // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
           // formatter (~5 KB ITCM); these counters are all %lu.
+          // Two lines, not one: 18 saturating uint32 counters run to 10 digits
+          // each, which overruns hs::log's fixed 256-byte buffer and truncates
+          // the tail. Each line below fits its own worst case.
+          hs::log("sync coast=%lu stall=%lu epi=%lu lock=%lu flip=%lu acc=%lu "
+                  "rej=%lu inv=%lu",
+                  (unsigned long)tm.max_coast_halves,
+                  (unsigned long)tm.master_stalls,
+                  (unsigned long)tm.epochs_refractory_ignored,
+                  (unsigned long)tm.lock_transitions, (unsigned long)tm.flips,
+                  (unsigned long)tm.symbols_accepted,
+                  (unsigned long)tm.symbols_rejected_gate,
+                  (unsigned long)tm.symbols_discarded_invalid);
           hs::log(
-              "sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu bdrop=%lu "
-              "bbusy=%lu blate=%lu sdrop=%lu bok=%lu brej=%lu fix=%lu "
-              "rmis=%lu lock=%lu flip=%lu coast=%lu stall=%lu epi=%lu",
-              (unsigned long)tm.symbols_accepted,
-              (unsigned long)tm.symbols_rejected_gate,
-              (unsigned long)tm.symbols_discarded_invalid,
+              "sync emit cens=%lu abrt=%lu bdrop=%lu bbusy=%lu blate=%lu "
+              "sdrop=%lu bok=%lu brej=%lu fix=%lu rmis=%lu",
               (unsigned long)tm.emit_censored, (unsigned long)tm.emit_aborted,
               (unsigned long)tm.beacons_overrun_dropped,
               (unsigned long)tm.beacons_busy_dropped,
@@ -426,11 +434,7 @@ public:
               (unsigned long)tm.boundary_bursts_dropped,
               (unsigned long)tm.beacons_ok, (unsigned long)tm.beacons_rejected,
               (unsigned long)tm.beacon_index_corrections,
-              (unsigned long)tm.beacon_rev_mismatches,
-              (unsigned long)tm.lock_transitions, (unsigned long)tm.flips,
-              (unsigned long)tm.max_coast_halves,
-              (unsigned long)tm.master_stalls,
-              (unsigned long)tm.epochs_refractory_ignored);
+              (unsigned long)tm.beacon_rev_mismatches);
           last_tm = tm;
         }
         const uint32_t overruns = ledController.getOverrunCount();
