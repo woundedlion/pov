@@ -291,8 +291,12 @@ inline void test_effect_transition_replacement_pause_and_restore() {
                                     hs::EffectTransitionOrigin::AUTOMATIC, 2};
   HS_EXPECT_EQ(controller.request(first), hs::EffectTransitionStatus::OK);
   controller.tick();
+  const size_t pre_replacement_envelopes = adapter.envelopes.size();
   first.effect_id = "kaleido-wave";
   HS_EXPECT_EQ(controller.request(first), hs::EffectTransitionStatus::OK);
+  // Replacing the destination mid-fade writes no envelope of its own: the fade
+  // carries on down from where it stood instead of snapping back to full.
+  HS_EXPECT_EQ(adapter.envelopes.size(), pre_replacement_envelopes);
   HS_EXPECT_EQ(adapter.preflights, 2);
   controller.set_paused(true);
   const size_t envelope_count = adapter.envelopes.size();
@@ -300,6 +304,7 @@ inline void test_effect_transition_replacement_pause_and_restore() {
   HS_EXPECT_EQ(adapter.envelopes.size(), envelope_count);
   controller.set_paused(false);
   controller.tick();
+  HS_EXPECT_EQ(adapter.envelopes.back(), 0.5f);
   controller.tick();
   controller.tick();
   adapter.fenced = true;
