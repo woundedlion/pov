@@ -10,7 +10,9 @@ Re-capture note: an A/B against a worktree at `fc96824b` (parent of the
 perf-neutral on device — deterministic windows align frame-for-frame, every
 window mean within 0.2% (peak frame render 57.62 → 57.74 ms, +0.12 ms),
 0/1088 frames spilled on both sides. The tables below are from the 16:57
-capture of the same day; its figures match the 23:47 capture within 0.2%.
+capture of the same day, and every peak on this page is that capture's: its
+peak frame render is 58.06 ms against the 23:47 capture's 57.74 ms, a 0.6%
+capture-to-capture spread.
 
 ## Setup
 
