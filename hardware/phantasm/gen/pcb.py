@@ -326,7 +326,7 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           consumed=None):
     node = embedded_footprint(ref, libid, teensy_model_path)
     refresh_uuids(node)
-    if ref in ("D_BUS", "JP_ID2"):
+    if ref == "JP_ID2":
         move_silk_graphics_to_fab(node)
     set_pad_orientations(node, rot)
     node[1] = libid

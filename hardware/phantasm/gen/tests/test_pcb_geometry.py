@@ -84,6 +84,40 @@ class RoutedTraceTests(unittest.TestCase):
         self.assertGreater(angle, 90.0)
 
 
+class CathodeMarkTests(unittest.TestCase):
+    """D_BUS is a unidirectional TVS: reversed, it clamps the bus below the
+    AHCT HIGH threshold, and the silk bar beside pad 1 is the only way to read
+    its orientation on an assembled board."""
+
+    def test_d_bus_carries_a_silk_bar_beside_its_cathode(self):
+        board_path = REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
+        board = sexp.parse(board_path.read_text(encoding="utf-8"))[0]
+        footprint, = [
+            node
+            for node in board
+            if isinstance(node, list) and node and node[0] == "footprint"
+            and any(isinstance(child, list) and child
+                    and child[0] == "property" and child[1:3] == ["Reference",
+                                                                  "D_BUS"]
+                    for child in node)
+        ]
+        cathode_x, = [
+            float(_child(pad, "at")[0])
+            for pad in footprint
+            if isinstance(pad, list) and pad and pad[0] == "pad"
+            and str(pad[1]) == "1"
+        ]
+        bars = [
+            node
+            for node in footprint
+            if isinstance(node, list) and node and node[0] == "fp_line"
+            and _child(node, "layer")[0] == "F.SilkS"
+            and max(float(_child(node, "start")[0]),
+                    float(_child(node, "end")[0])) <= cathode_x
+        ]
+        self.assertEqual(len(bars), 1)
+
+
 class MountingKeepoutTests(unittest.TestCase):
     """Nothing may be packed onto a mounting hole: the screw head sits there."""
 

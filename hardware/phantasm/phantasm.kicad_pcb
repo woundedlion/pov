@@ -5516,7 +5516,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "b2b464f7-a7f6-47fb-b985-5c555a333b02")
 		)
 		(fp_line
@@ -5526,7 +5526,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "9fa4a396-756e-42e1-95fe-51f739568da4")
 		)
 		(fp_line
@@ -5636,7 +5636,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "58527a67-6c09-4075-bc2b-ca92033302e2")
 		)
 		(fp_text user "${REFERENCE}"

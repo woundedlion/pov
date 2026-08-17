@@ -135,7 +135,7 @@ the netlist is what's verified.
 | `C_SYNC` | `Device:C` (220pF) | `C_0603` | populated (noise filter) |
 | `R_PD` | `Device:R` (10k) | `R_0603_1608Metric_Pad0.98x0.95mm_HandSolder` | master-only bus idle pull-down, hand-solder land; ground-side switched automatically by U1 channel D |
 | `R_MEN` | `Device:R` (10k) | `R_0603` | MASTER_EN boot pull-up → 3V3 |
-| `D_BUS` | `Device:D_Zener` (Bourns CDSOD323-T05L) | `Diode_SMD:D_SOD-323` with Bourns pad geometry | populated unidirectional 5 V, 1 pF sync-bus TVS; pin 1/cathode on SYNC_BUS, pin 2/anode on GND; exact Bourns land pattern; JLCPCB C1975255 |
+| `D_BUS` | `Device:D_Zener` (Bourns CDSOD323-T05L) | `Diode_SMD:D_SOD-323` with Bourns pad geometry | populated unidirectional 5 V, 1 pF sync-bus TVS; pin 1/cathode on SYNC_BUS, pin 2/anode on GND; exact Bourns land pattern; silkscreen bar marks the cathode end; JLCPCB C1975255 |
 | `J1` | `Connector_Generic:Conn_01x02` | `JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical` | +5 V/GND light logic feed, ~1 A; keyed shrouded 3 A JST XA with a locking ramp + mounting boss (R-PWR-7); mates XAP-02V-1 + SXA-001T-P0.6 contacts |
 | `J2` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | strip **signal only**: DI / CI / SIG_GND (no power) |
 | `J3A/J3B` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | Belden 8451 daisy |
