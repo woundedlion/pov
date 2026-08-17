@@ -1066,8 +1066,9 @@ private:
     if constexpr (requires { params.source.noise_time_rate; })
       source_noise_time =
           wrap_t(source_noise_time + params.source.noise_time_rate);
-    projection_spin =
-        fmodf(projection_spin + params.projection.spin_rate, TWO_PI_F);
+    if constexpr (Derived::ANIMATED_PROJECTION)
+      projection_spin =
+          fmodf(projection_spin + params.projection.spin_rate, TWO_PI_F);
     hue_noise_phase = wrap_t(hue_noise_phase + params.color.hue_noise_speed);
     if constexpr (std::is_same_v<typename Params::outer_warp_type,
                                  AffineParams>)
@@ -1083,15 +1084,22 @@ private:
   }
 
   HS_COLD_MEMBER void update_spatial_frames() {
-    const Quaternion projection = projection_walk.get();
-    const Quaternion projection_delta =
-        projection * projection_walk_previous.conjugate();
-    projection_walk_previous = projection;
-    projection_wander =
-        (FixedPipeline::scaled_rotation_delta(projection_delta.normalized(),
-                                              params.projection.wander) *
-         projection_wander)
-            .normalized();
+    // prepare_frame() reads projection_conjugate only for an animated
+    // projection.
+    if constexpr (Derived::ANIMATED_PROJECTION) {
+      const Quaternion projection = projection_walk.get();
+      const Quaternion projection_delta =
+          projection * projection_walk_previous.conjugate();
+      projection_walk_previous = projection;
+      projection_wander =
+          (FixedPipeline::scaled_rotation_delta(projection_delta.normalized(),
+                                                params.projection.wander) *
+           projection_wander)
+              .normalized();
+      projection_conjugate = (make_rotation(Y_AXIS, projection_spin) *
+                              base_orientation * projection_wander)
+                                 .conjugate();
+    }
     const Quaternion outer = outer_walk.get();
     const Quaternion outer_delta = outer * outer_walk_previous.conjugate();
     outer_walk_previous = outer;
@@ -1100,9 +1108,6 @@ private:
                                               params.projection.camera_wander) *
          outer_wander)
             .normalized();
-    projection_conjugate = (make_rotation(Y_AXIS, projection_spin) *
-                            base_orientation * projection_wander)
-                               .conjugate();
     outer_conjugate = outer_wander.conjugate();
   }
 
