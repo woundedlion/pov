@@ -15,6 +15,19 @@ namespace Pullback {
 
 namespace Projection {
 
+/** @brief Projection and camera parameters, shared by every look. */
+struct ProjectionParams {
+  float pole_fade = 1.0f; /**< Falloff applied to the projection's radial
+                                attenuation. */
+  float spin_rate = 0.0f; /**< Per-frame spin of the projection frame about Y;
+                                only read under `ANIMATED_PROJECTION`. */
+  float wander = 0.0f;    /**< Fraction of the projection random-walk delta
+                                absorbed each frame. */
+  float camera_wander = 0.0f;    /**< Same, for the outer camera random walk. */
+  float central_meridian = 0.0f; /**< Central meridian handed to projections
+                                      that take one, in radians. */
+};
+
 enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
 
 inline constexpr uint8_t FOLDED_FLAG = 1U << 0;

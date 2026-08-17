@@ -32,6 +32,191 @@ struct Midpoint4 {
 struct LinearPolar {};
 struct LogarithmicPolar {};
 
+/**
+ * @brief Warp slot placeholder for a look whose warp policy is an identity.
+ * @details `speed` still advances that slot's phase clock, so a look can drive
+ * a phase it exposes no warp for.
+ */
+struct NoWarpParams {
+  float speed = 0.0f; /**< Per-frame advance of the slot's phase. */
+};
+
+/**
+ * @brief Warp parameters for the mirrored tiling
+ *        (Pullback::Warp::MirrorTile).
+ */
+struct MirrorParams {
+  float speed = 0.0f;    /**< Per-frame advance of the slot's phase. */
+  float rotation = 0.0f; /**< Rotation of the fold lattice, in radians. */
+  float cell_x = 1.0f;   /**< Mirror cell width in plane units. */
+  float cell_y = 1.0f;   /**< Mirror cell height in plane units. */
+  float offset_x = 0.0f; /**< Pre-fold translation along x; scrolls with the
+                              slot's phase. */
+  float offset_y = 0.0f; /**< Pre-fold translation along y; does not scroll. */
+};
+
+/** @brief Warp parameters for the sine shear (Pullback::Warp::WaveShear). */
+struct WaveShearParams {
+  float speed = 0.0f;       /**< Per-frame advance of the slot's phase. */
+  float strength = 0.0f;    /**< Shear amplitude; 0 skips the stage. */
+  float frequency = 1.0f;   /**< Spatial frequency along the field axis. */
+  float field_angle = 0.0f; /**< Field axis direction, in radians. */
+  float edge_width = 0.1f;  /**< Fade band width, read only under an
+                                 EdgeFadeEnvelope. */
+};
+
+/**
+ * @brief Warp parameters for the noise-vector displacement
+ *        (Pullback::Warp::VectorNoise).
+ */
+struct VectorNoiseParams {
+  float speed = 0.0f;        /**< Per-frame advance of the slot's phase, which
+                                  walks the noise loop. */
+  float strength = 0.0f;     /**< Displacement amplitude; 0 skips the stage. */
+  float scale = 1.0f;        /**< Spatial scale of the sampled field. */
+  float vector_angle = 0.0f; /**< Rotation applied to the sampled vector, in
+                                  radians. */
+  float edge_width = 0.1f;   /**< Fade band width, read only under an
+                                  EdgeFadeEnvelope. */
+};
+
+/**
+ * @brief Warp parameters for the affine frame change
+ *        (Pullback::Warp::AffineFrame).
+ * @details Translation is expressed in lattice cells, so this family is only
+ * valid alongside a LatticeSourceParams source.
+ */
+struct AffineParams {
+  float speed = 0.0f;         /**< Per-frame advance of the slot's phase. */
+  float rotation_rate = 0.0f; /**< Frame rotation rate; read only in the outer
+                                   slot. */
+  float translation_x = 0.0f; /**< Translation along x, in lattice cells per
+                                   phase turn. */
+  float translation_y = 0.0f; /**< Translation along y, in lattice cells per
+                                   phase turn. */
+  float scale_x = 1.0f; /**< Scale along x, oscillated over the phase cycle. */
+  float scale_y = 1.0f; /**< Scale along y, oscillated over the phase cycle. */
+  float shear = 0.0f;   /**< Shear, oscillated over the phase cycle. */
+};
+
+/** @brief Warp parameters for the polar chart (Pullback::Warp::PolarChart). */
+struct PolarParams {
+  float speed = 0.0f;         /**< Per-frame advance of the slot's phase, which
+                                   offsets the angular coordinate. */
+  float radial_scale = 1.0f;  /**< Scale applied to the radial coordinate. */
+  float radial_phase = 0.0f;  /**< Offset added to the radial coordinate. */
+  float angular_phase = 0.0f; /**< Offset added to the angular coordinate. */
+};
+
+/** @brief Affine warp coefficients, with the phase oscillation applied. */
+struct PreparedAffine {
+  float translation_x; /**< Translation along x, in plane units. */
+  float translation_y; /**< Translation along y, in plane units. */
+  float scale_x;       /**< Scale along x at this frame's phase. */
+  float scale_y;       /**< Scale along y at this frame's phase. */
+  float shear;         /**< Shear at this frame's phase. */
+};
+
+/** @brief Mirror warp offsets, with the phase scroll already folded in. */
+struct PreparedMirror {
+  float offset_x; /**< Pre-fold translation along x. */
+  float offset_y; /**< Pre-fold translation along y. */
+};
+
+/** @brief This frame's point on the noise field's closed loop. */
+struct PreparedNoiseLoop {
+  float diagonal; /**< Offset added to both planar noise coordinates. */
+  float z;        /**< Third noise coordinate. */
+};
+
+/**
+ * @brief The transform half of PreparedWarp, one alternative per warp family.
+ * @details The active member follows the slot's parameter family: MirrorParams
+ * uses `mirror`, VectorNoiseParams `noise_loop`, AffineParams `affine`. The
+ * remaining families leave the union zeroed, and their warp policies do not
+ * read it.
+ */
+union PreparedWarpTransform {
+  PreparedAffine affine;
+  PreparedMirror mirror;
+  PreparedNoiseLoop noise_loop;
+};
+
+/** @brief One planar warp slot's per-frame state. */
+struct PreparedWarp {
+  float rotation_cos;              /**< Cosine of the slot's rotation angle. */
+  float rotation_sin;              /**< Sine of the slot's rotation angle. */
+  PreparedWarpTransform transform; /**< Family-specific coefficients. */
+};
+
+/** @brief Stamps the rotation's cosine pair onto a prepared slot. */
+HS_FLASH_INLINE inline PreparedWarp finish_prepare(PreparedWarp prepared,
+                                                   float rotation) {
+  prepared.rotation_cos = cosf(rotation);
+  prepared.rotation_sin = sinf(rotation);
+  return prepared;
+}
+
+/**
+ * @brief Resolves one warp slot's per-frame rotation and transform.
+ * @details One overload per parameter family, each filling the union member
+ * its warp policy reads. Only the affine family rotates with the frame, so
+ * only its overload takes an accumulated rotation.
+ * @param warp The slot's parameters.
+ * @param phase The slot's phase clock.
+ * @return The slot's PreparedWarp, with the union member its family uses.
+ */
+HS_FLASH_INLINE inline PreparedWarp prepare(const NoWarpParams &, float) {
+  return finish_prepare({}, 0.0f);
+}
+
+HS_FLASH_INLINE inline PreparedWarp prepare(const PolarParams &, float) {
+  return finish_prepare({}, 0.0f);
+}
+
+HS_FLASH_INLINE inline PreparedWarp prepare(const WaveShearParams &warp,
+                                            float) {
+  return finish_prepare({}, warp.field_angle);
+}
+
+HS_FLASH_INLINE inline PreparedWarp prepare(const MirrorParams &warp,
+                                            float phase) {
+  PreparedWarp prepared{};
+  prepared.transform.mirror = {
+      wrap_t(warp.offset_x / warp.cell_x + phase) * warp.cell_x,
+      wrap_t(warp.offset_y / warp.cell_y) * warp.cell_y};
+  return finish_prepare(prepared, warp.rotation);
+}
+
+HS_FLASH_INLINE inline PreparedWarp prepare(const VectorNoiseParams &warp,
+                                            float phase) {
+  PreparedWarp prepared{};
+  const float angle = TWO_PI_F * wrap_t(phase);
+  prepared.transform.noise_loop = {NOISE_LOOP_RADIUS * sinf(angle) *
+                                       0.7071067811865475f,
+                                   NOISE_LOOP_RADIUS * cosf(angle)};
+  return finish_prepare(prepared, warp.vector_angle);
+}
+
+/**
+ * @brief Affine overload; translation is scaled from lattice cells to plane
+ *        units by @p lattice_period.
+ * @param frame_rotation Accumulated frame rotation for the slot.
+ * @param lattice_period Plane units per lattice cell.
+ */
+HS_FLASH_INLINE inline PreparedWarp prepare(const AffineParams &warp,
+                                            float phase, float frame_rotation,
+                                            float lattice_period) {
+  PreparedWarp prepared{};
+  const float cycle_cos = cosf(TWO_PI_F * wrap_t(phase));
+  prepared.transform.affine = {
+      wrap_t(phase) * warp.translation_x * lattice_period,
+      wrap_t(phase) * warp.translation_y * lattice_period,
+      powf(warp.scale_x, cycle_cos), powf(warp.scale_y, cycle_cos),
+      warp.shear * cycle_cos};
+  return finish_prepare(prepared, frame_rotation);
+}
+
 template <typename State, typename Binding>
 concept PreparedProvider =
     Detail::ProviderFor<State, Binding> &&

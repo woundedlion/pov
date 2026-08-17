@@ -15,6 +15,34 @@ namespace Pullback {
 
 namespace Surface {
 
+/** @brief Surface stage placeholder for a look that carries no displacement. */
+struct NoSurfaceParams {};
+
+/**
+ * @brief Surface parameters for the sphere-space noise displacements
+ *        (Pullback::Surface::CurlNoise and DirectNoise).
+ */
+struct SurfaceNoiseParams {
+  float scale = 1.0f;    /**< Spatial scale of the displacement field. */
+  float strength = 0.0f; /**< Displacement distance; 0 skips the stage. */
+  float speed = 0.0f;    /**< Per-frame advance of the field's loop phase. */
+};
+
+/** @brief Surface stage per-frame state; empty unless the look displaces. */
+template <typename SurfaceT> struct PreparedSurface {};
+template <> struct PreparedSurface<SurfaceNoiseParams> {
+  const FastNoiseLite *noise; /**< The runtime's surface noise field. */
+  Vector loop_offset;         /**< This frame's point on the field's loop. */
+};
+
+/** @brief Binds the displacement field and this frame's loop point. */
+HS_FLASH_INLINE inline PreparedSurface<SurfaceNoiseParams>
+prepare(const FastNoiseLite &noise, float phase) {
+  const float angle = TWO_PI_F * wrap_t(phase);
+  return {&noise, Vector(NOISE_LOOP_RADIUS * cosf(angle),
+                         NOISE_LOOP_RADIUS * sinf(angle), 0.0f)};
+}
+
 enum class Integrator : uint8_t { EULER, MIDPOINT, MIDPOINT_2X };
 
 struct Euler {
