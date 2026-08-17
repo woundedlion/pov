@@ -21,22 +21,30 @@
  */
 
 /**
- * @brief A compiled perceptual palette.
+ * @brief A perceptual palette compiled from a PaletteRecipe.
+ * @details Evaluates in OKLab/OKLCh from a small set of control keys plus a
+ * lightness and a chroma axis, and clips to sRGB on the way out of get().
  */
 class GenerativePalette : public Palette {
 public:
+  /** @brief One authored control point, in the palette's own chroma basis. */
   struct ControlKey {
-    float L;
+    float L; /**< Lightness in [0, 1]. */
     /** Gamut-relative q under a relative chroma basis, absolute C otherwise;
      *  ChromaBasis picks which. */
     float chroma;
-    float h;
+    float h; /**< Hue in radians; unwrapped, so it may exceed a turn. */
 
     constexpr ControlKey(float lightness = 0.0f, float chroma = 0.0f,
                          float hue = 0.0f)
         : L(lightness), chroma(chroma), h(hue) {}
   };
 
+  /**
+   * @brief The morphable subset of a palette's state, in 48 bytes.
+   * @details Carries the keys and both axes, not the evaluation policy and not
+   * the loop-closing hue: a snapshot lerp keeps the target palette's own.
+   */
   struct Snapshot {
     /** Compact owned state that keeps palette animations inside their budget. */
     struct Key {
@@ -54,23 +62,31 @@ public:
     uint8_t reserved = 0;
   };
 
+  /** @brief Authoring readout of one evaluated coordinate. */
   struct Diagnostic {
-    float L;
-    float C;
+    float L; /**< Realized OKLab lightness. */
+    float C; /**< Realized OKLCh chroma. */
     /** Gamut-relative chroma: the authored control under a gamut-relative
      *  basis, otherwise the realized C / C_max. Same meaning on every color
      *  path. */
     float q;
-    float C_max;
-    float h_path;
-    float h_final;
+    float C_max;   /**< Gamut chroma envelope at (L, h_final). */
+    float h_path;  /**< Hue the color path interpolated. */
+    float h_final; /**< h_path after hue torsion. */
+    /** True when the color left sRGB and get() clipped it. */
     bool fallback_mapped;
   };
 
   static_assert(sizeof(Snapshot) == 48);
 
+  /** @brief Compiles the default recipe. */
   HS_COLD_MEMBER GenerativePalette() { initialize(PaletteRecipe{}); }
 
+  /**
+   * @brief Compiles a recipe, trapping on a rejected one.
+   * @param recipe Recipe to canonicalize and compile.
+   * @details try_compile() is the non-trapping form.
+   */
   HS_COLD_MEMBER explicit GenerativePalette(const PaletteRecipe &recipe) {
     PaletteRecipe canonical;
     PaletteCompileStatus status;
@@ -80,6 +96,16 @@ public:
     initialize(canonical);
   }
 
+  /**
+   * @brief Compiles a recipe without trapping on rejection.
+   * @param input Recipe to validate and normalize.
+   * @param output Receives the compiled palette; untouched on rejection.
+   * @param canonical Receives the normalized recipe the palette was built
+   * from — what an authoring tool should persist; untouched on rejection.
+   * @param status Receives the verdict, the offending PaletteRecipeField and
+   * the bitmasks of every silent normalization; written on both outcomes.
+   * @return True when @p input compiled.
+   */
   static bool try_compile(const PaletteRecipe &input, GenerativePalette &output,
                           PaletteRecipe &canonical,
                           PaletteCompileStatus &status) {
@@ -93,6 +119,10 @@ public:
     return true;
   }
 
+  /**
+   * @brief Captures the morphable state for lerp() and ColorWipe.
+   * @return This palette's keys and axes, quantized into 48 bytes.
+   */
   Snapshot snapshot() const {
     Snapshot result{};
     result.key_count = key_count;
@@ -107,6 +137,13 @@ public:
     return result;
   }
 
+  /**
+   * @brief Resolves one control key out of a snapshot.
+   * @param snapshot Snapshot to read.
+   * @param index Key index; clamped to the snapshot's key range.
+   * @return The key with both axes applied, or a zeroed key when the snapshot
+   * holds none.
+   */
   static ControlKey snapshot_key(const Snapshot &snapshot, int index) {
     const int last = static_cast<int>(snapshot.key_count) - 1;
     if (last < 0)
@@ -120,14 +157,23 @@ public:
         index, last);
   }
 
+  /** @brief How the coordinate is folded across the key run. */
   PaletteDomain palette_domain() const { return domain; }
+  /** @brief How a key's chroma control is read: gamut-relative or absolute. */
   ChromaBasis palette_chroma_basis() const { return chroma_basis; }
+  /** @brief The space segments interpolate in. */
   ColorPath palette_color_path() const { return color_path; }
+  /** @brief The easing applied within a segment. */
   SegmentEase segment_easing() const { return easing; }
+  /** @brief Relative-chroma ceiling as a fraction of the gamut envelope. */
   float palette_headroom() const { return headroom; }
+  /** @brief Hue shift per unit lightness away from L = 0.5, in radians. */
   float palette_hue_torsion() const { return hue_torsion; }
+  /** @brief Start of the source sub-window the keys map across. */
   float palette_input_offset() const { return input_offset; }
+  /** @brief Width of the source sub-window the keys map across. */
   float palette_input_span() const { return input_span; }
+  /** @brief Number of live control keys. */
   uint8_t palette_key_count() const { return key_count; }
 
   /** @brief Sets every control key to one chroma.
@@ -144,9 +190,20 @@ public:
       keys[i].chroma = chroma;
   }
 
+  /** @brief True when the second half replays the first; BakedPalette::rebake
+   *  bakes only the first half and mirrors it. */
   bool mirrors_domain() const { return domain == PaletteDomain::MIRROR; }
+  /** @brief True when t = 1 rejoins t = 0; BakedPalette::rebake copies entry
+   *  zero onto the last entry so the quantized seam is exact. */
   bool loops_domain() const { return domain == PaletteDomain::LOOP; }
 
+  /**
+   * @brief Reports what one coordinate resolved to, for authoring tools.
+   * @param t Palette coordinate; clamped to [0, 1].
+   * @return The realized OKLCh values, the gamut envelope there and whether the
+   * color needed clipping.
+   * @details Costs a gamut-envelope lookup get() does not pay.
+   */
   Diagnostic diagnose(float t) const {
     const Evaluated value = finish_evaluation(evaluate_path(t, true));
     return {value.lab.L,          value.C,      value.q,
@@ -154,6 +211,12 @@ public:
             value.fallback_mapped};
   }
 
+  /**
+   * @brief Resolves one control key to the OKLCh color it authors.
+   * @param index Key index; clamped to the live key range.
+   * @return The key with both axes, the chroma basis and hue torsion applied,
+   * or a zeroed color when the palette holds no keys.
+   */
   OKLCH resolved_oklch_key(int index) const {
     const int last = static_cast<int>(key_count) - 1;
     if (last < 0)
@@ -258,6 +321,12 @@ public:
     closing_hue = keys[0].h + closing_travel;
   }
 
+  /**
+   * @brief Evaluates the palette at one coordinate.
+   * @param t Palette coordinate; clamped to [0, 1].
+   * @return The color, clipped into sRGB at fixed lightness and hue, always
+   * fully opaque.
+   */
   HS_COLD_MEMBER Color4 get(float t) const override {
     const LinRGB rgb = oklab_to_linear_rgb_gamut(evaluate_path(t, false).lab);
     return Color4(Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
