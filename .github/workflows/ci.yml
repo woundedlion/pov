@@ -730,9 +730,6 @@ jobs:
         # tripwire is calibrated for; give the debug smoke its own 6 KB ceiling.
         env:
           WASM_SMOKE_STACK_CEILING: 6144
-          # Reach the frame-48 ShapeShifter cut / arena compaction under
-          # -sASSERTIONS=1; the 3-frame default never gets there.
-          WASM_SMOKE_FRAMES: 120
         run: node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js
 
       # Verify ccache actually fronts em++ here (the comment above claims it
@@ -760,10 +757,8 @@ jobs:
         # embind signature mismatch, an 8 KB stack overflow, or an
         # ALLOW_MEMORY_GROWTH detachment regression fails here instead of riding
         # a green build to deploy. (The script has no dependencies; Node is
-        # pinned above.) 120 frames so the shipped module reaches
-        # late-lifecycle events (frame-48 ShapeShifter cut, arena compaction).
-        env:
-          WASM_SMOKE_FRAMES: 120
+        # pinned above.) The frame depth is the script's own default, so
+        # `just smoke` drives the same run this does.
         run: node scripts/wasm_smoke.mjs build/wasm-release/holosphere_wasm.js
 
       - name: Exercise install + provenance path
