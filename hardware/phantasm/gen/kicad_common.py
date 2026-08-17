@@ -169,7 +169,11 @@ def require_writable(path, force, reason=DEFAULT_OVERWRITE_REASON):
 
 
 def export_netlist(kcli, sch):
-    """Export `sch` to a kicadsexpr netlist via kicad-cli; return its parsed root."""
+    """Export `sch` to a kicadsexpr netlist via kicad-cli; return its parsed root.
+
+    Exits with a diagnostic when kicad-cli is absent or the export fails: every
+    caller is a command-line gate, for which a traceback says less.
+    """
     fd, net = tempfile.mkstemp(suffix=".net")
     os.close(fd)
     try:
@@ -177,9 +181,12 @@ def export_netlist(kcli, sch):
                         "-o", net, sch], check=True, capture_output=True, text=True)
         with open(net, encoding="utf-8") as fh:
             return sexp.parse(fh.read())[0]
+    except FileNotFoundError:
+        sys.exit(f"kicad-cli not found: {kcli}; install KiCad, put kicad-cli on "
+                 "PATH, or set KICAD_CLI to its full path")
     except subprocess.CalledProcessError as e:
         sys.stderr.write(e.stderr or "")
-        raise
+        sys.exit(f"netlist export failed: kicad-cli exited {e.returncode} on {sch}")
     finally:
         if os.path.exists(net):
             os.remove(net)
