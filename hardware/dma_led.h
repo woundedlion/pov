@@ -47,10 +47,12 @@
  * @brief Manages a single DMA channel wired to LPSPI4 (SPI) for async
  *        byte-stream transmission.
  *
- * Usage:
- *   spi.transmitAsync(buffer, length);  // returns immediately
- *   // ... do other work ...
- *   while (!spi.isComplete()) {}        // or poll later
+ * Usage (both production callers run in the column ISR, where spinning on
+ * completion deadlocks — see transmitAsync's @pre):
+ *   if (spi.isComplete())
+ *     spi.transmitAsync(buffer, length);  // returns immediately
+ *   else
+ *     ...                                 // drop this frame, retry next column
  */
 class TeensySPIDMA {
 public:
@@ -110,6 +112,9 @@ public:
    * @pre The caller has cleaned the buffer from cache (submitFrame() does this
    *      via frames[back].flush()); this method only enables the DMA and does
    *      not flush.
+   * @pre No transfer is in flight (isComplete()). Callers must test and skip,
+   *      never spin: this runs in the column ISR, which the DMA-completion ISR
+   *      cannot preempt, so a spin never ends.
    */
   void transmitAsync(const uint8_t *data, size_t len) {
     // Trap rather than spin on an in-flight transfer: this runs in the column
