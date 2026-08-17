@@ -648,17 +648,14 @@ public:
     const Vector axis_seed = least_parallel_axis(v);
     Vector walk_axis =
         normalized_or(cross(v, direction), cross(v, axis_seed).normalized());
+    Quaternion walk_q;
     if constexpr (STABLE_ROTATION) {
-      v = rotate(v, make_stable_rotation(walk_axis, options.speed))
-              .normalized();
-      direction =
-          rotate(direction, make_stable_rotation(walk_axis, options.speed))
-              .normalized();
+      walk_q = make_stable_rotation(walk_axis, options.speed);
     } else {
-      v = rotate(v, make_rotation(walk_axis, options.speed)).normalized();
-      direction = rotate(direction, make_rotation(walk_axis, options.speed))
-                      .normalized();
+      walk_q = make_rotation(walk_axis, options.speed);
     }
+    v = rotate(v, walk_q).normalized();
+    direction = rotate(direction, walk_q).normalized();
     Rotation<W, CAP>::animate(canvas, orientation, walk_axis, options.speed,
                               ease_linear);
   }
