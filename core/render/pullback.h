@@ -789,6 +789,7 @@ stereographic(const Vector &input, float pole_fade) {
           0};
 }
 
+// Out of line under Emscripten, inlined on every other target.
 #if defined(__EMSCRIPTEN__)
 __attribute__((noinline))
 #else
@@ -2440,6 +2441,8 @@ struct SurfaceProject
   __attribute__((always_inline)) static ProjectionSample
   run(const Vector &input, const FrameState &frame) {
     const SurfaceResult pre = apply_surface<PreLensSurface>(input, frame);
+    // Emscripten-only: identity lens plus identity post-lens surface take a
+    // flattened path that yields the same sample as the generic path below.
 #if defined(__EMSCRIPTEN__)
     if constexpr (std::is_same_v<LensPolicy, Lens::Identity> &&
                   std::is_same_v<PostLensSurface, Surface::Identity>) {
