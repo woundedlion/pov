@@ -824,9 +824,9 @@ struct EdgeFadeShade {
           black.lerp16(c.color, frac_to_q16(quintic_kernel(t / edge))),
           c.alpha);
     if (t >= 1.0f - edge)
-      return Color4(c.color.lerp16(black, frac_to_q16(quintic_kernel(
-                                              (t - (1.0f - edge)) / edge))),
-                    c.alpha);
+      return Color4(
+          black.lerp16(c.color, frac_to_q16(quintic_kernel((1.0f - t) / edge))),
+          c.alpha);
     return c;
   }
 };
@@ -855,7 +855,7 @@ struct EdgeAlphaShade {
     if (t < edge)
       c.alpha *= quintic_kernel(t / edge);
     else if (t >= 1.0f - edge)
-      c.alpha *= quintic_kernel(1.0f - (t - (1.0f - edge)) / edge);
+      c.alpha *= quintic_kernel((1.0f - t) / edge);
     return c;
   }
 };
