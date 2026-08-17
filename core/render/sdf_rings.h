@@ -258,8 +258,31 @@ struct DistortedRing {
    */
   DistortedRing(const Basis &b, float r, float th, ScalarFn sf, float md,
                 float ph)
-      : basis(b), radius(r), thickness(th), shift_fn(sf), max_distortion(md),
-        phase(ph) {
+      : DistortedRing(b, r, th, md, ph) {
+    HS_CHECK(sf, "DistortedRing: shift_fn must be non-null");
+    shift_fn = sf;
+  }
+
+  /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The ring retains its basis by reference, so binding a temporary
+   * would leave every later read of basis dangling.
+   */
+  DistortedRing(const Basis &&, float, float, ScalarFn, float, float) = delete;
+
+protected:
+  /**
+   * @brief Builds the ring geometry shared by the modes carrying no shift
+   *        callback.
+   * @param b Orientation frame (v = ring axis); retained by reference, so it
+   *          must outlive the shape.
+   * @param r Ring radius as a fraction of the hemisphere.
+   * @param th Half-width of the stroke (radians).
+   * @param md Maximum magnitude of the centerline shift (radians).
+   * @param ph Azimuth phase offset (radians).
+   */
+  DistortedRing(const Basis &b, float r, float th, float md, float ph)
+      : basis(b), radius(r), thickness(th), max_distortion(md), phase(ph) {
     normal = basis.v;
     u = basis.u;
     w = basis.w;
@@ -278,13 +301,7 @@ struct DistortedRing {
     cos_min_limit = cosf(ang_max);
   }
 
-  /**
-   * @brief Deleted constructor from a temporary Basis.
-   * @details The ring retains its basis by reference, so binding a temporary
-   * would leave every later read of basis dangling.
-   */
-  DistortedRing(const Basis &&, float, float, ScalarFn, float, float) = delete;
-
+public:
   /**
    * @brief Builds a distorted ring whose centerline is a shift-knot polyline.
    * @param b Orientation frame (v = ring axis); retained by reference, so it
@@ -302,7 +319,7 @@ struct DistortedRing {
    */
   DistortedRing(const Basis &b, float r, float th, const float *kn, int n,
                 float ph, KnotPrefilter &pf)
-      : DistortedRing(b, r, th, ScalarFn{}, 0.0f, ph) {
+      : DistortedRing(b, r, th, 0.0f, ph) {
     HS_CHECK(kn != nullptr && n >= 1); // n == 0: knot_v(-1) reads knots[-1]
     knots = kn;
     lut_n = n;
@@ -617,7 +634,7 @@ struct FlatDistortedRing : private DistortedRing {
    * @param ph Azimuth phase offset (radians).
    */
   FlatDistortedRing(const Basis &b, float r, float th, float ph = 0.0f)
-      : DistortedRing(b, r, th, ScalarFn{}, 0.0f, ph) {}
+      : DistortedRing(b, r, th, 0.0f, ph) {}
 
   /**
    * @brief Deleted constructor from a temporary Basis.
