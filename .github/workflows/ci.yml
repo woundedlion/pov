@@ -1564,6 +1564,24 @@ jobs:
             '
           }
 
+          # The extractor reads the key by pattern, so a reshaped or re-indented
+          # `FORMAT_BASELINE:` parses as absent (or picks up the comment lines
+          # around it) and every comparison below silently skips or compares the
+          # wrong set. YAML already parsed the same key into $FORMAT_BASELINE for
+          # this step; require the two readings to agree, so a reshape fails at
+          # the commit that makes it instead of disarming the gate from then on.
+          if ! extract FORMAT_BASELINE < "$WF" > /tmp/baseline-self-raw.txt; then
+            echo "::error file=$WF::FORMAT_BASELINE is not readable as a '<key>: |' block scalar, so this gate cannot compare it across commits. Restore the block-scalar form."
+            exit 1
+          fi
+          sort -u /tmp/baseline-self-raw.txt > /tmp/baseline-self.txt
+          printf '%s\n' "$FORMAT_BASELINE" \
+            | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; /^$/d' | sort -u > /tmp/baseline-yaml.txt
+          if ! diff -u /tmp/baseline-yaml.txt /tmp/baseline-self.txt; then
+            echo "::error file=$WF::this step extracts a different FORMAT_BASELINE from $WF than YAML passed it (diff above: '-' is YAML's reading, '+' the extractor's), so the growth check would compare mismatched sets."
+            exit 1
+          fi
+
           # On a push, compare against the commit the branch had BEFORE it: a
           # push lands several commits at once, and HEAD^1 is then the push's own
           # penultimate commit, so an addition made in any earlier commit of the
@@ -1590,6 +1608,12 @@ jobs:
           # Extract before sorting: piping into sort would test sort's exit
           # status, not awk's, making the skip branch unreachable.
           if ! extract FORMAT_BASELINE < /tmp/ci-prev.yml > /tmp/baseline-prev-raw.txt; then
+            # A copy that spells the key but not as a block scalar is a reshape
+            # this extractor cannot read, not a copy predating the gate.
+            if grep -q '^[[:space:]]*FORMAT_BASELINE:' /tmp/ci-prev.yml; then
+              echo "::error file=$WF::$PREV:$WF spells FORMAT_BASELINE but not as a '<key>: |' block scalar, so the previous baseline cannot be read and growth cannot be detected."
+              exit 1
+            fi
             echo "::warning::no FORMAT_BASELINE in $PREV:$WF — growth check skipped"
             exit 0
           fi
