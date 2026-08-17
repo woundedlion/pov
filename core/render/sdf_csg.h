@@ -542,8 +542,8 @@ template <typename A, typename B> struct Intersection {
     if (!has_a && !has_b)
       return false;
 
-    // A full-width child intersected with the other child is just the other
-    // child's intervals, already collected above; replay the buffer.
+    // A fallback child bounds nothing, so the other child's spans still bound
+    // the intersection; replay the buffer.
     if (!has_a) {
       for (size_t i = 0; i < intervals_b.size(); ++i)
         out(intervals_b[i].first, intervals_b[i].second);
