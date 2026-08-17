@@ -51,7 +51,7 @@ Companion documents:
 | GND | **GND** | power | common return |
 | 3V3 | **+3.3 V** | power out | on-board regulator; sources **R_MEN** (mandatory) + J4 |
 
-SPI clock = **24 MHz** ([pov_segmented.h:174](../../hardware/pov_segmented.h#L174)). Lay out the fast nets to be
+SPI clock = **24 MHz** ([pov_segmented.h SPI_CLOCK_HZ](../../hardware/pov_segmented.h)). Lay out the fast nets to be
 clean to **≥30 MHz** so headroom exists.
 
 ---
@@ -173,8 +173,8 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
 ## 4. SYNC bus (the only shared signal)
 
 Sync is a **low-rate symbol stream**, not a clock: 2 boundary marks/revolution + rare epoch/beacon
-([pov_sync.h:20](../../hardware/pov_sync.h#L20)). Pulse pitch ≈ 868 µs; edges are ≥100 µs apart and pass a
-~100 µs firmware glitch filter ([pov_sync.h:111](../../hardware/pov_sync.h#L111)).
+([pov_sync.h architecture notes](../../hardware/pov_sync.h)). Pulse pitch ≈ 868 µs; edges are ≥100 µs apart and pass a
+~100 µs firmware glitch filter ([pov_sync.h glitch_filter_cycles](../../hardware/pov_sync.h)).
 
 **Topology: single source-terminated multidrop bus.** The master's one '125 channel drives the
 shared wire; every board taps it through a high-impedance divider (~25 kΩ). With one 10 kΩ idle
@@ -202,7 +202,7 @@ buffer** — see §4.3.
 - **R-SYNC-3 — Node RC filter (populate by default).** Fit **C_SYNC ≈ 220 pF** at the pin-3 divider
   node. With R_th = R1‖R2 ≈ 6.0 kΩ this gives **RC ≈ 1.3 µs** — negligible against the 434 µs column
   and 868 µs pulse pitch, but it attenuates sub-µs BLDC/LED spikes *before* they cross the GPIO
-  threshold. The firmware glitch filter ([pov_sync.h:111](../../hardware/pov_sync.h#L111)) gates edge *spacing*
+  threshold. The firmware glitch filter ([pov_sync.h glitch_filter_cycles](../../hardware/pov_sync.h)) gates edge *spacing*
   (≥100 µs), not *amplitude* — a single fast spike that crosses threshold still registers as a real
   edge and can corrupt a burst count. In this known-noisy environment, **default-populate**; keep the
   value (100 pF–1 nF) tunable. Pair with receiver hysteresis (R-SYNC-7).
@@ -251,7 +251,7 @@ conductors carry the signal pair; the drain handles the screen:
 ## 5. Hardware ID strap (pins 21 / 22 / 23)
 
 Straps are `INPUT_PULLUP`; firmware reads **log2(N) of them**, inverts, and masks:
-`segment_id = (~raw) & (N−1)` ([pov_segment_map.h:45](../../hardware/pov_segment_map.h#L45)). **Grounding a strap
+`segment_id = (~raw) & (N−1)` ([pov_segment_map.h decode_segment_id](../../hardware/pov_segment_map.h)). **Grounding a strap
 sets its bit; all straps open = ID 0 = master.** N=4 reads ID0/ID1; the compile-tested N=8 profile
 also reads ID2. N must be a power of two ≤ 8.
 
@@ -294,11 +294,11 @@ relief, and swept envelope are mechanically qualified.
   get nothing — the on-die pull-up holds HIGH.
 - **R-ID-2** **The grounded link is the load-bearing connection.** Its failure mode is an *open*,
   which reads HIGH → inverts toward ID 0 → **elects a phantom second master** and causes sync-bus
-  contention ([pov_segmented.h:405-451](../../hardware/pov_segmented.h#L405)). Use a fully soldered link
+  contention ([pov_segmented.h read_id](../../hardware/pov_segmented.h)). Use a fully soldered link
   (not a removable header/shunt — it can sling off at speed). Keep the link short and tack with RTV.
 - **R-ID-3** **No external pull-downs** on the straps (would invert the decode). **Pull-ups are
   safe**: optionally provide a **DNP 10 kΩ pull-up footprint on ID0 → 3.3 V** to harden the
-  open/master state against a cold strap ([pov_segmented.h:405-451](../../hardware/pov_segmented.h#L405)).
+  open/master state against a cold strap ([pov_segmented.h read_id](../../hardware/pov_segmented.h)).
 - **R-ID-4** **Silkscreen the truth table** beside the straps and a large **board-ID digit field**,
   so each board's role is readable during balancing/assembly. Mark "MASTER = ALL ID OPEN."
 
