@@ -212,7 +212,7 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  * @note Identifies antipodes: `v` and `-v` project to the same plane
  * coordinate, so the hemisphere is lost. A caller that round-trips through
  * inv_gnomonic must track the sign of `v.y` and pass it back via
- * inv_gnomonic's `original_sign`.
+ * inv_gnomonic's `hemisphere_sign`.
  */
 inline Complex gnomonic(const Vector &v) {
   // Floor the divisor to ±STEREO_EQUATOR_EPS to avoid div-by-zero at v.y == 0,
@@ -240,13 +240,14 @@ inline Complex gnomonic(const Vector &v) {
 /**
  * @brief Inverse Gnomonic: Plane -> Sphere.
  * @param z Complex point on the plane.
- * @param original_sign Sign of the y-component (j) of the original vector, used
- * to restore the hemisphere the forward projection collapsed.
+ * @param hemisphere_sign +1 or -1, the sign of the y-component (j) of the
+ * original vector, restoring the hemisphere the forward projection collapsed;
+ * any other magnitude scales the result off the unit sphere.
  * @return The corresponding point on the unit sphere; the plane's infinity is
  * the equator point in the direction of z, not a pole (the projection ray
  * flattens into y = 0 as |z| grows).
  */
-inline Vector inv_gnomonic(const Complex &z, float original_sign) {
+inline Vector inv_gnomonic(const Complex &z, float hemisphere_sign) {
   // Clamped-to-infinity → equator, recognized from STEREO_INF_RECOGNIZE (margin
   // snaps a Mobius-shrunk sentinel back to the limit). Radial, matching the
   // forward clamp: a per-component test would make the snap-back radius
@@ -259,7 +260,7 @@ inline Vector inv_gnomonic(const Complex &z, float original_sign) {
     const float scale = 1.0f / std::max(std::abs(z.re), std::abs(z.im));
     const float re = z.re * scale;
     const float im = z.im * scale;
-    const float inv_len = original_sign / sqrtf(re * re + im * im);
+    const float inv_len = hemisphere_sign / sqrtf(re * re + im * im);
     return Vector(re * inv_len, 0.0f, im * inv_len);
   }
   // Project (re, 1, im) back onto unit sphere
@@ -267,9 +268,9 @@ inline Vector inv_gnomonic(const Complex &z, float original_sign) {
   float inv_len = 1.0f / len;
 
   // Restore hemisphere sign (Upper or Lower)
-  return Vector(z.re * inv_len * original_sign, // i
-                inv_len * original_sign,        // j
-                z.im * inv_len * original_sign  // k
+  return Vector(z.re * inv_len * hemisphere_sign, // i
+                inv_len * hemisphere_sign,        // j
+                z.im * inv_len * hemisphere_sign  // k
   );
 }
 
