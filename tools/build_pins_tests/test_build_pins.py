@@ -14,6 +14,7 @@ import json
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
@@ -227,6 +228,82 @@ class TestFilePins(unittest.TestCase):
         self.assertTrue(pins)
         mirrored = [glob for glob, uses in pins.items() if len(uses) > 1]
         self.assertGreater(len(mirrored), 1)
+
+
+class CheckTool(unittest.TestCase):
+    """--check-tool holds PATH to the pin, so it must be able to reach it.
+
+    A pin naming a git ref, a file digest or an SDK has no `--version` to
+    compare, and the install command differs per pin: the PyPI distribution of
+    `just` is rust-just, of `shellcheck` is shellcheck-py, and clang, Node,
+    Doxygen and Python do not come from pip at all.
+    """
+
+    def _check(self, name, stdout):
+        import contextlib
+        import io
+        import subprocess
+
+        def run(command, **kwargs):
+            if stdout is None:
+                raise OSError("not found")
+            return subprocess.CompletedProcess(command, 0, stdout, "")
+
+        with unittest.mock.patch.object(bp.subprocess, "run", run):
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                status = bp.check_tool(name)
+        return status, out.getvalue()
+
+    def test_every_target_names_a_pin(self):
+        self.assertEqual(set(bp.CHECK_TOOLS) - set(bp.PINS | bp.INLINE_PINS),
+                         set())
+        self.assertEqual(bp.check_consumers(), 0)
+
+    def test_pins_with_no_version_to_report_are_not_targets(self):
+        for name in ("doxygen-awesome", "doxygen-sha256", "llvm-key-sha256",
+                     "emsdk", "kicad"):
+            self.assertIn(name, bp.PINS | bp.INLINE_PINS)
+            self.assertNotIn(name, bp.CHECK_TOOLS)
+
+    def test_a_major_only_pin_is_met_by_a_release_of_that_major(self):
+        # clang's pin is a major; the binary reports the full version, which
+        # an equality test could never satisfy.
+        self.assertEqual(
+            self._check("clang", "Ubuntu clang version 22.1.8 (tags/x)")[0], 0)
+        self.assertEqual(self._check("python", "Python 3.12.9")[0], 0)
+
+    def test_a_different_major_still_fails(self):
+        status, message = self._check("clang", "clang version 21.1.0")
+        self.assertEqual(status, 1)
+        self.assertIn("apt install clang-22", message)
+
+    def test_a_packaging_suffix_is_not_expected_from_the_binary(self):
+        # shellcheck-py's version is the release plus a suffix; shellcheck
+        # reports the release, so the pin was unsatisfiable by equality.
+        status, message = self._check(
+            "shellcheck", "ShellCheck - shell script analysis tool\n"
+                          "version: 0.11.0\n")
+        self.assertEqual(status, 0)
+        self.assertIn("0.11.0.1", message)
+
+    def test_a_missing_tool_reports_how_to_install_that_tool(self):
+        for name, want in (("just", "pip install rust-just==1.52.0"),
+                           ("shellcheck",
+                            "pip install shellcheck-py==0.11.0.1"),
+                           ("node", "install Node 24.13.0"),
+                           ("doxygen", "install Doxygen 1.17.0")):
+            status, message = self._check(name, None)
+            self.assertEqual(status, 1, name)
+            self.assertIn("nothing runnable", message)
+            self.assertIn(want, message)
+
+    def test_the_remediation_is_not_a_blanket_pip_install(self):
+        for name in bp.CHECK_TOOLS:
+            _, message = self._check(name, "0.0.0")
+            pin = (bp.PINS | bp.INLINE_PINS)[name]
+            if name in ("clang", "doxygen", "just", "node", "python",
+                        "shellcheck"):
+                self.assertNotIn(f"pip install {name}=={pin}", message, name)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -159,6 +160,36 @@ TEST_FILE_PIN_SCAN = (
     ROOT / "justfile",
     ROOT / ".github/workflows/ci.yml",
 )
+
+# --check-tool targets: pin name -> (version command, how to install the pin,
+# the form of the pin that command reports). `{pin}` in either is filled with
+# the pin value. A pin absent here has nothing to interrogate: a git ref and
+# two file digests name no program, and the emsdk and KiCad pins are checked
+# where they are used (the WASM toolchain marker written beside the build,
+# kicad_common.find_kicad_cli).
+CHECK_TOOLS = {
+    "clang": (["clang-{pin}", "--version"], "apt install clang-{pin}",
+              lambda v: v),
+    "clang-format": (["clang-format", "--version"],
+                     "pip install clang-format=={pin}", lambda v: v),
+    "doxygen": (["doxygen", "--version"],
+                "install Doxygen {pin} from doxygen.nl", lambda v: v),
+    "just": (["just", "--version"], "pip install rust-just=={pin}",
+             lambda v: v),
+    "node": (["node", "--version"], "install Node {pin}", lambda v: v),
+    # No console script; the pin is met by the module the interpreter imports.
+    "numpy": ([sys.executable, "-c", "import numpy; print(numpy.__version__)"],
+              "pip install numpy=={pin}", lambda v: v),
+    "platformio": (["platformio", "--version"],
+                   "pip install platformio=={pin}", lambda v: v),
+    "python": (["python", "--version"], "install Python {pin}", lambda v: v),
+    "ruff": (["ruff", "--version"], "pip install ruff=={pin}", lambda v: v),
+    # shellcheck-py's version is the shellcheck release plus a packaging
+    # suffix, which the binary itself never reports.
+    "shellcheck": (["shellcheck", "--version"],
+                   "pip install shellcheck-py=={pin}",
+                   lambda v: v.rsplit(".", 1)[0]),
+}
 
 # (manifest, JSON path to a `>=X` range, pin name). The range is the floor the
 # tree's own tooling needs -- `node --test`'s glob expansion needs >= 22 -- and
@@ -302,6 +333,8 @@ def check_engine_ranges() -> list[str]:
 def check_consumers() -> int:
     errors: list[str] = (check_inline_pins() + check_shared_literals()
                          + check_engine_ranges() + check_test_file_pins())
+    for name in sorted(set(CHECK_TOOLS) - set(PINS | INLINE_PINS)):
+        errors.append(f"CHECK_TOOLS names {name}, which is not a pin")
     for path, references in CONSUMERS.items():
         text = path.read_text(encoding="utf-8")
         for reference in references:
@@ -329,25 +362,31 @@ def check_consumers() -> int:
 
 
 def check_tool(name: str) -> int:
-    """Fail unless the tool on PATH reports the version pinned here.
+    """Fail unless the installed tool reports the version pinned here.
 
     A recipe that just invokes a linter runs whatever the developer installed,
     which gates the tree on a different rule set than CI's.
+
+    The pin's precision is the comparison's: a major-only pin such as clang's
+    is met by any release of that major, which is all the pin claims.
     """
-    want = (PINS | INLINE_PINS)[name]
+    pin = (PINS | INLINE_PINS)[name]
+    command, install, form = CHECK_TOOLS[name]
+    command = [part.format(pin=pin) for part in command]
+    want = form(pin).split(".")
     try:
         reported = subprocess.run(
-            [name, "--version"], capture_output=True, text=True, check=True
+            command, capture_output=True, text=True, check=True
         ).stdout
     except (OSError, subprocess.SubprocessError):
         reported = ""
     found = re.search(r"\d[\w.]*", reported)
-    if found is None or found.group() != want:
-        got = found.group() if found else "no runnable binary on PATH"
-        print(f"{name} is pinned to {want} but PATH has {got} "
-              f"(pip install {name}=={want})")
+    if found is None or found.group().split(".")[: len(want)] != want:
+        got = found.group() if found else "nothing runnable"
+        print(f"{name} is pinned to {pin} but PATH has {got} "
+              f"({install.format(pin=pin)})")
         return 1
-    print(f"{name} {want} matches the pin")
+    print(f"{name} {pin} matches the pin")
     return 0
 
 
@@ -365,7 +404,7 @@ def main() -> int:
     parser.add_argument("name", nargs="?", choices=sorted(PINS | INLINE_PINS))
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--check-tool", metavar="NAME",
-                        choices=sorted(PINS | INLINE_PINS))
+                        choices=sorted(CHECK_TOOLS))
     parser.add_argument("--github-output", action="store_true")
     args = parser.parse_args()
     if args.check:
