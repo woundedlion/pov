@@ -50,8 +50,11 @@ struct CompiledHankin {
   int static_offset =
       0; /**< static_vertices.size(); base for dynamic indices in faces. */
   /** Resolved corner source: base_vertices in copy mode, the borrowed input
-   * vertices in borrow mode. HankinInstruction indices read through corner(). */
-  const Vector *corner_src = nullptr;
+   * vertices in borrow mode. HankinInstruction indices read through corner().
+   * A span, not a raw pointer: in debug builds it carries the source's arena
+   * stamps, so a corner read after the source arena was reset or rewound
+   * faults instead of returning reissued bytes. */
+  ArenaSpan<Vector> corner_src;
 
   /** Returns the corner vertex a HankinInstruction index refers to. */
   const Vector &corner(size_t i) const { return corner_src[i]; }
@@ -68,7 +71,7 @@ struct CompiledHankin {
     face_counts.clear();
     faces.clear();
     static_offset = 0;
-    corner_src = nullptr;
+    corner_src = ArenaSpan<Vector>();
   }
 
   /**
@@ -86,7 +89,7 @@ struct CompiledHankin {
                                    CompiledHankin &dst, Arena &arena) {
     HS_CHECK(&src != &dst, "CompiledHankin::clone src must not alias dst");
     HS_CHECK(src.dynamic_instructions.size() == 0 ||
-                 src.corner_src == src.base_vertices.data(),
+                 src.corner_src.data() == src.base_vertices.data(),
              "CompiledHankin::clone needs an owned-corner source "
              "(compile_hankin borrow mode has no corners to copy)");
     MeshOps::copy_vector(dst.base_vertices, src.base_vertices.data(),
@@ -100,7 +103,7 @@ struct CompiledHankin {
                          src.face_counts.size(), arena);
     MeshOps::copy_vector(dst.faces, src.faces.data(), src.faces.size(), arena);
     dst.static_offset = src.static_offset;
-    dst.corner_src = dst.base_vertices.data();
+    dst.corner_src = ArenaSpan<Vector>(dst.base_vertices);
   }
 };
 
@@ -138,13 +141,13 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
   compiled = CompiledHankin();
 
   if (borrow_base_vertices) {
-    compiled.corner_src = mesh.vertices.data();
+    compiled.corner_src = ArenaSpan<Vector>(mesh.vertices);
   } else {
     compiled.base_vertices.bind(target_arena, V);
     for (size_t i = 0; i < V; ++i) {
       compiled.base_vertices.push_back(mesh.vertices[i]);
     }
-    compiled.corner_src = compiled.base_vertices.data();
+    compiled.corner_src = ArenaSpan<Vector>(compiled.base_vertices);
   }
   // Static pool is I/2 midpoints; largest emitted index is (I/2)+(I-1). Guard
   // adds 1 to both sides to dodge the unsigned underflow of I-1 at I == 0.
@@ -357,7 +360,7 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
         std::max(0.0f, std::min(1.0f, (value - start) / (end - start)));
     return quintic_kernel(t);
   };
-  HS_CHECK(compiled.corner_src != nullptr,
+  HS_CHECK(compiled.corner_src.data() != nullptr,
            "update_hankin needs a compiled topology (corner_src is null after "
            "CompiledHankin::clear)");
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
