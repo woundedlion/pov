@@ -238,7 +238,9 @@ strip/sync `J2`/`J3A`/`J3B` at the far end, R-CON-4). `MASTER_EN` and
 
 ## Status
 
-- [x] Schematic — complete, zero-error ERC, netlist verified against spec §10
+- [x] Schematic — complete, netlist verified against spec §10. ERC reported zero
+  errors when run by hand; no runner re-checks it, so any schematic edit
+  invalidates that result (see Validation)
 - [x] Teensy footprint pad map verified for component-side-up mounting
 - [x] Corrected Candidate 1 placement and validated routing preserved
 - [x] Automatic master-only R_PD circuit added to the schematic and PCB netlist
