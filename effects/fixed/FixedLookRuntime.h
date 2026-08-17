@@ -748,8 +748,20 @@ public:
   }
 
 protected:
+  static constexpr size_t PARAM_CAPACITY = 48;
+
   struct Preset {
     Params params;
+  };
+
+  struct Transition {
+    Params from{};
+    Params to{};
+    Pullback::Color::PaletteMappingWeights mapping_from{};
+    Pullback::Color::PaletteMappingWeights mapping_to{};
+    uint16_t evaluation = 0;
+    uint16_t duration = TRANSITION_DURATION;
+    bool active = false;
   };
 
   HS_COLD_MEMBER void start_mobius_animation(float scale, int duration) {
@@ -762,6 +774,45 @@ protected:
 
   HS_COLD_MEMBER void hold_initial_preset(uint16_t frames) {
     preset_dwell_remaining = frames;
+  }
+
+  HS_COLD_MEMBER void prepare_transition_value() {
+    if (!transition.active)
+      return;
+    MobiusParams animated_mobius;
+    if constexpr (requires { Derived::ANIMATED_MOBIUS; })
+      if constexpr (Derived::ANIMATED_MOBIUS)
+        animated_mobius = params.lens.mobius;
+    const FixedPipeline::EdgeProgress progress =
+        FixedPipeline::edge_progress(transition.evaluation, transition.duration,
+                                     FixedPipeline::Easing::EASE_IN_OUT_SIN);
+    params =
+        FixedLook::interpolate(transition.from, transition.to, progress.eased);
+    if constexpr (requires { Derived::ANIMATED_MOBIUS; })
+      if constexpr (Derived::ANIMATED_MOBIUS)
+        params.lens.mobius = animated_mobius;
+    palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
+        transition.mapping_from, transition.mapping_to, progress.eased);
+  }
+
+  HS_COLD_MEMBER void finish_transition_evaluation() {
+    if (!transition.active || anims_paused)
+      return;
+    if (transition.evaluation == transition.duration) {
+      MobiusParams animated_mobius;
+      if constexpr (requires { Derived::ANIMATED_MOBIUS; })
+        if constexpr (Derived::ANIMATED_MOBIUS)
+          animated_mobius = params.lens.mobius;
+      params = transition.to;
+      if constexpr (requires { Derived::ANIMATED_MOBIUS; })
+        if constexpr (Derived::ANIMATED_MOBIUS)
+          params.lens.mobius = animated_mobius;
+      palette_mapping = transition.mapping_to;
+      transition.active = false;
+      preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
+      return;
+    }
+    ++transition.evaluation;
   }
 
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
@@ -786,20 +837,9 @@ protected:
   }
 
   Params params = Derived::initial_params();
+  Transition transition;
 
 private:
-  static constexpr size_t PARAM_CAPACITY = 48;
-
-  struct Transition {
-    Params from{};
-    Params to{};
-    Pullback::Color::PaletteMappingWeights mapping_from{};
-    Pullback::Color::PaletteMappingWeights mapping_to{};
-    uint16_t evaluation = 0;
-    uint16_t duration = TRANSITION_DURATION;
-    bool active = false;
-  };
-
   struct State {
     std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
         hue_rotation_lut;
@@ -1008,45 +1048,6 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void prepare_transition_value() {
-    if (!transition.active)
-      return;
-    MobiusParams animated_mobius;
-    if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-      if constexpr (Derived::ANIMATED_MOBIUS)
-        animated_mobius = params.lens.mobius;
-    const FixedPipeline::EdgeProgress progress =
-        FixedPipeline::edge_progress(transition.evaluation, transition.duration,
-                                     FixedPipeline::Easing::EASE_IN_OUT_SIN);
-    params =
-        FixedLook::interpolate(transition.from, transition.to, progress.eased);
-    if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-      if constexpr (Derived::ANIMATED_MOBIUS)
-        params.lens.mobius = animated_mobius;
-    palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
-        transition.mapping_from, transition.mapping_to, progress.eased);
-  }
-
-  HS_COLD_MEMBER void finish_transition_evaluation() {
-    if (!transition.active || anims_paused)
-      return;
-    if (transition.evaluation == transition.duration) {
-      MobiusParams animated_mobius;
-      if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-        if constexpr (Derived::ANIMATED_MOBIUS)
-          animated_mobius = params.lens.mobius;
-      params = transition.to;
-      if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-        if constexpr (Derived::ANIMATED_MOBIUS)
-          params.lens.mobius = animated_mobius;
-      palette_mapping = transition.mapping_to;
-      transition.active = false;
-      preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
-      return;
-    }
-    ++transition.evaluation;
-  }
-
   HS_COLD_MEMBER void advance_runtime() {
     if constexpr (requires { params.source.speed; }) {
       source_primary = fmodf(source_primary + params.source.speed, TWO_PI_F);
@@ -1220,7 +1221,6 @@ private:
   Pullback::Color::PaletteMappingWeights palette_mapping =
       Pullback::Color::PaletteMappingWeights::single(
           params.color.palette_mapping);
-  Transition transition;
   uint16_t preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
   Timeline timeline;
   Orientation<> projection_walk;
