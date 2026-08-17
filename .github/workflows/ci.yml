@@ -538,9 +538,10 @@ jobs:
     # very platform the project is developed on. This job configures the tests
     # preset from a plain shell (no Visual Studio Developer Prompt), which is the
     # "no VS prompt required" promise the README makes.
-    # Pinned image (not windows-latest) so the Windows SDK set behind the rc.exe
-    # glob is deterministic and this job isn't silently re-hosted on a new runner
-    # image — the lld-link alias and rc.exe discovery are what it exists to cover.
+    # Explicit label (not windows-latest) so a new Windows Server release cannot
+    # silently re-host the job. The label selects an image family, not a fixed
+    # image: the Windows SDK set behind the rc.exe glob still rolls with GitHub's
+    # image updates.
     runs-on: windows-2025
     timeout-minutes: 90
     steps:
