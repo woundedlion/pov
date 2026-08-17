@@ -1108,12 +1108,18 @@ public:
    * @brief Returns the number of viewed elements.
    * @return Element count.
    */
-  size_t size() const { return element_count; }
+  size_t size() const {
+    check_alive();
+    return element_count;
+  }
   /**
    * @brief Reports whether the span is empty.
    * @return True iff size() == 0.
    */
-  bool is_empty() const { return element_count == 0; }
+  bool is_empty() const {
+    check_alive();
+    return element_count == 0;
+  }
   /**
    * @brief Returns a pointer to the borrowed storage.
    * @return Const pointer to the first element.
