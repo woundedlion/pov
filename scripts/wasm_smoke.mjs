@@ -516,7 +516,7 @@ async function main() {
         // The generation is the only token joining a definitions snapshot to a
         // later value read: it must hold across frames, reads and param writes,
         // hold across a rejected load, and advance by exactly one per accepted
-        // load (effect_loads in wasm.cpp).
+        // load.
         // The authoring probe above may leave a Shader schema refresh for
         // its next frame. Settle it before measuring generation immutability.
         engine.drawFrame();

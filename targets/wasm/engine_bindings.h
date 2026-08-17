@@ -371,13 +371,11 @@ public:
       return EffectSetResult::UNKNOWN_EFFECT;
     }
 
-    // Per-load RNG stream, mirroring the device's per-epoch reseed: load 0
-    // (the constructor's bootstrap effect) keeps the identity 1337 stream;
-    // each later load derives a fresh seed. Replica-safe with no protocol
-    // change — workers process identical message streams, so their counters
-    // agree by construction.
+    // Per-load RNG stream keyed by the effect's stable id, mirroring the
+    // device's per-effect reseed. Replica-safe with no protocol change — every
+    // instance loading the same effect derives the same seed locally, whatever
+    // its load history.
     hs::random().seed(hs::stable_effect_seed(entry->stable_id));
-    ++effect_loads;
 
     current_effect.reset();
     current_effect_type_key = nullptr;
@@ -1251,11 +1249,9 @@ private:
   std::vector<uint16_t> pixel_buffer; /**< 16-bit linear RGB readback buffer. */
   std::vector<float> param_values;    /**< Backing store for getParamValues. */
   std::vector<hs_wasm::ParamView>
-      param_views;           /**< Scratch for getParameterDefinitions. */
-  int pixel_width = 0;       /**< Active canvas width in pixels. */
-  int pixel_height = 0;      /**< Active canvas height in pixels. */
-  uint32_t effect_loads = 0; /**< Effect loads so far; epoch for the per-load
-                                 RNG seed (0 = the constructor's bootstrap). */
+      param_views;      /**< Scratch for getParameterDefinitions. */
+  int pixel_width = 0;  /**< Active canvas width in pixels. */
+  int pixel_height = 0; /**< Active canvas height in pixels. */
   hs_wasm::ParamGenerationTracker
       param_generation; /**< Effect and descriptor-schema identity token. */
   bool animations_paused = false; /**< Pause state applied to every effect. */
