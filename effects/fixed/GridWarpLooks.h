@@ -169,7 +169,6 @@ public:
     Params value;
     value.source = {6.3287f, 0.04f, 1.704f, 0.0f, 0.8f, 0.027f};
     value.projection.pole_fade = 2.311f;
-    value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.outer_warp.strength = -0.176f;
     value.outer_warp.speed = -0.00325f;
@@ -249,7 +248,6 @@ public:
     Params value;
     value.source = {4.9755f, 0.04f, 1.704f, 0.0f, 0.8f, 0.027f};
     value.projection.pole_fade = 2.311f;
-    value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.outer_warp.strength = 0.138f;
     value.outer_warp.speed = -0.00005f;
