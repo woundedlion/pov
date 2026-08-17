@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Teensy firmware warning-hygiene ratchet (docs/teensy_ci_gate_spec.md §7.2).
+"""Teensy firmware warning-hygiene ratchet.
 
 Policy is a BASELINE RATCHET, not -Werror: capture the current first-party
 warning set once, then fail only on warnings NOT in that baseline. New warnings
 are blocked; fixing a baseline warning is fine.
 
-Two properties the spec calls load-bearing:
+Two load-bearing properties:
   * SET-based, not line-ordered. PlatformIO builds in parallel (-j) so warning
     emission order is nondeterministic; an ordered diff would flap green/red on
     identical inputs. We compare normalized SETS.
@@ -16,10 +16,10 @@ Two properties the spec calls load-bearing:
 First-party only: warnings outside core/ effects/ hardware/ targets/ (i.e.
 FastLED and the Teensy core) are dropped — the independent backstop to the
 `-isystem` plan, so the ratchet is robust even if the -isystem demotion proves
-awkward under PlatformIO (§7.2).
+awkward under PlatformIO.
 
 This ratchet must run on a COLD build: a cached TU emits no warnings, so a warm
-build hides header-introduced warnings (§7.2, §15). `PLATFORMIO_BUILD_CACHE_DIR=`
+build hides header-introduced warnings. `PLATFORMIO_BUILD_CACHE_DIR=`
 does not achieve that — PlatformIO ignores an empty sysenvvar and falls back to
 platformio.ini's `build_cache_dir` — so the capture must DELETE `.pio/build_cache`
 and `.pio/build` first. The capture audit below enforces coldness from the log
@@ -360,7 +360,7 @@ def render_baseline(warnings: set[str]) -> str:
         "# Teensy firmware first-party warning baseline (tools/teensy_warnings.py).",
         "# Sorted, deduplicated, normalized (path:line:col stripped). The ratchet",
         "# fails only on warnings NOT listed here. Regenerate with --update-baseline",
-        "# in the SAME PR as the change that legitimately alters the set (§7.2).",
+        "# in the SAME PR as the change that legitimately alters the set.",
         "",
     ]
     return "\n".join(header + sorted(warnings)) + "\n"

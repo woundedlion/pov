@@ -1,7 +1,7 @@
 # Teensy gate fixtures & self-tests
 
 These prove the size/layout gate (`tools/teensy_gate.py`) **fails when it should**
-— a check that can never fail is worse than none (docs/teensy_ci_gate_spec.md §9.1).
+— a check that can never fail is worse than none.
 They are pure host Python (`unittest`, no ARM toolchain, no PlatformIO).
 
 ```
@@ -42,4 +42,4 @@ actual `-O3` firmware link (no Teensy toolchain in this environment). A Phase-0
 deliverable is to **replace the `good_*` fixtures with truly-captured output**
 from a real build (`arm-none-eabi-size -A`, `readelf -s -S`) so the parser tests
 exercise the exact toolchain formatting, then re-derive the broken variants from
-that capture (spec §9.1, §13).
+that capture.

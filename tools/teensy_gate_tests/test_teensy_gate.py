@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host tests for the Teensy 4 size/layout gate (docs/teensy_ci_gate_spec.md §9.1).
+"""Host tests for the Teensy 4 size/layout gate (tools/teensy_gate.py).
 
 The gate must gate itself: a size/layout check that can never fail is worse than
 none (permanent false-green). So every layout invariant and region ceiling is
@@ -209,7 +209,7 @@ class TestLayoutInvariantsFail(unittest.TestCase):
 
     def test_reaction_graph_dropped_const_lands_in_ram(self):
         # phantasm env: it instantiates reaction-diffusion effects so the K-NN
-        # table is present + budgeted (Holosphere GC's it out, §8).
+        # table is present + budgeted (Holosphere GC's it out).
         result = _eval("phantasm", "good_teensy_size.txt",
                        "broken_reaction_graph_ram_syms.txt")
         self.assertFalse(result.passed)
@@ -459,7 +459,7 @@ class TestBudgetSchema(unittest.TestCase):
 
 
 class TestComponentCeilings(unittest.TestCase):
-    """Per-component ceilings (§8): the static max_bytes form, plus the shared
+    """Per-component ceilings: the static max_bytes form, plus the shared
     fail-loud rules (missing component, size -A fallback)."""
 
     _STATIC_BUDGET = {"regions": {"ram1": {
@@ -510,7 +510,7 @@ class TestComponentCeilings(unittest.TestCase):
 
 
 class TestDerivedComponentCeiling(unittest.TestCase):
-    """The stack-floor-derived ITCM code ceiling (§8): DTCM reserves
+    """The stack-floor-derived ITCM code ceiling: DTCM reserves
     ceil((variables + free_min_bytes) / bank) FlexRAM banks and code may fill
     the remaining banks. phantasm's ram1.code uses this form."""
 
@@ -671,7 +671,7 @@ class TestWarningRatchet(unittest.TestCase):
 
     def test_new_warning_fails_but_reorder_passes(self):
         baseline = {"core/a.h: warning: w1 [-Wx]", "core/b.h: warning: w2 [-Wy]"}
-        # Same set, different order -> no new warnings (set-based, §7.2).
+        # Same set, different order -> no new warnings (set-based).
         same = {"core/b.h: warning: w2 [-Wy]", "core/a.h: warning: w1 [-Wx]"}
         self.assertEqual(same - baseline, set())
         # A genuinely new warning -> flagged.
@@ -720,7 +720,7 @@ def _banner(env, *sources):
 
 
 class TestWarningRatchetCaptureEvidence(unittest.TestCase):
-    """A broken capture must not read as today's healthy green (§7.2)."""
+    """A broken capture must not read as today's healthy green."""
 
     PIO_LINE = "Compiling .pio/build/phantasm/targets/Phantasm/Phantasm.ino.cpp.o"
     PIO_BANNER = _banner("phantasm", "targets/Phantasm/Phantasm.ino.cpp")
@@ -793,7 +793,7 @@ class TestColdCaptureAudit(unittest.TestCase):
 
     The old guard only demanded ONE first-party compile, so a build serving 12 of
     18 TUs from PlatformIO's object cache read as green while two thirds of the
-    warning surface was never compiled (§7.2). The expectation is derived from
+    warning surface was never compiled. The expectation is derived from
     `build_src_filter` in PlatformIO's own banner, so it tracks a new TU or a new
     environment with nothing to keep in sync.
     """
@@ -1035,7 +1035,7 @@ class TestRealVerboseCapture(unittest.TestCase):
 
 
 class TestRealCapture(unittest.TestCase):
-    """Parse REAL toolchain output from the two shipping images (§9.1).
+    """Parse REAL toolchain output from the two shipping images.
 
     These exercise the toolchain quirks the synthetic fixtures can't: teensy_size
     on stderr, readelf printing large sizes in HEX (0x4a800), and the arena's real

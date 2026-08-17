@@ -1716,7 +1716,7 @@ jobs:
     # The Teensy size/layout gate must gate itself: a check that can never fail
     # is worse than none. These host-Python tests prove every layout invariant
     # and region ceiling FAILS on a deliberately-broken fixture and PASSES on the
-    # good one (docs/teensy_ci_gate_spec.md §9.1). No ARM toolchain, no
+    # good one. No ARM toolchain, no
     # PlatformIO — fast, and independent of the heavy build job below, so it runs
     # on every run regardless of whether the firmware build is enabled yet.
     runs-on: ubuntu-24.04
@@ -1771,7 +1771,7 @@ jobs:
     name: Teensy 4 firmware (build + size + layout)
     # ─── ACTIVE GATE ───────────────────────────────────────────────────────────
     # Builds both Teensy 4.0 images headlessly and enforces the per-region budgets
-    # + layout invariants (spec §10) via the post-build extra_script. Both images
+    # + layout invariants via the post-build extra_script. Both images
     # now build GREEN and PASS end-to-end on the real ELF: HOLOSPHERE fits with
     # wide headroom and PHANTASM (all effects) fits RAM1 after the ITCM-bank
     # reclamation, the RNG/cos_theta DTCM trims, and the arena right-size at
@@ -1837,7 +1837,7 @@ jobs:
 
   teensy-warnings:
     name: Teensy 4 firmware (first-party warning ratchet)
-    # The warning ratchet (tools/teensy_warnings.py, spec §7.2) fails on any
+    # The warning ratchet (tools/teensy_warnings.py) fails on any
     # first-party warning not in tools/teensy_warning_baseline.txt. It needs a
     # COLD build: a cached/incremental TU emits no warnings, so the object-cached
     # teensy-size job above cannot feed it. This job is a separate build that does

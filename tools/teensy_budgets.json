@@ -1,7 +1,8 @@
 {
   // ==========================================================================
-  // Teensy 4 firmware size + layout budgets — consumed by tools/teensy_gate.py
-  // (docs/teensy_ci_gate_spec.md §8). JSONC: // and /* */ comments are stripped.
+  // Teensy 4 firmware size + layout budgets — consumed by tools/teensy_gate.py.
+  // This file and that module state the gate's ceilings and layout invariants;
+  // nothing else is normative. JSONC: // and /* */ comments are stripped.
   //
   // CALIBRATED FROM REAL BUILDS: teensy@5.2.0 (Teensyduino 1.62.0 / arm-gcc
   // 15.2.1), PlatformIO 6.1.19, FastLED 3.4.0. Both shipping images pass.
@@ -15,11 +16,11 @@
   // verbatim. Holosphere RAM2 is 44,160 B (its framebuffers are sized to the
   // 96x20 canvas via -DCANVAS_W/-DCANVAS_H); Phantasm RAM2 is 520,064 B.
   //
-  // Symbol names are the REAL linkage names from `readelf -s` (§7.4): the arena is
+  // Symbol names are the REAL linkage names from `readelf -s`: the arena is
   // file-scope static, so it mangles to `_ZL18global_arena_block` (NOT the source
   // spelling). A renamed/missing layout symbol is a hard failure, never a silent
   // pass. Raising a ceiling is a reviewed one-line edit landed with the change that
-  // needs it (§8).
+  // needs it.
   // ==========================================================================
 
   "holosphere": {
@@ -82,12 +83,12 @@
       "framebuffer_a":  { "name": "_ZN6Effect8buffer_aE",          "region": "OCRAM" },
       "framebuffer_b":  { "name": "_ZN6Effect8buffer_bE",          "region": "OCRAM" },
       // Phantasm instantiates all effects (incl. reaction-diffusion), so the K-NN
-      // table is present and must stay in flash (const => flash/.rodata; §7.4 #3).
+      // table is present and must stay in flash (const => flash/.rodata).
       // Verified on the real Phantasm ELF.
       "reaction_graph": { "name": "_ZN13ReactionGraph9neighborsE", "region": "FLASH" },
       // The segment LED controller's HD107SFrame buffers are the eDMA TX source and
-      // must stay in cached, DMA-reachable OCRAM (where arm_dcache_flush() is real;
-      // §5/§8). Emitted by HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER in
+      // must stay in cached, DMA-reachable OCRAM (where arm_dcache_flush() is
+      // real). Emitted by HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER in
       // targets/common/phantasm_target.h:48 because GCC drops DMAMEM on the
       // vague-linkage template static member.
       "dma_tx_buffer":  { "name": "_ZN12POVSegmentedILi288ELi4ELi480EE13ledControllerE", "region": "OCRAM" }

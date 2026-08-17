@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Teensy 4 firmware size + memory-layout gate (pure parser / classifier).
 
-This module is the testable heart of docs/teensy_ci_gate_spec.md. It holds NO
+This module, with the budgets in tools/teensy_budgets.json, is the normative
+statement of what the Teensy 4 CI gate enforces. It holds NO
 PlatformIO dependency so it runs as an ordinary host Python module (stdlib only,
 matching the repo's scripts/ convention) and is exercised by the golden /
 deliberately-broken fixtures under tools/teensy_gate_tests/. The thin PlatformIO
 post-build wrapper that feeds it real toolchain output is tools/teensy_gate_extra.py.
 
-What it does (spec §7.3, §7.4, §8):
+What it does:
   * region totals  — parse `teensy_size` (or `arm-none-eabi-size -A`) and compare
     each region's used bytes against a per-target ceiling, and the DTCM "free for
     local variables" stack headroom against a floor.
@@ -19,7 +20,7 @@ What it does (spec §7.3, §7.4, §8):
     arena fails.
   * fail-loud       — a configured layout symbol that is NOT FOUND in the ELF is a
     violation, never a silent skip: a name that never matches would make the
-    invariant never fire (false-green), the exact trap spec §7.4 warns about.
+    invariant never fire (false-green).
     The parse layer holds the same line: a region line whose component blob
     breaks into no `name:bytes` pairs raises instead of reporting 0 bytes used.
   * schema          — load_budgets() rejects any budgets key the gate does not
@@ -40,7 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Teensy 4 (i.MX RT1062) memory map — the load-bearing address buckets (§7.4).
+# Teensy 4 (i.MX RT1062) memory map — the load-bearing address buckets.
 # Classify a symbol by where it LIVES (its VMA), not by section name or nm letter.
 #   ITCM  0x0000_0000  fast code              (part of RAM1)
 #   DTCM  0x2000_0000  fast data + stack      (part of RAM1) — the 298 KiB arena
@@ -99,7 +100,7 @@ class Violation:
 # ---------------------------------------------------------------------------
 # Parsers
 # ---------------------------------------------------------------------------
-# teensy_size summary lines (§7.3), e.g.
+# teensy_size summary lines, e.g.
 #   teensy_size: FLASH: code:62788, data:13684, headers:8460   free for files: 1979136
 #   teensy_size: RAM1: variables:343040, code:62240, padding:30496   free for local variables: 88512
 #   teensy_size: RAM2: variables:497920   free for malloc/new: 26368
@@ -125,7 +126,7 @@ def parse_teensy_size(text: str) -> dict[str, dict[str, int]]:
 
     `used` is the sum of the region's components (code/data/headers/...); `free`
     is the region's "free for ..." figure. RAM1's free is the DTCM stack
-    headroom (§7.4 #4); RAM2's free is the OCRAM heap room (§8).
+    headroom; RAM2's free is the OCRAM heap room.
 
     A region whose component blob yields no `name:bytes` pair raises: summing
     nothing gives `used` 0, which clears every ceiling and reports PASS.
@@ -298,7 +299,7 @@ def _check_derived_component_ceiling(
     components: dict[str, int],
     derived: dict,
 ) -> None:
-    """Enforce a stack-floor-derived component ceiling (§8).
+    """Enforce a stack-floor-derived component ceiling.
 
     FlexRAM splits RAM1 into `total_banks` banks of `bank_bytes` between ITCM
     (code) and DTCM (variables + stack). The invariant is minimum stack headroom,
@@ -363,7 +364,7 @@ def evaluate(
     symbols: list[Symbol],
     sections: dict[str, tuple[str, int]] | None = None,
 ) -> GateResult:
-    """Apply a target's budget to its measured sizes + symbols (§7.3, §7.4, §8)."""
+    """Apply a target's budget to its measured sizes + symbols."""
     sections = sections or {}
     result = GateResult(env=env)
     v = result.violations
@@ -378,7 +379,7 @@ def evaluate(
             f"check would pass vacuously (key typo or truncated entry?). An "
             f"empty budget is a hard failure, never a silent pass."))
 
-    # --- Region ceilings + DTCM stack-headroom floor (§7.3, §7.4 #4, §8) ---
+    # --- Region ceilings + DTCM stack-headroom floor ---
     for region, spec in budget.get("regions", {}).items():
         measured = sizes.get(region)
         if measured is None:
@@ -400,7 +401,7 @@ def evaluate(
                 f"{env}: {region.upper()} free-for-local-variables "
                 f"{measured.get('free', 0):,} B is below the {floor:,} B floor "
                 f"(stack headroom squeezed)."))
-        # Per-component ceilings (§8): a component may carry a static max_bytes
+        # Per-component ceilings: a component may carry a static max_bytes
         # cap, a stack-floor-derived cap (max_banks_from_stack_floor), or both.
         # A configured component absent from the parsed output is a hard failure
         # (a renamed teensy_size field must not silently disable its ceiling).
@@ -426,7 +427,7 @@ def evaluate(
                     result, env, region, spec, cname, cmeasured,
                     measured.get("components", {}), derived)
 
-    # --- Layout invariants: symbol -> region (+ magnitude) (§7.4 #1-#3) ---
+    # --- Layout invariants: symbol -> region (+ magnitude) ---
     for key, spec in budget.get("symbols", {}).items():
         name = spec["name"]
         # Consider only DEFINED symbol-table rows (real section + non-zero size).
