@@ -789,6 +789,12 @@ template <typename... Ts> struct PolicyList {
   static constexpr bool CONFORMING =
       ((Schedulable<Ts> && HasPhaseHooks<Ts>) && ...);
 
+  /** @brief Whether every listed policy that is per-face also schedules
+   * sequentially. MeshCarousel asserts this too, but only for the policies an
+   * effect instantiates. */
+  static constexpr bool SEQUENTIAL_PER_FACE =
+      ((!PerFace<Ts> || !Ts::OVERLAPS) && ...);
+
   /**
    * @brief Invokes @p fn once per policy, on a default-constructed instance.
    * @param fn Callable taking any policy.
@@ -805,5 +811,11 @@ using AllPolicies =
 static_assert(AllPolicies::CONFORMING,
               "a segue policy shadows schedule(), visible(), opacity() or "
               "face_fade_frac() at a drifted signature");
+
+static_assert(AllPolicies::SEQUENTIAL_PER_FACE,
+              "a per-face segue must schedule sequentially: schedule() and "
+              "retarget() rewrite the single policy instance's per-transition "
+              "state, which an overlapping predecessor's sprite is still "
+              "reading");
 
 } // namespace Segue
