@@ -17,7 +17,7 @@
 namespace Animation {
 
 /** Per-window frame cap that keeps a Sprite's fade-in + fade-out sum in int. */
-static constexpr int MAX_FADE_DURATION = 1 << 24;
+inline constexpr int MAX_FADE_DURATION = 1 << 24;
 
 /**
  * @brief An animation that draws a sprite while managing its fade-in/out
@@ -183,7 +183,7 @@ template <int TRAIL_LEN = 8> struct Particle {
   size_t history_length() const { return history.length(); }
 };
 
-static constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
+inline constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
 
 /**
  * @brief A point attractor influencing nearby particles.
