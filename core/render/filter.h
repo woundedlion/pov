@@ -1416,11 +1416,79 @@ private:
 
 namespace Screen {
 
+HS_O3_BEGIN
+
+/** @brief One sub-pixel sample resolved into its four nearest-neighbor taps. */
+struct SplatTaps {
+  int x0, x1;       /**< Wrapped left and right columns. */
+  int y0, y1;       /**< Top and bottom rows, either may lie outside [0, H). */
+  bool y0_physical; /**< y0 lies in [0, H). */
+  bool y1_physical; /**< y1 lies in [0, H). */
+  float v00, v10, v01,
+      v11; /**< Bilinear coverage per tap, row-major from (x0, y0). */
+};
+
+/**
+ * @brief Splat weight below which a tap contributes nothing worth emitting.
+ * @details Looser in Blur (1e-5): these are raw bilinear coverage products,
+ * Blur's are normalized 3x3 kernel taps.
+ */
+static constexpr float SPLAT_TAP_CUTOFF = 1e-8f;
+
+/**
+ * @brief Resolves a sub-pixel sample into its four nearest-neighbor taps.
+ * @tparam W Framebuffer width in pixels.
+ * @tparam H Framebuffer height in pixels.
+ * @param x Sub-pixel column coordinate.
+ * @param y Sub-pixel row coordinate.
+ * @return Wrapped columns, rows, row-in-frame flags, and the four tap weights.
+ * @details Both axes are eased with a quintic kernel; the splat is uniform in
+ * framebuffer space at every latitude (no sin(phi) density compensation). A row
+ * off the top or bottom edge donates its whole weight to the surviving row.
+ */
+template <int W, int H>
+__attribute__((always_inline)) inline SplatTaps splat_taps(float x, float y) {
+  // Non-finite coords make the int casts below UB and bypass the wrap.
+  assert(std::isfinite(x) && std::isfinite(y));
+  // fast_wrap below corrects only a single ±W offset on floorf(x).
+  assert(x >= -W && x < 2 * W);
+  // y never wraps; bounded only so the cast below stays in range.
+  assert(y >= -H && y < 2 * H);
+
+  const float y_floor = floorf(y);
+  const float x_floor = floorf(x);
+  const float xs = quintic_kernel(x - x_floor);
+  const float ys = quintic_kernel(y - y_floor);
+
+  SplatTaps t;
+  t.y0 = static_cast<int>(y_floor);
+  t.y1 = t.y0 + 1;
+  t.x0 = fast_wrap(static_cast<int>(x_floor), W);
+  t.x1 = fast_wrap(t.x0 + 1, W);
+  t.y0_physical = t.y0 >= 0 && t.y0 < H;
+  t.y1_physical = t.y1 >= 0 && t.y1 < H;
+
+  float wy0 = 1.0f - ys;
+  float wy1 = ys;
+  if (t.y0_physical && !t.y1_physical) {
+    wy0 = 1.0f;
+    wy1 = 0.0f;
+  } else if (!t.y0_physical && t.y1_physical) {
+    wy0 = 0.0f;
+    wy1 = 1.0f;
+  }
+
+  t.v00 = (1.0f - xs) * wy0;
+  t.v10 = xs * wy0;
+  t.v01 = (1.0f - xs) * wy1;
+  t.v11 = xs * wy1;
+  return t;
+}
+
 /**
  * @brief Applies 2D anti-aliasing to sub-pixel coordinates.
  * @details Distributes intensity to the 4 nearest neighbors using a quintic kernel.
  */
-HS_O3_BEGIN
 template <int W, int H> class AntiAlias : public Is2D {
 public:
   static constexpr int segment_margin = 1;
@@ -1434,65 +1502,27 @@ public:
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1]; scaled per tap by its quintic-eased splat weight.
    * @param pass Downstream 2D callback receiving each weighted tap.
-   * @details Both axes are eased with a quintic kernel; the splat is uniform in
-   * framebuffer space at every latitude (no sin(phi) density compensation).
-   * @p pass is a forwarding-reference template so the densest fan-out in the
-   * family inlines its taps.
+   * @details @p pass is a forwarding-reference template so the densest fan-out
+   * in the family inlines its taps.
    */
   template <typename PassFnT>
   void plot(float x, float y, const Pixel &c, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
-    // Non-finite coords make the int casts below UB and bypass the wrap.
-    assert(std::isfinite(x) && std::isfinite(y));
-    // fast_wrap below corrects only a single ±W offset on floorf(x).
-    assert(x >= -W && x < 2 * W);
-    // y never wraps; bounded only so the cast below stays in range.
-    assert(y >= -H && y < 2 * H);
-    float y_i = floorf(y);
-    float y_m = y - y_i;
+    const SplatTaps t = splat_taps<W, H>(x, y);
 
-    float x_floor = floorf(x);
-    float x_m = x - x_floor;
-
-    int yi = static_cast<int>(y_i);
-
-    float xs = quintic_kernel(x_m);
-    float ys = quintic_kernel(y_m);
-
-    int y0 = yi;
-    int y1 = y0 + 1;
-    int x0 = fast_wrap(static_cast<int>(x_floor), W);
-    int x1 = fast_wrap(x0 + 1, W);
-
-    bool y0_ok = y0 >= 0 && y0 < H;
-    bool y1_ok = y1 >= 0 && y1 < H;
-
-    float wy0 = 1.0f - ys;
-    float wy1 = ys;
-    if (y0_ok && !y1_ok) {
-      wy0 = 1.0f;
-      wy1 = 0.0f;
-    } else if (!y0_ok && y1_ok) {
-      wy0 = 0.0f;
-      wy1 = 1.0f;
-    }
-
-    float v00 = (1 - xs) * wy0;
-    float v10 = xs * wy0;
-    float v01 = (1 - xs) * wy1;
-    float v11 = xs * wy1;
-
-    // Skip negligible splats. Cutoff is looser in Blur (1e-5): these are raw
-    // bilinear coverage products, Blur's are normalized 3x3 kernel taps.
-    if (y0_ok && v00 > 1e-8f)
-      pass(static_cast<float>(x0), static_cast<float>(y0), c, age, alpha * v00);
-    if (y0_ok && v10 > 1e-8f)
-      pass(static_cast<float>(x1), static_cast<float>(y0), c, age, alpha * v10);
-    if (y1_ok && v01 > 1e-8f)
-      pass(static_cast<float>(x0), static_cast<float>(y1), c, age, alpha * v01);
-    if (y1_ok && v11 > 1e-8f)
-      pass(static_cast<float>(x1), static_cast<float>(y1), c, age, alpha * v11);
+    if (t.y0_physical && t.v00 > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(t.x0), static_cast<float>(t.y0), c, age,
+           alpha * t.v00);
+    if (t.y0_physical && t.v10 > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(t.x1), static_cast<float>(t.y0), c, age,
+           alpha * t.v10);
+    if (t.y1_physical && t.v01 > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(t.x0), static_cast<float>(t.y1), c, age,
+           alpha * t.v01);
+    if (t.y1_physical && t.v11 > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(t.x1), static_cast<float>(t.y1), c, age,
+           alpha * t.v11);
   }
 };
 HS_O3_END
@@ -1557,53 +1587,21 @@ public:
             float alpha) {
     assert(age >= 0.0f && alpha >= 0.0f);
     assert(prepared_for(cv));
-    // Non-finite coords make the int casts below UB and bypass the wrap.
-    assert(std::isfinite(x) && std::isfinite(y));
-    // fast_wrap below corrects only a single ±W offset on floorf(x).
-    assert(x >= -W && x < 2 * W);
-    // y never wraps; bounded only so the cast below stays in range.
-    assert(y >= -H && y < 2 * H);
     (void)age;
     (void)cv;
 
     HS_MSP_STALL_START(aa_start);
-    const float y_floor = floorf(y);
-    const float x_floor = floorf(x);
-    const float xs = quintic_kernel(x - x_floor);
-    const float ys = quintic_kernel(y - y_floor);
+    const SplatTaps t = splat_taps<W, H>(x, y);
 
-    const int y0 = static_cast<int>(y_floor);
-    const int y1 = y0 + 1;
-    const int x0 = fast_wrap(static_cast<int>(x_floor), W);
-    const int x1 = fast_wrap(x0 + 1, W);
-
-    const bool y0_physical = y0 >= 0 && y0 < H;
-    const bool y1_physical = y1 >= 0 && y1 < H;
-    float wy0 = 1.0f - ys;
-    float wy1 = ys;
-    if (y0_physical && !y1_physical) {
-      wy0 = 1.0f;
-      wy1 = 0.0f;
-    } else if (!y0_physical && y1_physical) {
-      wy0 = 0.0f;
-      wy1 = 1.0f;
-    }
-
-    const float v00 = (1.0f - xs) * wy0;
-    const float v10 = xs * wy0;
-    const float v01 = (1.0f - xs) * wy1;
-    const float v11 = xs * wy1;
-    constexpr float TAP_CUTOFF = 1e-8f;
-
-    const bool x0_ok = x_visible[x0];
-    const bool x1_ok = x_visible[x1];
-    const bool y0_ok = y0_physical && y_visible[y0];
-    const bool y1_ok = y1_physical && y_visible[y1];
-    const uint8_t tap_mask =
-        static_cast<uint8_t>((y0_ok && x0_ok && v00 > TAP_CUTOFF) |
-                             ((y0_ok && x1_ok && v10 > TAP_CUTOFF) << 1) |
-                             ((y1_ok && x0_ok && v01 > TAP_CUTOFF) << 2) |
-                             ((y1_ok && x1_ok && v11 > TAP_CUTOFF) << 3));
+    const bool x0_ok = x_visible[t.x0];
+    const bool x1_ok = x_visible[t.x1];
+    const bool y0_ok = t.y0_physical && y_visible[t.y0];
+    const bool y1_ok = t.y1_physical && y_visible[t.y1];
+    const uint8_t tap_mask = static_cast<uint8_t>(
+        (y0_ok && x0_ok && t.v00 > SPLAT_TAP_CUTOFF) |
+        ((y0_ok && x1_ok && t.v10 > SPLAT_TAP_CUTOFF) << 1) |
+        ((y1_ok && x0_ok && t.v01 > SPLAT_TAP_CUTOFF) << 2) |
+        ((y1_ok && x1_ok && t.v11 > SPLAT_TAP_CUTOFF) << 3));
     HS_MSP_STALL_STOP(aa_weights, aa_start);
 
 #ifdef HS_PROFILE_MINDSPLATTER_COUNTS
@@ -1617,13 +1615,14 @@ public:
     HS_MSP_STALL_START(blend_start);
     if (tap_mask == 0x0f) {
       HS_MSP_COUNT(interior_splats);
-      blend_four(base + y0 * W, base + y1 * W, x0, x1, c, alpha, v00, v10, v01,
-                 v11);
+      blend_four(base + t.y0 * W, base + t.y1 * W, t.x0, t.x1, c, alpha, t.v00,
+                 t.v10, t.v01, t.v11);
       HS_MSP_STALL_STOP(framebuffer_blend, blend_start);
       return;
     }
     HS_MSP_COUNT(clip_boundary_splats);
-    blend_masked(base, x0, x1, y0, y1, c, alpha, v00, v10, v01, v11, tap_mask);
+    blend_masked(base, t.x0, t.x1, t.y0, t.y1, c, alpha, t.v00, t.v10, t.v01,
+                 t.v11, tap_mask);
     HS_MSP_STALL_STOP(framebuffer_blend, blend_start);
   }
 
