@@ -176,7 +176,7 @@ constexpr int HS_SHADER_PRODUCT_GROUP_SECONDS =
     0 HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_SECONDS);
 #undef HS_SHADER_GROUP_SECONDS
 static_assert(HS_SHADER_PRODUCT_GROUP_SECONDS == 120,
-              "the promoted Shader group must retain ShaderBall's airtime");
+              "the promoted Shader group must sum to one 120 s effect slot");
 
 #define HS_SHADER_GROUP_REACHABLE(name, seconds)                               \
   static_assert(name<96, 20>::PRESET_IDS.size() > 0,                           \
@@ -249,6 +249,17 @@ constexpr int hs_phantasm_effect_list_count(const char *name) {
 #undef HS_PHANTASM_NAME_COUNT
 }
 
+/**
+ * @brief Show duration HS_PHANTASM_EFFECT_LIST assigns `name`, 0 when absent.
+ * @param name Effect class name to look up.
+ */
+constexpr int hs_phantasm_duration_seconds(const char *name) {
+#define HS_PHANTASM_NAME_DURATION(cls, duration_seconds)                       \
+  +(hs_effect_name_eq(name, #cls) ? (duration_seconds) : 0)
+  return 0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_DURATION);
+#undef HS_PHANTASM_NAME_DURATION
+}
+
 /** @brief True when no HS_PHANTASM_EFFECT_LIST name appears twice. */
 constexpr bool hs_phantasm_effect_list_is_distinct() {
 #define HS_PHANTASM_NAME_ONCE(cls, duration_seconds)                           \
@@ -294,3 +305,14 @@ static_assert(!hs_in_phantasm_effect_list("Shader") &&
                   !hs_in_phantasm_effect_list("Thrusters"),
               "HS_PHANTASM_EFFECT_LIST must exclude Shader, Dynamo, "
               "MobiusRings and Thrusters");
+
+// HS_SHADER_PRODUCT_GROUP restates durations HS_PHANTASM_EFFECT_LIST owns, and
+// the airtime sum above reads only the restated copy. Pinning each entry to the
+// playlist keeps a retune there from leaving that sum green over stale numbers;
+// a group member absent from the playlist reads as duration 0 and fails here.
+#define HS_SHADER_GROUP_DURATION_MATCHES(cls, duration_seconds)                \
+  static_assert(hs_phantasm_duration_seconds(#cls) == (duration_seconds), #cls \
+                " duration disagrees between HS_SHADER_PRODUCT_GROUP and "     \
+                "HS_PHANTASM_EFFECT_LIST");
+HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_DURATION_MATCHES)
+#undef HS_SHADER_GROUP_DURATION_MATCHES
