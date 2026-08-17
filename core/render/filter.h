@@ -99,6 +99,30 @@ struct IsPipelineSink : FilterTraits<true, false> {
 };
 
 /**
+ * @brief The pipeline-level trait surface a whole pipeline answers, as opposed
+ *        to the stage vocabulary in FilterTraits.
+ * @details The single authority for the list. A direct sink stands in for a
+ * Pipeline<> and hand-mirrors every member, so a new fold member belongs here
+ * too: the readers in plot_cull.h are `requires`-guarded and silently fall back
+ * to their defaults on a type that never grew it, which reaches sink-based
+ * effects as a wrong EffectConfig rather than a compile error.
+ */
+template <typename T>
+concept PipelineFoldSurface = requires {
+  requires std::is_same_v<decltype(T::is_pipeline), const bool>;
+  requires std::is_same_v<decltype(T::any_crosses_segments), const bool>;
+  requires std::is_same_v<decltype(T::any_reads_outside_band), const bool>;
+  requires std::is_same_v<decltype(T::any_2d_history), const bool>;
+  requires std::is_same_v<decltype(T::any_3d_history), const bool>;
+  requires std::is_same_v<decltype(T::any_2d_trail_history), const bool>;
+  requires std::is_same_v<decltype(T::any_terminal_history), const bool>;
+  requires std::is_same_v<decltype(T::has_world_cull), const bool>;
+  requires std::is_same_v<decltype(T::has_world_stage), const bool>;
+  requires std::is_same_v<decltype(T::segment_margin), const int>;
+  requires std::is_same_v<decltype(T::total_segment_margin), const int>;
+};
+
+/**
  * @brief Recursive template pipeline for processing render commands.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -1495,6 +1519,15 @@ public:
   static constexpr bool has_world_stage = false;
   static constexpr bool direct_raster_path = true;
 
+  // Pipeline<> derives its stage-level view from the fold; a sink writes both
+  // by hand, so pin them to the same identities.
+  static_assert(crosses_segments == any_crosses_segments &&
+                    reads_outside_band == any_reads_outside_band &&
+                    segment_margin == total_segment_margin &&
+                    has_history == (any_2d_history || any_3d_history),
+                "DirectAntiAliasSink's stage-level traits contradict its "
+                "pipeline folds");
+
   /** @brief Caches the current frame's framebuffer and clip bounds. */
   void prepare(Canvas &cv) {
     base = cv.data();
@@ -1689,6 +1722,12 @@ private:
   }
 };
 HS_O3_END
+
+static_assert(PipelineFoldSurface<::Pipeline<8, 8>>);
+static_assert(PipelineFoldSurface<::Pipeline<8, 8, AntiAlias<8, 8>>>);
+static_assert(PipelineFoldSurface<DirectAntiAliasSink<8, 8>>,
+              "DirectAntiAliasSink stands in for a Pipeline<>, so it must "
+              "declare every pipeline fold member itself");
 
 /**
  * @brief Manages 2D screen-space trails.
