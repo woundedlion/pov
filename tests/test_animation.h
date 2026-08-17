@@ -3152,6 +3152,23 @@ inline void test_mobiuswarp_circular_traces_radius() {
 }
 
 /**
+ * @brief Verifies MobiusWarpCircular's bind_scale makes step() read the live
+ * referent instead of the captured construction-time scale.
+ */
+inline void test_mobiuswarp_circular_bind_scale_reads_live() {
+  MobiusParams params;
+  float live = 0.5f;
+  const int duration = 4;
+  Animation::MobiusWarpCircular warp(params, /*scale=*/0.0f, duration,
+                                     /*repeat=*/false, ease_linear);
+  warp.bind_scale(live);
+  warp.step(fake_canvas()); // captured scale is 0: any radius comes from live
+  HS_EXPECT_NEAR(
+      std::sqrt(params.b.re * params.b.re + params.b.im * params.b.im), live,
+      1e-4f);
+}
+
+/**
  * @brief Verifies MobiusWarpEvolving modulates all eight coefficients within
  * ±scale of their captured baseline, drives each of them, and, being perpetual,
  * never reports done().
@@ -3693,6 +3710,7 @@ inline int run_animation_tests() {
   test_mobiuswarp_closes_at_completion();
   test_mobiuswarp_bind_scale_reads_live();
   test_mobiuswarp_circular_traces_radius();
+  test_mobiuswarp_circular_bind_scale_reads_live();
   test_mobiuswarp_evolving_bounded_and_perpetual();
 
   test_ripple_envelope_and_done_boundary();
