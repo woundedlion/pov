@@ -331,6 +331,15 @@ def parse_capture(path):
                     # Between windows: no outgoing frames to protect.
                     active_marker = mk
                 break
+    # dump() logs the header, the wall/render stats and the counter tree in
+    # that order, so a capture cut mid-dump leaves a trailing header whose
+    # window was never measured. Kept, it would put unmeasured frames in the
+    # spill denominator and mark every window's peak a placeholder.
+    if (len(windows) > 1 and not windows[-1].counters
+            and any(w.counters for w in windows[:-1])):
+        cut = windows.pop()
+        print(f"{path}: dropped the trailing window (frames {cut.f_start}-"
+              f"{cut.f_end}): its dump was cut off", file=sys.stderr)
     return windows, effect, pullback
 
 
