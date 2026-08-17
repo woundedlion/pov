@@ -24,6 +24,32 @@ enum class PaletteMapping : uint8_t {
   REVERSE = 3
 };
 
+/** @brief Palette and hue parameters, shared by every look. */
+struct ColorParams {
+  float hue_shift_amount = 0.0f; /**< Hue rotation magnitude; 0 disables the
+                                      rotation entirely. */
+  float hue_noise_scale = 1.0f;  /**< Spatial scale of the hue-noise LUT. */
+  float hue_noise_speed = 0.0f;  /**< Per-frame advance of the hue-noise loop
+                                      phase; a change rebuilds the LUT. */
+  float palette_chroma = 0.62f;  /**< Chroma the generated palettes are baked
+                                      at. */
+  /** Palette repeats across the value range. */
+  float mapping_frequency = 1.0f;
+  float mapping_phase = 0.0f;           /**< Offset into the palette. */
+  float phase_oscillation_depth = 0.0f; /**< Amplitude of the sinusoidal wobble
+                                             added to `mapping_phase`. */
+  /** Per-frame advance of that wobble. */
+  float phase_oscillation_speed = 0.0f;
+  float brightness_depth = 1.0f; /**< Depth of the brightness envelope; only
+                                      registered when the envelope is not
+                                      NONE. */
+  float opacity_low = 1.0f;      /**< Alpha gain at source value 0. */
+  float opacity_high = 1.0f;     /**< Alpha gain at source value 1. */
+  /** Palette mapping curve; snapped, not blended, by interpolate(). */
+  Pullback::Color::PaletteMapping palette_mapping =
+      Pullback::Color::PaletteMapping::LINEAR;
+};
+
 struct PaletteMappingWeights {
   std::array<float, 4> values{};
   uint8_t exact = 0xff;

@@ -35,6 +35,18 @@ struct Projection : ExactPolicy {
 
 namespace Transfer {
 
+/** @brief Value placeholder for a material stage that takes no parameters. */
+struct LinearValueParams {};
+
+/**
+ * @brief Value parameters for the iso band
+ *        (Pullback::Transfer::IsoContour).
+ */
+struct IsoValueParams {
+  float iso_level = 0.5f;  /**< Source value the band is centered on. */
+  float iso_width = 0.05f; /**< Half-width of the band's plateau. */
+};
+
 struct Linear : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
@@ -89,6 +101,13 @@ template <typename State> struct SmoothBands : ExactPolicy {
 } // namespace Transfer
 
 namespace Coverage {
+
+/** @brief Value parameters for the edge fade (Pullback::Coverage::EdgeFade). */
+struct EdgeValueParams {
+  /** Fade band width in the projection's edge-distance units; 0 makes the edge
+      a hard cut. */
+  float edge_width = 0.1f;
+};
 
 struct Opaque : ExactPolicy {
   template <typename FrameState>

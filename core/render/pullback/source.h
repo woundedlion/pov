@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/pullback/contract.h"
+#include "math/3dmath.h"
 
 /**
  * @file source.h
@@ -14,6 +15,75 @@
 namespace Pullback {
 
 namespace Source {
+
+/**
+ * @brief Source parameters for the coupled sine grid
+ *        (Pullback::Source::Grid).
+ */
+struct GridSourceParams {
+  float pattern_freq = 1.0f; /**< Scale applied to the warped plane
+                                   coordinates before the grid is sampled. */
+  float speed = 0.0f;        /**< Per-frame advance of the primary phase. */
+  float complexity = 0.0f;   /**< Amount of cross-axis coupling folded into the
+                                   grid coordinates. */
+  float pattern_mix = 0.0f;  /**< Blend from the coupled pattern at 0 to the
+                                   direct sine product at 1. */
+  float secondary_rate = 0.0f; /**< Secondary phase rate, as a multiple of
+                                    `speed`. */
+  float angle_rate = 0.0f;     /**< Per-frame advance of the source rotation. */
+};
+
+/**
+ * @brief Source parameters for the two-wave interference field
+ *        (Pullback::Source::TwinWave).
+ */
+struct TwinWaveSourceParams {
+  float pattern_freq = 1.0f;   /**< Plane-coordinate scale before sampling. */
+  float speed = 0.0f;          /**< Per-frame advance of the primary phase. */
+  float secondary_rate = 0.0f; /**< Secondary phase rate, as a multiple of
+                                    `speed`. */
+  float angle_rate = 0.0f; /**< Per-frame advance of the angle between the two
+                                waves. */
+};
+
+/**
+ * @brief Source parameters for the noise-contour sources
+ *        (Pullback::Source::ProjectedNoise and SphericalNoise).
+ */
+struct NoiseSourceParams {
+  float noise_scale = 1.0f;    /**< Spatial scale of the sampled field. */
+  float noise_contrast = 0.0f; /**< Contour sharpening applied to the sample. */
+  float noise_time_rate = 0.0f; /**< Per-frame advance of the noise time
+                                     coordinate. */
+};
+
+/**
+ * @brief Source parameters for the per-cell primitive lattice
+ *        (Pullback::Source::PrimitiveLattice).
+ */
+struct LatticeSourceParams {
+  float lattice_cell_scale = 1.0f;  /**< Lattice cells per plane unit. */
+  float lattice_shape_blend = 0.0f; /**< Cell primitive, from a circle at 0 to a
+                                         rounded square at 1. */
+  float lattice_softness = 0.05f;   /**< Half-width of the ramp across the
+                                         primitive's boundary. */
+  float lattice_radius = 0.25f;     /**< Primitive radius in cell units. */
+};
+
+/** @brief The source stage's phases, resolved once per frame. */
+struct PreparedSource {
+  float primary;   /**< Primary phase, wrapped into [0,2pi). */
+  float secondary; /**< Secondary phase, wrapped into [0,2pi). */
+  float angle;     /**< Source rotation, in radians. */
+  float angle_cos; /**< Cosine of `angle`. */
+  float angle_sin; /**< Sine of `angle`. */
+};
+
+/** @brief Wraps this frame's source phases with the rotation's cosine pair. */
+HS_FLASH_INLINE inline PreparedSource prepare(float primary, float secondary,
+                                              float angle) {
+  return {primary, secondary, angle, fast_cosf(angle), fast_sinf(angle)};
+}
 
 template <typename State, typename Binding>
 concept ParamsProvider =

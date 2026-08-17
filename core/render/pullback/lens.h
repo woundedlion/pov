@@ -15,6 +15,15 @@ namespace Pullback {
 
 namespace Lens {
 
+/** @brief Lens placeholder for a look with no parameterized lens. */
+struct NoLensParams {};
+/** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
+struct MobiusLensParams {
+  /** Mobius coefficients; the default is the identity map. */
+  MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                      0.7071067811865475f, 0.0f};
+};
+
 template <typename Params>
 __attribute__((always_inline)) inline Vector mobius(const Vector &input,
                                                     const Params &params) {

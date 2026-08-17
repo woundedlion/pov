@@ -33,213 +33,30 @@ enum class HueMode : uint8_t {
   PATH_LENGTH /**< Rotation amount read from the accumulated path length. */
 };
 
-/**
- * @brief Source parameters for the coupled sine grid
- *        (Pullback::Source::Grid).
- */
-struct GridSourceParams {
-  float pattern_freq = 1.0f; /**< Scale applied to the warped plane
-                                   coordinates before the grid is sampled. */
-  float speed = 0.0f;        /**< Per-frame advance of the primary phase. */
-  float complexity = 0.0f;   /**< Amount of cross-axis coupling folded into the
-                                   grid coordinates. */
-  float pattern_mix = 0.0f;  /**< Blend from the coupled pattern at 0 to the
-                                   direct sine product at 1. */
-  float secondary_rate = 0.0f; /**< Secondary phase rate, as a multiple of
-                                    `speed`. */
-  float angle_rate = 0.0f;     /**< Per-frame advance of the source rotation. */
-};
-
-/**
- * @brief Source parameters for the two-wave interference field
- *        (Pullback::Source::TwinWave).
- */
-struct TwinWaveSourceParams {
-  float pattern_freq = 1.0f;   /**< Plane-coordinate scale before sampling. */
-  float speed = 0.0f;          /**< Per-frame advance of the primary phase. */
-  float secondary_rate = 0.0f; /**< Secondary phase rate, as a multiple of
-                                    `speed`. */
-  float angle_rate = 0.0f; /**< Per-frame advance of the angle between the two
-                                waves. */
-};
-
-/**
- * @brief Source parameters for the noise-contour sources
- *        (Pullback::Source::ProjectedNoise and SphericalNoise).
- */
-struct NoiseSourceParams {
-  float noise_scale = 1.0f;    /**< Spatial scale of the sampled field. */
-  float noise_contrast = 0.0f; /**< Contour sharpening applied to the sample. */
-  float noise_time_rate = 0.0f; /**< Per-frame advance of the noise time
-                                     coordinate. */
-};
-
-/**
- * @brief Source parameters for the per-cell primitive lattice
- *        (Pullback::Source::PrimitiveLattice).
- */
-struct LatticeSourceParams {
-  float lattice_cell_scale = 1.0f;  /**< Lattice cells per plane unit. */
-  float lattice_shape_blend = 0.0f; /**< Cell primitive, from a circle at 0 to a
-                                         rounded square at 1. */
-  float lattice_softness = 0.05f;   /**< Half-width of the ramp across the
-                                         primitive's boundary. */
-  float lattice_radius = 0.25f;     /**< Primitive radius in cell units. */
-};
-
-/** @brief Surface stage placeholder for a look that carries no displacement. */
-struct NoSurfaceParams {};
-
-/**
- * @brief Surface parameters for the sphere-space noise displacements
- *        (Pullback::Surface::CurlNoise and DirectNoise).
- */
-struct SurfaceNoiseParams {
-  float scale = 1.0f;    /**< Spatial scale of the displacement field. */
-  float strength = 0.0f; /**< Displacement distance; 0 skips the stage. */
-  float speed = 0.0f;    /**< Per-frame advance of the field's loop phase. */
-};
-
-/** @brief Projection and camera parameters, shared by every look. */
-struct ProjectionParams {
-  float pole_fade = 1.0f; /**< Falloff applied to the projection's radial
-                                attenuation. */
-  float spin_rate = 0.0f; /**< Per-frame spin of the projection frame about Y;
-                                only read under `ANIMATED_PROJECTION`. */
-  float wander = 0.0f;    /**< Fraction of the projection random-walk delta
-                                absorbed each frame. */
-  float camera_wander = 0.0f;    /**< Same, for the outer camera random walk. */
-  float central_meridian = 0.0f; /**< Central meridian handed to projections
-                                      that take one, in radians. */
-};
-
-/**
- * @brief Warp slot placeholder for a look whose warp policy is an identity.
- * @details `speed` still advances that slot's phase clock, so a look can drive
- * a phase it exposes no warp for.
- */
-struct NoWarpParams {
-  float speed = 0.0f; /**< Per-frame advance of the slot's phase. */
-};
-
-/**
- * @brief Warp parameters for the mirrored tiling
- *        (Pullback::Warp::MirrorTile).
- */
-struct MirrorParams {
-  float speed = 0.0f;    /**< Per-frame advance of the slot's phase. */
-  float rotation = 0.0f; /**< Rotation of the fold lattice, in radians. */
-  float cell_x = 1.0f;   /**< Mirror cell width in plane units. */
-  float cell_y = 1.0f;   /**< Mirror cell height in plane units. */
-  float offset_x = 0.0f; /**< Pre-fold translation along x; scrolls with the
-                              slot's phase. */
-  float offset_y = 0.0f; /**< Pre-fold translation along y; does not scroll. */
-};
-
-/** @brief Warp parameters for the sine shear (Pullback::Warp::WaveShear). */
-struct WaveShearParams {
-  float speed = 0.0f;       /**< Per-frame advance of the slot's phase. */
-  float strength = 0.0f;    /**< Shear amplitude; 0 skips the stage. */
-  float frequency = 1.0f;   /**< Spatial frequency along the field axis. */
-  float field_angle = 0.0f; /**< Field axis direction, in radians. */
-  float edge_width = 0.1f;  /**< Fade band width, read only under an
-                                 EdgeFadeEnvelope. */
-};
-
-/**
- * @brief Warp parameters for the noise-vector displacement
- *        (Pullback::Warp::VectorNoise).
- */
-struct VectorNoiseParams {
-  float speed = 0.0f;        /**< Per-frame advance of the slot's phase, which
-                                  walks the noise loop. */
-  float strength = 0.0f;     /**< Displacement amplitude; 0 skips the stage. */
-  float scale = 1.0f;        /**< Spatial scale of the sampled field. */
-  float vector_angle = 0.0f; /**< Rotation applied to the sampled vector, in
-                                  radians. */
-  float edge_width = 0.1f;   /**< Fade band width, read only under an
-                                  EdgeFadeEnvelope. */
-};
-
-/**
- * @brief Warp parameters for the affine frame change
- *        (Pullback::Warp::AffineFrame).
- * @details Translation is expressed in lattice cells, so this family is only
- * valid alongside a LatticeSourceParams source.
- */
-struct AffineParams {
-  float speed = 0.0f;         /**< Per-frame advance of the slot's phase. */
-  float rotation_rate = 0.0f; /**< Frame rotation rate; read only in the outer
-                                   slot. */
-  float translation_x = 0.0f; /**< Translation along x, in lattice cells per
-                                   phase turn. */
-  float translation_y = 0.0f; /**< Translation along y, in lattice cells per
-                                   phase turn. */
-  float scale_x = 1.0f; /**< Scale along x, oscillated over the phase cycle. */
-  float scale_y = 1.0f; /**< Scale along y, oscillated over the phase cycle. */
-  float shear = 0.0f;   /**< Shear, oscillated over the phase cycle. */
-};
-
-/** @brief Warp parameters for the polar chart (Pullback::Warp::PolarChart). */
-struct PolarParams {
-  float speed = 0.0f;         /**< Per-frame advance of the slot's phase, which
-                                   offsets the angular coordinate. */
-  float radial_scale = 1.0f;  /**< Scale applied to the radial coordinate. */
-  float radial_phase = 0.0f;  /**< Offset added to the radial coordinate. */
-  float angular_phase = 0.0f; /**< Offset added to the angular coordinate. */
-};
-
-/** @brief Lens placeholder for a look with no parameterized lens. */
-struct NoLensParams {};
-/** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
-struct MobiusLensParams {
-  /** Mobius coefficients; the default is the identity map. */
-  MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                      0.7071067811865475f, 0.0f};
-};
-
-/** @brief Value placeholder for a material stage that takes no parameters. */
-struct LinearValueParams {};
-/** @brief Value parameters for the edge fade (Pullback::Coverage::EdgeFade). */
-struct EdgeValueParams {
-  /** Fade band width in the projection's edge-distance units; 0 makes the edge
-      a hard cut. */
-  float edge_width = 0.1f;
-};
-/**
- * @brief Value parameters for the iso band
- *        (Pullback::Transfer::IsoContour).
- */
-struct IsoValueParams {
-  float iso_level = 0.5f;  /**< Source value the band is centered on. */
-  float iso_width = 0.05f; /**< Half-width of the band's plateau. */
-};
-
-/** @brief Palette and hue parameters, shared by every look. */
-struct ColorParams {
-  float hue_shift_amount = 0.0f; /**< Hue rotation magnitude; 0 disables the
-                                      rotation entirely. */
-  float hue_noise_scale = 1.0f;  /**< Spatial scale of the hue-noise LUT. */
-  float hue_noise_speed = 0.0f;  /**< Per-frame advance of the hue-noise loop
-                                      phase; a change rebuilds the LUT. */
-  float palette_chroma = 0.62f;  /**< Chroma the generated palettes are baked
-                                      at. */
-  /** Palette repeats across the value range. */
-  float mapping_frequency = 1.0f;
-  float mapping_phase = 0.0f;           /**< Offset into the palette. */
-  float phase_oscillation_depth = 0.0f; /**< Amplitude of the sinusoidal wobble
-                                             added to `mapping_phase`. */
-  /** Per-frame advance of that wobble. */
-  float phase_oscillation_speed = 0.0f;
-  float brightness_depth = 1.0f; /**< Depth of the brightness envelope; only
-                                      registered when the envelope is not
-                                      NONE. */
-  float opacity_low = 1.0f;      /**< Alpha gain at source value 0. */
-  float opacity_high = 1.0f;     /**< Alpha gain at source value 1. */
-  /** Palette mapping curve; snapped, not blended, by interpolate(). */
-  Pullback::Color::PaletteMapping palette_mapping =
-      Pullback::Color::PaletteMapping::LINEAR;
-};
+// The stage vocabulary this runtime composes, re-exported from the
+// pullback stage headers.
+using Pullback::Color::ColorParams;
+using Pullback::Coverage::EdgeValueParams;
+using Pullback::Lens::MobiusLensParams;
+using Pullback::Lens::NoLensParams;
+using Pullback::Projection::ProjectionParams;
+using Pullback::Source::GridSourceParams;
+using Pullback::Source::LatticeSourceParams;
+using Pullback::Source::NoiseSourceParams;
+using Pullback::Source::PreparedSource;
+using Pullback::Source::TwinWaveSourceParams;
+using Pullback::Surface::NoSurfaceParams;
+using Pullback::Surface::PreparedSurface;
+using Pullback::Surface::SurfaceNoiseParams;
+using Pullback::Transfer::IsoValueParams;
+using Pullback::Transfer::LinearValueParams;
+using Pullback::Warp::AffineParams;
+using Pullback::Warp::MirrorParams;
+using Pullback::Warp::NoWarpParams;
+using Pullback::Warp::PolarParams;
+using Pullback::Warp::PreparedWarp;
+using Pullback::Warp::VectorNoiseParams;
+using Pullback::Warp::WaveShearParams;
 
 /**
  * @brief One look's complete parameter set, one family per pipeline stage.
@@ -271,63 +88,6 @@ struct Params {
   LensT lens;
   ValueT value;
   ColorParams color;
-};
-
-/** @brief The source stage's phases, resolved once per frame. */
-struct PreparedSource {
-  float primary;   /**< Primary phase, wrapped into [0,2pi). */
-  float secondary; /**< Secondary phase, wrapped into [0,2pi). */
-  float angle;     /**< Source rotation, in radians. */
-  float angle_cos; /**< Cosine of `angle`. */
-  float angle_sin; /**< Sine of `angle`. */
-};
-
-/** @brief Affine warp coefficients, with the phase oscillation applied. */
-struct PreparedAffine {
-  float translation_x; /**< Translation along x, in plane units. */
-  float translation_y; /**< Translation along y, in plane units. */
-  float scale_x;       /**< Scale along x at this frame's phase. */
-  float scale_y;       /**< Scale along y at this frame's phase. */
-  float shear;         /**< Shear at this frame's phase. */
-};
-
-/** @brief Mirror warp offsets, with the phase scroll already folded in. */
-struct PreparedMirror {
-  float offset_x; /**< Pre-fold translation along x. */
-  float offset_y; /**< Pre-fold translation along y. */
-};
-
-/** @brief This frame's point on the noise field's closed loop. */
-struct PreparedNoiseLoop {
-  float diagonal; /**< Offset added to both planar noise coordinates. */
-  float z;        /**< Third noise coordinate. */
-};
-
-/**
- * @brief The transform half of PreparedWarp, one alternative per warp family.
- * @details The active member follows the slot's parameter family: MirrorParams
- * uses `mirror`, VectorNoiseParams `noise_loop`, AffineParams `affine`. The
- * remaining families leave the union zeroed, and their warp policies do not
- * read it.
- */
-union PreparedWarpTransform {
-  PreparedAffine affine;
-  PreparedMirror mirror;
-  PreparedNoiseLoop noise_loop;
-};
-
-/** @brief One planar warp slot's per-frame state. */
-struct PreparedWarp {
-  float rotation_cos;              /**< Cosine of the slot's rotation angle. */
-  float rotation_sin;              /**< Sine of the slot's rotation angle. */
-  PreparedWarpTransform transform; /**< Family-specific coefficients. */
-};
-
-/** @brief Surface stage per-frame state; empty unless the look displaces. */
-template <typename SurfaceT> struct PreparedSurface {};
-template <> struct PreparedSurface<SurfaceNoiseParams> {
-  const FastNoiseLite *noise; /**< The runtime's surface noise field. */
-  Vector loop_offset;         /**< This frame's point on the field's loop. */
 };
 
 /**
@@ -1532,51 +1292,26 @@ private:
   }
 
   /**
-   * @brief Resolves one warp slot's per-frame rotation and transform.
-   * @details Only the affine slot rotates with the frame, and only in the
-   * outer position; every other family takes its rotation straight from a
-   * parameter.
+   * @brief Resolves one warp slot's per-frame state via the stage's prepare().
    * @param warp The slot's parameters.
    * @param phase The slot's phase clock.
-   * @param outer True for the first warp slot.
-   * @return The slot's PreparedWarp, with the union member its family uses.
+   * @param frame_rotation Accumulated frame rotation; only the affine family
+   *        consumes it, and only the outer slot accumulates one.
    */
   template <typename WarpT>
-  HS_COLD_MEMBER PreparedWarp prepare_warp(const WarpT &warp, float phase,
-                                           bool outer) const {
-    PreparedWarp prepared{};
-    float rotation = 0.0f;
-    if constexpr (std::is_same_v<WarpT, MirrorParams>) {
-      rotation = warp.rotation;
-      prepared.transform.mirror = {
-          wrap_t(warp.offset_x / warp.cell_x + phase) * warp.cell_x,
-          wrap_t(warp.offset_y / warp.cell_y) * warp.cell_y};
-    } else if constexpr (std::is_same_v<WarpT, WaveShearParams>) {
-      rotation = warp.field_angle;
-    } else if constexpr (std::is_same_v<WarpT, VectorNoiseParams>) {
-      rotation = warp.vector_angle;
-      const float angle = TWO_PI_F * wrap_t(phase);
-      prepared.transform.noise_loop = {NOISE_LOOP_RADIUS * sinf(angle) *
-                                           0.7071067811865475f,
-                                       NOISE_LOOP_RADIUS * cosf(angle)};
-    } else if constexpr (std::is_same_v<WarpT, AffineParams>) {
+  HS_COLD_MEMBER PreparedWarp
+  prepare_warp(const WarpT &warp, float phase,
+               [[maybe_unused]] float frame_rotation) const {
+    if constexpr (std::is_same_v<WarpT, AffineParams>) {
       static_assert(
           std::is_same_v<typename Params::source_type, LatticeSourceParams>,
           "the affine warp stage translates in lattice cells and requires a "
           "LatticeSourceParams source");
-      const float cycle = TWO_PI_F * wrap_t(phase);
-      const float cycle_cos = cosf(cycle);
-      const float period = 1.0f / params.source.lattice_cell_scale;
-      rotation = outer ? outer_rotation : 0.0f;
-      prepared.transform.affine = {wrap_t(phase) * warp.translation_x * period,
-                                   wrap_t(phase) * warp.translation_y * period,
-                                   powf(warp.scale_x, cycle_cos),
-                                   powf(warp.scale_y, cycle_cos),
-                                   warp.shear * cycle_cos};
+      return Pullback::Warp::prepare(warp, phase, frame_rotation,
+                                     1.0f / params.source.lattice_cell_scale);
+    } else {
+      return Pullback::Warp::prepare(warp, phase);
     }
-    prepared.rotation_cos = cosf(rotation);
-    prepared.rotation_sin = sinf(rotation);
-    return prepared;
   }
 
   /**
@@ -1612,18 +1347,14 @@ private:
     if constexpr (HasSourceNoise)
       source_noise = &state->source.noise;
     PreparedSurface<typename Params::surface_type> surface{};
-    if constexpr (HAS_SURFACE_NOISE) {
-      const float angle = TWO_PI_F * wrap_t(surface_phase);
-      surface = {&state->surface.noise,
-                 Vector(NOISE_LOOP_RADIUS * cosf(angle),
-                        NOISE_LOOP_RADIUS * sinf(angle), 0.0f)};
-    }
+    if constexpr (HAS_SURFACE_NOISE)
+      surface = Pullback::Surface::prepare(state->surface.noise, surface_phase);
     return {Derived::ANIMATED_PROJECTION ? projection_conjugate : Quaternion(),
             outer_conjugate,
-            {source_primary, source_secondary, source_angle,
-             fast_cosf(source_angle), fast_sinf(source_angle)},
-            prepare_warp(params.outer_warp, outer_phase, true),
-            prepare_warp(params.inner_warp, inner_phase, false),
+            Pullback::Source::prepare(source_primary, source_secondary,
+                                      source_angle),
+            prepare_warp(params.outer_warp, outer_phase, outer_rotation),
+            prepare_warp(params.inner_warp, inner_phase, 0.0f),
             outer_noise,
             source_noise,
             &palette_cycler.palette(),
