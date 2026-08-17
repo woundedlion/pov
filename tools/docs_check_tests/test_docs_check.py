@@ -343,12 +343,17 @@ class TestDocumentationChecker(unittest.TestCase):
                   "  X(Voronoi)\n")
         self.assertEqual(dc.effect_roster(source), {"Voronoi"})
 
+    @staticmethod
+    def _diagram(count):
+        return f"│  │  effects/  ({count} visual algorithms)     │  │\n"
+
     def test_matching_effects_row_is_clean(self):
         entries = {PurePosixPath("effects"),
                    PurePosixPath("effects/Comets.h"),
                    PurePosixPath("effects/Voronoi.h"),
                    PurePosixPath("effects/shared_palettes.h")}
-        row = "├── effects/  3 headers: one per effect (2) plus the shared\n"
+        row = ("├── effects/  3 headers: one per effect (2) plus the shared\n"
+               + self._diagram(2))
         self.assertEqual(
             dc.effects_row_issues(row, entries, {"Comets", "Voronoi"}), [])
 
@@ -356,7 +361,8 @@ class TestDocumentationChecker(unittest.TestCase):
         entries = {PurePosixPath("effects"),
                    PurePosixPath("effects/Comets.h"),
                    PurePosixPath("effects/PromotedLooks.h")}
-        row = "├── effects/  2 headers covering 3 effects plus shared bases\n"
+        row = ("├── effects/  2 headers covering 3 effects plus shared bases\n"
+               + self._diagram(3))
         self.assertEqual(
             dc.effects_row_issues(
                 row, entries, {"Comets", "SignalWeave", "KaleidoWave"}), [])
@@ -366,7 +372,8 @@ class TestDocumentationChecker(unittest.TestCase):
                    PurePosixPath("effects/Comets.h"),
                    PurePosixPath("effects/Voronoi.h"),
                    PurePosixPath("effects/shared_palettes.h")}
-        row = "├── effects/  9 headers: one per effect (7) plus the shared\n"
+        row = ("├── effects/  9 headers: one per effect (7) plus the shared\n"
+               + self._diagram(2))
         issues = dc.effects_row_issues(row, entries, {"Comets", "Voronoi"})
         self.assertEqual([issue.line for issue in issues], [1, 1])
         self.assertIn("claims 9 headers, the tracked tree has 3",
@@ -374,18 +381,41 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("claims 7 effects, HS_EFFECT_LIST names 2",
                       issues[1].message)
 
+    def test_diagram_effect_count_is_checked_against_the_roster(self):
+        entries = {PurePosixPath("effects"),
+                   PurePosixPath("effects/Comets.h")}
+        row = ("├── effects/  1 headers covering 1 effects plus shared bases\n"
+               + self._diagram(23))
+        issues = dc.effects_row_issues(row, entries, {"Comets"})
+        self.assertEqual([issue.line for issue in issues], [2])
+        self.assertIn("architecture diagram claims 23 effects, "
+                      "HS_EFFECT_LIST names 1", issues[0].message)
+
     def test_unreadable_roster_fails_the_effects_row(self):
         issues = dc.effects_row_issues(
-            "├── effects/  1 headers: one per effect (1) plus the shared\n",
+            "├── effects/  1 headers: one per effect (1) plus the shared\n"
+            + self._diagram(1),
             {PurePosixPath("effects"), PurePosixPath("effects/Comets.h")},
             None)
-        self.assertEqual(len(issues), 1)
+        self.assertEqual(len(issues), 2)
         self.assertIn("defines no HS_EFFECT_LIST", issues[0].message)
+        self.assertIn("architecture diagram claims 1 effects",
+                      issues[1].message)
 
     def test_deleted_effects_row_is_reported(self):
-        issues = dc.effects_row_issues("nothing to see\n", set(), {"Comets"})
+        issues = dc.effects_row_issues(
+            "nothing to see\n" + self._diagram(1), set(), {"Comets"})
         self.assertEqual(len(issues), 1)
         self.assertIn("no effects/ summary row", issues[0].message)
+
+    def test_deleted_diagram_row_is_reported(self):
+        issues = dc.effects_row_issues(
+            "├── effects/  1 headers covering 1 effects plus shared bases\n",
+            {PurePosixPath("effects"), PurePosixPath("effects/Comets.h")},
+            {"Comets"})
+        self.assertEqual(len(issues), 1)
+        self.assertIn("no effects/ architecture-diagram row",
+                      issues[0].message)
 
     def test_repository_without_markdown_fails(self):
         with tempfile.TemporaryDirectory() as directory:
