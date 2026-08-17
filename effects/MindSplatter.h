@@ -214,27 +214,22 @@ private:
                 "MindSplatter event-horizon caps must not overlap");
 
   static consteval bool attractors_are_signed_axes() {
-    unsigned mask = 0;
-    for (const Vector &v : Solids::Octahedron::vertices) {
-      if (v.x == 1.0f && v.y == 0.0f && v.z == 0.0f)
-        mask |= 1u << 0;
-      else if (v.x == -1.0f && v.y == 0.0f && v.z == 0.0f)
-        mask |= 1u << 1;
-      else if (v.x == 0.0f && v.y == 1.0f && v.z == 0.0f)
-        mask |= 1u << 2;
-      else if (v.x == 0.0f && v.y == -1.0f && v.z == 0.0f)
-        mask |= 1u << 3;
-      else if (v.x == 0.0f && v.y == 0.0f && v.z == 1.0f)
-        mask |= 1u << 4;
-      else if (v.x == 0.0f && v.y == 0.0f && v.z == -1.0f)
-        mask |= 1u << 5;
-      else
+    constexpr std::array<Vector, 6> AXES = {X_AXIS,  -X_AXIS, Y_AXIS,
+                                            -Y_AXIS, Z_AXIS,  -Z_AXIS};
+    if (Solids::Octahedron::vertices.size() != AXES.size())
+      return false;
+    for (size_t i = 0; i < AXES.size(); ++i) {
+      const Vector &v = Solids::Octahedron::vertices[i];
+      if (v.x != AXES[i].x || v.y != AXES[i].y || v.z != AXES[i].z)
         return false;
     }
-    return mask == 0x3fu;
+    return true;
   }
+  // ParticleSystem's signed-axis physics pairs attractors[2p]/[2p+1] as the
+  // plus/minus poles of axis p, so the emission order is part of the contract.
   static_assert(attractors_are_signed_axes(),
-                "MindSplatter hole shader requires the six signed axes");
+                "MindSplatter attractors must be the six signed axes in "
+                "+X,-X,+Y,-Y,+Z,-Z order");
 
   static inline float octahedral_hole_alpha(const Vector &p,
                                             float cos_event_horizon) {
