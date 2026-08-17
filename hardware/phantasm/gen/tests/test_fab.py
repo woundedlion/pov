@@ -672,5 +672,46 @@ class ZipMembershipTests(unittest.TestCase):
                          fab.zip_members(("phantasm-jlc-gerbers.zip",)))
 
 
+class NetlistSpecTests(unittest.TestCase):
+    """The fab run holds its own netlist export to check.py's named-net table."""
+
+    @staticmethod
+    def spec_nodes():
+        """EXPECT -> {net: [(ref, pin)]}; a symmetric key names the ref alone."""
+        return {name: [tuple(key.split(".")) if "." in key else (key, "1")
+                       for key in sorted(keys)]
+                for name, keys in fab.netlist_spec.EXPECT.items()}
+
+    def validate(self, nets):
+        blocks = "".join(
+            '(net (name "{}") {})'.format(
+                name, " ".join(f'(node (ref "{ref}") (pin "{pin}"))'
+                               for ref, pin in nodes))
+            for name, nodes in nets.items())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "test.net"
+            path.write_text(f"(export (nets {blocks}))", encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()):
+                return fab.validate_netlist_spec(path)
+
+    def test_accepts_the_specified_partition(self):
+        self.assertEqual(self.validate(self.spec_nodes()),
+                         len(fab.netlist_spec.EXPECT))
+
+    def test_rejects_a_net_missing_a_member(self):
+        nets = self.spec_nodes()
+        nets["SYNC_BUS"].pop()
+        with self.assertRaisesRegex(fab.NetlistSpecError,
+                                    "does not match the electrical"):
+            self.validate(nets)
+
+    def test_rejects_a_permuted_pinout(self):
+        nets = self.spec_nodes()
+        nets["DATA_IN"] = [("U_MCU", "11"), ("U1", "5")]
+        with self.assertRaisesRegex(fab.NetlistSpecError,
+                                    "does not match the electrical"):
+            self.validate(nets)
+
+
 if __name__ == "__main__":
     unittest.main()
