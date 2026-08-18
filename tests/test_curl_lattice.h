@@ -29,20 +29,12 @@ struct CurlLatticeWhiteBox {
   static bool transition_active(const FX &effect) {
     return effect.transition.active;
   }
-  static uint16_t transition_evaluation(const FX &effect) {
-    return effect.transition.evaluation;
-  }
-  static void set_transition_evaluation(FX &effect, uint16_t evaluation) {
-    effect.transition.evaluation = evaluation;
-  }
   static bool begin_automatic_transition(FX &effect) {
     return effect.advancePreset();
   }
-  static void prepare_transition_value(FX &effect) {
-    effect.prepare_transition_value();
-  }
-  static void finish_transition_evaluation(FX &effect) {
-    effect.finish_transition_evaluation();
+  static void drive_transition(FX &effect, float progress) {
+    effect.preset_blend.lerp(effect.preset_blend, effect.preset_blend,
+                             progress);
   }
 
   using Ctx = FixedLook::FrameState<Params>;
@@ -220,30 +212,29 @@ inline void test_curl_lattice_transition_contract() {
   HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 
-  WB::prepare_transition_value(effect);
+  WB::drive_transition(effect, 0.0f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
                  FX::preset_params(0).surface.scale, 0.0f);
-  WB::finish_transition_evaluation(effect);
-  HS_EXPECT_EQ(WB::transition_evaluation(effect), uint16_t{1});
 
   effect.setAnimationsPaused(true);
-  WB::finish_transition_evaluation(effect);
-  HS_EXPECT_EQ(WB::transition_evaluation(effect), uint16_t{2});
+  WB::drive_transition(effect, 0.25f);
+  HS_EXPECT_NEAR(WB::params(effect).surface.scale,
+                 FixedPipeline::linear(FX::preset_params(0).surface.scale,
+                                       FX::preset_params(1).surface.scale,
+                                       0.25f),
+                 1e-6f);
   effect.setAnimationsPaused(false);
 
-  WB::set_transition_evaluation(effect, FX::TRANSITION_DURATION / 2);
-  WB::prepare_transition_value(effect);
+  WB::drive_transition(effect, 0.5f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
                  FixedPipeline::linear(FX::preset_params(0).surface.scale,
                                        FX::preset_params(1).surface.scale,
                                        0.5f),
                  1e-6f);
 
-  WB::set_transition_evaluation(effect, FX::TRANSITION_DURATION);
-  WB::prepare_transition_value(effect);
+  WB::drive_transition(effect, 1.0f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
                  FX::preset_params(1).surface.scale, 0.0f);
-  WB::finish_transition_evaluation(effect);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
