@@ -12,6 +12,8 @@ The shader-family spec:
 | Document | Status and scope |
 |---|---|
 | [pullback_pipeline_spec.md](pullback_pipeline_spec.md) | LANDED. The composition core, standard carriers, provider concepts, stage combinators, and operator catalog that ship in `core/render/pullback.h`. Field-level source of truth for the carrier records the shader family names. §17 is a design record with no implementation. |
+| [pullback_stage_families_spec.md](pullback_stage_families_spec.md) | PROPOSED. Relaxes the six-slot stage-kind pipeline to arbitrary chains of stages over ranked carriers (Sphere → Plane → Field → Color), including the preview interpreter's engine contract. Where it and the pipeline spec disagree on the stage model, this spec is the intended direction. |
+| [shader_workbench_chain_spec.md](shader_workbench_chain_spec.md) | PROPOSED. The tool half of the stage-families spec: shader document schema v2 (ordered chain array, digest-bearing labels), v1 migration and digest identity, and the chain editor. Lands after the stage-families C++ cut-over. |
 
 ## Phantasm hardware
 
