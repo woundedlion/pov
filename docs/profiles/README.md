@@ -60,6 +60,7 @@ peak.
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
 | [HankinSolids](shipping/profile_hankinsolids_teensy_2026-07-25.md)§ | per-face SDF (`-O3` driver + `ConwayMorph`) | 🟢 43.0 (19) | 🟢 0/3328 (0%) | 2026-07-26 11:55 |
 | [Comets](shipping/profile_comets_teensy_2026-07-25.md)§ | point raster | 🟢 41.56 (12) | 🟢 0/4128 (0%) | 2026-07-26 11:43 |
+| [PrismSpiral](shipping/profile_prismspiral_teensy_2026-08-17.md)§ ● | stereographic hex-prism spiral + direct noise | 🟢 40.52 (2) | 🟢 0/2208 (0%) | 2026-08-17 23:03 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-07.md)§ | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 0/1728 (0%) | 2026-08-07 23:03 |
 | [GnomonicStars](shipping/profile_gnomonicstars_teensy_2026-07-25.md) | star raster | 🟢 38.15 | 🟢 0/1088 (0%) | 2026-07-26 11:29 |
 | [EquatorGrid](shipping/profile_equatorgrid_teensy_2026-08-17.md)§ ● | equirectangular dodecahedral grid | 🟢 36.51 (3) | 🟢 0/4128 (0%) | 2026-08-17 19:42 |
@@ -80,8 +81,9 @@ peak.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-07-25.md) | block-union top-2 shade | 🟢 9.90 | 🟢 0/1088 (0%) | 2026-07-26 11:46 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
 
-**● captured 2026-08-16** — the fourteen fixed-pipeline effects, first profiled
-in that sweep. The other rows keep their own `Captured` dates.
+**●** — the fixed-pipeline effects. Fourteen were first profiled in the
+2026-08-16 sweep; PrismSpiral joined 2026-08-17. The other rows keep their own
+`Captured` dates.
 
 **Nine rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids, Comets,
 GnomonicStars, SphericalHarmonics, PetalFlow, Voronoi and RingShower. Their
@@ -96,7 +98,7 @@ directly. Size deltas are O3 minus shipping.
 
 Global O3 is a measurement reference, not a shipping candidate.
 
-The fourteen fixed-pipeline effects have no paired captures, so the pullback
+The fifteen fixed-pipeline effects have no paired captures, so the pullback
 pipeline has no O3-vs-shipping codegen delta on record; profiling one of them
 under `profile_o3` would re-establish it.
 
