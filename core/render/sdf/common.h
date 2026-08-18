@@ -15,7 +15,7 @@
 #include "engine/util.h"
 
 /**
- * @file sdf_common.h
+ * @file common.h
  * @brief The scanline contract every SDF shape shares: azimuth intervals and
  * their span bounds, row bounds, the DistanceResult register table and the
  * cap/annular-band emission helpers the leaves stroke rows with.

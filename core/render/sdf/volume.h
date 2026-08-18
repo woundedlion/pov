@@ -13,7 +13,7 @@
 #include "engine/platform.h"
 
 /**
- * @file sdf_volume.h
+ * @file volume.h
  * @brief 3D volumetric signed-distance shapes and the domain warps composed
  * with them, marched by Scan::Volume.
  */

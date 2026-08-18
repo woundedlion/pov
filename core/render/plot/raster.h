@@ -21,7 +21,7 @@
 #include "render/plot/cull.h"
 
 /**
- * @file plot_raster.h
+ * @file raster.h
  * @brief rasterize(): the adaptive sub-stepping walk that turns a fragment
  * polyline into plotted samples, plus the trail gate that precomputes its
  * per-edge flags.

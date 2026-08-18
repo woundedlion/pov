@@ -13,7 +13,7 @@
 #include "render/sdf/common.h"
 
 /**
- * @file sdf_rings.h
+ * @file rings.h
  * @brief The ring leaves: Ring, DistortedRing and FlatDistortedRing.
  */
 

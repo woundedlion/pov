@@ -14,7 +14,7 @@
 #include "render/sdf/common.h"
 
 /**
- * @file sdf_csg.h
+ * @file csg.h
  * @brief The CSG operators that combine shapes: Union, SmoothUnion, Subtract,
  * Intersection and the AngularRepeat domain fold.
  */

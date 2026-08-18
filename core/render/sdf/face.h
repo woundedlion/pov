@@ -18,7 +18,7 @@
 #include "render/sdf/common.h"
 
 /**
- * @file sdf_face.h
+ * @file face.h
  * @brief SDF::Face, the mesh-face leaf, and the congruence-class distance LUT
  * its probes are served from.
  */

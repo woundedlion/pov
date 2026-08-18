@@ -22,7 +22,7 @@
 #include "mesh/triangular_bitset.h"
 
 /**
- * @file plot_cull.h
+ * @file cull.h
  * @brief Edge samplers and the screen row/column span and clip-cull kernel the
  * curve rasterizer walks each segment through.
  */
