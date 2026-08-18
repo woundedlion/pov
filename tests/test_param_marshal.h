@@ -262,6 +262,7 @@ inline void check_roster_order_pinned() {
                                               "MobiusRings",
                                               "PetalFlow",
                                               "PrismLattice",
+                                              "PrismSpiral",
                                               "Raymarch",
                                               "RingShower",
                                               "RingSpin",
