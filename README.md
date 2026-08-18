@@ -336,7 +336,14 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles)
-│   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel
+│   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
+│   │   │                            umbrella over filter/
+│   │   ├── filter/                 Pipeline composition (pipeline) plus one header per stage
+│   │   │                            (world_orient, world_orient_slice, world_hole,
+│   │   │                            world_replicate, world_vertex_replicate, world_mobius,
+│   │   │                            world_trails, screen_splat, screen_anti_alias,
+│   │   │                            screen_direct_aa_sink, screen_trails, screen_blur,
+│   │   │                            pixel_chromatic_shift)
 │   │   ├── filter_feedback.h       Filter::Pixel::Feedback: full-screen feedback loop + warp cache
 │   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
