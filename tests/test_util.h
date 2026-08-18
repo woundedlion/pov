@@ -2,8 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/engine/util.h — the circular-domain wrap/distance helpers and
- * the apply_if_changed live-slider idiom.
+ * Unit tests for the circular-domain wrap/distance helpers in
+ * core/math/geometry.h and the apply_if_changed live-slider idiom in
+ * core/engine/util.h.
  *
  * Self-contained header — no external framework. run_util_tests() returns the
  * module failure count.
@@ -11,6 +12,7 @@
 #pragma once
 
 #include "core/engine/util.h"
+#include "core/math/geometry.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

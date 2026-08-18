@@ -283,13 +283,13 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   │   ├── generators.h            Universal generate() wrapper for procedural geometry
-│   │   ├── util.h                  wrap(), fast_wrap(), shortest_distance, apply_if_changed
+│   │   ├── util.h                  apply_if_changed live-parameter change gate
 │   │   ├── styles.h                Feedback::Style named presets + space/color transform functions
 │   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
 │   ├── math/                   Vector/quaternion math and scalar curves
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
 │   │   ├── rotate.h                Quaternion projection helpers
-│   │   ├── geometry.h              PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap, Orientation, Basis
+│   │   ├── geometry.h              wrap()/fast_wrap()/shortest_distance, PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap, Orientation, Basis
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels

@@ -24,7 +24,7 @@
 
 #include "platform/platform.h"
 #include "math/3dmath.h"
-#include "engine/util.h"
+#include "math/geometry.h" // wrap()/wrap_t() for the composition.h fragment
 
 #include "engine/memory.h"
 

@@ -22,7 +22,6 @@
 #include "core/color/color.h"
 #include "core/color/effect_palette_recipes.h"
 #include "core/color/srgb_decode.h"
-#include "core/engine/util.h"
 #include "tests/color_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_generative_palette.h"

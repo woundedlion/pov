@@ -14,7 +14,7 @@
 
 #include <array>
 
-#include "engine/util.h"
+#include "math/geometry.h"
 #include "math/3dmath.h"
 #include "vendor/FastNoiseLite.h"
 

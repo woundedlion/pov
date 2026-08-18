@@ -12,7 +12,7 @@
 
 #include "math/3dmath.h"
 #include <cmath>
-#include "engine/util.h"
+#include "math/geometry.h"
 
 /**
  * @brief Builds a sine oscillator over the range [from, to].

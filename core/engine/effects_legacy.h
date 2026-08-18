@@ -9,7 +9,7 @@
  */
 #include "render/canvas.h"
 #include "math/rotate.h"
-#include "engine/util.h"
+#include "math/geometry.h"
 #include "render/led.h"
 
 ///////////////////////////////////////////////////////////////////////////////
