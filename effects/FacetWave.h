@@ -11,19 +11,18 @@
 #include "core/render/pullback/look.h"
 
 using FacetWaveParams =
-    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::WaveShearParams,
-                      FixedLook::MirrorParams>;
-using FacetWaveSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::GNOMONIC_FOLDED,
-                        Pullback::Lens::DodecahedralKaleidoscope,
-                        FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+    Looks::Params<Looks::GridSourceParams, Looks::WaveShearParams,
+                  Looks::MirrorParams>;
+using FacetWaveSpec = Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED,
+                                  Pullback::Lens::DodecahedralKaleidoscope,
+                                  Looks::TransferKind::LINEAR,
+                                  Looks::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class FacetWave
-    : public FixedLook::Look<W, H, FacetWave<W, H>, FacetWaveParams,
+    : public Looks::Composed<W, H, FacetWave<W, H>, FacetWaveParams,
                              FacetWaveSpec, PaletteHarmony::TRIADIC,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:

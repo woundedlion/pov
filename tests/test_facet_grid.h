@@ -37,7 +37,7 @@ struct FacetGridWhiteBox {
                              progress);
   }
 
-  using Ctx = FixedLook::FrameState<Params>;
+  using Ctx = Looks::FrameState<Params>;
 
   template <typename ReferenceFrame>
   static Ctx from_reference(const ReferenceFrame &frame) {
@@ -160,7 +160,7 @@ inline void test_facet_grid_identity_and_presets() {
                  std::bit_cast<uint32_t>(STRETCHED_EXPECTED[index]));
   }
   HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{480});
-  HS_EXPECT_TRUE(FixedLook::valid(FX::preset_params(3)));
+  HS_EXPECT_TRUE(Looks::valid(FX::preset_params(3)));
 
   reset_effect_globals();
   FX effect;

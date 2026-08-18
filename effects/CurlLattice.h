@@ -18,7 +18,7 @@ struct CurlLatticeWhiteBox;
 
 /**
  * @brief Fixed folded-sinusoidal lattice displaced by sphere-space curl noise.
- * @details Supplies the render pipeline and preset bank; FixedLook::Runtime
+ * @details Supplies the render pipeline and preset bank; Looks::Runtime
  * supplies parameter registration, preset choreography and the palette,
  * camera-walk and noise clocks. The lattice source is read through a folded
  * sinusoidal projection, so the surface stage carries the curl displacement and
@@ -27,19 +27,19 @@ struct CurlLatticeWhiteBox;
  * @tparam H Canvas height in pixels.
  */
 using CurlLatticeParams =
-    FixedLook::Params<FixedLook::LatticeSourceParams, FixedLook::NoWarpParams,
-                      FixedLook::NoWarpParams, FixedLook::NoLensParams,
-                      FixedLook::LinearValueParams,
-                      FixedLook::SurfaceNoiseParams>;
-using CurlLatticeSpec = FixedLook::LookSpec<
-    FixedLook::LookProjection::FOLDED_SINUSOIDAL, Pullback::Lens::Identity,
-    FixedLook::LookTransfer::LINEAR, FixedLook::LookCoverage::PROJECTION>;
+    Looks::Params<Looks::LatticeSourceParams, Looks::NoWarpParams,
+                  Looks::NoWarpParams, Looks::NoLensParams,
+                  Looks::LinearValueParams, Looks::SurfaceNoiseParams>;
+using CurlLatticeSpec =
+    Looks::Spec<Looks::ProjectionKind::FOLDED_SINUSOIDAL,
+                Pullback::Lens::Identity, Looks::TransferKind::LINEAR,
+                Looks::CoverageKind::PROJECTION>;
 
 template <int W, int H>
 class CurlLattice
-    : public FixedLook::Look<W, H, CurlLattice<W, H>, CurlLatticeParams,
+    : public Looks::Composed<W, H, CurlLattice<W, H>, CurlLatticeParams,
                              CurlLatticeSpec, PaletteHarmony::TRIADIC,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::CUP> {
   friend struct ::hs_test::curl_lattice_tests::CurlLatticeWhiteBox;
 

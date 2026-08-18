@@ -11,18 +11,19 @@
 #include "core/render/pullback/look.h"
 
 using AlienOceanParams =
-    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::MirrorParams,
-                      FixedLook::NoWarpParams, FixedLook::NoLensParams,
-                      FixedLook::EdgeValueParams>;
-using AlienOceanSpec = FixedLook::LookSpec<
-    FixedLook::LookProjection::GNOMONIC_FOLDED, Pullback::Lens::Kaleidoscope,
-    FixedLook::LookTransfer::LINEAR, FixedLook::LookCoverage::EDGE_FADE>;
+    Looks::Params<Looks::GridSourceParams, Looks::MirrorParams,
+                  Looks::NoWarpParams, Looks::NoLensParams,
+                  Looks::EdgeValueParams>;
+using AlienOceanSpec =
+    Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED,
+                Pullback::Lens::Kaleidoscope, Looks::TransferKind::LINEAR,
+                Looks::CoverageKind::EDGE_FADE>;
 
 template <int W, int H>
 class AlienOcean
-    : public FixedLook::Look<W, H, AlienOcean<W, H>, AlienOceanParams,
+    : public Looks::Composed<W, H, AlienOcean<W, H>, AlienOceanParams,
                              AlienOceanSpec, PaletteHarmony::TRIADIC,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:

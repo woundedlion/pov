@@ -11,19 +11,18 @@
 #include "core/render/pullback/look.h"
 
 using CosmicEyeballParams =
-    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::MirrorParams,
-                      FixedLook::NoWarpParams, FixedLook::NoLensParams,
-                      FixedLook::EdgeValueParams>;
+    Looks::Params<Looks::GridSourceParams, Looks::MirrorParams,
+                  Looks::NoWarpParams, Looks::NoLensParams,
+                  Looks::EdgeValueParams>;
 using CosmicEyeballSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
-                        Pullback::Lens::Glitch, FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::EDGE_FADE>;
+    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC, Pullback::Lens::Glitch,
+                Looks::TransferKind::LINEAR, Looks::CoverageKind::EDGE_FADE>;
 
 template <int W, int H>
 class CosmicEyeball
-    : public FixedLook::Look<W, H, CosmicEyeball<W, H>, CosmicEyeballParams,
+    : public Looks::Composed<W, H, CosmicEyeball<W, H>, CosmicEyeballParams,
                              CosmicEyeballSpec, PaletteHarmony::TRIADIC,
-                             FixedLook::HueMode::PATH_LENGTH,
+                             Looks::HueMode::PATH_LENGTH,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:

@@ -11,19 +11,18 @@
 #include "core/render/pullback/look.h"
 
 using MobiusGridParams =
-    FixedLook::Params<FixedLook::TwinWaveSourceParams, FixedLook::NoWarpParams,
-                      FixedLook::MirrorParams, FixedLook::MobiusLensParams>;
+    Looks::Params<Looks::TwinWaveSourceParams, Looks::NoWarpParams,
+                  Looks::MirrorParams, Looks::MobiusLensParams>;
 using MobiusGridSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
-                        Pullback::Lens::Identity,
-                        FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC, Pullback::Lens::Identity,
+                Looks::TransferKind::LINEAR,
+                Looks::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class MobiusGrid
-    : public FixedLook::Look<W, H, MobiusGrid<W, H>, MobiusGridParams,
+    : public Looks::Composed<W, H, MobiusGrid<W, H>, MobiusGridParams,
                              MobiusGridSpec, PaletteHarmony::COMPLEMENTARY,
-                             FixedLook::HueMode::PATH_LENGTH,
+                             Looks::HueMode::PATH_LENGTH,
                              Pullback::Color::BrightnessEnvelope::CUP> {
 
 public:

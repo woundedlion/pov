@@ -11,19 +11,18 @@
 #include "core/render/pullback/look.h"
 
 using KaleidoWaveParams =
-    FixedLook::Params<FixedLook::TwinWaveSourceParams, FixedLook::NoWarpParams,
-                      FixedLook::MirrorParams>;
+    Looks::Params<Looks::TwinWaveSourceParams, Looks::NoWarpParams,
+                  Looks::MirrorParams>;
 using KaleidoWaveSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
-                        Pullback::Lens::Kaleidoscope,
-                        FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC,
+                Pullback::Lens::Kaleidoscope, Looks::TransferKind::LINEAR,
+                Looks::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class KaleidoWave
-    : public FixedLook::Look<W, H, KaleidoWave<W, H>, KaleidoWaveParams,
+    : public Looks::Composed<W, H, KaleidoWave<W, H>, KaleidoWaveParams,
                              KaleidoWaveSpec, PaletteHarmony::TRIADIC,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:

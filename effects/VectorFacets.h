@@ -11,19 +11,18 @@
 #include "core/render/pullback/look.h"
 
 using VectorFacetsParams =
-    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::VectorNoiseParams,
-                      FixedLook::MirrorParams>;
-using VectorFacetsSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::GNOMONIC_FOLDED,
-                        Pullback::Lens::DodecahedralKaleidoscope,
-                        FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+    Looks::Params<Looks::GridSourceParams, Looks::VectorNoiseParams,
+                  Looks::MirrorParams>;
+using VectorFacetsSpec = Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED,
+                                     Pullback::Lens::DodecahedralKaleidoscope,
+                                     Looks::TransferKind::LINEAR,
+                                     Looks::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class VectorFacets
-    : public FixedLook::Look<W, H, VectorFacets<W, H>, VectorFacetsParams,
+    : public Looks::Composed<W, H, VectorFacets<W, H>, VectorFacetsParams,
                              VectorFacetsSpec, PaletteHarmony::TRIADIC,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::CUP, true> {
 
 public:

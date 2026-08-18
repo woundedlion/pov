@@ -11,19 +11,19 @@
 #include "core/render/pullback/look.h"
 
 using PrismLatticeParams =
-    FixedLook::Params<FixedLook::LatticeSourceParams, FixedLook::PolarParams,
-                      FixedLook::WaveShearParams>;
+    Looks::Params<Looks::LatticeSourceParams, Looks::PolarParams,
+                  Looks::WaveShearParams>;
 using PrismLatticeSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
-                        Pullback::Lens::PentagonalPrismKaleidoscope,
-                        FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC,
+                Pullback::Lens::PentagonalPrismKaleidoscope,
+                Looks::TransferKind::LINEAR,
+                Looks::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class PrismLattice
-    : public FixedLook::Look<W, H, PrismLattice<W, H>, PrismLatticeParams,
+    : public Looks::Composed<W, H, PrismLattice<W, H>, PrismLatticeParams,
                              PrismLatticeSpec, PaletteHarmony::ANALOGOUS,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
