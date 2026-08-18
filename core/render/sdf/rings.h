@@ -10,7 +10,7 @@
 #include "engine/constants.h"
 #include "engine/concepts.h"
 #include "engine/util.h"
-#include "render/sdf_common.h"
+#include "render/sdf/common.h"
 
 /**
  * @file sdf_rings.h
@@ -668,5 +668,11 @@ struct FlatDistortedRing : private DistortedRing {
     res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
   }
 };
+
+// Leaf roster for the CSG composition contract: a leaf that stops satisfying
+// SDFShape fails here rather than at whichever composition happens to use it.
+static_assert(SDFShape<Ring>);
+static_assert(SDFShape<DistortedRing>);
+static_assert(SDFShape<FlatDistortedRing>);
 
 } // namespace SDF

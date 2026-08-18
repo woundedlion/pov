@@ -19,7 +19,7 @@
 #pragma once
 
 #include "core/render/sdf.h"
-#include "core/render/sdf_volume.h"
+#include "core/render/sdf/volume.h"
 #include "core/mesh/mesh_classes.h"
 #include "core/render/scan.h"
 #include "core/math/geometry.h"

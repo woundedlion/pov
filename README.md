@@ -55,7 +55,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [Register Conventions by Rasterizer](#register-conventions-by-rasterizer)
    - [7.1 SDF Shapes and the Scan Rasterizer](#71-sdf-shapes-sdfh-and-the-scan-rasterizer-scanh)
      - [SDF Shape Primitives](#sdf-shape-primitives-sdfh)
-     - [Volumetric Shapes](#volumetric-shapes-sdf_volumeh)
+     - [Volumetric Shapes](#volumetric-shapes-sdfvolumeh)
      - [CSG Operations](#csg-operations-sdfh)
      - [Scan Rasterization Primitives](#scan-rasterization-primitives-scanh)
      - [Near-Pole Azimuthal LOD](#near-pole-azimuthal-lod)
@@ -334,18 +334,17 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── pullback/               Per-stage pullback headers (contract, fields, surface,
 │   │   │                            lens, projection, warp, source, material, color,
 │   │   │                            stage) plus the composed-effect base (composed_effect.h)
-│   │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
-│   │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
-│   │   ├── plot_cull.h             Plot edge samplers + screen row/column span and clip-cull kernel
-│   │   ├── plot_raster.h           Plot::rasterize: adaptive sub-stepping polyline walk
+│   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
+│   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
+│   │   │                            shader, volume)
+│   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
+│   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
+│   │   │                            mesh, particles)
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel
 │   │   ├── filter_feedback.h       Filter::Pixel::Feedback: full-screen feedback loop + warp cache
-│   │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
-│   │   ├── sdf_common.h            SDF interval/bounds substrate + DistanceResult + span-emission helpers
-│   │   ├── sdf_rings.h             SDF ring leaves (Ring, DistortedRing, FlatDistortedRing)
-│   │   ├── sdf_csg.h               SDF::Union/SmoothUnion/Subtract/Intersection + AngularRepeat fold
-│   │   ├── sdf_face.h              SDF::Face mesh-face leaf + congruence-class distance LUT bake and binding
-│   │   ├── sdf_volume.h            3D volumetric SDF shapes + domain warps for Scan::Volume
+│   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
+│   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
+│   │   │                            csg, face, volume)
 │   │   ├── shading.h               Fragment + mesh-topology shading helpers, null shaders
 │   │   ├── aa_audit.h              Scan AA-coverage audit counters (compiled in only under HS_AA_AUDIT)
 │   │   └── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
@@ -1040,7 +1039,7 @@ The rendering pipeline splits shape definitions from rasterization. `sdf.h` defi
 
 `scan.h` contains `Scan::rasterize()`, which drives the scanline loop and anti-aliasing, plus convenience wrappers that pair SDF shapes with the rasterizer.
 
-`sdf.h` is an umbrella over four fragments: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `sdf_common.h`, the ring leaves in `sdf_rings.h`, the CSG operators in `sdf_csg.h`, and `SDF::Face` with its congruence-class LUT in `sdf_face.h`; the polygon, star, flower and line leaves stay in `sdf.h` itself. Including `sdf.h` pulls in all four, so nothing outside needs to name them.
+`sdf.h` is an umbrella over the headers in `core/render/sdf/`: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `common.h`, the polygon, star, flower and line leaves in `shapes.h`, the ring leaves in `rings.h`, the CSG operators in `csg.h`, `SDF::Face` with its congruence-class LUT in `face.h`, and the volumetric family in `volume.h`. Including `sdf.h` pulls in all six, so nothing outside needs to name them.
 
 The `process_pixel` function applies anti-aliasing based on shape type:
 - **Solid shapes**: quintic smoothstep over a 2-pixel AA band centered on the edge (`-pixel_width <= d <= pixel_width`). Full interior pixels (`d < -pixel_width`) skip AA math entirely. `pixel_width` is the compile-time constant `2π/W` — the angular width of one *equatorial* pixel — so the band is a fixed angular thickness at every latitude, and near the poles (where columns converge) it spans more than two columns.
@@ -1061,9 +1060,9 @@ The `process_pixel` function applies anti-aliasing based on shape type:
 
 The table covers the effect-facing shapes. `sdf.h` also holds internal specializations that only the matching `scan.h` wrapper constructs — `SDF::FlatDistortedRing`, an undisplaced `DistortedRing` with an exact polar centerline distance, is instantiated by `Scan::DistortedRing::draw_flat` and never named by an effect.
 
-#### Volumetric Shapes (`sdf_volume.h`)
+#### Volumetric Shapes (`sdf/volume.h`)
 
-The 3D family marched by `Scan::Volume` lives in its own header. It shares the `SDF` namespace but not the scanline contract above: these shapes return a plain `float` distance in Cartesian ray-space, have no vertical bounds or horizontal intervals, and are reached only from the march loop. `sdf.h` does not include `sdf_volume.h`, so an effect that draws only 2D shapes never parses or instantiates it.
+The 3D family marched by `Scan::Volume` lives in its own header. It shares the `SDF` namespace but not the scanline contract above: these shapes return a plain `float` distance in Cartesian ray-space, have no vertical bounds or horizontal intervals, and are reached only from the march loop. Everything it declares is a struct or a template, so an effect that draws only 2D shapes emits none of it.
 
 | Shape | Description |
 |---|---|

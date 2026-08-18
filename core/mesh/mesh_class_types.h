@@ -8,7 +8,7 @@
 #include <cstdint>
 
 #include "engine/memory.h"
-#include "render/sdf_face.h"
+#include "render/sdf/face.h"
 
 /**
  * @file mesh_class_types.h

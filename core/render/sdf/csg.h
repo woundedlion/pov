@@ -11,7 +11,7 @@
 #include "engine/constants.h"
 #include "engine/memory.h"
 #include "engine/static_circular_buffer.h"
-#include "render/sdf_common.h"
+#include "render/sdf/common.h"
 
 /**
  * @file sdf_csg.h

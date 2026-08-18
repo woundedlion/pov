@@ -18,7 +18,7 @@
 #include "render/canvas.h"
 #include "engine/concepts.h"
 #include "engine/memory.h"
-#include "render/plot_cull.h"
+#include "render/plot/cull.h"
 
 /**
  * @file plot_raster.h

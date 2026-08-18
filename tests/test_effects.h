@@ -18,7 +18,7 @@
 
 #include "core/engine/effects.h"
 #include "core/render/canvas.h"
-#include "core/render/sdf_volume.h"
+#include "core/render/sdf/volume.h"
 #include "core/engine/memory.h"
 #include "hardware/pov_segment_map.h"
 #include "tests/pixel_test_util.h"
