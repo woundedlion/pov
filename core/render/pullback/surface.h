@@ -43,6 +43,32 @@ struct SurfaceNoiseParams {
   };
 };
 
+/**
+ * @brief Surface parameters for the direction-steered displacement
+ *        (Pullback::Surface::DirectNoise).
+ */
+struct DirectSurfaceParams {
+  float scale = 1.0f;     /**< Spatial scale of the displacement field. */
+  float strength = 0.0f;  /**< Displacement distance; 0 skips the stage. */
+  float speed = 0.0f;     /**< Per-frame advance of the field's loop phase. */
+  float direction = 0.0f; /**< Tangent steering, in turns. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<DirectSurfaceParams>{&DirectSurfaceParams::scale,
+                                 "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
+                                 FieldCurve::LERP},
+      Field<DirectSurfaceParams>{&DirectSurfaceParams::strength,
+                                 "Surface Noise Strength", 0.0f, 0.5f,
+                                 FieldCurve::LERP},
+      Field<DirectSurfaceParams>{&DirectSurfaceParams::speed,
+                                 "Surface Noise Speed", -1.0f / 64.0f,
+                                 1.0f / 64.0f, FieldCurve::LERP},
+      Field<DirectSurfaceParams>{&DirectSurfaceParams::direction,
+                                 "Surface Noise Direction", 0.0f, 1.0f,
+                                 FieldCurve::LERP},
+  };
+};
+
 /** @brief This frame's point on the displacement field's closed loop. */
 struct PreparedLoop {
   Vector loop_offset;
@@ -53,6 +79,20 @@ HS_FLASH_INLINE inline PreparedLoop prepare(float phase) {
   const float angle = TWO_PI_F * wrap_t(phase);
   return {Vector(NOISE_LOOP_RADIUS * cosf(angle),
                  NOISE_LOOP_RADIUS * sinf(angle), 0.0f)};
+}
+
+/** @brief Loop point plus the steering frame the direct displacement reads. */
+struct PreparedDirect {
+  Vector loop_offset;
+  float direction_cos;
+  float direction_sin;
+};
+
+/** @brief Resolves the loop point and steering frame for DirectNoise. */
+HS_FLASH_INLINE inline PreparedDirect prepare_direct(float phase,
+                                                     float direction) {
+  const float angle = TWO_PI_F * direction;
+  return {prepare(phase).loop_offset, cosf(angle), sinf(angle)};
 }
 
 enum class Integrator : uint8_t { EULER, MIDPOINT, MIDPOINT_2X };

@@ -77,6 +77,26 @@ struct TwinWaveSourceParams {
 };
 
 /**
+ * @brief Source parameters for the rotating spiral field
+ *        (Pullback::Source::Spiral).
+ */
+struct SpiralSourceParams {
+  float pattern_freq = 1.0f; /**< Plane-coordinate scale before sampling. */
+  float speed = 0.0f;        /**< Per-frame advance of the primary phase. */
+  float angle_rate = 0.0f;   /**< Per-frame advance of the spiral rotation. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<SpiralSourceParams>{&SpiralSourceParams::pattern_freq,
+                                "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
+      Field<SpiralSourceParams>{&SpiralSourceParams::speed, "Speed", 0.0f, 0.5f,
+                                FieldCurve::LERP},
+      Field<SpiralSourceParams>{&SpiralSourceParams::angle_rate,
+                                "Source Angle Speed", 0.0f, 0.05f,
+                                FieldCurve::LERP},
+  };
+};
+
+/**
  * @brief Source parameters for the noise-contour sources
  *        (Pullback::Source::ProjectedNoise and SphericalNoise).
  */
