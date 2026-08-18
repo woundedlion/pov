@@ -39,7 +39,9 @@ using Projection::ProjectionParams;
 using Source::GridSourceParams;
 using Source::LatticeSourceParams;
 using Source::NoiseSourceParams;
+using Source::SpiralSourceParams;
 using Source::TwinWaveSourceParams;
+using Surface::DirectSurfaceParams;
 using Surface::NoSurfaceParams;
 using Surface::SurfaceNoiseParams;
 using Transfer::IsoValueParams;
@@ -226,8 +228,8 @@ struct WarpProvider {
  * @brief Supplies the displacement field to the Pullback::Surface policies.
  * @tparam BindingT The effect's Binding.
  * @tparam TrackPath Whether the stage accumulates path length.
- * @pre The effect's `surface_type` is SurfaceNoiseParams, so the frame carries a
- *      noise pointer and a loop offset.
+ * @pre The effect's `surface_type` is a surface-noise family, so the frame
+ *      carries a noise pointer and a loop offset.
  */
 template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
   using Binding = BindingT;
@@ -235,8 +237,12 @@ template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
   static const FastNoiseLite &noise(const FrameState &frame) {
     return *frame.surface_noise;
   }
-  static Pullback::Surface::PreparedLoop prepare(const FrameState &frame) {
-    return Pullback::Surface::prepare(frame.surface_phase);
+  static auto prepare(const FrameState &frame) {
+    if constexpr (requires { frame.params.surface.direction; })
+      return Pullback::Surface::prepare_direct(frame.surface_phase,
+                                               frame.params.surface.direction);
+    else
+      return Pullback::Surface::prepare(frame.surface_phase);
   }
   static float scale(const FrameState &frame) {
     return frame.params.surface.scale;
@@ -513,6 +519,9 @@ template <typename B> struct SourcePolicyFor<GridSourceParams, B> {
 template <typename B> struct SourcePolicyFor<TwinWaveSourceParams, B> {
   using Type = Pullback::Source::TwinWave<SourceProvider<B>>;
 };
+template <typename B> struct SourcePolicyFor<SpiralSourceParams, B> {
+  using Type = Pullback::Source::Spiral<SourceProvider<B>>;
+};
 template <typename B> struct SourcePolicyFor<LatticeSourceParams, B> {
   using Type = Pullback::Source::PrimitiveLattice<SourceProvider<B>>;
 };
@@ -645,17 +654,24 @@ public:
 
 private:
   static constexpr bool TRACK_PATH = HueV == HueMode::PATH_LENGTH;
+  static constexpr bool DIRECT_SURFACE =
+      std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
   using SurfacePolicy =
-      std::conditional_t<HAS_SURFACE_NOISE,
-                         Pullback::Surface::CurlNoise<SurfaceProvider<Binding>,
-                                                      NoiseBasis::SIMPLEX,
-                                                      Pullback::Surface::Euler>,
+      std::conditional_t<HAS_SURFACE_NOISE && !DIRECT_SURFACE,
+                         Pullback::Surface::CurlNoise<
+                             SurfaceProvider<Binding, TRACK_PATH>,
+                             NoiseBasis::SIMPLEX, Pullback::Surface::Euler>,
                          Pullback::Surface::Identity>;
+  using PostLensSurfacePolicy = std::conditional_t<
+      DIRECT_SURFACE,
+      Pullback::Surface::DirectNoise<SurfaceProvider<Binding, TRACK_PATH>,
+                                     NoiseBasis::SIMPLEX>,
+      Pullback::Surface::Identity>;
   using SurfaceImplementation = Pullback::Stage::SurfaceProject<
       Binding, SurfacePolicy,
       typename LensPolicyFor<typename ParamsT::lens_type,
                              typename SpecT::LensPolicy, Binding>::Type,
-      Pullback::Surface::Identity,
+      PostLensSurfacePolicy,
       typename ProjectionPolicyFor<SpecT::PROJECTION, Binding>::Type>;
 
 public:
