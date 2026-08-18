@@ -2454,7 +2454,6 @@ private:
     EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR,
     STEREOGRAPHIC_GLITCH_GRID_MIRROR,
     STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR,
-    STEREOGRAPHIC_HEXAGONAL_PRISM_SPIRAL_NOISE,
     COUNT,
     NONE = 0xff
   };
@@ -2591,26 +2590,6 @@ private:
     }
   };
 
-  using StereographicHexagonalPrismNoiseSurfaceImplementation =
-      Pullback::Stage::SurfaceProject<
-          ShaderBallBinding, Pullback::Surface::Identity,
-          Pullback::Lens::HexagonalPrismKaleidoscope,
-          Pullback::Surface::DirectNoise<SurfaceStateProvider,
-                                         NoiseBasis::SIMPLEX>,
-          Pullback::Projection::Stereographic<ProjectionStateProvider>>;
-  struct StereographicHexagonalPrismNoiseSurfaceStage
-      : Pullback::Stage::Placed<
-            Pullback::CodeEmission::OUT_OF_LINE_FLASH,
-            StereographicHexagonalPrismNoiseSurfaceImplementation> {
-    static constexpr bool implements(const TopologyKey &key) {
-      return key.projection == Projection::STEREOGRAPHIC &&
-             key.surface_lens == SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM &&
-             key.surface_noise == SurfaceNoise::DIRECT &&
-             key.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS &&
-             key.surface_noise_basis == NoiseBasis::SIMPLEX;
-    }
-  };
-
   template <WarpStageKind KindV, bool Outer>
   using WarpPolicy = std::conditional_t<
       KindV == WarpStageKind::NONE, Pullback::Warp::Identity,
@@ -2660,9 +2639,7 @@ private:
       std::conditional_t<
           FunctionV == Function::PRIMITIVE_LATTICE,
           Pullback::Source::PrimitiveLattice<SourceStateProvider>,
-          std::conditional_t<FunctionV == Function::SPIRAL,
-                             Pullback::Source::Spiral<SourceStateProvider>,
-                             Pullback::Source::TwinWave<SourceStateProvider>>>>;
+          Pullback::Source::TwinWave<SourceStateProvider>>>;
 
   template <Function FunctionV>
   struct SourceStage
@@ -2766,12 +2743,6 @@ private:
           SourceStage<Function::TWIN_WAVE>,
           LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
           ColorStage>;
-  using StereographicHexagonalPrismSpiralNoisePipeline = InversePipeline<
-      OuterCameraStage, StereographicHexagonalPrismNoiseSurfaceStage,
-      SelectedPlanarWarpStage<WarpStageKind::NONE, WarpStageKind::NONE>,
-      SourceStage<Function::SPIRAL>,
-      LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
-      ColorStage>;
   using GnomonicKaleidoscopeGridMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
@@ -3843,8 +3814,6 @@ private:
       return "STEREOGRAPHIC_GLITCH_GRID_MIRROR";
     case InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR:
       return "STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR";
-    case InversePipelineId::STEREOGRAPHIC_HEXAGONAL_PRISM_SPIRAL_NOISE:
-      return "STEREOGRAPHIC_HEXAGONAL_PRISM_SPIRAL_NOISE";
     case InversePipelineId::COUNT:
       return "COUNT";
     case InversePipelineId::NONE:
@@ -4033,9 +4002,9 @@ private:
             &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 16> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 15> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 16> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, 15> PROGRAMS{{
         make_program<GlitchNoiseGridWaveShearPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
                      make_topology_key(wave_shear_generated_preset())>(
@@ -4111,12 +4080,6 @@ private:
             InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR,
             make_topology_key(
                 stereographic_mobius_twin_wave_inner_mirror_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<
-            StereographicHexagonalPrismSpiralNoisePipeline,
-            InversePipelineId::STEREOGRAPHIC_HEXAGONAL_PRISM_SPIRAL_NOISE,
-            make_topology_key(
-                stereographic_hexagonal_prism_spiral_noise_preset())>(
             &all_continuous_parameters_supported),
     }};
     return PROGRAMS;
@@ -7339,41 +7302,7 @@ private:
     return config;
   }
 
-  static constexpr Config stereographic_hexagonal_prism_spiral_noise_preset() {
-    Slots slots{Function::SPIRAL,
-                Projection::STEREOGRAPHIC,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
-                {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
-                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                PaletteMode::TRIADIC};
-    slots.palette_mapping = PaletteMapping::CUP;
-    slots.hue_shift = HueShiftMode::WARP_DISPLACEMENT;
-    slots.surface_noise = SurfaceNoise::DIRECT;
-    Params params;
-    params.source.pattern_freq = 5.5327f;
-    params.source.speed = 0.125f;
-    params.source.complexity = 0.513f;
-    params.source.secondary_rate = 0.8f;
-    params.source.angle_rate = 0.03f;
-    params.warp.outer = {0.1f, 0.0f, 0.5f};
-    params.warp.inner = {0.1f, 0.0f, 0.0f};
-    params.projection.pole_fade = 1.627f;
-    params.projection.wander = 1.0f;
-    params.surface_lens.mix = 1.0f;
-    params.color.hue_shift_amount = -2.216f;
-    params.color.hue_noise_scale = 2.0f;
-    params.color.hue_noise_speed = -0.000408f;
-    params.color.palette_chroma = 0.78f;
-    params.outer_camera.wander = 1.0f;
-    params.surface_noise.scale = 5.740422f;
-    params.surface_noise.strength = 0.4185f;
-    return {slots, params};
-  }
-
-  static constexpr std::array<Preset, 25> PRESETS = {{
+  static constexpr std::array<Preset, 24> PRESETS = {{
       {wave_shear_generated_preset(),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {kaleidoscope_mirror_preset(),
@@ -7422,8 +7351,6 @@ private:
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {wave_shear_generated_preset(8.8162f, 1.698f, 1.376f, 0.00559375f, 0.0f),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
-      {stereographic_hexagonal_prism_spiral_noise_preset(),
-       InversePipelineId::STEREOGRAPHIC_HEXAGONAL_PRISM_SPIRAL_NOISE},
   }};
   static_assert(
       [] {
