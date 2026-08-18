@@ -10,7 +10,7 @@
 #include "engine/util.h"
 
 /**
- * @file screen_splat.h
+ * @file splat.h
  * @brief SplatTaps and splat_taps(): resolves a sub-pixel sample into its four
  * quintic-eased nearest-neighbor taps, shared by the anti-alias stages.
  */
