@@ -56,9 +56,8 @@
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
 #include "core/control/registry.h"
-#include "core/engine/generators.h"
-#include "core/render/led.h"
 #include "core/engine/memory.h"
+#include "core/render/led.h"
 #include "core/mesh/hankin.h"
 #include "core/mesh/mesh.h"
 #include "core/mesh/recipe.h"
@@ -3015,11 +3014,11 @@ inline const Case *all_cases(int &n) {
        "(element_count < element_capacity) ArenaVector emplace_back exact "
        "capacity exceeded!"},
       {"generate_target_is_scratch", case_generate_target_is_scratch,
-       "generators.h",
+       "memory.h",
        "(&target != &scratch_arena_a && &target != &scratch_arena_b) "
        "generate: target must not alias an engine scratch arena"},
       {"generate_recursion_too_deep", case_generate_recursion_too_deep,
-       "generators.h",
+       "memory.h",
        "(depth <= MAX_GENERATE_DEPTH) generate: recursion too deep"},
       {"normalize_zero", case_normalize_zero, "3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) "},

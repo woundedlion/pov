@@ -47,7 +47,6 @@
 #include "tests/test_noise.h"
 #include "tests/test_noise_field.h"
 #include "tests/test_projections.h"
-#include "tests/test_generators.h"
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
 #include "tests/test_effects_smoke.h"
@@ -131,7 +130,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", 49, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
-  X("memory", 42, hs_test::memory_tests::run_memory_tests, 196)                \
+  X("memory", 46, hs_test::memory_tests::run_memory_tests, 255)                \
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
   X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
   X("sdf", 98, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
@@ -175,7 +174,6 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("noise_field", 11, hs_test::noise_field_tests::run_noise_field_tests, 400) \
   X("projections", 19, hs_test::projections_tests::run_projections_tests,      \
     95876)                                                                     \
-  X("generators", 4, hs_test::generators_tests::run_generators_tests, 59)      \
   X("animation", 114, hs_test::animation_tests::run_animation_tests, 13894)    \
   X("effects", 92, hs_test::effects_tests::run_effects_tests,                  \
     hs_test::effects_tests::effects_full_suite()                               \
