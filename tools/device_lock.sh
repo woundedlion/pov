@@ -77,7 +77,7 @@ hs_device_ports() {
     if [ -n "$attached" ] &&
        ! printf '%s\n' "$attached" | grep -qxF "$HS_TEENSY_PORT"; then
       echo "device: HS_TEENSY_PORT=$HS_TEENSY_PORT is not attached." >&2
-      echo "The loader enumerates: $(printf '%s ' $attached)" >&2
+      echo "The loader enumerates: $(printf '%s' "$attached" | tr '\n' ' ')" >&2
       echo "Replug that board, or unset HS_TEENSY_PORT to claim a free one." >&2
       return 1
     fi
