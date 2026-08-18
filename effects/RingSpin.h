@@ -193,5 +193,5 @@ private:
                 "retune TRAIL_LENGTH/NUM_RINGS or carve arenas");
 };
 
-#include "core/engine/effect_registry.h"
+#include "core/engine/control/registry.h"
 REGISTER_EFFECT(RingSpin)

@@ -109,5 +109,5 @@ public:
   }
 };
 
-#include "core/engine/effect_registry.h"
+#include "core/engine/control/registry.h"
 REGISTER_EFFECT(FacetGrid)

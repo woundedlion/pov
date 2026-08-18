@@ -5,12 +5,12 @@
 #pragma once
 
 /**
- * @file platform_diagnostics.h
+ * @file diagnostics.h
  * @brief The platform surface the profiling layer stands on: the hs::log /
  *        hs::flush_log sink and the HS_OS_CYCLES cycle-counter read.
  */
 
-#include "engine/platform_attributes.h"
+#include "engine/platform/attributes.h"
 
 #ifdef ARDUINO
 #ifndef NDEBUG

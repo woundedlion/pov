@@ -52,5 +52,5 @@ public:
   static constexpr Params preset_params(size_t) { return initial_params(); }
 };
 
-#include "core/engine/effect_registry.h"
+#include "core/engine/control/registry.h"
 REGISTER_EFFECT(GlitchGrid)

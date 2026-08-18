@@ -600,5 +600,5 @@ private:
                 "the stabilization floor is calibrated at the Speed default");
 };
 
-#include "core/engine/effect_registry.h"
+#include "core/engine/control/registry.h"
 REGISTER_EFFECT(GSReactionDiffusion)

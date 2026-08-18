@@ -5,7 +5,7 @@
 #pragma once
 
 /**
- * @file effect_transition.h
+ * @file transition.h
  * @brief Fenced effect-to-effect transition: the state machine
  *        (EffectTransitionController) and the host-side operations it drives
  *        through EffectTransitionAdapter.

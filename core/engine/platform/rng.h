@@ -5,7 +5,7 @@
 #pragma once
 
 /**
- * @file platform_rng.h
+ * @file rng.h
  * @brief The process-wide deterministic PRNG (Pcg32) and the hs::rand_*
  *        helpers every parity-sensitive draw goes through.
  */

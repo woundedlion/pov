@@ -5,7 +5,7 @@
 #pragma once
 
 /**
- * @file effect_params.h
+ * @file params.h
  * @brief Runtime parameter registry: ParamDef descriptors and the
  *        fixed-capacity ParamList an Effect owns.
  */

@@ -296,5 +296,5 @@ private:
   } params;    /**< Live parameter block bound to the registered sliders. */
 };
 
-#include "core/engine/effect_registry.h"
+#include "core/engine/control/registry.h"
 REGISTER_EFFECT(Comets)
