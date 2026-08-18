@@ -8,7 +8,7 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 namespace hs_test {
 namespace curl_lattice_tests {
@@ -17,8 +17,8 @@ struct CurlLatticeWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Fixed folded-sinusoidal lattice displaced by sphere-space curl noise.
- * @details Supplies the render pipeline and preset bank; Looks::Composed
+ * @brief Composed folded-sinusoidal lattice displaced by sphere-space curl noise.
+ * @details Supplies the render pipeline and preset bank; Pullback::ComposedEffect
  * supplies parameter registration, preset choreography and the palette,
  * camera-walk and noise clocks. The lattice source is read through a folded
  * sinusoidal projection, so the surface stage carries the curl displacement and
@@ -27,20 +27,20 @@ struct CurlLatticeWhiteBox;
  * @tparam H Canvas height in pixels.
  */
 using CurlLatticeParams =
-    Looks::Params<Looks::LatticeSourceParams, Looks::NoWarpParams,
-                  Looks::NoWarpParams, Looks::NoLensParams,
-                  Looks::LinearValueParams, Looks::SurfaceNoiseParams>;
+    Pullback::Params<Pullback::LatticeSourceParams, Pullback::NoWarpParams,
+                     Pullback::NoWarpParams, Pullback::NoLensParams,
+                     Pullback::LinearValueParams, Pullback::SurfaceNoiseParams>;
 using CurlLatticeSpec =
-    Looks::Spec<Looks::ProjectionKind::FOLDED_SINUSOIDAL,
-                Pullback::Lens::Identity, Looks::TransferKind::LINEAR,
-                Looks::CoverageKind::PROJECTION>;
+    Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL,
+                   Pullback::Lens::Identity, Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::PROJECTION>;
 
 template <int W, int H>
 class CurlLattice
-    : public Looks::Composed<W, H, CurlLattice<W, H>, CurlLatticeParams,
-                             CurlLatticeSpec, PaletteHarmony::TRIADIC,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::CUP> {
+    : public Pullback::ComposedEffect<
+          W, H, CurlLattice<W, H>, CurlLatticeParams, CurlLatticeSpec,
+          PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
+          Pullback::Color::BrightnessEnvelope::CUP> {
   friend struct ::hs_test::curl_lattice_tests::CurlLatticeWhiteBox;
 
 public:
@@ -49,7 +49,7 @@ public:
   static constexpr std::string_view EFFECT_ID = "curl-lattice";
   /// SHA-256 of the canonicalized descriptor of
   /// `patterns/curl_lattice.shader.json`; the browser editor matches it to
-  /// recognize an imported document as this fixed effect.
+  /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "504e5dc75bbd656d36b94b2752c0b6e3166ce80221f9b63d63127967323c96f8";
   /// SHA-256 of that document's canonicalized preset bank.
@@ -84,7 +84,7 @@ public:
 
   /**
    * @brief Params for the preset at @p index in PRESET_IDS.
-   * @details `open-curl` is the initial look; `dense-curl` folds the lattice
+   * @details `open-curl` is the initial preset; `dense-curl` folds the lattice
    * through a shorter surface-noise wavelength.
    */
   static constexpr Params preset_params(size_t index) {

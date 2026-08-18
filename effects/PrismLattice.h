@@ -8,23 +8,23 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using PrismLatticeParams =
-    Looks::Params<Looks::LatticeSourceParams, Looks::PolarParams,
-                  Looks::WaveShearParams>;
+    Pullback::Params<Pullback::LatticeSourceParams, Pullback::PolarParams,
+                     Pullback::WaveShearParams>;
 using PrismLatticeSpec =
-    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC,
-                Pullback::Lens::PentagonalPrismKaleidoscope,
-                Looks::TransferKind::LINEAR,
-                Looks::CoverageKind::PROJECTION_SQUARED>;
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
+                   Pullback::Lens::PentagonalPrismKaleidoscope,
+                   Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class PrismLattice
-    : public Looks::Composed<W, H, PrismLattice<W, H>, PrismLatticeParams,
-                             PrismLatticeSpec, PaletteHarmony::ANALOGOUS,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+    : public Pullback::ComposedEffect<
+          W, H, PrismLattice<W, H>, PrismLatticeParams, PrismLatticeSpec,
+          PaletteHarmony::ANALOGOUS, Pullback::HueMode::NOISE,
+          Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = PrismLatticeParams;

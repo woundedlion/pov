@@ -8,22 +8,23 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using CosmicEyeballParams =
-    Looks::Params<Looks::GridSourceParams, Looks::MirrorParams,
-                  Looks::NoWarpParams, Looks::NoLensParams,
-                  Looks::EdgeValueParams>;
+    Pullback::Params<Pullback::GridSourceParams, Pullback::MirrorParams,
+                     Pullback::NoWarpParams, Pullback::NoLensParams,
+                     Pullback::EdgeValueParams>;
 using CosmicEyeballSpec =
-    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC, Pullback::Lens::Glitch,
-                Looks::TransferKind::LINEAR, Looks::CoverageKind::EDGE_FADE>;
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
+                   Pullback::Lens::Glitch, Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::EDGE_FADE>;
 
 template <int W, int H>
 class CosmicEyeball
-    : public Looks::Composed<W, H, CosmicEyeball<W, H>, CosmicEyeballParams,
-                             CosmicEyeballSpec, PaletteHarmony::TRIADIC,
-                             Looks::HueMode::PATH_LENGTH,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+    : public Pullback::ComposedEffect<
+          W, H, CosmicEyeball<W, H>, CosmicEyeballParams, CosmicEyeballSpec,
+          PaletteHarmony::TRIADIC, Pullback::HueMode::PATH_LENGTH,
+          Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = CosmicEyeballParams;

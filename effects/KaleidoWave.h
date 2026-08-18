@@ -8,22 +8,22 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using KaleidoWaveParams =
-    Looks::Params<Looks::TwinWaveSourceParams, Looks::NoWarpParams,
-                  Looks::MirrorParams>;
+    Pullback::Params<Pullback::TwinWaveSourceParams, Pullback::NoWarpParams,
+                     Pullback::MirrorParams>;
 using KaleidoWaveSpec =
-    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC,
-                Pullback::Lens::Kaleidoscope, Looks::TransferKind::LINEAR,
-                Looks::CoverageKind::PROJECTION_SQUARED>;
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
+                   Pullback::Lens::Kaleidoscope, Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class KaleidoWave
-    : public Looks::Composed<W, H, KaleidoWave<W, H>, KaleidoWaveParams,
-                             KaleidoWaveSpec, PaletteHarmony::TRIADIC,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+    : public Pullback::ComposedEffect<
+          W, H, KaleidoWave<W, H>, KaleidoWaveParams, KaleidoWaveSpec,
+          PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
+          Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = KaleidoWaveParams;

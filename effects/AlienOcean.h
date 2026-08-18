@@ -8,23 +8,22 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using AlienOceanParams =
-    Looks::Params<Looks::GridSourceParams, Looks::MirrorParams,
-                  Looks::NoWarpParams, Looks::NoLensParams,
-                  Looks::EdgeValueParams>;
+    Pullback::Params<Pullback::GridSourceParams, Pullback::MirrorParams,
+                     Pullback::NoWarpParams, Pullback::NoLensParams,
+                     Pullback::EdgeValueParams>;
 using AlienOceanSpec =
-    Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED,
-                Pullback::Lens::Kaleidoscope, Looks::TransferKind::LINEAR,
-                Looks::CoverageKind::EDGE_FADE>;
+    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
+                   Pullback::Lens::Kaleidoscope, Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::EDGE_FADE>;
 
 template <int W, int H>
-class AlienOcean
-    : public Looks::Composed<W, H, AlienOcean<W, H>, AlienOceanParams,
-                             AlienOceanSpec, PaletteHarmony::TRIADIC,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+class AlienOcean : public Pullback::ComposedEffect<
+                       W, H, AlienOcean<W, H>, AlienOceanParams, AlienOceanSpec,
+                       PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
+                       Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = AlienOceanParams;

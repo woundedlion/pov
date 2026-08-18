@@ -6,11 +6,11 @@
 #pragma once
 
 /**
- * @file look.h
- * @brief Shared machinery for the fixed-look effect family: the parameter
- *        families a look composes into a `Params`, the frame-state providers
- *        its pullback pipeline reads, and the `Composed` base that assembles
- *        the pipeline over the engine's preset choreography.
+ * @file composed_effect.h
+ * @brief Shared machinery for the composed-effect family: the parameter
+ *        families an effect assembles into a `Params`, the frame-state
+ *        providers its pullback pipeline reads, and the `ComposedEffect` base
+ *        that assembles the pipeline over the engine's preset choreography.
  */
 
 #include <array>
@@ -26,33 +26,34 @@
 #include "math/noise_field.h"
 #include "render/pullback.h"
 
-namespace Pullback::Looks {
+namespace Pullback {
 
-// The stage vocabulary this runtime composes, re-exported from the
-// pullback stage headers.
-using Pullback::Color::ColorParams;
-using Pullback::Color::HueMode;
-using Pullback::Coverage::EdgeValueParams;
-using Pullback::Lens::MobiusLensParams;
-using Pullback::Lens::NoLensParams;
-using Pullback::Projection::ProjectionParams;
-using Pullback::Source::GridSourceParams;
-using Pullback::Source::LatticeSourceParams;
-using Pullback::Source::NoiseSourceParams;
-using Pullback::Source::TwinWaveSourceParams;
-using Pullback::Surface::NoSurfaceParams;
-using Pullback::Surface::SurfaceNoiseParams;
-using Pullback::Transfer::IsoValueParams;
-using Pullback::Transfer::LinearValueParams;
-using Pullback::Warp::AffineParams;
-using Pullback::Warp::MirrorParams;
-using Pullback::Warp::NoWarpParams;
-using Pullback::Warp::PolarParams;
-using Pullback::Warp::VectorNoiseParams;
-using Pullback::Warp::WaveShearParams;
+// The stage vocabulary a composed effect names, re-exported from the
+// per-stage headers.
+using Color::ColorParams;
+using Color::HueMode;
+using Coverage::EdgeValueParams;
+using Lens::MobiusLensParams;
+using Lens::NoLensParams;
+using Projection::ProjectionParams;
+using Source::GridSourceParams;
+using Source::LatticeSourceParams;
+using Source::NoiseSourceParams;
+using Source::TwinWaveSourceParams;
+using Surface::NoSurfaceParams;
+using Surface::SurfaceNoiseParams;
+using Transfer::IsoValueParams;
+using Transfer::LinearValueParams;
+using Warp::AffineParams;
+using Warp::MirrorParams;
+using Warp::NoWarpParams;
+using Warp::PolarParams;
+using Warp::VectorNoiseParams;
+using Warp::WaveShearParams;
 
 /**
- * @brief One look's complete parameter set, one family per pipeline stage.
+ * @brief One composed effect's complete parameter set, one family per
+ *        pipeline stage.
  * @details The member typedefs are the runtime's dispatch keys: parameter
  * registration, per-frame preparation and the warp/surface clocks all select
  * behavior by comparing them against the concrete families.
@@ -90,17 +91,17 @@ struct Params {
  * state lives in the pipeline's per-frame instance instead. Its pointers
  * alias the runtime's persistent state and the palette cycler's current
  * bake, so a frame outlives only the draw_frame() call that built it.
- * @tparam ParamsT The look's `Looks::Params` specialization.
+ * @tparam ParamsT The effect's `Pullback::Params` specialization.
  */
 template <typename ParamsT> struct FrameState {
-  /** Conjugate of the projection orientation; identity unless the look sets
+  /** Conjugate of the projection orientation; identity unless the effect sets
       `ANIMATED_PROJECTION`. */
   Quaternion projection_conjugate;
   /** Conjugate of the outer camera orientation. */
   Quaternion outer_conjugate;
   const FastNoiseLite *outer_noise;   /**< Null unless `HasOuterNoise`. */
   const FastNoiseLite *source_noise;  /**< Null unless `HasSourceNoise`. */
-  const FastNoiseLite *surface_noise; /**< Null unless the look displaces. */
+  const FastNoiseLite *surface_noise; /**< Null unless the effect displaces. */
   const BakedPalette *palette;        /**< The cycler's current bake. */
   /** Hue-rotation LUT base; current only when hue_rotation_active(). */
   const Pixel *hue_rotation_lut;
@@ -123,10 +124,10 @@ template <typename ParamsT> struct FrameState {
 };
 
 /**
- * @brief Ties a pullback pipeline to one look's frame state.
- * @details Fixed looks render uninstrumented, so the binding pins
+ * @brief Ties a pullback pipeline to one effect's frame state.
+ * @details Composed effects render uninstrumented, so the binding pins
  * Pullback::NoInstrumentation.
- * @tparam FrameT The look's FrameState specialization.
+ * @tparam FrameT The effect's FrameState specialization.
  */
 template <typename FrameT> struct Binding {
   using FrameState = FrameT;
@@ -145,7 +146,7 @@ template <typename BindingT> struct OuterCameraProvider {
 /**
  * @brief Supplies the projection frame and its parameters to the
  *        Pullback::Projection policies.
- * @details Exposes every accessor the projection policies name; a look pays
+ * @details Exposes every accessor the projection policies name; an effect pays
  * only for the ones its chosen policy instantiates, so a projection that takes
  * no central meridian never reads that field.
  */
@@ -177,7 +178,7 @@ template <typename BindingT> struct LensProvider {
  * @details `noise()` returns the outer noise field for either slot, so a
  * noise-driven warp in the inner slot still requires the runtime's
  * `HasOuterNoise`.
- * @tparam BindingT The look's Binding.
+ * @tparam BindingT The effect's Binding.
  * @tparam Outer True to read the first warp slot, false for the second.
  * @tparam TrackPath Whether the stage accumulates path length, which the color
  *         stage consumes under HueMode::PATH_LENGTH.
@@ -223,9 +224,9 @@ struct WarpProvider {
 
 /**
  * @brief Supplies the displacement field to the Pullback::Surface policies.
- * @tparam BindingT The look's Binding.
+ * @tparam BindingT The effect's Binding.
  * @tparam TrackPath Whether the stage accumulates path length.
- * @pre The look's `surface_type` is SurfaceNoiseParams, so the frame carries a
+ * @pre The effect's `surface_type` is SurfaceNoiseParams, so the frame carries a
  *      noise pointer and a loop offset.
  */
 template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
@@ -250,7 +251,7 @@ template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
  * @brief Supplies the pattern and noise state to the Pullback::Source policies.
  * @details Covers every source family at once: the pattern accessors read the
  * prepared phases, the noise accessors the NoiseSourceParams fields. Only the
- * accessors a look's chosen source policy names are instantiated.
+ * accessors an effect's chosen source policy names are instantiated.
  */
 template <typename BindingT> struct SourceProvider {
   using Binding = BindingT;
@@ -279,9 +280,9 @@ template <typename BindingT> struct SourceProvider {
 /**
  * @brief Supplies the value-family fields to the Pullback::Transfer and
  *        Pullback::Coverage policies.
- * @details Names all three fields the value families define; a look's material
+ * @details Names all three fields the value families define; an effect's material
  * stage instantiates only the accessors its transfer and coverage policies
- * call, so an IsoValueParams look never touches `edge_width` and vice versa.
+ * call, so an IsoValueParams effect never touches `edge_width` and vice versa.
  */
 template <typename BindingT> struct ValueProvider {
   using Binding = BindingT;
@@ -312,7 +313,7 @@ inline bool hue_rotation_active(const ColorParams &color) {
  *        Pullback::Color::GeneratedPalette.
  * @details Both LUT views carry their own active flag, so a stale LUT is never
  * sampled: the noise view additionally requires HueMode::NOISE.
- * @tparam BindingT The look's Binding.
+ * @tparam BindingT The effect's Binding.
  * @tparam HueV Hue-rotation source reported to the color stage.
  * @tparam BrightnessV Brightness envelope reported to the color stage.
  */
@@ -470,7 +471,7 @@ template <> struct OptionalNoise<true> {
   FastNoiseLite noise;
 };
 
-/** @brief Projection a look's surface stage composes. */
+/** @brief Projection a composed effect's surface stage composes. */
 enum class ProjectionKind : uint8_t {
   STEREOGRAPHIC,
   GNOMONIC_FOLDED,
@@ -478,14 +479,14 @@ enum class ProjectionKind : uint8_t {
   FOLDED_SINUSOIDAL
 };
 
-/** @brief Transfer curve a look's material stage composes. */
+/** @brief Transfer curve an effect's material stage composes. */
 enum class TransferKind : uint8_t { LINEAR, ISO_CONTOUR };
 
-/** @brief Coverage policy a look's material stage composes. */
+/** @brief Coverage policy an effect's material stage composes. */
 enum class CoverageKind : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
 
 /**
- * @brief The pipeline choices a look states beyond its parameter families.
+ * @brief The pipeline choices an effect states beyond its parameter families.
  * @details Everything else about the six stages is derived: the source and
  * warp policies follow the parameter families, a Mobius lens family selects
  * the Mobius lens, a surface-noise family selects the curl displacement, and
@@ -505,96 +506,100 @@ struct Spec {
   static constexpr CoverageKind COVERAGE = CoverageV;
 };
 
-template <typename Family, typename Binding> struct SourcePolicy;
-template <typename B> struct SourcePolicy<GridSourceParams, B> {
+template <typename Family, typename Binding> struct SourcePolicyFor;
+template <typename B> struct SourcePolicyFor<GridSourceParams, B> {
   using Type = Pullback::Source::Grid<SourceProvider<B>>;
 };
-template <typename B> struct SourcePolicy<TwinWaveSourceParams, B> {
+template <typename B> struct SourcePolicyFor<TwinWaveSourceParams, B> {
   using Type = Pullback::Source::TwinWave<SourceProvider<B>>;
 };
-template <typename B> struct SourcePolicy<LatticeSourceParams, B> {
+template <typename B> struct SourcePolicyFor<LatticeSourceParams, B> {
   using Type = Pullback::Source::PrimitiveLattice<SourceProvider<B>>;
 };
 
 template <typename Family, typename Binding, bool Outer, bool TrackPath>
-struct WarpPolicy;
-template <typename B, bool O, bool T> struct WarpPolicy<NoWarpParams, B, O, T> {
+struct WarpPolicyFor;
+template <typename B, bool O, bool T>
+struct WarpPolicyFor<NoWarpParams, B, O, T> {
   using Type = Pullback::Warp::Identity;
 };
-template <typename B, bool O, bool T> struct WarpPolicy<MirrorParams, B, O, T> {
+template <typename B, bool O, bool T>
+struct WarpPolicyFor<MirrorParams, B, O, T> {
   using Type = Pullback::Warp::MirrorTile<WarpProvider<B, O, T>>;
 };
 template <typename B, bool O, bool T>
-struct WarpPolicy<WaveShearParams, B, O, T> {
+struct WarpPolicyFor<WaveShearParams, B, O, T> {
   using Type = Pullback::Warp::WaveShear<WarpProvider<B, O, T>>;
 };
 template <typename B, bool O, bool T>
-struct WarpPolicy<VectorNoiseParams, B, O, T> {
+struct WarpPolicyFor<VectorNoiseParams, B, O, T> {
   using Type =
       Pullback::Warp::VectorNoise<WarpProvider<B, O, T>, NoiseBasis::SIMPLEX,
                                   Pullback::Warp::FlatEnvelope>;
 };
-template <typename B, bool O, bool T> struct WarpPolicy<AffineParams, B, O, T> {
+template <typename B, bool O, bool T>
+struct WarpPolicyFor<AffineParams, B, O, T> {
   using Type = Pullback::Warp::AffineFrame<WarpProvider<B, O, T>>;
 };
-template <typename B, bool O, bool T> struct WarpPolicy<PolarParams, B, O, T> {
+template <typename B, bool O, bool T>
+struct WarpPolicyFor<PolarParams, B, O, T> {
   using Type = Pullback::Warp::PolarChart<WarpProvider<B, O, T>,
                                           Pullback::Warp::LinearPolar, 1>;
 };
 
 template <ProjectionKind ProjectionV, typename Binding>
-struct LookProjectionPolicy;
+struct ProjectionPolicyFor;
 template <typename B>
-struct LookProjectionPolicy<ProjectionKind::STEREOGRAPHIC, B> {
+struct ProjectionPolicyFor<ProjectionKind::STEREOGRAPHIC, B> {
   using Type = Pullback::Projection::Stereographic<ProjectionProvider<B>>;
 };
 template <typename B>
-struct LookProjectionPolicy<ProjectionKind::GNOMONIC_FOLDED, B> {
+struct ProjectionPolicyFor<ProjectionKind::GNOMONIC_FOLDED, B> {
   using Type = Pullback::Projection::Gnomonic<
       ProjectionProvider<B>, Pullback::Projection::GnomonicHemisphere::FOLDED>;
 };
 template <typename B>
-struct LookProjectionPolicy<ProjectionKind::EQUIRECTANGULAR, B> {
+struct ProjectionPolicyFor<ProjectionKind::EQUIRECTANGULAR, B> {
   using Type = Pullback::Projection::Equirectangular<ProjectionProvider<B>>;
 };
 template <typename B>
-struct LookProjectionPolicy<ProjectionKind::FOLDED_SINUSOIDAL, B> {
+struct ProjectionPolicyFor<ProjectionKind::FOLDED_SINUSOIDAL, B> {
   using Type = Pullback::Projection::FoldedSinusoidal<ProjectionProvider<B>>;
 };
 
 template <typename LensFamily, typename SpecLens, typename Binding>
-struct LookLensPolicy {
+struct LensPolicyFor {
   using Type = SpecLens;
 };
 template <typename SpecLens, typename B>
-struct LookLensPolicy<MobiusLensParams, SpecLens, B> {
+struct LensPolicyFor<MobiusLensParams, SpecLens, B> {
   using Type = Pullback::Lens::Mobius<LensProvider<B>>;
 };
 
-template <TransferKind TransferV, typename Binding> struct LookTransferPolicy;
-template <typename B> struct LookTransferPolicy<TransferKind::LINEAR, B> {
+template <TransferKind TransferV, typename Binding> struct TransferPolicyFor;
+template <typename B> struct TransferPolicyFor<TransferKind::LINEAR, B> {
   using Type = Pullback::Transfer::Linear;
 };
-template <typename B> struct LookTransferPolicy<TransferKind::ISO_CONTOUR, B> {
+template <typename B> struct TransferPolicyFor<TransferKind::ISO_CONTOUR, B> {
   using Type = Pullback::Transfer::IsoContour<ValueProvider<B>>;
 };
 
-template <CoverageKind CoverageV, typename Binding> struct LookCoveragePolicy;
-template <typename B> struct LookCoveragePolicy<CoverageKind::PROJECTION, B> {
+template <CoverageKind CoverageV, typename Binding> struct CoveragePolicyFor;
+template <typename B> struct CoveragePolicyFor<CoverageKind::PROJECTION, B> {
   using Type = Pullback::Coverage::Projection;
 };
 template <typename B>
-struct LookCoveragePolicy<CoverageKind::PROJECTION_SQUARED, B> {
+struct CoveragePolicyFor<CoverageKind::PROJECTION_SQUARED, B> {
   using Type = Pullback::Coverage::ProjectionSquared;
 };
-template <typename B> struct LookCoveragePolicy<CoverageKind::EDGE_FADE, B> {
+template <typename B> struct CoveragePolicyFor<CoverageKind::EDGE_FADE, B> {
   using Type = Pullback::Coverage::EdgeFade<ValueProvider<B>>;
 };
 
 /**
- * @brief A complete fixed look: the shared lifecycle plus a pipeline derived
- *        from the parameter families and a LookSpec.
- * @details The look states its families, its LookSpec and its identity
+ * @brief A complete composed effect: the shared lifecycle plus a pipeline
+ *        derived from the parameter families and a Spec.
+ * @details The effect states its families, its Spec and its identity
  * constants; every stage typedef, the render pipeline, shade() and the shared
  * lifecycle — parameter registration, preset choreography, palette cycling,
  * camera walks and noise clocks — are assembled here. Required `Derived`
@@ -603,15 +608,15 @@ template <typename B> struct LookCoveragePolicy<CoverageKind::EDGE_FADE, B> {
  * `OUTER_NOISE_SEED` / `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` for each
  * noise field the parameter set and `Has*Noise` flags request. Optional
  * members, detected by `requires` and defaulted when absent, are
- * `ANIMATED_MOBIUS`, `USES_CENTRAL_MERIDIAN` and an `after_fixed_init()`
- * hook. A look wanting a different shade emission shadows shade() with the
+ * `ANIMATED_MOBIUS`, `USES_CENTRAL_MERIDIAN` and an `after_composed_init()`
+ * hook. An effect wanting a different shade emission shadows shade() with the
  * same body under its own attribute. A surface-noise family places its
  * surface stage out of line in flash.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @tparam Derived The effect class deriving from this look.
- * @tparam ParamsT The look's `Looks::Params` specialization.
- * @tparam SpecT The look's `Spec`.
+ * @tparam Derived The effect class deriving from this base.
+ * @tparam ParamsT The effect's `Pullback::Params` specialization.
+ * @tparam SpecT The effect's `Spec`.
  * @tparam Harmony Palette harmony the generated palettes are drawn from.
  * @tparam HueV Hue-rotation source: none, noise field, or path length.
  * @tparam BrightnessV Brightness envelope applied by the color stage.
@@ -622,15 +627,15 @@ template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
           PaletteHarmony Harmony, HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV,
           bool HasOuterNoise = false, bool HasSourceNoise = false>
-class Composed : public ChoreographedEffect<Derived, ParamsT> {
+class ComposedEffect : public ChoreographedEffect<Derived, ParamsT> {
   using Choreography = ChoreographedEffect<Derived, ParamsT>;
   friend Choreography;
 
 public:
   using Params = ParamsT;
-  using Frame = Looks::FrameState<ParamsT>;
-  using Binding = Looks::Binding<Frame>;
-  /** Whether the look displaces its surface, and so owns a surface noise
+  using Frame = Pullback::FrameState<ParamsT>;
+  using Binding = Pullback::Binding<Frame>;
+  /** Whether the effect displaces its surface, and so owns a surface noise
       field and needs a `Derived::SURFACE_NOISE_SEED`. */
   static constexpr bool HAS_SURFACE_NOISE =
       !std::is_same_v<typename ParamsT::surface_type, NoSurfaceParams>;
@@ -645,10 +650,10 @@ private:
                          Pullback::Surface::Identity>;
   using SurfaceImplementation = Pullback::Stage::SurfaceProject<
       Binding, SurfacePolicy,
-      typename LookLensPolicy<typename ParamsT::lens_type,
-                              typename SpecT::LensPolicy, Binding>::Type,
+      typename LensPolicyFor<typename ParamsT::lens_type,
+                             typename SpecT::LensPolicy, Binding>::Type,
       Pullback::Surface::Identity,
-      typename LookProjectionPolicy<SpecT::PROJECTION, Binding>::Type>;
+      typename ProjectionPolicyFor<SpecT::PROJECTION, Binding>::Type>;
 
 public:
   /// Pullback stages, ordered from the view vector back to the source field.
@@ -661,17 +666,17 @@ public:
       SurfaceImplementation>;
   using PlanarWarpStage = Pullback::Stage::PlanarWarp<
       Binding,
-      typename WarpPolicy<typename ParamsT::outer_warp_type, Binding, true,
-                          TRACK_PATH>::Type,
-      typename WarpPolicy<typename ParamsT::inner_warp_type, Binding, false,
-                          TRACK_PATH>::Type>;
+      typename WarpPolicyFor<typename ParamsT::outer_warp_type, Binding, true,
+                             TRACK_PATH>::Type,
+      typename WarpPolicyFor<typename ParamsT::inner_warp_type, Binding, false,
+                             TRACK_PATH>::Type>;
   using SourceStage = Pullback::Stage::Source<
       Binding,
-      typename SourcePolicy<typename ParamsT::source_type, Binding>::Type>;
+      typename SourcePolicyFor<typename ParamsT::source_type, Binding>::Type>;
   using MaterialStage = Pullback::Stage::Material<
       Binding, Pullback::Weight::Projection,
-      typename LookTransferPolicy<SpecT::TRANSFER, Binding>::Type,
-      typename LookCoveragePolicy<SpecT::COVERAGE, Binding>::Type>;
+      typename TransferPolicyFor<SpecT::TRANSFER, Binding>::Type,
+      typename CoveragePolicyFor<SpecT::COVERAGE, Binding>::Type>;
   using ColorStage =
       Pullback::Stage::Color<Binding,
                              Pullback::Color::GeneratedPalette<
@@ -683,12 +688,12 @@ public:
   using FrameState = typename RenderPipeline::Frame;
 
   /** @brief Constructs the effect at W x H with the POV column strobe on. */
-  HS_COLD_MEMBER Composed() : Choreography(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER ComposedEffect() : Choreography(W, H, {.strobe = true}) {}
 
   /**
-   * @brief Claims the runtime's persistent storage and registers the look.
+   * @brief Claims the runtime's persistent storage and registers the effect.
    * @details Every allocation this makes comes from `persistent_arena`, so the
-   * effect heap-allocates nothing after init. `Derived::after_fixed_init()`
+   * effect heap-allocates nothing after init. `Derived::after_composed_init()`
    * runs last, once the parameters, palette cycler and camera walks are all
    * live, which is what lets it adjust the dwell or start a timeline
    * animation.
@@ -713,8 +718,8 @@ public:
     timeline.add(
         0, Animation::RandomWalk<W>(outer_walk, UP, state->outer_walk_noise));
     register_parameters();
-    if constexpr (requires(Derived &effect) { effect.after_fixed_init(); })
-      static_cast<Derived &>(*this).after_fixed_init();
+    if constexpr (requires(Derived &effect) { effect.after_composed_init(); })
+      static_cast<Derived &>(*this).after_composed_init();
   }
 
   /**
@@ -760,11 +765,11 @@ public:
 
   /** @brief Whether a parameter set is admissible, family by family. */
   static bool valid_params(const Params &params) {
-    return Looks::valid(params);
+    return Pullback::valid(params);
   }
 
 protected:
-  /** Descriptors the arena-backed parameter array holds; every slider a look
+  /** Descriptors the arena-backed parameter array holds; every slider an effect
       registers has to fit. */
   static constexpr size_t PARAM_CAPACITY = 48;
 
@@ -803,7 +808,7 @@ protected:
     if constexpr (requires { Derived::ANIMATED_MOBIUS; })
       if constexpr (Derived::ANIMATED_MOBIUS)
         animated_mobius = params.lens.mobius;
-    params = Looks::interpolate(transition.from, transition.to, progress);
+    params = Pullback::interpolate(transition.from, transition.to, progress);
     if constexpr (requires { Derived::ANIMATED_MOBIUS; })
       if constexpr (Derived::ANIMATED_MOBIUS)
         params.lens.mobius = animated_mobius;
@@ -814,7 +819,7 @@ protected:
   /**
    * @brief Starts a repeating circular Mobius warp on the lens parameters.
    * @details Pausable, so the warp freezes with the rest of the parameter
-   * animations. Compiles to nothing for a look whose lens family carries no
+   * animations. Compiles to nothing for an effect whose lens family carries no
    * Mobius coefficients.
    * @param scale Radius of the circular warp.
    * @param duration Frames per revolution.
@@ -850,9 +855,10 @@ private:
       gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS) +
       PaletteCycler::generated_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State);
-  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
-                "Looks::Composed persistent footprint exceeds the default "
-                "partition");
+  static_assert(
+      FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+      "Pullback::ComposedEffect persistent footprint exceeds the default "
+      "partition");
 
   static void configure_noise(FastNoiseLite &noise, int32_t seed) {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -860,7 +866,7 @@ private:
     noise.SetFrequency(1.0f);
   }
 
-  /** @brief Whether a gated field's slider exists for this look. */
+  /** @brief Whether a gated field's slider exists for this effect. */
   static constexpr bool field_gate_open(Pullback::FieldGate gate) {
     switch (gate) {
     case Pullback::FieldGate::ALWAYS:
@@ -950,8 +956,8 @@ private:
   }
 
   /**
-   * @brief Steps every phase clock the look's parameter families define.
-   * @details Each clock is compiled in only when its field exists, so a look
+   * @brief Steps every phase clock the effect's parameter families define.
+   * @details Each clock is compiled in only when its field exists, so an effect
    * pays for exactly the phases its stages read. The affine frame rotation is
    * accumulated for the outer warp slot alone.
    */
@@ -1082,14 +1088,14 @@ private:
   /**
    * @brief Generator the palette cycler calls for each palette in the cycle.
    * @details Advances the hue on every palette after the first, so the opening
-   * palette is the one the look's authored hue names.
-   * @param context The Composed instance, as registered with the cycler.
+   * palette is the one the effect's authored hue names.
+   * @param context The ComposedEffect instance, as registered with the cycler.
    * @param sequence Zero-based index of the palette being generated.
    * @param out Receives the recipe to bake.
    */
   static void next_palette(void *context, uint32_t sequence,
                            GenerativePalette &out) {
-    Composed &effect = *static_cast<Composed *>(context);
+    ComposedEffect &effect = *static_cast<ComposedEffect *>(context);
     if (sequence > 0)
       effect.palette_hue += 159;
     out = GenerativePalette{PaletteRecipes::profile(
@@ -1138,6 +1144,4 @@ private:
   PaletteCycler palette_cycler;
 };
 
-} // namespace Pullback::Looks
-
-namespace Looks = Pullback::Looks;
+} // namespace Pullback

@@ -8,23 +8,22 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using ContourLatticeParams =
-    Looks::Params<Looks::LatticeSourceParams, Looks::AffineParams,
-                  Looks::NoWarpParams, Looks::NoLensParams,
-                  Looks::IsoValueParams>;
-using ContourLatticeSpec =
-    Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED,
-                Pullback::Lens::Identity, Looks::TransferKind::ISO_CONTOUR,
-                Looks::CoverageKind::PROJECTION>;
+    Pullback::Params<Pullback::LatticeSourceParams, Pullback::AffineParams,
+                     Pullback::NoWarpParams, Pullback::NoLensParams,
+                     Pullback::IsoValueParams>;
+using ContourLatticeSpec = Pullback::Spec<
+    Pullback::ProjectionKind::GNOMONIC_FOLDED, Pullback::Lens::Identity,
+    Pullback::TransferKind::ISO_CONTOUR, Pullback::CoverageKind::PROJECTION>;
 
 template <int W, int H>
 class ContourLattice
-    : public Looks::Composed<W, H, ContourLattice<W, H>, ContourLatticeParams,
-                             ContourLatticeSpec, PaletteHarmony::TRIADIC,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+    : public Pullback::ComposedEffect<
+          W, H, ContourLattice<W, H>, ContourLatticeParams, ContourLatticeSpec,
+          PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
+          Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = ContourLatticeParams;

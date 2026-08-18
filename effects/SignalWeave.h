@@ -8,22 +8,22 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using SignalWeaveParams =
-    Looks::Params<Looks::GridSourceParams, Looks::WaveShearParams,
-                  Looks::NoWarpParams>;
+    Pullback::Params<Pullback::GridSourceParams, Pullback::WaveShearParams,
+                     Pullback::NoWarpParams>;
 using SignalWeaveSpec =
-    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC, Pullback::Lens::Glitch,
-                Looks::TransferKind::LINEAR,
-                Looks::CoverageKind::PROJECTION_SQUARED>;
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
+                   Pullback::Lens::Glitch, Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class SignalWeave
-    : public Looks::Composed<W, H, SignalWeave<W, H>, SignalWeaveParams,
-                             SignalWeaveSpec, PaletteHarmony::TRIADIC,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+    : public Pullback::ComposedEffect<
+          W, H, SignalWeave<W, H>, SignalWeaveParams, SignalWeaveSpec,
+          PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
+          Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = SignalWeaveParams;
@@ -49,7 +49,7 @@ public:
   }
 
 public:
-  HS_COLD_MEMBER void after_fixed_init() {
+  HS_COLD_MEMBER void after_composed_init() {
     this->hold_initial_preset(INITIAL_PRESET_DWELL_FRAMES);
   }
 
