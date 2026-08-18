@@ -241,10 +241,10 @@ struct PreparedVectorNoiseSlot {
 /**
  * @brief Resolves one warp slot's per-frame rotation and transform.
  * @details One overload per parameter family, each returning the slot type its
- * warp policy reads. Only the affine family rotates with the frame, so only
- * its overload takes an accumulated rotation.
+ * warp policy reads. Every overload takes the slot's parameters and its phase
+ * clock; only the affine family rotates with the frame, so only its overload
+ * takes an accumulated rotation.
  * @param warp The slot's parameters.
- * @param phase The slot's phase clock.
  */
 HS_FLASH_INLINE inline PreparedRotation prepare(const WaveShearParams &warp,
                                                 float) {
@@ -274,6 +274,8 @@ prepare(const VectorNoiseParams &warp, float phase) {
 /**
  * @brief Affine overload; translation is scaled from lattice cells to plane
  *        units by @p lattice_period.
+ * @param warp The slot's parameters.
+ * @param phase The slot's phase clock.
  * @param frame_rotation Accumulated frame rotation for the slot.
  * @param lattice_period Plane units per lattice cell.
  */
