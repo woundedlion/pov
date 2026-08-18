@@ -34,8 +34,9 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "737a1a093bf2afc99ac0af0f62b9007a497bf3977e0a4afab1734215b97385ad";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "4f361c93eb9316692efd4ee444a62183184dd5e12111698c1a2aa1122f934b68";
-  static constexpr std::array<std::string_view, 1> PRESET_IDS{"prism-spiral"};
+      "a7a22e27848677280f19e97aeb802ff4abad81bba3801a8d8cdb67720439a6ca";
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"prism-spiral",
+                                                              "prism-spiral-2"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
@@ -56,7 +57,14 @@ public:
     value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
     return value;
   }
-  static constexpr Params preset_params(size_t) { return initial_params(); }
+  static constexpr Params preset_params(size_t index) {
+    Params value = initial_params();
+    if (index == 1) {
+      value.surface.scale = 3.6627343f;
+      value.color.mapping_frequency = 1.2f;
+    }
+    return value;
+  }
 };
 
 #include "core/engine/effect_registry.h"

@@ -408,9 +408,50 @@
           "value-opacity-high": 1,
           "hue-shift-amount": -2.216
         }
+      },
+      {
+        "preset_id": "prism-spiral-2",
+        "display_name": "Prism Spiral 2",
+        "values": {
+          "pattern-freq": 5.5327,
+          "speed": 0.125,
+          "source-angle-speed": 0.03,
+          "pole-fade": 1.627,
+          "projection-spin-speed": 0,
+          "projection-wander": 1,
+          "camera-wander": 1,
+          "surface-noise-scale": 3.6627343,
+          "surface-noise-strength": 0.4185,
+          "surface-noise-speed": 0,
+          "surface-noise-direction": 0,
+          "palette-chroma": 0.78,
+          "palette-mapping": "cup",
+          "mapping-frequency": 1.2,
+          "mapping-phase": 0,
+          "phase-oscillation-depth": 0,
+          "phase-oscillation-speed": 0,
+          "value-opacity-low": 1,
+          "value-opacity-high": 1,
+          "hue-shift-amount": -2.216
+        }
       }
     ],
-    "edges": [],
+    "edges": [
+      {
+        "from": "prism-spiral",
+        "to": "prism-spiral-2",
+        "path_policy": "parallel",
+        "easing": "EASE_IN_OUT_SIN",
+        "duration": 480
+      },
+      {
+        "from": "prism-spiral-2",
+        "to": "prism-spiral",
+        "path_policy": "parallel",
+        "easing": "EASE_IN_OUT_SIN",
+        "duration": 480
+      }
+    ],
     "absent_edge_fallback": {
       "manual": "SNAP",
       "automatic": "REJECT",
@@ -419,8 +460,8 @@
       "authoring": "SNAP"
     },
     "choreography": {
-      "generated_order": ["prism-spiral"],
-      "dwell": { "prism-spiral": 600 }
+      "generated_order": ["prism-spiral", "prism-spiral-2"],
+      "dwell": { "prism-spiral": 600, "prism-spiral-2": 600 }
     }
   },
   "effect_metadata": {

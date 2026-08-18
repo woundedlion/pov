@@ -2574,7 +2574,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `contour-lattice` | `ContourLattice` | 1 | 6 |
 | `curl-lattice` | `CurlLattice` | 2 | 7–8 |
 | `prism-lattice` | `PrismLattice` | 1 | 9 |
-| `prism-spiral` | `PrismSpiral` | 1 | — |
+| `prism-spiral` | `PrismSpiral` | 2 | — |
 | `vector-facets` | `VectorFacets` | 1 | 10 |
 | `facet-grid` | `FacetGrid` | 4 | 11, 13–14, plus `stretched-grid` |
 | `hex-wave` | `HexWave` | 1 | 12 |
