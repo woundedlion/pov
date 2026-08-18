@@ -18,7 +18,7 @@ struct FacetGridWhiteBox;
 
 /**
  * @brief Mirrored grids folded through a dodecahedral stereographic lens.
- * @details Supplies the render pipeline and preset bank; Looks::Runtime
+ * @details Supplies the render pipeline and preset bank; Looks::Composed
  * supplies parameter registration, preset choreography and the palette,
  * camera-walk and noise clocks. The kaleidoscopic fold lives in the surface
  * lens, so the surface itself is an identity and the mirror tiling happens in
