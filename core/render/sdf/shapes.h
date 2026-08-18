@@ -8,7 +8,6 @@
 #include <cmath>
 #include "math/geometry.h"
 #include "platform/constants.h"
-#include "engine/util.h"
 #include "render/sdf/common.h"
 
 /**

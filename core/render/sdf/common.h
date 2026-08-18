@@ -12,7 +12,6 @@
 #include "platform/constants.h"
 #include "engine/memory.h"
 #include "engine/static_circular_buffer.h"
-#include "engine/util.h"
 
 /**
  * @file common.h

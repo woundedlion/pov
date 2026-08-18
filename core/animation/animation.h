@@ -38,7 +38,6 @@
 #include "mesh/mesh_state.h"
 #include "engine/static_circular_buffer.h"
 #include "math/rotate.h"
-#include "engine/util.h" // wrap_t
 #include "math/easing.h"
 
 /**

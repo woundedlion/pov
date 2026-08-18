@@ -7,7 +7,6 @@
 #include <cmath>
 #include "render/filter/pipeline.h"
 #include "math/geometry.h"
-#include "engine/util.h"
 
 /**
  * @file splat.h

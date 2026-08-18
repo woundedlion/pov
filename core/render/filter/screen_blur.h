@@ -8,7 +8,7 @@
 #include <cmath>
 #include "render/filter/pipeline.h"
 #include "color/color.h"
-#include "engine/util.h"
+#include "math/geometry.h"
 
 /**
  * @file screen_blur.h

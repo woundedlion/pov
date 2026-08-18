@@ -15,7 +15,6 @@
 #include <cmath>
 #include <utility>
 
-#include "engine/util.h"
 #include "math/geometry.h"
 
 namespace hs {
