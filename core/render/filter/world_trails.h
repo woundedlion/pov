@@ -90,7 +90,7 @@ public:
    * once at the caller's color/alpha, once at the trailFn's.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     pass(v, color, age, alpha);
 

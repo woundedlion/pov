@@ -27,9 +27,10 @@
  */
 
 /** @brief Callback that forwards a 2D plot (x, y, pixel, age, alpha) downstream. */
-using PassFn2D = FunctionRef<void(float, float, const Pixel &, float, float)>;
+using PassFn2D = FunctionRef<void(float, float, const ::Pixel &, float, float)>;
 /** @brief Callback that forwards a 3D plot (vector, pixel, age, alpha) downstream. */
-using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
+using PassFn3D =
+    FunctionRef<void(const Vector &, const ::Pixel &, float, float)>;
 
 /**
  * @brief Trait base every filter stage derives from, tagging its domain and
@@ -209,7 +210,7 @@ template <int W, int H> struct Pipeline<W, H> {
    * @param alpha Blend alpha in [0, 1].
    * @details The unnamed float parameter is the unused age channel.
    */
-  void plot(Canvas &cv, int x, int y, const Pixel &c, float, float alpha) {
+  void plot(Canvas &cv, int x, int y, const ::Pixel &c, float, float alpha) {
     // Producer must keep x in [-W, 2W); fast_wrap corrects only a single ±W offset.
     assert(x >= -W && x < 2 * W);
     if (!cv.clip().contains_y(y))
@@ -221,12 +222,12 @@ template <int W, int H> struct Pipeline<W, H> {
   }
 
   /** @brief Writes a sample whose integer coordinates are already clip-tested. */
-  void plot_in_bounds(Canvas &cv, int x, int y, const Pixel &c, float,
+  void plot_in_bounds(Canvas &cv, int x, int y, const ::Pixel &c, float,
                       float alpha) {
     HS_PROFILE(filter_blend);
     assert(x >= 0 && x < W && cv.clip().contains_x(x));
     assert(cv.clip().contains_y(y));
-    Pixel &dst = cv(x, y);
+    ::Pixel &dst = cv(x, y);
     if (alpha >= 1.0f) {
       dst = c;
       return;
@@ -243,7 +244,8 @@ template <int W, int H> struct Pipeline<W, H> {
    * @param alpha Blend alpha in [0, 1].
    * @details The unnamed float parameter is the unused age channel.
    */
-  void plot(Canvas &cv, float x, float y, const Pixel &c, float, float alpha) {
+  void plot(Canvas &cv, float x, float y, const ::Pixel &c, float,
+            float alpha) {
     // Non-finite coords make the int casts below UB and bypass the wrap.
     assert(std::isfinite(x) && std::isfinite(y));
     // y never wraps; bounded only so the cast below stays in range.
@@ -269,7 +271,7 @@ template <int W, int H> struct Pipeline<W, H> {
    * @param age Temporal age channel (frames).
    * @param alpha Blend alpha in [0, 1].
    */
-  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
+  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
             float alpha) {
     auto p = vector_to_pixel<W, H>(v);
     plot(cv, p.x, p.y, c, age, alpha);
@@ -462,12 +464,12 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    * @details If Head is 2D it processes directly; otherwise the point is lifted
    * to a world vector and dispatched to the 3D path.
    */
-  void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
+  void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
             float alpha) {
     if constexpr (Head::is_2d) {
       Head::plot(
           x, y, c, age, alpha,
-          [&](float nx, float ny, const Pixel &nc, float nage, float nalpha) {
+          [&](float nx, float ny, const ::Pixel &nc, float nage, float nalpha) {
             next.plot(cv, nx, ny, nc, nage, nalpha);
           });
     } else {
@@ -488,7 +490,8 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    * a filtered pipeline promotes to float so the int sample takes the same path
    * as every filter stage. Both agree for in-range ints.
    */
-  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
+  void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
+            float alpha) {
     plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
   }
 
@@ -502,11 +505,11 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    * @details If Head is 3D it processes directly; otherwise the point is
    * projected to screen space and dispatched to the 2D path.
    */
-  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
+  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
             float alpha) {
     if constexpr (!Head::is_2d) {
       Head::plot(v, c, age, alpha,
-                 [&](const Vector &nv, const Pixel &nc, float nage,
+                 [&](const Vector &nv, const ::Pixel &nc, float nage,
                      float nalpha) { next.plot(cv, nv, nc, nage, nalpha); });
     } else {
       auto p = vector_to_pixel<W, H>(v);

@@ -56,7 +56,7 @@ public:
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     for (int i = 0; i < N; ++i) {
       pass(rotate(v, rotations[i]), color, age, alpha);

@@ -66,7 +66,7 @@ public:
    * compaction leaves that point's age arbitrary.
    */
   template <typename PassFnT>
-  void plot(float x, float y, const Pixel &color, float age, float alpha,
+  void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     pass(x, y, color, age, alpha);
 

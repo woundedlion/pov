@@ -73,7 +73,7 @@ public:
   }
 
   /** @brief Splats one screen-space sample directly into the Canvas. */
-  void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
+  void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
             float alpha) {
     assert(age >= 0.0f && alpha >= 0.0f);
     assert(prepared_for(cv));
@@ -117,12 +117,13 @@ public:
   }
 
   /** @brief Integer-coordinate overload matching a filtered Pipeline. */
-  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
+  void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
+            float alpha) {
     plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
   }
 
   /** @brief Projects a world point, then applies the direct screen-space splat. */
-  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
+  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
             float alpha) {
     HS_MSP_STALL_START(projection_start);
     const PixelCoords p = vector_to_pixel<W, H>(v);
@@ -164,7 +165,7 @@ public:
   }
 
 private:
-  Pixel *base = nullptr;
+  ::Pixel *base = nullptr;
   ClipRegion clip_stamp{};
   // Zero-init: a plot() before prepare() is a masked no-op, not a read of
   // indeterminate bytes through a null base.
@@ -178,7 +179,7 @@ private:
   }
 
   static __attribute__((always_inline)) void
-  blend_four(Pixel *row0, Pixel *row1, int x0, int x1, const Pixel &src,
+  blend_four(::Pixel *row0, ::Pixel *row1, int x0, int x1, const ::Pixel &src,
              float alpha, float v00, float v10, float v01, float v11) {
     const uint16_t a00 = tap_alpha_q16(alpha, v00);
     const uint16_t a10 = tap_alpha_q16(alpha, v10);
@@ -190,11 +191,11 @@ private:
     blend_tap(row1 + x1, src, a11);
   }
 
-  HS_NOINLINE_NOCLONE static void blend_masked(Pixel *base, int x0, int x1,
-                                               int y0, int y1, const Pixel &src,
-                                               float alpha, float v00,
-                                               float v10, float v01, float v11,
-                                               uint8_t tap_mask) {
+  HS_NOINLINE_NOCLONE static void blend_masked(::Pixel *base, int x0, int x1,
+                                               int y0, int y1,
+                                               const ::Pixel &src, float alpha,
+                                               float v00, float v10, float v01,
+                                               float v11, uint8_t tap_mask) {
     if (tap_mask & 0x01)
       blend_tap(base + y0 * W + x0, src, tap_alpha_q16(alpha, v00));
     if (tap_mask & 0x02)
@@ -206,7 +207,7 @@ private:
   }
 
   static __attribute__((always_inline)) void
-  blend_tap(Pixel *dst, const Pixel &src, uint16_t alpha_q16) {
+  blend_tap(::Pixel *dst, const ::Pixel &src, uint16_t alpha_q16) {
     *dst = dst->lerp16(src, alpha_q16);
   }
 };

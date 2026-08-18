@@ -47,7 +47,7 @@ public:
    * @details Passes through untouched when disabled or the orientation list is empty.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const Pixel &color, float age, float alpha,
+  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     if (!enabled) {
       pass(v, color, age, alpha);

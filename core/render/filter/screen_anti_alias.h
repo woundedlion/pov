@@ -39,7 +39,7 @@ public:
    * in the family inlines its taps.
    */
   template <typename PassFnT>
-  void plot(float x, float y, const Pixel &c, float age, float alpha,
+  void plot(float x, float y, const ::Pixel &c, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
     const SplatTaps t = splat_taps<W, H>(x, y);
