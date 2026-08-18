@@ -16,7 +16,6 @@
 #include "core/color/color.h"
 #include "core/color/palettes.h" // HS_PROCEDURAL_PALETTE_LIST — named-palette export
 #include "core/engine/platform.h"
-#include "core/engine/transformers.h"
 #include "core/math/3dmath.h"
 #include "core/math/geometry.h"
 #include "core/math/stereographic.h"
@@ -150,7 +149,7 @@ static void bind_math_exports() {
              return vector_to_xyz(lissajous(m1, m2, a, t));
            }));
 
-  // Mobius sphere map (mobius_transforms.js coefficients), via transformers.h.
+  // Mobius sphere map (mobius_transforms.js coefficients), via stereographic.h.
   // The eight coefficient floats are taken in the order mobiusCodeString emits
   // them, so the tool's MobiusParams initializer ordering is pinned too.
   function(

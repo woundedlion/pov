@@ -18,7 +18,7 @@
 
 #include "core/vendor/FastNoiseLite.h"
 #include "core/animation/animation.h"
-#include "core/engine/transformers.h"
+#include "core/animation/transformer.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
