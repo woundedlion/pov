@@ -8,27 +8,26 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
+
+using EquatorGridParams =
+    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::NoWarpParams,
+                      FixedLook::MirrorParams>;
+using EquatorGridSpec =
+    FixedLook::LookSpec<FixedLook::LookProjection::EQUIRECTANGULAR,
+                        Pullback::Lens::DodecahedralKaleidoscope,
+                        FixedLook::LookTransfer::LINEAR,
+                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class EquatorGrid
-    : public FixedLook::Runtime<
-          W, H, EquatorGrid<W, H>,
-          FixedLook::Params<FixedLook::GridSourceParams,
-                            FixedLook::NoWarpParams, FixedLook::MirrorParams>,
-          PaletteHarmony::ANALOGOUS, FixedLook::HueMode::NOISE,
-          Pullback::Color::BrightnessEnvelope::NONE> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::GridSourceParams, FixedLook::NoWarpParams,
-                        FixedLook::MirrorParams>;
-  using Base =
-      FixedLook::Runtime<W, H, EquatorGrid<W, H>, ParamsT,
-                         PaletteHarmony::ANALOGOUS, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::NONE>;
+    : public FixedLook::Look<W, H, EquatorGrid<W, H>, EquatorGridParams,
+                             EquatorGridSpec, PaletteHarmony::ANALOGOUS,
+                             FixedLook::HueMode::NOISE,
+                             Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = EquatorGridParams;
   static constexpr std::string_view EFFECT_ID = "equator-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "d7422bfa1888ee66d90b8421cf02041cc32f72ca7cfd65a0e2ef5083d246cd03";
@@ -40,36 +39,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool USES_CENTRAL_MERIDIAN = true;
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceStage = Pullback::Stage::SurfaceProject<
-      Binding, Pullback::Surface::Identity,
-      Pullback::Lens::DodecahedralKaleidoscope, Pullback::Surface::Identity,
-      Pullback::Projection::Equirectangular<
-          FixedLook::ProjectionProvider<Binding>>>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding, Pullback::Warp::Identity,
-      Pullback::Warp::MirrorTile<FixedLook::WarpProvider<Binding, false>>>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding, Pullback::Source::Grid<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage =
-      Pullback::Stage::Material<Binding, Pullback::Weight::Projection,
-                                Pullback::Transfer::Linear,
-                                Pullback::Coverage::ProjectionSquared>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::NONE>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-  static HS_FLASH_INLINE Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
-  }
+
   static constexpr Params initial_params() {
     Params value;
     value.source = {3.9407f, 0.0f, 3.0f, 1.0f, 0.8f, 0.0269999988f};

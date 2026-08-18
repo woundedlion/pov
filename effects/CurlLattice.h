@@ -8,7 +8,7 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
 
 namespace hs_test {
 namespace curl_lattice_tests {
@@ -26,30 +26,25 @@ struct CurlLatticeWhiteBox;
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
+using CurlLatticeParams =
+    FixedLook::Params<FixedLook::LatticeSourceParams, FixedLook::NoWarpParams,
+                      FixedLook::NoWarpParams, FixedLook::NoLensParams,
+                      FixedLook::LinearValueParams,
+                      FixedLook::SurfaceNoiseParams>;
+using CurlLatticeSpec = FixedLook::LookSpec<
+    FixedLook::LookProjection::FOLDED_SINUSOIDAL, Pullback::Lens::Identity,
+    FixedLook::LookTransfer::LINEAR, FixedLook::LookCoverage::PROJECTION>;
+
 template <int W, int H>
 class CurlLattice
-    : public FixedLook::Runtime<
-          W, H, CurlLattice<W, H>,
-          FixedLook::Params<
-              FixedLook::LatticeSourceParams, FixedLook::NoWarpParams,
-              FixedLook::NoWarpParams, FixedLook::NoLensParams,
-              FixedLook::LinearValueParams, FixedLook::SurfaceNoiseParams>,
-          PaletteHarmony::TRIADIC, FixedLook::HueMode::NOISE,
-          Pullback::Color::BrightnessEnvelope::CUP> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::LatticeSourceParams, FixedLook::NoWarpParams,
-                        FixedLook::NoWarpParams, FixedLook::NoLensParams,
-                        FixedLook::LinearValueParams,
-                        FixedLook::SurfaceNoiseParams>;
-  using Base =
-      FixedLook::Runtime<W, H, CurlLattice<W, H>, ParamsT,
-                         PaletteHarmony::TRIADIC, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::CUP>;
+    : public FixedLook::Look<W, H, CurlLattice<W, H>, CurlLatticeParams,
+                             CurlLatticeSpec, PaletteHarmony::TRIADIC,
+                             FixedLook::HueMode::NOISE,
+                             Pullback::Color::BrightnessEnvelope::CUP> {
   friend struct ::hs_test::curl_lattice_tests::CurlLatticeWhiteBox;
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = CurlLatticeParams;
   /// Registry identity, stable across class renames.
   static constexpr std::string_view EFFECT_ID = "curl-lattice";
   /// SHA-256 of the canonicalized descriptor of
@@ -70,51 +65,6 @@ public:
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool USES_CENTRAL_MERIDIAN = true;
   static constexpr int32_t SURFACE_NOISE_SEED = 1337;
-
-  /// Pullback stages, ordered from the view vector back to the source field.
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceImplementation = Pullback::Stage::SurfaceProject<
-      Binding,
-      Pullback::Surface::CurlNoise<FixedLook::SurfaceProvider<Binding>,
-                                   NoiseBasis::SIMPLEX,
-                                   Pullback::Surface::Euler>,
-      Pullback::Lens::Identity, Pullback::Surface::Identity,
-      Pullback::Projection::FoldedSinusoidal<
-          FixedLook::ProjectionProvider<Binding>>>;
-  using SurfaceStage =
-      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
-                              SurfaceImplementation>;
-  using PlanarWarpStage =
-      Pullback::Stage::PlanarWarp<Binding, Pullback::Warp::Identity,
-                                  Pullback::Warp::Identity>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding,
-      Pullback::Source::PrimitiveLattice<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage =
-      Pullback::Stage::Material<Binding, Pullback::Weight::Projection,
-                                Pullback::Transfer::Linear,
-                                Pullback::Coverage::Projection>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::CUP>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-
-  /**
-   * @brief Shades one pixel through the fully inlined pipeline.
-   * @param view Unit view direction for the pixel.
-   * @param frame Per-frame transforms, params and LUTs from the runtime.
-   */
-  static HS_FLASH_INLINE Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
-  }
 
   /// Params the effect starts on, and the base every preset varies from.
   static constexpr Params initial_params() {

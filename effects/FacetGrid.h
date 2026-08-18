@@ -8,7 +8,7 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
 
 namespace hs_test {
 namespace facet_grid_tests {
@@ -26,26 +26,25 @@ struct FacetGridWhiteBox;
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
+using FacetGridParams =
+    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::NoWarpParams,
+                      FixedLook::MirrorParams>;
+using FacetGridSpec =
+    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
+                        Pullback::Lens::DodecahedralKaleidoscope,
+                        FixedLook::LookTransfer::LINEAR,
+                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+
 template <int W, int H>
 class FacetGrid
-    : public FixedLook::Runtime<
-          W, H, FacetGrid<W, H>,
-          FixedLook::Params<FixedLook::GridSourceParams,
-                            FixedLook::NoWarpParams, FixedLook::MirrorParams>,
-          PaletteHarmony::ANALOGOUS, FixedLook::HueMode::NOISE,
-          Pullback::Color::BrightnessEnvelope::NONE> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::GridSourceParams, FixedLook::NoWarpParams,
-                        FixedLook::MirrorParams>;
-  using Base =
-      FixedLook::Runtime<W, H, FacetGrid<W, H>, ParamsT,
-                         PaletteHarmony::ANALOGOUS, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::NONE>;
+    : public FixedLook::Look<W, H, FacetGrid<W, H>, FacetGridParams,
+                             FacetGridSpec, PaletteHarmony::ANALOGOUS,
+                             FixedLook::HueMode::NOISE,
+                             Pullback::Color::BrightnessEnvelope::NONE> {
   friend struct ::hs_test::facet_grid_tests::FacetGridWhiteBox;
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = FacetGridParams;
   /// Registry identity, stable across class renames.
   static constexpr std::string_view EFFECT_ID = "facet-grid";
   /// SHA-256 of the canonicalized descriptor of
@@ -64,44 +63,6 @@ public:
   /// Frames a preset holds before the runtime begins the next transition.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
-
-  /// Pullback stages, ordered from the view vector back to the source field.
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceStage = Pullback::Stage::SurfaceProject<
-      Binding, Pullback::Surface::Identity,
-      Pullback::Lens::DodecahedralKaleidoscope, Pullback::Surface::Identity,
-      Pullback::Projection::Stereographic<
-          FixedLook::ProjectionProvider<Binding>>>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding, Pullback::Warp::Identity,
-      Pullback::Warp::MirrorTile<FixedLook::WarpProvider<Binding, false>>>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding, Pullback::Source::Grid<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage =
-      Pullback::Stage::Material<Binding, Pullback::Weight::Projection,
-                                Pullback::Transfer::Linear,
-                                Pullback::Coverage::ProjectionSquared>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::NONE>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-
-  /**
-   * @brief Shades one pixel through the fully inlined pipeline.
-   * @param view Unit view direction for the pixel.
-   * @param frame Per-frame transforms, params and LUTs from the runtime.
-   */
-  static HS_FLASH_INLINE Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
-  }
 
   /// Params the effect starts on, and the base every preset varies from.
   static constexpr Params initial_params() {

@@ -8,27 +8,26 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
+
+using VectorFacetsParams =
+    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::VectorNoiseParams,
+                      FixedLook::MirrorParams>;
+using VectorFacetsSpec =
+    FixedLook::LookSpec<FixedLook::LookProjection::GNOMONIC_FOLDED,
+                        Pullback::Lens::DodecahedralKaleidoscope,
+                        FixedLook::LookTransfer::LINEAR,
+                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
 
 template <int W, int H>
-class VectorFacets : public FixedLook::Runtime<
-                         W, H, VectorFacets<W, H>,
-                         FixedLook::Params<FixedLook::GridSourceParams,
-                                           FixedLook::VectorNoiseParams,
-                                           FixedLook::MirrorParams>,
-                         PaletteHarmony::TRIADIC, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::CUP, true> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::GridSourceParams,
-                        FixedLook::VectorNoiseParams, FixedLook::MirrorParams>;
-  using Base =
-      FixedLook::Runtime<W, H, VectorFacets<W, H>, ParamsT,
-                         PaletteHarmony::TRIADIC, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::CUP, true>;
+class VectorFacets
+    : public FixedLook::Look<W, H, VectorFacets<W, H>, VectorFacetsParams,
+                             VectorFacetsSpec, PaletteHarmony::TRIADIC,
+                             FixedLook::HueMode::NOISE,
+                             Pullback::Color::BrightnessEnvelope::CUP, true> {
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = VectorFacetsParams;
   static constexpr std::string_view EFFECT_ID = "vector-facets";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "97a8dd884898f8397325ee1b8fd3aa10e0cb1ad81a1a601d75f59d9709f1b161";
@@ -39,39 +38,10 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = false;
   static constexpr int32_t OUTER_NOISE_SEED = 1337;
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceStage = Pullback::Stage::SurfaceProject<
-      Binding, Pullback::Surface::Identity,
-      Pullback::Lens::DodecahedralKaleidoscope, Pullback::Surface::Identity,
-      Pullback::Projection::Gnomonic<
-          FixedLook::ProjectionProvider<Binding>,
-          Pullback::Projection::GnomonicHemisphere::FOLDED>>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding,
-      Pullback::Warp::VectorNoise<FixedLook::WarpProvider<Binding, true>,
-                                  NoiseBasis::SIMPLEX,
-                                  Pullback::Warp::FlatEnvelope>,
-      Pullback::Warp::MirrorTile<FixedLook::WarpProvider<Binding, false>>>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding, Pullback::Source::Grid<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage =
-      Pullback::Stage::Material<Binding, Pullback::Weight::Projection,
-                                Pullback::Transfer::Linear,
-                                Pullback::Coverage::ProjectionSquared>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::CUP>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-  static HS_FLASH_MEMBER Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
+
+  static HS_FLASH_MEMBER Color4
+  shade(const Vector &view, const typename VectorFacets::FrameState &frame) {
+    return VectorFacets::RenderPipeline::shade(view, frame);
   }
   static constexpr Params initial_params() {
     Params value;

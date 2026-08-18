@@ -6,7 +6,7 @@
 #pragma once
 
 /**
- * @file FixedLookRuntime.h
+ * @file look.h
  * @brief Shared machinery for the fixed-look effect family: the parameter
  *        families a look composes into a `Params`, the frame-state providers
  *        its pullback pipeline reads, and the `Runtime` base that drives them.
@@ -18,11 +18,11 @@
 #include <span>
 #include <type_traits>
 
-#include "core/color/effect_palette_recipes.h"
-#include "core/engine/engine.h"
-#include "core/engine/fixed_pipeline.h"
-#include "core/math/noise_field.h"
-#include "core/render/pullback.h"
+#include "color/effect_palette_recipes.h"
+#include "engine/engine.h"
+#include "engine/fixed_pipeline.h"
+#include "math/noise_field.h"
+#include "render/pullback.h"
 
 namespace FixedLook {
 
@@ -1068,6 +1068,223 @@ private:
   float palette_chroma = -1.0f;
   uint32_t palette_hue = 0;
   PaletteCycler palette_cycler;
+};
+
+/** @brief Projection a look's surface stage composes. */
+enum class LookProjection : uint8_t {
+  STEREOGRAPHIC,
+  GNOMONIC_FOLDED,
+  EQUIRECTANGULAR,
+  FOLDED_SINUSOIDAL
+};
+
+/** @brief Transfer curve a look's material stage composes. */
+enum class LookTransfer : uint8_t { LINEAR, ISO_CONTOUR };
+
+/** @brief Coverage policy a look's material stage composes. */
+enum class LookCoverage : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
+
+/**
+ * @brief The pipeline choices a look states beyond its parameter families.
+ * @details Everything else about the six stages is derived: the source and
+ * warp policies follow the parameter families, a Mobius lens family selects
+ * the Mobius lens, a surface-noise family selects the curl displacement, and
+ * path tracking follows HueMode::PATH_LENGTH.
+ * @tparam ProjectionV Sphere-to-plane projection.
+ * @tparam LensPolicyT Parameterless lens policy; ignored when the lens family
+ *         carries Mobius coefficients.
+ * @tparam TransferV Material transfer curve.
+ * @tparam CoverageV Material coverage policy.
+ */
+template <LookProjection ProjectionV, typename LensPolicyT,
+          LookTransfer TransferV, LookCoverage CoverageV>
+struct LookSpec {
+  static constexpr LookProjection PROJECTION = ProjectionV;
+  using LensPolicy = LensPolicyT;
+  static constexpr LookTransfer TRANSFER = TransferV;
+  static constexpr LookCoverage COVERAGE = CoverageV;
+};
+
+template <typename Family, typename Binding> struct LookSourcePolicy;
+template <typename B> struct LookSourcePolicy<GridSourceParams, B> {
+  using Type = Pullback::Source::Grid<SourceProvider<B>>;
+};
+template <typename B> struct LookSourcePolicy<TwinWaveSourceParams, B> {
+  using Type = Pullback::Source::TwinWave<SourceProvider<B>>;
+};
+template <typename B> struct LookSourcePolicy<LatticeSourceParams, B> {
+  using Type = Pullback::Source::PrimitiveLattice<SourceProvider<B>>;
+};
+
+template <typename Family, typename Binding, bool Outer, bool TrackPath>
+struct LookWarpPolicy;
+template <typename B, bool O, bool T>
+struct LookWarpPolicy<NoWarpParams, B, O, T> {
+  using Type = Pullback::Warp::Identity;
+};
+template <typename B, bool O, bool T>
+struct LookWarpPolicy<MirrorParams, B, O, T> {
+  using Type = Pullback::Warp::MirrorTile<WarpProvider<B, O, T>>;
+};
+template <typename B, bool O, bool T>
+struct LookWarpPolicy<WaveShearParams, B, O, T> {
+  using Type = Pullback::Warp::WaveShear<WarpProvider<B, O, T>>;
+};
+template <typename B, bool O, bool T>
+struct LookWarpPolicy<VectorNoiseParams, B, O, T> {
+  using Type =
+      Pullback::Warp::VectorNoise<WarpProvider<B, O, T>, NoiseBasis::SIMPLEX,
+                                  Pullback::Warp::FlatEnvelope>;
+};
+template <typename B, bool O, bool T>
+struct LookWarpPolicy<AffineParams, B, O, T> {
+  using Type = Pullback::Warp::AffineFrame<WarpProvider<B, O, T>>;
+};
+template <typename B, bool O, bool T>
+struct LookWarpPolicy<PolarParams, B, O, T> {
+  using Type = Pullback::Warp::PolarChart<WarpProvider<B, O, T>,
+                                          Pullback::Warp::LinearPolar, 1>;
+};
+
+template <LookProjection ProjectionV, typename Binding>
+struct LookProjectionPolicy;
+template <typename B>
+struct LookProjectionPolicy<LookProjection::STEREOGRAPHIC, B> {
+  using Type = Pullback::Projection::Stereographic<ProjectionProvider<B>>;
+};
+template <typename B>
+struct LookProjectionPolicy<LookProjection::GNOMONIC_FOLDED, B> {
+  using Type = Pullback::Projection::Gnomonic<
+      ProjectionProvider<B>, Pullback::Projection::GnomonicHemisphere::FOLDED>;
+};
+template <typename B>
+struct LookProjectionPolicy<LookProjection::EQUIRECTANGULAR, B> {
+  using Type = Pullback::Projection::Equirectangular<ProjectionProvider<B>>;
+};
+template <typename B>
+struct LookProjectionPolicy<LookProjection::FOLDED_SINUSOIDAL, B> {
+  using Type = Pullback::Projection::FoldedSinusoidal<ProjectionProvider<B>>;
+};
+
+template <typename LensFamily, typename SpecLens, typename Binding>
+struct LookLensPolicy {
+  using Type = SpecLens;
+};
+template <typename SpecLens, typename B>
+struct LookLensPolicy<MobiusLensParams, SpecLens, B> {
+  using Type = Pullback::Lens::Mobius<LensProvider<B>>;
+};
+
+template <LookTransfer TransferV, typename Binding> struct LookTransferPolicy;
+template <typename B> struct LookTransferPolicy<LookTransfer::LINEAR, B> {
+  using Type = Pullback::Transfer::Linear;
+};
+template <typename B> struct LookTransferPolicy<LookTransfer::ISO_CONTOUR, B> {
+  using Type = Pullback::Transfer::IsoContour<ValueProvider<B>>;
+};
+
+template <LookCoverage CoverageV, typename Binding> struct LookCoveragePolicy;
+template <typename B> struct LookCoveragePolicy<LookCoverage::PROJECTION, B> {
+  using Type = Pullback::Coverage::Projection;
+};
+template <typename B>
+struct LookCoveragePolicy<LookCoverage::PROJECTION_SQUARED, B> {
+  using Type = Pullback::Coverage::ProjectionSquared;
+};
+template <typename B> struct LookCoveragePolicy<LookCoverage::EDGE_FADE, B> {
+  using Type = Pullback::Coverage::EdgeFade<ValueProvider<B>>;
+};
+
+/**
+ * @brief A complete fixed look: the runtime plus a pipeline derived from the
+ *        parameter families and a LookSpec.
+ * @details The look states its families, its LookSpec and its identity
+ * constants; every stage typedef, the render pipeline and shade() are
+ * assembled here. A look wanting a different shade emission shadows shade()
+ * with the same body under its own attribute. A surface-noise family places
+ * its surface stage out of line in flash.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Derived The effect class deriving from this look.
+ * @tparam ParamsT The look's `FixedLook::Params` specialization.
+ * @tparam SpecT The look's `FixedLook::LookSpec`.
+ * @tparam Harmony Palette harmony the generated palettes are drawn from.
+ * @tparam HueV Hue-rotation source: none, noise field, or path length.
+ * @tparam BrightnessV Brightness envelope applied by the color stage.
+ * @tparam HasOuterNoise Whether the outer-camera stage owns a noise field.
+ * @tparam HasSourceNoise Whether the source stage owns a noise field.
+ */
+template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
+          PaletteHarmony Harmony, HueMode HueV,
+          Pullback::Color::BrightnessEnvelope BrightnessV,
+          bool HasOuterNoise = false, bool HasSourceNoise = false>
+class Look : public Runtime<W, H, Derived, ParamsT, Harmony, HueV, BrightnessV,
+                            HasOuterNoise, HasSourceNoise> {
+  using RuntimeBase = Runtime<W, H, Derived, ParamsT, Harmony, HueV,
+                              BrightnessV, HasOuterNoise, HasSourceNoise>;
+
+public:
+  using Params = ParamsT;
+  using Binding = typename RuntimeBase::PipelineBinding;
+
+private:
+  static constexpr bool TRACK_PATH = HueV == HueMode::PATH_LENGTH;
+  static constexpr bool HAS_SURFACE =
+      !std::is_same_v<typename ParamsT::surface_type, NoSurfaceParams>;
+  using SurfacePolicy =
+      std::conditional_t<HAS_SURFACE,
+                         Pullback::Surface::CurlNoise<SurfaceProvider<Binding>,
+                                                      NoiseBasis::SIMPLEX,
+                                                      Pullback::Surface::Euler>,
+                         Pullback::Surface::Identity>;
+  using SurfaceImplementation = Pullback::Stage::SurfaceProject<
+      Binding, SurfacePolicy,
+      typename LookLensPolicy<typename ParamsT::lens_type,
+                              typename SpecT::LensPolicy, Binding>::Type,
+      Pullback::Surface::Identity,
+      typename LookProjectionPolicy<SpecT::PROJECTION, Binding>::Type>;
+
+public:
+  /// Pullback stages, ordered from the view vector back to the source field.
+  using OuterCameraStage =
+      Pullback::Stage::OuterCamera<Binding, OuterCameraProvider<Binding>>;
+  using SurfaceStage = std::conditional_t<
+      HAS_SURFACE,
+      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+                              SurfaceImplementation>,
+      SurfaceImplementation>;
+  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
+      Binding,
+      typename LookWarpPolicy<typename ParamsT::outer_warp_type, Binding, true,
+                              TRACK_PATH>::Type,
+      typename LookWarpPolicy<typename ParamsT::inner_warp_type, Binding, false,
+                              TRACK_PATH>::Type>;
+  using SourceStage = Pullback::Stage::Source<
+      Binding,
+      typename LookSourcePolicy<typename ParamsT::source_type, Binding>::Type>;
+  using MaterialStage = Pullback::Stage::Material<
+      Binding, Pullback::Weight::Projection,
+      typename LookTransferPolicy<SpecT::TRANSFER, Binding>::Type,
+      typename LookCoveragePolicy<SpecT::COVERAGE, Binding>::Type>;
+  using ColorStage =
+      Pullback::Stage::Color<Binding,
+                             Pullback::Color::GeneratedPalette<
+                                 ColorProvider<Binding, HueV, BrightnessV>>>;
+  using RenderPipeline =
+      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
+                         PlanarWarpStage, SourceStage, MaterialStage,
+                         ColorStage>;
+  using FrameState = typename RenderPipeline::Frame;
+
+  /**
+   * @brief Shades one pixel through the fully inlined pipeline.
+   * @param view Unit view direction for the pixel.
+   * @param frame Per-frame transforms, params and LUTs from the runtime.
+   */
+  static HS_FLASH_INLINE Color4 shade(const Vector &view,
+                                      const FrameState &frame) {
+    return RenderPipeline::shade(view, frame);
+  }
 };
 
 } // namespace FixedLook

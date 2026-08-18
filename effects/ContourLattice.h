@@ -8,29 +8,25 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
+
+using ContourLatticeParams =
+    FixedLook::Params<FixedLook::LatticeSourceParams, FixedLook::AffineParams,
+                      FixedLook::NoWarpParams, FixedLook::NoLensParams,
+                      FixedLook::IsoValueParams>;
+using ContourLatticeSpec = FixedLook::LookSpec<
+    FixedLook::LookProjection::GNOMONIC_FOLDED, Pullback::Lens::Identity,
+    FixedLook::LookTransfer::ISO_CONTOUR, FixedLook::LookCoverage::PROJECTION>;
 
 template <int W, int H>
 class ContourLattice
-    : public FixedLook::Runtime<
-          W, H, ContourLattice<W, H>,
-          FixedLook::Params<FixedLook::LatticeSourceParams,
-                            FixedLook::AffineParams, FixedLook::NoWarpParams,
-                            FixedLook::NoLensParams, FixedLook::IsoValueParams>,
-          PaletteHarmony::TRIADIC, FixedLook::HueMode::NOISE,
-          Pullback::Color::BrightnessEnvelope::NONE> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::LatticeSourceParams, FixedLook::AffineParams,
-                        FixedLook::NoWarpParams, FixedLook::NoLensParams,
-                        FixedLook::IsoValueParams>;
-  using Base =
-      FixedLook::Runtime<W, H, ContourLattice<W, H>, ParamsT,
-                         PaletteHarmony::TRIADIC, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::NONE>;
+    : public FixedLook::Look<W, H, ContourLattice<W, H>, ContourLatticeParams,
+                             ContourLatticeSpec, PaletteHarmony::TRIADIC,
+                             FixedLook::HueMode::NOISE,
+                             Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = ContourLatticeParams;
   static constexpr std::string_view EFFECT_ID = "contour-lattice";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "910ea8323381223713be2b44638140a13b27bb586207360c72a4ec793690a274";
@@ -40,39 +36,7 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceStage = Pullback::Stage::SurfaceProject<
-      Binding, Pullback::Surface::Identity, Pullback::Lens::Identity,
-      Pullback::Surface::Identity,
-      Pullback::Projection::Gnomonic<
-          FixedLook::ProjectionProvider<Binding>,
-          Pullback::Projection::GnomonicHemisphere::FOLDED>>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding,
-      Pullback::Warp::AffineFrame<FixedLook::WarpProvider<Binding, true>>,
-      Pullback::Warp::Identity>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding,
-      Pullback::Source::PrimitiveLattice<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage = Pullback::Stage::Material<
-      Binding, Pullback::Weight::Projection,
-      Pullback::Transfer::IsoContour<FixedLook::ValueProvider<Binding>>,
-      Pullback::Coverage::Projection>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::NONE>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-  static HS_FLASH_INLINE Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
-  }
+
   static constexpr Params initial_params() {
     Params value;
     value.source.lattice_cell_scale = 1.22925f;

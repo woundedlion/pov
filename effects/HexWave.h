@@ -8,27 +8,26 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
+
+using HexWaveParams =
+    FixedLook::Params<FixedLook::TwinWaveSourceParams, FixedLook::NoWarpParams,
+                      FixedLook::MirrorParams>;
+using HexWaveSpec =
+    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
+                        Pullback::Lens::HexagonalPrismKaleidoscope,
+                        FixedLook::LookTransfer::LINEAR,
+                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class HexWave
-    : public FixedLook::Runtime<
-          W, H, HexWave<W, H>,
-          FixedLook::Params<FixedLook::TwinWaveSourceParams,
-                            FixedLook::NoWarpParams, FixedLook::MirrorParams>,
-          PaletteHarmony::ANALOGOUS, FixedLook::HueMode::NOISE,
-          Pullback::Color::BrightnessEnvelope::NONE> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::TwinWaveSourceParams,
-                        FixedLook::NoWarpParams, FixedLook::MirrorParams>;
-  using Base =
-      FixedLook::Runtime<W, H, HexWave<W, H>, ParamsT,
-                         PaletteHarmony::ANALOGOUS, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::NONE>;
+    : public FixedLook::Look<W, H, HexWave<W, H>, HexWaveParams, HexWaveSpec,
+                             PaletteHarmony::ANALOGOUS,
+                             FixedLook::HueMode::NOISE,
+                             Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = HexWaveParams;
   static constexpr std::string_view EFFECT_ID = "hex-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "7c17e826920d96ebe397cd7939bbcc0a31bc431b6ff6545d99472a280ba5cbff";
@@ -38,36 +37,7 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceStage = Pullback::Stage::SurfaceProject<
-      Binding, Pullback::Surface::Identity,
-      Pullback::Lens::HexagonalPrismKaleidoscope, Pullback::Surface::Identity,
-      Pullback::Projection::Stereographic<
-          FixedLook::ProjectionProvider<Binding>>>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding, Pullback::Warp::Identity,
-      Pullback::Warp::MirrorTile<FixedLook::WarpProvider<Binding, false>>>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding, Pullback::Source::TwinWave<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage =
-      Pullback::Stage::Material<Binding, Pullback::Weight::Projection,
-                                Pullback::Transfer::Linear,
-                                Pullback::Coverage::ProjectionSquared>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::NONE>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-  static HS_FLASH_INLINE Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
-  }
+
   static constexpr Params initial_params() {
     Params value;
     value.source = {3.881f, 0.128598228f, 0.8f, 0.027f};
