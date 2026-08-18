@@ -10,7 +10,7 @@
  *        fixed-capacity ParamList an Effect owns.
  */
 
-#include "engine/build_features.h"
+#include "platform/build_features.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

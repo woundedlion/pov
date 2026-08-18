@@ -10,7 +10,7 @@
  * hardware/pov_single.h and is included directly by target .ino files.
  */
 #pragma once
-#include "engine/platform.h"
+#include "platform/platform.h"
 
 // USE_DMA_LEDS selects the DMA-based HD107S controller instead of the FastLED
 // WS2801 path. Requires Teensy 4.x and is left undefined for WASM/sim and

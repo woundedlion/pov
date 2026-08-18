@@ -14,7 +14,7 @@
  * that generator's lattice math (CI: reaction-graph-provenance).
  */
 
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include "math/3dmath.h"
 #include "engine/memory.h"
 #include <cassert>

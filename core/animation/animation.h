@@ -29,7 +29,7 @@
 #include <type_traits>
 #include "math/3dmath.h"
 #include "math/stereographic.h"
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include "vendor/FastNoiseLite.h"
 #include "math/geometry.h"
 #include "engine/concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn

@@ -17,7 +17,7 @@
 // platform.h first: on device it defines NDEBUG, which must be set before
 // <cassert> expands the assert macro — otherwise assert-stripping would depend
 // on a prior TU having pulled in platform.h (see canvas.h's identical note).
-#include "engine/platform.h"
+#include "platform/platform.h"
 
 #include <algorithm>
 #include <array>

@@ -13,7 +13,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include "core/engine/platform.h" // HS_CHECK used in Flywheel's constructor guard
+#include "core/platform/platform.h" // HS_CHECK used in Flywheel's constructor guard
 
 namespace pov {
 namespace sync {

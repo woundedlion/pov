@@ -42,7 +42,7 @@
 #include <atomic>
 #include <cstdint>
 
-#include "core/engine/platform.h" // HS_COLD_MEMBER on the setup-only members
+#include "core/platform/platform.h" // HS_COLD_MEMBER on the setup-only members
 
 // Forward declaration of the unit-test accessor that reaches SyncBoard's
 // mutable views of ISR-owned members.

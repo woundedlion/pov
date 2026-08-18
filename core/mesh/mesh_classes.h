@@ -10,7 +10,7 @@
 
 #include "math/3dmath.h"
 #include "engine/memory.h"
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include "render/sdf.h"
 #include "mesh/mesh_class_types.h"
 #include "mesh/mesh_state.h"

@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/engine/platform.h"
+#include "core/platform/platform.h"
 
 #include <cstddef>
 #include <cstdint>

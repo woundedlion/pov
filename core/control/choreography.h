@@ -14,7 +14,7 @@
 #include <type_traits>
 
 #include "animation/animation.h"
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include "math/easing.h"
 #include "render/canvas.h"
 

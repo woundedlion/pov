@@ -69,7 +69,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [VectorTrail and QuantizedVectorTrail](#vectortrail-and-quantizedvectortrail)
      - [`tween` and `deep_tween`](#tween-and-deep_tween)
      - [Animations and Mutable State](#animations-and-mutable-state)
-   - [7.4 Geometry Transformers](#74-geometry-transformers-transformersh)
+   - [7.4 Geometry Transformers](#74-geometry-transformers-transformerh)
      - [Displacement Fields](#displacement-fields)
      - [Pool Lifecycle](#pool-lifecycle)
      - [Standalone Utilities](#standalone-utilities)
@@ -262,18 +262,21 @@ Both trees are gated against their repository's tracked file list: every row mus
 <!-- docs-check: tree exhaustive -->
 ```
 ├── core/                       Rendering engine
-│   ├── engine/                 Machinery: platform layer, memory, callables, rosters, effect support
+│   ├── platform/               Target abstraction and build-time configuration
 │   │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
-│   │   ├── platform/               Fragments platform.h pulls in (attributes, diagnostics,
-│   │   │                            rng, arduino_mocks)
-│   │   ├── build_features.h         Build-time feature and instrumentation switches
+│   │   ├── attributes.h            Placement and optimization attribute macros
+│   │   ├── diagnostics.h           HS_CHECK trap + hs::log
+│   │   ├── rng.h                   Deterministic random number generation
+│   │   ├── arduino_mocks.h         Host-side FastLED / Arduino mock surface
+│   │   ├── build_features.h        Build-time feature and instrumentation switches
+│   │   └── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
+│   ├── control/                An effect's control surface (registry, params, presets,
+│   │                            choreography, transition)
+│   ├── engine/                 Machinery: memory, callables, rosters, effect support
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
-│   │   ├── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
 │   │   ├── engine.h                Engine API umbrella — included by every effect
 │   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
-│   │   ├── control/                An effect's control surface (registry, params, presets,
-│   │   │                            choreography, transition)
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>
@@ -281,7 +284,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   │   ├── generators.h            Universal generate() wrapper for procedural geometry
 │   │   ├── util.h                  wrap(), fast_wrap(), shortest_distance, apply_if_changed
-│   │   ├── transformers.h          Ripple, Noise, Möbius warp geometry transformers
 │   │   ├── styles.h                Feedback::Style named presets + space/color transform functions
 │   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
 │   ├── math/                   Vector/quaternion math and scalar curves
@@ -360,7 +362,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── timeline.h              TimelineEvent inline storage + the Timeline scheduler
 │   │   ├── opleg.h                 Conway-chain morph legs: OpLeg
 │   │   ├── segue.h                 Mesh-to-mesh transition policies: the Segue library
-│   │   └── carousel.h              Double-buffered mesh slot pair: MeshCarousel
+│   │   ├── carousel.h              Double-buffered mesh slot pair: MeshCarousel
+│   │   └── transformer.h           Ripple, Noise, Möbius warp and displacement-field transformer pools
 │   └── vendor/                 Third-party code
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
@@ -746,7 +749,7 @@ A typical effect frame follows a four-stage pipeline. Not every effect uses ever
 ┌─────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │  Generate   │     │  Transform   │     │  Rasterize   │     │   Filter     │
 │             │ ──▸ │              │ ──▸ │              │ ──▸ │   Pipeline   │
-│ geometry.h  │     │transformers.h│     │ sdf.h/scan.h │     │  filter.h    │
+│ geometry.h  │     │transformer.h │     │ sdf.h/scan.h │     │  filter.h    │
 │ solids.h    │     │              │     │ plot.h       │     │              │
 │ generators.h│     │              │     │              │     │              │
 └─────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
@@ -1278,7 +1281,7 @@ void draw_frame() {
 }
 ```
 
-### 7.4 Geometry Transformers (`transformers.h`)
+### 7.4 Geometry Transformers (`transformer.h`)
 
 Transformers deform the sphere geometry before rendering. The `Transformer<ParamsT, AnimT, TransformFunc, CAPACITY>` class manages a pool of active transform instances, each with its own animated parameters:
 
@@ -1321,7 +1324,7 @@ Both classes derive from `TransformerPool`, which fixes the call order:
 
 #### Standalone Utilities
 
-`OrientTransformer<CAP>` (`transformers.h`) is a plain adapter struct, not a `Transformer<>` specialization: it holds a reference to an `Orientation<CAP>` and applies `orientation.orient()` to each vertex. It has no pool, no params and no lifecycle — effects construct one on the stack at the call site (a deduction guide takes `CAP` from the orientation) and hand it straight to `MeshOps::transform()`.
+`OrientTransformer<CAP>` (`transformer.h`) is a plain adapter struct, not a `Transformer<>` specialization: it holds a reference to an `Orientation<CAP>` and applies `orientation.orient()` to each vertex. It has no pool, no params and no lifecycle — effects construct one on the stack at the call site (a deduction guide takes `CAP` from the orientation) and hand it straight to `MeshOps::transform()`.
 
 ### 7.5 Memory Architecture (`memory.h`, `memory.cpp`)
 

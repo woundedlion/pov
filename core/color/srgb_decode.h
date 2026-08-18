@@ -11,7 +11,7 @@
  */
 
 #include "color/srgb_decode_lut.h"
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include <array>
 #include <cstdint>
 #include <iterator>

@@ -101,7 +101,7 @@ add_executable(run_tests
 # the device/WASM release build, where they would be a per-pixel global store on
 # the hot loop). The Face distance-oracle test reads exact_hits to tell culled
 # samples from evaluated ones, so the suite needs them live. See
-# core/engine/platform.h (HS_SCAN_METRIC) and core/render/sdf.h Face::distance.
+# core/platform/platform.h (HS_SCAN_METRIC) and core/render/sdf.h Face::distance.
 target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS)
 target_link_libraries(run_tests PRIVATE hs_test_support)
 
@@ -497,7 +497,7 @@ add_test(NAME unit_pov_segment_map_golden COMMAND ${CMAKE_COMMAND}
 # separate executable recompiles the same clamp-before-cast assertions under
 # those exact release math flags so the contract is verified against the shipping
 # codegen. It complements (does not replace) the compile-time #error guard in
-# core/engine/platform.h that fails any build where -fno-finite-math-only is lost.
+# core/platform/platform.h that fails any build where -fno-finite-math-only is lost.
 add_executable(fastmath_clamp_check
   ${CMAKE_CURRENT_SOURCE_DIR}/fastmath_clamp_check.cpp
   ${HS_ROOT}/core/engine/memory.cpp
@@ -507,7 +507,7 @@ target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/co
 target_link_libraries(fastmath_clamp_check PRIVATE hs_host_abi)
 # The WASM release math flags (CMakeLists.txt). -fno-finite-math-only MUST follow
 # -ffast-math: it re-enables the NaN/Inf semantics the contract needs. If a future
-# edit drops it, core/engine/platform.h's #error makes this TU fail to compile — exactly
+# edit drops it, core/platform/platform.h's #error makes this TU fail to compile — exactly
 # the regression signal we want.
 target_compile_options(fastmath_clamp_check PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
@@ -576,7 +576,7 @@ set_tests_properties(unit_relax_bake_form PROPERTIES SKIP_RETURN_CODE 77)
 # console. This executable recompiles the same engine with HS_TEST_H_OFFSET=3 so
 # the whole pipeline carries the device offset and the renorm runs against an
 # energy-conservation oracle. It MUST be its own TU: an offset-3 and an offset-0
-# PhiLUT<H>/TrigLUT<W,H> instantiation would clash under ODR (see core/engine/platform.h
+# PhiLUT<H>/TrigLUT<W,H> instantiation would clash under ODR (see core/platform/platform.h
 # and tests/test_h_offset_renorm.h).
 add_executable(h_offset_renorm_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp

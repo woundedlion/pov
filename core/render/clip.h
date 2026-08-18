@@ -4,8 +4,8 @@
  */
 #pragma once
 
-#include "engine/constants.h" // MAX_W/MAX_H
-#include "engine/platform.h"  // HS_AUDIT_CHECK
+#include "platform/constants.h" // MAX_W/MAX_H
+#include "platform/platform.h"  // HS_AUDIT_CHECK
 
 /**
  * @file clip.h

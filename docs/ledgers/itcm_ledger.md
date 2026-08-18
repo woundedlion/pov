@@ -173,7 +173,7 @@ sha with any figure taken from this document.
   HS_EFFECT_COUNT − 3 − HS_ENABLE_SHADER_WORKBENCH`, with `Shader` named in the
   exclusion asserts alongside Dynamo, MobiusRings and Thrusters.
 - No phantasm-headroom decision is attached to the workbench. It is
-  simulator-only by construction: `core/engine/build_features.h` leaves
+  simulator-only by construction: `core/platform/build_features.h` leaves
   `HS_ENABLE_SHADER_WORKBENCH` at 0 outside Emscripten and test-oracle builds and
   `#error`s any Arduino build that forces it on, so no device image can carry it.
   Its fourteen fixed-pipeline products (`HS_SHADER_PRODUCT_GROUP`) are all in

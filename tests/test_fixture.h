@@ -12,7 +12,7 @@
 
 #include "core/animation/animation.h"
 #include "core/engine/memory.h"
-#include "core/engine/platform.h"
+#include "core/platform/platform.h"
 #include "core/render/canvas.h"
 #include "tests/test_harness.h"
 

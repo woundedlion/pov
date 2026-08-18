@@ -13,7 +13,7 @@
 // platform.h first: on device it defines NDEBUG, which must be set before
 // <cassert> expands the assert macro, or assert-stripping depends on a prior TU
 // having pulled in platform.h.
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>

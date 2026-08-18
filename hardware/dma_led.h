@@ -27,7 +27,7 @@
 #include <SPI.h>
 #include <DMAChannel.h>
 #include <atomic>
-#include "core/engine/platform.h" // HS_CHECK used below; explicit, not via color.h
+#include "core/platform/platform.h" // HS_CHECK used below; explicit, not via color.h
 #include "core/color/color.h"
 
 // HD107SFrame (protocol buffer + color correction) lives in its own header so

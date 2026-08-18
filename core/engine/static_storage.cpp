@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include "animation/animation.h"
 #include "render/canvas.h"
 

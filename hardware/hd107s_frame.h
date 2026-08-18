@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "core/engine/platform.h" // HS_O3_FN — used directly below;
+#include "core/platform/platform.h" // HS_O3_FN — used directly below;
 // included explicitly rather than relying on color.h
 // pulling it (this header is independently host-tested)
 #include "core/color/color.h"       // Pixel
