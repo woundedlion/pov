@@ -37,7 +37,6 @@
 #include <limits>
 #include <vector>
 #include "core/animation/animation.h"
-#include "core/engine/presets.h"
 #include "core/render/canvas.h"
 #include "core/math/easing.h"
 #include "core/mesh/mesh.h" // PolyMesh, MeshOps::compile (mesh test fixtures)
@@ -1878,34 +1877,6 @@ inline void test_crossfade_segue_overlap_is_configurable() {
       dur - 2);
 }
 
-/** @brief Verifies Presets exposes the same segue scheduling contract as the
- * mesh carousel. */
-inline void test_preset_segue_schedules_policy() {
-  struct Params {
-    int value;
-  };
-  Presets<Params, 2, Segue::Crossfade> presets{
-      std::array<PresetEntry<Params>, 2>{{{Params{1}}, {Params{2}}}}};
-  presets.segue().overlap = 0;
-
-  Timeline tl;
-  std::vector<float> opacity;
-  const int next_delay = presets.schedule_segue(
-      tl,
-      [&](Canvas &, float phase) {
-        opacity.push_back(presets.segue().opacity(phase));
-      },
-      10, 3);
-
-  HS_EXPECT_EQ(next_delay, 10);
-  for (int i = 0; i < 10; ++i)
-    tl.step(fake_canvas());
-  HS_EXPECT_SIZE_OR_RETURN(opacity, 10);
-  HS_EXPECT_LT(opacity.front(), 1.0f);
-  HS_EXPECT_NEAR(opacity[4], 1.0f, 1e-3f);
-  HS_EXPECT_NEAR(opacity.back(), 0.0f, 1e-3f);
-}
-
 /**
  * @brief Verifies the default (Base) scheduling is sequential: the returned
  * delay equals the full duration, so consecutive sprites never coexist and a
@@ -3668,7 +3639,6 @@ inline int run_animation_tests() {
   test_crossfade_segue_schedules_overlapping_sprite();
   test_crossfade_segue_clamps_fade_to_half_duration();
   test_crossfade_segue_overlap_is_configurable();
-  test_preset_segue_schedules_policy();
   test_sequential_segue_never_overlaps_sprites();
   test_dissolve_segue_masks_partition_keys();
   test_dissolve_segue_reseeds_per_frame_and_transition();

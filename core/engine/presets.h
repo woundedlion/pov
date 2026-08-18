@@ -15,7 +15,6 @@
 #include <span>
 #include <utility>
 
-#include "animation/animation.h"
 #include "engine/platform.h"
 
 /**
@@ -52,16 +51,11 @@ all_presets_in_ranges(const std::array<PresetEntry<Params>, N> &entries,
  * @brief Fixed-size, cyclic selector over a set of Params presets.
  * @tparam Params The preset parameter type held by each entry.
  * @tparam Size The number of entries; must be greater than zero.
- * @tparam SegueT Segue policy (see namespace Segue) behind schedule_segue().
  * @details Tracks the current entry plus the one active before the last move,
  * so callers can crossfade between the outgoing and incoming presets.
  */
-template <typename Params, size_t Size, typename SegueT = Segue::Base>
-class Presets : private SegueT {
+template <typename Params, size_t Size> class Presets {
   static_assert(Size > 0, "Presets requires at least one entry");
-  static_assert(Segue::Schedulable<SegueT>,
-                "a segue's schedule() must take (timeline, draw_fn, duration, "
-                "window, paused)");
 
 public:
   using Entry = PresetEntry<Params>;
@@ -116,28 +110,6 @@ public:
    * @param target Destination params, overwritten with the current entry.
    */
   void apply(Params &target) const { target = get(); }
-
-  /**
-   * @brief Schedules the segue animation for the current preset.
-   * @param timeline Timeline receiving the segue's animation.
-   * @param draw_fn Draws the current preset; the float argument is the segue's
-   * phase (opacity for Segue::Crossfade).
-   * @param duration Total frames the preset is on screen.
-   * @param window Transition window length in frames, segue-interpreted.
-   * @param paused Optional event-level pause gate handed to the scheduled
-   * sprite; null leaves the transition unpausable.
-   * @return Frames after which the caller should advance to the next preset.
-   */
-  int schedule_segue(Timeline &timeline, SpriteFn draw_fn, int duration,
-                     int window, const bool *paused = nullptr) {
-    return segue().schedule(timeline, std::move(draw_fn), duration, window,
-                            paused);
-  }
-
-  /** @brief The preset selector's segue policy instance. */
-  SegueT &segue() { return *this; }
-  /** @brief Const view of the segue policy instance. */
-  const SegueT &segue() const { return *this; }
 
   /**
    * @brief Returns a read-only view over all entries.

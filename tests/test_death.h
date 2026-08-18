@@ -3964,7 +3964,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"ReactionDiffusionBase.h", 2},
     {"RingShower.h", 1},
     {"ShaderBall.h", 16},
-    {"ShapeShifter.h", 3},
+    {"ShapeShifter.h", 2},
     {"dma_led.h", 4},
     {"pov_segmented.h", 9},
     {"pov_single.h", 9},

@@ -337,7 +337,9 @@ struct ShapeShifterWhiteBox {
     return preset_params(index).spacing;
   }
 
-  static void next_preset(OracleEffect &effect) { effect.next_preset(); }
+  static void next_preset(OracleEffect &effect) {
+    HS_CHECK(effect.advancePreset());
+  }
 
   static void step_timeline(OracleEffect &effect, Canvas &canvas) {
     effect.timeline.step(canvas);
@@ -348,7 +350,7 @@ struct ShapeShifterWhiteBox {
   }
 
   static size_t preset_index(const OracleEffect &effect) {
-    return effect.presets.current_index();
+    return effect.getPresetIndex();
   }
 
   static int preset_frames() { return OracleEffect::PRESET_FRAMES; }
