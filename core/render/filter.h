@@ -27,3 +27,4 @@
 #include "render/filter/screen_trails.h"
 #include "render/filter/screen_blur.h"
 #include "render/filter/pixel_chromatic_shift.h"
+#include "render/filter/pixel_feedback.h"
