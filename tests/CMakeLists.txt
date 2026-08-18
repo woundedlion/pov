@@ -272,7 +272,7 @@ set(_hs_test_modules
     effects_smoke effect_factory shaderball curl_lattice facet_grid
     shapeshifter_oracle shapeshifter_tiles dma_core hd107s
     dma_controller
-    pov_segmented pov_single pov_sync param_marshal wasm_predicates util led
+    pov_segmented pov_single pov_sync param_marshal wasm_predicates led
     presets styles shading death)
 # The suite has a real hang mode (a Canvas constructor that spin-waits for a
 # buffer that never frees — see test_effects.h), and CTest's 1500 s default would

@@ -3,7 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/control/presets.h — the Presets<> preset-cycle container
- * (get/next/prev/apply/prev_get, wraparound, and CTAD deduction).
+ * (get/next/prev/apply/prev_get, wraparound, and CTAD deduction) — plus
+ * core/control/params.h's apply_if_changed live-value change gate.
  *
  * Self-contained header. run_presets_tests() returns the module failure count.
  */
@@ -11,6 +12,7 @@
 
 #include <array>
 
+#include "core/control/params.h"
 #include "core/control/presets.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -189,6 +191,42 @@ inline void test_ctad_deduces_size() {
  * @brief Runs all preset-container test cases.
  * @return The module's failure count, as reported by end_module().
  */
+// --- apply_if_changed -------------------------------------------------------
+
+/**
+ * @brief Verifies apply_if_changed invokes the callable only when the value changes.
+ * @details The callable fires only when the incoming value differs from the latched
+ *          `last`, then `last` is updated — the live-slider debounce idiom. The test
+ *          covers no-change (no call), change (one call, latched), and repeat (no call).
+ */
+inline void test_apply_if_changed() {
+  int last = 5;
+  int applied = -1;
+  int call_count = 0;
+
+  apply_if_changed(5, last, [&](int v) {
+    applied = v;
+    ++call_count;
+  });
+  HS_EXPECT_EQ(call_count, 0);
+  HS_EXPECT_EQ(last, 5);
+
+  apply_if_changed(8, last, [&](int v) {
+    applied = v;
+    ++call_count;
+  });
+  HS_EXPECT_EQ(call_count, 1);
+  HS_EXPECT_EQ(applied, 8);
+  HS_EXPECT_EQ(last, 8);
+
+  apply_if_changed(8, last, [&](int v) {
+    applied = v;
+    ++call_count;
+  });
+  HS_EXPECT_EQ(call_count, 1);
+  HS_EXPECT_EQ(last, 8);
+}
+
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 
@@ -200,6 +238,8 @@ inline int run_presets_tests() {
   test_select_jumps_and_rejects_out_of_range();
   test_all_presets_in_ranges_folds_predicate();
   test_ctad_deduces_size();
+
+  test_apply_if_changed();
 
   return fixture.result();
 }
