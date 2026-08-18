@@ -21,7 +21,7 @@ EXCLUDE                = core/vendor/FastNoiseLite.h \
                          core/color/color_luts.h \
                          core/color/gamut_lut.h \
                          core/color/srgb_decode_lut.h \
-                         core/engine/reaction_graph.cpp \
+                         core/spatial/reaction_graph.cpp \
                          core/mesh/relax_bakes_generated.h
 
 EXTRACT_ALL            = YES

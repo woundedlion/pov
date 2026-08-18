@@ -133,7 +133,7 @@ SHARED_LITERALS = {
         r"(^|/)core/vendor/"
         r"|(^|/)core/color/color_luts\.h$"
         r"|(^|/)core/color/gamut_lut\.h$"
-        r"|(^|/)core/engine/reaction_graph\.cpp$"
+        r"|(^|/)core/spatial/reaction_graph\.cpp$"
         r"|(^|/)tests/mindsplatter_replay_corpus\.h$"
     ),
     "format-globs": " ".join(f"'*.{ext}'" for ext in FORMAT_EXTENSIONS),

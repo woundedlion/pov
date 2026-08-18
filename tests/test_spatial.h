@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/mesh/spatial.h (KDTree) and core/mesh/mesh_state.h
+ * Unit tests for core/spatial/kd_tree.h (KDTree) and core/mesh/mesh_state.h
  * (MeshState).
  *
  * Tests deliberately avoid invoking the asserts in dependent types
@@ -15,7 +15,7 @@
 #include <cmath>
 #include <cstdint>
 #include "core/mesh/mesh_state.h"
-#include "core/mesh/spatial.h"
+#include "core/spatial/kd_tree.h"
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

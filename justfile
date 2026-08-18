@@ -70,7 +70,7 @@ lint:
 # tools/build_pins.py --check.
 clang-format:
     {{py}} tools/build_pins.py --check-tool clang-format
-    bash -c "git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' | xargs clang-format --dry-run --Werror --style=file"
+    bash -c "git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' | xargs clang-format --dry-run --Werror --style=file"
 
 # Every tracked C/C++ source carries the header LICENSE grants it, plus the
 # checker's own unit tests -- the ci.yml license-headers job.

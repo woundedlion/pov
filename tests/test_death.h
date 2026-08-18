@@ -68,9 +68,9 @@
 #include "core/mesh/solids.h"
 #include "core/math/spherical_field.h"
 #include "core/math/spherical_harmonics.h"
-#include "core/mesh/spatial.h"
-#include "core/mesh/triangular_bitset.h"
-#include "core/engine/static_circular_buffer.h"
+#include "core/spatial/kd_tree.h"
+#include "core/containers/triangular_bitset.h"
+#include "core/containers/static_circular_buffer.h"
 #include "core/animation/transformer.h"
 #include "hardware/dma_led_controller.h"
 #include "hardware/pov_sync.h"
@@ -3039,7 +3039,7 @@ inline const Case *all_cases(int &n) {
        case_arena_vector_append_bulk_overflow, "memory.h",
        "(count <= element_capacity - element_count) ArenaVector bulk append "
        "exceeds capacity!"},
-      {"spatial_knn_over_max", case_spatial_knn_over_max, "spatial.h",
+      {"spatial_knn_over_max", case_spatial_knn_over_max, "kd_tree.h",
        "(k <= static_cast<size_t>(MAX_K)) KDTree::nearest k exceeds MAX_K"},
       {"arena_oversubscribed", case_arena_oversubscribed, "memory.cpp",
        "(false) "},
@@ -3929,7 +3929,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"recipe.h", 13},
     {"solid_generators.h", 5},
     {"solids.h", 2},
-    {"spatial.h", 5},
+    {"kd_tree.h", 5},
     {"canvas.h", 25},
     {"common.h", 4},
     {"csg.h", 2},

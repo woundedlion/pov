@@ -92,7 +92,7 @@ add_executable(run_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 
 # The host configuration widens inline/arena budgets because 64-bit pointers
 # inflate several objects past their 32-bit device footprints.
@@ -199,7 +199,7 @@ add_executable(mindsplatter_replay_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/tools/mindsplatter_replay_gen.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_compile_definitions(mindsplatter_replay_gen PRIVATE
   HS_PROFILE_MINDSPLATTER_COUNTS)
 target_link_libraries(mindsplatter_replay_gen PRIVATE hs_test_whitebox)
@@ -212,7 +212,7 @@ add_executable(mindsplatter_palette_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/tools/mindsplatter_palette_gen.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_include_directories(mindsplatter_palette_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_link_libraries(mindsplatter_palette_gen PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_gen)
@@ -224,7 +224,7 @@ add_executable(mindsplatter_palette_check
   ${CMAKE_CURRENT_SOURCE_DIR}/mindsplatter_palette_check.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_include_directories(mindsplatter_palette_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_link_libraries(mindsplatter_palette_check PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_check)
@@ -235,7 +235,7 @@ add_executable(mindsplatter_replay
   ${HS_ROOT}/tools/mindsplatter_replay_main.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_link_libraries(mindsplatter_replay PRIVATE hs_test_whitebox)
 target_include_directories(mindsplatter_replay PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(mindsplatter_replay PRIVATE
@@ -400,7 +400,7 @@ add_executable(pullback_capture_native
   ${HS_ROOT}/tools/pullback_capture_native.cpp
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp)
 target_include_directories(pullback_capture_native PRIVATE
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
@@ -502,7 +502,7 @@ add_executable(fastmath_clamp_check
   ${CMAKE_CURRENT_SOURCE_DIR}/fastmath_clamp_check.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_link_libraries(fastmath_clamp_check PRIVATE hs_host_abi)
 # The WASM release math flags (CMakeLists.txt). -fno-finite-math-only MUST follow
@@ -527,7 +527,7 @@ add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_compile_definitions(relax_bake_verify PRIVATE HS_RELAX_BAKE_VERIFY)
 target_link_libraries(relax_bake_verify PRIVATE hs_host_abi)
 # IEEE float semantics whatever the build's global flags are: the committed
@@ -546,7 +546,7 @@ add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
 add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_compile_definitions(relax_bake_gen PRIVATE HS_RELAX_BAKE_EXTRACT)
 target_link_libraries(relax_bake_gen PRIVATE hs_host_abi)
 # Same IEEE pin as the verifier above: the two halves must share float semantics
@@ -582,7 +582,7 @@ add_executable(h_offset_renorm_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_H_OFFSET=3)
 target_link_libraries(h_offset_renorm_check PRIVATE hs_host_abi)
 target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
@@ -619,7 +619,7 @@ add_executable(stack_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/stack_measure.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_compile_definitions(stack_measure PRIVATE
   HS_DEVICE_STACK_FLOOR_BYTES=${HS_DEVICE_STACK_FLOOR_BYTES})
 target_link_libraries(stack_measure PRIVATE hs_host_effect_runtime)
@@ -637,7 +637,7 @@ add_executable(arena_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_link_libraries(arena_measure PRIVATE hs_host_effect_runtime)
 target_include_directories(arena_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
@@ -657,7 +657,7 @@ foreach(_opt Os O3)
     ${CMAKE_CURRENT_SOURCE_DIR}/perf_bench.cpp
     ${HS_ROOT}/core/engine/memory.cpp
     ${HS_ROOT}/core/engine/static_storage.cpp
-    ${HS_ROOT}/core/engine/reaction_graph.cpp)
+    ${HS_ROOT}/core/spatial/reaction_graph.cpp)
   target_link_libraries(perf_bench_${_opt} PRIVATE hs_host_effect_runtime)
   target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
   target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)

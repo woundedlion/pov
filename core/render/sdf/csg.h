@@ -10,7 +10,7 @@
 #include "math/geometry.h"
 #include "platform/constants.h"
 #include "engine/memory.h"
-#include "engine/static_circular_buffer.h"
+#include "containers/static_circular_buffer.h"
 #include "render/sdf/common.h"
 
 /**

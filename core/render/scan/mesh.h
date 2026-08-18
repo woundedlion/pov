@@ -12,7 +12,7 @@
 #include "mesh/mesh_state.h"
 #include "color/color.h"
 #include "render/filter.h"
-#include "engine/static_circular_buffer.h"
+#include "containers/static_circular_buffer.h"
 #include "render/canvas.h"
 #include "platform/platform.h"
 #include "render/scan/raster.h"

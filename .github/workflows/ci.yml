@@ -904,7 +904,7 @@ jobs:
           python-version: '3.12'
 
       - name: Regenerate reaction-graph table and diff the full file
-        # core/engine/reaction_graph.cpp is the 92 KB Fibonacci-lattice K-NN table,
+        # core/spatial/reaction_graph.cpp is the 92 KB Fibonacci-lattice K-NN table,
         # emitted by scripts/generate_reaction_graph.py (pure Python, no deps).
         # Diff the FULL text, like the color_luts and srgb_decode gates: the
         # banner, the array names and the declarations gate alongside the
@@ -915,14 +915,14 @@ jobs:
         # a hand-edit of the table, or a node()-formula change.
         run: |
           python3 scripts/generate_reaction_graph.py > /tmp/reaction_graph.generated.cpp
-          if ! diff -u core/engine/reaction_graph.cpp \
+          if ! diff -u core/spatial/reaction_graph.cpp \
                     /tmp/reaction_graph.generated.cpp > /tmp/reaction_graph.diff; then
             head -40 /tmp/reaction_graph.diff
-            echo "::error::core/engine/reaction_graph.cpp is out of sync with scripts/generate_reaction_graph.py"
-            echo "Regenerate with: python scripts/generate_reaction_graph.py > core/engine/reaction_graph.cpp"
+            echo "::error::core/spatial/reaction_graph.cpp is out of sync with scripts/generate_reaction_graph.py"
+            echo "Regenerate with: python scripts/generate_reaction_graph.py > core/spatial/reaction_graph.cpp"
             exit 1
           fi
-          echo "Regenerated table matches core/engine/reaction_graph.cpp in full."
+          echo "Regenerated table matches core/spatial/reaction_graph.cpp in full."
 
   gamut-lut-provenance:
     name: Generated gamut LUT matches committed file
@@ -1667,7 +1667,7 @@ jobs:
           # tools/build_pins.py --check (SHARED_LITERALS), so the two cannot
           # drift apart silently.
           git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' \
-            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
+            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
             > /tmp/format-all.txt
           grep -vxF -f /tmp/format-baseline.txt /tmp/format-all.txt > /tmp/format-files.txt || true
 

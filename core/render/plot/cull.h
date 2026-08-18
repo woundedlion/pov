@@ -19,7 +19,7 @@
 #include "render/canvas.h"
 #include "engine/concepts.h"
 #include "engine/memory.h"
-#include "mesh/triangular_bitset.h"
+#include "containers/triangular_bitset.h"
 
 /**
  * @file cull.h

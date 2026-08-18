@@ -7,7 +7,7 @@
 
 /**
  * @file reaction_graph.h
- * @brief Fibonacci lattice K-NN graph shared by the reaction-diffusion effects.
+ * @brief Fibonacci lattice K-NN graph and nearest-node lookup.
  *
  * The neighbors[] table (reaction_graph.cpp) is emitted by
  * scripts/generate_reaction_graph.py; node() below MUST stay in lockstep with

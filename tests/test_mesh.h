@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/mesh/mesh.h and core/mesh/triangular_bitset.h.
+ * Unit tests for core/mesh/mesh.h and core/containers/triangular_bitset.h.
  *
  * Coverage:
  *   - PolyMesh basic API (initialize, clear, accessors)
@@ -20,7 +20,7 @@
 #include <span>
 #include "core/mesh/mesh.h"
 #include "core/mesh/solids.h"
-#include "core/mesh/triangular_bitset.h"
+#include "core/containers/triangular_bitset.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

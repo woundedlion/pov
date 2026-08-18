@@ -12,7 +12,7 @@
  */
 
 #include "core/engine/engine.h"
-#include "core/mesh/spatial.h"
+#include "core/spatial/kd_tree.h"
 
 #include <cmath>
 #include <span>
