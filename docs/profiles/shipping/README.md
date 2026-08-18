@@ -17,8 +17,8 @@ count after the peak.
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-09.md) | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
 | [Raymarch](profile_raymarch_teensy_2026-07-25.md) | volume ray-march | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
-| [CurlLattice](profile_curllattice_teensy_2026-08-16.md)§ ● | curl-noise surface lattice | 🟢 48.67 (2) | 🟢 0/2208 (0%) | 2026-08-16 08:38 |
 | [VectorFacets](profile_vectorfacets_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
+| [CurlLattice](profile_curllattice_teensy_2026-08-17.md)§ ● | curl-noise surface lattice | 🟢 45.47 (2) | 🟢 0/2208 (0%) | 2026-08-17 19:01 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
 | [HankinSolids](profile_hankinsolids_teensy_2026-07-25.md)§ | per-face SDF | 🟢 43.0 (19) | 🟢 0/3328 (0%) | 2026-07-26 11:55 |
 | [Comets](profile_comets_teensy_2026-07-25.md)§ | point raster | 🟢 41.56 (12) | 🟢 0/4128 (0%) | 2026-07-26 11:43 |
