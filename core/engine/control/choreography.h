@@ -5,7 +5,7 @@
 #pragma once
 
 /**
- * @file effect_choreography.h
+ * @file choreography.h
  * @brief ChoreographedEffect: preset choreography, schema-versioned parameter
  *        snapshots and field-table slider registration over one Params type.
  */

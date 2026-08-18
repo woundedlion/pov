@@ -55,7 +55,7 @@
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
 #include "core/render/filter_feedback.h"
-#include "core/engine/effect_registry.h"
+#include "core/engine/control/registry.h"
 #include "core/engine/generators.h"
 #include "core/render/led.h"
 #include "core/engine/memory.h"
@@ -3391,7 +3391,7 @@ inline const Case *all_cases(int &n) {
       {"empty_fn_call", case_empty_fn_call, "inplace_function.h",
        "(vtable != empty) empty hs::inplace_function called"},
       {"effect_registry_duplicate_name", case_effect_registry_duplicate_name,
-       "effect_registry.h",
+       "registry.h",
        "(existing.name != reg.name) effect header included by more than one "
        "translation unit: effects/DeathDuplicate.h"},
       {"flywheel_period_zero", case_flywheel_period_zero, "pov_sync_flywheel.h",
@@ -3909,7 +3909,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"composition.h", 33},
     {"generative_palette.h", 4},
     {"palette_cycler.h", 8},
-    {"effect_choreography.h", 1},
+    {"choreography.h", 1},
     {"memory.cpp", 1},
     {"memory.h", 3},
     {"reaction_graph.h", 2},

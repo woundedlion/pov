@@ -88,14 +88,14 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [Hankin Pattern System](#hankin-pattern-system-hankinh)
      - [Solids Library](#solids-library-solidsh-solid_generatorsh)
    - [7.8 Generators](#78-generators-generatorsh)
-   - [7.9 The Preset System](#79-the-preset-system-presetsh)
+   - [7.9 The Preset System](#79-the-preset-system-controlpresetsh)
    - [7.10 Hardware Drivers](#710-hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)
      - [DMA LED Controller](#dma-led-controller-dma_ledh)
      - [Single-Teensy POV Driver](#single-teensy-pov-driver-pov_singleh)
      - [Multi-Teensy Segmented POV Driver](#multi-teensy-segmented-pov-driver-pov_segmentedh)
      - [Frame Sync Protocol: 1-Wire Signal Datasheet](#frame-sync-protocol-1-wire-signal-datasheet)
 8. [The Effect System](#8-the-effect-system)
-   - [Self-Registering Factory](#self-registering-factory-effect_registryh)
+   - [Self-Registering Factory](#self-registering-factory-controlregistryh)
    - [Parameter Registration](#parameter-registration)
    - [The `EffectConfig` Flags](#the-effectconfig-flags)
 9. [Effects Reference](#9-effects-reference)
@@ -264,20 +264,16 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── core/                       Rendering engine
 │   ├── engine/                 Machinery: platform layer, memory, callables, rosters, effect support
 │   │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
-│   │   ├── platform_arduino_mocks.h Off-device emulation of the Arduino/FastLED API
-│   │   ├── platform_attributes.h    HS_O3 / HS_COLD / HS_PROGMEM_UNIQUE code and data placement macros
-│   │   ├── platform_diagnostics.h   hs::log / hs::flush_log sink + the HS_OS_CYCLES cycle read
-│   │   ├── platform_rng.h           Pcg32 process-wide PRNG + the hs::rand_* / hs::shuffle helpers
+│   │   ├── platform/               Fragments platform.h pulls in (attributes, diagnostics,
+│   │   │                            rng, arduino_mocks)
 │   │   ├── build_features.h         Build-time feature and instrumentation switches
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
 │   │   ├── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
 │   │   ├── engine.h                Engine API umbrella — included by every effect
 │   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
-│   │   ├── effect_registry.h       Self-registering factory: REGISTER_EFFECT macro
-│   │   ├── effect_transition.h     Fenced one-endpoint effect transition controller
-│   │   ├── effect_params.h         ParamDef descriptors + the fixed-capacity ParamList registry
-│   │   ├── effect_choreography.h   ChoreographedEffect: preset dwell/crossfade, snapshots, field-table sliders
+│   │   ├── control/                An effect's control surface (registry, params, presets,
+│   │   │                            choreography, transition)
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>
@@ -287,7 +283,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── util.h                  wrap(), fast_wrap(), shortest_distance, apply_if_changed
 │   │   ├── transformers.h          Ripple, Noise, Möbius warp geometry transformers
 │   │   ├── styles.h                Feedback::Style named presets + space/color transform functions
-│   │   ├── presets.h               Generic Presets<Params, Size> template
 │   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
 │   ├── math/                   Vector/quaternion math and scalar curves
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
@@ -670,7 +665,7 @@ The `platform.h` header abstracts all target-specific differences:
 | `hs::disable_interrupts()` | `noInterrupts()` | No-op |
 | `CRGB`, `CHSV` | FastLED types | Struct mocks |
 
-The host-side mock implementations — the `CRGB`/`CHSV` structs plus the rest of the emulated Arduino/FastLED surface (`random8`, `beatsin8`, `SerialMock`, …) — live in `platform_arduino_mocks.h`, included from `platform.h`'s non-Arduino branch.
+The host-side mock implementations — the `CRGB`/`CHSV` structs plus the rest of the emulated Arduino/FastLED surface (`random8`, `beatsin8`, `SerialMock`, …) — live in `platform/arduino_mocks.h`, included from `platform.h`'s non-Arduino branch.
 
 ---
 
@@ -1730,7 +1725,7 @@ auto mesh = hs::generate(persistent_arena, Solids::get_by_name, std::string_view
 
 One deliberate exception: `SolidBuilder`'s fluent Conway chain (`solid_generators.h`) owns its own two-arena ping-pong, swapping the scratch arenas between operators, so it manages arena lifecycle directly rather than through `generate()`.
 
-### 7.9 The Preset System (`presets.h`)
+### 7.9 The Preset System (`control/presets.h`)
 
 `Presets<Params, Size>` is a generic template for managing parameter presets. It stores a fixed-size array of `PresetEntry<Params>` (each containing only a `Params` struct — no name field) and provides cyclic navigation (`next()`/`prev()`, with `current_index()`/`prev_index()` reporting where it stands). It interpolates nothing itself: it tracks the entry active before the last move, and the caller drives the crossfade with an `Animation::Lerp` from `prev_get()` to `get()` (the `Params` type supplies the `lerp()` the animation calls).
 
@@ -2061,7 +2056,7 @@ private:
 REGISTER_EFFECT(MyEffect)
 ```
 
-### Self-Registering Factory (`effect_registry.h`)
+### Self-Registering Factory (`control/registry.h`)
 
 Effects register themselves into a global registry using the `REGISTER_EFFECT(ClassName)` macro placed at the bottom of each effect header. This uses a static initializer pattern — each effect creates a small registrar struct whose static member calls `EffectRegistry::add()` during program initialization, eliminating the need for a hand-maintained factory array. The registry stores resolution-specific fill functions for each supported `<W,H>` pair (96×20 and 288×144).
 

@@ -56,9 +56,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include "engine/platform_attributes.h"
-#include "engine/platform_diagnostics.h"
-#include "engine/platform_rng.h"
+#include "engine/platform/attributes.h"
+#include "engine/platform/diagnostics.h"
+#include "engine/platform/rng.h"
 
 #ifdef ARDUINO
 #include <FastLED.h>
@@ -164,7 +164,7 @@ inline void clear_mock_time() { use_mock_time = false; }
 inline unsigned long millis(); // defined below
 } // namespace hs
 
-#include "engine/platform_arduino_mocks.h"
+#include "engine/platform/arduino_mocks.h"
 
 // Mock EVERY_N_MILLIS using a simple static checker.
 // Two-level macro so __COUNTER__ expands before pasting.

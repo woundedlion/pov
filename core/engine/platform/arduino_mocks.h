@@ -5,7 +5,7 @@
 #pragma once
 
 /**
- * @file platform_arduino_mocks.h
+ * @file arduino_mocks.h
  * @brief Emulates the Arduino/FastLED API surface off-device.
  *
  * Included from the host/sim branch of engine/platform.h, which supplies

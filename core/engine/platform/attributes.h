@@ -5,7 +5,7 @@
 #pragma once
 
 /**
- * @file platform_attributes.h
+ * @file attributes.h
  * @brief Code and data placement macros: selective -O3 regions, the cold/flash
  *        family, and per-variable PROGMEM sections.
  */

@@ -50,7 +50,7 @@
 #include "mesh/solids.h"
 #include "color/palettes.h"
 
-#include "engine/presets.h"
+#include "engine/control/presets.h"
 #include "math/waves.h"
 #include "engine/styles.h"
-#include "engine/effect_registry.h"
+#include "engine/control/registry.h"

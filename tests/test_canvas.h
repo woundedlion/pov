@@ -17,7 +17,7 @@
 #include <thread>
 #include <vector>
 
-#include "core/engine/effect_transition.h"
+#include "core/engine/control/transition.h"
 #include "core/render/canvas.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"

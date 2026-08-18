@@ -10,7 +10,7 @@
  * @brief Phase-modulated concentric shapes drawn across the sphere.
  */
 
-#include "core/engine/effect_choreography.h"
+#include "core/engine/control/choreography.h"
 #include "core/engine/engine.h"
 
 namespace hs_test {
@@ -835,5 +835,5 @@ private:
                 "partition; retune MAX_SHAPES or carve arenas");
 };
 
-#include "core/engine/effect_registry.h"
+#include "core/engine/control/registry.h"
 REGISTER_EFFECT(ShapeShifter)

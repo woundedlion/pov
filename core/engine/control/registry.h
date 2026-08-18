@@ -5,7 +5,7 @@
 #pragma once
 
 /**
- * @file effect_registry.h
+ * @file registry.h
  * @brief Self-registering effect factory. Each effect header calls
  *        REGISTER_EFFECT(ClassName) which appends to a global registry at
  *        static-init time.

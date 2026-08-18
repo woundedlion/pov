@@ -10,7 +10,7 @@
  *        cycle-counting instrumentation.
  */
 
-#include "engine/platform_diagnostics.h" // HS_OS_CYCLES, hs::log
+#include "engine/platform/diagnostics.h" // HS_OS_CYCLES, hs::log
 #include <cstdint>
 #include <cstring>
 
