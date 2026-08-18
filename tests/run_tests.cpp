@@ -34,6 +34,7 @@
 #include "tests/test_color.h"
 #include "tests/test_palettes.h"
 #include "tests/test_easing_waves.h"
+#include "tests/test_interpolate.h"
 #include "tests/test_platform.h"
 #include "tests/test_profiling.h"
 #include "tests/test_pullback.h"
@@ -129,7 +130,7 @@ constexpr int EFFECT_FACTORY_QUICK_MIN_ASSERTIONS = 330;
 constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
-  X("3dmath", 48, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
+  X("3dmath", 49, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
   X("memory", 42, hs_test::memory_tests::run_memory_tests, 196)                \
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
@@ -159,9 +160,10 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 102)           \
   X("easing_waves", 10, hs_test::easing_waves_tests::run_easing_waves_tests,   \
     6080)                                                                      \
+  X("interpolate", 5, hs_test::interpolate_tests::run_interpolate_tests, 2077) \
   X("platform", 19, hs_test::platform_tests::run_platform_tests, 266686)       \
   X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \
-  X("pullback", 12, hs_test::pullback_tests::run_pullback_tests, 80)           \
+  X("pullback", 10, hs_test::pullback_tests::run_pullback_tests, 85)           \
   X("filter", 63, hs_test::filter_tests::run_filter_tests, 10296)              \
   X("plot_scan", 82, hs_test::plot_scan_tests::run_plot_scan_tests, 1069897)   \
   X("canvas", 35, hs_test::canvas_tests::run_canvas_tests, 487)                \

@@ -278,7 +278,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── effect_transition.h     Fenced one-endpoint effect transition controller
 │   │   ├── effect_params.h         ParamDef descriptors + the fixed-capacity ParamList registry
 │   │   ├── effect_choreography.h   ChoreographedEffect: preset dwell/crossfade, snapshots, field-table sliders
-│   │   ├── fixed_pipeline.h        Shared fixed-pipeline preset transition helpers
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>
@@ -301,6 +300,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── stereographic.h         Stereographic pole attenuation, pattern normalization, glitch lens
 │   │   ├── lenses.h                Twist, kaleidoscope and polyhedral reflection-group sphere lenses
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
+│   │   ├── interpolate.h           Per-domain interpolators: scalar, positive scale, periodic angle, unit vector
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
 │   ├── mesh/                   Polyhedral meshes and their operators
 │   │   ├── mesh.h                  PolyMesh, HalfEdgeMesh, MeshOps (compile, clone, etc.)
@@ -364,7 +364,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    39 headers covering 36 effects plus shared bases:
+├── effects/                    40 headers covering 37 effects plus shared bases:
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
 │                                Raymarch.h, …; the shared composed-effect base is
 │                                core/render/pullback/composed_effect.h — see §9
@@ -628,7 +628,7 @@ Three build targets share a common engine:
 │  │ Holosphere/  │   │  Effects → Canvas → Filter Pipeline          │    │
 │  │  .ino        │   │      → SDF/Plot → Pixel Buffer               │    │
 │  │              │   │                                              │    │
-│  │ Phantasm/    │   │  effects/  (36 visual algorithms)            │    │
+│  │ Phantasm/    │   │  effects/  (37 visual algorithms)            │    │
 │  │  .ino        │   │                                              │    │
 │  │              │   ├──────────────────────────────────────────────┤    │
 │  │ wasm/        │   │          hardware/  (Drivers)                │    │

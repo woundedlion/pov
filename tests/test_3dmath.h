@@ -1015,6 +1015,34 @@ inline void test_quaternion_slerp() {
   HS_EXPECT_NEAR(long_degenerate.magnitude(), 1.0f, 1e-3f);
 }
 
+inline void test_scaled_rotation_delta() {
+  const Quaternion id;
+  const Quaternion q = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
+
+  // Both extremes are exact and skip the slerp entirely.
+  HS_EXPECT_QUAT(scaled_rotation_delta(q, 1.0f), q, 1e-6f);
+  HS_EXPECT_QUAT(scaled_rotation_delta(q, 0.0f), id, 1e-6f);
+  // Identity in, identity out, at any fraction.
+  HS_EXPECT_QUAT(scaled_rotation_delta(id, 0.5f), id, 5e-3f);
+
+  // Half the arc, applied twice, recovers the full delta.
+  const Quaternion half = scaled_rotation_delta(q, 0.5f);
+  HS_EXPECT_NEAR(half.magnitude(), 1.0f, 1e-3f);
+  const Vector v(1, 0, 0);
+  HS_EXPECT_VEC(rotate(rotate(v, half), half), rotate(v, q), 1e-2f);
+
+  // The scaled turn is monotone in amount: the angle away from the start grows.
+  float previous = -1.0f;
+  for (int step = 0; step <= 8; ++step) {
+    const float amount = static_cast<float>(step) / 8.0f;
+    const Quaternion scaled = scaled_rotation_delta(q, amount);
+    HS_EXPECT_NEAR(scaled.magnitude(), 1.0f, 1e-3f);
+    const float turned = 1.0f - dot(rotate(v, scaled), v);
+    HS_EXPECT_GT(turned, previous);
+    previous = turned;
+  }
+}
+
 /**
  * @brief Verifies Vector slerp across antipodal endpoints sweeps monotonically:
  *        dot with the start strictly decreases as t increases, with no flip.
@@ -1400,6 +1428,7 @@ inline int run_3dmath_tests() {
   test_vector_slerp();
   test_vector_slerp_antipodal_monotonic();
   test_quaternion_slerp();
+  test_scaled_rotation_delta();
 
   test_stereo_roundtrip();
   test_complex_arithmetic();

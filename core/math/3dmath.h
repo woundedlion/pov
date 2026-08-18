@@ -1464,3 +1464,20 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   float s2 = sinf(t * theta) / sin_theta;
   return ((s1 * p) + (s2 * q)).normalized();
 }
+
+/**
+ * @brief Scales a rotation delta down to a fraction of its arc.
+ * @param delta Full rotation delta.
+ * @param amount Fraction of the arc to keep.
+ * @pre @p delta is unit length; the slerp path it takes for a fractional
+ * @p amount asserts on a non-unit endpoint.
+ * @return @p delta at @p amount of its rotation; identity at 0, @p delta at 1.
+ */
+HS_HOT_FLASH_MEMBER inline Quaternion
+scaled_rotation_delta(const Quaternion &delta, float amount) {
+  if (amount == 1.0f)
+    return delta;
+  if (amount == 0.0f)
+    return Quaternion();
+  return slerp(Quaternion(), delta, amount);
+}

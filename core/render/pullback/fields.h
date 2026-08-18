@@ -6,7 +6,7 @@
 
 #include <cmath>
 
-#include "engine/fixed_pipeline.h"
+#include "math/interpolate.h"
 #include "render/pullback/contract.h"
 
 /**
@@ -58,11 +58,11 @@ HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
                                          float t) {
   switch (curve) {
   case FieldCurve::LERP:
-    return FixedPipeline::linear(from, to, t);
+    return interp::linear(from, to, t);
   case FieldCurve::LOG_POSITIVE:
-    return FixedPipeline::log_positive(from, to, t);
+    return interp::log_positive(from, to, t);
   case FieldCurve::SHORTEST_PERIODIC:
-    return FixedPipeline::shortest_periodic(from, to, t, TWO_PI_F);
+    return interp::shortest_periodic(from, to, t, TWO_PI_F);
   case FieldCurve::SNAP:
     break;
   }

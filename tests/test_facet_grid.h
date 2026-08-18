@@ -7,6 +7,7 @@
 #include <bit>
 #include <limits>
 
+#include "core/math/interpolate.h"
 #include "effects/FacetGrid.h"
 #include "tests/test_shaderball.h"
 
@@ -218,17 +219,15 @@ inline void test_facet_grid_transition_contract() {
   effect.setAnimationsPaused(true);
   WB::drive_transition(effect, 0.25f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 FixedPipeline::linear(FX::preset_params(0).source.complexity,
-                                       FX::preset_params(1).source.complexity,
-                                       0.25f),
+                 interp::linear(FX::preset_params(0).source.complexity,
+                                FX::preset_params(1).source.complexity, 0.25f),
                  1e-6f);
   effect.setAnimationsPaused(false);
 
   WB::drive_transition(effect, 0.5f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 FixedPipeline::linear(FX::preset_params(0).source.complexity,
-                                       FX::preset_params(1).source.complexity,
-                                       0.5f),
+                 interp::linear(FX::preset_params(0).source.complexity,
+                                FX::preset_params(1).source.complexity, 0.5f),
                  1e-6f);
 
   WB::drive_transition(effect, 1.0f);

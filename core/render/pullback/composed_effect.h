@@ -22,7 +22,6 @@
 #include "color/effect_palette_recipes.h"
 #include "engine/effect_choreography.h"
 #include "engine/engine.h"
-#include "engine/fixed_pipeline.h"
 #include "math/noise_field.h"
 #include "render/pullback.h"
 
@@ -1021,11 +1020,10 @@ private:
       const Quaternion projection_delta =
           projection * projection_walk_previous.conjugate();
       projection_walk_previous = projection;
-      projection_wander =
-          (FixedPipeline::scaled_rotation_delta(projection_delta.normalized(),
-                                                params.projection.wander) *
-           projection_wander)
-              .normalized();
+      projection_wander = (scaled_rotation_delta(projection_delta.normalized(),
+                                                 params.projection.wander) *
+                           projection_wander)
+                              .normalized();
       projection_conjugate = (make_rotation(Y_AXIS, projection_spin) *
                               base_orientation * projection_wander)
                                  .conjugate();
@@ -1033,11 +1031,10 @@ private:
     const Quaternion outer = outer_walk.get();
     const Quaternion outer_delta = outer * outer_walk_previous.conjugate();
     outer_walk_previous = outer;
-    outer_wander =
-        (FixedPipeline::scaled_rotation_delta(outer_delta.normalized(),
-                                              params.projection.camera_wander) *
-         outer_wander)
-            .normalized();
+    outer_wander = (scaled_rotation_delta(outer_delta.normalized(),
+                                          params.projection.camera_wander) *
+                    outer_wander)
+                       .normalized();
     outer_conjugate = outer_wander.conjugate();
   }
 
