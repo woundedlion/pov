@@ -100,6 +100,7 @@ test('every promoted shader document matches its compiled effect identity', asyn
     'kaleido-wave': 'KaleidoWave.h',
     'mobius-grid': 'MobiusGrid.h',
     'prism-lattice': 'PrismLattice.h',
+    'prism-spiral': 'PrismSpiral.h',
     'signal-weave': 'SignalWeave.h',
     'vector-facets': 'VectorFacets.h',
   };

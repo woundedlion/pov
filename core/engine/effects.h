@@ -34,6 +34,7 @@
 #include "effects/KaleidoWave.h"
 #include "effects/MobiusGrid.h"
 #include "effects/PrismLattice.h"
+#include "effects/PrismSpiral.h"
 #include "effects/SignalWeave.h"
 #include "effects/VectorFacets.h"
 #include "effects/GnomonicStars.h"
@@ -101,6 +102,7 @@
   X(MobiusRings)                                                               \
   X(PetalFlow)                                                                 \
   X(PrismLattice)                                                              \
+  X(PrismSpiral)                                                               \
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
@@ -132,7 +134,7 @@
   X(CurlLattice, 13)                                                           \
   X(DisplacementField, 120)                                                    \
   X(DreamBalls, 120)                                                           \
-  X(EquatorGrid, 19)                                                           \
+  X(EquatorGrid, 13)                                                           \
   X(FacetGrid, 19)                                                             \
   X(FacetWave, 6)                                                              \
   X(GnomonicStars, 120)                                                        \
@@ -149,6 +151,7 @@
   X(MobiusGrid, 6)                                                             \
   X(PetalFlow, 120)                                                            \
   X(PrismLattice, 6)                                                           \
+  X(PrismSpiral, 6)                                                            \
   X(Raymarch, 120)                                                             \
   X(RingShower, 120)                                                           \
   X(RingSpin, 120)                                                             \
@@ -169,10 +172,11 @@
   X(ContourLattice, 6)                                                         \
   X(CurlLattice, 13)                                                           \
   X(PrismLattice, 6)                                                           \
+  X(PrismSpiral, 6)                                                            \
   X(VectorFacets, 6)                                                           \
   X(FacetGrid, 19)                                                             \
   X(HexWave, 6)                                                                \
-  X(EquatorGrid, 19)                                                           \
+  X(EquatorGrid, 13)                                                           \
   X(CosmicEyeball, 6)                                                          \
   X(MobiusGrid, 6)
 

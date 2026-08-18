@@ -119,6 +119,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [ContourLattice](#contourlattice)
      - [CurlLattice](#curllattice)
      - [PrismLattice](#prismlattice)
+     - [PrismSpiral](#prismspiral)
      - [VectorFacets](#vectorfacets)
      - [FacetGrid](#facetgrid)
      - [HexWave](#hexwave)
@@ -2094,7 +2095,7 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for RingShower, Dynamo and Thrusters.
 
-The compile-time roster and tests carry 36 firmware-capable effects. Native and WASM builds add the simulator-only `Shader` workbench as a 37th registry entry. The simulator sidebar exposes 32 effects at 288×144 and 31 at 96×20 (§10.5); `Shader` stays out of both card lists because it opens through the standalone tool. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) contains 33 effects, including all fourteen promoted fixed-pipeline effects and excluding the three Holosphere-96×20-only effects: Dynamo, MobiusRings, and Thrusters. Full-cycle Teensy measurements for that playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The compile-time roster and tests carry 37 firmware-capable effects. Native and WASM builds add the simulator-only `Shader` workbench as a 38th registry entry. The simulator sidebar exposes 33 effects at 288×144 and 32 at 96×20 (§10.5); `Shader` stays out of both card lists because it opens through the standalone tool. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) contains 34 effects, including all fifteen promoted fixed-pipeline effects and excluding the three Holosphere-96×20-only effects: Dynamo, MobiusRings, and Thrusters. Full-cycle Teensy measurements for that playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ### Core Effects (Modern Engine)
 
@@ -2325,6 +2326,18 @@ A folded-sinusoidal sphere projection displaced by curl noise and shaded with a 
 A polar primitive lattice folded through a pentagonal-prism kaleidoscope, projected stereographically, and pulled through a second wave-shear stage.
 
 **Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Polar Radial Scale, Polar Radial Phase, Polar Angular Phase, Planar Warp 2 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=PrismSpiral" target="_blank"><img src="docs/screenshots/PrismSpiral.png" alt="PrismSpiral" width="280"></a></td>
+<td valign="top">
+
+#### PrismSpiral
+
+A rotating spiral folded through a hexagonal-prism kaleidoscope, projected stereographically, and displaced by direct surface noise whose path length drives the hue rotation.
+
+**Parameters**: Pattern Freq, Speed, Source Angle Speed, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Surface Noise Direction, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Value Opacity Low, Value Opacity High, Hue Shift Amount
 
 </td></tr></table>
 
@@ -2561,6 +2574,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `contour-lattice` | `ContourLattice` | 1 | 6 |
 | `curl-lattice` | `CurlLattice` | 2 | 7–8 |
 | `prism-lattice` | `PrismLattice` | 1 | 9 |
+| `prism-spiral` | `PrismSpiral` | 1 | — |
 | `vector-facets` | `VectorFacets` | 1 | 10 |
 | `facet-grid` | `FacetGrid` | 4 | 11, 13–14, plus `stretched-grid` |
 | `hex-wave` | `HexWave` | 1 | 12 |
@@ -2568,9 +2582,9 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `cosmic-eyeball` | `CosmicEyeball` | 1 | 18 |
 | `mobius-grid` | `MobiusGrid` | 2 | 19–20 |
 
-These fourteen effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. The group keeps the former Shader slot at 120 seconds total instead of multiplying it into fourteen independent 120-second entries. Host tests compare every shared-runtime preset bit-for-bit against Shader's dynamic evaluator; Curl Lattice and Facet Grid have dedicated white-box equivalence suites.
+These fifteen effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. The group keeps the former Shader slot at 120 seconds total instead of multiplying it into fifteen independent 120-second entries. Prism Spiral joined after the ShaderBall migration from a workbench-authored snapshot, so it carries no legacy preset index. Host tests compare every shared-runtime preset bit-for-bit against Shader's dynamic evaluator; Curl Lattice and Facet Grid have dedicated white-box equivalence suites.
 
-The [2026-08-16 device captures](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) report zero spilled frames for all fourteen effects, with peaks from 23.30 ms for GlitchGrid to 48.67 ms for CurlLattice. The fixed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture currently isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
+The [2026-08-16 device captures](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) report zero spilled frames for the fourteen effects promoted at capture time, with peaks from 23.30 ms for GlitchGrid to 48.67 ms for CurlLattice; Prism Spiral has no device capture yet. The fixed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture currently isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
 #### Authoring vocabulary
 
@@ -2626,7 +2640,7 @@ Colorize ──────────> Palette + selected hue-shift source
 ```
 
 
-Schema validity still enforces the cross-stage constraints that have a geometric reason. Noise Contour (Sphere) cannot follow a planar warp. Polar Chart must be the only planar warp, except that Planar Warp 1 Polar Chart may be followed by Wave Shear. It requires Grid or Primitive Lattice, and when it is the only planar warp its seam must land on a whole number of source periods: `Pattern Freq × Polar Harmonic` for Grid, `2π × Lattice Cell Scale × Polar Harmonic` for Primitive Lattice, which is periodic in its cell scale and ignores Pattern Freq. Seam-sensitive projected noise and warp stages cannot cross the cut topology of Bonne, Peirce, or Airocean. Unsafe coordinate bounds and excess noise resources are rejected as well. These incompatible combinations remain pending and report an actionable warning. Manifest availability is separate: the simulator routes valid unmatched combinations dynamically, while firmware exposes the fourteen promoted fixed descriptors rather than the workbench dispatcher.
+Schema validity still enforces the cross-stage constraints that have a geometric reason. Noise Contour (Sphere) cannot follow a planar warp. Polar Chart must be the only planar warp, except that Planar Warp 1 Polar Chart may be followed by Wave Shear. It requires Grid or Primitive Lattice, and when it is the only planar warp its seam must land on a whole number of source periods: `Pattern Freq × Polar Harmonic` for Grid, `2π × Lattice Cell Scale × Polar Harmonic` for Primitive Lattice, which is periodic in its cell scale and ignores Pattern Freq. Seam-sensitive projected noise and warp stages cannot cross the cut topology of Bonne, Peirce, or Airocean. Unsafe coordinate bounds and excess noise resources are rejected as well. These incompatible combinations remain pending and report an actionable warning. Manifest availability is separate: the simulator routes valid unmatched combinations dynamically, while firmware exposes the fifteen promoted fixed descriptors rather than the workbench dispatcher.
 
 Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** gives both sides of a paired cut the same authored fade, so the seam closes flush without a subducted edge. Glued and periodic edges remain continuous and do not fade. **Pole Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
 
