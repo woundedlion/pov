@@ -15,10 +15,6 @@
 #include "engine/static_circular_buffer.h"
 #include "render/canvas.h"
 #include "engine/platform.h"
-
-#ifdef HS_AA_AUDIT
-#include "render/aa_audit.h"
-#endif
 #include "render/scan/raster.h"
 
 /**
@@ -142,70 +138,14 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const bool per_row = shape.pole_touch;
   if (!per_row) {
     build_runs(y_lo);
-#ifndef HS_AA_AUDIT
-    // The audit walk below visits every pixel regardless of the runs, so it
-    // must not take this early out.
     if (num_runs == 0)
       return;
-#endif
   }
 
   const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   constexpr float pixel_width = 2.0f * PI_F / W;
   const uint32_t probe_flags = shape.probe_flags();
-
-#ifdef HS_AA_AUDIT
-  if (hs_aa::g_audit.enabled) {
-    SDF::DistanceResult ares;
-    for (int y = y_lo; y <= y_hi; ++y) {
-      if (per_row)
-        build_runs(y);
-      float sp = TrigLUT<W, H>::sin_phi[y];
-      float cp = TrigLUT<W, H>::cos_phi[y];
-      for (int x = 0; x < W; ++x) {
-        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
-        shape.template distance<true>(p, ares);
-        float d = ares.dist;
-        if (d >= pixel_width)
-          continue;
-        const float alpha = solid_coverage(d, pixel_width);
-        if (alpha <= MIN_ALPHA)
-          continue;
-        int gap = W;
-        bool in_run = false;
-        for (size_t r = 0; r < num_runs; ++r) {
-          if (x >= runs[r].first && x < runs[r].second) {
-            in_run = true;
-            break;
-          }
-          // Circular column distance to the nearest column of this run.
-          const auto circ = [&](int a, int b) {
-            int dd = ((a - b) % W + W) % W;
-            return dd < W - dd ? dd : W - dd;
-          };
-          int g = std::min(circ(x, runs[r].first), circ(x, runs[r].second - 1));
-          if (g < gap)
-            gap = g;
-        }
-        if (in_run)
-          hs_aa::g_audit.note_painted();
-        else
-          hs_aa::g_audit.note_missed(y, alpha, gap);
-      }
-    }
-    for (int y = y_lo; y <= y_hi; ++y) {
-      if (per_row)
-        build_runs(y);
-      for (size_t r = 0; r < num_runs; ++r) {
-        const long long len = runs[r].second - runs[r].first;
-        hs_aa::g_audit.note_probes(y, len);
-      }
-    }
-  }
-  if (!per_row && num_runs == 0)
-    return;
-#endif
 
   SDF::DistanceResult res;
   Fragment frag;

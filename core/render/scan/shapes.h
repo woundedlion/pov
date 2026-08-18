@@ -14,10 +14,6 @@
 #include "engine/static_circular_buffer.h"
 #include "render/canvas.h"
 #include "engine/platform.h"
-
-#ifdef HS_AA_AUDIT
-#include "render/aa_audit.h"
-#endif
 #include "render/scan/raster.h"
 
 /**

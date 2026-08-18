@@ -17,10 +17,6 @@
 #include "render/clip.h"
 #include "render/sdf/common.h"
 
-#ifdef HS_AA_AUDIT
-#include "render/aa_audit.h"
-#endif
-
 /**
  * @file sdf_face.h
  * @brief SDF::Face, the mesh-face leaf, and the congruence-class distance LUT
@@ -1287,10 +1283,6 @@ struct Face {
         "azimuth cull ran against");
     if (full_width)
       return false;
-#ifdef HS_AA_AUDIT
-    if (hs_aa::g_audit.full_scan)
-      return false;
-#endif
     float pad = face_azimuth_pad(W);
     if (pole_touch) {
       if (!TrigLUT<W, H>::initialized)

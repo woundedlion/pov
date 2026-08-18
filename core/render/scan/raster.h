@@ -15,10 +15,6 @@
 #include "render/canvas.h"
 #include "engine/platform.h"
 
-#ifdef HS_AA_AUDIT
-#include "render/aa_audit.h"
-#endif
-
 /**
  * @file raster.h
  * @brief The shared scanline kernel: pole LOD, the per-pixel body, interval and
@@ -208,8 +204,7 @@ check_fragment_shader(FragmentShaderFn fragment_shader) {
  * @param d Signed distance to the surface, negative inside.
  * @param pixel_width Angular width of one column, the AA half-reach.
  * @return Coverage in [0, 1]; 1 at or inside a full pixel of depth.
- * @details The single spelling of the solid AA ramp, shared by every scan loop
- * and by the HS_AA_AUDIT walk so an audit miss is never the two disagreeing.
+ * @details The single spelling of the solid AA ramp, shared by every scan loop.
  */
 __attribute__((always_inline)) inline float solid_coverage(float d,
                                                            float pixel_width) {
