@@ -394,7 +394,8 @@ public:
       value = roundf(value);
     if (!def->is_bool())
       value = hs::clamp(value, def->min, def->max);
-    if (def->animated)
+    const bool animated = def->animated;
+    if (animated)
       setAnimationsPaused(true);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     const char *updated_name = def->name;
@@ -405,6 +406,8 @@ public:
 #else
     def->set(value);
 #endif
+    if (animated)
+      animated_parameter_written();
     return ParamSetResult::APPLIED;
   }
 
@@ -480,6 +483,14 @@ protected:
     return preset_count > 0 && change_preset((preset_index + 1) % preset_count,
                                              PresetChangeOrigin::AUTOMATIC);
   }
+
+  /**
+   * @brief Runs after an accepted write to an animated parameter.
+   * @details The write has already engaged the animation pause. An effect whose
+   * choreography rewrites the whole parameter set — a preset crossfade — must
+   * stop doing so here, or the next frame overwrites the value just written.
+   */
+  virtual void animated_parameter_written() {}
 
   /**
    * @brief Applies a candidate preset before its index is committed.
