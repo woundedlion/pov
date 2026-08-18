@@ -8,20 +8,21 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
-using HexWaveParams = Looks::Params<Looks::TwinWaveSourceParams,
-                                    Looks::NoWarpParams, Looks::MirrorParams>;
-using HexWaveSpec = Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC,
-                                Pullback::Lens::HexagonalPrismKaleidoscope,
-                                Looks::TransferKind::LINEAR,
-                                Looks::CoverageKind::PROJECTION_SQUARED>;
+using HexWaveParams =
+    Pullback::Params<Pullback::TwinWaveSourceParams, Pullback::NoWarpParams,
+                     Pullback::MirrorParams>;
+using HexWaveSpec = Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
+                                   Pullback::Lens::HexagonalPrismKaleidoscope,
+                                   Pullback::TransferKind::LINEAR,
+                                   Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
-class HexWave
-    : public Looks::Composed<W, H, HexWave<W, H>, HexWaveParams, HexWaveSpec,
-                             PaletteHarmony::ANALOGOUS, Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+class HexWave : public Pullback::ComposedEffect<
+                    W, H, HexWave<W, H>, HexWaveParams, HexWaveSpec,
+                    PaletteHarmony::ANALOGOUS, Pullback::HueMode::NOISE,
+                    Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = HexWaveParams;

@@ -8,22 +8,23 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using VectorFacetsParams =
-    Looks::Params<Looks::GridSourceParams, Looks::VectorNoiseParams,
-                  Looks::MirrorParams>;
-using VectorFacetsSpec = Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED,
-                                     Pullback::Lens::DodecahedralKaleidoscope,
-                                     Looks::TransferKind::LINEAR,
-                                     Looks::CoverageKind::PROJECTION_SQUARED>;
+    Pullback::Params<Pullback::GridSourceParams, Pullback::VectorNoiseParams,
+                     Pullback::MirrorParams>;
+using VectorFacetsSpec =
+    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
+                   Pullback::Lens::DodecahedralKaleidoscope,
+                   Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class VectorFacets
-    : public Looks::Composed<W, H, VectorFacets<W, H>, VectorFacetsParams,
-                             VectorFacetsSpec, PaletteHarmony::TRIADIC,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::CUP, true> {
+    : public Pullback::ComposedEffect<
+          W, H, VectorFacets<W, H>, VectorFacetsParams, VectorFacetsSpec,
+          PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
+          Pullback::Color::BrightnessEnvelope::CUP, true> {
 
 public:
   using Params = VectorFacetsParams;

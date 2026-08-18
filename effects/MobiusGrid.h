@@ -8,22 +8,22 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using MobiusGridParams =
-    Looks::Params<Looks::TwinWaveSourceParams, Looks::NoWarpParams,
-                  Looks::MirrorParams, Looks::MobiusLensParams>;
+    Pullback::Params<Pullback::TwinWaveSourceParams, Pullback::NoWarpParams,
+                     Pullback::MirrorParams, Pullback::MobiusLensParams>;
 using MobiusGridSpec =
-    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC, Pullback::Lens::Identity,
-                Looks::TransferKind::LINEAR,
-                Looks::CoverageKind::PROJECTION_SQUARED>;
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
+                   Pullback::Lens::Identity, Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class MobiusGrid
-    : public Looks::Composed<W, H, MobiusGrid<W, H>, MobiusGridParams,
-                             MobiusGridSpec, PaletteHarmony::COMPLEMENTARY,
-                             Looks::HueMode::PATH_LENGTH,
-                             Pullback::Color::BrightnessEnvelope::CUP> {
+    : public Pullback::ComposedEffect<
+          W, H, MobiusGrid<W, H>, MobiusGridParams, MobiusGridSpec,
+          PaletteHarmony::COMPLEMENTARY, Pullback::HueMode::PATH_LENGTH,
+          Pullback::Color::BrightnessEnvelope::CUP> {
 
 public:
   using Params = MobiusGridParams;
@@ -62,7 +62,7 @@ public:
   }
 
 public:
-  HS_COLD_MEMBER void after_fixed_init() {
+  HS_COLD_MEMBER void after_composed_init() {
     this->start_mobius_animation(1.0f, 160);
   }
 };

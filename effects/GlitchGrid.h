@@ -8,22 +8,22 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using GlitchGridParams =
-    Looks::Params<Looks::GridSourceParams, Looks::MirrorParams,
-                  Looks::NoWarpParams, Looks::NoLensParams,
-                  Looks::EdgeValueParams>;
+    Pullback::Params<Pullback::GridSourceParams, Pullback::MirrorParams,
+                     Pullback::NoWarpParams, Pullback::NoLensParams,
+                     Pullback::EdgeValueParams>;
 using GlitchGridSpec =
-    Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED, Pullback::Lens::Glitch,
-                Looks::TransferKind::LINEAR, Looks::CoverageKind::EDGE_FADE>;
+    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
+                   Pullback::Lens::Glitch, Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::EDGE_FADE>;
 
 template <int W, int H>
-class GlitchGrid
-    : public Looks::Composed<W, H, GlitchGrid<W, H>, GlitchGridParams,
-                             GlitchGridSpec, PaletteHarmony::TRIADIC,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+class GlitchGrid : public Pullback::ComposedEffect<
+                       W, H, GlitchGrid<W, H>, GlitchGridParams, GlitchGridSpec,
+                       PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
+                       Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = GlitchGridParams;

@@ -8,7 +8,7 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 namespace hs_test {
 namespace facet_grid_tests {
@@ -18,7 +18,7 @@ struct FacetGridWhiteBox;
 
 /**
  * @brief Mirrored grids folded through a dodecahedral stereographic lens.
- * @details Supplies the render pipeline and preset bank; Looks::Composed
+ * @details Supplies the render pipeline and preset bank; Pullback::ComposedEffect
  * supplies parameter registration, preset choreography and the palette,
  * camera-walk and noise clocks. The kaleidoscopic fold lives in the surface
  * lens, so the surface itself is an identity and the mirror tiling happens in
@@ -26,19 +26,20 @@ struct FacetGridWhiteBox;
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
-using FacetGridParams = Looks::Params<Looks::GridSourceParams,
-                                      Looks::NoWarpParams, Looks::MirrorParams>;
-using FacetGridSpec = Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC,
-                                  Pullback::Lens::DodecahedralKaleidoscope,
-                                  Looks::TransferKind::LINEAR,
-                                  Looks::CoverageKind::PROJECTION_SQUARED>;
+using FacetGridParams =
+    Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
+                     Pullback::MirrorParams>;
+using FacetGridSpec =
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
+                   Pullback::Lens::DodecahedralKaleidoscope,
+                   Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
-class FacetGrid
-    : public Looks::Composed<W, H, FacetGrid<W, H>, FacetGridParams,
-                             FacetGridSpec, PaletteHarmony::ANALOGOUS,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+class FacetGrid : public Pullback::ComposedEffect<
+                      W, H, FacetGrid<W, H>, FacetGridParams, FacetGridSpec,
+                      PaletteHarmony::ANALOGOUS, Pullback::HueMode::NOISE,
+                      Pullback::Color::BrightnessEnvelope::NONE> {
   friend struct ::hs_test::facet_grid_tests::FacetGridWhiteBox;
 
 public:
@@ -47,7 +48,7 @@ public:
   static constexpr std::string_view EFFECT_ID = "facet-grid";
   /// SHA-256 of the canonicalized descriptor of
   /// `patterns/facet_grid.shader.json`; the browser editor matches it to
-  /// recognize an imported document as this fixed effect.
+  /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "419b95cfd84ea4a59844737ab4e8e6df6c99d3e69b6daefa3467056c40e3c3a0";
   /// SHA-256 of that document's canonicalized preset bank.
@@ -80,7 +81,7 @@ public:
 
   /**
    * @brief Params for the preset at @p index in PRESET_IDS.
-   * @details `coupled-grid` is the initial look; the other three raise the grid
+   * @details `coupled-grid` is the initial preset; the other three raise the grid
    * complexity and fully mix in the secondary pattern, then vary its frequency,
    * camera wander, palette mapping frequency and — for `stretched-grid` — the
    * mirror-tile cell and rotation.

@@ -8,22 +8,23 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using EquatorGridParams =
-    Looks::Params<Looks::GridSourceParams, Looks::NoWarpParams,
-                  Looks::MirrorParams>;
-using EquatorGridSpec = Looks::Spec<Looks::ProjectionKind::EQUIRECTANGULAR,
-                                    Pullback::Lens::DodecahedralKaleidoscope,
-                                    Looks::TransferKind::LINEAR,
-                                    Looks::CoverageKind::PROJECTION_SQUARED>;
+    Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
+                     Pullback::MirrorParams>;
+using EquatorGridSpec =
+    Pullback::Spec<Pullback::ProjectionKind::EQUIRECTANGULAR,
+                   Pullback::Lens::DodecahedralKaleidoscope,
+                   Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class EquatorGrid
-    : public Looks::Composed<W, H, EquatorGrid<W, H>, EquatorGridParams,
-                             EquatorGridSpec, PaletteHarmony::ANALOGOUS,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+    : public Pullback::ComposedEffect<
+          W, H, EquatorGrid<W, H>, EquatorGridParams, EquatorGridSpec,
+          PaletteHarmony::ANALOGOUS, Pullback::HueMode::NOISE,
+          Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = EquatorGridParams;

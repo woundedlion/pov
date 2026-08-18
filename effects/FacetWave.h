@@ -8,22 +8,22 @@
 #include <array>
 #include <string_view>
 
-#include "core/render/pullback/look.h"
+#include "core/render/pullback/composed_effect.h"
 
 using FacetWaveParams =
-    Looks::Params<Looks::GridSourceParams, Looks::WaveShearParams,
-                  Looks::MirrorParams>;
-using FacetWaveSpec = Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED,
-                                  Pullback::Lens::DodecahedralKaleidoscope,
-                                  Looks::TransferKind::LINEAR,
-                                  Looks::CoverageKind::PROJECTION_SQUARED>;
+    Pullback::Params<Pullback::GridSourceParams, Pullback::WaveShearParams,
+                     Pullback::MirrorParams>;
+using FacetWaveSpec =
+    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
+                   Pullback::Lens::DodecahedralKaleidoscope,
+                   Pullback::TransferKind::LINEAR,
+                   Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
-class FacetWave
-    : public Looks::Composed<W, H, FacetWave<W, H>, FacetWaveParams,
-                             FacetWaveSpec, PaletteHarmony::TRIADIC,
-                             Looks::HueMode::NOISE,
-                             Pullback::Color::BrightnessEnvelope::NONE> {
+class FacetWave : public Pullback::ComposedEffect<
+                      W, H, FacetWave<W, H>, FacetWaveParams, FacetWaveSpec,
+                      PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
+                      Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
   using Params = FacetWaveParams;

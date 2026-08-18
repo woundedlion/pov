@@ -3332,7 +3332,7 @@ fixed_reference_config(size_t topology_preset, size_t fixed_preset) {
 }
 
 template <typename FixedEffect>
-Looks::FrameState<typename FixedEffect::Params>
+Pullback::FrameState<typename FixedEffect::Params>
 fixed_reference_frame(const ShaderBallWhiteBox::FrameState &source,
                       size_t fixed_preset) {
   const typename FixedEffect::Params params =

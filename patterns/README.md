@@ -46,7 +46,7 @@ projection, warp, and color parameters.
 `example.shader.json` carries no `effect_id`: it is the CLI's sample document
 and backs no effect.
 
-Every other document is the editable source of a `Looks::Composed`
+Every other document is the editable source of a `Pullback::ComposedEffect`
 specialization. A document maps to its effect by `effect_id` == the effect's
 `EFFECT_ID`. Each effect lives in its own header,
 `effects/<ClassName>.h`:
