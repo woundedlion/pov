@@ -11,7 +11,7 @@
  *        headers so a single include still covers the whole platform surface.
  */
 
-#include "engine/build_features.h"
+#include "platform/build_features.h"
 
 /** @brief Canvas width in pixels (override via -DCANVAS_W). */
 #ifndef CANVAS_W
@@ -56,9 +56,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include "engine/platform/attributes.h"
-#include "engine/platform/diagnostics.h"
-#include "engine/platform/rng.h"
+#include "platform/attributes.h"
+#include "platform/diagnostics.h"
+#include "platform/rng.h"
 
 #ifdef ARDUINO
 #include <FastLED.h>
@@ -164,7 +164,7 @@ inline void clear_mock_time() { use_mock_time = false; }
 inline unsigned long millis(); // defined below
 } // namespace hs
 
-#include "engine/platform/arduino_mocks.h"
+#include "platform/arduino_mocks.h"
 
 // Mock EVERY_N_MILLIS using a simple static checker.
 // Two-level macro so __COUNTER__ expands before pasting.

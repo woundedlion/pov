@@ -14,12 +14,12 @@
  *          overhead.
  */
 
-#include "engine/build_features.h"
+#include "platform/build_features.h"
 
 #if HS_ENABLE_EFFECT_REGISTRY
 
-#include "engine/constants.h"
-#include "engine/platform.h"
+#include "platform/constants.h"
+#include "platform/platform.h"
 #include <vector>
 #include <string_view>
 #include <functional>

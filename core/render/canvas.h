@@ -6,7 +6,7 @@
 
 // platform.h defines NDEBUG on device; include before <cassert> so assert
 // stripping does not depend on include order.
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include <cstring>
 #include <cmath>
 #include <cassert>
@@ -16,7 +16,7 @@
 #include <limits>
 #include <type_traits>
 #include <utility>
-#include "engine/constants.h"
+#include "platform/constants.h"
 #include "control/params.h"
 #include "render/clip.h"
 #include "color/color.h"

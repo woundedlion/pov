@@ -20,7 +20,7 @@
 
 #include "core/color/color.h"
 #include "core/color/effect_palette_recipes.h"
-#include "core/engine/platform.h"
+#include "core/platform/platform.h"
 
 using namespace emscripten;
 

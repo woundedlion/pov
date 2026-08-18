@@ -10,7 +10,7 @@
  *        hs::flush_log sink and the HS_OS_CYCLES cycle-counter read.
  */
 
-#include "engine/platform/attributes.h"
+#include "platform/attributes.h"
 
 #ifdef ARDUINO
 #ifndef NDEBUG

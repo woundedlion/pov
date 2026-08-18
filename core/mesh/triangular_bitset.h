@@ -10,7 +10,7 @@
  *        plot.h's wireframe path.
  */
 
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include <climits>
 #include <cstdint>
 #include <cstring>

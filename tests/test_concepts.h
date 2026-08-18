@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "core/engine/platform.h" // Fn = hs::inplace_function (defined before concepts.h)
+#include "core/platform/platform.h" // Fn = hs::inplace_function (defined before concepts.h)
 #include "core/engine/concepts.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

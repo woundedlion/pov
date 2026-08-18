@@ -8,7 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include "math/geometry.h"
-#include "engine/constants.h"
+#include "platform/constants.h"
 #include "engine/memory.h"
 #include "engine/static_circular_buffer.h"
 #include "render/sdf/common.h"

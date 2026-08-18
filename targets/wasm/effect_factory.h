@@ -12,7 +12,7 @@
  */
 #pragma once
 
-#include "core/engine/constants.h"
+#include "core/platform/constants.h"
 #include "core/control/registry.h"
 #include "core/engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
 #include <iterator>              // std::size — X-macro roster tables

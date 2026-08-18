@@ -14,7 +14,7 @@
  */
 #pragma once
 
-#include "core/engine/platform.h"
+#include "core/platform/platform.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

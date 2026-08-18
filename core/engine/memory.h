@@ -12,7 +12,7 @@
 
 // platform.h defines NDEBUG on device; include before <cassert> so assert
 // stripping does not depend on include order.
-#include "engine/platform.h"
+#include "platform/platform.h"
 #include <cstdint>
 #include <cstddef>
 #include <cstring>

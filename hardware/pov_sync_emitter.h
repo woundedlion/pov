@@ -12,7 +12,7 @@
 
 #include <cstdint>
 
-#include "core/engine/platform.h" // HS_CHECK guards the overlapping-burst trap
+#include "core/platform/platform.h" // HS_CHECK guards the overlapping-burst trap
 
 namespace pov {
 namespace sync {

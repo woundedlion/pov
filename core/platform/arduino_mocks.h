@@ -8,7 +8,7 @@
  * @file arduino_mocks.h
  * @brief Emulates the Arduino/FastLED API surface off-device.
  *
- * Included from the host/sim branch of engine/platform.h, which supplies
+ * Included from the host/sim branch of platform/platform.h, which supplies
  * hs::random/hs::millis.
  */
 

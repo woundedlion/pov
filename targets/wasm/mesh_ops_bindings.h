@@ -14,7 +14,7 @@
 #pragma once
 
 #include <emscripten/bind.h>
-#include "core/engine/platform.h"
+#include "core/platform/platform.h"
 #include "core/mesh/solids.h"
 #include "targets/wasm/arena_metrics.h"
 #include "targets/wasm/mesh_op_bounds.h" // pure, host-tested operator roster

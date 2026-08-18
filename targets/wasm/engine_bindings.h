@@ -16,7 +16,7 @@
 #include <emscripten/stack.h>
 #include "core/engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
 #include "core/control/registry.h"
-#include "core/engine/platform.h"
+#include "core/platform/platform.h"
 #include "targets/wasm/arena_metrics.h"
 #include "targets/wasm/effect_factory.h" // pure, host-tested factory + dispatch
 #include "targets/wasm/param_marshal.h"  // pure, host-tested param marshaling
