@@ -110,7 +110,12 @@ enum class BrightnessEnvelope : uint8_t {
   DESCENDING = 4
 };
 
-enum class HueMode : uint8_t { NONE = 0, NOISE = 1, PATH_LENGTH = 2 };
+/** @brief What drives the color stage's hue rotation, if anything. */
+enum class HueMode : uint8_t {
+  NONE = 0,       /**< No hue rotation; the palette color is used as sampled. */
+  NOISE = 1,      /**< Rotation amount read from a cube-face noise LUT. */
+  PATH_LENGTH = 2 /**< Rotation amount read from the accumulated path length. */
+};
 
 struct HueRotationLutView {
   static constexpr int VALUE_STEPS = 64;

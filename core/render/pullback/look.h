@@ -26,16 +26,10 @@
 
 namespace Pullback::Looks {
 
-/** @brief What drives the color stage's hue rotation, if anything. */
-enum class HueMode : uint8_t {
-  NONE,       /**< No hue rotation; the palette color is used as sampled. */
-  NOISE,      /**< Rotation amount read from a cube-face noise LUT. */
-  PATH_LENGTH /**< Rotation amount read from the accumulated path length. */
-};
-
 // The stage vocabulary this runtime composes, re-exported from the
 // pullback stage headers.
 using Pullback::Color::ColorParams;
+using Pullback::Color::HueMode;
 using Pullback::Coverage::EdgeValueParams;
 using Pullback::Lens::MobiusLensParams;
 using Pullback::Lens::NoLensParams;
@@ -317,7 +311,7 @@ inline bool hue_rotation_active(const ColorParams &color) {
  * @details Both LUT views carry their own active flag, so a stale LUT is never
  * sampled: the noise view additionally requires HueMode::NOISE.
  * @tparam BindingT The look's Binding.
- * @tparam HueV Hue-rotation source, translated to the pullback enum.
+ * @tparam HueV Hue-rotation source reported to the color stage.
  * @tparam BrightnessV Brightness envelope reported to the color stage.
  */
 template <typename BindingT, HueMode HueV,
@@ -344,13 +338,7 @@ struct ColorProvider {
   static const BakedPalette &palette(const FrameState &frame) {
     return *frame.palette;
   }
-  static Pullback::Color::HueMode hue_mode(const FrameState &) {
-    if constexpr (HueV == HueMode::NOISE)
-      return Pullback::Color::HueMode::NOISE;
-    if constexpr (HueV == HueMode::PATH_LENGTH)
-      return Pullback::Color::HueMode::PATH_LENGTH;
-    return Pullback::Color::HueMode::NONE;
-  }
+  static Pullback::Color::HueMode hue_mode(const FrameState &) { return HueV; }
   static float hue_shift_amount(const FrameState &frame) {
     return frame.params.color.hue_shift_amount;
   }
