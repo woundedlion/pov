@@ -162,6 +162,17 @@ protected:
     return true;
   }
 
+  /**
+   * @brief Ends an in-flight crossfade when the user takes a parameter over.
+   * @details The blend rewrites the whole parameter set every frame, so a
+   * transition left running would overwrite the write that just landed. Pause
+   * alone does not stop it — a started transition runs to its endpoint — but a
+   * manual edit does, exactly as a manual preset change snaps.
+   */
+  HS_COLD_MEMBER void animated_parameter_written() override {
+    transition.active = false;
+  }
+
   /// Retires the preset dwell and starts the next automatic preset transition.
   /// @details Pause suppresses preset selection, so no new transition begins
   /// while paused. A Segue::Fade policy's cadence comes from its envelope loop
