@@ -556,9 +556,8 @@ public:
    * @brief Advances the frame clocks, resolves the frame state and shades.
    * @details The order is load-bearing: the runtime's clocks, camera walks and
    * palette all step before prepare_frame() snapshots them, so the whole scan
-   * shades from one consistent frame. The transition evaluation is retired
-   * after the scan, leaving the shaded frame and the transition's progress in
-   * step.
+   * shades from one consistent frame. The preset-transition lerp steps with
+   * the timeline, so its writes land before the snapshot too.
    */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
@@ -569,7 +568,6 @@ public:
     {
       HS_PROFILE(fx_advance);
       begin_automatic_transition();
-      prepare_transition_value();
       advance_runtime();
       update_spatial_frames();
       update_palette_chroma();
@@ -583,7 +581,6 @@ public:
         return Derived::shade(view, frame);
       });
     }
-    finish_transition_evaluation();
   }
 
   /** @brief A parameter set tagged with the schema version that produced it. */
@@ -634,16 +631,49 @@ protected:
     Params params;
   };
 
-  /** @brief An automatic preset transition and how far along it is. */
+  /** @brief An automatic preset transition's endpoints. */
   struct Transition {
     Params from{}; /**< Parameters the transition departs from. */
     Params to{};   /**< Parameters it lands on. */
     Pullback::Color::PaletteMappingWeights mapping_from{};
     Pullback::Color::PaletteMappingWeights mapping_to{};
-    /** Evaluations elapsed, counting to `duration`. */
-    uint16_t evaluation = 0;
-    uint16_t duration = TRANSITION_DURATION;
     bool active = false; /**< False when no transition is in flight. */
+  };
+
+  /**
+   * @brief Timeline-lerp subject for a preset transition.
+   * @details Animation::Lerp drives this through the transition's stored
+   * endpoints each frame. A lerp whose transition was cancelled by a manual
+   * preset or a snapshot restore keeps stepping but writes nothing. Under
+   * `Derived::ANIMATED_MOBIUS` the live lens coefficients are carried across
+   * the interpolation, so the transition does not overwrite the timeline
+   * animation driving them. Deliberately never pause-gated: a started
+   * transition always runs to its authored endpoint.
+   */
+  struct PresetBlend {
+    Runtime *runtime;
+
+    void lerp(const PresetBlend &, const PresetBlend &, float progress) {
+      Runtime &effect = *runtime;
+      if (!effect.transition.active)
+        return;
+      MobiusParams animated_mobius;
+      if constexpr (requires { Derived::ANIMATED_MOBIUS; })
+        if constexpr (Derived::ANIMATED_MOBIUS)
+          animated_mobius = effect.params.lens.mobius;
+      effect.params = FixedLook::interpolate(effect.transition.from,
+                                             effect.transition.to, progress);
+      if constexpr (requires { Derived::ANIMATED_MOBIUS; })
+        if constexpr (Derived::ANIMATED_MOBIUS)
+          effect.params.lens.mobius = animated_mobius;
+      effect.palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
+          effect.transition.mapping_from, effect.transition.mapping_to,
+          progress);
+      if (progress >= 1.0f) {
+        effect.transition.active = false;
+        effect.preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
+      }
+    }
   };
 
   /**
@@ -671,56 +701,6 @@ protected:
   }
 
   /**
-   * @brief Sets this frame's parameters from the in-flight transition's eased
-   *        progress.
-   * @details Under `Derived::ANIMATED_MOBIUS` the live lens coefficients are
-   * carried across the interpolation, so the transition does not overwrite the
-   * timeline animation driving them.
-   */
-  HS_COLD_MEMBER void prepare_transition_value() {
-    if (!transition.active)
-      return;
-    MobiusParams animated_mobius;
-    if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-      if constexpr (Derived::ANIMATED_MOBIUS)
-        animated_mobius = params.lens.mobius;
-    const FixedPipeline::EdgeProgress progress =
-        FixedPipeline::edge_progress(transition.evaluation, transition.duration,
-                                     FixedPipeline::Easing::EASE_IN_OUT_SIN);
-    params =
-        FixedLook::interpolate(transition.from, transition.to, progress.eased);
-    if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-      if constexpr (Derived::ANIMATED_MOBIUS)
-        params.lens.mobius = animated_mobius;
-    palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
-        transition.mapping_from, transition.mapping_to, progress.eased);
-  }
-
-  /// Advances the in-flight preset transition by one evaluation, latching the
-  /// destination params once it reaches its duration.
-  /// @details Deliberately not pause-gated: a started transition always runs to
-  /// its authored endpoint so the look never rests between two presets.
-  HS_COLD_MEMBER void finish_transition_evaluation() {
-    if (!transition.active)
-      return;
-    if (transition.evaluation == transition.duration) {
-      MobiusParams animated_mobius;
-      if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-        if constexpr (Derived::ANIMATED_MOBIUS)
-          animated_mobius = params.lens.mobius;
-      params = transition.to;
-      if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-        if constexpr (Derived::ANIMATED_MOBIUS)
-          params.lens.mobius = animated_mobius;
-      palette_mapping = transition.mapping_to;
-      transition.active = false;
-      preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
-      return;
-    }
-    ++transition.evaluation;
-  }
-
-  /**
    * @brief Adopts a preset, crossfading only when choreography asked for it.
    * @details An AUTOMATIC change arms a TRANSITION_DURATION crossfade from the
    * live parameters; a manual or synchronized change snaps, since a user
@@ -738,20 +718,19 @@ protected:
       preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
       return true;
     }
-    transition = {params,
-                  target,
-                  palette_mapping,
+    transition = {params, target, palette_mapping,
                   Pullback::Color::PaletteMappingWeights::single(
                       target.color.palette_mapping),
-                  0,
-                  TRANSITION_DURATION,
                   true};
+    timeline.add(0, Animation::Lerp(preset_blend, preset_blend, preset_blend,
+                                    TRANSITION_DURATION, ease_in_out_sin));
     return true;
   }
 
   /** Live parameters; the registered sliders write straight into these. */
   Params params = Derived::initial_params();
   Transition transition;
+  PresetBlend preset_blend{this};
 
 private:
   struct State {
