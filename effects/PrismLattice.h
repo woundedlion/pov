@@ -8,27 +8,26 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
+
+using PrismLatticeParams =
+    FixedLook::Params<FixedLook::LatticeSourceParams, FixedLook::PolarParams,
+                      FixedLook::WaveShearParams>;
+using PrismLatticeSpec =
+    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
+                        Pullback::Lens::PentagonalPrismKaleidoscope,
+                        FixedLook::LookTransfer::LINEAR,
+                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class PrismLattice
-    : public FixedLook::Runtime<
-          W, H, PrismLattice<W, H>,
-          FixedLook::Params<FixedLook::LatticeSourceParams,
-                            FixedLook::PolarParams, FixedLook::WaveShearParams>,
-          PaletteHarmony::ANALOGOUS, FixedLook::HueMode::NOISE,
-          Pullback::Color::BrightnessEnvelope::NONE> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::LatticeSourceParams, FixedLook::PolarParams,
-                        FixedLook::WaveShearParams>;
-  using Base =
-      FixedLook::Runtime<W, H, PrismLattice<W, H>, ParamsT,
-                         PaletteHarmony::ANALOGOUS, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::NONE>;
+    : public FixedLook::Look<W, H, PrismLattice<W, H>, PrismLatticeParams,
+                             PrismLatticeSpec, PaletteHarmony::ANALOGOUS,
+                             FixedLook::HueMode::NOISE,
+                             Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = PrismLatticeParams;
   static constexpr std::string_view EFFECT_ID = "prism-lattice";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "541b1c7919eaded5d18ce350d120634800aad9df577c21451e90cf5863b461e6";
@@ -38,39 +37,7 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceStage = Pullback::Stage::SurfaceProject<
-      Binding, Pullback::Surface::Identity,
-      Pullback::Lens::PentagonalPrismKaleidoscope, Pullback::Surface::Identity,
-      Pullback::Projection::Stereographic<
-          FixedLook::ProjectionProvider<Binding>>>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding,
-      Pullback::Warp::PolarChart<FixedLook::WarpProvider<Binding, true>,
-                                 Pullback::Warp::LinearPolar, 1>,
-      Pullback::Warp::WaveShear<FixedLook::WarpProvider<Binding, false>>>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding,
-      Pullback::Source::PrimitiveLattice<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage =
-      Pullback::Stage::Material<Binding, Pullback::Weight::Projection,
-                                Pullback::Transfer::Linear,
-                                Pullback::Coverage::ProjectionSquared>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::NONE>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-  static HS_FLASH_INLINE Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
-  }
+
   static constexpr Params initial_params() {
     Params value;
     value.source.lattice_cell_scale = 0.774140596f;

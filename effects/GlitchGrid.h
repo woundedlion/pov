@@ -8,30 +8,26 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
+
+using GlitchGridParams =
+    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::MirrorParams,
+                      FixedLook::NoWarpParams, FixedLook::NoLensParams,
+                      FixedLook::EdgeValueParams>;
+using GlitchGridSpec =
+    FixedLook::LookSpec<FixedLook::LookProjection::GNOMONIC_FOLDED,
+                        Pullback::Lens::Glitch, FixedLook::LookTransfer::LINEAR,
+                        FixedLook::LookCoverage::EDGE_FADE>;
 
 template <int W, int H>
 class GlitchGrid
-    : public FixedLook::Runtime<
-          W, H, GlitchGrid<W, H>,
-          FixedLook::Params<FixedLook::GridSourceParams,
-                            FixedLook::MirrorParams, FixedLook::NoWarpParams,
-                            FixedLook::NoLensParams,
-                            FixedLook::EdgeValueParams>,
-          PaletteHarmony::TRIADIC, FixedLook::HueMode::NOISE,
-          Pullback::Color::BrightnessEnvelope::NONE> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::GridSourceParams, FixedLook::MirrorParams,
-                        FixedLook::NoWarpParams, FixedLook::NoLensParams,
-                        FixedLook::EdgeValueParams>;
-  using Base =
-      FixedLook::Runtime<W, H, GlitchGrid<W, H>, ParamsT,
-                         PaletteHarmony::TRIADIC, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::NONE>;
+    : public FixedLook::Look<W, H, GlitchGrid<W, H>, GlitchGridParams,
+                             GlitchGridSpec, PaletteHarmony::TRIADIC,
+                             FixedLook::HueMode::NOISE,
+                             Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = GlitchGridParams;
   static constexpr std::string_view EFFECT_ID = "glitch-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "082daf2081c9c9f3a59c35d9d8c1faa4c531c23f1da4b6ff2e04ea9d66eed0a7";
@@ -41,37 +37,7 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = false;
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceStage = Pullback::Stage::SurfaceProject<
-      Binding, Pullback::Surface::Identity, Pullback::Lens::Glitch,
-      Pullback::Surface::Identity,
-      Pullback::Projection::Gnomonic<
-          FixedLook::ProjectionProvider<Binding>,
-          Pullback::Projection::GnomonicHemisphere::FOLDED>>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding,
-      Pullback::Warp::MirrorTile<FixedLook::WarpProvider<Binding, true>>,
-      Pullback::Warp::Identity>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding, Pullback::Source::Grid<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage = Pullback::Stage::Material<
-      Binding, Pullback::Weight::Projection, Pullback::Transfer::Linear,
-      Pullback::Coverage::EdgeFade<FixedLook::ValueProvider<Binding>>>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::NONE>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-  static HS_FLASH_INLINE Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
-  }
+
   static constexpr Params initial_params() {
     Params value;
     value.source = {3.565f, 0.235f, 0.0f, 1.0f, 1.0f, 0.0f};

@@ -8,29 +8,26 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
+
+using MobiusGridParams =
+    FixedLook::Params<FixedLook::TwinWaveSourceParams, FixedLook::NoWarpParams,
+                      FixedLook::MirrorParams, FixedLook::MobiusLensParams>;
+using MobiusGridSpec =
+    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
+                        Pullback::Lens::Identity,
+                        FixedLook::LookTransfer::LINEAR,
+                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class MobiusGrid
-    : public FixedLook::Runtime<
-          W, H, MobiusGrid<W, H>,
-          FixedLook::Params<FixedLook::TwinWaveSourceParams,
-                            FixedLook::NoWarpParams, FixedLook::MirrorParams,
-                            FixedLook::MobiusLensParams>,
-          PaletteHarmony::COMPLEMENTARY, FixedLook::HueMode::PATH_LENGTH,
-          Pullback::Color::BrightnessEnvelope::CUP> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::TwinWaveSourceParams,
-                        FixedLook::NoWarpParams, FixedLook::MirrorParams,
-                        FixedLook::MobiusLensParams>;
-  using Base = FixedLook::Runtime<W, H, MobiusGrid<W, H>, ParamsT,
-                                  PaletteHarmony::COMPLEMENTARY,
-                                  FixedLook::HueMode::PATH_LENGTH,
-                                  Pullback::Color::BrightnessEnvelope::CUP>;
+    : public FixedLook::Look<W, H, MobiusGrid<W, H>, MobiusGridParams,
+                             MobiusGridSpec, PaletteHarmony::COMPLEMENTARY,
+                             FixedLook::HueMode::PATH_LENGTH,
+                             Pullback::Color::BrightnessEnvelope::CUP> {
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = MobiusGridParams;
   static constexpr std::string_view EFFECT_ID = "mobius-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "b7274aa41ad3c6f8ef3d75c1c978ba9f1ec03030144b02d06ba7964a0afe02e0";
@@ -42,38 +39,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool ANIMATED_MOBIUS = true;
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceStage = Pullback::Stage::SurfaceProject<
-      Binding, Pullback::Surface::Identity,
-      Pullback::Lens::Mobius<FixedLook::LensProvider<Binding>>,
-      Pullback::Surface::Identity,
-      Pullback::Projection::Stereographic<
-          FixedLook::ProjectionProvider<Binding>>>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding, Pullback::Warp::Identity,
-      Pullback::Warp::MirrorTile<
-          FixedLook::WarpProvider<Binding, false, true>>>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding, Pullback::Source::TwinWave<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage =
-      Pullback::Stage::Material<Binding, Pullback::Weight::Projection,
-                                Pullback::Transfer::Linear,
-                                Pullback::Coverage::ProjectionSquared>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::PATH_LENGTH,
-                   Pullback::Color::BrightnessEnvelope::CUP>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-  static HS_FLASH_INLINE Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
-  }
+
   static constexpr Params initial_params() {
     Params value;
     value.source = {10.158f, 0.245f, 0.8f, 0.027f};

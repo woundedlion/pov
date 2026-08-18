@@ -330,8 +330,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
 │   │   ├── clip.h                  ClipRegion segment clip rectangle + cylindrical render band
 │   │   ├── pullback.h              Typed inverse-render pipeline: umbrella over pullback/
-│   │   ├── pullback/               Per-stage pullback headers (contract, surface, lens,
-│   │   │                            projection, warp, source, material, color, stage)
+│   │   ├── pullback/               Per-stage pullback headers (contract, fields, surface,
+│   │   │                            lens, projection, warp, source, material, color,
+│   │   │                            stage) plus the fixed-look runtime (look.h)
 │   │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
 │   │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
 │   │   ├── plot_cull.h             Plot edge samplers + screen row/column span and clip-cull kernel
@@ -364,8 +365,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │
 ├── effects/                    39 headers covering 36 effects plus shared bases:
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
-│                                Raymarch.h, …; fixed/FixedLookRuntime.h is the shared
-│                                fixed-look runtime — see §9
+│                                Raymarch.h, …; the shared fixed-look runtime is
+│                                core/render/pullback/look.h — see §9
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)

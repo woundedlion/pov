@@ -8,28 +8,25 @@
 #include <array>
 #include <string_view>
 
-#include "effects/fixed/FixedLookRuntime.h"
+#include "core/render/pullback/look.h"
+
+using SignalWeaveParams =
+    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::WaveShearParams,
+                      FixedLook::NoWarpParams>;
+using SignalWeaveSpec =
+    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
+                        Pullback::Lens::Glitch, FixedLook::LookTransfer::LINEAR,
+                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class SignalWeave
-    : public FixedLook::Runtime<W, H, SignalWeave<W, H>,
-                                FixedLook::Params<FixedLook::GridSourceParams,
-                                                  FixedLook::WaveShearParams,
-                                                  FixedLook::NoWarpParams>,
-                                PaletteHarmony::TRIADIC,
-                                FixedLook::HueMode::NOISE,
-                                Pullback::Color::BrightnessEnvelope::NONE> {
-  using ParamsT =
-      FixedLook::Params<FixedLook::GridSourceParams, FixedLook::WaveShearParams,
-                        FixedLook::NoWarpParams>;
-  using Base =
-      FixedLook::Runtime<W, H, SignalWeave<W, H>, ParamsT,
-                         PaletteHarmony::TRIADIC, FixedLook::HueMode::NOISE,
-                         Pullback::Color::BrightnessEnvelope::NONE>;
+    : public FixedLook::Look<W, H, SignalWeave<W, H>, SignalWeaveParams,
+                             SignalWeaveSpec, PaletteHarmony::TRIADIC,
+                             FixedLook::HueMode::NOISE,
+                             Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
-  using Params = ParamsT;
-  using Binding = typename Base::PipelineBinding;
+  using Params = SignalWeaveParams;
   static constexpr std::string_view EFFECT_ID = "signal-weave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "2e37f7346be3aaa346492bb217b9f69696e25669863648000703d2f1792edb7c";
@@ -41,36 +38,10 @@ public:
       "signal-weave", "signal-weave-2", "signal-weave-3", "signal-weave-4"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr bool ANIMATED_PROJECTION = true;
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding,
-                                   FixedLook::OuterCameraProvider<Binding>>;
-  using SurfaceStage = Pullback::Stage::SurfaceProject<
-      Binding, Pullback::Surface::Identity, Pullback::Lens::Glitch,
-      Pullback::Surface::Identity,
-      Pullback::Projection::Stereographic<
-          FixedLook::ProjectionProvider<Binding>>>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding,
-      Pullback::Warp::WaveShear<FixedLook::WarpProvider<Binding, true>>,
-      Pullback::Warp::Identity>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding, Pullback::Source::Grid<FixedLook::SourceProvider<Binding>>>;
-  using MaterialStage =
-      Pullback::Stage::Material<Binding, Pullback::Weight::Projection,
-                                Pullback::Transfer::Linear,
-                                Pullback::Coverage::ProjectionSquared>;
-  using ColorStage = Pullback::Stage::Color<
-      Binding, Pullback::Color::GeneratedPalette<FixedLook::ColorProvider<
-                   Binding, FixedLook::HueMode::NOISE,
-                   Pullback::Color::BrightnessEnvelope::NONE>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
-  using FrameState = typename RenderPipeline::Frame;
-  static HS_HOT_FLASH_MEMBER Color4 shade(const Vector &view,
-                                          const FrameState &frame) {
-    return RenderPipeline::shade(view, frame);
+
+  static HS_HOT_FLASH_MEMBER Color4
+  shade(const Vector &view, const typename SignalWeave::FrameState &frame) {
+    return SignalWeave::RenderPipeline::shade(view, frame);
   }
   static constexpr Params initial_params() { return make_params(0); }
   static constexpr Params preset_params(size_t index) {
