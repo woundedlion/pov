@@ -14,6 +14,7 @@
  */
 
 #include "render/filter/pipeline.h"
+#include "render/filter/splat.h"
 #include "render/filter/world_orient.h"
 #include "render/filter/world_orient_slice.h"
 #include "render/filter/world_hole.h"
@@ -21,7 +22,6 @@
 #include "render/filter/world_vertex_replicate.h"
 #include "render/filter/world_mobius.h"
 #include "render/filter/world_trails.h"
-#include "render/filter/screen_splat.h"
 #include "render/filter/screen_anti_alias.h"
 #include "render/filter/screen_direct_aa_sink.h"
 #include "render/filter/screen_trails.h"

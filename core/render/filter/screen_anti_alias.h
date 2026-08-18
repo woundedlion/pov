@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "render/filter/screen_splat.h"
+#include "render/filter/splat.h"
 #include "color/color.h"
 
 /**

@@ -338,10 +338,11 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   │                            mesh, particles)
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
 │   │   │                            umbrella over filter/
-│   │   ├── filter/                 Pipeline composition (pipeline) plus one header per stage
+│   │   ├── filter/                 Pipeline composition (pipeline) and the shared splat
+│   │   │                            helper (splat), plus one header per stage
 │   │   │                            (world_orient, world_orient_slice, world_hole,
 │   │   │                            world_replicate, world_vertex_replicate, world_mobius,
-│   │   │                            world_trails, screen_splat, screen_anti_alias,
+│   │   │                            world_trails, screen_anti_alias,
 │   │   │                            screen_direct_aa_sink, screen_trails, screen_blur,
 │   │   │                            pixel_chromatic_shift)
 │   │   ├── filter_feedback.h       Filter::Pixel::Feedback: full-screen feedback loop + warp cache
