@@ -818,4 +818,77 @@ static_assert(AllPolicies::SEQUENTIAL_PER_FACE,
               "state, which an overlapping predecessor's sprite is still "
               "reading");
 
+/**
+ * @brief Preset-transition policies: the second Segue concept, beside the
+ * sprite segues above, stating how ChoreographedEffect adopts an AUTOMATIC
+ * preset change's target parameter set.
+ * @details A preset policy owns the scheduling shape of a preset move — for a
+ * scheduling policy, the schedule() return is the delay until the next
+ * transition begins, the same contract as the sprite segues. Non-AUTOMATIC
+ * origins (MANUAL, SYNCHRONIZED) always snap in ChoreographedEffect itself,
+ * regardless of policy. Roster: Lerp (param-space crossfade), Snap (immediate
+ * adoption), Fade (fade through zero opacity: out, adopt in the dark, in — the
+ * two parameter sets never render on the same frame). Dissolve — each element
+ * flipping from the old parameter set to the new at its own seeded random
+ * time, so every element still renders once per frame — is reserved for this
+ * roster but unimplemented until an effect adopts it.
+ */
+
+/**
+ * @brief Preset policy: param-space crossfade. An AUTOMATIC change arms a
+ * Transition{from, to} and drives Derived::blend_params(progress) through a
+ * timeline Animation::Lerp.
+ */
+struct Lerp {
+  uint16_t frames; /**< Frames the parameter crossfade spans. */
+  EasingFn easing; /**< Easing applied to the blend progress. */
+  bool pausable =
+      false; /**< Whether anims_paused freezes an in-flight blend. */
+};
+
+/** @brief Preset policy: adopt the target immediately on every origin,
+ * including AUTOMATIC; no transition state. */
+struct Snap {};
+
+/**
+ * @brief Preset policy: a single render path fades through zero opacity — fade
+ * out, adopt the target parameters in the dark, fade in.
+ * @details Sequential Base scheduling with the fade envelope as opacity: one
+ * sprite per preset, window-frame edges, no overlap. ChoreographedEffect's
+ * envelope loop feeds the opacity to Derived::set_preset_opacity and advances
+ * the preset as each sprite ends; both freeze with anims_paused.
+ */
+struct Fade : Base {
+  int frames; /**< Frames each preset holds the sphere, fades included. */
+  int window; /**< Fade length on each side of the swap, in frames. */
+  /** @brief Global alpha: the fade envelope itself. */
+  float opacity(float phase) const { return phase; }
+};
+
+/** @brief Whether a preset policy crossfades in parameter space (Lerp). */
+template <typename P>
+concept PresetBlends = requires(const P p) {
+  { p.frames } -> std::convertible_to<uint16_t>;
+  { p.easing } -> std::convertible_to<EasingFn>;
+  { p.pausable } -> std::convertible_to<bool>;
+};
+
+/** @brief Whether a preset policy schedules an opacity envelope around a
+ * parameter snap (Fade). */
+template <typename P>
+concept PresetFades = Schedulable<P> && requires(const P p) {
+  { p.opacity(0.5f) } -> std::same_as<float>;
+  { p.frames } -> std::convertible_to<int>;
+  { p.window } -> std::convertible_to<int>;
+};
+
+/** @brief Whether a policy can drive ChoreographedEffect's preset
+ * choreography. */
+template <typename P>
+concept PresetPolicy =
+    PresetBlends<P> || PresetFades<P> || std::same_as<P, Snap>;
+
+static_assert(PresetPolicy<Lerp> && PresetPolicy<Snap> && PresetPolicy<Fade>,
+              "a shipped preset policy dropped off its choreography path");
+
 } // namespace Segue

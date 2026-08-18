@@ -635,6 +635,9 @@ public:
   using Params = ParamsT;
   using Frame = Pullback::FrameState<ParamsT>;
   using Binding = Pullback::Binding<Frame>;
+  /** Preset policy: an automatic change crossfades the parameters; pause
+      never freezes an in-flight crossfade. */
+  static constexpr Segue::Lerp PRESET_SEGUE{480, ease_in_out_sin};
   /** Whether the effect displaces its surface, and so owns a surface noise
       field and needs a `Derived::SURFACE_NOISE_SEED`. */
   static constexpr bool HAS_SURFACE_NOISE =
