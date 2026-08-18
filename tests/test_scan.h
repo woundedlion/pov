@@ -13,7 +13,7 @@
 #pragma once
 
 #include "core/render/scan.h"
-#include "core/render/sdf_volume.h"
+#include "core/render/sdf/volume.h"
 #include "core/render/plot.h"
 #include "core/render/filter.h"
 #include "core/render/canvas.h"

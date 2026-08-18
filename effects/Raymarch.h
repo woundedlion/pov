@@ -13,7 +13,7 @@
 
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
-#include "core/render/sdf_volume.h"
+#include "core/render/sdf/volume.h"
 
 // Unit-test accessor reaching the private torus proportions, so a test can pin
 // the cull sphere against the warped SDF it has to contain.

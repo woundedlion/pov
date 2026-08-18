@@ -65,7 +65,7 @@
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "core/render/sdf.h"
-#include "core/render/sdf_volume.h"
+#include "core/render/sdf/volume.h"
 #include "core/mesh/solids.h"
 #include "core/math/spherical_field.h"
 #include "core/math/spherical_harmonics.h"
@@ -3142,7 +3142,7 @@ inline const Case *all_cases(int &n) {
        "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
        "65535.0f) ParticleSystem max_life must be finite and in [1, 65535]"},
       {"particle_render_zero_lifetime", case_particle_render_zero_lifetime,
-       "plot.h",
+       "particles.h",
        "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
        "65535.0f) ParticleSystem render max_life must be finite and in [1, "
        "65535]"},
@@ -3316,31 +3316,32 @@ inline const Case *all_cases(int &n) {
        "non-inverted and within canvas width"},
       {"arcs_overlap_start_out_of_range", case_arcs_overlap_start_out_of_range,
        "clip.h", "(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w) "},
-      {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds, "scan.h",
+      {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds, "shader.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
        "cr.render_y_end() <= H) "},
       {"scan_clip_rows_out_of_bounds", case_scan_clip_rows_out_of_bounds,
-       "scan.h",
+       "shader.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
        "cr.render_y_end() <= H) "},
 #ifndef NDEBUG
-      {"face_scratch_retargeted", case_face_scratch_retargeted, "sdf_face.h",
+      {"face_scratch_retargeted", case_face_scratch_retargeted, "face.h",
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
        "SDF::Face probed after a later Face claimed its scratch buffer"},
 #endif
-      {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "scan.h",
+      {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "raster.h",
        "(canvas.width() == W && canvas.height() == H) "},
-      {"scan_pipeline_not_prepared", case_scan_pipeline_not_prepared, "scan.h",
+      {"scan_pipeline_not_prepared", case_scan_pipeline_not_prepared,
+       "raster.h",
        "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared "
        "for this canvas"},
       {"scan_mesh_face_index_out_of_range",
-       case_scan_mesh_face_index_out_of_range, "scan.h",
+       case_scan_mesh_face_index_out_of_range, "mesh.h",
        "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
        "the vertex pool"},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
-       "plot.h", "(large < DEDUP_CAPACITY) "},
+       "mesh.h", "(large < DEDUP_CAPACITY) "},
       {"plot_extract_edges_vertex_over_capacity",
-       case_plot_extract_edges_vertex_over_capacity, "plot.h",
+       case_plot_extract_edges_vertex_over_capacity, "mesh.h",
        "(large < DEDUP_CAPACITY) "},
       {"feedback_downsample_indivisible", case_feedback_downsample_indivisible,
        "filter_feedback.h",
@@ -3409,29 +3410,29 @@ inline const Case *all_cases(int &n) {
        "geometry.h",
        "(std::abs(orientation.squared_magnitude() - 1.0f) < "
        "math::EPS_UNIT_QUAT_SQ) "},
-      {"sdf_polygon_side_count", case_sdf_polygon_side_count, "sdf.h",
+      {"sdf_polygon_side_count", case_sdf_polygon_side_count, "shapes.h",
        "(sides >= 3) "},
       {"sdf_spherical_polygon_radius_over_hemisphere",
-       case_sdf_spherical_polygon_radius_over_hemisphere, "sdf.h",
+       case_sdf_spherical_polygon_radius_over_hemisphere, "shapes.h",
        "(radius <= 1.0f) "},
       {"sdf_flower_radius_over_hemisphere",
-       case_sdf_flower_radius_over_hemisphere, "sdf.h", "(radius <= 1.0f) "},
-      {"sdf_flower_zero_radius", case_sdf_flower_zero_radius, "sdf.h",
+       case_sdf_flower_radius_over_hemisphere, "shapes.h", "(radius <= 1.0f) "},
+      {"sdf_flower_zero_radius", case_sdf_flower_zero_radius, "shapes.h",
        "(radius > 0.0f) "},
       {"sdf_class_lut_too_few_vertices", case_sdf_class_lut_too_few_vertices,
-       "sdf_face.h",
+       "face.h",
        "(count >= 3) build_canonical_distance_lut requires at least 3 polygon "
        "vertices"},
       {"sdf_class_lut_grid_too_small", case_sdf_class_lut_grid_too_small,
-       "sdf_face.h",
+       "face.h",
        "(n >= 2) build_canonical_distance_lut requires a grid resolution of at "
        "least 2"},
       {"sdf_bind_class_lut_offset_out_of_range",
-       case_sdf_bind_class_lut_offset_out_of_range, "sdf_face.h",
+       case_sdf_bind_class_lut_offset_out_of_range, "face.h",
        "(vert_offset >= 0 && vert_offset < count) bind_class_lut: vertex "
        "offset outside the face"},
       {"sdf_distorted_ring_null_shift", case_sdf_distorted_ring_null_shift,
-       "sdf_rings.h", "(sf) DistortedRing: shift_fn must be non-null"},
+       "rings.h", "(sf) DistortedRing: shift_fn must be non-null"},
       {"shaderball_empty_preset_view", case_shaderball_empty_preset_view,
        "ShaderBall.h",
        "(!source_indices.empty()) set_fixed_preset_view: empty preset view"},
@@ -3446,11 +3447,11 @@ inline const Case *all_cases(int &n) {
        "(index < preset_count_for_view()) preset_for_view: index out of "
        "range"},
       {"sdf_angular_repeat_nonunit_axis", case_sdf_angular_repeat_nonunit_axis,
-       "sdf_csg.h", "(fabsf(ax.length() - 1.0f) < 1e-3f) "},
+       "csg.h", "(fabsf(ax.length() - 1.0f) < 1e-3f) "},
       {"sdf_distorted_ring_zero_knots", case_sdf_distorted_ring_zero_knots,
-       "sdf_rings.h", "(kn != nullptr && n >= 1) "},
+       "rings.h", "(kn != nullptr && n >= 1) "},
       {"sdf_twist_zero_major_radius", case_sdf_twist_zero_major_radius,
-       "sdf_volume.h", "(R > 0.0f) "},
+       "volume.h", "(R > 0.0f) "},
       {"opleg_edge_sweep_no_edge", case_opleg_edge_sweep_no_edge, "opleg.h",
        "(spec.edge) OpLeg: edge sweep carries no graph edge"},
       {"opleg_zero_sweep_frames", case_opleg_zero_sweep_frames, "opleg.h",
@@ -3923,7 +3924,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"conway.h", 31},
     {"conway_graph.h", 1},
     {"hankin.h", 9},
-    {"mesh.h", 10},
+    {"mesh.h", 18},
     {"mesh_classes.h", 6},
     {"mesh_state.h", 3},
     {"recipe.h", 13},
@@ -3931,25 +3932,24 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"solids.h", 2},
     {"spatial.h", 5},
     {"canvas.h", 25},
+    {"common.h", 4},
+    {"csg.h", 2},
+    {"cull.h", 1},
+// The census counts source text, so face.h's site count is the same either
+// way; under NDEBUG the case pinning its Debug-only claim_seq guard is gone.
+#ifndef NDEBUG
+    {"face.h", 3},
+#else
+    {"face.h", 4},
+#endif
     {"filter.h", 5},
     {"filter_feedback.h", 7},
     {"led.h", 3},
-    {"plot.h", 17},
-    {"plot_cull.h", 1},
-    {"plot_raster.h", 8},
-    {"scan.h", 22},
-    {"sdf.h", 9},
-    {"sdf_common.h", 4},
-    {"sdf_csg.h", 2},
-// The census counts source text, so sdf_face.h's site count is the same either
-// way; under NDEBUG the case pinning its Debug-only claim_seq guard is gone.
-#ifndef NDEBUG
-    {"sdf_face.h", 3},
-#else
-    {"sdf_face.h", 4},
-#endif
-    {"sdf_volume.h", 2},
+    {"raster.h", 9},
+    {"shader.h", 2},
     {"shading.h", 1},
+    {"shapes.h", 32},
+    {"volume.h", 7},
     {"Fishbowl.h", 1},
     {"Comets.h", 2},
     {"DisplacementField.h", 1},

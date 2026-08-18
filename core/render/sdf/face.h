@@ -15,7 +15,7 @@
 #include "math/geometry.h"
 #include "engine/constants.h"
 #include "render/clip.h"
-#include "render/sdf_common.h"
+#include "render/sdf/common.h"
 
 #ifdef HS_AA_AUDIT
 #include "render/aa_audit.h"
@@ -1565,5 +1565,9 @@ struct Face {
     HS_PROBE_SPAN(pack, hs_t);
   }
 };
+
+// Leaf roster for the CSG composition contract: a leaf that stops satisfying
+// SDFShape fails here rather than at whichever composition happens to use it.
+static_assert(SDFShape<Face>);
 
 } // namespace SDF
