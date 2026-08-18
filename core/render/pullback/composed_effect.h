@@ -19,7 +19,7 @@
 #include <type_traits>
 
 #include "color/effect_palette_recipes.h"
-#include "engine/control/choreography.h"
+#include "control/choreography.h"
 #include "engine/engine.h"
 #include "math/noise_field.h"
 #include "render/pullback.h"

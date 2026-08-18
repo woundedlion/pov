@@ -17,7 +17,7 @@
 #include <type_traits>
 #include <utility>
 #include "engine/constants.h"
-#include "engine/control/params.h"
+#include "control/params.h"
 #include "render/clip.h"
 #include "color/color.h"
 #include <array>
@@ -361,9 +361,9 @@ public:
     int n = next.load(std::memory_order_acquire);
     prev.store(n, std::memory_order_release);
   }
-  /** @brief Runtime parameter descriptor (see engine/control/params.h). */
+  /** @brief Runtime parameter descriptor (see control/params.h). */
   using ParamDef = ::ParamDef;
-  /** @brief Fixed-capacity parameter registry (see engine/control/params.h). */
+  /** @brief Fixed-capacity parameter registry (see control/params.h). */
   using ParamList = ::ParamList;
 
   // Parameter System

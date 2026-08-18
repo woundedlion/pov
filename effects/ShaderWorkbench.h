@@ -18,5 +18,5 @@ public:
 
 template <int W, int H> using Shader = ShaderWorkbench<W, H>;
 
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 REGISTER_EFFECT(Shader)

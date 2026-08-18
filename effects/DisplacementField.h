@@ -800,5 +800,5 @@ private:
                 "partition; retune RING_SLOTS/MAX_BALLS or carve arenas");
 };
 
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 REGISTER_EFFECT(DisplacementField)

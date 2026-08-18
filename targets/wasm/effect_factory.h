@@ -13,7 +13,7 @@
 #pragma once
 
 #include "core/engine/constants.h"
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 #include "core/engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
 #include <iterator>              // std::size — X-macro roster tables
 #include <string_view>
@@ -59,7 +59,7 @@ const FactoryEntry *find_factory_entry(std::string_view name) {
 
 // ---------------------------------------------------------------------------
 // The (W,H) resolutions the WASM factory can build are the registry's
-// HS_RESOLUTIONS rows (core/engine/control/registry.h), so the runtime dispatch
+// HS_RESOLUTIONS rows (core/control/registry.h), so the runtime dispatch
 // here and the per-resolution fill functions the registry generates share one
 // list and cannot drift: a resolution the registry can build is dispatchable
 // here with no second edit. setResolution()/setEffect()/getEffectSizes() all

@@ -327,5 +327,5 @@ private:
       noise_xform; /**< Warps the trail with noise each frame. */
 };
 
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 REGISTER_EFFECT(Fishbowl)

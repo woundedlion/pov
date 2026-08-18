@@ -430,5 +430,5 @@ private:
   } params;
 };
 
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 REGISTER_EFFECT(BZReactionDiffusion)

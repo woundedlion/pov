@@ -55,7 +55,7 @@
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 #include "core/engine/generators.h"
 #include "core/render/led.h"
 #include "core/engine/memory.h"
