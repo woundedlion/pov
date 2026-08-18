@@ -653,7 +653,8 @@ protected:
   struct PresetBlend {
     Runtime *runtime;
 
-    void lerp(const PresetBlend &, const PresetBlend &, float progress) {
+    HS_COLD_MEMBER void lerp(const PresetBlend &, const PresetBlend &,
+                             float progress) {
       Runtime &effect = *runtime;
       if (!effect.transition.active)
         return;
