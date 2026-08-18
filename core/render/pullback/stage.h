@@ -157,14 +157,14 @@ private:
                 const PreparedT &prepared) {
     if constexpr (std::is_same_v<SurfacePolicy, Surface::Identity>) {
       return SurfacePolicy::apply(input, frame);
+    } else if constexpr (Detail::PolicyPrepares<SurfacePolicy, FrameState>) {
+      const auto start = Instrumentation::mark();
+      const SurfaceResult result = SurfacePolicy::apply(input, frame, prepared);
+      Instrumentation::template span<ProfileEvent::SURFACE_NOISE>(start);
+      return result;
     } else {
       const auto start = Instrumentation::mark();
-      const SurfaceResult result = [&] {
-        if constexpr (Detail::PolicyPrepares<SurfacePolicy, FrameState>)
-          return SurfacePolicy::apply(input, frame, prepared);
-        else
-          return SurfacePolicy::apply(input, frame);
-      }();
+      const SurfaceResult result = SurfacePolicy::apply(input, frame);
       Instrumentation::template span<ProfileEvent::SURFACE_NOISE>(start);
       return result;
     }
@@ -240,12 +240,11 @@ private:
   __attribute__((always_inline)) static void
   apply_one(const ProjectionSample &projected, const FrameState &frame,
             const PreparedT &prepared, WarpResult &warped) {
-    const WarpStepResult step = [&] {
-      if constexpr (Detail::PolicyPrepares<Policy, FrameState>)
-        return Policy::apply(warped.coords, projected, frame, prepared);
-      else
-        return Policy::apply(warped.coords, projected, frame);
-    }();
+    WarpStepResult step;
+    if constexpr (Detail::PolicyPrepares<Policy, FrameState>)
+      step = Policy::apply(warped.coords, projected, frame, prepared);
+    else
+      step = Policy::apply(warped.coords, projected, frame);
     warped.coords = step.coords;
     warped.path_length += step.path_length;
   }
@@ -283,12 +282,11 @@ struct Source : Detail::StageContract<BindingT, StageKind::SOURCE, SourceInput,
   run(const SourceInput &input, const FrameState &frame,
       const Prepared &prepared) {
     const auto start = Instrumentation::mark();
-    const float sampled = [&] {
-      if constexpr (Detail::PolicyPrepares<SourcePolicy, FrameState>)
-        return SourcePolicy::sample(input, frame, prepared);
-      else
-        return SourcePolicy::sample(input, frame);
-    }();
+    float sampled;
+    if constexpr (Detail::PolicyPrepares<SourcePolicy, FrameState>)
+      sampled = SourcePolicy::sample(input, frame, prepared);
+    else
+      sampled = SourcePolicy::sample(input, frame);
     const MaterialInput result{input.projected, input.warped, sampled};
     Instrumentation::template span<ProfileEvent::SOURCE>(start);
     return result;
