@@ -87,7 +87,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [Conway Operators](#conway-operators-conwayh)
      - [Hankin Pattern System](#hankin-pattern-system-hankinh)
      - [Solids Library](#solids-library-solidsh-solid_generatorsh)
-   - [7.8 Generators](#78-generators-generatorsh)
+   - [7.8 Generators](#78-generators-memoryh)
    - [7.9 The Preset System](#79-the-preset-system-controlpresetsh)
    - [7.10 Hardware Drivers](#710-hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)
      - [DMA LED Controller](#dma-led-controller-dma_ledh)
@@ -279,10 +279,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
-│   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>
+│   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>, generate()
 │   │   ├── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
-│   │   ├── generators.h            Universal generate() wrapper for procedural geometry
 │   │   ├── styles.h                Feedback::Style named presets + space/color transform functions
 │   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
 │   ├── math/                   Vector/quaternion math and scalar curves
@@ -750,7 +749,7 @@ A typical effect frame follows a four-stage pipeline. Not every effect uses ever
 │             │ ──▸ │              │ ──▸ │              │ ──▸ │   Pipeline   │
 │ geometry.h  │     │transformer.h │     │ sdf.h/scan.h │     │  filter.h    │
 │ solids.h    │     │              │     │ plot.h       │     │              │
-│ generators.h│     │              │     │              │     │              │
+│ memory.h    │     │              │     │              │     │              │
 └─────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
 
   Solids::get()      MeshOps::transform    Scan::Mesh::draw     Pipeline<W,H,
@@ -1714,9 +1713,9 @@ SolidBuilder(dodecahedron(a, b), a, b)
     .hankin(54.0f * D2R).ambo().hankin(72.0f * D2R).build();
 ```
 
-### 7.8 Generators (`generators.h`)
+### 7.8 Generators (`memory.h`)
 
-`generators.h` provides a single universal generation wrapper that manages arena lifecycle for all procedural geometry creation:
+`memory.h` provides a single universal generation wrapper that manages arena lifecycle for all procedural geometry creation:
 
 ```cpp
 namespace hs {
