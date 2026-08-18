@@ -719,7 +719,7 @@ private:
     field.sample_bilinear_rgb(prev, poles, bx, by, r, g, b);
   }
 
-  /** @brief Quantizes an unclamped [0, 65535]-scale channel to a Pixel
+  /** @brief Quantizes an unclamped [0, 65535]-scale channel to a ::Pixel
    *  component, round-to-nearest; NaN maps to the hi bound. */
   static uint16_t quantize16(float v) {
     // clamp guards the cast against overshoot and maps NaN to the hi bound.
