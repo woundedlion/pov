@@ -5,10 +5,10 @@
 #pragma once
 #include "math/spherical_field.h"
 #include "engine/styles.h"
-#include "render/filter.h"
+#include "render/filter/pipeline.h"
 
 /**
- * @file filter_feedback.h
+ * @file pixel_feedback.h
  * @brief Filter::Pixel::Feedback: the terminal filter that warps and
  * composites the previous frame.
  */

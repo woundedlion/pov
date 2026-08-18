@@ -344,8 +344,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   │                            world_replicate, world_vertex_replicate, world_mobius,
 │   │   │                            world_trails, screen_anti_alias,
 │   │   │                            screen_direct_aa_sink, screen_trails, screen_blur,
-│   │   │                            pixel_chromatic_shift)
-│   │   ├── filter_feedback.h       Filter::Pixel::Feedback: full-screen feedback loop + warp cache
+│   │   │                            pixel_chromatic_shift, pixel_feedback)
 │   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume)

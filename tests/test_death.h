@@ -54,7 +54,7 @@
 #include "core/color/color.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
-#include "core/render/filter_feedback.h"
+#include "core/render/filter/pixel_feedback.h"
 #include "core/engine/control/registry.h"
 #include "core/engine/generators.h"
 #include "core/render/led.h"
@@ -3344,7 +3344,7 @@ inline const Case *all_cases(int &n) {
        case_plot_extract_edges_vertex_over_capacity, "mesh.h",
        "(large < DEDUP_CAPACITY) "},
       {"feedback_downsample_indivisible", case_feedback_downsample_indivisible,
-       "filter_feedback.h",
+       "pixel_feedback.h",
        "(downsample > 0 && W % downsample == 0) feedback downsample 5 must "
        "be > 0 and divide width 32"},
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
@@ -3942,8 +3942,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
 #else
     {"face.h", 4},
 #endif
-    {"filter_feedback.h", 7},
     {"led.h", 3},
+    {"pixel_feedback.h", 7},
     {"raster.h", 9},
     {"screen_trails.h", 2},
     {"shader.h", 2},
