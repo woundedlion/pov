@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/pullback/contract.h"
+#include "render/pullback/fields.h"
 
 /**
  * @file warp.h
@@ -39,6 +40,11 @@ struct LogarithmicPolar {};
  */
 struct NoWarpParams {
   float speed = 0.0f; /**< Per-frame advance of the slot's phase. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<NoWarpParams>{&NoWarpParams::speed, nullptr, -0.02f, 0.02f,
+                          FieldCurve::LERP},
+  };
 };
 
 /**
@@ -53,6 +59,21 @@ struct MirrorParams {
   float offset_x = 0.0f; /**< Pre-fold translation along x; scrolls with the
                               slot's phase. */
   float offset_y = 0.0f; /**< Pre-fold translation along y; does not scroll. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<MirrorParams>{&MirrorParams::speed, nullptr, -0.02f, 0.02f,
+                          FieldCurve::LERP},
+      Field<MirrorParams>{&MirrorParams::rotation, "Mirror Rotation", 0.0f,
+                          TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
+      Field<MirrorParams>{&MirrorParams::cell_x, "Mirror Cell X", 1.0f / 64.0f,
+                          8.0f, FieldCurve::LOG_POSITIVE},
+      Field<MirrorParams>{&MirrorParams::cell_y, "Mirror Cell Y", 1.0f / 64.0f,
+                          8.0f, FieldCurve::LOG_POSITIVE},
+      Field<MirrorParams>{&MirrorParams::offset_x, "Mirror Offset X", -8.0f,
+                          8.0f, FieldCurve::LERP},
+      Field<MirrorParams>{&MirrorParams::offset_y, "Mirror Offset Y", -8.0f,
+                          8.0f, FieldCurve::LERP},
+  };
 };
 
 /** @brief Warp parameters for the sine shear (Pullback::Warp::WaveShear). */
@@ -63,6 +84,19 @@ struct WaveShearParams {
   float field_angle = 0.0f; /**< Field axis direction, in radians. */
   float edge_width = 0.1f;  /**< Fade band width, read only under an
                                  EdgeFadeEnvelope. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<WaveShearParams>{&WaveShearParams::speed, nullptr, -0.02f, 0.02f,
+                             FieldCurve::LERP},
+      Field<WaveShearParams>{&WaveShearParams::strength, "Warp Strength",
+                             -30.0f, 30.0f, FieldCurve::LERP},
+      Field<WaveShearParams>{&WaveShearParams::frequency, "Warp Frequency",
+                             0.01f, 32.0f, FieldCurve::LOG_POSITIVE},
+      Field<WaveShearParams>{&WaveShearParams::field_angle, "Warp Field Angle",
+                             0.0f, TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
+      Field<WaveShearParams>{&WaveShearParams::edge_width, nullptr, 0.0f, 1.0f,
+                             FieldCurve::LERP},
+  };
 };
 
 /**
@@ -78,6 +112,20 @@ struct VectorNoiseParams {
                                   radians. */
   float edge_width = 0.1f;   /**< Fade band width, read only under an
                                   EdgeFadeEnvelope. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<VectorNoiseParams>{&VectorNoiseParams::speed, nullptr, -0.02f,
+                               0.02f, FieldCurve::LERP},
+      Field<VectorNoiseParams>{&VectorNoiseParams::strength, "Warp Strength",
+                               -30.0f, 30.0f, FieldCurve::LERP},
+      Field<VectorNoiseParams>{&VectorNoiseParams::scale, "Warp Scale",
+                               1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
+      Field<VectorNoiseParams>{&VectorNoiseParams::vector_angle,
+                               "Warp Vector Angle", 0.0f, TWO_PI_F,
+                               FieldCurve::SHORTEST_PERIODIC},
+      Field<VectorNoiseParams>{&VectorNoiseParams::edge_width, nullptr, 0.0f,
+                               1.0f, FieldCurve::LERP},
+  };
 };
 
 /**
@@ -97,6 +145,23 @@ struct AffineParams {
   float scale_x = 1.0f; /**< Scale along x, oscillated over the phase cycle. */
   float scale_y = 1.0f; /**< Scale along y, oscillated over the phase cycle. */
   float shear = 0.0f;   /**< Shear, oscillated over the phase cycle. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<AffineParams>{&AffineParams::speed, nullptr, -0.02f, 0.02f,
+                          FieldCurve::LERP},
+      Field<AffineParams>{&AffineParams::rotation_rate, "Affine Rotation Rate",
+                          -TWO_PI_F, TWO_PI_F, FieldCurve::LERP},
+      Field<AffineParams>{&AffineParams::translation_x, "Affine Translation X",
+                          -4.0f, 4.0f, FieldCurve::LERP},
+      Field<AffineParams>{&AffineParams::translation_y, "Affine Translation Y",
+                          -4.0f, 4.0f, FieldCurve::LERP},
+      Field<AffineParams>{&AffineParams::scale_x, "Affine Scale X",
+                          1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
+      Field<AffineParams>{&AffineParams::scale_y, "Affine Scale Y",
+                          1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
+      Field<AffineParams>{&AffineParams::shear, "Affine Shear", -4.0f, 4.0f,
+                          FieldCurve::LERP},
+  };
 };
 
 /** @brief Warp parameters for the polar chart (Pullback::Warp::PolarChart). */
@@ -106,6 +171,17 @@ struct PolarParams {
   float radial_scale = 1.0f;  /**< Scale applied to the radial coordinate. */
   float radial_phase = 0.0f;  /**< Offset added to the radial coordinate. */
   float angular_phase = 0.0f; /**< Offset added to the angular coordinate. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<PolarParams>{&PolarParams::speed, nullptr, -0.02f, 0.02f,
+                         FieldCurve::LERP},
+      Field<PolarParams>{&PolarParams::radial_scale, "Polar Radial Scale",
+                         1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
+      Field<PolarParams>{&PolarParams::radial_phase, "Polar Radial Phase",
+                         -TWO_PI_F, TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
+      Field<PolarParams>{&PolarParams::angular_phase, "Polar Angular Phase",
+                         -TWO_PI_F, TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
+  };
 };
 
 /** @brief Affine warp coefficients, with the phase oscillation applied. */

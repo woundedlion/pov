@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/pullback/contract.h"
+#include "render/pullback/fields.h"
 
 /**
  * @file projection.h
@@ -26,6 +27,22 @@ struct ProjectionParams {
   float camera_wander = 0.0f;    /**< Same, for the outer camera random walk. */
   float central_meridian = 0.0f; /**< Central meridian handed to projections
                                       that take one, in radians. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<ProjectionParams>{&ProjectionParams::pole_fade, "Pole Fade", 1.0f,
+                              20.0f, FieldCurve::LERP},
+      Field<ProjectionParams>{&ProjectionParams::spin_rate,
+                              "Projection Spin Speed", 0.0f, 0.05f,
+                              FieldCurve::LERP, FieldGate::ANIMATED_PROJECTION},
+      Field<ProjectionParams>{&ProjectionParams::wander, "Projection Wander",
+                              0.0f, 1.0f, FieldCurve::LERP,
+                              FieldGate::ANIMATED_PROJECTION},
+      Field<ProjectionParams>{&ProjectionParams::camera_wander, "Camera Wander",
+                              0.0f, 1.0f, FieldCurve::LERP},
+      Field<ProjectionParams>{
+          &ProjectionParams::central_meridian, "Central Meridian", 0.0f,
+          TWO_PI_F, FieldCurve::SHORTEST_PERIODIC, FieldGate::CENTRAL_MERIDIAN},
+  };
 };
 
 enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/pullback/contract.h"
+#include "render/pullback/fields.h"
 
 /**
  * @file lens.h
@@ -16,7 +17,9 @@ namespace Pullback {
 namespace Lens {
 
 /** @brief Lens placeholder for a look with no parameterized lens. */
-struct NoLensParams {};
+struct NoLensParams {
+  static constexpr std::array<Field<NoLensParams>, 0> FIELDS{};
+};
 /** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
 struct MobiusLensParams {
   /** Mobius coefficients; the default is the identity map. */

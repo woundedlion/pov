@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/pullback/contract.h"
+#include "render/pullback/fields.h"
 #include "math/3dmath.h"
 
 /**
@@ -31,6 +32,22 @@ struct GridSourceParams {
   float secondary_rate = 0.0f; /**< Secondary phase rate, as a multiple of
                                     `speed`. */
   float angle_rate = 0.0f;     /**< Per-frame advance of the source rotation. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<GridSourceParams>{&GridSourceParams::pattern_freq, "Pattern Freq",
+                              0.1f, 20.0f, FieldCurve::LERP},
+      Field<GridSourceParams>{&GridSourceParams::speed, "Speed", 0.0f, 0.5f,
+                              FieldCurve::LERP},
+      Field<GridSourceParams>{&GridSourceParams::complexity, "Complexity", 0.0f,
+                              3.0f, FieldCurve::LERP},
+      Field<GridSourceParams>{&GridSourceParams::pattern_mix, "Pattern Mix",
+                              0.0f, 1.0f, FieldCurve::LERP},
+      Field<GridSourceParams>{&GridSourceParams::secondary_rate, "Drift", 0.0f,
+                              1.25f, FieldCurve::LERP},
+      Field<GridSourceParams>{&GridSourceParams::angle_rate,
+                              "Source Angle Speed", 0.0f, 0.05f,
+                              FieldCurve::LERP},
+  };
 };
 
 /**
@@ -44,6 +61,19 @@ struct TwinWaveSourceParams {
                                     `speed`. */
   float angle_rate = 0.0f; /**< Per-frame advance of the angle between the two
                                 waves. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<TwinWaveSourceParams>{&TwinWaveSourceParams::pattern_freq,
+                                  "Pattern Freq", 0.1f, 20.0f,
+                                  FieldCurve::LERP},
+      Field<TwinWaveSourceParams>{&TwinWaveSourceParams::speed, "Speed", 0.0f,
+                                  0.5f, FieldCurve::LERP},
+      Field<TwinWaveSourceParams>{&TwinWaveSourceParams::secondary_rate,
+                                  "Drift", 0.0f, 1.25f, FieldCurve::LERP},
+      Field<TwinWaveSourceParams>{&TwinWaveSourceParams::angle_rate,
+                                  "Source Angle Speed", 0.0f, 0.05f,
+                                  FieldCurve::LERP},
+  };
 };
 
 /**
@@ -55,6 +85,18 @@ struct NoiseSourceParams {
   float noise_contrast = 0.0f; /**< Contour sharpening applied to the sample. */
   float noise_time_rate = 0.0f; /**< Per-frame advance of the noise time
                                      coordinate. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<NoiseSourceParams>{&NoiseSourceParams::noise_scale,
+                               "Source Noise Scale", 1.0f / 64.0f, 64.0f,
+                               FieldCurve::LERP},
+      Field<NoiseSourceParams>{&NoiseSourceParams::noise_contrast,
+                               "Source Noise Contrast", 0.0f, 8.0f,
+                               FieldCurve::LERP},
+      Field<NoiseSourceParams>{&NoiseSourceParams::noise_time_rate,
+                               "Source Noise Speed", -1.0f / 64.0f,
+                               1.0f / 64.0f, FieldCurve::LERP},
+  };
 };
 
 /**
@@ -68,6 +110,20 @@ struct LatticeSourceParams {
   float lattice_softness = 0.05f;   /**< Half-width of the ramp across the
                                          primitive's boundary. */
   float lattice_radius = 0.25f;     /**< Primitive radius in cell units. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<LatticeSourceParams>{&LatticeSourceParams::lattice_cell_scale,
+                                 "Lattice Cell Scale", 1.0f / 64.0f, 8.0f,
+                                 FieldCurve::LOG_POSITIVE},
+      Field<LatticeSourceParams>{&LatticeSourceParams::lattice_shape_blend,
+                                 "Lattice Shape", 0.0f, 1.0f, FieldCurve::LERP},
+      Field<LatticeSourceParams>{&LatticeSourceParams::lattice_softness,
+                                 "Lattice Softness", 1.0f / 1024.0f, 1.0f,
+                                 FieldCurve::LOG_POSITIVE},
+      Field<LatticeSourceParams>{&LatticeSourceParams::lattice_radius,
+                                 "Lattice Radius", 1.0f / 64.0f, 0.49f,
+                                 FieldCurve::LERP},
+  };
 };
 
 /** @brief The source stage's phases, resolved once per frame. */

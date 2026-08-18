@@ -11,6 +11,7 @@
  */
 
 #include "render/pullback/contract.h"
+#include "render/pullback/fields.h"
 #include "render/pullback/surface.h"
 #include "render/pullback/lens.h"
 #include "render/pullback/projection.h"
