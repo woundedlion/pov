@@ -18,7 +18,7 @@ struct CurlLatticeWhiteBox;
 
 /**
  * @brief Fixed folded-sinusoidal lattice displaced by sphere-space curl noise.
- * @details Supplies the render pipeline and preset bank; Looks::Runtime
+ * @details Supplies the render pipeline and preset bank; Looks::Composed
  * supplies parameter registration, preset choreography and the palette,
  * camera-walk and noise clocks. The lattice source is read through a folded
  * sinusoidal projection, so the surface stage carries the curl displacement and
