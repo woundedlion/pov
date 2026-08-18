@@ -10,20 +10,17 @@
 
 #include "core/render/pullback/look.h"
 
-using HexWaveParams =
-    FixedLook::Params<FixedLook::TwinWaveSourceParams, FixedLook::NoWarpParams,
-                      FixedLook::MirrorParams>;
-using HexWaveSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
-                        Pullback::Lens::HexagonalPrismKaleidoscope,
-                        FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+using HexWaveParams = Looks::Params<Looks::TwinWaveSourceParams,
+                                    Looks::NoWarpParams, Looks::MirrorParams>;
+using HexWaveSpec = Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC,
+                                Pullback::Lens::HexagonalPrismKaleidoscope,
+                                Looks::TransferKind::LINEAR,
+                                Looks::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class HexWave
-    : public FixedLook::Look<W, H, HexWave<W, H>, HexWaveParams, HexWaveSpec,
-                             PaletteHarmony::ANALOGOUS,
-                             FixedLook::HueMode::NOISE,
+    : public Looks::Composed<W, H, HexWave<W, H>, HexWaveParams, HexWaveSpec,
+                             PaletteHarmony::ANALOGOUS, Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:

@@ -11,19 +11,18 @@
 #include "core/render/pullback/look.h"
 
 using GlitchGridParams =
-    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::MirrorParams,
-                      FixedLook::NoWarpParams, FixedLook::NoLensParams,
-                      FixedLook::EdgeValueParams>;
+    Looks::Params<Looks::GridSourceParams, Looks::MirrorParams,
+                  Looks::NoWarpParams, Looks::NoLensParams,
+                  Looks::EdgeValueParams>;
 using GlitchGridSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::GNOMONIC_FOLDED,
-                        Pullback::Lens::Glitch, FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::EDGE_FADE>;
+    Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED, Pullback::Lens::Glitch,
+                Looks::TransferKind::LINEAR, Looks::CoverageKind::EDGE_FADE>;
 
 template <int W, int H>
 class GlitchGrid
-    : public FixedLook::Look<W, H, GlitchGrid<W, H>, GlitchGridParams,
+    : public Looks::Composed<W, H, GlitchGrid<W, H>, GlitchGridParams,
                              GlitchGridSpec, PaletteHarmony::TRIADIC,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:

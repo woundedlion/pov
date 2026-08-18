@@ -11,18 +11,19 @@
 #include "core/render/pullback/look.h"
 
 using ContourLatticeParams =
-    FixedLook::Params<FixedLook::LatticeSourceParams, FixedLook::AffineParams,
-                      FixedLook::NoWarpParams, FixedLook::NoLensParams,
-                      FixedLook::IsoValueParams>;
-using ContourLatticeSpec = FixedLook::LookSpec<
-    FixedLook::LookProjection::GNOMONIC_FOLDED, Pullback::Lens::Identity,
-    FixedLook::LookTransfer::ISO_CONTOUR, FixedLook::LookCoverage::PROJECTION>;
+    Looks::Params<Looks::LatticeSourceParams, Looks::AffineParams,
+                  Looks::NoWarpParams, Looks::NoLensParams,
+                  Looks::IsoValueParams>;
+using ContourLatticeSpec =
+    Looks::Spec<Looks::ProjectionKind::GNOMONIC_FOLDED,
+                Pullback::Lens::Identity, Looks::TransferKind::ISO_CONTOUR,
+                Looks::CoverageKind::PROJECTION>;
 
 template <int W, int H>
 class ContourLattice
-    : public FixedLook::Look<W, H, ContourLattice<W, H>, ContourLatticeParams,
+    : public Looks::Composed<W, H, ContourLattice<W, H>, ContourLatticeParams,
                              ContourLatticeSpec, PaletteHarmony::TRIADIC,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:

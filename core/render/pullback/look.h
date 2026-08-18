@@ -24,7 +24,7 @@
 #include "math/noise_field.h"
 #include "render/pullback.h"
 
-namespace FixedLook {
+namespace Pullback::Looks {
 
 /** @brief What drives the color stage's hue rotation, if anything. */
 enum class HueMode : uint8_t {
@@ -94,7 +94,7 @@ struct Params {
  * state lives in the pipeline's per-frame instance instead. Its pointers
  * alias the runtime's persistent state and the palette cycler's current
  * bake, so a frame outlives only the draw_frame() call that built it.
- * @tparam ParamsT The look's `FixedLook::Params` specialization.
+ * @tparam ParamsT The look's `Looks::Params` specialization.
  */
 template <typename ParamsT> struct FrameState {
   /** Conjugate of the projection orientation; identity unless the look sets
@@ -494,7 +494,7 @@ template <> struct OptionalNoise<true> {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam Derived The effect class deriving from this runtime.
- * @tparam ParamsT The effect's `FixedLook::Params` specialization.
+ * @tparam ParamsT The effect's `Looks::Params` specialization.
  * @tparam Harmony Palette harmony the generated palettes are drawn from.
  * @tparam HueV Hue-rotation source: none, noise field, or path length.
  * @tparam BrightnessV Brightness envelope applied by the color stage.
@@ -611,7 +611,7 @@ public:
    */
   bool restore_parameters(const ParameterSnapshot &snapshot) {
     if (snapshot.schema_version != Derived::PARAMETER_SCHEMA_VERSION ||
-        !FixedLook::valid(snapshot.params))
+        !Looks::valid(snapshot.params))
       return false;
     transition.active = false;
     params = snapshot.params;
@@ -662,8 +662,8 @@ protected:
       if constexpr (requires { Derived::ANIMATED_MOBIUS; })
         if constexpr (Derived::ANIMATED_MOBIUS)
           animated_mobius = effect.params.lens.mobius;
-      effect.params = FixedLook::interpolate(effect.transition.from,
-                                             effect.transition.to, progress);
+      effect.params = Looks::interpolate(effect.transition.from,
+                                         effect.transition.to, progress);
       if constexpr (requires { Derived::ANIMATED_MOBIUS; })
         if constexpr (Derived::ANIMATED_MOBIUS)
           effect.params.lens.mobius = animated_mobius;
@@ -757,7 +757,7 @@ private:
       PaletteCycler::generated_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
-                "FixedLook::Runtime persistent footprint exceeds the default "
+                "Looks::Runtime persistent footprint exceeds the default "
                 "partition");
 
   static void configure_noise(FastNoiseLite &noise, int32_t seed) {
@@ -1071,7 +1071,7 @@ private:
 };
 
 /** @brief Projection a look's surface stage composes. */
-enum class LookProjection : uint8_t {
+enum class ProjectionKind : uint8_t {
   STEREOGRAPHIC,
   GNOMONIC_FOLDED,
   EQUIRECTANGULAR,
@@ -1079,10 +1079,10 @@ enum class LookProjection : uint8_t {
 };
 
 /** @brief Transfer curve a look's material stage composes. */
-enum class LookTransfer : uint8_t { LINEAR, ISO_CONTOUR };
+enum class TransferKind : uint8_t { LINEAR, ISO_CONTOUR };
 
 /** @brief Coverage policy a look's material stage composes. */
-enum class LookCoverage : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
+enum class CoverageKind : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
 
 /**
  * @brief The pipeline choices a look states beyond its parameter families.
@@ -1096,73 +1096,69 @@ enum class LookCoverage : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
  * @tparam TransferV Material transfer curve.
  * @tparam CoverageV Material coverage policy.
  */
-template <LookProjection ProjectionV, typename LensPolicyT,
-          LookTransfer TransferV, LookCoverage CoverageV>
-struct LookSpec {
-  static constexpr LookProjection PROJECTION = ProjectionV;
+template <ProjectionKind ProjectionV, typename LensPolicyT,
+          TransferKind TransferV, CoverageKind CoverageV>
+struct Spec {
+  static constexpr ProjectionKind PROJECTION = ProjectionV;
   using LensPolicy = LensPolicyT;
-  static constexpr LookTransfer TRANSFER = TransferV;
-  static constexpr LookCoverage COVERAGE = CoverageV;
+  static constexpr TransferKind TRANSFER = TransferV;
+  static constexpr CoverageKind COVERAGE = CoverageV;
 };
 
-template <typename Family, typename Binding> struct LookSourcePolicy;
-template <typename B> struct LookSourcePolicy<GridSourceParams, B> {
+template <typename Family, typename Binding> struct SourcePolicy;
+template <typename B> struct SourcePolicy<GridSourceParams, B> {
   using Type = Pullback::Source::Grid<SourceProvider<B>>;
 };
-template <typename B> struct LookSourcePolicy<TwinWaveSourceParams, B> {
+template <typename B> struct SourcePolicy<TwinWaveSourceParams, B> {
   using Type = Pullback::Source::TwinWave<SourceProvider<B>>;
 };
-template <typename B> struct LookSourcePolicy<LatticeSourceParams, B> {
+template <typename B> struct SourcePolicy<LatticeSourceParams, B> {
   using Type = Pullback::Source::PrimitiveLattice<SourceProvider<B>>;
 };
 
 template <typename Family, typename Binding, bool Outer, bool TrackPath>
-struct LookWarpPolicy;
-template <typename B, bool O, bool T>
-struct LookWarpPolicy<NoWarpParams, B, O, T> {
+struct WarpPolicy;
+template <typename B, bool O, bool T> struct WarpPolicy<NoWarpParams, B, O, T> {
   using Type = Pullback::Warp::Identity;
 };
-template <typename B, bool O, bool T>
-struct LookWarpPolicy<MirrorParams, B, O, T> {
+template <typename B, bool O, bool T> struct WarpPolicy<MirrorParams, B, O, T> {
   using Type = Pullback::Warp::MirrorTile<WarpProvider<B, O, T>>;
 };
 template <typename B, bool O, bool T>
-struct LookWarpPolicy<WaveShearParams, B, O, T> {
+struct WarpPolicy<WaveShearParams, B, O, T> {
   using Type = Pullback::Warp::WaveShear<WarpProvider<B, O, T>>;
 };
 template <typename B, bool O, bool T>
-struct LookWarpPolicy<VectorNoiseParams, B, O, T> {
+struct WarpPolicy<VectorNoiseParams, B, O, T> {
   using Type =
       Pullback::Warp::VectorNoise<WarpProvider<B, O, T>, NoiseBasis::SIMPLEX,
                                   Pullback::Warp::FlatEnvelope>;
 };
-template <typename B, bool O, bool T>
-struct LookWarpPolicy<AffineParams, B, O, T> {
+template <typename B, bool O, bool T> struct WarpPolicy<AffineParams, B, O, T> {
   using Type = Pullback::Warp::AffineFrame<WarpProvider<B, O, T>>;
 };
-template <typename B, bool O, bool T>
-struct LookWarpPolicy<PolarParams, B, O, T> {
+template <typename B, bool O, bool T> struct WarpPolicy<PolarParams, B, O, T> {
   using Type = Pullback::Warp::PolarChart<WarpProvider<B, O, T>,
                                           Pullback::Warp::LinearPolar, 1>;
 };
 
-template <LookProjection ProjectionV, typename Binding>
+template <ProjectionKind ProjectionV, typename Binding>
 struct LookProjectionPolicy;
 template <typename B>
-struct LookProjectionPolicy<LookProjection::STEREOGRAPHIC, B> {
+struct LookProjectionPolicy<ProjectionKind::STEREOGRAPHIC, B> {
   using Type = Pullback::Projection::Stereographic<ProjectionProvider<B>>;
 };
 template <typename B>
-struct LookProjectionPolicy<LookProjection::GNOMONIC_FOLDED, B> {
+struct LookProjectionPolicy<ProjectionKind::GNOMONIC_FOLDED, B> {
   using Type = Pullback::Projection::Gnomonic<
       ProjectionProvider<B>, Pullback::Projection::GnomonicHemisphere::FOLDED>;
 };
 template <typename B>
-struct LookProjectionPolicy<LookProjection::EQUIRECTANGULAR, B> {
+struct LookProjectionPolicy<ProjectionKind::EQUIRECTANGULAR, B> {
   using Type = Pullback::Projection::Equirectangular<ProjectionProvider<B>>;
 };
 template <typename B>
-struct LookProjectionPolicy<LookProjection::FOLDED_SINUSOIDAL, B> {
+struct LookProjectionPolicy<ProjectionKind::FOLDED_SINUSOIDAL, B> {
   using Type = Pullback::Projection::FoldedSinusoidal<ProjectionProvider<B>>;
 };
 
@@ -1175,23 +1171,23 @@ struct LookLensPolicy<MobiusLensParams, SpecLens, B> {
   using Type = Pullback::Lens::Mobius<LensProvider<B>>;
 };
 
-template <LookTransfer TransferV, typename Binding> struct LookTransferPolicy;
-template <typename B> struct LookTransferPolicy<LookTransfer::LINEAR, B> {
+template <TransferKind TransferV, typename Binding> struct LookTransferPolicy;
+template <typename B> struct LookTransferPolicy<TransferKind::LINEAR, B> {
   using Type = Pullback::Transfer::Linear;
 };
-template <typename B> struct LookTransferPolicy<LookTransfer::ISO_CONTOUR, B> {
+template <typename B> struct LookTransferPolicy<TransferKind::ISO_CONTOUR, B> {
   using Type = Pullback::Transfer::IsoContour<ValueProvider<B>>;
 };
 
-template <LookCoverage CoverageV, typename Binding> struct LookCoveragePolicy;
-template <typename B> struct LookCoveragePolicy<LookCoverage::PROJECTION, B> {
+template <CoverageKind CoverageV, typename Binding> struct LookCoveragePolicy;
+template <typename B> struct LookCoveragePolicy<CoverageKind::PROJECTION, B> {
   using Type = Pullback::Coverage::Projection;
 };
 template <typename B>
-struct LookCoveragePolicy<LookCoverage::PROJECTION_SQUARED, B> {
+struct LookCoveragePolicy<CoverageKind::PROJECTION_SQUARED, B> {
   using Type = Pullback::Coverage::ProjectionSquared;
 };
-template <typename B> struct LookCoveragePolicy<LookCoverage::EDGE_FADE, B> {
+template <typename B> struct LookCoveragePolicy<CoverageKind::EDGE_FADE, B> {
   using Type = Pullback::Coverage::EdgeFade<ValueProvider<B>>;
 };
 
@@ -1206,8 +1202,8 @@ template <typename B> struct LookCoveragePolicy<LookCoverage::EDGE_FADE, B> {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam Derived The effect class deriving from this look.
- * @tparam ParamsT The look's `FixedLook::Params` specialization.
- * @tparam SpecT The look's `FixedLook::LookSpec`.
+ * @tparam ParamsT The look's `Looks::Params` specialization.
+ * @tparam SpecT The look's `Spec`.
  * @tparam Harmony Palette harmony the generated palettes are drawn from.
  * @tparam HueV Hue-rotation source: none, noise field, or path length.
  * @tparam BrightnessV Brightness envelope applied by the color stage.
@@ -1218,8 +1214,8 @@ template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
           PaletteHarmony Harmony, HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV,
           bool HasOuterNoise = false, bool HasSourceNoise = false>
-class Look : public Runtime<W, H, Derived, ParamsT, Harmony, HueV, BrightnessV,
-                            HasOuterNoise, HasSourceNoise> {
+class Composed : public Runtime<W, H, Derived, ParamsT, Harmony, HueV,
+                                BrightnessV, HasOuterNoise, HasSourceNoise> {
   using RuntimeBase = Runtime<W, H, Derived, ParamsT, Harmony, HueV,
                               BrightnessV, HasOuterNoise, HasSourceNoise>;
 
@@ -1255,13 +1251,13 @@ public:
       SurfaceImplementation>;
   using PlanarWarpStage = Pullback::Stage::PlanarWarp<
       Binding,
-      typename LookWarpPolicy<typename ParamsT::outer_warp_type, Binding, true,
-                              TRACK_PATH>::Type,
-      typename LookWarpPolicy<typename ParamsT::inner_warp_type, Binding, false,
-                              TRACK_PATH>::Type>;
+      typename WarpPolicy<typename ParamsT::outer_warp_type, Binding, true,
+                          TRACK_PATH>::Type,
+      typename WarpPolicy<typename ParamsT::inner_warp_type, Binding, false,
+                          TRACK_PATH>::Type>;
   using SourceStage = Pullback::Stage::Source<
       Binding,
-      typename LookSourcePolicy<typename ParamsT::source_type, Binding>::Type>;
+      typename SourcePolicy<typename ParamsT::source_type, Binding>::Type>;
   using MaterialStage = Pullback::Stage::Material<
       Binding, Pullback::Weight::Projection,
       typename LookTransferPolicy<SpecT::TRANSFER, Binding>::Type,
@@ -1287,4 +1283,6 @@ public:
   }
 };
 
-} // namespace FixedLook
+} // namespace Pullback::Looks
+
+namespace Looks = Pullback::Looks;

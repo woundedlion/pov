@@ -11,19 +11,18 @@
 #include "core/render/pullback/look.h"
 
 using EquatorGridParams =
-    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::NoWarpParams,
-                      FixedLook::MirrorParams>;
-using EquatorGridSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::EQUIRECTANGULAR,
-                        Pullback::Lens::DodecahedralKaleidoscope,
-                        FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+    Looks::Params<Looks::GridSourceParams, Looks::NoWarpParams,
+                  Looks::MirrorParams>;
+using EquatorGridSpec = Looks::Spec<Looks::ProjectionKind::EQUIRECTANGULAR,
+                                    Pullback::Lens::DodecahedralKaleidoscope,
+                                    Looks::TransferKind::LINEAR,
+                                    Looks::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class EquatorGrid
-    : public FixedLook::Look<W, H, EquatorGrid<W, H>, EquatorGridParams,
+    : public Looks::Composed<W, H, EquatorGrid<W, H>, EquatorGridParams,
                              EquatorGridSpec, PaletteHarmony::ANALOGOUS,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:

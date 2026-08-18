@@ -18,7 +18,7 @@ struct FacetGridWhiteBox;
 
 /**
  * @brief Mirrored grids folded through a dodecahedral stereographic lens.
- * @details Supplies the render pipeline and preset bank; FixedLook::Runtime
+ * @details Supplies the render pipeline and preset bank; Looks::Runtime
  * supplies parameter registration, preset choreography and the palette,
  * camera-walk and noise clocks. The kaleidoscopic fold lives in the surface
  * lens, so the surface itself is an identity and the mirror tiling happens in
@@ -26,20 +26,18 @@ struct FacetGridWhiteBox;
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
-using FacetGridParams =
-    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::NoWarpParams,
-                      FixedLook::MirrorParams>;
-using FacetGridSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
-                        Pullback::Lens::DodecahedralKaleidoscope,
-                        FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+using FacetGridParams = Looks::Params<Looks::GridSourceParams,
+                                      Looks::NoWarpParams, Looks::MirrorParams>;
+using FacetGridSpec = Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC,
+                                  Pullback::Lens::DodecahedralKaleidoscope,
+                                  Looks::TransferKind::LINEAR,
+                                  Looks::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class FacetGrid
-    : public FixedLook::Look<W, H, FacetGrid<W, H>, FacetGridParams,
+    : public Looks::Composed<W, H, FacetGrid<W, H>, FacetGridParams,
                              FacetGridSpec, PaletteHarmony::ANALOGOUS,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
   friend struct ::hs_test::facet_grid_tests::FacetGridWhiteBox;
 

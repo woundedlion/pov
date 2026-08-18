@@ -11,18 +11,18 @@
 #include "core/render/pullback/look.h"
 
 using SignalWeaveParams =
-    FixedLook::Params<FixedLook::GridSourceParams, FixedLook::WaveShearParams,
-                      FixedLook::NoWarpParams>;
+    Looks::Params<Looks::GridSourceParams, Looks::WaveShearParams,
+                  Looks::NoWarpParams>;
 using SignalWeaveSpec =
-    FixedLook::LookSpec<FixedLook::LookProjection::STEREOGRAPHIC,
-                        Pullback::Lens::Glitch, FixedLook::LookTransfer::LINEAR,
-                        FixedLook::LookCoverage::PROJECTION_SQUARED>;
+    Looks::Spec<Looks::ProjectionKind::STEREOGRAPHIC, Pullback::Lens::Glitch,
+                Looks::TransferKind::LINEAR,
+                Looks::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
 class SignalWeave
-    : public FixedLook::Look<W, H, SignalWeave<W, H>, SignalWeaveParams,
+    : public Looks::Composed<W, H, SignalWeave<W, H>, SignalWeaveParams,
                              SignalWeaveSpec, PaletteHarmony::TRIADIC,
-                             FixedLook::HueMode::NOISE,
+                             Looks::HueMode::NOISE,
                              Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:

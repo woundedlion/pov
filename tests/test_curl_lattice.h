@@ -37,7 +37,7 @@ struct CurlLatticeWhiteBox {
                              progress);
   }
 
-  using Ctx = FixedLook::FrameState<Params>;
+  using Ctx = Looks::FrameState<Params>;
 
   template <typename ReferenceFrame>
   static Ctx from_reference(const ReferenceFrame &frame) {
@@ -152,17 +152,15 @@ inline void test_curl_lattice_identity_and_presets() {
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(dense_actual[index]),
                  std::bit_cast<uint32_t>(DENSE_EXPECTED[index]));
   }
-  HS_EXPECT_TRUE(FixedLook::valid(FX::preset_params(1)));
+  HS_EXPECT_TRUE(Looks::valid(FX::preset_params(1)));
 
   // The runtime rebuilds the hue-rotation LUT on the same predicate the
   // colorizer gates its view on, so both read dead at a zero shift amount.
-  FixedLook::ColorParams shift;
+  Looks::ColorParams shift;
   shift.hue_shift_amount = 0.0f;
-  HS_EXPECT_FALSE(
-      (FixedLook::hue_rotation_active<FixedLook::HueMode::NOISE>(shift)));
+  HS_EXPECT_FALSE((Looks::hue_rotation_active<Looks::HueMode::NOISE>(shift)));
   shift.hue_shift_amount = 0.25f;
-  HS_EXPECT_TRUE(
-      (FixedLook::hue_rotation_active<FixedLook::HueMode::NOISE>(shift)));
+  HS_EXPECT_TRUE((Looks::hue_rotation_active<Looks::HueMode::NOISE>(shift)));
   HS_EXPECT_TRUE(FX::preset_params(0).color.hue_shift_amount != 0.0f);
   HS_EXPECT_TRUE(FX::preset_params(1).color.hue_shift_amount != 0.0f);
 
