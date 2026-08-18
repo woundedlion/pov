@@ -10,7 +10,7 @@
  *        color transforms with their scalar parameters.
  */
 
-#include "engine/transformers.h"
+#include "animation/transformer.h"
 #include "color/color.h"
 
 /**

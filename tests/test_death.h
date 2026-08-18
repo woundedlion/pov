@@ -72,7 +72,7 @@
 #include "core/mesh/spatial.h"
 #include "core/mesh/triangular_bitset.h"
 #include "core/engine/static_circular_buffer.h"
-#include "core/engine/transformers.h"
+#include "core/animation/transformer.h"
 #include "hardware/dma_led_controller.h"
 #include "hardware/pov_sync.h"
 
@@ -3098,21 +3098,21 @@ inline const Case *all_cases(int &n) {
       {"timeline_double_construct", case_timeline_double_construct,
        "timeline.h", "(!global_timeline_live) "},
       {"transformer_pool_init_storage_twice",
-       case_transformer_pool_init_storage_twice, "transformers.h",
+       case_transformer_pool_init_storage_twice, "transformer.h",
        "(!entities) TransformerPool: init_storage() called twice"},
       {"transformer_pool_spawn_before_init",
-       case_transformer_pool_spawn_before_init, "transformers.h",
+       case_transformer_pool_spawn_before_init, "transformer.h",
        "(entities) TransformerPool: call init_storage() before spawn"},
       {"transformer_pool_active_index_oob",
-       case_transformer_pool_active_index_oob, "transformers.h",
+       case_transformer_pool_active_index_oob, "transformer.h",
        "(k >= 0 && k < active_slot_count) TransformerPool: active index out of "
        "range"},
       {"transformer_pool_reclaim_storage_moved",
-       case_transformer_pool_reclaim_storage_moved, "transformers.h",
+       case_transformer_pool_reclaim_storage_moved, "transformer.h",
        "(e == entities && s == active_slots) TransformerPool: reclaimed "
        "storage moved"},
       {"transformer_pool_outlives_timeline",
-       case_transformer_pool_outlives_timeline, "transformers.h",
+       case_transformer_pool_outlives_timeline, "transformer.h",
        "(global_timeline_live) TransformerPool outlived its Timeline: declare "
        "the Timeline before the pools that schedule on it"},
       {"effect_double_construct", case_effect_double_construct, "canvas.h",
@@ -3914,7 +3914,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"memory.h", 3},
     {"reaction_graph.h", 2},
     {"static_circular_buffer.h", 4},
-    {"transformers.h", 4},
+    {"transformer.h", 4},
     {"3dmath.h", 6},
     {"geometry.h", 15},
     {"lenses.h", 2},

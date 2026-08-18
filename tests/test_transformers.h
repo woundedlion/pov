@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/engine/transformers.h — the pure geometry transform functions
+ * Unit tests for core/animation/transformer.h — the pure geometry transform functions
  * and the adapter/manager wrappers:
  *   - OrientTransformer       : identity orientation is a no-op; a known 90°
  *                               rotation maps to its hand-computed image.
@@ -54,7 +54,7 @@
  */
 #pragma once
 
-#include "core/engine/transformers.h"
+#include "core/animation/transformer.h"
 #include "core/render/canvas.h"
 #include "core/math/easing.h"
 #include "tests/test_fixture.h"

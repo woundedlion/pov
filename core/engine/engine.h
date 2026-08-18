@@ -39,7 +39,8 @@
 #include "color/color.h"
 #include "color/palette_cycler.h"
 #include "animation/animation.h"
-#include "engine/transformers.h"
+#include "animation/transformer.h"
+#include "engine/generators.h"
 
 #include "render/filter.h"
 #include "render/plot.h"

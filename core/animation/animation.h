@@ -31,7 +31,6 @@
 #include "math/stereographic.h"
 #include "engine/platform.h"
 #include "vendor/FastNoiseLite.h"
-#include "engine/generators.h"
 #include "math/geometry.h"
 #include "engine/concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn
 #include "mesh/mesh.h"       // MeshOps
