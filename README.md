@@ -270,8 +270,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── arduino_mocks.h         Host-side FastLED / Arduino mock surface
 │   │   ├── build_features.h        Build-time feature and instrumentation switches
 │   │   └── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
-│   ├── control/                An effect's control surface (registry, params, presets,
-│   │                            choreography, transition)
+│   ├── control/                An effect's control surface (registry, params +
+│   │                            apply_if_changed, presets, choreography, transition)
 │   ├── engine/                 Machinery: memory, callables, rosters, effect support
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
 │   │   ├── engine.h                Engine API umbrella — included by every effect
@@ -283,7 +283,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   │   ├── generators.h            Universal generate() wrapper for procedural geometry
-│   │   ├── util.h                  apply_if_changed live-parameter change gate
 │   │   ├── styles.h                Feedback::Style named presets + space/color transform functions
 │   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
 │   ├── math/                   Vector/quaternion math and scalar curves

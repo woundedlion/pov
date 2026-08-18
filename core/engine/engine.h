@@ -41,7 +41,7 @@
 #include "animation/animation.h"
 #include "animation/transformer.h"
 #include "engine/generators.h"
-#include "engine/util.h"
+#include "control/params.h"
 
 #include "render/filter.h"
 #include "render/plot.h"

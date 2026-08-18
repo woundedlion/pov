@@ -6,8 +6,8 @@
 
 /**
  * @file params.h
- * @brief Runtime parameter registry: ParamDef descriptors and the
- *        fixed-capacity ParamList an Effect owns.
+ * @brief Runtime parameter registry: ParamDef descriptors, the fixed-capacity
+ *        ParamList an Effect owns, and the live-value change gate.
  */
 
 #include "platform/build_features.h"
@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 #include <utility>
 
 // External ParamDef storage covers the GUI bridge and builds that opt in.
@@ -285,3 +286,26 @@ private:
   uint32_t schema_gen = 0;
 #endif
 };
+
+/**
+ * @brief Invokes `apply(current)` only when `current` differs from `last`,
+ * then latches `last = current`.
+ * @details Live-apply a slider value only on change, so a per-frame push does
+ *   no work while the slider sits still. The animation setters it usually feeds
+ *   (`set_duration`/`set_period`) guard the no-change case themselves, so this
+ *   is a work filter, not a correctness gate.
+ * @param current The latest parameter value to test against the cached one.
+ * @param last The cached value; updated to `current` when they differ.
+ * @param apply Callable receiving the new value; run only on change.
+ */
+template <typename T, typename F>
+inline void apply_if_changed(const T &current, T &last, F &&apply) {
+  // T must compare with exact equality: a tolerance comparator (e.g. Vector's
+  // operator!=) is non-transitive and could re-fire or latch incorrectly.
+  static_assert(std::is_arithmetic_v<T>,
+                "apply_if_changed requires an exact-equality T (scalar/int)");
+  if (current != last) {
+    last = current;
+    apply(current);
+  }
+}

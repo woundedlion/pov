@@ -65,7 +65,6 @@
 #include "tests/test_pov_sync.h"
 #include "tests/test_param_marshal.h"
 #include "tests/test_wasm_predicates.h"
-#include "tests/test_util.h"
 #include "tests/test_led.h"
 #include "tests/test_presets.h"
 #include "tests/test_styles.h"
@@ -149,7 +148,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("opchain_arena_survey", 1,                                                 \
     hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests, 5764) \
   X("hankin", 19, hs_test::hankin_tests::run_hankin_tests, 1594)               \
-  X("geometry", 35, hs_test::geometry_tests::run_geometry_tests, 4847)         \
+  X("geometry", 41, hs_test::geometry_tests::run_geometry_tests, 5128)         \
   X("spherical_field", 13,                                                     \
     hs_test::spherical_field_tests::run_spherical_field_tests, 9391)           \
   X("mesh", 27, hs_test::mesh_tests::run_mesh_tests, 69923)                    \
@@ -212,9 +211,8 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
     2260)                                                                      \
   X("wasm_predicates", 13,                                                     \
     hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 470)            \
-  X("util", 7, hs_test::util_tests::run_util_tests, 288)                       \
   X("led", 6, hs_test::led_tests::run_led_tests, 24)                           \
-  X("presets", 8, hs_test::presets_tests::run_presets_tests, 36)               \
+  X("presets", 9, hs_test::presets_tests::run_presets_tests, 43)               \
   X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
   X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
   X("death", 168, hs_test::death_tests::run_death_tests, 259)

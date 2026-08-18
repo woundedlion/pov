@@ -2,7 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/math/geometry.h.
+ * Unit tests for core/math/geometry.h, including the circular-domain
+ * wrap/distance helpers.
  *
  * Coverage:
  *   - Axis constants (X/Y/Z_AXIS, UP)
@@ -699,6 +700,132 @@ inline void test_orientation_set_at_normalized() {
  * @brief Runs every geometry test case.
  * @return The module's failure count.
  */
+// --- wrap(float, m) / wrap_t ------------------------------------------------
+
+/**
+ * @brief Verifies wrap(float, m) folds any real into [0, m) for an arbitrary base m.
+ * @details Checks in-range identity, negative fold-up, above-m fold-down, multiple
+ *          periods, a non-unit base, and that results stay in [0, m) across signs.
+ */
+inline void test_wrap_float() {
+  HS_EXPECT_NEAR(wrap(0.25f, 1.0f), 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(wrap(-0.25f, 1.0f), 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(wrap(1.25f, 1.0f), 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(wrap(-3.25f, 1.0f), 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(wrap(7.0f, 5.0f), 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(wrap(-1.0f, 5.0f), 4.0f, 1e-6f);
+
+  for (int i = -30; i <= 30; ++i) {
+    float w = wrap(i * 0.37f, 2.0f);
+    HS_EXPECT_TRUE(w >= 0.0f && w < 2.0f);
+  }
+}
+
+/**
+ * @brief Verifies wrap_t folds any real into the unit interval [0, 1) (the m==1 case).
+ */
+inline void test_wrap_t() {
+  HS_EXPECT_NEAR(wrap_t(0.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(wrap_t(0.4f), 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(wrap_t(1.4f), 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(wrap_t(-0.25f), 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(wrap_t(-2.1f), 0.9f, 1e-5f);
+  // Tiny negative t: t - floorf(t) rounds up to exactly 1.0f, which the guard
+  // must fold back to 0 to keep the half-open [0, 1) contract.
+  float tiny = wrap_t(-1e-8f);
+  HS_EXPECT_TRUE(tiny >= 0.0f && tiny < 1.0f);
+  HS_EXPECT_NEAR(tiny, 0.0f, 1e-6f);
+  for (int i = -50; i <= 50; ++i) {
+    float w = wrap_t(i * 0.13f);
+    HS_EXPECT_TRUE(w >= 0.0f && w < 1.0f);
+  }
+}
+
+// --- wrap(int, int) ---------------------------------------------------------
+
+/**
+ * @brief Verifies wrap(int, int) folds an integer into [0, m) using the integer overload.
+ * @details The exact (int, int) match selects the integer overload, so no float math runs.
+ */
+inline void test_wrap_int() {
+  HS_EXPECT_EQ(wrap(3, 5), 3);
+  HS_EXPECT_EQ(wrap(5, 5), 0);
+  HS_EXPECT_EQ(wrap(7, 5), 2);
+  HS_EXPECT_EQ(wrap(-1, 5), 4);
+  HS_EXPECT_EQ(wrap(-6, 5), 4);
+  for (int i = -17; i <= 17; ++i) {
+    int w = wrap(i, 6);
+    HS_EXPECT_TRUE(w >= 0 && w < 6);
+  }
+  // A non-positive modulus returns x rather than dividing: [0, m) is empty and
+  // INT_MIN % -1 would overflow.
+  HS_EXPECT_EQ(wrap(7, 0), 7);
+  HS_EXPECT_EQ(wrap(7, -3), 7);
+  HS_EXPECT_EQ(wrap(-7, -3), -7);
+  HS_EXPECT_EQ(wrap(std::numeric_limits<int>::min(), -1),
+               std::numeric_limits<int>::min());
+}
+
+// --- wrap(mixed int/float) --------------------------------------------------
+
+/**
+ * @brief Verifies a mixed (int, float) wrap call returns the common type (float).
+ * @details The template yields std::common_type_t (float), so the fractional part
+ *          survives rather than being truncated to an int; (float, int) also uses
+ *          float math, which geometry.h relies on.
+ */
+inline void test_wrap_mixed_type() {
+  static_assert(std::is_same_v<decltype(wrap(3, 2.5f)), float>,
+                "wrap(int, float) returns the common type (float)");
+  HS_EXPECT_NEAR(wrap(3, 2.5f), 0.5f, 1e-6f); // fmod(3, 2.5) == 0.5
+  HS_EXPECT_NEAR(wrap(7, 2.5f), 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(wrap(-1, 2.5f), 1.5f, 1e-6f);
+  HS_EXPECT_NEAR(wrap(7.5f, 5), 2.5f, 1e-6f);
+}
+
+// --- fast_wrap --------------------------------------------------------------
+
+/**
+ * @brief Verifies fast_wrap folds x with a single add or subtract.
+ * @details fast_wrap assumes x is at most one period out of range, valid only for
+ *          x in [-W, 2W); the test covers in-range identity, one period high, one
+ *          period low, and the whole legal window landing in [0, W).
+ */
+inline void test_fast_wrap() {
+  constexpr int W = 8;
+  for (int x = 0; x < W; ++x)
+    HS_EXPECT_EQ(fast_wrap(x, W), x);
+  HS_EXPECT_EQ(fast_wrap(W, W), 0);
+  HS_EXPECT_EQ(fast_wrap(W + 3, W), 3);
+  HS_EXPECT_EQ(fast_wrap(2 * W - 1, W), W - 1);
+  HS_EXPECT_EQ(fast_wrap(-1, W), W - 1);
+  HS_EXPECT_EQ(fast_wrap(-W, W), 0);
+  for (int x = -W; x < 2 * W; ++x) {
+    int w = fast_wrap(x, W);
+    HS_EXPECT_TRUE(w >= 0 && w < W);
+  }
+}
+
+// --- shortest_distance ------------------------------------------------------
+
+/**
+ * @brief Verifies shortest_distance returns the smaller arc length on the circular domain.
+ * @details The result is symmetric in its arguments, wraps across the seam when shorter,
+ *          is exactly m/2 for antipodal points, and is always bounded by [0, m/2].
+ */
+inline void test_shortest_distance() {
+  HS_EXPECT_NEAR(shortest_distance(0.0f, 1.0f, 10.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(shortest_distance(1.0f, 0.0f, 10.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(shortest_distance(1.0f, 9.0f, 10.0f), 2.0f, 1e-5f);
+  HS_EXPECT_NEAR(shortest_distance(0.0f, 5.0f, 10.0f), 5.0f, 1e-5f);
+  // Across the seam the wrap arc (2) must beat the direct arc (8).
+  HS_EXPECT_TRUE(shortest_distance(1.0f, 9.0f, 10.0f) < 9.0f - 1.0f);
+  for (int i = 0; i < 20; ++i) {
+    float d = shortest_distance(i * 0.5f, 3.3f, 10.0f);
+    HS_EXPECT_TRUE(d >= 0.0f && d <= 5.0f + 1e-5f);
+  }
+}
+
 inline int run_geometry_tests() {
   hs_test::ModuleFixture fixture("geometry");
 
@@ -745,6 +872,13 @@ inline int run_geometry_tests() {
   test_orientation_upsample_clamps_past_capacity();
   test_orientation_historical_index_accessors();
   test_orientation_set_at_normalized();
+
+  test_wrap_float();
+  test_wrap_t();
+  test_wrap_int();
+  test_wrap_mixed_type();
+  test_fast_wrap();
+  test_shortest_distance();
 
   return fixture.result();
 }
