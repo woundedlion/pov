@@ -55,8 +55,8 @@ peak.
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-09.md) | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-07-25.md) | volume ray-march (`-O3` march path) | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
-| [CurlLattice](shipping/profile_curllattice_teensy_2026-08-16.md)§ ● | curl-noise surface lattice | 🟢 48.67 (2) | 🟢 0/2208 (0%) | 2026-08-16 08:38 |
 | [VectorFacets](shipping/profile_vectorfacets_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
+| [CurlLattice](shipping/profile_curllattice_teensy_2026-08-17.md)§ ● | curl-noise surface lattice | 🟢 45.47 (2) | 🟢 0/2208 (0%) | 2026-08-17 19:01 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
 | [HankinSolids](shipping/profile_hankinsolids_teensy_2026-07-25.md)§ | per-face SDF (`-O3` driver + `ConwayMorph`) | 🟢 43.0 (19) | 🟢 0/3328 (0%) | 2026-07-26 11:55 |
 | [Comets](shipping/profile_comets_teensy_2026-07-25.md)§ | point raster | 🟢 41.56 (12) | 🟢 0/4128 (0%) | 2026-07-26 11:43 |
@@ -133,7 +133,7 @@ on them.
 **All thirty-three effects spill nothing** in their current shipping captures.
 
 **The fourteen fixed-pipeline effects are green, and none is near the
-ceiling.** Their peaks run 23.30 ms (GlitchGrid) to 48.67 ms (CurlLattice), so
+ceiling.** Their peaks run 23.30 ms (GlitchGrid) to 45.47 ms (CurlLattice), so
 the heaviest of them keeps 13.83 ms of the 62.5 ms window — the widest margin
 any pullback-shaded effect has held on this bench.
 
