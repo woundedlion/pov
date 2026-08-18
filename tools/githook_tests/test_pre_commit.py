@@ -76,7 +76,7 @@ CASES = (
     ("tests/check_includes.cmake", {"native"}),
     ("tests/ubsan-ignorelist.txt", {"native"}),
     ("README.md", {"lint"}),
-    ("docs/specs/shaderball_spec.md", {"lint"}),
+    ("docs/specs/pullback_pipeline_spec.md", {"lint"}),
     ("scripts/wasm_smoke.mjs", {"lint"}),
     ("tools/docs_check.py", {"lint"}),
     ("ruff.toml", {"lint"}),

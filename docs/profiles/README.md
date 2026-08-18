@@ -114,7 +114,7 @@ under `profile_o3` would re-establish it.
 ## Captures of retired effects
 
 `shipping/` also holds the last captures of **Flyby** and **Liquid2D**, two
-retired stereographic effects (`../specs/shaderball_spec.md`). Neither is in the
+retired stereographic effects merged into ShaderBall. Neither is in the
 roster, so `just profile` cannot regenerate them.
 
 ShaderBall's captures have been deleted. The fixed-pipeline workbench migration

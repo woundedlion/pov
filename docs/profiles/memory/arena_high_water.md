@@ -18,7 +18,7 @@ does not capture long-run growth — this is the same window the CI arena
 budget gate trusts for device sizing.
 
 Each snapshot lists the roster of its own commit. Flyby and Liquid2D below
-predate their merge into ShaderBall (`../../specs/shaderball_spec.md`).
+predate their merge into ShaderBall.
 
 ## Survey snapshot (pre trail-compression, master 2b875b6e)
 

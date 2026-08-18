@@ -276,6 +276,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── effect_registry.h       Self-registering factory: REGISTER_EFFECT macro
 │   │   ├── effect_transition.h     Fenced one-endpoint effect transition controller
 │   │   ├── effect_params.h         ParamDef descriptors + the fixed-capacity ParamList registry
+│   │   ├── effect_choreography.h   ChoreographedEffect: preset dwell/crossfade, snapshots, field-table sliders
 │   │   ├── fixed_pipeline.h        Shared fixed-pipeline preset transition helpers
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
@@ -2514,7 +2515,7 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 The standalone [Shader workbench](https://github.com/woundedlion/daydream/blob/master/tools/shader.html) provides the complete structural vocabulary and configurable stage folders in a dedicated browser tab. Twenty-three retained legacy presets migrate to stable fixed-pipeline product effects; legacy preset 4 is retired, and unmatched custom configurations route to the workbench for editing. The firmware rosters contain only the promoted effects.
 
-The [fixed-pipeline migration specification](https://github.com/woundedlion/pov/blob/master/docs/specs/shader_workbench_fixed_pipeline_effects_spec.md) defines the architecture. `ShaderWorkbench` is registered as `Shader`, with `ShaderBall` retained as a legacy alias. It owns structural editing and dynamic dispatch in WASM and native oracle tests only. `HS_ENABLE_SHADER_WORKBENCH` is rejected for Arduino builds, and release ELF inspection gates the dynamic backend, topology registry, and workbench symbols out of firmware.
+`ShaderWorkbench` is registered as `Shader`, with `ShaderBall` retained as a legacy alias. It owns structural editing and dynamic dispatch in WASM and native oracle tests only. `HS_ENABLE_SHADER_WORKBENCH` is rejected for Arduino builds, and release ELF inspection gates the dynamic backend, topology registry, and workbench symbols out of firmware.
 
 Shipping composed effects are ordinary concrete `Effect` types. Each names one compile-time `Pullback::Pipeline`, a compact parameter and prepared-frame type, immutable stable preset IDs, and only the resources its graph uses. Its raster loop calls `Derived::shade(view, frame)` directly; there is no per-pixel function-pointer dispatch, topology lookup, family object, or universal Shader parameter block. The shared `Pullback::ComposedEffect` base contains only lifecycle work that is genuinely common: clocks, preset interpolation, parameter registration, palette/LUT ownership, narrow frame preparation, and the typed scan loop; its preset choreography and snapshot machinery come from the engine-level `ChoreographedEffect`. Generated palette evaluation remains in the shared `GenerativePalette` color stage rather than being copied into each effect.
 
