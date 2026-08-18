@@ -10,6 +10,7 @@
  * @brief Feedback filter over a selectable polyhedral wireframe.
  */
 
+#include "core/engine/effect_choreography.h"
 #include "core/engine/engine.h"
 #include "core/render/filter_feedback.h"
 
@@ -20,6 +21,13 @@ struct MeshFeedbackWhiteBox;
 } // namespace effects_tests
 } // namespace hs_test
 
+/** @brief MeshFeedback's parameter set: the wireframe solid and the feedback
+ *  style rendering it. */
+struct MeshFeedbackParams {
+  Solids::BaseMesh base_mesh = Solids::BaseMesh::ICOSAHEDRON;
+  Feedback::Style style = Feedback::Style::ArcingLightning();
+};
+
 /**
  * @brief Feedback effect over a selectable polyhedron.
  * @tparam W Canvas width in pixels.
@@ -29,17 +37,22 @@ struct MeshFeedbackWhiteBox;
  * switch immediately at fixed intervals while mesh emission continues. The
  * base mesh changes with the preset or live selector.
  */
-template <int W, int H> class MeshFeedback : public Effect {
+template <int W, int H>
+class MeshFeedback
+    : public ChoreographedEffect<MeshFeedback<W, H>, MeshFeedbackParams> {
 public:
+  using Choreography =
+      ChoreographedEffect<MeshFeedback<W, H>, MeshFeedbackParams>;
+  using Params = MeshFeedbackParams;
   using Style = Feedback::Style;
   using BaseMesh = Solids::BaseMesh;
 
-  struct Params {
-    BaseMesh base_mesh = BaseMesh::ICOSAHEDRON;
-    Style style = Style::ArcingLightning();
-  };
-
-  static constexpr int PRESET_FRAMES = 241;
+  /** Preset policy: snap the target parameters on every origin, AUTOMATIC
+      included — Style embeds a noise binding and base_mesh drives an
+      arena-rewinding mesh rebuild, so parameter blending is never legal. */
+  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 241;
 
   // Gamut boundary bracket grid bought from the persistent arena (131,072 B),
   // at the flash master's own resolution, so the copy is verbatim.
@@ -87,29 +100,35 @@ public:
       "registered slider range; widen the range to accommodate the "
       "preset (the range exposes the presets, it does not clamp them)");
 
+  /** @brief Startup parameters: PRESETS[0] with the noise binding still null;
+   *  init() binds the effect-owned NoiseParams. */
+  static Params initial_params() { return {}; }
+
+  /** @brief Whether a restored parameter set lies within the slider ranges. */
+  static bool valid_params(const Params &p) { return preset_in_ranges(p); }
+
   /**
    * @brief Wires up noise, orientation, and the filter pipeline.
-   * @details The Feedback filter binds `params.style` by reference; keep
-   * `params` declared before `filters` so it is constructed first.
+   * @details The Feedback filter binds `params.style` by reference; `params`
+   * lives in the Choreography base subobject, so it is constructed before
+   * every member here.
    */
   HS_COLD_MEMBER MeshFeedback()
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
-        noise_params(), orientation(), timeline(),
+      : Choreography(W, H,
+                     pipeline_config<decltype(filters)>({.strobe = true})),
+        noise_params(), orientation(),
         filters(Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>(),
                 Filter::Pixel::Feedback<W, H>(params.style)) {}
 
   /**
    * @brief One-time effect setup.
-   * @details Binds shared noise into presets, builds the selected mesh, samples
-   * the mesh shade, registers tunable params, and schedules the
-   * noise/walk/preset timers.
+   * @details Binds the shared noise into the live style, builds the selected
+   * mesh, samples the mesh shade, registers tunable params, and schedules the
+   * noise/walk timers.
    */
   void init() override {
     configure_presets(PRESETS.size());
-    for (auto &e : presets.get_entries()) {
-      e.params.style.noise = &noise_params;
-    }
 
     // Configure the noise type before apply_params(): it calls sync_noise(),
     // which would otherwise propagate the default noise type on the first frame.
@@ -117,7 +136,7 @@ public:
     noise_params.noise.SetSeed(hs::rand_int(0, 65536));
     noise_params.sync();
 
-    params = presets.get();
+    params = preset_params(0);
 
     mesh_shade = Palettes::PEACH_POP.get(0.0f);
 
@@ -150,15 +169,15 @@ public:
 
   /**
    * @brief Renders one frame.
-   * @details Advances the preset selection, applies params, steps the timeline,
-   * runs the feedback decay flush, then draws the mesh. The preset switch leads
-   * apply_params() so the noise scalars and the fade/hue the flush reads come
-   * from the same preset, and the flush leads the mesh draw so this frame's
-   * wireframe is not decayed by its own flush.
+   * @details Advances the preset choreography, applies params, steps the
+   * timeline, runs the feedback decay flush, then draws the mesh. The preset
+   * switch leads apply_params() so the noise scalars and the fade/hue the flush
+   * reads come from the same preset, and the flush leads the mesh draw so this
+   * frame's wireframe is not decayed by its own flush.
    */
   void draw_frame() override {
     Canvas canvas(*this);
-    advance_preset();
+    begin_automatic_transition();
 
     {
       HS_PROFILE(mf_apply_params);
@@ -186,15 +205,31 @@ public:
   }
 
 private:
-  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
-    if (!presets.select(change.to))
-      return false;
-    presets.apply(params);
-    preset_frames = 0;
-    return true;
+  friend Choreography;
+  friend struct ::hs_test::effects_tests::MeshFeedbackWhiteBox;
+
+  using Choreography::begin_automatic_transition;
+  using Choreography::configure_presets;
+  using Choreography::mark_global;
+  using Choreography::params;
+  using Choreography::register_animated_param;
+  using Choreography::register_param;
+  using Choreography::timeline;
+
+  /** @brief Params for the preset at @p index, with the effect-owned noise
+   *  bound into the style. */
+  Params preset_params(size_t index) {
+    Params p = PRESETS[index].params;
+    p.style.noise = &noise_params;
+    return p;
   }
 
-  friend struct ::hs_test::effects_tests::MeshFeedbackWhiteBox;
+  /** @brief Adopts a snap or snapshot target, re-binding the noise pointer a
+   *  foreign snapshot would otherwise carry stale. */
+  void adopt_params(const Params &target) {
+    params = target;
+    params.style.noise = &noise_params;
+  }
 
   static_assert(Solids::MAX_SOLID_VERTICES <=
                     static_cast<size_t>(Plot::Mesh::DEDUP_CAPACITY),
@@ -235,23 +270,7 @@ private:
         feedback_enabled);
   }
 
-  /**
-   * @brief Advances to the next preset every PRESET_FRAMES.
-   * @details Frozen while animations are paused.
-   */
-  void advance_preset() {
-    if (animations_paused())
-      return;
-    if (++preset_frames < PRESET_FRAMES)
-      return;
-    preset_frames = 0;
-    HS_CHECK(advancePreset());
-  }
-
-  Params params;
-  Presets<Params, PRESET_COUNT> presets{PRESETS};
   bool feedback_enabled = true;
-  int preset_frames = 0;
   Animation::NoiseParams noise_params;
   // Dedicated walk generator: RandomWalk's ctor takes exclusive control of its
   // frequency and seed, and noise_params.sync() runs every frame off the
@@ -259,7 +278,6 @@ private:
   FastNoiseLite walk_noise;
 
   Orientation<> orientation;
-  Timeline timeline;
 
   Color4 mesh_shade; /**< Wireframe shade; sampled once in init(). */
 

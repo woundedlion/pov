@@ -2812,8 +2812,8 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
  *          so the flush reads one preset's scalars, and the flush leads the mesh
  *          draw so the frame's own wireframe survives it. Reordering them is the
  *          cheapest possible refactor, changes the image, and is invisible to the
- *          roster sweeps: the PRESET_FRAMES rotation never fires inside the smoke
- *          window at all.
+ *          roster sweeps: the PRESET_DWELL_FRAMES rotation never fires inside the
+ *          smoke window at all.
  */
 struct MeshFeedbackWhiteBox {
   using MF = MeshFeedback<SMALL_W, SMALL_H>;
@@ -2823,18 +2823,15 @@ struct MeshFeedbackWhiteBox {
   static MF::BaseMesh active_base_mesh(const MF &fx) {
     return fx.active_base_mesh;
   }
-  static MF::BaseMesh preset_base_mesh(const MF &fx, size_t index) {
-    return fx.presets.get_entries()[index].params.base_mesh;
+  static MF::BaseMesh preset_base_mesh(MF &fx, size_t index) {
+    return fx.preset_params(index).base_mesh;
   }
   static size_t mesh_vertices(const MF &fx) { return fx.mesh.vertices.size(); }
   static size_t mesh_edges(const MF &fx) { return fx.edges.size(); }
   static const Animation::NoiseParams &noise(const MF &fx) {
     return fx.noise_params;
   }
-  static size_t preset_index(const MF &fx) {
-    return fx.presets.current_index();
-  }
-  static int preset_frames(const MF &fx) { return fx.preset_frames; }
+  static size_t preset_index(const MF &fx) { return fx.getPresetIndex(); }
   static size_t mesh_storage_mark(const MF &fx) { return fx.mesh_storage_mark; }
   static void rebuild_mesh(MF &fx, MF::BaseMesh base_mesh) {
     fx.rebuild_mesh(base_mesh);
@@ -2910,12 +2907,14 @@ inline void test_meshfeedback_flush_precedes_mesh_draw() {
 
 /**
  * @brief Drives the preset rotation and pins the switch-frame noise sync.
- * @details PRESET_FRAMES is 241, so the rotation is out of reach of every roster
- *          sweep. Crosses two boundaries and requires the selector to step one
- *          entry each time, and — the ordering contract — requires the bound
- *          NoiseParams to already carry the incoming preset's scalars when the
- *          switch frame ends: apply_params() runs after advance_preset(), so the
- *          flush that frame reads one preset's fade and noise, not two.
+ * @details PRESET_DWELL_FRAMES is 241, so the rotation is out of reach of every
+ *          roster sweep. Crosses two boundaries and requires the selector to
+ *          step one entry each time — the second boundary only lands on frame
+ *          482 if the first switch re-armed the dwell — and, the ordering
+ *          contract, requires the bound NoiseParams to already carry the
+ *          incoming preset's scalars when the switch frame ends: apply_params()
+ *          runs after begin_automatic_transition(), so the flush that frame
+ *          reads one preset's fade and noise, not two.
  */
 inline void test_meshfeedback_preset_rotation_syncs_noise() {
   using WB = MeshFeedbackWhiteBox;
@@ -2943,19 +2942,18 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
   };
 
   int switches = 0, desynced = 0, wrong_preset = 0;
-  for (int f = 1; f <= 2 * MF::PRESET_FRAMES + 1; ++f) {
+  for (int f = 1; f <= 2 * MF::PRESET_DWELL_FRAMES + 1; ++f) {
     hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
                       static_cast<unsigned long>(f) * FRAME_US);
     fx.draw_frame();
     fx.advance_display();
 
     const size_t expect_idx =
-        static_cast<size_t>(f / MF::PRESET_FRAMES) % MF::PRESETS.size();
+        static_cast<size_t>(f / MF::PRESET_DWELL_FRAMES) % MF::PRESETS.size();
     if (WB::preset_index(fx) != expect_idx)
       ++wrong_preset;
-    if (f % MF::PRESET_FRAMES == 0) {
+    if (f % MF::PRESET_DWELL_FRAMES == 0) {
       ++switches;
-      HS_EXPECT_EQ(WB::preset_frames(fx), 0);
       // The live style is the incoming preset, and the noise the flush reads
       // already followed it within this same frame.
       HS_EXPECT_TRUE(matches_preset(expect_idx));
