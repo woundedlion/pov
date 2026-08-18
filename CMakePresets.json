@@ -38,7 +38,11 @@
       "description": "Native Clang build of the unit-test suite. Uses cmake/toolchain-native-clang.cmake (auto-locates Clang via EMSDK and the Windows SDK rc.exe). SIDE EFFECT: configuring this preset repoints git core.hooksPath at .githooks (the pre-commit test gate, ON by default); disable with -DHS_INSTALL_GIT_HOOKS=OFF. See README §11.",
       "inherits": "base",
       "toolchainFile": "${sourceDir}/cmake/toolchain-native-clang.cmake",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "HS_PULLBACK_CAPTURE_PRESET": "tests" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "HS_PULLBACK_CAPTURE_PRESET": "tests"
+      }
     }
   ],
   "buildPresets": [
