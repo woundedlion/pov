@@ -62,7 +62,7 @@ constexpr int DEFAULT_H = 144;
  * smoke runs assert-free), so a second roster pass at this resolution exercises
  * height-20-specific paths (PhiLUT<20> indexing, small-aspect arena sizing,
  * H_OFFSET interactions) that bypass every assert-enabled layer otherwise. Both
- * are in HS_RESOLUTIONS (core/engine/control/registry.h).
+ * are in HS_RESOLUTIONS (core/control/registry.h).
  */
 constexpr int SMALL_W = 96;
 /**

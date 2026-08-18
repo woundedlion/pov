@@ -15,7 +15,7 @@
 #include <emscripten/bind.h>
 #include <emscripten/stack.h>
 #include "core/engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 #include "core/engine/platform.h"
 #include "targets/wasm/arena_metrics.h"
 #include "targets/wasm/effect_factory.h" // pure, host-tested factory + dispatch

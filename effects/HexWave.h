@@ -54,5 +54,5 @@ public:
   static constexpr Params preset_params(size_t) { return initial_params(); }
 };
 
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 REGISTER_EFFECT(HexWave)

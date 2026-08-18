@@ -11,7 +11,7 @@
  *        attractors through a Mobius warp.
  */
 
-#include "core/engine/control/choreography.h"
+#include "core/control/choreography.h"
 #include "core/engine/engine.h"
 // 256 x 256 Pixels = 393,216 B of flash, about a fifth of the Teensy budget;
 // the trade is stated in tools/mindsplatter_palette_gen.cpp.
@@ -591,5 +591,5 @@ private:
   }
 };
 
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 REGISTER_EFFECT(MindSplatter)

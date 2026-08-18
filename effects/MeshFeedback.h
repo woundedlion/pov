@@ -10,7 +10,7 @@
  * @brief Feedback filter over a selectable polyhedral wireframe.
  */
 
-#include "core/engine/control/choreography.h"
+#include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/render/filter/pixel_feedback.h"
 
@@ -306,5 +306,5 @@ private:
                 "coarsen the gamut grid, or carve arenas");
 };
 
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 REGISTER_EFFECT(MeshFeedback)

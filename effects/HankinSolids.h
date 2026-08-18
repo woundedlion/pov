@@ -929,5 +929,5 @@ private:
   Pipeline<W, H> filters;    /**< Per-pixel filter pipeline applied on draw. */
 };
 
-#include "core/engine/control/registry.h"
+#include "core/control/registry.h"
 REGISTER_EFFECT(HankinSolids)
