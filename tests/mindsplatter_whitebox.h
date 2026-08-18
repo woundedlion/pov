@@ -32,12 +32,12 @@ struct MindSplatterWhiteBox {
     using Particle = Animation::Particle<EffectType::TRAIL_LEN>;
     using Attractor = typename EffectType::ParticleSystem::Attractor;
     using Params = typename EffectType::Params;
-    using PresetState = decltype(std::declval<EffectType>().presets);
+    using Transition = typename EffectType::Transition;
 
     std::vector<ObjectBytes<Particle>> particles;
     std::vector<ObjectBytes<Attractor>> attractors;
     ObjectBytes<Params> params{};
-    ObjectBytes<PresetState> presets{};
+    ObjectBytes<Transition> transition{};
     ObjectBytes<Orientation<>> orientation{};
     ObjectBytes<MobiusParams> mobius{};
     std::array<float, EffectType::MAX_EMITTERS> emit_phases{};
@@ -157,7 +157,7 @@ struct MindSplatterWhiteBox {
       snapshot.attractors.push_back(
           object_bytes(ms.particle_system.attractors[i]));
     snapshot.params = object_bytes(ms.params);
-    snapshot.presets = object_bytes(ms.presets);
+    snapshot.transition = object_bytes(ms.transition);
     snapshot.orientation = object_bytes(ms.orientation);
     snapshot.mobius = object_bytes(ms.mobius);
     snapshot.emit_phases = ms.emit_phases;
@@ -181,7 +181,7 @@ struct MindSplatterWhiteBox {
              ms.particle_system.attractors.size());
 
     restore_object(ms.params, snapshot.params);
-    restore_object(ms.presets, snapshot.presets);
+    restore_object(ms.transition, snapshot.transition);
     restore_object(ms.orientation, snapshot.orientation);
     restore_object(ms.mobius, snapshot.mobius);
     ms.emit_phases = snapshot.emit_phases;
@@ -247,11 +247,8 @@ struct MindSplatterWhiteBox {
 
   template <int W, int H>
   static void select_preset(MindSplatter<W, H> &ms, size_t index) {
-    const size_t count = ms.presets.get_entries().size();
-    HS_CHECK(index < count, "MindSplatter replay preset is out of range");
-    while (ms.presets.current_index() != index)
-      ms.presets.next();
-    ms.presets.apply(ms.params);
+    HS_CHECK(ms.selectPreset(index),
+             "MindSplatter replay preset is out of range");
   }
 
   template <int W, int H>
@@ -269,7 +266,7 @@ struct MindSplatterWhiteBox {
   static bool same_snapshot(const ReplaySnapshot<W, H> &a,
                             const ReplaySnapshot<W, H> &b) {
     if (a.particles != b.particles || a.attractors != b.attractors ||
-        a.params != b.params || a.presets != b.presets ||
+        a.params != b.params || a.transition != b.transition ||
         a.orientation != b.orientation || a.mobius != b.mobius)
       return false;
     if (std::memcmp(a.emit_phases.data(), b.emit_phases.data(),
@@ -300,7 +297,8 @@ struct MindSplatterWhiteBox {
   }
   template <int W, int H>
   static auto preset_base_mesh(const MindSplatter<W, H> &ms, size_t index) {
-    return ms.presets.get_entries()[index].params.base_mesh;
+    (void)ms;
+    return MindSplatter<W, H>::PRESETS[index].params.base_mesh;
   }
   static float emit_phase(const MS &ms, size_t i) { return ms.emit_phases[i]; }
   static float event_horizon() { return MS::EVENT_HORIZON; }
@@ -349,9 +347,6 @@ struct MindSplatterWhiteBox {
       colors[i] = MINDSPLATTER_PALETTES[seed >> 8][i];
     return colors;
   }
-  template <int W, int H> static void next_preset(MindSplatter<W, H> &ms) {
-    ms.presets.next();
-  }
   /** @brief Drives one choreography-origin preset advance. */
   template <int W, int H> static void advance_preset(MindSplatter<W, H> &ms) {
     HS_CHECK(ms.advancePreset(),
@@ -365,11 +360,12 @@ struct MindSplatterWhiteBox {
   template <int W, int H>
   static const typename MindSplatter<W, H>::Params &
   preset_params(const MindSplatter<W, H> &ms, size_t index) {
-    return ms.presets.get_entries()[index].params;
+    (void)ms;
+    return MindSplatter<W, H>::PRESETS[index].params;
   }
   template <int W, int H>
   static size_t preset_index(const MindSplatter<W, H> &ms) {
-    return ms.presets.current_index();
+    return ms.getPresetIndex();
   }
   template <int W, int H>
   static size_t preset_count(const MindSplatter<W, H> &ms) {

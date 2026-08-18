@@ -11,6 +11,7 @@
  *        attractors through a Mobius warp.
  */
 
+#include "core/engine/effect_choreography.h"
 #include "core/engine/engine.h"
 // 256 x 256 Pixels = 393,216 B of flash, about a fifth of the Teensy budget;
 // the trade is stated in tools/mindsplatter_palette_gen.cpp.
@@ -24,6 +25,44 @@ struct MindSplatterWhiteBox;
 } // namespace hs_test
 
 /**
+ * @brief Animated MindSplatter parameters snapshot.
+ * @details active_count is engine-written (read-only); the remaining fields
+ *          are driven by the preset Lerp or by user input when paused.
+ */
+struct MindSplatterParams {
+  Solids::BaseMesh base_mesh = Solids::BaseMesh::CUBE;
+  float friction = 0.85f;       /**< Velocity retention per step in [0.5, 1]. */
+  float well_strength = 1.0f;   /**< Attractor pull strength in [0, 20]. */
+  float initial_speed = 0.025f; /**< Spawn speed in [0, 0.5] (units/step). */
+  float angular_speed = 0.2f; /**< Emission phase rate in [0, 1] (rad/emit). */
+  float warp_scale = 0.6f;    /**< Mobius warp magnitude in [0, 5]. */
+  float active_count = 0.0f;  /**< Live particle count (engine-written). */
+
+  /**
+   * @brief Linearly interpolates each field between two preset snapshots.
+   * @param start Source snapshot (interpolation parameter t = 0).
+   * @param target Destination snapshot (interpolation parameter t = 1).
+   * @param t Interpolation factor in [0, 1].
+   */
+  void lerp(const MindSplatterParams &start, const MindSplatterParams &target,
+            float t) {
+    // Trips if the field set changes, so a new preset float can't silently go
+    // un-interpolated (engine-written active_count is excluded on purpose).
+    static_assert(sizeof(MindSplatterParams) == 7 * sizeof(float),
+                  "MindSplatter::Params field set changed — update lerp");
+    base_mesh = t < 0.5f ? start.base_mesh : target.base_mesh;
+    friction = start.friction + (target.friction - start.friction) * t;
+    well_strength =
+        start.well_strength + (target.well_strength - start.well_strength) * t;
+    initial_speed =
+        start.initial_speed + (target.initial_speed - start.initial_speed) * t;
+    angular_speed =
+        start.angular_speed + (target.angular_speed - start.angular_speed) * t;
+    warp_scale = start.warp_scale + (target.warp_scale - start.warp_scale) * t;
+  }
+};
+
+/**
  * @brief Particle effect spraying from Platonic-solid emitters toward
  *        dual-solid attractors through a Mobius warp.
  * @tparam W Canvas width in pixels.
@@ -31,20 +70,38 @@ struct MindSplatterWhiteBox;
  * @details Presets cyclically lerp friction/well-strength/speed params, and
  *          the whole field is randomly re-warped on a timer.
  */
-template <int W, int H> class MindSplatter : public Effect {
+template <int W, int H>
+class MindSplatter
+    : public ChoreographedEffect<MindSplatter<W, H>, MindSplatterParams> {
+  using Choreography =
+      ChoreographedEffect<MindSplatter<W, H>, MindSplatterParams>;
+  friend Choreography;
+
 public:
   using BaseMesh = Solids::BaseMesh;
+  using Params = MindSplatterParams;
+
+  /** Preset policy: an automatic change crossfades the live parameters over
+      48 frames; pause freezes an in-flight crossfade. */
+  static constexpr Segue::Lerp PRESET_SEGUE{48, ease_linear, /*pausable=*/true};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** Dwell + blend = the 160-frame preset cadence. */
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 112;
+
+  /** @brief Initial live parameters: the defaults, not a preset entry. */
+  static Params initial_params() { return Params{}; }
 
   /**
-   * @brief Constructs the effect, seeding the preset table and filters.
+   * @brief Constructs the effect, seeding the filters.
    */
   HS_COLD_MEMBER MindSplatter()
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
-        presets{PRESETS}, particle_system() {}
+      : Choreography(W, H,
+                     pipeline_config<decltype(filters)>({.strobe = true})),
+        particle_system() {}
 
   /**
-   * @brief Registers params, builds the particle system and presets timeline,
-   *        bakes the palette, and kicks off the warp scheduler.
+   * @brief Registers params, builds the particle system, bakes the palette,
+   *        and kicks off the warp scheduler.
    */
   void init() override {
     configure_presets(PRESETS.size());
@@ -88,9 +145,9 @@ public:
     timeline.add(0,
                  Animation::RandomWalk<W, 4, true>(orientation, Y_AXIS, noise));
 
-    auto preset_timer = Animation::PeriodicTimer(
-        160, [this](Canvas &) { HS_CHECK(advancePreset()); }, true);
-    timeline.add_pausable(0, preset_timer, &anims_paused);
+    // First dwell spans a full cadence period, so the opening preset holds as
+    // long as every later one (dwell + blend).
+    hold_initial_preset(PRESET_DWELL_FRAMES + PRESET_SEGUE.frames);
 
     build_particle_system();
     schedule_warp();
@@ -106,6 +163,7 @@ public:
       HS_PROFILE(msp_timeline_step);
       timeline.step(canvas);
     }
+    begin_automatic_transition();
 
     if (!particle_geometry_ready || params.base_mesh != active_base_mesh)
       configure_particle_geometry(params.base_mesh);
@@ -125,25 +183,18 @@ public:
   }
 
 private:
-  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
-    if (!presets.select(change.to))
-      return false;
-    if (change.origin != PresetChangeOrigin::AUTOMATIC) {
-      presets.apply(params);
-      // An automatic Lerp may still be in flight (frozen while anims_paused);
-      // collapsing the endpoints it borrows keeps it from writing the old pair
-      // back over this selection when it resumes.
-      blend_start = presets.get();
-      blend_target = presets.get();
-    } else {
-      blend_start = presets.prev_get();
-      blend_target = presets.get();
-      timeline.add_pausable(
-          0,
-          Animation::Lerp(params, blend_start, blend_target, 48, ease_linear),
-          &anims_paused);
-    }
-    return true;
+  using Choreography::begin_automatic_transition;
+  using Choreography::configure_presets;
+  using Choreography::hold_initial_preset;
+  using Choreography::params;
+  using Choreography::register_animated_param;
+  using Choreography::register_readonly_param;
+  using Choreography::timeline;
+  using Choreography::transition;
+
+  /** @brief Writes the interpolated parameters of an in-flight transition. */
+  void blend_params(float progress) {
+    params.lerp(transition.from, transition.to, progress);
   }
 
   // Test seam for emitter and attractor invariants.
@@ -171,45 +222,6 @@ private:
   typedef Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN, MAX_EMITTERS,
                                     MAX_ATTRACTORS, true, TRAIL_SAMPLE_STRIDE>
       ParticleSystem;
-
-  /**
-   * @brief Animated effect parameters snapshot.
-   * @details active_count is engine-written (read-only); the remaining fields
-   *          are driven by the preset Lerp or by user input when paused.
-   */
-  struct Params {
-    BaseMesh base_mesh = BaseMesh::CUBE;
-    float friction = 0.85f;     /**< Velocity retention per step in [0.5, 1]. */
-    float well_strength = 1.0f; /**< Attractor pull strength in [0, 20]. */
-    float initial_speed = 0.025f; /**< Spawn speed in [0, 0.5] (units/step). */
-    float angular_speed =
-        0.2f;                  /**< Emission phase rate in [0, 1] (rad/emit). */
-    float warp_scale = 0.6f;   /**< Mobius warp magnitude in [0, 5]. */
-    float active_count = 0.0f; /**< Live particle count (engine-written). */
-
-    /**
-     * @brief Linearly interpolates each field between two preset snapshots.
-     * @param start Source snapshot (interpolation parameter t = 0).
-     * @param target Destination snapshot (interpolation parameter t = 1).
-     * @param t Interpolation factor in [0, 1].
-     */
-    void lerp(const Params &start, const Params &target, float t) {
-      // Trips if the field set changes, so a new preset float can't silently go
-      // un-interpolated (engine-written active_count is excluded on purpose).
-      static_assert(sizeof(Params) == 7 * sizeof(float),
-                    "MindSplatter::Params field set changed — update lerp");
-      base_mesh = t < 0.5f ? start.base_mesh : target.base_mesh;
-      friction = start.friction + (target.friction - start.friction) * t;
-      well_strength = start.well_strength +
-                      (target.well_strength - start.well_strength) * t;
-      initial_speed = start.initial_speed +
-                      (target.initial_speed - start.initial_speed) * t;
-      angular_speed = start.angular_speed +
-                      (target.angular_speed - start.angular_speed) * t;
-      warp_scale =
-          start.warp_scale + (target.warp_scale - start.warp_scale) * t;
-    }
-  };
 
   static constexpr float FRICTION_MIN = 0.5f, FRICTION_MAX = 1.0f;
   static constexpr float WELL_STRENGTH_MIN = 0.0f, WELL_STRENGTH_MAX = 20.0f;
@@ -280,6 +292,9 @@ private:
            p.warp_scale >= WARP_SCALE_MIN && p.warp_scale <= WARP_SCALE_MAX;
   }
 
+  /** @brief Whether a parameter set is admissible for a snapshot restore. */
+  static bool valid_params(const Params &p) { return preset_in_ranges(p); }
+
   // well_strength is pre-scaled by the preset's own friction because the
   // integrator applies v <- friction*v + impulse, dragging velocity before the
   // attractor impulse.
@@ -333,18 +348,13 @@ private:
                 "slider range; widen the range to accommodate the preset (the "
                 "range exposes the presets, it does not clamp them)");
 
-  Presets<Params, PRESET_COUNT> presets;
+  /** @brief Params for the preset at @p index. */
+  static Params preset_params(size_t index) { return PRESETS[index].params; }
 
-  // orientation/noise/mobius/params and the preset blend endpoints are borrowed
-  // by timeline-resident animations, so they are declared here to outlive the
-  // Timeline.
+  // orientation/noise/mobius are borrowed by timeline-resident animations.
   Orientation<> orientation;
   FastNoiseLite noise;
   MobiusParams mobius; /**< Current Mobius warp parameters. */
-  Params params;
-  Params blend_start;  /**< Preset Lerp source. */
-  Params blend_target; /**< Preset Lerp destination. */
-  Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> filters;
   ParticleSystem particle_system;
   /**

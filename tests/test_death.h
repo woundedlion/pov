@@ -3959,7 +3959,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"HankinSolids.h", 13},
     {"IslamicStars.h", 28},
     {"MeshFeedback.h", 1},
-    {"MindSplatter.h", 4},
+    {"MindSplatter.h", 3},
     {"MobiusRings.h", 1},
     {"ReactionDiffusionBase.h", 2},
     {"RingShower.h", 1},
