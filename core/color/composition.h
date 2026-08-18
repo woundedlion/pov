@@ -438,7 +438,7 @@ struct MirrorModifier {
    * @param t Input coordinate.
    * @return The mirrored coordinate in [0, 1].
    */
-  float modify(float t) const { return 1.0f - fabsf(2.0f * t - 1.0f); }
+  float modify(float t) const { return unit_bell(t); }
 };
 
 /**

@@ -203,9 +203,9 @@ palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
       wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
   switch (mapping) {
   case PaletteMapping::CUP:
-    return fabsf(2.0f * phase - 1.0f);
+    return unit_cup(phase);
   case PaletteMapping::BELL:
-    return 1.0f - fabsf(2.0f * phase - 1.0f);
+    return unit_bell(phase);
   case PaletteMapping::LINEAR:
     return phase;
   case PaletteMapping::REVERSE:
@@ -223,7 +223,7 @@ palette_mapping_coordinate(float value, const PaletteMappingWeights &weights,
 
   const float phase =
       wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
-  const float cup = fabsf(2.0f * phase - 1.0f);
+  const float cup = unit_cup(phase);
   const float bell = 1.0f - cup;
   return weights.values[static_cast<size_t>(PaletteMapping::CUP)] * cup +
          weights.values[static_cast<size_t>(PaletteMapping::BELL)] * bell +
@@ -240,10 +240,10 @@ brightness_envelope_gain(float value, BrightnessEnvelope envelope,
   case BrightnessEnvelope::NONE:
     return 1.0f;
   case BrightnessEnvelope::CUP:
-    shape = fabsf(2.0f * value - 1.0f);
+    shape = unit_cup(value);
     break;
   case BrightnessEnvelope::BELL:
-    shape = 1.0f - fabsf(2.0f * value - 1.0f);
+    shape = unit_bell(value);
     break;
   case BrightnessEnvelope::ASCENDING:
     shape = value;

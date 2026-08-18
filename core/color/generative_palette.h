@@ -468,9 +468,9 @@ private:
     case AxisCurve::DESCENDING:
       return high + (low - high) * position;
     case AxisCurve::BELL:
-      return low + (high - low) * (1.0f - fabsf(position * 2.0f - 1.0f));
+      return low + (high - low) * unit_bell(position);
     case AxisCurve::CUP:
-      return high - (high - low) * (1.0f - fabsf(position * 2.0f - 1.0f));
+      return high - (high - low) * unit_bell(position);
     case AxisCurve::CUSTOM:
       HS_CHECK(false, "evaluate_axis: a CUSTOM axis is resolved by the caller");
     }
@@ -1081,7 +1081,7 @@ private:
 
     if (domain == PaletteDomain::LOOP) {
       const float main_end = (key_count - 1.0f) / key_count;
-      const float relationship = window_position(1.0f - fabsf(2.0f * t - 1.0f));
+      const float relationship = window_position(unit_bell(t));
       if (t < main_end) {
         Segment segment = select_base_segment(window_position(t / main_end));
         segment.relationship_position = relationship;

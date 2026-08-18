@@ -69,7 +69,7 @@ struct Ridge : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &) {
-    return 1.0f - fabsf(2.0f * value - 1.0f);
+    return unit_bell(value);
   }
 };
 
