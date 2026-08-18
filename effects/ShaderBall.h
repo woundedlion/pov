@@ -2794,7 +2794,7 @@ private:
                   PreparedTuple *>(storage));
     }
   };
-  using GnomonicDodecahedralGridVectorMirrorPipelineBase = InversePipeline<
+  using GnomonicDodecahedralGridVectorMirrorPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC,
                                   SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
@@ -2803,14 +2803,6 @@ private:
       SourceStage<Function::GRID>,
       LinearMaterialStage<CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
-  struct GnomonicDodecahedralGridVectorMirrorPipeline
-      : GnomonicDodecahedralGridVectorMirrorPipelineBase {
-    HS_FLASH_MEMBER __attribute__((noinline)) static Color4
-    shade(const Vector &view, const FrameState &frame) {
-      return GnomonicDodecahedralGridVectorMirrorPipelineBase::
-          template run_stage<0>(view, frame);
-    }
-  };
   using GnomonicAffineLatticeContourPipeline = InversePipeline<
       OuterCameraStage,
       SelectedSurfaceProjectStage<Projection::GNOMONIC, SurfaceLens::NONE>,
