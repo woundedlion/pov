@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/pullback/contract.h"
+#include "render/pullback/fields.h"
 
 /**
  * @file material.h
@@ -36,7 +37,9 @@ struct Projection : ExactPolicy {
 namespace Transfer {
 
 /** @brief Value placeholder for a material stage that takes no parameters. */
-struct LinearValueParams {};
+struct LinearValueParams {
+  static constexpr std::array<Field<LinearValueParams>, 0> FIELDS{};
+};
 
 /**
  * @brief Value parameters for the iso band
@@ -45,6 +48,13 @@ struct LinearValueParams {};
 struct IsoValueParams {
   float iso_level = 0.5f;  /**< Source value the band is centered on. */
   float iso_width = 0.05f; /**< Half-width of the band's plateau. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<IsoValueParams>{&IsoValueParams::iso_level, "Iso Level", 0.0f, 1.0f,
+                            FieldCurve::LERP},
+      Field<IsoValueParams>{&IsoValueParams::iso_width, "Iso Width",
+                            1.0f / 1024.0f, 1.0f, FieldCurve::LOG_POSITIVE},
+  };
 };
 
 struct Linear : ExactPolicy {
@@ -107,6 +117,11 @@ struct EdgeValueParams {
   /** Fade band width in the projection's edge-distance units; 0 makes the edge
       a hard cut. */
   float edge_width = 0.1f;
+
+  static constexpr auto FIELDS = std::array{
+      Field<EdgeValueParams>{&EdgeValueParams::edge_width, "Edge Width", 0.0f,
+                             1.0f, FieldCurve::LERP},
+  };
 };
 
 struct Opaque : ExactPolicy {

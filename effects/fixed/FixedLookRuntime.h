@@ -379,135 +379,19 @@ struct ColorProvider {
   }
 };
 
-/** @brief Linear interpolation with exact endpoints, for a scalar field. */
-inline float lerp(float from, float to, float progress) {
-  return FixedPipeline::linear(from, to, progress);
-}
-
 /**
  * @brief Interpolates one parameter family across a preset transition.
- * @details One overload per family, each picking the interpolator its fields'
- * domains call for: linear for unconstrained scalars, geometric for positive
- * scales, shortest-arc for wrapping angles. The non-interpolable fields, namely
- * the Mobius coefficients and the palette mapping enum, snap to @p b once
- * progress reaches 1.
+ * @details Driven by the family's field table; each field moves on the curve
+ * its descriptor names. The Mobius coefficients and the palette mapping enum
+ * snap to @p b once progress reaches 1.
  * @param a Value at progress 0.
  * @param b Value at progress 1.
  * @param t Progress fraction.
  * @return The interpolated family.
  */
-inline GridSourceParams interpolate(const GridSourceParams &a,
-                                    const GridSourceParams &b, float t) {
-  return {lerp(a.pattern_freq, b.pattern_freq, t),
-          lerp(a.speed, b.speed, t),
-          lerp(a.complexity, b.complexity, t),
-          lerp(a.pattern_mix, b.pattern_mix, t),
-          lerp(a.secondary_rate, b.secondary_rate, t),
-          lerp(a.angle_rate, b.angle_rate, t)};
-}
-
-inline TwinWaveSourceParams interpolate(const TwinWaveSourceParams &a,
-                                        const TwinWaveSourceParams &b,
-                                        float t) {
-  return {lerp(a.pattern_freq, b.pattern_freq, t), lerp(a.speed, b.speed, t),
-          lerp(a.secondary_rate, b.secondary_rate, t),
-          lerp(a.angle_rate, b.angle_rate, t)};
-}
-
-inline NoiseSourceParams interpolate(const NoiseSourceParams &a,
-                                     const NoiseSourceParams &b, float t) {
-  return {lerp(a.noise_scale, b.noise_scale, t),
-          lerp(a.noise_contrast, b.noise_contrast, t),
-          lerp(a.noise_time_rate, b.noise_time_rate, t)};
-}
-
-inline LatticeSourceParams interpolate(const LatticeSourceParams &a,
-                                       const LatticeSourceParams &b, float t) {
-  return {
-      FixedPipeline::log_positive(a.lattice_cell_scale, b.lattice_cell_scale,
-                                  t),
-      lerp(a.lattice_shape_blend, b.lattice_shape_blend, t),
-      FixedPipeline::log_positive(a.lattice_softness, b.lattice_softness, t),
-      lerp(a.lattice_radius, b.lattice_radius, t)};
-}
-
-inline NoSurfaceParams interpolate(const NoSurfaceParams &,
-                                   const NoSurfaceParams &, float) {
-  return {};
-}
-
-inline SurfaceNoiseParams interpolate(const SurfaceNoiseParams &a,
-                                      const SurfaceNoiseParams &b, float t) {
-  return {lerp(a.scale, b.scale, t), lerp(a.strength, b.strength, t),
-          lerp(a.speed, b.speed, t)};
-}
-
-inline ProjectionParams interpolate(const ProjectionParams &a,
-                                    const ProjectionParams &b, float t) {
-  return {lerp(a.pole_fade, b.pole_fade, t), lerp(a.spin_rate, b.spin_rate, t),
-          lerp(a.wander, b.wander, t),
-          lerp(a.camera_wander, b.camera_wander, t),
-          FixedPipeline::shortest_periodic(a.central_meridian,
-                                           b.central_meridian, t, TWO_PI_F)};
-}
-
-inline NoWarpParams interpolate(const NoWarpParams &a, const NoWarpParams &b,
-                                float t) {
-  return {lerp(a.speed, b.speed, t)};
-}
-
-inline MirrorParams interpolate(const MirrorParams &a, const MirrorParams &b,
-                                float t) {
-  return {lerp(a.speed, b.speed, t),
-          FixedPipeline::shortest_periodic(a.rotation, b.rotation, t, TWO_PI_F),
-          FixedPipeline::log_positive(a.cell_x, b.cell_x, t),
-          FixedPipeline::log_positive(a.cell_y, b.cell_y, t),
-          lerp(a.offset_x, b.offset_x, t),
-          lerp(a.offset_y, b.offset_y, t)};
-}
-
-inline WaveShearParams interpolate(const WaveShearParams &a,
-                                   const WaveShearParams &b, float t) {
-  return {lerp(a.speed, b.speed, t), lerp(a.strength, b.strength, t),
-          FixedPipeline::log_positive(a.frequency, b.frequency, t),
-          FixedPipeline::shortest_periodic(a.field_angle, b.field_angle, t,
-                                           TWO_PI_F),
-          lerp(a.edge_width, b.edge_width, t)};
-}
-
-inline VectorNoiseParams interpolate(const VectorNoiseParams &a,
-                                     const VectorNoiseParams &b, float t) {
-  return {lerp(a.speed, b.speed, t), lerp(a.strength, b.strength, t),
-          FixedPipeline::log_positive(a.scale, b.scale, t),
-          FixedPipeline::shortest_periodic(a.vector_angle, b.vector_angle, t,
-                                           TWO_PI_F),
-          lerp(a.edge_width, b.edge_width, t)};
-}
-
-inline AffineParams interpolate(const AffineParams &a, const AffineParams &b,
-                                float t) {
-  return {lerp(a.speed, b.speed, t),
-          lerp(a.rotation_rate, b.rotation_rate, t),
-          lerp(a.translation_x, b.translation_x, t),
-          lerp(a.translation_y, b.translation_y, t),
-          FixedPipeline::log_positive(a.scale_x, b.scale_x, t),
-          FixedPipeline::log_positive(a.scale_y, b.scale_y, t),
-          lerp(a.shear, b.shear, t)};
-}
-
-inline PolarParams interpolate(const PolarParams &a, const PolarParams &b,
-                               float t) {
-  return {lerp(a.speed, b.speed, t),
-          FixedPipeline::log_positive(a.radial_scale, b.radial_scale, t),
-          FixedPipeline::shortest_periodic(a.radial_phase, b.radial_phase, t,
-                                           TWO_PI_F),
-          FixedPipeline::shortest_periodic(a.angular_phase, b.angular_phase, t,
-                                           TWO_PI_F)};
-}
-
-inline NoLensParams interpolate(const NoLensParams &, const NoLensParams &,
-                                float) {
-  return {};
+template <Pullback::HasFields T>
+inline T interpolate(const T &a, const T &b, float t) {
+  return Pullback::Fields::interpolate(a, b, t);
 }
 
 inline MobiusLensParams interpolate(const MobiusLensParams &a,
@@ -517,37 +401,11 @@ inline MobiusLensParams interpolate(const MobiusLensParams &a,
   return value;
 }
 
-inline LinearValueParams interpolate(const LinearValueParams &,
-                                     const LinearValueParams &, float) {
-  return {};
-}
-
-inline EdgeValueParams interpolate(const EdgeValueParams &a,
-                                   const EdgeValueParams &b, float t) {
-  return {lerp(a.edge_width, b.edge_width, t)};
-}
-
-inline IsoValueParams interpolate(const IsoValueParams &a,
-                                  const IsoValueParams &b, float t) {
-  return {lerp(a.iso_level, b.iso_level, t),
-          FixedPipeline::log_positive(a.iso_width, b.iso_width, t)};
-}
-
 inline ColorParams interpolate(const ColorParams &a, const ColorParams &b,
                                float t) {
-  return {
-      lerp(a.hue_shift_amount, b.hue_shift_amount, t),
-      FixedPipeline::log_positive(a.hue_noise_scale, b.hue_noise_scale, t),
-      lerp(a.hue_noise_speed, b.hue_noise_speed, t),
-      lerp(a.palette_chroma, b.palette_chroma, t),
-      FixedPipeline::log_positive(a.mapping_frequency, b.mapping_frequency, t),
-      lerp(a.mapping_phase, b.mapping_phase, t),
-      lerp(a.phase_oscillation_depth, b.phase_oscillation_depth, t),
-      lerp(a.phase_oscillation_speed, b.phase_oscillation_speed, t),
-      lerp(a.brightness_depth, b.brightness_depth, t),
-      lerp(a.opacity_low, b.opacity_low, t),
-      lerp(a.opacity_high, b.opacity_high, t),
-      t < 1.0f ? a.palette_mapping : b.palette_mapping};
+  ColorParams value = Pullback::Fields::interpolate(a, b, t);
+  value.palette_mapping = t < 1.0f ? a.palette_mapping : b.palette_mapping;
+  return value;
 }
 
 /**
@@ -576,114 +434,16 @@ interpolate(
 }
 
 /**
- * @brief Whether a scalar is finite and inside an inclusive range.
- * @return False for NaN, which fails both comparisons.
- */
-inline bool finite_range(float value, float minimum, float maximum) {
-  return std::isfinite(value) && value >= minimum && value <= maximum;
-}
-
-/**
  * @brief Whether every field of a parameter family is inside its authored
  *        range.
- * @details One overload per family, each mirroring the bounds
- * `Runtime::register_parameters` gives that family's sliders. This is the
- * admissibility test a restored snapshot must pass.
- * @param p Family to check.
- * @return True when every field is finite and in range.
+ * @details Driven by the family's field table, so the admissibility ranges a
+ * restored snapshot must pass are the same descriptors the sliders register
+ * with.
  */
-inline bool valid(const GridSourceParams &p) {
-  return finite_range(p.pattern_freq, 0.1f, 20.0f) &&
-         finite_range(p.speed, 0.0f, 0.5f) &&
-         finite_range(p.complexity, 0.0f, 3.0f) &&
-         finite_range(p.pattern_mix, 0.0f, 1.0f) &&
-         finite_range(p.secondary_rate, 0.0f, 1.25f) &&
-         finite_range(p.angle_rate, 0.0f, 0.05f);
+template <Pullback::HasFields T> inline bool valid(const T &value) {
+  return Pullback::Fields::valid(value);
 }
 
-inline bool valid(const TwinWaveSourceParams &p) {
-  return finite_range(p.pattern_freq, 0.1f, 20.0f) &&
-         finite_range(p.speed, 0.0f, 0.5f) &&
-         finite_range(p.secondary_rate, 0.0f, 1.25f) &&
-         finite_range(p.angle_rate, 0.0f, 0.05f);
-}
-
-inline bool valid(const NoiseSourceParams &p) {
-  return finite_range(p.noise_scale, 1.0f / 64.0f, 64.0f) &&
-         finite_range(p.noise_contrast, 0.0f, 8.0f) &&
-         finite_range(p.noise_time_rate, -1.0f / 64.0f, 1.0f / 64.0f);
-}
-
-inline bool valid(const LatticeSourceParams &p) {
-  return finite_range(p.lattice_cell_scale, 1.0f / 64.0f, 8.0f) &&
-         finite_range(p.lattice_shape_blend, 0.0f, 1.0f) &&
-         finite_range(p.lattice_softness, 1.0f / 1024.0f, 1.0f) &&
-         finite_range(p.lattice_radius, 1.0f / 64.0f, 0.49f);
-}
-
-inline bool valid(const NoSurfaceParams &) { return true; }
-
-inline bool valid(const SurfaceNoiseParams &p) {
-  return finite_range(p.scale, 1.0f / 64.0f, 64.0f) &&
-         finite_range(p.strength, -0.5f, 0.5f) &&
-         finite_range(p.speed, -1.0f / 64.0f, 1.0f / 64.0f);
-}
-
-inline bool valid(const ProjectionParams &p) {
-  return finite_range(p.pole_fade, 1.0f, 20.0f) &&
-         finite_range(p.spin_rate, 0.0f, 0.05f) &&
-         finite_range(p.wander, 0.0f, 1.0f) &&
-         finite_range(p.camera_wander, 0.0f, 1.0f) &&
-         finite_range(p.central_meridian, 0.0f, TWO_PI_F);
-}
-
-inline bool valid(const NoWarpParams &p) {
-  return finite_range(p.speed, -0.02f, 0.02f);
-}
-
-inline bool valid(const MirrorParams &p) {
-  return finite_range(p.speed, -0.02f, 0.02f) &&
-         finite_range(p.rotation, 0.0f, TWO_PI_F) &&
-         finite_range(p.cell_x, 1.0f / 64.0f, 8.0f) &&
-         finite_range(p.cell_y, 1.0f / 64.0f, 8.0f) &&
-         finite_range(p.offset_x, -8.0f, 8.0f) &&
-         finite_range(p.offset_y, -8.0f, 8.0f);
-}
-
-inline bool valid(const WaveShearParams &p) {
-  return finite_range(p.speed, -0.02f, 0.02f) &&
-         finite_range(p.strength, -30.0f, 30.0f) &&
-         finite_range(p.frequency, 0.01f, 32.0f) &&
-         finite_range(p.field_angle, 0.0f, TWO_PI_F) &&
-         finite_range(p.edge_width, 0.0f, 1.0f);
-}
-
-inline bool valid(const VectorNoiseParams &p) {
-  return finite_range(p.speed, -0.02f, 0.02f) &&
-         finite_range(p.strength, -30.0f, 30.0f) &&
-         finite_range(p.scale, 1.0f / 64.0f, 64.0f) &&
-         finite_range(p.vector_angle, 0.0f, TWO_PI_F) &&
-         finite_range(p.edge_width, 0.0f, 1.0f);
-}
-
-inline bool valid(const AffineParams &p) {
-  return finite_range(p.speed, -0.02f, 0.02f) &&
-         finite_range(p.rotation_rate, -TWO_PI_F, TWO_PI_F) &&
-         finite_range(p.translation_x, -4.0f, 4.0f) &&
-         finite_range(p.translation_y, -4.0f, 4.0f) &&
-         finite_range(p.scale_x, 1.0f / 64.0f, 64.0f) &&
-         finite_range(p.scale_y, 1.0f / 64.0f, 64.0f) &&
-         finite_range(p.shear, -4.0f, 4.0f);
-}
-
-inline bool valid(const PolarParams &p) {
-  return finite_range(p.speed, -0.02f, 0.02f) &&
-         finite_range(p.radial_scale, 1.0f / 64.0f, 64.0f) &&
-         finite_range(p.radial_phase, -TWO_PI_F, TWO_PI_F) &&
-         finite_range(p.angular_phase, -TWO_PI_F, TWO_PI_F);
-}
-
-inline bool valid(const NoLensParams &) { return true; }
 inline bool valid(const MobiusLensParams &p) {
   const float values[] = {p.mobius.a.re, p.mobius.a.im, p.mobius.b.re,
                           p.mobius.b.im, p.mobius.c.re, p.mobius.c.im,
@@ -693,26 +453,9 @@ inline bool valid(const MobiusLensParams &p) {
       return false;
   return true;
 }
-inline bool valid(const LinearValueParams &) { return true; }
-inline bool valid(const EdgeValueParams &p) {
-  return finite_range(p.edge_width, 0.0f, 1.0f);
-}
-inline bool valid(const IsoValueParams &p) {
-  return finite_range(p.iso_level, 0.0f, 1.0f) &&
-         finite_range(p.iso_width, 1.0f / 1024.0f, 1.0f);
-}
+
 inline bool valid(const ColorParams &p) {
-  return finite_range(p.hue_shift_amount, -4.0f, 4.0f) &&
-         finite_range(p.hue_noise_scale, 1.0f / 64.0f, 8.0f) &&
-         finite_range(p.hue_noise_speed, -0.001f, 0.001f) &&
-         finite_range(p.palette_chroma, 0.0f, 1.0f) &&
-         finite_range(p.mapping_frequency, 1.0f, 32.0f) &&
-         finite_range(p.mapping_phase, -1.0f, 1.0f) &&
-         finite_range(p.phase_oscillation_depth, 0.0f, 1.0f) &&
-         finite_range(p.phase_oscillation_speed, -0.01f, 0.01f) &&
-         finite_range(p.brightness_depth, 0.0f, 1.0f) &&
-         finite_range(p.opacity_low, 0.0f, 1.0f) &&
-         finite_range(p.opacity_high, 0.0f, 1.0f) &&
+  return Pullback::Fields::valid(p) &&
          static_cast<uint8_t>(p.palette_mapping) <=
              static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE);
 }
@@ -1043,131 +786,52 @@ private:
     noise.SetFrequency(1.0f);
   }
 
-  template <typename T> void register_source(T &source) {
-    if constexpr (requires { source.pattern_freq; })
-      register_animated_param("Pattern Freq", &source.pattern_freq, 0.1f,
-                              20.0f);
-    if constexpr (requires { source.speed; })
-      register_animated_param("Speed", &source.speed, 0.0f, 0.5f);
-    if constexpr (requires { source.complexity; })
-      register_animated_param("Complexity", &source.complexity, 0.0f, 3.0f);
-    if constexpr (requires { source.pattern_mix; })
-      register_animated_param("Pattern Mix", &source.pattern_mix, 0.0f, 1.0f);
-    if constexpr (requires { source.secondary_rate; })
-      register_animated_param("Drift", &source.secondary_rate, 0.0f, 1.25f);
-    if constexpr (requires { source.angle_rate; })
-      register_animated_param("Source Angle Speed", &source.angle_rate, 0.0f,
-                              0.05f);
-    if constexpr (requires { source.noise_scale; })
-      register_animated_param("Source Noise Scale", &source.noise_scale,
-                              1.0f / 64.0f, 64.0f);
-    if constexpr (requires { source.noise_contrast; })
-      register_animated_param("Source Noise Contrast", &source.noise_contrast,
-                              0.0f, 8.0f);
-    if constexpr (requires { source.noise_time_rate; })
-      register_animated_param("Source Noise Speed", &source.noise_time_rate,
-                              -1.0f / 64.0f, 1.0f / 64.0f);
-    if constexpr (requires { source.lattice_cell_scale; }) {
-      register_animated_param("Lattice Cell Scale", &source.lattice_cell_scale,
-                              1.0f / 64.0f, 8.0f);
-      register_animated_param("Lattice Shape", &source.lattice_shape_blend,
-                              0.0f, 1.0f);
-      register_animated_param("Lattice Softness", &source.lattice_softness,
-                              1.0f / 1024.0f, 1.0f);
-      register_animated_param("Lattice Radius", &source.lattice_radius,
-                              1.0f / 64.0f, 0.49f);
+  /** @brief Whether a gated field's slider exists for this look. */
+  static constexpr bool field_gate_open(Pullback::FieldGate gate) {
+    switch (gate) {
+    case Pullback::FieldGate::ALWAYS:
+      return true;
+    case Pullback::FieldGate::ANIMATED_PROJECTION:
+      return Derived::ANIMATED_PROJECTION;
+    case Pullback::FieldGate::CENTRAL_MERIDIAN:
+      if constexpr (requires { Derived::USES_CENTRAL_MERIDIAN; })
+        return Derived::USES_CENTRAL_MERIDIAN;
+      else
+        return false;
     }
+    return true;
   }
 
-  template <typename T> void register_surface(T &surface) {
-    if constexpr (!std::is_same_v<T, NoSurfaceParams>) {
-      register_animated_param("Surface Noise Scale", &surface.scale,
-                              1.0f / 64.0f, 64.0f);
-      register_animated_param("Surface Noise Strength", &surface.strength,
-                              -0.5f, 0.5f);
-      register_animated_param("Surface Noise Speed", &surface.speed,
-                              -1.0f / 64.0f, 1.0f / 64.0f);
-    }
+  /** @brief Registers a slider for every named field in the family's table. */
+  template <typename T> HS_COLD_MEMBER void register_fields(T &family) {
+    for (const auto &field : T::FIELDS)
+      if (field.name != nullptr && field_gate_open(field.gate))
+        register_animated_param(field.name, &(family.*(field.member)),
+                                field.min, field.max);
   }
 
-  template <typename T> void register_warp(T &warp, const char *prefix) {
+  /**
+   * @brief Registers one warp slot: the slot-named speed slider, then the
+   *        family's named fields.
+   */
+  template <typename T>
+  HS_COLD_MEMBER void register_warp_fields(T &warp, const char *slot_name) {
     if constexpr (!std::is_same_v<T, NoWarpParams>) {
-      register_animated_param(prefix, &warp.speed, -0.02f, 0.02f);
-      if constexpr (requires { warp.strength; })
-        register_animated_param("Warp Strength", &warp.strength, -30.0f, 30.0f);
-      if constexpr (requires { warp.frequency; })
-        register_animated_param("Warp Frequency", &warp.frequency, 0.01f,
-                                32.0f);
-      if constexpr (requires { warp.field_angle; })
-        register_animated_param("Warp Field Angle", &warp.field_angle, 0.0f,
-                                TWO_PI_F);
-      if constexpr (requires { warp.scale; })
-        register_animated_param("Warp Scale", &warp.scale, 1.0f / 64.0f, 64.0f);
-      if constexpr (requires { warp.vector_angle; })
-        register_animated_param("Warp Vector Angle", &warp.vector_angle, 0.0f,
-                                TWO_PI_F);
-      if constexpr (std::is_same_v<T, MirrorParams>) {
-        register_animated_param("Mirror Rotation", &warp.rotation, 0.0f,
-                                TWO_PI_F);
-        register_animated_param("Mirror Cell X", &warp.cell_x, 1.0f / 64.0f,
-                                8.0f);
-        register_animated_param("Mirror Cell Y", &warp.cell_y, 1.0f / 64.0f,
-                                8.0f);
-        register_animated_param("Mirror Offset X", &warp.offset_x, -8.0f, 8.0f);
-        register_animated_param("Mirror Offset Y", &warp.offset_y, -8.0f, 8.0f);
-      }
-      if constexpr (std::is_same_v<T, AffineParams>) {
-        register_animated_param("Affine Rotation Rate", &warp.rotation_rate,
-                                -TWO_PI_F, TWO_PI_F);
-        register_animated_param("Affine Translation X", &warp.translation_x,
-                                -4.0f, 4.0f);
-        register_animated_param("Affine Translation Y", &warp.translation_y,
-                                -4.0f, 4.0f);
-        register_animated_param("Affine Scale X", &warp.scale_x, 1.0f / 64.0f,
-                                64.0f);
-        register_animated_param("Affine Scale Y", &warp.scale_y, 1.0f / 64.0f,
-                                64.0f);
-        register_animated_param("Affine Shear", &warp.shear, -4.0f, 4.0f);
-      }
-      if constexpr (std::is_same_v<T, PolarParams>) {
-        register_animated_param("Polar Radial Scale", &warp.radial_scale,
-                                1.0f / 64.0f, 64.0f);
-        register_animated_param("Polar Radial Phase", &warp.radial_phase,
-                                -TWO_PI_F, TWO_PI_F);
-        register_animated_param("Polar Angular Phase", &warp.angular_phase,
-                                -TWO_PI_F, TWO_PI_F);
-      }
+      static_assert(T::FIELDS[0].member == &T::speed,
+                    "warp slot registration expects speed first");
+      register_animated_param(slot_name, &warp.speed, T::FIELDS[0].min,
+                              T::FIELDS[0].max);
+      register_fields(warp);
     }
   }
 
-  void register_parameters() {
-    register_source(params.source);
-    register_animated_param("Pole Fade", &params.projection.pole_fade, 1.0f,
-                            20.0f);
-    if constexpr (Derived::ANIMATED_PROJECTION) {
-      register_animated_param("Projection Spin Speed",
-                              &params.projection.spin_rate, 0.0f, 0.05f);
-      register_animated_param("Projection Wander", &params.projection.wander,
-                              0.0f, 1.0f);
-    }
-    register_animated_param("Camera Wander", &params.projection.camera_wander,
-                            0.0f, 1.0f);
-    if constexpr (requires { Derived::USES_CENTRAL_MERIDIAN; })
-      if constexpr (Derived::USES_CENTRAL_MERIDIAN)
-        register_animated_param("Central Meridian",
-                                &params.projection.central_meridian, 0.0f,
-                                TWO_PI_F);
-    register_surface(params.surface);
-    register_warp(params.outer_warp, "Planar Warp 1 Speed");
-    register_warp(params.inner_warp, "Planar Warp 2 Speed");
-    if constexpr (requires { params.value.edge_width; })
-      register_animated_param("Edge Width", &params.value.edge_width, 0.0f,
-                              1.0f);
-    if constexpr (requires { params.value.iso_level; }) {
-      register_animated_param("Iso Level", &params.value.iso_level, 0.0f, 1.0f);
-      register_animated_param("Iso Width", &params.value.iso_width,
-                              1.0f / 1024.0f, 1.0f);
-    }
+  HS_COLD_MEMBER void register_parameters() {
+    register_fields(params.source);
+    register_fields(params.projection);
+    register_fields(params.surface);
+    register_warp_fields(params.outer_warp, "Planar Warp 1 Speed");
+    register_warp_fields(params.inner_warp, "Planar Warp 2 Speed");
+    register_fields(params.value);
     if constexpr (requires { params.lens.mobius; }) {
       register_animated_param("Mobius A Re", &params.lens.mobius.a.re, -4.0f,
                               4.0f);

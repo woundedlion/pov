@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/pullback/contract.h"
+#include "render/pullback/fields.h"
 
 /**
  * @file color.h
@@ -48,6 +49,31 @@ struct ColorParams {
   /** Palette mapping curve; snapped, not blended, by interpolate(). */
   Pullback::Color::PaletteMapping palette_mapping =
       Pullback::Color::PaletteMapping::LINEAR;
+
+  static constexpr auto FIELDS = std::array{
+      Field<ColorParams>{&ColorParams::hue_shift_amount, nullptr, -4.0f, 4.0f,
+                         FieldCurve::LERP},
+      Field<ColorParams>{&ColorParams::hue_noise_scale, nullptr, 1.0f / 64.0f,
+                         8.0f, FieldCurve::LOG_POSITIVE},
+      Field<ColorParams>{&ColorParams::hue_noise_speed, nullptr, -0.001f,
+                         0.001f, FieldCurve::LERP},
+      Field<ColorParams>{&ColorParams::palette_chroma, nullptr, 0.0f, 1.0f,
+                         FieldCurve::LERP},
+      Field<ColorParams>{&ColorParams::mapping_frequency, nullptr, 1.0f, 32.0f,
+                         FieldCurve::LOG_POSITIVE},
+      Field<ColorParams>{&ColorParams::mapping_phase, nullptr, -1.0f, 1.0f,
+                         FieldCurve::LERP},
+      Field<ColorParams>{&ColorParams::phase_oscillation_depth, nullptr, 0.0f,
+                         1.0f, FieldCurve::LERP},
+      Field<ColorParams>{&ColorParams::phase_oscillation_speed, nullptr, -0.01f,
+                         0.01f, FieldCurve::LERP},
+      Field<ColorParams>{&ColorParams::brightness_depth, nullptr, 0.0f, 1.0f,
+                         FieldCurve::LERP},
+      Field<ColorParams>{&ColorParams::opacity_low, nullptr, 0.0f, 1.0f,
+                         FieldCurve::LERP},
+      Field<ColorParams>{&ColorParams::opacity_high, nullptr, 0.0f, 1.0f,
+                         FieldCurve::LERP},
+  };
 };
 
 struct PaletteMappingWeights {

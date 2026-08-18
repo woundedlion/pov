@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/pullback/contract.h"
+#include "render/pullback/fields.h"
 
 /**
  * @file surface.h
@@ -16,7 +17,9 @@ namespace Pullback {
 namespace Surface {
 
 /** @brief Surface stage placeholder for a look that carries no displacement. */
-struct NoSurfaceParams {};
+struct NoSurfaceParams {
+  static constexpr std::array<Field<NoSurfaceParams>, 0> FIELDS{};
+};
 
 /**
  * @brief Surface parameters for the sphere-space noise displacements
@@ -26,6 +29,18 @@ struct SurfaceNoiseParams {
   float scale = 1.0f;    /**< Spatial scale of the displacement field. */
   float strength = 0.0f; /**< Displacement distance; 0 skips the stage. */
   float speed = 0.0f;    /**< Per-frame advance of the field's loop phase. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<SurfaceNoiseParams>{&SurfaceNoiseParams::scale,
+                                "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
+                                FieldCurve::LERP},
+      Field<SurfaceNoiseParams>{&SurfaceNoiseParams::strength,
+                                "Surface Noise Strength", -0.5f, 0.5f,
+                                FieldCurve::LERP},
+      Field<SurfaceNoiseParams>{&SurfaceNoiseParams::speed,
+                                "Surface Noise Speed", -1.0f / 64.0f,
+                                1.0f / 64.0f, FieldCurve::LERP},
+  };
 };
 
 /** @brief This frame's point on the displacement field's closed loop. */
