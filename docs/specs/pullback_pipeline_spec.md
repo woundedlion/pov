@@ -33,10 +33,10 @@ capture and deterministic WASM verification work from revision 5 remains
 endorsed as verification infrastructure and is retained here only to the
 extent required to prove this migration.
 
-The shipped behavior remains specified by
-[inverse_sampling_pipeline_spec.md](inverse_sampling_pipeline_spec.md) (the
-"v1 spec") and [shaderball_spec.md](shaderball_spec.md). This document amends
-their location and abstraction-boundary decisions as described in Section 15.
+This document is the sole surviving shader-family spec: the earlier
+inverse-sampling, ShaderBall and workbench specs it amended have been retired,
+and their location and abstraction-boundary decisions are superseded by
+Section 15.
 
 ## 1. Decision and motivation
 
@@ -1523,8 +1523,8 @@ When Phase A lands, the v1 spec is provisionally amended:
   requirement in Section 13.3, which Phase P enforces consistently in the
   parser, parser tests, and new baseline captures.
 
-When Phase D lands, `shaderball_spec.md` Section 0.10's abstraction threshold
-and ownership table are amended:
+When Phase D lands, the retired ShaderBall spec's abstraction threshold and
+ownership table are superseded:
 
 - concrete pullback stages and operators that pass the Section 1 core-admission
   test are engine vocabulary even with one current production consumer;
