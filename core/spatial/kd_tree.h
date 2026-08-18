@@ -5,9 +5,8 @@
 #pragma once
 
 /**
- * @file spatial.h
- * @brief KDTree and the nearest-point query structures the mesh and effect
- *        code build on.
+ * @file kd_tree.h
+ * @brief KDTree and its nearest-point query structures.
  */
 
 #include <cstdint>
@@ -16,7 +15,7 @@
 #include <span>
 
 #include <cfloat>
-#include "engine/static_circular_buffer.h"
+#include "containers/static_circular_buffer.h"
 #include "engine/memory.h"
 
 /**

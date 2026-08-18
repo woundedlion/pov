@@ -798,7 +798,7 @@ class TestColdCaptureAudit(unittest.TestCase):
     environment with nothing to keep in sync.
     """
 
-    TUS = ("core/engine/memory.cpp", "core/engine/reaction_graph.cpp",
+    TUS = ("core/engine/memory.cpp", "core/spatial/reaction_graph.cpp",
            "targets/Phantasm/Phantasm.ino.cpp")
 
     def _compile(self, env, source):
@@ -979,7 +979,7 @@ class TestRealColdVersusWarmCapture(unittest.TestCase):
 
     COLD = (REAL_DIR / "cold_env_section.txt").read_text(encoding="utf-8")
     WARM = (REAL_DIR / "warm_env_section.txt").read_text(encoding="utf-8")
-    TUS = {"core/engine/memory.cpp", "core/engine/reaction_graph.cpp",
+    TUS = {"core/engine/memory.cpp", "core/spatial/reaction_graph.cpp",
            "targets/Holosphere/Holosphere.ino.cpp"}
 
     def test_real_banner_declares_three_first_party_tus(self):

@@ -18,7 +18,7 @@
 core/color/color_luts.h text eol=lf
 core/color/gamut_lut.h text eol=lf
 core/color/srgb_decode_lut.h text eol=lf
-core/engine/reaction_graph.cpp text eol=lf
+core/spatial/reaction_graph.cpp text eol=lf
 core/mesh/relax_bakes_generated.h text eol=lf
 tools/teensy_warning_baseline.txt text eol=lf
 

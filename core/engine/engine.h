@@ -30,11 +30,11 @@
 #include "math/3dmath.h"
 #include "vendor/FastNoiseLite.h"
 #include "render/canvas.h"
-#include "engine/static_circular_buffer.h"
+#include "containers/static_circular_buffer.h"
 
 #include "math/geometry.h"
 #include "render/shading.h" // Fragment + mesh-topology shading
-#include "engine/reaction_graph.h"
+#include "spatial/reaction_graph.h"
 #include "engine/concepts.h"
 #include "color/color.h"
 #include "color/palette_cycler.h"

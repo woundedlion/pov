@@ -36,7 +36,7 @@
 #include "mesh/mesh.h"       // MeshOps
 #include "engine/memory.h"
 #include "mesh/mesh_state.h"
-#include "engine/static_circular_buffer.h"
+#include "containers/static_circular_buffer.h"
 #include "math/rotate.h"
 #include "math/easing.h"
 

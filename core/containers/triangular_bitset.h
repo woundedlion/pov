@@ -6,8 +6,7 @@
 
 /**
  * @file triangular_bitset.h
- * @brief Upper-triangular pair bitset backing the mesh edge deduplication in
- *        plot.h's wireframe path.
+ * @brief Compact upper-triangular bitset for unordered pair membership.
  */
 
 #include "platform/platform.h"

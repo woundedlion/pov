@@ -44,7 +44,7 @@ if(EMSCRIPTEN)
     ${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/wasm.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/memory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/static_storage.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/reaction_graph.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/spatial/reaction_graph.cpp)
 
   target_include_directories(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -146,7 +146,7 @@ if(EMSCRIPTEN)
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/pullback_capture_native.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/reaction_graph.cpp)
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp)
   target_include_directories(pullback_capture_wasm PRIVATE
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)

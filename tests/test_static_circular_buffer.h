@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/engine/static_circular_buffer.h.
+ * Unit tests for core/containers/static_circular_buffer.h.
  *
  * NOTE: front(), back(), and operator[] abort on misuse, so the empty/OOB
  * paths are not exercised here — they are driven (in forked child processes)
@@ -17,7 +17,7 @@
 #include <ranges>
 #include <type_traits>
 #include <utility>
-#include "core/engine/static_circular_buffer.h"
+#include "core/containers/static_circular_buffer.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
