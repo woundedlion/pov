@@ -62,8 +62,8 @@ peak.
 | [Comets](shipping/profile_comets_teensy_2026-07-25.md)§ | point raster | 🟢 41.56 (12) | 🟢 0/4128 (0%) | 2026-07-26 11:43 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-07.md)§ | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 0/1728 (0%) | 2026-08-07 23:03 |
 | [GnomonicStars](shipping/profile_gnomonicstars_teensy_2026-07-25.md) | star raster | 🟢 38.15 | 🟢 0/1088 (0%) | 2026-07-26 11:29 |
+| [EquatorGrid](shipping/profile_equatorgrid_teensy_2026-08-17.md)§ ● | equirectangular dodecahedral grid | 🟢 36.51 (3) | 🟢 0/4128 (0%) | 2026-08-17 19:42 |
 | [FacetWave](shipping/profile_facetwave_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral wave mirror | 🟢 36.01 | 🟢 0/1088 (0%) | 2026-08-16 08:34 |
-| [EquatorGrid](shipping/profile_equatorgrid_teensy_2026-08-16.md)§ ● | equirectangular dodecahedral grid | 🟢 35.91 (3) | 🟢 0/4128 (0%) | 2026-08-16 08:41 |
 | [FacetGrid](shipping/profile_facetgrid_teensy_2026-08-16.md)§ ● | stereographic dodecahedral grid mirror | 🟢 35.52 (4) | 🟢 0/4128 (0%) | 2026-08-16 08:34 |
 | [HexWave](shipping/profile_hexwave_teensy_2026-08-16.md) ● | stereographic hex-prism twin-wave | 🟢 34.45 | 🟢 0/1088 (0%) | 2026-08-16 08:36 |
 | [SignalWeave](shipping/profile_signalweave_teensy_2026-08-16.md)§ ● | stereographic glitch wave-shear grid | 🟢 31.95 (4) | 🟢 0/4768 (0%) | 2026-08-16 08:44 |
@@ -133,15 +133,15 @@ on them.
 **All thirty-three effects spill nothing** in their current shipping captures.
 
 **The fourteen fixed-pipeline effects are green, and none is near the
-ceiling.** Their peaks run 23.30 ms (GlitchGrid) to 45.47 ms (CurlLattice), so
-the heaviest of them keeps 13.83 ms of the 62.5 ms window — the widest margin
+ceiling.** Their peaks run 23.30 ms (GlitchGrid) to 47.20 ms (VectorFacets), so
+the heaviest of them keeps 15.30 ms of the 62.5 ms window — the widest margin
 any pullback-shaded effect has held on this bench.
 
 The two heaviest are the only ones doing per-sample noise work on top of a
-closed-form pullback: CurlLattice integrates a simplex curl-noise surface
-(48.67 ms) and VectorFacets carries a `Warp::VectorNoise` lookup in its outer
-warp (47.20 ms). They are more than 11 ms clear of the rest. The other twelve
-run 23.30 to 36.01 ms on closed-form stages alone, where the shade scope is a
+closed-form pullback: VectorFacets carries a `Warp::VectorNoise` lookup in its
+outer warp (47.20 ms) and CurlLattice integrates a simplex curl-noise surface
+(45.47 ms). They are roughly 9 ms clear of the rest. The other twelve
+run 23.30 to 36.51 ms on closed-form stages alone, where the shade scope is a
 third to a half of the frame and the remainder is display-sync idle.
 
 Five of them cycle presets, and their spreads are narrow — EquatorGrid 1.03×
