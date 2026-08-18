@@ -3942,14 +3942,15 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
 #else
     {"face.h", 4},
 #endif
-    {"filter.h", 5},
     {"filter_feedback.h", 7},
     {"led.h", 3},
     {"raster.h", 9},
+    {"screen_trails.h", 2},
     {"shader.h", 2},
     {"shading.h", 1},
     {"shapes.h", 32},
     {"volume.h", 7},
+    {"world_trails.h", 3},
     {"Fishbowl.h", 1},
     {"Comets.h", 2},
     {"DisplacementField.h", 1},
