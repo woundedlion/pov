@@ -10,6 +10,7 @@
  * @brief Phase-modulated concentric shapes drawn across the sphere.
  */
 
+#include "core/engine/effect_choreography.h"
 #include "core/engine/engine.h"
 
 namespace hs_test {
@@ -18,15 +19,8 @@ struct ShapeShifterWhiteBox;
 } // namespace shapeshifter_oracle_tests
 } // namespace hs_test
 
-/**
- * @brief Draws phase-modulated concentric shapes across the sphere.
- * @tparam W Canvas width in pixels.
- * @tparam H Canvas height in pixels.
- * @details Evenly spaced Plot primitives share a center and sample a selectable
- * waveform at successive radii, producing an animated radial twist.
- */
-template <int W, int H> class ShapeShifter : public Effect {
-public:
+/** @brief Tunable rendering state stored by each ShapeShifter preset. */
+struct ShapeShifterParams {
   /** @brief Plot primitives available through the Shape slider. */
   enum class ShapeType : uint8_t {
     PLANAR_POLYGON,
@@ -45,6 +39,50 @@ public:
   /** @brief Radial distributions available to presets. */
   enum class RadiusSpacing : uint8_t { UNIFORM, SCREEN_BALANCED };
 
+  ShapeType shape;
+  float count;
+  float sides;
+  PhaseFunction function;
+  float amplitude;
+  float speed;
+  bool opposite;
+  AlphaFalloff alpha_falloff;
+  RadiusSpacing spacing;
+
+  constexpr ShapeShifterParams() = default;
+  constexpr ShapeShifterParams(ShapeType shape, float count, float sides,
+                               PhaseFunction function, float amplitude,
+                               float speed, float opposite,
+                               AlphaFalloff alpha_falloff,
+                               RadiusSpacing spacing)
+      : shape(shape), count(count), sides(sides), function(function),
+        amplitude(amplitude), speed(speed), opposite(opposite >= 0.5f),
+        alpha_falloff(alpha_falloff), spacing(spacing) {}
+};
+
+/**
+ * @brief Draws phase-modulated concentric shapes across the sphere.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Evenly spaced Plot primitives share a center and sample a selectable
+ * waveform at successive radii, producing an animated radial twist. Presets
+ * cycle through a Segue::Fade choreography: the whole effect fades through
+ * zero opacity and the parameters snap inside the dark frame.
+ */
+template <int W, int H>
+class ShapeShifter
+    : public ChoreographedEffect<ShapeShifter<W, H>, ShapeShifterParams> {
+  using Choreography =
+      ChoreographedEffect<ShapeShifter<W, H>, ShapeShifterParams>;
+  friend Choreography;
+
+public:
+  using Params = ShapeShifterParams;
+  using ShapeType = Params::ShapeType;
+  using PhaseFunction = Params::PhaseFunction;
+  using AlphaFalloff = Params::AlphaFalloff;
+  using RadiusSpacing = Params::RadiusSpacing;
+
   static constexpr int NUM_SHAPES =
       static_cast<int>(ShapeType::SPHERICAL_STAR) + 1;
   static constexpr int NUM_FUNCTIONS =
@@ -58,13 +96,12 @@ public:
 
   /** @brief Constructs the Plot-only effect on a WxH canvas. */
   HS_COLD_MEMBER ShapeShifter()
-      : Effect(W, H,
-               pipeline_config<decltype(plot_filters)>({.strobe = true})) {}
+      : Choreography(
+            W, H, pipeline_config<decltype(plot_filters)>({.strobe = true})) {}
 
-  /** @brief Loads the initial preset and registers its fields as GUI sliders. */
+  /** @brief Registers the GUI sliders and starts the preset choreography. */
   void init() override {
     configure_presets(PRESETS.size());
-    params = presets.get();
 
     register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
     mark_global("Alpha");
@@ -97,8 +134,7 @@ public:
     prepare_count(hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES));
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
                                              hs::rand_int(0, 65536)));
-    presets.segue().overlap = 0;
-    schedule_preset();
+    begin_preset_choreography();
   }
 
   /** @brief Advances the waveform and draws the full radial shape stack. */
@@ -116,28 +152,17 @@ public:
     draw_all(canvas);
   }
 
-private:
-  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
-    if (!presets.select(change.to))
-      return false;
-    presets.apply(params);
-    phase = 0.0f;
-    return true;
-  }
-
-public:
 #if HS_ENABLE_EFFECT_CONTROL_API
   void profile_select_preset(size_t index) {
     HS_CHECK(index < PRESETS.size(),
              "ShapeShifter profile preset index out of range");
-    HS_CHECK(selectPreset(index),
+    HS_CHECK(this->selectPreset(index),
              "ShapeShifter profile preset selection failed");
 #ifdef HS_PROFILE_SHAPESHIFTER_COUNT
     static_assert(HS_PROFILE_SHAPESHIFTER_COUNT >= 1 &&
                   HS_PROFILE_SHAPESHIFTER_COUNT <= MAX_SHAPES);
     params.count = static_cast<float>(HS_PROFILE_SHAPESHIFTER_COUNT);
 #endif
-    phase = 0.0f;
     hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
             static_cast<unsigned>(PRESETS.size()));
   }
@@ -145,6 +170,23 @@ public:
 
 private:
   friend struct ::hs_test::shapeshifter_oracle_tests::ShapeShifterWhiteBox;
+
+  using Choreography::begin_preset_choreography;
+  using Choreography::configure_presets;
+  using Choreography::mark_global;
+  using Choreography::params;
+  using Choreography::register_animated_param;
+  using Choreography::register_param;
+  using Choreography::timeline;
+
+  /** @brief Adopts a snap target; the radial sweep restarts at phase zero. */
+  void adopt_params(const Params &target) {
+    params = target;
+    phase = 0.0f;
+  }
+
+  /** @brief Receives the Fade policy's envelope each frame. */
+  void set_preset_opacity(float value) { preset_opacity = value; }
 
   static constexpr float ALPHA_MIN = 0.0f;
   static constexpr float ALPHA_MAX = 1.0f;
@@ -156,6 +198,18 @@ private:
   static constexpr float SPEED_MAX = 0.16f;
   static constexpr int PRESET_FRAMES = 240;
   static constexpr int PRESET_SEGUE_FRAMES = 16;
+  /** Fade preset policy: params snap inside the envelope's dark frame, so the
+      two parameter sets never render on the same frame. */
+  static constexpr Segue::Fade PRESET_SEGUE{
+      {}, PRESET_FRAMES, PRESET_SEGUE_FRAMES / 2};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** Required by the base's snap path; the dwell countdown never runs under a
+      Fade policy. */
+  static constexpr uint16_t PRESET_DWELL_FRAMES = PRESET_FRAMES;
+
+  static Params initial_params() { return PRESETS[0].params; }
+  static Params preset_params(size_t index) { return PRESETS[index].params; }
+  static bool valid_params(const Params &p) { return preset_in_ranges(p); }
 
   static constexpr const char *SHAPE_OPTIONS[] = {
       "Planar Polygon", "Spherical Polygon", "Flower", "Planar Star",
@@ -177,28 +231,6 @@ private:
                                                     "Screen Balanced"};
   static constexpr const char *SPACING_EXPORT_OPTIONS[] = {
       "RadiusSpacing::UNIFORM", "RadiusSpacing::SCREEN_BALANCED"};
-
-  /** @brief Tunable rendering state stored by each preset. */
-  struct Params {
-    ShapeType shape;
-    float count;
-    float sides;
-    PhaseFunction function;
-    float amplitude;
-    float speed;
-    bool opposite;
-    AlphaFalloff alpha_falloff;
-    RadiusSpacing spacing;
-
-    constexpr Params() = default;
-    constexpr Params(ShapeType shape, float count, float sides,
-                     PhaseFunction function, float amplitude, float speed,
-                     float opposite, AlphaFalloff alpha_falloff,
-                     RadiusSpacing spacing)
-        : shape(shape), count(count), sides(sides), function(function),
-          amplitude(amplitude), speed(speed), opposite(opposite >= 0.5f),
-          alpha_falloff(alpha_falloff), spacing(spacing) {}
-  };
 
   void advance_phase() {
     phase = wrap_t(phase + params.speed / params.amplitude);
@@ -365,31 +397,6 @@ private:
       return;
     draw_planar_star_pole_cap(canvas, basis, spaced_radius_t[count - 1],
                               1.0f - radius_t, sides, palette);
-  }
-
-  /** @brief Advances to the next preset and applies it atomically. */
-  HS_COLD_MEMBER void next_preset() { HS_CHECK(advancePreset()); }
-
-  /**
-   * @brief Schedules the current preset's fade sprite and the timer that
-   * advances to the next one.
-   */
-  void schedule_preset() {
-    const int next_delay = presets.schedule_segue(
-        timeline,
-        [this](Canvas &, float phase) {
-          preset_opacity = presets.segue().opacity(phase);
-        },
-        PRESET_FRAMES, PRESET_SEGUE_FRAMES / 2, &anims_paused);
-    timeline.add_pausable(next_delay,
-                          Animation::PeriodicTimer(
-                              0,
-                              [this](Canvas &) {
-                                next_preset();
-                                schedule_preset();
-                              },
-                              false),
-                          &anims_paused);
   }
 
   /**
@@ -799,7 +806,6 @@ private:
 
   FastNoiseLite noise;
   Orientation<> orientation;
-  Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
   BakedPalette baked_constant;
   BakedPalette baked_toward_equator;
@@ -814,8 +820,6 @@ private:
   int prepared_planar_star_sides = 0;
   int baked_palette_count = 0;
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
-  Presets<Params, PRESET_COUNT, Segue::Crossfade> presets{PRESETS};
-  Params params{};
   float alpha = 1.0f;
   float preset_opacity = 1.0f;
   float phase = 0.0f;

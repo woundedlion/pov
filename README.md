@@ -1732,7 +1732,7 @@ One deliberate exception: `SolidBuilder`'s fluent Conway chain (`solid_generator
 
 ### 7.9 The Preset System (`presets.h`)
 
-`Presets<Params, Size, SegueT>` is a generic template for managing parameter presets. It stores a fixed-size array of `PresetEntry<Params>` (each containing only a `Params` struct — no name field) and provides cyclic navigation (`next()`/`prev()`, with `current_index()`/`prev_index()` reporting where it stands). It interpolates nothing itself: it tracks the entry active before the last move, and the caller drives the crossfade with an `Animation::Lerp` from `prev_get()` to `get()` (the `Params` type supplies the `lerp()` the animation calls).
+`Presets<Params, Size>` is a generic template for managing parameter presets. It stores a fixed-size array of `PresetEntry<Params>` (each containing only a `Params` struct — no name field) and provides cyclic navigation (`next()`/`prev()`, with `current_index()`/`prev_index()` reporting where it stands). It interpolates nothing itself: it tracks the entry active before the last move, and the caller drives the crossfade with an `Animation::Lerp` from `prev_get()` to `get()` (the `Params` type supplies the `lerp()` the animation calls).
 
 ```cpp
 Presets<Feedback::Style, 12> presets = {{
@@ -1745,8 +1745,6 @@ presets.apply(style);  // copy current preset into live params
 // or crossfade into it over 48 frames instead of snapping:
 timeline.add(0, Animation::Lerp(style, presets.prev_get(), presets.get(), 48, ease_linear));
 ```
-
-`SegueT` is the same compile-time segue policy `MeshCarousel` takes (`namespace Segue`; `Segue::Base` by default), inherited privately and reachable through `segue()`. `schedule_segue(timeline, draw_fn, duration, window, paused)` hands the policy the draw callback and returns the frame count after which the caller should advance to the next preset — the `Segue::Schedulable` concept pins that signature, so no policy can shadow it with a shorter one. Forwarding the pause gate from that signature is the policy's own contract — the concept cannot see it, so a test pins it instead.
 
 `get_entries()` returns a span over all entries, const for read-only iteration and mutable for rebinding a preset in place. The free `constexpr` helper `all_presets_in_ranges(entries, in_ranges)` runs a slider-range predicate over an entry table so an effect can `static_assert` its whole preset table against its registered parameter ranges — a loop rather than an unrolled conjunction, so appended entries are covered automatically.
 
