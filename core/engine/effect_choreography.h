@@ -11,6 +11,7 @@
  */
 
 #include <cstdint>
+#include <type_traits>
 
 #include "animation/animation.h"
 #include "engine/platform.h"
@@ -19,17 +20,21 @@
 
 /**
  * @brief Effect base owning one parameter set and its preset choreography:
- *        automatic dwell/crossfade transitions, manual preset snaps and
- *        schema-versioned parameter snapshots.
- * @details Curiously recurring: `Derived` supplies `PRESET_IDS`,
- * `PARAMETER_SCHEMA_VERSION`, `PRESET_DWELL_FRAMES`, `initial_params()`,
- * `preset_params(index)` and `valid_params(params)`, plus the transition
- * hooks: `blend_params(progress)` writes the interpolated parameters while a
- * transition is in flight, and shadowing `adopt_params(target)` /
- * `transition_armed(target)` keeps state derived from the parameters
- * consistent across snaps and crossfade arming. `register_fields()`
- * additionally requires a `field_gate_open(gate)` predicate. A `Derived`
- * keeping its hooks non-public befriends this base.
+ *        automatic transitions through a Segue preset policy, manual preset
+ *        snaps and schema-versioned parameter snapshots.
+ * @details Curiously recurring: `Derived` supplies `PRESET_SEGUE` (a
+ * `Segue::PresetPolicy` instance), `PARAMETER_SCHEMA_VERSION`,
+ * `PRESET_DWELL_FRAMES`, `initial_params()`, `preset_params(index)` — static,
+ * or a member when the effect patches preset entries at runtime — and
+ * `valid_params(params)`, plus the transition hooks: `blend_params(progress)`
+ * writes the interpolated parameters while a Segue::Lerp transition is in
+ * flight, `set_preset_opacity(value)` receives a Segue::Fade policy's envelope,
+ * and shadowing `adopt_params(target)` / `transition_armed(target)` keeps
+ * state derived from the parameters consistent across snaps and crossfade
+ * arming. An effect exposing `PRESET_IDS` with a single entry compiles the
+ * dwell countdown out. `register_fields()` additionally
+ * requires a `field_gate_open(gate)` predicate. A `Derived` keeping its hooks
+ * non-public befriends this base.
  * @tparam Derived The effect class deriving from this base.
  * @tparam ParamsT The effect's parameter-set type.
  */
@@ -37,8 +42,8 @@ template <typename Derived, typename ParamsT>
 class ChoreographedEffect : public Effect {
 public:
   using Params = ParamsT;
-  /** Frames an automatic preset transition spans. */
-  static constexpr uint16_t TRANSITION_DURATION = 480;
+  /** Frames an automatic Segue::Lerp preset transition spans. */
+  static constexpr uint16_t TRANSITION_DURATION = Derived::PRESET_SEGUE.frames;
 
   /** @brief A parameter set tagged with the schema version that produced it. */
   struct ParameterSnapshot {
@@ -88,9 +93,8 @@ protected:
    * @brief Timeline-lerp subject for a preset transition.
    * @details Animation::Lerp drives this through the transition's stored
    * endpoints each frame. A lerp whose transition was cancelled by a manual
-   * preset or a snapshot restore keeps stepping but writes nothing.
-   * Deliberately never pause-gated: a started transition always runs to its
-   * authored endpoint.
+   * preset or a snapshot restore keeps stepping but writes nothing. Pause
+   * freezes it only when the policy says so.
    */
   struct PresetBlend {
     ChoreographedEffect *runtime;
@@ -120,44 +124,94 @@ protected:
   }
 
   /**
-   * @brief Adopts a preset, crossfading only when choreography asked for it.
-   * @details An AUTOMATIC change arms a TRANSITION_DURATION crossfade from the
-   * live parameters; a manual or synchronized change snaps, since a user
-   * driving the control expects the preset it names immediately.
+   * @brief Adopts a preset through the effect's Segue preset policy.
+   * @details A manual or synchronized change snaps regardless of policy, since
+   * a user driving the control expects the preset it names immediately. An
+   * AUTOMATIC change follows `Derived::PRESET_SEGUE`: Segue::Lerp arms a
+   * crossfade from the live parameters, Segue::Snap adopts immediately, and
+   * Segue::Fade adopts immediately inside its envelope's dark frame.
    * @param change The requested preset move.
    * @return Always true: the runtime never vetoes a preset.
    */
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
-    const Params target = Derived::preset_params(change.to);
-    if (change.origin != PresetChangeOrigin::AUTOMATIC) {
-      transition.active = false;
-      derived().adopt_params(target);
-      preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
-      return true;
+    using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
+    static_assert(Segue::PresetPolicy<SegueT>,
+                  "Derived::PRESET_SEGUE is not a Segue preset policy");
+    const Params target = preset_target(change.to);
+    if constexpr (Segue::PresetBlends<SegueT>) {
+      if (change.origin == PresetChangeOrigin::AUTOMATIC) {
+        transition = {params, target, true};
+        derived().transition_armed(target);
+        constexpr auto SEGUE = Derived::PRESET_SEGUE;
+        if constexpr (SEGUE.pausable)
+          timeline.add_pausable(0,
+                                Animation::Lerp(preset_blend, preset_blend,
+                                                preset_blend, SEGUE.frames,
+                                                SEGUE.easing),
+                                &anims_paused);
+        else
+          timeline.add(0,
+                       Animation::Lerp(preset_blend, preset_blend, preset_blend,
+                                       SEGUE.frames, SEGUE.easing));
+        return true;
+      }
     }
-    transition = {params, target, true};
-    derived().transition_armed(target);
-    timeline.add(0, Animation::Lerp(preset_blend, preset_blend, preset_blend,
-                                    TRANSITION_DURATION, ease_in_out_sin));
+    transition.active = false;
+    derived().adopt_params(target);
+    preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
     return true;
   }
 
   /// Retires the preset dwell and starts the next automatic preset transition.
   /// @details Pause suppresses preset selection, so no new transition begins
-  /// while paused.
+  /// while paused. A Segue::Fade policy's cadence comes from its envelope loop
+  /// instead; the dwell countdown never runs.
   HS_COLD_MEMBER void begin_automatic_transition() {
-    if constexpr (Derived::PRESET_IDS.size() == 1)
+    using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
+    if constexpr (Segue::PresetFades<SegueT>)
       return;
-    if (anims_paused || transition.active)
-      return;
-    if (preset_dwell_remaining > 0 && --preset_dwell_remaining > 0)
-      return;
-    if (advancePreset()) {
+    else {
+      if constexpr (requires { Derived::PRESET_IDS; })
+        if constexpr (Derived::PRESET_IDS.size() == 1)
+          return;
+      if (anims_paused || transition.active)
+        return;
+      if (preset_dwell_remaining > 0 && --preset_dwell_remaining > 0)
+        return;
+      if (advancePreset()) {
 #ifdef HS_PROFILE_ENABLE
-      hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex() + 1),
-              static_cast<unsigned>(getPresetCount()));
+        hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex() + 1),
+                static_cast<unsigned>(getPresetCount()));
 #endif
+      }
     }
+  }
+
+  /**
+   * @brief Starts a Segue::Fade policy's envelope loop: one opacity sprite per
+   *        preset whose end advances the choreography and re-arms.
+   * @details The policy's schedule() return is the delay until the advance, so
+   * the policy owns the cadence. The sprite feeds
+   * `Derived::set_preset_opacity` each frame; both the sprite and the advance
+   * timer freeze with anims_paused. The effect calls this once from init().
+   */
+  HS_COLD_MEMBER void begin_preset_choreography() {
+    auto segue = Derived::PRESET_SEGUE;
+    const int next_delay = segue.schedule(
+        timeline,
+        [this](Canvas &, float phase) {
+          derived().set_preset_opacity(Derived::PRESET_SEGUE.opacity(phase));
+        },
+        segue.frames, segue.window, &anims_paused);
+    timeline.add_pausable(next_delay,
+                          Animation::PeriodicTimer(
+                              0,
+                              [this](Canvas &) {
+                                HS_CHECK(advancePreset());
+                                begin_preset_choreography();
+                              },
+                              false),
+                          &anims_paused);
   }
 
   /** @brief Registers a slider for every named field in the family's table. */
@@ -176,6 +230,15 @@ protected:
 
 private:
   Derived &derived() { return static_cast<Derived &>(*this); }
+
+  /** @brief Params for the preset at @p index: the static table, or the
+      instance hook when the effect patches its entries at runtime. */
+  Params preset_target(size_t index) {
+    if constexpr (requires { Derived::preset_params(index); })
+      return Derived::preset_params(index);
+    else
+      return derived().preset_params(index);
+  }
 
   HS_COLD_MEMBER void run_blend(float progress) {
     if (!transition.active)
