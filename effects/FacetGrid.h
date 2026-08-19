@@ -50,10 +50,10 @@ public:
   /// `patterns/facet_grid.shader.json`; the browser editor matches it to
   /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "dbc2b50dfac073346677de5023268732ff6f18e004b6ac9c19981e29837c6e88";
+      "ba812c3d1306245caa612041260be182cf281756eb29c537543f30bbfcb3f7ee";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "591040fa5e5f09ed4ba3571488e5c592c1e5b6e249bb9da18c8ae1b6229a5693";
+      "c79d9cae2a6848302d7bb7cac235982be3847a9aabbc8e69cf015f2703702bf4";
   /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "coupled-grid", "direct-grid", "double-map", "stretched-grid"};

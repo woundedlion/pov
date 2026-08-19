@@ -30,9 +30,9 @@ public:
   using Params = EquatorGridParams;
   static constexpr std::string_view EFFECT_ID = "equator-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "4ff4b908978de7ecc20df3bb1ea72cc6c51cee39e663cd3c995d5503463a19f2";
+      "2368f76b2f43bf818081afad8aee358e8b22eb261045afa4b53a60cc862f5eb9";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "f3a6aa9fc8053e9cfa84a487a51a8801ac9ea484a3b1091464fa304a3e727a58";
+      "d36cc3eb3b8c2d32777ba3cbbede9892a298f31c90153aca0e4aec6cdfbe6c63";
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
       "double-map", "open-grid", "fine-grid"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
