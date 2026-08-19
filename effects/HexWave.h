@@ -28,9 +28,9 @@ public:
   using Params = HexWaveParams;
   static constexpr std::string_view EFFECT_ID = "hex-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "604eedda723bddcd92511125d00be0c8bee8b34aa59d89e0b1f88e125da82db4";
+      "7c17e826920d96ebe397cd7939bbcc0a31bc431b6ff6545d99472a280ba5cbff";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "461e9c413c1d92027cfac902e5d3431c900228640ffa473818962f8beb1fb255";
+      "56aeca56cdb7e188574f19cf47a3f36b9c76fd2baffbf3e2a04dda0405ef7cef";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "hex-twin-wave", "hex-twin-wave-alt"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -47,24 +47,15 @@ public:
     value.color.hue_noise_scale = 1.47215629f;
     value.color.hue_noise_speed = 0.000138f;
     value.color.palette_chroma = 1.0f;
-    value.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
     value.color.mapping_frequency = 1.341f;
     value.color.mapping_phase = -1.0f;
-    value.color.phase_oscillation_depth = 0.0f;
-    value.color.phase_oscillation_speed = 0.0f;
-    value.color.opacity_low = 1.0f;
-    value.color.opacity_high = 1.0f;
+    value.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
     return value;
   }
   static constexpr Params preset_params(size_t index) {
     Params value = initial_params();
-    if (index == 1) {
-      value.projection.camera_wander = 0.0f;
-      value.inner_warp = {1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f};
-      value.color.palette_chroma = 0.0f;
+    if (index == 1)
       value.color.mapping_frequency = 2.0f;
-      value.color.mapping_phase = -1.0f;
-    }
     return value;
   }
 };
