@@ -20,6 +20,7 @@ namespace Surface {
 struct NoSurfaceParams {
   static constexpr std::array<Field<NoSurfaceParams>, 0> FIELDS{};
 };
+static_assert(field_ids_unique<NoSurfaceParams>());
 
 /**
  * @brief Surface parameters for the sphere-space noise displacements
@@ -31,17 +32,18 @@ struct SurfaceNoiseParams {
   float speed = 0.0f;    /**< Per-frame advance of the field's loop phase. */
 
   static constexpr auto FIELDS = std::array{
-      Field<SurfaceNoiseParams>{&SurfaceNoiseParams::scale,
+      Field<SurfaceNoiseParams>{"scale", &SurfaceNoiseParams::scale,
                                 "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
                                 FieldCurve::LERP},
-      Field<SurfaceNoiseParams>{&SurfaceNoiseParams::strength,
+      Field<SurfaceNoiseParams>{"strength", &SurfaceNoiseParams::strength,
                                 "Surface Noise Strength", -0.5f, 0.5f,
                                 FieldCurve::LERP},
-      Field<SurfaceNoiseParams>{&SurfaceNoiseParams::speed,
+      Field<SurfaceNoiseParams>{"speed", &SurfaceNoiseParams::speed,
                                 "Surface Noise Speed", -1.0f / 64.0f,
                                 1.0f / 64.0f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<SurfaceNoiseParams>());
 
 /**
  * @brief Surface parameters for the direction-steered displacement
@@ -54,20 +56,21 @@ struct DirectSurfaceParams {
   float direction = 0.0f; /**< Tangent steering, in turns. */
 
   static constexpr auto FIELDS = std::array{
-      Field<DirectSurfaceParams>{&DirectSurfaceParams::scale,
+      Field<DirectSurfaceParams>{"scale", &DirectSurfaceParams::scale,
                                  "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
                                  FieldCurve::LERP},
-      Field<DirectSurfaceParams>{&DirectSurfaceParams::strength,
+      Field<DirectSurfaceParams>{"strength", &DirectSurfaceParams::strength,
                                  "Surface Noise Strength", 0.0f, 0.5f,
                                  FieldCurve::LERP},
-      Field<DirectSurfaceParams>{&DirectSurfaceParams::speed,
+      Field<DirectSurfaceParams>{"speed", &DirectSurfaceParams::speed,
                                  "Surface Noise Speed", -1.0f / 64.0f,
                                  1.0f / 64.0f, FieldCurve::LERP},
-      Field<DirectSurfaceParams>{&DirectSurfaceParams::direction,
+      Field<DirectSurfaceParams>{"direction", &DirectSurfaceParams::direction,
                                  "Surface Noise Direction", 0.0f, 1.0f,
                                  FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<DirectSurfaceParams>());
 
 /** @brief This frame's point on the displacement field's closed loop. */
 struct PreparedLoop {

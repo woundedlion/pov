@@ -41,6 +41,7 @@ namespace Transfer {
 struct LinearValueParams {
   static constexpr std::array<Field<LinearValueParams>, 0> FIELDS{};
 };
+static_assert(field_ids_unique<LinearValueParams>());
 
 /**
  * @brief Value parameters for the iso band
@@ -51,12 +52,14 @@ struct IsoValueParams {
   float iso_width = 0.05f; /**< Half-width of the band's plateau. */
 
   static constexpr auto FIELDS = std::array{
-      Field<IsoValueParams>{&IsoValueParams::iso_level, "Iso Level", 0.0f, 1.0f,
-                            FieldCurve::LERP},
-      Field<IsoValueParams>{&IsoValueParams::iso_width, "Iso Width",
-                            1.0f / 1024.0f, 1.0f, FieldCurve::LOG_POSITIVE},
+      Field<IsoValueParams>{"iso-level", &IsoValueParams::iso_level,
+                            "Iso Level", 0.0f, 1.0f, FieldCurve::LERP},
+      Field<IsoValueParams>{"iso-width", &IsoValueParams::iso_width,
+                            "Iso Width", 1.0f / 1024.0f, 1.0f,
+                            FieldCurve::LOG_POSITIVE},
   };
 };
+static_assert(field_ids_unique<IsoValueParams>());
 
 struct Linear : ExactPolicy {
   template <typename FrameState>
@@ -172,10 +175,11 @@ struct EdgeValueParams {
   float edge_width = 0.1f;
 
   static constexpr auto FIELDS = std::array{
-      Field<EdgeValueParams>{&EdgeValueParams::edge_width, "Edge Width", 0.0f,
-                             1.0f, FieldCurve::LERP},
+      Field<EdgeValueParams>{"edge-width", &EdgeValueParams::edge_width,
+                             "Edge Width", 0.0f, 1.0f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<EdgeValueParams>());
 
 /**
  * @brief Value-dependent coverage cut for Stage::Coverage.

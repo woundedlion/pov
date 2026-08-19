@@ -51,30 +51,33 @@ struct ColorParams {
       Pullback::Color::PaletteMapping::LINEAR;
 
   static constexpr auto FIELDS = std::array{
-      Field<ColorParams>{&ColorParams::hue_shift_amount, nullptr, -4.0f, 4.0f,
-                         FieldCurve::LERP},
-      Field<ColorParams>{&ColorParams::hue_noise_scale, nullptr, 1.0f / 64.0f,
-                         8.0f, FieldCurve::LOG_POSITIVE},
-      Field<ColorParams>{&ColorParams::hue_noise_speed, nullptr, -0.001f,
-                         0.001f, FieldCurve::LERP},
-      Field<ColorParams>{&ColorParams::palette_chroma, nullptr, 0.0f, 1.0f,
-                         FieldCurve::LERP},
-      Field<ColorParams>{&ColorParams::mapping_frequency, nullptr, 1.0f, 32.0f,
-                         FieldCurve::LOG_POSITIVE},
-      Field<ColorParams>{&ColorParams::mapping_phase, nullptr, -1.0f, 1.0f,
-                         FieldCurve::LERP},
-      Field<ColorParams>{&ColorParams::phase_oscillation_depth, nullptr, 0.0f,
+      Field<ColorParams>{"hue-shift-amount", &ColorParams::hue_shift_amount,
+                         nullptr, -4.0f, 4.0f, FieldCurve::LERP},
+      Field<ColorParams>{"hue-noise-scale", &ColorParams::hue_noise_scale,
+                         nullptr, 1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE},
+      Field<ColorParams>{"hue-noise-speed", &ColorParams::hue_noise_speed,
+                         nullptr, -0.001f, 0.001f, FieldCurve::LERP},
+      Field<ColorParams>{"palette-chroma", &ColorParams::palette_chroma,
+                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorParams>{"mapping-frequency", &ColorParams::mapping_frequency,
+                         nullptr, 1.0f, 32.0f, FieldCurve::LOG_POSITIVE},
+      Field<ColorParams>{"mapping-phase", &ColorParams::mapping_phase, nullptr,
+                         -1.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorParams>{"phase-oscillation-depth",
+                         &ColorParams::phase_oscillation_depth, nullptr, 0.0f,
                          1.0f, FieldCurve::LERP},
-      Field<ColorParams>{&ColorParams::phase_oscillation_speed, nullptr, -0.01f,
+      Field<ColorParams>{"phase-oscillation-speed",
+                         &ColorParams::phase_oscillation_speed, nullptr, -0.01f,
                          0.01f, FieldCurve::LERP},
-      Field<ColorParams>{&ColorParams::brightness_depth, nullptr, 0.0f, 1.0f,
-                         FieldCurve::LERP},
-      Field<ColorParams>{&ColorParams::opacity_low, nullptr, 0.0f, 1.0f,
-                         FieldCurve::LERP},
-      Field<ColorParams>{&ColorParams::opacity_high, nullptr, 0.0f, 1.0f,
-                         FieldCurve::LERP},
+      Field<ColorParams>{"brightness-depth", &ColorParams::brightness_depth,
+                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorParams>{"value-opacity-low", &ColorParams::opacity_low,
+                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorParams>{"value-opacity-high", &ColorParams::opacity_high,
+                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<ColorParams>());
 
 struct PaletteMappingWeights {
   std::array<float, 4> values{};

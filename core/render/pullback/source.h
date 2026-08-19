@@ -34,21 +34,22 @@ struct GridSourceParams {
   float angle_rate = 0.0f;     /**< Per-frame advance of the source rotation. */
 
   static constexpr auto FIELDS = std::array{
-      Field<GridSourceParams>{&GridSourceParams::pattern_freq, "Pattern Freq",
-                              0.1f, 20.0f, FieldCurve::LERP},
-      Field<GridSourceParams>{&GridSourceParams::speed, "Speed", 0.0f, 0.5f,
-                              FieldCurve::LERP},
-      Field<GridSourceParams>{&GridSourceParams::complexity, "Complexity", 0.0f,
-                              3.0f, FieldCurve::LERP},
-      Field<GridSourceParams>{&GridSourceParams::pattern_mix, "Pattern Mix",
-                              0.0f, 1.0f, FieldCurve::LERP},
-      Field<GridSourceParams>{&GridSourceParams::secondary_rate, "Drift", 0.0f,
-                              1.25f, FieldCurve::LERP},
-      Field<GridSourceParams>{&GridSourceParams::angle_rate,
+      Field<GridSourceParams>{"pattern-freq", &GridSourceParams::pattern_freq,
+                              "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
+      Field<GridSourceParams>{"speed", &GridSourceParams::speed, "Speed", 0.0f,
+                              0.5f, FieldCurve::LERP},
+      Field<GridSourceParams>{"complexity", &GridSourceParams::complexity,
+                              "Complexity", 0.0f, 3.0f, FieldCurve::LERP},
+      Field<GridSourceParams>{"pattern-mix", &GridSourceParams::pattern_mix,
+                              "Pattern Mix", 0.0f, 1.0f, FieldCurve::LERP},
+      Field<GridSourceParams>{"drift", &GridSourceParams::secondary_rate,
+                              "Drift", 0.0f, 1.25f, FieldCurve::LERP},
+      Field<GridSourceParams>{"angle-speed", &GridSourceParams::angle_rate,
                               "Source Angle Speed", 0.0f, 0.05f,
                               FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<GridSourceParams>());
 
 /**
  * @brief Source parameters for the two-wave interference field
@@ -63,18 +64,20 @@ struct TwinWaveSourceParams {
                                 waves. */
 
   static constexpr auto FIELDS = std::array{
-      Field<TwinWaveSourceParams>{&TwinWaveSourceParams::pattern_freq,
-                                  "Pattern Freq", 0.1f, 20.0f,
-                                  FieldCurve::LERP},
-      Field<TwinWaveSourceParams>{&TwinWaveSourceParams::speed, "Speed", 0.0f,
-                                  0.5f, FieldCurve::LERP},
-      Field<TwinWaveSourceParams>{&TwinWaveSourceParams::secondary_rate,
+      Field<TwinWaveSourceParams>{
+          "pattern-freq", &TwinWaveSourceParams::pattern_freq, "Pattern Freq",
+          0.1f, 20.0f, FieldCurve::LERP},
+      Field<TwinWaveSourceParams>{"speed", &TwinWaveSourceParams::speed,
+                                  "Speed", 0.0f, 0.5f, FieldCurve::LERP},
+      Field<TwinWaveSourceParams>{"drift",
+                                  &TwinWaveSourceParams::secondary_rate,
                                   "Drift", 0.0f, 1.25f, FieldCurve::LERP},
-      Field<TwinWaveSourceParams>{&TwinWaveSourceParams::angle_rate,
-                                  "Source Angle Speed", 0.0f, 0.05f,
-                                  FieldCurve::LERP},
+      Field<TwinWaveSourceParams>{
+          "angle-speed", &TwinWaveSourceParams::angle_rate,
+          "Source Angle Speed", 0.0f, 0.05f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<TwinWaveSourceParams>());
 
 /**
  * @brief Source parameters for the rotating spiral field
@@ -86,15 +89,17 @@ struct SpiralSourceParams {
   float angle_rate = 0.0f;   /**< Per-frame advance of the spiral rotation. */
 
   static constexpr auto FIELDS = std::array{
-      Field<SpiralSourceParams>{&SpiralSourceParams::pattern_freq,
+      Field<SpiralSourceParams>{"pattern-freq",
+                                &SpiralSourceParams::pattern_freq,
                                 "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
-      Field<SpiralSourceParams>{&SpiralSourceParams::speed, "Speed", 0.0f, 0.5f,
-                                FieldCurve::LERP},
-      Field<SpiralSourceParams>{&SpiralSourceParams::angle_rate,
+      Field<SpiralSourceParams>{"speed", &SpiralSourceParams::speed, "Speed",
+                                0.0f, 0.5f, FieldCurve::LERP},
+      Field<SpiralSourceParams>{"angle-speed", &SpiralSourceParams::angle_rate,
                                 "Source Angle Speed", 0.0f, 0.05f,
                                 FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<SpiralSourceParams>());
 
 /**
  * @brief Source parameters for the noise-contour sources
@@ -107,17 +112,18 @@ struct NoiseSourceParams {
                                      coordinate. */
 
   static constexpr auto FIELDS = std::array{
-      Field<NoiseSourceParams>{&NoiseSourceParams::noise_scale,
+      Field<NoiseSourceParams>{"noise-scale", &NoiseSourceParams::noise_scale,
                                "Source Noise Scale", 1.0f / 64.0f, 64.0f,
                                FieldCurve::LERP},
-      Field<NoiseSourceParams>{&NoiseSourceParams::noise_contrast,
-                               "Source Noise Contrast", 0.0f, 8.0f,
-                               FieldCurve::LERP},
-      Field<NoiseSourceParams>{&NoiseSourceParams::noise_time_rate,
-                               "Source Noise Speed", -1.0f / 64.0f,
-                               1.0f / 64.0f, FieldCurve::LERP},
+      Field<NoiseSourceParams>{
+          "noise-contrast", &NoiseSourceParams::noise_contrast,
+          "Source Noise Contrast", 0.0f, 8.0f, FieldCurve::LERP},
+      Field<NoiseSourceParams>{
+          "noise-speed", &NoiseSourceParams::noise_time_rate,
+          "Source Noise Speed", -1.0f / 64.0f, 1.0f / 64.0f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<NoiseSourceParams>());
 
 /**
  * @brief Source parameters for the per-cell primitive lattice
@@ -132,19 +138,21 @@ struct LatticeSourceParams {
   float lattice_radius = 0.25f;     /**< Primitive radius in cell units. */
 
   static constexpr auto FIELDS = std::array{
-      Field<LatticeSourceParams>{&LatticeSourceParams::lattice_cell_scale,
-                                 "Lattice Cell Scale", 1.0f / 64.0f, 8.0f,
-                                 FieldCurve::LOG_POSITIVE},
-      Field<LatticeSourceParams>{&LatticeSourceParams::lattice_shape_blend,
+      Field<LatticeSourceParams>{
+          "lattice-cell-scale", &LatticeSourceParams::lattice_cell_scale,
+          "Lattice Cell Scale", 1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE},
+      Field<LatticeSourceParams>{"lattice-shape",
+                                 &LatticeSourceParams::lattice_shape_blend,
                                  "Lattice Shape", 0.0f, 1.0f, FieldCurve::LERP},
-      Field<LatticeSourceParams>{&LatticeSourceParams::lattice_softness,
-                                 "Lattice Softness", 1.0f / 1024.0f, 1.0f,
-                                 FieldCurve::LOG_POSITIVE},
-      Field<LatticeSourceParams>{&LatticeSourceParams::lattice_radius,
-                                 "Lattice Radius", 1.0f / 64.0f, 0.49f,
-                                 FieldCurve::LERP},
+      Field<LatticeSourceParams>{
+          "lattice-softness", &LatticeSourceParams::lattice_softness,
+          "Lattice Softness", 1.0f / 1024.0f, 1.0f, FieldCurve::LOG_POSITIVE},
+      Field<LatticeSourceParams>{
+          "lattice-radius", &LatticeSourceParams::lattice_radius,
+          "Lattice Radius", 1.0f / 64.0f, 0.49f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<LatticeSourceParams>());
 
 /** @brief The source stage's phases, resolved once per frame. */
 struct PreparedSource {

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cmath>
+#include <string_view>
 
 #include "math/interpolate.h"
 #include "render/pullback/contract.h"
@@ -40,6 +41,7 @@ enum class FieldGate : uint8_t {
  * @tparam Owner The family struct the field belongs to.
  */
 template <typename Owner> struct Field {
+  const char *id; /**< Stable machine id; kebab-case, unique in the family. */
   float Owner::*member;
   const char *name;
   float min;
@@ -51,6 +53,18 @@ template <typename Owner> struct Field {
 /** @brief Whether @p T carries a field-descriptor table. */
 template <typename T>
 concept HasFields = requires { T::FIELDS; };
+
+/** @brief Whether every tabled field id is non-null and unique in the family. */
+template <HasFields Family> consteval bool field_ids_unique() {
+  for (size_t i = 0; i < Family::FIELDS.size(); ++i) {
+    if (Family::FIELDS[i].id == nullptr)
+      return false;
+    for (size_t j = 0; j < i; ++j)
+      if (std::string_view(Family::FIELDS[i].id) == Family::FIELDS[j].id)
+        return false;
+  }
+  return true;
+}
 
 namespace Fields {
 
