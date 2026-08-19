@@ -3930,7 +3930,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"solid_generators.h", 5},
     {"solids.h", 2},
     {"kd_tree.h", 5},
-    {"canvas.h", 25},
+    {"canvas.h", 29},
     {"common.h", 4},
     {"csg.h", 2},
     {"cull.h", 1},
@@ -3941,7 +3941,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
 #else
     {"face.h", 4},
 #endif
-    {"interpreter.h", 10},
+    {"interpreter.h", 13},
     {"led.h", 3},
     {"operator_model.h", 1},
     {"operators.h", 1},
@@ -3967,6 +3967,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"ReactionDiffusionBase.h", 2},
     {"RingShower.h", 1},
     {"ShaderBall.h", 16},
+    {"ShaderChain.h", 1},
     {"ShapeShifter.h", 2},
     {"dma_led.h", 4},
     {"pov_segmented.h", 9},

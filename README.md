@@ -368,7 +368,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    40 headers covering 37 effects plus shared bases:
+├── effects/                    41 headers covering 37 effects plus shared bases:
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
 │                                Raymarch.h, …; the shared composed-effect base is
 │                                core/render/pullback/composed_effect.h — see §9

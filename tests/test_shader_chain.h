@@ -22,6 +22,7 @@
 
 #include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/interpreter.h"
+#include "effects/ShaderChain.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -644,7 +645,8 @@ inline void test_shader_chain_catalog_shape() {
   HS_EXPECT_TRUE(contains("\"budgets\":{\"max_chain_ops\":32,"
                           "\"arena_bytes\":98304,\"max_params\":224,"
                           "\"max_instance_id_length\":48,"
-                          "\"per_op_overhead_bytes\":49}"));
+                          "\"per_op_overhead_bytes\":49,"
+                          "\"per_param_name_bytes\":81}"));
   HS_EXPECT_TRUE(
       contains("\"carriers\":[\"sphere\",\"plane\",\"field\",\"color\"]"));
   HS_EXPECT_TRUE(contains("\"id\":\"sphere.rotate.v2\""));
@@ -1262,6 +1264,143 @@ inline void test_shader_chain_determinism() {
   relabeled->program.clear();
 }
 
+inline void test_shader_chain_param_names_and_budget() {
+  static_assert(In::PER_PARAM_NAME_BYTES ==
+                In::MAX_INSTANCE_ID + 1 + In::MAX_FIELD_ID + 1);
+  static_assert(In::operator_schema_ids_fit_names());
+  auto fixture = std::make_unique<ProgramFixture>();
+  In::ChainProgram &program = fixture->program;
+  arm_default_chain(program, 0, ValueSet::DEFAULTS);
+
+  // The names are exactly "{instance}.{field-id}", per schema entry.
+  const auto ops = program.ops();
+  for (size_t index = 0; index < ops.size(); ++index) {
+    const In::OperatorDescriptor &op = *ops[index].op;
+    for (uint16_t field = 0; field < op.schema_count; ++field) {
+      std::string expected{ops[index].instance};
+      expected += '.';
+      expected += op.schema[field].id;
+      HS_EXPECT_TRUE(expected == program.param_name(index, field));
+    }
+  }
+  HS_EXPECT_TRUE(std::string_view(program.param_name(0, 0)) == "camera.wander");
+  HS_EXPECT_TRUE(std::string_view(program.param_name(3, 0)) ==
+                 "colorize.hue-shift-amount");
+
+  // The committed footprint equals the accounted layout: cataloged blocks,
+  // the per-op overhead, and the fixed per-field name reservation.
+  size_t expected_bytes = 0;
+  const auto align_to = [](size_t offset, size_t alignment) {
+    return (offset + alignment - 1) & ~(alignment - 1);
+  };
+  for (const In::ChainProgram::ChainOp &op : ops) {
+    const In::OperatorRuntime &runtime = op.op->runtime;
+    expected_bytes = align_to(expected_bytes, runtime.param.align);
+    expected_bytes += runtime.param.size;
+    expected_bytes = align_to(expected_bytes, runtime.prepared.align);
+    expected_bytes += runtime.prepared.size;
+    expected_bytes = align_to(expected_bytes, runtime.state.align);
+    expected_bytes += runtime.state.size;
+    expected_bytes += In::PER_OP_OVERHEAD_BYTES;
+    expected_bytes +=
+        static_cast<size_t>(op.op->schema_count) * In::PER_PARAM_NAME_BYTES;
+  }
+  HS_EXPECT_EQ(program.used_bytes(), expected_bytes);
+  program.clear();
+}
+
+inline void test_shader_chain_effect_registers_params() {
+  reset_globals();
+  ShaderChain<96, 20> effect;
+  effect.init();
+  size_t expected = 0;
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
+    expected += op.schema_count;
+  const ParamList &params = effect.getParameters();
+  HS_EXPECT_EQ(params.size(), expected);
+  HS_EXPECT_TRUE(params.find("camera.wander") != nullptr);
+  HS_EXPECT_TRUE(params.find("project.pole-fade") != nullptr);
+  HS_EXPECT_TRUE(params.find("sample.pattern-freq") != nullptr);
+  HS_EXPECT_TRUE(params.find("colorize.palette-chroma") != nullptr);
+  const ParamDef *coverage = params.find("sample.coverage-mode");
+  HS_EXPECT_TRUE(coverage != nullptr);
+  HS_EXPECT_TRUE(coverage->is_enum());
+  HS_EXPECT_EQ(coverage->option_count, 4);
+  HS_EXPECT_TRUE(std::string_view(coverage->options[3]) == "edge-fade");
+  // The value channel reaches the committed param block through the
+  // registered target.
+  HS_EXPECT_EQ(
+      static_cast<int>(effect.updateParameter("sample.coverage-mode", 3.0f)),
+      static_cast<int>(ParamSetResult::APPLIED));
+  HS_EXPECT_EQ(params.find("sample.coverage-mode")->get_requested(), 3.0f);
+
+  uint64_t lit = 0;
+  for (int frame = 0; frame < 4; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  for (int y = 0; y < 20; ++y)
+    for (int x = 0; x < 96; ++x) {
+      const Pixel &pixel = effect.get_pixel(x, y);
+      lit += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+    }
+  HS_EXPECT_GT(lit, 0u);
+}
+
+inline void test_shader_chain_effect_rebind_generation() {
+  reset_globals();
+  ShaderChain<96, 20> effect;
+  effect.init();
+  const uint32_t initial = effect.getParameterSchemaGeneration();
+  const In::ChainEntryRequest edited[] = {
+      {"camera2", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v2"},
+  };
+  const In::ChainRefusal committed = effect.set_chain(edited);
+  HS_EXPECT_EQ(static_cast<int>(committed.code),
+               static_cast<int>(In::ChainStatus::OK));
+  // set_chain rebinds before returning: fresh generation, fresh names.
+  HS_EXPECT_NE(effect.getParameterSchemaGeneration(), initial);
+  HS_EXPECT_TRUE(effect.getParameters().find("camera2.wander") != nullptr);
+  HS_EXPECT_TRUE(effect.getParameters().find("camera.wander") == nullptr);
+  effect.draw_frame();
+  effect.advance_display();
+}
+
+inline void test_shader_chain_effect_refusal_keeps_schema() {
+  reset_globals();
+  ShaderChain<96, 20> effect;
+  effect.init();
+  const uint32_t committed = effect.getParameterSchemaGeneration();
+  const size_t param_count = effect.getParameters().size();
+  const In::ChainEntryRequest unknown[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"warp", "warp.mirror-tile.v2"},
+  };
+  const In::ChainRefusal refusal = effect.set_chain(unknown);
+  HS_EXPECT_EQ(static_cast<int>(refusal.code),
+               static_cast<int>(In::ChainStatus::UNKNOWN_OPERATOR));
+  HS_EXPECT_EQ(refusal.entry_index, 1);
+  // Transactional at the effect layer too: definitions, generation, and the
+  // committed program all survive, and the effect still renders.
+  HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), committed);
+  HS_EXPECT_EQ(effect.getParameters().size(), param_count);
+  HS_EXPECT_TRUE(effect.getParameters().find("camera.wander") != nullptr);
+  uint64_t lit = 0;
+  for (int frame = 0; frame < 2; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  for (int y = 0; y < 20; ++y)
+    for (int x = 0; x < 96; ++x) {
+      const Pixel &pixel = effect.get_pixel(x, y);
+      lit += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+    }
+  HS_EXPECT_GT(lit, 0u);
+}
+
 inline int run_shader_chain_tests() {
   ModuleFixture fixture("shader_chain");
   test_shader_chain_table_integrity();
@@ -1281,6 +1420,10 @@ inline int run_shader_chain_tests() {
   test_shader_chain_state_identity_migration();
   test_shader_chain_state_continuity_slice();
   test_shader_chain_determinism();
+  test_shader_chain_param_names_and_budget();
+  test_shader_chain_effect_registers_params();
+  test_shader_chain_effect_rebind_generation();
+  test_shader_chain_effect_refusal_keeps_schema();
   return fixture.result();
 }
 

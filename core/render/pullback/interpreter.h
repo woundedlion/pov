@@ -30,6 +30,14 @@ inline constexpr size_t MAX_CHAIN_PARAMS = 224;
 /** Fixed per-entry arena cost beyond the cataloged blocks: the instance-id
     copy reservation. */
 inline constexpr size_t PER_OP_OVERHEAD_BYTES = MAX_INSTANCE_ID + 1;
+/** Longest schema field id, in bytes, excluding the NUL; pinned so the
+    per-field name reservation below is a table-independent constant. */
+inline constexpr size_t MAX_FIELD_ID = 31;
+/** Fixed arena reservation per schema field for its registered
+    "{instance}.{field-id}" parameter name: worst-case instance id, the dot,
+    worst-case field id, and the NUL. */
+inline constexpr size_t PER_PARAM_NAME_BYTES =
+    MAX_INSTANCE_ID + 1 + MAX_FIELD_ID + 1;
 
 namespace Detail {
 
@@ -66,12 +74,59 @@ enum class ChainStatus : uint8_t {
   MIGRATE_FAILED
 };
 
+/** @brief Wire spelling of @p status; the embind boundary renames a committed
+    OK to "APPLIED". */
+inline const char *chain_status_name(ChainStatus status) {
+  switch (status) {
+  case ChainStatus::OK:
+    return "OK";
+  case ChainStatus::NOT_CHAIN_EFFECT:
+    return "NOT_CHAIN_EFFECT";
+  case ChainStatus::MALFORMED_PAYLOAD:
+    return "MALFORMED_PAYLOAD";
+  case ChainStatus::EMPTY:
+    return "EMPTY";
+  case ChainStatus::TOO_LONG:
+    return "TOO_LONG";
+  case ChainStatus::UNKNOWN_OPERATOR:
+    return "UNKNOWN_OPERATOR";
+  case ChainStatus::DUPLICATE_INSTANCE:
+    return "DUPLICATE_INSTANCE";
+  case ChainStatus::MALFORMED_INSTANCE:
+    return "MALFORMED_INSTANCE";
+  case ChainStatus::ENTRY_FAMILY:
+    return "ENTRY_FAMILY";
+  case ChainStatus::EXIT_FAMILY:
+    return "EXIT_FAMILY";
+  case ChainStatus::CARRIER_MISMATCH:
+    return "CARRIER_MISMATCH";
+  case ChainStatus::ARENA_OVERFLOW:
+    return "ARENA_OVERFLOW";
+  case ChainStatus::PARAM_OVERFLOW:
+    return "PARAM_OVERFLOW";
+  case ChainStatus::MIGRATE_FAILED:
+    return "MIGRATE_FAILED";
+  }
+  __builtin_unreachable();
+}
+
 /** @brief Structured refusal: the code plus the offending entry index
     (-1 refuses the chain as a whole). */
 struct ChainRefusal {
   ChainStatus code;
   int16_t entry_index;
 };
+
+/** Every shipped schema field id must fit the fixed name reservation. */
+consteval bool operator_schema_ids_fit_names() {
+  for (const OperatorDescriptor &op : OPERATOR_TABLE)
+    for (uint16_t index = 0; index < op.schema_count; ++index)
+      if (std::string_view(op.schema[index].id).size() > MAX_FIELD_ID)
+        return false;
+  return true;
+}
+static_assert(operator_schema_ids_fit_names(),
+              "chain operator table: a schema field id exceeds MAX_FIELD_ID");
 
 /** @brief One wire chain entry; the views are caller-owned and only read
     during compile(). */
@@ -121,6 +176,8 @@ public:
     uint32_t param_offset;
     uint32_t prepared_offset;
     uint32_t state_offset;
+    uint32_t name_offset; /**< "{instance}.{field-id}" slots, PER_PARAM_NAME_
+                               BYTES apart, one per schema field. */
   };
 
   /**
@@ -304,11 +361,25 @@ public:
   size_t used_bytes() const { return sides[active].used_bytes; }
 
   /** @brief Mutable param block of entry @p index; the value channel's
-      storage and (in H3) the registration target. */
+      storage and the registration target. */
   uint8_t *param_block(size_t index) {
     HS_CHECK(index < sides[active].count, "ChainProgram::param_block range");
     return static_cast<uint8_t *>(
         block_ptr(active, sides[active].ops[index].param_offset));
+  }
+
+  /** @brief Registered parameter name "{instance}.{field-id}" of schema entry
+      @p schema_index of entry @p index.
+      @details Storage lives in the winning arena, so the pointer dies at the
+      next successful compile — the caller must re-register immediately after
+      every commit, before anything reads a previously registered name. */
+  const char *param_name(size_t index, uint16_t schema_index) const {
+    HS_CHECK(index < sides[active].count, "ChainProgram::param_name range");
+    const ChainOp &op = sides[active].ops[index];
+    HS_CHECK(schema_index < op.op->schema_count,
+             "ChainProgram::param_name schema range");
+    return reinterpret_cast<const char *>(const_block_ptr(
+        active, op.name_offset + schema_index * PER_PARAM_NAME_BYTES));
   }
 
   /** @brief Instance state of entry @p index (LUT bake inputs, inspection). */
@@ -357,9 +428,9 @@ private:
 
   /**
    * @brief Computes the exact arena layout of a resolved chain.
-   * @param out Side to fill with offsets and instance-id copies, or null for
-   *        the budget dry run — both paths share this arithmetic, so the
-   *        budget check equals the layout.
+   * @param out Side to fill with offsets, instance-id copies, and parameter
+   *        name slots, or null for the budget dry run — both paths share this
+   *        arithmetic, so the budget check equals the layout.
    * @return Total bytes consumed.
    */
   size_t plan_layout(const OperatorDescriptor *const *resolved,
@@ -379,11 +450,27 @@ private:
       cursor += runtime.state.size;
       const size_t id_offset = cursor;
       cursor += PER_OP_OVERHEAD_BYTES;
+      const size_t name_offset = cursor;
+      cursor += static_cast<size_t>(resolved[index]->schema_count) *
+                PER_PARAM_NAME_BYTES;
       if (out != nullptr) {
         char *id_copy = reinterpret_cast<char *>(base + id_offset);
         const std::string_view instance = request[index].instance_id;
         std::memcpy(id_copy, instance.data(), instance.size());
         id_copy[instance.size()] = '\0';
+        char *names = reinterpret_cast<char *>(base + name_offset);
+        for (uint16_t field = 0; field < resolved[index]->schema_count;
+             ++field) {
+          const std::string_view field_id{resolved[index]->schema[field].id};
+          HS_CHECK(field_id.size() <= MAX_FIELD_ID,
+                   "chain compile: schema field id exceeds MAX_FIELD_ID");
+          char *slot = names + field * PER_PARAM_NAME_BYTES;
+          std::memcpy(slot, instance.data(), instance.size());
+          slot[instance.size()] = '.';
+          std::memcpy(slot + instance.size() + 1, field_id.data(),
+                      field_id.size());
+          slot[instance.size() + 1 + field_id.size()] = '\0';
+        }
         runtime.construct_params(base + param_offset);
         out->ops[index] = ChainOp{
             resolved[index],
@@ -392,6 +479,7 @@ private:
             static_cast<uint32_t>(param_offset),
             static_cast<uint32_t>(prepared_offset),
             static_cast<uint32_t>(state_offset),
+            static_cast<uint32_t>(name_offset),
         };
         out->count = index + 1;
       }

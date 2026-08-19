@@ -52,6 +52,12 @@
 #else
 #define HS_SHADER_WORKBENCH_EFFECT(X)
 #endif
+#if HS_ENABLE_CHAIN_INTERPRETER
+#include "effects/ShaderChain.h"
+#define HS_CHAIN_INTERPRETER_EFFECT(X) X(ShaderChain)
+#else
+#define HS_CHAIN_INTERPRETER_EFFECT(X)
+#endif
 #include "effects/Raymarch.h"
 #include "effects/RingShower.h"
 #include "effects/RingSpin.h"
@@ -107,6 +113,7 @@
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
   HS_SHADER_WORKBENCH_EFFECT(X)                                                \
+  HS_CHAIN_INTERPRETER_EFFECT(X)                                               \
   X(ShapeShifter)                                                              \
   X(SignalWeave)                                                               \
   X(SphericalHarmonics)                                                        \
@@ -116,8 +123,8 @@
   X(Voronoi)
 
 /**
- * @brief Phantasm playlist: HS_EFFECT_LIST minus Shader and the low-res-only
- *        effects Dynamo, MobiusRings, and Thrusters.
+ * @brief Phantasm playlist: HS_EFFECT_LIST minus Shader, ShaderChain, and the
+ *        low-res-only effects Dynamo, MobiusRings, and Thrusters.
  * @param X Function-like macro applied to each effect type name and its show
  *          duration in seconds.
  * @details Entry order is the device show order, chosen independently of
@@ -298,22 +305,27 @@ static_assert(hs_phantasm_effect_list_is_distinct(),
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
-static_assert(HS_PHANTASM_EFFECT_COUNT ==
-                  HS_EFFECT_COUNT - 3 - HS_ENABLE_SHADER_WORKBENCH,
+static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 3 -
+                                              HS_ENABLE_SHADER_WORKBENCH -
+                                              HS_ENABLE_CHAIN_INTERPRETER,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus Shader, Dynamo, MobiusRings and Thrusters)");
+              "(full roster minus Shader, ShaderChain, Dynamo, MobiusRings "
+              "and Thrusters)");
 static_assert((!HS_ENABLE_SHADER_WORKBENCH || hs_in_effect_list("Shader")) &&
+                  (!HS_ENABLE_CHAIN_INTERPRETER ||
+                   hs_in_effect_list("ShaderChain")) &&
                   hs_in_effect_list("Dynamo") &&
                   hs_in_effect_list("MobiusRings") &&
                   hs_in_effect_list("Thrusters"),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
 static_assert(!hs_in_phantasm_effect_list("Shader") &&
+                  !hs_in_phantasm_effect_list("ShaderChain") &&
                   !hs_in_phantasm_effect_list("Dynamo") &&
                   !hs_in_phantasm_effect_list("MobiusRings") &&
                   !hs_in_phantasm_effect_list("Thrusters"),
-              "HS_PHANTASM_EFFECT_LIST must exclude Shader, Dynamo, "
-              "MobiusRings and Thrusters");
+              "HS_PHANTASM_EFFECT_LIST must exclude Shader, ShaderChain, "
+              "Dynamo, MobiusRings and Thrusters");
 
 // HS_SHADER_PRODUCT_GROUP restates durations HS_PHANTASM_EFFECT_LIST owns, and
 // the airtime sum above reads only the restated copy. Pinning each entry to the

@@ -864,6 +864,44 @@ protected:
   }
 
   /**
+   * @brief Registers a uint8_t-backed enumerated param (GUI dropdown) and
+   *        flags it animation-driven.
+   * @param name The name to expose.
+   * @param ptr Pointer to the uint8_t variable holding the selected index.
+   * @param options GUI labels indexed by the target's value; must outlive the
+   *   effect.
+   * @param option_count Number of labels; the value range is
+   *   [0, option_count - 1].
+   * @details For enum-shaped storage that is not a C++ enum type — the chain
+   * interpreter's topology enum8s, whose option lists exist only as runtime
+   * table data. No export literals: preset export names no enum type.
+   */
+  HS_COLD_MEMBER void register_animated_enum8_param(const char *name,
+                                                    uint8_t *ptr,
+                                                    const char *const *options,
+                                                    int option_count) {
+    HS_CHECK(options != nullptr && option_count > 0,
+             "register_param: enum needs at least one option");
+    HS_CHECK(parameters.count < parameters.capacity(),
+             "register_param: exceeded ParamList capacity");
+    HS_CHECK(parameters.find(name) == nullptr,
+             "register_param: duplicate parameter name");
+    HS_CHECK(*ptr < option_count,
+             "register_param: default enum outside option range");
+    auto &def = parameters.data()[parameters.count++];
+    def = {};
+    def.name = name;
+    def.target = ptr;
+    def.min = 0.0f;
+    def.max = static_cast<float>(option_count - 1);
+    def.options = options;
+    def.option_count = option_count;
+    def.target_type = ParamDef::TargetType::INT_U8;
+    def.animated = true;
+    parameters.bump_schema_generation();
+  }
+
+  /**
    * @brief Registers a float param and flags it engine-written telemetry in one
    * call.
    */
