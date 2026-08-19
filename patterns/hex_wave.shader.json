@@ -190,8 +190,8 @@
         "storage": "binary32",
         "unit": "turn-per-frame",
         "domain": {
-          "minimum": -0.02,
-          "maximum": 0.02
+          "minimum": -2,
+          "maximum": 2
         },
         "interpolation": {
           "kind": "LINEAR"
@@ -602,6 +602,37 @@
           "hue-noise-scale": 1.47215629,
           "hue-noise-speed": 0.000138
         }
+      },
+      {
+        "preset_id": "hex-twin-wave-alt",
+        "display_name": "Hex Twin Wave Alt",
+        "values": {
+          "pattern-freq": 3.881,
+          "speed": 0.12859823,
+          "drift": 0.8,
+          "source-angle-speed": 0.027,
+          "pole-fade": 4.971,
+          "camera-wander": 0.0,
+          "inner-speed": 1,
+          "inner-rotation": 1,
+          "inner-cell-x": 1,
+          "inner-cell-y": 1,
+          "inner-offset-x": 0,
+          "inner-offset-y": 0,
+          "palette-chroma": 0.0,
+          "palette-mapping": "bell",
+          "mapping-frequency": 2,
+          "mapping-phase": -1,
+          "phase-oscillation-depth": 0,
+          "phase-oscillation-speed": 0,
+          "value-opacity-low": 1,
+          "value-opacity-high": 1,
+          "hue-shift-amount": 0.226,
+          "projection-spin-speed": 0,
+          "projection-wander": 1,
+          "hue-noise-scale": 1.4721563,
+          "hue-noise-speed": 0.000138
+        }
       }
     ],
     "edges": [],
@@ -614,10 +645,12 @@
     },
     "choreography": {
       "generated_order": [
-        "hex-twin-wave"
+        "hex-twin-wave",
+        "hex-twin-wave-alt"
       ],
       "dwell": {
-        "hex-twin-wave": 600
+        "hex-twin-wave": 600,
+        "hex-twin-wave-alt": 600
       }
     }
   },
