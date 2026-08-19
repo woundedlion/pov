@@ -29,9 +29,9 @@ public:
   using Params = AlienOceanParams;
   static constexpr std::string_view EFFECT_ID = "alien-ocean";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "c4bf76a6761bc91b256cf2f642cabfcf47e06a403bd8425528a36933c5254b8c";
+      "41b60073b4e0debfba48a8c1123f29be4b69c866175a73760219deef463c7d38";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "eba870f04e2eb23659601c4a5622459b9a5321fc72990ea2196254b3ff75fa38";
+      "bb79b346ffc5deb0cbb34479e72013f181b636f22f7dba3d989d7d327125961c";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"folded-grid"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

@@ -29,9 +29,9 @@ public:
   using Params = SignalWeaveParams;
   static constexpr std::string_view EFFECT_ID = "signal-weave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "c5f3f9d69a0aa51e742b6a9565889012844df7f403dfa19f2f7751bb011e78f6";
+      "fa056fcb8b99d60f933a2f844c64eff10583ae56174b86cddf7aecdb01041639";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "50c90e0f05da4386acbd43163c526e1d347d79878647d7412d24f628305ae8ee";
+      "f8904a8ff85c3ad0b371e6dcaeea35d234decf146e1d799a53e98a9a7e712cb7";
   static constexpr uint16_t INITIAL_PRESET_DWELL_FRAMES = 120;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
