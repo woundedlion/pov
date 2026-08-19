@@ -74,6 +74,14 @@
 #endif
 #endif
 
+#ifndef HS_ENABLE_CHAIN_INTERPRETER
+#if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_ORACLES
+#define HS_ENABLE_CHAIN_INTERPRETER 1
+#else
+#define HS_ENABLE_CHAIN_INTERPRETER 0
+#endif
+#endif
+
 #ifndef HS_ENABLE_STRUCTURAL_AUDITS
 #define HS_ENABLE_STRUCTURAL_AUDITS 0
 #endif
@@ -113,6 +121,12 @@
 #endif
 #if defined(ARDUINO) && HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND
 #error "HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND is simulator-only"
+#endif
+#if (HS_ENABLE_CHAIN_INTERPRETER != 0) && (HS_ENABLE_CHAIN_INTERPRETER != 1)
+#error "HS_ENABLE_CHAIN_INTERPRETER must be 0 or 1"
+#endif
+#if defined(ARDUINO) && HS_ENABLE_CHAIN_INTERPRETER
+#error "Chain interpreter is simulator-only"
 #endif
 #if (HS_ENABLE_STRUCTURAL_AUDITS != 0) && (HS_ENABLE_STRUCTURAL_AUDITS != 1)
 #error "HS_ENABLE_STRUCTURAL_AUDITS must be 0 or 1"

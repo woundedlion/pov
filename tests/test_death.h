@@ -3941,7 +3941,10 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
 #else
     {"face.h", 4},
 #endif
+    {"interpreter.h", 10},
     {"led.h", 3},
+    {"operator_model.h", 1},
+    {"operators.h", 1},
     {"pixel_feedback.h", 7},
     {"raster.h", 9},
     {"screen_trails.h", 2},
