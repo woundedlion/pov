@@ -28,10 +28,11 @@ public:
   using Params = HexWaveParams;
   static constexpr std::string_view EFFECT_ID = "hex-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "7c17e826920d96ebe397cd7939bbcc0a31bc431b6ff6545d99472a280ba5cbff";
+      "604eedda723bddcd92511125d00be0c8bee8b34aa59d89e0b1f88e125da82db4";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "8d76e45aa0e6a6c76644991541bf513c531ebf423112fb36cdc93fc22516df87";
-  static constexpr std::array<std::string_view, 1> PRESET_IDS{"hex-twin-wave"};
+      "461e9c413c1d92027cfac902e5d3431c900228640ffa473818962f8beb1fb255";
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{
+      "hex-twin-wave", "hex-twin-wave-alt"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
@@ -46,12 +47,26 @@ public:
     value.color.hue_noise_scale = 1.47215629f;
     value.color.hue_noise_speed = 0.000138f;
     value.color.palette_chroma = 1.0f;
+    value.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
     value.color.mapping_frequency = 1.341f;
     value.color.mapping_phase = -1.0f;
-    value.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
+    value.color.phase_oscillation_depth = 0.0f;
+    value.color.phase_oscillation_speed = 0.0f;
+    value.color.opacity_low = 1.0f;
+    value.color.opacity_high = 1.0f;
     return value;
   }
-  static constexpr Params preset_params(size_t) { return initial_params(); }
+  static constexpr Params preset_params(size_t index) {
+    Params value = initial_params();
+    if (index == 1) {
+      value.projection.camera_wander = 0.0f;
+      value.inner_warp = {1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f};
+      value.color.palette_chroma = 0.0f;
+      value.color.mapping_frequency = 2.0f;
+      value.color.mapping_phase = -1.0f;
+    }
+    return value;
+  }
 };
 
 #include "core/control/registry.h"
