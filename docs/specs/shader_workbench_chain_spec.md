@@ -1,12 +1,16 @@
 # Shader workbench chains: document schema v2 and the chain editor
 
-**Status: PROPOSED.** The tool half of
+**Status: §§1–4 LANDED 2026-08-19.** The tool half of
 [pullback_stage_families_spec.md](pullback_stage_families_spec.md): the
 document schema, migration, and editor for authoring the chains that spec
-defines. Lands after that spec's C++ cut-over; nothing here is
-implemented. The workbench code lives in the daydream repo
+defines. All four sections ship in the daydream repo
 ([shader/shader_workbench.mjs](https://github.com/woundedlion/daydream/blob/master/shader/shader_workbench.mjs),
-[tools/shader_documents.js](https://github.com/woundedlion/daydream/blob/master/tools/shader_documents.js)).
+[tools/chain_document_store.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_document_store.js),
+[tools/chain_strip.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_strip.js),
+[tools/chain_library.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_library.js),
+[tools/chain_dock.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_dock.js)).
+§4's pipeline-strip workbench is the editor's *surface*; every editing
+semantic in §3 carries forward beneath it.
 
 ## 1. Document schema v2
 
@@ -97,6 +101,12 @@ promoted before this spec, and shrinks as they are re-registered.
 
 ## 3. The chain editor
 
+**§4 supersedes this section's layout** (the vertical rail, the side
+catalog panel, the sidebar document controls). Everything else — the one
+edit rule, legality-before-gesture, atomic reconciliation, bypass, the
+engine boundary — is the semantic contract §4 builds on and does not
+restate.
+
 The thirteen fixed folder banks are replaced by direct manipulation of
 the chain: a vertical rail of stage cards grouped into four family bands
 with crossings drawn as band boundaries, the default scratch chain being
@@ -167,3 +177,190 @@ application safe. Presets and transitions are otherwise unchanged: the
 machinery is parameter-id-driven and survives — given the reconciliation
 rules above, which are what keep id-driven machinery coherent under id
 churn.
+
+## 4. The workbench surface: pipeline strip, live canvas, stage library
+
+**Status: LANDED 2026-08-19.** A view-layer replacement of §3's rail. The document
+store, the schema, digesting, migration, and the apply path are untouched;
+what changes is where the chain, the vocabulary, and the render live on
+the screen, and which gestures name the store's spans. §3's rail put the
+program in a sidebar and gave the render the leftover space — backwards
+for a tool whose entire feedback loop is *watching the render while
+changing the program*. The redesign inverts it.
+
+### 4.1 Layout
+
+Three stacked regions plus one dock, replacing the sidebar:
+
+- **Toolbar** (top edge, one slim row): document source picker, preset
+  picker, Open…/Save/Save As, the descriptor digest (abbreviated,
+  click-to-copy), and the document status output. The engine memory/
+  compute stats stay in this row.
+- **Pipeline strip** (below the toolbar): the loaded chain, left to
+  right in execution order, grouped into the four carrier domains.
+- **Canvas** (center): the real engine rendering the authored chain.
+  The largest region by construction — it owns all vertical space the
+  strip, library, and toolbar don't need. Perf/segment overlays keep
+  their corners.
+- **Stage library** (bottom): the whole operator catalog, grouped into
+  the same four domains in the same order, drag sources for the strip.
+- **Parameter dock** (right, collapsible): the selected stage instance's
+  sliders. Docked beside the canvas rather than over it, because tuning a
+  slider is exactly when the render must stay visible.
+
+Each carrier domain has a fixed hue used by both its strip band and its
+library group — the color is the visual statement of "stages from this
+group go up there". On narrow viewports the strip and library scroll
+horizontally and independently; the dock overlays the canvas's right edge;
+the library collapses to domain tabs showing one group at a time.
+
+### 4.2 The pipeline strip
+
+One band per carrier — Sphere, Plane, Field, Color — always all four
+rendered, left to right in catalog carrier order, so the strip reads as
+the pipeline even when a band is empty.
+
+- **Endomorphism stages** render as chips inside their carrier's band, in
+  chain order. A band holds any number of chips in sequence — the strip
+  is the chain, not a slot-per-domain form.
+- **Crossings** render as **socket chips** spanning the boundary between
+  their input and output bands, labeled with the carrier pair. The three
+  boundaries are always occupied in a valid document (a chain enters on
+  sphere and exits on color), which the strip makes structural: sockets
+  are the fixed joints of the pipeline, bands are the variable runs
+  between them.
+- **Chip anatomy**: operator display name, instance label ("Wave Shear ·
+  warp2"), and on the chip: a **✕ remove** icon and a **bypass** toggle
+  (endomorphisms only), a **swap** icon (crossings only). The selected
+  chip is outlined and carries `aria-current`; a bypassed chip renders
+  dimmed.
+- **Remove**: ✕ commits `replaceSpan(i, 1, [])` — legal by construction
+  for an endomorphism, which is why only endomorphisms carry it.
+  Crossings are removed by replacement (§3), so sockets carry swap
+  instead: the replacement palette for that span, same-pair operators
+  enabled, everything else present-but-disabled with the reason.
+- **Insertion**: gaps between chips are the store's chain indices. Each
+  band carries one persistent **+** affordance opening the insertion
+  palette for that band's context gap (after the band's selected chip,
+  else the band's last gap); during a drag, every legal gap materializes
+  as a highlighted target. Both routes go through `legalInsertions` —
+  the strip has no legality of its own.
+- **Reorder**: chips drag within their band (a crossing doesn't reorder,
+  as in §3's drag rule); Alt+Arrow is the keyboard equivalent. The move
+  commits as the label-preserving m-for-m span replacement, so parameter
+  values survive reorder.
+- The strip rebuilds whole after every committed edit with keyboard focus
+  restored to the edited chip — §3's render discipline, rotated.
+
+### 4.3 The stage library
+
+The catalog panel's discoverability requirement survives: the whole
+vocabulary stays visible, grouped by the carrier each operator consumes,
+with crossings showing their pair. What changes is the geometry and the
+drop model:
+
+- **Drag a library chip onto the strip to insert it.** On drag start the
+  strip highlights every gap the store accepts the operator at — carrier
+  legality *and* the exported budgets (arena bytes, op count, param
+  count), computed before the gesture, so there is no over-budget refusal
+  at drop.
+- **Bands are coarse drop targets.** Dropping on a highlighted gap
+  commits exactly there; dropping anywhere else on a band commits at the
+  band's nearest legal gap. A band with no legal gap for the dragged
+  operator shows a refusing state while hovered, with the reason in the
+  shared status region. Coarse drops are what make the strip feel like
+  "drag a stage onto a domain" instead of "hit a 6-pixel seam".
+- **Click** an enabled entry to insert without a drag, at the context
+  gap (after the selection, else the first legal gap) — §3's behavior.
+- Entries that currently fit nowhere render disabled with the computed
+  reason, never hidden. A text filter narrows all groups by name/id;
+  filtering never hides an entry's disabled state.
+
+### 4.4 Parameters
+
+Committing an insert **selects the new instance and opens the parameter
+dock on it** — adding a stage and immediately hearing its sliders is the
+core authoring loop. Selecting any chip retargets the dock.
+
+- Binary32 fields render as sliders with the catalog schema's min/max/
+  curve; topology enum8s render as dropdowns (live structural switches on
+  the chain path). Controls are labeled by instance.
+- The union-schema discipline (§3) applies: fields the current topology
+  values deactivate render dimmed, never dropped.
+- **A dock edit is a document edit**: it writes the active preset's value
+  for that `<label>.<field>` id, with the engine write as the side
+  effect (per-control coalesced for undo, in the same history as
+  structural edits). The document stays the single source of truth; Save
+  never has to "capture" state that only the engine knows.
+
+### 4.5 Use case: authoring a new effect
+
+The scratch document opens as the default chain (`Rotate → Project →
+Sample → Colorize`, §3) with one preset of catalog defaults — a valid,
+rendering document from the first frame. Authoring is then: drag stages
+in, tune the dock, iterate against the live render, name presets.
+
+**Export** is the workflow's terminal step and has one format: **Save
+produces the canonical v2 serialization** (`exportShaderDocumentJson`) —
+download or re-save to the opened file handle. The toolbar digest is the
+document's identity across the export boundary. Because the editor is
+valid-by-construction (§3), any exported document validates cleanly and
+sits within the engine's exported budgets; there is no "export failed"
+state. The exported document is also the promotion input: main spec §7
+consumes exactly this file to produce a compiled composed effect, and
+shipping it as a pattern is the ordinary registry install of the saved
+file. The workbench itself neither promotes nor installs — it guarantees
+the artifact both consumers trust.
+
+### 4.6 Use case: modifying an existing effect
+
+Loading must populate the configurator **exactly as if the effect had
+been authored from scratch in this session** — same strip, same dock,
+same edit affordances, no separate read-only mode:
+
+- The toolbar source picker lists the registry's chain documents; Open…
+  imports a file. A v1 document expands through the single expansion path
+  (§2) on import; import failures surface the full diagnostic list (§1).
+- Authoring always routes the preview through the interpreter
+  (`setShaderChain`) so the loaded chain is live-editable. When the
+  loaded descriptor digest matches a promoted fixed effect (via the
+  migration/registry table), the toolbar offers a **parity toggle** to
+  the compiled build for A/B verification; the first descriptor-changing
+  edit breaks the match and disables the toggle — bypass, being a
+  program-shape override that never touches the digest (§3), does not.
+- **Save As** writes a new `document_id` and leaves the loaded original
+  untouched; plain Save re-exports over the opened handle. Either way the
+  output is the same canonical serialization as §4.5 — modifying an
+  effect and creating one converge on the same export.
+
+### 4.7 Keyboard and AT
+
+Full parity with the pointer gestures, rotated to the horizontal:
+
+- The strip is a `listbox` with `aria-orientation="horizontal"`;
+  Left/Right roam chips (roving tabindex), Alt+Left/Right move the
+  focused endomorphism, Enter/Space selects, Delete removes an
+  endomorphism or opens a crossing's swap palette, Insert opens the
+  insertion palette at the following gap. Band `+` buttons and palettes
+  keep §3's listbox behavior; focus restores to the edited chip after
+  every rebuild.
+- Library entries are buttons; disabled entries carry `aria-disabled`
+  plus a described-by reason. Domain groups are labeled `group`s; the
+  filter is a labeled searchbox.
+- One shared live status region announces every refusal — strip, library,
+  and dock report through it.
+
+### 4.8 Module boundaries
+
+The rail view in `chain_editor.js` and `chain_catalog_panel.js` are
+replaced by a strip module and a library module implementing the same
+store-facing contract (the `ChainStore` surface, the drag controller
+owned by the strip, gap hit-testing generalized with band hit-testing for
+coarse drops). `deactivatedParamNames`, the document store, `chain_apply`,
+and the schema module are untouched. `shader.html` reflows to the §4.1
+regions; the workbench stylesheet is rewritten rather than adapted — the
+rail's vertical assumptions are load-bearing throughout it. The existing
+editor tests port to the strip contract; new coverage: coarse-drop
+snapping to the nearest legal gap, socket swap, ✕ legality (absent on
+crossings), dock edits writing the active preset and participating in
+undo, and the parity toggle disarming on the first descriptor edit.
