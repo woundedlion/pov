@@ -6,404 +6,461 @@
 
 #include "render/pullback/contract.h"
 #include "render/pullback/lens.h"
+#include "render/pullback/material.h"
 #include "render/pullback/surface.h"
 
 /**
  * @file stage.h
- * @brief Stage combinators binding policies into pipeline slots.
+ * @brief Shared carrier kernels and the family-typed stage combinators.
  */
 
 namespace Pullback {
 
+/**
+ * @brief Shared carrier kernels: the normative stage transformations as free
+ *        functions over the canonical carriers, called by the template
+ *        combinators and any erased adapter, so the semantics cannot fork
+ *        between execution paths.
+ */
+namespace Kernel {
+
+__attribute__((always_inline)) inline SphereSample
+rotate_dir(const SphereSample &input, const Quaternion &conjugate) {
+  return {rotate(input.dir, conjugate), input.path_length};
+}
+
+/** @brief Displacement adds to the path accumulator, never replaces it. */
+__attribute__((always_inline)) inline SphereSample
+displace(const SphereSample &input, const SurfaceResult &step) {
+  return {step.sphere, input.path_length + step.path_length};
+}
+
+__attribute__((always_inline)) inline SphereSample
+lens(const SphereSample &input, const Vector &lensed) {
+  return {lensed, input.path_length};
+}
+
+/** @brief The Project crossing assembles the plane carrier: the policy's
+    coords and provenance embed unchanged; `sphere` is combinator state
+    written from the pre-projection point. */
+__attribute__((always_inline)) inline PlaneSample
+project(const SphereSample &input, const Vector &local,
+        const ProjectionResult &result) {
+  return {result.coords, result.provenance, local, input.path_length};
+}
+
+/** @brief A warp advances coords and path only; provenance and sphere are
+    immutable through PLANE endomorphisms. */
+__attribute__((always_inline)) inline PlaneSample
+warp(const PlaneSample &input, const WarpStepResult &step) {
+  return {step.coords, input.provenance, input.sphere,
+          input.path_length + step.path_length};
+}
+
+/** @brief The Sample crossing ramps the weighted field and consumes the
+    provenance coverage into the field carrier. */
+__attribute__((always_inline)) inline FieldSample
+sample(const PlaneSample &input, float weighted, float coverage) {
+  return {Detail::clamp_unit((weighted + 1.0f) * 0.5f),
+          coverage * input.provenance.domain_coverage, input.sphere,
+          input.path_length};
+}
+
+__attribute__((always_inline)) inline FieldSample
+transfer(const FieldSample &input, float value) {
+  FieldSample output = input;
+  output.value = value;
+  return output;
+}
+
+__attribute__((always_inline)) inline FieldSample
+coverage(const FieldSample &input, float factor) {
+  FieldSample output = input;
+  output.coverage = input.coverage * factor;
+  return output;
+}
+
+} // namespace Kernel
+
+namespace Detail {
+
+template <typename Policy, typename FrameState>
+consteval bool surface_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(const Vector &input, const FrameState &frame,
+                    const typename Policy::Prepared &prepared) {
+      { Policy::apply(input, frame, prepared) } -> std::same_as<SurfaceResult>;
+    };
+  else
+    return requires(const Vector &input, const FrameState &frame) {
+      { Policy::apply(input, frame) } -> std::same_as<SurfaceResult>;
+    };
+}
+
+template <typename Policy, typename FrameState>
+consteval bool warp_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(
+        const Complex &input, const ProjectionProvenance &provenance,
+        const FrameState &frame, const typename Policy::Prepared &prepared) {
+      {
+        Policy::apply(input, provenance, frame, prepared)
+      } -> std::same_as<WarpStepResult>;
+    };
+  else
+    return requires(const Complex &input,
+                    const ProjectionProvenance &provenance,
+                    const FrameState &frame) {
+      {
+        Policy::apply(input, provenance, frame)
+      } -> std::same_as<WarpStepResult>;
+    };
+}
+
+template <typename Policy, typename FrameState>
+consteval bool source_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(const PlaneSample &input, const FrameState &frame,
+                    const typename Policy::Prepared &prepared) {
+      { Policy::sample(input, frame, prepared) } -> std::same_as<float>;
+    };
+  else
+    return requires(const PlaneSample &input, const FrameState &frame) {
+      { Policy::sample(input, frame) } -> std::same_as<float>;
+    };
+}
+
+} // namespace Detail
+
 namespace Stage {
 
-template <typename BindingT, typename OrientationState>
-struct OuterCamera : Detail::StageContract<BindingT, StageKind::OUTER_CAMERA,
-                                           Vector, Vector, false, ExactPolicy> {
-  using Base = Detail::StageContract<BindingT, StageKind::OUTER_CAMERA, Vector,
-                                     Vector, false, ExactPolicy>;
-  using typename Base::FrameState;
+/**
+ * @brief SPHERE endomorphism: rotates the view by the provider's conjugate.
+ * @tparam OrientationProvider Provider exposing `conjugate(frame)`.
+ */
+template <typename OrientationProvider>
+struct Rotate
+    : Contract<Rotate<OrientationProvider>, SphereSample, SphereSample> {
+  using Policies = std::tuple<>;
+  using Provider = OrientationProvider;
 
+  template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      Detail::ProviderFor<OrientationState, BindingT> &&
-      requires(const FrameState &frame) {
+      Detail::ProviderFor<OrientationProvider, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
         {
-          OrientationState::conjugate(frame)
+          OrientationProvider::conjugate(frame)
         } -> std::same_as<const Quaternion &>;
       };
-  static_assert(PROVIDER_VALID,
-                "pullback outer camera: malformed orientation provider");
 
-  __attribute__((always_inline)) static Vector
-  run(const Vector &input, const FrameState &frame, const NoPrepared &) {
-    return rotate(input, OrientationState::conjugate(frame));
+  template <typename Binding>
+  __attribute__((always_inline)) static SphereSample
+  run(const SphereSample &input, const typename Binding::FrameState &frame,
+      const NoPrepared &) {
+    return Kernel::rotate_dir(input, OrientationProvider::conjugate(frame));
   }
 };
 
-template <typename BindingT, typename PreLensSurfaceT, typename LensPolicyT,
-          typename PostLensSurfaceT, typename ProjectionPolicyT>
-struct SurfaceProject
-    : Detail::StageContract<BindingT, StageKind::SURFACE_PROJECT, Vector,
-                            ProjectionSample, false, PreLensSurfaceT,
-                            LensPolicyT, PostLensSurfaceT, ProjectionPolicyT> {
-  using Base =
-      Detail::StageContract<BindingT, StageKind::SURFACE_PROJECT, Vector,
-                            ProjectionSample, false, PreLensSurfaceT,
-                            LensPolicyT, PostLensSurfaceT, ProjectionPolicyT>;
-  using typename Base::FrameState;
-  using PreLensSurface = PreLensSurfaceT;
+/**
+ * @brief SPHERE endomorphism: displaces the view point on the sphere.
+ * @tparam SurfacePolicyT Surface policy returning a SurfaceResult step.
+ */
+template <typename SurfacePolicyT>
+struct Displace
+    : Contract<Displace<SurfacePolicyT>, SphereSample, SphereSample> {
+  using Policies = std::tuple<SurfacePolicyT>;
+  using SurfacePolicy = SurfacePolicyT;
+
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::surface_policy_callable<SurfacePolicyT,
+                                      typename Binding::FrameState>();
+
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<SurfacePolicyT>(frame);
+  }
+
+  template <typename Binding>
+  __attribute__((always_inline)) static SphereSample
+  run(const SphereSample &input, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<SurfacePolicyT, typename Binding::FrameState>
+          &prepared) {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto start = Instrumentation::mark();
+    SurfaceResult step;
+    if constexpr (Detail::PolicyPrepares<SurfacePolicyT,
+                                         typename Binding::FrameState>)
+      step = SurfacePolicyT::apply(input.dir, frame, prepared);
+    else
+      step = SurfacePolicyT::apply(input.dir, frame);
+    Instrumentation::template span<ProfileEvent::SURFACE_NOISE>(start);
+    return Kernel::displace(input, step);
+  }
+};
+
+/**
+ * @brief SPHERE endomorphism: applies a sphere-to-sphere lens.
+ * @tparam LensPolicyT Lens policy mapping a direction to a direction.
+ */
+template <typename LensPolicyT>
+struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
+  using Policies = std::tuple<LensPolicyT>;
   using LensPolicy = LensPolicyT;
-  using PostLensSurface = PostLensSurfaceT;
+
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      requires(const Vector &input, const typename Binding::FrameState &frame) {
+        { LensPolicyT::apply(input, frame) } -> std::same_as<Vector>;
+      };
+
+  template <typename Binding>
+  __attribute__((always_inline)) static SphereSample
+  run(const SphereSample &input, const typename Binding::FrameState &frame,
+      const NoPrepared &) {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto start = Instrumentation::mark();
+    const Vector lensed = LensPolicyT::apply(input.dir, frame);
+    Instrumentation::template span<ProfileEvent::LENS>(start);
+    return Kernel::lens(input, lensed);
+  }
+};
+
+/**
+ * @brief SPHERE→PLANE crossing: rotates into the projection frame, projects,
+ *        and assembles the plane carrier.
+ * @details The projection protocol has no sphere field: the sample point is
+ * combinator state, written from the pre-projection point — a policy cannot
+ * even accidentally control it.
+ * @tparam ProjectionPolicyT Projection policy returning a ProjectionResult.
+ */
+template <typename ProjectionPolicyT>
+struct Project
+    : Contract<Project<ProjectionPolicyT>, SphereSample, PlaneSample> {
+  using Policies = std::tuple<ProjectionPolicyT>;
   using ProjectionPolicy = ProjectionPolicyT;
-  using Instrumentation = typename BindingT::Instrumentation;
 
   static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = [] {
-    if constexpr (requires { ProjectionPolicy::EDGE_DISTANCE_UNCONDITIONAL; })
-      return ProjectionPolicy::EDGE_DISTANCE_UNCONDITIONAL;
+    if constexpr (requires { ProjectionPolicyT::EDGE_DISTANCE_UNCONDITIONAL; })
+      return ProjectionPolicyT::EDGE_DISTANCE_UNCONDITIONAL;
     else
       return false;
   }();
 
-  template <typename SurfacePolicy>
-  static constexpr bool surface_policy_valid() {
-    if constexpr (Detail::PolicyPrepares<SurfacePolicy, FrameState>)
-      return requires(const Vector &input, const FrameState &frame,
-                      const typename SurfacePolicy::Prepared &prepared) {
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      requires(const Vector &input, const typename Binding::FrameState &frame) {
         {
-          SurfacePolicy::apply(input, frame, prepared)
-        } -> std::same_as<SurfaceResult>;
-      };
-    else
-      return requires(const Vector &input, const FrameState &frame) {
-        { SurfacePolicy::apply(input, frame) } -> std::same_as<SurfaceResult>;
-      };
-  }
-
-  static constexpr bool POLICIES_VALID =
-      surface_policy_valid<PreLensSurface>() &&
-      surface_policy_valid<PostLensSurface>() &&
-      requires(const Vector &input, const FrameState &frame) {
-        { LensPolicy::apply(input, frame) } -> std::same_as<Vector>;
-        {
-          ProjectionPolicy::frame_conjugate(frame)
+          ProjectionPolicyT::frame_conjugate(frame)
         } -> std::same_as<const Quaternion &>;
         {
-          ProjectionPolicy::project(input, frame)
-        } -> std::same_as<ProjectionSample>;
+          ProjectionPolicyT::project(input, frame)
+        } -> std::same_as<ProjectionResult>;
       };
-  static_assert(POLICIES_VALID,
-                "pullback surface/project: malformed policy callable");
 
-  struct Prepared {
-    Detail::PolicyPrepared<PreLensSurface, FrameState> pre;
-    Detail::PolicyPrepared<PostLensSurface, FrameState> post;
-  };
-
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return {Detail::prepare_policy<PreLensSurface>(frame),
-            Detail::prepare_policy<PostLensSurface>(frame)};
-  }
-
-  __attribute__((always_inline)) static ProjectionSample
-  run(const Vector &input, const FrameState &frame, const Prepared &prepared) {
-    const SurfaceResult pre =
-        apply_surface<PreLensSurface>(input, frame, prepared.pre);
-    // Emscripten-only: identity lens plus identity post-lens surface take a
-    // flattened path that yields the same sample as the generic path below.
-#if defined(__EMSCRIPTEN__)
-    if constexpr (std::is_same_v<LensPolicy, Lens::Identity> &&
-                  std::is_same_v<PostLensSurface, Surface::Identity>) {
-      const auto projection_start = Instrumentation::mark();
-      const Vector local =
-          rotate(pre.sphere, ProjectionPolicy::frame_conjugate(frame));
-      ProjectionSample output = ProjectionPolicy::project(local, frame);
-      output.sphere = local;
-      output.surface_path_length = pre.path_length;
-      Instrumentation::template span<ProfileEvent::PROJECTION>(
-          projection_start);
-      return output;
-    }
-#endif
-
-    const Vector lensed = apply_lens(pre.sphere, frame);
-    const SurfaceResult post =
-        apply_surface<PostLensSurface>(lensed, frame, prepared.post);
-    const auto projection_start = Instrumentation::mark();
+  template <typename Binding>
+  __attribute__((always_inline)) static PlaneSample
+  run(const SphereSample &input, const typename Binding::FrameState &frame,
+      const NoPrepared &) {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto start = Instrumentation::mark();
     const Vector local =
-        rotate(post.sphere, ProjectionPolicy::frame_conjugate(frame));
-    ProjectionSample output = ProjectionPolicy::project(local, frame);
-    output.sphere = local;
-    output.surface_path_length = pre.path_length + post.path_length;
-    Instrumentation::template span<ProfileEvent::PROJECTION>(projection_start);
+        rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
+    const ProjectionResult result = ProjectionPolicyT::project(local, frame);
+    const PlaneSample output = Kernel::project(input, local, result);
+    Instrumentation::template span<ProfileEvent::PROJECTION>(start);
     return output;
   }
-
-private:
-  __attribute__((always_inline)) static Vector
-  apply_lens(const Vector &input, const FrameState &frame) {
-    if constexpr (std::is_same_v<LensPolicy, Lens::Identity>) {
-      return LensPolicy::apply(input, frame);
-    } else {
-      const auto start = Instrumentation::mark();
-      const Vector result = LensPolicy::apply(input, frame);
-      Instrumentation::template span<ProfileEvent::LENS>(start);
-      return result;
-    }
-  }
-
-  template <typename SurfacePolicy, typename PreparedT>
-  __attribute__((always_inline)) static SurfaceResult
-  apply_surface(const Vector &input, const FrameState &frame,
-                const PreparedT &prepared) {
-    if constexpr (std::is_same_v<SurfacePolicy, Surface::Identity>) {
-      return SurfacePolicy::apply(input, frame);
-    } else if constexpr (Detail::PolicyPrepares<SurfacePolicy, FrameState>) {
-      const auto start = Instrumentation::mark();
-      const SurfaceResult result = SurfacePolicy::apply(input, frame, prepared);
-      Instrumentation::template span<ProfileEvent::SURFACE_NOISE>(start);
-      return result;
-    } else {
-      const auto start = Instrumentation::mark();
-      const SurfaceResult result = SurfacePolicy::apply(input, frame);
-      Instrumentation::template span<ProfileEvent::SURFACE_NOISE>(start);
-      return result;
-    }
-  }
 };
 
-template <typename BindingT, typename... WarpPolicies>
-struct PlanarWarp
-    : Detail::StageContract<BindingT, StageKind::PLANAR_WARP, ProjectionSample,
-                            SourceInput, false, WarpPolicies...> {
-  using Base =
-      Detail::StageContract<BindingT, StageKind::PLANAR_WARP, ProjectionSample,
-                            SourceInput, false, WarpPolicies...>;
-  using typename Base::FrameState;
-  using Policies = std::tuple<WarpPolicies...>;
-  using Instrumentation = typename BindingT::Instrumentation;
-  template <size_t Index>
-  using policy_at = std::tuple_element_t<Index, Policies>;
+/**
+ * @brief PLANE endomorphism: one planar warp step.
+ * @tparam WarpPolicyT Warp policy advancing the working coordinate.
+ */
+template <typename WarpPolicyT>
+struct Warp : Contract<Warp<WarpPolicyT>, PlaneSample, PlaneSample> {
+  using Policies = std::tuple<WarpPolicyT>;
+  using WarpPolicy = WarpPolicyT;
 
-  template <typename Policy> static constexpr bool warp_policy_valid() {
-    if constexpr (Detail::PolicyPrepares<Policy, FrameState>)
-      return requires(const Complex &input, const ProjectionSample &projected,
-                      const FrameState &frame,
-                      const typename Policy::Prepared &prepared) {
-        {
-          Policy::apply(input, projected, frame, prepared)
-        } -> std::same_as<WarpStepResult>;
-      };
-    else
-      return requires(const Complex &input, const ProjectionSample &projected,
-                      const FrameState &frame) {
-        {
-          Policy::apply(input, projected, frame)
-        } -> std::same_as<WarpStepResult>;
-      };
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::warp_policy_callable<WarpPolicyT, typename Binding::FrameState>();
+
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<WarpPolicyT>(frame);
   }
 
-  static constexpr bool POLICIES_VALID =
-      (warp_policy_valid<WarpPolicies>() && ...);
-  static_assert(POLICIES_VALID,
-                "pullback planar warp: malformed policy callable");
-
-  using Prepared =
-      std::tuple<Detail::PolicyPrepared<WarpPolicies, FrameState>...>;
-
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return {Detail::prepare_policy<WarpPolicies>(frame)...};
-  }
-
-  __attribute__((always_inline)) static SourceInput
-  run(const ProjectionSample &projected, const FrameState &frame,
-      const Prepared &prepared) {
+  template <typename Binding>
+  __attribute__((always_inline)) static PlaneSample
+  run(const PlaneSample &input, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<WarpPolicyT, typename Binding::FrameState>
+          &prepared) {
+    using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    WarpResult warped{projected.coords, 0.0f};
-    apply_all(projected, frame, prepared, warped,
-              std::index_sequence_for<WarpPolicies...>{});
-    Instrumentation::template span<ProfileEvent::PLANAR_WARP>(start);
-    return {projected, warped};
-  }
-
-private:
-  template <size_t... Indices>
-  __attribute__((always_inline)) static void
-  apply_all(const ProjectionSample &projected, const FrameState &frame,
-            const Prepared &prepared, WarpResult &warped,
-            std::index_sequence<Indices...>) {
-    (apply_one<policy_at<Indices>>(projected, frame,
-                                   std::get<Indices>(prepared), warped),
-     ...);
-  }
-
-  template <typename Policy, typename PreparedT>
-  __attribute__((always_inline)) static void
-  apply_one(const ProjectionSample &projected, const FrameState &frame,
-            const PreparedT &prepared, WarpResult &warped) {
     WarpStepResult step;
-    if constexpr (Detail::PolicyPrepares<Policy, FrameState>)
-      step = Policy::apply(warped.coords, projected, frame, prepared);
+    if constexpr (Detail::PolicyPrepares<WarpPolicyT,
+                                         typename Binding::FrameState>)
+      step =
+          WarpPolicyT::apply(input.coords, input.provenance, frame, prepared);
     else
-      step = Policy::apply(warped.coords, projected, frame);
-    warped.coords = step.coords;
-    warped.path_length += step.path_length;
+      step = WarpPolicyT::apply(input.coords, input.provenance, frame);
+    const PlaneSample output = Kernel::warp(input, step);
+    Instrumentation::template span<ProfileEvent::PLANAR_WARP>(start);
+    return output;
   }
 };
 
-template <typename BindingT, typename SourcePolicyT>
-struct Source : Detail::StageContract<BindingT, StageKind::SOURCE, SourceInput,
-                                      MaterialInput, false, SourcePolicyT> {
-  using Base = Detail::StageContract<BindingT, StageKind::SOURCE, SourceInput,
-                                     MaterialInput, false, SourcePolicyT>;
-  using typename Base::FrameState;
+/**
+ * @brief PLANE→FIELD crossing: samples the source, weights the raw signed
+ *        field, ramps, and seeds the field carrier — establishing the
+ *        FieldSample invariant.
+ * @details Coverage modes never stack: the crossing's coverage policy is one
+ * slot from the ProjectedCoverage vocabulary. The raw signed field exists
+ * only inside the crossing, which is why weighting is a crossing policy
+ * rather than a stage.
+ * @tparam SourcePolicyT Scalar source policy.
+ * @tparam WeightPolicyT Signal-weight policy over the raw signed field.
+ * @tparam CoveragePolicyT Projected-coverage policy over the provenance.
+ */
+template <typename SourcePolicyT, typename WeightPolicyT = Weight::Projection,
+          typename CoveragePolicyT = ProjectedCoverage::Weight>
+struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
+                         PlaneSample, FieldSample> {
+  using Policies = std::tuple<SourcePolicyT, WeightPolicyT, CoveragePolicyT>;
   using SourcePolicy = SourcePolicyT;
-  using Instrumentation = typename BindingT::Instrumentation;
-
-  static constexpr bool POLICY_VALID = [] {
-    if constexpr (Detail::PolicyPrepares<SourcePolicy, FrameState>)
-      return requires(const SourceInput &input, const FrameState &frame,
-                      const typename SourcePolicy::Prepared &prepared) {
-        { SourcePolicy::sample(input, frame, prepared) } -> std::same_as<float>;
-      };
-    else
-      return requires(const SourceInput &input, const FrameState &frame) {
-        { SourcePolicy::sample(input, frame) } -> std::same_as<float>;
-      };
-  }();
-  static_assert(POLICY_VALID, "pullback source: malformed policy callable");
-
-  using Prepared = Detail::PolicyPrepared<SourcePolicy, FrameState>;
-
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return Detail::prepare_policy<SourcePolicy>(frame);
-  }
-
-  __attribute__((always_inline)) static MaterialInput
-  run(const SourceInput &input, const FrameState &frame,
-      const Prepared &prepared) {
-    const auto start = Instrumentation::mark();
-    float sampled;
-    if constexpr (Detail::PolicyPrepares<SourcePolicy, FrameState>)
-      sampled = SourcePolicy::sample(input, frame, prepared);
-    else
-      sampled = SourcePolicy::sample(input, frame);
-    const MaterialInput result{input.projected, input.warped, sampled};
-    Instrumentation::template span<ProfileEvent::SOURCE>(start);
-    return result;
-  }
-};
-
-template <typename BindingT, typename WeightPolicyT, typename TransferPolicyT,
-          typename CoveragePolicyT>
-struct Material
-    : Detail::StageContract<BindingT, StageKind::MATERIAL, MaterialInput,
-                            MaterialSample, false, WeightPolicyT,
-                            TransferPolicyT, CoveragePolicyT> {
-  using Base =
-      Detail::StageContract<BindingT, StageKind::MATERIAL, MaterialInput,
-                            MaterialSample, false, WeightPolicyT,
-                            TransferPolicyT, CoveragePolicyT>;
-  using typename Base::FrameState;
   using WeightPolicy = WeightPolicyT;
-  using TransferPolicy = TransferPolicyT;
   using CoveragePolicy = CoveragePolicyT;
-  using Instrumentation = typename BindingT::Instrumentation;
 
-  static constexpr bool POLICIES_VALID = requires(
-      float value, const ProjectionSample &projected, const FrameState &frame) {
-    { WeightPolicy::apply(value, projected, frame) } -> std::same_as<float>;
-    { TransferPolicy::apply(value, frame) } -> std::same_as<float>;
-    { CoveragePolicy::apply(value, projected, frame) } -> std::same_as<float>;
-  };
-  static_assert(POLICIES_VALID, "pullback material: malformed policy callable");
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::source_policy_callable<SourcePolicyT,
+                                     typename Binding::FrameState>() &&
+      requires(float field, const ProjectionProvenance &provenance,
+               const typename Binding::FrameState &frame) {
+        {
+          WeightPolicyT::apply(field, provenance, frame)
+        } -> std::same_as<float>;
+        { CoveragePolicyT::apply(provenance, frame) } -> std::same_as<float>;
+      };
 
-  __attribute__((always_inline)) static MaterialSample
-  run(const MaterialInput &input, const FrameState &frame, const NoPrepared &) {
-    const auto start = Instrumentation::mark();
-    const float weighted =
-        WeightPolicy::apply(input.field, input.projected, frame);
-    const float unit = Detail::clamp_unit((weighted + 1.0f) * 0.5f);
-    const float value = TransferPolicy::apply(unit, frame);
-    const float coverage =
-        CoveragePolicy::apply(value, input.projected, frame) *
-        input.projected.domain_coverage;
-    const MaterialSample result{value, coverage, input.projected.sphere,
-                                input.projected.surface_path_length +
-                                    input.warped.path_length};
-    Instrumentation::template span<ProfileEvent::MATERIAL>(start);
-    return result;
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<SourcePolicyT>(frame);
+  }
+
+  template <typename Binding>
+  __attribute__((always_inline)) static FieldSample
+  run(const PlaneSample &input, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<SourcePolicyT, typename Binding::FrameState>
+          &prepared) {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto source_span = Instrumentation::mark();
+    float raw;
+    if constexpr (Detail::PolicyPrepares<SourcePolicyT,
+                                         typename Binding::FrameState>)
+      raw = SourcePolicyT::sample(input, frame, prepared);
+    else
+      raw = SourcePolicyT::sample(input, frame);
+    Instrumentation::template span<ProfileEvent::SOURCE>(source_span);
+    const auto material_span = Instrumentation::mark();
+    const float weighted = WeightPolicyT::apply(raw, input.provenance, frame);
+    const FieldSample output = Kernel::sample(
+        input, weighted, CoveragePolicyT::apply(input.provenance, frame));
+    Instrumentation::template span<ProfileEvent::MATERIAL>(material_span);
+    return output;
   }
 };
 
-template <typename BindingT, typename ColorPolicyT>
-struct Color : Detail::StageContract<BindingT, StageKind::COLOR, MaterialSample,
-                                     Color4, true, ColorPolicyT> {
-  using Base = Detail::StageContract<BindingT, StageKind::COLOR, MaterialSample,
-                                     Color4, true, ColorPolicyT>;
-  using typename Base::FrameState;
-  using ColorPolicy = ColorPolicyT;
-  using Instrumentation = typename BindingT::Instrumentation;
+/**
+ * @brief FIELD endomorphism: reshapes the field value.
+ * @tparam TransferPolicyT Transfer policy over the unit value.
+ */
+template <typename TransferPolicyT>
+struct Transfer
+    : Contract<Transfer<TransferPolicyT>, FieldSample, FieldSample> {
+  using Policies = std::tuple<TransferPolicyT>;
+  using TransferPolicy = TransferPolicyT;
 
-  static constexpr bool POLICY_VALID =
-      requires(const MaterialSample &input, const FrameState &frame) {
-        { ColorPolicy::apply(input, frame) } -> std::same_as<Color4>;
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      requires(float value, const typename Binding::FrameState &frame) {
+        { TransferPolicyT::apply(value, frame) } -> std::same_as<float>;
       };
-  static_assert(POLICY_VALID, "pullback color: malformed policy callable");
 
-  __attribute__((always_inline)) static Color4 run(const MaterialSample &input,
-                                                   const FrameState &frame,
-                                                   const NoPrepared &) {
+  template <typename Binding>
+  __attribute__((always_inline)) static FieldSample
+  run(const FieldSample &input, const typename Binding::FrameState &frame,
+      const NoPrepared &) {
+    using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    const Color4 result = ColorPolicy::apply(input, frame);
+    const FieldSample output =
+        Kernel::transfer(input, TransferPolicyT::apply(input.value, frame));
+    Instrumentation::template span<ProfileEvent::MATERIAL>(start);
+    return output;
+  }
+};
+
+/**
+ * @brief FIELD endomorphism: multiplies a value-dependent factor into the
+ *        accumulated coverage.
+ * @details Value-dependent only — provenance-driven coverage is consumed at
+ * the Sample crossing. A chain may place this before, between, or after
+ * transfers; each placement reads a different value.
+ * @tparam CoveragePolicyT Value-coverage policy, e.g. Coverage::ValueCutout.
+ */
+template <typename CoveragePolicyT>
+struct Coverage
+    : Contract<Coverage<CoveragePolicyT>, FieldSample, FieldSample> {
+  using Policies = std::tuple<CoveragePolicyT>;
+  using CoveragePolicy = CoveragePolicyT;
+
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      requires(float value, const typename Binding::FrameState &frame) {
+        { CoveragePolicyT::apply(value, frame) } -> std::same_as<float>;
+      };
+
+  template <typename Binding>
+  __attribute__((always_inline)) static FieldSample
+  run(const FieldSample &input, const typename Binding::FrameState &frame,
+      const NoPrepared &) {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto start = Instrumentation::mark();
+    const FieldSample output =
+        Kernel::coverage(input, CoveragePolicyT::apply(input.value, frame));
+    Instrumentation::template span<ProfileEvent::MATERIAL>(start);
+    return output;
+  }
+};
+
+/**
+ * @brief FIELD→COLOR crossing: colorizes the field carrier.
+ * @tparam ColorPolicyT Color policy producing straight-alpha Color4.
+ */
+template <typename ColorPolicyT>
+struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, Color4> {
+  using Policies = std::tuple<ColorPolicyT>;
+  using ColorPolicy = ColorPolicyT;
+
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID = requires(
+      const FieldSample &input, const typename Binding::FrameState &frame) {
+    { ColorPolicyT::apply(input, frame) } -> std::same_as<Color4>;
+  };
+
+  template <typename Binding>
+  __attribute__((always_inline)) static Color4
+  run(const FieldSample &input, const typename Binding::FrameState &frame,
+      const NoPrepared &) {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto start = Instrumentation::mark();
+    const Color4 result = ColorPolicyT::apply(input, frame);
     Instrumentation::template span<ProfileEvent::COLOR>(start);
     return result;
-  }
-};
-
-template <CodeEmission EmissionV, typename StageImplementationT> struct Placed;
-
-template <typename StageImplementationT>
-struct Placed<CodeEmission::INLINE_ONLY, StageImplementationT>
-    : StageImplementationT {
-  using Input = typename StageImplementationT::Input;
-  using Output = typename StageImplementationT::Output;
-  using FrameState = typename StageImplementationT::FrameState;
-  using Prepared = typename StageImplementationT::Prepared;
-  static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
-
-  __attribute__((always_inline)) static Output
-  run(const Input &input, const FrameState &frame, const Prepared &prepared) {
-    return StageImplementationT::run(input, frame, prepared);
-  }
-};
-
-template <typename StageImplementationT>
-struct Placed<CodeEmission::OUT_OF_LINE_FLASH, StageImplementationT>
-    : StageImplementationT {
-  using Input = typename StageImplementationT::Input;
-  using Output = typename StageImplementationT::Output;
-  using FrameState = typename StageImplementationT::FrameState;
-  using Prepared = typename StageImplementationT::Prepared;
-  static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
-
-  __attribute__((noinline)) HS_FLASH_MEMBER static Output
-  run(const Input &input, const FrameState &frame, const Prepared &prepared) {
-    return StageImplementationT::run(input, frame, prepared);
-  }
-};
-
-template <typename StageImplementationT>
-struct Placed<CodeEmission::OUT_OF_LINE_ITCM, StageImplementationT>
-    : StageImplementationT {
-  using Input = typename StageImplementationT::Input;
-  using Output = typename StageImplementationT::Output;
-  using FrameState = typename StageImplementationT::FrameState;
-  using Prepared = typename StageImplementationT::Prepared;
-  static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_ITCM;
-
-  FASTRUN HS_NOINLINE_NOCLONE static Output
-  run(const Input &input, const FrameState &frame, const Prepared &prepared) {
-    return StageImplementationT::run(input, frame, prepared);
   }
 };
 

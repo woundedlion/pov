@@ -108,8 +108,8 @@ struct ShaderBallWhiteBox {
       return SB::find_inverse_program(selected);
   }
 
-  template <typename MaterialSample>
-  static float sample_path_length(const MaterialSample &sample) {
+  template <typename FieldSample>
+  static float sample_path_length(const FieldSample &sample) {
     if constexpr (requires { sample.path_length; })
       return sample.path_length;
     else
@@ -208,10 +208,11 @@ private:
     const Vector outer_local = SB::outer_camera_lookup(view, frame);
     const Vector lensed = lenses::dodecahedral_kaleidoscope_lens(outer_local);
     const Vector local = rotate(lensed, frame.transforms.projection_conj);
-    auto projected = SB::scaled_kernel_lookup(
+    const Pullback::ProjectionResult result = SB::scaled_kernel_lookup(
         projections::peirce_projection(local, 0.0f, 1, 0.0f, true),
         frame.params.projection.coordinate_scale);
-    projected.sphere = local;
+    const typename SB::ProjectedLookup projected{
+        result.coords, result.provenance, local, 0.0f};
     return SB::shade_projected(projected, frame);
   }
 
@@ -229,7 +230,7 @@ private:
   }
 
   template <typename SB>
-  static Color4 exact_colorize(const typename SB::MaterialSample &sample,
+  static Color4 exact_colorize(const typename SB::FieldSample &sample,
                                const typename SB::FrameState &frame) {
     const float oscillation =
         frame.params.color.phase_oscillation_depth *

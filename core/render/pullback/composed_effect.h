@@ -134,7 +134,7 @@ template <typename FrameT> struct Binding {
   using Instrumentation = Pullback::NoInstrumentation;
 };
 
-/** @brief Supplies the camera orientation to Pullback::Stage::OuterCamera. */
+/** @brief Supplies the camera orientation to Pullback::Stage::Rotate. */
 template <typename BindingT> struct OuterCameraProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
@@ -491,13 +491,13 @@ enum class CoverageKind : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
 
 /**
  * @brief The pipeline choices an effect states beyond its parameter families.
- * @details Everything else about the six stages is derived: the source and
+ * @details Everything else about the chain is derived: the source and
  * warp policies follow the parameter families, a Mobius lens family selects
  * the Mobius lens, a surface-noise family selects the curl displacement, and
  * path tracking follows HueMode::PATH_LENGTH.
  * @tparam ProjectionV Sphere-to-plane projection.
- * @tparam LensPolicyT Parameterless lens policy; ignored when the lens family
- *         carries Mobius coefficients.
+ * @tparam LensPolicyT Parameterless lens policy, or void for no lens stage;
+ *         ignored when the lens family carries Mobius coefficients.
  * @tparam TransferV Material transfer curve.
  * @tparam CoverageV Material coverage policy.
  */
@@ -528,7 +528,7 @@ template <typename Family, typename Binding, bool Outer, bool TrackPath>
 struct WarpPolicyFor;
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<NoWarpParams, B, O, T> {
-  using Type = Pullback::Warp::Identity;
+  using Type = void;
 };
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<MirrorParams, B, O, T> {
@@ -593,14 +593,14 @@ template <typename B> struct TransferPolicyFor<TransferKind::ISO_CONTOUR, B> {
 
 template <CoverageKind CoverageV, typename Binding> struct CoveragePolicyFor;
 template <typename B> struct CoveragePolicyFor<CoverageKind::PROJECTION, B> {
-  using Type = Pullback::Coverage::Projection;
+  using Type = Pullback::ProjectedCoverage::Weight;
 };
 template <typename B>
 struct CoveragePolicyFor<CoverageKind::PROJECTION_SQUARED, B> {
-  using Type = Pullback::Coverage::ProjectionSquared;
+  using Type = Pullback::ProjectedCoverage::WeightSquared;
 };
 template <typename B> struct CoveragePolicyFor<CoverageKind::EDGE_FADE, B> {
-  using Type = Pullback::Coverage::EdgeFade<ValueProvider<B>>;
+  using Type = Pullback::ProjectedCoverage::EdgeFade<ValueProvider<B>>;
 };
 
 /**
@@ -654,54 +654,64 @@ private:
   static constexpr bool TRACK_PATH = HueV == HueMode::PATH_LENGTH;
   static constexpr bool DIRECT_SURFACE =
       std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
-  using SurfacePolicy =
-      std::conditional_t<HAS_SURFACE_NOISE && !DIRECT_SURFACE,
-                         Pullback::Surface::CurlNoise<
-                             SurfaceProvider<Binding, TRACK_PATH>,
-                             NoiseBasis::SIMPLEX, Pullback::Surface::Euler>,
-                         Pullback::Surface::Identity>;
-  using PostLensSurfacePolicy = std::conditional_t<
-      DIRECT_SURFACE,
+  using CurlDisplacePolicy =
+      Pullback::Surface::CurlNoise<SurfaceProvider<Binding, TRACK_PATH>,
+                                   NoiseBasis::SIMPLEX,
+                                   Pullback::Surface::Euler>;
+  using DirectDisplacePolicy =
       Pullback::Surface::DirectNoise<SurfaceProvider<Binding, TRACK_PATH>,
-                                     NoiseBasis::SIMPLEX>,
-      Pullback::Surface::Identity>;
-  using SurfaceImplementation = Pullback::Stage::SurfaceProject<
-      Binding, SurfacePolicy,
+                                     NoiseBasis::SIMPLEX>;
+  using PreDisplaceStage =
+      std::conditional_t<HAS_SURFACE_NOISE && !DIRECT_SURFACE,
+                         Pullback::Stage::Displace<CurlDisplacePolicy>, void>;
+  using PostDisplaceStage =
+      std::conditional_t<DIRECT_SURFACE,
+                         Pullback::Stage::Displace<DirectDisplacePolicy>, void>;
+  using LensPolicy =
       typename LensPolicyFor<typename ParamsT::lens_type,
-                             typename SpecT::LensPolicy, Binding>::Type,
-      PostLensSurfacePolicy,
+                             typename SpecT::LensPolicy, Binding>::Type;
+  using LensStage = std::conditional_t<std::is_void_v<LensPolicy>, void,
+                                       Pullback::Stage::Lens<LensPolicy>>;
+  using ProjectStage = Pullback::Stage::Project<
       typename ProjectionPolicyFor<SpecT::PROJECTION, Binding>::Type>;
+  using OuterWarpPolicy =
+      typename WarpPolicyFor<typename ParamsT::outer_warp_type, Binding, true,
+                             TRACK_PATH>::Type;
+  using InnerWarpPolicy =
+      typename WarpPolicyFor<typename ParamsT::inner_warp_type, Binding, false,
+                             TRACK_PATH>::Type;
 
 public:
-  /// Pullback stages, ordered from the view vector back to the source field.
-  using OuterCameraStage =
-      Pullback::Stage::OuterCamera<Binding, OuterCameraProvider<Binding>>;
-  using SurfaceStage = std::conditional_t<
-      HAS_SURFACE_NOISE,
-      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
-                              SurfaceImplementation>,
-      SurfaceImplementation>;
-  using PlanarWarpStage = Pullback::Stage::PlanarWarp<
-      Binding,
-      typename WarpPolicyFor<typename ParamsT::outer_warp_type, Binding, true,
-                             TRACK_PATH>::Type,
-      typename WarpPolicyFor<typename ParamsT::inner_warp_type, Binding, false,
-                             TRACK_PATH>::Type>;
-  using SourceStage = Pullback::Stage::Source<
-      Binding,
-      typename SourcePolicyFor<typename ParamsT::source_type, Binding>::Type>;
-  using MaterialStage = Pullback::Stage::Material<
-      Binding, Pullback::Weight::Projection,
-      typename TransferPolicyFor<SpecT::TRANSFER, Binding>::Type,
+  /// Pullback stages, ordered from the view vector to the color.
+  using RotateStage = Pullback::Stage::Rotate<OuterCameraProvider<Binding>>;
+  /** Sphere run: displacement, lens and projection as one placement group,
+      out of line in flash when the effect displaces so the hot scan keeps a
+      single flash-call boundary. */
+  using SphereRun = Pullback::Stage::Placed<
+      HAS_SURFACE_NOISE ? Pullback::CodeEmission::OUT_OF_LINE_FLASH
+                        : Pullback::CodeEmission::INLINE_ONLY,
+      PreDisplaceStage, LensStage, PostDisplaceStage, ProjectStage>;
+  using OuterWarpStage =
+      std::conditional_t<std::is_void_v<OuterWarpPolicy>, void,
+                         Pullback::Stage::Warp<OuterWarpPolicy>>;
+  using InnerWarpStage =
+      std::conditional_t<std::is_void_v<InnerWarpPolicy>, void,
+                         Pullback::Stage::Warp<InnerWarpPolicy>>;
+  using SampleStage = Pullback::Stage::Sample<
+      typename SourcePolicyFor<typename ParamsT::source_type, Binding>::Type,
+      Pullback::Weight::Projection,
       typename CoveragePolicyFor<SpecT::COVERAGE, Binding>::Type>;
-  using ColorStage =
-      Pullback::Stage::Color<Binding,
-                             Pullback::Color::GeneratedPalette<
-                                 ColorProvider<Binding, HueV, BrightnessV>>>;
+  using TransferStage =
+      std::conditional_t<SpecT::TRANSFER == TransferKind::LINEAR, void,
+                         Pullback::Stage::Transfer<typename TransferPolicyFor<
+                             SpecT::TRANSFER, Binding>::Type>>;
+  using ColorizeStage =
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          ColorProvider<Binding, HueV, BrightnessV>>>;
   using RenderPipeline =
-      Pullback::Pipeline<Binding, OuterCameraStage, SurfaceStage,
-                         PlanarWarpStage, SourceStage, MaterialStage,
-                         ColorStage>;
+      Pullback::Pipeline<Binding, RotateStage, SphereRun, OuterWarpStage,
+                         InnerWarpStage, SampleStage, TransferStage,
+                         ColorizeStage>;
   using FrameState = typename RenderPipeline::Frame;
 
   /** @brief Constructs the effect at W x H with the POV column strobe on. */

@@ -328,22 +328,22 @@ finish_closed_form(const Complex &input, const Complex &output,
 }
 
 __attribute__((always_inline)) inline float
-envelope(const ProjectionSample &projected, float edge_width,
+envelope(const ProjectionProvenance &provenance, float edge_width,
          bool projection_weight, bool edge_fade) {
   if (projection_weight)
-    return projected.value_weight;
+    return provenance.value_weight;
   if (edge_fade)
-    return cubic_kernel(projected.fade_edge_distance / edge_width);
+    return cubic_kernel(provenance.fade_edge_distance / edge_width);
   return 1.0f;
 }
 
 template <typename Envelope, typename Params>
 __attribute__((always_inline)) inline float
-fixed_envelope(const ProjectionSample &projected, const Params &params) {
+fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
   if constexpr (std::is_same_v<Envelope, ProjectionWeightEnvelope>)
-    return projected.value_weight;
+    return provenance.value_weight;
   else if constexpr (std::is_same_v<Envelope, EdgeFadeEnvelope>)
-    return cubic_kernel(projected.fade_edge_distance / params.edge_width);
+    return cubic_kernel(provenance.fade_edge_distance / params.edge_width);
   else
     return 1.0f;
 }
@@ -540,14 +540,6 @@ vector_noise(const Complex &input, const Params &params, float amplitude,
   return {input, Complex(), 0.0f};
 }
 
-struct Identity : ExactPolicy {
-  template <typename FrameState>
-  __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &, const FrameState &) {
-    return {input, Complex(), 0.0f};
-  }
-};
-
 template <typename State> struct AffineFrame : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -570,8 +562,8 @@ template <typename State> struct AffineFrame : ExactPolicy {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &, const FrameState &frame,
-        const Prepared &prepared) {
+  apply(const Complex &input, const ProjectionProvenance &,
+        const FrameState &frame, const Prepared &prepared) {
     return affine_frame(input, prepared, State::path_length_required(frame));
   }
 };
@@ -605,11 +597,11 @@ struct WaveShear : ExactPolicy {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &projected,
+  apply(const Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     const float amplitude =
-        params.strength * fixed_envelope<Envelope>(projected, params);
+        params.strength * fixed_envelope<Envelope>(provenance, params);
     return wave_shear(input, params, State::phase(frame), amplitude, prepared,
                       State::path_length_required(frame));
   }
@@ -635,8 +627,8 @@ template <typename State> struct Vortex : ExactPolicy {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &, const FrameState &frame,
-        const Prepared &prepared) {
+  apply(const Complex &input, const ProjectionProvenance &,
+        const FrameState &frame, const Prepared &prepared) {
     return vortex(input, prepared, State::path_length_required(frame));
   }
 };
@@ -665,8 +657,8 @@ template <typename State> struct MirrorTile : ExactPolicy {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &, const FrameState &frame,
-        const Prepared &prepared) {
+  apply(const Complex &input, const ProjectionProvenance &,
+        const FrameState &frame, const Prepared &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
     const WarpStepResult result =
@@ -695,7 +687,7 @@ struct PolarChart : ExactPolicy {
       };
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &,
+  apply(const Complex &input, const ProjectionProvenance &,
         const FrameState &frame) {
     return polar_chart(input, State::params(frame), State::phase(frame),
                        std::is_same_v<PolarMode, LogarithmicPolar>, Harmonic,
@@ -733,12 +725,12 @@ struct VectorNoise : ExactPolicy {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &projected,
+  apply(const Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     return vector_noise_fixed<BasisV>(
         input, params,
-        params.strength * fixed_envelope<Envelope>(projected, params),
+        params.strength * fixed_envelope<Envelope>(provenance, params),
         State::noise(frame), prepared, State::path_length_required(frame));
   }
 };
@@ -768,11 +760,11 @@ struct CurlFlow : ExactPolicy {
        });
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionSample &projected,
+  apply(const Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame) {
     const auto &params = State::params(frame);
     const float amplitude =
-        params.strength * fixed_envelope<Envelope>(projected, params);
+        params.strength * fixed_envelope<Envelope>(provenance, params);
     return curl_flow(input, State::noise(frame), BasisV,
                      IntegratorPolicy::INTERVALS, params.scale, amplitude,
                      State::phase(frame), State::path_length_required(frame));

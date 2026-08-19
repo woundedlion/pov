@@ -14,8 +14,8 @@ using MobiusGridParams =
     Pullback::Params<Pullback::TwinWaveSourceParams, Pullback::NoWarpParams,
                      Pullback::MirrorParams, Pullback::MobiusLensParams>;
 using MobiusGridSpec =
-    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
-                   Pullback::Lens::Identity, Pullback::TransferKind::LINEAR,
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC, void,
+                   Pullback::TransferKind::LINEAR,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>

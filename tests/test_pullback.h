@@ -16,9 +16,11 @@ namespace hs_test {
 namespace pullback_tests {
 
 struct TestFrame {
-  mutable std::array<Pullback::StageKind, 6> calls{};
+  mutable std::array<uint8_t, 8> calls{};
   mutable size_t call_count = 0;
   float edge_width = 0.5f;
+  float cutout_threshold = 0.25f;
+  float cutout_width = 0.0f;
 };
 
 struct TestBinding {
@@ -26,221 +28,135 @@ struct TestBinding {
   using Instrumentation = Pullback::NoInstrumentation;
 };
 
-template <Pullback::StageKind KindV, typename InputT, typename OutputT,
-          bool TerminalV = false>
-struct ExactStage {
-  using Binding = TestBinding;
-  using FrameState = typename Binding::FrameState;
-  using Input = InputT;
-  using Output = OutputT;
+inline void record(const TestFrame &frame, uint8_t id) {
+  frame.calls[frame.call_count++] = id;
+}
 
-  static constexpr Pullback::StageKind KIND = KindV;
-  static constexpr Pullback::CodeEmission EMISSION =
-      Pullback::CodeEmission::INLINE_ONLY;
-  static constexpr bool APPROXIMATE = false;
-  static constexpr bool TERMINAL = TerminalV;
-  static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
-  static constexpr Pullback::ApproximationOracleId ORACLE =
-      Pullback::ApproximationOracleId::NONE;
-  static constexpr std::array<Pullback::ApproximationMetric, 0> METRICS{};
-  using Prepared = Pullback::NoPrepared;
+struct EntryStage
+    : Pullback::Stage::Contract<EntryStage, Pullback::SphereSample,
+                                Pullback::SphereSample> {
+  using Policies = std::tuple<>;
 
-  static constexpr Prepared prepare(const FrameState &) { return {}; }
-
-  static void record(const FrameState &frame) {
-    frame.calls[frame.call_count++] = KIND;
+  template <typename Binding>
+  static Pullback::SphereSample run(const Pullback::SphereSample &input,
+                                    const TestFrame &frame,
+                                    const Pullback::NoPrepared &) {
+    record(frame, 0);
+    return {Vector(input.dir.x + 1.0f, input.dir.y, input.dir.z),
+            input.path_length + 1.0f};
   }
 };
 
-struct OuterStage
-    : ExactStage<Pullback::StageKind::OUTER_CAMERA, Vector, Vector> {
-  static Vector run(const Vector &input, const FrameState &frame,
-                    const Prepared &) {
-    record(frame);
-    return Vector(input.x + 1.0f, input.y, input.z);
+struct CrossingStage
+    : Pullback::Stage::Contract<CrossingStage, Pullback::SphereSample,
+                                Pullback::PlaneSample> {
+  using Policies = std::tuple<>;
+
+  template <typename Binding>
+  static Pullback::PlaneSample run(const Pullback::SphereSample &input,
+                                   const TestFrame &frame,
+                                   const Pullback::NoPrepared &) {
+    record(frame, 1);
+    return {Complex(input.dir.x, input.dir.y),
+            {1, 2, 3, 0.25f, 0.5f, 4, 5, 6, 0.8f},
+            input.dir,
+            input.path_length};
   }
 };
 
-struct SurfaceStage : ExactStage<Pullback::StageKind::SURFACE_PROJECT, Vector,
-                                 Pullback::ProjectionSample> {
-  static Pullback::ProjectionSample
-  run(const Vector &input, const FrameState &frame, const Prepared &) {
-    record(frame);
-    return {Complex(input.x + 1.0f, input.y + 2.0f),
-            3,
-            4,
-            5,
-            6.0f,
-            0.75f,
-            7,
-            8,
-            9,
-            0.5f,
-            input,
-            10.0f};
+struct PlaneStage : Pullback::Stage::Contract<PlaneStage, Pullback::PlaneSample,
+                                              Pullback::PlaneSample> {
+  using Policies = std::tuple<>;
+
+  template <typename Binding>
+  static Pullback::PlaneSample run(const Pullback::PlaneSample &input,
+                                   const TestFrame &frame,
+                                   const Pullback::NoPrepared &) {
+    record(frame, 2);
+    Pullback::PlaneSample output = input;
+    output.coords.re += 2.0f;
+    output.path_length += 2.0f;
+    return output;
   }
 };
 
-struct WarpStage
-    : ExactStage<Pullback::StageKind::PLANAR_WARP, Pullback::ProjectionSample,
-                 Pullback::SourceInput> {
-  static Pullback::SourceInput run(const Pullback::ProjectionSample &input,
-                                   const FrameState &frame, const Prepared &) {
-    record(frame);
-    return {input,
-            {Complex(input.coords.re + 2.0f, input.coords.im + 3.0f), 4.0f}};
+struct FieldCrossingStage
+    : Pullback::Stage::Contract<FieldCrossingStage, Pullback::PlaneSample,
+                                Pullback::FieldSample> {
+  using Policies = std::tuple<>;
+
+  template <typename Binding>
+  static Pullback::FieldSample run(const Pullback::PlaneSample &input,
+                                   const TestFrame &frame,
+                                   const Pullback::NoPrepared &) {
+    record(frame, 3);
+    return {0.5f, input.provenance.domain_coverage, input.sphere,
+            input.path_length};
   }
 };
 
-struct SourceStage
-    : ExactStage<Pullback::StageKind::SOURCE, Pullback::SourceInput,
-                 Pullback::MaterialInput> {
-  static Pullback::MaterialInput run(const Pullback::SourceInput &input,
-                                     const FrameState &frame,
-                                     const Prepared &) {
-    record(frame);
-    return {input.projected, input.warped,
-            input.warped.coords.re + input.warped.coords.im};
+struct FieldStage : Pullback::Stage::Contract<FieldStage, Pullback::FieldSample,
+                                              Pullback::FieldSample> {
+  using Policies = std::tuple<>;
+
+  template <typename Binding>
+  static Pullback::FieldSample run(const Pullback::FieldSample &input,
+                                   const TestFrame &frame,
+                                   const Pullback::NoPrepared &) {
+    record(frame, 4);
+    Pullback::FieldSample output = input;
+    output.value *= 0.5f;
+    return output;
   }
 };
 
-struct MaterialStage
-    : ExactStage<Pullback::StageKind::MATERIAL, Pullback::MaterialInput,
-                 Pullback::MaterialSample> {
-  static Pullback::MaterialSample run(const Pullback::MaterialInput &input,
-                                      const FrameState &frame,
-                                      const Prepared &) {
-    record(frame);
-    return {input.field, input.projected.domain_coverage,
-            input.projected.sphere,
-            input.projected.surface_path_length + input.warped.path_length};
-  }
-};
+struct ColorCrossingStage
+    : Pullback::Stage::Contract<ColorCrossingStage, Pullback::FieldSample,
+                                Color4> {
+  using Policies = std::tuple<>;
 
-struct ColorStage : ExactStage<Pullback::StageKind::COLOR,
-                               Pullback::MaterialSample, Color4, true> {
-  static Color4 run(const Pullback::MaterialSample &input,
-                    const FrameState &frame, const Prepared &) {
-    record(frame);
+  template <typename Binding>
+  static Color4 run(const Pullback::FieldSample &input, const TestFrame &frame,
+                    const Pullback::NoPrepared &) {
+    record(frame, 5);
     return Color4(Pixel(1, 2, 3), input.coverage);
   }
 };
 
 using TestPipeline =
-    Pullback::Pipeline<TestBinding, OuterStage, SurfaceStage, WarpStage,
-                       SourceStage, MaterialStage, ColorStage>;
+    Pullback::Pipeline<TestBinding, EntryStage, CrossingStage, PlaneStage,
+                       FieldCrossingStage, FieldStage, ColorCrossingStage>;
 
-struct OrientationState {
-  using Binding = TestBinding;
-  using FrameState = typename Binding::FrameState;
+struct MissingContract {};
 
-  static const Quaternion &conjugate(const FrameState &) {
-    static constexpr Quaternion IDENTITY;
-    return IDENTITY;
+struct NotACarrier {};
+
+struct ForeignCarrierStage
+    : Pullback::Stage::Contract<ForeignCarrierStage, NotACarrier, Color4> {
+  using Policies = std::tuple<>;
+
+  template <typename Binding>
+  static Color4 run(const NotACarrier &, const TestFrame &,
+                    const Pullback::NoPrepared &) {
+    return {};
   }
 };
 
-struct ProjectionPolicy : Pullback::ExactPolicy {
-  static const Quaternion &frame_conjugate(const TestFrame &) {
-    static constexpr Quaternion IDENTITY;
-    return IDENTITY;
-  }
+struct DownCrossingStage
+    : Pullback::Stage::Contract<DownCrossingStage, Pullback::FieldSample,
+                                Pullback::PlaneSample> {
+  using Policies = std::tuple<>;
 
-  static Pullback::ProjectionSample project(const Vector &input,
-                                            const TestFrame &) {
-    return {Complex(input.x, input.y), 1, 2, 3, 0.25f, 0.5f, 4, 5, 6, 0.8f};
-  }
-};
-
-struct WarpOne : Pullback::ExactPolicy {
-  static Pullback::WarpStepResult apply(const Complex &input,
-                                        const Pullback::ProjectionSample &,
-                                        const TestFrame &) {
-    return {Complex(input.re + 1.0f, input.im), Complex(1.0f, 0.0f), 2.0f};
+  template <typename Binding>
+  static Pullback::PlaneSample run(const Pullback::FieldSample &,
+                                   const TestFrame &,
+                                   const Pullback::NoPrepared &) {
+    return {};
   }
 };
 
-struct WarpTwo : Pullback::ExactPolicy {
-  static Pullback::WarpStepResult apply(const Complex &input,
-                                        const Pullback::ProjectionSample &p,
-                                        const TestFrame &) {
-    return {Complex(input.re, input.im + p.coords.im),
-            Complex(0.0f, p.coords.im), 3.0f};
-  }
-};
-
-struct SourcePolicy : Pullback::ExactPolicy {
-  static float sample(const Pullback::SourceInput &input, const TestFrame &) {
-    return input.warped.coords.re + input.warped.coords.im;
-  }
-};
-
-struct ValueState {
-  using Binding = TestBinding;
-  using FrameState = typename Binding::FrameState;
-
-  static float edge_width(const FrameState &frame) { return frame.edge_width; }
-};
-
-struct MalformedValueState {
-  using Binding = TestBinding;
-  using FrameState = typename Binding::FrameState;
-};
-
-struct ColorPolicy : Pullback::ExactPolicy {
-  static Color4 apply(const Pullback::MaterialSample &input,
-                      const TestFrame &) {
-    return Color4(Pixel(9, 8, 7), input.coverage);
-  }
-};
-
-using CoreOuter = Pullback::Stage::OuterCamera<TestBinding, OrientationState>;
-using CoreSurface = Pullback::Stage::SurfaceProject<
-    TestBinding, Pullback::Surface::Identity, Pullback::Lens::Identity,
-    Pullback::Surface::Identity, ProjectionPolicy>;
-using CoreWarp = Pullback::Stage::PlanarWarp<TestBinding, WarpOne, WarpTwo>;
-using CoreSource = Pullback::Stage::Source<TestBinding, SourcePolicy>;
-using CoreMaterial =
-    Pullback::Stage::Material<TestBinding, Pullback::Weight::Projection,
-                              Pullback::Transfer::Linear,
-                              Pullback::Coverage::EdgeFade<ValueState>>;
-using CoreColor = Pullback::Stage::Color<TestBinding, ColorPolicy>;
-using CorePipeline =
-    Pullback::Pipeline<TestBinding, CoreOuter, CoreSurface, CoreWarp,
-                       CoreSource, CoreMaterial, CoreColor>;
-
-struct MistypedMetricsOuter : OuterStage {
-  static constexpr int METRICS = 0;
-};
-
-struct NonEmptyOuter : OuterStage {
+struct StatefulStage : EntryStage {
   int state;
-};
-
-struct WrongOrderOuter : OuterStage {
-  static constexpr Pullback::StageKind KIND =
-      Pullback::StageKind::SURFACE_PROJECT;
-};
-
-struct WrongReturnOuter : OuterStage {
-  static int run(const Vector &, const FrameState &, const Prepared &) {
-    return 0;
-  }
-};
-
-struct WrongCarrierSurface : SurfaceStage {
-  using Output = Vector;
-  static Vector run(const Vector &input, const FrameState &, const Prepared &) {
-    return input;
-  }
-};
-
-struct TerminalOuter : OuterStage {
-  static constexpr bool TERMINAL = true;
-};
-
-struct MalformedApproximationOuter : OuterStage {
-  static constexpr bool APPROXIMATE = true;
 };
 
 struct ForeignBinding {
@@ -248,9 +164,86 @@ struct ForeignBinding {
   using Instrumentation = Pullback::NoInstrumentation;
 };
 
-struct ForeignOuter : OuterStage {
+struct ForeignValueState {
   using Binding = ForeignBinding;
-  using FrameState = typename Binding::FrameState;
+  using FrameState = TestFrame;
+
+  static float cutout_threshold(const FrameState &frame) {
+    return frame.cutout_threshold;
+  }
+  static float cutout_width(const FrameState &frame) {
+    return frame.cutout_width;
+  }
+};
+
+struct ValueState {
+  using Binding = TestBinding;
+  using FrameState = TestFrame;
+
+  static float edge_width(const FrameState &frame) { return frame.edge_width; }
+  static float cutout_threshold(const FrameState &frame) {
+    return frame.cutout_threshold;
+  }
+  static float cutout_width(const FrameState &frame) {
+    return frame.cutout_width;
+  }
+};
+
+struct MalformedValueState {
+  using Binding = TestBinding;
+  using FrameState = TestFrame;
+};
+
+struct WrongReturnStage {
+  using Input = Pullback::FieldSample;
+  using Output = Color4;
+  using Policies = std::tuple<>;
+
+  template <typename Binding> struct Bind : Pullback::ExactPolicy {
+    using Input = Pullback::FieldSample;
+    using Output = Color4;
+    using FrameState = typename Binding::FrameState;
+    using Prepared = Pullback::NoPrepared;
+
+    static Prepared prepare(const FrameState &) { return {}; }
+    static int run(const Input &, const FrameState &, const Prepared &) {
+      return 0;
+    }
+  };
+};
+
+struct WrongPrepareStage {
+  using Input = Pullback::FieldSample;
+  using Output = Color4;
+  using Policies = std::tuple<>;
+
+  template <typename Binding> struct Bind : Pullback::ExactPolicy {
+    using Input = Pullback::FieldSample;
+    using Output = Color4;
+    using FrameState = typename Binding::FrameState;
+    using Prepared = Pullback::NoPrepared;
+
+    static int prepare(const FrameState &) { return 0; }
+    static Output run(const Input &, const FrameState &, const Prepared &) {
+      return {};
+    }
+  };
+};
+
+struct MalformedApproximatePolicy : Pullback::ExactPolicy {
+  static constexpr bool APPROXIMATE = true;
+};
+
+struct MalformedApproximateStage
+    : Pullback::Stage::Contract<MalformedApproximateStage,
+                                Pullback::FieldSample, Color4> {
+  using Policies = std::tuple<MalformedApproximatePolicy>;
+
+  template <typename Binding>
+  static Color4 run(const Pullback::FieldSample &, const TestFrame &,
+                    const Pullback::NoPrepared &) {
+    return {};
+  }
 };
 
 struct RejectBinding {
@@ -262,21 +255,239 @@ struct RejectBinding {
   };
 };
 
-template <typename Stage> struct RejectStage : Stage {
-  using Binding = RejectBinding;
-  using FrameState = typename Binding::FrameState;
-  using Input = typename Stage::Input;
-  using Output = typename Stage::Output;
+inline void test_pullback_carrier_contract() {
+  static_assert(std::is_trivially_copyable_v<Pullback::SphereSample>);
+  static_assert(std::is_trivially_copyable_v<Pullback::PlaneSample>);
+  static_assert(std::is_trivially_copyable_v<Pullback::FieldSample>);
+  static_assert(std::is_trivially_destructible_v<Pullback::SphereSample>);
+  static_assert(std::is_trivially_destructible_v<Pullback::PlaneSample>);
+  static_assert(std::is_trivially_destructible_v<Pullback::FieldSample>);
+  static_assert(std::is_trivially_destructible_v<Color4>);
+  static_assert(sizeof(Pullback::SphereSample) == 16);
+  static_assert(sizeof(Pullback::ProjectionProvenance) == 20);
+  static_assert(sizeof(Pullback::ProjectionResult) == 28);
+  static_assert(sizeof(Pullback::PlaneSample) == 44);
+  static_assert(sizeof(Pullback::FieldSample) == 24);
+  static_assert(sizeof(Pullback::SurfaceResult) == 16);
+  static_assert(sizeof(Pullback::WarpStepResult) == 20);
+  static_assert(alignof(Pullback::SphereSample) == 4);
+  static_assert(alignof(Pullback::PlaneSample) == 4);
+  static_assert(alignof(Pullback::FieldSample) == 4);
+  static_assert(offsetof(Pullback::SphereSample, path_length) == 12);
+  static_assert(offsetof(Pullback::ProjectionProvenance, fade_edge_distance) ==
+                4);
+  static_assert(offsetof(Pullback::ProjectionProvenance, value_weight) == 8);
+  static_assert(offsetof(Pullback::ProjectionProvenance, domain_coverage) ==
+                16);
+  static_assert(offsetof(Pullback::PlaneSample, provenance) == 8);
+  static_assert(offsetof(Pullback::PlaneSample, sphere) == 28);
+  static_assert(offsetof(Pullback::PlaneSample, path_length) == 40);
+  static_assert(offsetof(Pullback::FieldSample, sphere) == 8);
+  static_assert(offsetof(Pullback::FieldSample, path_length) == 20);
 
-  static Output run(const Input &input, const FrameState &frame,
-                    const typename Stage::Prepared &prepared) {
-    return Stage::run(input, frame, prepared);
-  }
+  static_assert(Pullback::family_of<Pullback::SphereSample> == 0);
+  static_assert(Pullback::family_of<Pullback::PlaneSample> == 1);
+  static_assert(Pullback::family_of<Pullback::FieldSample> == 2);
+  static_assert(Pullback::family_of<Color4> == 3);
+  static_assert(Pullback::family_of<NotACarrier> ==
+                Pullback::FOREIGN_FAMILY_RANK);
+  static_assert(Pullback::CanonicalCarrier<Pullback::SphereSample>);
+  static_assert(Pullback::CanonicalCarrier<Color4>);
+  static_assert(!Pullback::CanonicalCarrier<NotACarrier>);
+  static_assert(!Pullback::CanonicalCarrier<Pullback::ProjectionResult>);
+
+  constexpr Pullback::ProjectionProvenance provenance{1, 2, 3, 0.25f, 0.5f, 4};
+  HS_EXPECT_EQ(provenance.traits, 0);
+  HS_EXPECT_EQ(provenance.edge_class, 0);
+  HS_EXPECT_EQ(provenance.domain_coverage, 1.0f);
+  HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::CUT), 1);
+  HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::SINGULAR), 2);
+}
+
+inline void test_pullback_validation_predicates() {
+  using Valid = typename TestPipeline::Validation;
+  HS_EXPECT_TRUE(Valid::NONEMPTY);
+  HS_EXPECT_TRUE(Valid::CONTRACTS);
+  HS_EXPECT_TRUE(Valid::CANONICAL);
+  HS_EXPECT_TRUE(Valid::MONOTONE);
+  HS_EXPECT_TRUE(Valid::CARRIERS);
+  HS_EXPECT_TRUE(Valid::ENTRY);
+  HS_EXPECT_TRUE(Valid::EXIT);
+  HS_EXPECT_TRUE(Valid::BINDINGS);
+  HS_EXPECT_TRUE(Valid::EMPTY_POLICIES);
+  HS_EXPECT_TRUE(Valid::RUN_RETURNS);
+  HS_EXPECT_TRUE(Valid::PREPARES);
+  HS_EXPECT_TRUE(Valid::APPROXIMATIONS);
+  HS_EXPECT_TRUE(Valid::EXTRA_VALIDATION);
+
+  using Empty = Pullback::PipelineValidation<TestBinding, void>;
+  HS_EXPECT_FALSE(Empty::NONEMPTY);
+
+  using Missing = Pullback::PipelineValidation<TestBinding, MissingContract,
+                                               ColorCrossingStage>;
+  HS_EXPECT_TRUE(Missing::NONEMPTY);
+  HS_EXPECT_FALSE(Missing::CONTRACTS);
+
+  using Foreign = Pullback::PipelineValidation<TestBinding, EntryStage,
+                                               ForeignCarrierStage>;
+  HS_EXPECT_TRUE(Foreign::CONTRACTS);
+  HS_EXPECT_FALSE(Foreign::CANONICAL);
+
+  using Down =
+      Pullback::PipelineValidation<TestBinding, EntryStage, CrossingStage,
+                                   FieldCrossingStage, DownCrossingStage,
+                                   FieldCrossingStage, ColorCrossingStage>;
+  HS_EXPECT_TRUE(Down::CANONICAL);
+  HS_EXPECT_FALSE(Down::MONOTONE);
+
+  using Mismatch =
+      Pullback::PipelineValidation<TestBinding, EntryStage, FieldCrossingStage,
+                                   FieldStage, ColorCrossingStage>;
+  HS_EXPECT_FALSE(Mismatch::CARRIERS);
+  HS_EXPECT_TRUE(Mismatch::MONOTONE);
+
+  using WrongEntry =
+      Pullback::PipelineValidation<TestBinding, PlaneStage, FieldCrossingStage,
+                                   ColorCrossingStage>;
+  HS_EXPECT_FALSE(WrongEntry::ENTRY);
+  HS_EXPECT_TRUE(WrongEntry::EXIT);
+
+  using WrongExit =
+      Pullback::PipelineValidation<TestBinding, EntryStage, CrossingStage,
+                                   FieldCrossingStage, FieldStage>;
+  HS_EXPECT_TRUE(WrongExit::ENTRY);
+  HS_EXPECT_FALSE(WrongExit::EXIT);
+
+  using ForeignBound = Pullback::PipelineValidation<
+      TestBinding, EntryStage, CrossingStage, FieldCrossingStage,
+      Pullback::Stage::Coverage<
+          Pullback::Coverage::ValueCutout<ForeignValueState>>,
+      ColorCrossingStage>;
+  HS_EXPECT_FALSE(ForeignBound::BINDINGS);
+
+  using NonEmpty =
+      Pullback::PipelineValidation<TestBinding, StatefulStage, CrossingStage,
+                                   FieldCrossingStage, ColorCrossingStage>;
+  HS_EXPECT_FALSE(NonEmpty::EMPTY_POLICIES);
+
+  using WrongReturn =
+      Pullback::PipelineValidation<TestBinding, EntryStage, CrossingStage,
+                                   FieldCrossingStage, WrongReturnStage>;
+  HS_EXPECT_TRUE(WrongReturn::BINDINGS);
+  HS_EXPECT_FALSE(WrongReturn::RUN_RETURNS);
+
+  using WrongPrepare =
+      Pullback::PipelineValidation<TestBinding, EntryStage, CrossingStage,
+                                   FieldCrossingStage, WrongPrepareStage>;
+  HS_EXPECT_FALSE(WrongPrepare::PREPARES);
+
+  using WrongApproximation =
+      Pullback::PipelineValidation<TestBinding, EntryStage, CrossingStage,
+                                   FieldCrossingStage,
+                                   MalformedApproximateStage>;
+  HS_EXPECT_FALSE(WrongApproximation::APPROXIMATIONS);
+
+  using Rejected =
+      Pullback::PipelineValidation<RejectBinding, EntryStage, CrossingStage,
+                                   FieldCrossingStage, ColorCrossingStage>;
+  HS_EXPECT_FALSE(Rejected::EXTRA_VALIDATION);
+}
+
+inline void test_pullback_evaluation_order() {
+  const TestPipeline::Frame frame = TestPipeline::prepare(TestFrame{});
+  const Color4 result = TestPipeline::shade(Vector(1.0f, 2.0f, 3.0f), frame);
+  HS_EXPECT_EQ(frame.ctx.call_count, 6U);
+  for (size_t index = 0; index < frame.ctx.call_count; ++index)
+    HS_EXPECT_EQ(frame.ctx.calls[index], index);
+  HS_EXPECT_EQ(result.color.r, 1);
+  HS_EXPECT_EQ(result.color.g, 2);
+  HS_EXPECT_EQ(result.color.b, 3);
+  HS_EXPECT_EQ(result.alpha, 0.8f);
+}
+
+using GroupedPipeline = Pullback::Pipeline<
+    TestBinding, EntryStage,
+    Pullback::Stage::Placed<
+        Pullback::CodeEmission::OUT_OF_LINE_FLASH, CrossingStage, void,
+        Pullback::Stage::Placed<Pullback::CodeEmission::INLINE_ONLY,
+                                PlaneStage>>,
+    void, FieldCrossingStage,
+    Pullback::Stage::Placed<Pullback::CodeEmission::INLINE_ONLY>, FieldStage,
+    ColorCrossingStage>;
+
+inline void test_pullback_placement_transparency() {
+  // Placement wrappers are invisible to the semantic leaf view: identical
+  // leaves, validation and output; only the execution-node view differs.
+  static_assert(TestPipeline::STAGE_COUNT == 6);
+  static_assert(GroupedPipeline::STAGE_COUNT == 6);
+  static_assert(std::is_same_v<GroupedPipeline::stage_at<1>, CrossingStage>);
+  static_assert(std::is_same_v<GroupedPipeline::stage_at<2>, PlaneStage>);
+  static_assert(
+      std::is_same_v<TestPipeline::stage_at<5>, GroupedPipeline::stage_at<5>>);
+  static_assert(TestPipeline::NODE_COUNT == 6);
+  static_assert(GroupedPipeline::NODE_COUNT == 5);
+  static_assert(GroupedPipeline::Validation::MONOTONE);
+  static_assert(GroupedPipeline::Validation::CARRIERS);
+
+  const TestPipeline::Frame flat = TestPipeline::prepare(TestFrame{});
+  const GroupedPipeline::Frame grouped = GroupedPipeline::prepare(TestFrame{});
+  const Color4 flat_result =
+      TestPipeline::shade(Vector(1.0f, 2.0f, 3.0f), flat);
+  const Color4 grouped_result =
+      GroupedPipeline::shade(Vector(1.0f, 2.0f, 3.0f), grouped);
+  HS_EXPECT_EQ(grouped.ctx.call_count, 6U);
+  for (size_t index = 0; index < grouped.ctx.call_count; ++index)
+    HS_EXPECT_EQ(grouped.ctx.calls[index], index);
+  HS_EXPECT_EQ(flat_result.alpha, grouped_result.alpha);
+  HS_EXPECT_EQ(flat_result.color.r, grouped_result.color.r);
+}
+
+template <typename Stage> struct IsCrossingStage {
+  static constexpr bool value = std::is_same_v<Stage, CrossingStage>;
 };
+
+template <typename Stage> struct IsColorStage {
+  static constexpr bool value = std::is_same_v<Stage, ColorCrossingStage>;
+};
+
+template <typename Stage> struct NoStageMatches {
+  static constexpr bool value = false;
+};
+
+inline void test_pullback_public_surface() {
+  static_assert(std::is_same_v<TestPipeline::Binding, TestBinding>);
+  static_assert(std::is_same_v<TestPipeline::FrameState, TestFrame>);
+  static_assert(std::is_same_v<TestPipeline::stage_at<0>, EntryStage>);
+  static_assert(std::is_same_v<TestPipeline::stage_at<5>, ColorCrossingStage>);
+  static_assert(TestPipeline::any_stage<IsCrossingStage>);
+  static_assert(!TestPipeline::any_stage<NoStageMatches>);
+  static_assert(std::is_same_v<TestPipeline::stage_matching<IsColorStage>,
+                               ColorCrossingStage>);
+  static_assert(
+      std::is_same_v<TestPipeline::stage_matching<NoStageMatches>, void>);
+  static_assert(
+      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+                              CrossingStage>::EMISSION ==
+      Pullback::CodeEmission::OUT_OF_LINE_FLASH);
+  static_assert(Pullback::StageDescriptor<EntryStage>);
+  static_assert(!Pullback::StageDescriptor<MissingContract>);
+  static_assert(Pullback::Warp::MAX_POLAR_HARMONIC == 16);
+  static_assert(Pullback::Color::HueRotationLutView::SIZE == 1024);
+  static_assert(Pullback::Color::HueNoiseLutView::SIZE == 3456);
+  HS_EXPECT_TRUE(std::is_empty_v<TestPipeline>);
+}
+
+inline void test_pullback_no_instrumentation() {
+  const Pullback::NoInstrumentation::Token token =
+      Pullback::NoInstrumentation::mark();
+  Pullback::NoInstrumentation::span<Pullback::ProfileEvent::COLOR>(token);
+  HS_EXPECT_TRUE(std::is_empty_v<Pullback::NoInstrumentation>);
+  HS_EXPECT_TRUE(std::is_empty_v<Pullback::NoInstrumentation::Token>);
+}
 
 struct CountingInstrumentation {
   struct Token {};
-  static inline std::array<Pullback::ProfileEvent, 8> events{};
+  static inline std::array<Pullback::ProfileEvent, 24> events{};
   static inline size_t count = 0;
 
   static Token mark() { return {}; }
@@ -293,7 +504,7 @@ struct CountingBinding {
 
 struct CountingOrientationState {
   using Binding = CountingBinding;
-  using FrameState = typename Binding::FrameState;
+  using FrameState = TestFrame;
 
   static const Quaternion &conjugate(const FrameState &) {
     static constexpr Quaternion IDENTITY;
@@ -303,7 +514,7 @@ struct CountingOrientationState {
 
 struct CountingSurfacePolicy : Pullback::ExactPolicy {
   static Pullback::SurfaceResult apply(const Vector &input, const TestFrame &) {
-    return {input, 0.0f};
+    return {input, 0.5f};
   }
 };
 
@@ -316,207 +527,68 @@ struct CountingProjectionPolicy : Pullback::ExactPolicy {
     static constexpr Quaternion IDENTITY;
     return IDENTITY;
   }
-  static Pullback::ProjectionSample project(const Vector &input,
+  static Pullback::ProjectionResult project(const Vector &input,
                                             const TestFrame &) {
-    return {Complex(input.x, input.y), 0, 0, 0, 1.0f, 1.0f, 0};
+    return {Complex(input.x, input.y), {0, 0, 0, 1.0f, 0.5f, 0}};
   }
 };
 
-struct CountingMirrorPolicy : Pullback::ExactPolicy {
+struct CountingWarpPolicy : Pullback::ExactPolicy {
   static Pullback::WarpStepResult apply(const Complex &input,
-                                        const Pullback::ProjectionSample &,
+                                        const Pullback::ProjectionProvenance &,
                                         const TestFrame &) {
-    const auto start = CountingInstrumentation::mark();
-    CountingInstrumentation::span<Pullback::ProfileEvent::MIRROR_TILE>(start);
-    return {input, Complex(), 0.0f};
+    return {Complex(input.re + 1.0f, input.im), Complex(1.0f, 0.0f), 3.0f};
   }
 };
 
 struct CountingSourcePolicy : Pullback::ExactPolicy {
-  static float sample(const Pullback::SourceInput &, const TestFrame &) {
-    return 0.0f;
+  static float sample(const Pullback::PlaneSample &input, const TestFrame &) {
+    return input.coords.re;
+  }
+};
+
+struct CountingValueState {
+  using Binding = CountingBinding;
+  using FrameState = TestFrame;
+
+  static float cutout_threshold(const FrameState &frame) {
+    return frame.cutout_threshold;
+  }
+  static float cutout_width(const FrameState &frame) {
+    return frame.cutout_width;
   }
 };
 
 struct CountingColorPolicy : Pullback::ExactPolicy {
-  static Color4 apply(const Pullback::MaterialSample &, const TestFrame &) {
-    return {};
+  static Color4 apply(const Pullback::FieldSample &input, const TestFrame &) {
+    return Color4(Pixel(9, 8, 7), input.coverage);
   }
 };
 
-using CountingPipeline = Pullback::Pipeline<
-    CountingBinding,
-    Pullback::Stage::OuterCamera<CountingBinding, CountingOrientationState>,
-    Pullback::Stage::SurfaceProject<
-        CountingBinding, Pullback::Surface::Identity, CountingLensPolicy,
-        CountingSurfacePolicy, CountingProjectionPolicy>,
-    Pullback::Stage::PlanarWarp<CountingBinding, CountingMirrorPolicy>,
-    Pullback::Stage::Source<CountingBinding, CountingSourcePolicy>,
-    Pullback::Stage::Material<CountingBinding, Pullback::Weight::Projection,
-                              Pullback::Transfer::Linear,
-                              Pullback::Coverage::Opaque>,
-    Pullback::Stage::Color<CountingBinding, CountingColorPolicy>>;
-
-inline void test_pullback_carrier_contract() {
-  constexpr Pullback::ProjectionSample projected{
-      Complex(1.0f, 2.0f), 3, 4, 5, 6.0f, 0.75f, 7};
-  static_assert(std::is_trivially_copyable_v<Pullback::ProjectionSample>);
-  static_assert(std::is_trivially_copyable_v<Pullback::WarpResult>);
-  static_assert(std::is_trivially_copyable_v<Pullback::MaterialSample>);
-  static_assert(sizeof(Pullback::ProjectionSample) == 44);
-  static_assert(sizeof(Pullback::SurfaceResult) == 16);
-  static_assert(sizeof(Pullback::WarpStepResult) == 20);
-  static_assert(sizeof(Pullback::WarpResult) == 12);
-  static_assert(sizeof(Pullback::SourceInput) == 56);
-  static_assert(sizeof(Pullback::MaterialInput) == 60);
-  static_assert(sizeof(Pullback::MaterialSample) == 24);
-  static_assert(alignof(Pullback::ProjectionSample) == 4);
-  static_assert(alignof(Pullback::SurfaceResult) == 4);
-  static_assert(alignof(Pullback::WarpStepResult) == 4);
-  static_assert(alignof(Pullback::WarpResult) == 4);
-  static_assert(alignof(Pullback::SourceInput) == 4);
-  static_assert(alignof(Pullback::MaterialInput) == 4);
-  static_assert(alignof(Pullback::MaterialSample) == 4);
-  static_assert(offsetof(Pullback::ProjectionSample, coords) == 0);
-  static_assert(offsetof(Pullback::ProjectionSample, fade_edge_distance) == 12);
-  static_assert(offsetof(Pullback::ProjectionSample, value_weight) == 16);
-  static_assert(offsetof(Pullback::ProjectionSample, domain_coverage) == 24);
-  static_assert(offsetof(Pullback::ProjectionSample, sphere) == 28);
-  static_assert(offsetof(Pullback::ProjectionSample, surface_path_length) ==
-                40);
-  static_assert(offsetof(Pullback::WarpStepResult, delta) == 8);
-  static_assert(offsetof(Pullback::WarpStepResult, path_length) == 16);
-  static_assert(offsetof(Pullback::WarpResult, path_length) == 8);
-  static_assert(offsetof(Pullback::SourceInput, warped) == 44);
-  static_assert(offsetof(Pullback::MaterialInput, field) == 56);
-  static_assert(offsetof(Pullback::MaterialSample, sphere) == 8);
-  static_assert(offsetof(Pullback::MaterialSample, path_length) == 20);
-  HS_EXPECT_EQ(projected.traits, 0);
-  HS_EXPECT_EQ(projected.edge_class, 0);
-  HS_EXPECT_EQ(projected.domain_coverage, 1.0f);
-  HS_EXPECT_EQ(projected.surface_path_length, 0.0f);
-  HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::CUT), 1);
-  HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::SINGULAR), 2);
-}
-
-inline void test_pullback_validation_predicates() {
-  using Valid = typename TestPipeline::Validation;
-  using Short = Pullback::PipelineValidation<TestBinding, OuterStage>;
-  struct MissingContract {};
-  using Missing =
-      Pullback::PipelineValidation<TestBinding, MissingContract, SurfaceStage,
-                                   WarpStage, SourceStage, MaterialStage,
-                                   ColorStage>;
-  using Mistyped =
-      Pullback::PipelineValidation<TestBinding, MistypedMetricsOuter,
-                                   SurfaceStage, WarpStage, SourceStage,
-                                   MaterialStage, ColorStage>;
-  using Foreign =
-      Pullback::PipelineValidation<TestBinding, ForeignOuter, SurfaceStage,
-                                   WarpStage, SourceStage, MaterialStage,
-                                   ColorStage>;
-  using NonEmpty =
-      Pullback::PipelineValidation<TestBinding, NonEmptyOuter, SurfaceStage,
-                                   WarpStage, SourceStage, MaterialStage,
-                                   ColorStage>;
-  using WrongOrder =
-      Pullback::PipelineValidation<TestBinding, WrongOrderOuter, SurfaceStage,
-                                   WarpStage, SourceStage, MaterialStage,
-                                   ColorStage>;
-  using WrongReturn =
-      Pullback::PipelineValidation<TestBinding, WrongReturnOuter, SurfaceStage,
-                                   WarpStage, SourceStage, MaterialStage,
-                                   ColorStage>;
-  using WrongCarrier =
-      Pullback::PipelineValidation<TestBinding, OuterStage, WrongCarrierSurface,
-                                   WarpStage, SourceStage, MaterialStage,
-                                   ColorStage>;
-  using WrongTerminal =
-      Pullback::PipelineValidation<TestBinding, TerminalOuter, SurfaceStage,
-                                   WarpStage, SourceStage, MaterialStage,
-                                   ColorStage>;
-  using WrongApproximation =
-      Pullback::PipelineValidation<TestBinding, MalformedApproximationOuter,
-                                   SurfaceStage, WarpStage, SourceStage,
-                                   MaterialStage, ColorStage>;
-  using Rejected = Pullback::PipelineValidation<
-      RejectBinding, RejectStage<OuterStage>, RejectStage<SurfaceStage>,
-      RejectStage<WarpStage>, RejectStage<SourceStage>,
-      RejectStage<MaterialStage>, RejectStage<ColorStage>>;
-  HS_EXPECT_TRUE(Valid::ARITY);
-  HS_EXPECT_TRUE(Valid::CONTRACTS);
-  HS_EXPECT_TRUE(Valid::BINDINGS);
-  HS_EXPECT_TRUE(Valid::EMPTY_POLICIES);
-  HS_EXPECT_TRUE(Valid::ORDER);
-  HS_EXPECT_TRUE(Valid::RUN_RETURNS);
-  HS_EXPECT_TRUE(Valid::PREPARES);
-  HS_EXPECT_TRUE(Valid::CARRIERS);
-  HS_EXPECT_TRUE(Valid::TERMINALS);
-  HS_EXPECT_TRUE(Valid::APPROXIMATIONS);
-  HS_EXPECT_TRUE(Valid::EXTRA_VALIDATION);
-  HS_EXPECT_FALSE(Short::ARITY);
-  HS_EXPECT_FALSE(Short::ORDER);
-  HS_EXPECT_TRUE(Missing::ARITY);
-  HS_EXPECT_FALSE(Missing::CONTRACTS);
-  HS_EXPECT_FALSE(Mistyped::CONTRACTS);
-  HS_EXPECT_TRUE(Foreign::CONTRACTS);
-  HS_EXPECT_FALSE(Foreign::BINDINGS);
-  HS_EXPECT_FALSE(NonEmpty::EMPTY_POLICIES);
-  HS_EXPECT_FALSE(WrongOrder::ORDER);
-  HS_EXPECT_FALSE(WrongReturn::RUN_RETURNS);
-  HS_EXPECT_FALSE(WrongCarrier::CARRIERS);
-  HS_EXPECT_FALSE(WrongTerminal::TERMINALS);
-  HS_EXPECT_FALSE(WrongApproximation::APPROXIMATIONS);
-  HS_EXPECT_FALSE(Rejected::EXTRA_VALIDATION);
-}
-
-inline void test_pullback_evaluation_order() {
-  const TestPipeline::Frame frame = TestPipeline::prepare(TestFrame{});
-  const Color4 result = TestPipeline::shade(Vector(1.0f, 2.0f, 3.0f), frame);
-  HS_EXPECT_EQ(frame.ctx.call_count, 6U);
-  for (size_t index = 0; index < frame.ctx.call_count; ++index)
-    HS_EXPECT_EQ(static_cast<uint8_t>(frame.ctx.calls[index]), index);
-  HS_EXPECT_EQ(result.color.r, 1);
-  HS_EXPECT_EQ(result.color.g, 2);
-  HS_EXPECT_EQ(result.color.b, 3);
-  HS_EXPECT_EQ(result.alpha, 0.5f);
-}
-
-inline void test_pullback_public_surface() {
-  using FlashSource =
-      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
-                              CoreSource>;
-  static_assert(TestPipeline::STAGE_COUNT == 6);
-  static_assert(std::is_same_v<TestPipeline::Binding, TestBinding>);
-  static_assert(std::is_same_v<TestPipeline::FrameState, TestFrame>);
-  static_assert(std::is_same_v<TestPipeline::stage_at<0>, OuterStage>);
-  static_assert(std::is_same_v<TestPipeline::stage_at<5>, ColorStage>);
-  static_assert(FlashSource::EMISSION ==
-                Pullback::CodeEmission::OUT_OF_LINE_FLASH);
-  static_assert(Pullback::Warp::MAX_POLAR_HARMONIC == 16);
-  static_assert(Pullback::Color::HueRotationLutView::SIZE == 1024);
-  static_assert(Pullback::Color::HueNoiseLutView::SIZE == 3456);
-  HS_EXPECT_TRUE(std::is_empty_v<TestPipeline>);
-}
-
-inline void test_pullback_no_instrumentation() {
-  const Pullback::NoInstrumentation::Token token =
-      Pullback::NoInstrumentation::mark();
-  Pullback::NoInstrumentation::span<Pullback::ProfileEvent::COLOR>(token);
-  HS_EXPECT_TRUE(std::is_empty_v<Pullback::NoInstrumentation>);
-  HS_EXPECT_TRUE(std::is_empty_v<Pullback::NoInstrumentation::Token>);
-}
+using CountingPipeline =
+    Pullback::Pipeline<CountingBinding,
+                       Pullback::Stage::Rotate<CountingOrientationState>,
+                       Pullback::Stage::Displace<CountingSurfacePolicy>,
+                       Pullback::Stage::Lens<CountingLensPolicy>,
+                       Pullback::Stage::Project<CountingProjectionPolicy>,
+                       Pullback::Stage::Warp<CountingWarpPolicy>,
+                       Pullback::Stage::Sample<CountingSourcePolicy>,
+                       Pullback::Stage::Transfer<Pullback::Transfer::Linear>,
+                       Pullback::Stage::Coverage<
+                           Pullback::Coverage::ValueCutout<CountingValueState>>,
+                       Pullback::Stage::Colorize<CountingColorPolicy>>;
 
 inline void test_pullback_counting_instrumentation() {
   CountingInstrumentation::count = 0;
   static_cast<void>(CountingPipeline::shade(
       Vector(1.0f, 2.0f, 3.0f), CountingPipeline::prepare(TestFrame{})));
-  constexpr std::array EXPECTED{Pullback::ProfileEvent::LENS,
-                                Pullback::ProfileEvent::SURFACE_NOISE,
+  constexpr std::array EXPECTED{Pullback::ProfileEvent::SURFACE_NOISE,
+                                Pullback::ProfileEvent::LENS,
                                 Pullback::ProfileEvent::PROJECTION,
-                                Pullback::ProfileEvent::MIRROR_TILE,
                                 Pullback::ProfileEvent::PLANAR_WARP,
                                 Pullback::ProfileEvent::SOURCE,
+                                Pullback::ProfileEvent::MATERIAL,
+                                Pullback::ProfileEvent::MATERIAL,
                                 Pullback::ProfileEvent::MATERIAL,
                                 Pullback::ProfileEvent::COLOR};
   HS_EXPECT_EQ(CountingInstrumentation::count, EXPECTED.size());
@@ -525,32 +597,82 @@ inline void test_pullback_counting_instrumentation() {
 }
 
 inline void test_pullback_stage_combinators() {
-  TestFrame frame;
-  const Pullback::ProjectionSample projected = CoreSurface::run(
-      Vector(1.0f, 2.0f, 3.0f), frame, CoreSurface::prepare(frame));
-  const Pullback::SourceInput warped =
-      CoreWarp::run(projected, frame, CoreWarp::prepare(frame));
-  HS_EXPECT_EQ(warped.warped.coords.re, 2.0f);
-  HS_EXPECT_EQ(warped.warped.coords.im, 4.0f);
-  HS_EXPECT_EQ(warped.warped.path_length, 5.0f);
-  HS_EXPECT_EQ(warped.projected.coords.re, 1.0f);
-  HS_EXPECT_EQ(warped.projected.coords.im, 2.0f);
+  CountingInstrumentation::count = 0;
+  const TestFrame frame;
 
-  const Color4 color = CorePipeline::shade(Vector(1.0f, 2.0f, 3.0f),
-                                           CorePipeline::prepare(frame));
-  HS_EXPECT_EQ(color.color.r, 9);
-  HS_EXPECT_EQ(color.color.g, 8);
-  HS_EXPECT_EQ(color.color.b, 7);
-  HS_EXPECT_EQ(color.alpha, 0.4f);
+  using BoundProject =
+      Pullback::Stage::Project<CountingProjectionPolicy>::Bind<CountingBinding>;
+  const Pullback::SphereSample view{Vector(1.0f, 2.0f, 3.0f), 0.5f};
+  const Pullback::PlaneSample projected =
+      BoundProject::run(view, frame, BoundProject::prepare(frame));
+  HS_EXPECT_EQ(projected.coords.re, 1.0f);
+  HS_EXPECT_EQ(projected.coords.im, 2.0f);
+  HS_EXPECT_EQ(projected.provenance.value_weight, 0.5f);
+  HS_EXPECT_EQ(projected.sphere.x, 1.0f);
+  HS_EXPECT_EQ(projected.sphere.z, 3.0f);
+  HS_EXPECT_EQ(projected.path_length, 0.5f);
+
+  using BoundWarp =
+      Pullback::Stage::Warp<CountingWarpPolicy>::Bind<CountingBinding>;
+  const Pullback::PlaneSample warped =
+      BoundWarp::run(projected, frame, BoundWarp::prepare(frame));
+  HS_EXPECT_EQ(warped.coords.re, 2.0f);
+  HS_EXPECT_EQ(warped.path_length, 3.5f);
+  HS_EXPECT_EQ(warped.provenance.value_weight,
+               projected.provenance.value_weight);
+  HS_EXPECT_EQ(warped.sphere.x, projected.sphere.x);
+
+  // Sample: weight scales the raw signed field, the ramp maps it into [0, 1],
+  // and the crossing's coverage multiplies the provenance domain coverage.
+  using BoundSample =
+      Pullback::Stage::Sample<CountingSourcePolicy>::Bind<CountingBinding>;
+  const Pullback::FieldSample sampled =
+      BoundSample::run(warped, frame, BoundSample::prepare(frame));
+  // raw = 2.0, weighted = 2.0 * 0.5 = 1.0, ramped = clamp((1 + 1) / 2) = 1.0
+  HS_EXPECT_EQ(sampled.value, 1.0f);
+  HS_EXPECT_EQ(sampled.coverage, 0.5f);
+  HS_EXPECT_EQ(sampled.sphere.x, warped.sphere.x);
+  HS_EXPECT_EQ(sampled.path_length, 3.5f);
+
+  using BoundTransfer = Pullback::Stage::Transfer<
+      Pullback::Transfer::Ridge>::Bind<CountingBinding>;
+  const Pullback::FieldSample transferred =
+      BoundTransfer::run(sampled, frame, BoundTransfer::prepare(frame));
+  HS_EXPECT_EQ(transferred.value, unit_bell(1.0f));
+  HS_EXPECT_EQ(transferred.coverage, sampled.coverage);
+
+  using BoundCoverage =
+      Pullback::Stage::Coverage<Pullback::Coverage::ValueCutout<
+          CountingValueState>>::Bind<CountingBinding>;
+  const Pullback::FieldSample cut =
+      BoundCoverage::run(sampled, frame, BoundCoverage::prepare(frame));
+  // value 1.0 is above the 0.25 threshold: the hard cut keeps full coverage.
+  HS_EXPECT_EQ(cut.coverage, sampled.coverage);
+
+  using BoundDisplace =
+      Pullback::Stage::Displace<CountingSurfacePolicy>::Bind<CountingBinding>;
+  const Pullback::SphereSample displaced =
+      BoundDisplace::run(view, frame, BoundDisplace::prepare(frame));
+  HS_EXPECT_EQ(displaced.dir.x, 1.0f);
+  HS_EXPECT_EQ(displaced.path_length, 1.0f);
 }
 
 inline void test_pullback_provider_contracts() {
-  static_assert(CoreOuter::PROVIDER_VALID);
+  static_assert(Pullback::descriptor_bindable<
+                Pullback::Stage::Rotate<CountingOrientationState>,
+                CountingBinding>());
   static_assert(
-      Pullback::Coverage::EdgeFade<ValueState>::PROVIDER_VALID<TestBinding>);
-  static_assert(!Pullback::Coverage::EdgeFade<
+      !Pullback::descriptor_bindable<
+          Pullback::Stage::Rotate<CountingOrientationState>, TestBinding>());
+  static_assert(Pullback::ProjectedCoverage::EdgeFade<
+                ValueState>::PROVIDER_VALID<TestBinding>);
+  static_assert(!Pullback::ProjectedCoverage::EdgeFade<
                 MalformedValueState>::PROVIDER_VALID<TestBinding>);
-  HS_EXPECT_TRUE(std::is_empty_v<OrientationState>);
+  static_assert(
+      Pullback::Coverage::ValueCutout<ValueState>::PROVIDER_VALID<TestBinding>);
+  static_assert(!Pullback::Coverage::ValueCutout<
+                MalformedValueState>::PROVIDER_VALID<TestBinding>);
+  HS_EXPECT_TRUE(std::is_empty_v<CountingOrientationState>);
   HS_EXPECT_TRUE(std::is_empty_v<ValueState>);
 }
 
@@ -587,17 +709,19 @@ inline void test_pullback_concrete_catalog() {
 
   const projections::ProjectionKernelResult kernel{
       Complex(1.0f, 2.0f), 3, 4, 5, 3.0f, 6, 7, 8};
-  const Pullback::ProjectionSample projected =
+  const Pullback::ProjectionResult projected =
       Pullback::Projection::from_kernel(kernel, 2.0f);
   HS_EXPECT_EQ(projected.coords.re, 2.0f);
   HS_EXPECT_EQ(projected.coords.im, 4.0f);
-  HS_EXPECT_EQ(projected.fade_edge_distance, 6.0f);
-  HS_EXPECT_EQ(projected.region_id, 3);
-  HS_EXPECT_EQ(projected.component_id, 4);
-  HS_EXPECT_EQ(projected.boundary_flags, 5);
-  HS_EXPECT_EQ(projected.flags, 6);
-  HS_EXPECT_EQ(projected.traits, 7);
-  HS_EXPECT_EQ(projected.edge_class, 8);
+  HS_EXPECT_EQ(projected.provenance.fade_edge_distance, 6.0f);
+  HS_EXPECT_EQ(projected.provenance.region_id, 3);
+  HS_EXPECT_EQ(projected.provenance.component_id, 4);
+  HS_EXPECT_EQ(projected.provenance.boundary_flags, 5);
+  HS_EXPECT_EQ(projected.provenance.flags, 6);
+  HS_EXPECT_EQ(projected.provenance.traits, 7);
+  HS_EXPECT_EQ(projected.provenance.edge_class, 8);
+  HS_EXPECT_EQ(projected.provenance.value_weight, 1.0f);
+  HS_EXPECT_EQ(projected.provenance.domain_coverage, 1.0f);
 }
 
 struct AddLens : Pullback::ExactPolicy {
@@ -612,14 +736,42 @@ struct ScaleLens : Pullback::ExactPolicy {
   }
 };
 
-inline void test_pullback_lens_sequence() {
-  using Sequence = Pullback::Lens::Sequence<AddLens, ScaleLens>;
-  static_assert(std::is_empty_v<Sequence>);
-  static_assert(!Sequence::APPROXIMATE);
-  const Vector result = Sequence::apply(Vector(3.0f, 2.0f, 1.0f), TestFrame{});
-  HS_EXPECT_EQ(result.x, 8.0f);
-  HS_EXPECT_EQ(result.y, 2.0f);
-  HS_EXPECT_EQ(result.z, 1.0f);
+inline void test_pullback_lens_stack() {
+  // Consecutive Lens stages are the composition mechanism.
+  using BoundAdd = Pullback::Stage::Lens<AddLens>::Bind<TestBinding>;
+  using BoundScale = Pullback::Stage::Lens<ScaleLens>::Bind<TestBinding>;
+  const TestFrame frame;
+  const Pullback::SphereSample stacked = BoundScale::run(
+      BoundAdd::run({Vector(3.0f, 2.0f, 1.0f), 0.0f}, frame, {}), frame, {});
+  HS_EXPECT_EQ(stacked.dir.x, 8.0f);
+  HS_EXPECT_EQ(stacked.dir.y, 2.0f);
+  HS_EXPECT_EQ(stacked.dir.z, 1.0f);
+}
+
+struct SkyGradientStage
+    : Pullback::Stage::Contract<SkyGradientStage, Pullback::SphereSample,
+                                Color4> {
+  using Policies = std::tuple<>;
+
+  template <typename Binding>
+  static Color4 run(const Pullback::SphereSample &input, const TestFrame &,
+                    const Pullback::NoPrepared &) {
+    return Color4(Pixel(4, 5, 6), input.dir.x);
+  }
+};
+
+inline void test_pullback_rank_skip_crossing() {
+  // A SPHERE -> COLOR crossing is admitted by the rules alone: a one-stage
+  // chain over a consumer-authored descriptor validates and runs.
+  using SkyPipeline = Pullback::Pipeline<TestBinding, SkyGradientStage>;
+  static_assert(SkyPipeline::STAGE_COUNT == 1);
+  static_assert(SkyPipeline::Validation::MONOTONE);
+  static_assert(SkyPipeline::Validation::ENTRY);
+  static_assert(SkyPipeline::Validation::EXIT);
+  const SkyPipeline::Frame frame = SkyPipeline::prepare(TestFrame{});
+  const Color4 sky = SkyPipeline::shade(Vector(0.5f, 0.0f, 0.0f), frame);
+  HS_EXPECT_EQ(sky.color.g, 5);
+  HS_EXPECT_EQ(sky.alpha, 0.5f);
 }
 
 inline int run_pullback_tests() {
@@ -627,13 +779,15 @@ inline int run_pullback_tests() {
   test_pullback_carrier_contract();
   test_pullback_validation_predicates();
   test_pullback_evaluation_order();
+  test_pullback_placement_transparency();
   test_pullback_public_surface();
   test_pullback_no_instrumentation();
   test_pullback_counting_instrumentation();
   test_pullback_stage_combinators();
   test_pullback_provider_contracts();
   test_pullback_concrete_catalog();
-  test_pullback_lens_sequence();
+  test_pullback_lens_stack();
+  test_pullback_rank_skip_crossing();
   return fixture.result();
 }
 
