@@ -64,6 +64,7 @@ target_compile_definitions(hs_test_whitebox INTERFACE
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
   HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=1
+  HS_ENABLE_CHAIN_INTERPRETER=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
 
 add_library(hs_test_support INTERFACE)
@@ -74,6 +75,7 @@ target_compile_definitions(hs_test_support INTERFACE
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
   HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=1
+  HS_ENABLE_CHAIN_INTERPRETER=1
   HS_ENABLE_STRUCTURAL_AUDITS=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
 
@@ -102,7 +104,8 @@ add_executable(run_tests
 # the hot loop). The Face distance-oracle test reads exact_hits to tell culled
 # samples from evaluated ones, so the suite needs them live. See
 # core/platform/platform.h (HS_SCAN_METRIC) and core/render/sdf.h Face::distance.
-target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS)
+target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS
+  "HS_SHADER_CHAIN_CATALOG_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json\"")
 target_link_libraries(run_tests PRIVATE hs_test_support)
 
 # Census of the engine's HS_CHECK sites, so the death harness can print how
@@ -265,7 +268,7 @@ set(_hs_test_modules
     conway_soak opchain_probe opchain_arena_survey hankin geometry spherical_field
     mesh solids
     reaction_graph color palettes easing_waves interpolate platform profiling
-    pullback filter
+    pullback shader_chain filter
     plot_scan canvas
     scan mesh_raster transformers noise noise_field projections
     animation effects
@@ -410,6 +413,7 @@ target_compile_definitions(pullback_capture_native PRIVATE
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
   HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=0
+  HS_ENABLE_CHAIN_INTERPRETER=0
   HS_ENABLE_EFFECT_CONTROL_API=1)
 target_link_libraries(pullback_capture_native PRIVATE hs_host_storage)
 _hs_warnings(pullback_capture_native)
