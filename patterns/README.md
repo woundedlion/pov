@@ -1,9 +1,10 @@
 # Shader documents
 
 Shader studies use `*.shader.json` as their editable source. The authoring
-backend validates the version 1 linear pullback graph, derives a canonical
-effect semantic descriptor, and computes its SHA-256 digest without including
-preset values or display metadata.
+backend validates the version 2 chain document against the operator catalog
+(`scripts/engine_catalog.json`), derives a canonical effect semantic
+descriptor, and computes its SHA-256 digest without including preset values or
+display metadata.
 
 Validate a document:
 
@@ -23,15 +24,18 @@ Classify it against an effect registry and capability profile:
 node scripts/shader_workbench_cli.mjs classify <document> <registry> <profile>
 ```
 
-Version 1 graphs contain the six compiled roles in order: `outer_camera`,
-`surface_project`, `planar_warp`, `source`, `material`, and `color`. Source
-labels and declaration order do not enter semantic identity. Stage policies,
-parameter schemas, clocks, preparation, resources, serialization,
-approximation, and handoff do.
+Version 2 documents encode the descriptor as an ordered chain of
+`{label, operator}` entries validated against the operator catalog. Labels and
+chain order are canonical and digest-bearing, structural variation is an
+operator id or a topology enum8 parameter, and every parameter id binds
+`<label>.<field>` against the catalog's operator schema. A `schema_version` 1
+six-role graph document expands through `expandV1Document` before validation —
+the single code path both generations share.
 
-Scalar parameters use binary32 storage. Discrete color mappings use enum8
-storage with `MIXED_ENUM` interpolation, which carries both mapping endpoints
-and a blend weight through the shared color stage. Preset records provide one
+Scalar parameters use binary32 storage. Discrete choices — color mappings and
+the topology fields v1 expansion bakes out — use enum8 storage with
+`MIXED_ENUM` interpolation, which carries both endpoints and a blend weight
+through a transition. Preset records provide one
 value for every parameter. Transition edges name a descriptor-owned path policy
 and a bank-owned easing and positive duration.
 
@@ -65,5 +69,6 @@ specialization. A document maps to its effect by `effect_id` == the effect's
 | `kaleido_wave` | `KaleidoWave` |
 | `mobius_grid` | `MobiusGrid` |
 | `prism_lattice` | `PrismLattice` |
+| `prism_spiral` | `PrismSpiral` |
 | `signal_weave` | `SignalWeave` |
 | `vector_facets` | `VectorFacets` |

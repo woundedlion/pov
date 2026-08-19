@@ -216,6 +216,7 @@ if(EMSCRIPTEN)
     install(FILES
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/shader_workbench.mjs"
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sha256.mjs"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/engine_catalog.json"
             DESTINATION "${DAYDREAM_DIR}/shader")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/patterns/"
             DESTINATION "${DAYDREAM_DIR}/shader/patterns"

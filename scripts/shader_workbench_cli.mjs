@@ -19,8 +19,10 @@ if (!command || !documentPath) {
   usage();
   process.exitCode = 2;
 } else {
+  const catalog = JSON.parse(await readFile(
+    new URL('./engine_catalog.json', import.meta.url), 'utf8'));
   const source = await readFile(documentPath, 'utf8');
-  const compiled = compileShaderDocument(source);
+  const compiled = compileShaderDocument(source, { catalog });
   if (command === 'check') {
     console.log(JSON.stringify({
       status: compiled.status,

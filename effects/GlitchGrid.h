@@ -29,9 +29,9 @@ public:
   using Params = GlitchGridParams;
   static constexpr std::string_view EFFECT_ID = "glitch-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "082daf2081c9c9f3a59c35d9d8c1faa4c531c23f1da4b6ff2e04ea9d66eed0a7";
+      "d3b4436d2e86d83215e83b2e3521d48724e771afcb512740b3c227600c55284c";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "80b3716f38910adb47b3e7c15370d9132083dc94bc549556c1fb540dbf420320";
+      "3ef61a8a60af05258abcc97e7e0eb5955f89c7e23942a86652a23899a6e76988";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"folded-glitch"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

@@ -30,9 +30,9 @@ public:
   using Params = ContourLatticeParams;
   static constexpr std::string_view EFFECT_ID = "contour-lattice";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "910ea8323381223713be2b44638140a13b27bb586207360c72a4ec793690a274";
+      "38b224f7813e6154c8bde2fae9c581594885a415ad3091c4ad1071b26b9839e6";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "a2d9aaeaee8d0b3e70ea4df4fb5d17d42df384ebf540d322e581c60726cea568";
+      "1def8066c0d6c1e1e262b1ddb1aee4e49bcee572923775433b713298f6ba6fcd";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"affine-contour"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

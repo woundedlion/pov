@@ -440,10 +440,11 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── effect_roster.mjs       Shared HS_EFFECT_LIST / REGISTER_EFFECT parser for the roster tools
 │   ├── effect_roster.test.mjs  Node unit test for both roster parsers
 │   ├── check_effect_roster.mjs Cross-checks HS_EFFECT_LIST against the REGISTER_EFFECT calls (CI)
-│   ├── shader_workbench.mjs    Fixed-pipeline document validation and canonical identity
+│   ├── shader_workbench.mjs    Chain-document validation and canonical identity (daydream mirror)
 │   ├── shader_workbench_cli.mjs Command-line validator for shader workbench documents
 │   ├── shader_workbench.test.mjs Node contract tests for the shader workbench
 │   ├── generate_promoted_shader_documents.mjs Generates canonical promoted-effect documents
+│   ├── engine_catalog.json     Operator catalog behind chain validation (daydream mirror)
 │   ├── sha256.mjs              Shared SHA-256 implementation for shader documents
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
 │   ├── wasm_smoke_predicates.mjs Module-free smoke decisions: dark band, stack creep budget, param zip
@@ -595,6 +596,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── browser-smoke.mjs       Headless-Chrome smoke for every manifest-served page
 │   ├── count-assertions.mjs    NODE_OPTIONS shim counting each test file's node:assert calls
 │   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
+│   ├── generate-shader-v2-documents.mjs  Regenerates the v2 pattern documents and digest-migration table from the v1 fixtures
 │   ├── record-module-loads.mjs NODE_OPTIONS shim recording loaded test modules
 │   ├── report-cases.mjs        node:test reporter tallying per-file case and skip counts
 │   ├── require-tests.mjs       `pretest` guard: fails below the committed test-file floor
@@ -2531,7 +2533,7 @@ The standalone [Shader workbench](https://github.com/woundedlion/daydream/blob/m
 
 Shipping composed effects are ordinary concrete `Effect` types. Each names one compile-time `Pullback::Pipeline`, a compact parameter and prepared-frame type, immutable stable preset IDs, and only the resources its graph uses. Its raster loop calls `Derived::shade(view, frame)` directly; there is no per-pixel function-pointer dispatch, topology lookup, family object, or universal Shader parameter block. The shared `Pullback::ComposedEffect` base contains only lifecycle work that is genuinely common: clocks, preset interpolation, parameter registration, palette/LUT ownership, narrow frame preparation, and the typed scan loop; its preset choreography and snapshot machinery come from the engine-level `ChoreographedEffect`. Generated palette evaluation remains in the shared `GenerativePalette` color stage rather than being copied into each effect.
 
-Each editable source document lives under `patterns/*.shader.json`. The browser validates and canonicalizes a document before changing the live engine, matches its exact descriptor digest to a composed effect, and selects presets by immutable ID. Open/save preserves exhaustive graph, parameter, resource, transition, and choreography data. Unknown or invalid semantics leave the current preview untouched. The migration manifest maps all 23 retained Shader preset positions to stable effect/preset identities; preset 4 is intentionally retired.
+Each editable source document lives under `patterns/*.shader.json`. The browser validates and canonicalizes a document before changing the live engine, matches its exact descriptor digest to a composed effect, and selects presets by immutable ID. Open/save preserves exhaustive chain, parameter, transition, and choreography data. Unknown or invalid semantics leave the current preview untouched. The migration manifest maps all 23 retained Shader preset positions to stable effect/preset identities; preset 4 is intentionally retired.
 
 The shader is a *pullback*: it starts at a visible sphere point and walks backward through a chain of stages over four ranked carrier families — Sphere, Plane, Field, Color. A chain is any stage sequence that is non-decreasing in family rank with agreeing adjacent carriers, entering at `SphereSample` and exiting at `Color4`; each family boundary is crossed at most once. Both Shader preview and concrete effects call the same public kernels in `core/render/pullback.h`. Palette mapping is continuous preset state: a transition carries both mapping endpoints and interpolates their coordinates before the single palette sample, so changing Cup/Bell/Linear/Reverse does not require another pipeline or effect.
 

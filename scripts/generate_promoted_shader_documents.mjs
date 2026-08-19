@@ -1,6 +1,10 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  compileShaderDocument,
+  exportShaderDocumentJson,
+} from './shader_workbench.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TAU = Math.fround(Math.PI * 2);
@@ -186,11 +190,12 @@ const bank = (spec, base) => {
     display_name: preset.name,
     values: { ...base, ...preset.values },
   }));
-  const edges = presets.length < 2 ? [] : presets.map((preset, index) => ({
-    from: preset.preset_id,
-    to: presets[(index + 1) % presets.length].preset_id,
-    path_policy: 'parallel', easing: 'EASE_IN_OUT_SIN', duration: 480,
-  }));
+  const edges = presets.length < 2 || spec.presetEdges === false ? []
+    : presets.map((preset, index) => ({
+      from: preset.preset_id,
+      to: presets[(index + 1) % presets.length].preset_id,
+      path_policy: 'parallel', easing: 'EASE_IN_OUT_SIN', duration: 480,
+    }));
   return {
     schema_version: 1, presets, edges,
     absent_edge_fallback: {
@@ -386,16 +391,26 @@ const effects = [
     projection: 'stereographic', lens: 'hexagonal-prism-kaleidoscope',
     outer: 'identity', outerKey: 'none', inner: 'mirror-tile', innerKey: 'mirror',
     transfer: 'linear', coverage: 'projection-squared', palette: 'analogous', hue: 'noise',
-    brightness: 'none', animatedProjection: true,
+    brightness: 'none', animatedProjection: true, presetEdges: false,
     description: 'A twin wave folded through a hexagonal prism.',
-    presets: [{ id: 'hex-twin-wave', name: 'Hex Twin Wave', values: {
-      'pattern-freq': 3.881, speed: 0.128598228, drift: 0.8,
-      'source-angle-speed': 0.027, 'pole-fade': 4.971,
-      'projection-wander': 1, 'camera-wander': 1,
-      'hue-shift-amount': 0.226, 'hue-noise-scale': 1.47215629,
-      'hue-noise-speed': 0.000138, 'palette-chroma': 1,
-      'mapping-frequency': 1.341, 'mapping-phase': -1, 'palette-mapping': 'bell',
-    } }],
+    presets: [
+      { id: 'hex-twin-wave', name: 'Hex Twin Wave', values: {
+        'pattern-freq': 3.881, speed: 0.128598228, drift: 0.8,
+        'source-angle-speed': 0.027, 'pole-fade': 4.971,
+        'projection-wander': 1, 'camera-wander': 1,
+        'hue-shift-amount': 0.226, 'hue-noise-scale': 1.47215629,
+        'hue-noise-speed': 0.000138, 'palette-chroma': 1,
+        'mapping-frequency': 1.341, 'mapping-phase': -1, 'palette-mapping': 'bell',
+      } },
+      { id: 'hex-twin-wave-alt', name: 'Hex Twin Wave Alt', values: {
+        'pattern-freq': 3.881, speed: 0.12859823, drift: 0.8,
+        'source-angle-speed': 0.027, 'pole-fade': 4.971,
+        'projection-wander': 1, 'camera-wander': 1,
+        'hue-shift-amount': 0.226, 'hue-noise-scale': 1.4721563,
+        'hue-noise-speed': 0.000138, 'palette-chroma': 1,
+        'mapping-frequency': 2, 'mapping-phase': -1, 'palette-mapping': 'bell',
+      } },
+    ],
   },
   {
     id: 'equator-grid', display: 'Equator Grid', source: 'grid', sourceKey: 'grid',
@@ -472,7 +487,18 @@ const effects = [
   },
 ];
 
+// The specs above stay in the v1 six-role shape; compileShaderDocument runs
+// them through expandV1Document against the operator catalog — the single code
+// path every schema_version 1 document shares — so the committed output is the
+// expansion's canonical v2 export.
+const catalog = JSON.parse(
+  await readFile(resolve(ROOT, 'scripts', 'engine_catalog.json'), 'utf8'));
 for (const spec of effects) {
+  const compiled = compileShaderDocument(documentFor(spec), { catalog });
+  if (compiled.status !== 'VALID') {
+    console.error(`${spec.id}:`, JSON.stringify(compiled.diagnostics, null, 2));
+    process.exit(1);
+  }
   const output = resolve(ROOT, 'patterns', `${spec.id.replaceAll('-', '_')}.shader.json`);
-  await writeFile(output, `${JSON.stringify(documentFor(spec), null, 2)}\n`, 'utf8');
+  await writeFile(output, exportShaderDocumentJson(compiled.document), 'utf8');
 }
