@@ -564,7 +564,11 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── shader.html             Pullback Shader authoring workbench
 │   ├── shader.css              Shader workbench layout and control styling
 │   ├── shader_documents.js     Document loading, validation, matching, and engine application
-│   ├── shader_workbench_nav.js Workbench stage-folder navigation
+│   ├── chain_apply.js          Applies a compiled chain document: setShaderChain, then the preset values
+│   ├── chain_document_store.js v2 chain document store: span replacement, legality, reconciliation, undo
+│   ├── chain_strip.js          Pipeline strip: the chain as stage chips banded by carrier
+│   ├── chain_library.js        Stage library under the strip: the whole catalog as drag sources
+│   ├── chain_dock.js           Collapsible parameter dock, plus the topology-deactivated field predicate
 │   ├── solids.html             Conway operator playground (uses MeshOps bridge)
 │   ├── shared.js               Three.js scene boilerplate for the 3D tool pages
 │   ├── banner.js               Dependency-free page + fatal-error banners (no Three.js)
@@ -2574,7 +2578,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `kaleido-wave` | `KaleidoWave` | 1 | 1 |
 | `alien-ocean` | `AlienOcean` | 1 | 2 |
 | `glitch-grid` | `GlitchGrid` | 1 | 3 |
-| `facet-wave` | `FacetWave` | 1 | 5 |
+| `facet-wave` | `FacetWave` | 2 | 5, plus `cup-hue` |
 | `contour-lattice` | `ContourLattice` | 1 | 6 |
 | `curl-lattice` | `CurlLattice` | 2 | 7–8 |
 | `prism-lattice` | `PrismLattice` | 1 | 9 |
