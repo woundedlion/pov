@@ -51,10 +51,10 @@ public:
   /// `patterns/curl_lattice.shader.json`; the browser editor matches it to
   /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "504e5dc75bbd656d36b94b2752c0b6e3166ce80221f9b63d63127967323c96f8";
+      "f4cc0ac26c906a92604b7d6d308411d94d9197633b7ac00ace9b4db5dd0d0ef5";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "9b4b0152cd159b90bd3663505f53c8b6bdbcce846a37594135eff1e46aa8eaa3";
+      "97899ba2642be97210207f622843740f45b73b9b3546f808c7c883327b378636";
   /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
                                                               "dense-curl"};

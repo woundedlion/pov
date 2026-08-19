@@ -29,9 +29,9 @@ public:
   using Params = KaleidoWaveParams;
   static constexpr std::string_view EFFECT_ID = "kaleido-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "605c55957f751d7baa43cd24ecf9d29ad57ff579657add5cea44e43b1214691e";
+      "a2fa9dd816a24f76242c6614bea3c7b74f768c3a775398ee63daae25da97b292";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "3ea995834789f58dc5f71c3000fa7c94a3ff864c2e38c8ef8b2c3091dfe54a3f";
+      "262b8f7bc132ecbf75064196f7f0971c28a212f69682f5fd856aab71765fc92d";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"twin-wave"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

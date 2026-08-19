@@ -29,9 +29,9 @@ public:
   using Params = FacetWaveParams;
   static constexpr std::string_view EFFECT_ID = "facet-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "ee241e340b3f0133d2acc8d6f7b2f6c6926e7132127349035c1d2321323d4ae3";
+      "1a87734c2e122bec73e0f3fed5cecad279e5d441354d1a97ff19cdcaac78a8e3";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "8c9a7d04c494ead43710bda0ad354acbf02e4d91279efc6e21469e66057060b0";
+      "b655e7940916d86f06e30ea5344b246d472aa7fdbf5d4adacbf1936af0cead2c";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"wave-mirror"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

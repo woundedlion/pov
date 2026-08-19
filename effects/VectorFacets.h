@@ -30,9 +30,9 @@ public:
   using Params = VectorFacetsParams;
   static constexpr std::string_view EFFECT_ID = "vector-facets";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "97a8dd884898f8397325ee1b8fd3aa10e0cb1ad81a1a601d75f59d9709f1b161";
+      "427d1301321002d21596847a73057cd9661c915d9bda361196e39d3aa398b922";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "240f9def2290da2810045910f102f68ae284368ae6fd8607736b6aed4b501d54";
+      "fbafc54e0d5e87962f8763c86ca321acfc1c27a6ae4b0964786d2a9b1dc6314a";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"vector-mirror"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

@@ -28,9 +28,9 @@ public:
   using Params = HexWaveParams;
   static constexpr std::string_view EFFECT_ID = "hex-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "7c17e826920d96ebe397cd7939bbcc0a31bc431b6ff6545d99472a280ba5cbff";
+      "bdfbc95d955407ab65e712263b5beb11182d922a27a78cec5ea2b9aa2167c86a";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "56aeca56cdb7e188574f19cf47a3f36b9c76fd2baffbf3e2a04dda0405ef7cef";
+      "862e4ded04966682973bd21e47a8af1fdc08b0e007838b42ff96fc116ec33b4c";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "hex-twin-wave", "hex-twin-wave-alt"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
