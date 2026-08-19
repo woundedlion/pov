@@ -12,6 +12,7 @@
 #include "render/pullback/operator_model.h"
 #include "render/pullback/operators_common.h"
 #include "render/pullback/operators_sphere.h"
+#include "render/pullback/operators_warp.h"
 #include "render/pullback/projection.h"
 #include "render/pullback/source.h"
 #include "render/pullback/stage.h"
