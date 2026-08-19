@@ -20,6 +20,7 @@ namespace Lens {
 struct NoLensParams {
   static constexpr std::array<Field<NoLensParams>, 0> FIELDS{};
 };
+static_assert(field_ids_unique<NoLensParams>());
 /** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
 struct MobiusLensParams {
   /** Mobius coefficients; the default is the identity map. */

@@ -42,10 +42,11 @@ struct NoWarpParams {
   float speed = 0.0f; /**< Per-frame advance of the slot's phase. */
 
   static constexpr auto FIELDS = std::array{
-      Field<NoWarpParams>{&NoWarpParams::speed, nullptr, -0.02f, 0.02f,
+      Field<NoWarpParams>{"speed", &NoWarpParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<NoWarpParams>());
 
 /**
  * @brief Warp parameters for the mirrored tiling
@@ -61,20 +62,22 @@ struct MirrorParams {
   float offset_y = 0.0f; /**< Pre-fold translation along y; does not scroll. */
 
   static constexpr auto FIELDS = std::array{
-      Field<MirrorParams>{&MirrorParams::speed, nullptr, -0.02f, 0.02f,
+      Field<MirrorParams>{"speed", &MirrorParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
-      Field<MirrorParams>{&MirrorParams::rotation, "Mirror Rotation", 0.0f,
-                          TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
-      Field<MirrorParams>{&MirrorParams::cell_x, "Mirror Cell X", 1.0f / 64.0f,
-                          8.0f, FieldCurve::LOG_POSITIVE},
-      Field<MirrorParams>{&MirrorParams::cell_y, "Mirror Cell Y", 1.0f / 64.0f,
-                          8.0f, FieldCurve::LOG_POSITIVE},
-      Field<MirrorParams>{&MirrorParams::offset_x, "Mirror Offset X", -8.0f,
-                          8.0f, FieldCurve::LERP},
-      Field<MirrorParams>{&MirrorParams::offset_y, "Mirror Offset Y", -8.0f,
-                          8.0f, FieldCurve::LERP},
+      Field<MirrorParams>{"rotation", &MirrorParams::rotation,
+                          "Mirror Rotation", 0.0f, TWO_PI_F,
+                          FieldCurve::SHORTEST_PERIODIC},
+      Field<MirrorParams>{"cell-x", &MirrorParams::cell_x, "Mirror Cell X",
+                          1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE},
+      Field<MirrorParams>{"cell-y", &MirrorParams::cell_y, "Mirror Cell Y",
+                          1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE},
+      Field<MirrorParams>{"offset-x", &MirrorParams::offset_x,
+                          "Mirror Offset X", -8.0f, 8.0f, FieldCurve::LERP},
+      Field<MirrorParams>{"offset-y", &MirrorParams::offset_y,
+                          "Mirror Offset Y", -8.0f, 8.0f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<MirrorParams>());
 
 /** @brief Warp parameters for the sine shear (Pullback::Warp::WaveShear). */
 struct WaveShearParams {
@@ -86,18 +89,21 @@ struct WaveShearParams {
                                  EdgeFadeEnvelope. */
 
   static constexpr auto FIELDS = std::array{
-      Field<WaveShearParams>{&WaveShearParams::speed, nullptr, -0.02f, 0.02f,
-                             FieldCurve::LERP},
-      Field<WaveShearParams>{&WaveShearParams::strength, "Warp Strength",
-                             -30.0f, 30.0f, FieldCurve::LERP},
-      Field<WaveShearParams>{&WaveShearParams::frequency, "Warp Frequency",
-                             0.01f, 32.0f, FieldCurve::LOG_POSITIVE},
-      Field<WaveShearParams>{&WaveShearParams::field_angle, "Warp Field Angle",
-                             0.0f, TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
-      Field<WaveShearParams>{&WaveShearParams::edge_width, nullptr, 0.0f, 1.0f,
-                             FieldCurve::LERP},
+      Field<WaveShearParams>{"speed", &WaveShearParams::speed, nullptr, -0.02f,
+                             0.02f, FieldCurve::LERP},
+      Field<WaveShearParams>{"strength", &WaveShearParams::strength,
+                             "Warp Strength", -30.0f, 30.0f, FieldCurve::LERP},
+      Field<WaveShearParams>{"frequency", &WaveShearParams::frequency,
+                             "Warp Frequency", 0.01f, 32.0f,
+                             FieldCurve::LOG_POSITIVE},
+      Field<WaveShearParams>{"field-angle", &WaveShearParams::field_angle,
+                             "Warp Field Angle", 0.0f, TWO_PI_F,
+                             FieldCurve::SHORTEST_PERIODIC},
+      Field<WaveShearParams>{"edge-width", &WaveShearParams::edge_width,
+                             nullptr, 0.0f, 1.0f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<WaveShearParams>());
 
 /**
  * @brief Warp parameters for the noise-vector displacement
@@ -114,19 +120,21 @@ struct VectorNoiseParams {
                                   EdgeFadeEnvelope. */
 
   static constexpr auto FIELDS = std::array{
-      Field<VectorNoiseParams>{&VectorNoiseParams::speed, nullptr, -0.02f,
-                               0.02f, FieldCurve::LERP},
-      Field<VectorNoiseParams>{&VectorNoiseParams::strength, "Warp Strength",
-                               -30.0f, 30.0f, FieldCurve::LERP},
-      Field<VectorNoiseParams>{&VectorNoiseParams::scale, "Warp Scale",
+      Field<VectorNoiseParams>{"speed", &VectorNoiseParams::speed, nullptr,
+                               -0.02f, 0.02f, FieldCurve::LERP},
+      Field<VectorNoiseParams>{"strength", &VectorNoiseParams::strength,
+                               "Warp Strength", -30.0f, 30.0f,
+                               FieldCurve::LERP},
+      Field<VectorNoiseParams>{"scale", &VectorNoiseParams::scale, "Warp Scale",
                                1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
-      Field<VectorNoiseParams>{&VectorNoiseParams::vector_angle,
+      Field<VectorNoiseParams>{"vector-angle", &VectorNoiseParams::vector_angle,
                                "Warp Vector Angle", 0.0f, TWO_PI_F,
                                FieldCurve::SHORTEST_PERIODIC},
-      Field<VectorNoiseParams>{&VectorNoiseParams::edge_width, nullptr, 0.0f,
-                               1.0f, FieldCurve::LERP},
+      Field<VectorNoiseParams>{"edge-width", &VectorNoiseParams::edge_width,
+                               nullptr, 0.0f, 1.0f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<VectorNoiseParams>());
 
 /**
  * @brief Warp parameters for the affine frame change
@@ -147,22 +155,26 @@ struct AffineParams {
   float shear = 0.0f;   /**< Shear, oscillated over the phase cycle. */
 
   static constexpr auto FIELDS = std::array{
-      Field<AffineParams>{&AffineParams::speed, nullptr, -0.02f, 0.02f,
+      Field<AffineParams>{"speed", &AffineParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
-      Field<AffineParams>{&AffineParams::rotation_rate, "Affine Rotation Rate",
-                          -TWO_PI_F, TWO_PI_F, FieldCurve::LERP},
-      Field<AffineParams>{&AffineParams::translation_x, "Affine Translation X",
-                          -4.0f, 4.0f, FieldCurve::LERP},
-      Field<AffineParams>{&AffineParams::translation_y, "Affine Translation Y",
-                          -4.0f, 4.0f, FieldCurve::LERP},
-      Field<AffineParams>{&AffineParams::scale_x, "Affine Scale X",
-                          1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
-      Field<AffineParams>{&AffineParams::scale_y, "Affine Scale Y",
-                          1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
-      Field<AffineParams>{&AffineParams::shear, "Affine Shear", -4.0f, 4.0f,
+      Field<AffineParams>{"rotation-rate", &AffineParams::rotation_rate,
+                          "Affine Rotation Rate", -TWO_PI_F, TWO_PI_F,
                           FieldCurve::LERP},
+      Field<AffineParams>{"translation-x", &AffineParams::translation_x,
+                          "Affine Translation X", -4.0f, 4.0f,
+                          FieldCurve::LERP},
+      Field<AffineParams>{"translation-y", &AffineParams::translation_y,
+                          "Affine Translation Y", -4.0f, 4.0f,
+                          FieldCurve::LERP},
+      Field<AffineParams>{"scale-x", &AffineParams::scale_x, "Affine Scale X",
+                          1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
+      Field<AffineParams>{"scale-y", &AffineParams::scale_y, "Affine Scale Y",
+                          1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
+      Field<AffineParams>{"shear", &AffineParams::shear, "Affine Shear", -4.0f,
+                          4.0f, FieldCurve::LERP},
   };
 };
+static_assert(field_ids_unique<AffineParams>());
 
 /** @brief Warp parameters for the polar chart (Pullback::Warp::PolarChart). */
 struct PolarParams {
@@ -173,16 +185,20 @@ struct PolarParams {
   float angular_phase = 0.0f; /**< Offset added to the angular coordinate. */
 
   static constexpr auto FIELDS = std::array{
-      Field<PolarParams>{&PolarParams::speed, nullptr, -0.02f, 0.02f,
+      Field<PolarParams>{"speed", &PolarParams::speed, nullptr, -0.02f, 0.02f,
                          FieldCurve::LERP},
-      Field<PolarParams>{&PolarParams::radial_scale, "Polar Radial Scale",
-                         1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
-      Field<PolarParams>{&PolarParams::radial_phase, "Polar Radial Phase",
-                         -TWO_PI_F, TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
-      Field<PolarParams>{&PolarParams::angular_phase, "Polar Angular Phase",
-                         -TWO_PI_F, TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
+      Field<PolarParams>{"radial-scale", &PolarParams::radial_scale,
+                         "Polar Radial Scale", 1.0f / 64.0f, 64.0f,
+                         FieldCurve::LOG_POSITIVE},
+      Field<PolarParams>{"radial-phase", &PolarParams::radial_phase,
+                         "Polar Radial Phase", -TWO_PI_F, TWO_PI_F,
+                         FieldCurve::SHORTEST_PERIODIC},
+      Field<PolarParams>{"angular-phase", &PolarParams::angular_phase,
+                         "Polar Angular Phase", -TWO_PI_F, TWO_PI_F,
+                         FieldCurve::SHORTEST_PERIODIC},
   };
 };
+static_assert(field_ids_unique<PolarParams>());
 
 /** @brief Affine warp coefficients, with the phase oscillation applied. */
 struct PreparedAffine {
