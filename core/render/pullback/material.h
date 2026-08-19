@@ -77,6 +77,21 @@ struct Ridge : ExactPolicy {
   }
 };
 
+/** @brief Shared iso-band kernel: a unit plateau of half-width @p width
+    around @p level, falling to zero across a second half-width. */
+__attribute__((always_inline)) inline float
+iso_contour(float value, float level, float width) {
+  const float distance = fabsf(value - level);
+  return 1.0f - Detail::smooth_ramp(width, 2.0f * width, distance);
+}
+
+/** @brief Shared banding kernel: @p band_count cosine bands over the unit
+    value, offset by @p band_phase. */
+__attribute__((always_inline)) inline float
+smooth_bands(float value, float band_count, float band_phase) {
+  return 0.5f - 0.5f * cosf(TWO_PI_F * band_count * value + band_phase);
+}
+
 template <typename State> struct IsoContour : ExactPolicy {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
@@ -89,9 +104,7 @@ template <typename State> struct IsoContour : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &frame) {
-    const float width = State::iso_width(frame);
-    const float distance = fabsf(value - State::iso_level(frame));
-    return 1.0f - Detail::smooth_ramp(width, 2.0f * width, distance);
+    return iso_contour(value, State::iso_level(frame), State::iso_width(frame));
   }
 };
 
@@ -107,8 +120,8 @@ template <typename State> struct SmoothBands : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &frame) {
-    return 0.5f - 0.5f * cosf(TWO_PI_F * State::band_count(frame) * value +
-                              State::band_phase(frame));
+    return smooth_bands(value, State::band_count(frame),
+                        State::band_phase(frame));
   }
 };
 
@@ -185,6 +198,13 @@ struct EdgeValueParams {
 };
 static_assert(field_ids_unique<EdgeValueParams>());
 
+/** @brief Shared cutout kernel: a smooth step through @p threshold with a
+    half-width of @p width. */
+__attribute__((always_inline)) inline float
+value_cutout(float value, float threshold, float width) {
+  return ::smooth_ramp(threshold - width, threshold + width, value);
+}
+
 /**
  * @brief Value-dependent coverage cut for Stage::Coverage.
  * @details Reads the current FIELD value and nothing else, so a chain may
@@ -202,9 +222,8 @@ template <typename State> struct ValueCutout : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &frame) {
-    const float threshold = State::cutout_threshold(frame);
-    const float width = State::cutout_width(frame);
-    return ::smooth_ramp(threshold - width, threshold + width, value);
+    return value_cutout(value, State::cutout_threshold(frame),
+                        State::cutout_width(frame));
   }
 };
 
