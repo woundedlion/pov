@@ -19,7 +19,7 @@ namespace Weight {
 struct None : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float
-  apply(float field, const ProjectionSample &, const FrameState &) {
+  apply(float field, const ProjectionProvenance &, const FrameState &) {
     return field;
   }
 };
@@ -27,8 +27,9 @@ struct None : ExactPolicy {
 struct Projection : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float
-  apply(float field, const ProjectionSample &projected, const FrameState &) {
-    return field * projected.value_weight;
+  apply(float field, const ProjectionProvenance &provenance,
+        const FrameState &) {
+    return field * provenance.value_weight;
   }
 };
 
@@ -36,7 +37,7 @@ struct Projection : ExactPolicy {
 
 namespace Transfer {
 
-/** @brief Value placeholder for a material stage that takes no parameters. */
+/** @brief Value placeholder for a chain whose value family has no fields. */
 struct LinearValueParams {
   static constexpr std::array<Field<LinearValueParams>, 0> FIELDS{};
 };
@@ -110,59 +111,33 @@ template <typename State> struct SmoothBands : ExactPolicy {
 
 } // namespace Transfer
 
-namespace Coverage {
+/**
+ * @brief Coverage vocabulary of the Sample crossing: mutually exclusive modes
+ *        over the projection provenance, consumed exactly once per chain.
+ */
+namespace ProjectedCoverage {
 
-/** @brief Value parameters for the edge fade (Pullback::Coverage::EdgeFade). */
-struct EdgeValueParams {
-  /** Fade band width in the projection's edge-distance units; 0 makes the edge
-      a hard cut. */
-  float edge_width = 0.1f;
-
-  static constexpr auto FIELDS = std::array{
-      Field<EdgeValueParams>{&EdgeValueParams::edge_width, "Edge Width", 0.0f,
-                             1.0f, FieldCurve::LERP},
-  };
-};
-
-struct Opaque : ExactPolicy {
+struct None : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float
-  apply(float, const ProjectionSample &, const FrameState &) {
+  apply(const ProjectionProvenance &, const FrameState &) {
     return 1.0f;
   }
 };
 
-struct Projection : ExactPolicy {
+struct Weight : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float
-  apply(float, const ProjectionSample &projected, const FrameState &) {
-    return projected.value_weight;
+  apply(const ProjectionProvenance &provenance, const FrameState &) {
+    return provenance.value_weight;
   }
 };
 
-struct ProjectionSquared : ExactPolicy {
+struct WeightSquared : ExactPolicy {
   template <typename FrameState>
   __attribute__((always_inline)) static float
-  apply(float, const ProjectionSample &projected, const FrameState &) {
-    return projected.value_weight * projected.value_weight;
-  }
-};
-
-template <typename State> struct ValueCutout : ExactPolicy {
-  template <typename Binding>
-  static constexpr bool PROVIDER_VALID =
-      Detail::ProviderFor<State, Binding> &&
-      requires(const typename Binding::FrameState &frame) {
-        { State::cutout_threshold(frame) } -> std::same_as<float>;
-        { State::cutout_width(frame) } -> std::same_as<float>;
-      };
-
-  template <typename FrameState>
-  __attribute__((always_inline)) static float
-  apply(float value, const ProjectionSample &, const FrameState &frame) {
-    const float threshold = State::cutout_threshold(frame);
-    const float width = State::cutout_width(frame);
-    return ::smooth_ramp(threshold - width, threshold + width, value);
+  apply(const ProjectionProvenance &provenance, const FrameState &) {
+    return provenance.value_weight * provenance.value_weight;
   }
 };
 
@@ -176,11 +151,52 @@ template <typename State> struct EdgeFade : ExactPolicy {
 
   template <typename FrameState>
   __attribute__((always_inline)) static float
-  apply(float, const ProjectionSample &projected, const FrameState &frame) {
+  apply(const ProjectionProvenance &provenance, const FrameState &frame) {
     const float width = State::edge_width(frame);
     return width == 0.0f
-               ? static_cast<float>(projected.fade_edge_distance > 0.0f)
-               : Detail::smooth_ramp(0.0f, width, projected.fade_edge_distance);
+               ? static_cast<float>(provenance.fade_edge_distance > 0.0f)
+               : Detail::smooth_ramp(0.0f, width,
+                                     provenance.fade_edge_distance);
+  }
+};
+
+} // namespace ProjectedCoverage
+
+namespace Coverage {
+
+/** @brief Value parameters for the edge fade
+    (Pullback::ProjectedCoverage::EdgeFade). */
+struct EdgeValueParams {
+  /** Fade band width in the projection's edge-distance units; 0 makes the edge
+      a hard cut. */
+  float edge_width = 0.1f;
+
+  static constexpr auto FIELDS = std::array{
+      Field<EdgeValueParams>{&EdgeValueParams::edge_width, "Edge Width", 0.0f,
+                             1.0f, FieldCurve::LERP},
+  };
+};
+
+/**
+ * @brief Value-dependent coverage cut for Stage::Coverage.
+ * @details Reads the current FIELD value and nothing else, so a chain may
+ * legally place it before, between, or after transfers.
+ */
+template <typename State> struct ValueCutout : ExactPolicy {
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::cutout_threshold(frame) } -> std::same_as<float>;
+        { State::cutout_width(frame) } -> std::same_as<float>;
+      };
+
+  template <typename FrameState>
+  __attribute__((always_inline)) static float apply(float value,
+                                                    const FrameState &frame) {
+    const float threshold = State::cutout_threshold(frame);
+    const float width = State::cutout_width(frame);
+    return ::smooth_ramp(threshold - width, threshold + width, value);
   }
 };
 

@@ -14,9 +14,10 @@ using ContourLatticeParams =
     Pullback::Params<Pullback::LatticeSourceParams, Pullback::AffineParams,
                      Pullback::NoWarpParams, Pullback::NoLensParams,
                      Pullback::IsoValueParams>;
-using ContourLatticeSpec = Pullback::Spec<
-    Pullback::ProjectionKind::GNOMONIC_FOLDED, Pullback::Lens::Identity,
-    Pullback::TransferKind::ISO_CONTOUR, Pullback::CoverageKind::PROJECTION>;
+using ContourLatticeSpec =
+    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED, void,
+                   Pullback::TransferKind::ISO_CONTOUR,
+                   Pullback::CoverageKind::PROJECTION>;
 
 template <int W, int H>
 class ContourLattice

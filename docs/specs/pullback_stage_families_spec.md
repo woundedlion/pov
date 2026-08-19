@@ -1,9 +1,11 @@
 # Pullback stage families: arbitrary chains over ranked carriers
 
-**Status: PROPOSED.** Nothing here is implemented. Where this spec and
-[pullback_pipeline_spec.md](pullback_pipeline_spec.md) disagree about the
-stage model (stage kinds, slot count, carrier records), this spec is the
-intended direction and that one describes what ships today. The document
+**Status: §§1–6 LANDED; §§7–8 PROPOSED.** The static ranked pipeline and
+its migration (the §6 contract cut-over) ship; promotion/verification (§7)
+and the preview interpreter (§8) are not yet implemented. Where this spec
+and [pullback_pipeline_spec.md](pullback_pipeline_spec.md) disagree about
+the stage model (stage kinds, slot count, carrier records), this spec
+describes what ships. The document
 is three systems with distinct invariants and failure modes, layered in
 order: **the static ranked pipeline and its migration (§§1–6)**, which
 is self-contained; **promotion and verification (§7)**, a resource

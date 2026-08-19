@@ -31,8 +31,8 @@ using CurlLatticeParams =
                      Pullback::NoWarpParams, Pullback::NoLensParams,
                      Pullback::LinearValueParams, Pullback::SurfaceNoiseParams>;
 using CurlLatticeSpec =
-    Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL,
-                   Pullback::Lens::Identity, Pullback::TransferKind::LINEAR,
+    Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL, void,
+                   Pullback::TransferKind::LINEAR,
                    Pullback::CoverageKind::PROJECTION>;
 
 template <int W, int H>

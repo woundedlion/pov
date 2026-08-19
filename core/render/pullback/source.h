@@ -271,13 +271,12 @@ template <typename State> struct TwinWave : ExactPolicy {
     return State::prepare(frame);
   }
 
-  __attribute__((always_inline)) static float sample(const SourceInput &input,
+  __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     const auto &params = State::params(frame);
-    return twin_wave(
-        stereo_pattern_args(input.warped.coords, params.pattern_freq),
-        prepared);
+    return twin_wave(stereo_pattern_args(input.coords, params.pattern_freq),
+                     prepared);
   }
 };
 
@@ -300,11 +299,11 @@ template <typename State> struct Rings : ExactPolicy {
     return State::prepare(frame);
   }
 
-  __attribute__((always_inline)) static float sample(const SourceInput &input,
+  __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     const auto &params = State::params(frame);
-    return rings(stereo_pattern_args(input.warped.coords, params.pattern_freq),
+    return rings(stereo_pattern_args(input.coords, params.pattern_freq),
                  prepared);
   }
 };
@@ -329,11 +328,11 @@ template <typename State> struct Spiral : ExactPolicy {
     return State::prepare(frame);
   }
 
-  __attribute__((always_inline)) static float sample(const SourceInput &input,
+  __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     const auto &params = State::params(frame);
-    return spiral(stereo_pattern_args(input.warped.coords, params.pattern_freq),
+    return spiral(stereo_pattern_args(input.coords, params.pattern_freq),
                   prepared);
   }
 };
@@ -362,12 +361,12 @@ template <typename State> struct Grid : ExactPolicy {
     return State::prepare(frame);
   }
 
-  __attribute__((always_inline)) static float sample(const SourceInput &input,
+  __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     const auto &params = State::params(frame);
-    return grid(stereo_pattern_args(input.warped.coords, params.pattern_freq),
-                params, prepared);
+    return grid(stereo_pattern_args(input.coords, params.pattern_freq), params,
+                prepared);
   }
 };
 
@@ -389,9 +388,9 @@ template <typename State> struct PrimitiveLattice : ExactPolicy {
         { State::params(frame).lattice_radius } -> std::convertible_to<float>;
       };
 
-  __attribute__((always_inline)) static float sample(const SourceInput &input,
+  __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame) {
-    return primitive_lattice(input.warped.coords, State::params(frame));
+    return primitive_lattice(input.coords, State::params(frame));
   }
 };
 
@@ -410,10 +409,10 @@ struct ProjectedNoise : ExactPolicy {
         { State::noise_contrast(frame) } -> std::same_as<float>;
       };
 
-  __attribute__((always_inline)) static float sample(const SourceInput &input,
+  __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame) {
     return noise_contour(State::noise(frame), BasisV,
-                         noise_projected_coordinate(input.warped.coords,
+                         noise_projected_coordinate(input.coords,
                                                     State::noise_scale(frame),
                                                     State::noise_time(frame)),
                          State::noise_contrast(frame));
@@ -429,10 +428,10 @@ struct SphericalNoise : ExactPolicy {
   static constexpr bool PROVIDER_VALID =
       ProjectedNoise<State, BasisV>::template PROVIDER_VALID<CandidateBinding>;
 
-  __attribute__((always_inline)) static float sample(const SourceInput &input,
+  __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame) {
     return noise_contour(State::noise(frame), BasisV,
-                         noise_sphere_coordinate(input.projected.sphere,
+                         noise_sphere_coordinate(input.sphere,
                                                  State::noise_scale(frame),
                                                  State::noise_time(frame)),
                          State::noise_contrast(frame));

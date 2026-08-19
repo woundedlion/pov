@@ -353,7 +353,7 @@ struct GeneratedPaletteState {
 };
 
 HS_HOT_FLASH_MEMBER inline Color4
-apply_generated_palette(const MaterialSample &sample,
+apply_generated_palette(const FieldSample &sample,
                         const GeneratedPaletteState &state) {
   const float oscillation =
       state.oscillation_depth * fast_sinf(TWO_PI_F * state.oscillation_phase);
@@ -422,7 +422,7 @@ template <typename State> struct GeneratedPalette : ExactPolicy {
       };
 
   template <typename FrameState>
-  HS_FLASH_INLINE static Color4 apply(const MaterialSample &sample,
+  HS_FLASH_INLINE static Color4 apply(const FieldSample &sample,
                                       const FrameState &frame) {
     return apply_generated_palette(
         sample,

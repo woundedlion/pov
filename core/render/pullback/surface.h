@@ -109,14 +109,6 @@ struct Midpoint2x {
   static constexpr Integrator VALUE = Integrator::MIDPOINT_2X;
 };
 
-struct Identity : ExactPolicy {
-  template <typename FrameState>
-  __attribute__((always_inline)) static SurfaceResult
-  apply(const Vector &input, const FrameState &) {
-    return {input, 0.0f};
-  }
-};
-
 __attribute__((always_inline)) inline float path_length(const Vector &step,
                                                         bool required) {
   return required ? sqrtf(dot(step, step)) : 0.0f;

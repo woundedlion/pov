@@ -67,7 +67,7 @@ struct ShaderBallWhiteBox {
   using ProjectedLookup = SB::ProjectedLookup;
   using PlanarWarpStageResult = SB::PlanarWarpStageResult;
   using PlanarWarpResult = SB::PlanarWarpResult;
-  using MaterialSample = SB::MaterialSample;
+  using FieldSample = SB::FieldSample;
   using ClockState = SB::ClockState;
   using LookRuntime = SB::LookRuntime;
   using WalkDeltas = SB::WalkDeltas;
@@ -77,7 +77,6 @@ struct ShaderBallWhiteBox {
   using FullConfigSnapshot = SB::FullConfigSnapshot;
   using TopologyKey = SB::TopologyKey;
   using InversePipelineId = SB::InversePipelineId;
-  using InverseStageKind = SB::InverseStageKind;
   using CodeEmission = SB::CodeEmission;
   using ApproximationOracleId = SB::ApproximationOracleId;
   using ProjectionStateProvider = SB::ProjectionStateProvider;
@@ -417,11 +416,11 @@ struct ShaderBallWhiteBox {
                                         : frame.clocks.warp_outer_rotation;
     const FastNoiseLite *noise = inner ? frame.resources.inner_warp_noise
                                        : frame.resources.outer_warp_noise;
-    return SB::warp_stage_lookup(input, projected, spec, params, phase, noise,
-                                 SB::prepare_warp_stage(spec, params, phase,
-                                                        source_period,
-                                                        affine_rotation),
-                                 SB::tracks_displacement(frame));
+    return SB::warp_stage_lookup(
+        input, projected.provenance, spec, params, phase, noise,
+        SB::prepare_warp_stage(spec, params, phase, source_period,
+                               affine_rotation),
+        SB::tracks_displacement(frame));
   }
   static auto prepared_warp_stage(const WarpStageSpec &spec,
                                   const WarpStageParams &params, float phase,
@@ -430,9 +429,9 @@ struct ShaderBallWhiteBox {
     return SB::prepare_warp_stage(spec, params, phase, source_period,
                                   affine_rotation);
   }
-  static MaterialSample material(const ProjectedLookup &projected,
-                                 const PlanarWarpResult &warped,
-                                 const FrameState &frame) {
+  static FieldSample material(const ProjectedLookup &projected,
+                              const PlanarWarpResult &warped,
+                              const FrameState &frame) {
     const Complex source_coords =
         SB::condition_source_coords(warped.coords, frame);
     const float field = SB::sample_source(source_coords, projected, frame);
@@ -444,13 +443,12 @@ struct ShaderBallWhiteBox {
         SB::condition_source_coords(projected.coords, frame);
     return SB::sample_source(source_coords, projected, frame);
   }
-  static MaterialSample shape(float field, const ProjectedLookup &projected,
-                              const PlanarWarpResult &warped,
-                              const FrameState &frame) {
+  static FieldSample shape(float field, const ProjectedLookup &projected,
+                           const PlanarWarpResult &warped,
+                           const FrameState &frame) {
     return SB::shape_material(field, projected, warped, frame);
   }
-  static Color4 colorize(const MaterialSample &sample,
-                         const FrameState &frame) {
+  static Color4 colorize(const FieldSample &sample, const FrameState &frame) {
     return SB::colorize(sample, frame);
   }
   static float palette_mapping(float value, PaletteMapping mapping,
@@ -520,9 +518,21 @@ struct ShaderBallWhiteBox {
   static TopologyKey topology_key(const RequestedConfig &config) {
     return SB::make_topology_key(config);
   }
+  /// A NONE slot has no warp stage, so it matches by key field instead.
   template <WarpStageKind Outer, WarpStageKind Inner>
   static constexpr bool planar_warp_implements(const TopologyKey &key) {
-    return SB::template SelectedPlanarWarpStage<Outer, Inner>::implements(key);
+    bool matches = true;
+    if constexpr (Outer == WarpStageKind::NONE)
+      matches = matches && key.outer_warp == WarpStageKind::NONE;
+    else
+      matches = matches &&
+                SB::template SelectedWarpStage<Outer, true>::implements(key);
+    if constexpr (Inner == WarpStageKind::NONE)
+      matches = matches && key.inner_warp == WarpStageKind::NONE;
+    else
+      matches = matches &&
+                SB::template SelectedWarpStage<Inner, false>::implements(key);
+    return matches;
   }
   static size_t inverse_program_count() {
     return SB::inverse_programs().size();
@@ -601,40 +611,52 @@ struct ShaderBallWhiteBox {
     return true;
   }
   static constexpr bool inverse_stage_contracts() {
-    using ArityGate = typename SB::template InversePipelineValidation<
-        false, typename SB::OuterCameraStage>;
-    using Surface =
-        typename SB::PeirceDodecahedralGridPipeline::Validation::SurfaceStage;
-    using Color =
-        typename SB::PeirceDodecahedralGridPipeline::Validation::ColorStage;
-    return !ArityGate::ORDER && !ArityGate::CARRIERS &&
-           SB::PeirceDodecahedralGridPipeline::Validation::ORDER &&
-           SB::PeirceDodecahedralGridPipeline::Validation::RUN_RETURNS &&
-           SB::PeirceDodecahedralGridPipeline::Validation::CARRIERS &&
-           SB::PeirceDodecahedralGridPipeline::Validation::TERMINALS &&
-           SB::PeirceDodecahedralGridPipeline::Validation::APPROXIMATIONS &&
-           Surface::KIND == InverseStageKind::SURFACE_PROJECT &&
-           Surface::EMISSION == CodeEmission::INLINE_ONLY &&
-           Surface::ORACLE == ApproximationOracleId::PEIRCE_FAST_SQUARE &&
-           Surface::NON_FLOATING_FIELDS_EXACT &&
-           Surface::METRICS[0].limit == 1.2e-3f &&
-           Surface::METRICS[1].limit == 2e-4f &&
-           Surface::METRICS[2].limit == 256.0f &&
-           Color::ORACLE == ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
+    // A chain that stops before Color4 fails EXIT; a rank-reversed chain
+    // fails the adjacency and entry rows.
+    using TruncatedGate = Pullback::PipelineValidation<SB::ShaderBallBinding,
+                                                       SB::OuterCameraStage>;
+    using ReversedGate =
+        Pullback::PipelineValidation<SB::ShaderBallBinding, SB::ColorStage,
+                                     SB::OuterCameraStage>;
+    using Peirce = SB::PeirceDodecahedralGridPipeline;
+    using Validation = Peirce::Validation;
+    using ProjectStage = Peirce::stage_at<2>;
+    using BoundProject = ProjectStage::Bind<SB::ShaderBallBinding>;
+    using BoundColor = SB::ColorStage::Bind<SB::ShaderBallBinding>;
+    return !TruncatedGate::EXIT && !ReversedGate::CARRIERS &&
+           !ReversedGate::ENTRY && !ReversedGate::EXIT &&
+           Validation::NONEMPTY && Validation::CONTRACTS &&
+           Validation::CANONICAL && Validation::MONOTONE &&
+           Validation::CARRIERS && Validation::ENTRY && Validation::EXIT &&
+           Validation::BINDINGS && Validation::EMPTY_POLICIES &&
+           Validation::RUN_RETURNS && Validation::PREPARES &&
+           Validation::APPROXIMATIONS && Validation::EXTRA_VALIDATION &&
+           std::is_same_v<ProjectStage,
+                          SB::SelectedProjectStage<
+                              Projection::PEIRCE_QUINCUNCIAL,
+                              SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>> &&
+           Peirce::NODE_COUNT == Peirce::STAGE_COUNT &&
+           BoundProject::ORACLE == ApproximationOracleId::PEIRCE_FAST_SQUARE &&
+           BoundProject::NON_FLOATING_FIELDS_EXACT &&
+           BoundProject::METRICS[0].limit == 1.2e-3f &&
+           BoundProject::METRICS[1].limit == 2e-4f &&
+           BoundProject::METRICS[2].limit == 256.0f &&
+           BoundColor::ORACLE ==
+               ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   }
   static float peirce_metric_limit(size_t index) {
-    return SB::template SelectedSurfaceProjectStage<
-               Projection::PEIRCE_QUINCUNCIAL,
-               SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>::METRICS[index]
-        .limit;
+    return SB::SelectedProjectStage<Projection::PEIRCE_QUINCUNCIAL,
+                                    SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>::
+        Bind<SB::ShaderBallBinding>::METRICS[index]
+            .limit;
   }
   static float color_metric_limit(size_t index) {
-    return SB::ColorStage::METRICS[index].limit;
+    return SB::ColorStage::Bind<SB::ShaderBallBinding>::METRICS[index].limit;
   }
   static Complex project_point(const Vector &v, Projection projection) {
     return SB::project_point(v, projection);
   }
-  static ProjectedLookup
+  static Pullback::ProjectionResult
   finalize_projection(const Vector &v, const Complex &coords,
                       Projection projection, float pole_fade,
                       GnomonicHemispherePolicy hemisphere) {
@@ -1144,10 +1166,10 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_EQ(projected.coords.re, expected.re);
   HS_EXPECT_EQ(projected.coords.im, expected.im);
   const float radius_sq = expected.re * expected.re + expected.im * expected.im;
-  HS_EXPECT_EQ(projected.value_weight,
+  HS_EXPECT_EQ(projected.provenance.value_weight,
                pole_attenuation(radius_sq, frame.params.projection.pole_fade));
-  HS_EXPECT_TRUE(projected.boundary_flags != 0);
-  HS_EXPECT_TRUE(std::isfinite(projected.fade_edge_distance));
+  HS_EXPECT_TRUE(projected.provenance.boundary_flags != 0);
+  HS_EXPECT_TRUE(std::isfinite(projected.provenance.fade_edge_distance));
 
   const WB::PlanarWarpResult warped = WB::warp(projected, frame);
   HS_EXPECT_EQ(warped.coords.re, projected.coords.re);
@@ -1155,20 +1177,21 @@ inline void test_shaderball_pipeline_contract() {
 
   frame.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   frame.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
-  const WB::MaterialSample material = WB::material(projected, warped, frame);
+  const WB::FieldSample material = WB::material(projected, warped, frame);
   HS_EXPECT_GE(material.value, 0.0f);
   HS_EXPECT_LE(material.value, 1.0f);
-  HS_EXPECT_EQ(material.coverage,
-               projected.value_weight * projected.value_weight);
-  HS_EXPECT_EQ(material.path_length,
-               projected.surface_path_length + warped.path_length);
+  HS_EXPECT_EQ(material.coverage, projected.provenance.value_weight *
+                                      projected.provenance.value_weight);
+  // planar_warp_lookup seeds from projected.path_length, so the warped result
+  // already carries the whole accumulated path.
+  HS_EXPECT_EQ(material.path_length, warped.path_length);
   WB::PlanarWarpResult accumulated = warped;
   accumulated.path_length = 0.75f;
   HS_EXPECT_EQ(WB::shape(0.0f, projected, accumulated, frame).path_length,
                0.75f);
   frame.slots.coverage = WB::CoveragePolicy::PROJECTION_WEIGHT;
   HS_EXPECT_EQ(WB::material(projected, warped, frame).coverage,
-               projected.value_weight);
+               projected.provenance.value_weight);
   const Color4 color = WB::colorize(material, frame);
   HS_EXPECT_TRUE(color.alpha >= 0.0f);
 
@@ -1177,11 +1200,15 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_EQ(WB::shape(-3.0f, projected, warped, frame).value, 0.0f);
 
   WB::ProjectedLookup direct_meta{
-      Complex(1.0f, 2.0f), 3, 4, WB::boundary_singular(), 0.25f, 0.1f, 0x10};
+      Complex(1.0f, 2.0f),
+      {3, 4, WB::boundary_singular(), 0.25f, 0.1f, 0x10},
+      Vector(),
+      0.25f};
   WB::ProjectedLookup lensed_meta{
-      Complex(3.0f, 4.0f), 7, 8, WB::boundary_singular(), 0.75f, 0.9f, 0x20};
-  direct_meta.surface_path_length = 0.25f;
-  lensed_meta.surface_path_length = 0.75f;
+      Complex(3.0f, 4.0f),
+      {7, 8, WB::boundary_singular(), 0.75f, 0.9f, 0x20},
+      Vector(),
+      0.75f};
   const WB::ProjectedLookup joined = WB::join(
       direct_meta, lensed_meta, 0.75f, WB::Projection::STEREOGRAPHIC, 2.0f);
   const WB::ProjectedLookup direct_endpoint = WB::join(
@@ -1190,36 +1217,42 @@ inline void test_shaderball_pipeline_contract() {
       direct_meta, lensed_meta, 1.0f, WB::Projection::STEREOGRAPHIC, 2.0f);
   HS_EXPECT_EQ(direct_endpoint.coords.re, direct_meta.coords.re);
   HS_EXPECT_EQ(direct_endpoint.coords.im, direct_meta.coords.im);
-  HS_EXPECT_EQ(direct_endpoint.region_id, direct_meta.region_id);
-  HS_EXPECT_EQ(direct_endpoint.component_id, direct_meta.component_id);
-  HS_EXPECT_EQ(direct_endpoint.boundary_flags, direct_meta.boundary_flags);
-  HS_EXPECT_EQ(direct_endpoint.fade_edge_distance,
-               direct_meta.fade_edge_distance);
-  HS_EXPECT_EQ(direct_endpoint.value_weight, direct_meta.value_weight);
-  HS_EXPECT_EQ(direct_endpoint.flags, direct_meta.flags);
-  HS_EXPECT_EQ(direct_endpoint.surface_path_length,
-               direct_meta.surface_path_length);
+  HS_EXPECT_EQ(direct_endpoint.provenance.region_id,
+               direct_meta.provenance.region_id);
+  HS_EXPECT_EQ(direct_endpoint.provenance.component_id,
+               direct_meta.provenance.component_id);
+  HS_EXPECT_EQ(direct_endpoint.provenance.boundary_flags,
+               direct_meta.provenance.boundary_flags);
+  HS_EXPECT_EQ(direct_endpoint.provenance.fade_edge_distance,
+               direct_meta.provenance.fade_edge_distance);
+  HS_EXPECT_EQ(direct_endpoint.provenance.value_weight,
+               direct_meta.provenance.value_weight);
+  HS_EXPECT_EQ(direct_endpoint.provenance.flags, direct_meta.provenance.flags);
+  HS_EXPECT_EQ(direct_endpoint.path_length, direct_meta.path_length);
   HS_EXPECT_EQ(lensed_endpoint.coords.re, lensed_meta.coords.re);
   HS_EXPECT_EQ(lensed_endpoint.coords.im, lensed_meta.coords.im);
-  HS_EXPECT_EQ(lensed_endpoint.region_id, lensed_meta.region_id);
-  HS_EXPECT_EQ(lensed_endpoint.component_id, lensed_meta.component_id);
-  HS_EXPECT_EQ(lensed_endpoint.boundary_flags, lensed_meta.boundary_flags);
-  HS_EXPECT_EQ(lensed_endpoint.fade_edge_distance,
-               lensed_meta.fade_edge_distance);
-  HS_EXPECT_EQ(lensed_endpoint.value_weight, lensed_meta.value_weight);
-  HS_EXPECT_EQ(lensed_endpoint.flags, lensed_meta.flags);
-  HS_EXPECT_EQ(lensed_endpoint.surface_path_length,
-               lensed_meta.surface_path_length);
+  HS_EXPECT_EQ(lensed_endpoint.provenance.region_id,
+               lensed_meta.provenance.region_id);
+  HS_EXPECT_EQ(lensed_endpoint.provenance.component_id,
+               lensed_meta.provenance.component_id);
+  HS_EXPECT_EQ(lensed_endpoint.provenance.boundary_flags,
+               lensed_meta.provenance.boundary_flags);
+  HS_EXPECT_EQ(lensed_endpoint.provenance.fade_edge_distance,
+               lensed_meta.provenance.fade_edge_distance);
+  HS_EXPECT_EQ(lensed_endpoint.provenance.value_weight,
+               lensed_meta.provenance.value_weight);
+  HS_EXPECT_EQ(lensed_endpoint.provenance.flags, lensed_meta.provenance.flags);
+  HS_EXPECT_EQ(lensed_endpoint.path_length, lensed_meta.path_length);
   HS_EXPECT_EQ(joined.coords.re, 2.5f);
   HS_EXPECT_EQ(joined.coords.im, 3.5f);
-  HS_EXPECT_EQ(joined.region_id, uint8_t(7));
-  HS_EXPECT_EQ(joined.component_id, uint8_t(8));
-  HS_EXPECT_EQ(joined.boundary_flags, WB::boundary_singular());
-  HS_EXPECT_EQ(joined.fade_edge_distance, 0.75f);
-  HS_EXPECT_EQ(joined.flags, uint8_t(0x20));
-  HS_EXPECT_EQ(joined.value_weight,
+  HS_EXPECT_EQ(joined.provenance.region_id, uint8_t(7));
+  HS_EXPECT_EQ(joined.provenance.component_id, uint8_t(8));
+  HS_EXPECT_EQ(joined.provenance.boundary_flags, WB::boundary_singular());
+  HS_EXPECT_EQ(joined.provenance.fade_edge_distance, 0.75f);
+  HS_EXPECT_EQ(joined.provenance.flags, uint8_t(0x20));
+  HS_EXPECT_EQ(joined.provenance.value_weight,
                pole_attenuation(2.5f * 2.5f + 3.5f * 3.5f, 2.0f));
-  HS_EXPECT_EQ(joined.surface_path_length, 0.625f);
+  HS_EXPECT_EQ(joined.path_length, 0.625f);
 }
 
 /** Unit-length allowance on a lens output. The lenses renormalize through a
@@ -1265,26 +1298,26 @@ inline void test_shaderball_legacy_spatial_slots() {
   landmark_frame.slots.surface_noise = WB::SurfaceNoise::NONE;
   landmark_frame.transforms.projection_conj = Quaternion();
   HS_EXPECT_EQ(WB::surface_project(Vector(0.0f, 1.0f, 0.0f), landmark_frame)
-                   .fade_edge_distance,
+                   .provenance.fade_edge_distance,
                0.0f);
   HS_EXPECT_EQ(WB::surface_project(Vector(0.0f, -1.0f, 0.0f), landmark_frame)
-                   .fade_edge_distance,
+                   .provenance.fade_edge_distance,
                2.0f);
   HS_EXPECT_EQ(WB::surface_project(Vector(1.0f, 0.0f, 0.0f), landmark_frame)
-                   .boundary_flags,
+                   .provenance.boundary_flags,
                WB::boundary_singular());
   landmark_frame.slots.projection = WB::Projection::SINUSOIDAL;
   const WB::ProjectedLookup sinusoidal =
       WB::surface_project(Vector(1.0f, 0.0f, 0.0f), landmark_frame);
-  HS_EXPECT_EQ(sinusoidal.boundary_flags, uint8_t(0));
-  HS_EXPECT_EQ(sinusoidal.flags, WB::projection_folded());
-  HS_EXPECT_EQ(
-      WB::surface_project(Vector(0.0f, 0.0f, -1.0f), landmark_frame).region_id,
-      uint8_t(1));
+  HS_EXPECT_EQ(sinusoidal.provenance.boundary_flags, uint8_t(0));
+  HS_EXPECT_EQ(sinusoidal.provenance.flags, WB::projection_folded());
+  HS_EXPECT_EQ(WB::surface_project(Vector(0.0f, 0.0f, -1.0f), landmark_frame)
+                   .provenance.region_id,
+               uint8_t(1));
   landmark_frame.slots.projection = WB::Projection::GNOMONIC;
   HS_EXPECT_EQ(
       WB::surface_project(Vector(1.0f, 0.0f, 0.0f), landmark_frame)
-          .boundary_flags,
+          .provenance.boundary_flags,
       static_cast<uint8_t>(WB::boundary_cut() | WB::boundary_singular()));
 
   const Vector v(0.6f, 0.48f, 0.64f);
@@ -1497,15 +1530,15 @@ inline void test_shaderball_equirectangular_projection() {
 
   const WB::ProjectedLookup prime =
       WB::surface_project(Vector(1.0f, 0.0f, 0.0f), frame);
-  HS_EXPECT_EQ(prime.flags, uint8_t(0));
-  HS_EXPECT_EQ(prime.boundary_flags, WB::boundary_cut());
-  HS_EXPECT_EQ(prime.region_id, uint8_t(0));
+  HS_EXPECT_EQ(prime.provenance.flags, uint8_t(0));
+  HS_EXPECT_EQ(prime.provenance.boundary_flags, WB::boundary_cut());
+  HS_EXPECT_EQ(prime.provenance.region_id, uint8_t(0));
   HS_EXPECT_NEAR(prime.coords.re, 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(prime.fade_edge_distance, PI_F, 1e-5f);
+  HS_EXPECT_NEAR(prime.provenance.fade_edge_distance, PI_F, 1e-5f);
 
   const WB::ProjectedLookup seam =
       WB::surface_project(Vector(-1.0f, 0.0f, 0.0f), frame);
-  HS_EXPECT_NEAR(seam.fade_edge_distance, 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(seam.provenance.fade_edge_distance, 0.0f, 1e-5f);
 
   const WB::ProjectedLookup east =
       WB::surface_project(Vector(0.0f, 0.0f, 1.0f), frame);
@@ -1513,7 +1546,7 @@ inline void test_shaderball_equirectangular_projection() {
       WB::surface_project(Vector(0.0f, 0.0f, -1.0f), frame);
   HS_EXPECT_NEAR(east.coords.re, 0.5f * PI_F, 5e-3f);
   HS_EXPECT_NEAR(west.coords.re, -0.5f * PI_F, 5e-3f);
-  HS_EXPECT_EQ(east.region_id, west.region_id);
+  HS_EXPECT_EQ(east.provenance.region_id, west.provenance.region_id);
 
   frame.params.projection.central_meridian = 0.5f * PI_F;
   const WB::ProjectedLookup recentred =
@@ -1558,33 +1591,33 @@ inline void test_shaderball_flush_edge_fade() {
   frame.slots.coverage = WB::CoveragePolicy::EDGE_FADE;
   frame.params.value.edge_width = 0.1f;
   const WB::PlanarWarpResult warped{};
-  WB::ProjectedLookup under{Complex(), 0,    0, WB::boundary_cut(),
-                            0.01f,     1.0f, 0};
+  WB::ProjectedLookup under{
+      Complex(), {0, 0, WB::boundary_cut(), 0.01f, 1.0f, 0}, Vector(), 0.0f};
   WB::ProjectedLookup over = under;
   const auto coverage = [&](const WB::ProjectedLookup &projected) {
     return WB::shape(0.0f, projected, warped, frame).coverage;
   };
 
   frame.slots.projection = WB::Projection::BONNE;
-  over.region_id = 1;
+  over.provenance.region_id = 1;
   HS_EXPECT_NEAR(coverage(under), 0.028f, 1e-6f);
   HS_EXPECT_NEAR(coverage(over), 0.028f, 1e-6f);
 
   frame.slots.projection = WB::Projection::PEIRCE_QUINCUNCIAL;
-  under.region_id = 2;
-  over.region_id = 3;
+  under.provenance.region_id = 2;
+  over.provenance.region_id = 3;
   HS_EXPECT_NEAR(coverage(under), 0.028f, 1e-6f);
   HS_EXPECT_NEAR(coverage(over), 0.028f, 1e-6f);
 
   frame.slots.projection = WB::Projection::AIROCEAN;
-  under.edge_class = 9;
-  over.edge_class = 14;
+  under.provenance.edge_class = 9;
+  over.provenance.edge_class = 14;
   HS_EXPECT_NEAR(coverage(under), 0.028f, 1e-6f);
   HS_EXPECT_NEAR(coverage(over), 0.028f, 1e-6f);
 
   frame.params.value.edge_width = 0.0f;
   HS_EXPECT_EQ(coverage(under), 1.0f);
-  under.fade_edge_distance = 0.0f;
+  under.provenance.fade_edge_distance = 0.0f;
   HS_EXPECT_EQ(coverage(under), 0.0f);
 }
 
@@ -2672,7 +2705,8 @@ inline void test_shaderball_additive_delta_precision() {
   params.frequency = 0.0f;
   params.field_angle = 0.0f;
   const Complex input(32768.0f, 32768.0f);
-  const WB::ProjectedLookup projected{input, 0, 0, 0, 1.0f, 1.0f, 0};
+  const WB::ProjectedLookup projected{
+      input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
   const auto result = WB::warp_stage(input, projected, spec, params, frame);
   HS_EXPECT_NEAR(result.delta.re, 0.0f, 1e-8f);
   HS_EXPECT_NEAR(result.delta.im, 0.001f, 1e-7f);
@@ -2705,7 +2739,7 @@ inline void test_shaderball_profile_presets() {
     if (index == 4 || index == 10) {
       const auto projected = WB::surface_project(
           Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sb));
-      HS_EXPECT_TRUE(std::isfinite(projected.fade_edge_distance));
+      HS_EXPECT_TRUE(std::isfinite(projected.provenance.fade_edge_distance));
     }
   }
 }
@@ -4430,10 +4464,15 @@ inline void test_shaderball_projection_and_admission_contracts() {
       projections::ProjectionTrait::GLUED, projections::ProjectionTrait::FOLDED,
       projections::ProjectionTrait::PERIODIC);
   const WB::ProjectedLookup horizontal_left{
-      Complex(-3.7080f, 0.2f), 2, 0,   2, 0.1f, 1.0f, 1,
-      periodic_traits,         4, 1.0f};
+      Complex(-3.7080f, 0.2f),
+      {2, 0, 2, 0.1f, 1.0f, 1, periodic_traits, 4, 1.0f},
+      Vector(),
+      0.0f};
   const WB::ProjectedLookup horizontal_right{
-      Complex(3.7080f, 0.2f), 2, 0, 2, 0.1f, 1.0f, 1, periodic_traits, 4, 1.0f};
+      Complex(3.7080f, 0.2f),
+      {2, 0, 2, 0.1f, 1.0f, 1, periodic_traits, 4, 1.0f},
+      Vector(),
+      0.0f};
   HS_EXPECT_FALSE(WB::join_compatible(horizontal_left, horizontal_right,
                                       WB::Projection::PEIRCE_QUINCUNCIAL));
   WB::ProjectedLookup horizontal_neighbor = horizontal_left;
@@ -4442,8 +4481,8 @@ inline void test_shaderball_projection_and_admission_contracts() {
                                       WB::Projection::PEIRCE_QUINCUNCIAL));
   WB::ProjectedLookup vertical_bottom = horizontal_left;
   WB::ProjectedLookup vertical_top = horizontal_right;
-  vertical_bottom.edge_class = 5;
-  vertical_top.edge_class = 5;
+  vertical_bottom.provenance.edge_class = 5;
+  vertical_top.provenance.edge_class = 5;
   vertical_bottom.coords = Complex(0.2f, -3.7080f);
   vertical_top.coords = Complex(0.2f, 3.7080f);
   HS_EXPECT_FALSE(WB::join_compatible(vertical_bottom, vertical_top,
@@ -4451,15 +4490,12 @@ inline void test_shaderball_projection_and_admission_contracts() {
 
   auto kernel_lookup = [](const projections::ProjectionKernelResult &result) {
     return WB::ProjectedLookup{result.coords,
-                               result.region_id,
-                               result.component_id,
-                               result.boundary_flags,
-                               result.fade_edge_distance,
-                               1.0f,
-                               result.flags,
-                               result.traits,
-                               result.edge_class,
-                               1.0f};
+                               {result.region_id, result.component_id,
+                                result.boundary_flags,
+                                result.fade_edge_distance, 1.0f, result.flags,
+                                result.traits, result.edge_class, 1.0f},
+                               Vector(),
+                               0.0f};
   };
   auto lon_lat = [](float longitude, float latitude) {
     const float cp = cosf(latitude);
@@ -4517,10 +4553,10 @@ inline void test_shaderball_projection_and_admission_contracts() {
       axis, WB::project_point(axis, WB::Projection::GNOMONIC),
       WB::Projection::GNOMONIC, 1.0f,
       WB::GnomonicHemispherePolicy::BACK_HEMISPHERE);
-  HS_EXPECT_EQ(front.domain_coverage, 1.0f);
-  HS_EXPECT_EQ(back_clipped.domain_coverage, 0.0f);
-  HS_EXPECT_EQ(axis_front.domain_coverage, 1.0f);
-  HS_EXPECT_EQ(axis_back.domain_coverage, 0.0f);
+  HS_EXPECT_EQ(front.provenance.domain_coverage, 1.0f);
+  HS_EXPECT_EQ(back_clipped.provenance.domain_coverage, 0.0f);
+  HS_EXPECT_EQ(axis_front.provenance.domain_coverage, 1.0f);
+  HS_EXPECT_EQ(axis_back.provenance.domain_coverage, 0.0f);
 
   WB::RequestedConfig bonne = WB::legacy_config();
   bonne.slots.projection = WB::Projection::BONNE;
@@ -4585,7 +4621,8 @@ inline void test_shaderball_projection_and_admission_contracts() {
   WB::FrameState frame = WB::frame(sb);
   frame.resources.outer_warp_noise = nullptr;
   const Complex point(0.31f, -0.27f);
-  const WB::ProjectedLookup projected(point, 0, 0, 0, 1.0f, 1.0f, 0);
+  const WB::ProjectedLookup projected{
+      point, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
   WB::WarpStageParams periodic_params;
   periodic_params.strength = 0.8f;
   periodic_params.frequency = 2.5f;
@@ -4614,7 +4651,8 @@ inline void test_shaderball_planar_warp_animation() {
   WB::FrameState frame = WB::frame(sb);
   frame.resources.outer_warp_noise = nullptr;
   const Complex input(0.31f, -0.27f);
-  const WB::ProjectedLookup projected(input, 0, 0, 0, 1.0f, 1.0f, 0);
+  const WB::ProjectedLookup projected{
+      input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
 
   auto sample = [&](WB::WarpStageKind kind, WB::WarpStageParams params,
                     float phase, float affine_rotation = 0.0f) {
@@ -4794,14 +4832,16 @@ inline void test_shaderball_planar_warp_animation() {
     clocks.warp_outer_phase = phase;
     WB::set_clocks(sb, clocks);
     const WB::FrameState lattice_frame = WB::config_frame(sb, lattice_scroll);
-    const WB::ProjectedLookup lattice_projected(Complex(x, y), 0, 0, 0, 1.0f,
-                                                1.0f, 0);
+    const WB::ProjectedLookup lattice_projected{
+        Complex(x, y), {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
     const WB::PlanarWarpResult warped =
         WB::warp(lattice_projected, lattice_frame);
-    return std::pair{
-        warped.coords,
-        WB::source(WB::ProjectedLookup(warped.coords, 0, 0, 0, 1.0f, 1.0f, 0),
-                   lattice_frame)};
+    return std::pair{warped.coords,
+                     WB::source(WB::ProjectedLookup{warped.coords,
+                                                    {0, 0, 0, 1.0f, 1.0f, 0},
+                                                    Vector(),
+                                                    0.0f},
+                                lattice_frame)};
   };
   for (int index = 0; index < 16; ++index) {
     const float x = -0.7f + 0.093f * index;
@@ -5000,16 +5040,18 @@ inline void test_shaderball_kernel_catalog() {
   const Complex input(0.27f, -0.41f);
   for (uint8_t value = 0; value <= 5; ++value) {
     WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
-    const auto identity = WB::warp_stage(input, {input, 0, 0, 0, 1.0f, 1.0f, 0},
-                                         spec, zero_params, frame);
+    const auto identity =
+        WB::warp_stage(input, {input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f},
+                       spec, zero_params, frame);
     HS_EXPECT_EQ(identity.coords.re, input.re);
     HS_EXPECT_EQ(identity.coords.im, input.im);
     HS_EXPECT_EQ(identity.path_length, 0.0f);
   }
   for (uint8_t value = 6; value <= 7; ++value) {
     WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
-    const auto mapped = WB::warp_stage(input, {input, 0, 0, 0, 1.0f, 1.0f, 0},
-                                       spec, zero_params, frame);
+    const auto mapped =
+        WB::warp_stage(input, {input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f},
+                       spec, zero_params, frame);
     HS_EXPECT_TRUE(std::isfinite(mapped.coords.re));
     HS_EXPECT_TRUE(std::isfinite(mapped.coords.im));
   }
@@ -5380,8 +5422,8 @@ inline void test_shaderball_brightness_envelopes() {
   sb.init();
   WB::RequestedConfig config = WB::legacy_config();
   config.slots.hue_shift = WB::HueShiftMode::NONE;
-  const WB::MaterialSample sample{
-      0.37f, 0.6f, Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
+  const WB::FieldSample sample{0.37f, 0.6f,
+                               Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
   const Color4 default_color =
       WB::colorize(sample, WB::config_frame(sb, config));
   HS_EXPECT_EQ(default_color.color,
@@ -5391,7 +5433,7 @@ inline void test_shaderball_brightness_envelopes() {
   config.slots.palette_mapping = Mapping::CUP;
   config.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
   config.params.color.hue_shift_amount = 0.25f;
-  WB::MaterialSample shifted_sample = sample;
+  WB::FieldSample shifted_sample = sample;
   shifted_sample.value = 0.5f;
   shifted_sample.path_length = 1.0f;
   WB::FrameState frame = WB::config_frame(sb, config);
@@ -5436,8 +5478,8 @@ inline void test_shaderball_hue_shift_modes() {
   base.params.color = {1.0f, 2.0f, 0.0f};
   HS_EXPECT_TRUE(WB::valid_config(base));
 
-  const WB::MaterialSample sample{
-      0.37f, 1.0f, Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
+  const WB::FieldSample sample{0.37f, 1.0f,
+                               Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
   const Color4 plain = WB::colorize(sample, WB::config_frame(sb, base));
   WB::RequestedConfig noisy = base;
   noisy.slots.hue_shift = WB::HueShiftMode::NOISE;
@@ -5461,7 +5503,7 @@ inline void test_shaderball_hue_shift_modes() {
   HS_EXPECT_TRUE(displacement_frame.resources.color_noise == nullptr);
   const Color4 undisplaced = WB::colorize(sample, displacement_frame);
   HS_EXPECT_EQ(undisplaced.color, plain.color);
-  WB::MaterialSample warped_sample = sample;
+  WB::FieldSample warped_sample = sample;
   warped_sample.path_length = 0.25f;
   const Color4 displacement_shifted =
       WB::colorize(warped_sample, displacement_frame);
@@ -5606,12 +5648,11 @@ inline void test_shaderball_surface_noise_geometry_and_composition() {
   const WB::ProjectedLookup displaced_projected =
       WB::surface_project(directions.back(), frame);
   const WB::PlanarWarpResult unwarped = WB::warp(displaced_projected, frame);
-  const WB::MaterialSample displaced_material =
+  const WB::FieldSample displaced_material =
       WB::material(displaced_projected, unwarped, frame);
-  HS_EXPECT_GT(displaced_projected.surface_path_length, 0.0f);
-  HS_EXPECT_EQ(displaced_material.path_length,
-               displaced_projected.surface_path_length);
-  WB::MaterialSample undisplaced_material = displaced_material;
+  HS_EXPECT_GT(displaced_projected.path_length, 0.0f);
+  HS_EXPECT_EQ(displaced_material.path_length, displaced_projected.path_length);
+  WB::FieldSample undisplaced_material = displaced_material;
   undisplaced_material.path_length = 0.0f;
   HS_EXPECT_TRUE(WB::colorize(displaced_material, frame).color !=
                  WB::colorize(undisplaced_material, frame).color);
