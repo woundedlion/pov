@@ -310,6 +310,17 @@ struct Peirce : ExactPolicy {
   }
 };
 
+/** @brief Approximation bounds of the fast square Peirce path, shared by the
+    template policy and the chain operator's descriptor. */
+inline constexpr std::array<ApproximationMetric, 3> PEIRCE_FAST_SQUARE_METRICS{{
+    {ApproximationDomain::PROJECTED_COORDINATE,
+     ApproximationAggregation::MAXIMUM, 1.2e-3f, "plane units"},
+    {ApproximationDomain::PROJECTED_EDGE_DISTANCE,
+     ApproximationAggregation::MAXIMUM, 2e-4f, "plane units"},
+    {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
+     256.0f, "channel code"},
+}};
+
 template <typename State> struct PeirceFastSquare : ExactPolicy {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -318,14 +329,8 @@ template <typename State> struct PeirceFastSquare : ExactPolicy {
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::PEIRCE_FAST_SQUARE;
-  static constexpr std::array<ApproximationMetric, 3> METRICS{{
-      {ApproximationDomain::PROJECTED_COORDINATE,
-       ApproximationAggregation::MAXIMUM, 1.2e-3f, "plane units"},
-      {ApproximationDomain::PROJECTED_EDGE_DISTANCE,
-       ApproximationAggregation::MAXIMUM, 2e-4f, "plane units"},
-      {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
-       256.0f, "channel code"},
-  }};
+  static constexpr std::array<ApproximationMetric, 3> METRICS =
+      PEIRCE_FAST_SQUARE_METRICS;
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =

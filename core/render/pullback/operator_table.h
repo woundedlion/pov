@@ -20,7 +20,7 @@ namespace Pullback {
 
 namespace Interp {
 
-inline constexpr std::array<OperatorDescriptor, 22> OPERATOR_TABLE{
+inline constexpr std::array<OperatorDescriptor, 34> OPERATOR_TABLE{
     make_operator_descriptor<Op::Rotate>(),
     make_operator_descriptor<Op::DisplaceCurl>(),
     make_operator_descriptor<Op::DisplaceDirect>(),
@@ -29,6 +29,13 @@ inline constexpr std::array<OperatorDescriptor, 22> OPERATOR_TABLE{
     make_operator_descriptor<Op::LensMobius>(),
     make_operator_descriptor<Op::LensKaleidoscope>(),
     make_operator_descriptor<Op::ProjectStereographic>(),
+    make_operator_descriptor<Op::ProjectFoldedSinusoidal>(),
+    make_operator_descriptor<Op::ProjectEquirectangular>(),
+    make_operator_descriptor<Op::ProjectGnomonic>(),
+    make_operator_descriptor<Op::ProjectPeirce>(),
+    make_operator_descriptor<Op::ProjectPeirceSquareFast>(),
+    make_operator_descriptor<Op::ProjectBonne>(),
+    make_operator_descriptor<Op::ProjectAirocean>(),
     make_operator_descriptor<Op::WarpAffine>(),
     make_operator_descriptor<Op::WarpWaveShear>(),
     make_operator_descriptor<Op::WarpVectorNoise>(),
@@ -42,6 +49,11 @@ inline constexpr std::array<OperatorDescriptor, 22> OPERATOR_TABLE{
     make_operator_descriptor<Op::SampleLattice>(),
     make_operator_descriptor<Op::SampleProjectedNoise>(),
     make_operator_descriptor<Op::SampleSphericalNoise>(),
+    make_operator_descriptor<Op::TransferLinear>(),
+    make_operator_descriptor<Op::TransferRidge>(),
+    make_operator_descriptor<Op::TransferIsoContour>(),
+    make_operator_descriptor<Op::TransferSmoothBands>(),
+    make_operator_descriptor<Op::CoverageValueCutout>(),
     make_operator_descriptor<Op::ColorizeGeneratedPalette>(),
 };
 

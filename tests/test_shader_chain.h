@@ -483,7 +483,7 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 22u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 34u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     // Monotonicity pin: proven at table construction, never re-walked.
@@ -514,18 +514,26 @@ inline void test_shader_chain_table_integrity() {
   HS_EXPECT_TRUE(In::find_operator("sample.grid.v1") == nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.curl.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.lens.kaleidoscope.v2") != nullptr);
-  // The colorize entry owns the chain's only approximation.
+  // Exactly two approximations ship: the colorizer's LUT path and the fast
+  // square Peirce projection, each with its own oracle.
   HS_EXPECT_FALSE(In::find_operator("sphere.rotate.v2")->approximate);
+  HS_EXPECT_FALSE(In::find_operator("project.peirce.v2")->approximate);
   const In::OperatorDescriptor &colorize =
       *In::find_operator("colorize.generated-palette.v2");
   HS_EXPECT_TRUE(colorize.approximate);
   HS_EXPECT_EQ(
       static_cast<int>(colorize.oracle),
       static_cast<int>(PB::ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS));
+  const In::OperatorDescriptor &peirce_fast =
+      *In::find_operator("project.peirce-square-fast.v2");
+  HS_EXPECT_TRUE(peirce_fast.approximate);
+  HS_EXPECT_EQ(static_cast<int>(peirce_fast.oracle),
+               static_cast<int>(PB::ApproximationOracleId::PEIRCE_FAST_SQUARE));
+  HS_EXPECT_EQ(peirce_fast.metric_count, 3);
   size_t approximate_count = 0;
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
     approximate_count += op.approximate ? 1 : 0;
-  HS_EXPECT_EQ(approximate_count, 1u);
+  HS_EXPECT_EQ(approximate_count, 2u);
 }
 
 inline void test_shader_chain_schema_and_field_ids() {
@@ -686,6 +694,62 @@ inline void test_shader_chain_schema_and_field_ids() {
     HS_EXPECT_EQ(has_basis,
                  std::string_view(id) == "sample.projected-noise.v2");
   }
+
+  // Projection batch: the meridian-consuming projections extend the shared
+  // family with central-meridian; gnomonic and the fast square Peirce do not.
+  for (const char *id :
+       {"project.stereographic.v2", "project.folded-sinusoidal.v2",
+        "project.equirectangular.v2", "project.gnomonic.v2",
+        "project.peirce.v2", "project.peirce-square-fast.v2",
+        "project.bonne.v2", "project.airocean.v2"}) {
+    const In::OperatorDescriptor &projection = *In::find_operator(id);
+    HS_EXPECT_EQ(static_cast<int>(projection.input),
+                 static_cast<int>(In::CarrierId::SPHERE));
+    HS_EXPECT_EQ(static_cast<int>(projection.output),
+                 static_cast<int>(In::CarrierId::PLANE));
+    bool has_meridian = false;
+    for (uint16_t field = 0; field < projection.schema_count; ++field)
+      has_meridian |=
+          std::string_view(projection.schema[field].id) == "central-meridian";
+    const std::string_view id_view{id};
+    HS_EXPECT_EQ(has_meridian, id_view != "project.stereographic.v2" &&
+                                   id_view != "project.gnomonic.v2" &&
+                                   id_view != "project.peirce-square-fast.v2");
+  }
+  const In::OperatorDescriptor &gnomonic =
+      *In::find_operator("project.gnomonic.v2");
+  const In::ParamFieldInfo &gnomonic_hemisphere =
+      gnomonic.schema[gnomonic.schema_count - 1];
+  HS_EXPECT_TRUE(std::string_view(gnomonic_hemisphere.id) == "hemisphere");
+  HS_EXPECT_EQ(gnomonic_hemisphere.enum_count, 3);
+  HS_EXPECT_TRUE(std::string_view(gnomonic_hemisphere.enum_ids[0]) == "folded");
+  const In::OperatorDescriptor &bonne = *In::find_operator("project.bonne.v2");
+  const In::ParamFieldInfo &bonne_hemisphere =
+      bonne.schema[bonne.schema_count - 1];
+  HS_EXPECT_TRUE(std::string_view(bonne_hemisphere.id) == "hemisphere");
+  HS_EXPECT_EQ(bonne_hemisphere.enum_count, 2);
+  HS_EXPECT_TRUE(std::string_view(bonne_hemisphere.enum_ids[0]) == "north");
+
+  // Field batch: linear and ridge are schema-free; iso-contour, smooth-bands
+  // and the value cutout carry their own families.
+  HS_EXPECT_EQ(In::find_operator("field.transfer.linear.v2")->schema_count, 0);
+  HS_EXPECT_EQ(In::find_operator("field.transfer.ridge.v2")->schema_count, 0);
+  const In::OperatorDescriptor &iso =
+      *In::find_operator("field.transfer.iso-contour.v2");
+  HS_EXPECT_EQ(iso.schema_count, 2);
+  HS_EXPECT_TRUE(std::string_view(iso.schema[0].id) == "iso-level");
+  HS_EXPECT_TRUE(std::string_view(iso.schema[1].id) == "iso-width");
+  const In::OperatorDescriptor &bands =
+      *In::find_operator("field.transfer.smooth-bands.v2");
+  HS_EXPECT_EQ(bands.schema_count, 2);
+  HS_EXPECT_TRUE(std::string_view(bands.schema[0].id) == "band-count");
+  HS_EXPECT_EQ(bands.schema[0].def, 4.0f);
+  HS_EXPECT_TRUE(std::string_view(bands.schema[1].id) == "band-phase");
+  const In::OperatorDescriptor &cutout =
+      *In::find_operator("field.coverage.value-cutout.v2");
+  HS_EXPECT_EQ(cutout.schema_count, 2);
+  HS_EXPECT_TRUE(std::string_view(cutout.schema[0].id) == "cutout-threshold");
+  HS_EXPECT_TRUE(std::string_view(cutout.schema[1].id) == "cutout-softness");
 }
 
 inline void test_shader_chain_instance_id_wellformed() {
@@ -1501,6 +1565,375 @@ inline void test_shader_chain_parity_warp_curl_flow() {
     run_curl_flow_variant<::NoiseBasis::FBM3>(program, ctx);
     run_curl_flow_variant<::NoiseBasis::RIDGED3>(program, ctx);
     program.clear();
+  }
+}
+
+// --- projection-op mirrors ------------------------------------------------
+
+/** Mirror frame for the projection batch. */
+struct ProjMirrorFrame {
+  Quaternion conjugate;
+  In::Op::MeridianProjectChainParams meridian;
+  In::Op::GnomonicChainParams gnomonic;
+  In::Op::BonneChainParams bonne;
+};
+
+struct ProjMirrorBinding {
+  using FrameState = ProjMirrorFrame;
+  using Instrumentation = PB::NoInstrumentation;
+};
+
+template <typename Derived> struct ProjMirrorBase {
+  using Binding = ProjMirrorBinding;
+  using FrameState = ProjMirrorFrame;
+  static const Quaternion &conjugate(const ProjMirrorFrame &frame) {
+    return frame.conjugate;
+  }
+};
+
+struct MeridianProjMirror : ProjMirrorBase<MeridianProjMirror> {
+  static float central_meridian(const ProjMirrorFrame &frame) {
+    return frame.meridian.central_meridian;
+  }
+  static float pole_fade(const ProjMirrorFrame &frame) {
+    return frame.meridian.pole_fade;
+  }
+};
+
+struct GnomonicProjMirror : ProjMirrorBase<GnomonicProjMirror> {
+  static float pole_fade(const ProjMirrorFrame &frame) {
+    return frame.gnomonic.pole_fade;
+  }
+};
+
+struct PeirceProjMirror : ProjMirrorBase<PeirceProjMirror> {
+  static float central_meridian(const ProjMirrorFrame &frame) {
+    return frame.meridian.central_meridian;
+  }
+  static float layout_scroll(const ProjMirrorFrame &) { return 0.0f; }
+  static float coordinate_scale(const ProjMirrorFrame &) {
+    return In::Op::PROJECT_COORDINATE_SCALE;
+  }
+};
+
+struct PeirceFastProjMirror : ProjMirrorBase<PeirceFastProjMirror> {
+  static constexpr bool ZERO_CENTRAL_MERIDIAN = true;
+  static float coordinate_scale(const ProjMirrorFrame &) {
+    return In::Op::PROJECT_COORDINATE_SCALE;
+  }
+};
+
+struct BonneProjMirror : ProjMirrorBase<BonneProjMirror> {
+  static float central_meridian(const ProjMirrorFrame &frame) {
+    return frame.bonne.central_meridian;
+  }
+  static float standard_parallel(const ProjMirrorFrame &) {
+    return In::Op::BONNE_STANDARD_PARALLEL;
+  }
+  static float coordinate_scale(const ProjMirrorFrame &) {
+    return In::Op::PROJECT_COORDINATE_SCALE;
+  }
+};
+
+struct AiroceanProjMirror : ProjMirrorBase<AiroceanProjMirror> {
+  static float central_meridian(const ProjMirrorFrame &frame) {
+    return frame.meridian.central_meridian;
+  }
+  static float coordinate_scale(const ProjMirrorFrame &) {
+    return In::Op::PROJECT_COORDINATE_SCALE;
+  }
+};
+
+/** Compiles a chain with one projection at entry 1 and applies the value set
+    to every block. */
+template <typename OpParams>
+inline void arm_project_op_chain(In::ChainProgram &program, const char *op_id,
+                                 int frames, ValueSet set) {
+  const In::ChainEntryRequest chain[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", op_id},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v2"},
+  };
+  const In::ChainRefusal refusal =
+      program.compile(std::span<const In::ChainEntryRequest>(chain));
+  HS_EXPECT_EQ(static_cast<int>(refusal.code),
+               static_cast<int>(In::ChainStatus::OK));
+  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
+  apply_value_set(param_as<OpParams>(program, 1), set);
+  apply_value_set(param_as<In::Op::GridSampleParams>(program, 2), set);
+  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 3), set);
+  for (int frame = 0; frame < frames; ++frame)
+    program.advance();
+}
+
+inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
+                                      const In::FrameContext &ctx) {
+  ProjMirrorFrame mirror;
+  const auto &state = state_as<In::Op::SpatialWalkState>(program, 1);
+  mirror.conjugate = (make_rotation(Y_AXIS, state.spin_phase) *
+                      ctx.projection_base * state.wander)
+                         .conjugate();
+  const In::OperatorDescriptor &op = *program.ops()[1].op;
+  const std::string_view id{op.operator_id};
+  if (id == In::Op::ProjectGnomonic::ID) {
+    mirror.gnomonic = param_as<In::Op::GnomonicChainParams>(program, 1);
+  } else if (id == In::Op::ProjectBonne::ID) {
+    mirror.bonne = param_as<In::Op::BonneChainParams>(program, 1);
+  } else if (id == In::Op::ProjectPeirceSquareFast::ID) {
+    static_cast<In::Op::ProjectChainParams &>(mirror.meridian) =
+        param_as<In::Op::ProjectChainParams>(program, 1);
+  } else {
+    mirror.meridian = param_as<In::Op::MeridianProjectChainParams>(program, 1);
+  }
+  return mirror;
+}
+
+/** Erased-vs-bound parity of the projection at entry 1. */
+template <typename BoundStage>
+inline void expect_project_op_parity(In::ChainProgram &program,
+                                     const In::FrameContext &ctx) {
+  program.prepare(ctx);
+  const ProjMirrorFrame mirror = project_mirror(program, ctx);
+  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
+  const In::OperatorDescriptor &op = *program.ops()[1].op;
+  for (const Vector &view : sweep_views()) {
+    const PB::SphereSample seed{view, 0.25f};
+    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
+    op.runtime.run(&seed, out, ctx, program.param_block(1),
+                   program.prepared_block(1));
+    const auto &erased =
+        *std::launder(reinterpret_cast<PB::PlaneSample *>(out));
+    const PB::PlaneSample reference = BoundStage::run(seed, mirror, prepared);
+    HS_EXPECT_TRUE(plane_identical(erased, reference));
+  }
+}
+
+template <typename Policy, typename OpParams>
+inline void run_project_parity(const char *op_id, ValueSet set) {
+  auto fixture = std::make_unique<ProgramFixture>();
+  In::ChainProgram &program = fixture->program;
+  arm_project_op_chain<OpParams>(program, op_id, 4, set);
+  const In::FrameContext ctx = shared_resources().context();
+  using Bound =
+      typename PB::Stage::Project<Policy>::template Bind<ProjMirrorBinding>;
+  expect_project_op_parity<Bound>(program, ctx);
+  program.clear();
+}
+
+inline void test_shader_chain_parity_project_ops() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    run_project_parity<PB::Projection::FoldedSinusoidal<MeridianProjMirror>,
+                       In::Op::MeridianProjectChainParams>(
+        In::Op::ProjectFoldedSinusoidal::ID, set);
+    run_project_parity<PB::Projection::Equirectangular<MeridianProjMirror>,
+                       In::Op::MeridianProjectChainParams>(
+        In::Op::ProjectEquirectangular::ID, set);
+    run_project_parity<
+        PB::Projection::Peirce<PeirceProjMirror, In::Op::PEIRCE_SQUARE_LAYOUT,
+                               true>,
+        In::Op::MeridianProjectChainParams>(In::Op::ProjectPeirce::ID, set);
+    run_project_parity<PB::Projection::PeirceFastSquare<PeirceFastProjMirror>,
+                       In::Op::ProjectChainParams>(
+        In::Op::ProjectPeirceSquareFast::ID, set);
+    run_project_parity<
+        PB::Projection::Airocean<AiroceanProjMirror, false, true>,
+        In::Op::MeridianProjectChainParams>(In::Op::ProjectAirocean::ID, set);
+  }
+}
+
+template <PB::Projection::GnomonicHemisphere Hemisphere>
+inline void run_gnomonic_variant(In::ChainProgram &program,
+                                 const In::FrameContext &ctx) {
+  param_as<In::Op::GnomonicChainParams>(program, 1).hemisphere =
+      static_cast<uint8_t>(Hemisphere);
+  using Bound = typename PB::Stage::Project<PB::Projection::Gnomonic<
+      GnomonicProjMirror, Hemisphere>>::template Bind<ProjMirrorBinding>;
+  expect_project_op_parity<Bound>(program, ctx);
+}
+
+template <bool North>
+inline void run_bonne_variant(In::ChainProgram &program,
+                              const In::FrameContext &ctx) {
+  param_as<In::Op::BonneChainParams>(program, 1).hemisphere = North ? 0 : 1;
+  using Bound = typename PB::Stage::Project<PB::Projection::Bonne<
+      BonneProjMirror, North>>::template Bind<ProjMirrorBinding>;
+  expect_project_op_parity<Bound>(program, ctx);
+}
+
+inline void test_shader_chain_parity_project_hemispheres() {
+  using Hemisphere = PB::Projection::GnomonicHemisphere;
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_project_op_chain<In::Op::GnomonicChainParams>(
+        program, In::Op::ProjectGnomonic::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_gnomonic_variant<Hemisphere::FOLDED>(program, ctx);
+    run_gnomonic_variant<Hemisphere::FRONT>(program, ctx);
+    run_gnomonic_variant<Hemisphere::BACK>(program, ctx);
+    program.clear();
+
+    arm_project_op_chain<In::Op::BonneChainParams>(
+        program, In::Op::ProjectBonne::ID, 4, set);
+    run_bonne_variant<true>(program, ctx);
+    run_bonne_variant<false>(program, ctx);
+    program.clear();
+  }
+}
+
+// --- field-op mirrors -----------------------------------------------------
+
+/** Mirror frame for the FIELD endomorphism batch. */
+struct FieldMirrorFrame {
+  In::Op::IsoContourChainParams iso;
+  In::Op::SmoothBandsChainParams bands;
+  In::Op::ValueCutoutChainParams cutout;
+};
+
+struct FieldMirrorBinding {
+  using FrameState = FieldMirrorFrame;
+  using Instrumentation = PB::NoInstrumentation;
+};
+
+struct IsoContourFieldMirror {
+  using Binding = FieldMirrorBinding;
+  using FrameState = FieldMirrorFrame;
+  static float iso_level(const FieldMirrorFrame &frame) {
+    return frame.iso.iso_level;
+  }
+  static float iso_width(const FieldMirrorFrame &frame) {
+    return frame.iso.iso_width;
+  }
+};
+
+struct SmoothBandsFieldMirror {
+  using Binding = FieldMirrorBinding;
+  using FrameState = FieldMirrorFrame;
+  static float band_count(const FieldMirrorFrame &frame) {
+    return frame.bands.band_count;
+  }
+  static float band_phase(const FieldMirrorFrame &frame) {
+    return frame.bands.band_phase;
+  }
+};
+
+struct ValueCutoutFieldMirror {
+  using Binding = FieldMirrorBinding;
+  using FrameState = FieldMirrorFrame;
+  static float cutout_threshold(const FieldMirrorFrame &frame) {
+    return frame.cutout.cutout_threshold;
+  }
+  static float cutout_width(const FieldMirrorFrame &frame) {
+    return frame.cutout.cutout_softness;
+  }
+};
+
+/** Compiles a chain with one FIELD endomorphism at entry 3 and applies the
+    value set to every block. */
+template <typename OpParams>
+inline void arm_field_op_chain(In::ChainProgram &program, const char *op_id,
+                               int frames, ValueSet set) {
+  const In::ChainEntryRequest chain[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v2"},
+      {"op", op_id},
+      {"colorize", "colorize.generated-palette.v2"},
+  };
+  const In::ChainRefusal refusal =
+      program.compile(std::span<const In::ChainEntryRequest>(chain));
+  HS_EXPECT_EQ(static_cast<int>(refusal.code),
+               static_cast<int>(In::ChainStatus::OK));
+  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
+  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
+  apply_value_set(param_as<In::Op::GridSampleParams>(program, 2), set);
+  apply_value_set(param_as<OpParams>(program, 3), set);
+  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 4), set);
+  for (int frame = 0; frame < frames; ++frame)
+    program.advance();
+}
+
+/** The FIELD op's input carrier for @p view: the erased camera, projection
+    and sample entries run over the seed. */
+inline PB::FieldSample field_input(In::ChainProgram &program,
+                                   const In::FrameContext &ctx,
+                                   const Vector &view) {
+  const PB::PlaneSample plane = warp_input(program, ctx, view);
+  alignas(In::SLOT_ALIGN) uint8_t sampled[In::SLOT_SIZE];
+  program.ops()[2].op->runtime.run(&plane, sampled, ctx, program.param_block(2),
+                                   program.prepared_block(2));
+  return *std::launder(reinterpret_cast<PB::FieldSample *>(sampled));
+}
+
+inline FieldMirrorFrame field_mirror(In::ChainProgram &program) {
+  FieldMirrorFrame mirror;
+  const In::OperatorDescriptor &op = *program.ops()[3].op;
+  const std::string_view id{op.operator_id};
+  if (id == In::Op::TransferIsoContour::ID)
+    mirror.iso = param_as<In::Op::IsoContourChainParams>(program, 3);
+  else if (id == In::Op::TransferSmoothBands::ID)
+    mirror.bands = param_as<In::Op::SmoothBandsChainParams>(program, 3);
+  else if (id == In::Op::CoverageValueCutout::ID)
+    mirror.cutout = param_as<In::Op::ValueCutoutChainParams>(program, 3);
+  return mirror;
+}
+
+/** Erased-vs-bound parity of the FIELD endomorphism at entry 3. */
+template <typename BoundStage>
+inline void expect_field_op_parity(In::ChainProgram &program,
+                                   const In::FrameContext &ctx) {
+  program.prepare(ctx);
+  const FieldMirrorFrame mirror = field_mirror(program);
+  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
+  const In::OperatorDescriptor &op = *program.ops()[3].op;
+  for (const Vector &view : sweep_views()) {
+    const PB::FieldSample input = field_input(program, ctx, view);
+    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
+    op.runtime.run(&input, out, ctx, program.param_block(3),
+                   program.prepared_block(3));
+    const auto &erased =
+        *std::launder(reinterpret_cast<PB::FieldSample *>(out));
+    const PB::FieldSample reference = BoundStage::run(input, mirror, prepared);
+    HS_EXPECT_TRUE(field_identical(erased, reference));
+  }
+}
+
+template <typename BoundStage, typename OpParams>
+inline void run_field_parity(const char *op_id, ValueSet set) {
+  auto fixture = std::make_unique<ProgramFixture>();
+  In::ChainProgram &program = fixture->program;
+  arm_field_op_chain<OpParams>(program, op_id, 4, set);
+  const In::FrameContext ctx = shared_resources().context();
+  expect_field_op_parity<BoundStage>(program, ctx);
+  program.clear();
+}
+
+inline void test_shader_chain_parity_field_ops() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    run_field_parity<typename PB::Stage::Transfer<PB::Transfer::Linear>::
+                         template Bind<FieldMirrorBinding>,
+                     PB::Transfer::LinearValueParams>(
+        In::Op::TransferLinear::ID, set);
+    run_field_parity<typename PB::Stage::Transfer<PB::Transfer::Ridge>::
+                         template Bind<FieldMirrorBinding>,
+                     PB::Transfer::LinearValueParams>(In::Op::TransferRidge::ID,
+                                                      set);
+    run_field_parity<
+        typename PB::Stage::Transfer<PB::Transfer::IsoContour<
+            IsoContourFieldMirror>>::template Bind<FieldMirrorBinding>,
+        In::Op::IsoContourChainParams>(In::Op::TransferIsoContour::ID, set);
+    run_field_parity<
+        typename PB::Stage::Transfer<PB::Transfer::SmoothBands<
+            SmoothBandsFieldMirror>>::template Bind<FieldMirrorBinding>,
+        In::Op::SmoothBandsChainParams>(In::Op::TransferSmoothBands::ID, set);
+    run_field_parity<
+        typename PB::Stage::Coverage<PB::Coverage::ValueCutout<
+            ValueCutoutFieldMirror>>::template Bind<FieldMirrorBinding>,
+        In::Op::ValueCutoutChainParams>(In::Op::CoverageValueCutout::ID, set);
   }
 }
 
@@ -2486,6 +2919,9 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_displace_curl();
   test_shader_chain_parity_displace_direct();
   test_shader_chain_parity_lens_ops();
+  test_shader_chain_parity_project_ops();
+  test_shader_chain_parity_project_hemispheres();
+  test_shader_chain_parity_field_ops();
   test_shader_chain_parity_warp_affine_mirror();
   test_shader_chain_parity_warp_wave_shear();
   test_shader_chain_parity_warp_vector_noise();

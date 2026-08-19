@@ -11,6 +11,8 @@
 #include "render/pullback/material.h"
 #include "render/pullback/operator_model.h"
 #include "render/pullback/operators_common.h"
+#include "render/pullback/operators_field.h"
+#include "render/pullback/operators_project.h"
 #include "render/pullback/operators_sample.h"
 #include "render/pullback/operators_sphere.h"
 #include "render/pullback/operators_warp.h"
@@ -74,60 +76,6 @@ struct Rotate {
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
     return Kernel::rotate_dir(input, prepared.conjugate);
-  }
-};
-
-/** @brief Parameter family of the projection operators. */
-struct ProjectChainParams {
-  float pole_fade = 1.0f;
-  float spin_rate = 0.0f;
-  float wander = 0.0f;
-
-  static constexpr auto FIELDS = std::array{
-      Field<ProjectChainParams>{"pole-fade", &ProjectChainParams::pole_fade,
-                                "Pole Fade", 1.0f, 20.0f, FieldCurve::LERP},
-      Field<ProjectChainParams>{
-          "projection-spin-speed", &ProjectChainParams::spin_rate,
-          "Projection Spin Speed", 0.0f, 0.05f, FieldCurve::LERP},
-      Field<ProjectChainParams>{
-          "projection-wander", &ProjectChainParams::wander, "Projection Wander",
-          0.0f, 1.0f, FieldCurve::LERP},
-  };
-};
-static_assert(field_ids_unique<ProjectChainParams>());
-
-/** @brief SPHERE→PLANE crossing: the stereographic projection under a
-    wandering, spinning projection frame. */
-struct ProjectStereographic {
-  static constexpr const char *ID = "project.stereographic.v2";
-  static constexpr const char *NAME = "Stereographic";
-  using Input = SphereSample;
-  using Output = PlaneSample;
-  using Params = ProjectChainParams;
-  using State = SpatialWalkState;
-  struct Prepared {
-    Quaternion conjugate;
-  };
-
-  static void init(State &state, InstanceId id) { init_walk(state, id); }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
-  static void advance(State &state, const Params &params) {
-    advance_walk(state, params.wander, params.spin_rate);
-  }
-  static Prepared prepare(const FrameContext &ctx, const Params &,
-                          const State &state) {
-    return {(make_rotation(Y_AXIS, state.spin_phase) * ctx.projection_base *
-             state.wander)
-                .conjugate()};
-  }
-  static PlaneSample run(const SphereSample &input, const FrameContext &,
-                         const Params &params, const Prepared &prepared) {
-    const Vector local = rotate(input.dir, prepared.conjugate);
-    return Kernel::project(input, local,
-                           Projection::stereographic(local, params.pole_fade));
   }
 };
 
