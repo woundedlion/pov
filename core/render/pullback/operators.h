@@ -10,6 +10,8 @@
 
 #include "render/pullback/material.h"
 #include "render/pullback/operator_model.h"
+#include "render/pullback/operators_common.h"
+#include "render/pullback/operators_sphere.h"
 #include "render/pullback/projection.h"
 #include "render/pullback/source.h"
 #include "render/pullback/stage.h"
@@ -17,7 +19,9 @@
 /**
  * @file operators.h
  * @brief Concrete chain-interpreter operator models: erased adapters over the
- *        shared carrier kernels, with param-block-backed policy math.
+ *        shared carrier kernels, with param-block-backed policy math. The
+ *        per-family headers carry the family batches; this header aggregates
+ *        them and keeps the chain's entry and exit operators.
  */
 
 namespace Pullback {
@@ -25,50 +29,6 @@ namespace Pullback {
 namespace Interp {
 
 namespace Op {
-
-/** @brief Spatial frequency of the operator-owned orientation walk. */
-inline constexpr float WALK_NOISE_SCALE = 0.02f;
-/** @brief Arc length of one full-amplitude walk step, in radians. */
-inline constexpr float WALK_STEP_RADIANS = 0.02f;
-
-/** @brief Deterministic per-frame walk delta from an operator-owned noise
-    field; sampled per axis so the pivot direction drifts smoothly. */
-inline Quaternion walk_delta(const FastNoiseLite &noise, float t) {
-  const Vector axis(noise.GetNoiseSingle(t, 0.0f, 0.0f),
-                    noise.GetNoiseSingle(0.0f, t, 31.7f),
-                    noise.GetNoiseSingle(-17.3f, t, 0.0f));
-  const float length = axis.length();
-  if (length < 1e-5f)
-    return Quaternion();
-  return make_rotation(axis * (1.0f / length), length * WALK_STEP_RADIANS);
-}
-
-/**
- * @brief Instance state of the spin-and-wander operators: an accumulated
- *        orientation plus the noise field that drives its random walk.
- */
-struct SpatialWalkState {
-  FastNoiseLite walk_noise;
-  Quaternion wander;
-  float spin_phase = 0.0f;
-  float walk_time = 0.0f;
-};
-
-inline void init_walk(SpatialWalkState &state, InstanceId id) {
-  state.walk_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-  state.walk_noise.SetSeed(static_cast<int>(id.stable_hash));
-  state.walk_noise.SetFrequency(1.0f);
-}
-
-inline void advance_walk(SpatialWalkState &state, float wander,
-                         float spin_rate) {
-  state.walk_time += 1.0f;
-  const Quaternion delta =
-      walk_delta(state.walk_noise, state.walk_time * WALK_NOISE_SCALE);
-  state.wander =
-      (slerp(Quaternion(), delta, wander) * state.wander).normalized();
-  state.spin_phase = fmodf(state.spin_phase + spin_rate, TWO_PI_F);
-}
 
 /** @brief Parameter family of sphere.rotate.v2. */
 struct RotateChainParams {
@@ -169,18 +129,6 @@ struct ProjectStereographic {
   }
 };
 
-enum class WeightMode : uint8_t { NONE = 0, PROJECTION = 1 };
-enum class CoverageMode : uint8_t {
-  NONE = 0,
-  WEIGHT = 1,
-  WEIGHT_SQUARED = 2,
-  EDGE_FADE = 3
-};
-
-inline constexpr const char *WEIGHT_MODE_IDS[] = {"none", "projection"};
-inline constexpr const char *COVERAGE_MODE_IDS[] = {
-    "none", "weight", "weight-squared", "edge-fade"};
-
 /** @brief Parameter family of sample.grid.v2: the grid source fields plus the
     crossing's union field and topology enum8s. */
 struct GridSampleParams : Source::GridSourceParams {
@@ -204,13 +152,6 @@ struct GridSampleParams : Source::GridSourceParams {
   };
 };
 static_assert(field_ids_unique<GridSampleParams>());
-
-/** @brief Per-frame source phase clocks. */
-struct SourceClockState {
-  float primary = 0.0f;
-  float secondary = 0.0f;
-  float angle = 0.0f;
-};
 
 /** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
     weight and coverage modes. */
@@ -243,34 +184,10 @@ struct SampleGrid {
     const float raw = Source::grid(
         stereo_pattern_args(input.coords, params.pattern_freq),
         static_cast<const Source::GridSourceParams &>(params), prepared);
-    float weighted;
-    switch (static_cast<WeightMode>(params.weight_mode)) {
-    case WeightMode::NONE:
-      weighted = Weight::None::apply(raw, input.provenance, ctx);
-      break;
-    case WeightMode::PROJECTION:
-    default:
-      weighted = Weight::Projection::apply(raw, input.provenance, ctx);
-      break;
-    }
-    float coverage;
-    switch (static_cast<CoverageMode>(params.coverage_mode)) {
-    case CoverageMode::NONE:
-      coverage = ProjectedCoverage::None::apply(input.provenance, ctx);
-      break;
-    case CoverageMode::WEIGHT_SQUARED:
-      coverage = ProjectedCoverage::WeightSquared::apply(input.provenance, ctx);
-      break;
-    case CoverageMode::EDGE_FADE:
-      coverage =
-          ProjectedCoverage::edge_fade(input.provenance, params.edge_width);
-      break;
-    case CoverageMode::WEIGHT:
-    default:
-      coverage = ProjectedCoverage::Weight::apply(input.provenance, ctx);
-      break;
-    }
-    return Kernel::sample(input, weighted, coverage);
+    return Kernel::sample(
+        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
+        provenance_coverage(params.coverage_mode, input.provenance,
+                            params.edge_width, ctx));
   }
 };
 
