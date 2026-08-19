@@ -48,7 +48,10 @@ public:
   HS_COLD_MEMBER DisplacementField()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         balls(timeline), noise_field(timeline), palette(make_palette()),
-        normal(X_AXIS) {}
+        normal(X_AXIS) {
+    // Reserve the initial wipe-target draw before field and motion seeding.
+    static_cast<void>(make_palette());
+  }
 
   /**
    * @brief Allocates the bake LUTs, registers params, seeds the noise field,
