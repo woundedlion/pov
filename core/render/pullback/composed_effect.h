@@ -817,6 +817,12 @@ protected:
         target.color.palette_mapping);
   }
 
+  HS_COLD_MEMBER void animated_parameter_written() override {
+    Choreography::animated_parameter_written();
+    palette_mapping = Pullback::Color::PaletteMappingWeights::single(
+        params.color.palette_mapping);
+  }
+
   /** @brief Captures the palette-mapping endpoints of an arming crossfade. */
   HS_COLD_MEMBER void transition_armed(const Params &target) {
     mapping_from = palette_mapping;
