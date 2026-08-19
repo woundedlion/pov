@@ -473,7 +473,7 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 10u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 16u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     // Monotonicity pin: proven at table construction, never re-walked.
@@ -612,6 +612,43 @@ inline void test_shader_chain_schema_and_field_ids() {
   constexpr size_t DIRECT_FIELDS = In::Op::DirectDisplaceParams::FIELDS.size();
   HS_EXPECT_EQ(direct.schema_count, DIRECT_FIELDS + 1);
   HS_EXPECT_TRUE(std::string_view(direct.schema[DIRECT_FIELDS].id) == "basis");
+
+  // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
+  // carries the full sixteen-harmonic list; curl-flow is basis-only.
+  for (const char *id :
+       {"warp.affine.v2", "warp.wave-shear.v2", "warp.vector-noise.v2",
+        "warp.mirror-tile.v2", "warp.polar-chart.v2", "warp.curl-flow.v2"}) {
+    const In::OperatorDescriptor &warp = *In::find_operator(id);
+    HS_EXPECT_EQ(static_cast<int>(warp.input),
+                 static_cast<int>(In::CarrierId::PLANE));
+    HS_EXPECT_EQ(static_cast<int>(warp.output),
+                 static_cast<int>(In::CarrierId::PLANE));
+    HS_EXPECT_TRUE(std::string_view(warp.schema[0].id) == "speed");
+  }
+  const In::OperatorDescriptor &polar =
+      *In::find_operator("warp.polar-chart.v2");
+  constexpr size_t POLAR_FIELDS = In::Op::PolarChartParams::FIELDS.size();
+  HS_EXPECT_EQ(polar.schema_count, POLAR_FIELDS + 2);
+  HS_EXPECT_TRUE(std::string_view(polar.schema[POLAR_FIELDS].id) == "mode");
+  const In::ParamFieldInfo &harmonic = polar.schema[POLAR_FIELDS + 1];
+  HS_EXPECT_TRUE(std::string_view(harmonic.id) == "harmonic");
+  HS_EXPECT_EQ(harmonic.enum_count, PB::Warp::MAX_POLAR_HARMONIC);
+  HS_EXPECT_TRUE(std::string_view(harmonic.enum_ids[0]) == "h1");
+  HS_EXPECT_TRUE(std::string_view(harmonic.enum_ids[15]) == "h16");
+  const In::OperatorDescriptor &shear =
+      *In::find_operator("warp.wave-shear.v2");
+  const In::ParamFieldInfo &shear_envelope =
+      shear.schema[shear.schema_count - 1];
+  HS_EXPECT_TRUE(std::string_view(shear_envelope.id) == "envelope");
+  HS_EXPECT_EQ(shear_envelope.enum_count, 3);
+  HS_EXPECT_TRUE(std::string_view(shear_envelope.enum_ids[1]) ==
+                 "projection-weight");
+  const In::OperatorDescriptor &curl_flow =
+      *In::find_operator("warp.curl-flow.v2");
+  constexpr size_t CURL_FLOW_FIELDS = In::Op::CurlFlowParams::FIELDS.size();
+  HS_EXPECT_EQ(curl_flow.schema_count, CURL_FLOW_FIELDS + 1);
+  HS_EXPECT_TRUE(std::string_view(curl_flow.schema[CURL_FLOW_FIELDS].id) ==
+                 "basis");
 }
 
 inline void test_shader_chain_instance_id_wellformed() {
@@ -1085,6 +1122,349 @@ inline void test_shader_chain_parity_lens_ops() {
   run_kaleidoscope_variant<PB::Lens::OctagonalPrismKaleidoscope>(
       program, ctx, Symmetry::OCTAGONAL_PRISM);
   program.clear();
+}
+
+// --- warp-op mirrors ------------------------------------------------------
+
+/** Mirror frame for the planar warp batch. */
+struct WarpMirrorFrame {
+  const FastNoiseLite *noise = nullptr;
+  In::Op::AffineWarpParams affine;
+  In::Op::WaveShearWarpParams wave_shear;
+  In::Op::VectorNoiseWarpParams vector_noise;
+  In::Op::MirrorWarpParams mirror;
+  In::Op::PolarChartParams polar;
+  In::Op::CurlFlowParams curl;
+  float phase = 0.0f;
+  float rotation = 0.0f;
+};
+
+struct WarpMirrorBinding {
+  using FrameState = WarpMirrorFrame;
+  using Instrumentation = PB::NoInstrumentation;
+};
+
+struct AffineMirrorProvider {
+  using Binding = WarpMirrorBinding;
+  using FrameState = WarpMirrorFrame;
+  static const In::Op::AffineWarpParams &params(const FrameState &frame) {
+    return frame.affine;
+  }
+  static PB::Warp::PreparedAffineSlot prepare(const FrameState &frame) {
+    return PB::Warp::prepare(frame.affine, frame.phase, frame.rotation, 1.0f);
+  }
+  static float phase(const FrameState &frame) { return frame.phase; }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct WaveShearMirrorProvider {
+  using Binding = WarpMirrorBinding;
+  using FrameState = WarpMirrorFrame;
+  static const In::Op::WaveShearWarpParams &params(const FrameState &frame) {
+    return frame.wave_shear;
+  }
+  static PB::Warp::PreparedRotation prepare(const FrameState &frame) {
+    return PB::Warp::prepare(frame.wave_shear, frame.phase);
+  }
+  static float phase(const FrameState &frame) { return frame.phase; }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct VectorNoiseMirrorProvider {
+  using Binding = WarpMirrorBinding;
+  using FrameState = WarpMirrorFrame;
+  static const In::Op::VectorNoiseWarpParams &params(const FrameState &frame) {
+    return frame.vector_noise;
+  }
+  static PB::Warp::PreparedVectorNoiseSlot prepare(const FrameState &frame) {
+    return PB::Warp::prepare(frame.vector_noise, frame.phase);
+  }
+  static float phase(const FrameState &frame) { return frame.phase; }
+  static const FastNoiseLite &noise(const FrameState &frame) {
+    return *frame.noise;
+  }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct MirrorTileMirrorProvider {
+  using Binding = WarpMirrorBinding;
+  using FrameState = WarpMirrorFrame;
+  static const In::Op::MirrorWarpParams &params(const FrameState &frame) {
+    return frame.mirror;
+  }
+  static PB::Warp::PreparedMirrorSlot prepare(const FrameState &frame) {
+    return PB::Warp::prepare(frame.mirror, frame.phase);
+  }
+  static float phase(const FrameState &frame) { return frame.phase; }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct PolarChartMirrorProvider {
+  using Binding = WarpMirrorBinding;
+  using FrameState = WarpMirrorFrame;
+  static const In::Op::PolarChartParams &params(const FrameState &frame) {
+    return frame.polar;
+  }
+  static float phase(const FrameState &frame) { return frame.phase; }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct CurlFlowMirrorProvider {
+  using Binding = WarpMirrorBinding;
+  using FrameState = WarpMirrorFrame;
+  static const In::Op::CurlFlowParams &params(const FrameState &frame) {
+    return frame.curl;
+  }
+  static float phase(const FrameState &frame) { return frame.phase; }
+  static const FastNoiseLite &noise(const FrameState &frame) {
+    return *frame.noise;
+  }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+/** Compiles a chain with one planar warp at entry 2 and applies the value set
+    to every block. */
+template <typename OpParams>
+inline void arm_warp_op_chain(In::ChainProgram &program, const char *op_id,
+                              int frames, ValueSet set) {
+  const In::ChainEntryRequest chain[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"warp", op_id},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v2"},
+  };
+  const In::ChainRefusal refusal =
+      program.compile(std::span<const In::ChainEntryRequest>(chain));
+  HS_EXPECT_EQ(static_cast<int>(refusal.code),
+               static_cast<int>(In::ChainStatus::OK));
+  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
+  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
+  apply_value_set(param_as<OpParams>(program, 2), set);
+  apply_value_set(param_as<In::Op::GridSampleParams>(program, 3), set);
+  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 4), set);
+  for (int frame = 0; frame < frames; ++frame)
+    program.advance();
+}
+
+/** The warp's input carrier for @p view: the erased camera and projection
+    entries run over the seed, so both parity sides read one real sample. */
+inline PB::PlaneSample warp_input(In::ChainProgram &program,
+                                  const In::FrameContext &ctx,
+                                  const Vector &view) {
+  const PB::SphereSample seed{view, 0.0f};
+  alignas(In::SLOT_ALIGN) uint8_t rotated[In::SLOT_SIZE];
+  program.ops()[0].op->runtime.run(&seed, rotated, ctx, program.param_block(0),
+                                   program.prepared_block(0));
+  alignas(In::SLOT_ALIGN) uint8_t projected[In::SLOT_SIZE];
+  program.ops()[1].op->runtime.run(rotated, projected, ctx,
+                                   program.param_block(1),
+                                   program.prepared_block(1));
+  return *std::launder(reinterpret_cast<PB::PlaneSample *>(projected));
+}
+
+/** Erased-vs-bound parity of the warp at entry 2. */
+template <typename BoundStage>
+inline void expect_warp_op_parity(In::ChainProgram &program,
+                                  const In::FrameContext &ctx,
+                                  const WarpMirrorFrame &mirror) {
+  program.prepare(ctx);
+  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
+  const In::OperatorDescriptor &op = *program.ops()[2].op;
+  for (const Vector &view : sweep_views()) {
+    const PB::PlaneSample input = warp_input(program, ctx, view);
+    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
+    op.runtime.run(&input, out, ctx, program.param_block(2),
+                   program.prepared_block(2));
+    const auto &erased =
+        *std::launder(reinterpret_cast<PB::PlaneSample *>(out));
+    const PB::PlaneSample reference = BoundStage::run(input, mirror, prepared);
+    HS_EXPECT_TRUE(plane_identical(erased, reference));
+  }
+}
+
+inline WarpMirrorFrame warp_mirror(In::ChainProgram &program) {
+  WarpMirrorFrame mirror;
+  const In::OperatorDescriptor &op = *program.ops()[2].op;
+  const std::string_view id{op.operator_id};
+  if (id == In::Op::WarpAffine::ID) {
+    const auto &state = state_as<In::Op::AffineClockState>(program, 2);
+    mirror.phase = state.phase;
+    mirror.rotation = state.rotation;
+    mirror.affine = param_as<In::Op::AffineWarpParams>(program, 2);
+  } else if (id == In::Op::WarpVectorNoise::ID ||
+             id == In::Op::WarpCurlFlow::ID) {
+    const auto &state = state_as<In::Op::NoisePhaseState>(program, 2);
+    mirror.noise = &state.noise;
+    mirror.phase = state.phase;
+    if (id == In::Op::WarpVectorNoise::ID)
+      mirror.vector_noise = param_as<In::Op::VectorNoiseWarpParams>(program, 2);
+    else
+      mirror.curl = param_as<In::Op::CurlFlowParams>(program, 2);
+  } else {
+    mirror.phase = state_as<In::Op::WarpPhaseState>(program, 2).phase;
+    if (id == In::Op::WarpWaveShear::ID)
+      mirror.wave_shear = param_as<In::Op::WaveShearWarpParams>(program, 2);
+    else if (id == In::Op::WarpMirrorTile::ID)
+      mirror.mirror = param_as<In::Op::MirrorWarpParams>(program, 2);
+    else if (id == In::Op::WarpPolarChart::ID)
+      mirror.polar = param_as<In::Op::PolarChartParams>(program, 2);
+  }
+  return mirror;
+}
+
+inline void test_shader_chain_parity_warp_affine_mirror() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    const In::FrameContext ctx = shared_resources().context();
+    arm_warp_op_chain<In::Op::AffineWarpParams>(program, In::Op::WarpAffine::ID,
+                                                4, set);
+    using BoundAffine =
+        typename PB::Stage::Warp<PB::Warp::AffineFrame<AffineMirrorProvider>>::
+            template Bind<WarpMirrorBinding>;
+    expect_warp_op_parity<BoundAffine>(program, ctx, warp_mirror(program));
+    program.clear();
+
+    arm_warp_op_chain<In::Op::MirrorWarpParams>(
+        program, In::Op::WarpMirrorTile::ID, 4, set);
+    using BoundMirror = typename PB::Stage::Warp<PB::Warp::MirrorTile<
+        MirrorTileMirrorProvider>>::template Bind<WarpMirrorBinding>;
+    expect_warp_op_parity<BoundMirror>(program, ctx, warp_mirror(program));
+    program.clear();
+  }
+}
+
+template <typename Envelope>
+inline void run_wave_shear_variant(In::ChainProgram &program,
+                                   const In::FrameContext &ctx,
+                                   In::Op::WarpEnvelope envelope) {
+  param_as<In::Op::WaveShearWarpParams>(program, 2).envelope =
+      static_cast<uint8_t>(envelope);
+  using Bound = typename PB::Stage::Warp<PB::Warp::WaveShear<
+      WaveShearMirrorProvider, Envelope>>::template Bind<WarpMirrorBinding>;
+  expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
+}
+
+inline void test_shader_chain_parity_warp_wave_shear() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_warp_op_chain<In::Op::WaveShearWarpParams>(
+        program, In::Op::WarpWaveShear::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_wave_shear_variant<PB::Warp::FlatEnvelope>(program, ctx,
+                                                   In::Op::WarpEnvelope::FLAT);
+    run_wave_shear_variant<PB::Warp::ProjectionWeightEnvelope>(
+        program, ctx, In::Op::WarpEnvelope::PROJECTION_WEIGHT);
+    run_wave_shear_variant<PB::Warp::EdgeFadeEnvelope>(
+        program, ctx, In::Op::WarpEnvelope::EDGE_FADE);
+    program.clear();
+  }
+}
+
+template <::NoiseBasis Basis, typename Envelope>
+inline void run_vector_noise_variant(In::ChainProgram &program,
+                                     const In::FrameContext &ctx,
+                                     In::Op::WarpEnvelope envelope) {
+  auto &params = param_as<In::Op::VectorNoiseWarpParams>(program, 2);
+  params.basis = static_cast<uint8_t>(Basis);
+  params.envelope = static_cast<uint8_t>(envelope);
+  using Bound = typename PB::Stage::Warp<
+      PB::Warp::VectorNoise<VectorNoiseMirrorProvider, Basis,
+                            Envelope>>::template Bind<WarpMirrorBinding>;
+  expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
+}
+
+template <::NoiseBasis Basis>
+inline void run_vector_noise_basis(In::ChainProgram &program,
+                                   const In::FrameContext &ctx) {
+  run_vector_noise_variant<Basis, PB::Warp::FlatEnvelope>(
+      program, ctx, In::Op::WarpEnvelope::FLAT);
+  run_vector_noise_variant<Basis, PB::Warp::ProjectionWeightEnvelope>(
+      program, ctx, In::Op::WarpEnvelope::PROJECTION_WEIGHT);
+  run_vector_noise_variant<Basis, PB::Warp::EdgeFadeEnvelope>(
+      program, ctx, In::Op::WarpEnvelope::EDGE_FADE);
+}
+
+inline void test_shader_chain_parity_warp_vector_noise() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_warp_op_chain<In::Op::VectorNoiseWarpParams>(
+        program, In::Op::WarpVectorNoise::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_vector_noise_basis<::NoiseBasis::SIMPLEX>(program, ctx);
+    run_vector_noise_basis<::NoiseBasis::FBM3>(program, ctx);
+    run_vector_noise_basis<::NoiseBasis::RIDGED3>(program, ctx);
+    program.clear();
+  }
+}
+
+template <typename Mode, uint8_t Harmonic>
+inline void run_polar_variant(In::ChainProgram &program,
+                              const In::FrameContext &ctx) {
+  auto &params = param_as<In::Op::PolarChartParams>(program, 2);
+  params.mode =
+      static_cast<uint8_t>(std::is_same_v<Mode, PB::Warp::LogarithmicPolar>
+                               ? In::Op::PolarMode::LOGARITHMIC
+                               : In::Op::PolarMode::LINEAR);
+  params.harmonic = Harmonic - 1;
+  using Bound = typename PB::Stage::Warp<
+      PB::Warp::PolarChart<PolarChartMirrorProvider, Mode,
+                           Harmonic>>::template Bind<WarpMirrorBinding>;
+  expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
+}
+
+template <typename Mode>
+inline void run_polar_harmonics(In::ChainProgram &program,
+                                const In::FrameContext &ctx) {
+  [&]<size_t... I>(std::index_sequence<I...>) {
+    (run_polar_variant<Mode, static_cast<uint8_t>(I + 1)>(program, ctx), ...);
+  }(std::make_index_sequence<PB::Warp::MAX_POLAR_HARMONIC>{});
+}
+
+inline void test_shader_chain_parity_warp_polar_chart() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_warp_op_chain<In::Op::PolarChartParams>(
+        program, In::Op::WarpPolarChart::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_polar_harmonics<PB::Warp::LinearPolar>(program, ctx);
+    run_polar_harmonics<PB::Warp::LogarithmicPolar>(program, ctx);
+    program.clear();
+  }
+}
+
+template <::NoiseBasis Basis>
+inline void run_curl_flow_variant(In::ChainProgram &program,
+                                  const In::FrameContext &ctx) {
+  param_as<In::Op::CurlFlowParams>(program, 2).basis =
+      static_cast<uint8_t>(Basis);
+  using Bound = typename PB::Stage::Warp<
+      PB::Warp::CurlFlow<CurlFlowMirrorProvider, Basis,
+                         PB::Warp::Euler1>>::template Bind<WarpMirrorBinding>;
+  expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
+}
+
+inline void test_shader_chain_parity_warp_curl_flow() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_warp_op_chain<In::Op::CurlFlowParams>(program, In::Op::WarpCurlFlow::ID,
+                                              4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_curl_flow_variant<::NoiseBasis::SIMPLEX>(program, ctx);
+    run_curl_flow_variant<::NoiseBasis::FBM3>(program, ctx);
+    run_curl_flow_variant<::NoiseBasis::RIDGED3>(program, ctx);
+    program.clear();
+  }
 }
 
 inline void run_sample_variant(In::ChainProgram &program,
@@ -1723,6 +2103,11 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_displace_curl();
   test_shader_chain_parity_displace_direct();
   test_shader_chain_parity_lens_ops();
+  test_shader_chain_parity_warp_affine_mirror();
+  test_shader_chain_parity_warp_wave_shear();
+  test_shader_chain_parity_warp_vector_noise();
+  test_shader_chain_parity_warp_polar_chart();
+  test_shader_chain_parity_warp_curl_flow();
   test_shader_chain_parity_sample_variants();
   test_shader_chain_parity_colorize_variants();
   test_shader_chain_refusal_shape();

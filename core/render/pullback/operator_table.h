@@ -20,7 +20,7 @@ namespace Pullback {
 
 namespace Interp {
 
-inline constexpr std::array<OperatorDescriptor, 10> OPERATOR_TABLE{
+inline constexpr std::array<OperatorDescriptor, 16> OPERATOR_TABLE{
     make_operator_descriptor<Op::Rotate>(),
     make_operator_descriptor<Op::DisplaceCurl>(),
     make_operator_descriptor<Op::DisplaceDirect>(),
@@ -29,6 +29,12 @@ inline constexpr std::array<OperatorDescriptor, 10> OPERATOR_TABLE{
     make_operator_descriptor<Op::LensMobius>(),
     make_operator_descriptor<Op::LensKaleidoscope>(),
     make_operator_descriptor<Op::ProjectStereographic>(),
+    make_operator_descriptor<Op::WarpAffine>(),
+    make_operator_descriptor<Op::WarpWaveShear>(),
+    make_operator_descriptor<Op::WarpVectorNoise>(),
+    make_operator_descriptor<Op::WarpMirrorTile>(),
+    make_operator_descriptor<Op::WarpPolarChart>(),
+    make_operator_descriptor<Op::WarpCurlFlow>(),
     make_operator_descriptor<Op::SampleGrid>(),
     make_operator_descriptor<Op::ColorizeGeneratedPalette>(),
 };
