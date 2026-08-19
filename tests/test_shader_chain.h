@@ -448,12 +448,19 @@ inline constexpr In::OperatorDescriptor make_fat_descriptor() {
   return descriptor;
 }
 
+consteval In::OperatorDescriptor table_entry(std::string_view operator_id) {
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
+    if (operator_id == op.operator_id)
+      return op;
+  throw "unknown operator id";
+}
+
 inline std::span<const In::OperatorDescriptor> extended_table() {
   static constexpr std::array<In::OperatorDescriptor, 7> TABLE{
-      In::OPERATOR_TABLE[0],
-      In::OPERATOR_TABLE[1],
-      In::OPERATOR_TABLE[2],
-      In::OPERATOR_TABLE[3],
+      table_entry("sphere.rotate.v2"),
+      table_entry("project.stereographic.v2"),
+      table_entry("sample.grid.v2"),
+      table_entry("colorize.generated-palette.v2"),
       In::make_operator_descriptor<CountModel<0>>(),
       In::make_operator_descriptor<CountModel<1>>(),
       make_fat_descriptor(),
@@ -466,12 +473,11 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 4u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 10u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     // Monotonicity pin: proven at table construction, never re-walked.
     HS_EXPECT_LE(static_cast<int>(op.input), static_cast<int>(op.output));
-    HS_EXPECT_GT(op.schema_count, 0);
     HS_EXPECT_TRUE(op.runtime.construct_params != nullptr);
     HS_EXPECT_TRUE(op.runtime.init != nullptr);
     HS_EXPECT_TRUE(op.runtime.migrate != nullptr);
@@ -494,14 +500,22 @@ inline void test_shader_chain_table_integrity() {
     HS_EXPECT_EQ(op.oracle != PB::ApproximationOracleId::NONE, wants_oracle);
     HS_EXPECT_EQ(op.metric_count > 0, wants_oracle);
   }
-  HS_EXPECT_TRUE(In::find_operator("sample.grid.v2") == &In::OPERATOR_TABLE[2]);
+  HS_EXPECT_TRUE(In::find_operator("sample.grid.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sample.grid.v1") == nullptr);
+  HS_EXPECT_TRUE(In::find_operator("sphere.displace.curl.v2") != nullptr);
+  HS_EXPECT_TRUE(In::find_operator("sphere.lens.kaleidoscope.v2") != nullptr);
   // The colorize entry owns the chain's only approximation.
-  HS_EXPECT_FALSE(In::OPERATOR_TABLE[0].approximate);
-  HS_EXPECT_TRUE(In::OPERATOR_TABLE[3].approximate);
+  HS_EXPECT_FALSE(In::find_operator("sphere.rotate.v2")->approximate);
+  const In::OperatorDescriptor &colorize =
+      *In::find_operator("colorize.generated-palette.v2");
+  HS_EXPECT_TRUE(colorize.approximate);
   HS_EXPECT_EQ(
-      static_cast<int>(In::OPERATOR_TABLE[3].oracle),
+      static_cast<int>(colorize.oracle),
       static_cast<int>(PB::ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS));
+  size_t approximate_count = 0;
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
+    approximate_count += op.approximate ? 1 : 0;
+  HS_EXPECT_EQ(approximate_count, 1u);
 }
 
 inline void test_shader_chain_schema_and_field_ids() {
@@ -519,9 +533,16 @@ inline void test_shader_chain_schema_and_field_ids() {
   static_assert(
       In::topology_wellformed(In::SCHEMA<In::Op::ColorizeGeneratedPalette>));
 
+  static_assert(PB::field_ids_unique<In::Op::CurlDisplaceParams>());
+  static_assert(PB::field_ids_unique<In::Op::DirectDisplaceParams>());
+  static_assert(PB::field_ids_unique<In::Op::MobiusChainParams>());
+  static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::DisplaceCurl>));
+  static_assert(In::topology_wellformed(In::SCHEMA<In::Op::DisplaceCurl>));
+  static_assert(In::topology_wellformed(In::SCHEMA<In::Op::LensKaleidoscope>));
+
   // Schema order is the family table then the topology enum8s; defaults come
   // from the default-constructed family.
-  const In::OperatorDescriptor &sample = In::OPERATOR_TABLE[2];
+  const In::OperatorDescriptor &sample = *In::find_operator("sample.grid.v2");
   constexpr size_t GRID_FIELDS = In::Op::GridSampleParams::FIELDS.size();
   HS_EXPECT_EQ(sample.schema_count, GRID_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(sample.schema[0].id) == "pattern-freq");
@@ -537,7 +558,8 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(coverage.enum_count, 4);
   HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[3]) == "edge-fade");
 
-  const In::OperatorDescriptor &colorize = In::OPERATOR_TABLE[3];
+  const In::OperatorDescriptor &colorize =
+      *In::find_operator("colorize.generated-palette.v2");
   constexpr size_t COLOR_FIELDS = PB::Color::ColorParams::FIELDS.size();
   HS_EXPECT_EQ(colorize.schema_count, COLOR_FIELDS + 4);
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS].id) ==
@@ -548,11 +570,48 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS + 3].id) ==
                  "brightness-envelope");
 
-  const In::OperatorDescriptor &rotate = In::OPERATOR_TABLE[0];
+  const In::OperatorDescriptor &rotate = *In::find_operator("sphere.rotate.v2");
   HS_EXPECT_EQ(rotate.schema_count, 2);
   HS_EXPECT_TRUE(std::string_view(rotate.schema[0].id) == "wander");
   HS_EXPECT_TRUE(std::string_view(rotate.schema[1].id) == "spin-speed");
   HS_EXPECT_EQ(rotate.schema[1].max, 0.05f);
+
+  // Sphere batch: the parameterless lenses register empty schemas; the
+  // kaleidoscope is topology-only; the mobius family carries the v1 ids.
+  HS_EXPECT_EQ(In::find_operator("sphere.lens.glitch.v2")->schema_count, 0);
+  HS_EXPECT_EQ(In::find_operator("sphere.lens.twist.v2")->schema_count, 0);
+  const In::OperatorDescriptor &kaleidoscope =
+      *In::find_operator("sphere.lens.kaleidoscope.v2");
+  HS_EXPECT_EQ(kaleidoscope.schema_count, 1);
+  HS_EXPECT_TRUE(kaleidoscope.schema[0].topology);
+  HS_EXPECT_EQ(kaleidoscope.schema[0].enum_count, 9);
+  HS_EXPECT_TRUE(std::string_view(kaleidoscope.schema[0].enum_ids[0]) ==
+                 "azimuthal");
+  HS_EXPECT_TRUE(std::string_view(kaleidoscope.schema[0].enum_ids[8]) ==
+                 "octagonal-prism");
+  const In::OperatorDescriptor &mobius =
+      *In::find_operator("sphere.lens.mobius.v2");
+  HS_EXPECT_EQ(mobius.schema_count, 8);
+  HS_EXPECT_TRUE(std::string_view(mobius.schema[0].id) == "mobius-a-re");
+  HS_EXPECT_TRUE(std::string_view(mobius.schema[7].id) == "mobius-d-im");
+  HS_EXPECT_EQ(mobius.schema[0].min, -4.0f);
+  HS_EXPECT_EQ(mobius.schema[0].max, 4.0f);
+  HS_EXPECT_EQ(mobius.schema[0].def, 0.7071067811865475f);
+  const In::OperatorDescriptor &curl =
+      *In::find_operator("sphere.displace.curl.v2");
+  constexpr size_t CURL_FIELDS = In::Op::CurlDisplaceParams::FIELDS.size();
+  HS_EXPECT_EQ(curl.schema_count, CURL_FIELDS + 2);
+  HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS].id) == "basis");
+  HS_EXPECT_EQ(curl.schema[CURL_FIELDS].enum_count, 3);
+  HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 1].id) ==
+                 "integrator");
+  HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 1].enum_ids[2]) ==
+                 "midpoint-2x");
+  const In::OperatorDescriptor &direct =
+      *In::find_operator("sphere.displace.direct.v2");
+  constexpr size_t DIRECT_FIELDS = In::Op::DirectDisplaceParams::FIELDS.size();
+  HS_EXPECT_EQ(direct.schema_count, DIRECT_FIELDS + 1);
+  HS_EXPECT_TRUE(std::string_view(direct.schema[DIRECT_FIELDS].id) == "basis");
 }
 
 inline void test_shader_chain_instance_id_wellformed() {
@@ -781,6 +840,253 @@ inline void test_shader_chain_parity_rotate_project() {
   }
 }
 
+// --- sphere-op mirrors ----------------------------------------------------
+
+/** Mirror frame for the sphere endomorphism batch; populated from the erased
+    program's own blocks so both sides read identical raw state. */
+struct SphereOpMirrorFrame {
+  const FastNoiseLite *noise = nullptr;
+  In::Op::CurlDisplaceParams curl;
+  In::Op::DirectDisplaceParams direct;
+  MobiusParams mobius;
+  float phase = 0.0f;
+};
+
+struct SphereOpMirrorBinding {
+  using FrameState = SphereOpMirrorFrame;
+  using Instrumentation = PB::NoInstrumentation;
+};
+
+struct CurlMirrorProvider {
+  using Binding = SphereOpMirrorBinding;
+  using FrameState = SphereOpMirrorFrame;
+  static const FastNoiseLite &noise(const FrameState &frame) {
+    return *frame.noise;
+  }
+  static float scale(const FrameState &frame) { return frame.curl.scale; }
+  static float strength(const FrameState &frame) { return frame.curl.strength; }
+  static PB::Surface::PreparedLoop prepare(const FrameState &frame) {
+    return PB::Surface::prepare(frame.phase);
+  }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct DirectMirrorProvider {
+  using Binding = SphereOpMirrorBinding;
+  using FrameState = SphereOpMirrorFrame;
+  static const FastNoiseLite &noise(const FrameState &frame) {
+    return *frame.noise;
+  }
+  static float scale(const FrameState &frame) { return frame.direct.scale; }
+  static float strength(const FrameState &frame) {
+    return frame.direct.strength;
+  }
+  static PB::Surface::PreparedDirect prepare(const FrameState &frame) {
+    return PB::Surface::prepare_direct(frame.phase, frame.direct.direction);
+  }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct MobiusMirrorProvider {
+  using Binding = SphereOpMirrorBinding;
+  using FrameState = SphereOpMirrorFrame;
+  static const MobiusParams &params(const FrameState &frame) {
+    return frame.mobius;
+  }
+};
+
+/** Compiles a chain with one sphere endomorphism at entry 1 and applies the
+    value set to every block. */
+template <typename OpParams>
+inline void arm_sphere_op_chain(In::ChainProgram &program, const char *op_id,
+                                int frames, ValueSet set) {
+  const In::ChainEntryRequest chain[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"op", op_id},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v2"},
+  };
+  const In::ChainRefusal refusal =
+      program.compile(std::span<const In::ChainEntryRequest>(chain));
+  HS_EXPECT_EQ(static_cast<int>(refusal.code),
+               static_cast<int>(In::ChainStatus::OK));
+  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
+  apply_value_set(param_as<OpParams>(program, 1), set);
+  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 2), set);
+  apply_value_set(param_as<In::Op::GridSampleParams>(program, 3), set);
+  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 4), set);
+  for (int frame = 0; frame < frames; ++frame)
+    program.advance();
+}
+
+/** Erased-vs-bound parity of the sphere endomorphism at entry 1: identical
+    seeds, bit-identical outputs across the sweep. */
+template <typename BoundStage>
+inline void expect_sphere_op_parity(In::ChainProgram &program,
+                                    const In::FrameContext &ctx,
+                                    const SphereOpMirrorFrame &mirror) {
+  program.prepare(ctx);
+  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
+  const In::OperatorDescriptor &op = *program.ops()[1].op;
+  for (const Vector &view : sweep_views()) {
+    const PB::SphereSample seed{view, 0.25f};
+    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
+    op.runtime.run(&seed, out, ctx, program.param_block(1),
+                   program.prepared_block(1));
+    const auto &erased =
+        *std::launder(reinterpret_cast<PB::SphereSample *>(out));
+    const PB::SphereSample reference = BoundStage::run(seed, mirror, prepared);
+    HS_EXPECT_TRUE(sphere_identical(erased, reference));
+  }
+}
+
+inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {
+  SphereOpMirrorFrame mirror;
+  const In::OperatorDescriptor &op = *program.ops()[1].op;
+  const std::string_view id{op.operator_id};
+  if (id == In::Op::DisplaceCurl::ID || id == In::Op::DisplaceDirect::ID) {
+    const auto &state = state_as<In::Op::NoisePhaseState>(program, 1);
+    mirror.noise = &state.noise;
+    mirror.phase = state.phase;
+  }
+  if (id == In::Op::DisplaceCurl::ID)
+    mirror.curl = param_as<In::Op::CurlDisplaceParams>(program, 1);
+  if (id == In::Op::DisplaceDirect::ID)
+    mirror.direct = param_as<In::Op::DirectDisplaceParams>(program, 1);
+  if (id == In::Op::LensMobius::ID) {
+    const auto &params = param_as<In::Op::MobiusChainParams>(program, 1);
+    mirror.mobius =
+        MobiusParams{params.a_re, params.a_im, params.b_re, params.b_im,
+                     params.c_re, params.c_im, params.d_re, params.d_im};
+  }
+  return mirror;
+}
+
+template <::NoiseBasis Basis, typename Integrator>
+inline void run_curl_displace_variant(In::ChainProgram &program,
+                                      const In::FrameContext &ctx) {
+  using Bound = typename PB::Stage::Displace<
+      PB::Surface::CurlNoise<CurlMirrorProvider, Basis,
+                             Integrator>>::template Bind<SphereOpMirrorBinding>;
+  expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
+}
+
+template <::NoiseBasis Basis>
+inline void run_curl_displace_basis(In::ChainProgram &program,
+                                    const In::FrameContext &ctx) {
+  auto &params = param_as<In::Op::CurlDisplaceParams>(program, 1);
+  params.basis = static_cast<uint8_t>(Basis);
+  params.integrator = static_cast<uint8_t>(PB::Surface::Integrator::EULER);
+  run_curl_displace_variant<Basis, PB::Surface::Euler>(program, ctx);
+  params.integrator = static_cast<uint8_t>(PB::Surface::Integrator::MIDPOINT);
+  run_curl_displace_variant<Basis, PB::Surface::Midpoint>(program, ctx);
+  params.integrator =
+      static_cast<uint8_t>(PB::Surface::Integrator::MIDPOINT_2X);
+  run_curl_displace_variant<Basis, PB::Surface::Midpoint2x>(program, ctx);
+}
+
+inline void test_shader_chain_parity_displace_curl() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sphere_op_chain<In::Op::CurlDisplaceParams>(
+        program, In::Op::DisplaceCurl::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_curl_displace_basis<::NoiseBasis::SIMPLEX>(program, ctx);
+    run_curl_displace_basis<::NoiseBasis::FBM3>(program, ctx);
+    run_curl_displace_basis<::NoiseBasis::RIDGED3>(program, ctx);
+    program.clear();
+  }
+}
+
+template <::NoiseBasis Basis>
+inline void run_direct_displace_variant(In::ChainProgram &program,
+                                        const In::FrameContext &ctx) {
+  auto &params = param_as<In::Op::DirectDisplaceParams>(program, 1);
+  params.basis = static_cast<uint8_t>(Basis);
+  using Bound = typename PB::Stage::Displace<PB::Surface::DirectNoise<
+      DirectMirrorProvider, Basis>>::template Bind<SphereOpMirrorBinding>;
+  expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
+}
+
+inline void test_shader_chain_parity_displace_direct() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sphere_op_chain<In::Op::DirectDisplaceParams>(
+        program, In::Op::DisplaceDirect::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_direct_displace_variant<::NoiseBasis::SIMPLEX>(program, ctx);
+    run_direct_displace_variant<::NoiseBasis::FBM3>(program, ctx);
+    run_direct_displace_variant<::NoiseBasis::RIDGED3>(program, ctx);
+    program.clear();
+  }
+}
+
+template <typename LensPolicy, typename OpParams>
+inline void run_lens_parity(const char *op_id, ValueSet set) {
+  auto fixture = std::make_unique<ProgramFixture>();
+  In::ChainProgram &program = fixture->program;
+  arm_sphere_op_chain<OpParams>(program, op_id, 3, set);
+  const In::FrameContext ctx = shared_resources().context();
+  using Bound = typename PB::Stage::Lens<LensPolicy>::template Bind<
+      SphereOpMirrorBinding>;
+  expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
+  program.clear();
+}
+
+template <typename Policy>
+inline void run_kaleidoscope_variant(In::ChainProgram &program,
+                                     const In::FrameContext &ctx,
+                                     In::Op::KaleidoscopeSymmetry symmetry) {
+  param_as<In::Op::KaleidoscopeChainParams>(program, 1).symmetry =
+      static_cast<uint8_t>(symmetry);
+  using Bound =
+      typename PB::Stage::Lens<Policy>::template Bind<SphereOpMirrorBinding>;
+  expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
+}
+
+inline void test_shader_chain_parity_lens_ops() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    run_lens_parity<PB::Lens::Glitch, PB::Lens::NoLensParams>(
+        In::Op::LensGlitch::ID, set);
+    run_lens_parity<PB::Lens::Twist, PB::Lens::NoLensParams>(
+        In::Op::LensTwist::ID, set);
+    run_lens_parity<PB::Lens::Mobius<MobiusMirrorProvider>,
+                    In::Op::MobiusChainParams>(In::Op::LensMobius::ID, set);
+  }
+
+  auto fixture = std::make_unique<ProgramFixture>();
+  In::ChainProgram &program = fixture->program;
+  arm_sphere_op_chain<In::Op::KaleidoscopeChainParams>(
+      program, In::Op::LensKaleidoscope::ID, 3, ValueSet::DEFAULTS);
+  const In::FrameContext ctx = shared_resources().context();
+  using Symmetry = In::Op::KaleidoscopeSymmetry;
+  run_kaleidoscope_variant<PB::Lens::Kaleidoscope>(program, ctx,
+                                                   Symmetry::AZIMUTHAL);
+  run_kaleidoscope_variant<PB::Lens::TetrahedralKaleidoscope>(
+      program, ctx, Symmetry::TETRAHEDRAL);
+  run_kaleidoscope_variant<PB::Lens::OctahedralKaleidoscope>(
+      program, ctx, Symmetry::OCTAHEDRAL);
+  run_kaleidoscope_variant<PB::Lens::DodecahedralKaleidoscope>(
+      program, ctx, Symmetry::DODECAHEDRAL);
+  run_kaleidoscope_variant<PB::Lens::TriangularPrismKaleidoscope>(
+      program, ctx, Symmetry::TRIANGULAR_PRISM);
+  run_kaleidoscope_variant<PB::Lens::SquarePrismKaleidoscope>(
+      program, ctx, Symmetry::SQUARE_PRISM);
+  run_kaleidoscope_variant<PB::Lens::PentagonalPrismKaleidoscope>(
+      program, ctx, Symmetry::PENTAGONAL_PRISM);
+  run_kaleidoscope_variant<PB::Lens::HexagonalPrismKaleidoscope>(
+      program, ctx, Symmetry::HEXAGONAL_PRISM);
+  run_kaleidoscope_variant<PB::Lens::OctagonalPrismKaleidoscope>(
+      program, ctx, Symmetry::OCTAGONAL_PRISM);
+  program.clear();
+}
+
 inline void run_sample_variant(In::ChainProgram &program,
                                const In::FrameContext &ctx,
                                In::Op::WeightMode weight,
@@ -946,9 +1252,11 @@ inline void test_shader_chain_refusal_shape() {
   expect_refusal(program, too_long, In::ChainStatus::TOO_LONG, -1, ctx,
                  baseline);
 
+  // Warp::Vortex is deferred (no shipped FIELDS family), so the id stays
+  // unknown as the operator set builds out.
   const In::ChainEntryRequest unknown[] = {
       {"camera", "sphere.rotate.v2"},
-      {"warp", "warp.mirror-tile.v2"},
+      {"warp", "warp.vortex.v2"},
   };
   expect_refusal(program, unknown, In::ChainStatus::UNKNOWN_OPERATOR, 1, ctx,
                  baseline);
@@ -1314,8 +1622,8 @@ inline void test_shader_chain_effect_registers_params() {
   ShaderChain<96, 20> effect;
   effect.init();
   size_t expected = 0;
-  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
-    expected += op.schema_count;
+  for (const In::ChainEntryRequest &entry : DEFAULT_CHAIN)
+    expected += In::find_operator(entry.operator_id)->schema_count;
   const ParamList &params = effect.getParameters();
   HS_EXPECT_EQ(params.size(), expected);
   HS_EXPECT_TRUE(params.find("camera.wander") != nullptr);
@@ -1377,7 +1685,7 @@ inline void test_shader_chain_effect_refusal_keeps_schema() {
   const size_t param_count = effect.getParameters().size();
   const In::ChainEntryRequest unknown[] = {
       {"camera", "sphere.rotate.v2"},
-      {"warp", "warp.mirror-tile.v2"},
+      {"warp", "warp.vortex.v2"},
   };
   const In::ChainRefusal refusal = effect.set_chain(unknown);
   HS_EXPECT_EQ(static_cast<int>(refusal.code),
@@ -1412,6 +1720,9 @@ inline int run_shader_chain_tests() {
   test_shader_chain_default_chain_renders();
   test_shader_chain_param_address_channel();
   test_shader_chain_parity_rotate_project();
+  test_shader_chain_parity_displace_curl();
+  test_shader_chain_parity_displace_direct();
+  test_shader_chain_parity_lens_ops();
   test_shader_chain_parity_sample_variants();
   test_shader_chain_parity_colorize_variants();
   test_shader_chain_refusal_shape();
