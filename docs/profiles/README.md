@@ -56,7 +56,7 @@ peak.
 | [Raymarch](shipping/profile_raymarch_teensy_2026-07-25.md) | volume ray-march (`-O3` march path) | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
 | [VectorFacets](shipping/profile_vectorfacets_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
-| [CurlLattice](shipping/profile_curllattice_teensy_2026-08-17.md)§ ● | curl-noise surface lattice | 🟢 45.47 (2) | 🟢 0/2208 (0%) | 2026-08-17 19:01 |
+| [CurlLattice](shipping/profile_curllattice_teensy_2026-08-18.md)§ ● | curl-noise surface lattice | 🟢 45.18 (2) | 🟢 0/1728 (0%) | 2026-08-18 17:46 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
 | [HankinSolids](shipping/profile_hankinsolids_teensy_2026-07-25.md)§ | per-face SDF (`-O3` driver + `ConwayMorph`) | 🟢 43.0 (19) | 🟢 0/3328 (0%) | 2026-07-26 11:55 |
 | [Comets](shipping/profile_comets_teensy_2026-07-25.md)§ | point raster | 🟢 41.56 (12) | 🟢 0/4128 (0%) | 2026-07-26 11:43 |
@@ -82,8 +82,9 @@ peak.
 | [RingShower](shipping/profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
 
 **●** — the fixed-pipeline effects. Fourteen were first profiled in the
-2026-08-16 sweep; PrismSpiral joined 2026-08-17. The other rows keep their own
-`Captured` dates.
+2026-08-16 sweep; PrismSpiral joined 2026-08-17; CurlLattice was re-captured
+2026-08-18 as the stage-families cut-over A/B gate. The other rows keep their
+own `Captured` dates.
 
 **Nine rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids, Comets,
 GnomonicStars, SphericalHarmonics, PetalFlow, Voronoi and RingShower. Their
