@@ -190,8 +190,8 @@
         "storage": "binary32",
         "unit": "turn-per-frame",
         "domain": {
-          "minimum": -2,
-          "maximum": 2
+          "minimum": -0.02,
+          "maximum": 0.02
         },
         "interpolation": {
           "kind": "LINEAR"
@@ -612,14 +612,14 @@
           "drift": 0.8,
           "source-angle-speed": 0.027,
           "pole-fade": 4.971,
-          "camera-wander": 0.0,
-          "inner-speed": 1,
-          "inner-rotation": 1,
+          "camera-wander": 1.0,
+          "inner-speed": 0,
+          "inner-rotation": 0,
           "inner-cell-x": 1,
           "inner-cell-y": 1,
           "inner-offset-x": 0,
           "inner-offset-y": 0,
-          "palette-chroma": 0.0,
+          "palette-chroma": 1.0,
           "palette-mapping": "bell",
           "mapping-frequency": 2,
           "mapping-phase": -1,
