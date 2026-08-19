@@ -11,6 +11,7 @@
 #include "render/pullback/material.h"
 #include "render/pullback/operator_model.h"
 #include "render/pullback/operators_common.h"
+#include "render/pullback/operators_sample.h"
 #include "render/pullback/operators_sphere.h"
 #include "render/pullback/operators_warp.h"
 #include "render/pullback/projection.h"
@@ -127,68 +128,6 @@ struct ProjectStereographic {
     const Vector local = rotate(input.dir, prepared.conjugate);
     return Kernel::project(input, local,
                            Projection::stereographic(local, params.pole_fade));
-  }
-};
-
-/** @brief Parameter family of sample.grid.v2: the grid source fields plus the
-    crossing's union field and topology enum8s. */
-struct GridSampleParams : Source::GridSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
-
-  static constexpr auto FIELDS = concat_fields<GridSampleParams>(
-      Source::GridSourceParams::FIELDS,
-      std::array{
-          Field<GridSampleParams>{"edge-width", &GridSampleParams::edge_width,
-                                  "Edge Width", 0.0f, 1.0f, FieldCurve::LERP}});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<GridSampleParams>{
-          "weight-mode", &GridSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
-          static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<GridSampleParams>{
-          "coverage-mode", &GridSampleParams::coverage_mode, COVERAGE_MODE_IDS,
-          4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
-  };
-};
-static_assert(field_ids_unique<GridSampleParams>());
-
-/** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
-    weight and coverage modes. */
-struct SampleGrid {
-  static constexpr const char *ID = "sample.grid.v2";
-  static constexpr const char *NAME = "Grid";
-  using Input = PlaneSample;
-  using Output = FieldSample;
-  using Params = GridSampleParams;
-  using State = SourceClockState;
-  using Prepared = Source::PreparedSource;
-
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
-  static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
-    state.secondary =
-        fmodf(state.secondary + params.speed * params.secondary_rate, TWO_PI_F);
-    state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
-  }
-  static Prepared prepare(const FrameContext &, const Params &,
-                          const State &state) {
-    return Source::prepare(state.primary, state.secondary, state.angle);
-  }
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &prepared) {
-    const float raw = Source::grid(
-        stereo_pattern_args(input.coords, params.pattern_freq),
-        static_cast<const Source::GridSourceParams &>(params), prepared);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
   }
 };
 

@@ -172,6 +172,16 @@ inline bool plane_identical(const PB::PlaneSample &a,
          float_identical(a.path_length, b.path_length);
 }
 
+inline bool field_identical(const PB::FieldSample &a,
+                            const PB::FieldSample &b) {
+  return float_identical(a.value, b.value) &&
+         float_identical(a.coverage, b.coverage) &&
+         float_identical(a.sphere.x, b.sphere.x) &&
+         float_identical(a.sphere.y, b.sphere.y) &&
+         float_identical(a.sphere.z, b.sphere.z) &&
+         float_identical(a.path_length, b.path_length);
+}
+
 /** Writes every tabled float of a family to its low or high endpoint. */
 enum class ValueSet { DEFAULTS, MINIMUMS, MAXIMUMS };
 
@@ -473,7 +483,7 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 16u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 22u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     // Monotonicity pin: proven at table construction, never re-walked.
@@ -649,6 +659,33 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(curl_flow.schema_count, CURL_FLOW_FIELDS + 1);
   HS_EXPECT_TRUE(std::string_view(curl_flow.schema[CURL_FLOW_FIELDS].id) ==
                  "basis");
+
+  // Sample batch: every crossing carries the union edge-width field and the
+  // weight/coverage topology pair; only projected-noise adds a basis.
+  for (const char *id :
+       {"sample.grid.v2", "sample.twin-wave.v2", "sample.rings.v2",
+        "sample.spiral.v2", "sample.lattice.v2", "sample.projected-noise.v2",
+        "sample.spherical-noise.v2"}) {
+    const In::OperatorDescriptor &crossing = *In::find_operator(id);
+    HS_EXPECT_EQ(static_cast<int>(crossing.input),
+                 static_cast<int>(In::CarrierId::PLANE));
+    HS_EXPECT_EQ(static_cast<int>(crossing.output),
+                 static_cast<int>(In::CarrierId::FIELD));
+    bool has_edge_width = false;
+    bool has_weight = false;
+    bool has_coverage = false;
+    bool has_basis = false;
+    for (uint16_t field = 0; field < crossing.schema_count; ++field) {
+      const std::string_view field_id{crossing.schema[field].id};
+      has_edge_width |= field_id == "edge-width";
+      has_weight |= field_id == "weight-mode";
+      has_coverage |= field_id == "coverage-mode";
+      has_basis |= field_id == "basis";
+    }
+    HS_EXPECT_TRUE(has_edge_width && has_weight && has_coverage);
+    HS_EXPECT_EQ(has_basis,
+                 std::string_view(id) == "sample.projected-noise.v2");
+  }
 }
 
 inline void test_shader_chain_instance_id_wellformed() {
@@ -1467,6 +1504,352 @@ inline void test_shader_chain_parity_warp_curl_flow() {
   }
 }
 
+// --- sample-op mirrors ----------------------------------------------------
+
+/** Mirror frame for the sample source batch. */
+struct SampleMirrorFrame {
+  const FastNoiseLite *noise = nullptr;
+  In::Op::TwinWaveSampleParams twin_wave;
+  In::Op::RingsSampleParams rings;
+  In::Op::SpiralSampleParams spiral;
+  In::Op::LatticeSampleParams lattice;
+  In::Op::ProjectedNoiseSampleParams projected;
+  In::Op::SphericalNoiseSampleParams spherical;
+  float primary = 0.0f;
+  float secondary = 0.0f;
+  float angle = 0.0f;
+  float noise_time = 0.0f;
+  float edge_width = 0.1f;
+};
+
+struct SampleMirrorBinding {
+  using FrameState = SampleMirrorFrame;
+  using Instrumentation = PB::NoInstrumentation;
+};
+
+template <typename Derived> struct ClockedSampleMirror {
+  using Binding = SampleMirrorBinding;
+  using FrameState = SampleMirrorFrame;
+  static PB::Source::PreparedSource prepare(const FrameState &frame) {
+    return PB::Source::prepare(frame.primary, frame.secondary, frame.angle);
+  }
+};
+
+struct TwinWaveSampleMirror : ClockedSampleMirror<TwinWaveSampleMirror> {
+  static const In::Op::TwinWaveSampleParams &
+  params(const SampleMirrorFrame &frame) {
+    return frame.twin_wave;
+  }
+};
+
+struct RingsSampleMirror : ClockedSampleMirror<RingsSampleMirror> {
+  static const In::Op::RingsSampleParams &
+  params(const SampleMirrorFrame &frame) {
+    return frame.rings;
+  }
+};
+
+struct SpiralSampleMirror : ClockedSampleMirror<SpiralSampleMirror> {
+  static const In::Op::SpiralSampleParams &
+  params(const SampleMirrorFrame &frame) {
+    return frame.spiral;
+  }
+};
+
+struct LatticeSampleMirror {
+  using Binding = SampleMirrorBinding;
+  using FrameState = SampleMirrorFrame;
+  static const In::Op::LatticeSampleParams &
+  params(const SampleMirrorFrame &frame) {
+    return frame.lattice;
+  }
+};
+
+struct ProjectedNoiseSampleMirror {
+  using Binding = SampleMirrorBinding;
+  using FrameState = SampleMirrorFrame;
+  static const FastNoiseLite &noise(const SampleMirrorFrame &frame) {
+    return *frame.noise;
+  }
+  static float noise_scale(const SampleMirrorFrame &frame) {
+    return frame.projected.noise_scale;
+  }
+  static float noise_time(const SampleMirrorFrame &frame) {
+    return frame.noise_time;
+  }
+  static float noise_contrast(const SampleMirrorFrame &frame) {
+    return frame.projected.noise_contrast;
+  }
+};
+
+struct SphericalNoiseSampleMirror {
+  using Binding = SampleMirrorBinding;
+  using FrameState = SampleMirrorFrame;
+  static const FastNoiseLite &noise(const SampleMirrorFrame &frame) {
+    return *frame.noise;
+  }
+  static float noise_scale(const SampleMirrorFrame &frame) {
+    return frame.spherical.noise_scale;
+  }
+  static float noise_time(const SampleMirrorFrame &frame) {
+    return frame.noise_time;
+  }
+  static float noise_contrast(const SampleMirrorFrame &frame) {
+    return frame.spherical.noise_contrast;
+  }
+};
+
+/** Edge-width provider for the mirror's edge-fade coverage policy. */
+struct SampleEdgeMirror {
+  using Binding = SampleMirrorBinding;
+  using FrameState = SampleMirrorFrame;
+  static float edge_width(const SampleMirrorFrame &frame) {
+    return frame.edge_width;
+  }
+};
+
+/** Compiles a chain with one sample crossing at entry 2 and applies the value
+    set to every block. */
+template <typename OpParams>
+inline void arm_sample_op_chain(In::ChainProgram &program, const char *op_id,
+                                int frames, ValueSet set) {
+  const In::ChainEntryRequest chain[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"source", op_id},
+      {"colorize", "colorize.generated-palette.v2"},
+  };
+  const In::ChainRefusal refusal =
+      program.compile(std::span<const In::ChainEntryRequest>(chain));
+  HS_EXPECT_EQ(static_cast<int>(refusal.code),
+               static_cast<int>(In::ChainStatus::OK));
+  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
+  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
+  apply_value_set(param_as<OpParams>(program, 2), set);
+  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 3), set);
+  for (int frame = 0; frame < frames; ++frame)
+    program.advance();
+}
+
+inline SampleMirrorFrame sample_mirror(In::ChainProgram &program) {
+  SampleMirrorFrame mirror;
+  const In::OperatorDescriptor &op = *program.ops()[2].op;
+  const std::string_view id{op.operator_id};
+  if (id == In::Op::SampleProjectedNoise::ID ||
+      id == In::Op::SampleSphericalNoise::ID) {
+    const auto &state = state_as<In::Op::NoisePhaseState>(program, 2);
+    mirror.noise = &state.noise;
+    mirror.noise_time = state.phase;
+    if (id == In::Op::SampleProjectedNoise::ID) {
+      mirror.projected =
+          param_as<In::Op::ProjectedNoiseSampleParams>(program, 2);
+      mirror.edge_width = mirror.projected.edge_width;
+    } else {
+      mirror.spherical =
+          param_as<In::Op::SphericalNoiseSampleParams>(program, 2);
+      mirror.edge_width = mirror.spherical.edge_width;
+    }
+  } else if (id == In::Op::SampleLattice::ID) {
+    mirror.lattice = param_as<In::Op::LatticeSampleParams>(program, 2);
+    mirror.edge_width = mirror.lattice.edge_width;
+  } else {
+    const auto &state = state_as<In::Op::SourceClockState>(program, 2);
+    mirror.primary = state.primary;
+    mirror.secondary = state.secondary;
+    mirror.angle = state.angle;
+    if (id == In::Op::SampleTwinWave::ID) {
+      mirror.twin_wave = param_as<In::Op::TwinWaveSampleParams>(program, 2);
+      mirror.edge_width = mirror.twin_wave.edge_width;
+    } else if (id == In::Op::SampleRings::ID) {
+      mirror.rings = param_as<In::Op::RingsSampleParams>(program, 2);
+      mirror.edge_width = mirror.rings.edge_width;
+    } else if (id == In::Op::SampleSpiral::ID) {
+      mirror.spiral = param_as<In::Op::SpiralSampleParams>(program, 2);
+      mirror.edge_width = mirror.spiral.edge_width;
+    }
+  }
+  return mirror;
+}
+
+/** Erased-vs-bound parity of the sample crossing at entry 2. */
+template <typename BoundStage>
+inline void expect_sample_op_parity(In::ChainProgram &program,
+                                    const In::FrameContext &ctx) {
+  program.prepare(ctx);
+  const SampleMirrorFrame mirror = sample_mirror(program);
+  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
+  const In::OperatorDescriptor &op = *program.ops()[2].op;
+  for (const Vector &view : sweep_views()) {
+    const PB::PlaneSample input = warp_input(program, ctx, view);
+    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
+    op.runtime.run(&input, out, ctx, program.param_block(2),
+                   program.prepared_block(2));
+    const auto &erased =
+        *std::launder(reinterpret_cast<PB::FieldSample *>(out));
+    const PB::FieldSample reference = BoundStage::run(input, mirror, prepared);
+    HS_EXPECT_TRUE(field_identical(erased, reference));
+  }
+}
+
+/** Address of a topology enum8 inside entry @p index's param block, resolved
+    through the erased param-address channel. */
+inline uint8_t *topology_byte(In::ChainProgram &program, size_t index,
+                              const char *field_id) {
+  const In::OperatorDescriptor &op = *program.ops()[index].op;
+  for (uint16_t field = 0; field < op.schema_count; ++field)
+    if (std::string_view(op.schema[field].id) == field_id)
+      return static_cast<uint8_t *>(
+          op.runtime.param_address(program.param_block(index), field));
+  return nullptr;
+}
+
+template <typename SourceP, typename WeightP>
+inline void run_sample_coverage_cases(In::ChainProgram &program,
+                                      const In::FrameContext &ctx,
+                                      uint8_t coverage) {
+  using EdgeP = PB::ProjectedCoverage::EdgeFade<SampleEdgeMirror>;
+  switch (static_cast<In::Op::CoverageMode>(coverage)) {
+  case In::Op::CoverageMode::NONE:
+    expect_sample_op_parity<typename PB::Stage::Sample<
+        SourceP, WeightP,
+        PB::ProjectedCoverage::None>::template Bind<SampleMirrorBinding>>(
+        program, ctx);
+    break;
+  case In::Op::CoverageMode::WEIGHT:
+    expect_sample_op_parity<typename PB::Stage::Sample<
+        SourceP, WeightP,
+        PB::ProjectedCoverage::Weight>::template Bind<SampleMirrorBinding>>(
+        program, ctx);
+    break;
+  case In::Op::CoverageMode::WEIGHT_SQUARED:
+    expect_sample_op_parity<typename PB::Stage::Sample<
+        SourceP, WeightP, PB::ProjectedCoverage::WeightSquared>::
+                                template Bind<SampleMirrorBinding>>(program,
+                                                                    ctx);
+    break;
+  case In::Op::CoverageMode::EDGE_FADE:
+    expect_sample_op_parity<typename PB::Stage::Sample<
+        SourceP, WeightP, EdgeP>::template Bind<SampleMirrorBinding>>(program,
+                                                                      ctx);
+    break;
+  }
+}
+
+/** Runs the full weight-by-coverage topology matrix of the sample crossing at
+    entry 2 against @p SourceP. */
+template <typename SourceP>
+inline void run_sample_op_matrix(In::ChainProgram &program,
+                                 const In::FrameContext &ctx) {
+  uint8_t *weight = topology_byte(program, 2, "weight-mode");
+  uint8_t *coverage = topology_byte(program, 2, "coverage-mode");
+  HS_EXPECT_TRUE(weight != nullptr && coverage != nullptr);
+  for (uint8_t w = 0; w < 2; ++w)
+    for (uint8_t c = 0; c < 4; ++c) {
+      *weight = w;
+      *coverage = c;
+      if (static_cast<In::Op::WeightMode>(w) == In::Op::WeightMode::NONE)
+        run_sample_coverage_cases<SourceP, PB::Weight::None>(program, ctx, c);
+      else
+        run_sample_coverage_cases<SourceP, PB::Weight::Projection>(program, ctx,
+                                                                   c);
+    }
+}
+
+inline void test_shader_chain_parity_sample_twin_wave() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sample_op_chain<In::Op::TwinWaveSampleParams>(
+        program, In::Op::SampleTwinWave::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_sample_op_matrix<PB::Source::TwinWave<TwinWaveSampleMirror>>(program,
+                                                                     ctx);
+    program.clear();
+  }
+}
+
+inline void test_shader_chain_parity_sample_rings() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sample_op_chain<In::Op::RingsSampleParams>(
+        program, In::Op::SampleRings::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_sample_op_matrix<PB::Source::Rings<RingsSampleMirror>>(program, ctx);
+    program.clear();
+  }
+}
+
+inline void test_shader_chain_parity_sample_spiral() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sample_op_chain<In::Op::SpiralSampleParams>(
+        program, In::Op::SampleSpiral::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_sample_op_matrix<PB::Source::Spiral<SpiralSampleMirror>>(program, ctx);
+    program.clear();
+  }
+}
+
+inline void test_shader_chain_parity_sample_lattice() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sample_op_chain<In::Op::LatticeSampleParams>(
+        program, In::Op::SampleLattice::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_sample_op_matrix<PB::Source::PrimitiveLattice<LatticeSampleMirror>>(
+        program, ctx);
+    program.clear();
+  }
+}
+
+inline void test_shader_chain_parity_sample_projected_noise() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sample_op_chain<In::Op::ProjectedNoiseSampleParams>(
+        program, In::Op::SampleProjectedNoise::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    uint8_t *basis = topology_byte(program, 2, "basis");
+    HS_EXPECT_TRUE(basis != nullptr);
+    *basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
+    run_sample_op_matrix<PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
+                                                    ::NoiseBasis::SIMPLEX>>(
+        program, ctx);
+    *basis = static_cast<uint8_t>(::NoiseBasis::FBM3);
+    run_sample_op_matrix<PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
+                                                    ::NoiseBasis::FBM3>>(
+        program, ctx);
+    *basis = static_cast<uint8_t>(::NoiseBasis::RIDGED3);
+    run_sample_op_matrix<PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
+                                                    ::NoiseBasis::RIDGED3>>(
+        program, ctx);
+    program.clear();
+  }
+}
+
+inline void test_shader_chain_parity_sample_spherical_noise() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sample_op_chain<In::Op::SphericalNoiseSampleParams>(
+        program, In::Op::SampleSphericalNoise::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_sample_op_matrix<PB::Source::SphericalNoise<SphericalNoiseSampleMirror,
+                                                    ::NoiseBasis::SIMPLEX>>(
+        program, ctx);
+    program.clear();
+  }
+}
+
 inline void run_sample_variant(In::ChainProgram &program,
                                const In::FrameContext &ctx,
                                In::Op::WeightMode weight,
@@ -2109,6 +2492,12 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_warp_polar_chart();
   test_shader_chain_parity_warp_curl_flow();
   test_shader_chain_parity_sample_variants();
+  test_shader_chain_parity_sample_twin_wave();
+  test_shader_chain_parity_sample_rings();
+  test_shader_chain_parity_sample_spiral();
+  test_shader_chain_parity_sample_lattice();
+  test_shader_chain_parity_sample_projected_noise();
+  test_shader_chain_parity_sample_spherical_noise();
   test_shader_chain_parity_colorize_variants();
   test_shader_chain_refusal_shape();
   test_shader_chain_refusal_budget_overflows();
