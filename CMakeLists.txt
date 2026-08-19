@@ -50,6 +50,14 @@ if(EMSCRIPTEN)
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core)
 
+  # The chain interpreter's two arenas (2 x CHAIN_ARENA_BYTES) plus ShaderChain's
+  # shared color resources outgrow the device-mirrored default arena; the spec
+  # prices that doubling as engine cost on Emscripten/test-oracle builds only.
+  # Device-bound effects are still gated against the true device figure by the
+  # native unit_arena_budget sweep, which builds without the interpreter.
+  target_compile_definitions(${TARGET_NAME} PRIVATE
+    HS_GLOBAL_ARENA_BYTES=524288)
+
   # Warning hygiene for the JS bridge: targets/wasm/ is built by no other target,
   # so without this it is the one first-party TU with zero warning coverage. Not
   # -Werror: unlike the native suite, third-party emscripten system headers ride

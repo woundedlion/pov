@@ -15,6 +15,9 @@
 #include <emscripten/bind.h>
 #include <emscripten/stack.h>
 #include "core/engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
+#if HS_ENABLE_CHAIN_INTERPRETER
+#include "core/render/pullback/catalog_export.h"
+#endif
 #include "core/control/registry.h"
 #include "core/platform/platform.h"
 #include "targets/wasm/arena_metrics.h"
@@ -106,7 +109,14 @@ static size_t init_stack_peak = 0;
 // Upper bound on a single effect's exposed parameters, including effect-local
 // fixed storage larger than ParamList's default inline array. Used
 // to pre-reserve the getParamValues() backing store so it never reallocates.
-inline constexpr size_t MAX_PARAMS = 128;
+// Sized for ShaderChain's MAX_CHAIN_PARAMS (224) schema; the next-largest
+// effect (ShaderBall, 80) sits far below the previous 128 bound.
+inline constexpr size_t MAX_PARAMS = 256;
+
+#if HS_ENABLE_CHAIN_INTERPRETER
+static_assert(MAX_PARAMS >= Pullback::Interp::MAX_CHAIN_PARAMS,
+              "MAX_PARAMS must cover the full chain parameter schema");
+#endif
 
 static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
               "MAX_PARAMS must cover ParamList's default array size");
@@ -1088,6 +1098,74 @@ public:
         [&]<typename SB>(SB &shader) { shader.clear_config_import_notice(); });
   }
 
+#if HS_ENABLE_CHAIN_INTERPRETER
+  /**
+   * @brief Compiles a chain program shape on the loaded ShaderChain effect.
+   * @param entries JS array of {instance, operator} string pairs — the ordered
+   *        program shape and nothing else. No values, no offsets, no family
+   *        tags.
+   * @return JS object {code, entryIndex}: code "APPLIED" on commit, else the
+   *         refusal's ChainStatus name; entryIndex the offending entry, -1 for
+   *         a whole-chain refusal.
+   * @details Synchronous: on APPLIED the parameter definitions are already
+   * rebuilt and the schema generation bumped before this returns, so the
+   * caller applies preset values by "{instance}.{field-id}" name immediately
+   * (apply order: setShaderChain -> values -> syncEffectGui -> invalidate).
+   * The boundary rejects a non-array payload or a non-string entry field as
+   * MALFORMED_PAYLOAD and never traps; NOT_CHAIN_EFFECT reports that the
+   * loaded effect is not ShaderChain. A refusal leaves the previous program,
+   * its parameter definitions, the generation, and all instance state
+   * untouched.
+   */
+  val setShaderChain(const val &entries) {
+    using Pullback::Interp::ChainStatus;
+    if (!with_shader_chain([]<typename SC>(SC &) {}))
+      return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
+    if (!is_array(entries))
+      return chain_result(ChainStatus::MALFORMED_PAYLOAD, -1);
+    const size_t count = entries["length"].as<size_t>();
+    // The length cap precedes per-entry decode — compile()'s own shape order —
+    // so an oversized payload is TOO_LONG, never an unbounded decode.
+    if (count > Pullback::Interp::MAX_CHAIN_OPS)
+      return chain_result(ChainStatus::TOO_LONG, -1);
+    std::vector<std::string> instances(count);
+    std::vector<std::string> operators(count);
+    for (size_t index = 0; index < count; ++index) {
+      const val entry = entries[index];
+      if (entry.isNull() || entry.isUndefined())
+        return chain_result(ChainStatus::MALFORMED_PAYLOAD,
+                            static_cast<int>(index));
+      const val instance = entry["instance"];
+      const val operator_id = entry["operator"];
+      if (!instance.isString() || !operator_id.isString())
+        return chain_result(ChainStatus::MALFORMED_PAYLOAD,
+                            static_cast<int>(index));
+      instances[index] = instance.as<std::string>();
+      operators[index] = operator_id.as<std::string>();
+    }
+    std::vector<Pullback::Interp::ChainEntryRequest> request(count);
+    for (size_t index = 0; index < count; ++index)
+      request[index] = {instances[index], operators[index]};
+    Pullback::Interp::ChainRefusal refusal{ChainStatus::NOT_CHAIN_EFFECT, -1};
+    with_shader_chain([&]<typename SC>(SC &chain) {
+      refusal = chain.set_chain(
+          std::span<const Pullback::Interp::ChainEntryRequest>(request));
+    });
+    return chain_result(refusal.code, refusal.entry_index);
+  }
+
+  /**
+   * @brief Exports the chain-interpreter operator catalog.
+   * @return The catalog JSON — budgets, carriers, and every operator-table
+   *         entry — byte-identical to the native suite's golden pin.
+   */
+  static std::string getShaderChainCatalog() {
+    std::string catalog;
+    Pullback::Interp::append_catalog_json(catalog);
+    return catalog;
+  }
+#endif // HS_ENABLE_CHAIN_INTERPRETER
+
   /**
    * @brief Enumerates the resolutions the factory can build.
    * @return JS array of [W, H] pairs, generated from the same
@@ -1138,6 +1216,40 @@ private:
     });
     return invoked;
   }
+
+#if HS_ENABLE_CHAIN_INTERPRETER
+  /**
+   * @brief Runs a callback on the live effect iff it is ShaderChain.
+   * @param callback Templated callable receiving the chain effect.
+   * @return true iff the callback ran.
+   * @details Same factory-type-key admission as with_shader_workbench: a
+   * registry name that no longer maps to ShaderChain<W,H> reports "not
+   * ShaderChain" instead of casting to the wrong type.
+   */
+  template <typename Callback> bool with_shader_chain(Callback &&callback) {
+    if (!current_effect)
+      return false;
+    bool invoked = false;
+    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+      if (current_effect_type_key == effect_type_key<ShaderChain<W, H>>()) {
+        callback(static_cast<ShaderChain<W, H> &>(*current_effect.get()));
+        invoked = true;
+      }
+    });
+    return invoked;
+  }
+
+  /** @brief {code, entryIndex} result object; OK spells "APPLIED". */
+  static val chain_result(Pullback::Interp::ChainStatus code, int entry_index) {
+    val result = val::object();
+    result.set("code", val(std::string(
+                           code == Pullback::Interp::ChainStatus::OK
+                               ? "APPLIED"
+                               : Pullback::Interp::chain_status_name(code))));
+    result.set("entryIndex", entry_index);
+    return result;
+  }
+#endif // HS_ENABLE_CHAIN_INTERPRETER
 
   /** @brief Why a snapshot array failed to decode. */
   enum class ArrayDecode : uint8_t {
@@ -1331,6 +1443,11 @@ static void bind_engine() {
                 &HolosphereEngine::getConfigImportNotice)
       .function("clearConfigImportNotice",
                 &HolosphereEngine::clearConfigImportNotice)
+#if HS_ENABLE_CHAIN_INTERPRETER
+      .function("setShaderChain", &HolosphereEngine::setShaderChain)
+      .class_function("getShaderChainCatalog",
+                      &HolosphereEngine::getShaderChainCatalog)
+#endif
       .class_function("getSupportedResolutions",
                       &HolosphereEngine::getSupportedResolutions)
       .function("setClip", &HolosphereEngine::setClip)

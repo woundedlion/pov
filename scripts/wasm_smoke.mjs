@@ -488,6 +488,132 @@ async function main() {
       engine.setAnimationsPaused(false);
     }
 
+    // ── ShaderChain authoring route ─────────────────────────────────────────
+    // setShaderChain / getShaderChainCatalog: the chain interpreter's embind
+    // seam. The catalog is a class function (no engine needed); setShaderChain
+    // compiles synchronously — on APPLIED the param definitions are already
+    // rebuilt and the generation bumped before it returns.
+    {
+      let catalog = null;
+      try {
+        catalog = JSON.parse(Module.HolosphereEngine.getShaderChainCatalog());
+      } catch {
+        fail('shader-chain: getShaderChainCatalog() is not valid JSON');
+      }
+      if (catalog) {
+        if (catalog.catalog_version !== 2) {
+          fail(`shader-chain: catalog_version ${catalog.catalog_version}, expected 2`);
+        }
+        for (const key of ['max_chain_ops', 'arena_bytes', 'max_params',
+          'max_instance_id_length', 'per_op_overhead_bytes',
+          'per_param_name_bytes']) {
+          if (!Number.isInteger(catalog.budgets?.[key]) || catalog.budgets[key] <= 0) {
+            fail(`shader-chain: catalog budgets.${key} = ${catalog.budgets?.[key]}, ` +
+              `expected a positive integer`);
+          }
+        }
+        if (!Array.isArray(catalog.operators) || catalog.operators.length < 4) {
+          fail(`shader-chain: catalog lists ${catalog.operators?.length} operators, expected >= 4`);
+        }
+      }
+
+      const DEFAULT_CHAIN = [
+        { instance: 'camera', operator: 'sphere.rotate.v2' },
+        { instance: 'project', operator: 'project.stereographic.v2' },
+        { instance: 'sample', operator: 'sample.grid.v2' },
+        { instance: 'colorize', operator: 'colorize.generated-palette.v2' },
+      ];
+
+      // The refusal for a non-chain effect names itself, never traps.
+      if (engine.setEffect('Shader') !== ES.INSTALLED) {
+        fail('shader-chain: setEffect("Shader") failed');
+      } else if (engine.setShaderChain(DEFAULT_CHAIN).code !== 'NOT_CHAIN_EFFECT') {
+        fail('shader-chain: setShaderChain on a non-chain effect did not report NOT_CHAIN_EFFECT');
+      }
+
+      if (engine.setEffect('ShaderChain') !== ES.INSTALLED) {
+        fail('shader-chain: setEffect("ShaderChain") failed');
+      } else {
+        const applied = engine.setShaderChain(DEFAULT_CHAIN);
+        if (applied.code !== 'APPLIED' || applied.entryIndex !== -1) {
+          fail(`shader-chain: default chain refused: ${applied.code}@${applied.entryIndex}`);
+        }
+        engine.drawFrame();
+        const px = engine.getPixels();
+        let lit = false;
+        for (let i = 0; i < px.length; i++) {
+          if (px[i] !== 0) { lit = true; break; }
+        }
+        if (!lit) fail('shader-chain: default chain rendered an all-black frame');
+
+        const names = new Set(engine.getParameterDefinitions().map((d) => d.name));
+        for (const want of ['camera.wander', 'project.pole-fade',
+          'sample.pattern-freq', 'sample.coverage-mode', 'colorize.palette-mode']) {
+          if (!names.has(want)) fail(`shader-chain: definitions omit "${want}"`);
+        }
+        const coverage = engine.getParameterDefinitions().find(
+          (d) => d.name === 'sample.coverage-mode');
+        if (!coverage || !Array.isArray(coverage.options) ||
+            coverage.options.length !== 4) {
+          fail('shader-chain: sample.coverage-mode did not surface its 4 enum options');
+        }
+
+        // A re-chain bumps the generation and swaps the instance namespace.
+        const g0 = engine.getParamGeneration();
+        const rechain = engine.setShaderChain([
+          { instance: 'camera2', operator: 'sphere.rotate.v2' },
+          ...DEFAULT_CHAIN.slice(1),
+        ]);
+        if (rechain.code !== 'APPLIED') {
+          fail(`shader-chain: re-chain refused: ${rechain.code}`);
+        }
+        if (engine.getParamGeneration() === g0) {
+          fail('shader-chain: an APPLIED re-chain did not bump getParamGeneration()');
+        }
+        const renamed = new Set(engine.getParameterDefinitions().map((d) => d.name));
+        if (!renamed.has('camera2.wander') || renamed.has('camera.wander')) {
+          fail('shader-chain: re-chain did not swap the instance parameter namespace');
+        }
+
+        // A refusal names its code and entry and leaves the prior state whole.
+        const g1 = engine.getParamGeneration();
+        const refused = engine.setShaderChain([
+          { instance: 'camera', operator: 'sphere.rotate.v999' },
+          ...DEFAULT_CHAIN.slice(1),
+        ]);
+        if (refused.code !== 'UNKNOWN_OPERATOR' || refused.entryIndex !== 0) {
+          fail(`shader-chain: unknown operator reported ${refused.code}@${refused.entryIndex}`);
+        }
+        if (engine.getParamGeneration() !== g1) {
+          fail('shader-chain: a refused chain moved getParamGeneration()');
+        }
+        if (!new Set(engine.getParameterDefinitions().map((d) => d.name)).has('camera2.wander')) {
+          fail('shader-chain: a refused chain disturbed the registered definitions');
+        }
+        engine.drawFrame();
+        const after = engine.getPixels();
+        let stillLit = false;
+        for (let i = 0; i < after.length; i++) {
+          if (after[i] !== 0) { stillLit = true; break; }
+        }
+        if (!stillLit) fail('shader-chain: render went black after a refused chain');
+
+        // The boundary rejects malformed payloads without trapping.
+        for (const [what, payload] of [
+          ['a non-array payload', 42],
+          ['a null entry', [null]],
+          ['a non-string instance', [{ instance: 7, operator: 'sphere.rotate.v2' }]],
+          ['a missing operator field', [{ instance: 'camera' }]],
+        ]) {
+          if (engine.setShaderChain(payload).code !== 'MALFORMED_PAYLOAD') {
+            fail(`shader-chain: ${what} did not report MALFORMED_PAYLOAD`);
+          }
+        }
+        console.log('  shader-chain: catalog + setShaderChain apply/rebind/refusal/malformed OK');
+      }
+      engine.setAnimationsPaused(false);
+    }
+
     // Stable fixed-effect and preset identities are independent of C++ names
     // and generated array positions.
     {

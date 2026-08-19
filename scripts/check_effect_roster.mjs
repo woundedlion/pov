@@ -1,5 +1,6 @@
 // Cross-check the standard HS_EFFECT_LIST roster against the REGISTER_EFFECT
-// calls under effects/. The standalone WASM-only Shader workbench is excluded.
+// calls under effects/. The standalone WASM-only Shader workbench and the
+// ShaderChain interpreter effect are excluded.
 // The WASM startup check only
 // compares the registry SIZE to HS_EFFECT_COUNT, so an effect whose header is
 // never #included from core/engine/effects.h (no #include, no X() row) is absent from

@@ -120,6 +120,8 @@ inline void append_catalog_json(std::string &out) {
   Detail::append_json_number(out, MAX_INSTANCE_ID);
   out += ",\"per_op_overhead_bytes\":";
   Detail::append_json_number(out, PER_OP_OVERHEAD_BYTES);
+  out += ",\"per_param_name_bytes\":";
+  Detail::append_json_number(out, PER_PARAM_NAME_BYTES);
   out += "},\"carriers\":[";
   for (size_t index = 0; index < CARRIER_NAMES.size(); ++index) {
     if (index > 0)
