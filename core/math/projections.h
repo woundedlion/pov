@@ -151,8 +151,8 @@ inline float wrap_longitude(float longitude) {
  * @brief Folded sinusoidal (Sanson-Flamsteed) pseudocylindrical projection.
  * @param v Unit direction on the sphere.
  * @param central_meridian Longitude placed at the image's axis, in radians.
- * @return Plane coordinates in radians: absolute azimuth tapered by
- *         cos(latitude), against latitude.
+ * @return Plane coordinates in radians with approximate angular terms:
+ *         absolute azimuth tapered by cos(latitude), against latitude.
  * @details Folding the azimuth about the central meridian maps both
  * hemispheres onto one image, so the antimeridian carries no seam; the
  * cos(latitude) taper collapses each pole to a point.
@@ -169,7 +169,8 @@ folded_sinusoidal(const Vector &v, float central_meridian = 0.0f) {
  * @brief Equirectangular (plate carree) cylindrical projection.
  * @param v Unit direction on the sphere.
  * @param central_meridian Longitude placed at the image's axis, in radians.
- * @return Plane coordinates in radians: wrapped longitude against latitude.
+ * @return Plane coordinates in radians with approximate angular terms:
+ *         wrapped longitude against latitude.
  * @details Longitude is periodic, so the image is cut at the antimeridian and
  * each pole spreads across a full image row.
  */
