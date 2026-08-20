@@ -28,27 +28,37 @@ def references(html_root: Path) -> list[tuple[Path, str]]:
     return found
 
 
-def markdown_references(repo_root: Path) -> list[tuple[PurePosixPath, str]]:
-    """Return every (tracked Markdown file, <img> src) pair in the repository."""
+def markdown_references(
+        repo_root: Path
+) -> tuple[list[tuple[PurePosixPath, str]], list[str]]:
+    """Return every (tracked Markdown file, <img> src) pair, and read errors."""
     command = ["git", "-c", f"safe.directory={repo_root.as_posix()}",
                "-C", str(repo_root), "ls-files", "-z"]
     result = subprocess.run(command, check=True, stdout=subprocess.PIPE)
     found: list[tuple[PurePosixPath, str]] = []
+    errors: list[str] = []
     for name in sorted(result.stdout.decode("utf-8").split("\0")):
         if not name or not name.casefold().endswith(_MARKDOWN_SUFFIXES):
             continue
         relative = PurePosixPath(name)
-        text = repo_root.joinpath(*relative.parts).read_text(
-            encoding="utf-8", errors="replace")
+        # A tracked file can be absent from the working tree (an interrupted
+        # checkout, a sparse one). That is an error to report, not a traceback.
+        try:
+            text = repo_root.joinpath(*relative.parts).read_text(
+                encoding="utf-8", errors="replace")
+        except OSError as error:
+            errors.append(
+                f"{relative.as_posix()}: tracked Markdown is unreadable: {error}")
+            continue
         found.extend((relative, src) for src in _IMG_SRC_RE.findall(text))
-    return found
+    return found, errors
 
 
 def verify(repo_root: Path) -> tuple[list[str], int]:
     """Resolve tracked Markdown references; return (errors, references checked)."""
-    errors: list[str] = []
+    found, errors = markdown_references(repo_root)
     checked = 0
-    for source, src in markdown_references(repo_root):
+    for source, src in found:
         where = f"{source.as_posix()}: {src!r}"
         parts = urlsplit(src)
         if parts.scheme or parts.netloc:
