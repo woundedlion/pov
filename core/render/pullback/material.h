@@ -16,7 +16,7 @@ namespace Pullback {
 
 namespace Weight {
 
-struct None : ExactPolicy {
+struct None : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(float field, const ProjectionProvenance &, const FrameState &) {
@@ -24,7 +24,7 @@ struct None : ExactPolicy {
   }
 };
 
-struct Projection : ExactPolicy {
+struct Projection : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(float field, const ProjectionProvenance &provenance,
@@ -61,7 +61,7 @@ struct IsoValueParams {
 };
 static_assert(field_ids_unique<IsoValueParams>());
 
-struct Linear : ExactPolicy {
+struct Linear : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &) {
@@ -69,7 +69,7 @@ struct Linear : ExactPolicy {
   }
 };
 
-struct Ridge : ExactPolicy {
+struct Ridge : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &) {
@@ -92,7 +92,7 @@ smooth_bands(float value, float band_count, float band_phase) {
   return 0.5f - 0.5f * cosf(TWO_PI_F * band_count * value + band_phase);
 }
 
-template <typename State> struct IsoContour : ExactPolicy {
+template <typename State> struct IsoContour : ApproximationDefaults {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -108,7 +108,7 @@ template <typename State> struct IsoContour : ExactPolicy {
   }
 };
 
-template <typename State> struct SmoothBands : ExactPolicy {
+template <typename State> struct SmoothBands : ApproximationDefaults {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -133,7 +133,7 @@ template <typename State> struct SmoothBands : ExactPolicy {
  */
 namespace ProjectedCoverage {
 
-struct None : ExactPolicy {
+struct None : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(const ProjectionProvenance &, const FrameState &) {
@@ -141,7 +141,7 @@ struct None : ExactPolicy {
   }
 };
 
-struct Weight : ExactPolicy {
+struct Weight : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(const ProjectionProvenance &provenance, const FrameState &) {
@@ -149,7 +149,7 @@ struct Weight : ExactPolicy {
   }
 };
 
-struct WeightSquared : ExactPolicy {
+struct WeightSquared : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(const ProjectionProvenance &provenance, const FrameState &) {
@@ -165,7 +165,7 @@ edge_fade(const ProjectionProvenance &provenance, float width) {
              : Detail::smooth_ramp(0.0f, width, provenance.fade_edge_distance);
 }
 
-template <typename State> struct EdgeFade : ExactPolicy {
+template <typename State> struct EdgeFade : ApproximationDefaults {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -210,7 +210,7 @@ value_cutout(float value, float threshold, float width) {
  * @details Reads the current FIELD value and nothing else, so a chain may
  * legally place it before, between, or after transfers.
  */
-template <typename State> struct ValueCutout : ExactPolicy {
+template <typename State> struct ValueCutout : ApproximationDefaults {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&

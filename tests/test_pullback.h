@@ -199,7 +199,7 @@ struct WrongReturnStage {
   using Output = Color4;
   using Policies = std::tuple<>;
 
-  template <typename Binding> struct Bind : Pullback::ExactPolicy {
+  template <typename Binding> struct Bind : Pullback::ApproximationDefaults {
     using Input = Pullback::FieldSample;
     using Output = Color4;
     using FrameState = typename Binding::FrameState;
@@ -217,7 +217,7 @@ struct WrongPrepareStage {
   using Output = Color4;
   using Policies = std::tuple<>;
 
-  template <typename Binding> struct Bind : Pullback::ExactPolicy {
+  template <typename Binding> struct Bind : Pullback::ApproximationDefaults {
     using Input = Pullback::FieldSample;
     using Output = Color4;
     using FrameState = typename Binding::FrameState;
@@ -230,7 +230,7 @@ struct WrongPrepareStage {
   };
 };
 
-struct MalformedApproximatePolicy : Pullback::ExactPolicy {
+struct MalformedApproximatePolicy : Pullback::ApproximationDefaults {
   static constexpr bool APPROXIMATE = true;
 };
 
@@ -512,17 +512,17 @@ struct CountingOrientationState {
   }
 };
 
-struct CountingSurfacePolicy : Pullback::ExactPolicy {
+struct CountingSurfacePolicy : Pullback::ApproximationDefaults {
   static Pullback::SurfaceResult apply(const Vector &input, const TestFrame &) {
     return {input, 0.5f};
   }
 };
 
-struct CountingLensPolicy : Pullback::ExactPolicy {
+struct CountingLensPolicy : Pullback::ApproximationDefaults {
   static Vector apply(const Vector &input, const TestFrame &) { return input; }
 };
 
-struct CountingProjectionPolicy : Pullback::ExactPolicy {
+struct CountingProjectionPolicy : Pullback::ApproximationDefaults {
   static const Quaternion &frame_conjugate(const TestFrame &) {
     static constexpr Quaternion IDENTITY;
     return IDENTITY;
@@ -533,7 +533,7 @@ struct CountingProjectionPolicy : Pullback::ExactPolicy {
   }
 };
 
-struct CountingWarpPolicy : Pullback::ExactPolicy {
+struct CountingWarpPolicy : Pullback::ApproximationDefaults {
   static Pullback::WarpStepResult apply(const Complex &input,
                                         const Pullback::ProjectionProvenance &,
                                         const TestFrame &) {
@@ -541,7 +541,7 @@ struct CountingWarpPolicy : Pullback::ExactPolicy {
   }
 };
 
-struct CountingSourcePolicy : Pullback::ExactPolicy {
+struct CountingSourcePolicy : Pullback::ApproximationDefaults {
   static float sample(const Pullback::PlaneSample &input, const TestFrame &) {
     return input.coords.re;
   }
@@ -559,7 +559,7 @@ struct CountingValueState {
   }
 };
 
-struct CountingColorPolicy : Pullback::ExactPolicy {
+struct CountingColorPolicy : Pullback::ApproximationDefaults {
   static Color4 apply(const Pullback::FieldSample &input, const TestFrame &) {
     return Color4(Pixel(9, 8, 7), input.coverage);
   }
@@ -724,13 +724,13 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(projected.provenance.domain_coverage, 1.0f);
 }
 
-struct AddLens : Pullback::ExactPolicy {
+struct AddLens : Pullback::ApproximationDefaults {
   static Vector apply(const Vector &input, const TestFrame &) {
     return Vector(input.x + 1.0f, input.y, input.z);
   }
 };
 
-struct ScaleLens : Pullback::ExactPolicy {
+struct ScaleLens : Pullback::ApproximationDefaults {
   static Vector apply(const Vector &input, const TestFrame &) {
     return Vector(input.x * 2.0f, input.y, input.z);
   }

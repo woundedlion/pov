@@ -55,7 +55,7 @@ __attribute__((always_inline)) inline Vector mobius(const Vector &input,
                 2.0f * (n_im * m_re - n_re * m_im) * inverse);
 }
 
-struct Glitch : ExactPolicy {
+struct Glitch : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -63,7 +63,7 @@ struct Glitch : ExactPolicy {
   }
 };
 
-struct Twist : ExactPolicy {
+struct Twist : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -71,7 +71,7 @@ struct Twist : ExactPolicy {
   }
 };
 
-template <typename State> struct Mobius : ExactPolicy {
+template <typename State> struct Mobius : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -93,7 +93,7 @@ template <typename State> struct Mobius : ExactPolicy {
   }
 };
 
-struct Kaleidoscope : ExactPolicy {
+struct Kaleidoscope : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -101,7 +101,7 @@ struct Kaleidoscope : ExactPolicy {
   }
 };
 
-struct TetrahedralKaleidoscope : ExactPolicy {
+struct TetrahedralKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -110,7 +110,7 @@ struct TetrahedralKaleidoscope : ExactPolicy {
   }
 };
 
-struct OctahedralKaleidoscope : ExactPolicy {
+struct OctahedralKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -119,7 +119,7 @@ struct OctahedralKaleidoscope : ExactPolicy {
   }
 };
 
-struct DodecahedralKaleidoscope : ExactPolicy {
+struct DodecahedralKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -127,7 +127,7 @@ struct DodecahedralKaleidoscope : ExactPolicy {
   }
 };
 
-struct TriangularPrismKaleidoscope : ExactPolicy {
+struct TriangularPrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -136,7 +136,7 @@ struct TriangularPrismKaleidoscope : ExactPolicy {
   }
 };
 
-struct SquarePrismKaleidoscope : ExactPolicy {
+struct SquarePrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -145,7 +145,7 @@ struct SquarePrismKaleidoscope : ExactPolicy {
   }
 };
 
-struct PentagonalPrismKaleidoscope : ExactPolicy {
+struct PentagonalPrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -154,7 +154,7 @@ struct PentagonalPrismKaleidoscope : ExactPolicy {
   }
 };
 
-struct HexagonalPrismKaleidoscope : ExactPolicy {
+struct HexagonalPrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {
@@ -163,7 +163,7 @@ struct HexagonalPrismKaleidoscope : ExactPolicy {
   }
 };
 
-struct OctagonalPrismKaleidoscope : ExactPolicy {
+struct OctagonalPrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
   __attribute__((always_inline)) static Vector apply(const Vector &input,
                                                      const FrameState &) {

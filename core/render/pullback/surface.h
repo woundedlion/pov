@@ -181,7 +181,8 @@ curl_noise(const Vector &input, const FastNoiseLite &noise, ::NoiseBasis basis,
   return second;
 }
 
-template <typename State, ::NoiseBasis Basis> struct DirectNoise : ExactPolicy {
+template <typename State, ::NoiseBasis Basis>
+struct DirectNoise : ApproximationDefaults {
   using FrameState = typename State::FrameState;
 
   template <typename Binding>
@@ -215,7 +216,7 @@ template <typename State, ::NoiseBasis Basis> struct DirectNoise : ExactPolicy {
 };
 
 template <typename State, ::NoiseBasis Basis, typename IntegratorPolicy>
-struct CurlNoise : ExactPolicy {
+struct CurlNoise : ApproximationDefaults {
   using FrameState = typename State::FrameState;
 
   template <typename Binding>

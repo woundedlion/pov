@@ -161,7 +161,7 @@ airocean(const Vector &input, float central_meridian, bool horizontal,
                      coordinate_scale);
 }
 
-template <typename State, bool North> struct Bonne : ExactPolicy {
+template <typename State, bool North> struct Bonne : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -188,7 +188,7 @@ template <typename State, bool North> struct Bonne : ExactPolicy {
   }
 };
 
-template <typename State> struct Stereographic : ExactPolicy {
+template <typename State> struct Stereographic : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -210,7 +210,7 @@ template <typename State> struct Stereographic : ExactPolicy {
   }
 };
 
-template <typename State> struct FoldedSinusoidal : ExactPolicy {
+template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -234,7 +234,7 @@ template <typename State> struct FoldedSinusoidal : ExactPolicy {
   }
 };
 
-template <typename State> struct Equirectangular : ExactPolicy {
+template <typename State> struct Equirectangular : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -259,7 +259,7 @@ template <typename State> struct Equirectangular : ExactPolicy {
 };
 
 template <typename State, GnomonicHemisphere Hemisphere>
-struct Gnomonic : ExactPolicy {
+struct Gnomonic : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -282,7 +282,7 @@ struct Gnomonic : ExactPolicy {
 };
 
 template <typename State, uint8_t Layout, bool EdgeDistanceRequired>
-struct Peirce : ExactPolicy {
+struct Peirce : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -321,7 +321,7 @@ inline constexpr std::array<ApproximationMetric, 3> PEIRCE_FAST_SQUARE_METRICS{{
      256.0f, "channel code"},
 }};
 
-template <typename State> struct PeirceFastSquare : ExactPolicy {
+template <typename State> struct PeirceFastSquare : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -374,7 +374,7 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
 };
 
 template <typename State, bool Horizontal, bool EdgeDistanceRequired>
-struct Airocean : ExactPolicy {
+struct Airocean : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
