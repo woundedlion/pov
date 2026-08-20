@@ -285,32 +285,33 @@ struct MeshState {
    *   only: this runs per frame from MeshOps::transform, so the device pays
    *   nothing for the O(F) walk.
    */
-  void set_view(ArenaSpan<uint8_t> face_counts_span,
-                ArenaSpan<uint16_t> faces_span,
-                ArenaSpan<uint16_t> face_offsets_span,
-                ArenaSpan<uint16_t> topology_span = {}) {
+  void set_borrowed(ArenaSpan<uint8_t> face_counts_span,
+                    ArenaSpan<uint16_t> faces_span,
+                    ArenaSpan<uint16_t> face_offsets_span,
+                    ArenaSpan<uint16_t> topology_span = {}) {
     if (!face_offsets_span.is_empty()) {
-      HS_CHECK(face_offsets_span.size() == face_counts_span.size(),
-               "MeshState::set_view: one face offset per face count required");
+      HS_CHECK(
+          face_offsets_span.size() == face_counts_span.size(),
+          "MeshState::set_borrowed: one face offset per face count required");
       const size_t last = face_counts_span.size() - 1;
       HS_CHECK(static_cast<size_t>(face_offsets_span[last]) +
                        face_counts_span[last] ==
                    faces_span.size(),
-               "MeshState::set_view: face offsets do not span faces");
+               "MeshState::set_borrowed: face offsets do not span faces");
       HS_AUDIT_CHECK(
           offsets_are_prefix_sum(face_counts_span, face_offsets_span),
-          "MeshState::set_view: face offsets are not the prefix sum of the "
+          "MeshState::set_borrowed: face offsets are not the prefix sum of the "
           "face counts");
     } else {
       size_t counted = 0;
       for (size_t i = 0; i < face_counts_span.size(); ++i)
         counted += face_counts_span[i];
       HS_CHECK(counted == faces_span.size(),
-               "MeshState::set_view: face counts do not span faces");
+               "MeshState::set_borrowed: face counts do not span faces");
     }
     HS_CHECK(topology_span.is_empty() ||
                  topology_span.size() == face_counts_span.size(),
-             "MeshState::set_view: one topology class per face required");
+             "MeshState::set_borrowed: one topology class per face required");
     face_counts = {};
     faces = {};
     face_offsets = {};
@@ -322,7 +323,7 @@ struct MeshState {
   }
 
 private:
-  // Private so set_view() stays the only way to enter borrowed mode: its
+  // Private so set_borrowed() stays the only way to enter borrowed mode: its
   // consistency traps are what downstream fi + fo[f] indexing rests on.
   ArenaSpan<uint8_t>
       face_counts_view; /**< Borrowed face-counts view, populated by MeshOps::transform. */

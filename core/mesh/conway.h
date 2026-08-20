@@ -430,7 +430,7 @@ emit_expanded_shell(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh,
  * @note Input must be owned-mode (its topology is exposed as borrowed views in
  *   the output). The output is borrowed-mode, so it cannot be re-fed as input:
  *   transform(transform(x)) is unsupported and traps at the owned-mode check.
- * @note Traps if mesh aliases transformed: set_view() would drop the owned
+ * @note Traps if mesh aliases transformed: set_borrowed() would drop the owned
  *   topology before it is read and the vertex rebind would empty the source.
  *   transform_in_place() is the self-apply path.
  */
@@ -441,8 +441,9 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
            "MeshOps::transform source mesh must not alias the destination");
   HS_CHECK(mesh.face_counts.is_bound(),
            "MeshOps::transform: source mesh must be owned-mode");
-  transformed.set_view(ArenaSpan(mesh.face_counts), ArenaSpan(mesh.faces),
-                       ArenaSpan(mesh.face_offsets), ArenaSpan(mesh.topology));
+  transformed.set_borrowed(ArenaSpan(mesh.face_counts), ArenaSpan(mesh.faces),
+                           ArenaSpan(mesh.face_offsets),
+                           ArenaSpan(mesh.topology));
 
   transformed.vertices.bind(arena, mesh.vertices.size());
 
