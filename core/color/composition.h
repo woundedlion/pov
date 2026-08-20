@@ -35,7 +35,8 @@
  * [0, 2pi) at the source. Folding here instead would cost a per-sample floorf
  * and could not recover the precision the driver already lost. Each consuming
  * body carries a stripped assert on the bound, so an unfolded driver trips in
- * the host build and costs nothing on device.
+ * the host build and costs nothing on device; a driver in turns asserts against
+ * its radian-scaled value.
  */
 inline constexpr float PALETTE_PHASE_ARG_LIMIT = 4096.0f;
 
@@ -515,6 +516,8 @@ struct HueSpinShade {
   /**
    * @brief Constructs with a mandatory rotation driver.
    * @param amount Pointer to the per-frame rotation in turns; must not be null.
+   * @details The driver must keep |amount * 2pi| under
+   * PALETTE_PHASE_ARG_LIMIT.
    */
   HueSpinShade(const float *amount) : amount(amount) {
     HS_CHECK(amount, "HueSpinShade: amount driver must not be null");
@@ -528,6 +531,7 @@ struct HueSpinShade {
    */
   Color4 shade(Color4 c, float t) const {
     (void)t;
+    assert(fabsf(*amount) * (2.0f * PI_F) < PALETTE_PHASE_ARG_LIMIT);
     if (!primed || *amount != cached_amount) {
       cached_amount = *amount;
       float ca, sa;
