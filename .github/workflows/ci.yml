@@ -1266,6 +1266,15 @@ jobs:
           shellcheck --exclude=SC1091,SC2034 "${FILES[@]}"
           echo "shellcheck clean: ${#FILES[@]} files linted."
 
+      # tools/profile_sweep.sh dispatches the on-device profiling groups, whose
+      # per-effect knobs are hand-tuned and so cannot be generated from the
+      # roster. An effect added to HS_PHANTASM_EFFECT_LIST with no group row
+      # aborts all six groups, and the failure only surfaces at the next manual
+      # sweep. `check` runs the script's own cross-check against that list and
+      # needs no attached board.
+      - name: Profile sweep groups cover the Phantasm playlist
+        run: bash tools/profile_sweep.sh check
+
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
     # The tests/sanitizers jobs run subsets of the suite via the shard regexes.
