@@ -354,7 +354,8 @@ struct QuantizeModifier {
    * @brief Snaps the coordinate to the nearest multiple of 1/steps (steps+1
    * distinct levels over [0,1]).
    * @param t Input coordinate.
-   * @return The quantized coordinate.
+   * @return The quantized coordinate, capped at 1 to hold bounded_output for a
+   *   fractional step count.
    */
   float modify(float t) const {
     float s = dynamic_steps ? *dynamic_steps : base_steps;
@@ -362,7 +363,7 @@ struct QuantizeModifier {
       s = 1.0f;
 
     // Round to nearest step in the infinite domain.
-    return roundf(t * s) / s;
+    return __builtin_fminf(roundf(t * s) / s, 1.0f);
   }
 };
 
