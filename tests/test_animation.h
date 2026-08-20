@@ -670,7 +670,7 @@ inline void test_timeline_sequences_events_by_start_frame() {
   tl.step(fake_canvas()); // t=2: a completes and is removed
   HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
   HS_EXPECT_NEAR(b, 0.0f, 1e-6f); // still dormant (start=3)
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
 
   tl.step(fake_canvas()); // t=3: b starts
   HS_EXPECT_GT(b, 0.0f);
@@ -678,7 +678,7 @@ inline void test_timeline_sequences_events_by_start_frame() {
 
   tl.step(fake_canvas()); // t=4: b completes
   HS_EXPECT_NEAR(b, 20.0f, 1e-3f);
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
 /** @brief Verifies event-level pause freezes delays, steps, and callbacks. */
@@ -759,7 +759,7 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
   tl.step(fake_canvas()); // rewound to t=1 -> v = 0.5
   HS_EXPECT_NEAR(v, 0.5f, 1e-3f);
 
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
 }
 
 /**
@@ -779,11 +779,11 @@ inline void test_timeline_cancel_removes_repeating_animation() {
                        Timeline::Pin::PINNED);
   tl.step(fake_canvas());
   tl.step(fake_canvas()); // completes a cycle, rewinds, and stays (repeating)
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
 
   h->cancel();
   tl.step(fake_canvas()); // canceled: done() && !repeats() -> removed
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
 
   // A removed event stops stepping: v stays frozen instead of oscillating.
   const float v_frozen = v;
@@ -819,7 +819,7 @@ inline void test_timeline_repeating_canceled_in_callback_fires_then_once() {
   for (int i = 0; i < 6; ++i)
     tl.step(fake_canvas()); // cycles complete at t=2, 4, 6 without the cancel
   HS_EXPECT_EQ(st.thens, 1);
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
 /**
@@ -841,11 +841,11 @@ inline void test_timeline_cancel_fires_post_callback() {
                        Timeline::Pin::UNPINNED);
   tl.step(fake_canvas());
   HS_EXPECT_EQ(thens, 0);
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
 
   h->cancel();
   tl.step(fake_canvas());
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
   HS_EXPECT_EQ(thens, 1);
 }
 
@@ -867,16 +867,16 @@ inline void test_timeline_cancel_while_paused_removes_event() {
                            .then([&]() { thens++; }),
                        Timeline::Pin::PINNED, &paused);
   tl.step(fake_canvas()); // starts while unpaused
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
 
   paused = true;
   tl.step(fake_canvas()); // paused hold keeps the event
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
   HS_EXPECT_EQ(thens, 0);
 
   h->cancel();
   tl.step(fake_canvas()); // canceled while paused: removed, .then() fires
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
   HS_EXPECT_EQ(thens, 1);
 
   // Removal is final: no further callbacks from later paused frames.
@@ -901,13 +901,13 @@ inline void test_timeline_compaction_preserves_later_events() {
                                   ease_linear)); // in-flight survivor
   tl.add(0, Animation::Transition(c, 200.0f, 5,
                                   ease_linear)); // in-flight survivor
-  HS_EXPECT_EQ(Timeline::event_count(), 3);
+  HS_EXPECT_EQ(tl.event_count(), 3);
 
   tl.step(fake_canvas()); // t=1: a done+removed; b,c step once and shift down
   HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
   HS_EXPECT_GT(b, 0.0f);
   HS_EXPECT_GT(c, 0.0f);
-  HS_EXPECT_EQ(Timeline::event_count(), 2);
+  HS_EXPECT_EQ(tl.event_count(), 2);
   float b_after1 = b, c_after1 = c;
 
   for (int i = 0; i < 4; ++i)
@@ -916,7 +916,7 @@ inline void test_timeline_compaction_preserves_later_events() {
   HS_EXPECT_GT(c, c_after1);
   HS_EXPECT_NEAR(b, 100.0f, 1e-2f);
   HS_EXPECT_NEAR(c, 200.0f, 1e-2f);
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
 /**
@@ -937,11 +937,11 @@ inline void test_timeline_then_chains_follow_up_event() {
   tl.step(fake_canvas()); // t=1: a completes -> callback adds b (gap-filled in)
   HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
   HS_EXPECT_NEAR(b, 0.0f, 1e-6f); // b added this frame, not yet run
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
 
   tl.step(fake_canvas()); // t=2: the chained event runs and completes
   HS_EXPECT_NEAR(b, 20.0f, 1e-3f);
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
 /**
@@ -1006,11 +1006,11 @@ inline void test_timeline_clear_destroys_events_keeping_frame() {
   float a = 0.0f;
   tl.add(0, Animation::Transition(a, 10.0f, 5, ease_linear));
   tl.step(fake_canvas());
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
   HS_EXPECT_EQ(global_timeline_t, 1u);
 
   tl.clear();
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
   HS_EXPECT_EQ(global_timeline_t, 1u); // cursor keeps running
 
   // Reusable after clear().
@@ -1018,7 +1018,7 @@ inline void test_timeline_clear_destroys_events_keeping_frame() {
   tl.add(0, Animation::Transition(b, 5.0f, 1, ease_linear));
   tl.step(fake_canvas());
   HS_EXPECT_NEAR(b, 5.0f, 1e-3f);
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
 /**
@@ -1036,15 +1036,15 @@ inline void test_timeline_instance_boundary_reclaims_pinned_event() {
                    1, [](Canvas &) {}, /*repeat=*/true),
                Timeline::Pin::PINNED);
     tl.step(fake_canvas());
-    HS_EXPECT_EQ(Timeline::event_count(), 1);
+    HS_EXPECT_EQ(tl.event_count(), 1);
     HS_EXPECT_EQ(global_timeline_t, 1u);
   }
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
   HS_EXPECT_EQ(global_timeline_t, 0u); // cursor rewound at the boundary
 
   // A fresh instance starts from a clean, unpinned table.
   Timeline tl;
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
   tl.clear(); // no pinned event survived, so the guard passes
 }
 
@@ -1059,16 +1059,16 @@ inline void test_timeline_full_guard_rejects_overflow() {
   // Fill to capacity (these events share one float).
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
-  HS_EXPECT_EQ(Timeline::event_count(), Timeline::MAX_EVENTS);
+  HS_EXPECT_EQ(tl.event_count(), Timeline::MAX_EVENTS);
   HS_EXPECT_EQ(tl.remaining(), 0);
 
   // The overflow event has its own target so a silent enqueue would show up.
   float rejected = 0.0f;
-  const uint32_t dropped_before = tl.dropped_events();
+  const uint32_t dropped_before = Timeline::dropped_events();
   tl.add(0,
          Animation::Transition(rejected, 42.0f, 10, ease_linear)); // past full
-  HS_EXPECT_EQ(Timeline::event_count(), Timeline::MAX_EVENTS);
-  HS_EXPECT_EQ(tl.dropped_events(), dropped_before + 1);
+  HS_EXPECT_EQ(tl.event_count(), Timeline::MAX_EVENTS);
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 1);
 
   tl.step(fake_canvas());
   HS_EXPECT_NEAR(rejected, 0.0f, 1e-6f); // never ran
@@ -1826,7 +1826,7 @@ inline void test_crossfade_segue_schedules_overlapping_sprite() {
       tl, carousel.front_index(), [&](Canvas &, float o) { ops.push_back(o); },
       dur, window);
   HS_EXPECT_EQ(next_delay, dur - window);
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
 
   for (int i = 0; i < dur; ++i)
     tl.step(fake_canvas()); // observed at t = 1..10
@@ -1836,7 +1836,7 @@ inline void test_crossfade_segue_schedules_overlapping_sprite() {
   HS_EXPECT_LT(ops[0], 1.0f);
   HS_EXPECT_NEAR(ops[4], 1.0f, 1e-3f);
   HS_EXPECT_NEAR(ops[dur - 1], 0.0f, 1e-3f);
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
 /**
@@ -1891,7 +1891,7 @@ inline void test_sequential_segue_never_overlaps_sprites() {
       tl, carousel.front_index(), [&](Canvas &, float p) { ops.push_back(p); },
       dur, window);
   HS_EXPECT_EQ(next_delay, dur);
-  HS_EXPECT_EQ(Timeline::event_count(), 1);
+  HS_EXPECT_EQ(tl.event_count(), 1);
 
   for (int i = 0; i < dur; ++i)
     tl.step(fake_canvas()); // observed at t = 1..10
@@ -3383,7 +3383,7 @@ inline void test_finish_terminates_a_repeating_animation() {
   for (int i = 0; i < 6; ++i)
     tl.step(fake_canvas());
   HS_EXPECT_EQ(fires, 1);
-  HS_EXPECT_EQ(Timeline::event_count(), 0);
+  HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
 /**
