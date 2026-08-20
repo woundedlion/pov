@@ -105,8 +105,9 @@ struct EffectTransitionRequest {
   std::string_view effect_id; /**< Destination effect; empty is rejected. */
   std::string_view preset_id; /**< Destination preset, for the adapter. */
   EffectTransitionOrigin origin = EffectTransitionOrigin::MANUAL;
-  uint16_t fade_ticks = 1; /**< tick()s each of the fade-out and fade-in spans;
-                                0 is rejected. */
+  uint16_t fade_ticks = 1; /**< Envelope steps in each of the fade-out and
+                                fade-in spans, which each take one tick() more
+                                than this; 0 is rejected. */
 };
 
 /**
@@ -324,8 +325,9 @@ public:
    * @brief Advances the state machine by one edge.
    * @details A no-op while paused and in the three states that wait on
    *   request() (STEADY_OUT, STEADY_IN, CLEAR_FAILSAFE). Otherwise it takes
-   *   exactly one EffectTransitionState edge; a fade state consumes one of its
-   *   fade_ticks per call, and a fence state re-polls until
+   *   exactly one EffectTransitionState edge; a fade span takes fade_ticks + 1
+   *   calls, the first writing the span's starting envelope and the last its
+   *   endpoint, and a fence state re-polls until
    *   EffectTransitionAdapter::presentation_complete().
    */
   void tick() {
