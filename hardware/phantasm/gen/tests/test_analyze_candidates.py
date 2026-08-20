@@ -50,8 +50,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual([str(block[1]) for block in found], ["A", "B"])
 
     def test_uses_shared_kicad_cli_discovery(self):
-        self.assertEqual(analyze_candidates.KCLI,
-                         kicad_common.find_kicad_cli())
+        self.assertEqual(analyze_candidates.kicad_cli, kicad_common.kicad_cli)
 
 
 SYNTHETIC_BOARD = """
@@ -127,11 +126,13 @@ class ResolveKicadCliTests(unittest.TestCase):
             cli = Path(directory) / "kicad-cli"
             cli.touch()
 
-            with mock.patch.object(analyze_candidates, "KCLI", str(cli)):
+            with mock.patch.object(analyze_candidates, "kicad_cli",
+                                   return_value=str(cli)):
                 self.assertEqual(analyze_candidates.resolve_kicad_cli(), str(cli))
 
     def test_bare_name_resolves_through_path(self):
-        with mock.patch.object(analyze_candidates, "KCLI", "kicad-cli"), \
+        with mock.patch.object(analyze_candidates, "kicad_cli",
+                               return_value="kicad-cli"), \
                 mock.patch.object(analyze_candidates.shutil, "which",
                                   return_value="/opt/homebrew/bin/kicad-cli") as which:
             self.assertEqual(analyze_candidates.resolve_kicad_cli(),
@@ -139,7 +140,8 @@ class ResolveKicadCliTests(unittest.TestCase):
         which.assert_called_once_with("kicad-cli")
 
     def test_unresolvable_name_is_none(self):
-        with mock.patch.object(analyze_candidates, "KCLI", "kicad-cli"), \
+        with mock.patch.object(analyze_candidates, "kicad_cli",
+                               return_value="kicad-cli"), \
                 mock.patch.object(analyze_candidates.shutil, "which",
                                   return_value=None):
             self.assertIsNone(analyze_candidates.resolve_kicad_cli())

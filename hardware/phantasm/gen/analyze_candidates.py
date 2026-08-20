@@ -42,17 +42,11 @@ import tempfile
 import fab
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
-from kicad_common import F, find_kicad_cli
+from kicad_common import F, kicad_cli
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
 
-# kicad-cli for the DRC gate; env KICAD_CLI overrides discovery, and only when it
-# names an existing file (an empty or stale value falls through to the install
-# search). DRC is run on each candidate so geometry-clean-but-DRC-broken boards
-# (e.g. Quilter zone-fill artifacts) can't quietly win the ranking. There is no
-# skip switch: a candidate the gate cannot run on reports NOT GATED, not clean.
-KCLI = find_kicad_cli()
 # clearance/hole errors against a pour usually clear on a KiCad zone refill (Quilter
 # exports pours without antipads around signal vias) -- flagged separately from real
 # faults. The same rule types also fire track-to-track, which no refill clears, so the
@@ -148,12 +142,13 @@ def no_drc(status):
 def resolve_kicad_cli():
     """Return a runnable kicad-cli, or None if it can't be found.
 
-    find_kicad_cli() yields either an absolute install path or the bare name
+    kicad_cli() yields either an absolute install path or the bare name
     "kicad-cli" for a PATH install (Homebrew/flatpak/snap/~/.local/bin), so the
     bare name has to be resolved through PATH rather than the filesystem."""
-    if not KCLI:
+    cli = kicad_cli()
+    if not cli:
         return None
-    return KCLI if os.path.exists(KCLI) else shutil.which(KCLI)
+    return cli if os.path.exists(cli) else shutil.which(cli)
 
 
 def run_drc(pcb_path):

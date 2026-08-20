@@ -13,7 +13,7 @@ import os
 import sys
 import sexp
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
-                          export_netlist, find_kicad_cli, require_writable)
+                          export_netlist, kicad_cli, require_writable)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
@@ -24,7 +24,6 @@ UNPLACED_REASON = (
     "The committed unplaced board is the Quilter upload input and carries\n"
     "  KiCad GUI edits these generators do not reproduce.")
 FP_DIR = sexp.find_kicad_data_dir("footprints", "KICAD_FOOTPRINT_DIR")
-KCLI = find_kicad_cli()
 PCB_W = 32.0  # board width (mm); within the R-MECH-6 cap (<=35), trimmed to part extent
 QUILTER_LENGTH = 58.28
 TEENSY_LIBRARY_REASON = (
@@ -664,7 +663,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         require_writable(os.path.join(OUT, UNPLACED_FILE), force, UNPLACED_REASON)
     else:
         require_writable(os.path.join(OUT, PCB_FILE), force)
-    nlroot = export_netlist(KCLI, SCH)
+    nlroot = export_netlist(kicad_cli(), SCH)
     pad_net, netid = build_nets(nlroot)
     paths = build_paths(nlroot)                   # ref -> schematic-symbol path
     comps = {r: (r, fp, v, dnp) for r, fp, v, dnp in schematic_components()}

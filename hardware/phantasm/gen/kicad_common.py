@@ -64,6 +64,22 @@ def find_kicad_cli():
     return "kicad-cli"                 # assume on PATH
 
 
+_KCLI = None
+
+
+def kicad_cli():
+    """find_kicad_cli(), resolved on first use and memoized.
+
+    Resolving at module scope would exit the interpreter during import on a
+    machine whose only KiCad is off the pin, taking down every test in the
+    importing suite, KiCad-dependent or not.
+    """
+    global _KCLI
+    if _KCLI is None:
+        _KCLI = find_kicad_cli()
+    return _KCLI
+
+
 UID_NAMESPACE = _uuid.UUID("73e63115-f1ba-4688-a7e5-5a689c53d6fd")
 _uid_seq = {}
 
