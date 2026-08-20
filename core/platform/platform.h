@@ -365,15 +365,6 @@ inline unsigned long micros() { return hs::micros(); }
 // ---------------------------------------------------------------------------
 namespace hs {
 
-// Forward-declared ahead of the definitions below so engine/inplace_function.h,
-// included further down, can trap through it.
-[[noreturn]] HS_FLASH_INLINE inline void
-check_fail(const char *file, int line, const char *cond, const char *fmt, ...)
-    __attribute__((format(printf, 4, 5)));
-// No-message overload (HS_CHECK(cond) with no varargs); see definition below.
-[[noreturn]] HS_FLASH_INLINE inline void check_fail(const char *file, int line,
-                                                    const char *cond);
-
 /**
  * @brief Backing routine for HS_CHECK: logs a located breadcrumb then traps.
  * @param file Source file of the failed check (typically __FILE__).
@@ -385,7 +376,7 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...)
  *          buffer (no heap) so it is safe to call from a corrupted-arena / OOM
  *          context. Never returns.
  */
-[[noreturn]] HS_FLASH_INLINE inline void
+[[noreturn]] HS_FLASH_INLINE __attribute__((format(printf, 4, 5))) inline void
 check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   char msg[256];
   va_list args;
