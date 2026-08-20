@@ -658,6 +658,14 @@ class TimestampNormalizationTests(unittest.TestCase):
         self.assertNotIn(b"\r", drill)
         self.assertIn(f"date {fab.FAB_TIMESTAMP}\n".encode(), drill)
 
+    def test_an_undecodable_artifact_is_loud(self):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        (directory / "phantasm-F_Cu.gtl").write_bytes(
+            b"%TF.CreationDate,\xff\xfe*%\r\n")
+        with self.assertRaisesRegex(fab.TimestampNormalizationError,
+                                    "cannot read exported artifact"):
+            fab.normalize_fab_timestamps(directory)
+
     def test_an_artifact_without_a_stamp_is_untouched(self):
         directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
         (directory / "phantasm-BOM.csv").write_bytes(b"Comment,Designator\r\n")
