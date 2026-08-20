@@ -7,7 +7,8 @@
  *
  * The engine arenas are read both per-frame by HolosphereEngine's memory HUD
  * and on demand by the MeshOps tooling HUD, which appends the tooling arenas
- * to the same report. Included only by targets/wasm/wasm.cpp.
+ * to the same report. Included only by engine_bindings.h and
+ * mesh_ops_bindings.h.
  */
 #pragma once
 

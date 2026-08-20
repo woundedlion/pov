@@ -5,12 +5,13 @@
  * @file wasm_predicates.h
  * @brief Pure (no-Emscripten) boundary predicates for the WASM bridge.
  *
- * The JS frontend passes untyped integers across the embind boundary; wasm.cpp
- * validates and clamps them before they reach engine code that would otherwise
- * trap or run unbounded. Those checks are plain scalar arithmetic with no
- * Emscripten dependency, so they live here and are host-unit-testable without an
- * Emscripten toolchain — see tests/test_wasm_predicates.h. wasm.cpp keeps only
- * the logging/embind shell on top.
+ * The JS frontend passes untyped integers across the embind boundary; the
+ * binding headers (engine_bindings.h, mesh_ops_bindings.h) validate and clamp
+ * them before they reach engine code that would otherwise trap or run
+ * unbounded. Those checks are plain scalar arithmetic with no Emscripten
+ * dependency, so they live here and are host-unit-testable without an
+ * Emscripten toolchain — see tests/test_wasm_predicates.h. The binding headers
+ * keep only the logging/embind shell on top.
  */
 #pragma once
 
