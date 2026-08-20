@@ -354,6 +354,20 @@ template <typename Model> consteval uint8_t model_metric_count() {
     return 0;
 }
 
+template <typename Model> consteval bool model_non_floating_fields_exact() {
+  if constexpr (requires { Model::NON_FLOATING_FIELDS_EXACT; })
+    return Model::NON_FLOATING_FIELDS_EXACT;
+  else
+    return true;
+}
+
+template <typename Model> consteval bool model_final_framebuffer_metric() {
+  if constexpr (requires { Model::METRICS; })
+    return has_final_framebuffer_metric<Model>();
+  else
+    return false;
+}
+
 } // namespace Detail
 
 /** @brief State and defaulted lifecycle for a model with no instance state. */
@@ -399,11 +413,16 @@ constexpr OperatorDescriptor make_operator_descriptor() {
   static_assert(schema_ids_unique(SCHEMA<Model>));
   static_assert(topology_wellformed(SCHEMA<Model>));
   static_assert(
-      !Detail::model_approximate<Model>() ||
-          (Detail::model_oracle<Model>() != ApproximationOracleId::NONE &&
-           Detail::model_metric_count<Model>() > 0),
-      "operator model: approximate operators declare an oracle and "
-      "metrics");
+      Detail::model_approximate<Model>()
+          ? (Detail::model_oracle<Model>() != ApproximationOracleId::NONE &&
+             Detail::model_metric_count<Model>() > 0 &&
+             Detail::model_non_floating_fields_exact<Model>() &&
+             Detail::model_final_framebuffer_metric<Model>())
+          : (Detail::model_oracle<Model>() == ApproximationOracleId::NONE &&
+             Detail::model_metric_count<Model>() == 0),
+      "operator model: malformed approximation metadata — an approximate "
+      "operator declares an oracle, exact non-floating fields, and metrics "
+      "including a final framebuffer bound; an exact one declares none");
   using Adapter = Detail::ErasedAdapter<Model>;
   return OperatorDescriptor{
       Model::ID,
