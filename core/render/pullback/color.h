@@ -25,7 +25,7 @@ enum class PaletteMapping : uint8_t {
   REVERSE = 3
 };
 
-/** @brief Palette and hue parameters, shared by every look. */
+/** @brief Palette and hue parameters, shared by every composed effect. */
 struct ColorParams {
   float hue_shift_amount = 0.0f; /**< Hue rotation magnitude; 0 disables the
                                       rotation entirely. */

@@ -756,7 +756,7 @@ JS:  wasmEngine.getPixels()
 
 ### End-to-End Flow
 
-A typical effect frame follows a four-stage pipeline. Not every effect uses every stage — some skip generation entirely, others skip transformations, and full-screen shader effects such as the fixed pullback roster and Raymarch extend `Effect` directly and bypass the filter pipeline altogether — but the available primitives compose along this flow:
+A typical effect frame follows a four-stage pipeline. Not every effect uses every stage — some skip generation entirely, others skip transformations, and full-screen shader effects such as the composed pullback roster and Raymarch extend `Effect` directly and bypass the filter pipeline altogether — but the available primitives compose along this flow:
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -2256,7 +2256,7 @@ A single head traces spherical Lissajous curves, cycling through a dozen configu
 
 #### SignalWeave
 
-Glitch-folded stereographic grids pulled through an animated wave shear. Four presets morph the grid frequency, complexity, shear strength, and speed inside one fixed pipeline.
+Glitch-folded stereographic grids pulled through an animated wave shear. Four presets morph the grid frequency, complexity, shear strength, and speed inside one composed pipeline.
 
 **Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
 
@@ -2328,7 +2328,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 #### CurlLattice
 
-A folded-sinusoidal sphere projection displaced by curl noise and shaded with a generated triadic palette. Its two presets share one fixed pipeline and vary only the surface-noise scale.
+A folded-sinusoidal sphere projection displaced by curl noise and shaded with a generated triadic palette. Its two presets share one composed pipeline and vary only the surface-noise scale.
 
 **Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Depth, Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
 
@@ -2376,7 +2376,7 @@ A vector-noise grid refracted across folded gnomonic dodecahedral facets and rep
 
 #### FacetGrid
 
-A generated analogous-palette grid folded through a dodecahedral kaleidoscope, then projected stereographically and repeated by an inner mirror tile. Its four presets share one fixed pipeline and vary only continuous parameters.
+A generated analogous-palette grid folded through a dodecahedral kaleidoscope, then projected stereographically and repeated by an inner mirror tile. Its four presets share one composed pipeline and vary only continuous parameters.
 
 **Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Mirror Rotation, Mirror Cell X, Mirror Cell Y, Mirror Offset X, Mirror Offset Y, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
 

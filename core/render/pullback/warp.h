@@ -34,8 +34,8 @@ struct LinearPolar {};
 struct LogarithmicPolar {};
 
 /**
- * @brief Warp slot placeholder for a look whose warp policy is an identity.
- * @details `speed` still advances that slot's phase clock, so a look can drive
+ * @brief Warp slot placeholder for a slot whose warp policy is an identity.
+ * @details `speed` still advances that slot's phase clock, so an effect can drive
  * a phase it exposes no warp for.
  */
 struct NoWarpParams {
