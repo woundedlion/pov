@@ -370,11 +370,19 @@ verify() {
   return 0
 }
 
+# Armed before the claim: hs_device_release is a no-op until this shell holds a
+# token, so an early trap cannot touch a peer's lock, while arming it after the
+# claim leaks the lock dir on a signal in that gap. A signal handler that
+# returns resumes the script, which would then flash and capture a board the
+# release just freed, so INT/TERM exit and leave the release to the EXIT trap.
+trap hs_device_release EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 # ETA covers a clean rebuild + the capture + one retry: overshooting only
 # delays a stale-break (safe), undershooting invites a peer to evict a live
 # capture (not), and a crashed holder is reaped by the PID check regardless.
 hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit 1
-trap hs_device_release EXIT INT TERM
 
 capture
 if ! verify; then
