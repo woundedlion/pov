@@ -332,7 +332,8 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
  * x=0 seam gives the forward sweep sorted, non-wrapping input even when a
  * shape/CSG straddles θ=0. Runs are emitted monotone and disjoint: last_x2
  * clamps a run's start past the previous run's end so two spans sharing a
- * fractional column do not both paint it (double shade / alpha).
+ * fractional column do not both paint it (double shade / alpha). The clamp can
+ * leave a run empty (x1 == x2); consumers iterate [x1, x2) and skip it.
  */
 template <int W, typename IntervalBufT, typename NormBufT>
 HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
