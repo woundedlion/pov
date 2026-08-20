@@ -561,6 +561,12 @@ struct PaletteRecipe {
   float falloff_start = 0.90f;
 };
 
+/**
+ * @brief The verdict a recipe compile returns.
+ * @details INCOMPATIBLE_OPTIONS is reserved and never produced. Its ordinal is
+ * held rather than reclaimed because the numbering is mirrored by the palette
+ * authoring tools and by persisted status records.
+ */
 enum class PaletteCompileCode : uint8_t {
   OK,
   INVALID_SCHEMA,
