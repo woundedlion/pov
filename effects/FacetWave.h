@@ -31,8 +31,9 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "bc994ccf7cfae7cc3b2b631d106f4f03f9c79819f7d55c41f232c2d5c946a5b7";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "acbd113115722d2116d877977f00d2ad56a1b38e94f53b36df817be8357603bb";
-  static constexpr std::array<std::string_view, 1> PRESET_IDS{"wave-mirror"};
+      "ae386b772fb2c46f749384cf309d4282d2f82cc75fe82a5dd5abf98e8fa1dcd9";
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"wave-mirror",
+                                                              "cup-hue"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = false;
@@ -54,7 +55,20 @@ public:
     value.color.palette_chroma = 1.0f;
     return value;
   }
-  static constexpr Params preset_params(size_t) { return initial_params(); }
+  /**
+   * @brief Params for the preset at @p index in PRESET_IDS.
+   * @details `cup-hue` varies the colorizer alone: the cup palette mapping at
+   * full hue rotation over a wider hue-noise field.
+   */
+  static constexpr Params preset_params(size_t index) {
+    Params value = initial_params();
+    if (index == 1) {
+      value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
+      value.color.hue_shift_amount = 1.0f;
+      value.color.hue_noise_scale = 1.9717969f;
+    }
+    return value;
+  }
 };
 
 #include "core/control/registry.h"
