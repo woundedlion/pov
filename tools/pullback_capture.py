@@ -12,7 +12,11 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from generate_pullback_manifest_header import load_and_validate, manifest_sha256
+from generate_pullback_manifest_header import (
+    ManifestError,
+    load_and_validate,
+    manifest_sha256,
+)
 from pullback_crosscheck import _expected_toolchain
 
 
@@ -597,7 +601,12 @@ def main() -> int:
             args.manifest_dir.resolve(),
             args.output.resolve(),
         )
-    except (CaptureError, OSError, subprocess.CalledProcessError) as error:
+    except (
+        CaptureError,
+        ManifestError,
+        OSError,
+        subprocess.CalledProcessError,
+    ) as error:
         parser.error(str(error))
     return 0
 
