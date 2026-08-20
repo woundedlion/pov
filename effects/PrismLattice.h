@@ -30,7 +30,7 @@ public:
   using Params = PrismLatticeParams;
   static constexpr std::string_view EFFECT_ID = "prism-lattice";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "d1c44c9ef778278e71a9624f1735d254e9744523b4f816dc878acbafeab89a63";
+      "764e762211465d1f416c09769da3f13b102361d90f04aae7a8056e6bb994fad7";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "1bb66847b71e59e0067d82149ae9028b615bc20b5cc4112e2efe29acad3eb756";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"polar-wave"};
