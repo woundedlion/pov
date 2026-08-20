@@ -205,13 +205,19 @@ must not weaken this pipeline's diagnostics into an untyped arbitrary chain.
 
 ### 5.2 Public carriers
 
-The following field sets are normative. Names may be adjusted only before
-Phase A lands; field order and types may not change during migration without
-refreshing the layout and disassembly evidence.
+The shipped carriers live in `core/render/pullback/contract.h`, which is the
+field-level source of truth for their layout. There is one canonical carrier
+per family rank, not one per stage boundary: the six-role carrier pairing in
+§5.1 is superseded by the ranked chain in
+[pullback_stage_families_spec.md](pullback_stage_families_spec.md) §3.
 
 ```cpp
-struct ProjectionSample {
-  Complex coords;
+struct SphereSample {           // rank 0
+  Vector dir;
+  float path_length;
+};
+
+struct ProjectionProvenance {
   uint8_t region_id;
   uint8_t component_id;
   uint8_t boundary_flags;
@@ -221,78 +227,71 @@ struct ProjectionSample {
   uint8_t traits = 0;
   uint8_t edge_class = 0;
   float domain_coverage = 1.0f;
-  Vector sphere = Vector();
-  float surface_path_length = 0.0f;
 };
 
-struct SurfaceResult {
+struct ProjectionResult {       // the projection policy protocol
+  Complex coords;
+  ProjectionProvenance provenance;
+};
+
+struct PlaneSample {            // rank 1
+  Complex coords;
+  ProjectionProvenance provenance;
   Vector sphere;
   float path_length;
 };
 
-struct WarpStepResult {
-  Complex coords;
-  Complex delta;
-  float path_length;
-};
-
-struct WarpResult {
-  Complex coords;
-  float path_length;
-};
-
-struct SourceInput {
-  ProjectionSample projected;
-  WarpResult warped;
-};
-
-struct MaterialInput {
-  ProjectionSample projected;
-  WarpResult warped;
-  float field;
-};
-
-struct MaterialSample {
+struct FieldSample {            // rank 2
   float value;
   float coverage;
   Vector sphere;
   float path_length;
 };
+
+struct SurfaceResult {          // the surface policy protocol
+  Vector sphere;
+  float path_length;
+};
+
+struct WarpStepResult {         // the warp policy protocol
+  Complex coords;
+  Complex delta;
+  float path_length;
+};
 ```
 
-`ProjectionSample` is a generic topology-bearing projection result:
+Rank 3 is `Color4` from `core/color/color.h`, straight alpha; final
+premultiplication stays in `Scan::Shader`, after the chain.
 
-- `coords` are coordinates in the source plane/chart;
+`SphereSample` must stay all-float: as a four-float homogeneous aggregate it
+is returned in `s0-s3` across out-of-line boundaries.
+
+`ProjectionProvenance` is what a projection computes, and is immutable once
+the crossing writes it:
+
 - `region_id`, `component_id`, `boundary_flags`, `traits`, `edge_class`, and
   `flags` preserve projection topology and parity;
 - `fade_edge_distance` is finite, nonnegative distance to a fade-eligible cut
   or singular boundary;
-- `value_weight` and `domain_coverage` are finite values in `[0, 1]`;
-- `sphere` is the projection-local sphere direction that produced the sample;
-- `surface_path_length` is accumulated by sphere-space maps before projection.
+- `value_weight` and `domain_coverage` are finite values in `[0, 1]`.
 
-`WarpResult` carries only what a downstream stage consumes: the warped
-coordinates and `path_length`, the sum of the step path lengths. No net
-displacement vector is accumulated across the warp chain. Each policy still
-reports a per-step `WarpStepResult::delta`, which is the value its own
-`path_length` is derived from. `MaterialSample::path_length` is the total
-surface plus
-planar path length. It replaces ShaderBall's misleading member name
-`warp_displacement`; this is a source-level rename only and shall preserve
-layout and arithmetic.
+`PlaneSample::coords` are coordinates in the source plane/chart, and `sphere`
+is the projection-local direction that produced the sample. Endomorphisms
+advance `coords` and `path_length` only. `path_length` is the accumulated
+surface plus planar path length; no net displacement vector is accumulated
+across the warp chain, and each warp policy reports the per-step
+`WarpStepResult::delta` its own `path_length` derives from.
 
-The projection boundary bit definitions currently private to ShaderBall move
-beside `ProjectionSample` as a scoped or prefixed public bit vocabulary. Their
-numeric values remain unchanged. Projection-specific flag meanings remain
-documented by the projection policy that produces them.
+`FieldSample::value` in `[0, 1]` is a carrier invariant established by the
+Sample crossing; `coverage` is in `[0, 1]` and non-increasing.
 
-The defaults are load-bearing compatibility with the current
-`ProjectedLookup` constructor: partial aggregate initialization must retain
-unit domain coverage rather than value-initialize it to zero. Phase A records
-`sizeof`, `alignof`, `std::is_trivially_copyable_v`, and every
-field offset for the old and new carriers at both production/test
-instantiations. The new records shall remain aggregate-friendly, trivially
-copyable, and free of ownership.
+The projection boundary bit definitions are a public bit vocabulary,
+`ProjectionBoundary` in `core/math/projections.h`. Projection-specific flag
+meanings remain documented by the projection policy that produces them.
+
+Defaults are load-bearing: partial aggregate initialization must retain unit
+domain coverage rather than value-initialize it to zero. The carriers are
+aggregate-friendly, trivially copyable, and free of ownership.
 
 ### 5.3 No universal frame type
 
