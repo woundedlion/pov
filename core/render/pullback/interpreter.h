@@ -331,10 +331,19 @@ public:
     needs_prepare = false;
   }
 
-  /** @brief Seeds the entry carrier and runs the chain over @p view. */
-  Color4 evaluate(const Vector &view, const FrameContext &ctx) const {
+  /**
+   * @brief Traps an evaluate() that would run an uncommitted or unprepared
+   *        program.
+   * @details Checked once per draw, not per pixel: neither bit moves while a
+   * draw is in flight.
+   */
+  void check_ready() const {
     HS_CHECK(has_program, "ChainProgram::evaluate without a program");
     HS_CHECK(!needs_prepare, "ChainProgram::evaluate before prepare()");
+  }
+
+  /** @brief Seeds the entry carrier and runs the chain over @p view. */
+  Color4 evaluate(const Vector &view, const FrameContext &ctx) const {
     alignas(SLOT_ALIGN) uint8_t slot_a[SLOT_SIZE];
     alignas(SLOT_ALIGN) uint8_t slot_b[SLOT_SIZE];
     void *in = slot_a;
