@@ -1461,14 +1461,14 @@ Pixel (linear 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, 
 
 The chroma clip brackets the sRGB boundary from a generated table (`core/color/gamut_lut.h`, emitted by `tools/gen_gamut_lut.py`) indexed by the diamond angle of (b, a) and by L. Each cell stores the minimum and maximum boundary chroma over the region it covers, so the true boundary of every ray in the cell lies inside the stored bracket at any resolution; the per-pixel path walks that bracket in `GAMUT_SCAN_STEPS` and bisects the straddling step `GAMUT_BRACKET_STEPS` times. Down to 128 × 64 grid resolution only sets how wide the bracket starts, and the bisection sets how far it is narrowed. Below that the generator measured the walk striding over a disconnected in-gamut interval and landing past the first exit — an oversaturation of up to 0.03 chroma that no amount of bisection recovers, since the wrong step is already selected.
 
-The clip reads the 256 × 128 flash master by default. An effect that clips per pixel can arm a coarser arena copy, which buys read latency alone (RAM rather than QSPI flash):
+The clip reads the 256 × 128 flash master by default. An effect that clips per pixel can arm an arena copy at the master's resolution or coarser, which buys read latency alone (RAM rather than QSPI flash):
 
 | Function | Description |
 |---|---|
 | `init_gamut_lut(arena, angle_steps, l_steps)` | Downsamples the flash master into `arena` and points the clip at the copy. Both step counts must divide the master's 256 × 128 and stay at or above `GAMUT_LUT_MIN_ANGLE_STEPS` × `GAMUT_LUT_MIN_L_STEPS` (128 × 64), the coarsest grid the walk resolves — both trapped. Costs `gamut_lut_bytes(angle_steps, l_steps)`. Call from the effect's `init()`, after any `configure_arenas()`. |
 | `release_gamut_lut()` | Drops the copy and points the clip back at the flash master. Registered as an `ArenaResetHook`, so `configure_arenas()` and the mesh carousel's compaction both run it before handing the storage out again. |
 
-The Shader workbench and `MeshFeedback` arm a copy; every other effect clips against the flash master.
+Four sites arm a copy: `MeshFeedback`, the Shader workbench, `ShaderChain`, and `Pullback::ComposedEffect::init()` — the last being the base class every one of the fifteen composed effects runs, so each of them arms one too. None downsamples: all four take the full 256 × 128 grid, `gamut_lut_bytes(256, 128)` = 131,072 B of persistent arena apiece. Every other effect clips against the flash master.
 
 #### Palette Modifiers
 
