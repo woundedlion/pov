@@ -466,7 +466,7 @@ private:
                  control_y1);
         // Interpolating outside the populated band silently corrupts pixels.
         HS_CHECK(field_y0 >= band.field_y_begin && field_y1 <= band.field_y_end,
-                 "feedback warp row %d outside populated band [%d,%d]",
+                 "feedback warp ring %d outside populated band [%d,%d]",
                  field_y1, band.field_y_begin, band.field_y_end);
         const int control_height = control_y1 - control_y0;
         const float fy =
