@@ -268,7 +268,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── diagnostics.h           HS_CHECK trap + hs::log
 │   │   ├── rng.h                   Deterministic random number generation
 │   │   ├── arduino_mocks.h         Host-side FastLED / Arduino mock surface
-│   │   ├── build_features.h        Build-time feature and instrumentation switches
+│   │   ├── build_features.h        Canvas size, build-time feature and instrumentation switches
 │   │   └── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
 │   ├── control/                An effect's control surface (registry, params +
 │   │                            apply_if_changed, presets, choreography, transition)

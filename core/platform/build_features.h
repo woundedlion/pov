@@ -6,9 +6,19 @@
 
 /**
  * @file build_features.h
- * @brief Compile-time feature switches and size budgets the rest of the engine
- *        derives from, defaulted per target and validated here.
+ * @brief Compile-time feature switches, canvas dimensions and size budgets the
+ *        rest of the engine derives from, defaulted per target and validated
+ *        here.
  */
+
+/** @brief Canvas width in pixels (override via -DCANVAS_W). */
+#ifndef CANVAS_W
+#define CANVAS_W 288
+#endif
+/** @brief Canvas height in pixels (override via -DCANVAS_H). */
+#ifndef CANVAS_H
+#define CANVAS_H 144
+#endif
 
 // Size of the real device arena block. Deliberately not overridable: host
 // harnesses widen HS_GLOBAL_ARENA_BYTES, so this is the figure memory.h ties
