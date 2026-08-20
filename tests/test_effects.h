@@ -3550,7 +3550,7 @@ struct RaymarchWhiteBox {
  * @details Eight fixed iterations from a unit seed. It runs only at compile
  *          time, so nothing else would notice it under-converging, and its one
  *          consumer is the cull-sphere radius — where a low answer culls real
- *          surface.
+ *          surface. A non-positive radicand short-circuits to 0.
  */
 inline void test_raymarch_constexpr_sqrt_converges() {
   using WB = RaymarchWhiteBox;
@@ -3564,6 +3564,10 @@ inline void test_raymarch_constexpr_sqrt_converges() {
 
   const float radicand = WB::MAJOR * WB::MAJOR + WB::TWIST * WB::TWIST;
   HS_EXPECT_NEAR(constexpr_sqrt(radicand), std::sqrt(radicand), 1e-7);
+
+  static_assert(constexpr_sqrt(0.0f) == 0.0f);
+  static_assert(constexpr_sqrt(-1.0f) == 0.0f);
+  HS_EXPECT_EQ(constexpr_sqrt(0.0f), 0.0f);
 }
 
 /**
