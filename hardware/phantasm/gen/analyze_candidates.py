@@ -10,15 +10,15 @@ Usage:
 With no args it globs `../candidates/Candidate_*`. Pass explicit candidate
 folders (or .kicad_pcb files) to override.
 
-A DRC gate runs kicad-cli on each candidate (override path with env KICAD_CLI; the
-gate is skipped if it is missing) so a geometry-clean but DRC-broken board can't win
-the ranking. Errors are split: 'refill-fixable' clearance/hole errors against a zone
-(Quilter exports pours without via antipads -- they clear on a KiCad zone refill) vs
-'REAL FAULTS' (shorts/crossings/opens, and track-to-track clearance), which disqualify
-a candidate from the recommended pick. A candidate whose DRC did not produce a result
-reports as NOT GATED, never as clean, and is likewise ineligible. Via geometry is
-checked independently because Quilter may replace uploaded defaults; candidates below
-0.45/0.20 mm are ineligible.
+A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
+only when it names an existing file) so a geometry-clean but DRC-broken board can't
+win the ranking. Errors are split: 'refill-fixable' clearance/hole errors against a
+zone (Quilter exports pours without via antipads -- they clear on a KiCad zone refill)
+vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track clearance), which
+disqualify a candidate from the recommended pick. A candidate whose DRC did not
+produce a result reports as NOT GATED, never as clean, and is likewise ineligible. Via
+geometry is checked independently because Quilter may replace uploaded defaults;
+candidates below 0.45/0.20 mm are ineligible.
 
 What matters here, and why:
 - The board is 4-layer SIG/GND/GND/SIG with BOTH inner layers poured GND, so any
@@ -47,9 +47,11 @@ from kicad_common import F, find_kicad_cli
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
 
-# kicad-cli for the DRC gate (override with env KICAD_CLI). DRC is run on each
-# candidate so geometry-clean-but-DRC-broken boards (e.g. Quilter zone-fill
-# artifacts) can't quietly win the ranking. Set to "" / missing to skip the gate.
+# kicad-cli for the DRC gate; env KICAD_CLI overrides discovery, and only when it
+# names an existing file (an empty or stale value falls through to the install
+# search). DRC is run on each candidate so geometry-clean-but-DRC-broken boards
+# (e.g. Quilter zone-fill artifacts) can't quietly win the ranking. There is no
+# skip switch: a candidate the gate cannot run on reports NOT GATED, not clean.
 KCLI = find_kicad_cli()
 # clearance/hole errors against a pour usually clear on a KiCad zone refill (Quilter
 # exports pours without antipads around signal vias) -- flagged separately from real
