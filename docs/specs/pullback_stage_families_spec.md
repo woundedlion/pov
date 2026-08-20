@@ -1,12 +1,14 @@
 # Pullback stage families: arbitrary chains over ranked carriers
 
-**Status: §§1–6 LANDED; §§7–8 PROPOSED.** The static ranked pipeline and
-its migration (the §6 contract cut-over) ship; promotion/verification (§7)
-and the preview interpreter (§8) are not yet implemented. Where this spec
-and [pullback_pipeline_spec.md](pullback_pipeline_spec.md) disagree about
-the stage model (stage kinds, slot count, carrier records), this spec
-describes what ships. The document
-is three systems with distinct invariants and failure modes, layered in
+**Status: §§1–6 and §8 LANDED; §7 PROPOSED.** The static ranked pipeline and
+its migration (the §6 contract cut-over) ship, as does the preview
+interpreter (§8: `core/render/pullback/interpreter.h`, `effects/ShaderChain.h`,
+and the `setShaderChain` binding). Promotion/verification (§7) is not yet
+implemented. Where this spec and
+[pullback_pipeline_spec.md](pullback_pipeline_spec.md) disagree about the
+stage model (stage kinds, slot count, carrier records), this spec describes
+what ships. The document is three systems with distinct invariants and
+failure modes, layered in
 order: **the static ranked pipeline and its migration (§§1–6)**, which
 is self-contained; **promotion and verification (§7)**, a resource
 allocation and CI layer over it; and **the preview interpreter's engine
