@@ -2325,7 +2325,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 A folded-sinusoidal sphere projection displaced by curl noise and shaded with a generated triadic palette. Its two presets share one fixed pipeline and vary only the surface-noise scale.
 
-**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Pole Fade, Central Meridian, Projection Spin Speed, Projection Wander, Camera Wander, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Depth, Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
+**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Depth, Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
 
 </td></tr></table>
 
@@ -2373,7 +2373,7 @@ A vector-noise grid refracted across folded gnomonic dodecahedral facets and rep
 
 A generated analogous-palette grid folded through a dodecahedral kaleidoscope, then projected stereographically and repeated by an inner mirror tile. Its four presets share one fixed pipeline and vary only continuous parameters.
 
-**Parameters**: Pattern Freq, Speed, Source Angle Speed, Complexity, Pattern Mix, Drift, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Planar Warp 2 Rotation, Planar Warp 2 Cell X, Planar Warp 2 Cell Y, Planar Warp 2 Offset X, Planar Warp 2 Offset Y, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
+**Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 2 Speed, Planar Warp 2 Rotation, Planar Warp 2 Cell X, Planar Warp 2 Cell Y, Planar Warp 2 Offset X, Planar Warp 2 Offset Y, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
 
 </td></tr></table>
 
