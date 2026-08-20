@@ -175,7 +175,8 @@ public:
 
 private:
   /** @brief Evaluates the active ball fields using cached ring geometry. */
-  float ball_field(const Vector &p, const int *ks, int n, float theta) const {
+  HS_O3_FN float ball_field(const Vector &p, const int *ks, int n,
+                            float theta) const {
     DominantFieldAccumulator accumulator;
     for (int j = 0; j < n; ++j) {
       const int k = ks[j];
@@ -405,7 +406,7 @@ private:
         if (params.hue_scale == 0.0f)
           zero_hue = hue_rotate(hue_base, 0.0f).color;
 
-        auto hue_for_shift = [&](float shift) {
+        auto hue_for_shift = [&](float shift) HS_O3_FN {
           if (params.hue_scale == 0.0f)
             return zero_hue;
           const float amount = std::fabs(shift) * params.hue_scale;
@@ -501,8 +502,8 @@ private:
       shapes[s].~DistortedRing();
   }
 
-  __attribute__((noinline)) void prepare_hue_table(const HueRotateBase &base,
-                                                   float domain) {
+  HS_O3_FN __attribute__((noinline)) void
+  prepare_hue_table(const HueRotateBase &base, float domain) {
     for (int i = 0; i <= HUE_TABLE_SIZE; ++i)
       hue_table[i] =
           hue_rotate(base, domain * (static_cast<float>(i) / HUE_TABLE_SIZE))
@@ -534,14 +535,16 @@ private:
   }
 
   /** @brief Samples a hue table already fully baked by prepare_hue_table(). */
-  Pixel sample_hue_table(float amount, float domain, bool cyclic) const {
+  HS_O3_FN Pixel sample_hue_table(float amount, float domain,
+                                  bool cyclic) const {
     return sample_hue_table_with(amount, domain, cyclic, [](int) {});
   }
 
   /** @brief Samples the hue table, baking only the knots it reads and marking
    * them in the `valid` bitset. */
-  Pixel sample_hue_table_cached(float amount, float domain, bool cyclic,
-                                const HueRotateBase &base, uint64_t *valid) {
+  HS_O3_FN Pixel sample_hue_table_cached(float amount, float domain,
+                                         bool cyclic, const HueRotateBase &base,
+                                         uint64_t *valid) {
     return sample_hue_table_with(amount, domain, cyclic, [&](int index) {
       const uint64_t bit = uint64_t{1} << (index & 63);
       uint64_t &word = valid[index >> 6];
