@@ -452,7 +452,7 @@ private:
   static constexpr float MAX_SWEEP_TURNS = 16.0f;
   static constexpr float MAX_CUSTOM_DELTA = 16.0f;
   static constexpr float MAX_CUSTOM_ABS_INPUT = 4096.0f;
-  static constexpr float MAX_ABSOLUTE_CHROMA = 1.0f;
+  static constexpr float MAX_CHROMA_CONTROL = 1.0f;
   static constexpr float MAX_ABS_TORSION = 4.0f * PI_F;
   static constexpr float SWEEP_INTEGER_EPS = 1e-6f;
   static constexpr float SNAPSHOT_AXIS_STEPS = 4095.0f;
@@ -724,16 +724,13 @@ private:
           status);
     }
 
-    const float chroma_max = recipe.chroma.basis == ChromaBasis::ABSOLUTE
-                                 ? MAX_ABSOLUTE_CHROMA
-                                 : 1.0f;
-    clamp_field(recipe.chroma.center, 0.0f, chroma_max,
+    clamp_field(recipe.chroma.center, 0.0f, MAX_CHROMA_CONTROL,
                 PaletteRecipeField::CHROMA_CENTER, status);
-    clamp_field(recipe.chroma.range, 0.0f, chroma_max,
+    clamp_field(recipe.chroma.range, 0.0f, MAX_CHROMA_CONTROL,
                 PaletteRecipeField::CHROMA_RANGE, status);
     for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
       clamp_field(
-          recipe.chroma.custom[i], 0.0f, chroma_max,
+          recipe.chroma.custom[i], 0.0f, MAX_CHROMA_CONTROL,
           static_cast<PaletteRecipeField>(
               static_cast<uint8_t>(PaletteRecipeField::CHROMA_CUSTOM_0) + i),
           status);
