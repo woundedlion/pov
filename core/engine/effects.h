@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "core/platform/build_features.h"
+#include "platform/build_features.h"
 
 /**
  * @file effects.h
