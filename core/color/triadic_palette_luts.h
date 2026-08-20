@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/color/color.h"
+#include "color/color.h"
 
 inline constexpr int MINDSPLATTER_PALETTE_COUNT = 256;
 inline constexpr int MINDSPLATTER_PALETTE_LUT_SIZE = 256;
