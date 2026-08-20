@@ -99,6 +99,33 @@ class BoardMetadataTests(unittest.TestCase):
             (Decimal("10"), Decimal("10")),
         )
 
+    def test_rejects_footprint_level_edge_cuts_geometry(self):
+        """Board edges drawn as footprint graphics would under-report bounds."""
+        root = board_metadata.sexp.parse("""
+            (kicad_pcb
+              (gr_rect (start 0 0) (end 4 4) (layer "Edge.Cuts"))
+              (footprint "Board:Outline"
+                (layer "F.Cu")
+                (fp_line (start 0 0) (end 60 0) (layer "Edge.Cuts"))))
+        """)[0]
+        with self.assertRaisesRegex(board_metadata.MetadataError,
+                                    "Edge.Cuts graphics inside footprint: Board:Outline"):
+            board_metadata._outline_bounds(root)
+
+    def test_footprint_graphics_off_edge_cuts_do_not_reject(self):
+        root = board_metadata.sexp.parse("""
+            (kicad_pcb
+              (gr_rect (start 0 0) (end 10 10) (layer "Edge.Cuts"))
+              (footprint "Lib:R"
+                (layer "F.Cu")
+                (fp_line (start 0 0) (end 1 0) (layer "F.SilkS"))
+                (fp_poly (pts (xy 0 0) (xy 1 1)) (layer "F.Fab"))))
+        """)[0]
+        self.assertEqual(
+            board_metadata._outline_bounds(root),
+            (Decimal("10"), Decimal("10")),
+        )
+
     def test_rejects_readme_drift(self):
         metadata = board_metadata.load_board(
             REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"

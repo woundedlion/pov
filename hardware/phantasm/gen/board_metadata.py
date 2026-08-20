@@ -85,7 +85,37 @@ def _arc_points(node):
                        for x, y in extrema]
 
 
+def _check_no_footprint_outline(root):
+    """Rejects board-edge geometry drawn inside a footprint.
+
+    _outline_bounds() reads top-level gr_* nodes only, so an outline drawn as
+    footprint graphics measures as a smaller board -- or as none at all -- and
+    the facts block ships wrong dimensions. Supporting it means resolving each
+    footprint's placement transform; until something needs that, refuse.
+    """
+    graphics = {"fp_line", "fp_rect", "fp_poly", "fp_arc", "fp_circle"}
+    offenders = []
+    for footprint in _children(root, "footprint"):
+        name = str(footprint[1]) if len(footprint) > 1 else "?"
+        for node in footprint[1:]:
+            if not isinstance(node, list) or not node:
+                continue
+            if str(node[0]) not in graphics:
+                continue
+            if any(str(value) == "Edge.Cuts"
+                   for layer in _children(node, "layer")
+                   for value in layer[1:]):
+                offenders.append(name)
+                break
+    if offenders:
+        raise MetadataError(
+            "Edge.Cuts graphics inside footprint: "
+            + ", ".join(sorted(set(offenders)))
+            + "; the board outline is measured from top-level gr_* only")
+
+
 def _outline_bounds(root):
+    _check_no_footprint_outline(root)
     points = []
     supported = {"gr_line", "gr_rect", "gr_poly", "gr_arc", "gr_circle"}
     for node in root[1:]:
