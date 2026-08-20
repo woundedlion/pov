@@ -314,13 +314,16 @@ sample_direct_simplex_tangent(const FastNoiseLite &noise, const Vector &q,
 }
 
 /**
- * @brief Gradient of a scalar field by central difference on a tetrahedron.
+ * @brief Gradient of a scalar field from a four-probe tetrahedral stencil.
  * @tparam Sample Callable taking a Vector and returning the field value.
  * @param q Lattice coordinate the gradient is taken at.
  * @param sample The scalar field.
  * @return The estimated gradient.
  * @details Four probes on a regular tetrahedron of arm NOISE_STENCIL_RADIUS,
- * which is the fewest that spans three dimensions. Each probe costs whatever
+ * which is the fewest that spans three dimensions. The arms sum to zero, so the
+ * constant term cancels, but they are not antipodal pairs and the curvature
+ * term survives — the estimate is first-order in the arm, where a paired
+ * central difference would be second-order. Each probe costs whatever
  * @p sample costs, so a three-octave basis pays twelve generator samples.
  */
 template <typename Sample>
