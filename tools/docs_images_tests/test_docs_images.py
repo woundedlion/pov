@@ -122,6 +122,14 @@ class TestDocsImagesVerify(unittest.TestCase):
         self.assertIn("names no file", errors[0])
         self.assertFalse((self.repo / "docs/screenshots/Gone.png").exists())
 
+    def test_tracked_markdown_missing_from_the_working_tree_is_reported(self):
+        self.track("README.md", '<img src="docs/screenshots/A.png">')
+        (self.repo / "README.md").unlink()
+        errors, checked = di.verify(self.repo)
+        self.assertEqual(checked, 0)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("tracked Markdown is unreadable", errors[0])
+
     def test_untracked_markdown_is_not_scanned(self):
         (self.repo / "notes.md").write_text('<img src="nope.png">', encoding="utf-8")
         self.assertEqual(di.verify(self.repo), ([], 0))
