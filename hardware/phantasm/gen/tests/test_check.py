@@ -101,6 +101,19 @@ class ExpectTableTests(unittest.TestCase):
             self.assertEqual(len(hits), 2, f"{ref} on nets {sorted(hits)}")
 
 
+class MalformedNetlistTests(unittest.TestCase):
+    MALFORMED = sexp.parse(
+        '(export (nets'
+        ' (net (code "1"))'
+        ' (net (code "2") (name "/DATA") (node (ref "J2")))'
+        ' (net (code "3") (name "/CLK") (node (ref "J2") (pin "2")))'
+        "))")[0]
+
+    def test_skips_entries_a_malformed_export_left_incomplete(self):
+        self.assertEqual(check.netlist_nets(self.MALFORMED),
+                         {"DATA": set(), "CLK": {"J2.2"}})
+
+
 class GateTests(unittest.TestCase):
     def test_accepts_committed_board(self):
         output = io.StringIO()
