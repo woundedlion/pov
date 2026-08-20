@@ -160,7 +160,7 @@ private:
 
   /**
    * @brief Builds a fresh random palette for a spawning ring.
-   * @return A circular, analogous, flat-brightness GenerativePalette.
+   * @return A mirrored, analogous, flat-brightness GenerativePalette.
    * @details Each construction reseeds, so every ring draws from its own
    *          distinct palette.
    */
