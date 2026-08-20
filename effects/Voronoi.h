@@ -118,57 +118,6 @@ public:
     // scope inside the per-pixel loop, filter.h counts blended pixels.
     HS_PROFILE(vo_shade);
 
-    // Below any unit-vector dot product, so it doubles as the "no candidate"
-    // marker the top-2 scan hands to shade().
-    constexpr float NO_DOT = -2.0f;
-
-    // Resolves the final color from the already-identified nearest pair: the
-    // nearest site index i0 and its dot d0 (the larger), and the second site
-    // index i1 and its dot d1. d1 == NO_DOT means the block had one candidate.
-    auto shade = [&](uint16_t i0, float d0, uint16_t i1, float d1) -> Color4 {
-      const Site &best_site = sites_buffer[i0];
-      const bool has_second = d1 > NO_DOT;
-
-      Color4 c = best_site.color;
-
-      // Border sharpening: a larger sharpness saturates `factor` for smaller
-      // nearest/second-nearest gaps, shrinking the cross-cell blend band.
-      if (has_second && params.sharpness > 0.0f) {
-        const Site &sec_site = sites_buffer[i1];
-        float diff = d0 - d1;
-        float factor = std::min(1.0f, diff * params.sharpness);
-        factor = quintic_kernel(factor);
-        float t = 0.5f + 0.5f * factor;
-
-        uint16_t frac = static_cast<uint16_t>(t * 65535.0f + 0.5f);
-        c.color = sec_site.color.color.lerp16(best_site.color.color, frac);
-      }
-
-      // Borders. A "Border Thick" of 0 skips the two acosf calls below. d0 is
-      // the nearest, so d0 >= d1 and the cell gap is non-negative.
-      if (params.border_thickness > 0.0f && has_second) {
-        float dist1 = acosf(hs::clamp(d0, -1.0f, 1.0f));
-        float dist2 = acosf(hs::clamp(d1, -1.0f, 1.0f));
-        if (dist2 - dist1 < params.border_thickness) {
-          // Paint the seam black. The per-pixel store below writes
-          // color*alpha, so an alpha-0 sample collapses to (0,0,0).
-          c = Color4(0, 0, 0, 0);
-        }
-      }
-
-      return c;
-    };
-
-    // Canonical (order-independent) nearest-pair identity at a sample point:
-    // the two query orders along a cell seam (best/second swap) map to the
-    // same {lo, hi} set.
-    auto classify = [&](const Vector &p) -> CellId {
-      auto knn = tree.nearest(p, 2);
-      uint16_t a = knn[0].original_index;
-      uint16_t b = knn.size() > 1 ? knn[1].original_index : a;
-      return {std::min(a, b), std::max(a, b)};
-    };
-
     // Coarse-grid coherence: classify the nearest pair once per coarse-grid
     // corner, then shade every pixel of a block from the deduped union of its
     // four corners' pairs (<= 8 candidate sites) by an exact top-2 dot scan.
@@ -207,7 +156,7 @@ public:
     for (int k = 0; k < nby; ++k)
       for (int j = 0; j < nbx; ++j)
         cells[k * nbx + j] =
-            classify(pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
+            classify(tree, pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
 
     // One candidate set per block column, rebuilt on each block-row change.
     // Positions are copied in so the per-pixel scan runs over contiguous data.
@@ -311,6 +260,72 @@ private:
     uint16_t lo; /**< min(nearest, second) site index. */
     uint16_t hi; /**< max(nearest, second) site index. */
   };
+
+  /** @brief Below any unit-vector dot product, so it doubles as the "no
+      candidate" marker the top-2 scan hands to shade(). */
+  static constexpr float NO_DOT = -2.0f;
+
+  /**
+   * @brief Canonical (order-independent) nearest-pair identity at a sample
+   *        point.
+   * @param tree KD-tree over the current frame's site positions.
+   * @param p Sample point on the unit sphere.
+   * @return The nearest pair as an ordered {lo, hi} index set, so the two
+   *         query orders along a cell seam map to the same identity.
+   */
+  static CellId classify(const KDTree &tree, const Vector &p) {
+    auto knn = tree.nearest(p, 2);
+    uint16_t a = knn[0].original_index;
+    uint16_t b = knn.size() > 1 ? knn[1].original_index : a;
+    return {std::min(a, b), std::max(a, b)};
+  }
+
+  /**
+   * @brief Resolves one pixel's color from its already-identified nearest
+   *        pair.
+   * @param i0 Nearest site index.
+   * @param d0 Dot with the nearest site, so the larger of the two.
+   * @param i1 Second-nearest site index.
+   * @param d1 Dot with the second site; NO_DOT when the block held a single
+   *        candidate.
+   * @return The cell color, alpha 0 on a border seam.
+   * @details always_inline: the caller is the per-pixel loop, and an
+   *          out-of-line copy would put a call in it.
+   */
+  __attribute__((always_inline)) Color4 shade(uint16_t i0, float d0,
+                                              uint16_t i1, float d1) const {
+    const Site &best_site = sites_buffer[i0];
+    const bool has_second = d1 > NO_DOT;
+
+    Color4 c = best_site.color;
+
+    // Border sharpening: a larger sharpness saturates `factor` for smaller
+    // nearest/second-nearest gaps, shrinking the cross-cell blend band.
+    if (has_second && params.sharpness > 0.0f) {
+      const Site &sec_site = sites_buffer[i1];
+      float diff = d0 - d1;
+      float factor = std::min(1.0f, diff * params.sharpness);
+      factor = quintic_kernel(factor);
+      float t = 0.5f + 0.5f * factor;
+
+      uint16_t frac = static_cast<uint16_t>(t * 65535.0f + 0.5f);
+      c.color = sec_site.color.color.lerp16(best_site.color.color, frac);
+    }
+
+    // A "Border Thick" of 0 skips the two acosf calls. d0 is the nearest, so
+    // d0 >= d1 and the cell gap is non-negative.
+    if (params.border_thickness > 0.0f && has_second) {
+      float dist1 = acosf(hs::clamp(d0, -1.0f, 1.0f));
+      float dist2 = acosf(hs::clamp(d1, -1.0f, 1.0f));
+      if (dist2 - dist1 < params.border_thickness) {
+        // Paint the seam black. The per-pixel store writes color*alpha, so an
+        // alpha-0 sample collapses to (0,0,0).
+        c = Color4(0, 0, 0, 0);
+      }
+    }
+
+    return c;
+  }
 
   static constexpr int BLOCK_CORNERS = 4;    /**< Corners bounding one block. */
   static constexpr int SITES_PER_CORNER = 2; /**< CellId site indices. */
