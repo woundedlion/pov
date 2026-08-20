@@ -73,7 +73,11 @@ CONSUMERS = {
     ROOT / ".github/workflows/docs.yml": ("build_pins.py doxygen-awesome",),
     ROOT / "justfile": (
         "build_pins.py doxygen-awesome",
+        "build_pins.py --check-tool doxygen",
+        "build_pins.py --check-tool node",
+        "build_pins.py --check-tool platformio",
         "build_pins.py --check-tool ruff",
+        "build_pins.py --check-tool shellcheck",
     ),
 }
 
@@ -166,7 +170,10 @@ TEST_FILE_PIN_SCAN = (
 # the pin value. A pin absent here has nothing to interrogate: a git ref and
 # two file digests name no program, and the emsdk and KiCad pins are checked
 # where they are used (the WASM toolchain marker written beside the build,
-# kicad_common.find_kicad_cli).
+# kicad_common.find_kicad_cli). The targets a recipe runs are invoked from
+# it (CONSUMERS pins those call sites); clang, just, numpy and python are
+# manual probes, no recipe spelling them -- the native build reaches clang
+# through the CMake toolchain, which may be emsdk's.
 CHECK_TOOLS = {
     "clang": (["clang-{pin}", "--version"], "apt install clang-{pin}",
               lambda v: v),
@@ -182,7 +189,10 @@ CHECK_TOOLS = {
               "pip install numpy=={pin}", lambda v: v),
     "platformio": (["platformio", "--version"],
                    "pip install platformio=={pin}", lambda v: v),
-    "python": (["python", "--version"], "install Python {pin}", lambda v: v),
+    # The interpreter that matters is the one running this script, not
+    # whatever `python` resolves to on PATH.
+    "python": ([sys.executable, "--version"], "install Python {pin}",
+               lambda v: v),
     "ruff": (["ruff", "--version"], "pip install ruff=={pin}", lambda v: v),
     # shellcheck-py's version is the shellcheck release plus a packaging
     # suffix, which the binary itself never reports.
