@@ -110,6 +110,7 @@ public:
                                                   : uint8_t{0});
     const Pullback::Interp::FrameContext ctx = make_frame_context(tap);
     program.prepare(ctx);
+    program.check_ready();
     const ChainShader shader{&program, &ctx};
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
