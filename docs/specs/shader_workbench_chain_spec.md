@@ -351,13 +351,14 @@ controls, same edit affordances, no separate read-only mode:
 
 Full parity with the pointer gestures, rotated to the horizontal:
 
-- The strip is a `listbox` with `aria-orientation="horizontal"`;
-  Left/Right roam chips (roving tabindex), Alt+Left/Right move the
-  focused endomorphism, Enter/Space selects, Delete removes an
-  endomorphism or opens a crossing's swap palette, Insert opens the
-  insertion palette at the following gap. Band `+` buttons and palettes
-  keep §3's listbox behavior; focus restores to the edited chip after
-  every rebuild.
+- The strip is a `toolbar` with `aria-orientation="horizontal"` whose
+  chips are `group`s, so their inline parameter controls stay exposed;
+  the selected chip carries `aria-current`. Left/Right roam chips
+  (roving tabindex), Alt+Left/Right move the focused endomorphism,
+  Enter/Space selects, Delete removes an endomorphism or opens a
+  crossing's swap palette, Insert opens the insertion palette at the
+  following gap. Band `+` buttons and palettes keep §3's listbox
+  behavior; focus restores to the edited chip after every rebuild.
 - Palette entries are buttons; disabled entries carry `aria-disabled`
   plus a described-by reason. The §4.3 library's own keyboard contract
   is deferred with the panel.
