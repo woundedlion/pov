@@ -595,6 +595,14 @@ inline void clip_clear_parity_one(const char *name) {
 
 /** @brief Frames rendered per effect by the paused-render sweep. */
 constexpr int PAUSED_FRAMES = 4;
+/**
+ * @brief Frames for an effect that is still allowed to be dark at
+ *        PAUSED_FRAMES.
+ * @details A black frame satisfies nothing, so a slow-starting effect gets a
+ *          window long enough to leave effect_may_be_dark()'s exemption instead
+ *          of skipping the only substantive assertion in the sweep.
+ */
+constexpr int PAUSED_FRAMES_SLOW = 64;
 
 /**
  * @brief Renders one effect with animations paused from before init() and
@@ -614,11 +622,15 @@ template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
 inline void paused_render_one(const char *name) {
   reset_effect_globals();
 
+  const int frames = effect_may_be_dark(name, PAUSED_FRAMES)
+                         ? PAUSED_FRAMES_SLOW
+                         : PAUSED_FRAMES;
+
   E<W, H> effect;
   effect.setAnimationsPaused(true);
   effect.init();
   HS_EXPECT_TRUE(effect.animations_paused());
-  for (int f = 0; f < PAUSED_FRAMES; ++f) {
+  for (int f = 0; f < frames; ++f) {
     effect.draw_frame();
     effect.advance_display();
   }
@@ -630,13 +642,15 @@ inline void paused_render_one(const char *name) {
       acc += static_cast<uint64_t>(p.r) + p.g + p.b;
     }
 
-  if (!effect_may_be_dark(name, PAUSED_FRAMES)) {
-    if (acc == 0)
-      std::printf("  PAUSED-BLANK %-20s produced no lit pixel over %d paused "
-                  "frames @ %dx%d\n",
-                  name, PAUSED_FRAMES, W, H);
-    HS_EXPECT(acc > 0, "effect must produce non-black output while paused");
-  }
+  // The window is chosen so no effect is still exempt at it; an exemption here
+  // would leave the effect with no paused-render assertion at all.
+  HS_EXPECT(!effect_may_be_dark(name, frames),
+            "paused render must run past the all-black exemption window");
+  if (acc == 0)
+    std::printf("  PAUSED-BLANK %-20s produced no lit pixel over %d paused "
+                "frames @ %dx%d\n",
+                name, frames, W, H);
+  HS_EXPECT(acc > 0, "effect must produce non-black output while paused");
 }
 
 /**
@@ -646,7 +660,8 @@ inline void paused_render_one(const char *name) {
  * effect a pause blanked.
  */
 inline void test_every_effect_renders_while_paused() {
-  std::printf("  -- paused render, %d frames --\n", PAUSED_FRAMES);
+  std::printf("  -- paused render, %d frames (%d for a slow starter) --\n",
+              PAUSED_FRAMES, PAUSED_FRAMES_SLOW);
 #define HS_PAUSED_ONE(name) paused_render_one<name>(#name);
   HS_EFFECT_LIST(HS_PAUSED_ONE)
 #undef HS_PAUSED_ONE
