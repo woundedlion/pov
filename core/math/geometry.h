@@ -787,6 +787,35 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
 }
 
 /**
+ * @brief First tangent-basis vector at a unit vertex.
+ * @details The frame's second vector is cross(normal, u), unit because normal
+ *          and u are orthonormal; callers derive it rather than store it.
+ * @param normal Unit vertex normal.
+ * @return A unit tangent at @p normal.
+ */
+HS_FLASH_INLINE inline Vector tangent_axis(const Vector &normal) {
+  const Vector axis = std::abs(normal.y) > 0.99f ? X_AXIS : Y_AXIS;
+  return cross(normal, axis).normalized();
+}
+
+/**
+ * @brief Parallel-transports a tangent along the great-circle arc between two
+ *        unit vectors.
+ * @param from Unit vector the tangent is attached to.
+ * @param to Unit vector the tangent is carried to; MUST NOT be antipodal to
+ *        @p from (trapped).
+ * @param tangent Tangent at @p from.
+ * @return The tangent at @p to.
+ */
+inline Vector parallel_transport(const Vector &from, const Vector &to,
+                                 const Vector &tangent) {
+  const float denominator = 1.0f + dot(from, to);
+  HS_CHECK(denominator > math::TOLERANCE,
+           "parallel_transport: antipodal endpoints");
+  return tangent - (from + to) * (dot(tangent, to) / denominator);
+}
+
+/**
  * @brief Adjusted basis and radius for drawing on the opposite side of the
  * sphere.
  * @param basis The current basis {u, v, w}.
