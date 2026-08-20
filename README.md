@@ -568,7 +568,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── chain_document_store.js v2 chain document store: span replacement, legality, reconciliation, undo
 │   ├── chain_strip.js          Pipeline strip: the chain as stage chips banded by carrier
 │   ├── chain_library.js        Stage library under the strip: the whole catalog as drag sources
-│   ├── chain_dock.js           Collapsible parameter dock, plus the topology-deactivated field predicate
 │   ├── solids.html             Conway operator playground (uses MeshOps bridge)
 │   ├── shared.js               Three.js scene boilerplate for the 3D tool pages
 │   ├── banner.js               Dependency-free page + fatal-error banners (no Three.js)
