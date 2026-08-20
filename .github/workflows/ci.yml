@@ -38,9 +38,11 @@ jobs:
         # one job.
         # SINGLE SOURCE OF TRUTH: the sanitizers job references this same anchored
         # list (*shard_matrix), and the shard-coverage job (which references the
-        # per-shard anchors) asserts the union covers every registered test — so a
+        # per-shard anchors) asserts the shard alternatives and the registered
+        # tests are in bijection — so a
         # module added to CMake but to no shard fails CI instead of silently
-        # running in zero Linux/sanitizer jobs. Adjust groupings here only.
+        # running in zero Linux/sanitizer jobs, and an alternative left behind by
+        # a rename fails instead of accumulating. Adjust groupings here only.
         include: &shard_matrix
           - &shard1_entry
             shard: 1
@@ -52,11 +54,11 @@ jobs:
             test_exclude: *generated_exclude
           - &shard3_entry
             shard: 3
-            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|generators|animation|effects|effects_smoke|effect_factory|shaderball|curl_lattice|facet_grid|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
+            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|effects_smoke|effect_factory|shaderball|curl_lattice|facet_grid|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
             test_exclude: *generated_exclude
           - &shard4_entry
             shard: 4
-            test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|util|presets|styles|shading|death|conway_morph|pullback|pullback_manifest|pullback_capture_determinism|shader_chain)$"
+            test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|presets|styles|shading|death|conway_morph|pullback|pullback_manifest|pullback_capture_determinism|shader_chain)$"
             test_exclude: *generated_exclude
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
@@ -1276,12 +1278,13 @@ jobs:
         run: bash tools/profile_sweep.sh check
 
   shard-coverage:
-    name: Shard coverage (every test in exactly one shard)
+    name: Shard coverage (tests and shard alternatives in bijection)
     # The tests/sanitizers jobs run subsets of the suite via the shard regexes.
-    # A module registered in CMake but absent from every shard
-    # would run in no Linux/sanitizer job and silently lose that coverage. List
-    # the registered tests and assert each matches exactly one shard regex — the
-    # SAME anchored scalars the matrices use, so this check cannot drift from them.
+    # A module registered in CMake but absent from every shard would run in no
+    # Linux/sanitizer job and silently lose that coverage; an alternative naming no
+    # test is dead weight the forward direction cannot see. Assert both directions
+    # against the SAME anchored scalars the matrices use, so this check cannot
+    # drift from them.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -1304,7 +1307,7 @@ jobs:
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
           -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
-      - name: Assert every registered test is in exactly one shard
+      - name: Assert the shard matrix and the registered tests are in bijection
         run: |
           # ctest right-aligns the index, so single-digit tests get extra spaces
           # ("Test  #1:" vs "Test #10:"); match one-or-more spaces around it.
@@ -1325,8 +1328,24 @@ jobs:
               fail=1
             fi
           done
+          for re in "$SHARD1" "$SHARD2" "$SHARD3" "$SHARD4"; do
+            alts=${re#"^unit_("}
+            alts=${alts%")$"}
+            if [ "$alts" = "$re" ]; then
+              echo "::error::shard regex '$re' is not the ^unit_(a|b|...)\$ shape this check parses"
+              fail=1
+              continue
+            fi
+            IFS='|' read -r -a ALTS <<< "$alts"
+            for a in "${ALTS[@]}"; do
+              if ! printf '%s\n' "${TESTS[@]}" | grep -Fxq "unit_$a"; then
+                echo "::error::shard alternative 'unit_$a' matches no registered test — drop it from the shard matrix in ci.yml"
+                fail=1
+              fi
+            done
+          done
           if [ "$fail" -eq 0 ]; then
-            echo "All ${#TESTS[@]} registered tests are covered by exactly one shard."
+            echo "All ${#TESTS[@]} registered tests are in exactly one shard, and every shard alternative names one."
           fi
           exit "$fail"
 
