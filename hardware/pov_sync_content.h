@@ -179,7 +179,10 @@ struct ContentTracker {
   /**
    * @brief ZERO crossings since effect start.
    * @details For a beacon-joined board this starts from the beacon's mod-64
-   * value — it only feeds the master's schedule and cross-check telemetry.
+   * value: congruent, not absolute. Besides the master's schedule and the
+   * cross-check telemetry it also feeds effect_output_envelope(), so on an
+   * effect longer than 64 revolutions such a board misses the fade-out until
+   * the next commit zeroes the counter.
    */
   uint32_t rev_in_effect = 0;
   bool commit_pending = false;       /**< An epoch commit is scheduled. */
