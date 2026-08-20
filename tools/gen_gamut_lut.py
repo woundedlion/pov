@@ -574,14 +574,20 @@ def main():
              " constants against color.h and 3dmath.h instead of writing")
     args = parser.parse_args()
 
+    color_h = os.path.join(root, "core", "color", "color.h")
+    math_h = os.path.join(root, "core", "math", "3dmath.h")
+
     if args.check:
         ok = check_angle_roundtrip()
-        ok = check_mirrors(os.path.join(root, "core", "color", "color.h"),
-                           os.path.join(root, "core", "math", "3dmath.h")) and ok
+        ok = check_mirrors(color_h, math_h) and ok
         ok = check_provenance(args.output_path) and ok
         sys.exit(0 if ok else 1)
 
-    if not check_angle_roundtrip():
+    # The mirrored matrices and gamut slack are what the table is solved
+    # against, so drift bakes a wrong header. Refuse to write on a failure.
+    ok = check_angle_roundtrip()
+    ok = check_mirrors(color_h, math_h) and ok
+    if not ok:
         sys.exit(1)
     table, worst_width = build_table()
     with open(args.output_path, "w", encoding="utf-8", newline="\n") as f:
