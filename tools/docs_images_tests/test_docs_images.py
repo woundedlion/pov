@@ -1,7 +1,10 @@
+import contextlib
+import io
 import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
@@ -151,6 +154,17 @@ class TestDocsImagesVerify(unittest.TestCase):
         errors, _ = di.verify(self.repo)
         self.assertEqual(len(errors), 1)
         self.assertIn("no path component", errors[0])
+
+    def test_a_reference_set_with_nothing_to_resolve_is_a_tooling_error(self):
+        # Nothing to resolve means the checker was pointed away from the
+        # repository; certifying that is the vacuous pass.
+        self.track("README.md", "no images here")
+        argv = ["docs_images.py", "--repo-root", str(self.repo)]
+        with unittest.mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                status = di.main()
+        self.assertEqual(status, 2)
+        self.assertIn("tooling error", err.getvalue())
 
 
 if __name__ == "__main__":
