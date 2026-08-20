@@ -6,8 +6,7 @@ document schema, migration, and editor for authoring the chains that spec
 defines. All four sections ship in the daydream repo
 ([shader/shader_workbench.mjs](https://github.com/woundedlion/daydream/blob/master/shader/shader_workbench.mjs),
 [tools/chain_document_store.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_document_store.js),
-[tools/chain_strip.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_strip.js),
-[tools/chain_library.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_library.js)).
+[tools/chain_strip.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_strip.js)).
 §4's pipeline-strip workbench is the editor's *surface*; every editing
 semantic in §3 carries forward beneath it.
 
@@ -177,7 +176,7 @@ machinery is parameter-id-driven and survives — given the reconciliation
 rules above, which are what keep id-driven machinery coherent under id
 churn.
 
-## 4. The workbench surface: pipeline strip, live canvas, stage library
+## 4. The workbench surface: pipeline strip and live canvas
 
 **Status: LANDED 2026-08-19.** A view-layer replacement of §3's rail. The document
 store, the schema, digesting, migration, and the apply path are untouched;
@@ -185,7 +184,9 @@ what changes is where the chain, the vocabulary, and the render live on
 the screen, and which gestures name the store's spans. §3's rail put the
 program in a sidebar and gave the render the leftover space — backwards
 for a tool whose entire feedback loop is *watching the render while
-changing the program*. The redesign inverts it.
+changing the program*. The redesign inverts it. The stage library of
+§4.3, and the drag gestures that panel is the source for, are deferred:
+the catalog reaches the strip through the band insertion palettes.
 
 ### 4.1 Layout
 
@@ -199,21 +200,16 @@ Three stacked regions, replacing the sidebar:
   right in execution order, grouped into the four carrier domains.
 - **Canvas** (center): the real engine rendering the authored chain.
   The largest region by construction — it owns all vertical space the
-  strip, library, and toolbar don't need. Perf/segment overlays keep
-  their corners.
-- **Stage library** (bottom): the whole operator catalog, grouped into
-  the same four domains in the same order, drag sources for the strip.
+  strip and toolbar don't need. Perf/segment overlays keep their
+  corners.
 
 A stage's parameters live **on its own chip** (§4.4), not in a side
 panel: the chain and its tuning are one surface. The engine's global
-controls float over the canvas region alone — never over the toolbar,
-the strip, or the library, which are the page's primary UI.
+controls float over the canvas region alone — never over the toolbar
+or the strip, which are the page's primary UI.
 
-Each carrier domain has a fixed hue used by both its strip band and its
-library group — the color is the visual statement of "stages from this
-group go up there". On narrow viewports the strip and library scroll
-horizontally and independently, and the library collapses to domain tabs
-showing one group at a time.
+Each carrier domain has a fixed hue for its strip band. On narrow
+viewports the strip scrolls horizontally.
 
 ### 4.2 The pipeline strip
 
@@ -231,29 +227,33 @@ the pipeline even when a band is empty.
   are the fixed joints of the pipeline, bands are the variable runs
   between them.
 - **Chip anatomy**: operator display name, instance label ("Wave Shear ·
-  warp2"), and on the chip: a **✕ remove** icon and a **bypass** toggle
-  (endomorphisms only), a **swap** icon (crossings only). The selected
-  chip is outlined and carries `aria-current`; a bypassed chip renders
-  dimmed.
+  warp2"), and on the chip: a **✕ remove** icon, a **bypass** toggle and
+  a pair of **‹ ›** reorder buttons (endomorphisms only), a
+  **replacement selector** (crossings only). The selected chip is
+  outlined and carries `aria-current`; a bypassed chip renders dimmed.
 - **Remove**: ✕ commits `replaceSpan(i, 1, [])` — legal by construction
   for an endomorphism, which is why only endomorphisms carry it.
-  Crossings are removed by replacement (§3), so sockets carry swap
-  instead: the replacement palette for that span, same-pair operators
-  enabled, everything else present-but-disabled with the reason.
+  Crossings are removed by replacement (§3), so sockets carry a
+  selector of the same-pair operators the store accepts for that span;
+  Delete opens the same set as a palette.
 - **Insertion**: gaps between chips are the store's chain indices. Each
   band carries one persistent **+** affordance opening the insertion
   palette for that band's context gap (after the band's selected chip,
-  else the band's last gap); during a drag, every legal gap materializes
-  as a highlighted target. Both routes go through `legalInsertions` —
-  the strip has no legality of its own.
-- **Reorder**: chips drag within their band (a crossing doesn't reorder,
-  as in §3's drag rule); Alt+Arrow is the keyboard equivalent. The move
+  else the band's last gap), and Insert opens it at the gap after the
+  focused chip. Both routes go through `legalInsertions` — the strip
+  has no legality of its own.
+- **Reorder**: a chip's ‹ › buttons move it within its band (a crossing
+  doesn't reorder); Alt+Arrow is the keyboard equivalent. The move
   commits as the label-preserving m-for-m span replacement, so parameter
   values survive reorder.
 - The strip rebuilds whole after every committed edit with keyboard focus
   restored to the edited chip — §3's render discipline, rotated.
 
-### 4.3 The stage library
+### 4.3 The stage library — deferred
+
+**Not shipped.** The design below is a record: no library panel, drop
+target, or drag controller exists in the tool, and the workbench probe
+asserts their absence. Insertion runs through §4.2's band palettes.
 
 The catalog panel's discoverability requirement survives: the whole
 vocabulary stays visible, grouped by the carrier each operator consumes,
@@ -279,12 +279,14 @@ drop model:
 
 ### 4.4 Parameters
 
-A stage's controls live **inline in its chip**: selecting a chip expands
-it in place onto its own sliders, so selection and expansion are one
-state. Committing an insert selects the new instance and therefore opens
-it — adding a stage and immediately hearing its sliders is the core
-authoring loop, and the chain never has to be read in one place and
-tuned in another.
+A stage's controls live **inline in its chip**: every chip whose
+instance declares parameters carries its sliders open, so the whole
+chain and its tuning read in one pass. Selection is an independent
+state — the outline and `aria-current` of §4.2 — and never collapses or
+opens a chip's controls. Committing an insert selects the new instance,
+whose controls are already on screen: adding a stage and immediately
+hearing its sliders is the core authoring loop, and the chain never has
+to be read in one place and tuned in another.
 
 - Controls are built from the **document**, not the engine: the
   declaration's storage and domain give the control its shape, the active
@@ -294,9 +296,9 @@ tuned in another.
   segment alone — the chip already names the instance.
 - The union-schema discipline (§3) applies: fields the current topology
   values deactivate render dimmed, never dropped.
-- An instance that declares no parameters gets no disclosure, and an
-  expanded chip is wide, so the strip scrolls rather than crushing its
-  neighbours.
+- An instance that declares no parameters gets no control group, and a
+  chip carrying one is wide, so the strip scrolls rather than crushing
+  its neighbours.
 - **A stage edit is a document edit**: it writes the active preset's
   value for that `<label>.<field>` id, with the engine write as the side
   effect (per-control coalesced for undo, in the same history as
@@ -307,13 +309,13 @@ tuned in another.
 
 The scratch document opens as the default chain (`Rotate → Project →
 Sample → Colorize`, §3) with one preset of catalog defaults — a valid,
-rendering document from the first frame. Authoring is then: drag stages
-in, tune them on their chips, iterate against the live render, name
-presets.
+rendering document from the first frame. Authoring is then: insert
+stages from the band palettes, tune them on their chips, iterate against
+the live render, name presets.
 
 **Export** is the workflow's terminal step and has one format: **Save
-produces the canonical v2 serialization** (`exportShaderDocumentJson`) —
-download or re-save to the opened file handle. The toolbar digest is the
+produces the canonical v2 serialization** (`exportShaderDocumentJson`),
+downloaded under the document's filename. The toolbar digest is the
 document's identity across the export boundary. Because the editor is
 valid-by-construction (§3), any exported document validates cleanly and
 sits within the engine's exported budgets; there is no "export failed"
@@ -340,9 +342,10 @@ controls, same edit affordances, no separate read-only mode:
   edit breaks the match and disables the toggle — bypass, being a
   program-shape override that never touches the digest (§3), does not.
 - **Save As** writes a new `document_id` and leaves the loaded original
-  untouched; plain Save re-exports over the opened handle. Either way the
-  output is the same canonical serialization as §4.5 — modifying an
-  effect and creating one converge on the same export.
+  untouched; plain Save re-downloads the loaded document under its own
+  filename. Either way the output is the same canonical serialization as
+  §4.5 — modifying an effect and creating one converge on the same
+  export.
 
 ### 4.7 Keyboard and AT
 
@@ -355,34 +358,31 @@ Full parity with the pointer gestures, rotated to the horizontal:
   insertion palette at the following gap. Band `+` buttons and palettes
   keep §3's listbox behavior; focus restores to the edited chip after
   every rebuild.
-- Library entries are buttons; disabled entries carry `aria-disabled`
-  plus a described-by reason. Domain groups are labeled `group`s; the
-  filter is a labeled searchbox.
-- One shared live status region announces every refusal — strip and
-  library report through it.
+- Palette entries are buttons; disabled entries carry `aria-disabled`
+  plus a described-by reason. The §4.3 library's own keyboard contract
+  is deferred with the panel.
+- One shared live status region announces every refusal.
 
 ### 4.8 Module boundaries
 
-The rail view in `chain_editor.js` and `chain_catalog_panel.js` are
-replaced by a strip module and a library module implementing the same
-store-facing contract (the `ChainStore` surface, the drag controller
-owned by the strip, gap hit-testing generalized with band hit-testing for
-coarse drops). The union-schema deactivation predicate survives, reading
-document declarations rather than engine definitions; the document store
-gains only the preset-value write §4.4 needs; `chain_apply` and the
-schema module are untouched. `shader.html` reflows to the §4.1 regions;
-the workbench stylesheet is rewritten rather than adapted — the rail's
-vertical assumptions are load-bearing throughout it. The existing editor
-tests port to the strip contract; new coverage: coarse-drop snapping to
-the nearest legal gap, socket swap, ✕ legality (absent on crossings),
-stage edits writing the active preset and participating in undo, and the
-parity toggle disarming on the first descriptor edit.
+The rail view in `chain_editor.js` and `chain_catalog_panel.js` is
+replaced by `chain_strip.js`, implementing the same store-facing contract
+(the `ChainStore` surface). The union-schema deactivation predicate
+survives, reading document declarations rather than engine definitions;
+the document store gains only the preset-value write §4.4 needs;
+`chain_apply` and the schema module are untouched. `shader.html` reflows
+to the §4.1 regions; the workbench stylesheet is rewritten rather than
+adapted — the rail's vertical assumptions are load-bearing throughout
+it. The existing editor tests port to the strip contract; new coverage:
+socket replacement, ✕ legality (absent on crossings), button and
+Alt+Arrow reorder, and stage edits writing the active preset and
+participating in undo.
 
 **Pointer behaviour needs a real browser.** The unit suite renders into a
 DOM fake with neither layout nor pointer capture, which cannot see an
 absolutely placed palette landing far from the control that opened it,
-nor a pointer-capturing drag swallowing the click that should have
-selected a chip — both of which shipped and had to be fixed after the
-fact. A headless-Chrome probe drives the strip's gestures with a real
-mouse (palette placement, chip selection, library drop, reorder, inline
-control round-trip) and gates alongside the page smoke.
+nor a pointer travel swallowing the click that should have selected a
+chip. A headless-Chrome probe drives the strip's gestures with a real
+mouse (palette placement, chip selection, reorder, inline control
+round-trip), checks that no library or drop target is mounted, and
+gates alongside the page smoke.
