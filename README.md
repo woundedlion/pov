@@ -1150,9 +1150,9 @@ All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<F
 Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX` (1.25×), clamped to one base step (2π/W) and left exact below the pole floor (`MIN_POLE_SCALE * BALANCED_POLE_GUARD_SCALE` base steps), where spacing is already at its minimum. Two consequences:
 
 - **Emitted alpha changes.** Sparser samples lay down less coverage per unit arc, so each fragment's alpha is scaled by `balanced_sample_alpha()` — gain `1 + (ratio - 1) * (0.88 - 0.20 * alpha)`, saturating at 1, with `ratio` the balanced step over the default step. The gain shrinks as alpha rises because opaque samples compound less; it is a linear fit to source-over accumulation, close to exact below alpha 0.4 and over-boosting above it, so a stroke past alpha ~0.85 saturates at 1 and loses its soft edge. A balanced draw is not pixel-identical to a default one.
-- **Step evaluation is reused.** Where the walk is locally straight and clear of the poles (tangent dot > 0.995, step change under 10%, step under 0.9 base steps), the next sample recomputes position only and carries the previous step forward, skipping the tangent and the screen-velocity step.
+- **Step evaluation is reused, on planar edges only.** Where the walk is locally straight and clear of the poles (tangent dot > 0.995, step change under 10%, step under 0.9 base steps), the next sample recomputes position only and carries the previous step forward, skipping the tangent and the screen-velocity step. The reuse needs the monotonic position-only entry that only `PlanarEdgeSampler` exposes; a geodesic edge takes the sparser steps and the alpha gain without it.
 
-`ShapeShifter` is the sole caller: `SELECTABLE`, on for policy-selected stars at 32 or more contours and off for every other primitive.
+`ShapeShifter` is the sole caller: `SELECTABLE`, on for policy-selected stars at 32 or more contours and off for every other primitive. Of those, only the dense planar star's pole-crossing edges collect the step reuse; the spherical star's edges are geodesic.
 
 #### Plot Primitives
 
