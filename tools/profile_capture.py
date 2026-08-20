@@ -77,6 +77,7 @@ def main():
     print(f"profile_capture: reading {ser.port} for {args.seconds:.0f} s",
           flush=True)
     end = time.monotonic() + args.seconds
+    captured = 0
     with open(args.out, "w", encoding="utf-8", newline="\n") as f:
         while time.monotonic() < end:
             line = ser.readline()  # 1 s timeout keeps the deadline responsive
@@ -85,8 +86,17 @@ def main():
             text = line.decode("utf-8", errors="replace").rstrip("\r\n")
             print(text, flush=True)
             f.write(text + "\n")
+            captured += 1
+    port = ser.port
     ser.close()
-    print(f"profile_capture: wrote {args.out}", flush=True)
+    # A board that enumerates but never streams is a wrong or hung image, not
+    # a capture: an empty log left behind reads downstream as a real one.
+    if not captured:
+        os.remove(args.out)
+        raise SystemExit(
+            f"profile_capture: {port} streamed nothing in "
+            f"{args.seconds:.0f} s; no log written")
+    print(f"profile_capture: wrote {args.out} ({captured} lines)", flush=True)
 
 
 if __name__ == "__main__":
