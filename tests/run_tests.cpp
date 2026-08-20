@@ -55,6 +55,7 @@
 #include "tests/test_shaderball.h"
 #include "tests/test_curl_lattice.h"
 #include "tests/test_facet_grid.h"
+#include "tests/test_composed_effect.h"
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_shapeshifter_tiles.h"
 #include "tests/test_dma_core.h"
@@ -196,6 +197,8 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("curl_lattice", 4, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
     5000)                                                                      \
   X("facet_grid", 4, hs_test::facet_grid_tests::run_facet_grid_tests, 8000)    \
+  X("composed_effect", 9,                                                      \
+    hs_test::composed_effect_tests::run_composed_effect_tests, 16101)          \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
   X("shapeshifter_tiles", 2,                                                   \
