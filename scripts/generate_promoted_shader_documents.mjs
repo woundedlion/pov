@@ -248,6 +248,9 @@ const documentFor = (spec) => {
   };
 };
 
+// The twelve promoted documents this generator owns. patterns/ holds three
+// more — curl_lattice, facet_grid and prism_spiral — hand-authored from
+// workbench snapshots, which no rerun writes.
 const effects = [
   {
     id: 'signal-weave', display: 'Signal Weave', source: 'grid', sourceKey: 'grid',
@@ -329,13 +332,23 @@ const effects = [
     transfer: 'linear', coverage: 'projection-squared', palette: 'triadic', hue: 'noise',
     brightness: 'none', animatedProjection: false,
     description: 'A wave-sheared grid moving across dodecahedral facets.',
-    presets: [{ id: 'wave-mirror', name: 'Wave Mirror', values: {
-      'pattern-freq': 6.3287, speed: 0.04, complexity: 1.704, drift: 0.8,
-      'source-angle-speed': 0.027, 'pole-fade': 2.311, 'camera-wander': 1,
-      'outer-strength': -0.176, 'outer-speed': -0.00325,
-      'outer-frequency': 1.408, 'outer-field-angle': 2.2305307,
-      'hue-shift-amount': 0.721, 'palette-chroma': 1,
-    } }],
+    presets: [
+      { id: 'wave-mirror', name: 'Wave Mirror', values: {
+        'pattern-freq': 6.3287, speed: 0.04, complexity: 1.704, drift: 0.8,
+        'source-angle-speed': 0.027, 'pole-fade': 2.311, 'camera-wander': 1,
+        'outer-strength': -0.176, 'outer-speed': -0.00325,
+        'outer-frequency': 1.408, 'outer-field-angle': 2.2305307,
+        'hue-shift-amount': 0.721, 'palette-chroma': 1,
+      } },
+      { id: 'cup-hue', name: 'Cup Hue', values: {
+        'pattern-freq': 6.3287, speed: 0.04, complexity: 1.704, drift: 0.8,
+        'source-angle-speed': 0.027, 'pole-fade': 2.311, 'camera-wander': 1,
+        'outer-strength': -0.176, 'outer-speed': -0.00325,
+        'outer-frequency': 1.408, 'outer-field-angle': 2.2305307,
+        'hue-shift-amount': 1, 'hue-noise-scale': 1.9717969,
+        'palette-chroma': 1, 'palette-mapping': 'cup',
+      } },
+    ],
   },
   {
     id: 'contour-lattice', display: 'Contour Lattice', source: 'primitive-lattice', sourceKey: 'lattice',
