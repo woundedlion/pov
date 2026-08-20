@@ -47,6 +47,8 @@ on:
       - '.github/workflows/docs.yml'
 
 # Default every job to source read-only. Deploy grants its publish capabilities.
+# The build job's checkout passes persist-credentials: false, as ci.yml's do;
+# deploy takes the artifact and never checks out, so it needs no source token.
 permissions:
   contents: read
 
@@ -69,6 +71,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       # build_pins.py selects the theme commit this job publishes, and
       # docs_images.py resolves the artifact's images. Pin their interpreter as

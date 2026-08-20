@@ -13,6 +13,11 @@ on:
     branches: [master]
   pull_request:
 
+# Every actions/checkout step below also passes persist-credentials: false. The
+# token authenticates the fetch and is not wanted afterwards: no job here
+# pushes, calls gh, or reads GITHUB_TOKEN, and leaving it in .git/config would
+# expose it to every third-party lifecycle script a build runs (npm ci, the
+# PlatformIO toolchain downloads, emsdk provisioning).
 permissions:
   contents: read
 
@@ -68,6 +73,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - &llvm_apt
         name: Add the apt.llvm.org repository
@@ -232,6 +239,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - *llvm_apt
 
@@ -310,6 +319,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - *llvm_apt
 
@@ -408,6 +419,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - *llvm_apt
 
@@ -475,6 +488,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - *llvm_apt
 
@@ -548,6 +563,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Load build pins
         id: pins
@@ -626,6 +643,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Load build pins
         id: pins
@@ -849,6 +868,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
         with:
           python-version: '3.12'
@@ -901,6 +922,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
         with:
           python-version: '3.12'
@@ -934,6 +957,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
         with:
           python-version: '3.12'
@@ -953,6 +978,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - *llvm_apt
 
@@ -1006,6 +1033,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Load build pins
         id: pins
@@ -1055,6 +1084,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -1075,6 +1106,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       # The README's `tree daydream exhaustive` fence draws the sibling
       # repository's tracked tree. docs_check.py skips that fence unless
@@ -1085,6 +1118,7 @@ jobs:
       # git ls-files gates below unaffected.
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          persist-credentials: false
           repository: woundedlion/daydream
           path: daydream-checkout
 
@@ -1140,6 +1174,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the docs job
         with:
           python-version: '3.12'
@@ -1166,6 +1202,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Load build pins
         id: pins
@@ -1294,6 +1332,8 @@ jobs:
       SHARD4: *shard4_re
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - *llvm_apt
 
@@ -1375,6 +1415,7 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          persist-credentials: false
           # The check below reads run_tests.cpp out of the commit the run builds
           # on, which on a push is github.event.before — arbitrarily far back in
           # a multi-commit push, so fetch the whole history rather than guess a
@@ -1677,6 +1718,7 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          persist-credentials: false
           # The growth check below reads this file out of the commit the run
           # builds on, which on a push is github.event.before — arbitrarily far
           # back in a multi-commit push, so fetch the whole history rather than
@@ -1857,6 +1899,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
@@ -1923,6 +1967,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
         with:
           python-version: '3.12'
@@ -1996,6 +2042,7 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          persist-credentials: false
           # The growth check below reads the baseline out of the commit the run
           # builds on, which on a push is github.event.before — arbitrarily far
           # back in a multi-commit push, so fetch the whole history rather than
@@ -2143,6 +2190,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Assert every job is a dependency and succeeded
         env:
