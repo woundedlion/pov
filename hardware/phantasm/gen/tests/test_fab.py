@@ -422,8 +422,20 @@ class SchematicParityTests(unittest.TestCase):
     def test_rejects_report_missing_known_differences(self):
         with self.assertRaisesRegex(
                 fab.SchematicParityError,
-                r"lists 0 items, fewer than the \d+ KiCad reports"):
+                r"extra_footprint: H1 reported 0 times"):
             self.require([])
+
+    def test_rejects_a_duplicate_standing_in_for_a_vanished_item(self):
+        entries = [e for e in self.KNOWN
+                   if e["items"][0]["description"] != "Footprint H2"]
+        entries.append({"type": "extra_footprint",
+                        "description": PARITY_DESCRIPTIONS["extra_footprint"],
+                        "items": [{"description": "Footprint H1"}]})
+
+        with self.assertRaisesRegex(
+                fab.SchematicParityError,
+                r"extra_footprint: H2 reported 0 times"):
+            self.require(entries)
 
     def test_rejects_net_drift(self):
         entries = self.KNOWN + [{
