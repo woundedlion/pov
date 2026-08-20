@@ -544,11 +544,13 @@ private:
 
   /**
    * @brief CRTP base providing all random-access iterator operators.
-   * @tparam Derived Concrete iterator type; must expose m_buffer, m_index.
+   * @tparam Derived Concrete iterator type, publicly derived from this base.
    * @tparam BufPtr Pointer-to-buffer type (mutable or const).
    * @tparam Ref Reference type yielded on dereference.
    * @tparam Ptr Pointer type yielded by operator->.
-   * @details Derived must expose m_buffer, m_index, and the iterator typedefs.
+   * @details Holds the whole iterator state and every operator; Derived adds
+   * only its constructors. ConstIterator is a friend so its converting
+   * constructor can read an Iterator's state.
    */
   template <typename Derived, typename BufPtr, typename Ref, typename Ptr>
   class CircularIterBase {
@@ -558,9 +560,6 @@ private:
     using difference_type = std::ptrdiff_t;
     using pointer = Ptr;
     using reference = Ref;
-
-    BufPtr m_buffer; /**< Buffer this iterator traverses. */
-    size_t m_index;  /**< Logical position, front-to-back. */
 
     /**
      * @brief Constructs a singular iterator, satisfying std::semiregular so the
@@ -756,6 +755,12 @@ private:
     friend bool operator>=(const Derived &a, const Derived &b) {
       return a.m_index >= b.m_index;
     }
+
+  protected:
+    BufPtr m_buffer; /**< Buffer this iterator traverses. */
+    size_t m_index;  /**< Logical position, front-to-back. */
+
+    friend class ConstIterator;
 
   private:
     /**
