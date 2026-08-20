@@ -56,6 +56,8 @@ constexpr pov::sync::Config show_config() {
 // Every input to the sync protocol config is a compile-time constant on this
 // board, so reject an inconsistent protocol at the build instead of the boot.
 // run_show()'s runtime HS_CHECK still guards any non-constexpr instantiation.
+// F_CPU here where the runtime config uses F_CPU_ACTUAL: cpu_hz scales both
+// sides of every valid() relation, so the verdict does not depend on which.
 static_assert(show_config().valid() == nullptr,
               "Phantasm pov::sync::Config invariants violated");
 } // namespace
