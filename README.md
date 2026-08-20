@@ -1593,7 +1593,7 @@ and fail-fast traps instead. `PaletteCompileStatus` carries the verdict:
 
 | Member | Description |
 |---|---|
-| `code` | `PaletteCompileCode`: `OK`, `INVALID_SCHEMA`, `NON_FINITE`, `INVALID_ENUM`, `HUE_LIMIT`, `NON_INTEGER_LOOP_SWEEP`, `INVALID_FALLOFF_START`, `INCOMPATIBLE_OPTIONS` |
+| `code` | `PaletteCompileCode`: `OK`, `INVALID_SCHEMA`, `NON_FINITE`, `INVALID_ENUM`, `HUE_LIMIT`, `NON_INTEGER_LOOP_SWEEP`, `INVALID_FALLOFF_START` (`INCOMPATIBLE_OPTIONS` holds its ordinal but is never produced) |
 | `field` | The `PaletteRecipeField` naming the offending control, so an authoring tool can point at it |
 | `adjustments` | `PaletteAdjustments`: three `PaletteRecipeField` bitmasks — `wrapped_fields`, `clamped_fields`, `canonicalized_fields` — recording every silent normalization the compile applied |
 
