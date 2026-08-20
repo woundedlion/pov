@@ -114,7 +114,7 @@ struct Mesh {
         points.push_back(Line::sample_point(fu, fv, es, perp, ts[i]));
       points.push_back(Line::sample_point(fu, fv, es, perp, 1.0f));
     } else {
-      Line::sample(points, fu, fv);
+      Line::sample(points, fu, fv, es);
     }
 
     for (auto &p : points)

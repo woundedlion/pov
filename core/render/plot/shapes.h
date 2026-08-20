@@ -155,9 +155,22 @@ struct Line {
    */
   static void sample(Fragments &points, const Fragment &f1, const Fragment &f2,
                      int density = 1) {
+    sample(points, f1, f2, make_geodesic_edge_span(f1.pos, f2.pos), density);
+  }
+
+  /**
+   * @brief sample() from a precomputed edge span.
+   * @param points Output fragment list; density+1 fragments are appended.
+   * @param f1 Start fragment.
+   * @param f2 End fragment.
+   * @param es Shared setup from make_geodesic_edge_span(f1.pos, f2.pos).
+   * @param density Number of sub-segments (>=1); the line is sampled at
+   *                density+1 evenly-parameterized points.
+   */
+  static void sample(Fragments &points, const Fragment &f1, const Fragment &f2,
+                     const GeodesicEdgeSpan &es, int density = 1) {
     HS_CHECK(density >= 1);
 
-    const GeodesicEdgeSpan es = make_geodesic_edge_span(f1.pos, f2.pos);
     if (!es.have_axis) {
       Fragment f = f1;
       f.v0 = f.v1 = f.v2 = 0.0f;
