@@ -41,11 +41,11 @@ on the single shared Teensy, comment style, and the per-commit gates.
 
 ## Design specs
 
-`docs/specs/` holds the design specifications — the pullback pipeline, the
-shader workbench and its fixed-pipeline effects, the inverse-sampling renderer,
-Phantasm's frame-sync protocol, and the Phantasm segment board. Each is the
-source of truth for one contract that spans several files, so a change that
-moves such a contract carries the spec update with it.
+`docs/specs/` holds the design specifications — the pullback pipeline, its
+stage families and preview interpreter, the shader workbench's chain schema and
+editor, Phantasm's frame-sync protocol, and the Phantasm segment board. Each
+is the source of truth for one contract that spans several files, so a change
+that moves such a contract carries the spec update with it.
 
 A change that stays inside one file needs no spec. A new subsystem other code
 will be written against does: land the spec with the implementation, not after
