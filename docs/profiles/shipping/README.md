@@ -1,6 +1,6 @@
 # Shipping selective-O3 profiles
 
-Ranked on-device results for the shipping `profile` image, covering the 33
+Ranked on-device results for the shipping `profile` image, covering the 34
 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render time; spilled
 counts frames above the 62.5 ms display window. Colour is binary on the spilled
 column: 🟢 zero spilled frames, 🔴 any spill. Cyclers (§) carry their preset
@@ -8,7 +8,7 @@ count after the peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [DisplacementField](profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
+| [DisplacementField](profile_displacementfield_teensy_2026-08-18.md) | fused ring-stack raster | 🟢 59.84 | 🟢 0/1408 (0%) | 2026-08-18 21:55 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
@@ -42,8 +42,8 @@ count after the peak.
 | [Voronoi](profile_voronoi_teensy_2026-07-25.md) | block-union top-2 shade | 🟢 9.90 | 🟢 0/1088 (0%) | 2026-07-26 11:46 |
 | [RingShower](profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
 
-**● captured 2026-08-16** — the fourteen fixed-pipeline effects, first profiled
-in that sweep.
+**● captured 2026-08-16** — the fourteen composed effects first profiled in
+that sweep.
 
 **Nine rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids, Comets,
 GnomonicStars, SphericalHarmonics, PetalFlow, Voronoi and RingShower. Their
@@ -53,11 +53,11 @@ report's headline peak is the earlier one and the peaks above are current.
 § ShapeShifter spans nine presets; its initial unlabeled frames and later
 `Preset: 1/9` frames are one adaptive 208-count planar-star bucket.
 MindSplatter spans eight presets. Each report folds its initial unlabeled
-frames into preset 0. The five fixed-pipeline cyclers hold each preset for 600
+frames into preset 0. The five composed cyclers hold each preset for 600
 frames and then morph over 480, so a preset owns 1,080 frames and their captures
 are sized to wrap the full cycle.
 
 This directory also holds the last captures of **Flyby** and **Liquid2D**, which
 are not in the roster and are absent from the table above. ShaderBall's captures
-have been deleted: the fixed-pipeline workbench migration (`69d4751c`) turned its
+have been deleted: the composed-effect workbench migration (`69d4751c`) turned its
 13-preset program bank into the fourteen ● effects.

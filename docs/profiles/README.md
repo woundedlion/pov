@@ -1,6 +1,6 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **33 effects in the Phantasm image**,
+On-device timing for the **34 effects in the Phantasm image**,
 captured on bench-attached Teensy 4.0 boards running the shipping Phantasm
 configuration (`POVSegmented<288, 4, 480>`, board = segment 0 master,
 newlib-nano, DMA LEDs, flywheel + DMA ISRs live) via the `HS_PROFILE`
@@ -46,7 +46,7 @@ peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
+| [DisplacementField](shipping/profile_displacementfield_teensy_2026-08-18.md) | fused ring-stack raster | 🟢 59.84 | 🟢 0/1408 (0%) | 2026-08-18 21:55 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
@@ -81,7 +81,7 @@ peak.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-07-25.md) | block-union top-2 shade | 🟢 9.90 | 🟢 0/1088 (0%) | 2026-07-26 11:46 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
 
-**●** — the fixed-pipeline effects. Fourteen were first profiled in the
+**●** — the composed effects. Fourteen were first profiled in the
 2026-08-16 sweep; PrismSpiral joined 2026-08-17; CurlLattice was re-captured
 2026-08-18 as the stage-families cut-over A/B gate. The other rows keep their
 own `Captured` dates.
@@ -99,12 +99,13 @@ directly. Size deltas are O3 minus shipping.
 
 Global O3 is a measurement reference, not a shipping candidate.
 
-The fifteen fixed-pipeline effects have no paired captures, so the pullback
-pipeline has no O3-vs-shipping codegen delta on record; profiling one of them
-under `profile_o3` would re-establish it.
+The fifteen composed effects have no paired captures, so the pullback pipeline
+still has no O3-vs-shipping codegen delta on record; profiling one of them
+under `profile_o3` would establish it.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
+| [DisplacementField](O3/profile_displacementfield_teensy_2026-08-18.md) ● | fused ring-stack raster | 🟢 59.84 | 🟢 58.96 | 🟢 0/1408 (0%) | 🟢 0/1408 (0%) | +25,216 B | +21,600 B | ship 2026-08-18 21:55<br>O3 2026-08-18 21:55 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
@@ -112,7 +113,7 @@ under `profile_o3` would re-establish it.
 | [MindSplatter](O3/profile_mindsplatter_teensy_2026-08-07.md)§ | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 38.78 (8) | 🟢 0/1728 (0%) | 🟢 0/1728 (0%) | +21,464 B | +18,832 B | ship 2026-08-07 23:03<br>O3 2026-08-07 23:02 |
 | [Fishbowl](O3/profile_fishbowl_teensy_2026-08-02.md) | adaptive vertex build | 🟢 24.85 | 🟢 22.16 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +28,456 B | +20,688 B | ship 2026-08-02 22:21<br>O3 2026-08-02 22:23 |
 
-**All six pairs refreshed 2026-08-15.**
+**Seven pairs: six refreshed 2026-08-15, DisplacementField captured 2026-08-18.**
 
 ## Captures of retired effects
 
@@ -120,7 +121,7 @@ under `profile_o3` would re-establish it.
 retired stereographic effects merged into ShaderBall. Neither is in the
 roster, so `just profile` cannot regenerate them.
 
-ShaderBall's captures have been deleted. The fixed-pipeline workbench migration
+ShaderBall's captures have been deleted. The composed-effect workbench migration
 (`69d4751c`) turned its 13-preset program bank into the fourteen ● effects above
 and left `Shader` as the authoring workbench rather than a shipping effect.
 
@@ -133,9 +134,9 @@ on them.
 
 ## What the roster looks like
 
-**All thirty-three effects spill nothing** in their current shipping captures.
+**All thirty-four effects spill nothing** in their current shipping captures.
 
-**The fourteen fixed-pipeline effects are green, and none is near the
+**The fifteen composed effects are green, and none is near the
 ceiling.** Their peaks run 23.30 ms (GlitchGrid) to 47.20 ms (VectorFacets), so
 the heaviest of them keeps 15.30 ms of the 62.5 ms window — the widest margin
 any pullback-shaded effect has held on this bench.
@@ -174,10 +175,11 @@ boundary.** Four captured rebakes cost 2.348–2.417 ms each. The shipping pass
 peaks at 56.277 ms with 0/2048 spills, retaining 6.223 ms of display-window
 margin, so cycling prebaked flash palettes is unnecessary.
 
-**DisplacementField remains close behind** — 58.71 ms peak against a 59.4 ms
-ISR-adjusted budget. It improved from 60.59 ms since 2026-07-25
-(`filter_blend` fell 169 → 51 cyc/blend), but a ~1% workload increase would
-still put it over.
+**DisplacementField now sits just over budget** — a 59.84 ms peak against the
+59.1 ms ISR-adjusted budget, about 1.3% above it, though it still spills
+nothing (0/1408). Sixteen frames in two adjacent peak windows exceed the
+62.5 ms display window. Global O3 brings the peak to 58.96 ms, back inside
+the budget.
 
 **IslamicStars is green on all 24 shapes** — 0/3328 at a 56.91 ms peak, with
 the worst hold (`dodecahedron_hk35_ambo_hk62_ambo_relax_hk42`) at 47.05 ms and
@@ -202,3 +204,4 @@ peaks at 58.22 ms with 0/2448 spills; global O3 peaks at 56.72 ms and adds
 28,616 B of flash code plus 24,016 B of ITCM code. Reusing the shaded fragment
 shader removes 5,136 B from the full-roster ITCM image without a measured
 shipping performance regression.
+
