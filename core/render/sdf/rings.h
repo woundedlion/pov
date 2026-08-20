@@ -497,8 +497,9 @@ private:
    * @return Geodesic distance to the nearest polyline point (radians), exact
    *         within the local tangent chart for distances up to `thickness`, or
    *         a lower bound when the outward search hits its cell budget; past
-   *         that reach either a lower bound above `thickness` (prefilter) or
-   *         FAR_SENTINEL, never the reach itself.
+   *         that reach either a value above `thickness` that may over-estimate
+   *         (prefilter, which bounds only the pixel's own chunk and its
+   *         neighbours) or FAR_SENTINEL, never the reach itself.
    * @details Works in the chart (azimuth * sin(polar), polar) centered on the
    * pixel: exact point-to-segment distances, searched outward from the
    * pixel's own cell. A segment o cells away is at least (o - 1) * cell_u
