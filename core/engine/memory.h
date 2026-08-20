@@ -1272,7 +1272,9 @@ struct ScratchScope {
    * of letting set_offset() resurrect freed bytes.
    */
   ~ScratchScope() {
-    HS_CHECK(arena.get_offset() >= saved_offset);
+    HS_CHECK(arena.get_offset() >= saved_offset,
+             "ScratchScope: non-LIFO teardown — arena at %zu, saved %zu",
+             arena.get_offset(), saved_offset);
     arena.set_offset(saved_offset);
   }
 

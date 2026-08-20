@@ -128,7 +128,10 @@ struct ScratchBases {
 HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
                                  size_t scratch_a, size_t scratch_b) {
   HS_CHECK(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE &&
-           scratch_b <= GLOBAL_ARENA_SIZE);
+               scratch_b <= GLOBAL_ARENA_SIZE,
+           "split_bases: %s asked %zu/%zu/%zu B (persistent/A/B) of a %zu B "
+           "block",
+           who, persistent, scratch_a, scratch_b, GLOBAL_ARENA_SIZE);
   constexpr size_t A = alignof(std::max_align_t);
   auto align_up = [](size_t n) { return (n + (A - 1)) & ~(A - 1); };
   size_t a_base = align_up(persistent);
