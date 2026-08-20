@@ -234,8 +234,9 @@ template <int H> inline float y_to_phi(int y) {
  * responsibility.
  */
 template <int H> inline float y_to_phi(float y) {
-  if (std::abs(y - std::floor(y)) < TOLERANCE) {
-    int iy = static_cast<int>(y);
+  const float fy = std::floor(y);
+  if (std::abs(y - fy) < TOLERANCE) {
+    const int iy = static_cast<int>(fy);
     if (iy >= 0 && iy < PhiLUT<H>::H_VIRT) {
       return y_to_phi<H>(iy);
     }
@@ -381,10 +382,11 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
  * branch, since theta = 2*pi*x/W is periodic.
  */
 template <int W, int H> Vector pixel_to_vector(float x, float y) {
-  if (std::abs(x - std::floor(x)) < TOLERANCE &&
-      std::abs(y - std::floor(y)) < TOLERANCE) {
-    const int ix = static_cast<int>(x);
-    const int iy = static_cast<int>(y);
+  const float fx = std::floor(x);
+  const float fy = std::floor(y);
+  if (std::abs(x - fx) < TOLERANCE && std::abs(y - fy) < TOLERANCE) {
+    const int ix = static_cast<int>(fx);
+    const int iy = static_cast<int>(fy);
     if (ix >= 0 && ix < W && iy >= 0 && iy < TrigLUT<W, H>::H_VIRT) {
       return pixel_to_vector<W, H>(ix, iy);
     }
