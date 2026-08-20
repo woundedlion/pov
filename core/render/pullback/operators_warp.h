@@ -302,11 +302,10 @@ struct WarpPolarChart {
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
     return Kernel::warp(
-        input,
-        Warp::polar_chart(input.coords, params, prepared.phase,
-                          static_cast<PolarMode>(params.mode) ==
-                              PolarMode::LOGARITHMIC,
-                          static_cast<uint8_t>(params.harmonic + 1), true));
+        input, Warp::polar_chart(input.coords, params, prepared.phase,
+                                 static_cast<PolarMode>(params.mode) ==
+                                     PolarMode::LOGARITHMIC,
+                                 static_cast<uint8_t>(params.harmonic + 1)));
   }
 };
 

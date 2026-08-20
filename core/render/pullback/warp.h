@@ -493,19 +493,20 @@ curl_flow(const Complex &input, const FastNoiseLite &noise, ::NoiseBasis basis,
   return {output, net_delta, path_length};
 }
 
+/** @brief A chart change, not a step: the angular output is in radians, so
+    the stage contributes no plane-unit path length. */
 template <typename Params>
 __attribute__((always_inline)) inline WarpStepResult
 polar_chart(const Complex &input, const Params &params, float phase,
-            bool logarithmic, uint8_t harmonic, bool path_length_required) {
+            bool logarithmic, uint8_t harmonic) {
   const float radius = sqrtf(input.re * input.re + input.im * input.im);
   const float radial =
       logarithmic ? logf(std::max(radius, 1.0f / 4096.0f)) : radius;
-  return finish_closed_form(
-      input,
-      {params.radial_scale * radial + params.radial_phase,
-       static_cast<float>(harmonic) * fast_atan2(input.im, input.re) +
-           params.angular_phase + TWO_PI_F * phase},
-      path_length_required);
+  const Complex output(params.radial_scale * radial + params.radial_phase,
+                       static_cast<float>(harmonic) *
+                               fast_atan2(input.im, input.re) +
+                           params.angular_phase + TWO_PI_F * phase);
+  return {output, Complex(output.re - input.re, output.im - input.im), 0.0f};
 }
 
 template <::NoiseBasis BasisV, typename Params, typename Prepared>
@@ -699,15 +700,13 @@ struct PolarChart : ApproximationDefaults {
         { State::params(frame).radial_phase } -> std::convertible_to<float>;
         { State::params(frame).angular_phase } -> std::convertible_to<float>;
         { State::phase(frame) } -> std::same_as<float>;
-        { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
   __attribute__((always_inline)) static WarpStepResult
   apply(const Complex &input, const ProjectionProvenance &,
         const FrameState &frame) {
     return polar_chart(input, State::params(frame), State::phase(frame),
-                       std::is_same_v<PolarMode, LogarithmicPolar>, Harmonic,
-                       State::path_length_required(frame));
+                       std::is_same_v<PolarMode, LogarithmicPolar>, Harmonic);
   }
 };
 
