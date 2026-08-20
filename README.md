@@ -136,7 +136,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [GnomonicStars](#gnomonicstars)
      - [Raymarch](#raymarch)
    - [Shader Authoring Workbench](#shader-authoring-workbench)
-     - [Fixed-pipeline roster](#fixed-pipeline-roster)
+     - [Composed-effect roster](#composed-effect-roster)
      - [Authoring vocabulary](#authoring-vocabulary)
      - [DisplacementField](#displacementfield)
      - [ShapeShifter](#shapeshifter)
@@ -2564,7 +2564,7 @@ Concentric polygon, star, or flower outlines drawn through the `Plot` rasterizer
 
 ### Shader Authoring Workbench
 
-The standalone [Shader workbench](https://github.com/woundedlion/daydream/blob/master/tools/shader.html) provides the complete structural vocabulary and configurable stage folders in a dedicated browser tab. Twenty-three retained legacy presets migrate to stable fixed-pipeline product effects; legacy preset 4 is retired, and unmatched custom configurations route to the workbench for editing. The firmware rosters contain only the promoted effects.
+The standalone [Shader workbench](https://github.com/woundedlion/daydream/blob/master/tools/shader.html) provides the complete structural vocabulary and configurable stage folders in a dedicated browser tab. Twenty-three retained legacy presets migrate to stable composed product effects; legacy preset 4 is retired, and unmatched custom configurations route to the workbench for editing. The firmware rosters contain only the promoted effects.
 
 `ShaderWorkbench` is registered as `Shader`, with `ShaderBall` retained as a legacy alias. It owns structural editing and dynamic dispatch in WASM and native oracle tests only. `HS_ENABLE_SHADER_WORKBENCH` is rejected for Arduino builds, and release ELF inspection gates the dynamic backend, topology registry, and workbench symbols out of firmware.
 
@@ -2605,7 +2605,7 @@ The core catalog owns the reusable surface, lens, projection, planar-warp, sourc
 
 Two stages carry approved approximations. Fast square Peirce projection and the hue-rotation LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. The dynamic orchestration is compiled for the simulator and native oracle tests, where every authored preset is compared against it. Teensy preprocessing excludes it.
 
-#### Fixed-pipeline roster
+#### Composed-effect roster
 
 | Effect ID | Concrete effect | Presets | Legacy source |
 |---|---|---:|---|
@@ -2627,7 +2627,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 
 These fifteen effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. The group keeps the former Shader slot at 120 seconds total instead of multiplying it into fifteen independent 120-second entries. Prism Spiral joined after the ShaderBall migration from a workbench-authored snapshot, so it carries no legacy preset index. Host tests pair each preset that carries a legacy source index with Shader's dynamic evaluator and require the two to agree to within one 16-bit count; Curl Lattice and Facet Grid run theirs in dedicated white-box equivalence suites. The presets authored after the migration have no legacy configuration to pair with, so nothing holds them against the evaluator: Prism Spiral's two, Facet Grid's `stretched-grid`, Hex Wave's `hex-twin-wave-alt`, and Facet Wave's `cup-hue`.
 
-The [shipping device captures](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) report zero spilled frames for the fourteen effects promoted at capture time, with peaks from 23.30 ms for GlitchGrid to 47.20 ms for VectorFacets; Prism Spiral has no device capture yet. The fixed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture currently isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
+The [shipping device captures](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) report zero spilled frames for the fourteen effects promoted at capture time, with peaks from 23.30 ms for GlitchGrid to 47.20 ms for VectorFacets; Prism Spiral has no device capture yet. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture currently isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
 #### Authoring vocabulary
 
@@ -2751,7 +2751,7 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 | `getAnimationsPaused()` → `bool` | Whether those drivers are currently frozen. The engine is the owner of this state — an `APPLIED` `setParameter` on an animated param engages the pause by itself — so read it back rather than mirroring the rule in JS |
 | `getPresetCount()` → `uint32` | Number of presets the current effect exposes for manual navigation; `0` when no effect is set or the effect authored none, which is how a GUI decides whether to offer preset controls at all |
 | `getPresetIndex()` → `uint32` | Index of the selected preset; `0` when no effect is set, so tell that apart with `getPresetCount() != 0`. An effect whose choreography advances its own presets moves this with no JS call, so poll it rather than tracking the index last written |
-| `getPresetIds()` → `string[]` | Stable preset IDs in numeric navigation order. Fixed-pipeline identities come from the WASM-only factory metadata, so this API adds no virtual method or firmware vtable cost |
+| `getPresetIds()` → `string[]` | Stable preset IDs in numeric navigation order. Composed-effect identities come from the WASM-only factory metadata, so this API adds no virtual method or firmware vtable cost |
 | `selectPresetById(id)` → `bool` | Select a preset through its persisted identity and engage the animation pause like `selectPreset(index)`; `false` for an empty or unknown ID or an effect without stable preset metadata |
 | `selectPreset(index)` → `bool` | Select a preset for manual navigation: applies it **and engages the animation pause**, exactly as `setAnimationsPaused(true)` would, so the preset's values are not overwritten by the animation on the next frame. `false` when no effect is set, the index is out of range, or the effect refused the preset. The pause survives `setEffect`, so read it back via `getAnimationsPaused()`; parameter values move with the preset, so re-read `getParamValues()` |
 | `synchronizePreset(index)` → `bool` | Select a preset **without touching the pause state** — the call for following engine-driven advancement, which `selectPreset` would freeze. A request for the already-active index is a success no-op; `false` when no effect is set, the index is out of range, or the effect refused the preset |
