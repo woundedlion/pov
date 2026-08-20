@@ -118,6 +118,13 @@ def main() -> int:
         if errors:
             report(errors)
             return 1
+        # No resolvable references means the checker was pointed somewhere
+        # it cannot see the repository; passing would certify nothing.
+        if not checked:
+            print(f"[docs-images] tooling error: no repository-relative "
+                  f"image references in tracked Markdown under "
+                  f"{repo_root}", file=sys.stderr)
+            return 2
         print(f"docs image references all resolve ({checked} checked)")
         return 0
 
