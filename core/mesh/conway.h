@@ -748,7 +748,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
  *   per source face, one per source vertex).
  * @param out_b Receives the s = 1 position of each medial vertex, indexed to
  *   match out_a.vertices: normalize(dual_f + dual_g) for the edge's two flanking
- *   faces f, g — the same vertex as in ambo(dual(mesh)).
+ *   faces f, g.
  * @param target Arena receiving out_a, out_b, and index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh and dual positions.
  * @details ambo(mesh) and ambo(dual(mesh)) are the same polyhedron
@@ -756,7 +756,10 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
  *   per primal vertex); only the vertex positions differ. Holding this shared
  *   connectivity fixed and slerping each vertex a_e -> b_e is the smooth dual
  *   bridge's medial leg. dual_g is the normalized centroid of face g, matching
- *   MeshOps::dual's vertex, so out_b lands on ambo(dual(mesh)) exactly.
+ *   MeshOps::dual's vertex, so out_b reaches the ambo(dual(mesh)) positions to
+ *   within one normalization pass — unlike out_a, which is bit-exact against
+ *   ambo(mesh). Where dual is lossy (dropped sub-triangular orbits),
+ *   ambo(dual(mesh)) also merges midpoints that out_b keeps apart.
  */
 HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
                                   ArenaVector<Vector> &out_b, Arena &target,
