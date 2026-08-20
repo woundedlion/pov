@@ -88,7 +88,9 @@ committed board directly need no KiCad and run in CI
 - **Shipped-land gate:** `gen/tests/test_pcb_lands.py` pins the pad geometry the
   routed board ships for every chip passive, so restoring a stock land over the
   widened sync-resistor pads fails in CI. KiCad reports no parity difference for
-  that edit — the widened pads keep the stock footprint id.
+  that edit — the widened pads keep the stock footprint id. The same file pins
+  J1's footprint on both artifacts, which the assembly gate cannot see because
+  `EXCLUDE_FP_SUBSTR` excludes every hand-soldered connector spelling.
 - **Count-floor ratchets:** `gen/fab.py` rejects a board carrying fewer than
   100 vias or fewer than 2 copper pours — floors pinned to what the committed
   routed board holds (both counts are in the facts block below; the pours are
@@ -140,7 +142,7 @@ the netlist is what's verified.
 | `R_PD` | `Device:R` (10k) | `Resistor_SMD:R_0603_1608Metric`, pads widened to 1.20 mm | master-only bus idle pull-down, widened land; ground-side switched automatically by U1 channel D |
 | `R_MEN` | `Device:R` (10k) | `R_0603` | MASTER_EN boot pull-up → 3V3 |
 | `D_BUS` | `Device:D_Zener` (Bourns CDSOD323-T05L) | `Diode_SMD:D_SOD-323` with Bourns pad geometry | populated unidirectional 5 V, 1 pF sync-bus TVS; pin 1/cathode on SYNC_BUS, pin 2/anode on GND; exact Bourns land pattern; silkscreen bar marks the cathode end; JLCPCB C1975255 |
-| `J1` | `Connector_Generic:Conn_01x02` | `JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical` | +5 V/GND light logic feed, ~1 A; keyed shrouded 3 A JST XA with a locking ramp + mounting boss (R-PWR-7); mates XAP-02V-1 + SXA-001T-P0.6 contacts |
+| `J1` | `Connector_Generic:Conn_01x02` | `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical` | +5 V/GND light logic feed, ~1 A; **unkeyed** 0.1″ header — R-PWR-7's keying is unmet on the shipped board (see the deviations note below) |
 | `J2` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | strip **signal only**: DI / CI / SIG_GND (no power) |
 | `J3A/J3B` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | Belden 8451 daisy |
 | `J4` | `Connector_Generic:Conn_01x04` | `PinHeader_1x04_P2.54mm` | debug/serial |
@@ -178,6 +180,18 @@ the netlist is what's verified.
   routed copper. The widening is invisible to that gate in the other direction, because
   the routed board keeps the stock footprint id: KiCad's **Update Footprints from
   Library** would restore the 0.80/1.025 mm pads with no parity difference reported.
+- **J1 ships unkeyed — R-PWR-7 is not met on this board.** Both committed artifacts
+  carry `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical`, a plain 0.1″
+  header with no key, no shroud and no locking ramp, so nothing mechanically stops the
+  +5 V/GND feed going on backwards — the condition R-PWR-7 calls out (“a reversed feed
+  destroys the Teensy + '125”). `Q_REV` is series protection on the logic rail, not the
+  polarising feature that requirement asks for. `gen/board.py` names the keyed
+  `Connector_JST:JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical` (mates XAP-02V-1 +
+  SXA-001T-P0.6); it reaches copper only after a re-place and a re-route, because the
+  JST body and its 2.50 mm pitch do not fit the header's routed pads. Until then the
+  harness carries the polarity marking. The JLC assembly gate cannot catch the
+  substitution: `fab.EXCLUDE_FP_SUBSTR` excludes both `PinHeader` and `JST_` as
+  hand-soldered, so `gen/tests/test_pcb_lands.py` pins J1's shipped footprint instead.
 - **ID straps** use the Teensy's internal pull-ups; the former optional `R_ID0`
   footprint is not required. `D_BUS` is populated on every board. `JP_SHLD` is
   populated **on the master board only**;

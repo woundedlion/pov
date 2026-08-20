@@ -7,6 +7,7 @@ from pathlib import Path
 GEN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN_DIR))
 
+import fab  # noqa: E402
 import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
@@ -135,6 +136,31 @@ class RoutedBoardLandTests(unittest.TestCase):
             if ref in SHIPPED_CHIP_LANDS:
                 shipped[ref] = (str(node[1]), pad_lands(node))
         self.assertEqual(shipped, SHIPPED_CHIP_LANDS)
+
+
+class PowerInletTests(unittest.TestCase):
+    """J1 ships unkeyed on both artifacts while gen/board.py names a keyed JST XA,
+    and fab.EXCLUDE_FP_SUBSTR holds both spellings, so the assembly gate cannot
+    see the substitution."""
+
+    SHIPPED = "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+    KEYED = "Connector_JST:JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical"
+
+    def test_schematic_ships_the_unkeyed_header(self):
+        footprints = {ref: fp for ref, fp, _, _ in pcb.schematic_components()}
+        self.assertEqual(footprints["J1"], self.SHIPPED)
+
+    def test_routed_board_ships_the_unkeyed_header(self):
+        root = sexp.parse(ROUTED.read_text(encoding="utf-8"))[0]
+        footprints = {reference(node): str(node[1])
+                      for node in F(root, "footprint")}
+        self.assertEqual(footprints["J1"], self.SHIPPED)
+
+    def test_the_assembly_gate_excludes_both_spellings(self):
+        for footprint in (self.SHIPPED, self.KEYED):
+            with self.subTest(footprint=footprint):
+                self.assertFalse(fab.is_assembled(
+                    {"footprint": footprint, "value": "", "dnp": False}))
 
 
 class TeensyLibraryTests(unittest.TestCase):

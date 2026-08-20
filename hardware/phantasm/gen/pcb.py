@@ -473,8 +473,9 @@ HUB_CONNS = ("J1", "J4")            # logic power in, debug — hub end (left)
 FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
 
 QUILTER_FIXED = {
-    # J1's JST XA body runs along the length; it sits in the hub pocket between
-    # the USB approach corridor and J4, clear of the Teensy courtyard.
+    # J1's body runs along the length; it sits in the hub pocket between the USB
+    # approach corridor and J4, clear of the Teensy courtyard. Measured for the
+    # 0.1in 1x02 header the committed boards carry, not board.py's JST XA.
     "J1": (8.5, 18.8, 0),
     "J4": (8.5, 28.5, 90),
     "J2": (49.8, 2.77, 0),

@@ -208,6 +208,8 @@ def main(force=False):
     # Series chain on the rail line: J1 -> F1 -> Q_REV -> FB -> +5V_LOGIC.
     # Shrouded JST XA (R-PWR-7): keying blocks a reversed feed, the locking ramp holds
     # the housing at 480 RPM. Hand-crimped -> excluded from the JLC assembly set.
+    # Both committed artifacts ship an unkeyed PinHeader_1x02_P2.54mm_Vertical instead;
+    # the JST body and its 2.50 mm pitch need a re-place and a re-route to land.
     J1 = place("Connector_Generic:Conn_01x02", "J1", "+5V IN keyed ~1A", 25.4, 60.96,
                rot=180,
                fp="Connector_JST:JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical")
