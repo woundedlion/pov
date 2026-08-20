@@ -320,14 +320,14 @@ private:
    */
   static void dump_isr_stats(unsigned long window_us) {
     hs::IsrCycleStats wake, pack, submit;
-    __disable_irq();
+    const uint32_t primask = hs::save_disable_interrupts();
     wake = hs::g_flywheel_wake_cycles;
     pack = hs::g_column_pack_cycles;
     submit = hs::g_dma_submit_cycles;
     hs::g_flywheel_wake_cycles.reset();
     hs::g_column_pack_cycles.reset();
     hs::g_dma_submit_cycles.reset();
-    __enable_irq();
+    hs::restore_interrupts(primask);
     log_isr("isr_wake", wake, window_us);
     log_isr("isr_pack", pack, window_us);
     log_isr("isr_dma_submit", submit, window_us);
