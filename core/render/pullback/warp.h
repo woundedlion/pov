@@ -139,17 +139,17 @@ static_assert(field_ids_unique<VectorNoiseParams>());
 /**
  * @brief Warp parameters for the affine frame change
  *        (Pullback::Warp::AffineFrame).
- * @details Translation is expressed in lattice cells, so this family is only
- * valid alongside a LatticeSourceParams source.
+ * @details Translation is scaled by the plane units per lattice cell that
+ * Warp::prepare receives: the composed path reads that from its
+ * LatticeSourceParams source, the chain path fixes it at 1 so translation is
+ * in plane units.
  */
 struct AffineParams {
   float speed = 0.0f;         /**< Per-frame advance of the slot's phase. */
   float rotation_rate = 0.0f; /**< Frame rotation rate; read only in the outer
                                    slot. */
-  float translation_x = 0.0f; /**< Translation along x, in lattice cells per
-                                   phase turn. */
-  float translation_y = 0.0f; /**< Translation along y, in lattice cells per
-                                   phase turn. */
+  float translation_x = 0.0f; /**< Translation along x per phase turn. */
+  float translation_y = 0.0f; /**< Translation along y per phase turn. */
   float scale_x = 1.0f; /**< Scale along x, oscillated over the phase cycle. */
   float scale_y = 1.0f; /**< Scale along y, oscillated over the phase cycle. */
   float shear = 0.0f;   /**< Shear, oscillated over the phase cycle. */
