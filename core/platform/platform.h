@@ -6,21 +6,12 @@
 
 /**
  * @file platform.h
- * @brief Platform layer: canvas dimensions, invariant checks, timing, clamp and
- *        the device/host split. Pulls in the attribute, diagnostics and PRNG
- *        headers so a single include still covers the whole platform surface.
+ * @brief Platform layer: invariant checks, timing, clamp and the device/host
+ *        split. Pulls in the attribute, diagnostics and PRNG headers so a
+ *        single include still covers the whole platform surface.
  */
 
 #include "platform/build_features.h"
-
-/** @brief Canvas width in pixels (override via -DCANVAS_W). */
-#ifndef CANVAS_W
-#define CANVAS_W 288
-#endif
-/** @brief Canvas height in pixels (override via -DCANVAS_H). */
-#ifndef CANVAS_H
-#define CANVAS_H 144
-#endif
 
 // ---------------------------------------------------------------------------
 /**

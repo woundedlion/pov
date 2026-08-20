@@ -10,7 +10,7 @@
  *        and pole-LOD tuning.
  */
 
-#include "platform/platform.h" // CANVAS_W/CANVAS_H
+#include "platform/build_features.h" // CANVAS_W/CANVAS_H
 
 /**
  * @brief Inner/outer radius ratio for star shapes (1/φ² ≈ 0.382).
