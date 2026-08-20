@@ -57,7 +57,6 @@ public:
     value.color.hue_noise_speed = 0.000212000014f;
     return value;
   }
-  static constexpr Params preset_params(size_t) { return initial_params(); }
 };
 
 #include "core/control/registry.h"

@@ -3296,7 +3296,7 @@ ShaderBallWhiteBox::RequestedConfig
 fixed_reference_config(size_t topology_preset, size_t fixed_preset) {
   using WB = ShaderBallWhiteBox;
   const typename FixedEffect::Params source =
-      FixedEffect::preset_params(fixed_preset);
+      effects_tests::preset_params_or_initial<FixedEffect>(fixed_preset);
   WB::RequestedConfig destination = WB::presets()[topology_preset];
 
   if constexpr (requires { source.source.pattern_freq; })
@@ -3370,7 +3370,7 @@ Pullback::FrameState<typename FixedEffect::Params>
 fixed_reference_frame(const ShaderBallWhiteBox::FrameState &source,
                       size_t fixed_preset) {
   const typename FixedEffect::Params params =
-      FixedEffect::preset_params(fixed_preset);
+      effects_tests::preset_params_or_initial<FixedEffect>(fixed_preset);
   return {source.transforms.projection_conj,
           source.transforms.outer_conj,
           source.resources.outer_warp_noise,

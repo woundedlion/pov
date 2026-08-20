@@ -49,7 +49,6 @@ public:
     value.value.edge_width = 0.5f;
     return value;
   }
-  static constexpr Params preset_params(size_t) { return initial_params(); }
 };
 
 #include "core/control/registry.h"
