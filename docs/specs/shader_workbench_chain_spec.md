@@ -7,8 +7,7 @@ defines. All four sections ship in the daydream repo
 ([shader/shader_workbench.mjs](https://github.com/woundedlion/daydream/blob/master/shader/shader_workbench.mjs),
 [tools/chain_document_store.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_document_store.js),
 [tools/chain_strip.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_strip.js),
-[tools/chain_library.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_library.js),
-[tools/chain_dock.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_dock.js)).
+[tools/chain_library.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_library.js)).
 §4's pipeline-strip workbench is the editor's *surface*; every editing
 semantic in §3 carries forward beneath it.
 
@@ -190,7 +189,7 @@ changing the program*. The redesign inverts it.
 
 ### 4.1 Layout
 
-Three stacked regions plus one dock, replacing the sidebar:
+Three stacked regions, replacing the sidebar:
 
 - **Toolbar** (top edge, one slim row): document source picker, preset
   picker, Open…/Save/Save As, the descriptor digest (abbreviated,
@@ -204,15 +203,17 @@ Three stacked regions plus one dock, replacing the sidebar:
   their corners.
 - **Stage library** (bottom): the whole operator catalog, grouped into
   the same four domains in the same order, drag sources for the strip.
-- **Parameter dock** (right, collapsible): the selected stage instance's
-  sliders. Docked beside the canvas rather than over it, because tuning a
-  slider is exactly when the render must stay visible.
+
+A stage's parameters live **on its own chip** (§4.4), not in a side
+panel: the chain and its tuning are one surface. The engine's global
+controls float over the canvas region alone — never over the toolbar,
+the strip, or the library, which are the page's primary UI.
 
 Each carrier domain has a fixed hue used by both its strip band and its
 library group — the color is the visual statement of "stages from this
 group go up there". On narrow viewports the strip and library scroll
-horizontally and independently; the dock overlays the canvas's right edge;
-the library collapses to domain tabs showing one group at a time.
+horizontally and independently, and the library collapses to domain tabs
+showing one group at a time.
 
 ### 4.2 The pipeline strip
 
@@ -278,17 +279,26 @@ drop model:
 
 ### 4.4 Parameters
 
-Committing an insert **selects the new instance and opens the parameter
-dock on it** — adding a stage and immediately hearing its sliders is the
-core authoring loop. Selecting any chip retargets the dock.
+A stage's controls live **inline in its chip**: selecting a chip expands
+it in place onto its own sliders, so selection and expansion are one
+state. Committing an insert selects the new instance and therefore opens
+it — adding a stage and immediately hearing its sliders is the core
+authoring loop, and the chain never has to be read in one place and
+tuned in another.
 
-- Binary32 fields render as sliders with the catalog schema's min/max/
-  curve; topology enum8s render as dropdowns (live structural switches on
-  the chain path). Controls are labeled by instance.
+- Controls are built from the **document**, not the engine: the
+  declaration's storage and domain give the control its shape, the active
+  preset's value gives its position. Binary32 fields render as sliders
+  over the declared domain; topology enum8s render as dropdowns (live
+  structural switches on the chain path). A row is labeled by its field
+  segment alone — the chip already names the instance.
 - The union-schema discipline (§3) applies: fields the current topology
   values deactivate render dimmed, never dropped.
-- **A dock edit is a document edit**: it writes the active preset's value
-  for that `<label>.<field>` id, with the engine write as the side
+- An instance that declares no parameters gets no disclosure, and an
+  expanded chip is wide, so the strip scrolls rather than crushing its
+  neighbours.
+- **A stage edit is a document edit**: it writes the active preset's
+  value for that `<label>.<field>` id, with the engine write as the side
   effect (per-control coalesced for undo, in the same history as
   structural edits). The document stays the single source of truth; Save
   never has to "capture" state that only the engine knows.
@@ -298,7 +308,8 @@ core authoring loop. Selecting any chip retargets the dock.
 The scratch document opens as the default chain (`Rotate → Project →
 Sample → Colorize`, §3) with one preset of catalog defaults — a valid,
 rendering document from the first frame. Authoring is then: drag stages
-in, tune the dock, iterate against the live render, name presets.
+in, tune them on their chips, iterate against the live render, name
+presets.
 
 **Export** is the workflow's terminal step and has one format: **Save
 produces the canonical v2 serialization** (`exportShaderDocumentJson`) —
@@ -315,8 +326,8 @@ the artifact both consumers trust.
 ### 4.6 Use case: modifying an existing effect
 
 Loading must populate the configurator **exactly as if the effect had
-been authored from scratch in this session** — same strip, same dock,
-same edit affordances, no separate read-only mode:
+been authored from scratch in this session** — same strip, same inline
+controls, same edit affordances, no separate read-only mode:
 
 - The toolbar source picker lists the registry's chain documents; Open…
   imports a file. A v1 document expands through the single expansion path
@@ -347,8 +358,8 @@ Full parity with the pointer gestures, rotated to the horizontal:
 - Library entries are buttons; disabled entries carry `aria-disabled`
   plus a described-by reason. Domain groups are labeled `group`s; the
   filter is a labeled searchbox.
-- One shared live status region announces every refusal — strip, library,
-  and dock report through it.
+- One shared live status region announces every refusal — strip and
+  library report through it.
 
 ### 4.8 Module boundaries
 
@@ -356,11 +367,22 @@ The rail view in `chain_editor.js` and `chain_catalog_panel.js` are
 replaced by a strip module and a library module implementing the same
 store-facing contract (the `ChainStore` surface, the drag controller
 owned by the strip, gap hit-testing generalized with band hit-testing for
-coarse drops). `deactivatedParamNames`, the document store, `chain_apply`,
-and the schema module are untouched. `shader.html` reflows to the §4.1
-regions; the workbench stylesheet is rewritten rather than adapted — the
-rail's vertical assumptions are load-bearing throughout it. The existing
-editor tests port to the strip contract; new coverage: coarse-drop
-snapping to the nearest legal gap, socket swap, ✕ legality (absent on
-crossings), dock edits writing the active preset and participating in
-undo, and the parity toggle disarming on the first descriptor edit.
+coarse drops). The union-schema deactivation predicate survives, reading
+document declarations rather than engine definitions; the document store
+gains only the preset-value write §4.4 needs; `chain_apply` and the
+schema module are untouched. `shader.html` reflows to the §4.1 regions;
+the workbench stylesheet is rewritten rather than adapted — the rail's
+vertical assumptions are load-bearing throughout it. The existing editor
+tests port to the strip contract; new coverage: coarse-drop snapping to
+the nearest legal gap, socket swap, ✕ legality (absent on crossings),
+stage edits writing the active preset and participating in undo, and the
+parity toggle disarming on the first descriptor edit.
+
+**Pointer behaviour needs a real browser.** The unit suite renders into a
+DOM fake with neither layout nor pointer capture, which cannot see an
+absolutely placed palette landing far from the control that opened it,
+nor a pointer-capturing drag swallowing the click that should have
+selected a chip — both of which shipped and had to be fixed after the
+fact. A headless-Chrome probe drives the strip's gestures with a real
+mouse (palette placement, chip selection, library drop, reorder, inline
+control round-trip) and gates alongside the page smoke.
