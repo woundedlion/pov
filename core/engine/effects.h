@@ -169,7 +169,8 @@
   X(VectorFacets, 6)                                                           \
   X(Voronoi, 120)
 
-/** Shader promotion product group in gallery and device order. */
+/** Shader promotion product group in gallery and fixed-pipeline roster
+ * order; the device show order is HS_PHANTASM_EFFECT_LIST's. */
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
   X(SignalWeave, 7)                                                            \
   X(KaleidoWave, 7)                                                            \
