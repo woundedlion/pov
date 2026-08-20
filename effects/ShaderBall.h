@@ -3795,59 +3795,11 @@ private:
              pole_attenuation(r_sq, frame.params.projection.pole_fade), 0}};
   }
 
-  __attribute__((always_inline)) static ProjectedLookup
-  selected_stereographic_lookup(const Vector &v, const FrameState &frame) {
-    const Vector local = rotate(v, frame.transforms.projection_conj);
-    const Pullback::ProjectionResult result =
-        stereographic_lookup(local, frame);
-    return {result.coords, result.provenance, local, 0.0f};
-  }
-
-  __attribute__((always_inline)) static ProjectedLookup
-  profiled_stereographic_lookup(const Vector &v, const FrameState &frame) {
-    HS_SB_STAGE_MARK(stage_start);
-    const ProjectedLookup projected = selected_stereographic_lookup(v, frame);
-    HS_SB_STAGE_SPAN(projection, stage_start);
-    return projected;
-  }
-
-  template <SurfaceLens LENS>
-  __attribute__((always_inline)) static Vector
-  selected_lens_lookup(const Vector &v) {
-    static_assert(LENS == SurfaceLens::NONE || LENS == SurfaceLens::GLITCH ||
-                  LENS == SurfaceLens::KALEIDOSCOPE ||
-                  LENS == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL ||
-                  LENS == SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM);
-    HS_SB_STAGE_MARK(stage_start);
-    const Vector lensed = [&]() {
-      if constexpr (LENS == SurfaceLens::NONE)
-        return v;
-      else if constexpr (LENS == SurfaceLens::GLITCH)
-        return lenses::glitch_lens(v);
-      else if constexpr (LENS == SurfaceLens::KALEIDOSCOPE)
-        return lenses::kaleidoscope_lens(v);
-      else if constexpr (LENS == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)
-        return lenses::dodecahedral_kaleidoscope_lens(v);
-      else
-        return lenses::polyhedral_kaleidoscope_lens(
-            v, lenses::TRIANGULAR_PRISM_MIRRORS);
-    }();
-    HS_SB_STAGE_SPAN(lens, stage_start);
-    return lensed;
-  }
-
   /** @brief Whether this frame's colorizer reads displacement metadata. */
   __attribute__((always_inline)) static bool
   tracks_displacement(const FrameState &frame) {
     return frame.prepared_hue_rotation.active &&
            frame.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT;
-  }
-
-  __attribute__((always_inline)) static float
-  surface_noise_path_length(const Vector &step, const FrameState &frame) {
-    if (!tracks_displacement(frame))
-      return 0.0f;
-    return sqrtf(dot(step, step));
   }
 
   /**
@@ -3990,17 +3942,6 @@ private:
       return nullptr;
     return program;
   }
-
-#if HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND ||                                    \
-    (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
-  HS_COLD_MEMBER static typename FrameShader::ShadeFunction
-  resolve_shade_function(const FrameState &frame) {
-    const ProgramDescriptor *program = resolve_inverse_program(frame);
-    HS_CHECK(program != nullptr,
-             "ShaderBall test topology has no compiled inverse pipeline");
-    return program->shade;
-  }
-#endif
 
   static constexpr bool strict_projection(Projection projection) {
     return projection == Projection::BONNE ||
