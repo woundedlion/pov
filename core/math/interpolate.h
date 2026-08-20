@@ -72,8 +72,10 @@ inline float log_positive(float a, float b, float progress) {
  * @param b Value at progress 1.
  * @param progress Fraction; outside [0,1] it snaps to the nearer endpoint.
  * @param period Domain period (e.g. TWO_PI_F for an angle).
- * @return The interpolated value wrapped into [0,period), or the linear
- *         interpolation when @p period is non-positive and no arc is defined.
+ * @return An interior progress gives the interpolated value wrapped into
+ *         [0,period); an endpoint gives that endpoint as supplied, unwrapped.
+ *         Falls back to the linear interpolation when @p period is
+ *         non-positive and no arc is defined.
  */
 inline float shortest_periodic(float a, float b, float progress, float period) {
   if (progress <= 0.0f)
