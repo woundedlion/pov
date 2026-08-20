@@ -216,12 +216,15 @@ struct DistortedRing {
                          reference, so it must outlive the shape. */
   float radius;       /**< Ring radius as a fraction of the hemisphere. */
   float thickness;    /**< Half-width of the stroke (radians). */
+  float thickness2;   /**< Squared half-width of the stroke. */
   ScalarFn shift_fn;  /**< Per-azimuth centerline shift, t in [0,1) -> radians;
                          empty in knot mode. */
   const float *knots =
       nullptr;   /**< Optional lut_n + 1 shift knots (entry lut_n repeats entry
                     0); selects exact polyline distance. */
   int lut_n = 0; /**< Knot cell count when knots is set. */
+  float knot_count = 0.0f;      /**< Knot cell count as a float. */
+  float knot_cell_angle = 0.0f; /**< Angular width of one knot cell. */
   const KnotPrefilter *prefilter =
       nullptr;          /**< Caller-owned chunk ranges over knots. */
   float max_distortion; /**< Maximum magnitude of the shift (radians). */
@@ -281,7 +284,8 @@ protected:
    * @param ph Azimuth phase offset (radians).
    */
   DistortedRing(const Basis &b, float r, float th, float md, float ph)
-      : basis(b), radius(r), thickness(th), max_distortion(md), phase(ph) {
+      : basis(b), radius(r), thickness(th), thickness2(th * th),
+        max_distortion(md), phase(ph) {
     normal = basis.v;
     u = basis.u;
     w = basis.w;
@@ -322,6 +326,8 @@ public:
     HS_CHECK(kn != nullptr && n >= 1); // n == 0: knot_v(-1) reads knots[-1]
     knots = kn;
     lut_n = n;
+    knot_count = static_cast<float>(n);
+    knot_cell_angle = TWO_PI_F / n;
     prefilter = &pf;
     float min_shift = kn[0];
     float max_shift = kn[0];
@@ -527,12 +533,12 @@ private:
         return gap;
     }
 
-    float x = t_norm * lut_n;
+    float x = t_norm * knot_count;
     int j = static_cast<int>(x);
     if (j >= lut_n) // t_norm * lut_n can round up to lut_n at the seam
       j = lut_n - 1;
     float f = x - j;
-    const float cell_u = (TWO_PI_F / lut_n) * sin_polar;
+    const float cell_u = knot_cell_angle * sin_polar;
     const float cell_u2 = cell_u * cell_u;
 
     // Chart v of knot m relative to the pixel (pixel at the origin).
@@ -566,7 +572,7 @@ private:
     float best2 = std::min(ul * ul + vl * vl, ur * ur + vr * vr);
     interior_d2(ul, vl, vr, best2);
 
-    const float th2 = thickness * thickness;
+    const float th2 = thickness2;
     float bound2 = std::min(best2, th2);
     const int sweep_o = lut_n / 2 + 1; // covers every knot on both arms
     const bool budget_capped = MAX_SEARCH_CELLS < sweep_o;
