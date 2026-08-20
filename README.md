@@ -430,7 +430,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       └── wasm_predicates.h   Pure embind boundary validation/clamping predicates (host-testable)
 │
 ├── CMakeLists.txt              Emscripten build (outputs holosphere_wasm.js + .wasm)
-├── CMakePresets.json           Canonical presets: wasm-release, wasm-debug, tests
+├── CMakePresets.json           Canonical presets: wasm-release, wasm-debug, wasm-strict-fp, tests
 ├── cmake/
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
 ├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
