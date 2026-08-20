@@ -88,7 +88,7 @@ INLINE_SCAN = (
     ROOT / "justfile",
     ROOT / "scripts/generate_luts.py",
     ROOT / ".githooks/pre-commit",
-    ROOT / "hardware/phantasm/gen/kicad_common.py",
+    ROOT / "hardware/phantasm/gen/sexp.py",
     # Prose, but a contributor installs what it tells them to: a stale spelling
     # here sends them to a version the format gate then rejects.
     ROOT / "README.md",
