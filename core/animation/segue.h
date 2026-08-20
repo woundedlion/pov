@@ -832,6 +832,11 @@ static_assert(AllPolicies::SEQUENTIAL_PER_FACE,
  * flipping from the old parameter set to the new at its own seeded random
  * time, so every element still renders once per frame — is reserved for this
  * roster but unimplemented until an effect adopts it.
+ *
+ * Unlike the sprite segues above, which MeshCarousel keeps one mutable instance
+ * of, a preset policy carries no per-transition state: ChoreographedEffect
+ * schedules every arm through a fresh copy of the effect's constant
+ * PRESET_SEGUE.
  */
 
 /**
