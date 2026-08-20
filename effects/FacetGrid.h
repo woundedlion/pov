@@ -83,8 +83,8 @@ public:
    * @brief Params for the preset at @p index in PRESET_IDS.
    * @details `coupled-grid` is the initial preset; the other three raise the grid
    * complexity and fully mix in the secondary pattern, then vary its frequency,
-   * camera wander, palette mapping frequency and — for `stretched-grid` — the
-   * mirror-tile cell and rotation.
+   * projection wander, palette mapping frequency and — for `stretched-grid` —
+   * the mirror-tile cell and rotation.
    */
   static constexpr Params preset_params(size_t index) {
     Params value = initial_params();
