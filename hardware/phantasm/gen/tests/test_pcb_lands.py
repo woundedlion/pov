@@ -12,11 +12,35 @@ import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
 UNPLACED = GEN_DIR.parent / "unplaced" / "phantasm_unplaced.kicad_pcb"
+ROUTED = GEN_DIR.parent / "phantasm.kicad_pcb"
 TEENSY_LIBRARY = GEN_DIR.parent / "phantasm.pretty" / "Teensy4.0.kicad_mod"
 
-# Every reference whose land must come from its footprint library unchanged.
+# Every reference the generator embeds straight from its footprint library.
 LIBRARY_LAND_REFS = ("R1", "R2", "R_PD", "R_S", "R_MEN", "R_D1", "R_D2",
                      "R_LF", "C_SYNC", "C_DEC1", "C_DEC2", "C_LF")
+
+
+def chip(width, pitch, height=0.95):
+    return (("1", -pitch, 0.0, width, height), ("2", pitch, 0.0, width, height))
+
+
+# Pad geometry the routed board ships, per reference. R1/R2/R_PD/R_S carry the
+# stock footprint id with the pads widened in place, so KiCad reports no parity
+# difference and "Update Footprints from Library" would silently restore the
+# library land.
+SHIPPED_CHIP_LANDS = {
+    "R1": ("Resistor_SMD:R_0603_1608Metric", chip(1.2, 0.825)),
+    "R2": ("Resistor_SMD:R_0603_1608Metric", chip(1.2, 0.825)),
+    "R_PD": ("Resistor_SMD:R_0603_1608Metric", chip(1.2, 0.825)),
+    "R_S": ("Resistor_SMD:R_0805_2012Metric", chip(1.4, 0.9125, 1.4)),
+    "R_MEN": ("Resistor_SMD:R_0603_1608Metric", chip(0.8, 0.825)),
+    "R_D1": ("Resistor_SMD:R_0805_2012Metric", chip(1.025, 0.9125, 1.4)),
+    "R_D2": ("Resistor_SMD:R_0805_2012Metric", chip(1.025, 0.9125, 1.4)),
+    "R_LF": ("Resistor_SMD:R_0805_2012Metric", chip(1.025, 0.9125, 1.4)),
+    "C_SYNC": ("Capacitor_SMD:C_0603_1608Metric", chip(0.9, 0.775)),
+    "C_DEC1": ("Capacitor_SMD:C_0603_1608Metric", chip(0.9, 0.775)),
+    "C_DEC2": ("Capacitor_SMD:C_0603_1608Metric", chip(0.9, 0.775)),
+}
 
 CHIP_LIBID = "Test:R_chip"
 CHIP_MOD = """(footprint "R_chip"
@@ -96,6 +120,21 @@ class UnplacedBoardLandTests(unittest.TestCase):
         self.assertTrue(families)
         for libid, lands in sorted(families.items()):
             self.assertEqual(len(set(lands.values())), 1, f"{libid}: {lands}")
+
+
+class RoutedBoardLandTests(unittest.TestCase):
+    """The routed board is the fabrication source of truth, and its chip lands are
+    not all the library ones: the four bench-tuned sync resistors carry widened
+    pads under a stock footprint id, which no parity or DRC gate can see."""
+
+    def test_routed_board_ships_the_pinned_lands(self):
+        root = sexp.parse(ROUTED.read_text(encoding="utf-8"))[0]
+        shipped = {}
+        for node in F(root, "footprint"):
+            ref = reference(node)
+            if ref in SHIPPED_CHIP_LANDS:
+                shipped[ref] = (str(node[1]), pad_lands(node))
+        self.assertEqual(shipped, SHIPPED_CHIP_LANDS)
 
 
 class TeensyLibraryTests(unittest.TestCase):
