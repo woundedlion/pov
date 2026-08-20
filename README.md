@@ -2620,7 +2620,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `prism-spiral` | `PrismSpiral` | 2 | — |
 | `vector-facets` | `VectorFacets` | 1 | 10 |
 | `facet-grid` | `FacetGrid` | 4 | 11, 13–14, plus `stretched-grid` |
-| `hex-wave` | `HexWave` | 1 | 12 |
+| `hex-wave` | `HexWave` | 2 | 12 |
 | `equator-grid` | `EquatorGrid` | 3 | 15–17 |
 | `cosmic-eyeball` | `CosmicEyeball` | 1 | 18 |
 | `mobius-grid` | `MobiusGrid` | 2 | 19–20 |
