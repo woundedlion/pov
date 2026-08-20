@@ -57,7 +57,7 @@ const prefix = (name, values) => Object.fromEntries(
   Object.entries(values).map(([key, value]) => [`${name}-${key}`, value]),
 );
 
-const parameterSpec = (id, value) => {
+const parameterSpec = (id, value, hue) => {
   if (id === 'palette-mapping') return {
     id, binding: 'color.palette-mapping', classification: 'preset',
     storage: 'enum8', unit: 'mapping',
@@ -108,7 +108,8 @@ const parameterSpec = (id, value) => {
   else if (id === 'mapping-frequency') domain = { minimum: 1, maximum: 32 };
   else if (id === 'mapping-phase') domain = { minimum: -1, maximum: 1 };
   else if (id === 'phase-oscillation-speed') domain = { minimum: -0.01, maximum: 0.01 };
-  else if (id === 'hue-shift-amount') domain = { minimum: -4, maximum: 4 };
+  else if (id === 'hue-shift-amount') domain = hue === 'path-length'
+    ? { minimum: -4, maximum: 4 } : { minimum: -1, maximum: 1 };
   else if (id === 'hue-noise-scale') domain = { minimum: 1 / 64, maximum: 8 };
   else if (id.startsWith('mobius-')) domain = { minimum: -4, maximum: 4 };
   if (id.includes('speed')) unit = 'turn-per-frame';
@@ -211,7 +212,8 @@ const bank = (spec, base) => {
 
 const documentFor = (spec) => {
   const values = baseValues(spec);
-  const parameters = Object.entries(values).map(([id, value]) => parameterSpec(id, value));
+  const parameters = Object.entries(values)
+    .map(([id, value]) => parameterSpec(id, value, spec.hue));
   const resources = [{ id: `${spec.palette}-palette`, kind: `generated-${spec.palette}-palette`,
     settings: { hue_step: 159 } }];
   if (spec.hue === 'noise') resources.push({
