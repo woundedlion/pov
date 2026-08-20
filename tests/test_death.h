@@ -817,8 +817,9 @@ inline void case_bevel_aliased_arenas() {
 
 /**
  * @brief Death case: MeshOps::transform rejects a self-aliased destination.
- * @details set_view() drops the source's owned topology before it is read, so a
- *          self-transform would report F faces over reclaimed arena bytes.
+ * @details set_borrowed() drops the source's owned topology before it is read,
+ *          so a self-transform would report F faces over reclaimed arena
+ *          bytes.
  */
 inline void case_mesh_transform_aliases_source() {
   static uint8_t buf[1024];
@@ -1148,9 +1149,9 @@ inline void case_hankin_clone_aliases_dst() {
  * @brief Death case: a face-offsets span with the wrong length must trap.
  * @details Mesh-borrow surface — the accessors index offsets by face, so an
  *          offsets array that is not one entry per face would read past its end
- *          on the solid scan path; set_view rejects it at the install site.
+ *          on the solid scan path; set_borrowed rejects it at the install site.
  */
-inline void case_mesh_state_set_view_offsets_count_mismatch() {
+inline void case_mesh_state_set_borrowed_offsets_count_mismatch() {
   static uint8_t buf[1024];
   Arena arena(buf, sizeof(buf));
   ArenaVector<uint8_t> counts(arena, 1);
@@ -1163,8 +1164,8 @@ inline void case_mesh_state_set_view_offsets_count_mismatch() {
   offsets.push_back(opaque<uint16_t>(3));
   MeshState m;
   // 2 offsets for 1 face -> HS_CHECK
-  m.set_view(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
-             ArenaSpan<uint16_t>(offsets));
+  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
+                 ArenaSpan<uint16_t>(offsets));
   if (m.num_faces() == opaque<size_t>(0x7fff))
     std::printf("x");
 }
@@ -1176,7 +1177,7 @@ inline void case_mesh_state_set_view_offsets_count_mismatch() {
  *          reach the end of the flat list, or a walk of the final face reads
  *          short of the data the view claims to cover.
  */
-inline void case_mesh_state_set_view_offsets_short_span() {
+inline void case_mesh_state_set_borrowed_offsets_short_span() {
   static uint8_t buf[1024];
   Arena arena(buf, sizeof(buf));
   ArenaVector<uint8_t> counts(arena, 1);
@@ -1188,8 +1189,8 @@ inline void case_mesh_state_set_view_offsets_short_span() {
   offsets.push_back(opaque<uint16_t>(0));
   MeshState m;
   // 0 + 3 != 4 -> HS_CHECK
-  m.set_view(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
-             ArenaSpan<uint16_t>(offsets));
+  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
+                 ArenaSpan<uint16_t>(offsets));
   if (m.num_faces() == opaque<size_t>(0x7fff))
     std::printf("x");
 }
@@ -1200,7 +1201,7 @@ inline void case_mesh_state_set_view_offsets_short_span() {
  *          alone, so an interior offset off the prefix sum would walk one face
  *          over another's indices. The audit walk catches it.
  */
-inline void case_mesh_state_set_view_offsets_not_prefix_sum() {
+inline void case_mesh_state_set_borrowed_offsets_not_prefix_sum() {
   static uint8_t buf[1024];
   Arena arena(buf, sizeof(buf));
   ArenaVector<uint8_t> counts(arena, 2);
@@ -1213,8 +1214,8 @@ inline void case_mesh_state_set_view_offsets_not_prefix_sum() {
   offsets.push_back(opaque<uint16_t>(1)); // prefix sum starts at 0
   offsets.push_back(opaque<uint16_t>(3));
   MeshState m;
-  m.set_view(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
-             ArenaSpan<uint16_t>(offsets));
+  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
+                 ArenaSpan<uint16_t>(offsets));
   if (m.num_faces() == opaque<size_t>(0x7fff))
     std::printf("x");
 }
@@ -3218,19 +3219,19 @@ inline const Case *all_cases(int &n) {
        "a topology from a different compiled pattern (clear it first)"},
       {"hankin_clone_aliases_dst", case_hankin_clone_aliases_dst, "hankin.h",
        "(&src != &dst) CompiledHankin::clone src must not alias dst"},
-      {"mesh_state_set_view_offsets_count_mismatch",
-       case_mesh_state_set_view_offsets_count_mismatch, "mesh_state.h",
+      {"mesh_state_set_borrowed_offsets_count_mismatch",
+       case_mesh_state_set_borrowed_offsets_count_mismatch, "mesh_state.h",
        "(face_offsets_span.size() == face_counts_span.size()) "
-       "MeshState::set_view: one face offset per face count required"},
-      {"mesh_state_set_view_offsets_short_span",
-       case_mesh_state_set_view_offsets_short_span, "mesh_state.h",
+       "MeshState::set_borrowed: one face offset per face count required"},
+      {"mesh_state_set_borrowed_offsets_short_span",
+       case_mesh_state_set_borrowed_offsets_short_span, "mesh_state.h",
        "(static_cast<size_t>(face_offsets_span[last]) + "
-       "face_counts_span[last] == faces_span.size()) MeshState::set_view: "
+       "face_counts_span[last] == faces_span.size()) MeshState::set_borrowed: "
        "face offsets do not span faces"},
-      {"mesh_state_set_view_offsets_not_prefix_sum",
-       case_mesh_state_set_view_offsets_not_prefix_sum, "mesh_state.h",
+      {"mesh_state_set_borrowed_offsets_not_prefix_sum",
+       case_mesh_state_set_borrowed_offsets_not_prefix_sum, "mesh_state.h",
        "(offsets_are_prefix_sum(face_counts_span, face_offsets_span)) "
-       "MeshState::set_view: face offsets are not the prefix sum of the "
+       "MeshState::set_borrowed: face offsets are not the prefix sum of the "
        "face counts"},
       {"half_edge_zero_side_face", case_half_edge_zero_side_face, "mesh.h",
        "(count > 0) half-edge mesh face has zero sides"},
