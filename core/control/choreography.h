@@ -218,7 +218,8 @@ protected:
                           Animation::PeriodicTimer(
                               0,
                               [this](Canvas &) {
-                                HS_CHECK(advancePreset());
+                                const bool advanced = advancePreset();
+                                HS_CHECK(advanced);
                                 begin_preset_choreography();
                               },
                               false),
