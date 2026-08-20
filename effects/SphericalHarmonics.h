@@ -221,7 +221,9 @@ private:
       next_idx = hs::rand_int(1, MAX_MODE_IDX + 1);
     } while (next_idx == current_idx);
 #endif
+#if defined(HS_PROFILE_ENABLE)
     hs::log("Mode: %d/%d", next_idx, MAX_MODE_IDX);
+#endif
 
     timeline.add_pausable(
         0,
