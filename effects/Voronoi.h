@@ -291,17 +291,10 @@ private:
       corners' nearest pairs. Smaller is safer (fewer missed sub-block cells)
       but classifies more corners; the render path shrinks the block toward
       COHERENCE_BLOCK_MIN as the site count rises. */
-  /** @brief Smallest integer r with r*r >= v. */
-  static constexpr int ceil_sqrt(int v) {
-    int r = 0;
-    while (r * r < v)
-      ++r;
-    return r;
-  }
-
   static constexpr int COHERENCE_BLOCK_MIN = std::max(
-      1, static_cast<int>((2.0 * H / static_cast<double>(PI_F)) /
-                          ceil_sqrt(MAX_SITES))); /**< Smallest adaptive block
+      1,
+      static_cast<int>((2.0 * H / static_cast<double>(PI_F)) /
+                       constexpr_sqrt(MAX_SITES))); /**< Smallest adaptive block
       edge: the render path's edge formula evaluated at MAX_SITES, so the
       densest site count a resolution can reach still gets a block narrower
       than one cell (that formula is ~0.56 of the cell extent). A fixed
