@@ -44,10 +44,11 @@ struct BZWhiteBox;
  *
  * Shared lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
  *
- * Memory budget (persistent arena):
- *   - Cubemap LUT:                 ~49,152 B
- *   - State:  3 arrays × 7680 × 2B = 46,080 B
- *   - Node XYZ: 7680 × 12B         = 92,160 B  (fixed lattice, built once)
+ * Memory budget (persistent arena, configured 184 KB):
+ *   - Cubemap LUT:                  6 × 64² × 2B = 49,152 B
+ *   - State:   3 arrays × 7680 × 2B (Q16)        = 46,080 B
+ *   - Node XYZ: 7680 × 12B                       = 92,160 B  (fixed lattice, built once)
+ *   - Total:                                       187,392 B (183 KB)
  *
  * Scratch arena (per frame, disjoint phases):
  *   - Physics: float generation mirror 3 × 7680 × 4B = 92,160 B
