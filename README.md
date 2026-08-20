@@ -331,7 +331,13 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── pullback.h              Typed inverse-render pipeline: umbrella over pullback/
 │   │   ├── pullback/               Per-stage pullback headers (contract, fields, surface,
 │   │   │                            lens, projection, warp, source, material, color,
-│   │   │                            stage) plus the composed-effect base (composed_effect.h)
+│   │   │                            stage), the operator layer (operator_model,
+│   │   │                            operator_table, operators, operators_common,
+│   │   │                            operators_field, operators_project, operators_sample,
+│   │   │                            operators_sphere, operators_warp), the chain
+│   │   │                            interpreter (interpreter) with its catalog export
+│   │   │                            (catalog_export), plus the composed-effect base
+│   │   │                            (composed_effect)
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
 │   │   │                            shader, volume)
