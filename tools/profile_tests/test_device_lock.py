@@ -288,6 +288,21 @@ class BoardSelection(unittest.TestCase):
                      env={"HS_TEENSY_PORT": "COM3"})
         self.assertEqual(r.returncode, 1)
 
+    def test_claim_whose_info_never_landed_is_not_handed_out(self):
+        # An unreadable claim is one hs_device_release can never match, so the
+        # lock dir would hold the board until the stale grace expired. The stub
+        # replays that: the info write reads back with no token.
+        script = ('_hs_lock_field() { :; }; hs_device_acquire E profile 60; '
+                  'echo "RC=$?"; echo "TOKEN=[$_HS_TOKEN]"; '
+                  'echo "PIN=[$HS_TEENSY_PORT]"')
+        r = run_lock(script, self.base)
+        self.assertIn("RC=1", r.stdout)
+        self.assertIn("TOKEN=[]", r.stdout)
+        self.assertIn("PIN=[]", r.stdout)
+        self.assertIn("cannot record the claim", r.stderr)
+        self.assertFalse(self.lock_dir("COM3").exists())
+        self.assertFalse(self.lock_dir("COM4").exists())
+
     def test_release_frees_only_our_own_claim(self):
         r = run_lock("hs_device_acquire E profile 60; hs_device_release", self.base)
         self.assertEqual(r.returncode, 0)

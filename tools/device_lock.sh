@@ -169,14 +169,11 @@ _hs_break_lock() {
 _hs_try_claim() {
   local d=$1 port=$2 effect=$3 env=$4 eta=$5
   mkdir "$d" 2>/dev/null || return 1
-  _HS_TOKEN="$$-$(_hs_now)-$RANDOM"
-  _HS_LOCK_DIR="$d"
-  HS_DEVICE_PORT="$port"
-  [ -n "$port" ] && export HS_TEENSY_PORT="$port"
-  local now; now=$(_hs_now)
+  local token wrote=0 now
+  token="$$-$(_hs_now)-$RANDOM"; now=$(_hs_now)
   # Written before we hand out the lock so a peer never reads a half-claim.
   {
-    echo "token=$_HS_TOKEN"
+    echo "token=$token"
     echo "session=${CLAUDE_SESSION_ID:-${HS_SESSION:-local}}"
     echo "pid=$$"
     echo "host=$(hostname)"
@@ -187,7 +184,22 @@ _hs_try_claim() {
     echo "started_h=$(date '+%H:%M:%S')"
     echo "deadline=$((now + eta))"
     echo "deadline_h=$(date -d "@$((now + eta))" '+%H:%M:%S' 2>/dev/null || echo '?')"
-  } >"$d/info"
+  } >"$d/info" || wrote=1
+  # hs_device_release removes the dir only when it reads this token back, so a
+  # claim whose info never landed is one its holder can never release and the
+  # board reads busy until the stale grace expires. The token is read back, not
+  # just the write status: a failed echo mid-group leaves only the last one's.
+  if [ "$wrote" -ne 0 ] || [ "$(_hs_lock_field "$d" token)" != "$token" ]; then
+    echo "device: cannot record the claim in $d/info — leaving ${port:-auto} unclaimed" >&2
+    rm -rf "$d"
+    return 1
+  fi
+  # Shell state only once the claim is on disk: a failed claim must leave no
+  # HS_TEENSY_PORT pin behind to steer the next board the caller tries.
+  _HS_TOKEN="$token"
+  _HS_LOCK_DIR="$d"
+  HS_DEVICE_PORT="$port"
+  [ -n "$port" ] && export HS_TEENSY_PORT="$port"
   return 0
 }
 
