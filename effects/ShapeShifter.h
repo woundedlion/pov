@@ -662,12 +662,8 @@ private:
             ALPHA_GAIN * Plot::balanced_sample_alpha(color.alpha, step_ratio));
         for (int sample = 0; sample < samples; ++sample) {
           const float t = static_cast<float>(sample) * inv_samples;
-          float x = anchors[k].x + segment_dx * t;
+          const float x = fast_wrap(anchors[k].x + segment_dx * t, W);
           const float y = anchors[k].y + segment_dy * t;
-          if (x < 0.0f)
-            x += W;
-          else if (x >= W)
-            x -= W;
           const int y0 = static_cast<int>(floorf(y));
           if (!clip.contains_y(y0) && !clip.contains_y(y0 + 1))
             continue;

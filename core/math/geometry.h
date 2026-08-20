@@ -99,6 +99,23 @@ inline int fast_wrap(int x, int W) {
 }
 
 /**
+ * @brief Single-step wrap of a sub-pixel column into [0, W), assuming x is at
+ * most one period out of range (i.e. x is in [-W, 2*W)).
+ * @param x The value to wrap; must lie in [-W, 2*W).
+ * @param W The modulo base (period length).
+ * @return The wrapped value in the range [0, W).
+ */
+inline float fast_wrap(float x, int W) {
+  const float period = static_cast<float>(W);
+  assert(x >= -period && x < 2.0f * period);
+  if (x >= period)
+    return x - period;
+  if (x < 0.0f)
+    return x + period;
+  return x;
+}
+
+/**
  * @brief Calculates the shortest distance (either forwards or backwards)
  * between two points on a circular domain.
  * @param a The first position.
