@@ -1335,8 +1335,10 @@ jobs:
     # tests/run_tests.cpp pins every module's case-site count and minimum
     # assertion count as plain constants, tools/relax_bake_harness.cpp pins
     # the relax-bake step floor the same way, and tests/test_death.h pins the
-    # guard-coverage floor plus the per-file gap allowances it gates against, so
-    # a commit that deletes cases AND lowers the numbers clears every other
+    # guard-coverage floor plus the per-file gap allowances it gates against, and
+    # scripts/assertion_floors.json holds the JS suite's per-file case and
+    # assertion floors, so a commit that deletes cases AND lowers the numbers
+    # (`--update-floors` rewrites the JSON from the same run) clears every other
     # gate. Same shape as the
     # FORMAT_BASELINE and Teensy warning-baseline growth checks: compare the pins
     # against the commit this run builds on, and fail on any reduction the commit
@@ -1346,8 +1348,9 @@ jobs:
     env:
       # Escape hatch for a deliberate weakening: one pin name per line
       # (`<module>.cases`, `<module>.floor`, a *_MIN_ASSERTIONS constant,
-      # MIN_RELAX_BAKES_VERIFIED, or `guard_gap.<file>` for a widened
-      # GUARD_GAP_ALLOW row), added in the same commit as the weakening it
+      # MIN_RELAX_BAKES_VERIFIED, `guard_gap.<file>` for a widened
+      # GUARD_GAP_ALLOW row, or `<test file>.cases` / `.assertions` for a JS
+      # floor), added in the same commit as the weakening it
       # approves, so it is visible in that commit's diff. Empty in steady state.
       ASSERTION_FLOOR_ALLOW_LOWER: ""
     steps:
@@ -1406,10 +1409,18 @@ jobs:
           DEATH=tests/test_death.h
           git show "$PREV:$DEATH" > /tmp/floors-prev-death.h 2>/dev/null \
             || : > /tmp/floors-prev-death.h
+          # The JS suite keeps its floors in a file the runner itself rewrites
+          # (`node scripts/run_tests.mjs --update-floors`), so a commit that
+          # deletes cases and re-measures in one go leaves nothing behind. Same
+          # empty-copy convention as the two above.
+          JS_FLOORS=scripts/assertion_floors.json
+          git show "$PREV:$JS_FLOORS" > /tmp/floors-prev-js.json 2>/dev/null \
+            || : > /tmp/floors-prev-js.json
           export PREV
 
           python3 - /tmp/floors-prev.cpp "$SRC" /tmp/floors-prev-harness.cpp "$HARNESS" \
-            /tmp/floors-prev-death.h "$DEATH" <<'PY'
+            /tmp/floors-prev-death.h "$DEATH" /tmp/floors-prev-js.json "$JS_FLOORS" <<'PY'
+          import json
           import os
           import re
           import sys
@@ -1417,6 +1428,7 @@ jobs:
           SRC = sys.argv[2]
           HARNESS = sys.argv[4]
           DEATH = sys.argv[6]
+          JS_FLOORS = sys.argv[8]
           HARNESS_FLOOR_RE = re.compile(
               r"constexpr int (MIN_RELAX_BAKES_VERIFIED)\s*=\s*(\d+)\s*;"
           )
@@ -1500,6 +1512,20 @@ jobs:
               return {name: int(value) for name, value in HARNESS_FLOOR_RE.findall(text)}
 
 
+          def js_pins(path):
+              """Maps every JS per-file case and assertion floor to its value."""
+              try:
+                  entries = json.load(open(path, encoding="utf-8"))
+              except (FileNotFoundError, ValueError):
+                  return {}
+              return {
+                  f"{file}.{field}": int(min[field])
+                  for file, min in entries.items()
+                  for field in ("cases", "assertions")
+                  if isinstance(min, dict) and isinstance(min.get(field), int)
+              }
+
+
           def death_pins(path):
               """Splits test_death.h's guard ratchet into its floor and its gap rows."""
               try:
@@ -1533,6 +1559,17 @@ jobs:
           prev.update(prev_death_floors)
           now.update(death_floors)
           origin.update(dict.fromkeys(death_floors, DEATH))
+
+          js_now = js_pins(JS_FLOORS)
+          if not js_now:
+              sys.exit(f"no floors parsed from {JS_FLOORS} — it moved or lost its shape")
+          js_prev = js_pins(sys.argv[7])
+          prev.update(js_prev)
+          now.update(js_now)
+          # Both sides, so an entry deleted outright is still reported against
+          # the file it was deleted from.
+          origin.update(dict.fromkeys(js_prev, JS_FLOORS))
+          origin.update(dict.fromkeys(js_now, JS_FLOORS))
 
           allow = {
               line.strip()
