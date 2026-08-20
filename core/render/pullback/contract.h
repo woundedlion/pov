@@ -666,14 +666,14 @@ public:
 template <bool ShapeValid, typename Binding, typename LeafList>
 struct LeafBindingRows {
   static constexpr bool BINDINGS = false;
-  static constexpr bool EMPTY_POLICIES = false;
+  static constexpr bool EMPTY_DESCRIPTORS = false;
   static constexpr bool EXTRA_VALIDATION = false;
 };
 
 template <typename Binding, typename... Ls>
 struct LeafBindingRows<true, Binding, TypeList<Ls...>> {
   static constexpr bool BINDINGS = (descriptor_bindable<Ls, Binding>() && ...);
-  static constexpr bool EMPTY_POLICIES = (std::is_empty_v<Ls> && ...);
+  static constexpr bool EMPTY_DESCRIPTORS = (std::is_empty_v<Ls> && ...);
   static constexpr bool EXTRA_VALIDATION =
       binding_extra_validation<Binding, Ls...>();
 };
@@ -752,7 +752,7 @@ public:
   static constexpr bool ENTRY = CarrierRows::ENTRY;
   static constexpr bool EXIT = CarrierRows::EXIT;
   static constexpr bool BINDINGS = BindingRows::BINDINGS;
-  static constexpr bool EMPTY_POLICIES = BindingRows::EMPTY_POLICIES;
+  static constexpr bool EMPTY_DESCRIPTORS = BindingRows::EMPTY_DESCRIPTORS;
   static constexpr bool EXTRA_VALIDATION = BindingRows::EXTRA_VALIDATION;
   static constexpr bool RUN_RETURNS = CallableRows::RUN_RETURNS;
   static constexpr bool PREPARES = CallableRows::PREPARES;
@@ -880,8 +880,8 @@ template <typename BindingT, typename... Entries> struct Pipeline {
                     Validation::BINDINGS,
                 "pullback pipeline: stage binding mismatch");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
-                    Validation::EMPTY_POLICIES,
-                "pullback pipeline: stage policies must be empty");
+                    Validation::EMPTY_DESCRIPTORS,
+                "pullback pipeline: stage descriptors must be stateless");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
                     !Validation::BINDINGS || Validation::RUN_RETURNS,
                 "pullback pipeline: wrong stage return type");

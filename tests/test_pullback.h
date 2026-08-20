@@ -314,7 +314,7 @@ inline void test_pullback_validation_predicates() {
   HS_EXPECT_TRUE(Valid::ENTRY);
   HS_EXPECT_TRUE(Valid::EXIT);
   HS_EXPECT_TRUE(Valid::BINDINGS);
-  HS_EXPECT_TRUE(Valid::EMPTY_POLICIES);
+  HS_EXPECT_TRUE(Valid::EMPTY_DESCRIPTORS);
   HS_EXPECT_TRUE(Valid::RUN_RETURNS);
   HS_EXPECT_TRUE(Valid::PREPARES);
   HS_EXPECT_TRUE(Valid::APPROXIMATIONS);
@@ -368,7 +368,7 @@ inline void test_pullback_validation_predicates() {
   using NonEmpty =
       Pullback::PipelineValidation<TestBinding, StatefulStage, CrossingStage,
                                    FieldCrossingStage, ColorCrossingStage>;
-  HS_EXPECT_FALSE(NonEmpty::EMPTY_POLICIES);
+  HS_EXPECT_FALSE(NonEmpty::EMPTY_DESCRIPTORS);
 
   using WrongReturn =
       Pullback::PipelineValidation<TestBinding, EntryStage, CrossingStage,

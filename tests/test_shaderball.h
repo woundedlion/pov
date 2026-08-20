@@ -628,7 +628,7 @@ struct ShaderBallWhiteBox {
            Validation::NONEMPTY && Validation::CONTRACTS &&
            Validation::CANONICAL && Validation::MONOTONE &&
            Validation::CARRIERS && Validation::ENTRY && Validation::EXIT &&
-           Validation::BINDINGS && Validation::EMPTY_POLICIES &&
+           Validation::BINDINGS && Validation::EMPTY_DESCRIPTORS &&
            Validation::RUN_RETURNS && Validation::PREPARES &&
            Validation::APPROXIMATIONS && Validation::EXTRA_VALIDATION &&
            std::is_same_v<ProjectStage,
