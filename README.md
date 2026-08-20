@@ -541,6 +541,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── app_lifecycle.d.ts          Hand-written declarations for app_lifecycle.js — what the typecheck sees
 ├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
 ├── effect_gui.js               Effect panel lifecycle: build, mount, value sync, Export, teardown
+├── shader_stages.js            DOM-free shader stage taxonomy: schema detection, stage assignment, control labels
 ├── legacy_shader_import.js     Versioned ShaderBall URL/save-state migration importer
 ├── effect_sequencing.js        DOM-free effect/resolution apply-order and preset rules
 ├── param_sync.js               DOM-free param-stream rules: slider adopt/coerce and skew guards
