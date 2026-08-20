@@ -602,6 +602,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │
 ├── scripts/
 │   ├── browser-smoke.mjs       Headless-Chrome smoke for every manifest-served page
+│   ├── browser.mjs             Browser resolution (CHROME_PATH, else the standard Chrome locations) and the launch flags the headless scripts share
 │   ├── count-assertions.mjs    NODE_OPTIONS shim counting each test file's node:assert calls
 │   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
 │   ├── generate-shader-v2-documents.mjs  Regenerates the v2 pattern documents and digest-migration table from the v1 fixtures
@@ -609,6 +610,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── report-cases.mjs        node:test reporter tallying per-file case and skip counts
 │   ├── require-tests.mjs       `pretest` guard: fails below the committed test-file floor
 │   ├── serve-manifest.mjs      Local static server constrained to the published site manifest
+│   ├── workbench-probe.mjs     Headless pointer-level probe of the shader workbench's pipeline strip; run it for any tools/ UI change
 │   └── run-tests.mjs           `test` script: runs the suite, gates the total it reports
 │
 ├── tests/                      Node unit tests (`npm test`)
