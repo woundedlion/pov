@@ -111,6 +111,14 @@ def dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def closest(*spacings):
+    """Smallest spacing, or nan when any part is missing -- min() keeps or drops
+    a nan by argument order, which would score two identical defects apart."""
+    if any(math.isnan(s) for s in spacings):
+        return float("nan")
+    return min(spacings)
+
+
 def refill_fixable(violation):
     """True for a clearance/hole violation whose items name a zone -- the missing
     antipad a KiCad zone refill clears."""
@@ -250,7 +258,7 @@ def analyze(path):
         return dist(pos[a], pos[b]) if a in pos and b in pos else float("nan")
 
     ergo = dict(
-        decap_u1=min(d("C_DEC1", "U1"), d("C_DEC2", "U1")),   # decoupling near buffer
+        decap_u1=closest(d("C_DEC1", "U1"), d("C_DEC2", "U1")),
         term_j2=(d("R_D1", "J2") + d("R_D2", "J2")) / 2,      # terminators near strip
         rs_sync=d("R_S", "J3A"),                              # sync term near daisy
         divider=(d("R1", "R2") + d("R2", "C_SYNC")) / 2,      # high-Z RC divider tight
