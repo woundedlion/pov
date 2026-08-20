@@ -32,6 +32,13 @@ operator id or a topology enum8 parameter, and every parameter id binds
 six-role graph document expands through `expandV1Document` before validation —
 the single code path both generations share.
 
+The descriptor is a semantic identity over the chain, not a complete
+reproduction of the effect. Expansion keeps only `chain`, `parameters`,
+`path_policies` and `serialization`; a v1 document's `resources`, `clocks`,
+`preparation` and `approximation` sections do not survive it, so noise seeds,
+runtime clocks, prepared frames and approximation oracles live only in the C++
+effect.
+
 Scalar parameters use binary32 storage. Discrete choices — color mappings and
 the topology fields v1 expansion bakes out — use enum8 storage with
 `MIXED_ENUM` interpolation, which carries both endpoints and a blend weight
