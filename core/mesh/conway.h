@@ -496,6 +496,14 @@ inline void transform_in_place(MeshState &mesh,
 // ambo/truncate/expand/chamfer/snub also take a prebuilt HalfEdgeMesh, which
 // may sit in either arena: both scopes mark at the operator's entry offset.
 //
+// ARENA DISTINCTNESS: the operators that open a ScratchScope (or rewind an
+// arena) before an allocation the rewind must not reclaim check
+// `&target != &temp` at entry — ambo/truncate/expand/chamfer/snub, which build
+// the HalfEdgeMesh before binding their output, and the compositions, which
+// carry an intermediate mesh across the next stage. dual/kis/medial/relax bind
+// their output first and scope only below it, so both parameters may name one
+// arena. Moving a bind below a ScratchScope makes the check mandatory.
+//
 // MANIFOLD PRECONDITION: dual/ambo/truncate/expand/chamfer/snub/medial require
 // a closed manifold (require_closed_manifold traps otherwise); kis is per-face;
 // relax tolerates a boundary mesh (partial relaxation).
