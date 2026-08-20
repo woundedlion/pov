@@ -556,7 +556,7 @@ vector_noise(const Complex &input, const Params &params, float amplitude,
   return {input, Complex(), 0.0f};
 }
 
-template <typename State> struct AffineFrame : ExactPolicy {
+template <typename State> struct AffineFrame : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -585,7 +585,7 @@ template <typename State> struct AffineFrame : ExactPolicy {
 };
 
 template <typename State, typename Envelope = FlatEnvelope>
-struct WaveShear : ExactPolicy {
+struct WaveShear : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -623,7 +623,7 @@ struct WaveShear : ExactPolicy {
   }
 };
 
-template <typename State> struct Vortex : ExactPolicy {
+template <typename State> struct Vortex : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -649,7 +649,7 @@ template <typename State> struct Vortex : ExactPolicy {
   }
 };
 
-template <typename State> struct MirrorTile : ExactPolicy {
+template <typename State> struct MirrorTile : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -686,7 +686,7 @@ template <typename State> struct MirrorTile : ExactPolicy {
 };
 
 template <typename State, typename PolarMode, uint8_t Harmonic>
-struct PolarChart : ExactPolicy {
+struct PolarChart : ApproximationDefaults {
   static_assert(Harmonic >= 1 && Harmonic <= MAX_POLAR_HARMONIC);
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -712,7 +712,7 @@ struct PolarChart : ExactPolicy {
 };
 
 template <typename State, ::NoiseBasis BasisV, typename Envelope>
-struct VectorNoise : ExactPolicy {
+struct VectorNoise : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -753,7 +753,7 @@ struct VectorNoise : ExactPolicy {
 
 template <typename State, ::NoiseBasis BasisV, typename IntegratorPolicy,
           typename Envelope = FlatEnvelope>
-struct CurlFlow : ExactPolicy {
+struct CurlFlow : ApproximationDefaults {
   static_assert(IntegratorPolicy::INTERVALS == 1 ||
                 IntegratorPolicy::INTERVALS == 2 ||
                 IntegratorPolicy::INTERVALS == 4);

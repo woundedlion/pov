@@ -387,7 +387,7 @@ apply_generated_palette(const FieldSample &sample,
   return color;
 }
 
-template <typename State> struct GeneratedPalette : ExactPolicy {
+template <typename State> struct GeneratedPalette : ApproximationDefaults {
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;

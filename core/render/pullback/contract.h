@@ -210,7 +210,8 @@ struct NoInstrumentation {
   }
 };
 
-struct ExactPolicy {
+/** @brief Default approximation metadata: exact, no oracle, no metrics. */
+struct ApproximationDefaults {
   static constexpr bool APPROXIMATE = false;
   static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
   static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
@@ -260,7 +261,7 @@ prepare_policy(const FrameState &frame) {
 }
 
 template <typename... Policies> struct FirstApproximate {
-  using Type = ExactPolicy;
+  using Type = ApproximationDefaults;
 };
 
 template <typename Head, typename... Tail>

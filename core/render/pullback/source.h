@@ -258,7 +258,7 @@ HS_FLASH_INLINE inline float noise_contour(const FastNoiseLite &noise,
   return sample * (1.0f + contrast) / (1.0f + contrast * fabsf(sample));
 }
 
-template <typename State> struct TwinWave : ExactPolicy {
+template <typename State> struct TwinWave : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -288,7 +288,7 @@ template <typename State> struct TwinWave : ExactPolicy {
   }
 };
 
-template <typename State> struct Rings : ExactPolicy {
+template <typename State> struct Rings : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -316,7 +316,7 @@ template <typename State> struct Rings : ExactPolicy {
   }
 };
 
-template <typename State> struct Spiral : ExactPolicy {
+template <typename State> struct Spiral : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -345,7 +345,7 @@ template <typename State> struct Spiral : ExactPolicy {
   }
 };
 
-template <typename State> struct Grid : ExactPolicy {
+template <typename State> struct Grid : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -378,7 +378,7 @@ template <typename State> struct Grid : ExactPolicy {
   }
 };
 
-template <typename State> struct PrimitiveLattice : ExactPolicy {
+template <typename State> struct PrimitiveLattice : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -403,7 +403,7 @@ template <typename State> struct PrimitiveLattice : ExactPolicy {
 };
 
 template <typename State, ::NoiseBasis BasisV>
-struct ProjectedNoise : ExactPolicy {
+struct ProjectedNoise : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -428,7 +428,7 @@ struct ProjectedNoise : ExactPolicy {
 };
 
 template <typename State, ::NoiseBasis BasisV>
-struct SphericalNoise : ExactPolicy {
+struct SphericalNoise : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 

@@ -503,7 +503,8 @@ carrier); `Policies` (a tuple, possibly empty); and
 `static Output run(const Input &, const FrameState &, const Prepared &)`
 (always-inline), and the approximation metadata (`APPROXIMATE`,
 `ORACLE`, `METRICS`, `NON_FLOATING_FIELDS_EXACT` — defaulted by
-`ExactPolicy`, aggregated by `CombinedApproximation` over `Policies`);
+`ApproximationDefaults`, aggregated by `CombinedApproximation` over
+`Policies`);
 provider-identity asserts (`PROVIDER_VALID`) fire inside `Bind`.
 Promotion metadata is deliberately **not** part of this contract: an
 operator's provider requirements live in the promotion catalog (§7),
@@ -519,7 +520,7 @@ the rank-skip example:
 ```cpp
 struct SkyGradient
     : Pullback::Stage::Contract<SkyGradient, SphereSample, Color4> {
-  using Policies = std::tuple<>;   // ExactPolicy defaults apply
+  using Policies = std::tuple<>;   // ApproximationDefaults apply
 
   template <typename Binding>
   static Color4 run(const SphereSample &in,
