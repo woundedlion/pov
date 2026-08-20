@@ -337,112 +337,8 @@ private:
     return true;
   }
 
-  HS_COLD_MEMBER static uint16_t
-  find_edge_index(const ArenaVector<Plot::Mesh::Edge> &edges, uint16_t u,
-                  uint16_t v) {
-    for (size_t i = 0; i < edges.size(); ++i) {
-      const auto &edge = edges[i];
-      if ((edge.u == u && edge.v == v) || (edge.u == v && edge.v == u))
-        return static_cast<uint16_t>(i);
-    }
-    HS_CHECK(false, "DreamBalls face edge missing from extracted topology");
-    return 0;
-  }
-
-  HS_COLD_MEMBER static void
-  build_four_regular_edges(const MeshState &mesh,
-                           ArenaVector<Plot::Mesh::Edge> &edges,
-                           Arena &scratch) {
-    ScratchScope guard(scratch);
-    HalfEdgeMesh half_edges(scratch, mesh);
-    const size_t face_count = mesh.get_face_counts_size();
-    uint8_t *colors = scratch.allocate_n<uint8_t>(face_count);
-    uint16_t *queue = scratch.allocate_n<uint16_t>(face_count);
-    std::fill_n(colors, face_count, static_cast<uint8_t>(UINT8_MAX));
-
-    for (size_t seed = 0; seed < face_count; ++seed) {
-      if (colors[seed] != UINT8_MAX)
-        continue;
-      size_t head = 0;
-      size_t tail = 0;
-      colors[seed] = 0;
-      queue[tail++] = static_cast<uint16_t>(seed);
-
-      while (head < tail) {
-        const uint16_t face = queue[head++];
-        const uint16_t start = half_edges.faces[face].half_edge;
-        uint16_t current = start;
-        do {
-          const HalfEdge &he = half_edges.half_edges[current];
-          HS_CHECK(he.pair != HE_NONE,
-                   "DreamBalls weave requires a closed mesh");
-          const uint16_t adjacent = half_edges.half_edges[he.pair].face;
-          const uint8_t adjacent_color = colors[face] ^ 1;
-          if (colors[adjacent] == UINT8_MAX) {
-            colors[adjacent] = adjacent_color;
-            queue[tail++] = adjacent;
-          } else {
-            HS_CHECK(colors[adjacent] == adjacent_color,
-                     "four-regular mesh dual is not bipartite");
-          }
-          current = he.next;
-        } while (current != start);
-      }
-    }
-
-    const uint8_t *counts = mesh.get_face_counts_data();
-    const uint16_t *faces = mesh.get_faces_data();
-    size_t offset = 0;
-    for (size_t face = 0; face < face_count; ++face) {
-      const int count = counts[face];
-      if (colors[face] == 0) {
-        for (int i = 0; i < count; ++i)
-          edges.push_back({faces[offset + i], faces[offset + (i + 1) % count]});
-      }
-      offset += count;
-    }
-  }
-
-  HS_COLD_MEMBER static void
-  build_medial_edges(const MeshState &mesh,
-                     const ArenaVector<Plot::Mesh::Edge> &original_edges,
-                     ArenaVector<Plot::Mesh::Edge> &medial_edges) {
-    const uint8_t *counts = mesh.get_face_counts_data();
-    const uint16_t *faces = mesh.get_faces_data();
-    size_t offset = 0;
-    for (size_t face = 0; face < mesh.get_face_counts_size(); ++face) {
-      const int count = counts[face];
-      for (int i = 0; i < count; ++i) {
-        const uint16_t a = faces[offset + i];
-        const uint16_t b = faces[offset + (i + 1) % count];
-        const uint16_t c = faces[offset + (i + 2) % count];
-        medial_edges.push_back({find_edge_index(original_edges, a, b),
-                                find_edge_index(original_edges, b, c)});
-      }
-      offset += count;
-    }
-  }
-
   static float under_gap_alpha(float edge_t, float gap) {
     return cubic_kernel((1.0f - edge_t) / gap);
-  }
-
-  /**
-   * @brief First tangent-basis vector at a unit vertex.
-   * @details The frame's second vector is cross(normal, u), unit because normal
-   *          and u are orthonormal; callers derive it rather than store it.
-   */
-  HS_FLASH_MEMBER static Vector tangent_axis(const Vector &normal) {
-    const Vector axis = std::abs(normal.y) > 0.99f ? X_AXIS : Y_AXIS;
-    return cross(normal, axis).normalized();
-  }
-
-  static Vector parallel_transport(const Vector &from, const Vector &to,
-                                   const Vector &tangent) {
-    const float denominator = 1.0f + dot(from, to);
-    HS_CHECK(denominator > math::TOLERANCE,
-             "DreamBalls weave edge has antipodal endpoints");
-    return tangent - (from + to) * (dot(tangent, to) / denominator);
   }
 
   HS_FLASH_MEMBER static Vector woven_vertex(const SolidData &solid,
@@ -542,15 +438,16 @@ private:
             data.four_regular ? edge_count : 2 * edge_count;
         data.automatic_edges.bind(target, automatic_edge_count);
         if (data.four_regular) {
-          build_four_regular_edges(data.mesh_state, data.automatic_edges, b);
+          Plot::Mesh::extract_four_regular_edges(data.mesh_state,
+                                                 data.automatic_edges, b);
           data.medial_edges.bind(target, 2 * edge_count);
-          build_medial_edges(data.mesh_state, data.original_edges,
-                             data.medial_edges);
+          Plot::Mesh::extract_medial_edges(data.mesh_state, data.original_edges,
+                                           data.medial_edges);
           HS_CHECK(data.medial_edges.size() == 2 * edge_count,
                    "DreamBalls medial topology edge count mismatch");
         } else {
-          build_medial_edges(data.mesh_state, data.original_edges,
-                             data.automatic_edges);
+          Plot::Mesh::extract_medial_edges(data.mesh_state, data.original_edges,
+                                           data.automatic_edges);
         }
         HS_CHECK(data.automatic_edges.size() == automatic_edge_count,
                  "DreamBalls automatic topology edge count mismatch");

@@ -20,6 +20,7 @@
 #include "containers/triangular_bitset.h"
 #include "render/plot/raster.h"
 #include "render/plot/shapes.h"
+#include "mesh/mesh.h"
 
 /**
  * @file mesh.h
@@ -268,6 +269,115 @@ struct Mesh {
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
       edges.push_back({(uint16_t)u, (uint16_t)v});
     });
+  }
+
+  /**
+   * @brief Extracts one of the two face families of a four-regular mesh.
+   * @details A four-regular mesh's face dual is bipartite: the faces two-colour
+   *          so that every edge is shared by one face of each colour. Walking
+   *          only one colour therefore covers every edge exactly once, with no
+   *          dedup pass. Traps on an open mesh or a non-bipartite dual.
+   * @param mesh Closed four-regular mesh.
+   * @param edges Output edge list; the selected family's edges are appended.
+   * @param scratch Arena for the half-edge mesh and the BFS bookkeeping.
+   */
+  HS_COLD_MEMBER static void
+  extract_four_regular_edges(const MeshState &mesh, ArenaVector<Edge> &edges,
+                             Arena &scratch) {
+    ScratchScope guard(scratch);
+    HalfEdgeMesh half_edges(scratch, mesh);
+    const size_t face_count = mesh.get_face_counts_size();
+    uint8_t *colors = scratch.allocate_n<uint8_t>(face_count);
+    uint16_t *queue = scratch.allocate_n<uint16_t>(face_count);
+    std::fill_n(colors, face_count, static_cast<uint8_t>(UINT8_MAX));
+
+    for (size_t seed = 0; seed < face_count; ++seed) {
+      if (colors[seed] != UINT8_MAX)
+        continue;
+      size_t head = 0;
+      size_t tail = 0;
+      colors[seed] = 0;
+      queue[tail++] = static_cast<uint16_t>(seed);
+
+      while (head < tail) {
+        const uint16_t face = queue[head++];
+        const uint16_t start = half_edges.faces[face].half_edge;
+        uint16_t current = start;
+        do {
+          const HalfEdge &he = half_edges.half_edges[current];
+          HS_CHECK(he.pair != HE_NONE,
+                   "extract_four_regular_edges: mesh is not closed");
+          const uint16_t adjacent = half_edges.half_edges[he.pair].face;
+          const uint8_t adjacent_color = colors[face] ^ 1;
+          if (colors[adjacent] == UINT8_MAX) {
+            colors[adjacent] = adjacent_color;
+            queue[tail++] = adjacent;
+          } else {
+            HS_CHECK(colors[adjacent] == adjacent_color,
+                     "four-regular mesh dual is not bipartite");
+          }
+          current = he.next;
+        } while (current != start);
+      }
+    }
+
+    const uint8_t *counts = mesh.get_face_counts_data();
+    const uint16_t *faces = mesh.get_faces_data();
+    size_t offset = 0;
+    for (size_t face = 0; face < face_count; ++face) {
+      const int count = counts[face];
+      if (colors[face] == 0) {
+        for (int i = 0; i < count; ++i)
+          edges.push_back({faces[offset + i], faces[offset + (i + 1) % count]});
+      }
+      offset += count;
+    }
+  }
+
+  /**
+   * @brief Index of the edge joining two vertices.
+   * @param edges Edge list to search.
+   * @param u,v Endpoint vertex indices, in either order.
+   * @return The index into @p edges; traps when the edge is absent.
+   */
+  HS_COLD_MEMBER static uint16_t find_edge_index(const ArenaVector<Edge> &edges,
+                                                 uint16_t u, uint16_t v) {
+    for (size_t i = 0; i < edges.size(); ++i) {
+      const auto &edge = edges[i];
+      if ((edge.u == u && edge.v == v) || (edge.u == v && edge.v == u))
+        return static_cast<uint16_t>(i);
+    }
+    HS_CHECK(false, "find_edge_index: face edge missing from the edge list");
+    return 0;
+  }
+
+  /**
+   * @brief Builds the medial graph of a mesh over its edge midpoints.
+   * @details Each face contributes one medial edge per corner, joining the two
+   *          original edges that meet there. The output pairs are indices into
+   *          @p original_edges, not vertex indices.
+   * @param mesh Mesh whose faces are walked.
+   * @param original_edges Edge list @p mesh's face edges are looked up in.
+   * @param medial_edges Output list; medial edges are appended.
+   */
+  HS_COLD_MEMBER static void
+  extract_medial_edges(const MeshState &mesh,
+                       const ArenaVector<Edge> &original_edges,
+                       ArenaVector<Edge> &medial_edges) {
+    const uint8_t *counts = mesh.get_face_counts_data();
+    const uint16_t *faces = mesh.get_faces_data();
+    size_t offset = 0;
+    for (size_t face = 0; face < mesh.get_face_counts_size(); ++face) {
+      const int count = counts[face];
+      for (int i = 0; i < count; ++i) {
+        const uint16_t a = faces[offset + i];
+        const uint16_t b = faces[offset + (i + 1) % count];
+        const uint16_t c = faces[offset + (i + 2) % count];
+        medial_edges.push_back({find_edge_index(original_edges, a, b),
+                                find_edge_index(original_edges, b, c)});
+      }
+      offset += count;
+    }
   }
 
   /**
