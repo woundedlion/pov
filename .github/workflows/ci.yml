@@ -1735,6 +1735,12 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
+      # Every check_test_files.sh pin below covers one suite the workflow
+      # already names. A suite directory the workflow names nowhere has no pin
+      # and no discover step, so it runs nowhere behind a green run; this is
+      # the guard for that direction.
+      - name: Every tools/*_tests suite is pinned
+        run: bash tools/check_test_dir_pins.sh
       # Discover finds test files by pattern, so one deleted or renamed out of
       # it runs fewer suites and stays green; tools/check_test_files.sh fails
       # instead.

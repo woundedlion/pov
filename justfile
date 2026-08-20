@@ -178,8 +178,10 @@ teensy-size:
 # pure Python, no ARM toolchain. Mirrors the ci.yml teensy-gate-tests job,
 # including its
 # check_test_files.sh count pins (discover stays green when a suite file is
-# deleted or renamed out of the pattern).
+# deleted or renamed out of the pattern) and the guard that every
+# tools/*_tests suite carries one.
 teensy-gate-test:
+    bash tools/check_test_dir_pins.sh
     bash tools/check_test_files.sh 3 "tools/teensy_gate_tests/test*.py"
     {{py}} -m unittest discover -s tools/teensy_gate_tests -v
     bash tools/check_test_files.sh 1 "tools/teensy_hook_tests/test*.py"
