@@ -49,7 +49,6 @@ public:
     value.projection.camera_wander = 1.0f;
     value.outer_warp.speed = 0.000343749998f;
     value.inner_warp.speed = 0.000999999931f;
-    value.inner_warp.strength = 0.0f;
     value.color.hue_shift_amount = 0.268000007f;
     value.color.hue_noise_scale = 2.0f;
     value.color.palette_chroma = 1.0f;
