@@ -74,6 +74,12 @@ hand.
   `ctest --preset tests --output-on-failure --no-tests=error`. `HS_EFFECTS_FULL=1`
   selects the full-resolution effect tier CI runs; a green hook alone is the
   QUICK tier.
+- **Lint:** the CI `lint` job has four legs — `ruff` over the Python tooling,
+  `eslint` over the JavaScript, `shellcheck` over every tracked `*.sh` and
+  `.githooks/*`, and a `just --evaluate` / `just --summary` parse of the
+  `justfile`. `just lint` runs the first three locally; the pre-commit hook runs
+  ruff and eslint only, so shellcheck and the justfile parse are first seen in
+  CI.
 - **Documentation:** `python tools/docs_check.py` validates fences, links,
   anchors and every backticked repo path, and the README's file map must list a
   new tracked path; the pre-commit hook and `just docs-check` both run it.
