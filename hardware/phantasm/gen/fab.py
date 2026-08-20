@@ -355,7 +355,11 @@ def parity_refs(entry):
 
 
 def require_schematic_parity(report_path):
-    """Return the parity item count or raise on any unexpected difference."""
+    """Return the parity item count or raise on any unexpected difference.
+
+    Every KNOWN_PARITY_ITEMS entry must appear exactly once: a count plus a
+    membership test lets a duplicated item stand in for a vanished one.
+    """
     try:
         with open(report_path, encoding="utf-8") as fh:
             report = json.load(fh)
@@ -367,22 +371,25 @@ def require_schematic_parity(report_path):
         raise SchematicParityError(
             f"parity report has no schematic_parity section: {report_path}")
     entries = report["schematic_parity"]
-    if len(entries) < len(KNOWN_PARITY_ITEMS):
-        raise SchematicParityError(
-            f"parity report lists {len(entries)} items, fewer than the "
-            f"{len(KNOWN_PARITY_ITEMS)} KiCad reports on a board that matches "
-            f"its schematic: {report_path}")
 
     diagnostics = []
+    seen = {}
     for entry in entries:
         kind = str(entry.get("type", ""))
         refs = parity_refs(entry)
         if len(refs) == 1 and (kind, refs[0]) in KNOWN_PARITY_ITEMS:
+            seen[(kind, refs[0])] = seen.get((kind, refs[0]), 0) + 1
             continue
         detail = "; ".join(str(item.get("description", ""))
                            for item in entry.get("items", []))
         diagnostics.append(f"{kind}: {entry.get('description', '')}"
                            + (f" [{detail}]" if detail else ""))
+    for kind, ref in sorted(KNOWN_PARITY_ITEMS):
+        times = seen.get((kind, ref), 0)
+        if times != 1:
+            diagnostics.append(
+                f"{kind}: {ref} reported {times} times in {report_path}, "
+                "expected exactly once")
 
     if diagnostics:
         raise SchematicParityError(
