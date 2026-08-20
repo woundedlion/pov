@@ -34,6 +34,7 @@
 namespace hs_test {
 namespace composed_effect_tests {
 
+using effects_tests::preset_params_or_initial;
 using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
@@ -454,12 +455,12 @@ inline void check_preset_choreography(const char *name) {
     HS_EXPECT_FALSE(FX::PRESET_IDS[index].empty());
     for (size_t earlier = 0; earlier < index; ++earlier)
       HS_EXPECT_TRUE(FX::PRESET_IDS[index] != FX::PRESET_IDS[earlier]);
-    HS_EXPECT_TRUE(FX::valid_params(FX::preset_params(index)));
+    HS_EXPECT_TRUE(FX::valid_params(preset_params_or_initial<FX>(index)));
 
     HS_EXPECT_TRUE(effect.selectPreset(index));
     HS_EXPECT_EQ(effect.getPresetIndex(), index);
     verify_params_equal(effect.serialize_parameters().params,
-                        FX::preset_params(index));
+                        preset_params_or_initial<FX>(index));
   }
   HS_EXPECT_FALSE(effect.selectPreset(FX::PRESET_IDS.size()));
 }
@@ -483,8 +484,8 @@ inline void check_preset_interpolation(const char *name) {
   for (size_t from = 0; from < FX::PRESET_IDS.size(); ++from) {
     for (size_t to = 0; to < FX::PRESET_IDS.size(); ++to) {
       HS_CONTEXT("preset pair", static_cast<int>(from), static_cast<int>(to));
-      const Params a = FX::preset_params(from);
-      const Params b = FX::preset_params(to);
+      const Params a = preset_params_or_initial<FX>(from);
+      const Params b = preset_params_or_initial<FX>(to);
       for (float progress : PROGRESS)
         HS_EXPECT_TRUE(FX::valid_params(Pullback::interpolate(a, b, progress)));
       verify_params_equal(Pullback::interpolate(a, b, 0.0f), a);

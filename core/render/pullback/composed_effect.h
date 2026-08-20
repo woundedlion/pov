@@ -611,12 +611,12 @@ template <typename B> struct CoveragePolicyFor<CoverageKind::EDGE_FADE, B> {
  * lifecycle — parameter registration, preset choreography, palette cycling,
  * camera walks and noise clocks — are assembled here. Required `Derived`
  * members are `PRESET_IDS`, `PARAMETER_SCHEMA_VERSION`, `PRESET_DWELL_FRAMES`,
- * `ANIMATED_PROJECTION`, `initial_params` and `preset_params`, plus an
- * `OUTER_NOISE_SEED` / `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` for each
- * noise field the parameter set and `Has*Noise` flags request. Optional
- * members, detected by `requires` and defaulted when absent, are
- * `ANIMATED_MOBIUS`, `USES_CENTRAL_MERIDIAN` and an `after_composed_init()`
- * hook. An effect wanting a different shade emission shadows shade() with the
+ * `ANIMATED_PROJECTION` and `initial_params`, plus an `OUTER_NOISE_SEED` /
+ * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` for each noise field the parameter
+ * set and `Has*Noise` flags request. Optional members, detected by `requires`
+ * and defaulted when absent, are `preset_params` (absent, every preset takes
+ * `initial_params`), `ANIMATED_MOBIUS`, `USES_CENTRAL_MERIDIAN` and an
+ * `after_composed_init()` hook. An effect wanting a different shade emission shadows shade() with the
  * same body under its own attribute. A surface-noise family places its
  * surface stage out of line in flash.
  * @tparam W Canvas width in pixels.

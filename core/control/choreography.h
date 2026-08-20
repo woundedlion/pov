@@ -24,15 +24,16 @@
  *        snaps and schema-versioned parameter snapshots.
  * @details Curiously recurring: `Derived` supplies `PRESET_SEGUE` (a
  * `Segue::PresetPolicy` instance), `PARAMETER_SCHEMA_VERSION`,
- * `PRESET_DWELL_FRAMES`, `initial_params()`, `preset_params(index)` — static,
- * or a member when the effect patches preset entries at runtime — and
- * `valid_params(params)`, plus the transition hooks: `blend_params(progress)`
+ * `PRESET_DWELL_FRAMES`, `initial_params()` and `valid_params(params)`, plus
+ * the transition hooks: `blend_params(progress)`
  * writes the interpolated parameters while a Segue::Lerp transition is in
  * flight, `set_preset_opacity(value)` receives a Segue::Fade policy's envelope,
  * and shadowing `adopt_params(target)` / `transition_armed(target)` keeps
  * state derived from the parameters consistent across snaps and crossfade
- * arming. An effect exposing `PRESET_IDS` with a single entry compiles the
- * dwell countdown out. `register_fields()` additionally
+ * arming. `preset_params(index)` — static, or a member when the effect patches
+ * preset entries at runtime — is optional; without it every preset takes
+ * `initial_params()`, which only a single-preset effect may do. An effect
+ * exposing `PRESET_IDS` with a single entry compiles the dwell countdown out. `register_fields()` additionally
  * requires a `field_gate_open(gate)` predicate. A `Derived` keeping its hooks
  * non-public befriends this base.
  * @tparam Derived The effect class deriving from this base.
@@ -243,13 +244,28 @@ protected:
 private:
   Derived &derived() { return static_cast<Derived &>(*this); }
 
-  /** @brief Params for the preset at @p index: the static table, or the
-      instance hook when the effect patches its entries at runtime. */
+  /** @brief Whether `Derived` declares more than one preset. */
+  static consteval bool has_multiple_presets() {
+    if constexpr (requires { Derived::PRESET_IDS; })
+      return Derived::PRESET_IDS.size() > 1;
+    else
+      return false;
+  }
+
+  /** @brief Params for the preset at @p index: the static table, the instance
+      hook when the effect patches its entries at runtime, or the initial
+      params when a single-preset effect declares neither. */
   Params preset_target(size_t index) {
     if constexpr (requires { Derived::preset_params(index); })
       return Derived::preset_params(index);
-    else
+    else if constexpr (requires { derived().preset_params(index); })
       return derived().preset_params(index);
+    else {
+      static_assert(!has_multiple_presets(),
+                    "an effect with several presets must define "
+                    "preset_params(index)");
+      return Derived::initial_params();
+    }
   }
 
   HS_COLD_MEMBER void run_blend(float progress) {

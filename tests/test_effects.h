@@ -166,6 +166,23 @@ inline bool effect_may_be_dark(const char *name, int frames) {
 inline void reset_effect_globals() { hs_test::reset_globals(); }
 
 /**
+ * @brief Params of a choreographed effect's preset @p index.
+ * @tparam E The effect type.
+ * @param index Preset index.
+ * @return The effect's own preset entry, or its initial params when it leaves
+ *         preset_params to the base.
+ * @details ChoreographedEffect defaults preset_params for a single-preset
+ * effect, and its own resolver is private, so a test reproduces the fallback.
+ */
+template <typename E>
+typename E::Params preset_params_or_initial(size_t index) {
+  if constexpr (requires { E::preset_params(index); })
+    return E::preset_params(index);
+  else
+    return E::initial_params();
+}
+
+/**
  * @brief Drives one effect type through construct -> init -> render -> read-back.
  * @tparam E Effect class template, instantiated as E<W, H>.
  * @tparam W Render width in pixels (defaults to DEFAULT_W).
