@@ -426,6 +426,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   auto process_segment = [&](auto &&sample, const Fragment &curr,
                              const Fragment &next, float total_dist,
                              bool is_last_segment) {
+    constexpr bool NEWTON_UNIT_SAMPLER =
+        requires { std::remove_cvref_t<decltype(sample)>::NEWTON_UNIT; };
     // Rewrite the arc registers from the rendered arc when a planar basis is in
     // force (see the pre-pass above): `d` is the arc drawn so far within this
     // segment, `seg_base` the arc at its start. No-op for geodesic polylines.
@@ -559,24 +561,19 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       [[maybe_unused]] float endpoint_gap = total_dist;
       while (current_dist < total_dist) {
         Vector p;
-        if constexpr (OPEN_GEODESIC) {
+        if constexpr (OPEN_GEODESIC || NEWTON_UNIT_SAMPLER) {
           HS_PLOT_COUNT(normalizations);
 #if HS_ENABLE_TEST_ORACLES
           if (g_reference_screen_step) {
             p = smp.pos.normalized();
           } else
 #endif
-          {
-            // One Newton correction leaves only second-order length error.
-            const float norm2 = dot(smp.pos, smp.pos);
-            p = smp.pos * (1.5f - 0.5f * norm2);
-          }
+            p = newton_unit(smp.pos);
         } else if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT &&
                              requires { sample.one_pass(current_t); }) {
           HS_PLOT_COUNT(normalizations);
           if (balanced_sampling) {
-            const float norm2 = dot(smp.pos, smp.pos);
-            p = smp.pos * (1.5f - 0.5f * norm2);
+            p = newton_unit(smp.pos);
           } else {
             p = smp.pos.normalized();
           }
@@ -736,14 +733,15 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
 
     // DRAWING PHASE
     //
-    // sample().pos is ~0.04% non-unit; vector_to_pixel's phi = acos(v.y) offsets
-    // the row near the pole, so re-normalize the interpolated positions.
+    // sample().pos is non-unit by the fast sin/cos residual; vector_to_pixel's
+    // phi = acos(v.y) offsets the row near the pole, so correct the interpolated
+    // positions back to unit.
     HS_PROFILE_DEEP(plot_seg_draw);
     {
       HS_MSP_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
-      Vector start_pos = sample.pos(0.0f).normalized();
+      Vector start_pos = newton_unit(sample.pos(0.0f));
       Fragment f;
       if constexpr (INTERPOLATE_REGISTERS)
         f = Fragment::lerp_registers(curr, next, 0.0f);
@@ -778,7 +776,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       HS_MSP_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
-      Vector p = sample.pos(t).normalized();
+      Vector p = newton_unit(sample.pos(t));
       Fragment f;
       if constexpr (INTERPOLATE_REGISTERS)
         f = Fragment::lerp_registers(curr, next, t);
