@@ -66,6 +66,8 @@ sample(const PlaneSample &input, float weighted, float coverage) {
           input.path_length};
 }
 
+/** @brief A transfer replaces the field value; @p value must already be in
+    [0, 1], which this does not re-clamp. */
 __attribute__((always_inline)) inline FieldSample
 transfer(const FieldSample &input, float value) {
   FieldSample output = input;
