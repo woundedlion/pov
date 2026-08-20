@@ -586,11 +586,12 @@ protected:
   }
 #endif
 
+  /** @brief Whole-output transition envelope; 65535 is unattenuated. */
+  uint16_t output_envelope = 65535u;
   /**
    * @brief Flag indicating if the previous frame's pixels should be copied to
    * the new buffer (for trails/decay).
    */
-  uint16_t output_envelope = 65535u;
   bool persist_pixels;
   /**
    * @brief Full-canvas render gate (see needs_full_frame()); set once at
