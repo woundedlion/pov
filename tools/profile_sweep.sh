@@ -117,6 +117,7 @@ g5_ship)
   ;;
 g6_ship)
   run PrismLattice profile 70 32
+  run PrismSpiral profile 70 32
   run VectorFacets profile 70 32
   run FacetGrid profile 300 16 "-D HS_PROFILE_EPOCH_REVS=2600"
   run HexWave profile 70 32
