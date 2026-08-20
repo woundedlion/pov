@@ -16,7 +16,7 @@ namespace Pullback {
 
 namespace Surface {
 
-/** @brief Surface stage placeholder for a look that carries no displacement. */
+/** @brief Surface stage placeholder for an effect with no displacement. */
 struct NoSurfaceParams {
   static constexpr std::array<Field<NoSurfaceParams>, 0> FIELDS{};
 };

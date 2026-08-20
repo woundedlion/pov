@@ -29,8 +29,8 @@ enum class FieldCurve : uint8_t {
 /** @brief When a field's slider is registered. */
 enum class FieldGate : uint8_t {
   ALWAYS,
-  ANIMATED_PROJECTION, /**< Only when the look animates its projection. */
-  CENTRAL_MERIDIAN /**< Only when the look declares USES_CENTRAL_MERIDIAN. */
+  ANIMATED_PROJECTION, /**< Only when the effect animates its projection. */
+  CENTRAL_MERIDIAN /**< Only when the effect declares USES_CENTRAL_MERIDIAN. */
 };
 
 /**
