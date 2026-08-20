@@ -80,6 +80,17 @@ struct PolyMesh {
   size_t get_faces_size() const { return faces.size(); }
 
   /**
+   * @brief Returns the number of vertices in the mesh.
+   * @return Vertex count.
+   */
+  size_t num_vertices() const { return vertices.size(); }
+  /**
+   * @brief Returns the number of faces in the mesh.
+   * @return Face count (equal to the active face-counts size).
+   */
+  size_t num_faces() const { return get_face_counts_size(); }
+
+  /**
    * @brief Deep-copies src into dst from the given arena.
    * @param src Source mesh to copy from.
    * @param dst Destination mesh, populated in place.
