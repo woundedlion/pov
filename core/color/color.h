@@ -994,7 +994,9 @@ inline constexpr int GAMUT_BRACKET_STEPS = 3;
  * use linear_rgb_in_gamut's own tolerance, so a solved crossing is the crossing
  * the gate reports. `lo` is probed before it is trusted: a cell minimum that
  * over-reads its region drops the search back to zero chroma rather than
- * returning a color outside the cube.
+ * returning a color outside the cube. The matrix constants below restate
+ * oklab_to_lms_cbrt() and lms_cbrt_to_linear_rgb(); those two are the source of
+ * truth tools/gen_gamut_lut.py pins its mirror against.
  */
 HS_O3_FN __attribute__((noinline)) inline float
 gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
@@ -1492,7 +1494,8 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
  * the boundary; call only once the color is known to be out of gamut. Reads
  * the stored cell minimum without the bracket refinement gamut_max_chroma()
  * runs, and normalizes with one Newton step off the reciprocal-square-root
- * seed.
+ * seed. That single step is one-sided low, so the rescale lands at or inside
+ * the boundary; fast_rsqrt()'s second step would only cost cycles here.
  */
 HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
   lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
