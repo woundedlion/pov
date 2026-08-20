@@ -6,7 +6,7 @@
 
 /**
  * @file mesh.h
- * @brief MeshState and the half-edge mesh representation the renderer and the
+ * @brief PolyMesh and the half-edge mesh representation the renderer and the
  *        mesh operators are written against.
  */
 
@@ -18,12 +18,6 @@
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
-
-// Forward declarations
-struct HEFace;
-struct HalfEdge;
-
-struct MeshState;
 
 /**
  * @brief A simple dynamic mesh structure compatible with MeshOps templates.
