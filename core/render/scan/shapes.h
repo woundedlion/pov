@@ -620,7 +620,6 @@ struct Circle {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    bool debug_bb = false) {
-    // Circle is a Ring with inner radius 0.
     float th = radius * (PI_F / 2.0f);
     Ring::draw<W, H, ComputeUVs>(pipeline, canvas, basis, 0.0f, th,
                                  fragment_shader, 0, debug_bb);
