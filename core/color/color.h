@@ -1097,8 +1097,8 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
  * @brief Samples a continuous, conservative gamut envelope along a hue
  *        direction.
  * @param L OKLab lightness, clamped to [0,1].
- * @param sin_h Sine of the hue angle.
- * @param cos_h Cosine of the hue angle.
+ * @param a OKLab a coordinate of the hue direction.
+ * @param b OKLab b coordinate of the hue direction.
  * @return A conservative chroma boundary that varies continuously in L and hue.
  * @details Exact clipping uses gamut_max_chroma(); relative-chroma palette
  * generation uses the hue-smoothed wrapper below. The direction is only binned,
@@ -1106,8 +1106,8 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
  */
 // Bake-time only (relative-chroma palette generation); the per-pixel clip
 // stays on gamut_max_chroma.
-HS_FLASH_MEMBER inline float
-gamut_continuous_chroma_sample(float L, float sin_h, float cos_h) {
+HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float a,
+                                                            float b) {
   // Flash master, not g_gamut_lut: this path consumes the stored minima
   // directly, so a coarse grid's width is never narrowed back.
   const GamutLut lut;
@@ -1115,7 +1115,7 @@ gamut_continuous_chroma_sample(float L, float sin_h, float cos_h) {
   if (L == 0.0f || L == 1.0f)
     return 0.0f;
 
-  const float angle = diamond_angle(sin_h, cos_h) * lut.angle_scale;
+  const float angle = diamond_angle(b, a) * lut.angle_scale;
   const float lightness = L * lut.l_scale;
   const int ai = hs::clamp(static_cast<int>(angle), 0, lut.angle_steps - 1);
   const int li = hs::clamp(static_cast<int>(lightness), 0, lut.l_steps - 1);
@@ -1158,7 +1158,7 @@ gamut_continuous_chroma_sample(float L, float sin_h, float cos_h) {
  * @return A conservative chroma boundary that varies continuously in L and hue.
  */
 HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
-  return gamut_continuous_chroma_sample(L, sinf(h), cosf(h));
+  return gamut_continuous_chroma_sample(L, cosf(h), sinf(h));
 }
 
 /**
@@ -1176,10 +1176,10 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
   const float step2_sin = 2.0f * step_sin * step_cos;
   const float step2_cos = step_cos * step_cos - step_sin * step_sin;
   const auto tap = [&](float ds, float dc) {
-    return gamut_continuous_chroma_sample(L, sin_h * dc + cos_h * ds,
-                                          cos_h * dc - sin_h * ds);
+    return gamut_continuous_chroma_sample(L, cos_h * dc - sin_h * ds,
+                                          sin_h * dc + cos_h * ds);
   };
-  const float center = gamut_continuous_chroma_sample(L, sin_h, cos_h);
+  const float center = gamut_continuous_chroma_sample(L, cos_h, sin_h);
   const float smoothed =
       (tap(-step2_sin, step2_cos) + 2.0f * tap(-step_sin, step_cos) +
        4.0f * center + 2.0f * tap(step_sin, step_cos) +
