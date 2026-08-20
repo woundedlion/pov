@@ -1205,12 +1205,13 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
 
 /**
  * @brief relax()'s early-stop gate on the squared largest spring force.
- * @details Its square root bounds the displacement of the step relax declines
- *   to take, so two relaxations of the same mesh that both reach the gate sit
- *   at most that far apart — the comparison bound for a relaxed mesh against
- *   one computed under different float semantics (a flash bake, another
- *   toolchain). Normalization discards the force's radial component, so this is
- *   not an angular-step bound.
+ * @details Tested after the forces are applied, so its square root bounds the
+ *   step just taken, not the one relax declines to take; re-projection onto the
+ *   sphere only shrinks that step further. No bound on the gap between two
+ *   relaxations of the same mesh under different float semantics (a flash bake,
+ *   another toolchain) follows from it: they can stop at different iteration
+ *   counts, and their vertices have already diverged by the time either reaches
+ *   the gate.
  */
 inline constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
 

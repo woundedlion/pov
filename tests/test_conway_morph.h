@@ -697,10 +697,10 @@ inline void check_exactly_equal(const PolyMesh &got, const PolyMesh &want) {
  * @param want Registry mesh whose chain ends in a flash bake.
  * @details The bake froze relax()'s converged vertices at the generating host's
  *   IEEE arithmetic; a build with different float semantics reaches the gate at
- *   its own converged point. sqrt(RELAX_CONVERGE_EPS_SQ) bounds the step relax
- *   declines to take, and normalization only shrinks it, so two relaxations
- *   that both reach the gate sit at most that far apart. Everything integral —
- *   vertex order, face_counts, faces — stays exact.
+ *   its own converged point. sqrt(RELAX_CONVERGE_EPS_SQ) is the scale of a
+ *   converged step and the tolerance that divergence is held to, not a bound
+ *   the gate proves. Everything integral — vertex order, face_counts, faces —
+ *   stays exact.
  */
 inline void check_equal_within_relax_gate(const PolyMesh &got,
                                           const PolyMesh &want) {
