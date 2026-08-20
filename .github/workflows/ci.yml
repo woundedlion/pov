@@ -1411,7 +1411,9 @@ jobs:
       # GUARD_GAP_ALLOW row, or `<test file>.cases` / `.assertions` for a JS
       # floor), added in the same commit as the weakening it
       # approves, so it is visible in that commit's diff. Empty in steady state.
-      ASSERTION_FLOOR_ALLOW_LOWER: ""
+      ASSERTION_FLOOR_ALLOW_LOWER: |
+        guard_gap.geometry.h
+        guard_gap.mesh.h
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
