@@ -87,6 +87,11 @@ test('every promoted shader document matches its compiled effect identity', asyn
   };
   assert.deepEqual(Object.keys(migration.source_documents).sort(),
     migration.product_group.children.map((child) => child.effect_id).sort());
+  // Segue policy the promoted effects inherit rather than declare.
+  const composedEffect = await readFile(new URL(
+    '../core/render/pullback/composed_effect.h', import.meta.url), 'utf8');
+  const inheritedSegue = composedEffect.match(/Segue::Lerp PRESET_SEGUE\{(\d+)/);
+  assert.ok(inheritedSegue, 'ComposedEffect declares no default PRESET_SEGUE');
   for (const [effectId, documentName] of Object.entries(migration.source_documents)) {
     const documentSource = await readFile(
       new URL(`../patterns/${documentName}`, import.meta.url), 'utf8');
@@ -99,6 +104,28 @@ test('every promoted shader document matches its compiled effect identity', asyn
       `${effectId} descriptor digest is stale`);
     assert.ok(header.includes(`"${compiled.preset_bank_digest}"`),
       `${effectId} preset-bank digest is stale`);
+    // The digests above cover the descriptor and the preset values. The
+    // choreography is carried by three header constants instead, and PRESET_IDS
+    // is ORDERED: preset_params() indexes it by position.
+    const choreography = compiled.document.preset_bank.choreography;
+    const declaredIds = header.match(
+      /std::array<std::string_view,\s*(\d+)>\s+PRESET_IDS\{([^}]*)\}/);
+    assert.ok(declaredIds, `${effectId} declares no PRESET_IDS array`);
+    assert.deepEqual(
+      [...declaredIds[2].matchAll(/"([^"]*)"/g)].map((match) => match[1]),
+      choreography.generated_order,
+      `${effectId} PRESET_IDS is not choreography.generated_order, in order`);
+    assert.equal(Number(declaredIds[1]), choreography.generated_order.length,
+      `${effectId} PRESET_IDS extent does not match the preset count`);
+    const dwell = header.match(/\bPRESET_DWELL_FRAMES\s*=\s*(\d+)/);
+    assert.ok(dwell, `${effectId} declares no PRESET_DWELL_FRAMES`);
+    for (const [presetId, frames] of Object.entries(choreography.dwell))
+      assert.equal(frames, Number(dwell[1]),
+        `${effectId}/${presetId} dwell is not PRESET_DWELL_FRAMES`);
+    const segue = header.match(/\bPRESET_SEGUE\{(\d+)/) ?? inheritedSegue;
+    for (const edge of compiled.document.preset_bank.edges)
+      assert.equal(edge.duration, Number(segue[1]),
+        `${effectId} ${edge.from}->${edge.to} is not PRESET_SEGUE.frames`);
     const destinations = migration.destinations.filter((entry) => entry.effect_id === effectId);
     const presetIds = new Set(compiled.document.preset_bank.presets
       .map((preset) => preset.preset_id));
