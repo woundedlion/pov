@@ -106,8 +106,9 @@ struct PlaneSample {
 
 /**
  * @brief Rank-2 carrier: unit field value plus accumulated coverage.
- * @details `value` in [0, 1] is a carrier invariant, established by the
- * Sample crossing; `coverage` is in [0, 1] and non-increasing.
+ * @details `value` in [0, 1] is established by the Sample crossing and is
+ * each transfer kernel's own obligation thereafter — Kernel::transfer does not
+ * re-clamp; `coverage` is in [0, 1] and non-increasing.
  */
 struct FieldSample {
   float value;
