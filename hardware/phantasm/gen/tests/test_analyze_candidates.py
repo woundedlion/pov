@@ -1,4 +1,5 @@
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -107,6 +108,17 @@ class AnalyzeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "no critical net"):
             self.analyze_source(source)
+
+
+class ClosestSpacingTests(unittest.TestCase):
+    NAN = float("nan")
+
+    def test_returns_the_smaller_spacing(self):
+        self.assertEqual(analyze_candidates.closest(5.0, 3.0), 3.0)
+
+    def test_a_missing_part_forfeits_whichever_one_vanished(self):
+        self.assertTrue(math.isnan(analyze_candidates.closest(self.NAN, 3.0)))
+        self.assertTrue(math.isnan(analyze_candidates.closest(3.0, self.NAN)))
 
 
 class ResolveKicadCliTests(unittest.TestCase):
