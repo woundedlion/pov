@@ -85,6 +85,10 @@ committed board directly need no KiCad and run in CI
   export clean gerbers the fab fills as a solid pour, tying every
   through-hole GND pad to the full plane and starving the hand-soldered
   joints (R-ASM-6).
+- **Shipped-land gate:** `gen/tests/test_pcb_lands.py` pins the pad geometry the
+  routed board ships for every chip passive, so restoring a stock land over the
+  widened sync-resistor pads fails in CI. KiCad reports no parity difference for
+  that edit — the widened pads keep the stock footprint id.
 - **Count-floor ratchets:** `gen/fab.py` rejects a board carrying fewer than
   100 vias or fewer than 2 copper pours — floors pinned to what the committed
   routed board holds (both counts are in the facts block below; the pours are
@@ -130,10 +134,10 @@ the netlist is what's verified.
 | `R_LF` / `C_LF` | `Device:R` / `Device:C` | 0805 / `C_1206` | bead-LC damper, 22 µF |
 | `C_DEC1/2` | `Device:C` (0.1µF) | `Capacitor_SMD:C_0603_1608Metric` | |
 | `R_D1/R_D2` | `Device:R` (33Ω) | `Resistor_SMD:R_0805_2012Metric` | DATA/CLK source term |
-| `R_S` | `Device:R` (100Ω) | `R_0805_2012Metric_Pad1.20x1.40mm_HandSolder` | SYNC source term; hand-solder land |
-| `R1/R2` | `Device:R` (10k/15k) | `R_0603_1608Metric_Pad0.98x0.95mm_HandSolder` | sync divider; hand-solder land |
+| `R_S` | `Device:R` (100Ω) | `Resistor_SMD:R_0805_2012Metric`, pads widened to 1.40 mm | SYNC source term; widened land (see the lands note below) |
+| `R1/R2` | `Device:R` (10k/15k) | `Resistor_SMD:R_0603_1608Metric`, pads widened to 1.20 mm | sync divider; widened land (see the lands note below) |
 | `C_SYNC` | `Device:C` (220pF) | `C_0603` | populated (noise filter) |
-| `R_PD` | `Device:R` (10k) | `R_0603_1608Metric_Pad0.98x0.95mm_HandSolder` | master-only bus idle pull-down, hand-solder land; ground-side switched automatically by U1 channel D |
+| `R_PD` | `Device:R` (10k) | `Resistor_SMD:R_0603_1608Metric`, pads widened to 1.20 mm | master-only bus idle pull-down, widened land; ground-side switched automatically by U1 channel D |
 | `R_MEN` | `Device:R` (10k) | `R_0603` | MASTER_EN boot pull-up → 3V3 |
 | `D_BUS` | `Device:D_Zener` (Bourns CDSOD323-T05L) | `Diode_SMD:D_SOD-323` with Bourns pad geometry | populated unidirectional 5 V, 1 pF sync-bus TVS; pin 1/cathode on SYNC_BUS, pin 2/anode on GND; exact Bourns land pattern; silkscreen bar marks the cathode end; JLCPCB C1975255 |
 | `J1` | `Connector_Generic:Conn_01x02` | `JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical` | +5 V/GND light logic feed, ~1 A; keyed shrouded 3 A JST XA with a locking ramp + mounting boss (R-PWR-7); mates XAP-02V-1 + SXA-001T-P0.6 contacts |
@@ -153,12 +157,27 @@ the netlist is what's verified.
   `VLOGIC = 4.75 − 0.15 × (0.75 + 0.20 + 0.12) = 4.5895 V`. This leaves about
   90 mV above the AHCT125's 4.5 V minimum; verify that J1 itself remains at or above
   4.75 V on the hot, operating rotor because external harness drop is not included.
-- **Hand-solder lands on the bench-tuned sync resistors.** `R1`, `R2` (divider ratio,
-  spec §4.2), `R_PD` (bus idle pull-down) and `R_S` (source termination) carry KiCad's
-  `_HandSolder` land: the pad centre moves outward with the extra length, so the toe
-  grows while the inter-pad gap stays at the IPC-nominal **0.85 mm** (0603) /
-  **0.80 mm** (0805) and no copper reaches under the ceramic body. Every other chip
-  passive uses the stock IPC-nominal land; `D_BUS` uses the Bourns land pattern.
+- **Widened lands on the bench-tuned sync resistors — not KiCad `_HandSolder` lands.**
+  `R1`, `R2` (divider ratio, spec §4.2), `R_PD` (bus idle pull-down) and `R_S` (source
+  termination) keep the **stock** `Resistor_SMD:R_0603_1608Metric` /
+  `R_0805_2012Metric` footprint id in `phantasm.kicad_pcb`, with the pads **widened in
+  place**: the centres stay at the stock ±0.825 mm (0603) / ±0.9125 mm (0805) while the
+  width grows from 0.80 → **1.20 mm** (0603) and 1.025 → **1.40 mm** (0805). Toe and heel
+  both grow, so the inter-pad gap closes from the IPC-nominal 0.85 mm / 0.80 mm to
+  **0.450 mm** (0603) / **0.425 mm** (0805) — the pad inner edge sits 0.225 mm /
+  0.2125 mm off the centre-line and copper does reach under the bare ceramic body.
+  Three chip lands are live at once: these four, the stock land on every other chip
+  passive (`R_MEN`, `R_D1/R_D2`, `R_LF`, the `C_0603`s, `C_LF`), and the Bourns land
+  pattern on `D_BUS`.
+- **The `_HandSolder` land is generator-only.** `gen/board.py` names
+  `R_0603_1608Metric_Pad0.98x0.95mm_HandSolder` /
+  `R_0805_2012Metric_Pad1.20x1.40mm_HandSolder` for those four references and **no
+  committed artifact carries one** — `grep -c HandSolder` is 0 in `phantasm.kicad_sch`,
+  `phantasm.kicad_pcb` and `unplaced/phantasm_unplaced.kicad_pcb`. Regenerating the
+  schematic would put those ids into it and fail the schematic-parity gate against the
+  routed copper. The widening is invisible to that gate in the other direction, because
+  the routed board keeps the stock footprint id: KiCad's **Update Footprints from
+  Library** would restore the 0.80/1.025 mm pads with no parity difference reported.
 - **ID straps** use the Teensy's internal pull-ups; the former optional `R_ID0`
   footprint is not required. `D_BUS` is populated on every board. `JP_SHLD` is
   populated **on the master board only**;
