@@ -15,6 +15,8 @@
 
 #include <cstdint>
 
+#include "core/platform/platform.h" // HS_FLASH_MEMBER on Config::valid()
+
 // Forward declaration of the unit-test accessor that reaches EdgeMailbox's
 // split consumer path (burst_complete()/claim()).
 namespace hs_test {
