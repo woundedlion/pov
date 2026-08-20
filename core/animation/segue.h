@@ -840,8 +840,8 @@ static_assert(AllPolicies::SEQUENTIAL_PER_FACE,
  * timeline Animation::Lerp.
  */
 struct Lerp {
-  uint16_t frames; /**< Frames the parameter crossfade spans. */
-  EasingFn easing; /**< Easing applied to the blend progress. */
+  uint16_t frames = 0;           /**< Frames the parameter crossfade spans. */
+  EasingFn easing = ease_linear; /**< Easing applied to the blend progress. */
   bool pausable =
       false; /**< Whether anims_paused freezes an in-flight blend. */
 };
@@ -859,8 +859,8 @@ struct Snap {};
  * the preset as each sprite ends; both freeze with anims_paused.
  */
 struct Fade : Base {
-  int frames; /**< Frames each preset holds the sphere, fades included. */
-  int window; /**< Fade length on each side of the swap, in frames. */
+  int frames = 0; /**< Frames each preset holds the sphere, fades included. */
+  int window = 0; /**< Fade length on each side of the swap, in frames. */
   /** @brief Global alpha: the fade envelope itself. */
   float opacity(float phase) const { return phase; }
 };
