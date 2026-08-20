@@ -399,7 +399,14 @@ jobs:
             # renders equals the unclipped frame only under IEEE, so it is split
             # out of unit_shapeshifter_oracle and only the split-off module is
             # excluded; the oracle's visual budgets run here.
-            test_exclude: "^unit_(3dmath|sdf|effects|shapeshifter_tiles|conway_continuity|partition_seam|mesh|color_luts|color_luts_check|gamut_lut)$"
+            # unit_shader_chain asserts the interpreter's type-erased dispatch is
+            # bit-identical to the same stage bound as a template. The two are
+            # separate instantiations optimised in their own contexts, so
+            # reassociation moves one and not the other and the identity is not
+            # claimable under this flag pair; sharing an always_inline helper does
+            # not restore it. Dispatch correctness is covered by shard 4, which
+            # runs this module at -O2 under IEEE.
+            test_exclude: "^unit_(3dmath|sdf|effects|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|color_luts|color_luts_check|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only
     # The `tests` preset pins Debug, and the jobs above all reuse it, so every
     # assertion in the suite runs at -O0: UB the optimizer acts on, and FP
