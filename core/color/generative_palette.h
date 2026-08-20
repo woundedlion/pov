@@ -1185,11 +1185,10 @@ private:
   // The Cartesian path realizes chroma through resolve_key, so its envelope
   // sample only ever feeds the diagnostics.
   HS_COLD_MEMBER PathEvaluation evaluate_cartesian_path(
-      const ControlKey &left_key, bool left_chromatic,
-      const ControlKey &right_key, bool right_chromatic, float progress,
-      float control, bool diagnostics) const {
-    const OKLab left = oklch_to_oklab(resolve_key(left_key, left_chromatic));
-    const OKLab right = oklch_to_oklab(resolve_key(right_key, right_chromatic));
+      const ControlKey &left_key, const ControlKey &right_key, bool chromatic,
+      float progress, float control, bool diagnostics) const {
+    const OKLab left = oklch_to_oklab(resolve_key(left_key, chromatic));
+    const OKLab right = oklch_to_oklab(resolve_key(right_key, chromatic));
     const OKLab lab{left.L + (right.L - left.L) * progress,
                     left.a + (right.a - left.a) * progress,
                     left.b + (right.b - left.b) * progress};
@@ -1202,19 +1201,13 @@ private:
             boundary};
   }
 
-  HS_COLD_MEMBER PathEvaluation evaluate_arc_path(
-      float L, float control, float left_h, bool left_chromatic, float right_h,
-      bool right_chromatic, float progress, bool diagnostics) const {
-    float h_path;
-    if (left_chromatic && right_chromatic)
-      h_path = left_h + (right_h - left_h) * progress;
-    else if (left_chromatic)
-      h_path = left_h;
-    else if (right_chromatic)
-      h_path = right_h;
-    else
-      h_path = 0.0f;
-
+  HS_COLD_MEMBER PathEvaluation evaluate_arc_path(float L, float control,
+                                                  float left_h, float right_h,
+                                                  bool chromatic,
+                                                  float progress,
+                                                  bool diagnostics) const {
+    const float h_path =
+        chromatic ? left_h + (right_h - left_h) * progress : 0.0f;
     const float h_final = h_path + hue_torsion * (L - 0.5f);
     // An absolute basis takes C straight from the control, so the envelope is
     // diagnostics-only there.
@@ -1258,23 +1251,21 @@ private:
       if (color_path == ColorPath::OKLAB_CARTESIAN) {
         const ControlKey first{L, control, keys[0].h};
         const ControlKey opposite{L, control, keys[key_count - 1].h};
-        path = evaluate_cartesian_path(first, chromatic, opposite, chromatic,
+        path = evaluate_cartesian_path(first, opposite, chromatic,
                                        relationship_position, control,
                                        diagnostics);
       } else {
-        path = evaluate_arc_path(L, control, keys[0].h, chromatic,
-                                 keys[key_count - 1].h, chromatic,
-                                 relationship_position, diagnostics);
+        path = evaluate_arc_path(L, control, keys[0].h, keys[key_count - 1].h,
+                                 chromatic, relationship_position, diagnostics);
       }
     } else if (color_path == ColorPath::OKLAB_CARTESIAN) {
       const ControlKey left_key{L, control, segment.left.h};
       const ControlKey right_key{L, control, segment.right.h};
-      path = evaluate_cartesian_path(left_key, chromatic, right_key, chromatic,
-                                     progress, control, diagnostics);
+      path = evaluate_cartesian_path(left_key, right_key, chromatic, progress,
+                                     control, diagnostics);
     } else {
-      path =
-          evaluate_arc_path(L, control, segment.left.h, chromatic,
-                            segment.right.h, chromatic, progress, diagnostics);
+      path = evaluate_arc_path(L, control, segment.left.h, segment.right.h,
+                               chromatic, progress, diagnostics);
     }
     return path;
   }
