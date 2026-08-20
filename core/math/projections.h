@@ -79,12 +79,19 @@ constexpr uint8_t projection_traits(ProjectionTrait a, ProjectionTrait b,
   return projection_traits(a) | projection_traits(b) | projection_traits(c);
 }
 
-/** @brief Boundary kind a kernel reports at the sampled point. */
+/**
+ * @brief Boundary kind a kernel reports alongside `fade_edge_distance`.
+ * @details Classifies the boundary that distance is measured toward, not
+ * whether the sample has reached it. A kernel whose image carries one boundary
+ * kind everywhere reports it on every sample (Bonne CUT, Peirce SINGULAR);
+ * only Airocean varies the mask per point, by whether the nearest face edge is
+ * cut or glued.
+ */
 enum class ProjectionBoundary : uint8_t {
   NONE = 0,
-  /** Point sits on a cut edge of the image. */
+  /** The measured edge is a cut. */
   CUT = 1U << 0,
-  /** Point sits on a locus of infinite scale. */
+  /** The measured edge carries a locus of infinite scale. */
   SINGULAR = 1U << 1
 };
 
@@ -105,7 +112,7 @@ struct ProjectionKernelResult {
   uint8_t region_id;
   /** Disconnected component within the region. */
   uint8_t component_id;
-  /** ProjectionBoundary mask for this point. */
+  /** ProjectionBoundary mask for the edge `fade_edge_distance` measures to. */
   uint8_t boundary_flags;
   /** Distance to the nearest cut in the kernel's own units; 65536 when the
    *  kernel was asked to skip it or found no cut. */
