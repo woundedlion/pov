@@ -1333,20 +1333,22 @@ jobs:
   assertion-floors:
     name: Assertion floors (no silent shrink)
     # tests/run_tests.cpp pins every module's case-site count and minimum
-    # assertion count as plain constants, and tools/relax_bake_harness.cpp pins
-    # the relax-bake step floor the same way, so a commit that deletes cases AND
-    # lowers the numbers clears every other gate. Same shape as the
+    # assertion count as plain constants, tools/relax_bake_harness.cpp pins
+    # the relax-bake step floor the same way, and tests/test_death.h pins the
+    # guard-coverage floor plus the per-file gap allowances it gates against, so
+    # a commit that deletes cases AND lowers the numbers clears every other
+    # gate. Same shape as the
     # FORMAT_BASELINE and Teensy warning-baseline growth checks: compare the pins
     # against the commit this run builds on, and fail on any reduction the commit
     # does not approve.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      # Escape hatch for a deliberate reduction: one pin name per line
-      # (`<module>.cases`, `<module>.floor`, a *_MIN_ASSERTIONS constant, or
-      # MIN_RELAX_BAKES_VERIFIED), added in the same commit as the reduction it
-      # approves, so the weakening is visible in that commit's diff. Empty in
-      # steady state.
+      # Escape hatch for a deliberate weakening: one pin name per line
+      # (`<module>.cases`, `<module>.floor`, a *_MIN_ASSERTIONS constant,
+      # MIN_RELAX_BAKES_VERIFIED, or `guard_gap.<file>` for a widened
+      # GUARD_GAP_ALLOW row), added in the same commit as the weakening it
+      # approves, so it is visible in that commit's diff. Empty in steady state.
       ASSERTION_FLOOR_ALLOW_LOWER: ""
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -1360,7 +1362,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Assert no case-site pin or assertion floor shrank
+      - name: Assert no case-site pin, assertion floor or guard ratchet weakened
         env:
           PUSH_BEFORE: ${{ github.event.before }}
         run: |
@@ -1396,18 +1398,35 @@ jobs:
           HARNESS=tools/relax_bake_harness.cpp
           git show "$PREV:$HARNESS" > /tmp/floors-prev-harness.cpp 2>/dev/null \
             || : > /tmp/floors-prev-harness.cpp
+          # tests/test_death.h carries two more pins of the same class: the
+          # guard-coverage floor, and the per-file allowances for the guard
+          # sites no case pins — widening a row is the same weakening as
+          # lowering a floor. An older PREV predating the file yields an empty
+          # copy, which reads as "no pin then".
+          DEATH=tests/test_death.h
+          git show "$PREV:$DEATH" > /tmp/floors-prev-death.h 2>/dev/null \
+            || : > /tmp/floors-prev-death.h
           export PREV
 
-          python3 - /tmp/floors-prev.cpp "$SRC" /tmp/floors-prev-harness.cpp "$HARNESS" <<'PY'
+          python3 - /tmp/floors-prev.cpp "$SRC" /tmp/floors-prev-harness.cpp "$HARNESS" \
+            /tmp/floors-prev-death.h "$DEATH" <<'PY'
           import os
           import re
           import sys
 
           SRC = sys.argv[2]
           HARNESS = sys.argv[4]
+          DEATH = sys.argv[6]
           HARNESS_FLOOR_RE = re.compile(
               r"constexpr int (MIN_RELAX_BAKES_VERIFIED)\s*=\s*(\d+)\s*;"
           )
+          DEATH_FLOOR_RE = re.compile(
+              r"constexpr int (MIN_COVERED_GUARD_SITES)\s*=\s*(\d+)\s*;"
+          )
+          GAP_TABLE_RE = re.compile(
+              r"GUARD_GAP_ALLOW\[\]\s*=\s*\{(.*?)\};", re.S
+          )
+          GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
 
 
           def split_args(text):
@@ -1481,6 +1500,23 @@ jobs:
               return {name: int(value) for name, value in HARNESS_FLOOR_RE.findall(text)}
 
 
+          def death_pins(path):
+              """Splits test_death.h's guard ratchet into its floor and its gap rows."""
+              try:
+                  text = open(path, encoding="utf-8").read()
+              except FileNotFoundError:
+                  return {}, {}
+              floors = {
+                  name: int(value) for name, value in DEATH_FLOOR_RE.findall(text)
+              }
+              table = GAP_TABLE_RE.search(text)
+              gaps = {
+                  f"guard_gap.{name}": int(gap)
+                  for name, gap in GAP_ROW_RE.findall(table.group(1) if table else "")
+              }
+              return floors, gaps
+
+
           prev, now = pins(sys.argv[1]), pins(SRC)
           origin = dict.fromkeys(now, SRC)
           harness_now = harness_pins(HARNESS)
@@ -1489,6 +1525,14 @@ jobs:
           prev.update(harness_pins(sys.argv[3]))
           now.update(harness_now)
           origin.update(dict.fromkeys(harness_now, HARNESS))
+
+          death_floors, death_gaps = death_pins(DEATH)
+          if not death_floors or not death_gaps:
+              sys.exit(f"no guard ratchet parsed from {DEATH} — its shape changed")
+          prev_death_floors, prev_death_gaps = death_pins(sys.argv[5])
+          prev.update(prev_death_floors)
+          now.update(death_floors)
+          origin.update(dict.fromkeys(death_floors, DEATH))
 
           allow = {
               line.strip()
@@ -1503,8 +1547,25 @@ jobs:
               elif now[key] < was:
                   lowered[key] = f"{was} -> {now[key]}"
 
+          # A gap row is an allowance, so it weakens by GROWING, and a row that
+          # was not there approved nothing. Comparison needs a previous table to
+          # be against: an empty one is a PREV predating the ratchet, not a
+          # commit that widened every row.
+          widened = {}
+          if prev_death_gaps:
+              for key, gap in death_gaps.items():
+                  was = prev_death_gaps.get(key, 0)
+                  if gap > was:
+                      widened[key] = f"{was} -> {gap}"
+          else:
+              print(
+                  f"::warning::no GUARD_GAP_ALLOW table in {os.environ['PREV']}:{DEATH}"
+                  " — gap-widening check skipped"
+              )
+
           unapproved = sorted(k for k in lowered if k not in allow)
-          if unapproved:
+          unapproved_gaps = sorted(k for k in widened if k not in allow)
+          if unapproved or unapproved_gaps:
               for key in unapproved:
                   print(
                       f"::error file={origin.get(key, SRC)}::{key} shrank ({lowered[key]}) — "
@@ -1512,15 +1573,23 @@ jobs:
                       f"covers, or approve the reduction by listing {key} in "
                       f"ASSERTION_FLOOR_ALLOW_LOWER in .github/workflows/ci.yml in this commit"
                   )
+              for key in unapproved_gaps:
+                  print(
+                      f"::error file={DEATH}::{key} widened ({widened[key]}) — pin the guard "
+                      f"sites it now excuses with death-harness cases, or approve the wider "
+                      f"allowance by listing {key} in ASSERTION_FLOOR_ALLOW_LOWER in "
+                      f".github/workflows/ci.yml in this commit"
+                  )
               sys.exit(1)
 
-          for key in sorted(allow - set(lowered)):
+          for key in sorted(allow - set(lowered) - set(widened)):
               print(
                   f'::warning::ASSERTION_FLOOR_ALLOW_LOWER is stale — "{key}" approves no '
-                  "reduction in this commit"
+                  "weakening in this commit"
               )
           print(
-              f"assertion floors: {len(now)} pins, {len(lowered)} approved reduction(s) "
+              f"assertion floors: {len(now)} pins and {len(death_gaps)} guard-gap rows, "
+              f"{len(lowered)} approved reduction(s) and {len(widened)} approved widening(s) "
               f"against {os.environ['PREV']}."
           )
           PY
