@@ -364,7 +364,8 @@ apply_generated_palette(const FieldSample &sample,
       sample.value, state.mapping, state.mapping_frequency,
       state.mapping_phase + oscillation);
   Color4 color;
-  if (state.hue_rotation.active && state.hue_mode == HueMode::NOISE) {
+  if (state.hue_rotation.active && state.hue_noise.active &&
+      state.hue_mode == HueMode::NOISE) {
     const float amount = state.hue_shift_amount *
                          sample_hue_noise_lut(state.hue_noise, sample.sphere);
     color = Color4(
