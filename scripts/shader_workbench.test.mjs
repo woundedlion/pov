@@ -22,10 +22,10 @@ import { sha256Hex } from './sha256.mjs';
 // CMakeLists.txt). CI has no daydream checkout to diff against, so each mirror
 // is pinned by the SHA-256 of its LF bytes instead: drift is a deliberate
 // re-pin, updated together with the daydream master commit it mirrors.
-// Mirrors daydream master 6b46bfae3b142960b22c430579be6dc3064e693b.
+// Mirrors daydream master d2df59cce0acb7920e96102a7dcbd5a9c4f00932.
 const MIRROR_PINS = {
   'shader_workbench.mjs':
-    'b0b4002db19636e09d75f6244e6a43f31e3d067c212ad1bdff18c9f2cccc3f67',
+    '6090e8411aa4bf67589e2c0ffce4c2960ef5718bd5b216c6b79853e3da5c3f32',
   'sha256.mjs':
     '046a83178da02898524d3743ad3aa80ec91f719ea9c1b2e9f26912afba71015a',
   'engine_catalog.json':
@@ -158,6 +158,27 @@ test('unknown semantic fields are rejected', () => {
     () => validate(document),
     (error) => error.code === 'UNKNOWN_FIELD' && error.path.endsWith('.surprise'),
   );
+});
+
+// A "__proto__" key has to land in the object: run through the prototype setter
+// it leaves no unknown field to report and no bytes in the canonical form, so
+// two different sources take one identity.
+test('a __proto__ key is an ordinary field, not a prototype write', () => {
+  const bare = parseShaderDocument('{"__proto__":{"schema_version":2}}');
+  assert.deepEqual(Object.keys(bare), ['__proto__']);
+  assert.equal('schema_version' in bare, false);
+
+  const poisoned = compile(EXAMPLE.replace('"descriptor": {', '"descriptor": {"__proto__": {},'));
+  assert.equal(poisoned.status, 'INVALID');
+  assert.deepEqual(poisoned.diagnostics.map((entry) => [entry.code, entry.path]),
+    [['UNKNOWN_FIELD', '$.descriptor.__proto__']]);
+
+  // Metadata takes any key, so this document is accepted, and must stay distinct.
+  const carried = compile(EXAMPLE.replace('"study_metadata": {', '"study_metadata": {"__proto__": 1,'));
+  assert.equal(carried.status, 'VALID');
+  assert.ok(exportShaderDocumentJson(carried.document).includes('"__proto__": 1'));
+  assert.notEqual(exportShaderDocumentJson(carried.document),
+    exportShaderDocumentJson(compile(EXAMPLE).document));
 });
 
 // The semantic phase collects and continues: the unknown operator and every
