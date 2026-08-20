@@ -1006,7 +1006,7 @@ Each rasterizer family populates the Fragment registers with a consistent conven
 | Register | Source | Meaning |
 |---|---|---|
 | `v0` | `DistanceResult.t` | Normalized azimuth (0–1) for `Scan::Ring` and `Scan::Star`; normalized radial position for `Scan::PlanarPolygon`, `Scan::SphericalPolygon` and `Scan::Flower` (polar angle over the shape radius, so it passes 1 outside the body); unused (0) for `Scan::Line` and `Scan::Mesh` faces |
-| `v1` | `DistanceResult.raw_dist` | Unsigned distance to shape centerline (for distance-based effects); `Scan::Mesh` faces carry the signed edge distance instead — negative inside the face, in gnomonic plane units — which `fragment_edge_dist()` turns into normalized inward depth as `-v1 / size` |
+| `v1` | `DistanceResult.raw_dist` | Unsigned distance to shape centerline (for distance-based effects); `Scan::Mesh` faces carry the signed edge distance instead — negative inside the face, in gnomonic plane units on a small (`linear_dist`) face and in radians on a large one — which `fragment_edge_dist()` turns into normalized inward depth as `-v1 / size` |
 | `v2` | Set by rasterizer | Stroke AA coverage (0–1, also applied by Scan at plot time), 0 for solid shapes, or face index for `Scan::Mesh` (but see the per-face setup note below) |
 | `v3` | `DistanceResult.aux` | Auxiliary — shape-dependent secondary parameter (0 when unused, including faces) |
 | `size` | `DistanceResult.size` | Stroke half-width for stroke shapes, or radius or apothem for filled shapes (mesh `Face` floors it at 0.25× the face circumradius, so on a sliver face — whose true inradius approaches zero — the reported size overstates it without bound) |
