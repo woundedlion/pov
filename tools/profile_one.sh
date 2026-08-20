@@ -392,5 +392,10 @@ if ! verify; then
   verify || { echo "FAILED after clean rebuild: $OUT"; exit 1; }
 fi
 NWIN=$(grep -c "=== profile $EFFECT " "$OUT")
-NMARK=$([ -n "$MARKER" ] && grep -c "$MARKER" "$OUT" || echo "n/a")
+# grep -c prints 0 and exits 1 on no match, so a `||` fallback here would
+# append to the count instead of replacing it.
+NMARK="n/a"
+if [ -n "$MARKER" ]; then
+  NMARK=$(grep -c "$MARKER" "$OUT" || true)
+fi
 echo "OK $OUT: $NWIN windows, markers($MARKER)=$NMARK"
