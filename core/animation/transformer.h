@@ -890,11 +890,13 @@ using RippleTransformer =
 /**
  * @brief Bump displacement fields that fall pole-to-pole through a frame.
  * @tparam CAPACITY Maximum number of concurrent falling bumps.
+ * @tparam ORIENT_CAP Sub-frame capacity of the orientation the bumps push
+ * along.
  */
-template <int CAPACITY>
+template <int CAPACITY, int ORIENT_CAP = 4>
 using BallDropTransformer =
-    FieldTransformer<Animation::BumpParams, Animation::BallDrop, bump_field,
-                     CAPACITY>;
+    FieldTransformer<Animation::BumpParams, Animation::BallDrop<ORIENT_CAP>,
+                     bump_field, CAPACITY>;
 
 /**
  * @brief A two-octave product noise displacement field.

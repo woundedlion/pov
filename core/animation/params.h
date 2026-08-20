@@ -875,8 +875,9 @@ struct BumpParams {
 /**
  * @brief Animates one bump falling from the world north pole to the south
  * pole along a fixed-azimuth meridian, in screen space.
+ * @tparam CAP Sub-frame capacity of the orientation the push axis tracks.
  */
-class BallDrop : public AnimationBase<BallDrop> {
+template <int CAP = 4> class BallDrop : public AnimationBase<BallDrop<CAP>> {
 public:
   /**
    * @brief Constructs a BallDrop animation.
@@ -890,9 +891,9 @@ public:
    * @param azimuth Meridian the bump falls along (radians).
    * @param duration Fall time in frames.
    */
-  BallDrop(BumpParams &params, const Orientation<> &orientation,
+  BallDrop(BumpParams &params, const Orientation<CAP> &orientation,
            const Vector &normal, float azimuth, int duration)
-      : AnimationBase(duration, false), params(params),
+      : AnimationBase<BallDrop<CAP>>(duration, false), params(params),
         orientation(&orientation), normal(normal), azimuth(azimuth) {
     HS_CHECK(duration >= 2, "BallDrop duration must be >= 2");
     HS_CHECK(params.radius > 0.0f, "BallDrop needs a positive bump radius");
@@ -902,7 +903,7 @@ public:
 
   // Borrow contract: the orientation is read every frame, so it must outlive
   // the Timeline; this deleted overload rejects a temporary.
-  BallDrop(BumpParams &params, const Orientation<> &&orientation,
+  BallDrop(BumpParams &params, const Orientation<CAP> &&orientation,
            const Vector &normal, float azimuth, int duration) = delete;
 
   /**
@@ -912,8 +913,9 @@ public:
    * and vanishes into the poles smoothly.
    */
   void step(Canvas &canvas) override {
-    AnimationBase::step(canvas);
-    float progress = std::min(static_cast<float>(t) / duration, 1.0f);
+    AnimationBase<BallDrop<CAP>>::step(canvas);
+    float progress =
+        std::min(static_cast<float>(this->t) / this->duration, 1.0f);
     float phi = progress * PI_F;
     BumpParams &p = params.get();
     p.center =
@@ -931,7 +933,7 @@ private:
       0.15f; /**< Fade window at either pole, as a fraction of the fall. */
 
   std::reference_wrapper<BumpParams> params; /**< Bump params to animate. */
-  const Orientation<>
+  const Orientation<CAP>
       *orientation; /**< Stack frame the push axis tracks; not owned. */
   Vector normal;    /**< Un-oriented stack axis. */
   float azimuth;    /**< Fall meridian (radians). */
