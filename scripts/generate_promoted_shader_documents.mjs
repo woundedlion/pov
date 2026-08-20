@@ -190,7 +190,7 @@ const bank = (spec, base) => {
     display_name: preset.name,
     values: { ...base, ...preset.values },
   }));
-  const edges = presets.length < 2 || spec.presetEdges === false ? []
+  const edges = presets.length < 2 ? []
     : presets.map((preset, index) => ({
       from: preset.preset_id,
       to: presets[(index + 1) % presets.length].preset_id,
@@ -391,7 +391,7 @@ const effects = [
     projection: 'stereographic', lens: 'hexagonal-prism-kaleidoscope',
     outer: 'identity', outerKey: 'none', inner: 'mirror-tile', innerKey: 'mirror',
     transfer: 'linear', coverage: 'projection-squared', palette: 'analogous', hue: 'noise',
-    brightness: 'none', animatedProjection: true, presetEdges: false,
+    brightness: 'none', animatedProjection: true,
     description: 'A twin wave folded through a hexagonal prism.',
     presets: [
       { id: 'hex-twin-wave', name: 'Hex Twin Wave', values: {
