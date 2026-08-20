@@ -696,7 +696,7 @@ private:
     }
     const float custom_offset = floorf(recipe.hue.custom_turns[0]);
     if (custom_offset != 0.0f) {
-      for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
+      for (int i = 0; i < key_count; ++i) {
         recipe.hue.custom_turns[i] -= custom_offset;
         status.adjustments.canonicalized_fields |=
             field_bit(static_cast<PaletteRecipeField>(
