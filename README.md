@@ -286,15 +286,15 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
 │   │   └── styles.h                Feedback::Style named presets + space/color transform functions
 │   ├── math/                   Vector/quaternion math and scalar curves
-│   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
+│   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex primitives, fast-math approximations, value noise, Snorm3
 │   │   ├── rotate.h                Quaternion projection helpers
 │   │   ├── geometry.h              wrap()/fast_wrap()/shortest_distance, PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap, Orientation, Basis
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
 │   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean sphere → plane kernels (PROJ-derived, MIT)
-│   │   ├── stereographic.h         Stereographic pole attenuation, pattern normalization, glitch lens
-│   │   ├── lenses.h                Twist, kaleidoscope and polyhedral reflection-group sphere lenses
+│   │   ├── stereographic.h         Stereographic / gnomonic / Möbius sphere ↔ plane maps, pole attenuation, pattern normalization
+│   │   ├── lenses.h                Glitch fold, twist, kaleidoscope and polyhedral reflection-group sphere lenses
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   │   ├── interpolate.h           Per-domain interpolators: scalar, positive scale, periodic angle, unit vector
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
