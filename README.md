@@ -470,6 +470,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── tools/                      Firmware gates, device profiling, and asset bakes
 │   ├── build_pins.py           Shared external-tool version pins for CI and `just`
 │   ├── check_test_files.sh     Exact-count pin for every glob-discovered test-file set (CI)
+│   ├── check_test_dir_pins.sh  Asserts every tools/*_tests suite is named by such a pin (CI)
 │   ├── update_test_pins.py     Re-derives the run_tests.cpp case pins and re-measures its assertion floors from two or more configurations
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate on every link
