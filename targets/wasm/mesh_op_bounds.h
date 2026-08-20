@@ -6,12 +6,13 @@
  * @brief Pure (no-Emscripten) mesh-operator roster, growth factors and
  *        byte-per-element budgets.
  *
- * Every MeshOps boundary guard in wasm.cpp prices a JS-driven operator chain
- * against these numbers, so one smaller than an operator's real expansion or
- * footprint lets a chain reach an engine trap the guard exists to keep out of
- * reach. They carry no Emscripten dependency, so they live here and are measured
- * against the real operators without the toolchain — see
- * tests/test_wasm_predicates.h. wasm.cpp keeps the logging/embind shell on top.
+ * Every MeshOps boundary guard in mesh_ops_bindings.h prices a JS-driven
+ * operator chain against these numbers, so one smaller than an operator's real
+ * expansion or footprint lets a chain reach an engine trap the guard exists to
+ * keep out of reach. They carry no Emscripten dependency, so they live here and
+ * are measured against the real operators without the toolchain — see
+ * tests/test_wasm_predicates.h. mesh_ops_bindings.h keeps the logging/embind
+ * shell on top.
  */
 #pragma once
 
@@ -43,10 +44,11 @@ struct MeshOpBounds {
  * @param _OP1U Macro applied to each [0,1]-fraction operator.
  * @param _OP1H Macro applied to each [0,1)-fraction operator.
  * @details Expanded three times: with MESHOP_0/MESHOP_1U/MESHOP_1H to generate
- *          the wrapper methods in wasm.cpp, with MESHOP_BIND to generate the
- *          embind .function() bindings there, and with MESHOP_BOUNDS_ENTRY below
- *          to publish the factors as data, so an operator cannot be added to one
- *          site and silently left unreachable or unmeasured at another.
+ *          the wrapper methods in mesh_ops_bindings.h, with MESHOP_BIND to
+ *          generate the embind .function() bindings there, and with
+ *          MESHOP_BOUNDS_ENTRY below to publish the factors as data, so an
+ *          operator cannot be added to one site and silently left unreachable
+ *          or unmeasured at another.
  *          Each fraction operator's macro matches the domain its always-on
  *          engine trap asserts: truncate and bevel accept 1 and use _OP1U;
  *          chamfer and expand assert t < 1 and use _OP1H. relax, hankin,
@@ -109,8 +111,8 @@ inline constexpr MeshOpBounds SNUB_BOUNDS{5, 1, 1};
  *        largest stage, counting vertices, faces and flat face indices alike.
  * @details The heaviest operator keeps an intermediate mesh, its output and its
  *          index scratch live in one arena. Measured against the real operators
- *          by tests/test_wasm_predicates.h; wasm.cpp ties it to the tooling
- *          scratch arena size.
+ *          by tests/test_wasm_predicates.h; mesh_ops_bindings.h ties it to the
+ *          tooling scratch arena size.
  */
 inline constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
 

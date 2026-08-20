@@ -12,7 +12,7 @@
  * passes over Effect::getParameters() at different times. Effect implementations
  * expose a schema-generation token; the WASM bridge joins it with effect
  * replacement so dynamic rebinds invalidate stale positional bindings. This
- * layer carries no Emscripten dependency (wasm.cpp adds the
+ * layer carries no Emscripten dependency (engine_bindings.h adds the
  * emscripten::val translation on top), so the contract is host-unit-testable
  * without an Emscripten toolchain — see tests/test_param_marshal.h.
  */
