@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import subprocess
 import sys
@@ -76,6 +77,36 @@ class FindKicadCliTests(unittest.TestCase):
                                return_value=completed), \
                 self.assertRaises(SystemExit):
             self.resolve(["/usr/bin/kicad-cli"])
+
+
+class KicadCliTests(unittest.TestCase):
+    """Resolution is deferred to first use: find_kicad_cli() exits when no
+    install is the pinned major, and an exit during import takes down every
+    test in the importing suite, KiCad-dependent or not."""
+
+    def setUp(self):
+        patcher = mock.patch.object(kicad_common, "_KCLI", None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_resolves_once_and_memoizes(self):
+        with mock.patch.object(kicad_common, "find_kicad_cli",
+                               return_value="kicad-cli") as find:
+            self.assertEqual(kicad_common.kicad_cli(), "kicad-cli")
+            self.assertEqual(kicad_common.kicad_cli(), "kicad-cli")
+        find.assert_called_once_with()
+
+    def load_fresh(self, name):
+        """Execute a gate module into a throwaway namespace."""
+        spec = importlib.util.spec_from_file_location(name, GEN / f"{name}.py")
+        spec.loader.exec_module(importlib.util.module_from_spec(spec))
+
+    def test_importing_a_gate_module_resolves_nothing(self):
+        with mock.patch.object(kicad_common, "find_kicad_cli",
+                               side_effect=SystemExit):
+            for name in ("analyze_candidates", "check", "fab", "pcb"):
+                with self.subTest(module=name):
+                    self.load_fresh(name)
 
 
 class ExportNetlistTests(unittest.TestCase):

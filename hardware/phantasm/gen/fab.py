@@ -27,7 +27,7 @@ import zipfile
 import check as netlist_spec
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
-from kicad_common import F, find_kicad_cli, is_copper_pour
+from kicad_common import F, is_copper_pour, kicad_cli
 
 GEN = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(GEN)                       # hardware/phantasm
@@ -272,9 +272,6 @@ PART_BY_LCSC = {
 }
 
 
-KCLI = find_kicad_cli()
-
-
 def run(args, check=True, **kw):
     print("  $", os.path.basename(args[0]), " ".join(args[1:]))
     try:
@@ -339,7 +336,7 @@ def run_drc(report_path):
     """Generate and require a clean error-severity DRC report."""
     if os.path.exists(report_path):
         os.remove(report_path)
-    result = run([KCLI, "pcb", "drc", "--severity-error", "--format", "json",
+    result = run([kicad_cli(), "pcb", "drc", "--severity-error", "--format", "json",
                   "--exit-code-violations", "-o", report_path, PCB],
                  check=False)
     counts = require_clean_drc(report_path)
@@ -416,7 +413,7 @@ def run_parity(report_path):
         os.remove(report_path)
     # KiCad reports parity items at warning severity, so they are invisible to
     # the error-severity DRC gate and need their own run.
-    run([KCLI, "pcb", "drc", "--schematic-parity", "--format", "json",
+    run([kicad_cli(), "pcb", "drc", "--schematic-parity", "--format", "json",
          "--severity-error", "--severity-warning", "-o", report_path, PCB],
         check=False)
     return require_schematic_parity(report_path)
@@ -787,7 +784,7 @@ def parse_args(argv=None):
 
 
 def main():
-    print(f"kicad-cli: {KCLI}")
+    print(f"kicad-cli: {kicad_cli()}")
     if not os.path.exists(PCB):
         sys.exit(f"board not found: {PCB}")
     try:
@@ -838,7 +835,7 @@ def main():
 
     print("[5/9] Netlist + centroid")
     net = os.path.join(OUT, "_fab.net")
-    run_export("netlist", [KCLI, "sch", "export", "netlist", "--format",
+    run_export("netlist", [kicad_cli(), "sch", "export", "netlist", "--format",
                            "kicadsexpr", "-o", net, SCH])
     try:
         num_spec_nets = validate_netlist_spec(net)
@@ -848,7 +845,7 @@ def main():
     pos = os.path.join(OUT, "_fab_pos.csv")
     # No --use-drill-file-origin: the CPL stays in the same absolute frame as
     # the gerbers and the drill file.
-    run_export("centroid", [KCLI, "pcb", "export", "pos", "--format", "csv",
+    run_export("centroid", [kicad_cli(), "pcb", "export", "pos", "--format", "csv",
                             "--units", "mm", "-o", pos, PCB])
     comps = parse_components(net)
     posrows = {}
@@ -878,12 +875,12 @@ def main():
             shutil.rmtree(stranded)
     with tempfile.TemporaryDirectory(prefix=STAGE_PREFIX, dir=OUT) as staged:
         print("[6/9] Gerbers")
-        run_export("gerber", [KCLI, "pcb", "export", "gerbers",
+        run_export("gerber", [kicad_cli(), "pcb", "export", "gerbers",
                               "--check-zones", "--layers", GERBER_LAYERS,
                               "-o", staged + os.sep, PCB])
         print("[7/9] Drill")
         # Absolute origin, matching the gerbers and the centroid above.
-        run_export("drill", [KCLI, "pcb", "export", "drill", "--format",
+        run_export("drill", [kicad_cli(), "pcb", "export", "drill", "--format",
                              "excellon", "--drill-origin", "absolute",
                              "--excellon-units", "mm", "--excellon-separate-th",
                              "-o", staged + os.sep, PCB])
