@@ -223,16 +223,6 @@ protected:
     fixed_topology = true;
   }
 
-  HS_COLD_MEMBER void start_circular_mobius_animation(float scale,
-                                                      int duration) {
-    circular_mobius_animation_active = true;
-    timeline.add_pausable(
-        0,
-        Animation::MobiusWarpCircular(blend.params.surface_lens.mobius, scale,
-                                      duration, true),
-        &anims_paused);
-  }
-
   HS_COLD_MEMBER void hold_initial_preset(uint16_t frames) {
     HS_CHECK(frames > 0, "hold_initial_preset: zero dwell");
     preset_dwell_remaining = frames;
@@ -4903,7 +4893,6 @@ private:
   HS_COLD_MEMBER void prepare_param_morph() {
     if (!state->param_morph.active)
       return;
-    const MobiusParams animated_mobius = blend.params.surface_lens.mobius;
     const float mix =
         transition_mix(state->param_morph.elapsed, state->param_morph.duration);
     blend.palette_mapping = PaletteMappingWeights::lerp(
@@ -4918,8 +4907,6 @@ private:
     else
       blend.params.lerp(state->param_morph.from, state->param_morph.to, mix,
                         active_slots);
-    if (circular_mobius_animation_active)
-      blend.params.surface_lens.mobius = animated_mobius;
   }
 
   static float transition_mix(uint16_t elapsed, uint16_t duration) {
@@ -5029,10 +5016,6 @@ private:
     current.params = blend.params;
     Config &target = state->transition.to_config;
     target = candidate;
-    if (circular_mobius_animation_active &&
-        current.slots.surface_lens == SurfaceLens::MOBIUS &&
-        target.slots.surface_lens == SurfaceLens::MOBIUS)
-      target.params.surface_lens.mobius = current.params.surface_lens.mobius;
     if (!transition_admitted(current, target))
       return false;
     if (target == current) {
@@ -5104,10 +5087,6 @@ private:
       return;
     }
     const bool continue_choreo = state->param_morph.continue_choreo;
-    const MobiusParams animated_mobius = blend.params.surface_lens.mobius;
-    blend.params = state->param_morph.to;
-    if (circular_mobius_animation_active)
-      blend.params.surface_lens.mobius = animated_mobius;
     active_slots.palette_mapping = state->param_morph.mapping_destination;
     blend.palette_mapping = state->param_morph.mapping_to;
     state->param_morph.active = false;
@@ -7216,7 +7195,6 @@ private:
   bool requested_schema_bound = false;
   bool registered_range_clamped = false;
   bool fixed_topology = false;
-  bool circular_mobius_animation_active = false;
   std::span<const uint8_t> preset_view{};
   uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;
