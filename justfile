@@ -36,7 +36,9 @@ build-debug:
 # module and drives every effect; asserts arena/stack high-water marks). This
 # is the CI `wasm` job's runtime gate — run it locally so `just build` is not
 # shipping an un-exercised module. Builds first so it runs against fresh output.
+# Node is held to the pin that job's setup-node installs.
 smoke: build
+    {{py}} tools/build_pins.py --check-tool node
     node scripts/wasm_smoke.mjs
 
 # Capture the WebGL effect gallery to docs/screenshots/ (Playwright, headless).
@@ -51,15 +53,16 @@ test:
     cmake --build --preset tests
     ctest --preset tests
 
-# Python, JavaScript and shell lint checks used by CI. ruff's rule set moves
-# between releases, so the binary on PATH is held to the pin the ci.yml lint job
-# installs; the npm linters are locked by package-lock.json. The shell set is
-# the same one that job enumerates from the index -- the gate scripts and the
-# hooks, where a shellcheck-class defect passes a gate silently.
+# Python, JavaScript and shell lint checks used by CI. ruff's and shellcheck's
+# rule sets move between releases, so both binaries on PATH are held to the pins
+# the ci.yml lint job installs; the npm linters are locked by package-lock.json.
+# The shell set is the same one that job enumerates from the index -- the gate
+# scripts and the hooks, where a shellcheck-class defect passes a gate silently.
 lint:
     {{py}} tools/build_pins.py --check-tool ruff
     ruff check --no-cache .
     npm run lint
+    {{py}} tools/build_pins.py --check-tool shellcheck
     bash -c "git ls-files -- '*.sh' '.githooks/*' | xargs shellcheck --exclude=SC1091,SC2034"
 
 # Formatting gate over the whole tracked first-party C++ set: the ci.yml
@@ -80,10 +83,12 @@ license-headers:
     {{py}} tools/license_check.py
 
 # First-party warning ratchet over every platformio.ini environment -- the
-# ci.yml teensy-warnings job. The build must be COLD (a cached TU emits no
+# ci.yml teensy-warnings job. The warning set is the pinned toolchain's, which
+# the pinned PlatformIO selects. The build must be COLD (a cached TU emits no
 # warnings), so the object cache and .pio/build go first and the whole firmware
 # tree recompiles; budget tens of minutes. teensy_build.log is gitignored.
 teensy-warnings:
+    {{py}} tools/build_pins.py --check-tool platformio
     bash -c "set -o pipefail; rm -rf .pio/build_cache .pio/build && pio run -v 2>&1 | tee teensy_build.log"
     {{py}} tools/teensy_warnings.py --build-log teensy_build.log
 
@@ -111,8 +116,10 @@ docs-check:
 # Build Doxygen API reference locally into build/docs/html/.
 # Clones doxygen-awesome theme into .doxygen-awesome/ on first run and
 # synthesizes the gitignored Doxyfile.local (Doxyfile + theme overrides, mirroring
-# .github/workflows/docs.yml). Requires doxygen on PATH.
+# .github/workflows/docs.yml). Requires doxygen on PATH at the pinned version:
+# warning text and generated markup move between releases.
 docs: docs-check _doxygen-theme _doxyfile-local
+    {{py}} tools/build_pins.py --check-tool doxygen
     cmake -E make_directory build/docs
     doxygen Doxyfile.local
     {{py}} tools/docs_images.py --stage
@@ -156,10 +163,12 @@ install: smoke
 # Needs PlatformIO (`pip install platformio`); the Teensy toolchain auto-installs
 # on first `pio run`. The contract is "same PASS/FAIL under the headroom'd
 # ceilings" tools/teensy_budgets.json sets, NOT byte-identity with the
-# VMicro/bench image.
+# VMicro/bench image. Those ceilings were calibrated against the pinned
+# PlatformIO, which selects the toolchain, so the pin is checked before building.
 # The wrapper streams the pio output, then appends a combined per-env
 # FLASH/RAM1/RAM2 table from the teensy_size lines.
 teensy-size:
+    {{py}} tools/build_pins.py --check-tool platformio
     {{py}} tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8 profile profile_o3
 
 # Host self-tests behind the Teensy toolchain: size/layout gate parser + layout
