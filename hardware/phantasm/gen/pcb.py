@@ -129,10 +129,16 @@ def build_nets(nlroot):
     names = []
     for nb in F(nlroot, "nets"):
         for net in F(nb, "net"):
-            name = sexp.val(net, "name")[0]
-            names.append(name)
+            name = sexp.val(net, "name")
+            if not name:
+                continue
+            names.append(name[0])
             for nd in F(net, "node"):
-                pad_net[(sexp.val(nd, "ref")[0], sexp.val(nd, "pin")[0])] = name
+                ref = sexp.val(nd, "ref")
+                pin = sexp.val(nd, "pin")
+                if not ref or not pin:
+                    continue
+                pad_net[(ref[0], pin[0])] = name[0]
     # stable net ids: 0 = "", then unique names in first-seen order
     netid = {"": 0}
     for n in names:
@@ -146,10 +152,10 @@ def build_paths(nlroot):
     out = {}
     for cb in F(nlroot, "components"):
         for comp in F(cb, "comp"):
-            ref = sexp.val(comp, "ref")[0]
+            ref = sexp.val(comp, "ref")
             ts = sexp.val(comp, "tstamps")
-            if ts:
-                out[ref] = "/" + ts[0].strip("/")
+            if ref and ts:
+                out[ref[0]] = "/" + ts[0].strip("/")
     return out
 
 
