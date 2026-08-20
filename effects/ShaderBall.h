@@ -4469,11 +4469,10 @@ private:
 
   HS_FLASH_MEMBER static PlanarWarpStageResult
   warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
-                   const WarpStageParams &params, float stage_phase,
-                   bool path_length_required) {
+                   const WarpStageParams &params, float stage_phase) {
     return Pullback::Warp::polar_chart(
         input, params, stage_phase, spec.polar_mode == PolarMode::LOGARITHMIC,
-        spec.polar_harmonic, path_length_required);
+        spec.polar_harmonic);
   }
 
   /**
@@ -4538,8 +4537,7 @@ private:
       return result;
     }
     case WarpStageKind::POLAR_CHART:
-      return warp_polar_chart(input, spec, params, stage_phase,
-                              path_length_required);
+      return warp_polar_chart(input, spec, params, stage_phase);
     }
     __builtin_unreachable();
   }
