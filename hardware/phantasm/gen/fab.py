@@ -74,6 +74,10 @@ TIMESTAMP_SUBSTITUTIONS = (
 )
 
 
+class TimestampNormalizationError(ValueError):
+    """An exported fab artifact could not be read for stamp normalization."""
+
+
 def normalize_fab_timestamps(directory):
     """Stamp FAB_TIMESTAMP over KiCad's export time; return the names rewritten.
 
@@ -81,6 +85,9 @@ def normalize_fab_timestamps(directory):
     this two exports of an unchanged board differ in every artifact and a
     re-run tells the reader nothing. The stamps are comments and metadata
     attributes; the copper is untouched.
+
+    An artifact that cannot be decoded raises rather than being skipped: it
+    would keep its export stamp and only shrink the reported count.
     """
     rewritten = []
     for name in sorted(os.listdir(directory)):
@@ -88,8 +95,11 @@ def normalize_fab_timestamps(directory):
         try:
             with open(path, encoding="utf-8", newline="") as fh:
                 text = fh.read()
-        except (OSError, UnicodeError):
-            continue
+        except (OSError, UnicodeError) as exc:
+            raise TimestampNormalizationError(
+                f"cannot read exported artifact {path}: {exc}\n"
+                "  Its export stamp would ship unnormalized and every re-run "
+                "of an unchanged board would differ.") from exc
         stamped = text
         for pattern, replacement in TIMESTAMP_SUBSTITUTIONS:
             stamped = pattern.sub(replacement, stamped)
@@ -888,7 +898,10 @@ def main():
         os.makedirs(JLC, exist_ok=True)
         for name in os.listdir(staged):
             os.replace(os.path.join(staged, name), os.path.join(JLC, name))
-    stamped = normalize_fab_timestamps(JLC)
+    try:
+        stamped = normalize_fab_timestamps(JLC)
+    except TimestampNormalizationError as exc:
+        sys.exit(str(exc))
     print(f"  creation stamps: {len(stamped)} artifact(s) normalized to "
           f"{FAB_TIMESTAMP}")
 
