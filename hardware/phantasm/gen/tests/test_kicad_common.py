@@ -10,6 +10,7 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import kicad_common  # noqa: E402
+import sexp  # noqa: E402
 
 
 class FindKicadCliTests(unittest.TestCase):
@@ -38,29 +39,29 @@ class FindKicadCliTests(unittest.TestCase):
             return kicad_common.find_kicad_cli()
 
     def test_prefers_the_pinned_major_over_a_newer_install(self):
-        pinned = self.windows_install(f"{kicad_common.KICAD_MAJOR}.0")
-        newer = self.windows_install(f"{kicad_common.KICAD_MAJOR + 1}.0")
+        pinned = self.windows_install(f"{sexp.KICAD_MAJOR}.0")
+        newer = self.windows_install(f"{sexp.KICAD_MAJOR + 1}.0")
 
         self.assertEqual(self.resolve([pinned, newer]), pinned)
 
     def test_takes_the_newest_minor_of_the_pinned_major(self):
-        installs = [self.windows_install(f"{kicad_common.KICAD_MAJOR}.{minor}")
+        installs = [self.windows_install(f"{sexp.KICAD_MAJOR}.{minor}")
                     for minor in (0, 3)]
 
         self.assertEqual(self.resolve(installs), installs[1])
 
     def test_exits_when_no_install_is_the_pinned_major(self):
-        newer = self.windows_install(f"{kicad_common.KICAD_MAJOR + 1}.0")
+        newer = self.windows_install(f"{sexp.KICAD_MAJOR + 1}.0")
 
         with self.assertRaises(SystemExit) as caught:
             self.resolve([newer])
-        self.assertIn(f"KiCad {kicad_common.KICAD_MAJOR}", str(caught.exception))
+        self.assertIn(f"KiCad {sexp.KICAD_MAJOR}", str(caught.exception))
         self.assertIn(newer, str(caught.exception))
         self.assertIn("KICAD_CLI", str(caught.exception))
 
     def test_an_unversioned_path_is_asked_for_its_version(self):
         completed = subprocess.CompletedProcess(
-            [], 0, stdout=f"{kicad_common.KICAD_MAJOR}.0.1\n")
+            [], 0, stdout=f"{sexp.KICAD_MAJOR}.0.1\n")
         with mock.patch.object(kicad_common.subprocess, "run",
                                return_value=completed) as run:
             self.assertEqual(self.resolve(["/usr/bin/kicad-cli"]),
@@ -70,7 +71,7 @@ class FindKicadCliTests(unittest.TestCase):
 
     def test_an_unversioned_path_reporting_another_major_is_refused(self):
         completed = subprocess.CompletedProcess(
-            [], 0, stdout=f"{kicad_common.KICAD_MAJOR + 1}.0.0\n")
+            [], 0, stdout=f"{sexp.KICAD_MAJOR + 1}.0.0\n")
         with mock.patch.object(kicad_common.subprocess, "run",
                                return_value=completed), \
                 self.assertRaises(SystemExit):

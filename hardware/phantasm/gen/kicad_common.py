@@ -15,10 +15,6 @@ import uuid as _uuid
 import sexp
 
 
-# The KiCad major every committed board, schematic and fab output was generated
-# with. Pinned in tools/build_pins.py, which asserts this spelling.
-KICAD_MAJOR = 10
-
 KICAD_CLI_PATTERNS = (
     r"C:\Program Files\KiCad\*\bin\kicad-cli.exe",
     r"C:\Program Files (x86)\KiCad\*\bin\kicad-cli.exe",
@@ -56,14 +52,14 @@ def find_kicad_cli():
     if env and os.path.exists(env):
         return env
     hits = [hit for pattern in KICAD_CLI_PATTERNS for hit in glob.glob(pattern)]
-    pinned = [hit for hit in hits if kicad_cli_major(hit) == KICAD_MAJOR]
+    pinned = [hit for hit in hits if kicad_cli_major(hit) == sexp.KICAD_MAJOR]
     if pinned:
         return max(pinned, key=sexp.kicad_version_key)
     if hits:
-        sys.exit(f"the fab gates are pinned to KiCad {KICAD_MAJOR}, which is not "
+        sys.exit(f"the fab gates are pinned to KiCad {sexp.KICAD_MAJOR}, which is not "
                  "installed\n"
                  f"  found: {', '.join(hits)}\n"
-                 f"  Install KiCad {KICAD_MAJOR} or set KICAD_CLI to its "
+                 f"  Install KiCad {sexp.KICAD_MAJOR} or set KICAD_CLI to its "
                  "kicad-cli.")
     return "kicad-cli"                 # assume on PATH
 

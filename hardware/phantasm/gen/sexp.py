@@ -14,6 +14,11 @@ def kicad_version_key(path):
     return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
 
 
+# The KiCad major every committed board, schematic and fab output was generated
+# with. Pinned in tools/build_pins.py, which asserts this spelling.
+KICAD_MAJOR = 10
+
+
 def kicad_data_dir_patterns(kind):
     """Stock install globs searched for a KiCad data directory, in order."""
     return [
@@ -28,7 +33,13 @@ def kicad_data_dir_patterns(kind):
 # Stock KiCad data directories (symbols, footprints, 3dmodels). Override with
 # the matching env var if installed elsewhere or on a newer/older KiCad version.
 def find_kicad_data_dir(kind, env_name):
-    """Locate a stock KiCad data directory, falling back to the bare `kind`.
+    """Locate a stock KICAD_MAJOR data directory, falling back to the bare `kind`.
+
+    An install whose path names another major is skipped: its land patterns and
+    symbol graphics differ from what the pinned kicad-cli validates, so drawing
+    from one would embed foreign geometry into a board that CLI then passes.
+    Paths carrying no version (the Unix prefixes) name no major and are taken.
+    The env override is an explicit choice and is not version-checked.
 
     The fallback is deliberately not a directory: callers probe the result with
     isdir() to skip the KiCad-dependent work rather than fail at import.
@@ -37,9 +48,10 @@ def find_kicad_data_dir(kind, env_name):
     if env and os.path.isdir(env):
         return env
     for pattern in kicad_data_dir_patterns(kind):
-        hits = glob.glob(pattern)
+        hits = [hit for hit in glob.glob(pattern)
+                if kicad_version_key(hit)[0] in (0, KICAD_MAJOR)]
         if hits:
-            return max(hits, key=kicad_version_key)   # newest version
+            return max(hits, key=kicad_version_key)   # newest minor
     return kind
 
 

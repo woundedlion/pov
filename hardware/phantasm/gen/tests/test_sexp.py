@@ -1,6 +1,8 @@
+import os
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
@@ -104,6 +106,46 @@ class ParseTests(unittest.TestCase):
     def test_truncated_list_reports_token_offset(self):
         with self.assertRaisesRegex(ValueError, r"unexpected end of input at token 5"):
             sexp.parse("(root (child)")
+
+
+class FindKicadDataDirTests(unittest.TestCase):
+    """Stock data directories must come from the same major as the pinned CLI."""
+
+    def windows_install(self, version):
+        return rf"C:\Program Files\KiCad\{version}\share\kicad\symbols"
+
+    def resolve(self, hits):
+        with mock.patch.dict(os.environ, {}, clear=True), \
+                mock.patch.object(sexp.glob, "glob",
+                                  side_effect=lambda p: hits if "Program" in p
+                                  and "x86" not in p else []):
+            return sexp.find_kicad_data_dir("symbols", "KICAD_SYMBOL_DIR")
+
+    def test_skips_an_install_of_another_major(self):
+        newer = self.windows_install(f"{sexp.KICAD_MAJOR + 1}.0")
+
+        self.assertEqual(self.resolve([newer]), "symbols")
+
+    def test_prefers_the_pinned_major_over_a_newer_install(self):
+        pinned = self.windows_install(f"{sexp.KICAD_MAJOR}.0")
+        newer = self.windows_install(f"{sexp.KICAD_MAJOR + 1}.0")
+
+        self.assertEqual(self.resolve([pinned, newer]), pinned)
+
+    def test_takes_the_newest_minor_of_the_pinned_major(self):
+        installs = [self.windows_install(f"{sexp.KICAD_MAJOR}.{minor}")
+                    for minor in (0, 3)]
+
+        self.assertEqual(self.resolve(installs), installs[1])
+
+    def test_an_unversioned_prefix_names_no_major_and_is_taken(self):
+        self.assertEqual(self.resolve(["/usr/share/kicad/symbols"]),
+                         "/usr/share/kicad/symbols")
+
+    def test_env_override_is_not_version_checked(self):
+        with mock.patch.dict(os.environ, {"KICAD_SYMBOL_DIR": str(GEN)}):
+            self.assertEqual(
+                sexp.find_kicad_data_dir("symbols", "KICAD_SYMBOL_DIR"), str(GEN))
 
 
 if __name__ == "__main__":
