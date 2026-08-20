@@ -359,13 +359,14 @@ if(NOT HS_PYTHON AND HS_REQUIRE_GENERATORS)
 endif()
 
 # The pullback manifest is the one generated artifact the suite COMPILES
-# against (tests/test_shaderball.h), so a 77-skip cannot cover a missing
-# interpreter: without the header nothing builds. Instead the manifest-derived
-# assertions compile out under HS_HAVE_PULLBACK_MANIFEST=0 and the two manifest
-# CTests go unregistered, leaving the rest of the suite runnable in a bare
-# checkout. The retirement warns at configure time, and the CI job that
-# provisions the interpreter passes -DHS_REQUIRE_GENERATORS=ON, so it cannot
-# happen there.
+# against (tests/test_shaderball.h): without the header nothing builds, so the
+# manifest-derived assertions compile out under HS_HAVE_PULLBACK_MANIFEST=0 and
+# the two manifest CTests lose the targets they run, leaving the rest of the
+# suite runnable in a bare checkout. They still register, as 77-skips over the
+# stand-in script, so a Python-less configure shrinks the pass count rather than
+# the test count -- `100% tests passed out of 76` reads exactly as green as `out
+# of 78`. The retirement warns at configure time, and the CI job that provisions
+# the interpreter passes -DHS_REQUIRE_GENERATORS=ON, so it cannot happen there.
 if(HS_PYTHON)
 target_compile_definitions(run_tests PRIVATE HS_HAVE_PULLBACK_MANIFEST=1)
 
@@ -427,10 +428,16 @@ add_test(NAME unit_pullback_capture_determinism
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pullback_capture.cmake)
 else()
 target_compile_definitions(run_tests PRIVATE HS_HAVE_PULLBACK_MANIFEST=0)
+foreach(_pullback_test IN ITEMS unit_pullback_manifest unit_pullback_capture_determinism)
+  add_test(NAME ${_pullback_test} COMMAND ${CMAKE_COMMAND}
+      -DTEST_NAME=${_pullback_test} -DSKIP_CODE=77
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/skip_without_python.cmake)
+  set_tests_properties(${_pullback_test} PROPERTIES SKIP_RETURN_CODE 77)
+endforeach()
 message(WARNING
   "No python3/python found: the pullback manifest header cannot be generated, "
-  "so unit_pullback_manifest and unit_pullback_capture_determinism are not "
-  "registered and the manifest assertions in unit_shaderball compile out. "
+  "so unit_pullback_manifest and unit_pullback_capture_determinism skip and "
+  "the manifest assertions in unit_shaderball compile out. "
   "Install an interpreter, or configure with -DHS_REQUIRE_GENERATORS=ON to "
   "make this a hard error.")
 endif()
