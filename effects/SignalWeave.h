@@ -63,7 +63,6 @@ private:
     Params value;
     value.source = {
         frequencies[index], 0.245f, complexities[index], 0.0f, 0.0f, 0.0f};
-    value.projection.pole_fade = 1.0f;
     value.projection.camera_wander = 0.8f;
     value.outer_warp.strength = strengths[index];
     value.outer_warp.speed = speeds[index];
