@@ -3520,7 +3520,7 @@ private:
         state->hue_noise_lut.data(),
         config.slots.hue_shift == HueShiftMode::NOISE &&
             config.params.color.hue_shift_amount != 0.0f};
-    if (prepared_hue_noise.active &&
+    if (prepared_hue_noise.active && color_noise != nullptr &&
         (state->hue_noise_lut_scale != config.params.color.hue_noise_scale ||
          state->hue_noise_lut_phase != look.clocks.hue_noise_phase)) {
       prepare_hue_noise_lut(prepared_hue_noise, *color_noise,
