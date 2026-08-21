@@ -33,7 +33,7 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "80b89e0d3a5718db459105f3476a91fc6432e6c8260911f835915a526aae3054";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "df89249f6c10d7dcf3d3bede05782f9dec3d34dd70de44e976f5853a7bd34762";
+      "9deda410ce3c52bbe9296dc2e2069b0afeeea5dafe8a31e0dc8dd881179a7add";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"prism-spiral",
                                                               "prism-spiral-2"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;

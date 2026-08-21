@@ -53,7 +53,7 @@ public:
       "5c161697e1e62c963d9063a933ce016bf1b94a7a9444ca3f4178379b1bd293cc";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "c79d9cae2a6848302d7bb7cac235982be3847a9aabbc8e69cf015f2703702bf4";
+      "d9f9c3ebee94b1144d9f66512a76168f9ed90a30f556a474d2d7f0ee763da5e8";
   /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "coupled-grid", "direct-grid", "double-map", "stretched-grid"};

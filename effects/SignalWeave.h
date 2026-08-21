@@ -31,7 +31,7 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "5f26a04894d3259fbd0b42f361b6a77a478e60c08ce8c2ad2bc5ddb7145e8b73";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "f8904a8ff85c3ad0b371e6dcaeea35d234decf146e1d799a53e98a9a7e712cb7";
+      "8b425be3871e90c4269fd87a572c816420429affa10aa3dfe5b389042933a502";
   static constexpr uint16_t INITIAL_PRESET_DWELL_FRAMES = 16;
   // The 7 s Phantasm slot is 112 frames at 16 fps and the effect is rebuilt each
   // visit: the initial hold plus 3 crossfade+dwell cycles must fit, or the later

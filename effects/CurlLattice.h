@@ -54,7 +54,7 @@ public:
       "34b8bb65b0b63363e0e978650a9e268db1ecf60a2a9dc5c7bbfaf0b741290c35";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "abfaaa81f8b76d5a844816916d977118da16a6fabf38f3b548879e221ebee8c0";
+      "91a1ee17d286ec14b0253a0547de71eebc7d029ab143ab2fcc108a6f648a7db0";
   /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
                                                               "dense-curl"};

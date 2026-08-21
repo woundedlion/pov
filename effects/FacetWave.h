@@ -31,7 +31,7 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "e82e4430acdb1f56776eaec87d46041041089135ebc971b0d35dbdf1b3f328d6";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "ae386b772fb2c46f749384cf309d4282d2f82cc75fe82a5dd5abf98e8fa1dcd9";
+      "7972e3ab9dbf3754dfe60e19e6b80d9aba8fd8a737978a4b7942ee64040af440";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"wave-mirror",
                                                               "cup-hue"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;

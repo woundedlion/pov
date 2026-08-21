@@ -31,7 +31,7 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "ec11e87fc4e330e78f5a67483d05de5287f9495b98512435a1d974f41ef2d273";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "990e359263891383011d53fcd0b3f46d6b3229bc0482409fd9cf762231322b2a";
+      "19a2ebad42a901e94f813bd114103542c81ac6cf4b583cec0bc2547fd8481cbe";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"mobius-grid",
                                                               "mobius-grid-2"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;

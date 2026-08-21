@@ -32,7 +32,7 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "7a1ccb3442b03530000250dc2aa248eedea4d93ad2554686c809a164f7880519";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "d36cc3eb3b8c2d32777ba3cbbede9892a298f31c90153aca0e4aec6cdfbe6c63";
+      "5123ff0f6886f1efed96b4421efab8dfa357e0bdea151089e22ae5c93083d6a6";
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
       "double-map", "open-grid", "fine-grid"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
