@@ -807,11 +807,15 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
  * @brief First tangent-basis vector at a unit vertex.
  * @details The frame's second vector is cross(normal, u), unit because normal
  *          and u are orthonormal; callers derive it rather than store it.
+ *          Crosses against +Y, swapping to +X within POLE_REFERENCE_COS of a
+ *          pole where the +Y cross collapses. The band is far wider than
+ *          least_parallel_axis()'s, which crosses against +X instead.
  * @param normal Unit vertex normal.
  * @return A unit tangent at @p normal.
  */
 HS_FLASH_INLINE inline Vector tangent_axis(const Vector &normal) {
-  const Vector axis = std::abs(normal.y) > 0.99f ? X_AXIS : Y_AXIS;
+  constexpr float POLE_REFERENCE_COS = 0.99f;
+  const Vector axis = std::abs(normal.y) > POLE_REFERENCE_COS ? X_AXIS : Y_AXIS;
   return cross(normal, axis).normalized();
 }
 
