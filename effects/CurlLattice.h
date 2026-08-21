@@ -16,6 +16,15 @@ struct CurlLatticeWhiteBox;
 } // namespace curl_lattice_tests
 } // namespace hs_test
 
+using CurlLatticeParams =
+    Pullback::Params<Pullback::LatticeSourceParams, Pullback::NoWarpParams,
+                     Pullback::NoWarpParams, Pullback::NoLensParams,
+                     Pullback::NoValueParams, Pullback::SurfaceNoiseParams>;
+using CurlLatticeSpec =
+    Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL, void,
+                   Pullback::TransferKind::NONE,
+                   Pullback::CoverageKind::PROJECTION>;
+
 /**
  * @brief Composed folded-sinusoidal lattice displaced by sphere-space curl noise.
  * @details Supplies the render pipeline and preset bank; Pullback::ComposedEffect
@@ -26,15 +35,6 @@ struct CurlLatticeWhiteBox;
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
-using CurlLatticeParams =
-    Pullback::Params<Pullback::LatticeSourceParams, Pullback::NoWarpParams,
-                     Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::NoValueParams, Pullback::SurfaceNoiseParams>;
-using CurlLatticeSpec =
-    Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL, void,
-                   Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION>;
-
 template <int W, int H>
 class CurlLattice
     : public Pullback::ComposedEffect<
