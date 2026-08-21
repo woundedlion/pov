@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Assert every tools/*_tests/ suite directory is named by a check_test_files.sh
-# line in the CI workflow.
+# Assert every Python test-suite directory in the tree is named by a
+# check_test_files.sh line in the CI workflow.
 #
 # tools/check_test_files.sh pins the file count of a suite the workflow already
 # names, which closes the direction where a test file is deleted or renamed out
-# of a glob. It says nothing about a suite the workflow never names: a new
-# tools/<x>_tests/ directory has no pin and no discover step, so it runs
-# nowhere and every job stays green. This is the guard for that direction --
-# the suite directories in the tree must all appear in a pin.
+# of a glob. It says nothing about a suite the workflow never names: a new suite
+# directory has no pin and no discover step, so it runs nowhere and every job
+# stays green. This is the guard for that direction -- the suite directories in
+# the tree must all appear in a pin.
+#
+# The suites are read off the tracked test files rather than a glob of their
+# parent directories, so one landing outside tools/*_tests -- as
+# hardware/phantasm/gen/tests already does -- is swept without a list to widen.
 #
 # usage: check_test_dir_pins.sh
 set -eu
@@ -24,16 +28,10 @@ if [ ! -f "$workflow" ]; then
   exit 2
 fi
 
-# compgen expands the glob without leaving an unmatched pattern behind as a
-# literal, like check_test_files.sh; a plain file matching the glob is not a
-# suite.
-dirs=()
-while IFS= read -r dir; do
-  [ -d "$dir" ] && dirs+=("$dir")
-done < <({ compgen -G 'tools/*_tests' || true; } | sort)
+mapfile -t dirs < <(git ls-files -- '*/test*.py' | sed 's:/[^/]*$::' | sort -u)
 
 if [ "${#dirs[@]}" -eq 0 ]; then
-  echo "::error::no tools/*_tests directories found -- the glob is broken"
+  echo "::error::no test-suite directories found -- the sweep is broken"
   exit 2
 fi
 
@@ -48,4 +46,4 @@ if [ "${#unpinned[@]}" -ne 0 ]; then
   echo "::error::no check_test_files.sh pin in $workflow for: ${unpinned[*]} -- a suite the workflow never names runs nowhere. Add a pin and a discover step."
   exit 1
 fi
-echo "$workflow pins all ${#dirs[@]} tools/*_tests suite(s)."
+echo "$workflow pins all ${#dirs[@]} test suite(s)."
