@@ -4,6 +4,10 @@ import math
 import sexp
 from kicad_common import uid, fmt
 
+#: Board revision, carried by the schematic title block, the routed board's
+#: title block (the Gerber X2 ProjectId attribute) and the bottom silkscreen.
+REVISION = "1.1"
+
 
 # ---------- transform: library local coords -> schematic screen coords ----------
 def transform(sx, sy, rot, mirror, lx, ly):
@@ -170,7 +174,7 @@ class Builder:
         out.append(f'\t(paper {sexp.quote(self.paper)})')
         out.append('\t(title_block')
         out.append(f'\t\t(title {sexp.quote(self.title)})')
-        out.append('\t\t(rev "A")')
+        out.append(f'\t\t(rev {sexp.quote(REVISION)})')
         out.append('\t)')
         # lib_symbols
         out.append('\t(lib_symbols')

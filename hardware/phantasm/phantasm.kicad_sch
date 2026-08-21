@@ -6,7 +6,7 @@
 	(paper "A3")
 	(title_block
 		(title "PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)")
-		(rev "A")
+		(rev "1.1")
 	)
 	(lib_symbols
 		(symbol "74xx:74AHCT125"
