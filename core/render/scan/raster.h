@@ -179,7 +179,8 @@ HS_NOINLINE_NOCLONE inline void check_canvas_dims(const Canvas &canvas) {
  * @param canvas Destination canvas.
  * @details A direct-raster sink writes through a cached framebuffer base; the
  * canvas double-buffers, so a stale base is the buffer the display is scanning
- * out. Compiles away for a sink without the hook.
+ * out. Compiles away for a pipeline without the hook; an erased sink was
+ * checked when its PipelineRef was built.
  */
 template <typename PipelineT>
 inline void check_pipeline_prepared(PipelineT &pipeline, Canvas &canvas) {

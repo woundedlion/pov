@@ -1377,13 +1377,6 @@ template <typename P> static consteval bool pipeline_hoistable_projection() {
     return false;
 }
 
-template <typename P> static consteval bool pipeline_direct_raster_path() {
-  if constexpr (requires { P::direct_raster_path; })
-    return P::direct_raster_path;
-  else
-    return false;
-}
-
 /**
  * @brief Conservative screen-length test: true only when the geodesic edge
  *        a->b provably spans at most SCREEN_STEP_PX on screen.

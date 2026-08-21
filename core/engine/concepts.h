@@ -274,6 +274,17 @@ struct DissolveMask {
 };
 
 /**
+ * @brief Whether P writes the framebuffer through a cached base.
+ * @tparam P Pipeline type; one without the member is not a direct-raster path.
+ */
+template <typename P> consteval bool pipeline_direct_raster_path() {
+  if constexpr (requires { P::direct_raster_path; })
+    return P::direct_raster_path;
+  else
+    return false;
+}
+
+/**
  * @brief Non-owning, type-erased handle to a rasterizer pipeline.
  * @details Forwards plot() calls (2D screen-space or 3D world-space) to the
  * wrapped object's plot() methods. Like FunctionRef, it borrows the target and
@@ -281,8 +292,13 @@ struct DissolveMask {
  * per pixel, but the scanline machine instantiates once per <W,H> instead of once
  * per (shape x shader-lambda x filter-stack), which would explode device flash /
  * wasm size across the effects' distinct shader closures and filter-stack types.
+ *
+ * Erasure also hides prepared_for() from a draw's guard, so a direct-raster sink
+ * only converts through the Canvas-taking constructor, which checks it.
  */
 class PipelineRef {
+  struct Erase {};
+
   void *ctx;
   void (*plot2d)(void *, Canvas &, float, float, const Pixel &, float, float);
   void (*plot2d_int)(void *, Canvas &, int, int, const Pixel &, float, float);
@@ -290,19 +306,7 @@ class PipelineRef {
   bool (*cull)(void *, const Vector &, const Vector &, const Basis *,
                CullEdgePredRef);
 
-public:
-  /**
-   * @brief Wraps any object exposing 2D and 3D plot() methods.
-   * @tparam T Pipeline type; excluded from being PipelineRef itself.
-   * @param t Pipeline object whose address is stored; must outlive this ref.
-   * @details Excludes PipelineRef itself (mirroring FunctionRef): without this,
-   * copying from a non-const lvalue binds this template (exact T& match) instead
-   * of the implicit copy ctor, wrapping a ref-to-a-ref — an extra plot()
-   * indirection per pixel and a dangling ctx if the source dies first.
-   */
-  template <typename T>
-    requires(!std::same_as<std::decay_t<T>, PipelineRef>)
-  PipelineRef(T &t) : ctx(std::addressof(t)) {
+  template <typename T> PipelineRef(T &t, Erase) : ctx(std::addressof(t)) {
     plot2d = [](void *pipeline, Canvas &cv, float x, float y, const Pixel &c,
                 float age, float alpha) {
       static_cast<T *>(pipeline)->plot(cv, x, y, c, age, alpha);
@@ -336,6 +340,38 @@ public:
         return pred(a, b, pb);
       }
     };
+  }
+
+public:
+  /**
+   * @brief Wraps any object exposing 2D and 3D plot() methods.
+   * @tparam T Pipeline type; excluded from being PipelineRef itself, and from
+   *         the direct-raster sinks the Canvas-taking constructor below takes.
+   * @param t Pipeline object whose address is stored; must outlive this ref.
+   * @details Excludes PipelineRef itself (mirroring FunctionRef): without this,
+   * copying from a non-const lvalue binds this template (exact T& match) instead
+   * of the implicit copy ctor, wrapping a ref-to-a-ref — an extra plot()
+   * indirection per pixel and a dangling ctx if the source dies first.
+   */
+  template <typename T>
+    requires(!std::same_as<std::decay_t<T>, PipelineRef> &&
+             !pipeline_direct_raster_path<std::decay_t<T>>())
+  PipelineRef(T &t) : PipelineRef(t, Erase{}) {}
+
+  /**
+   * @brief Erases a direct-raster sink for a draw into @p cv.
+   * @param t Sink whose address is stored; must outlive this ref.
+   * @param cv Canvas the draw writes into.
+   * @details The sink writes through a framebuffer base cached by prepare();
+   * the canvas double-buffers, so a stale base is the buffer the display is
+   * scanning out. The erased handle no longer answers prepared_for(), so the
+   * draw's own guard cannot see it — it is checked here, once per draw.
+   */
+  template <typename T>
+    requires(pipeline_direct_raster_path<std::decay_t<T>>())
+  PipelineRef(T &t, Canvas &cv) : PipelineRef(t, Erase{}) {
+    HS_CHECK(t.prepared_for(cv),
+             "direct raster pipeline not prepared for this canvas");
   }
 
   /**

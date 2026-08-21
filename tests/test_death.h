@@ -1899,6 +1899,20 @@ inline void case_scan_pipeline_not_prepared() {
 }
 
 /**
+ * @brief Death case: erasing a direct-raster sink prepared for no canvas.
+ * @details PipelineRef drops prepared_for(), so a draw taking the erased handle
+ *          cannot check the cached base; the erasure checks it instead.
+ */
+inline void case_pipeline_ref_erase_not_prepared() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas c(fx);
+  static Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  PipelineRef erased(sink, c);
+  (void)erased;
+}
+
+/**
  * @brief Death case: a face index past the vertex pool must trap.
  * @details SDF::Face reads the vertex span with operator[], which only asserts,
  *          so a stale index domain would read arbitrary memory as a Vector on
@@ -3336,6 +3350,10 @@ inline const Case *all_cases(int &n) {
        "raster.h",
        "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared "
        "for this canvas"},
+      {"pipeline_ref_erase_not_prepared", case_pipeline_ref_erase_not_prepared,
+       "concepts.h",
+       "(t.prepared_for(cv)) direct raster pipeline not prepared for this "
+       "canvas"},
       {"scan_mesh_face_index_out_of_range",
        case_scan_mesh_face_index_out_of_range, "mesh.h",
        "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
@@ -4114,9 +4132,9 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 168;
+  constexpr int DEATH_CASE_COUNT = 169;
 #else
-  constexpr int DEATH_CASE_COUNT = 167;
+  constexpr int DEATH_CASE_COUNT = 168;
 #endif
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
