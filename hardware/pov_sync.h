@@ -151,6 +151,13 @@ public:
     // mailbox burst would feed ACQUIRE's unconditional hard-snap, and a stale
     // emitter queue would resume a half-sent beacon/boundary train (spec §8.5).
     reset_runtime_state();
+    // Boot observed no wire history, so the ACQUIRE quiet-before guard has
+    // nothing to measure the first burst against and would hard-snap it.
+    // Anchoring on the seed instant makes a burst inside the first quiet window
+    // beacon data, so a board powering up mid-train cannot snap to an interior
+    // digit.
+    have_prev_burst = true;
+    prev_burst_end = now;
     if (is_master) {
       fly.force_lock();
       content_tracker.identity_known = true;
