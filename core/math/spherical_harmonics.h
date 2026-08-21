@@ -145,7 +145,7 @@ inline float spherical_harmonic(int l, int m, const Vector &p, float N) {
 
 /**
  * @brief Decode a flat harmonic index into its (l, m) pair.
- * @param idx Flat index where idx = l*l + l + m.
+ * @param idx Flat index where idx = l*l + l + m; must be non-negative.
  * @return Pair {l, m} with l = floor(sqrt(idx)) and m in [-l, l].
  * @details Seeds l from a float sqrt, then snaps it to the exact integer floor:
  * sqrtf at (or just below) a perfect square can round to l-epsilon and truncate
@@ -155,6 +155,7 @@ inline float spherical_harmonic(int l, int m, const Vector &p, float N) {
  * (a few calls per frame).
  */
 inline std::pair<int, int> decode_lm(int idx) {
+  HS_CHECK(idx >= 0, "decode_lm: flat index %d is negative", idx);
   int l = static_cast<int>(sqrtf(static_cast<float>(idx)));
   while ((l + 1) * (l + 1) <= idx)
     ++l;

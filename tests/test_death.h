@@ -2126,6 +2126,17 @@ inline void case_spherical_harmonic_order_over_degree() {
 }
 
 /**
+ * @brief Death case: a negative flat harmonic index must trap.
+ * @details sqrtf of a negative argument is NaN, and the cast of a NaN to int
+ *          is undefined, so the decoded level would be arbitrary.
+ */
+inline void case_spherical_harmonic_decode_negative_index() {
+  auto [l, m] = SHMath::decode_lm(opaque(-1));
+  if (l == 42 && m == 42)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: an infill band past the rendered domain must trap.
  * @details A south_infill wider than H puts every row at full longitude
  *          resolution, multiplying sample_count() by the spacing; the arena
@@ -3412,6 +3423,9 @@ inline const Case *all_cases(int &n) {
        case_spherical_harmonic_order_over_degree, "spherical_harmonics.h",
        "(l >= 0 && abs_m <= l) spherical harmonic normalization: order 3 is "
        "outside [-2, 2]"},
+      {"spherical_harmonic_decode_negative_index",
+       case_spherical_harmonic_decode_negative_index, "spherical_harmonics.h",
+       "(idx >= 0) decode_lm: flat index -1 is negative"},
       {"spherical_field_infill_over_domain",
        case_spherical_field_infill_over_domain, "spherical_field.h",
        "(north_infill >= 0 && south_infill >= 0 && north_infill + south_infill "
