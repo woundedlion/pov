@@ -349,8 +349,9 @@ private:
 
       {
         HS_PROFILE(hf_trail_raster);
-        Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader,
-                              {.edge_flags = edge_flags});
+        Plot::rasterize<W, H>(
+            trail_pipeline, canvas, points, shader,
+            {.edge_flags = edge_flags, .edge_flags_len = points.size() - 1});
       }
     }
   }

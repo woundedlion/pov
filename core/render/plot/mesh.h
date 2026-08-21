@@ -135,8 +135,9 @@ struct Mesh {
         } else if (!gate_trail_edges<W, H>(pipeline, cr, xc, points, bits)) {
           return;
         }
-        rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                        {.edge_flags = bits});
+        rasterize<W, H>(
+            pipeline, canvas, points, fragment_shader,
+            {.edge_flags = bits, .edge_flags_len = points.size() - 1});
         return;
       }
     }
