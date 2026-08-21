@@ -628,9 +628,11 @@ template <typename B> struct CoveragePolicyFor<CoverageKind::EDGE_FADE, B> {
  * set and `Has*Noise` flags request. Optional members, detected by `requires`
  * and defaulted when absent, are `preset_params` (absent, every preset takes
  * `initial_params`), `ANIMATED_MOBIUS`, `USES_CENTRAL_MERIDIAN` and an
- * `after_composed_init()` hook. An effect wanting a different shade emission shadows shade() with the
- * same body under its own attribute. A surface-noise family places its
- * surface stage out of line in flash.
+ * `after_composed_init()` hook. An effect wanting a different shade emission
+ * shadows shade() with the same body under its own attribute:
+ * `HS_HOT_FLASH_MEMBER` and `HS_FLASH_MEMBER` both take the pipeline body out
+ * of line into a flash section, and the cold one also compiles it for size. A
+ * surface-noise family places its surface stage out of line in flash.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam Derived The effect class deriving from this base.
