@@ -34,7 +34,11 @@ public:
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "hex-twin-wave", "hex-twin-wave-alt"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  // The 6 s Phantasm slot is 96 frames at 16 fps and the effect is rebuilt each
+  // visit: 2 dwells plus 1 crossfade must fit, or the later presets never
+  // render.
+  static constexpr Segue::Lerp PRESET_SEGUE{12, ease_in_out_sin};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 42;
   static constexpr bool ANIMATED_PROJECTION = true;
 
   static constexpr Params initial_params() {

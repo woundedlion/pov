@@ -3511,6 +3511,9 @@ inline void test_mobius_grid_circular_animation() {
 
   MobiusParams previous = resumed;
   const size_t initial_preset = effect.getPresetIndex();
+  // The preset rotates several times over this window, so sample the index
+  // every frame rather than only at the end.
+  bool preset_rotated = false;
   for (int frame = 0; frame < 1400; ++frame) {
     effect.draw_frame();
     effect.advance_display();
@@ -3522,8 +3525,9 @@ inline void test_mobius_grid_circular_animation() {
     const float delta_im = current.b.im - previous.b.im;
     HS_EXPECT_TRUE(delta_re * delta_re + delta_im * delta_im < 0.02f);
     previous = current;
+    preset_rotated |= effect.getPresetIndex() != initial_preset;
   }
-  HS_EXPECT_NE(effect.getPresetIndex(), initial_preset);
+  HS_EXPECT_TRUE(preset_rotated);
 }
 
 /** @brief Polyhedral lenses expose controls at their chamber scale. */

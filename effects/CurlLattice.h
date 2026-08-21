@@ -60,8 +60,12 @@ public:
                                                               "dense-curl"};
   /// Bumped whenever the `Params` layout changes, rejecting stale snapshots.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  // The 13 s Phantasm slot is 208 frames at 16 fps and the effect is rebuilt
+  // each visit: 2 dwells plus 1 crossfade must fit, or the later presets never
+  // render.
+  static constexpr Segue::Lerp PRESET_SEGUE{24, ease_in_out_sin};
   /// Frames a preset holds before the runtime begins the next transition.
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 92;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool USES_CENTRAL_MERIDIAN = true;
   static constexpr int32_t SURFACE_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
