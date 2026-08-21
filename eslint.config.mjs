@@ -30,10 +30,8 @@ export default [
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
-    // scripts/count_assertions.mjs wraps node:assert's function properties; the
-    // callable default export is a binding inside the builtin and cannot be
-    // wrapped, so `assert(x)` asserts uncounted and sits below its file's
-    // committed floor, deletable without tripping the ratchet.
+    // scripts/count_assertions.mjs cannot wrap node:assert's callable default
+    // export, so `assert(x)` is invisible to the nonempty-file check.
     files: ['scripts/*.test.mjs'],
     rules: {
       'no-restricted-syntax': ['error', {

@@ -3961,7 +3961,7 @@ inline void report_unrunnable(const char *why, int rc) {
   } else {
     // Count a skip — never a pass — so a green local run cannot be mistaken for
     // trap coverage; the banner is unmistakable and CI is the hard gate. It is
-    // a whole-suite skip: no case ran, so the module's floor cannot apply.
+    // a whole-suite skip so the module's zero-assertion guard does not fire.
     hs_test::skip_suite();
     std::printf("  [SKIPPED] death tests: %s (rc=%d) — 0 trap cases executed; "
                 "CI is the hard gate\n",

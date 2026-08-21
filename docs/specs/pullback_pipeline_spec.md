@@ -1179,7 +1179,7 @@ may change; byte and placement changes require attribution.
 ### 12.1 Core unit tests
 
 `tests/test_pullback.h` is created in Phase A and wired into the ordinary
-native test module/CMake/CI assertion accounting in the same change.
+native test module and CMake/CI roster in the same change.
 
 #### 12.1.1 Phase A composition tests
 

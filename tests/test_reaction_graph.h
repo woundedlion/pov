@@ -156,11 +156,7 @@ inline void test_table_shape_matches_constants() {
 // ---------------------------------------------------------------------------
 // Table structural invariants
 //
-// Each case walks all RD_N*RD_K slots and reports through a first-offending-slot
-// capture rather than a per-slot assertion: a per-slot HS_EXPECT would put
-// ~300k assertions into the module's floor and leave the floor gate blind to
-// every other case being deleted. The captured slot index is the same
-// diagnostic the per-slot form printed.
+// Each case walks all RD_N*RD_K slots and captures the first offending slot.
 // ---------------------------------------------------------------------------
 
 /**

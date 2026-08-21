@@ -187,10 +187,8 @@ inline void test_mobius_known_rotation() {
  *          is independent of the homogeneous formulation under test. Points
  *          inside the pole cap are excluded from the value comparison — there
  *          the oracle's own quotient is ill-conditioned — but their image is
- *          still required to be finite and unit. The 4000 draws report through
- *          worst-error accumulators rather than per-draw assertions: per-draw
- *          HS_EXPECTs would put ~20k assertions into the module's floor and
- *          leave the floor gate blind to every other case being deleted.
+ *          still required to be finite and unit. The 4000 draws aggregate into
+ *          worst-error accumulators.
  */
 inline void test_mobius_matches_double_precision_oracle() {
   hs::random().seed(20260720);
@@ -1422,8 +1420,7 @@ inline void test_bump_field_envelope_gates() {
  * @details field_bound() sizes the displacement culls, so a bump that pushes
  *          past its bound is culled while still displacing — the same safety
  *          role noise_product_field's bound is swept for. The 49,152 samples
- *          report through violation counters rather than per-sample assertions,
- *          which would swamp the module's assertion floor.
+ *          aggregate into violation counters.
  */
 inline void test_bump_field_bound_is_conservative() {
   hs::random().seed(20260803);
@@ -1519,10 +1516,8 @@ inline void test_noise_product_field_parity() {
  * @details field_bound() = |amplitude| holds only if the generator's own output
  * stays within [-1, 1] on both octaves, so the sweep measures that claim
  * directly rather than trusting it. The bound sizes displacement culls; a point
- * outside it would be culled while still displaced. The 49,152 samples report
- * through violation counters rather than per-sample assertions: a per-sample
- * HS_EXPECT would put ~200k assertions into the module's floor and leave the
- * floor gate blind to every other case in the module being deleted.
+ * outside it would be culled while still displaced. The 49,152 samples
+ * aggregate into violation counters.
  */
 inline void test_noise_product_field_bound_is_conservative() {
   hs::random().seed(20260801);

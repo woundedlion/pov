@@ -3943,9 +3943,7 @@ inline ChainPeaks replay_build_chain(const char *name,
         // neither the palette correspondence nor the closing handoff below is
         // meaningful for it.
       } else if (k > 0 && !gated[k]) {
-        // First-offending face rather than a per-face assertion: the replay
-        // sweeps tens of thousands of faces, which would swamp the module's
-        // assertion floor.
+        // Report the first offending face across the replay's full face sweep.
         int first_broken_carry = -1;
         for (size_t f = 0; f < prev_faces; ++f)
           if ((int)landing.from_palette[f] != (int)carried_to[f] &&
