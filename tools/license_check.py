@@ -26,7 +26,7 @@ MIT_GRANT = "Permission is hereby granted"
 MIT_TITLE = "MIT License"
 THIRD_PARTY = frozenset({MIT_GRANT, MIT_TITLE})
 
-SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cpp", ".ino")
+SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cc", ".cpp", ".inl", ".ino")
 
 # Bytes of a file the header must appear within. Generated files name their
 # generator right below the notice, so this is a few lines rather than one.
