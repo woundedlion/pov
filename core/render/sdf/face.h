@@ -311,8 +311,8 @@ __attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
  * buffer must outlive the Face AND back no other live Face: building a second
  * Face over the same buffer silently retargets the first one's geometry. Two
  * Faces in one CSG composition (SDF::Union<Face, Face>) therefore need two
- * buffers. Debug builds stamp the claim and distance() traps on a retargeted
- * Face; the stamp and its check are compiled out under NDEBUG.
+ * buffers. Every build stamps the claim, and get_vertical_bounds() traps on a
+ * retargeted Face once per draw, ahead of any probe.
  */
 struct Face {
   Vector center; /**< Normalized face centroid (projection axis). */

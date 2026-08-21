@@ -220,7 +220,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
   X("presets", 9, hs_test::presets_tests::run_presets_tests, 43)               \
   X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
   X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
-  X("death", 173, hs_test::death_tests::run_death_tests, 259)
+  X("death", 174, hs_test::death_tests::run_death_tests, 259)
 
 // case_sites is consumed by tests/check_case_calls.cmake, not by the runtime.
 #define HS_TEST_MODULE_ENTRY(name, case_sites, fn, min_assertions)             \

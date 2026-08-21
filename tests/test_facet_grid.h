@@ -47,10 +47,11 @@ struct FacetGridWhiteBox {
         frame.params.source.pattern_freq,   frame.params.source.speed,
         frame.params.source.complexity,     frame.params.source.pattern_mix,
         frame.params.source.secondary_rate, frame.params.source.angle_rate};
-    params.projection = {
-        frame.params.projection.singularity_fade, frame.params.projection.spin_rate,
-        frame.params.projection.wander, frame.params.outer_camera.wander,
-        frame.params.projection.central_meridian};
+    params.projection = {frame.params.projection.singularity_fade,
+                         frame.params.projection.spin_rate,
+                         frame.params.projection.wander,
+                         frame.params.outer_camera.wander,
+                         frame.params.projection.central_meridian};
     params.inner_warp = {
         frame.params.warp.inner.speed,    frame.params.warp.inner.rotation,
         frame.params.warp.inner.cell_x,   frame.params.warp.inner.cell_y,
@@ -110,7 +111,8 @@ inline void test_facet_grid_identity_and_presets() {
   HS_EXPECT_TRUE(FX::EFFECT_ID == "facet-grid");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{4});
   HS_EXPECT_EQ(sizeof(WB::Params), 31 * sizeof(float));
-  HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderWorkbenchWB::FrameState));
+  HS_EXPECT_TRUE(sizeof(WB::FrameState) <
+                 sizeof(ShaderWorkbenchWB::FrameState));
   HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "coupled-grid");
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "direct-grid");
   HS_EXPECT_TRUE(FX::PRESET_IDS[2] == "double-map");
@@ -280,9 +282,10 @@ inline void test_facet_grid_shader_workbench_equivalence() {
         const float longitude = longitude_step * (TWO_PI_F / 37.0f);
         const Vector view(radius * cosf(longitude), sinf(latitude),
                           radius * sinf(longitude));
-        expect_color_exact(WB::shade(view, compiled),
-                           ShaderWorkbenchWB::stereographic_dodecahedral_grid_shade(
-                               view, reference));
+        expect_color_exact(
+            WB::shade(view, compiled),
+            ShaderWorkbenchWB::stereographic_dodecahedral_grid_shade(
+                view, reference));
       }
     }
   }
