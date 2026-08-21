@@ -153,6 +153,10 @@ Pullback::Coverage::*              coverage policies
 Pullback::Color::*                 colorization policies and kernels
 ```
 
+That list is this revision's proposed vocabulary. `Pullback::StageKind` and the
+per-boundary carriers in it did not ship; the shipped spelling lives in
+`core/render/pullback/contract.h`. See §5.1 and §5.2.
+
 `pullback.h` may include headers from `core/math`, `core/color`, and the
 minimal engine concept/profiling headers it needs. It shall not include an
 `effects/` header, refer to `ShaderBall`, or require the effect registry.
@@ -176,6 +180,11 @@ kernel in core and ShaderBall after the final phase.
 ## 5. Standard data model
 
 ### 5.1 Stage roles
+
+Superseded, and retained as the design record the ranked chain was derived
+from: the shipped composition core defines no `Pullback::StageKind`, and the
+fixed six-role sequence below is replaced by the ranked family chain in
+[pullback_stage_families_spec.md](pullback_stage_families_spec.md) §3.
 
 Core standardizes this evaluation order:
 
