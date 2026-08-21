@@ -630,14 +630,17 @@ enum class EndRegime {
 /**
  * @brief Whether a simple-registry node's generator ends in relax_baked.
  * @param node Simple-registry index.
- * @return True for the two nodes carrying a flash bake.
+ * @return True for the nodes carrying a flash bake.
  * @details Their registry mesh is a table of float bits captured from a host
  *   IEEE relax(), while the leg runs relax() live under the build's own float
  *   semantics — so the two agree bitwise only on a build whose arithmetic
  *   matches the bake's, not on the -ffast-math shipping targets.
  */
 inline bool is_relax_baked_node(uint8_t node) {
-  return node == ConwayGraph::SNUB_DODECAHEDRON ||
+  return node == ConwayGraph::TRUNCATED_CUBOCTAHEDRON ||
+         node == ConwayGraph::SNUB_CUBE ||
+         node == ConwayGraph::RHOMBICOSIDODECAHEDRON ||
+         node == ConwayGraph::SNUB_DODECAHEDRON ||
          node == ConwayGraph::TRUNCATED_ICOSIDODECAHEDRON;
 }
 
