@@ -87,9 +87,10 @@ jobs:
       # needs this job. No --checkout: the `tree daydream` fence is drawn from a
       # sibling repository whose HEAD moves independently, and blocking a docs
       # deploy on that would couple this workflow to another repo's churn.
-      # ci.yml gates that fence unfiltered.
+      # ci.yml gates that fence unfiltered, so the skip is named here rather
+      # than taken by default, which the checker fails.
       - name: Validate tracked Markdown
-        run: python tools/docs_check.py
+        run: python tools/docs_check.py --skip-checkout daydream
 
       # Pin Doxygen to an exact release binary (apt's version trails and lacks
       # newer config tags this Doxyfile uses). Graphviz comes from the pinned

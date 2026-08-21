@@ -352,23 +352,50 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIsNone(issue)
         self.assertEqual(used, {"scripts/run-tests.mjs"})
 
-    def test_skipped_checkout_tree_warns_and_still_passes(self):
+    @staticmethod
+    def _checkout_fence_repository(root: Path) -> None:
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        (root / "README.md").write_text(
+            "<!-- docs-check: tree daydream -->\n"
+            "```\n"
+            "└── ghost.js                    Stale row\n"
+            "```\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(root), "add", "README.md"],
+                       check=True)
+
+    def test_unacknowledged_checkout_tree_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
-            (root / "README.md").write_text(
-                "<!-- docs-check: tree daydream -->\n"
-                "```\n"
-                "└── ghost.js                    Stale row\n"
-                "```\n", encoding="utf-8")
-            subprocess.run(["git", "-C", str(root), "add", "README.md"],
-                           check=True)
+            self._checkout_fence_repository(root)
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
                 status = dc.main(["--root", str(root)])
+        self.assertEqual(status, 1)
+        self.assertIn("::error::", output.getvalue())
+        self.assertIn("daydream", output.getvalue())
+
+    def test_acknowledged_checkout_tree_passes_and_says_so(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._checkout_fence_repository(root)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                status = dc.main(["--root", str(root),
+                                  "--skip-checkout", "daydream"])
         self.assertEqual(status, 0)
         self.assertIn("::warning::", output.getvalue())
-        self.assertIn("daydream", output.getvalue())
+        self.assertIn("NOT validated: daydream", output.getvalue())
+
+    def test_missing_checkout_root_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._checkout_fence_repository(root)
+            absent = root / "no-such-checkout"
+            with contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as raised:
+                    dc.main(["--root", str(root),
+                             "--checkout", f"daydream={absent}"])
+        self.assertEqual(raised.exception.code, 2)
 
     def test_effect_roster_reads_the_macro_continuation(self):
         source = ("#define HS_EFFECT_COUNT_ADD(name) +1\n"

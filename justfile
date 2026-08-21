@@ -101,12 +101,13 @@ teensy-warnings:
 # The README's `tree daydream` fence draws the sibling checkout's tracked tree;
 # docs_check.py can only validate it against a --checkout root (ci.yml checks the
 # sibling out for exactly that). Point it at ../daydream when that checkout is
-# there, so a local run gates the same claim CI does; without it the checker
-# warns and leaves the fence unvalidated. path_exists resolves against the
-# justfile directory, so the recipe works from any working directory.
+# there, so a local run gates the same claim CI does; without it the fence is
+# accepted unvalidated, which the checker requires be asked for explicitly.
+# path_exists resolves against the justfile directory, so the recipe works from
+# any working directory.
 daydream_checkout := if path_exists("../daydream") == "true" {
     "--checkout daydream=../daydream"
-} else { "" }
+} else { "--skip-checkout daydream" }
 
 # Validate tracked Markdown using the same commands as the ci.yml docs-markdown job.
 docs-check:
