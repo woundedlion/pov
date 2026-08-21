@@ -41,7 +41,7 @@ struct EffectConfig {
   bool persist = false; /**< Copy previous frame forward (persists_pixels). */
   bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
   bool reads_outside_band =
-      false; /**< Clear pixels outside the display band. */
+      false; /**< Frame generation samples pixels outside the display band. */
   /**
    * @brief Render-bound expansion the effect's filters need, in pixels
    *        (ClipRegion::margin). Raised to the ClipRegion default when lower.
