@@ -415,7 +415,7 @@ add_executable(pullback_manifest_check
   ${PULLBACK_MANIFEST_HEADER})
 add_dependencies(pullback_manifest_check pullback_manifest_header)
 target_include_directories(pullback_manifest_check PRIVATE
-                           ${CMAKE_CURRENT_BINARY_DIR})
+                           ${CMAKE_CURRENT_BINARY_DIR} ${HS_ROOT})
 _hs_warnings(pullback_manifest_check)
 _hs_sanitize(pullback_manifest_check)
 add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
