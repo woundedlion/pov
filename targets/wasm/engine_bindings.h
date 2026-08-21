@@ -273,8 +273,6 @@ public:
              "the first HS_EFFECT_LIST entry must be registered and buildable "
              "at the first HS_RESOLUTIONS row");
 
-    // Last: a bootstrap trap the JS caller catches must not leave the singleton
-    // flag latched against every later construction.
     engine_alive = true;
   }
 
