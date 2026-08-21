@@ -6068,16 +6068,16 @@ struct IslamicBuildProbe {
 /** Whole-solid generator of the needle-ending recipe. */
 inline PolyMesh generate_needle_recipe_solid(Arena &a, Arena &b) {
   return Solids::build_recipe(
-      Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_RECIPE, a, b);
+      Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE, a, b);
 }
 
 /** The needle-ending recipe as a spawnable entry. It is not in
  * islamic_registry, so the arena gate below builds it from the recipe constant
  * rather than finding it in the roster. */
 inline constexpr Solids::Entry NEEDLE_ENTRY = {
-    "truncatedIcosahedron_ambo_relax100_hk54_needle",
-    generate_needle_recipe_solid, Solids::Category::Complex,
-    &Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_RECIPE};
+    "truncatedIcosahedron_ambo_relax_hk54_needle", generate_needle_recipe_solid,
+    Solids::Category::Complex,
+    &Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE};
 
 /**
  * @brief Verifies the first recipe seed uses the Sprite envelope's 16-frame

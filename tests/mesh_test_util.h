@@ -37,7 +37,7 @@ inline void build_solid(PolyMesh &mesh, Arena &arena) {
 /**
  * @brief Builds the seed of the needle recipe's gated swaps: the ambo /
  *        relax(100) / hankin(54 deg) prefix of
- *        Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_STEPS.
+ *        Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS.
  * @param a Output arena for the built mesh.
  * @param b Scratch arena for the intermediate meshes.
  * @return The hankin(54 deg) arrival, allocated in @p a.

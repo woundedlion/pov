@@ -1009,7 +1009,7 @@ inline void test_build_chain_provenance_ambiguity() {
 
 // ---------------------------------------------------------------------------
 // Needle gated-swap chain (opchain_morph_spec section 3.3): the
-// truncatedIcosahedron_ambo_relax100_hk54_needle recipe ends in needle, which
+// truncatedIcosahedron_ambo_relax_hk54_needle recipe ends in needle, which
 // expand_to_primitives lowers to a DUAL then a KIS gated swap
 // (core/mesh/recipe.h). No shipping recipe runs dual or kis on a hankin mesh,
 // so this pins that both partition ops land a well-formed closed manifold on
