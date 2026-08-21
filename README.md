@@ -1814,7 +1814,7 @@ The top arm's physical LED ordering is reversed (LED 0 at the tip, descending in
 | S (total pixels) | 40 |
 | RPM | 480 |
 | Column interval | ~1302 µs (= 125 ms / 96 columns) |
-| ISR duration | ~20 µs |
+| ISR duration | ~20 µs on the DMA path (`holosphere_dma`, which packs the column and hands it to an async transfer). The shipping `holosphere` image takes the FastLED branch instead, where a blocking `FastLED.show()` clocks 40×24 bits at the configured 6 MHz — ~160 µs, and ~320 µs when `strobe_columns()` blanks straight after it |
 
 #### Multi-Teensy Segmented POV Driver (`pov_segmented.h`)
 
