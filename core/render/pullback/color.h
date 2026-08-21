@@ -388,18 +388,22 @@ apply_generated_palette(const FieldSample &sample,
   return color;
 }
 
+/** @brief Approximation bounds of the generated-palette colorizer, shared by
+    the policy and the chain operator. */
+inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
+    {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
+     7000.0f, "channel code"},
+    {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN, 256.0f,
+     "channel code"},
+    {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
+     5400.0f, "channel code"},
+}};
+
 template <typename State> struct GeneratedPalette : ApproximationDefaults {
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
-  static constexpr std::array<ApproximationMetric, 3> METRICS{{
-      {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
-       7000.0f, "channel code"},
-      {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
-       256.0f, "channel code"},
-      {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
-       5400.0f, "channel code"},
-  }};
+  static constexpr auto METRICS = GENERATED_PALETTE_METRICS;
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
