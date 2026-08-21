@@ -453,7 +453,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── shader_workbench_cli.mjs Command-line validator for shader workbench documents
 │   ├── shader_workbench.test.mjs Node contract tests for the shader workbench
 │   ├── generate_promoted_shader_documents.mjs Generates canonical promoted-effect documents
-│   ├── engine_catalog.json     Operator catalog behind chain validation (daydream mirror)
+│   ├── engine_catalog.json     Operator catalog (wasm32 ABI) behind chain validation (daydream mirror)
 │   ├── sha256.mjs              Shared SHA-256 implementation for shader documents
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
 │   ├── wasm_smoke_predicates.mjs Module-free smoke decisions: dark band, stack creep budget, param zip
