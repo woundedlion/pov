@@ -30,7 +30,7 @@ enum class FieldCurve : uint8_t {
 enum class FieldGate : uint8_t {
   ALWAYS,
   ANIMATED_PROJECTION, /**< Only when the effect animates its projection. */
-  CENTRAL_MERIDIAN /**< Only when the effect declares USES_CENTRAL_MERIDIAN. */
+  CENTRAL_MERIDIAN     /**< Only when the effect's projection reads it. */
 };
 
 /**

@@ -126,10 +126,7 @@ template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
   case Pullback::FieldGate::ANIMATED_PROJECTION:
     return FX::ANIMATED_PROJECTION;
   case Pullback::FieldGate::CENTRAL_MERIDIAN:
-    if constexpr (requires { FX::USES_CENTRAL_MERIDIAN; })
-      return FX::USES_CENTRAL_MERIDIAN;
-    else
-      return false;
+    return Pullback::uses_central_meridian(FX::Spec::PROJECTION);
   }
   return false;
 }
