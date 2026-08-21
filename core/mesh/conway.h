@@ -918,10 +918,12 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
         uint16_t k1 = std::min(vi, vj);
         uint16_t k2 = std::max(vi, vj);
 
-        Vector new_u =
-            mesh.vertices[k1] + (mesh.vertices[k2] - mesh.vertices[k1]) * t;
-        Vector new_v =
-            mesh.vertices[k2] + (mesh.vertices[k1] - mesh.vertices[k2]) * t;
+        Vector new_u = corner_or(
+            mesh.vertices[k1] + (mesh.vertices[k2] - mesh.vertices[k1]) * t,
+            mesh.vertices[k1]);
+        Vector new_v = corner_or(
+            mesh.vertices[k2] + (mesh.vertices[k1] - mesh.vertices[k2]) * t,
+            mesh.vertices[k2]);
 
         out_mesh.vertices.push_back(new_u);
         uint16_t idx_u = narrow_index(out_mesh.vertices.size() - 1);
