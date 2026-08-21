@@ -47,7 +47,10 @@ using PassFn3D =
  * destination pixel, erasing anything already plotted.
  * `emits_nonunit_world` /
  * `requires_unit_world_input`: a non-unit-emitting world stage must not precede
- * a unit-assuming one. `crosses_segments`: output can move between worker
+ * a unit-assuming one. `emits_pixel_centers` / `requires_subpixel_input`: a
+ * screen stage that rounds its taps to pixel centers must not precede one whose
+ * whole job is the sub-pixel fraction, which the rounding would make an exact
+ * identity. `crosses_segments`: output can move between worker
  * segment bands, so the effect must render the full canvas. `reads_outside_band`:
  * the stage samples framebuffer pixels outside the display band, so stale pixels
  * outside that band must also be cleared. Both default to `has_history`
@@ -71,6 +74,8 @@ template <bool Is2d, bool HasHistory> struct FilterTraits {
   static constexpr bool terminal_replaces = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
+  static constexpr bool emits_pixel_centers = false;
+  static constexpr bool requires_subpixel_input = false;
   static constexpr bool crosses_segments = has_history;
   static constexpr bool reads_outside_band = has_history;
   static constexpr bool world_transform_is_identity = is_2d;
@@ -164,6 +169,8 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool terminal_replaces = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
+  static constexpr bool emits_pixel_centers = false;
+  static constexpr bool requires_subpixel_input = false;
   static constexpr bool crosses_segments = false;
   static constexpr bool reads_outside_band = false;
   static constexpr bool world_transform_is_identity = true;
@@ -373,6 +380,10 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
       Head::emits_nonunit_world || Next::emits_nonunit_world;
   static constexpr bool requires_unit_world_input =
       Head::requires_unit_world_input || Next::requires_unit_world_input;
+  static constexpr bool emits_pixel_centers =
+      Head::emits_pixel_centers || Next::emits_pixel_centers;
+  static constexpr bool requires_subpixel_input =
+      Head::requires_subpixel_input || Next::requires_subpixel_input;
   static constexpr bool world_transform_is_identity =
       Head::world_transform_is_identity && Next::world_transform_is_identity;
 
@@ -597,6 +608,13 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
       Head::domain_rank <= Next::domain_rank,
       "Filter ordering: filter domains must be non-decreasing (World, then "
       "Screen, then Pixel). Reorder Pixel::* stages after Screen::* stages.");
+
+  static_assert(
+      !Head::emits_pixel_centers || (... && !Tail::requires_subpixel_input),
+      "Filter ordering: a screen stage that rounds its taps to pixel centers "
+      "(Screen::Blur) must not precede one that reads the sub-pixel fraction "
+      "(Screen::AntiAlias) — the rounding makes that stage an exact identity. "
+      "Reorder so the sub-pixel stage runs first.");
 
   static_assert(
       !Head::emits_nonunit_world || (... && !Tail::requires_unit_world_input),
