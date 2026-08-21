@@ -1103,8 +1103,8 @@ inline void case_mesh_compile_face_span_over_16bit() {
 }
 
 /**
- * @brief Death case: update_hankin rejects retained topology from a pattern
- *        with the same face count but a different flat index count.
+ * @brief Death case: update_hankin rejects a retained topology that no
+ *        classification of this pattern's output ever produced.
  * @details The topology array survives an angle re-solve on purpose, so a mesh
  *          pointed at a new pattern would otherwise carry class ids that no
  *          longer match the faces written into it.
@@ -1124,11 +1124,37 @@ inline void case_update_hankin_stale_topology() {
   mesh.topology.bind(geom, compiled.face_counts.size());
   for (size_t i = 0; i < compiled.face_counts.size(); ++i)
     mesh.topology.push_back(opaque<uint16_t>(0));
-  const size_t stale_indices = compiled.faces.size() - 1;
-  mesh.faces.bind(geom, stale_indices);
-  for (size_t i = 0; i < stale_indices; ++i)
-    mesh.faces.push_back(opaque<uint16_t>(0));
   MeshOps::update_hankin(compiled, mesh, geom, opaque(0.0f));
+  if (mesh.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: update_hankin rejects retained topology from a pattern
+ *        whose census matches but whose connectivity does not.
+ * @details Cube- and octahedron-seeded patterns agree on face, index and vertex
+ *          counts, so only the topology key separates them.
+ */
+inline void case_update_hankin_dual_seed_topology() {
+  static uint8_t geom_buf[192 * 1024];
+  static uint8_t scratch_buf[128 * 1024];
+  Arena geom(geom_buf, sizeof(geom_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, geom);
+  CompiledHankin cube_pattern;
+  MeshOps::compile_hankin(cube, cube_pattern, geom, scratch);
+
+  MeshState mesh;
+  MeshOps::update_hankin(cube_pattern, mesh, geom, opaque(0.0f));
+  MeshOps::classify_faces_by_topology(mesh, scratch, scratch, geom);
+
+  PolyMesh octa;
+  build_solid<Solids::Octahedron>(octa, geom);
+  CompiledHankin octa_pattern;
+  MeshOps::compile_hankin(octa, octa_pattern, geom, scratch);
+  MeshOps::update_hankin(octa_pattern, mesh, geom, opaque(0.0f));
   if (mesh.num_faces() == opaque<size_t>(0x7fff))
     std::printf("x");
 }
@@ -3229,9 +3255,13 @@ inline const Case *all_cases(int &n) {
        "16-bit index range"},
       {"update_hankin_stale_topology", case_update_hankin_stale_topology,
        "hankin.h",
-       "(out_mesh.topology.size() == 0 || (out_mesh.topology.size() == "
-       "compiled.face_counts.size() && out_mesh.faces.size() == "
-       "compiled.faces.size())) update_hankin: reused out_mesh carries "
+       "(out_mesh.topology.size() == 0 || out_mesh.topology_key == "
+       "compiled.topology_key) update_hankin: reused out_mesh carries "
+       "a topology from a different compiled pattern (clear it first)"},
+      {"update_hankin_dual_seed_topology",
+       case_update_hankin_dual_seed_topology, "hankin.h",
+       "(out_mesh.topology.size() == 0 || out_mesh.topology_key == "
+       "compiled.topology_key) update_hankin: reused out_mesh carries "
        "a topology from a different compiled pattern (clear it first)"},
       {"hankin_clone_aliases_dst", case_hankin_clone_aliases_dst, "hankin.h",
        "(&src != &dst) CompiledHankin::clone src must not alias dst"},

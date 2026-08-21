@@ -33,6 +33,11 @@ struct PolyMesh {
    * operator's output arrives with this array empty and the caller reclassifies.
    */
   ArenaVector<uint16_t> topology;
+  /**
+   * @brief MeshOps::connectivity_key of the faces @ref topology was classified
+   * for; 0 until classified.
+   */
+  uint32_t topology_key = 0;
 
   /**
    * @brief Constructs an empty mesh with no allocated storage.
@@ -51,6 +56,7 @@ struct PolyMesh {
     face_counts.clear();
     faces.clear();
     topology.clear();
+    topology_key = 0;
   }
 
   /**
@@ -657,6 +663,7 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
   copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
 
   copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
+  dst.topology_key = src.topology_key;
 }
 
 /**
@@ -692,6 +699,29 @@ static inline uint32_t face_topology_base_hash(int count,
     for (int k = 0; k < count; ++k)
       hash_combine(hash, static_cast<uint32_t>(sorted_angles[k]));
   return fmix32(hash);
+}
+
+/**
+ * @brief Hashes a mesh's face connectivity into a single identifying key.
+ * @param face_counts Per-face vertex counts.
+ * @param F Face count.
+ * @param faces Flat per-face vertex indices.
+ * @param I Flat index count.
+ * @return Nonzero key over the whole connectivity; 0 is reserved for "unkeyed".
+ * @details Every count and index in order: census figures alone do not identify
+ * a topology, since dual seeds agree on all of them.
+ */
+static inline uint32_t connectivity_key(const uint8_t *face_counts, size_t F,
+                                        const uint16_t *faces, size_t I) {
+  uint32_t hash = 0x9e3779b9;
+  hash_combine(hash, static_cast<uint32_t>(F));
+  hash_combine(hash, static_cast<uint32_t>(I));
+  for (size_t i = 0; i < F; ++i)
+    hash_combine(hash, face_counts[i]);
+  for (size_t i = 0; i < I; ++i)
+    hash_combine(hash, faces[i]);
+  hash = fmix32(hash);
+  return hash == 0 ? 1u : hash;
 }
 
 /** @brief Folds neighboring face hashes into a face's classifier hash. */
@@ -731,6 +761,9 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   // bind()'s stale-binding contract if a different arena is passed while
   // capacity happens to suffice.
   mesh.topology.bind(persistent, F);
+  mesh.topology_key =
+      connectivity_key(mesh.get_face_counts_data(), F, mesh.get_faces_data(),
+                       mesh.get_faces_size());
   // A face-less mesh has nothing to classify, and the half-edge and node
   // allocations below reject zero-size requests.
   if (F == 0)
