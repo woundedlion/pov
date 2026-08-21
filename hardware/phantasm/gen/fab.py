@@ -129,12 +129,14 @@ class UploadPackageError(ValueError):
 
 
 def zip_members(names):
-    """Sorted upload-zip members, rejecting any artifact the allowlist drops.
+    """Sorted upload-zip members; every ZIP_EXT extension present, no others.
 
     The layer -> extension mapping is KiCad's Protel convention, so a layer
     added to GERBER_LAYERS exports an extension ZIP_EXT need not carry. Without
     this the file is left out of the upload and the boards come back missing a
-    layer.
+    layer. The converse is as costly: an export that quietly wrote no file for
+    a layer, or no drill, zips clean and fabricates wrong, so ZIP_EXT is also
+    the required set.
     """
     members = sorted(n for n in names
                      if os.path.splitext(n)[1].lower() in ZIP_EXT)
@@ -144,6 +146,11 @@ def zip_members(names):
             "exported fab artifacts the JLC upload zip would drop: "
             + ", ".join(dropped)
             + " - add the extension to ZIP_EXT, or the name to ZIP_EXCLUDED.")
+    absent = sorted(ZIP_EXT - {os.path.splitext(n)[1].lower() for n in members})
+    if absent:
+        raise UploadPackageError(
+            "the export produced no fab artifact for: " + ", ".join(absent)
+            + " - check the kicad-cli gerber and drill exports.")
     return members
 
 # Assembly policy: JLC reflows only top-side SMD. Exclude hand-soldered
