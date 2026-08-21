@@ -374,9 +374,8 @@ private:
         MIN_CAP_RADIUS, cap.second * Plot::STAR_INNER_RATIO + CAP_EDGE_OVERLAP);
 
     Color4 color = palette.get(palette_radius_t);
-    const float cap_alpha =
+    color.alpha *=
         std::min(1.0f, alpha * static_cast<float>(sides)) * preset_opacity;
-    color.alpha = cap_alpha;
     auto shader = [&](const Vector &, Fragment &fragment) {
       fragment.color = color;
     };
