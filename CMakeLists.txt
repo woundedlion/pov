@@ -148,9 +148,10 @@ if(EMSCRIPTEN)
 
   # Out of the default build: its own LTO link costs as much as the module's and
   # nothing but a capture run consumes the .cjs, so tools/pullback_crosscheck.py
-  # names it as an explicit --target. Its four sources are compiled by the module
-  # target and by tests/'s pullback_capture_native, so excluding it hides no
-  # source from CI.
+  # names it as an explicit --target, and no CI job builds it. All four of its
+  # sources are compiled by tests/'s pullback_capture_native, three of them also
+  # by the module target above, so the only thing excluding it hides from CI is
+  # the Emscripten compile of tools/pullback_capture_native.cpp.
   add_executable(pullback_capture_wasm EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/pullback_capture_native.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
