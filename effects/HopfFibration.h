@@ -130,9 +130,10 @@ private:
                 "partition; retune RINGS/PER_RING/TRAIL_LEN or carve arenas");
 
   // render_trails stages one fiber's points (up to TRAIL_LEN) in scratch_a at a
-  // time, alongside rasterize's own sub-step cache.
+  // time, alongside the trail gate's hoisted per-point arrays and rasterize's
+  // own sub-step cache.
   static_assert(TRAIL_LEN * sizeof(Fragment) +
-                        Plot::rasterize_scratch_a_bytes<W>() <=
+                        Plot::rasterize_scratch_a_bytes<W>(0, TRAIL_LEN) <=
                     DEFAULT_SCRATCH_A_SIZE,
                 "HopfFibration trail staging exceeds the default scratch_a "
                 "budget; retune TRAIL_LEN or carve a larger scratch arena");
