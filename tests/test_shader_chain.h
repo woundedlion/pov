@@ -11,6 +11,13 @@
  * HS_SHADER_CHAIN_CATALOG_REGEN=1, e.g.
  *   HS_SHADER_CHAIN_CATALOG_REGEN=1 ./run_tests shader_chain
  * then committing the file.
+ *
+ * The golden's block sizes and alignments are the native ABI, emitted by the
+ * host build this suite runs in. scripts/engine_catalog.json is a second
+ * catalog stating the wasm32 ABI the browser workbench budgets against. The
+ * two disagree in every prepared block by construction: they are not to be
+ * reconciled, and copying either over the other retargets a consumer's budget
+ * math.
  */
 #pragma once
 

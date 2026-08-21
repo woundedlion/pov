@@ -23,6 +23,12 @@ import { sha256Hex } from './sha256.mjs';
 // is pinned by the SHA-256 of its LF bytes instead: drift is a deliberate
 // re-pin, updated together with the daydream master commit it mirrors.
 // Mirrors daydream master e87bb510778c73597e74ffadf8a0bcc307a2396e.
+// engine_catalog.json states the wasm32 operator ABI, the one the browser
+// workbench's budget math models. tests/data/shader_chain_catalog.json is a
+// separate catalog stating the native ABI the C++ suite pins. Their
+// prepared-block sizes and alignments disagree by construction: the two files
+// are not to be reconciled, and copying either over the other retargets a
+// consumer's budget math.
 const MIRROR_PINS = {
   'shader_workbench.mjs':
     '99fc885f6ee8552d78408d7caf65b5e26d8aaeb685e02ca93d6d1bf998535b89',
