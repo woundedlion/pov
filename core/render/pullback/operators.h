@@ -146,7 +146,7 @@ struct ColorizeGeneratedPalette {
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
-  static constexpr auto METRICS = Color::GeneratedPalette<void>::METRICS;
+  static constexpr auto METRICS = Color::GENERATED_PALETTE_METRICS;
 
   static void init(State &, InstanceId) {}
   static Status migrate(State &dst, const State &src, InstanceId) {
