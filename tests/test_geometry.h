@@ -281,7 +281,7 @@ inline void test_fib_spiral_deterministic() {
   HS_EXPECT_VEC(fib_spiral(64, 0.5f, 7),
                 Vector(-0.296496123f, 0.765625f, 0.57088393f), 1e-6f);
   HS_EXPECT_VEC(fib_spiral(64, 0.5f, 31),
-                Vector(0.540769398f, 0.0156250354f, 0.84102571f), 1e-6f);
+                Vector(0.540769398f, 0.015625f, 0.84102571f), 1e-6f);
   HS_EXPECT_VEC(fib_spiral(64, 0.5f, 63),
                 Vector(0.162100419f, -0.984375f, -0.0687697679f), 1e-6f);
 }
