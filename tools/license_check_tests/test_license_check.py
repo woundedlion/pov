@@ -31,10 +31,14 @@ class TestExpectedMarker(unittest.TestCase):
         self.assertEqual(lc.expected_marker("core/engine/effects_legacy.h"),
                          lc.RESERVED)
         self.assertEqual(lc.expected_marker("core/math/projections.h"),
-                         "Permission is hereby granted")
+                         lc.MIT_GRANT)
+        self.assertEqual(lc.expected_marker("core/vendor/FastNoiseLite.h"),
+                         lc.MIT_TITLE)
 
-    def test_a_directory_exception_covers_its_contents(self):
-        self.assertIsNone(lc.expected_marker("core/vendor/FastNoiseLite.h"))
+    def test_the_first_party_file_under_core_vendor_is_polyform(self):
+        self.assertEqual(
+            lc.expected_marker("core/vendor/FastNoiseLite_config.h"),
+            lc.POLYFORM)
 
 
 class TestHeaderIssue(unittest.TestCase):
@@ -58,6 +62,15 @@ class TestHeaderIssue(unittest.TestCase):
     def test_a_file_with_no_notice_is_reported(self):
         issue = lc.header_issue("core/math/3dmath.h", "#pragma once\n")
         self.assertIn("no copyright notice", issue)
+
+    def test_a_third_party_header_stripped_of_its_banner_is_reported(self):
+        issue = lc.header_issue("core/vendor/FastNoiseLite.h",
+                                "#pragma once\n")
+        self.assertIn(lc.MIT_TITLE, issue)
+
+    def test_a_third_party_header_needs_no_first_party_notice(self):
+        head = f"// {lc.MIT_TITLE}\n// {lc.MIT_GRANT}, free of charge\n"
+        self.assertIsNone(lc.header_issue("core/vendor/FastNoiseLite.h", head))
 
     def test_the_alternate_spelling_of_the_license_name_passes(self):
         head = POLYFORM_HEADER.replace("PolyForm", "Polyform")
