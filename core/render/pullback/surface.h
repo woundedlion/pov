@@ -75,10 +75,11 @@ static_assert(field_ids_unique<DirectSurfaceParams>());
 
 /** @brief Parameters for a periodically expanding spherical ripple. */
 struct PeriodicRippleParams {
-  float speed = 0.0f;          /**< Ripple cycles advanced per frame. */
-  float strength = 0.0f;       /**< Peak angular displacement. */
-  float decay = 5.0f;          /**< Attenuation with distance from center. */
-  float thickness = 1.0f;      /**< Angular width of the wavelet. */
+  float speed = 1.0f / 256.0f; /**< Ripple cycles advanced per frame. */
+  float strength = 0.2f;       /**< Peak angular displacement. */
+  float period = 0.75f;        /**< Angular spacing between wavelets. */
+  float decay = 0.5f;          /**< Attenuation with distance from center. */
+  float thickness = 0.25f;     /**< Angular width of each wavelet. */
   float center_azimuth = 0.0f; /**< Center azimuth, in radians. */
   float center_polar = 0.5f * PI_F; /**< Center polar angle, in radians. */
 
@@ -89,6 +90,9 @@ struct PeriodicRippleParams {
       Field<PeriodicRippleParams>{"strength", &PeriodicRippleParams::strength,
                                   "Ripple Strength", 0.0f, 0.5f,
                                   FieldCurve::LERP},
+      Field<PeriodicRippleParams>{"period", &PeriodicRippleParams::period,
+                                  "Ripple Period", 1.0f / 16.0f, PI_F,
+                                  FieldCurve::LOG_POSITIVE},
       Field<PeriodicRippleParams>{"decay", &PeriodicRippleParams::decay,
                                   "Ripple Decay", 0.0f, 16.0f,
                                   FieldCurve::LERP},
@@ -128,6 +132,7 @@ struct PreparedDirect {
 /** @brief Prepared parameters for one frame of a periodic ripple. */
 struct PreparedRipple {
   Animation::RippleParams ripple;
+  float period;
 };
 
 /** @brief Resolves a seamless ripple cycle for ripple_transform(). */
@@ -139,22 +144,16 @@ prepare_ripple(const PeriodicRippleParams &params, float cycle) {
   ripple.amplitude = params.strength;
   ripple.decay = params.decay;
   ripple.thickness = params.thickness;
-
-  const float margin = 2.0f * ripple.half_width();
-  ripple.phase = wrap_t(cycle) * (PI_F + 2.0f * margin) - margin;
-  if (ripple.phase < 0.0f)
-    ripple.amplitude *= Detail::smooth_ramp(-margin, 0.0f, ripple.phase);
-  else if (ripple.phase > PI_F)
-    ripple.amplitude *= Detail::smooth_ramp(PI_F + margin, PI_F, ripple.phase);
-  ripple.sync();
-  return {ripple};
+  ripple.phase = wrap_t(cycle) * params.period;
+  return {ripple, params.period};
 }
 
 /** @brief Applies a prepared periodic ripple and reports its angular travel. */
 __attribute__((always_inline)) inline SurfaceResult
 periodic_ripple(const Vector &input, const PreparedRipple &prepared,
                 bool path_length_required) {
-  const Vector displaced = ripple_transform(input, prepared.ripple);
+  const Vector displaced =
+      periodic_ripple_transform(input, prepared.ripple, prepared.period);
   if (!path_length_required ||
       (displaced.x == input.x && displaced.y == input.y &&
        displaced.z == input.z))

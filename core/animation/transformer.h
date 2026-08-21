@@ -662,6 +662,42 @@ OrientTransformer(const Orientation<CAPACITY> &) -> OrientTransformer<CAPACITY>;
 constexpr float RIPPLE_SMALL_ANGLE_MAX = 0.15f;
 
 /**
+ * @brief Applies one ripple wavelet at a known angular distance and phase.
+ * @param v The vector to transform.
+ * @param params The ripple parameters.
+ * @param distance Angular distance from the ripple center.
+ * @param phase Angular position of the wavelet peak.
+ * @return The displaced vector.
+ */
+HS_O3_FN inline Vector
+ripple_transform_at_distance(const Vector &v,
+                             const Animation::RippleParams &params,
+                             float distance, float phase) {
+  float dist_from_peak = distance - phase;
+  float half_width = params.half_width();
+  float t = (dist_from_peak / half_width) * 2.0f;
+  float theta = params.amplitude * (1.0f - t * t) *
+                fast_expf(-0.5f * t * t - params.decay * distance);
+
+  Vector axis = cross(params.center, v);
+  float len_sq = dot(axis, axis);
+  if (len_sq > 1e-6f) {
+    axis = axis * (1.0f / sqrtf(len_sq));
+    if (fabsf(theta) <= RIPPLE_SMALL_ANGLE_MAX) {
+      float h = 0.5f * theta;
+      float h2 = h * h;
+      float s = h * (1.0f - h2 * (1.0f / 6.0f));
+      float c = 1.0f - h2 * (0.5f - h2 * (1.0f / 24.0f));
+      return rotate(v, Quaternion(c, s * axis));
+    }
+    Quaternion q = make_rotation(axis, theta);
+    return rotate(v, q);
+  }
+
+  return v;
+}
+
+/**
  * @brief Rotates a point along a Ricker-wavelet ripple radiating from a center.
  * @param v The vector to transform.
  * @param params The ripple parameters.
@@ -684,36 +720,29 @@ HS_O3_FN inline Vector ripple_transform(const Vector &v,
   }
 
   float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-  float dist_from_peak = d - params.phase;
+  return ripple_transform_at_distance(v, params, d, params.phase);
+}
 
-  float half_width = params.half_width();
+/**
+ * @brief Applies a spatially periodic train of spherical ripple wavelets.
+ * @param v The vector to transform.
+ * @param params The ripple parameters.
+ * @param period Angular spacing between wavelet peaks.
+ * @return The displaced vector.
+ */
+HS_O3_FN inline Vector
+periodic_ripple_transform(const Vector &v,
+                          const Animation::RippleParams &params, float period) {
+  if (params.amplitude <= 0.001f)
+    return v;
 
-  // Normalize distance; within the accept band |t| reaches 4 (−2..2 is the primary lobe)
-  float t = (dist_from_peak / half_width) * 2.0f;
-
-  // Ricker wavelet (1 - t^2) e^(-t^2/2) with the spread attenuation
-  // e^(-decay*d) folded into one exponential.
-  float theta = params.amplitude * (1.0f - t * t) *
-                fast_expf(-0.5f * t * t - params.decay * d);
-
-  Vector axis = cross(params.center, v);
-  float len_sq = dot(axis, axis);
-  if (len_sq > 1e-6f) {
-    axis = axis * (1.0f / sqrtf(len_sq));
-    if (fabsf(theta) <= RIPPLE_SMALL_ANGLE_MAX) {
-      // The truncated series leave the quaternion unit to ~1e-9, so the libm
-      // trig and the normalize both drop out.
-      float h = 0.5f * theta;
-      float h2 = h * h;
-      float s = h * (1.0f - h2 * (1.0f / 6.0f));
-      float c = 1.0f - h2 * (0.5f - h2 * (1.0f / 24.0f));
-      return rotate(v, Quaternion(c, s * axis));
-    }
-    Quaternion q = make_rotation(axis, theta);
-    return rotate(v, q);
-  }
-
-  return v;
+  float cos_d = dot(v, params.center);
+  float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+  float winding = floorf((d - params.phase) / period + 0.5f);
+  float phase = params.phase + winding * period;
+  if (fabsf(d - phase) > 2.0f * params.half_width())
+    return v;
+  return ripple_transform_at_distance(v, params, d, phase);
 }
 /**
  * @brief Slides a point along the sphere surface by a 3D-noise field.
