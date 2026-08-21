@@ -55,6 +55,8 @@ inline const char *curve_name(FieldCurve curve) {
     return "log-positive";
   case FieldCurve::SHORTEST_PERIODIC:
     return "shortest-periodic";
+  case FieldCurve::SHORTEST_TURN:
+    return "shortest-turn";
   case FieldCurve::SNAP:
     break;
   }

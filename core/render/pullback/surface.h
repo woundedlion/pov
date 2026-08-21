@@ -68,7 +68,7 @@ struct DirectSurfaceParams {
                                  1.0f / 64.0f, FieldCurve::LERP},
       Field<DirectSurfaceParams>{"direction", &DirectSurfaceParams::direction,
                                  "Surface Noise Direction", 0.0f, 1.0f,
-                                 FieldCurve::LERP},
+                                 FieldCurve::SHORTEST_TURN},
   };
 };
 static_assert(field_ids_unique<DirectSurfaceParams>());
