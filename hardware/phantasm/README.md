@@ -186,6 +186,29 @@ every step below is performed by whoever builds the card.
   strap the segment ID, `JP_ID2` only at N = 8.
 - **`C_IN` is RTV-bonded** after soldering (R-PWR-6 / R-MECH-3).
 
+## Hand-build BOM (the through-hole half)
+
+`gen/fab.py` emits `phantasm-BOM.csv` for the **assembled SMD** parts only:
+`fab.EXCLUDE_FP_SUBSTR` / `EXCLUDE_VAL_SUBSTR` drop every hand-soldered part, and
+`fab.PART_BY_LCSC` carries manufacturer + MPN for the assembled half alone. Nothing
+below reaches either. **The part numbers are not sourced** — the last column records
+what the netlist, the footprint and spec §9 constrain, not a catalogue match; fill it
+in before ordering.
+
+| Ref(s) | Qty | What | Footprint / mating requirement | Orderable part |
+|---|---|---|---|---|
+| `U_MCU` | 1 | Teensy 4.0 (i.MX RT1062) development board | `phantasm:Teensy4.0` — 2×14 0.1″ THT, mounted component-side up, USB end at −X | PJRC **Teensy 4.0**; no distributor SKU pinned |
+| `C_IN` | 1 | ≥100 µF radial aluminium electrolytic on `+5V_LOGIC` (spec §9); the card's only electrolytic, RTV-bonded | `Capacitor_THT:CP_Radial_D8.0mm_P3.50mm` — 8.0 mm body, 3.50 mm lead pitch | **unsourced** |
+| `J1` | 1 | 2-pin 0.1″ vertical pin header — `+5V_IN` / `GND`, ~1 A | `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical`; ships **unkeyed** (see the deviations note) | **unsourced** |
+| `J2` | 1 | 3-pin 0.1″ vertical pin header — strip signal `DI` / `CI` / SIG_GND, no power | `PinHeader_1x03_P2.54mm_Vertical` | **unsourced** |
+| `J3A`, `J3B` | 2 | 3-pin 0.1″ vertical pin headers — SYNC daisy in / out | `PinHeader_1x03_P2.54mm_Vertical`; one Belden 8451 run per link | **unsourced** |
+| `J4` | 1 | 4-pin 0.1″ vertical pin header — debug (`+3V3`, `GND`, `MASTER_EN`, `SERIAL1_TX`) | `PinHeader_1x04_P2.54mm_Vertical` | **unsourced** |
+| `JP_ID0/1/2`, `JP_SHLD` | 4 | **No part to order** — open solder-bridge pads, closed with solder per board role | `Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm` | — |
+| `H1`–`H4` | 4 | M2.5 rotor mounting hardware (screw + nut or standoff) | 2.7 mm NPTH, centres 3.5 mm in from each corner; 2.7 mm-radius all-copper keepout | **unsourced** |
+
+Off-board and out of this table (spec §2.3 / §9): the 1000 µF `C_BULK` injection bulk at
+the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter-board run.
+
 ## Notes / deviations from the spec
 
 - **Reverse protection uses one AO3401A P-channel MOSFET** (`Q_REV`, SOT-23), with
