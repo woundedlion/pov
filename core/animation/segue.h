@@ -167,10 +167,17 @@ struct Base {
    * still drawing when the next one is scheduled.
    * @details A policy scheduling through schedule_overlapped() must set this
    * true. MeshCarousel holds one policy instance, so schedule()/retarget()
-   * rewrite the per-transition state the outgoing sprite still reads; the
-   * per-face policies are sequential and MeshCarousel asserts that pairing.
+   * rewrite the per-transition state the outgoing sprite still reads;
+   * MeshCarousel rejects that pairing for a per-face policy outright, and for
+   * any other unless it declares the rewrite harmless.
    */
   static constexpr bool OVERLAPS = false;
+  /**
+   * @brief Whether the per-transition state retarget() rolls survives being
+   * rewritten while an overlapping predecessor's sprite still reads it.
+   * @details Read only for an OVERLAPS policy that declares retarget().
+   */
+  static constexpr bool RETARGET_SAFE_UNDER_OVERLAP = false;
   /** @brief Default scheduling: one sequential sprite (see
    * schedule_sequential). @p paused is the optional event-level pause gate
    * every policy's schedule() takes and forwards. */
@@ -735,6 +742,10 @@ struct GoldConvergence : Base {
  */
 struct Dissolve : Base {
   static constexpr bool OVERLAPS = true;
+  /** @brief The frame salt re-rolls the pattern every frame anyway, and one
+   * mask_pair() call feeds both halves of a frame, so a mid-overlap seed
+   * rewrite keeps the split complementary. */
+  static constexpr bool RETARGET_SAFE_UNDER_OVERLAP = true;
   uint32_t seed =
       0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */
   /** @brief Re-rolls the ownership pattern for the next transition; the
@@ -795,6 +806,15 @@ template <typename... Ts> struct PolicyList {
   static constexpr bool SEQUENTIAL_PER_FACE =
       ((!PerFace<Ts> || !Ts::OVERLAPS) && ...);
 
+  /** @brief Whether every listed policy that retargets per-transition state
+   * either schedules sequentially or declares the state safe to rewrite
+   * mid-overlap. MeshCarousel asserts this too, but only for the policies an
+   * effect instantiates. */
+  static constexpr bool RETARGET_SURVIVES_OVERLAP =
+      ((!DeclaresRetarget<Ts> || !Ts::OVERLAPS ||
+        Ts::RETARGET_SAFE_UNDER_OVERLAP) &&
+       ...);
+
   /**
    * @brief Invokes @p fn once per policy, on a default-constructed instance.
    * @param fn Callable taking any policy.
@@ -817,6 +837,12 @@ static_assert(AllPolicies::SEQUENTIAL_PER_FACE,
               "retarget() rewrite the single policy instance's per-transition "
               "state, which an overlapping predecessor's sprite is still "
               "reading");
+
+static_assert(AllPolicies::RETARGET_SURVIVES_OVERLAP,
+              "an overlapping segue's retarget() rewrites the single policy "
+              "instance's per-transition state, which the outgoing sprite is "
+              "still reading: schedule sequentially, or set "
+              "RETARGET_SAFE_UNDER_OVERLAP once the rewrite is shown harmless");
 
 /**
  * @brief Preset-transition policies: the second Segue concept, beside the
