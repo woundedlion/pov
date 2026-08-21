@@ -194,7 +194,7 @@ private:
   make_frame_context(const ColorizeTap &tap) {
     Pullback::Interp::FrameContext ctx;
     ctx.frame = frame_index;
-    ctx.time = static_cast<float>(frame_index) * (1.0f / 30.0f);
+    ctx.time = static_cast<float>(frame_index) * FRAME_SECONDS;
     ctx.anims_paused = anims_paused;
     ctx.projection_base = make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
     ctx.palettes = {&triadic_palette_cycler.palette(),
@@ -298,6 +298,10 @@ private:
       Pullback::Color::ColorParams{}.palette_chroma;
   /** Chain schema capacity; the effect registers no globals of its own. */
   static constexpr size_t PARAM_CAPACITY = Pullback::Interp::MAX_CHAIN_PARAMS;
+  /** Nominal frame period behind FrameContext::time. The engine has no wall
+      clock — every operator rate is per frame — so this only gives the context
+      a monotonic seconds axis. */
+  static constexpr float FRAME_SECONDS = 1.0f / 30.0f;
 
   Pullback::Interp::ChainProgram program;
   Resources *resources = nullptr;
