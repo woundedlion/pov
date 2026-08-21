@@ -91,9 +91,11 @@ def reset_uid_sequence():
 def uid():
     """UUID for a generated element, derived from the call site and occurrence.
 
-    Regenerating unchanged inputs yields a byte-identical file. The source file
-    is part of the key, so the schematic and board generators draw from
-    disjoint id spaces.
+    Deterministic uuid5, so one generator run reproduces another run's ids byte
+    for byte. It does not reproduce any committed artifact: KiCad wrote those
+    last and stamped random v4 ids, so a regeneration renumbers every uuid in
+    the file. The source file is part of the key, so the schematic and board
+    generators draw from disjoint id spaces.
     """
     code = sys._getframe(1).f_code
     site = f"{os.path.basename(code.co_filename)}:{code.co_name}"
