@@ -3004,6 +3004,39 @@ inline void test_screen_trails_store_emit_decay() {
 }
 
 /**
+ * @brief Verifies a mid-run set_lifetime() shrink keeps the t fed to trailFn in
+ *        [0,1], mirroring World::Trails.
+ * @details A point buffered under the longer lifetime carries ttl > lifetime
+ *          after the shrink, so t = 1 - ttl/lifetime would go negative; a
+ *          ScreenTrailFn may index a palette with it, so flush must clamp.
+ */
+inline void test_screen_trails_set_lifetime_shrink_clamps_t() {
+  constexpr int W = 32, MAXP = 8;
+  static uint8_t buf[MAXP * 32];
+  Arena arena(buf, sizeof(buf));
+  Filter::Screen::Trails<MAXP> trails(/*lifetime=*/10);
+  trails.init_storage(arena);
+
+  hs_test::StubEffect fx(W, 8);
+  Canvas c(fx);
+  trails.plot(4.0f, 2.0f, Pixel(100, 100, 100), 0.0f, 1.0f,
+              [](float, float, const Pixel &, float, float) {}); // ttl = 10
+
+  trails.set_lifetime(2);
+
+  float captured_t = -999.0f;
+  auto trail = [&](float, float, float t) {
+    captured_t = t;
+    return Color4(Pixel(60000, 60000, 60000), 1.0f);
+  };
+  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+               [](float, float, const Pixel &, float, float) {});
+
+  HS_EXPECT_GE(captured_t, 0.0f);
+  HS_EXPECT_LE(captured_t, 1.0f);
+}
+
+/**
  * @brief Verifies Screen::Trails forwards an already-aged emission, matching
  *        World::Trails.
  * @details A point with 0 < age < lifetime is both passed through the current
@@ -3444,6 +3477,7 @@ inline int run_filter_tests() {
   test_world_trails_set_lifetime_shrink_clamps_t();
   test_world_trails_midbuffer_expiry_reclaims_slot();
   test_screen_trails_store_emit_decay();
+  test_screen_trails_set_lifetime_shrink_clamps_t();
   test_screen_trails_forwards_aged_emission();
   test_mixed_domain_flush_drains_both_buffers();
 

@@ -2083,6 +2083,17 @@ inline void case_feedback_downsample_indivisible() {
 }
 
 /**
+ * @brief Death case: retuning a screen trail to a non-positive lifetime must trap.
+ * @details Filter surface — Screen::Trails::set_lifetime carries the
+ *          constructor's bound, so a slider that reaches zero traps here rather
+ *          than dividing by it in flush()'s fade progress.
+ */
+inline void case_screen_trails_set_lifetime_nonpositive() {
+  Filter::Screen::Trails<8> trails(4);
+  trails.set_lifetime(opaque(0));
+}
+
+/**
  * @brief Death case: a ring index past the last ring must trap.
  * @details SphericalFieldLayout surface — the chain walk saturates at row H-1
  *          while the offset keeps accumulating, so an out-of-range index would
@@ -3428,6 +3439,9 @@ inline const Case *all_cases(int &n) {
        "pixel_feedback.h",
        "(downsample > 0 && W % downsample == 0) feedback downsample 5 must "
        "be > 0 and divide width 32"},
+      {"screen_trails_set_lifetime_nonpositive",
+       case_screen_trails_set_lifetime_nonpositive, "screen_trails.h",
+       "(new_lifetime > 0) Screen::Trails: lifetime 0 must be positive"},
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
        "spherical_field.h",
        "(y < H - 1) SphericalFieldLayout: ring index 5 out of range"},
