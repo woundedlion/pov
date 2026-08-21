@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include <iterator>
 #include "mesh/conway.h"
 
 // clang-format off
