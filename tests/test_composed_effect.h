@@ -799,6 +799,7 @@ inline void test_composed_periodic_ripple_surface() {
   effect.init();
   HS_EXPECT_TRUE(effect.getParameters().find("Ripple Speed") != nullptr);
   HS_EXPECT_TRUE(effect.getParameters().find("Ripple Strength") != nullptr);
+  HS_EXPECT_TRUE(effect.getParameters().find("Ripple Period") != nullptr);
   effect.draw_frame();
   effect.advance_display();
 }

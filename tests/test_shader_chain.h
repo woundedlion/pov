@@ -645,7 +645,8 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(ripple.schema_count,
                PB::Surface::PeriodicRippleParams::FIELDS.size());
   HS_EXPECT_TRUE(std::string_view(ripple.schema[0].id) == "speed");
-  HS_EXPECT_TRUE(std::string_view(ripple.schema[5].id) == "center-polar");
+  HS_EXPECT_TRUE(std::string_view(ripple.schema[2].id) == "period");
+  HS_EXPECT_TRUE(std::string_view(ripple.schema[6].id) == "center-polar");
 
   // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
   // carries the full sixteen-harmonic list; curl-flow is basis-only.
