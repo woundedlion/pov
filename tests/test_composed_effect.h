@@ -12,6 +12,10 @@
  * The specializations come from HS_SHADER_PRODUCT_GROUP, so a promoted effect
  * joins the sweep with its roster entry instead of a hand-copied list.
  *
+ * The module also pins how much of the chain interpreter's operator catalog
+ * the derivation layer can reach: the workbench catalog is wider, and the
+ * difference is recorded against the live OPERATOR_TABLE rather than restated.
+ *
  * Shading is deliberately out of scope: the ShaderBall equivalence oracles in
  * tests/test_curl_lattice.h and tests/test_facet_grid.h own that comparison.
  */
@@ -27,6 +31,7 @@
 
 #include "core/engine/effects.h"
 #include "core/render/pullback/composed_effect.h"
+#include "core/render/pullback/operator_table.h"
 #include "tests/test_effects.h" // reset_effect_globals, SMALL_W/SMALL_H
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -550,6 +555,209 @@ inline void test_composed_hand_registered_families() {
                Pullback::ColorParams::FIELDS.size());
 }
 
+namespace In = Pullback::Interp;
+
+/** A parameter set naming the narrowed warp families. */
+using ReachParams =
+    Pullback::Params<Pullback::GridSourceParams, Pullback::PolarParams,
+                     Pullback::VectorNoiseParams>;
+using ReachBinding = Pullback::Binding<Pullback::FrameState<ReachParams>>;
+
+template <typename Family>
+concept DerivableSource = requires {
+  typename Pullback::SourcePolicyFor<Family, ReachBinding>::Type;
+};
+
+// Derivation-side half of the reach table: widening one of these narrowings
+// reds here before the catalog-side counts below go stale.
+static_assert(DerivableSource<Pullback::GridSourceParams>);
+static_assert(!DerivableSource<Pullback::NoiseSourceParams>);
+static_assert(
+    std::is_same_v<typename Pullback::WarpPolicyFor<
+                       Pullback::PolarParams, ReachBinding, true, false>::Type,
+                   Pullback::Warp::PolarChart<
+                       Pullback::WarpProvider<ReachBinding, true, false>,
+                       Pullback::Warp::LinearPolar, 1>>);
+static_assert(
+    std::is_same_v<
+        typename Pullback::WarpPolicyFor<Pullback::VectorNoiseParams,
+                                         ReachBinding, false, false>::Type,
+        Pullback::Warp::VectorNoise<
+            Pullback::WarpProvider<ReachBinding, false, false>,
+            ::NoiseBasis::SIMPLEX, Pullback::Warp::FlatEnvelope>>);
+
+/**
+ * @brief How much of one catalog operator's vocabulary a ComposedEffect
+ *        specialization can emit.
+ * @details A null `topology_id` marks an operator no Spec or parameter family
+ * selects, so none of its topology values are reachable either. Otherwise
+ * `reachable` lists exactly the values the derivation layer emits for that
+ * enum8 and the rest are workbench-only, so a value the catalog gains counts
+ * as unreachable until the row is revisited.
+ */
+struct DerivationReach {
+  const char *operator_id;
+  const char *topology_id;
+  std::array<const char *, 9> reachable; /**< Null-terminated. */
+};
+
+constexpr DerivationReach DERIVATION_REACH[] = {
+    // ProjectionKind has no spelling for these four.
+    {"project.peirce.v2", nullptr, {}},
+    {"project.peirce-square-fast.v2", nullptr, {}},
+    {"project.bonne.v2", nullptr, {}},
+    {"project.airocean.v2", nullptr, {}},
+    // SourcePolicyFor covers Grid, TwinWave, Spiral and PrimitiveLattice only.
+    {"sample.rings.v2", nullptr, {}},
+    {"sample.projected-noise.v2", nullptr, {}},
+    {"sample.spherical-noise.v2", nullptr, {}},
+    // No WarpPolicyFor specialization carries a curl-flow family.
+    {"warp.curl-flow.v2", nullptr, {}},
+    // TransferKind is NONE or ISO_CONTOUR.
+    {"field.transfer.ridge.v2", nullptr, {}},
+    {"field.transfer.smooth-bands.v2", nullptr, {}},
+    // RenderPipeline composes no Stage::Coverage.
+    {"field.coverage.value-cutout.v2", nullptr, {}},
+
+    // ProjectionKind names the folded gnomonic alone.
+    {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
+    // The displacement policies pin the basis and the integrator.
+    {"sphere.displace.curl.v2", "basis", {{"simplex"}}},
+    {"sphere.displace.curl.v2", "integrator", {{"euler"}}},
+    {"sphere.displace.direct.v2", "basis", {{"simplex"}}},
+    // Spec::LensPolicy names one lens policy per symmetry.
+    {"sphere.lens.kaleidoscope.v2",
+     "symmetry",
+     {{"azimuthal", "tetrahedral", "octahedral", "dodecahedral",
+       "triangular-prism", "square-prism", "pentagonal-prism",
+       "hexagonal-prism", "octagonal-prism"}}},
+    // WarpPolicyFor pins the flat envelope, the simplex basis, the linear
+    // polar chart and its first harmonic.
+    {"warp.wave-shear.v2", "envelope", {{"flat"}}},
+    {"warp.vector-noise.v2", "basis", {{"simplex"}}},
+    {"warp.vector-noise.v2", "envelope", {{"flat"}}},
+    {"warp.polar-chart.v2", "mode", {{"linear"}}},
+    {"warp.polar-chart.v2", "harmonic", {{"h1"}}},
+    // SampleStage pins Weight::Projection; CoverageKind has no None.
+    {"sample.grid.v2", "weight-mode", {{"projection"}}},
+    {"sample.grid.v2",
+     "coverage-mode",
+     {{"weight", "weight-squared", "edge-fade"}}},
+    {"sample.twin-wave.v2", "weight-mode", {{"projection"}}},
+    {"sample.twin-wave.v2",
+     "coverage-mode",
+     {{"weight", "weight-squared", "edge-fade"}}},
+    {"sample.spiral.v2", "weight-mode", {{"projection"}}},
+    {"sample.spiral.v2",
+     "coverage-mode",
+     {{"weight", "weight-squared", "edge-fade"}}},
+    {"sample.lattice.v2", "weight-mode", {{"projection"}}},
+    {"sample.lattice.v2",
+     "coverage-mode",
+     {{"weight", "weight-squared", "edge-fade"}}},
+    // PaletteHarmony, ColorParams, HueMode and BrightnessEnvelope together
+    // reach every colorize value.
+    {"colorize.generated-palette.v2",
+     "palette-mode",
+     {{"triadic", "complementary", "analogous"}}},
+    {"colorize.generated-palette.v2",
+     "palette-mapping",
+     {{"cup", "bell", "linear", "reverse"}}},
+    {"colorize.generated-palette.v2",
+     "hue-shift-mode",
+     {{"noise", "path-length"}}},
+    {"colorize.generated-palette.v2", "brightness-envelope", {{"none", "cup"}}},
+};
+
+/** @brief The topology enum8 @p topology_id of @p op, or null. */
+inline const In::ParamFieldInfo *find_topology(const In::OperatorDescriptor &op,
+                                               const char *topology_id) {
+  for (const In::ParamFieldInfo &field : op.schema_span())
+    if (field.topology && std::string_view(field.id) == topology_id)
+      return &field;
+  return nullptr;
+}
+
+/** @brief Rows of DERIVATION_REACH naming @p topology_id of @p operator_id. */
+inline size_t reach_rows(const char *operator_id, const char *topology_id) {
+  size_t rows = 0;
+  for (const DerivationReach &row : DERIVATION_REACH)
+    if (std::string_view(row.operator_id) == operator_id &&
+        row.topology_id != nullptr &&
+        std::string_view(row.topology_id) == topology_id)
+      ++rows;
+  return rows;
+}
+
+/**
+ * @brief Pins the catalog vocabulary no ComposedEffect specialization emits.
+ * @details The chain interpreter's OPERATOR_TABLE is the workbench's whole
+ * catalog; the derivation layer builds a strictly narrower pipeline out of an
+ * effect's families and Spec. DERIVATION_REACH records that difference and is
+ * resolved against the live table here, so a renamed or removed operator,
+ * topology enum8 or value reds. The four totals red whenever the catalog gains
+ * an operator or a value the table has not classified.
+ */
+inline void test_composed_derivation_reach() {
+  size_t unreachable_operators = 0;
+  size_t unreachable_values = 0;
+  for (const DerivationReach &row : DERIVATION_REACH) {
+    HS_CONTEXT(row.operator_id);
+    const In::OperatorDescriptor *op = In::find_operator(row.operator_id);
+    HS_EXPECT_TRUE(op != nullptr);
+    if (op == nullptr)
+      continue;
+    if (row.topology_id == nullptr) {
+      ++unreachable_operators;
+      for (const In::ParamFieldInfo &field : op->schema_span())
+        if (field.topology)
+          unreachable_values += field.enum_count;
+      continue;
+    }
+    HS_CONTEXT(row.topology_id);
+    const In::ParamFieldInfo *field = find_topology(*op, row.topology_id);
+    HS_EXPECT_TRUE(field != nullptr);
+    if (field == nullptr)
+      continue;
+    size_t reachable = 0;
+    for (const char *value : row.reachable) {
+      if (value == nullptr)
+        break;
+      HS_CONTEXT(value);
+      bool found = false;
+      for (uint8_t index = 0; index < field->enum_count; ++index)
+        found = found || std::string_view(field->enum_ids[index]) == value;
+      HS_EXPECT_TRUE(found);
+      reachable += found ? 1 : 0;
+    }
+    HS_EXPECT_LE(reachable, static_cast<size_t>(field->enum_count));
+    unreachable_values += field->enum_count - reachable;
+  }
+
+  size_t catalog_values = 0;
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
+    HS_CONTEXT(op.operator_id);
+    bool whole_operator = false;
+    for (const DerivationReach &row : DERIVATION_REACH)
+      whole_operator = whole_operator ||
+                       (std::string_view(row.operator_id) == op.operator_id &&
+                        row.topology_id == nullptr);
+    for (const In::ParamFieldInfo &field : op.schema_span()) {
+      if (!field.topology)
+        continue;
+      HS_CONTEXT(field.id);
+      catalog_values += field.enum_count;
+      HS_EXPECT_EQ(reach_rows(op.operator_id, field.id),
+                   whole_operator ? 0u : 1u);
+    }
+  }
+
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 33u);
+  HS_EXPECT_EQ(unreachable_operators, 11u);
+  HS_EXPECT_EQ(catalog_values, 109u);
+  HS_EXPECT_EQ(unreachable_values, 64u);
+}
+
 /**
  * @brief Module entry point for the composed-effect base contract.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -561,6 +769,7 @@ inline int run_composed_effect_tests() {
   test_composed_snapshot_contract();
   test_composed_preset_choreography();
   test_composed_preset_interpolation();
+  test_composed_derivation_reach();
   return fixture.result();
 }
 
