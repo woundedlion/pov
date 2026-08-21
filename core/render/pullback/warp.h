@@ -86,7 +86,7 @@ struct WaveShearParams {
   float frequency = 1.0f;   /**< Spatial frequency along the field axis. */
   float field_angle = 0.0f; /**< Field axis direction, in radians. */
   float edge_width = 0.1f;  /**< Fade band width, read only under an
-                                 EdgeFadeEnvelope. */
+                                 EdgeFadeEnvelope; 0 is a hard cut. */
 
   static constexpr auto FIELDS = std::array{
       Field<WaveShearParams>{"speed", &WaveShearParams::speed, nullptr, -0.02f,
@@ -117,7 +117,7 @@ struct VectorNoiseParams {
   float vector_angle = 0.0f; /**< Rotation applied to the sampled vector, in
                                   radians. */
   float edge_width = 0.1f;   /**< Fade band width, read only under an
-                                  EdgeFadeEnvelope. */
+                                  EdgeFadeEnvelope; 0 is a hard cut. */
 
   static constexpr auto FIELDS = std::array{
       Field<VectorNoiseParams>{"speed", &VectorNoiseParams::speed, nullptr,
@@ -350,7 +350,7 @@ envelope(const ProjectionProvenance &provenance, float edge_width,
   if (projection_weight)
     return provenance.value_weight;
   if (edge_fade)
-    return cubic_kernel(provenance.fade_edge_distance / edge_width);
+    return Detail::smooth_ramp(0.0f, edge_width, provenance.fade_edge_distance);
   return 1.0f;
 }
 
@@ -360,7 +360,8 @@ fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
   if constexpr (std::is_same_v<Envelope, ProjectionWeightEnvelope>)
     return provenance.value_weight;
   else if constexpr (std::is_same_v<Envelope, EdgeFadeEnvelope>)
-    return cubic_kernel(provenance.fade_edge_distance / params.edge_width);
+    return Detail::smooth_ramp(0.0f, params.edge_width,
+                               provenance.fade_edge_distance);
   else
     return 1.0f;
 }
