@@ -129,8 +129,9 @@ public:
     current_idx = SEED_MODE_IDX;
 
     Vector axis = Vector(0.5f, 1.0f, 0.2f).normalized();
-    timeline.add(0, Animation::Rotation<W>(orientation, axis, 2 * PI_F * 100,
-                                           10000, ease_linear, true));
+    timeline.add(0, Animation::Rotation<W>(orientation, axis,
+                                           2 * PI_F * SPIN_TURNS, SPIN_FRAMES,
+                                           ease_linear, true));
 
     start_morph();
   }
@@ -264,6 +265,10 @@ private:
   static constexpr int SEED_MODE_IDX = 6;
   static_assert(SEED_MODE_IDX > 0 && SEED_MODE_IDX <= MAX_MODE_IDX,
                 "seed mode must be a valid, non-constant harmonic index");
+  // Looped continuous spin: SPIN_TURNS revolutions over SPIN_FRAMES frames,
+  // i.e. 0.01 turn (3.6 degrees) per frame.
+  static constexpr float SPIN_TURNS = 100.0f;
+  static constexpr int SPIN_FRAMES = 10000;
 
   int current_idx = 0; /**< Flat index of the currently displayed mode. */
   int next_idx = 0;    /**< Flat index of the mode being morphed toward. */
