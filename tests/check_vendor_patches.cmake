@@ -50,8 +50,8 @@ if(NOT _header MATCHES "HS_HOT_FLASH_MEMBER void GetVectorNoiseSingle\\(" OR
   list(APPEND _missing "FastNoiseLite has lost its raw vector-noise path")
 endif()
 
-if(NOT _header MATCHES "void GetNoiseGradientSingle\\(" OR
-   NOT _header MATCHES "void SingleOpenSimplex2Gradient\\(")
+if(NOT _header MATCHES "HS_FLASH_MEMBER void GetNoiseGradientSingle\\(" OR
+   NOT _header MATCHES "HS_O3_FN void SingleOpenSimplex2Gradient\\(")
   list(APPEND _missing "FastNoiseLite has lost its analytic gradient path")
 endif()
 
