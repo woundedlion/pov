@@ -87,7 +87,8 @@ committed board directly need no KiCad and run in CI
   joints (R-ASM-6).
 - **Shipped-land gate:** `gen/tests/test_pcb_lands.py` pins the pad geometry the
   routed board ships for every chip passive, so restoring a stock land over the
-  widened sync-resistor pads fails in CI. KiCad reports no parity difference for
+  widened sync-resistor pads fails in CI. It pins as-built geometry, not spec
+  §11.1 geometry — see the lands note below. KiCad reports no parity difference for
   that edit — the widened pads keep the stock footprint id. The same file pins
   J1's footprint on both artifacts, which the assembly gate cannot see because
   `EXCLUDE_FP_SUBSTR` excludes every hand-soldered connector spelling.
@@ -179,11 +180,13 @@ every step below is performed by whoever builds the card.
   `VLOGIC = 4.75 − 0.15 × (0.75 + 0.20 + 0.12) = 4.5895 V`. This leaves about
   90 mV above the AHCT125's 4.5 V minimum; verify that J1 itself remains at or above
   4.75 V on the hot, operating rotor because external harness drop is not included.
-- **Widened lands on the bench-tuned sync resistors — not KiCad `_HandSolder` lands.**
-  `R1`, `R2` (divider ratio, spec §4.2), `R_PD` (bus idle pull-down) and `R_S` (source
-  termination) keep the **stock** `Resistor_SMD:R_0603_1608Metric` /
-  `R_0805_2012Metric` footprint id in `phantasm.kicad_pcb`, with the pads **widened in
-  place**: the centres stay at the stock ±0.825 mm (0603) / ±0.9125 mm (0805) while the
+- **Widened lands on the bench-tuned sync resistors — spec §11.1 is not met on this board.**
+  §11.1 mandates the toe-extended KiCad `_HandSolder` land, which keeps the IPC-nominal
+  inter-pad gap and adds no copper under the ceramic body. The shipped copper does neither,
+  and both parts are reflow-placed. `R1`, `R2` (divider ratio, spec §4.2), `R_PD` (bus idle
+  pull-down) and `R_S` (source termination) keep the **stock**
+  `Resistor_SMD:R_0603_1608Metric` / `R_0805_2012Metric` footprint id in
+  `phantasm.kicad_pcb`, with the pads **widened in place**: the centres stay at the stock ±0.825 mm (0603) / ±0.9125 mm (0805) while the
   width grows from 0.80 → **1.20 mm** (0603) and 1.025 → **1.40 mm** (0805). Toe and heel
   both grow, so the inter-pad gap closes from the IPC-nominal 0.85 mm / 0.80 mm to
   **0.450 mm** (0603) / **0.425 mm** (0805) — the pad inner edge sits 0.225 mm /
@@ -193,8 +196,8 @@ every step below is performed by whoever builds the card.
   pattern on `D_BUS`.
 - **The `_HandSolder` land is generator-only.** `gen/board.py` names
   `R_0603_1608Metric_Pad0.98x0.95mm_HandSolder` /
-  `R_0805_2012Metric_Pad1.20x1.40mm_HandSolder` for those four references and **no
-  committed artifact carries one** — `grep -c HandSolder` is 0 in `phantasm.kicad_sch`,
+  `R_0805_2012Metric_Pad1.20x1.40mm_HandSolder` — the §11.1 lands, gap 0.85 / 0.80 mm —
+  for those four references and **no committed artifact carries one** — `grep -c HandSolder` is 0 in `phantasm.kicad_sch`,
   `phantasm.kicad_pcb` and `unplaced/phantasm_unplaced.kicad_pcb`. Regenerating the
   schematic would put those ids into it and fail the schematic-parity gate against the
   routed copper. The widening is invisible to that gate in the other direction, because
