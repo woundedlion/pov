@@ -514,7 +514,8 @@ private:
                           Animation::PeriodicTimer(
                               0,
                               [this](Canvas &) {
-                                HS_CHECK(advancePreset());
+                                const bool advanced = advancePreset();
+                                HS_CHECK(advanced);
                                 this->spawn_sprite();
                               },
                               false),

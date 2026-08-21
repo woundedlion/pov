@@ -91,7 +91,8 @@ public:
                                    Animation::PeriodicTimer(
                                        2 * (int)params.cycle_duration,
                                        [this](Canvas &) {
-                                         HS_CHECK(advancePreset());
+                                         const bool advanced = advancePreset();
+                                         HS_CHECK(advanced);
                                          update_palette();
                                        },
                                        true),
