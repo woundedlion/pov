@@ -438,6 +438,10 @@ private:
             data.four_regular ? edge_count : 2 * edge_count;
         data.automatic_edges.bind(target, automatic_edge_count);
         if (data.four_regular) {
+          ++four_regular_solids;
+          HS_CHECK(four_regular_solids <= FOUR_REGULAR_SOLID_COUNT,
+                   "DreamBalls registry holds more four-regular solids than "
+                   "the persistent footprint budgets");
           Plot::Mesh::extract_four_regular_edges(data.mesh_state,
                                                  data.automatic_edges, b);
           data.medial_edges.bind(target, 2 * edge_count);
@@ -452,11 +456,7 @@ private:
         HS_CHECK(data.automatic_edges.size() == automatic_edge_count,
                  "DreamBalls automatic topology edge count mismatch");
       });
-      four_regular_solids += data.four_regular ? 1 : 0;
     }
-    HS_CHECK(four_regular_solids <= FOUR_REGULAR_SOLID_COUNT,
-             "DreamBalls registry holds more four-regular solids than the "
-             "persistent footprint budgets");
   }
 
   /**
