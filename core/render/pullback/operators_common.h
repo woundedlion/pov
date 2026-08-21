@@ -94,8 +94,8 @@ struct NoisePhaseState {
   float phase = 0.0f;
 };
 
-inline void init_noise_phase(NoisePhaseState &state, InstanceId) {
-  init_effect_noise(state.noise);
+inline void init_noise_phase(NoisePhaseState &state, InstanceId id) {
+  init_effect_noise(state.noise, static_cast<int32_t>(id.stable_hash));
 }
 
 /** @brief Per-frame source phase clocks. */

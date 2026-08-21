@@ -1498,7 +1498,8 @@ inline void test_shader_chain_parity_warp_vector_noise() {
         program, In::Op::WarpVectorNoise::ID, 4, set);
     FastNoiseLite authored_noise;
     authored_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    authored_noise.SetSeed(PB::EFFECT_NOISE_SEED);
+    authored_noise.SetSeed(static_cast<int32_t>(
+        In::instance_hash("warp", In::Op::WarpVectorNoise::ID)));
     authored_noise.SetFrequency(1.0f);
     const auto &state = state_as<In::Op::NoisePhaseState>(program, 2);
     HS_EXPECT_EQ(state.noise.GetNoise(0.25f, -0.5f, 0.75f),
@@ -1509,6 +1510,43 @@ inline void test_shader_chain_parity_warp_vector_noise() {
     run_vector_noise_basis<::NoiseBasis::RIDGED3>(program, ctx);
     program.clear();
   }
+}
+
+/** Two instances of one noise operator own decorrelated fields: each is seeded
+    from its own instance identity, not from a shared constant. */
+inline void test_shader_chain_noise_instances_decorrelate() {
+  auto fixture = std::make_unique<ProgramFixture>();
+  In::ChainProgram &program = fixture->program;
+  const In::ChainEntryRequest chain[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"warp-a", In::Op::WarpVectorNoise::ID},
+      {"warp-b", In::Op::WarpVectorNoise::ID},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v2"},
+  };
+  const In::ChainRefusal refusal =
+      program.compile(std::span<const In::ChainEntryRequest>(chain));
+  HS_EXPECT_EQ(static_cast<int>(refusal.code),
+               static_cast<int>(In::ChainStatus::OK));
+  const auto &first = state_as<In::Op::NoisePhaseState>(program, 2);
+  const auto &second = state_as<In::Op::NoisePhaseState>(program, 3);
+  bool differs = false;
+  for (const Vector &view : sweep_views())
+    if (first.noise.GetNoise(view.x, view.y, view.z) !=
+        second.noise.GetNoise(view.x, view.y, view.z))
+      differs = true;
+  HS_EXPECT_TRUE(differs);
+  // Deterministic: the seed is the instance's stable hash, so a recompile of
+  // the same shape reconstructs the same field.
+  FastNoiseLite authored;
+  authored.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  authored.SetSeed(static_cast<int32_t>(
+      In::instance_hash("warp-b", In::Op::WarpVectorNoise::ID)));
+  authored.SetFrequency(1.0f);
+  HS_EXPECT_EQ(second.noise.GetNoise(0.25f, -0.5f, 0.75f),
+               authored.GetNoise(0.25f, -0.5f, 0.75f));
+  program.clear();
 }
 
 template <typename Mode, uint8_t Harmonic>
@@ -2991,6 +3029,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_warp_affine_mirror();
   test_shader_chain_parity_warp_wave_shear();
   test_shader_chain_parity_warp_vector_noise();
+  test_shader_chain_noise_instances_decorrelate();
   test_shader_chain_parity_warp_polar_chart();
   test_shader_chain_parity_warp_curl_flow();
   test_shader_chain_parity_sample_variants();
