@@ -142,7 +142,8 @@ static_assert(field_ids_unique<VectorNoiseParams>());
  * @details Translation is scaled by the plane units per lattice cell that
  * Warp::prepare receives: the composed path reads that from its
  * LatticeSourceParams source, the chain path fixes it at 1 so translation is
- * in plane units.
+ * in plane units. Only whole windings scroll seamlessly; a fractional
+ * translation jumps when the phase wraps.
  */
 struct AffineParams {
   float speed = 0.0f;         /**< Per-frame advance of the slot's phase. */
