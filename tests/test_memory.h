@@ -564,6 +564,7 @@ inline void test_arenavec_default_unbound() {
   HS_EXPECT_EQ(v.size(), (size_t)0);
   HS_EXPECT_EQ(v.capacity(), (size_t)0);
   HS_EXPECT_TRUE(v.is_empty());
+  HS_EXPECT_EQ(v.empty(), v.is_empty());
 }
 
 /**
@@ -853,6 +854,7 @@ inline void test_arenaspan_default() {
   ArenaSpan<int> sp;
   HS_EXPECT_EQ(sp.size(), (size_t)0);
   HS_EXPECT_TRUE(sp.is_empty());
+  HS_EXPECT_EQ(sp.empty(), sp.is_empty());
   HS_EXPECT_TRUE(sp.data() == nullptr);
   HS_EXPECT_EQ(sp.begin(), sp.end());
 }
@@ -871,6 +873,7 @@ inline void test_arenaspan_from_vector() {
   ArenaSpan<int> sp(v);
   HS_EXPECT_EQ(sp.size(), (size_t)3);
   HS_EXPECT_FALSE(sp.is_empty());
+  HS_EXPECT_EQ(sp.empty(), sp.is_empty());
   HS_EXPECT_EQ(sp.data(), v.data());
   HS_EXPECT_EQ(sp[0], 11);
   HS_EXPECT_EQ(sp[1], 22);

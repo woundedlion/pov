@@ -911,6 +911,12 @@ public:
    * @return True iff size() == 0.
    */
   bool is_empty() const { return element_count == 0; }
+  /**
+   * @brief Reports whether the vector is empty.
+   * @return True iff size() == 0.
+   * @details Container-requirement spelling of is_empty().
+   */
+  bool empty() const { return element_count == 0; }
 
   /**
    * @brief Accesses the last element.
@@ -1131,6 +1137,15 @@ public:
    * @return True iff size() == 0.
    */
   bool is_empty() const {
+    check_alive();
+    return element_count == 0;
+  }
+  /**
+   * @brief Reports whether the span is empty.
+   * @return True iff size() == 0.
+   * @details Container-requirement spelling of is_empty().
+   */
+  bool empty() const {
     check_alive();
     return element_count == 0;
   }
