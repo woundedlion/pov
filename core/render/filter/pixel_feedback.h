@@ -416,8 +416,7 @@ private:
     feedback_style->sync_hue();
     const bool black_skips_color =
         feedback_style->color_fn == &::Feedback::hue_fade;
-    // Round-to-nearest fade otherwise makes sub-50 channels immortal at
-    // FADE_MAX.
+    // Round-to-nearest fade leaves channels under ~50 undecayed at fade 0.99.
     constexpr float NEAR_BLACK = 64.0f;
     const auto blend = blend_alpha(alpha);
     const bool opaque = alpha >= 1.0f;
