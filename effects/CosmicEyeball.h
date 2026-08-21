@@ -30,7 +30,7 @@ public:
   using Params = CosmicEyeballParams;
   static constexpr std::string_view EFFECT_ID = "cosmic-eyeball";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "44237560b6d8dc08da65ee345193e3ee58522d4289ebe309c82c72389e6ba2bb";
+      "e40694413abf92f5c71633c33293b47af5f1cd3e04f527f454650f189b5067ea";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "128f52eabee28aeb4e1bcf83162e0a0673a15a3fb1d033801cf13b6bcb7764fc";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"mirrored-grid"};

@@ -22,10 +22,10 @@ import { sha256Hex } from './sha256.mjs';
 // CMakeLists.txt). CI has no daydream checkout to diff against, so each mirror
 // is pinned by the SHA-256 of its LF bytes instead: drift is a deliberate
 // re-pin, updated together with the daydream master commit it mirrors.
-// Mirrors daydream master aefa2fc5b99969df9dcd9c93f8dce4d54fe788c2.
+// Mirrors daydream master e87bb510778c73597e74ffadf8a0bcc307a2396e.
 const MIRROR_PINS = {
   'shader_workbench.mjs':
-    '13267e8edaf7517ada160499cc9bc79ad63d4118bd3ede56587d5b0bcf39dec8',
+    '99fc885f6ee8552d78408d7caf65b5e26d8aaeb685e02ca93d6d1bf998535b89',
   'sha256.mjs':
     '046a83178da02898524d3743ad3aa80ec91f719ea9c1b2e9f26912afba71015a',
   'engine_catalog.json':
@@ -290,6 +290,27 @@ test('the descriptor digest survives reordering but not a label rename', () => {
   const recompiled = compile(renamed);
   assert.equal(recompiled.status, 'VALID');
   assert.notEqual(recompiled.descriptor_digest, baseline.descriptor_digest);
+});
+
+test('serialization fields name every parameter once and do not order the digest', () => {
+  const baseline = compile(example());
+  assert.equal(baseline.status, 'VALID');
+  const reversed = example();
+  reversed.descriptor.serialization.fields.reverse();
+  assert.equal(compile(reversed).descriptor_digest, baseline.descriptor_digest,
+    'field order is a spelling, not an identity');
+
+  const codes = (mutate) => {
+    const document = example();
+    mutate(document.descriptor.serialization.fields);
+    return validate(document).map((diagnostic) => diagnostic.code);
+  };
+  assert.deepEqual(codes((fields) => fields.splice(0)), ['INVALID_SERIALIZATION_FIELDS']);
+  assert.deepEqual(codes((fields) => fields.pop()), ['INVALID_SERIALIZATION_FIELDS']);
+  assert.deepEqual(codes((fields) => { fields[1] = fields[0]; }),
+    ['INVALID_SERIALIZATION_FIELDS'], 'a duplicate hides a missing parameter');
+  assert.deepEqual(codes((fields) => fields.push('sample.ghost-field')),
+    ['INVALID_SERIALIZATION_FIELDS']);
 });
 
 test('preset values and document metadata do not enter semantic identity', () => {

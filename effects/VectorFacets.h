@@ -30,7 +30,7 @@ public:
   using Params = VectorFacetsParams;
   static constexpr std::string_view EFFECT_ID = "vector-facets";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "456643c859f794f51cfd0b8c9af55984d6848bf4adb8517c213fb6a803434cc0";
+      "869a46606e3e3839060ad01910281076cddbe434a38b24fe8503d95e5157321a";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "882ac027ba2eecde6adcbec7b2475a6c46f70a28b46aa2a7ae4ccbfa3da80196";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"vector-mirror"};
