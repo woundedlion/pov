@@ -2343,7 +2343,7 @@ A folded-sinusoidal sphere projection displaced by curl noise and shaded with a 
 
 #### PrismLattice
 
-A polar primitive lattice folded through a pentagonal-prism kaleidoscope, projected stereographically, and pulled through a second wave-shear stage.
+A polar primitive lattice folded through a pentagonal-prism kaleidoscope and projected stereographically, its polar chart winding the angular phase one turn per cycle.
 
 **Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Pole Fade, Projection Spin Speed, Projection Wander, Camera Wander, Planar Warp 1 Speed, Polar Radial Scale, Polar Radial Phase, Polar Angular Phase, Planar Warp 2 Speed, Warp Strength, Warp Frequency, Warp Field Angle, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Value Opacity Low, Value Opacity High, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
 
