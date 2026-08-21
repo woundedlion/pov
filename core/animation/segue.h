@@ -857,7 +857,9 @@ static_assert(AllPolicies::RETARGET_SURVIVES_OVERLAP,
  * two parameter sets never render on the same frame). Dissolve — each element
  * flipping from the old parameter set to the new at its own seeded random
  * time, so every element still renders once per frame — is reserved for this
- * roster but unimplemented until an effect adopts it.
+ * roster but unimplemented until an effect adopts it. The sprite policy
+ * Dissolve above already binds that name in this namespace, so implementing the
+ * preset one needs a distinct spelling.
  *
  * Unlike the sprite segues above, which MeshCarousel keeps one mutable instance
  * of, a preset policy carries no per-transition state: ChoreographedEffect
