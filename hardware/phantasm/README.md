@@ -103,6 +103,11 @@ committed board directly need no KiCad and run in CI
   unless the assembled references exactly match its LCSC assignment table,
   every rotation correction names an assembled part, and every centroid row
   is present, numeric, and on the top (assembly) side.
+- **Board-revision gate:** `gen/tests/test_revision.py` reads the revision off
+  the bottom silkscreen (`Phantasm Rev 1.1`) and requires the schematic title
+  block, the routed board's title block and `gen/builder.py`'s `REVISION` to
+  agree with it. The board title block is what KiCad writes into the Gerber X2
+  `ProjectId` attribute; without it the gerbers ship `rev?`.
 - **Part-catalog gate:** every assigned LCSC number must resolve to a catalog
   entry with a non-blank manufacturer, MPN, and description, so each JLCPCB
   BOM match is independently auditable.

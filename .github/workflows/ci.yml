@@ -1979,7 +1979,7 @@ jobs:
           python -m unittest discover -s tools/update_test_pins_tests -v
       - name: Check routed PCB metadata
         run: |
-          bash tools/check_test_files.sh 16 'hardware/phantasm/gen/tests/test*.py'
+          bash tools/check_test_files.sh 17 'hardware/phantasm/gen/tests/test*.py'
           python -m unittest discover -s hardware/phantasm/gen/tests -v
           python hardware/phantasm/gen/board_metadata.py --check
 
