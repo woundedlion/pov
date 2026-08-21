@@ -500,14 +500,15 @@ private:
 
   /**
    * @brief Validates that an operator argument is finite.
-   * @param arg Operator argument crossing the untrusted JS boundary.
+   * @param arg Operator argument crossing the untrusted JS boundary. Taken as a
+   *        double so a count-valued argument is tested at its own width.
    * @param op Operator name, for the rejection log message.
    * @return true if arg is finite; false (after logging) otherwise.
    * @details A non-finite fraction would flow straight into the geometry math and
    *          silently corrupt the mesh, so it is rejected (log + null) rather than
    *          producing NaN geometry.
    */
-  bool finite_arg(float arg, const char *op) const {
+  bool finite_arg(double arg, const char *op) const {
     if (std::isfinite(arg))
       return true;
     hs::log("WASM: MeshOps::%s got a non-finite argument — ignored", op);
@@ -623,16 +624,21 @@ public:
    * @brief Applies relax smoothing passes to the mesh.
    * @param iterations Number of smoothing passes, truncated toward zero;
    *        floored at 0 and clamped to MAX_RELAX_ITERATIONS.
-   * @return Owning pointer to a new wrapper holding the relaxed mesh.
+   * @return Owning pointer to a new wrapper holding the relaxed mesh, or null if
+   *         the count is non-finite; getLastResult() names which.
    * @details Explicit (not a MESHOP_* macro) because its iteration count crosses
    *          the JS boundary unbounded: relax(1e9) would freeze the main thread
    *          for billions of passes, so the count is clamped rather than
    *          trusted. Bound as a double, not an i32, so a request past INT32_MAX
    *          saturates at the cap instead of wrapping negative and flooring at
-   *          0. The clamp is recorded for getLastAdjusted() as well as logged.
+   *          0. A non-finite count is rejected like every other operator's,
+   *          rather than clamped to a zero-pass no-op reported as OK. The clamp
+   *          is recorded for getLastAdjusted() as well as logged.
    */
   std::unique_ptr<MeshOpsWrapper> relax(double iterations) {
     begin_mesh_op();
+    if (!finite_arg(iterations, "relax"))
+      return nullptr;
     const int clamped =
         hs_wasm::clamp_relax_iterations(iterations, MAX_RELAX_ITERATIONS);
     last_mesh_op_adjusted = static_cast<double>(clamped) != iterations;
