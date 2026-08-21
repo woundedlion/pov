@@ -65,8 +65,12 @@ private:
     constexpr float speeds[] = {0.015625f, 0.00690625f, 0.00690625f,
                                 0.00559375f};
     Params value;
-    value.source = {
-        frequencies[index], 0.245f, complexities[index], 0.0f, 0.0f, 0.0f};
+    value.source = {.pattern_freq = frequencies[index],
+                    .speed = 0.245f,
+                    .complexity = complexities[index],
+                    .pattern_mix = 0.0f,
+                    .secondary_rate = 0.0f,
+                    .angle_rate = 0.0f};
     value.projection.camera_wander = 0.8f;
     value.outer_warp.strength = strengths[index];
     value.outer_warp.speed = speeds[index];

@@ -73,11 +73,15 @@ public:
   /// Params the effect starts on, and the base every preset varies from.
   static constexpr Params initial_params() {
     Params value;
-    value.source = {0.710265636f, 1.0f, 0.455532223f, 0.290762514f};
+    value.source = {.lattice_cell_scale = 0.710265636f,
+                    .lattice_shape_blend = 1.0f,
+                    .lattice_softness = 0.455532223f,
+                    .lattice_radius = 0.290762514f};
     value.projection.pole_fade = 20.0f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
-    value.surface = {1.78815627f, 0.0759999976f, 0.0f};
+    value.surface = {
+        .scale = 1.78815627f, .strength = 0.0759999976f, .speed = 0.0f};
     value.color.palette_chroma = 1.0f;
     value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
     value.color.mapping_phase = -0.165999994f;

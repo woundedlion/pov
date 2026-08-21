@@ -46,7 +46,12 @@ public:
 
   static constexpr Params initial_params() {
     Params value;
-    value.source = {3.9407f, 0.0f, 3.0f, 1.0f, 0.8f, 0.0269999988f};
+    value.source = {.pattern_freq = 3.9407f,
+                    .speed = 0.0f,
+                    .complexity = 3.0f,
+                    .pattern_mix = 1.0f,
+                    .secondary_rate = 0.8f,
+                    .angle_rate = 0.0269999988f};
     value.projection.pole_fade = 2.14f;
     value.projection.wander = 0.165f;
     value.projection.camera_wander = 1.0f;

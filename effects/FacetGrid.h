@@ -70,7 +70,12 @@ public:
   /// Params the effect starts on, and the base every preset varies from.
   static constexpr Params initial_params() {
     Params value;
-    value.source = {2.82629991f, 0.0f, 0.513f, 0.0f, 0.8f, 0.0269999988f};
+    value.source = {.pattern_freq = 2.82629991f,
+                    .speed = 0.0f,
+                    .complexity = 0.513f,
+                    .pattern_mix = 0.0f,
+                    .secondary_rate = 0.8f,
+                    .angle_rate = 0.0269999988f};
     value.projection.pole_fade = 3.432f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
