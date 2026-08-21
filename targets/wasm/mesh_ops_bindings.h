@@ -73,8 +73,10 @@ static uint32_t tooling_generation = 0;
 // refactor traps here instead of silently aliasing.
 //
 // A trap inside an op compiles to wasm `unreachable`, which unwinds nothing, so
-// ~ToolingOpGuard() never runs and this stays set. clearToolingMemory() clears
-// it, so a JS caller that catches the RuntimeError can recover through there.
+// ~ToolingOpGuard() never runs and this stays latched, deliberately: the same
+// non-unwinding leaves the shadow stack permanently short, so a trap ends the
+// module (Module.HS_MODULE_DEAD) and the latch stops a caught RuntimeError from
+// being answered with another op on a dead instance.
 static bool tooling_op_active = false;
 struct ToolingOpGuard {
   ToolingOpGuard() {
@@ -279,12 +281,11 @@ public:
    *          only its arena bump-pointers are reset. A JS caller will not see
    *          memory usage drop; this frees the arenas for reuse, not the OS.
    *
-   *          Also clears the re-entrancy flag, which a trap inside an op leaves
-   *          set (see tooling_op_active). No op is in flight once JS regains
-   *          control, so this is the recovery entry point after a trap.
+   *          Not a post-trap recovery: a trap ends the module, and the
+   *          re-entrancy latch it leaves set (tooling_op_active) is not cleared
+   *          here, so no later op can run. Discard the instance instead.
    */
   static void clearToolingMemory() {
-    tooling_op_active = false;
     tooling_arena.reset();
     tooling_arena.reset_high_water_mark();
     tooling_scratch_a.reset();

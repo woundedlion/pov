@@ -389,7 +389,18 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   char buf[256];
   snprintf(buf, sizeof(buf), "HS_CHECK failed: %s:%d: (%s) %s", base, line,
            cond, msg);
-  EM_ASM({ console.error(UTF8ToString($0)); }, buf);
+  // The trap below compiles to wasm `unreachable`, which unwinds nothing: the
+  // shadow stack pointer keeps whatever the aborted frame left it at, so every
+  // later call runs on a permanently shortened stack and eventually writes past
+  // its end, unreported (the release link sets -sASSERTIONS=0). The module is
+  // dead from here on, and the flag is what says so to a JS caller that catches
+  // the RuntimeError.
+  EM_ASM(
+      {
+        console.error(UTF8ToString($0));
+        Module['HS_MODULE_DEAD'] = true;
+      },
+      buf);
 #else
   hs::log("HS_CHECK failed: %s:%d: (%s) %s", base, line, cond, msg);
 #endif
