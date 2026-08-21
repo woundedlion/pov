@@ -266,6 +266,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
 │   │   ├── attributes.h            Placement and optimization attribute macros
 │   │   ├── diagnostics.h           HS_CHECK trap + hs::log
+│   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
+│   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── rng.h                   Deterministic random number generation
 │   │   ├── arduino_mocks.h         Host-side FastLED / Arduino mock surface
 │   │   ├── build_features.h        Canvas size, build-time feature and instrumentation switches
@@ -276,12 +278,10 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   │   └── triangular_bitset.h     Upper-triangular unordered-pair bitset
 │   ├── engine/                 Machinery: memory, callables, rosters, effect support
-│   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
 │   │   ├── engine.h                Engine API umbrella — included by every effect
 │   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
-│   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>, generate()
 │   │   ├── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
 │   │   └── styles.h                Feedback::Style named presets + space/color transform functions
