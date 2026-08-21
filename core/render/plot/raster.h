@@ -3,6 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
+#include <cassert>
 #include <utility>
 #include <type_traits>
 #include <algorithm>
@@ -172,6 +173,8 @@ struct RasterOptions {
    * rasterize()'s seam pre-pass.
    */
   const uint8_t *edge_flags = nullptr;
+  /** Entries in edge_flags; asserted against the rasterized edge count. */
+  size_t edge_flags_len = 0;
   /**
    * Optional per-point screen rows, y_to_screen_row of each points[k].pos.
    * With point_cols, lets the single-dot shortcut skip the projection. Only
@@ -350,6 +353,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
            "hoisted point projections take both rows and columns");
 
   size_t count = close_loop ? len : len - 1;
+  assert(edge_flags == nullptr || opts.edge_flags_len == count);
   HS_PLOT_ADD(edges, count);
   // SCRATCH ARENA CONTRACT (load-bearing): scratch_arena_a is a LIFO bump
   // allocator shared with Pixel::Feedback::flush; do not let a raw pointer into
