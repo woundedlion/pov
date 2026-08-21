@@ -39,6 +39,7 @@ public:
   static constexpr bool ANIMATED_PROJECTION = false;
   static constexpr int32_t OUTER_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 
+  // Cold section: the out-of-line pipeline body compiles for size.
   static HS_FLASH_MEMBER Color4
   shade(const Vector &view, const typename VectorFacets::FrameState &frame) {
     return VectorFacets::RenderPipeline::shade(view, frame);
