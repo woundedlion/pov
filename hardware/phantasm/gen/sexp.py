@@ -18,6 +18,16 @@ def kicad_version_key(path):
 # with. Pinned in tools/build_pins.py, which asserts this spelling.
 KICAD_MAJOR = 10
 
+# The (generator_version) string stamped into every file the generators emit.
+GENERATOR_VERSION = f"{KICAD_MAJOR}.0"
+
+# (version) epochs, one per file format. KiCad revises each format on its own
+# schedule, so these differ from each other and cannot be derived from
+# KICAD_MAJOR; each is the epoch KICAD_MAJOR reads and writes for that format.
+SCHEMATIC_FORMAT = "20251024"
+PCB_FORMAT = "20250513"
+FOOTPRINT_FORMAT = "20240108"
+
 
 def kicad_data_dir_patterns(kind):
     """Stock install globs searched for a KiCad data directory, in order."""

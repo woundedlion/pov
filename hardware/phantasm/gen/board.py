@@ -400,8 +400,9 @@ def main(force=False):
     with open(SCH, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(b.dumps())
 
-    lib_lines = ['(kicad_symbol_lib', f'\t(version {B.VERSION})',
-                 '\t(generator "phantasm-gen")', '\t(generator_version "10.0")']
+    lib_lines = ['(kicad_symbol_lib', f'\t(version {sexp.SCHEMATIC_FORMAT})',
+                 '\t(generator "phantasm-gen")',
+                 f'\t(generator_version "{sexp.GENERATOR_VERSION}")']
     for lib_id in sorted(b.lib_defs):
         if lib_id.startswith("phantasm:"):
             node = copy.deepcopy(b.lib_defs[lib_id]); node[1] = lib_id.split(":", 1)[1]

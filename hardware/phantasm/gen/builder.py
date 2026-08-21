@@ -4,8 +4,6 @@ import math
 import sexp
 from kicad_common import uid, fmt
 
-VERSION = "20251024"
-
 
 # ---------- transform: library local coords -> schematic screen coords ----------
 def transform(sx, sy, rot, mirror, lx, ly):
@@ -165,9 +163,9 @@ class Builder:
     def dumps(self):
         out = []
         out.append('(kicad_sch')
-        out.append(f'\t(version {VERSION})')
+        out.append(f'\t(version {sexp.SCHEMATIC_FORMAT})')
         out.append('\t(generator "eeschema")')
-        out.append('\t(generator_version "10.0")')
+        out.append(f'\t(generator_version "{sexp.GENERATOR_VERSION}")')
         out.append(f'\t(uuid "{self.uuid}")')
         out.append(f'\t(paper {sexp.quote(self.paper)})')
         out.append('\t(title_block')
