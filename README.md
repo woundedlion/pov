@@ -255,7 +255,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
 ## 3. Repository Map
 
-Both trees are gated against their repository's tracked file list: every row must name a path that exists, and a directory that names any of its children must name them all. A directory drawn as a single summary row names no children and so is exempt — nothing forces `effects/`, `tests/`, `docs/`, `.githooks/`, or `.github/workflows/` to enumerate their contents here.
+Both trees are gated against their repository's tracked file list: every row must name a path that exists, and a directory that names any of its children must name them all. A directory drawn as a single summary row names no children and so is exempt — nothing forces `effects/`, `tests/`, `docs/`, `.githooks/`, or `.github/workflows/` to enumerate their contents here. On top of that, `tools/docs_check.py` carries a short `_TREE_UNMAPPED` allowlist of tracked paths no row has to name at all: the VCS metadata files (`.gitattributes`, `.gitignore`, `hardware/phantasm/.gitignore`), this document itself, and everything under `tests/`.
 
 ### Holosphere (engine + firmware)
 
