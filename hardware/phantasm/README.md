@@ -103,6 +103,10 @@ committed board directly need no KiCad and run in CI
   unless the assembled references exactly match its LCSC assignment table,
   every rotation correction names an assembled part, and every centroid row
   is present, numeric, and on the top (assembly) side.
+- **Layer-name gate:** `gen/tests/test_pcb_stack.py` rejects a declared layer
+  name carrying whitespace on either board. KiCad builds each Gerber's filename
+  from the layer name, so an Altium-style alias such as `Ground Layer 1` ships a
+  space in the upload zip.
 - **Board-revision gate:** `gen/tests/test_revision.py` reads the revision off
   the bottom silkscreen (`Phantasm Rev 1.1`) and requires the schematic title
   block, the routed board's title block and `gen/builder.py`'s `REVISION` to

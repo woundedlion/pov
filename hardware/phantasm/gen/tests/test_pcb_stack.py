@@ -11,6 +11,23 @@ import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
 
+BOARDS = {
+    "routed": GEN.parent / "phantasm.kicad_pcb",
+    "unplaced": GEN.parent / "unplaced" / "phantasm_unplaced.kicad_pcb",
+}
+
+
+def declared_layer_names(path):
+    """Every name a board's `(layers ...)` block declares -- canonical and alias."""
+    root = sexp.parse(path.read_text(encoding="utf-8"))[0]
+    names = []
+    for entry in F(root, "layers")[0][1:]:
+        names.extend(str(value) for value in entry[1:]
+                     if str(value) not in ("signal", "power", "user", "mixed",
+                                           "jumper"))
+    return names
+
+
 def stackup_copper():
     """(name, thickness) of every copper layer the emitted stackup declares."""
     root = sexp.parse("(stackup " + " ".join(pcb.STACKUP) + ")")[0]
@@ -59,6 +76,17 @@ class CopperStackTests(unittest.TestCase):
                    if name.endswith(".Cu")]
 
         self.assertEqual(tuple(plotted), pcb.copper_layer_names())
+
+
+class LayerNameTests(unittest.TestCase):
+    """KiCad builds each Gerber's filename from the layer's name, so a name
+    carrying a space ships an upload zip the fab has to guess at."""
+
+    def test_no_declared_layer_name_carries_whitespace(self):
+        for board, path in BOARDS.items():
+            for name in declared_layer_names(path):
+                with self.subTest(board=board, name=name):
+                    self.assertEqual(name.split(), [name])
 
 
 if __name__ == "__main__":
