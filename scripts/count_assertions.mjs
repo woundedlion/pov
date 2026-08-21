@@ -1,9 +1,7 @@
 // Counts the node:assert calls a test file runs. scripts/run_tests.mjs loads
 // this through NODE_OPTIONS, so every process `node --test` spawns wraps its
-// own copy of node:assert and drops its count in $HS_ASSERTION_COUNTS for
-// the runner to aggregate. NODE_TEST_CONTEXT keeps the outer runner from
-// writing, but a script spawned by a test inherits it and writes too;
-// run-tests discards those records by path.
+// own copy of node:assert and drops its count in $HS_ASSERTION_COUNTS for the
+// runner to aggregate.
 import assert from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
@@ -22,8 +20,7 @@ if (dir && file && process.env.NODE_TEST_CONTEXT) {
   //
   // Only properties are reachable: each module's default export is a callable
   // bound inside the builtin, so a bare `assert(x)` runs the original and
-  // scores nothing. scripts/run_tests.mjs refuses to commit a floor of zero
-  // assertions for a file that ran cases, so that style cannot ratchet there.
+  // scores nothing.
   for (const target of [assert, assert.strict]) {
     for (const key of Object.keys(target)) {
       const fn = target[key];

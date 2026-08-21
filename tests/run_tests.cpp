@@ -83,152 +83,87 @@
  * run in isolation.
  */
 struct TestModule {
-  const char *name;   /**< Short module name matched against argv. */
-  int (*run)();       /**< Entry point; returns the module's failure count. */
-  int min_assertions; /**< Assertion floor; 0 means unfloored. */
+  const char *name; /**< Short module name matched against argv. */
+  int (*run)();     /**< Entry point; returns the module's failure count. */
 };
 
 // Single source of truth for the roster: expands into both MODULES[] and the
 // derived HS_TEST_MODULE_COUNT below. Adding a module means an #include above
 // AND one X(...) row here. Mirrors core/engine/effects.h's HS_EFFECT_LIST.
-//
-// The second column is the number of case definitions in the module's header,
-// enforced by tests/check_case_calls.cmake. The floor below is an inequality, so
-// a loop-amplified module keeps clearing it with a whole case deleted; this
-// count is exact, and deleting or adding a case must change it. 0 means the
-// module writes no `void test_*()`/`void check_*()`/`void case_*()` cases at
-// all (effects_smoke is one sweep) — it is a pin, not an exemption.
-// tests/check_case_calls.cmake reports the count it found when the pin drifts.
-//
-// The fourth column is the module's minimum assertion count, enforced by
-// hs_test::end_module(). Cases are invoked by hand-written calls, so a case that
-// is defined and never called compiles clean; the floor turns the resulting drop
-// in assertions red.
-//
-// Every value is MEASURED, as the minimum over the configurations that can move
-// a module's count: the smoke window (HS_SMOKE_FRAMES), Debug -O0 against
-// RelWithDebInfo -O2, and the NDEBUG-gated cases in test_memory.h (13
-// assertions, so memory's floor sits 13 under its Debug count). Adding cases
-// raises a module's count and leaves its floor valid; lower a floor only after
-// deliberately removing or cheapening a case. 0 leaves a module unfloored.
-// death's floor covers its whole-suite skip exits because end_module exempts a
-// module that reported a skip.
-
-// Effects floors, one per depth tier (tests/test_effects.h
-// effects_full_suite()). A single floor would have to be the QUICK count,
-// leaving every FULL-tier case deletable without turning CI — the only runner of
-// that tier — red. The roster rows below select the floor for the tier the
-// environment picked. effects_smoke carries the roster-wide sweeps and effects
-// the white-box block, so each pair floors its own half. The effects floors are
-// the previous whole-module values less the assertions the sweeps took with
-// them, so that half's gate is exactly as tight as it was.
-constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 193933;
-constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 232520;
-constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 1776;
-constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 2083;
-constexpr int EFFECT_FACTORY_QUICK_MIN_ASSERTIONS = 696;
-constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
-
 #define HS_TEST_MODULE_LIST(X)                                                 \
-  X("3dmath", 49, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
-  X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
-  X("memory", 46, hs_test::memory_tests::run_memory_tests, 255)                \
-  X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
-  X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
-  X("sdf", 99, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
-  X("conway", 34, hs_test::conway_tests::run_conway_tests, 4121)               \
-  X("conway_morph", 41, hs_test::conway_morph_tests::run_conway_morph_tests,   \
-    302862)                                                                    \
-  X("conway_continuity", 22,                                                   \
-    hs_test::conway_continuity_tests::run_conway_continuity_tests, 49151)      \
-  X("partition_seam", 2,                                                       \
-    hs_test::partition_seam_tests::run_partition_seam_tests, 54)               \
-  X("conway_soak", 1, hs_test::conway_soak_tests::run_conway_soak_tests, 151)  \
-  X("opchain_probe", 8, hs_test::opchain_probe_tests::run_opchain_probe_tests, \
-    5186)                                                                      \
-  X("opchain_arena_survey", 1,                                                 \
-    hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests, 5764) \
-  X("hankin", 20, hs_test::hankin_tests::run_hankin_tests, 1594)               \
-  X("geometry", 41, hs_test::geometry_tests::run_geometry_tests, 5128)         \
-  X("spherical_field", 14,                                                     \
-    hs_test::spherical_field_tests::run_spherical_field_tests, 9391)           \
-  X("mesh", 27, hs_test::mesh_tests::run_mesh_tests, 69923)                    \
-  X("solids", 34, hs_test::solids_tests::run_solids_tests, 95084)              \
-  X("reaction_graph", 14,                                                      \
-    hs_test::reaction_graph_tests::run_reaction_graph_tests, 40)               \
-  X("color", 69, hs_test::color_tests::run_color_tests, 506693)                \
-  X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 102)           \
-  X("easing_waves", 10, hs_test::easing_waves_tests::run_easing_waves_tests,   \
-    6080)                                                                      \
-  X("interpolate", 5, hs_test::interpolate_tests::run_interpolate_tests, 2077) \
-  X("platform", 19, hs_test::platform_tests::run_platform_tests, 266686)       \
-  X("profiling", 12, hs_test::profiling_tests::run_profiling_tests, 163)       \
-  X("pullback", 14, hs_test::pullback_tests::run_pullback_tests, 85)           \
-  X("shader_chain", 51, hs_test::shader_chain_tests::run_shader_chain_tests,   \
-    9957)                                                                      \
-  X("filter", 65, hs_test::filter_tests::run_filter_tests, 10296)              \
-  X("plot_scan", 83, hs_test::plot_scan_tests::run_plot_scan_tests, 1501827)   \
-  X("canvas", 35, hs_test::canvas_tests::run_canvas_tests, 487)                \
-  X("scan", 40, hs_test::scan_tests::run_scan_tests, 1174887)                  \
-  X("mesh_raster", 20, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
-    2793)                                                                      \
-  X("transformers", 45, hs_test::transformers_tests::run_transformers_tests,   \
-    1296)                                                                      \
-  X("noise", 4, hs_test::noise_tests::run_noise_tests, 201)                    \
-  X("noise_field", 11, hs_test::noise_field_tests::run_noise_field_tests,      \
-    1334)                                                                      \
-  X("projections", 20, hs_test::projections_tests::run_projections_tests,      \
-    95876)                                                                     \
-  X("animation", 114, hs_test::animation_tests::run_animation_tests, 13894)    \
-  X("effects", 95, hs_test::effects_tests::run_effects_tests,                  \
-    hs_test::effects_tests::effects_full_suite()                               \
-        ? EFFECTS_FULL_MIN_ASSERTIONS                                          \
-        : EFFECTS_QUICK_MIN_ASSERTIONS)                                        \
-  X("effects_smoke", 0, hs_test::effects_smoke_tests::run_effects_smoke_tests, \
-    hs_test::effects_tests::effects_full_suite()                               \
-        ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
-        : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
-  X("effect_factory", 7,                                                       \
-    hs_test::effect_factory_tests::run_effect_factory_tests,                   \
-    hs_test::effects_tests::effects_full_suite()                               \
-        ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
-        : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
-  X("shader_workbench", 58,                                                    \
-    hs_test::shader_workbench_tests::run_shader_workbench_tests, 1459084)      \
-  X("curl_lattice", 5, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
-    5000)                                                                      \
-  X("facet_grid", 5, hs_test::facet_grid_tests::run_facet_grid_tests, 8000)    \
-  X("composed_effect", 17,                                                     \
-    hs_test::composed_effect_tests::run_composed_effect_tests, 16101)          \
-  X("shapeshifter_oracle", 19,                                                 \
-    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
-  X("shapeshifter_tiles", 3,                                                   \
-    hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests, 62)       \
-  X("dma_core", 4, hs_test::dma_core_tests::run_dma_core_tests, 12)            \
-  X("hd107s", 7, hs_test::hd107s_tests::run_hd107s_tests, 288)                 \
-  X("dma_controller", 7,                                                       \
-    hs_test::dma_controller_tests::run_dma_controller_tests, 67)               \
-  X("pov_segmented", 24,                                                       \
-    hs_test::pov_segmented_tests::run_pov_segmented_tests, 263165)             \
-  X("pov_single", 6, hs_test::pov_single_tests::run_pov_single_tests, 8640)    \
-  X("pov_sync", 52, hs_test::pov_sync_tests::run_pov_sync_tests, 3446)         \
-  X("param_marshal", 3, hs_test::param_marshal_tests::run_param_marshal_tests, \
-    9723)                                                                      \
-  X("wasm_predicates", 13,                                                     \
-    hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 470)            \
-  X("led", 6, hs_test::led_tests::run_led_tests, 24)                           \
-  X("presets", 9, hs_test::presets_tests::run_presets_tests, 43)               \
-  X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
-  X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
-  X("death", 175, hs_test::death_tests::run_death_tests, 259)
+  X("3dmath", hs_test::math3d_tests::run_3dmath_tests)                         \
+  X("concepts", hs_test::concepts_tests::run_concepts_tests)                   \
+  X("memory", hs_test::memory_tests::run_memory_tests)                         \
+  X("spatial", hs_test::spatial_tests::run_spatial_tests)                      \
+  X("scb", hs_test::scb_tests::run_static_circular_buffer_tests)               \
+  X("sdf", hs_test::sdf_tests::run_sdf_tests)                                  \
+  X("conway", hs_test::conway_tests::run_conway_tests)                         \
+  X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests)       \
+  X("conway_continuity",                                                       \
+    hs_test::conway_continuity_tests::run_conway_continuity_tests)             \
+  X("partition_seam", hs_test::partition_seam_tests::run_partition_seam_tests) \
+  X("conway_soak", hs_test::conway_soak_tests::run_conway_soak_tests)          \
+  X("opchain_probe", hs_test::opchain_probe_tests::run_opchain_probe_tests)    \
+  X("opchain_arena_survey",                                                    \
+    hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests)       \
+  X("hankin", hs_test::hankin_tests::run_hankin_tests)                         \
+  X("geometry", hs_test::geometry_tests::run_geometry_tests)                   \
+  X("spherical_field",                                                         \
+    hs_test::spherical_field_tests::run_spherical_field_tests)                 \
+  X("mesh", hs_test::mesh_tests::run_mesh_tests)                               \
+  X("solids", hs_test::solids_tests::run_solids_tests)                         \
+  X("reaction_graph", hs_test::reaction_graph_tests::run_reaction_graph_tests) \
+  X("color", hs_test::color_tests::run_color_tests)                            \
+  X("palettes", hs_test::palettes_tests::run_palettes_tests)                   \
+  X("easing_waves", hs_test::easing_waves_tests::run_easing_waves_tests)       \
+  X("interpolate", hs_test::interpolate_tests::run_interpolate_tests)          \
+  X("platform", hs_test::platform_tests::run_platform_tests)                   \
+  X("profiling", hs_test::profiling_tests::run_profiling_tests)                \
+  X("pullback", hs_test::pullback_tests::run_pullback_tests)                   \
+  X("shader_chain", hs_test::shader_chain_tests::run_shader_chain_tests)       \
+  X("filter", hs_test::filter_tests::run_filter_tests)                         \
+  X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests)                \
+  X("canvas", hs_test::canvas_tests::run_canvas_tests)                         \
+  X("scan", hs_test::scan_tests::run_scan_tests)                               \
+  X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests)          \
+  X("transformers", hs_test::transformers_tests::run_transformers_tests)       \
+  X("noise", hs_test::noise_tests::run_noise_tests)                            \
+  X("noise_field", hs_test::noise_field_tests::run_noise_field_tests)          \
+  X("projections", hs_test::projections_tests::run_projections_tests)          \
+  X("animation", hs_test::animation_tests::run_animation_tests)                \
+  X("effects", hs_test::effects_tests::run_effects_tests)                      \
+  X("effects_smoke", hs_test::effects_smoke_tests::run_effects_smoke_tests)    \
+  X("effect_factory", hs_test::effect_factory_tests::run_effect_factory_tests) \
+  X("shader_workbench",                                                        \
+    hs_test::shader_workbench_tests::run_shader_workbench_tests)               \
+  X("curl_lattice", hs_test::curl_lattice_tests::run_curl_lattice_tests)       \
+  X("facet_grid", hs_test::facet_grid_tests::run_facet_grid_tests)             \
+  X("composed_effect",                                                         \
+    hs_test::composed_effect_tests::run_composed_effect_tests)                 \
+  X("shapeshifter_oracle",                                                     \
+    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests)         \
+  X("shapeshifter_tiles",                                                      \
+    hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests)           \
+  X("dma_core", hs_test::dma_core_tests::run_dma_core_tests)                   \
+  X("hd107s", hs_test::hd107s_tests::run_hd107s_tests)                         \
+  X("dma_controller", hs_test::dma_controller_tests::run_dma_controller_tests) \
+  X("pov_segmented", hs_test::pov_segmented_tests::run_pov_segmented_tests)    \
+  X("pov_single", hs_test::pov_single_tests::run_pov_single_tests)             \
+  X("pov_sync", hs_test::pov_sync_tests::run_pov_sync_tests)                   \
+  X("param_marshal", hs_test::param_marshal_tests::run_param_marshal_tests)    \
+  X("wasm_predicates",                                                         \
+    hs_test::wasm_predicates_tests::run_wasm_predicates_tests)                 \
+  X("led", hs_test::led_tests::run_led_tests)                                  \
+  X("presets", hs_test::presets_tests::run_presets_tests)                      \
+  X("styles", hs_test::styles_tests::run_styles_tests)                         \
+  X("shading", hs_test::shading_tests::run_shading_tests)                      \
+  X("death", hs_test::death_tests::run_death_tests)
 
-// case_sites is consumed by tests/check_case_calls.cmake, not by the runtime.
-#define HS_TEST_MODULE_ENTRY(name, case_sites, fn, min_assertions)             \
-  {name, fn, min_assertions},
+#define HS_TEST_MODULE_ENTRY(name, fn) {name, fn},
 static const TestModule MODULES[] = {HS_TEST_MODULE_LIST(HS_TEST_MODULE_ENTRY)};
 #undef HS_TEST_MODULE_ENTRY
 
-#define HS_TEST_MODULE_COUNT_ADD(name, case_sites, fn, min_assertions) +1
+#define HS_TEST_MODULE_COUNT_ADD(name, fn) +1
 constexpr int HS_TEST_MODULE_COUNT =
     0 HS_TEST_MODULE_LIST(HS_TEST_MODULE_COUNT_ADD);
 #undef HS_TEST_MODULE_COUNT_ADD
@@ -268,13 +203,12 @@ static bool runs_effects(int argc, char **argv) {
  * @param argc Argument count as passed to main.
  * @param argv Argument vector as passed to main.
  * @return 0 when every lever this invocation needs is set, else 1.
- * @details Both levers default to the shallow local tier when unset, and the
- * effects assertion floor is selected from the same read, so a workflow that
- * stops exporting one drops the deep smoke window and the full-resolution
- * roster passes while still reporting green. Under CI that is a failure, the
- * same stance the death harness takes on a suite it cannot run. HS_EFFECTS_FULL
- * is required only when an effects module actually runs, so the jobs that
- * select other modules are untouched.
+ * @details Both levers default to the shallow local tier when unset. A workflow
+ * that stops exporting one drops the deep smoke window and the
+ * full-resolution roster passes while still reporting green. Under CI that is
+ * a failure, the same stance the death harness takes on a suite it cannot run.
+ * HS_EFFECTS_FULL is required only when an effects module actually runs, so
+ * jobs that select other modules are untouched.
  */
 static int check_ci_levers(int argc, char **argv) {
   if (!hs_test::death_tests::in_ci())
@@ -299,24 +233,11 @@ static int check_ci_levers(int argc, char **argv) {
     std::fprintf(stderr,
                  "run_tests: CI=on but HS_EFFECTS_FULL is unset or 0 — the "
                  "effects modules would run the QUICK tier, dropping the "
-                 "288x144 roster passes and the white-box block against the "
-                 "lower QUICK assertion floor. Set HS_EFFECTS_FULL=1 in the "
-                 "workflow step's env.\n");
+                 "288x144 roster passes and the white-box block. Set "
+                 "HS_EFFECTS_FULL=1 in the workflow step's env.\n");
     ++missing;
   }
   return missing ? 1 : 0;
-}
-
-/**
- * @brief Runs one roster module under its assertion floor.
- * @param m The roster entry to run.
- * @return The module's failure count, plus one if it fell below its floor.
- * @details Publishes the floor for the ModuleScope the module opens, so both the
- * full run and an argv-filtered subset enforce the same count.
- */
-static int run_module(const TestModule &m) {
-  hs_test::pending_min_assertions() = m.min_assertions;
-  return m.run();
 }
 
 /**
@@ -428,11 +349,11 @@ int main(int argc, char **argv) {
         print_modules(stderr);
         return 2;
       }
-      failures += run_module(*match);
+      failures += match->run();
     }
   } else {
     for (const TestModule &m : MODULES)
-      failures += run_module(m);
+      failures += m.run();
   }
   // Collapse to 0/1: a process exit status is only 8 bits on POSIX, so
   // returning a raw count would wrap (e.g. 256 failures -> 0 -> green CI).

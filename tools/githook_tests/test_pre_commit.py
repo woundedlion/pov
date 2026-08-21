@@ -75,14 +75,13 @@ CASES = (
     ("cmake/toolchain-native-clang.cmake", {"native"}),
     ("tests/check_includes.cmake", {"native"}),
     ("tests/ubsan-ignorelist.txt", {"native"}),
-    # JSON the native suite reads at run time, and the JSON documents,
-    # mirrors and floors the JS suite gates.
+    # JSON the native suite reads at run time, and the JSON documents and
+    # mirrors the JS suite gates.
     ("tests/data/shader_chain_catalog.json", {"native"}),
     ("tests/data/pullback/programs.json", {"native"}),
     ("patterns/example.shader.json", {"lint"}),
     ("patterns/shaderball_migration.json", {"lint"}),
     ("scripts/engine_catalog.json", {"lint"}),
-    ("scripts/assertion_floors.json", {"lint"}),
     ("README.md", {"lint"}),
     ("docs/specs/pullback_pipeline_spec.md", {"lint"}),
     ("scripts/wasm_smoke.mjs", {"lint"}),

@@ -84,10 +84,8 @@ inline Arena &plot_arena() {
 
 /**
  * @brief The [0, π] paired trig path is bit-exact with the general functions.
- * @details The ~525k probed angles report through a first-divergence capture
- *          and a sample counter rather than per-angle assertions, which would
- *          put a million assertions into the module's floor and leave the gate
- *          blind to every other case being deleted.
+ * @details The ~525k probed angles aggregate into a first-divergence capture
+ *          and a sample counter.
  */
 inline void test_geodesic_sincos_bit_parity() {
   float first_bad = -1.0f;
@@ -835,10 +833,9 @@ inline void test_clip_arcs_overlap() {
  *          ambiguous near-half separation fails on the mid-arc samples.
  *          Non-vacuity counters require many genuinely cullable spans and many
  *          near-half sweeps.
- *          The ~7.2M dense containment samples report through escape counters
- *          rather than per-sample assertions, which would swamp the module's
- *          assertion floor; the sample counters keep a sweep that stopped
- *          generating samples from passing vacuously.
+ *          The ~7.2M dense containment samples aggregate into escape counters;
+ *          sample counters keep a sweep that stopped generating samples from
+ *          passing vacuously.
  */
 inline void test_col_span_covers_arc() {
   constexpr int TW = 288;
@@ -1619,8 +1616,7 @@ inline void test_finish_col_span_one_period() {
 
 /**
  * @brief The conditional-add column wrap is bit-exact with wrap() over (-W, W).
- * @details Probes report through a divergence counter rather than per-probe
- *          assertions, which would swamp the module's assertion floor.
+ * @details Probes aggregate into a divergence counter.
  */
 inline void test_wrap_one_period_matches_modulo() {
   constexpr int W = 288;

@@ -47,9 +47,8 @@ if(NOT _ninc EQUAL _nrow)
     "silently; add the row or drop the orphaned include.")
 endif()
 
-# Headers that are deliberately not roster modules — the same list
-# check_case_calls.cmake pins case-site counts against, so a helper added for
-# one gate cannot go missing from the other.
+# Headers that are deliberately not roster modules. check_case_calls.cmake uses
+# the same list to allow their cases to be called from another file.
 include("${TESTS_DIR}/off_roster_headers.cmake")
 set(NON_MODULE_HEADERS ${HS_OFF_ROSTER_HEADER_NAMES})
 

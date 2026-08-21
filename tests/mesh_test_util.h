@@ -61,11 +61,7 @@ inline PolyMesh build_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
  *        sphere to within tol.
  * @param m Mesh whose vertices are checked.
  * @param tol Absolute tolerance on the deviation of each vertex length from 1.0.
- * @details Reports the worst deviation rather than asserting per vertex: this
- *          helper runs over every mesh the conway/mesh/solids/opchain suites
- *          build, so a per-vertex HS_EXPECT would put hundreds of thousands of
- *          assertions into those modules' floors and leave the floor gate blind
- *          to whole cases being deleted.
+ * @details Reports the worst deviation across all vertices.
  */
 inline void check_all_unit_vertices(const PolyMesh &m, float tol) {
   HS_EXPECT_TRUE(m.vertices.size() > 0);

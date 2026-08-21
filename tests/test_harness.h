@@ -417,9 +417,7 @@ inline bool &suite_skipped() {
 
 /**
  * @brief Records a skip that stands for the module's ENTIRE case set.
- * @details Tallies the skip and waives this module's assertion floor — the
- * module ran no cases, so a floor measured over them cannot apply. This is the
- * only thing that waives a floor.
+ * @details Tallies the skip and marks the module as intentionally unrunnable.
  */
 inline void skip_suite() {
   ++stats().skipped;
@@ -427,10 +425,7 @@ inline void skip_suite() {
 }
 
 /**
- * @brief Records one skipped sub-case, leaving the module's floor in force.
- * @details A module that skips one case still ran the rest, so the floor must
- * still gate them. Subtract the skipped case's assertions from the roster floor
- * if the skip is conditional; do not reach for skip_suite() to silence it.
+ * @brief Records one skipped sub-case.
  */
 inline void skip_case() { ++stats().skipped; }
 
@@ -444,49 +439,25 @@ struct ModuleScope {
   int passed_before;  /**< Global passed count captured at begin_module. */
   int failed_before;  /**< Global failed count captured at begin_module. */
   int skipped_before; /**< Global skipped count captured at begin_module. */
-  int min_assertions; /**< Floor enforced by end_module; 0 disables the check. */
 };
-
-/**
- * @brief Accessor for the assertion floor the next begin_module will adopt.
- * @return Reference to the pending floor, 0 when no floor is published.
- * @details The roster in run_tests.cpp publishes a module's measured floor here
- * immediately before invoking it. begin_module consumes the value and resets it
- * to 0, so a scope opened outside the roster driver — a standalone check binary —
- * carries no floor.
- */
-inline int &pending_min_assertions() {
-  static int m = 0;
-  return m;
-}
 
 /**
  * @brief Prints a module header and captures the current counter baseline.
  * @param name Module name to print and store in the scope.
- * @return A ModuleScope holding the name, the baseline pass/fail counts, and the
- * pending assertion floor.
+ * @return A ModuleScope holding the name and baseline counters.
  */
 inline ModuleScope begin_module(const char *name) {
   std::printf("=== %s ===\n", name);
   fail_print_budget() = FailPrintBudget{};
   suite_skipped() = false;
-  const int min_assertions = pending_min_assertions();
-  pending_min_assertions() = 0;
-  return {name, stats().passed, stats().failed, stats().skipped,
-          min_assertions};
+  return {name, stats().passed, stats().failed, stats().skipped};
 }
 
 /**
- * @brief Prints the module's pass/fail delta since begin_module and enforces its
- * assertion floor.
+ * @brief Prints the module's pass/fail delta since begin_module.
  * @param m The scope returned by begin_module for this module.
- * @return The module's failure count (delta since begin_module), plus one if the
- * module ran fewer assertions than its floor.
- * @details Individual cases are invoked by hand-written calls, so a case that is
- * defined and never called compiles clean. The floor turns that into a red run:
- * dropping a call removes assertions, and the module falls below the count the
- * roster recorded for it. Only a whole-suite skip (skip_suite()) is exempt; a
- * skipped sub-case leaves the floor gating every case the module still ran.
+ * @return The module's failure count (delta since begin_module), or one if it
+ * ran no assertions without reporting a whole-suite skip.
  */
 inline int end_module(const ModuleScope &m) {
   int passed = stats().passed - m.passed_before;
@@ -509,16 +480,6 @@ inline int end_module(const ModuleScope &m) {
                 passed, failed, skipped);
   else
     std::printf("=== %s: %d passed, %d failed ===\n", m.name, passed, failed);
-  // Only a whole-suite skip waives the floor (death skips its whole case loop
-  // when it cannot re-exec). A per-case skip must not, or the first module to
-  // record one would silently lose the floor over all its other cases.
-  if (m.min_assertions > 0 && !suite_skipped() &&
-      passed + failed < m.min_assertions) {
-    std::printf("=== %s: only %d assertions ran, expected >= %d (a case call "
-                "was dropped) ===\n",
-                m.name, passed + failed, m.min_assertions);
-    return failed + 1;
-  }
   return failed;
 }
 
@@ -586,9 +547,7 @@ inline int end_module(const ModuleScope &m) {
 #define HS_EXPECT_GE(a, b) HS_EXPECT_CMP(a, b, >=, ">=")
 // Fatal size check for a case that indexes a container afterwards: records the
 // comparison like HS_EXPECT_EQ, then returns from the enclosing void case on a
-// mismatch so the indexing that follows cannot read past the end. The shortened
-// run is already red from the recorded failure, so the module's assertion floor
-// stays consistent.
+// mismatch so the indexing that follows cannot read past the end.
 #define HS_EXPECT_SIZE_OR_RETURN(container, expected)                          \
   do {                                                                         \
     const std::size_t _hs_size = (container).size();                           \

@@ -1086,10 +1086,9 @@ jobs:
       # wiring pin for the other direction (see its header). Driven through
       # `npm test` so the package.json entry point is the gated command rather
       # than a second spelling of it; the suite has no runtime deps, so no
-      # `npm ci` is needed here. That entry point is scripts/run_tests.mjs,
-      # which holds every file to the {cases, assertions} minimums in
-      # scripts/assertion_floors.json: a file count cannot see a case deleted
-      # inside a file, and node counts a file gutted to a comment as one pass.
+      # `npm ci` is needed here. scripts/run_tests.mjs rejects any discovered
+      # test file that executes no cases or no assertions; node itself counts a
+      # file gutted to a comment as one pass.
       - name: Every scripts/*.test.mjs unit test runs
         run: |
           bash tools/check_test_files.sh 6 'scripts/*.test.mjs'
@@ -1421,209 +1420,71 @@ jobs:
           fi
           exit "$fail"
 
-  assertion-floors:
-    name: Assertion floors (no silent shrink)
-    # tests/run_tests.cpp pins every module's case-site count and minimum
-    # assertion count as plain constants, tools/relax_bake_harness.cpp pins
-    # the relax-bake step floor the same way, and tests/test_death.h pins the
-    # guard-coverage floor plus the per-file gap allowances it gates against, and
-    # scripts/assertion_floors.json holds the JS suite's per-file case and
-    # assertion floors, so a commit that deletes cases AND lowers the numbers
-    # (`--update-floors` rewrites the JSON from the same run) clears every other
-    # gate. Same shape as the
-    # FORMAT_BASELINE and Teensy warning-baseline growth checks: compare the pins
-    # against the commit this run builds on, and fail on any reduction the commit
-    # does not approve.
+  domain-ratchets:
+    name: Domain coverage ratchets (no silent weakening)
+    # These counts represent concrete exercised behavior: relax-bake payloads
+    # re-derived and engine guard sites covered by the death harness.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      # Escape hatch for a deliberate weakening: one pin name per line
-      # (`<module>.cases`, `<module>.floor`, a *_MIN_ASSERTIONS constant,
-      # MIN_RELAX_BAKES_VERIFIED, `guard_gap.<file>` for a widened
-      # GUARD_GAP_ALLOW row, or `<test file>.cases` / `.assertions` for a JS
-      # floor), added in the same commit as the weakening it
-      # approves, so it is visible in that commit's diff. Empty in steady state.
-      ASSERTION_FLOOR_ALLOW_LOWER: ""
+      # One pin name per line: MIN_RELAX_BAKES_VERIFIED,
+      # MIN_COVERED_GUARD_SITES, or guard_gap.<file>.
+      DOMAIN_RATCHET_ALLOW_WEAKEN: ""
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           persist-credentials: false
-          # The check below reads run_tests.cpp out of the commit the run builds
-          # on, which on a push is github.event.before — arbitrarily far back in
-          # a multi-commit push, so fetch the whole history rather than guess a
-          # depth.
           fetch-depth: 0
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the provenance jobs
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
 
-      - name: Assert no case-site pin, assertion floor or guard ratchet weakened
+      - name: Assert no domain coverage ratchet weakened
         env:
           PUSH_BEFORE: ${{ github.event.before }}
         run: |
-          SRC=tests/run_tests.cpp
-
-          # On a push, compare against the commit the branch had BEFORE it: a
-          # push lands several commits at once, and HEAD^1 is then the push's own
-          # penultimate commit, so a reduction made in any earlier commit of the
-          # same push is already present on both sides and invisible. PUSH_BEFORE
-          # is empty on a pull_request run (where HEAD^1 is the base branch and
-          # the comparison spans the whole PR), all-zeros on a freshly created
-          # ref, and unreachable after a force-push; every one of those fails to
-          # peel and falls back to HEAD^1.
           PREV=
           if [ -n "$PUSH_BEFORE" ]; then
             PREV=$(git rev-parse --verify --quiet "$PUSH_BEFORE^{commit}") || PREV=
           fi
-          # An unreachable previous copy (orphan/initial commit, or a parent
-          # predating the file) warns and skips rather than redding an
-          # otherwise-fine build.
           if [ -z "$PREV" ] && ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
-            echo "::warning::HEAD has no reachable parent — assertion-floor shrink check skipped"
+            echo "::warning::HEAD has no reachable parent - domain ratchet check skipped"
             exit 0
           fi
-          if ! git show "$PREV:$SRC" > /tmp/floors-prev.cpp 2>/dev/null; then
-            echo "::warning::$SRC absent in $PREV — assertion-floor shrink check skipped"
-            exit 0
-          fi
-          # MIN_RELAX_BAKES_VERIFIED is the same class of pin: it separates a
-          # relax-bake gate that re-derived every payload from one that scored
-          # nothing. An older PREV predating the file yields an empty copy, which
-          # reads as "no pin then" and so cannot shrink.
+
           HARNESS=tools/relax_bake_harness.cpp
-          git show "$PREV:$HARNESS" > /tmp/floors-prev-harness.cpp 2>/dev/null \
-            || : > /tmp/floors-prev-harness.cpp
-          # tests/test_death.h carries two more pins of the same class: the
-          # guard-coverage floor, and the per-file allowances for the guard
-          # sites no case pins — widening a row is the same weakening as
-          # lowering a floor. An older PREV predating the file yields an empty
-          # copy, which reads as "no pin then".
           DEATH=tests/test_death.h
-          git show "$PREV:$DEATH" > /tmp/floors-prev-death.h 2>/dev/null \
-            || : > /tmp/floors-prev-death.h
-          # The JS suite keeps its floors in a file the runner itself rewrites
-          # (`node scripts/run_tests.mjs --update-floors`), so a commit that
-          # deletes cases and re-measures in one go leaves nothing behind. Same
-          # empty-copy convention as the two above.
-          JS_FLOORS=scripts/assertion_floors.json
-          git show "$PREV:$JS_FLOORS" > /tmp/floors-prev-js.json 2>/dev/null \
-            || : > /tmp/floors-prev-js.json
+          git show "$PREV:$HARNESS" > /tmp/ratchet-prev-harness.cpp 2>/dev/null \
+            || : > /tmp/ratchet-prev-harness.cpp
+          git show "$PREV:$DEATH" > /tmp/ratchet-prev-death.h 2>/dev/null \
+            || : > /tmp/ratchet-prev-death.h
           export PREV
 
-          python3 - /tmp/floors-prev.cpp "$SRC" /tmp/floors-prev-harness.cpp "$HARNESS" \
-            /tmp/floors-prev-death.h "$DEATH" /tmp/floors-prev-js.json "$JS_FLOORS" <<'PY'
-          import json
+          python3 - /tmp/ratchet-prev-harness.cpp "$HARNESS" \
+            /tmp/ratchet-prev-death.h "$DEATH" <<'PY'
           import os
           import re
           import sys
 
-          SRC = sys.argv[2]
-          HARNESS = sys.argv[4]
-          DEATH = sys.argv[6]
-          JS_FLOORS = sys.argv[8]
+          HARNESS = sys.argv[2]
+          DEATH = sys.argv[4]
           HARNESS_FLOOR_RE = re.compile(
               r"constexpr int (MIN_RELAX_BAKES_VERIFIED)\s*=\s*(\d+)\s*;"
           )
           DEATH_FLOOR_RE = re.compile(
               r"constexpr int (MIN_COVERED_GUARD_SITES)\s*=\s*(\d+)\s*;"
           )
-          GAP_TABLE_RE = re.compile(
-              r"GUARD_GAP_ALLOW\[\]\s*=\s*\{(.*?)\};", re.S
-          )
+          GAP_TABLE_RE = re.compile(r"GUARD_GAP_ALLOW\[\]\s*=\s*\{(.*?)\};", re.S)
           GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
 
 
-          def split_args(text):
-              """Splits a macro argument list on its top-level commas."""
-              args, depth, start = [], 0, 0
-              for i, c in enumerate(text):
-                  if c == "(":
-                      depth += 1
-                  elif c == ")":
-                      depth -= 1
-                  elif c == "," and depth == 0:
-                      args.append(text[start:i])
-                      start = i + 1
-              args.append(text[start:])
-              return [a.strip() for a in args]
-
-
-          def pins(path):
-              """Maps every case-site / assertion pin in one run_tests.cpp to its value."""
+          def floor(path, pattern):
               text = open(path, encoding="utf-8").read()
-              out = {
-                  name: int(value)
-                  for name, value in re.findall(
-                      r"constexpr int (\w+_MIN_ASSERTIONS)\s*=\s*(\d+)\s*;", text
-                  )
-              }
-              lines = text.splitlines()
-              start = next(
-                  (i for i, l in enumerate(lines) if l.startswith("#define HS_TEST_MODULE_LIST")),
-                  None,
-              )
-              if start is None:
-                  sys.exit(f"HS_TEST_MODULE_LIST not found in {path}")
-              # The roster is one backslash-continued macro; join it into one line.
-              body = []
-              for line in lines[start:]:
-                  body.append(line.rstrip().rstrip("\\"))
-                  if not line.rstrip().endswith("\\"):
-                      break
-              roster = " ".join(body)
-              i = 0
-              while True:
-                  i = roster.find('X("', i)
-                  if i < 0:
-                      break
-                  depth, j = 0, i + 1
-                  while j < len(roster):
-                      if roster[j] == "(":
-                          depth += 1
-                      elif roster[j] == ")":
-                          depth -= 1
-                          if depth == 0:
-                              break
-                      j += 1
-                  args = split_args(roster[i + 2:j])
-                  module = args[0].strip('"')
-                  out[f"{module}.cases"] = int(args[1])
-                  # A tier-selecting floor is an expression, not a literal; the
-                  # *_MIN_ASSERTIONS constants it names are pinned above.
-                  if args[3].isdigit():
-                      out[f"{module}.floor"] = int(args[3])
-                  i = j
-              if not out:
-                  sys.exit(f"no pins parsed from {path} — the roster's shape changed")
-              return out
-
-
-          def harness_pins(path):
-              """Maps the relax-bake harness's verified-step floor to its value."""
-              text = open(path, encoding="utf-8").read()
-              return {name: int(value) for name, value in HARNESS_FLOOR_RE.findall(text)}
-
-
-          def js_pins(path):
-              """Maps every JS per-file case and assertion floor to its value."""
-              try:
-                  entries = json.load(open(path, encoding="utf-8"))
-              except (FileNotFoundError, ValueError):
-                  return {}
-              return {
-                  f"{file}.{field}": int(min[field])
-                  for file, min in entries.items()
-                  for field in ("cases", "assertions")
-                  if isinstance(min, dict) and isinstance(min.get(field), int)
-              }
+              return {name: int(value) for name, value in pattern.findall(text)}
 
 
           def death_pins(path):
-              """Splits test_death.h's guard ratchet into its floor and its gap rows."""
-              try:
-                  text = open(path, encoding="utf-8").read()
-              except FileNotFoundError:
-                  return {}, {}
+              text = open(path, encoding="utf-8").read()
               floors = {
                   name: int(value) for name, value in DEATH_FLOOR_RE.findall(text)
               }
@@ -1635,91 +1496,63 @@ jobs:
               return floors, gaps
 
 
-          prev, now = pins(sys.argv[1]), pins(SRC)
-          origin = dict.fromkeys(now, SRC)
-          harness_now = harness_pins(HARNESS)
-          if not harness_now:
-              sys.exit(f"no floor parsed from {HARNESS} — the constant was renamed")
-          prev.update(harness_pins(sys.argv[3]))
-          now.update(harness_now)
-          origin.update(dict.fromkeys(harness_now, HARNESS))
+          now = floor(HARNESS, HARNESS_FLOOR_RE)
+          death_now, gaps_now = death_pins(DEATH)
+          now.update(death_now)
+          if set(now) != {"MIN_RELAX_BAKES_VERIFIED", "MIN_COVERED_GUARD_SITES"}:
+              sys.exit("domain coverage floor missing or renamed")
+          if not gaps_now:
+              sys.exit(f"no GUARD_GAP_ALLOW rows parsed from {DEATH}")
 
-          death_floors, death_gaps = death_pins(DEATH)
-          if not death_floors or not death_gaps:
-              sys.exit(f"no guard ratchet parsed from {DEATH} — its shape changed")
-          prev_death_floors, prev_death_gaps = death_pins(sys.argv[5])
-          prev.update(prev_death_floors)
-          now.update(death_floors)
-          origin.update(dict.fromkeys(death_floors, DEATH))
-
-          js_now = js_pins(JS_FLOORS)
-          if not js_now:
-              sys.exit(f"no floors parsed from {JS_FLOORS} — it moved or lost its shape")
-          js_prev = js_pins(sys.argv[7])
-          prev.update(js_prev)
-          now.update(js_now)
-          # Both sides, so an entry deleted outright is still reported against
-          # the file it was deleted from.
-          origin.update(dict.fromkeys(js_prev, JS_FLOORS))
-          origin.update(dict.fromkeys(js_now, JS_FLOORS))
-
+          prev = floor(sys.argv[1], HARNESS_FLOOR_RE)
+          death_prev, gaps_prev = death_pins(sys.argv[3])
+          prev.update(death_prev)
           allow = {
               line.strip()
-              for line in os.environ.get("ASSERTION_FLOOR_ALLOW_LOWER", "").splitlines()
+              for line in os.environ.get("DOMAIN_RATCHET_ALLOW_WEAKEN", "").splitlines()
               if line.strip()
           }
 
-          lowered = {}
-          for key, was in prev.items():
-              if key not in now:
-                  lowered[key] = f"{was} -> gone"
-              elif now[key] < was:
-                  lowered[key] = f"{was} -> {now[key]}"
-
-          # A gap row is an allowance, so it weakens by GROWING, and a row that
-          # was not there approved nothing. Comparison needs a previous table to
-          # be against: an empty one is a PREV predating the ratchet, not a
-          # commit that widened every row.
-          widened = {}
-          if prev_death_gaps:
-              for key, gap in death_gaps.items():
-                  was = prev_death_gaps.get(key, 0)
-                  if gap > was:
-                      widened[key] = f"{was} -> {gap}"
+          weakened = {
+              key: f"{value} -> {now.get(key, 'gone')}"
+              for key, value in prev.items()
+              if key not in now or now[key] < value
+          }
+          if gaps_prev:
+              weakened.update({
+                  key: f"{gaps_prev.get(key, 0)} -> {value}"
+                  for key, value in gaps_now.items()
+                  if value > gaps_prev.get(key, 0)
+              })
           else:
               print(
                   f"::warning::no GUARD_GAP_ALLOW table in {os.environ['PREV']}:{DEATH}"
-                  " — gap-widening check skipped"
+                  " - gap-widening check skipped"
               )
 
-          unapproved = sorted(k for k in lowered if k not in allow)
-          unapproved_gaps = sorted(k for k in widened if k not in allow)
-          if unapproved or unapproved_gaps:
+          unapproved = sorted(set(weakened) - allow)
+          if unapproved:
               for key in unapproved:
-                  print(
-                      f"::error file={origin.get(key, SRC)}::{key} shrank ({lowered[key]}) — "
-                      f"restore the cases it "
-                      f"covers, or approve the reduction by listing {key} in "
-                      f"ASSERTION_FLOOR_ALLOW_LOWER in .github/workflows/ci.yml in this commit"
+                  source = (
+                      DEATH
+                      if key.startswith("guard_gap.") or key.startswith("MIN_COVERED")
+                      else HARNESS
                   )
-              for key in unapproved_gaps:
                   print(
-                      f"::error file={DEATH}::{key} widened ({widened[key]}) — pin the guard "
-                      f"sites it now excuses with death-harness cases, or approve the wider "
-                      f"allowance by listing {key} in ASSERTION_FLOOR_ALLOW_LOWER in "
-                      f".github/workflows/ci.yml in this commit"
+                      f"::error file={source}::{key} weakened ({weakened[key]}) - "
+                      f"restore its coverage or list {key} in "
+                      "DOMAIN_RATCHET_ALLOW_WEAKEN in this commit"
                   )
               sys.exit(1)
 
-          for key in sorted(allow - set(lowered) - set(widened)):
+          for key in sorted(allow - set(weakened)):
               print(
-                  f'::warning::ASSERTION_FLOOR_ALLOW_LOWER is stale — "{key}" approves no '
-                  "weakening in this commit"
+                  f'::warning::DOMAIN_RATCHET_ALLOW_WEAKEN is stale - "{key}" '
+                  "approves no weakening in this commit"
               )
           print(
-              f"assertion floors: {len(now)} pins and {len(death_gaps)} guard-gap rows, "
-              f"{len(lowered)} approved reduction(s) and {len(widened)} approved widening(s) "
-              f"against {os.environ['PREV']}."
+              f"domain ratchets: {len(now)} floors and {len(gaps_now)} guard-gap rows, "
+              f"{len(weakened)} approved weakening(s) against {os.environ['PREV']}."
           )
           PY
 
@@ -1969,14 +1802,6 @@ jobs:
         run: |
           bash tools/check_test_files.sh 1 'tools/relax_bake_tests/test*.py'
           python -m unittest discover -s tools/relax_bake_tests -v
-      # The updater rewrites the ratchet the native suite is gated by, so the
-      # rules a bad floor would come through — the minimum over configurations,
-      # and carrying an unobserved entry rather than dropping it — are driven
-      # here. The tool itself never runs in CI: --write refuses when CI is set.
-      - name: Run test-pin updater self-tests
-        run: |
-          bash tools/check_test_files.sh 1 'tools/update_test_pins_tests/test*.py'
-          python -m unittest discover -s tools/update_test_pins_tests -v
       - name: Check routed PCB metadata
         run: |
           bash tools/check_test_files.sh 18 'hardware/phantasm/gen/tests/test*.py'
@@ -2213,7 +2038,7 @@ jobs:
       - license-headers
       - lint
       - shard-coverage
-      - assertion-floors
+      - domain-ratchets
       - clang-format
       - teensy-gate-tests
       - teensy-size

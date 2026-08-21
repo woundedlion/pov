@@ -326,10 +326,9 @@ add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DTOOLS_DIR=${HS_ROOT}/tools
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
 
-# Pin every test case defined in a tests/*.h header against a call site — in the
-# same header for module cases, anywhere under tests/ for the shared assertion
-# helpers. Counts sites rather than assertions, so it catches a dropped case call
-# that a loop-amplified module's assertion floor is too coarse to see.
+# Require every test case defined in a tests/*.h header to have a call site: in
+# the same header for module cases, or anywhere under tests/ and tools/ for
+# shared helpers.
 add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
     -DTOOLS_DIR=${HS_ROOT}/tools

@@ -158,11 +158,7 @@ inline void check_basic_invariants(const PolyMesh &m) {
  *          faces. A boundary edge (shared once) or a non-manifold edge
  *          (shared >2) breaks the topology the renderer assumes; this catches
  *          both, then verifies Euler's formula.
- *          The edge scan reports the extreme fan-out it saw rather than
- *          asserting per edge: this helper runs over every mesh the
- *          conway/opchain suites build, so a per-edge HS_EXPECT would put ~100k
- *          assertions into those modules' floors and leave the floor gate blind
- *          to whole cases being deleted.
+ *          The edge scan reports the extreme fan-out across all edges.
  */
 inline void check_euler_genus0(const PolyMesh &m) {
   std::vector<std::pair<uint16_t, uint16_t>> edges;

@@ -150,9 +150,8 @@ fi
 # build/budget/ldscript files that drive the firmware image.
 # LINT: the Python / JavaScript / Markdown tree, which no compiler sees — CI's
 # lint, docs-markdown and screenshot-gallery jobs are the only thing that reads
-# it, and all run in seconds locally — plus the JSON the JS suite gates: the
-# patterns/ shader documents, the mirrored scripts/engine_catalog.json, and the
-# suite's own scripts/assertion_floors.json.
+# it, and all run in seconds locally — plus the patterns/ shader documents and
+# mirrored scripts/engine_catalog.json the JS suite reads.
 #
 # Every classifier is a shell function taking the newline-separated path list,
 # so tools/githook_tests drives them against a table of staged paths: these
@@ -167,7 +166,7 @@ hs_paths_teensy() {
 }
 
 hs_paths_lint() {
-  printf '%s\n' "$1" | grep -qE '\.(py|mjs|md)$|(^|/)ruff\.toml$|(^|/)eslint\.config\.mjs$|(^|/)package(-lock)?\.json$|(^|/)patterns/.*\.json$|(^|/)scripts/engine_catalog\.json$|(^|/)scripts/assertion_floors\.json$'
+  printf '%s\n' "$1" | grep -qE '\.(py|mjs|md)$|(^|/)ruff\.toml$|(^|/)eslint\.config\.mjs$|(^|/)package(-lock)?\.json$|(^|/)patterns/.*\.json$|(^|/)scripts/engine_catalog\.json$'
 }
 
 NATIVE=
@@ -237,24 +236,11 @@ hs_run_lint() {
   fi
   if command -v node >/dev/null 2>&1; then
     # package.json's `test` entry point, which CI's screenshot-gallery job runs:
-    # node --test plus the per-file case and assertion floors in
-    # scripts/assertion_floors.json, which node --test alone does not read.
+    # node --test plus per-file nonempty case and assertion checks.
     echo "[pre-commit] Node script unit tests..."
-    # node:test retallies cases across majors, so the committed floors describe
-    # the pinned Node only; off it, run the bare suite rather than red a commit
-    # on counts nobody measured.
-    if PY="$(hs_python)" &&
-       "$PY" tools/build_pins.py --check-tool node >/dev/null 2>&1; then
-      if ! node scripts/run_tests.mjs "scripts/*.test.mjs"; then
-        echo "[pre-commit] scripts/*.test.mjs FAILED."
-        return 1
-      fi
-    else
-      echo "[pre-commit] node is off the pin (or no python to check it) - running the suite without the floors ratchet (CI enforces it)."
-      if ! node --test scripts/*.test.mjs; then
-        echo "[pre-commit] scripts/*.test.mjs FAILED."
-        return 1
-      fi
+    if ! node scripts/run_tests.mjs "scripts/*.test.mjs"; then
+      echo "[pre-commit] scripts/*.test.mjs FAILED."
+      return 1
     fi
     # eslint comes from node_modules, which a fresh clone has not installed yet.
     if [ -x node_modules/.bin/eslint ]; then

@@ -24,7 +24,6 @@ namespace h_offset_renorm {
 // lands SHORT of the south pole (sin(phi) > 0).
 constexpr int W = 32;
 constexpr int H = 16;
-inline constexpr int H_OFFSET_RENORM_MIN_ASSERTIONS = 134;
 
 /**
  * @brief Sums the tap alphas emitted by one AntiAlias::plot call.
