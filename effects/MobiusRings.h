@@ -269,8 +269,10 @@ private:
 
       auto fragment_shader = make_shader(i, opacity);
 
+      // Polygon::sample closes the ring with an overlap vertex, so the seam
+      // pixel belongs to the opening segment.
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
-                            {.close_loop = true});
+                            {.omit_end = true});
     }
   }
 
