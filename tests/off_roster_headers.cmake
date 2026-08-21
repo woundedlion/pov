@@ -20,7 +20,7 @@ set(HS_OFF_ROSTER_HEADERS
   "mindsplatter_whitebox.h=0"
   "pixel_test_util.h=0"
   "test_fixture.h=0"
-  "test_generative_palette.h=30"
+  "test_generative_palette.h=31"
   "test_h_offset_renorm.h=5"
   "test_harness.h=0"
   "test_pole_wrap.h=3"

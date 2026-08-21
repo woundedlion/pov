@@ -13,10 +13,13 @@
 # trip-count drift; the count is exact, not a floor.
 #
 # It sees definitions of the form `void test_*(` / `void check_*(` /
-# `void case_*(` at the start of a line (optionally `inline`/`static` in either
-# order, behind an optional single-line `template <...>` head), which is how
-# every case in the tree is written; `case_*` names the death cases the death
-# module's table drives. The name may sit on the next line, which is where
+# `void case_*(` / `void verify_*(` / `void expect_*(`, plus the named
+# roster-wide sweep drivers, at the start of a line (optionally
+# `inline`/`static` in either order, behind an optional single-line
+# `template <...>` head), which is how every case in the tree is written;
+# `case_*` names the death cases the death module's table drives, and
+# `verify_*`/`expect_*` the per-item bodies a case loops a sweep over, which
+# hold the assertions the loop amplifies. The name may sit on the next line, which is where
 # clang-format puts it when the signature wraps. A module's header is the one
 # defining the run_*_tests() entry point its roster row names. Headers no roster
 # row reaches — helper headers included mid-module, and entry points only a
@@ -24,6 +27,10 @@
 # so every header on disk is counted by exactly one pin and a case deleted
 # together with its call is always visible somewhere. That list is shared with
 # check_includes.cmake, which exempts the same headers from the include pin.
+#
+# A sweep driver one roster header defines and another calls is named in
+# HS_CROSS_FILE_CASES below; its reference resolves against the whole-tree
+# corpus, like an off-roster helper's.
 #
 # A reference only counts when it is not itself a declaration: `void <case>(`
 # spans are removed before the count, so a forward declaration plus the
@@ -45,6 +52,14 @@ file(GLOB_RECURSE _headers "${TESTS_DIR}/*.h" "${TESTS_DIR}/*.hpp")
 
 # Exact case-site count of every header the run_tests.cpp roster does not reach.
 include("${TESTS_DIR}/off_roster_headers.cmake")
+
+# Roster-wide sweep drivers: test_effects.h defines them, test_effects_smoke.h
+# runs them over HS_EFFECT_LIST.
+set(HS_CROSS_FILE_CASES smoke_one determinism_one clip_clear_parity_one)
+
+# Case names the definition scan accepts.
+set(_case_names "(test|check|case|verify|expect)_[A-Za-z0-9_]+")
+set(_case_names "${_case_names}|(smoke|determinism|clip_clear_parity)_one")
 
 # Whole-tree code text — every header and driver .cpp under tests/, plus the
 # sources under tools/, which is where the standalone tool binaries call the
@@ -92,7 +107,7 @@ foreach(_hdr IN LISTS _headers)
     set(_cross_file TRUE)
   endif()
   string(REGEX MATCHALL
-    "\n[ \t]*(template[ \t]*<[^\n]*>[ \t]*)?((inline|static)[ \t]+)*void[ \t\r\n]+(test|check|case)_[A-Za-z0-9_]+\\("
+    "\n[ \t]*(template[ \t]*<[^\n]*>[ \t]*)?((inline|static)[ \t]+)*void[ \t\r\n]+(${_case_names})\\("
     _defs "${_text}")
   set(_seen "")
   set(_count 0)
@@ -112,7 +127,7 @@ foreach(_hdr IN LISTS _headers)
       "${_text}")
     string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs "${_scan}")
     list(LENGTH _refs _nref)
-    if(_nref LESS 1 AND _cross_file)
+    if(_nref LESS 1 AND (_cross_file OR _case IN_LIST HS_CROSS_FILE_CASES))
       string(REGEX REPLACE "void[ \t\r\n]+${_case}[ \t\r\n]*\\(" "" _scan
         "${_corpus}")
       string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs
@@ -228,7 +243,7 @@ if(_drift)
     "HS_TEST_MODULE_LIST row in tests/run_tests.cpp — and the "
     "tests/off_roster_headers.cmake entry for every header outside the "
     "roster — is the exact "
-    "number of `void test_*(`/`void check_*(`/`void case_*(` definitions in "
+    "number of case definitions the regex at the top of this file matches in "
     "that header. If you added or intentionally removed cases, set the pin to "
     "the 'found' value above; otherwise a case was deleted — restore it.")
 endif()
