@@ -705,6 +705,29 @@ inline void test_pullback_concrete_catalog() {
                  fast_sinf(0.7f) * fast_cosf(-0.3f), 2e-3f);
   HS_EXPECT_EQ(Pullback::Source::primitive_lattice(origin, params), 1.0f);
 
+  const Pullback::Source::SphericalRingsSourceParams ring_params;
+  const Pullback::Source::PreparedSphericalRings ring_frame{Y_AXIS, 0.0f};
+  HS_EXPECT_EQ(
+      Pullback::Source::spherical_rings(X_AXIS, ring_params, ring_frame), 1.0f);
+  const Vector between_rings(0.9659258f, 0.2588190f, 0.0f);
+  HS_EXPECT_EQ(
+      Pullback::Source::spherical_rings(between_rings, ring_params, ring_frame),
+      -1.0f);
+
+  const Pullback::Source::FractalSourceParams fractal_params;
+  HS_EXPECT_EQ(
+      Pullback::Source::escape_fractal(origin, fractal_params, prepared), 1.0f);
+
+  const Pullback::Source::TessellationSourceParams tessellation_params;
+  HS_EXPECT_EQ(Pullback::Source::tessellation(
+                   Complex(0.5f, 0.0f), tessellation_params,
+                   Pullback::Source::TessellationKind::SQUARE, prepared),
+               1.0f);
+  HS_EXPECT_EQ(Pullback::Source::tessellation(
+                   origin, tessellation_params,
+                   Pullback::Source::TessellationKind::SQUARE, prepared),
+               -1.0f);
+
   const Vector axis =
       Pullback::Lens::Glitch::apply(Vector(0.0f, 1.0f, 0.0f), TestFrame{});
   HS_EXPECT_EQ(axis.x, 0.0f);

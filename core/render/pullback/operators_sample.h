@@ -205,6 +205,75 @@ struct SampleRings {
   }
 };
 
+/** @brief Parameter family of sample.spherical-rings.v2. */
+struct SphericalRingsSampleParams : Source::SphericalRingsSourceParams {
+  /** Edge-fade band width; read only under edge-fade coverage. */
+  float edge_width = 0.1f;
+  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
+  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+
+  static constexpr auto FIELDS = concat_fields<SphericalRingsSampleParams>(
+      Source::SphericalRingsSourceParams::FIELDS,
+      std::array{Field<SphericalRingsSampleParams>{
+          "edge-width", &SphericalRingsSampleParams::edge_width, "Edge Width",
+          0.0f, 1.0f, FieldCurve::LERP}});
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<SphericalRingsSampleParams>{
+          "weight-mode", &SphericalRingsSampleParams::weight_mode,
+          WEIGHT_MODE_IDS, 2, static_cast<uint8_t>(WeightMode::PROJECTION)},
+      TopologyField<SphericalRingsSampleParams>{
+          "coverage-mode", &SphericalRingsSampleParams::coverage_mode,
+          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+  };
+};
+static_assert(field_ids_unique<SphericalRingsSampleParams>());
+
+/** @brief Instance state of the animated spherical ring source. */
+struct SphericalRingsState {
+  SpatialWalkState walk;
+  float phase = 0.0f;
+};
+
+/** @brief PLANE→FIELD crossing: latitude bands on a wandering, spinning axis. */
+struct SampleSphericalRings {
+  static constexpr const char *ID = "sample.spherical-rings.v2";
+  static constexpr const char *NAME = "Spherical Rings";
+  using Input = PlaneSample;
+  using Output = FieldSample;
+  using Params = SphericalRingsSampleParams;
+  using State = SphericalRingsState;
+  using Prepared = Source::PreparedSphericalRings;
+
+  static void init(State &state, InstanceId) {
+    init_walk(state.walk, SOURCE_WALK_SEED);
+  }
+  static Status migrate(State &dst, const State &src, InstanceId) {
+    dst = src;
+    return Status::OK;
+  }
+  static void advance(State &state, const Params &params) {
+    advance_walk(state.walk, params.wander, params.spin_rate);
+    state.phase = fmodf(state.phase + params.speed, TWO_PI_F);
+  }
+  static Prepared prepare(const FrameContext &, const Params &,
+                          const State &state) {
+    const Quaternion orientation =
+        make_rotation(X_AXIS, state.walk.spin_phase) * state.walk.wander;
+    return {rotate(Y_AXIS, orientation), state.phase};
+  }
+  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+                         const Params &params, const Prepared &prepared) {
+    const float raw = Source::spherical_rings(
+        input.sphere,
+        static_cast<const Source::SphericalRingsSourceParams &>(params),
+        prepared);
+    return Kernel::sample(
+        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
+        provenance_coverage(params.coverage_mode, input.provenance,
+                            params.edge_width, ctx));
+  }
+};
+
 /** @brief Parameter family of sample.spiral.v2. */
 struct SpiralSampleParams : Source::SpiralSourceParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
@@ -301,6 +370,129 @@ struct SampleLattice : StatelessModel {
                          const Params &params, const Prepared &) {
     const float raw = Source::primitive_lattice(
         input.coords, static_cast<const Source::LatticeSourceParams &>(params));
+    return Kernel::sample(
+        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
+        provenance_coverage(params.coverage_mode, input.provenance,
+                            params.edge_width, ctx));
+  }
+};
+
+/** @brief Parameter family of sample.fractal.v2. */
+struct FractalSampleParams : Source::FractalSourceParams {
+  /** Edge-fade band width; read only under edge-fade coverage. */
+  float edge_width = 0.1f;
+  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
+  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+
+  static constexpr auto FIELDS = concat_fields<FractalSampleParams>(
+      Source::FractalSourceParams::FIELDS,
+      std::array{Field<FractalSampleParams>{
+          "edge-width", &FractalSampleParams::edge_width, "Edge Width", 0.0f,
+          1.0f, FieldCurve::LERP}});
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<FractalSampleParams>{
+          "weight-mode", &FractalSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
+          static_cast<uint8_t>(WeightMode::PROJECTION)},
+      TopologyField<FractalSampleParams>{
+          "coverage-mode", &FractalSampleParams::coverage_mode,
+          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+  };
+};
+static_assert(field_ids_unique<FractalSampleParams>());
+
+/** @brief PLANE→FIELD crossing: the animated quadratic escape-time fractal. */
+struct SampleFractal {
+  static constexpr const char *ID = "sample.fractal.v2";
+  static constexpr const char *NAME = "Escape Fractal";
+  using Input = PlaneSample;
+  using Output = FieldSample;
+  using Params = FractalSampleParams;
+  using State = SourceClockState;
+  using Prepared = Source::PreparedSource;
+
+  static void init(State &, InstanceId) {}
+  static Status migrate(State &dst, const State &src, InstanceId) {
+    dst = src;
+    return Status::OK;
+  }
+  static void advance(State &state, const Params &params) {
+    state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
+    state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
+  }
+  static Prepared prepare(const FrameContext &, const Params &,
+                          const State &state) {
+    return Source::prepare(state.primary, state.secondary, state.angle);
+  }
+  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+                         const Params &params, const Prepared &prepared) {
+    const float raw = Source::escape_fractal(
+        input.coords, static_cast<const Source::FractalSourceParams &>(params),
+        prepared);
+    return Kernel::sample(
+        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
+        provenance_coverage(params.coverage_mode, input.provenance,
+                            params.edge_width, ctx));
+  }
+};
+
+inline constexpr const char *TESSELLATION_KIND_IDS[] = {"triangular", "square",
+                                                        "hexagonal"};
+
+/** @brief Parameter family of sample.tessellation.v2. */
+struct TessellationSampleParams : Source::TessellationSourceParams {
+  /** Edge-fade band width; read only under edge-fade coverage. */
+  float edge_width = 0.1f;
+  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
+  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+  uint8_t kind = static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR);
+
+  static constexpr auto FIELDS = concat_fields<TessellationSampleParams>(
+      Source::TessellationSourceParams::FIELDS,
+      std::array{Field<TessellationSampleParams>{
+          "edge-width", &TessellationSampleParams::edge_width, "Edge Width",
+          0.0f, 1.0f, FieldCurve::LERP}});
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<TessellationSampleParams>{
+          "weight-mode", &TessellationSampleParams::weight_mode,
+          WEIGHT_MODE_IDS, 2, static_cast<uint8_t>(WeightMode::PROJECTION)},
+      TopologyField<TessellationSampleParams>{
+          "coverage-mode", &TessellationSampleParams::coverage_mode,
+          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+      TopologyField<TessellationSampleParams>{
+          "kind", &TessellationSampleParams::kind, TESSELLATION_KIND_IDS, 3,
+          static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)},
+  };
+};
+static_assert(field_ids_unique<TessellationSampleParams>());
+
+/** @brief PLANE→FIELD crossing: rotating polygon edge tessellations. */
+struct SampleTessellation {
+  static constexpr const char *ID = "sample.tessellation.v2";
+  static constexpr const char *NAME = "Tessellation";
+  using Input = PlaneSample;
+  using Output = FieldSample;
+  using Params = TessellationSampleParams;
+  using State = SourceClockState;
+  using Prepared = Source::PreparedSource;
+
+  static void init(State &, InstanceId) {}
+  static Status migrate(State &dst, const State &src, InstanceId) {
+    dst = src;
+    return Status::OK;
+  }
+  static void advance(State &state, const Params &params) {
+    state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
+  }
+  static Prepared prepare(const FrameContext &, const Params &,
+                          const State &state) {
+    return Source::prepare(state.primary, state.secondary, state.angle);
+  }
+  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+                         const Params &params, const Prepared &prepared) {
+    const float raw = Source::tessellation(
+        input.coords,
+        static_cast<const Source::TessellationSourceParams &>(params),
+        static_cast<Source::TessellationKind>(params.kind), prepared);
     return Kernel::sample(
         input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
         provenance_coverage(params.coverage_mode, input.provenance,

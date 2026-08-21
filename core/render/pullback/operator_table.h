@@ -20,7 +20,7 @@ namespace Pullback {
 
 namespace Interp {
 
-inline constexpr std::array<OperatorDescriptor, 33> OPERATOR_TABLE{
+inline constexpr std::array<OperatorDescriptor, 36> OPERATOR_TABLE{
     make_operator_descriptor<Op::Rotate>(),
     make_operator_descriptor<Op::DisplaceCurl>(),
     make_operator_descriptor<Op::DisplaceDirect>(),
@@ -45,8 +45,11 @@ inline constexpr std::array<OperatorDescriptor, 33> OPERATOR_TABLE{
     make_operator_descriptor<Op::SampleGrid>(),
     make_operator_descriptor<Op::SampleTwinWave>(),
     make_operator_descriptor<Op::SampleRings>(),
+    make_operator_descriptor<Op::SampleSphericalRings>(),
     make_operator_descriptor<Op::SampleSpiral>(),
     make_operator_descriptor<Op::SampleLattice>(),
+    make_operator_descriptor<Op::SampleFractal>(),
+    make_operator_descriptor<Op::SampleTessellation>(),
     make_operator_descriptor<Op::SampleProjectedNoise>(),
     make_operator_descriptor<Op::SampleSphericalNoise>(),
     make_operator_descriptor<Op::TransferRidge>(),

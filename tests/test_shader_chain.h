@@ -483,7 +483,7 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 33u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 36u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     // Monotonicity pin: proven at table construction, never re-walked.
@@ -672,8 +672,9 @@ inline void test_shader_chain_schema_and_field_ids() {
   // weight/coverage topology pair; only projected-noise adds a basis.
   for (const char *id :
        {"sample.grid.v2", "sample.twin-wave.v2", "sample.rings.v2",
-        "sample.spiral.v2", "sample.lattice.v2", "sample.projected-noise.v2",
-        "sample.spherical-noise.v2"}) {
+        "sample.spherical-rings.v2", "sample.spiral.v2", "sample.lattice.v2",
+        "sample.fractal.v2", "sample.tessellation.v2",
+        "sample.projected-noise.v2", "sample.spherical-noise.v2"}) {
     const In::OperatorDescriptor &crossing = *In::find_operator(id);
     HS_EXPECT_EQ(static_cast<int>(crossing.input),
                  static_cast<int>(In::CarrierId::PLANE));
@@ -848,6 +849,9 @@ inline void test_shader_chain_catalog_shape() {
   HS_EXPECT_TRUE(contains("\"id\":\"sphere.rotate.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"project.stereographic.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.grid.v2\""));
+  HS_EXPECT_TRUE(contains("\"id\":\"sample.spherical-rings.v2\""));
+  HS_EXPECT_TRUE(contains("\"id\":\"sample.fractal.v2\""));
+  HS_EXPECT_TRUE(contains("\"id\":\"sample.tessellation.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"colorize.generated-palette.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"weight-mode\",\"topology\":true,"
                           "\"values\":[\"none\",\"projection\"],"
@@ -1984,10 +1988,15 @@ struct SampleMirrorFrame {
   const FastNoiseLite *noise = nullptr;
   In::Op::TwinWaveSampleParams twin_wave;
   In::Op::RingsSampleParams rings;
+  In::Op::SphericalRingsSampleParams spherical_rings;
   In::Op::SpiralSampleParams spiral;
   In::Op::LatticeSampleParams lattice;
+  In::Op::FractalSampleParams fractal;
+  In::Op::TessellationSampleParams tessellation;
   In::Op::ProjectedNoiseSampleParams projected;
   In::Op::SphericalNoiseSampleParams spherical;
+  Vector ring_axis = Y_AXIS;
+  float ring_phase = 0.0f;
   float primary = 0.0f;
   float secondary = 0.0f;
   float angle = 0.0f;
@@ -2022,6 +2031,19 @@ struct RingsSampleMirror : ClockedSampleMirror<RingsSampleMirror> {
   }
 };
 
+struct SphericalRingsSampleMirror {
+  using Binding = SampleMirrorBinding;
+  using FrameState = SampleMirrorFrame;
+  static const In::Op::SphericalRingsSampleParams &
+  params(const SampleMirrorFrame &frame) {
+    return frame.spherical_rings;
+  }
+  static PB::Source::PreparedSphericalRings
+  prepare(const SampleMirrorFrame &frame) {
+    return {frame.ring_axis, frame.ring_phase};
+  }
+};
+
 struct SpiralSampleMirror : ClockedSampleMirror<SpiralSampleMirror> {
   static const In::Op::SpiralSampleParams &
   params(const SampleMirrorFrame &frame) {
@@ -2035,6 +2057,21 @@ struct LatticeSampleMirror {
   static const In::Op::LatticeSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.lattice;
+  }
+};
+
+struct FractalSampleMirror : ClockedSampleMirror<FractalSampleMirror> {
+  static const In::Op::FractalSampleParams &
+  params(const SampleMirrorFrame &frame) {
+    return frame.fractal;
+  }
+};
+
+struct TessellationSampleMirror
+    : ClockedSampleMirror<TessellationSampleMirror> {
+  static const In::Op::TessellationSampleParams &
+  params(const SampleMirrorFrame &frame) {
+    return frame.tessellation;
   }
 };
 
@@ -2125,6 +2162,15 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program) {
   } else if (id == In::Op::SampleLattice::ID) {
     mirror.lattice = param_as<In::Op::LatticeSampleParams>(program, 2);
     mirror.edge_width = mirror.lattice.edge_width;
+  } else if (id == In::Op::SampleSphericalRings::ID) {
+    const auto &state = state_as<In::Op::SphericalRingsState>(program, 2);
+    mirror.spherical_rings =
+        param_as<In::Op::SphericalRingsSampleParams>(program, 2);
+    const Quaternion orientation =
+        make_rotation(X_AXIS, state.walk.spin_phase) * state.walk.wander;
+    mirror.ring_axis = rotate(Y_AXIS, orientation);
+    mirror.ring_phase = state.phase;
+    mirror.edge_width = mirror.spherical_rings.edge_width;
   } else {
     const auto &state = state_as<In::Op::SourceClockState>(program, 2);
     mirror.primary = state.primary;
@@ -2139,6 +2185,13 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program) {
     } else if (id == In::Op::SampleSpiral::ID) {
       mirror.spiral = param_as<In::Op::SpiralSampleParams>(program, 2);
       mirror.edge_width = mirror.spiral.edge_width;
+    } else if (id == In::Op::SampleFractal::ID) {
+      mirror.fractal = param_as<In::Op::FractalSampleParams>(program, 2);
+      mirror.edge_width = mirror.fractal.edge_width;
+    } else if (id == In::Op::SampleTessellation::ID) {
+      mirror.tessellation =
+          param_as<In::Op::TessellationSampleParams>(program, 2);
+      mirror.edge_width = mirror.tessellation.edge_width;
     }
   }
   return mirror;
@@ -2255,6 +2308,20 @@ inline void test_shader_chain_parity_sample_rings() {
   }
 }
 
+inline void test_shader_chain_parity_sample_spherical_rings() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sample_op_chain<In::Op::SphericalRingsSampleParams>(
+        program, In::Op::SampleSphericalRings::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_sample_op_matrix<
+        PB::Source::SphericalRings<SphericalRingsSampleMirror>>(program, ctx);
+    program.clear();
+  }
+}
+
 inline void test_shader_chain_parity_sample_spiral() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
@@ -2277,6 +2344,46 @@ inline void test_shader_chain_parity_sample_lattice() {
         program, In::Op::SampleLattice::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::PrimitiveLattice<LatticeSampleMirror>>(
+        program, ctx);
+    program.clear();
+  }
+}
+
+inline void test_shader_chain_parity_sample_fractal() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sample_op_chain<In::Op::FractalSampleParams>(
+        program, In::Op::SampleFractal::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_sample_op_matrix<PB::Source::EscapeFractal<FractalSampleMirror>>(
+        program, ctx);
+    program.clear();
+  }
+}
+
+inline void test_shader_chain_parity_sample_tessellation() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sample_op_chain<In::Op::TessellationSampleParams>(
+        program, In::Op::SampleTessellation::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    auto &params = param_as<In::Op::TessellationSampleParams>(program, 2);
+    params.kind =
+        static_cast<uint8_t>(PB::Source::TessellationKind::TRIANGULAR);
+    run_sample_op_matrix<PB::Source::Tessellation<
+        TessellationSampleMirror, PB::Source::TessellationKind::TRIANGULAR>>(
+        program, ctx);
+    params.kind = static_cast<uint8_t>(PB::Source::TessellationKind::SQUARE);
+    run_sample_op_matrix<PB::Source::Tessellation<
+        TessellationSampleMirror, PB::Source::TessellationKind::SQUARE>>(
+        program, ctx);
+    params.kind = static_cast<uint8_t>(PB::Source::TessellationKind::HEXAGONAL);
+    run_sample_op_matrix<PB::Source::Tessellation<
+        TessellationSampleMirror, PB::Source::TessellationKind::HEXAGONAL>>(
         program, ctx);
     program.clear();
   }
@@ -3035,8 +3142,11 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_sample_variants();
   test_shader_chain_parity_sample_twin_wave();
   test_shader_chain_parity_sample_rings();
+  test_shader_chain_parity_sample_spherical_rings();
   test_shader_chain_parity_sample_spiral();
   test_shader_chain_parity_sample_lattice();
+  test_shader_chain_parity_sample_fractal();
+  test_shader_chain_parity_sample_tessellation();
   test_shader_chain_parity_sample_projected_noise();
   test_shader_chain_parity_sample_spherical_noise();
   test_shader_chain_parity_colorize_variants();

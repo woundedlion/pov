@@ -22,14 +22,14 @@ import { sha256Hex } from './sha256.mjs';
 // CMakeLists.txt). CI has no daydream checkout to diff against, so each mirror
 // is pinned by the SHA-256 of its LF bytes instead: drift is a deliberate
 // re-pin, updated together with the daydream master commit it mirrors.
-// Mirrors daydream master 79523bad5fb2b9dafc5e0f1da72de27f67cba650.
+// Mirrors daydream master 55132b012a4fc52a16942e252f11558ee210099b.
 const MIRROR_PINS = {
   'shader_workbench.mjs':
     '13267e8edaf7517ada160499cc9bc79ad63d4118bd3ede56587d5b0bcf39dec8',
   'sha256.mjs':
     '046a83178da02898524d3743ad3aa80ec91f719ea9c1b2e9f26912afba71015a',
   'engine_catalog.json':
-    'd814bb630a672dfc1471d82f8c6a152b459cc3c84011823f2d279aa849fe1368',
+    '00ae846ce87e10bcf819825dd952cc23e1863c02389375a847bbecec24838e8f',
 };
 
 const lf = (text) => text.replaceAll('\r\n', '\n');
