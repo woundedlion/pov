@@ -483,7 +483,7 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 36u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 37u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     // Monotonicity pin: proven at table construction, never re-walked.
@@ -513,6 +513,7 @@ inline void test_shader_chain_table_integrity() {
   HS_EXPECT_TRUE(In::find_operator("sample.grid.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sample.grid.v1") == nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.curl.v2") != nullptr);
+  HS_EXPECT_TRUE(In::find_operator("sphere.displace.ripple.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.lens.kaleidoscope.v2") != nullptr);
   // Exactly two approximations ship: the colorizer's LUT path and the fast
   // square Peirce projection, each with its own oracle.
@@ -553,8 +554,10 @@ inline void test_shader_chain_schema_and_field_ids() {
 
   static_assert(PB::field_ids_unique<In::Op::CurlDisplaceParams>());
   static_assert(PB::field_ids_unique<In::Op::DirectDisplaceParams>());
+  static_assert(PB::field_ids_unique<PB::Surface::PeriodicRippleParams>());
   static_assert(PB::field_ids_unique<In::Op::MobiusChainParams>());
   static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::DisplaceCurl>));
+  static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::DisplaceRipple>));
   static_assert(In::topology_wellformed(In::SCHEMA<In::Op::DisplaceCurl>));
   static_assert(In::topology_wellformed(In::SCHEMA<In::Op::LensKaleidoscope>));
 
@@ -630,6 +633,12 @@ inline void test_shader_chain_schema_and_field_ids() {
   constexpr size_t DIRECT_FIELDS = In::Op::DirectDisplaceParams::FIELDS.size();
   HS_EXPECT_EQ(direct.schema_count, DIRECT_FIELDS + 1);
   HS_EXPECT_TRUE(std::string_view(direct.schema[DIRECT_FIELDS].id) == "basis");
+  const In::OperatorDescriptor &ripple =
+      *In::find_operator("sphere.displace.ripple.v2");
+  HS_EXPECT_EQ(ripple.schema_count,
+               PB::Surface::PeriodicRippleParams::FIELDS.size());
+  HS_EXPECT_TRUE(std::string_view(ripple.schema[0].id) == "speed");
+  HS_EXPECT_TRUE(std::string_view(ripple.schema[5].id) == "center-polar");
 
   // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
   // carries the full sixteen-harmonic list; curl-flow is basis-only.
@@ -989,6 +998,7 @@ struct SphereOpMirrorFrame {
   const FastNoiseLite *noise = nullptr;
   In::Op::CurlDisplaceParams curl;
   In::Op::DirectDisplaceParams direct;
+  PB::Surface::PeriodicRippleParams ripple;
   MobiusParams mobius;
   float phase = 0.0f;
 };
@@ -1025,6 +1035,17 @@ struct DirectMirrorProvider {
   static PB::Surface::PreparedDirect prepare(const FrameState &frame) {
     return PB::Surface::prepare_direct(frame.phase, frame.direct.direction);
   }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct RippleMirrorProvider {
+  using Binding = SphereOpMirrorBinding;
+  using FrameState = SphereOpMirrorFrame;
+  static const PB::Surface::PeriodicRippleParams &
+  params(const FrameState &frame) {
+    return frame.ripple;
+  }
+  static float phase(const FrameState &frame) { return frame.phase; }
   static bool path_length_required(const FrameState &) { return true; }
 };
 
@@ -1089,6 +1110,11 @@ inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {
   if (id == In::Op::DisplaceCurl::ID || id == In::Op::DisplaceDirect::ID) {
     const auto &state = state_as<In::Op::NoisePhaseState>(program, 1);
     mirror.noise = &state.noise;
+    mirror.phase = state.phase;
+  }
+  if (id == In::Op::DisplaceRipple::ID) {
+    const auto &state = state_as<In::Op::RipplePhaseState>(program, 1);
+    mirror.ripple = param_as<PB::Surface::PeriodicRippleParams>(program, 1);
     mirror.phase = state.phase;
   }
   if (id == In::Op::DisplaceCurl::ID)
@@ -1163,6 +1189,21 @@ inline void test_shader_chain_parity_displace_direct() {
     run_direct_displace_variant<::NoiseBasis::SIMPLEX>(program, ctx);
     run_direct_displace_variant<::NoiseBasis::FBM3>(program, ctx);
     run_direct_displace_variant<::NoiseBasis::RIDGED3>(program, ctx);
+    program.clear();
+  }
+}
+
+inline void test_shader_chain_parity_displace_ripple() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_sphere_op_chain<PB::Surface::PeriodicRippleParams>(
+        program, In::Op::DisplaceRipple::ID, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    using Bound = typename PB::Stage::Displace<PB::Surface::PeriodicRipple<
+        RippleMirrorProvider>>::template Bind<SphereOpMirrorBinding>;
+    expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
     program.clear();
   }
 }
@@ -3129,6 +3170,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_rotate_project();
   test_shader_chain_parity_displace_curl();
   test_shader_chain_parity_displace_direct();
+  test_shader_chain_parity_displace_ripple();
   test_shader_chain_parity_lens_ops();
   test_shader_chain_parity_project_ops();
   test_shader_chain_parity_project_hemispheres();

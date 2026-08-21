@@ -42,6 +42,7 @@ using Source::SpiralSourceParams;
 using Source::TwinWaveSourceParams;
 using Surface::DirectSurfaceParams;
 using Surface::NoSurfaceParams;
+using Surface::PeriodicRippleParams;
 using Surface::SurfaceNoiseParams;
 using Transfer::IsoValueParams;
 using Transfer::NoValueParams;
@@ -227,8 +228,7 @@ struct WarpProvider {
  * @brief Supplies the displacement field to the Pullback::Surface policies.
  * @tparam BindingT The effect's Binding.
  * @tparam TrackPath Whether the stage accumulates path length.
- * @pre The effect's `surface_type` is a surface-noise family, so the frame
- *      carries a noise pointer and a loop offset.
+ * @pre The effect's `surface_type` is a displacement family.
  */
 template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
   using Binding = BindingT;
@@ -243,6 +243,10 @@ template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
     else
       return Pullback::Surface::prepare(frame.surface_phase);
   }
+  static const auto &params(const FrameState &frame) {
+    return frame.params.surface;
+  }
+  static float phase(const FrameState &frame) { return frame.surface_phase; }
   static float scale(const FrameState &frame) {
     return frame.params.surface.scale;
   }
@@ -653,12 +657,14 @@ public:
   /** Preset policy: an automatic change crossfades the parameters; pause
       never freezes an in-flight crossfade. */
   static constexpr Segue::Lerp PRESET_SEGUE{480, ease_in_out_sin};
-  /** Whether the effect displaces its surface, and so owns a surface noise
-      field and needs a `Derived::SURFACE_NOISE_SEED`. */
+  /** Whether the effect owns a surface-noise field and seed. */
   static constexpr bool HAS_SURFACE_NOISE =
-      !std::is_same_v<typename ParamsT::surface_type, NoSurfaceParams>;
+      std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams> ||
+      std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
 
 private:
+  static constexpr bool HAS_SURFACE =
+      !std::is_same_v<typename ParamsT::surface_type, NoSurfaceParams>;
   static constexpr bool TRACK_PATH = HueV == HueMode::PATH_LENGTH;
   static constexpr bool DIRECT_SURFACE =
       std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
@@ -669,9 +675,14 @@ private:
   using DirectDisplacePolicy =
       Pullback::Surface::DirectNoise<SurfaceProvider<Binding, TRACK_PATH>,
                                      NoiseBasis::SIMPLEX>;
-  using PreDisplaceStage =
-      std::conditional_t<HAS_SURFACE_NOISE && !DIRECT_SURFACE,
-                         Pullback::Stage::Displace<CurlDisplacePolicy>, void>;
+  using RippleDisplacePolicy =
+      Pullback::Surface::PeriodicRipple<SurfaceProvider<Binding, TRACK_PATH>>;
+  using PreDisplaceStage = std::conditional_t<
+      std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams>,
+      Pullback::Stage::Displace<CurlDisplacePolicy>,
+      std::conditional_t<
+          std::is_same_v<typename ParamsT::surface_type, PeriodicRippleParams>,
+          Pullback::Stage::Displace<RippleDisplacePolicy>, void>>;
   using PostDisplaceStage =
       std::conditional_t<DIRECT_SURFACE,
                          Pullback::Stage::Displace<DirectDisplacePolicy>, void>;
@@ -696,8 +707,8 @@ public:
       out of line in flash when the effect displaces so the hot scan keeps a
       single flash-call boundary. */
   using SphereRun = Pullback::Stage::Placed<
-      HAS_SURFACE_NOISE ? Pullback::CodeEmission::OUT_OF_LINE_FLASH
-                        : Pullback::CodeEmission::INLINE_ONLY,
+      HAS_SURFACE ? Pullback::CodeEmission::OUT_OF_LINE_FLASH
+                  : Pullback::CodeEmission::INLINE_ONLY,
       PreDisplaceStage, LensStage, PostDisplaceStage, ProjectStage>;
   using OuterWarpStage =
       std::conditional_t<std::is_void_v<OuterWarpPolicy>, void,
@@ -1018,7 +1029,7 @@ private:
     if constexpr (requires { params.source.noise_time_rate; })
       source_noise_time =
           wrap_t(source_noise_time + params.source.noise_time_rate);
-    if constexpr (HAS_SURFACE_NOISE)
+    if constexpr (HAS_SURFACE)
       surface_phase = wrap_t(surface_phase + params.surface.speed);
     if constexpr (Derived::ANIMATED_PROJECTION)
       projection_spin =

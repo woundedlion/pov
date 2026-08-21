@@ -609,11 +609,11 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.airocean.v2", nullptr, {}},
     // SourcePolicyFor covers Grid, TwinWave, Spiral and PrimitiveLattice only.
     {"sample.rings.v2", nullptr, {}},
-    {"sample.projected-noise.v2", nullptr, {}},
-    {"sample.spherical-noise.v2", nullptr, {}},
     {"sample.spherical-rings.v2", nullptr, {}},
     {"sample.fractal.v2", nullptr, {}},
     {"sample.tessellation.v2", nullptr, {}},
+    {"sample.projected-noise.v2", nullptr, {}},
+    {"sample.spherical-noise.v2", nullptr, {}},
     // No WarpPolicyFor specialization carries a curl-flow family.
     {"warp.curl-flow.v2", nullptr, {}},
     // TransferKind is NONE or ISO_CONTOUR.
@@ -755,10 +755,54 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 36u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 37u);
   HS_EXPECT_EQ(unreachable_operators, 14u);
   HS_EXPECT_EQ(catalog_values, 130u);
   HS_EXPECT_EQ(unreachable_values, 85u);
+}
+
+using RippleProbeParams =
+    Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
+                     Pullback::NoWarpParams, Pullback::NoLensParams,
+                     Pullback::NoValueParams, Pullback::PeriodicRippleParams>;
+using RippleProbeSpec = Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
+                                       void, Pullback::TransferKind::NONE,
+                                       Pullback::CoverageKind::PROJECTION>;
+
+template <int W, int H>
+class RippleProbe
+    : public Pullback::ComposedEffect<
+          W, H, RippleProbe<W, H>, RippleProbeParams, RippleProbeSpec,
+          PaletteHarmony::TRIADIC, Pullback::HueMode::PATH_LENGTH,
+          Pullback::Color::BrightnessEnvelope::NONE> {
+public:
+  using Params = RippleProbeParams;
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"ripple"};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr bool ANIMATED_PROJECTION = false;
+
+  static constexpr Params initial_params() {
+    Params value;
+    value.surface.speed = 1.0f / 64.0f;
+    value.surface.strength = 0.2f;
+    value.surface.decay = 0.0f;
+    value.surface.thickness = 0.4f;
+    return value;
+  }
+};
+
+inline void test_composed_periodic_ripple_surface() {
+  using FX = RippleProbe<SMALL_W, SMALL_H>;
+  static_assert(!FX::HAS_SURFACE_NOISE);
+
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  HS_EXPECT_TRUE(effect.getParameters().find("Ripple Speed") != nullptr);
+  HS_EXPECT_TRUE(effect.getParameters().find("Ripple Strength") != nullptr);
+  effect.draw_frame();
+  effect.advance_display();
 }
 
 /**
@@ -773,6 +817,7 @@ inline int run_composed_effect_tests() {
   test_composed_preset_choreography();
   test_composed_preset_interpolation();
   test_composed_derivation_reach();
+  test_composed_periodic_ripple_surface();
   return fixture.result();
 }
 

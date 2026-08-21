@@ -751,6 +751,35 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(projected.provenance.domain_coverage, 1.0f);
 }
 
+inline void test_pullback_periodic_ripple() {
+  Pullback::Surface::PeriodicRippleParams params;
+  params.strength = 0.4f;
+  params.decay = 0.0f;
+  params.thickness = 0.4f;
+  params.center_polar = 0.0f;
+
+  const Vector input(1.0f, 0.0f, 0.0f);
+  const Pullback::SurfaceResult seam = Pullback::Surface::periodic_ripple(
+      input, Pullback::Surface::prepare_ripple(params, 0.0f), true);
+  HS_EXPECT_EQ(seam.sphere.x, input.x);
+  HS_EXPECT_EQ(seam.sphere.y, input.y);
+  HS_EXPECT_EQ(seam.sphere.z, input.z);
+  HS_EXPECT_EQ(seam.path_length, 0.0f);
+
+  const Pullback::SurfaceResult displaced = Pullback::Surface::periodic_ripple(
+      input, Pullback::Surface::prepare_ripple(params, 0.5f), true);
+  HS_EXPECT_NEAR(displaced.sphere.length(), 1.0f, 1e-4f);
+  HS_EXPECT_GT(displaced.path_length, 0.1f);
+  HS_EXPECT_NEAR(displaced.path_length, params.strength, 2e-3f);
+
+  const Pullback::SurfaceResult wrapped = Pullback::Surface::periodic_ripple(
+      input, Pullback::Surface::prepare_ripple(params, 1.0f), true);
+  HS_EXPECT_EQ(wrapped.sphere.x, seam.sphere.x);
+  HS_EXPECT_EQ(wrapped.sphere.y, seam.sphere.y);
+  HS_EXPECT_EQ(wrapped.sphere.z, seam.sphere.z);
+  HS_EXPECT_EQ(wrapped.path_length, seam.path_length);
+}
+
 struct AddLens : Pullback::ApproximationDefaults {
   static Vector apply(const Vector &input, const TestFrame &) {
     return Vector(input.x + 1.0f, input.y, input.z);
@@ -813,6 +842,7 @@ inline int run_pullback_tests() {
   test_pullback_stage_combinators();
   test_pullback_provider_contracts();
   test_pullback_concrete_catalog();
+  test_pullback_periodic_ripple();
   test_pullback_lens_stack();
   test_pullback_rank_skip_crossing();
   return fixture.result();

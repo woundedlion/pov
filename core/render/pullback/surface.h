@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "animation/transformer.h"
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
 
@@ -72,6 +73,39 @@ struct DirectSurfaceParams {
 };
 static_assert(field_ids_unique<DirectSurfaceParams>());
 
+/** @brief Parameters for a periodically expanding spherical ripple. */
+struct PeriodicRippleParams {
+  float speed = 0.0f;          /**< Ripple cycles advanced per frame. */
+  float strength = 0.0f;       /**< Peak angular displacement. */
+  float decay = 5.0f;          /**< Attenuation with distance from center. */
+  float thickness = 1.0f;      /**< Angular width of the wavelet. */
+  float center_azimuth = 0.0f; /**< Center azimuth, in radians. */
+  float center_polar = 0.5f * PI_F; /**< Center polar angle, in radians. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<PeriodicRippleParams>{"speed", &PeriodicRippleParams::speed,
+                                  "Ripple Speed", -1.0f / 64.0f, 1.0f / 64.0f,
+                                  FieldCurve::LERP},
+      Field<PeriodicRippleParams>{"strength", &PeriodicRippleParams::strength,
+                                  "Ripple Strength", 0.0f, 0.5f,
+                                  FieldCurve::LERP},
+      Field<PeriodicRippleParams>{"decay", &PeriodicRippleParams::decay,
+                                  "Ripple Decay", 0.0f, 16.0f,
+                                  FieldCurve::LERP},
+      Field<PeriodicRippleParams>{"thickness", &PeriodicRippleParams::thickness,
+                                  "Ripple Thickness", 1.0f / 64.0f, PI_F,
+                                  FieldCurve::LOG_POSITIVE},
+      Field<PeriodicRippleParams>{"center-azimuth",
+                                  &PeriodicRippleParams::center_azimuth,
+                                  "Ripple Center Azimuth", 0.0f, TWO_PI_F,
+                                  FieldCurve::SHORTEST_PERIODIC},
+      Field<PeriodicRippleParams>{
+          "center-polar", &PeriodicRippleParams::center_polar,
+          "Ripple Center Polar", 0.0f, PI_F, FieldCurve::LERP},
+  };
+};
+static_assert(field_ids_unique<PeriodicRippleParams>());
+
 /** @brief This frame's point on the displacement field's closed loop. */
 struct PreparedLoop {
   Vector loop_offset;
@@ -90,6 +124,43 @@ struct PreparedDirect {
   float direction_cos;
   float direction_sin;
 };
+
+/** @brief Prepared parameters for one frame of a periodic ripple. */
+struct PreparedRipple {
+  Animation::RippleParams ripple;
+};
+
+/** @brief Resolves a seamless ripple cycle for ripple_transform(). */
+HS_FLASH_INLINE inline PreparedRipple
+prepare_ripple(const PeriodicRippleParams &params, float cycle) {
+  Animation::RippleParams ripple;
+  ripple.center =
+      Vector::from_spherical(params.center_azimuth, params.center_polar);
+  ripple.amplitude = params.strength;
+  ripple.decay = params.decay;
+  ripple.thickness = params.thickness;
+
+  const float margin = 2.0f * ripple.half_width();
+  ripple.phase = wrap_t(cycle) * (PI_F + 2.0f * margin) - margin;
+  if (ripple.phase < 0.0f)
+    ripple.amplitude *= Detail::smooth_ramp(-margin, 0.0f, ripple.phase);
+  else if (ripple.phase > PI_F)
+    ripple.amplitude *= Detail::smooth_ramp(PI_F + margin, PI_F, ripple.phase);
+  ripple.sync();
+  return {ripple};
+}
+
+/** @brief Applies a prepared periodic ripple and reports its angular travel. */
+__attribute__((always_inline)) inline SurfaceResult
+periodic_ripple(const Vector &input, const PreparedRipple &prepared,
+                bool path_length_required) {
+  const Vector displaced = ripple_transform(input, prepared.ripple);
+  if (!path_length_required ||
+      (displaced.x == input.x && displaced.y == input.y &&
+       displaced.z == input.z))
+    return {displaced, 0.0f};
+  return {displaced, fast_acos(hs::clamp(dot(input, displaced), -1.0f, 1.0f))};
+}
 
 /** @brief Resolves the loop point and steering frame for DirectNoise. */
 HS_FLASH_INLINE inline PreparedDirect prepare_direct(float phase,
@@ -246,6 +317,31 @@ struct CurlNoise : ApproximationDefaults {
                       IntegratorPolicy::VALUE, State::scale(frame),
                       prepared.loop_offset, State::strength(frame),
                       State::path_length_required(frame));
+  }
+};
+
+template <typename State> struct PeriodicRipple : ApproximationDefaults {
+  using FrameState = typename State::FrameState;
+
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        { State::params(frame) } -> std::same_as<const PeriodicRippleParams &>;
+        { State::phase(frame) } -> std::same_as<float>;
+        { State::path_length_required(frame) } -> std::same_as<bool>;
+      };
+
+  using Prepared = PreparedRipple;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return prepare_ripple(State::params(frame), State::phase(frame));
+  }
+
+  HS_FLASH_INLINE static SurfaceResult apply(const Vector &input,
+                                             const FrameState &frame,
+                                             const Prepared &prepared) {
+    return periodic_ripple(input, prepared, State::path_length_required(frame));
   }
 };
 
