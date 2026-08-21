@@ -1670,8 +1670,9 @@ inline void test_shaderball_coupled_source() {
             WB::SourceParams params;
             params.complexity = complexity;
             const float coupled =
-                fast_sinf(re + complexity * fast_sinf(im + primary)) *
-                fast_cosf(im + complexity * fast_cosf(re - secondary));
+                fast_sinf(re + primary + complexity * fast_sinf(im + primary)) *
+                fast_cosf(im - secondary +
+                          complexity * fast_cosf(re - secondary));
             HS_EXPECT_NEAR(WB::grid(p, params, source), coupled,
                            SOURCE_DRIFT_BOUND);
           }

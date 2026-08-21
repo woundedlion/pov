@@ -699,6 +699,10 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(Pullback::Source::rings(origin, prepared), 0.0f);
   HS_EXPECT_NEAR(Pullback::Source::spiral(origin, prepared), 1.0f, 2e-3f);
   HS_EXPECT_EQ(Pullback::Source::grid(origin, params, prepared), 0.0f);
+  constexpr Prepared shifted{0.7f, 0.3f, 0.0f, 1.0f, 0.0f};
+  constexpr Params coupled{0.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
+  HS_EXPECT_NEAR(Pullback::Source::grid(origin, coupled, shifted),
+                 fast_sinf(0.7f) * fast_cosf(-0.3f), 2e-3f);
   HS_EXPECT_EQ(Pullback::Source::primitive_lattice(origin, params), 1.0f);
 
   const Vector axis =

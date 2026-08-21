@@ -219,8 +219,8 @@ HS_FLASH_MEMBER inline float grid(const Complex &input, const Params &params,
       -input.re * prepared.angle_sin + input.im * prepared.angle_cos;
   if (params.pattern_mix == 1.0f)
     return fast_sinf(x + prepared.primary) * fast_cosf(y - prepared.secondary);
-  float re = x;
-  float im = y;
+  float re = x + prepared.primary;
+  float im = y - prepared.secondary;
   if (params.complexity != 0.0f) {
     re += params.complexity * fast_sinf(y + prepared.primary);
     im += params.complexity * fast_cosf(x - prepared.secondary);
