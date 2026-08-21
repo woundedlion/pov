@@ -305,7 +305,7 @@ private:
 
     const Animation::NoiseParams *noise = feedback_style->noise;
     const WarpKey key{feedback_style->space_fn,  noise,
-                      noise_config_hash(noise),  feedback_style->amplitude,
+                      noise_config_key(noise),   feedback_style->amplitude,
                       feedback_style->frequency, feedback_style->speed,
                       feedback_style->scale,     noise ? noise->time : 0.0f,
                       band.field_y_begin,        band.field_y_end};
@@ -726,25 +726,18 @@ private:
   }
 
   /**
-   * @brief FNV-1a over the bound noise generator's configuration.
-   * @details Seed, noise type and fractal settings feed the warp field but are
-   * mirrored neither in Style nor behind an accessor, so the generator's object
-   * representation is the only handle on them. Constant while the config is.
+   * @brief The bound generator's own configuration, as a cache-key scalar.
+   * @details Frequency, amplitude, speed, scale and time are already WarpKey
+   * fields, and `FASTNOISELITE_ONLY_OPENSIMPLEX2` routes generation past the
+   * noise-type switch, so the seed is the only generator input left that can
+   * move the warp field. `NoiseParams::set_seed` keeps the mirror in step.
+   *
+   * Hashing FastNoiseLite's object representation instead is not portable: ARM
+   * EABI packs its eight enum members to one byte each, so the struct carries
+   * padding whose bytes are indeterminate.
    */
-  static uint32_t noise_config_hash(const Animation::NoiseParams *noise) {
-    static_assert(std::is_trivially_copyable_v<FastNoiseLite>,
-                  "hashing FastNoiseLite's bytes requires a trivial layout");
-    static_assert(sizeof(FastNoiseLite) == 72,
-                  "FastNoiseLite's 18 four-byte members must pack with no "
-                  "padding; padding bytes are indeterminate and would make "
-                  "this hash nondeterministic");
-    if (!noise)
-      return 0;
-    const auto *bytes = reinterpret_cast<const unsigned char *>(&noise->noise);
-    uint32_t hash = 2166136261u;
-    for (size_t i = 0; i < sizeof(FastNoiseLite); ++i)
-      hash = (hash ^ bytes[i]) * 16777619u;
-    return hash;
+  static uint32_t noise_config_key(const Animation::NoiseParams *noise) {
+    return noise ? static_cast<uint32_t>(noise->seed) : 0u;
   }
 
   /** @brief Inputs the coarse warp field is a pure function of (stock

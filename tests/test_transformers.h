@@ -749,7 +749,7 @@ inline void test_noise_cross_hemisphere_cap() {
     p.scale = 10.1798f;
     p.speed = 0.0f;
     p.time = 0.0f;
-    p.noise.SetSeed(4242);
+    p.set_seed(4242);
     p.sync();
     hs::random().seed(20260803);
     float worst_angle = 0.0f;
@@ -1463,6 +1463,42 @@ inline void test_bump_field_bound_is_conservative() {
 }
 
 // ============================================================================
+// NoiseParams::set_seed — the seed mirror tracks the generator it stands for
+// ============================================================================
+
+/**
+ * @brief Pins NoiseParams::seed against the generator it mirrors.
+ * @details FastNoiseLite keeps its seed private, so `seed` is the only handle
+ *          the Pixel::Feedback warp cache has on it. A set_seed that wrote one
+ *          half and not the other, or a default that disagreed with
+ *          FastNoiseLite's own, would key that cache on a stale value and reuse
+ *          a warp field built from different noise.
+ */
+inline void test_noise_params_seed_mirrors_generator() {
+  constexpr float SX = 0.3f, SY = 0.7f, SZ = 1.1f;
+
+  // The declared default must be the generator's own, or an unseeded
+  // NoiseParams hashes to a seed it is not using.
+  Animation::NoiseParams fresh;
+  FastNoiseLite reference;
+  reference.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  reference.SetSeed(fresh.seed);
+  HS_EXPECT_EQ(fresh.noise.GetNoise(SX, SY, SZ),
+               reference.GetNoise(SX, SY, SZ));
+
+  Animation::NoiseParams a, b;
+  a.set_seed(4242);
+  b.set_seed(4242);
+  HS_EXPECT_EQ(a.seed, 4242);
+  HS_EXPECT_EQ(a.noise.GetNoise(SX, SY, SZ), b.noise.GetNoise(SX, SY, SZ));
+
+  // A changed mirror must actually reach the generator.
+  b.set_seed(4243);
+  HS_EXPECT_EQ(b.seed, 4243);
+  HS_EXPECT_TRUE(a.noise.GetNoise(SX, SY, SZ) != b.noise.GetNoise(SX, SY, SZ));
+}
+
+// ============================================================================
 // noise_product_field — two-octave product parity; amplitude short-circuit;
 // field_bound stays conservative across the parameter space
 // ============================================================================
@@ -1696,6 +1732,7 @@ inline int run_transformers_tests() {
   test_bump_field_precomputed_y_parity();
   test_bump_field_envelope_gates();
   test_bump_field_bound_is_conservative();
+  test_noise_params_seed_mirrors_generator();
   test_noise_product_field_parity();
   test_noise_product_field_bound_is_conservative();
   test_ball_drop_traverses_and_reclaims();

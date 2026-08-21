@@ -774,6 +774,8 @@ struct NoiseParams {
   float scale = 4.0f;          /**< Spatial scale factor. */
   mutable FastNoiseLite noise; /**< Backing generator; mutable for lazy
                                   init/updates. */
+  int seed = 1337; /**< Generator seed, mirrored from set_seed(); FastNoiseLite
+                      keeps it private and its own default is 1337. */
 
   /** @brief Carries prepare_frame()'s refresh_from() hook. */
   static constexpr bool NEEDS_REFRESH_FROM = true;
@@ -789,6 +791,17 @@ struct NoiseParams {
    * @brief Syncs the generator's frequency with the `frequency` field.
    */
   void sync() const { noise.SetFrequency(frequency); }
+
+  /**
+   * @brief Seeds the generator and mirrors the value in `seed`.
+   * @param s Seed to install.
+   * @details Consumers that key a cache on the generator's configuration read
+   * `seed`; setting `noise.SetSeed()` directly leaves that mirror stale.
+   */
+  void set_seed(int s) {
+    seed = s;
+    noise.SetSeed(s);
+  }
 
   /**
    * @brief Refreshes live-tunable config from a template snapshot.
