@@ -433,11 +433,13 @@ struct Volume {
                             aa_width, closest_local);
 
           if (closest_d >= aa_width) {
-            // Shifting the ray origin one column moves every sampled point by
-            // at most that chord, and the SDF is 1-Lipschitz, so clearance
-            // beyond the offer's own width holds for the whole block. Traced
-            // hits stay per-column: shading varies along the surface, so a
-            // splat would band.
+            // Shifting the ray origin one column translates the ray by at
+            // most that chord. The march reports an under-estimate of the true
+            // distance, and that true field is 1-Lipschitz, so a probe clear
+            // by the block's arc on top of the walk's own width cannot reach
+            // the surface anywhere in the block; the shape's own distance() is
+            // never assumed Lipschitz. Traced hits stay per-column: shading
+            // varies along the surface, so a splat would band.
             if constexpr (pole_lod_blocks<decltype(shape)>) {
               if (max_run > 1) {
                 const float block_slack =
