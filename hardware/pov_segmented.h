@@ -610,13 +610,17 @@ private:
     pov::sync::BurstSnapshot burst;
     const pov::sync::BurstSnapshot *bp = nullptr;
     if (segment_id != 0) {
+      // Config-derived cycle counts carry integer divisions; the bracket only
+      // holds the mailbox reads.
+      const uint32_t gap_timeout = sync.gap_timeout_cycles();
+      const uint32_t max_burst = sync.max_burst_cycles();
+      const uint32_t glitch_filter = sync.glitch_filter_cycles();
       __disable_irq();
-      if (sync.mailbox().try_claim(now, sync.gap_timeout_cycles(),
-                                   sync.max_burst_cycles(), &burst))
+      if (sync.mailbox().try_claim(now, gap_timeout, max_burst, &burst))
         bp = &burst;
       // Retire a stale glitch-filter reference so the cycle counter cannot wrap
       // out from under it during a long wire silence (spec §8).
-      sync.mailbox().age_prior(now, sync.glitch_filter_cycles());
+      sync.mailbox().age_prior(now, glitch_filter);
       __enable_irq();
     }
 
