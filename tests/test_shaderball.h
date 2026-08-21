@@ -184,7 +184,7 @@ struct ShaderBallWhiteBox {
             SurfaceLens::GLITCH,
             {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
             SignalWeight::PROJECTION,
-            ValueTransfer::LINEAR,
+            ValueTransfer::NONE,
             CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
             PaletteMode::TRIADIC};
   }

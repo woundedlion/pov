@@ -461,12 +461,7 @@ public:
   };
   enum class ProjectionFramePolicy : uint8_t { IDENTITY, SPIN_WANDER };
   enum class SignalWeight : uint8_t { NONE, PROJECTION };
-  enum class ValueTransfer : uint8_t {
-    LINEAR,
-    RIDGE,
-    ISO_CONTOUR,
-    SMOOTH_BANDS
-  };
+  enum class ValueTransfer : uint8_t { NONE, RIDGE, ISO_CONTOUR, SMOOTH_BANDS };
   enum class CoveragePolicy : uint8_t {
     OPAQUE,
     PROJECTION_WEIGHT_SQUARED,
@@ -2573,7 +2568,7 @@ private:
       OuterCameraStage, SelectedLensStage<SurfaceLens::GLITCH>,
       SelectedProjectStage<Projection::STEREOGRAPHIC, SurfaceLens::GLITCH>,
       SelectedWarpStage<WarpStageKind::WAVE_SHEAR, true>,
-      SelectedSampleStage<Function::GRID, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
   struct GlitchNoiseGridWaveShearPipeline
@@ -2592,14 +2587,14 @@ private:
       SelectedProjectStage<Projection::STEREOGRAPHIC,
                            SurfaceLens::KALEIDOSCOPE>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, false>,
-      SelectedSampleStage<Function::TWIN_WAVE, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::TWIN_WAVE, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
   using StereographicMobiusTwinWaveInnerMirrorPipeline = InversePipeline<
       OuterCameraStage, SelectedLensStage<SurfaceLens::MOBIUS>,
       SelectedProjectStage<Projection::STEREOGRAPHIC, SurfaceLens::MOBIUS>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, false>,
-      SelectedSampleStage<Function::TWIN_WAVE, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::TWIN_WAVE, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
   using StereographicHexagonalPrismTwinWaveInnerMirrorPipeline =
@@ -2609,21 +2604,21 @@ private:
           SelectedProjectStage<Projection::STEREOGRAPHIC,
                                SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM>,
           SelectedWarpStage<WarpStageKind::MIRROR_TILE, false>,
-          SelectedSampleStage<Function::TWIN_WAVE, ValueTransfer::LINEAR,
+          SelectedSampleStage<Function::TWIN_WAVE, ValueTransfer::NONE,
                               CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
           ColorStage>;
   using GnomonicKaleidoscopeGridMirrorPipeline = InversePipeline<
       OuterCameraStage, SelectedLensStage<SurfaceLens::KALEIDOSCOPE>,
       SelectedProjectStage<Projection::GNOMONIC, SurfaceLens::KALEIDOSCOPE>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, true>,
-      SelectedSampleStage<Function::GRID, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::EDGE_FADE>,
       ColorStage>;
   using GnomonicGlitchGridMirrorPipeline = InversePipeline<
       OuterCameraStage, SelectedLensStage<SurfaceLens::GLITCH>,
       SelectedProjectStage<Projection::GNOMONIC, SurfaceLens::GLITCH>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, true>,
-      SelectedSampleStage<Function::GRID, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::EDGE_FADE>,
       ColorStage>;
   using PeirceDodecahedralGridPipelineBase = InversePipeline<
@@ -2631,7 +2626,7 @@ private:
       SelectedLensStage<SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       SelectedProjectStage<Projection::PEIRCE_QUINCUNCIAL,
                            SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
-      SelectedSampleStage<Function::GRID, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::EDGE_FADE>,
       ColorStage>;
   struct PeirceDodecahedralGridPipeline : PeirceDodecahedralGridPipelineBase {
@@ -2651,7 +2646,7 @@ private:
                            SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       SelectedWarpStage<WarpStageKind::WAVE_SHEAR, true>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, false>,
-      SelectedSampleStage<Function::GRID, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
   struct GnomonicDodecahedralGridWaveMirrorPipeline
@@ -2673,7 +2668,7 @@ private:
                            SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       SelectedWarpStage<WarpStageKind::VECTOR_NOISE, true>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, false>,
-      SelectedSampleStage<Function::GRID, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
   using GnomonicAffineLatticeContourPipeline = InversePipeline<
@@ -2686,7 +2681,7 @@ private:
       IsoContourTransferStage, ColorStage>;
   using SinusoidalCurlLatticePipeline = InversePipeline<
       OuterCameraStage, SinusoidalCurlSphereRun,
-      SelectedSampleStage<Function::PRIMITIVE_LATTICE, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::PRIMITIVE_LATTICE, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT>,
       ColorStage>;
   using StereographicPrismPolarWaveLatticePipeline = InversePipeline<
@@ -2696,7 +2691,7 @@ private:
                            SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM>,
       SelectedWarpStage<WarpStageKind::POLAR_CHART, true>,
       SelectedWarpStage<WarpStageKind::WAVE_SHEAR, false>,
-      SelectedSampleStage<Function::PRIMITIVE_LATTICE, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::PRIMITIVE_LATTICE, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
   using StereographicDodecahedralGridInnerMirrorPipeline = InversePipeline<
@@ -2705,7 +2700,7 @@ private:
       SelectedProjectStage<Projection::STEREOGRAPHIC,
                            SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, false>,
-      SelectedSampleStage<Function::GRID, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
   using EquirectangularDodecahedralGridInnerMirrorPipeline = InversePipeline<
@@ -2716,14 +2711,14 @@ private:
           SelectedProjectStage<Projection::EQUIRECTANGULAR,
                                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, false>,
-      SelectedSampleStage<Function::GRID, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
   using StereographicGlitchGridMirrorPipeline = InversePipeline<
       OuterCameraStage, SelectedLensStage<SurfaceLens::GLITCH>,
       SelectedProjectStage<Projection::STEREOGRAPHIC, SurfaceLens::GLITCH>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, true>,
-      SelectedSampleStage<Function::GRID, ValueTransfer::LINEAR,
+      SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::EDGE_FADE>,
       ColorStage>;
 
@@ -4415,7 +4410,7 @@ private:
                             const PlanarWarpResult &warped,
                             const FrameState &frame) {
     switch (frame.slots.value_transfer) {
-    case ValueTransfer::LINEAR:
+    case ValueTransfer::NONE:
       break;
     case ValueTransfer::RIDGE:
       value = 1.0f - fabsf(2.0f * value - 1.0f);
@@ -4473,7 +4468,7 @@ private:
                              ? projected.provenance.value_weight
                              : 1.0f;
     const float value = hs::clamp((field * weight + 1.0f) * 0.5f, 0.0f, 1.0f);
-    if (frame.slots.value_transfer == ValueTransfer::LINEAR &&
+    if (frame.slots.value_transfer == ValueTransfer::NONE &&
         frame.slots.coverage == CoveragePolicy::OPAQUE)
       return {value, projected.provenance.domain_coverage, projected.sphere,
               warped.path_length};
@@ -6291,9 +6286,9 @@ private:
       "SignalWeight::NONE", "SignalWeight::PROJECTION"};
   static constexpr int NUM_SIGNALS = std::size(SIGNAL_OPTIONS);
   static constexpr const char *VALUE_TRANSFER_OPTIONS[] = {
-      "Linear", "Ridge", "Iso Contour", "Smooth Bands"};
+      "None", "Ridge", "Iso Contour", "Smooth Bands"};
   static constexpr const char *VALUE_TRANSFER_EXPORT_OPTIONS[] = {
-      "ValueTransfer::LINEAR", "ValueTransfer::RIDGE",
+      "ValueTransfer::NONE", "ValueTransfer::RIDGE",
       "ValueTransfer::ISO_CONTOUR", "ValueTransfer::SMOOTH_BANDS"};
   static constexpr int NUM_VALUE_TRANSFERS = std::size(VALUE_TRANSFER_OPTIONS);
   static constexpr const char *COVERAGE_OPTIONS[] = {
@@ -6515,7 +6510,7 @@ private:
       SurfaceLens::GLITCH,
       {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
       SignalWeight::PROJECTION,
-      ValueTransfer::LINEAR,
+      ValueTransfer::NONE,
       CoveragePolicy::OPAQUE,
       PaletteMode::TRIADIC,
       PeirceLayout::SQUARE,
@@ -6679,7 +6674,7 @@ private:
                       SurfaceLens::KALEIDOSCOPE,
                       {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
                       SignalWeight::PROJECTION,
-                      ValueTransfer::LINEAR,
+                      ValueTransfer::NONE,
                       CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                       PaletteMode::TRIADIC};
     Params params =
@@ -6697,7 +6692,7 @@ private:
                 lens,
                 {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::EDGE_FADE,
                 PaletteMode::TRIADIC};
     slots.gnomonic_hemisphere = GnomonicHemispherePolicy::FOLDED;
@@ -6729,7 +6724,7 @@ private:
                 SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
                 {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::EDGE_FADE,
                 PaletteMode::TRIADIC};
     slots.peirce_layout = PeirceLayout::SQUARE;
@@ -6749,7 +6744,7 @@ private:
                 SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
                 {{WarpStageKind::WAVE_SHEAR}, {WarpStageKind::MIRROR_TILE}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                 PaletteMode::TRIADIC};
     slots.gnomonic_hemisphere = GnomonicHemispherePolicy::FOLDED;
@@ -6825,7 +6820,7 @@ private:
                 SurfaceLens::NONE,
                 {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::PROJECTION_WEIGHT,
                 PaletteMode::TRIADIC};
     slots.palette_mapping = PaletteMapping::CUP;
@@ -6864,7 +6859,7 @@ private:
                 SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM,
                 {{WarpStageKind::POLAR_CHART}, {WarpStageKind::WAVE_SHEAR}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                 PaletteMode::ANALOGOUS};
     slots.palette_mapping = PaletteMapping::CUP;
@@ -6905,7 +6900,7 @@ private:
                 SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
                 {{WarpStageKind::VECTOR_NOISE}, {WarpStageKind::MIRROR_TILE}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                 PaletteMode::TRIADIC};
     slots.palette_mapping = PaletteMapping::CUP;
@@ -6939,7 +6934,7 @@ private:
                 SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
                 {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                 PaletteMode::ANALOGOUS};
     slots.palette_mapping = PaletteMapping::CUP;
@@ -7016,7 +7011,7 @@ private:
                 SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
                 {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                 PaletteMode::ANALOGOUS};
     slots.palette_mapping = PaletteMapping::BELL;
@@ -7036,7 +7031,7 @@ private:
                 SurfaceLens::GLITCH,
                 {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::EDGE_FADE,
                 PaletteMode::TRIADIC};
     slots.hue_shift = HueShiftMode::WARP_DISPLACEMENT;
@@ -7060,7 +7055,7 @@ private:
                 SurfaceLens::MOBIUS,
                 {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
                 SignalWeight::PROJECTION,
-                ValueTransfer::LINEAR,
+                ValueTransfer::NONE,
                 CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                 PaletteMode::COMPLEMENTARY};
     slots.brightness_envelope = BrightnessEnvelope::CUP;

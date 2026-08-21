@@ -13,12 +13,11 @@
 using PrismSpiralParams =
     Pullback::Params<Pullback::SpiralSourceParams, Pullback::NoWarpParams,
                      Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::LinearValueParams,
-                     Pullback::DirectSurfaceParams>;
+                     Pullback::NoValueParams, Pullback::DirectSurfaceParams>;
 using PrismSpiralSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                    Pullback::Lens::HexagonalPrismKaleidoscope,
-                   Pullback::TransferKind::LINEAR,
+                   Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
@@ -32,7 +31,7 @@ public:
   using Params = PrismSpiralParams;
   static constexpr std::string_view EFFECT_ID = "prism-spiral";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "a58ac24536715c731f324118d2415e5b0eadb4f07680f10b6160da9415fab7c0";
+      "24e36da112a7ec1222715d7a428904228a7ed8e9171ac265856932d5d52b8a01";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "df89249f6c10d7dcf3d3bede05782f9dec3d34dd70de44e976f5853a7bd34762";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"prism-spiral",
@@ -40,7 +39,7 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr int32_t SURFACE_NOISE_SEED = 1337;
+  static constexpr int32_t SURFACE_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 
   static constexpr Params initial_params() {
     Params value;

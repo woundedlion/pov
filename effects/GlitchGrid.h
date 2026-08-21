@@ -16,7 +16,7 @@ using GlitchGridParams =
                      Pullback::EdgeValueParams>;
 using GlitchGridSpec =
     Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
-                   Pullback::Lens::Glitch, Pullback::TransferKind::LINEAR,
+                   Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::EDGE_FADE>;
 
 template <int W, int H>
@@ -29,7 +29,7 @@ public:
   using Params = GlitchGridParams;
   static constexpr std::string_view EFFECT_ID = "glitch-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "25e4de9b1c203c388556d54da812d04a0648bc7f0d4d7bc19167093b92d4df14";
+      "acb00155d98c94717c11e568da6b3a593d670545bc96e01e875e49a4c2fd23d5";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "d22beff986c821fc15e34d7ddb4439f7f6df10591f9e37f36da5e507bfecfb02";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"folded-glitch"};

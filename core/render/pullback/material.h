@@ -37,11 +37,11 @@ struct Projection : ApproximationDefaults {
 
 namespace Transfer {
 
-/** @brief Value placeholder for a chain whose value family has no fields. */
-struct LinearValueParams {
-  static constexpr std::array<Field<LinearValueParams>, 0> FIELDS{};
+/** @brief Value placeholder for a chain with no value-stage parameters. */
+struct NoValueParams {
+  static constexpr std::array<Field<NoValueParams>, 0> FIELDS{};
 };
-static_assert(field_ids_unique<LinearValueParams>());
+static_assert(field_ids_unique<NoValueParams>());
 
 /**
  * @brief Value parameters for the iso band
@@ -60,14 +60,6 @@ struct IsoValueParams {
   };
 };
 static_assert(field_ids_unique<IsoValueParams>());
-
-struct Linear : ApproximationDefaults {
-  template <typename FrameState>
-  __attribute__((always_inline)) static float apply(float value,
-                                                    const FrameState &) {
-    return value;
-  }
-};
 
 struct Ridge : ApproximationDefaults {
   template <typename FrameState>

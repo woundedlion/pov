@@ -60,7 +60,9 @@ struct Rotate {
     Quaternion conjugate;
   };
 
-  static void init(State &state, InstanceId id) { init_walk(state, id); }
+  static void init(State &state, InstanceId) {
+    init_walk(state, CAMERA_WALK_SEED);
+  }
   static Status migrate(State &dst, const State &src, InstanceId) {
     dst = src;
     return Status::OK;

@@ -23,6 +23,7 @@
 #include "engine/engine.h"
 #include "math/noise_field.h"
 #include "render/pullback.h"
+#include "render/pullback/runtime_seeds.h"
 
 namespace Pullback {
 
@@ -43,7 +44,7 @@ using Surface::DirectSurfaceParams;
 using Surface::NoSurfaceParams;
 using Surface::SurfaceNoiseParams;
 using Transfer::IsoValueParams;
-using Transfer::LinearValueParams;
+using Transfer::NoValueParams;
 using Warp::AffineParams;
 using Warp::MirrorParams;
 using Warp::NoWarpParams;
@@ -65,7 +66,7 @@ using Warp::WaveShearParams;
  * @tparam SurfaceT Surface-displacement family.
  */
 template <typename SourceT, typename OuterWarpT, typename InnerWarpT,
-          typename LensT = NoLensParams, typename ValueT = LinearValueParams,
+          typename LensT = NoLensParams, typename ValueT = NoValueParams,
           typename SurfaceT = NoSurfaceParams>
 struct Params {
   using source_type = SourceT;
@@ -483,8 +484,8 @@ enum class ProjectionKind : uint8_t {
   FOLDED_SINUSOIDAL
 };
 
-/** @brief Transfer curve an effect's material stage composes. */
-enum class TransferKind : uint8_t { LINEAR, ISO_CONTOUR };
+/** @brief Optional transfer curve an effect's material stage composes. */
+enum class TransferKind : uint8_t { NONE, ISO_CONTOUR };
 
 /** @brief Coverage policy an effect's material stage composes. */
 enum class CoverageKind : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
@@ -498,7 +499,8 @@ enum class CoverageKind : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
  * @tparam ProjectionV Sphere-to-plane projection.
  * @tparam LensPolicyT Parameterless lens policy, or void for no lens stage;
  *         ignored when the lens family carries Mobius coefficients.
- * @tparam TransferV Material transfer curve.
+ * @tparam TransferV Optional material transfer curve; NONE preserves the
+ *         sampled field value without adding a stage.
  * @tparam CoverageV Material coverage policy.
  */
 template <ProjectionKind ProjectionV, typename LensPolicyT,
@@ -584,11 +586,17 @@ struct LensPolicyFor<MobiusLensParams, SpecLens, B> {
 };
 
 template <TransferKind TransferV, typename Binding> struct TransferPolicyFor;
-template <typename B> struct TransferPolicyFor<TransferKind::LINEAR, B> {
-  using Type = Pullback::Transfer::Linear;
-};
 template <typename B> struct TransferPolicyFor<TransferKind::ISO_CONTOUR, B> {
   using Type = Pullback::Transfer::IsoContour<ValueProvider<B>>;
+};
+
+template <TransferKind TransferV, typename Binding> struct TransferStageFor;
+template <typename B> struct TransferStageFor<TransferKind::NONE, B> {
+  using Type = void;
+};
+template <typename B> struct TransferStageFor<TransferKind::ISO_CONTOUR, B> {
+  using Type = Pullback::Stage::Transfer<
+      typename TransferPolicyFor<TransferKind::ISO_CONTOUR, B>::Type>;
 };
 
 template <CoverageKind CoverageV, typename Binding> struct CoveragePolicyFor;
@@ -702,9 +710,7 @@ public:
       Pullback::Weight::Projection,
       typename CoveragePolicyFor<SpecT::COVERAGE, Binding>::Type>;
   using TransferStage =
-      std::conditional_t<SpecT::TRANSFER == TransferKind::LINEAR, void,
-                         Pullback::Stage::Transfer<typename TransferPolicyFor<
-                             SpecT::TRANSFER, Binding>::Type>>;
+      typename TransferStageFor<SpecT::TRANSFER, Binding>::Type;
   using ColorizeStage =
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           ColorProvider<Binding, HueV, BrightnessV>>>;
@@ -740,10 +746,14 @@ public:
     init_gamut_lut(persistent_arena, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
     palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,
                                   ease_in_out_sin);
-    timeline.add(0, Animation::RandomWalk<W>(projection_walk, UP,
-                                             state->projection_walk_noise));
-    timeline.add(
-        0, Animation::RandomWalk<W>(outer_walk, UP, state->outer_walk_noise));
+    timeline.add(0, Animation::RandomWalk<W>(
+                        projection_walk, UP, state->projection_walk_noise,
+                        typename Animation::RandomWalk<W>::Options{},
+                        PROJECTION_WALK_SEED));
+    timeline.add(0, Animation::RandomWalk<W>(
+                        outer_walk, UP, state->outer_walk_noise,
+                        typename Animation::RandomWalk<W>::Options{},
+                        CAMERA_WALK_SEED));
     register_parameters();
     if constexpr (requires(Derived &effect) { effect.after_composed_init(); })
       static_cast<Derived &>(*this).after_composed_init();

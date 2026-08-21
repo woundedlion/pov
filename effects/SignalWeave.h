@@ -15,7 +15,7 @@ using SignalWeaveParams =
                      Pullback::NoWarpParams>;
 using SignalWeaveSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
-                   Pullback::Lens::Glitch, Pullback::TransferKind::LINEAR,
+                   Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
@@ -29,7 +29,7 @@ public:
   using Params = SignalWeaveParams;
   static constexpr std::string_view EFFECT_ID = "signal-weave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "5a4959fb3399574f540d2785f07e311f30e9b5b16a8ea11db6d33139f2f6d4bf";
+      "f12ffa86e951c04f5ebd810f4bf85d7cc9430ca1aad0525e1d637ebb0586a065";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "f8904a8ff85c3ad0b371e6dcaeea35d234decf146e1d799a53e98a9a7e712cb7";
   static constexpr uint16_t INITIAL_PRESET_DWELL_FRAMES = 120;

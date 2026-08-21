@@ -10,6 +10,7 @@
 
 #include "render/pullback/material.h"
 #include "render/pullback/operator_model.h"
+#include "render/pullback/runtime_seeds.h"
 #include "render/pullback/stage.h"
 
 /**
@@ -24,28 +25,16 @@ namespace Interp {
 
 namespace Op {
 
-/** @brief Spatial frequency of the operator-owned orientation walk. */
+inline constexpr float WALK_SPEED = 0.02f;
+inline constexpr float WALK_PIVOT_STRENGTH = 0.1f;
 inline constexpr float WALK_NOISE_SCALE = 0.02f;
-/** @brief Arc length of one full-amplitude walk step, in radians. */
-inline constexpr float WALK_STEP_RADIANS = 0.02f;
+inline constexpr float WALK_SMOOTHING = 0.85f;
+inline constexpr float WALK_DRIFT = 0.5f;
 
-/** @brief Deterministic per-frame walk delta from an operator-owned noise
-    field; sampled per axis so the pivot direction drifts smoothly. */
-inline Quaternion walk_delta(const FastNoiseLite &noise, float t) {
-  const Vector axis(noise.GetNoiseSingle(t, 0.0f, 0.0f),
-                    noise.GetNoiseSingle(0.0f, t, 31.7f),
-                    noise.GetNoiseSingle(-17.3f, t, 0.0f));
-  const float length = axis.length();
-  if (length < 1e-5f)
-    return Quaternion();
-  return make_rotation(axis * (1.0f / length), length * WALK_STEP_RADIANS);
-}
-
-/** @brief Configures an operator-owned noise field, seeded from the instance
-    hash so a fresh init of the same pair reconstructs it deterministically. */
-inline void init_instance_noise(FastNoiseLite &noise, InstanceId id) {
+inline void init_effect_noise(FastNoiseLite &noise,
+                              int32_t seed = EFFECT_NOISE_SEED) {
   noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-  noise.SetSeed(static_cast<int>(id.stable_hash));
+  noise.SetSeed(seed);
   noise.SetFrequency(1.0f);
 }
 
@@ -55,22 +44,46 @@ inline void init_instance_noise(FastNoiseLite &noise, InstanceId id) {
  */
 struct SpatialWalkState {
   FastNoiseLite walk_noise;
+  Vector position;
+  Vector direction;
   Quaternion wander;
+  float angular_velocity = 0.0f;
   float spin_phase = 0.0f;
-  float walk_time = 0.0f;
+  uint32_t walk_time = 0;
 };
 
-inline void init_walk(SpatialWalkState &state, InstanceId id) {
-  init_instance_noise(state.walk_noise, id);
+inline void init_walk(SpatialWalkState &state, int32_t seed) {
+  init_effect_noise(state.walk_noise, seed);
+  state.walk_noise.SetFrequency(WALK_NOISE_SCALE);
+  state.position = UP;
+  state.direction =
+      cross(state.position, least_parallel_axis(state.position)).normalized();
 }
 
 inline void advance_walk(SpatialWalkState &state, float wander,
                          float spin_rate) {
-  state.walk_time += 1.0f;
-  const Quaternion delta =
-      walk_delta(state.walk_noise, state.walk_time * WALK_NOISE_SCALE);
+  ++state.walk_time;
+  const float target_pivot =
+      state.walk_noise.GetNoise(
+          state.position.x * 100.0f, state.position.y * 100.0f,
+          state.position.z * 100.0f +
+              static_cast<float>(state.walk_time) * WALK_DRIFT) *
+      WALK_PIVOT_STRENGTH;
+  state.angular_velocity = state.angular_velocity * WALK_SMOOTHING +
+                           target_pivot * (1.0f - WALK_SMOOTHING);
+  state.direction =
+      rotate(state.direction,
+             make_rotation(state.position, state.angular_velocity))
+          .normalized();
+  const Vector axis_seed = least_parallel_axis(state.position);
+  const Vector walk_axis =
+      normalized_or(cross(state.position, state.direction),
+                    cross(state.position, axis_seed).normalized());
+  const Quaternion delta = make_rotation(walk_axis, WALK_SPEED);
+  state.position = rotate(state.position, delta).normalized();
+  state.direction = rotate(state.direction, delta).normalized();
   state.wander =
-      (slerp(Quaternion(), delta, wander) * state.wander).normalized();
+      (scaled_rotation_delta(delta, wander) * state.wander).normalized();
   state.spin_phase = fmodf(state.spin_phase + spin_rate, TWO_PI_F);
 }
 
@@ -81,8 +94,8 @@ struct NoisePhaseState {
   float phase = 0.0f;
 };
 
-inline void init_noise_phase(NoisePhaseState &state, InstanceId id) {
-  init_instance_noise(state.noise, id);
+inline void init_noise_phase(NoisePhaseState &state, InstanceId) {
+  init_effect_noise(state.noise);
 }
 
 /** @brief Per-frame source phase clocks. */

@@ -29,10 +29,10 @@ struct CurlLatticeWhiteBox;
 using CurlLatticeParams =
     Pullback::Params<Pullback::LatticeSourceParams, Pullback::NoWarpParams,
                      Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::LinearValueParams, Pullback::SurfaceNoiseParams>;
+                     Pullback::NoValueParams, Pullback::SurfaceNoiseParams>;
 using CurlLatticeSpec =
     Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL, void,
-                   Pullback::TransferKind::LINEAR,
+                   Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION>;
 
 template <int W, int H>
@@ -51,7 +51,7 @@ public:
   /// `patterns/curl_lattice.shader.json`; the browser editor matches it to
   /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "8e251c7fb016535dbb0f14b69cda949c4a790004d543fed9962fdb2594e84521";
+      "db64e22c7fc8cef142a955cf8d8b878ada2409ccf5d98fe7fbf49278f3439243";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "abfaaa81f8b76d5a844816916d977118da16a6fabf38f3b548879e221ebee8c0";
@@ -64,7 +64,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool USES_CENTRAL_MERIDIAN = true;
-  static constexpr int32_t SURFACE_NOISE_SEED = 1337;
+  static constexpr int32_t SURFACE_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 
   /// Params the effect starts on, and the base every preset varies from.
   static constexpr Params initial_params() {

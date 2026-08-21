@@ -573,7 +573,7 @@ using CountingPipeline =
                        Pullback::Stage::Project<CountingProjectionPolicy>,
                        Pullback::Stage::Warp<CountingWarpPolicy>,
                        Pullback::Stage::Sample<CountingSourcePolicy>,
-                       Pullback::Stage::Transfer<Pullback::Transfer::Linear>,
+                       Pullback::Stage::Transfer<Pullback::Transfer::Ridge>,
                        Pullback::Stage::Coverage<
                            Pullback::Coverage::ValueCutout<CountingValueState>>,
                        Pullback::Stage::Colorize<CountingColorPolicy>>;

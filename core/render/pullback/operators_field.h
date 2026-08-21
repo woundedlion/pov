@@ -37,21 +37,8 @@ struct FieldEndoModel : StatelessModel {
   }
 };
 
-/** @brief FIELD endomorphism: the identity transfer. */
-struct TransferLinear
-    : FieldEndoModel<TransferLinear, Transfer::LinearValueParams> {
-  static constexpr const char *ID = "field.transfer.linear.v2";
-  static constexpr const char *NAME = "Linear Transfer";
-
-  static FieldSample run(const FieldSample &input, const FrameContext &,
-                         const Params &, const Prepared &) {
-    return Kernel::transfer(input, input.value);
-  }
-};
-
 /** @brief FIELD endomorphism: the unit-bell ridge transfer. */
-struct TransferRidge
-    : FieldEndoModel<TransferRidge, Transfer::LinearValueParams> {
+struct TransferRidge : FieldEndoModel<TransferRidge, Transfer::NoValueParams> {
   static constexpr const char *ID = "field.transfer.ridge.v2";
   static constexpr const char *NAME = "Ridge Transfer";
 

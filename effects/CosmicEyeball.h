@@ -16,7 +16,7 @@ using CosmicEyeballParams =
                      Pullback::EdgeValueParams>;
 using CosmicEyeballSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
-                   Pullback::Lens::Glitch, Pullback::TransferKind::LINEAR,
+                   Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::EDGE_FADE>;
 
 template <int W, int H>
@@ -30,7 +30,7 @@ public:
   using Params = CosmicEyeballParams;
   static constexpr std::string_view EFFECT_ID = "cosmic-eyeball";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "d5a24afe7b8365c33e573f27c09281c47ae104e8ed009851c16ab6ff58e68d25";
+      "44237560b6d8dc08da65ee345193e3ee58522d4289ebe309c82c72389e6ba2bb";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "128f52eabee28aeb4e1bcf83162e0a0673a15a3fb1d033801cf13b6bcb7764fc";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"mirrored-grid"};

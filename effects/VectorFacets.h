@@ -16,7 +16,7 @@ using VectorFacetsParams =
 using VectorFacetsSpec =
     Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
                    Pullback::Lens::DodecahedralKaleidoscope,
-                   Pullback::TransferKind::LINEAR,
+                   Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
@@ -30,14 +30,14 @@ public:
   using Params = VectorFacetsParams;
   static constexpr std::string_view EFFECT_ID = "vector-facets";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "ff3628dbc65bf25e7829f0d7d2b509d7636bed2fabec62297d807f46a20cfd67";
+      "456643c859f794f51cfd0b8c9af55984d6848bf4adb8517c213fb6a803434cc0";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "882ac027ba2eecde6adcbec7b2475a6c46f70a28b46aa2a7ae4ccbfa3da80196";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"vector-mirror"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = false;
-  static constexpr int32_t OUTER_NOISE_SEED = 1337;
+  static constexpr int32_t OUTER_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 
   static HS_FLASH_MEMBER Color4
   shade(const Vector &view, const typename VectorFacets::FrameState &frame) {

@@ -833,7 +833,8 @@ It maps `MaterialInput -> MaterialSample`. Evaluation order is normative:
 
 1. weight the signed field (`NONE` or projection `value_weight`);
 2. map to and clamp the unit interval;
-3. apply the selected transfer;
+3. apply the selected transfer when present; with no transfer, preserve the
+   mapped field value;
 4. calculate a policy factor from the original projection metadata and/or the
    transferred value, then multiply it by
    `projected.domain_coverage` (`OPAQUE` has factor 1);
@@ -842,7 +843,8 @@ It maps `MaterialInput -> MaterialSample`. Evaluation order is normative:
 
 Required weight policies: none and projection weight.
 
-Required transfer policies: linear, ridge, iso-contour, and smooth bands.
+Required transfer policies: ridge, iso-contour, and smooth bands. Transfer is
+optional; absence is the identity and is not represented by a stage.
 
 Required coverage policies: opaque, projection weight,
 projection-weight-squared, value cutout, and edge fade. Edge width zero remains
@@ -1057,7 +1059,7 @@ using Material = ShaderBallMatchedStage<
     Pullback::Stage::Material<
         ShaderBallBinding,
         Pullback::Weight::Projection,
-        Pullback::Transfer::Linear,
+        Pullback::Transfer::Ridge,
         Pullback::Coverage::EdgeFade<ValueStateProvider>>,
     ProjectionLinearEdgeFadeMatcher>;
 
