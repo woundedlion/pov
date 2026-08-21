@@ -17,7 +17,7 @@
 # it found (a guard added to an existing one) so the count cannot go stale
 # behind an incremental build.
 
-set(_guard_dirs core effects hardware targets tools)
+set(_guard_dirs core effects workbench hardware targets tools)
 set(_guard_files "")
 foreach(_dir IN LISTS _guard_dirs)
   file(GLOB_RECURSE _found CONFIGURE_DEPENDS

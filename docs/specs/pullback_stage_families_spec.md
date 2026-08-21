@@ -2,7 +2,7 @@
 
 **Status: §§1–6 and §8 LANDED; §7 PROPOSED.** The static ranked pipeline and
 its migration (the §6 contract cut-over) ship, as does the preview
-interpreter (§8: `core/render/pullback/interpreter.h`, `effects/ShaderChain.h`,
+interpreter (§8: `core/render/pullback/interpreter.h`, `workbench/ShaderChain.h`,
 and the `setShaderChain` binding). Promotion/verification (§7) is not yet
 implemented. Where this spec and
 [pullback_pipeline_spec.md](pullback_pipeline_spec.md) disagree about the

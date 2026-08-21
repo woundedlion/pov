@@ -40,8 +40,7 @@ export async function loadEffectRoster() {
 }
 
 // The standard self-registering effect set, read recursively from effects/.
-// Shader and ShaderChain are intentionally omitted because they are standalone
-// WASM-only workbench surfaces, not gallery effects.
+// The WASM-only workbench surfaces live under workbench/, outside this scan.
 // Extracts the REGISTER_EFFECT call sites from one header's source text.
 export function parseRegisteredEffects(src) {
   // Strip comments first so a commented-out REGISTER_EFFECT row is not counted
@@ -66,7 +65,7 @@ export async function loadRegisteredEffects() {
   const names = new Set();
   for (const path of headers) {
     for (const name of parseRegisteredEffects(await readFile(path, 'utf8'))) {
-      if (name !== 'Shader' && name !== 'ShaderChain') names.add(name);
+      names.add(name);
     }
   }
   return [...names];

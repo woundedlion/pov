@@ -3,8 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-#include "effects/ShaderWorkbench.h"
 #include "tests/test_effects.h"
+#include "workbench/ShaderWorkbench.h"
 
 #include <algorithm>
 #include <array>

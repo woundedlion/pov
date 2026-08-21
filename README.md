@@ -375,12 +375,16 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    41 headers covering 38 effects, all firmware — BZReactionDiffusion.h,
-│                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus the two
-│                                simulator-only entries (ShaderWorkbench.h, ShaderChain.h) and
+├── effects/                    39 headers covering 38 effects, all firmware — BZReactionDiffusion.h,
+│                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                shared base ReactionDiffusionBase.h; the
 │                                composed-effect base is
 │                                core/render/pullback/composed_effect.h — see §9
+│
+├── workbench/                  Simulator-only shader authoring surfaces, outside the firmware
+│                                roster; their HS_ENABLE_* gates #error under ARDUINO — see §9
+│   ├── ShaderWorkbench.h       Slot-configured shader with dynamic dispatch: registered as Shader
+│   └── ShaderChain.h           Interpreter for a compiled operator chain: registered as ShaderChain
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
@@ -512,7 +516,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── .githooks/                  pre-commit format/lint/test/size gate, post-commit size-trail recorder, and a reference-transaction guard keeping master fast-forward-only
 ├── .github/dependabot.yml      Monthly grouped bump pull request for the SHA-pinned actions in those workflows
 ├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages)
-├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects/ and core/engine/effects_legacy.h reserved
+├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects/, workbench/ and core/engine/effects_legacy.h reserved
 ├── CONTRIBUTING.md             Landing model, gates, and the tool pins a contributor has to match
 └── justfile                    Task runner: `just build` / `test` / `smoke` / `docs` / `install` (`just --list` for the rest)
 ```
@@ -3144,9 +3148,9 @@ After populating them, run `npm run importmap:local` to point [`vendor-importmap
 
 This project is split-licensed: the rendering engine and the visual effects carry different terms.
 
-**Engine — non-commercial.** The core infrastructure — the rendering engine, math, scan/raster, hardware drivers, and test harness, which in the Holosphere repository is everything outside `effects/` — is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) (see [`LICENSE`](LICENSE)). You may use, modify, and distribute it for any non-commercial purpose; commercial use is not granted.
+**Engine — non-commercial.** The core infrastructure — the rendering engine, math, scan/raster, hardware drivers, and test harness, which in the Holosphere repository is everything outside `effects/` and `workbench/` — is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) (see [`LICENSE`](LICENSE)). You may use, modify, and distribute it for any non-commercial purpose; commercial use is not granted.
 
-**Effects — proprietary.** The visual effects — the Holosphere repository's `effects/` sources, and their compiled form in any distributed build artifact, including the `holosphere_wasm.wasm` module daydream ships — are Copyright 2025 Gabriel Levy. All rights reserved. They are not covered by the PolyForm license — no rights to use, copy, modify, or distribute them are granted.
+**Effects — proprietary.** The visual effects — the Holosphere repository's `effects/` and `workbench/` sources, and their compiled form in any distributed build artifact, including the `holosphere_wasm.wasm` module daydream ships — are Copyright 2025 Gabriel Levy. All rights reserved. They are not covered by the PolyForm license — no rights to use, copy, modify, or distribute them are granted.
 
 **Per-file notices are a C++ convention only.** The `Required Notice` banner at the top of engine and effect sources is a courtesy for files that travel alone; it is not what grants or withholds rights. Build tooling, generator and gate scripts, and test files — Python, shell, and JavaScript in either repo — deliberately carry no banner, and `tools/license_check.py` gates the C/C++ ones only. Scope is decided by the terms above and by the file's location in the tree, banner or not.
 

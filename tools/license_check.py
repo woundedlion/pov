@@ -38,6 +38,7 @@ HEAD_BYTES = 600
 # pass. core/vendor/FastNoiseLite_config.h is first-party and is not here.
 EXCEPTIONS = {
     "core/engine/effects_legacy.h": RESERVED,
+    "workbench/": RESERVED,
     "core/math/projections.h": MIT_GRANT,
     "core/vendor/FastNoiseLite.h": MIT_TITLE,
 }

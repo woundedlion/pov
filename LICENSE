@@ -11,6 +11,8 @@ Exceptions outside `effects/`, each carrying its own terms in its own header:
 
 - `core/engine/effects_legacy.h` — retired effect sources, All Rights Reserved
   on the same terms as `effects/`.
+- `workbench/` — the shader workbench and chain-interpreter surfaces, All
+  Rights Reserved on the same terms as `effects/`.
 - `core/math/projections.h` — derived from PROJ; MIT, Copyright Frank
   Warmerdam, Gerald I. Evenden, Kristian Evers, Toby C Wilkinson and the PROJ
   contributors.
