@@ -64,6 +64,10 @@ private:
     constexpr float strengths[] = {0.5f, 2.72f, 0.0f, 1.376f};
     constexpr float speeds[] = {0.015625f, 0.00690625f, 0.00690625f,
                                 0.00559375f};
+    static_assert(std::size(frequencies) == PRESET_IDS.size() &&
+                  std::size(complexities) == PRESET_IDS.size() &&
+                  std::size(strengths) == PRESET_IDS.size() &&
+                  std::size(speeds) == PRESET_IDS.size());
     Params value;
     value.source = {.pattern_freq = frequencies[index],
                     .speed = 0.245f,
