@@ -100,7 +100,13 @@ enum class EffectTransitionStatus : uint8_t {
   RESTORE_REJECTED,     /**< Rollback failed or had no restorable outgoing. */
 };
 
-/** @brief What a caller asks the controller to transition to. */
+/**
+ * @brief What a caller asks the controller to transition to.
+ * @details The controller copies the request and replays effect_id/preset_id to
+ *   the adapter on later ticks, so both views must outlive the transition; a
+ *   literal or adapter-owned storage satisfies that, a caller's stack buffer
+ *   does not.
+ */
 struct EffectTransitionRequest {
   std::string_view effect_id; /**< Destination effect; empty is rejected. */
   std::string_view preset_id; /**< Destination preset, for the adapter. */
@@ -113,7 +119,9 @@ struct EffectTransitionRequest {
 /**
  * @brief Outgoing-effect snapshot preflight() fills in, for a possible rollback.
  * @details schema_version is for the adapter that reads the token back; the
- *   controller never inspects it.
+ *   controller never inspects it. effect_id is held until the transition ends
+ *   and handed back to restore_outgoing(), so preflight() must point it at
+ *   storage that lives at least that long.
  */
 struct EffectRestoreToken {
   static constexpr uint16_t SCHEMA_VERSION = 1;
