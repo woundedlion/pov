@@ -510,6 +510,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── ruff.toml                   Python lint rules (defect classes only, no formatter) — the ci.yml lint job
 ├── eslint.config.mjs           JavaScript lint rules for scripts/*.mjs (recommended set) — the same job
 ├── .githooks/                  pre-commit format/lint/test/size gate, post-commit size-trail recorder, and a reference-transaction guard keeping master fast-forward-only
+├── .github/dependabot.yml      Monthly grouped bump pull request for the SHA-pinned actions in those workflows
 ├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages)
 ├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects/ and core/engine/effects_legacy.h reserved
 ├── CONTRIBUTING.md             Landing model, gates, and the tool pins a contributor has to match
