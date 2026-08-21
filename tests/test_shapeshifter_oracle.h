@@ -187,31 +187,28 @@ struct ShapeShifterWhiteBox {
                           float radius, int sides, const F &fragment_shader,
                           float shape_phase) {
     using ShapeType = OracleEffect::ShapeType;
+    PipelineRef pipeline(effect.plot_filters, canvas);
     switch (shape) {
     case ShapeType::PLANAR_POLYGON:
       Plot::Polygon<Plot::PlanarProjection>::draw<ORACLE_W, ORACLE_H>(
-          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
-          shape_phase);
+          pipeline, canvas, basis, radius, sides, fragment_shader, shape_phase);
       break;
     case ShapeType::SPHERICAL_POLYGON:
       Plot::Polygon<Plot::GeodesicProjection>::draw<ORACLE_W, ORACLE_H>(
-          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
-          shape_phase);
+          pipeline, canvas, basis, radius, sides, fragment_shader, shape_phase);
       break;
     case ShapeType::FLOWER:
-      Plot::Flower::draw<ORACLE_W, ORACLE_H>(effect.plot_filters, canvas, basis,
-                                             radius, sides, fragment_shader, {},
+      Plot::Flower::draw<ORACLE_W, ORACLE_H>(pipeline, canvas, basis, radius,
+                                             sides, fragment_shader, {},
                                              shape_phase);
       break;
     case ShapeType::PLANAR_STAR:
       Plot::Star<Plot::PlanarProjection>::draw<ORACLE_W, ORACLE_H>(
-          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
-          shape_phase);
+          pipeline, canvas, basis, radius, sides, fragment_shader, shape_phase);
       break;
     case ShapeType::SPHERICAL_STAR:
       Plot::Star<Plot::GeodesicProjection>::draw_continuous<ORACLE_W, ORACLE_H>(
-          effect.plot_filters, canvas, basis, radius, sides, fragment_shader,
-          shape_phase);
+          pipeline, canvas, basis, radius, sides, fragment_shader, shape_phase);
       break;
     }
   }

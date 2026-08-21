@@ -379,8 +379,8 @@ private:
     auto shader = [&](const Vector &, Fragment &fragment) {
       fragment.color = color;
     };
-    Scan::Circle::draw<W, H>(plot_filters, canvas, cap.first, cap_radius,
-                             shader);
+    Scan::Circle::draw<W, H>(PipelineRef(plot_filters, canvas), canvas,
+                             cap.first, cap_radius, shader);
   }
 
   HS_FLASH_MEMBER void draw_planar_star_pole_caps(Canvas &canvas,
