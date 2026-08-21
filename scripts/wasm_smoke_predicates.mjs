@@ -93,7 +93,7 @@ export function stackCreepBudget(stack, ceiling, maxFill = STACK_MAX_FILL) {
  * getParameterDefinitions() and getParamValues() share param_marshal.h's
  * ordering and are read in one pass with no drawFrame between, so values[i]
  * must reproduce defs[i].value. Length alone is blind to a transposition, so
- * every index is compared. wasm.cpp collapses a bool def's value to `raw > 0.5`
+ * every index is compared. engine_bindings.h collapses a bool def's value to `raw > 0.5`
  * while the value stream keeps the raw float, so bools are reconstructed rather
  * than compared directly, and they carry no min/max.
  *

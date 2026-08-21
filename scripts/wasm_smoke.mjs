@@ -31,7 +31,7 @@ const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 120);
 // capacity, so `hwm > capacity` can never fire for it. Gate on an absolute byte
 // budget instead (meaningful against any build's stack size); stackCreepBudget()
 // mins it with the capacity fraction. Creep tripwire, not a bound: the HWM
-// under-reports (see stack_high_water_mark() in wasm.cpp).
+// under-reports (see stack_high_water_mark() in engine_bindings.h).
 // The 2048 default is calibrated on the -O3 release build; -O0 debug frames run
 // severalfold larger, so ci.yml overrides via WASM_SMOKE_STACK_CEILING.
 const STACK_HWM_CEILING_BYTES = Number(process.env.WASM_SMOKE_STACK_CEILING ?? 2048);
@@ -804,7 +804,7 @@ async function main() {
           if (engine.getPixels().length === 0) {
             fail('pole-lod: getPixels() is empty after a decimated frame');
           }
-          // Out-of-domain inputs clamp, never trap (setPoleLod in wasm.cpp).
+          // Out-of-domain inputs clamp, never trap (setPoleLod in engine_bindings.h).
           engine.setPoleLod(-1);
           if (engine.getPoleLod() !== 0) {
             fail(`pole-lod: setPoleLod(-1) left ${engine.getPoleLod()}, expected the 0 clamp`);
