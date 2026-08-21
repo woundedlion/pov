@@ -59,8 +59,8 @@ inline uint8_t morph_persist_buf[64 * 1024]; /**< Persistent-seed arena. */
 using ConwayGraph::T_EPS;
 
 // ---------------------------------------------------------------------------
-// Seeds: the solids the edge table sweeps from, including the two ADOPT seeds
-// (cuboctahedron, icosidodecahedron), which are ambo of a platonic seed.
+// Seeds: the solids the edge table sweeps from, including the two ambo-chain
+// seeds (cuboctahedron, icosidodecahedron), which are ambo of a platonic seed.
 // ---------------------------------------------------------------------------
 
 /** @brief Sweep seeds of the OpLeg edge table. */

@@ -622,12 +622,12 @@ inline void test_swap_in_framebuffer() {
 }
 
 /**
- * @brief Verifies the DERIVE_AMBO (ADOPT-row) departure swap: the displayed
- *        cuboctahedron base vs truncate(ambo(cube), T_EPS) — the first frame
- *        of the cuboctahedron -> truncatedCuboctahedron leg — under the
+ * @brief Verifies the DERIVE_AMBO departure swap: the displayed cuboctahedron
+ *        base vs truncate(ambo(cube), T_EPS) — the first frame of the
+ *        cuboctahedron -> truncatedCuboctahedron leg — under the
  *        emission-identity mapping on the derived seed.
  */
-inline void test_adopt_departure_swap_framebuffer() {
+inline void test_derive_ambo_departure_swap_framebuffer() {
   Arena geom(cc_geom_buf, sizeof(cc_geom_buf));
   Arena temp(cc_temp_buf, sizeof(cc_temp_buf));
 
@@ -637,7 +637,7 @@ inline void test_adopt_departure_swap_framebuffer() {
   PolyMesh swept = MeshOps::truncate(cubocta, geom, temp, T_EPS);
 
   const DiffStats st = swap_diff(cubocta, swept);
-  std::printf("  [adopt] cubocta vs truncate(ambo(cube), eps): flat=%zu "
+  std::printf("  [derive-ambo] cubocta vs truncate(ambo(cube), eps): flat=%zu "
               "newborn=%zu blend=%zu px\n",
               st.flat, st.newborn, st.blend);
   HS_EXPECT_LE(st.flat, SWAP_FLAT_BUDGET);
@@ -2087,7 +2087,7 @@ inline int run_conway_continuity_tests() {
   test_palette_carry_across_arrivals();
 
   test_swap_in_framebuffer();
-  test_adopt_departure_swap_framebuffer();
+  test_derive_ambo_departure_swap_framebuffer();
   test_adopt_bridge_arrival_geometry();
   test_dual_swap_crossover_framebuffer();
 
