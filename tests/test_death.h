@@ -62,6 +62,7 @@
 #include "core/mesh/mesh.h"
 #include "core/mesh/recipe.h"
 #include "core/render/plot.h"
+#include "core/render/pullback/interpreter.h"
 #include "core/render/scan.h"
 #include "core/render/sdf.h"
 #include "core/render/sdf/volume.h"
@@ -3041,6 +3042,24 @@ inline void case_shader_workbench_preset_for_view_out_of_range() {
 }
 
 /**
+ * @brief Death case: an operator table whose entry decreases carrier family
+ *        rank must trap.
+ * @details Interpreter surface — compile() only matches adjacent carriers, so
+ *          a rank-decreasing entry would run a chain the type system forbids.
+ */
+inline void case_chain_table_rank_decreases() {
+  static Pullback::Interp::ChainProgram program;
+  static Pullback::Interp::OperatorDescriptor descriptor{};
+  descriptor.input = Pullback::Interp::CarrierId::COLOR;
+  descriptor.output = Pullback::Interp::CarrierId::SPHERE;
+  alignas(std::max_align_t) static uint8_t block_a[64];
+  alignas(std::max_align_t) static uint8_t block_b[64];
+  program.bind_storage(
+      block_a, block_b, opaque<size_t>(sizeof(block_a)),
+      std::span<const Pullback::Interp::OperatorDescriptor>(&descriptor, 1));
+}
+
+/**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
@@ -3539,6 +3558,10 @@ inline const Case *all_cases(int &n) {
        "ShaderWorkbench.h",
        "(index < PRESETS.size()) set_fixed_preset_view: preset index out of "
        "range"},
+      {"chain_table_rank_decreases", case_chain_table_rank_decreases,
+       "interpreter.h",
+       "(entry.input <= entry.output) ChainProgram::bind_storage: operator "
+       "family rank decreases"},
       {"shader_workbench_zero_preset_dwell",
        case_shader_workbench_zero_preset_dwell, "ShaderWorkbench.h",
        "(frames > 0) hold_initial_preset: zero dwell"},
@@ -4206,7 +4229,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 174;
+  constexpr int DEATH_CASE_COUNT = 175;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a

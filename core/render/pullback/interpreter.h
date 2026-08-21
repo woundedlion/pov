@@ -187,7 +187,9 @@ public:
    * @param block_capacity One arena's capacity; the budget compile() checks.
    * @param operator_table Resolution table; defaults to OPERATOR_TABLE.
    * @details Blocks must be max_align-aligned and outlive the program. Bind
-   * once, before the first compile().
+   * once, before the first compile(). No table entry may decrease carrier
+   * family rank, the invariant make_operator_descriptor() static_asserts and a
+   * hand-built table would otherwise slip past compile()'s carrier matching.
    */
   void bind_storage(uint8_t *block_a, uint8_t *block_b,
                     size_t block_capacity = CHAIN_ARENA_BYTES,
@@ -202,6 +204,9 @@ public:
                  0,
              "ChainProgram::bind_storage: block_b misaligned");
     HS_CHECK(blocks[0] == nullptr, "ChainProgram::bind_storage: rebinding");
+    for (const OperatorDescriptor &entry : operator_table)
+      HS_CHECK(entry.input <= entry.output,
+               "ChainProgram::bind_storage: operator family rank decreases");
     blocks[0] = block_a;
     blocks[1] = block_b;
     capacity = block_capacity;
