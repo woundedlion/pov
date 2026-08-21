@@ -4211,7 +4211,7 @@ inline int run_death_tests() {
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
 #ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 169;
+  constexpr int DEATH_CASE_COUNT = 173;
 #else
   constexpr int DEATH_CASE_COUNT = 168;
 #endif

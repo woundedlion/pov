@@ -163,8 +163,8 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
   X("interpolate", 5, hs_test::interpolate_tests::run_interpolate_tests, 2077) \
   X("platform", 19, hs_test::platform_tests::run_platform_tests, 266686)       \
   X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \
-  X("pullback", 12, hs_test::pullback_tests::run_pullback_tests, 85)           \
-  X("shader_chain", 43, hs_test::shader_chain_tests::run_shader_chain_tests,   \
+  X("pullback", 13, hs_test::pullback_tests::run_pullback_tests, 85)           \
+  X("shader_chain", 44, hs_test::shader_chain_tests::run_shader_chain_tests,   \
     9957)                                                                      \
   X("filter", 64, hs_test::filter_tests::run_filter_tests, 10296)              \
   X("plot_scan", 82, hs_test::plot_scan_tests::run_plot_scan_tests, 1501827)   \
@@ -198,7 +198,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
   X("curl_lattice", 4, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
     5000)                                                                      \
   X("facet_grid", 4, hs_test::facet_grid_tests::run_facet_grid_tests, 8000)    \
-  X("composed_effect", 10,                                                     \
+  X("composed_effect", 11,                                                     \
     hs_test::composed_effect_tests::run_composed_effect_tests, 16101)          \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
@@ -220,7 +220,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
   X("presets", 9, hs_test::presets_tests::run_presets_tests, 43)               \
   X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
   X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
-  X("death", 169, hs_test::death_tests::run_death_tests, 259)
+  X("death", 173, hs_test::death_tests::run_death_tests, 259)
 
 // case_sites is consumed by tests/check_case_calls.cmake, not by the runtime.
 #define HS_TEST_MODULE_ENTRY(name, case_sites, fn, min_assertions)             \
