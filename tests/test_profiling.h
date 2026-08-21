@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/engine/profiling.h — the instrumentation every on-device
+ * Unit tests for core/platform/profiling.h — the instrumentation every on-device
  * timing report is built from. None of it renders a pixel, so a regression
  * surfaces as wrong numbers in a report rather than as a visible failure. These
  * cases pin the hand-rolled u64_dec formatter against its exact-fit buffer, the
