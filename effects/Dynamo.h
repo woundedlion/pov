@@ -61,7 +61,7 @@ public:
    */
   HS_COLD_MEMBER Dynamo()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
-        palettes{make_palette()}, palette_normal(Z_AXIS),
+        palettes{make_palette()},
         // draw_frame() pushes the live "Trail Len" slider before the first
         // flush(), so this seed lifetime never reaches the output.
         filters(Filter::World::Trails<TRAIL_CAPACITY>(1),
@@ -256,7 +256,7 @@ private:
 
   /**
    * @brief Picks the color for a direction at a palette parameter.
-   * @param v Unit sample direction; the angle between it and palette_normal
+   * @param v Unit sample direction; the angle between it and PALETTE_NORMAL
    *          selects a palette band.
    * @param t Palette parameter in [0, 1] indexing into the baked LUT.
    * @return The blended Color4 for the sampled band, with a blend_width-wide
@@ -273,7 +273,7 @@ private:
     // Sentinel for "no next boundary": `a` is in [0, PI], so any value above PI
     // makes the `a < next_boundary_lower_edge` test pass.
     constexpr float NO_NEXT_BOUNDARY = 100.0f;
-    float a = fast_acos(hs::clamp(dot(v, palette_normal), -1.0f, 1.0f));
+    float a = fast_acos(hs::clamp(dot(v, PALETTE_NORMAL), -1.0f, 1.0f));
 
     // The scan assumes palette_boundaries is monotonically non-decreasing; a live
     // Wipe-Dur change can transiently invert it, picking a stale palette for a few
@@ -455,6 +455,8 @@ private:
   static constexpr size_t NUM_NODES = H_VIRT;     /**< Strand node count. */
   /** @brief Evenly spaced Y-axis copies of the strand the pipeline emits. */
   static constexpr int STRAND_COPIES = 3;
+  /** @brief Reference axis for band angle selection. */
+  static constexpr Vector PALETTE_NORMAL = Z_AXIS;
   /**
    * @brief Compile-time Trails storage capacity (max buffered trail points).
    * @details Sized to the persistent partition left by the nodes and the baked
@@ -488,7 +490,6 @@ private:
                 "Dynamo persistent footprint exceeds the default partition; "
                 "retune TRAIL_CAPACITY/MAX_PALETTES or carve arenas");
 
-  Vector palette_normal; /**< Reference axis for band angle selection. */
   Node *nodes = nullptr; /**< Arena-backed strand nodes. */
 
   /**

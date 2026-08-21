@@ -43,12 +43,11 @@ template <int W, int H> class DisplacementField : public Effect {
 
 public:
   /**
-   * @brief Builds the effect with its palette and ring-stack axis.
+   * @brief Builds the effect with its palette.
    */
   HS_COLD_MEMBER DisplacementField()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
-        balls(timeline), noise_field(timeline), palette(make_palette()),
-        normal(X_AXIS) {
+        balls(timeline), noise_field(timeline), palette(make_palette()) {
     // Reserve the initial wipe-target draw before field and motion seeding.
     static_cast<void>(make_palette());
   }
@@ -112,7 +111,8 @@ public:
                         },
                         -1, 24, ease_linear, 0, ease_linear));
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, normal, walk_noise));
+    timeline.add(0,
+                 Animation::RandomWalk<W>(orientation, STACK_AXIS, walk_noise));
 
     timeline.add(0, Animation::PeriodicTimer(
                         PALETTE_CYCLE_FRAMES,
@@ -309,7 +309,7 @@ private:
     int n_rings = static_cast<int>(params.num_rings);
     HS_CHECK(n_rings <= RING_SLOTS,
              "DisplacementField: Rings slider exceeds the baked-ring pool");
-    Basis basis = make_basis(orientation.get(), normal);
+    Basis basis = make_basis(orientation.get(), STACK_AXIS);
     const bool try_cull = !clip().is_full();
     // World-angle pad absorbing the rasterizer's soft stroke cross-section past
     // the clip's margin.
@@ -591,7 +591,7 @@ private:
       logged_pool_full = true;
       hs::log("DisplacementField: ball pool full, dropping spawn");
     }
-    balls.spawn(0, orientation, normal, hs::rand_f(0.0f, 2.0f * PI_F),
+    balls.spawn(0, orientation, STACK_AXIS, hs::rand_f(0.0f, 2.0f * PI_F),
                 fall_frames);
   }
 
@@ -650,6 +650,8 @@ private:
       150; /**< Noise amplitude ramp on each phase handoff. */
   static constexpr int NOISE_HOLD_FRAMES =
       600; /**< Full-noise dwell before fading out into the next ball phase. */
+  /** @brief Un-oriented axis the ring stack and every ball fall share. */
+  static constexpr Vector STACK_AXIS = X_AXIS;
 
   BallDropTransformer<MAX_BALLS>
       balls; /**< Falling-ball displacement fields. */
@@ -660,7 +662,6 @@ private:
       palette; /**< Active palette (mutated by an in-flight ColorWipe). */
   GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
   GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
-  Vector normal;
   Orientation<> orientation;
 
   /** @brief Displacement-phase state: the noise field or falling balls. */

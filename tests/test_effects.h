@@ -3326,9 +3326,8 @@ struct DynamoWhiteBox {
     effect.palette_boundaries[1] = 0.5f; // older, left behind
     HS_EXPECT_GT(effect.palette_boundaries[0], effect.palette_boundaries[1]);
 
-    // palette_normal is Z_AXIS (set in the ctor, untouched since the timeline is
-    // not stepped), so v = (sin theta, 0, cos theta) sweeps angle_between(v,
-    // normal) across the full [0, PI] band span.
+    // PALETTE_NORMAL is Z_AXIS, so v = (sin theta, 0, cos theta) sweeps
+    // angle_between(v, normal) across the full [0, PI] band span.
     constexpr int STEPS = 256;
     for (int i = 0; i <= STEPS; ++i) {
       float theta = PI_F * static_cast<float>(i) / static_cast<float>(STEPS);
