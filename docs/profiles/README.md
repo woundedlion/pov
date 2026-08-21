@@ -4,10 +4,13 @@ On-device timing for the **34 effects in the Phantasm image**,
 captured on bench-attached Teensy 4.0 boards running the shipping Phantasm
 configuration (`POVSegmented<288, 4, 480>`, board = segment 0 master,
 newlib-nano, DMA LEDs, flywheel + DMA ISRs live) via the `HS_PROFILE`
-cycle-counter harness. The full effect roster is 36, and
-`HS_PHANTASM_EFFECT_LIST` excludes three. Dynamo, MobiusRings and Thrusters are
-Holosphere 96×20-only, never run in the 288×144 image, and are not profiled
-here; `Shader` is the authoring workbench and is not a shipping effect.
+cycle-counter harness. `HS_EFFECT_LIST` holds 37 device effects, and
+`HS_PHANTASM_EFFECT_LIST` excludes exactly three of them: Dynamo, MobiusRings
+and Thrusters are Holosphere 96×20-only, never run in the 288×144 image, and
+are not profiled here. The `Shader` authoring workbench and its `ShaderChain`
+interpreter are simulator-only — `HS_ENABLE_SHADER_WORKBENCH` and
+`HS_ENABLE_CHAIN_INTERPRETER` are never set for a device build — so they sit
+outside that 37 rather than being excluded from it.
 
 Each effect renders one **quadrant** ≈ **10,368 px**. A display window is
 **62.5 ms**, so cadence quantizes: 16 fps (1 window), 8 fps (2), 5.3 fps (3).
