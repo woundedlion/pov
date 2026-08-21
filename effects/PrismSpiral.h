@@ -31,7 +31,7 @@ public:
   using Params = PrismSpiralParams;
   static constexpr std::string_view EFFECT_ID = "prism-spiral";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "24e36da112a7ec1222715d7a428904228a7ed8e9171ac265856932d5d52b8a01";
+      "80b89e0d3a5718db459105f3476a91fc6432e6c8260911f835915a526aae3054";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "df89249f6c10d7dcf3d3bede05782f9dec3d34dd70de44e976f5853a7bd34762";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"prism-spiral",
