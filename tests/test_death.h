@@ -4036,13 +4036,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"common.h", 4},
     {"csg.h", 2},
     {"cull.h", 1},
-// The census counts source text, so face.h's site count is the same either
-// way; under NDEBUG the case pinning its Debug-only claim_seq guard is gone.
-#ifndef NDEBUG
     {"face.h", 3},
-#else
-    {"face.h", 4},
-#endif
     {"interpreter.h", 13},
     {"led.h", 3},
     {"operator_model.h", 1},
@@ -4212,11 +4206,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-#ifndef NDEBUG
-  constexpr int DEATH_CASE_COUNT = 173;
-#else
-  constexpr int DEATH_CASE_COUNT = 168;
-#endif
+  constexpr int DEATH_CASE_COUNT = 174;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
