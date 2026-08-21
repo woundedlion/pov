@@ -819,13 +819,17 @@ public:
   /**
    * @brief Steps the animation, advancing the noise time field.
    * @param canvas The canvas buffer (forwarded to the base step).
+   * @details `speed` is re-read from the live params every step, so a
+   * non-finite one is ignored and the time axis held rather than poisoned.
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     // Accepted limit: past time == 2^24 (~77 h at 60 fps and speed 1, sooner at
     // higher speed) float can't represent consecutive steps and the noise time
     // axis freezes.
-    params.get().time += params.get().speed;
+    const float speed = params.get().speed;
+    if (std::isfinite(speed))
+      params.get().time += speed;
   }
 
 private:
@@ -1004,10 +1008,14 @@ public:
   /**
    * @brief Steps the animation, integrating the field time.
    * @param canvas The canvas buffer (forwarded to the base step).
+   * @details `speed` is re-read from the live params every step, so a
+   * non-finite one is ignored and the time axis held rather than poisoned.
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    params.get().time += params.get().speed;
+    const float speed = params.get().speed;
+    if (std::isfinite(speed))
+      params.get().time += speed;
   }
 
 private:
