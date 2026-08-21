@@ -65,7 +65,7 @@ public:
         // draw_frame() pushes the live "Trail Len" slider before the first
         // flush(), so this seed lifetime never reaches the output.
         filters(Filter::World::Trails<TRAIL_CAPACITY>(1),
-                Filter::World::Replicate<W>(3),
+                Filter::World::Replicate<W>(STRAND_COPIES),
                 Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
@@ -453,6 +453,8 @@ private:
   static constexpr float WIPE_COMPLETE = 100.0f;
   static constexpr int H_VIRT = H + hs::H_OFFSET; /**< Virtual row count. */
   static constexpr size_t NUM_NODES = H_VIRT;     /**< Strand node count. */
+  /** @brief Evenly spaced Y-axis copies of the strand the pipeline emits. */
+  static constexpr int STRAND_COPIES = 3;
   /**
    * @brief Compile-time Trails storage capacity (max buffered trail points).
    * @details Sized to the persistent partition left by the nodes and the baked
