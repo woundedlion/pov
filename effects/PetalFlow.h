@@ -128,6 +128,12 @@ private:
   static_assert(FADE_START_RHO + FADE_WIDTH <= END_RHO &&
                     -(FADE_START_RHO + FADE_WIDTH) >= START_RHO,
                 "PetalFlow pole fade must complete inside the ring path");
+  /**
+   * @brief Pole-fade envelope at or below which a ring is not drawn.
+   * @details A cut on the fade envelope, before the Alpha slider scales it, so
+   * it is not comparable to the per-sample MIN_ENCODABLE_ALPHA floor.
+   */
+  static constexpr float MIN_FADE_OPACITY = 0.01f;
   static constexpr float PETAL_LOBES =
       3.0f; /**< Petal lobe count per revolution for the radial wobble. */
   static constexpr float PETAL_DEPTH =
@@ -319,7 +325,7 @@ private:
       opacity = std::max(0.0f, 1.0f - (dist - FADE_START_RHO) / FADE_WIDTH);
     }
 
-    if (opacity <= 0.01f)
+    if (opacity <= MIN_FADE_OPACITY)
       return;
     float effective_opacity = opacity * params.alpha;
 
