@@ -28,19 +28,18 @@ using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
  * peak channel error 2,298, total absolute error 120,849 (0.97 counts per
  * channel). The sparse trail's longer edges amplify the optimized transform's
  * numerical drift; the bounds retain roughly 1.5-2x headroom.
- * @details The corpus terms bound the candidate against a golden recorded by
- * the generic-reference renderer, which differs by construction across a third
- * of the frame. Measured: 13,602 changed pixels (32.8%), 32,577 changed
- * channels (26.2%), peak channel error 13,799, total absolute error 5,994,146
- * (48.2 counts per channel), luminance error 1,850,744 (44.6 counts per pixel),
- * bias -59,060 (1.42 per pixel), 25 added and 66 dropped fringe pixels,
- * coverage error 2,919 with a 2,320 peak. Area and magnitude terms carry 1.5x,
- * the single-pixel peak 2x, covering the drift between the compiler recorded
- * in the corpus header and the one running the replay.
+ * @details The corpus terms bound the candidate against the recorded golden,
+ * so they measure toolchain drift alone. Worst case over the Debug and -O2
+ * builds: 2,197 changed pixels (5.3%), 2,833 changed channels (2.3%), peak
+ * channel error 27, total absolute error 3,601, luminance error 956, bias 67,
+ * and no added, dropped or coverage-shifted pixel at all. Area and magnitude
+ * terms carry 4x and the single-pixel peak 8x, covering the drift between the
+ * toolchain recorded in the corpus header and the ones running the replay. The
+ * fringe and coverage terms measure zero, so they keep a small absolute budget
+ * rather than a scaled one.
  * @details Every area bound is a whole-frame budget, so a clipped pass spends
  * it over fewer pixels. The per-pixel densities do not scale down with the
- * region: the peak-workload quadrant carries the frame's densest splats and
- * measures 2.06 luminance-bias counts per pixel against the frame's 1.42.
+ * region: the peak-workload quadrant carries the frame's densest splats.
  */
 struct VisualGate {
   static constexpr uint32_t PIXELS = WIDTH * HEIGHT;
@@ -48,12 +47,12 @@ struct VisualGate {
   static constexpr uint32_t MAX_CHANGED_CHANNELS = PIXELS * 3 * 11 / 100;
   static constexpr uint16_t MAX_CHANNEL_ERROR = 5000;
   static constexpr uint64_t MAX_TOTAL_ERROR = PIXELS * 6ull;
-  static constexpr uint32_t MAX_CORPUS_CHANGED_PIXELS = PIXELS * 50 / 100;
-  static constexpr uint32_t MAX_CORPUS_CHANGED_CHANNELS = PIXELS * 3 * 40 / 100;
-  static constexpr uint16_t MAX_CORPUS_CHANNEL_ERROR = 28000;
-  static constexpr uint64_t MAX_CORPUS_TOTAL_ERROR = PIXELS * 3ull * 72;
-  static constexpr uint64_t MAX_LUMINANCE_ERROR = PIXELS * 61ull;
-  static constexpr int64_t MAX_LUMINANCE_BIAS = PIXELS * 2ll;
+  static constexpr uint32_t MAX_CORPUS_CHANGED_PIXELS = PIXELS * 21 / 100;
+  static constexpr uint32_t MAX_CORPUS_CHANGED_CHANNELS = PIXELS * 3 * 9 / 100;
+  static constexpr uint16_t MAX_CORPUS_CHANNEL_ERROR = 216;
+  static constexpr uint64_t MAX_CORPUS_TOTAL_ERROR = 14404;
+  static constexpr uint64_t MAX_LUMINANCE_ERROR = 3824;
+  static constexpr int64_t MAX_LUMINANCE_BIAS = 268;
   static constexpr uint32_t MAX_ADDED_PIXELS = PIXELS * 2 / 1000;
   static constexpr uint32_t MAX_DROPPED_PIXELS = PIXELS * 5 / 1000;
   static constexpr uint64_t MAX_COVERAGE_LUMINANCE_ERROR = PIXELS * 5ull;
