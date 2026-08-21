@@ -160,7 +160,7 @@ inline void test_facet_grid_identity_and_presets() {
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(stretched_actual[index]),
                  std::bit_cast<uint32_t>(STRETCHED_EXPECTED[index]));
   }
-  HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{480});
+  HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{16});
   HS_EXPECT_TRUE(Pullback::valid(FX::preset_params(3)));
 
   reset_effect_globals();

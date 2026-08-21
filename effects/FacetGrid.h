@@ -59,8 +59,12 @@ public:
       "coupled-grid", "direct-grid", "double-map", "stretched-grid"};
   /// Bumped whenever the `Params` layout changes, rejecting stale snapshots.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  // The 19 s Phantasm slot is 304 frames at 16 fps and the effect is rebuilt
+  // each visit: 4 dwells plus 3 crossfades must fit, or the later presets never
+  // render.
+  static constexpr Segue::Lerp PRESET_SEGUE{16, ease_in_out_sin};
   /// Frames a preset holds before the runtime begins the next transition.
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 64;
   static constexpr bool ANIMATED_PROJECTION = true;
 
   /// Params the effect starts on, and the base every preset varies from.
