@@ -23,6 +23,12 @@
 #include "core/engine/engine.h"
 #include "core/render/pullback/interpreter.h"
 
+namespace hs_test {
+namespace shader_chain_tests {
+struct ShaderChainWhiteBox;
+} // namespace shader_chain_tests
+} // namespace hs_test
+
 /**
  * @brief Stage-program interpreter effect over the pullback operator table.
  * @tparam W Canvas width in pixels.
@@ -101,8 +107,7 @@ public:
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     ++frame_index;
-    if (!anims_paused)
-      program.advance();
+    program.advance();
     const ColorizeTap tap = colorize_tap();
     update_palette_chroma(tap.params != nullptr ? tap.params->palette_chroma
                                                 : DEFAULT_CHROMA);
@@ -116,6 +121,8 @@ public:
   }
 
 private:
+  friend struct ::hs_test::shader_chain_tests::ShaderChainWhiteBox;
+
   /** @brief Per-sample functor over the compiled program. */
   struct ChainShader {
     const Pullback::Interp::ChainProgram *program;

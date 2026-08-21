@@ -2823,6 +2823,18 @@ inline void test_shader_chain_param_names_and_budget() {
   program.clear();
 }
 
+/** Reaches the effect's committed program and palette state. */
+struct ShaderChainWhiteBox {
+  using FX = ShaderChain<96, 20>;
+
+  static const In::ChainProgram &program(const FX &effect) {
+    return effect.program;
+  }
+  static Pixel palette_color(const FX &effect, float value) {
+    return effect.triadic_palette_cycler.palette().get(value).color;
+  }
+};
+
 inline void test_shader_chain_effect_registers_params() {
   reset_globals();
   ShaderChain<96, 20> effect;
@@ -2915,6 +2927,50 @@ inline void test_shader_chain_effect_refusal_keeps_schema() {
   HS_EXPECT_GT(lit, 0u);
 }
 
+/** @brief Pause gates preset selection only: chain clocks and the visible
+    palette keep advancing. */
+inline void test_shader_chain_pause_semantics() {
+  using WB = ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  HS_EXPECT_EQ(static_cast<int>(effect.updateParameter("sample.speed", 0.05f)),
+               static_cast<int>(ParamSetResult::APPLIED));
+  HS_EXPECT_EQ(static_cast<int>(effect.updateParameter("camera.wander", 1.0f)),
+               static_cast<int>(ParamSetResult::APPLIED));
+  // An animated-param write engages the pause by itself.
+  effect.setAnimationsPaused(true);
+  const In::Op::SourceClockState source_before =
+      state_as<In::Op::SourceClockState>(WB::program(effect), 2);
+  const Quaternion wander_before =
+      state_as<In::Op::SpatialWalkState>(WB::program(effect), 0).wander;
+  const Pixel color_before = WB::palette_color(effect, 0.25f);
+
+  for (int frame = 0; frame < 60; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+
+  HS_EXPECT_TRUE(effect.animations_paused());
+  HS_EXPECT_NE(
+      state_as<In::Op::SourceClockState>(WB::program(effect), 2).primary,
+      source_before.primary);
+  HS_EXPECT_TRUE(
+      state_as<In::Op::SpatialWalkState>(WB::program(effect), 0).wander !=
+      wander_before);
+  const Pixel color_after = WB::palette_color(effect, 0.25f);
+  HS_EXPECT_TRUE(color_after.r != color_before.r ||
+                 color_after.g != color_before.g ||
+                 color_after.b != color_before.b);
+  uint64_t lit = 0;
+  for (int y = 0; y < 20; ++y)
+    for (int x = 0; x < 96; ++x) {
+      const Pixel &pixel = effect.get_pixel(x, y);
+      lit += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+    }
+  HS_EXPECT_GT(lit, 0u);
+}
+
 inline int run_shader_chain_tests() {
   ModuleFixture fixture("shader_chain");
   test_shader_chain_table_integrity();
@@ -2955,6 +3011,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_effect_registers_params();
   test_shader_chain_effect_rebind_generation();
   test_shader_chain_effect_refusal_keeps_schema();
+  test_shader_chain_pause_semantics();
   return fixture.result();
 }
 
