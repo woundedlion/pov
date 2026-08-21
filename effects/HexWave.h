@@ -30,7 +30,7 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "08122928d7ecabd79b7286bdd2788b9ae3d87a1502aef4f53bcdbec5f08e1421";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "eaf259250c058dad158f79e5bb727f8fd680962a9e45893ce487d3c83b11c25a";
+      "655c4529ec3d0b3552dc1ac8ff599484633d91ac2c952a1980ff279ebfe78708";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "hex-twin-wave", "hex-twin-wave-alt"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
