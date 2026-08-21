@@ -419,6 +419,7 @@ target_compile_definitions(pullback_capture_native PRIVATE
   HS_ENABLE_EFFECT_CONTROL_API=1)
 target_link_libraries(pullback_capture_native PRIVATE hs_host_storage)
 _hs_warnings(pullback_capture_native)
+_hs_sanitize(pullback_capture_native)
 add_test(NAME unit_pullback_capture_determinism
   COMMAND ${CMAKE_COMMAND}
     -DPRODUCER=$<TARGET_FILE:pullback_capture_native>
@@ -566,6 +567,7 @@ target_link_libraries(relax_bake_gen PRIVATE hs_host_abi)
 target_compile_options(relax_bake_gen PRIVATE -fno-fast-math)
 target_include_directories(relax_bake_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 _hs_warnings(relax_bake_gen)
+_hs_sanitize(relax_bake_gen)
 
 # Pin the asset's FORM against the emitter: unit_relax_bake_verify above proves
 # the committed payloads re-derive bit-exact, but nothing re-ran the emitter, so
