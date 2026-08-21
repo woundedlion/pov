@@ -3443,6 +3443,7 @@ inline void test_fixed_shader_export_equivalence() {
   verify_fixed_shader_export<AlienOcean<SMALL_W, SMALL_H>>(shader, 2, 0);
   verify_fixed_shader_export<GlitchGrid<SMALL_W, SMALL_H>>(shader, 3, 0);
   verify_fixed_shader_export<FacetWave<SMALL_W, SMALL_H>>(shader, 5, 0);
+  verify_fixed_shader_export<FacetWave<SMALL_W, SMALL_H>>(shader, 5, 1);
   verify_fixed_shader_export<ContourLattice<SMALL_W, SMALL_H>>(shader, 6, 0);
   verify_fixed_shader_export<PrismLattice<SMALL_W, SMALL_H>>(shader, 9, 0);
   verify_fixed_shader_export<VectorFacets<SMALL_W, SMALL_H>>(shader, 10, 0);
