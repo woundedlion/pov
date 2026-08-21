@@ -1,16 +1,17 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * @file led.h
- * @brief LED configuration constants and color correction RAII guards.
- *
- * This file provides the shared constants and correction helpers
- * that effects depend on. The actual POVDisplay driver lives in
- * hardware/pov_single.h and is included directly by target .ino files.
  */
 #pragma once
+
 #include "platform/platform.h"
+
+/**
+ * @file led.h
+ * @brief LED pin constants and the color-correction RAII guards effects share.
+ * @details The POVDisplay driver itself lives in hardware/pov_single.h and is
+ * included directly by target .ino files.
+ */
 
 // USE_DMA_LEDS selects the DMA-based HD107S controller instead of the FastLED
 // WS2801 path. Requires Teensy 4.x and is left undefined for WASM/sim and
