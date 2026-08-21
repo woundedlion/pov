@@ -280,7 +280,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── engine/                 Machinery: memory, callables, rosters, effect support
 │   │   ├── engine.h                Engine API umbrella — included by every effect
 │   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
-│   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
+│   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spiral, etc.)
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>, generate()
 │   │   ├── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
