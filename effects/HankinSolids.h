@@ -147,6 +147,10 @@ private:
   static constexpr int SHAPE_FRAMES = 6;
   /** star_rim_palette sentinel: no rosette resolved for this star face yet. */
   static constexpr uint8_t NO_RIM = 0xFF;
+  /** Sprite-fade envelope below which a mesh is not drawn. A cut on the fade
+   * envelope, before the per-face palette alphas scale it, so it is not
+   * comparable to the per-sample MIN_ENCODABLE_ALPHA floor. */
+  static constexpr float MIN_FADE_OPACITY = 0.01f;
   /** Strap-crossfade window: frames of the hankin sweep over which a reborn
    * strap slot glides from its previous color to the fresh target. The sweep
    * opens quadratically — straps reach visibility around frame 3-7 and about
@@ -407,7 +411,7 @@ private:
                  float strap_close_blend = 1.0f,
                  float strap_terminal_fade = 1.0f,
                  float star_close_blend = 1.0f) {
-    if (mesh.vertices.is_empty() || opacity < 0.01f)
+    if (mesh.vertices.is_empty() || opacity < MIN_FADE_OPACITY)
       return;
     HS_PROFILE(hk_draw_mesh);
 
