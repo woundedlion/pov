@@ -580,6 +580,26 @@ private:
                  });
   }
 
+  /**
+   * @brief Rasterizes a planar star as fixed-step chords between projected
+   *        anchor points.
+   * @tparam F Fragment-shader callable type.
+   * @param canvas Target canvas.
+   * @param basis Shared shape basis.
+   * @param radius Shape radius in [0, 2].
+   * @param sides Star point count.
+   * @param fragment_shader Per-fragment shader, used by the delegated edges.
+   * @param color Contour color; its alpha is balanced against the step taken.
+   * @param phase Star rotation in radians.
+   * @param contour_index Contour slot in the baked radius-trig table.
+   * @details The path taken from DENSE_CONTOUR_COUNT contours up, where the
+   * per-edge setup of Plot::rasterize's adaptive walk outweighs the edges
+   * themselves: each edge is subdivided into at most MAX_ANCHOR_INTERVALS
+   * azimuthal anchors and walked at TARGET_STEP screen pixels, with no
+   * per-sample tangent or pole scaling. Edges reaching within POLE_GUARD_ROWS
+   * of a pole, where that scaling is what closes the gaps, are handed back to
+   * Plot::rasterize one at a time.
+   */
   template <typename F>
   HS_FLASH_MEMBER void
   draw_dense_planar_star(Canvas &canvas, const Basis &basis, float radius,
@@ -601,6 +621,8 @@ private:
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
     constexpr float TARGET_STEP = 1.2f;
+    // Empirical trim holding this walk's stroke brightness on the adaptive
+    // path's at TARGET_STEP.
     constexpr float ALPHA_GAIN = 1.028f;
     for (int edge = 0; edge < sides * 2; ++edge) {
       const Vector &a = points[edge].pos;
