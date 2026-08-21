@@ -483,7 +483,7 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 34u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 33u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     // Monotonicity pin: proven at table construction, never re-walked.
@@ -730,9 +730,8 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(bonne_hemisphere.enum_count, 2);
   HS_EXPECT_TRUE(std::string_view(bonne_hemisphere.enum_ids[0]) == "north");
 
-  // Field batch: linear and ridge are schema-free; iso-contour, smooth-bands
-  // and the value cutout carry their own families.
-  HS_EXPECT_EQ(In::find_operator("field.transfer.linear.v2")->schema_count, 0);
+  // Field batch: ridge is schema-free; iso-contour, smooth-bands and the value
+  // cutout carry their own families.
   HS_EXPECT_EQ(In::find_operator("field.transfer.ridge.v2")->schema_count, 0);
   const In::OperatorDescriptor &iso =
       *In::find_operator("field.transfer.iso-contour.v2");
@@ -1497,6 +1496,13 @@ inline void test_shader_chain_parity_warp_vector_noise() {
     In::ChainProgram &program = fixture->program;
     arm_warp_op_chain<In::Op::VectorNoiseWarpParams>(
         program, In::Op::WarpVectorNoise::ID, 4, set);
+    FastNoiseLite authored_noise;
+    authored_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    authored_noise.SetSeed(PB::EFFECT_NOISE_SEED);
+    authored_noise.SetFrequency(1.0f);
+    const auto &state = state_as<In::Op::NoisePhaseState>(program, 2);
+    HS_EXPECT_EQ(state.noise.GetNoise(0.25f, -0.5f, 0.75f),
+                 authored_noise.GetNoise(0.25f, -0.5f, 0.75f));
     const In::FrameContext ctx = shared_resources().context();
     run_vector_noise_basis<::NoiseBasis::SIMPLEX>(program, ctx);
     run_vector_noise_basis<::NoiseBasis::FBM3>(program, ctx);
@@ -1914,14 +1920,10 @@ inline void run_field_parity(const char *op_id, ValueSet set) {
 inline void test_shader_chain_parity_field_ops() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    run_field_parity<typename PB::Stage::Transfer<PB::Transfer::Linear>::
-                         template Bind<FieldMirrorBinding>,
-                     PB::Transfer::LinearValueParams>(
-        In::Op::TransferLinear::ID, set);
     run_field_parity<typename PB::Stage::Transfer<PB::Transfer::Ridge>::
                          template Bind<FieldMirrorBinding>,
-                     PB::Transfer::LinearValueParams>(In::Op::TransferRidge::ID,
-                                                      set);
+                     PB::Transfer::NoValueParams>(In::Op::TransferRidge::ID,
+                                                  set);
     run_field_parity<
         typename PB::Stage::Transfer<PB::Transfer::IsoContour<
             IsoContourFieldMirror>>::template Bind<FieldMirrorBinding>,
@@ -2736,6 +2738,14 @@ inline void test_shader_chain_determinism() {
   auto second = std::make_unique<ProgramFixture>();
   arm_default_chain(first->program, 5, ValueSet::MAXIMUMS);
   arm_default_chain(second->program, 5, ValueSet::MAXIMUMS);
+  FastNoiseLite authored_walk_noise;
+  authored_walk_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  authored_walk_noise.SetSeed(PB::CAMERA_WALK_SEED);
+  authored_walk_noise.SetFrequency(In::Op::WALK_NOISE_SCALE);
+  const auto &seeded_walk =
+      state_as<In::Op::SpatialWalkState>(first->program, 0);
+  HS_EXPECT_EQ(seeded_walk.walk_noise.GetNoise(0.25f, -0.5f, 0.75f),
+               authored_walk_noise.GetNoise(0.25f, -0.5f, 0.75f));
   const In::FrameContext ctx = shared_resources().context();
   first->program.prepare(ctx);
   second->program.prepare(ctx);
@@ -2744,7 +2754,7 @@ inline void test_shader_chain_determinism() {
     const Color4 b = second->program.evaluate(view, ctx);
     HS_EXPECT_TRUE(color4_identical(a, b));
   }
-  // The walk seed is the instance hash: a different label walks differently.
+  // Renaming does not change effect-authored walk resources.
   auto relabeled = std::make_unique<ProgramFixture>();
   const In::ChainEntryRequest renamed[] = {
       {"camera2", "sphere.rotate.v2"},
@@ -2761,7 +2771,7 @@ inline void test_shader_chain_determinism() {
   const auto &walk_a = state_as<In::Op::SpatialWalkState>(first->program, 0);
   const auto &walk_b =
       state_as<In::Op::SpatialWalkState>(relabeled->program, 0);
-  HS_EXPECT_NE(std::memcmp(&walk_a.wander, &walk_b.wander, sizeof(Quaternion)),
+  HS_EXPECT_EQ(std::memcmp(&walk_a.wander, &walk_b.wander, sizeof(Quaternion)),
                0);
   first->program.clear();
   second->program.clear();

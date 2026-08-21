@@ -16,7 +16,7 @@ using AlienOceanParams =
                      Pullback::EdgeValueParams>;
 using AlienOceanSpec =
     Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
-                   Pullback::Lens::Kaleidoscope, Pullback::TransferKind::LINEAR,
+                   Pullback::Lens::Kaleidoscope, Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::EDGE_FADE>;
 
 template <int W, int H>
@@ -29,7 +29,7 @@ public:
   using Params = AlienOceanParams;
   static constexpr std::string_view EFFECT_ID = "alien-ocean";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "515b0a720e37683cca416e5d67236911ea0285f7e9c4dd027a82188280be6b1f";
+      "269e76f7fc6206d950f05649e1bc539e71406a965ea2153887b30d70294dff99";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "bb79b346ffc5deb0cbb34479e72013f181b636f22f7dba3d989d7d327125961c";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"folded-grid"};

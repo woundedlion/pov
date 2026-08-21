@@ -16,7 +16,7 @@ using FacetWaveParams =
 using FacetWaveSpec =
     Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
                    Pullback::Lens::DodecahedralKaleidoscope,
-                   Pullback::TransferKind::LINEAR,
+                   Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
@@ -29,7 +29,7 @@ public:
   using Params = FacetWaveParams;
   static constexpr std::string_view EFFECT_ID = "facet-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "41243014530428182ceff486f84814f57efad150829056ea04558dc218b4b525";
+      "6200c7a1dc288c154c5aaa1d3fef403914fecd928e81a525e2314188d7f9ca66";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "ae386b772fb2c46f749384cf309d4282d2f82cc75fe82a5dd5abf98e8fa1dcd9";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"wave-mirror",

@@ -15,7 +15,7 @@ using MobiusGridParams =
                      Pullback::MirrorParams, Pullback::MobiusLensParams>;
 using MobiusGridSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC, void,
-                   Pullback::TransferKind::LINEAR,
+                   Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
@@ -29,7 +29,7 @@ public:
   using Params = MobiusGridParams;
   static constexpr std::string_view EFFECT_ID = "mobius-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "e421818f07f0a4d2cebb2d9f577b9a69db44c82b9f87656364417508ded8de85";
+      "0ed547969b9d9133d42de9a686da7ab8d6f530d77a0a4a48a9398ff82ecf24f9";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "990e359263891383011d53fcd0b3f46d6b3229bc0482409fd9cf762231322b2a";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"mobius-grid",

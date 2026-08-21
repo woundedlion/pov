@@ -18,7 +18,7 @@ canonicalizer sorts nodes by a role index, strips labels, and rewrites
 edges as role pairs — all three moves collapse under duplicate operators
 (two warps in either order canonicalize identically, a digest collision
 between semantically distinct documents, while a shuffled identical
-document digests differently). A guaranteed-linear chain says so:
+document digests differently). A guaranteed single-path chain says so:
 
 - `descriptor.chain` is an ordered array of `{label, operator}` —
   exactly the engine wire format's `{instance_id, operator_id}`, so
@@ -106,8 +106,9 @@ engine boundary — is the semantic contract §4 builds on and does not
 restate.
 
 The thirteen fixed folder banks are replaced by direct manipulation of
-the chain: a vertical rail of stage cards grouped into four family bands
-with crossings drawn as band boundaries, the default scratch chain being
+the chain: a vertical rail of stage cards grouped into the three editable
+carrier domains, with Color represented only by the terminal output crossing
+and crossings drawn as domain boundaries, the default scratch chain being
 `Rotate → Project → Sample → Colorize` (the minimal legal chain over the
 shipped crossings is `Project → Sample → Colorize`; the default adds the
 camera), and
@@ -211,7 +212,9 @@ or the strip, which are the page's primary UI.
 
 Each editable carrier domain has a fixed hue for its strip band. Bands
 size to their contents instead of sharing the strip's width or height.
-On narrow viewports the strip scrolls horizontally.
+On narrow viewports the strip scrolls horizontally without exposing a native
+scrollbar. Edge arrow buttons, a mouse wheel over the strip, and Left/Right on
+the focused strip background move the viewport.
 
 ### 4.2 The pipeline strip
 
@@ -230,7 +233,8 @@ names that output directly.
   color), which the strip makes structural: sockets are the fixed joints
   of the pipeline, bands are the variable runs between them.
 - **Chip anatomy**: operator display name, instance label ("Wave Shear ·
-  warp2"), and on the chip: a **✕ remove** icon, a **bypass** toggle and
+  warp2"), and on the chip: a **✕ remove** icon in the upper-right corner,
+  a **bypass** toggle and
   a pair of **‹ ›** reorder buttons (endomorphisms only), a
   **replacement selector** (crossings only). The selected chip is
   outlined and carries `aria-current`; a bypassed chip renders dimmed.
@@ -241,10 +245,10 @@ names that output directly.
   Delete opens the same set as a palette.
 - **Insertion**: gaps between chips are the store's chain indices. Each
   band carries one persistent **+** affordance opening the insertion
-  palette for that band's context gap (after the band's selected chip,
-  else the band's last gap), and Insert opens it at the gap after the
-  focused chip. Both routes go through `legalInsertions` — the strip
-  has no legality of its own.
+  palette at the gap after the band's last stage. Insert opens it at the
+  gap after the focused chip. Both routes go through `legalInsertions` —
+  the strip has no legality of its own. A chain with no transfer preserves
+  the field value.
 - **Reorder**: a chip's ‹ › buttons move it within its band (a crossing
   doesn't reorder); Alt+Arrow is the keyboard equivalent. The move
   commits as the label-preserving m-for-m span replacement, so parameter
@@ -283,13 +287,14 @@ drop model:
 ### 4.4 Parameters
 
 A stage's controls live **inline in its chip**: every chip whose
-instance declares parameters carries its sliders open, so the whole
-chain and its tuning read in one pass. Selection is an independent
-state — the outline and `aria-current` of §4.2 — and never collapses or
-opens a chip's controls. Committing an insert selects the new instance,
-whose controls are already on screen: adding a stage and immediately
-hearing its sliders is the core authoring loop, and the chain never has
-to be read in one place and tuned in another.
+instance declares parameters carries its sliders open, with each numeric
+value also directly editable, so the whole chain and its tuning read in
+one pass. Selection is an independent state — the outline and
+`aria-current` of §4.2 — and never collapses or opens a chip's controls.
+Committing an insert selects the new instance, whose controls are already
+on screen: adding a stage and immediately hearing its sliders is the core
+authoring loop, and the chain never has to be read in one place and tuned
+in another.
 
 - Controls are built from the **document**, not the engine: the
   declaration's storage and domain give the control its shape, the active
@@ -300,8 +305,9 @@ to be read in one place and tuned in another.
 - The union-schema discipline (§3) applies: fields the current topology
   values deactivate render dimmed, never dropped.
 - An instance that declares no parameters gets no control group, and a
-  chip carrying one is wide, so the strip scrolls rather than crushing
-  its neighbours.
+  chip carrying one is wide. Every parameter remains visible within the chip;
+  parameter groups never get their own scrollbar. The pipeline viewport
+  scrolls horizontally rather than crushing its neighbours.
 - **A stage edit is a document edit**: it writes the active preset's
   value for that `<label>.<field>` id, with the engine write as the side
   effect (per-control coalesced for undo, in the same history as
@@ -337,13 +343,14 @@ controls, same edit affordances, no separate read-only mode:
 - The toolbar source picker lists the registry's chain documents; Open…
   imports a file. A v1 document expands through the single expansion path
   (§2) on import; import failures surface the full diagnostic list (§1).
-- Authoring always routes the preview through the interpreter
-  (`setShaderChain`) so the loaded chain is live-editable. When the
-  loaded descriptor digest matches a promoted fixed effect (via the
-  migration/registry table), the toolbar offers a **parity toggle** to
-  the compiled build for A/B verification; the first descriptor-changing
-  edit breaks the match and disables the toggle — bypass, being a
-  program-shape override that never touches the digest (§3), does not.
+- Authoring routes the preview through the interpreter (`setShaderChain`) so
+  the loaded chain is live-editable, and applies the selected effect preset to
+  the document controls and interpreter parameters. When the loaded descriptor
+  digest matches a promoted fixed effect (via the migration/registry table),
+  the toolbar offers a **parity toggle** to the compiled build for A/B
+  verification; the first descriptor-changing edit breaks the match and
+  disables the toggle — bypass, being a program-shape override that never
+  touches the digest (§3), does not.
 - **Save As** writes a new `document_id` and leaves the loaded original
   untouched; plain Save re-downloads the loaded document under its own
   filename. Either way the output is the same canonical serialization as
@@ -361,7 +368,9 @@ Full parity with the pointer gestures, rotated to the horizontal:
   Enter/Space selects, Delete removes an endomorphism or opens a
   crossing's swap palette, Insert opens the insertion palette at the
   following gap. Band `+` buttons and palettes keep §3's listbox
-  behavior; focus restores to the edited chip after every rebuild.
+  behavior; focus restores to the edited chip after every rebuild. When the
+  strip background itself has focus, Left/Right scroll the viewport rather
+  than moving a chip.
 - Palette entries are buttons; disabled entries carry `aria-disabled`
   plus a described-by reason. The §4.3 library's own keyboard contract
   is deferred with the panel.

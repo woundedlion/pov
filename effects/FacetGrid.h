@@ -32,7 +32,7 @@ using FacetGridParams =
 using FacetGridSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                    Pullback::Lens::DodecahedralKaleidoscope,
-                   Pullback::TransferKind::LINEAR,
+                   Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
@@ -50,7 +50,7 @@ public:
   /// `patterns/facet_grid.shader.json`; the browser editor matches it to
   /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "ba812c3d1306245caa612041260be182cf281756eb29c537543f30bbfcb3f7ee";
+      "fdd1908709f80f8ab07a6c1f4c6cd86a84fe757feae3b51cf3a4d5158a22f99f";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "c79d9cae2a6848302d7bb7cac235982be3847a9aabbc8e69cf015f2703702bf4";

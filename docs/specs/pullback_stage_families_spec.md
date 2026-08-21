@@ -465,7 +465,7 @@ while `EMISSION` leaves the stage contract for the placement tree
 (above). The binding machinery is rebuilt, not retained: the policy
 surface is mixed — provider-parameterized policies export `using
 Binding` (warps, sources, provider-bound lenses), while parameterless
-policies (`Transfer::Linear`, `Lens::Glitch`, `Weight::Projection`) and
+policies (`Transfer::Ridge`, `Lens::Glitch`, `Weight::Projection`) and
 provider-templated ones without the alias (`GeneratedPalette`) do not —
 so combinators are **unbound descriptors** declaring carriers and
 `Policies`, and pipeline assembly normalizes recursively, tree-first:

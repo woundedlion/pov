@@ -16,7 +16,7 @@ using EquatorGridParams =
 using EquatorGridSpec =
     Pullback::Spec<Pullback::ProjectionKind::EQUIRECTANGULAR,
                    Pullback::Lens::DodecahedralKaleidoscope,
-                   Pullback::TransferKind::LINEAR,
+                   Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
@@ -30,7 +30,7 @@ public:
   using Params = EquatorGridParams;
   static constexpr std::string_view EFFECT_ID = "equator-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "b641ed1391c05798dafbc8230da4be35af33ed42d5f72c008342f9c7b303608e";
+      "ecc16cc39643c2c59dd84776ac29aaf1e4f091e80304e2bd510ee2c737a2bc21";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "d36cc3eb3b8c2d32777ba3cbbede9892a298f31c90153aca0e4aec6cdfbe6c63";
   static constexpr std::array<std::string_view, 3> PRESET_IDS{

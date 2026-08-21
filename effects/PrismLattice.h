@@ -16,7 +16,7 @@ using PrismLatticeParams =
 using PrismLatticeSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                    Pullback::Lens::PentagonalPrismKaleidoscope,
-                   Pullback::TransferKind::LINEAR,
+                   Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
 template <int W, int H>
@@ -30,7 +30,7 @@ public:
   using Params = PrismLatticeParams;
   static constexpr std::string_view EFFECT_ID = "prism-lattice";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "764e762211465d1f416c09769da3f13b102361d90f04aae7a8056e6bb994fad7";
+      "4144cee70b4b863a939c40477a91ac62b8140dc2408b282abb4e45825b6d7355";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "1bb66847b71e59e0067d82149ae9028b615bc20b5cc4112e2efe29acad3eb756";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"polar-wave"};
