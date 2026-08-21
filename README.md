@@ -375,7 +375,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    41 headers covering 37 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    41 headers covering 38 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus the two
 │                                simulator-only entries (ShaderWorkbench.h, ShaderChain.h) and
 │                                shared base ReactionDiffusionBase.h; the
@@ -654,7 +654,7 @@ Three build targets share a common engine:
 │  │ Holosphere/  │   │  Effects → Canvas → Filter Pipeline          │    │
 │  │  .ino        │   │      → SDF/Plot → Pixel Buffer               │    │
 │  │              │   │                                              │    │
-│  │ Phantasm/    │   │  effects/  (37 visual algorithms)            │    │
+│  │ Phantasm/    │   │  effects/  (38 visual algorithms)            │    │
 │  │  .ino        │   │                                              │    │
 │  │              │   ├──────────────────────────────────────────────┤    │
 │  │ wasm/        │   │          hardware/  (Drivers)                │    │
