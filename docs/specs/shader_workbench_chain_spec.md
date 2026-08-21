@@ -197,7 +197,8 @@ Three stacked regions, replacing the sidebar:
   click-to-copy), and the document status output. The engine memory/
   compute stats stay in this row.
 - **Pipeline strip** (below the toolbar): the loaded chain, left to
-  right in execution order, grouped into the four carrier domains.
+  right in execution order, grouped into the Sphere, Plane, and Field
+  carrier domains and ending at the Color output.
 - **Canvas** (center): the real engine rendering the authored chain.
   The largest region by construction — it owns all vertical space the
   strip and toolbar don't need. Perf/segment overlays keep their
@@ -208,24 +209,26 @@ panel: the chain and its tuning are one surface. The engine's global
 controls float over the canvas region alone — never over the toolbar
 or the strip, which are the page's primary UI.
 
-Each carrier domain has a fixed hue for its strip band. On narrow
-viewports the strip scrolls horizontally.
+Each editable carrier domain has a fixed hue for its strip band. Bands
+size to their contents instead of sharing the strip's width or height.
+On narrow viewports the strip scrolls horizontally.
 
 ### 4.2 The pipeline strip
 
-One band per carrier — Sphere, Plane, Field, Color — always all four
-rendered, left to right in catalog carrier order, so the strip reads as
-the pipeline even when a band is empty.
+The strip has three editable carrier bands — Sphere, Plane, and Field —
+rendered left to right in catalog carrier order. Color is the terminal
+output type, not a fourth carrier band; the final `Field → Color` socket
+names that output directly.
 
 - **Endomorphism stages** render as chips inside their carrier's band, in
   chain order. A band holds any number of chips in sequence — the strip
   is the chain, not a slot-per-domain form.
-- **Crossings** render as **socket chips** spanning the boundary between
-  their input and output bands, labeled with the carrier pair. The three
-  boundaries are always occupied in a valid document (a chain enters on
-  sphere and exits on color), which the strip makes structural: sockets
-  are the fixed joints of the pipeline, bands are the variable runs
-  between them.
+- **Crossings** render as **socket chips** after their input bands, labeled
+  with the carrier pair. The Sphere → Plane and Plane → Field sockets sit
+  between bands; the Field → Color socket ends the strip. All three are
+  occupied in a valid document (a chain enters on sphere and exits on
+  color), which the strip makes structural: sockets are the fixed joints
+  of the pipeline, bands are the variable runs between them.
 - **Chip anatomy**: operator display name, instance label ("Wave Shear ·
   warp2"), and on the chip: a **✕ remove** icon, a **bypass** toggle and
   a pair of **‹ ›** reorder buttons (endomorphisms only), a
