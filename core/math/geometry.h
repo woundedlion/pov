@@ -495,14 +495,15 @@ HS_O3_FN bool pole_wrap(int &col, int &row) {
  */
 inline Vector fib_spiral(int n, float eps, int i) {
   HS_CHECK(n > 0, "fib_spiral: n must be positive");
-  // Clamp before acosf: float rounding can push the argument past -1 → NaN.
-  float phi = acosf(hs::clamp(1.0f - (2.0f * (static_cast<float>(i) + eps)) /
-                                         static_cast<float>(n),
-                              -1.0f, 1.0f));
+  // Clamp keeps |y| <= 1, so the ring radius never takes sqrtf of a negative.
+  float y = hs::clamp(1.0f - (2.0f * (static_cast<float>(i) + eps)) /
+                                 static_cast<float>(n),
+                      -1.0f, 1.0f);
+  float radius = sqrtf(1.0f - y * y);
   float theta =
       fmodf((2.0f * PI_F * static_cast<float>(i) * INV_PHI), (2.0f * PI_F));
   // Y-up; unit by construction, so no normalize().
-  return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta));
+  return Vector(radius * cosf(theta), y, radius * sinf(theta));
 }
 
 /**
