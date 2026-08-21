@@ -208,14 +208,14 @@ template <typename State> struct ValueCutout : ApproximationDefaults {
       Detail::ProviderFor<State, Binding> &&
       requires(const typename Binding::FrameState &frame) {
         { State::cutout_threshold(frame) } -> std::same_as<float>;
-        { State::cutout_width(frame) } -> std::same_as<float>;
+        { State::cutout_softness(frame) } -> std::same_as<float>;
       };
 
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &frame) {
     return value_cutout(value, State::cutout_threshold(frame),
-                        State::cutout_width(frame));
+                        State::cutout_softness(frame));
   }
 };
 

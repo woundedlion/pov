@@ -1915,7 +1915,7 @@ struct ValueCutoutFieldMirror {
   static float cutout_threshold(const FieldMirrorFrame &frame) {
     return frame.cutout.cutout_threshold;
   }
-  static float cutout_width(const FieldMirrorFrame &frame) {
+  static float cutout_softness(const FieldMirrorFrame &frame) {
     return frame.cutout.cutout_softness;
   }
 };

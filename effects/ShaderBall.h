@@ -2180,7 +2180,7 @@ private:
     static float cutout_threshold(const FrameState &frame) {
       return frame.params.value.cutout_threshold;
     }
-    static float cutout_width(const FrameState &frame) {
+    static float cutout_softness(const FrameState &frame) {
       return frame.params.value.cutout_softness;
     }
     static float edge_width(const FrameState &frame) {

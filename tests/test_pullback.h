@@ -20,7 +20,7 @@ struct TestFrame {
   mutable size_t call_count = 0;
   float edge_width = 0.5f;
   float cutout_threshold = 0.25f;
-  float cutout_width = 0.0f;
+  float cutout_softness = 0.0f;
 };
 
 struct TestBinding {
@@ -171,8 +171,8 @@ struct ForeignValueState {
   static float cutout_threshold(const FrameState &frame) {
     return frame.cutout_threshold;
   }
-  static float cutout_width(const FrameState &frame) {
-    return frame.cutout_width;
+  static float cutout_softness(const FrameState &frame) {
+    return frame.cutout_softness;
   }
 };
 
@@ -184,8 +184,8 @@ struct ValueState {
   static float cutout_threshold(const FrameState &frame) {
     return frame.cutout_threshold;
   }
-  static float cutout_width(const FrameState &frame) {
-    return frame.cutout_width;
+  static float cutout_softness(const FrameState &frame) {
+    return frame.cutout_softness;
   }
 };
 
@@ -554,8 +554,8 @@ struct CountingValueState {
   static float cutout_threshold(const FrameState &frame) {
     return frame.cutout_threshold;
   }
-  static float cutout_width(const FrameState &frame) {
-    return frame.cutout_width;
+  static float cutout_softness(const FrameState &frame) {
+    return frame.cutout_softness;
   }
 };
 
