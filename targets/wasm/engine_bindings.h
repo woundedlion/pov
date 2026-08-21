@@ -221,7 +221,8 @@ enum class FullConfigRestoreResult : uint8_t {
  * @details Owns the current effect and the stable readback buffers. Every public
  *          method is exported to JavaScript via EMSCRIPTEN_BINDINGS below.
  *          At most one instance may be live: delete() the current engine before
- *          constructing another, or the constructor traps.
+ *          constructing another, or the constructor traps. Test isLive() first
+ *          — it is the only precondition here a caller cannot recover from.
  */
 class HolosphereEngine {
 public:
@@ -282,6 +283,18 @@ public:
    * @details JS reaches this through the embind-generated delete().
    */
   ~HolosphereEngine() { engine_alive = false; }
+
+  /**
+   * @brief Whether an engine instance is currently constructed.
+   * @return True from the end of a successful construction until that
+   *         instance's delete().
+   * @details Exposed to JS as the static Module.HolosphereEngine.isLive(). The
+   *          singleton precondition is the one JS-reachable precondition whose
+   *          violation traps rather than returning a rejection, so a bootstrap
+   *          that may run twice tests this and delete()s the live instance
+   *          instead of constructing into the trap.
+   */
+  static bool isLive() { return engine_alive; }
 
   /**
    * @brief Switches the active canvas resolution.
@@ -1450,6 +1463,7 @@ static void bind_engine() {
 #endif
       .class_function("getSupportedResolutions",
                       &HolosphereEngine::getSupportedResolutions)
+      .class_function("isLive", &HolosphereEngine::isLive)
       .function("setClip", &HolosphereEngine::setClip)
       .function("strobeColumns", &HolosphereEngine::strobeColumns);
 }
