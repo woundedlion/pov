@@ -110,7 +110,7 @@ static size_t init_stack_peak = 0;
 // fixed storage larger than ParamList's default inline array. Used
 // to pre-reserve the getParamValues() backing store so it never reallocates.
 // Sized for ShaderChain's MAX_CHAIN_PARAMS (224) schema; the next-largest
-// effect (ShaderBall, 80) sits far below the previous 128 bound.
+// effect (ShaderWorkbench, 80) sits far below the previous 128 bound.
 inline constexpr size_t MAX_PARAMS = 256;
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -202,16 +202,16 @@ static bool engine_alive = false;
  *          APPLIED leaves the effect exactly as it was.
  */
 enum class FullConfigRestoreResult : uint8_t {
-  APPLIED,             /**< Snapshot installed. */
-  NOT_SHADERBALL,      /**< The loaded effect has no full configuration. */
-  UNSUPPORTED_VERSION, /**< schemaVersion is not the current schema. */
-  INVALID_LENGTH,      /**< Snapshot missing, or an array whose length is not
+  APPLIED,              /**< Snapshot installed. */
+  NOT_SHADER_WORKBENCH, /**< The loaded effect has no full configuration. */
+  UNSUPPORTED_VERSION,  /**< schemaVersion is not the current schema. */
+  INVALID_LENGTH,       /**< Snapshot missing, or an array whose length is not
                             the field count. */
-  INVALID_VALUE,       /**< A field or runtime value outside what its slot
+  INVALID_VALUE,        /**< A field or runtime value outside what its slot
                             admits. */
-  INVALID_ACCEPTED,    /**< Fields each in range but a combination the effect
+  INVALID_ACCEPTED,     /**< Fields each in range but a combination the effect
                             will not render. */
-  INVALID_PENDING,     /**< Pending list is absent, is not a set of in-range
+  INVALID_PENDING,      /**< Pending list is absent, is not a set of in-range
                             field indices, or does not match where accepted and
                             requested differ. Retry with an empty list. */
 };
@@ -370,7 +370,9 @@ public:
    */
   EffectSetResult setEffect(const std::string &name) {
     const std::string_view canonical_name =
-        name == "ShaderBall" ? std::string_view{"Shader"} : name;
+        name == "ShaderBall" || name == "ShaderWorkbench"
+            ? std::string_view{"Shader"}
+            : name;
     // Validate against the current resolution's factory BEFORE tearing anything
     // down, so a typo'd name keeps the prior valid state alive.
     const FactoryEntry *entry = nullptr;
@@ -979,7 +981,7 @@ public:
    * @param input Object in getFullConfigSnapshot()'s shape.
    * @return APPLIED, or the reason the snapshot was refused.
    * @details Rejections leave the effect exactly as it was, so a failed restore
-   *          needs no rollback. NOT_SHADERBALL covers the loaded effect;
+   *          needs no rollback. NOT_SHADER_WORKBENCH covers the loaded effect;
    *          UNSUPPORTED_VERSION a schemaVersion other than the current one;
    *          INVALID_LENGTH a missing snapshot or an array whose length is not
    *          the field count; INVALID_VALUE a field or runtime value outside
@@ -989,7 +991,8 @@ public:
    *          or that does not match where accepted and requested differ.
    */
   FullConfigRestoreResult restoreFullConfigSnapshot(const val &input) {
-    FullConfigRestoreResult result = FullConfigRestoreResult::NOT_SHADERBALL;
+    FullConfigRestoreResult result =
+        FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
     with_shader_workbench([&]<typename SB>(SB &shader) {
       typename SB::FullConfigSnapshot snapshot;
       if (input.isUndefined() || input.isNull()) {
@@ -1223,7 +1226,7 @@ private:
     dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
 #define HS_TRY_SHADER_DERIVED(Type)                                            \
   if (!invoked && current_effect_type_key == effect_type_key<Type<W, H>>()) {  \
-    callback(static_cast<ShaderBall<W, H> &>(                                  \
+    callback(static_cast<ShaderWorkbench<W, H> &>(                             \
         *static_cast<Type<W, H> *>(current_effect.get())));                    \
     invoked = true;                                                            \
   }
@@ -1415,7 +1418,8 @@ static void bind_engine() {
 
   enum_<FullConfigRestoreResult>("FullConfigRestoreResult")
       .value("APPLIED", FullConfigRestoreResult::APPLIED)
-      .value("NOT_SHADERBALL", FullConfigRestoreResult::NOT_SHADERBALL)
+      .value("NOT_SHADER_WORKBENCH",
+             FullConfigRestoreResult::NOT_SHADER_WORKBENCH)
       .value("UNSUPPORTED_VERSION",
              FullConfigRestoreResult::UNSUPPORTED_VERSION)
       .value("INVALID_LENGTH", FullConfigRestoreResult::INVALID_LENGTH)

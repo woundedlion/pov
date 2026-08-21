@@ -336,16 +336,16 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
 /**
  * @brief Smooth pole attenuation for stereographic-space effects.
  * @param r_sq Pre-computed |z|² (z.re² + z.im²).
- * @param pole_fade Attenuation radius (larger = wider fade zone).
- * @return Falloff factor 1/(1 + r²/pole_fade²) in (0, 1].
+ * @param singularity_fade Attenuation radius (larger = wider fade zone).
+ * @return Falloff factor 1/(1 + r²/singularity_fade²) in (0, 1].
  * @details Stereographic projection sends the far pole to infinity, so |z|²
  * grows without bound near it; this falloff is 1 at the projection origin and
  * decays toward 0 with distance, taming that singularity.
  */
-__attribute__((always_inline)) inline float pole_attenuation(float r_sq,
-                                                             float pole_fade) {
-  // Floor the radius so a 0 pole_fade can't divide by zero and poison the warp.
-  const float pf = pole_fade > 1e-3f ? pole_fade : 1e-3f;
+__attribute__((always_inline)) inline float
+pole_attenuation(float r_sq, float singularity_fade) {
+  // Floor the radius so a 0 singularity_fade can't divide by zero and poison the warp.
+  const float pf = singularity_fade > 1e-3f ? singularity_fade : 1e-3f;
   return 1.0f / (1.0f + (r_sq / (pf * pf)));
 }
 
@@ -353,12 +353,12 @@ __attribute__((always_inline)) inline float pole_attenuation(float r_sq,
  * @brief Pole-attenuates a stereographic pattern value and maps it to [0, 1].
  * @param pattern Raw pattern value in [-1, 1].
  * @param r_sq Pre-computed |z|² driving the pole fade.
- * @param pole_fade Attenuation radius (larger = wider fade zone).
+ * @param singularity_fade Attenuation radius (larger = wider fade zone).
  * @return Pole-attenuated value normalized to [0, 1].
  */
 inline float pole_normalize_pattern(float pattern, float r_sq,
-                                    float pole_fade) {
-  return (pattern * pole_attenuation(r_sq, pole_fade) + 1.0f) * 0.5f;
+                                    float singularity_fade) {
+  return (pattern * pole_attenuation(r_sq, singularity_fade) + 1.0f) * 0.5f;
 }
 
 /**

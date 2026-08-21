@@ -50,10 +50,10 @@ public:
   /// `patterns/facet_grid.shader.json`; the browser editor matches it to
   /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "5c161697e1e62c963d9063a933ce016bf1b94a7a9444ca3f4178379b1bd293cc";
+      "42efda02158f1a40dfdd4f3461b1cf64164f7c722bb687c175a4c7b07b4f41d1";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "d9f9c3ebee94b1144d9f66512a76168f9ed90a30f556a474d2d7f0ee763da5e8";
+      "c286e93d4982c13dbb72f2d5267b8ea380b35bf567b4de2181d5bc3c59865f58";
   /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "coupled-grid", "direct-grid", "double-map", "stretched-grid"};
@@ -76,7 +76,7 @@ public:
                     .pattern_mix = 0.0f,
                     .secondary_rate = 0.8f,
                     .angle_rate = 0.0269999988f};
-    value.projection.pole_fade = 3.432f;
+    value.projection.singularity_fade = 3.432f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.inner_warp.speed = 0.00013f;

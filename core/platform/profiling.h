@@ -87,9 +87,9 @@ struct ProbeBreakdown {
 inline ProbeBreakdown g_probe_breakdown;
 #endif
 
-#ifdef HS_PROFILE_SHADERBALL_STAGES
-/** @brief Raw per-frame ShaderBall pipeline cycle totals. */
-struct ShaderBallStageCycles {
+#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
+/** @brief Raw per-frame ShaderWorkbench pipeline cycle totals. */
+struct ShaderWorkbenchStageCycles {
   uint32_t lens = 0;
   uint32_t surface_noise = 0;
   uint32_t projection = 0;
@@ -106,7 +106,7 @@ struct ShaderBallStageCycles {
   void reset() { *this = {}; }
 };
 
-inline ShaderBallStageCycles g_shaderball_stage_cycles;
+inline ShaderWorkbenchStageCycles g_shader_workbench_stage_cycles;
 #endif
 
 #ifdef HS_PLOT_COUNTS
@@ -344,12 +344,12 @@ private:
 #define HS_PROBE_TICK() ((void)0)
 #endif
 
-#ifdef HS_PROFILE_SHADERBALL_STAGES
+#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
 #define HS_SB_STAGE_MARK(var) uint32_t var = HS_OS_CYCLES()
 #define HS_SB_STAGE_SPAN(field, var)                                           \
   do {                                                                         \
     const uint32_t hs_now = HS_OS_CYCLES();                                    \
-    hs::g_shaderball_stage_cycles.field += hs_now - (var);                     \
+    hs::g_shader_workbench_stage_cycles.field += hs_now - (var);               \
     (var) = hs_now;                                                            \
   } while (0)
 #define HS_SB_STAGE_COUNT(stmt)                                                \

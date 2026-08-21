@@ -29,9 +29,9 @@ public:
   using Params = GlitchGridParams;
   static constexpr std::string_view EFFECT_ID = "glitch-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "bd07ad4c52e5c5eec47d45c1305a2d68074697a185b3de0bdc6c27fee0a20c4f";
+      "d7ecbaeb7217703596e3ab1bc0d55df490367d2245f960ebb9f93f635d5e8a0d";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "d22beff986c821fc15e34d7ddb4439f7f6df10591f9e37f36da5e507bfecfb02";
+      "a91f7f5b30d5375fa4b6b241481703ebc1cb537d95a28b95c3630569a4074191";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"folded-glitch"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -45,7 +45,7 @@ public:
                     .pattern_mix = 1.0f,
                     .secondary_rate = 1.0f,
                     .angle_rate = 0.0f};
-    value.projection.pole_fade = 1.4f;
+    value.projection.singularity_fade = 1.4f;
     value.projection.camera_wander = 1.0f;
     value.outer_warp.rotation = 0.29530972f;
     value.outer_warp.cell_x = 5.381125f;

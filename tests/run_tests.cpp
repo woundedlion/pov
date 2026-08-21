@@ -52,7 +52,7 @@
 #include "tests/test_effects.h"
 #include "tests/test_effects_smoke.h"
 #include "tests/test_effect_factory.h"
-#include "tests/test_shaderball.h"
+#include "tests/test_shader_workbench.h"
 #include "tests/test_curl_lattice.h"
 #include "tests/test_facet_grid.h"
 #include "tests/test_composed_effect.h"
@@ -193,8 +193,8 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
-  X("shaderball", 56, hs_test::shaderball_tests::run_shaderball_tests,         \
-    1459084)                                                                   \
+  X("shader_workbench", 57,                                                    \
+    hs_test::shader_workbench_tests::run_shader_workbench_tests, 1459084)      \
   X("curl_lattice", 4, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
     5000)                                                                      \
   X("facet_grid", 4, hs_test::facet_grid_tests::run_facet_grid_tests, 8000)    \

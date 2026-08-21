@@ -30,9 +30,9 @@ public:
   using Params = EquatorGridParams;
   static constexpr std::string_view EFFECT_ID = "equator-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "7a1ccb3442b03530000250dc2aa248eedea4d93ad2554686c809a164f7880519";
+      "777040a5df3119c95b61e14acc311ae8e3396f7e2472e26cbd778af781f2e9a3";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "5123ff0f6886f1efed96b4421efab8dfa357e0bdea151089e22ae5c93083d6a6";
+      "fa4580307d8944519ea387b8f9386bbf73099dc763325e71759118ec39af54df";
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
       "double-map", "open-grid", "fine-grid"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -51,7 +51,7 @@ public:
                     .pattern_mix = 1.0f,
                     .secondary_rate = 0.8f,
                     .angle_rate = 0.0269999988f};
-    value.projection.pole_fade = 2.14f;
+    value.projection.singularity_fade = 2.14f;
     value.projection.wander = 0.165f;
     value.projection.camera_wander = 1.0f;
     value.inner_warp.speed = 0.00013f;

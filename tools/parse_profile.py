@@ -777,15 +777,15 @@ def cmd_msp_stalls(windows):
     return 0
 
 
-def load_shaderball_program_manifest(path):
+def load_shader_workbench_program_manifest(path):
     """Load the generated pullback program manifest used by device validation."""
     with open(path, encoding="utf-8") as manifest_file:
         manifest = json.load(manifest_file)
     if manifest.get("kind") != "pullback-programs":
-        raise ValueError("ShaderBall program manifest has the wrong kind")
+        raise ValueError("ShaderWorkbench program manifest has the wrong kind")
     programs = manifest.get("programs")
     if not isinstance(programs, list) or not programs:
-        raise ValueError("ShaderBall program manifest has no programs")
+        raise ValueError("ShaderWorkbench program manifest has no programs")
     return manifest
 
 
@@ -861,7 +861,7 @@ def validate_pullback_telemetry(pullback, expected_arm, manifest, check):
 
 
 def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
-                 shaderball_program_manifest=None):
+                 shader_workbench_program_manifest=None):
     ok = True
 
     def check(cond, msg):
@@ -940,10 +940,10 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
               f"root cyc/600 vs wall sum within 5 ppm ({ppm:.1f} ppm, "
               f"frames {w.f_start}-{w.f_end})")
 
-    if expected_arm is not None or shaderball_program_manifest is not None:
+    if expected_arm is not None or shader_workbench_program_manifest is not None:
         validate_pullback_telemetry(
             pullback or {"arms": [], "programs": []}, expected_arm,
-            shaderball_program_manifest, check)
+            shader_workbench_program_manifest, check)
 
     print(f"\n{'VALID' if ok else 'INVALID'}: {effect}")
     return ok
@@ -962,7 +962,9 @@ def main():
                                     "(default: --scope)")
     ap.add_argument("--expected-pullback-arm",
                     choices=["LEGACY", "CORE", "LANDED"])
-    ap.add_argument("--shaderball-program-manifest")
+    ap.add_argument("--shader-workbench-program-manifest",
+                    "--shaderball-program-manifest",
+                    dest="shader_workbench_program_manifest")
     args = ap.parse_args()
 
     try:
@@ -999,11 +1001,11 @@ def main():
         return cmd_msp_stalls(windows)
     else:
         try:
-            manifest = (load_shaderball_program_manifest(
-                args.shaderball_program_manifest)
-                if args.shaderball_program_manifest else None)
+            manifest = (load_shader_workbench_program_manifest(
+                args.shader_workbench_program_manifest)
+                if args.shader_workbench_program_manifest else None)
         except (OSError, json.JSONDecodeError, ValueError) as error:
-            print(f"invalid ShaderBall program manifest: {error}", file=sys.stderr)
+            print(f"invalid ShaderWorkbench program manifest: {error}", file=sys.stderr)
             return 2
         return 0 if cmd_validate(
             windows, effect, scope, pullback, args.expected_pullback_arm,

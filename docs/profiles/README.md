@@ -121,10 +121,10 @@ under `profile_o3` would establish it.
 ## Captures of retired effects
 
 `shipping/` also holds the last captures of **Flyby** and **Liquid2D**, two
-retired stereographic effects merged into ShaderBall. Neither is in the
+retired stereographic effects merged into ShaderWorkbench. Neither is in the
 roster, so `just profile` cannot regenerate them.
 
-ShaderBall's captures have been deleted. The composed-effect workbench migration
+ShaderWorkbench's captures have been deleted. The composed-effect workbench migration
 (`69d4751c`) turned its 13-preset program bank into the fourteen ● effects above
 and left `Shader` as the authoring workbench rather than a shipping effect.
 

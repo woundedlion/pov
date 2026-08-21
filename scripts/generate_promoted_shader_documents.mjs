@@ -38,7 +38,7 @@ const defaults = Object.freeze({
     'lattice-softness': 0.05, 'lattice-radius': 0.25,
   },
   projection: {
-    'pole-fade': 1, 'projection-spin-speed': 0, 'projection-wander': 0,
+    'singularity-fade': 1, 'projection-spin-speed': 0, 'projection-wander': 0,
     'camera-wander': 0, 'central-meridian': 0,
   },
   mirror: {
@@ -103,7 +103,7 @@ const parameterSpec = (id, value, hue) => {
            id.endsWith('opacity-low') || id.endsWith('opacity-high') ||
            id === 'lattice-shape' || id === 'iso-level' || id === 'edge-width')
     domain = { minimum: 0, maximum: 1 };
-  else if (id === 'pole-fade') domain = { minimum: 1, maximum: 20 };
+  else if (id === 'singularity-fade') domain = { minimum: 1, maximum: 20 };
   else if (id.endsWith('cell-x') || id.endsWith('cell-y'))
     domain = { minimum: 1 / 64, maximum: 8 };
   else if (id.endsWith('offset-x') || id.endsWith('offset-y'))
@@ -172,7 +172,7 @@ const warpValues = (kind, slot) => kind === 'none' ? {} : prefix(slot, defaults[
 const baseValues = (spec) => {
   const values = {
     ...sourceValues(spec.sourceKey),
-    'pole-fade': defaults.projection['pole-fade'],
+    'singularity-fade': defaults.projection['singularity-fade'],
     'camera-wander': defaults.projection['camera-wander'],
     ...warpValues(spec.outerKey, 'outer'),
     ...warpValues(spec.innerKey, 'inner'),
@@ -315,7 +315,7 @@ const effects = [
     dwell: 600,
     presets: [{ id: 'twin-wave', name: 'Twin Wave', values: {
       'pattern-freq': 4.9755, speed: 0.125, drift: 0.8, 'source-angle-speed': 0.05,
-      'pole-fade': 4.971, 'projection-wander': 1, 'camera-wander': 1,
+      'singularity-fade': 4.971, 'projection-wander': 1, 'camera-wander': 1,
       'hue-shift-amount': 0.27, 'hue-noise-scale': 2.2033439,
       'hue-noise-speed': -0.00040800002, 'palette-chroma': 0.361,
     } }],
@@ -329,7 +329,7 @@ const effects = [
     dwell: 600,
     presets: [{ id: 'folded-grid', name: 'Folded Grid', values: {
       'pattern-freq': 3.565, speed: 0.235, 'pattern-mix': 1, drift: 1,
-      'pole-fade': 1.4, 'camera-wander': 1, 'outer-rotation': 0.29530972,
+      'singularity-fade': 1.4, 'camera-wander': 1, 'outer-rotation': 0.29530972,
       'outer-cell-x': 5.381125, 'outer-offset-x': 1.344, 'outer-offset-y': -1.456,
       'edge-width': 0.5, 'hue-shift-amount': 0.424,
       'hue-noise-scale': 2.2033439, 'palette-chroma': 0.4,
@@ -344,7 +344,7 @@ const effects = [
     dwell: 600,
     presets: [{ id: 'folded-glitch', name: 'Folded Glitch', values: {
       'pattern-freq': 3.565, speed: 0.235, 'pattern-mix': 1, drift: 1,
-      'pole-fade': 1.4, 'camera-wander': 1, 'outer-rotation': 0.29530972,
+      'singularity-fade': 1.4, 'camera-wander': 1, 'outer-rotation': 0.29530972,
       'outer-cell-x': 5.381125, 'outer-offset-x': 1.344, 'outer-offset-y': -1.456,
       'edge-width': 0.5,
     } }],
@@ -360,14 +360,14 @@ const effects = [
     presets: [
       { id: 'wave-mirror', name: 'Wave Mirror', values: {
         'pattern-freq': 6.3287, speed: 0.04, complexity: 1.704, drift: 0.8,
-        'source-angle-speed': 0.027, 'pole-fade': 2.311, 'camera-wander': 1,
+        'source-angle-speed': 0.027, 'singularity-fade': 2.311, 'camera-wander': 1,
         'outer-strength': -0.176, 'outer-speed': -0.00325,
         'outer-frequency': 1.408, 'outer-field-angle': 2.2305307,
         'hue-shift-amount': 0.721, 'palette-chroma': 1,
       } },
       { id: 'cup-hue', name: 'Cup Hue', values: {
         'pattern-freq': 6.3287, speed: 0.04, complexity: 1.704, drift: 0.8,
-        'source-angle-speed': 0.027, 'pole-fade': 2.311, 'camera-wander': 1,
+        'source-angle-speed': 0.027, 'singularity-fade': 2.311, 'camera-wander': 1,
         'outer-strength': -0.176, 'outer-speed': -0.00325,
         'outer-frequency': 1.408, 'outer-field-angle': 2.2305307,
         'hue-shift-amount': 1, 'hue-noise-scale': 1.9717969,
@@ -404,7 +404,7 @@ const effects = [
     presets: [{ id: 'polar-wave', name: 'Polar Wave', values: {
       'lattice-cell-scale': 0.774140596, 'lattice-shape': 1,
       'lattice-softness': 0.377608389, 'lattice-radius': 0.290762514,
-      'pole-fade': 2.273, 'projection-wander': 1, 'camera-wander': 1,
+      'singularity-fade': 2.273, 'projection-wander': 1, 'camera-wander': 1,
       'outer-speed': 0.000343749998, 'inner-speed': 0.000999999931,
       'hue-shift-amount': 0.268000007, 'hue-noise-scale': 2,
       'palette-chroma': 1, 'mapping-phase': -0.165999994,
@@ -421,7 +421,7 @@ const effects = [
     dwell: 600,
     presets: [{ id: 'vector-mirror', name: 'Vector Mirror', values: {
       'pattern-freq': 4.9755, speed: 0.04, complexity: 1.704, drift: 0.8,
-      'source-angle-speed': 0.027, 'pole-fade': 2.311, 'camera-wander': 1,
+      'source-angle-speed': 0.027, 'singularity-fade': 2.311, 'camera-wander': 1,
       'outer-strength': 0.138, 'outer-speed': -0.00005,
       'inner-speed': 0.00327999983, 'hue-shift-amount': 0.721,
       'palette-chroma': 1, 'brightness-depth': 0.655, 'palette-mapping': 'cup',
@@ -438,7 +438,7 @@ const effects = [
     presets: [
       { id: 'hex-twin-wave', name: 'Hex Twin Wave', values: {
         'pattern-freq': 3.881, speed: 0.128598228, drift: 0.8,
-        'source-angle-speed': 0.027, 'pole-fade': 4.971,
+        'source-angle-speed': 0.027, 'singularity-fade': 4.971,
         'projection-wander': 1, 'camera-wander': 1,
         'hue-shift-amount': 0.226, 'hue-noise-scale': 1.47215629,
         'hue-noise-speed': 0.000138, 'palette-chroma': 1,
@@ -446,7 +446,7 @@ const effects = [
       } },
       { id: 'hex-twin-wave-alt', name: 'Hex Twin Wave Alt', values: {
         'pattern-freq': 3.881, speed: 0.12859823, drift: 0.8,
-        'source-angle-speed': 0.027, 'pole-fade': 4.971,
+        'source-angle-speed': 0.027, 'singularity-fade': 4.971,
         'projection-wander': 1, 'camera-wander': 1,
         'hue-shift-amount': 0.226, 'hue-noise-scale': 1.4721563,
         'hue-noise-speed': 0.000138, 'palette-chroma': 1,
@@ -465,7 +465,7 @@ const effects = [
     presets: [
       { id: 'double-map', name: 'Double Map', values: {
         'pattern-freq': 3.9407, complexity: 3, 'pattern-mix': 1, drift: 0.8,
-        'source-angle-speed': 0.0269999988, 'pole-fade': 2.14,
+        'source-angle-speed': 0.0269999988, 'singularity-fade': 2.14,
         'projection-wander': 0.165, 'camera-wander': 1,
         'inner-speed': 0.00013, 'inner-cell-y': 0.997703135,
         'hue-shift-amount': 0.366, 'hue-noise-scale': 1.47215629,
@@ -473,7 +473,7 @@ const effects = [
       } },
       { id: 'open-grid', name: 'Open Grid', values: {
         'pattern-freq': 3.9407, complexity: 3, 'pattern-mix': 1, drift: 0.8,
-        'source-angle-speed': 0.0269999988, 'pole-fade': 2.14,
+        'source-angle-speed': 0.0269999988, 'singularity-fade': 2.14,
         'projection-wander': 0.165, 'camera-wander': 1,
         'inner-speed': 0.00013, 'inner-cell-y': 0.997703135,
         'hue-shift-amount': 0.366, 'hue-noise-scale': 1.47215629,
@@ -481,7 +481,7 @@ const effects = [
       } },
       { id: 'fine-grid', name: 'Fine Grid', values: {
         'pattern-freq': 0.3985, complexity: 3, 'pattern-mix': 1, drift: 0.8,
-        'source-angle-speed': 0.0269999988, 'pole-fade': 2.14,
+        'source-angle-speed': 0.0269999988, 'singularity-fade': 2.14,
         'projection-wander': 0.165, 'camera-wander': 1,
         'inner-speed': 0.00058, 'inner-cell-y': 0.901890635,
         'hue-shift-amount': 0.366, 'hue-noise-scale': 1.47215629,
@@ -498,7 +498,7 @@ const effects = [
     dwell: 600,
     presets: [{ id: 'mirrored-grid', name: 'Mirrored Grid', values: {
       'pattern-freq': 2.5477, speed: 0.235, complexity: 1.854, drift: 1,
-      'pole-fade': 1.4, 'camera-wander': 1, 'outer-rotation': 0.295309722,
+      'singularity-fade': 1.4, 'camera-wander': 1, 'outer-rotation': 0.295309722,
       'outer-cell-x': 5.381125, 'outer-offset-x': 1.344, 'outer-offset-y': -1.456,
       'edge-width': 0.5, 'hue-shift-amount': 2.048, 'palette-chroma': 0.292,
     } }],
@@ -513,7 +513,7 @@ const effects = [
     presets: [
       { id: 'mobius-grid', name: 'Mobius Grid', values: {
         'pattern-freq': 10.158, speed: 0.245, drift: 0.8, 'source-angle-speed': 0.027,
-        'pole-fade': 2.102, 'projection-wander': 1, 'camera-wander': 1,
+        'singularity-fade': 2.102, 'projection-wander': 1, 'camera-wander': 1,
         'mobius-a-re': -1.072, 'mobius-a-im': 0.304, 'mobius-b-re': 0.416,
         'mobius-b-im': 0, 'mobius-c-re': 0, 'mobius-c-im': 0,
         'mobius-d-re': 0.70710677, 'mobius-d-im': 0,
@@ -521,7 +521,7 @@ const effects = [
       } },
       { id: 'mobius-grid-2', name: 'Mobius Grid 2', values: {
         'pattern-freq': 10.158, speed: 0.245, drift: 0.8, 'source-angle-speed': 0.027,
-        'pole-fade': 2.102, 'projection-wander': 1, 'camera-wander': 1,
+        'singularity-fade': 2.102, 'projection-wander': 1, 'camera-wander': 1,
         'inner-speed': 0.005875, 'inner-cell-x': 0.2791094, 'inner-cell-y': 6.810328,
         'mobius-a-re': -1.072, 'mobius-a-im': 0.304, 'mobius-b-re': 0.416,
         'mobius-b-im': 0, 'mobius-c-re': 0, 'mobius-c-im': 0,

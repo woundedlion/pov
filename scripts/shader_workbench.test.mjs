@@ -31,11 +31,11 @@ import { sha256Hex } from './sha256.mjs';
 // consumer's budget math.
 const MIRROR_PINS = {
   'shader_workbench.mjs':
-    '99fc885f6ee8552d78408d7caf65b5e26d8aaeb685e02ca93d6d1bf998535b89',
+    'f31b0087ab00a3c34f578d5a77a490dec42a0f028275f6d01f772f84d3cb24c7',
   'sha256.mjs':
     '046a83178da02898524d3743ad3aa80ec91f719ea9c1b2e9f26912afba71015a',
   'engine_catalog.json':
-    'e9e3b94989ce2cffc50bbe31d6023b507316e7dbd4c313eb081a4c40673d9b14',
+    '4fc7e296b327d31a72b445f486484b44fa83deda83ffeb4e612917abf4ecb65a',
 };
 
 const lf = (text) => text.replaceAll('\r\n', '\n');
@@ -135,11 +135,6 @@ test('every promoted shader document matches its compiled effect identity', asyn
   };
   assert.deepEqual(Object.keys(migration.source_documents).sort(),
     migration.product_group.children.map((child) => child.effect_id).sort());
-  // Segue policy the promoted effects inherit rather than declare.
-  const composedEffect = await readFile(new URL(
-    '../core/render/pullback/composed_effect.h', import.meta.url), 'utf8');
-  const inheritedSegue = composedEffect.match(/Segue::Lerp PRESET_SEGUE\{(\d+)/);
-  assert.ok(inheritedSegue, 'ComposedEffect declares no default PRESET_SEGUE');
   for (const [effectId, documentName] of Object.entries(migration.source_documents)) {
     const documentSource = await readFile(
       new URL(`../patterns/${documentName}`, import.meta.url), 'utf8');
@@ -152,9 +147,9 @@ test('every promoted shader document matches its compiled effect identity', asyn
       `${effectId} descriptor digest is stale`);
     assert.ok(header.includes(`"${compiled.preset_bank_digest}"`),
       `${effectId} preset-bank digest is stale`);
-    // The digests above cover the descriptor and the preset values. The
-    // choreography is carried by three header constants instead, and PRESET_IDS
-    // is ORDERED: preset_params() indexes it by position.
+    // The digests above cover the descriptor and preset values. Runtime timing
+    // is fixed-effect policy, but PRESET_IDS must preserve the document's
+    // generated order because preset_params() indexes it by position.
     const choreography = compiled.document.preset_bank.choreography;
     const declaredIds = header.match(
       /std::array<std::string_view,\s*(\d+)>\s+PRESET_IDS\{([^}]*)\}/);
@@ -165,15 +160,6 @@ test('every promoted shader document matches its compiled effect identity', asyn
       `${effectId} PRESET_IDS is not choreography.generated_order, in order`);
     assert.equal(Number(declaredIds[1]), choreography.generated_order.length,
       `${effectId} PRESET_IDS extent does not match the preset count`);
-    const dwell = header.match(/\bPRESET_DWELL_FRAMES\s*=\s*(\d+)/);
-    assert.ok(dwell, `${effectId} declares no PRESET_DWELL_FRAMES`);
-    for (const [presetId, frames] of Object.entries(choreography.dwell))
-      assert.equal(frames, Number(dwell[1]),
-        `${effectId}/${presetId} dwell is not PRESET_DWELL_FRAMES`);
-    const segue = header.match(/\bPRESET_SEGUE\{(\d+)/) ?? inheritedSegue;
-    for (const edge of compiled.document.preset_bank.edges)
-      assert.equal(edge.duration, Number(segue[1]),
-        `${effectId} ${edge.from}->${edge.to} is not PRESET_SEGUE.frames`);
     const destinations = migration.destinations.filter((entry) => entry.effect_id === effectId);
     const presetIds = new Set(compiled.document.preset_bank.presets
       .map((preset) => preset.preset_id));
@@ -525,7 +511,7 @@ test('normalized interpolation evaluates complete groups and rejects antipodes',
   );
 });
 
-test('every promoted ShaderBall preset has one stable migration destination', async () => {
+test('every promoted ShaderWorkbench preset has one stable migration destination', async () => {
   const migration = JSON.parse(await readFile(
     new URL('../patterns/shaderball_migration.json', import.meta.url), 'utf8'));
   assert.equal(migration.legacy_alias, 'ShaderBall');

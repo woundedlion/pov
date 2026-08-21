@@ -30,9 +30,9 @@ public:
   using Params = CosmicEyeballParams;
   static constexpr std::string_view EFFECT_ID = "cosmic-eyeball";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "e40694413abf92f5c71633c33293b47af5f1cd3e04f527f454650f189b5067ea";
+      "56705b20f6b96f3c3a7436dabc9453881ff6ce0978445f60533ace25cdcb77f4";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "128f52eabee28aeb4e1bcf83162e0a0673a15a3fb1d033801cf13b6bcb7764fc";
+      "0b5ac4830de902361a5b7066779b8f222e2589d6364488df5829423c1185ab01";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"mirrored-grid"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -46,7 +46,7 @@ public:
                     .pattern_mix = 0.0f,
                     .secondary_rate = 1.0f,
                     .angle_rate = 0.0f};
-    value.projection.pole_fade = 1.4f;
+    value.projection.singularity_fade = 1.4f;
     value.projection.camera_wander = 1.0f;
     value.outer_warp.rotation = 0.295309722f;
     value.outer_warp.cell_x = 5.381125f;

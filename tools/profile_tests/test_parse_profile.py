@@ -510,7 +510,7 @@ class PullbackTelemetryValidation(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.manifest = pp.load_shaderball_program_manifest(cls.MANIFEST_PATH)
+        cls.manifest = pp.load_shader_workbench_program_manifest(cls.MANIFEST_PATH)
         cls.by_preset = {}
         for program in cls.manifest["programs"]:
             for preset in program["presets"]:

@@ -18,7 +18,7 @@ namespace Projection {
 
 /** @brief Projection and camera parameters, shared by every composed effect. */
 struct ProjectionParams {
-  float pole_fade = 1.0f; /**< Falloff applied to the projection's radial
+  float singularity_fade = 1.0f; /**< Radius of the projection's singularity
                                 attenuation. */
   float spin_rate = 0.0f; /**< Per-frame spin of the projection frame about Y;
                                 only read under `ANIMATED_PROJECTION`. */
@@ -29,8 +29,9 @@ struct ProjectionParams {
                                       that take one, in radians. */
 
   static constexpr auto FIELDS = std::array{
-      Field<ProjectionParams>{"pole-fade", &ProjectionParams::pole_fade,
-                              "Pole Fade", 1.0f, 20.0f, FieldCurve::LERP},
+      Field<ProjectionParams>{
+          "singularity-fade", &ProjectionParams::singularity_fade,
+          "Singularity Fade", 1.0f, 20.0f, FieldCurve::LERP},
       Field<ProjectionParams>{"projection-spin-speed",
                               &ProjectionParams::spin_rate,
                               "Projection Spin Speed", 0.0f, 0.05f,
@@ -53,13 +54,56 @@ enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
 inline constexpr uint8_t FOLDED_FLAG = 1U << 0;
 inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
 
+__attribute__((always_inline)) inline float
+singularity_attenuation(float regular_distance_sq, float singular_distance_sq,
+                        float singularity_fade) {
+  const float pf = singularity_fade > 1e-3f ? singularity_fade : 1e-3f;
+  const float scaled_distance_sq = pf * pf * regular_distance_sq;
+  return scaled_distance_sq / (scaled_distance_sq + singular_distance_sq);
+}
+
+__attribute__((always_inline)) inline float
+equirectangular_weight(const Vector &input, float singularity_fade) {
+  return singularity_attenuation(input.x * input.x + input.z * input.z,
+                                 input.y * input.y, singularity_fade);
+}
+
+__attribute__((always_inline)) inline float
+equirectangular_weight(float latitude, float singularity_fade) {
+  const float cos_latitude = cosf(latitude);
+  const float sin_latitude = sinf(latitude);
+  return singularity_attenuation(cos_latitude * cos_latitude,
+                                 sin_latitude * sin_latitude, singularity_fade);
+}
+
+__attribute__((always_inline)) inline float
+peirce_weight(const Vector &input, float central_meridian,
+              float singularity_fade) {
+  const float c = cosf(central_meridian);
+  const float s = sinf(central_meridian);
+  const float rotated_x = input.x * c + input.z * s;
+  const float rotated_z = input.z * c - input.x * s;
+  const float largest = std::max(fabsf(rotated_x), fabsf(rotated_z));
+  float sin_distance_sq = std::max(0.0f, 1.0f - largest * largest);
+  if (input.y < 0.0f) {
+    const float fold_sine =
+        fabsf(fabsf(rotated_z) - fabsf(rotated_x)) * 0.7071067811865475f;
+    sin_distance_sq = std::min(sin_distance_sq, fold_sine * fold_sine);
+  }
+  return singularity_attenuation(sin_distance_sq,
+                                 std::max(0.0f, 1.0f - sin_distance_sq),
+                                 singularity_fade);
+}
+
 __attribute__((always_inline)) inline ProjectionResult
-stereographic(const Vector &input, float pole_fade) {
+stereographic(const Vector &input, float singularity_fade) {
   const Complex coords = stereo(input);
-  const float r_sq = coords.re * coords.re + coords.im * coords.im;
   return {coords,
           {0, 0, static_cast<uint8_t>(ProjectionBoundary::SINGULAR),
-           std::max(0.0f, 1.0f - input.y), pole_attenuation(r_sq, pole_fade),
+           std::max(0.0f, 1.0f - input.y),
+           singularity_attenuation(std::max(0.0f, 1.0f - input.y),
+                                   std::max(0.0f, 1.0f + input.y),
+                                   singularity_fade),
            0}};
 }
 
@@ -70,32 +114,31 @@ __attribute__((noinline))
 __attribute__((always_inline))
 #endif
 inline ProjectionResult folded_sinusoidal(const Vector &input,
-                                          float central_meridian,
-                                          float pole_fade) {
+                                          float central_meridian, float) {
   const Complex coords =
       projections::folded_sinusoidal(input, central_meridian);
-  const float r_sq = coords.re * coords.re + coords.im * coords.im;
-  return {coords,
-          {static_cast<uint8_t>(input.z < 0.0f), 0, 0, 1.0f,
-           pole_attenuation(r_sq, pole_fade), FOLDED_FLAG}};
+  return {
+      coords,
+      {static_cast<uint8_t>(input.z < 0.0f), 0, 0, 1.0f, 1.0f, FOLDED_FLAG}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-equirectangular(const Vector &input, float central_meridian, float pole_fade) {
+equirectangular(const Vector &input, float central_meridian,
+                float singularity_fade) {
   const Complex coords = projections::equirectangular(input, central_meridian);
-  const float r_sq = coords.re * coords.re + coords.im * coords.im;
   return {coords,
           {0, 0, static_cast<uint8_t>(ProjectionBoundary::CUT),
-           PI_F - fabsf(coords.re), pole_attenuation(r_sq, pole_fade), 0}};
+           PI_F - fabsf(coords.re),
+           equirectangular_weight(input, singularity_fade), 0}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-gnomonic(const Vector &input, float pole_fade, GnomonicHemisphere hemisphere) {
+gnomonic(const Vector &input, float singularity_fade,
+         GnomonicHemisphere hemisphere) {
   float y = input.y;
   if (fabsf(y) < GNOMONIC_AXIS_EPS)
     y = y < 0.0f ? -GNOMONIC_AXIS_EPS : GNOMONIC_AXIS_EPS;
   const Complex coords(input.x / y, input.z / y);
-  const float r_sq = coords.re * coords.re + coords.im * coords.im;
   const bool in_domain =
       hemisphere == GnomonicHemisphere::FOLDED ||
       (hemisphere == GnomonicHemisphere::FRONT ? input.y >= 0.0f
@@ -106,17 +149,20 @@ gnomonic(const Vector &input, float pole_fade, GnomonicHemisphere hemisphere) {
        static_cast<uint8_t>(input.y < 0.0f),
        static_cast<uint8_t>(static_cast<uint8_t>(ProjectionBoundary::CUT) |
                             static_cast<uint8_t>(ProjectionBoundary::SINGULAR)),
-       fabsf(input.y), pole_attenuation(r_sq, pole_fade), 0, 0, 0,
-       in_domain ? 1.0f : 0.0f}};
+       fabsf(input.y),
+       singularity_attenuation(input.y * input.y,
+                               input.x * input.x + input.z * input.z,
+                               singularity_fade),
+       0, 0, 0, in_domain ? 1.0f : 0.0f}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
 from_kernel(const projections::ProjectionKernelResult &result,
-            float coordinate_scale) {
+            float coordinate_scale, float value_weight = 1.0f) {
   return {{result.coords.re * coordinate_scale,
            result.coords.im * coordinate_scale},
           {result.region_id, result.component_id, result.boundary_flags,
-           result.fade_edge_distance * fabsf(coordinate_scale), 1.0f,
+           result.fade_edge_distance * fabsf(coordinate_scale), value_weight,
            result.flags, result.traits, result.edge_class}};
 }
 
@@ -130,18 +176,21 @@ bonne(const Vector &input, float central_meridian, float standard_parallel,
 
 __attribute__((always_inline)) inline ProjectionResult
 peirce(const Vector &input, float central_meridian, uint8_t layout,
-       float layout_scroll, bool edge_distance_required,
-       float coordinate_scale) {
+       float layout_scroll, bool edge_distance_required, float coordinate_scale,
+       float singularity_fade) {
   return from_kernel(projections::peirce_projection(input, central_meridian,
                                                     layout, layout_scroll,
                                                     edge_distance_required),
-                     coordinate_scale);
+                     coordinate_scale,
+                     peirce_weight(input, central_meridian, singularity_fade));
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-peirce_fast_square(const Vector &input, float coordinate_scale) {
+peirce_fast_square(const Vector &input, float coordinate_scale,
+                   float singularity_fade) {
   return from_kernel(projections::peirce_projection_fast_square(input),
-                     coordinate_scale);
+                     coordinate_scale,
+                     peirce_weight(input, 0.0f, singularity_fade));
 }
 
 template <typename State, typename Binding>
@@ -196,7 +245,7 @@ template <typename State> struct Stereographic : ApproximationDefaults {
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
-        { State::pole_fade(frame) } -> std::same_as<float>;
+        { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
   __attribute__((always_inline)) static const Quaternion &
@@ -206,7 +255,7 @@ template <typename State> struct Stereographic : ApproximationDefaults {
 
   __attribute__((always_inline)) static ProjectionResult
   project(const Vector &input, const FrameState &frame) {
-    return stereographic(input, State::pole_fade(frame));
+    return stereographic(input, State::singularity_fade(frame));
   }
 };
 
@@ -219,7 +268,7 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
       FrameProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::central_meridian(frame) } -> std::same_as<float>;
-        { State::pole_fade(frame) } -> std::same_as<float>;
+        { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
   __attribute__((always_inline)) static const Quaternion &
@@ -230,7 +279,7 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
   __attribute__((always_inline)) static ProjectionResult
   project(const Vector &input, const FrameState &frame) {
     return folded_sinusoidal(input, State::central_meridian(frame),
-                             State::pole_fade(frame));
+                             State::singularity_fade(frame));
   }
 };
 
@@ -243,7 +292,7 @@ template <typename State> struct Equirectangular : ApproximationDefaults {
       FrameProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::central_meridian(frame) } -> std::same_as<float>;
-        { State::pole_fade(frame) } -> std::same_as<float>;
+        { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
   __attribute__((always_inline)) static const Quaternion &
@@ -254,7 +303,7 @@ template <typename State> struct Equirectangular : ApproximationDefaults {
   __attribute__((always_inline)) static ProjectionResult
   project(const Vector &input, const FrameState &frame) {
     return equirectangular(input, State::central_meridian(frame),
-                           State::pole_fade(frame));
+                           State::singularity_fade(frame));
   }
 };
 
@@ -267,7 +316,7 @@ struct Gnomonic : ApproximationDefaults {
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
-        { State::pole_fade(frame) } -> std::same_as<float>;
+        { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
   __attribute__((always_inline)) static const Quaternion &
@@ -277,7 +326,7 @@ struct Gnomonic : ApproximationDefaults {
 
   __attribute__((always_inline)) static ProjectionResult
   project(const Vector &input, const FrameState &frame) {
-    return gnomonic(input, State::pole_fade(frame), Hemisphere);
+    return gnomonic(input, State::singularity_fade(frame), Hemisphere);
   }
 };
 
@@ -295,6 +344,7 @@ struct Peirce : ApproximationDefaults {
         { State::central_meridian(frame) } -> std::same_as<float>;
         { State::layout_scroll(frame) } -> std::same_as<float>;
         { State::coordinate_scale(frame) } -> std::same_as<float>;
+        { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
   __attribute__((always_inline)) static const Quaternion &
@@ -306,7 +356,8 @@ struct Peirce : ApproximationDefaults {
   project(const Vector &input, const FrameState &frame) {
     return peirce(input, State::central_meridian(frame), Layout,
                   State::layout_scroll(frame), EdgeDistanceRequired,
-                  State::coordinate_scale(frame));
+                  State::coordinate_scale(frame),
+                  State::singularity_fade(frame));
   }
 };
 
@@ -338,11 +389,13 @@ template <typename State> struct PeirceFastSquare : ApproximationDefaults {
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::ZERO_CENTRAL_MERIDIAN } -> std::convertible_to<bool>;
         { State::coordinate_scale(frame) } -> std::same_as<float>;
+        { State::singularity_fade(frame) } -> std::same_as<float>;
       } && State::ZERO_CENTRAL_MERIDIAN;
 
   __attribute__((always_inline)) static ProjectionResult
   project(const Vector &input, const FrameState &frame) {
-    return peirce_fast_square(input, State::coordinate_scale(frame));
+    return peirce_fast_square(input, State::coordinate_scale(frame),
+                              State::singularity_fade(frame));
   }
 
   __attribute__((always_inline)) static const Quaternion &
@@ -361,15 +414,17 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
         { State::central_meridian(frame) } -> std::same_as<float>;
         { State::layout_scroll(frame) } -> std::same_as<float>;
         { State::coordinate_scale(frame) } -> std::same_as<float>;
+        { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
   __attribute__((always_inline)) static ProjectionResult
   project(const Vector &input, const FrameState &frame) {
     if (State::central_meridian(frame) == 0.0f)
-      return peirce_fast_square(input, State::coordinate_scale(frame));
-    return peirce(input, State::central_meridian(frame), 1,
-                  State::layout_scroll(frame), true,
-                  State::coordinate_scale(frame));
+      return peirce_fast_square(input, State::coordinate_scale(frame),
+                                State::singularity_fade(frame));
+    return peirce(
+        input, State::central_meridian(frame), 1, State::layout_scroll(frame),
+        true, State::coordinate_scale(frame), State::singularity_fade(frame));
   }
 };
 

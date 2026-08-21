@@ -24,18 +24,17 @@ namespace Interp {
 namespace Op {
 
 /** @brief Parameter family of the projection operators.
-    @details `pole-fade` is read by the attenuating projections only; the
-    kernel-backed projections (peirce, bonne, airocean) saturate their value
-    weight instead, so the field is inert there — a union field like the
-    samples' edge-width. */
+    @details `singularity-fade` is read by projections with a singular locus; it is
+    inert for folded sinusoidal, Bonne, and Airocean. */
 struct ProjectChainParams {
-  float pole_fade = 1.0f;
+  float singularity_fade = 1.0f;
   float spin_rate = 0.0f;
   float wander = 0.0f;
 
   static constexpr auto FIELDS = std::array{
-      Field<ProjectChainParams>{"pole-fade", &ProjectChainParams::pole_fade,
-                                "Pole Fade", 1.0f, 20.0f, FieldCurve::LERP},
+      Field<ProjectChainParams>{
+          "singularity-fade", &ProjectChainParams::singularity_fade,
+          "Singularity Fade", 1.0f, 20.0f, FieldCurve::LERP},
       Field<ProjectChainParams>{
           "projection-spin-speed", &ProjectChainParams::spin_rate,
           "Projection Spin Speed", 0.0f, 0.05f, FieldCurve::LERP},
@@ -100,7 +99,7 @@ struct ProjectStereographic
   static constexpr const char *NAME = "Stereographic";
 
   static ProjectionResult project(const Vector &local, const Params &params) {
-    return Projection::stereographic(local, params.pole_fade);
+    return Projection::stereographic(local, params.singularity_fade);
   }
 };
 
@@ -112,7 +111,7 @@ struct ProjectFoldedSinusoidal
 
   static ProjectionResult project(const Vector &local, const Params &params) {
     return Projection::folded_sinusoidal(local, params.central_meridian,
-                                         params.pole_fade);
+                                         params.singularity_fade);
   }
 };
 
@@ -124,7 +123,7 @@ struct ProjectEquirectangular
 
   static ProjectionResult project(const Vector &local, const Params &params) {
     return Projection::equirectangular(local, params.central_meridian,
-                                       params.pole_fade);
+                                       params.singularity_fade);
   }
 };
 
@@ -155,7 +154,7 @@ struct ProjectGnomonic : ProjectOpModel<ProjectGnomonic, GnomonicChainParams> {
 
   static ProjectionResult project(const Vector &local, const Params &params) {
     return Projection::gnomonic(
-        local, params.pole_fade,
+        local, params.singularity_fade,
         static_cast<Projection::GnomonicHemisphere>(params.hemisphere));
   }
 };
@@ -174,9 +173,9 @@ struct ProjectPeirce
   static constexpr const char *NAME = "Peirce";
 
   static ProjectionResult project(const Vector &local, const Params &params) {
-    return Projection::peirce(local, params.central_meridian,
-                              PEIRCE_SQUARE_LAYOUT, 0.0f, true,
-                              PROJECT_COORDINATE_SCALE);
+    return Projection::peirce(
+        local, params.central_meridian, PEIRCE_SQUARE_LAYOUT, 0.0f, true,
+        PROJECT_COORDINATE_SCALE, params.singularity_fade);
   }
 };
 
@@ -192,8 +191,9 @@ struct ProjectPeirceSquareFast
       ApproximationOracleId::PEIRCE_FAST_SQUARE;
   static constexpr auto METRICS = Projection::PEIRCE_FAST_SQUARE_METRICS;
 
-  static ProjectionResult project(const Vector &local, const Params &) {
-    return Projection::peirce_fast_square(local, PROJECT_COORDINATE_SCALE);
+  static ProjectionResult project(const Vector &local, const Params &params) {
+    return Projection::peirce_fast_square(local, PROJECT_COORDINATE_SCALE,
+                                          params.singularity_fade);
   }
 };
 

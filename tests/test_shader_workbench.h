@@ -20,15 +20,15 @@
 #include "tests/test_harness.h"
 
 namespace hs_test {
-namespace shaderball_tests {
+namespace shader_workbench_tests {
 
 using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
-/** @brief White-box access to ShaderBall's typed pipeline. */
-struct ShaderBallWhiteBox {
-  using SB = ShaderBall<SMALL_W, SMALL_H>;
+/** @brief White-box access to ShaderWorkbench's typed pipeline. */
+struct ShaderWorkbenchWhiteBox {
+  using SB = ShaderWorkbench<SMALL_W, SMALL_H>;
   using Function = SB::Function;
   using Projection = SB::Projection;
   using PeirceLayout = SB::PeirceLayout;
@@ -138,7 +138,7 @@ struct ShaderBallWhiteBox {
   static FrameState preset_frame(SB &sb, size_t index) {
     const auto &preset = SB::PRESETS[index].config;
     HS_CHECK(sb.prepare_resource_union(preset, preset),
-             "ShaderBall test preset resources must fit");
+             "ShaderWorkbench test preset resources must fit");
     return sb.prepare_frame(preset, sb.runtime);
   }
   static Color4 sinusoidal_curl_shade(const Vector &view,
@@ -164,7 +164,7 @@ struct ShaderBallWhiteBox {
    */
   static FrameState config_frame(SB &sb, const RequestedConfig &config) {
     HS_CHECK(sb.prepare_resource_union(config, config),
-             "ShaderBall test config resources must fit");
+             "ShaderWorkbench test config resources must fit");
     return sb.prepare_frame(config, sb.runtime);
   }
   static Slots active_slots(const SB &sb) { return sb.active_slots; }
@@ -373,8 +373,9 @@ struct ShaderBallWhiteBox {
   }
   static ProjectedLookup join(const ProjectedLookup &direct,
                               const ProjectedLookup &lensed, float mix,
-                              Projection projection, float pole_fade) {
-    return SB::join_projected(direct, lensed, mix, projection, pole_fade);
+                              Projection projection, float singularity_fade) {
+    return SB::join_projected(direct, lensed, mix, projection,
+                              singularity_fade);
   }
   static bool join_compatible(const ProjectedLookup &direct,
                               const ProjectedLookup &lensed,
@@ -510,7 +511,7 @@ struct ShaderBallWhiteBox {
   static Color4 pipeline_shade(const Vector &v, const FrameState &frame) {
     const auto *program = SB::resolve_inverse_program(frame);
     HS_CHECK(program != nullptr,
-             "ShaderBall test topology has no compiled inverse pipeline");
+             "ShaderWorkbench test topology has no compiled inverse pipeline");
     alignas(std::max_align_t) std::byte storage[SB::PREPARED_BLOB_BYTES];
     program->prepare(frame, storage);
     return program->shade(v, frame, storage);
@@ -613,16 +614,17 @@ struct ShaderBallWhiteBox {
   static constexpr bool inverse_stage_contracts() {
     // A chain that stops before Color4 fails EXIT; a rank-reversed chain
     // fails the adjacency and entry rows.
-    using TruncatedGate = Pullback::PipelineValidation<SB::ShaderBallBinding,
-                                                       SB::OuterCameraStage>;
+    using TruncatedGate =
+        Pullback::PipelineValidation<SB::ShaderWorkbenchBinding,
+                                     SB::OuterCameraStage>;
     using ReversedGate =
-        Pullback::PipelineValidation<SB::ShaderBallBinding, SB::ColorStage,
+        Pullback::PipelineValidation<SB::ShaderWorkbenchBinding, SB::ColorStage,
                                      SB::OuterCameraStage>;
     using Peirce = SB::PeirceDodecahedralGridPipeline;
     using Validation = Peirce::Validation;
     using ProjectStage = Peirce::stage_at<2>;
-    using BoundProject = ProjectStage::Bind<SB::ShaderBallBinding>;
-    using BoundColor = SB::ColorStage::Bind<SB::ShaderBallBinding>;
+    using BoundProject = ProjectStage::Bind<SB::ShaderWorkbenchBinding>;
+    using BoundColor = SB::ColorStage::Bind<SB::ShaderWorkbenchBinding>;
     return !TruncatedGate::EXIT && !ReversedGate::CARRIERS &&
            !ReversedGate::ENTRY && !ReversedGate::EXIT &&
            Validation::NONEMPTY && Validation::CONTRACTS &&
@@ -647,20 +649,21 @@ struct ShaderBallWhiteBox {
   static float peirce_metric_limit(size_t index) {
     return SB::SelectedProjectStage<Projection::PEIRCE_QUINCUNCIAL,
                                     SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>::
-        Bind<SB::ShaderBallBinding>::METRICS[index]
+        Bind<SB::ShaderWorkbenchBinding>::METRICS[index]
             .limit;
   }
   static float color_metric_limit(size_t index) {
-    return SB::ColorStage::Bind<SB::ShaderBallBinding>::METRICS[index].limit;
+    return SB::ColorStage::Bind<SB::ShaderWorkbenchBinding>::METRICS[index]
+        .limit;
   }
   static Complex project_point(const Vector &v, Projection projection) {
     return SB::project_point(v, projection);
   }
   static Pullback::ProjectionResult
   finalize_projection(const Vector &v, const Complex &coords,
-                      Projection projection, float pole_fade,
+                      Projection projection, float singularity_fade,
                       GnomonicHemispherePolicy hemisphere) {
-    return SB::finalize_projection(v, coords, projection, pole_fade,
+    return SB::finalize_projection(v, coords, projection, singularity_fade,
                                    hemisphere);
   }
   static void canonicalize_mobius(MobiusParams &params) {
@@ -746,23 +749,23 @@ struct ShaderBallWhiteBox {
   }
 };
 
-inline uint32_t shaderball_float_payload(float value) {
+inline uint32_t shader_workbench_float_payload(float value) {
   uint32_t payload;
   std::memcpy(&payload, &value, sizeof(payload));
   return payload;
 }
 
-inline bool
-shaderball_snapshots_equal(const ShaderBallWhiteBox::FullConfigSnapshot &a,
-                           const ShaderBallWhiteBox::FullConfigSnapshot &b) {
+inline bool shader_workbench_snapshots_equal(
+    const ShaderWorkbenchWhiteBox::FullConfigSnapshot &a,
+    const ShaderWorkbenchWhiteBox::FullConfigSnapshot &b) {
   return a.schema_version == b.schema_version && a.accepted == b.accepted &&
          a.requested == b.requested && a.pending == b.pending &&
          a.has_runtime == b.has_runtime && a.runtime == b.runtime;
 }
 
 /** @brief Full snapshots preserve every field and reject invalid input atomically. */
-inline void test_shaderball_full_config_snapshot() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_full_config_snapshot() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -782,20 +785,20 @@ inline void test_shaderball_full_config_snapshot() {
 
   snapshot.accepted[source_seed] = 0x80000000u;
   snapshot.requested[source_seed] = 0x80000000u;
-  snapshot.accepted[inactive_phase] = shaderball_float_payload(5.75f);
-  snapshot.requested[inactive_phase] = shaderball_float_payload(5.75f);
+  snapshot.accepted[inactive_phase] = shader_workbench_float_payload(5.75f);
+  snapshot.requested[inactive_phase] = shader_workbench_float_payload(5.75f);
   snapshot.accepted[palette_mapping] =
       static_cast<uint32_t>(WB::PaletteMapping::CUP);
   snapshot.requested[palette_mapping] =
       static_cast<uint32_t>(WB::PaletteMapping::CUP);
-  snapshot.accepted[mapping_frequency] = shaderball_float_payload(2.5f);
-  snapshot.requested[mapping_frequency] = shaderball_float_payload(2.5f);
+  snapshot.accepted[mapping_frequency] = shader_workbench_float_payload(2.5f);
+  snapshot.requested[mapping_frequency] = shader_workbench_float_payload(2.5f);
   snapshot.runtime = {0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f,
                       1.75f, 2.0f, 2.25f, 2.5f, 2.75f, 3.0f};
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
                WB::ConfigRestoreResult::APPLIED);
-  HS_EXPECT_TRUE(
-      shaderball_snapshots_equal(sb.capture_full_config_snapshot(), snapshot));
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), snapshot));
 
   snapshot.accepted[source_seed] = 0x7fffffffu;
   snapshot.requested[source_seed] = 0x7fffffffu;
@@ -809,20 +812,20 @@ inline void test_shaderball_full_config_snapshot() {
   snapshot.pending[palette] = 1;
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
                WB::ConfigRestoreResult::APPLIED);
-  HS_EXPECT_TRUE(
-      shaderball_snapshots_equal(sb.capture_full_config_snapshot(), snapshot));
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), snapshot));
 
   snapshot = sb.capture_full_config_snapshot();
-  snapshot.accepted[hue_noise_speed] = shaderball_float_payload(0.01f);
-  snapshot.requested[hue_noise_speed] = shaderball_float_payload(0.01f);
+  snapshot.accepted[hue_noise_speed] = shader_workbench_float_payload(0.01f);
+  snapshot.requested[hue_noise_speed] = shader_workbench_float_payload(0.01f);
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
                WB::ConfigRestoreResult::APPLIED);
   const WB::FullConfigSnapshot speed_clamped =
       sb.capture_full_config_snapshot();
   HS_EXPECT_EQ(speed_clamped.accepted[hue_noise_speed],
-               shaderball_float_payload(0.001f));
+               shader_workbench_float_payload(0.001f));
   HS_EXPECT_EQ(speed_clamped.requested[hue_noise_speed],
-               shaderball_float_payload(0.001f));
+               shader_workbench_float_payload(0.001f));
 
   const WB::FullConfigSnapshot before_failure =
       sb.capture_full_config_snapshot();
@@ -830,21 +833,21 @@ inline void test_shaderball_full_config_snapshot() {
   invalid.schema_version = WB::SB::CONFIG_SCHEMA_VERSION + 1;
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
                WB::ConfigRestoreResult::UNSUPPORTED_VERSION);
-  HS_EXPECT_TRUE(shaderball_snapshots_equal(sb.capture_full_config_snapshot(),
-                                            before_failure));
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), before_failure));
 
   invalid = before_failure;
   invalid.accepted[static_cast<size_t>(WB::ConfigFieldId::SLOTS_FUNCTION)] =
       0xffffffffu;
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
                WB::ConfigRestoreResult::INVALID_VALUE);
-  HS_EXPECT_TRUE(shaderball_snapshots_equal(sb.capture_full_config_snapshot(),
-                                            before_failure));
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), before_failure));
 }
 
 /** @brief A mode edit clamps stale subordinate values to its new range. */
-inline void test_shaderball_surface_noise_range_rebind() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_surface_noise_range_rebind() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -860,8 +863,8 @@ inline void test_shaderball_surface_noise_range_rebind() {
       static_cast<uint32_t>(WB::SurfaceNoise::CURL);
   pending_curl.requested[noise_slot] =
       static_cast<uint32_t>(WB::SurfaceNoise::DIRECT);
-  pending_curl.accepted[strength] = shaderball_float_payload(-0.25f);
-  pending_curl.requested[strength] = shaderball_float_payload(-0.25f);
+  pending_curl.accepted[strength] = shader_workbench_float_payload(-0.25f);
+  pending_curl.requested[strength] = shader_workbench_float_payload(-0.25f);
   pending_curl.pending[noise_slot] = 1;
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(pending_curl),
                WB::ConfigRestoreResult::APPLIED);
@@ -870,8 +873,10 @@ inline void test_shaderball_surface_noise_range_rebind() {
                static_cast<uint32_t>(WB::SurfaceNoise::DIRECT));
   HS_EXPECT_EQ(clamped.requested[noise_slot],
                static_cast<uint32_t>(WB::SurfaceNoise::DIRECT));
-  HS_EXPECT_EQ(clamped.accepted[strength], shaderball_float_payload(0.0f));
-  HS_EXPECT_EQ(clamped.requested[strength], shaderball_float_payload(0.0f));
+  HS_EXPECT_EQ(clamped.accepted[strength],
+               shader_workbench_float_payload(0.0f));
+  HS_EXPECT_EQ(clamped.requested[strength],
+               shader_workbench_float_payload(0.0f));
   HS_EXPECT_EQ(clamped.pending[noise_slot], uint8_t{0});
   sb.draw_frame();
   sb.advance_display();
@@ -885,15 +890,15 @@ inline void test_shaderball_surface_noise_range_rebind() {
 
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(settled),
                WB::ConfigRestoreResult::APPLIED);
-  HS_EXPECT_TRUE(
-      shaderball_snapshots_equal(sb.capture_full_config_snapshot(), settled));
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), settled));
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Strength") ==
                  nullptr);
 }
 
 /** @brief Incompatible snapshot layouts are rejected atomically. */
-inline void test_shaderball_incompatible_config_snapshot() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_incompatible_config_snapshot() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -903,13 +908,13 @@ inline void test_shaderball_incompatible_config_snapshot() {
   incompatible.schema_version = WB::SB::CONFIG_SCHEMA_VERSION - 1;
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(incompatible),
                WB::ConfigRestoreResult::UNSUPPORTED_VERSION);
-  HS_EXPECT_TRUE(
-      shaderball_snapshots_equal(sb.capture_full_config_snapshot(), current));
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), current));
 }
 
 /** @brief Dense live selectors preserve sparse snapshot storage IDs. */
-inline void test_shaderball_selector_storage() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_selector_storage() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -932,12 +937,12 @@ inline void test_shaderball_selector_storage() {
     WB::FullConfigSnapshot snapshot = sb.capture_full_config_snapshot();
     snapshot.accepted[outer_warp] = storage_id;
     snapshot.requested[outer_warp] = storage_id;
-    snapshot.accepted[pattern_freq] = shaderball_float_payload(1.0f);
-    snapshot.requested[pattern_freq] = shaderball_float_payload(1.0f);
+    snapshot.accepted[pattern_freq] = shader_workbench_float_payload(1.0f);
+    snapshot.requested[pattern_freq] = shader_workbench_float_payload(1.0f);
     const auto set_outer = [&](WB::ConfigFieldId id, float value) {
       const size_t index = static_cast<size_t>(id);
-      snapshot.accepted[index] = shaderball_float_payload(value);
-      snapshot.requested[index] = shaderball_float_payload(value);
+      snapshot.accepted[index] = shader_workbench_float_payload(value);
+      snapshot.requested[index] = shader_workbench_float_payload(value);
     };
     set_outer(WB::ConfigFieldId::WARP_OUTER_SCALE, 1.0f);
     set_outer(WB::ConfigFieldId::WARP_OUTER_STRENGTH, 0.0f);
@@ -966,8 +971,8 @@ inline void test_shaderball_selector_storage() {
 }
 
 /** @brief Every named clock wraps in its native domain. */
-inline void test_shaderball_clocks_wrapped() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_clocks_wrapped() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   hs::set_mock_time(0, 0);
   WB::SB sb;
@@ -993,8 +998,8 @@ inline void test_shaderball_clocks_wrapped() {
 }
 
 /** @brief Pause gates preset selection while all live motion keeps advancing. */
-inline void test_shaderball_pause_semantics() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_pause_semantics() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -1083,8 +1088,8 @@ inline void test_shaderball_pause_semantics() {
 }
 
 /** @brief Manual parameter edits commit on the next frame. */
-inline void test_shaderball_manual_edit_timing() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_manual_edit_timing() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -1141,8 +1146,8 @@ inline void test_shaderball_manual_edit_timing() {
 }
 
 /** @brief Pullback stages preserve their typed order and metadata. */
-inline void test_shaderball_pipeline_contract() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_pipeline_contract() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -1166,8 +1171,9 @@ inline void test_shaderball_pipeline_contract() {
   HS_EXPECT_EQ(projected.coords.re, expected.re);
   HS_EXPECT_EQ(projected.coords.im, expected.im);
   const float radius_sq = expected.re * expected.re + expected.im * expected.im;
-  HS_EXPECT_EQ(projected.provenance.value_weight,
-               pole_attenuation(radius_sq, frame.params.projection.pole_fade));
+  HS_EXPECT_EQ(
+      projected.provenance.value_weight,
+      pole_attenuation(radius_sq, frame.params.projection.singularity_fade));
   HS_EXPECT_TRUE(projected.provenance.boundary_flags != 0);
   HS_EXPECT_TRUE(std::isfinite(projected.provenance.fade_edge_distance));
 
@@ -1261,8 +1267,8 @@ inline void test_shaderball_pipeline_contract() {
 constexpr float LENS_UNIT_TOL = 4e-3f;
 
 /** @brief Legacy projection and lens slots retain their shipped kernels. */
-inline void test_shaderball_legacy_spatial_slots() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_legacy_spatial_slots() {
+  using WB = ShaderWorkbenchWhiteBox;
   const Vector directions[] = {Vector(1, 0, 0), Vector(0, 1, 0),
                                Vector(0, -1, 0), Vector(1, 1, 1).normalized(),
                                Vector(-1, 2, -3).normalized()};
@@ -1342,8 +1348,8 @@ inline void test_shaderball_legacy_spatial_slots() {
 }
 
 /** @brief The reflection-only six-sector fold matches the legacy polar map. */
-inline void test_shaderball_kaleidoscope_reflection_fold() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_kaleidoscope_reflection_fold() {
+  using WB = ShaderWorkbenchWhiteBox;
   constexpr float SECTOR = TWO_PI_F / 6.0f;
   auto reference = [&](const Vector &v) {
     const float radius = sqrtf(v.x * v.x + v.z * v.z);
@@ -1395,8 +1401,8 @@ inline void test_shaderball_kaleidoscope_reflection_fold() {
 }
 
 /** @brief Polyhedral lenses fold every simple-mirror orbit into one chamber. */
-inline void test_shaderball_polyhedral_kaleidoscopes() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_polyhedral_kaleidoscopes() {
+  using WB = ShaderWorkbenchWhiteBox;
   struct Symmetry {
     WB::SurfaceLens lens;
     std::array<Vector, 3> mirrors;
@@ -1503,8 +1509,8 @@ constexpr float EQUIRECT_LON_TOL = 5e-3f;
 constexpr float EQUIRECT_LAT_TOL = 3e-4f;
 
 /** @brief Equirectangular is unfolded, periodic, and cut at the antimeridian. */
-inline void test_shaderball_equirectangular_projection() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_equirectangular_projection() {
+  using WB = ShaderWorkbenchWhiteBox;
   auto lon_lat = [](float longitude, float latitude) {
     const float cp = cosf(latitude);
     return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
@@ -1565,7 +1571,7 @@ inline void test_shaderball_equirectangular_projection() {
       sb.updateParameter("Projection",
                          static_cast<float>(WB::Projection::EQUIRECTANGULAR)),
       ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sb.getParameters().find("Pole Fade") != nullptr);
+  HS_EXPECT_TRUE(sb.getParameters().find("Singularity Fade") != nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Central Meridian") != nullptr);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Projection") == nullptr);
   sb.draw_frame();
@@ -1579,11 +1585,141 @@ inline void test_shaderball_equirectangular_projection() {
   HS_EXPECT_TRUE(std::isfinite(color.alpha));
   HS_EXPECT_GE(color.alpha, 0.0f);
   HS_EXPECT_LE(color.alpha, 1.0f);
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Projection",
+                         static_cast<float>(WB::Projection::SINUSOIDAL)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.getParameters().find("Singularity Fade") == nullptr);
+  HS_EXPECT_TRUE(sb.updateParameter(
+                     "Projection",
+                     static_cast<float>(WB::Projection::PEIRCE_QUINCUNCIAL)) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.getParameters().find("Singularity Fade") != nullptr);
+}
+
+/** @brief Projection weights attenuate only each map's singular locus. */
+inline void test_shader_workbench_projection_value_weights() {
+  namespace Projection = Pullback::Projection;
+  constexpr float FADE = 2.0f;
+  auto lon_lat = [](float longitude, float latitude) {
+    const float cp = cosf(latitude);
+    return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
+  };
+
+  HS_EXPECT_EQ(Projection::stereographic(UP, FADE).provenance.value_weight,
+               0.0f);
+  HS_EXPECT_EQ(Projection::stereographic(-UP, FADE).provenance.value_weight,
+               1.0f);
+  HS_EXPECT_NEAR(Projection::stereographic(Vector(1.0f, 0.0f, 0.0f), FADE)
+                     .provenance.value_weight,
+                 0.8f, 1e-6f);
+
+  const Vector north = UP;
+  const Vector south = -UP;
+  const Vector equator = Vector(1.0f, 0.0f, 0.0f);
+  HS_EXPECT_EQ(
+      Projection::equirectangular(north, 0.0f, FADE).provenance.value_weight,
+      0.0f);
+  HS_EXPECT_EQ(
+      Projection::equirectangular(south, 1.0f, FADE).provenance.value_weight,
+      0.0f);
+  HS_EXPECT_EQ(
+      Projection::equirectangular(equator, 2.0f, FADE).provenance.value_weight,
+      1.0f);
+  const Vector latitude_a = lon_lat(-1.7f, 0.9f);
+  const Vector latitude_b = lon_lat(2.2f, 0.9f);
+  const float latitude_weight =
+      Projection::equirectangular(latitude_a, 0.0f, FADE)
+          .provenance.value_weight;
+  HS_EXPECT_NEAR(Projection::equirectangular(latitude_b, 1.3f, FADE)
+                     .provenance.value_weight,
+                 latitude_weight, 1e-6f);
+
+  HS_EXPECT_EQ(
+      Projection::folded_sinusoidal(north, 0.0f, FADE).provenance.value_weight,
+      1.0f);
+  HS_EXPECT_EQ(Projection::folded_sinusoidal(latitude_a, 2.0f, FADE)
+                   .provenance.value_weight,
+               1.0f);
+  HS_EXPECT_EQ(Projection::gnomonic(equator, FADE,
+                                    Projection::GnomonicHemisphere::FOLDED)
+                   .provenance.value_weight,
+               0.0f);
+  HS_EXPECT_EQ(
+      Projection::gnomonic(north, FADE, Projection::GnomonicHemisphere::FOLDED)
+          .provenance.value_weight,
+      1.0f);
+
+  constexpr float MERIDIAN = 0.63f;
+  const Vector cardinal = lon_lat(MERIDIAN, 0.0f);
+  const Vector southern_fold = lon_lat(MERIDIAN + 0.25f * PI_F, -0.4f);
+  const Vector regular = lon_lat(MERIDIAN + 0.2f, 0.55f);
+  const auto peirce_cardinal =
+      Projection::peirce(cardinal, MERIDIAN, 1, 0.0f, false, 1.0f, FADE);
+  const auto peirce_fold =
+      Projection::peirce(southern_fold, MERIDIAN, 1, 0.0f, false, 1.0f, FADE);
+  const auto peirce_regular =
+      Projection::peirce(regular, MERIDIAN, 1, 0.0f, false, 1.0f, FADE);
+  HS_EXPECT_LT(peirce_cardinal.provenance.value_weight, 1e-10f);
+  HS_EXPECT_LT(peirce_fold.provenance.value_weight, 1e-10f);
+  HS_EXPECT_GT(peirce_regular.provenance.value_weight, 0.0f);
+  HS_EXPECT_LT(peirce_regular.provenance.value_weight, 1.0f);
+  HS_EXPECT_NEAR(
+      peirce_regular.provenance.value_weight,
+      Projection::peirce(lon_lat(0.2f, 0.55f), 0.0f, 1, 0.0f, true, 1.0f, FADE)
+          .provenance.value_weight,
+      1e-6f);
+  HS_EXPECT_EQ(Projection::peirce(north, MERIDIAN, 1, 0.0f, false, 1.0f, FADE)
+                   .provenance.value_weight,
+               1.0f);
+  HS_EXPECT_EQ(Projection::peirce_fast_square(equator, 1.0f, FADE)
+                   .provenance.value_weight,
+               0.0f);
+
+  HS_EXPECT_EQ(Projection::bonne(regular, MERIDIAN, 0.25f * PI_F, 1.0f)
+                   .provenance.value_weight,
+               1.0f);
+  HS_EXPECT_EQ(Projection::airocean(regular, MERIDIAN, false, false, 1.0f)
+                   .provenance.value_weight,
+               1.0f);
+
+  using WB = ShaderWorkbenchWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  WB::FrameState frame = WB::frame(sb);
+  frame.transforms.projection_conj = Quaternion();
+  frame.slots.surface_lens = WB::SurfaceLens::NONE;
+  frame.slots.surface_noise = WB::SurfaceNoise::NONE;
+  frame.params.projection.singularity_fade = FADE;
+  for (const WB::Projection projection :
+       {WB::Projection::STEREOGRAPHIC, WB::Projection::SINUSOIDAL,
+        WB::Projection::EQUIRECTANGULAR, WB::Projection::GNOMONIC,
+        WB::Projection::BONNE, WB::Projection::PEIRCE_QUINCUNCIAL,
+        WB::Projection::AIROCEAN}) {
+    frame.slots.projection = projection;
+    const auto projected = WB::surface_project(regular, frame);
+    float expected = 1.0f;
+    if (projection == WB::Projection::STEREOGRAPHIC) {
+      expected =
+          Projection::stereographic(regular, FADE).provenance.value_weight;
+    } else if (projection == WB::Projection::EQUIRECTANGULAR) {
+      expected = Projection::equirectangular_weight(regular, FADE);
+    } else if (projection == WB::Projection::GNOMONIC) {
+      expected = Projection::singularity_attenuation(
+          regular.y * regular.y, regular.x * regular.x + regular.z * regular.z,
+          FADE);
+    } else if (projection == WB::Projection::PEIRCE_QUINCUNCIAL) {
+      expected = Projection::peirce_weight(
+          regular, frame.params.projection.central_meridian, FADE);
+    }
+    HS_EXPECT_NEAR(projected.provenance.value_weight, expected, 1e-6f);
+  }
 }
 
 /** @brief Both sides of every projection seam use the authored fade width. */
-inline void test_shaderball_flush_edge_fade() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_flush_edge_fade() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -1631,8 +1767,8 @@ constexpr float SOURCE_DRIFT_BOUND =
     SOURCE_ARGUMENT_BOUND * std::numeric_limits<float>::epsilon();
 
 /** @brief Legacy source functions retain their closed forms. */
-inline void test_shaderball_legacy_sources() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_legacy_sources() {
+  using WB = ShaderWorkbenchWhiteBox;
   const float values[] = {-6.0f, -2.5f, -0.7f, 0.0f, 0.9f, 3.1f, 5.8f};
   const WB::SourceState source{0.9f, 1.1f, 0.7f, fast_cosf(0.7f),
                                fast_sinf(0.7f)};
@@ -1656,8 +1792,8 @@ inline void test_shaderball_legacy_sources() {
 }
 
 /** @brief Grid sampling reduces to its coupled and direct endpoints. */
-inline void test_shaderball_coupled_source() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_coupled_source() {
+  using WB = ShaderWorkbenchWhiteBox;
   const float values[] = {-6.0f, -2.5f, -0.7f, 0.0f, 0.9f, 3.1f, 5.8f};
   const float phases[] = {0.0f, 0.8f, 2.4f, 4.9f};
   for (float re : values) {
@@ -1687,8 +1823,8 @@ inline void test_shaderball_coupled_source() {
   }
 }
 /** @brief Presets retain the curated topology roster and generated palette path. */
-inline void test_shaderball_preset_bank() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_preset_bank() {
+  using WB = ShaderWorkbenchWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
   HS_EXPECT_EQ(presets.size(), size_t(24));
@@ -1728,7 +1864,7 @@ inline void test_shaderball_preset_bank() {
         signal.source.complexity,
         signal.source.pattern_mix,
         signal.source.secondary_rate,
-        signal.projection.pole_fade,
+        signal.projection.singularity_fade,
         signal.projection.spin_rate,
         signal.projection.wander,
         signal.warp.outer.scale,
@@ -1800,7 +1936,7 @@ inline void test_shaderball_preset_bank() {
       mirror.params.source.pattern_freq,
       mirror.params.source.speed,
       mirror.params.source.angle_rate,
-      mirror.params.projection.pole_fade,
+      mirror.params.projection.singularity_fade,
       mirror.params.projection.spin_rate,
       mirror.params.projection.wander,
       mirror.params.outer_camera.wander,
@@ -1866,7 +2002,7 @@ inline void test_shaderball_preset_bank() {
       kaleido_grid.source.complexity,
       kaleido_grid.source.pattern_mix,
       kaleido_grid.source.secondary_rate,
-      kaleido_grid.projection.pole_fade,
+      kaleido_grid.projection.singularity_fade,
       kaleido_grid.outer_camera.wander,
       kaleido_grid.warp.outer.speed,
       kaleido_grid.warp.outer.rotation,
@@ -2025,7 +2161,7 @@ inline void test_shaderball_preset_bank() {
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(equirectangular_grid.params.source.pattern_freq, 3.9407f);
   HS_EXPECT_EQ(equirectangular_grid.params.source.complexity, 3.0f);
-  HS_EXPECT_EQ(equirectangular_grid.params.projection.pole_fade, 2.14f);
+  HS_EXPECT_EQ(equirectangular_grid.params.projection.singularity_fade, 2.14f);
   HS_EXPECT_EQ(equirectangular_grid.params.projection.wander, 0.165f);
   HS_EXPECT_EQ(equirectangular_grid.params.color.mapping_frequency, 2.0f);
   HS_EXPECT_EQ(equirectangular_grid.params.color.palette_chroma, 1.0f);
@@ -2038,8 +2174,9 @@ inline void test_shaderball_preset_bank() {
                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
   HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.source.pattern_freq,
                3.9407f);
-  HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.projection.pole_fade,
-               2.14f);
+  HS_EXPECT_EQ(
+      single_mapping_equirectangular_grid.params.projection.singularity_fade,
+      2.14f);
   HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.projection.wander,
                0.165f);
   HS_EXPECT_EQ(
@@ -2059,7 +2196,8 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(fine_equirectangular_grid.params.warp.inner.speed, 0.00058f);
   HS_EXPECT_EQ(fine_equirectangular_grid.params.warp.inner.cell_y,
                0.901890635f);
-  HS_EXPECT_EQ(fine_equirectangular_grid.params.projection.pole_fade, 2.14f);
+  HS_EXPECT_EQ(fine_equirectangular_grid.params.projection.singularity_fade,
+               2.14f);
   HS_EXPECT_EQ(fine_equirectangular_grid.params.projection.wander, 0.165f);
   HS_EXPECT_EQ(fine_equirectangular_grid.params.color.mapping_frequency,
                21.212f);
@@ -2087,7 +2225,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(glitch_grid.params.warp.outer.cell_x, 5.381125f);
   HS_EXPECT_EQ(glitch_grid.params.warp.outer.offset_x, 1.344f);
   HS_EXPECT_EQ(glitch_grid.params.warp.outer.offset_y, -1.456f);
-  HS_EXPECT_EQ(glitch_grid.params.projection.pole_fade, 1.4f);
+  HS_EXPECT_EQ(glitch_grid.params.projection.singularity_fade, 1.4f);
   HS_EXPECT_EQ(glitch_grid.params.projection.wander, 1.0f);
   HS_EXPECT_EQ(glitch_grid.params.surface_lens.mix, 1.0f);
   HS_EXPECT_EQ(glitch_grid.params.value.edge_width, 0.5f);
@@ -2126,7 +2264,7 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.scale, 0.1f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.speed, 0.00013f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.cell_y, 0.997703135f);
-  HS_EXPECT_EQ(inner_mirror.params.projection.pole_fade, 3.432f);
+  HS_EXPECT_EQ(inner_mirror.params.projection.singularity_fade, 3.432f);
   HS_EXPECT_EQ(inner_mirror.params.projection.wander, 1.0f);
   HS_EXPECT_EQ(inner_mirror.params.surface_lens.mix, 1.0f);
   HS_EXPECT_EQ(inner_mirror.params.color.hue_shift_amount, 0.366f);
@@ -2141,8 +2279,8 @@ inline void test_shaderball_preset_bank() {
 }
 /** @brief A staggered morph walks each changed parameter group in its own
  *         time slice. */
-inline void test_shaderball_staggered_param_morph() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_staggered_param_morph() {
+  using WB = ShaderWorkbenchWhiteBox;
   WB::Params from;
   from.color.palette_chroma = 0.5f;
   WB::Params to = from;
@@ -2163,7 +2301,8 @@ inline void test_shaderball_staggered_param_morph() {
   const WB::Params half = staggered(0.5f);
   HS_EXPECT_EQ(half.source.speed, to.source.speed);
   HS_EXPECT_EQ(half.color.palette_chroma, from.color.palette_chroma);
-  HS_EXPECT_EQ(half.projection.pole_fade, from.projection.pole_fade);
+  HS_EXPECT_EQ(half.projection.singularity_fade,
+               from.projection.singularity_fade);
 
   const WB::Params three_quarters = staggered(0.75f);
   HS_EXPECT_EQ(three_quarters.source.speed, to.source.speed);
@@ -2180,8 +2319,8 @@ inline void test_shaderball_staggered_param_morph() {
   HS_EXPECT_GT(parallel.color.palette_chroma, half.color.palette_chroma);
 }
 /** @brief Whole-schema validation applies valid configs and rejects invalid. */
-inline void test_shaderball_config_admission() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_config_admission() {
+  using WB = ShaderWorkbenchWhiteBox;
   {
     reset_effect_globals();
     WB::SB sb;
@@ -2345,8 +2484,8 @@ inline void test_shaderball_config_admission() {
 }
 
 /** @brief Selector intent is independent of the live worker destination. */
-inline void test_shaderball_deterministic_gui_edits() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_deterministic_gui_edits() {
+  using WB = ShaderWorkbenchWhiteBox;
   struct Result {
     std::array<WB::RequestedConfig, 3> configs;
     std::array<uint64_t, 3> schema_hashes{};
@@ -2406,8 +2545,8 @@ inline void test_shaderball_deterministic_gui_edits() {
 }
 
 /** @brief Mode-specific ranges clamp stale subordinate values. */
-inline void test_shaderball_mode_specific_parameter_warnings() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_mode_specific_parameter_warnings() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -2445,8 +2584,8 @@ inline void test_shaderball_mode_specific_parameter_warnings() {
 }
 
 /** @brief A function edit preserves both warp stages in the dodecahedral hold. */
-inline void test_shaderball_dodecahedral_lattice_edit() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_dodecahedral_lattice_edit() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -2485,8 +2624,8 @@ inline void test_shaderball_dodecahedral_lattice_edit() {
 }
 
 /** @brief Rejected Polar Chart selectors expose controls needed for admission. */
-inline void test_shaderball_polar_gui_repair() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_polar_gui_repair() {
+  using WB = ShaderWorkbenchWhiteBox;
   auto repair = [](bool first, bool lattice) {
     reset_effect_globals();
     WB::SB sb;
@@ -2571,8 +2710,8 @@ inline void test_shaderball_polar_gui_repair() {
 }
 
 /** @brief Structural admission accepts curated holds and heavy stage tuples. */
-inline void test_shaderball_structural_admission() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_structural_admission() {
+  using WB = ShaderWorkbenchWhiteBox;
   const auto &presets = WB::presets();
   for (const auto &preset : presets)
     HS_EXPECT_TRUE(WB::valid_config(preset));
@@ -2652,8 +2791,8 @@ inline void test_shaderball_structural_admission() {
 }
 
 /** @brief Folded and interrupted projections reject unproved noise seams. */
-inline void test_shaderball_strict_seam_admission() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_strict_seam_admission() {
+  using WB = ShaderWorkbenchWhiteBox;
   for (WB::Projection projection :
        {WB::Projection::BONNE, WB::Projection::PEIRCE_QUINCUNCIAL,
         WB::Projection::AIROCEAN}) {
@@ -2691,8 +2830,8 @@ inline void test_shaderball_strict_seam_admission() {
 
 /** @brief Additive warp metadata retains sub-ULP displacement at large
  *         coordinates, and reports zero when no colorizer reads it. */
-inline void test_shaderball_additive_delta_precision() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_additive_delta_precision() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -2724,8 +2863,8 @@ inline void test_shaderball_additive_delta_precision() {
 }
 
 /** @brief Profiling can land every curated hold without choreography. */
-inline void test_shaderball_profile_presets() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_profile_presets() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -2746,8 +2885,8 @@ inline void test_shaderball_profile_presets() {
 }
 
 /** @brief Manual navigation wraps and resumes automatic preset selection. */
-inline void test_shaderball_manual_preset_navigation() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_manual_preset_navigation() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -2793,8 +2932,8 @@ inline void test_shaderball_manual_preset_navigation() {
 }
 
 /** @brief GUI values follow the rendered preset transition. */
-inline void test_shaderball_preset_gui_transition() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_preset_gui_transition() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -2847,8 +2986,8 @@ inline void test_shaderball_preset_gui_transition() {
 }
 
 /** @brief No reachable slot combination registers past the parameter arena. */
-inline void test_shaderball_parameter_capacity() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_parameter_capacity() {
+  using WB = ShaderWorkbenchWhiteBox;
   using Slots = WB::Slots;
   reset_effect_globals();
   WB::SB sb;
@@ -2977,8 +3116,8 @@ inline void test_shaderball_parameter_capacity() {
 }
 
 /** @brief Every GUI enum option is writable and survives its handoff. */
-inline void test_shaderball_gui_catalog() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_gui_catalog() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -3003,8 +3142,9 @@ inline void test_shaderball_gui_catalog() {
   };
   HS_EXPECT_LT(parameter_index("Function"), parameter_index("Pattern Freq"));
   HS_EXPECT_LT(parameter_index("Pattern Freq"), parameter_index("Projection"));
-  HS_EXPECT_LT(parameter_index("Projection"), parameter_index("Pole Fade"));
-  HS_EXPECT_LT(parameter_index("Pole Fade"),
+  HS_EXPECT_LT(parameter_index("Projection"),
+               parameter_index("Singularity Fade"));
+  HS_EXPECT_LT(parameter_index("Singularity Fade"),
                parameter_index("Projection Frame"));
   HS_EXPECT_LT(parameter_index("Projection Frame"),
                parameter_index("Projection Spin Speed"));
@@ -3258,7 +3398,8 @@ inline void test_promoted_shader_palette_mapping_control() {
 
 template <typename FixedWarp>
 void copy_fixed_warp_to_shader(
-    const FixedWarp &source, ShaderBallWhiteBox::WarpStageParams &destination) {
+    const FixedWarp &source,
+    ShaderWorkbenchWhiteBox::WarpStageParams &destination) {
   destination.speed = source.speed;
   if constexpr (requires { source.strength; })
     destination.strength = source.strength;
@@ -3293,9 +3434,9 @@ void copy_fixed_warp_to_shader(
 }
 
 template <typename FixedEffect>
-ShaderBallWhiteBox::RequestedConfig
+ShaderWorkbenchWhiteBox::RequestedConfig
 fixed_reference_config(size_t topology_preset, size_t fixed_preset) {
-  using WB = ShaderBallWhiteBox;
+  using WB = ShaderWorkbenchWhiteBox;
   const typename FixedEffect::Params source =
       effects_tests::preset_params_or_initial<FixedEffect>(fixed_preset);
   WB::RequestedConfig destination = WB::presets()[topology_preset];
@@ -3327,7 +3468,8 @@ fixed_reference_config(size_t topology_preset, size_t fixed_preset) {
     destination.params.source.lattice_radius = source.source.lattice_radius;
   }
 
-  destination.params.projection.pole_fade = source.projection.pole_fade;
+  destination.params.projection.singularity_fade =
+      source.projection.singularity_fade;
   destination.params.projection.spin_rate = source.projection.spin_rate;
   destination.params.projection.wander = source.projection.wander;
   destination.params.projection.central_meridian =
@@ -3368,7 +3510,7 @@ fixed_reference_config(size_t topology_preset, size_t fixed_preset) {
 
 template <typename FixedEffect>
 Pullback::FrameState<typename FixedEffect::Params>
-fixed_reference_frame(const ShaderBallWhiteBox::FrameState &source,
+fixed_reference_frame(const ShaderWorkbenchWhiteBox::FrameState &source,
                       size_t fixed_preset) {
   const typename FixedEffect::Params params =
       effects_tests::preset_params_or_initial<FixedEffect>(fixed_preset);
@@ -3394,9 +3536,9 @@ fixed_reference_frame(const ShaderBallWhiteBox::FrameState &source,
 }
 
 template <typename FixedEffect>
-void verify_fixed_shader_export(ShaderBallWhiteBox::SB &shader,
+void verify_fixed_shader_export(ShaderWorkbenchWhiteBox::SB &shader,
                                 size_t topology_preset, size_t fixed_preset) {
-  using WB = ShaderBallWhiteBox;
+  using WB = ShaderWorkbenchWhiteBox;
   const WB::RequestedConfig config =
       fixed_reference_config<FixedEffect>(topology_preset, fixed_preset);
   const WB::FrameState dynamic = WB::config_frame(shader, config);
@@ -3430,7 +3572,7 @@ void verify_fixed_shader_export(ShaderBallWhiteBox::SB &shader,
 
 /** @brief Every shared-runtime export matches Shader preview within rounding. */
 inline void test_fixed_shader_export_equivalence() {
-  using WB = ShaderBallWhiteBox;
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB shader;
   shader.init();
@@ -3532,8 +3674,8 @@ inline void test_mobius_grid_circular_animation() {
 }
 
 /** @brief Polyhedral lenses expose controls at their chamber scale. */
-inline void test_shaderball_lens_domain_ranges() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_lens_domain_ranges() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -3609,8 +3751,8 @@ inline void test_shaderball_lens_domain_ranges() {
 }
 
 /** @brief New cartographic kernels preserve landmarks and stay finite. */
-inline void test_shaderball_projection_catalog() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_projection_catalog() {
+  using WB = ShaderWorkbenchWhiteBox;
   const float standard_parallel = PI_F * 0.25f;
   const Vector bonne_origin(cosf(standard_parallel), sinf(standard_parallel),
                             0.0f);
@@ -4004,7 +4146,7 @@ constexpr uint64_t HUE_LUT_MEAN_CHANNEL_ERROR =
     MEASURED_HUE_LUT_MEAN_ERROR * HUE_LUT_MEAN_HEADROOM;
 
 /** @brief The LUT-only hue mapper stays close to the exact gamut refinement. */
-inline void test_shaderball_hue_rotate_lut_gamut() {
+inline void test_shader_workbench_hue_rotate_lut_gamut() {
   uint16_t max_channel_error = 0;
   uint64_t total_error = 0;
   uint64_t channels = 0;
@@ -4040,8 +4182,8 @@ inline void test_shaderball_hue_rotate_lut_gamut() {
 }
 
 /** @brief The prepared hue field tracks direct palette conversion. */
-inline void test_shaderball_prepared_hue_rotation() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_prepared_hue_rotation() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -4072,8 +4214,8 @@ inline void test_shaderball_prepared_hue_rotation() {
 }
 
 /** @brief The prepared spherical hue field tracks its simplex source. */
-inline void test_shaderball_prepared_hue_noise() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_prepared_hue_noise() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -4122,8 +4264,8 @@ pullback_oracle_metric(std::string_view oracle, std::string_view domain,
 #endif
 
 /** @brief Prepared hue noise and rotation stay within the color-stage budget. */
-inline void test_shaderball_prepared_hue_noise_color() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_prepared_hue_noise_color() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -4187,7 +4329,7 @@ inline void test_shaderball_prepared_hue_noise_color() {
 }
 
 /** @brief Fast square Peirce stays within renderer error and seam budgets. */
-inline void test_shaderball_fast_peirce_square() {
+inline void test_shader_workbench_fast_peirce_square() {
   float max_coordinate_error = 0.0f;
   float max_edge_error = 0.0f;
   bool metadata_matches = true;
@@ -4228,9 +4370,10 @@ inline void test_shaderball_fast_peirce_square() {
   HS_EXPECT_TRUE(edge.measured);
   HS_EXPECT_NEAR(max_coordinate_error, coordinate.measured_baseline, 1e-6f);
   HS_EXPECT_NEAR(max_edge_error, edge.measured_baseline, 1e-6f);
-  HS_EXPECT_EQ(ShaderBallWhiteBox::peirce_metric_limit(0),
+  HS_EXPECT_EQ(ShaderWorkbenchWhiteBox::peirce_metric_limit(0),
                coordinate.accepted_limit);
-  HS_EXPECT_EQ(ShaderBallWhiteBox::peirce_metric_limit(1), edge.accepted_limit);
+  HS_EXPECT_EQ(ShaderWorkbenchWhiteBox::peirce_metric_limit(1),
+               edge.accepted_limit);
 #else
   hs_test::skip_case();
 #endif
@@ -4261,8 +4404,8 @@ inline void test_shaderball_fast_peirce_square() {
 }
 
 /** @brief The inverse manifest has unique, canonical, selectable programs. */
-inline void test_shaderball_operator_catalog_census() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_operator_catalog_census() {
+  using WB = ShaderWorkbenchWhiteBox;
   static_assert(WB::NUM_FUNCTIONS == 7);
   static_assert(WB::NUM_PROJECTIONS == 7);
   static_assert(WB::NUM_LENSES == 13);
@@ -4311,8 +4454,8 @@ inline void test_shaderball_operator_catalog_census() {
   HS_EXPECT_TRUE(true);
 }
 
-inline void test_shaderball_inverse_pipeline_manifest() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_inverse_pipeline_manifest() {
+  using WB = ShaderWorkbenchWhiteBox;
   static_assert(WB::inverse_stage_contracts());
   reset_effect_globals();
   WB::SB sb;
@@ -4404,8 +4547,8 @@ inline void test_shaderball_inverse_pipeline_manifest() {
 }
 
 /** @brief Compiled inverse programs match the host reference within rounding. */
-inline void test_shaderball_inverse_program_equivalence() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_inverse_program_equivalence() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -4464,8 +4607,8 @@ inline void test_shaderball_inverse_program_equivalence() {
 }
 
 /** @brief Domain policies, gauges, and analytic admission reject unsafe tuples. */
-inline void test_shaderball_projection_and_admission_contracts() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_projection_and_admission_contracts() {
+  using WB = ShaderWorkbenchWhiteBox;
   const uint8_t periodic_traits = projections::projection_traits(
       projections::ProjectionTrait::GLUED, projections::ProjectionTrait::FOLDED,
       projections::ProjectionTrait::PERIODIC);
@@ -4649,8 +4792,8 @@ inline void test_shaderball_projection_and_admission_contracts() {
 }
 
 /** @brief Frame-like planar warps complete one documented cycle per phase. */
-inline void test_shaderball_planar_warp_animation() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_planar_warp_animation() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -4936,8 +5079,8 @@ inline void test_shaderball_planar_warp_animation() {
 }
 
 /** @brief Valid uncompiled GUI edits render through the dynamic backend. */
-inline void test_shaderball_dynamic_backend_admission() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_dynamic_backend_admission() {
+  using WB = ShaderWorkbenchWhiteBox;
   HS_EXPECT_TRUE(WB::has_inverse_program(WB::presets()[0]));
   {
     reset_effect_globals();
@@ -4964,8 +5107,8 @@ inline void test_shaderball_dynamic_backend_admission() {
 }
 
 /** @brief Every shader catalog family produces finite bounded output. */
-inline void test_shaderball_kernel_catalog() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_kernel_catalog() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -5064,8 +5207,8 @@ inline void test_shaderball_kernel_catalog() {
 }
 
 /** @brief Adjacent preset edges use one live topology and authoritative clocks. */
-inline void test_shaderball_stable_preset_transition() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_stable_preset_transition() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -5106,8 +5249,8 @@ inline void test_shaderball_stable_preset_transition() {
 }
 
 /** @brief Discrete look changes preserve continuous dual-runtime handoff. */
-inline void test_shaderball_discrete_transition() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_discrete_transition() {
+  using WB = ShaderWorkbenchWhiteBox;
 
   const Color4 from_color(Pixel(10000, 20000, 30000), 0.25f);
   const Color4 to_color(Pixel(40000, 50000, 60000), 0.75f);
@@ -5271,8 +5414,8 @@ inline void test_shaderball_discrete_transition() {
 }
 
 /** @brief Pause does not stretch an in-flight through-clear transition. */
-inline void test_shaderball_pause_does_not_hold_through_clear() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_pause_does_not_hold_through_clear() {
+  using WB = ShaderWorkbenchWhiteBox;
   auto lit_pixels = [](const WB::SB &sb) {
     size_t count = 0;
     for (int y = 0; y < SMALL_H; ++y)
@@ -5314,8 +5457,8 @@ inline void test_shaderball_pause_does_not_hold_through_clear() {
   HS_EXPECT_EQ(WB::preset_index(sb), entry_preset);
 }
 /** @brief Generated harmonies remain independent and morph-compatible. */
-inline void test_shaderball_palette_resources() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_palette_resources() {
+  using WB = ShaderWorkbenchWhiteBox;
   auto check_sequence = [](auto make) {
     uint32_t hue = 0;
     GenerativePalette previous;
@@ -5365,8 +5508,8 @@ inline void test_shaderball_palette_resources() {
 }
 
 /** @brief Palette mapping and brightness operate on separate color stages. */
-inline void test_shaderball_brightness_envelopes() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_brightness_envelopes() {
+  using WB = ShaderWorkbenchWhiteBox;
   using Mapping = WB::PaletteMapping;
   using Envelope = WB::BrightnessEnvelope;
 
@@ -5472,8 +5615,8 @@ inline void test_shaderball_brightness_envelopes() {
 }
 
 /** @brief Colorize hue modes consume their selected pipeline carrier. */
-inline void test_shaderball_hue_shift_modes() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_hue_shift_modes() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -5571,8 +5714,8 @@ inline void test_shaderball_hue_shift_modes() {
   }
   HS_EXPECT_NE(WB::clocks(sb).hue_noise_phase, stopped_phase);
 }
-inline void test_shaderball_surface_noise_geometry_and_composition() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_surface_noise_geometry_and_composition() {
+  using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -5690,8 +5833,8 @@ inline void test_shaderball_surface_noise_geometry_and_composition() {
 }
 
 /** @brief Sphere contours use v_projection and reject every planar warp. */
-inline void test_shaderball_noise_contour_domains() {
-  using WB = ShaderBallWhiteBox;
+inline void test_shader_workbench_noise_contour_domains() {
+  using WB = ShaderWorkbenchWhiteBox;
   constexpr std::array PROJECTIONS = {
       WB::Projection::SINUSOIDAL,         WB::Projection::STEREOGRAPHIC,
       WB::Projection::GNOMONIC,           WB::Projection::BONNE,
@@ -5796,67 +5939,68 @@ inline void test_shaderball_noise_contour_domains() {
   HS_EXPECT_EQ(WB::active_pipeline(gui), WB::InversePipelineId::NONE);
 }
 
-/** @brief Module entry point for ShaderBall contract tests. */
-inline int run_shaderball_tests() {
-  ModuleFixture fixture("shaderball");
-  test_shaderball_operator_catalog_census();
-  test_shaderball_inverse_pipeline_manifest();
-  test_shaderball_inverse_program_equivalence();
-  test_shaderball_full_config_snapshot();
-  test_shaderball_surface_noise_range_rebind();
-  test_shaderball_incompatible_config_snapshot();
-  test_shaderball_selector_storage();
-  test_shaderball_clocks_wrapped();
-  test_shaderball_pause_semantics();
-  test_shaderball_manual_edit_timing();
-  test_shaderball_pipeline_contract();
-  test_shaderball_legacy_spatial_slots();
-  test_shaderball_kaleidoscope_reflection_fold();
-  test_shaderball_polyhedral_kaleidoscopes();
-  test_shaderball_equirectangular_projection();
-  test_shaderball_flush_edge_fade();
-  test_shaderball_legacy_sources();
-  test_shaderball_coupled_source();
-  test_shaderball_hue_rotate_lut_gamut();
-  test_shaderball_prepared_hue_rotation();
-  test_shaderball_prepared_hue_noise();
-  test_shaderball_prepared_hue_noise_color();
-  test_shaderball_preset_bank();
-  test_shaderball_staggered_param_morph();
-  test_shaderball_config_admission();
-  test_shaderball_deterministic_gui_edits();
-  test_shaderball_mode_specific_parameter_warnings();
-  test_shaderball_dodecahedral_lattice_edit();
-  test_shaderball_polar_gui_repair();
-  test_shaderball_structural_admission();
-  test_shaderball_strict_seam_admission();
-  test_shaderball_additive_delta_precision();
-  test_shaderball_profile_presets();
-  test_shaderball_manual_preset_navigation();
-  test_shaderball_preset_gui_transition();
-  test_shaderball_parameter_capacity();
-  test_shaderball_gui_catalog();
+/** @brief Module entry point for ShaderWorkbench contract tests. */
+inline int run_shader_workbench_tests() {
+  ModuleFixture fixture("shader_workbench");
+  test_shader_workbench_operator_catalog_census();
+  test_shader_workbench_inverse_pipeline_manifest();
+  test_shader_workbench_inverse_program_equivalence();
+  test_shader_workbench_full_config_snapshot();
+  test_shader_workbench_surface_noise_range_rebind();
+  test_shader_workbench_incompatible_config_snapshot();
+  test_shader_workbench_selector_storage();
+  test_shader_workbench_clocks_wrapped();
+  test_shader_workbench_pause_semantics();
+  test_shader_workbench_manual_edit_timing();
+  test_shader_workbench_pipeline_contract();
+  test_shader_workbench_legacy_spatial_slots();
+  test_shader_workbench_kaleidoscope_reflection_fold();
+  test_shader_workbench_polyhedral_kaleidoscopes();
+  test_shader_workbench_equirectangular_projection();
+  test_shader_workbench_projection_value_weights();
+  test_shader_workbench_flush_edge_fade();
+  test_shader_workbench_legacy_sources();
+  test_shader_workbench_coupled_source();
+  test_shader_workbench_hue_rotate_lut_gamut();
+  test_shader_workbench_prepared_hue_rotation();
+  test_shader_workbench_prepared_hue_noise();
+  test_shader_workbench_prepared_hue_noise_color();
+  test_shader_workbench_preset_bank();
+  test_shader_workbench_staggered_param_morph();
+  test_shader_workbench_config_admission();
+  test_shader_workbench_deterministic_gui_edits();
+  test_shader_workbench_mode_specific_parameter_warnings();
+  test_shader_workbench_dodecahedral_lattice_edit();
+  test_shader_workbench_polar_gui_repair();
+  test_shader_workbench_structural_admission();
+  test_shader_workbench_strict_seam_admission();
+  test_shader_workbench_additive_delta_precision();
+  test_shader_workbench_profile_presets();
+  test_shader_workbench_manual_preset_navigation();
+  test_shader_workbench_preset_gui_transition();
+  test_shader_workbench_parameter_capacity();
+  test_shader_workbench_gui_catalog();
   test_promoted_shader_palette_mapping_control();
   test_fixed_shader_export_equivalence();
   test_signal_weave_initial_preset_dwell();
   test_mobius_grid_circular_animation();
-  test_shaderball_lens_domain_ranges();
-  test_shaderball_projection_catalog();
-  test_shaderball_fast_peirce_square();
-  test_shaderball_projection_and_admission_contracts();
-  test_shaderball_planar_warp_animation();
-  test_shaderball_dynamic_backend_admission();
-  test_shaderball_kernel_catalog();
-  test_shaderball_stable_preset_transition();
-  test_shaderball_discrete_transition();
-  test_shaderball_pause_does_not_hold_through_clear();
-  test_shaderball_palette_resources();
-  test_shaderball_brightness_envelopes();
-  test_shaderball_hue_shift_modes();
-  test_shaderball_surface_noise_geometry_and_composition();
-  test_shaderball_noise_contour_domains();
+  test_shader_workbench_lens_domain_ranges();
+  test_shader_workbench_projection_catalog();
+  test_shader_workbench_fast_peirce_square();
+  test_shader_workbench_projection_and_admission_contracts();
+  test_shader_workbench_planar_warp_animation();
+  test_shader_workbench_dynamic_backend_admission();
+  test_shader_workbench_kernel_catalog();
+  test_shader_workbench_stable_preset_transition();
+  test_shader_workbench_discrete_transition();
+  test_shader_workbench_pause_does_not_hold_through_clear();
+  test_shader_workbench_palette_resources();
+  test_shader_workbench_brightness_envelopes();
+  test_shader_workbench_hue_shift_modes();
+  test_shader_workbench_surface_noise_geometry_and_composition();
+  test_shader_workbench_noise_contour_domains();
   return fixture.result();
 }
 
-} // namespace shaderball_tests
+} // namespace shader_workbench_tests
 } // namespace hs_test

@@ -5343,7 +5343,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
  * @details Pins |lens(v)| == 1 across a spread of directions, its doubled-
  *          latitude topology, and matching one-sided derivatives at the fold.
  */
-inline void test_shaderball_glitch_lens_unit_norm() {
+inline void test_shader_workbench_glitch_lens_unit_norm() {
   const Vector dirs[] = {Vector(1, 0, 0),
                          Vector(0, 0, 1),
                          Vector(-1, 0, 0),
@@ -6493,7 +6493,7 @@ inline int run_effects_tests() {
     test_displacement_field_zero_hue_scale_is_exact();
     test_displacement_field_clip_tiles_full();
     test_mindsplatter_emit_phase_wrapped();
-    test_shaderball_glitch_lens_unit_norm();
+    test_shader_workbench_glitch_lens_unit_norm();
     test_mobius_rings_conformal_and_counter_rotation();
     test_islamicstars_seed_sprite_fade_in();
     test_islamicstars_recipe_build_smoke();

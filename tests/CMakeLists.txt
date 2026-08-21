@@ -75,7 +75,7 @@ target_link_libraries(hs_test_whitebox INTERFACE hs_host_effect_runtime)
 target_compile_definitions(hs_test_whitebox INTERFACE
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
-  HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=1
+  HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND=1
   HS_ENABLE_CHAIN_INTERPRETER=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
 
@@ -86,7 +86,7 @@ target_compile_definitions(hs_test_support INTERFACE
   HS_ENABLE_PARAM_GUI_BRIDGE=1
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
-  HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=1
+  HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND=1
   HS_ENABLE_CHAIN_INTERPRETER=1
   HS_ENABLE_STRUCTURAL_AUDITS=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
@@ -284,7 +284,7 @@ set(_hs_test_modules
     plot_scan canvas
     scan mesh_raster transformers noise noise_field projections
     animation effects
-    effects_smoke effect_factory shaderball curl_lattice facet_grid
+    effects_smoke effect_factory shader_workbench curl_lattice facet_grid
     composed_effect
     shapeshifter_oracle shapeshifter_tiles dma_core hd107s
     dma_controller
@@ -381,7 +381,7 @@ if(NOT HS_PYTHON AND HS_REQUIRE_GENERATORS)
 endif()
 
 # The pullback manifest is the one generated artifact the suite COMPILES
-# against (tests/test_shaderball.h): without the header nothing builds, so the
+# against (tests/test_shader_workbench.h): without the header nothing builds, so the
 # manifest-derived assertions compile out under HS_HAVE_PULLBACK_MANIFEST=0 and
 # the two manifest CTests lose the targets they run, leaving the rest of the
 # suite runnable in a bare checkout. They still register, as 77-skips over the
@@ -421,7 +421,7 @@ _hs_sanitize(pullback_manifest_check)
 add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
 
 set(HS_PULLBACK_CAPTURE_SOURCE_ROOT "${HS_ROOT}" CACHE PATH
-    "Checkout whose ShaderBall sources the pullback capture producer builds")
+    "Checkout whose ShaderWorkbench sources the pullback capture producer builds")
 add_executable(pullback_capture_native
   ${HS_ROOT}/tools/pullback_capture_native.cpp
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
@@ -435,7 +435,7 @@ target_compile_definitions(pullback_capture_native PRIVATE
   HS_ENABLE_PARAM_GUI_BRIDGE=1
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
-  HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=0
+  HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND=0
   HS_ENABLE_CHAIN_INTERPRETER=0
   HS_ENABLE_EFFECT_CONTROL_API=1)
 target_link_libraries(pullback_capture_native PRIVATE hs_host_storage)
@@ -460,7 +460,7 @@ endforeach()
 message(WARNING
   "No python3/python found: the pullback manifest header cannot be generated, "
   "so unit_pullback_manifest and unit_pullback_capture_determinism skip and "
-  "the manifest assertions in unit_shaderball compile out. "
+  "the manifest assertions in unit_shader_workbench compile out. "
   "Install an interpreter, or configure with -DHS_REQUIRE_GENERATORS=ON to "
   "make this a hard error.")
 endif()

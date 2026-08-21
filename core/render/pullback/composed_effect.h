@@ -158,8 +158,8 @@ template <typename BindingT> struct ProjectionProvider {
   static const Quaternion &conjugate(const FrameState &frame) {
     return frame.projection_conjugate;
   }
-  static float pole_fade(const FrameState &frame) {
-    return frame.params.projection.pole_fade;
+  static float singularity_fade(const FrameState &frame) {
+    return frame.params.projection.singularity_fade;
   }
   static float central_meridian(const FrameState &frame) {
     return frame.params.projection.central_meridian;

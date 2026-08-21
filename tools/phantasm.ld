@@ -56,7 +56,7 @@ SECTIONS
 		*(.text._ZN6Solids12SolidBuilder*)
 		*(.text._ZN7MeshOps5cloneI8PolyMeshE*)
 		*(.text._ZN12ShapeShifterILi288ELi144EE15schedule_presetEv*)
-		*(.text._ZNK10ShaderBallILi288ELi144EE11TopologyKeyeqERKS1_*)
+		*(.text._ZNK15ShaderWorkbenchILi288ELi144EE11TopologyKeyeqERKS1_*)
 		*(.text._ZN8TimelineC*Ev*)
 		*(.text._ZN8TimelineD*Ev*)
 		*(.text._ZN8Timeline14destroy_eventsEv*)

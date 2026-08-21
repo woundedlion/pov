@@ -31,9 +31,9 @@ public:
   using Params = PrismSpiralParams;
   static constexpr std::string_view EFFECT_ID = "prism-spiral";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "80b89e0d3a5718db459105f3476a91fc6432e6c8260911f835915a526aae3054";
+      "547e7f06fc2c0d02605dcba58e5235706d1447c77f51ae2623314e967383b251";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "9deda410ce3c52bbe9296dc2e2069b0afeeea5dafe8a31e0dc8dd881179a7add";
+      "fb3772baa24f81106bd3eac928ae9e051ebf9703b4c6530044f085db5f2ec5c9";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"prism-spiral",
                                                               "prism-spiral-2"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -50,7 +50,7 @@ public:
     value.source.pattern_freq = 5.5327f;
     value.source.speed = 0.125f;
     value.source.angle_rate = 0.03f;
-    value.projection.pole_fade = 1.627f;
+    value.projection.singularity_fade = 1.627f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.surface.scale = 5.740422f;

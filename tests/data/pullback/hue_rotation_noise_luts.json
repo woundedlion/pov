@@ -8,11 +8,11 @@
     "wasm": { "compiler": "emscripten 5.0.0 clang 23.0.0", "cmake": "4.2.3", "cmake_preset": "wasm-release", "configuration": "Release", "strict_cmake_preset": "wasm-strict-fp", "strict_configuration": "PullbackStrictFP" },
     "teensy": { "compiler": "PJRC arm-none-eabi-gcc 15.2.1", "platformio": "6.1.19", "platform": "teensy@5.2.0", "cpu_hz": 600000000 }
   },
-  "exact_callable": "ShaderBallWhiteBox::direct_hue_noise_color",
-  "optimized_callable": "ShaderBallWhiteBox::prepared_hue_noise_color",
+  "exact_callable": "ShaderWorkbenchWhiteBox::direct_hue_noise_color",
+  "optimized_callable": "ShaderWorkbenchWhiteBox::prepared_hue_noise_color",
   "non_floating_fields_exact": true,
   "corpus": {
-    "generator": "shaderball-prepared-hue-grid",
+    "generator": "shader-workbench-prepared-hue-grid",
     "version": 1,
     "deterministic": true,
     "presets": [6, 7, 10],
@@ -24,8 +24,8 @@
       "resolutions": [[96, 20], [288, 144]],
       "sampling": "pixel centers",
       "aggregation": "maximum absolute premultiplied linear-u16 channel delta",
-      "exact_callable": "capture ShaderBallWhiteBox::exact_hue_shade with direct noise and hue rotation",
-      "optimized_callable": "ShaderBall compiled preset-6/7/10 shade callables",
+      "exact_callable": "capture ShaderWorkbenchWhiteBox::exact_hue_shade with direct noise and hue rotation",
+      "optimized_callable": "ShaderWorkbench compiled preset-6/7/10 shade callables",
       "probes": [
         { "preset": 6, "hue_noise_phase": 1.781, "operations": ["FULL_FRAME", "OCTANT_COLUMNS", "HORIZON_COLUMNS", "EQUATOR_ROW"] },
         { "preset": 7, "hue_noise_phase": 1.918, "operations": ["FULL_FRAME", "WRAP_COLUMNS", "NORTH_ROW", "SOUTH_ROW", "POLE_BANDS"] },
@@ -41,7 +41,7 @@
       "accepted_limit": 7000,
       "unit": "16-bit channel code",
       "limit_provenance": "SignalWeave CUP-mapping prepared-hue stage budget",
-      "measurement_provenance": "unit_shaderball direct-versus-prepared hue corpus with the four-look SignalWeave bank"
+      "measurement_provenance": "unit_shader_workbench direct-versus-prepared hue corpus with the four-look SignalWeave bank"
     },
     {
       "domain": "COLOR_CHANNEL",
@@ -49,8 +49,8 @@
       "measured_baseline": 213,
       "accepted_limit": 256,
       "unit": "16-bit channel code",
-      "limit_provenance": "existing ShaderBall combined prepared-hue stage budget",
-      "measurement_provenance": "unit_shaderball direct-versus-prepared hue corpus with the four-look SignalWeave bank"
+      "limit_provenance": "existing ShaderWorkbench combined prepared-hue stage budget",
+      "measurement_provenance": "unit_shader_workbench direct-versus-prepared hue corpus with the four-look SignalWeave bank"
     },
     {
       "domain": "FRAMEBUFFER",

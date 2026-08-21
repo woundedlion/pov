@@ -208,8 +208,8 @@ HS_FLASH_MEMBER inline std::array<Preset, 9> presets() {
            {"GSReactionDiffusion", true, gs_reaction_diffusion(preview_hue)},
            {"MobiusRings", true, mobius_rings(preview_hue)},
            {"Raymarch", false, raymarch()},
-           {"ShaderBall Liquid", false, shader_ball_liquid()},
-           {"ShaderBall Flyby", false, shader_ball_flyby()}}};
+           {"ShaderWorkbench Liquid", false, shader_ball_liquid()},
+           {"ShaderWorkbench Flyby", false, shader_ball_flyby()}}};
 }
 
 } // namespace EffectPaletteRecipes

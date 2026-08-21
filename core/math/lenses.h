@@ -148,12 +148,15 @@ polyhedral_kaleidoscope_lens(Vector v, const std::array<Vector, N> &mirrors) {
       break;
     }
     if (inside) {
-      HS_SB_STAGE_COUNT(++hs::g_shaderball_stage_cycles.polyhedral_pixels);
-      HS_SB_STAGE_COUNT(hs::g_shaderball_stage_cycles.polyhedral_reflections +=
-                        reflections);
       HS_SB_STAGE_COUNT(
-          hs::g_shaderball_stage_cycles.polyhedral_max_reflections =
-              std::max(hs::g_shaderball_stage_cycles.polyhedral_max_reflections,
+          ++hs::g_shader_workbench_stage_cycles.polyhedral_pixels);
+      HS_SB_STAGE_COUNT(
+          hs::g_shader_workbench_stage_cycles.polyhedral_reflections +=
+          reflections);
+      HS_SB_STAGE_COUNT(
+          hs::g_shader_workbench_stage_cycles.polyhedral_max_reflections =
+              std::max(hs::g_shader_workbench_stage_cycles
+                           .polyhedral_max_reflections,
                        reflections));
       return v;
     }
@@ -187,14 +190,16 @@ dodecahedral_kaleidoscope_lens(Vector v) {
       } else if (v.z < -POLYHEDRAL_MIRROR_EPS) {
         v.z = -v.z;
       } else {
-        HS_SB_STAGE_COUNT(++hs::g_shaderball_stage_cycles.polyhedral_pixels);
         HS_SB_STAGE_COUNT(
-            hs::g_shaderball_stage_cycles.polyhedral_reflections +=
+            ++hs::g_shader_workbench_stage_cycles.polyhedral_pixels);
+        HS_SB_STAGE_COUNT(
+            hs::g_shader_workbench_stage_cycles.polyhedral_reflections +=
             reflections);
         HS_SB_STAGE_COUNT(
-            hs::g_shaderball_stage_cycles.polyhedral_max_reflections = std::max(
-                hs::g_shaderball_stage_cycles.polyhedral_max_reflections,
-                reflections));
+            hs::g_shader_workbench_stage_cycles.polyhedral_max_reflections =
+                std::max(hs::g_shader_workbench_stage_cycles
+                             .polyhedral_max_reflections,
+                         reflections));
         return v;
       }
     }
