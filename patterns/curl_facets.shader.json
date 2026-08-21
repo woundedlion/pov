@@ -288,7 +288,7 @@
           "maximum": 20,
           "minimum": 1
         },
-        "id": "project1.pole-fade",
+        "id": "project1.singularity-fade",
         "interpolation": {
           "kind": "LINEAR"
         },
@@ -593,7 +593,7 @@
         "sphere2.basis",
         "sphere2.integrator",
         "sphere3.symmetry",
-        "project1.pole-fade",
+        "project1.singularity-fade",
         "project1.projection-spin-speed",
         "project1.projection-wander",
         "field1.cutout-threshold",
@@ -647,7 +647,7 @@
           "colorize.value-opacity-low": 1,
           "field1.cutout-softness": 0.31635937094688416,
           "field1.cutout-threshold": 0.36500000953674316,
-          "project1.pole-fade": 1,
+          "project1.singularity-fade": 1,
           "project1.projection-spin-speed": 0.0017500000540167093,
           "project1.projection-wander": 0.008999999612569809,
           "sample1.coverage-mode": "weight",

@@ -31,9 +31,9 @@ public:
   using Params = CurlFacetsParams;
   static constexpr std::string_view EFFECT_ID = "curl-facets";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "c85fb6ca75e4ec2833ae441dd32497fc30353adcd2e47a802349b747885523be";
+      "fed556bb55b49e0b78c0443fc6183d91c4aee6137919bb94ee6b9d0870901a7c";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "21158c87c54f32be2cc89f4531d2619cbc325dc7261f110a03364dc652cfc9fe";
+      "2b920763a6651d380724e4807879279b6c6572408574926b9d27635dc5727f4a";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"curl-facets"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -47,7 +47,7 @@ public:
                     .lattice_shape_blend = 0.0f,
                     .lattice_softness = 0.345639646f,
                     .lattice_radius = 0.377573133f};
-    value.projection.pole_fade = 1.0f;
+    value.projection.singularity_fade = 1.0f;
     value.projection.spin_rate = 0.00175000005f;
     value.projection.wander = 0.00899999961f;
     value.projection.camera_wander = 1.0f;
