@@ -150,6 +150,9 @@ private:
   // Dur/Burst slider change mid-burst cannot drop a spawn.
   static constexpr int RIPPLE_POOL_SIZE = 8;
   static constexpr int RIPPLE_STAGGER_FRAMES = 16;
+  /** Ripp Dur slider ceiling. Nothing downstream bounds it: the per-shape
+   * display window is derived from the burst span, so the burst always
+   * completes before the next shape spawns. */
   static constexpr int RIPPLE_DURATION_MAX = 143;
   static constexpr int BURST_MAX = 4;
   static constexpr int SPRITE_FADE_FRAMES = 16;
