@@ -9,7 +9,7 @@
 
 #include "core/math/interpolate.h"
 #include "effects/FacetGrid.h"
-#include "tests/test_shaderball.h"
+#include "tests/test_shader_workbench.h"
 
 namespace hs_test {
 namespace facet_grid_tests {
@@ -17,7 +17,7 @@ namespace facet_grid_tests {
 using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
-using ShaderBallWB = shaderball_tests::ShaderBallWhiteBox;
+using ShaderWorkbenchWB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
 
 struct FacetGridWhiteBox {
   using FX = FacetGrid<SMALL_W, SMALL_H>;
@@ -48,7 +48,7 @@ struct FacetGridWhiteBox {
         frame.params.source.complexity,     frame.params.source.pattern_mix,
         frame.params.source.secondary_rate, frame.params.source.angle_rate};
     params.projection = {
-        frame.params.projection.pole_fade, frame.params.projection.spin_rate,
+        frame.params.projection.singularity_fade, frame.params.projection.spin_rate,
         frame.params.projection.wander, frame.params.outer_camera.wander,
         frame.params.projection.central_meridian};
     params.inner_warp = {
@@ -110,7 +110,7 @@ inline void test_facet_grid_identity_and_presets() {
   HS_EXPECT_TRUE(FX::EFFECT_ID == "facet-grid");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{4});
   HS_EXPECT_EQ(sizeof(WB::Params), 31 * sizeof(float));
-  HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderBallWB::FrameState));
+  HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderWorkbenchWB::FrameState));
   HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "coupled-grid");
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "direct-grid");
   HS_EXPECT_TRUE(FX::PRESET_IDS[2] == "double-map");
@@ -126,7 +126,7 @@ inline void test_facet_grid_identity_and_presets() {
         params.source.complexity,
         params.source.pattern_mix,
         params.source.secondary_rate,
-        params.projection.pole_fade,
+        params.projection.singularity_fade,
         params.projection.spin_rate,
         params.projection.wander,
         params.projection.camera_wander,
@@ -173,7 +173,7 @@ inline void test_facet_grid_identity_and_presets() {
       "Pattern Mix",
       "Drift",
       "Source Angle Speed",
-      "Pole Fade",
+      "Singularity Fade",
       "Projection Spin Speed",
       "Projection Wander",
       "Camera Wander",
@@ -263,15 +263,15 @@ inline void test_facet_grid_parameter_serialization() {
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
 }
 
-inline void test_facet_grid_shaderball_equivalence() {
+inline void test_facet_grid_shader_workbench_equivalence() {
   using WB = FacetGridWhiteBox;
   reset_effect_globals();
-  ShaderBallWB::SB shaderball;
-  shaderball.init();
+  ShaderWorkbenchWB::SB shader_workbench;
+  shader_workbench.init();
 
   for (size_t preset : {size_t{11}, size_t{13}, size_t{14}}) {
-    const ShaderBallWB::FrameState reference =
-        ShaderBallWB::preset_frame(shaderball, preset);
+    const ShaderWorkbenchWB::FrameState reference =
+        ShaderWorkbenchWB::preset_frame(shader_workbench, preset);
     const WB::Ctx compiled = WB::from_reference(reference);
     for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
       const float latitude = latitude_step * (0.5f * PI_F / 9.0f);
@@ -281,7 +281,7 @@ inline void test_facet_grid_shaderball_equivalence() {
         const Vector view(radius * cosf(longitude), sinf(latitude),
                           radius * sinf(longitude));
         expect_color_exact(WB::shade(view, compiled),
-                           ShaderBallWB::stereographic_dodecahedral_grid_shade(
+                           ShaderWorkbenchWB::stereographic_dodecahedral_grid_shade(
                                view, reference));
       }
     }
@@ -293,7 +293,7 @@ inline int run_facet_grid_tests() {
   test_facet_grid_identity_and_presets();
   test_facet_grid_transition_contract();
   test_facet_grid_parameter_serialization();
-  test_facet_grid_shaderball_equivalence();
+  test_facet_grid_shader_workbench_equivalence();
   return fixture.result();
 }
 

@@ -16,7 +16,8 @@
  * the derivation layer can reach: the workbench catalog is wider, and the
  * difference is recorded against the live OPERATOR_TABLE rather than restated.
  *
- * Shading is deliberately out of scope: the ShaderBall equivalence oracles in
+ * Shading is deliberately out of scope: the ShaderWorkbench equivalence
+ * oracles in
  * tests/test_curl_lattice.h and tests/test_facet_grid.h own that comparison.
  */
 #pragma once

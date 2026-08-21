@@ -9,7 +9,7 @@
 
 #include "core/math/interpolate.h"
 #include "effects/CurlLattice.h"
-#include "tests/test_shaderball.h"
+#include "tests/test_shader_workbench.h"
 
 namespace hs_test {
 namespace curl_lattice_tests {
@@ -17,7 +17,7 @@ namespace curl_lattice_tests {
 using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
-using ShaderBallWB = shaderball_tests::ShaderBallWhiteBox;
+using ShaderWorkbenchWB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
 
 struct CurlLatticeWhiteBox {
   using FX = CurlLattice<SMALL_W, SMALL_H>;
@@ -48,7 +48,7 @@ struct CurlLatticeWhiteBox {
                      frame.params.source.lattice_softness,
                      frame.params.source.lattice_radius};
     params.projection = {
-        frame.params.projection.pole_fade, frame.params.projection.spin_rate,
+        frame.params.projection.singularity_fade, frame.params.projection.spin_rate,
         frame.params.projection.wander, frame.params.outer_camera.wander,
         frame.params.projection.central_meridian};
     params.surface = {frame.params.surface_noise.scale,
@@ -109,7 +109,7 @@ inline void test_curl_lattice_identity_and_presets() {
   HS_EXPECT_TRUE(FX::EFFECT_ID == "curl-lattice");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{2});
   HS_EXPECT_EQ(sizeof(WB::Params), 27 * sizeof(float));
-  HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderBallWB::FrameState));
+  HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderWorkbenchWB::FrameState));
   HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "open-curl");
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "dense-curl");
   HS_EXPECT_NEAR(FX::preset_params(0).surface.scale, 1.78815627f, 0.0f);
@@ -121,7 +121,7 @@ inline void test_curl_lattice_identity_and_presets() {
         params.source.lattice_shape_blend,
         params.source.lattice_softness,
         params.source.lattice_radius,
-        params.projection.pole_fade,
+        params.projection.singularity_fade,
         params.projection.central_meridian,
         params.projection.spin_rate,
         params.projection.wander,
@@ -175,7 +175,7 @@ inline void test_curl_lattice_identity_and_presets() {
       "Lattice Shape",
       "Lattice Softness",
       "Lattice Radius",
-      "Pole Fade",
+      "Singularity Fade",
       "Projection Spin Speed",
       "Projection Wander",
       "Camera Wander",
@@ -263,15 +263,15 @@ inline void test_curl_lattice_parameter_serialization() {
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
 }
 
-inline void test_curl_lattice_shaderball_equivalence() {
+inline void test_curl_lattice_shader_workbench_equivalence() {
   using WB = CurlLatticeWhiteBox;
   reset_effect_globals();
-  ShaderBallWB::SB shaderball;
-  shaderball.init();
+  ShaderWorkbenchWB::SB shader_workbench;
+  shader_workbench.init();
 
   for (size_t preset : {size_t{7}, size_t{8}}) {
-    const ShaderBallWB::FrameState reference =
-        ShaderBallWB::preset_frame(shaderball, preset);
+    const ShaderWorkbenchWB::FrameState reference =
+        ShaderWorkbenchWB::preset_frame(shader_workbench, preset);
     const WB::Ctx compiled = WB::from_reference(reference);
     for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
       const float latitude = latitude_step * (0.5f * PI_F / 9.0f);
@@ -282,7 +282,7 @@ inline void test_curl_lattice_shaderball_equivalence() {
                           radius * sinf(longitude));
         expect_color_exact(
             WB::shade(view, compiled),
-            ShaderBallWB::sinusoidal_curl_shade(view, reference));
+            ShaderWorkbenchWB::sinusoidal_curl_shade(view, reference));
       }
     }
   }
@@ -293,7 +293,7 @@ inline int run_curl_lattice_tests() {
   test_curl_lattice_identity_and_presets();
   test_curl_lattice_transition_contract();
   test_curl_lattice_parameter_serialization();
-  test_curl_lattice_shaderball_equivalence();
+  test_curl_lattice_shader_workbench_equivalence();
   return fixture.result();
 }
 

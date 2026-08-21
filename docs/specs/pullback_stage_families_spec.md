@@ -379,7 +379,7 @@ the semantics cannot fork between the two execution paths.
   projection-weight factor. The two consumers name their modes
   differently, so the normative migration is two tables. ComposedEffect
   `CoverageKind`: `PROJECTION` → `Weight`, `PROJECTION_SQUARED` →
-  `WeightSquared`, `EDGE_FADE` → `EdgeFade`. ShaderBall
+  `WeightSquared`, `EDGE_FADE` → `EdgeFade`. ShaderWorkbench
   `CoveragePolicy`: `OPAQUE` → `None`, `PROJECTION_WEIGHT` → `Weight`,
   `PROJECTION_WEIGHT_SQUARED` → `WeightSquared`, `EDGE_FADE` →
   `EdgeFade`, `VALUE_CUTOUT` → `None` at the crossing plus a
@@ -570,7 +570,7 @@ aggregation, and predicates — plus descriptive aliases for each), and
 the pipeline exposes trait folds over its flattened leaf list —
 `any_stage<Predicate>`, `stage_matching<Predicate>` — with predicates
 matching over `Policies`; `Placed` is invisible to them by the
-transparency rule above. That is the mechanism by which ShaderBall's
+transparency rule above. That is the mechanism by which ShaderWorkbench's
 `ExtraValidation` ("`EDGE_DISTANCE_UNCONDITIONAL` on the projection
 requires an edge-fade coverage") is re-expressed once positional slot
 typedefs are gone.
@@ -701,7 +701,7 @@ no validation-boolean aliases, no six-slot sugar, no `KIND` shim. The
 landings form a progression of complete states; anything a landing breaks
 migrates inside that landing. The contract cut-over is one wide landing,
 wide because the old surface has real readers: the tests read today's
-validation booleans and positional slot typedefs, ShaderBall's dynamic
+validation booleans and positional slot typedefs, ShaderWorkbench's dynamic
 backend aggregate-initializes the old carriers field-by-field, and its
 test-pinned projection-join facility lerps `surface_path_length` between
 branches. Enumerating those readers is what makes the landing plannable.
@@ -717,9 +717,9 @@ branches. Enumerating those readers is what makes the landing plannable.
    contract outright, and every reader migrates in the same landing:
    - `composed_effect.h` → the relaxed `Pipeline` with the prescribed
      placement;
-   - ShaderBall template pipelines → chains (dropping `Identity` slots);
+   - ShaderWorkbench template pipelines → chains (dropping `Identity` slots);
      `ExtraValidation` → the §4 trait folds;
-   - ShaderBall's dynamic backend → the canonical carriers. The
+   - ShaderWorkbench's dynamic backend → the canonical carriers. The
      projection-join facility (`join_projected` /
      `projection_join_compatible`) has no render-path caller today — it
      is a test-pinned facility reserved for the lens-blend transition —
@@ -742,7 +742,7 @@ branches. Enumerating those readers is what makes the landing plannable.
      (everything downstream is nonlinear), so no `PlaneSample`
      interpolation may be substituted. `PREPARED_BLOB_BYTES` re-verified
      against the larger prepared tuples;
-   - `test_pullback.h` / `test_shaderball.h` validation and
+   - `test_pullback.h` / `test_shader_workbench.h` validation and
      positional-typedef reads;
    - the deletions land here too: the six-slot combinators, the old
      carriers including `ProjectionSample` itself (replaced by
@@ -978,7 +978,7 @@ not maintained beside them — a hand-kept table could only prove that
 registered pipelines have manifests, never that every shipping pipeline
 is registered. The effect roster that already gates device builds
 enumerates every composed effect, each naming its `RenderPipeline`, and
-ShaderBall's program table enumerates its studies and dynamic programs;
+ShaderWorkbench's program table enumerates its studies and dynamic programs;
 the capture registry is generated from those two declarations, so a
 shipping pipeline absent from the registry is unrepresentable rather
 than checklist-caught. The completeness check walks the derived
@@ -1008,7 +1008,7 @@ it — but it is a diagnostic, not a correctness gate.
 
 Template-instantiating arbitrary chains at runtime is impossible, so the
 workbench's dynamic preview becomes a **stage-program interpreter** — the
-generalization of the per-sample switch dispatch ShaderBall's dynamic
+generalization of the per-sample switch dispatch ShaderWorkbench's dynamic
 backend already does, walking an array instead of fixed slots. Only its
 engine contract lives here; routing and editing are the tool spec's
 concern.
@@ -1087,7 +1087,7 @@ concern.
   **Instance state** is what parameter and prepared blocks cannot
   cover: persistent per-instance accumulators and owned resources —
   phase clocks, initialized noise generators — the runtime analogue of
-  ShaderBall's bounded arrays of pre-initialized noise resources, and
+  ShaderWorkbench's bounded arrays of pre-initialized noise resources, and
   it is reachable from execution: `advance` steps clocks once per
   frame, then `prepare` reads the updated state to derive the frame's
   prepared block (`run` needs only `prepared`). Instance state never
@@ -1109,7 +1109,7 @@ concern.
   operator declares, which is what the worst-case budget actually pays
   for: a runtime topology switch selects among already-constructed
   resources and never constructs or destroys, so the state layout is
-  topology-invariant by construction (ShaderBall's pre-initialized
+  topology-invariant by construction (ShaderWorkbench's pre-initialized
   noise arrays are the precedent). State identity
   is the `(instance_id, operator_id)` pair: a structural edit
   `migrate`s the state of instances whose pair survives (an unchanged
@@ -1162,7 +1162,7 @@ concern.
   would read a named `FrameState` slot (the static provider wrappers
   are compile-time-bound to fixed slots and cannot serve an arbitrary
   third instance; §7.2's allocation limit is the same fact seen from
-  the promotion side). ShaderBall's dynamic backend is the existing
+  the promotion side). ShaderWorkbench's dynamic backend is the existing
   precedent for this shape.
 - **The erased carrier ABI is explicit**, because a homogeneous op array
   cannot invoke heterogeneously-typed callbacks unaided. Evaluation owns
@@ -1213,7 +1213,7 @@ concern.
 
 ## 9. What this unlocks
 
-At the pipeline layer (hand-written effects, ShaderBall studies, the
+At the pipeline layer (hand-written effects, ShaderWorkbench studies, the
 workbench interpreter), **immediately, with the shipped vocabulary
 recombined**: lens sandwiches and double Mobius; displacement at any
 depth relative to lenses; any warp count and order; transfer and

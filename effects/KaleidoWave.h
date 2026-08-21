@@ -29,9 +29,9 @@ public:
   using Params = KaleidoWaveParams;
   static constexpr std::string_view EFFECT_ID = "kaleido-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "20e157f937463db76af24b8179a2682da111135245cd1e75ce2d52114159d4fb";
+      "064eeecabf4683fa489044dd8ccdbf6b9212dedc16d032bdd5cbb7b95fe5fbb7";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "303b888bcbcee0ef482af7c75ae461ab26a2ec9b732324d9af1e5c650e092ea7";
+      "a54f426490227b6ad95b64d0a18bbd0bb65beaab6fb4053f37f85bb435a6e7ed";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"twin-wave"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -43,7 +43,7 @@ public:
                     .speed = 0.125f,
                     .secondary_rate = 0.8f,
                     .angle_rate = 0.05f};
-    value.projection.pole_fade = 4.971f;
+    value.projection.singularity_fade = 4.971f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.color.hue_shift_amount = 0.27f;

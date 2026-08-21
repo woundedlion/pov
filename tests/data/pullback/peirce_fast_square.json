@@ -24,8 +24,8 @@
       "resolutions": [[96, 20], [288, 144]],
       "sampling": "pixel centers",
       "aggregation": "maximum absolute premultiplied linear-u16 channel delta",
-      "exact_callable": "capture ShaderBallWhiteBox::exact_peirce_shade with exact Peirce square projection",
-      "optimized_callable": "ShaderBall compiled preset-4 shade callable",
+      "exact_callable": "capture ShaderWorkbenchWhiteBox::exact_peirce_shade with exact Peirce square projection",
+      "optimized_callable": "ShaderWorkbench compiled preset-4 shade callable",
       "probes": [
         {
           "preset": 4,
@@ -42,8 +42,8 @@
       "measured_baseline": 0.00110423565,
       "accepted_limit": 0.0012,
       "unit": "plane units",
-      "limit_provenance": "existing ShaderBall fast-square oracle with 8.7 percent headroom",
-      "measurement_provenance": "unit_shaderball exact-versus-fast latitude-longitude corpus at base_sha"
+      "limit_provenance": "existing ShaderWorkbench fast-square oracle with 8.7 percent headroom",
+      "measurement_provenance": "unit_shader_workbench exact-versus-fast latitude-longitude corpus at base_sha"
     },
     {
       "domain": "PROJECTED_EDGE_DISTANCE",
@@ -51,8 +51,8 @@
       "measured_baseline": 0.000126481056,
       "accepted_limit": 0.0002,
       "unit": "plane units",
-      "limit_provenance": "existing ShaderBall fast-square edge oracle",
-      "measurement_provenance": "unit_shaderball exact-versus-fast latitude-longitude corpus at base_sha"
+      "limit_provenance": "existing ShaderWorkbench fast-square edge oracle",
+      "measurement_provenance": "unit_shader_workbench exact-versus-fast latitude-longitude corpus at base_sha"
     },
     {
       "domain": "FRAMEBUFFER",

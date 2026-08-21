@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-#include "effects/ShaderBall.h"
+#include "effects/ShaderWorkbench.h"
 #include "tests/test_effects.h"
 
 #include <algorithm>
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-static_assert(!HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND,
+static_assert(!HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND,
               "pullback capture must exercise compiled programs");
 
 namespace {
@@ -81,9 +81,9 @@ template <int W, int H> bool selected_pixel(Operation operation, int x, int y) {
 
 } // namespace
 
-namespace hs_test::shaderball_tests {
+namespace hs_test::shader_workbench_tests {
 
-struct ShaderBallWhiteBox {
+struct ShaderWorkbenchWhiteBox {
   template <typename Selected>
   static const auto &selected_config(const Selected &selected) {
     if constexpr (requires { selected.config; })
@@ -117,10 +117,10 @@ struct ShaderBallWhiteBox {
   }
 
   template <int W, int H>
-  static bool force_transition(ShaderBall<W, H> &effect, size_t source,
+  static bool force_transition(ShaderWorkbench<W, H> &effect, size_t source,
                                size_t destination, uint16_t elapsed,
                                uint16_t duration) {
-    using SB = ShaderBall<W, H>;
+    using SB = ShaderWorkbench<W, H>;
     if (!effect.selectPreset(source))
       return false;
     effect.setAnimationsPaused(true);
@@ -145,18 +145,18 @@ struct ShaderBallWhiteBox {
   }
 
   template <int W, int H>
-  static bool selected_pipeline_active(const ShaderBall<W, H> &effect,
+  static bool selected_pipeline_active(const ShaderWorkbench<W, H> &effect,
                                        size_t preset) {
-    using SB = ShaderBall<W, H>;
+    using SB = ShaderWorkbench<W, H>;
     return effect.active_pipeline == selected_pipeline<SB>(SB::PRESETS[preset]);
   }
 
   template <int W, int H>
-  static bool measure_oracle(ShaderBall<W, H> &effect,
+  static bool measure_oracle(ShaderWorkbench<W, H> &effect,
                              const std::string &oracle, size_t preset,
                              float hue_noise_phase, Operation operation,
                              uint16_t &maximum, uint32_t &samples) {
-    using SB = ShaderBall<W, H>;
+    using SB = ShaderWorkbench<W, H>;
     if (preset >= SB::PRESETS.size())
       return false;
     effect.runtime.clocks.hue_noise_phase = hue_noise_phase;
@@ -268,7 +268,7 @@ private:
   }
 };
 
-} // namespace hs_test::shaderball_tests
+} // namespace hs_test::shader_workbench_tests
 
 namespace {
 
@@ -403,7 +403,7 @@ template <int W, int H>
 bool render_instruction(const Instruction &instruction,
                         std::vector<Pixel> &pixels, RecordMetadata &metadata) {
   hs_test::effects_tests::reset_effect_globals();
-  ShaderBall<W, H> effect;
+  ShaderWorkbench<W, H> effect;
   effect.init();
   const bool transition_from =
       instruction.operation == Operation::THROUGH_CLEAR_FROM;
@@ -419,8 +419,8 @@ bool render_instruction(const Instruction &instruction,
                                      ? (instruction.preset + 1) % PRESET_COUNT
                                      : instruction.preset;
     const uint16_t elapsed = transition_from ? 0 : DURATION;
-    if (!hs_test::shaderball_tests::ShaderBallWhiteBox::force_transition(
-            effect, source, destination, elapsed, DURATION))
+    if (!hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox::
+            force_transition(effect, source, destination, elapsed, DURATION))
       return false;
     metadata = {source, destination, elapsed, DURATION};
   } else {
@@ -447,8 +447,8 @@ bool render_instruction(const Instruction &instruction,
   }
   effect.draw_frame();
   if (!transition_from && !transition_to &&
-      !hs_test::shaderball_tests::ShaderBallWhiteBox::selected_pipeline_active(
-          effect, instruction.preset))
+      !hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox::
+          selected_pipeline_active(effect, instruction.preset))
     return false;
   effect.advance_display();
   const Pixel *display = effect.display_buffer();
@@ -504,12 +504,12 @@ int capture(const char *operations_path, const char *output_path) {
       metric = metrics.end() - 1;
     }
     hs_test::effects_tests::reset_effect_globals();
-    ShaderBall<W, H> effect;
+    ShaderWorkbench<W, H> effect;
     effect.init();
-    if (!hs_test::shaderball_tests::ShaderBallWhiteBox::measure_oracle(
-            effect, instruction.oracle, instruction.preset,
-            instruction.hue_noise_phase, instruction.operation, metric->maximum,
-            metric->samples))
+    if (!hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox::
+            measure_oracle(effect, instruction.oracle, instruction.preset,
+                           instruction.hue_noise_phase, instruction.operation,
+                           metric->maximum, metric->samples))
       return 3;
   }
   FILE *output = open_file(output_path, "wb");

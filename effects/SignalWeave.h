@@ -29,9 +29,9 @@ public:
   using Params = SignalWeaveParams;
   static constexpr std::string_view EFFECT_ID = "signal-weave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "5f26a04894d3259fbd0b42f361b6a77a478e60c08ce8c2ad2bc5ddb7145e8b73";
+      "b9d816276500e5b21765b37c65cae23fb616926df8cbc79906627bd8429e1edb";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "8b425be3871e90c4269fd87a572c816420429affa10aa3dfe5b389042933a502";
+      "5ce479d536ffc6c3c36d9ab0b65e3882be8f6458302f37bad801ed9936dd0172";
   static constexpr uint16_t INITIAL_PRESET_DWELL_FRAMES = 16;
   // The 7 s Phantasm slot is 112 frames at 16 fps and the effect is rebuilt each
   // visit: the initial hold plus 3 crossfade+dwell cycles must fit, or the later

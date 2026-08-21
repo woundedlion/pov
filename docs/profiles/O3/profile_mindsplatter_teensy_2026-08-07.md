@@ -105,7 +105,7 @@ isr_dma_submit   144/frame  min/avg/max 0.65/0.91/1.04 us   cpu 0.20%
 - `filter_blend` does not appear on the direct-AA path.
 - Global O3 is a single-effect ceiling, not a shippable roster image.
 - No dwell-compression or epoch-stretch knobs were used.
-- The capture ran from clean tip `3ec9284c`; later tip `39d72f18` changes only ShaderBall palette recipes.
+- The capture ran from clean tip `3ec9284c`; later tip `39d72f18` changes only ShaderWorkbench palette recipes.
 
 ## Harness
 

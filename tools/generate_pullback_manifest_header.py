@@ -185,7 +185,7 @@ def _validate_programs(document: dict, path: Path) -> None:
              f"{path}: kind must be pullback-programs")
     corpus = document.get("corpus")
     _require(isinstance(corpus, dict), f"{path}: corpus must be an object")
-    _require(corpus.get("generator") == "shaderball-pullback-corpus",
+    _require(corpus.get("generator") == "shader-workbench-pullback-corpus",
              f"{path}: unknown corpus generator")
     _require(type(corpus.get("version")) is int and corpus["version"] == 1,
              f"{path}: corpus.version must be 1")

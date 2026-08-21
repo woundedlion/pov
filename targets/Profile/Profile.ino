@@ -58,8 +58,8 @@
 //                            adds count-only MindSplatter path attribution.
 //   HS_PROFILE_MINDSPLATTER_STALLS
 //                            adds short-batch DWT cycle/stall attribution.
-//   HS_PROFILE_SHADERBALL_STAGES
-//                            adds raw ShaderBall pipeline cycle totals.
+//   HS_PROFILE_SHADER_WORKBENCH_STAGES
+//                            adds raw ShaderWorkbench pipeline cycle totals.
 
 #if defined(HS_PROFILE_MINDSPLATTER_COUNTS) &&                                 \
     defined(HS_PROFILE_MINDSPLATTER_STALLS)
@@ -221,8 +221,8 @@ public:
 #ifdef HS_PROBE_BREAKDOWN
     drain_probe_breakdown();
 #endif
-#ifdef HS_PROFILE_SHADERBALL_STAGES
-    drain_shaderball_stages();
+#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
+    drain_shader_workbench_stages();
 #endif
     render_sum += render;
     if (render > render_max)
@@ -298,8 +298,8 @@ private:
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
     dump_mindsplatter_stalls();
 #endif
-#ifdef HS_PROFILE_SHADERBALL_STAGES
-    dump_shaderball_stages();
+#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
+    dump_shader_workbench_stages();
 #endif
     hs::CycleCounter::reset_all();
     window_frames = 0;
@@ -369,8 +369,8 @@ private:
             (unsigned long)(share_c / 100u), (unsigned long)(share_c % 100u));
   }
 
-#ifdef HS_PROFILE_SHADERBALL_STAGES
-  struct ShaderBallStageTotals {
+#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
+  struct ShaderWorkbenchStageTotals {
     uint64_t lens = 0;
     uint64_t surface_noise = 0;
     uint64_t projection = 0;
@@ -386,47 +386,47 @@ private:
     void reset() { *this = {}; }
   };
 
-  void drain_shaderball_stages() {
-    const hs::ShaderBallStageCycles &frame = hs::g_shaderball_stage_cycles;
-    shaderball_stage_totals.lens += frame.lens;
-    shaderball_stage_totals.surface_noise += frame.surface_noise;
-    shaderball_stage_totals.projection += frame.projection;
-    shaderball_stage_totals.planar_warp += frame.planar_warp;
-    shaderball_stage_totals.source += frame.source;
-    shaderball_stage_totals.material += frame.material;
-    shaderball_stage_totals.color += frame.color;
-    shaderball_stage_totals.mirror_tile += frame.mirror_tile;
-    shaderball_stage_totals.polyhedral_pixels += frame.polyhedral_pixels;
-    shaderball_stage_totals.polyhedral_reflections +=
+  void drain_shader_workbench_stages() {
+    const hs::ShaderWorkbenchStageCycles &frame = hs::g_shader_workbench_stage_cycles;
+    shader_workbench_stage_totals.lens += frame.lens;
+    shader_workbench_stage_totals.surface_noise += frame.surface_noise;
+    shader_workbench_stage_totals.projection += frame.projection;
+    shader_workbench_stage_totals.planar_warp += frame.planar_warp;
+    shader_workbench_stage_totals.source += frame.source;
+    shader_workbench_stage_totals.material += frame.material;
+    shader_workbench_stage_totals.color += frame.color;
+    shader_workbench_stage_totals.mirror_tile += frame.mirror_tile;
+    shader_workbench_stage_totals.polyhedral_pixels += frame.polyhedral_pixels;
+    shader_workbench_stage_totals.polyhedral_reflections +=
         frame.polyhedral_reflections;
-    shaderball_stage_totals.polyhedral_max_reflections =
-        std::max(shaderball_stage_totals.polyhedral_max_reflections,
+    shader_workbench_stage_totals.polyhedral_max_reflections =
+        std::max(shader_workbench_stage_totals.polyhedral_max_reflections,
                  frame.polyhedral_max_reflections);
-    hs::g_shaderball_stage_cycles.reset();
+    hs::g_shader_workbench_stage_cycles.reset();
   }
 
-  void dump_shaderball_stages() {
+  void dump_shader_workbench_stages() {
     char c0[21], c1[21], c2[21], c3[21], c4[21], c5[21], c6[21];
     hs::log("sb stages: lens=%s surface_noise=%s projection=%s warp=%s "
             "source=%s material=%s color=%s",
-            hs::u64_dec(shaderball_stage_totals.lens, c0),
-            hs::u64_dec(shaderball_stage_totals.surface_noise, c1),
-            hs::u64_dec(shaderball_stage_totals.projection, c2),
-            hs::u64_dec(shaderball_stage_totals.planar_warp, c3),
-            hs::u64_dec(shaderball_stage_totals.source, c4),
-            hs::u64_dec(shaderball_stage_totals.material, c5),
-            hs::u64_dec(shaderball_stage_totals.color, c6));
+            hs::u64_dec(shader_workbench_stage_totals.lens, c0),
+            hs::u64_dec(shader_workbench_stage_totals.surface_noise, c1),
+            hs::u64_dec(shader_workbench_stage_totals.projection, c2),
+            hs::u64_dec(shader_workbench_stage_totals.planar_warp, c3),
+            hs::u64_dec(shader_workbench_stage_totals.source, c4),
+            hs::u64_dec(shader_workbench_stage_totals.material, c5),
+            hs::u64_dec(shader_workbench_stage_totals.color, c6));
     char c7[21], c8[21], c9[21];
     hs::log("sb detail: mirror=%s poly_pixels=%s poly_reflections=%s "
             "poly_max=%lu",
-            hs::u64_dec(shaderball_stage_totals.mirror_tile, c7),
-            hs::u64_dec(shaderball_stage_totals.polyhedral_pixels, c8),
-            hs::u64_dec(shaderball_stage_totals.polyhedral_reflections, c9),
-            (unsigned long)shaderball_stage_totals.polyhedral_max_reflections);
-    shaderball_stage_totals.reset();
+            hs::u64_dec(shader_workbench_stage_totals.mirror_tile, c7),
+            hs::u64_dec(shader_workbench_stage_totals.polyhedral_pixels, c8),
+            hs::u64_dec(shader_workbench_stage_totals.polyhedral_reflections, c9),
+            (unsigned long)shader_workbench_stage_totals.polyhedral_max_reflections);
+    shader_workbench_stage_totals.reset();
   }
 
-  ShaderBallStageTotals shaderball_stage_totals;
+  ShaderWorkbenchStageTotals shader_workbench_stage_totals;
 #endif
 
 #ifdef HS_SCAN_METRICS

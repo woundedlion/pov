@@ -29,9 +29,9 @@ public:
   using Params = FacetWaveParams;
   static constexpr std::string_view EFFECT_ID = "facet-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "e82e4430acdb1f56776eaec87d46041041089135ebc971b0d35dbdf1b3f328d6";
+      "ccbdf3525c3bb80430a845027fd243d8a97a12d7b3812c5b79b0b86778ab1839";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "7972e3ab9dbf3754dfe60e19e6b80d9aba8fd8a737978a4b7942ee64040af440";
+      "fc01541b9ebfa45650242326a360f4d9ec43d3ea7656a0f3235186b42a93e34e";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"wave-mirror",
                                                               "cup-hue"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -54,7 +54,7 @@ public:
                     .pattern_mix = 0.0f,
                     .secondary_rate = 0.8f,
                     .angle_rate = 0.027f};
-    value.projection.pole_fade = 2.311f;
+    value.projection.singularity_fade = 2.311f;
     value.projection.camera_wander = 1.0f;
     value.outer_warp.strength = -0.176f;
     value.outer_warp.speed = -0.00325f;

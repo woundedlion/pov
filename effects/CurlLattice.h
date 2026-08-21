@@ -51,10 +51,10 @@ public:
   /// `patterns/curl_lattice.shader.json`; the browser editor matches it to
   /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "34b8bb65b0b63363e0e978650a9e268db1ecf60a2a9dc5c7bbfaf0b741290c35";
+      "a93529dbdc9ec90c8123e9de005fa454362dbb29f6ee3d645c607e0179486eb3";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "91a1ee17d286ec14b0253a0547de71eebc7d029ab143ab2fcc108a6f648a7db0";
+      "9d126f017c1f3cc724bd8a3af116c095fbe6385a2c2eafc97aed68385788b9d8";
   /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
                                                               "dense-curl"};
@@ -76,7 +76,7 @@ public:
                     .lattice_shape_blend = 1.0f,
                     .lattice_softness = 0.455532223f,
                     .lattice_radius = 0.290762514f};
-    value.projection.pole_fade = 20.0f;
+    value.projection.singularity_fade = 20.0f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.surface = {

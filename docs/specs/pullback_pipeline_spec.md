@@ -3,7 +3,7 @@
 **Status: LANDED, revision 6 (2026-08-14).** The composition core, standard
 carriers, provider concepts, stage combinators, and concrete operator catalog
 specified here ship in `core/render/pullback.h`, which landed in `13186d7c`.
-Its consumers are `effects/ShaderBall.h` and the composed-effect base
+Its consumers are `effects/ShaderWorkbench.h` and the composed-effect base
 `core/render/pullback/composed_effect.h` — and through the latter, the fifteen
 single-effect composed headers in `effects/` (`patterns/README.md` maps
 each to its document). The
@@ -17,9 +17,9 @@ GS/BZ/Voronoi migrations, but it coupled that rejection to the unrelated
 question of whether pullback composition and concrete pullback operators belong
 in the engine. This revision separates those decisions.
 
-The proposed change promotes ShaderBall's typed pipeline, standard carriers,
+The proposed change promotes ShaderWorkbench's typed pipeline, standard carriers,
 and reusable concrete operator/stage families into `core/render/pullback.h`.
-ShaderBall remains the first production consumer, but consumer count is not an
+ShaderWorkbench remains the first production consumer, but consumer count is not an
 admission rule for deliberate engine vocabulary. This follows the precedent of
 `core/render/filter.h`: a core rendering facility may contain both composition
 plumbing and concrete visual operations even when some operations currently
@@ -34,13 +34,13 @@ endorsed as verification infrastructure and is retained here only to the
 extent required to prove this migration.
 
 This document is the sole surviving shader-family spec: the earlier
-inverse-sampling, ShaderBall and workbench specs it amended have been retired,
+inverse-sampling, ShaderWorkbench and workbench specs it amended have been retired,
 and their location and abstraction-boundary decisions are superseded by
 Section 15.
 
 ## 1. Decision and motivation
 
-ShaderBall currently owns two different kinds of code in one effect header:
+ShaderWorkbench currently owns two different kinds of code in one effect header:
 
 1. effect policy: presets, editable slots, parameter interpolation, clocks,
    resource ownership, frame preparation, transition choreography, topology
@@ -53,7 +53,7 @@ The first category is properly effect-owned. The second category is an engine
 expressive surface. Keeping it private has three costs:
 
 - a future effect cannot compose a pullback without depending conceptually on
-  ShaderBall or recreating its framework;
+  ShaderWorkbench or recreating its framework;
 - reusable stages such as Bonne projection, mirror tiling, wave shear, primitive
   lattice sampling, iso-contour shaping, and projection-edge coverage are not
   discoverable beside the engine's forward filter vocabulary;
@@ -72,7 +72,7 @@ abstraction, but it is not a prerequisite when all of the following are true:
 - moving it preserves the shipping hot-path and ownership contracts.
 
 This is the **core-admission test** used by this specification. A helper that
-fails it stays in ShaderBall even if it is called by a core stage.
+fails it stays in ShaderWorkbench even if it is called by a core stage.
 
 ## 2. Goals
 
@@ -84,13 +84,13 @@ The design shall:
   sphere-to-source-to-color path;
 - provide concrete, composable core policies for the lenses, projections,
   surface maps, planar warps, source fields, material operations, and color
-  operations currently implemented by ShaderBall;
+  operations currently implemented by ShaderWorkbench;
 - keep mutable animation and resource ownership outside the hot pipeline;
 - let a consumer map its immutable frame into core operations through narrow,
   compile-time state providers, without adopting a universal engine frame;
 - let compiled programs and runtime/reference dispatch call the same core
   operator kernels;
-- preserve ShaderBall's program IDs, topology keys, manifest rows,
+- preserve ShaderWorkbench's program IDs, topology keys, manifest rows,
   `ShadeFunction` ABI, selection behavior, stage instrumentation, output, and
   device performance;
 - remain header-only, allocation-free, and free of virtual dispatch, RTTI, and
@@ -98,7 +98,7 @@ The design shall:
 - instantiate only explicitly named compiled programs; the core catalog shall
   not create a Cartesian product of stage combinations;
 - make the public API and diagnostics sufficient for a new pullback effect to
-  compose stages without copying ShaderBall internals.
+  compose stages without copying ShaderWorkbench internals.
 
 ## 3. Non-goals
 
@@ -109,7 +109,7 @@ This design does not:
   renderer, or the ray-marched volume path;
 - provide candidate acquisition, shared-stencil, block-coherence, reduction,
   or per-pixel finish abstractions;
-- move ShaderBall presets, slot enums, `Config`, `Params`, `FrameState`,
+- move ShaderWorkbench presets, slot enums, `Config`, `Params`, `FrameState`,
   `TopologyKey`, `InversePipelineId`, manifest rows, resource preparation, or
   transition state into core;
 - make every runtime slot combination a compiled template instantiation;
@@ -159,8 +159,8 @@ per-boundary carriers in it did not ship; the shipped spelling lives in
 
 `pullback.h` may include headers from `core/math`, `core/color`, and the
 minimal engine concept/profiling headers it needs. It shall not include an
-`effects/` header, refer to `ShaderBall`, or require the effect registry.
-No `core/` header may include `ShaderBall.h` as a consequence of this work.
+`effects/` header, refer to `ShaderWorkbench`, or require the effect registry.
+No `core/` header may include `ShaderWorkbench.h` as a consequence of this work.
 
 Existing pure mathematical kernels remain in their natural owners:
 
@@ -175,7 +175,7 @@ Existing pure mathematical kernels remain in their natural owners:
 An effect-private pure kernel that passes the Section 1 admission test moves to
 the corresponding core math/color owner or, when it is meaningful only as a
 pullback operator, into `pullback.h`. The migration shall not duplicate a
-kernel in core and ShaderBall after the final phase.
+kernel in core and ShaderWorkbench after the final phase.
 
 ## 5. Standard data model
 
@@ -347,7 +347,7 @@ struct Pipeline {
 
 `evaluate` recursively invokes the six stages and is the entry point used by a
 consumer wrapper that needs custom placement. `shade` preserves the ordinary
-two-argument ABI and calls `evaluate`. ShaderBall may retain derived/named
+two-argument ABI and calls `evaluate`. ShaderWorkbench may retain derived/named
 wrappers where its accepted manifest requires `FASTRUN`, `noinline`, or
 alignment attributes; those wrappers call `evaluate` and do not reimplement
 any stage.
@@ -383,7 +383,7 @@ selector for a choice already fixed in their type. Continuous values and
 deliberately runtime color controls remain immutable frame reads.
 
 `CodeEmission`, `ApproximationDomain`, `ApproximationAggregation`,
-`ApproximationMetric`, and `ApproximationOracleId` move from ShaderBall into
+`ApproximationMetric`, and `ApproximationOracleId` move from ShaderWorkbench into
 `Pullback`. Initial oracle IDs are `NONE`, `PEIRCE_FAST_SQUARE`, and
 `HUE_ROTATION_AND_NOISE_LUTS`; future core approximate operators extend the
 enumeration with their oracle and tests in the same change.
@@ -426,7 +426,7 @@ require a generated negative-translation-unit harness.
 Topology admission is not a core-stage concern. A core stage describes what it
 does; an effect decides which configuration selects it.
 
-ShaderBall supplies empty derived wrappers or aliases that add:
+ShaderWorkbench supplies empty derived wrappers or aliases that add:
 
 ```cpp
 static constexpr bool implements(const TopologyKey &);
@@ -434,14 +434,14 @@ static constexpr bool implements(const TopologyKey &);
 
 `Pipeline` conditionally exposes an `implements(key)` fold when every stage
 provides a compatible predicate. The member is instantiated only when used.
-`TopologyKey` therefore remains private to ShaderBall.
+`TopologyKey` therefore remains private to ShaderWorkbench.
 
 A thin matching wrapper may inherit `run`, carriers, and metadata from a core
 stage, but it shall add no data and no alternate rendering code. Core may
 provide a generic decorator for this pattern only if it remains independent of
 the key type; it is not required by this revision.
 
-ShaderBall's cross-stage rule that unconditional Peirce edge distance requires
+ShaderWorkbench's cross-stage rule that unconditional Peirce edge distance requires
 edge-fade coverage moves to `Binding::ExtraValidation`. Coverage enums and
 topology rules do not enter the pipeline coordinator.
 
@@ -453,7 +453,7 @@ A concrete operator is parameterized by a provider, not by an effect:
 
 ```cpp
 struct OuterWarpState {
-  using Binding = ShaderBallBinding;
+  using Binding = ShaderWorkbenchBinding;
   using FrameState = typename Binding::FrameState;
 
   static const auto &params(const FrameState &);
@@ -493,7 +493,7 @@ The initial provider surface is normative at the category level:
 |---|---|
 | orientation | prepared inverse `conjugate(frame)` |
 | surface map | `params(frame)`, `prepared(frame)`, `phase(frame)`, optional `noise(frame)`, and `path_length_required(frame)` |
-| projection | prepared frame `conjugate(frame)` plus scalar `pole_fade`, `central_meridian`, `coordinate_scale`, `standard_parallel`, `layout_scroll`, and `edge_distance_required` accessors as required by the selected map |
+| projection | prepared frame `conjugate(frame)` plus scalar `singularity_fade`, `central_meridian`, `coordinate_scale`, `standard_parallel`, `layout_scroll`, and `edge_distance_required` accessors as required by the selected map |
 | planar warp slot | `params(frame)`, `prepared(frame)`, `phase(frame)`, and optional `noise(frame)`; basis, envelope, integrator, and polar mode are template facts in a compiled policy |
 | source | `params(frame)`, `prepared(frame)`, and optional noise resource/time accessors; the selected source policy determines the required subset |
 | material | value/coverage scalar accessors (`iso_level`, `iso_width`, band values, cutout values, `edge_width`) required by the selected policies |
@@ -514,8 +514,8 @@ substitution error.
 
 ### 7.2 Instrumentation
 
-Moving code into core shall not erase ShaderBall's stage buckets or bake
-ShaderBall profile fields into core.
+Moving code into core shall not erase ShaderWorkbench's stage buckets or bake
+ShaderWorkbench profile fields into core.
 
 `Binding::Instrumentation` supplies an optional zero-state hook policy. The
 required shape is:
@@ -531,7 +531,7 @@ struct NoInstrumentation {
 `ProfileEvent` covers the existing generic boundaries: `LENS`,
 `SURFACE_NOISE`, `PROJECTION`, `PLANAR_WARP`, `MIRROR_TILE`, `SOURCE`,
 `MATERIAL`, and `COLOR`. `NoInstrumentation` compiles to no statements.
-ShaderBall supplies a hook policy that maps these events to the existing
+ShaderWorkbench supplies a hook policy that maps these events to the existing
 `HS_SB_STAGE_MARK`/`HS_SB_STAGE_SPAN` counters. Instrumented builds shall
 preserve the current boundary and nesting order. Shipping builds shall show no
 hook symbol or instruction.
@@ -544,7 +544,7 @@ emits code.
 
 Every operator exposes a direct pure entry point (`apply`, `project`, or
 `sample`, as appropriate). Top-level `Stage::*` combinators call those entry
-points. ShaderBall's dynamic/reference backend calls the same entry points from
+points. ShaderWorkbench's dynamic/reference backend calls the same entry points from
 its runtime switches. There shall be one implementation of each formula after
 migration.
 
@@ -585,7 +585,7 @@ defines the public `run` through an enum-specialized entry: `always_inline` for
 `INLINE_ONLY`, `HS_FLASH_MEMBER` for `OUT_OF_LINE_FLASH`, and
 `FASTRUN HS_NOINLINE_NOCLONE` for `OUT_OF_LINE_ITCM`. The wrapped implementation
 is inlined into that entry. Metadata that disagrees with actual placement is
-therefore not representable. ShaderBall uses `Placed` only where the baseline
+therefore not representable. ShaderWorkbench uses `Placed` only where the baseline
 stage is not inline, and supplies the exact baseline enum during migration.
 
 ### 8.1 Outer camera
@@ -660,7 +660,7 @@ Noise surface providers expose `path_length_required(frame)`. When false, the
 policy returns an exact zero path without performing the square root or
 integration bookkeeping used only by path-sensitive hue. This preserves the
 current cross-stage cost optimization without making the surface policy inspect
-ShaderBall color enums. ShaderBall's provider computes the boolean from its
+ShaderWorkbench color enums. ShaderWorkbench's provider computes the boolean from its
 prepared hue state and runtime hue mode.
 
 Required lens policies:
@@ -705,13 +705,13 @@ The shared Peirce and Airocean direct kernels take an explicit
 `edge_distance_required` boolean. A compiled policy whose topology proves the
 answer supplies a boolean template argument and emits no provider read; the
 dynamic policy obtains it from `ProjectionState::edge_distance_required(frame)`.
-ShaderBall's dynamic provider preserves the current predicate over edge-fade
+ShaderWorkbench's dynamic provider preserves the current predicate over edge-fade
 material coverage and both warp envelopes. This dependency is prepared or
-adapted by the consumer; core projection code does not inspect ShaderBall
+adapted by the consumer; core projection code does not inspect ShaderWorkbench
 coverage or warp enums.
 
 The Peirce fast-square policy owns its oracle metadata. Whether edge distance
-is unconditional is exposed as a static policy fact for ShaderBall's
+is unconditional is exposed as a static policy fact for ShaderWorkbench's
 `ExtraValidation`; it is not a special case in the coordinator.
 
 ### 8.3 Planar warps
@@ -731,8 +731,8 @@ It maps `ProjectionSample -> SourceInput`. Starting from
 the reported `path_length` to the running total. The empty pack is exact
 identity.
 
-This generalizes ShaderBall's two fixed positions without imposing two slots on
-other consumers. ShaderBall still instantiates exactly its authored outer then
+This generalizes ShaderWorkbench's two fixed positions without imposing two slots on
+other consumers. ShaderWorkbench still instantiates exactly its authored outer then
 inner lookup order; its authoring model remains a two-slot program.
 
 Required policies:
@@ -756,7 +756,7 @@ Compile-time choices use core tag types, not consumer authoring enums. The
 initial tags are `Warp::FlatEnvelope`, `Warp::ProjectionWeightEnvelope`,
 `Warp::EdgeFadeEnvelope`; `Warp::Euler1`, `Warp::Midpoint2`,
 `Warp::Midpoint4`; and `Warp::LinearPolar`, `Warp::LogarithmicPolar`.
-ShaderBall maps its serialized enums to these types when declaring a compiled
+ShaderWorkbench maps its serialized enums to these types when declaring a compiled
 program or entering a dynamic switch arm.
 
 Polar harmonic is an independent discrete topology fact, not part of the
@@ -765,7 +765,7 @@ continuous warp parameter view. The compiled policy is
 `1 <= Harmonic <= Pullback::Warp::MAX_POLAR_HARMONIC`, where the initial public
 maximum is the current admitted value 16. Its shared direct kernel takes mode
 and harmonic explicitly. A compiled stage supplies both from its type; the
-dynamic dispatcher supplies the validated runtime values from ShaderBall's
+dynamic dispatcher supplies the validated runtime values from ShaderWorkbench's
 `WarpStageSpec`. Neither path makes the core kernel read that private record.
 
 Envelope policies (`FLAT`, projection weight, edge fade) are separate
@@ -906,8 +906,8 @@ enum class HueMode : uint8_t {
 }
 ```
 
-The values and semantics are stable core API, not aliases of ShaderBall's
-serialized enum types. ShaderBall keeps its authoring enums and provides
+The values and semantics are stable core API, not aliases of ShaderWorkbench's
+serialized enum types. ShaderWorkbench keeps its authoring enums and provides
 constexpr conversions guarded by a `static_assert` for every enumerator/value
 pair. Its color provider returns the core enum types, never a raw integer.
 Because the admitted values are intentionally identical, the conversion is a
@@ -915,7 +915,7 @@ zero-cost underlying-value conversion; disassembly must show no per-pixel
 conversion switch.
 
 The shipping `GeneratedPalette` color policy may retain deliberately runtime
-mapping, brightness, and hue selectors because ShaderBall does not compile
+mapping, brightness, and hue selectors because ShaderWorkbench does not compile
 those facets into its topology key. Those switches call the public core
 kernels and are documented as runtime policy, not accidental dispatch. A
 future consumer may instantiate fixed sub-policies without changing the
@@ -980,14 +980,14 @@ bytes, and multiplies by `1/127`.
 `prepare_hue_rotation_lut`, `prepare_hue_noise_lut`,
 `sample_hue_rotation_lut`, and `sample_hue_noise_lut` entry points implementing
 this contract. Preparation accepts fixed-extent mutable spans and the required
-const palette/noise inputs; sampling accepts the views. ShaderBall retains
+const palette/noise inputs; sampling accepts the views. ShaderWorkbench retains
 buffer ownership, arena budgeting, preparation scheduling, and `active`
 decisions, but it does not retain any indexing, interpolation, face-mapping, or
 quantization formula.
 
 ### 8.7 Catalog completeness and exclusions
 
-Phase B builds a census from the current ShaderBall discrete operator enums and
+Phase B builds a census from the current ShaderWorkbench discrete operator enums and
 classifies every enumerator as one of:
 
 - `CORE_POLICY`: implemented by a named public policy above;
@@ -998,15 +998,15 @@ classifies every enumerator as one of:
 
 No currently reachable rendering enumerator may disappear from the census.
 An `EFFECT_ONLY` classification requires explicit architecture-review approval;
-"only ShaderBall uses it" is not a valid reason. This prevents the migration
+"only ShaderWorkbench uses it" is not a valid reason. This prevents the migration
 from promoting only the convenient shipping subset while leaving the rest of
 the expressive catalog private.
 
-## 9. ShaderBall integration
+## 9. ShaderWorkbench integration
 
 ### 9.1 What moves to core
 
-ShaderBall replaces its private definitions with core types or thin aliases:
+ShaderWorkbench replaces its private definitions with core types or thin aliases:
 
 - `InverseStageKind` -> `Pullback::StageKind`;
 - emission and approximation metadata types -> `Pullback` equivalents;
@@ -1014,11 +1014,11 @@ ShaderBall replaces its private definitions with core types or thin aliases:
   `PlanarWarpResult`, `SourceInput`, `MaterialInput`, and `MaterialSample` ->
   aliases of the Section 5 carriers (with the `path_length` member rename
   propagated);
-- `InversePipeline` -> alias of `Pullback::Pipeline<ShaderBallBinding, ...>`;
+- `InversePipeline` -> alias of `Pullback::Pipeline<ShaderWorkbenchBinding, ...>`;
 - private stage bodies -> core stage aliases plus effect-side topology matchers;
 - reusable pure operator bodies -> the Section 8 core catalog.
 
-### 9.2 What remains in ShaderBall
+### 9.2 What remains in ShaderWorkbench
 
 The following remain private effect code:
 
@@ -1043,50 +1043,50 @@ Illustrative assembly follows. Public `Pullback` family names and roles are
 normative; private provider, matcher, and program-alias names may differ:
 
 ```cpp
-using Surface = ShaderBallMatchedStage<
+using Surface = ShaderWorkbenchMatchedStage<
     Pullback::Stage::SurfaceProject<
-        ShaderBallBinding,
+        ShaderWorkbenchBinding,
         Pullback::Surface::Identity,
         Pullback::Lens::Kaleidoscope,
         Pullback::Surface::Identity,
         Pullback::Projection::BonneNorth<BonneProjectionState>>,
     BonneKaleidoscopeMatcher>;
 
-using Warp = ShaderBallMatchedStage<
+using Warp = ShaderWorkbenchMatchedStage<
     Pullback::Stage::PlanarWarp<
-        ShaderBallBinding,
+        ShaderWorkbenchBinding,
         Pullback::Warp::MirrorTile<OuterWarpState>>,
     OuterMirrorMatcher>;
 
-using Source = ShaderBallMatchedStage<
+using Source = ShaderWorkbenchMatchedStage<
     Pullback::Stage::Source<
-        ShaderBallBinding,
+        ShaderWorkbenchBinding,
         Pullback::Source::PrimitiveLattice<SourceStateProvider>>,
     PrimitiveLatticeMatcher>;
 
-using Material = ShaderBallMatchedStage<
+using Material = ShaderWorkbenchMatchedStage<
     Pullback::Stage::Material<
-        ShaderBallBinding,
+        ShaderWorkbenchBinding,
         Pullback::Weight::Projection,
         Pullback::Transfer::Ridge,
         Pullback::Coverage::EdgeFade<ValueStateProvider>>,
     ProjectionLinearEdgeFadeMatcher>;
 
-using Outer = ShaderBallMatchedStage<
-    Pullback::Stage::OuterCamera<ShaderBallBinding, OuterCameraState>,
+using Outer = ShaderWorkbenchMatchedStage<
+    Pullback::Stage::OuterCamera<ShaderWorkbenchBinding, OuterCameraState>,
     MatchEveryTopology>;
 
-using Color = ShaderBallMatchedStage<
+using Color = ShaderWorkbenchMatchedStage<
     Pullback::Stage::Color<
-        ShaderBallBinding,
+        ShaderWorkbenchBinding,
         Pullback::Color::GeneratedPalette<ColorStateProvider>>,
     MatchEveryTopology>;
 
 using Program = Pullback::Pipeline<
-    ShaderBallBinding, Outer, Surface, Warp, Source, Material, Color>;
+    ShaderWorkbenchBinding, Outer, Surface, Warp, Source, Material, Color>;
 ```
 
-Every ShaderBall pipeline stage is decorated, including stages whose matcher
+Every ShaderWorkbench pipeline stage is decorated, including stages whose matcher
 always returns true. Consequently every assembled program satisfies the
 conditional `Pipeline::implements(key)` contract and the unchanged manifest
 `static_assert`; core stages themselves remain topology-agnostic.
@@ -1123,12 +1123,12 @@ selection differences, while operator unit tests check formulas.
   aggregate parameter/prepared records are returned by const reference.
 - The coordinator and policies contain no objects, so a pipeline has no
   lifetime independent of the frame.
-- Debug/test owner-generation stamping remains in ShaderBall's frame accessors;
+- Debug/test owner-generation stamping remains in ShaderWorkbench's frame accessors;
   extraction shall not bypass it.
 - Transition rendering remains sequential: prepare and consume one endpoint
   before shared backing storage is overwritten.
 
-The existing ShaderBall stack, persistent arena, RAM2, and effect-heap budgets
+The existing ShaderWorkbench stack, persistent arena, RAM2, and effect-heap budgets
 remain unchanged. Public carriers add no allocation or hidden ownership.
 
 ## 11. Code generation and instantiation contract
@@ -1160,7 +1160,7 @@ names.
 
 ### 11.3 Program-set budget
 
-ShaderBall continues to instantiate only the closed manifest. Adding public
+ShaderWorkbench continues to instantiate only the closed manifest. Adding public
 inventory does not add a manifest row. The final ELF shall contain:
 
 - the same address-taken compiled-program wrapper count as the baseline;
@@ -1187,7 +1187,7 @@ The Phase A surface covers:
 - every pipeline validation predicate, positive and negative;
 - exact stage invocation order and one invocation per stage;
 - carrier forwarding and exact terminal return;
-- custom binding/frame types proving there is no ShaderBall dependency;
+- custom binding/frame types proving there is no ShaderWorkbench dependency;
 - `NoInstrumentation` producing no observable calls and a counting hook
   receiving the exact event order;
 - public carrier compatibility defaults, finite/range invariants, layout, and
@@ -1208,17 +1208,17 @@ Starting in Phase B, the same module additionally covers:
   checked-in manifest.
 
 Concrete operator tests use deterministic inputs and directly pin formula
-results or compare with the pre-migration ShaderBall helper during the
+results or compare with the pre-migration ShaderWorkbench helper during the
 migration phase. Phase A gates only Section 12.1.1; the complete Section 12.1
 suite becomes mandatory from Phase B onward.
 
-### 12.2 Catalog and ShaderBall tests
+### 12.2 Catalog and ShaderWorkbench tests
 
-The existing `tests/test_shaderball.h` suite is updated, not weakened. It adds:
+The existing `tests/test_shader_workbench.h` suite is updated, not weakened. It adds:
 
 - the Section 8.7 operator-enum census;
 - every manifest row assembled solely from core top-level stages plus empty
-  ShaderBall matching wrappers;
+  ShaderWorkbench matching wrappers;
 - all state providers empty and bound to the exact `FrameState`;
 - provider accessors selecting the expected frame member/resource for outer and
   inner slots;
@@ -1293,7 +1293,7 @@ provenance, non-floating exactness assertion, and final-framebuffer metric.
 ## 13. Device and performance acceptance
 
 This migration promises no visual or performance change. It is accepted only
-if the final core-backed ShaderBall is non-regressing under the shipped v1
+if the final core-backed ShaderWorkbench is non-regressing under the shipped v1
 Section 14 capture protocol as explicitly amended by Sections 13.3 and 15.
 
 ### 13.1 Cheap gates for every phase
@@ -1338,7 +1338,7 @@ Pullback arm: LEGACY|CORE|LANDED sha=<short-sha>
 ```
 
 The branch build supplies `LEGACY` or `CORE`; a normal build defaults to
-`LANDED`. ShaderBall also emits an event whenever the tuple changes:
+`LANDED`. ShaderWorkbench also emits an event whenever the tuple changes:
 
 ```text
 Pullback program: preset=<i>/<N> pipeline=<InversePipelineId|NONE> \
@@ -1353,12 +1353,12 @@ windows. Presence/identity of each transition half is a coverage assertion;
 the surrounding window remains the timing sample.
 
 `tools/parse_profile.py` gains `--expected-pullback-arm` and
-`--shaderball-program-manifest` options for `validate`. The protocol command is:
+`--shader-workbench-program-manifest` options for `validate`. The protocol command is:
 
 ```text
 python tools/parse_profile.py <capture.log> validate --scope frame \
   --expected-pullback-arm <LEGACY|CORE|LANDED> \
-  --shaderball-program-manifest <generated-manifest.json>
+  --shader-workbench-program-manifest <generated-manifest.json>
 ```
 
 Validation rejects a missing/duplicate/wrong arm stamp, SHA mismatch with the
@@ -1380,7 +1380,7 @@ silently grandfathered.
 Acceptance uses the v1 capture shape with a behavior-neutral, one-sided
 non-regression rule. For each metric, the noise band is
 `max(max(control) - min(control), min(0.3 ms, 0.5 * control median))` across the
-three control captures. For ShaderBall's own render and clean-shader metrics,
+three control captures. For ShaderWorkbench's own render and clean-shader metrics,
 candidate median and maximum shall each be at or below the corresponding
 control value plus the band. For every other roster ID, candidate maximum
 shall be at or below control maximum plus the band. A faster candidate passes;
@@ -1433,17 +1433,17 @@ Phase P is additive verification infrastructure. It changes no render path.
 - Create `core/render/pullback.h` with metadata enums, standard carriers,
   `Pipeline`, recursive evaluation, validation predicates, and
   `NoInstrumentation`.
-- Alias ShaderBall's carrier and metadata names to core, propagating the
+- Alias ShaderWorkbench's carrier and metadata names to core, propagating the
   `MaterialSample::path_length` rename.
-- Define `ShaderBallBinding`, its extra validation hook, and the instrumentation
+- Define `ShaderWorkbenchBinding`, its extra validation hook, and the instrumentation
   adapter.
 - Re-express private `InversePipeline` as a core alias while retaining the
   existing private concrete stage bodies temporarily. Each temporary stage
   gains the two type aliases required by the core contract:
-  `using Binding = ShaderBallBinding` and
+  `using Binding = ShaderWorkbenchBinding` and
   `using FrameState = typename Binding::FrameState`; its `run` body and
   metadata remain unchanged.
-- Add and wire `tests/test_pullback.h`; re-point ShaderBall white-box validator
+- Add and wire `tests/test_pullback.h`; re-point ShaderWorkbench white-box validator
   access through a narrow shim.
 
 Gates: Sections 12.1.1, 12.3, 13.1, and shade-path disassembly. Manifest rows
@@ -1455,13 +1455,13 @@ and wrapper count remain unchanged.
   points, and required concrete policy inventory.
 - Implement core counterparts of reusable effect-private pure helpers in their
   correct core math/color or pullback owner. The legacy helpers remain
-  temporarily unchanged because production ShaderBall still uses them in this
+  temporarily unchanged because production ShaderWorkbench still uses them in this
   phase; temporary duplication is deleted in Phases C-D.
 - Build the Section 8.7 enum census and tests.
 - Add synthetic-frame tests for every family and deterministic formula tests
   for every operator; add missing approximation oracles before admitting an
   approximate policy.
-- Keep production ShaderBall on its temporary private stage bodies during this
+- Keep production ShaderWorkbench on its temporary private stage bodies during this
   phase. Direct test/reference calls may compare the new core operators with
   the old helpers.
 
@@ -1472,7 +1472,7 @@ helpers already used elsewhere.
 Gates: the complete Section 12.1 suite, the Phase P manifests/oracles, Section
 13.1, and the empty-framework ELF comparison above.
 
-### Phase C - ShaderBall stage migration
+### Phase C - ShaderWorkbench stage migration
 
 - Add narrow state providers for every selected outer-camera, surface, lens,
   projection, warp-slot, source, material, and color policy.
@@ -1502,7 +1502,7 @@ the precise `EFFECT_ONLY` rationale.
   available and contains only switches/orchestration over core operator
   kernels.
 - Run the final landed-image confirmation capture and full authored cycle.
-- Update README architecture text, the v1 amendment, ShaderBall spec
+- Update README architecture text, the v1 amendment, ShaderWorkbench spec
   abstraction boundary, API documentation, and profile/census records.
 - Record the final core catalog and any approved `EFFECT_ONLY` entries.
 
@@ -1518,7 +1518,7 @@ When Phase A lands, the v1 spec is provisionally amended:
   types or a second consumer before promotion;
 - the coordinator, standard carriers, emission metadata, and approximation
   metadata live in `core/render/pullback.h`;
-- `InversePipeline` is a ShaderBall alias of `Pullback::Pipeline`;
+- `InversePipeline` is a ShaderWorkbench alias of `Pullback::Pipeline`;
 - the stage signature remains the two-argument
   `run(input, const FrameState&)`; revision 5's unshipped `Context` parameter is
   discarded;
@@ -1533,14 +1533,14 @@ When Phase A lands, the v1 spec is provisionally amended:
   requirement in Section 13.3, which Phase P enforces consistently in the
   parser, parser tests, and new baseline captures.
 
-When Phase D lands, the retired ShaderBall spec's abstraction threshold and
+When Phase D lands, the retired ShaderWorkbench spec's abstraction threshold and
 ownership table are superseded:
 
 - concrete pullback stages and operators that pass the Section 1 core-admission
   test are engine vocabulary even with one current production consumer;
 - projected-plane warps, source functions, projection slots, material shaping,
   and color kernels are no longer categorically effect-local;
-- ShaderBall still owns animation, authoring, frame preparation, resources,
+- ShaderWorkbench still owns animation, authoring, frame preparation, resources,
   topology selection, and the fixed two-slot authoring model;
 - the typed operator family's "prepared params + immutable input -> pure
   result" convention is implemented by core policies plus consumer state
@@ -1556,7 +1556,7 @@ Implementation is incomplete without:
 - `core/render/pullback.h` containing the composition core, carriers, provider
   concepts, stage combinators, and concrete catalog;
 - a complete Section 8.7 operator census;
-- ShaderBall aliases/providers/matchers with no rendering formula duplicated;
+- ShaderWorkbench aliases/providers/matchers with no rendering formula duplicated;
 - unchanged manifest and selectable-topology censuses;
 - dynamic/reference reuse of core operator entry points;
 - validator, provider, carrier, operator, stage, catalog, selection, seam,
@@ -1568,7 +1568,7 @@ Implementation is incomplete without:
 - carrier-layout, stack, ELF, section, clone, and wrapper-count reports;
 - full-roster size/headroom gates;
 - matched Teensy device captures and landed-image confirmation;
-- v1 spec, ShaderBall spec, README, and API documentation updates;
+- v1 spec, ShaderWorkbench spec, README, and API documentation updates;
 - deletion of migration switches and private duplicate implementations.
 
 ## 17. Explicitly deferred work and revival triggers

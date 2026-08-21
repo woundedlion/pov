@@ -30,9 +30,9 @@ public:
   using Params = VectorFacetsParams;
   static constexpr std::string_view EFFECT_ID = "vector-facets";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "869a46606e3e3839060ad01910281076cddbe434a38b24fe8503d95e5157321a";
+      "ae59012885644fd0b8bde08d09c864de0b26892399523cd81494e80f8e16b1c3";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "882ac027ba2eecde6adcbec7b2475a6c46f70a28b46aa2a7ae4ccbfa3da80196";
+      "307a1d899af542b78fa9852b61d0fdbb4852b5aaf963392cc19320a4d2e81bd1";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"vector-mirror"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -52,7 +52,7 @@ public:
                     .pattern_mix = 0.0f,
                     .secondary_rate = 0.8f,
                     .angle_rate = 0.027f};
-    value.projection.pole_fade = 2.311f;
+    value.projection.singularity_fade = 2.311f;
     value.projection.camera_wander = 1.0f;
     value.outer_warp.strength = 0.138f;
     value.outer_warp.speed = -0.00005f;

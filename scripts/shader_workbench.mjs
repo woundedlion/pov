@@ -836,7 +836,7 @@ const V1_SAMPLE_FIELDS = {
 };
 
 const V1_PROJECT_FIELDS = new Set([
-  'pole-fade',
+  'singularity-fade',
   'projection-spin-speed',
   'projection-wander',
   'central-meridian',

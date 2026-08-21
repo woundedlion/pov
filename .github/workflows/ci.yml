@@ -59,7 +59,7 @@ jobs:
             test_exclude: *generated_exclude
           - &shard3_entry
             shard: 3
-            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|effects_smoke|effect_factory|shaderball|curl_lattice|facet_grid|composed_effect|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
+            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|effects_smoke|effect_factory|shader_workbench|curl_lattice|facet_grid|composed_effect|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
             test_exclude: *generated_exclude
           - &shard4_entry
             shard: 4

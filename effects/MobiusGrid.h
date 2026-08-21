@@ -29,9 +29,9 @@ public:
   using Params = MobiusGridParams;
   static constexpr std::string_view EFFECT_ID = "mobius-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "ec11e87fc4e330e78f5a67483d05de5287f9495b98512435a1d974f41ef2d273";
+      "5aa77c43ead833c6191e35598ea1ac0c0646a160962c16341c7cecb0456604a9";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "19a2ebad42a901e94f813bd114103542c81ac6cf4b583cec0bc2547fd8481cbe";
+      "ba5b3ee4b2022cc068f000870b98e418ac410796ff04f1da6bc999291d671071";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"mobius-grid",
                                                               "mobius-grid-2"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -49,7 +49,7 @@ public:
                     .speed = 0.245f,
                     .secondary_rate = 0.8f,
                     .angle_rate = 0.027f};
-    value.projection.pole_fade = 2.102f;
+    value.projection.singularity_fade = 2.102f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.lens.mobius = {-1.072f, 0.304f, 0.416f,      0.0f,

@@ -58,6 +58,6 @@ frames and then morph over 480, so a preset owns 1,080 frames and their captures
 are sized to wrap the full cycle.
 
 This directory also holds the last captures of **Flyby** and **Liquid2D**, which
-are not in the roster and are absent from the table above. ShaderBall's captures
+are not in the roster and are absent from the table above. ShaderWorkbench's captures
 have been deleted: the composed-effect workbench migration (`69d4751c`) turned its
 13-preset program bank into the fourteen ● effects.

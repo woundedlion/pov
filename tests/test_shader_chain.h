@@ -235,8 +235,8 @@ struct MirrorProjection {
   static const Quaternion &conjugate(const MirrorFrame &frame) {
     return frame.projection_conjugate;
   }
-  static float pole_fade(const MirrorFrame &frame) {
-    return frame.projection.pole_fade;
+  static float singularity_fade(const MirrorFrame &frame) {
+    return frame.projection.singularity_fade;
   }
 };
 
@@ -1691,14 +1691,14 @@ struct MeridianProjMirror : ProjMirrorBase<MeridianProjMirror> {
   static float central_meridian(const ProjMirrorFrame &frame) {
     return frame.meridian.central_meridian;
   }
-  static float pole_fade(const ProjMirrorFrame &frame) {
-    return frame.meridian.pole_fade;
+  static float singularity_fade(const ProjMirrorFrame &frame) {
+    return frame.meridian.singularity_fade;
   }
 };
 
 struct GnomonicProjMirror : ProjMirrorBase<GnomonicProjMirror> {
-  static float pole_fade(const ProjMirrorFrame &frame) {
-    return frame.gnomonic.pole_fade;
+  static float singularity_fade(const ProjMirrorFrame &frame) {
+    return frame.gnomonic.singularity_fade;
   }
 };
 
@@ -1710,12 +1710,18 @@ struct PeirceProjMirror : ProjMirrorBase<PeirceProjMirror> {
   static float coordinate_scale(const ProjMirrorFrame &) {
     return In::Op::PROJECT_COORDINATE_SCALE;
   }
+  static float singularity_fade(const ProjMirrorFrame &frame) {
+    return frame.meridian.singularity_fade;
+  }
 };
 
 struct PeirceFastProjMirror : ProjMirrorBase<PeirceFastProjMirror> {
   static constexpr bool ZERO_CENTRAL_MERIDIAN = true;
   static float coordinate_scale(const ProjMirrorFrame &) {
     return In::Op::PROJECT_COORDINATE_SCALE;
+  }
+  static float singularity_fade(const ProjMirrorFrame &frame) {
+    return frame.meridian.singularity_fade;
   }
 };
 
@@ -3038,7 +3044,7 @@ inline void test_shader_chain_effect_registers_params() {
   const ParamList &params = effect.getParameters();
   HS_EXPECT_EQ(params.size(), expected);
   HS_EXPECT_TRUE(params.find("camera.wander") != nullptr);
-  HS_EXPECT_TRUE(params.find("project.pole-fade") != nullptr);
+  HS_EXPECT_TRUE(params.find("project.singularity-fade") != nullptr);
   HS_EXPECT_TRUE(params.find("sample.pattern-freq") != nullptr);
   HS_EXPECT_TRUE(params.find("colorize.palette-chroma") != nullptr);
   const ParamDef *coverage = params.find("sample.coverage-mode");

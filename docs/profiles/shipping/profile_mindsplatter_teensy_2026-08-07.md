@@ -109,7 +109,7 @@ isr_dma_submit   144/frame  min/avg/max 0.78/0.95/10.06 us  cpu 0.21%
 - `filter_blend` does not appear on the direct-AA path.
 - Plot's shared raster selective-O3 region is active; effect-local wrappers remain `-Os`.
 - No dwell-compression or epoch-stretch knobs were used.
-- The capture ran from clean tip `3ec9284c`; later tip `39d72f18` changes only ShaderBall palette recipes.
+- The capture ran from clean tip `3ec9284c`; later tip `39d72f18` changes only ShaderWorkbench palette recipes.
 
 ## Harness
 

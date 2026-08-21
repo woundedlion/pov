@@ -251,7 +251,7 @@
           "maximum": 20,
           "minimum": 1
         },
-        "id": "project.pole-fade",
+        "id": "project.singularity-fade",
         "interpolation": {
           "kind": "LINEAR"
         },
@@ -458,7 +458,7 @@
         "colorize.value-opacity-high",
         "colorize.value-opacity-low",
         "lens.symmetry",
-        "project.pole-fade",
+        "project.singularity-fade",
         "project.projection-spin-speed",
         "project.projection-wander",
         "sample.angle-speed",
@@ -534,7 +534,7 @@
           "colorize.value-opacity-high": 1,
           "colorize.value-opacity-low": 1,
           "lens.symmetry": "hexagonal-prism",
-          "project.pole-fade": 1.6269999742507935,
+          "project.singularity-fade": 1.6269999742507935,
           "project.projection-spin-speed": 0,
           "project.projection-wander": 1,
           "sample.angle-speed": 0.029999999329447746,
@@ -567,7 +567,7 @@
           "colorize.value-opacity-high": 1,
           "colorize.value-opacity-low": 1,
           "lens.symmetry": "hexagonal-prism",
-          "project.pole-fade": 1.6269999742507935,
+          "project.singularity-fade": 1.6269999742507935,
           "project.projection-spin-speed": 0,
           "project.projection-wander": 1,
           "sample.angle-speed": 0.029999999329447746,

@@ -55,7 +55,7 @@ inline void test_effect_palette_recipe_roster() {
   HS_EXPECT_EQ(std::strcmp(presets[0].name, "BZReactionDiffusion"), 0);
   HS_EXPECT_EQ(std::strcmp(presets[2].name, "DisplacementField / RingShower"),
                0);
-  HS_EXPECT_EQ(std::strcmp(presets[8].name, "ShaderBall Flyby"), 0);
+  HS_EXPECT_EQ(std::strcmp(presets[8].name, "ShaderWorkbench Flyby"), 0);
   HS_EXPECT_FALSE(presets[0].random_hue);
   HS_EXPECT_TRUE(presets[1].random_hue);
   HS_EXPECT_TRUE(presets[4].random_hue);

@@ -28,9 +28,9 @@ public:
   using Params = HexWaveParams;
   static constexpr std::string_view EFFECT_ID = "hex-wave";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "08122928d7ecabd79b7286bdd2788b9ae3d87a1502aef4f53bcdbec5f08e1421";
+      "cd23f8b819db5a55e1b3c25f0713060214254b99531b6eec5f7d0607a20acc54";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "655c4529ec3d0b3552dc1ac8ff599484633d91ac2c952a1980ff279ebfe78708";
+      "3458fb7c9d4181c66879b4323dda8c4848ad45d743996a11a328018225d11915";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "hex-twin-wave", "hex-twin-wave-alt"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -47,7 +47,7 @@ public:
                     .speed = 0.128598228f,
                     .secondary_rate = 0.8f,
                     .angle_rate = 0.027f};
-    value.projection.pole_fade = 4.971f;
+    value.projection.singularity_fade = 4.971f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.color.hue_shift_amount = 0.226f;

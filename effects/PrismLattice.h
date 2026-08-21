@@ -30,9 +30,9 @@ public:
   using Params = PrismLatticeParams;
   static constexpr std::string_view EFFECT_ID = "prism-lattice";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "ff6f41a861bd79bd5876e9558e2dcd08425bca2ed144ba9697b119d7bea250d9";
+      "70e6cfd8e540967d477f7487a19705658410b53d34d0af42311006712c7a5b73";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "1bb66847b71e59e0067d82149ae9028b615bc20b5cc4112e2efe29acad3eb756";
+      "50720ad712274ad1d2a4e56ee85af0f9dd3795f9e224dc3996bb568e7c53b1b3";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"polar-wave"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -44,7 +44,7 @@ public:
     value.source.lattice_shape_blend = 1.0f;
     value.source.lattice_softness = 0.377608389f;
     value.source.lattice_radius = 0.290762514f;
-    value.projection.pole_fade = 2.273f;
+    value.projection.singularity_fade = 2.273f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.outer_warp.speed = 0.000343749998f;

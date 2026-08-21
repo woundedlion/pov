@@ -147,7 +147,7 @@
           "type": "object", "additionalProperties": false,
           "required": ["generator", "version", "resolutions", "configurations", "sample_count", "seed", "probe_operations"],
           "properties": {
-            "generator": { "const": "shaderball-pullback-corpus" }, "version": { "const": 1 },
+            "generator": { "const": "shader-workbench-pullback-corpus" }, "version": { "const": 1 },
             "resolutions": { "const": [[96, 20], [288, 144]] },
             "configurations": { "const": ["native-debug", "wasm-release", "wasm-strict-fp"] },
             "sample_count": { "type": "integer", "minimum": 1 }, "seed": { "type": "integer", "minimum": 0 },

@@ -45,7 +45,7 @@
 #include "death_guard_sites.h" // generated HS_CHECK census; see tests/CMakeLists.txt
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
-#include "tests/test_shaderball.h" // ShaderBallWhiteBox, for the effect-side traps
+#include "tests/test_shader_workbench.h" // ShaderWorkbenchWhiteBox, for the effect-side traps
 
 #include "core/math/3dmath.h"
 #include "core/animation/animation.h"
@@ -2994,12 +2994,12 @@ inline void case_sdf_distorted_ring_null_shift() {
 }
 
 /**
- * @brief Death case: fixing a ShaderBall preset view to nothing must trap.
+ * @brief Death case: fixing a ShaderWorkbench preset view to nothing must trap.
  * @details Effect surface — an empty view leaves preset_count_for_view() at
  *          zero, so preset selection would index an empty roster.
  */
-inline void case_shaderball_empty_preset_view() {
-  using WB = shaderball_tests::ShaderBallWhiteBox;
+inline void case_shader_workbench_empty_preset_view() {
+  using WB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
   WB::SB sb;
   WB::set_fixed_preset_view(sb, std::span<const uint8_t>());
 }
@@ -3009,8 +3009,8 @@ inline void case_shaderball_empty_preset_view() {
  * @details Effect surface — the view indirects into PRESETS, so an out-of-range
  *          entry reads a config off the end of the table.
  */
-inline void case_shaderball_preset_view_index_out_of_range() {
-  using WB = shaderball_tests::ShaderBallWhiteBox;
+inline void case_shader_workbench_preset_view_index_out_of_range() {
+  using WB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
   static const uint8_t indices[1] = {200};
   WB::SB sb;
   WB::set_fixed_preset_view(sb, std::span<const uint8_t>(indices, 1));
@@ -3021,8 +3021,8 @@ inline void case_shaderball_preset_view_index_out_of_range() {
  * @details Effect surface — the dwell counts down before the first automatic
  *          preset change, so zero would arm a countdown that never fires.
  */
-inline void case_shaderball_zero_preset_dwell() {
-  using WB = shaderball_tests::ShaderBallWhiteBox;
+inline void case_shader_workbench_zero_preset_dwell() {
+  using WB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
   WB::SB sb;
   WB::hold_initial_preset(sb, opaque<uint16_t>(0));
 }
@@ -3032,8 +3032,8 @@ inline void case_shaderball_zero_preset_dwell() {
  * @details Effect surface — the lookup indexes PRESETS through the view, so an
  *          out-of-range index hands the pipeline a config read off the table.
  */
-inline void case_shaderball_preset_for_view_out_of_range() {
-  using WB = shaderball_tests::ShaderBallWhiteBox;
+inline void case_shader_workbench_preset_for_view_out_of_range() {
+  using WB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
   WB::SB sb;
   if (reinterpret_cast<uintptr_t>(
           &WB::preset_for_view(sb, opaque<size_t>(200))) == 0x1)
@@ -3531,17 +3531,17 @@ inline const Case *all_cases(int &n) {
        "offset outside the face"},
       {"sdf_distorted_ring_null_shift", case_sdf_distorted_ring_null_shift,
        "rings.h", "(sf) DistortedRing: shift_fn must be non-null"},
-      {"shaderball_empty_preset_view", case_shaderball_empty_preset_view,
-       "ShaderBall.h",
+      {"shader_workbench_empty_preset_view", case_shader_workbench_empty_preset_view,
+       "ShaderWorkbench.h",
        "(!source_indices.empty()) set_fixed_preset_view: empty preset view"},
-      {"shaderball_preset_view_index_out_of_range",
-       case_shaderball_preset_view_index_out_of_range, "ShaderBall.h",
+      {"shader_workbench_preset_view_index_out_of_range",
+       case_shader_workbench_preset_view_index_out_of_range, "ShaderWorkbench.h",
        "(index < PRESETS.size()) set_fixed_preset_view: preset index out of "
        "range"},
-      {"shaderball_zero_preset_dwell", case_shaderball_zero_preset_dwell,
-       "ShaderBall.h", "(frames > 0) hold_initial_preset: zero dwell"},
-      {"shaderball_preset_for_view_out_of_range",
-       case_shaderball_preset_for_view_out_of_range, "ShaderBall.h",
+      {"shader_workbench_zero_preset_dwell", case_shader_workbench_zero_preset_dwell,
+       "ShaderWorkbench.h", "(frames > 0) hold_initial_preset: zero dwell"},
+      {"shader_workbench_preset_for_view_out_of_range",
+       case_shader_workbench_preset_for_view_out_of_range, "ShaderWorkbench.h",
        "(index < preset_count_for_view()) preset_for_view: index out of "
        "range"},
       {"sdf_angular_repeat_nonunit_axis", case_sdf_angular_repeat_nonunit_axis,
@@ -4066,7 +4066,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"MobiusRings.h", 1},
     {"ReactionDiffusionBase.h", 2},
     {"RingShower.h", 1},
-    {"ShaderBall.h", 14},
+    {"ShaderWorkbench.h", 14},
     {"ShaderChain.h", 1},
     {"ShapeShifter.h", 2},
     {"dma_led.h", 4},

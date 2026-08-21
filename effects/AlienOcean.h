@@ -29,9 +29,9 @@ public:
   using Params = AlienOceanParams;
   static constexpr std::string_view EFFECT_ID = "alien-ocean";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "71721357e9e46ad60acd63140a6707408cc6fe96a2f486804a9e1a540b771e48";
+      "6b0e73b661669b94a4ef0ea7b059345a7829c8d35078b723fb83569e7856cc60";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "bb79b346ffc5deb0cbb34479e72013f181b636f22f7dba3d989d7d327125961c";
+      "0e1c9f3208591e7c5946c21a5c30a7d587c88b0f91c54888f2b4e16ff6679703";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"folded-grid"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -45,7 +45,7 @@ public:
                     .pattern_mix = 1.0f,
                     .secondary_rate = 1.0f,
                     .angle_rate = 0.0f};
-    value.projection.pole_fade = 1.4f;
+    value.projection.singularity_fade = 1.4f;
     value.projection.camera_wander = 1.0f;
     value.outer_warp.rotation = 0.29530972f;
     value.outer_warp.cell_x = 5.381125f;

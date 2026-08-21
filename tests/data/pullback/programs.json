@@ -9,7 +9,7 @@
     "teensy": { "compiler": "PJRC arm-none-eabi-gcc 15.2.1", "platformio": "6.1.19", "platform": "teensy@5.2.0", "cpu_hz": 600000000 }
   },
   "corpus": {
-    "generator": "shaderball-pullback-corpus",
+    "generator": "shader-workbench-pullback-corpus",
     "version": 1,
     "resolutions": [[96, 20], [288, 144]],
     "configurations": ["native-debug", "wasm-release", "wasm-strict-fp"],
@@ -31,7 +31,7 @@
       "singularity:quincuncial-corners": "CARDINAL_POINTS",
       "boundary:square-edge": "FRAME_PERIMETER",
       "boundary:iso-contour": "EQUATOR_ROW",
-      "boundary:pole-fade": "POLE_BANDS",
+      "boundary:singularity-fade": "POLE_BANDS",
       "seam:polar-angle": "COLUMN_ZERO",
       "singularity:polar-origin": "FRONT_AXIS_POINT"
     }
@@ -103,7 +103,7 @@
       "presets": [7, 8],
       "topology_key": { "function": 5, "projection": 0, "projection_frame": 1, "surface_lens": 0, "signal_weight": 1, "value_transfer": 0, "coverage": 4, "peirce_layout": 0, "airocean_layout": 0, "bonne_hemisphere": 0, "gnomonic_hemisphere": 0, "surface_noise": 2, "surface_noise_placement": 0, "surface_noise_basis": 0, "surface_curl_integrator": 0, "source_noise_basis": 0, "outer_warp": 0, "outer_warp_basis": 0, "outer_warp_envelope": 0, "outer_polar_mode": 0, "outer_curl_integrator": 0, "outer_polar_harmonic": 0, "inner_warp": 0, "inner_warp_basis": 0, "inner_warp_envelope": 0, "inner_polar_mode": 0, "inner_curl_integrator": 0, "inner_polar_harmonic": 0 },
       "parameter_cases": [{"id":"default","values":"both presets"},{"id":"endpoint_min","values":"registered minima"},{"id":"endpoint_max","values":"registered maxima"},{"id":"interior","values":"25/50/75 percent"}],
-      "probes": {"seam":["longitude-wrap"],"singularity":["north-pole","south-pole"],"boundary":["pole-fade"],"transition":["from","to"]},
+      "probes": {"seam":["longitude-wrap"],"singularity":["north-pole","south-pole"],"boundary":["singularity-fade"],"transition":["from","to"]},
       "tolerances": {"carriers":{},"native_bit_identity":true,"release_wasm_framebuffer":{"max_channel_delta_u16":4,"max_differing_pixel_fraction":0.001}}
     },
     {

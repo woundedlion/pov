@@ -37,7 +37,7 @@ const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 120);
 const STACK_HWM_CEILING_BYTES = Number(process.env.WASM_SMOKE_STACK_CEILING ?? 2048);
 // Shader's dynamic reference sweep peaks near 3.2 KB and retains half of
 // the release stack as headroom under this effect-specific ratchet.
-const SHADERBALL_STACK_HWM_CEILING_BYTES = 4096;
+const SHADER_WORKBENCH_STACK_HWM_CEILING_BYTES = 4096;
 
 // main() lets a fatal precondition set exitCode and return, so buffered stdout
 // flushes rather than being cut off by process.exit().
@@ -229,7 +229,7 @@ async function main() {
         // hwm > capacity (unreachable — see STACK_HWM_CEILING_BYTES).
         const stack = m.stack;
         const stackCeiling = name === 'Shader'
-          ? Math.max(STACK_HWM_CEILING_BYTES, SHADERBALL_STACK_HWM_CEILING_BYTES)
+          ? Math.max(STACK_HWM_CEILING_BYTES, SHADER_WORKBENCH_STACK_HWM_CEILING_BYTES)
           : STACK_HWM_CEILING_BYTES;
         const stackGate = stackCreepBudget(stack, stackCeiling);
         if (!stack) {
@@ -449,6 +449,9 @@ async function main() {
       if (engine.setEffect('ShaderBall') !== ES.INSTALLED) {
         fail('shader-authoring: legacy setEffect("ShaderBall") alias failed');
       }
+      if (engine.setEffect('ShaderWorkbench') !== ES.INSTALLED) {
+        fail('shader-authoring: setEffect("ShaderWorkbench") alias failed');
+      }
       if (engine.setEffect('Shader') !== ES.INSTALLED) {
         fail('shader-authoring: setEffect("Shader") failed');
       } else {
@@ -547,7 +550,7 @@ async function main() {
         if (!lit) fail('shader-chain: default chain rendered an all-black frame');
 
         const names = new Set(engine.getParameterDefinitions().map((d) => d.name));
-        for (const want of ['camera.wander', 'project.pole-fade',
+        for (const want of ['camera.wander', 'project.singularity-fade',
           'sample.pattern-freq', 'sample.coverage-mode', 'colorize.palette-mode']) {
           if (!names.has(want)) fail(`shader-chain: definitions omit "${want}"`);
         }
