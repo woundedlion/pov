@@ -16,6 +16,15 @@ struct FacetGridWhiteBox;
 } // namespace facet_grid_tests
 } // namespace hs_test
 
+using FacetGridParams =
+    Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
+                     Pullback::MirrorParams>;
+using FacetGridSpec =
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
+                   Pullback::Lens::DodecahedralKaleidoscope,
+                   Pullback::TransferKind::NONE,
+                   Pullback::CoverageKind::PROJECTION_SQUARED>;
+
 /**
  * @brief Mirrored grids folded through a dodecahedral stereographic lens.
  * @details Supplies the render pipeline and preset bank; Pullback::ComposedEffect
@@ -26,15 +35,6 @@ struct FacetGridWhiteBox;
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
-using FacetGridParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
-                     Pullback::MirrorParams>;
-using FacetGridSpec =
-    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
-                   Pullback::Lens::DodecahedralKaleidoscope,
-                   Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION_SQUARED>;
-
 template <int W, int H>
 class FacetGrid : public Pullback::ComposedEffect<
                       W, H, FacetGrid<W, H>, FacetGridParams, FacetGridSpec,
