@@ -154,7 +154,7 @@ curl_midpoint_step(const Vector &input, const FastNoiseLite &noise,
   const Vector midpoint_field =
       curl_field(midpoint, noise, basis, scale, loop_offset);
   return finish_step(
-      input, distance * transport_tangent(midpoint, input, midpoint_field),
+      input, distance * parallel_transport(midpoint, input, midpoint_field),
       path_length_required);
 }
 
