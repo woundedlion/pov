@@ -176,6 +176,22 @@ template <typename State> struct EdgeFade : ApproximationDefaults {
 
 namespace Coverage {
 
+/** @brief Parameters for a value-dependent coverage cut. */
+struct CutoutValueParams {
+  float cutout_threshold = 0.5f; /**< Value the cut steps through. */
+  float cutout_softness = 0.05f; /**< Half-width of the step's ramp. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<CutoutValueParams>{
+          "cutout-threshold", &CutoutValueParams::cutout_threshold,
+          "Cutout Threshold", 0.0f, 1.0f, FieldCurve::LERP},
+      Field<CutoutValueParams>{
+          "cutout-softness", &CutoutValueParams::cutout_softness,
+          "Cutout Softness", 1.0f / 1024.0f, 0.5f, FieldCurve::LOG_POSITIVE},
+  };
+};
+static_assert(field_ids_unique<CutoutValueParams>());
+
 /** @brief Value parameters for the edge fade
     (Pullback::ProjectedCoverage::EdgeFade). */
 struct EdgeValueParams {

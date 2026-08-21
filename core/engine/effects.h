@@ -20,6 +20,7 @@
 #include "effects/AlienOcean.h"
 #include "effects/Fishbowl.h"
 #include "effects/Comets.h"
+#include "effects/CurlFacets.h"
 #include "effects/CurlLattice.h"
 #include "effects/DisplacementField.h"
 #include "effects/DreamBalls.h"
@@ -86,6 +87,7 @@
   X(Fishbowl)                                                                  \
   X(Comets)                                                                    \
   X(ContourLattice)                                                            \
+  X(CurlFacets)                                                                \
   X(CurlLattice)                                                               \
   X(DisplacementField)                                                         \
   X(DreamBalls)                                                                \
@@ -137,7 +139,8 @@
   X(BZReactionDiffusion, 120)                                                  \
   X(Fishbowl, 120)                                                             \
   X(Comets, 120)                                                               \
-  X(ContourLattice, 6)                                                         \
+  X(ContourLattice, 5)                                                         \
+  X(CurlFacets, 6)                                                             \
   X(CurlLattice, 13)                                                           \
   X(DisplacementField, 120)                                                    \
   X(DreamBalls, 120)                                                           \
@@ -146,18 +149,18 @@
   X(FacetWave, 6)                                                              \
   X(GnomonicStars, 120)                                                        \
   X(GSReactionDiffusion, 120)                                                  \
-  X(GlitchGrid, 6)                                                             \
+  X(GlitchGrid, 5)                                                             \
   X(HankinSolids, 120)                                                         \
   X(HopfFibration, 120)                                                        \
   X(HexWave, 6)                                                                \
   X(IslamicStars, 120)                                                         \
-  X(AlienOcean, 7)                                                             \
+  X(AlienOcean, 6)                                                             \
   X(KaleidoWave, 7)                                                            \
   X(MeshFeedback, 181)                                                         \
   X(MindSplatter, 120)                                                         \
   X(MobiusGrid, 6)                                                             \
   X(PetalFlow, 120)                                                            \
-  X(PrismLattice, 6)                                                           \
+  X(PrismLattice, 5)                                                           \
   X(PrismSpiral, 6)                                                            \
   X(Raymarch, 120)                                                             \
   X(RingShower, 120)                                                           \
@@ -165,8 +168,8 @@
   X(ShapeShifter, 135)                                                         \
   X(SignalWeave, 7)                                                            \
   X(SphericalHarmonics, 120)                                                   \
-  X(CosmicEyeball, 6)                                                          \
-  X(VectorFacets, 6)                                                           \
+  X(CosmicEyeball, 5)                                                          \
+  X(VectorFacets, 5)                                                           \
   X(Voronoi, 120)
 
 /** Shader promotion product group in gallery and fixed-pipeline roster
@@ -174,18 +177,19 @@
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
   X(SignalWeave, 7)                                                            \
   X(KaleidoWave, 7)                                                            \
-  X(AlienOcean, 7)                                                             \
-  X(GlitchGrid, 6)                                                             \
+  X(AlienOcean, 6)                                                             \
+  X(GlitchGrid, 5)                                                             \
   X(FacetWave, 6)                                                              \
-  X(ContourLattice, 6)                                                         \
+  X(ContourLattice, 5)                                                         \
   X(CurlLattice, 13)                                                           \
-  X(PrismLattice, 6)                                                           \
+  X(CurlFacets, 6)                                                             \
+  X(PrismLattice, 5)                                                           \
   X(PrismSpiral, 6)                                                            \
-  X(VectorFacets, 6)                                                           \
+  X(VectorFacets, 5)                                                           \
   X(FacetGrid, 19)                                                             \
   X(HexWave, 6)                                                                \
   X(EquatorGrid, 13)                                                           \
-  X(CosmicEyeball, 6)                                                          \
+  X(CosmicEyeball, 5)                                                          \
   X(MobiusGrid, 6)
 
 #define HS_SHADER_GROUP_SECONDS(name, seconds) +seconds

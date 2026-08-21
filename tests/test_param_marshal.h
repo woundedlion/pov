@@ -240,6 +240,7 @@ inline void check_roster_order_pinned() {
                                               "Fishbowl",
                                               "Comets",
                                               "ContourLattice",
+                                              "CurlFacets",
                                               "CurlLattice",
                                               "DisplacementField",
                                               "DreamBalls",

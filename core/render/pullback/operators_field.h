@@ -101,18 +101,10 @@ struct TransferSmoothBands
 };
 
 /** @brief Parameter family of field.coverage.value-cutout.v2. */
-struct ValueCutoutChainParams {
-  float cutout_threshold = 0.5f; /**< Value the cut steps through. */
-  float cutout_softness = 0.05f; /**< Half-width of the step's ramp. */
-
-  static constexpr auto FIELDS = std::array{
-      Field<ValueCutoutChainParams>{
-          "cutout-threshold", &ValueCutoutChainParams::cutout_threshold,
-          "Cutout Threshold", 0.0f, 1.0f, FieldCurve::LERP},
-      Field<ValueCutoutChainParams>{
-          "cutout-softness", &ValueCutoutChainParams::cutout_softness,
-          "Cutout Softness", 1.0f / 1024.0f, 0.5f, FieldCurve::LOG_POSITIVE},
-  };
+struct ValueCutoutChainParams : Coverage::CutoutValueParams {
+  static constexpr auto FIELDS = concat_fields<ValueCutoutChainParams>(
+      Coverage::CutoutValueParams::FIELDS,
+      std::array<Field<ValueCutoutChainParams>, 0>{});
 };
 static_assert(field_ids_unique<ValueCutoutChainParams>());
 
