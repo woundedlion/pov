@@ -385,8 +385,24 @@ schematic, and the `.kicad_prl` that the KiCad GUI writes is local only. Run
   enforces a 0.45/0.20 mm minimum.
 - After downloading candidates, run `python gen/analyze_candidates.py <paths>`.
   Candidates with vias below 0.45/0.20 mm are ineligible even if Quilter's DRC
-  accepts them. After promoting the chosen board to `phantasm.kicad_pcb`, run
-  `python gen/fab.py`; fabrication output repeats the same via gate.
+  accepts them. After promoting the chosen board to `phantasm.kicad_pcb`,
+  **re-widen the four sync lands by hand** (below), then run `python gen/fab.py`;
+  fabrication output repeats the same via gate.
+
+**Required manual step after promoting any re-route: re-widen the four sync lands.**
+`unplaced/phantasm_unplaced.kicad_pcb` stages `R1`, `R2`, `R_PD` and `R_S` on the
+**stock** library land, so every board that comes back from a placer carries stock pads
+and no generator reapplies the widening. Edit the promoted `phantasm.kicad_pcb` in place —
+keep the stock footprint id and the stock pad centres, grow only the pad `size`:
+
+| Ref(s) | Footprint id (unchanged) | Pad centres | Pad size stock → shipped |
+|---|---|---|---|
+| `R1`, `R2`, `R_PD` | `Resistor_SMD:R_0603_1608Metric` | ±0.825 mm | 0.8 × 0.95 → **1.2 × 0.95 mm** |
+| `R_S` | `Resistor_SMD:R_0805_2012Metric` | ±0.9125 mm | 1.025 × 1.4 → **1.4 × 1.4 mm** |
+
+`gen/tests/test_pcb_lands.py` (`SHIPPED_CHIP_LANDS`) holds these numbers and fails until
+the promoted board carries them; KiCad's DRC and schematic-parity gates cannot see the
+difference, because the widened pads keep the stock footprint id.
 
 > `python pcb.py --force` regenerates the placed board and **discards routing**;
 > `--unplaced --force` discards the committed KiCad GUI re-save that is the Quilter
