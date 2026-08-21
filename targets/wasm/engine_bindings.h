@@ -1170,7 +1170,12 @@ public:
   /**
    * @brief Exports the chain-interpreter operator catalog.
    * @return The catalog JSON — budgets, carriers, and every operator-table
-   *         entry — byte-identical to the native suite's golden pin.
+   *         entry. Budgets, carriers, operator ids and parameter schemas
+   *         match the native suite's golden pin; the block sizes do not.
+   *         These are wasm32 ABI figures, so a pointer-bearing operator's
+   *         `prepared` block is narrower here than in the LP64 golden.
+   *         An editor budgets arena bytes against these figures, which
+   *         are the ones this module's own runtime allocates from.
    */
   static std::string getShaderChainCatalog() {
     std::string catalog;
