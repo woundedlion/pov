@@ -143,6 +143,40 @@ struct DisplaceDirect {
   }
 };
 
+/** @brief Phase clock of sphere.displace.ripple.v2. */
+struct RipplePhaseState {
+  float phase = 0.0f;
+};
+
+/** @brief SPHERE endomorphism: a periodically expanding Ricker-wave ripple. */
+struct DisplaceRipple {
+  static constexpr const char *ID = "sphere.displace.ripple.v2";
+  static constexpr const char *NAME = "Ripple Displace";
+  using Input = SphereSample;
+  using Output = SphereSample;
+  using Params = Surface::PeriodicRippleParams;
+  using State = RipplePhaseState;
+  using Prepared = Surface::PreparedRipple;
+
+  static void init(State &, InstanceId) {}
+  static Status migrate(State &dst, const State &src, InstanceId) {
+    dst = src;
+    return Status::OK;
+  }
+  static void advance(State &state, const Params &params) {
+    state.phase = wrap_t(state.phase + params.speed);
+  }
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &state) {
+    return Surface::prepare_ripple(params, state.phase);
+  }
+  static SphereSample run(const SphereSample &input, const FrameContext &,
+                          const Params &, const Prepared &prepared) {
+    return Kernel::displace(
+        input, Surface::periodic_ripple(input.dir, prepared, true));
+  }
+};
+
 /** @brief Shared shape of the parameterless lens operators. */
 template <typename Derived> struct FixedLensModel : StatelessModel {
   using Input = SphereSample;
