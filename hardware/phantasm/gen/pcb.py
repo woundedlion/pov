@@ -726,9 +726,9 @@ def main(unplaced=False, force=False, force_teensy_library=False):
 
     lines = []
     lines.append("(kicad_pcb")
-    lines.append("\t(version 20250513)")
+    lines.append(f"\t(version {sexp.PCB_FORMAT})")
     lines.append('\t(generator "phantasm-gen")')
-    lines.append('\t(generator_version "10.0")')
+    lines.append(f'\t(generator_version "{sexp.GENERATOR_VERSION}")')
     lines.append("\t(general (thickness 1.6) (legacy_teardrops no))")
     lines.append('\t(paper "A2")')
     lines.append("\t(layers")
@@ -841,9 +841,9 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     os.makedirs(pretty, exist_ok=True)
     mod = teensy_footprint()
     mod[1] = "Teensy4.0"
-    mod.insert(2, [sexp.Sym("version"), sexp.Sym("20240108")])
+    mod.insert(2, [sexp.Sym("version"), sexp.Sym(sexp.FOOTPRINT_FORMAT)])
     mod.insert(3, [sexp.Sym("generator"), "phantasm-gen"])
-    mod.insert(4, [sexp.Sym("generator_version"), "10.0"])
+    mod.insert(4, [sexp.Sym("generator_version"), sexp.GENERATOR_VERSION])
     mod_path = os.path.join(pretty, "Teensy4.0.kicad_mod")
     mod_text = sexp.dumps(mod) + "\n"
     if os.path.exists(mod_path):
