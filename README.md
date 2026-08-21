@@ -336,7 +336,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   │                            operators_field, operators_project, operators_sample,
 │   │   │                            operators_sphere, operators_warp), the chain
 │   │   │                            interpreter (interpreter) with its catalog export
-│   │   │                            (catalog_export), plus the composed-effect base
+│   │   │                            (catalog_export), the shared runtime seeds
+│   │   │                            (runtime_seeds), plus the composed-effect base
 │   │   │                            (composed_effect)
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,

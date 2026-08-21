@@ -145,6 +145,41 @@ class TestDocumentationChecker(unittest.TestCase):
         ])
         self.assertEqual({issue.line for issue in issues}, {2})
 
+    def test_prose_child_list_is_gated_in_both_directions(self):
+        text = ("<!-- docs-check: tree exhaustive -->\n"
+                "```\n"
+                "└── core/                       Engine\n"
+                "    └── render/                 Per-stage headers (surface,\n"
+                "        │                        warp), plus the base (ghost)\n"
+                "```\n")
+        entries = {
+            PurePosixPath("core"),
+            PurePosixPath("core/render"),
+            PurePosixPath("core/render/surface.h"),
+            PurePosixPath("core/render/warp.h"),
+            PurePosixPath("core/render/color.h"),
+        }
+        issues = dc.check_text(PurePosixPath("README.md"), text, entries)
+        self.assertEqual([issue.message for issue in issues], [
+            "tree omits tracked path 'core/render/color.h'",
+            "tree path 'core/render/ghost' does not exist",
+        ])
+
+    def test_prose_group_that_is_not_a_stem_list_names_nothing(self):
+        text = ("<!-- docs-check: tree exhaustive -->\n"
+                "```\n"
+                "└── core/                       Engine\n"
+                "    └── render/                 Per-stage headers (one per\n"
+                "        │                        stage), a work in progress\n"
+                "```\n")
+        entries = {
+            PurePosixPath("core"),
+            PurePosixPath("core/render"),
+            PurePosixPath("core/render/surface.h"),
+        }
+        self.assertEqual(
+            dc.check_text(PurePosixPath("README.md"), text, entries), [])
+
     def test_unmapped_paths_are_exempt_from_the_exhaustive_diff(self):
         text = ("<!-- docs-check: tree exhaustive -->\n"
                 "```\n"

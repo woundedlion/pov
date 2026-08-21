@@ -74,6 +74,13 @@ _TREE_TAG = "tree"
 _TREE_EXHAUSTIVE = "exhaustive"
 _TREE_ROW_RE = re.compile(r"^(?P<indent>(?:│   |    )*)(?:├──|└──) +(?P<rest>\S.*)$")
 _TREE_INDENT = 4
+# A directory row may enumerate its children in prose rather than draw one row
+# apiece, wrapping onto continuation lines that carry the spine but no branch.
+# Within such a row every parenthesized group whose comma-separated parts are
+# all bare stems names children of it, gated in both directions like a row.
+_TREE_CONT_RE = re.compile(r"^[│ \t]*(?P<rest>\S.*)$")
+_TREE_LIST_RE = re.compile(r"\(([^()]*)\)")
+_TREE_STEM_RE = re.compile(r"[a-z0-9_]+")
 # A drawn name: a path segment chain, optionally a directory's trailing slash,
 # optionally a glob. Bare ellipsis rows elide a subtree and name nothing.
 _TREE_NAME_RE = re.compile(r"^(?![.…]+/?$)[A-Za-z0-9_.*?][\w.\-*?]*(?:/[\w.\-*?]+)*/?$")
@@ -489,6 +496,33 @@ def _tree_names(rest: str) -> list[str]:
     return names
 
 
+def _tree_listed(description: str) -> list[str]:
+    """Child stems a directory row's prose enumerates, in the order drawn.
+
+    A group holding anything but bare stems is prose, not a list, and names
+    nothing; the row then elides its subtree as an undescribed one does.
+    """
+    stems = []
+    for group in _TREE_LIST_RE.findall(description):
+        parts = [part.strip() for part in group.split(",")]
+        if parts and all(_TREE_STEM_RE.fullmatch(part) for part in parts):
+            stems.extend(parts)
+    return stems
+
+
+def _tree_stem_paths(directory: str, stem: str,
+                     entries: set[PurePosixPath]) -> list[str]:
+    """Resolves a prose-named stem to the children it names, suffix and all.
+
+    A stem no child carries resolves to itself, which the existence check then
+    reports as the missing path the prose claims.
+    """
+    matches = sorted(entry.as_posix() for entry in entries
+                     if entry.parent.as_posix() == directory
+                     and entry.stem == stem)
+    return matches or [posixpath.join(directory, stem)]
+
+
 def _tree_entry_exists(candidate: str, entries: set[PurePosixPath],
                        allowed: Callable[[str], bool]) -> bool:
     if allowed(candidate):
@@ -524,16 +558,38 @@ def _checkout_allowance(candidate: str, prefixes: tuple[str, ...]) -> bool:
                for prefix in prefixes)
 
 
-def _tree_rows(source: PurePosixPath,
-               fence: Fence) -> tuple[list[tuple[int, str]], list[Issue]]:
+def _tree_rows(source: PurePosixPath, fence: Fence,
+               entries: set[PurePosixPath]) -> tuple[list[tuple[int, str]],
+                                                     list[Issue]]:
     """Resolves a fence's rows to (line, repo-relative path) pairs."""
     rows = []
     issues = []
     stack: list[str] = []
+    # The directory row whose description is still open, and its text so far.
+    described: tuple[int, str] | None = None
+    words: list[str] = []
+
+    def close() -> None:
+        nonlocal described
+        if described is not None:
+            line_number, directory = described
+            rows.extend(
+                (line_number, path)
+                for stem in _tree_listed(" ".join(words))
+                for path in _tree_stem_paths(directory, stem, entries))
+        described = None
+        words.clear()
+
     for line_number, line in fence.body:
         match = _TREE_ROW_RE.match(line)
         if not match:
+            continuation = described and _TREE_CONT_RE.match(line)
+            if continuation:
+                words.append(continuation.group("rest"))
+            else:
+                close()
             continue
+        close()
         depth = len(match.group("indent")) // _TREE_INDENT
         names = _tree_names(match.group("rest"))
         if not names:
@@ -546,6 +602,11 @@ def _tree_rows(source: PurePosixPath,
         stack[depth:] = [names[0].rstrip("/")]
         rows.extend((line_number, posixpath.join(parent, name.rstrip("/")))
                     for name in names)
+        if names[0].endswith("/"):
+            described = (line_number,
+                         posixpath.join(parent, names[0].rstrip("/")))
+            words = [match.group("rest")]
+    close()
     return rows, issues
 
 
@@ -616,7 +677,7 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
         else:
             target = entries
             allowed = functools.partial(_untracked_allowance, used=used)
-        rows, row_issues = _tree_rows(source, fence)
+        rows, row_issues = _tree_rows(source, fence, target)
         issues.extend(row_issues)
         issues.extend(
             Issue(source.as_posix(), line_number,
