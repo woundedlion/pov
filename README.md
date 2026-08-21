@@ -511,7 +511,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── eslint.config.mjs           JavaScript lint rules for scripts/*.mjs (recommended set) — the same job
 ├── .githooks/                  pre-commit format/lint/test/size gate, post-commit size-trail recorder, and a reference-transaction guard keeping master fast-forward-only
 ├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages)
-├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects/ reserved
+├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects/ and core/engine/effects_legacy.h reserved
 ├── CONTRIBUTING.md             Landing model, gates, and the tool pins a contributor has to match
 └── justfile                    Task runner: `just build` / `test` / `smoke` / `docs` / `install` (`just --list` for the rest)
 ```
