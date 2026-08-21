@@ -1418,21 +1418,7 @@ jobs:
       # GUARD_GAP_ALLOW row, or `<test file>.cases` / `.assertions` for a JS
       # floor), added in the same commit as the weakening it
       # approves, so it is visible in that commit's diff. Empty in steady state.
-      # The five rows below widened before this gate existed, in commits
-      # already sitting unpushed on master (the ShaderChain/chain-interpreter
-      # and canvas landings). The gate compares against the pushed tip, so its
-      # first run judges that whole backlog; these approve it once. The two
-      # geometry.h/mesh.h rows approve the core hoist that moved DreamBalls'
-      # helpers (DreamBalls.h 13 -> 9 the other way). Drop all seven once this
-      # has been pushed - from then on they approve nothing and warn as stale.
-      ASSERTION_FLOOR_ALLOW_LOWER: |
-        guard_gap.geometry.h
-        guard_gap.mesh.h
-        guard_gap.ShaderChain.h
-        guard_gap.canvas.h
-        guard_gap.interpreter.h
-        guard_gap.operator_model.h
-        guard_gap.operators.h
+      ASSERTION_FLOOR_ALLOW_LOWER: ""
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
