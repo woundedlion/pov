@@ -575,6 +575,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
             p = newton_unit(smp.pos);
         } else if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT &&
                              requires { sample.one_pass(current_t); }) {
+          // Only the planar sampler reaches here. Its balanced walk corrects
+          // with the Newton step, its default-density walk with the exact
+          // normalize; the two land ~5e-6 of unit length apart and plot
+          // different rows.
           HS_PLOT_COUNT(normalizations);
           if (balanced_sampling) {
             p = newton_unit(smp.pos);
