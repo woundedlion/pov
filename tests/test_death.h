@@ -2527,6 +2527,19 @@ inline Animation::OpLeg::PaletteHandoff death_opleg_handoff() {
           .correspondence = Animation::OpLeg::FaceCorrespondence::GEOMETRIC};
 }
 
+/**
+ * @brief Death case: choosing an edge from a node outside the graph must trap.
+ * @details ConwayGraph surface — no EDGES row touches such a node, so the
+ *          weighted pick would have nothing to divide by.
+ */
+inline void case_pick_next_edge_unknown_node() {
+  uint8_t visits[ConwayGraph::NUM_NODES] = {};
+  const int e = ConwayGraph::pick_next_edge(opaque<int>(ConwayGraph::NUM_NODES),
+                                            -1, 0, visits, 0u);
+  if (e == opaque<int>(-42))
+    std::printf("x");
+}
+
 /** @brief A well-formed non-settling graph edge for the OpLeg death cases. */
 inline constexpr ConwayGraph::EdgeSpec death_opleg_edge{
     .from_node = 0,
@@ -3516,6 +3529,8 @@ inline const Case *all_cases(int &n) {
        "rings.h", "(kn != nullptr && n >= 1) "},
       {"sdf_twist_zero_major_radius", case_sdf_twist_zero_major_radius,
        "volume.h", "(R > 0.0f) "},
+      {"pick_next_edge_unknown_node", case_pick_next_edge_unknown_node,
+       "conway_graph.h", "(n > 0) pick_next_edge: node outside the graph"},
       {"opleg_edge_sweep_no_edge", case_opleg_edge_sweep_no_edge, "opleg.h",
        "(spec.edge) OpLeg: edge sweep carries no graph edge"},
       {"opleg_zero_sweep_frames", case_opleg_zero_sweep_frames, "opleg.h",
@@ -3940,7 +3955,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
  * @details Raise it after adding cases; lower it only alongside a deliberate
  *          removal of the engine guards those cases target.
  */
-constexpr int MIN_COVERED_GUARD_SITES = 137;
+constexpr int MIN_COVERED_GUARD_SITES = 138;
 
 /** @brief One file's approved count of guard sites no case pins. */
 struct GuardGapAllowance {
