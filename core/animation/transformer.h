@@ -236,8 +236,9 @@ public:
    * @param in_frames Delay in frames before the animation starts.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
-   * @return Pointer to the spawned animation, or nullptr if no pool slot or
-   * timeline event is available.
+   * @return Pointer to the spawned animation, or nullptr if no pool slot is
+   * available. A full timeline traps here instead of returning null, which a
+   * retained handle would not check.
    * @details Only valid when the spawned animation never completes on its own —
    * infinite, or repeating (it rewinds rather than reaching done()) — and is
    * added before any finite timeline event, so compaction never shifts it: the
