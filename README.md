@@ -263,9 +263,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 ```
 ├── core/                       Rendering engine
 │   ├── platform/               Target abstraction and build-time configuration
-│   │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
+│   │   ├── platform.h              HS_CHECK trap + Arduino vs. WASM vs. Desktop abstraction layer
 │   │   ├── attributes.h            Placement and optimization attribute macros
-│   │   ├── diagnostics.h           HS_CHECK trap + hs::log
+│   │   ├── diagnostics.h           hs::log / hs::flush_log sink + HS_OS_CYCLES cycle read
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── rng.h                   Deterministic random number generation
