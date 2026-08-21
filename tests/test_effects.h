@@ -901,11 +901,8 @@ struct SphericalHarmonicsWhiteBox {
 };
 
 /**
- * @brief Pins HarmonicField's write-through, blend endpoints, and local frame.
- * @details The field is the only channel between the harmonic math and the
- *          shader: distance() must report a constant "inside" so the whole
- *          sphere rasterizes, and the value must ride out through raw_dist.
- *          Nothing downstream can tell a frozen blend, a reversed blend, or a
+ * @brief Pins HarmonicField's blend endpoints, polarity and local frame.
+ * @details Nothing downstream can tell a frozen blend, a reversed blend, or a
  *          shape rotated the wrong way from a legitimate mode — every one of
  *          them still paints a plausible sphere.
  */
@@ -923,7 +920,7 @@ inline void test_sh_field_write_through_and_endpoints() {
   Field pure_a_unrotated(LA, MA, LA, MA, 0.0f, identity);
 
   constexpr int PHI_STEPS = 24, THETA_STEPS = 32;
-  int samples = 0, inside = 0, positives = 0, negatives = 0;
+  int positives = 0, negatives = 0;
   double worst_start = 0.0, worst_end = 0.0, worst_frame = 0.0;
   for (int i = 0; i <= PHI_STEPS; ++i) {
     const float phi = PI_F * i / PHI_STEPS;
@@ -931,34 +928,25 @@ inline void test_sh_field_write_through_and_endpoints() {
       const float theta = 2.0f * PI_F * j / THETA_STEPS;
       const Vector p(sinf(phi) * cosf(theta), cosf(phi),
                      sinf(phi) * sinf(theta));
-      SDF::DistanceResult start, end, a, b, spun, unspun;
-      mix_start.distance(p, start);
-      mix_end.distance(p, end);
-      pure_a.distance(p, a);
-      pure_b.distance(p, b);
-      pure_a_unrotated.distance(p, unspun);
+      const float start = mix_start.sample(p);
+      const float end = mix_end.sample(p);
+      const float a = pure_a.sample(p);
+      const float b = pure_b.sample(p);
+      const float unspun = pure_a_unrotated.sample(p);
       // Rotating the sample by the same quaternion the shape carries must land
       // back on the unrotated shape's value.
-      pure_a.distance(rotate(p, spin), spun);
+      const float spun = pure_a.sample(rotate(p, spin));
 
-      ++samples;
-      if (start.dist < 0.0f)
-        ++inside;
-      if (a.raw_dist > 0.02f)
+      if (a > 0.02f)
         ++positives;
-      if (a.raw_dist < -0.02f)
+      if (a < -0.02f)
         ++negatives;
-      worst_start =
-          std::max<double>(worst_start, std::fabs(start.raw_dist - a.raw_dist));
-      worst_end =
-          std::max<double>(worst_end, std::fabs(end.raw_dist - b.raw_dist));
-      worst_frame = std::max<double>(
-          worst_frame, std::fabs(spun.raw_dist - unspun.raw_dist));
+      worst_start = std::max<double>(worst_start, std::fabs(start - a));
+      worst_end = std::max<double>(worst_end, std::fabs(end - b));
+      worst_frame = std::max<double>(worst_frame, std::fabs(spun - unspun));
     }
   }
 
-  // The whole sphere is covered: a positive distance anywhere would punch a hole.
-  HS_EXPECT_EQ(inside, samples);
   // A dipole must actually change sign, or the polarity split below is vacuous.
   HS_EXPECT_GT(positives, 0);
   HS_EXPECT_GT(negatives, 0);
@@ -1027,16 +1015,16 @@ inline void test_sh_polarity_split_and_ao_shaping() {
         uint64_t pos_green = 0, neg_green = 0;
         for (int y = 0; y < SMALL_H; ++y)
           for (int x = 0; x < SMALL_W; ++x) {
-            SDF::DistanceResult res;
-            field.distance(pixel_to_vector<SMALL_W, SMALL_H>(x, y), res);
+            const float val =
+                field.sample(pixel_to_vector<SMALL_W, SMALL_H>(x, y));
             const Pixel &px = fx.get_pixel(x, y);
-            const bool positive = res.raw_dist > 0.0f;
+            const bool positive = val > 0.0f;
             // A dipole's two lobes are antipodal mirrors, so their magnitude
             // distributions match and their green totals differ only by the
             // negative recolor's scale.
             (positive ? pos_green : neg_green) += px.g;
 
-            const float mag = std::fabs(res.raw_dist) * amp;
+            const float mag = std::fabs(val) * amp;
             if (mag < SATURATED)
               continue;
             Pixel &slot = positive ? pos : neg;
@@ -1087,9 +1075,9 @@ inline void test_sh_polarity_split_and_ao_shaping() {
         int probed = 0, undimmed = 0;
         for (int y = 0; y < SMALL_H; ++y)
           for (int x = 0; x < SMALL_W; ++x) {
-            SDF::DistanceResult res;
-            field.distance(pixel_to_vector<SMALL_W, SMALL_H>(x, y), res);
-            const float mag = std::fabs(res.raw_dist) * amp;
+            const float val =
+                field.sample(pixel_to_vector<SMALL_W, SMALL_H>(x, y));
+            const float mag = std::fabs(val) * amp;
             const Pixel want = WB::palette(fx).get(std::min(1.0f, mag)).color;
             const uint32_t want_energy =
                 static_cast<uint32_t>(want.r) + want.g + want.b;
