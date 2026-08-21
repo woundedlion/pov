@@ -34,9 +34,6 @@ template <int W, int H> class SphericalHarmonics : public Effect {
 public:
   /**
    * @brief Field sampler that evaluates the (blended) harmonic at a world point.
-   * @details Not a deforming SDF: distance() reports a constant "fully inside" so
-   * the whole sphere is covered, and the field value rides out through raw_dist
-   * (frag.v1) for the shader to paint.
    */
   struct HarmonicField {
     int l1, m1;
@@ -45,7 +42,6 @@ public:
     RotationMatrix orientation_conj; /**< World->local rotation (conjugate of
                                         the shape orientation). */
     float N1, N2; /**< Per-mode harmonic scales, precomputed once per shape. */
-    static constexpr bool is_solid = true;
 
     /**
      * @brief Construct a field for blending mode (l1, m1) into (l2, m2).
@@ -62,37 +58,13 @@ public:
           N2(SHMath::harmonic_scale(l2, m2)) {}
 
     /**
-     * @brief Vertical scan bounds for the field.
-     * @tparam H_scan Display height in pixels.
-     * @return Full-height bounds; lobes can occupy any region, so no static
-     * bounding.
-     */
-    template <int H_scan> SDF::Bounds get_vertical_bounds() const {
-      return {0, H_scan - 1};
-    }
-    /**
-     * @brief Horizontal scan intervals for a given row.
-     * @tparam W_scan Display width in pixels.
-     * @tparam H_scan Display height in pixels.
-     * @tparam OutputIt Output iterator type for emitted intervals.
-     * @return Always false: no horizontal interval narrowing (full-sphere scan).
-     */
-    template <int W_scan, int H_scan, typename OutputIt>
-    bool get_horizontal_intervals(int, OutputIt) const {
-      return false;
-    }
-
-    /**
      * @brief Sample the (possibly blended) harmonic at world point p.
-     * @tparam ComputeUVs Whether to compute UV coordinates (unused here).
      * @param p World-space sample point.
-     * @param res Output DistanceResult; carries the field value in v1 with a
-     * constant "inside" distance.
-     * @details Rotates p into the shape's local frame, evaluates both modes
-     * there, and emits the field value through frag.v1.
+     * @return Signed field value; zero-crossings are the lobe boundaries.
+     * @details Rotates p into the shape's local frame and evaluates both modes
+     * there.
      */
-    template <bool ComputeUVs = true>
-    void distance(const Vector &p, SDF::DistanceResult &res) const {
+    float sample(const Vector &p) const {
       Vector local = orientation_conj.apply(p);
 
       // The shape spins about an arbitrary axis, so the local frame varies
@@ -103,17 +75,14 @@ public:
         float val2 = SHMath::spherical_harmonic(l2, m2, local, N2);
         val += (val2 - val) * blend;
       }
-
-      // Constant "inside" (see struct comment); field value -> frag.v1.
-      res = SDF::DistanceResult(-1.0f, 0.0f, val, 0.0f, 1.0f);
+      return val;
     }
   };
 
   /**
    * @brief Construct the visualizer with the display dimensions.
    */
-  HS_COLD_MEMBER SphericalHarmonics()
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})) {}
+  HS_COLD_MEMBER SphericalHarmonics() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief One-time setup of params, palette, shape, spin, and first morph.
@@ -139,7 +108,8 @@ public:
   /**
    * @brief Render one frame of the morphing harmonic.
    * @details Decodes the current and target modes, builds the field for this
-   * frame's morph state, and rasterizes with the harmonic-coloring shader.
+   * frame's morph state, and shades the sphere with the harmonic-coloring
+   * shader.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -151,11 +121,12 @@ public:
     auto [l1, m1] = SHMath::decode_lm(current_idx);
     auto [l2, m2] = SHMath::decode_lm(next_idx);
     HarmonicField field(l1, m1, l2, m2, morph_alpha, orientation.get());
+    const bool debug = params.debug_bb || canvas.debug();
 
-    // Map the field value (carried in frag.v1) to color: diverging positive/
-    // negative palettes crossfaded at the zero-crossing, then AO brightness.
-    auto shader = [&](const Vector &, Fragment &frag) {
-      float val = frag.v1;
+    // Map the field value to color: diverging positive/negative palettes
+    // crossfaded at the zero-crossing, then AO brightness.
+    auto shader = [&](const Vector &v) {
+      float val = field.sample(v);
       float abs_val = std::abs(val);
 
       Color4 pos =
@@ -184,12 +155,16 @@ public:
       float occlusion = AO_AMBIENT + AO_RANGE * shadow;
       base.color = base.color * occlusion;
 
-      frag.color = base;
+      if (debug) {
+        base.color = base.color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
+        base.alpha = 1.0f;
+      }
+      return base;
     };
 
     {
       HS_PROFILE(sh_rasterize);
-      Scan::rasterize<W, H>(filters, canvas, field, shader, params.debug_bb);
+      Scan::Shader::draw<W, H>(canvas, shader);
     }
   }
 
@@ -239,7 +214,6 @@ private:
 
   Orientation<> orientation;  /**< Current sphere orientation. */
   Timeline timeline;          /**< Drives spin and morph animations. */
-  Pipeline<W, H> filters;     /**< Post-process filter pipeline. */
   BakedPalette baked_palette; /**< Precomputed color LUT for the shader. */
 
   // init() bakes one palette LUT into the persistent arena. Effect keeps the
