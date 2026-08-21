@@ -311,6 +311,7 @@ private:
   uint32_t frame_index = 0;
 };
 
+#include "core/control/registry.h"
 REGISTER_EFFECT(ShaderChain)
 
 #endif // HS_ENABLE_CHAIN_INTERPRETER
