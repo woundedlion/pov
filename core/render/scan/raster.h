@@ -327,7 +327,8 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
  * @tparam W Canvas width in pixels.
  * @tparam IntervalBufT Source span buffer type.
  * @tparam NormBufT Seam-split scratch buffer type; holds 2 spans per source span.
- * @param intervals Source spans in fractional column units, each of length <= W.
+ * @param intervals Source spans in fractional column units; one of length >= W
+ *        normalizes to the full row instead of seam-splitting.
  * @param norm Scratch, cleared here, receiving coalesced integer column runs.
  * @details Wrapping each start into [0, W) and splitting spans that cross the
  * x=0 seam gives the forward sweep sorted, non-wrapping input even when a
@@ -518,11 +519,11 @@ inline constexpr bool fits_top_span_cap =
  *
  * Producer contract: emitted endpoints are in fractional column units and need
  * NOT lie in [0,W) — a start may be negative or a span may straddle θ=0 (this
- * is the single point that wraps and seam-splits them into range). Each interval
- * MUST have length <= W, though: a span longer than the full circle is a
- * full-row scan, and the seam-split norm buffer is sized for exactly one split
- * per input span. CSG shapes satisfy this by construction; BoundingSphere does
- * so via its min(W/2, ...) half-width clamp.
+ * is the single point that wraps and seam-splits them into range). Span length
+ * is unconstrained: length >= W means the whole row. emit_row_runs paints the
+ * row and drops the rest of its spans on the first such span, and any that
+ * reach normalize_intervals_to_range become a single [0,W) span rather than a
+ * seam split, so one never claims the two norm slots a split would.
  */
 template <int W, int H, typename IntervalFn, typename PixelFn>
 inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
