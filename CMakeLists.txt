@@ -261,6 +261,22 @@ if(EMSCRIPTEN)
     # green gate. All are captured at install time (immediately after the build) from
     # the same build event, and committed together with the artifacts they describe.
     install(CODE "
+      # Git stores the generated glue as LF on every host, and emcc emits CRLF
+      # glue on Windows. file(CONFIGURE ... NEWLINE_STYLE LF) is the only writer
+      # that lands LF on every host — file(WRITE)/file(APPEND) open in text mode
+      # and re-expand LF to CRLF there — but it also expands @VAR@ tokens, and
+      # the glue hash below is taken over its output. Escaping every literal @
+      # through a variable that expands back to @ makes that expansion an
+      # identity, so glue bytes reach the hash exactly as emitted.
+      # A property of the installed artifact, not of its provenance: it runs
+      # whether or not git can answer below, so the glue ships the same bytes
+      # either way.
+      set(HS_AT \"@\")
+      file(READ \"${DAYDREAM_DIR}/${TARGET_NAME}.js\" HS_GLUE_CONTENT)
+      string(REPLACE \"@\" \"@HS_AT@\" HS_GLUE_CONTENT \"\${HS_GLUE_CONTENT}\")
+      file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.js\"
+           CONTENT \"\${HS_GLUE_CONTENT}\" @ONLY NEWLINE_STYLE LF)
+
       execute_process(
         COMMAND git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" rev-parse HEAD
         OUTPUT_VARIABLE HS_ENGINE_SHA
@@ -298,18 +314,7 @@ if(EMSCRIPTEN)
         # gate already passes to `sha256sum -c`.
         # Written only alongside the .sha so the provenance set is never half-written
         # (a .wasm.sha256 without a .sha is a partial set the deploy gate rejects).
-        # Git stores the generated glue and provenance files as LF on every host,
-        # and emcc emits CRLF glue on Windows. file(CONFIGURE ... NEWLINE_STYLE LF)
-        # is the only writer that lands LF on every host — file(WRITE)/file(APPEND)
-        # open in text mode and re-expand LF to CRLF there — but it also expands
-        # @VAR@ tokens, and the hash below is taken over its output. Escaping every
-        # literal @ through a variable that expands back to @ makes that expansion
-        # an identity, so glue bytes reach the hash exactly as emitted.
-        set(HS_AT \"@\")
-        file(READ \"${DAYDREAM_DIR}/${TARGET_NAME}.js\" HS_GLUE_CONTENT)
-        string(REPLACE \"@\" \"@HS_AT@\" HS_GLUE_CONTENT \"\${HS_GLUE_CONTENT}\")
-        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.js\"
-             CONTENT \"\${HS_GLUE_CONTENT}\" @ONLY NEWLINE_STYLE LF)
+        # The glue hash is taken over the LF-normalized copy written above.
         file(SHA256 \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm\" HS_WASM_SHA256)
         file(SHA256 \"${DAYDREAM_DIR}/${TARGET_NAME}.js\" HS_GLUE_SHA256)
         file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
@@ -335,12 +340,19 @@ if(EMSCRIPTEN)
              @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote toolchain provenance ${TARGET_NAME}.toolchain: emsdk ${EMSCRIPTEN_VERSION}, clang ${CMAKE_CXX_COMPILER_VERSION}, ${CMAKE_BUILD_TYPE}, dev bindings ${HS_WASM_DEV_BINDINGS_STATE}\")
       else()
-        # Best-effort provenance: git is absent or this is not a working tree (an
-        # exported tarball / non-git checkout). Warn and omit ALL markers so a plain
-        # 'just install' still succeeds outside a git checkout, rather than the old
-        # FATAL_ERROR. The deploy gate then finds no provenance and refuses to deploy
-        # an unverifiable artifact — which is correct; deploy only from a git checkout.
-        message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); skipping ${TARGET_NAME} provenance markers (.sha / .wasm.sha256 / .toolchain). Install completes, but the deploy gate has nothing to verify — deploy only from a git checkout.\")
+        # git is absent or this is not a working tree (an exported tarball /
+        # non-git checkout). A plain 'just install' still succeeds there, but
+        # the marker set is REMOVED, not skipped: an earlier run's markers
+        # describe the artifacts they were written with, and the ones just
+        # installed are different, so leaving them standing hands the deploy
+        # gate provenance for a module that is no longer there.
+        # With the set gone the gate finds nothing to verify and refuses to deploy
+        # an unverifiable artifact — which is correct; deploy only from a git
+        # checkout.
+        file(REMOVE \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\"
+                    \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
+                    \"${DAYDREAM_DIR}/${TARGET_NAME}.toolchain\")
+        message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); removed ${TARGET_NAME} provenance markers (.sha / .wasm.sha256 / .toolchain). Install completes, but the deploy gate has nothing to verify — deploy only from a git checkout.\")
       endif()
     ")
   elseif(EXISTS "${DAYDREAM_DIR}")
