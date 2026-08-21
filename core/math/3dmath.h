@@ -349,11 +349,12 @@ struct Vector {
   }
   /**
    * @brief Divides this vector by a scalar in place.
-   * @param s Scalar divisor (must be non-zero; traps otherwise).
+   * @param s Scalar divisor; a zero yields the same +-Inf/NaN operator/(Vector,
+   *          float) does, guarded only by the debug assert.
    * @return Reference to this vector.
    */
   Vector &operator/=(float s) {
-    HS_CHECK(s != 0.0f);
+    assert(s != 0.0f);
     x /= s;
     y /= s;
     z /= s;

@@ -3935,7 +3935,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"reaction_graph.h", 2},
     {"static_circular_buffer.h", 4},
     {"transformer.h", 4},
-    {"3dmath.h", 6},
+    {"3dmath.h", 5},
     {"geometry.h", 16},
     {"lenses.h", 2},
     {"noise_field.h", 1},
