@@ -5,6 +5,7 @@
 #pragma once
 
 #include <array>
+#include <limits>
 
 #include "core/math/projections.h"
 #include "tests/test_fixture.h"
@@ -412,6 +413,40 @@ inline void test_airocean_projection_stays_inside_its_face() {
   }
 }
 
+inline void test_airocean_projection_face_index_stays_in_range() {
+  // A direction this far off the unit sphere scores above the fallback's
+  // 65536 sentinel on every face, so no candidate is ever taken.
+  const float magnitudes[] = {1.0f, 1e18f, 1e30f, 3.0e38f};
+  for (float magnitude : magnitudes)
+    for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face)
+      for (size_t edge = 0; edge < 3; ++edge)
+        for (int step = 0; step <= 8; ++step) {
+          const AiroceanVector &a = AIROCEAN_FACES[face][edge];
+          const AiroceanVector &b = AIROCEAN_FACES[face][(edge + 1) % 3];
+          const float t = step / 8.0f;
+          const AiroceanVector seam{a.x + t * (b.x - a.x),
+                                    a.y + t * (b.y - a.y),
+                                    a.z + t * (b.z - a.z)};
+          const float scale =
+              magnitude /
+              sqrtf(seam.x * seam.x + seam.y * seam.y + seam.z * seam.z);
+          // Inverse of airocean_axes: the kernel reads y-up, the faces z-up.
+          const Vector v(seam.x * scale, seam.z * scale, seam.y * scale);
+          HS_EXPECT_LT(size_t(airocean_projection(v, 0.0f, false).region_id),
+                       AIROCEAN_FACE_COUNT);
+        }
+
+  const float infinity = std::numeric_limits<float>::infinity();
+  const float not_a_number = std::numeric_limits<float>::quiet_NaN();
+  const float exotic[] = {infinity, -infinity, not_a_number, 0.0f, 1.0f};
+  for (float x : exotic)
+    for (float y : exotic)
+      for (float z : exotic)
+        HS_EXPECT_LT(
+            size_t(airocean_projection(Vector(x, y, z), 0.4f, false).region_id),
+            AIROCEAN_FACE_COUNT);
+}
+
 inline void test_point_segment_distance() {
   const AiroceanPoint a{1.0f, 2.0f};
   const AiroceanPoint b{5.0f, 2.0f};
@@ -468,6 +503,7 @@ inline int run_projections_tests() {
   test_airocean_face_planes();
   test_airocean_unfold_sends_vertices_to_planar_vertices();
   test_airocean_projection_stays_inside_its_face();
+  test_airocean_projection_face_index_stays_in_range();
   test_point_segment_distance();
   test_projection_trait_packing();
   return fixture.result();
