@@ -719,6 +719,15 @@ inline void case_finite_param_perpetual_duration() {
     std::printf("x");
 }
 
+/** @brief Death case: a Transition target must be finite. */
+inline void case_transition_nonfinite_target() {
+  float value = 0.0f;
+  Animation::Transition transition(
+      value, opaque(std::numeric_limits<float>::quiet_NaN()), 1, ease_linear);
+  if (transition.done())
+    std::printf("x");
+}
+
 /** @brief Adds an event from a clear hook, violating the hook contract. */
 inline void add_event_from_clear_hook(void *ctx) {
   static float value = 0.0f;
@@ -3132,6 +3141,8 @@ inline const Case *all_cases(int &n) {
       {"finite_param_perpetual_duration", case_finite_param_perpetual_duration,
        "params.h",
        "(duration >= 0) finite parameter animation duration must be >= 0"},
+      {"transition_nonfinite_target", case_transition_nonfinite_target,
+       "params.h", "(std::isfinite(to)) Transition target must be finite"},
       {"timeline_start_overflow", case_timeline_start_overflow, "timeline.h",
        "(delay <= UINT32_MAX - global_timeline_t) Timeline start frame "
        "overflow"},
