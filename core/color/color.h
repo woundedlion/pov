@@ -1176,22 +1176,21 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
  * center direction by angle addition rather than calling sin/cos again.
  */
 HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
-  constexpr float HUE_STEP = PI_F / 40.0f;
+  constexpr float STEP_SIN = 0x1.415e54p-4f; // sinf(PI_F / 40.0f)
+  constexpr float STEP_COS = 0x1.fe6bf2p-1f; // cosf(PI_F / 40.0f)
+  constexpr float STEP2_SIN = 2.0f * STEP_SIN * STEP_COS;
+  constexpr float STEP2_COS = STEP_COS * STEP_COS - STEP_SIN * STEP_SIN;
   const float sin_h = sinf(h);
   const float cos_h = cosf(h);
-  const float step_sin = sinf(HUE_STEP);
-  const float step_cos = cosf(HUE_STEP);
-  const float step2_sin = 2.0f * step_sin * step_cos;
-  const float step2_cos = step_cos * step_cos - step_sin * step_sin;
   const auto tap = [&](float ds, float dc) {
     return gamut_continuous_chroma_sample(L, cos_h * dc - sin_h * ds,
                                           sin_h * dc + cos_h * ds);
   };
   const float center = gamut_continuous_chroma_sample(L, cos_h, sin_h);
   const float smoothed =
-      (tap(-step2_sin, step2_cos) + 2.0f * tap(-step_sin, step_cos) +
-       4.0f * center + 2.0f * tap(step_sin, step_cos) +
-       tap(step2_sin, step2_cos)) *
+      (tap(-STEP2_SIN, STEP2_COS) + 2.0f * tap(-STEP_SIN, STEP_COS) +
+       4.0f * center + 2.0f * tap(STEP_SIN, STEP_COS) +
+       tap(STEP2_SIN, STEP2_COS)) *
       0.1f;
   return std::min(center, smoothed);
 }
