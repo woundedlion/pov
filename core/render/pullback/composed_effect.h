@@ -488,6 +488,12 @@ enum class ProjectionKind : uint8_t {
   FOLDED_SINUSOIDAL
 };
 
+/** @brief Whether @p projection reads the central-meridian field. */
+constexpr bool uses_central_meridian(ProjectionKind projection) {
+  return projection == ProjectionKind::EQUIRECTANGULAR ||
+         projection == ProjectionKind::FOLDED_SINUSOIDAL;
+}
+
 /** @brief Optional transfer curve an effect's material stage composes. */
 enum class TransferKind : uint8_t { NONE, ISO_CONTOUR };
 
@@ -627,7 +633,7 @@ template <typename B> struct CoveragePolicyFor<CoverageKind::EDGE_FADE, B> {
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` for each noise field the parameter
  * set and `Has*Noise` flags request. Optional members, detected by `requires`
  * and defaulted when absent, are `preset_params` (absent, every preset takes
- * `initial_params`), `ANIMATED_MOBIUS`, `USES_CENTRAL_MERIDIAN` and an
+ * `initial_params`), `ANIMATED_MOBIUS` and an
  * `after_composed_init()` hook. An effect wanting a different shade emission
  * shadows shade() with the same body under its own attribute:
  * `HS_HOT_FLASH_MEMBER` and `HS_FLASH_MEMBER` both take the pipeline body out
@@ -654,6 +660,7 @@ class ComposedEffect : public ChoreographedEffect<Derived, ParamsT> {
 
 public:
   using Params = ParamsT;
+  using Spec = SpecT;
   using Frame = Pullback::FrameState<ParamsT>;
   using Binding = Pullback::Binding<Frame>;
   /** Preset policy: an automatic change crossfades the parameters; pause
@@ -930,10 +937,7 @@ private:
     case Pullback::FieldGate::ANIMATED_PROJECTION:
       return Derived::ANIMATED_PROJECTION;
     case Pullback::FieldGate::CENTRAL_MERIDIAN:
-      if constexpr (requires { Derived::USES_CENTRAL_MERIDIAN; })
-        return Derived::USES_CENTRAL_MERIDIAN;
-      else
-        return false;
+      return uses_central_meridian(SpecT::PROJECTION);
     }
     return true;
   }

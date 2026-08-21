@@ -42,7 +42,6 @@ public:
   static constexpr Segue::Lerp PRESET_SEGUE{14, ease_in_out_sin};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 60;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr bool USES_CENTRAL_MERIDIAN = true;
 
   static constexpr Params initial_params() {
     Params value;
