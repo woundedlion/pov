@@ -1020,6 +1020,31 @@ jobs:
           fi
           echo "Regenerated tables match core/color/srgb_decode_lut.h in full."
 
+  patterns-provenance:
+    name: Promoted shader documents match their generator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
+
+      # patterns/*.shader.json is compiled from the v1 specs in the generator and
+      # installed into daydream, so a hand edit here is reverted by the next
+      # regeneration. --check recompiles every spec and compares the committed
+      # document, comparing LF content so a CRLF checkout does not red.
+      # Documents in patterns/ that this generator does not emit are untouched.
+      - name: Check promoted shader document provenance
+        run: node scripts/generate_promoted_shader_documents.mjs --check
+
   screenshot-gallery:
     name: Screenshot gallery is valid and covers every effect
     # The docs/screenshots gallery is installed into daydream and served live,
@@ -2181,6 +2206,7 @@ jobs:
       - reaction-graph-provenance
       - gamut-lut-provenance
       - srgb-decode-provenance
+      - patterns-provenance
       - screenshot-gallery
       - docs-images
       - docs-markdown
