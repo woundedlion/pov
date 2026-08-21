@@ -353,10 +353,7 @@ public:
   /** Output envelope derived from the synchronized effect revolution. */
   __attribute__((always_inline)) float effect_envelope(int32_t column,
                                                        int32_t width) const {
-    return effect_output_envelope(
-        content_tracker.rev_in_effect,
-        protocol_config.revolutions_for_effect(content_tracker.effect_index),
-        column, width);
+    return content_tracker.output_envelope(protocol_config, column, width);
   }
   /**
    * @brief Current lock state.
