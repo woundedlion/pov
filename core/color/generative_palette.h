@@ -70,9 +70,11 @@ public:
      *  basis, otherwise the realized C / C_max. Same meaning on every color
      *  path. */
     float q;
-    float C_max;   /**< Gamut chroma envelope at (L, h_final). */
-    float h_path;  /**< Hue the color path interpolated. */
-    float h_final; /**< h_path after hue torsion. */
+    float C_max;  /**< Gamut chroma envelope at (L, h_final). */
+    float h_path; /**< Hue the color path interpolated. */
+    /** h_path after hue torsion. OKLAB_CARTESIAN torsions each key before
+     *  interpolating, so it reports h_path there. */
+    float h_final;
     /** True when the color left sRGB and get() clipped it. */
     bool fallback_mapped;
   };
