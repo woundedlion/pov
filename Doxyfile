@@ -34,6 +34,14 @@ EXTRACT_PRIV_VIRTUAL   = YES
 # parser seeing plain declarations. __EMSCRIPTEN__ gates the entire WASM bridge
 # (targets/wasm/wasm.cpp) plus the effect registry it drives, so without it the
 # JS-facing API publishes as an empty File Reference.
+#
+# EXPAND_ONLY_PREDEF keeps core/platform/build_features.h's defaults out of the
+# conditionals, so every feature macro the simulator build enables is spelled
+# out here; an omitted one publishes its headers as empty File References.
+# ARDUINO stays undefined: it is exclusive with the host branch of
+# core/platform/platform.h, which carries HS_CHECK, the EVERY_N_* timers and
+# hs::millis/micros, and taking it would trade those for the three device-only
+# driver headers.
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 PREDEFINED             = FLASHMEM= \
@@ -42,7 +50,12 @@ PREDEFINED             = FLASHMEM= \
                          DMAMEM= \
                          "__attribute__(x)=" \
                          __EMSCRIPTEN__=1 \
-                         DOXYGEN=1
+                         DOXYGEN=1 \
+                         HS_ENABLE_EFFECT_REGISTRY=1 \
+                         HS_ENABLE_PARAM_GUI_BRIDGE=1 \
+                         HS_ENABLE_SHADERBALL_DYNAMIC_BACKEND=1 \
+                         HS_ENABLE_SHADER_WORKBENCH=1 \
+                         HS_ENABLE_CHAIN_INTERPRETER=1
 
 GENERATE_HTML          = YES
 GENERATE_LATEX         = NO
