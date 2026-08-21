@@ -675,8 +675,18 @@ class TimestampNormalizationTests(unittest.TestCase):
 
 
 class ZipMembershipTests(unittest.TestCase):
-    EXPORTED = ("phantasm-F_Cu.gtl", "phantasm-In1_Cu.g1", "phantasm-PTH.drl",
-                "phantasm-job.gbrjob")
+    """A full export: GERBER_LAYERS in Protel naming, both drills, the job."""
+
+    EXPORTED = ("phantasm-F_Cu.gtl", "phantasm-In1_Cu.g1", "phantasm-In2_Cu.g2",
+                "phantasm-B_Cu.gbl", "phantasm-F_Silkscreen.gto",
+                "phantasm-B_Silkscreen.gbo", "phantasm-F_Mask.gts",
+                "phantasm-B_Mask.gbs", "phantasm-F_Paste.gtp",
+                "phantasm-B_Paste.gbp", "phantasm-Edge_Cuts.gm1",
+                "phantasm-PTH.drl", "phantasm-NPTH.drl", "phantasm-job.gbrjob")
+
+    def test_the_fixture_covers_every_allowlisted_extension(self):
+        self.assertEqual(
+            {os.path.splitext(n)[1] for n in self.EXPORTED}, fab.ZIP_EXT)
 
     def test_every_exported_artifact_is_zipped(self):
         self.assertEqual(fab.zip_members(self.EXPORTED + tuple(fab.ZIP_EXCLUDED)),
@@ -687,9 +697,19 @@ class ZipMembershipTests(unittest.TestCase):
                 fab.UploadPackageError, "phantasm-User_2.gm2"):
             fab.zip_members(self.EXPORTED + ("phantasm-User_2.gm2",))
 
+    def test_an_unexported_layer_is_rejected(self):
+        for missing in self.EXPORTED:
+            extension = os.path.splitext(missing)[1]
+            partial = tuple(n for n in self.EXPORTED
+                            if os.path.splitext(n)[1] != extension)
+            with self.subTest(extension=extension):
+                with self.assertRaisesRegex(fab.UploadPackageError, extension):
+                    fab.zip_members(partial)
+
     def test_the_upload_zip_itself_is_not_a_member(self):
         self.assertNotIn("phantasm-jlc-gerbers.zip",
-                         fab.zip_members(("phantasm-jlc-gerbers.zip",)))
+                         fab.zip_members(self.EXPORTED
+                                         + ("phantasm-jlc-gerbers.zip",)))
 
 
 class NetlistSpecTests(unittest.TestCase):
