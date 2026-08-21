@@ -141,21 +141,25 @@ if [ -n "$HS_SKIP_TESTS" ]; then
 fi
 
 # Three gates key off the staged paths. NATIVE: the host unit suite (C++/CMake),
-# including the .cmake test drivers and the Python generators whose committed
+# including the .cmake test drivers, the Python generators whose committed
 # output the suite consumes (an edit to one of those alone reds the suite and
-# the matching provenance job with nothing else staged).
+# the matching provenance job with nothing else staged), and the tests/data JSON
+# the suite reads at run time (the shader-chain catalog golden, the pullback
+# manifests).
 # TEENSY: the Teensy 4 size/layout gate, which any C++ change can move, plus the
 # build/budget/ldscript files that drive the firmware image.
 # LINT: the Python / JavaScript / Markdown tree, which no compiler sees — CI's
-# lint and docs-markdown jobs are the only thing that reads it, and both run in
-# seconds locally.
+# lint, docs-markdown and screenshot-gallery jobs are the only thing that reads
+# it, and all run in seconds locally — plus the JSON the JS suite gates: the
+# patterns/ shader documents, the mirrored scripts/engine_catalog.json, and the
+# suite's own scripts/assertion_floors.json.
 #
 # Every classifier is a shell function taking the newline-separated path list,
 # so tools/githook_tests drives them against a table of staged paths: these
 # regexes are the hook's whole routing logic, and a path class that quietly
 # stops matching skips its gate on every commit that touches only that class.
 hs_paths_native() {
-  printf '%s\n' "$1" | grep -qE '\.(h|hpp|cpp|cc|inl|cmake)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$|(^|/)scripts/generate_luts\.py$|(^|/)scripts/generate_reaction_graph\.py$|(^|/)tools/gen_gamut_lut\.py$|(^|/)tools/relax_bakes\.py$|(^|/)tools/teensy_size_trail\.py$'
+  printf '%s\n' "$1" | grep -qE '\.(h|hpp|cpp|cc|inl|cmake)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/data/.*\.json$|(^|/)tests/ubsan-ignorelist\.txt$|(^|/)scripts/generate_luts\.py$|(^|/)scripts/generate_reaction_graph\.py$|(^|/)tools/gen_gamut_lut\.py$|(^|/)tools/relax_bakes\.py$|(^|/)tools/teensy_size_trail\.py$'
 }
 
 hs_paths_teensy() {
@@ -163,7 +167,7 @@ hs_paths_teensy() {
 }
 
 hs_paths_lint() {
-  printf '%s\n' "$1" | grep -qE '\.(py|mjs|md)$|(^|/)ruff\.toml$|(^|/)eslint\.config\.mjs$|(^|/)package(-lock)?\.json$'
+  printf '%s\n' "$1" | grep -qE '\.(py|mjs|md)$|(^|/)ruff\.toml$|(^|/)eslint\.config\.mjs$|(^|/)package(-lock)?\.json$|(^|/)patterns/.*\.json$|(^|/)scripts/engine_catalog\.json$|(^|/)scripts/assertion_floors\.json$'
 }
 
 NATIVE=
@@ -232,8 +236,11 @@ hs_run_lint() {
     echo "[pre-commit] no working python — skipping the lint + docs checks."
   fi
   if command -v node >/dev/null 2>&1; then
+    # package.json's `test` entry point, which CI's screenshot-gallery job runs:
+    # node --test plus the per-file case and assertion floors in
+    # scripts/assertion_floors.json, which node --test alone does not read.
     echo "[pre-commit] Node script unit tests..."
-    if ! node --test scripts/*.test.mjs; then
+    if ! node scripts/run_tests.mjs 'scripts/*.test.mjs'; then
       echo "[pre-commit] scripts/*.test.mjs FAILED."
       return 1
     fi
