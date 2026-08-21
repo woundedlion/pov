@@ -65,7 +65,8 @@ _PATH_SPAN_RE = re.compile(r"^([A-Za-z0-9_.][\w.\-/]*)(?::\d+(?:-\d+)?)?$")
 # ones in the docs. The preceding directive says which repository a tree draws
 # and how completely: `tree [<checkout>] [exhaustive]`. Bare `tree` is this
 # repository, rooted at its root; `tree <checkout>` is a sibling repository,
-# validated only when --checkout supplies its path. `exhaustive` adds the
+# validated against the root --checkout supplies, and left unvalidated only
+# when --skip-checkout names it. `exhaustive` adds the
 # reverse direction — every tracked path under a drawn directory must have a
 # row. An HTML comment carries the directive, so neither GitHub nor Doxygen
 # renders it.
@@ -879,8 +880,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument(
         "--checkout", action="append", default=[], metavar="NAME=PATH",
-        help="root of a sibling checkout a `tree <NAME>` fence draws; "
-             "fences naming a checkout given no path are skipped")
+        help="root of a sibling checkout a `tree <NAME>` fence draws")
+    parser.add_argument(
+        "--skip-checkout", action="append", default=[], metavar="NAME",
+        help="accept `tree <NAME>` fences unvalidated; without it a fence "
+             "naming a checkout given no --checkout root fails")
     args = parser.parse_args(argv)
 
     checkout_roots = {}
@@ -888,7 +892,11 @@ def main(argv: list[str] | None = None) -> int:
         name, separator, path = option.partition("=")
         if not separator or not name or not path:
             parser.error(f"--checkout expects NAME=PATH, got {option!r}")
-        checkout_roots[name] = Path(path).resolve()
+        checkout_root = Path(path).resolve()
+        if not checkout_root.is_dir():
+            parser.error(f"--checkout root for {name!r} is not a directory: "
+                         f"{checkout_root}")
+        checkout_roots[name] = checkout_root
 
     skipped: set[str] = set()
     try:
@@ -897,11 +905,15 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         print(f"[docs-check] tooling error: {error}", file=sys.stderr)
         return 2
-    # Warning, not a failure: a developer without the sibling checkout must still
-    # be able to run the checker, and every CI invocation passes --checkout.
+    # An unvalidated tree fence is not a pass: its rows went ungated, so every
+    # one of them can be edited through a green run. Accepting that is allowed --
+    # a developer without the sibling checkout must still be able to run the
+    # checker -- but only by naming the checkout in --skip-checkout, and the
+    # verdict line says so either way.
+    unvalidated = skipped - set(args.skip_checkout)
     if skipped:
-        print(f"::warning::tree fences NOT validated - no --checkout root for: "
-              f"{', '.join(sorted(skipped))}")
+        print(f"::{'error' if unvalidated else 'warning'}::tree fences NOT "
+              f"validated - no --checkout root for: {', '.join(sorted(skipped))}")
     # Warning only: dropping the last citation of an exempt path improves the
     # tree and must not red the build for whoever lands that commit.
     if markdown and stale:
@@ -918,7 +930,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[docs-check] tooling error: no tracked Markdown under "
               f"{args.root.resolve()}", file=sys.stderr)
         return 2
-    print(f"[docs-check] PASS - {len(markdown)} tracked Markdown file(s)")
+    if unvalidated:
+        print(f"[docs-check] FAIL - tree fences unvalidated: "
+              f"{', '.join(sorted(unvalidated))} - pass --checkout NAME=PATH, or "
+              f"--skip-checkout NAME to accept them unvalidated", file=sys.stderr)
+        return 1
+    note = (f"; tree fences NOT validated: {', '.join(sorted(skipped))}"
+            if skipped else "")
+    print(f"[docs-check] PASS - {len(markdown)} tracked Markdown file(s){note}")
     return 0
 
 

@@ -212,8 +212,19 @@ hs_run_lint() {
     fi
     # The checkers themselves, not their self-test suites: those build throwaway
     # git trees, which is CI's docs-markdown job to run, not a commit hook's.
+    # The README's `tree daydream` fence draws the sibling daydream checkout,
+    # which docs_check.py can only validate against a --checkout root. A hook
+    # runs at the top of the working tree, so ../daydream is that sibling when
+    # it is there; without it the fence is accepted unvalidated, which the
+    # checker requires be said out loud rather than passed silently.
     echo "[pre-commit] Markdown + build-pin checks..."
-    if ! { "$PY" tools/docs_check.py && "$PY" tools/build_pins.py --check; }; then
+    if [ -d ../daydream ]; then
+      set -- --checkout daydream=../daydream
+    else
+      set -- --skip-checkout daydream
+      echo "[pre-commit] ../daydream absent — the README's daydream tree fence goes unvalidated (CI gates it)."
+    fi
+    if ! { "$PY" tools/docs_check.py "$@" && "$PY" tools/build_pins.py --check; }; then
       echo "[pre-commit] Markdown / build-pin checks FAILED."
       return 1
     fi
