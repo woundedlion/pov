@@ -41,7 +41,7 @@ public:
    * @details Leaves the framebuffer non-persistent: each frame is fully
    * repainted from lattice state.
    */
-  ReactionDiffusionBase() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER ReactionDiffusionBase() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Advances one animation frame and dispatches to the derived renderer.
