@@ -108,13 +108,11 @@ enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB, CHAMFER };
 /**
  * @brief Reseed primitive tabled on an edge (spec section 2.1).
  * @details ADOPT replaces the held family seed with the arrived solid at leg
- * completion. The consumer gates it on a Platonic arrival, so it fires only at
- * the bridge rows' octahedron and icosahedron ends; the two ambo-chain rows
- * (seed_solid cuboctahedron/icosidodecahedron) reach no Platonic endpoint in
- * either direction, and the ambo derivation their leg seed needs comes from
- * seed_fix_at_start keying SeedFix::DERIVE_AMBO off seed_solid, not off this
- * field. The ambo-crossover dual swap is likewise untabled: seed_fix_at_start
- * decides it at leg start against the held seed identity.
+ * completion. The consumer gates it on a Platonic arrival, so only the bridge
+ * rows table it. An ambo chain's leg seed instead comes from seed_fix_at_start
+ * keying SeedFix::DERIVE_AMBO off seed_solid, and the ambo-crossover dual swap
+ * is likewise untabled: seed_fix_at_start decides it at leg start against the
+ * held seed identity.
  */
 enum class Reseed : uint8_t { NONE, ADOPT };
 
@@ -225,7 +223,7 @@ inline constexpr EdgeSpec EDGES[] = {
     {CUBE, SNUB_CUBE, CUBE, MorphOp::SNUB, 0.0f, T_SNUB_CUBE, 0.0f,
      SNUB_CUBE_TWIST, true, Reseed::NONE, false},
     {CUBOCTAHEDRON, TRUNCATED_CUBOCTAHEDRON, CUBOCTAHEDRON, MorphOp::TRUNCATE,
-     0.0f, T_TRUNC_CUBE, 0.0f, 0.0f, true, Reseed::ADOPT, false},
+     0.0f, T_TRUNC_CUBE, 0.0f, 0.0f, true, Reseed::NONE, false},
     {OCTAHEDRON, TRUNCATED_OCTAHEDRON, OCTAHEDRON, MorphOp::TRUNCATE, 0.0f,
      T_TRUNC_THIRD, 0.0f, 0.0f, false, Reseed::NONE, false},
     {TRUNCATED_OCTAHEDRON, CUBOCTAHEDRON, OCTAHEDRON, MorphOp::TRUNCATE,
@@ -251,7 +249,7 @@ inline constexpr EdgeSpec EDGES[] = {
     {DODECAHEDRON, SNUB_DODECAHEDRON, DODECAHEDRON, MorphOp::SNUB, 0.0f, 0.5f,
      0.0f, SNUB_DODECAHEDRON_TWIST, true, Reseed::NONE, false},
     {ICOSIDODECAHEDRON, TRUNCATED_ICOSIDODECAHEDRON, ICOSIDODECAHEDRON,
-     MorphOp::TRUNCATE, 0.0f, T_TRUNC_ICOS, 0.0f, 0.0f, true, Reseed::ADOPT,
+     MorphOp::TRUNCATE, 0.0f, T_TRUNC_ICOS, 0.0f, 0.0f, true, Reseed::NONE,
      false},
 
     // Tetrahedral family and bridges
