@@ -743,6 +743,11 @@ FLASHMEM void setup() {
   hs::enable_mindsplatter_stall_counters();
 #endif
   create_pov();
+  // A strapped-nonzero board comes up downstream: dark in ACQUIRE, waiting on a
+  // sync wire nothing drives, so the whole capture runs black and counter-empty.
+  HS_CHECK(POV::segment_index() == 0,
+           "profile harness needs segment 0 (master); ID straps read %d",
+           POV::segment_index());
 }
 
 void loop() {
