@@ -33,6 +33,7 @@ if(NOT CMAKE_CXX_COMPILER)
     set(CMAKE_C_COMPILER   "${_hs_clang_dir}/clang"   CACHE FILEPATH "")
     set(CMAKE_CXX_COMPILER "${_hs_clang_dir}/clang++" CACHE FILEPATH "")
   else()
+    # Whatever clang PATH resolves; tests/CMakeLists.txt holds the version floor.
     set(CMAKE_C_COMPILER   clang   CACHE FILEPATH "")
     set(CMAKE_CXX_COMPILER clang++ CACHE FILEPATH "")
   endif()

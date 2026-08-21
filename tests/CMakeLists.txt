@@ -32,6 +32,18 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# cmake/toolchain-native-clang.cmake falls back to an unversioned `clang` from
+# PATH, so the major is whatever the developer happens to have installed. Clang
+# 18 is the oldest the relaxed-template-template opt-in below was written for;
+# nothing older is built anywhere, so refuse it by version rather than let it
+# fail as a compile error.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
+  message(FATAL_ERROR
+    "Clang ${CMAKE_CXX_COMPILER_VERSION} is below the 18 this suite is built "
+    "against. Point CMAKE_CXX_COMPILER at a newer clang++, or let "
+    "cmake/toolchain-native-clang.cmake resolve the emsdk's.")
+endif()
+
 # Clang < 19 defaults to the pre-P0522 template-template matching rules and
 # rejects an effect with a defaulted extra template parameter (e.g.
 # IslamicStars<W, H, SegueT = Crossfade>) as an argument for the harness's
