@@ -27,6 +27,8 @@ namespace Screen {
 template <int W, int H> class Blur : public Is2D {
 public:
   static constexpr int segment_margin = 1;
+  /** @brief Taps land on rounded integer coordinates. */
+  static constexpr bool emits_pixel_centers = true;
 
   /**
    * @brief Constructs a blur with the given initial strength.
