@@ -119,7 +119,7 @@
 #if (HS_ENABLE_TEST_ORACLES != 0) && (HS_ENABLE_TEST_ORACLES != 1)
 #error "HS_ENABLE_TEST_ORACLES must be 0 or 1"
 #endif
-#if (HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND != 0) &&                             \
+#if (HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND != 0) &&                       \
     (HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND != 1)
 #error "HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND must be 0 or 1"
 #endif

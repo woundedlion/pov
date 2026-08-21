@@ -47,10 +47,11 @@ struct CurlLatticeWhiteBox {
                      frame.params.source.lattice_shape_blend,
                      frame.params.source.lattice_softness,
                      frame.params.source.lattice_radius};
-    params.projection = {
-        frame.params.projection.singularity_fade, frame.params.projection.spin_rate,
-        frame.params.projection.wander, frame.params.outer_camera.wander,
-        frame.params.projection.central_meridian};
+    params.projection = {frame.params.projection.singularity_fade,
+                         frame.params.projection.spin_rate,
+                         frame.params.projection.wander,
+                         frame.params.outer_camera.wander,
+                         frame.params.projection.central_meridian};
     params.surface = {frame.params.surface_noise.scale,
                       frame.params.surface_noise.strength,
                       frame.params.surface_noise.rate};
@@ -109,7 +110,8 @@ inline void test_curl_lattice_identity_and_presets() {
   HS_EXPECT_TRUE(FX::EFFECT_ID == "curl-lattice");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{2});
   HS_EXPECT_EQ(sizeof(WB::Params), 27 * sizeof(float));
-  HS_EXPECT_TRUE(sizeof(WB::FrameState) < sizeof(ShaderWorkbenchWB::FrameState));
+  HS_EXPECT_TRUE(sizeof(WB::FrameState) <
+                 sizeof(ShaderWorkbenchWB::FrameState));
   HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "open-curl");
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "dense-curl");
   HS_EXPECT_NEAR(FX::preset_params(0).surface.scale, 1.78815627f, 0.0f);
@@ -171,30 +173,18 @@ inline void test_curl_lattice_identity_and_presets() {
   FX effect;
   effect.init();
   static constexpr const char *CONTROL_NAMES[] = {
-      "Lattice Cell Scale",
-      "Lattice Shape",
-      "Lattice Softness",
-      "Lattice Radius",
-      "Singularity Fade",
-      "Projection Spin Speed",
-      "Projection Wander",
-      "Camera Wander",
-      "Central Meridian",
-      "Surface Noise Scale",
-      "Surface Noise Strength",
-      "Surface Noise Speed",
-      "Palette Chroma",
-      "Palette Mapping",
-      "Mapping Frequency",
-      "Mapping Phase",
-      "Phase Oscillation Depth",
-      "Phase Oscillation Speed",
-      "Brightness Depth",
-      "Value Opacity Low",
-      "Value Opacity High",
-      "Hue Shift Amount",
-      "Hue Noise Scale",
-      "Hue Noise Speed",
+      "Lattice Cell Scale",      "Lattice Shape",
+      "Lattice Softness",        "Lattice Radius",
+      "Singularity Fade",        "Projection Spin Speed",
+      "Projection Wander",       "Camera Wander",
+      "Central Meridian",        "Surface Noise Scale",
+      "Surface Noise Strength",  "Surface Noise Speed",
+      "Palette Chroma",          "Palette Mapping",
+      "Mapping Frequency",       "Mapping Phase",
+      "Phase Oscillation Depth", "Phase Oscillation Speed",
+      "Brightness Depth",        "Value Opacity Low",
+      "Value Opacity High",      "Hue Shift Amount",
+      "Hue Noise Scale",         "Hue Noise Speed",
   };
   HS_EXPECT_EQ(effect.getParameters().size(), std::size(CONTROL_NAMES));
   HS_EXPECT_EQ(effect.getParameters().capacity(), WB::PARAM_CAPACITY);
