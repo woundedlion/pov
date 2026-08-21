@@ -107,7 +107,11 @@ inline void append_param_json(std::string &out, const ParamFieldInfo &field) {
  * @brief Appends the catalog JSON — budgets, carriers, and every
  *        operator-table entry — to @p out.
  * @details The authoritative editor-accounting figures ride along as the
- * budgets object. Golden-pinned byte-exact by the native suite.
+ * budgets object. Block sizes are the building ABI's, so a pointer-bearing
+ * `prepared` block is 8-byte-aligned and wider under LP64 than under
+ * wasm32: the native golden pin and the WASM export disagree there by
+ * construction, and the WASM figures are the ones an editor budgets
+ * against. Golden-pinned byte-exact by the native suite.
  */
 inline void append_catalog_json(std::string &out) {
   out += "{\"catalog_version\":2,\"budgets\":{\"max_chain_ops\":";

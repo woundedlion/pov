@@ -65,6 +65,48 @@ test('every mirrored compiler file matches its daydream pin', async () => {
   }
 });
 
+// The native suite golden-pins tests/data/shader_chain_catalog.json from an
+// LP64 host build; the mirror above is the same emitter's output from the
+// wasm32 module, and is what an editor budgets arena bytes against. A
+// pointer-bearing `prepared` block is wider under LP64, so the two disagree
+// there by construction. This holds them to disagreeing about nothing else, so
+// a golden regenerated on an unrelated host cannot re-pin quietly.
+const POINTER_WIDENED_OPERATORS = 7;
+
+test('the native golden and the wasm mirror differ only in pointer-block width', async () => {
+  const golden = JSON.parse(await readFile(
+    new URL('../tests/data/shader_chain_catalog.json', import.meta.url), 'utf8'));
+  assert.equal(golden.catalog_version, CATALOG.catalog_version);
+  assert.deepEqual(golden.budgets, CATALOG.budgets);
+  assert.deepEqual(golden.carriers, CATALOG.carriers);
+  assert.deepEqual(golden.operators.map((operator) => operator.id),
+    CATALOG.operators.map((operator) => operator.id));
+  let widened = 0;
+  let widest = 0;
+  golden.operators.forEach((native, index) => {
+    const wasm = CATALOG.operators[index];
+    assert.deepEqual({ ...wasm, blocks: null }, { ...native, blocks: null },
+      `${native.id} diverges outside its block layout`);
+    assert.deepEqual(wasm.blocks.param, native.blocks.param, `${native.id} param block`);
+    assert.deepEqual(wasm.blocks.state, native.blocks.state, `${native.id} state block`);
+    assert.ok(wasm.blocks.prepared.size <= native.blocks.prepared.size,
+      `${native.id} prepared block is wider on wasm32 than on LP64`);
+    if (wasm.blocks.prepared.size === native.blocks.prepared.size
+      && wasm.blocks.prepared.align === native.blocks.prepared.align) return;
+    widened += 1;
+    widest = Math.max(widest, native.blocks.prepared.size - wasm.blocks.prepared.size);
+    assert.equal(native.blocks.prepared.align, 8,
+      `${native.id} prepared block diverges without carrying an LP64 pointer`);
+    assert.equal(wasm.blocks.prepared.align, 4,
+      `${native.id} prepared block diverges without narrowing to wasm32`);
+  });
+  assert.equal(widened, POINTER_WIDENED_OPERATORS,
+    'the pointer-bearing operator set moved; re-pin it deliberately');
+  // Worst case: a full-length chain of the widest divergent operator.
+  assert.ok(widest * CATALOG.budgets.max_chain_ops < CATALOG.budgets.arena_bytes,
+    'the two accountings can disagree by a whole arena');
+});
+
 test('every promoted shader document matches its compiled effect identity', async () => {
   const migration = JSON.parse(await readFile(
     new URL('../patterns/shaderball_migration.json', import.meta.url), 'utf8'));

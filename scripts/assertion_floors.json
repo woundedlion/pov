@@ -16,8 +16,8 @@
     "assertions": 10
   },
   "scripts/shader_workbench.test.mjs": {
-    "cases": 24,
-    "assertions": 190
+    "cases": 26,
+    "assertions": 459
   },
   "scripts/wasm_smoke_predicates.test.mjs": {
     "cases": 21,
