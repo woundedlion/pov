@@ -775,7 +775,10 @@ FLASHMEM static PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
  * @return The truncated cuboctahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedCuboctahedron(Arena &a, Arena &b) {
-  return SolidBuilder(cube(a, b), a, b).bevel(T_TRUNC_CUBE).relax(50).build();
+  return SolidBuilder(cube(a, b), a, b)
+      .bevel(T_TRUNC_CUBE)
+      .relax_baked(RelaxBakes::truncated_cuboctahedron_converged)
+      .build();
 }
 /**
  * @brief Builds a snub cube.
@@ -786,7 +789,7 @@ FLASHMEM static PolyMesh truncatedCuboctahedron(Arena &a, Arena &b) {
 FLASHMEM static PolyMesh snubCube(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
       .snub(T_SNUB_CUBE, SNUB_CUBE_TWIST)
-      .relax(50)
+      .relax_baked(RelaxBakes::snub_cube_converged)
       .build();
 }
 /**
@@ -823,7 +826,10 @@ FLASHMEM static PolyMesh truncatedIcosahedron(Arena &a, Arena &b) {
  * @return The rhombicosidodecahedron mesh.
  */
 FLASHMEM static PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
-  return SolidBuilder(dodecahedron(a, b), a, b).expand().relax(50).build();
+  return SolidBuilder(dodecahedron(a, b), a, b)
+      .expand()
+      .relax_baked(RelaxBakes::rhombicosidodecahedron_converged)
+      .build();
 }
 /**
  * @brief Builds a truncated icosidodecahedron.

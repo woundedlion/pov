@@ -22,7 +22,7 @@
 // relax_baked(), so a sweep that reaches none of them still exits 0; this floor
 // is what distinguishes a passing gate from a gate that scored nothing. Raise it
 // for a new baked step; lower it only when one is deliberately retired.
-static constexpr int MIN_RELAX_BAKES_VERIFIED = 15;
+static constexpr int MIN_RELAX_BAKES_VERIFIED = 21;
 #endif
 
 int main() {
