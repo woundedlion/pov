@@ -2986,7 +2986,8 @@ inline const Case *all_cases(int &n) {
       {"arena_zero_size_alloc", case_arena_zero_size_alloc, "memory.h",
        "(size > 0) Arena::allocate: zero-size request"},
       {"arena_bad_alignment", case_arena_bad_alignment, "memory.h",
-       "(align != 0 && (align & (align - 1)) == 0) "},
+       "(align != 0 && (align & (align - 1)) == 0) Arena::allocate: "
+       "alignment "},
       {"arena_set_capacity_below_offset", case_arena_set_capacity_below_offset,
        "memory.h",
        "(offset <= new_capacity) Arena::set_capacity below the live offset "
@@ -3004,7 +3005,7 @@ inline const Case *all_cases(int &n) {
        "(scratch_arena_a.get_offset() == 0 && scratch_arena_b.get_offset() "
        "== 0) resplit_arenas: both scratch arenas must be empty"},
       {"arena_set_offset_forward", case_arena_set_offset_forward, "memory.h",
-       "(new_offset <= offset) "},
+       "(new_offset <= offset) Arena::set_offset: "},
       {"scratch_scope_non_lifo", case_scratch_scope_non_lifo, "memory.h",
        "(arena.get_offset() >= saved_offset) "},
       {"arena_vector_overflow", case_arena_vector_overflow, "memory.h",
@@ -3055,7 +3056,8 @@ inline const Case *all_cases(int &n) {
        "backup lives in a different arena than the one it restores into"},
       {"triangular_bitset_unordered_pair",
        case_triangular_bitset_unordered_pair, "triangular_bitset.h",
-       "(small >= 0 && small < large && large < MAX_V) "},
+       "(small >= 0 && small < large && large < MAX_V) "
+       "TriangularBitset::index: pair "},
       {"timeline_handled_relocation", case_timeline_handled_relocation,
        "timeline.h", "(!handled) "},
       {"timeline_move_into_live_destination",

@@ -220,7 +220,12 @@ protected:
                               0,
                               [this](Canvas &) {
                                 const bool advanced = advancePreset();
-                                HS_CHECK(advanced);
+                                HS_CHECK(
+                                    advanced,
+                                    "preset choreography: advance "
+                                    "rejected at preset %u of %u",
+                                    static_cast<unsigned>(getPresetIndex()),
+                                    static_cast<unsigned>(getPresetCount()));
                                 begin_preset_choreography();
                               },
                               false),
