@@ -79,7 +79,7 @@ peak.
 | [Fishbowl](shipping/profile_fishbowl_teensy_2026-08-02.md) | adaptive vertex build | 🟢 24.85 | 🟢 0/1088 (0%) | 2026-08-02 22:21 |
 | [MobiusGrid](shipping/profile_mobiusgrid_teensy_2026-08-16.md)§ ● | stereographic Möbius twin-wave | 🟢 24.20 (2) | 🟢 0/2688 (0%) | 2026-08-16 08:46 |
 | [GlitchGrid](shipping/profile_glitchgrid_teensy_2026-08-16.md) ● | folded gnomonic glitch mirror grid | 🟢 23.30 | 🟢 0/1088 (0%) | 2026-08-16 08:32 |
-| [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-07-25.md)§ | field raster | 🟢 15.9 (24) | 🟢 0/3488 (0%) | 2026-07-26 11:59 |
+| [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-08-21.md)§ | full-sphere harmonic shade | 🟢 12.29 (24) | 🟢 0/3488 (0%) | 2026-08-21 16:00 |
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-07-25.md) | ring raster | 🟢 11.71 | 🟢 0/1088 (0%) | 2026-07-26 11:37 |
 | [Voronoi](shipping/profile_voronoi_teensy_2026-07-25.md) | block-union top-2 shade | 🟢 9.90 | 🟢 0/1088 (0%) | 2026-07-26 11:46 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
@@ -89,8 +89,8 @@ peak.
 2026-08-18 as the stage-families cut-over A/B gate. The other rows keep their
 own `Captured` dates.
 
-**Nine rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids, Comets,
-GnomonicStars, SphericalHarmonics, PetalFlow, Voronoi and RingShower. Their
+**Eight rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids,
+Comets, GnomonicStars, PetalFlow, Voronoi and RingShower. Their
 per-effect reports describe the 2026-07-25 sweep that preceded it, so each
 report's headline peak is the earlier one and the peaks above are current. `just
 profile <Effect>` brings a report back level with its row.
