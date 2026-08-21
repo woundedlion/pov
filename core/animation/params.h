@@ -62,7 +62,9 @@ public:
              const bool *paused = nullptr)
       : FiniteParamAnimationBase(duration, repeat), mutant(mutant), from(0.0f),
         to(to), easing_fn(std::move(easing_fn)), quantized(quantized),
-        paused(paused) {}
+        paused(paused) {
+    HS_CHECK(std::isfinite(to), "Transition target must be finite");
+  }
 
   /**
    * @brief Performs one step of the transition.
