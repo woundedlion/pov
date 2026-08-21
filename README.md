@@ -2636,6 +2636,8 @@ The [shipping device captures](https://github.com/woundedlion/pov/blob/master/do
 
 The parameter schema exposes the broader Shader workbench vocabulary below. A menu entry describes a structurally possible field value, not a promise that its Cartesian combination is compiled for Teensy. The simulator renders valid unmatched combinations dynamically; sliders are active only when the selected schema uses them.
 
+The gap is per value, not only per combination. The `ComposedEffect` derivation layer in `composed_effect.h` reaches a strict subset of the shipped operator catalog, so eleven operators — Peirce, Peirce (Fast Square), Bonne, Airocean, Rings, both Noise Contours, Curl Flow, Ridge, Smooth Bands and Value Cutout — and 38 further values of the operators it does reach are workbench-only and can never appear in a composed effect: every non-simplex noise basis, the non-Euler curl integrators, the non-flat warp envelopes, the logarithmic polar chart and its harmonics 2–16, the front and back gnomonic hemispheres, and the None signal weight and Opaque coverage. `tests/test_composed_effect.h` pins that set against the live operator table, so a catalog addition stays classified.
+
 The two planar warps run in their displayed pullback order: **Planar Warp 1** then **Planar Warp 2**, followed by the source function.
 
 | Stage | Options | Produces or controls |
