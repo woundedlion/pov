@@ -210,6 +210,14 @@ public:
   }
 
   /**
+   * @brief Hardware segment ID decoded from the GPIO straps.
+   * @return Segment index in [0, N); 0 is the master.
+   * @details Meaningful only once an instance exists — the constructor's
+   *          read_id() is what samples the straps.
+   */
+  static int segment_index() { return segment_id; }
+
+  /**
    * @brief Initializes hardware: reads segment ID and configures the LED
    *        driver.
    * @details CONTRACT — construct only from setup(), never as a file-scope
