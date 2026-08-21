@@ -815,19 +815,28 @@ HS_FLASH_INLINE inline Vector tangent_axis(const Vector &normal) {
   return cross(normal, axis).normalized();
 }
 
+/** Conditioning bound on |cross(from, to)|^2 for parallel_transport; below it
+ *  the great circle is ill-determined. */
+inline constexpr float MIN_TRANSPORT_CROSS_SQ = 1e-4f;
+
 /**
  * @brief Parallel-transports a tangent along the great-circle arc between two
  *        unit vectors.
  * @param from Unit vector the tangent is attached to.
- * @param to Unit vector the tangent is carried to; MUST NOT be antipodal to
- *        @p from (trapped).
+ * @param to Unit vector the tangent is carried to.
  * @param tangent Tangent at @p from.
  * @return The tangent at @p to.
+ * @details Traps once the pair is inside MIN_TRANSPORT_CROSS_SQ of antipodal
+ *   rather than only at the exact antipode: any non-tangent component of
+ *   @p tangent is amplified by 2/|cross(from, to)| there, capped at 200x by the
+ *   bound. Gated on |cross|^2, which stays accurate where 1 + dot cancels; the
+ *   dot > 0 half-space short-circuits before the cross product.
  */
 inline Vector parallel_transport(const Vector &from, const Vector &to,
                                  const Vector &tangent) {
   const float denominator = 1.0f + dot(from, to);
-  HS_CHECK(denominator > math::TOLERANCE,
+  HS_CHECK(denominator > 1.0f ||
+               dot(cross(from, to), cross(from, to)) > MIN_TRANSPORT_CROSS_SQ,
            "parallel_transport: antipodal endpoints");
   return tangent - (from + to) * (dot(tangent, to) / denominator);
 }
