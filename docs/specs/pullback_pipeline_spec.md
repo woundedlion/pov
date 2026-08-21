@@ -3,7 +3,7 @@
 **Status: LANDED, revision 6 (2026-08-14).** The composition core, standard
 carriers, provider concepts, stage combinators, and concrete operator catalog
 specified here ship in `core/render/pullback.h`, which landed in `13186d7c`.
-Its consumers are `effects/ShaderWorkbench.h` and the composed-effect base
+Its consumers are `workbench/ShaderWorkbench.h` and the composed-effect base
 `core/render/pullback/composed_effect.h` — and through the latter, the fifteen
 single-effect composed headers in `effects/` (`patterns/README.md` maps
 each to its document). The
@@ -159,7 +159,8 @@ per-boundary carriers in it did not ship; the shipped spelling lives in
 
 `pullback.h` may include headers from `core/math`, `core/color`, and the
 minimal engine concept/profiling headers it needs. It shall not include an
-`effects/` header, refer to `ShaderWorkbench`, or require the effect registry.
+`effects/` or `workbench/` header, refer to `ShaderWorkbench`, or require the
+effect registry.
 No `core/` header may include `ShaderWorkbench.h` as a consequence of this work.
 
 Existing pure mathematical kernels remain in their natural owners:

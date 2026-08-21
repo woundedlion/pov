@@ -167,7 +167,7 @@ sha with any figure taken from this document.
   newest phantasm row of the size trail (`.git/teensy-size-trail.tsv`). The same
   row measures the 96x20 targets at itcm 68,560 B (`holosphere`) and 68,112 B
   (`holosphere_dma`).
-- The workbench effect is `Shader` (`effects/ShaderWorkbench.h`).
+- The workbench effect is `Shader` (`workbench/ShaderWorkbench.h`).
   `HS_EFFECT_LIST` admits it only behind `HS_ENABLE_SHADER_WORKBENCH`, and
   `HS_PHANTASM_EFFECT_LIST` excludes it outright — `HS_PHANTASM_EFFECT_COUNT ==
   HS_EFFECT_COUNT − 3 − HS_ENABLE_SHADER_WORKBENCH`, with `Shader` named in the

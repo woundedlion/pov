@@ -34,6 +34,8 @@ class TestExpectedMarker(unittest.TestCase):
                          lc.MIT_GRANT)
         self.assertEqual(lc.expected_marker("core/vendor/FastNoiseLite.h"),
                          lc.MIT_TITLE)
+        self.assertEqual(lc.expected_marker("workbench/ShaderWorkbench.h"),
+                         lc.RESERVED)
 
     def test_the_first_party_file_under_core_vendor_is_polyform(self):
         self.assertEqual(

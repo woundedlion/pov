@@ -29,9 +29,9 @@
 
 #include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/interpreter.h"
-#include "effects/ShaderChain.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "workbench/ShaderChain.h"
 
 namespace hs_test {
 namespace shader_chain_tests {
