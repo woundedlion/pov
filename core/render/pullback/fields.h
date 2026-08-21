@@ -23,6 +23,8 @@ enum class FieldCurve : uint8_t {
   LERP,              /**< Linear, exact at both endpoints. */
   LOG_POSITIVE,      /**< Geometric, for positive scales. */
   SHORTEST_PERIODIC, /**< Shortest arc on a 2*pi period. */
+  SHORTEST_TURN,     /**< Shortest arc on a unit period, for fields in
+                          turns. */
   SNAP               /**< Holds the start value until progress reaches 1. */
 };
 
@@ -77,6 +79,8 @@ HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
     return interp::log_positive(from, to, t);
   case FieldCurve::SHORTEST_PERIODIC:
     return interp::shortest_periodic(from, to, t, TWO_PI_F);
+  case FieldCurve::SHORTEST_TURN:
+    return interp::shortest_periodic(from, to, t, 1.0f);
   case FieldCurve::SNAP:
     break;
   }

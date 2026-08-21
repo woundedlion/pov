@@ -830,6 +830,34 @@ inline void test_pullback_rank_skip_crossing() {
   HS_EXPECT_EQ(sky.alpha, 0.5f);
 }
 
+/**
+ * @brief Pins the periodic field curves against the linear one.
+ * @details A turns-valued field takes the short arc over a unit period, a
+ *          radian-valued one over 2*pi; both wrap where a lerp would sweep
+ *          the long way round.
+ */
+inline void test_pullback_field_curves() {
+  using Pullback::FieldCurve;
+  using Pullback::Fields::apply_curve;
+  HS_EXPECT_NEAR(apply_curve(FieldCurve::SHORTEST_TURN, 0.9f, 0.1f, 0.25f),
+                 0.95f, 1e-6f);
+  HS_EXPECT_NEAR(apply_curve(FieldCurve::LERP, 0.9f, 0.1f, 0.25f), 0.7f, 1e-6f);
+  HS_EXPECT_EQ(apply_curve(FieldCurve::SHORTEST_TURN, 0.9f, 0.1f, 0.0f), 0.9f);
+  HS_EXPECT_EQ(apply_curve(FieldCurve::SHORTEST_TURN, 0.9f, 0.1f, 1.0f), 0.1f);
+  HS_EXPECT_NEAR(
+      apply_curve(FieldCurve::SHORTEST_PERIODIC, TWO_PI_F - 0.1f, 0.1f, 0.25f),
+      TWO_PI_F - 0.05f, 1e-5f);
+
+  Pullback::Surface::DirectSurfaceParams from;
+  Pullback::Surface::DirectSurfaceParams to;
+  from.direction = 0.9f;
+  to.direction = 0.1f;
+  const Pullback::Surface::DirectSurfaceParams mid =
+      Pullback::Fields::interpolate(from, to, 0.25f);
+  HS_EXPECT_NEAR(mid.direction, 0.95f, 1e-6f);
+  HS_EXPECT_TRUE(Pullback::Fields::valid(mid));
+}
+
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
   test_pullback_carrier_contract();
@@ -845,6 +873,7 @@ inline int run_pullback_tests() {
   test_pullback_periodic_ripple();
   test_pullback_lens_stack();
   test_pullback_rank_skip_crossing();
+  test_pullback_field_curves();
   return fixture.result();
 }
 
