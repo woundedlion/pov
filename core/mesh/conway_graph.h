@@ -503,6 +503,7 @@ HS_FLASH_MEMBER constexpr int pick_next_edge(int node, int prev_edge,
                                              uint32_t rnd) {
   uint8_t cand[MAX_DEGREE];
   int n = edges_from(node, cand);
+  HS_CHECK(n > 0, "pick_next_edge: node outside the graph");
   if (n == 1)
     return cand[0]; // degree-1: out-and-back is the only legal move
 
