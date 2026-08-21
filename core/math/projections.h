@@ -104,6 +104,13 @@ constexpr uint8_t projection_boundary(ProjectionBoundary a) {
   return static_cast<uint8_t>(a);
 }
 
+/**
+ * @brief `fade_edge_distance` when no cut distance was measured. Larger than
+ *        any real distance a kernel produces, so it also seeds their nearest-
+ *        edge searches.
+ */
+inline constexpr float NO_EDGE_DISTANCE = 65536.0f;
+
 /** @brief One projection kernel's plane coordinates plus its seam metadata. */
 struct ProjectionKernelResult {
   /** Plane position in the kernel's native units. */
@@ -114,8 +121,8 @@ struct ProjectionKernelResult {
   uint8_t component_id;
   /** ProjectionBoundary mask for the edge `fade_edge_distance` measures to. */
   uint8_t boundary_flags;
-  /** Distance to the nearest cut in the kernel's own units; 65536 when the
-   *  kernel was asked to skip it or found no cut. */
+  /** Distance to the nearest cut in the kernel's own units; NO_EDGE_DISTANCE
+   *  when the kernel was asked to skip it or found no cut. */
   float fade_edge_distance;
   /** Kernel-specific per-point flags. */
   uint8_t flags;
@@ -286,7 +293,8 @@ inline float peirce_sector_longitude(const Vector &v, float central_meridian) {
  * @param scroll Fraction of a full period to translate a strip layout by;
  *        ignored for layouts 0 and 1.
  * @param calculate_edge_distance When false, `fade_edge_distance` is left at
- *        65536 and the inverse-trig calls that compute it are skipped.
+ *        NO_EDGE_DISTANCE and the inverse-trig calls that compute it are
+ *        skipped.
  * @return Plane coordinates in units of the quarter period
  *         K = 1.8540746773013719; the southern fold reflects about 2K and the
  *         strip layouts repeat every 4K.
@@ -368,7 +376,7 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
   }
   const float rotated_x = cp * cl;
   const float rotated_z = cp * sl;
-  float edge = 65536.0f;
+  float edge = NO_EDGE_DISTANCE;
   if (calculate_edge_distance) {
     edge = acosf(
         hs::clamp(std::max(fabsf(rotated_x), fabsf(rotated_z)), 0.0f, 1.0f));
@@ -780,6 +788,10 @@ inline constexpr float AIROCEAN_TRANSFORMS[23][2][4] = {
  * index in both arrays. AIROCEAN_CUT_MASKS is the per-face bitset the kernel
  * actually reads.
  */
+/** @brief Extent of the unfolded net along its second axis, the axis the
+ *         quarter-turn layout reflects about. */
+inline constexpr float AIROCEAN_NET_HEIGHT = 5.78304223331047f;
+
 inline constexpr uint8_t AIROCEAN_CUT_FACES[] = {
     3,  4,  4,  5,  5,  6,  6,  8,  9,  12, 12, 13, 13,
     14, 14, 15, 15, 16, 18, 18, 19, 19, 20, 21, 22, 22};
@@ -911,7 +923,7 @@ inline float point_segment_distance(const AiroceanPoint &p,
  * @param central_meridian Longitude rotated onto the net's axis, in radians.
  * @param horizontal Rotates the finished net a quarter turn.
  * @param calculate_edge_distance When false, `fade_edge_distance` is left at
- *        65536 and the per-edge cut distances are skipped.
+ *        NO_EDGE_DISTANCE and the per-edge cut distances are skipped.
  * @return Plane coordinates on the net, with `region_id` set to the face and
  *         `edge_class` to the nearest edge's shared identity.
  * @details Each direction is assigned to the spherical triangle that contains
@@ -955,8 +967,8 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
                        transform[1][0] * q.x + transform[1][1] * q.y +
                            transform[1][2] * q.z + transform[1][3]};
   uint8_t edge_class = 0;
-  float cut_edge_distance_squared = 65536.0f;
-  float face_edge_distance_squared = 65536.0f;
+  float cut_edge_distance_squared = NO_EDGE_DISTANCE;
+  float face_edge_distance_squared = NO_EDGE_DISTANCE;
   for (uint8_t candidate = 0; candidate < 3; ++candidate) {
     const AiroceanPoint &a = AIROCEAN_PLANAR_FACES[face][candidate];
     const AiroceanPoint &b = AIROCEAN_PLANAR_FACES[face][(candidate + 1) % 3];
@@ -976,9 +988,9 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
     }
   }
   const float edge =
-      calculate_edge_distance && cut_edge_distance_squared < 65536.0f
+      calculate_edge_distance && cut_edge_distance_squared < NO_EDGE_DISTANCE
           ? sqrtf(cut_edge_distance_squared)
-          : 65536.0f;
+          : NO_EDGE_DISTANCE;
   bool cut_edge = airocean_edge_is_cut(face, edge_class);
   uint8_t edge_identity = airocean_edge_identity(face, edge_class);
   if (face == 14 && edge_class == 0) {
@@ -993,7 +1005,7 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
       edge_identity = airocean_edge_identity(18, 0);
   }
   if (horizontal)
-    output = {5.78304223331047f - output.y, output.x};
+    output = {AIROCEAN_NET_HEIGHT - output.y, output.x};
   return {Complex(output.x, output.y),
           face,
           0,
