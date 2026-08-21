@@ -63,6 +63,13 @@ committed board directly need no KiCad and run in CI
   (logic feed `J1 → F1 → Q_REV → FB → +5V_LOGIC`;
   series terminations `U1 out → R → J2`/bus; the pin-3 divider node ties Teensy D3,
   `U1` ch-C input, `R1`/`R2`/`C_SYNC`; ID0/ID1/ID2 straps; `MASTER_EN`; shield).
+- **Copper-connectivity gate:** `gen/connectivity.py` unions the routed board's
+  tracks, vias, pads and pour fills per net and rejects any net whose pads land
+  in more than one island. Every other net gate in this list reads pad net
+  *attributes*, which survive deleting the copper that realizes them; this one
+  walks the copper. It needs no KiCad and runs in CI via
+  `gen/tests/test_connectivity.py`; run it standalone with
+  `python gen/connectivity.py`.
 - **PCB geometry DRC: clean** (`kicad-cli pcb drc`): zero error-severity
   violations and zero unconnected pads.
 - **Standard-cost via gate:** `gen/fab.py` rejects a routed board containing a

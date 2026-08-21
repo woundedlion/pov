@@ -201,7 +201,7 @@ teensy-gate-test:
     {{py}} -m unittest discover -s tools/relax_bake_tests -v
     bash tools/check_test_files.sh 1 "tools/update_test_pins_tests/test*.py"
     {{py}} -m unittest discover -s tools/update_test_pins_tests -v
-    bash tools/check_test_files.sh 16 "hardware/phantasm/gen/tests/test*.py"
+    bash tools/check_test_files.sh 18 "hardware/phantasm/gen/tests/test*.py"
     {{py}} -m unittest discover -s hardware/phantasm/gen/tests -v
     {{py}} hardware/phantasm/gen/board_metadata.py --check
 
