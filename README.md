@@ -1440,7 +1440,7 @@ Twenty-seven named `ProceduralPalette` instances are pre-defined in the `Palette
 
 #### OKLCH Perceptual Color
 
-Palette interpolation is performed in the OKLCH perceptual color space: both `Gradient` (color-stop interpolation) and `GenerativePalette` (harmony-key interpolation and animated transitions) build their tables in OKLCH. The cosine `ProceduralPalette` is the exception — it evaluates its per-channel waveform directly in sRGB. The pipeline:
+Palette interpolation is performed in the OKLCH perceptual color space: both `Gradient` (color-stop interpolation) and `GenerativePalette` (harmony-key interpolation and animated transitions) build their tables in OKLCH by default. A `PaletteRecipe` setting `color_path` to `ColorPath::OKLAB_CARTESIAN` moves `GenerativePalette`'s key interpolation onto the rectangular OKLab path instead. The cosine `ProceduralPalette` is the exception — it evaluates its per-channel waveform directly in sRGB. The pipeline:
 
 ```
 Pixel (linear 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, h)
