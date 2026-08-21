@@ -447,30 +447,43 @@ hand-soldered by you.
 
 ## 10. Net summary
 
+The net names are the ones the schematic, the routed board and the
+[`gen/check.py`](../../hardware/phantasm/gen/check.py) gate carry, keyed on `(ref, pin)`.
+
 | Net | Members |
 |---|---|
-| **+5V_RAW** | J1 → F1 → Q_REV (logic reverse-protect) → FB in |
-| **+5V_LOGIC** (post-bead) | FB out, R_LF in, C_IN+, Teensy VIN, U1 Vcc, C_DEC1/2 |
-| **LF_DAMP** | R_LF out → C_LF + (the damping node of R-PWR-5; C_LF never sits on +5V_LOGIC directly) |
-| **3V3** | Teensy 3V3 pin → R_MEN top, J4 |
-| **GND** | single quiet logic plane: J1 GND, Teensy GND, U1 GND and ch-D input, C_IN/C_LF/C_DEC −, J3A/J3B GND, R2 bottom, strap GND, JP_SHLD (master), SIG_GND → J2 |
-| **DATA** | Teensy 11 → U1 chA in; U1 chA out → R_D1(33 Ω) → J2 DI |
-| **CLK** | Teensy 13 → U1 chB in; U1 chB out → R_D2(33 Ω) → J2 CI |
-| **SIG_GND** | logic GND → J2 pin 3 → strip GND pin (**load-end star**, R-CON-1) |
-| **SYNC_OUT** | Teensy 3 → U1 chC in; U1 chC out → R_S(100 Ω) → SYNC bus |
-| **SYNC bus** | J3A/J3B SYNC (bridged), R1 top, R_PD top, D_BUS, U1 chC out (via R_S) |
-| **SYNC_RX** | SYNC bus → R1 → node (≈3.0 V; R2 to GND, C_SYNC) → Teensy 3 |
-| **SHIELD** | J3A SHLD, J3B SHLD (bridged drain) → JP_SHLD → GND (**master only**) |
-| **MASTER_EN** | Teensy 5 → U1 chC and chD `/OE`; R_MEN (10 kΩ) pull-up → 3V3 |
-| **SYNC_PULLDOWN** | U1 chD output → R_PD bottom; LOW only on the master, high-impedance on slaves |
-| **ID0** | Teensy 21 → strap pad (→GND per role); firmware enables the internal pull-up |
-| **ID1** | Teensy 22 → strap pad (→GND per role) |
-| **ID2** | Teensy 23 → strap pad (→GND per role) |
+| **+5V_IN** | J1 pin 1 → F1 |
+| **+5V_RAW** | F1 → Q_REV pin 3 (drain — logic reverse-protect input) |
+| **+5V_PROT** | Q_REV pin 2 (source) → FB |
+| **+5V_LOGIC** (post-bead) | FB, R_LF, C_IN pin 1 (+), C_DEC1/2, U1 pin 14 (Vcc), Teensy VIN |
+| **LF_DAMP** | R_LF → C_LF (the damping node of R-PWR-5; C_LF never sits on +5V_LOGIC directly) |
+| **+3V3** | Teensy 3V3 pin, R_MEN, J4 pin 1 |
+| **GND** | single quiet logic plane: J1 pin 2, Teensy GND, U1 pins 1/4 (chA/chB `/OE`), 7 (Vss) and 12 (chD input), C_IN pin 2 (−), C_LF, C_DEC1/2, C_SYNC, D_BUS pin 2 (anode), Q_REV pin 1 (gate), R2, J2 pin 3 (the SIG_GND pin), J3A/J3B pin 2, J4 pin 2, JP_ID0/1/2, JP_SHLD |
+| **DATA_IN** | Teensy 11 → U1 pin 2 (chA in) |
+| **DATA_SRC** | U1 pin 3 (chA out) → R_D1 (33 Ω) |
+| **DATA** | R_D1 → J2 pin 1 (DI) |
+| **CLK_IN** | Teensy 13 → U1 pin 5 (chB in) |
+| **CLK_SRC** | U1 pin 6 (chB out) → R_D2 (33 Ω) |
+| **CLK** | R_D2 → J2 pin 2 (CI) |
+| **FRAME_SYNC** | Teensy 3, U1 pin 9 (chC in), and the divider node R1/R2 + C_SYNC (≈3.0 V when receiving) |
+| **SYNC_SRC** | U1 pin 8 (chC out) → R_S (100 Ω) |
+| **SYNC_BUS** | R_S, R1, R_PD, D_BUS pin 1 (cathode), J3A/J3B pin 1 (bridged) |
+| **SYNC_PULLDOWN** | U1 pin 11 (chD out) → R_PD; LOW only on the master, high-impedance on slaves |
+| **MASTER_EN** | Teensy 5 → U1 pins 10/13 (chC and chD `/OE`); R_MEN (10 kΩ) pull-up → +3V3; J4 pin 3 |
+| **SHIELD** | J3A pin 3, J3B pin 3 (bridged drain) → JP_SHLD → GND (**master only**) |
+| **SERIAL1_TX** | Teensy 1 → J4 pin 4 |
+| **ID0** | Teensy 21 → JP_ID0 (→GND per role); firmware enables the internal pull-up |
+| **ID1** | Teensy 22 → JP_ID1 (→GND per role) |
+| **ID2** | Teensy 23 → JP_ID2 (→GND per role) |
 
-> **Pin 3 is one physical node.** `SYNC_OUT` and `SYNC_RX` are the two roles of the *same* Teensy
-> pin-3 net: the master drives it (pin 3 = OUTPUT → ch C), slaves sense the bus through the divider
-> (pin 3 = INPUT). The roles are **mutually exclusive per board** ([pov_segmented.h — run_show()](../../hardware/pov_segmented.h));
-> on the master the divider is bypassed because pin 3 is a driven output.
+> **Pin 3 is one physical node.** Drive and receive are two roles of the *same* `FRAME_SYNC` net:
+> the master drives it (pin 3 = OUTPUT → ch C → `SYNC_SRC` → R_S → `SYNC_BUS`), slaves sense the bus
+> through the R1/R2 divider onto the same node (pin 3 = INPUT). The roles are **mutually exclusive
+> per board** ([pov_segmented.h — run_show()](../../hardware/pov_segmented.h)); on the master the
+> divider is bypassed because pin 3 is a driven output.
+
+> **SIG_GND is a J2 pin function, not a net.** J2 pin 3 sits on the single `GND` net; the load-end
+> star (R-CON-1) is where that pin meets the strip ground off-board.
 
 > **Strip +5 V / GND are _not_ on the card.** They come from the off-board power harness
 > (R-PWR-10/11). The card's only tie to the strip ground is **SIG_GND at the strip's GND pin (load
