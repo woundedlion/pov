@@ -266,7 +266,7 @@ inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
  * @param edge_to_vert Caller-allocated uint16_t[I] map, pre-filled with HE_NONE
  *   and filled here for both halves of each edge.
  * @param edge_fn Per-edge hook for a caller carrying a parallel payload; runs
- *   after the midpoint vertex is pushed.
+ *   after the midpoint vertex is pushed and mapped into edge_to_vert.
  * @details The degenerate (antipodal) midpoint falls back to an endpoint. Shared
  *   by ambo and medial, whose vertex lists must stay bit-identical. Requires a
  *   closed manifold: the map is written through he.pair, so an unpaired
@@ -286,11 +286,11 @@ inline void emit_edge_midpoints(const HalfEdgeMesh &he_mesh,
 
     Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
     out_mesh.vertices.push_back(normalized_or(mid, mesh.vertices[v1]));
-    edge_fn(he);
 
     uint16_t new_idx = narrow_index(out_mesh.vertices.size() - 1);
     edge_to_vert[i] = new_idx;
     edge_to_vert[he.pair] = new_idx;
+    edge_fn(he);
   }
 }
 
