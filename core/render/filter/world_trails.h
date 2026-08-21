@@ -81,7 +81,7 @@ public:
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged and NOT gated: a
    * transparent sample still consumes a ring slot. Screen::Trails deliberately
-   * differs, dropping samples at alpha <= 0.001.
+   * differs, dropping samples at its own MIN_TRAIL_ALPHA.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
@@ -125,7 +125,7 @@ public:
           0.0f, 1.0f);
       Color4 c = trailFn(v, t);
 
-      if (c.alpha > 0.001f) {
+      if (c.alpha > MIN_TRAIL_ALPHA) {
         int age = lifetime - static_cast<int>(item.ttl);
         if (age < 0)
           age = 0;
@@ -156,6 +156,13 @@ public:
   size_t size() const { return count; }
 
 private:
+  /**
+   * @brief Trail alpha below which flush() emits nothing for a buffered point.
+   * @details Gates emission only; plot() seeds every sample whatever its
+   * alpha.
+   */
+  static constexpr float MIN_TRAIL_ALPHA = 0.001f;
+
   Item *items = nullptr; /**< Ring-buffer storage (arena-owned). */
   size_t head = 0, tail = 0,
          count = 0; /**< Ring-buffer head, tail, and live count. */

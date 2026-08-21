@@ -56,9 +56,9 @@ public:
    * @param y Row coordinate in pixels.
    * @param color Source color, forwarded unchanged this frame.
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
-   * @param alpha Blend alpha in [0, 1]; samples with alpha <= 0.001 seed no
-   * trail point but are still forwarded downstream. World::Trails deliberately
-   * differs, seeding on every sample.
+   * @param alpha Blend alpha in [0, 1]; samples at or below MIN_TRAIL_ALPHA
+   * seed no trail point but are still forwarded downstream. World::Trails
+   * deliberately differs, seeding on every sample.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
@@ -70,7 +70,7 @@ public:
             PassFnT &&pass) {
     pass(x, y, color, age, alpha);
 
-    if (alpha <= 0.001f)
+    if (alpha <= MIN_TRAIL_ALPHA)
       return;
 
     float ttl = static_cast<float>(lifetime) - age;
@@ -102,7 +102,7 @@ public:
     for (int i = 0; i < num_pixels; ++i) {
       float t = hs::clamp(1.0f - (points[i].ttl / lifetime), 0.0f, 1.0f);
       Color4 color = trailFn(points[i].x, points[i].y, t);
-      if (color.alpha > 0.001f) {
+      if (color.alpha > MIN_TRAIL_ALPHA) {
         float age = lifetime - points[i].ttl;
         if (age < 0.0f)
           age = 0.0f;
@@ -128,6 +128,14 @@ public:
   }
 
 private:
+  /**
+   * @brief Trail alpha below which a sample seeds nothing and a buffered point
+   * emits nothing.
+   * @details Same value as World::Trails::MIN_TRAIL_ALPHA, but gates seeding as
+   * well as emission.
+   */
+  static constexpr float MIN_TRAIL_ALPHA = 0.001f;
+
   /** @brief One screen trail point: position plus remaining lifetime. */
   struct DecayPixel {
     float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */

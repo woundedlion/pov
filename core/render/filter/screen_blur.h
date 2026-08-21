@@ -83,7 +83,7 @@ public:
           wsum += kernel[r] + kernel[r + 1] + kernel[r + 2];
         }
       }
-      if (wsum > 1e-5f)
+      if (wsum > TAP_CUTOFF)
         inv = 1.0f / wsum;
     }
 
@@ -94,9 +94,7 @@ public:
       if (ny >= 0 && ny < H) {
         for (int dx = -1; dx <= 1; dx++) {
           float weight = kernel[k++] * inv;
-          // Normalized kernel tap; cutoff is tighter in AntiAlias (1e-8) whose
-          // weights are raw bilinear coverage products.
-          if (weight > 1e-5f) {
+          if (weight > TAP_CUTOFF) {
             pass(static_cast<float>(fast_wrap(cx + dx, W)),
                  static_cast<float>(ny), color, age, alpha * weight);
           }
@@ -108,6 +106,14 @@ public:
   }
 
 private:
+  /**
+   * @brief Kernel weight below which a tap contributes nothing worth emitting,
+   * and the reciprocal guard on the edge-renormalization sum.
+   * @details Looser than SPLAT_TAP_CUTOFF (1e-8) because these weights are
+   * normalized 3x3 kernel taps, not raw bilinear coverage products.
+   */
+  static constexpr float TAP_CUTOFF = 1e-5f;
+
   std::array<float, 9> kernel; /**< Row-major 3x3 blur weights, summing to 1. */
 };
 
