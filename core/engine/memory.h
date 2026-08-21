@@ -146,7 +146,8 @@ public:
    */
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
     HS_CHECK(size > 0, "Arena::allocate: zero-size request");
-    HS_CHECK(align != 0 && (align & (align - 1)) == 0);
+    HS_CHECK(align != 0 && (align & (align - 1)) == 0,
+             "Arena::allocate: alignment %zu is not a power of two", align);
     uintptr_t current = reinterpret_cast<uintptr_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
     // Subtractive form: offset <= capacity is invariant, so it cannot wrap the
@@ -279,7 +280,9 @@ public:
    * restoring an unaligned mark is safe.
    */
   void set_offset(size_t new_offset) {
-    HS_CHECK(new_offset <= offset);
+    HS_CHECK(new_offset <= offset,
+             "Arena::set_offset: %zu is not a rewind from %zu", new_offset,
+             offset);
 #ifndef NDEBUG
     if (new_offset < offset) {
       last_rewind_target = new_offset;
