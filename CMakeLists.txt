@@ -124,8 +124,9 @@ if(EMSCRIPTEN)
     # link-line copy is a no-op for today's toolchain — but it closes the gap if a
     # future link-time math pass ever keys off the link flags instead.
     # 8 KB stack: the tight production budget, sized against the inlined -O3 build.
-    target_link_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math"
-      "-fno-finite-math-only" "-msimd128" "-flto" "-sSTACK_SIZE=8192")
+    target_link_options(${TARGET_NAME} PRIVATE "-O3"
+      "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto"
+      "-sSTACK_SIZE=8192")
   endif()
 
   # Optional dev-only WASM bindings (off by default, so a normal build is
