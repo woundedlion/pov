@@ -31,6 +31,14 @@ hardware/pov_segment_map.json text eol=lf
 # append_catalog_json() emits, on every host.
 tests/data/shader_chain_catalog.json text eol=lf
 
+# The shader-document install set, mirrored into daydream and digested there
+# over LF bytes. A Windows install otherwise ships CRLF and forks the mirror.
+scripts/shader_workbench.mjs text eol=lf
+scripts/sha256.mjs text eol=lf
+scripts/engine_catalog.json text eol=lf
+patterns/*.shader.json text eol=lf
+patterns/shaderball_migration.json text eol=lf
+
 # The remaining installed artifacts the deploy gate byte-compares across the two
 # repositories. The gallery PNGs are pinned binary so no host's autocrlf can
 # touch them.

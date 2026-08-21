@@ -7,6 +7,10 @@ YAML two lines at a time, check_engine_ranges parses package.json's `>=X`
 string, and _version_tuple compares versions of unequal width. A drift in any
 of those shapes makes the check detect nothing while still printing PASS.
 
+The install-set check reads a fourth shape, CMakeLists.txt's install() rules; a
+rule it stops recognising silently exempts those files from their line-ending
+pin.
+
 Run:  python -m unittest discover -s tools/build_pins_tests
 """
 
@@ -304,6 +308,39 @@ class CheckTool(unittest.TestCase):
             if name in ("clang", "doxygen", "just", "node", "python",
                         "shellcheck"):
                 self.assertNotIn(f"pip install {name}=={pin}", message, name)
+
+
+class InstallSet(unittest.TestCase):
+    """The files the daydream install mirrors, and their line-ending pins."""
+
+    def test_every_cross_repo_rule_contributes_its_sources(self):
+        installed = bp.installed_sources()
+        for path in ("README.md", "hardware/pov_segment_map.json",
+                     "scripts/shader_workbench.mjs", "scripts/sha256.mjs",
+                     "scripts/engine_catalog.json",
+                     "patterns/example.shader.json",
+                     "patterns/shaderball_migration.json"):
+            self.assertIn(path, installed)
+        self.assertTrue(
+            any(path.startswith("docs/screenshots/") for path in installed))
+
+    def test_a_directory_rule_selects_only_its_patterns(self):
+        # patterns/ also holds a README the FILES_MATCHING patterns exclude.
+        self.assertNotIn("patterns/README.md", bp.installed_sources())
+
+    def test_a_generated_artifact_is_not_a_repository_source(self):
+        # The module and its glue are installed from the build directory.
+        for path in bp.installed_sources():
+            self.assertTrue((bp.ROOT / path).is_file(), path)
+
+    def test_the_live_install_set_is_pinned(self):
+        self.assertEqual(bp.check_install_eol(bp.installed_sources()), [])
+
+    def test_an_unpinned_file_is_reported(self):
+        self.assertEqual(len(bp.check_install_eol(["unpinned/file.txt"])), 1)
+
+    def test_an_empty_set_fails_instead_of_passing_vacuously(self):
+        self.assertTrue(bp.check_install_eol([]))
 
 
 if __name__ == "__main__":

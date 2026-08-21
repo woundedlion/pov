@@ -16,6 +16,10 @@ the pin -- --check asserts the two agree instead.
 
 TEST_FILE_PIN reads the check_test_files.sh counts back out of the files that
 spell them, so the copies cannot drift from each other or from the suite.
+
+The install-set check reads the same CMakeLists.txt rules that mirror files into
+the daydream checkout and asserts each carries a line-ending pin, since those
+bytes are digested there over LF.
 """
 
 from __future__ import annotations
@@ -230,6 +234,14 @@ ENGINE_RANGES = (
 )
 
 
+# install(FILES|DIRECTORY) rules, matched to the first closing paren -- neither
+# form nests one. The cross-repo install set is the subset destined for
+# DAYDREAM_DIR; install(CODE) writes only files generated at install time.
+INSTALL_RULE = re.compile(r"install\(\s*(FILES|DIRECTORY)\s(.*?)\)", re.DOTALL)
+INSTALL_SOURCE = re.compile(r"\$\{CMAKE_CURRENT_SOURCE_DIR\}/([^\"\s]+)")
+INSTALL_PATTERN = re.compile(r'PATTERN\s+"([^"]+)"')
+
+
 def duplicates_pin(text: str, name: str, value: str) -> bool:
     """Return whether a dependency context contains its literal pinned value."""
     aliases = (name.lower(), name.lower().replace("-", "_"))
@@ -360,9 +372,71 @@ def check_engine_ranges() -> list[str]:
     return errors
 
 
+def installed_sources() -> list[str]:
+    """Return the repository files CMakeLists.txt installs into daydream.
+
+    An install(DIRECTORY) rule contributes whatever its FILES_MATCHING patterns
+    select right now, so a document dropped into patterns/ joins the set by
+    existing rather than by being listed anywhere.
+    """
+    text = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+    sources: set[str] = set()
+    for kind, body in INSTALL_RULE.findall(text):
+        head, _, destination = body.partition("DESTINATION")
+        if "DAYDREAM_DIR" not in destination:
+            continue
+        for source in INSTALL_SOURCE.findall(head):
+            if kind == "FILES":
+                sources.add(source)
+                continue
+            for pattern in INSTALL_PATTERN.findall(destination) or ["*"]:
+                sources.update(
+                    path.relative_to(ROOT).as_posix()
+                    for path in (ROOT / source).rglob(pattern)
+                    if path.is_file()
+                )
+    return sorted(sources)
+
+
+def check_install_eol(paths: list[str]) -> list[str]:
+    """Return one error per installed file carrying no line-ending pin.
+
+    daydream's deploy gate byte-compares its copy of each installed file
+    against this repository's, over LF bytes. Without an eol=lf (or binary)
+    attribute the working copy holds whatever the host checked out, so an
+    install run on Windows ships CRLF and forks the mirror -- which a Linux
+    runner cannot reproduce.
+    """
+    if not paths:
+        return ["CMakeLists.txt: no DAYDREAM_DIR install sources found"]
+    # Bytes, not text=True: the text wrapper rewrites the input's newlines to
+    # CRLF on Windows and git reads the CR as part of the path.
+    query = subprocess.run(
+        ["git", "-C", str(ROOT), "check-attr", "--stdin", "eol", "binary"],
+        input="\n".join(paths).encode(), capture_output=True)
+    if query.returncode != 0:
+        return [f"git check-attr failed: {query.stderr.decode().strip()}"]
+    attributes: dict[str, dict[str, str]] = {}
+    for line in query.stdout.decode().splitlines():
+        path, attribute, value = line.rsplit(": ", 2)
+        attributes.setdefault(path, {})[attribute] = value
+    errors: list[str] = []
+    for path in paths:
+        found = attributes.get(path, {})
+        if found.get("eol") == "lf" or found.get("binary") == "set":
+            continue
+        errors.append(
+            f"{path}: installed into daydream with no eol=lf pin "
+            f"in .gitattributes"
+        )
+    return errors
+
+
 def check_consumers() -> int:
+    installed = installed_sources()
     errors: list[str] = (check_inline_pins() + check_shared_literals()
-                         + check_engine_ranges() + check_test_file_pins())
+                         + check_engine_ranges() + check_test_file_pins()
+                         + check_install_eol(installed))
     for name in sorted(set(CHECK_TOOLS) - set(PINS | INLINE_PINS)):
         errors.append(f"CHECK_TOOLS names {name}, which is not a pin")
     for path, references in CONSUMERS.items():
@@ -387,7 +461,8 @@ def check_consumers() -> int:
     print(f"build pins are single-sourced ({len(PINS)} injected, "
           f"{len(INLINE_PINS)} inline, {len(SHARED_LITERALS)} shared literal, "
           f"{len(ENGINE_RANGES)} engine range, "
-          f"{len(collect_test_file_pins())} test-file glob)")
+          f"{len(collect_test_file_pins())} test-file glob, "
+          f"{len(installed)} installed file)")
     return 0
 
 
