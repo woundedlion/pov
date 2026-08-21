@@ -19,6 +19,13 @@ from kicad_common import require_writable, reset_uid_sequence
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 
+SCH_REASON = (
+    "KiCad wrote the committed schematic last, not this generator: it holds\n"
+    "  annotation and hand edits, and random v4 uuids that regeneration replaces\n"
+    "  with deterministic v5 ids -- dangling every (path ...) link\n"
+    "  phantasm.kicad_pcb holds into it. Re-annotating, re-placing and re-routing\n"
+    "  follow.")
+
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -31,7 +38,7 @@ def main(force=False):
     # uid() keys on call site + occurrence, so the sequence starts empty or a
     # second call in one process would renumber every generated uuid.
     reset_uid_sequence()
-    require_writable(SCH, force)
+    require_writable(SCH, force, SCH_REASON)
 
     b = B.Builder("PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)",
                   paper="A3")

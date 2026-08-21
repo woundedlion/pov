@@ -20,10 +20,10 @@ the fabrication source of truth and has no unconnected pads.
 | File | What |
 |---|---|
 | `phantasm.kicad_pro` | Project file |
-| `phantasm.kicad_sch` | Schematic — all parts, values, footprints, full §10 connectivity |
+| `phantasm.kicad_sch` | Schematic — all parts, values, footprints, full §10 connectivity. **Last written by KiCad, not by `gen/board.py`**, and not reproducible from it — see [Regenerating](#regenerating) |
 | `phantasm.kicad_pcb` | Completed routed PCB with validated placement, control routing, planes, mounting, and service clearances |
 | `quilter_incremental/` | Historical protected input snapshot used for the completed control-net routing — written by `gen/make_quilter_incremental.py`, which now refuses to run because the board is routed |
-| `unplaced/phantasm_unplaced.kicad_pcb` | **4-layer** (SIG/GND/GND/SIG) outline + net-assigned footprints **staged below the board, unrouted** — for an autoplacer (Quilter). Stackup encoded in-file. Regenerate: `python gen/pcb.py --unplaced --force` |
+| `unplaced/phantasm_unplaced.kicad_pcb` | **4-layer** (SIG/GND/GND/SIG) outline + net-assigned footprints **staged below the board, unrouted** — for an autoplacer (Quilter). Stackup encoded in-file. A KiCad GUI re-save; `python gen/pcb.py --unplaced --force` regenerates it and discards that re-save |
 | `unplaced/phantasm_unplaced.kicad_pro` | **Captured artifact — no generator writes it.** Quilter-facing DRC rules and net class for the unplaced board, wider than the routed project's. Pinned by `gen/constraints.py` (`UNPLACED_RULES`, `UNPLACED_DEFAULT_CLASS`) and `gen/tests/test_constraints.py`; restore from those if it is ever lost, because `gen/heal_clearance.py` only raises a value below a minimum and would leave the routed floors in place |
 | `phantasm.kicad_sym` | Project symbol library: custom `Teensy4.0` + `+5V_RAW/+5V_LOGIC` power symbols |
 | `phantasm.pretty/` | Project footprint library: generated `Teensy4.0` footprint (2×14 0.1″ THT) |
@@ -311,18 +311,41 @@ facts block above.
 
 ## Regenerating
 
-The schematic and PCB are generated from the spec by the scripts in `gen/`:
+> **`gen/` does not reproduce any committed KiCad artifact.** KiCad wrote
+> `phantasm.kicad_sch` and `unplaced/phantasm_unplaced.kicad_pcb` last, and
+> `phantasm.kicad_pcb` is routed on top of that schematic. The committed schematic
+> carries KiCad's random **v4** uuids while `kicad_common.uid()` emits deterministic
+> **v5** ids, so a regeneration renumbers all 28 symbol uuids and dangles every
+> `(path …)` link `phantasm.kicad_pcb` holds into the schematic. Even
+> uuid-normalised, a fresh `board.py` run differs from the committed schematic by
+> roughly 170 lines — KiCad file version, power-symbol annotation (`#PWR` vs
+> `#PWR01`), `J1`'s keyed JST footprint, the four spec §11.1 hand-solder lands, and
+> some label placement. `gen/` is the design *description* and the source of the
+> gates above; it is not a rebuild of what ships.
+>
+> `board.py` and `pcb.py` refuse to overwrite a committed artifact without
+> `--force`. Run the gates freely. Run a `--force` regeneration only when
+> deliberately starting a new board revision, and expect to re-annotate, re-place
+> and re-route from its output.
+
+Gates — safe against the committed artifacts at any time:
 
 ```sh
 cd gen
 # point at your KiCad install if not the default Windows path:
 # export KICAD_SYMBOL_DIR="/path/to/share/kicad/symbols"
 # export KICAD_FOOTPRINT_DIR="/path/to/share/kicad/footprints"
-python board.py          # ../phantasm.kicad_{sch,sym} + sym-lib-table (.kicad_pro seeded only if absent)
-python pcb.py            # ../phantasm.kicad_pcb (placed, unrouted) + phantasm.pretty + fp-lib-table
-python pcb.py --unplaced --force # ../unplaced/phantasm_unplaced.kicad_pcb (footprints staged below outline, for Quilter)
 python check.py          # gate: exact named-net partition and (ref, pin) nodes
 python shorts.py         # union-find short check on the schematic
+```
+
+Regenerating for a new revision — **discards the committed design**:
+
+```sh
+cd gen
+python board.py --force  # ../phantasm.kicad_{sch,sym} + sym-lib-table (.kicad_pro seeded only if absent)
+python pcb.py --force    # ../phantasm.kicad_pcb (placed, unrouted) + phantasm.pretty + fp-lib-table
+python pcb.py --unplaced --force # ../unplaced/phantasm_unplaced.kicad_pcb (footprints staged below outline, for Quilter)
 ```
 
 The separate unplaced board for Quilter is configured as **4-layer SIG / GND / GND /
@@ -356,11 +379,9 @@ schematic, and the `.kicad_prl` that the KiCad GUI writes is local only. Run
   accepts them. After promoting the chosen board to `phantasm.kicad_pcb`, run
   `python gen/fab.py`; fabrication output repeats the same via gate.
 
-> `python pcb.py --force` regenerates the placed board and **discards routing**; without
-> `--force` it refuses to touch the committed `phantasm.kicad_pcb`. `--unplaced --force`
-> does the same for the committed `unplaced/phantasm_unplaced.kicad_pcb`, which is a
-> KiCad GUI re-save of the generator output and is the Quilter upload input.
-> `python board.py` guards `phantasm.kicad_sch` the same way.
+> `python pcb.py --force` regenerates the placed board and **discards routing**;
+> `--unplaced --force` discards the committed KiCad GUI re-save that is the Quilter
+> upload input. `python board.py --force` discards the committed schematic.
 > Rewriting `phantasm.pretty/Teensy4.0.kicad_mod` — which the routed board
 > resolves its Teensy pads against — takes its own `--force-teensy-library`;
 > `--force` does not authorize it.
