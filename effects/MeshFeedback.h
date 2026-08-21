@@ -133,7 +133,7 @@ public:
     // Configure the noise type before apply_params(): it calls sync_noise(),
     // which would otherwise propagate the default noise type on the first frame.
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    noise_params.noise.SetSeed(hs::rand_int(0, 65536));
+    noise_params.set_seed(hs::rand_int(0, 65536));
     noise_params.sync();
 
     params = preset_params(0);

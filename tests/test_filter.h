@@ -2604,7 +2604,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
       if (frame == 3)
         s.amplitude = 4.5f; // key change: repopulate
       if (frame == 4)
-        np.noise.SetSeed(4242); // generator-only change: repopulate
+        np.set_seed(4242); // seed-only change: repopulate
       if (frame == 5)
         s.speed = 1.0f;         // time-varying: miss every frame
       if (frame == 6 && cached) // post-compaction re-allocation
