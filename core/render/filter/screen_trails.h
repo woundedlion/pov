@@ -39,6 +39,18 @@ public:
   }
 
   /**
+   * @brief Retunes the trail length at runtime (e.g. from a "Trail Len" slider).
+   * @param new_lifetime New fade divisor in frames; must be positive.
+   * @details Buffered points keep their ttl and age out under the new length
+   * within a few frames.
+   */
+  void set_lifetime(int new_lifetime) {
+    HS_CHECK(new_lifetime > 0, "Screen::Trails: lifetime %d must be positive",
+             new_lifetime);
+    lifetime = new_lifetime;
+  }
+
+  /**
    * @brief Allocates the decay-pixel storage from the persistent arena.
    * @param arena Persistent arena supplying MAX_PIXELS DecayPixel slots.
    */
