@@ -20,6 +20,11 @@ from pathlib import Path, PurePosixPath
 NOTICE = "Required Notice: Copyright 2025 Gabriel Levy. All rights reserved."
 POLYFORM = "Licensed under the PolyForm Noncommercial License 1.0.0"
 RESERVED = "LICENSE: ALL RIGHTS RESERVED."
+# Grant text of the third-party licenses LICENSE names. A path marked with one
+# of these carries its upstream copyright line instead of NOTICE.
+MIT_GRANT = "Permission is hereby granted"
+MIT_TITLE = "MIT License"
+THIRD_PARTY = frozenset({MIT_GRANT, MIT_TITLE})
 
 SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cpp", ".ino")
 
@@ -28,11 +33,13 @@ SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cpp", ".ino")
 HEAD_BYTES = 600
 
 # Paths LICENSE names as carrying their own terms, each with the marker its
-# header must hold. A directory prefix covers everything beneath it.
+# header must hold. A directory prefix covers everything beneath it. Every entry
+# names a marker: an exempt path asserts nothing, so stripping its banner would
+# pass. core/vendor/FastNoiseLite_config.h is first-party and is not here.
 EXCEPTIONS = {
     "core/engine/effects_legacy.h": RESERVED,
-    "core/math/projections.h": "Permission is hereby granted",
-    "core/vendor/": None,
+    "core/math/projections.h": MIT_GRANT,
+    "core/vendor/FastNoiseLite.h": MIT_TITLE,
 }
 
 # Markers that cannot stand beside each other: a header granting PolyForm while
@@ -48,8 +55,8 @@ def tracked_sources(root: Path) -> list[str]:
                   if p and PurePosixPath(p).suffix in SOURCE_SUFFIXES)
 
 
-def expected_marker(path: str) -> str | None:
-    """The header marker a path must carry, or None where it is exempt."""
+def expected_marker(path: str) -> str:
+    """The header marker a path must carry."""
     for prefix, marker in EXCEPTIONS.items():
         if path == prefix or (prefix.endswith("/") and path.startswith(prefix)):
             return marker
@@ -59,11 +66,9 @@ def expected_marker(path: str) -> str | None:
 def header_issue(path: str, head: str) -> str | None:
     """The complaint a file's header earns, or None where it satisfies LICENSE."""
     marker = expected_marker(path)
-    if marker is None:
-        return None
     # Case-folded: the license name is spelled both PolyForm and Polyform.
     folded = head.lower()
-    if NOTICE.lower() not in folded and marker != "Permission is hereby granted":
+    if NOTICE.lower() not in folded and marker not in THIRD_PARTY:
         return f"no copyright notice in the first {HEAD_BYTES} bytes"
     if marker.lower() not in folded:
         return f"header does not carry {marker!r}, which LICENSE grants this path"

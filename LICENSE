@@ -14,7 +14,9 @@ Exceptions outside `effects/`, each carrying its own terms in its own header:
 - `core/math/projections.h` — derived from PROJ; MIT, Copyright Frank
   Warmerdam, Gerald I. Evenden, Kristian Evers, Toby C Wilkinson and the PROJ
   contributors.
-- `core/vendor/` — third-party sources under their own licenses.
+- `core/vendor/FastNoiseLite.h` — third-party; MIT, Copyright Jordan Peck and
+  contributors. The rest of `core/vendor/` is first-party configuration for it,
+  under the terms below.
 
 `tools/license_check.py` holds this list in executable form and CI runs it, so
 a header that drifts from these terms fails the build.
