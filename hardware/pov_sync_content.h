@@ -179,10 +179,10 @@ struct ContentTracker {
   /**
    * @brief ZERO crossings since effect start.
    * @details For a beacon-joined board this starts from the beacon's mod-64
-   * value: congruent, not absolute. Besides the master's schedule and the
-   * cross-check telemetry it also feeds effect_output_envelope(), so on an
-   * effect longer than 64 revolutions such a board misses the fade-out until
-   * the next commit zeroes the counter.
+   * value: congruent, not absolute. On an effect longer than 64 revolutions
+   * such a board's end-of-effect tests therefore read early, which is why
+   * output_envelope() gates the dark window on commit_pending rather than on
+   * this counter alone.
    */
   uint32_t rev_in_effect = 0;
   bool commit_pending = false;       /**< An epoch commit is scheduled. */
@@ -252,6 +252,30 @@ struct ContentTracker {
    */
   bool constructing(const Config &cfg) const {
     return commit_pending && commit_in_revs <= cfg.commit_revs;
+  }
+
+  /**
+   * @brief Output envelope for one displayed column.
+   * @param cfg Protocol configuration.
+   * @param column Column being displayed.
+   * @param width Canvas width, in columns.
+   * @return Scale in [0, 1].
+   * @details Zero for the whole commit window — announce phase included, where
+   * the outgoing effect is still live. rev_in_effect is only congruent mod 64
+   * on a beacon-joined board, so on an effect longer than 64 revolutions the
+   * envelope's own end-of-effect test can still read full brightness at B; the
+   * window flag is absolute on every board that hears the train, so gating on
+   * it is what keeps such a board dark with the rest of the sphere. It misses
+   * the F-revolution fade-out that leads into B: without an absolute
+   * revolution count that ramp cannot be scheduled, and stepping to black is
+   * the fail-dark side of the miss.
+   */
+  float output_envelope(const Config &cfg, int32_t column,
+                        int32_t width) const {
+    if (commit_pending)
+      return 0.0f;
+    return effect_output_envelope(
+        rev_in_effect, cfg.revolutions_for_effect(effect_index), column, width);
   }
 
   /**

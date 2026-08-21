@@ -3340,6 +3340,78 @@ inline void test_effect_output_envelope() {
   }
 }
 
+/**
+ * @brief A board that beacon-joined mid-effect goes dark for the whole commit
+ *        window, exactly like the boards that rode the effect from its start.
+ * @details The beacon's rev field is six bits, so a board joining an effect
+ *          longer than 64 revolutions adopts a count congruent to the master's
+ *          but 64k short of it. Driving the envelope off that count alone
+ *          leaves it reading full brightness at B, so the joined board is the
+ *          only lit band on a sphere that has already cleared. Gating on
+ *          commit_pending is what closes it: the flag is set by the EPOCH the
+ *          board hears, not by its own arithmetic.
+ */
+inline void test_joined_board_dark_through_commit_window() {
+  Config cfg = test_config();
+  cfg.revs_per_effect = 128; // > 64: the beacon rev field is congruent only
+  const uint32_t RPE = cfg.revs_per_effect;
+  const uint32_t R = static_cast<uint32_t>(cfg.epoch_repeats);
+  const uint32_t K = cfg.commit_revs;
+  constexpr int WIDTH = 288;
+  constexpr uint32_t JOIN_REV = 70;
+
+  ContentTracker synced;
+  synced.identity_known = true;
+  synced.rev_in_effect = JOIN_REV;
+  ContentTracker joined;
+  joined.identity_known = true;
+  joined.rev_in_effect = JOIN_REV & 63u; // what a beacon can carry
+  HS_EXPECT_EQ(joined.rev_in_effect, 6u);
+
+  for (uint32_t rev = JOIN_REV; rev < RPE; ++rev) {
+    HS_EXPECT_FALSE(synced.on_zero_crossing(cfg));
+    HS_EXPECT_FALSE(joined.on_zero_crossing(cfg));
+  }
+  HS_EXPECT_EQ(synced.rev_in_effect, RPE);
+  HS_EXPECT_EQ(joined.rev_in_effect, RPE - 64u);
+
+  // The counter-driven envelope is what the two disagree on: this is the state
+  // the window gate has to override.
+  HS_EXPECT_EQ(effect_output_envelope(synced.rev_in_effect, RPE, 0, WIDTH),
+               0.0f);
+  HS_EXPECT_EQ(effect_output_envelope(joined.rev_in_effect, RPE, 0, WIDTH),
+               1.0f);
+
+  HS_EXPECT_TRUE(synced.on_epoch_symbol(cfg));
+  HS_EXPECT_TRUE(joined.on_epoch_symbol(cfg));
+
+  // Announce phase included: the outgoing effect is still live through it, so
+  // the envelope is the only thing holding the strip dark.
+  bool synced_committed = false;
+  bool joined_committed = false;
+  for (uint32_t step = 0; step < R + K; ++step) {
+    HS_CONTEXT("window rev", static_cast<long long>(step));
+    for (int x = 0; x < WIDTH; x += 37) {
+      HS_CONTEXT("column", x);
+      HS_EXPECT_EQ(synced.output_envelope(cfg, x, WIDTH), 0.0f);
+      HS_EXPECT_EQ(joined.output_envelope(cfg, x, WIDTH), 0.0f);
+    }
+    synced_committed = synced.on_zero_crossing(cfg);
+    joined_committed = joined.on_zero_crossing(cfg);
+  }
+  HS_EXPECT_TRUE(synced_committed);
+  HS_EXPECT_TRUE(joined_committed);
+
+  // The commit makes both counts absolute, so the incoming fade-in matches.
+  HS_EXPECT_EQ(synced.rev_in_effect, 0u);
+  HS_EXPECT_EQ(joined.rev_in_effect, 0u);
+  for (int x = 0; x < WIDTH; x += 37) {
+    HS_CONTEXT("column", x);
+    HS_EXPECT_EQ(joined.output_envelope(cfg, x, WIDTH),
+                 synced.output_envelope(cfg, x, WIDTH));
+  }
+}
+
 // ── Runner ──────────────────────────────────────────────────────────────────
 
 /**
@@ -3395,6 +3467,7 @@ inline int run_pov_sync_tests() {
   test_epoch_same_tick_burst_fold();
   test_construction_window_predicates();
   test_effect_output_envelope();
+  test_joined_board_dark_through_commit_window();
 
   test_budget_lost_symbol();
   test_budget_emi_accepted_seam();

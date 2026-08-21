@@ -210,7 +210,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("pov_segmented", 24,                                                       \
     hs_test::pov_segmented_tests::run_pov_segmented_tests, 263165)             \
   X("pov_single", 6, hs_test::pov_single_tests::run_pov_single_tests, 8640)    \
-  X("pov_sync", 51, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
+  X("pov_sync", 52, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
   X("param_marshal", 3, hs_test::param_marshal_tests::run_param_marshal_tests, \
     2260)                                                                      \
   X("wasm_predicates", 13,                                                     \

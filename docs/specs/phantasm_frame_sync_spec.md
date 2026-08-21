@@ -671,7 +671,17 @@ from receipt time of the EPOCH symbol: it is exactly one through the earlier
 revolutions, follows `1 - EASE_IN_OUT_SIN(progress)` over the final F
 revolutions, and is exactly zero at boundary B. A board that accepts only a
 repeat therefore has the same envelope as a board that accepted the primary.
-A late joiner derives the same value from the beacon revolution field.
+
+The beacon's revolution field is six bits, so a board that joined mid-effect
+holds a count congruent to the master's mod 64 rather than equal to it. On an
+entry longer than 64 revolutions it therefore cannot schedule the fade-out —
+its own arithmetic still reads mid-effect at B. The envelope is zero for the
+whole commit window instead of only where the counter says so, and the window
+flag is set by the EPOCH the board hears rather than by its own count: such a
+board
+steps to black at B with everyone else and misses only the F-revolution ramp
+into it. Stepping is the fail-dark side of the miss; a counter-driven envelope
+would leave it the one lit band on a cleared sphere.
 
 The output remains exactly zero from B through B+R+K. The clear presentation
 acknowledgement is the first accepted all-black DMA submission followed by the
