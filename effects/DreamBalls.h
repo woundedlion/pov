@@ -504,11 +504,13 @@ private:
     const int period = crossfade.schedule(timeline, draw_fn, SPRITE_LIFE,
                                           FADE_WINDOW, &anims_paused);
 
-    // Single-slot pool: free here only because the previous warp runs exactly
-    // `period` frames and so completes earlier in the same step() that fires the
-    // re-spawn timer below (events step in insertion order).
-    if (auto *warp = mobius_gen.spawn(0, params.warp_scale, period, false))
-      warp->bind_scale(params.warp_scale);
+    // Single-slot pool: the previous warp runs exactly `period` frames, so it
+    // completes earlier in the same step() that fires the re-spawn timer below
+    // (events step in insertion order).
+    auto *warp = mobius_gen.spawn(0, params.warp_scale, period, false);
+    HS_CHECK(warp, "DreamBalls: warp spawn found the single pool slot still "
+                   "held by the previous warp");
+    warp->bind_scale(params.warp_scale);
 
     timeline.add_pausable(period,
                           Animation::PeriodicTimer(
