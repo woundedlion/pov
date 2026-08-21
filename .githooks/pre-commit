@@ -240,9 +240,21 @@ hs_run_lint() {
     # node --test plus the per-file case and assertion floors in
     # scripts/assertion_floors.json, which node --test alone does not read.
     echo "[pre-commit] Node script unit tests..."
-    if ! node scripts/run_tests.mjs 'scripts/*.test.mjs'; then
-      echo "[pre-commit] scripts/*.test.mjs FAILED."
-      return 1
+    # node:test retallies cases across majors, so the committed floors describe
+    # the pinned Node only; off it, run the bare suite rather than red a commit
+    # on counts nobody measured.
+    if PY="$(hs_python)" &&
+       "$PY" tools/build_pins.py --check-tool node >/dev/null 2>&1; then
+      if ! node scripts/run_tests.mjs "scripts/*.test.mjs"; then
+        echo "[pre-commit] scripts/*.test.mjs FAILED."
+        return 1
+      fi
+    else
+      echo "[pre-commit] node is off the pin (or no python to check it) - running the suite without the floors ratchet (CI enforces it)."
+      if ! node --test scripts/*.test.mjs; then
+        echo "[pre-commit] scripts/*.test.mjs FAILED."
+        return 1
+      fi
     fi
     # eslint comes from node_modules, which a fresh clone has not installed yet.
     if [ -x node_modules/.bin/eslint ]; then
