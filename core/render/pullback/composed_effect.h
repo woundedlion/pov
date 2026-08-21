@@ -31,6 +31,7 @@ namespace Pullback {
 // per-stage headers.
 using Color::ColorParams;
 using Color::HueMode;
+using Coverage::CutoutValueParams;
 using Coverage::EdgeValueParams;
 using Lens::MobiusLensParams;
 using Lens::NoLensParams;
@@ -305,6 +306,12 @@ template <typename BindingT> struct ValueProvider {
   static float edge_width(const FrameState &frame) {
     return frame.params.value.edge_width;
   }
+  static float cutout_threshold(const FrameState &frame) {
+    return frame.params.value.cutout_threshold;
+  }
+  static float cutout_softness(const FrameState &frame) {
+    return frame.params.value.cutout_softness;
+  }
 };
 
 /**
@@ -500,6 +507,9 @@ enum class TransferKind : uint8_t { NONE, ISO_CONTOUR };
 /** @brief Coverage policy an effect's material stage composes. */
 enum class CoverageKind : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
 
+/** @brief Optional value-dependent coverage stage after sampling. */
+enum class FieldCoverageKind : uint8_t { NONE, VALUE_CUTOUT };
+
 /**
  * @brief The pipeline choices an effect states beyond its parameter families.
  * @details Everything else about the chain is derived: the source and
@@ -512,14 +522,17 @@ enum class CoverageKind : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
  * @tparam TransferV Optional material transfer curve; NONE preserves the
  *         sampled field value without adding a stage.
  * @tparam CoverageV Material coverage policy.
+ * @tparam FieldCoverageV Optional value-dependent coverage stage.
  */
 template <ProjectionKind ProjectionV, typename LensPolicyT,
-          TransferKind TransferV, CoverageKind CoverageV>
+          TransferKind TransferV, CoverageKind CoverageV,
+          FieldCoverageKind FieldCoverageV = FieldCoverageKind::NONE>
 struct Spec {
   static constexpr ProjectionKind PROJECTION = ProjectionV;
   using LensPolicy = LensPolicyT;
   static constexpr TransferKind TRANSFER = TransferV;
   static constexpr CoverageKind COVERAGE = CoverageV;
+  static constexpr FieldCoverageKind FIELD_COVERAGE = FieldCoverageV;
 };
 
 template <typename Family, typename Binding> struct SourcePolicyFor;
@@ -621,6 +634,17 @@ template <typename B> struct CoveragePolicyFor<CoverageKind::EDGE_FADE, B> {
   using Type = Pullback::ProjectedCoverage::EdgeFade<ValueProvider<B>>;
 };
 
+template <FieldCoverageKind CoverageV, typename Binding>
+struct FieldCoverageStageFor;
+template <typename B> struct FieldCoverageStageFor<FieldCoverageKind::NONE, B> {
+  using Type = void;
+};
+template <typename B>
+struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
+  using Type = Pullback::Stage::Coverage<
+      Pullback::Coverage::ValueCutout<ValueProvider<B>>>;
+};
+
 /**
  * @brief A complete composed effect: the shared lifecycle plus a pipeline
  *        derived from the parameter families and a Spec.
@@ -633,7 +657,7 @@ template <typename B> struct CoveragePolicyFor<CoverageKind::EDGE_FADE, B> {
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` for each noise field the parameter
  * set and `Has*Noise` flags request. Optional members, detected by `requires`
  * and defaulted when absent, are `preset_params` (absent, every preset takes
- * `initial_params`), `ANIMATED_MOBIUS` and an
+ * `initial_params`), `ANIMATED_MOBIUS`, `CAMERA_SPIN_RATE` and an
  * `after_composed_init()` hook. An effect wanting a different shade emission
  * shadows shade() with the same body under its own attribute:
  * `HS_HOT_FLASH_MEMBER` and `HS_FLASH_MEMBER` both take the pipeline body out
@@ -731,13 +755,15 @@ public:
       typename CoveragePolicyFor<SpecT::COVERAGE, Binding>::Type>;
   using TransferStage =
       typename TransferStageFor<SpecT::TRANSFER, Binding>::Type;
+  using FieldCoverageStage =
+      typename FieldCoverageStageFor<SpecT::FIELD_COVERAGE, Binding>::Type;
   using ColorizeStage =
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           ColorProvider<Binding, HueV, BrightnessV>>>;
   using RenderPipeline =
       Pullback::Pipeline<Binding, RotateStage, SphereRun, OuterWarpStage,
                          InnerWarpStage, SampleStage, TransferStage,
-                         ColorizeStage>;
+                         FieldCoverageStage, ColorizeStage>;
   using FrameState = typename RenderPipeline::Frame;
 
   /** @brief Constructs the effect at W x H with the POV column strobe on. */
@@ -1005,8 +1031,7 @@ private:
     register_animated_param("Value Opacity High", &params.color.opacity_high,
                             0.0f, 1.0f);
     register_animated_param("Hue Shift Amount", &params.color.hue_shift_amount,
-                            HueV == HueMode::PATH_LENGTH ? -4.0f : -1.0f,
-                            HueV == HueMode::PATH_LENGTH ? 4.0f : 1.0f);
+                            -4.0f, 4.0f);
     if constexpr (HueV == HueMode::NOISE) {
       register_animated_param("Hue Noise Scale", &params.color.hue_noise_scale,
                               1.0f / 64.0f, 8.0f);
@@ -1040,6 +1065,8 @@ private:
     if constexpr (Derived::ANIMATED_PROJECTION)
       projection_spin =
           fmodf(projection_spin + params.projection.spin_rate, TWO_PI_F);
+    if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
+      camera_spin = fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, TWO_PI_F);
     hue_noise_phase = wrap_t(hue_noise_phase + params.color.hue_noise_speed);
     if constexpr (std::is_same_v<typename Params::outer_warp_type,
                                  AffineParams>)
@@ -1077,7 +1104,11 @@ private:
                                           params.projection.camera_wander) *
                     outer_wander)
                        .normalized();
-    outer_conjugate = outer_wander.conjugate();
+    if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
+      outer_conjugate =
+          (make_rotation(Y_AXIS, camera_spin) * outer_wander).conjugate();
+    else
+      outer_conjugate = outer_wander.conjugate();
   }
 
   /**
@@ -1192,6 +1223,7 @@ private:
   float source_noise_time = 0.0f;
   float surface_phase = 0.0f;
   float projection_spin = 0.0f;
+  float camera_spin = 0.0f;
   float hue_noise_phase = 0.0f;
   float outer_phase = 0.0f;
   float inner_phase = 0.0f;

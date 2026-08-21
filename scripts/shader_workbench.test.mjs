@@ -120,6 +120,7 @@ test('every promoted shader document matches its compiled effect identity', asyn
     'alien-ocean': 'AlienOcean.h',
     'contour-lattice': 'ContourLattice.h',
     'cosmic-eyeball': 'CosmicEyeball.h',
+    'curl-facets': 'CurlFacets.h',
     'curl-lattice': 'CurlLattice.h',
     'equator-grid': 'EquatorGrid.h',
     'facet-grid': 'FacetGrid.h',
