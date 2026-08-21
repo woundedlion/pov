@@ -486,12 +486,12 @@ struct Face {
 
     {
       HS_PROFILE_DEEP(face_bounds);
-      compute_inradius(scratch);
 
       // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
       // span misses the great-circle edge bulge toward a pole, leaving
       // near-pole faces with unscanned rows; the arc-extrema path covers them.
       compute_full_bounds(scratch, count, center, h_virt, height, y_min, y_max);
+      compute_inradius(scratch);
     }
 
     edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
@@ -674,20 +674,19 @@ struct Face {
 
   /**
    * @brief Computes the face "size" (inradius) from the projected polygon.
-   * @param scratch Scratch storage holding poly_2d.
+   * @param scratch Scratch storage holding poly_2d and the per-edge vectors and
+   * squared lengths compute_full_bounds stored, which must run first.
    * @details size = minimum distance from the projected centroid to any edge,
    * floored to a fraction of the circumradius for degenerate slivers. A large
    * face converts it to radians, matching the metric distance() reports.
    */
   __attribute__((always_inline)) void
-  compute_inradius(FaceScratchBuffer &scratch) {
+  compute_inradius(const FaceScratchBuffer &scratch) {
     float min_edge_dist = 1e9f;
     for (int i = 0; i < count; ++i) {
-      Vector v1 = scratch.poly_2d[i];
-      Vector v2 = scratch.poly_2d[i + 1];
-
-      Vector edge = v2 - v1;
-      float edge_len_sq = dot(edge, edge);
+      const Vector &v1 = scratch.poly_2d[i];
+      const Vector &edge = scratch.edge_vectors[i];
+      float edge_len_sq = scratch.edge_lengths_sq[i];
       float t = 0.0f;
       if (edge_len_sq > 1e-9f) {
         t = dot(-v1, edge) / edge_len_sq;
