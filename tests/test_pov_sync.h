@@ -1171,6 +1171,8 @@ inline void test_suspect_timeout_acquire_uncounted() {
  *          is a hard snap to a phase 5 columns off a beacon's mid-frame
  *          position. The same burst after t_QB of silence is the positive
  *          control: it snaps, so the assertion below is the gap, not the burst.
+ *          The seed instant opens a window of its own — boot observed no quiet
+ *          to measure a first burst against.
  */
 inline void test_acquire_quiet_before_guard() {
   const Config cfg = test_config();
@@ -1203,6 +1205,17 @@ inline void test_acquire_quiet_before_guard() {
   HS_EXPECT_TRUE(quiet.lock() == LockState::LOCKED);
   HS_EXPECT_EQ(quiet.telemetry_snapshot().symbols_accepted, 1u);
   HS_EXPECT_EQ(quiet.flywheel().position(iso), cfg.W / 2);
+
+  // Boot itself observed no quiet, so the guard measures against the seed
+  // instant: a valid-count burst inside that first window is beacon data.
+  SyncBoard booted(cfg);
+  booted.seed(1000u, /*is_master=*/false);
+  const uint32_t early = 1000u + cfg.acquire_quiet_cycles() / 2u;
+  const BurstSnapshot interior{1, early, early};
+  booted.tick(early + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+              &interior);
+  HS_EXPECT_TRUE(booted.lock() == LockState::ACQUIRE);
+  HS_EXPECT_EQ(booted.telemetry_snapshot().symbols_accepted, 0u);
 }
 
 /**
@@ -3163,10 +3176,11 @@ inline void test_budget_acquire_mis_snap() {
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return s.boards[0].board.content().rev_in_effect == 9; },
       16.0));
-  // Reboot 12 columns before the train and past the rev's ZERO burst, so the
-  // first wire event the fresh board meets is the train's head digit.
+  // Reboot past the rev's ZERO burst and a full quiet window ahead of the
+  // train, so the first wire event the fresh board meets is the train's head
+  // digit and the guard reads the silence before it as isolating.
   HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 60; }, 1.1));
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
   SimBoard &b2 = sim.boards[2];
   b2.board.seed(Sim::local_now(b2, sim.g), false);
   b2.handoff.adopt(nullptr, 0);
