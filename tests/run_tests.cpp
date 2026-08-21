@@ -148,7 +148,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
     5186)                                                                      \
   X("opchain_arena_survey", 1,                                                 \
     hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests, 5764) \
-  X("hankin", 19, hs_test::hankin_tests::run_hankin_tests, 1594)               \
+  X("hankin", 20, hs_test::hankin_tests::run_hankin_tests, 1594)               \
   X("geometry", 41, hs_test::geometry_tests::run_geometry_tests, 5128)         \
   X("spherical_field", 13,                                                     \
     hs_test::spherical_field_tests::run_spherical_field_tests, 9391)           \

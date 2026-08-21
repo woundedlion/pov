@@ -51,6 +51,9 @@ struct MeshState {
   ArenaVector<uint16_t> topology; /**< Optional owned per-face topology class
                    ids from classify_faces_by_topology; either empty or one
                    dense 16-bit-bounded id per face. */
+  /** MeshOps::connectivity_key of the faces `topology` was classified for;
+   * 0 until classified. */
+  uint32_t topology_key = 0;
 
   /**
    * @brief Constructs an empty, unbound mesh.
@@ -67,10 +70,11 @@ struct MeshState {
         face_counts(std::move(other.face_counts)),
         faces(std::move(other.faces)),
         face_offsets(std::move(other.face_offsets)),
-        topology(std::move(other.topology)),
+        topology(std::move(other.topology)), topology_key(other.topology_key),
         face_counts_view(other.face_counts_view), faces_view(other.faces_view),
         face_offsets_view(other.face_offsets_view),
         topology_view(other.topology_view) {
+    other.topology_key = 0;
     other.set_owned();
   }
 
@@ -87,6 +91,8 @@ struct MeshState {
       faces = std::move(other.faces);
       face_offsets = std::move(other.face_offsets);
       topology = std::move(other.topology);
+      topology_key = other.topology_key;
+      other.topology_key = 0;
       face_counts_view = other.face_counts_view;
       faces_view = other.faces_view;
       face_offsets_view = other.face_offsets_view;
@@ -109,6 +115,7 @@ struct MeshState {
     faces.clear();
     face_offsets.clear();
     topology.clear();
+    topology_key = 0;
     set_owned();
   }
 
@@ -224,6 +231,7 @@ struct MeshState {
                          src.get_face_offsets_size(), arena);
     MeshOps::copy_vector(dst.topology, src.get_topology_data(),
                          src.get_topology_size(), arena);
+    dst.topology_key = src.topology_key;
   }
 
   /**
@@ -316,6 +324,7 @@ struct MeshState {
     faces = {};
     face_offsets = {};
     topology = {};
+    topology_key = 0;
     face_counts_view = face_counts_span;
     faces_view = faces_span;
     face_offsets_view = face_offsets_span;

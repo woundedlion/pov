@@ -14,6 +14,7 @@
  *   - the far-star guard keeps star points local at a resonance angle where
  *     contact planes go near-parallel.
  *   - CompiledHankin::clone makes an independent deep copy.
+ *   - dual seeds compile to distinct topology keys despite one census.
  */
 #pragma once
 
@@ -785,6 +786,48 @@ inline void test_compile_hankin_recompiles_after_arena_reset() {
   check_indices_in_range(out);
 }
 
+/**
+ * @brief Verifies dual seeds compile to distinct topology keys even though
+ *        every census figure of their patterns agrees.
+ * @details A cube- and an octahedron-seeded pattern both emit 14 faces over 96
+ *          indices from 36 vertices; only their face order and connectivity
+ *          differ, so the key is what tells update_hankin the two apart.
+ */
+inline void test_hankin_dual_seeds_share_census_not_key() {
+  const size_t half = sizeof(hankin_target_buf) / 2;
+  Arena target(hankin_target_buf, half);
+  Arena target2(hankin_target_buf + half, half);
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+  CompiledHankin cube_pattern;
+  MeshOps::compile_hankin(cube, cube_pattern, target, temp);
+  PolyMesh cube_mesh;
+  MeshOps::update_hankin(cube_pattern, cube_mesh, target, 0.4f);
+
+  PolyMesh octa;
+  build_solid<Solids::Octahedron>(octa, temp);
+  CompiledHankin octa_pattern;
+  MeshOps::compile_hankin(octa, octa_pattern, target2, temp);
+  PolyMesh octa_mesh;
+  MeshOps::update_hankin(octa_pattern, octa_mesh, target2, 0.4f);
+
+  HS_EXPECT_EQ(octa_pattern.face_counts.size(),
+               cube_pattern.face_counts.size());
+  HS_EXPECT_EQ(octa_pattern.faces.size(), cube_pattern.faces.size());
+  HS_EXPECT_EQ(octa_mesh.vertices.size(), cube_mesh.vertices.size());
+  HS_EXPECT_TRUE(cube_pattern.topology_key != 0);
+  HS_EXPECT_TRUE(cube_pattern.topology_key != octa_pattern.topology_key);
+
+  // Classifying the pattern's own output keys the mesh to that pattern, so the
+  // angle re-solve below keeps its classification instead of being rejected.
+  MeshOps::classify_faces_by_topology(cube_mesh, temp, temp, target);
+  HS_EXPECT_EQ(cube_mesh.topology_key, cube_pattern.topology_key);
+  MeshOps::update_hankin(cube_pattern, cube_mesh, target, 0.9f);
+  HS_EXPECT_EQ(cube_mesh.topology.size(), cube_pattern.face_counts.size());
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -819,6 +862,7 @@ inline int run_hankin_tests() {
   test_compiled_hankin_clone_deep_copies();
   test_compiled_hankin_clear();
   test_compile_hankin_recompiles_after_arena_reset();
+  test_hankin_dual_seeds_share_census_not_key();
 
   return fixture.result();
 }

@@ -55,6 +55,11 @@ struct CompiledHankin {
    * stamps, so a corner read after the source arena was reset or rewound
    * faults instead of returning reissued bytes. */
   ArenaSpan<Vector> corner_src;
+  /** MeshOps::connectivity_key of the faces this pattern emits; 0 until
+   * compiled. Two seeds can share every census figure (a cube and an
+   * octahedron both compile to 14 faces over 96 indices), so this is what
+   * identifies the pattern a mesh's retained classification belongs to. */
+  uint32_t topology_key = 0;
 
   /** Returns the corner vertex a HankinInstruction index refers to. */
   const Vector &corner(size_t i) const { return corner_src[i]; }
@@ -71,6 +76,7 @@ struct CompiledHankin {
     face_counts.clear();
     faces.clear();
     static_offset = 0;
+    topology_key = 0;
     corner_src = ArenaSpan<Vector>();
   }
 
@@ -103,6 +109,7 @@ struct CompiledHankin {
                          src.face_counts.size(), arena);
     MeshOps::copy_vector(dst.faces, src.faces.data(), src.faces.size(), arena);
     dst.static_offset = src.static_offset;
+    dst.topology_key = src.topology_key;
     dst.corner_src = ArenaSpan<Vector>(dst.base_vertices);
   }
 };
@@ -284,6 +291,10 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
       }
     }
   }
+
+  compiled.topology_key = MeshOps::connectivity_key(
+      compiled.face_counts.data(), compiled.face_counts.size(),
+      compiled.faces.data(), compiled.faces.size());
 }
 
 /** Squared endpoints of the far-intersection blend: the edge-midpoint fallback
@@ -313,8 +324,8 @@ inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
  * @param out_mesh Output mesh, allocated from @p target_arena. Its topology
  *   array is retained, not rebuilt, so one classification serves every angle
  *   re-solve of the same compiled pattern; a mesh reused for a DIFFERENT
- *   pattern must be cleared first, which the face and index count checks below
- *   enforce.
+ *   pattern must be cleared first, which the topology-key check below
+ *   enforces.
  * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
  * @param angle Contact angle in radians; domain [0, pi/2]. At ~0 the star points
  *   collapse onto their corners (flat tiling); larger angles push the rays out so
@@ -338,8 +349,7 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
   }
 
   HS_CHECK(out_mesh.topology.size() == 0 ||
-               (out_mesh.topology.size() == compiled.face_counts.size() &&
-                out_mesh.faces.size() == compiled.faces.size()),
+               out_mesh.topology_key == compiled.topology_key,
            "update_hankin: reused out_mesh carries a topology from a different "
            "compiled pattern (clear it first)");
 
