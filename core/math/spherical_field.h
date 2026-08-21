@@ -597,6 +597,19 @@ public:
 
   constexpr int sample_count() const { return layout.sample_count(); }
 
+  /**
+   * @brief Fills an inclusive range of rings from a per-sample callback.
+   * @tparam Populate Callable
+   *   (const Vector &position, const Layout::Coordinates &).
+   * @param ring_begin First ring index to fill.
+   * @param ring_end Last ring index to fill; must be below ring_count().
+   * @param populate_sample Returns the Value stored at each sample.
+   * @details Walks each ring by an incremental rotation instead of per-sample
+   *   trig, so the `position` handed to the callback is only approximately
+   *   unit and drifts up to ~1e-5 from the exact-trig sample_vector() for the
+   *   same sample; a callback that needs the exact vector must call
+   *   sample_vector() itself.
+   */
   template <typename Populate>
   void populate(int ring_begin, int ring_end, Populate &&populate_sample) {
     // next_ring() saturates at the last ring, so an overrun would silently
