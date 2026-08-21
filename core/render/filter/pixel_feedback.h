@@ -734,6 +734,10 @@ private:
   static uint32_t noise_config_hash(const Animation::NoiseParams *noise) {
     static_assert(std::is_trivially_copyable_v<FastNoiseLite>,
                   "hashing FastNoiseLite's bytes requires a trivial layout");
+    static_assert(sizeof(FastNoiseLite) == 72,
+                  "FastNoiseLite's 18 four-byte members must pack with no "
+                  "padding; padding bytes are indeterminate and would make "
+                  "this hash nondeterministic");
     if (!noise)
       return 0;
     const auto *bytes = reinterpret_cast<const unsigned char *>(&noise->noise);
