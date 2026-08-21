@@ -413,11 +413,11 @@ Both trees are gated against their repository's tracked file list: every row mus
 │
 ├── targets/                    Per-target entry points
 │   ├── common/
-│   │   └── phantasm_target.h   Shared Phantasm-class boilerplate — LED transport, geometry, boot, effect construction
+│   │   └── phantasm_target.h   Shared Phantasm-class boilerplate — TOTAL_PIXELS=288, RPM=480, LED transport, geometry, boot, effect construction
 │   ├── Holosphere/
 │   │   └── Holosphere.ino      Holosphere entry — NUM_PIXELS=40, RPM=480
 │   ├── Phantasm/
-│   │   └── Phantasm.ino        Phantasm entry — 4×Teensy, TOTAL_PIXELS=288, RPM=480
+│   │   └── Phantasm.ino        Phantasm entry — 4×Teensy playlist, per-effect seeds, sync config
 │   ├── Profile/
 │   │   └── Profile.ino         Single-effect HS_PROFILE harness on segment 0 of the segmented rig
 │   └── wasm/
@@ -3020,7 +3020,7 @@ Each hardware target has its own `.ino` entry point in `targets/`:
 > the images *fit*, not byte-identity
 > with the bench build.
 
-Target-specific constants are defined in each `.ino` file (not a global `constants.h`):
+Target-specific constants live with their target rather than in a global `constants.h` — the Holosphere entry defines its own, while the Phantasm-class targets share `targets/common/phantasm_target.h` (`TOTAL_PIXELS = 288`, `RPM = 480`):
 ```cpp
 // targets/Holosphere/Holosphere.ino
 static constexpr int NUM_PIXELS = 40;
