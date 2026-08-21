@@ -576,6 +576,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── shader.html             Pullback Shader authoring workbench
 │   ├── shader.css              Shader workbench layout and control styling
 │   ├── shader_documents.js     Document loading, validation, matching, and engine application
+│   ├── shader_deeplink.js       Encodes and restores the workbench's complete state in the page URL
 │   ├── chain_apply.js          Applies a compiled chain document: setShaderChain, then the preset values
 │   ├── chain_document_store.js v2 chain document store: span replacement, legality, reconciliation, undo
 │   ├── chain_strip.js          Pipeline strip: the chain as stage chips banded by carrier
@@ -591,6 +592,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── flyout.js               Button-controlled flyout with outside-click and Escape dismissal
 │   ├── kb_format.js            Dependency-free kilobyte formatter shared by the stat readouts
 │   ├── lissajous_math.js       Pure Lissajous curve math from lissajous.html
+│   ├── lissajous_page.js       Page module extracted from lissajous.html's inline script
 │   ├── mobius_transforms.js    Pure Möbius coefficient presets from mobius.html
 │   ├── page_lifecycle.js       Animation-frame recompute coalescer + bfcache-aware teardown hook
 │   ├── pointer_drag.js         Pointer-drag lifecycle shared by standalone tools
@@ -618,6 +620,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── serve-manifest.mjs      Local static server constrained to the published site manifest
 │   ├── workbench-probe.mjs     Headless pointer-level probe of the shader workbench's pipeline strip; run it for any tools/ UI change
 │   ├── panel-probe.mjs         Headless probe of the effect panel's real scroll clamping and scroll restore across a rebuild
+│   ├── solids-probe.mjs        Headless pointer-level probe of the solids page's op-chain row reordering
 │   └── run-tests.mjs           `test` script: runs the suite, gates the total it reports
 │
 ├── tests/                      Node unit tests (`npm test`)
