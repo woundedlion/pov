@@ -3,6 +3,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -92,6 +93,19 @@ class SnapshotTests(unittest.TestCase):
                 make_quilter_incremental.OUTPUT)
         )
         self.assertEqual(manifest.read_text(encoding="utf-8"), rebuilt + "\n")
+
+
+class MainTests(unittest.TestCase):
+    def test_a_snapshot_fault_exits_with_its_message(self):
+        with unittest.mock.patch.object(
+                make_quilter_incremental, "verify_snapshot",
+                side_effect=RuntimeError("snapshot hash mismatch: phantasm.kicad_pcb")), \
+                unittest.mock.patch.object(sys, "argv",
+                                           ["make_quilter_incremental.py", "--verify"]):
+            with self.assertRaises(SystemExit) as caught:
+                make_quilter_incremental.main()
+        self.assertEqual(str(caught.exception),
+                         "snapshot hash mismatch: phantasm.kicad_pcb")
 
 
 if __name__ == "__main__":

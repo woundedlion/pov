@@ -145,11 +145,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--verify", action="store_true")
     args = parser.parse_args()
-    if args.verify:
-        verify_snapshot()
-        print(f"verified protected incremental Quilter project: {OUTPUT}")
-    else:
-        make_snapshot()
+    try:
+        if args.verify:
+            verify_snapshot()
+            print(f"verified protected incremental Quilter project: {OUTPUT}")
+        else:
+            make_snapshot()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from None
 
 
 if __name__ == "__main__":
