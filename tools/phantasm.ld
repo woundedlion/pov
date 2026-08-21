@@ -19,6 +19,13 @@
  * derived _etext / _itcm_block_count drop its SIZEOF(.ARM.exidx) term, which is
  * an ITCM contribution only in the stock layout. Selected per-env via
  * board_build.ldscript (phantasm only).
+ *
+ * FORKED FROM: framework-arduinoteensy 1.162.0
+ *
+ * Nothing in the build re-derives this file from the stock script, so the fork
+ * base and both routing changes are pinned by tests/check_linker_patches.cmake
+ * (CTest: unit_linker_patches). Bumping the framework package in platformio.ini
+ * means re-deriving this script and updating the line above.
  * ============================================================================ */
 MEMORY
 {

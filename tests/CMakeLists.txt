@@ -353,6 +353,15 @@ add_test(NAME unit_vendor_patches COMMAND ${CMAKE_COMMAND}
     -DCONFIG=${HS_ROOT}/core/vendor/FastNoiseLite_config.h
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_vendor_patches.cmake)
 
+# Pin the Phantasm linker script's fork base and flash-routing changes. It is a
+# second vendored fork -- of the stock Teensy 4 imxrt1062.ld -- that nothing in
+# the build re-derives, and a lost routing change reads as a Teensy size-gate
+# red far from its cause, on the hosts that have PlatformIO at all.
+add_test(NAME unit_linker_patches COMMAND ${CMAKE_COMMAND}
+    -DSCRIPT=${HS_ROOT}/tools/phantasm.ld
+    -DPLATFORMIO_INI=${HS_ROOT}/platformio.ini
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_linker_patches.cmake)
+
 # The three generated-artifact gates below re-run a Python generator and diff it
 # against the committed header. Default OFF keeps a bare local checkout green:
 # a missing python3/numpy exits 77 and CTest reports the gate as skipped. That
