@@ -503,10 +503,20 @@ pads alone would be a bad trade at 480 RPM, so they stay TH + RTV (R-PWR-6 / R-M
 
 **Land patterns.** The four sync resistors whose values get tuned on the bench — R1/R2 (divider
 ratio, §4.2), R_PD (bus idle pull-down) and R_S (source termination) — use the toe-extended
-hand-solder land, so an iron reaches the joint for a value swap. The extra length goes outboard
-only: the inter-pad gap stays at the IPC-7351 nominal **0.85 mm** (0603) / **0.80 mm** (0805) and
-no pad copper runs under the ceramic body, where it would invite solder wicking and tombstoning.
+hand-solder land, so an iron reaches the joint for a value swap: KiCad
+`R_0603_1608Metric_Pad0.98x0.95mm_HandSolder` / `R_0805_2012Metric_Pad1.20x1.40mm_HandSolder`.
+The extra length goes outboard only — the heel is unchanged from the stock land, so the inter-pad
+gap stays at the IPC-7351 nominal **0.85 mm** (0603) / **0.80 mm** (0805) and no pad copper is
+added under the ceramic body, where it would invite solder wicking and tombstoning.
 Every other chip passive uses the stock IPC-nominal land; D_BUS uses the Bourns land pattern (§9).
+
+> **This requirement is not met by the committed routed board.**
+> `hardware/phantasm/phantasm.kicad_pcb` carries the *stock* footprint id on all four with the pads
+> widened in place instead — 1.20 mm (0603) / 1.40 mm (0805) on unchanged ±0.825 / ±0.9125 mm
+> centres — so the inter-pad gap is **0.450 mm** / **0.425 mm** and copper does reach under the bare
+> ceramic body of a reflow-placed part. `gen/board.py` names the lands this section requires, so a
+> regenerated board would satisfy it; the shipped copper needs a re-place and a re-route to get
+> there. Full as-built geometry is in the lands note in `hardware/phantasm/README.md`.
 
 ### 11.2 Order/layout action items (do before fab)
 

@@ -28,7 +28,8 @@ def chip(width, pitch, height=0.95):
 # Pad geometry the routed board ships, per reference. R1/R2/R_PD/R_S carry the
 # stock footprint id with the pads widened in place, so KiCad reports no parity
 # difference and "Update Footprints from Library" would silently restore the
-# library land.
+# library land. That widened geometry does not meet spec 11.1; it is pinned
+# as-built, not as intent.
 SHIPPED_CHIP_LANDS = {
     "R1": ("Resistor_SMD:R_0603_1608Metric", chip(1.2, 0.825)),
     "R2": ("Resistor_SMD:R_0603_1608Metric", chip(1.2, 0.825)),

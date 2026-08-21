@@ -190,11 +190,12 @@ def main(force=False):
 
     SMD08 = "Resistor_SMD:R_0805_2012Metric"
     SMD06 = "Resistor_SMD:R_0603_1608Metric"
-    # Toe-extended lands (IPC-nominal 0.85 / 0.80 mm inter-pad gap preserved) for the sync
-    # resistors tuned on the bench: R1/R2 divider ratio, R_PD idle pull-down, R_S term.
-    # No committed artifact carries these: phantasm.kicad_pcb ships the stock ids with the
-    # pads widened in place (0.450 / 0.425 mm gap). Regenerating the schematic diverges
-    # from the routed copper -- see the lands note in ../README.md.
+    # Toe-extended lands required by spec 11.1 (IPC-nominal 0.85 / 0.80 mm inter-pad gap
+    # preserved) for the sync resistors tuned on the bench: R1/R2 divider ratio, R_PD idle
+    # pull-down, R_S term. No committed artifact carries these: phantasm.kicad_pcb ships the
+    # stock ids with the pads widened in place (0.450 / 0.425 mm gap), which does not meet
+    # 11.1. Regenerating the schematic diverges from the routed copper -- see the lands note
+    # in ../README.md.
     SMD08_HAND = "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
     SMD06_HAND = "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
     C06 = "Capacitor_SMD:C_0603_1608Metric"
