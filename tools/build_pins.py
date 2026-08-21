@@ -86,6 +86,8 @@ INLINE_SCAN = (
     ROOT / ".github/workflows/ci.yml",
     ROOT / ".github/workflows/docs.yml",
     ROOT / "justfile",
+    ROOT / "platformio.ini",
+    ROOT / "CMakeLists.txt",
     ROOT / "scripts/generate_luts.py",
     ROOT / ".githooks/pre-commit",
     ROOT / "hardware/phantasm/gen/sexp.py",
@@ -127,6 +129,13 @@ INLINE_USES = (
 # extension added here reaches all three copies or none.
 FORMAT_EXTENSIONS = ("h", "hpp", "cpp", "cc", "inl")
 
+# The float flags both shipping targets build with: the device firmware
+# (platformio.ini), the WASM modules (CMakeLists.txt) and the CI leg that runs
+# the suite under them (ci.yml). -fno-finite-math-only must follow -ffast-math,
+# which otherwise implies -ffinite-math-only and folds every std::isfinite()
+# boundary predicate to constant true; a spelling that loses it builds green.
+FLOAT_FLAGS = ("-ffast-math", "-fno-finite-math-only")
+
 # Strings that must read identically in several build files. The pre-commit hook
 # is POSIX shell run per commit, ci.yml is workflow YAML and the justfile is a
 # recipe list, so none can source a value from another; --check asserts every
@@ -142,6 +151,10 @@ SHARED_LITERALS = {
     ),
     "format-globs": " ".join(f"'*.{ext}'" for ext in FORMAT_EXTENSIONS),
     "format-extensions": r"\.(" + "|".join(FORMAT_EXTENSIONS) + r")$",
+    # A flag list (platformio.ini's build_flags, ci.yml's matrix entry) and the
+    # CMake quoted-argument form of the same pair.
+    "float-flags": " ".join(FLOAT_FLAGS),
+    "float-flags-cmake": " ".join(f'"{flag}"' for flag in FLOAT_FLAGS),
 }
 
 # (pattern, literal name, occurrences required across INLINE_SCAN). The
@@ -153,6 +166,13 @@ SHARED_LITERAL_USES = (
     (r"grep -vE '([^']*)'", "format-exclude", 3),
     (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs", 2),
     (r"grep -E '([^']*)'", "format-extensions", 1),
+    # Anchored on the start of a flag line (platformio.ini) or on the matrix key
+    # that carries the pair (ci.yml), so the prose spellings the same files
+    # comment the pair with are not swept in. The capture runs to end of line: a
+    # flag added to one target and not the other reads as a difference.
+    (r"(?:float_flags:|^)\s+(-ffast-math\b.*)$", "float-flags", 2),
+    # Every WASM target's compile and link line.
+    (r'("-ffast-math" "[^"]+")', "float-flags-cmake", 4),
 )
 
 # check_test_files.sh calls, whose count argument is exact. Every such glob is
