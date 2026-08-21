@@ -61,7 +61,7 @@ public:
 
   /**
    * @brief Constructs the effect with the anti-alias screen filter.
-   * @details The Mobius generator hangs off the timeline so its warps animate
+   * @details The Mobius generator hangs off the timeline so its warp animates
    *          in step.
    */
   HS_COLD_MEMBER DreamBalls()
@@ -116,17 +116,23 @@ public:
     register_animated_param("Warp", &params.warp_scale, WARP_MIN, WARP_MAX);
     register_animated_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
 
+    // Ahead of every sprite, so a frame draws the warp and orbit phase it just
+    // advanced rather than the previous frame's.
+    auto *warp =
+        mobius_gen.spawn_pinned(0, params.warp_scale, WARP_PERIOD, true);
+    HS_CHECK(warp, "DreamBalls: pinned warp spawn must succeed");
+    warp->bind_scale(params.warp_scale);
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &) { this->spin_slices(); }, true));
     timeline.add(9, Animation::RandomWalk<W>(
                         global_orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
-
-    crossfade.overlap = CROSSFADE_OVERLAP;
-    spawn_sprite();
     // Wrap the integrated phase to [0,1) so the orbit trig stays in precise range.
     timeline.add(0, Animation::Driver(orbit_phase, &params.offset_speed, 0.01f,
                                       /*wrap=*/true));
+
+    crossfade.overlap = CROSSFADE_OVERLAP;
+    spawn_sprite();
   }
 
   /**
@@ -222,6 +228,9 @@ private:
   /** Frames consecutive sprites coexist; 0 keeps every frame at a single mesh
       render. */
   static constexpr int CROSSFADE_OVERLAP = 0;
+  /** Warp cycle length: the pinned warp repeats in lockstep with the sprite
+      hand-off, so each sprite spans exactly one warp. */
+  static constexpr int WARP_PERIOD = SPRITE_LIFE - CROSSFADE_OVERLAP;
   // The two-slot ping-pong is safe only while at most two sprites overlap, i.e.
   // a sprite finishes before the spawn two periods later reuses its slot.
   static_assert(SPRITE_LIFE < 2 * (SPRITE_LIFE - CROSSFADE_OVERLAP),
@@ -462,8 +471,8 @@ private:
   /**
    * @brief Spawns one fading sprite for the current preset and schedules the
    *        next spawn one period later.
-   * @details Rebakes the inactive palette slot, arms a Mobius warp, and reseeds
-   *          the live params only when the preset actually changes.
+   * @details Rebakes the inactive palette slot and reseeds the live params only
+   *          when the preset actually changes.
    */
   HS_COLD_MEMBER void spawn_sprite() {
     auto entries = preset_manager.get_entries();
@@ -504,13 +513,8 @@ private:
     const int period = crossfade.schedule(timeline, draw_fn, SPRITE_LIFE,
                                           FADE_WINDOW, &anims_paused);
 
-    // Single-slot pool: the previous warp runs exactly `period` frames, so it
-    // completes earlier in the same step() that fires the re-spawn timer below
-    // (events step in insertion order).
-    auto *warp = mobius_gen.spawn(0, params.warp_scale, period, false);
-    HS_CHECK(warp, "DreamBalls: warp spawn found the single pool slot still "
-                   "held by the previous warp");
-    warp->bind_scale(params.warp_scale);
+    HS_CHECK(period == WARP_PERIOD,
+             "DreamBalls: sprite hand-off drifted off the pinned warp's cycle");
 
     timeline.add_pausable(period,
                           Animation::PeriodicTimer(

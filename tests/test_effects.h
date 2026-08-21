@@ -2371,19 +2371,11 @@ struct DreamBallsWhiteBox {
   static int last_preset_idx(const DB &db) { return db.last_preset_idx; }
   // Not-paused step: advance the selector, then re-spawn (the scheduler's path).
   static void advance(DB &db) {
-    retire_schedule(db);
     db.preset_manager.next();
     db.spawn_sprite();
   }
   // Re-spawn of the current preset (no advance).
-  static void respawn(DB &db) {
-    retire_schedule(db);
-    db.spawn_sprite();
-  }
-  // Skipping the period the scheduler waits also skips what retires the
-  // previous sprite's events and frees the single-slot warp pool; clear() is
-  // the pool's other reclaim path.
-  static void retire_schedule(DB &db) { db.timeline.clear(); }
+  static void respawn(DB &db) { db.spawn_sprite(); }
   static DB::BaseMesh preset_mesh(const DB &db, int idx) {
     return db.preset_manager.get_entries()[idx].params.base_mesh;
   }
