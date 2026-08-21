@@ -59,12 +59,19 @@ public:
       pass(v, color, age, alpha);
     else {
       float mask = quintic_kernel(d / radius);
-      if (mask > 1e-8f)
+      if (mask > MASK_CUTOFF)
         pass(v, color, age, alpha * mask);
     }
   }
 
 private:
+  /**
+   * @brief Falloff below which the attenuated tap is dropped instead of passed.
+   * @details Matches Filter::Screen::SPLAT_TAP_CUTOFF: both gate a raw,
+   * unnormalized weight, unlike Blur's looser cutoff on normalized kernel taps.
+   */
+  static constexpr float MASK_CUTOFF = 1e-8f;
+
   Vector origin; /**< Center of the hole (unit vector). */
   float radius;  /**< Angular radius of the hole in radians. */
 };
