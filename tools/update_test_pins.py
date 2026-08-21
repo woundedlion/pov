@@ -21,7 +21,18 @@ measurement is the MINIMUM over the sources that apply to it.
 A floor being a bound and not an expectation, the default is to CHECK it:
 measured-below-pinned is reported as a violation and everything else is left
 alone, headroom included. --remeasure writes the measured minimum instead, for
-a module whose floor was never measured or whose cases were deliberately cut.
+a module whose floor was never measured or whose cases were deliberately cut,
+less --margin percent so a benign shift does not have to red CI.
+
+Headroom is expected, but a floor a module clears several times over has
+stopped bounding it: most of the module can be deleted and the gate stays
+green. --check-drift turns that into a failure, on the two-sided allowance
+below. --remeasure --check-drift --margin <pct> --write is its repair, and
+re-pins the drifted floors ONLY -- plain --remeasure rewrites every measured
+floor, which would walk one sitting exactly on its measurement back down by the
+margin. Drift is measured the same way the floor is, so it is only as sound as
+the sources: a floor tracking a configuration none of them ran reads as
+drifted.
 
 Two rules keep a partial measurement from writing a floor no other
 configuration clears. A floor moves only when at least two applying sources
@@ -84,6 +95,12 @@ MODULE_FOOTER = re.compile(
     re.M,
 )
 NO_ASSERTIONS = "NO ASSERTIONS RAN"
+
+# Drift allowance. Both bounds have to be cleared before a floor counts as
+# drifted: the fraction is what makes a floor stop bounding its module, and the
+# absolute keeps a small module (a floor of 12, a measurement of 24) out of it.
+DRIFT_FRACTION = 0.25
+DRIFT_MINIMUM = 200
 
 
 @dataclass
@@ -360,6 +377,17 @@ def measure_floor(floor: Floor, sources: list[Source]) -> tuple[int | None, str]
     return min(s.counts[floor.module] for s in observed), note
 
 
+def drifted(pinned: int, measured: int) -> bool:
+    """True when a measurement clears its floor by more than the allowance."""
+    slack = measured - pinned
+    return slack >= DRIFT_MINIMUM and slack > pinned * DRIFT_FRACTION
+
+
+def with_margin(measured: int, margin: float) -> int:
+    """The value --remeasure writes: the measurement less margin percent."""
+    return measured - int(measured * margin / 100.0)
+
+
 def report(title: str, changes: list[str], held: list[str]) -> None:
     """Print one section of the report."""
     print(f"[test-pins] {title}: {len(changes)} change(s), "
@@ -434,6 +462,15 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="set every measured floor to its minimum instead of checking that "
              "the committed one holds")
     parser.add_argument(
+        "--check-drift", action="store_true",
+        help=f"also fail on a floor its module clears by both {DRIFT_MINIMUM} "
+             f"assertions and {DRIFT_FRACTION * 100:.0f} percent, which no longer "
+             f"bounds it; narrows --remeasure to those floors")
+    parser.add_argument(
+        "--margin", type=float, default=0.0, metavar="PCT",
+        help="write each --remeasure floor this far under the measured "
+             "minimum (default 0)")
+    parser.add_argument(
         "--write", action="store_true",
         help="rewrite the pins in place (default: report the diff only)")
     return parser.parse_args(argv)
@@ -441,6 +478,9 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if not 0.0 <= args.margin < 100.0:
+        print(f"[test-pins] --margin {args.margin} is not a percentage in [0, 100)")
+        return 1
     if args.write and os.environ.get("CI"):
         print("[test-pins] --write is refused under CI: the pins are a ratchet, "
               "and one a workflow can regenerate gates nothing. Re-measure on a "
@@ -475,22 +515,31 @@ def main(argv: list[str] | None = None) -> int:
     changes: list[str] = []
     held: list[str] = []
     violations: list[str] = []
+    drifts: list[str] = []
     headroom: list[int] = []
     for floor in floors if sources else []:
         measured, note = measure_floor(floor, sources)
         if measured is None:
             held.append(f"{floor.pin.name} {floor.pin.value}: {note}")
             continue
+        is_drift = False
         if measured < floor.pin.value:
             violations.append(
                 f"{floor.pin.name}: pinned {floor.pin.value}, measured "
                 f"{measured} ({note})")
-        if args.remeasure and measured != floor.pin.value:
-            direction = "RAISED" if measured > floor.pin.value else "LOWERED"
-            edits.append((floor.pin, measured))
+        elif args.check_drift and drifted(floor.pin.value, measured):
+            is_drift = True
+            drifts.append(
+                f"{floor.pin.name}: pinned {floor.pin.value}, measured "
+                f"{measured}, {measured - floor.pin.value} of slack ({note})")
+        target = with_margin(measured, args.margin)
+        repairing = is_drift or not args.check_drift
+        if args.remeasure and repairing and target != floor.pin.value:
+            direction = "RAISED" if target > floor.pin.value else "LOWERED"
+            edits.append((floor.pin, target))
             changes.append(
-                f"{floor.pin.name}: {floor.pin.value} -> {measured} {direction} "
-                f"by {abs(measured - floor.pin.value)} ({note})")
+                f"{floor.pin.name}: {floor.pin.value} -> {target} {direction} "
+                f"by {abs(target - floor.pin.value)} ({note})")
         elif measured >= floor.pin.value:
             headroom.append(measured - floor.pin.value)
     if not sources:
@@ -499,19 +548,26 @@ def main(argv: list[str] | None = None) -> int:
     else:
         span = f" (headroom {min(headroom)}..{max(headroom)})" if headroom else ""
         print(f"[test-pins] {len(floors)} assertion floor(s): {len(headroom)} "
-              f"hold{span}, {len(violations)} violated, {len(changes)} "
-              f"re-measured, {len(held)} carried through unchanged")
+              f"hold{span}, {len(violations)} violated, {len(drifts)} drifted, "
+              f"{len(changes)} re-measured, {len(held)} carried through unchanged")
         for line in violations:
             print(f"  ! {line}")
+        for line in drifts:
+            print(f"  ~ {line}")
         for line in changes:
             print(f"  {line}")
         for line in held:
             print(f"  = {line}")
 
-    if violations and not args.remeasure:
+    if violations and (args.check_drift or not args.remeasure):
         print(f"[test-pins] {len(violations)} floor(s) no longer hold. Restore the "
               f"cases that went missing, or lower them deliberately with "
               f"--remeasure --write.")
+        return 1
+    if drifts and not args.remeasure:
+        print(f"[test-pins] {len(drifts)} floor(s) have drifted so far under "
+              f"their module that most of it could be deleted green. Re-pin them "
+              f"with --remeasure --check-drift --margin <pct> --write.")
         return 1
     if not edits:
         print("[test-pins] every pin already matches; nothing to write")

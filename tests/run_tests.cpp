@@ -124,10 +124,10 @@ struct TestModule {
 // them, so that half's gate is exactly as tight as it was.
 constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 193933;
 constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 232520;
-constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 540;
-constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
-constexpr int EFFECT_FACTORY_QUICK_MIN_ASSERTIONS = 330;
-constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
+constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 1776;
+constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 2083;
+constexpr int EFFECT_FACTORY_QUICK_MIN_ASSERTIONS = 696;
+constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", 49, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
@@ -156,7 +156,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("solids", 34, hs_test::solids_tests::run_solids_tests, 95084)              \
   X("reaction_graph", 14,                                                      \
     hs_test::reaction_graph_tests::run_reaction_graph_tests, 40)               \
-  X("color", 69, hs_test::color_tests::run_color_tests, 408953)                \
+  X("color", 69, hs_test::color_tests::run_color_tests, 506693)                \
   X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 102)           \
   X("easing_waves", 10, hs_test::easing_waves_tests::run_easing_waves_tests,   \
     6080)                                                                      \
@@ -167,15 +167,16 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("shader_chain", 43, hs_test::shader_chain_tests::run_shader_chain_tests,   \
     9957)                                                                      \
   X("filter", 63, hs_test::filter_tests::run_filter_tests, 10296)              \
-  X("plot_scan", 82, hs_test::plot_scan_tests::run_plot_scan_tests, 1069897)   \
+  X("plot_scan", 82, hs_test::plot_scan_tests::run_plot_scan_tests, 1501827)   \
   X("canvas", 35, hs_test::canvas_tests::run_canvas_tests, 487)                \
-  X("scan", 39, hs_test::scan_tests::run_scan_tests, 189868)                   \
+  X("scan", 39, hs_test::scan_tests::run_scan_tests, 1174887)                  \
   X("mesh_raster", 18, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
     2793)                                                                      \
   X("transformers", 45, hs_test::transformers_tests::run_transformers_tests,   \
     1296)                                                                      \
   X("noise", 3, hs_test::noise_tests::run_noise_tests, 201)                    \
-  X("noise_field", 11, hs_test::noise_field_tests::run_noise_field_tests, 400) \
+  X("noise_field", 11, hs_test::noise_field_tests::run_noise_field_tests,      \
+    1334)                                                                      \
   X("projections", 20, hs_test::projections_tests::run_projections_tests,      \
     95876)                                                                     \
   X("animation", 114, hs_test::animation_tests::run_animation_tests, 13894)    \
@@ -193,7 +194,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
         ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
   X("shaderball", 56, hs_test::shaderball_tests::run_shaderball_tests,         \
-    1045178)                                                                   \
+    1459084)                                                                   \
   X("curl_lattice", 4, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
     5000)                                                                      \
   X("facet_grid", 4, hs_test::facet_grid_tests::run_facet_grid_tests, 8000)    \
@@ -210,9 +211,9 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("pov_segmented", 24,                                                       \
     hs_test::pov_segmented_tests::run_pov_segmented_tests, 263165)             \
   X("pov_single", 6, hs_test::pov_single_tests::run_pov_single_tests, 8640)    \
-  X("pov_sync", 52, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
+  X("pov_sync", 52, hs_test::pov_sync_tests::run_pov_sync_tests, 3446)         \
   X("param_marshal", 3, hs_test::param_marshal_tests::run_param_marshal_tests, \
-    2260)                                                                      \
+    9723)                                                                      \
   X("wasm_predicates", 13,                                                     \
     hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 470)            \
   X("led", 6, hs_test::led_tests::run_led_tests, 24)                           \

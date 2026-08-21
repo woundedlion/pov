@@ -7,12 +7,17 @@ drive: the minimum has to come from at least two applying sources, an entry no
 source observed has to survive untouched, and a red or whole-suite-skipped run
 is not a measurement at all. The parsing side is driven too, because the
 roster's shape (a backslash-continued X-macro whose effects rows select
-between tier constants) is what tells the updater which number to move.
+between tier constants) is what tells the updater which number to move. The
+drift allowance is driven from both sides, since a floor no module can fall
+under is as useless as one it clears many times over.
 
 Run:  python -m unittest discover -s tools/update_test_pins_tests
 """
 
+import contextlib
+import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -123,6 +128,48 @@ class MinimumOverSources(unittest.TestCase):
         self.assertIn("unfloored", note)
 
 
+class DriftAllowance(unittest.TestCase):
+    """A floor several times under its module has stopped bounding it."""
+
+    def test_a_floor_the_module_clears_many_times_over_has_drifted(self):
+        self.assertTrue(up.drifted(189868, 1186754))
+
+    def test_headroom_inside_the_fraction_is_not_drift(self):
+        self.assertFalse(up.drifted(1000000, 1200000))
+
+    def test_a_small_floor_is_held_to_the_absolute_bound_not_the_fraction(self):
+        self.assertFalse(up.drifted(12, 24))
+        self.assertTrue(up.drifted(12, 300))
+
+    def test_a_wide_fraction_under_the_absolute_bound_is_not_drift(self):
+        self.assertFalse(up.drifted(100, 250))
+
+    def test_a_floor_the_measurement_matches_has_no_drift(self):
+        self.assertFalse(up.drifted(5000, 5000))
+
+
+class WriteMargin(unittest.TestCase):
+    """--margin writes the floor under the measurement, never over it."""
+
+    def test_no_margin_writes_the_measurement(self):
+        self.assertEqual(up.with_margin(1186754, 0.0), 1186754)
+
+    def test_margin_is_a_percentage_of_the_measurement(self):
+        self.assertEqual(up.with_margin(1000000, 1.0), 990000)
+
+    def test_margin_cannot_round_a_small_measurement_down(self):
+        self.assertEqual(up.with_margin(12, 1.0), 12)
+
+    def test_a_margined_floor_does_not_read_as_drifted(self):
+        measured = 1186754
+        self.assertFalse(up.drifted(up.with_margin(measured, 1.0), measured))
+
+    def test_a_margin_outside_a_percentage_is_refused(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(up.main(["--margin", "100"]), 1)
+            self.assertEqual(up.main(["--margin", "-1"]), 1)
+
+
 class UnobservedEntriesSurvive(unittest.TestCase):
     """A narrowed run must never drop what it did not run."""
 
@@ -194,6 +241,62 @@ class CaseScanning(unittest.TestCase):
         self.assertEqual(
             up.CASE_DEF.findall("\ninline static void\ntest_wrapped(int a) {}\n"),
             ["test_wrapped"])
+
+
+class DriftReporting(unittest.TestCase):
+    """--check-drift only fails when it is asked for, and only on drift."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.log = Path(self.directory.name) / "drift.log"
+        self.log.write_text(
+            "=== scan: 1186754 passed, 0 failed ===\n"
+            "=== mesh: 69923 passed, 0 failed ===\n", encoding="utf-8")
+        self.roster = up.parse_roster
+        up.parse_roster = lambda text: (
+            [],
+            [floor("scan floor", 189868, "scan"), floor("mesh floor", 69923, "mesh")],
+            [])
+
+    def tearDown(self):
+        up.parse_roster = self.roster
+        self.directory.cleanup()
+
+    def run_main(self, *flags):
+        """main() over one drifted floor, with its report captured."""
+        argv = ["--log", f"quick={self.log}", "--log", f"full={self.log}", *flags]
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            status = up.main(argv)
+        return status, printed.getvalue()
+
+    def test_drift_is_ignored_unless_the_flag_is_passed(self):
+        status, printed = self.run_main()
+        self.assertEqual(status, 0)
+        self.assertIn("0 drifted", printed)
+
+    def test_drift_fails_the_run_and_names_the_floor(self):
+        status, printed = self.run_main("--check-drift")
+        self.assertEqual(status, 1)
+        self.assertIn("scan floor: pinned 189868, measured 1186754", printed)
+
+    def test_remeasure_offers_the_measurement_instead_of_failing_on_drift(self):
+        status, printed = self.run_main("--check-drift", "--remeasure")
+        self.assertEqual(status, 1, "the pin still has to be written")
+        self.assertIn("189868 -> 1186754 RAISED", printed)
+        self.assertNotIn("have drifted so far", printed)
+
+    def test_margin_writes_under_the_measurement(self):
+        _, printed = self.run_main("--check-drift", "--remeasure", "--margin", "1")
+        self.assertIn("189868 -> 1174887 RAISED", printed)
+
+    def test_repairing_drift_leaves_a_floor_on_its_measurement_alone(self):
+        _, printed = self.run_main("--check-drift", "--remeasure", "--margin", "1")
+        self.assertNotIn("mesh floor", printed)
+
+    def test_remeasure_without_the_drift_flag_margins_every_floor_down(self):
+        _, printed = self.run_main("--remeasure", "--margin", "1")
+        self.assertIn("mesh floor: 69923 -> 69224 LOWERED", printed)
 
 
 class RealTreeAgreement(unittest.TestCase):
