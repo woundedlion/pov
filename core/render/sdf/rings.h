@@ -91,9 +91,10 @@ struct Ring {
   template <int H> Bounds get_vertical_bounds() const {
     PhiBand band = clamp_phi_band(center_phi, target_angle);
 
-    // Deliberately tighter than the true band: the trimmed fringe carries
-    // coverage up to quintic_kernel(0.05) = 1.2e-3, a hair over the
-    // rasterizer's 1e-3 alpha cut.
+    // Deliberately past conservative: alpha at the trim boundary is
+    // quintic_kernel(1 - 0.95) = 1.16e-3, so the fringe this drops peaks a hair
+    // over the rasterizer's Scan::MIN_ALPHA (1e-3) cut. 0.9524 is the
+    // break-even trim, where that peak equals the cut exactly.
     float eff_th = 0.95f * thickness;
     float f_phi_min = std::max(0.0f, band.phi_min - eff_th);
     float f_phi_max = std::min(PI_F, band.phi_max + eff_th);
