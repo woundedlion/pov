@@ -3435,11 +3435,11 @@ void copy_fixed_warp_to_shader(
 
 template <typename FixedEffect>
 ShaderWorkbenchWhiteBox::RequestedConfig
-fixed_reference_config(size_t topology_preset, size_t fixed_preset) {
+fixed_reference_config(ShaderWorkbenchWhiteBox::RequestedConfig destination,
+                       size_t fixed_preset) {
   using WB = ShaderWorkbenchWhiteBox;
   const typename FixedEffect::Params source =
       effects_tests::preset_params_or_initial<FixedEffect>(fixed_preset);
-  WB::RequestedConfig destination = WB::presets()[topology_preset];
 
   if constexpr (requires { source.source.pattern_freq; })
     destination.params.source.pattern_freq = source.source.pattern_freq;
@@ -3489,6 +3489,13 @@ fixed_reference_config(size_t topology_preset, size_t fixed_preset) {
     destination.params.value.iso_level = source.value.iso_level;
     destination.params.value.iso_width = source.value.iso_width;
   }
+  if constexpr (requires { source.surface.strength; }) {
+    destination.params.surface_noise.scale = source.surface.scale;
+    destination.params.surface_noise.strength = source.surface.strength;
+    destination.params.surface_noise.rate = source.surface.speed;
+  }
+  if constexpr (requires { source.surface.direction; })
+    destination.params.surface_noise.direction = source.surface.direction;
 
   destination.params.color.hue_shift_amount = source.color.hue_shift_amount;
   destination.params.color.hue_noise_scale = source.color.hue_noise_scale;
@@ -3536,11 +3543,12 @@ fixed_reference_frame(const ShaderWorkbenchWhiteBox::FrameState &source,
 }
 
 template <typename FixedEffect>
-void verify_fixed_shader_export(ShaderWorkbenchWhiteBox::SB &shader,
-                                size_t topology_preset, size_t fixed_preset) {
+void verify_fixed_shader_export(
+    ShaderWorkbenchWhiteBox::SB &shader,
+    const ShaderWorkbenchWhiteBox::RequestedConfig &base, size_t fixed_preset) {
   using WB = ShaderWorkbenchWhiteBox;
   const WB::RequestedConfig config =
-      fixed_reference_config<FixedEffect>(topology_preset, fixed_preset);
+      fixed_reference_config<FixedEffect>(base, fixed_preset);
   const WB::FrameState dynamic = WB::config_frame(shader, config);
   const typename FixedEffect::FrameState compiled =
       FixedEffect::RenderPipeline::prepare(
@@ -3570,6 +3578,31 @@ void verify_fixed_shader_export(ShaderWorkbenchWhiteBox::SB &shader,
   }
 }
 
+template <typename FixedEffect>
+void verify_fixed_shader_export(ShaderWorkbenchWhiteBox::SB &shader,
+                                size_t topology_preset, size_t fixed_preset) {
+  verify_fixed_shader_export<FixedEffect>(
+      shader, ShaderWorkbenchWhiteBox::presets()[topology_preset],
+      fixed_preset);
+}
+
+/**
+ * @brief Shader topology of the workbench-promoted PrismSpiral, which the
+ *        authored preset roster does not carry.
+ */
+inline ShaderWorkbenchWhiteBox::RequestedConfig prism_spiral_topology() {
+  using WB = ShaderWorkbenchWhiteBox;
+  WB::RequestedConfig config =
+      WB::presets()[12]; // stereographic hexagonal prism
+  config.slots.function = WB::Function::SPIRAL;
+  config.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
+  config.slots.palette = WB::PaletteMode::TRIADIC;
+  config.slots.hue_shift = WB::HueShiftMode::WARP_DISPLACEMENT;
+  config.slots.surface_noise = WB::SurfaceNoise::DIRECT;
+  config.slots.surface_noise_placement = WB::SurfaceNoisePlacement::AFTER_LENS;
+  return config;
+}
+
 /** @brief Every shared-runtime export matches Shader preview within rounding. */
 inline void test_fixed_shader_export_equivalence() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -3590,12 +3623,17 @@ inline void test_fixed_shader_export_equivalence() {
   verify_fixed_shader_export<PrismLattice<SMALL_W, SMALL_H>>(shader, 9, 0);
   verify_fixed_shader_export<VectorFacets<SMALL_W, SMALL_H>>(shader, 10, 0);
   verify_fixed_shader_export<HexWave<SMALL_W, SMALL_H>>(shader, 12, 0);
+  verify_fixed_shader_export<HexWave<SMALL_W, SMALL_H>>(shader, 12, 1);
   verify_fixed_shader_export<EquatorGrid<SMALL_W, SMALL_H>>(shader, 15, 0);
   verify_fixed_shader_export<EquatorGrid<SMALL_W, SMALL_H>>(shader, 16, 1);
   verify_fixed_shader_export<EquatorGrid<SMALL_W, SMALL_H>>(shader, 17, 2);
   verify_fixed_shader_export<CosmicEyeball<SMALL_W, SMALL_H>>(shader, 18, 0);
   verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(shader, 19, 0);
   verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(shader, 20, 1);
+  verify_fixed_shader_export<PrismSpiral<SMALL_W, SMALL_H>>(
+      shader, prism_spiral_topology(), 0);
+  verify_fixed_shader_export<PrismSpiral<SMALL_W, SMALL_H>>(
+      shader, prism_spiral_topology(), 1);
 }
 
 inline void test_signal_weave_initial_preset_dwell() {
