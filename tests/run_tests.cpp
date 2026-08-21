@@ -135,13 +135,13 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
   X("memory", 46, hs_test::memory_tests::run_memory_tests, 255)                \
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
   X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
-  X("sdf", 98, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
+  X("sdf", 99, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
   X("conway", 34, hs_test::conway_tests::run_conway_tests, 4121)               \
-  X("conway_morph", 39, hs_test::conway_morph_tests::run_conway_morph_tests,   \
+  X("conway_morph", 41, hs_test::conway_morph_tests::run_conway_morph_tests,   \
     302862)                                                                    \
-  X("conway_continuity", 21,                                                   \
+  X("conway_continuity", 22,                                                   \
     hs_test::conway_continuity_tests::run_conway_continuity_tests, 49151)      \
-  X("partition_seam", 1,                                                       \
+  X("partition_seam", 2,                                                       \
     hs_test::partition_seam_tests::run_partition_seam_tests, 54)               \
   X("conway_soak", 1, hs_test::conway_soak_tests::run_conway_soak_tests, 151)  \
   X("opchain_probe", 8, hs_test::opchain_probe_tests::run_opchain_probe_tests, \
@@ -150,7 +150,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
     hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests, 5764) \
   X("hankin", 20, hs_test::hankin_tests::run_hankin_tests, 1594)               \
   X("geometry", 41, hs_test::geometry_tests::run_geometry_tests, 5128)         \
-  X("spherical_field", 13,                                                     \
+  X("spherical_field", 14,                                                     \
     hs_test::spherical_field_tests::run_spherical_field_tests, 9391)           \
   X("mesh", 27, hs_test::mesh_tests::run_mesh_tests, 69923)                    \
   X("solids", 34, hs_test::solids_tests::run_solids_tests, 95084)              \
@@ -162,25 +162,25 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
     6080)                                                                      \
   X("interpolate", 5, hs_test::interpolate_tests::run_interpolate_tests, 2077) \
   X("platform", 19, hs_test::platform_tests::run_platform_tests, 266686)       \
-  X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \
+  X("profiling", 12, hs_test::profiling_tests::run_profiling_tests, 163)       \
   X("pullback", 13, hs_test::pullback_tests::run_pullback_tests, 85)           \
-  X("shader_chain", 44, hs_test::shader_chain_tests::run_shader_chain_tests,   \
+  X("shader_chain", 51, hs_test::shader_chain_tests::run_shader_chain_tests,   \
     9957)                                                                      \
-  X("filter", 64, hs_test::filter_tests::run_filter_tests, 10296)              \
-  X("plot_scan", 82, hs_test::plot_scan_tests::run_plot_scan_tests, 1501827)   \
+  X("filter", 65, hs_test::filter_tests::run_filter_tests, 10296)              \
+  X("plot_scan", 83, hs_test::plot_scan_tests::run_plot_scan_tests, 1501827)   \
   X("canvas", 35, hs_test::canvas_tests::run_canvas_tests, 487)                \
-  X("scan", 39, hs_test::scan_tests::run_scan_tests, 1174887)                  \
-  X("mesh_raster", 18, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
+  X("scan", 40, hs_test::scan_tests::run_scan_tests, 1174887)                  \
+  X("mesh_raster", 20, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
     2793)                                                                      \
   X("transformers", 45, hs_test::transformers_tests::run_transformers_tests,   \
     1296)                                                                      \
-  X("noise", 3, hs_test::noise_tests::run_noise_tests, 201)                    \
+  X("noise", 4, hs_test::noise_tests::run_noise_tests, 201)                    \
   X("noise_field", 11, hs_test::noise_field_tests::run_noise_field_tests,      \
     1334)                                                                      \
   X("projections", 20, hs_test::projections_tests::run_projections_tests,      \
     95876)                                                                     \
   X("animation", 114, hs_test::animation_tests::run_animation_tests, 13894)    \
-  X("effects", 92, hs_test::effects_tests::run_effects_tests,                  \
+  X("effects", 95, hs_test::effects_tests::run_effects_tests,                  \
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_FULL_MIN_ASSERTIONS                                          \
         : EFFECTS_QUICK_MIN_ASSERTIONS)                                        \
@@ -188,21 +188,21 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 812;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
-  X("effect_factory", 5,                                                       \
+  X("effect_factory", 7,                                                       \
     hs_test::effect_factory_tests::run_effect_factory_tests,                   \
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECT_FACTORY_FULL_MIN_ASSERTIONS                                   \
         : EFFECT_FACTORY_QUICK_MIN_ASSERTIONS)                                 \
-  X("shader_workbench", 57,                                                    \
+  X("shader_workbench", 58,                                                    \
     hs_test::shader_workbench_tests::run_shader_workbench_tests, 1459084)      \
-  X("curl_lattice", 4, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
+  X("curl_lattice", 5, hs_test::curl_lattice_tests::run_curl_lattice_tests,    \
     5000)                                                                      \
-  X("facet_grid", 4, hs_test::facet_grid_tests::run_facet_grid_tests, 8000)    \
-  X("composed_effect", 11,                                                     \
+  X("facet_grid", 5, hs_test::facet_grid_tests::run_facet_grid_tests, 8000)    \
+  X("composed_effect", 17,                                                     \
     hs_test::composed_effect_tests::run_composed_effect_tests, 16101)          \
-  X("shapeshifter_oracle", 18,                                                 \
+  X("shapeshifter_oracle", 19,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
-  X("shapeshifter_tiles", 2,                                                   \
+  X("shapeshifter_tiles", 3,                                                   \
     hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests, 62)       \
   X("dma_core", 4, hs_test::dma_core_tests::run_dma_core_tests, 12)            \
   X("hd107s", 7, hs_test::hd107s_tests::run_hd107s_tests, 288)                 \
