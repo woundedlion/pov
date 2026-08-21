@@ -164,7 +164,7 @@ constexpr int EFFECT_FACTORY_FULL_MIN_ASSERTIONS = 399;
   X("platform", 19, hs_test::platform_tests::run_platform_tests, 266686)       \
   X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \
   X("pullback", 12, hs_test::pullback_tests::run_pullback_tests, 85)           \
-  X("shader_chain", 39, hs_test::shader_chain_tests::run_shader_chain_tests,   \
+  X("shader_chain", 43, hs_test::shader_chain_tests::run_shader_chain_tests,   \
     9957)                                                                      \
   X("filter", 63, hs_test::filter_tests::run_filter_tests, 10296)              \
   X("plot_scan", 82, hs_test::plot_scan_tests::run_plot_scan_tests, 1069897)   \
