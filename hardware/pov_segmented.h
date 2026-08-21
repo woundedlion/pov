@@ -343,11 +343,20 @@ public:
     uint32_t last_overrun = ledController.getOverrunCount();
     pov::sync::Telemetry last_tm{};
     unsigned long last_report = millis();
+    // The K-revolution construction budget, in the flywheel's own timebase.
+    const uint32_t commit_budget_cycles =
+        cfg.col_cycles(static_cast<int32_t>(cfg.commit_revs) * CANVAS_W);
+    const uint32_t cycles_per_us = F_CPU_ACTUAL / 1000000u;
+    // ARM_DWT_CYCCNT, not micros(): this stamp is taken every spin and
+    // micros() brackets its read with __disable_irq().
+    uint32_t poll_prev_cycles = ARM_DWT_CYCCNT;
 
     for (;;) {
+      const uint32_t poll_cycles = ARM_DWT_CYCCNT;
       const uint32_t bw = sync.build_word();
       const uint32_t gen = pov::sync::SyncBoard::build_gen_of(bw);
       if (gen != built_gen) {
+        const uint32_t build_start_cycles = ARM_DWT_CYCCNT;
         // The ISR owns the live-effect pointer; ask it to let go before the
         // old instance is destroyed (it acknowledges within one wake-up).
         handoff.request_release();
@@ -388,7 +397,22 @@ public:
         handoff.publish(cur, gen);
         hs::enable_interrupts();
         built_gen = gen;
+        // Per-build budget report. The ISR's commit trap is the only other
+        // signal that this window ran tight, and it fires on every board at
+        // once. The request cannot predate the previous poll, so `window`
+        // covers the render that was in flight plus the build, and `build`
+        // is the construction cost alone; `margin` is the headroom left.
+        const uint32_t done_cycles = ARM_DWT_CYCCNT;
+        const unsigned long window_us =
+            (done_cycles - poll_prev_cycles) / cycles_per_us;
+        const unsigned long budget_us = commit_budget_cycles / cycles_per_us;
+        hs::log(
+            "build idx=%ld build=%lu window=%lu budget=%lu margin=%ld us",
+            (long)effect_index,
+            (unsigned long)((done_cycles - build_start_cycles) / cycles_per_us),
+            window_us, budget_us, (long)budget_us - (long)window_us);
       }
+      poll_prev_cycles = poll_cycles;
 
       if (cur && handoff.consumed(built_gen)) {
         const unsigned long f0 = micros();
