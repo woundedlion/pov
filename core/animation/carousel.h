@@ -72,6 +72,13 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
                 "retarget() rewrite the single policy instance's "
                 "per-transition state, which an overlapping predecessor's "
                 "sprite is still reading");
+  static_assert(!Segue::DeclaresRetarget<SegueT> || !SegueT::OVERLAPS ||
+                    SegueT::RETARGET_SAFE_UNDER_OVERLAP,
+                "an overlapping segue's retarget() rewrites the single policy "
+                "instance's per-transition state, which the outgoing sprite is "
+                "still reading: schedule sequentially, or set "
+                "RETARGET_SAFE_UNDER_OVERLAP once the rewrite is shown "
+                "harmless");
 
 public:
   /**
