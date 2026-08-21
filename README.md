@@ -2737,7 +2737,7 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 
 ### 10.2 The WASM Bridge
 
-`wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes a single `HolosphereEngine` class. At most one instance may be live per module — its effect and arenas are shared module-global storage — so `delete()` the current engine before constructing another; the constructor traps otherwise.
+`wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes a single `HolosphereEngine` class. At most one instance may be live per module — its effect and arenas are shared module-global storage — so `delete()` the current engine before constructing another; the constructor traps otherwise. That trap is the bridge's one unrecoverable precondition, so a bootstrap that can run twice tests `HolosphereEngine.isLive()` first rather than constructing into it.
 
 | Method | Description |
 |---|---|
@@ -2766,6 +2766,7 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 | `getArenaMetrics()` | Memory usage stats for the three engine arenas, plus the stack high-water mark (see below). Read once per frame by the HUD, so it omits the tooling arenas an engine instance never moves; `MeshOps.getArenaMetrics()` reports all six on demand |
 | `getEffectSizes()` | Return `sizeof` for every registered effect at the current resolution |
 | `getSupportedResolutions()` → `[[w, h], …]` | *(static)* List the resolutions the build supports, as `[width, height]` pairs |
+| `isLive()` → `bool` | *(static)* Whether an engine instance is currently constructed — true from the end of a successful construction until that instance's `delete()`. Every other precondition on this bridge answers a bad call with a rejection value; the singleton one traps and kills the module, so this is the guard a retrying bootstrap reads before `new HolosphereEngine()` |
 | `setClip(x0, x1, y0, y1)` → `ClipSetResult` | Restrict rendering to a sub-rectangle (used by segment workers). Returns `Module.ClipSetResult.APPLIED` when the band is installed, `FULL_FRAME_KEPT` when the bounds are accepted but ignored because the effect reports `needs_full_frame()` (§10.7) and keeps the full-canvas clip, else the rejection reason (`NO_EFFECT` or `INVALID_BOUNDS`). Compare against the enum values — never by truthiness. Both `APPLIED` and `FULL_FRAME_KEPT` are successes, and a segment pool needs them apart to tell an N-way parallel speedup from N workers each computing the same full frame. The two rejections want opposite responses: `INVALID_BOUNDS` is a caller bug worth faulting on, while `NO_EFFECT` is the ordinary state between a `setResolution()` (or an `init` carrying no effect name) and the `setEffect()` that follows. A clip is dropped by any `INSTALLED` `setEffect()` or `RESIZED` `setResolution()` (an `ALREADY_ACTIVE` same-resolution call keeps the clip) and must be re-applied |
 | `strobeColumns()` → `bool` | Whether the current effect renders as discrete strobed columns (dark inter-column gaps) rather than a continuous smeared band; `false` when no effect is set. Daydream reads it to decide whether to fill the inter-column gap |
 
