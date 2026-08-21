@@ -195,9 +195,20 @@ constexpr int HS_SHADER_PRODUCT_GROUP_SECONDS =
 static_assert(HS_SHADER_PRODUCT_GROUP_SECONDS == 120,
               "the promoted Shader group must sum to one 120 s effect slot");
 
+/// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
+constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
+
+// The device rebuilds an effect on every visit, restarting its preset dwell, so
+// the whole rotation has to retire inside one slot or the later presets never
+// render.
 #define HS_SHADER_GROUP_REACHABLE(name, seconds)                               \
-  static_assert(name<96, 20>::PRESET_IDS.size() > 0,                           \
-                #name " must expose a reachable preset");
+  static_assert(                                                               \
+      name<96, 20>::PRESET_IDS.size() < 2 ||                                   \
+          (name<96, 20>::PRESET_DWELL_FRAMES +                                 \
+           name<96, 20>::PRESET_SEGUE.frames) *                                \
+                  (name<96, 20>::PRESET_IDS.size() - 1) <=                     \
+              static_cast<size_t>((seconds) * HS_SHOW_FRAMES_PER_SECOND),      \
+      #name " must reach every preset inside its show slot");
 HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_REACHABLE)
 #undef HS_SHADER_GROUP_REACHABLE
 
