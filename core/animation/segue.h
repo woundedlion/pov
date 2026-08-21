@@ -279,8 +279,9 @@ concept NeedsClasses = requires(S &s, const ArenaVector<uint16_t> &classes) {
 };
 
 /** @brief Whether a policy splits one frame's rasterizer work between the two
- * meshes with complementary pixel masks, which the effect passes to the two
- * draws itself. */
+ * meshes with complementary pixel masks. MeshCarousel checks the signature but
+ * routes nothing: the effect calls mask_pair() itself and hands the two halves
+ * to Plot::Mesh::draw's edge-list overload. Dissolve is the shipped policy. */
 template <typename S>
 concept Masked = requires(const S &s) {
   typename S::MaskPair;
