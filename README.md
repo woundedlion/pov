@@ -375,9 +375,11 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    41 headers covering 37 effects plus shared bases:
-│                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
-│                                Raymarch.h, …; the shared composed-effect base is
+├── effects/                    41 headers covering 37 effects, all firmware — BZReactionDiffusion.h,
+│                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus the two
+│                                simulator-only entries (ShaderWorkbench.h, ShaderChain.h) and
+│                                two shared bases (ReactionDiffusionBase.h, ShaderBall.h); the
+│                                composed-effect base is
 │                                core/render/pullback/composed_effect.h — see §9
 │
 ├── hardware/                   Hardware drivers
