@@ -127,7 +127,7 @@ the netlist is what's verified.
 
 | Ref(s) | Symbol | Footprint | Notes |
 |---|---|---|---|
-| `U_MCU` | `phantasm:Teensy4.0` | `phantasm:Teensy4.0` (2×14 0.1″ THT) | pad map = top view (component side up), USB end at −X: top row VIN,GND,3V3,23…13 / bottom row GND,0…12 |
+| `U_MCU` | `phantasm:Teensy4.0` | `phantasm:Teensy4.0` (2×14 0.1″ THT) | pad map = top view (component side up), USB end at −X: top row VIN,GND,3V3,23…13 / bottom row GND,0…12; **cut the VIN/VUSB pad before install** — R-ASM-7, see the hand-assembly section below |
 | `U1` (A–E) | `74xx:74AHCT125` | `Package_SO:SOIC-14_3.9x8.7mm_P1.27mm` | 4 buffers + power unit |
 | `Q_REV` | `Transistor_FET:Q_PMOS_GSD` (AO3401A) | `Package_TO_SOT_SMD:SOT-23` | reverse-polarity protection; pin 3 drain=input, pin 2 source=output, pin 1 gate=GND |
 | `F1` | `Device:Fuse` (0.5 A hold) | `Fuse:Fuse_1206_3216Metric` | TLC-NSMD050 resettable fuse; 1 A trip, 0.75 Ω post-trip maximum |
@@ -148,6 +148,26 @@ the netlist is what's verified.
 | `J4` | `Connector_Generic:Conn_01x04` | `PinHeader_1x04_P2.54mm` | debug/serial |
 | `H1`–`H4` | — | `MountingHole:MountingHole_2.7mm_M2.5` | four NPTH rotor mounting holes |
 | `JP_SHLD/JP_ID0/JP_ID1/JP_ID2` | `Jumper:SolderJumper_2_Open` | `SolderJumper-2_P1.3mm_Open_...` | shield (master only) / ID straps (JP_ID2 read at N=8) |
+
+## Hand assembly (not done by the PCBA house)
+
+The assembly house reflows top-side SMD only; `gen/fab.py` excludes the Teensy,
+the connectors, the electrolytic, and the solder jumpers from its BOM/CPL, so
+every step below is performed by whoever builds the card.
+
+- **R-ASM-7 — cut the VIN/VUSB pad on every Teensy 4.0. Mandatory, before the
+  Teensy is soldered down.** The board feeds Teensy `VIN` from the rotor rail and
+  `J4` exposes serial for USB debug. With the pad intact, `VUSB` is tied to `VIN`:
+  plugging USB into a powered board back-feeds the live 5 V rotor rail into the
+  host's USB `VBUS` (and a host's `VBUS` into the rotor rail when the rail is
+  down). Nothing on the card blocks it — `Q_REV` protects the `J1` feed, not the
+  USB port — and **no silkscreen or artifact carries this step**, so a build that
+  skips it looks correct. Cut the trace between the `VIN` and `VUSB` pads on the
+  Teensy's underside; `VIN` is then fed only from the board rail, and the Teensy
+  no longer self-powers from USB.
+- **`JP_SHLD` is stuffed on the master board only** (R-ASM-4); `JP_ID0`/`JP_ID1`
+  strap the segment ID, `JP_ID2` only at N = 8.
+- **`C_IN` is RTV-bonded** after soldering (R-PWR-6 / R-MECH-3).
 
 ## Notes / deviations from the spec
 
