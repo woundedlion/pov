@@ -46,6 +46,29 @@ through a transition. Preset records provide one
 value for every parameter. Transition edges name a descriptor-owned path policy
 and a bank-owned easing and positive duration.
 
+## Generated and hand-authored sources
+
+Twelve of the sixteen documents are generated. `node
+scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
+`contour_lattice`, `cosmic_eyeball`, `equator_grid`, `facet_wave`,
+`glitch_grid`, `hex_wave`, `kaleido_wave`, `mobius_grid`, `prism_lattice`,
+`signal_weave` and `vector_facets` from the effect specs the script holds, so a
+hand edit to those files is lost on the next run — change the spec instead. The
+specs are written in the v1 six-role shape and the committed file is their
+canonical v2 expansion.
+
+The remaining four are hand-authored and no rerun writes them: `curl_lattice`,
+`facet_grid` and `prism_spiral`, promoted from workbench snapshots, and
+`example.shader.json`.
+
+`shaderball_migration.json` is a manifest, not a shader document, and the CLI
+above rejects it as one. `source_documents` maps each `effect_id` to the
+document it is authored in, `product_group` carries the gallery grouping and
+its device-second budget, and `destinations` maps every retired legacy
+`ShaderBall` preset to the effect and preset that replaced it.
+`scripts/shader_workbench.test.mjs` gates the tree against it: a document that
+backs an effect must appear in `source_documents`.
+
 `curl_lattice.shader.json` is the editable source for the `CurlLattice`
 comparison effect. Its two presets share one descriptor and vary only the
 linearly interpolated sphere-noise scale.
