@@ -126,7 +126,8 @@ struct Style {
    * @details Scalar params blend continuously; function pointers and discrete
    * tuning snap at t = 0.5. The bound noise pointer is left untouched (effect-
    * owned state, not preset data; pulling it from a preset would null it and
-   * degrade noise_warp to identity).
+   * degrade noise_warp to identity), and the blended scalars are pushed into it
+   * so the feedback filter's drift trap stays satisfied.
    */
   void lerp(const Style &a, const Style &b, float t) {
     fade = hs::lerp(a.fade, b.fade, t);
@@ -138,6 +139,7 @@ struct Style {
     space_fn = t < 0.5f ? a.space_fn : b.space_fn;
     color_fn = t < 0.5f ? a.color_fn : b.color_fn;
     downsample = t < 0.5f ? a.downsample : b.downsample;
+    sync_noise();
   }
 
   /**
