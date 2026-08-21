@@ -1875,11 +1875,10 @@ inline void case_scan_clip_rows_out_of_bounds() {
   Scan::Shader::check_lut_domain<W, H>(cr);
 }
 
-#ifndef NDEBUG
 /**
- * @brief Death case: probing a Face whose scratch buffer a later Face claimed.
+ * @brief Death case: scanning a Face whose scratch buffer a later Face claimed.
  * @details The second build retargets the first face's spans, so the first no
- *          longer describes its own geometry. Debug-only guard.
+ *          longer describes its own geometry.
  */
 inline void case_face_scratch_retargeted() {
   constexpr int H = 16, HV = H + hs::H_OFFSET;
@@ -1901,10 +1900,9 @@ inline void case_face_scratch_retargeted() {
                   std::span<const uint16_t>(idx_a, 3), scratch, HV, H);
   SDF::Face second(std::span<const Vector>(verts, 6),
                    std::span<const uint16_t>(idx_b, 3), scratch, HV, H);
-  SDF::DistanceResult res;
-  first.distance(second.center, res);
+  (void)second;
+  (void)first.get_vertical_bounds<H>();
 }
-#endif
 
 /**
  * @brief Death case: a scan rejects a canvas that is not its <W, H>.
@@ -3404,11 +3402,9 @@ inline const Case *all_cases(int &n) {
        "shader.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
        "cr.render_y_end() <= H) "},
-#ifndef NDEBUG
       {"face_scratch_retargeted", case_face_scratch_retargeted, "face.h",
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
-       "SDF::Face probed after a later Face claimed its scratch buffer"},
-#endif
+       "SDF::Face scanned after a later Face claimed its scratch buffer"},
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "raster.h",
        "(canvas.width() == W && canvas.height() == H) "},
       {"scan_pipeline_not_prepared", case_scan_pipeline_not_prepared,

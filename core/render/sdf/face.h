@@ -268,11 +268,9 @@ struct FaceScratchBuffer {
       pseudo_angles; /**< Unwrapped vertex pseudo-angles for the sector walk. */
   std::array<uint32_t, MAX_VERTS + 1>
       sector_keys; /**< pseudo_angles as order-preserving integer keys. */
-#ifndef NDEBUG
   /** Bumped by every Face that finishes building over this buffer, so a Face
-   *  holding an older value has had its geometry retargeted. Debug only. */
+   *  holding an older value has had its geometry retargeted. */
   uint32_t claim_seq = 0;
-#endif
 };
 
 static_assert(sdf_max_spans<Face>::value >= FaceScratchBuffer::MAX_INTERVALS,
@@ -398,12 +396,10 @@ struct Face {
   float lut_clamp;              /**< Grid clamp bound (n - 2). */
   float lut_dequant;            /**< int16 -> plane-unit scale. */
 
-#ifndef NDEBUG
   const FaceScratchBuffer *scratch_owner =
       nullptr; /**< Buffer the spans view; null when the face culled before
-                    claiming one. Debug only. */
+                    claiming one. */
   uint32_t scratch_claim = 0; /**< Claim this face took on that buffer. */
-#endif
 
   /**
    * @brief Builds a face's projection, bounds, and edge data.
@@ -525,10 +521,8 @@ struct Face {
       build_sectors(scratch);
     }
 
-#ifndef NDEBUG
     scratch_owner = &scratch;
     scratch_claim = ++scratch.claim_seq;
-#endif
   }
 
   /**
@@ -1255,6 +1249,8 @@ struct Face {
   template <int H> Bounds get_vertical_bounds() const {
     HS_CHECK(H == build_height,
              "Face::get_vertical_bounds: H differs from construction height");
+    HS_CHECK(!scratch_owner || scratch_owner->claim_seq == scratch_claim,
+             "SDF::Face scanned after a later Face claimed its scratch buffer");
     return {y_min, y_max};
   }
 
@@ -1450,10 +1446,6 @@ struct Face {
   HS_O3_FN void distance_with_flags(const Vector &p, DistanceResult &res,
                                     float reject_dsq,
                                     uint32_t probe_flags) const {
-#ifndef NDEBUG
-    HS_CHECK(!scratch_owner || scratch_owner->claim_seq == scratch_claim,
-             "SDF::Face probed after a later Face claimed its scratch buffer");
-#endif
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
     HS_PROBE_TICK();
     HS_PROBE_COUNT(n_probe);
