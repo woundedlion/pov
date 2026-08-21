@@ -93,6 +93,10 @@ public:
       static_cast<int>(RadiusSpacing::SCREEN_BALANCED) + 1;
   /** @brief Count slider ceiling. */
   static constexpr int MAX_SHAPES = 288;
+  /** @brief Contour count from which star edges switch to screen-step-balanced
+   *  sampling: the dense planar-star path, and the balanced policy for
+   *  spherical stars. */
+  static constexpr float DENSE_CONTOUR_COUNT = 32.0f;
 
   /** @brief Constructs the Plot-only effect on a WxH canvas. */
   HS_COLD_MEMBER ShapeShifter()
@@ -727,7 +731,7 @@ private:
       break;
     }
     case ShapeType::PLANAR_STAR: {
-      if (params.count >= 32.0f) {
+      if (params.count >= DENSE_CONTOUR_COUNT) {
         draw_dense_planar_star(canvas, basis, radius, sides, fragment_shader,
                                shape_color, shape_phase, contour_index);
         break;
@@ -745,7 +749,8 @@ private:
     case ShapeType::SPHERICAL_STAR:
       draw_sampled(
           canvas, static_cast<size_t>(sides * 2 + 2), nullptr,
-          params.count >= 32.0f, fragment_shader, [&](Fragments &points) {
+          params.count >= DENSE_CONTOUR_COUNT, fragment_shader,
+          [&](Fragments &points) {
             Plot::Star<Plot::GeodesicProjection>::sample_continuous_positions(
                 points, basis, radius, sides, shape_phase);
           });
