@@ -7,6 +7,17 @@ import {
 } from './shader_workbench.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// --check compiles the specs and compares them against the committed
+// documents, exiting non-zero on drift; the default rewrites patterns/.
+const argv = process.argv.slice(2);
+const CHECK = argv.includes('--check');
+const unknown = argv.filter((arg) => arg !== '--check');
+if (unknown.length) {
+  console.error(`unknown argument: ${unknown[0]}`);
+  console.error('usage: generate_promoted_shader_documents.mjs [--check]');
+  process.exit(2);
+}
 const TAU = Math.fround(Math.PI * 2);
 
 const defaults = Object.freeze({
@@ -508,12 +519,40 @@ const effects = [
 // expansion's canonical v2 export.
 const catalog = JSON.parse(
   await readFile(resolve(ROOT, 'scripts', 'engine_catalog.json'), 'utf8'));
+const stale = [];
 for (const spec of effects) {
   const compiled = compileShaderDocument(documentFor(spec), { catalog });
   if (compiled.status !== 'VALID') {
     console.error(`${spec.id}:`, JSON.stringify(compiled.diagnostics, null, 2));
     process.exit(1);
   }
-  const output = resolve(ROOT, 'patterns', `${spec.id.replaceAll('-', '_')}.shader.json`);
-  await writeFile(output, exportShaderDocumentJson(compiled.document), 'utf8');
+  const name = `${spec.id.replaceAll('-', '_')}.shader.json`;
+  const output = resolve(ROOT, 'patterns', name);
+  const json = exportShaderDocumentJson(compiled.document);
+  if (!CHECK) {
+    await writeFile(output, json, 'utf8');
+    continue;
+  }
+  // The committed blobs are LF, while core.autocrlf hands a Windows checkout a
+  // CRLF working copy; compare the LF content, not the bytes on disk.
+  const committed = await readFile(output, 'utf8').then(
+    (text) => text.replaceAll('\r\n', '\n'), () => null);
+  if (committed !== json) {
+    stale.push(committed === null ? `${name} (missing)` : name);
+  }
+}
+
+if (CHECK) {
+  if (stale.length) {
+    console.error('::error::patterns/ is out of sync with '
+      + 'scripts/generate_promoted_shader_documents.mjs');
+    for (const name of stale) {
+      console.error(`  patterns/${name}`);
+    }
+    console.error(
+      'Regenerate with: node scripts/generate_promoted_shader_documents.mjs');
+    process.exit(1);
+  }
+  console.log(
+    `patterns/ matches the generator in full (${effects.length} documents).`);
 }
