@@ -153,6 +153,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   bool failsafe = false;
   int preflights = 0;
   int restores = 0;
+  int discards = 0;
 
   hs::EffectTransitionStatus
   preflight(const hs::EffectTransitionRequest &request,
@@ -181,6 +182,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   void commit_identity(const hs::EffectTransitionRequest &) override {
     committed = true;
   }
+  void destroy_incoming() override { ++discards; }
   hs::EffectTransitionStatus
   restore_outgoing(const hs::EffectRestoreToken &) override {
     ++restores;
@@ -367,6 +369,7 @@ inline void test_effect_transition_failsafe_retry() {
   HS_EXPECT_EQ(controller.failure(),
                hs::EffectTransitionStatus::RESTORE_REJECTED);
   HS_EXPECT_EQ(adapter.restores, 0);
+  HS_EXPECT_EQ(adapter.discards, 1);
 
   // a preflight advertising a restorable outgoing cannot resurrect one
   adapter.capability = hs::EffectRestoreCapability::EXACT_STATE;
@@ -376,6 +379,7 @@ inline void test_effect_transition_failsafe_retry() {
   controller.tick();
   controller.tick();
   HS_EXPECT_EQ(adapter.restores, 0);
+  HS_EXPECT_EQ(adapter.discards, 2);
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::CLEAR_FAILSAFE);
 

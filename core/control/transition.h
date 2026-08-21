@@ -30,8 +30,8 @@ namespace hs {
  *   FADING_IN -> STEADY_IN.
  *
  *   Rollback: any adapter failure in CONSTRUCTING or PREPARING_FIRST_FRAME
- *   diverts to RESTORING_OUT -> RESTORE_FRAME_READY -> FADING_BACK ->
- *   STEADY_OUT. A rollback that itself fails, or one with no restorable
+ *   destroys the incoming effect and diverts to RESTORING_OUT ->
+ *   RESTORE_FRAME_READY -> FADING_BACK -> STEADY_OUT. A rollback that itself fails, or one with no restorable
  *   outgoing, goes to CLEAR_FAILSAFE, whose only exit is
  *   CLEAR_FAILSAFE --request()--> CONSTRUCTING (output is already dark and
  *   the outgoing is gone, so the fade-out and clear steps are skipped).
@@ -204,6 +204,13 @@ public:
    * @details The point of no return: past it the controller has no rollback.
    */
   virtual void commit_identity(const EffectTransitionRequest &request) = 0;
+  /**
+   * @brief Destroys the incoming effect on a rollback.
+   * @details Runs on the tick that diverts to RESTORING_OUT, before
+   *   restore_outgoing(). Must tolerate an incoming that construct_incoming()
+   *   never finished building, so a retried transition stacks no allocation.
+   */
+  virtual void destroy_incoming() = 0;
   /**
    * @brief Rebuilds the outgoing effect from its restore token.
    * @param token The snapshot preflight() took.
@@ -424,6 +431,7 @@ private:
       return;
     }
     last_failure = status;
+    adapter.destroy_incoming();
     state = EffectTransitionState::RESTORING_OUT;
   }
 
