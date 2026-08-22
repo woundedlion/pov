@@ -53,18 +53,14 @@ public:
       "42efda02158f1a40dfdd4f3461b1cf64164f7c722bb687c175a4c7b07b4f41d1";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "c286e93d4982c13dbb72f2d5267b8ea380b35bf567b4de2181d5bc3c59865f58";
+      "6ce5e7188843b4f091b9c3cc2689798e3f2e77420c9f3d688f5b2ca50485ec4a";
   /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "coupled-grid", "direct-grid", "double-map", "stretched-grid"};
   /// Bumped whenever the `Params` layout changes, rejecting stale snapshots.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
-  // The 19 s Phantasm slot is 304 frames at 16 fps and the effect is rebuilt
-  // each visit: 4 dwells plus 3 crossfades must fit, or the later presets never
-  // render.
-  static constexpr Segue::Lerp PRESET_SEGUE{16, ease_in_out_sin};
   /// Frames a preset holds before the runtime begins the next transition.
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 64;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
 
   /// Params the effect starts on, and the base every preset varies from.

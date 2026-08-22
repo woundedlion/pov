@@ -442,8 +442,8 @@ inline void check_preset_choreography(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
   HS_CONTEXT(name);
 
-  HS_EXPECT_GT(FX::TRANSITION_DURATION, 0);
-  HS_EXPECT_GT(FX::PRESET_DWELL_FRAMES, 0);
+  HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{480});
+  HS_EXPECT_EQ(FX::PRESET_DWELL_FRAMES, uint16_t{600});
   HS_EXPECT_GT(FX::PRESET_IDS.size(), size_t{0});
   HS_EXPECT_TRUE(FX::valid_params(FX::initial_params()));
 

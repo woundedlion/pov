@@ -124,6 +124,26 @@
   X(VectorFacets)                                                              \
   X(Voronoi)
 
+/// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
+constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
+
+/**
+ * @brief Show duration that gives every preset one full dwell.
+ * @tparam EffectT Effect class template whose preset cadence sizes the window.
+ * @return Whole seconds covering every dwell and the intervening segues.
+ */
+template <template <int, int> class EffectT>
+constexpr int hs_preset_window_seconds() {
+  using Effect = EffectT<96, 20>;
+  constexpr size_t PRESET_COUNT = Effect::PRESET_IDS.size();
+  static_assert(PRESET_COUNT > 0);
+  constexpr size_t FRAMES =
+      PRESET_COUNT * Effect::PRESET_DWELL_FRAMES +
+      (PRESET_COUNT - 1) * Effect::PRESET_SEGUE.frames;
+  return static_cast<int>((FRAMES + HS_SHOW_FRAMES_PER_SECOND - 1) /
+                          HS_SHOW_FRAMES_PER_SECOND);
+}
+
 /**
  * @brief Phantasm playlist: HS_EFFECT_LIST minus Shader, ShaderChain, and the
  *        low-res-only effects Dynamo, MobiusRings, and Thrusters.
@@ -139,82 +159,58 @@
   X(BZReactionDiffusion, 120)                                                  \
   X(Fishbowl, 120)                                                             \
   X(Comets, 120)                                                               \
-  X(ContourLattice, 5)                                                         \
-  X(CurlFacets, 6)                                                             \
-  X(CurlLattice, 13)                                                           \
+  X(ContourLattice, hs_preset_window_seconds<ContourLattice>())                \
+  X(CurlFacets, hs_preset_window_seconds<CurlFacets>())                        \
+  X(CurlLattice, hs_preset_window_seconds<CurlLattice>())                      \
   X(DisplacementField, 120)                                                    \
   X(DreamBalls, 120)                                                           \
-  X(EquatorGrid, 13)                                                           \
-  X(FacetGrid, 19)                                                             \
-  X(FacetWave, 6)                                                              \
+  X(EquatorGrid, hs_preset_window_seconds<EquatorGrid>())                      \
+  X(FacetGrid, hs_preset_window_seconds<FacetGrid>())                          \
+  X(FacetWave, hs_preset_window_seconds<FacetWave>())                          \
   X(GnomonicStars, 120)                                                        \
   X(GSReactionDiffusion, 120)                                                  \
-  X(GlitchGrid, 5)                                                             \
+  X(GlitchGrid, hs_preset_window_seconds<GlitchGrid>())                        \
   X(HankinSolids, 120)                                                         \
   X(HopfFibration, 120)                                                        \
-  X(HexWave, 6)                                                                \
+  X(HexWave, hs_preset_window_seconds<HexWave>())                              \
   X(IslamicStars, 120)                                                         \
-  X(AlienOcean, 6)                                                             \
-  X(KaleidoWave, 7)                                                            \
+  X(AlienOcean, hs_preset_window_seconds<AlienOcean>())                        \
+  X(KaleidoWave, hs_preset_window_seconds<KaleidoWave>())                      \
   X(MeshFeedback, 181)                                                         \
   X(MindSplatter, 120)                                                         \
-  X(MobiusGrid, 6)                                                             \
+  X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
   X(PetalFlow, 120)                                                            \
-  X(PrismLattice, 5)                                                           \
-  X(PrismSpiral, 6)                                                            \
+  X(PrismLattice, hs_preset_window_seconds<PrismLattice>())                    \
+  X(PrismSpiral, hs_preset_window_seconds<PrismSpiral>())                      \
   X(Raymarch, 120)                                                             \
   X(RingShower, 120)                                                           \
   X(RingSpin, 120)                                                             \
   X(ShapeShifter, 135)                                                         \
-  X(SignalWeave, 7)                                                            \
+  X(SignalWeave, hs_preset_window_seconds<SignalWeave>())                      \
   X(SphericalHarmonics, 120)                                                   \
-  X(CosmicEyeball, 5)                                                          \
-  X(VectorFacets, 5)                                                           \
+  X(CosmicEyeball, hs_preset_window_seconds<CosmicEyeball>())                  \
+  X(VectorFacets, hs_preset_window_seconds<VectorFacets>())                    \
   X(Voronoi, 120)
 
 /** Shader promotion product group in gallery and fixed-pipeline roster
  * order; the device show order is HS_PHANTASM_EFFECT_LIST's. */
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
-  X(SignalWeave, 7)                                                            \
-  X(KaleidoWave, 7)                                                            \
-  X(AlienOcean, 6)                                                             \
-  X(GlitchGrid, 5)                                                             \
-  X(FacetWave, 6)                                                              \
-  X(ContourLattice, 5)                                                         \
-  X(CurlLattice, 13)                                                           \
-  X(CurlFacets, 6)                                                             \
-  X(PrismLattice, 5)                                                           \
-  X(PrismSpiral, 6)                                                            \
-  X(VectorFacets, 5)                                                           \
-  X(FacetGrid, 19)                                                             \
-  X(HexWave, 6)                                                                \
-  X(EquatorGrid, 13)                                                           \
-  X(CosmicEyeball, 5)                                                          \
-  X(MobiusGrid, 6)
-
-#define HS_SHADER_GROUP_SECONDS(name, seconds) +seconds
-constexpr int HS_SHADER_PRODUCT_GROUP_SECONDS =
-    0 HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_SECONDS);
-#undef HS_SHADER_GROUP_SECONDS
-static_assert(HS_SHADER_PRODUCT_GROUP_SECONDS == 120,
-              "the promoted Shader group must sum to one 120 s effect slot");
-
-/// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
-constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
-
-// The device rebuilds an effect on every visit, restarting its preset dwell, so
-// the whole rotation has to retire inside one slot or the later presets never
-// render.
-#define HS_SHADER_GROUP_REACHABLE(name, seconds)                               \
-  static_assert(                                                               \
-      name<96, 20>::PRESET_IDS.size() < 2 ||                                   \
-          (name<96, 20>::PRESET_DWELL_FRAMES +                                 \
-           name<96, 20>::PRESET_SEGUE.frames) *                                \
-                  (name<96, 20>::PRESET_IDS.size() - 1) <=                     \
-              static_cast<size_t>((seconds) * HS_SHOW_FRAMES_PER_SECOND),      \
-      #name " must reach every preset inside its show slot");
-HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_REACHABLE)
-#undef HS_SHADER_GROUP_REACHABLE
+  X(SignalWeave, hs_preset_window_seconds<SignalWeave>())                      \
+  X(KaleidoWave, hs_preset_window_seconds<KaleidoWave>())                      \
+  X(AlienOcean, hs_preset_window_seconds<AlienOcean>())                        \
+  X(GlitchGrid, hs_preset_window_seconds<GlitchGrid>())                        \
+  X(FacetWave, hs_preset_window_seconds<FacetWave>())                          \
+  X(ContourLattice, hs_preset_window_seconds<ContourLattice>())                \
+  X(CurlLattice, hs_preset_window_seconds<CurlLattice>())                      \
+  X(CurlFacets, hs_preset_window_seconds<CurlFacets>())                        \
+  X(PrismLattice, hs_preset_window_seconds<PrismLattice>())                    \
+  X(PrismSpiral, hs_preset_window_seconds<PrismSpiral>())                      \
+  X(VectorFacets, hs_preset_window_seconds<VectorFacets>())                    \
+  X(FacetGrid, hs_preset_window_seconds<FacetGrid>())                          \
+  X(HexWave, hs_preset_window_seconds<HexWave>())                              \
+  X(EquatorGrid, hs_preset_window_seconds<EquatorGrid>())                      \
+  X(CosmicEyeball, hs_preset_window_seconds<CosmicEyeball>())                  \
+  X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())
 
 /**
  * @brief Expands to +1 so HS_EFFECT_LIST can be summed into an entry count.
@@ -343,10 +339,7 @@ static_assert(!hs_in_phantasm_effect_list("Shader") &&
               "HS_PHANTASM_EFFECT_LIST must exclude Shader, ShaderChain, "
               "Dynamo, MobiusRings and Thrusters");
 
-// HS_SHADER_PRODUCT_GROUP restates durations HS_PHANTASM_EFFECT_LIST owns, and
-// the airtime sum above reads only the restated copy. Pinning each entry to the
-// playlist keeps a retune there from leaving that sum green over stale numbers;
-// a group member absent from the playlist reads as duration 0 and fails here.
+// Product-group durations mirror the Phantasm playlist.
 #define HS_SHADER_GROUP_DURATION_MATCHES(cls, duration_seconds)                \
   static_assert(hs_phantasm_duration_seconds(#cls) == (duration_seconds), #cls \
                 " duration disagrees between HS_SHADER_PRODUCT_GROUP and "     \
