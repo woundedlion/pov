@@ -835,12 +835,12 @@ const V1_SAMPLE_FIELDS = {
   'lattice-radius': 'lattice-radius',
 };
 
-const V1_PROJECT_FIELDS = new Set([
-  'singularity-fade',
-  'projection-spin-speed',
-  'projection-wander',
-  'central-meridian',
-]);
+const V1_PROJECT_FIELDS = {
+  'pole-fade': 'singularity-fade',
+  'projection-spin-speed': 'projection-spin-speed',
+  'projection-wander': 'projection-wander',
+  'central-meridian': 'central-meridian',
+};
 
 const V1_COLORIZE_FIELDS = new Set([
   'palette-chroma',
@@ -1004,7 +1004,8 @@ const v1ParameterTarget = (parameterId, slotsByLabel) => {
     return bind('transfer', parameterId);
   if (parameterId in V1_SAMPLE_FIELDS)
     return bind('sample', V1_SAMPLE_FIELDS[parameterId]);
-  if (V1_PROJECT_FIELDS.has(parameterId)) return bind('project', parameterId);
+  if (parameterId in V1_PROJECT_FIELDS)
+    return bind('project', V1_PROJECT_FIELDS[parameterId]);
   if (V1_COLORIZE_FIELDS.has(parameterId)) return bind('colorize', parameterId);
   return failV1('V1_PARAMETER_UNMAPPED', `parameter.${parameterId}`,
     `Parameter "${parameterId}" has no chain field mapping.`);

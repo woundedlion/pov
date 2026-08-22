@@ -31,7 +31,7 @@ import { sha256Hex } from './sha256.mjs';
 // consumer's budget math.
 const MIRROR_PINS = {
   'shader_workbench.mjs':
-    'f31b0087ab00a3c34f578d5a77a490dec42a0f028275f6d01f772f84d3cb24c7',
+    'a693d79c89c5ad57797c0a144c628dce9f500958e853fc96bc745038f562f1ef',
   'sha256.mjs':
     '046a83178da02898524d3743ad3aa80ec91f719ea9c1b2e9f26912afba71015a',
   'engine_catalog.json':
@@ -410,6 +410,25 @@ test('a v1 document expands to the committed v2 example byte for byte', () => {
   assert.equal(compiled.parameter_ids['central-meridian'], 'project.central-meridian');
   assert.equal(exportShaderDocumentJson(compiled.document), EXAMPLE);
   assert.equal(compiled.descriptor_digest, compile(example()).descriptor_digest);
+});
+
+// v1 is a frozen input format: the archived documents spell the projection
+// fade 'pole-fade', and the expander is the only place that translates it to
+// the engine's 'singularity-fade' field id.
+test('a v1 pole-fade parameter binds the projection singularity fade', () => {
+  const document = structuredClone(V1_EXAMPLE);
+  document.descriptor.parameters.push({
+    id: 'pole-fade', binding: 'projection.pole-fade', classification: 'preset',
+    storage: 'binary32', unit: 'ratio', domain: { minimum: 1, maximum: 20 },
+    interpolation: { kind: 'LINEAR' }, default: 1,
+  });
+  document.descriptor.serialization.fields.push('pole-fade');
+  for (const preset of document.preset_bank.presets) preset.values['pole-fade'] = 2;
+  const compiled = compile(document);
+  assert.equal(compiled.status, 'VALID');
+  assert.equal(compiled.parameter_ids['pole-fade'], 'project.singularity-fade');
+  assert.equal(compiled.document.descriptor.parameters
+    .filter((parameter) => parameter.id === 'project.singularity-fade').length, 1);
 });
 
 test('export classification compares exact descriptors after the digest', () => {
