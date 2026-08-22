@@ -22,7 +22,7 @@ import { sha256Hex } from './sha256.mjs';
 // CMakeLists.txt). CI has no daydream checkout to diff against, so each mirror
 // is pinned by the SHA-256 of its LF bytes instead: drift is a deliberate
 // re-pin, updated together with the daydream master commit it mirrors.
-// Mirrors daydream master e87bb510778c73597e74ffadf8a0bcc307a2396e.
+// Mirrors daydream master 61acb76b6ec2bcb460a5a65c41ec210f2f2cd599.
 // engine_catalog.json states the wasm32 operator ABI, the one the browser
 // workbench's budget math models. tests/data/shader_chain_catalog.json is a
 // separate catalog stating the native ABI the C++ suite pins. Their
@@ -35,7 +35,7 @@ const MIRROR_PINS = {
   'sha256.mjs':
     '046a83178da02898524d3743ad3aa80ec91f719ea9c1b2e9f26912afba71015a',
   'engine_catalog.json':
-    '57112565606f71a100d4bca5834fdc2ed88684c4ec5948776abe63b67de2473a',
+    '2ec0ffa476199f0c4bc9374dad1c577c8e06373ac3b5ce8a56510062a368a5a8',
 };
 
 const lf = (text) => text.replaceAll('\r\n', '\n');
