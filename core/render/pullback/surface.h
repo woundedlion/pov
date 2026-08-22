@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <algorithm>
+
 #include "animation/transformer.h"
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
@@ -75,29 +77,24 @@ static_assert(field_ids_unique<DirectSurfaceParams>());
 
 /** @brief Parameters for a periodically expanding spherical ripple. */
 struct PeriodicRippleParams {
-  float speed = 1.0f / 256.0f; /**< Ripple cycles advanced per frame. */
-  float strength = 0.2f;       /**< Peak angular displacement. */
-  float period = 0.75f;        /**< Angular spacing between wavelets. */
-  float decay = 0.5f;          /**< Attenuation with distance from center. */
-  float thickness = 0.25f;     /**< Angular width of each wavelet. */
+  float period = 80.0f;        /**< Frames per ripple cycle. */
+  float strength = 0.15f;      /**< Peak angular displacement. */
+  float decay = 0.1f;          /**< Attenuation with distance from center. */
+  float thickness = 0.7f;      /**< Angular width of the wavelet. */
   float center_azimuth = 0.0f; /**< Center azimuth, in radians. */
   float center_polar = 0.5f * PI_F; /**< Center polar angle, in radians. */
 
   static constexpr auto FIELDS = std::array{
-      Field<PeriodicRippleParams>{"speed", &PeriodicRippleParams::speed,
-                                  "Ripple Speed", -1.0f / 64.0f, 1.0f / 64.0f,
+      Field<PeriodicRippleParams>{"period", &PeriodicRippleParams::period,
+                                  "Ripple Period", 30.0f, 143.0f,
                                   FieldCurve::LERP},
       Field<PeriodicRippleParams>{"strength", &PeriodicRippleParams::strength,
-                                  "Ripple Strength", 0.0f, 0.5f,
+                                  "Ripple Strength", 0.0f, 0.15f,
                                   FieldCurve::LERP},
-      Field<PeriodicRippleParams>{"period", &PeriodicRippleParams::period,
-                                  "Ripple Period", 1.0f / 16.0f, PI_F,
-                                  FieldCurve::LOG_POSITIVE},
       Field<PeriodicRippleParams>{"decay", &PeriodicRippleParams::decay,
-                                  "Ripple Decay", 0.0f, 16.0f,
-                                  FieldCurve::LERP},
+                                  "Ripple Decay", 0.0f, 5.0f, FieldCurve::LERP},
       Field<PeriodicRippleParams>{"thickness", &PeriodicRippleParams::thickness,
-                                  "Ripple Thickness", 1.0f / 64.0f, PI_F,
+                                  "Ripple Thickness", 0.7f, 1.4f,
                                   FieldCurve::LOG_POSITIVE},
       Field<PeriodicRippleParams>{"center-azimuth",
                                   &PeriodicRippleParams::center_azimuth,
@@ -132,7 +129,6 @@ struct PreparedDirect {
 /** @brief Prepared parameters for one frame of a periodic ripple. */
 struct PreparedRipple {
   Animation::RippleParams ripple;
-  float period;
 };
 
 /** @brief Resolves a seamless ripple cycle for ripple_transform(). */
@@ -144,16 +140,19 @@ prepare_ripple(const PeriodicRippleParams &params, float cycle) {
   ripple.amplitude = params.strength;
   ripple.decay = params.decay;
   ripple.thickness = params.thickness;
-  ripple.phase = wrap_t(cycle) * params.period;
-  return {ripple, params.period};
+  const float progress = wrap_t(cycle);
+  ripple.phase = progress * PI_F;
+  const float attack = std::min(progress * 10.0f, 1.0f);
+  ripple.amplitude *= attack * attack * (1.0f - progress);
+  ripple.sync();
+  return {ripple};
 }
 
 /** @brief Applies a prepared periodic ripple and reports its angular travel. */
 __attribute__((always_inline)) inline SurfaceResult
 periodic_ripple(const Vector &input, const PreparedRipple &prepared,
                 bool path_length_required) {
-  const Vector displaced =
-      periodic_ripple_transform(input, prepared.ripple, prepared.period);
+  const Vector displaced = ripple_transform(input, prepared.ripple);
   if (!path_length_required ||
       (displaced.x == input.x && displaced.y == input.y &&
        displaced.z == input.z))

@@ -35,7 +35,7 @@ const MIRROR_PINS = {
   'sha256.mjs':
     '046a83178da02898524d3743ad3aa80ec91f719ea9c1b2e9f26912afba71015a',
   'engine_catalog.json':
-    'd98634430ff8a0c6483130a8bcd1a9101b8ba92bd28469d3a69d4dcad14739ae',
+    '57112565606f71a100d4bca5834fdc2ed88684c4ec5948776abe63b67de2473a',
 };
 
 const lf = (text) => text.replaceAll('\r\n', '\n');

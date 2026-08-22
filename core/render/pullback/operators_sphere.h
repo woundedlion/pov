@@ -143,7 +143,7 @@ struct DisplaceDirect {
   }
 };
 
-/** @brief Phase clock of sphere.displace.ripple.v2. */
+/** @brief Frame clock of sphere.displace.ripple.v2. */
 struct RipplePhaseState {
   float phase = 0.0f;
 };
@@ -164,11 +164,11 @@ struct DisplaceRipple {
     return Status::OK;
   }
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = fmodf(state.phase + 1.0f, params.period);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    return Surface::prepare_ripple(params, state.phase);
+    return Surface::prepare_ripple(params, state.phase / params.period);
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {

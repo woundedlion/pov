@@ -782,10 +782,10 @@ public:
 
   static constexpr Params initial_params() {
     Params value;
-    value.surface.speed = 1.0f / 64.0f;
-    value.surface.strength = 0.2f;
+    value.surface.period = 80.0f;
+    value.surface.strength = 0.15f;
     value.surface.decay = 0.0f;
-    value.surface.thickness = 0.4f;
+    value.surface.thickness = 0.7f;
     return value;
   }
 };
@@ -797,7 +797,6 @@ inline void test_composed_periodic_ripple_surface() {
   reset_effect_globals();
   FX effect;
   effect.init();
-  HS_EXPECT_TRUE(effect.getParameters().find("Ripple Speed") != nullptr);
   HS_EXPECT_TRUE(effect.getParameters().find("Ripple Strength") != nullptr);
   HS_EXPECT_TRUE(effect.getParameters().find("Ripple Period") != nullptr);
   effect.draw_frame();
