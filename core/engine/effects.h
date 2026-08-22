@@ -137,9 +137,8 @@ constexpr int hs_preset_window_seconds() {
   using Effect = EffectT<96, 20>;
   constexpr size_t PRESET_COUNT = Effect::PRESET_IDS.size();
   static_assert(PRESET_COUNT > 0);
-  constexpr size_t FRAMES =
-      PRESET_COUNT * Effect::PRESET_DWELL_FRAMES +
-      (PRESET_COUNT - 1) * Effect::PRESET_SEGUE.frames;
+  constexpr size_t FRAMES = PRESET_COUNT * Effect::PRESET_DWELL_FRAMES +
+                            (PRESET_COUNT - 1) * Effect::PRESET_SEGUE.frames;
   return static_cast<int>((FRAMES + HS_SHOW_FRAMES_PER_SECOND - 1) /
                           HS_SHOW_FRAMES_PER_SECOND);
 }

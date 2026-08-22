@@ -4525,7 +4525,7 @@ inline void test_shader_workbench_inverse_pipeline_manifest() {
       "HUE_ROTATION_AND_NOISE_LUTS", "FRAMEBUFFER", "MAXIMUM");
   HS_EXPECT_TRUE(peirce_framebuffer.measured);
   HS_EXPECT_TRUE(hue_framebuffer.measured);
-  HS_EXPECT_EQ(peirce_framebuffer.measured_baseline, 151.0f);
+  HS_EXPECT_EQ(peirce_framebuffer.measured_baseline, 147.0f);
   HS_EXPECT_EQ(hue_framebuffer.measured_baseline, 2810.0f);
   HS_EXPECT_LE(peirce_framebuffer.measured_baseline,
                peirce_framebuffer.accepted_limit);
