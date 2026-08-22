@@ -435,6 +435,9 @@ const validateParameters = (parameters, limits, budgets, chainOperators, report,
       `The document exceeds the ${budgets.max_params}-parameter budget.`);
   const seen = new Set();
   const groups = new Map();
+  // Only a shape-validated parameter enters the map: every later pass reads
+  // its fields unguarded.
+  const validated = new Map();
   parameters.forEach((parameter, index) => {
     const path = `$.descriptor.parameters[${index}]`;
     guard(() => {
@@ -445,15 +448,14 @@ const validateParameters = (parameters, limits, budgets, chainOperators, report,
       if (parameter.interpolation.kind === 'NORMALIZED_LINEAR')
         groups.set(parameter.interpolation.group, (groups.get(parameter.interpolation.group) ?? 0) + 1);
       validateParameterBinding(parameter, path, chainOperators, report);
+      validated.set(parameter.id, parameter);
     });
   });
   for (const [group, count] of groups)
     if (count < 2)
       report('INVALID_NORMALIZED_GROUP', '$.descriptor.parameters',
         `Normalized group "${group}" needs at least two fields.`);
-  return new Map(parameters
-    .filter((parameter) => parameter !== null && typeof parameter === 'object')
-    .map((parameter) => [parameter.id, parameter]));
+  return validated;
 };
 
 const validateStoredValue = (parameter, value, path) => {
@@ -491,7 +493,7 @@ const validatePathPolicies = (policies, parameters, report, guard) => {
         const groups = array(policy.groups, `${path}.groups`);
         if (groups.length === 0)
           fail('semantic', 'EMPTY_PATH_POLICY', `${path}.groups`, 'A staggered path needs ordered groups.');
-        const available = new Set(parameters.map((parameter) =>
+        const available = new Set([...parameters.values()].map((parameter) =>
           parameter.interpolation.group ?? parameter.id));
         const used = new Set();
         groups.forEach((group, groupIndex) => {
@@ -622,7 +624,7 @@ export function validateShaderDocument(document, options = {}) {
   const parameters = validateParameters(
     descriptor.parameters, limits, catalog.budgets, chainOperators, report, guard);
   const pathPolicies = validatePathPolicies(
-    descriptor.path_policies, descriptor.parameters, report, guard);
+    descriptor.path_policies, parameters, report, guard);
   guard(() => {
     exactKeys(descriptor.serialization, ['schema_version', 'fields'], ['schema_version', 'fields'], '$.descriptor.serialization');
     if (!Number.isInteger(descriptor.serialization.schema_version) || descriptor.serialization.schema_version <= 0)

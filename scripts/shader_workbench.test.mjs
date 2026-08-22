@@ -31,7 +31,7 @@ import { sha256Hex } from './sha256.mjs';
 // consumer's budget math.
 const MIRROR_PINS = {
   'shader_workbench.mjs':
-    'a693d79c89c5ad57797c0a144c628dce9f500958e853fc96bc745038f562f1ef',
+    'b2c9bf98728a4619702255dc08e67c06a509143f32d061532cc5f7b0fa222b9c',
   'sha256.mjs':
     '046a83178da02898524d3743ad3aa80ec91f719ea9c1b2e9f26912afba71015a',
   'engine_catalog.json':
@@ -304,6 +304,36 @@ test('serialization fields name every parameter once and do not order the digest
     ['INVALID_SERIALIZATION_FIELDS'], 'a duplicate hides a missing parameter');
   assert.deepEqual(codes((fields) => fields.push('sample.ghost-field')),
     ['INVALID_SERIALIZATION_FIELDS']);
+});
+
+// A parameter the shape pass rejected is dropped, so the path-policy,
+// serialization and preset-bank passes never read its fields off a malformed
+// object: import reports diagnostics and leaves the preview alone.
+test('a malformed parameter reports diagnostics instead of a raw TypeError', () => {
+  const diagnose = (mutate) => {
+    const document = example();
+    document.descriptor.path_policies[0] = {
+      id: 'parallel', kind: 'STAGGERED_ORDERED',
+      groups: ['sample.pattern-freq', 'project.central-meridian',
+        'sample.weight-mode', 'sample.coverage-mode'],
+    };
+    mutate(document.descriptor.parameters);
+    const diagnostics = validate(document);
+    assert.equal(compile(document).status, 'INVALID');
+    return diagnostics.map((diagnostic) => diagnostic.code);
+  };
+  for (const [mutate, shape] of [
+    [(parameters) => { parameters[0] = 'not-a-parameter'; }, 'EXPECTED_OBJECT'],
+    [(parameters) => { delete parameters[0].interpolation; }, 'MISSING_FIELD'],
+    [(parameters) => { delete parameters[0].domain; }, 'MISSING_FIELD'],
+  ]) {
+    const codes = diagnose(mutate);
+    assert.equal(codes[0], shape);
+    assert.ok(codes.includes('INVALID_PATH_GROUP'),
+      'the staggered path pass must report the orphaned group');
+    assert.ok(codes.includes('INVALID_SERIALIZATION_FIELDS'));
+    assert.ok(codes.includes('UNKNOWN_PRESET_VALUE'));
+  }
 });
 
 test('preset values and document metadata do not enter semantic identity', () => {
