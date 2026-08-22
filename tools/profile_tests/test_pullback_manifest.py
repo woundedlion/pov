@@ -23,7 +23,7 @@ import pullback_capture as capture  # noqa: E402
 
 
 MANIFEST_DIR = ROOT / "tests/data/pullback"
-_, ORACLES = generator.load_and_validate(MANIFEST_DIR)
+_, ORACLES, SCHEMA = generator.load_and_validate(MANIFEST_DIR)
 
 
 def _frame(programs, program, preset, case, resolution, probe, value=1):
@@ -121,7 +121,7 @@ def _capture(
 
 
 def _test_manifest():
-    programs, oracles = generator.load_and_validate(MANIFEST_DIR)
+    programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
     programs = copy.deepcopy(programs)
     programs["base_sha"] = "a" * 40
     programs["corpus"]["resolutions"] = [[16, 16], [32, 24]]
@@ -129,24 +129,26 @@ def _test_manifest():
         program["tolerances"]["release_wasm_framebuffer"][
             "max_differing_pixel_fraction"
         ] = 1.0
-    return programs, generator.manifest_sha256(programs, oracles)
+    return programs, generator.manifest_sha256(programs, oracles, schema)
 
 
 class ManifestValidation(unittest.TestCase):
     def test_generation_is_deterministic(self):
-        programs, oracles = generator.load_and_validate(MANIFEST_DIR)
-        first = generator.generate_header(programs, oracles)
-        second = generator.generate_header(programs, oracles)
+        programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
+        first = generator.generate_header(programs, oracles, schema)
+        second = generator.generate_header(programs, oracles, schema)
         self.assertEqual(first, second)
         self.assertIn("0x40000", first)
         runtime = json.loads(
-            generator.generate_runtime_manifest(programs, oracles, "a" * 40)
+            generator.generate_runtime_manifest(
+                programs, oracles, schema, "a" * 40
+            )
         )
         self.assertEqual(runtime["capture_sha"], "a" * 40)
         self.assertEqual(len(runtime["manifest_sha256"]), 64)
 
     def test_manifest_completeness_is_checked(self):
-        programs, _ = generator.load_and_validate(MANIFEST_DIR)
+        programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
         broken = copy.deepcopy(programs)
         broken["programs"][0]["parameter_cases"].pop()
         with tempfile.TemporaryDirectory() as directory:
@@ -156,7 +158,7 @@ class ManifestValidation(unittest.TestCase):
                 generator._validate_programs(broken, path)
 
     def test_nested_schema_rejects_unknown_fields(self):
-        programs, _ = generator.load_and_validate(MANIFEST_DIR)
+        programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
         schema = generator._load(MANIFEST_DIR / "schema.json")
         broken = copy.deepcopy(programs)
         broken["programs"][0]["tolerances"]["release_wasm_framebuffer"][
@@ -168,7 +170,7 @@ class ManifestValidation(unittest.TestCase):
             generator._validate_schema(broken, schema, schema, "programs")
 
     def test_schema_const_rejects_boolean_versions(self):
-        programs, _ = generator.load_and_validate(MANIFEST_DIR)
+        programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
         schema = generator._load(MANIFEST_DIR / "schema.json")
         for field_path in (("schema_version",), ("corpus", "version")):
             broken = copy.deepcopy(programs)
@@ -198,8 +200,63 @@ class ManifestValidation(unittest.TestCase):
                     ):
                         generator._load(path)
 
+    def test_schema_shape_is_asserted(self):
+        path = MANIFEST_DIR / "schema.json"
+        schema = generator._load(path)
+        generator._validate_schema_shape(schema, path)
+        gutted = {"$schema": schema["$schema"], "$defs": {}}
+        with self.assertRaisesRegex(
+            generator.ManifestError, "missing schema definitions"
+        ):
+            generator._validate_schema_shape(gutted, path)
+        mutations = {
+            "root selector": lambda doc: doc.pop("oneOf"),
+            "closed objects": lambda doc: doc["$defs"]["program"].pop(
+                "additionalProperties"
+            ),
+            "required fields": lambda doc: doc["$defs"]["programManifest"].pop(
+                "required"
+            ),
+            "properties": lambda doc: doc["$defs"]["metric"].pop("properties"),
+            "topology fields": lambda doc: doc["$defs"]["topologyKey"][
+                "required"
+            ].pop(),
+            "sha pattern": lambda doc: doc["$defs"]["sha"].pop("pattern"),
+        }
+        for name, mutate in mutations.items():
+            broken = copy.deepcopy(schema)
+            mutate(broken)
+            with self.subTest(dropped=name):
+                with self.assertRaises(generator.ManifestError):
+                    generator._validate_schema_shape(broken, path)
+
+    def test_gutted_schema_directory_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            staged = Path(directory)
+            for name in ("programs.json", *generator.ORACLE_FILES):
+                (staged / name).write_bytes((MANIFEST_DIR / name).read_bytes())
+            (staged / "schema.json").write_text(
+                json.dumps({"$schema": generator.SCHEMA_DRAFT, "$defs": {}}),
+                encoding="utf-8",
+            )
+            with self.assertRaises(generator.ManifestError):
+                generator.load_and_validate(staged)
+
+    def test_digest_covers_the_schema(self):
+        programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
+        relaxed = copy.deepcopy(schema)
+        relaxed["$defs"]["program"]["properties"]["id"].pop("pattern")
+        self.assertNotEqual(
+            generator.manifest_sha256(programs, oracles, schema),
+            generator.manifest_sha256(programs, oracles, relaxed),
+        )
+        self.assertNotEqual(
+            generator.generate_header(programs, oracles, schema),
+            generator.generate_header(programs, oracles, relaxed),
+        )
+
     def test_framebuffer_configuration_baseline_aggregation_is_checked(self):
-        _, oracles = generator.load_and_validate(MANIFEST_DIR)
+        _, oracles, _ = generator.load_and_validate(MANIFEST_DIR)
         broken = copy.deepcopy(oracles[1])
         framebuffer = next(
             metric for metric in broken["metrics"] if metric["domain"] == "FRAMEBUFFER"
