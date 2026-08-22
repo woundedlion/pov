@@ -114,6 +114,7 @@ g5_ship)
   run FacetWave profile 70 32
   run ContourLattice profile 70 32
   run CurlLattice profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
+  run CurlFacets profile 70 32
   ;;
 g6_ship)
   run PrismLattice profile 70 32
