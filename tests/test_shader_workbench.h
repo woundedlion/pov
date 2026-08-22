@@ -2327,7 +2327,7 @@ inline void test_shader_workbench_config_admission() {
     sb.init();
     const WB::Slots original = WB::active_slots(sb);
     WB::RequestedConfig invalid_params = WB::active_config(sb);
-    invalid_params.params.source.pattern_freq = 21.0f;
+    invalid_params.params.source.pattern_freq = 65.0f;
     const WB::RequestedConfig before_invalid_params = WB::active_config(sb);
     WB::request_config(sb, invalid_params);
     HS_EXPECT_TRUE(WB::active_config(sb) == before_invalid_params);
@@ -2340,6 +2340,12 @@ inline void test_shader_workbench_config_admission() {
     HS_EXPECT_TRUE(WB::valid_config(low_frequency));
     low_frequency.params.source.pattern_freq = 0.099f;
     HS_EXPECT_FALSE(WB::valid_config(low_frequency));
+
+    WB::RequestedConfig high_frequency = WB::active_config(sb);
+    high_frequency.params.source.pattern_freq = 64.0f;
+    HS_EXPECT_TRUE(WB::valid_config(high_frequency));
+    high_frequency.slots.function = WB::Function::TWIN_WAVE;
+    HS_EXPECT_FALSE(WB::valid_config(high_frequency));
 
     WB::RequestedConfig candidate = WB::legacy_config();
     const auto invalid_tag = static_cast<uint8_t>(0xff);
@@ -3731,7 +3737,7 @@ inline void test_shader_workbench_lens_domain_ranges() {
   HS_EXPECT_TRUE(
       sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)) ==
       ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 20.0f);
+  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 64.0f);
   HS_EXPECT_EQ(parameter("Speed")->max, 5.0f);
   HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
   HS_EXPECT_TRUE(sb.updateParameter("Speed", 5.0f) == ParamSetResult::APPLIED);
@@ -3740,7 +3746,7 @@ inline void test_shader_workbench_lens_domain_ranges() {
                      "Lens", static_cast<float>(
                                  WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 20.0f);
+  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 64.0f);
   HS_EXPECT_EQ(parameter("Speed")->max, 0.5f);
   HS_EXPECT_EQ(parameter("Speed")->get_requested(), 0.5f);
   HS_EXPECT_EQ(parameter("Source Angle Speed")->max, 0.03f);

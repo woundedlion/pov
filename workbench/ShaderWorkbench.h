@@ -1087,6 +1087,11 @@ private:
     return scaled > minimum_max ? scaled : minimum_max;
   }
 
+  static constexpr float pattern_freq_max(Function function) {
+    return function == Function::GRID ? GRID_PATTERN_FREQ_MAX
+                                      : PATTERN_FREQ_MAX;
+  }
+
   HS_COLD_MEMBER void register_clamped_animated_param(const char *name,
                                                       float *target,
                                                       float minimum,
@@ -1547,7 +1552,8 @@ private:
       return;
     }
     register_clamped_animated_param("Pattern Freq", &params.pattern_freq,
-                                    PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+                                    PATTERN_FREQ_MIN,
+                                    pattern_freq_max(function));
     register_clamped_animated_param(
         "Speed", &params.speed, SPEED_MIN,
         domain_scaled_max(SPEED_MAX, 0.5f, domain_scale));
@@ -3025,7 +3031,7 @@ private:
   }
 
   static constexpr bool valid_snapshot_config(const Config &config) {
-    return valid_slot_enums(config.slots) && preset_in_ranges(config.params) &&
+    return valid_slot_enums(config.slots) && preset_in_ranges(config) &&
            hue_shift_amount_in_range(config);
   }
 
@@ -5296,8 +5302,7 @@ private:
         !polar_source_compatible(candidate, slots.warp_program.outer))
       return false;
     if (!affine_translation_compatible(candidate) ||
-        !strict_seam_compatible(candidate) ||
-        !preset_in_ranges(candidate.params) ||
+        !strict_seam_compatible(candidate) || !preset_in_ranges(candidate) ||
         !hue_shift_amount_in_range(candidate))
       return false;
     if (!valid_stage_tuple(slots.warp_program.outer,
@@ -5661,7 +5666,7 @@ private:
       append_warning(" Set the named Surface Noise control within its range.");
       return warning_text.data();
     }
-    if (!preset_in_ranges(candidate.params)) {
+    if (!preset_in_ranges(candidate)) {
       const ParamDef *parameter = getParameters().find(edited_name);
       if (parameter != nullptr)
         return begin_warning(
@@ -6357,7 +6362,9 @@ private:
   static constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
   static constexpr float WARP_SPEED_MIN = -1.0f / 64.0f;
   static constexpr float WARP_SPEED_MAX = 1.0f;
-  static constexpr float PATTERN_FREQ_MIN = 0.1f, PATTERN_FREQ_MAX = 20.0f;
+  static constexpr float PATTERN_FREQ_MIN = 0.1f;
+  static constexpr float PATTERN_FREQ_MAX = 20.0f;
+  static constexpr float GRID_PATTERN_FREQ_MAX = 64.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float COMPLEXITY_MIN = 0.0f, COMPLEXITY_MAX = 3.0f;
   static constexpr float PATTERN_MIX_MIN = 0.0f, PATTERN_MIX_MAX = 1.0f;
@@ -6400,11 +6407,12 @@ private:
   static constexpr float CELL_MAX = 8.0f;
   static constexpr float SOFTNESS_MIN = 1.0f / 1024.0f;
 
-  HS_COLD_MEMBER static constexpr bool preset_in_ranges(const Params &p) {
+  HS_COLD_MEMBER static constexpr bool preset_in_ranges(const Config &config) {
+    const Params &p = config.params;
     return warp_stage_params_in_ranges(p.warp.outer) &&
            warp_stage_params_in_ranges(p.warp.inner) &&
            p.source.pattern_freq >= PATTERN_FREQ_MIN &&
-           p.source.pattern_freq <= PATTERN_FREQ_MAX &&
+           p.source.pattern_freq <= pattern_freq_max(config.slots.function) &&
            p.source.speed >= SPEED_MIN && p.source.speed <= SPEED_MAX &&
            p.source.complexity >= COMPLEXITY_MIN &&
            p.source.complexity <= COMPLEXITY_MAX &&

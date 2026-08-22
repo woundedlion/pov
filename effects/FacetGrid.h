@@ -50,7 +50,7 @@ public:
   /// `patterns/facet_grid.shader.json`; the browser editor matches it to
   /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "42efda02158f1a40dfdd4f3461b1cf64164f7c722bb687c175a4c7b07b4f41d1";
+      "fd927d26984f150035e7ced69ca3ae1bf47d584f84417a384b3511676df8701e";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "6ce5e7188843b4f091b9c3cc2689798e3f2e77420c9f3d688f5b2ca50485ec4a";

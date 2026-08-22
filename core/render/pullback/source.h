@@ -35,7 +35,7 @@ struct GridSourceParams {
 
   static constexpr auto FIELDS = std::array{
       Field<GridSourceParams>{"pattern-freq", &GridSourceParams::pattern_freq,
-                              "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
+                              "Pattern Freq", 0.1f, 64.0f, FieldCurve::LERP},
       Field<GridSourceParams>{"speed", &GridSourceParams::speed, "Speed", 0.0f,
                               0.5f, FieldCurve::LERP},
       Field<GridSourceParams>{"complexity", &GridSourceParams::complexity,

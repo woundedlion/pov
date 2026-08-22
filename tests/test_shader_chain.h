@@ -574,6 +574,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   constexpr size_t GRID_FIELDS = In::Op::GridSampleParams::FIELDS.size();
   HS_EXPECT_EQ(sample.schema_count, GRID_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(sample.schema[0].id) == "pattern-freq");
+  HS_EXPECT_EQ(sample.schema[0].max, 64.0f);
   HS_EXPECT_TRUE(std::string_view(sample.schema[GRID_FIELDS - 1].id) ==
                  "edge-width");
   const In::ParamFieldInfo &weight = sample.schema[GRID_FIELDS];
