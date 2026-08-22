@@ -989,11 +989,18 @@ public:
    *          combination the effect will not render; INVALID_PENDING a pending
    *          list that is absent, that is not a set of in-range field indices,
    *          or that does not match where accepted and requested differ.
+   *          NOT_SHADER_WORKBENCH also covers an input whose accessors swap
+   *          the loaded effect out while the snapshot is being decoded.
    */
   FullConfigRestoreResult restoreFullConfigSnapshot(const val &input) {
     FullConfigRestoreResult result =
         FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
     with_shader_workbench([&]<typename SB>(SB &shader) {
+      // Every property read below can run caller JS through an accessor or a
+      // Proxy, and that JS reaches setEffect()/setResolution(), which frees
+      // what `shader` names. Latch the owner and re-check before applying.
+      const Effect *const owner = current_effect.get();
+      const void *const owner_type_key = current_effect_type_key;
       typename SB::FullConfigSnapshot snapshot;
       if (input.isUndefined() || input.isNull()) {
         result = FullConfigRestoreResult::INVALID_LENGTH;
@@ -1060,6 +1067,11 @@ public:
           return;
         }
         pending = 1;
+      }
+      if (current_effect.get() != owner ||
+          current_effect_type_key != owner_type_key) {
+        result = FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
+        return;
       }
       result =
           map_restore_result<SB>(shader.restore_full_config_snapshot(snapshot));
