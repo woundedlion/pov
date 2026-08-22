@@ -151,7 +151,10 @@ fi
 # LINT: the Python / JavaScript / Markdown tree, which no compiler sees — CI's
 # lint, docs-markdown and screenshot-gallery jobs are the only thing that reads
 # it, and all run in seconds locally — plus the patterns/ shader documents and
-# mirrored scripts/engine_catalog.json the JS suite reads.
+# mirrored scripts/engine_catalog.json the JS suite reads, and the two roster
+# inputs the gallery/registration/profiling cross-checks read: core/engine/effects.h
+# (also native+teensy, since it is a header) and docs/screenshots/, whose PNGs no
+# other gate covers.
 #
 # Every classifier is a shell function taking the newline-separated path list,
 # so tools/githook_tests drives them against a table of staged paths: these
@@ -166,7 +169,7 @@ hs_paths_teensy() {
 }
 
 hs_paths_lint() {
-  printf '%s\n' "$1" | grep -qE '\.(py|mjs|md)$|(^|/)ruff\.toml$|(^|/)eslint\.config\.mjs$|(^|/)package(-lock)?\.json$|(^|/)patterns/.*\.json$|(^|/)scripts/engine_catalog\.json$'
+  printf '%s\n' "$1" | grep -qE '\.(py|mjs|md)$|(^|/)ruff\.toml$|(^|/)eslint\.config\.mjs$|(^|/)package(-lock)?\.json$|(^|/)patterns/.*\.json$|(^|/)scripts/engine_catalog\.json$|(^|/)core/engine/effects\.h$|(^|/)docs/screenshots/'
 }
 
 NATIVE=
@@ -242,6 +245,15 @@ hs_run_lint() {
       echo "[pre-commit] scripts/*.test.mjs FAILED."
       return 1
     fi
+    # The roster cross-checks CI's screenshot-gallery job runs: a registered
+    # effect with no gallery PNG (or an orphan PNG), and an HS_EFFECT_LIST row
+    # with no REGISTER_EFFECT under effects/ — neither of which any compiler or
+    # the native suite can see.
+    echo "[pre-commit] Effect roster + screenshot gallery..."
+    if ! { node scripts/check_screenshots.mjs && node scripts/check_effect_roster.mjs; }; then
+      echo "[pre-commit] Effect roster / screenshot gallery checks FAILED."
+      return 1
+    fi
     # eslint comes from node_modules, which a fresh clone has not installed yet.
     if [ -x node_modules/.bin/eslint ]; then
       if ! node_modules/.bin/eslint .; then
@@ -253,6 +265,19 @@ hs_run_lint() {
     fi
   else
     echo "[pre-commit] node not found — skipping the JavaScript checks."
+  fi
+  # tools/profile_sweep.sh cross-checks its six hand-tuned profiling groups
+  # against HS_PHANTASM_EFFECT_LIST; `check` runs that alone, with no attached
+  # board. Invoked through bash, not this shell: the script uses arrays and
+  # process substitution.
+  if command -v bash >/dev/null 2>&1; then
+    echo "[pre-commit] Profile sweep group coverage..."
+    if ! bash tools/profile_sweep.sh check; then
+      echo "[pre-commit] Profile sweep groups do not cover the Phantasm playlist."
+      return 1
+    fi
+  else
+    echo "[pre-commit] bash not found — skipping the profile sweep group check (CI enforces it)."
   fi
   echo "[pre-commit] Lint + docs checks passed."
 }
