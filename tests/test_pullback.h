@@ -753,43 +753,30 @@ inline void test_pullback_concrete_catalog() {
 
 inline void test_pullback_periodic_ripple() {
   Pullback::Surface::PeriodicRippleParams params;
-  params.strength = 0.4f;
+  params.strength = 0.15f;
   params.decay = 0.0f;
-  params.period = 0.8f;
-  params.thickness = 0.2f;
+  params.thickness = 0.7f;
   params.center_polar = 0.0f;
 
-  const Vector first = Vector::from_spherical(0.0f, params.period);
-  const Vector second = Vector::from_spherical(0.0f, 2.0f * params.period);
-  const Pullback::Surface::PreparedRipple prepared =
-      Pullback::Surface::prepare_ripple(params, 0.0f);
-  const Pullback::SurfaceResult first_ring =
-      Pullback::Surface::periodic_ripple(first, prepared, true);
-  const Pullback::SurfaceResult second_ring =
-      Pullback::Surface::periodic_ripple(second, prepared, true);
-  HS_EXPECT_NEAR(first_ring.path_length, params.strength, 2e-3f);
-  HS_EXPECT_NEAR(second_ring.path_length, first_ring.path_length, 2e-3f);
+  const Vector midpoint = Vector::from_spherical(0.0f, 0.5f * PI_F);
+  const Pullback::SurfaceResult start = Pullback::Surface::periodic_ripple(
+      midpoint, Pullback::Surface::prepare_ripple(params, 0.0f), true);
+  HS_EXPECT_EQ(start.sphere.x, midpoint.x);
+  HS_EXPECT_EQ(start.sphere.y, midpoint.y);
+  HS_EXPECT_EQ(start.sphere.z, midpoint.z);
+  HS_EXPECT_EQ(start.path_length, 0.0f);
 
-  const Pullback::SurfaceResult between_rings =
-      Pullback::Surface::periodic_ripple(
-          first, Pullback::Surface::prepare_ripple(params, 0.5f), true);
-  HS_EXPECT_EQ(between_rings.sphere.x, first.x);
-  HS_EXPECT_EQ(between_rings.sphere.y, first.y);
-  HS_EXPECT_EQ(between_rings.sphere.z, first.z);
-  HS_EXPECT_EQ(between_rings.path_length, 0.0f);
+  const Pullback::SurfaceResult crest = Pullback::Surface::periodic_ripple(
+      midpoint, Pullback::Surface::prepare_ripple(params, 0.5f), true);
+  HS_EXPECT_NEAR(crest.sphere.length(), 1.0f, 1e-4f);
+  HS_EXPECT_NEAR(crest.path_length, 0.5f * params.strength, 2e-3f);
 
   const Pullback::SurfaceResult wrapped = Pullback::Surface::periodic_ripple(
-      first, Pullback::Surface::prepare_ripple(params, 1.0f), true);
-  HS_EXPECT_EQ(wrapped.sphere.x, first_ring.sphere.x);
-  HS_EXPECT_EQ(wrapped.sphere.y, first_ring.sphere.y);
-  HS_EXPECT_EQ(wrapped.sphere.z, first_ring.sphere.z);
-  HS_EXPECT_EQ(wrapped.path_length, first_ring.path_length);
-
-  params.period = 0.55f;
-  const Pullback::SurfaceResult changed_period =
-      Pullback::Surface::periodic_ripple(
-          first, Pullback::Surface::prepare_ripple(params, 0.0f), true);
-  HS_EXPECT_EQ(changed_period.path_length, 0.0f);
+      midpoint, Pullback::Surface::prepare_ripple(params, 1.0f), true);
+  HS_EXPECT_EQ(wrapped.sphere.x, start.sphere.x);
+  HS_EXPECT_EQ(wrapped.sphere.y, start.sphere.y);
+  HS_EXPECT_EQ(wrapped.sphere.z, start.sphere.z);
+  HS_EXPECT_EQ(wrapped.path_length, start.path_length);
 }
 
 struct AddLens : Pullback::ApproximationDefaults {

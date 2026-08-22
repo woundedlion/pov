@@ -724,27 +724,6 @@ HS_O3_FN inline Vector ripple_transform(const Vector &v,
 }
 
 /**
- * @brief Applies a spatially periodic train of spherical ripple wavelets.
- * @param v The vector to transform.
- * @param params The ripple parameters.
- * @param period Angular spacing between wavelet peaks.
- * @return The displaced vector.
- */
-HS_O3_FN inline Vector
-periodic_ripple_transform(const Vector &v,
-                          const Animation::RippleParams &params, float period) {
-  if (params.amplitude <= 0.001f)
-    return v;
-
-  float cos_d = dot(v, params.center);
-  float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-  float winding = floorf((d - params.phase) / period + 0.5f);
-  float phase = params.phase + winding * period;
-  if (fabsf(d - phase) > 2.0f * params.half_width())
-    return v;
-  return ripple_transform_at_distance(v, params, d, phase);
-}
-/**
  * @brief Slides a point along the sphere surface by a 3D-noise field.
  * @param v The unit vector to transform.
  * @param params Noise field, scale, amplitude and time.

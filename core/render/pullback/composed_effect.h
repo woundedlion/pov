@@ -247,7 +247,14 @@ template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
   static const auto &params(const FrameState &frame) {
     return frame.params.surface;
   }
-  static float phase(const FrameState &frame) { return frame.surface_phase; }
+  static float phase(const FrameState &frame) {
+    using SurfaceParams =
+        typename std::remove_cvref_t<decltype(frame.params)>::surface_type;
+    if constexpr (std::is_same_v<SurfaceParams, PeriodicRippleParams>)
+      return frame.surface_phase / frame.params.surface.period;
+    else
+      return frame.surface_phase;
+  }
   static float scale(const FrameState &frame) {
     return frame.params.surface.scale;
   }
@@ -1060,7 +1067,10 @@ private:
     if constexpr (requires { params.source.noise_time_rate; })
       source_noise_time =
           wrap_t(source_noise_time + params.source.noise_time_rate);
-    if constexpr (HAS_SURFACE)
+    if constexpr (std::is_same_v<typename ParamsT::surface_type,
+                                 PeriodicRippleParams>)
+      surface_phase = fmodf(surface_phase + 1.0f, params.surface.period);
+    else if constexpr (HAS_SURFACE)
       surface_phase = wrap_t(surface_phase + params.surface.speed);
     if constexpr (Derived::ANIMATED_PROJECTION)
       projection_spin =

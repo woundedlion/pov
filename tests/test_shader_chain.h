@@ -644,9 +644,25 @@ inline void test_shader_chain_schema_and_field_ids() {
       *In::find_operator("sphere.displace.ripple.v2");
   HS_EXPECT_EQ(ripple.schema_count,
                PB::Surface::PeriodicRippleParams::FIELDS.size());
-  HS_EXPECT_TRUE(std::string_view(ripple.schema[0].id) == "speed");
-  HS_EXPECT_TRUE(std::string_view(ripple.schema[2].id) == "period");
-  HS_EXPECT_TRUE(std::string_view(ripple.schema[6].id) == "center-polar");
+  HS_EXPECT_TRUE(std::string_view(ripple.schema[0].id) == "period");
+  HS_EXPECT_EQ(ripple.schema[0].min, 30.0f);
+  HS_EXPECT_EQ(ripple.schema[0].max, 143.0f);
+  HS_EXPECT_EQ(ripple.schema[0].def, 80.0f);
+  HS_EXPECT_EQ(ripple.schema[1].max, 0.15f);
+  HS_EXPECT_EQ(ripple.schema[1].def, 0.15f);
+  HS_EXPECT_EQ(ripple.schema[2].max, 5.0f);
+  HS_EXPECT_EQ(ripple.schema[2].def, 0.1f);
+  HS_EXPECT_EQ(ripple.schema[3].min, 0.7f);
+  HS_EXPECT_EQ(ripple.schema[3].def, 0.7f);
+  HS_EXPECT_TRUE(std::string_view(ripple.schema[5].id) == "center-polar");
+  In::Op::RipplePhaseState ripple_state;
+  PB::Surface::PeriodicRippleParams ripple_params;
+  for (int frame = 0; frame < 40; ++frame)
+    In::Op::DisplaceRipple::advance(ripple_state, ripple_params);
+  HS_EXPECT_EQ(ripple_state.phase, 40.0f);
+  for (int frame = 0; frame < 40; ++frame)
+    In::Op::DisplaceRipple::advance(ripple_state, ripple_params);
+  HS_EXPECT_EQ(ripple_state.phase, 0.0f);
 
   // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
   // carries the full sixteen-harmonic list; curl-flow is basis-only.
@@ -1053,7 +1069,9 @@ struct RippleMirrorProvider {
   params(const FrameState &frame) {
     return frame.ripple;
   }
-  static float phase(const FrameState &frame) { return frame.phase; }
+  static float phase(const FrameState &frame) {
+    return frame.phase / frame.ripple.period;
+  }
   static bool path_length_required(const FrameState &) { return true; }
 };
 
