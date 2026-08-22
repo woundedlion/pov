@@ -422,7 +422,7 @@ def produce(
     manifest_dir: Path,
     output: Path,
 ) -> None:
-    programs, oracles = load_and_validate(manifest_dir)
+    programs, oracles, schema = load_and_validate(manifest_dir)
     toolchain = attest_toolchain(build_dir, configuration, programs)
     checkout_sha = subprocess.run(
         ["git", "-C", str(checkout), "rev-parse", "HEAD"],
@@ -538,7 +538,7 @@ def produce(
     capture = {
         "schema_version": 1,
         "checkout_sha": checkout_sha,
-        "manifest_sha256": manifest_sha256(programs, oracles),
+        "manifest_sha256": manifest_sha256(programs, oracles, schema),
         "toolchain": toolchain,
         "configuration": configuration,
         "corpus": programs["corpus"],
@@ -562,13 +562,13 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.operations_output is not None:
-            programs, oracles = load_and_validate(args.manifest_dir.resolve())
+            programs, oracles, _ = load_and_validate(args.manifest_dir.resolve())
             write_operations(programs, oracles, args.operations_output.resolve())
             return 0
         if args.backend_audit is not None:
             if args.configuration is None:
                 parser.error("backend audit requires --configuration")
-            programs, oracles = load_and_validate(args.manifest_dir.resolve())
+            programs, oracles, _ = load_and_validate(args.manifest_dir.resolve())
             metrics = {
                 oracle["oracle_id"]: {"value": 0, "sample_count": 0}
                 for oracle in oracles

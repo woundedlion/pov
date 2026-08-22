@@ -526,8 +526,8 @@ def _produce_capture(
 def orchestrate(
     repository: Path, controller: Path, base_sha: str, candidate_sha: str, output: Path
 ) -> None:
-    programs, oracles = load_and_validate(controller / "tests/data/pullback")
-    digest = manifest_sha256(programs, oracles)
+    programs, oracles, schema = load_and_validate(controller / "tests/data/pullback")
+    digest = manifest_sha256(programs, oracles, schema)
     environment = os.environ.copy()
     environment["CCACHE_DISABLE"] = "1"
     environment["CMAKE_CXX_COMPILER_LAUNCHER"] = ""
@@ -732,12 +732,12 @@ def main() -> int:
                 args.output.resolve(),
             )
         else:
-            programs, oracles = load_and_validate(args.manifest_dir)
+            programs, oracles, schema = load_and_validate(args.manifest_dir)
             compare_captures(
                 _load_capture(args.base),
                 _load_capture(args.candidate),
                 programs,
-                manifest_sha256(programs, oracles),
+                manifest_sha256(programs, oracles, schema),
                 args.base_sha,
                 args.candidate_sha,
                 _load_capture(args.strict_base) if args.strict_base else None,
