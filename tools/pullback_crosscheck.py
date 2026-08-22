@@ -256,7 +256,7 @@ def _within_differing_pixel_limit(
     return differing <= math.ceil(count * fraction)
 
 
-def _oracle_metric_map(capture: dict, oracles: list[dict] | None) -> dict:
+def _oracle_metric_map(capture: dict, oracles: list[dict]) -> dict:
     metrics = capture.get("oracle_metrics")
     if not isinstance(metrics, list):
         raise CrosscheckError("capture.oracle_metrics must be an array")
@@ -293,33 +293,28 @@ def _oracle_metric_map(capture: dict, oracles: list[dict] | None) -> dict:
         ):
             raise CrosscheckError("capture oracle metric is invalid")
         mapped[key] = metric
-    if oracles is not None:
-        expected = {}
-        for oracle in oracles:
-            manifest_metric = next(
-                metric
-                for metric in oracle["metrics"]
-                if metric["domain"] == "FRAMEBUFFER"
-                and metric["aggregation"] == "MAXIMUM"
-            )
-            key = (oracle["oracle_id"], "FRAMEBUFFER", "MAXIMUM")
-            expected[key] = manifest_metric
-        if mapped.keys() != expected.keys():
-            raise CrosscheckError("capture oracle metric coverage differs from manifests")
-        for key, metric in mapped.items():
-            manifest_metric = expected[key]
-            if (
-                metric["value"]
-                != manifest_metric["configuration_baselines"][
-                    capture["configuration"]
-                ]
-                or metric["unit"] != manifest_metric["unit"]
-                or metric["resolution_values"]
-                != manifest_metric["resolution_baselines"][
-                    capture["configuration"]
-                ]
-            ):
-                raise CrosscheckError("capture oracle metric differs from manifest")
+    expected = {}
+    for oracle in oracles:
+        manifest_metric = next(
+            metric
+            for metric in oracle["metrics"]
+            if metric["domain"] == "FRAMEBUFFER"
+            and metric["aggregation"] == "MAXIMUM"
+        )
+        key = (oracle["oracle_id"], "FRAMEBUFFER", "MAXIMUM")
+        expected[key] = manifest_metric
+    if mapped.keys() != expected.keys():
+        raise CrosscheckError("capture oracle metric coverage differs from manifests")
+    for key, metric in mapped.items():
+        manifest_metric = expected[key]
+        if (
+            metric["value"]
+            != manifest_metric["configuration_baselines"][capture["configuration"]]
+            or metric["unit"] != manifest_metric["unit"]
+            or metric["resolution_values"]
+            != manifest_metric["resolution_baselines"][capture["configuration"]]
+        ):
+            raise CrosscheckError("capture oracle metric differs from manifest")
     return mapped
 
 
@@ -329,7 +324,7 @@ def _validate_capture(
     digest: str,
     configuration: str,
     checkout_sha: str,
-    oracles: list[dict] | None = None,
+    oracles: list[dict],
 ) -> tuple[dict, dict]:
     required = {
         "schema_version",
@@ -371,7 +366,8 @@ def compare_captures(
     candidate_sha: str,
     strict_base: dict | None = None,
     strict_candidate: dict | None = None,
-    oracles: list[dict] | None = None,
+    *,
+    oracles: list[dict],
 ) -> None:
     if base_sha != programs["base_sha"]:
         raise CrosscheckError("base checkout SHA differs from manifest pin")

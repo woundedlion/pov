@@ -277,7 +277,8 @@ class CaptureComparison(unittest.TestCase):
         candidate["toolchain"]["compiler"] = "different"
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "toolchain"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40
+                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                oracles=ORACLES,
             )
 
     def test_oracle_metric_drift_is_refused(self):
@@ -294,6 +295,22 @@ class CaptureComparison(unittest.TestCase):
                 digest,
                 "a" * 40,
                 "b" * 40,
+                oracles=ORACLES,
+            )
+
+    def test_oracle_metrics_cannot_be_left_uncompared(self):
+        programs, digest = _test_manifest()
+        base = _capture(programs, digest)
+        base["oracle_metrics"] = []
+        candidate = copy.deepcopy(base)
+        candidate["checkout_sha"] = "b" * 40
+        with self.assertRaises(TypeError):
+            crosscheck.compare_captures(
+                base, candidate, programs, digest, "a" * 40, "b" * 40
+            )
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "coverage"):
+            crosscheck.compare_captures(
+                base, candidate, programs, digest, "a" * 40, "b" * 40,
                 oracles=ORACLES,
             )
 
@@ -364,7 +381,8 @@ class CaptureComparison(unittest.TestCase):
         candidate = copy.deepcopy(base)
         candidate["checkout_sha"] = "b" * 40
         crosscheck.compare_captures(
-            base, candidate, programs, digest, "a" * 40, "b" * 40
+            base, candidate, programs, digest, "a" * 40, "b" * 40,
+            oracles=ORACLES,
         )
 
     def test_release_mismatch_requires_strict_fp_identity(self):
@@ -383,7 +401,8 @@ class CaptureComparison(unittest.TestCase):
         )
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "strict-FP"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40
+                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                oracles=ORACLES,
             )
         strict_base = _capture(programs, digest, "wasm-strict-fp", 3)
         strict_candidate = copy.deepcopy(strict_base)
@@ -397,6 +416,7 @@ class CaptureComparison(unittest.TestCase):
             "b" * 40,
             strict_base,
             strict_candidate,
+            oracles=ORACLES,
         )
 
     def test_release_pixel_fraction_is_rounded_to_whole_pixels(self):
@@ -414,21 +434,24 @@ class CaptureComparison(unittest.TestCase):
         candidate["frames"][0]["sha256"] = "0" * 64
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "raw hash"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40
+                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                oracles=ORACLES,
             )
         candidate = copy.deepcopy(base)
         candidate["checkout_sha"] = "b" * 40
         candidate["frames"][0]["pixels"].pop()
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "pixels"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40
+                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                oracles=ORACLES,
             )
         candidate = copy.deepcopy(base)
         candidate["checkout_sha"] = "b" * 40
         candidate["manifest_sha256"] = "0" * 64
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "manifest hash"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40
+                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                oracles=ORACLES,
             )
 
     def test_probe_operations_are_targeted_and_not_aliases(self):
@@ -469,7 +492,8 @@ class CaptureComparison(unittest.TestCase):
         ).hexdigest()
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "outside mapping"):
             crosscheck.compare_captures(
-                capture_doc, candidate, programs, digest, "a" * 40, "b" * 40
+                capture_doc, candidate, programs, digest, "a" * 40, "b" * 40,
+                oracles=ORACLES,
             )
 
     def test_strict_capture_provenance_and_identity_are_checked(self):
@@ -491,6 +515,7 @@ class CaptureComparison(unittest.TestCase):
                 "b" * 40,
                 strict_base,
                 strict_candidate,
+                oracles=ORACLES,
             )
         strict_candidate = copy.deepcopy(strict_base)
         strict_candidate["checkout_sha"] = "b" * 40
@@ -515,6 +540,7 @@ class CaptureComparison(unittest.TestCase):
                 "b" * 40,
                 strict_base,
                 strict_candidate,
+                oracles=ORACLES,
             )
 
     def test_backend_stream_is_complete(self):
