@@ -72,7 +72,7 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -111,7 +111,7 @@ jobs:
       # configure with -DHS_REQUIRE_GENERATORS=ON below: this is the one job
       # where those three CTests are required to RUN, so a provisioning break
       # fails the job instead of silently downgrading them to skips.
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the provenance jobs
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6        # pin the interpreter, like the provenance jobs
         with:
           python-version: '3.12'
 
@@ -122,7 +122,7 @@ jobs:
       # The shard-agnostic restore-key means any prior shard's warm cache is
       # accepted on a cache miss (all shards compile the same TUs).
       - name: Cache ccache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-tests-${{ github.run_id }}-${{ matrix.shard }}
@@ -238,7 +238,7 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -253,7 +253,7 @@ jobs:
       # change the compile command, so object caches must not collide).
       # Per-shard slot for the same reason as the tests job above.
       - name: Cache ccache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-sanitizers-${{ github.run_id }}-${{ matrix.shard }}
@@ -318,7 +318,7 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -332,7 +332,7 @@ jobs:
       # Own cache prefix: -fsanitize=thread changes the compile command, so this
       # object cache must not collide with the other jobs'.
       - name: Cache ccache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-tsan-${{ github.run_id }}
@@ -425,7 +425,7 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -444,7 +444,7 @@ jobs:
       # numbered shard's key (nor the reverse), so the two float configurations
       # never restore each other's objects.
       - name: Cache ccache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-optimized-${{ matrix.shard }}-${{ github.run_id }}
@@ -494,7 +494,7 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -509,7 +509,7 @@ jobs:
       # Separate cache prefix: the coverage flags change the compile command, so
       # this object cache must not collide with the other jobs'.
       - name: Cache ccache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-coverage-${{ github.run_id }}
@@ -569,7 +569,7 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -649,7 +649,7 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -660,7 +660,7 @@ jobs:
       # The runtime smoke test instantiates the ES-module glue, so the Node that
       # runs it is part of the shipped contract — pin it rather than inheriting
       # whatever the runner image carries.
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
@@ -681,7 +681,7 @@ jobs:
       # ccache also fronts emcc (CMAKE_CXX_COMPILER_LAUNCHER applies to both
       # modes), so cache it here too.
       - name: Cache ccache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-wasm-${{ github.run_id }}
@@ -861,7 +861,7 @@ jobs:
           cat "$dd/holosphere_wasm.toolchain"
 
       - name: Upload WASM artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: holosphere_wasm
           path: |
@@ -874,10 +874,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6        # pin the interpreter, like the teensy jobs
         with:
           python-version: '3.12'
 
@@ -928,10 +928,10 @@ jobs:
     # pathological RD_N/W change can't hang a runner indefinitely.
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6        # pin the interpreter, like the teensy jobs
         with:
           python-version: '3.12'
 
@@ -963,10 +963,10 @@ jobs:
     # so a resolution change can't hang a runner indefinitely.
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6        # pin the interpreter, like the teensy jobs
         with:
           python-version: '3.12'
 
@@ -984,7 +984,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -1025,7 +1025,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -1033,7 +1033,7 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
@@ -1064,7 +1064,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -1074,7 +1074,7 @@ jobs:
 
       # The scripts have no runtime deps (the freshness gate never launches a
       # browser), but the Node running them is pinned like every other tool.
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
@@ -1114,11 +1114,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -1136,11 +1136,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -1183,10 +1183,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the docs job
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6        # pin the interpreter, like the docs job
         with:
           python-version: '3.12'
 
@@ -1211,7 +1211,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -1219,7 +1219,7 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -1244,7 +1244,7 @@ jobs:
           ruff check --no-cache --output-format=github .
           echo "ruff clean: $(wc -l < /tmp/ruff-files.txt) files linted."
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
@@ -1341,7 +1341,7 @@ jobs:
       SHARD3: *shard3_re
       SHARD4: *shard4_re
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
@@ -1410,11 +1410,11 @@ jobs:
       # MIN_COVERED_GUARD_SITES, or guard_gap.<file>.
       DOMAIN_RATCHET_ALLOW_WEAKEN: ""
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -1560,7 +1560,7 @@ jobs:
       # exemption is visible in that commit's diff. Empty in steady state.
       FORMAT_BASELINE_ALLOW_ADD: ""
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
           # The growth check below reads this file out of the commit the run
@@ -1568,7 +1568,7 @@ jobs:
           # back in a multi-commit push, so fetch the whole history rather than
           # guess a depth.
           fetch-depth: 0
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -1742,10 +1742,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       # Every check_test_files.sh pin below covers one suite the workflow
@@ -1802,14 +1802,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6        # PlatformIO is a Python package
         with:
           python-version: '3.12'
       - name: Cache PlatformIO toolchain
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.platformio
           # Target-agnostic (one toolchain serves all environments). The exact key
@@ -1822,7 +1822,7 @@ jobs:
           key: pio-teensy-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-teensy-
       - name: Cache build objects               # mirrors ci.yml's ccache discipline
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # build_cache_dir from platformio.ini — without this the 7,685-line
           # reaction_graph.cpp + FastLED recompile from scratch in every environment.
@@ -1851,7 +1851,7 @@ jobs:
           -e profile -e profile_o3
       - name: Upload firmware artifacts
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: teensy-firmware
           path: .pio/build/*/firmware.*
@@ -1876,7 +1876,7 @@ jobs:
       # reset by one commit with nothing reporting it.
       WARNING_BASELINE_ALLOW_ADD: ""
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
           # The growth check below reads the baseline out of the commit the run
@@ -1884,7 +1884,7 @@ jobs:
           # back in a multi-commit push, so fetch the whole history rather than
           # guess a depth.
           fetch-depth: 0
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6        # PlatformIO is a Python package
         with:
           python-version: '3.12'
 
@@ -1954,7 +1954,7 @@ jobs:
       # downloaded compiler/framework, not built objects). The build-objects
       # cache is deliberately NOT restored here.
       - name: Cache PlatformIO toolchain
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.platformio
           key: pio-teensy-${{ hashFiles('platformio.ini') }}
@@ -2026,7 +2026,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           persist-credentials: false
 
