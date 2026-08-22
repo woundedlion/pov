@@ -27,8 +27,10 @@ What it does:
     read, at every nesting level. Every ceiling is an optional `.get()`, so a
     misspelled key (`component`, `max_byte`, `regoin`) removes its check and the
     gate reports PASS with no violations. It also requires each target's region
-    objects and layout symbols to be present: evaluate() iterates only what the
-    budget declares, so a deleted `ram2` object drops the OCRAM ceiling entirely.
+    objects and layout symbols to be present, and each of those to carry the key
+    that makes it enforce something: evaluate() iterates only what the budget
+    declares, so a deleted `ram2` object — or a `ram2` stripped of its
+    `max_bytes` — drops the OCRAM ceiling entirely.
 """
 
 from __future__ import annotations
@@ -556,6 +558,12 @@ _DERIVED_KEYS = frozenset(
 _DERIVED_REQUIRED_KEYS = frozenset({"bank_bytes", "total_banks"})
 _SYMBOL_KEYS = frozenset({"name", "region", "min_bytes", "max_bytes"})
 
+# Keys whose absence would leave the enclosing object schema-valid but inert:
+# every ceiling is read with `.get()`, so a region stripped of 'max_bytes' or a
+# symbol stripped of 'region' passes the unknown-key check and enforces nothing.
+_REGION_REQUIRED_KEYS = frozenset({"max_bytes"})
+_SYMBOL_REQUIRED_KEYS = frozenset({"name", "region"})
+
 # Region objects and layout symbols every target budget must declare. Both
 # loops in evaluate() iterate whatever the budget carries, so deleting a whole
 # object removes its ceiling / invariant with no violation and no unknown-key
@@ -627,7 +635,8 @@ def validate_budgets(budgets: object) -> dict:
         _require_present(regions, _REQUIRED_REGIONS, f"env '{env}'", "region")
         for region, spec in regions.items():
             rwhere = f"env '{env}' region '{region}'"
-            _check_keys(spec, _REGION_KEYS, rwhere)
+            _check_keys(spec, _REGION_KEYS, rwhere,
+                        required=_REGION_REQUIRED_KEYS)
             for cname, cspec in _child_map(spec, "components", rwhere).items():
                 cwhere = f"{rwhere} component '{cname}'"
                 _check_keys(cspec, _COMPONENT_KEYS, cwhere)
@@ -651,7 +660,7 @@ def validate_budgets(budgets: object) -> dict:
             f"env '{env}'", "layout symbol")
         for key, spec in syms.items():
             _check_keys(spec, _SYMBOL_KEYS, f"env '{env}' symbol '{key}'",
-                        required=frozenset({"name"}))
+                        required=_SYMBOL_REQUIRED_KEYS)
     return budgets
 
 

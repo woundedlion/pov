@@ -372,6 +372,61 @@ class TestBudgetSchema(unittest.TestCase):
             "symbol-wrong-region",
             tg.parse_teensy_size(_read("good_teensy_size.txt")), symbols)
 
+    def _assert_deletion_disables(self, env, path, key, code, sizes, symbols):
+        """The intact budget rejects this build; the one with `key` deleted
+        PASSes; the schema now rejects the stripped budgets file."""
+        intact = copy.deepcopy(BUDGETS)
+        self.assertEqual(_codes(tg.evaluate(env, intact[env], sizes, symbols)),
+                         [code])
+        stripped = copy.deepcopy(BUDGETS)
+        spec = stripped[env]
+        for step in path:
+            spec = spec[step]
+        del spec[key]
+        self.assertTrue(tg.evaluate(env, stripped[env], sizes, symbols).passed)
+        with self.assertRaises(tg.BudgetSchemaError) as ctx:
+            self._load(stripped)
+        self.assertIn(key, str(ctx.exception))
+
+    def test_deleting_max_bytes_drops_the_flash_ceiling(self):
+        text = _read("good_teensy_size.txt").replace(
+            "FLASH: code:158788", "FLASH: code:1958788")
+        self._assert_deletion_disables(
+            "phantasm", ("regions", "flash"), "max_bytes",
+            "region-over-budget", tg.parse_teensy_size(text),
+            tg.parse_readelf_symbols(_read("good_readelf_syms.txt")))
+
+    def test_deleting_region_drops_the_ocram_placement_invariant(self):
+        # Only framebuffer_a loses DMAMEM, so exactly one invariant is in play.
+        symbols = [dataclasses.replace(s, value=0x20060000)
+                   if s.name == "_ZN6Effect8buffer_aE" else s
+                   for s in tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))]
+        self._assert_deletion_disables(
+            "holosphere", ("symbols", "framebuffer_a"), "region",
+            "symbol-wrong-region",
+            tg.parse_teensy_size(_read("good_teensy_size.txt")), symbols)
+
+    def test_gutted_region_and_symbol_objects_are_rejected(self):
+        for path in (("phantasm", "regions", "flash"),
+                     ("phantasm", "regions", "ram1"),
+                     ("phantasm", "regions", "ram2"),
+                     ("holosphere", "regions", "flash"),
+                     ("holosphere", "regions", "ram1"),
+                     ("holosphere", "regions", "ram2"),
+                     ("phantasm", "symbols", "arena"),
+                     ("phantasm", "symbols", "reaction_graph"),
+                     ("phantasm", "symbols", "dma_tx_buffer"),
+                     ("holosphere", "symbols", "framebuffer_a"),
+                     ("holosphere", "symbols", "framebuffer_b")):
+            with self.subTest(path=path):
+                budgets = copy.deepcopy(BUDGETS)
+                spec = budgets
+                for step in path[:-1]:
+                    spec = spec[step]
+                spec[path[-1]] = {}
+                with self.assertRaises(tg.BudgetSchemaError):
+                    self._load(budgets)
+
     def test_unknown_key_rejected_at_every_level(self):
         for path in (("phantasm",),
                      ("phantasm", "regions", "ram1"),
