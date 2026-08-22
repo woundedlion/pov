@@ -82,6 +82,11 @@ CASES = (
     ("patterns/example.shader.json", {"lint"}),
     ("patterns/shaderball_migration.json", {"lint"}),
     ("scripts/engine_catalog.json", {"lint"}),
+    # The roster header and the gallery it is cross-checked against. effects.h
+    # is a header, so it keeps the native and Teensy gates too.
+    ("core/engine/effects.h", {"native", "teensy", "lint"}),
+    ("docs/screenshots/Voronoi.png", {"lint"}),
+    ("docs/screenshots/CurlFacets.png", {"lint"}),
     ("README.md", {"lint"}),
     ("docs/specs/pullback_pipeline_spec.md", {"lint"}),
     ("scripts/wasm_smoke.mjs", {"lint"}),
@@ -94,7 +99,6 @@ CASES = (
 
 #: Paths that must select no gate at all, so such a commit stays instant.
 NEITHER = (
-    "docs/screenshots/Voronoi.png",
     "LICENSE",
     "justfile",
     ".github/workflows/ci.yml",
@@ -128,7 +132,13 @@ class Classification(unittest.TestCase):
                                ("docs/inl.txt", set()),
                                ("tools/h.json", set()),
                                ("docs/CMakeLists.txt.md", {"lint"}),
-                               ("docs/platformio.ini.md", {"lint"})):
+                               ("docs/platformio.ini.md", {"lint"}),
+                               # effects.h alone, not its neighbours or a
+                               # same-named header elsewhere in the tree.
+                               ("core/engine/effects.hpp", {"native", "teensy"}),
+                               ("effects/effects.h", {"native", "teensy"}),
+                               ("core/engine/effect.h", {"native", "teensy"}),
+                               ("docs/screenshots.md", {"lint"})):
             with self.subTest(path=path):
                 self.assertEqual(classify(path), expected)
 
