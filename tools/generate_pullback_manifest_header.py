@@ -27,6 +27,12 @@ ORACLE_FILES = ("peirce_fast_square.json", "hue_rotation_noise_luts.json")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 CASE_IDS = {"default", "endpoint_min", "endpoint_max", "interior"}
 PRESET_COUNT = 24
+SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
+SCHEMA_ROOT_REFS = {"#/$defs/programManifest", "#/$defs/oracleManifest"}
+SCHEMA_CLOSED_DEFS = ("toolchains", "topologyKey", "parameterCase", "probes",
+                      "program", "programManifest", "metric",
+                      "resolutionBaselines", "oracleManifest")
+SCHEMA_DEFS = ("sha", *SCHEMA_CLOSED_DEFS)
 
 
 class ManifestError(ValueError):
@@ -340,14 +346,37 @@ def _validate_oracle(document: dict, path: Path) -> None:
              f"{path}: a final-framebuffer metric is required")
 
 
-def load_and_validate(directory: Path) -> tuple[dict, list[dict]]:
+def _validate_schema_shape(schema: dict, path: Path) -> None:
+    _require(schema.get("$schema") == SCHEMA_DRAFT,
+             f"{path}: unsupported JSON Schema draft")
+    definitions = schema.get("$defs")
+    _require(isinstance(definitions, dict), f"{path}: $defs must be an object")
+    missing = sorted(set(SCHEMA_DEFS) - definitions.keys())
+    _require(not missing, f"{path}: missing schema definitions {missing}")
+    alternatives = schema.get("oneOf")
+    _require(isinstance(alternatives, list) and
+             {alternative.get("$ref") for alternative in alternatives
+              if isinstance(alternative, dict)} == SCHEMA_ROOT_REFS,
+             f"{path}: the root must select between the manifest kinds")
+    _require(isinstance(definitions["sha"].get("pattern"), str),
+             f"{path}: $defs.sha must constrain the SHA spelling")
+    for name in SCHEMA_CLOSED_DEFS:
+        definition = definitions[name]
+        _require(isinstance(definition, dict) and
+                 definition.get("additionalProperties") is False and
+                 bool(definition.get("required")) and
+                 bool(definition.get("properties")),
+                 f"{path}: $defs.{name} must be a closed object with "
+                 "required fields")
+    _require(set(definitions["topologyKey"]["required"]) ==
+             set(TOPOLOGY_FIELDS),
+             f"{path}: $defs.topologyKey must require every topology field")
+
+
+def load_and_validate(directory: Path) -> tuple[dict, list[dict], dict]:
     schema_path = directory / "schema.json"
     schema = _load(schema_path)
-    _require(schema.get("$schema") ==
-             "https://json-schema.org/draft/2020-12/schema",
-             f"{schema_path}: unsupported JSON Schema draft")
-    _require(isinstance(schema.get("$defs"), dict),
-             f"{schema_path}: $defs must be an object")
+    _validate_schema_shape(schema, schema_path)
     programs_path = directory / "programs.json"
     programs = _load(programs_path)
     _validate_schema(programs, schema, schema, str(programs_path))
@@ -367,7 +396,7 @@ def load_and_validate(directory: Path) -> tuple[dict, list[dict]]:
                  f"{directory}: all manifests must use the same base_sha")
         _require(oracle["toolchains"] == programs["toolchains"],
                  f"{directory}: all manifests must use the same toolchain pins")
-    return programs, oracles
+    return programs, oracles, schema
 
 
 def _canonical_bytes(documents: list[dict]) -> bytes:
@@ -376,12 +405,13 @@ def _canonical_bytes(documents: list[dict]) -> bytes:
                       for document in documents)
 
 
-def manifest_sha256(programs: dict, oracles: list[dict]) -> str:
-    return hashlib.sha256(_canonical_bytes([programs, *oracles])).hexdigest()
+def manifest_sha256(programs: dict, oracles: list[dict], schema: dict) -> str:
+    return hashlib.sha256(
+        _canonical_bytes([schema, programs, *oracles])).hexdigest()
 
 
-def generate_header(programs: dict, oracles: list[dict]) -> str:
-    digest = manifest_sha256(programs, oracles)
+def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
+    digest = manifest_sha256(programs, oracles, schema)
     entries = []
     for program in programs["programs"]:
         mask = sum(1 << preset for preset in program["presets"])
@@ -437,12 +467,12 @@ def generate_header(programs: dict, oracles: list[dict]) -> str:
 
 
 def generate_runtime_manifest(programs: dict, oracles: list[dict],
-                              capture_sha: str) -> str:
+                              schema: dict, capture_sha: str) -> str:
     _require(SHA_RE.fullmatch(capture_sha) is not None,
              "capture_sha must be a full lowercase Git SHA")
     runtime = copy.deepcopy(programs)
     runtime["capture_sha"] = capture_sha
-    runtime["manifest_sha256"] = manifest_sha256(programs, oracles)
+    runtime["manifest_sha256"] = manifest_sha256(programs, oracles, schema)
     return json.dumps(runtime, indent=2, sort_keys=True) + "\n"
 
 
@@ -457,7 +487,7 @@ def main() -> int:
     parser.add_argument("--validate-only", action="store_true")
     args = parser.parse_args()
     try:
-        programs, oracles = load_and_validate(args.manifest_dir)
+        programs, oracles, schema = load_and_validate(args.manifest_dir)
     except ManifestError as error:
         parser.error(str(error))
     if args.validate_only:
@@ -465,14 +495,14 @@ def main() -> int:
     if args.output is None and args.runtime_output is None:
         parser.error("--output or --runtime-output is required")
     if args.output is not None:
-        output = generate_header(programs, oracles)
+        output = generate_header(programs, oracles, schema)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(output, encoding="utf-8", newline="\n")
     if args.runtime_output is not None:
         if args.capture_sha is None:
             parser.error("--runtime-output requires --capture-sha")
         try:
-            output = generate_runtime_manifest(programs, oracles,
+            output = generate_runtime_manifest(programs, oracles, schema,
                                                args.capture_sha)
         except ManifestError as error:
             parser.error(str(error))
