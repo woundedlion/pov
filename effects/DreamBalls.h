@@ -118,10 +118,7 @@ public:
 
     // Ahead of every sprite, so a frame draws the warp and orbit phase it just
     // advanced rather than the previous frame's.
-    auto *warp =
-        mobius_gen.spawn_pinned(0, params.warp_scale, WARP_PERIOD, true);
-    HS_CHECK(warp, "DreamBalls: pinned warp spawn must succeed");
-    warp->bind_scale(params.warp_scale);
+    arm_warp();
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &) { this->spin_slices(); }, true));
     timeline.add(9, Animation::RandomWalk<W>(
@@ -466,6 +463,18 @@ private:
                  "DreamBalls automatic topology edge count mismatch");
       });
     }
+  }
+
+  /**
+   * @brief Arms the one repeating Mobius warp every sprite renders through.
+   * @details Pinned: it never completes, so the pool slot is never contended and
+   *          the warp leads every sprite in the event order.
+   */
+  HS_COLD_MEMBER void arm_warp() {
+    auto *warp =
+        mobius_gen.spawn_pinned(0, params.warp_scale, WARP_PERIOD, true);
+    HS_CHECK(warp, "DreamBalls: pinned warp spawn must succeed");
+    warp->bind_scale(params.warp_scale);
   }
 
   /**
