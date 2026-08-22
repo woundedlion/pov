@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -72,7 +72,7 @@ const prefix = (name, values) => Object.fromEntries(
   Object.entries(values).map(([key, value]) => [`${name}-${key}`, value]),
 );
 
-const parameterSpec = (id, value, hue) => {
+const parameterSpec = (id, value, hue, source) => {
   if (id === 'palette-mapping') return {
     id, binding: 'color.palette-mapping', classification: 'preset',
     storage: 'enum8', unit: 'mapping',
@@ -88,7 +88,8 @@ const parameterSpec = (id, value, hue) => {
     id === 'lattice-radius' || id.endsWith('frequency') || id === 'hue-noise-scale';
   let domain = { minimum: -30, maximum: 30 };
   let unit = 'ratio';
-  if (id === 'pattern-freq') domain = { minimum: 0.1, maximum: 20 };
+  if (id === 'pattern-freq')
+    domain = { minimum: 0.1, maximum: source === 'grid' ? 64 : 20 };
   else if (id === 'speed') domain = { minimum: 0, maximum: 0.5 };
   else if (id === 'source-angle-speed') domain = { minimum: 0, maximum: Math.fround(0.05) };
   else if (id.endsWith('-speed')) domain = id === 'hue-noise-speed'
@@ -230,7 +231,7 @@ const bank = (spec, base) => {
 const documentFor = (spec) => {
   const values = baseValues(spec);
   const parameters = Object.entries(values)
-    .map(([id, value]) => parameterSpec(id, value, spec.hue));
+    .map(([id, value]) => parameterSpec(id, value, spec.hue, spec.source));
   const resources = [{ id: `${spec.palette}-palette`, kind: `generated-${spec.palette}-palette`,
     settings: { hue_step: 159 } }];
   if (spec.hue === 'noise') resources.push({
@@ -559,6 +560,23 @@ if (CHECK) {
       'Regenerate with: node scripts/generate_promoted_shader_documents.mjs');
     process.exit(1);
   }
+  const noncanonical = [];
+  const patternNames = (await readdir(resolve(ROOT, 'patterns')))
+    .filter((name) => name.endsWith('.shader.json'));
+  for (const name of patternNames) {
+    const source = await readFile(resolve(ROOT, 'patterns', name), 'utf8')
+      .then((text) => text.replaceAll('\r\n', '\n'));
+    const compiled = compileShaderDocument(source, { catalog });
+    if (compiled.status !== 'VALID' || exportShaderDocumentJson(compiled.document) !== source)
+      noncanonical.push(name);
+  }
+  if (noncanonical.length) {
+    console.error('::error::patterns/ contains noncanonical shader documents');
+    for (const name of noncanonical)
+      console.error(`  patterns/${name}`);
+    process.exit(1);
+  }
   console.log(
-    `patterns/ matches the generator in full (${effects.length} documents).`);
+    `patterns/ matches the generator in full (${effects.length} documents) `
+      + `and is canonical (${patternNames.length} documents).`);
 }
