@@ -208,9 +208,9 @@ private:
     const Vector outer_local = SB::outer_camera_lookup(view, frame);
     const Vector lensed = lenses::dodecahedral_kaleidoscope_lens(outer_local);
     const Vector local = rotate(lensed, frame.transforms.projection_conj);
-    const Pullback::ProjectionResult result = SB::scaled_kernel_lookup(
-        projections::peirce_projection(local, 0.0f, 1, 0.0f, true),
-        frame.params.projection.coordinate_scale);
+    const Pullback::ProjectionResult result = Pullback::Projection::peirce(
+        local, 0.0f, 1, 0.0f, true, frame.params.projection.coordinate_scale,
+        frame.params.projection.singularity_fade);
     const typename SB::ProjectedLookup projected{
         result.coords, result.provenance, local, 0.0f};
     return SB::shade_projected(projected, frame);

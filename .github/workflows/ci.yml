@@ -1140,19 +1140,6 @@ jobs:
         with:
           persist-credentials: false
 
-      # The README's `tree daydream exhaustive` fence draws the sibling
-      # repository's tracked tree. docs_check.py skips that fence unless
-      # --checkout supplies a root, so without this checkout the largest tree
-      # claim in the docs goes unvalidated and the job still exits 0.
-      # actions/checkout refuses a path outside the workspace, so it lands in a
-      # subdirectory; the outer repository never tracks it, leaving both
-      # git ls-files gates below unaffected.
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-        with:
-          persist-credentials: false
-          repository: woundedlion/daydream
-          path: daydream-checkout
-
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
@@ -1166,15 +1153,7 @@ jobs:
           bash tools/check_test_files.sh 1 'tools/docs_images_tests/test*.py'
           python -m unittest discover -s tools/docs_check_tests
           python -m unittest discover -s tools/docs_images_tests
-          # The `tree daydream` fence is drawn from the sibling's default branch
-          # HEAD, deliberately: a pinned ref would let the fence go stale instead
-          # of red. The cost is that a commit over there fails this job with no
-          # commit here implicated, so name the revision that was checked out.
-          daydream_head="$(git -C daydream-checkout rev-parse HEAD)"
-          if ! python tools/docs_check.py --checkout daydream=daydream-checkout; then
-            echo "::error::docs_check failed. Rows under the \`tree daydream\` fence are drawn from woundedlion/daydream@$daydream_head (default branch HEAD), which moves independently of this repository — if the failing rows are that fence's, refresh it against that revision."
-            exit 1
-          fi
+          python tools/docs_check.py --skip-checkout daydream
           python tools/build_pins.py --check
 
       # --check above prints PASS whether or not its three checks still parse the

@@ -57,12 +57,12 @@
     {
       "domain": "FRAMEBUFFER",
       "aggregation": "MAXIMUM",
-      "measured_baseline": 151,
-      "configuration_baselines": { "native-debug": 151, "wasm-release": 99, "wasm-strict-fp": 100 },
+      "measured_baseline": 147,
+      "configuration_baselines": { "native-debug": 147, "wasm-release": 147, "wasm-strict-fp": 147 },
       "resolution_baselines": {
-        "native-debug": { "96x20": 111, "288x144": 151 },
-        "wasm-release": { "96x20": 99, "288x144": 98 },
-        "wasm-strict-fp": { "96x20": 99, "288x144": 100 }
+        "native-debug": { "96x20": 93, "288x144": 147 },
+        "wasm-release": { "96x20": 100, "288x144": 147 },
+        "wasm-strict-fp": { "96x20": 93, "288x144": 147 }
       },
       "accepted_limit": 256,
       "unit": "16-bit channel code",
