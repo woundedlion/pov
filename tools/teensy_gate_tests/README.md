@@ -34,12 +34,14 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `real/phantasm_readelf_secs.txt` | Verbatim `readelf -SW`; also pins `.ARM.exidx` to flash, where `tools/phantasm.ld` routes it. |
 | `real/phantasm_size_a.txt` | Verbatim `size -A` for the fallback bucketing path. |
 
-## ⚠ These are synthetic-but-realistic, not hardware-captured (yet)
+## Fixture provenance
 
-The addresses, sizes and mangled names are hand-built to match the Teensy 4
-memory map and the real source symbols, but they were **not** captured from an
-actual `-O3` firmware link (no Teensy toolchain in this environment). A Phase-0
-deliverable is to **replace the `good_*` fixtures with truly-captured output**
-from a real build (`arm-none-eabi-size -A`, `readelf -s -S`) so the parser tests
-exercise the exact toolchain formatting, then re-derive the broken variants from
-that capture.
+The `good_*` and `broken_*` addresses, sizes and mangled names are hand-built to
+match the Teensy 4 memory map and the real source symbols rather than taken from
+a firmware link. The `broken_*` set stays hand-built by construction: it encodes
+link outcomes a real build never produces.
+
+The `real/*` fixtures are verbatim output from actual `[env:holosphere]` and
+`[env:phantasm]` builds (`teensy_size`, `readelf -sW`/`-SW`, `size -A`,
+`pio run -v`), so the parsers are exercised against exact toolchain formatting
+alongside the hand-built pass path.
