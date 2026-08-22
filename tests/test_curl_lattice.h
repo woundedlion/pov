@@ -116,7 +116,7 @@ inline void test_curl_lattice_identity_and_presets() {
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "dense-curl");
   HS_EXPECT_NEAR(FX::preset_params(0).surface.scale, 1.78815627f, 0.0f);
   HS_EXPECT_NEAR(FX::preset_params(1).surface.scale, 3.29720306f, 0.0f);
-  HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{24});
+  HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{480});
   const auto values = [](const WB::Params &params) {
     return std::array<float, 23>{
         params.source.lattice_cell_scale,

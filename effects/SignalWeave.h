@@ -31,13 +31,8 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "b9d816276500e5b21765b37c65cae23fb616926df8cbc79906627bd8429e1edb";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "5ce479d536ffc6c3c36d9ab0b65e3882be8f6458302f37bad801ed9936dd0172";
-  static constexpr uint16_t INITIAL_PRESET_DWELL_FRAMES = 16;
-  // The 7 s Phantasm slot is 112 frames at 16 fps and the effect is rebuilt each
-  // visit: the initial hold plus 3 crossfade+dwell cycles must fit, or the later
-  // presets never render.
-  static constexpr Segue::Lerp PRESET_SEGUE{6, ease_in_out_sin};
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 26;
+      "d298e978868d595857c7c1809a9fe41f1ad96cb74674ee61f371e1e5d4088113";
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "signal-weave", "signal-weave-2", "signal-weave-3", "signal-weave-4"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -50,11 +45,6 @@ public:
   static constexpr Params initial_params() { return make_params(0); }
   static constexpr Params preset_params(size_t index) {
     return make_params(index);
-  }
-
-public:
-  HS_COLD_MEMBER void after_composed_init() {
-    this->hold_initial_preset(INITIAL_PRESET_DWELL_FRAMES);
   }
 
 private:

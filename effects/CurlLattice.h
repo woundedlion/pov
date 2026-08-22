@@ -54,18 +54,14 @@ public:
       "a93529dbdc9ec90c8123e9de005fa454362dbb29f6ee3d645c607e0179486eb3";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "9d126f017c1f3cc724bd8a3af116c095fbe6385a2c2eafc97aed68385788b9d8";
+      "02944fbbca0274490f9d63d233d4ad27989c03b32fa10d20b23cd61f0a579438";
   /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
                                                               "dense-curl"};
   /// Bumped whenever the `Params` layout changes, rejecting stale snapshots.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
-  // The 13 s Phantasm slot is 208 frames at 16 fps and the effect is rebuilt
-  // each visit: 2 dwells plus 1 crossfade must fit, or the later presets never
-  // render.
-  static constexpr Segue::Lerp PRESET_SEGUE{24, ease_in_out_sin};
   /// Frames a preset holds before the runtime begins the next transition.
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 92;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr int32_t SURFACE_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 

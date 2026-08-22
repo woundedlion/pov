@@ -3636,14 +3636,14 @@ inline void test_fixed_shader_export_equivalence() {
       shader, prism_spiral_topology(), 1);
 }
 
-inline void test_signal_weave_initial_preset_dwell() {
+inline void test_signal_weave_preset_dwell() {
   using FX = SignalWeave<SMALL_W, SMALL_H>;
   reset_effect_globals();
   FX effect;
   effect.init();
 
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
-  for (uint16_t frame = 1; frame < FX::INITIAL_PRESET_DWELL_FRAMES; ++frame) {
+  for (uint16_t frame = 1; frame < FX::PRESET_DWELL_FRAMES; ++frame) {
     effect.draw_frame();
     effect.advance_display();
   }
@@ -3692,9 +3692,6 @@ inline void test_mobius_grid_circular_animation() {
 
   MobiusParams previous = resumed;
   const size_t initial_preset = effect.getPresetIndex();
-  // The preset rotates several times over this window, so sample the index
-  // every frame rather than only at the end.
-  bool preset_rotated = false;
   for (int frame = 0; frame < 1400; ++frame) {
     effect.draw_frame();
     effect.advance_display();
@@ -3706,9 +3703,8 @@ inline void test_mobius_grid_circular_animation() {
     const float delta_im = current.b.im - previous.b.im;
     HS_EXPECT_TRUE(delta_re * delta_re + delta_im * delta_im < 0.02f);
     previous = current;
-    preset_rotated |= effect.getPresetIndex() != initial_preset;
   }
-  HS_EXPECT_TRUE(preset_rotated);
+  HS_EXPECT_NE(effect.getPresetIndex(), initial_preset);
 }
 
 /** @brief Polyhedral lenses expose controls at their chamber scale. */
@@ -6020,7 +6016,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_gui_catalog();
   test_promoted_shader_palette_mapping_control();
   test_fixed_shader_export_equivalence();
-  test_signal_weave_initial_preset_dwell();
+  test_signal_weave_preset_dwell();
   test_mobius_grid_circular_animation();
   test_shader_workbench_lens_domain_ranges();
   test_shader_workbench_projection_catalog();

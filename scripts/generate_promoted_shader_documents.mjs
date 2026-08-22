@@ -20,9 +20,8 @@ if (unknown.length) {
 }
 const TAU = Math.fround(Math.PI * 2);
 
-// Choreography lives in the effect headers: each spec's dwell mirrors
-// PRESET_DWELL_FRAMES, and segue mirrors PRESET_SEGUE where the header
-// declares one instead of inheriting ComposedEffect's default.
+// Choreography mirrors the shared ComposedEffect cadence.
+const PRESET_DWELL_FRAMES = 600;
 const INHERITED_SEGUE_FRAMES = 480;
 
 const defaults = Object.freeze({
@@ -212,7 +211,7 @@ const bank = (spec, base) => {
       from: preset.preset_id,
       to: presets[(index + 1) % presets.length].preset_id,
       path_policy: 'parallel', easing: 'EASE_IN_OUT_SIN',
-      duration: spec.segue ?? INHERITED_SEGUE_FRAMES,
+      duration: INHERITED_SEGUE_FRAMES,
     }));
   return {
     schema_version: 1, presets, edges,
@@ -223,7 +222,7 @@ const bank = (spec, base) => {
     choreography: {
       generated_order: presets.map((preset) => preset.preset_id),
       dwell: Object.fromEntries(presets.map(
-        (preset) => [preset.preset_id, spec.dwell])),
+        (preset) => [preset.preset_id, PRESET_DWELL_FRAMES])),
     },
   };
 };
@@ -278,7 +277,6 @@ const effects = [
     inner: 'identity', innerKey: 'none', transfer: 'linear', coverage: 'projection-squared',
     palette: 'triadic', hue: 'noise', brightness: 'none', animatedProjection: true,
     description: 'Glitch-folded grids pulled through an animated wave shear.',
-    dwell: 26, segue: 6,
     presets: [
       { id: 'signal-weave', name: 'Signal Weave', values: {
         'pattern-freq': 4.439, speed: 0.245, complexity: 0.5,
@@ -312,7 +310,6 @@ const effects = [
     inner: 'mirror-tile', innerKey: 'mirror', transfer: 'linear', coverage: 'projection-squared',
     palette: 'triadic', hue: 'noise', brightness: 'none', animatedProjection: true,
     description: 'A drifting twin wave reflected through a kaleidoscope.',
-    dwell: 600,
     presets: [{ id: 'twin-wave', name: 'Twin Wave', values: {
       'pattern-freq': 4.9755, speed: 0.125, drift: 0.8, 'source-angle-speed': 0.05,
       'singularity-fade': 4.971, 'projection-wander': 1, 'camera-wander': 1,
@@ -326,7 +323,6 @@ const effects = [
     inner: 'identity', innerKey: 'none', transfer: 'linear', coverage: 'edge-fade', valueKey: 'edge',
     palette: 'triadic', hue: 'noise', brightness: 'none', animatedProjection: false,
     description: 'A broad folded grid with slow mirrored drift.',
-    dwell: 600,
     presets: [{ id: 'folded-grid', name: 'Folded Grid', values: {
       'pattern-freq': 3.565, speed: 0.235, 'pattern-mix': 1, drift: 1,
       'singularity-fade': 1.4, 'camera-wander': 1, 'outer-rotation': 0.29530972,
@@ -341,7 +337,6 @@ const effects = [
     inner: 'identity', innerKey: 'none', transfer: 'linear', coverage: 'edge-fade', valueKey: 'edge',
     palette: 'triadic', hue: 'noise', brightness: 'none', animatedProjection: false,
     description: 'A mirrored grid folded by the glitch lens.',
-    dwell: 600,
     presets: [{ id: 'folded-glitch', name: 'Folded Glitch', values: {
       'pattern-freq': 3.565, speed: 0.235, 'pattern-mix': 1, drift: 1,
       'singularity-fade': 1.4, 'camera-wander': 1, 'outer-rotation': 0.29530972,
@@ -356,7 +351,6 @@ const effects = [
     transfer: 'linear', coverage: 'projection-squared', palette: 'triadic', hue: 'noise',
     brightness: 'none', animatedProjection: false,
     description: 'A wave-sheared grid moving across dodecahedral facets.',
-    dwell: 42, segue: 12,
     presets: [
       { id: 'wave-mirror', name: 'Wave Mirror', values: {
         'pattern-freq': 6.3287, speed: 0.04, complexity: 1.704, drift: 0.8,
@@ -381,7 +375,6 @@ const effects = [
     inner: 'identity', innerKey: 'none', transfer: 'iso-contour', coverage: 'projection', valueKey: 'iso',
     palette: 'triadic', hue: 'noise', brightness: 'none', animatedProjection: true,
     description: 'An affine primitive lattice rendered as soft contours.',
-    dwell: 600,
     presets: [{ id: 'affine-contour', name: 'Affine Contour', values: {
       'lattice-cell-scale': 1.22925, 'lattice-shape': 1,
       'lattice-softness': 0.1608203, 'lattice-radius': 0.332981884,
@@ -400,7 +393,6 @@ const effects = [
     transfer: 'linear', coverage: 'projection-squared', palette: 'analogous', hue: 'noise',
     brightness: 'none', animatedProjection: true,
     description: 'A polar lattice folded through a pentagonal prism.',
-    dwell: 600,
     presets: [{ id: 'polar-wave', name: 'Polar Wave', values: {
       'lattice-cell-scale': 0.774140596, 'lattice-shape': 1,
       'lattice-softness': 0.377608389, 'lattice-radius': 0.290762514,
@@ -418,7 +410,6 @@ const effects = [
     transfer: 'linear', coverage: 'projection-squared', palette: 'triadic', hue: 'noise',
     brightness: 'cup', animatedProjection: false,
     description: 'A vector-noise grid refracted across dodecahedral facets.',
-    dwell: 600,
     presets: [{ id: 'vector-mirror', name: 'Vector Mirror', values: {
       'pattern-freq': 4.9755, speed: 0.04, complexity: 1.704, drift: 0.8,
       'source-angle-speed': 0.027, 'singularity-fade': 2.311, 'camera-wander': 1,
@@ -434,7 +425,6 @@ const effects = [
     transfer: 'linear', coverage: 'projection-squared', palette: 'analogous', hue: 'noise',
     brightness: 'none', animatedProjection: true,
     description: 'A twin wave folded through a hexagonal prism.',
-    dwell: 42, segue: 12,
     presets: [
       { id: 'hex-twin-wave', name: 'Hex Twin Wave', values: {
         'pattern-freq': 3.881, speed: 0.128598228, drift: 0.8,
@@ -461,7 +451,6 @@ const effects = [
     transfer: 'linear', coverage: 'projection-squared', palette: 'analogous', hue: 'noise',
     brightness: 'none', animatedProjection: true, centralMeridian: true,
     description: 'Dodecahedral grids mapped continuously around the equator.',
-    dwell: 60, segue: 14,
     presets: [
       { id: 'double-map', name: 'Double Map', values: {
         'pattern-freq': 3.9407, complexity: 3, 'pattern-mix': 1, drift: 0.8,
@@ -495,7 +484,6 @@ const effects = [
     inner: 'identity', innerKey: 'none', transfer: 'linear', coverage: 'edge-fade', valueKey: 'edge',
     palette: 'triadic', hue: 'path-length', brightness: 'none', animatedProjection: false,
     description: 'A high-contrast mirrored grid with displacement-driven hue.',
-    dwell: 600,
     presets: [{ id: 'mirrored-grid', name: 'Mirrored Grid', values: {
       'pattern-freq': 2.5477, speed: 0.235, complexity: 1.854, drift: 1,
       'singularity-fade': 1.4, 'camera-wander': 1, 'outer-rotation': 0.295309722,
@@ -509,7 +497,6 @@ const effects = [
     inner: 'mirror-tile', innerKey: 'mirror', transfer: 'linear', coverage: 'projection-squared',
     palette: 'complementary', hue: 'path-length', brightness: 'cup', animatedProjection: true,
     description: 'A continuously animated Mobius lens over a mirrored twin wave.',
-    dwell: 42, segue: 12,
     presets: [
       { id: 'mobius-grid', name: 'Mobius Grid', values: {
         'pattern-freq': 10.158, speed: 0.245, drift: 0.8, 'source-angle-speed': 0.027,

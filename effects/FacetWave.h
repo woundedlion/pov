@@ -31,15 +31,11 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "ccbdf3525c3bb80430a845027fd243d8a97a12d7b3812c5b79b0b86778ab1839";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "fc01541b9ebfa45650242326a360f4d9ec43d3ea7656a0f3235186b42a93e34e";
+      "14861112f89f6f5a771583f0a0c19b4ceb9c9391b12d321d8e05ebcfe3973c9c";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"wave-mirror",
                                                               "cup-hue"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  // The 6 s Phantasm slot is 96 frames at 16 fps and the effect is rebuilt each
-  // visit: 2 dwells plus 1 crossfade must fit, or the later presets never
-  // render.
-  static constexpr Segue::Lerp PRESET_SEGUE{12, ease_in_out_sin};
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 42;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = false;
 
   static HS_HOT_FLASH_MEMBER Color4

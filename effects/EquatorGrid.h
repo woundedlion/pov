@@ -32,15 +32,11 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "777040a5df3119c95b61e14acc311ae8e3396f7e2472e26cbd778af781f2e9a3";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "fa4580307d8944519ea387b8f9386bbf73099dc763325e71759118ec39af54df";
+      "20e32077f73ef64ae31770360ecd5a956c4a03ce2efd501306ab5b5f154224f0";
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
       "double-map", "open-grid", "fine-grid"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  // The 13 s Phantasm slot is 208 frames at 16 fps and the effect is rebuilt
-  // each visit: 3 dwells plus 2 crossfades must fit, or the later presets never
-  // render.
-  static constexpr Segue::Lerp PRESET_SEGUE{14, ease_in_out_sin};
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 60;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
 
   static constexpr Params initial_params() {

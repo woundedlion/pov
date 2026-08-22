@@ -31,15 +31,11 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "5aa77c43ead833c6191e35598ea1ac0c0646a160962c16341c7cecb0456604a9";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "ba5b3ee4b2022cc068f000870b98e418ac410796ff04f1da6bc999291d671071";
+      "09335d857f45c604c5359613af27afb6f31f733f9f8d5095728929ce98450b53";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"mobius-grid",
                                                               "mobius-grid-2"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  // The 6 s Phantasm slot is 96 frames at 16 fps and the effect is rebuilt each
-  // visit: 2 dwells plus 1 crossfade must fit, or the later presets never
-  // render.
-  static constexpr Segue::Lerp PRESET_SEGUE{12, ease_in_out_sin};
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 42;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr bool ANIMATED_PROJECTION = true;
   static constexpr bool ANIMATED_MOBIUS = true;
 
