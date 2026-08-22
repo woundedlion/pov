@@ -37,7 +37,7 @@ count after the peak.
 | [Fishbowl](profile_fishbowl_teensy_2026-08-02.md) | adaptive vertex build | 🟢 24.85 | 🟢 0/1088 (0%) | 2026-08-02 22:21 |
 | [MobiusGrid](profile_mobiusgrid_teensy_2026-08-16.md)§ ● | stereographic Möbius twin-wave | 🟢 24.20 (2) | 🟢 0/2688 (0%) | 2026-08-16 08:46 |
 | [GlitchGrid](profile_glitchgrid_teensy_2026-08-16.md) ● | folded gnomonic glitch mirror grid | 🟢 23.30 | 🟢 0/1088 (0%) | 2026-08-16 08:32 |
-| [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-07-25.md)§ | field raster | 🟢 15.9 (24) | 🟢 0/3488 (0%) | 2026-07-26 11:59 |
+| [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-08-21.md)§ | full-sphere harmonic shade | 🟢 12.29 (24) | 🟢 0/3488 (0%) | 2026-08-21 16:00 |
 | [PetalFlow](profile_petalflow_teensy_2026-07-25.md) | ring raster | 🟢 11.71 | 🟢 0/1088 (0%) | 2026-07-26 11:37 |
 | [Voronoi](profile_voronoi_teensy_2026-07-25.md) | block-union top-2 shade | 🟢 9.90 | 🟢 0/1088 (0%) | 2026-07-26 11:46 |
 | [RingShower](profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
@@ -45,10 +45,10 @@ count after the peak.
 **● captured 2026-08-16** — the fourteen composed effects first profiled in
 that sweep.
 
-**Nine rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids, Comets,
-GnomonicStars, SphericalHarmonics, PetalFlow, Voronoi and RingShower. Their
-per-effect reports describe the 2026-07-25 sweep that preceded it, so each
-report's headline peak is the earlier one and the peaks above are current.
+**Eight rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids,
+Comets, GnomonicStars, PetalFlow, Voronoi and RingShower. Their per-effect
+reports describe the 2026-07-25 sweep that preceded it, so each report's
+headline peak is the earlier one and the peaks above are current.
 
 § ShapeShifter spans nine presets; its initial unlabeled frames and later
 `Preset: 1/9` frames are one adaptive 208-count planar-star bucket.
