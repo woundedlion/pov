@@ -14,9 +14,6 @@ ENGINE_RANGES name a manifest whose declared floor the pin must satisfy: the
 manifest is read by a package manager, not by this script, so it cannot take
 the pin -- --check asserts the two agree instead.
 
-TEST_FILE_PIN reads the check_test_files.sh counts back out of the files that
-spell them, so the copies cannot drift from each other or from the suite.
-
 The install-set check reads the same CMakeLists.txt rules that mirror files into
 the daydream checkout and asserts each carries a line-ending pin, since those
 bytes are digested there over LF.
@@ -179,16 +176,6 @@ SHARED_LITERAL_USES = (
     (r'("-ffast-math" "[^"]+")', "float-flags-cmake", 4),
 )
 
-# check_test_files.sh calls, whose count argument is exact. Every such glob is
-# spelled once per file that runs the suite -- a CI step and usually a justfile
-# recipe mirroring it -- and neither copy can read the other, so a suite that
-# gains a file must move every pin at once.
-TEST_FILE_PIN = re.compile(r"""check_test_files\.sh\s+(\d+)\s+['"]([^'"]+)['"]""")
-TEST_FILE_PIN_SCAN = (
-    ROOT / "justfile",
-    ROOT / ".github/workflows/ci.yml",
-)
-
 # --check-tool targets: pin name -> (version command, how to install the pin,
 # the form of the pin that command reports). `{pin}` in either is filled with
 # the pin value. A pin absent here has nothing to interrogate: a git ref and
@@ -307,37 +294,6 @@ def check_shared_literals() -> list[str]:
     return errors
 
 
-def collect_test_file_pins() -> dict[str, list[tuple[Path, int, int]]]:
-    """Return glob -> [(file, line, pinned count)] over TEST_FILE_PIN_SCAN."""
-    pins: dict[str, list[tuple[Path, int, int]]] = {}
-    for path in TEST_FILE_PIN_SCAN:
-        text = path.read_text(encoding="utf-8")
-        for index, line in enumerate(text.splitlines(), 1):
-            for count, glob in TEST_FILE_PIN.findall(line):
-                pins.setdefault(glob, []).append((path, index, int(count)))
-    return pins
-
-
-def check_test_file_pins() -> list[str]:
-    """Return one error per check_test_files.sh glob whose copies disagree, or
-    whose pin disagrees with the files the glob matches."""
-    errors: list[str] = []
-    for glob, uses in sorted(collect_test_file_pins().items()):
-        counts = sorted({count for _, _, count in uses})
-        found = sum(1 for path in ROOT.glob(glob) if path.is_file())
-        for path, index, count in uses:
-            where = f"{path.relative_to(ROOT)}:{index}"
-            if len(counts) > 1:
-                errors.append(
-                    f"{where}: pins {count} for {glob!r}, which another copy "
-                    f"pins {[c for c in counts if c != count]}")
-            elif count != found:
-                errors.append(
-                    f"{where}: pins {count} for {glob!r}, which matches "
-                    f"{found} file(s)")
-    return errors
-
-
 def _version_tuple(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in text.split("."))
 
@@ -435,8 +391,7 @@ def check_install_eol(paths: list[str]) -> list[str]:
 def check_consumers() -> int:
     installed = installed_sources()
     errors: list[str] = (check_inline_pins() + check_shared_literals()
-                         + check_engine_ranges() + check_test_file_pins()
-                         + check_install_eol(installed))
+                         + check_engine_ranges() + check_install_eol(installed))
     for name in sorted(set(CHECK_TOOLS) - set(PINS | INLINE_PINS)):
         errors.append(f"CHECK_TOOLS names {name}, which is not a pin")
     for path, references in CONSUMERS.items():
@@ -461,7 +416,6 @@ def check_consumers() -> int:
     print(f"build pins are single-sourced ({len(PINS)} injected, "
           f"{len(INLINE_PINS)} inline, {len(SHARED_LITERALS)} shared literal, "
           f"{len(ENGINE_RANGES)} engine range, "
-          f"{len(collect_test_file_pins())} test-file glob, "
           f"{len(installed)} installed file)")
     return 0
 

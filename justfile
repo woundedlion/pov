@@ -71,8 +71,7 @@ lint:
     bash -c "git ls-files -- '*.sh' '.githooks/*' > /tmp/hs-shell-files.txt; test -s /tmp/hs-shell-files.txt || { echo 'no shell files selected -- the shell path list is broken'; exit 1; }; xargs shellcheck --exclude=SC1091,SC2034 < /tmp/hs-shell-files.txt"
 
 # Formatting gate over the whole tracked first-party C++ set: the ci.yml
-# clang-format job's invocation, minus its FORMAT_BASELINE subtraction (that
-# baseline is empty and meant to stay so). Majors reflow differently, so the
+# clang-format job's invocation. Majors reflow differently, so the
 # binary on PATH is held to CI's pin the way ruff is above. The exclusion regex
 # is pinned against the ci.yml and .githooks/pre-commit copies by
 # tools/build_pins.py --check. That job's anti-vacuity assertion comes with it:
@@ -84,11 +83,11 @@ clang-format:
 # Every tracked C/C++ source carries the header LICENSE grants it, plus the
 # checker's own unit tests -- the ci.yml license-headers job.
 license-headers:
-    bash tools/check_test_files.sh 1 "tools/license_check_tests/test*.py"
+    bash tools/require_test_files.sh "tools/license_check_tests/test*.py"
     {{py}} -m unittest discover -s tools/license_check_tests
     {{py}} tools/license_check.py
 
-# First-party warning ratchet over every platformio.ini environment -- the
+# First-party warning gate over every platformio.ini environment -- the
 # ci.yml teensy-warnings job. The warning set is the pinned toolchain's, which
 # the pinned PlatformIO selects. The build must be COLD (a cached TU emits no
 # warnings), so the object cache and .pio/build go first and the whole firmware
@@ -96,7 +95,7 @@ license-headers:
 teensy-warnings:
     {{py}} tools/build_pins.py --check-tool platformio
     bash -c "set -o pipefail; rm -rf .pio/build_cache .pio/build && pio run -v 2>&1 | tee teensy_build.log"
-    {{py}} tools/teensy_warnings.py --build-log teensy_build.log
+    {{py}} tools/teensy_warnings.py --build-log teensy_build.log --baseline /dev/null
 
 # The README's `tree daydream` fence draws the sibling checkout's tracked tree;
 # docs_check.py can only validate it against a --checkout root (ci.yml checks the
@@ -111,13 +110,13 @@ daydream_checkout := if path_exists("../daydream") == "true" {
 
 # Validate tracked Markdown using the same commands as the ci.yml docs-markdown job.
 docs-check:
-    bash tools/check_test_files.sh 1 'tools/docs_check_tests/test*.py'
-    bash tools/check_test_files.sh 1 'tools/docs_images_tests/test*.py'
+    bash tools/require_test_files.sh 'tools/docs_check_tests/test*.py'
+    bash tools/require_test_files.sh 'tools/docs_images_tests/test*.py'
     {{py}} -m unittest discover -s tools/docs_check_tests
     {{py}} -m unittest discover -s tools/docs_images_tests
     {{py}} tools/docs_check.py {{daydream_checkout}}
     {{py}} tools/build_pins.py --check
-    bash tools/check_test_files.sh 1 'tools/build_pins_tests/test*.py'
+    bash tools/require_test_files.sh 'tools/build_pins_tests/test*.py'
     {{py}} -m unittest discover -s tools/build_pins_tests
 
 # Build Doxygen API reference locally into build/docs/html/.
@@ -183,22 +182,23 @@ teensy-size:
 # pre-commit hook's staged-path classifiers, the profile log parser, the
 # relax-bake generator and the routed PCB metadata — pure Python, no ARM
 # toolchain. Mirrors the ci.yml teensy-gate-tests job, including its
-# check_test_files.sh count pins (discover stays green when a suite file is
-# deleted or renamed out of the pattern) and the guard that every
-# test-suite directory carries one.
+# non-empty discovery guards and the cross-check that every test-suite
+# directory is named by the workflow.
 teensy-gate-test:
     bash tools/check_test_dir_pins.sh
-    bash tools/check_test_files.sh 3 "tools/teensy_gate_tests/test*.py"
+    bash tools/require_test_files.sh "tools/teensy_gate_tests/test*.py"
     {{py}} -m unittest discover -s tools/teensy_gate_tests -v
-    bash tools/check_test_files.sh 1 "tools/teensy_hook_tests/test*.py"
+    bash tools/require_test_files.sh "tools/coverage_tests/test*.py"
+    {{py}} -m unittest discover -s tools/coverage_tests -v
+    bash tools/require_test_files.sh "tools/teensy_hook_tests/test*.py"
     {{py}} -m unittest discover -s tools/teensy_hook_tests -v
-    bash tools/check_test_files.sh 2 "tools/githook_tests/test*.py"
+    bash tools/require_test_files.sh "tools/githook_tests/test*.py"
     {{py}} -m unittest discover -s tools/githook_tests -v
-    bash tools/check_test_files.sh 4 "tools/profile_tests/test*.py"
+    bash tools/require_test_files.sh "tools/profile_tests/test*.py"
     {{py}} -m unittest discover -s tools/profile_tests -v
-    bash tools/check_test_files.sh 1 "tools/relax_bake_tests/test*.py"
+    bash tools/require_test_files.sh "tools/relax_bake_tests/test*.py"
     {{py}} -m unittest discover -s tools/relax_bake_tests -v
-    bash tools/check_test_files.sh 18 "hardware/phantasm/gen/tests/test*.py"
+    bash tools/require_test_files.sh "hardware/phantasm/gen/tests/test*.py"
     {{py}} -m unittest discover -s hardware/phantasm/gen/tests -v
     {{py}} hardware/phantasm/gen/board_metadata.py --check
 

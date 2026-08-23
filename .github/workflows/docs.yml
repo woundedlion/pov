@@ -62,7 +62,7 @@ jobs:
     # every deployable commit produces an artifact.
     concurrency:
       group: docs-build-${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+      cancel-in-progress: true
     # Pinned image (not ubuntu-latest) so the doxygen/graphviz versions are
     # deterministic, matching the rest of CI.
     runs-on: ubuntu-24.04
@@ -140,7 +140,7 @@ jobs:
     # One Pages deploy at a time; never cancel an in-flight deploy mid-publish.
     concurrency:
       group: pages
-      cancel-in-progress: false
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment:

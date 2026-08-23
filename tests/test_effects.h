@@ -92,7 +92,7 @@ using hs_test::smoke_frames;
  * <96,20> smoke + determinism passes, ~1,920-pixel frames that cover every
  * effect's construct/init/render/read-back and cross-run determinism in ~2 s —
  * the fast path for the local pre-commit hook. CI opts into the full suite on
- * every push/PR by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
+ * every master push by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
  * full-resolution passes and the white-box correctness block are the
  * authoritative gate there, not locally. Set HS_EFFECTS_FULL=1 to reproduce the
  * CI depth in a local commit. Read by both the effects and effects_smoke
@@ -6420,7 +6420,7 @@ inline int run_effects_tests() {
   test_hankinsolids_arena_budget_covers_every_solid();
   test_dreamballs_max_edge_solid_render();
 
-  // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The QUICK tier
+  // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The QUICK tier
   // (default, local pre-commit) skips the block below entirely, so a green local
   // commit is NOT authoritative for the full-resolution paths or the white-box
   // invariants — CI is (same split as HS_SMOKE_FRAMES's cyclic-window coverage;

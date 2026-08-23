@@ -55,34 +55,29 @@ it.
 
 Every gate below except the simulator suite runs in `.github/workflows/ci.yml`
 behind one aggregate `CI green` check; the simulator suite runs in daydream's
-own workflows, and no check here covers it. `.githooks/pre-commit` runs the
-format, lint/docs, native-suite and Teensy gates locally on every commit; the
-license-header check and the simulator suite have no local hook and are run by
-hand.
+own workflows, and no check here covers it. `.githooks/pre-commit` is a fast
+staged-file format/lint prefilter; the protected branch's `CI green` status is
+the authoritative correctness gate.
 
-- **`.githooks/pre-commit`** — four gates, each keyed on the staged paths: a
-  `clang-format` check over the staged first-party sources, the Python /
-  JavaScript / Markdown lint and docs checks, a build and run of the native
-  suite, and the Teensy size/layout gate. Configuring the `tests` preset points
-  `core.hooksPath` at `.githooks` for you.
+- **`.githooks/pre-commit`** — checks staged first-party C++ with clang-format
+  and runs ruff/eslint on staged Python/JavaScript when those tools are present.
+  Configuring the `tests` preset points `core.hooksPath` at `.githooks` for you.
 - **clang-format is pinned to major 22.** A different major reflows unrelated
   code, so the hook fails rather than trusting an off-major verdict. Install the
   pin (`pip install clang-format==22.1.8`) or point `CLANG_FORMAT` at a
   `clang-format-22` binary. Every external tool version is single-sourced
   through `tools/build_pins.py`, whose `--check` fails a partial bump.
 - **Native suite:** `cmake --preset tests && cmake --build --preset tests` then
-  `ctest --preset tests --output-on-failure --no-tests=error`. `HS_EFFECTS_FULL=1`
-  selects the full-resolution effect tier CI runs; a green hook alone is the
-  QUICK tier.
+  `ctest --preset tests --output-on-failure --no-tests=error`. Set
+  `HS_EFFECTS_FULL=1` to reproduce the full-resolution master leg locally.
 - **Lint:** the CI `lint` job has four legs — `ruff` over the Python tooling,
   `eslint` over the JavaScript, `shellcheck` over every tracked `*.sh` and
   `.githooks/*`, and a `just --evaluate` / `just --summary` parse of the
-  `justfile`. `just lint` runs the first three locally; the pre-commit hook runs
-  ruff and eslint only, so shellcheck and the justfile parse are first seen in
-  CI.
+  `justfile`. `just lint` runs the first three locally; the hook only checks
+  staged Python and JavaScript, so CI remains authoritative.
 - **Documentation:** `python tools/docs_check.py` validates fences, links,
   anchors and every backticked repo path, and the README's file map must list a
-  new tracked path; the pre-commit hook and `just docs-check` both run it.
+  new tracked path; `just docs-check` runs it locally.
   `python tools/docs_images.py` resolves every documented `<img>` against the
   tracked tree. It only reports; `--stage` copies the images into a built
   Doxygen tree and is the sole mode that writes.
@@ -95,11 +90,8 @@ hand.
   and refuses a push from a tree that cannot run them. This repository's CI
   never runs it, so a green `CI green` says nothing about the simulator.
 
-`HS_SKIP_TESTS=1` stands the native suite, the lint checks and the Teensy gate
-down for one commit; `HS_SKIP_LINT=1` and `HS_SKIP_TEENSY=1` stand down one
-apiece. The format check runs ahead of all three and stands down only for
-`HS_SKIP_FORMAT=1` or `--no-verify`, which disables the whole hook — an
-unformatted commit reds CI for whoever pushes next.
+`HS_SKIP_FORMAT=1` skips the staged format check for one commit; `--no-verify`
+skips the local prefilter entirely. Neither bypasses protected-branch CI.
 
 ## Reporting a vulnerability
 
