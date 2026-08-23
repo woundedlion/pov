@@ -219,8 +219,6 @@ if(EMSCRIPTEN)
     install(TARGETS ${TARGET_NAME} DESTINATION "${DAYDREAM_DIR}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.wasm"
             DESTINATION "${DAYDREAM_DIR}")
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
-            DESTINATION "${DAYDREAM_DIR}")
     # The segment-map golden, emitted from hardware/pov_segment_map.h and pinned
     # against it by the unit_pov_segment_map_golden CTest. The simulator's
     # tests/segment_crosscheck.test.js reads it as the firmware reference, so it
@@ -248,20 +246,6 @@ if(EMSCRIPTEN)
       if(NOT HS_CATALOG_RC EQUAL 0)
         message(FATAL_ERROR \"Failed to export the installed WASM operator catalog\")
       endif()")
-    # The gallery is mirrored, not merged: the destination is wiped first so a
-    # screenshot dropped from the engine stops being served. install(DIRECTORY)
-    # installs nothing for an absent or empty source, which would leave the wipe
-    # standing as a silent deletion of the live gallery — so the source is
-    # checked at install time, immediately before the wipe.
-    install(CODE "
-      file(GLOB HS_SCREENSHOTS \"${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/*.png\")
-      if(NOT HS_SCREENSHOTS)
-        message(FATAL_ERROR \"No PNGs under ${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots; refusing to wipe ${DAYDREAM_DIR}/docs/screenshots\")
-      endif()
-      file(REMOVE_RECURSE \"${DAYDREAM_DIR}/docs/screenshots\")")
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
-            DESTINATION "${DAYDREAM_DIR}/docs/screenshots")
-
     # Record the engine commit this WASM module was built from, the content hashes
     # of the module's two shipped halves (.wasm binary, .js glue), and the toolchain
     # that produced them, alongside it. The daydream deploy gate reads the SHA to pin

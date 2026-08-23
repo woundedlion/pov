@@ -805,27 +805,12 @@ jobs:
         run: |
           cmake --build --preset wasm-release-install
           dd="${{ runner.temp }}/daydream-install"
-          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain README.md pov_segment_map.json; do
+          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain pov_segment_map.json; do
             if [ ! -f "$dd/$f" ]; then
               echo "::error::install did not produce $f — a consumer in the daydream checkout depends on it"
               exit 1
             fi
           done
-          # The gallery install wipes the destination first, so a broken source
-          # path deletes the live gallery and installs nothing. Assert the
-          # mirrored set is non-empty and as large as the checkout's (the
-          # per-name roster match is the screenshot-freshness job's gate).
-          repo_shots=$(find docs/screenshots -maxdepth 1 -name '*.png' | wc -l)
-          installed_shots=$(find "$dd/docs/screenshots" -maxdepth 1 -name '*.png' 2>/dev/null | wc -l)
-          if [ "$repo_shots" -eq 0 ]; then
-            echo "::error::docs/screenshots holds no PNGs in this checkout — the gallery check proves nothing"
-            exit 1
-          fi
-          if [ "$installed_shots" -ne "$repo_shots" ]; then
-            echo "::error::installed gallery holds $installed_shots PNGs, the checkout holds $repo_shots"
-            exit 1
-          fi
-          echo "Gallery mirrored: $installed_shots screenshots."
           # The runtime smokes above drive the BUILD tree's glue. The install
           # rewrites it through file(CONFIGURE ... @ONLY) and then hashes its own
           # output, so a botched rewrite ships glue whose recorded hash agrees
