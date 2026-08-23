@@ -229,7 +229,8 @@ static int check_ci_levers(int argc, char **argv) {
                  hs_test::DEFAULT_SMOKE_FRAMES);
     ++missing;
   }
-  if (require_effects_full && runs_effects(argc, argv) &&
+  if (require_effects_full && std::atoi(require_effects_full) > 0 &&
+      runs_effects(argc, argv) &&
       !hs_test::effects_tests::effects_full_suite()) {
     std::fprintf(stderr,
                  "run_tests: CI=on but HS_EFFECTS_FULL is unset or 0 — the "
