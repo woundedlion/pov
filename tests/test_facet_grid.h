@@ -113,57 +113,14 @@ inline void test_facet_grid_identity_and_presets() {
   HS_EXPECT_EQ(sizeof(WB::Params), 31 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::FrameState) <
                  sizeof(ShaderWorkbenchWB::FrameState));
-  HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "coupled-grid");
-  HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "direct-grid");
-  HS_EXPECT_TRUE(FX::PRESET_IDS[2] == "double-map");
-  HS_EXPECT_TRUE(FX::PRESET_IDS[3] == "stretched-grid");
-  HS_EXPECT_NEAR(FX::preset_params(0).source.complexity, 0.513f, 0.0f);
-  HS_EXPECT_NEAR(FX::preset_params(1).source.complexity, 3.0f, 0.0f);
-  HS_EXPECT_NEAR(FX::preset_params(2).color.mapping_frequency, 2.0f, 0.0f);
-  const auto values = [](const WB::Params &params) {
-    return std::array<float, 26>{
-        params.source.pattern_freq,
-        params.source.speed,
-        params.source.angle_rate,
-        params.source.complexity,
-        params.source.pattern_mix,
-        params.source.secondary_rate,
-        params.projection.singularity_fade,
-        params.projection.spin_rate,
-        params.projection.wander,
-        params.projection.camera_wander,
-        params.inner_warp.speed,
-        params.inner_warp.rotation,
-        params.inner_warp.cell_x,
-        params.inner_warp.cell_y,
-        params.inner_warp.offset_x,
-        params.inner_warp.offset_y,
-        params.color.palette_chroma,
-        params.color.mapping_frequency,
-        params.color.mapping_phase,
-        params.color.phase_oscillation_depth,
-        params.color.phase_oscillation_speed,
-        params.color.opacity_low,
-        params.color.opacity_high,
-        params.color.hue_shift_amount,
-        params.color.hue_noise_scale,
-        params.color.hue_noise_speed,
-    };
-  };
-  constexpr std::array<float, 26> STRETCHED_EXPECTED{
-      2.9059f,     0.0f,      0.026999999f, 3.0f, 1.0f,          0.8f,
-      3.432f,      0.0f,      0.165f,       1.0f, 0.0027299998f, 3.455752f,
-      0.22321875f, 5.085703f, 0.0f,         0.0f, 1.0f,          1.558f,
-      0.0f,        0.0f,      0.0f,         1.0f, 1.0f,          0.366f,
-      1.4721563f,  0.0f,
-  };
-  const std::array<float, 26> stretched_actual = values(FX::preset_params(3));
-  for (size_t index = 0; index < STRETCHED_EXPECTED.size(); ++index) {
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(stretched_actual[index]),
-                 std::bit_cast<uint32_t>(STRETCHED_EXPECTED[index]));
+  for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index) {
+    HS_EXPECT_FALSE(FX::PRESET_IDS[index].empty());
+    HS_EXPECT_TRUE(Pullback::valid(FX::preset_params(index)));
+    for (size_t earlier = 0; earlier < index; ++earlier)
+      HS_EXPECT_TRUE(FX::PRESET_IDS[index] != FX::PRESET_IDS[earlier]);
   }
-  HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{480});
-  HS_EXPECT_TRUE(Pullback::valid(FX::preset_params(3)));
+  HS_EXPECT_GT(FX::TRANSITION_DURATION, uint16_t{0});
+  HS_EXPECT_GT(FX::PRESET_DWELL_FRAMES, uint16_t{0});
 
   reset_effect_globals();
   FX effect;

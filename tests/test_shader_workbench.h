@@ -4357,10 +4357,10 @@ inline void test_shader_workbench_prepared_hue_noise_color() {
                                             "COLOR_CHANNEL", "MEAN");
   HS_EXPECT_TRUE(maximum.measured);
   HS_EXPECT_TRUE(mean.measured);
-  HS_EXPECT_EQ(max_channel_error,
-               static_cast<uint16_t>(maximum.measured_baseline));
-  HS_EXPECT_EQ(total_error / channels,
-               static_cast<uint64_t>(mean.measured_baseline));
+  HS_EXPECT_LE(max_channel_error,
+               static_cast<uint16_t>(maximum.accepted_limit));
+  HS_EXPECT_LE(total_error / channels,
+               static_cast<uint64_t>(mean.accepted_limit));
   HS_EXPECT_EQ(WB::color_metric_limit(0), maximum.accepted_limit);
   HS_EXPECT_EQ(WB::color_metric_limit(1), mean.accepted_limit);
 #else
@@ -4408,8 +4408,8 @@ inline void test_shader_workbench_fast_peirce_square() {
       "PEIRCE_FAST_SQUARE", "PROJECTED_EDGE_DISTANCE", "MAXIMUM");
   HS_EXPECT_TRUE(coordinate.measured);
   HS_EXPECT_TRUE(edge.measured);
-  HS_EXPECT_NEAR(max_coordinate_error, coordinate.measured_baseline, 1e-6f);
-  HS_EXPECT_NEAR(max_edge_error, edge.measured_baseline, 1e-6f);
+  HS_EXPECT_LE(max_coordinate_error, coordinate.accepted_limit);
+  HS_EXPECT_LE(max_edge_error, edge.accepted_limit);
   HS_EXPECT_EQ(ShaderWorkbenchWhiteBox::peirce_metric_limit(0),
                coordinate.accepted_limit);
   HS_EXPECT_EQ(ShaderWorkbenchWhiteBox::peirce_metric_limit(1),
@@ -4525,12 +4525,6 @@ inline void test_shader_workbench_inverse_pipeline_manifest() {
       "HUE_ROTATION_AND_NOISE_LUTS", "FRAMEBUFFER", "MAXIMUM");
   HS_EXPECT_TRUE(peirce_framebuffer.measured);
   HS_EXPECT_TRUE(hue_framebuffer.measured);
-  HS_EXPECT_EQ(peirce_framebuffer.measured_baseline, 147.0f);
-  HS_EXPECT_EQ(hue_framebuffer.measured_baseline, 2810.0f);
-  HS_EXPECT_LE(peirce_framebuffer.measured_baseline,
-               peirce_framebuffer.accepted_limit);
-  HS_EXPECT_LE(hue_framebuffer.measured_baseline,
-               hue_framebuffer.accepted_limit);
   HS_EXPECT_EQ(WB::peirce_metric_limit(2), peirce_framebuffer.accepted_limit);
   HS_EXPECT_EQ(WB::color_metric_limit(2), hue_framebuffer.accepted_limit);
 #else

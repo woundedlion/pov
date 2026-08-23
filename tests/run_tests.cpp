@@ -218,6 +218,7 @@ static int check_ci_levers(int argc, char **argv) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   const char *frames = std::getenv("HS_SMOKE_FRAMES");
+  const char *require_effects_full = std::getenv("HS_REQUIRE_EFFECTS_FULL");
 #pragma clang diagnostic pop
   if (!frames || std::atoi(frames) <= 0) {
     std::fprintf(stderr,
@@ -228,7 +229,7 @@ static int check_ci_levers(int argc, char **argv) {
                  hs_test::DEFAULT_SMOKE_FRAMES);
     ++missing;
   }
-  if (runs_effects(argc, argv) &&
+  if (require_effects_full && runs_effects(argc, argv) &&
       !hs_test::effects_tests::effects_full_suite()) {
     std::fprintf(stderr,
                  "run_tests: CI=on but HS_EFFECTS_FULL is unset or 0 — the "

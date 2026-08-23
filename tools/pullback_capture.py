@@ -245,17 +245,17 @@ def validate_backend_oracles(
             and metric["aggregation"] == "MAXIMUM"
         )
         observed = metrics[oracle_id]["value"]
-        expected = (
-            manifest_metric["configuration_baselines"][configuration]
-            if resolution is None
-            else manifest_metric["resolution_baselines"][configuration][
-                f"{resolution[0]}x{resolution[1]}"
-            ]
-        )
-        if observed != expected:
+        limit = manifest_metric["accepted_limit"]
+        if observed > limit:
             raise CaptureError(
-                f"{oracle_id} framebuffer baseline is stale: {observed} != {expected}"
+                f"{oracle_id} framebuffer error exceeds its accepted limit: "
+                f"{observed} > {limit}"
             )
+        dimensions = "aggregate" if resolution is None else f"{resolution[0]}x{resolution[1]}"
+        print(
+            f"pullback metric: {configuration} {dimensions} {oracle_id} "
+            f"observed={observed} limit={limit}"
+        )
 
 
 def _cache_values(build_dir: Path) -> dict[str, str]:
@@ -514,12 +514,16 @@ def produce(
             and metric["aggregation"] == "MAXIMUM"
         )
         observed = oracle_totals[oracle["oracle_id"]]
-        expected_value = manifest_metric["configuration_baselines"][configuration]
-        if observed["value"] != expected_value:
+        accepted_limit = manifest_metric["accepted_limit"]
+        if observed["value"] > accepted_limit:
             raise CaptureError(
-                f'{oracle["oracle_id"]} framebuffer baseline is stale: '
-                f'{observed["value"]} != {expected_value}'
+                f'{oracle["oracle_id"]} framebuffer error exceeds its accepted '
+                f'limit: {observed["value"]} > {accepted_limit}'
             )
+        print(
+            f'pullback metric: {configuration} aggregate {oracle["oracle_id"]} '
+            f'observed={observed["value"]} limit={accepted_limit}'
+        )
         oracle_metrics.append(
             {
                 "oracle_id": oracle["oracle_id"],

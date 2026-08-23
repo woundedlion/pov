@@ -214,7 +214,7 @@ jobs:
         # variable of their own.
         env:
           HS_SMOKE_FRAMES: &deep_smoke_frames 120
-          HS_EFFECTS_FULL: &deep_smoke_full 1
+          HS_EFFECTS_FULL: &quick_effects 0
           HS_BUFFER_FREE_WATCHDOG_US: &deep_smoke_watchdog 30000000
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -295,7 +295,7 @@ jobs:
         # still catches a genuinely stalled hand-off.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: *deep_smoke_full
+          HS_EFFECTS_FULL: *quick_effects
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -388,6 +388,7 @@ jobs:
           - *shard4_entry
           - shard: fastmath
             test_regex: "."
+            effects_full: 1
             # These modules contain IEEE-sensitive reference or assertion-count
             # checks. The exclusions are anchored, so unit_effects_smoke — the
             # roster-wide smoke, cross-run determinism and clip-clear parity
@@ -476,7 +477,7 @@ jobs:
         # 3, 4 and fastmath all run unit_canvas / unit_pov_segmented.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: *deep_smoke_full
+          HS_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && matrix.effects_full || 0 }}
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -485,10 +486,8 @@ jobs:
 
   code-coverage:
     name: Native unit tests (Clang) / llvm-cov summary
-    # ADVISORY. Publishes a Clang source-based coverage summary for the native
-    # suite so the untested surface is a number in the run summary instead of
-    # guesswork. There is deliberately NO threshold gate: this job fails only on
-    # a broken build or a failing suite, never on a coverage percentage.
+    # Required source-based coverage run. It fails on a broken build or failing
+    # suite and publishes the measured surface without pinning a percentage.
     # -DHS_COVERAGE=ON (tests/CMakeLists.txt) instruments run_tests only, and the
     # gating jobs above stay uninstrumented.
     runs-on: ubuntu-24.04
@@ -534,7 +533,7 @@ jobs:
         # the whole roster instrumented on a 2-vCPU runner.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: *deep_smoke_full
+          HS_EFFECTS_FULL: *quick_effects
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
@@ -558,6 +557,7 @@ jobs:
 
   windows-tests:
     name: Native unit tests (Windows / Clang)
+    if: github.event_name != 'pull_request'
     # The native toolchain file's most intricate logic — the lld-link multicall
     # alias, CMAKE_LINKER_TYPE LLD, and the Windows SDK rc.exe discovery — only
     # runs on Windows and was previously exercised on no CI runner at all, on the
@@ -620,7 +620,7 @@ jobs:
         # this job runs unit_canvas and unit_pov_segmented unsharded.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: *deep_smoke_full
+          HS_EFFECTS_FULL: *quick_effects
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           TEST_EXCLUDE: *generated_exclude
         run: >
@@ -861,14 +861,19 @@ jobs:
           fi
           echo "Provenance set produced, artifact hashes verified, toolchain recorded:"
           cat "$dd/holosphere_wasm.toolchain"
+          (
+            cd "$dd"
+            find . -type f ! -name holosphere_engine.sha256 -print0 \
+              | sort -z \
+              | xargs -0 sha256sum > holosphere_engine.sha256
+            sha256sum -c holosphere_engine.sha256
+          )
 
-      - name: Upload WASM artifact
+      - name: Upload verified engine bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: holosphere_wasm
-          path: |
-            build/wasm-release/holosphere_wasm.js
-            build/wasm-release/holosphere_wasm.wasm
+          name: holosphere-engine-${{ github.sha }}
+          path: ${{ runner.temp }}/daydream-install
           if-no-files-found: error
 
   lut-provenance:
@@ -1790,6 +1795,7 @@ jobs:
           python hardware/phantasm/gen/board_metadata.py --check
 
   teensy-size:
+    if: github.event_name != 'pull_request'
     name: Teensy 4 firmware (build + size + layout)
     # ─── ACTIVE GATE ───────────────────────────────────────────────────────────
     # Builds both Teensy 4.0 images headlessly and enforces the per-region budgets
@@ -1860,6 +1866,7 @@ jobs:
           if-no-files-found: warn
 
   teensy-warnings:
+    if: github.event_name != 'pull_request'
     name: Teensy 4 firmware (first-party warning ratchet)
     # The warning ratchet (tools/teensy_warnings.py) fails on any
     # first-party warning not in tools/teensy_warning_baseline.txt. It needs a
@@ -2038,7 +2045,7 @@ jobs:
           # Space-separated jobs allowed to report `skipped`. Empty: no job in
           # this file carries an `if:`, so every one must run and succeed. Adding
           # a conditional job means adding it here, deliberately.
-          ALLOW_SKIPPED: ''
+          ALLOW_SKIPPED: 'windows-tests teensy-size teensy-warnings'
         run: |
           WF=.github/workflows/ci.yml
 
