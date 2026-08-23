@@ -853,7 +853,7 @@ jobs:
           cp -r "$dd/shader" "$bundle/"
           (
             cd "$bundle"
-            find . -type f -print0 \
+            find . -type f ! -name holosphere_engine.sha256 -print0 \
               | sort -z \
               | xargs -0 sha256sum > holosphere_engine.sha256
             sha256sum -c holosphere_engine.sha256
