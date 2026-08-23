@@ -232,13 +232,22 @@ if(EMSCRIPTEN)
     install(FILES
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/shader_workbench.mjs"
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sha256.mjs"
-            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/engine_catalog.json"
             DESTINATION "${DAYDREAM_DIR}/shader")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/patterns/"
             DESTINATION "${DAYDREAM_DIR}/shader/patterns"
             FILES_MATCHING
             PATTERN "*.shader.json"
             PATTERN "shaderball_migration.json")
+    install(CODE "
+      execute_process(
+        COMMAND node
+          \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/export_engine_catalog.mjs\"
+          \"${DAYDREAM_DIR}/${TARGET_NAME}.js\"
+          \"${DAYDREAM_DIR}/shader/engine_catalog.json\"
+        RESULT_VARIABLE HS_CATALOG_RC)
+      if(NOT HS_CATALOG_RC EQUAL 0)
+        message(FATAL_ERROR \"Failed to export the installed WASM operator catalog\")
+      endif()")
     # The gallery is mirrored, not merged: the destination is wiped first so a
     # screenshot dropped from the engine stops being served. install(DIRECTORY)
     # installs nothing for an absent or empty source, which would leave the wipe
