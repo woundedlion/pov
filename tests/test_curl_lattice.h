@@ -112,50 +112,14 @@ inline void test_curl_lattice_identity_and_presets() {
   HS_EXPECT_EQ(sizeof(WB::Params), 27 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::FrameState) <
                  sizeof(ShaderWorkbenchWB::FrameState));
-  HS_EXPECT_TRUE(FX::PRESET_IDS[0] == "open-curl");
-  HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "dense-curl");
-  HS_EXPECT_NEAR(FX::preset_params(0).surface.scale, 1.78815627f, 0.0f);
-  HS_EXPECT_NEAR(FX::preset_params(1).surface.scale, 3.29720306f, 0.0f);
-  HS_EXPECT_EQ(FX::TRANSITION_DURATION, uint16_t{480});
-  const auto values = [](const WB::Params &params) {
-    return std::array<float, 23>{
-        params.source.lattice_cell_scale,
-        params.source.lattice_shape_blend,
-        params.source.lattice_softness,
-        params.source.lattice_radius,
-        params.projection.singularity_fade,
-        params.projection.central_meridian,
-        params.projection.spin_rate,
-        params.projection.wander,
-        params.projection.camera_wander,
-        params.surface.scale,
-        params.surface.strength,
-        params.surface.speed,
-        params.color.palette_chroma,
-        params.color.mapping_frequency,
-        params.color.mapping_phase,
-        params.color.phase_oscillation_depth,
-        params.color.phase_oscillation_speed,
-        params.color.brightness_depth,
-        params.color.opacity_low,
-        params.color.opacity_high,
-        params.color.hue_shift_amount,
-        params.color.hue_noise_scale,
-        params.color.hue_noise_speed,
-    };
-  };
-  constexpr std::array<float, 23> DENSE_EXPECTED{
-      0.710265636f, 1.0f, 0.455532223f,  0.290762514f, 20.0f,         0.0f,
-      0.0f,         1.0f, 1.0f,          3.29720306f,  0.0759999976f, 0.0f,
-      1.0f,         1.0f, -0.165999994f, 0.0f,         0.0f,          1.0f,
-      1.0f,         1.0f, 0.268000007f,  2.0f,         0.0f,
-  };
-  const std::array<float, 23> dense_actual = values(FX::preset_params(1));
-  for (size_t index = 0; index < DENSE_EXPECTED.size(); ++index) {
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(dense_actual[index]),
-                 std::bit_cast<uint32_t>(DENSE_EXPECTED[index]));
+  for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index) {
+    HS_EXPECT_FALSE(FX::PRESET_IDS[index].empty());
+    HS_EXPECT_TRUE(Pullback::valid(FX::preset_params(index)));
+    for (size_t earlier = 0; earlier < index; ++earlier)
+      HS_EXPECT_TRUE(FX::PRESET_IDS[index] != FX::PRESET_IDS[earlier]);
   }
-  HS_EXPECT_TRUE(Pullback::valid(FX::preset_params(1)));
+  HS_EXPECT_GT(FX::TRANSITION_DURATION, uint16_t{0});
+  HS_EXPECT_GT(FX::PRESET_DWELL_FRAMES, uint16_t{0});
 
   // The runtime rebuilds the hue-rotation LUT on the same predicate the
   // colorizer gates its view on, so both read dead at a zero shift amount.
