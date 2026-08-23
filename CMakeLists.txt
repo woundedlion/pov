@@ -195,10 +195,10 @@ if(EMSCRIPTEN)
   endif()
   set_target_properties(pullback_capture_wasm PROPERTIES SUFFIX ".cjs")
 
-  # Install the simulator module + a self-contained README into the daydream
-  # checkout. Defaults to the sibling-checkout layout (../daydream); override
-  # with -DDAYDREAM_DIR=/path/to/daydream. Destinations are absolute, so this
-  # install is independent of CMAKE_INSTALL_PREFIX.
+  # Install the simulator runtime package into the daydream checkout. Defaults
+  # to the sibling-checkout layout (../daydream); override with
+  # -DDAYDREAM_DIR=/path/to/daydream. Destinations are absolute, so this install
+  # is independent of CMAKE_INSTALL_PREFIX.
   #
   # If the directory does not exist (e.g. a standalone Holosphere clone), skip
   # the install rules with a notice instead of silently creating a stray
@@ -207,11 +207,9 @@ if(EMSCRIPTEN)
   set(DAYDREAM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../daydream"
       CACHE PATH "Destination daydream checkout for the installed WASM module")
 
-  # The install overwrites README.md and mirrors docs/screenshots by wiping the
-  # destination first, so a typo'd or stale cache value pointing at an unrelated
-  # directory deletes and overwrites paths there. Require a marker only a
-  # daydream checkout carries. daydream.js is tracked there and is written by no
-  # install rule here, so a previous run cannot have planted it.
+  # A typo'd or stale cache value must not receive runtime files. Require a
+  # marker only a daydream checkout carries. daydream.js is tracked there and is
+  # written by no install rule here, so a previous run cannot have planted it.
   set(HS_DAYDREAM_MARKER "${DAYDREAM_DIR}/daydream.js")
 
   if(EXISTS "${HS_DAYDREAM_MARKER}")
@@ -355,7 +353,7 @@ if(EMSCRIPTEN)
     message(WARNING
       "DAYDREAM_DIR '${DAYDREAM_DIR}' exists but holds no daydream.js — "
       "refusing to install into it.")
-    install(CODE "message(FATAL_ERROR \"DAYDREAM_DIR '${DAYDREAM_DIR}' exists but is not a daydream checkout (no daydream.js); refusing to overwrite its README.md and wipe its docs/screenshots. Point -DDAYDREAM_DIR at the daydream checkout and re-run cmake.\")")
+    install(CODE "message(FATAL_ERROR \"DAYDREAM_DIR '${DAYDREAM_DIR}' exists but is not a daydream checkout (no daydream.js); refusing to install runtime files. Point -DDAYDREAM_DIR at the daydream checkout and re-run cmake.\")")
   else()
     message(WARNING
       "DAYDREAM_DIR '${DAYDREAM_DIR}' not found — skipping simulator-module "
