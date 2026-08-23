@@ -311,25 +311,31 @@ class CheckTool(unittest.TestCase):
 
 
 class InstallSet(unittest.TestCase):
-    """The files the daydream install mirrors, and their line-ending pins."""
+    """The repository sources in the runtime-only daydream install."""
 
-    def test_every_cross_repo_rule_contributes_its_sources(self):
+    def test_the_runtime_install_has_each_source_class(self):
         installed = bp.installed_sources()
-        for path in ("README.md", "hardware/pov_segment_map.json",
-                     "scripts/shader_workbench.mjs", "scripts/sha256.mjs",
-                     "scripts/engine_catalog.json",
-                     "patterns/example.shader.json",
-                     "patterns/shaderball_migration.json"):
+        for path in ("hardware/pov_segment_map.json",
+                     "scripts/shader_workbench.mjs", "scripts/sha256.mjs"):
             self.assertIn(path, installed)
         self.assertTrue(
-            any(path.startswith("docs/screenshots/") for path in installed))
+            any(path.startswith("patterns/") for path in installed))
+        self.assertTrue(all(path.startswith(("hardware/", "patterns/", "scripts/"))
+                            for path in installed))
+
+    def test_site_content_is_outside_the_runtime_install(self):
+        installed = bp.installed_sources()
+        self.assertNotIn("README.md", installed)
+        self.assertFalse(
+            any(path.startswith("docs/") for path in installed))
 
     def test_a_directory_rule_selects_only_its_patterns(self):
         # patterns/ also holds a README the FILES_MATCHING patterns exclude.
         self.assertNotIn("patterns/README.md", bp.installed_sources())
 
     def test_a_generated_artifact_is_not_a_repository_source(self):
-        # The module and its glue are installed from the build directory.
+        # The module, glue, and exported catalog are generated during install.
+        self.assertNotIn("scripts/engine_catalog.json", bp.installed_sources())
         for path in bp.installed_sources():
             self.assertTrue((bp.ROOT / path).is_file(), path)
 
