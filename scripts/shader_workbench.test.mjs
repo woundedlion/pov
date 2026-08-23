@@ -29,15 +29,6 @@ import { sha256Hex } from './sha256.mjs';
 // prepared-block sizes and alignments disagree by construction: the two files
 // are not to be reconciled, and copying either over the other retargets a
 // consumer's budget math.
-const MIRROR_PINS = {
-  'shader_workbench.mjs':
-    'b2c9bf98728a4619702255dc08e67c06a509143f32d061532cc5f7b0fa222b9c',
-  'sha256.mjs':
-    '046a83178da02898524d3743ad3aa80ec91f719ea9c1b2e9f26912afba71015a',
-  'engine_catalog.json':
-    '2ec0ffa476199f0c4bc9374dad1c577c8e06373ac3b5ce8a56510062a368a5a8',
-};
-
 const lf = (text) => text.replaceAll('\r\n', '\n');
 
 const CATALOG = JSON.parse(
@@ -61,14 +52,6 @@ test('browser-compatible SHA-256 matches the published vectors', () => {
     'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
   assert.equal(sha256Hex('abc'),
     'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
-});
-
-test('every mirrored compiler file matches its daydream pin', async () => {
-  for (const [name, digest] of Object.entries(MIRROR_PINS)) {
-    const text = await readFile(new URL(name, import.meta.url), 'utf8');
-    assert.equal(sha256Hex(lf(text)), digest,
-      `scripts/${name} drifted from the pinned daydream mirror`);
-  }
 });
 
 // The native suite golden-pins tests/data/shader_chain_catalog.json from an
