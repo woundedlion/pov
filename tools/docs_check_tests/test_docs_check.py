@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path, PurePosixPath
 
 TOOLS = Path(__file__).resolve().parent.parent
@@ -64,7 +65,7 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("pins a line number", issues[2].message)
         self.assertIn("#snakecase-heading", issues[3].message)
 
-    def test_backticked_repo_paths_are_linted(self):
+    def test_backticked_repo_and_untracked_paths_are_linted(self):
         text = (FIXTURES / "backticked_paths.txt").read_text(encoding="utf-8")
         entries = {
             PurePosixPath("core"),
@@ -75,9 +76,11 @@ class TestDocumentationChecker(unittest.TestCase):
             PurePosixPath("tools/docs_check.py"),
         }
         issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries)
-        self.assertEqual(len(issues), 1)
+        self.assertEqual(len(issues), 2)
         self.assertEqual(issues[0].line, 2)
         self.assertIn("core/platform.h", issues[0].message)
+        self.assertEqual(issues[1].line, 5)
+        self.assertIn("scripts/run-tests.mjs", issues[1].message)
 
     def test_backticked_firmware_linker_and_board_paths_are_linted(self):
         text = (FIXTURES / "native_format_paths.txt").read_text(encoding="utf-8")
@@ -336,21 +339,23 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("tools/readme_missing.py", issues[0].message)
 
     def test_stale_untracked_allowances_are_named(self):
-        entries = {PurePosixPath("tests"),
-                   PurePosixPath("tests/assertion-floors.json")}
-        stale = dict(item.split(" ", 1) for item in
-                     dc._stale_allowances(entries, {"scripts/run-tests.mjs"}))
-        self.assertEqual(stale["tests/assertion-floors.json"], "(now tracked)")
-        self.assertEqual(stale["scripts/require-tests.mjs"], "(uncited)")
-        self.assertNotIn("scripts/run-tests.mjs", stale)
+        allowances = ("tracked.txt", "uncited.txt", "used.txt")
+        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", allowances):
+            stale = dict(item.split(" ", 1) for item in dc._stale_allowances(
+                {PurePosixPath("tracked.txt")}, {"used.txt"}))
+        self.assertEqual(stale["tracked.txt"], "(now tracked)")
+        self.assertEqual(stale["uncited.txt"], "(uncited)")
+        self.assertNotIn("used.txt", stale)
 
     def test_cited_untracked_allowance_is_recorded(self):
         used: set[str] = set()
-        issue = dc._path_span_issue(PurePosixPath("README.md"), 1,
-                                    "scripts/run-tests.mjs",
-                                    {PurePosixPath("scripts")}, used)
+        allowance = "scripts/run-tests.mjs"
+        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", (allowance,)):
+            issue = dc._path_span_issue(PurePosixPath("README.md"), 1,
+                                        allowance,
+                                        {PurePosixPath("scripts")}, used)
         self.assertIsNone(issue)
-        self.assertEqual(used, {"scripts/run-tests.mjs"})
+        self.assertEqual(used, {allowance})
 
     @staticmethod
     def _checkout_fence_repository(root: Path) -> None:
