@@ -264,7 +264,7 @@ class CaptureComparison(unittest.TestCase):
         ):
             capture.attest_toolchain(Path("build"), "native-debug", programs)
 
-    def test_backend_oracle_resolution_drift_is_refused(self):
+    def test_backend_oracle_resolution_drift_within_limit_is_accepted(self):
         metrics = {}
         for oracle in ORACLES:
             framebuffer = next(
@@ -279,7 +279,24 @@ class CaptureComparison(unittest.TestCase):
                 "sample_count": 3,
             }
         metrics["HUE_ROTATION_AND_NOISE_LUTS"]["value"] += 1
-        with self.assertRaisesRegex(capture.CaptureError, "stale"):
+        capture.validate_backend_oracles(
+            metrics, ORACLES, "native-debug", (96, 20)
+        )
+
+    def test_backend_oracle_limit_violation_is_refused(self):
+        metrics = {
+            oracle["oracle_id"]: {
+                "value": next(
+                    metric
+                    for metric in oracle["metrics"]
+                    if metric["domain"] == "FRAMEBUFFER"
+                )["accepted_limit"]
+                + 1,
+                "sample_count": 3,
+            }
+            for oracle in ORACLES
+        }
+        with self.assertRaisesRegex(capture.CaptureError, "accepted limit"):
             capture.validate_backend_oracles(
                 metrics, ORACLES, "native-debug", (96, 20)
             )
