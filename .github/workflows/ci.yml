@@ -861,9 +861,14 @@ jobs:
           fi
           echo "Provenance set produced, artifact hashes verified, toolchain recorded:"
           cat "$dd/holosphere_wasm.toolchain"
+          bundle="${{ runner.temp }}/holosphere-engine"
+          mkdir "$bundle"
+          cp "$dd"/holosphere_wasm.{js,wasm,sha,wasm.sha256,toolchain} \
+            "$dd/pov_segment_map.json" "$bundle/"
+          cp -r "$dd/shader" "$bundle/"
           (
-            cd "$dd"
-            find . -type f ! -name holosphere_engine.sha256 -print0 \
+            cd "$bundle"
+            find . -type f -print0 \
               | sort -z \
               | xargs -0 sha256sum > holosphere_engine.sha256
             sha256sum -c holosphere_engine.sha256
@@ -873,7 +878,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: holosphere-engine-${{ github.sha }}
-          path: ${{ runner.temp }}/daydream-install
+          path: ${{ runner.temp }}/holosphere-engine
           if-no-files-found: error
 
   lut-provenance:
