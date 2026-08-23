@@ -238,7 +238,7 @@ class CheckTool(unittest.TestCase):
 
 
 class InstallSet(unittest.TestCase):
-    """The repository sources in the runtime-only daydream install."""
+    """Repository sources copied into the sibling Daydream checkout."""
 
     def test_the_runtime_install_has_each_source_class(self):
         installed = bp.installed_sources()
@@ -247,14 +247,16 @@ class InstallSet(unittest.TestCase):
             self.assertIn(path, installed)
         self.assertTrue(
             any(path.startswith("patterns/") for path in installed))
-        self.assertTrue(all(path.startswith(("hardware/", "patterns/", "scripts/"))
-                            for path in installed))
+        self.assertIn("README.md", installed)
+        self.assertTrue(
+            any(path.startswith("docs/screenshots/") for path in installed))
 
-    def test_site_content_is_outside_the_runtime_install(self):
+    def test_documentation_is_part_of_the_simulator_install(self):
         installed = bp.installed_sources()
-        self.assertNotIn("README.md", installed)
-        self.assertFalse(
-            any(path.startswith("docs/") for path in installed))
+        self.assertIn("README.md", installed)
+        self.assertTrue(
+            all(path.endswith(".png") for path in installed
+                if path.startswith("docs/screenshots/")))
 
     def test_a_directory_rule_selects_only_its_patterns(self):
         # patterns/ also holds a README the FILES_MATCHING patterns exclude.
