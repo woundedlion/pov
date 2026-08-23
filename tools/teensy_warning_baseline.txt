@@ -1,5 +1,1 @@
-# Teensy firmware first-party warning baseline (tools/teensy_warnings.py).
-# Sorted, deduplicated, normalized (path:line:col stripped). The ratchet
-# fails only on warnings NOT listed here. Regenerate with --update-baseline
-# in the SAME PR as the change that legitimately alters the set.
-
+# Intentionally empty. CI fails on every first-party firmware warning.

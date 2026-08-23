@@ -27,7 +27,7 @@ permissions:
 # verdict.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   tests:
@@ -61,6 +61,7 @@ jobs:
             shard: 3
             test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|effects_smoke|effect_factory|shader_workbench|curl_lattice|facet_grid|composed_effect|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
             test_exclude: *generated_exclude
+            effects_full: 1
           - &shard4_entry
             shard: 4
             test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|presets|styles|shading|death|conway_morph|pullback|pullback_manifest|pullback_capture_determinism|shader_chain)$"
@@ -193,11 +194,8 @@ jobs:
         # (tests/test_fixture.h smoke_frames()), so they score the high-water mark
         # over the frames the correctness sweep covers, not an 8-frame prefix.
         #
-        # HS_EFFECTS_FULL=1 opts the effects module into its FULL tier: the
-        # white-box correctness block and the 288x144 production-resolution roster
-        # passes. The local pre-commit default is the QUICK tier (device-resolution
-        # <96,20> passes only, ~2 s); CI is the authoritative gate for the
-        # full-resolution paths (tests/test_effects.h effects_full_suite()).
+        # These Debug shards use the QUICK effects tier. The optimized master
+        # shard is the authoritative production-resolution correctness leg.
         #
         # --no-tests=error: a shard regex that matches nothing is a shard-matrix
         # bug; without it an empty shard runs zero tests and reports green.
@@ -274,8 +272,8 @@ jobs:
       - name: Test
         # Deep smoke pass (see the plain tests job) so the sanitized run reaches
         # the same effect-lifecycle transitions and exercises arena lifetimes.
-        # HS_EFFECTS_FULL=1: run the effects module's full-resolution tier under
-        # the sanitizers too (see the tests job note).
+        # The sanitizer leg keeps the QUICK effects tier; full-resolution
+        # correctness runs once on master instead of multiplying its cost.
         #
         # -E drops the three generated-artifact gates: they shell out to a Python
         # generator and instrument no sanitized code, and this job provisions
@@ -470,14 +468,16 @@ jobs:
         run: ccache -sv
 
       - name: Test
-        # Numbered shards use the same deep window and full effects tier as Debug.
-        # Each matrix entry excludes tests incompatible with its configuration.
+        # On master, shard 3 is the full IEEE effects correctness leg and the
+        # fastmath entry covers the shipping float configuration. Pull requests
+        # use the quick tier; master catches production-resolution regressions.
         # --no-tests=error for the same reason as the tests job.
         # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job: shards
         # 3, 4 and fastmath all run unit_canvas / unit_pov_segmented.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && matrix.effects_full || 0 }}
+          HS_REQUIRE_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && matrix.effects_full || 0 }}
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -485,9 +485,10 @@ jobs:
           -E "${{ matrix.test_exclude }}"
 
   code-coverage:
-    name: Native unit tests (Clang) / llvm-cov summary
+    name: Native unit tests (Clang) / coverage
     # Required source-based coverage run. It fails on a broken build or failing
-    # suite and publishes the measured surface without pinning a percentage.
+    # suite, retains an HTML/LCOV report and rejects catastrophic erosion below
+    # a deliberately loose line floor. The current baseline is about 78%.
     # -DHS_COVERAGE=ON (tests/CMakeLists.txt) instruments run_tests only, and the
     # gating jobs above stay uninstrumented.
     runs-on: ubuntu-24.04
@@ -526,8 +527,8 @@ jobs:
 
       - name: Run the instrumented suite
         # No argv = every module in one process, so a single profile covers the
-        # whole roster. Deep smoke window + full effects tier, matching the
-        # gating jobs, so the measured coverage is the coverage CI actually has.
+        # whole roster. The stable QUICK tier keeps reports comparable across
+        # pull requests and master while the separate master leg covers FULL.
         # %p keeps the death harness's re-spawned children off the parent's file.
         # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job, with
         # the whole roster instrumented on a 2-vCPU runner.
@@ -538,15 +539,28 @@ jobs:
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
 
-      - name: Publish coverage summary
+      - name: Build coverage reports and enforce floor
         # An explicit `shell: bash` is what enables pipefail — GitHub's implicit
         # shell is `bash -e {0}`, under which tee's status 0 masks a failed
         # llvm-cov and an empty code fence is published instead.
         shell: bash
         run: |
           llvm-profdata-22 merge -sparse -o cov/run_tests.profdata cov/*.profraw
+          llvm-cov-22 export build/tests/tests/run_tests \
+            -instr-profile=cov/run_tests.profdata \
+            -ignore-filename-regex='(^/usr/|/tests/)' \
+            -summary-only > cov/summary.json
+          llvm-cov-22 export build/tests/tests/run_tests \
+            -instr-profile=cov/run_tests.profdata \
+            -ignore-filename-regex='(^/usr/|/tests/)' \
+            -format=lcov > cov/coverage.lcov
+          llvm-cov-22 show build/tests/tests/run_tests \
+            -instr-profile=cov/run_tests.profdata \
+            -ignore-filename-regex='(^/usr/|/tests/)' \
+            -format=html -output-dir=cov/html
+          python tools/check_coverage.py cov/summary.json --min-lines 70
           {
-            echo '## Native suite coverage (advisory — no gate)'
+            echo '## Native suite coverage'
             echo
             echo '```'
             llvm-cov-22 report build/tests/tests/run_tests \
@@ -554,6 +568,18 @@ jobs:
               -ignore-filename-regex='(^/usr/|/tests/)'
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-coverage
+          path: |
+            cov/coverage.lcov
+            cov/summary.json
+            cov/html
+          if-no-files-found: error
+          retention-days: 30
 
   windows-tests:
     name: Native unit tests (Windows / Clang)
@@ -603,8 +629,8 @@ jobs:
       - name: Test
         # Deep smoke pass (see the Linux job): cover effect-lifecycle
         # transitions the default 8-frame local run never reaches.
-        # HS_EFFECTS_FULL=1: run the effects module's full-resolution tier here
-        # too (see the tests job note); this job runs the whole suite unsharded.
+        # Windows keeps the QUICK effects tier; this job targets toolchain
+        # portability rather than duplicating the master-only FULL leg.
         # --no-tests=error: bare ctest exits 0 on an empty test list, and a
         # configure-time regression in the toolchain file's Windows branch —
         # what this job exists to cover — is exactly what would empty it.
@@ -1079,8 +1105,8 @@ jobs:
         run: node --check scripts/capture_screenshots.mjs
 
       # Discovered by glob, not enumerated, so a newly added scripts/*.test.mjs
-      # runs here without a workflow edit; tools/check_test_files.sh is the
-      # wiring pin for the other direction (see its header). Driven through
+      # runs here without a workflow edit; require_test_files.sh prevents an
+      # empty match from being reported as green. Driven through
       # `npm test` so the package.json entry point is the gated command rather
       # than a second spelling of it; the suite has no runtime deps, so no
       # `npm ci` is needed here. scripts/run_tests.mjs rejects any discovered
@@ -1088,7 +1114,7 @@ jobs:
       # file gutted to a comment as one pass.
       - name: Every scripts/*.test.mjs unit test runs
         run: |
-          bash tools/check_test_files.sh 6 'scripts/*.test.mjs'
+          bash tools/require_test_files.sh 'scripts/*.test.mjs'
           npm test
 
       - name: Gallery covers every registered effect
@@ -1142,12 +1168,11 @@ jobs:
           python-version: '3.12'
 
       # Discover finds test files by pattern, so one deleted or renamed out of
-      # it runs fewer suites and stays green; tools/check_test_files.sh fails
-      # instead.
+      # it can run no suite and stay green; require_test_files.sh fails instead.
       - name: Validate tracked Markdown
         run: |
-          bash tools/check_test_files.sh 1 'tools/docs_check_tests/test*.py'
-          bash tools/check_test_files.sh 1 'tools/docs_images_tests/test*.py'
+          bash tools/require_test_files.sh 'tools/docs_check_tests/test*.py'
+          bash tools/require_test_files.sh 'tools/docs_images_tests/test*.py'
           python -m unittest discover -s tools/docs_check_tests
           python -m unittest discover -s tools/docs_images_tests
           python tools/docs_check.py --skip-checkout daydream
@@ -1158,7 +1183,7 @@ jobs:
       # each against a fixture that must fail.
       - name: Run build-pin gate self-tests
         run: |
-          bash tools/check_test_files.sh 1 'tools/build_pins_tests/test*.py'
+          bash tools/require_test_files.sh 'tools/build_pins_tests/test*.py'
           python -m unittest discover -s tools/build_pins_tests -v
 
       # An ignore rule is inert against an already-tracked path, so .gitignore
@@ -1188,11 +1213,10 @@ jobs:
           python-version: '3.12'
 
       # Discover finds test files by pattern, so one deleted or renamed out of
-      # it runs fewer suites and stays green; tools/check_test_files.sh fails
-      # instead.
+      # it can run no suite and stay green; require_test_files.sh fails instead.
       - name: Check tracked license headers
         run: |
-          bash tools/check_test_files.sh 1 'tools/license_check_tests/test*.py'
+          bash tools/require_test_files.sh 'tools/license_check_tests/test*.py'
           python -m unittest discover -s tools/license_check_tests
           python tools/license_check.py
 
@@ -1434,104 +1458,9 @@ jobs:
             || : > /tmp/ratchet-prev-harness.cpp
           git show "$PREV:$DEATH" > /tmp/ratchet-prev-death.h 2>/dev/null \
             || : > /tmp/ratchet-prev-death.h
-          export PREV
-
-          python3 - /tmp/ratchet-prev-harness.cpp "$HARNESS" \
-            /tmp/ratchet-prev-death.h "$DEATH" <<'PY'
-          import os
-          import re
-          import sys
-
-          HARNESS = sys.argv[2]
-          DEATH = sys.argv[4]
-          HARNESS_FLOOR_RE = re.compile(
-              r"constexpr int (MIN_RELAX_BAKES_VERIFIED)\s*=\s*(\d+)\s*;"
-          )
-          DEATH_FLOOR_RE = re.compile(
-              r"constexpr int (MIN_COVERED_GUARD_SITES)\s*=\s*(\d+)\s*;"
-          )
-          GAP_TABLE_RE = re.compile(r"GUARD_GAP_ALLOW\[\]\s*=\s*\{(.*?)\};", re.S)
-          GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
-
-
-          def floor(path, pattern):
-              text = open(path, encoding="utf-8").read()
-              return {name: int(value) for name, value in pattern.findall(text)}
-
-
-          def death_pins(path):
-              text = open(path, encoding="utf-8").read()
-              floors = {
-                  name: int(value) for name, value in DEATH_FLOOR_RE.findall(text)
-              }
-              table = GAP_TABLE_RE.search(text)
-              gaps = {
-                  f"guard_gap.{name}": int(gap)
-                  for name, gap in GAP_ROW_RE.findall(table.group(1) if table else "")
-              }
-              return floors, gaps
-
-
-          now = floor(HARNESS, HARNESS_FLOOR_RE)
-          death_now, gaps_now = death_pins(DEATH)
-          now.update(death_now)
-          if set(now) != {"MIN_RELAX_BAKES_VERIFIED", "MIN_COVERED_GUARD_SITES"}:
-              sys.exit("domain coverage floor missing or renamed")
-          if not gaps_now:
-              sys.exit(f"no GUARD_GAP_ALLOW rows parsed from {DEATH}")
-
-          prev = floor(sys.argv[1], HARNESS_FLOOR_RE)
-          death_prev, gaps_prev = death_pins(sys.argv[3])
-          prev.update(death_prev)
-          allow = {
-              line.strip()
-              for line in os.environ.get("DOMAIN_RATCHET_ALLOW_WEAKEN", "").splitlines()
-              if line.strip()
-          }
-
-          weakened = {
-              key: f"{value} -> {now.get(key, 'gone')}"
-              for key, value in prev.items()
-              if key not in now or now[key] < value
-          }
-          if gaps_prev:
-              weakened.update({
-                  key: f"{gaps_prev.get(key, 0)} -> {value}"
-                  for key, value in gaps_now.items()
-                  if value > gaps_prev.get(key, 0)
-              })
-          else:
-              print(
-                  f"::warning::no GUARD_GAP_ALLOW table in {os.environ['PREV']}:{DEATH}"
-                  " - gap-widening check skipped"
-              )
-
-          unapproved = sorted(set(weakened) - allow)
-          if unapproved:
-              for key in unapproved:
-                  source = (
-                      DEATH
-                      if key.startswith("guard_gap.") or key.startswith("MIN_COVERED")
-                      else HARNESS
-                  )
-                  print(
-                      f"::error file={source}::{key} weakened ({weakened[key]}) - "
-                      f"restore its coverage or list {key} in "
-                      "DOMAIN_RATCHET_ALLOW_WEAKEN in this commit"
-                  )
-              sys.exit(1)
-
-          for key in sorted(allow - set(weakened)):
-              print(
-                  f'::warning::DOMAIN_RATCHET_ALLOW_WEAKEN is stale - "{key}" '
-                  "approves no weakening in this commit"
-              )
-          print(
-              f"domain ratchets: {len(now)} floors and {len(gaps_now)} guard-gap rows, "
-              f"{len(weakened)} approved weakening(s) against {os.environ['PREV']}."
-          )
-          PY
-
+          python tools/check_domain_ratchets.py \
+            /tmp/ratchet-prev-harness.cpp "$HARNESS" \
+            /tmp/ratchet-prev-death.h "$DEATH" --previous-ref "$PREV"
   clang-format:
     name: Formatting (clang-format)
     # Cloud counterpart of the .githooks/pre-commit format check. That hook is
@@ -1543,128 +1472,13 @@ jobs:
     # commit's staged paths.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      # Paths exempt from the format gate. EMPTY, and meant to stay that way:
-      # every tracked first-party source matches .clang-format under
-      # clang-format-22. An entry here is a hole in the gate, so adding one
-      # fails the growth check below unless the same commit approves the path in
-      # FORMAT_BASELINE_ALLOW_ADD. Keep the block scalar even while empty — the
-      # growth check reads this key out of the previous commit and warns itself
-      # off when it cannot find it.
-      FORMAT_BASELINE: |
-      # Escape hatch for a deliberate FORMAT_BASELINE addition: one path per
-      # line, added in the same commit as the baseline entry it approves, so the
-      # exemption is visible in that commit's diff. Empty in steady state.
-      FORMAT_BASELINE_ALLOW_ADD: ""
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           persist-credentials: false
-          # The growth check below reads this file out of the commit the run
-          # builds on, which on a push is github.event.before — arbitrarily far
-          # back in a multi-commit push, so fetch the whole history rather than
-          # guess a depth.
-          fetch-depth: 0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-
-      - name: Assert FORMAT_BASELINE did not grow
-        env:
-          PUSH_BEFORE: ${{ github.event.before }}
-        run: |
-          WF=.github/workflows/ci.yml
-
-          # Entries of a `<key>: |` block scalar: the lines indented deeper than
-          # the key, up to the first line that is not. Exits 1 if the key is
-          # absent, which distinguishes "no such baseline" from "empty baseline".
-          extract() {
-            awk -v key="$1" '
-              $0 ~ "^[[:space:]]*" key ":[[:space:]]*[|][[:space:]]*$" {
-                match($0, /^[[:space:]]*/); depth = RLENGTH; found = 1; blk = 1; next
-              }
-              blk && /^[[:space:]]*$/ { next }
-              blk {
-                match($0, /^[[:space:]]*/)
-                if (RLENGTH <= depth) { blk = 0; next }
-                gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print
-              }
-              END { if (!found) exit 1 }
-            '
-          }
-
-          # The extractor reads the key by pattern, so a reshaped or re-indented
-          # `FORMAT_BASELINE:` parses as absent (or picks up the comment lines
-          # around it) and every comparison below silently skips or compares the
-          # wrong set. YAML already parsed the same key into $FORMAT_BASELINE for
-          # this step; require the two readings to agree, so a reshape fails at
-          # the commit that makes it instead of disarming the gate from then on.
-          if ! extract FORMAT_BASELINE < "$WF" > /tmp/baseline-self-raw.txt; then
-            echo "::error file=$WF::FORMAT_BASELINE is not readable as a '<key>: |' block scalar, so this gate cannot compare it across commits. Restore the block-scalar form."
-            exit 1
-          fi
-          sort -u /tmp/baseline-self-raw.txt > /tmp/baseline-self.txt
-          printf '%s\n' "$FORMAT_BASELINE" \
-            | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; /^$/d' | sort -u > /tmp/baseline-yaml.txt
-          if ! diff -u /tmp/baseline-yaml.txt /tmp/baseline-self.txt; then
-            echo "::error file=$WF::this step extracts a different FORMAT_BASELINE from $WF than YAML passed it (diff above: '-' is YAML's reading, '+' the extractor's), so the growth check would compare mismatched sets."
-            exit 1
-          fi
-
-          # On a push, compare against the commit the branch had BEFORE it: a
-          # push lands several commits at once, and HEAD^1 is then the push's own
-          # penultimate commit, so an addition made in any earlier commit of the
-          # same push is already present on both sides and invisible. PUSH_BEFORE
-          # is empty on a pull_request run (where HEAD^1 is the base branch and
-          # the comparison spans the whole PR), all-zeros on a freshly created
-          # ref, and unreachable after a force-push; every one of those fails to
-          # peel and falls back to HEAD^1.
-          PREV=
-          if [ -n "$PUSH_BEFORE" ]; then
-            PREV=$(git rev-parse --verify --quiet "$PUSH_BEFORE^{commit}") || PREV=
-          fi
-          # An unreachable previous copy (orphan/initial commit, or a parent
-          # predating this job) warns and skips rather than redding an
-          # otherwise-fine build.
-          if [ -z "$PREV" ] && ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
-            echo "::warning::HEAD has no reachable parent — FORMAT_BASELINE growth check skipped"
-            exit 0
-          fi
-          if ! git show "$PREV:$WF" > /tmp/ci-prev.yml 2>/dev/null; then
-            echo "::warning::$WF absent in $PREV — FORMAT_BASELINE growth check skipped"
-            exit 0
-          fi
-          # Extract before sorting: piping into sort would test sort's exit
-          # status, not awk's, making the skip branch unreachable.
-          if ! extract FORMAT_BASELINE < /tmp/ci-prev.yml > /tmp/baseline-prev-raw.txt; then
-            # A copy that spells the key but not as a block scalar is a reshape
-            # this extractor cannot read, not a copy predating the gate.
-            if grep -q '^[[:space:]]*FORMAT_BASELINE:' /tmp/ci-prev.yml; then
-              echo "::error file=$WF::$PREV:$WF spells FORMAT_BASELINE but not as a '<key>: |' block scalar, so the previous baseline cannot be read and growth cannot be detected."
-              exit 1
-            fi
-            echo "::warning::no FORMAT_BASELINE in $PREV:$WF — growth check skipped"
-            exit 0
-          fi
-          sort -u /tmp/baseline-prev-raw.txt > /tmp/baseline-prev.txt
-
-          printf '%s\n' "$FORMAT_BASELINE" | sed '/^[[:space:]]*$/d' | sort -u > /tmp/baseline-now.txt
-          printf '%s\n' "$FORMAT_BASELINE_ALLOW_ADD" | sed '/^[[:space:]]*$/d' | sort -u > /tmp/baseline-allow.txt
-          comm -13 /tmp/baseline-prev.txt /tmp/baseline-now.txt > /tmp/baseline-added.txt
-
-          comm -23 /tmp/baseline-added.txt /tmp/baseline-allow.txt > /tmp/baseline-unapproved.txt
-          if [ -s /tmp/baseline-unapproved.txt ]; then
-            while IFS= read -r f; do
-              echo "::error file=$WF::$f was added to FORMAT_BASELINE (fix: clang-format -i $f, or approve the addition by listing it in FORMAT_BASELINE_ALLOW_ADD in this commit)"
-            done < /tmp/baseline-unapproved.txt
-            exit 1
-          fi
-
-          unused=$(comm -13 /tmp/baseline-added.txt /tmp/baseline-allow.txt)
-          if [ -n "$unused" ]; then
-            echo "::warning::FORMAT_BASELINE_ALLOW_ADD in $WF is stale — drop these entries:$(printf ' %s' $unused)"
-          fi
-          echo "FORMAT_BASELINE: $(wc -l < /tmp/baseline-now.txt) entries, $(wc -l < /tmp/baseline-added.txt) approved addition(s) against $PREV."
 
       - name: Install clang-format
         run: pip install 'clang-format==22.1.8'
@@ -1675,8 +1489,6 @@ jobs:
         run: |
           "$CF" --version
 
-          printf '%s\n' "$FORMAT_BASELINE" | sed '/^[[:space:]]*$/d' > /tmp/format-baseline.txt
-
           # Same file set as .githooks/pre-commit: first-party C++ only, with
           # core/vendor/ and the four generated sources excluded (they are
           # emitted by their generators, not hand-formatted). The exclusion
@@ -1685,8 +1497,7 @@ jobs:
           # drift apart silently.
           git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' \
             | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
-            > /tmp/format-all.txt
-          grep -vxF -f /tmp/format-baseline.txt /tmp/format-all.txt > /tmp/format-files.txt || true
+            > /tmp/format-files.txt
 
           if [ ! -s /tmp/format-files.txt ]; then
             echo "::error::no files selected — the pathspec or exclusion regex is broken"
@@ -1708,23 +1519,8 @@ jobs:
             rc=1
           fi
 
-          # Surface baseline entries that no longer need to be there. Only a
-          # WARNING: fixing or deleting a baselined file improves the tree, and
-          # must not red master for whoever happens to land that commit.
-          stale=
-          while IFS= read -r f; do
-            if [ ! -f "$f" ]; then
-              stale="$stale $f(gone)"
-            elif "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1; then
-              stale="$stale $f(clean)"
-            fi
-          done < /tmp/format-baseline.txt
-          if [ -n "$stale" ]; then
-            echo "::warning::FORMAT_BASELINE in ci.yml is stale — drop these entries:$stale"
-          fi
-
           if [ "$rc" -eq 0 ]; then
-            echo "clang-format clean: $(wc -l < /tmp/format-files.txt) files gated, $(wc -l < /tmp/format-baseline.txt) baselined."
+            echo "clang-format clean: $(wc -l < /tmp/format-files.txt) files gated."
           fi
           exit "$rc"
 
@@ -1745,42 +1541,41 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      # Every check_test_files.sh pin below covers one suite the workflow
-      # already names. A suite directory the workflow names nowhere has no pin
-      # and no discover step, so it runs nowhere behind a green run; this is
-      # the guard for that direction.
-      - name: Every test-suite directory is pinned
+      # A suite directory named nowhere has no discovery step and runs nowhere;
+      # this cross-check ensures every tracked suite directory is wired here.
+      - name: Every test-suite directory is discovered
         run: bash tools/check_test_dir_pins.sh
       # Discover finds test files by pattern, so one deleted or renamed out of
-      # it runs fewer suites and stays green; tools/check_test_files.sh fails
-      # instead.
+      # it can run no suite and stay green; require_test_files.sh fails instead.
       - name: Run gate parser/layout/warning self-tests
         run: |
-          bash tools/check_test_files.sh 3 'tools/teensy_gate_tests/test*.py'
+          bash tools/require_test_files.sh 'tools/teensy_gate_tests/test*.py'
           python -m unittest discover -s tools/teensy_gate_tests -v
+      - name: Run coverage-gate self-tests
+        run: |
+          bash tools/require_test_files.sh 'tools/coverage_tests/test*.py'
+          python -m unittest discover -s tools/coverage_tests -v
       - name: Run PlatformIO build-hook self-tests
         run: |
-          bash tools/check_test_files.sh 1 'tools/teensy_hook_tests/test*.py'
+          bash tools/require_test_files.sh 'tools/teensy_hook_tests/test*.py'
           python -m unittest discover -s tools/teensy_hook_tests -v
-      # The pre-commit hook is the primary local gate and routes entirely on two
-      # staged-path regexes; these drive them against a fixture table. The
-      # reference-transaction hook is the landing model's enforcement, so it is
-      # driven against a scratch repository the same way.
+      # The reference-transaction hook protects the local master ref, so it is
+      # driven against a scratch repository here.
       - name: Run git hook self-tests
         run: |
-          bash tools/check_test_files.sh 2 'tools/githook_tests/test*.py'
+          bash tools/require_test_files.sh 'tools/githook_tests/test*.py'
           python -m unittest discover -s tools/githook_tests -v
       - name: Run profile log parser self-tests
         run: |
-          bash tools/check_test_files.sh 4 'tools/profile_tests/test*.py'
+          bash tools/require_test_files.sh 'tools/profile_tests/test*.py'
           python -m unittest discover -s tools/profile_tests -v
       - name: Run relax-bake generator self-tests
         run: |
-          bash tools/check_test_files.sh 1 'tools/relax_bake_tests/test*.py'
+          bash tools/require_test_files.sh 'tools/relax_bake_tests/test*.py'
           python -m unittest discover -s tools/relax_bake_tests -v
       - name: Check routed PCB metadata
         run: |
-          bash tools/check_test_files.sh 18 'hardware/phantasm/gen/tests/test*.py'
+          bash tools/require_test_files.sh 'hardware/phantasm/gen/tests/test*.py'
           python -m unittest discover -s hardware/phantasm/gen/tests -v
           python hardware/phantasm/gen/board_metadata.py --check
 
@@ -1857,97 +1652,21 @@ jobs:
 
   teensy-warnings:
     if: github.event_name != 'pull_request'
-    name: Teensy 4 firmware (first-party warning ratchet)
-    # The warning ratchet (tools/teensy_warnings.py) fails on any
-    # first-party warning not in tools/teensy_warning_baseline.txt. It needs a
+    name: Teensy 4 firmware (no first-party warnings)
+    # The warning parser fails on any first-party warning. It needs a
     # COLD build: a cached/incremental TU emits no warnings, so the object-cached
     # teensy-size job above cannot feed it. This job is a separate build that does
     # not restore the build-objects cache and deletes any object cache before
     # building, so every first-party TU recompiles and emits its warnings.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    env:
-      # Escape hatch for a deliberate baseline addition: one normalized warning
-      # per line, added in the same commit as the baseline entry it approves, so
-      # the exemption is visible in that commit's diff. Empty in steady state —
-      # the baseline is empty and meant to stay that way, and --update-baseline
-      # rewrites the file wholesale, so without this the ratchet could be
-      # reset by one commit with nothing reporting it.
-      WARNING_BASELINE_ALLOW_ADD: ""
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           persist-credentials: false
-          # The growth check below reads the baseline out of the commit the run
-          # builds on, which on a push is github.event.before — arbitrarily far
-          # back in a multi-commit push, so fetch the whole history rather than
-          # guess a depth.
-          fetch-depth: 0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
         with:
           python-version: '3.12'
-
-      - name: Assert the warning baseline did not grow
-        env:
-          PUSH_BEFORE: ${{ github.event.before }}
-        run: |
-          BF=tools/teensy_warning_baseline.txt
-
-          # Baseline members: blank and #-comment lines dropped, same as
-          # load_baseline() in tools/teensy_warnings.py. Warning text contains
-          # spaces and punctuation, so every comparison below is byte-ordered
-          # (LC_ALL=C) and line-oriented — never word-split.
-          entries() {
-            sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
-              | grep -v -e '^#' -e '^$' | LC_ALL=C sort -u
-          }
-
-          # On a push, compare against the commit the branch had BEFORE it: a
-          # push lands several commits at once, and HEAD^1 is then the push's own
-          # penultimate commit, so an addition made in any earlier commit of the
-          # same push is already present on both sides and invisible. PUSH_BEFORE
-          # is empty on a pull_request run (where HEAD^1 is the base branch and
-          # the comparison spans the whole PR), all-zeros on a freshly created
-          # ref, and unreachable after a force-push; every one of those fails to
-          # peel and falls back to HEAD^1.
-          PREV=
-          if [ -n "$PUSH_BEFORE" ]; then
-            PREV=$(git rev-parse --verify --quiet "$PUSH_BEFORE^{commit}") || PREV=
-          fi
-          # An unreachable previous copy (orphan/initial commit, or a parent
-          # predating the file) warns and skips rather than redding an
-          # otherwise-fine build.
-          if [ -z "$PREV" ] && ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
-            echo "::warning::HEAD has no reachable parent — warning-baseline growth check skipped"
-            exit 0
-          fi
-          if ! git show "$PREV:$BF" > /tmp/warn-prev-raw.txt 2>/dev/null; then
-            echo "::warning::$BF absent in $PREV — warning-baseline growth check skipped"
-            exit 0
-          fi
-
-          entries < /tmp/warn-prev-raw.txt > /tmp/warn-prev.txt
-          if [ -f "$BF" ]; then
-            entries < "$BF" > /tmp/warn-now.txt
-          else
-            : > /tmp/warn-now.txt          # deleting the file empties the baseline: a shrink
-          fi
-          printf '%s\n' "$WARNING_BASELINE_ALLOW_ADD" | entries > /tmp/warn-allow.txt
-          comm -13 /tmp/warn-prev.txt /tmp/warn-now.txt > /tmp/warn-added.txt
-
-          comm -23 /tmp/warn-added.txt /tmp/warn-allow.txt > /tmp/warn-unapproved.txt
-          if [ -s /tmp/warn-unapproved.txt ]; then
-            while IFS= read -r w; do
-              echo "::error file=$BF::\"$w\" was added to the warning baseline (fix: silence the warning, or approve the addition by listing it in WARNING_BASELINE_ALLOW_ADD in .github/workflows/ci.yml in this commit)"
-            done < /tmp/warn-unapproved.txt
-            exit 1
-          fi
-
-          comm -13 /tmp/warn-added.txt /tmp/warn-allow.txt > /tmp/warn-unused.txt
-          while IFS= read -r w; do
-            echo "::warning::WARNING_BASELINE_ALLOW_ADD is stale — \"$w\" approves no addition in this commit"
-          done < /tmp/warn-unused.txt
-          echo "warning baseline: $(wc -l < /tmp/warn-now.txt) entries, $(wc -l < /tmp/warn-added.txt) approved addition(s) against $PREV."
 
       # Toolchain cache is safe to share with teensy-size (it only holds the
       # downloaded compiler/framework, not built objects). The build-objects
@@ -1984,7 +1703,8 @@ jobs:
         run: |
           rm -rf .pio/build_cache .pio/build
           pio run -v 2>&1 | tee teensy_build.log
-          python tools/teensy_warnings.py --build-log teensy_build.log --github
+          python tools/teensy_warnings.py --build-log teensy_build.log \
+            --baseline /dev/null --github
 
   ci-green:
     name: CI green

@@ -119,7 +119,6 @@ _EFFECT_ROSTER_ENTRY_RE = re.compile(r"^\s*X\(\s*(\w+)\s*\)")
 
 _UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",
-    ".github/workflows/js-tests.yml",
 )
 
 _MARKDOWN_EXCLUDED = frozenset({PurePosixPath("docs/CODE_REVIEW.md")})

@@ -373,19 +373,17 @@ else()
   enable_testing()
   add_subdirectory(tests)
 
-  # Opt-out local test gate: point git at .githooks so the pre-commit hook
-  # (build + run the suite before each commit) is ON BY DEFAULT once the tests
-  # are configured. Per-commit opt-out: HS_SKIP_TESTS=1 / --no-verify.
+  # Point git at the fast staged-file pre-commit checks once tests are configured.
   # Disable the auto-enable entirely with -DHS_INSTALL_GIT_HOOKS=OFF.
-  option(HS_INSTALL_GIT_HOOKS "Auto-enable the pre-commit test hook (core.hooksPath)" ON)
+  option(HS_INSTALL_GIT_HOOKS "Auto-enable the local git hooks (core.hooksPath)" ON)
   if(HS_INSTALL_GIT_HOOKS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git"
      AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.githooks/pre-commit")
     execute_process(
       COMMAND git -C "${CMAKE_CURRENT_SOURCE_DIR}" config --local core.hooksPath .githooks
       RESULT_VARIABLE _hs_hook_rc OUTPUT_QUIET ERROR_QUIET)
     if(_hs_hook_rc EQUAL 0)
-      message(STATUS "Pre-commit test hook enabled (core.hooksPath=.githooks). "
-                     "Opt out: HS_SKIP_TESTS=1 / --no-verify; disable: -DHS_INSTALL_GIT_HOOKS=OFF.")
+      message(STATUS "Local git hooks enabled (core.hooksPath=.githooks). "
+                     "Bypass once: --no-verify; disable: -DHS_INSTALL_GIT_HOOKS=OFF.")
     endif()
   endif()
 endif()

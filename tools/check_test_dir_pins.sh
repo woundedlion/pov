@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Assert every Python test-suite directory in the tree is named by a
-# check_test_files.sh line in the CI workflow.
+# require_test_files.sh line in the CI workflow.
 #
-# tools/check_test_files.sh pins the file count of a suite the workflow already
-# names, which closes the direction where a test file is deleted or renamed out
-# of a glob. It says nothing about a suite the workflow never names: a new suite
-# directory has no pin and no discover step, so it runs nowhere and every job
-# stays green. This is the guard for that direction -- the suite directories in
-# the tree must all appear in a pin.
+# tools/require_test_files.sh proves a discovered suite is non-empty. It says
+# nothing about a suite the workflow never names: a new suite directory has no
+# discovery step, so it runs nowhere and every job stays green. This is the
+# guard for that direction -- every tracked suite directory must appear in a
+# require call.
 #
 # The suites are read off the tracked test files rather than a glob of their
 # parent directories, so one landing outside tools/*_tests -- as
@@ -37,13 +36,13 @@ fi
 
 unpinned=()
 for dir in "${dirs[@]}"; do
-  if ! grep -qE "check_test_files\.sh .*${dir}/" "$workflow"; then
+  if ! grep -qE "require_test_files\.sh .*${dir}/" "$workflow"; then
     unpinned+=("$dir")
   fi
 done
 
 if [ "${#unpinned[@]}" -ne 0 ]; then
-  echo "::error::no check_test_files.sh pin in $workflow for: ${unpinned[*]} -- a suite the workflow never names runs nowhere. Add a pin and a discover step."
+  echo "::error::no require_test_files.sh call in $workflow for: ${unpinned[*]} -- a suite the workflow never names runs nowhere. Add a require call and a discover step."
   exit 1
 fi
-echo "$workflow pins all ${#dirs[@]} test suite(s)."
+echo "$workflow discovers all ${#dirs[@]} test suite(s)."

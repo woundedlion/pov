@@ -28,7 +28,7 @@ using namespace hs_test::effects_tests;
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the smoke and determinism passes over every registered effect at
  * the small-aspect resolution, then the clip-clear parity sweep. The FULL tier
- * (HS_EFFECTS_FULL=1; CI on every push/PR) adds the same smoke and determinism
+ * (HS_EFFECTS_FULL=1; CI on every master push) adds the same smoke and determinism
  * passes at the 288x144 production resolution, which are the bulk of the cost —
  * full-frame software raster over 41,472-pixel frames.
  */

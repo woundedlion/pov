@@ -261,8 +261,8 @@ add_test(NAME unit_mindsplatter_replay COMMAND mindsplatter_replay)
 
 # Opt-in Clang source-based coverage for the main suite binary. Default OFF: the
 # instrumentation changes codegen and slows the run, so no gating job may carry
-# it. The "code-coverage" CI job turns it on and publishes an llvm-cov summary —
-# advisory only, there is no threshold gate. Needs clang_rt.profile, which the
+# it. The "code-coverage" CI job turns it on, publishes an llvm-cov report and
+# enforces a loose catastrophic floor. Needs clang_rt.profile, which the
 # Windows emsdk clang does not ship, so this is a Linux-toolchain option.
 option(HS_COVERAGE "Instrument run_tests for llvm-cov source-based coverage" OFF)
 if(HS_COVERAGE)
