@@ -234,6 +234,11 @@ if(EMSCRIPTEN)
             FILES_MATCHING
             PATTERN "*.shader.json"
             PATTERN "shaderball_migration.json")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
+            DESTINATION "${DAYDREAM_DIR}")
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
+            DESTINATION "${DAYDREAM_DIR}/docs/screenshots"
+            FILES_MATCHING PATTERN "*.png")
     install(CODE "
       execute_process(
         COMMAND node
