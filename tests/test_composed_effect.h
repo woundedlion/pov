@@ -620,9 +620,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     // TransferKind is NONE or ISO_CONTOUR.
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
-    // RenderPipeline composes no Stage::Coverage.
-    {"field.coverage.value-cutout.v2", nullptr, {}},
-
     // ProjectionKind names the folded gnomonic alone.
     {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
     // The displacement policies pin the basis and the integrator.
@@ -703,6 +700,8 @@ inline size_t reach_rows(const char *operator_id, const char *topology_id) {
  * an operator or a value the table has not classified.
  */
 inline void test_composed_derivation_reach() {
+  static_assert(AshCloudSpec::FIELD_COVERAGE ==
+                Pullback::FieldCoverageKind::VALUE_CUTOUT);
   size_t unreachable_operators = 0;
   size_t unreachable_values = 0;
   for (const DerivationReach &row : DERIVATION_REACH) {
@@ -757,7 +756,7 @@ inline void test_composed_derivation_reach() {
   }
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 37u);
-  HS_EXPECT_EQ(unreachable_operators, 14u);
+  HS_EXPECT_EQ(unreachable_operators, 13u);
   HS_EXPECT_EQ(catalog_values, 118u);
   HS_EXPECT_EQ(unreachable_values, 73u);
 }
