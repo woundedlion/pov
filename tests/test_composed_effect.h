@@ -54,8 +54,8 @@ using effects_tests::SMALL_W;
  */
 template <typename ParamsT, typename SpecT, PaletteHarmony HarmonyV,
           Pullback::HueMode HueV,
-          Pullback::Color::BrightnessEnvelope BrightnessV, bool OuterNoiseV,
-          bool SourceNoiseV>
+          Pullback::Color::BrightnessEnvelope BrightnessV,
+          bool AnimatedProjectionV, bool OuterNoiseV, bool SourceNoiseV>
 struct ComposedTraits {
   using Params = ParamsT;
   using Spec = SpecT;
@@ -68,13 +68,13 @@ struct ComposedTraits {
 
 template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
           PaletteHarmony HarmonyV, Pullback::HueMode HueV,
-          Pullback::Color::BrightnessEnvelope BrightnessV, bool OuterNoiseV,
-          bool SourceNoiseV>
-ComposedTraits<ParamsT, SpecT, HarmonyV, HueV, BrightnessV, OuterNoiseV,
-               SourceNoiseV>
-composed_traits(const Pullback::ComposedEffect<W, H, Derived, ParamsT, SpecT,
-                                               HarmonyV, HueV, BrightnessV,
-                                               OuterNoiseV, SourceNoiseV> &);
+          Pullback::Color::BrightnessEnvelope BrightnessV,
+          bool AnimatedProjectionV, bool OuterNoiseV, bool SourceNoiseV>
+ComposedTraits<ParamsT, SpecT, HarmonyV, HueV, BrightnessV, AnimatedProjectionV,
+               OuterNoiseV, SourceNoiseV>
+composed_traits(const Pullback::ComposedEffect<
+                W, H, Derived, ParamsT, SpecT, HarmonyV, HueV, BrightnessV,
+                AnimatedProjectionV, OuterNoiseV, SourceNoiseV> &);
 
 /** @brief ComposedTraits of the base @p FX derives from. */
 template <typename FX>
@@ -770,18 +770,18 @@ using RippleProbeSpec = Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                                        void, Pullback::TransferKind::NONE,
                                        Pullback::CoverageKind::PROJECTION>;
 
-template <int W, int H>
+template <int W, int H, bool AnimatedProjection = false>
 class RippleProbe
     : public Pullback::ComposedEffect<
-          W, H, RippleProbe<W, H>, RippleProbeParams, RippleProbeSpec,
-          PaletteHarmony::TRIADIC, Pullback::HueMode::PATH_LENGTH,
-          Pullback::Color::BrightnessEnvelope::NONE> {
+          W, H, RippleProbe<W, H, AnimatedProjection>, RippleProbeParams,
+          RippleProbeSpec, PaletteHarmony::TRIADIC,
+          Pullback::HueMode::PATH_LENGTH,
+          Pullback::Color::BrightnessEnvelope::NONE, AnimatedProjection> {
 public:
   using Params = RippleProbeParams;
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"ripple"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
-  static constexpr bool ANIMATED_PROJECTION = false;
 
   static constexpr Params initial_params() {
     Params value;
@@ -792,6 +792,33 @@ public:
     return value;
   }
 };
+
+struct ProjectionWalkFootprint {
+  size_t arena_bytes;
+  int timeline_events;
+};
+
+template <bool AnimatedProjection>
+ProjectionWalkFootprint measure_projection_walk_footprint() {
+  reset_effect_globals();
+  RippleProbe<SMALL_W, SMALL_H, AnimatedProjection> effect;
+  effect.init();
+  return {persistent_arena.get_offset(), Timeline::event_count()};
+}
+
+inline void test_composed_projection_walk_storage() {
+  using Static = RippleProbe<SMALL_W, SMALL_H, false>;
+  using Animated = RippleProbe<SMALL_W, SMALL_H, true>;
+  static_assert(sizeof(Static) < sizeof(Animated));
+
+  const ProjectionWalkFootprint static_footprint =
+      measure_projection_walk_footprint<false>();
+  const ProjectionWalkFootprint animated_footprint =
+      measure_projection_walk_footprint<true>();
+  HS_EXPECT_LT(static_footprint.arena_bytes, animated_footprint.arena_bytes);
+  HS_EXPECT_EQ(static_footprint.timeline_events + 1,
+               animated_footprint.timeline_events);
+}
 
 inline void test_composed_periodic_ripple_surface() {
   using FX = RippleProbe<SMALL_W, SMALL_H>;
@@ -824,6 +851,7 @@ inline int run_composed_effect_tests() {
   test_composed_preset_choreography();
   test_composed_preset_interpolation();
   test_composed_derivation_reach();
+  test_composed_projection_walk_storage();
   test_composed_periodic_ripple_surface();
   return fixture.result();
 }
