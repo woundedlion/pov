@@ -37,6 +37,8 @@ template <int W, int H> class DreamBalls : public Effect {
 public:
   using BaseMesh = Solids::BaseMesh;
 
+  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
+
   /** @brief Selects automatic, source, or forced-medial weave topology. */
   enum class WeaveTopology : uint8_t {
     AUTOMATIC,

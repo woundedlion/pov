@@ -940,6 +940,20 @@ public:
   }
 
   /**
+   * @brief Returns the authored preset counts for the active resolution.
+   * @return JS object mapping every effect name to its preset count; empty map
+   *         if unsupported or uninitialized.
+   */
+  val getEffectPresetCounts() {
+    val counts = val::object();
+    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+      for (const auto &entry : get_factory<W, H>())
+        counts.set(std::string(entry.name), entry.preset_count);
+    });
+    return counts;
+  }
+
+  /**
    * @brief Returns the current Shader workbench's versioned full-state snapshot.
    * @return JS object {schemaVersion, accepted, requested, pendingFieldIds,
    *         hasRuntime, runtime}, or null when the loaded effect is not
@@ -1465,6 +1479,8 @@ static void bind_engine() {
       .function("getParamGeneration", &HolosphereEngine::getParamGeneration)
       .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics)
       .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
+      .function("getEffectPresetCounts",
+                &HolosphereEngine::getEffectPresetCounts)
       .function("getFullConfigSnapshot",
                 &HolosphereEngine::getFullConfigSnapshot)
       .function("restoreFullConfigSnapshot",
