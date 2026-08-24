@@ -183,33 +183,45 @@ inline EdgeMetric edge_metric_3d_at(const Vec4 &ray_origin,
   return {best_fixed, free_axis};
 }
 
-inline EdgeMetric edge_metric_4d_at(const Vec4 &ray_origin,
-                                    const Vec4 &direction, int plane_axis,
-                                    float distance) {
-  const int axis0 = plane_axis == 0 ? 1 : 0;
-  const int axis1 = plane_axis <= 1 ? 2 : 1;
-  const int axis2 = plane_axis <= 2 ? 3 : 2;
+template <int AXIS0, int AXIS1, int AXIS2>
+__attribute__((always_inline)) EdgeMetric edge_metric_4d_axes(
+    const Vec4 &ray_origin, const Vec4 &direction, float distance) {
   const float component0 =
-      periodic_distance_at(ray_origin, direction, axis0, distance);
+      periodic_distance_at(ray_origin, direction, AXIS0, distance);
   const float component1 =
-      periodic_distance_at(ray_origin, direction, axis1, distance);
+      periodic_distance_at(ray_origin, direction, AXIS1, distance);
   const float component2 =
-      periodic_distance_at(ray_origin, direction, axis2, distance);
+      periodic_distance_at(ray_origin, direction, AXIS2, distance);
   const float component0_sq = component0 * component0;
   const float component1_sq = component1 * component1;
   const float component2_sq = component2 * component2;
   const float sum = component0_sq + component1_sq + component2_sq;
   float largest = component0_sq;
-  uint8_t free_axis = static_cast<uint8_t>(axis0);
+  uint8_t free_axis = AXIS0;
   if (component1_sq > largest) {
     largest = component1_sq;
-    free_axis = static_cast<uint8_t>(axis1);
+    free_axis = AXIS1;
   }
   if (component2_sq > largest) {
     largest = component2_sq;
-    free_axis = static_cast<uint8_t>(axis2);
+    free_axis = AXIS2;
   }
   return {sum - largest, free_axis};
+}
+
+inline EdgeMetric edge_metric_4d_at(const Vec4 &ray_origin,
+                                    const Vec4 &direction, int plane_axis,
+                                    float distance) {
+  switch (plane_axis) {
+  case 0:
+    return edge_metric_4d_axes<1, 2, 3>(ray_origin, direction, distance);
+  case 1:
+    return edge_metric_4d_axes<0, 2, 3>(ray_origin, direction, distance);
+  case 2:
+    return edge_metric_4d_axes<0, 1, 3>(ray_origin, direction, distance);
+  default:
+    return edge_metric_4d_axes<0, 1, 2>(ray_origin, direction, distance);
+  }
 }
 
 inline TransitionalMetrics transitional_metrics_at(const Vec4 &ray_origin,
