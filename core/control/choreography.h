@@ -73,7 +73,9 @@ public:
    * @details An effect bumps `PARAMETER_SCHEMA_VERSION` whenever its `Params`
    * layout changes, so a snapshot taken under a different layout is rejected
    * rather than reinterpreted. On success any in-flight preset transition is
-   * cancelled and the preset dwell restarts; on rejection nothing is touched.
+   * cancelled and the preset dwell restarts. The preset index is unchanged, so
+   * getPresetIndex() continues to name the last selected preset. On rejection
+   * nothing is touched.
    * @param snapshot Snapshot to adopt.
    * @return True when the snapshot's schema version matches and its parameters
    *         are valid, false otherwise.
