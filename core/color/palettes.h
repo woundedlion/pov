@@ -124,7 +124,8 @@ struct MeshPaletteBank {
 
   /**
    * @brief (Re)bakes every source palette into the arena.
-   * @param arena Destination arena receiving N x 256-entry Color4 LUTs.
+   * @param arena Destination arena receiving each BakedPalette's parallel
+   *        256-entry Pixel and Q16-alpha arrays.
    */
   HS_COLD_MEMBER void bake_all(Arena &arena) {
     constexpr auto sources = MeshPaletteBank::sources();

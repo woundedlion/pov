@@ -79,8 +79,7 @@ int main() {
         "channel units (tolerance %d) — core/color/triadic_palette_luts.h "
         "no longer matches EffectPaletteRecipes::mind_splatter; "
         "regenerate with: cmake --build --preset tests --target "
-        "mindsplatter_palette_gen && ./build/tests/tests/"
-        "mindsplatter_palette_gen core/color/triadic_palette_luts.h\n",
+        "regenerate_mindsplatter_palette\n",
         worst_palette, worst_index, worst, MAX_CHANNEL_DELTA);
     return 1;
   }
