@@ -208,7 +208,9 @@ struct PreparedTrace {
   Vec4 origin;
   Mat4 world_to_lattice;
   float inv_far;
-  float pixel_half_angle;
+  float aa_scale;
+  float near_start;
+  float near_inv_span;
 };
 
 template <int W, int H> constexpr float pixel_half_angle() {
@@ -228,13 +230,13 @@ inline float wire_coverage(float metric_sq, float radius, float half_width) {
 }
 
 inline float projected_half_width(float distance, float plane_step,
-                                  float pixel_half_angle, float aa_strength,
-                                  float softness) {
-  return softness + aa_strength * pixel_half_angle * distance * plane_step;
+                                  float aa_scale, float softness) {
+  return softness + aa_scale * distance * plane_step;
 }
 
-inline float near_field_coverage(float distance, float wire_radius) {
-  return lattice_ramp(1.5f * wire_radius, 4.0f * wire_radius, distance);
+inline float near_field_coverage(float distance, float near_start,
+                                 float near_inv_span) {
+  return cubic_kernel((distance - near_start) * near_inv_span);
 }
 
 inline float shell_horizon_coverage(uint8_t shell, uint8_t shell_count,
@@ -269,7 +271,10 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   rotate_plane(prepared.world_to_lattice, 2, 3,
                dimension * frame.rotation_phase[5]);
   prepared.inv_far = 1.0f / frame.params.far_cells;
-  prepared.pixel_half_angle = frame.pixel_half_angle;
+  prepared.aa_scale = frame.params.aa_strength * frame.pixel_half_angle;
+  prepared.near_start = 1.5f * frame.params.wire_radius;
+  const float near_end = 4.0f * frame.params.wire_radius;
+  prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
   return prepared;
 }
 
@@ -302,7 +307,7 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
                             int plane_axis, float distance, float plane_step,
                             const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_plane_eval);
-  if (distance <= 1.5f * prepared.params.wire_radius)
+  if (distance <= prepared.near_start)
     return {0.0f, distance, 0};
 
   const Vec4 point{{ray_origin[0] + distance * direction[0],
@@ -332,15 +337,15 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
   }
 
   const float half_width = projected_half_width(
-      distance, plane_step, prepared.pixel_half_angle,
-      prepared.params.aa_strength, prepared.params.softness);
+      distance, plane_step, prepared.aa_scale, prepared.params.softness);
   const float outer_radius = prepared.params.wire_radius + half_width;
   if (metric_sq >= outer_radius * outer_radius)
     return {0.0f, distance, free_axis};
   const float edge =
       wire_coverage(metric_sq, prepared.params.wire_radius, half_width);
   const float fog = std::max(0.0f, 1.0f - distance * prepared.inv_far);
-  const float near = near_field_coverage(distance, prepared.params.wire_radius);
+  const float near = near_field_coverage(distance, prepared.near_start,
+                                         prepared.near_inv_span);
   return {edge * fog * fog * near * dimensional_coverage, distance, free_axis};
 }
 
