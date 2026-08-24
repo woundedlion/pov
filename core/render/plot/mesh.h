@@ -29,6 +29,11 @@
 
 namespace Plot {
 
+#if HS_ENABLE_TEST_ORACLES
+/** @brief Rebuilds the mesh cull span for reference-path comparisons. */
+inline bool g_rebuild_mesh_cull_span = false;
+#endif
+
 /**
  * @brief Mesh drawing.
  * Registers:
@@ -88,20 +93,29 @@ struct Mesh {
     const ClipRegion &cr = canvas.clip();
     const bool clip_active = !cr.is_full();
     const ClipRegion::XClip xc = cr.x_clip();
+    const GeodesicEdgeSpan es = make_geodesic_edge_span(fu.pos, fv.pos);
 
     // A vertex shader moves the endpoints after this test, so it opts out.
     if constexpr (pipeline_hoistable_cull<PipelineT>()) {
-      if (clip_active && !vertex_shader &&
-          !edge_visible_in_clip<W, H>(pipeline, cr, xc, fu.pos, fv.pos,
-                                      nullptr))
-        return;
+      if (clip_active && !vertex_shader) {
+        bool visible;
+#if HS_ENABLE_TEST_ORACLES
+        if (g_rebuild_mesh_cull_span)
+          visible = edge_visible_in_clip<W, H>(pipeline, cr, xc, fu.pos, fv.pos,
+                                               nullptr);
+        else
+#endif
+          visible =
+              edge_visible_in_clip<W, H>(pipeline, cr, xc, fu.pos, fv.pos, es);
+        if (!visible)
+          return;
+      }
     }
 
     ScratchScope edge_guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, EDGE_MAX_POINTS);
 
-    const GeodesicEdgeSpan es = make_geodesic_edge_span(fu.pos, fv.pos);
     bool split = false;
     if constexpr (pipeline_hoistable_cull<PipelineT>())
       split = clip_active && !vertex_shader && es.have_axis;

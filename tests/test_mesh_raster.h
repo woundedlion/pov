@@ -224,6 +224,50 @@ inline void test_wireframe_pixels_lie_on_edges() {
   HS_EXPECT_EQ(off_arc, (size_t)0);
 }
 
+/** @brief Reused and rebuilt mesh cull spans produce identical pixels. */
+inline void test_wireframe_reuses_geodesic_cull_span() {
+  constexpr int W = 288, H = 144;
+  configure_arenas_default();
+
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+  PolyMesh mesh = Solids::Platonic::octahedron(seed_a, seed_b);
+  ArenaVector<Plot::Mesh::Edge> edges;
+  edges.bind(geom, 64);
+  Plot::Mesh::extract_edges(mesh, edges);
+
+  struct Frame {
+    std::vector<Pixel> pixels;
+    uint32_t span_builds;
+  };
+  auto render = [&](bool rebuild_cull_span) {
+    hs_test::StubEffect fx(W, H);
+    fx.set_clip(1, H - 1, 0, W);
+    Plot::g_rebuild_mesh_cull_span = rebuild_cull_span;
+    Plot::g_geodesic_edge_span_builds = 0;
+    {
+      Canvas canvas(fx);
+      Pipeline<W, H> pipeline;
+      Plot::Mesh::draw<W, H>(pipeline, canvas, mesh, edges, white);
+    }
+    fx.advance_display();
+    Frame frame;
+    capture_frame<W, H>(fx, frame.pixels);
+    frame.span_builds = Plot::g_geodesic_edge_span_builds;
+    return frame;
+  };
+
+  const Frame rebuilt = render(true);
+  const Frame reused = render(false);
+  Plot::g_rebuild_mesh_cull_span = false;
+  HS_EXPECT_EQ(rebuilt.pixels.size(), reused.pixels.size());
+  for (size_t i = 0; i < rebuilt.pixels.size(); ++i)
+    HS_EXPECT_EQ(rebuilt.pixels[i], reused.pixels[i]);
+  HS_EXPECT_EQ(rebuilt.span_builds,
+               reused.span_builds + static_cast<uint32_t>(edges.size()));
+}
+
 // ============================================================================
 // Scan::Mesh::draw / SDF::Face — solid fill: interior lit, tiling has no holes
 // ============================================================================
@@ -1050,6 +1094,7 @@ inline int run_mesh_raster_tests() {
 
   test_wireframe_draws_every_edge();
   test_wireframe_pixels_lie_on_edges();
+  test_wireframe_reuses_geodesic_cull_span();
   test_solid_fill_covers_faces_and_tiles_sphere();
   test_face_shader_setup_matches_face_index();
   test_cube_wireframe_and_fill();
