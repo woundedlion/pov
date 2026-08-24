@@ -380,7 +380,7 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
   if (calculate_edge_distance) {
     edge = acosf(
         hs::clamp(std::max(fabsf(rotated_x), fabsf(rotated_z)), 0.0f, 1.0f));
-    if (v.y < 0.0f) {
+    if (v.y < 0.0f && layout <= 1) {
       const float fold_sine = cp * fabsf(fabsf(sl) - fabsf(cl)) * INV_SQRT_TWO;
       edge = std::min(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
     }
