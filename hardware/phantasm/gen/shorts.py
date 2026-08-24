@@ -1,5 +1,6 @@
 """Union-find connectivity check over raw schematic geometry.
 Reports electrical groups that merge two DIFFERENT named nets (labels / power)."""
+import argparse
 import math
 import os
 import sys
@@ -147,8 +148,10 @@ def analyze(root):
     return conflicts, bridges
 
 
-def main(argv):
-    path = argv[1] if len(argv) > 1 else DEFAULT_SCH
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("schematic", nargs="?", default=DEFAULT_SCH)
+    path = parser.parse_args(argv).schematic
     try:
         with open(path, encoding="utf-8") as fh:
             conflicts, bridges = analyze(sexp.parse(fh.read())[0])
@@ -168,4 +171,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(main())

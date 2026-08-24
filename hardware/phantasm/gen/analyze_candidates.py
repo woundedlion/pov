@@ -30,6 +30,7 @@ What matters here, and why:
   decided by how the loose parts group (decoupling near U1, terminators near the
   strip connector, the high-Z sync divider kept tight).
 """
+import argparse
 import glob
 import math
 import os
@@ -324,8 +325,10 @@ def default_candidates():
     return sorted(path for path in glob.glob(pattern) if os.path.isdir(path))
 
 
-def main(argv):
-    args = argv[1:]
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("paths", nargs="*", help="candidate directories or boards")
+    args = parser.parse_args(argv).paths
     if args:
         dirs = args
     else:
@@ -476,4 +479,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(main())

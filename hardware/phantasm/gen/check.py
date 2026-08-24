@@ -3,6 +3,7 @@
 Nodes are keyed on (ref, pin), so a connector or IC pinout permutation fails the
 gate as loudly as a short or a break does.
 """
+import argparse
 import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
@@ -99,14 +100,16 @@ def check(got):
     return ok
 
 
-def main(sch):
-    ok = check(netlist_nets(export_netlist(kicad_cli(), sch)))
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("schematic", nargs="?", default=os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "phantasm.kicad_sch"))
+    args = parser.parse_args(argv)
+    ok = check(netlist_nets(export_netlist(kicad_cli(), args.schematic)))
     print("NETLIST OK" if ok else "NETLIST MISMATCH")
     return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    SCH = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "phantasm.kicad_sch")
-    sys.exit(main(SCH))
+    sys.exit(main())

@@ -19,7 +19,7 @@ class MainTests(unittest.TestCase):
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 stderr = io.StringIO()
                 with contextlib.redirect_stderr(stderr):
-                    self.assertEqual(heal_clearance.main(), 1)
+                    self.assertEqual(heal_clearance.main([]), 1)
         self.assertIn("no uploadable project files", stderr.getvalue())
 
     def test_malformed_project_fails_cleanly(self):
@@ -29,7 +29,7 @@ class MainTests(unittest.TestCase):
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 stderr = io.StringIO()
                 with contextlib.redirect_stderr(stderr):
-                    self.assertEqual(heal_clearance.main(), 1)
+                    self.assertEqual(heal_clearance.main([]), 1)
         self.assertIn("cannot process phantasm.kicad_pro", stderr.getvalue())
 
     def test_missing_default_net_class_fails(self):
@@ -39,7 +39,7 @@ class MainTests(unittest.TestCase):
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 stderr = io.StringIO()
                 with contextlib.redirect_stderr(stderr):
-                    self.assertEqual(heal_clearance.main(), 1)
+                    self.assertEqual(heal_clearance.main([]), 1)
         self.assertIn("missing Default net class", stderr.getvalue())
 
     def test_manifested_snapshot_is_left_untouched(self):
@@ -59,7 +59,7 @@ class MainTests(unittest.TestCase):
                 self.assertEqual(
                     heal_clearance.project_files(), [str(root / "phantasm.kicad_pro")])
                 with contextlib.redirect_stdout(io.StringIO()):
-                    self.assertEqual(heal_clearance.main(), 0)
+                    self.assertEqual(heal_clearance.main([]), 0)
 
             self.assertEqual(protected.read_text(encoding="utf-8"), zeroed)
             healed = json.loads((root / "phantasm.kicad_pro").read_text(encoding="utf-8"))
@@ -74,7 +74,7 @@ class MainTests(unittest.TestCase):
             project.write_bytes(source)
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 with contextlib.redirect_stdout(io.StringIO()):
-                    self.assertEqual(heal_clearance.main(), 0)
+                    self.assertEqual(heal_clearance.main([]), 0)
             return project.read_bytes()
 
     ZEROED = json.dumps(
@@ -107,7 +107,7 @@ class MainTests(unittest.TestCase):
 
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 with contextlib.redirect_stdout(io.StringIO()):
-                    self.assertEqual(heal_clearance.main(), 0)
+                    self.assertEqual(heal_clearance.main([]), 0)
 
             healed = json.loads(project.read_text(encoding="utf-8"))
             self.assertEqual(healed["board"]["design_settings"]["rules"],
@@ -115,6 +115,19 @@ class MainTests(unittest.TestCase):
             default = healed["net_settings"]["classes"][0]
             for field, expected in UNPLACED_DEFAULT_CLASS.items():
                 self.assertEqual(default[field], expected)
+
+
+    def test_dry_run_and_explicit_path_leave_project_unchanged(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project = Path(temp_dir) / "custom.kicad_pro"
+            original = self.ZEROED.encode("utf-8")
+            project.write_bytes(original)
+            with mock.patch.object(heal_clearance, "OUT", temp_dir):
+                with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                    self.assertEqual(
+                        heal_clearance.main(["--dry-run", str(project)]), 0)
+            self.assertEqual(project.read_bytes(), original)
+            self.assertIn("would heal", stdout.getvalue())
 
 
 if __name__ == "__main__":

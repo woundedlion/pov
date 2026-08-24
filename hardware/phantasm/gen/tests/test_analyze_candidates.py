@@ -173,7 +173,7 @@ class MainTests(unittest.TestCase):
 
             with mock.patch("builtins.print") as emit, \
                     mock.patch.object(analyze_candidates, "run_drc") as run_drc:
-                result = analyze_candidates.main(["analyze_candidates.py", str(board)])
+                result = analyze_candidates.main([str(board)])
 
         output = "\n".join(" ".join(map(str, call.args))
                            for call in emit.call_args_list)
