@@ -138,7 +138,7 @@ protected:
    * crossfade from the live parameters, Segue::Snap adopts immediately, and
    * Segue::Fade adopts immediately inside its envelope's dark frame.
    * @param change The requested preset move.
-   * @return Always true: the runtime never vetoes a preset.
+   * @return False if an automatic crossfade cannot be scheduled.
    */
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
@@ -152,19 +152,16 @@ protected:
           "cancelled crossfade's lerp outlives its own transition and "
           "completes the next one early");
       if (change.origin == PresetChangeOrigin::AUTOMATIC) {
+        constexpr auto SEGUE = Derived::PRESET_SEGUE;
+        const bool *paused = SEGUE.pausable ? &anims_paused : nullptr;
+        if (timeline.add_get(0,
+                             Animation::Lerp(preset_blend, preset_blend,
+                                             preset_blend, SEGUE.frames,
+                                             SEGUE.easing),
+                             Timeline::Pin::UNPINNED, paused) == nullptr)
+          return false;
         transition = {params, target, true};
         derived().transition_armed(target);
-        constexpr auto SEGUE = Derived::PRESET_SEGUE;
-        if constexpr (SEGUE.pausable)
-          timeline.add_pausable(0,
-                                Animation::Lerp(preset_blend, preset_blend,
-                                                preset_blend, SEGUE.frames,
-                                                SEGUE.easing),
-                                &anims_paused);
-        else
-          timeline.add(0,
-                       Animation::Lerp(preset_blend, preset_blend, preset_blend,
-                                       SEGUE.frames, SEGUE.easing));
         return true;
       }
     }
