@@ -688,19 +688,15 @@ template <typename Shape> struct AngularRepeat {
   /**
    * @brief Row bounds for the repeated shape.
    * @tparam H Canvas height in rows.
-   * @return The child's band for a Y-axis fold, or when the child culls; the
-   *         full canvas otherwise.
+   * @return The child's band for a Y-axis fold; the full canvas otherwise.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    Bounds child = shape.template get_vertical_bounds<H>();
-    if (child.y_min > child.y_max)
-      return child;
     // Only a Y-axis fold (axis.y near ±1) preserves latitude; any other axis
     // sweeps latitudes the child never occupies, so its band cannot bound the
     // copies and every row must be scanned.
     if (fabsf(axis.y) < 1.0f - TOLERANCE)
       return {0, H - 1};
-    return child;
+    return shape.template get_vertical_bounds<H>();
   }
 
   /**
