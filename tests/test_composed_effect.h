@@ -4,7 +4,7 @@
  *
  * Base-contract sweep over every Pullback::ComposedEffect specialization: the
  * slider set init() registers, the schema-versioned parameter snapshot, the
- * preset choreography configure_presets() wires, and the family-by-family
+ * preset choreography begin_choreography() wires, and the family-by-family
  * parameter interpolation a preset crossfade runs on. The base owns all four,
  * so each check is expressed against the effect's parameter families and driven
  * over the whole group rather than over one effect.

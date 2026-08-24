@@ -24,16 +24,19 @@
  *        snaps and schema-versioned parameter snapshots.
  * @details Curiously recurring: `Derived` supplies `PRESET_SEGUE` (a
  * `Segue::PresetPolicy` instance), `PARAMETER_SCHEMA_VERSION`,
- * `PRESET_DWELL_FRAMES`, `initial_params()` and `valid_params(params)`, plus
- * the transition hooks: `blend_params(progress)`
- * writes the interpolated parameters while a Segue::Lerp transition is in
- * flight, `set_preset_opacity(value)` receives a Segue::Fade policy's envelope,
- * and shadowing `adopt_params(target)` / `transition_armed(target)` keeps
- * state derived from the parameters consistent across snaps and crossfade
- * arming. `preset_params(index)` — static, or a member when the effect patches
- * preset entries at runtime — is optional; without it every preset takes
- * `initial_params()`, which only a single-preset effect may do. An effect
- * exposing `PRESET_IDS` with a single entry compiles the dwell countdown out. `register_fields()` additionally
+ * `PRESET_DWELL_FRAMES` and `valid_params(params)`, plus its presets: a
+ * `PRESETS` table (`std::array<PresetEntry<Params>, N>`) and/or `PRESET_IDS`
+ * naming them. The effect calls `begin_choreography()` once from init() and
+ * `step_choreography()` every frame; a single preset compiles the dwell
+ * countdown out, and a Segue::Fade policy's envelope owns the cadence instead
+ * of the countdown. Transition hooks: `blend_params(progress)` writes the
+ * interpolated parameters while a Segue::Lerp transition is in flight,
+ * `set_preset_opacity(value)` receives a Segue::Fade policy's envelope, and
+ * shadowing `adopt_params(target)` / `transition_armed(target)` keeps state
+ * derived from the parameters consistent across snaps and crossfade arming.
+ * `preset_params(index)` — static, or a member when the effect patches preset
+ * entries at runtime — overrides the `PRESETS` table lookup; `initial_params()`
+ * overrides the default of `PRESETS[0]`. `register_fields()` additionally
  * requires a `field_gate_open(gate)` predicate. A `Derived` keeping its hooks
  * non-public befriends this base.
  * @tparam Derived The effect class deriving from this base.
@@ -187,18 +190,29 @@ protected:
     preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
   }
 
-  /// Retires the preset dwell and starts the next automatic preset transition.
-  /// @details Pause suppresses preset selection, so no new transition begins
-  /// while paused. A Segue::Fade policy's cadence comes from its envelope loop
-  /// instead; the dwell countdown never runs.
-  HS_COLD_MEMBER void begin_automatic_transition() {
+  /**
+   * @brief Configures the preset controller and arms the choreography.
+   * @details Counts presets from `PRESET_IDS` or the `PRESETS` table. A
+   * Segue::Fade policy's envelope loop starts here; every other policy
+   * advances through step_choreography()'s dwell countdown. Call once from
+   * init().
+   */
+  HS_COLD_MEMBER void begin_choreography() {
+    configure_presets(preset_count_of());
     using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
     if constexpr (Segue::PresetFades<SegueT>)
+      begin_preset_choreography();
+  }
+
+  /// Retires the preset dwell and starts the next automatic preset transition.
+  /// @details Call every frame. Pause suppresses preset selection, so no new
+  /// transition begins while paused. A Segue::Fade policy's cadence comes from
+  /// its envelope loop instead; the dwell countdown never runs.
+  HS_COLD_MEMBER void step_choreography() {
+    using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
+    if constexpr (Segue::PresetFades<SegueT> || preset_count_of() == 1)
       return;
     else {
-      if constexpr (requires { Derived::PRESET_IDS; })
-        if constexpr (Derived::PRESET_IDS.size() == 1)
-          return;
       if (anims_paused || transition.active)
         return;
       if (preset_dwell_remaining > 0 && --preset_dwell_remaining > 0)
@@ -212,13 +226,52 @@ protected:
     }
   }
 
+  /** @brief Registers a slider for every named field in the family's table. */
+  template <typename T> HS_COLD_MEMBER void register_fields(T &family) {
+    for (const auto &field : T::FIELDS)
+      if (field.name != nullptr && Derived::field_gate_open(field.gate))
+        register_animated_param(field.name, &(family.*(field.member)),
+                                field.min, field.max);
+  }
+
+  /** Live parameters; the registered sliders write straight into these. */
+  Params params = initial_params_of();
+  Transition transition;
+  PresetBlend preset_blend{this};
+  Timeline timeline;
+
+private:
+  Derived &derived() { return static_cast<Derived &>(*this); }
+
+  /** @brief Preset count: `PRESET_IDS` when present, else the `PRESETS`
+      table, else one. */
+  static consteval size_t preset_count_of() {
+    if constexpr (requires { Derived::PRESET_IDS; })
+      return Derived::PRESET_IDS.size();
+    else if constexpr (requires { Derived::PRESETS; })
+      return Derived::PRESETS.size();
+    else
+      return 1;
+  }
+
+  /** @brief Startup parameters: `Derived::initial_params()` when declared,
+      else `PRESETS[0]`. */
+  static Params initial_params_of() {
+    if constexpr (requires { Derived::initial_params(); })
+      return Derived::initial_params();
+    else if constexpr (requires { Derived::PRESETS; })
+      return Derived::PRESETS[0].params;
+    else
+      return Params{};
+  }
+
   /**
    * @brief Starts a Segue::Fade policy's envelope loop: one opacity sprite per
    *        preset whose end advances the choreography and re-arms.
    * @details The policy's schedule() return is the delay until the advance, so
    * the policy owns the cadence. The sprite feeds
    * `Derived::set_preset_opacity` each frame; both the sprite and the advance
-   * timer freeze with anims_paused. The effect calls this once from init().
+   * timer freeze with anims_paused. begin_choreography() arms this once.
    */
   HS_COLD_MEMBER void begin_preset_choreography() {
     auto segue = Derived::PRESET_SEGUE;
@@ -245,44 +298,21 @@ protected:
                           &anims_paused);
   }
 
-  /** @brief Registers a slider for every named field in the family's table. */
-  template <typename T> HS_COLD_MEMBER void register_fields(T &family) {
-    for (const auto &field : T::FIELDS)
-      if (field.name != nullptr && Derived::field_gate_open(field.gate))
-        register_animated_param(field.name, &(family.*(field.member)),
-                                field.min, field.max);
-  }
-
-  /** Live parameters; the registered sliders write straight into these. */
-  Params params = Derived::initial_params();
-  Transition transition;
-  PresetBlend preset_blend{this};
-  Timeline timeline;
-
-private:
-  Derived &derived() { return static_cast<Derived &>(*this); }
-
-  /** @brief Whether `Derived` declares more than one preset. */
-  static consteval bool has_multiple_presets() {
-    if constexpr (requires { Derived::PRESET_IDS; })
-      return Derived::PRESET_IDS.size() > 1;
-    else
-      return false;
-  }
-
-  /** @brief Params for the preset at @p index: the static table, the instance
-      hook when the effect patches its entries at runtime, or the initial
-      params when a single-preset effect declares neither. */
+  /** @brief Params for the preset at @p index: the `preset_params` hook —
+      static, or a member when the effect patches entries at runtime — else the
+      `PRESETS` table, else the initial params of a single-preset effect. */
   Params preset_target(size_t index) {
     if constexpr (requires { Derived::preset_params(index); })
       return Derived::preset_params(index);
     else if constexpr (requires { derived().preset_params(index); })
       return derived().preset_params(index);
+    else if constexpr (requires { Derived::PRESETS; })
+      return Derived::PRESETS[index].params;
     else {
-      static_assert(!has_multiple_presets(),
-                    "an effect with several presets must define "
-                    "preset_params(index)");
-      return Derived::initial_params();
+      static_assert(preset_count_of() <= 1,
+                    "an effect with several presets must define a PRESETS "
+                    "table or preset_params(index)");
+      return initial_params_of();
     }
   }
 
