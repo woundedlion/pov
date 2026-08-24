@@ -110,6 +110,8 @@ constexpr uint8_t projection_boundary(ProjectionBoundary a) {
  *        edge searches.
  */
 inline constexpr float NO_EDGE_DISTANCE = 65536.0f;
+inline constexpr float NO_EDGE_DISTANCE_SQUARED =
+    NO_EDGE_DISTANCE * NO_EDGE_DISTANCE;
 
 /** @brief One projection kernel's plane coordinates plus its seam metadata. */
 struct ProjectionKernelResult {
@@ -982,8 +984,8 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
                        transform[1][0] * q.x + transform[1][1] * q.y +
                            transform[1][2] * q.z + transform[1][3]};
   uint8_t edge_class = 0;
-  float cut_edge_distance_squared = NO_EDGE_DISTANCE;
-  float face_edge_distance_squared = NO_EDGE_DISTANCE;
+  float cut_edge_distance_squared = NO_EDGE_DISTANCE_SQUARED;
+  float face_edge_distance_squared = NO_EDGE_DISTANCE_SQUARED;
   for (uint8_t candidate = 0; candidate < 3; ++candidate) {
     const AiroceanPoint &a = AIROCEAN_PLANAR_FACES[face][candidate];
     const AiroceanPoint &b = AIROCEAN_PLANAR_FACES[face][(candidate + 1) % 3];
@@ -1002,10 +1004,10 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
           std::min(cut_edge_distance_squared, cut_distance_squared);
     }
   }
-  const float edge =
-      calculate_edge_distance && cut_edge_distance_squared < NO_EDGE_DISTANCE
-          ? sqrtf(cut_edge_distance_squared)
-          : NO_EDGE_DISTANCE;
+  const float edge = calculate_edge_distance && cut_edge_distance_squared <
+                                                    NO_EDGE_DISTANCE_SQUARED
+                         ? sqrtf(cut_edge_distance_squared)
+                         : NO_EDGE_DISTANCE;
   bool cut_edge = airocean_edge_is_cut(face, edge_class);
   uint8_t edge_identity = airocean_edge_identity(face, edge_class);
   if (face == 14 && edge_class == 0) {
