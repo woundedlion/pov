@@ -14,7 +14,9 @@
 #include "tests/test_harness.h"
 
 /** Coverage bit per authored preset; the union every program must reach. */
-static constexpr uint32_t ALL_PRESETS = 0xffffffu;
+static_assert(PullbackManifest::PRESET_COUNT < 32);
+static constexpr uint32_t ALL_PRESETS =
+    (uint32_t{1} << PullbackManifest::PRESET_COUNT) - 1;
 int main() {
   static_assert(!PullbackManifest::PROGRAMS.empty());
   static_assert(!PullbackManifest::ORACLE_METRICS.empty());
