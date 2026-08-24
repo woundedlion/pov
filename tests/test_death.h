@@ -358,6 +358,15 @@ inline void case_normalize_zero() {
     std::printf("x");
 }
 
+/** @brief Death case: measuring an angle from a degenerate vector must trap. */
+inline void case_angle_between_zero() {
+  Vector zero{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
+  Vector x{opaque(1.0f), opaque(0.0f), opaque(0.0f)};
+  float angle = angle_between(zero, x);
+  if (angle == 42.0f)
+    std::printf("x");
+}
+
 /**
  * @brief Death case: normalizing a NaN vector must trap.
  * @details Math-core surface — a NaN coordinate poisons the length to NaN, and
@@ -3329,6 +3338,9 @@ inline const Case *all_cases(int &n) {
        "(depth <= MAX_GENERATE_DEPTH) generate: recursion too deep"},
       {"normalize_zero", case_normalize_zero, "3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) "},
+      {"angle_between_zero", case_angle_between_zero, "3dmath.h",
+       "(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ) "
+       "angle_between: degenerate vector"},
       {"normalize_nan", case_normalize_nan, "3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) "},
       {"solids_index_oob", case_solids_index_oob, "solids.h",
@@ -4263,7 +4275,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"reaction_graph.h", 2},
     {"static_circular_buffer.h", 4},
     {"transformer.h", 4},
-    {"3dmath.h", 5},
+    {"3dmath.h", 4},
     {"geometry.h", 16},
     {"lenses.h", 2},
     {"spherical_field.h", 2},
