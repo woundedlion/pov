@@ -1131,10 +1131,70 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
   HS_EXPECT_GT(culled, 2000);
 }
 
+/** @brief Pixel counts from a clipped render-band/reference comparison. */
+struct RenderBandDiff {
+  int lit = 0;            /**< Lit reference pixels in the render band. */
+  int margin_lit = 0;     /**< Lit reference pixels outside the display band. */
+  int row_margin_lit = 0; /**< Lit reference pixels above or below display. */
+  int diff = 0;           /**< Pixels differing from the reference. */
+  int margin_diff = 0;    /**< Differing pixels outside the display band. */
+  int first_x = -1;       /**< Column of the first difference, or -1. */
+  int first_y = -1;       /**< Row of the first difference, or -1. */
+};
+
+/** @brief Initializes every pixel in the pending frame to black. */
+template <int W, int H> inline void initialize_parity_frame(Canvas &canvas) {
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      canvas(x, y) = Pixel{};
+}
+
+/** @brief Compares a frame with its full-canvas reference over the render band. */
+template <int W>
+inline RenderBandDiff render_band_diff(const hs_test::StubEffect &fx,
+                                       const std::vector<Pixel> &reference) {
+  RenderBandDiff out;
+  const ClipRegion &clip = fx.clip();
+  for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
+    for (int x = 0; x < W; ++x) {
+      if (!clip.contains_x(x))
+        continue;
+      const Pixel &actual = fx.get_pixel(x, y);
+      const Pixel &expected = reference[static_cast<size_t>(y) * W + x];
+      const bool in_display_row = y >= clip.y_start && y < clip.y_end;
+      const bool in_display =
+          in_display_row && x >= clip.x_start && x < clip.x_end;
+      const bool lit = (expected.r | expected.g | expected.b) != 0;
+      out.lit += lit;
+      out.margin_lit += !in_display && lit;
+      out.row_margin_lit += !in_display_row && lit;
+      if (actual == expected)
+        continue;
+      if (out.first_x < 0) {
+        out.first_x = x;
+        out.first_y = y;
+      }
+      ++out.diff;
+      out.margin_diff += !in_display;
+    }
+  }
+  return out;
+}
+
+/** @brief Reports one render-band parity result with its first mismatch. */
+inline void expect_render_band_parity(const char *label,
+                                      const RenderBandDiff &diff) {
+  if (diff.diff != 0)
+    std::printf("  [%s] diff=%d margin_diff=%d first=(%d,%d)\n", label,
+                diff.diff, diff.margin_diff, diff.first_x, diff.first_y);
+  HS_CONTEXT(label, diff.first_x, diff.first_y);
+  HS_EXPECT_EQ(diff.diff, 0);
+}
+
 /**
  * @brief End-to-end conservativeness of the wireframe edge gate: a
  *        quadrant/wedge-clipped Plot::Mesh::draw reproduces the full render's
- *        strokes inside the display band.
+ *        strokes inside the render band, including its margin ring.
  * @details Covers the whole-edge reject and the per-piece bits that replace
  *          rasterize's own cull. Random orientations put edges across both
  *          poles and the seam; an over-cull drops a whole stroke, which shows
@@ -1180,7 +1240,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
   hs::random().seed(0x5EED);
   const int clips[4][4] = {
       {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}, {0, H, 0, 8}};
-  int lit_total = 0, coverage_total = 0;
+  int lit_total = 0, margin_lit_total = 0, coverage_total = 0;
 
   MeshState posed;
   posed.vertices.bind(ga, mesh.vertices.size());
@@ -1203,6 +1263,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
       Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
           Filter::Screen::AntiAlias<W, H>()};
       Canvas c(fx);
+      initialize_parity_frame<W, H>(c);
       Plot::Mesh::draw<W, H>(filters, c, posed, edges, shade);
     };
 
@@ -1222,15 +1283,24 @@ inline void test_mesh_edge_gate_pixel_parity() {
       render(fx);
       fx.advance_display();
       int worst_run = 0;
-      for (int y = cl[0]; y < cl[1]; ++y) {
+      const ClipRegion &clip = fx.clip();
+      for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
         int run = 0;
-        for (int x = cl[2]; x < cl[3]; ++x) {
+        for (int x = 0; x < W; ++x) {
+          if (!clip.contains_x(x)) {
+            run = 0;
+            continue;
+          }
           Pixel p = fx.get_pixel(x, y);
           const Pixel &r = ref[static_cast<size_t>(y) * W + x];
           const bool ref_lit = (r.r | r.g | r.b) != 0;
           const bool got_lit = (p.r | p.g | p.b) != 0;
-          if (ref_lit)
+          if (ref_lit) {
             ++lit_total;
+            const bool in_display = y >= clip.y_start && y < clip.y_end &&
+                                    x >= clip.x_start && x < clip.x_end;
+            margin_lit_total += !in_display;
+          }
           if (ref_lit != got_lit)
             ++coverage_total;
           run = (ref_lit && !got_lit) ? run + 1 : 0;
@@ -1243,6 +1313,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
     }
   }
   HS_EXPECT_GT(lit_total, 200);
+  HS_EXPECT_GT(margin_lit_total, 20);
   // Measured 3.0% of the reference's lit pixels; dropping one edge in seven
   // costs an order of magnitude more.
   HS_EXPECT_LE(coverage_total * 8, lit_total);
@@ -1331,7 +1402,7 @@ inline void test_mesh_dissolve_masks_partition_edges() {
 /**
  * @brief End-to-end conservativeness of the rasterizer's column cull: a
  *        quadrant/wedge-clipped render is pixel-identical to the full render
- *        inside the display band.
+ *        inside the render band, including its margin ring.
  * @details Random trail-like geodesic polylines (the MindSplatter stack) and
  *          planar disk polylines (the Ring/Petals stack) through the AntiAlias
  *          pipeline. Clips cover both device quadrants, a narrow interior
@@ -1348,7 +1419,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
   hs::random().seed(0xC01C);
   const int clips[4][4] = {
       {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}, {0, H, 0, 8}};
-  int lit_total = 0;
+  int lit_total = 0, margin_lit_total = 0, row_margin_lit_total = 0;
 
   for (int trial = 0; trial < 50; ++trial) {
     const bool planar = (trial & 1);
@@ -1393,6 +1464,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
         pts.push_back(f);
       }
       Canvas c(fx);
+      initialize_parity_frame<W, H>(c);
       Plot::rasterize<W, H>(filters, c, pts, shade,
                             {.planar_basis = planar ? &chart : nullptr});
     };
@@ -1412,20 +1484,16 @@ inline void test_rasterize_column_cull_pixel_parity() {
       fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
       render(fx);
       fx.advance_display();
-      int diff = 0;
-      for (int y = cl[0]; y < cl[1]; ++y)
-        for (int x = cl[2]; x < cl[3]; ++x) {
-          Pixel p = fx.get_pixel(x, y);
-          const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-          if (r.r | r.g | r.b)
-            ++lit_total;
-          if (p.r != r.r || p.g != r.g || p.b != r.b)
-            ++diff;
-        }
-      HS_EXPECT_EQ(diff, 0);
+      const RenderBandDiff diff = render_band_diff<W>(fx, ref);
+      lit_total += diff.lit;
+      margin_lit_total += diff.margin_lit;
+      row_margin_lit_total += diff.row_margin_lit;
+      expect_render_band_parity("raster column cull", diff);
     }
   }
   HS_EXPECT_GT(lit_total, 200); // the sweep must actually exercise the bands
+  HS_EXPECT_GT(margin_lit_total, 20);
+  HS_EXPECT_GT(row_margin_lit_total, 0);
 }
 
 /**
@@ -4031,6 +4099,7 @@ inline std::vector<Pixel> particle_reference_frame(StubSystem &sys, Shade shade,
   Pipeline<W, H> filters;
   {
     Canvas c(fx);
+    initialize_parity_frame<W, H>(c);
     Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
   }
   fx.advance_display();
@@ -4061,7 +4130,7 @@ inline constexpr int PARTICLE_PARITY_BANDS[4][4] = {
  *          deferred shader can verify its `orig` argument is the pre-shader
  *          position, not the shaded one. Reference is a single combined vertex
  *          shader on a full canvas; the clipped deferred render must match it
- *          exactly inside the display band.
+ *          exactly inside the render band, including its margin ring.
  */
 inline void test_particle_system_deferred_shader_parity_and_skip() {
   constexpr int W = 96, H = 48;
@@ -4126,13 +4195,15 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
     Pipeline<W, H> filters;
     {
       Canvas c(fx);
+      initialize_parity_frame<W, H>(c);
       Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
                                        deferred_pass);
     }
     fx.advance_display();
-    const BandDiff d = band_diff<W>(fx, ref, 0, H, band_x0, band_x1);
+    const RenderBandDiff d = render_band_diff<W>(fx, ref);
     HS_EXPECT_GT(d.lit, 0);
-    HS_EXPECT_EQ(d.diff, 0);
+    HS_EXPECT_GT(d.margin_lit, 0);
+    expect_render_band_parity("particle deferred shader", d);
     HS_EXPECT_GT(deferred_calls[0], 0); // crossing trail: deferred pass ran
     HS_EXPECT_EQ(deferred_calls[1], 0); // fully-culled trail: skipped whole
     HS_EXPECT_EQ(orig_mismatches, 0);
@@ -4145,6 +4216,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
     Pipeline<W, H> filters;
     {
       Canvas c(fx);
+      initialize_parity_frame<W, H>(c);
       Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
                                        deferred_pass);
     }
@@ -4159,7 +4231,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
 /**
  * @brief Randomized whole-trail gate conservativeness: a band-clipped
  *        ParticleSystem render is pixel-identical to the full render inside
- *        the display band.
+ *        the render band, including its margin ring.
  * @details Random-walk trails, salted with pole-crossing and near-antipodal
  *          steps, drive the hoisted gate's coarse trail reject and per-edge
  *          bits through a hoistable pipeline; a cull false-negative drops
@@ -4207,6 +4279,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
   const std::vector<Pixel> ref =
       particle_reference_frame<W, H>(sys, shade, combined);
 
+  int margin_lit = 0;
   for (const auto &bd : PARTICLE_PARITY_BANDS) {
     // The non-deferred path must use the same precomputed gate bits.
     {
@@ -4215,10 +4288,13 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
       Pipeline<W, H> filters;
       {
         Canvas c(fx);
+        initialize_parity_frame<W, H>(c);
         Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
       }
       fx.advance_display();
-      HS_EXPECT_EQ((band_diff<W>(fx, ref, bd[0], bd[1], bd[2], bd[3]).diff), 0);
+      const RenderBandDiff diff = render_band_diff<W>(fx, ref);
+      margin_lit += diff.margin_lit;
+      expect_render_band_parity("particle combined shader", diff);
     }
 
     hs_test::StubEffect fx(W, H);
@@ -4226,14 +4302,17 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
     Pipeline<W, H> filters;
     {
       Canvas c(fx);
+      initialize_parity_frame<W, H>(c);
       Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
                                        deferred_pass);
     }
     fx.advance_display();
-    const BandDiff d = band_diff<W>(fx, ref, bd[0], bd[1], bd[2], bd[3]);
+    const RenderBandDiff d = render_band_diff<W>(fx, ref);
+    margin_lit += d.margin_lit;
     HS_EXPECT_GT(d.lit, 20);
-    HS_EXPECT_EQ(d.diff, 0);
+    expect_render_band_parity("particle split shader", d);
   }
+  HS_EXPECT_GT(margin_lit, 20);
 }
 
 /**
@@ -4286,20 +4365,24 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
   const std::vector<Pixel> ref =
       particle_reference_frame<W, H>(sys, shade, combined);
 
+  int margin_lit = 0;
   for (const auto &bd : PARTICLE_PARITY_BANDS) {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
     Pipeline<W, H> filters;
     {
       Canvas c(fx);
+      initialize_parity_frame<W, H>(c);
       Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
                                        deferred_pass);
     }
     fx.advance_display();
-    const BandDiff d = band_diff<W>(fx, ref, bd[0], bd[1], bd[2], bd[3]);
+    const RenderBandDiff d = render_band_diff<W>(fx, ref);
+    margin_lit += d.margin_lit;
     HS_EXPECT_GT(d.lit, 10);
-    HS_EXPECT_EQ(d.diff, 0);
+    expect_render_band_parity("particle subpixel trail", d);
   }
+  HS_EXPECT_GE(margin_lit, 10);
 }
 
 /**
@@ -5293,6 +5376,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
           Plot::planar_chart_basis(get_antipode(basis, state.radius).first.v);
       Filter::Screen::DirectAntiAliasSink<W, H> sink;
       Canvas canvas(fx);
+      initialize_parity_frame<W, H>(canvas);
       sink.prepare(canvas);
       auto shader = [](const Vector &, Fragment &f) {
         f.color = Color4(Pixel(65535, 65535, 65535), 0.32f);
@@ -5332,6 +5416,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
 
   uint32_t balanced_full_samples = 0;
   uint32_t balanced_position_samples = 0;
+  size_t margin_reference_lit = 0;
   for (const StarState &state : states) {
     const Frame standard =
         render.template operator()<Plot::RasterSamplingPolicy::DEFAULT>(
@@ -5392,9 +5477,20 @@ inline void test_rasterize_balanced_star_visual_budget() {
           render.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>(
               state, &clip);
       HS_EXPECT_EQ(tile.backstops, uint32_t{0});
-      for (int y = clip.y_start; y < clip.y_end; ++y)
-        for (int x = clip.x_start; x < clip.x_end; ++x) {
+      ClipRegion render_clip = clip;
+      render_clip.w = W;
+      render_clip.h = H;
+      for (int y = render_clip.render_y_start(); y < render_clip.render_y_end();
+           ++y)
+        for (int x = 0; x < W; ++x) {
+          if (!render_clip.contains_x(x))
+            continue;
           const size_t index = static_cast<size_t>(y) * W + x;
+          const bool in_display = y >= clip.y_start && y < clip.y_end &&
+                                  x >= clip.x_start && x < clip.x_end;
+          margin_reference_lit +=
+              !in_display && covered(balanced.pixels[index]);
+          HS_CONTEXT("balanced star render band", x, y);
           HS_EXPECT_NEAR(tile.pixels[index].r, balanced.pixels[index].r,
                          CLIP_CHANNEL_TOL);
           HS_EXPECT_NEAR(tile.pixels[index].g, balanced.pixels[index].g,
@@ -5404,6 +5500,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
         }
     }
   }
+  HS_EXPECT_GT(margin_reference_lit, size_t{20});
   HS_EXPECT_GT(balanced_position_samples * 4,
                balanced_full_samples + balanced_position_samples);
 }
@@ -5484,8 +5581,7 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
 }
 
 /**
- * @brief Single-pass direct-AA quadrant renders match the corresponding full
- *        render pixels.
+ * @brief Single-pass direct-AA quadrant render bands match the full render.
  */
 inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
   constexpr int W = 96, H = 48;
@@ -5516,6 +5612,7 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
     }
 
     Canvas canvas(fx);
+    initialize_parity_frame<W, H>(canvas);
     sink.prepare(canvas);
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
@@ -5548,27 +5645,18 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
       {H / 2, H, 0, W / 2},
       {H / 2, H, W / 2, W},
   };
+  int margin_lit = 0;
   for (const auto &quadrant : quadrants) {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(quadrant[0], quadrant[1], quadrant[2], quadrant[3]);
     render(fx);
     fx.advance_display();
-    int lit = 0;
-    int differences = 0;
-    for (int y = quadrant[0]; y < quadrant[1]; ++y) {
-      for (int x = quadrant[2]; x < quadrant[3]; ++x) {
-        const Pixel actual = fx.get_pixel(x, y);
-        const Pixel &expected = reference[static_cast<size_t>(y) * W + x];
-        if (expected.r | expected.g | expected.b)
-          ++lit;
-        if (actual.r != expected.r || actual.g != expected.g ||
-            actual.b != expected.b)
-          ++differences;
-      }
-    }
-    HS_EXPECT_GT(lit, 10);
-    HS_EXPECT_EQ(differences, 0);
+    const RenderBandDiff diff = render_band_diff<W>(fx, reference);
+    margin_lit += diff.margin_lit;
+    HS_EXPECT_GT(diff.lit, 10);
+    expect_render_band_parity("single-pass direct AA", diff);
   }
+  HS_EXPECT_GT(margin_lit, 10);
 }
 
 // ============================================================================
