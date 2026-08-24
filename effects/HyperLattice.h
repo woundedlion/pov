@@ -123,6 +123,40 @@ inline EdgeMetric edge_metric_4d(const Vec4 &point, int plane_axis) {
   return {sum - largest, free_axis};
 }
 
+struct TransitionalMetrics {
+  EdgeMetric cubic;
+  EdgeMetric hyper;
+};
+
+inline TransitionalMetrics transitional_metrics(const Vec4 &point,
+                                                int plane_axis) {
+  float best_fixed = 1.0f;
+  float farthest_3d = -1.0f;
+  float sum_4d = 0.0f;
+  float farthest_4d = -1.0f;
+  uint8_t free_axis_3d = 0;
+  uint8_t free_axis_4d = 0;
+  for (int axis = 0; axis < DIMENSIONS; ++axis) {
+    if (axis == plane_axis)
+      continue;
+    const float distance = periodic_distance(point[axis]);
+    const float distance_sq = distance * distance;
+    sum_4d += distance_sq;
+    if (distance_sq > farthest_4d) {
+      farthest_4d = distance_sq;
+      free_axis_4d = static_cast<uint8_t>(axis);
+    }
+    if (axis < 3) {
+      best_fixed = std::min(best_fixed, distance_sq);
+      if (distance_sq > farthest_3d) {
+        farthest_3d = distance_sq;
+        free_axis_3d = static_cast<uint8_t>(axis);
+      }
+    }
+  }
+  return {{best_fixed, free_axis_3d}, {sum_4d - farthest_4d, free_axis_4d}};
+}
+
 struct Params {
   float dimension = 0.0f;
   float sphere_radius = 0.4f;
@@ -280,19 +314,18 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
     const EdgeMetric metric_3d = edge_metric_3d(point, plane_axis);
     metric_sq = metric_3d.distance_sq;
     free_axis = metric_3d.free_axis;
+  } else if (plane_axis < 3 && prepared.params.dimension < 1.0f) {
+    const TransitionalMetrics metrics = transitional_metrics(point, plane_axis);
+    metric_sq = hs::lerp(metrics.cubic.distance_sq, metrics.hyper.distance_sq,
+                         prepared.params.dimension);
+    free_axis = prepared.params.dimension < 0.5f ? metrics.cubic.free_axis
+                                                 : metrics.hyper.free_axis;
   } else {
     const EdgeMetric metric_4d = edge_metric_4d(point, plane_axis);
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
-    if (plane_axis < 3 && prepared.params.dimension < 1.0f) {
-      const EdgeMetric metric_3d = edge_metric_3d(point, plane_axis);
-      metric_sq = hs::lerp(metric_3d.distance_sq, metric_4d.distance_sq,
-                           prepared.params.dimension);
-      if (prepared.params.dimension < 0.5f)
-        free_axis = metric_3d.free_axis;
-    } else if (plane_axis == 3) {
+    if (plane_axis == 3)
       dimensional_coverage = prepared.params.dimension;
-    }
   }
 
   const float half_width = projected_half_width(
