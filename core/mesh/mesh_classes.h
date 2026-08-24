@@ -386,14 +386,22 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   out.lut_face_share = F > 0 ? static_cast<float>(out.lut_faces) / F : 0.0f;
   out.aux_bytes = persistent.get_offset() - persistent_start - out.lut_bytes;
 
-  hs::log("mesh class bake: F=%d classes=%d shared=%.1f%% worst=%.3fpx "
-          "concave=%d luts=%d/%d lut_faces=%.1f%% (dropped %d cls/%d faces, "
-          "%d low-quality, %dB left) pred_hit=%.1f%% aux=%dB",
-          (int)F, (int)out.classes.size(),
-          F > 0 ? 100.0f * out.shared_faces / F : 0.0f, worst_res_px,
-          (int)out.concave_faces, (int)out.luts_built, n_elig,
-          100.0f * out.lut_face_share, dropped_classes, dropped_faces,
-          lowq_classes, (int)budget, 100.0f * out.predicted_hit_share,
+  // Device logging supports integer conversions only.
+  const int shared_permille =
+      F > 0 ? static_cast<int>(1000.0f * out.shared_faces / F) : 0;
+  const int worst_res_milli_px = static_cast<int>(1000.0f * worst_res_px);
+  const int lut_face_permille = static_cast<int>(1000.0f * out.lut_face_share);
+  const int pred_hit_permille =
+      static_cast<int>(1000.0f * out.predicted_hit_share);
+  hs::log("mesh class bake: F=%d classes=%d shared=%d.%d%% worst=%d.%03dpx "
+          "concave=%d luts=%d/%d lut_faces=%d.%d%% (dropped %d cls/%d faces, "
+          "%d low-quality, %dB left) pred_hit=%d.%d%% aux=%dB",
+          (int)F, (int)out.classes.size(), shared_permille / 10,
+          shared_permille % 10, worst_res_milli_px / 1000,
+          worst_res_milli_px % 1000, (int)out.concave_faces,
+          (int)out.luts_built, n_elig, lut_face_permille / 10,
+          lut_face_permille % 10, dropped_classes, dropped_faces, lowq_classes,
+          (int)budget, pred_hit_permille / 10, pred_hit_permille % 10,
           (int)out.aux_bytes);
 }
 
