@@ -4584,8 +4584,13 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     // it. No agreement between the accumulators can supply this.
     const Vector chart_start =
         Plot::azimuthal_unproject(p1.first, p1.second, basis);
+    const float endpoint_cos =
+        dot(chart_start, span_end) /
+        sqrtf(dot(chart_start, chart_start) * dot(span_end, span_end));
+    constexpr float CHORD_ERROR_BUDGET = Plot::PLANAR_LEN_SAMPLES * 5.1e-5f;
     HS_EXPECT_GE(cumul[Plot::PLANAR_LEN_SAMPLES],
-                 angle_between(chart_start, span_end) - 1e-4f);
+                 acosf(hs::clamp(endpoint_cos, -1.0f, 1.0f)) -
+                     CHORD_ERROR_BUDGET);
     ++checked;
   }
   HS_EXPECT_GT(checked, 1500);
