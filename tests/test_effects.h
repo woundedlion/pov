@@ -3665,7 +3665,47 @@ struct RaymarchWhiteBox {
   static constexpr float TWIST = RM::TWIST_K;
   static constexpr float VIS = RM::VIS_K;
   static constexpr float BOUNDS = RM::UNIT_BOUNDS;
+
+  template <int W, int H>
+  static int volume_count(const Raymarch<W, H> &effect) {
+    return effect.active_count;
+  }
+
+  template <int W, int H>
+  static Quaternion volume_spin(const Raymarch<W, H> &effect, int index) {
+    return effect.volume_spins[index].orientation.get();
+  }
+
+  template <int W, int H>
+  static int animation_count(const Raymarch<W, H> &effect) {
+    return effect.timeline.event_count();
+  }
 };
+
+/**
+ * @brief Verifies every Raymarch volume receives its own live RandomWalk.
+ */
+inline void test_raymarch_volume_random_walks_are_independent() {
+  reset_effect_globals();
+  Raymarch<SMALL_W, SMALL_H> effect;
+  effect.init();
+  const int count = RaymarchWhiteBox::volume_count(effect);
+  HS_EXPECT_EQ(count, 26);
+  HS_EXPECT_EQ(RaymarchWhiteBox::animation_count(effect), count + 3);
+
+  effect.draw_frame();
+  effect.advance_display();
+  const Quaternion first = RaymarchWhiteBox::volume_spin(effect, 0);
+  int distinct = 0;
+  for (int i = 1; i < count; ++i) {
+    const Quaternion q = RaymarchWhiteBox::volume_spin(effect, i);
+    const float dr = q.r - first.r;
+    const Vector dv = q.v - first.v;
+    if (dr * dr + dot(dv, dv) > 1e-8f)
+      ++distinct;
+  }
+  HS_EXPECT_EQ(distinct, count - 1);
+}
 
 /**
  * @brief Pins the constexpr Newton square root behind UNIT_BOUNDS against libm.
@@ -6543,6 +6583,7 @@ inline int run_effects_tests() {
   test_fishbowl_scratch_estimate_covers_peak();
   test_hankinsolids_arena_budget_covers_every_solid();
   test_dreamballs_max_edge_solid_render();
+  test_raymarch_volume_random_walks_are_independent();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The QUICK tier
   // skips the block below; CI is authoritative for the full-resolution paths
