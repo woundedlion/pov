@@ -369,8 +369,28 @@ struct MindSplatterWhiteBox {
   }
   /** @brief Drives one choreography-origin preset advance. */
   template <int W, int H> static void advance_preset(MindSplatter<W, H> &ms) {
-    HS_CHECK(ms.advancePreset(),
+    HS_CHECK(try_advance_preset(ms),
              "MindSplatter automatic preset advance failed");
+  }
+  template <int W, int H>
+  static bool try_advance_preset(MindSplatter<W, H> &ms) {
+    return ms.advancePreset();
+  }
+  template <int W, int H>
+  static bool transition_active(const MindSplatter<W, H> &ms) {
+    return ms.transition.active;
+  }
+  template <int W, int H>
+  static void tick_choreography(MindSplatter<W, H> &ms) {
+    ms.begin_automatic_transition();
+  }
+  template <int W, int H>
+  static void saturate_timeline(MindSplatter<W, H> &ms, float &sink) {
+    while (Timeline::remaining() > 0)
+      ms.timeline.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
+  }
+  template <int W, int H> static void clear_timeline(MindSplatter<W, H> &ms) {
+    ms.timeline.clear();
   }
   template <int W, int H>
   static const typename MindSplatter<W, H>::Params &
