@@ -70,6 +70,7 @@ CONSUMERS = {
     ROOT / ".github/workflows/ci.yml": (
         "build_pins.py --github-output",
         "build_pins.py platformio",
+        "python tools/build_pins.py --check",
     ),
     ROOT / ".github/workflows/docs.yml": ("build_pins.py doxygen-awesome",),
     ROOT / "justfile": (
@@ -79,6 +80,10 @@ CONSUMERS = {
         "build_pins.py --check-tool platformio",
         "build_pins.py --check-tool ruff",
         "build_pins.py --check-tool shellcheck",
+        "{{py}} tools/build_pins.py --check",
+    ),
+    ROOT / ".githooks/pre-commit": (
+        '"$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check',
     ),
 }
 
