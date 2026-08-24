@@ -253,13 +253,11 @@ test('preset dwell names every preset with a positive duration', () => {
   assert.deepEqual(diagnose({ calm: 600, fast: 600, ghost: 600 }), ['INVALID_DWELL']);
 });
 
-test('unknown semantic fields are rejected', () => {
+test('unknown semantic fields are reported', () => {
   const document = example();
   document.descriptor.chain[0].surprise = true;
-  assert.throws(
-    () => validate(document),
-    (error) => error.code === 'UNKNOWN_FIELD' && error.path.endsWith('.surprise'),
-  );
+  assert.deepEqual(validate(document).map(({ code, path }) => [code, path]),
+    [['UNKNOWN_FIELD', '$.descriptor.chain[0].surprise']]);
 });
 
 // A "__proto__" key has to land in the object: run through the prototype setter
@@ -293,6 +291,28 @@ test('an unknown operator and its orphaned parameters report together', () => {
   assert.ok(codes.has('UNKNOWN_OPERATOR'));
   assert.ok(codes.has('UNBOUND_PARAMETER'));
   assert.equal(compile(document).status, 'INVALID');
+});
+
+test('malformed chain entries do not suppress later diagnostics', () => {
+  const document = example();
+  document.descriptor.chain[0] = null;
+  document.descriptor.chain[3].extra = true;
+  document.descriptor.serialization.schema_version = 0;
+  document.preset_bank.edges[0].easing = 'NOPE';
+  const expected = [
+    ['schema', 'EXPECTED_OBJECT', '$.descriptor.chain[0]'],
+    ['schema', 'UNKNOWN_FIELD', '$.descriptor.chain[3].extra'],
+    ['semantic', 'INVALID_SERIALIZATION_VERSION',
+      '$.descriptor.serialization.schema_version'],
+    ['semantic', 'UNKNOWN_EASING', '$.preset_bank.edges[0].easing'],
+  ];
+  const diagnostics = validate(document);
+  assert.deepEqual(diagnostics.map(({ phase, code, path }) => [phase, code, path]),
+    expected);
+  const compiled = compile(document);
+  assert.equal(compiled.status, 'INVALID');
+  assert.deepEqual(compiled.diagnostics.map(({ phase, code, path }) =>
+    [phase, code, path]), expected);
 });
 
 test('chain carrier legality distinguishes order from mismatch', () => {
