@@ -93,7 +93,7 @@ public:
         // Renormalize: rotate() drifts |pos| off the unit sphere over a long run,
         // and the unit-site invariants (nearest-by-Euclidean == nearest-by-max-dot,
         // and the border acosf(dot) staying in range) require unit vectors.
-        Quaternion q = Quaternion(half_cos, half_sin * site.axis).normalized();
+        const Quaternion q(half_cos, half_sin * site.axis);
         site.pos = rotate(site.pos, q).normalized();
       }
     }
