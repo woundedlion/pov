@@ -61,12 +61,13 @@ def heal_project(p):
 
     classes = d.setdefault("net_settings", {}).setdefault("classes", [])
     default = next((item for item in classes if item.get("name") == "Default"), None)
-    if default is not None:
-        for field, minimum in class_minimums.items():
-            current = default.get(field, 0) or 0
-            if current < minimum:
-                default[field] = minimum
-                changes[f"Default.{field}"] = (current, minimum)
+    if default is None:
+        raise ValueError("missing Default net class")
+    for field, minimum in class_minimums.items():
+        current = default.get(field, 0) or 0
+        if current < minimum:
+            default[field] = minimum
+            changes[f"Default.{field}"] = (current, minimum)
 
     if changes:
         with open(p, "w", encoding="utf-8", newline=newline) as project_file:
@@ -92,7 +93,7 @@ def main():
     for p in pros:
         try:
             healed += heal_project(p)
-        except (OSError, json.JSONDecodeError) as error:
+        except (OSError, ValueError) as error:
             print(f"error: cannot process {os.path.relpath(p, OUT)}: {error}",
                   file=sys.stderr)
             return 1
