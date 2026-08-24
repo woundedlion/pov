@@ -304,6 +304,18 @@ struct WakeActions {
   int32_t render_column = -1;
 };
 
+struct CommitFailureExit {};
+
+struct NoreturnCommitFailure {
+  SyncPulseGate *sync_pulse;
+  bool *settled_before_failure;
+
+  [[noreturn]] void operator()() const {
+    *settled_before_failure = sync_pulse->low_deferred();
+    throw CommitFailureExit{};
+  }
+};
+
 /**
  * @brief Teardown handshake: request, then ISR service acks and drops the live
  * pointer.
@@ -626,6 +638,63 @@ inline void test_composed_wake_sequence() {
   HS_EXPECT_EQ(handoff.live(), &effect);
   HS_EXPECT_FALSE(sync_pulse.low_deferred());
   HS_EXPECT_FALSE(submit_gate.resubmit_pending());
+}
+
+/** @brief A missed commit settles a same-wake pulse before its policy runs. */
+inline void test_commit_failure_settles_sync_pulse() {
+  {
+    EffectHandoff<WakeEffect> handoff;
+    SubmitGate submit_gate;
+    SyncPulseGate sync_pulse;
+    bool sync_high = false;
+    bool settled_before_failure = false;
+
+    pov::run_wake_sequence(
+        sync_pulse, submit_gate, handoff,
+        [] { return WakeActions{.pulse = true, .commit = true}; },
+        [] { return 4u; }, [&](bool high) { sync_high = high; },
+        [&] { settled_before_failure = sync_pulse.low_deferred(); },
+        [](WakeEffect *, int32_t) { HS_EXPECT_TRUE(false); },
+        [](SubmitAction, WakeEffect *, int32_t) {
+          HS_EXPECT_TRUE(false);
+          return false;
+        });
+
+    HS_EXPECT_TRUE(settled_before_failure);
+    HS_EXPECT_TRUE(sync_pulse.low_deferred());
+    HS_EXPECT_TRUE(sync_high);
+    if (sync_pulse.take_deferred_low())
+      sync_high = false;
+    HS_EXPECT_FALSE(sync_high);
+    HS_EXPECT_FALSE(sync_pulse.low_deferred());
+  }
+
+  {
+    EffectHandoff<WakeEffect> handoff;
+    SubmitGate submit_gate;
+    SyncPulseGate sync_pulse;
+    bool settled_before_failure = false;
+    bool escaped = false;
+
+    try {
+      pov::run_wake_sequence(
+          sync_pulse, submit_gate, handoff,
+          [] { return WakeActions{.pulse = true, .commit = true}; },
+          [] { return 4u; }, [](bool) {},
+          NoreturnCommitFailure{&sync_pulse, &settled_before_failure},
+          [](WakeEffect *, int32_t) { HS_EXPECT_TRUE(false); },
+          [](SubmitAction, WakeEffect *, int32_t) {
+            HS_EXPECT_TRUE(false);
+            return false;
+          });
+    } catch (const CommitFailureExit &) {
+      escaped = true;
+    }
+
+    HS_EXPECT_TRUE(escaped);
+    HS_EXPECT_TRUE(settled_before_failure);
+    HS_EXPECT_TRUE(sync_pulse.low_deferred());
+  }
 }
 
 class PhaseEffect : public Effect {
@@ -1125,6 +1194,7 @@ inline int run_pov_segmented_tests() {
   test_window_alternation();
   test_apply_wake_sequence();
   test_composed_wake_sequence();
+  test_commit_failure_settles_sync_pulse();
   test_clip_phase_after_buffer_release();
   test_handoff_release_acquire_across_threads();
 
