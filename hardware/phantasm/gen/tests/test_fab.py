@@ -73,7 +73,7 @@ class ViaGeometryTests(unittest.TestCase):
 
 
 class ZoneGeometryTests(unittest.TestCase):
-    def validate(self, min_thickness, thermal_gap, bridge_width="0.1016",
+    def validate(self, min_thickness, thermal_gap, bridge_width="0.13",
                  connect_pads="", fill='(fill yes (thermal_gap {gap}) '
                                       '(thermal_bridge_width {bridge}))'):
         with tempfile.TemporaryDirectory() as directory:
@@ -86,35 +86,35 @@ class ZoneGeometryTests(unittest.TestCase):
                 encoding="utf-8")
             return fab.validate_zone_geometry(pcb, min_pours=1)
 
-    def test_accepts_process_floor_fill(self):
-        self.assertEqual(self.validate("0.1016", "0.1016"), 1)
+    def test_accepts_zone_feature_minimums(self):
+        self.assertEqual(self.validate("0.13", "0.1016"), 1)
 
     def test_rejects_thin_pour_sliver(self):
         with self.assertRaisesRegex(
                 fab.ZoneGeometryError,
-                "GND_IN1: min_thickness 0.0254 mm is below 0.1016 mm"):
-            self.validate("0.0254", "0.1016")
+                "GND_IN1: min_thickness 0.1016 mm is below 0.13 mm"):
+            self.validate("0.1016", "0.1016")
 
     def test_rejects_unresolvable_thermal_gap(self):
         with self.assertRaisesRegex(
                 fab.ZoneGeometryError,
                 "GND_IN1: thermal_gap 0.0254 mm is below 0.1016 mm"):
-            self.validate("0.1016", "0.0254")
+            self.validate("0.13", "0.0254")
 
     def test_rejects_thin_thermal_spoke(self):
         with self.assertRaisesRegex(
                 fab.ZoneGeometryError,
-                "GND_IN1: thermal_bridge_width 0.05 mm is below 0.1016 mm"):
-            self.validate("0.1016", "0.1016", "0.05")
+                "GND_IN1: thermal_bridge_width 0.1016 mm is below 0.13 mm"):
+            self.validate("0.13", "0.1016", "0.1016")
 
     def test_accepts_the_thermal_relief_default(self):
         self.assertEqual(
-            self.validate("0.1016", "0.1016",
+            self.validate("0.13", "0.1016",
                           connect_pads="(connect_pads (clearance 0.1016)) "), 1)
 
     def test_accepts_reliefs_on_through_hole_pads_only(self):
         self.assertEqual(
-            self.validate("0.1016", "0.1016",
+            self.validate("0.13", "0.1016",
                           connect_pads="(connect_pads thru_hole_only "
                                        "(clearance 0.1016)) "), 1)
 
@@ -122,20 +122,20 @@ class ZoneGeometryTests(unittest.TestCase):
         with self.assertRaisesRegex(
                 fab.ZoneGeometryError,
                 "GND_IN1: connect_pads yes solders every pad"):
-            self.validate("0.1016", "0.1016",
+            self.validate("0.13", "0.1016",
                           connect_pads="(connect_pads yes (clearance 0.1016)) ")
 
     def test_rejects_an_unfilled_pour(self):
         with self.assertRaisesRegex(
                 fab.ZoneGeometryError, "GND_IN1: fill no pours no copper"):
-            self.validate("0.1016", "0.1016",
+            self.validate("0.13", "0.1016",
                           fill="(fill no (thermal_gap {gap}) "
                                "(thermal_bridge_width {bridge}))")
 
     def test_rejects_a_pour_with_no_fill_enable_token(self):
         with self.assertRaisesRegex(
                 fab.ZoneGeometryError, "GND_IN1: fill no pours no copper"):
-            self.validate("0.1016", "0.1016",
+            self.validate("0.13", "0.1016",
                           fill="(fill (thermal_gap {gap}) "
                                "(thermal_bridge_width {bridge}))")
 
@@ -143,7 +143,7 @@ class ZoneGeometryTests(unittest.TestCase):
         with self.assertRaisesRegex(
                 fab.ZoneGeometryError,
                 "GND_IN1: no .fill .... node"):
-            self.validate("0.1016", "0.1016", fill="")
+            self.validate("0.13", "0.1016", fill="")
 
     def keepout_count(self, net_node):
         with tempfile.TemporaryDirectory() as directory:
