@@ -147,10 +147,8 @@ inline void test_helpers() {
   // beacon-to-beacon gap (a cadence plus the commit window's blackout) plus the
   // join-grid wait — not the cadence alone. Boundary is inclusive.
   Config rb = test_config();
-  HS_EXPECT_EQ(rb.rejoin_bound_revs(),
-               rb.beacon_period_revs + rb.join_grid_revs +
-                   static_cast<uint32_t>(rb.epoch_repeats) + rb.commit_revs);
-  rb.rejoin_budget_revs = rb.rejoin_bound_revs();
+  HS_EXPECT_EQ(rb.rejoin_bound_revs(), 17u);
+  rb.rejoin_budget_revs = 17;
   HS_EXPECT_TRUE(rb.valid() == nullptr);
   --rb.rejoin_budget_revs;
   HS_EXPECT_TRUE(rb.valid() != nullptr);
@@ -160,7 +158,7 @@ inline void test_helpers() {
   rc.rejoin_budget_revs = 16;
   rc.beacon_period_revs = 16;
   HS_EXPECT_TRUE(rc.valid() != nullptr);
-  rc.rejoin_budget_revs = rc.rejoin_bound_revs();
+  rc.rejoin_budget_revs = 25;
   HS_EXPECT_TRUE(rc.valid() == nullptr);
   ++rc.commit_revs;
   HS_EXPECT_TRUE(rc.valid() != nullptr);
