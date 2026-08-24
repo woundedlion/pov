@@ -63,6 +63,7 @@ struct FactoryEntry {
   const void *type_key =
       nullptr;     /**< effect_type_key() of the type creator() builds. */
   size_t size = 0; /**< sizeof the effect at this resolution, in bytes. */
+  size_t preset_count = 0; /**< Number of authored presets. */
   PresetIdFn preset_id =
       nullptr; /**< Registry-only stable preset lookup, when declared. */
 };
@@ -204,11 +205,17 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
       };                                                                         \
       e.type_key = effect_type_key<ClassName<W, H>>();                           \
       e.size = sizeof(ClassName<W, H>);                                          \
-      if constexpr (requires { ClassName<W, H>::PRESET_IDS; })                   \
+      if constexpr (requires { ClassName<W, H>::PRESET_IDS; }) {                 \
+        e.preset_count = ClassName<W, H>::PRESET_IDS.size();                     \
         e.preset_id = [](size_t index) -> std::string_view {                     \
           const auto &ids = ClassName<W, H>::PRESET_IDS;                         \
           return index < ids.size() ? ids[index] : std::string_view{};           \
         };                                                                       \
+      } else if constexpr (requires {                                            \
+                             ClassName<W, H>::authored_preset_count();           \
+                           }) {                                                  \
+        e.preset_count = ClassName<W, H>::authored_preset_count();               \
+      }                                                                          \
     }                                                                            \
     /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references reg, so   \
      * under LTO / --gc-sections the dynamic initializer could be discarded,   \
