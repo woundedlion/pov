@@ -39,15 +39,15 @@ struct ShapeShifterParams {
   /** @brief Radial distributions available to presets. */
   enum class RadiusSpacing : uint8_t { UNIFORM, SCREEN_BALANCED };
 
-  ShapeType shape;
-  float count;
-  float sides;
-  PhaseFunction function;
-  float amplitude;
-  float speed;
-  bool opposite;
-  AlphaFalloff alpha_falloff;
-  RadiusSpacing spacing;
+  ShapeType shape{};
+  float count{};
+  float sides{};
+  PhaseFunction function{};
+  float amplitude{};
+  float speed{};
+  bool opposite{};
+  AlphaFalloff alpha_falloff{};
+  RadiusSpacing spacing{};
 
   constexpr ShapeShifterParams() = default;
   constexpr ShapeShifterParams(ShapeType shape, float count, float sides,
