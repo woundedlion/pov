@@ -30,7 +30,13 @@ namespace Pullback {
 namespace Interp {
 
 /** @brief Carrier identity of a chain endpoint; the CarrierList rank. */
-enum class CarrierId : uint8_t { SPHERE = 0, PLANE = 1, FIELD = 2, COLOR = 3 };
+enum class CarrierId : uint8_t {
+  SPHERE = static_cast<uint8_t>(family_of<SphereSample>),
+  PLANE = static_cast<uint8_t>(family_of<PlaneSample>),
+  FIELD = static_cast<uint8_t>(family_of<FieldSample>),
+  COLOR = static_cast<uint8_t>(family_of<Color4>),
+  COUNT = static_cast<uint8_t>(CarrierList::SIZE)
+};
 
 /** @brief Result of a fallible lifecycle callback. */
 enum class Status : uint8_t { OK, FAILED };
@@ -41,8 +47,10 @@ template <CanonicalCarrier T> consteval CarrierId carrier_id_of() {
 }
 
 /** @brief Catalog spelling of each carrier, indexed by CarrierId. */
-inline constexpr std::array<const char *, 4> CARRIER_NAMES{"sphere", "plane",
-                                                           "field", "color"};
+inline constexpr auto CARRIER_NAMES =
+    std::to_array<const char *>({"sphere", "plane", "field", "color"});
+static_assert(CARRIER_NAMES.size() == CarrierList::SIZE);
+static_assert(CARRIER_NAMES.size() == static_cast<size_t>(CarrierId::COUNT));
 
 /**
  * @brief The (instance_id, operator_id) pair identity of one chain entry.
