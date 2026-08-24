@@ -45,6 +45,8 @@ public:
       16; /**< Interpolation slots per Orientation, shared by the recorded trail
                and Motion. */
 
+  static constexpr size_t authored_preset_count() { return FUNCTIONS.size(); }
+
   /** @brief Comet head state: world orientation, recorded trail, body axis. */
   using Node = Animation::TrailBody<TRAIL_LENGTH, ORIENTATION_SUBSTEPS>;
 
