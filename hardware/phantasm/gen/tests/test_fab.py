@@ -750,9 +750,8 @@ class ZipMembershipTests(unittest.TestCase):
                 "phantasm-B_Paste.gbp", "phantasm-Edge_Cuts.gm1",
                 "phantasm-PTH.drl", "phantasm-NPTH.drl", "phantasm-job.gbrjob")
 
-    def test_the_fixture_covers_every_allowlisted_extension(self):
-        self.assertEqual(
-            {os.path.splitext(n)[1] for n in self.EXPORTED}, fab.ZIP_EXT)
+    def test_the_fixture_covers_every_required_member(self):
+        self.assertEqual(set(self.EXPORTED), fab.ZIP_MEMBERS)
 
     def test_every_exported_artifact_is_zipped(self):
         self.assertEqual(fab.zip_members(self.EXPORTED + tuple(fab.ZIP_EXCLUDED)),
@@ -771,6 +770,13 @@ class ZipMembershipTests(unittest.TestCase):
             with self.subTest(extension=extension):
                 with self.assertRaisesRegex(fab.UploadPackageError, extension):
                     fab.zip_members(partial)
+
+    def test_missing_npth_drill_is_rejected(self):
+        partial = tuple(n for n in self.EXPORTED
+                        if n != "phantasm-NPTH.drl")
+        with self.assertRaisesRegex(fab.UploadPackageError,
+                                    "phantasm-NPTH.drl"):
+            fab.zip_members(partial)
 
     def test_the_upload_zip_itself_is_not_a_member(self):
         self.assertNotIn("phantasm-jlc-gerbers.zip",
