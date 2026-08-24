@@ -6,6 +6,11 @@
 
 #include <cstdint>
 
+/**
+ * @file runtime_seeds.h
+ * @brief Deterministic noise and random-walk seeds shared by pullback runtimes.
+ */
+
 namespace Pullback {
 
 inline constexpr int32_t EFFECT_NOISE_SEED = 1337;
