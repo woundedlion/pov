@@ -130,6 +130,7 @@ struct Params {
   float speed = 0.018f;
   float spin_3d = 0.0024f;
   float spin_4d = 0.0f;
+  float chrome_warp = 0.65f;
   ReflectionMode reflection = ReflectionMode::CHROME;
   ColorMode color = ColorMode::DEPTH;
   ShellCount shells = ShellCount::TWO;
@@ -144,6 +145,7 @@ struct Params {
     speed = hs::lerp(start.speed, target.speed, amount);
     spin_3d = hs::lerp(start.spin_3d, target.spin_3d, amount);
     spin_4d = hs::lerp(start.spin_4d, target.spin_4d, amount);
+    chrome_warp = hs::lerp(start.chrome_warp, target.chrome_warp, amount);
     reflection = amount < 0.5f ? start.reflection : target.reflection;
     color = amount < 0.5f ? start.color : target.color;
     shells = amount < 0.5f ? start.shells : target.shells;
@@ -193,6 +195,14 @@ inline float near_field_coverage(float distance, float wire_radius) {
   return smooth_ramp(1.5f * wire_radius, 4.0f * wire_radius, distance);
 }
 
+inline float shell_horizon_coverage(uint8_t shell, uint8_t shell_count,
+                                    float distance, float step) {
+  if (shell + 1 < shell_count)
+    return 1.0f;
+  return 1.0f - smooth_ramp(static_cast<float>(shell_count - 1),
+                            static_cast<float>(shell_count), distance / step);
+}
+
 inline float next_plane_offset(float origin, bool positive) {
   const float fraction = wrap_t(origin);
   if (fraction == 0.0f)
@@ -220,12 +230,23 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   return prepared;
 }
 
-inline Vec4 reflected_direction(const Vector &normal, ReflectionMode mode) {
+inline Vec4 reflected_direction(const Vector &normal, ReflectionMode mode,
+                                float chrome_warp) {
   if (mode == ReflectionMode::RADIAL)
     return {{normal.x, normal.y, normal.z, 0.0f}};
   const float twice_x = 2.0f * normal.x;
-  return {{twice_x * normal.x - 1.0f, twice_x * normal.y, twice_x * normal.z,
-           0.0f}};
+  const Vec4 reflected{{twice_x * normal.x - 1.0f, twice_x * normal.y,
+                        twice_x * normal.z, 0.0f}};
+  const float blend = 0.4f * chrome_warp;
+  Vec4 direction{{hs::lerp(normal.x, reflected[0], blend),
+                  hs::lerp(normal.y, reflected[1], blend),
+                  hs::lerp(normal.z, reflected[2], blend), 0.0f}};
+  const float inverse_length =
+      fast_rsqrt(direction[0] * direction[0] + direction[1] * direction[1] +
+                 direction[2] * direction[2]);
+  for (int axis = 0; axis < 3; ++axis)
+    direction[axis] *= inverse_length;
+  return direction;
 }
 
 struct TraceHit {
@@ -289,8 +310,8 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
   Vec4 ray_origin = prepared.origin;
   for (int axis = 0; axis < DIMENSIONS; ++axis)
     ray_origin[axis] += prepared.params.sphere_radius * surface_normal[axis];
-  const Vec4 direction = prepared.world_to_lattice.apply(
-      reflected_direction(normal, prepared.params.reflection));
+  const Vec4 direction = prepared.world_to_lattice.apply(reflected_direction(
+      normal, prepared.params.reflection, prepared.params.chrome_warp));
   const uint8_t shell_count = static_cast<uint8_t>(prepared.params.shells) + 1;
   TraceCursor cursors[DIMENSIONS];
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
@@ -321,8 +342,10 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
       TraceCursor &cursor = cursors[axis];
       if (!cursor.active || fabsf(cursor.distance - nearest) > tolerance)
         continue;
-      const TraceHit candidate =
+      TraceHit candidate =
           trace_plane(ray_origin, direction, axis, cursor.distance, prepared);
+      candidate.coverage *= shell_horizon_coverage(
+          cursor.shell, shell_count, cursor.distance, cursor.step);
       if (candidate.coverage > layer.coverage)
         layer = candidate;
       ++cursor.shell;
@@ -433,7 +456,7 @@ public:
   static constexpr Segue::Lerp PRESET_SEGUE{240, ease_in_out_sin,
                                             /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   static constexpr Params initial_params() { return {}; }
 
@@ -482,6 +505,7 @@ public:
            value.speed >= 0.0f && value.speed <= 0.05f &&
            value.spin_3d >= 0.0f && value.spin_3d <= 0.015f &&
            value.spin_4d >= 0.0f && value.spin_4d <= 0.015f &&
+           value.chrome_warp >= 0.0f && value.chrome_warp <= 1.0f &&
            static_cast<uint8_t>(value.reflection) <=
                static_cast<uint8_t>(ReflectionMode::RADIAL) &&
            static_cast<uint8_t>(value.color) <=
@@ -503,6 +527,7 @@ public:
     register_animated_param("Speed", &params.speed, 0.0f, 0.05f);
     register_animated_param("3D Spin", &params.spin_3d, 0.0f, 0.015f);
     register_animated_param("4D Spin", &params.spin_4d, 0.0f, 0.015f);
+    register_animated_param("Chrome Warp", &params.chrome_warp, 0.0f, 1.0f);
     register_animated_param("Reflection", &params.reflection,
                             REFLECTION_OPTIONS, REFLECTION_EXPORT_OPTIONS,
                             std::size(REFLECTION_OPTIONS));
@@ -562,7 +587,8 @@ private:
           wrap(rotation_phase[plane] + params.spin_4d * RATE[plane], TWO_PI_F);
   }
 
-  static constexpr const char *REFLECTION_OPTIONS[] = {"Chrome", "Radial"};
+  static constexpr const char *REFLECTION_OPTIONS[] = {"Mirror Ball",
+                                                       "Embedded Sphere"};
   static constexpr const char *REFLECTION_EXPORT_OPTIONS[] = {
       "ReflectionMode::CHROME", "ReflectionMode::RADIAL"};
   static constexpr const char *COLOR_OPTIONS[] = {"Depth", "Axis"};
