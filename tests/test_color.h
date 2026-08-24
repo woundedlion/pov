@@ -2305,6 +2305,10 @@ inline void test_noise_hue_palette() {
   HS_EXPECT_GT(
       fabsf(palette.hue_shift(X_AXIS, 1.0f) - palette.hue_shift(Y_AXIS, 1.0f)),
       1e-3f);
+  const float uv_a = palette.noise_uv(1.0f, 0.0f, 1.0f, 0.0f);
+  const float uv_b = palette.noise_uv(1.0f, 0.0f, 0.0f, 1.0f);
+  HS_EXPECT_GT(fabsf(uv_a - uv_b), 1e-3f);
+  HS_EXPECT_NEAR(uv_a, palette.noise_uv(1.0f, -0.0f, 1.0f, -0.0f), 1e-6f);
 }
 
 // Clamp-before-cast / NaN-saturation checks whose contract must also hold under

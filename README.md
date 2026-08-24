@@ -1583,7 +1583,7 @@ StaticPalette<ProceduralPalette, Coords<NoiseWarpModifier>,
 | `SolidColorPalette` | Returns a single fixed color for every coordinate |
 | `PaletteFacade<SP>` | Exposes a compile-time `StaticPalette` composition through the polymorphic `Palette` API, for preset tables and baking |
 | `BakedPalette` | Precomputes any palette source (a `Palette` or a `StaticPalette`) into a fast 16-bit LUT for O(1) lookup. Arena-allocated. |
-| `NoiseHuePalette<Source>` | Applies a sphere-domain noise field as a spatial OKLab hue rotation over any palette source. Its shared hue-rotation and cube-map noise LUT preparation is used by ordinary effects, composed shader effects, and the Shader workbench. Call `hue_shift(direction, amount)` once when a whole primitive shares a noise coordinate, then `get(t, shift)` for its fragments; or call `get(t, direction, amount)` directly per sample. |
+| `NoiseHuePalette<Source>` | Applies a sphere-domain noise field as a spatial OKLab hue rotation over any palette source. Its shared hue-rotation and cube-map noise LUT preparation is used by ordinary effects, composed shader effects, and the Shader workbench. Call `hue_shift(direction, amount)` once when a whole primitive shares a noise coordinate, `noise_uv(cos_u, sin_u, cos_v, sin_v)` for a seamless two-axis surface field, or `get(t, direction, amount)` directly per sample. |
 
 #### Recipe-Compiled Palettes
 
@@ -2575,7 +2575,7 @@ A Fibonacci-spiral field of star-polygon SDFs, continuously deformed by an evolv
 
 #### Raymarch
 
-Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyakis dodecahedron. Each torus is ray-marched with `Scan::Volume::draw`, lit with metallic Blinn-Phong shading (half-Lambert diffuse, specular highlights, Fresnel rim), and independently tumbled by an energetic random walk. A separate random walk drives the camera orientation. The generated OKLCH palette scrolls around every ring while a sphere-domain noise field hue-shifts each torus through the shared `NoiseHuePalette` machinery also used by the shader effects.
+Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyakis dodecahedron. Each torus is ray-marched with `Scan::Volume::draw`, lit with metallic Blinn-Phong shading (half-Lambert diffuse, specular highlights, Fresnel rim), and independently tumbled by an energetic random walk. A separate random walk drives the camera orientation. A seamless two-axis UV noise field selects and hue-shifts the generated OKLCH palette across each torus surface through the shared `NoiseHuePalette` machinery also used by the shader effects.
 
 **Parameters**: Pulse Speed, Fill, Max Steps, Diffuse, Specular, Fresnel, Twist, AA Width, Hue Shift, Hue Noise Scale, Hue Noise Speed
 

@@ -245,7 +245,31 @@ public:
    */
   float hue_shift(const Vector &direction, float amount) const {
     assert(source != nullptr && "NoiseHuePalette used before bind()!");
-    return amount * sample_hue_noise_lut(hue_noise, direction);
+    return amount * noise(direction);
+  }
+
+  /**
+   * @brief Samples the prepared noise field at a sphere direction.
+   * @param direction Non-zero direction.
+   * @return Noise value in [-1, 1].
+   */
+  float noise(const Vector &direction) const {
+    assert(source != nullptr && "NoiseHuePalette used before bind()!");
+    return sample_hue_noise_lut(hue_noise, direction);
+  }
+
+  /**
+   * @brief Samples a seamless two-axis UV noise field.
+   * @param cos_u Cosine of the first periodic coordinate.
+   * @param sin_u Sine of the first periodic coordinate.
+   * @param cos_v Cosine of the second periodic coordinate.
+   * @param sin_v Sine of the second periodic coordinate.
+   * @return Noise value in [-1, 1].
+   */
+  float noise_uv(float cos_u, float sin_u, float cos_v, float sin_v) const {
+    const float u_field = noise(Vector(cos_u, sin_u, cos_v));
+    const float v_field = noise(Vector(cos_v, sin_v, sin_u));
+    return 0.5f * (u_field + v_field);
   }
 
   /**

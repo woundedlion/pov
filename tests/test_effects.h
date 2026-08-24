@@ -3792,6 +3792,17 @@ struct RaymarchWhiteBox {
   static int animation_count(const Raymarch<W, H> &effect) {
     return effect.timeline.event_count();
   }
+
+  template <int W, int H>
+  static std::array<float, 7> surface_frame(const Vector &loc, int twist,
+                                            float amplitude, float major_r,
+                                            float minor_r) {
+    SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
+        {major_r, minor_r}, {twist, amplitude, major_r}};
+    const auto frame = Raymarch<W, H>::surface_frame(torus, loc);
+    return {frame.normal.x, frame.normal.y, frame.normal.z, frame.cos_u,
+            frame.sin_u,    frame.cos_v,    frame.sin_v};
+  }
 };
 
 /**
@@ -3817,6 +3828,39 @@ inline void test_raymarch_volume_random_walks_are_independent() {
       ++distinct;
   }
   HS_EXPECT_EQ(distinct, count - 1);
+}
+
+/**
+ * @brief Pins Raymarch surface coordinates to both periodic torus axes.
+ */
+inline void test_raymarch_surface_frame_uv() {
+  constexpr float MAJOR_R = 0.6f;
+  constexpr float MINOR_R = 0.12f;
+  constexpr float AMPLITUDE = 0.08f;
+  constexpr int TWIST = 3;
+  const float u = 0.7f;
+  const float v = -1.1f;
+  const float cos_u = cosf(u);
+  const float sin_u = sinf(u);
+  const float cos_v = cosf(v);
+  const float sin_v = sinf(v);
+  const float radial = MAJOR_R + MINOR_R * cos_v;
+  const Vector loc(radial * cos_u,
+                   AMPLITUDE * sinf(TWIST * u) + MINOR_R * sin_v,
+                   radial * sin_u);
+  const auto frame = RaymarchWhiteBox::surface_frame<SMALL_W, SMALL_H>(
+      loc, TWIST, AMPLITUDE, MAJOR_R, MINOR_R);
+  HS_EXPECT_NEAR(frame[3], cos_u, 1e-5f);
+  HS_EXPECT_NEAR(frame[4], sin_u, 1e-5f);
+  HS_EXPECT_NEAR(frame[5], cos_v, 1e-5f);
+  HS_EXPECT_NEAR(frame[6], sin_v, 1e-5f);
+
+  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
+      {MAJOR_R, MINOR_R}, {TWIST, AMPLITUDE, MAJOR_R}};
+  const Vector expected_normal = torus.normal(loc);
+  HS_EXPECT_NEAR(frame[0], expected_normal.x, 1e-5f);
+  HS_EXPECT_NEAR(frame[1], expected_normal.y, 1e-5f);
+  HS_EXPECT_NEAR(frame[2], expected_normal.z, 1e-5f);
 }
 
 /**
@@ -6672,6 +6716,7 @@ inline int run_effects_tests() {
   test_hankinsolids_arena_budget_covers_every_solid();
   test_dreamballs_max_edge_solid_render();
   test_raymarch_volume_random_walks_are_independent();
+  test_raymarch_surface_frame_uv();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The QUICK tier
   // skips the block below; CI is authoritative for the full-resolution paths
