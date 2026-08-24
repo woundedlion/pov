@@ -32,6 +32,12 @@ SCHEMA_CLOSED_DEFS = ("toolchains", "topologyKey", "parameterCase", "probes",
                       "program", "programManifest", "metric",
                       "resolutionBaselines", "oracleManifest")
 SCHEMA_DEFS = ("sha", *SCHEMA_CLOSED_DEFS)
+SCHEMA_KEYWORDS = {
+    "$defs", "$id", "$ref", "$schema", "additionalProperties", "const",
+    "enum", "items", "maxItems", "maximum", "minItems", "minLength",
+    "minimum", "minProperties", "oneOf", "pattern", "properties",
+    "required", "title", "type", "uniqueItems",
+}
 
 
 class ManifestError(ValueError):
@@ -349,6 +355,21 @@ def _validate_oracle(document: dict, path: Path) -> None:
 
 
 def _validate_schema_shape(schema: dict, path: Path) -> None:
+    def check_keywords(node: dict, location: str) -> None:
+        unknown = sorted(set(node) - SCHEMA_KEYWORDS)
+        _require(not unknown,
+                 f"{path}: {location} uses unsupported schema keywords {unknown}")
+        for container in ("$defs", "properties"):
+            for name, child in node.get(container, {}).items():
+                check_keywords(child, f"{location}.{container}.{name}")
+        for index, child in enumerate(node.get("oneOf", [])):
+            check_keywords(child, f"{location}.oneOf[{index}]")
+        for keyword in ("items", "additionalProperties"):
+            child = node.get(keyword)
+            if isinstance(child, dict):
+                check_keywords(child, f"{location}.{keyword}")
+
+    check_keywords(schema, "schema")
     _require(schema.get("$schema") == SCHEMA_DRAFT,
              f"{path}: unsupported JSON Schema draft")
     definitions = schema.get("$defs")
