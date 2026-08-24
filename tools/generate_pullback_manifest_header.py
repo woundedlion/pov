@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import hashlib
 import json
 import math
@@ -25,7 +24,7 @@ TOPOLOGY_FIELDS = (
 )
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 CASE_IDS = {"default", "endpoint_min", "endpoint_max", "interior"}
-PRESET_COUNT = 24
+PROTOCOL_DEFINITION = Path(__file__).with_name("pullback_operations.def")
 SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 SCHEMA_ROOT_REFS = {"#/$defs/programManifest", "#/$defs/oracleManifest"}
 SCHEMA_CLOSED_DEFS = ("toolchains", "topologyKey", "parameterCase", "probes",
@@ -40,6 +39,23 @@ SCHEMA_KEYWORDS = {
 }
 
 
+def _load_protocol_definition(path: Path = PROTOCOL_DEFINITION):
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise ManifestError(f"{path}: {error}") from error
+    preset_matches = re.findall(r"^HS_PULLBACK_PRESET_COUNT\((\d+)\)$",
+                                source, re.MULTILINE)
+    operations = re.findall(r"^HS_PULLBACK_OPERATION\(([A-Z0-9_]+)\)$",
+                            source, re.MULTILINE)
+    _require(len(preset_matches) == 1 and operations and
+             len(operations) == len(set(operations)),
+             f"{path}: invalid pullback protocol definition")
+    return int(preset_matches[0]), {
+        name: index for index, name in enumerate(operations)
+    }
+
+
 class ManifestError(ValueError):
     """A manifest violates the checked schema or cross-file contract."""
 
@@ -47,6 +63,9 @@ class ManifestError(ValueError):
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise ManifestError(message)
+
+
+PRESET_COUNT, OPERATION_CODES = _load_protocol_definition()
 
 
 def _reject_json_constant(token: str):
@@ -494,24 +513,12 @@ def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
     ))
 
 
-def generate_runtime_manifest(programs: dict, oracles: list[dict],
-                              schema: dict, capture_sha: str) -> str:
-    _require(SHA_RE.fullmatch(capture_sha) is not None,
-             "capture_sha must be a full lowercase Git SHA")
-    runtime = copy.deepcopy(programs)
-    runtime["capture_sha"] = capture_sha
-    runtime["manifest_sha256"] = manifest_sha256(programs, oracles, schema)
-    return json.dumps(runtime, indent=2, sort_keys=True) + "\n"
-
-
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest-dir", type=Path,
                         default=Path(__file__).resolve().parents[1] /
                         "tests/data/pullback")
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--runtime-output", type=Path)
-    parser.add_argument("--capture-sha")
     parser.add_argument("--validate-only", action="store_true")
     args = parser.parse_args(argv)
     try:
@@ -526,21 +533,11 @@ def main(argv=None) -> int:
             parser.error(f"header generation failed: {error}")
     if args.validate_only:
         return 0
-    if args.output is None and args.runtime_output is None:
-        parser.error("--output or --runtime-output is required")
+    if args.output is None:
+        parser.error("--output is required")
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(header, encoding="utf-8", newline="\n")
-    if args.runtime_output is not None:
-        if args.capture_sha is None:
-            parser.error("--runtime-output requires --capture-sha")
-        try:
-            output = generate_runtime_manifest(programs, oracles, schema,
-                                               args.capture_sha)
-        except ManifestError as error:
-            parser.error(str(error))
-        args.runtime_output.parent.mkdir(parents=True, exist_ok=True)
-        args.runtime_output.write_text(output, encoding="utf-8", newline="\n")
     return 0
 
 

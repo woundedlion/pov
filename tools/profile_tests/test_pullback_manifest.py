@@ -170,13 +170,8 @@ class ManifestValidation(unittest.TestCase):
         second = generator.generate_header(programs, oracles, schema)
         self.assertEqual(first, second)
         self.assertIn("0x40000", first)
-        runtime = json.loads(
-            generator.generate_runtime_manifest(
-                programs, oracles, schema, "a" * 40
-            )
-        )
-        self.assertEqual(runtime["capture_sha"], "a" * 40)
-        self.assertEqual(len(runtime["manifest_sha256"]), 64)
+        self.assertEqual(generator.PRESET_COUNT, 24)
+        self.assertEqual(generator.OPERATION_CODES["FULL_FRAME"], 18)
 
     def test_validate_only_runs_header_generation(self):
         programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
