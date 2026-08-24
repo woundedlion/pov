@@ -89,7 +89,6 @@ constexpr uint32_t instance_hash(std::string_view instance,
 struct FrameContext {
   uint32_t frame = 0;
   float time = 0.0f;
-  bool anims_paused = false;
   /** Base orientation composed under the projection spin/wander frame. */
   Quaternion projection_base;
   /** Generated palette bakes, indexed by the colorize palette-mode value. */
