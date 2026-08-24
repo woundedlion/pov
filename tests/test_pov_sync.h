@@ -2925,6 +2925,27 @@ inline void test_epoch_same_tick_burst_fold() {
   }
 }
 
+/** @brief Verifies EPOCH symbols stay rejected for the full refractory window. */
+inline void test_epoch_refractory_window() {
+  const Config cfg = test_config();
+  ContentTracker content;
+  content.identity_known = true;
+  content.effect_index = 0;
+  content.rev_in_effect = cfg.revs_per_effect;
+
+  HS_EXPECT_TRUE(content.on_epoch_symbol(cfg));
+  HS_EXPECT_EQ(content.refractory_revs_left, cfg.refractory_revs);
+  for (uint32_t rev = 1; rev < cfg.refractory_revs; ++rev) {
+    HS_CONTEXT("refractory rev", rev);
+    content.on_zero_crossing(cfg);
+    HS_EXPECT_FALSE(content.on_epoch_symbol(cfg));
+    HS_EXPECT_EQ(content.refractory_revs_left, cfg.refractory_revs - rev);
+  }
+  content.on_zero_crossing(cfg);
+  HS_EXPECT_EQ(content.refractory_revs_left, 0u);
+  HS_EXPECT_TRUE(content.on_epoch_symbol(cfg));
+}
+
 /**
  * @brief Pins ContentTracker::construction_opens and ::constructing directly:
  *        the window opens exactly once and lasts exactly K revolutions, for
@@ -3501,6 +3522,7 @@ inline int run_pov_sync_tests() {
   test_sim_rev_resync();
   test_sim_rev_wrap_within_effect();
   test_epoch_same_tick_burst_fold();
+  test_epoch_refractory_window();
   test_construction_window_predicates();
   test_effect_output_envelope();
   test_joined_board_dark_through_commit_window();
