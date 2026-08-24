@@ -724,6 +724,15 @@ inline void test_generative_palette_lerp_interpolates_loop_seam() {
   }
 }
 
+inline void test_palette_cycler_arena_components() {
+  HS_EXPECT_EQ(PaletteCycler::display_arena_bytes(),
+               BakedPalette::required_arena_bytes());
+  HS_EXPECT_EQ(PaletteCycler::crossfade_arena_bytes(),
+               2 * BakedPalette::required_arena_bytes());
+  HS_EXPECT_EQ(PaletteCycler::morph_arena_bytes(),
+               sizeof(GenerativePalette) + alignof(GenerativePalette));
+}
+
 inline void test_palette_cycler_key_morph_cycle() {
   const GenerativePalette first(PaletteRecipes::balanced_analogous(0.05f));
   const GenerativePalette second(PaletteRecipes::balanced_analogous(0.62f));
