@@ -67,7 +67,7 @@ struct Mat4 {
   }
 };
 
-inline void rotate_plane(Mat4 &matrix, int a, int b, float angle) {
+HS_COLD void rotate_plane(Mat4 &matrix, int a, int b, float angle) {
   const float c = fast_cosf(angle);
   const float s = fast_sinf(angle);
   for (int column = 0; column < DIMENSIONS; ++column) {
