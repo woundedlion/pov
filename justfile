@@ -179,7 +179,7 @@ teensy-size:
 
 # Host self-tests behind the Teensy toolchain: size/layout gate parser + layout
 # invariants + warning ratchet, the PlatformIO build hook, the
-# pre-commit hook's staged-path classifiers, the profile log parser, the
+# git-hook contract tests, the profile log parser, the
 # relax-bake generator and the routed PCB metadata — pure Python, no ARM
 # toolchain. Mirrors the ci.yml teensy-gate-tests job, including its
 # non-empty discovery guards and the cross-check that every test-suite
