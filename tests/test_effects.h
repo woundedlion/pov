@@ -3328,7 +3328,7 @@ struct CometsWhiteBox {
   static void check_paths_close() {
     using C = Comets<DEFAULT_W, DEFAULT_H>;
     int idx = 0;
-    for (const PresetEntry<LissajousParams> &entry : C::FUNCTIONS) {
+    for (const PresetEntry<LissajousParams> &entry : C::PRESETS) {
       const LissajousParams &cfg = entry.params;
       const float cd = C::closing_domain(cfg);
       HS_EXPECT_GT(cd, 0.0f); // floor-at-1 keeps the head moving
@@ -3362,9 +3362,7 @@ struct CometsWhiteBox {
     return c.node->orientation.get();
   }
   static size_t trail_length(const C &c) { return c.node->trail.length(); }
-  static int cycle_period(const C &c) {
-    return 2 * static_cast<int>(c.params.cycle_duration);
-  }
+  static int dwell_frames() { return C::PRESET_DWELL_FRAMES; }
 };
 
 /**
@@ -3461,9 +3459,9 @@ inline void test_comets_manual_preset_restarts_path() {
   effect.advance_display();
   HS_EXPECT_TRUE(WB::node_orientation(effect) == first_step);
 
-  // Manual selection pauses the automatic rollover timer as well as selecting
-  // the requested path.
-  for (int f = 0; f < WB::cycle_period(effect); ++f) {
+  // Manual selection pauses the automatic dwell countdown as well as
+  // selecting the requested path.
+  for (int f = 0; f < WB::dwell_frames(); ++f) {
     effect.draw_frame();
     effect.advance_display();
   }
