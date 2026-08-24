@@ -1003,7 +1003,7 @@ inline void case_relax_baked_source_mismatch() {
   uint32_t bits[TETRAHEDRON_BAKE_WORDS];
   PolyMesh mesh;
   MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
-  bake.source_hash = opaque(bake.source_hash ^ 1u);
+  mesh.vertices[0].x += opaque(4.0f / MeshOps::RELAX_SOURCE_SCALE);
   PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
   if (out.vertices.size() == opaque<size_t>(0x7fff))
     std::printf("x");

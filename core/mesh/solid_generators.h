@@ -568,6 +568,7 @@ public:
     MeshOps::check_relax_bake_source(mesh, bake);
 #else
     const uint32_t source_hash = MeshOps::relax_source_hash(mesh);
+    const float source_margin = MeshOps::relax_source_quantization_margin(mesh);
 #endif
     mesh = MeshOps::relax(mesh, *output_arena, *scratch_arena, bake.iterations);
     uint32_t output_hash = MeshOps::FNV1A_BASIS;
@@ -597,14 +598,21 @@ public:
     }
     ++relax_bakes_verified;
 #else // HS_RELAX_BAKE_EXTRACT: emit the payload for the generated header.
-    hs::log("RELAX_BAKE_BEGIN %s %d %lu %lu %lu %08lx %08lx %08lx", bake.name,
-            static_cast<int>(bake.iterations),
+    hs::log("RELAX_BAKE_BEGIN %s %d %lu %lu %lu %08lx %08lx %08lx %d %08lx "
+            "%08lx %08lx",
+            bake.name, static_cast<int>(bake.iterations),
             static_cast<unsigned long>(mesh.vertices.size()),
             static_cast<unsigned long>(mesh.face_counts.size()),
             static_cast<unsigned long>(mesh.faces.size()),
             static_cast<unsigned long>(bake.topology_hash),
             static_cast<unsigned long>(source_hash),
-            static_cast<unsigned long>(output_hash));
+            static_cast<unsigned long>(output_hash),
+            static_cast<int>(MeshOps::RELAX_SOURCE_SCALE),
+            static_cast<unsigned long>(
+                std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_BIAS)),
+            static_cast<unsigned long>(
+                std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_MIN_MARGIN)),
+            static_cast<unsigned long>(std::bit_cast<uint32_t>(source_margin)));
     for (const Vector &v : mesh.vertices)
       hs::log("RELAX_BAKE_DATA %08lx %08lx %08lx",
               static_cast<unsigned long>(std::bit_cast<uint32_t>(v.x)),
