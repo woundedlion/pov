@@ -209,6 +209,7 @@ struct DistortedRingStack {
                    const SDF::DistortedRing *shapes, const int8_t *slot_by_ring,
                    int n_slots, RingShaderT &&shader) {
     HS_CHECK(canvas.width() == W && canvas.height() == H);
+    check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n_slots >= 1);
     check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
     if (!TrigLUT<W, H>::initialized)
@@ -480,6 +481,7 @@ struct RingGroup {
                    int n, RingShaderT &&shader, bool debug_bb = false) {
     static constexpr int MAX_RINGS = 8;
     HS_CHECK(canvas.width() == W && canvas.height() == H);
+    check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n >= 1 && n <= MAX_RINGS);
     if (debug_bb || canvas.debug()) {
       for (int s = 0; s < n; ++s) {
