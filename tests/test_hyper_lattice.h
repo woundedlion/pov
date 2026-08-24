@@ -21,6 +21,15 @@ struct HyperLatticeWhiteBox {
     return effect.rotation_phase;
   }
   static HL::Params &params(Effect &effect) { return effect.params; }
+  static void step_depth_palette(Effect &effect) {
+    effect.depth_palette.step();
+  }
+  static bool depth_palette_fading(const Effect &effect) {
+    return effect.depth_palette.fading();
+  }
+  static Pixel depth_color(const Effect &effect, float amount) {
+    return effect.depth_palette.palette().get(amount).color;
+  }
 };
 
 inline void test_periodic_distance() {
@@ -147,6 +156,23 @@ inline void test_pause_does_not_stop_motion() {
     HS_EXPECT_EQ(stopped_after[axis], stopped_before[axis]);
 }
 
+inline void test_depth_palette_mutates_slowly_and_pauses() {
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  effect.setAnimationsPaused(true);
+  const Pixel initial = HyperLatticeWhiteBox::depth_color(effect, 0.5f);
+  HyperLatticeWhiteBox::step_depth_palette(effect);
+  HS_EXPECT_FALSE(HyperLatticeWhiteBox::depth_palette_fading(effect));
+  HS_EXPECT_EQ(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
+
+  effect.setAnimationsPaused(false);
+  HyperLatticeWhiteBox::step_depth_palette(effect);
+  HS_EXPECT_TRUE(HyperLatticeWhiteBox::depth_palette_fading(effect));
+  for (int frame = 0; frame < 480; ++frame)
+    HyperLatticeWhiteBox::step_depth_palette(effect);
+  HS_EXPECT_NE(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
+}
+
 inline void test_next_plane_is_strict() {
   HS_EXPECT_EQ(HL::next_plane_offset(0.0f, true), 1.0f);
   HS_EXPECT_EQ(HL::next_plane_offset(0.0f, false), 1.0f);
@@ -229,6 +255,7 @@ inline int run_hyper_lattice_tests() {
   test_near_field_fade();
   test_far_shell_fade();
   test_pause_does_not_stop_motion();
+  test_depth_palette_mutates_slowly_and_pauses();
   test_next_plane_is_strict();
   test_trace_layers_are_front_to_back();
   test_layer_composite_reveals_background();
