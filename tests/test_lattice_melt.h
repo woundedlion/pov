@@ -197,6 +197,12 @@ inline void test_lattice_melt_transition_contract() {
   WB::drive_transition(effect, 1.0f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
                  FX::preset_params(1).surface.scale, 0.0f);
+  HS_EXPECT_TRUE(WB::transition_active(effect));
+
+  for (uint16_t frame = 4; frame < FX::TRANSITION_DURATION; ++frame)
+    WB::drive_transition(effect, 0.5f);
+  HS_EXPECT_NEAR(WB::params(effect).surface.scale,
+                 FX::preset_params(1).surface.scale, 0.0f);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
@@ -220,6 +226,30 @@ inline void test_lattice_melt_full_timeline_retries_transition() {
   WB::tick_choreography(effect);
   HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+}
+
+inline void test_lattice_melt_overshoot_finishes_on_frame_count() {
+  using WB = LatticeMeltWhiteBox;
+  using FX = WB::FX;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  HS_EXPECT_TRUE(WB::begin_automatic_transition(effect));
+
+  bool saw_overshoot = false;
+  for (uint16_t frame = 1; frame < FX::TRANSITION_DURATION; ++frame) {
+    const float progress =
+        ease_out_elastic(static_cast<float>(frame) / FX::TRANSITION_DURATION);
+    WB::drive_transition(effect, progress);
+    saw_overshoot |= progress > 1.0f;
+    HS_EXPECT_TRUE(WB::transition_active(effect));
+  }
+  HS_EXPECT_TRUE(saw_overshoot);
+
+  WB::drive_transition(effect, ease_out_elastic(1.0f));
+  HS_EXPECT_FALSE(WB::transition_active(effect));
+  HS_EXPECT_NEAR(WB::params(effect).surface.scale,
+                 FX::preset_params(1).surface.scale, 0.0f);
 }
 
 /**
@@ -304,6 +334,7 @@ inline int run_lattice_melt_tests() {
   test_lattice_melt_identity_and_presets();
   test_lattice_melt_transition_contract();
   test_lattice_melt_full_timeline_retries_transition();
+  test_lattice_melt_overshoot_finishes_on_frame_count();
   test_lattice_melt_manual_write_restarts_dwell();
   test_lattice_melt_parameter_serialization();
   test_lattice_melt_shader_workbench_equivalence();
