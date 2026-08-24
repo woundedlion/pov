@@ -157,6 +157,83 @@ inline TransitionalMetrics transitional_metrics(const Vec4 &point,
   return {{best_fixed, free_axis_3d}, {sum_4d - farthest_4d, free_axis_4d}};
 }
 
+__attribute__((always_inline)) inline float
+periodic_distance_at(const Vec4 &ray_origin, const Vec4 &direction, int axis,
+                     float distance) {
+  return periodic_distance(ray_origin[axis] + distance * direction[axis]);
+}
+
+inline EdgeMetric edge_metric_3d_at(const Vec4 &ray_origin,
+                                    const Vec4 &direction, int plane_axis,
+                                    float distance) {
+  float best_fixed = 1.0f;
+  float farthest = -1.0f;
+  uint8_t free_axis = 0;
+  for (int index = 0; index < 2; ++index) {
+    const int axis = index + (index >= plane_axis);
+    const float component =
+        periodic_distance_at(ray_origin, direction, axis, distance);
+    const float component_sq = component * component;
+    best_fixed = std::min(best_fixed, component_sq);
+    if (component_sq > farthest) {
+      farthest = component_sq;
+      free_axis = static_cast<uint8_t>(axis);
+    }
+  }
+  return {best_fixed, free_axis};
+}
+
+inline EdgeMetric edge_metric_4d_at(const Vec4 &ray_origin,
+                                    const Vec4 &direction, int plane_axis,
+                                    float distance) {
+  float sum = 0.0f;
+  float largest = -1.0f;
+  uint8_t free_axis = 0;
+  for (int index = 0; index < 3; ++index) {
+    const int axis = index + (index >= plane_axis);
+    const float component =
+        periodic_distance_at(ray_origin, direction, axis, distance);
+    const float component_sq = component * component;
+    sum += component_sq;
+    if (component_sq > largest) {
+      largest = component_sq;
+      free_axis = static_cast<uint8_t>(axis);
+    }
+  }
+  return {sum - largest, free_axis};
+}
+
+inline TransitionalMetrics transitional_metrics_at(const Vec4 &ray_origin,
+                                                   const Vec4 &direction,
+                                                   int plane_axis,
+                                                   float distance) {
+  float best_fixed = 1.0f;
+  float farthest_3d = -1.0f;
+  float sum_4d = 0.0f;
+  float farthest_4d = -1.0f;
+  uint8_t free_axis_3d = 0;
+  uint8_t free_axis_4d = 0;
+  for (int index = 0; index < 3; ++index) {
+    const int axis = index + (index >= plane_axis);
+    const float component =
+        periodic_distance_at(ray_origin, direction, axis, distance);
+    const float component_sq = component * component;
+    sum_4d += component_sq;
+    if (component_sq > farthest_4d) {
+      farthest_4d = component_sq;
+      free_axis_4d = static_cast<uint8_t>(axis);
+    }
+    if (axis < 3) {
+      best_fixed = std::min(best_fixed, component_sq);
+      if (component_sq > farthest_3d) {
+        farthest_3d = component_sq;
+        free_axis_3d = static_cast<uint8_t>(axis);
+      }
+    }
+  }
+  return {{best_fixed, free_axis_3d}, {sum_4d - farthest_4d, free_axis_4d}};
+}
+
 struct Params {
   float dimension = 0.0f;
   float sphere_radius = 0.4f;
@@ -310,26 +387,24 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
   if (distance <= prepared.near_start)
     return {0.0f, distance, 0};
 
-  const Vec4 point{{ray_origin[0] + distance * direction[0],
-                    ray_origin[1] + distance * direction[1],
-                    ray_origin[2] + distance * direction[2],
-                    ray_origin[3] + distance * direction[3]}};
-
   float metric_sq;
   uint8_t free_axis;
   float dimensional_coverage = 1.0f;
   if (prepared.params.dimension == 0.0f) {
-    const EdgeMetric metric_3d = edge_metric_3d(point, plane_axis);
+    const EdgeMetric metric_3d =
+        edge_metric_3d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_3d.distance_sq;
     free_axis = metric_3d.free_axis;
   } else if (plane_axis < 3 && prepared.params.dimension < 1.0f) {
-    const TransitionalMetrics metrics = transitional_metrics(point, plane_axis);
+    const TransitionalMetrics metrics =
+        transitional_metrics_at(ray_origin, direction, plane_axis, distance);
     metric_sq = hs::lerp(metrics.cubic.distance_sq, metrics.hyper.distance_sq,
                          prepared.params.dimension);
     free_axis = prepared.params.dimension < 0.5f ? metrics.cubic.free_axis
                                                  : metrics.hyper.free_axis;
   } else {
-    const EdgeMetric metric_4d = edge_metric_4d(point, plane_axis);
+    const EdgeMetric metric_4d =
+        edge_metric_4d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
     if (plane_axis == 3)
