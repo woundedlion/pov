@@ -357,35 +357,15 @@ public:
     hs::restore_interrupts(primask);
     return snapshot;
   }
-  /**
-   * @brief Content-layer state.
-   * @return Const reference to the content tracker.
-   */
-  const ContentTracker &content() const { return content_tracker; }
   /** Output envelope derived from the synchronized effect revolution. */
   __attribute__((always_inline)) float effect_envelope(int32_t column,
                                                        int32_t width) const {
     return content_tracker.output_envelope(protocol_config, column, width);
   }
-  /**
-   * @brief Current lock state.
-   * @return ACQUIRE or LOCKED.
-   */
-  LockState lock() const { return fly.lock(); }
-  /**
-   * @brief The flywheel timebase.
-   * @return Const reference to the flywheel.
-   */
-  const Flywheel &flywheel() const { return fly; }
-  /**
-   * @brief Protocol configuration.
-   * @return Const reference to the config.
-   */
-  const Config &config() const { return protocol_config; }
 
 private:
-  // Mutable views of ISR-owned state, kept private behind a test friend so
-  // production code cannot race the single writer.
+  // Test-only access, kept private behind the test friend so production code
+  // cannot race the ISR-owned single-writer state.
   friend struct ::hs_test::pov_sync_tests::SyncBoardTestAccess;
 
   /**
@@ -402,6 +382,26 @@ private:
    * ISR-owned under the spec §8 single-writer model.
    */
   ContentTracker &content_mut() { return content_tracker; }
+  /**
+   * @brief Content-layer state (test-only).
+   * @return Const reference to the content tracker.
+   */
+  const ContentTracker &content() const { return content_tracker; }
+  /**
+   * @brief Current lock state (test-only).
+   * @return ACQUIRE or LOCKED.
+   */
+  LockState lock() const { return fly.lock(); }
+  /**
+   * @brief The flywheel timebase (test-only).
+   * @return Const reference to the flywheel.
+   */
+  const Flywheel &flywheel() const { return fly; }
+  /**
+   * @brief Protocol configuration (test-only).
+   * @return Const reference to the config.
+   */
+  const Config &config() const { return protocol_config; }
 
   /**
    * @brief Restores every member except protocol_config, the flywheel and the
