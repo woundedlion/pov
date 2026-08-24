@@ -2,6 +2,8 @@
 # Staged-only checks that predict the fast, deterministic CI gates.
 set -eu
 
+HS_CLANG_FORMAT_MAJOR=22
+
 CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 PRESENT="$(git diff --cached --name-only --diff-filter=ACMR)"
 [ -n "$CHANGED" ] || exit 0
@@ -23,7 +25,7 @@ if [ -n "$FORMAT" ]; then
     exit 1
   fi
   major="$("$CF" --version | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
-  if [ "$major" != 22 ]; then
+  if [ "$major" != "$HS_CLANG_FORMAT_MAJOR" ]; then
     echo "[pre-commit] clang-format 22 is required; found ${major:-unknown}."
     exit 1
   fi
