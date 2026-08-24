@@ -498,6 +498,34 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("no effects/ architecture-diagram row",
                       issues[0].message)
 
+    def test_doxyfile_predefined_reads_continuation_lines(self):
+        text = ('PREDEFINED = FLASHMEM= \\\n'
+                '             "HS_FEATURE=1" \\\n'
+                '             DOXYGEN=1\n'
+                'INPUT = core\n')
+        self.assertEqual(dc.doxyfile_predefined(text), [
+            (1, "FLASHMEM"),
+            (2, "HS_FEATURE"),
+            (3, "DOXYGEN"),
+        ])
+
+    def test_unreferenced_predefined_finds_dead_macro_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "live.h").write_text("#if HS_LIVE\n#endif\n",
+                                          encoding="utf-8")
+            dead = dc.unreferenced_predefined(
+                root, [PurePosixPath("live.h")],
+                {"HS_LIVE", "HS_DEAD", "DOXYGEN"})
+        self.assertEqual(dead, {"HS_DEAD"})
+
+    def test_doxyfile_predefined_issues_name_the_config_line(self):
+        issues = dc.doxyfile_predefined_issues(
+            [(7, "HS_LIVE"), (8, "HS_DEAD")], {"HS_DEAD"})
+        self.assertEqual([(issue.line, issue.message) for issue in issues], [
+            (8, "PREDEFINED defines HS_DEAD, which no documented source names"),
+        ])
+
     def test_repository_without_markdown_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

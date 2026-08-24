@@ -5,6 +5,8 @@ Structure only. A green run means every fence closes, every link, anchor and
 backticked repo path resolves, and every tree fence matches the tracked tree --
 not that the prose is true. A wrong number in a sentence, a renamed symbol in a
 table, and any path written without backticks or a link are all invisible here.
+
+The Doxyfile's PREDEFINED names must also appear in documented source.
 """
 
 from __future__ import annotations
@@ -116,6 +118,15 @@ _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
 # Anchoring at the line start is what excludes a commented-out `// X(Foo)` or
 # `/* X(Foo) */` row, matching the comment stripping effect_roster.mjs does.
 _EFFECT_ROSTER_ENTRY_RE = re.compile(r"^\s*X\(\s*(\w+)\s*\)")
+
+# Names are matched against the source file kinds Doxyfile documents.
+_DOXYFILE = PurePosixPath("Doxyfile")
+_DOXYGEN_SOURCE_SUFFIXES = frozenset({".h", ".cpp", ".ino"})
+_DOXYFILE_TAG_RE = re.compile(r"^(\w+)[ \t]*\+?=[ \t]*(.*)$")
+_DOXYFILE_ENTRY_RE = re.compile(r'"[^"]*"|\S+')
+_PREDEFINED_NAME_RE = re.compile(r"^[A-Za-z_]\w*")
+# DOXYGEN enables doc-only branches and need not appear in source.
+_PREDEFINED_UNREFERENCED_ALLOWED = frozenset({"DOXYGEN"})
 
 _UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",
@@ -769,6 +780,61 @@ def effects_row_issues(text: str, entries: set[PurePosixPath],
     return issues
 
 
+def doxyfile_predefined(text: str) -> list[tuple[int, str]]:
+    """Macro names the Doxyfile's PREDEFINED tag defines, with their line numbers."""
+    names: list[tuple[int, str]] = []
+    inside = False
+    for number, line in enumerate(text.splitlines(), 1):
+        if inside:
+            body = line
+        else:
+            match = _DOXYFILE_TAG_RE.match(line)
+            if not match or match.group(1) != "PREDEFINED":
+                continue
+            body = match.group(2)
+        stripped = body.rstrip()
+        inside = stripped.endswith("\\")
+        for entry in _DOXYFILE_ENTRY_RE.findall(stripped.rstrip("\\")):
+            name = _PREDEFINED_NAME_RE.match(entry.strip('"'))
+            if name:
+                names.append((number, name.group()))
+    return names
+
+
+def unreferenced_predefined(root: Path, sources: list[PurePosixPath],
+                            names: set[str]) -> set[str]:
+    """Subset of names no documented source mentions."""
+    pending = set(names) - _PREDEFINED_UNREFERENCED_ALLOWED
+    if not pending:
+        return pending
+    pattern = re.compile(
+        r"\b(" + "|".join(re.escape(name) for name in sorted(pending)) + r")\b")
+    for relative in sources:
+        try:
+            text = root.joinpath(*relative.parts).read_text(
+                encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        pending.difference_update(
+            match.group(1) for match in pattern.finditer(text))
+        if not pending:
+            break
+    return pending
+
+
+def doxyfile_predefined_issues(predefined: list[tuple[int, str]],
+                               unreferenced: set[str]) -> list[Issue]:
+    """Reports PREDEFINED names that guard nothing, and a tag that parsed empty."""
+    path = _DOXYFILE.as_posix()
+    if not predefined:
+        return [Issue(path, 1, "no PREDEFINED tag, so its macro names go "
+                               "unchecked")]
+    return [Issue(path, number,
+                  f"PREDEFINED defines {name}, which no documented source "
+                  f"names")
+            for number, name in predefined if name in unreferenced]
+
+
 def check_text(source: PurePosixPath, text: str,
                entries: set[PurePosixPath],
                anchors: dict[PurePosixPath, set[str]] | None = None,
@@ -867,6 +933,21 @@ def check_repository(
         issues.extend(effects_row_issues(
             sources.get(PurePosixPath(_EFFECTS_TREE_ROW), ""), entries,
             roster or None))
+    if _DOXYFILE in entries:
+        try:
+            doxyfile = root.joinpath(*_DOXYFILE.parts).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            issues.append(Issue(_DOXYFILE.as_posix(), 1,
+                                f"cannot read as UTF-8: {error}"))
+        else:
+            predefined = doxyfile_predefined(doxyfile)
+            issues.extend(doxyfile_predefined_issues(
+                predefined,
+                unreferenced_predefined(
+                    root,
+                    sorted(entry for entry in entries
+                           if entry.suffix in _DOXYGEN_SOURCE_SUFFIXES),
+                    {name for _, name in predefined})))
     return markdown, sorted(issues), _stale_allowances(entries, used)
 
 
