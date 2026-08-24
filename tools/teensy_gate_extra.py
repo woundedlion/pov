@@ -43,7 +43,8 @@ def _tool(cc_path, suffix):
 def _run(args, check=True):
     # teensy_size prints to STDERR (and exits non-zero on overflow, which we still
     # want to parse), so combine both streams and let the caller relax `check`.
-    r = subprocess.run(args, capture_output=True, text=True, check=check)
+    r = subprocess.run(args, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", check=check)
     return r.stdout + r.stderr
 
 
@@ -85,7 +86,7 @@ def _find_teensy_size(env):
     for cand in _teensy_size_candidates(env):
         try:
             r = subprocess.run([cand, "--help"], capture_output=True, text=True,
-                               check=False)
+                               encoding="utf-8", errors="replace", check=False)
         except OSError:
             continue
         if "teensy_size" in (r.stdout + r.stderr).lower():
