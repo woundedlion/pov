@@ -424,6 +424,10 @@ inline void check_snapshot_contract(const char *name) {
     typename FX::ParameterSnapshot lens = captured;
     lens.params.lens.mobius.a.re = std::numeric_limits<float>::quiet_NaN();
     HS_EXPECT_FALSE(effect.restore_parameters(lens));
+    lens = captured;
+    lens.params.lens.mobius.a.re =
+        Pullback::MobiusLensParams::COEFFICIENT_LIMIT + 1.0f;
+    HS_EXPECT_FALSE(effect.restore_parameters(lens));
   }
 
   verify_params_equal(effect.serialize_parameters().params, captured.params);
