@@ -2297,6 +2297,7 @@ inline void test_bz_perturb_state_draw_count_pinned() {
     // Off-by-one in either direction would have landed at a different output.
     HS_EXPECT_EQ(hs::random()(), ref());
   }
+  reset_effect_globals();
 }
 
 /**
@@ -2477,6 +2478,7 @@ inline void test_bz_render_center_matches_reference() {
   HS_EXPECT_EQ(error.pixels, DEFAULT_W * DEFAULT_H);
   HS_EXPECT_GT(error.refined_seeds, 0);
   HS_EXPECT_EQ(error.center_mismatches, 0);
+  reset_effect_globals();
 }
 
 // ---------------------------------------------------------------------------
