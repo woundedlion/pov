@@ -38,8 +38,14 @@ UNMANAGED = (
 
 
 def snapshot_digest(path: Path) -> str:
-    data = path.read_bytes().replace(b"\r\n", b"\n")
-    return hashlib.sha256(data).hexdigest()
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def copy_snapshot_text(source: str | Path, target: str | Path) -> Path:
+    source_path = Path(source)
+    target_path = Path(target)
+    target_path.write_bytes(source_path.read_bytes().replace(b"\r\n", b"\n"))
+    return target_path
 
 
 def is_unmanaged(path: Path) -> bool:
@@ -96,6 +102,16 @@ def verify_snapshot(root: Path = OUTPUT) -> None:
             raise RuntimeError(f"snapshot hash mismatch: {path}")
 
 
+def write_manifest(root: Path) -> None:
+    hashes = [
+        f"{snapshot_digest(root / path)}  {path.as_posix()}"
+        for path in snapshot_paths(root)
+    ]
+    (root / "SHA256SUMS.txt").write_bytes(
+        ("\n".join(hashes) + "\n").encode("utf-8")
+    )
+
+
 def require_incremental_input(board: str, schematic: str) -> None:
     expected_board = (
         '(net "/SYNC_PULLDOWN")',
@@ -126,17 +142,16 @@ def make_snapshot() -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     require_no_strays(OUTPUT)
     for name in FILES:
-        shutil.copy2(PROJECT / name, OUTPUT / name)
+        copy_snapshot_text(PROJECT / name, OUTPUT / name)
     footprint_output = OUTPUT / "phantasm.pretty"
     if footprint_output.exists():
         shutil.rmtree(footprint_output)
-    shutil.copytree(PROJECT / "phantasm.pretty", footprint_output)
+    shutil.copytree(
+        PROJECT / "phantasm.pretty", footprint_output,
+        copy_function=copy_snapshot_text,
+    )
 
-    hashes = []
-    for path in snapshot_paths(OUTPUT):
-        digest = snapshot_digest(OUTPUT / path)
-        hashes.append(f"{digest}  {path.as_posix()}")
-    (OUTPUT / "SHA256SUMS.txt").write_text("\n".join(hashes) + "\n", encoding="utf-8")
+    write_manifest(OUTPUT)
     verify_snapshot()
     print(f"wrote protected incremental Quilter project: {OUTPUT}")
 

@@ -1,5 +1,6 @@
 import hashlib
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -12,12 +13,38 @@ import make_quilter_incremental
 
 
 class SnapshotTests(unittest.TestCase):
-    def test_digest_is_independent_of_checkout_line_endings(self):
+    def test_digest_covers_exact_snapshot_bytes(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "snapshot.txt"
             path.write_bytes(b"first\r\nsecond\r\n")
-            expected = hashlib.sha256(b"first\nsecond\n").hexdigest()
+            expected = hashlib.sha256(b"first\r\nsecond\r\n").hexdigest()
             self.assertEqual(make_quilter_incremental.snapshot_digest(path), expected)
+
+    def test_snapshot_copy_and_manifest_use_lf_bytes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source.txt"
+            snapshot = root / "snapshot"
+            snapshot.mkdir()
+            source.write_bytes(b"first\r\nsecond\r\n")
+            target = snapshot / "payload.txt"
+            make_quilter_incremental.copy_snapshot_text(source, target)
+            make_quilter_incremental.write_manifest(snapshot)
+
+            payload = b"first\nsecond\n"
+            digest = hashlib.sha256(payload).hexdigest().encode("ascii")
+            self.assertEqual(target.read_bytes(), payload)
+            self.assertEqual(
+                (snapshot / "SHA256SUMS.txt").read_bytes(),
+                digest + b"  payload.txt\n",
+            )
+            make_quilter_incremental.verify_snapshot(snapshot)
+            sha256sum = shutil.which("sha256sum")
+            if sha256sum:
+                subprocess.run(
+                    [sha256sum, "-c", "SHA256SUMS.txt"], cwd=snapshot,
+                    check=True, capture_output=True, text=True,
+                )
 
     def test_committed_snapshot_matches_manifest(self):
         make_quilter_incremental.verify_snapshot()
