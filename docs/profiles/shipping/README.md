@@ -1,6 +1,6 @@
 # Shipping selective-O3 profiles
 
-Ranked on-device results for the shipping `profile` image, covering the 34
+Ranked on-device results for the shipping `profile` image, covering the 36
 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render time; spilled
 counts frames above the 62.5 ms display window. Colour is binary on the spilled
 column: 🟢 zero spilled frames, 🔴 any spill. Cyclers (§) carry their preset
@@ -8,6 +8,7 @@ count after the peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
+| [HyperLattice](profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🔴 172.06 (4) | 🔴 2672/2672 (100%) | 2026-08-24 00:01 |
 | [DisplacementField](profile_displacementfield_teensy_2026-08-18.md) | fused ring-stack raster | 🟢 59.84 | 🟢 0/1408 (0%) | 2026-08-18 21:55 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
@@ -16,12 +17,14 @@ count after the peak.
 | [RingSpin](profile_ringspin_teensy_2026-07-25.md) | fused ring-group raster | 🟢 56.47 | 🟢 0/1088 (0%) | 2026-07-26 11:44 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-09.md) | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
 | [Raymarch](profile_raymarch_teensy_2026-07-25.md) | volume ray-march | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
+| [AshCloud](profile_ashcloud_teensy_2026-08-23.md) ● | composed curl-noise shader | 🟢 52.39 | 🟢 0/1088 (0%) | 2026-08-23 22:04 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
 | [LatticeMelt](profile_latticemelt_teensy_2026-08-18.md)§ ● | curl-noise surface lattice | 🟢 45.18 (2) | 🟢 0/1728 (0%) | 2026-08-18 17:46 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
 | [HankinSolids](profile_hankinsolids_teensy_2026-07-25.md)§ | per-face SDF | 🟢 43.0 (19) | 🟢 0/3328 (0%) | 2026-07-26 11:55 |
 | [Comets](profile_comets_teensy_2026-07-25.md)§ | point raster | 🟢 41.56 (12) | 🟢 0/4128 (0%) | 2026-07-26 11:43 |
+| [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-08-17.md)§ ● | stereographic hex-prism spiral + direct noise | 🟢 40.52 (2) | 🟢 0/2208 (0%) | 2026-08-17 23:03 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-07.md)§ | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 0/1728 (0%) | 2026-08-07 23:03 |
 | [GnomonicStars](profile_gnomonicstars_teensy_2026-07-25.md) | star raster | 🟢 38.15 | 🟢 0/1088 (0%) | 2026-07-26 11:29 |
 | [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-08-17.md)§ ● | equirectangular dodecahedral grid | 🟢 36.51 (3) | 🟢 0/4128 (0%) | 2026-08-17 19:42 |
@@ -43,21 +46,21 @@ count after the peak.
 | [RingShower](profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
 
 **● captured 2026-08-16** — the fourteen composed effects first profiled in
-that sweep.
+that sweep. AshCloud was captured after its rename on 2026-08-23.
 
 **Eight rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids,
 Comets, GnomonicStars, PetalFlow, Voronoi and RingShower. Their per-effect
 reports describe the 2026-07-25 sweep that preceded it, so each report's
 headline peak is the earlier one and the peaks above are current.
 
-§ ShapeShifter spans nine presets; its initial unlabeled frames and later
-`Preset: 1/9` frames are one adaptive 208-count planar-star bucket.
+§ HyperLattice spans four presets; its initial unlabeled frames are folded into
+the first `cubic-flight` bucket. ShapeShifter spans nine presets; its initial
+unlabeled frames and later `Preset: 1/9` frames are one adaptive 208-count
+planar-star bucket.
 MindSplatter spans eight presets. Each report folds its initial unlabeled
 frames into preset 0. The five composed cyclers hold each preset for 600
 frames and then morph over 480, so a preset owns 1,080 frames and their captures
 are sized to wrap the full cycle.
 
-This directory also holds the last captures of **Flyby** and **Liquid2D**, which
-are not in the roster and are absent from the table above. ShaderWorkbench's captures
-have been deleted: the composed-effect workbench migration (`69d4751c`) turned its
-13-preset program bank into the fourteen ● effects.
+Retired-effect captures live in [`../retired/`](../retired/). Shipping reports
+in this directory correspond exactly to `HS_PHANTASM_EFFECT_LIST`.

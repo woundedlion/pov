@@ -1,16 +1,16 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **34 effects in the Phantasm image**,
+On-device timing for the **36 effects in the Phantasm image**,
 captured on bench-attached Teensy 4.0 boards running the shipping Phantasm
 configuration (`POVSegmented<288, 4, 480>`, board = segment 0 master,
 newlib-nano, DMA LEDs, flywheel + DMA ISRs live) via the `HS_PROFILE`
-cycle-counter harness. `HS_EFFECT_LIST` holds 37 device effects, and
+cycle-counter harness. `HS_EFFECT_LIST` holds 39 device effects, and
 `HS_PHANTASM_EFFECT_LIST` excludes exactly three of them: Dynamo, MobiusRings
 and Thrusters are Holosphere 96×20-only, never run in the 288×144 image, and
 are not profiled here. The `Shader` authoring workbench and its `ShaderChain`
 interpreter are simulator-only — `HS_ENABLE_SHADER_WORKBENCH` and
 `HS_ENABLE_CHAIN_INTERPRETER` are never set for a device build — so they sit
-outside that 37 rather than being excluded from it.
+outside that 39 rather than being excluded from it.
 
 Each effect renders one **quadrant** ≈ **10,368 px**. A display window is
 **62.5 ms**, so cadence quantizes: 16 fps (1 window), 8 fps (2), 5.3 fps (3).
@@ -49,6 +49,7 @@ peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
+| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🔴 172.06 (4) | 🔴 2672/2672 (100%) | 2026-08-24 00:01 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-08-18.md) | fused ring-stack raster | 🟢 59.84 | 🟢 0/1408 (0%) | 2026-08-18 21:55 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
@@ -57,6 +58,7 @@ peak.
 | [RingSpin](shipping/profile_ringspin_teensy_2026-07-25.md) | fused ring-group raster (row-local walk) | 🟢 56.47 | 🟢 0/1088 (0%) | 2026-07-26 11:44 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-09.md) | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-07-25.md) | volume ray-march (`-O3` march path) | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
+| [AshCloud](shipping/profile_ashcloud_teensy_2026-08-23.md) ● | composed curl-noise shader | 🟢 52.39 | 🟢 0/1088 (0%) | 2026-08-23 22:04 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
 | [KaleidoscopeStainedGlass](shipping/profile_kaleidoscopestainedglass_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
 | [LatticeMelt](shipping/profile_latticemelt_teensy_2026-08-18.md)§ ● | curl-noise surface lattice | 🟢 45.18 (2) | 🟢 0/1728 (0%) | 2026-08-18 17:46 |
@@ -102,27 +104,31 @@ directly. Size deltas are O3 minus shipping.
 
 Global O3 is a measurement reference, not a shipping candidate.
 
-The fifteen composed effects have no paired captures, so the pullback pipeline
-still has no O3-vs-shipping codegen delta on record; profiling one of them
-under `profile_o3` would establish it.
+AshCloud is the first composed effect with a paired shipping/O3 capture. The
+other fifteen composed effects have no codegen pair on record.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
+| [HyperLattice](O3/profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🔴 172.06 (4) | 🔴 148.24 (4) | 🔴 2672/2672 (100%) | 🔴 2816/2816 (100%) | +10,912 B | +8,640 B | ship 2026-08-24 00:01<br>O3 2026-08-23 23:53 |
 | [DisplacementField](O3/profile_displacementfield_teensy_2026-08-18.md) ● | fused ring-stack raster | 🟢 59.84 | 🟢 58.96 | 🟢 0/1408 (0%) | 🟢 0/1408 (0%) | +25,216 B | +21,600 B | ship 2026-08-18 21:55<br>O3 2026-08-18 21:55 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
+| [AshCloud](O3/profile_ashcloud_teensy_2026-08-23.md) ● | composed curl-noise shader | 🟢 52.39 | 🟢 48.35 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +14,344 B | +11,888 B | ship 2026-08-23 22:04<br>O3 2026-08-23 22:06 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
 | [DreamBalls](O3/profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 42.94 (5) | 🟢 0/3648 (0%) | 🟢 0/3648 (0%) | +25,976 B | +16,272 B | ship 2026-08-09 18:37<br>O3 2026-08-09 18:41 |
 | [MindSplatter](O3/profile_mindsplatter_teensy_2026-08-07.md)§ | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 38.78 (8) | 🟢 0/1728 (0%) | 🟢 0/1728 (0%) | +21,464 B | +18,832 B | ship 2026-08-07 23:03<br>O3 2026-08-07 23:02 |
 | [Fishbowl](O3/profile_fishbowl_teensy_2026-08-02.md) | adaptive vertex build | 🟢 24.85 | 🟢 22.16 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +28,456 B | +20,688 B | ship 2026-08-02 22:21<br>O3 2026-08-02 22:23 |
 
-**Seven pairs: six refreshed 2026-08-15, DisplacementField captured 2026-08-18.**
+**Nine pairs: six refreshed 2026-08-15, DisplacementField captured 2026-08-18,
+AshCloud captured 2026-08-23, and HyperLattice completed 2026-08-24.**
 
 ## Captures of retired effects
 
-`shipping/` also holds the last captures of **Flyby** and **Liquid2D**, two
-retired stereographic effects merged into ShaderWorkbench. Neither is in the
-roster, so `just profile` cannot regenerate them.
+[`retired/profile_flyby_teensy_2026-07-27.md`](retired/profile_flyby_teensy_2026-07-27.md)
+and
+[`retired/profile_liquid2d_teensy_2026-07-25.md`](retired/profile_liquid2d_teensy_2026-07-25.md)
+preserve the last captures of Flyby and Liquid2D. Neither is in the roster, so
+the current harness cannot regenerate them.
 
 ShaderWorkbench's captures have been deleted. The composed-effect workbench migration
 (`69d4751c`) turned its 13-preset program bank into the fourteen ● effects above
@@ -137,19 +143,20 @@ on them.
 
 ## What the roster looks like
 
-**All thirty-four effects spill nothing** in their current shipping captures.
+**HyperLattice is the only current shipping capture that spills.** All four
+presets overrun the display window, for 2,672/2,672 spilled frames at a
+172.06 ms peak. The other thirty-five effects spill nothing.
 
-**The fifteen composed effects are green, and none is near the
-ceiling.** Their peaks run 23.30 ms (AlienCore) to 47.20 ms (KaleidoscopeStainedGlass), so
-the heaviest of them keeps 15.30 ms of the 62.5 ms window — the widest margin
-any pullback-shaded effect has held on this bench.
+Global `-O3` lowers HyperLattice's peak to 148.24 ms, but all 2,816 frames
+still spill. The comparison adds 10,912 B of flash code and 8,640 B of ITCM.
 
-The two heaviest are the only ones doing per-sample noise work on top of a
-closed-form pullback: KaleidoscopeStainedGlass carries a `Warp::VectorNoise` lookup in its
-outer warp (47.20 ms) and LatticeMelt integrates a simplex curl-noise surface
-(45.47 ms). They are roughly 9 ms clear of the rest. The other twelve
-run 23.30 to 36.51 ms on closed-form stages alone, where the shade scope is a
-third to a half of the frame and the remainder is display-sync idle.
+**The sixteen composed effects are green.** Their peaks run 23.30 ms
+(AlienCore) to 52.39 ms (AshCloud), so the heaviest keeps 10.11 ms of the
+62.5 ms display window.
+
+The three slowest all perform per-sample noise work: AshCloud and LatticeMelt
+integrate simplex curl-noise surfaces, while KaleidoscopeStainedGlass carries a
+`Warp::VectorNoise` lookup in its outer warp.
 
 Five of them cycle presets, and their spreads are narrow — KaleidoscopeFlowers 1.03×
 across three presets, KaleidoscopeSmooth 1.19× across four, AlienBrain 1.03× across
@@ -158,9 +165,9 @@ change, so a transition is bounded by its two endpoints rather than being a
 cost peak of its own — a preset bank cannot introduce a cost outlier the way a
 bank of separately compiled programs could.
 
-None of the fourteen has a paired global-O3 capture yet; `Scan::Shader::draw_cached`
-is already `HS_O3_FN` with cached-flash placement, so the shipping image
-compiles their whole inlined shade path at `-O3`.
+AshCloud's global-O3 twin peaks at 48.35 ms, 7.7% below shipping while adding
+14,344 B of flash code and 11,888 B of ITCM code. The other fifteen composed
+effects have no paired global-O3 capture.
 
 **MindSplatter completes all eight presets at 16 fps.** The shipping cycle has
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
@@ -207,4 +214,3 @@ peaks at 58.22 ms with 0/2448 spills; global O3 peaks at 56.72 ms and adds
 28,616 B of flash code plus 24,016 B of ITCM code. Reusing the shaded fragment
 shader removes 5,136 B from the full-roster ITCM image without a measured
 shipping performance regression.
-

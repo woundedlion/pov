@@ -1,9 +1,4 @@
-// Single source of truth for the effect roster shared by the screenshot tools
-// (capture_screenshots.mjs and check_screenshots.mjs): parse the HS_EFFECT_LIST
-// X-macro in core/engine/effects.h rather than hand-maintaining a list. That macro is
-// the same roster the WASM startup check and the native smoke suite are derived
-// from, so the gallery — and its CI freshness gate — can never silently drift
-// from the registered effect set when an effect is added or removed.
+// Effect and Phantasm roster readers shared by the documentation gates.
 import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +31,25 @@ export function parseEffectRoster(src) {
 
 export async function loadEffectRoster() {
   return parseEffectRoster(
+    await readFile(join(REPO_ROOT, 'core', 'engine', 'effects.h'), 'utf8'));
+}
+
+export function parsePhantasmEffectRoster(src) {
+  const block = src.match(
+    /#define HS_PHANTASM_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/);
+  if (!block)
+    throw new Error('Could not locate HS_PHANTASM_EFFECT_LIST in core/engine/effects.h');
+  const body = block[1]
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
+  const names = [...body.matchAll(/X\(\s*(\w+)\s*,/g)].map(m => m[1]);
+  if (names.length === 0)
+    throw new Error('HS_PHANTASM_EFFECT_LIST parsed to zero effects');
+  return names;
+}
+
+export async function loadPhantasmEffectRoster() {
+  return parsePhantasmEffectRoster(
     await readFile(join(REPO_ROOT, 'core', 'engine', 'effects.h'), 'utf8'));
 }
 

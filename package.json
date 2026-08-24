@@ -12,6 +12,7 @@
     "wasm-smoke": "node scripts/wasm_smoke.mjs",
     "check-roster": "node scripts/check_effect_roster.mjs",
     "check-screenshots": "node scripts/check_screenshots.mjs",
+    "check-profiles": "node scripts/check_profiles.mjs",
     "lint": "eslint ."
   },
   "devDependencies": {

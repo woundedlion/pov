@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseEffectRoster, parseRegisteredEffects,
-  loadEffectRoster, loadRegisteredEffects,
+  parseEffectRoster, parsePhantasmEffectRoster, parseRegisteredEffects,
+  loadEffectRoster, loadPhantasmEffectRoster, loadRegisteredEffects,
 } from './effect_roster.mjs';
 
 // Both parsers gate CI (check_effect_roster.mjs) and both carry deliberate
@@ -61,6 +61,21 @@ test('parseEffectRoster throws on an empty roster rather than reporting none', (
     /parsed to zero effects/);
 });
 
+test('parsePhantasmEffectRoster accepts literal and derived durations', () => {
+  const src = '#define HS_PHANTASM_EFFECT_LIST(X) \\\n'
+    + '  X(Alpha, 120) \\\n'
+    + '  X(Beta, \\\n'
+    + '    hs_preset_window_seconds<Beta>())\n';
+  assert.deepEqual(parsePhantasmEffectRoster(src), ['Alpha', 'Beta']);
+});
+
+test('parsePhantasmEffectRoster throws when the macro is missing or empty', () => {
+  assert.throws(() => parsePhantasmEffectRoster('X(Alpha, 120)\n'),
+    /Could not locate HS_PHANTASM_EFFECT_LIST/);
+  assert.throws(() => parsePhantasmEffectRoster(
+    '#define HS_PHANTASM_EFFECT_LIST(X)\n'), /parsed to zero effects/);
+});
+
 test('parseRegisteredEffects returns every call site in a header', () => {
   assert.deepEqual(
     parseRegisteredEffects('REGISTER_EFFECT(Alpha)\nstruct S {};\nREGISTER_EFFECT(Beta)\n'),
@@ -96,7 +111,10 @@ test('parseRegisteredEffects reports none for a header with no registration', ()
 // files the loaders read.
 test('the loaders agree on the checked-in roster', async () => {
   const roster = await loadEffectRoster();
+  const phantasm = await loadPhantasmEffectRoster();
   const registered = await loadRegisteredEffects();
   assert.ok(roster.length > 0);
+  assert.ok(phantasm.length > 0);
+  assert.ok(phantasm.every(name => roster.includes(name)));
   assert.deepEqual([...roster].sort(), [...registered].sort());
 });
