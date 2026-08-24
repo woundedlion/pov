@@ -831,8 +831,7 @@ inline void test_arenavec_stale_binding_after_reset() {
 #endif
 
 /**
- * @brief Verifies binding with zero capacity is legal: the vector is bound but
- *        empty.
+ * @brief Verifies a zero-capacity binding owns no arena storage.
  */
 inline void test_arenavec_zero_capacity() {
   Arena a(test_buf_a, sizeof(test_buf_a));
@@ -840,6 +839,14 @@ inline void test_arenavec_zero_capacity() {
   HS_EXPECT_TRUE(v.is_bound());
   HS_EXPECT_EQ(v.capacity(), (size_t)0);
   HS_EXPECT_TRUE(v.is_empty());
+
+  a.reset();
+  v.clear();
+  HS_EXPECT_TRUE(v.data() == nullptr);
+
+  v.bind(a, 12);
+  v.push_back(42);
+  HS_EXPECT_EQ(v[0], 42);
 }
 
 // ============================================================================
