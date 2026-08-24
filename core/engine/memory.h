@@ -608,6 +608,8 @@ struct is_arena_inplace_fn<teensy::inplace_function<R(Args...), Cap, Align>>
  * traps once element_count reaches capacity(). Only bind() changes capacity,
  * and a grow there allocates a fresh block and abandons the old one until the
  * arena is reset (log_arena_vector_grow() reports the leaked bytes in release).
+ * Element access follows std::vector: operator[] and back() require a valid
+ * index/non-empty vector and check that precondition only in debug builds.
  *
  * ELEMENT DESTRUCTOR CONTRACT: ArenaVector does NOT run element
  * destructors — clear(), move, move-assign and going out of scope all leave
