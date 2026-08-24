@@ -243,6 +243,26 @@ inline void test_hyperplane_event() {
   HS_EXPECT_NEAR(hit.distance, 0.35f, 3e-4f);
 }
 
+inline void test_coincident_planes_form_one_layer() {
+  HL::FrameState frame{};
+  frame.params = HyperLattice<96, 20>::preset_params(0);
+  frame.params.reflection = HL::ReflectionMode::RADIAL;
+  frame.params.sphere_radius = 0.0f;
+  frame.origin = {{0.25f, 0.25f, 0.31f, 0.43f}};
+  const HL::PreparedTrace prepared = HL::prepare_trace(frame);
+  constexpr float INV_SQRT_TWO = 0.707106781f;
+  float previous_distance = 0.0f;
+  int layers = 0;
+  HL::trace_layers(Vector(INV_SQRT_TWO, INV_SQRT_TWO, 0.0f), prepared,
+                   [&](const HL::TraceHit &hit) {
+                     HS_EXPECT_GT(hit.distance, previous_distance);
+                     previous_distance = hit.distance;
+                     ++layers;
+                     return true;
+                   });
+  HS_EXPECT_EQ(layers, 2);
+}
+
 inline void test_render_signature() {
   static constexpr Vector DIRECTIONS[] = {
       {1.0f, 0.0f, 0.0f},
@@ -323,6 +343,7 @@ inline int run_hyper_lattice_tests() {
   test_layer_composite_reveals_background();
   test_surface_origin_parallax();
   test_hyperplane_event();
+  test_coincident_planes_form_one_layer();
   test_render_signature();
   test_presets_and_pipeline();
   return fixture.result();
