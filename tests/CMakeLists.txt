@@ -243,6 +243,12 @@ target_include_directories(mindsplatter_palette_gen PRIVATE ${HS_ROOT} ${HS_ROOT
 target_link_libraries(mindsplatter_palette_gen PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_gen)
 
+add_custom_target(regenerate_mindsplatter_palette
+  COMMAND $<TARGET_FILE:mindsplatter_palette_gen>
+          ${HS_ROOT}/core/color/triadic_palette_luts.h
+  DEPENDS mindsplatter_palette_gen
+  VERBATIM)
+
 add_test(NAME unit_mindsplatter_palette_form COMMAND ${CMAKE_COMMAND}
   -DGENERATOR=$<TARGET_FILE:mindsplatter_palette_gen>
   -DCOMMITTED=${HS_ROOT}/core/color/triadic_palette_luts.h
