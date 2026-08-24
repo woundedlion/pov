@@ -36,7 +36,7 @@ public:
   using Params = KaleidoscopeStainedGlassParams;
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-stained-glass";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "31bdb3e9347b7cf1a1df97a6ff956f2930a1af3131a8f968ccc9ceb3aa87c28e";
+      "1a3a5895f37f29dd8a5b9eb22367cfe3b1c0559120106e81bf6c55f8af27eca0";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "307a1d899af542b78fa9852b61d0fdbb4852b5aaf963392cc19320a4d2e81bd1";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"vector-mirror"};
