@@ -22,28 +22,18 @@ static_assert(!HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND,
 
 namespace {
 
-constexpr uint16_t PRESET_COUNT = 24;
+#define HS_PULLBACK_PRESET_COUNT(value) constexpr uint16_t PRESET_COUNT = value;
+#define HS_PULLBACK_OPERATION(name)
+#include "tools/pullback_operations.def"
+#undef HS_PULLBACK_OPERATION
+#undef HS_PULLBACK_PRESET_COUNT
 
 enum class Operation : uint16_t {
-  CASE_DEFAULT,
-  CASE_ENDPOINT_MIN,
-  CASE_ENDPOINT_MAX,
-  CASE_INTERIOR,
-  COLUMN_ZERO,
-  WRAP_COLUMNS,
-  NORTH_ROW,
-  SOUTH_ROW,
-  POLE_BANDS,
-  HORIZON_COLUMNS,
-  OCTANT_COLUMNS,
-  MIRROR_GRID,
-  CARDINAL_POINTS,
-  FRAME_PERIMETER,
-  EQUATOR_ROW,
-  FRONT_AXIS_POINT,
-  THROUGH_CLEAR_FROM,
-  THROUGH_CLEAR_TO,
-  FULL_FRAME,
+#define HS_PULLBACK_PRESET_COUNT(value)
+#define HS_PULLBACK_OPERATION(name) name,
+#include "tools/pullback_operations.def"
+#undef HS_PULLBACK_OPERATION
+#undef HS_PULLBACK_PRESET_COUNT
   COUNT,
 };
 
