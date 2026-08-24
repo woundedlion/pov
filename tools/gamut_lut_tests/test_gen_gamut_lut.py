@@ -13,6 +13,34 @@ import gen_gamut_lut as generator  # noqa: E402
 
 
 class TestGamutLutMirrors(unittest.TestCase):
+    def test_cpp_logical_operators_are_evaluated(self):
+        parsed = generator._cpp_float_fn(
+            "{ if (x > 0.0f && x != 4.0f && "
+            "!(x == 2.0f || x == 3.0f)) return 1.0f; "
+            "return 0.0f;", ("x",))
+        self.assertEqual(parsed(1.0), 1.0)
+        self.assertEqual(parsed(2.0), 0.0)
+        self.assertEqual(parsed(4.0), 0.0)
+        self.assertEqual(parsed(-1.0), 0.0)
+
+    def test_hex_literal_is_not_treated_as_float_suffixed(self):
+        parsed = generator._cpp_float_fn("{ return 0x1f;", ())
+        self.assertEqual(parsed(), 31)
+
+    def test_malformed_cpp_expression_reports_mirror_guidance(self):
+        source = ("inline float diamond_angle(float y, float x) {\n"
+                  "  return x &&;\n"
+                  "}\n")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "3dmath.h"
+            path.write_text(source, encoding="utf-8")
+            error = io.StringIO()
+            with contextlib.redirect_stderr(error):
+                result = generator.check_diamond_angle_mirror(path)
+        self.assertFalse(result)
+        self.assertIn("could not parse 3dmath.h diamond_angle()", error.getvalue())
+        self.assertIn("re-derive the mirror", error.getvalue())
+
     def test_operand_swaps_fail_the_oklab_mirror_check(self):
         color_h = (ROOT / "core" / "color" / "color.h").read_text(
             encoding="utf-8")

@@ -377,12 +377,20 @@ def _cpp_expr_to_python(expr, names):
             _cpp_expr_to_python(expr[colon + 1:], names))
 
     expr = expr.replace("std::fabs", "abs")
-    expr = re.sub(r"(?<=[0-9.])f\b", "", expr)
+    expr = re.sub(r"(?<![A-Za-z0-9_.])(%s)[fF]\b" % NUM, r"\1", expr)
     tokens = re.findall(r"\d[\w.]*|[A-Za-z_][\w:]*", expr)
     unknown = [n for n in tokens if not n[0].isdigit() and n not in names]
     if unknown:
         raise ValueError("unsupported identifiers %s in %r" % (unknown, expr))
-    return expr
+    expr = expr.replace("&&", " and ").replace("||", " or ")
+    return re.sub(r"!(?!=)", " not ", expr).strip()
+
+
+def _compile_cpp_expr(expr, names):
+    try:
+        return compile(_cpp_expr_to_python(expr, names), "<cpp>", "eval")
+    except SyntaxError as exc:
+        raise ValueError("invalid expression %r: %s" % (expr, exc.msg)) from exc
 
 
 def _cpp_float_fn(body, params, outputs=()):
@@ -400,8 +408,7 @@ def _cpp_float_fn(body, params, outputs=()):
         conds = []
         while re.match(r"if\s*\(", text):
             cond, text = _split_paren(text[text.index("("):])
-            conds.append(compile(_cpp_expr_to_python(cond, names),
-                                 "<cpp>", "eval"))
+            conds.append(_compile_cpp_expr(cond, names))
             text = text.lstrip()
         stmt, _, text = text.partition(";")
         stmt = stmt.strip()
@@ -425,7 +432,7 @@ def _cpp_float_fn(body, params, outputs=()):
         else:
             raise ValueError("unsupported statement %r" % stmt)
         for target, source in statements:
-            code = compile(_cpp_expr_to_python(source, names), "<cpp>", "eval")
+            code = _compile_cpp_expr(source, names)
             program.append((conds, target, code))
             if target is not None:
                 names.add(target)
