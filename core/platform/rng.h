@@ -10,6 +10,7 @@
  *        helpers every parity-sensitive draw goes through.
  */
 
+#include <algorithm>
 #include <cstdint>
 #include <string_view>
 #include <type_traits>
@@ -190,9 +191,7 @@ template <typename It> inline void shuffle(It first, It last) {
   const int n = static_cast<int>(last - first);
   for (int i = n - 1; i > 0; --i) {
     const int j = rand_int(0, i + 1);
-    const auto tmp = first[i];
-    first[i] = first[j];
-    first[j] = tmp;
+    std::iter_swap(first + i, first + j);
   }
 }
 
