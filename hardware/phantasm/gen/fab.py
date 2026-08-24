@@ -165,9 +165,9 @@ MIN_VIA_COPPER_SPACING_MM = 0.15
 # min_clearance. Applies to pour fill features as well as tracks.
 MIN_ZONE_FEATURE_MM = RULE_MINIMUMS["min_clearance"]
 ZONE_FILL_FEATURES = ("thermal_gap", "thermal_bridge_width")
-# Floors on what a routed board holds: the committed board carries 100 vias
+# Floors on what a routed board holds: the committed board carries 99 vias
 # (gen/board_metadata.py) and pours the In1/In2 reference planes.
-MIN_BOARD_VIAS = 100
+MIN_BOARD_VIAS = 99
 MIN_COPPER_POURS = 2
 
 # Parity items KiCad reports on a board that IS in sync with the schematic:

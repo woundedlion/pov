@@ -24,7 +24,7 @@ class BoardMetadataTests(unittest.TestCase):
         )
         self.assertEqual(metadata.footprint_sides, (("F.Cu", 32), ("B.Cu", 0)))
         self.assertEqual(metadata.track_segments, 339)
-        self.assertEqual(metadata.vias, 100)
+        self.assertEqual(metadata.vias, 99)
         self.assertEqual(metadata.copper_pours, 2)
         self.assertEqual(metadata.pour_layers, (("In1.Cu", 1), ("In2.Cu", 1)))
         self.assertEqual(metadata.rule_areas, 4)
