@@ -7,6 +7,7 @@ import contextlib
 import hashlib
 import io
 import json
+import shutil
 import struct
 import sys
 import tempfile
@@ -178,10 +179,13 @@ class ManifestValidation(unittest.TestCase):
         broken = copy.deepcopy(programs)
         broken["programs"][0]["parameter_cases"].pop()
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "programs.json"
+            manifest_dir = Path(directory)
+            for source in MANIFEST_DIR.glob("*.json"):
+                shutil.copy(source, manifest_dir / source.name)
+            path = manifest_dir / "programs.json"
             path.write_text(json.dumps(broken), encoding="utf-8")
             with self.assertRaises(generator.ManifestError):
-                generator._validate_programs(broken, path)
+                generator.load_and_validate(manifest_dir)
 
     def test_nested_schema_rejects_unknown_fields(self):
         programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
