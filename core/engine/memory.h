@@ -1275,9 +1275,11 @@ void resplit_arenas(size_t persistent, size_t scratch_a, size_t scratch_b);
  * output before constructing the scope, or scope exit reclaims it.
  */
 struct ScratchScope {
+private:
   Arena &arena;        /**< Arena whose offset is saved and restored. */
   size_t saved_offset; /**< Offset captured at construction. */
 
+public:
   /**
    * @brief Constructs the scope, saving the arena's current offset.
    * @param a Arena to guard.
