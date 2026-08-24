@@ -5317,8 +5317,7 @@ private:
   const char *stage_tuple_warning(const char *position,
                                   const WarpStageSpec &spec,
                                   const WarpStageParams &params) const {
-    begin_warning("%s %s rejected.", position,
-                  WARP_OPTIONS[static_cast<uint8_t>(spec.kind)]);
+    begin_warning("%s %s rejected.", position, warp_option(spec.kind));
     switch (spec.kind) {
     case WarpStageKind::NONE:
     case WarpStageKind::LEGACY_STEREO_NOISE:
@@ -5403,8 +5402,7 @@ private:
               "%s %s rejected: Warp Scale %.7g produces noise coordinate "
               "bound %.7g above %.7g. Set Warp Scale <= %.7g or choose a "
               "projection/lens with a smaller coordinate extent.",
-              positions[index],
-              WARP_OPTIONS[static_cast<uint8_t>(stages[index].kind)],
+              positions[index], warp_option(stages[index].kind),
               static_cast<double>(params[index].scale),
               static_cast<double>(lattice_bound),
               static_cast<double>(NOISE_LATTICE_LIMIT),
@@ -5418,8 +5416,7 @@ private:
             "%s %s rejected: its predicted coordinate bound %.7g exceeds "
             "%.7g. Reduce this warp's displacement/translation controls or "
             "choose a projection/lens with a smaller coordinate extent.",
-            positions[index],
-            WARP_OPTIONS[static_cast<uint8_t>(stages[index].kind)],
+            positions[index], warp_option(stages[index].kind),
             static_cast<double>(bound), static_cast<double>(WARP_COORD_LIMIT));
     }
     const float source_bound = candidate.params.source.noise_scale * bound;
@@ -5466,8 +5463,7 @@ private:
       return begin_warning(
           "Noise Contour (Sphere) rejects Planar Warp 1 %s and Planar Warp 2 "
           "%s. Set both warps to None, or select Noise Contour (Projected).",
-          WARP_OPTIONS[static_cast<uint8_t>(outer.kind)],
-          WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
+          warp_option(outer.kind), warp_option(inner.kind));
     if (candidate.slots.function == Function::NOISE_CONTOUR_SPHERE &&
         (outer.kind != WarpStageKind::NONE ||
          inner.kind != WarpStageKind::NONE)) {
@@ -5477,7 +5473,7 @@ private:
       return begin_warning(
           "Noise Contour (Sphere) rejects %s %s. Set %s to None, or select "
           "Noise Contour (Projected).",
-          position, WARP_OPTIONS[static_cast<uint8_t>(kind)], position);
+          position, warp_option(kind), position);
     }
     if (outer.kind == WarpStageKind::POLAR_CHART &&
         inner.kind != WarpStageKind::NONE &&
@@ -5486,13 +5482,13 @@ private:
           "Planar Warp 1 Polar Chart cannot run while Planar Warp 2 is %s. Set "
           "Planar Warp 2 to None or Wave Shear, or choose a different Planar "
           "Warp 1.",
-          WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
+          warp_option(inner.kind));
     if (inner.kind == WarpStageKind::POLAR_CHART &&
         outer.kind != WarpStageKind::NONE)
       return begin_warning(
           "Planar Warp 2 Polar Chart cannot run while Planar Warp 1 is %s. Set "
           "Planar Warp 1 to None or choose a different Planar Warp 2.",
-          WARP_OPTIONS[static_cast<uint8_t>(outer.kind)]);
+          warp_option(outer.kind));
     const WarpStageSpec *polar =
         outer.kind == WarpStageKind::POLAR_CHART   ? &outer
         : inner.kind == WarpStageKind::POLAR_CHART ? &inner
@@ -5559,7 +5555,7 @@ private:
             "Planar Warp 1 Affine Frame translation cannot precede Planar "
             "Warp 2 %s because the later warp breaks its source-period seam. "
             "Set Planar Warp 2 to None or set both translations to zero.",
-            WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
+            warp_option(inner.kind));
       return begin_warning(
           "%s Affine Frame translation cannot drive Total Warp Displacement "
           "hue because its path length resets at the source-period seam. "
@@ -5574,10 +5570,10 @@ private:
         append_warning(" Function Noise Contour (Projected) is not seam-safe.");
       if (seam_sensitive_warp(outer.kind))
         append_warning(" Planar Warp 1 %s is not seam-safe.",
-                       WARP_OPTIONS[static_cast<uint8_t>(outer.kind)]);
+                       warp_option(outer.kind));
       if (seam_sensitive_warp(inner.kind))
         append_warning(" Planar Warp 2 %s is not seam-safe.",
-                       WARP_OPTIONS[static_cast<uint8_t>(inner.kind)]);
+                       warp_option(inner.kind));
       append_warning(" Replace the named stage or select Folded Sinusoidal, "
                      "Stereographic, Gnomonic, or Equirectangular.");
       return warning_text.data();
@@ -6195,6 +6191,10 @@ private:
       "WarpStageKind::VECTOR_NOISE", "WarpStageKind::CURL_FLOW",
       "WarpStageKind::MIRROR_TILE",  "WarpStageKind::POLAR_CHART"};
   static constexpr int NUM_WARPS = std::size(WARP_OPTIONS);
+  static constexpr const char *warp_option(WarpStageKind kind) {
+    const uint8_t index = static_cast<uint8_t>(kind);
+    return index < NUM_WARPS ? WARP_OPTIONS[index] : "Legacy Stereo Noise";
+  }
   static constexpr const char *NOISE_BASIS_OPTIONS[] = {"Simplex", "FBM 3",
                                                         "Ridged 3"};
   static constexpr const char *NOISE_BASIS_EXPORT_OPTIONS[] = {
