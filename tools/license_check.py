@@ -80,11 +80,11 @@ def header_issue(path: str, head: str) -> str | None:
     return None
 
 
-def main() -> int:
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("."),
                         help="repository root to check")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     sources = tracked_sources(args.root)
     issues = []
