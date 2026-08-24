@@ -279,10 +279,10 @@ template <int W, int H> struct Pipeline<W, H> {
   void plot(Canvas &cv, int x, int y, const ::Pixel &c, float, float alpha) {
     // Producer must keep x in [-W, 2W); fast_wrap corrects only a single ±W offset.
     assert(x >= -W && x < 2 * W);
-    if (!cv.clip().contains_y(y))
+    if (!cv.clip_contains_y(y))
       return;
     int xi = fast_wrap(x, W);
-    if (!cv.clip().contains_x(xi))
+    if (!cv.clip_contains_x(xi))
       return;
     plot_in_bounds(cv, xi, y, c, 0.0f, alpha);
   }
@@ -291,8 +291,8 @@ template <int W, int H> struct Pipeline<W, H> {
   void plot_in_bounds(Canvas &cv, int x, int y, const ::Pixel &c, float,
                       float alpha) {
     HS_PROFILE(filter_blend);
-    assert(x >= 0 && x < W && cv.clip().contains_x(x));
-    assert(cv.clip().contains_y(y));
+    assert(x >= 0 && x < W && cv.clip_contains_x(x));
+    assert(cv.clip_contains_y(y));
     ::Pixel &dst = cv(x, y);
     if (alpha >= 1.0f) {
       dst = c;
@@ -321,10 +321,10 @@ template <int W, int H> struct Pipeline<W, H> {
     assert(xr >= -W && xr < 2 * W);
     int xi = static_cast<int>(xr);
     int yi = static_cast<int>(std::round(y));
-    if (!cv.clip().contains_y(yi))
+    if (!cv.clip_contains_y(yi))
       return;
     xi = fast_wrap(xi, W);
-    if (!cv.clip().contains_x(xi))
+    if (!cv.clip_contains_x(xi))
       return;
     plot_in_bounds(cv, xi, yi, c, 0.0f, alpha);
   }
