@@ -8151,7 +8151,7 @@
 			)
 		)
 	)
-	(gr_text "MASTER = ALL ID OPEN   SHLD = MASTER ONLY"
+	(gr_text "N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M"
 		(at 29.14 17 0)
 		(layer "B.SilkS")
 		(uuid "34996271-4f88-51a1-bf9f-5a4f8a300de2")

@@ -224,17 +224,6 @@ def set_d_bus_land_pattern(node):
                 field[1:3] = (0.8, 0.5)
 
 
-def move_silk_graphics_to_fab(node):
-    for item in node:
-        if not isinstance(item, list) or not item or item[0] not in (
-                "fp_line", "fp_arc", "fp_rect", "fp_poly"):
-            continue
-        for field in item:
-            if (isinstance(field, list) and field and field[0] == "layer"
-                    and field[1] == "F.SilkS"):
-                field[1] = "F.Fab"
-
-
 def set_pad_orientations(node, footprint_rotation):
     for pad in F(node, "pad"):
         for field in pad:
@@ -331,8 +320,6 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           consumed=None):
     node = embedded_footprint(ref, libid, teensy_model_path)
     refresh_uuids(node)
-    if ref == "JP_ID2":
-        move_silk_graphics_to_fab(node)
     set_pad_orientations(node, rot)
     node[1] = libid
     # strip lib-file-only headers
@@ -819,7 +806,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         ("1   GND   OPEN  A-SOUTH", 11.0, 0.9),
         ("2   OPEN  GND   B-NORTH", 13.0, 0.9),
         ("3   GND   GND   B-SOUTH", 15.0, 0.9),
-        ("MASTER = ALL ID OPEN   SHLD = MASTER ONLY", 17.0, 0.8),
+        ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 17.0, 0.8),
         ("BOARD ID: ____", 23.5, 2.0),
         ("Phantasm Rev 1.1", 29.5, 1.0),
     ]
