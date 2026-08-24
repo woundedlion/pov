@@ -427,6 +427,9 @@ public:
     seal_transients();
   }
 
+  template <typename... Args>
+  OpLeg(PolyMesh &&, const ParamSweepSpec &, Args &&...) = delete;
+
   /**
    * @brief Constructs a hankin-sweep leg: bakes the angle-independent hankin
    * topology once, computes the arrival classification, and builds the palette
@@ -524,6 +527,9 @@ public:
     }
     seal_transients();
   }
+
+  template <typename... Args>
+  OpLeg(PolyMesh &&, const HankinSweepSpec &, Args &&...) = delete;
 
   /**
    * @brief Constructs a relax leg: clones the seed, relaxes it once, and
