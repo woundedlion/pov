@@ -109,6 +109,18 @@ inline void flush_log() { fflush(stdout); }
 #endif
 
 namespace hs {
-/** @brief Global debug-logging toggle. */
+/** @brief Build-time default for foreground telemetry logging. */
+#ifdef HS_DEBUG_TELEMETRY
+inline constexpr bool DEBUG_TELEMETRY_DEFAULT = true;
+#else
+inline constexpr bool DEBUG_TELEMETRY_DEFAULT = false;
+#endif
+
+/** @brief Global debug-logging toggle, initialized off until target setup. */
 inline bool debug = false;
+
+/** @brief Enables or disables debug telemetry from foreground code. */
+inline void configure_debug_telemetry(bool enabled = DEBUG_TELEMETRY_DEFAULT) {
+  debug = enabled;
+}
 } // namespace hs

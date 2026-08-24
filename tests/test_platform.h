@@ -368,6 +368,18 @@ inline void test_serial_printf_formats_varargs() {
             "printf expands args");
 }
 
+/** @brief Verifies debug telemetry starts off and is foreground-configurable. */
+inline void test_debug_telemetry_configuration() {
+  static_assert(!hs::DEBUG_TELEMETRY_DEFAULT);
+  hs::configure_debug_telemetry();
+  HS_EXPECT_FALSE(hs::debug);
+
+  hs::configure_debug_telemetry(true);
+  HS_EXPECT_TRUE(hs::debug);
+  hs::configure_debug_telemetry(false);
+  HS_EXPECT_FALSE(hs::debug);
+}
+
 /**
  * @brief Verifies rand_f() stays in the half-open interval [0, 1) and that
  *        random_to_unit() clamps only the top band.
@@ -577,6 +589,7 @@ inline int run_platform_tests() {
   test_beatsin8_faithful();
   test_beatsin16_golden();
   test_serial_printf_formats_varargs();
+  test_debug_telemetry_configuration();
   test_every_n_seconds_quantizes();
 
   return fixture.result();
