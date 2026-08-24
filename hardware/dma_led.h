@@ -14,7 +14,7 @@
  *   TeensySPIDMA — low-level DMA+SPI hardware driver
  *   DMALEDController — double-buffered high-level controller
  *
- * Color correction uses the PROGMEM sRGB↔Linear LUTs from color_luts.h.
+ * Color correction uses the split linear-to-sRGB tables from srgb_decode.h.
  * All corrections are applied in linear 16-bit space.
  *
  * Only compiles on Teensy 4.x (ARDUINO defined). On WASM/sim builds this
