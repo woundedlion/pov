@@ -2633,6 +2633,114 @@ inline void test_face_cull_covers_aa_fringe() {
   HS_EXPECT_GT(total_paintable, 1000);
 }
 
+/** @brief Records the columns emitted by Face's fixed equatorial pad. */
+template <int W, int H>
+inline void face_fixed_pad_visited(const SDF::Face &face,
+                                   std::vector<uint8_t> &visited) {
+  visited.assign(static_cast<size_t>(W) * H, 0);
+  auto bounds = face.template get_vertical_bounds<H>();
+  const int y_lo = std::max(0, bounds.y_min);
+  const int y_hi = std::min(H - 1, bounds.y_max);
+  if (y_lo > y_hi)
+    return;
+  const float pad = SDF::face_azimuth_pad(W);
+  Scan::scan_region<W, H>(
+      y_lo, y_hi,
+      [&](int, auto &&out) {
+        if (face.full_width)
+          return false;
+        for (const auto &iv : face.intervals) {
+          out(floorf((iv.first - pad) * W / TWO_PI_F),
+              ceilf((iv.second + pad) * W / TWO_PI_F));
+        }
+        return true;
+      },
+      [&](int wx, int y, const Vector &, int run) {
+        for (int i = 0; i < run; ++i)
+          if (wx + i >= 0 && wx + i < W)
+            visited[static_cast<size_t>(y) * W + wx + i] = 1;
+        return run;
+      });
+}
+
+/** @brief Counts paintable pixels missed before and after latitude widening. */
+template <int W, int H>
+inline std::pair<int, int> face_fringe_misses(const SDF::Face &face) {
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
+  std::vector<uint8_t> fixed_visited;
+  std::vector<uint8_t> widened_visited;
+  face_fixed_pad_visited<W, H>(face, fixed_visited);
+  cull_visited<W, H>(face, widened_visited);
+
+  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
+  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+  const float pixel_width = TWO_PI_F / W;
+  int fixed_misses = 0;
+  int widened_misses = 0;
+  for (int y = 0; y < H; ++y) {
+    const float sp = TrigLUT<W, H>::sin_phi[y];
+    const float cp = TrigLUT<W, H>::cos_phi[y];
+    for (int x = 0; x < W; ++x) {
+      const Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      if (SDF::distance_of(face, p).dist >= pixel_width)
+        continue;
+      const size_t px = static_cast<size_t>(y) * W + x;
+      fixed_misses += !fixed_visited[px];
+      widened_misses += !widened_visited[px];
+    }
+  }
+  return {fixed_misses, widened_misses};
+}
+
+/**
+ * @brief Pins the reduction from converting Face's AA reach to azimuth by row.
+ * @details The widened mask closes 92-97% of the fixed-pad misses in this
+ * deterministic sample. A nonzero residual keeps the test scoped to widening
+ * rather than folding interval construction into its contract.
+ */
+inline void test_face_latitude_pad_reduces_fringe_drops() {
+  constexpr int W = 288, H = 144, HV = H + hs::H_OFFSET;
+  struct Cfg {
+    int sides;
+    float rho;
+    float phi;
+  };
+  const Cfg cfgs[] = {
+      {3, 0.14f, 2.58f}, {3, 0.14f, 2.76f}, {3, 0.20f, 2.38f},
+      {3, 0.20f, 2.58f}, {3, 0.26f, 2.76f}, {3, 0.26f, 0.38f},
+      {3, 0.26f, 0.56f}, {5, 0.14f, 0.38f}, {4, 0.20f, 0.38f},
+      {3, 0.08f, 0.38f},
+  };
+  int fixed_misses = 0;
+  int widened_misses = 0;
+  for (const Cfg &cfg : cfgs) {
+    const float theta = 0.31f * cfg.sides + 1.7f * cfg.rho + 0.23f * cfg.phi;
+    const Vector axis(sinf(cfg.phi) * cosf(theta), cosf(cfg.phi),
+                      sinf(cfg.phi) * sinf(theta));
+    Basis basis = make_basis(Quaternion(), axis);
+    Vector verts[6];
+    uint16_t idx[6];
+    for (int i = 0; i < cfg.sides; ++i) {
+      const float a = TWO_PI_F * i / cfg.sides + 0.37f;
+      verts[i] = (basis.v * cosf(cfg.rho) +
+                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(cfg.rho))
+                     .normalized();
+      idx[i] = static_cast<uint16_t>(i);
+    }
+    SDF::FaceScratchBuffer scratch;
+    SDF::Face face(std::span<const Vector>(verts, cfg.sides),
+                   std::span<const uint16_t>(idx, cfg.sides), scratch, HV, H);
+    const auto misses = face_fringe_misses<W, H>(face);
+    fixed_misses += misses.first;
+    widened_misses += misses.second;
+  }
+  HS_EXPECT_GE(fixed_misses, 100);
+  HS_EXPECT_GT(widened_misses, 0);
+  HS_EXPECT_LE(widened_misses * 100, fixed_misses * 8);
+  HS_EXPECT_GE(widened_misses * 100, fixed_misses * 3);
+}
+
 /**
  * @brief Rasterizes a wedge face apexed on a pole and compares it against a
  *        full-canvas distance scan.
@@ -3155,6 +3263,7 @@ inline int run_sdf_tests() {
   test_ring_pole_wrap_cull_covers_interior();
   test_distorted_ring_cull_covers_interior_high_freq();
   test_face_cull_covers_aa_fringe();
+  test_face_latitude_pad_reduces_fringe_drops();
   test_star_polygon_cull_covers_aa_fringe();
   test_face_pole_vertex_matches_full_scan();
   test_face_distance_matches_exact_oracle();

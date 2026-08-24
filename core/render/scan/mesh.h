@@ -46,9 +46,10 @@ HS_O3_BEGIN
  * @details Self-contained (the shared rasterize/scan_region/process_pixel
  * kernel stays -Os; GCC reuses that existing -Os instantiation rather than
  * re-optimizing it into a region caller). A Face's column intervals are
- * row-independent unless it touches a pole, so for every other face the
- * wrap/sort/coalesce pass — per-row in scan_region — and the clip-arc
- * intersection run once; the per-pixel body mirrors process_pixel's solid path.
+ * row-independent whenever latitude widening leaves their rounded endpoints
+ * unchanged. Those faces run the wrap/sort/coalesce pass — per-row in
+ * scan_region — and the clip-arc intersection once; the per-pixel body mirrors
+ * process_pixel's solid path.
  * Takes no debug flag and does not read canvas.debug(): the bounding-box tint
  * would need the shared rasterizer instantiated for SDF::Face, +2.5 KB ITCM.
  */
@@ -133,9 +134,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     }
   };
 
-  // A pole-touching face widens its azimuth wedge toward the pole, so its runs
-  // describe one row; every other face reuses one set for the whole band.
-  const bool per_row = shape.pole_touch;
+  const bool per_row =
+      shape.template horizontal_intervals_vary_by_row<W, H>(y_lo, y_hi);
   if (!per_row) {
     build_runs(y_lo);
     if (num_runs == 0)
