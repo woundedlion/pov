@@ -495,6 +495,28 @@ template <> struct OptionalNoise<true> {
   FastNoiseLite noise;
 };
 
+/** @brief Projection-walk noise storage; empty when disabled. */
+template <bool Enabled> struct ProjectionWalkNoise {};
+template <> struct ProjectionWalkNoise<true> {
+  FastNoiseLite projection_walk_noise;
+};
+
+/** @brief Persistent projection-walk state; empty when disabled. */
+template <bool Enabled> struct ProjectionWalkState {
+  Quaternion frame_conjugate() const { return Quaternion(); }
+};
+template <> struct ProjectionWalkState<true> {
+  Orientation<> projection_walk;
+  Quaternion projection_walk_previous;
+  Quaternion projection_wander;
+  Quaternion projection_conjugate;
+  Quaternion base_orientation =
+      make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
+  float projection_spin = 0.0f;
+
+  Quaternion frame_conjugate() const { return projection_conjugate; }
+};
+
 /** @brief Projection a composed effect's surface stage composes. */
 enum class ProjectionKind : uint8_t {
   STEREOGRAPHIC,
@@ -660,8 +682,8 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * constants; every stage typedef, the render pipeline, shade() and the shared
  * lifecycle — parameter registration, preset choreography, palette cycling,
  * camera walks and noise clocks — are assembled here. Required `Derived`
- * members are `PRESET_IDS`, `PARAMETER_SCHEMA_VERSION`, `PRESET_DWELL_FRAMES`,
- * `ANIMATED_PROJECTION` and `initial_params`, plus an `OUTER_NOISE_SEED` /
+ * members are `PRESET_IDS`, `PARAMETER_SCHEMA_VERSION`, `PRESET_DWELL_FRAMES`
+ * and `initial_params`, plus an `OUTER_NOISE_SEED` /
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` for each noise field the parameter
  * set and `Has*Noise` flags request. Optional members, detected by `requires`
  * and defaulted when absent, are `preset_params` (absent, every preset takes
@@ -679,14 +701,17 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * @tparam Harmony Palette harmony the generated palettes are drawn from.
  * @tparam HueV Hue-rotation source: none, noise field, or path length.
  * @tparam BrightnessV Brightness envelope applied by the color stage.
+ * @tparam AnimatedProjection Whether the projection owns a random walk.
  * @tparam HasOuterNoise Whether the outer-camera stage owns a noise field.
  * @tparam HasSourceNoise Whether the source stage owns a noise field.
  */
 template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
           PaletteHarmony Harmony, HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool HasOuterNoise = false, bool HasSourceNoise = false>
-class ComposedEffect : public ChoreographedEffect<Derived, ParamsT> {
+          bool AnimatedProjection = true, bool HasOuterNoise = false,
+          bool HasSourceNoise = false>
+class ComposedEffect : public ChoreographedEffect<Derived, ParamsT>,
+                       private ProjectionWalkState<AnimatedProjection> {
   using Choreography = ChoreographedEffect<Derived, ParamsT>;
   friend Choreography;
 
@@ -698,6 +723,7 @@ public:
   /** Preset policy: an automatic change crossfades the parameters; pause
       never freezes an in-flight crossfade. */
   static constexpr Segue::Lerp PRESET_SEGUE{480, ease_in_out_sin};
+  static constexpr bool ANIMATED_PROJECTION = AnimatedProjection;
   /** Whether the effect owns a surface-noise field and seed. */
   static constexpr bool HAS_SURFACE_NOISE =
       std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams> ||
@@ -800,10 +826,12 @@ public:
     init_gamut_lut(persistent_arena, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
     palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,
                                   ease_in_out_sin);
-    timeline.add(0, Animation::RandomWalk<W>(
-                        projection_walk, UP, state->projection_walk_noise,
-                        typename Animation::RandomWalk<W>::Options{},
-                        PROJECTION_WALK_SEED));
+    if constexpr (AnimatedProjection)
+      timeline.add(0,
+                   Animation::RandomWalk<W>(
+                       this->projection_walk, UP, state->projection_walk_noise,
+                       typename Animation::RandomWalk<W>::Options{},
+                       PROJECTION_WALK_SEED));
     timeline.add(0, Animation::RandomWalk<W>(
                         outer_walk, UP, state->outer_walk_noise,
                         typename Animation::RandomWalk<W>::Options{},
@@ -930,7 +958,7 @@ protected:
   }
 
 private:
-  struct State {
+  struct State : ProjectionWalkNoise<AnimatedProjection> {
     std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
         hue_rotation_lut;
     std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut;
@@ -938,7 +966,6 @@ private:
     OptionalNoise<HasOuterNoise> outer;
     OptionalNoise<HasSourceNoise> source;
     OptionalNoise<HAS_SURFACE_NOISE> surface;
-    FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
     /** Inputs the hue-noise LUT was last baked from; the negative seeds match
         no admissible parameter, forcing the first bake. */
@@ -969,7 +996,7 @@ private:
     case Pullback::FieldGate::ALWAYS:
       return true;
     case Pullback::FieldGate::ANIMATED_PROJECTION:
-      return Derived::ANIMATED_PROJECTION;
+      return AnimatedProjection;
     case Pullback::FieldGate::CENTRAL_MERIDIAN:
       return uses_central_meridian(SpecT::PROJECTION);
     }
@@ -1084,9 +1111,9 @@ private:
       surface_phase = fmodf(surface_phase + 1.0f, params.surface.period);
     else if constexpr (HAS_SURFACE)
       surface_phase = wrap_t(surface_phase + params.surface.speed);
-    if constexpr (Derived::ANIMATED_PROJECTION)
-      projection_spin =
-          fmodf(projection_spin + params.projection.spin_rate, TWO_PI_F);
+    if constexpr (AnimatedProjection)
+      this->projection_spin =
+          fmodf(this->projection_spin + params.projection.spin_rate, TWO_PI_F);
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       camera_spin = fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, TWO_PI_F);
     hue_noise_phase = wrap_t(hue_noise_phase + params.color.hue_noise_speed);
@@ -1106,18 +1133,20 @@ private:
   HS_COLD_MEMBER void update_spatial_frames() {
     // prepare_frame() reads projection_conjugate only for an animated
     // projection.
-    if constexpr (Derived::ANIMATED_PROJECTION) {
-      const Quaternion projection = projection_walk.get();
+    if constexpr (AnimatedProjection) {
+      const Quaternion projection = this->projection_walk.get();
       const Quaternion projection_delta =
-          projection * projection_walk_previous.conjugate();
-      projection_walk_previous = projection;
-      projection_wander = (scaled_rotation_delta(projection_delta.normalized(),
-                                                 params.projection.wander) *
-                           projection_wander)
-                              .normalized();
-      projection_conjugate = (make_rotation(Y_AXIS, projection_spin) *
-                              base_orientation * projection_wander)
-                                 .conjugate();
+          projection * this->projection_walk_previous.conjugate();
+      this->projection_walk_previous = projection;
+      this->projection_wander =
+          (scaled_rotation_delta(projection_delta.normalized(),
+                                 params.projection.wander) *
+           this->projection_wander)
+              .normalized();
+      this->projection_conjugate =
+          (make_rotation(Y_AXIS, this->projection_spin) *
+           this->base_orientation * this->projection_wander)
+              .conjugate();
     }
     const Quaternion outer = outer_walk.get();
     const Quaternion outer_delta = outer * outer_walk_previous.conjugate();
@@ -1168,7 +1197,7 @@ private:
     const FastNoiseLite *surface_noise = nullptr;
     if constexpr (HAS_SURFACE_NOISE)
       surface_noise = &state->surface.noise;
-    return {Derived::ANIMATED_PROJECTION ? projection_conjugate : Quaternion(),
+    return {this->frame_conjugate(),
             outer_conjugate,
             outer_noise,
             source_noise,
@@ -1229,22 +1258,15 @@ private:
           params.color.palette_mapping);
   Pullback::Color::PaletteMappingWeights mapping_from;
   Pullback::Color::PaletteMappingWeights mapping_to;
-  Orientation<> projection_walk;
   Orientation<> outer_walk;
-  Quaternion projection_walk_previous;
   Quaternion outer_walk_previous;
-  Quaternion projection_wander;
   Quaternion outer_wander;
-  Quaternion projection_conjugate;
   Quaternion outer_conjugate;
-  Quaternion base_orientation =
-      make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
   float source_primary = 0.0f;
   float source_secondary = 0.0f;
   float source_angle = 0.0f;
   float source_noise_time = 0.0f;
   float surface_phase = 0.0f;
-  float projection_spin = 0.0f;
   float camera_spin = 0.0f;
   float hue_noise_phase = 0.0f;
   float outer_phase = 0.0f;
