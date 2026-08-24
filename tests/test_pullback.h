@@ -129,6 +129,14 @@ using TestPipeline =
 
 struct MissingContract {};
 
+struct NonTuplePoliciesStage {
+  using Input = Pullback::SphereSample;
+  using Output = Pullback::SphereSample;
+  using Policies = int;
+
+  template <typename> struct Bind {};
+};
+
 struct NotACarrier {};
 
 struct ForeignCarrierStage
@@ -328,6 +336,12 @@ inline void test_pullback_validation_predicates() {
   HS_EXPECT_TRUE(Missing::NONEMPTY);
   HS_EXPECT_FALSE(Missing::CONTRACTS);
 
+  using NonTuple =
+      Pullback::PipelineValidation<TestBinding, NonTuplePoliciesStage,
+                                   ColorCrossingStage>;
+  HS_EXPECT_TRUE(NonTuple::NONEMPTY);
+  HS_EXPECT_FALSE(NonTuple::CONTRACTS);
+
   using Foreign = Pullback::PipelineValidation<TestBinding, EntryStage,
                                                ForeignCarrierStage>;
   HS_EXPECT_TRUE(Foreign::CONTRACTS);
@@ -471,6 +485,7 @@ inline void test_pullback_public_surface() {
       Pullback::CodeEmission::OUT_OF_LINE_FLASH);
   static_assert(Pullback::StageDescriptor<EntryStage>);
   static_assert(!Pullback::StageDescriptor<MissingContract>);
+  static_assert(!Pullback::StageDescriptor<NonTuplePoliciesStage>);
   static_assert(Pullback::Warp::MAX_POLAR_HARMONIC == 16);
   static_assert(Pullback::Color::HueRotationLutView::SIZE == 1024);
   static_assert(Pullback::Color::HueNoiseLutView::SIZE == 3456);
