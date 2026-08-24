@@ -285,7 +285,8 @@ private:
               }
               current_idx = next_idx;
               morph_alpha = 0.0f;
-              HS_CHECK(synchronizePreset(preset_index_for_mode(current_idx)));
+              HS_CHECK(synchronizePreset(preset_index_for_mode(current_idx)),
+                       "SphericalHarmonics preset synchronization failed");
               start_morph();
             }),
         &anims_paused);
