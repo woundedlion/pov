@@ -22,6 +22,12 @@
 #include "core/engine/engine.h"
 #include "core/render/pullback.h"
 
+namespace hs_test {
+namespace hyper_lattice_tests {
+struct HyperLatticeWhiteBox;
+} // namespace hyper_lattice_tests
+} // namespace hs_test
+
 namespace HyperLatticeDetail {
 
 constexpr int DIMENSIONS = 4;
@@ -119,8 +125,8 @@ struct Params {
   float wire_radius = 0.055f;
   float softness = 0.012f;
   float far_cells = 7.0f;
-  float pixel_aa = 0.0105f;
-  float travel_speed = 0.018f;
+  float aa_strength = 1.0f;
+  float speed = 0.018f;
   float spin_3d = 0.0024f;
   float spin_4d = 0.0f;
   ReflectionMode reflection = ReflectionMode::CHROME;
@@ -132,8 +138,8 @@ struct Params {
     wire_radius = hs::lerp(start.wire_radius, target.wire_radius, amount);
     softness = hs::lerp(start.softness, target.softness, amount);
     far_cells = hs::lerp(start.far_cells, target.far_cells, amount);
-    pixel_aa = hs::lerp(start.pixel_aa, target.pixel_aa, amount);
-    travel_speed = hs::lerp(start.travel_speed, target.travel_speed, amount);
+    aa_strength = hs::lerp(start.aa_strength, target.aa_strength, amount);
+    speed = hs::lerp(start.speed, target.speed, amount);
     spin_3d = hs::lerp(start.spin_3d, target.spin_3d, amount);
     spin_4d = hs::lerp(start.spin_4d, target.spin_4d, amount);
     reflection = amount < 0.5f ? start.reflection : target.reflection;
@@ -146,6 +152,7 @@ struct FrameState {
   Params params;
   Vec4 origin;
   std::array<float, 6> rotation_phase;
+  float pixel_half_angle;
   const BakedPalette *palette;
 };
 
@@ -161,7 +168,26 @@ struct PreparedTrace {
   float positive_offset[DIMENSIONS];
   float negative_offset[DIMENSIONS];
   float inv_far;
+  float pixel_half_angle;
 };
+
+template <int W, int H> constexpr float pixel_half_angle() {
+  constexpr float HORIZONTAL = TWO_PI_F / static_cast<float>(W);
+  constexpr float VERTICAL = PI_F / static_cast<float>(H + hs::H_OFFSET - 1);
+  return 0.5f * (HORIZONTAL > VERTICAL ? HORIZONTAL : VERTICAL);
+}
+
+inline float wire_coverage(float metric_sq, float radius, float half_width) {
+  const float signed_distance = sqrtf(metric_sq) - radius;
+  return 1.0f - smooth_ramp(-half_width, half_width, signed_distance);
+}
+
+inline float projected_half_width(float distance, float plane_component,
+                                  float pixel_half_angle, float aa_strength,
+                                  float softness) {
+  return softness +
+         aa_strength * pixel_half_angle * distance / fabsf(plane_component);
+}
 
 inline PreparedTrace prepare_trace(const FrameState &frame) {
   PreparedTrace prepared;
@@ -184,6 +210,7 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
     prepared.negative_offset[axis] = fraction == 0.0f ? 1.0f : fraction;
   }
   prepared.inv_far = 1.0f / frame.params.far_cells;
+  prepared.pixel_half_angle = frame.pixel_half_angle;
   return prepared;
 }
 
@@ -204,8 +231,6 @@ struct TraceHit {
 inline TraceHit trace(const Vector &normal, const PreparedTrace &prepared) {
   const Vec4 direction = prepared.world_to_lattice.apply(
       reflected_direction(normal, prepared.params.reflection));
-  const float radius_sq =
-      prepared.params.wire_radius * prepared.params.wire_radius;
   const int shell_count = static_cast<int>(prepared.params.shells) + 1;
   TraceHit best;
 
@@ -249,11 +274,11 @@ inline TraceHit trace(const Vector &normal, const PreparedTrace &prepared) {
         }
       }
 
-      const float outer_radius = prepared.params.wire_radius +
-                                 prepared.params.softness +
-                                 prepared.params.pixel_aa * distance;
+      const float half_width = projected_half_width(
+          distance, component, prepared.pixel_half_angle,
+          prepared.params.aa_strength, prepared.params.softness);
       const float edge =
-          1.0f - smooth_ramp(radius_sq, outer_radius * outer_radius, metric_sq);
+          wire_coverage(metric_sq, prepared.params.wire_radius, half_width);
       const float fog = std::max(0.0f, 1.0f - distance * prepared.inv_far);
       const float coverage = edge * fog * fog * dimensional_coverage;
       if (coverage > best.coverage)
@@ -331,7 +356,7 @@ public:
   static constexpr Segue::Lerp PRESET_SEGUE{240, ease_in_out_sin,
                                             /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   static constexpr Params initial_params() { return {}; }
 
@@ -342,7 +367,7 @@ public:
       value.wire_radius = 0.035f;
       value.softness = 0.008f;
       value.far_cells = 12.0f;
-      value.travel_speed = 0.03f;
+      value.speed = 0.03f;
       value.reflection = ReflectionMode::RADIAL;
       value.shells = ShellCount::THREE;
       break;
@@ -359,7 +384,7 @@ public:
       value.wire_radius = 0.11f;
       value.softness = 0.018f;
       value.far_cells = 10.0f;
-      value.travel_speed = 0.024f;
+      value.speed = 0.024f;
       value.spin_4d = 0.0041f;
       value.color = ColorMode::AXIS;
       value.shells = ShellCount::THREE;
@@ -375,8 +400,8 @@ public:
            value.wire_radius >= 0.015f && value.wire_radius <= 0.18f &&
            value.softness >= 0.002f && value.softness <= 0.08f &&
            value.far_cells >= 2.0f && value.far_cells <= 16.0f &&
-           value.pixel_aa >= 0.0f && value.pixel_aa <= 0.02f &&
-           value.travel_speed >= 0.0f && value.travel_speed <= 0.05f &&
+           value.aa_strength >= 0.0f && value.aa_strength <= 2.0f &&
+           value.speed >= 0.0f && value.speed <= 0.05f &&
            value.spin_3d >= 0.0f && value.spin_3d <= 0.015f &&
            value.spin_4d >= 0.0f && value.spin_4d <= 0.015f &&
            static_cast<uint8_t>(value.reflection) <=
@@ -395,8 +420,8 @@ public:
     register_animated_param("Wire Radius", &params.wire_radius, 0.015f, 0.18f);
     register_animated_param("Softness", &params.softness, 0.002f, 0.08f);
     register_animated_param("Far Cells", &params.far_cells, 2.0f, 16.0f);
-    register_animated_param("Pixel AA", &params.pixel_aa, 0.0f, 0.02f);
-    register_animated_param("Travel", &params.travel_speed, 0.0f, 0.05f);
+    register_animated_param("AA Strength", &params.aa_strength, 0.0f, 2.0f);
+    register_animated_param("Speed", &params.speed, 0.0f, 0.05f);
     register_animated_param("3D Spin", &params.spin_3d, 0.0f, 0.015f);
     register_animated_param("4D Spin", &params.spin_4d, 0.0f, 0.015f);
     register_animated_param("Reflection", &params.reflection,
@@ -417,10 +442,10 @@ public:
       timeline.step(canvas);
     }
     begin_automatic_transition();
-    if (!anims_paused)
-      advance_state();
-    const HyperLatticeDetail::FrameState context{params, origin, rotation_phase,
-                                                 &baked_palette};
+    advance_state();
+    const HyperLatticeDetail::FrameState context{
+        params, origin, rotation_phase,
+        HyperLatticeDetail::pixel_half_angle<W, H>(), &baked_palette};
     const auto frame = HyperLatticeDetail::RenderPipeline::prepare(context);
     {
       HS_PROFILE(hl_shader_draw);
@@ -432,7 +457,6 @@ public:
   }
 
 private:
-  using Choreography::anims_paused;
   using Choreography::begin_automatic_transition;
   using Choreography::configure_presets;
   using Choreography::params;
@@ -450,8 +474,7 @@ private:
     static constexpr float RATE[6] = {1.0f, 0.731f, 0.517f,
                                       1.0f, 0.707f, 0.419f};
     for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
-      origin[axis] =
-          wrap_t(origin[axis] + params.travel_speed * VELOCITY[axis]);
+      origin[axis] = wrap_t(origin[axis] + params.speed * VELOCITY[axis]);
     for (int plane = 0; plane < 3; ++plane)
       rotation_phase[plane] =
           wrap(rotation_phase[plane] + params.spin_3d * RATE[plane], TWO_PI_F);
@@ -473,6 +496,8 @@ private:
   HyperLatticeDetail::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   BakedPalette baked_palette;
+
+  friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
 
   static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::required_arena_bytes();

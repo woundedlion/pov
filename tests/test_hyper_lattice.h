@@ -13,6 +13,16 @@ namespace hyper_lattice_tests {
 
 namespace HL = HyperLatticeDetail;
 
+struct HyperLatticeWhiteBox {
+  using Effect = HyperLattice<96, 20>;
+
+  static HL::Vec4 origin(const Effect &effect) { return effect.origin; }
+  static std::array<float, 6> rotation_phase(const Effect &effect) {
+    return effect.rotation_phase;
+  }
+  static HL::Params &params(Effect &effect) { return effect.params; }
+};
+
 inline void test_periodic_distance() {
   HS_EXPECT_EQ(HL::periodic_distance(0.0f), 0.0f);
   HS_EXPECT_EQ(HL::periodic_distance(1.0f), 0.0f);
@@ -66,6 +76,52 @@ inline void test_reflection_convention() {
   const HL::Vec4 radial =
       HL::reflected_direction(Y_AXIS, HL::ReflectionMode::RADIAL);
   HS_EXPECT_EQ(radial[1], 1.0f);
+}
+
+inline void test_resolution_aware_wire_coverage() {
+  constexpr float LOW_RES = HL::pixel_half_angle<96, 20>();
+  constexpr float HIGH_RES = HL::pixel_half_angle<288, 144>();
+  static_assert(LOW_RES > HIGH_RES);
+
+  constexpr float RADIUS = 0.1f;
+  constexpr float HALF_WIDTH = 0.02f;
+  constexpr float OFFSET = 0.01f;
+  const float inside = HL::wire_coverage((RADIUS - OFFSET) * (RADIUS - OFFSET),
+                                         RADIUS, HALF_WIDTH);
+  const float boundary = HL::wire_coverage(RADIUS * RADIUS, RADIUS, HALF_WIDTH);
+  const float outside = HL::wire_coverage((RADIUS + OFFSET) * (RADIUS + OFFSET),
+                                          RADIUS, HALF_WIDTH);
+  HS_EXPECT_NEAR(boundary, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(inside + outside, 1.0f, 1e-5f);
+
+  const float frontal =
+      HL::projected_half_width(2.0f, 1.0f, HIGH_RES, 1.0f, 0.01f);
+  const float grazing =
+      HL::projected_half_width(2.0f, 0.25f, HIGH_RES, 1.0f, 0.01f);
+  HS_EXPECT_GT(grazing, frontal);
+}
+
+inline void test_pause_does_not_stop_motion() {
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  effect.setAnimationsPaused(true);
+
+  const HL::Vec4 origin_before = HyperLatticeWhiteBox::origin(effect);
+  const auto rotation_before = HyperLatticeWhiteBox::rotation_phase(effect);
+  effect.draw_frame();
+  effect.advance_display();
+  const HL::Vec4 origin_after = HyperLatticeWhiteBox::origin(effect);
+  const auto rotation_after = HyperLatticeWhiteBox::rotation_phase(effect);
+  HS_EXPECT_NE(origin_after[0], origin_before[0]);
+  HS_EXPECT_NE(rotation_after[0], rotation_before[0]);
+
+  HyperLatticeWhiteBox::params(effect).speed = 0.0f;
+  const HL::Vec4 stopped_before = HyperLatticeWhiteBox::origin(effect);
+  effect.draw_frame();
+  effect.advance_display();
+  const HL::Vec4 stopped_after = HyperLatticeWhiteBox::origin(effect);
+  for (int axis = 0; axis < HL::DIMENSIONS; ++axis)
+    HS_EXPECT_EQ(stopped_after[axis], stopped_before[axis]);
 }
 
 inline void test_next_plane_is_strict() {
@@ -124,6 +180,8 @@ inline int run_hyper_lattice_tests() {
   test_edge_metrics();
   test_so4_rotation();
   test_reflection_convention();
+  test_resolution_aware_wire_coverage();
+  test_pause_does_not_stop_motion();
   test_next_plane_is_strict();
   test_trace_carrier();
   test_hyperplane_event();
