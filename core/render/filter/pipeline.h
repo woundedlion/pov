@@ -66,20 +66,29 @@ using PassFn3D =
  * A stage overrides any of these by redeclaring it.
  */
 template <bool Is2d, bool HasHistory> struct FilterTraits {
-  static constexpr int domain_rank = Is2d ? 1 : 0;
-  static constexpr bool is_2d = Is2d;
-  static constexpr bool has_history = HasHistory;
-  static constexpr bool is_pipeline = false;
-  static constexpr bool is_terminal = false;
-  static constexpr bool terminal_replaces = false;
-  static constexpr bool emits_nonunit_world = false;
-  static constexpr bool requires_unit_world_input = false;
-  static constexpr bool emits_pixel_centers = false;
-  static constexpr bool requires_subpixel_input = false;
-  static constexpr bool crosses_segments = has_history;
-  static constexpr bool reads_outside_band = has_history;
-  static constexpr bool world_transform_is_identity = is_2d;
-  static constexpr int segment_margin = 0;
+  static constexpr int domain_rank =
+      Is2d ? 1 : 0;                               /**< World-to-screen order. */
+  static constexpr bool is_2d = Is2d;             /**< Screen-space stage. */
+  static constexpr bool has_history = HasHistory; /**< Retains prior frames. */
+  static constexpr bool is_pipeline = false;      /**< Whole-pipeline marker. */
+  static constexpr bool is_terminal = false;      /**< Ends the stage chain. */
+  static constexpr bool terminal_replaces = false; /**< Overwrites its input. */
+  static constexpr bool emits_nonunit_world =
+      false; /**< May leave unit sphere. */
+  static constexpr bool requires_unit_world_input =
+      false; /**< Assumes unit input. */
+  static constexpr bool emits_pixel_centers =
+      false; /**< Quantizes screen taps. */
+  static constexpr bool requires_subpixel_input =
+      false; /**< Uses fractional taps. */
+  static constexpr bool crosses_segments =
+      has_history; /**< Moves across bands. */
+  static constexpr bool reads_outside_band =
+      has_history; /**< Samples other bands. */
+  static constexpr bool world_transform_is_identity =
+      is_2d; /**< Preserves world points. */
+  static constexpr int segment_margin =
+      0; /**< Maximum screen-space displacement. */
 };
 
 /** @brief Trait indicating a filter operates in 2D screen space. */

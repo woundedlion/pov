@@ -1293,10 +1293,12 @@ static_assert(sizeof(GenerativePalette) <= 160);
 
 namespace PaletteRecipes {
 
+/** @brief Converts an 8-bit hue wheel position to turns. */
 inline float hue_turns(uint32_t hue) {
   return static_cast<float>(hue & 0xFFu) * (1.0f / 256.0f);
 }
 
+/** @brief Builds the common defaults for a domain and named hue harmony. */
 inline PaletteRecipe harmony(PaletteDomain domain, PaletteHarmony harmony,
                              float base_turns = 0.0f) {
   PaletteRecipe recipe;
@@ -1306,11 +1308,13 @@ inline PaletteRecipe harmony(PaletteDomain domain, PaletteHarmony harmony,
   return recipe;
 }
 
+/** @brief Builds the default straight-domain analogous recipe. */
 inline PaletteRecipe balanced_analogous(float base_turns = 0.0f) {
   return harmony(PaletteDomain::STRAIGHT, PaletteHarmony::ANALOGOUS,
                  base_turns);
 }
 
+/** @brief Builds a named harmony with an explicit lightness profile. */
 inline PaletteRecipe profile(PaletteDomain domain, PaletteHarmony harmony,
                              AxisCurve lightness_curve, float base_turns,
                              float chroma = 0.62f) {
@@ -1324,6 +1328,7 @@ inline PaletteRecipe profile(PaletteDomain domain, PaletteHarmony harmony,
   return recipe;
 }
 
+/** @brief Builds profile() with a uniformly selected base hue. */
 HS_FLASH_MEMBER inline PaletteRecipe random_profile(PaletteDomain domain,
                                                     PaletteHarmony harmony,
                                                     AxisCurve lightness_curve,
@@ -1333,6 +1338,7 @@ HS_FLASH_MEMBER inline PaletteRecipe random_profile(PaletteDomain domain,
                  chroma);
 }
 
+/** @brief Builds a custom three-key recipe from OKLCH control colors. */
 inline PaletteRecipe from_oklch_keys(PaletteDomain domain, OKLCH a, OKLCH b,
                                      OKLCH c) {
   b.h = a.h + wrap_angle_pi(b.h - a.h);
@@ -1355,12 +1361,14 @@ inline PaletteRecipe from_oklch_keys(PaletteDomain domain, OKLCH a, OKLCH b,
   return recipe;
 }
 
+/** @brief Converts three encoded colors into a custom OKLCH recipe. */
 inline PaletteRecipe from_colors(PaletteDomain domain, const CPixel &a,
                                  const CPixel &b, const CPixel &c) {
   return from_oklch_keys(domain, pixel_to_oklch(Pixel(a)),
                          pixel_to_oklch(Pixel(b)), pixel_to_oklch(Pixel(c)));
 }
 
+/** @brief Builds a constant-lightness loop spanning one complete hue turn. */
 inline PaletteRecipe isolight_spectral_loop(float base_turns = 0.0f) {
   PaletteRecipe recipe;
   recipe.domain = PaletteDomain::LOOP;
@@ -1372,6 +1380,7 @@ inline PaletteRecipe isolight_spectral_loop(float base_turns = 0.0f) {
   return recipe;
 }
 
+/** @brief Builds a straight monochrome ramp with bell-shaped chroma. */
 inline PaletteRecipe tonal_monochrome(float base_turns = 0.0f) {
   PaletteRecipe recipe = harmony(PaletteDomain::STRAIGHT,
                                  PaletteHarmony::MONOCHROMATIC, base_turns);
