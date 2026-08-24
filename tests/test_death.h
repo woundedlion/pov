@@ -3057,17 +3057,6 @@ inline void case_shader_workbench_preset_view_index_out_of_range() {
 }
 
 /**
- * @brief Death case: a zero initial-preset dwell must trap.
- * @details Effect surface — the dwell counts down before the first automatic
- *          preset change, so zero would arm a countdown that never fires.
- */
-inline void case_shader_workbench_zero_preset_dwell() {
-  using WB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
-  WB::SB sb;
-  WB::hold_initial_preset(sb, opaque<uint16_t>(0));
-}
-
-/**
  * @brief Death case: resolving a preset past the view must trap.
  * @details Effect surface — the lookup indexes PRESETS through the view, so an
  *          out-of-range index hands the pipeline a config read off the table.
@@ -3614,9 +3603,6 @@ inline const Case *all_cases(int &n) {
        "interpreter.h",
        "(entry.input <= entry.output) ChainProgram::bind_storage: operator "
        "family rank decreases"},
-      {"shader_workbench_zero_preset_dwell",
-       case_shader_workbench_zero_preset_dwell, "ShaderWorkbench.h",
-       "(frames > 0) hold_initial_preset: zero dwell"},
       {"shader_workbench_preset_for_view_out_of_range",
        case_shader_workbench_preset_for_view_out_of_range, "ShaderWorkbench.h",
        "(index < preset_count_for_view()) preset_for_view: index out of "

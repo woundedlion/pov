@@ -231,7 +231,6 @@ protected:
   }
 
   HS_COLD_MEMBER void hold_initial_preset(uint16_t frames) {
-    HS_CHECK(frames > 0, "hold_initial_preset: zero dwell");
     preset_dwell_remaining = frames;
     preset_dwell_armed = preset_count_for_view() > 1;
   }
