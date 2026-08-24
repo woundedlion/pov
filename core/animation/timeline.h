@@ -334,14 +334,14 @@ public:
    * chain that re-arms itself must budget against this count, not against the
    * post-compaction one.
    */
-  int remaining() const { return MAX_EVENTS - global_timeline_num_events; }
+  static int remaining() { return MAX_EVENTS - global_timeline_num_events; }
 
   /**
    * @brief Event slots currently held.
    * @return Number of live events, including one whose post_callback() is
    * running (see remaining()).
    */
-  int event_count() const { return global_timeline_num_events; }
+  static int event_count() { return global_timeline_num_events; }
 
   /**
    * @brief Advances the timeline by one frame, stepping all active or starting
@@ -507,7 +507,7 @@ public:
    *          than a parallel per-effect counter that can silently desync if it
    *          isn't advanced in exact lockstep with step().
    */
-  uint32_t frame() const { return global_timeline_t; }
+  static uint32_t frame() { return global_timeline_t; }
 
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
