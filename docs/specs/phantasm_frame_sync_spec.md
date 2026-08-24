@@ -85,7 +85,7 @@ is deleted outright.
 
 ## 2. System model
 
-Hardware constants (`targets/common/phantasm_target.h`, `core/platform/platform.h`):
+Hardware constants (`targets/Phantasm/phantasm_target.h`, `core/platform/platform.h`):
 
 | Quantity            | Value    | Derivation                         |
 |---------------------|----------|------------------------------------|
