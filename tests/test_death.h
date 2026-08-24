@@ -2464,8 +2464,51 @@ inline void case_empty_fn_call() {
 inline void case_effect_registry_duplicate_name() {
   EffectRegistration reg{};
   reg.name = "DeathDuplicate";
+  reg.stable_id = "death-duplicate";
   EffectRegistry::add(reg);
   EffectRegistry::add(reg); // name already present -> HS_CHECK
+}
+
+/** @brief Death case: two effects declaring the same stable ID must trap. */
+inline void case_effect_registry_duplicate_stable_id() {
+  EffectRegistration first{};
+  first.name = "DeathStableA";
+  first.stable_id = "death-stable";
+  EffectRegistry::add(first);
+
+  EffectRegistration second{};
+  second.name = "DeathStableB";
+  second.stable_id = "death-stable";
+  EffectRegistry::add(second);
+}
+
+/** @brief Death case: a stable ID equal to another effect's name must trap. */
+inline void case_effect_registry_stable_id_matches_name() {
+  EffectRegistration first{};
+  first.name = "DeathClassAlias";
+  first.stable_id = "death-first";
+  EffectRegistry::add(first);
+
+  EffectRegistration second{};
+  second.name = "DeathOther";
+  second.stable_id = "DeathClassAlias";
+  EffectRegistry::add(second);
+}
+
+/**
+ * @brief Death case: a class name equal to another effect's stable ID must
+ *        trap.
+ */
+inline void case_effect_registry_name_matches_stable_id() {
+  EffectRegistration first{};
+  first.name = "DeathFirst";
+  first.stable_id = "DeathPersistedAlias";
+  EffectRegistry::add(first);
+
+  EffectRegistration second{};
+  second.name = "DeathPersistedAlias";
+  second.stable_id = "death-second";
+  EffectRegistry::add(second);
 }
 
 /**
@@ -3689,6 +3732,21 @@ inline const Case *all_cases(int &n) {
        "registry.h",
        "(existing.name != reg.name) effect header included by more than one "
        "translation unit: effects/DeathDuplicate.h"},
+      {"effect_registry_duplicate_stable_id",
+       case_effect_registry_duplicate_stable_id, "registry.h",
+       "(existing.stable_id != reg.stable_id) duplicate effect stable id "
+       "\"death-stable\": effects/DeathStableA.h and "
+       "effects/DeathStableB.h"},
+      {"effect_registry_stable_id_matches_name",
+       case_effect_registry_stable_id_matches_name, "registry.h",
+       "(existing.name != reg.stable_id && existing.stable_id != reg.name) "
+       "effect stable id collides with a class name: effects/DeathClassAlias.h "
+       "and effects/DeathOther.h"},
+      {"effect_registry_name_matches_stable_id",
+       case_effect_registry_name_matches_stable_id, "registry.h",
+       "(existing.name != reg.stable_id && existing.stable_id != reg.name) "
+       "effect stable id collides with a class name: effects/DeathFirst.h and "
+       "effects/DeathPersistedAlias.h"},
       {"flywheel_period_zero", case_flywheel_period_zero, "pov_sync_flywheel.h",
        "(p > 0 && p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS) "
        "Flywheel: cycles_per_half_rev outside the range position()'s int32 "
@@ -4406,7 +4464,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 188;
+  constexpr int DEATH_CASE_COUNT = 191;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
