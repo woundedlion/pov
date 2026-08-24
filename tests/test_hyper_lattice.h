@@ -123,19 +123,21 @@ inline void test_resolution_aware_wire_coverage() {
   HS_EXPECT_NEAR(boundary, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(inside + outside, 1.0f, 1e-5f);
 
-  const float frontal =
-      HL::projected_half_width(2.0f, 1.0f, HIGH_RES, 1.0f, 0.01f);
-  const float grazing =
-      HL::projected_half_width(2.0f, 4.0f, HIGH_RES, 1.0f, 0.01f);
+  const float frontal = HL::projected_half_width(2.0f, 1.0f, HIGH_RES, 0.01f);
+  const float grazing = HL::projected_half_width(2.0f, 4.0f, HIGH_RES, 0.01f);
   HS_EXPECT_GT(grazing, frontal);
 }
 
 inline void test_near_field_fade() {
   constexpr float RADIUS = 0.1f;
-  HS_EXPECT_EQ(HL::near_field_coverage(0.15f, RADIUS), 0.0f);
-  HS_EXPECT_GT(HL::near_field_coverage(0.275f, RADIUS), 0.0f);
-  HS_EXPECT_LT(HL::near_field_coverage(0.275f, RADIUS), 1.0f);
-  HS_EXPECT_EQ(HL::near_field_coverage(0.4f, RADIUS), 1.0f);
+  constexpr float NEAR_START = 1.5f * RADIUS;
+  constexpr float NEAR_INV_SPAN = 1.0f / (2.5f * RADIUS);
+  HS_EXPECT_EQ(HL::near_field_coverage(0.15f, NEAR_START, NEAR_INV_SPAN), 0.0f);
+  HS_EXPECT_GT(HL::near_field_coverage(0.275f, NEAR_START, NEAR_INV_SPAN),
+               0.0f);
+  HS_EXPECT_LT(HL::near_field_coverage(0.275f, NEAR_START, NEAR_INV_SPAN),
+               1.0f);
+  HS_EXPECT_EQ(HL::near_field_coverage(0.4f, NEAR_START, NEAR_INV_SPAN), 1.0f);
 }
 
 inline void test_far_shell_fade() {
