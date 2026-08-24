@@ -9,6 +9,7 @@
 #include "tests/mindsplatter_replay_metrics.h"
 
 #include <cstdio>
+#include <cstring>
 #include <span>
 #include <vector>
 
@@ -214,6 +215,12 @@ int main() {
               corpus.search_adaptive_samples, corpus.search_long_edges,
               corpus.peak_clip);
   bool accepted = true;
+  if (std::strcmp(corpus.source_revision,
+                  mindsplatter_replay::SOURCE_REVISION) != 0) {
+    std::printf("replay corpus revision mismatch: corpus=%s expected=%s\n",
+                corpus.source_revision, mindsplatter_replay::SOURCE_REVISION);
+    accepted = false;
+  }
   const uint64_t rehashed = rehash_corpus(corpus);
   if (rehashed != corpus.corpus_hash) {
     std::printf("replay corpus hash mismatch: rehashed=%llu recorded=%llu\n",

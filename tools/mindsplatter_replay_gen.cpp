@@ -24,7 +24,6 @@ constexpr int SEARCH_FRAME_STRIDE = 8;
 constexpr unsigned long FRAME_MS = 16;
 constexpr unsigned long FRAME_US = 16000;
 constexpr uint32_t SEARCH_SEED = 1337;
-constexpr const char *SOURCE_REVISION = "msp-heavy-search-v2";
 constexpr uint32_t TRAIT_SATURATED = 1u << 0;
 constexpr uint32_t TRAIT_LONG_EDGE = 1u << 3;
 constexpr uint32_t TRAIT_MEASURED_WORST = 1u << 5;
@@ -302,7 +301,7 @@ int main(int argc, char **argv) {
   out << "inline const Corpus HEAVY_SEARCH_V1 = {\n"
       << "    \"" << corpus_id << "\",\n"
       << "    \"" << source << "\",\n"
-      << "    \"" << SOURCE_REVISION << "\",\n"
+      << "    \"" << mindsplatter_replay::SOURCE_REVISION << "\",\n"
       << "    " << static_cast<unsigned>(selected->preset) << ",\n"
       << "    " << traits << ",\n"
       << "    HEAVY_SEARCH_V1_STATE,\n"
@@ -324,7 +323,7 @@ int main(int argc, char **argv) {
       "%s revision=%s preset=%u frame=%u particles=%zu score=%llu "
       "adaptive=%llu long=%llu peak_clip=%u[%d,%d,%d,%d] "
       "peak_score=%llu state=%zu framebuffer=%zu hash=%llu\n",
-      corpus_id.c_str(), SOURCE_REVISION,
+      corpus_id.c_str(), mindsplatter_replay::SOURCE_REVISION,
       static_cast<unsigned>(selected->preset),
       static_cast<unsigned>(selected->frame),
       selected->snapshot.particles.size(),

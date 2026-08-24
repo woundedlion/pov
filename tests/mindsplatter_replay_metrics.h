@@ -11,6 +11,8 @@
 
 namespace mindsplatter_replay {
 
+inline constexpr const char *SOURCE_REVISION = "msp-heavy-search-v2";
+
 /** @brief Quadrant clips each searched frame is scored under. */
 inline constexpr int SEARCH_CLIP_COUNT = 4;
 
