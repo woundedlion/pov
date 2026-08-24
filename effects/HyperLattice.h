@@ -535,8 +535,9 @@ public:
                             COLOR_EXPORT_OPTIONS, std::size(COLOR_OPTIONS));
     register_animated_param("Shells", &params.shells, SHELL_OPTIONS,
                             SHELL_EXPORT_OPTIONS, std::size(SHELL_OPTIONS));
-    const GenerativePalette palette{EffectPaletteRecipes::raymarch()};
-    baked_palette.bake(persistent_arena, palette);
+    depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
+                                 0, PALETTE_FADE_FRAMES, ease_in_out_sin,
+                                 &this->anims_paused);
   }
 
   void draw_frame() override {
@@ -547,9 +548,10 @@ public:
     }
     begin_automatic_transition();
     advance_state();
+    depth_palette.step();
     const HyperLatticeDetail::FrameState context{
         params, origin, rotation_phase,
-        HyperLatticeDetail::pixel_half_angle<W, H>(), &baked_palette};
+        HyperLatticeDetail::pixel_half_angle<W, H>(), &depth_palette.palette()};
     const auto frame = HyperLatticeDetail::RenderPipeline::prepare(context);
     {
       HS_PROFILE(hl_shader_draw);
@@ -587,6 +589,16 @@ private:
           wrap(rotation_phase[plane] + params.spin_4d * RATE[plane], TWO_PI_F);
   }
 
+  static void next_depth_palette(void *, uint32_t sequence,
+                                 GenerativePalette &out) {
+    static constexpr uint32_t BASE_HUE = 219;
+    static constexpr uint32_t HUE_STEP = 159;
+    out = GenerativePalette{EffectPaletteRecipes::raymarch_at(
+        PaletteRecipes::hue_turns(BASE_HUE + sequence * HUE_STEP))};
+  }
+
+  static constexpr int PALETTE_FADE_FRAMES = 960;
+
   static constexpr const char *REFLECTION_OPTIONS[] = {"Mirror Ball",
                                                        "Embedded Sphere"};
   static constexpr const char *REFLECTION_EXPORT_OPTIONS[] = {
@@ -600,12 +612,12 @@ private:
 
   HyperLatticeDetail::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
-  BakedPalette baked_palette;
+  PaletteCycler depth_palette;
 
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
 
   static constexpr size_t FOOTPRINT_BYTES =
-      BakedPalette::required_arena_bytes();
+      PaletteCycler::generated_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HyperLattice persistent footprint exceeds the default "
                 "partition");
