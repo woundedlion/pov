@@ -13,6 +13,7 @@
 
 #include <array>
 #include "core/color/effect_palette_recipes.h"
+#include "core/control/choreography.h"
 #include "core/engine/engine.h"
 
 // Unit-test accessor verifying each authored Lissajous entry closes
@@ -22,6 +23,17 @@ namespace effects_tests {
 struct CometsWhiteBox;
 } // namespace effects_tests
 } // namespace hs_test
+
+/** @brief Comets' live parameter set: the preset-driven Lissajous function
+ *  plus the slider-bound render values. */
+struct CometsParams {
+  LissajousParams function; /**< Path function the comet head traces. */
+  float alpha = 1.0f;       /**< Overall trail opacity multiplier in [0, 1]. */
+  float thickness = 0.0f; /**< Comet body half-width; initial_params() seeds the
+                               resolution-derived default. */
+  float cycle_duration = 80.0f; /**< Duration of one motion cycle, in frames. */
+  bool debug_bb = false; /**< When true, draws the fragment bounding box. */
+};
 
 /**
  * @brief Comet whose head traces a spherical Lissajous curve, dragging a
@@ -37,37 +49,58 @@ struct CometsWhiteBox;
  *       hand-propagated. Comets uses an empty pipeline (no Screen::AntiAlias)
  *       since Scan::Point glows carry their own softness.
  */
-template <int W, int H> class Comets : public Effect {
+template <int W, int H>
+class Comets : public ChoreographedEffect<Comets<W, H>, CometsParams> {
+  using Choreography = ChoreographedEffect<Comets<W, H>, CometsParams>;
+  friend Choreography;
+
 public:
+  using Params = CometsParams;
+
   static constexpr int TRAIL_LENGTH =
       115; /**< Number of past orientations retained in the comet trail. */
   static constexpr int ORIENTATION_SUBSTEPS =
       16; /**< Interpolation slots per Orientation, shared by the recorded trail
                and Motion. */
 
-  static constexpr size_t authored_preset_count() { return FUNCTIONS.size(); }
+  /** Preset policy: a path function swap has no meaningful interpolation, so
+      every origin snaps; the palette rolls over separately via a ColorWipe. */
+  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** Preset cadence: two default-duration motion cycles. */
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 160;
+
+  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
+
+  static Params initial_params() {
+    return {PRESETS[0].params, 1.0f, 2.1f * THICKNESS_PX, 80.0f, false};
+  }
+
+  static bool valid_params(const Params &p) {
+    return p.function.m2 > 0.0f && p.alpha >= 0.0f && p.alpha <= 1.0f &&
+           p.thickness >= 0.0f && p.thickness <= 7.0f * THICKNESS_PX &&
+           p.cycle_duration >= 10.0f && p.cycle_duration <= 200.0f;
+  }
 
   /** @brief Comet head state: world orientation, recorded trail, body axis. */
   using Node = Animation::TrailBody<TRAIL_LENGTH, ORIENTATION_SUBSTEPS>;
 
   /**
    * @brief Constructs the effect at the templated canvas resolution.
-   * @details Initializes the base Effect with the W x H dimensions and selects
-   *          the first path/palette function table entry.
    */
   HS_COLD_MEMBER Comets()
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
+      : Choreography(W, H,
+                     pipeline_config<decltype(filters)>({.strobe = true})),
         palette(EffectPaletteRecipes::comets(
             EffectPaletteRecipes::random_base_turns())) {}
 
   /**
    * @brief Allocates state and wires up the animation timeline.
    * @details Allocates the node, bakes the palette LUT, registers params, and
-   *          builds the timeline: an infinite RandomWalk + Motion + cycle
-   *          timer, plus the periodic palette/path rollover.
+   *          builds the timeline: an infinite RandomWalk plus the head Motion.
    */
   void init() override {
-    configure_presets(FUNCTIONS.size());
+    begin_choreography();
     node = persistent_arena.make<Node>();
 
     baked_palette.bake(persistent_arena, palette);
@@ -82,31 +115,20 @@ public:
     update_path();
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
-    // Motion + cycle timer are infinite and added before any finite animation,
-    // so the timeline never relocates them and the retained handles stay valid.
+    // Motion is infinite and added before any finite animation, so the
+    // timeline never relocates it and the retained handle stays valid.
     motion = timeline.add_get(
         0,
         Animation::Motion<W, ORIENTATION_SUBSTEPS>(
             node->orientation, path, (int)params.cycle_duration, true),
         Timeline::Pin::PINNED);
-    cycle_timer = timeline.add_get(
-        0,
-        Animation::PeriodicTimer(
-            2 * (int)params.cycle_duration,
-            [this](Canvas &) {
-              const bool advanced = advancePreset();
-              HS_CHECK(advanced, "Comets preset advance failed");
-              update_palette();
-            },
-            true),
-        Timeline::Pin::PINNED, &anims_paused);
   }
 
   /**
    * @brief Advances and renders one frame of the comet.
-   * @details Steps the timeline, live-applies Cycle Dur, rebakes the palette
-   *          while a wipe is in flight, records the trail, and draws the comet
-   *          body along the trail.
+   * @details Steps the timeline and choreography, live-applies Cycle Dur,
+   *          rebakes the palette while a wipe is in flight, records the trail,
+   *          and draws the comet body along the trail.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -114,12 +136,11 @@ public:
       HS_PROFILE(cm_timeline_step);
       timeline.step(canvas);
     }
+    step_choreography();
 
     apply_if_changed((int)params.cycle_duration, last_cycle_dur, [&](int cd) {
       if (motion)
         motion->set_duration(cd);
-      if (cycle_timer)
-        cycle_timer->set_period(2 * cd);
     });
 
     {
@@ -150,11 +171,32 @@ public:
   }
 
 private:
-  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
-    if (!functions.select(change.to))
-      return false;
+  using Choreography::begin_choreography;
+  using Choreography::params;
+  using Choreography::register_param;
+  using Choreography::step_choreography;
+  using Choreography::timeline;
+
+  /** @brief Params for preset @p index: the live slider values with the
+   *  table's function patched in, so a rollover swaps only the path. */
+  Params preset_params(size_t index) {
+    Params p = params;
+    p.function = PRESETS[index].params;
+    return p;
+  }
+
+  /** @brief Adopts a snap or snapshot target and rebuilds the path from it. */
+  void adopt_params(const Params &target) {
+    params = target;
     update_path();
-    if (change.origin == PresetChangeOrigin::MANUAL) {
+  }
+
+  /** @brief A manual selection restarts the authored path deterministically. */
+  HS_FLASH_MEMBER bool
+  apply_preset(const Effect::PresetChange &change) override {
+    if (!Choreography::apply_preset(change))
+      return false;
+    if (change.origin == Effect::PresetChangeOrigin::MANUAL) {
       node->orientation.set(Quaternion());
       node->trail.clear();
       if (motion) {
@@ -163,6 +205,18 @@ private:
       }
     }
     return true;
+  }
+
+  /** @brief The automatic cadence also rolls the palette; manual selection and
+   *  snapshot restores keep the live palette. */
+  HS_FLASH_MEMBER void
+  preset_changed(const Effect::PresetChange &change) override {
+    if (change.origin == Effect::PresetChangeOrigin::AUTOMATIC)
+      update_palette();
+#ifdef HS_PROFILE_ENABLE
+    hs::log("Preset: %u/%u", static_cast<unsigned>(change.to + 1),
+            static_cast<unsigned>(this->getPresetCount()));
+#endif
   }
 
   // Test seam: asserts the closing-loop invariant the smoke harness cannot
@@ -192,13 +246,13 @@ private:
   }
 
   /**
-   * @brief Rebuilds the path function from the current function table entry.
+   * @brief Rebuilds the path function from the live function params.
    * @details Snaps the traversal length so the spherical Lissajous curve
    *          closes exactly, keeping the trace continuous across loops and
    *          function switches.
    */
   void update_path() {
-    LissajousParams config = functions.get();
+    LissajousParams config = params.function;
     // Snap so path_fn(domain) == path_fn(0); an unclosed endpoint pinches the
     // curve to a stray point each cycle.
     float closed_domain = closing_domain(config);
@@ -250,7 +304,6 @@ private:
                 "retune TRAIL_LENGTH or carve arenas");
 
   FastNoiseLite noise; /**< Noise source driving the head's RandomWalk. */
-  Timeline timeline; /**< Animation timeline owning all scheduled animations. */
   Pipeline<W, H>
       filters; /**< Render filter pipeline applied to drawn fragments. */
   ProceduralPath path; /**< Current path function the comet head traces. */
@@ -259,12 +312,14 @@ private:
       palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
   BakedPalette
       baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
-  /** @brief Authored Lissajous parameter table backing `functions`.
+  /** @brief Authored Lissajous preset table; each preset varies only the path
+   *  function, so entries hold the LissajousParams and preset_params() patches
+   *  them into the live parameter set.
    *  @details Each row is a LissajousParams {m1, m2, a, domain}: m1 axial (X/Z)
    *           frequency, m2 orbital (Y) frequency, a phase shift in radians,
    *           domain the traversal length t (closing_domain() snaps it so the
    *           curve closes). */
-  static constexpr std::array<PresetEntry<LissajousParams>, 12> FUNCTIONS = {
+  static constexpr std::array<PresetEntry<LissajousParams>, 12> PRESETS = {
       {// {m1, m2, a, domain}
        {{1.06f, 1.06f, 0, 5.909f}},
        {{6.06f, 1.0f, 0, 2 * PI_F}},
@@ -278,28 +333,12 @@ private:
        {{11.67f, 14.58f, 0, 2.154f}},
        {{11.67f, 8.75f, 0, 2.154f}},
        {{10.94f, 8.75f, 0, 2.872f}}}};
-  /** @brief Cyclic selector over FUNCTIONS for the active path/palette entry. */
-  Presets<LissajousParams, 12> functions{FUNCTIONS};
   Node *node = nullptr; /**< Arena-allocated comet head state. */
   PaletteWipe wipe;     /**< Cross-fade state of the palette rollover. */
   Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion =
       nullptr; /**< Handle to the infinite Motion driving the head along `path`. */
-  Animation::PeriodicTimer *cycle_timer =
-      nullptr; /**< Handle to the timer that rolls path/palette over. */
   int last_cycle_dur =
       -1; /**< Last applied Cycle Dur, in frames; -1 forces a first apply. */
-
-  /**
-   * @brief User-tunable parameters exposed as effect sliders.
-   */
-  struct Params {
-    float alpha = 1.0f; /**< Overall trail opacity multiplier in [0, 1]. */
-    float thickness = 2.1f * THICKNESS_PX; /**< Comet body half-width. */
-    float cycle_duration =
-        80.0f; /**< Duration of one motion cycle, in frames. */
-    bool debug_bb =
-        false; /**< When true, draws the fragment bounding box for debugging. */
-  } params;    /**< Live parameter block bound to the registered sliders. */
 };
 
 #include "core/control/registry.h"
