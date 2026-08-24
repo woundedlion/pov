@@ -210,7 +210,7 @@ public:
    * @details Unlike `make<T>()`, this does not zero-initialize scalar members
    * of an aggregate before its default initialization.
    */
-  template <typename T> T *make_default() {
+  template <typename T> T *make_default_initialized() {
     return ::new (static_cast<void *>(allocate_n<T>(1))) T;
   }
 
