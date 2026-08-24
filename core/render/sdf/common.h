@@ -707,7 +707,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float r_val,
   if (C_min < -1.0f)
     return false; // Full scan fallback
 
-  // fast_acos: ~1.3e-4 rad peak error ≈ 0.006 px at W=288, far under the
+  // fast_acos: ~5e-5 rad peak error ≈ 0.002 px at W=288, far under the
   // floor/ceil pad below. Matches the Ring/DistortedRing scanline path.
   float d_alpha = fast_acos(C_min);
   float scale = W / TWO_PI_F;

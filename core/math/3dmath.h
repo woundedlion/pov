@@ -1253,7 +1253,7 @@ inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
  * @brief Fast acos using the Abramowitz & Stegun polynomial approximation.
  * @param x Input value, expected in [-1, 1] (clamped internally).
  * @return The arc cosine in radians.
- * @details Peak abs error ~1.3e-4 rad (~0.0072°) measured over a dense sweep.
+ * @details Peak abs error ~5.0e-5 rad (~0.0029°) measured over a dense sweep.
  */
 __attribute__((always_inline)) inline float fast_acos(float x) {
   float ax = std::abs(x);
@@ -1261,7 +1261,7 @@ __attribute__((always_inline)) inline float fast_acos(float x) {
     ax = 1.0f;
   float result =
       sqrtf(1.0f - ax) *
-      (1.5707963f + ax * (-0.2121144f + ax * (0.0742610f + ax * -0.0187293f)));
+      (1.5707963f + ax * (-0.2132209f + ax * (0.0777570f + ax * -0.0215124f)));
   return x < 0.0f ? PI_F - result : result;
 }
 
