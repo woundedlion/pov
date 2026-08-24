@@ -1278,17 +1278,43 @@ private:
     ScratchScope guard(scratch);
     bool *used = scratch.allocate_n<bool>(V);
     std::fill_n(used, V, false);
+    HS_CHECK(V <= UINT16_MAX,
+             "IslamicStars: reconcile endpoint exceeds index capacity");
+    uint16_t *by_z = scratch.allocate_n<uint16_t>(V);
+    for (size_t j = 0; j < V; ++j)
+      by_z[j] = static_cast<uint16_t>(j);
+    std::sort(by_z, by_z + V, [&](uint16_t a, uint16_t b) {
+      return authored.vertices[a].z < authored.vertices[b].z;
+    });
+
+    constexpr float MAX_RECONCILE_DISTANCE = 0.04f;
+    constexpr float MIN_RECONCILE_DOT =
+        1.0f - 0.5f * MAX_RECONCILE_DISTANCE * MAX_RECONCILE_DISTANCE;
     out.vertices.bind(target, V);
     for (size_t i = 0; i < V; ++i) {
       int best = -1;
       float best_dot = -2.0f;
-      for (size_t j = 0; j < V; ++j) {
+      const float z = identity.vertices[i].z;
+      const auto first =
+          std::lower_bound(by_z, by_z + V, z - MAX_RECONCILE_DISTANCE,
+                           [&](uint16_t j, float bound) {
+                             return authored.vertices[j].z < bound;
+                           });
+      const auto last =
+          std::upper_bound(first, by_z + V, z + MAX_RECONCILE_DISTANCE,
+                           [&](float bound, uint16_t j) {
+                             return bound < authored.vertices[j].z;
+                           });
+      for (const uint16_t *candidate = first; candidate != last; ++candidate) {
+        const size_t j = *candidate;
         const float d = dot(identity.vertices[i], authored.vertices[j]);
         if (d > best_dot) {
           best_dot = d;
           best = static_cast<int>(j);
         }
       }
+      HS_CHECK(best >= 0 && best_dot >= MIN_RECONCILE_DOT,
+               "IslamicStars: reconcile vertex exceeds the z-band invariant");
       HS_CHECK(best >= 0 && !used[best],
                "IslamicStars: reconcile nearest-vertex map is not a bijection");
       used[best] = true;
