@@ -601,6 +601,29 @@ inline constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
     {{-0.9950094394f, 0.09134779528f, -0.04014717588f},
      {-0.5884910224f, 0.5302967344f, 0.0627648018f},
      {-0.4146822253f, 0.6559624054f, 0.6306758079f}}};
+
+constexpr AiroceanVector airocean_cross(const AiroceanVector &a,
+                                        const AiroceanVector &b) {
+  return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+
+struct AiroceanEdgeNormals {
+  AiroceanVector values[23][3]{};
+
+  constexpr AiroceanEdgeNormals() {
+    for (int face = 0; face < 23; ++face) {
+      values[face][0] =
+          airocean_cross(AIROCEAN_FACES[face][1], AIROCEAN_FACES[face][2]);
+      values[face][1] =
+          airocean_cross(AIROCEAN_FACES[face][2], AIROCEAN_FACES[face][0]);
+      values[face][2] =
+          airocean_cross(AIROCEAN_FACES[face][0], AIROCEAN_FACES[face][1]);
+    }
+  }
+};
+
+inline constexpr AiroceanEdgeNormals AIROCEAN_EDGE_NORMALS{};
+inline constexpr float AIROCEAN_CONTAINS_EPS = 1e-7f;
 /**
  * @brief Each face's vertex centroid, unnormalized.
  * @details Supplies the plane offset the gnomonic ray is scaled onto.
@@ -840,45 +863,37 @@ inline uint8_t airocean_edge_identity(uint8_t face, uint8_t edge) {
   return AIROCEAN_EDGE_IDENTITIES[face][edge];
 }
 
-/**
- * @brief Scalar triple product u . (v x w).
- * @param u First row.
- * @param v Second row.
- * @param w Third row.
- * @return The signed volume of the parallelepiped they span.
- */
-inline float airocean_det(const AiroceanVector &u, const AiroceanVector &v,
-                          const AiroceanVector &w) {
-  return u.x * (v.y * w.z - v.z * w.y) - v.x * (u.y * w.z - u.z * w.y) +
-         w.x * (u.y * v.z - u.z * v.y);
+inline float airocean_edge_halfspace(const AiroceanVector &p, uint8_t face,
+                                     uint8_t edge) {
+  const AiroceanVector &normal = AIROCEAN_EDGE_NORMALS.values[face][edge];
+  return p.x * normal.x + p.y * normal.y + p.z * normal.z;
 }
 
 /**
  * @brief Tests a direction against a spherical triangle.
  * @param p Direction to test; need not be normalized.
- * @param face One row of AIROCEAN_FACES.
+ * @param face Face index in [0, 23).
  * @return True when `p` lies in the triangle's cone, boundary included.
  */
-inline bool airocean_contains(const AiroceanVector &p,
-                              const AiroceanVector (&face)[3]) {
-  return airocean_det(p, face[1], face[2]) <= 0.0f &&
-         airocean_det(face[0], p, face[2]) <= 0.0f &&
-         airocean_det(face[0], face[1], p) <= 0.0f;
+inline bool airocean_contains(const AiroceanVector &p, uint8_t face) {
+  return airocean_edge_halfspace(p, face, 0) <= AIROCEAN_CONTAINS_EPS &&
+         airocean_edge_halfspace(p, face, 1) <= AIROCEAN_CONTAINS_EPS &&
+         airocean_edge_halfspace(p, face, 2) <= AIROCEAN_CONTAINS_EPS;
 }
 
 /**
  * @brief How far outside a spherical triangle a direction falls.
  * @param p Direction to test; need not be normalized.
- * @param face One row of AIROCEAN_FACES.
+ * @param face Face index in [0, 23).
  * @return 0 when contained, otherwise the largest violated half-space
  *         determinant. Used to pick the least-wrong face when rounding leaves
  *         a direction in no triangle at all.
  */
-inline float airocean_outside_score(const AiroceanVector &p,
-                                    const AiroceanVector (&face)[3]) {
-  return std::max(0.0f, std::max(airocean_det(p, face[1], face[2]),
-                                 std::max(airocean_det(face[0], p, face[2]),
-                                          airocean_det(face[0], face[1], p))));
+inline float airocean_outside_score(const AiroceanVector &p, uint8_t face) {
+  return std::max(0.0f,
+                  std::max(airocean_edge_halfspace(p, face, 0),
+                           std::max(airocean_edge_halfspace(p, face, 1),
+                                    airocean_edge_halfspace(p, face, 2))));
 }
 
 /**
@@ -940,14 +955,14 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
   const AiroceanVector p{v.x * c + v.z * s, v.z * c - v.x * s, v.y};
   uint8_t face = 0;
   for (; face < 23; ++face)
-    if (airocean_contains(p, AIROCEAN_FACES[face]))
+    if (airocean_contains(p, face))
       break;
   if (face == 23) {
     // A far-from-unit direction can score above the sentinel on every face.
     face = 0;
     float best_score = 65536.0f;
     for (uint8_t candidate = 0; candidate < 23; ++candidate) {
-      const float score = airocean_outside_score(p, AIROCEAN_FACES[candidate]);
+      const float score = airocean_outside_score(p, candidate);
       if (score < best_score) {
         best_score = score;
         face = candidate;
