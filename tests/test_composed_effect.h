@@ -18,7 +18,7 @@
  *
  * Shading is deliberately out of scope: the ShaderWorkbench equivalence
  * oracles in
- * tests/test_curl_lattice.h and tests/test_facet_grid.h own that comparison.
+ * tests/test_lattice_melt.h and tests/test_kaleidoscope_smooth.h own that comparison.
  */
 #pragma once
 

@@ -269,35 +269,35 @@ const documentFor = (spec) => {
 };
 
 // The twelve promoted documents this generator owns. patterns/ holds three
-// more — curl_lattice, facet_grid and prism_spiral — hand-authored from
+// more — lattice_melt, kaleidoscope_smooth and kaleidoscope_hex_oil — hand-authored from
 // workbench snapshots, which no rerun writes.
 const effects = [
   {
-    id: 'signal-weave', display: 'Signal Weave', source: 'grid', sourceKey: 'grid',
+    id: 'alien-brain', display: 'Alien Brain', source: 'grid', sourceKey: 'grid',
     projection: 'stereographic', lens: 'glitch', outer: 'wave-shear', outerKey: 'wave',
     inner: 'identity', innerKey: 'none', transfer: 'linear', coverage: 'projection-squared',
     palette: 'triadic', hue: 'noise', brightness: 'none', animatedProjection: true,
     description: 'Glitch-folded grids pulled through an animated wave shear.',
     presets: [
-      { id: 'signal-weave', name: 'Signal Weave', values: {
+      { id: 'alien-brain', name: 'Alien Brain', values: {
         'pattern-freq': 4.439, speed: 0.245, complexity: 0.5,
         'camera-wander': 0.8, 'outer-strength': 0.5, 'outer-speed': 0.015625,
         'hue-shift-amount': 0.292, 'hue-noise-scale': 0.6304219,
         'palette-chroma': 0.788, 'palette-mapping': 'cup',
       } },
-      { id: 'signal-weave-2', name: 'Signal Weave 2', values: {
+      { id: 'alien-brain-2', name: 'Alien Brain 2', values: {
         'pattern-freq': 3.1447, speed: 0.245, complexity: 0.5,
         'camera-wander': 0.8, 'outer-strength': 2.72, 'outer-speed': 0.00690625,
         'hue-shift-amount': 0.292, 'hue-noise-scale': 0.6304219,
         'palette-chroma': 0.788, 'palette-mapping': 'cup',
       } },
-      { id: 'signal-weave-3', name: 'Signal Weave 3', values: {
+      { id: 'alien-brain-3', name: 'Alien Brain 3', values: {
         'pattern-freq': 7.5227, speed: 0.245, complexity: 1.698,
         'camera-wander': 0.8, 'outer-strength': 0, 'outer-speed': 0.00690625,
         'hue-shift-amount': 0.292, 'hue-noise-scale': 0.6304219,
         'palette-chroma': 0.788, 'palette-mapping': 'cup',
       } },
-      { id: 'signal-weave-4', name: 'Signal Weave 4', values: {
+      { id: 'alien-brain-4', name: 'Alien Brain 4', values: {
         'pattern-freq': 8.8162, speed: 0.245, complexity: 1.698,
         'camera-wander': 0.8, 'outer-strength': 1.376, 'outer-speed': 0.00559375,
         'hue-shift-amount': 0.292, 'hue-noise-scale': 0.6304219,
@@ -306,7 +306,7 @@ const effects = [
     ],
   },
   {
-    id: 'kaleido-wave', display: 'Kaleido Wave', source: 'twin-wave', sourceKey: 'twin',
+    id: 'kaleidoscope-hex-soft', display: 'Kaleidoscope Hex Soft', source: 'twin-wave', sourceKey: 'twin',
     projection: 'stereographic', lens: 'kaleidoscope', outer: 'identity', outerKey: 'none',
     inner: 'mirror-tile', innerKey: 'mirror', transfer: 'linear', coverage: 'projection-squared',
     palette: 'triadic', hue: 'noise', brightness: 'none', animatedProjection: true,
@@ -333,7 +333,7 @@ const effects = [
     } }],
   },
   {
-    id: 'glitch-grid', display: 'Glitch Grid', source: 'grid', sourceKey: 'grid',
+    id: 'alien-core', display: 'Alien Core', source: 'grid', sourceKey: 'grid',
     projection: 'gnomonic-folded', lens: 'glitch', outer: 'mirror-tile', outerKey: 'mirror',
     inner: 'identity', innerKey: 'none', transfer: 'linear', coverage: 'edge-fade', valueKey: 'edge',
     palette: 'triadic', hue: 'noise', brightness: 'none', animatedProjection: false,
@@ -346,7 +346,7 @@ const effects = [
     } }],
   },
   {
-    id: 'facet-wave', display: 'Facet Wave', source: 'grid', sourceKey: 'grid',
+    id: 'kaleidoscope-mandala', display: 'Kaleidoscope Mandala', source: 'grid', sourceKey: 'grid',
     projection: 'gnomonic-folded', lens: 'dodecahedral-kaleidoscope',
     outer: 'wave-shear', outerKey: 'wave', inner: 'mirror-tile', innerKey: 'mirror',
     transfer: 'linear', coverage: 'projection-squared', palette: 'triadic', hue: 'noise',
@@ -371,7 +371,7 @@ const effects = [
     ],
   },
   {
-    id: 'contour-lattice', display: 'Contour Lattice', source: 'primitive-lattice', sourceKey: 'lattice',
+    id: 'grid-space', display: 'Grid Space', source: 'primitive-lattice', sourceKey: 'lattice',
     projection: 'gnomonic-folded', lens: 'identity', outer: 'affine-frame', outerKey: 'affine',
     inner: 'identity', innerKey: 'none', transfer: 'iso-contour', coverage: 'projection', valueKey: 'iso',
     palette: 'triadic', hue: 'noise', brightness: 'none', animatedProjection: true,
@@ -388,7 +388,7 @@ const effects = [
     } }],
   },
   {
-    id: 'prism-lattice', display: 'Prism Lattice', source: 'primitive-lattice', sourceKey: 'lattice',
+    id: 'kaleidoscope-pent-bright', display: 'Kaleidoscope Pent Bright', source: 'primitive-lattice', sourceKey: 'lattice',
     projection: 'stereographic', lens: 'pentagonal-prism-kaleidoscope',
     outer: 'polar-chart-linear', outerKey: 'polar', inner: 'wave-shear', innerKey: 'wave',
     transfer: 'linear', coverage: 'projection-squared', palette: 'analogous', hue: 'noise',
@@ -405,7 +405,7 @@ const effects = [
     } }],
   },
   {
-    id: 'vector-facets', display: 'Vector Facets', source: 'grid', sourceKey: 'grid',
+    id: 'kaleidoscope-stained-glass', display: 'Kaleidoscope Stained Glass', source: 'grid', sourceKey: 'grid',
     projection: 'gnomonic-folded', lens: 'dodecahedral-kaleidoscope',
     outer: 'vector-noise-simplex', outerKey: 'vector', inner: 'mirror-tile', innerKey: 'mirror',
     transfer: 'linear', coverage: 'projection-squared', palette: 'triadic', hue: 'noise',
@@ -420,7 +420,7 @@ const effects = [
     } }],
   },
   {
-    id: 'hex-wave', display: 'Hex Wave', source: 'twin-wave', sourceKey: 'twin',
+    id: 'kaleidoscope-hex-bright', display: 'Kaleidoscope Hex Bright', source: 'twin-wave', sourceKey: 'twin',
     projection: 'stereographic', lens: 'hexagonal-prism-kaleidoscope',
     outer: 'identity', outerKey: 'none', inner: 'mirror-tile', innerKey: 'mirror',
     transfer: 'linear', coverage: 'projection-squared', palette: 'analogous', hue: 'noise',
@@ -446,7 +446,7 @@ const effects = [
     ],
   },
   {
-    id: 'equator-grid', display: 'Equator Grid', source: 'grid', sourceKey: 'grid',
+    id: 'kaleidoscope-flowers', display: 'Kaleidoscope Flowers', source: 'grid', sourceKey: 'grid',
     projection: 'equirectangular', lens: 'dodecahedral-kaleidoscope',
     outer: 'identity', outerKey: 'none', inner: 'mirror-tile', innerKey: 'mirror',
     transfer: 'linear', coverage: 'projection-squared', palette: 'analogous', hue: 'noise',

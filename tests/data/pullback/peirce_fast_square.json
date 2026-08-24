@@ -66,8 +66,8 @@
       },
       "accepted_limit": 256,
       "unit": "16-bit channel code",
-      "limit_provenance": "one 8-bit-equivalent linear step above the SignalWeave palette-adjusted 151-code maximum",
-      "measurement_provenance": "repo-owned native Debug capture with the four-look SignalWeave bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-4 probes"
+      "limit_provenance": "one 8-bit-equivalent linear step above the AlienBrain palette-adjusted 151-code maximum",
+      "measurement_provenance": "repo-owned native Debug capture with the four-look AlienBrain bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-4 probes"
     }
   ]
 }

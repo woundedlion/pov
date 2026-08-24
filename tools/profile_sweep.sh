@@ -107,22 +107,22 @@ g4_ship)
   run DreamBalls profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   ;;
 g5_ship)
-  run SignalWeave profile 300 16 "-D HS_PROFILE_EPOCH_REVS=2600"
-  run KaleidoWave profile 70 32
+  run AlienBrain profile 300 16 "-D HS_PROFILE_EPOCH_REVS=2600"
+  run KaleidoscopeHexSoft profile 70 32
   run AlienOcean profile 70 32
-  run GlitchGrid profile 70 32
-  run FacetWave profile 70 32
-  run ContourLattice profile 70 32
-  run CurlLattice profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
-  run CurlFacets profile 70 32
+  run AlienCore profile 70 32
+  run KaleidoscopeMandala profile 70 32
+  run GridSpace profile 70 32
+  run LatticeMelt profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
+  run AshCloud profile 70 32
   ;;
 g6_ship)
-  run PrismLattice profile 70 32
-  run PrismSpiral profile 70 32
-  run VectorFacets profile 70 32
-  run FacetGrid profile 300 16 "-D HS_PROFILE_EPOCH_REVS=2600"
-  run HexWave profile 70 32
-  run EquatorGrid profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
+  run KaleidoscopePentBright profile 70 32
+  run KaleidoscopeHexOil profile 70 32
+  run KaleidoscopeStainedGlass profile 70 32
+  run KaleidoscopeSmooth profile 300 16 "-D HS_PROFILE_EPOCH_REVS=2600"
+  run KaleidoscopeHexBright profile 70 32
+  run KaleidoscopeFlowers profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
   run CosmicEyeball profile 70 32
   ;;
 *) echo "unknown group $GROUP"; exit 1;;

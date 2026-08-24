@@ -143,7 +143,7 @@ struct ShaderWorkbenchWhiteBox {
   }
   static Color4 sinusoidal_curl_shade(const Vector &view,
                                       const FrameState &frame) {
-    using Pipeline = SB::SinusoidalCurlLatticePipeline;
+    using Pipeline = SB::SinusoidalLatticeMeltPipeline;
     const typename Pipeline::PreparedTuple prepared =
         Pipeline::prepare_stages(frame);
     return Pipeline::shade_prepared(view, frame, &prepared);
@@ -1932,7 +1932,7 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(mirror.params.warp.inner.speed, 0.0f);
-  const std::array<float, 23> kaleido_wave_values{
+  const std::array<float, 23> kaleidoscope_hex_soft_values{
       mirror.params.source.pattern_freq,
       mirror.params.source.speed,
       mirror.params.source.angle_rate,
@@ -1957,7 +1957,7 @@ inline void test_shader_workbench_preset_bank() {
       mirror.params.color.hue_noise_scale,
       mirror.params.color.hue_noise_speed,
   };
-  constexpr std::array<float, 23> KALEIDO_WAVE_EXPECTED{
+  constexpr std::array<float, 23> KALEIDOSCOPE_HEX_SOFT_EXPECTED{
       4.9755f,
       0.125f,
       0.05f,
@@ -1982,9 +1982,10 @@ inline void test_shader_workbench_preset_bank() {
       2.2033439f,
       -0.00040800002f,
   };
-  for (size_t index = 0; index < kaleido_wave_values.size(); ++index)
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(kaleido_wave_values[index]),
-                 std::bit_cast<uint32_t>(KALEIDO_WAVE_EXPECTED[index]));
+  for (size_t index = 0; index < kaleidoscope_hex_soft_values.size(); ++index)
+    HS_EXPECT_EQ(
+        std::bit_cast<uint32_t>(kaleidoscope_hex_soft_values[index]),
+        std::bit_cast<uint32_t>(KALEIDOSCOPE_HEX_SOFT_EXPECTED[index]));
   HS_EXPECT_EQ(mirror.slots.palette_mapping, WB::PaletteMapping::LINEAR);
   const auto &animated_mobius = presets[20];
   HS_EXPECT_EQ(animated_mobius.params.warp.inner.speed, 0.005875f);
@@ -2202,36 +2203,35 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(fine_equirectangular_grid.params.color.mapping_frequency,
                21.212f);
   HS_EXPECT_EQ(fine_equirectangular_grid.params.color.palette_chroma, 1.0f);
-  const auto &glitch_grid = presets[18];
-  HS_EXPECT_EQ(glitch_grid.slots.function, WB::Function::GRID);
-  HS_EXPECT_EQ(glitch_grid.slots.projection, WB::Projection::STEREOGRAPHIC);
-  HS_EXPECT_EQ(glitch_grid.slots.projection_frame,
+  const auto &alien_core = presets[18];
+  HS_EXPECT_EQ(alien_core.slots.function, WB::Function::GRID);
+  HS_EXPECT_EQ(alien_core.slots.projection, WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(alien_core.slots.projection_frame,
                WB::ProjectionFramePolicy::IDENTITY);
-  HS_EXPECT_EQ(glitch_grid.slots.surface_lens, WB::SurfaceLens::GLITCH);
-  HS_EXPECT_EQ(glitch_grid.slots.warp_program.outer.kind,
+  HS_EXPECT_EQ(alien_core.slots.surface_lens, WB::SurfaceLens::GLITCH);
+  HS_EXPECT_EQ(alien_core.slots.warp_program.outer.kind,
                WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(glitch_grid.slots.warp_program.inner.kind,
+  HS_EXPECT_EQ(alien_core.slots.warp_program.inner.kind,
                WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(glitch_grid.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
-  HS_EXPECT_EQ(glitch_grid.slots.palette, WB::PaletteMode::TRIADIC);
-  HS_EXPECT_EQ(glitch_grid.slots.palette_mapping, WB::PaletteMapping::LINEAR);
-  HS_EXPECT_EQ(glitch_grid.slots.hue_shift,
-               WB::HueShiftMode::WARP_DISPLACEMENT);
-  HS_EXPECT_EQ(glitch_grid.params.source.pattern_freq, 2.5477f);
-  HS_EXPECT_EQ(glitch_grid.params.source.speed, 0.235f);
-  HS_EXPECT_EQ(glitch_grid.params.source.complexity, 1.854f);
-  HS_EXPECT_EQ(glitch_grid.params.source.secondary_rate, 1.0f);
-  HS_EXPECT_EQ(glitch_grid.params.warp.outer.rotation, 0.295309722f);
-  HS_EXPECT_EQ(glitch_grid.params.warp.outer.cell_x, 5.381125f);
-  HS_EXPECT_EQ(glitch_grid.params.warp.outer.offset_x, 1.344f);
-  HS_EXPECT_EQ(glitch_grid.params.warp.outer.offset_y, -1.456f);
-  HS_EXPECT_EQ(glitch_grid.params.projection.singularity_fade, 1.4f);
-  HS_EXPECT_EQ(glitch_grid.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(glitch_grid.params.surface_lens.mix, 1.0f);
-  HS_EXPECT_EQ(glitch_grid.params.value.edge_width, 0.5f);
-  HS_EXPECT_EQ(glitch_grid.params.color.hue_shift_amount, 2.048f);
-  HS_EXPECT_EQ(glitch_grid.params.color.palette_chroma, 0.292f);
-  HS_EXPECT_EQ(glitch_grid.params.outer_camera.wander, 1.0f);
+  HS_EXPECT_EQ(alien_core.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
+  HS_EXPECT_EQ(alien_core.slots.palette, WB::PaletteMode::TRIADIC);
+  HS_EXPECT_EQ(alien_core.slots.palette_mapping, WB::PaletteMapping::LINEAR);
+  HS_EXPECT_EQ(alien_core.slots.hue_shift, WB::HueShiftMode::WARP_DISPLACEMENT);
+  HS_EXPECT_EQ(alien_core.params.source.pattern_freq, 2.5477f);
+  HS_EXPECT_EQ(alien_core.params.source.speed, 0.235f);
+  HS_EXPECT_EQ(alien_core.params.source.complexity, 1.854f);
+  HS_EXPECT_EQ(alien_core.params.source.secondary_rate, 1.0f);
+  HS_EXPECT_EQ(alien_core.params.warp.outer.rotation, 0.295309722f);
+  HS_EXPECT_EQ(alien_core.params.warp.outer.cell_x, 5.381125f);
+  HS_EXPECT_EQ(alien_core.params.warp.outer.offset_x, 1.344f);
+  HS_EXPECT_EQ(alien_core.params.warp.outer.offset_y, -1.456f);
+  HS_EXPECT_EQ(alien_core.params.projection.singularity_fade, 1.4f);
+  HS_EXPECT_EQ(alien_core.params.projection.wander, 1.0f);
+  HS_EXPECT_EQ(alien_core.params.surface_lens.mix, 1.0f);
+  HS_EXPECT_EQ(alien_core.params.value.edge_width, 0.5f);
+  HS_EXPECT_EQ(alien_core.params.color.hue_shift_amount, 2.048f);
+  HS_EXPECT_EQ(alien_core.params.color.palette_chroma, 0.292f);
+  HS_EXPECT_EQ(alien_core.params.outer_camera.wander, 1.0f);
   const auto &mobius_grid = presets[19];
   constexpr std::array<uint32_t, 141> MOBIUS_GRID_EXPECTED{
       0,          1,          1,          4,          0,          0,
@@ -3395,7 +3395,7 @@ inline void test_shader_workbench_gui_catalog() {
 /** @brief Fixed shader wrappers retain the morphable color-mapping control. */
 inline void test_promoted_shader_palette_mapping_control() {
   reset_effect_globals();
-  ContourLattice<SMALL_W, SMALL_H> effect;
+  GridSpace<SMALL_W, SMALL_H> effect;
   effect.init();
   const auto *mapping = effect.getParameters().find("Palette Mapping");
   HS_EXPECT_TRUE(mapping != nullptr);
@@ -3593,10 +3593,11 @@ void verify_fixed_shader_export(ShaderWorkbenchWhiteBox::SB &shader,
 }
 
 /**
- * @brief Shader topology of the workbench-promoted PrismSpiral, which the
+ * @brief Shader topology of the workbench-promoted KaleidoscopeHexOil, which the
  *        authored preset roster does not carry.
  */
-inline ShaderWorkbenchWhiteBox::RequestedConfig prism_spiral_topology() {
+inline ShaderWorkbenchWhiteBox::RequestedConfig
+kaleidoscope_hex_oil_topology() {
   using WB = ShaderWorkbenchWhiteBox;
   WB::RequestedConfig config =
       WB::presets()[12]; // stereographic hexagonal prism
@@ -3616,34 +3617,44 @@ inline void test_fixed_shader_export_equivalence() {
   WB::SB shader;
   shader.init();
 
-  verify_fixed_shader_export<SignalWeave<SMALL_W, SMALL_H>>(shader, 0, 0);
-  verify_fixed_shader_export<SignalWeave<SMALL_W, SMALL_H>>(shader, 21, 1);
-  verify_fixed_shader_export<SignalWeave<SMALL_W, SMALL_H>>(shader, 22, 2);
-  verify_fixed_shader_export<SignalWeave<SMALL_W, SMALL_H>>(shader, 23, 3);
-  verify_fixed_shader_export<KaleidoWave<SMALL_W, SMALL_H>>(shader, 1, 0);
+  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(shader, 0, 0);
+  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(shader, 21, 1);
+  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(shader, 22, 2);
+  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(shader, 23, 3);
+  verify_fixed_shader_export<KaleidoscopeHexSoft<SMALL_W, SMALL_H>>(shader, 1,
+                                                                    0);
   verify_fixed_shader_export<AlienOcean<SMALL_W, SMALL_H>>(shader, 2, 0);
-  verify_fixed_shader_export<GlitchGrid<SMALL_W, SMALL_H>>(shader, 3, 0);
-  verify_fixed_shader_export<FacetWave<SMALL_W, SMALL_H>>(shader, 5, 0);
-  verify_fixed_shader_export<FacetWave<SMALL_W, SMALL_H>>(shader, 5, 1);
-  verify_fixed_shader_export<ContourLattice<SMALL_W, SMALL_H>>(shader, 6, 0);
-  verify_fixed_shader_export<PrismLattice<SMALL_W, SMALL_H>>(shader, 9, 0);
-  verify_fixed_shader_export<VectorFacets<SMALL_W, SMALL_H>>(shader, 10, 0);
-  verify_fixed_shader_export<HexWave<SMALL_W, SMALL_H>>(shader, 12, 0);
-  verify_fixed_shader_export<HexWave<SMALL_W, SMALL_H>>(shader, 12, 1);
-  verify_fixed_shader_export<EquatorGrid<SMALL_W, SMALL_H>>(shader, 15, 0);
-  verify_fixed_shader_export<EquatorGrid<SMALL_W, SMALL_H>>(shader, 16, 1);
-  verify_fixed_shader_export<EquatorGrid<SMALL_W, SMALL_H>>(shader, 17, 2);
+  verify_fixed_shader_export<AlienCore<SMALL_W, SMALL_H>>(shader, 3, 0);
+  verify_fixed_shader_export<KaleidoscopeMandala<SMALL_W, SMALL_H>>(shader, 5,
+                                                                    0);
+  verify_fixed_shader_export<KaleidoscopeMandala<SMALL_W, SMALL_H>>(shader, 5,
+                                                                    1);
+  verify_fixed_shader_export<GridSpace<SMALL_W, SMALL_H>>(shader, 6, 0);
+  verify_fixed_shader_export<KaleidoscopePentBright<SMALL_W, SMALL_H>>(shader,
+                                                                       9, 0);
+  verify_fixed_shader_export<KaleidoscopeStainedGlass<SMALL_W, SMALL_H>>(shader,
+                                                                         10, 0);
+  verify_fixed_shader_export<KaleidoscopeHexBright<SMALL_W, SMALL_H>>(shader,
+                                                                      12, 0);
+  verify_fixed_shader_export<KaleidoscopeHexBright<SMALL_W, SMALL_H>>(shader,
+                                                                      12, 1);
+  verify_fixed_shader_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(shader, 15,
+                                                                    0);
+  verify_fixed_shader_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(shader, 16,
+                                                                    1);
+  verify_fixed_shader_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(shader, 17,
+                                                                    2);
   verify_fixed_shader_export<CosmicEyeball<SMALL_W, SMALL_H>>(shader, 18, 0);
   verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(shader, 19, 0);
   verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(shader, 20, 1);
-  verify_fixed_shader_export<PrismSpiral<SMALL_W, SMALL_H>>(
-      shader, prism_spiral_topology(), 0);
-  verify_fixed_shader_export<PrismSpiral<SMALL_W, SMALL_H>>(
-      shader, prism_spiral_topology(), 1);
+  verify_fixed_shader_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(
+      shader, kaleidoscope_hex_oil_topology(), 0);
+  verify_fixed_shader_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(
+      shader, kaleidoscope_hex_oil_topology(), 1);
 }
 
-inline void test_signal_weave_preset_dwell() {
-  using FX = SignalWeave<SMALL_W, SMALL_H>;
+inline void test_alien_brain_preset_dwell() {
+  using FX = AlienBrain<SMALL_W, SMALL_H>;
   reset_effect_globals();
   FX effect;
   effect.init();
@@ -6016,7 +6027,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_gui_catalog();
   test_promoted_shader_palette_mapping_control();
   test_fixed_shader_export_equivalence();
-  test_signal_weave_preset_dwell();
+  test_alien_brain_preset_dwell();
   test_mobius_grid_circular_animation();
   test_shader_workbench_lens_domain_ranges();
   test_shader_workbench_projection_catalog();

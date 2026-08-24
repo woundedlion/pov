@@ -435,11 +435,11 @@ inline void test_epoch_seed() {
 }
 
 inline void test_stable_effect_seed() {
-  constexpr uint64_t curl = hs::stable_effect_seed("curl-lattice");
-  static_assert(curl == hs::stable_effect_seed("curl-lattice"));
-  static_assert(curl != hs::stable_effect_seed("facet-grid"));
-  HS_EXPECT_EQ(curl, hs::stable_effect_seed("curl-lattice"));
-  HS_EXPECT_TRUE(curl != hs::stable_effect_seed("CurlLattice"));
+  constexpr uint64_t curl = hs::stable_effect_seed("lattice-melt");
+  static_assert(curl == hs::stable_effect_seed("lattice-melt"));
+  static_assert(curl != hs::stable_effect_seed("kaleidoscope-smooth"));
+  HS_EXPECT_EQ(curl, hs::stable_effect_seed("lattice-melt"));
+  HS_EXPECT_TRUE(curl != hs::stable_effect_seed("LatticeMelt"));
 }
 
 /**

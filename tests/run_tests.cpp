@@ -53,8 +53,8 @@
 #include "tests/test_effects_smoke.h"
 #include "tests/test_effect_factory.h"
 #include "tests/test_shader_workbench.h"
-#include "tests/test_curl_lattice.h"
-#include "tests/test_facet_grid.h"
+#include "tests/test_lattice_melt.h"
+#include "tests/test_kaleidoscope_smooth.h"
 #include "tests/test_composed_effect.h"
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_shapeshifter_tiles.h"
@@ -136,8 +136,9 @@ struct TestModule {
   X("effect_factory", hs_test::effect_factory_tests::run_effect_factory_tests) \
   X("shader_workbench",                                                        \
     hs_test::shader_workbench_tests::run_shader_workbench_tests)               \
-  X("curl_lattice", hs_test::curl_lattice_tests::run_curl_lattice_tests)       \
-  X("facet_grid", hs_test::facet_grid_tests::run_facet_grid_tests)             \
+  X("lattice_melt", hs_test::lattice_melt_tests::run_lattice_melt_tests)       \
+  X("kaleidoscope_smooth",                                                     \
+    hs_test::kaleidoscope_smooth_tests::run_kaleidoscope_smooth_tests)         \
   X("composed_effect",                                                         \
     hs_test::composed_effect_tests::run_composed_effect_tests)                 \
   X("shapeshifter_oracle",                                                     \

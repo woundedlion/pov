@@ -40,8 +40,8 @@
       "measured_baseline": 6893,
       "accepted_limit": 7000,
       "unit": "16-bit channel code",
-      "limit_provenance": "SignalWeave CUP-mapping prepared-hue stage budget",
-      "measurement_provenance": "unit_shader_workbench direct-versus-prepared hue corpus with the four-look SignalWeave bank"
+      "limit_provenance": "AlienBrain CUP-mapping prepared-hue stage budget",
+      "measurement_provenance": "unit_shader_workbench direct-versus-prepared hue corpus with the four-look AlienBrain bank"
     },
     {
       "domain": "COLOR_CHANNEL",
@@ -50,7 +50,7 @@
       "accepted_limit": 256,
       "unit": "16-bit channel code",
       "limit_provenance": "existing ShaderWorkbench combined prepared-hue stage budget",
-      "measurement_provenance": "unit_shader_workbench direct-versus-prepared hue corpus with the four-look SignalWeave bank"
+      "measurement_provenance": "unit_shader_workbench direct-versus-prepared hue corpus with the four-look AlienBrain bank"
     },
     {
       "domain": "FRAMEBUFFER",
@@ -65,7 +65,7 @@
       "accepted_limit": 5400,
       "unit": "16-bit channel code",
       "limit_provenance": "color-stage maximum bounds framebuffer channels",
-      "measurement_provenance": "repo-owned native Debug capture with the four-look SignalWeave bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-6/7/10 probes"
+      "measurement_provenance": "repo-owned native Debug capture with the four-look AlienBrain bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-6/7/10 probes"
     }
   ]
 }

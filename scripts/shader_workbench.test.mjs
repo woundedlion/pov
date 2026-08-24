@@ -101,21 +101,21 @@ test('every promoted shader document matches its compiled effect identity', asyn
     new URL('../patterns/shaderball_migration.json', import.meta.url), 'utf8'));
   const headers = {
     'alien-ocean': 'AlienOcean.h',
-    'contour-lattice': 'ContourLattice.h',
+    'grid-space': 'GridSpace.h',
     'cosmic-eyeball': 'CosmicEyeball.h',
-    'curl-facets': 'CurlFacets.h',
-    'curl-lattice': 'CurlLattice.h',
-    'equator-grid': 'EquatorGrid.h',
-    'facet-grid': 'FacetGrid.h',
-    'facet-wave': 'FacetWave.h',
-    'glitch-grid': 'GlitchGrid.h',
-    'hex-wave': 'HexWave.h',
-    'kaleido-wave': 'KaleidoWave.h',
+    'ash-cloud': 'AshCloud.h',
+    'lattice-melt': 'LatticeMelt.h',
+    'kaleidoscope-flowers': 'KaleidoscopeFlowers.h',
+    'kaleidoscope-smooth': 'KaleidoscopeSmooth.h',
+    'kaleidoscope-mandala': 'KaleidoscopeMandala.h',
+    'alien-core': 'AlienCore.h',
+    'kaleidoscope-hex-bright': 'KaleidoscopeHexBright.h',
+    'kaleidoscope-hex-soft': 'KaleidoscopeHexSoft.h',
     'mobius-grid': 'MobiusGrid.h',
-    'prism-lattice': 'PrismLattice.h',
-    'prism-spiral': 'PrismSpiral.h',
-    'signal-weave': 'SignalWeave.h',
-    'vector-facets': 'VectorFacets.h',
+    'kaleidoscope-pent-bright': 'KaleidoscopePentBright.h',
+    'kaleidoscope-hex-oil': 'KaleidoscopeHexOil.h',
+    'alien-brain': 'AlienBrain.h',
+    'kaleidoscope-stained-glass': 'KaleidoscopeStainedGlass.h',
   };
   assert.deepEqual(Object.keys(migration.source_documents).sort(),
     migration.product_group.children.map((child) => child.effect_id).sort());
@@ -447,13 +447,13 @@ test('a v1 pole-fade parameter binds the projection singularity fade', () => {
 test('export classification compares exact descriptors after the digest', () => {
   const compiled = compile(example());
   const registry = { effects: [{
-    effect_id: 'curl-lattice',
+    effect_id: 'lattice-melt',
     descriptor_digest: compiled.descriptor_digest,
     descriptor: compiled.descriptor,
     capability_profiles: ['wasm-authoring'],
   }] };
   assert.deepEqual(classifyExport(compiled, registry, 'wasm-authoring'),
-    { kind: 'ADD_PRESET_CANDIDATE', effect_id: 'curl-lattice' });
+    { kind: 'ADD_PRESET_CANDIDATE', effect_id: 'lattice-melt' });
   registry.effects[0].descriptor = { ...compiled.descriptor, serialization: { schema_version: 2, fields: [] } };
   assert.equal(classifyExport(compiled, registry, 'wasm-authoring').kind, 'CREATE_EFFECT_CANDIDATE');
 });
@@ -461,11 +461,11 @@ test('export classification compares exact descriptors after the digest', () => 
 test('known but target-unavailable effects remain distinguishable', () => {
   const compiled = compile(example());
   const result = classifyExport(compiled, { effects: [{
-    effect_id: 'curl-lattice', descriptor_digest: compiled.descriptor_digest,
+    effect_id: 'lattice-melt', descriptor_digest: compiled.descriptor_digest,
     descriptor: compiled.descriptor, capability_profiles: ['wasm-authoring'],
   }] }, 'teensy-shipping');
   assert.equal(result.kind, 'REJECTED');
-  assert.equal(result.effect_id, 'curl-lattice');
+  assert.equal(result.effect_id, 'lattice-melt');
   assert.equal(result.diagnostics[0].code, 'KNOWN_UNAVAILABLE');
 });
 
