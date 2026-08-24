@@ -1284,7 +1284,10 @@ inline void test_shader_workbench_legacy_spatial_slots() {
 
     const Complex gnomonic_actual =
         WB::project_point(v, WB::Projection::GNOMONIC);
-    const Complex gnomonic_expected = ::gnomonic(v);
+    const Complex gnomonic_expected =
+        Pullback::Projection::gnomonic(
+            v, 0.0f, Pullback::Projection::GnomonicHemisphere::FOLDED)
+            .coords;
     HS_EXPECT_EQ(gnomonic_actual.re, gnomonic_expected.re);
     HS_EXPECT_EQ(gnomonic_actual.im, gnomonic_expected.im);
     for (WB::SurfaceLens lens :
