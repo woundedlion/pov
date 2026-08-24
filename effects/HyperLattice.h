@@ -545,8 +545,7 @@ public:
     register_animated_param("Shells", &params.shells, SHELL_OPTIONS,
                             SHELL_EXPORT_OPTIONS, std::size(SHELL_OPTIONS));
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
-                                 0, PALETTE_FADE_FRAMES, ease_in_out_sin,
-                                 &this->anims_paused);
+                                 0, PALETTE_FADE_FRAMES, ease_in_out_sin);
     const GenerativePalette fixed_axis_palette{
         EffectPaletteRecipes::raymarch()};
     axis_palette.bake(persistent_arena, fixed_axis_palette);
