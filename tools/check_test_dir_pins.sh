@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Assert every Python test-suite directory in the tree is named by a
-# require_test_files.sh line in the CI workflow.
+# Assert every Python test-suite directory in the tree has require and discover
+# lines in the CI workflow.
 #
 # tools/require_test_files.sh proves a discovered suite is non-empty. It says
 # nothing about a suite the workflow never names: a new suite directory has no
 # discovery step, so it runs nowhere and every job stays green. This is the
 # guard for that direction -- every tracked suite directory must appear in a
-# require call.
+# require call and a discover step.
 #
 # The suites are read off the tracked test files rather than a glob of their
 # parent directories, so one landing outside tools/*_tests -- as
@@ -36,7 +36,8 @@ fi
 
 unpinned=()
 for dir in "${dirs[@]}"; do
-  if ! grep -qE "require_test_files\.sh .*${dir}/" "$workflow"; then
+  if ! grep -qE "require_test_files\.sh .*${dir}/" "$workflow" \
+      || ! grep -qF "unittest discover -s ${dir}" "$workflow"; then
     unpinned+=("$dir")
   fi
 done
