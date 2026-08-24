@@ -6828,24 +6828,28 @@ inline int run_effects_tests() {
   test_raymarch_volume_random_walks_are_independent();
   test_raymarch_preset_and_placement_solids();
   test_raymarch_surface_frame_uv();
+  test_sh_reduced_legendre_matches_closed_form();
+  test_gs_q16_roundtrip();
+  test_bz_q16_roundtrip();
+  test_bz_advance_species_signs_and_clamp();
+  test_hopf_projection_math();
+  test_raymarch_constexpr_sqrt_converges();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The QUICK tier
-  // skips the block below; CI is authoritative for the full-resolution paths
-  // and white-box invariants.
+  // skips the resolution-dependent block below; CI is authoritative for the
+  // full-resolution paths.
   if (effects_full_suite()) {
     test_needs_full_frame_gate();
     test_voronoi_axes_use_uniform_sampler();
     test_voronoi_union_candidates_cover_nearest();
     test_voronoi_segment_render_matches_full_frame();
     test_sh_decode_lm_valid_order();
-    test_sh_reduced_legendre_matches_closed_form();
     test_sh_cartesian_matches_spherical();
     test_sh_field_write_through_and_endpoints();
     test_sh_field_stays_inside_unit_range();
     test_sh_pullback_matches_legacy_shader();
     test_sh_polarity_split_and_ao_shaping();
     test_sh_morph_chain_rearms();
-    test_gs_q16_roundtrip();
     test_gs_rest_state_is_fixed_point();
     test_gs_substep_signs_and_clamp();
     test_gs_evolution_stays_bounded();
@@ -6853,9 +6857,7 @@ inline int run_effects_tests() {
     test_gs_dissolve_clears_and_reseeds();
     test_gs_reaction_edit_starts_dissolve();
     test_bz_legacy_palette();
-    test_bz_q16_roundtrip();
     test_bz_min_diffusion_step_survives_quantization();
-    test_bz_advance_species_signs_and_clamp();
     test_bz_perturb_state_saturates_and_nudges();
     test_bz_perturb_state_draw_count_pinned();
     test_bz_perturb_scales_with_timestep();
@@ -6877,9 +6879,7 @@ inline int run_effects_tests() {
     test_dynamo_trail_ceiling_bounds_the_ring();
     test_dynamo_emitted_points_counts_ring_seeds();
     test_ringspin_trail_hugs_its_great_circles();
-    test_hopf_projection_math();
     test_hopf_trail_trim_keeps_a_segment();
-    test_raymarch_constexpr_sqrt_converges();
     test_raymarch_unit_bounds_contains_twisted_tube();
     test_gnomonicstars_radius_px_spans_one_column();
     test_gnomonicstars_spiral_cache_invalidation();
