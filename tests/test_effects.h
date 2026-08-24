@@ -3163,7 +3163,7 @@ inline void test_meshfeedback_flush_precedes_mesh_draw() {
  *          482 if the first switch re-armed the dwell — and, the ordering
  *          contract, requires the bound NoiseParams to already carry the
  *          incoming preset's scalars when the switch frame ends: apply_params()
- *          runs after begin_automatic_transition(), so the flush that frame
+ *          runs after step_choreography(), so the flush that frame
  *          reads one preset's fade and noise, not two.
  */
 inline void test_meshfeedback_preset_rotation_syncs_noise() {
