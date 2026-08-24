@@ -50,7 +50,8 @@ inline float effect_output_envelope(uint32_t rev_in_effect,
     return fading_out ? 0.0f : 1.0f;
   const float progress =
       static_cast<float>(elapsed_columns) / static_cast<float>(fade_columns);
-  const float eased = 0.5f - 0.5f * fast_cosf(PI_F * progress);
+  const float eased =
+      hs::clamp(0.5f - 0.5f * fast_cosf(PI_F * progress), 0.0f, 1.0f);
   return fading_out ? 1.0f - eased : eased;
 }
 
