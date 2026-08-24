@@ -253,7 +253,7 @@ The normative table:
 | `Color4`       | `Colorize`    | straight alpha; channels and alpha stay in [0, 1] |
 
 `FieldSample.coverage ∈ [0, 1]` is established without a clamp:
-`ProjectedCoverage` policies are obliged to return [0, 1], and
+`ProjectionCoverage` policies are obliged to return [0, 1], and
 `value_weight`/`domain_coverage` are in range by the projection
 obligation above, so `Sample`'s coverage product is in range by
 construction.
@@ -269,8 +269,9 @@ at §6 step 2 is required.
 ## 4. Stage vocabulary
 
 The policy layer — `Surface::*`, `Lens::*`, `Projection::*`, `Warp::*`,
-`Source::*`, `Weight::*`, `Transfer::*`, `Coverage::*`, `Color::*` — keeps
-its callable logic. The mechanical signature edits — this list is
+`Source::*`, `Weight::*`, `Transfer::*`, `ProjectionCoverage::*`,
+`ValueCoverage::*`, `Color::*` — keeps its callable logic. The mechanical
+signature edits — this list is
 normative and intended to be exhaustive; if the cut-over finds another,
 the spec is what changes: projection policies retype their return
 `ProjectionSample` → `ProjectionResult` (they never set the removed
@@ -281,7 +282,7 @@ weight policies retype their
 `const ProjectionSample &` parameter to `const ProjectionProvenance &`;
 color policies retype `MaterialSample` → `FieldSample` (`sample.sphere`
 keeps its spelling); the coverage vocabulary moves to the crossing's
-`ProjectedCoverage` signatures and `ValueCutout` drops the parameter it
+`ProjectionCoverage` signatures and `ValueCutout` drops the parameter it
 ignores (§ the `Sample` bullet below); and the projection *helper*
 free functions (`projection.h`: `stereographic`, `folded_sinusoidal`,
 `equirectangular`, `gnomonic`, …) retype their `ProjectionSample`
@@ -304,10 +305,10 @@ crossing Stage::Project<ProjectionPolicy>     SphereSample -> PlaneSample
 PLANE   Stage::Warp<WarpPolicy>               PlaneSample -> PlaneSample
 crossing Stage::Sample<SourcePolicy,
                        WeightPolicy = Weight::Projection,
-                       CoveragePolicy = ProjectedCoverage::Weight>
+                       CoveragePolicy = ProjectionCoverage::Weight>
                                               PlaneSample -> FieldSample
 FIELD   Stage::Transfer<TransferPolicy>       FieldSample -> FieldSample
-        Stage::Coverage<ValueCutout<...>>     FieldSample -> FieldSample  (value-dependent only)
+        Stage::ApplyCoverage<ValueCutout<...>>     FieldSample -> FieldSample  (value-dependent only)
 crossing Stage::Colorize<ColorPolicy>         FieldSample -> Color4
 COLOR   (none yet; the family exists so they can)
 ```
@@ -331,7 +332,7 @@ Sample    normative pseudocode in the bullet below
 SampleSphere out = {clamp_unit((Policy::sample(in) + 1) / 2), 1,
                     in.dir, in.path_length}
 Transfer  out = in;  out.value = Policy::apply(in.value, frame)
-Coverage  out = in;  out.coverage = in.coverage * Policy::apply(in.value, frame)
+ApplyCoverage out = in;  out.coverage = in.coverage * Policy::apply(in.value, frame)
 Colorize  Policy::apply(in, frame) -> Color4
 ```
 
@@ -379,7 +380,7 @@ the semantics cannot fork between the two execution paths.
   (including the `domain_coverage` seed), relocated to the boundary
   where plane provenance becomes field state. The crossing's coverage
   policy is one slot from a dedicated vocabulary —
-  `ProjectedCoverage::{None, Weight, WeightSquared, EdgeFade<Provider>}`,
+  `ProjectionCoverage::{None, Weight, WeightSquared, EdgeFade<Provider>}`,
   signature `apply(const ProjectionProvenance &, const FrameState &) →
   float` — preserving today's **mutual exclusivity**: coverage modes
   never stack, so a migrated edge-fade chain does not silently acquire a
@@ -390,7 +391,7 @@ the semantics cannot fork between the two execution paths.
   `CoveragePolicy`: `OPAQUE` → `None`, `PROJECTION_WEIGHT` → `Weight`,
   `PROJECTION_WEIGHT_SQUARED` → `WeightSquared`, `EDGE_FADE` →
   `EdgeFade`, `VALUE_CUTOUT` → `None` at the crossing plus a
-  `Stage::Coverage<ValueCutout>` FIELD stage. That deferred stage's
+  `Stage::ApplyCoverage<ValueCutout>` FIELD stage. That deferred stage's
   signature is `apply(float value, const FrameState &) → float`
   (dropping the `ProjectionSample` parameter today's version ignores),
   and it multiplies into the accumulated `coverage`. Because the boundary is crossed
