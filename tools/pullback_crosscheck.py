@@ -489,7 +489,8 @@ def _compare_capture_paths(
 
 
 def _run(command: list[str], cwd: Path, environment: dict) -> None:
-    subprocess.run(command, cwd=cwd, env=environment, check=True)
+    subprocess.run(
+        command, cwd=cwd, env=environment, check=True, timeout=1800)
 
 
 def _remove_worktree(
@@ -504,7 +505,7 @@ def _remove_worktree(
             repository,
             environment,
         )
-    except (OSError, subprocess.CalledProcessError) as cleanup_error:
+    except (OSError, subprocess.SubprocessError) as cleanup_error:
         if active_error is None:
             raise
         active_error.add_note(f"worktree cleanup also failed: {cleanup_error}")
@@ -793,7 +794,7 @@ def main(argv=None) -> int:
         CrosscheckError,
         ManifestError,
         OSError,
-        subprocess.CalledProcessError,
+        subprocess.SubprocessError,
     ) as error:
         print(f"pullback_crosscheck: {error}", file=sys.stderr)
         return 1
