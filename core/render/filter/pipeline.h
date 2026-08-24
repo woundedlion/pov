@@ -86,6 +86,10 @@ template <bool Is2d, bool HasHistory> struct FilterTraits {
 using Is2D = FilterTraits<true, false>;
 /** @brief Trait indicating a filter operates in 3D world space. */
 using Is3D = FilterTraits<false, false>;
+/** @brief Trait indicating a filter operates on the pixel domain. */
+struct IsPixel : Is2D {
+  static constexpr int domain_rank = 2;
+};
 /** @brief Trait indicating a 2D filter that maintains state/history. */
 using Is2DWithHistory = FilterTraits<true, true>;
 /** @brief Trait indicating a 3D filter that maintains state/history. */
@@ -217,7 +221,7 @@ HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
   template <int, int, typename...> friend struct Pipeline;
 
-  static constexpr int domain_rank = 2;
+  static constexpr int domain_rank = IsPixel::domain_rank;
   static constexpr bool is_2d = true;
   static constexpr bool is_pipeline = true;
   static constexpr bool direct_raster_path = false;

@@ -48,7 +48,7 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
                           .ring_count();
 
 public:
-  static constexpr int domain_rank = 2;
+  static constexpr int domain_rank = IsPixel::domain_rank;
   /** @brief Marks this as terminal: flush() writes the Canvas directly. */
   static constexpr bool is_terminal = true;
   /** @brief Opaque store owns the frame: no history stage may precede it. */
