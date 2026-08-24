@@ -11,6 +11,7 @@
  *        through EffectTransitionAdapter.
  */
 
+#include <cmath>
 #include <cstdint>
 #include <string_view>
 
@@ -298,8 +299,8 @@ public:
     destination = next;
     handoff = next_handoff;
     restore = next_restore;
-    evaluation =
-        static_cast<uint16_t>(spent * static_cast<float>(next.fade_ticks));
+    evaluation = static_cast<uint16_t>(
+        std::ceil(spent * static_cast<float>(next.fade_ticks)));
     last_failure = EffectTransitionStatus::OK;
     if (cleared) {
       // post-teardown: output is already clear and no outgoing remains

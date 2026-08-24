@@ -354,6 +354,24 @@ inline void test_effect_transition_replacement_pause_and_restore() {
   HS_EXPECT_EQ(none.envelopes.back(), 1.0f);
 }
 
+inline void test_effect_transition_shorter_replacement_preserves_progress() {
+  TransitionAdapter adapter;
+  hs::EffectTransitionController controller(adapter);
+  const hs::EffectTransitionRequest initial{
+      "alien-brain", "alien-brain", hs::EffectTransitionOrigin::AUTOMATIC, 60};
+  HS_EXPECT_EQ(controller.request(initial), hs::EffectTransitionStatus::OK);
+  for (int i = 0; i < 55; ++i)
+    controller.tick();
+  HS_EXPECT_NEAR(adapter.envelopes.back(), 0.1f, 1e-6f);
+
+  const hs::EffectTransitionRequest replacement{
+      "kaleidoscope-hex-soft", "kaleidoscope-hex-soft",
+      hs::EffectTransitionOrigin::AUTOMATIC, 1};
+  HS_EXPECT_EQ(controller.request(replacement), hs::EffectTransitionStatus::OK);
+  controller.tick();
+  HS_EXPECT_EQ(adapter.envelopes.back(), 0.0f);
+}
+
 inline void test_effect_transition_failsafe_retry() {
   TransitionAdapter adapter;
   adapter.capability = hs::EffectRestoreCapability::NONE;
@@ -1354,6 +1372,7 @@ inline int run_canvas_tests() {
   test_output_envelope_endpoints();
   test_effect_transition_fenced_commit();
   test_effect_transition_replacement_pause_and_restore();
+  test_effect_transition_shorter_replacement_preserves_progress();
   test_effect_transition_failsafe_retry();
   test_preset_state_machine();
   test_frame_visible_only_after_advance_display();
