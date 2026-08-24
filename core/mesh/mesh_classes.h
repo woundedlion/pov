@@ -60,9 +60,9 @@ inline constexpr float MIN_CLASS_HIT_SHARE = 0.4f;
  * @brief Tests a centered 2D polygon for concavity.
  * @param xy Polygon vertices, x/y pairs.
  * @param count Vertex count.
- * @return True when successive-edge turns have mixed signs (same relative-turn
- *         epsilon as Face::build_half_planes, so a class is LUT-eligible
- *         exactly when its faces would miss the convex fast path).
+ * @return True when successive-edge turns have mixed signs, using the same
+ *         relative-turn epsilon as Face::build_half_planes. Other convex-path
+ *         bail-outs are evaluated by the face builder.
  */
 inline bool polygon_is_concave(const float *xy, int count) {
   bool pos = false, neg = false;
