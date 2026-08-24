@@ -1173,6 +1173,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check out daydream tree-fence target
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          repository: woundedlion/daydream
+          path: daydream
+          persist-credentials: false
+
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
@@ -1207,7 +1214,7 @@ jobs:
           bash tools/require_test_files.sh 'tools/docs_images_tests/test*.py'
           python -m unittest discover -s tools/docs_check_tests
           python -m unittest discover -s tools/docs_images_tests
-          python tools/docs_check.py --skip-checkout daydream
+          python tools/docs_check.py --checkout daydream=daydream
           python tools/build_pins.py --check
 
       # --check above prints PASS whether or not its three checks still parse the
