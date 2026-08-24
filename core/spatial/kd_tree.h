@@ -139,7 +139,9 @@ public:
       worst_d_sq = -1.0f;
       worst_i = 0;
       for (size_t i = 0; i < result.size(); ++i) {
-        if (result[i].d_sq > worst_d_sq) {
+        if (result[i].d_sq > worst_d_sq ||
+            (result[i].d_sq == worst_d_sq &&
+             result[i].original_index > result[worst_i].original_index)) {
           worst_d_sq = result[i].d_sq;
           worst_i = i;
         }
@@ -153,7 +155,9 @@ public:
         result.push_back({nodes[idx].point, nodes[idx].original_index, d_sq});
         if (result.size() == static_cast<size_t>(k))
           recompute_worst(); // set just filled: cache its worst for pruning
-      } else if (d_sq < worst_d_sq) {
+      } else if (d_sq < worst_d_sq ||
+                 (d_sq == worst_d_sq &&
+                  nodes[idx].original_index < result[worst_i].original_index)) {
         result[worst_i] = {nodes[idx].point, nodes[idx].original_index, d_sq};
         recompute_worst(); // worst displaced: refresh the cache
       }
@@ -259,7 +263,7 @@ private:
     const KDNode &node = nodes[node_idx];
     float d_sq = distance_squared(node.point, target);
 
-    if (d_sq < get_worst_dist())
+    if (d_sq <= get_worst_dist())
       offer_candidate(d_sq, node_idx);
 
     float axis_dist = (node.axis == 0)   ? (target.x - node.point.x)
@@ -273,7 +277,7 @@ private:
 
     // Re-query the worst bound: the near subtree may have filled the k-best set
     // and tightened it, so the far side can be pruned.
-    if ((axis_dist * axis_dist) < get_worst_dist()) {
+    if ((axis_dist * axis_dist) <= get_worst_dist()) {
       search_k(far, target, offer_candidate, get_worst_dist);
     }
   }
