@@ -479,10 +479,6 @@ inline void test_hue_fade_matches_rotate_reference() {
  *          composite's NEAR_BLACK skip relies on, and the saturated primaries
  *          that drive the clip. fast_cbrt6's own accuracy is pinned tightly in
  *          test_fast_cbrt6; this case guards the composite's end-to-end output.
- *          The 2880 pairs report through a worst-delta accumulator rather than
- *          per-pair assertions: per-pair HS_EXPECTs would put ~17k assertions
- *          into the module's floor and leave the floor gate blind to every
- *          other case in the module being deleted.
  */
 inline void test_hue_fade_apply2_tracks_scalar() {
   constexpr int HS_PAIR_TOL = 128;
@@ -502,15 +498,11 @@ inline void test_hue_fade_apply2_tracks_scalar() {
   const float fades[] = {0.58f, 0.75f, 0.9f, 0.99f};
   const float shifts[] = {0.0f, 0.01f, 0.1f, 0.33f, 0.75f};
 
-  int worst_delta = 0;
-  auto track = [&worst_delta](const Pixel &got, const Pixel &want) {
-    worst_delta = std::max(worst_delta, std::abs((int)got.r - (int)want.r));
-    worst_delta = std::max(worst_delta, std::abs((int)got.g - (int)want.g));
-    worst_delta = std::max(worst_delta, std::abs((int)got.b - (int)want.b));
-  };
-
-  for (float shift : shifts)
-    for (float fade : fades) {
+  for (int si = 0; si < 5; ++si)
+    for (int fi = 0; fi < 4; ++fi) {
+      HS_CONTEXT("shift/fade", si, fi);
+      const float shift = shifts[si];
+      const float fade = fades[fi];
       Feedback::Style s{};
       s.hue_shift = shift;
       s.sync_hue();
@@ -522,6 +514,7 @@ inline void test_hue_fade_apply2_tracks_scalar() {
 
       for (int a = 0; a < n; ++a)
         for (int b = 0; b < n; ++b) {
+          HS_CONTEXT("channel pair", a, b);
           Pixel s0 = Feedback::hue_fade_apply(k, channels[a][0], channels[a][1],
                                               channels[a][2]);
           Pixel s1 = Feedback::hue_fade_apply(k, channels[b][0], channels[b][1],
@@ -530,11 +523,14 @@ inline void test_hue_fade_apply2_tracks_scalar() {
           Feedback::hue_fade_apply2(k, channels[a][0], channels[a][1],
                                     channels[a][2], channels[b][0],
                                     channels[b][1], channels[b][2], p0, p1);
-          track(p0, s0);
-          track(p1, s1);
+          HS_EXPECT_LE(std::abs((int)p0.r - (int)s0.r), HS_PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p0.g - (int)s0.g), HS_PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p0.b - (int)s0.b), HS_PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p1.r - (int)s1.r), HS_PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p1.g - (int)s1.g), HS_PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p1.b - (int)s1.b), HS_PAIR_TOL);
         }
     }
-  HS_EXPECT_LE(worst_delta, HS_PAIR_TOL);
 
   // An all-black pair stays exactly black, the state the composite writes to
   // overwrite the stale double-buffer frame.

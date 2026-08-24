@@ -1908,26 +1908,24 @@ inline void test_sequential_segue_never_overlaps_sprites() {
  *        incoming share tracks the phase.
  * @details The partition is what caps a two-mesh transition at one mesh's scan
  *          cost, so a mask pair that double-covered or dropped keys would
- *          both corrupt the image and double the frame. Each phase's 2048
- *          keys report through one violation counter rather than per-key
- *          assertions: per-key HS_EXPECTs would put ~10k assertions into the
- *          module's floor and leave the floor gate blind to every other case in
- *          the module being deleted.
+ *          both corrupt the image and double the frame.
  */
 inline void test_dissolve_segue_masks_partition_keys() {
   constexpr int KA = 64, KB = 32;
   Segue::Dissolve dissolve;
-  for (float phase : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+  constexpr float PHASES[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+  for (int pi = 0; pi < 5; ++pi) {
+    HS_CONTEXT("phase", pi);
+    const float phase = PHASES[pi];
     auto masks = dissolve.mask_pair(phase, 7u);
     int owned_in = 0;
-    int both_or_neither = 0;
     for (int kb = 0; kb < KB; ++kb)
       for (int ka = 0; ka < KA; ++ka) {
+        HS_CONTEXT("key", ka, kb);
         bool a = masks.incoming.owns(ka, kb), b = masks.outgoing.owns(ka, kb);
-        both_or_neither += a == b;
+        HS_EXPECT_NE(a, b);
         owned_in += a ? 1 : 0;
       }
-    HS_EXPECT_EQ(both_or_neither, 0);
     // Hash spread is not perfectly uniform, so allow a few percent of slack.
     float share = static_cast<float>(owned_in) / (KA * KB);
     HS_EXPECT_NEAR(share, phase, 0.05f);
