@@ -38,7 +38,8 @@ export function parsePhantasmEffectRoster(src) {
   const block = src.match(
     /#define HS_PHANTASM_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/);
   if (!block)
-    throw new Error('Could not locate HS_PHANTASM_EFFECT_LIST in core/engine/effects.h');
+    throw new Error(
+      'Could not locate HS_PHANTASM_EFFECT_LIST in targets/Phantasm/phantasm_playlist.h');
   const body = block[1]
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '');
@@ -49,8 +50,8 @@ export function parsePhantasmEffectRoster(src) {
 }
 
 export async function loadPhantasmEffectRoster() {
-  return parsePhantasmEffectRoster(
-    await readFile(join(REPO_ROOT, 'core', 'engine', 'effects.h'), 'utf8'));
+  return parsePhantasmEffectRoster(await readFile(
+    join(REPO_ROOT, 'targets', 'Phantasm', 'phantasm_playlist.h'), 'utf8'));
 }
 
 // The standard self-registering effect set, read recursively from effects/.
