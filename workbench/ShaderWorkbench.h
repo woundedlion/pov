@@ -25,6 +25,7 @@
 #include "core/math/projections.h"
 #include "core/math/stereographic.h"
 #include "core/render/pullback.h"
+#include "core/render/pullback/runtime_seeds.h"
 
 namespace hs_test {
 namespace shader_workbench_tests {
@@ -3267,7 +3268,7 @@ private:
   HS_COLD_MEMBER static constexpr NoiseFieldKey color_noise_resource_key() {
     return {NoiseDomain::SPHERE_3D,
             NoiseBasis::SIMPLEX,
-            6047,
+            Pullback::HUE_NOISE_SEED,
             NoiseChannelLayout::SCALAR_V1,
             1,
             1,
