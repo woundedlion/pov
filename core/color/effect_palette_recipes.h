@@ -13,6 +13,7 @@
 #include <array>
 
 #include "color/color.h"
+#include "color/palette_cycler.h"
 
 /** @brief PaletteRecipe builders owned by the effects that render them. */
 namespace EffectPaletteRecipes {
@@ -183,6 +184,99 @@ HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby_at(float base_turns) {
 HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby() {
   return shader_ball_flyby_at(PaletteRecipes::hue_turns(42));
 }
+
+/** @brief Shared triadic, complementary, and analogous palette cyclers. */
+class GeneratedPaletteBank {
+public:
+  static constexpr uint32_t HUE_STEP = 159;
+  static constexpr int DWELL_FRAMES = 0;
+  static constexpr int FADE_FRAMES = 600;
+
+  HS_COLD_MEMBER void init(Arena &arena, float chroma, float (*easing)(float)) {
+    chroma_ = chroma;
+    triadic_.init_generated(arena, next_triadic, this, DWELL_FRAMES,
+                            FADE_FRAMES, easing);
+    complementary_.init_generated(arena, next_complementary, this, DWELL_FRAMES,
+                                  FADE_FRAMES, easing);
+    analogous_.init_generated(arena, next_analogous, this, DWELL_FRAMES,
+                              FADE_FRAMES, easing);
+  }
+
+  template <typename PaletteMode> void step(PaletteMode visible) {
+    step_one(triadic_, visible == PaletteMode::TRIADIC);
+    step_one(complementary_, visible == PaletteMode::COMPLEMENTARY);
+    step_one(analogous_, visible == PaletteMode::ANALOGOUS);
+  }
+
+  template <typename PaletteMode>
+  HS_COLD_MEMBER const BakedPalette &palette(PaletteMode mode) const {
+    switch (mode) {
+    case PaletteMode::TRIADIC:
+      return triadic_.palette();
+    case PaletteMode::COMPLEMENTARY:
+      return complementary_.palette();
+    case PaletteMode::ANALOGOUS:
+      return analogous_.palette();
+    }
+    __builtin_unreachable();
+  }
+
+  HS_COLD_MEMBER void set_chroma(float chroma) {
+    if (chroma == chroma_)
+      return;
+    chroma_ = chroma;
+    triadic_.set_generated_chroma(chroma);
+    complementary_.set_generated_chroma(chroma);
+    analogous_.set_generated_chroma(chroma);
+  }
+
+  static void next_palette(uint32_t &hue, uint32_t sequence,
+                           PaletteHarmony harmony, float chroma,
+                           GenerativePalette &out) {
+    if (sequence > 0)
+      hue += HUE_STEP;
+    out = GenerativePalette{PaletteRecipes::profile(
+        PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
+        PaletteRecipes::hue_turns(hue), chroma)};
+  }
+
+private:
+  static void step_one(PaletteCycler &cycler, bool visible) {
+    if (visible)
+      cycler.step();
+    else
+      cycler.advance_without_display();
+  }
+
+  static void next_triadic(void *context, uint32_t sequence,
+                           GenerativePalette &out) {
+    auto &bank = *static_cast<GeneratedPaletteBank *>(context);
+    next_palette(bank.triadic_hue_, sequence, PaletteHarmony::TRIADIC,
+                 bank.chroma_, out);
+  }
+
+  static void next_complementary(void *context, uint32_t sequence,
+                                 GenerativePalette &out) {
+    auto &bank = *static_cast<GeneratedPaletteBank *>(context);
+    next_palette(bank.complementary_hue_, sequence,
+                 PaletteHarmony::COMPLEMENTARY, bank.chroma_, out);
+  }
+
+  static void next_analogous(void *context, uint32_t sequence,
+                             GenerativePalette &out) {
+    auto &bank = *static_cast<GeneratedPaletteBank *>(context);
+    next_palette(bank.analogous_hue_, sequence, PaletteHarmony::ANALOGOUS,
+                 bank.chroma_, out);
+  }
+
+  PaletteCycler triadic_;
+  PaletteCycler complementary_;
+  PaletteCycler analogous_;
+  uint32_t triadic_hue_ = 0;
+  uint32_t complementary_hue_ = 0;
+  uint32_t analogous_hue_ = 0;
+  float chroma_ = 0.62f;
+};
 
 /** @brief One row of the authoring tool's preset roster. */
 struct Preset {

@@ -64,15 +64,7 @@ public:
     program.bind_storage(block_a, block_b);
 
     init_gamut_lut(persistent_arena, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
-    triadic_palette_cycler.init_generated(
-        persistent_arena, next_triadic_palette, this, PALETTE_DWELL_FRAMES,
-        PALETTE_FADE_FRAMES, ease_in_out_sin);
-    complementary_palette_cycler.init_generated(
-        persistent_arena, next_complementary_palette, this,
-        PALETTE_DWELL_FRAMES, PALETTE_FADE_FRAMES, ease_in_out_sin);
-    analogous_palette_cycler.init_generated(
-        persistent_arena, next_analogous_palette, this, PALETTE_DWELL_FRAMES,
-        PALETTE_FADE_FRAMES, ease_in_out_sin);
+    generated_palettes.init(persistent_arena, DEFAULT_CHROMA, ease_in_out_sin);
 
     static constexpr ChainEntryRequest DEFAULT_CHAIN[] = {
         {"camera", "sphere.rotate.v2"},
@@ -197,9 +189,10 @@ private:
     ctx.time = static_cast<float>(frame_index) * FRAME_SECONDS;
     ctx.anims_paused = anims_paused;
     ctx.projection_base = make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
-    ctx.palettes = {&triadic_palette_cycler.palette(),
-                    &complementary_palette_cycler.palette(),
-                    &analogous_palette_cycler.palette()};
+    using PaletteMode = Pullback::Interp::Op::PaletteMode;
+    ctx.palettes = {&generated_palettes.palette(PaletteMode::TRIADIC),
+                    &generated_palettes.palette(PaletteMode::COMPLEMENTARY),
+                    &generated_palettes.palette(PaletteMode::ANALOGOUS)};
     if (tap.params == nullptr || tap.params->hue_shift_amount == 0.0f)
       return ctx;
     const size_t palette_index = tap.params->palette_mode < ctx.palettes.size()
@@ -231,68 +224,14 @@ private:
   }
 
   void step_generated_palettes(uint8_t visible_mode) {
-    if (visible_mode ==
-        static_cast<uint8_t>(Pullback::Interp::Op::PaletteMode::TRIADIC))
-      triadic_palette_cycler.step();
-    else
-      triadic_palette_cycler.advance_without_display();
-    if (visible_mode ==
-        static_cast<uint8_t>(Pullback::Interp::Op::PaletteMode::COMPLEMENTARY))
-      complementary_palette_cycler.step();
-    else
-      complementary_palette_cycler.advance_without_display();
-    if (visible_mode ==
-        static_cast<uint8_t>(Pullback::Interp::Op::PaletteMode::ANALOGOUS))
-      analogous_palette_cycler.step();
-    else
-      analogous_palette_cycler.advance_without_display();
+    generated_palettes.step(
+        static_cast<Pullback::Interp::Op::PaletteMode>(visible_mode));
   }
 
   HS_COLD_MEMBER void update_palette_chroma(float chroma) {
-    if (chroma == palette_chroma)
-      return;
-    palette_chroma = chroma;
-    triadic_palette_cycler.set_generated_chroma(chroma);
-    complementary_palette_cycler.set_generated_chroma(chroma);
-    analogous_palette_cycler.set_generated_chroma(chroma);
+    generated_palettes.set_chroma(chroma);
   }
 
-  static void next_generated_palette(uint32_t &hue, uint32_t sequence,
-                                     PaletteHarmony harmony, float chroma,
-                                     GenerativePalette &out) {
-    if (sequence > 0)
-      hue += HUE_STEP;
-    out = GenerativePalette{PaletteRecipes::profile(
-        PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
-        PaletteRecipes::hue_turns(hue), chroma)};
-  }
-
-  static void next_triadic_palette(void *context, uint32_t sequence,
-                                   GenerativePalette &out) {
-    ShaderChain &effect = *static_cast<ShaderChain *>(context);
-    next_generated_palette(effect.triadic_hue, sequence,
-                           PaletteHarmony::TRIADIC, effect.palette_chroma, out);
-  }
-
-  static void next_complementary_palette(void *context, uint32_t sequence,
-                                         GenerativePalette &out) {
-    ShaderChain &effect = *static_cast<ShaderChain *>(context);
-    next_generated_palette(effect.complementary_hue, sequence,
-                           PaletteHarmony::COMPLEMENTARY, effect.palette_chroma,
-                           out);
-  }
-
-  static void next_analogous_palette(void *context, uint32_t sequence,
-                                     GenerativePalette &out) {
-    ShaderChain &effect = *static_cast<ShaderChain *>(context);
-    next_generated_palette(effect.analogous_hue, sequence,
-                           PaletteHarmony::ANALOGOUS, effect.palette_chroma,
-                           out);
-  }
-
-  static constexpr int PALETTE_DWELL_FRAMES = 0;
-  static constexpr int PALETTE_FADE_FRAMES = 600;
-  static constexpr uint32_t HUE_STEP = 159;
   static constexpr int HUE_NOISE_SEED = 5150;
   static constexpr float DEFAULT_CHROMA =
       Pullback::Color::ColorParams{}.palette_chroma;
@@ -305,13 +244,7 @@ private:
 
   Pullback::Interp::ChainProgram program;
   Resources *resources = nullptr;
-  PaletteCycler triadic_palette_cycler;
-  PaletteCycler complementary_palette_cycler;
-  PaletteCycler analogous_palette_cycler;
-  uint32_t triadic_hue = 0;
-  uint32_t complementary_hue = 0;
-  uint32_t analogous_hue = 0;
-  float palette_chroma = DEFAULT_CHROMA;
+  EffectPaletteRecipes::GeneratedPaletteBank generated_palettes;
   uint32_t frame_index = 0;
 };
 
