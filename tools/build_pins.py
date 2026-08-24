@@ -69,7 +69,6 @@ ROOT = Path(__file__).resolve().parents[1]
 CONSUMERS = {
     ROOT / ".github/workflows/ci.yml": (
         "build_pins.py --github-output",
-        "build_pins.py platformio",
         "python tools/build_pins.py --check",
     ),
     ROOT / ".github/workflows/docs.yml": ("build_pins.py doxygen-awesome",),
@@ -102,6 +101,10 @@ INLINE_SCAN = (
     ROOT / "README.md",
     ROOT / "CONTRIBUTING.md",
     ROOT / "hardware/phantasm/README.md",
+    *(ROOT / "requirements" / name for name in (
+        "clang-format.txt", "just.txt", "numpy.txt", "platformio.txt",
+        "ruff.txt", "shellcheck.txt",
+    )),
 )
 
 # (pattern, pin name, expected form of the pin value). The pattern's single
@@ -115,6 +118,10 @@ INLINE_USES = (
     (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v),
     (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0]),
     (r"\bclang-format (\d+)\b", "clang-format", lambda v: v.split(".")[0]),
+    (r"\brust-just==([\w.]+)", "just", lambda v: v),
+    (r"\bplatformio==([\w.]+)", "platformio", lambda v: v),
+    (r"\bruff==([\w.]+)", "ruff", lambda v: v),
+    (r"\bshellcheck-py==([\w.]+)", "shellcheck", lambda v: v),
     (r"EXPECTED_CLANG_FORMAT_MAJOR = (\d+)", "clang-format",
      lambda v: v.split(".")[0]),
     (r"HS_CLANG_FORMAT_MAJOR=(\d+)", "clang-format", lambda v: v.split(".")[0]),
@@ -259,12 +266,13 @@ def check_inline_pins() -> list[str]:
     """Return one error per occurrence of an INLINE_PINS value that disagrees
     with the pin, plus one per pin no scanned file spells at all."""
     errors: list[str] = []
-    seen: dict[str, int] = {name: 0 for name in INLINE_PINS}
+    pin_values = {**PINS, **INLINE_PINS}
+    seen: dict[str, int] = {name: 0 for _, name, _ in INLINE_USES}
     for path in INLINE_SCAN:
         text = path.read_text(encoding="utf-8")
         for index, line in enumerate(text.splitlines(), 1):
             for pattern, name, form in INLINE_USES:
-                want = form(INLINE_PINS[name])
+                want = form(pin_values[name])
                 for found in re.findall(pattern, line):
                     seen[name] += 1
                     if found != want:
