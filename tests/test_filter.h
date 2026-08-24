@@ -156,11 +156,6 @@ inline void test_filter_trait_inheritance() {
 /**
  * @brief Verifies the `crosses_segments` per-filter trait and the Pipeline
  *        `any_crosses_segments` OR-fold the segment driver gates on.
- * @details This is the regression guard for the gate: it pins which filters are
- *          cross-segment (so a future filter addition can't silently turn a
- *          stateful effect's full-frame rendering off), and it locks the ONE
- *          non-fail-safe override — Screen::Trails::crosses_segments == false —
- *          which the banded-vs-full bit-identity test below proves is safe.
  */
 inline void test_crosses_segments_trait_and_fold() {
   constexpr int W = 32, H = 16;
@@ -170,17 +165,14 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::crosses_segments));
   HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::crosses_segments));
   HS_EXPECT_TRUE((Filter::World::Trails<16>::crosses_segments));
-  // The sole non-fail-safe override: reach-0 in-place decay stays band-clippable.
-  HS_EXPECT_FALSE((Filter::Screen::Trails<>::crosses_segments));
+  HS_EXPECT_TRUE((Filter::Screen::Trails<>::crosses_segments));
   HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::reads_outside_band));
   HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::reads_outside_band));
   HS_EXPECT_FALSE((Filter::World::Trails<16>::reads_outside_band));
   HS_EXPECT_FALSE((Filter::Screen::Trails<>::reads_outside_band));
 
-  // crosses_segments tracks reach, not has_history: Screen::Trails has history
-  // yet does not cross segments.
   HS_EXPECT_TRUE((Filter::Screen::Trails<>::has_history));
-  HS_EXPECT_FALSE((Filter::Screen::Trails<>::crosses_segments));
+  HS_EXPECT_TRUE((Filter::Screen::Trails<>::crosses_segments));
 
   // Pipeline OR-fold.
   HS_EXPECT_FALSE((Pipeline<W, H>::any_crosses_segments));
@@ -198,8 +190,7 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE(PlainStack::any_crosses_segments);
   HS_EXPECT_FALSE(PlainStack::any_reads_outside_band);
 
-  // A Screen::Trails-only stack does not trip the fold despite has_history.
-  HS_EXPECT_FALSE(
+  HS_EXPECT_TRUE(
       (Pipeline<W, H, Filter::Screen::Trails<>>::any_crosses_segments));
   HS_EXPECT_FALSE(
       (Pipeline<W, H, Filter::World::Trails<16>>::any_reads_outside_band));
@@ -3143,16 +3134,8 @@ inline void test_effect_needs_full_frame_default_false() {
 }
 
 /**
- * @brief Proves Screen::Trails (crosses_segments = false) renders bit-identically
- *        whether full-frame or split into N banded workers.
- * @details This is the load-bearing test for the ONE non-fail-safe trait
- *          override: Screen::Trails keeps band clipping ON for a history filter,
- *          justified solely by its reach 0 (decays and redraws each point at the
- *          same screen coordinate). If that reasoning were wrong, band clipping
- *          would drop pixels — so it is proven here, not merely asserted. The
- *          same multi-frame seed sequence is driven through one full-canvas
- *          instance and two band-clipped instances ([0,H/2) and [H/2,H)); the
- *          stitched banded output must equal the full output byte-for-byte.
+ * @brief Proves Screen::Trails has reach 0: under a FIXED clip a banded render
+ *        matches the full-frame one byte-for-byte.
  */
 inline void test_screen_trails_banded_matches_full() {
   constexpr int W = 32, H = 16, MAXP = 512;
