@@ -188,8 +188,8 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
  *          discarded under LTO / --gc-sections. On targets without the
  *          registry this macro expands to nothing.
  * @note Each effect header must be included by exactly one TU per binary; a
- *       second includer registers that effect twice and trips the startup count
- *       check.
+ *       second includer registers that effect twice and trips the registry's
+ *       duplicate-name check.
  */
 #define REGISTER_EFFECT(ClassName)                                               \
   namespace {                                                                    \
