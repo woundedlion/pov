@@ -2401,6 +2401,22 @@ struct DreamBallsWhiteBox {
     const auto &solid = db.loaded_solids[idx];
     return solid.four_regular ? solid.medial_edges : solid.automatic_edges;
   }
+  static std::vector<uint16_t> woven_start_owners(const DB &db, size_t idx,
+                                                  bool medial) {
+    const auto &solid = db.loaded_solids[idx];
+    const auto &edges = medial && solid.four_regular ? solid.medial_edges
+                                                     : solid.automatic_edges;
+    const size_t vertex_count =
+        medial ? solid.original_edges.size() : solid.mesh_state.vertices.size();
+    std::vector<uint16_t> owners(vertex_count);
+    DB::assign_woven_start_owners(edges, owners.data(), owners.size());
+    return owners;
+  }
+  static bool owns_woven_start(const ArenaVector<Plot::Mesh::Edge> &edges,
+                               const std::vector<uint16_t> &owners,
+                               size_t edge_index) {
+    return DB::owns_woven_start_sample(edges, owners.data(), edge_index);
+  }
   static size_t source_vertex_count(const DB &db, size_t idx) {
     return db.loaded_solids[idx].mesh_state.vertices.size();
   }
@@ -2703,18 +2719,26 @@ inline void test_dreamballs_weave_topology() {
 
     const size_t automatic_vertex_count =
         four_regular ? WB::source_vertex_count(db, i) : original.size();
+    const auto automatic_start_owners =
+        WB::woven_start_owners(db, i, !four_regular);
     HS_EXPECT_EQ(automatic.size(),
                  four_regular ? original.size() : 2 * original.size());
     HS_EXPECT_EQ(medial.size(), 2 * original.size());
 
     std::vector<int> incoming(automatic_vertex_count, 0);
     std::vector<int> outgoing(automatic_vertex_count, 0);
-    for (const auto &edge : automatic) {
+    std::vector<int> owned_starts(automatic_vertex_count, 0);
+    for (size_t edge_index = 0; edge_index < automatic.size(); ++edge_index) {
+      const auto &edge = automatic[edge_index];
       HS_EXPECT_LT(edge.u, automatic_vertex_count);
       HS_EXPECT_LT(edge.v, automatic_vertex_count);
       if (edge.u < automatic_vertex_count && edge.v < automatic_vertex_count) {
         outgoing[edge.u]++;
         incoming[edge.v]++;
+        owned_starts[edge.u] +=
+            WB::owns_woven_start(automatic, automatic_start_owners, edge_index)
+                ? 1
+                : 0;
 
         const Vector from = WB::woven_vertex(db, i, !four_regular, edge.u);
         const Vector to = WB::woven_vertex(db, i, !four_regular, edge.v);
@@ -2729,23 +2753,37 @@ inline void test_dreamballs_weave_topology() {
     for (size_t vertex = 0; vertex < automatic_vertex_count; ++vertex) {
       HS_EXPECT_EQ(incoming[vertex], 2);
       HS_EXPECT_EQ(outgoing[vertex], 2);
+      HS_EXPECT_EQ(owned_starts[vertex], 1);
+      HS_EXPECT_LT(automatic_start_owners[vertex], automatic.size());
+      if (automatic_start_owners[vertex] < automatic.size())
+        HS_EXPECT_EQ(automatic[automatic_start_owners[vertex]].u, vertex);
     }
 
+    const auto medial_start_owners = WB::woven_start_owners(db, i, true);
     std::fill(incoming.begin(), incoming.end(), 0);
     std::fill(outgoing.begin(), outgoing.end(), 0);
     incoming.resize(original.size(), 0);
     outgoing.resize(original.size(), 0);
-    for (const auto &edge : medial) {
+    owned_starts.assign(original.size(), 0);
+    for (size_t edge_index = 0; edge_index < medial.size(); ++edge_index) {
+      const auto &edge = medial[edge_index];
       HS_EXPECT_LT(edge.u, original.size());
       HS_EXPECT_LT(edge.v, original.size());
       if (edge.u < original.size() && edge.v < original.size()) {
         outgoing[edge.u]++;
         incoming[edge.v]++;
+        owned_starts[edge.u] +=
+            WB::owns_woven_start(medial, medial_start_owners, edge_index) ? 1
+                                                                          : 0;
       }
     }
     for (size_t vertex = 0; vertex < original.size(); ++vertex) {
       HS_EXPECT_EQ(incoming[vertex], 2);
       HS_EXPECT_EQ(outgoing[vertex], 2);
+      HS_EXPECT_EQ(owned_starts[vertex], 1);
+      HS_EXPECT_LT(medial_start_owners[vertex], medial.size());
+      if (medial_start_owners[vertex] < medial.size())
+        HS_EXPECT_EQ(medial[medial_start_owners[vertex]].u, vertex);
     }
   }
   HS_EXPECT_EQ(four_regular_count, 5);
