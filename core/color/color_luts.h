@@ -36,6 +36,7 @@ inline const uint16_t srgb_to_linear_lut[256] HS_PROGMEM_UNIQUE(
     64372, 64952, 65535,
 };
 
+#if HS_ENABLE_TEST_ORACLES
 // Linear (0-65535) -> sRGB (0-255)
 // Reference table only; the runtime encode path is core/color/srgb_decode.h.
 inline const uint8_t linear_to_srgb_lut[65536] HS_PROGMEM_UNIQUE(
@@ -4411,3 +4412,4 @@ inline const uint8_t linear_to_srgb_lut[65536] HS_PROGMEM_UNIQUE(
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
     255,
 };
+#endif

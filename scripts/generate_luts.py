@@ -113,11 +113,13 @@ def render(out, fwd, rev):
     emit_array(out, f"inline const uint16_t srgb_to_linear_lut[{SRGB_LEVELS}] HS_PROGMEM_UNIQUE(srgb_to_linear_lut)",
                fwd, 11)
     out.write("\n")
+    out.write("#if HS_ENABLE_TEST_ORACLES\n")
     out.write("// Linear (0-65535) -> sRGB (0-255)\n")
     out.write("// Reference table only; the runtime encode path is"
               " core/color/srgb_decode.h.\n")
     emit_array(out, f"inline const uint8_t linear_to_srgb_lut[{LINEAR_LEVELS}] HS_PROGMEM_UNIQUE(linear_to_srgb_lut)",
                rev, 15)
+    out.write("#endif\n")
 
 
 def clang_format_major(cf):
