@@ -302,6 +302,9 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
                             int plane_axis, float distance, float plane_step,
                             const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_plane_eval);
+  if (distance <= 1.5f * prepared.params.wire_radius)
+    return {0.0f, distance, 0};
+
   const Vec4 point{{ray_origin[0] + distance * direction[0],
                     ray_origin[1] + distance * direction[1],
                     ray_origin[2] + distance * direction[2],
@@ -331,6 +334,9 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
   const float half_width = projected_half_width(
       distance, plane_step, prepared.pixel_half_angle,
       prepared.params.aa_strength, prepared.params.softness);
+  const float outer_radius = prepared.params.wire_radius + half_width;
+  if (metric_sq >= outer_radius * outer_radius)
+    return {0.0f, distance, free_axis};
   const float edge =
       wire_coverage(metric_sq, prepared.params.wire_radius, half_width);
   const float fog = std::max(0.0f, 1.0f - distance * prepared.inv_far);
