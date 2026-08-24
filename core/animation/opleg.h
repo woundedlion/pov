@@ -842,7 +842,11 @@ public:
     draw_frame(canvas);
   }
 
-  /** @brief Redraws the current morph frame without advancing the leg. */
+  /**
+   * @brief Redraws the current morph frame without advancing the leg.
+   * @note This rebuilds and recompiles the swept mesh on every paused frame;
+   *       pausing freezes progression, not morph rendering cost.
+   */
   HS_COLD_MEMBER void step_paused(Canvas &canvas) override {
     draw_frame(canvas);
   }
