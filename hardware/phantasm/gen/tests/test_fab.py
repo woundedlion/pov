@@ -59,7 +59,7 @@ class ViaGeometryTests(unittest.TestCase):
     def test_rejects_board_without_vias(self):
         with self.assertRaisesRegex(
                 fab.ViaGeometryError,
-                r"board lists 0 vias, fewer than the 100"):
+                r"board lists 0 vias, fewer than the 99"):
             self.validate_source("(kicad_pcb)",
                                  min_vias=fab.MIN_BOARD_VIAS)
 
