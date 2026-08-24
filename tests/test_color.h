@@ -2329,6 +2329,19 @@ inline void test_noise_hue_palette() {
   HS_EXPECT_NEAR(uv_a, palette.noise_uv(1.0f, -0.0f, 1.0f, -0.0f), 1e-6f);
 }
 
+inline void test_wrap_angle_pi_large_arguments() {
+  for (float angle : {25700.0f, -25700.0f, 1000.0f * TWO_PI_F + 0.25f}) {
+    const float wrapped = wrap_angle_pi(angle);
+    float expected = fmodf(angle, TWO_PI_F);
+    if (expected > PI_F)
+      expected -= TWO_PI_F;
+    if (expected < -PI_F)
+      expected += TWO_PI_F;
+    HS_EXPECT_NEAR(wrapped, expected, 1e-6f);
+    HS_EXPECT_TRUE(wrapped >= -PI_F && wrapped <= PI_F);
+  }
+}
+
 // Clamp-before-cast / NaN-saturation checks whose contract must also hold under
 // the shipping WASM fast-math codegen. fastmath_clamp_check.cpp iterates this
 // same list, so adding a case here automatically extends both the default-IEEE
@@ -2355,6 +2368,7 @@ inline int run_color_tests() {
   test_lerp16_midpoint();
   test_lerp16_rounds_to_nearest();
   test_color4_lerp_straight_alpha();
+  test_wrap_angle_pi_large_arguments();
   test_lerp16_full_range_correct();
   test_lerp16_bounded();
 
