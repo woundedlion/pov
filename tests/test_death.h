@@ -3097,6 +3097,87 @@ inline void case_shader_workbench_preset_for_view_out_of_range() {
     std::printf("x");
 }
 
+/** @brief Death case: a woven edge whose start vertex is absent must trap. */
+inline void case_dreamballs_woven_owner_vertex_oob() {
+  using WB = effects_tests::DreamBallsWhiteBox;
+  static uint8_t arena_buf[64];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  ArenaVector<Plot::Mesh::Edge> edges;
+  edges.bind(arena, 1);
+  edges.push_back({opaque<uint16_t>(1), 0});
+  uint16_t owners[1];
+  WB::assign_woven_start_owners(edges, owners, 1);
+}
+
+/** @brief Death case: a woven-edge ownership query past the list must trap. */
+inline void case_dreamballs_woven_owner_edge_oob() {
+  using WB = effects_tests::DreamBallsWhiteBox;
+  static uint8_t arena_buf[64];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  ArenaVector<Plot::Mesh::Edge> edges;
+  edges.bind(arena, 1);
+  edges.push_back({0, 0});
+  const std::vector<uint16_t> owners{0};
+  if (WB::owns_woven_start(edges, owners, opaque<size_t>(1)))
+    std::printf("x");
+}
+
+/** @brief Death case: a Raymarch placement-solid index past its table traps. */
+inline void case_raymarch_placement_solid_oob() {
+  using WB = effects_tests::RaymarchWhiteBox;
+  effects_tests::reset_effect_globals();
+  Raymarch<effects_tests::SMALL_W, effects_tests::SMALL_H> effect;
+  WB::set_base_solid(effect, RaymarchPlacementSolid::COUNT);
+  WB::build_points(effect);
+}
+
+/** @brief Death case: a harmonic morph cannot synchronize an invalid mode. */
+inline void case_spherical_harmonics_invalid_morph_mode() {
+  using WB = effects_tests::SphericalHarmonicsWhiteBox;
+  effects_tests::reset_effect_globals();
+  WB::SH effect;
+  effect.init();
+  WB::set_next_idx(effect, WB::max_mode_idx() + 1);
+  Canvas canvas(effect);
+  for (int frame = 0; frame < 64; ++frame)
+    WB::step_timeline(effect, canvas);
+}
+
+/** @brief Death case: a Hankin step has no eagerly generated endpoint. */
+inline void case_islamicstars_hankin_eager_endpoint() {
+  using WB = effects_tests::IslamicBuildProbe;
+  effects_tests::reset_effect_globals();
+  WB::IS effect;
+  static uint8_t a_buf[64];
+  static uint8_t b_buf[64];
+  Arena a(a_buf, sizeof(a_buf));
+  Arena b(b_buf, sizeof(b_buf));
+  const Solids::OpStep step{Solids::Op::HANKIN};
+  PolyMesh out = WB::clean_endpoint(effect, step, a, b);
+  if (out.vertices.size() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/** @brief Death case: reconcile endpoints with different sizes must trap. */
+inline void case_islamicstars_reconcile_size_mismatch() {
+  using WB = effects_tests::IslamicBuildProbe;
+  effects_tests::reset_effect_globals();
+  WB::IS effect;
+  static uint8_t identity_buf[64];
+  static uint8_t target_buf[64];
+  static uint8_t scratch_buf[64];
+  Arena identity_arena(identity_buf, sizeof(identity_buf));
+  Arena target(target_buf, sizeof(target_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+  PolyMesh identity;
+  identity.vertices.bind(identity_arena, 1);
+  identity.vertices.push_back(Vector{});
+  PolyMesh authored;
+  PolyMesh out;
+  WB::build_reconcile_endpoint(effect, identity, authored, out, target,
+                               scratch);
+}
+
 /**
  * @brief Death case: an operator table whose entry decreases carrier family
  *        rank must trap.
@@ -3642,6 +3723,25 @@ inline const Case *all_cases(int &n) {
        case_shader_workbench_preset_for_view_out_of_range, "ShaderWorkbench.h",
        "(index < preset_count_for_view()) preset_for_view: index out of "
        "range"},
+      {"dreamballs_woven_owner_vertex_oob",
+       case_dreamballs_woven_owner_vertex_oob, "DreamBalls.h",
+       "(vertex < vertex_count) "},
+      {"dreamballs_woven_owner_edge_oob", case_dreamballs_woven_owner_edge_oob,
+       "DreamBalls.h", "(edge_index < edges.size()) "},
+      {"raymarch_placement_solid_oob", case_raymarch_placement_solid_oob,
+       "Raymarch.h",
+       "(placement_index < PLACEMENT_SOLID_COUNT) Raymarch placement solid is "
+       "out of range"},
+      {"spherical_harmonics_invalid_morph_mode",
+       case_spherical_harmonics_invalid_morph_mode, "SphericalHarmonics.h",
+       "(synchronizePreset(preset_index_for_mode(current_idx))) "},
+      {"islamicstars_hankin_eager_endpoint",
+       case_islamicstars_hankin_eager_endpoint, "IslamicStars.h",
+       "(false) IslamicStars: step builds no eager endpoint"},
+      {"islamicstars_reconcile_size_mismatch",
+       case_islamicstars_reconcile_size_mismatch, "IslamicStars.h",
+       "(authored.vertices.size() == V) IslamicStars: reconcile endpoints "
+       "differ in vertex count"},
       {"sdf_angular_repeat_nonunit_axis", case_sdf_angular_repeat_nonunit_axis,
        "csg.h", "(fabsf(ax.length() - 1.0f) < 1e-3f) "},
       {"sdf_distorted_ring_zero_knots", case_sdf_distorted_ring_zero_knots,
@@ -4085,7 +4185,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"palette_cycler.h", 8},
     {"choreography.h", 1},
     {"memory.cpp", 1},
-    {"memory.h", 3},
+    {"memory.h", 2},
     {"reaction_graph.h", 2},
     {"static_circular_buffer.h", 4},
     {"transformer.h", 4},
@@ -4278,7 +4378,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 179;
+  constexpr int DEATH_CASE_COUNT = 186;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
