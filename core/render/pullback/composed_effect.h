@@ -991,6 +991,26 @@ private:
     }
   }
 
+  template <float ColorParams::*Member>
+  static consteval const Field<ColorParams> &color_descriptor() {
+    constexpr size_t index = [] {
+      for (size_t i = 0; i < ColorParams::FIELDS.size(); ++i)
+        if (ColorParams::FIELDS[i].member == Member)
+          return i;
+      return ColorParams::FIELDS.size();
+    }();
+    static_assert(index < ColorParams::FIELDS.size(),
+                  "ColorParams member has no field descriptor");
+    return ColorParams::FIELDS[index];
+  }
+
+  template <float ColorParams::*Member>
+  HS_COLD_MEMBER void register_color_field(const char *name) {
+    constexpr const auto &field = color_descriptor<Member>();
+    register_animated_param(name, &(params.color.*Member), field.min,
+                            field.max);
+  }
+
   HS_COLD_MEMBER void register_parameters() {
     register_fields(params.source);
     register_fields(params.projection);
@@ -1017,35 +1037,25 @@ private:
       register_animated_param("Mobius D Im", &params.lens.mobius.d.im, -LIMIT,
                               LIMIT);
     }
-    register_animated_param("Palette Chroma", &params.color.palette_chroma,
-                            0.0f, 1.0f);
+    register_color_field<&ColorParams::palette_chroma>("Palette Chroma");
     register_animated_param("Palette Mapping", &params.color.palette_mapping,
                             PALETTE_MAPPING_OPTIONS,
                             PALETTE_MAPPING_EXPORT_OPTIONS,
                             std::size(PALETTE_MAPPING_OPTIONS));
-    register_animated_param("Mapping Frequency",
-                            &params.color.mapping_frequency, 1.0f, 32.0f);
-    register_animated_param("Mapping Phase", &params.color.mapping_phase, -1.0f,
-                            1.0f);
-    register_animated_param("Phase Oscillation Depth",
-                            &params.color.phase_oscillation_depth, 0.0f, 1.0f);
-    register_animated_param("Phase Oscillation Speed",
-                            &params.color.phase_oscillation_speed, -0.01f,
-                            0.01f);
+    register_color_field<&ColorParams::mapping_frequency>("Mapping Frequency");
+    register_color_field<&ColorParams::mapping_phase>("Mapping Phase");
+    register_color_field<&ColorParams::phase_oscillation_depth>(
+        "Phase Oscillation Depth");
+    register_color_field<&ColorParams::phase_oscillation_speed>(
+        "Phase Oscillation Speed");
     if constexpr (BrightnessV != Pullback::Color::BrightnessEnvelope::NONE)
-      register_animated_param("Brightness Depth",
-                              &params.color.brightness_depth, 0.0f, 1.0f);
-    register_animated_param("Value Opacity Low", &params.color.opacity_low,
-                            0.0f, 1.0f);
-    register_animated_param("Value Opacity High", &params.color.opacity_high,
-                            0.0f, 1.0f);
-    register_animated_param("Hue Shift Amount", &params.color.hue_shift_amount,
-                            -4.0f, 4.0f);
+      register_color_field<&ColorParams::brightness_depth>("Brightness Depth");
+    register_color_field<&ColorParams::opacity_low>("Value Opacity Low");
+    register_color_field<&ColorParams::opacity_high>("Value Opacity High");
+    register_color_field<&ColorParams::hue_shift_amount>("Hue Shift Amount");
     if constexpr (HueV == HueMode::NOISE) {
-      register_animated_param("Hue Noise Scale", &params.color.hue_noise_scale,
-                              1.0f / 64.0f, 8.0f);
-      register_animated_param("Hue Noise Speed", &params.color.hue_noise_speed,
-                              -0.001f, 0.001f);
+      register_color_field<&ColorParams::hue_noise_scale>("Hue Noise Scale");
+      register_color_field<&ColorParams::hue_noise_speed>("Hue Noise Speed");
     }
   }
 

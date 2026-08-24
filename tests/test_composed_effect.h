@@ -322,8 +322,7 @@ inline void check_slider_registration(const char *name) {
   HS_EXPECT_EQ(params.find("Hue Noise Scale") != nullptr, hue_noise);
   HS_EXPECT_EQ(params.find("Hue Noise Speed") != nullptr, hue_noise);
 
-  // A hand-registered slider reaching past its descriptor's range would author
-  // values the effect's own snapshot validator refuses.
+  // Hand-registered sliders use the same ranges as snapshot validation.
   for (const ColorSliderBinding &binding : COLOR_SLIDER_BINDINGS) {
     HS_CONTEXT(binding.slider);
     const ParamDef *def = params.find(binding.slider);
@@ -334,8 +333,8 @@ inline void check_slider_registration(const char *name) {
     HS_EXPECT_TRUE(field != nullptr);
     if (field == nullptr)
       continue;
-    HS_EXPECT_GE(def->min, field->min);
-    HS_EXPECT_LE(def->max, field->max);
+    HS_EXPECT_EQ(bits(def->min), bits(field->min));
+    HS_EXPECT_EQ(bits(def->max), bits(field->max));
   }
 
   const ParamDef *mapping = params.find("Palette Mapping");
