@@ -597,7 +597,9 @@ inline Color4 shade(const Pullback::SphereSample &input,
     HS_PROFILE_DEEP(hl_layer_composite);
     const float path_length =
         (ZERO_PATH ? 0.0f : input.path_length) + hit.distance;
-    const float depth = hs::clamp(path_length * prepared.inv_far, 0.0f, 1.0f);
+    const float depth =
+        ZERO_PATH ? path_length * prepared.inv_far
+                  : hs::clamp(path_length * prepared.inv_far, 0.0f, 1.0f);
     const float value =
         prepared.params.color == ColorMode::DEPTH
             ? 1.0f - depth
