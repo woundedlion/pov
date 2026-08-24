@@ -328,6 +328,36 @@ def check_engine_ranges() -> list[str]:
     return errors
 
 
+def check_flexram_geometry() -> list[str]:
+    """Tie the budget and gate constants to the linker script geometry."""
+    budget_text = (ROOT / "tools/teensy_budgets.json").read_text(encoding="utf-8")
+    budgets = json.loads(re.sub(r"//.*", "", budget_text))
+    derived = budgets["phantasm"]["regions"]["ram1"][
+        "components"]["code"]["max_banks_from_stack_floor"]
+    bank_bytes = derived["bank_bytes"]
+    total_banks = derived["total_banks"]
+    errors: list[str] = []
+
+    gate_text = (ROOT / "tools/teensy_gate.py").read_text(encoding="utf-8")
+    gate_match = re.search(r"^FLEXRAM_BANK_BYTES = (0x[0-9a-fA-F]+|\d+)$",
+                           gate_text, re.MULTILINE)
+    if gate_match is None or int(gate_match.group(1), 0) != bank_bytes:
+        errors.append("tools/teensy_gate.py: FlexRAM bank size differs from teensy_budgets.json")
+
+    shift = bank_bytes.bit_length() - 1
+    linker = (ROOT / "tools/phantasm.ld").read_text(encoding="utf-8")
+    linker_spellings = (
+        f"+ 0x{bank_bytes - 1:X}) >> {shift}",
+        f"(({total_banks} - _itcm_block_count) << {shift})",
+    )
+    for spelling in linker_spellings:
+        if spelling not in linker:
+            errors.append(
+                f"tools/phantasm.ld: missing FlexRAM geometry derived from "
+                f"teensy_budgets.json: {spelling!r}")
+    return errors
+
+
 def installed_sources() -> list[str]:
     """Return the repository files CMakeLists.txt installs into daydream.
 
@@ -391,7 +421,8 @@ def check_install_eol(paths: list[str]) -> list[str]:
 def check_consumers() -> int:
     installed = installed_sources()
     errors: list[str] = (check_inline_pins() + check_shared_literals()
-                         + check_engine_ranges() + check_install_eol(installed))
+                         + check_engine_ranges() + check_flexram_geometry()
+                         + check_install_eol(installed))
     for name in sorted(set(CHECK_TOOLS) - set(PINS | INLINE_PINS)):
         errors.append(f"CHECK_TOOLS names {name}, which is not a pin")
     for path, references in CONSUMERS.items():
