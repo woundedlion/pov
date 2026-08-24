@@ -1,4 +1,7 @@
+import contextlib
+import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -51,6 +54,13 @@ POUR_BOARD = """(kicad_pcb
 \t)
 )"""
 
+EMPTY_BOARD = """(kicad_pcb
+	(layers
+		(0 "F.Cu" signal)
+		(2 "B.Cu" signal)
+	)
+)"""
+
 
 def parse(text):
     return sexp.parse(text)[0]
@@ -92,6 +102,19 @@ class SyntheticBoardTests(unittest.TestCase):
             "\t(via (at 10 0) (size 0.45) (drill 0.2) (layers \"F.Cu\" \"B.Cu\")"
             " (net \"/DATA\"))")
         self.assertEqual(connectivity.opens(parse(bridged)), {})
+
+
+class EmptyScanTests(unittest.TestCase):
+    def test_empty_board_fails(self):
+        with self.assertRaisesRegex(ValueError, "nothing to analyze"):
+            connectivity.opens(parse(EMPTY_BOARD))
+
+    def test_main_exits_nonzero_on_an_empty_board(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "empty.kicad_pcb"
+            path.write_text(EMPTY_BOARD, encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(connectivity.main([str(path)]), 2)
 
 
 class RoutedBoardTests(unittest.TestCase):
