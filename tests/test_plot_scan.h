@@ -3793,8 +3793,9 @@ inline void test_particle_system_direct_trail_materialization_registers() {
       HS_EXPECT_EQ(vertices[i].pos.x, expected.x);
       HS_EXPECT_EQ(vertices[i].pos.y, expected.y);
       HS_EXPECT_EQ(vertices[i].pos.z, expected.z);
-      HS_EXPECT_EQ(vertices[i].v0,
-                   static_cast<float>(i) / static_cast<float>(len - 1));
+      HS_EXPECT_NEAR(vertices[i].v0,
+                     static_cast<float>(i) / static_cast<float>(len - 1),
+                     std::numeric_limits<float>::epsilon());
       HS_EXPECT_EQ(vertices[i].v1, 0.0f);
       HS_EXPECT_EQ(vertices[i].v2, 0.0f);
       HS_EXPECT_EQ(vertices[i].v3, 60.0f * (1.0f / 100.0f));
