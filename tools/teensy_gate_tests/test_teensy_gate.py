@@ -178,6 +178,14 @@ class TestParsers(unittest.TestCase):
             tg.parse_teensy_size(text)
         self.assertIn("RAM2", str(caught.exception))
 
+    def test_parse_teensy_size_rejects_multiple_environment_blocks(self):
+        text = (_read("broken_over_cap_teensy_size.txt") + "\n" +
+                _read("good_teensy_size.txt"))
+        with self.assertRaises(tg.TeensySizeFormatError) as caught:
+            tg.parse_teensy_size(text)
+        self.assertIn("FLASH", str(caught.exception))
+        self.assertIn("more than once", str(caught.exception))
+
     def test_parse_readelf_symbols_uses_real_mangled_names(self):
         syms = {s.name: s for s in tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))}
         self.assertIn("_ZN6Effect8buffer_aE", syms)              # class static, mangled
