@@ -42,6 +42,17 @@ namespace In = Pullback::Interp;
 
 // --- fixtures -------------------------------------------------------------
 
+inline constexpr const char *MISMATCHED_TOPOLOGY_IDS[] = {"first", "second"};
+
+struct MismatchedTopologyDefaults {
+  uint8_t mode = 1;
+  static constexpr auto TOPOLOGY = std::array{
+      In::TopologyField<MismatchedTopologyDefaults>{
+          "mode", &MismatchedTopologyDefaults::mode, MISMATCHED_TOPOLOGY_IDS, 2,
+          0},
+  };
+};
+
 /** Two program arenas plus the program bound over them. */
 struct ProgramFixture {
   alignas(std::max_align_t) uint8_t block_a[In::CHAIN_ARENA_BYTES];
@@ -572,6 +583,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   static_assert(std::is_same_v<In::Op::HueShiftMode, PB::Color::HueMode>);
   static_assert(std::is_same_v<In::Op::ProjectionCoverageMode,
                                PB::ProjectionCoverageMode>);
+  static_assert(!In::topology_defaults_match<MismatchedTopologyDefaults>());
   static_assert(PB::field_ids_unique<In::Op::RotateChainParams>());
   static_assert(PB::field_ids_unique<In::Op::ProjectChainParams>());
   static_assert(PB::field_ids_unique<In::Op::GridSampleParams>());
