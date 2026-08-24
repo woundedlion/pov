@@ -56,6 +56,12 @@ struct SyncBoardTestAccess {
     b.maybe_schedule_beacon(now);
   }
   static bool beacon_done(const SyncBoard &b) { return b.beacon_done_this_rev; }
+  static const Flywheel &flywheel(const SyncBoard &b) { return b.flywheel(); }
+  static const ContentTracker &content(const SyncBoard &b) {
+    return b.content();
+  }
+  static LockState lock(const SyncBoard &b) { return b.lock(); }
+  static const Config &config(const SyncBoard &b) { return b.config(); }
 };
 
 inline Flywheel &flywheel_mut(SyncBoard &b) {
@@ -63,6 +69,18 @@ inline Flywheel &flywheel_mut(SyncBoard &b) {
 }
 inline ContentTracker &content_mut(SyncBoard &b) {
   return SyncBoardTestAccess::content(b);
+}
+inline const Flywheel &flywheel(const SyncBoard &b) {
+  return SyncBoardTestAccess::flywheel(b);
+}
+inline const ContentTracker &content(const SyncBoard &b) {
+  return SyncBoardTestAccess::content(b);
+}
+inline LockState lock(const SyncBoard &b) {
+  return SyncBoardTestAccess::lock(b);
+}
+inline const Config &config(const SyncBoard &b) {
+  return SyncBoardTestAccess::config(b);
 }
 
 /**
@@ -591,7 +609,7 @@ inline void test_build_request_reset() {
 
   const Config replacement = test_config(3);
   board.configure(replacement);
-  HS_EXPECT_EQ(board.config().effect_count, 3);
+  HS_EXPECT_EQ(config(board).effect_count, 3);
   HS_EXPECT_EQ(board.build_word(), 0u);
 
   board.seed(3000u, true);
@@ -617,7 +635,7 @@ inline void test_multi_boundary_tick_window() {
       board.tick(1000u + 3u * cfg.cycles_per_half_rev + 10u, nullptr);
   HS_EXPECT_TRUE(a.flip);
   HS_EXPECT_FALSE(a.zero_crossing);
-  HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::HALF);
+  HS_EXPECT_TRUE(flywheel(board).current_boundary() == Boundary::HALF);
   HS_EXPECT_EQ(board.telemetry_snapshot().flips, 3u);
   HS_EXPECT_EQ(board.telemetry_snapshot().max_coast_halves, 3u);
 
@@ -626,7 +644,7 @@ inline void test_multi_boundary_tick_window() {
       board.tick(1000u + 4u * cfg.cycles_per_half_rev + 10u, nullptr);
   HS_EXPECT_TRUE(z.flip);
   HS_EXPECT_TRUE(z.zero_crossing);
-  HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::ZERO);
+  HS_EXPECT_TRUE(flywheel(board).current_boundary() == Boundary::ZERO);
   HS_EXPECT_EQ(board.telemetry_snapshot().flips, 4u);
 
   // An even fold returns to the half it started from: HALF then ZERO reports
@@ -635,7 +653,7 @@ inline void test_multi_boundary_tick_window() {
       board.tick(1000u + 6u * cfg.cycles_per_half_rev + 10u, nullptr);
   HS_EXPECT_TRUE(e.flip);
   HS_EXPECT_TRUE(e.zero_crossing);
-  HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::ZERO);
+  HS_EXPECT_TRUE(flywheel(board).current_boundary() == Boundary::ZERO);
   HS_EXPECT_EQ(board.telemetry_snapshot().flips, 6u);
   HS_EXPECT_EQ(board.telemetry_snapshot().max_coast_halves, 6u);
 }
@@ -779,7 +797,7 @@ inline void test_beacon_partial_frame_ages_out() {
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
   // The aged-out partial is a dropped frame and counts as one.
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 1u);
-  HS_EXPECT_EQ(board.content().effect_index, 2);
+  HS_EXPECT_EQ(content(board).effect_index, 2);
 }
 
 /**
@@ -825,14 +843,14 @@ inline void test_beacon_shift_needs_confirmation() {
   auto feed_frame = [&](int32_t index) {
     const uint32_t start = open_frame();
     uint8_t d[5];
-    encode_beacon_digits(index, board.content().rev_in_effect, d);
+    encode_beacon_digits(index, content(board).rev_in_effect, d);
     feed_digits(start, d);
   };
 
   // The shift: [emi, d0, d1, d2, d3] with the real d3 read as the checksum.
   const uint32_t shift_start = open_frame();
   uint8_t truth[5];
-  encode_beacon_digits(1, board.content().rev_in_effect, truth);
+  encode_beacon_digits(1, content(board).rev_in_effect, truth);
   int passing = 0;
   uint8_t shifted[5] = {};
   for (uint8_t emi = 0; emi < 8; ++emi) {
@@ -845,31 +863,31 @@ inline void test_beacon_shift_needs_confirmation() {
   }
   HS_EXPECT_EQ(passing, 1); // p = 1/8, exactly one intruder value
   const int32_t shifted_index = shifted[0] * 8 + shifted[1];
-  HS_EXPECT_TRUE(shifted_index != board.content().effect_index);
+  HS_EXPECT_TRUE(shifted_index != content(board).effect_index);
   HS_EXPECT_TRUE(shifted_index < cfg.effect_count);
 
   // A lone shifted frame decodes but must not change what is displayed.
   feed_digits(shift_start, shifted);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 0u);
-  HS_EXPECT_EQ(board.content().effect_index, 1);
+  HS_EXPECT_EQ(content(board).effect_index, 1);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacon_index_corrections, 0u);
   HS_EXPECT_EQ(board.build_word(), 0u); // no rebuild published
 
   // A good frame agreeing with the displayed index clears the candidate.
   feed_frame(1);
-  HS_EXPECT_EQ(board.content().effect_index, 1);
+  HS_EXPECT_EQ(content(board).effect_index, 1);
 
   // Two frames naming *different* indices confirm nothing either.
   feed_frame(3);
-  HS_EXPECT_EQ(board.content().effect_index, 1);
+  HS_EXPECT_EQ(content(board).effect_index, 1);
   feed_frame(2);
-  HS_EXPECT_EQ(board.content().effect_index, 1);
+  HS_EXPECT_EQ(content(board).effect_index, 1);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacon_index_corrections, 0u);
 
   // The second agreeing frame applies: index adopted, rebuild published.
   feed_frame(2);
-  HS_EXPECT_EQ(board.content().effect_index, 2);
+  HS_EXPECT_EQ(content(board).effect_index, 2);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacon_index_corrections, 1u);
   HS_EXPECT_EQ(SyncBoard::build_index_of(board.build_word()), 2);
   HS_EXPECT_EQ(SyncBoard::build_gen_of(board.build_word()), 1u);
@@ -877,7 +895,7 @@ inline void test_beacon_shift_needs_confirmation() {
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 5u);
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 0u);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacon_rev_mismatches, 0u);
-  HS_EXPECT_TRUE(board.lock() == LockState::LOCKED);
+  HS_EXPECT_TRUE(lock(board) == LockState::LOCKED);
 }
 
 /**
@@ -908,15 +926,15 @@ inline void test_beacon_out_of_range_index_rejected() {
   feed_frame(9, 1000u + 40u * col);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 0u);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 1u);
-  HS_EXPECT_FALSE(board.content().identity_known);
+  HS_EXPECT_FALSE(content(board).identity_known);
   HS_EXPECT_EQ(board.build_word(), 0u); // no rebuild published
 
   // The next in-range beacon joins normally.
   feed_frame(2, 1000u + cfg.cycles_per_half_rev + 40u * col);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 1u);
-  HS_EXPECT_TRUE(board.content().identity_known);
-  HS_EXPECT_EQ(board.content().effect_index, 2);
+  HS_EXPECT_TRUE(content(board).identity_known);
+  HS_EXPECT_EQ(content(board).effect_index, 2);
   HS_EXPECT_EQ(SyncBoard::build_index_of(board.build_word()), 2);
 }
 
@@ -1150,7 +1168,7 @@ inline void test_suspect_timeout_acquire_uncounted() {
   // Fall back to ACQUIRE before the suspect times out.
   for (int i = 0; i < cfg.reject_fallback; ++i)
     flywheel_mut(board).note_rejection();
-  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
+  HS_EXPECT_TRUE(lock(board) == LockState::ACQUIRE);
   board.tick(head + 40 * col, nullptr); // past the interdigit window
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_rejected_gate, rejected);
 }
@@ -1176,7 +1194,7 @@ inline void test_acquire_quiet_before_guard() {
 
   SyncBoard board(cfg);
   board.seed(1000u, /*is_master=*/false);
-  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
+  HS_EXPECT_TRUE(lock(board) == LockState::ACQUIRE);
   board.tick(head + col + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
              &digit0);
   // The next digit, spaced exactly as schedule_beacon spaces them.
@@ -1184,7 +1202,7 @@ inline void test_acquire_quiet_before_guard() {
       head + col + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
   const BurstSnapshot digit1{1, d1, d1};
   board.tick(d1 + static_cast<uint32_t>(cfg.gap_timeout_cols) * col, &digit1);
-  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
+  HS_EXPECT_TRUE(lock(board) == LockState::ACQUIRE);
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 0u);
   HS_EXPECT_EQ(board.telemetry_snapshot().lock_transitions, 0u);
 
@@ -1196,9 +1214,9 @@ inline void test_acquire_quiet_before_guard() {
   const BurstSnapshot isolated{1, iso, iso};
   quiet.tick(iso + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
              &isolated);
-  HS_EXPECT_TRUE(quiet.lock() == LockState::LOCKED);
+  HS_EXPECT_TRUE(lock(quiet) == LockState::LOCKED);
   HS_EXPECT_EQ(quiet.telemetry_snapshot().symbols_accepted, 1u);
-  HS_EXPECT_EQ(quiet.flywheel().position(iso), cfg.W / 2);
+  HS_EXPECT_EQ(flywheel(quiet).position(iso), cfg.W / 2);
 
   // Boot itself observed no quiet, so the guard measures against the seed
   // instant: a valid-count burst inside that first window is beacon data.
@@ -1208,7 +1226,7 @@ inline void test_acquire_quiet_before_guard() {
   const BurstSnapshot interior{1, early, early};
   booted.tick(early + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
               &interior);
-  HS_EXPECT_TRUE(booted.lock() == LockState::ACQUIRE);
+  HS_EXPECT_TRUE(lock(booted) == LockState::ACQUIRE);
   HS_EXPECT_EQ(booted.telemetry_snapshot().symbols_accepted, 0u);
 }
 
@@ -1230,8 +1248,8 @@ inline void test_acquire_beacon_train_joins() {
   const uint32_t col = cfg.cycles_per_column();
   SyncBoard board(cfg);
   board.seed(1000u, /*is_master=*/false);
-  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
-  HS_EXPECT_FALSE(board.content().identity_known);
+  HS_EXPECT_TRUE(lock(board) == LockState::ACQUIRE);
+  HS_EXPECT_FALSE(content(board).identity_known);
 
   // A full train from column 40 on, spaced exactly as schedule_beacon does.
   uint8_t d[5];
@@ -1240,13 +1258,13 @@ inline void test_acquire_beacon_train_joins() {
   uint32_t f = feed_beacon_train(board, cfg, col, 1000u + 40u * col, d);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 0u);
-  HS_EXPECT_TRUE(board.content().identity_known);
-  HS_EXPECT_EQ(board.content().effect_index, 9);
-  HS_EXPECT_EQ(board.content().rev_in_effect, 5u);
+  HS_EXPECT_TRUE(content(board).identity_known);
+  HS_EXPECT_EQ(content(board).effect_index, 9);
+  HS_EXPECT_EQ(content(board).rev_in_effect, 5u);
   // The head reached the symbol path too, and was discarded there on its count.
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_discarded_invalid, 1u);
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 0u);
-  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
+  HS_EXPECT_TRUE(lock(board) == LockState::ACQUIRE);
 
   // The boundary path is untouched: the next isolated symbol still hard-snaps.
   const uint32_t z = f + cfg.acquire_quiet_cycles();
@@ -1254,10 +1272,10 @@ inline void test_acquire_beacon_train_joins() {
   const BurstSnapshot zero{3, z, z + zspan};
   board.tick(z + zspan + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
              &zero);
-  HS_EXPECT_TRUE(board.lock() == LockState::LOCKED);
+  HS_EXPECT_TRUE(lock(board) == LockState::LOCKED);
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 1u);
-  HS_EXPECT_EQ(board.flywheel().position(z), 0);
-  HS_EXPECT_EQ(board.content().effect_index, 9);
+  HS_EXPECT_EQ(flywheel(board).position(z), 0);
+  HS_EXPECT_EQ(content(board).effect_index, 9);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 1u);
 }
 
@@ -1931,16 +1949,16 @@ public:
    *         the present global time.
    */
   int32_t board_pos(int i) const {
-    return boards[i].board.flywheel().position(local_now(boards[i], g));
+    return flywheel(boards[i].board).position(local_now(boards[i], g));
   }
 
   double board_phase(int i) const {
     const SimBoard &board = boards[i];
-    const Flywheel &flywheel = board.board.flywheel();
+    const Flywheel &fly = flywheel(board.board);
     const uint32_t now = local_now(board, g);
     const double elapsed =
-        double(cfg.cycles_per_half_rev) - flywheel.cycles_to_next_boundary(now);
-    double phase = boundary_column(flywheel.current_boundary(), cfg.W) +
+        double(cfg.cycles_per_half_rev) - fly.cycles_to_next_boundary(now);
+    double phase = boundary_column(fly.current_boundary(), cfg.W) +
                    elapsed * (cfg.W / 2) / cfg.cycles_per_half_rev;
     phase = std::fmod(phase, cfg.W);
     return phase < 0.0 ? phase + cfg.W : phase;
@@ -1956,7 +1974,7 @@ public:
     const double master_phase = board_phase(0);
     double worst = 0.0;
     for (size_t i = 1; i < boards.size(); ++i) {
-      if (boards[i].board.lock() != LockState::LOCKED)
+      if (lock(boards[i].board) != LockState::LOCKED)
         continue;
       const double direct =
           std::abs(board_phase(static_cast<int>(i)) - master_phase);
@@ -2078,7 +2096,7 @@ inline bool boot_join(Sim &sim, const Config &cfg) {
 inline bool to_pre_train(Sim &sim, const Config &cfg) {
   return sim.run_until(
       [](Sim &s) {
-        return s.boards[0].board.content().rev_in_effect >=
+        return content(s.boards[0].board).rev_in_effect >=
                s.cfg.revs_per_effect - 1;
       },
       double(cfg.revs_per_effect) + 4);
@@ -2114,7 +2132,7 @@ inline void test_sim_boot_and_phase() {
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         for (auto &b : s.boards)
-          if (b.board.lock() != LockState::LOCKED)
+          if (lock(b.board) != LockState::LOCKED)
             return false;
         return true;
       },
@@ -2171,7 +2189,7 @@ inline void test_sim_eight_board_boot_and_phase() {
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         for (auto &b : s.boards)
-          if (b.board.lock() != LockState::LOCKED)
+          if (lock(b.board) != LockState::LOCKED)
             return false;
         return true;
       },
@@ -2208,22 +2226,22 @@ inline void test_sim_epoch_commit() {
   // Run to the train start. Through the announce phase (the first R revs of
   // the B+R+K countdown) every board keeps playing the outgoing effect…
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[0].board.content().commit_pending; },
+      [](Sim &s) { return content(s.boards[0].board).commit_pending; },
       double(cfg.revs_per_effect) + 2));
   sim.run_revs(1.0); // mid-announce
   for (auto &b : sim.boards) {
-    HS_EXPECT_TRUE(b.board.content().commit_pending);
+    HS_EXPECT_TRUE(content(b.board).commit_pending);
     HS_EXPECT_FALSE(b.dark_now);
   }
   // …then all go dark together for the K-revolution construction window.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
-        return s.boards[0].board.content().commit_in_revs <= s.cfg.commit_revs;
+        return content(s.boards[0].board).commit_in_revs <= s.cfg.commit_revs;
       },
       double(cfg.epoch_repeats) + 1));
   sim.run_revs(1.0); // mid-construction (K = 2)
   for (auto &b : sim.boards) {
-    HS_EXPECT_TRUE(b.board.content().commit_pending);
+    HS_EXPECT_TRUE(content(b.board).commit_pending);
     HS_EXPECT_TRUE(b.dark_now);
   }
 
@@ -2391,7 +2409,7 @@ inline void test_sim_masked_windows() {
   HS_EXPECT_GT(tm2.symbols_discarded_invalid, 5u);
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   for (int i = 1; i < 4; ++i) {
-    HS_EXPECT_TRUE(sim.boards[i].board.lock() == LockState::LOCKED);
+    HS_EXPECT_TRUE(lock(sim.boards[i].board) == LockState::LOCKED);
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
@@ -2458,7 +2476,7 @@ inline void test_sim_emi() {
   HS_EXPECT_GE(tm2.symbols_discarded_invalid, 2u); // corrupted bursts dropped
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   for (int i = 1; i < 4; ++i) {
-    HS_EXPECT_TRUE(sim.boards[i].board.lock() == LockState::LOCKED);
+    HS_EXPECT_TRUE(lock(sim.boards[i].board) == LockState::LOCKED);
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
   }
@@ -2488,7 +2506,7 @@ inline void test_sim_drops_and_missed_epoch() {
   sim.boards[1].drop_to = sim.g + 3 * rev;
   sim.run_revs(5.0);
   HS_EXPECT_GE(sim.boards[1].board.telemetry_snapshot().max_coast_halves, 4u);
-  HS_EXPECT_TRUE(sim.boards[1].board.lock() == LockState::LOCKED);
+  HS_EXPECT_TRUE(lock(sim.boards[1].board) == LockState::LOCKED);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_LE(sim.max_phase_err(), 2);
@@ -2499,7 +2517,7 @@ inline void test_sim_drops_and_missed_epoch() {
   // on the join grid.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
-        return s.boards[0].board.content().rev_in_effect >=
+        return content(s.boards[0].board).rev_in_effect >=
                s.cfg.revs_per_effect - 1;
       },
       double(cfg.revs_per_effect) + 4));
@@ -2548,12 +2566,12 @@ inline void test_sim_reboot() {
   b2.flips = 0;
   b2.trapped = false;
 
-  HS_EXPECT_TRUE(b2.board.lock() == LockState::ACQUIRE);
+  HS_EXPECT_TRUE(lock(b2.board) == LockState::ACQUIRE);
   HS_EXPECT_TRUE(b2.dark_now || !b2.live); // dark through ACQUIRE
 
   // Phase re-acquires within ~one boundary symbol.
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[2].board.lock() == LockState::LOCKED; },
+      [](Sim &s) { return lock(s.boards[2].board) == LockState::LOCKED; },
       1.5));
   // Identity from the next beacon, display from the next join-grid boundary.
   // This reboot lands clear of the commit window, so the deadline is the
@@ -2716,7 +2734,7 @@ inline void test_sim_rev_resync() {
   // by +2: at the next train it would over-count j by 2 and commit 2
   // revolutions EARLY.
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[0].board.content().rev_in_effect == 5; },
+      [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 5; },
       12.0));
   content_mut(sim.boards[3].board).rev_in_effect += 2;
 
@@ -2725,8 +2743,8 @@ inline void test_sim_rev_resync() {
   // gap by at most 1, so this predicate cannot fire spuriously.)
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
-        return s.boards[3].board.content().rev_in_effect ==
-               s.boards[0].board.content().rev_in_effect;
+        return content(s.boards[3].board).rev_in_effect ==
+               content(s.boards[0].board).rev_in_effect;
       },
       double(cfg.beacon_period_revs) + 2));
   HS_EXPECT_GE(sim.boards[3].board.telemetry_snapshot().beacon_rev_mismatches,
@@ -2736,7 +2754,7 @@ inline void test_sim_rev_resync() {
   // primary copy, taking the repeat path that depends on j-inference.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
-        return s.boards[0].board.content().rev_in_effect >=
+        return content(s.boards[0].board).rev_in_effect >=
                s.cfg.revs_per_effect - 1;
       },
       double(cfg.revs_per_effect) + 4));
@@ -2800,7 +2818,7 @@ inline void test_sim_rev_wrap_within_effect() {
   for (;;) {
     HS_EXPECT_TRUE(
         sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
-    const uint32_t rev = sim.boards[0].board.content().rev_in_effect;
+    const uint32_t rev = content(sim.boards[0].board).rev_in_effect;
     HS_EXPECT_LE(sim.max_phase_err(), 2);
     for (int i = 0; i < 4; ++i) {
       HS_EXPECT_EQ(sim.boards[i].live_index, 0);
@@ -2813,7 +2831,7 @@ inline void test_sim_rev_wrap_within_effect() {
       // beacon_rev_mismatches); a dropped mask in the fold itself diverges the
       // counter from the master. Phase/frame lockstep alone catches neither —
       // those derive from the flywheel, not rev_in_effect.
-      HS_EXPECT_EQ(sim.boards[i].board.content().rev_in_effect, rev);
+      HS_EXPECT_EQ(content(sim.boards[i].board).rev_in_effect, rev);
       HS_EXPECT_EQ(
           sim.boards[i].board.telemetry_snapshot().beacon_rev_mismatches, 0u);
     }
@@ -3063,7 +3081,7 @@ inline void test_budget_lost_symbol() {
       sim.boards[1].board.telemetry_snapshot().symbols_accepted;
 
   HS_EXPECT_LE(max_err_over(sim, 1.5), 1); // sub-column through coast+re-snap
-  HS_EXPECT_TRUE(sim.boards[1].board.lock() == LockState::LOCKED);
+  HS_EXPECT_TRUE(lock(sim.boards[1].board) == LockState::LOCKED);
   const Telemetry tm = sim.boards[1].board.telemetry_snapshot();
   HS_EXPECT_GE(tm.max_coast_halves, 2u);             // it did coast…
   HS_EXPECT_GE(tm.symbols_accepted, acc_before + 2); // …and re-snapped
@@ -3109,7 +3127,7 @@ inline void test_budget_emi_accepted_seam() {
   // Recovery: the next real boundary symbol (err ≈ 3 ≤ G) re-snaps.
   sim.run_revs(0.45);
   HS_EXPECT_LE(sim.max_phase_err(), 1);
-  HS_EXPECT_TRUE(sim.boards[1].board.lock() == LockState::LOCKED);
+  HS_EXPECT_TRUE(lock(sim.boards[1].board) == LockState::LOCKED);
   // Layers 2/3 unharmed: the forged HALF's flip deduped against the
   // crossing, so content stayed equal.
   HS_EXPECT_TRUE(
@@ -3137,7 +3155,7 @@ inline void test_budget_corrupted_timebase() {
   // isolated first digit — which re-poisons an ACQUIRE board — is
   // test_budget_acquire_mis_snap.
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[0].board.content().rev_in_effect == 10; },
+      [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 10; },
       16.0));
 
   // Corrupt board 2's flywheel phase by W/4 — far beyond the gate.
@@ -3152,7 +3170,7 @@ inline void test_budget_corrupted_timebase() {
       b2.board.telemetry_snapshot().symbols_rejected_gate;
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
-        return s.boards[2].board.lock() == LockState::LOCKED &&
+        return lock(s.boards[2].board) == LockState::LOCKED &&
                circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
       },
       3.5)); // budget: ~2.8 revs; slack for the mid-rev corruption instant
@@ -3206,7 +3224,7 @@ inline void test_budget_acquire_mis_snap() {
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Master beacons ride rev ≡ 1 (mod 8); the train starts at x = W/4 = 72.
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[0].board.content().rev_in_effect == 9; },
+      [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 9; },
       16.0));
   // Reboot past the rev's ZERO burst and a full quiet window ahead of the
   // train, so the first wire event the fresh board meets is the train's head
@@ -3223,18 +3241,18 @@ inline void test_budget_acquire_mis_snap() {
   b2.live_index = -1;
   b2.t = 0;
   b2.trapped = false;
-  HS_EXPECT_TRUE(b2.board.lock() == LockState::ACQUIRE);
+  HS_EXPECT_TRUE(lock(b2.board) == LockState::ACQUIRE);
 
   // The head digit captures it: locked on a beacon digit, a quarter turn out.
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[2].board.lock() == LockState::LOCKED; },
+      [](Sim &s) { return lock(s.boards[2].board) == LockState::LOCKED; },
       0.5));
   const uint64_t snap_g = sim.g;
   HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
 
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
-        return s.boards[2].board.lock() == LockState::LOCKED &&
+        return lock(s.boards[2].board) == LockState::LOCKED &&
                circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
       },
       3.0));
@@ -3265,7 +3283,7 @@ inline void test_budget_beacon_corruption() {
   // Master beacons ride rev ≡ 1 (mod 8); park at the rev-9 ZERO crossing.
   // The train starts when the master reaches x = W/4 = 72.
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[0].board.content().rev_in_effect == 9; },
+      [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 9; },
       16.0));
   // Beacon (index 0, rev 9) is digits [0,0,1,1,2]; its 4th burst is two
   // pulses at relative columns 16 and 17. One EMI edge between them on
@@ -3334,7 +3352,7 @@ inline void test_budget_wire_dead() {
 
   for (int i = 1; i < 3; ++i) {
     // Silence is a coast, not a fault: locked, zero rejections or fallback.
-    HS_EXPECT_TRUE(sim.boards[i].board.lock() == LockState::LOCKED);
+    HS_EXPECT_TRUE(lock(sim.boards[i].board) == LockState::LOCKED);
     HS_EXPECT_EQ(sim.boards[i].board.telemetry_snapshot().symbols_rejected_gate,
                  0u);
     // Layer 2 self-sufficiency: ~2 flips/rev throughout, no stall.
