@@ -43,8 +43,8 @@ jobs:
         # checks (color_luts provenance + its generator --check, fastmath_clamp
         # release-flag, h_offset_renorm device-offset, mindsplatter_replay
         # corpus gate, stack_budget, arena_budget, and the module_roster /
-        # module_includes roster pins) so every registered test runs in exactly
-        # one job.
+        # module_includes roster pins and mirrored-screenshot prune) so every
+        # registered test runs in exactly one job.
         # SINGLE SOURCE OF TRUTH: the sanitizers job references this same anchored
         # list (*shard_matrix), and the shard-coverage job (which references the
         # per-shard anchors) asserts the shard alternatives and the registered
@@ -55,7 +55,7 @@ jobs:
         include: &shard_matrix
           - &shard1_entry
             shard: 1
-            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|partition_seam|hankin|hyper_lattice|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes|case_calls|anim_pack|vendor_patches|linker_patches|teensy_size_trail)$"
+            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|partition_seam|hankin|hyper_lattice|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes|case_calls|anim_pack|vendor_patches|linker_patches|teensy_size_trail|mirrored_screenshot_prune)$"
             test_exclude: &generated_exclude "^unit_(color_luts|color_luts_check|gamut_lut|mindsplatter_replay_form)$"
           - &shard2_entry
             shard: 2
@@ -761,6 +761,9 @@ jobs:
           # tells a daydream checkout from a mistyped path, so plant one.
           mkdir -p "${{ runner.temp }}/daydream-install"
           touch "${{ runner.temp }}/daydream-install/daydream.js"
+          mkdir -p "${{ runner.temp }}/daydream-install/docs/screenshots"
+          touch "${{ runner.temp }}/daydream-install/docs/screenshots/stale.png"
+          touch "${{ runner.temp }}/daydream-install/docs/screenshots/unrelated.txt"
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
 
@@ -863,6 +866,25 @@ jobs:
               exit 1
             fi
           done
+          if [ ! -f "$dd/README.md" ]; then
+            echo "::error::install did not produce README.md"
+            exit 1
+          fi
+          if ! cmp -s README.md "$dd/README.md"; then
+            echo "::error::installed README.md differs from the engine source"
+            exit 1
+          fi
+          if [ -e "$dd/docs/screenshots/stale.png" ]; then
+            echo "::error::install retained a stale mirrored screenshot"
+            exit 1
+          fi
+          if [ ! -e "$dd/docs/screenshots/unrelated.txt" ]; then
+            echo "::error::install removed unrelated screenshot-directory content"
+            exit 1
+          fi
+          diff -u \
+            <(cd docs/screenshots && find . -type f -name '*.png' | sort) \
+            <(cd "$dd/docs/screenshots" && find . -type f -name '*.png' | sort)
           # The runtime smokes above drive the BUILD tree's glue. The install
           # rewrites it through file(CONFIGURE ... @ONLY) and then hashes its own
           # output, so a botched rewrite ships glue whose recorded hash agrees
@@ -903,6 +925,13 @@ jobs:
           cp "$dd"/holosphere_wasm.{js,wasm,sha,wasm.sha256,toolchain} \
             "$dd/pov_segment_map.json" "$bundle/"
           cp -r "$dd/shader" "$bundle/"
+          cp "$dd/README.md" "$bundle/"
+          mkdir -p "$bundle/docs/screenshots"
+          (
+            cd "$dd/docs/screenshots"
+            find . -type f -name '*.png' -exec \
+              cp --parents '{}' "$bundle/docs/screenshots"/ \;
+          )
           (
             cd "$bundle"
             find . -type f ! -name holosphere_engine.sha256 -print0 \
