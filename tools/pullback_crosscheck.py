@@ -446,6 +446,24 @@ def _run(command: list[str], cwd: Path, environment: dict) -> None:
     subprocess.run(command, cwd=cwd, env=environment, check=True)
 
 
+def _remove_worktree(
+    repository: Path,
+    worktree: Path,
+    environment: dict,
+    active_error: BaseException | None,
+) -> None:
+    try:
+        _run(
+            ["git", "-C", str(repository), "worktree", "remove", str(worktree)],
+            repository,
+            environment,
+        )
+    except (OSError, subprocess.CalledProcessError) as cleanup_error:
+        if active_error is None:
+            raise
+        active_error.add_note(f"worktree cleanup also failed: {cleanup_error}")
+
+
 def validate_build_isolation(
     sources: dict[str, Path], builds: dict[str, dict[str, Path]]
 ) -> None:
@@ -673,30 +691,18 @@ def orchestrate(
                     encoding="utf-8",
                 )
             finally:
-                _run(
-                    [
-                        "git",
-                        "-C",
-                        str(repository),
-                        "worktree",
-                        "remove",
-                        str(sources["candidate"]),
-                    ],
+                _remove_worktree(
                     repository,
+                    sources["candidate"],
                     environment,
+                    sys.exception(),
                 )
         finally:
-            _run(
-                [
-                    "git",
-                    "-C",
-                    str(repository),
-                    "worktree",
-                    "remove",
-                    str(sources["base"]),
-                ],
+            _remove_worktree(
                 repository,
+                sources["base"],
                 environment,
+                sys.exception(),
             )
 
 
