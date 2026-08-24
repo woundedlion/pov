@@ -426,6 +426,7 @@ add_custom_command(
           --output ${PULLBACK_MANIFEST_HEADER}
   DEPENDS
     ${HS_ROOT}/tools/generate_pullback_manifest_header.py
+    ${HS_ROOT}/tools/pullback_operations.def
     ${PULLBACK_MANIFEST_FILES}
   VERBATIM)
 add_custom_target(pullback_manifest_header DEPENDS ${PULLBACK_MANIFEST_HEADER})
