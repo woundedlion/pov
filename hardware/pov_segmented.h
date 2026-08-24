@@ -593,7 +593,7 @@ private:
    * makes the consumer's __disable_irq() bracket around the mailbox claim
    * load-bearing.
    */
-  static FASTRUN void sync_edge_isr() { sync.on_sync_edge(ARM_DWT_CYCCNT); }
+  static void sync_edge_isr() { sync.on_sync_edge(ARM_DWT_CYCCNT); }
 
   /**
    * @brief Flywheel ISR: the sole owner of all sync state (spec §8).
@@ -604,7 +604,7 @@ private:
    * column is unchanged and skip-tolerant when it jumped (the skipped
    * columns were masked precisely because the strip was busy).
    */
-  static FASTRUN void flywheel_isr() {
+  static void flywheel_isr() {
     HS_ISR_PROFILE(hs::g_flywheel_wake_cycles);
     const uint32_t now = ARM_DWT_CYCCNT;
     pov::run_wake_sequence(
@@ -662,7 +662,7 @@ private:
    *          boot in configure_segment().  Arm B segments read from x + W/2
    *          (opposite half of the image).
    */
-  [[nodiscard]] HS_O3_FN static FASTRUN bool render_column(Effect *e, int x) {
+  [[nodiscard]] HS_O3_FN static bool render_column(Effect *e, int x) {
     const int w = e->width();
     const int x_col = pov::segment_x_col(segment.arm_b, x, w);
 
@@ -693,7 +693,7 @@ private:
    * @details No repack: submitFrame() returns before swapping buffers on an
    *          overrun, so backFrame() still holds the dropped column's pixels.
    */
-  [[nodiscard]] static FASTRUN bool resubmit_frame(bool strobe) {
+  [[nodiscard]] static bool resubmit_frame(bool strobe) {
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
     return ledController.submitFrame(strobe);
   }
@@ -703,7 +703,7 @@ private:
    * @return true if the black frame was accepted by the LED transport; false
    *         if it was dropped on a DMA overrun (caller must retry, not latch).
    */
-  [[nodiscard]] static FASTRUN bool render_black() {
+  [[nodiscard]] static bool render_black() {
     auto &frame = ledController.backFrame();
     for (int i = 0; i < PPS; ++i) {
       frame.packPixel(i, Pixel(0, 0, 0));
