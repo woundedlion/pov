@@ -30,6 +30,9 @@ struct HyperLatticeWhiteBox {
   static Pixel depth_color(const Effect &effect, float amount) {
     return effect.depth_palette.palette().get(amount).color;
   }
+  static Pixel axis_color(const Effect &effect, float amount) {
+    return effect.axis_palette.get(amount).color;
+  }
 };
 
 inline void test_periodic_distance() {
@@ -161,6 +164,7 @@ inline void test_depth_palette_mutates_slowly_and_pauses() {
   effect.init();
   effect.setAnimationsPaused(true);
   const Pixel initial = HyperLatticeWhiteBox::depth_color(effect, 0.5f);
+  const Pixel axis = HyperLatticeWhiteBox::axis_color(effect, 0.5f);
   HyperLatticeWhiteBox::step_depth_palette(effect);
   HS_EXPECT_FALSE(HyperLatticeWhiteBox::depth_palette_fading(effect));
   HS_EXPECT_EQ(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
@@ -171,6 +175,7 @@ inline void test_depth_palette_mutates_slowly_and_pauses() {
   for (int frame = 0; frame < 480; ++frame)
     HyperLatticeWhiteBox::step_depth_palette(effect);
   HS_EXPECT_NE(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
+  HS_EXPECT_EQ(HyperLatticeWhiteBox::axis_color(effect, 0.5f), axis);
 }
 
 inline void test_next_plane_is_strict() {
