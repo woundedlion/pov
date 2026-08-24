@@ -7,6 +7,7 @@ serialize a node back to text, and enumerate a symbol's pins with their
 import glob
 import os
 import re
+from dataclasses import dataclass
 
 def kicad_version_key(path):
     """(major, minor) of a KiCad install path; (0, 0) if unversioned."""
@@ -73,12 +74,41 @@ class Sym(str):
     """An unquoted atom (token), distinct from a quoted string."""
 
 
+class SList(list):
+    """List carrying the source layout used to parse it."""
+
+    def __init__(self, values=(), layout=None):
+        super().__init__(values)
+        self.layout = layout
+
+
+@dataclass(frozen=True)
+class _Token:
+    kind: str
+    value: str
+    start: int
+    end: int
+
+
+@dataclass(frozen=True)
+class _Layout:
+    prefix: str
+    separators: tuple[str, ...]
+    suffix: str
+    atoms: tuple[tuple[type, str, str] | None, ...]
+    indent: str
+
+
 ESCAPE_DECODE = {
     "\\": "\\",
     '"': '"',
+    "a": "\a",
+    "b": "\b",
+    "f": "\f",
     "n": "\n",
     "r": "\r",
     "t": "\t",
+    "v": "\v",
 }
 ESCAPE_ENCODE = {value: key for key, value in ESCAPE_DECODE.items()}
 
@@ -90,29 +120,42 @@ def tokenize(s):
         if c in " \t\r\n":
             i += 1
         elif c == "(" or c == ")":
-            toks.append(c); i += 1
+            toks.append(_Token(c, c, i, i + 1)); i += 1
         elif c == '"':
-            j = i + 1; buf = []
+            j = i + 1; buf = bytearray()
             while j < n:
                 if s[j] == "\\":
                     if j + 1 >= n:
                         raise ValueError("trailing backslash in string")
                     escaped = s[j + 1]
-                    if escaped not in ESCAPE_DECODE:
-                        raise ValueError(f"unsupported escape: \\{escaped}")
-                    buf.append(ESCAPE_DECODE[escaped]); j += 2
+                    if escaped in ESCAPE_DECODE:
+                        buf.extend(ESCAPE_DECODE[escaped].encode()); j += 2
+                    elif escaped == "x":
+                        digits = re.match(r"[0-9a-fA-F]{1,2}", s[j + 2:])
+                        if digits:
+                            value = digits.group(0)
+                            buf.append(int(value, 16))
+                            j += 2 + len(value)
+                        else:
+                            buf.append(ord("x")); j += 2
+                    elif escaped in "01234567":
+                        value = re.match(r"[0-7]{1,3}", s[j + 1:]).group(0)
+                        buf.append(int(value, 8) & 0xff)
+                        j += 1 + len(value)
+                    else:
+                        buf.append(ord("\\")); j += 1
                 elif s[j] == '"':
                     break
                 else:
-                    buf.append(s[j]); j += 1
+                    buf.extend(s[j].encode()); j += 1
             if j == n:
                 raise ValueError("unterminated string")
-            toks.append(("STR", "".join(buf))); i = j + 1
+            toks.append(_Token("STR", buf.decode(), i, j + 1)); i = j + 1
         else:
             j = i
             while j < n and s[j] not in ' \t\r\n()"':
                 j += 1
-            toks.append(("ATOM", s[i:j])); i = j
+            toks.append(_Token("ATOM", s[i:j], i, j)); i = j
     return toks
 
 
@@ -123,30 +166,59 @@ def parse(s):
     def rd():
         if pos[0] >= len(toks):
             raise ValueError(f"unexpected end of input at token {pos[0]}")
-        t = toks[pos[0]]; pos[0] += 1
-        if t == "(":
-            lst = []
+        token = toks[pos[0]]; pos[0] += 1
+        if token.kind == "(":
+            values = []
+            spans = []
             while True:
                 if pos[0] >= len(toks):
                     raise ValueError(f"unexpected end of input at token {pos[0]}")
-                if toks[pos[0]] == ")":
+                if toks[pos[0]].kind == ")":
                     break
-                lst.append(rd())
+                child, start, end = rd()
+                values.append(child)
+                spans.append((start, end))
+            close = toks[pos[0]]
             pos[0] += 1
-            return lst
-        if t == ")":
+            if spans:
+                prefix = s[token.end:spans[0][0]]
+                separators = tuple(s[left[1]:right[0]]
+                                   for left, right in zip(spans, spans[1:]))
+                suffix = s[spans[-1][1]:close.start]
+            else:
+                prefix = s[token.end:close.start]
+                separators = ()
+                suffix = ""
+            line_start = s.rfind("\n", 0, token.start) + 1
+            line_prefix = s[line_start:token.start]
+            indent = re.match(r"[ \t]*", line_prefix).group(0)
+            atoms = tuple(
+                None if isinstance(value, list)
+                else (type(value), value, s[start:end])
+                for value, (start, end) in zip(values, spans)
+            )
+            value = SList(values, _Layout(prefix, separators, suffix,
+                                          atoms, indent))
+            return value, token.start, close.end
+        if token.kind == ")":
             raise ValueError("unexpected )")
-        if isinstance(t, tuple):
-            return t[1] if t[0] == "STR" else Sym(t[1])
-        raise ValueError(t)
+        value = token.value if token.kind == "STR" else Sym(token.value)
+        return value, token.start, token.end
 
     out = []
     while pos[0] < len(toks):
-        out.append(rd())
+        out.append(rd()[0])
     return out
 
 
 def dumps(node, indent=0):
+    if isinstance(node, SList) and node.layout is not None:
+        rendered = _preserved_list(node)
+        return _reindent(rendered, node.layout.indent, "\t" * indent)
+    return _canonical_dumps(node, indent)
+
+
+def _canonical_dumps(node, indent=0):
     pad = "\t" * indent
     if isinstance(node, list):
         if not node:
@@ -158,7 +230,7 @@ def dumps(node, indent=0):
         parts = [pad + "(" + _atom(head)]
         for child in node[1:]:
             if isinstance(child, list):
-                parts.append(dumps(child, indent + 1))
+                parts.append(_canonical_dumps(child, indent + 1))
             else:
                 parts[-1] += " " + _atom(child)
         parts.append(pad + ")")
@@ -166,13 +238,55 @@ def dumps(node, indent=0):
     return pad + _atom(node)
 
 
+def _preserved_list(node):
+    layout = node.layout
+    if len(node) != len(layout.atoms):
+        canonical_indent = (layout.indent
+                            if set(layout.indent) <= {"\t"} else "")
+        level = len(canonical_indent)
+        rendered = _canonical_dumps(node, level)
+        return rendered[len(canonical_indent):]
+    parts = ["(", layout.prefix]
+    for index, child in enumerate(node):
+        if index:
+            parts.append(layout.separators[index - 1])
+        original = layout.atoms[index]
+        if isinstance(child, SList) and child.layout is not None:
+            parts.append(_preserved_list(child))
+        elif isinstance(child, list):
+            parts.append(_canonical_dumps(child))
+        elif (original is not None and type(child) is original[0]
+              and child == original[1]):
+            parts.append(original[2])
+        else:
+            parts.append(_atom(child))
+    parts.extend((layout.suffix, ")"))
+    return "".join(parts)
+
+
+def _reindent(text, original, desired):
+    if original == desired:
+        return desired + text
+    lines = text.split("\n")
+    for index in range(1, len(lines)):
+        if lines[index].startswith(original):
+            lines[index] = lines[index][len(original):]
+        lines[index] = desired + lines[index]
+    return desired + "\n".join(lines)
+
+
 def quote(s):
-    """Render `s` as a quoted s-expression atom, escaping per ESCAPE_ENCODE."""
-    esc = "".join(
-        "\\" + ESCAPE_ENCODE[c] if c in ESCAPE_ENCODE else c
-        for c in s
-    )
+    """Render `s` as a quoted atom with KiCad-compatible control escapes."""
+    esc = "".join(_escaped_char(c) for c in s)
     return '"' + esc + '"'
+
+
+def _escaped_char(c):
+    if c in ESCAPE_ENCODE:
+        return "\\" + ESCAPE_ENCODE[c]
+    if ord(c) < 0x20 or ord(c) == 0x7f:
+        return f"\\x{ord(c):02x}"
+    return c
 
 
 def _atom(x):
