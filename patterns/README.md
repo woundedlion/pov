@@ -48,7 +48,7 @@ and a bank-owned easing and positive duration.
 
 ## Generated and hand-authored sources
 
-Twelve of the sixteen documents are generated. `node
+Twelve of the seventeen documents are generated. `node
 scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
 `grid_space`, `cosmic_eyeball`, `kaleidoscope_flowers`, `kaleidoscope_mandala`,
 `alien_core`, `kaleidoscope_hex_bright`, `kaleidoscope_hex_soft`, `mobius_grid`, `kaleidoscope_pent_bright`,
@@ -57,9 +57,9 @@ hand edit to those files is lost on the next run — change the spec instead. Th
 specs are written in the v1 six-role shape and the committed file is their
 canonical v2 expansion.
 
-The remaining four are hand-authored and no rerun writes them: `lattice_melt`,
-`kaleidoscope_smooth` and `kaleidoscope_hex_oil`, promoted from workbench snapshots, and
-`example.shader.json`.
+The remaining five are hand-authored and no rerun writes them: `ash_cloud`,
+`lattice_melt`, `kaleidoscope_smooth` and `kaleidoscope_hex_oil`, promoted from
+workbench snapshots, and `example.shader.json`.
 
 `shaderball_migration.json` is a manifest, not a shader document, and the CLI
 above rejects it as one. `source_documents` maps each `effect_id` to the
@@ -72,6 +72,10 @@ backs an effect must appear in `source_documents`.
 `lattice_melt.shader.json` is the editable source for the `LatticeMelt`
 comparison effect. Its two presets share one descriptor and vary only the
 linearly interpolated sphere-noise scale.
+
+`ash_cloud.shader.json` is the editable source for the `AshCloud` effect. Its
+value cutout follows a primitive lattice displaced by sphere-space curl noise
+and folded through a dodecahedral kaleidoscope.
 
 `kaleidoscope_smooth.shader.json` describes the fixed stereographic dodecahedral-grid
 pipeline used by `KaleidoscopeSmooth`. Its four presets differ only in source,
@@ -90,6 +94,7 @@ specialization. A document maps to its effect by `effect_id` == the effect's
 | `alien_ocean` | `AlienOcean` |
 | `grid_space` | `GridSpace` |
 | `cosmic_eyeball` | `CosmicEyeball` |
+| `ash_cloud` | `AshCloud` |
 | `lattice_melt` | `LatticeMelt` |
 | `kaleidoscope_flowers` | `KaleidoscopeFlowers` |
 | `kaleidoscope_smooth` | `KaleidoscopeSmooth` |
