@@ -2440,8 +2440,11 @@ inline void test_shader_workbench_config_admission() {
     HS_EXPECT_TRUE(WB::valid_config(resource_from));
     HS_EXPECT_TRUE(WB::valid_config(resource_to));
     HS_EXPECT_TRUE(WB::transition_admitted(resource_from, resource_to));
+    resource_to.params.source.noise_basis =
+        resource_from.params.source.noise_basis;
     resource_to.params.source.noise_resource_id ^= 4U;
     HS_EXPECT_TRUE(WB::transition_admitted(resource_from, resource_to));
+    HS_EXPECT_TRUE(WB::stable_topology(resource_from, resource_to));
 
     WB::RequestedConfig shared_owner = WB::legacy_config();
     shared_owner.slots.warp_program.outer.kind =
@@ -2453,6 +2456,9 @@ inline void test_shader_workbench_config_admission() {
     shared_owner.slots.warp_program.outer.resource_id = 6;
     shared_owner.slots.warp_program.inner.resource_id = 6;
     HS_EXPECT_TRUE(WB::valid_config(shared_owner));
+    WB::RequestedConfig distinct_owners = shared_owner;
+    distinct_owners.slots.warp_program.inner.resource_id = 7;
+    HS_EXPECT_TRUE(WB::stable_topology(shared_owner, distinct_owners));
     shared_owner.slots.warp_program.inner.basis = WB::NoiseBasis::FBM3;
     HS_EXPECT_TRUE(WB::valid_config(shared_owner));
     HS_EXPECT_TRUE(WB::transition_admitted(shared_owner, shared_owner));
