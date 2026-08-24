@@ -186,19 +186,28 @@ inline EdgeMetric edge_metric_3d_at(const Vec4 &ray_origin,
 inline EdgeMetric edge_metric_4d_at(const Vec4 &ray_origin,
                                     const Vec4 &direction, int plane_axis,
                                     float distance) {
-  float sum = 0.0f;
-  float largest = -1.0f;
-  uint8_t free_axis = 0;
-  for (int index = 0; index < 3; ++index) {
-    const int axis = index + (index >= plane_axis);
-    const float component =
-        periodic_distance_at(ray_origin, direction, axis, distance);
-    const float component_sq = component * component;
-    sum += component_sq;
-    if (component_sq > largest) {
-      largest = component_sq;
-      free_axis = static_cast<uint8_t>(axis);
-    }
+  const int axis0 = plane_axis == 0 ? 1 : 0;
+  const int axis1 = plane_axis <= 1 ? 2 : 1;
+  const int axis2 = plane_axis <= 2 ? 3 : 2;
+  const float component0 =
+      periodic_distance_at(ray_origin, direction, axis0, distance);
+  const float component1 =
+      periodic_distance_at(ray_origin, direction, axis1, distance);
+  const float component2 =
+      periodic_distance_at(ray_origin, direction, axis2, distance);
+  const float component0_sq = component0 * component0;
+  const float component1_sq = component1 * component1;
+  const float component2_sq = component2 * component2;
+  const float sum = component0_sq + component1_sq + component2_sq;
+  float largest = component0_sq;
+  uint8_t free_axis = static_cast<uint8_t>(axis0);
+  if (component1_sq > largest) {
+    largest = component1_sq;
+    free_axis = static_cast<uint8_t>(axis1);
+  }
+  if (component2_sq > largest) {
+    largest = component2_sq;
+    free_axis = static_cast<uint8_t>(axis2);
   }
   return {sum - largest, free_axis};
 }
