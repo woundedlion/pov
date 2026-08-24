@@ -46,6 +46,28 @@ struct RelaxBake {
   uint32_t output_hash;
 };
 
+/**
+ * @brief Fixed-point scale used to identify relax source coordinates.
+ * @details Together with RELAX_SOURCE_BIAS, the committed bake sources remain
+ * at least RELAX_SOURCE_MIN_MARGIN from every quantization boundary while
+ * topology-and-dimension peers retain distinct identities.
+ */
+inline constexpr float RELAX_SOURCE_SCALE = 2013.0f;
+
+/** @brief Offset placing baked sources away from quantization boundaries. */
+inline constexpr float RELAX_SOURCE_BIAS = 0.7361977398f;
+
+/** @brief Required distance between a baked source and the nearest boundary. */
+inline constexpr float RELAX_SOURCE_MIN_MARGIN = 1.0e-5f;
+
+/** @brief Quantizes one relax source coordinate onto its identity grid. */
+inline int32_t relax_source_coordinate(float coordinate) {
+  const float magnitude =
+      (coordinate < 0.0f ? -coordinate : coordinate) * RELAX_SOURCE_SCALE;
+  const int32_t quantized = static_cast<int32_t>(magnitude + RELAX_SOURCE_BIAS);
+  return coordinate < 0.0f ? -quantized : quantized;
+}
+
 /** @brief FNV-1a 32-bit offset basis, seeding every relax hash. */
 inline constexpr uint32_t FNV1A_BASIS = 2166136261u;
 
@@ -77,17 +99,15 @@ inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
 
 /**
  * @brief Hashes fixed-point-rounded vertices identifying a relax source mesh.
- * @details A 1/4096-radius grid absorbs endpoint reconstruction roundoff while
- * retaining vertex order and parameterized geometry in the identity.
+ * @details A fixed-point grid absorbs endpoint reconstruction roundoff while
+ * retaining vertex order and parameterized geometry in the identity. The grid
+ * phase keeps generated sources clear of rounding boundaries.
  */
 inline uint32_t relax_source_hash(const PolyMesh &mesh) {
-  constexpr float SCALE = 4096.0f;
   uint32_t hash = FNV1A_BASIS;
   auto mix = [&](float coordinate) {
-    const float scaled = coordinate * SCALE;
-    const int32_t quantized =
-        static_cast<int32_t>(scaled + (scaled < 0.0f ? -0.5f : 0.5f));
-    hash = fnv1a_step(hash, static_cast<uint32_t>(quantized));
+    hash = fnv1a_step(
+        hash, static_cast<uint32_t>(relax_source_coordinate(coordinate)));
   };
   for (const Vector &v : mesh.vertices) {
     mix(v.x);
@@ -95,6 +115,31 @@ inline uint32_t relax_source_hash(const PolyMesh &mesh) {
     mix(v.z);
   }
   return hash;
+}
+
+/**
+ * @brief Finds the nearest source-identity quantization boundary.
+ * @return Coordinate distance to the nearest boundary across the mesh.
+ */
+inline float relax_source_quantization_margin(const PolyMesh &mesh) {
+  float minimum = 1.0f;
+  auto measure = [&](float coordinate) {
+    const float magnitude =
+        (coordinate < 0.0f ? -coordinate : coordinate) * RELAX_SOURCE_SCALE;
+    const float biased = magnitude + RELAX_SOURCE_BIAS;
+    const float fraction = biased - static_cast<int32_t>(biased);
+    const float grid_distance =
+        (fraction < 1.0f - fraction ? fraction : 1.0f - fraction) /
+        RELAX_SOURCE_SCALE;
+    if (grid_distance < minimum)
+      minimum = grid_distance;
+  };
+  for (const Vector &v : mesh.vertices) {
+    measure(v.x);
+    measure(v.y);
+    measure(v.z);
+  }
+  return minimum;
 }
 
 /**
