@@ -15,6 +15,7 @@
 #pragma once
 
 #include "core/math/3dmath.h"
+#include "core/math/lenses.h"
 #include "core/math/stereographic.h"
 #include "core/math/rotate.h"
 #include "tests/test_fixture.h"
@@ -1367,6 +1368,41 @@ inline void test_value_noise() {
                  value_noise_2d(0.5f, 0.5f, 2u));
 }
 
+inline void test_twist_lens() {
+  Vector input(0.6f, 0.5f, 0.6244998f);
+  const Vector output = lenses::twist_lens(input);
+  const float angle = lenses::TWIST_RATE * input.y;
+  HS_EXPECT_NEAR(output.x, input.x * cosf(angle) - input.z * sinf(angle),
+                 2e-3f);
+  HS_EXPECT_NEAR(output.y, input.y, 1e-6f);
+  HS_EXPECT_NEAR(output.z, input.x * sinf(angle) + input.z * cosf(angle),
+                 2e-3f);
+}
+
+inline void test_kaleidoscope_lens() {
+  const Vector input = Vector(-0.3f, 0.4f, -0.8660254f).normalized();
+  const Vector output = lenses::kaleidoscope_lens(input);
+  HS_EXPECT_TRUE(output.x >= 0.0f);
+  HS_EXPECT_TRUE(output.z >= 0.0f);
+  HS_EXPECT_TRUE(1.7320508075688772f * output.z <= output.x + 1e-6f);
+  HS_EXPECT_NEAR(output.y, input.y, 1e-6f);
+  HS_EXPECT_NEAR(output.magnitude(), input.magnitude(), 1e-5f);
+}
+
+inline void test_dodecahedral_kaleidoscope_specialization() {
+  const Vector samples[] = {
+      Vector(-0.7f, 0.2f, -0.68f).normalized(),
+      Vector(0.1f, -0.9f, 0.42f).normalized(),
+      Vector(0.8f, 0.5f, -0.3f).normalized(),
+  };
+  for (const Vector &input : samples) {
+    const Vector generic = lenses::polyhedral_kaleidoscope_lens(
+        input, lenses::DODECAHEDRAL_MIRRORS);
+    const Vector specialized = lenses::dodecahedral_kaleidoscope_lens(input);
+    HS_EXPECT_VEC(specialized, generic, 1e-5f);
+  }
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -1383,6 +1419,9 @@ inline int run_3dmath_tests() {
   test_quintic_kernel();
   test_hash01();
   test_value_noise();
+  test_twist_lens();
+  test_kaleidoscope_lens();
+  test_dodecahedral_kaleidoscope_specialization();
 
   test_fast_atan2();
   test_diamond_angle();
