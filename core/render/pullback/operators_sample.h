@@ -29,7 +29,7 @@ struct GridSampleParams : Source::GridSourceParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
 
   static constexpr auto FIELDS = concat_fields<GridSampleParams>(
       Source::GridSourceParams::FIELDS,
@@ -42,7 +42,7 @@ struct GridSampleParams : Source::GridSourceParams {
           static_cast<uint8_t>(WeightMode::PROJECTION)},
       TopologyField<GridSampleParams>{
           "coverage-mode", &GridSampleParams::coverage_mode, COVERAGE_MODE_IDS,
-          4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+          4, static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
   };
 };
 static_assert(field_ids_unique<GridSampleParams>());
@@ -80,7 +80,7 @@ struct SampleGrid {
         static_cast<const Source::GridSourceParams &>(params), prepared);
     return Kernel::sample(
         input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
+        projection_coverage(params.coverage_mode, input.provenance,
                             params.edge_width, ctx));
   }
 };
@@ -90,7 +90,7 @@ struct TwinWaveSampleParams : Source::TwinWaveSourceParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
 
   static constexpr auto FIELDS = concat_fields<TwinWaveSampleParams>(
       Source::TwinWaveSourceParams::FIELDS,
@@ -103,7 +103,8 @@ struct TwinWaveSampleParams : Source::TwinWaveSourceParams {
           static_cast<uint8_t>(WeightMode::PROJECTION)},
       TopologyField<TwinWaveSampleParams>{
           "coverage-mode", &TwinWaveSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+          COVERAGE_MODE_IDS, 4,
+          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
   };
 };
 static_assert(field_ids_unique<TwinWaveSampleParams>());
@@ -139,7 +140,7 @@ struct SampleTwinWave {
         stereo_pattern_args(input.coords, params.pattern_freq), prepared);
     return Kernel::sample(
         input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
+        projection_coverage(params.coverage_mode, input.provenance,
                             params.edge_width, ctx));
   }
 };
@@ -151,7 +152,7 @@ struct RingsSampleParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
 
   static constexpr auto FIELDS = std::array{
       Field<RingsSampleParams>{"pattern-freq", &RingsSampleParams::pattern_freq,
@@ -167,7 +168,7 @@ struct RingsSampleParams {
           static_cast<uint8_t>(WeightMode::PROJECTION)},
       TopologyField<RingsSampleParams>{
           "coverage-mode", &RingsSampleParams::coverage_mode, COVERAGE_MODE_IDS,
-          4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+          4, static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
   };
 };
 static_assert(field_ids_unique<RingsSampleParams>());
@@ -200,7 +201,7 @@ struct SampleRings {
         stereo_pattern_args(input.coords, params.pattern_freq), prepared);
     return Kernel::sample(
         input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
+        projection_coverage(params.coverage_mode, input.provenance,
                             params.edge_width, ctx));
   }
 };
@@ -261,7 +262,7 @@ struct SpiralSampleParams : Source::SpiralSourceParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
 
   static constexpr auto FIELDS = concat_fields<SpiralSampleParams>(
       Source::SpiralSourceParams::FIELDS,
@@ -274,7 +275,8 @@ struct SpiralSampleParams : Source::SpiralSourceParams {
           static_cast<uint8_t>(WeightMode::PROJECTION)},
       TopologyField<SpiralSampleParams>{
           "coverage-mode", &SpiralSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+          COVERAGE_MODE_IDS, 4,
+          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
   };
 };
 static_assert(field_ids_unique<SpiralSampleParams>());
@@ -308,7 +310,7 @@ struct SampleSpiral {
         stereo_pattern_args(input.coords, params.pattern_freq), prepared);
     return Kernel::sample(
         input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
+        projection_coverage(params.coverage_mode, input.provenance,
                             params.edge_width, ctx));
   }
 };
@@ -318,7 +320,7 @@ struct LatticeSampleParams : Source::LatticeSourceParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
 
   static constexpr auto FIELDS = concat_fields<LatticeSampleParams>(
       Source::LatticeSourceParams::FIELDS,
@@ -331,7 +333,8 @@ struct LatticeSampleParams : Source::LatticeSourceParams {
           static_cast<uint8_t>(WeightMode::PROJECTION)},
       TopologyField<LatticeSampleParams>{
           "coverage-mode", &LatticeSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+          COVERAGE_MODE_IDS, 4,
+          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
   };
 };
 static_assert(field_ids_unique<LatticeSampleParams>());
@@ -354,7 +357,7 @@ struct SampleLattice : StatelessModel {
         input.coords, static_cast<const Source::LatticeSourceParams &>(params));
     return Kernel::sample(
         input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
+        projection_coverage(params.coverage_mode, input.provenance,
                             params.edge_width, ctx));
   }
 };
@@ -364,7 +367,7 @@ struct FractalSampleParams : Source::FractalSourceParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
 
   static constexpr auto FIELDS = concat_fields<FractalSampleParams>(
       Source::FractalSourceParams::FIELDS,
@@ -377,7 +380,8 @@ struct FractalSampleParams : Source::FractalSourceParams {
           static_cast<uint8_t>(WeightMode::PROJECTION)},
       TopologyField<FractalSampleParams>{
           "coverage-mode", &FractalSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+          COVERAGE_MODE_IDS, 4,
+          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
   };
 };
 static_assert(field_ids_unique<FractalSampleParams>());
@@ -412,7 +416,7 @@ struct SampleFractal {
         prepared);
     return Kernel::sample(
         input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
+        projection_coverage(params.coverage_mode, input.provenance,
                             params.edge_width, ctx));
   }
 };
@@ -425,7 +429,7 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
   uint8_t kind = static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR);
 
   static constexpr auto FIELDS = concat_fields<TessellationSampleParams>(
@@ -439,7 +443,8 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
           WEIGHT_MODE_IDS, 2, static_cast<uint8_t>(WeightMode::PROJECTION)},
       TopologyField<TessellationSampleParams>{
           "coverage-mode", &TessellationSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+          COVERAGE_MODE_IDS, 4,
+          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
       TopologyField<TessellationSampleParams>{
           "kind", &TessellationSampleParams::kind, TESSELLATION_KIND_IDS, 3,
           static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)},
@@ -477,7 +482,7 @@ struct SampleTessellation {
         static_cast<Source::TessellationKind>(params.kind), prepared);
     return Kernel::sample(
         input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
+        projection_coverage(params.coverage_mode, input.provenance,
                             params.edge_width, ctx));
   }
 };
@@ -487,7 +492,7 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
+  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
   uint8_t basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
 
   static constexpr auto FIELDS = concat_fields<ProjectedNoiseSampleParams>(
@@ -501,7 +506,8 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
           WEIGHT_MODE_IDS, 2, static_cast<uint8_t>(WeightMode::PROJECTION)},
       TopologyField<ProjectedNoiseSampleParams>{
           "coverage-mode", &ProjectedNoiseSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
+          COVERAGE_MODE_IDS, 4,
+          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
       TopologyField<ProjectedNoiseSampleParams>{
           "basis", &ProjectedNoiseSampleParams::basis, NOISE_BASIS_IDS, 3,
           static_cast<uint8_t>(::NoiseBasis::SIMPLEX)},
@@ -557,7 +563,7 @@ struct SampleProjectedNoise {
         params.noise_contrast);
     return Kernel::sample(
         input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
+        projection_coverage(params.coverage_mode, input.provenance,
                             params.edge_width, ctx));
   }
 };

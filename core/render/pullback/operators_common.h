@@ -109,7 +109,7 @@ struct SourceClockState {
 inline constexpr const char *NOISE_BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
 
 enum class WeightMode : uint8_t { NONE = 0, PROJECTION = 1 };
-enum class CoverageMode : uint8_t {
+enum class ProjectionCoverageMode : uint8_t {
   NONE = 0,
   WEIGHT = 1,
   WEIGHT_SQUARED = 2,
@@ -134,19 +134,19 @@ inline float weighted_field(uint8_t weight_mode, float raw,
 }
 
 /** @brief The Sample crossing's coverage switch over the shared policies. */
-inline float provenance_coverage(uint8_t coverage_mode,
+inline float projection_coverage(uint8_t coverage_mode,
                                  const ProjectionProvenance &provenance,
                                  float edge_width, const FrameContext &ctx) {
-  switch (static_cast<CoverageMode>(coverage_mode)) {
-  case CoverageMode::NONE:
-    return ProjectedCoverage::None::apply(provenance, ctx);
-  case CoverageMode::WEIGHT_SQUARED:
-    return ProjectedCoverage::WeightSquared::apply(provenance, ctx);
-  case CoverageMode::EDGE_FADE:
-    return ProjectedCoverage::edge_fade(provenance, edge_width);
-  case CoverageMode::WEIGHT:
+  switch (static_cast<ProjectionCoverageMode>(coverage_mode)) {
+  case ProjectionCoverageMode::NONE:
+    return ProjectionCoverage::None::apply(provenance, ctx);
+  case ProjectionCoverageMode::WEIGHT_SQUARED:
+    return ProjectionCoverage::WeightSquared::apply(provenance, ctx);
+  case ProjectionCoverageMode::EDGE_FADE:
+    return ProjectionCoverage::edge_fade(provenance, edge_width);
+  case ProjectionCoverageMode::WEIGHT:
   default:
-    return ProjectedCoverage::Weight::apply(provenance, ctx);
+    return ProjectionCoverage::Weight::apply(provenance, ctx);
   }
 }
 

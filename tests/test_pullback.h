@@ -374,8 +374,8 @@ inline void test_pullback_validation_predicates() {
 
   using ForeignBound = Pullback::PipelineValidation<
       TestBinding, EntryStage, CrossingStage, FieldCrossingStage,
-      Pullback::Stage::Coverage<
-          Pullback::Coverage::ValueCutout<ForeignValueState>>,
+      Pullback::Stage::ApplyCoverage<
+          Pullback::ValueCoverage::ValueCutout<ForeignValueState>>,
       ColorCrossingStage>;
   HS_EXPECT_FALSE(ForeignBound::BINDINGS);
 
@@ -644,18 +644,17 @@ struct PreparedColorPolicy : Pullback::ApproximationDefaults {
   }
 };
 
-using CountingPipeline =
-    Pullback::Pipeline<CountingBinding,
-                       Pullback::Stage::Rotate<CountingOrientationState>,
-                       Pullback::Stage::Displace<CountingSurfacePolicy>,
-                       Pullback::Stage::Lens<CountingLensPolicy>,
-                       Pullback::Stage::Project<CountingProjectionPolicy>,
-                       Pullback::Stage::Warp<CountingWarpPolicy>,
-                       Pullback::Stage::Sample<CountingSourcePolicy>,
-                       Pullback::Stage::Transfer<Pullback::Transfer::Ridge>,
-                       Pullback::Stage::Coverage<
-                           Pullback::Coverage::ValueCutout<CountingValueState>>,
-                       Pullback::Stage::Colorize<CountingColorPolicy>>;
+using CountingPipeline = Pullback::Pipeline<
+    CountingBinding, Pullback::Stage::Rotate<CountingOrientationState>,
+    Pullback::Stage::Displace<CountingSurfacePolicy>,
+    Pullback::Stage::Lens<CountingLensPolicy>,
+    Pullback::Stage::Project<CountingProjectionPolicy>,
+    Pullback::Stage::Warp<CountingWarpPolicy>,
+    Pullback::Stage::Sample<CountingSourcePolicy>,
+    Pullback::Stage::Transfer<Pullback::Transfer::Ridge>,
+    Pullback::Stage::ApplyCoverage<
+        Pullback::ValueCoverage::ValueCutout<CountingValueState>>,
+    Pullback::Stage::Colorize<CountingColorPolicy>>;
 
 inline void test_pullback_counting_instrumentation() {
   CountingInstrumentation::count = 0;
@@ -704,8 +703,8 @@ inline void test_pullback_prepared_stage_policies() {
   const auto transfer_prepared = BoundTransfer::prepare(frame);
   HS_EXPECT_EQ(BoundTransfer::run(field, frame, transfer_prepared).value, 0.5f);
 
-  using BoundCoverage =
-      Pullback::Stage::Coverage<PreparedCoveragePolicy>::Bind<CountingBinding>;
+  using BoundCoverage = Pullback::Stage::ApplyCoverage<
+      PreparedCoveragePolicy>::Bind<CountingBinding>;
   const auto coverage_prepared = BoundCoverage::prepare(frame);
   HS_EXPECT_EQ(BoundCoverage::run(field, frame, coverage_prepared).coverage,
                0.4f);
@@ -771,7 +770,7 @@ inline void test_pullback_stage_combinators() {
   HS_EXPECT_EQ(transferred.coverage, sampled.coverage);
 
   using BoundCoverage =
-      Pullback::Stage::Coverage<Pullback::Coverage::ValueCutout<
+      Pullback::Stage::ApplyCoverage<Pullback::ValueCoverage::ValueCutout<
           CountingValueState>>::Bind<CountingBinding>;
   const Pullback::FieldSample cut =
       BoundCoverage::run(sampled, frame, BoundCoverage::prepare(frame));
@@ -793,13 +792,13 @@ inline void test_pullback_provider_contracts() {
   static_assert(
       !Pullback::descriptor_bindable<
           Pullback::Stage::Rotate<CountingOrientationState>, TestBinding>());
-  static_assert(Pullback::ProjectedCoverage::EdgeFade<
+  static_assert(Pullback::ProjectionCoverage::EdgeFade<
                 ValueState>::PROVIDER_VALID<TestBinding>);
-  static_assert(!Pullback::ProjectedCoverage::EdgeFade<
+  static_assert(!Pullback::ProjectionCoverage::EdgeFade<
                 MalformedValueState>::PROVIDER_VALID<TestBinding>);
-  static_assert(
-      Pullback::Coverage::ValueCutout<ValueState>::PROVIDER_VALID<TestBinding>);
-  static_assert(!Pullback::Coverage::ValueCutout<
+  static_assert(Pullback::ValueCoverage::ValueCutout<
+                ValueState>::PROVIDER_VALID<TestBinding>);
+  static_assert(!Pullback::ValueCoverage::ValueCutout<
                 MalformedValueState>::PROVIDER_VALID<TestBinding>);
   HS_EXPECT_TRUE(std::is_empty_v<CountingOrientationState>);
   HS_EXPECT_TRUE(std::is_empty_v<ValueState>);

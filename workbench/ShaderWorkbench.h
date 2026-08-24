@@ -2505,13 +2505,13 @@ private:
 
   template <CoveragePolicy CoverageV>
   using CoveragePolicyFor = std::conditional_t<
-      CoverageV == CoveragePolicy::OPAQUE, Pullback::ProjectedCoverage::None,
+      CoverageV == CoveragePolicy::OPAQUE, Pullback::ProjectionCoverage::None,
       std::conditional_t<
           CoverageV == CoveragePolicy::EDGE_FADE,
-          Pullback::ProjectedCoverage::EdgeFade<ValueStateProvider>,
+          Pullback::ProjectionCoverage::EdgeFade<ValueStateProvider>,
           std::conditional_t<CoverageV == CoveragePolicy::PROJECTION_WEIGHT,
-                             Pullback::ProjectedCoverage::Weight,
-                             Pullback::ProjectedCoverage::WeightSquared>>>;
+                             Pullback::ProjectionCoverage::Weight,
+                             Pullback::ProjectionCoverage::WeightSquared>>>;
 
   template <Function FunctionV, ValueTransfer TransferV,
             CoveragePolicy CoverageV>
@@ -4401,12 +4401,12 @@ private:
           projected.provenance.value_weight * projected.provenance.value_weight;
       break;
     case CoveragePolicy::VALUE_CUTOUT:
-      coverage = Pullback::Coverage::value_cutout(
+      coverage = Pullback::ValueCoverage::value_cutout(
           value, frame.params.value.cutout_threshold,
           frame.params.value.cutout_softness);
       break;
     case CoveragePolicy::EDGE_FADE:
-      coverage = Pullback::ProjectedCoverage::edge_fade(
+      coverage = Pullback::ProjectionCoverage::edge_fade(
           projected.provenance, frame.params.value.edge_width);
       break;
     case CoveragePolicy::PROJECTION_WEIGHT:

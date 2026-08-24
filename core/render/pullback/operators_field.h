@@ -101,9 +101,9 @@ struct TransferSmoothBands
 };
 
 /** @brief Parameter family of field.coverage.value-cutout.v2. */
-struct ValueCutoutChainParams : Coverage::CutoutValueParams {
+struct ValueCutoutChainParams : ValueCoverage::CutoutValueParams {
   static constexpr auto FIELDS = concat_fields<ValueCutoutChainParams>(
-      Coverage::CutoutValueParams::FIELDS,
+      ValueCoverage::CutoutValueParams::FIELDS,
       std::array<Field<ValueCutoutChainParams>, 0>{});
 };
 static_assert(field_ids_unique<ValueCutoutChainParams>());
@@ -117,8 +117,8 @@ struct CoverageValueCutout
   static FieldSample run(const FieldSample &input, const FrameContext &,
                          const Params &params, const Prepared &) {
     return Kernel::coverage(
-        input, Coverage::value_cutout(input.value, params.cutout_threshold,
-                                      params.cutout_softness));
+        input, ValueCoverage::value_cutout(input.value, params.cutout_threshold,
+                                           params.cutout_softness));
   }
 };
 
