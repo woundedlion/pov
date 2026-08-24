@@ -137,6 +137,61 @@ concept PipelineFoldSurface = requires {
 template <int W, int H, typename... Filters> struct Pipeline;
 
 /**
+ * @brief Plot-capable state returned after a replacing terminal is flushed.
+ * @tparam PipelineT Owning pipeline type.
+ * @details Constructed only by Pipeline::begin_frame(). It has no flush
+ * operation, so the terminal flush cannot follow this state's plot calls.
+ */
+template <typename PipelineT> class PreparedTerminalFrame {
+  PipelineT &pipeline() { return static_cast<PipelineT &>(*this); }
+  const PipelineT &pipeline() const {
+    return static_cast<const PipelineT &>(*this);
+  }
+
+protected:
+  PreparedTerminalFrame() = default;
+  PreparedTerminalFrame(const PreparedTerminalFrame &) = default;
+  PreparedTerminalFrame(PreparedTerminalFrame &&) = default;
+
+public:
+  static constexpr bool is_pipeline = PipelineT::is_pipeline;
+  static constexpr bool direct_raster_path = PipelineT::direct_raster_path;
+  static constexpr bool any_crosses_segments = PipelineT::any_crosses_segments;
+  static constexpr bool any_reads_outside_band =
+      PipelineT::any_reads_outside_band;
+  static constexpr bool any_2d_history = PipelineT::any_2d_history;
+  static constexpr bool any_3d_history = PipelineT::any_3d_history;
+  static constexpr bool any_2d_trail_history = PipelineT::any_2d_trail_history;
+  static constexpr bool any_terminal_history = PipelineT::any_terminal_history;
+  static constexpr bool has_world_cull = PipelineT::has_world_cull;
+  static constexpr bool has_world_stage = PipelineT::has_world_stage;
+  static constexpr int segment_margin = PipelineT::segment_margin;
+  static constexpr int total_segment_margin = PipelineT::total_segment_margin;
+
+  void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
+            float alpha) {
+    pipeline().plot_prepared(cv, x, y, c, age, alpha);
+  }
+
+  void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
+            float alpha) {
+    pipeline().plot_prepared(cv, x, y, c, age, alpha);
+  }
+
+  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
+            float alpha) {
+    pipeline().plot_prepared(cv, v, c, age, alpha);
+  }
+
+  template <typename Pred>
+  bool could_intersect_clip(const Vector &a, const Vector &b,
+                            const Basis *planar_basis, Pred &&pred) const {
+    return pipeline().could_intersect_clip(a, b, planar_basis,
+                                           std::forward<Pred>(pred));
+  }
+};
+
+/**
  * @brief Probe callable for the has_world_cull detection below.
  */
 struct PipelineCullEdgeProbe {
@@ -160,6 +215,8 @@ inline constexpr bool has_cull_edge =
  */
 HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
+  template <int, int, typename...> friend struct Pipeline;
+
   static constexpr int domain_rank = 2;
   static constexpr bool is_2d = true;
   static constexpr bool is_pipeline = true;
@@ -286,6 +343,12 @@ template <int W, int H> struct Pipeline<W, H> {
     plot(cv, p.x, p.y, c, age, alpha);
   }
 
+private:
+  template <typename... Args> void plot_prepared(Canvas &cv, Args &&...args) {
+    plot(cv, std::forward<Args>(args)...);
+  }
+
+public:
   /**
    * @brief Trail flush (base case: no stage to flush).
    * @tparam TrailFn ScreenTrailFn or WorldTrailFn.
@@ -340,7 +403,12 @@ HS_O3_END
  * @tparam Tail Remaining filter stages.
  */
 template <int W, int H, typename Head, typename... Tail>
-struct Pipeline<W, H, Head, Tail...> : private Head {
+struct Pipeline<W, H, Head, Tail...>
+    : private Head,
+      private PreparedTerminalFrame<Pipeline<W, H, Head, Tail...>> {
+  template <typename> friend class PreparedTerminalFrame;
+  template <int, int, typename...> friend struct Pipeline;
+
   using Next = Pipeline<W, H, Tail...>;
   Next next;
 
@@ -467,6 +535,27 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
     }
   }
 
+  void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
+            float alpha)
+    requires(!terminal_replaces)
+  {
+    plot_prepared(cv, x, y, c, age, alpha);
+  }
+
+  void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age, float alpha)
+    requires(!terminal_replaces)
+  {
+    plot_prepared(cv, x, y, c, age, alpha);
+  }
+
+  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
+            float alpha)
+    requires(!terminal_replaces)
+  {
+    plot_prepared(cv, v, c, age, alpha);
+  }
+
+private:
   /**
    * @brief Routes a float-coordinate 2D plot through Head, else converts to 3D.
    * @param cv Target canvas.
@@ -478,17 +567,17 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    * @details If Head is 2D it processes directly; otherwise the point is lifted
    * to a world vector and dispatched to the 3D path.
    */
-  void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
-            float alpha) {
+  void plot_prepared(Canvas &cv, float x, float y, const ::Pixel &c, float age,
+                     float alpha) {
     if constexpr (Head::is_2d) {
       Head::plot(
           x, y, c, age, alpha,
           [&](float nx, float ny, const ::Pixel &nc, float nage, float nalpha) {
-            next.plot(cv, nx, ny, nc, nage, nalpha);
+            next.plot_prepared(cv, nx, ny, nc, nage, nalpha);
           });
     } else {
       Vector v = pixel_to_vector<W, H>(x, y);
-      plot(cv, v, c, age, alpha);
+      plot_prepared(cv, v, c, age, alpha);
     }
   }
 
@@ -504,9 +593,10 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    * a filtered pipeline promotes to float so the int sample takes the same path
    * as every filter stage. Both agree for in-range ints.
    */
-  void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
-            float alpha) {
-    plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
+  void plot_prepared(Canvas &cv, int x, int y, const ::Pixel &c, float age,
+                     float alpha) {
+    plot_prepared(cv, static_cast<float>(x), static_cast<float>(y), c, age,
+                  alpha);
   }
 
   /**
@@ -519,18 +609,21 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    * @details If Head is 3D it processes directly; otherwise the point is
    * projected to screen space and dispatched to the 2D path.
    */
-  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
-            float alpha) {
+  void plot_prepared(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
+                     float alpha) {
     if constexpr (!Head::is_2d) {
-      Head::plot(v, c, age, alpha,
-                 [&](const Vector &nv, const ::Pixel &nc, float nage,
-                     float nalpha) { next.plot(cv, nv, nc, nage, nalpha); });
+      Head::plot(
+          v, c, age, alpha,
+          [&](const Vector &nv, const ::Pixel &nc, float nage, float nalpha) {
+            next.plot_prepared(cv, nv, nc, nage, nalpha);
+          });
     } else {
       auto p = vector_to_pixel<W, H>(v);
-      plot(cv, p.x, p.y, c, age, alpha);
+      plot_prepared(cv, p.x, p.y, c, age, alpha);
     }
   }
 
+public:
   /**
    * @brief Clip-cull: routes the edge through Head's world transform, then Tail.
    * @tparam Pred Predicate `bool(const Vector&, const Vector&, const Basis*)`.
@@ -702,7 +795,9 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    * @details For pipelines whose only history is terminal (Pixel::Feedback):
    * a terminal composites into the Canvas itself and needs no trail callback.
    */
-  void flush(Canvas &cv, float alpha) {
+  void flush(Canvas &cv, float alpha)
+    requires(!terminal_replaces)
+  {
     static_assert(
         any_terminal_history,
         "Wrong flush() domain: this Pipeline has no terminal history stage, so "
@@ -719,6 +814,19 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
         "buffer fills to capacity and never decays. Pass both callbacks: "
         "flush(cv, worldTrailFn, screenTrailFn, alpha).");
     flush_stages(cv, alpha);
+  }
+
+  /**
+   * @brief Flushes a replacing terminal and returns the plot-capable frame.
+   * @param cv Target canvas.
+   * @param alpha Global blend alpha in [0, 1].
+   * @return State through which this frame's plot calls are made.
+   */
+  PreparedTerminalFrame<Pipeline> &begin_frame(Canvas &cv, float alpha)
+    requires(terminal_replaces)
+  {
+    flush_stages(cv, alpha);
+    return *this;
   }
 
   /**

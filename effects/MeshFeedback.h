@@ -191,17 +191,16 @@ public:
       timeline.step(canvas);
     }
 
-    {
-      // Feedback-buffer warp/tap + decay flush.
+    auto &frame_filters = [&]() -> decltype(auto) {
       HS_PROFILE(mf_feedback_flush);
-      filters.flush(canvas, 1.0f);
-    }
+      return filters.begin_frame(canvas, 1.0f);
+    }();
 
     {
       HS_PROFILE(mf_mesh_draw);
       const Color4 shade = mesh_shade;
       Plot::Mesh::draw<W, H>(
-          filters, canvas, mesh, edges,
+          frame_filters, canvas, mesh, edges,
           [&](const Vector &, Fragment &f) { f.color = shade; });
     }
   }

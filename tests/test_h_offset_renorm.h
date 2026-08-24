@@ -198,7 +198,7 @@ inline void test_feedback_bottom_row_rotates_in_longitude() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 

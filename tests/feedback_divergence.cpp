@@ -123,7 +123,7 @@ struct Run {
     noise.time += 1.0f / 16.0f;
     {
       Canvas c(fx);
-      pipe.flush(c, 1.0f);
+      (void)pipe.begin_frame(c, 1.0f);
       emit(c, frame);
     }
     fx.advance_display();
