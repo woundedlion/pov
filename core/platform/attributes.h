@@ -61,11 +61,9 @@
 // HS_COLD: keep a setup-only function off the fast ITCM banks. FLASHMEM routes it
 // to FLASH; noinline collapses per-call-site inline copies and noclone blocks the
 // .constprop/.isra IPA clones (which drop the section attribute and land in ITCM
-// regardless). Apply ONLY to internal-linkage (`static`) free functions on cold
-// paths (mesh/solid construction): a section attribute on a COMDAT (inline/template
-// member) function is a section-type conflict. Off-device it degrades to a no-op.
-// HS_FLASH_MEMBER is the COMDAT-safe variant for inline/template member
-// functions: GCC's `cold` attribute supplies a unique .text.unlikely.* section,
+// regardless). Apply to free functions on cold paths (mesh/solid construction).
+// Off-device it degrades to a no-op. HS_FLASH_MEMBER is the inline/template
+// member variant: GCC's `cold` attribute supplies a unique .text.unlikely.* section,
 // and tools/phantasm.ld routes that section to FLASH. HS_HOT_FLASH_MEMBER uses
 // the corresponding .text.hot.* route for measured hot code that executes from
 // cached flash without telling the optimizer it is cold. HS_COLD_MEMBER names the
