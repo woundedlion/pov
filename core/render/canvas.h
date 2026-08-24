@@ -231,6 +231,7 @@ public:
     clip_region.y_end = y1;
     clip_region.x_start = x0;
     clip_region.x_end = x1;
+    update_render_clip();
   }
   /**
    * @brief Update only the horizontal clip band, leaving the y bounds intact.
@@ -246,6 +247,7 @@ public:
              "set_clip_x band must be non-inverted and within canvas width");
     clip_region.x_start = x0;
     clip_region.x_end = x1;
+    update_render_clip();
   }
   /**
    * @brief Effect sets render margin for stateful filters.
@@ -260,6 +262,7 @@ public:
     HS_CHECK(m >= 0 && m < clip_region.w,
              "render margin must be in [0, canvas width)");
     clip_region.margin = m;
+    update_render_clip();
   }
 
   /**
@@ -995,7 +998,16 @@ private:
   int frame_width;          /**< The width of the effect. */
   int frame_height;         /**< The height of the effect. */
   ClipRegion clip_region; /**< Segment clip region (display + render margin). */
+  ClipRegion::XClip render_x_clip{};
+  int render_y_start = 0;
+  int render_y_end = 0;
   bool canvas_active = false; /**< A Canvas is currently drawing a frame. */
+
+  void update_render_clip() {
+    render_x_clip = clip_region.x_clip();
+    render_y_start = clip_region.render_y_start();
+    render_y_end = clip_region.render_y_end();
+  }
 
   void check_clip_mutable() const {
     HS_CHECK(!canvas_active, "clip cannot change while a frame is active");
@@ -1145,6 +1157,16 @@ public:
    */
   [[nodiscard]] inline const ClipRegion &clip() const {
     return effect.clip_region;
+  }
+
+  /** @brief Tests a column against the frame's cached render clip. */
+  [[nodiscard]] inline bool clip_contains_x(int x) const {
+    return !effect.render_x_clip.clipped(x);
+  }
+
+  /** @brief Tests a row against the frame's cached render clip. */
+  [[nodiscard]] inline bool clip_contains_y(int y) const {
+    return y >= effect.render_y_start && y < effect.render_y_end;
   }
 
   /**

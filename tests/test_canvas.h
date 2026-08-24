@@ -1274,6 +1274,36 @@ inline void test_clip_setters() {
   HS_EXPECT_EQ(fx.clip().margin, 3);
 }
 
+/** @brief Cached Canvas render bounds match ClipRegion containment. */
+inline void test_canvas_cached_render_clip_matches_region() {
+  constexpr int W = 8;
+  constexpr int H = 4;
+  struct ClipCase {
+    int y0, y1, x0, x1, margin;
+  };
+  constexpr std::array<ClipCase, 5> CASES{{
+      {0, H, 0, W, 0},
+      {1, 3, 2, 6, 0},
+      {1, 3, 0, 2, 2},
+      {2, 2, 4, 4, 0},
+      {1, 2, 3, 4, 4},
+  }};
+
+  TestEffect fx(W, H);
+  for (const ClipCase &c : CASES) {
+    fx.set_clip(c.y0, c.y1, c.x0, c.x1);
+    fx.set_margin(c.margin);
+    {
+      Canvas canvas(fx);
+      for (int x = 0; x < W; ++x)
+        HS_EXPECT_EQ(canvas.clip_contains_x(x), canvas.clip().contains_x(x));
+      for (int y = -1; y <= H; ++y)
+        HS_EXPECT_EQ(canvas.clip_contains_y(y), canvas.clip().contains_y(y));
+    }
+    fx.advance_display();
+  }
+}
+
 /**
  * @brief Verifies EffectConfig::margin reaches ClipRegion::margin, floored at
  *        the ClipRegion default.
@@ -1400,6 +1430,7 @@ inline int run_canvas_tests() {
   test_paramlist_fills_to_capacity();
   test_paramlist_schema_generation();
   test_clip_setters();
+  test_canvas_cached_render_clip_matches_region();
   test_effect_config_margin();
   test_pipeline_ref_routes_screen_coordinate_overloads();
   test_pipeline_ref_copy_is_independent_of_source();
