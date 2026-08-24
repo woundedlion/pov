@@ -53,6 +53,7 @@ public:
     assert(age >= 0.0f && alpha >= 0.0f);
     // Non-finite x makes the int cast below UB and bypasses the wrap.
     assert(std::isfinite(x));
+    assert(x > -W - 0.5f && x < 2 * W - 0.5f);
     pass(x, y, c, age, alpha);
 
     ::Pixel r_col = c;

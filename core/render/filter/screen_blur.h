@@ -65,6 +65,7 @@ public:
             PassFnT &&pass) {
     // Non-finite coords make the int casts below UB and bypass the wrap.
     assert(std::isfinite(x) && std::isfinite(y));
+    assert(x > -W - 0.5f && x < 2 * W - 0.5f);
     // y never wraps; bounded only so the cast below stays in range.
     assert(y >= -H && y < 2 * H);
     const float xr = std::round(x);
