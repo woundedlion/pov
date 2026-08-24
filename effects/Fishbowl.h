@@ -12,6 +12,8 @@
  */
 
 #include "core/engine/engine.h"
+#include <array>
+#include <string_view>
 
 // Unit-test accessor reaching the private node so a test can count the vertices
 // deep_tween emits against the MAX_FRAGMENTS the scratch split is sized for.
@@ -36,6 +38,7 @@ struct FishbowlWhiteBox;
  */
 template <int W, int H> class Fishbowl : public Effect {
 public:
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"fire-trail"};
   static constexpr int TRAIL_LENGTH = 115;
   static constexpr int ORIENTATION_SUBSTEPS = 16;
   static constexpr int MAX_FRAGMENTS = 2 * TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
@@ -104,7 +107,7 @@ public:
    * @details Sets up the random walk, path motion, and cycle driver animations.
    */
   void init() override {
-
+    configure_presets(PRESET_IDS.size());
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     noise_xform.init_storage(persistent_arena);
@@ -229,6 +232,11 @@ public:
   }
 
 private:
+  HS_COLD_MEMBER bool apply_preset(const PresetChange &) override {
+    params = PRESET;
+    return true;
+  }
+
   friend struct ::hs_test::effects_tests::FishbowlWhiteBox;
 
   struct DutyCycleModifier {
