@@ -590,7 +590,7 @@ private:
    * no flywheel, flip, or epoch state (spec §8.2 single-writer model). It runs
    * above the flywheel ISR (SYNC_EDGE_IRQ_PRIORITY) so the captured cycle count
    * is the edge time rather than a service time; that preemption is also what
-   * makes the consumer's __disable_irq() bracket around the mailbox claim
+   * makes the consumer's interrupt-save bracket around the mailbox claim
    * load-bearing.
    */
   static void sync_edge_isr() { sync.on_sync_edge(ARM_DWT_CYCCNT); }
@@ -616,11 +616,11 @@ private:
             const uint32_t gap_timeout = sync.gap_timeout_cycles();
             const uint32_t max_burst = sync.max_burst_cycles();
             const uint32_t glitch_filter = sync.glitch_filter_cycles();
-            __disable_irq();
+            const uint32_t primask = hs::save_disable_interrupts();
             if (sync.mailbox().try_claim(now, gap_timeout, max_burst, &burst))
               bp = &burst;
             sync.mailbox().age_prior(now, glitch_filter);
-            __enable_irq();
+            hs::restore_interrupts(primask);
           }
           return sync.tick(now, bp);
         },
