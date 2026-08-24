@@ -104,6 +104,24 @@ inline void test_lerp16_bounded() {
   }
 }
 
+inline void test_color4_lerp_straight_alpha() {
+  const Color4 transparent_red(Pixel(65535, 0, 0), 0.0f);
+  const Color4 opaque_blue(Pixel(0, 0, 65535), 1.0f);
+
+  const Color4 midpoint = transparent_red.lerp(opaque_blue, 0.5f);
+  HS_EXPECT_NEAR(static_cast<float>(midpoint.color.r), 32768.0f, 1.0f);
+  HS_EXPECT_EQ(midpoint.color.g, 0);
+  HS_EXPECT_NEAR(static_cast<float>(midpoint.color.b), 32768.0f, 1.0f);
+  HS_EXPECT_NEAR(midpoint.alpha, 0.5f, 1e-6f);
+
+  const Color4 before = transparent_red.lerp(opaque_blue, -1.0f);
+  const Color4 after = transparent_red.lerp(opaque_blue, 2.0f);
+  HS_EXPECT_EQ(before.color.r, transparent_red.color.r);
+  HS_EXPECT_NEAR(before.alpha, transparent_red.alpha, 1e-6f);
+  HS_EXPECT_EQ(after.color.b, opaque_blue.color.b);
+  HS_EXPECT_NEAR(after.alpha, opaque_blue.alpha, 1e-6f);
+}
+
 /**
  * @brief Round-to-nearest div-by-65535 lerp reference computed in double.
  * @param a First endpoint channel value in [0, 65535].
@@ -2336,6 +2354,7 @@ inline int run_color_tests() {
   test_lerp16_endpoints();
   test_lerp16_midpoint();
   test_lerp16_rounds_to_nearest();
+  test_color4_lerp_straight_alpha();
   test_lerp16_full_range_correct();
   test_lerp16_bounded();
 
