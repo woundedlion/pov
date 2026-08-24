@@ -160,7 +160,7 @@ EXCLUDE_VAL_SUBSTR = ("Teensy",)
 ASSEMBLY_SIDE = "top"
 MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
 MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
-MIN_VIA_COPPER_SPACING_MM = 0.15
+MIN_VIA_TO_VIA_COPPER_SPACING_MM = 0.15
 # Smallest copper feature the fab resolves (4 mil), matching the board's
 # min_clearance. Applies to pour fill features as well as tracks.
 MIN_ZONE_FEATURE_MM = RULE_MINIMUMS["min_clearance"]
@@ -623,11 +623,11 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
                 math.hypot(x2 - x1, y2 - y1)
                 - (diameter1 + diameter2) / 2
             )
-            if spacing_mm + 1e-9 < MIN_VIA_COPPER_SPACING_MM:
+            if spacing_mm + 1e-9 < MIN_VIA_TO_VIA_COPPER_SPACING_MM:
                 diagnostics.append(
                     f"vias at {x1:g},{y1:g} and {x2:g},{y2:g}: "
-                    f"{spacing_mm:g} mm copper spacing is below "
-                    f"{MIN_VIA_COPPER_SPACING_MM:g} mm")
+                    f"{spacing_mm:g} mm via-to-via copper spacing is below "
+                    f"{MIN_VIA_TO_VIA_COPPER_SPACING_MM:g} mm")
 
     if diagnostics:
         raise ViaGeometryError(
@@ -813,8 +813,9 @@ def main():
     print(
         f"  via geometry: {num_vias} vias meet "
         f"{MIN_STANDARD_VIA_DIAMETER_MM:g}/"
-        f"{MIN_STANDARD_VIA_DRILL_MM:g} mm minimum and "
-        f"{MIN_VIA_COPPER_SPACING_MM:g} mm copper spacing")
+        f"{MIN_STANDARD_VIA_DRILL_MM:g} mm diameter/drill minimum and "
+        f"{MIN_VIA_TO_VIA_COPPER_SPACING_MM:g} mm minimum via-to-via "
+        "copper spacing")
     print("[3/9] Zone geometry")
     try:
         num_zones = validate_zone_geometry(PCB, board=board)
