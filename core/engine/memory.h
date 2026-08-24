@@ -148,17 +148,22 @@ public:
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
     HS_CHECK(size > 0, "Arena::allocate: zero-size request");
     HS_CHECK(align != 0 && (align & (align - 1)) == 0,
-             "Arena::allocate: alignment %zu is not a power of two", align);
+             "Arena::allocate: alignment %lu is not a power of two",
+             static_cast<unsigned long>(align));
     uintptr_t current = reinterpret_cast<uintptr_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
     // Subtractive form: offset <= capacity is invariant, so it cannot wrap the
     // way `offset + padding + size > capacity` would for a colossal `size`.
     if (padding > capacity - offset || size > capacity - offset - padding) {
-      hs::log("[OOM] Arena: req %zu, offset %zu, pad %zu / cap %zu "
-              "(move-assign dropped %zu B in %zu blocks, all arenas since "
+      hs::log("[OOM] Arena: req %lu, offset %lu, pad %lu / cap %lu "
+              "(move-assign dropped %lu B in %lu blocks, all arenas since "
               "boot, reclaims not subtracted)",
-              size, offset, padding, capacity, arena_vector_abandoned_bytes(),
-              arena_vector_abandon_count());
+              static_cast<unsigned long>(size),
+              static_cast<unsigned long>(offset),
+              static_cast<unsigned long>(padding),
+              static_cast<unsigned long>(capacity),
+              static_cast<unsigned long>(arena_vector_abandoned_bytes()),
+              static_cast<unsigned long>(arena_vector_abandon_count()));
       HS_CHECK(false, "Arena::allocate: out of memory");
     }
     offset += padding;
@@ -282,8 +287,9 @@ public:
    */
   void set_offset(size_t new_offset) {
     HS_CHECK(new_offset <= offset,
-             "Arena::set_offset: %zu is not a rewind from %zu", new_offset,
-             offset);
+             "Arena::set_offset: %lu is not a rewind from %lu",
+             static_cast<unsigned long>(new_offset),
+             static_cast<unsigned long>(offset));
 #ifndef NDEBUG
     if (new_offset < offset) {
       last_rewind_target = new_offset;
@@ -1296,8 +1302,9 @@ public:
    */
   ~ScratchScope() {
     HS_CHECK(arena.get_offset() >= saved_offset,
-             "ScratchScope: non-LIFO teardown — arena at %zu, saved %zu",
-             arena.get_offset(), saved_offset);
+             "ScratchScope: non-LIFO teardown — arena at %lu, saved %lu",
+             static_cast<unsigned long>(arena.get_offset()),
+             static_cast<unsigned long>(saved_offset));
     arena.set_offset(saved_offset);
   }
 
