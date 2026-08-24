@@ -100,7 +100,7 @@ committed board directly need no KiCad and run in CI
   J1's footprint on both artifacts, which the assembly gate cannot see because
   `EXCLUDE_FP_SUBSTR` excludes every hand-soldered connector spelling.
 - **Count-floor ratchets:** `gen/fab.py` rejects a board carrying fewer than
-  100 vias or fewer than 2 copper pours — floors pinned to what the committed
+  99 vias or fewer than 2 copper pours — floors pinned to what the committed
   routed board holds (both counts are in the facts block below; the pours are
   the In1/In2 reference planes, and the mounting-hole keepout rule areas are
   counted separately because they pour no copper). Neither floor updates
@@ -301,7 +301,7 @@ The committed routed PCB is the source of truth for these facts. Refresh this bl
 | Board thickness | 1.6 mm |
 | Footprints by side | 32 (F.Cu: 32, B.Cu: 0) |
 | Track segments | 339 |
-| Vias | 100 |
+| Vias | 99 |
 | Copper pours | 2 (In1.Cu: 1, In2.Cu: 1) |
 | Keepout rule areas | 4 (F.Cu: 4, In1.Cu: 4, In2.Cu: 4, B.Cu: 4) |
 | Copper layers | 4 (F.Cu, In1.Cu, In2.Cu, B.Cu) |

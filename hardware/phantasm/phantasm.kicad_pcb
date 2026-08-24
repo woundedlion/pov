@@ -10702,14 +10702,6 @@
 		(uuid "5c88cca3-fb5a-49e6-aa6c-16fcc6c3a0ee")
 	)
 	(via
-		(at 23.984134 22.910562)
-		(size 0.45)
-		(drill 0.2)
-		(layers "F.Cu" "B.Cu")
-		(net "/MASTER_EN")
-		(uuid "dc54cedd-1637-40ef-9c7a-84c908f2bc7f")
-	)
-	(via
 		(at 16.340002 22.506187)
 		(size 0.45)
 		(drill 0.2)
