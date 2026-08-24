@@ -4408,21 +4408,16 @@ private:
     case ValueTransfer::NONE:
       break;
     case ValueTransfer::RIDGE:
-      value = 1.0f - fabsf(2.0f * value - 1.0f);
+      value = unit_bell(value);
       break;
-    case ValueTransfer::ISO_CONTOUR: {
-      const float distance = fabsf(value - frame.params.value.iso_level);
-      value = 1.0f - smooth_ramp(frame.params.value.iso_width,
-                                 2.0f * frame.params.value.iso_width, distance);
+    case ValueTransfer::ISO_CONTOUR:
+      value = Pullback::Transfer::iso_contour(
+          value, frame.params.value.iso_level, frame.params.value.iso_width);
       break;
-    }
     case ValueTransfer::SMOOTH_BANDS:
-      value =
-          0.5f -
-          0.5f * cosf(TWO_PI_F *
-                          static_cast<float>(frame.params.value.band_count) *
-                          value +
-                      frame.params.value.band_phase);
+      value = Pullback::Transfer::smooth_bands(
+          value, static_cast<float>(frame.params.value.band_count),
+          frame.params.value.band_phase);
       break;
     }
     float coverage = 1.0f;
@@ -4434,18 +4429,13 @@ private:
           projected.provenance.value_weight * projected.provenance.value_weight;
       break;
     case CoveragePolicy::VALUE_CUTOUT:
-      coverage = smooth_ramp(frame.params.value.cutout_threshold -
-                                 frame.params.value.cutout_softness,
-                             frame.params.value.cutout_threshold +
-                                 frame.params.value.cutout_softness,
-                             value);
+      coverage = Pullback::Coverage::value_cutout(
+          value, frame.params.value.cutout_threshold,
+          frame.params.value.cutout_softness);
       break;
     case CoveragePolicy::EDGE_FADE:
-      coverage = frame.params.value.edge_width == 0.0f
-                     ? static_cast<float>(
-                           projected.provenance.fade_edge_distance > 0.0f)
-                     : smooth_ramp(0.0f, frame.params.value.edge_width,
-                                   projected.provenance.fade_edge_distance);
+      coverage = Pullback::ProjectedCoverage::edge_fade(
+          projected.provenance, frame.params.value.edge_width);
       break;
     case CoveragePolicy::PROJECTION_WEIGHT:
       coverage = projected.provenance.value_weight;
