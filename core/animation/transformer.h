@@ -349,14 +349,9 @@ private:
   void check_storage_alive() const {
     constexpr size_t ENTITY_BYTES = CAPACITY * sizeof(Entity);
     constexpr size_t SLOT_BYTES = CAPACITY * sizeof(int);
-    assert(!stamp.arena_reset() && "TransformerPool use-after-free!");
-    assert(!stamp.block_uncovered(entities, ENTITY_BYTES) &&
-           !stamp.block_uncovered(active_slots, SLOT_BYTES) &&
-           "TransformerPool use-after-free (arena rewound below block)!");
-    assert(!stamp.block_reissued(entities, ENTITY_BYTES) &&
-           !stamp.block_reissued(active_slots, SLOT_BYTES) &&
-           "TransformerPool use-after-free (slots reclaimed by a rewind and "
-           "reissued)!");
+    assert(stamp.block_alive(entities, ENTITY_BYTES) &&
+           stamp.block_alive(active_slots, SLOT_BYTES) &&
+           "TransformerPool use-after-free!");
   }
 #else
   /**
