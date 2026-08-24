@@ -535,6 +535,10 @@ struct ShaderWorkbenchWhiteBox {
                 SB::template SelectedWarpStage<Inner, false>::implements(key);
     return matches;
   }
+  template <CoveragePolicy CoverageV>
+  static constexpr Pullback::ProjectionCoverageMode projection_coverage_mode() {
+    return SB::template ProjectionCoverageMapping<CoverageV>::MODE;
+  }
   static size_t inverse_program_count() {
     return SB::inverse_programs().size();
   }
@@ -745,6 +749,23 @@ struct ShaderWorkbenchWhiteBox {
     return sb.visible_palette_chroma();
   }
 };
+
+static_assert(std::is_same_v<ShaderWorkbenchWhiteBox::HueShiftMode,
+                             Pullback::Color::HueMode>);
+static_assert(ShaderWorkbenchWhiteBox::projection_coverage_mode<
+                  ShaderWorkbenchWhiteBox::CoveragePolicy::OPAQUE>() ==
+              Pullback::ProjectionCoverageMode::NONE);
+static_assert(
+    ShaderWorkbenchWhiteBox::projection_coverage_mode<
+        ShaderWorkbenchWhiteBox::CoveragePolicy::PROJECTION_WEIGHT>() ==
+    Pullback::ProjectionCoverageMode::WEIGHT);
+static_assert(
+    ShaderWorkbenchWhiteBox::projection_coverage_mode<
+        ShaderWorkbenchWhiteBox::CoveragePolicy::PROJECTION_WEIGHT_SQUARED>() ==
+    Pullback::ProjectionCoverageMode::WEIGHT_SQUARED);
+static_assert(ShaderWorkbenchWhiteBox::projection_coverage_mode<
+                  ShaderWorkbenchWhiteBox::CoveragePolicy::EDGE_FADE>() ==
+              Pullback::ProjectionCoverageMode::EDGE_FADE);
 
 inline uint32_t shader_workbench_float_payload(float value) {
   uint32_t payload;
