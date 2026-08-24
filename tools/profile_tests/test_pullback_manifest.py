@@ -135,6 +135,15 @@ def _test_manifest():
     return programs, generator.manifest_sha256(programs, oracles, schema)
 
 
+@contextlib.contextmanager
+def _staged_manifest():
+    with tempfile.TemporaryDirectory() as directory:
+        staged = Path(directory)
+        for source in MANIFEST_DIR.glob("*.json"):
+            shutil.copy(source, staged / source.name)
+        yield staged
+
+
 class ManifestValidation(unittest.TestCase):
     def test_generator_main_returns_success_for_validation(self):
         self.assertEqual(generator.main([
@@ -179,17 +188,33 @@ class ManifestValidation(unittest.TestCase):
         self.assertIn("header generation failed", stderr.getvalue())
         self.assertIn("aggregation", stderr.getvalue())
 
-    def test_manifest_completeness_is_checked(self):
+    def test_program_completeness_is_checked_through_loader(self):
         programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
         broken = copy.deepcopy(programs)
-        broken["programs"][0]["parameter_cases"].pop()
-        with tempfile.TemporaryDirectory() as directory:
-            manifest_dir = Path(directory)
-            for source in MANIFEST_DIR.glob("*.json"):
-                shutil.copy(source, manifest_dir / source.name)
+        broken["programs"] = broken["programs"][:1]
+        broken["programs"][0]["presets"] = [0]
+        with _staged_manifest() as manifest_dir:
             path = manifest_dir / "programs.json"
             path.write_text(json.dumps(broken), encoding="utf-8")
-            with self.assertRaises(generator.ManifestError):
+            with self.assertRaisesRegex(
+                generator.ManifestError, "presets must be covered exactly once"
+            ):
+                generator.load_and_validate(manifest_dir)
+
+    def test_common_constraints_are_checked_through_loader(self):
+        with _staged_manifest() as manifest_dir:
+            schema_path = manifest_dir / "schema.json"
+            schema = generator._load(schema_path)
+            schema["$defs"]["sha"]["pattern"] = ".*"
+            schema_path.write_text(json.dumps(schema), encoding="utf-8")
+            for name in ("programs.json", *generator.ORACLE_FILES):
+                path = manifest_dir / name
+                document = generator._load(path)
+                document["base_sha"] = "invalid"
+                path.write_text(json.dumps(document), encoding="utf-8")
+            with self.assertRaisesRegex(
+                generator.ManifestError, "base_sha must be a full lowercase Git SHA"
+            ):
                 generator.load_and_validate(manifest_dir)
 
     def test_nested_schema_rejects_unknown_fields(self):
@@ -224,8 +249,6 @@ class ManifestValidation(unittest.TestCase):
             with self.subTest(field=".".join(field_path)):
                 with self.assertRaises(generator.ManifestError):
                     generator._validate_schema(broken, schema, schema, "programs")
-                with self.assertRaises(generator.ManifestError):
-                    generator._validate_programs(broken, MANIFEST_DIR / "programs.json")
         for keyword in ("const", "enum"):
             rule = {keyword: 1 if keyword == "const" else [1]}
             with self.subTest(keyword=keyword):
@@ -274,10 +297,7 @@ class ManifestValidation(unittest.TestCase):
                     generator._validate_schema_shape(broken, path)
 
     def test_gutted_schema_directory_is_refused(self):
-        with tempfile.TemporaryDirectory() as directory:
-            staged = Path(directory)
-            for name in ("programs.json", *generator.ORACLE_FILES):
-                (staged / name).write_bytes((MANIFEST_DIR / name).read_bytes())
+        with _staged_manifest() as staged:
             (staged / "schema.json").write_text(
                 json.dumps({"$schema": generator.SCHEMA_DRAFT, "$defs": {}}),
                 encoding="utf-8",
@@ -298,17 +318,18 @@ class ManifestValidation(unittest.TestCase):
             generator.generate_header(programs, oracles, relaxed),
         )
 
-    def test_framebuffer_configuration_baseline_aggregation_is_checked(self):
+    def test_oracle_aggregation_is_checked_through_loader(self):
         _, oracles, _ = generator.load_and_validate(MANIFEST_DIR)
         broken = copy.deepcopy(oracles[1])
         framebuffer = next(
             metric for metric in broken["metrics"] if metric["domain"] == "FRAMEBUFFER"
         )
         framebuffer["configuration_baselines"]["native-debug"] += 2
-        with self.assertRaisesRegex(generator.ManifestError, "aggregate"):
-            generator._validate_oracle(
-                broken, MANIFEST_DIR / "hue_rotation_noise_luts.json"
-            )
+        with _staged_manifest() as manifest_dir:
+            path = manifest_dir / "hue_rotation_noise_luts.json"
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with self.assertRaisesRegex(generator.ManifestError, "aggregate"):
+                generator.load_and_validate(manifest_dir)
 
 
 class CaptureComparison(unittest.TestCase):
