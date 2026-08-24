@@ -109,12 +109,7 @@ struct SourceClockState {
 inline constexpr const char *NOISE_BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
 
 enum class WeightMode : uint8_t { NONE = 0, PROJECTION = 1 };
-enum class ProjectionCoverageMode : uint8_t {
-  NONE = 0,
-  WEIGHT = 1,
-  WEIGHT_SQUARED = 2,
-  EDGE_FADE = 3
-};
+using ProjectionCoverageMode = Pullback::ProjectionCoverageMode;
 
 inline constexpr const char *WEIGHT_MODE_IDS[] = {"none", "projection"};
 inline constexpr const char *COVERAGE_MODE_IDS[] = {
@@ -145,7 +140,9 @@ inline float projection_coverage(uint8_t coverage_mode,
   case ProjectionCoverageMode::EDGE_FADE:
     return ProjectionCoverage::edge_fade(provenance, edge_width);
   case ProjectionCoverageMode::WEIGHT:
+    return ProjectionCoverage::Weight::apply(provenance, ctx);
   default:
+    HS_CHECK(false, "sample operator: invalid projection coverage mode");
     return ProjectionCoverage::Weight::apply(provenance, ctx);
   }
 }

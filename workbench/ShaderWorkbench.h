@@ -482,7 +482,7 @@ public:
     ASCENDING,
     DESCENDING
   };
-  enum class HueShiftMode : uint8_t { NONE, NOISE, WARP_DISPLACEMENT };
+  using HueShiftMode = Pullback::Color::HueMode;
 
   struct Slots {
     Function function;
@@ -2503,15 +2503,33 @@ private:
           Pullback::Source::PrimitiveLattice<SourceStateProvider>,
           Pullback::Source::TwinWave<SourceStateProvider>>>;
 
+  template <CoveragePolicy CoverageV> struct ProjectionCoverageMapping {
+    static_assert(CoverageV == CoveragePolicy::OPAQUE ||
+                  CoverageV == CoveragePolicy::PROJECTION_WEIGHT ||
+                  CoverageV == CoveragePolicy::PROJECTION_WEIGHT_SQUARED ||
+                  CoverageV == CoveragePolicy::EDGE_FADE);
+    static constexpr Pullback::ProjectionCoverageMode MODE =
+        CoverageV == CoveragePolicy::OPAQUE
+            ? Pullback::ProjectionCoverageMode::NONE
+        : CoverageV == CoveragePolicy::PROJECTION_WEIGHT
+            ? Pullback::ProjectionCoverageMode::WEIGHT
+        : CoverageV == CoveragePolicy::PROJECTION_WEIGHT_SQUARED
+            ? Pullback::ProjectionCoverageMode::WEIGHT_SQUARED
+            : Pullback::ProjectionCoverageMode::EDGE_FADE;
+    using Type = std::conditional_t<
+        MODE == Pullback::ProjectionCoverageMode::NONE,
+        Pullback::ProjectionCoverage::None,
+        std::conditional_t<
+            MODE == Pullback::ProjectionCoverageMode::WEIGHT,
+            Pullback::ProjectionCoverage::Weight,
+            std::conditional_t<
+                MODE == Pullback::ProjectionCoverageMode::WEIGHT_SQUARED,
+                Pullback::ProjectionCoverage::WeightSquared,
+                Pullback::ProjectionCoverage::EdgeFade<ValueStateProvider>>>>;
+  };
+
   template <CoveragePolicy CoverageV>
-  using CoveragePolicyFor = std::conditional_t<
-      CoverageV == CoveragePolicy::OPAQUE, Pullback::ProjectionCoverage::None,
-      std::conditional_t<
-          CoverageV == CoveragePolicy::EDGE_FADE,
-          Pullback::ProjectionCoverage::EdgeFade<ValueStateProvider>,
-          std::conditional_t<CoverageV == CoveragePolicy::PROJECTION_WEIGHT,
-                             Pullback::ProjectionCoverage::Weight,
-                             Pullback::ProjectionCoverage::WeightSquared>>>;
+  using CoveragePolicyFor = typename ProjectionCoverageMapping<CoverageV>::Type;
 
   template <Function FunctionV, ValueTransfer TransferV,
             CoveragePolicy CoverageV>

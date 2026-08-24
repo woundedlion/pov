@@ -666,7 +666,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
      {{"cup", "bell", "linear", "reverse"}}},
     {"colorize.generated-palette.v2",
      "hue-shift-mode",
-     {{"noise", "path-length"}}},
+     {{"none", "noise", "path-length"}}},
     {"colorize.generated-palette.v2", "brightness-envelope", {{"none", "cup"}}},
 };
 
@@ -757,7 +757,7 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 37u);
   HS_EXPECT_EQ(unreachable_operators, 13u);
-  HS_EXPECT_EQ(catalog_values, 121u);
+  HS_EXPECT_EQ(catalog_values, 122u);
   HS_EXPECT_EQ(unreachable_values, 76u);
 }
 

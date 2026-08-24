@@ -569,6 +569,9 @@ inline void test_shader_chain_table_integrity() {
 }
 
 inline void test_shader_chain_schema_and_field_ids() {
+  static_assert(std::is_same_v<In::Op::HueShiftMode, PB::Color::HueMode>);
+  static_assert(std::is_same_v<In::Op::ProjectionCoverageMode,
+                               PB::ProjectionCoverageMode>);
   static_assert(PB::field_ids_unique<In::Op::RotateChainParams>());
   static_assert(PB::field_ids_unique<In::Op::ProjectChainParams>());
   static_assert(PB::field_ids_unique<In::Op::GridSampleParams>());
@@ -609,6 +612,8 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(std::string_view(weight.enum_ids[1]) == "projection");
   const In::ParamFieldInfo &coverage = sample.schema[GRID_FIELDS + 1];
   HS_EXPECT_EQ(coverage.enum_count, 4);
+  HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[1]) == "weight");
+  HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[2]) == "weight-squared");
   HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[3]) == "edge-fade");
 
   const In::OperatorDescriptor &colorize =
@@ -620,6 +625,12 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS + 1].id) ==
                  "palette-mapping");
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 1].enum_def, 2);
+  const In::ParamFieldInfo &hue = colorize.schema[COLOR_FIELDS + 2];
+  HS_EXPECT_EQ(hue.enum_count, 3);
+  HS_EXPECT_TRUE(std::string_view(hue.enum_ids[0]) == "none");
+  HS_EXPECT_TRUE(std::string_view(hue.enum_ids[1]) == "noise");
+  HS_EXPECT_TRUE(std::string_view(hue.enum_ids[2]) == "path-length");
+  HS_EXPECT_EQ(hue.enum_def, static_cast<uint8_t>(PB::Color::HueMode::NOISE));
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS + 3].id) ==
                  "brightness-envelope");
 
@@ -2679,7 +2690,14 @@ inline void run_colorize_variant(In::ChainProgram &program,
       params.mapping_mode = mapping;
       using WeightP = PB::Weight::Projection;
       using CoverageP = PB::ProjectionCoverage::Weight;
-      if (hue == In::Op::HueShiftMode::NOISE) {
+      if (hue == In::Op::HueShiftMode::NONE) {
+        if (envelope == In::Op::EnvelopeMode::NONE)
+          expect_parity<WeightP, CoverageP, PB::Color::HueMode::NONE,
+                        PB::Color::BrightnessEnvelope::NONE>(program, ctx);
+        else
+          expect_parity<WeightP, CoverageP, PB::Color::HueMode::NONE,
+                        PB::Color::BrightnessEnvelope::CUP>(program, ctx);
+      } else if (hue == In::Op::HueShiftMode::NOISE) {
         if (envelope == In::Op::EnvelopeMode::NONE)
           expect_parity<WeightP, CoverageP, PB::Color::HueMode::NOISE,
                         PB::Color::BrightnessEnvelope::NONE>(program, ctx);
@@ -2706,7 +2724,8 @@ inline void test_shader_chain_parity_colorize_variants() {
     arm_default_chain(program, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     for (const In::Op::HueShiftMode hue :
-         {In::Op::HueShiftMode::NOISE, In::Op::HueShiftMode::PATH_LENGTH})
+         {In::Op::HueShiftMode::NONE, In::Op::HueShiftMode::NOISE,
+          In::Op::HueShiftMode::PATH_LENGTH})
       for (const In::Op::EnvelopeMode envelope :
            {In::Op::EnvelopeMode::NONE, In::Op::EnvelopeMode::CUP})
         run_colorize_variant(program, ctx, hue, envelope);
