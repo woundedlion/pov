@@ -159,6 +159,30 @@ private:
     palette_state->hue_noise_phase = hue_noise_phase;
   }
 
+  struct SurfaceFrame {
+    Vector normal;
+    float cos_u;
+    float sin_u;
+    float cos_v;
+    float sin_v;
+  };
+
+  static SurfaceFrame
+  surface_frame(const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> &torus,
+                const Vector &loc) {
+    const float radial = sqrtf(loc.x * loc.x + loc.z * loc.z);
+    const float inverse_radial = 1.0f / radial;
+    const auto harmonic = torus.warp.sincos_ntheta_inv(loc, inverse_radial);
+    const Vector warped(loc.x, loc.y - torus.warp.amplitude * harmonic.sin_n,
+                        loc.z);
+    const Vector raw_normal = torus.base.normal_raw(warped, inverse_radial);
+    const float inverse_tube = fast_rsqrt(dot(raw_normal, raw_normal));
+    return {torus.warp.correct_normal_inv(loc, raw_normal, inverse_radial,
+                                          harmonic.cos_n),
+            loc.x * inverse_radial, loc.z * inverse_radial,
+            (radial - torus.base.R) * inverse_tube, warped.y * inverse_tube};
+  }
+
   /**
    * @brief Ray-marches and shades the twisted torus at every vertex for the
    *        current frame.
@@ -202,22 +226,20 @@ private:
       // per-pixel shader.
       Vector half_w = blinn_phong_half(center, tangent);
 
-      // Palette scroll plus this torus's fixed share of the gradient, in [0,2).
       float palette_offset =
           palette_phase + static_cast<float>(i) / active_count;
-      float hue_shift = noise_palette.hue_shift(points[i], params.hue_shift);
 
       auto frag_fn = [&](const Vector &loc, Fragment &frag) {
-        Vector n_local = torus.normal(loc);
-        Vector n_world = rotate(n_local, world_q);
+        SurfaceFrame surface = surface_frame(torus, loc);
+        Vector n_world = rotate(surface.normal, world_q);
         float shade = shade_blinn_phong(n_world, center, half_w, params.diffuse,
                                         params.specular, params.fresnel);
 
-        float ring_angle = (fast_atan2(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
-        float coord = ring_angle + palette_offset;
-        // ring_angle is [0,1] and palette_offset is [0,2), so coord is
-        // non-negative and this fract equals fmodf(coord, 1).
-        float palette_t = coord - floorf(coord);
+        float surface_noise = noise_palette.noise_uv(
+            surface.cos_u, surface.sin_u, surface.cos_v, surface.sin_v);
+        float palette_t =
+            wrap_t(0.5f * (surface_noise + 1.0f) + palette_offset);
+        float hue_shift = params.hue_shift * surface_noise;
         Color4 c = params.hue_shift == 0.0f
                        ? baked_palette.get(palette_t)
                        : noise_palette.get(palette_t, hue_shift);
