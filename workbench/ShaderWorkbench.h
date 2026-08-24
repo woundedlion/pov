@@ -213,6 +213,8 @@ public:
   static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
   static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
 
+  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
+
   HS_COLD_MEMBER ShaderWorkbench() : Effect(W, H, {.strobe = true}) {}
 
 protected:

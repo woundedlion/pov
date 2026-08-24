@@ -91,6 +91,8 @@ public:
   /** @brief Initial live parameters: the defaults, not a preset entry. */
   static Params initial_params() { return Params{}; }
 
+  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
+
   /**
    * @brief Constructs the effect, seeding the filters.
    */

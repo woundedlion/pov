@@ -104,6 +104,7 @@ template <int W, int H> inline void drive_factory_lifecycle() {
     HS_EXPECT_EQ(effect->height(), H);
 
     effect->init();
+    HS_EXPECT_EQ(entry.preset_count, effect->getPresetCount());
     for (int f = 0; f < FACTORY_FRAMES; ++f) {
       effect->draw_frame();
       // Consume the queued frame, else the next Canvas ctor spin-waits.
@@ -167,6 +168,7 @@ inline void test_fixed_preset_ids() {
   HS_EXPECT_TRUE(curl != nullptr);
   HS_EXPECT_TRUE(curl && curl->preset_id != nullptr);
   if (curl && curl->preset_id) {
+    HS_EXPECT_EQ(curl->preset_count, 2u);
     HS_EXPECT_TRUE(curl->preset_id(0) == "open-curl");
     HS_EXPECT_TRUE(curl->preset_id(1) == "dense-curl");
     HS_EXPECT_TRUE(curl->preset_id(2).empty());
@@ -176,6 +178,7 @@ inline void test_fixed_preset_ids() {
   HS_EXPECT_TRUE(mobius != nullptr);
   HS_EXPECT_TRUE(mobius && mobius->preset_id != nullptr);
   if (mobius && mobius->preset_id) {
+    HS_EXPECT_EQ(mobius->preset_count, 2u);
     HS_EXPECT_TRUE(mobius->preset_id(0) == "mobius-grid");
     HS_EXPECT_TRUE(mobius->preset_id(1) == "mobius-grid-2");
   }
