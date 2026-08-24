@@ -574,6 +574,12 @@ def _tree_directive(tag: str) -> TreeDirective | None:
     return TreeDirective(rest[0] if rest else "", exhaustive)
 
 
+_REQUIRED_TREES = frozenset({
+    (PurePosixPath("README.md"), TreeDirective("", True)),
+    (PurePosixPath("README.md"), TreeDirective("daydream", True)),
+})
+
+
 def _checkout_allowance(candidate: str, prefixes: tuple[str, ...]) -> bool:
     return any(candidate == prefix.rstrip("/") or candidate.startswith(prefix)
                for prefix in prefixes)
@@ -676,7 +682,9 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
                  entries: set[PurePosixPath],
                  used: set[str] | None = None,
                  checkouts: dict[str, set[PurePosixPath]] | None = None,
-                 skipped: set[str] | None = None) -> list[Issue]:
+                 skipped: set[str] | None = None,
+                 seen: set[tuple[PurePosixPath, TreeDirective]] | None = None
+) -> list[Issue]:
     """Reports drawn tree rows that name a path the drawn repository lacks."""
     issues = []
     for fence in fences:
@@ -687,6 +695,8 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
             issues.append(Issue(source.as_posix(), fence.start,
                                 f"unknown docs-check directive {fence.tag!r}"))
             continue
+        if seen is not None:
+            seen.add((source, directive))
         if directive.checkout:
             target = (checkouts or {}).get(directive.checkout)
             if target is None:
@@ -899,9 +909,12 @@ def check_text(source: PurePosixPath, text: str,
                anchors: dict[PurePosixPath, set[str]] | None = None,
                used: set[str] | None = None,
                checkouts: dict[str, set[PurePosixPath]] | None = None,
-               skipped: set[str] | None = None) -> list[Issue]:
+               skipped: set[str] | None = None,
+               seen_trees: set[tuple[PurePosixPath, TreeDirective]] | None = None
+) -> list[Issue]:
     visible, fences, issues = _visible_lines(source, text)
-    issues.extend(_tree_issues(source, fences, entries, used, checkouts, skipped))
+    issues.extend(_tree_issues(source, fences, entries, used, checkouts, skipped,
+                               seen_trees))
     # The source's own anchors always resolve; cross-document ones need the
     # repository-wide map check_repository builds.
     anchors = dict(anchors or {})
@@ -978,9 +991,22 @@ def check_repository(
     # Anchors first: a link may point at a heading in any other tracked document.
     anchors = {relative: _anchors(_visible_lines(relative, text)[0])
                for relative, text in sources.items()}
+    seen_trees: set[tuple[PurePosixPath, TreeDirective]] = set()
     for relative, text in sources.items():
         issues.extend(check_text(relative, text, entries, anchors, used,
-                                 checkouts, skipped))
+                                 checkouts, skipped, seen_trees))
+    if sources:
+        for source, directive in sorted(
+                _REQUIRED_TREES - seen_trees,
+                key=lambda item: (item[0], item[1].checkout,
+                                  item[1].exhaustive)):
+            tag = " ".join(filter(None, (
+                _TREE_TAG, directive.checkout,
+                _TREE_EXHAUSTIVE if directive.exhaustive else "")))
+            issues.append(Issue(
+                source.as_posix(), 1,
+                f"required docs-check directive {tag!r} is missing, so its "
+                "tree goes unchecked"))
     # Only this repository draws the row; a checkout without the roster header
     # is not the tree the claim is about.
     if _EFFECT_ROSTER_SOURCE in entries:

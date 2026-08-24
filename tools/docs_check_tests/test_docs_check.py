@@ -313,7 +313,8 @@ class TestDocumentationChecker(unittest.TestCase):
             (root / "untracked.md").write_text("[bad](missing.txt)\n", encoding="utf-8")
             subprocess.run(["git", "-C", str(root), "add", "README.md", "target.txt"],
                            check=True)
-            markdown, issues, _ = dc.check_repository(root)
+            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
+                markdown, issues, _ = dc.check_repository(root)
         self.assertEqual(markdown, [PurePosixPath("README.md")])
         self.assertEqual(issues, [])
 
@@ -332,7 +333,8 @@ class TestDocumentationChecker(unittest.TestCase):
                 "git", "-C", str(root), "add", "README.md",
                 "docs/CODE_REVIEW.md", "tools/real.py",
             ], check=True)
-            markdown, issues, _ = dc.check_repository(root)
+            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
+                markdown, issues, _ = dc.check_repository(root)
         self.assertEqual(markdown, [PurePosixPath("README.md")])
         self.assertEqual(len(issues), 1)
         self.assertEqual(issues[0].path, "README.md")
@@ -346,6 +348,27 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(stale["tracked.txt"], "(now tracked)")
         self.assertEqual(stale["uncited.txt"], "(uncited)")
         self.assertNotIn("used.txt", stale)
+
+    def test_detached_required_tree_directive_is_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / "README.md").write_text(
+                "<!-- docs-check: tree exhaustive -->\n"
+                "Tree follows.\n"
+                "```\n"
+                "└── ghost/\n"
+                "```\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "README.md"],
+                           check=True)
+            required = frozenset({(
+                PurePosixPath("README.md"), dc.TreeDirective("", True),
+            )})
+            with mock.patch.object(dc, "_REQUIRED_TREES", required):
+                _, issues, _ = dc.check_repository(root)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("required docs-check directive 'tree exhaustive'",
+                      issues[0].message)
 
     def test_cited_untracked_allowance_is_recorded(self):
         used: set[str] = set()
@@ -361,7 +384,10 @@ class TestDocumentationChecker(unittest.TestCase):
     def _checkout_fence_repository(root: Path) -> None:
         subprocess.run(["git", "init", "-q", str(root)], check=True)
         (root / "README.md").write_text(
-            "<!-- docs-check: tree daydream -->\n"
+            "<!-- docs-check: tree exhaustive -->\n"
+            "```\n"
+            "```\n"
+            "<!-- docs-check: tree daydream exhaustive -->\n"
             "```\n"
             "└── ghost.js                    Stale row\n"
             "```\n", encoding="utf-8")
