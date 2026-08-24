@@ -32,7 +32,7 @@ window frames, us -> ms / 1000. A display window is 62.5 ms at 480 RPM, so a
 draw_frame's wall time quantizes to whole 62.5 ms windows.
 
 Preset markers the effects emit (one per advance), matched here:
-  Preset: <i>/<N>            Presets<>::next()/prev() users + DreamBalls
+  Preset: <i>/<N>            ChoreographedEffect + Comets/DreamBalls
   Shape: <i>/<N>             MeshFeedback solids
   Mode: <i>/<N>              SphericalHarmonics
   Spawning Shape: <name> ... IslamicStars (carries V/E/F/I)
