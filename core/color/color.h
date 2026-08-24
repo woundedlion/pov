@@ -978,6 +978,9 @@ inline constexpr int GAMUT_SCAN_STEPS = 4;
 // accuracy knob and not a cap: three take the 256 x 128 grid's worst
 // mid-lightness bracket to 0.0016 chroma.
 inline constexpr int GAMUT_BRACKET_STEPS = 3;
+/** Extra bisections for the whole-ray fallback, whose bracket is up to 25 times
+ * wider than one scan step. */
+inline constexpr int GAMUT_FALLBACK_BRACKET_STEPS = 5;
 
 /**
  * @brief Largest in-gamut scale of (a, b) inside a bracketed scale range.
@@ -1036,6 +1039,7 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
   };
 
   float x = lo, y = hi;
+  int bracket_steps = GAMUT_BRACKET_STEPS;
   if (inside(lo)) {
     const float step = (hi - lo) * (1.0f / GAMUT_SCAN_STEPS);
     int i = 0;
@@ -1053,9 +1057,10 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
     // The cell minimum over-reads its region; fall back to the whole ray.
     x = 0.0f;
     y = lo;
+    bracket_steps += GAMUT_FALLBACK_BRACKET_STEPS;
   }
 
-  for (int i = 0; i < GAMUT_BRACKET_STEPS; ++i) {
+  for (int i = 0; i < bracket_steps; ++i) {
     const float mid = 0.5f * (x + y);
     if (inside(mid))
       x = mid;
