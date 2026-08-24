@@ -5,6 +5,10 @@
  */
 #pragma once
 
+#include "core/platform/build_features.h"
+
+#if HS_ENABLE_SHADER_WORKBENCH
+
 #include <cstdarg>
 #include <cstdio>
 #include <span>
@@ -7157,3 +7161,5 @@ template <int W, int H> using Shader = ShaderWorkbench<W, H>;
 
 #include "core/control/registry.h"
 REGISTER_EFFECT(Shader)
+
+#endif // HS_ENABLE_SHADER_WORKBENCH
