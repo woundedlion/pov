@@ -1282,9 +1282,11 @@ inline void test_shader_workbench_legacy_spatial_slots() {
                    1e-6f);
     HS_EXPECT_EQ(sinusoidal.im, 0.5f * PI_F - fast_acos(v.y));
 
-    const Complex gnomonic = WB::project_point(v, WB::Projection::GNOMONIC);
-    HS_EXPECT_TRUE(std::isfinite(gnomonic.re));
-    HS_EXPECT_TRUE(std::isfinite(gnomonic.im));
+    const Complex gnomonic_actual =
+        WB::project_point(v, WB::Projection::GNOMONIC);
+    const Complex gnomonic_expected = ::gnomonic(v);
+    HS_EXPECT_EQ(gnomonic_actual.re, gnomonic_expected.re);
+    HS_EXPECT_EQ(gnomonic_actual.im, gnomonic_expected.im);
     for (WB::SurfaceLens lens :
          {WB::SurfaceLens::GLITCH, WB::SurfaceLens::TWIST,
           WB::SurfaceLens::KALEIDOSCOPE})
