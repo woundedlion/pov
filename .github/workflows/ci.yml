@@ -189,6 +189,7 @@ jobs:
         run: ccache -sv
 
       - name: Test
+        id: native_tests
         # Drive the deep smoke pass (default is 8 frames — fast for the local
         # pre-commit hook, but too short to reach the effect-lifecycle
         # transitions: RingShower slot reuse, Thrusters fire/FIFO expiry,
@@ -221,6 +222,26 @@ jobs:
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
+
+      - name: Detect MindSplatter replay corpus mismatch
+        id: mindsplatter_corpus_mismatch
+        if: ${{ always() && matrix.shard == 2 && steps.native_tests.outcome == 'failure' }}
+        shell: bash
+        run: |
+          generated=build/tests/tests/mindsplatter_replay_corpus.generated.h
+          committed=tests/mindsplatter_replay_corpus.h
+          if [[ -f "$generated" ]] && ! cmp -s "$committed" "$generated"; then
+            echo "mismatch=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload mismatched MindSplatter replay corpus
+        if: ${{ steps.mindsplatter_corpus_mismatch.outputs.mismatch == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mindsplatter-replay-corpus-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/tests/tests/mindsplatter_replay_corpus.generated.h
+          if-no-files-found: error
+          retention-days: 3
 
   sanitizers:
     name: Native unit tests (Clang, ASan + UBSan) / shard ${{ matrix.shard }}
