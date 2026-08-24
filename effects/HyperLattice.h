@@ -55,7 +55,7 @@ struct Mat4 {
     return result;
   }
 
-  Vec4 apply(const Vec4 &input) const {
+  __attribute__((always_inline)) Vec4 apply(const Vec4 &input) const {
     return {{m[0][0] * input[0] + m[0][1] * input[1] + m[0][2] * input[2] +
                  m[0][3] * input[3],
              m[1][0] * input[0] + m[1][1] * input[1] + m[1][2] * input[2] +
