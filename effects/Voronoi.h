@@ -82,7 +82,7 @@ public:
       if (active_site_count() != current_num_sites)
         seed_sites();
 
-      float s = logf(params.speed + 1.0f) * 0.005f;
+      float s = logf(params.speed + 1.0f) * SITE_SPIN_RADIANS;
       // Every site turns by the same angle, so the half-angle trig is shared;
       // only the axis differs. Expands make_rotation(site.axis, s) exactly.
       const float half_cos = cosf(s / 2);
@@ -235,6 +235,8 @@ private:
 
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
                                              is allocated once at this size. */
+  static constexpr float SITE_SPIN_RADIANS =
+      0.005f; /**< Radians per frame after the logarithmic speed mapping. */
   static constexpr int COHERENCE_BLOCK = 8; /**< Coarse-coherence block edge in
       pixels at low site counts: each pixel shades from the union of its block
       corners' nearest pairs. Smaller is safer (fewer missed sub-block cells)
