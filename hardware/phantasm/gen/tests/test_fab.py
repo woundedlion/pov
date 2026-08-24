@@ -414,17 +414,11 @@ class AssemblyPolicyTests(unittest.TestCase):
     def test_nonpolarized_resistor_rotation_is_unchanged(self):
         self.assertEqual(fab.cpl_rotation("R_D1", 180), 180)
 
-PARITY_DESCRIPTIONS = {
-    "extra_footprint": "Extra footprint",
-    "footprint_symbol_mismatch": "Footprint attributes don't match symbol",
-}
-
-
 class SchematicParityTests(unittest.TestCase):
     KNOWN = [
-        {"type": kind, "description": PARITY_DESCRIPTIONS[kind],
+        {"type": kind, "description": description,
          "items": [{"description": f"Footprint {ref}"}]}
-        for kind, ref in sorted(fab.KNOWN_PARITY_ITEMS)
+        for (kind, ref), description in sorted(fab.KNOWN_PARITY_ITEMS.items())
     ]
 
     def require_report(self, report):
@@ -455,12 +449,26 @@ class SchematicParityTests(unittest.TestCase):
         entries = [e for e in self.KNOWN
                    if e["items"][0]["description"] != "Footprint H2"]
         entries.append({"type": "extra_footprint",
-                        "description": PARITY_DESCRIPTIONS["extra_footprint"],
+                        "description":
+                            fab.KNOWN_PARITY_ITEMS[("extra_footprint", "H1")],
                         "items": [{"description": "Footprint H1"}]})
 
         with self.assertRaisesRegex(
                 fab.SchematicParityError,
                 r"extra_footprint: H2 reported 0 times"):
+            self.require(entries)
+
+    def test_rejects_known_reference_with_wrong_description(self):
+        entries = [
+            {**entry, "description": "Resistor_SMD:R_0603_1608Metric doesn't "
+                                     "match footprint given by symbol ()"}
+            if entry["items"][0]["description"] == "Footprint U_MCU" else entry
+            for entry in self.KNOWN
+        ]
+
+        with self.assertRaisesRegex(
+                fab.SchematicParityError,
+                r"footprint_symbol_mismatch: U_MCU reported 0 times"):
             self.require(entries)
 
     def test_rejects_net_drift(self):

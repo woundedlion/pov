@@ -179,15 +179,15 @@ MIN_COPPER_POURS = 2
 # the BOM on the board only, and the Teensy symbol carries no footprint field.
 # Anything else means the routed copper predates the current schematic.
 KNOWN_PARITY_ITEMS = {
-    ("extra_footprint", "H1"),
-    ("extra_footprint", "H2"),
-    ("extra_footprint", "H3"),
-    ("extra_footprint", "H4"),
-    ("footprint_symbol_mismatch", "JP_ID0"),
-    ("footprint_symbol_mismatch", "JP_ID1"),
-    ("footprint_symbol_mismatch", "JP_ID2"),
-    ("footprint_symbol_mismatch", "JP_SHLD"),
-    ("footprint_symbol_mismatch", "U_MCU"),
+    ("extra_footprint", "H1"): "Extra footprint",
+    ("extra_footprint", "H2"): "Extra footprint",
+    ("extra_footprint", "H3"): "Extra footprint",
+    ("extra_footprint", "H4"): "Extra footprint",
+    ("footprint_symbol_mismatch", "JP_ID0"): "Exclude from bill of materials",
+    ("footprint_symbol_mismatch", "JP_ID1"): "Exclude from bill of materials",
+    ("footprint_symbol_mismatch", "JP_ID2"): "Exclude from bill of materials",
+    ("footprint_symbol_mismatch", "JP_SHLD"): "Exclude from bill of materials",
+    ("footprint_symbol_mismatch", "U_MCU"): "phantasm:Teensy4.0",
 }
 
 # JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
@@ -375,8 +375,9 @@ def parity_refs(entry):
 def require_schematic_parity(report_path):
     """Return the parity item count or raise on any unexpected difference.
 
-    Every KNOWN_PARITY_ITEMS entry must appear exactly once: a count plus a
-    membership test lets a duplicated item stand in for a vanished one.
+    Every KNOWN_PARITY_ITEMS entry must appear exactly once with its expected
+    description: a count plus a membership test lets a duplicated item stand in
+    for a vanished one.
     """
     try:
         with open(report_path, encoding="utf-8") as fh:
@@ -395,12 +396,15 @@ def require_schematic_parity(report_path):
     for entry in entries:
         kind = str(entry.get("type", ""))
         refs = parity_refs(entry)
-        if len(refs) == 1 and (kind, refs[0]) in KNOWN_PARITY_ITEMS:
-            seen[(kind, refs[0])] = seen.get((kind, refs[0]), 0) + 1
+        description = str(entry.get("description", ""))
+        key = (kind, refs[0]) if len(refs) == 1 else None
+        expected_description = KNOWN_PARITY_ITEMS.get(key)
+        if expected_description is not None and expected_description in description:
+            seen[key] = seen.get(key, 0) + 1
             continue
         detail = "; ".join(str(item.get("description", ""))
                            for item in entry.get("items", []))
-        diagnostics.append(f"{kind}: {entry.get('description', '')}"
+        diagnostics.append(f"{kind}: {description}"
                            + (f" [{detail}]" if detail else ""))
     for kind, ref in sorted(KNOWN_PARITY_ITEMS):
         times = seen.get((kind, ref), 0)
