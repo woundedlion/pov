@@ -5949,6 +5949,28 @@ struct VoronoiWhiteBox {
   static Vector site_axis(const Voronoi<W, H> &v, size_t i) {
     return v.sites_buffer[i].axis;
   }
+
+  /** @brief Position of seeded site @p i. */
+  template <int W, int H>
+  static Vector site_position(const Voronoi<W, H> &v, size_t i) {
+    return v.sites_buffer[i].pos;
+  }
+
+  /** @brief Installs deterministic sites and index-coded colors. */
+  template <int W, int H>
+  static void set_sites(Voronoi<W, H> &v, std::span<const Vector> sites) {
+    v.sites_buffer.clear();
+    for (size_t i = 0; i < sites.size(); ++i) {
+      v.sites_buffer.push_back(
+          {sites[i], Vector(1, 0, 0),
+           Color4(Pixel(static_cast<uint16_t>(i + 1), 0, 0))});
+    }
+    v.current_num_sites = static_cast<int>(sites.size());
+    v.params.num_sites = static_cast<float>(sites.size());
+    v.params.speed = 0.0f;
+    v.params.sharpness = 0.0f;
+    v.params.border_thickness = 0.0f;
+  }
 };
 
 /**
@@ -5966,89 +5988,43 @@ inline void test_voronoi_axes_use_uniform_sampler() {
 }
 
 /**
- * @brief Classifies the coarse-coherence corner grid at the effect's adaptive
- *        block size and measures block-candidate-union shading against a full
- *        k=1 query at every pixel.
+ * @brief Renders production Voronoi and compares each pixel with exact nearest.
  * @tparam W,H Render resolution.
  * @param sites Site positions on the unit sphere.
  * @param max_deficit Out: worst dot(p, true nearest) - dot(p, union nearest)
  *        over the mismatched pixels (0 when every pixel matches).
  * @return Fraction of pixels whose union-of-corner-pairs nearest matches the
  *         true nearest site.
- * @details Mirrors Voronoi::draw_frame's candidate path: the block edge B and
- *          the per-corner k=2 pair derivation match production, and each pixel
- *          takes an exact top-1 over the deduped union of its block's four
- *          corner pairs.
  */
 template <int W, int H>
-inline double voronoi_union_nearest_match(std::span<const Vector> sites,
-                                          float &max_deficit) {
-  static uint8_t buf[256 * 1024];
-  Arena arena(buf, sizeof(buf));
-  KDTree tree(arena, sites);
-
-  struct Pair {
-    uint16_t lo, hi;
-  };
-  auto classify = [&](const Vector &p) -> Pair {
-    auto knn = tree.nearest(p, 2);
-    uint16_t a = knn[0].original_index;
-    uint16_t b = knn.size() > 1 ? knn[1].original_index : a;
-    return {std::min(a, b), std::max(a, b)};
-  };
-
-  // Mirror of Voronoi::draw_frame's block-edge derivation (effects/Voronoi.h).
-  const float cell_px =
-      (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites.size()));
-  const int B = std::clamp(static_cast<int>(cell_px),
-                           VoronoiWhiteBox::coherence_block_min<W, H>(),
-                           VoronoiWhiteBox::COHERENCE_BLOCK);
-
-  const int nbx = (W - 1) / B + 2;
-  const int nby = (H - 1) / B + 2;
-  Pair *corners = static_cast<Pair *>(
-      arena.allocate(size_t(nbx) * nby * sizeof(Pair), alignof(Pair)));
-  auto cx = [&](int j) { return std::min(j * B, W - 1); };
-  auto cy = [&](int k) { return std::min(k * B, H - 1); };
-  for (int k = 0; k < nby; ++k)
-    for (int j = 0; j < nbx; ++j)
-      corners[k * nbx + j] = classify(pixel_to_vector<W, H>(cx(j), cy(k)));
+inline double voronoi_render_nearest_match(std::span<const Vector> sites,
+                                           float &max_deficit) {
+  using WB = VoronoiWhiteBox;
+  reset_effect_globals();
+  Voronoi<W, H> effect;
+  effect.init();
+  WB::set_sites(effect, sites);
+  effect.draw_frame();
+  effect.advance_display();
 
   long matched = 0;
   max_deficit = 0.0f;
   for (int y = 0; y < H; ++y) {
-    const int ky = y / B;
     for (int x = 0; x < W; ++x) {
-      const int jx = x / B;
-      uint16_t u[8];
-      int un = 0;
-      auto add = [&](uint16_t s) {
-        for (int i = 0; i < un; ++i)
-          if (u[i] == s)
-            return;
-        u[un++] = s;
-      };
-      for (const Pair *c :
-           {&corners[ky * nbx + jx], &corners[ky * nbx + jx + 1],
-            &corners[(ky + 1) * nbx + jx], &corners[(ky + 1) * nbx + jx + 1]}) {
-        add(c->lo);
-        add(c->hi);
-      }
       const Vector p = pixel_to_vector<W, H>(x, y);
-      float best = -2.0f;
-      uint16_t bi = 0;
-      for (int i = 0; i < un; ++i) {
-        const float d = dot(p, sites[u[i]]);
-        if (d > best) {
-          best = d;
-          bi = u[i];
-        }
-      }
-      auto knn = tree.nearest(p, 1);
-      // On an exact tie the union scan keeps the first candidate and the tree
-      // keeps the other, so compare distance rather than site index.
-      const float deficit = dot(p, knn[0].point) - best;
-      if (knn[0].original_index == bi || deficit <= 0.0f)
+      float exact = -2.0f;
+      for (size_t i = 0; i < WB::site_count(effect); ++i)
+        exact = std::max(exact, dot(p, WB::site_position(effect, i)));
+
+      const Pixel rendered = effect.get_pixel(x, y);
+      const size_t rendered_site = rendered.r - 1u;
+      const bool encoded = rendered.r > 0 && rendered.g == 0 &&
+                           rendered.b == 0 &&
+                           rendered_site < WB::site_count(effect);
+      const float deficit =
+          encoded ? exact - dot(p, WB::site_position(effect, rendered_site))
+                  : 4.0f;
+      if (deficit <= 0.0f)
         ++matched;
       else
         max_deficit = std::max(max_deficit, deficit);
@@ -6080,10 +6056,10 @@ inline void test_voronoi_union_candidates_cover_nearest() {
   const size_t octa_count = sizeof(octahedral) / sizeof(octahedral[0]);
   const std::span<const Vector> sparse(octahedral, octa_count);
   const double octa_match =
-      voronoi_union_nearest_match<DEFAULT_W, DEFAULT_H>(sparse, deficit);
+      voronoi_render_nearest_match<DEFAULT_W, DEFAULT_H>(sparse, deficit);
   HS_EXPECT_EQ(octa_match, 1.0);
   const double octa_match_dev =
-      voronoi_union_nearest_match<SMALL_W, SMALL_H>(sparse, deficit);
+      voronoi_render_nearest_match<SMALL_W, SMALL_H>(sparse, deficit);
   HS_EXPECT_EQ(octa_match_dev, 1.0);
 
   // Dense regime: seed MAX_SITES on a Fibonacci sphere exactly as
@@ -6095,12 +6071,12 @@ inline void test_voronoi_union_candidates_cover_nearest() {
     fib[i] = fib_spiral(N, /*eps=*/0.5f, i);
   const std::span<const Vector> dense(fib, N);
   const double fib_match =
-      voronoi_union_nearest_match<DEFAULT_W, DEFAULT_H>(dense, deficit);
+      voronoi_render_nearest_match<DEFAULT_W, DEFAULT_H>(dense, deficit);
   HS_EXPECT_GE(fib_match, 0.999);
   HS_EXPECT_LE(deficit, 0.005f);
 
   const double fib_match_dev =
-      voronoi_union_nearest_match<SMALL_W, SMALL_H>(dense, deficit);
+      voronoi_render_nearest_match<SMALL_W, SMALL_H>(dense, deficit);
   HS_EXPECT_EQ(fib_match_dev, 1.0);
   HS_EXPECT_EQ(deficit, 0.0f);
 }
