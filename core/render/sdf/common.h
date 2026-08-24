@@ -294,9 +294,14 @@ inline constexpr bool blends_smoothly<Subtract<A, B>> =
  * value. At or above it the shape may substitute FAR_SENTINEL, an unbounded
  * jump that says nothing about a neighbouring probe, so a walk that vouches for
  * a run of columns from one probe may do so only while the clearance it tests
- * stays under this margin. A shape that never substitutes reports FLT_MAX; a
- * combinator takes the tightest of its children. */
-template <typename T> inline constexpr float reject_margin = 0.0f;
+ * stays under this margin. A shape that never substitutes reports FLT_MAX via
+ * REJECT_MARGIN; a combinator takes the tightest of its children. */
+template <typename T>
+inline constexpr float reject_margin = [] {
+  if constexpr (requires { T::REJECT_MARGIN; })
+    return T::REJECT_MARGIN;
+  return 0.0f;
+}();
 template <> inline constexpr float reject_margin<PlanarPolygon> = FLT_MAX;
 template <> inline constexpr float reject_margin<SphericalPolygon> = FLT_MAX;
 template <> inline constexpr float reject_margin<Star> = FLT_MAX;
