@@ -209,6 +209,28 @@ inline void test_push_front_overflow_drops_back() {
   HS_EXPECT_EQ(buf[2], 3);
 }
 
+/** @brief Verifies the capacity-one ring across replacement and removal. */
+inline void test_capacity_one() {
+  StaticCircularBuffer<int, 1> buf;
+  buf.push_back(1);
+  HS_EXPECT_TRUE(buf.is_full());
+  HS_EXPECT_EQ(buf.front(), 1);
+  HS_EXPECT_EQ(buf.back(), 1);
+
+  buf.push_back(2);
+  HS_EXPECT_EQ(buf.size(), size_t(1));
+  HS_EXPECT_EQ(buf[0], 2);
+  buf.push_front(3);
+  HS_EXPECT_EQ(buf.front(), 3);
+  HS_EXPECT_EQ(buf.back(), 3);
+
+  buf.pop_front();
+  HS_EXPECT_TRUE(buf.is_empty());
+  buf.push_front(4);
+  buf.pop_back();
+  HS_EXPECT_TRUE(buf.is_empty());
+}
+
 /**
  * @brief Verifies push_back accepts an rvalue (move) overload.
  */
@@ -862,6 +884,7 @@ inline int run_static_circular_buffer_tests() {
   test_push_back_overflow_drops_oldest();
   test_push_front_order();
   test_push_front_overflow_drops_back();
+  test_capacity_one();
   test_push_back_rvalue();
   test_push_front_rvalue();
 
