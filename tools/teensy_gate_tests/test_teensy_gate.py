@@ -1468,14 +1468,14 @@ class TestGateExtra(unittest.TestCase):
                          ["$BUILD_DIR/${PROGNAME}.elf"])
         self.assertIs(self.ge.env.post_actions[0][1], self.ge.run_gate)
 
-    def test_elf_depends_on_budgets_and_gate_logic(self):
-        # Without these edges a warm build dir links nothing when only the
-        # budgets or the gate logic change, and the post-action never runs.
+    def test_elf_depends_on_gate_inputs(self):
+        # Without these edges a warm build dir links nothing when an input
+        # changes, and the post-action never runs.
         elf = self.ge.env.post_actions[0][0]
         deps = [d for target, group in self.ge.env.dependencies
                 if target == elf for d in group]
         for name in ("teensy_budgets.json", "teensy_gate.py",
-                     "teensy_gate_extra.py"):
+                     "teensy_gate_extra.py", "phantasm.ld"):
             self.assertIn(str(TOOLS / name), deps)
 
     def test_declared_gate_sources_exist(self):
