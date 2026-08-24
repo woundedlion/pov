@@ -12,6 +12,7 @@ import struct
 import sys
 import tempfile
 import unittest
+import weakref
 from pathlib import Path
 from unittest import mock
 
@@ -355,6 +356,87 @@ class ManifestValidation(unittest.TestCase):
 
 
 class CaptureComparison(unittest.TestCase):
+    def test_capture_path_comparison_releases_and_reloads_documents(self):
+        class TrackedCapture(dict):
+            pass
+
+        loaded = []
+        references = []
+        comparisons = []
+
+        def load(path):
+            configuration = "strict" if "strict" in path.name else "release"
+            document = TrackedCapture(
+                name=path.name,
+                configuration=configuration,
+                toolchain={"configuration": configuration},
+            )
+            loaded.append(path.name)
+            references.append(weakref.ref(document))
+            return document
+
+        def compare(base, candidate, *args, **kwargs):
+            self.assertEqual(kwargs, {"oracles": []})
+            documents = (base, candidate, *args[-2:])
+            comparisons.append(
+                tuple(
+                    document["name"] if document is not None else None
+                    for document in documents
+                )
+            )
+            if len(comparisons) == 1:
+                raise crosscheck.StrictFpRequired("strict-FP required")
+
+        paths = [
+            Path("base-release.json"),
+            Path("candidate-release.json"),
+            Path("base-strict.json"),
+            Path("candidate-strict.json"),
+        ]
+
+        def compare_paths(selected):
+            return crosscheck._compare_capture_paths(
+                selected[0],
+                selected[1],
+                {},
+                "digest",
+                "a" * 40,
+                "b" * 40,
+                *selected[2:],
+                oracles=[],
+            )
+
+        with (
+            mock.patch.object(crosscheck, "_load_capture", new=load),
+            mock.patch.object(crosscheck, "compare_captures", new=compare),
+        ):
+            strict_required, toolchains = compare_paths(paths[:2])
+            self.assertTrue(strict_required)
+            self.assertEqual(toolchains, {"release": {"configuration": "release"}})
+            self.assertTrue(all(reference() is None for reference in references))
+            strict_required, toolchains = compare_paths(paths)
+            self.assertFalse(strict_required)
+            self.assertEqual(
+                toolchains,
+                {
+                    "release": {"configuration": "release"},
+                    "strict": {"configuration": "strict"},
+                },
+            )
+            self.assertTrue(all(reference() is None for reference in references))
+
+        self.assertEqual(
+            loaded,
+            [path.name for path in paths[:2] + paths],
+        )
+        self.assertEqual(
+            comparisons,
+            [
+                (*[path.name for path in paths[:2]], None, None),
+                tuple(path.name for path in paths),
+            ],
+        )
+
     def test_crosscheck_main_returns_failure_for_vacuous_run(self):
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):
