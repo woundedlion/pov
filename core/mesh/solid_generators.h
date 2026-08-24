@@ -562,12 +562,12 @@ public:
    */
   HS_COLD_MEMBER SolidBuilder &relax_baked(const MeshOps::RelaxBake &bake) {
 #if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
-    const uint32_t source_hash = MeshOps::relax_source_hash(mesh);
     HS_CHECK(MeshOps::relax_topology_hash(mesh) == bake.topology_hash,
              "relax bake: source topology differs");
 #if defined(HS_RELAX_BAKE_VERIFY)
-    HS_CHECK(source_hash == bake.source_hash,
-             "relax bake verify: source differs");
+    MeshOps::check_relax_bake_source(mesh, bake);
+#else
+    const uint32_t source_hash = MeshOps::relax_source_hash(mesh);
 #endif
     mesh = MeshOps::relax(mesh, *output_arena, *scratch_arena, bake.iterations);
     uint32_t output_hash = MeshOps::FNV1A_BASIS;
