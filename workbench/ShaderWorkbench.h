@@ -269,15 +269,7 @@ public:
         0, Animation::RandomWalk<W>(outer_walk, UP, state->outer_walk_noise));
 
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
-    triadic_palette_cycler.init_generated(
-        persistent_arena, next_triadic_palette, this, PALETTE_DWELL_FRAMES,
-        PALETTE_FADE_FRAMES, ease_in_out_sin);
-    complementary_palette_cycler.init_generated(
-        persistent_arena, next_complementary_palette, this,
-        PALETTE_DWELL_FRAMES, PALETTE_FADE_FRAMES, ease_in_out_sin);
-    analogous_palette_cycler.init_generated(
-        persistent_arena, next_analogous_palette, this, PALETTE_DWELL_FRAMES,
-        PALETTE_FADE_FRAMES, ease_in_out_sin);
+    generated_palettes.init(persistent_arena, 0.62f, ease_in_out_sin);
     update_palette_chroma(
         preset_for_view(0).config.params.color.palette_chroma);
 
@@ -3386,15 +3378,7 @@ private:
   }
 
   HS_COLD_MEMBER const BakedPalette &palette_for(PaletteMode mode) const {
-    switch (mode) {
-    case PaletteMode::TRIADIC:
-      return triadic_palette_cycler.palette();
-    case PaletteMode::COMPLEMENTARY:
-      return complementary_palette_cycler.palette();
-    case PaletteMode::ANALOGOUS:
-      return analogous_palette_cycler.palette();
-    }
-    __builtin_unreachable();
+    return generated_palettes.palette(mode);
   }
 
   PaletteMode visible_palette_mode() const {
@@ -3417,27 +3401,11 @@ private:
   }
 
   void step_generated_palettes(PaletteMode visible) {
-    if (visible == PaletteMode::TRIADIC)
-      triadic_palette_cycler.step();
-    else
-      triadic_palette_cycler.advance_without_display();
-    if (visible == PaletteMode::COMPLEMENTARY)
-      complementary_palette_cycler.step();
-    else
-      complementary_palette_cycler.advance_without_display();
-    if (visible == PaletteMode::ANALOGOUS)
-      analogous_palette_cycler.step();
-    else
-      analogous_palette_cycler.advance_without_display();
+    generated_palettes.step(visible);
   }
 
   HS_COLD_MEMBER void update_palette_chroma(float chroma) {
-    if (chroma == palette_chroma)
-      return;
-    palette_chroma = chroma;
-    triadic_palette_cycler.set_generated_chroma(chroma);
-    complementary_palette_cycler.set_generated_chroma(chroma);
-    analogous_palette_cycler.set_generated_chroma(chroma);
+    generated_palettes.set_chroma(chroma);
   }
 
   HS_FLASH_MEMBER static SourceState
@@ -6119,34 +6087,8 @@ private:
   static void next_generated_palette(uint32_t &hue, uint32_t sequence,
                                      PaletteHarmony harmony, float chroma,
                                      GenerativePalette &out) {
-    if (sequence > 0)
-      hue += HUE_STEP;
-    out = GenerativePalette{PaletteRecipes::profile(
-        PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
-        PaletteRecipes::hue_turns(hue), chroma)};
-  }
-
-  static void next_triadic_palette(void *context, uint32_t sequence,
-                                   GenerativePalette &out) {
-    ShaderWorkbench &effect = *static_cast<ShaderWorkbench *>(context);
-    next_generated_palette(effect.palette_hue, sequence,
-                           PaletteHarmony::TRIADIC, effect.palette_chroma, out);
-  }
-
-  static void next_complementary_palette(void *context, uint32_t sequence,
-                                         GenerativePalette &out) {
-    ShaderWorkbench &effect = *static_cast<ShaderWorkbench *>(context);
-    next_generated_palette(effect.complementary_hue, sequence,
-                           PaletteHarmony::COMPLEMENTARY, effect.palette_chroma,
-                           out);
-  }
-
-  static void next_analogous_palette(void *context, uint32_t sequence,
-                                     GenerativePalette &out) {
-    ShaderWorkbench &effect = *static_cast<ShaderWorkbench *>(context);
-    next_generated_palette(effect.analogous_hue, sequence,
-                           PaletteHarmony::ANALOGOUS, effect.palette_chroma,
-                           out);
+    EffectPaletteRecipes::GeneratedPaletteBank::next_palette(
+        hue, sequence, harmony, chroma, out);
   }
 
   static constexpr uint8_t BOUNDARY_CUT =
@@ -6159,9 +6101,8 @@ private:
   static constexpr float NOISE_LATTICE_LIMIT = 1048576.0f;
   static constexpr float SPIRAL_ARMS = 3.0f;
   static constexpr float ONE_BELOW_UNIT = 0x1.fffffep-1f;
-  static constexpr uint32_t HUE_STEP = 159;
-  static constexpr int PALETTE_DWELL_FRAMES = 0;
-  static constexpr int PALETTE_FADE_FRAMES = 600;
+  static constexpr uint32_t HUE_STEP =
+      EffectPaletteRecipes::GeneratedPaletteBank::HUE_STEP;
   static constexpr size_t PARAM_CAPACITY = 80;
 
   static constexpr const char *FUNCTION_OPTIONS[] = {
@@ -7196,13 +7137,7 @@ private:
   Quaternion projection_walk_prev;
   Quaternion outer_walk_prev;
 
-  uint32_t palette_hue = 0;
-  uint32_t complementary_hue = 0;
-  uint32_t analogous_hue = 0;
-  float palette_chroma = 0.62f;
-  PaletteCycler triadic_palette_cycler;
-  PaletteCycler complementary_palette_cycler;
-  PaletteCycler analogous_palette_cycler;
+  EffectPaletteRecipes::GeneratedPaletteBank generated_palettes;
 
   Slots active_slots = PRESETS[0].config.slots;
   InversePipelineId active_pipeline = PRESETS[0].pipeline;

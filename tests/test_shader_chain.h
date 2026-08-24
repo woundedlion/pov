@@ -3115,7 +3115,9 @@ struct ShaderChainWhiteBox {
     return effect.program;
   }
   static Pixel palette_color(const FX &effect, float value) {
-    return effect.triadic_palette_cycler.palette().get(value).color;
+    return effect.generated_palettes.palette(In::Op::PaletteMode::TRIADIC)
+        .get(value)
+        .color;
   }
 };
 
