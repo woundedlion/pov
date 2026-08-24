@@ -88,6 +88,22 @@ def drop(root, kind, net):
 
 
 class SyntheticBoardTests(unittest.TestCase):
+    def test_pad_geometry_uses_the_circumscribed_radius(self):
+        root = parse(ROUND_PAD_BOARD)
+        pads = list(connectivity.F(
+            connectivity.F(root, "footprint")[0], "pad"))
+        first = connectivity.pad_capsule(pads[0], (0, 0), 0, ["F.Cu"])
+        self.assertAlmostEqual(first.radius, 1.35)
+
+    def test_touch_tolerance_is_one_micron(self):
+        left = connectivity.Capsule((0, 0), (0, 0), 0.5, {"F.Cu"})
+        within = connectivity.Capsule((1.0005, 0), (1.0005, 0), 0.5,
+                                      {"F.Cu"})
+        outside = connectivity.Capsule((1.0015, 0), (1.0015, 0), 0.5,
+                                       {"F.Cu"})
+        self.assertTrue(left.touches(within))
+        self.assertFalse(left.touches(outside))
+
     def test_a_track_between_two_pads_is_one_island(self):
         self.assertEqual(connectivity.opens(parse(BOARD)), {})
 

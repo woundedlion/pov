@@ -191,6 +191,15 @@ class StackedNameTests(unittest.TestCase):
 
         self.assertEqual(named, {(100.0, 100.0): {"GND", "+5V"}})
 
+    def test_junction_connects_crossing_wires(self):
+        crossing = dict(
+            labels=[((90, 100), "GND"), ((100, 90), "+5V")],
+            wires=[((90, 100), (110, 100)), ((100, 90), (100, 110))],
+        )
+        self.assertEqual(conflicts(**crossing), [])
+        found = conflicts(**crossing, junctions=[(100, 100)])
+        self.assertEqual([nets for nets, _ in found], [["+5V", "GND"]])
+
 
 class EmptyScanTests(unittest.TestCase):
     """An empty scan is a broken input, never a clean bill of health."""
