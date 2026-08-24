@@ -22,19 +22,12 @@ if(NOT _rc EQUAL 0)
   message(FATAL_ERROR "pov_segment_map_gen failed (${_rc}):\n${_err}")
 endif()
 
-# Whole file with whitespace runs collapsed, so a CRLF checkout or a text-mode
-# stdout translation absorbs without changing any other character.
-function(_normalized_text path out_var)
-  file(READ "${path}" _text)
-  string(REGEX REPLACE "[ \t\r\n]+" " " _text "${_text}")
-  string(STRIP "${_text}" _text)
-  set(${out_var} "${_text}" PARENT_SCOPE)
-endfunction()
+# Exact bytes pin the readable layout and canonical LF line endings.
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E compare_files "${GENERATED}" "${COMMITTED}"
+  RESULT_VARIABLE _compare_rc)
 
-_normalized_text("${GENERATED}" _gen_text)
-_normalized_text("${COMMITTED}" _com_text)
-
-if(NOT _gen_text STREQUAL _com_text)
+if(NOT _compare_rc EQUAL 0)
   message(FATAL_ERROR
     "hardware/pov_segment_map.json is out of sync with "
     "hardware/pov_segment_map.h.\n"

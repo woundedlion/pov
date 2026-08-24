@@ -24,6 +24,11 @@
 #include <cstdio>
 #include <iterator>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 #include "hardware/pov_segment_map.h"
 
 namespace {
@@ -98,6 +103,12 @@ void emit_x_cols(int w, const char *tail) {
 } // namespace
 
 int main() {
+#ifdef _WIN32
+  if (_setmode(_fileno(stdout), _O_BINARY) == -1) {
+    std::perror("pov_segment_map_gen: cannot set binary stdout");
+    return 1;
+  }
+#endif
   std::printf("{\n");
   std::printf("  \"source\": \"hardware/pov_segment_map.h\",\n");
   std::printf("  \"generator\": \"tools/pov_segment_map_export.cpp\",\n");
