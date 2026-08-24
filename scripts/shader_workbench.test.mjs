@@ -517,6 +517,27 @@ test('a transition evaluates its exact endpoint values', () => {
   });
 });
 
+test('transition evaluation rejects missing edge dependencies', () => {
+  for (const missingId of ['fast', 'calm']) {
+    const document = example();
+    document.preset_bank.presets = document.preset_bank.presets
+      .filter((preset) => preset.preset_id !== missingId);
+    assert.throws(
+      () => evaluateTransition(document.descriptor, document.preset_bank, 'fast', 'calm', 0),
+      (error) => error instanceof ShaderDocumentError &&
+        error.phase === 'transition' && error.code === 'INVALID_EDGE_ENDPOINT',
+    );
+  }
+
+  const document = example();
+  document.descriptor.path_policies = [];
+  assert.throws(
+    () => evaluateTransition(document.descriptor, document.preset_bank, 'fast', 'calm', 0),
+    (error) => error instanceof ShaderDocumentError &&
+      error.phase === 'transition' && error.code === 'UNKNOWN_EDGE_PATH',
+  );
+});
+
 test('staggered paths apply easing before ordered group scheduling', () => {
   const document = example();
   document.descriptor.path_policies[0] = {
