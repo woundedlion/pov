@@ -123,7 +123,7 @@ template <typename State> struct SmoothBands : ApproximationDefaults {
  * @brief Coverage vocabulary of the Sample crossing: mutually exclusive modes
  *        over the projection provenance, consumed exactly once per chain.
  */
-namespace ProjectedCoverage {
+namespace ProjectionCoverage {
 
 struct None : ApproximationDefaults {
   template <typename FrameState>
@@ -170,9 +170,9 @@ template <typename State> struct EdgeFade : ApproximationDefaults {
   }
 };
 
-} // namespace ProjectedCoverage
+} // namespace ProjectionCoverage
 
-namespace Coverage {
+namespace ValueCoverage {
 
 /** @brief Parameters for a value-dependent coverage cut. */
 struct CutoutValueParams {
@@ -191,7 +191,7 @@ struct CutoutValueParams {
 static_assert(field_ids_unique<CutoutValueParams>());
 
 /** @brief Value parameters for the edge fade
-    (Pullback::ProjectedCoverage::EdgeFade). */
+    (Pullback::ProjectionCoverage::EdgeFade). */
 struct EdgeValueParams {
   /** Fade band width in the projection's edge-distance units; 0 makes the edge
       a hard cut. */
@@ -212,7 +212,7 @@ value_cutout(float value, float threshold, float width) {
 }
 
 /**
- * @brief Value-dependent coverage cut for Stage::Coverage.
+ * @brief Value-dependent coverage cut for Stage::ApplyCoverage.
  * @details Reads the current FIELD value and nothing else, so a chain may
  * legally place it before, between, or after transfers.
  */
@@ -233,6 +233,6 @@ template <typename State> struct ValueCutout : ApproximationDefaults {
   }
 };
 
-} // namespace Coverage
+} // namespace ValueCoverage
 
 } // namespace Pullback

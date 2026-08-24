@@ -429,7 +429,7 @@ struct Warp : Contract<Warp<WarpPolicyT>, PlaneSample, PlaneSample> {
  *        field, ramps, and seeds the field carrier — establishing the
  *        FieldSample invariant.
  * @details Coverage modes never stack: the crossing's coverage policy is one
- * slot from the ProjectedCoverage vocabulary. The raw signed field exists
+ * slot from the ProjectionCoverage vocabulary. The raw signed field exists
  * only inside the crossing, which is why weighting is a crossing policy
  * rather than a stage.
  * @tparam SourcePolicyT Scalar source policy.
@@ -437,7 +437,7 @@ struct Warp : Contract<Warp<WarpPolicyT>, PlaneSample, PlaneSample> {
  * @tparam CoveragePolicyT Projected-coverage policy over the provenance.
  */
 template <typename SourcePolicyT, typename WeightPolicyT = Weight::Projection,
-          typename CoveragePolicyT = ProjectedCoverage::Weight>
+          typename CoveragePolicyT = ProjectionCoverage::Weight>
 struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
                          PlaneSample, FieldSample> {
   using Policies = std::tuple<SourcePolicyT, WeightPolicyT, CoveragePolicyT>;
@@ -575,11 +575,12 @@ struct Transfer
  * @details Value-dependent only — provenance-driven coverage is consumed at
  * the Sample crossing. A chain may place this before, between, or after
  * transfers; each placement reads a different value.
- * @tparam CoveragePolicyT Value-coverage policy, e.g. Coverage::ValueCutout.
+ * @tparam CoveragePolicyT Value-coverage policy, e.g.
+ * ValueCoverage::ValueCutout.
  */
 template <typename CoveragePolicyT>
-struct Coverage
-    : Contract<Coverage<CoveragePolicyT>, FieldSample, FieldSample> {
+struct ApplyCoverage
+    : Contract<ApplyCoverage<CoveragePolicyT>, FieldSample, FieldSample> {
   using Policies = std::tuple<CoveragePolicyT>;
   using CoveragePolicy = CoveragePolicyT;
 
