@@ -341,7 +341,9 @@ private:
       if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT ||
           species_sum < SPECIES_EMPTY_EPS * Q16_SCALE * tw)
         continue;
-      float scale = INV_SAMPLES / std::max(species_sum, Q16_SCALE * tw);
+      // Normalize species mass, floored by the weighted Q16 unit concentration.
+      const float sample_normalizer = std::max(species_sum, Q16_SCALE * tw);
+      float scale = INV_SAMPLES / sample_normalizer;
       mix_a += wa * scale;
       mix_b += wb * scale;
       mix_c += wc * scale;
