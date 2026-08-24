@@ -1078,7 +1078,7 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
       float row_lo, row_hi;
       Plot::geodesic_row_span<TH>(a, b, es, row_lo, row_hi);
       bool want;
-      if (!cr.could_intersect_y(row_lo, row_hi)) {
+      if (!cr.could_intersect_y(row_lo, row_hi + Plot::GEODESIC_ROW_AA_PAD)) {
         want = false;
       } else if (!xc.active) {
         want = true;
@@ -1485,7 +1485,7 @@ inline void test_raw_geodesic_edge_gate_parity() {
     const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
     float row_lo, row_hi;
     Plot::geodesic_row_span_rows<H>(ra, rb, a, b, es, row_lo, row_hi);
-    if (!cr.could_intersect_y(row_lo, row_hi))
+    if (!cr.could_intersect_y(row_lo, row_hi + Plot::GEODESIC_ROW_AA_PAD))
       return false;
     if (!xc.active)
       return true;
@@ -2238,6 +2238,56 @@ inline void test_antialiased_dot_clip_footprint() {
       (Plot::antialiased_dot_visible_in_clip<W, H>(cr, xc, H - 0.25f, 20.0f)));
   HS_EXPECT_FALSE(
       (Plot::antialiased_dot_visible_in_clip<W, H>(cr, xc, H - 2.0f, 20.0f)));
+}
+
+/**
+ * @brief Keeps a geodesic whose upper AntiAlias tap reaches the render margin.
+ */
+inline void test_geodesic_edge_gate_keeps_upper_antialias_tap() {
+  constexpr int W = 96, H = 48;
+  constexpr float EDGE_ROW = 10.25f;
+  const float phi = y_to_phi_virtual(EDGE_ROW, H + hs::H_OFFSET);
+  const float sp = sinf(phi);
+  const float cp = cosf(phi);
+  const float theta = 0.2f;
+  const Vector a(sp * cosf(theta), cp, sp * sinf(theta));
+  const Vector b(sp * cosf(theta), cp, -sp * sinf(theta));
+  const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
+
+  ClipRegion cr;
+  cr.w = W;
+  cr.h = H;
+  cr.margin = 1;
+  cr.y_start = 12;
+  cr.y_end = 20;
+  cr.x_start = 0;
+  cr.x_end = W;
+  const auto xc = cr.x_clip();
+
+  const float ra = Plot::y_to_screen_row<H>(a.y);
+  const float rb = Plot::y_to_screen_row<H>(b.y);
+  float row_lo, row_hi;
+  Plot::geodesic_row_span_rows<H>(ra, rb, a, b, es, row_lo, row_hi);
+  HS_EXPECT_FALSE(cr.could_intersect_y(row_lo, row_hi));
+  HS_EXPECT_GT(row_hi, cr.render_y_start() - Plot::GEODESIC_ROW_AA_PAD);
+  HS_EXPECT_TRUE((Plot::exact_geodesic_edge_visible<W, H>(
+      cr, xc, ra, rb, a, b, es, [](int &, int &) { return false; })));
+  HS_EXPECT_EQ(
+      (Plot::raw_geodesic_edge_gate<W, H>(cr, xc, ra, rb, vector_to_theta<W>(a),
+                                          vector_to_theta<W>(b), a, b)),
+      Plot::RawGeodesicGateResult::VISIBLE);
+
+  Filter::Screen::AntiAlias<W, H> aa;
+  bool emitted_in_margin = false;
+  bool emitted_in_display = false;
+  aa.plot(20.25f, row_hi, Pixel(1, 2, 3), 0.0f, 1.0f,
+          [&](float, float y, const Pixel &, float, float) {
+            const int row = static_cast<int>(y);
+            emitted_in_margin |= cr.contains_y(row);
+            emitted_in_display |= row >= cr.y_start && row < cr.y_end;
+          });
+  HS_EXPECT_TRUE(emitted_in_margin);
+  HS_EXPECT_FALSE(emitted_in_display);
 }
 
 /**
@@ -5563,6 +5613,7 @@ inline int run_plot_scan_tests() {
   test_screen_step_matches_analytic_unclamped();
   test_edge_fits_one_dot_is_conservative();
   test_antialiased_dot_clip_footprint();
+  test_geodesic_edge_gate_keeps_upper_antialias_tap();
   test_antialiased_dot_gate_matches_antialias_taps();
 
   test_ring_sample_unit_length_and_progress();

@@ -99,6 +99,12 @@ inline constexpr int COL_PAD = 2;
 inline constexpr int COL_FOOTPRINT = COL_PAD + 1;
 
 /**
+ * @brief Rows of slack added to the high end of a geodesic row span.
+ * @details AntiAlias emits a sample into floor(row) and floor(row) + 1.
+ */
+inline constexpr float GEODESIC_ROW_AA_PAD = 1.0f;
+
+/**
  * @brief Columns outside the render band a clip cut is placed at.
  * @details A piece ending exactly on the band edge still overlaps it once
  * finish_col_span widens the span by COL_FOOTPRINT, so a cut there would leave
@@ -1069,7 +1075,7 @@ exact_geodesic_edge_visible(const ClipRegion &cr, const ClipRegion::XClip &xc,
                             ColSpanFn &&col_span) {
   float row_lo, row_hi;
   geodesic_row_span_rows<H>(ra, rb, a, b, es, row_lo, row_hi);
-  if (!cr.could_intersect_y(row_lo, row_hi))
+  if (!cr.could_intersect_y(row_lo, row_hi + GEODESIC_ROW_AA_PAD))
     return false;
   if (!xc.active)
     return true;
@@ -1152,10 +1158,11 @@ raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
 
   const float y_start = static_cast<float>(cr.render_y_start());
   const float y_end = static_cast<float>(cr.render_y_end());
-  if (std::abs(row_hi - y_start) < ROW_BOUNDARY_GUARD ||
+  const float padded_row_hi = row_hi + GEODESIC_ROW_AA_PAD;
+  if (std::abs(padded_row_hi - y_start) < ROW_BOUNDARY_GUARD ||
       std::abs(row_lo - y_end) < ROW_BOUNDARY_GUARD)
     return RawGeodesicGateResult::EXACT_FALLBACK;
-  if (!cr.could_intersect_y(row_lo, row_hi))
+  if (!cr.could_intersect_y(row_lo, padded_row_hi))
     return RawGeodesicGateResult::CULLED;
   if (!xc.active)
     return RawGeodesicGateResult::VISIBLE;
@@ -1602,8 +1609,9 @@ make_cartesian_quadrant_clip(const ClipRegion &cr) {
     q.latitude_sign = 1.0f;
     q.latitude_threshold = cosf(boundary);
   } else {
-    const float boundary = static_cast<float>(cr.render_y_start()) * PI_F /
-                           static_cast<float>(H_VIRT - 1);
+    const float boundary =
+        (static_cast<float>(cr.render_y_start()) - GEODESIC_ROW_AA_PAD) * PI_F /
+        static_cast<float>(H_VIRT - 1);
     q.latitude_sign = -1.0f;
     q.latitude_threshold = -cosf(boundary);
   }
@@ -1778,7 +1786,8 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
   const float max_arc = (PI_F * 0.5f) * sqrtf(max_chord2);
   const float row_margin =
       (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / PI_F);
-  if (!cr.could_intersect_y(row_lo_t - row_margin, row_hi_t + row_margin)) {
+  if (!cr.could_intersect_y(row_lo_t - row_margin,
+                            row_hi_t + row_margin + GEODESIC_ROW_AA_PAD)) {
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
     gate_batch.step();
     gate_batch.finish();
