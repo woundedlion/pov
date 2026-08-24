@@ -1853,10 +1853,10 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
  * @brief Measures per-frame sweep stability of the four Phase-1 hankin legs
  *        under the shipping re-solve (uniform and eased theta) and under a
  *        slerp-from-corner parameterization.
- * @details Reports branch flips, per-step vertex chords and face-normal
- * reversals; asserts the slerp path is normal-flip free and that its endpoints
- * reproduce the collapsed form and the theta_star solve. Slerp carries the
- * arrival branch at every k, so its branch-flip count is zero by construction.
+ * @details Gates branch flips, per-step vertex chords and face-normal
+ * reversals for the shipping re-solves; also asserts the slerp path is
+ * normal-flip free and that its endpoints reproduce the collapsed form and
+ * the theta_star solve.
  */
 inline void test_hankin_sweep_vertex_stability() {
   constexpr int SAMPLES = 32;
@@ -1974,6 +1974,18 @@ inline void test_hankin_sweep_vertex_stability() {
                   sum.worst_max_disp, sum.worst_step, sum.spike_ratio,
                   sum.worst_mean_disp, sum.worst_flat_faces,
                   sum.worst_far_ratio, sum.worst_corner_chord);
+      if (mode < 2) {
+        HS_CONTEXT(site.name, mode);
+        HS_EXPECT_LE(sum.total_branch_flips, 600);
+        HS_EXPECT_LE(sum.total_normal_flips, 24);
+        HS_EXPECT_LE(sum.steps_with_normal_flips, 2);
+        HS_EXPECT_LE(sum.worst_max_disp, 0.60f);
+        HS_EXPECT_LE(sum.worst_mean_disp, 0.25f);
+        HS_EXPECT_LE(sum.spike_ratio, 3.0f);
+        HS_EXPECT_EQ(sum.worst_flat_faces, 0);
+        HS_EXPECT_LE(sum.worst_far_ratio, 21.0f);
+        HS_EXPECT_LE(sum.worst_corner_chord, 0.50f);
+      }
     }
 
     std::printf("      path deviation slerp vs resolve at equal k: max=%.5f\n",
