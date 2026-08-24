@@ -621,6 +621,51 @@ struct PreparedProjectionPolicy : Pullback::ApproximationDefaults {
   }
 };
 
+struct PreparedSourcePolicy : Pullback::ApproximationDefaults {
+  using Prepared = float;
+  static Prepared prepare(const TestFrame &) { return 0.5f; }
+  static float sample(const Pullback::PlaneSample &input, const TestFrame &,
+                      const Prepared &prepared) {
+    return input.coords.re + prepared;
+  }
+};
+
+struct PreparedWeightPolicy : Pullback::ApproximationDefaults {
+  using Prepared = float;
+  static Prepared prepare(const TestFrame &) { return 0.5f; }
+  static float apply(float field, const Pullback::ProjectionProvenance &,
+                     const TestFrame &, const Prepared &prepared) {
+    return field * prepared;
+  }
+};
+
+struct PreparedSampleCoveragePolicy : Pullback::ApproximationDefaults {
+  using Prepared = float;
+  static Prepared prepare(const TestFrame &) { return 0.25f; }
+  static float apply(const Pullback::ProjectionProvenance &, const TestFrame &,
+                     const Prepared &prepared) {
+    return prepared;
+  }
+};
+
+struct MissingPreparedWeightApply : Pullback::ApproximationDefaults {
+  using Prepared = float;
+  static Prepared prepare(const TestFrame &) { return 0.5f; }
+  static float apply(float field, const Pullback::ProjectionProvenance &,
+                     const TestFrame &) {
+    return field;
+  }
+};
+
+struct MissingPreparedSampleCoverageApply : Pullback::ApproximationDefaults {
+  using Prepared = float;
+  static Prepared prepare(const TestFrame &) { return 0.25f; }
+  static float apply(const Pullback::ProjectionProvenance &,
+                     const TestFrame &) {
+    return 1.0f;
+  }
+};
+
 struct PreparedTransferPolicy : Pullback::ApproximationDefaults {
   using Prepared = float;
   static Prepared prepare(const TestFrame &) { return 0.25f; }
@@ -696,6 +741,26 @@ inline void test_pullback_prepared_stage_policies() {
   HS_EXPECT_EQ(project_prepared, 3);
   HS_EXPECT_EQ(BoundProject::run(sphere, frame, project_prepared).coords.re,
                4.0f);
+
+  using BoundSourceOnlySample =
+      Pullback::Stage::Sample<PreparedSourcePolicy>::Bind<CountingBinding>;
+  static_assert(std::is_same_v<typename BoundSourceOnlySample::Prepared,
+                               PreparedSourcePolicy::Prepared>);
+
+  using BoundSample = Pullback::Stage::Sample<
+      PreparedSourcePolicy, PreparedWeightPolicy,
+      PreparedSampleCoveragePolicy>::Bind<CountingBinding>;
+  const Pullback::PlaneSample plane{
+      Complex(1.0f, 0.0f), {0, 0, 0, 0.0f, 1.0f, 0, 0, 0, 0.8f}, X_AXIS, 0.75f};
+  const auto sample_prepared = BoundSample::prepare(frame);
+  HS_EXPECT_EQ(std::get<0>(sample_prepared), 0.5f);
+  HS_EXPECT_EQ(std::get<1>(sample_prepared), 0.5f);
+  HS_EXPECT_EQ(std::get<2>(sample_prepared), 0.25f);
+  const Pullback::FieldSample sampled =
+      BoundSample::run(plane, frame, sample_prepared);
+  HS_EXPECT_EQ(sampled.value, 0.875f);
+  HS_EXPECT_EQ(sampled.coverage, 0.2f);
+  HS_EXPECT_EQ(sampled.path_length, 0.75f);
 
   const Pullback::FieldSample field{0.25f, 0.8f, X_AXIS, 0.0f};
   using BoundTransfer =
@@ -792,6 +857,15 @@ inline void test_pullback_provider_contracts() {
   static_assert(
       !Pullback::descriptor_bindable<
           Pullback::Stage::Rotate<CountingOrientationState>, TestBinding>());
+  static_assert(!Pullback::descriptor_bindable<
+                Pullback::Stage::Sample<CountingSourcePolicy,
+                                        MissingPreparedWeightApply>,
+                CountingBinding>());
+  static_assert(
+      !Pullback::descriptor_bindable<
+          Pullback::Stage::Sample<CountingSourcePolicy, Pullback::Weight::None,
+                                  MissingPreparedSampleCoverageApply>,
+          CountingBinding>());
   static_assert(Pullback::ProjectionCoverage::EdgeFade<
                 ValueState>::PROVIDER_VALID<TestBinding>);
   static_assert(!Pullback::ProjectionCoverage::EdgeFade<
