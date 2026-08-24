@@ -47,8 +47,9 @@ reuse direction reciprocals, specialize periodic coordinate evaluation, unroll
 the fixed-size edge metrics and event minimum, precompute frame invariants, and
 fuse layer compositing into the cached-flash shader. The deterministic native
 render signature covers every preset with multiple origins, rotations, and ray
-directions; all 74 HyperLattice tests pass. The final Phantasm release image
-also passes the Teensy memory gate at 190,600 bytes of RAM1 code, leaving 2,936
+directions; the dedicated HyperLattice suite passes. The final integrated
+Phantasm release image also passes the Teensy memory gate at 191,080 bytes of
+RAM1 code, leaving 2,456
 bytes below the 193,536-byte derived ceiling.
 
 Code generation, not source-level operation count alone, constrained the final
