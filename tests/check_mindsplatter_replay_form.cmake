@@ -32,12 +32,21 @@ endif()
 
 file(READ "${COMMITTED}" _committed)
 file(READ "${GENERATED}" _generated)
+file(SIZE "${GENERATED}" _generated_size)
+if(_generated_size LESS 100000)
+  message(FATAL_ERROR
+    "MindSplatter replay generator emitted only ${_generated_size} bytes")
+endif()
 
+# The replay's RandomWalk orientation uses libm under -ffast-math. CPU-specific
+# low-bit results amplify over the particle simulation, so only invariant form,
+# identity, and revision are portable. unit_mindsplatter_replay validates the
+# committed payload against the live renderer.
 foreach(_symbol IN ITEMS
     "HEAVY_SEARCH_V1_STATE"
     "HEAVY_SEARCH_V1_FRAMEBUFFER"
     "Corpus HEAVY_SEARCH_V1"
-    "CORPUS_MANIFEST")
+    "CORPUS_MANIFEST[] = {&HEAVY_SEARCH_V1}")
   string(FIND "${_generated}" "${_symbol}" _symbol_offset)
   if(_symbol_offset EQUAL -1)
     message(FATAL_ERROR
