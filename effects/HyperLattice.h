@@ -380,18 +380,39 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
   for (int event = 0; event < DIMENSIONS * MAX_SHELLS; ++event) {
     HS_PROFILE_DEEP(hl_event_step);
     float nearest = prepared.params.far_cells;
-    for (const TraceCursor &cursor : cursors)
-      if (cursor.active && cursor.distance < nearest)
+    float second_nearest = prepared.params.far_cells;
+    int nearest_axis = -1;
+    for (int axis = 0; axis < DIMENSIONS; ++axis) {
+      const TraceCursor &cursor = cursors[axis];
+      if (!cursor.active)
+        continue;
+      if (cursor.distance < nearest) {
+        second_nearest = nearest;
         nearest = cursor.distance;
+        nearest_axis = axis;
+      } else if (cursor.distance < second_nearest) {
+        second_nearest = cursor.distance;
+      }
+    }
     if (nearest >= prepared.params.far_cells)
       break;
 
     const float tolerance = GROUP_EPSILON * std::max(1.0f, nearest);
+    uint8_t pending = static_cast<uint8_t>(1u << nearest_axis);
+    if (second_nearest - nearest <= tolerance) {
+      pending = 0;
+      for (int axis = 0; axis < DIMENSIONS; ++axis) {
+        const TraceCursor &cursor = cursors[axis];
+        if (cursor.active && cursor.distance - nearest <= tolerance)
+          pending |= static_cast<uint8_t>(1u << axis);
+      }
+    }
+
     TraceHit layer;
-    for (int axis = 0; axis < DIMENSIONS; ++axis) {
+    do {
+      const int axis = __builtin_ctz(static_cast<unsigned>(pending));
+      pending &= static_cast<uint8_t>(pending - 1);
       TraceCursor &cursor = cursors[axis];
-      if (!cursor.active || fabsf(cursor.distance - nearest) > tolerance)
-        continue;
       TraceHit candidate = trace_plane(ray_origin, direction, axis,
                                        cursor.distance, cursor.step, prepared);
       candidate.coverage *= shell_horizon_coverage(
@@ -402,7 +423,7 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
       cursor.distance += cursor.step;
       cursor.active = cursor.shell < shell_count &&
                       cursor.distance < prepared.params.far_cells;
-    }
+    } while (pending != 0);
     if (layer.coverage > 0.0f && !consume(layer))
       return;
   }
