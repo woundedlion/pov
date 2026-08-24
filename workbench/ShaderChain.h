@@ -22,6 +22,7 @@
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 #include "core/render/pullback/interpreter.h"
+#include "core/render/pullback/runtime_seeds.h"
 
 namespace hs_test {
 namespace shader_chain_tests {
@@ -55,7 +56,7 @@ public:
                           PARAM_CAPACITY);
     resources = persistent_arena.make<Resources>();
     resources->hue_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    resources->hue_noise.SetSeed(HUE_NOISE_SEED);
+    resources->hue_noise.SetSeed(Pullback::HUE_NOISE_SEED);
     resources->hue_noise.SetFrequency(1.0f);
     auto *block_a = static_cast<uint8_t *>(persistent_arena.allocate(
         Pullback::Interp::CHAIN_ARENA_BYTES, alignof(std::max_align_t)));
@@ -232,7 +233,6 @@ private:
     generated_palettes.set_chroma(chroma);
   }
 
-  static constexpr int HUE_NOISE_SEED = 5150;
   static constexpr float DEFAULT_CHROMA =
       Pullback::Color::ColorParams{}.palette_chroma;
   /** Chain schema capacity; the effect registers no globals of its own. */

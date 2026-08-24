@@ -790,7 +790,7 @@ public:
     state = persistent_arena.make<State>();
     use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    configure_noise(state->color_noise, 6047);
+    configure_noise(state->color_noise, HUE_NOISE_SEED);
     if constexpr (HasOuterNoise)
       configure_noise(state->outer.noise, Derived::OUTER_NOISE_SEED);
     if constexpr (HasSourceNoise)
