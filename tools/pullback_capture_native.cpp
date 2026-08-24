@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -260,10 +261,9 @@ private:
         color.color * SB::brightness_envelope_gain(
                           sample.value, frame.slots.brightness_envelope,
                           frame.params.color.brightness_depth);
-    color.alpha *=
-        sample.coverage * hs::lerp(frame.params.color.value_opacity_low,
-                                   frame.params.color.value_opacity_high,
-                                   sample.value);
+    color.alpha *= sample.coverage * hs::lerp(frame.params.color.opacity_low,
+                                              frame.params.color.opacity_high,
+                                              sample.value);
     return color;
   }
 };
@@ -303,16 +303,21 @@ struct RecordMetadata {
   uint16_t duration = 0;
 };
 
-uint16_t read_u16(FILE *input) {
+bool read_u16(FILE *input, uint16_t &value) {
   uint8_t bytes[2];
   if (std::fread(bytes, sizeof(bytes), 1, input) != 1)
-    std::abort();
-  return static_cast<uint16_t>(bytes[0] | bytes[1] << 8);
+    return false;
+  value = static_cast<uint16_t>(bytes[0] | bytes[1] << 8);
+  return true;
 }
 
-uint32_t read_u32(FILE *input) {
-  const uint32_t low = read_u16(input);
-  return low | static_cast<uint32_t>(read_u16(input)) << 16;
+bool read_u32(FILE *input, uint32_t &value) {
+  uint16_t low;
+  uint16_t high;
+  if (!read_u16(input, low) || !read_u16(input, high))
+    return false;
+  value = low | static_cast<uint32_t>(high) << 16;
+  return true;
 }
 
 void write_u16(FILE *output, uint16_t value) {
@@ -343,20 +348,32 @@ OperationSet read_instructions(const char *path) {
   if (input == nullptr)
     return {};
   char magic[4];
+  uint16_t version;
   if (std::fread(magic, sizeof(magic), 1, input) != 1 ||
-      std::memcmp(magic, "HSPO", sizeof(magic)) != 0 || read_u16(input) != 2) {
+      std::memcmp(magic, "HSPO", sizeof(magic)) != 0 ||
+      !read_u16(input, version) || version != 2) {
     std::fclose(input);
     return {};
   }
-  const uint16_t count = read_u16(input);
-  const uint16_t oracle_count = read_u16(input);
+  uint16_t count;
+  uint16_t oracle_count;
+  if (!read_u16(input, count) || !read_u16(input, oracle_count)) {
+    std::fclose(input);
+    return {};
+  }
   OperationSet operations;
   operations.frames.reserve(count);
   operations.oracles.reserve(oracle_count);
   for (uint16_t index = 0; index < count; ++index) {
-    const uint16_t preset = read_u16(input);
-    const auto operation = static_cast<Operation>(read_u16(input));
-    const uint16_t length = read_u16(input);
+    uint16_t preset;
+    uint16_t operation_value;
+    uint16_t length;
+    if (!read_u16(input, preset) || !read_u16(input, operation_value) ||
+        !read_u16(input, length)) {
+      std::fclose(input);
+      return {};
+    }
+    const auto operation = static_cast<Operation>(operation_value);
     std::string name(length, '\0');
     if (length == 0 || std::fread(name.data(), length, 1, input) != 1 ||
         preset >= PRESET_COUNT || operation >= Operation::COUNT) {
@@ -366,15 +383,26 @@ OperationSet read_instructions(const char *path) {
     operations.frames.push_back({preset, operation, std::move(name)});
   }
   for (uint16_t index = 0; index < oracle_count; ++index) {
-    const uint16_t length = read_u16(input);
+    uint16_t length;
+    if (!read_u16(input, length)) {
+      std::fclose(input);
+      return {};
+    }
     std::string oracle(length, '\0');
     if (length == 0 || std::fread(oracle.data(), length, 1, input) != 1) {
       std::fclose(input);
       return {};
     }
-    const uint16_t preset = read_u16(input);
-    const auto operation = static_cast<Operation>(read_u16(input));
-    const float phase = std::bit_cast<float>(read_u32(input));
+    uint16_t preset;
+    uint16_t operation_value;
+    uint32_t phase_bits;
+    if (!read_u16(input, preset) || !read_u16(input, operation_value) ||
+        !read_u32(input, phase_bits)) {
+      std::fclose(input);
+      return {};
+    }
+    const auto operation = static_cast<Operation>(operation_value);
+    const float phase = std::bit_cast<float>(phase_bits);
     if (preset >= PRESET_COUNT || operation >= Operation::COUNT) {
       std::fclose(input);
       return {};
@@ -512,33 +540,34 @@ int capture(const char *operations_path, const char *output_path) {
                            metric->maximum, metric->samples))
       return 3;
   }
-  FILE *output = open_file(output_path, "wb");
+  std::unique_ptr<FILE, decltype(&std::fclose)> output(
+      open_file(output_path, "wb"), &std::fclose);
   if (output == nullptr)
     return 2;
-  if (std::fwrite("HSPB", 4, 1, output) != 1)
+  if (std::fwrite("HSPB", 4, 1, output.get()) != 1)
     return 2;
-  write_u16(output, 3);
-  write_u16(output, W);
-  write_u16(output, H);
-  write_u32(output, static_cast<uint32_t>(operations.frames.size()));
-  write_u16(output, static_cast<uint16_t>(metrics.size()));
+  write_u16(output.get(), 3);
+  write_u16(output.get(), W);
+  write_u16(output.get(), H);
+  write_u32(output.get(), static_cast<uint32_t>(operations.frames.size()));
+  write_u16(output.get(), static_cast<uint16_t>(metrics.size()));
   for (const Instruction &instruction : operations.frames) {
     std::vector<Pixel> pixels;
     RecordMetadata metadata;
     if (!render_instruction<W, H>(instruction, pixels, metadata) ||
-        !write_record<W, H>(output, instruction, pixels, metadata)) {
-      std::fclose(output);
+        !write_record<W, H>(output.get(), instruction, pixels, metadata)) {
       return 3;
     }
   }
   for (const OracleMetric &metric : metrics) {
-    write_u16(output, static_cast<uint16_t>(metric.oracle.size()));
-    if (std::fwrite(metric.oracle.data(), metric.oracle.size(), 1, output) != 1)
+    write_u16(output.get(), static_cast<uint16_t>(metric.oracle.size()));
+    if (std::fwrite(metric.oracle.data(), metric.oracle.size(), 1,
+                    output.get()) != 1)
       return 2;
-    write_u16(output, metric.maximum);
-    write_u32(output, metric.samples);
+    write_u16(output.get(), metric.maximum);
+    write_u32(output.get(), metric.samples);
   }
-  return std::fclose(output) == 0 ? 0 : 2;
+  return std::fclose(output.release()) == 0 ? 0 : 2;
 }
 
 } // namespace
