@@ -12,6 +12,10 @@ on:
   push:
     branches: [master]
   pull_request:
+    paths-ignore:
+      - '*.md'
+      - '**/*.md'
+      - 'docs/**'
 
 # Every actions/checkout step below also passes persist-credentials: false. The
 # token authenticates the fetch and is not wanted afterwards: no job here
@@ -1583,7 +1587,6 @@ jobs:
           python hardware/phantasm/gen/board_metadata.py --check
 
   teensy-size:
-    if: github.event_name != 'pull_request'
     name: Teensy 4 firmware (build + size + layout)
     # ─── ACTIVE GATE ───────────────────────────────────────────────────────────
     # Builds both Teensy 4.0 images headlessly and enforces the per-region budgets
@@ -1654,7 +1657,6 @@ jobs:
           if-no-files-found: warn
 
   teensy-warnings:
-    if: github.event_name != 'pull_request'
     name: Teensy 4 firmware (no first-party warnings)
     # The warning parser fails on any first-party warning. It needs a
     # COLD build: a cached/incremental TU emits no warnings, so the object-cached
@@ -1789,9 +1791,8 @@ jobs:
       - name: Assert every job is a dependency and succeeded
         env:
           RESULTS: ${{ toJSON(needs) }}
-          # Space-separated jobs allowed to report `skipped`. Empty: no job in
-          # this file carries an `if:`, so every one must run and succeed. Adding
-          # a conditional job means adding it here, deliberately.
+          EVENT: ${{ github.event_name }}
+          # Space-separated jobs allowed to report `skipped` on pull requests.
           ALLOW_SKIPPED: 'windows-tests teensy-size teensy-warnings'
         run: |
           WF=.github/workflows/ci.yml
@@ -1825,13 +1826,13 @@ jobs:
             exit 1
           fi
 
-          awk -v allow="$ALLOW_SKIPPED" '
+          awk -v allow="$ALLOW_SKIPPED" -v event="$EVENT" '
             BEGIN {
               n = split(allow, entries, " ")
               for (i = 1; i <= n; i++) allowed[entries[i]] = 1
             }
             $2 == "success" { next }
-            $2 == "skipped" && allowed[$1] { next }
+            $2 == "skipped" && event == "pull_request" && allowed[$1] { next }
             { print }
           ' /tmp/ci-results.txt > /tmp/ci-bad.txt
           if [ -s /tmp/ci-bad.txt ]; then
