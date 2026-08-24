@@ -21,12 +21,17 @@ GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
 
 def floors(path: Path, pattern: re.Pattern[str]) -> dict[str, int]:
     text = path.read_text(encoding="utf-8")
-    return {name: int(value) for name, value in pattern.findall(text)}
+    result = {name: int(value) for name, value in pattern.findall(text)}
+    if not result:
+        raise SystemExit(f"no domain coverage floor parsed from {path}")
+    return result
 
 
 def death_pins(path: Path) -> tuple[dict[str, int], dict[str, int]]:
     text = path.read_text(encoding="utf-8")
     result = {name: int(value) for name, value in DEATH_FLOOR_RE.findall(text)}
+    if not result:
+        raise SystemExit(f"no domain coverage floor parsed from {path}")
     table = GAP_TABLE_RE.search(text)
     gaps = {
         f"guard_gap.{name}": int(gap)
