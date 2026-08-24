@@ -195,6 +195,14 @@ class ManifestValidation(unittest.TestCase):
         ):
             generator._validate_schema(broken, schema, schema, "programs")
 
+    def test_schema_shape_rejects_missing_definitions(self):
+        schema_path = MANIFEST_DIR / "schema.json"
+        schema = generator._load(schema_path)
+        schema["$defs"].pop("sha")
+        with self.assertRaisesRegex(generator.ManifestError,
+                                    "missing schema definitions"):
+            generator._validate_schema_shape(schema, schema_path)
+
     def test_schema_const_rejects_boolean_versions(self):
         programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
         schema = generator._load(MANIFEST_DIR / "schema.json")
