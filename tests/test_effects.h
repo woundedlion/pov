@@ -5759,6 +5759,55 @@ inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
   HS_EXPECT_GT(outside_unit_sphere, 1000);
 }
 
+/** @brief The early-exit attractor kernel matches an exhaustive cap scan. */
+inline void test_mindsplatter_attractor_hole_alpha_equivalence() {
+  using MS = MindSplatter<SMALL_W, SMALL_H>;
+  using WB = MindSplatterWhiteBox;
+  reset_effect_globals();
+
+  MS effect;
+  effect.init();
+  auto check = [&](const Vector &p) {
+    HS_EXPECT_EQ(WB::attractor_hole_alpha(effect, p),
+                 WB::reference_attractor_hole_alpha(effect, p));
+  };
+
+  constexpr MS::BaseMesh MESHES[] = {
+      MS::BaseMesh::TETRAHEDRON, MS::BaseMesh::OCTAHEDRON,
+      MS::BaseMesh::DODECAHEDRON, MS::BaseMesh::ICOSAHEDRON};
+  for (MS::BaseMesh mesh : MESHES) {
+    HS_EXPECT_TRUE(
+        effect.updateParameter("Base Mesh", static_cast<float>(mesh)) ==
+        ParamSetResult::APPLIED);
+    effect.draw_frame();
+    effect.advance_display();
+
+    for (size_t i = 0; i < WB::active_attractors(effect); ++i) {
+      const Vector attractor = WB::attractor_position(effect, i);
+      Vector tangent = cross(attractor, Y_AXIS);
+      if (tangent.length() < 0.5f)
+        tangent = cross(attractor, X_AXIS);
+      tangent = tangent.normalized();
+      check(attractor);
+      for (float angle :
+           {std::nextafter(WB::event_horizon(), 0.0f), WB::event_horizon(),
+            std::nextafter(WB::event_horizon(),
+                           std::numeric_limits<float>::infinity())})
+        check(attractor * cosf(angle) + tangent * sinf(angle));
+    }
+
+    hs::random().seed(0x97A0 + static_cast<uint32_t>(mesh));
+    for (int i = 0; i < 10000; ++i) {
+      Vector p;
+      do {
+        p = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                   hs::rand_f(-1.0f, 1.0f));
+      } while (p.length() < 0.1f);
+      check(p.normalized());
+    }
+  }
+}
+
 /**
  * @brief Verifies every per-emitter emission phase stays wrapped to [0, 2pi)
  *        across frames at the max angular rate.
@@ -6854,6 +6903,7 @@ inline int run_effects_tests() {
   test_mindsplatter_replay_snapshot_exact();
   test_mindsplatter_saturated_quadrant_sink_parity();
   test_mindsplatter_octahedral_hole_alpha_equivalence();
+  test_mindsplatter_attractor_hole_alpha_equivalence();
   test_mindsplatter_rotation_matrix_equivalence();
   test_mindsplatter_rotation_matrix_framebuffer_error();
   test_mindsplatter_particle_gradients_follow_emission_order();

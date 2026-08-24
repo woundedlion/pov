@@ -337,6 +337,22 @@ struct MindSplatterWhiteBox {
     }
     return alpha;
   }
+  template <int W, int H>
+  static float attractor_hole_alpha(const MindSplatter<W, H> &ms,
+                                    const Vector &p) {
+    return ms.attractor_hole_alpha(
+        p, fast_cosf(MindSplatter<W, H>::EVENT_HORIZON));
+  }
+  template <int W, int H>
+  static float reference_attractor_hole_alpha(const MindSplatter<W, H> &ms,
+                                              const Vector &p) {
+    return ms.reference_attractor_hole_alpha(
+        p, fast_cosf(MindSplatter<W, H>::EVENT_HORIZON));
+  }
+  template <int W, int H>
+  static Vector attractor_position(const MindSplatter<W, H> &ms, size_t i) {
+    return ms.particle_system.attractors[i].position;
+  }
   static Vector matrix_vertex(const Vector &v, const MobiusParams &mobius,
                               const Quaternion &orientation) {
     RotationMatrix rotation(orientation);
