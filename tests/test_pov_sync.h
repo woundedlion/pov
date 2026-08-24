@@ -2374,6 +2374,7 @@ inline void test_sim_masked_windows() {
   const uint64_t rev = 2ull * PERIOD;
   for (int k = 8; k < 28; ++k) {
     const uint64_t b0 = k * rev; // master ZERO crossings ≈ k·rev (ppm 0)
+    sim.boards[1].masks.push_back({b0 - COL / 4, b0 + COL / 4});
     sim.boards[2].masks.push_back({b0 - COL / 2, b0 + 2 * COL + COL / 2});
   }
   // Board 3: mid-revolution masks (no boundary, no symbol) — pure wake
@@ -2390,6 +2391,9 @@ inline void test_sim_masked_windows() {
   // Truncated bursts were discarded (count telemetry), never accepted as
   // the wrong boundary: phase stays sub-column-ish and content equal.
   const Telemetry &tm2 = sim.boards[2].board.telemetry_snapshot();
+  const Telemetry &tm1 = sim.boards[1].board.telemetry_snapshot();
+  HS_EXPECT_GT(tm1.symbols_accepted, 20u);
+  HS_EXPECT_EQ(tm1.symbols_discarded_invalid, 0u);
   HS_EXPECT_GT(tm2.symbols_discarded_invalid, 5u);
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   for (int i = 1; i < 4; ++i) {
