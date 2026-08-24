@@ -60,10 +60,7 @@ def _teensy_size_candidates(env):
     roots = []
     pio_platform = getattr(env, "PioPlatform", None)
     if pio_platform is not None:
-        try:
-            root = pio_platform().get_package_dir("tool-teensy")
-        except Exception:
-            root = None
+        root = pio_platform().get_package_dir("tool-teensy")
         if root:
             roots.append(root)
     packages = env.subst("$PROJECT_PACKAGES_DIR")
