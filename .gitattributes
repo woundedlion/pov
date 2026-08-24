@@ -27,6 +27,9 @@ tools/teensy_warning_baseline.txt text eol=lf
 # the engine's copy on a Linux runner.
 hardware/pov_segment_map.json text eol=lf
 
+# Protected Quilter snapshot text and checksum manifest.
+hardware/phantasm/quilter_incremental/** text eol=lf
+
 # The chain-catalog golden is byte-compared against the LF bytes
 # append_catalog_json() emits, on every host.
 tests/data/shader_chain_catalog.json text eol=lf
