@@ -105,8 +105,6 @@ public:
 
   ParamsT
       template_params; /**< Template params copied into each new entity on spawn. */
-  Timeline &
-      timeline; /**< Timeline that schedules and steps the spawned animations. */
 
   /**
    * @brief Constructs a pool bound to a timeline.
@@ -295,6 +293,8 @@ protected:
       nullptr; /**< CAPACITY-slot pool, allocated by init_storage(). */
 
 private:
+  Timeline &
+      timeline; /**< Timeline that schedules and steps the spawned animations. */
   bool clear_hook_registered =
       false; /**< Whether init_storage() registered the timeline clear hook. */
 
