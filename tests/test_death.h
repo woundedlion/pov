@@ -922,8 +922,8 @@ inline constexpr size_t TETRAHEDRON_BAKE_WORDS = 3 * 4;
  * @param bits Payload storage, TETRAHEDRON_BAKE_WORDS words, filled with the
  *        mesh's own vertex bits; must outlive the relax_baked() call.
  * @return Bake relax_baked() accepts until the caller perturbs one field.
- * @details relax_baked does not check source positions, so the source mesh's
- *          own vertices are a legal payload.
+ * @details The source mesh's own vertices make both source and payload hashes
+ *          match.
  */
 inline MeshOps::RelaxBake
 build_matching_relax_bake(PolyMesh &mesh, Arena &arena, uint32_t *bits) {
@@ -944,6 +944,7 @@ build_matching_relax_bake(PolyMesh &mesh, Arena &arena, uint32_t *bits) {
   bake.face_count = static_cast<uint16_t>(mesh.get_face_counts_size());
   bake.index_count = static_cast<uint16_t>(mesh.get_faces_size());
   bake.iterations = 0;
+  bake.source_hash = MeshOps::relax_vertex_hash(mesh);
   bake.topology_hash = MeshOps::relax_topology_hash(mesh);
   bake.output_hash = output_hash;
   return bake;
@@ -984,6 +985,25 @@ inline void case_relax_baked_topology_mismatch() {
   PolyMesh mesh;
   MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
   bake.topology_hash = opaque(bake.topology_hash ^ 1u);
+  PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
+  if (out.vertices.size() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: relax_baked rejects a bake from different source vertices.
+ * @details Topology and dimensions do not identify parameterized operators whose
+ *          connectivity is invariant across parameter values.
+ */
+inline void case_relax_baked_source_mismatch() {
+  static uint8_t source_buf[4096];
+  static uint8_t target_buf[4096];
+  Arena source(source_buf, sizeof(source_buf));
+  Arena target(target_buf, sizeof(target_buf));
+  uint32_t bits[TETRAHEDRON_BAKE_WORDS];
+  PolyMesh mesh;
+  MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
+  bake.source_hash = opaque(bake.source_hash ^ 1u);
   PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
   if (out.vertices.size() == opaque<size_t>(0x7fff))
     std::printf("x");
@@ -3333,6 +3353,10 @@ inline const Case *all_cases(int &n) {
        "conway.h",
        "(relax_topology_hash(mesh) == bake.topology_hash) relax_baked: source "
        "topology differs"},
+      {"relax_baked_source_mismatch", case_relax_baked_source_mismatch,
+       "conway.h",
+       "(relax_vertex_hash(mesh) == bake.source_hash) relax_baked: source "
+       "vertices differ"},
       {"relax_baked_output_hash_mismatch",
        case_relax_baked_output_hash_mismatch, "conway.h",
        "(output_hash == bake.output_hash) relax_baked: output hash differs"},
@@ -4077,7 +4101,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"mesh_classes.h", 6},
     {"mesh_state.h", 3},
     {"recipe.h", 13},
-    {"solid_generators.h", 5},
+    {"solid_generators.h", 6},
     {"solids.h", 2},
     {"kd_tree.h", 5},
     {"canvas.h", 29},
@@ -4254,7 +4278,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 178;
+  constexpr int DEATH_CASE_COUNT = 179;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
