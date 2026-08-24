@@ -32,6 +32,7 @@ const scratch = mkdtempSync(join(tmpdir(), 'holosphere-run-tests-'));
 const casesPath = join(scratch, 'cases.json');
 const countsDir = join(scratch, 'assertions');
 const assertions = new Map();
+const casesWithoutAssertions = new Map();
 const cases = new Map();
 let status;
 let tallied = false;
@@ -61,13 +62,17 @@ try {
   status = run.status ?? 1;
 
   for (const entry of readdirSync(countsDir)) {
-    const { file, count } = JSON.parse(
+    const { file, count, emptyCases } = JSON.parse(
       readFileSync(join(countsDir, entry), 'utf8'),
     );
     const key = keyOf(file);
     if (key.startsWith('..') || !suffixes.some((suffix) => key.endsWith(suffix)))
       continue;
     assertions.set(key, (assertions.get(key) ?? 0) + count);
+    casesWithoutAssertions.set(
+      key,
+      (casesWithoutAssertions.get(key) ?? 0) + emptyCases,
+    );
   }
 
   let tallies = '';
@@ -102,7 +107,14 @@ const emptyCases = [...files].filter((file) => (cases.get(file) ?? 0) === 0);
 const emptyAssertions = [...files].filter(
   (file) => (assertions.get(file) ?? 0) === 0,
 );
-if (emptyCases.length > 0 || emptyAssertions.length > 0) {
+const unassertedCases = [...files].filter(
+  (file) => (casesWithoutAssertions.get(file) ?? 0) > 0,
+);
+if (
+  emptyCases.length > 0 ||
+  emptyAssertions.length > 0 ||
+  unassertedCases.length > 0
+) {
   if (emptyCases.length > 0)
     console.error(
       'run_tests: no test cases ran in:\n' +
@@ -117,6 +129,16 @@ if (emptyCases.length > 0 || emptyAssertions.length > 0) {
         emptyAssertions
           .sort()
           .map((file) => `  ${file}`)
+          .join('\n'),
+    );
+  if (unassertedCases.length > 0)
+    console.error(
+      'run_tests: test cases with no assertions ran in:\n' +
+        unassertedCases
+          .sort()
+          .map(
+            (file) => `  ${file} (${casesWithoutAssertions.get(file)} cases)`,
+          )
           .join('\n'),
     );
   process.exit(1);
