@@ -416,6 +416,9 @@ inline Color4 shade(const Pullback::SphereSample &input,
                     const FrameState &frame, const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_shade);
   LayerComposite composite;
+  const BakedPalette &palette =
+      *(prepared.params.color == ColorMode::DEPTH ? frame.depth_palette
+                                                  : frame.axis_palette);
   trace_layers(input.dir, prepared, [&](const TraceHit &hit) {
     HS_PROFILE_DEEP(hl_layer_composite);
     const float path_length = input.path_length + hit.distance;
@@ -424,12 +427,9 @@ inline Color4 shade(const Pullback::SphereSample &input,
         prepared.params.color == ColorMode::DEPTH
             ? 1.0f - depth
             : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
-    const BakedPalette *palette = prepared.params.color == ColorMode::DEPTH
-                                      ? frame.depth_palette
-                                      : frame.axis_palette;
-    Color4 color = palette->get(value);
-    color.color = color.color * (0.45f + 0.55f * (1.0f - depth));
-    composite.add(color.color, hit.coverage * color.alpha);
+    Pixel color = palette.get_color_unit(value);
+    color = color * (0.45f + 0.55f * (1.0f - depth));
+    composite.add(color, hit.coverage);
     return composite.remaining > MIN_ENCODABLE_ALPHA;
   });
   return composite.finish();
