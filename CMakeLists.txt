@@ -236,6 +236,12 @@ if(EMSCRIPTEN)
             PATTERN "shaderball_migration.json")
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
             DESTINATION "${DAYDREAM_DIR}")
+    install(CODE "
+      set(HS_MIRROR_SOURCE
+          \"${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots\")
+      set(HS_DAYDREAM_DIR \"${DAYDREAM_DIR}\")
+      include(
+        \"${CMAKE_CURRENT_SOURCE_DIR}/cmake/prune_mirrored_screenshots.cmake\")")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots"
             FILES_MATCHING PATTERN "*.png")

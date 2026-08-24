@@ -379,6 +379,11 @@ add_test(NAME unit_linker_patches COMMAND ${CMAKE_COMMAND}
     -DPLATFORMIO_INI=${HS_ROOT}/platformio.ini
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_linker_patches.cmake)
 
+add_test(NAME unit_mirrored_screenshot_prune COMMAND ${CMAKE_COMMAND}
+    -DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/mirrored_screenshot_prune_fixture
+    -DPRUNE_SCRIPT=${HS_ROOT}/cmake/prune_mirrored_screenshots.cmake
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mirrored_screenshot_prune.cmake)
+
 # The three generated-artifact gates below re-run a Python generator and diff it
 # against the committed header. Default OFF keeps a bare local checkout green:
 # a missing python3/numpy exits 77 and CTest reports the gate as skipped. That
