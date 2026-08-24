@@ -1815,6 +1815,13 @@ inline void case_set_clip_out_of_bounds() {
   fx.set_clip(0, H, 0, opaque(W + 1));
 }
 
+/** @brief Death case: clip state cannot change after a frame begins. */
+inline void case_set_clip_mid_frame() {
+  DeathEffect fx;
+  Canvas canvas(fx);
+  fx.set_clip(0, fx.height(), 0, fx.width());
+}
+
 /** @brief Death case: the publication envelope rejects values above one. */
 inline void case_output_envelope_out_of_range() {
   DeathEffect fx;
@@ -3459,6 +3466,8 @@ inline const Case *all_cases(int &n) {
        "(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 && x0 <= x1 "
        "&& x1 <= clip_region.w) set_clip band must be non-inverted and "
        "within canvas bounds"},
+      {"set_clip_mid_frame", case_set_clip_mid_frame, "canvas.h",
+       "(!canvas_active) clip cannot change while a frame is active"},
       {"output_envelope_out_of_range", case_output_envelope_out_of_range,
        "canvas.h",
        "(std::isfinite(value) && value >= 0.0f && value <= 1.0f) output "
