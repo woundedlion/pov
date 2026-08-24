@@ -70,10 +70,11 @@ the authoritative correctness gate.
 - **Native suite:** `cmake --preset tests && cmake --build --preset tests` then
   `ctest --preset tests --output-on-failure --no-tests=error`. Set
   `HS_EFFECTS_FULL=1` to reproduce the full-resolution master leg locally.
-- **Lint:** the CI `lint` job has four legs — `ruff` over the Python tooling,
+- **Lint:** the CI `lint` job has five legs — `ruff` over the Python tooling,
   `eslint` over the JavaScript, `shellcheck` over every tracked `*.sh` and
   `.githooks/*`, and a `just --evaluate` / `just --summary` parse of the
-  `justfile`. `just lint` runs the first three locally; the hook only checks
+  `justfile`, plus the profiling-roster cross-check in `tools/profile_sweep.sh`.
+  `just lint` runs the four lint/roster checks locally; the hook only checks
   staged Python and JavaScript, so CI remains authoritative.
 - **Documentation:** `python tools/docs_check.py` validates fences, links,
   anchors and every backticked repo path, and the README's file map must list a
