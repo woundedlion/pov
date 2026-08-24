@@ -4925,6 +4925,34 @@ inline void test_mindsplatter_base_mesh_selector() {
   select(MS::BaseMesh::ICOSAHEDRON, 12, 20);
 }
 
+/** @brief The whitebox search and replay retain the selected particle geometry. */
+inline void test_mindsplatter_whitebox_geometry_replay() {
+  using MS = MindSplatter<SMALL_W, SMALL_H>;
+  using WB = MindSplatterWhiteBox;
+  std::vector<unsigned char> state;
+
+  {
+    reset_effect_globals();
+    MS effect;
+    effect.init();
+    WB::select_preset(effect, 1);
+    effect.setAnimationsPaused(true);
+    WB::step_state_without_render(effect);
+    HS_EXPECT_EQ(WB::active_base_mesh(effect), MS::BaseMesh::DODECAHEDRON);
+    HS_EXPECT_EQ(WB::active_emitters(effect), static_cast<size_t>(20));
+    HS_EXPECT_EQ(WB::active_attractors(effect), static_cast<size_t>(12));
+    state = WB::serialize_render(WB::capture(effect));
+  }
+
+  reset_effect_globals();
+  MS replay;
+  replay.init();
+  WB::restore_render(replay, state);
+  HS_EXPECT_EQ(WB::active_base_mesh(replay), MS::BaseMesh::DODECAHEDRON);
+  HS_EXPECT_EQ(WB::active_emitters(replay), static_cast<size_t>(20));
+  HS_EXPECT_EQ(WB::active_attractors(replay), static_cast<size_t>(12));
+}
+
 /**
  * @brief Replays one frozen saturated state with exact particle and frame output.
  */
@@ -6763,6 +6791,7 @@ inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
 
   test_mindsplatter_base_mesh_selector();
+  test_mindsplatter_whitebox_geometry_replay();
   test_meshfeedback_base_mesh_selector();
   test_meshfeedback_preset_export_arity();
   test_meshfeedback_mesh_rebuild_reuses_storage();
