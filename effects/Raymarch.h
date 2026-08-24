@@ -12,6 +12,7 @@
  */
 
 #include "core/color/effect_palette_recipes.h"
+#include "core/color/noise_hue_palette.h"
 #include "core/engine/engine.h"
 #include "core/render/sdf/volume.h"
 
@@ -26,8 +27,10 @@ struct RaymarchWhiteBox;
 /**
  * @brief Ray-marches a twisted torus SDF at each vertex of a disdyakis
  *        dodecahedron, shading each with a metallic headlight model and a baked
- *        OKLCH palette. Each torus is auto-sized to its own nearest-neighbour
- *        gap (scaled by the live Fill param), so they pack without overlap.
+ *        OKLCH palette under a sphere-domain noise hue field. Each torus has an
+ *        independent random-walk tumble and is auto-sized to its own
+ *        nearest-neighbour gap (scaled by the live Fill param), so they pack
+ *        without overlap.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
  */
@@ -55,12 +58,33 @@ public:
     register_param("Fresnel", &params.fresnel, 0.0f, 1.0f);
     register_param("Twist", &params.twist, TWIST_OPTIONS, NUM_TWISTS);
     register_param("AA Width", &params.aa_mult, 0.1f, 1.5f);
+    register_param("Hue Shift", &params.hue_shift, -4.0f, 4.0f);
+    register_param("Hue Noise Scale", &params.hue_noise_scale, 1.0f / 64.0f,
+                   8.0f);
+    register_param("Hue Noise Speed", &params.hue_noise_speed, -0.001f, 0.001f);
 
     build_points();
 
     baked_palette.bake(persistent_arena, palette);
+    volume_spins = persistent_arena.make_n<VolumeSpin>(active_count);
+    palette_state = persistent_arena.make<PaletteState>();
+    palette_state->noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    palette_state->noise.SetSeed(6047);
+    palette_state->noise.SetFrequency(1.0f);
+    prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(
+                                 palette_state->hue_rotation_lut),
+                             baked_palette);
+    noise_palette.bind(&baked_palette, palette_state->hue_rotation_lut.data(),
+                       palette_state->hue_noise_lut.data());
+    refresh_hue_noise();
 
-    timeline.add(0, Animation::RandomWalk<W>(camera, Y_AXIS, noise));
+    timeline.add(0, Animation::RandomWalk<W>(camera, Y_AXIS, camera_noise));
+    for (int i = 0; i < active_count; ++i) {
+      VolumeSpin &spin = volume_spins[i];
+      timeline.add(0, Animation::RandomWalk<W>(
+                          spin.orientation, random_vector(), spin.noise,
+                          Animation::RandomWalk<W>::Options::Energetic()));
+    }
 
     // spin_phase / palette_phase are effect-owned accumulators wrapped to [0,1)
     // each step, so the trig argument never grows. spin_phase is scaled to
@@ -81,6 +105,8 @@ public:
       HS_PROFILE(rm_timeline_step);
       timeline.step(canvas);
     }
+    hue_noise_phase = wrap_t(hue_noise_phase + params.hue_noise_speed);
+    refresh_hue_noise();
     draw_fn(canvas);
   }
 
@@ -89,6 +115,8 @@ private:
 
   /** Vertex-array capacity; the disdyakis dodecahedron has 26. */
   static constexpr int MAX_POINTS = 32;
+  static_assert(MAX_POINTS + 3 <= Timeline::MAX_EVENTS,
+                "Raymarch animations exceed the timeline capacity");
 
   /** Twist-count labels; the option index IS the twist count draw_fn reads. */
   static constexpr const char *TWIST_OPTIONS[] = {"0", "1", "2", "3", "4",
@@ -118,6 +146,17 @@ private:
     active_count = Solids::build_vertex_directions(
         scratch_arena_a, scratch_arena_b, "disdyakisDodecahedron", MAX_POINTS,
         points.data(), raw_quats.data(), nn_angle.data());
+  }
+
+  HS_FLASH_MEMBER void refresh_hue_noise() {
+    if (palette_state->hue_noise_scale == params.hue_noise_scale &&
+        palette_state->hue_noise_phase == hue_noise_phase)
+      return;
+    prepare_hue_noise_lut(
+        std::span<int8_t, HueNoiseLutView::SIZE>(palette_state->hue_noise_lut),
+        palette_state->noise, params.hue_noise_scale, hue_noise_phase);
+    palette_state->hue_noise_scale = params.hue_noise_scale;
+    palette_state->hue_noise_phase = hue_noise_phase;
   }
 
   /**
@@ -156,7 +195,8 @@ private:
       Vector center = camera.orient(points[i]);
       Vector ray_dir = -center;
 
-      Quaternion world_q = camera.get() * raw_quats[i] * spin_q;
+      Quaternion world_q = camera.get() * raw_quats[i] *
+                           volume_spins[i].orientation.get() * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
       // The half-vector is fixed for this torus, so it is hoisted out of the
       // per-pixel shader.
@@ -165,6 +205,7 @@ private:
       // Palette scroll plus this torus's fixed share of the gradient, in [0,2).
       float palette_offset =
           palette_phase + static_cast<float>(i) / active_count;
+      float hue_shift = noise_palette.hue_shift(points[i], params.hue_shift);
 
       auto frag_fn = [&](const Vector &loc, Fragment &frag) {
         Vector n_local = torus.normal(loc);
@@ -177,7 +218,9 @@ private:
         // ring_angle is [0,1] and palette_offset is [0,2), so coord is
         // non-negative and this fract equals fmodf(coord, 1).
         float palette_t = coord - floorf(coord);
-        Color4 c = baked_palette.get(palette_t);
+        Color4 c = params.hue_shift == 0.0f
+                       ? baked_palette.get(palette_t)
+                       : noise_palette.get(palette_t, hue_shift);
         frag.color = Color4(c.color * shade, 1.0f);
       };
 
@@ -187,11 +230,27 @@ private:
     }
   }
 
-  FastNoiseLite noise;
+  struct VolumeSpin {
+    Orientation<> orientation;
+    FastNoiseLite noise;
+  };
+
+  struct PaletteState {
+    std::array<Pixel, HueRotationLutView::SIZE> hue_rotation_lut;
+    std::array<int8_t, HueNoiseLutView::SIZE> hue_noise_lut;
+    FastNoiseLite noise;
+    float hue_noise_scale = -1.0f;
+    float hue_noise_phase = -1.0f;
+  };
+
+  FastNoiseLite camera_noise;
   Orientation<> camera;
+  VolumeSpin *volume_spins = nullptr;
+  PaletteState *palette_state = nullptr;
   float spin_phase = 0.0f;    // torus tumble phase, [0,1) -> [0,2pi) radians
   float palette_phase = 0.0f; // baked-palette scroll offset, [0,1) cycles
-  int active_count = 0;       // vertices built (disdyakis dodecahedron = 26)
+  float hue_noise_phase = 0.0f;
+  int active_count = 0; // vertices built (disdyakis dodecahedron = 26)
   std::array<Vector, MAX_POINTS> points;
   std::array<Quaternion, MAX_POINTS> raw_quats;
   std::array<float, MAX_POINTS>
@@ -200,11 +259,13 @@ private:
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{EffectPaletteRecipes::raymarch()};
   BakedPalette baked_palette;
+  NoiseHuePalette<BakedPalette> noise_palette;
 
   // init() bakes one palette LUT into the persistent arena. Effect keeps the
   // default arena split, so the total must fit the device persistent partition.
   static constexpr size_t FOOTPRINT_BYTES =
-      BakedPalette::required_arena_bytes();
+      BakedPalette::required_arena_bytes() + MAX_POINTS * sizeof(VolumeSpin) +
+      alignof(VolumeSpin) + sizeof(PaletteState) + alignof(PaletteState);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Raymarch persistent footprint exceeds the default partition");
 
@@ -220,6 +281,9 @@ private:
     float fresnel = 0.2f;
     float twist = 2.0f;
     float aa_mult = 0.5f;
+    float hue_shift = 0.4f;
+    float hue_noise_scale = 2.0f;
+    float hue_noise_speed = 0.0f;
   } params;
 };
 

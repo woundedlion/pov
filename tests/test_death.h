@@ -52,6 +52,7 @@
 #include "core/animation/carousel.h"
 #include "core/render/canvas.h"
 #include "core/color/color.h"
+#include "core/color/noise_hue_palette.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
@@ -2217,6 +2218,37 @@ inline void case_alpha_falloff_null() {
 }
 
 /**
+ * @brief Death case: NoiseHuePalette requires a non-null palette source.
+ */
+inline void case_noise_hue_palette_null_source() {
+  static Pixel hue_rotation_lut[1];
+  static int8_t hue_noise_lut[1];
+  NoiseHuePalette<SolidColorPalette> palette;
+  palette.bind(opaque<const SolidColorPalette *>(nullptr), hue_rotation_lut,
+               hue_noise_lut);
+}
+
+/**
+ * @brief Death case: NoiseHuePalette requires a non-null hue-rotation LUT.
+ */
+inline void case_noise_hue_palette_null_rotation_lut() {
+  SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
+  static int8_t hue_noise_lut[1];
+  NoiseHuePalette<SolidColorPalette> palette;
+  palette.bind(&source, opaque<const Pixel *>(nullptr), hue_noise_lut);
+}
+
+/**
+ * @brief Death case: NoiseHuePalette requires a non-null hue-noise LUT.
+ */
+inline void case_noise_hue_palette_null_noise_lut() {
+  SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
+  static Pixel hue_rotation_lut[1];
+  NoiseHuePalette<SolidColorPalette> palette;
+  palette.bind(&source, hue_rotation_lut, opaque<const int8_t *>(nullptr));
+}
+
+/**
  * @brief Death case: rebaking an endpoint-aliasing blend result must trap.
  * @details Color surface — bake_palette_blend's w <= 0 fast path hands @c dst
  *          the @c from endpoint's LUT storage rather than baking a copy, so a
@@ -3397,6 +3429,17 @@ inline const Case *all_cases(int &n) {
        "(empty or origin-crossing path)"},
       {"alpha_falloff_null", case_alpha_falloff_null, "composition.h",
        "(fn != nullptr) AlphaFalloffShade: falloff function must not be null"},
+      {"noise_hue_palette_null_source", case_noise_hue_palette_null_source,
+       "noise_hue_palette.h",
+       "(source != nullptr) NoiseHuePalette bound to null source"},
+      {"noise_hue_palette_null_rotation_lut",
+       case_noise_hue_palette_null_rotation_lut, "noise_hue_palette.h",
+       "(hue_rotation_lut != nullptr) NoiseHuePalette bound to null "
+       "hue-rotation LUT"},
+      {"noise_hue_palette_null_noise_lut",
+       case_noise_hue_palette_null_noise_lut, "noise_hue_palette.h",
+       "(hue_noise_lut != nullptr) NoiseHuePalette bound to null hue-noise "
+       "LUT"},
       {"baked_palette_rebake_aliased", case_baked_palette_rebake_aliased,
        "composition.h",
        "(!aliased) BakedPalette::rebake through an aliasing handle"},
@@ -4229,7 +4272,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 175;
+  constexpr int DEATH_CASE_COUNT = 178;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
