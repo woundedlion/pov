@@ -26,7 +26,8 @@ import teensy_gate  # noqa: E402
 BUDGETS = os.path.join(_TOOLS_DIR, "teensy_budgets.json")
 GATE_SOURCES = [BUDGETS,
                 os.path.join(_TOOLS_DIR, "teensy_gate.py"),
-                os.path.join(_TOOLS_DIR, "teensy_gate_extra.py")]
+                os.path.join(_TOOLS_DIR, "teensy_gate_extra.py"),
+                os.path.join(_TOOLS_DIR, "phantasm.ld")]
 
 
 def _tool(cc_path, suffix):
