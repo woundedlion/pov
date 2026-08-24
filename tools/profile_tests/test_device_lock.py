@@ -31,9 +31,10 @@ def is_stale(lock_dir):
     return r.returncode == 0
 
 
-def break_lock(lock_dir, prelude=""):
+def break_lock(lock_dir, expected="stale", prelude=""):
     """Run _hs_break_lock against lock_dir; True = we won the right to evict."""
-    script = f'. "{LOCK_SH}"; {prelude} _hs_break_lock "{lock_dir}"'
+    script = (f'. "{LOCK_SH}"; {prelude} '
+              f'_hs_break_lock "{lock_dir}" "{expected}"')
     r = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
     return r.returncode == 0
 
@@ -150,7 +151,7 @@ class LockBreak(unittest.TestCase):
             'if [ "$2" = token ] && [ ! -e "$MARK" ]; then : > "$MARK"; '
             'echo stale; return; fi; '
             'sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1; };' % mark)
-        self.assertFalse(break_lock(self.d, prelude))
+        self.assertFalse(break_lock(self.d, prelude=prelude))
         self.assertTrue(self.d.is_dir())
         self.assertIn("token=fresh", (self.d / "info").read_text())
 
@@ -170,7 +171,7 @@ class LockBreak(unittest.TestCase):
             'echo stale; return; fi; '
             'sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1; };'
             % (mark, self.d))
-        self.assertFalse(break_lock(self.d, prelude))
+        self.assertFalse(break_lock(self.d, prelude=prelude))
         self.assertTrue(self.d.is_dir())
         self.assertEqual([p.name for p in self.d.iterdir()], ["info"])
         self.assertEqual(sorted(p.name for p in self.root.iterdir()),
