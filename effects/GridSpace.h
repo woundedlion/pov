@@ -18,6 +18,11 @@ using GridSpaceSpec = Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
                                      void, Pullback::TransferKind::ISO_CONTOUR,
                                      Pullback::CoverageKind::PROJECTION>;
 
+/**
+ * @brief An affine primitive lattice rendered as soft contours.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class GridSpace : public Pullback::ComposedEffect<
                       W, H, GridSpace<W, H>, GridSpaceParams, GridSpaceSpec,
