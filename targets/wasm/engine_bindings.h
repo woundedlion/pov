@@ -416,6 +416,7 @@ public:
     current_factory_entry = entry;
     current_effect->setAnimationsPaused(animations_paused);
     current_effect->init();
+    check_param_capacity();
     param_generation.replace(current_effect->getParameterSchemaGeneration());
     const size_t init_hwm = stack_high_water_mark();
     if (init_hwm > init_stack_peak)
@@ -788,7 +789,6 @@ public:
       return val::array();
 
     current_effect->refresh_parameter_display();
-    check_param_capacity();
     val result = val::array();
     // Both streams walk the effect's registered ParamList in order. The
     // generation token covers effect replacement and dynamic schema rebinds.
@@ -857,10 +857,6 @@ public:
     }
 
     current_effect->refresh_parameter_display();
-    // The no-reallocation contract the view rides on: the ctor reserved
-    // MAX_PARAMS and clear() retains that capacity, so a fill within that bound
-    // never moves the backing store.
-    check_param_capacity();
 
     // Same order as getParameterDefinitions().
     hs_wasm::fill_param_values(*current_effect, param_values);
@@ -1384,11 +1380,10 @@ private:
   }
 
   /**
-   * @brief Traps when the live effect exposes more params than were reserved.
-   * @details Both param streams ride the constructor's MAX_PARAMS reserve, so
-   *          both check it and neither builds a partial stream past it.
-   *          use_parameter_storage() lets an effect exceed ParamList's default
-   *          inline array, so the live count is the bound.
+   * @brief Traps when a newly installed effect exposes more params than were
+   *        reserved.
+   * @details use_parameter_storage() lets an effect exceed ParamList's default
+   *          inline array, so the initialized effect's live count is the bound.
    */
   void check_param_capacity() const {
     HS_CHECK(current_effect->getParameters().size() <= MAX_PARAMS,
