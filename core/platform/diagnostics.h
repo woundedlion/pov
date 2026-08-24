@@ -40,6 +40,22 @@ HS_FLASH_INLINE inline void log(const char *msg, ...) {
   Serial.println(buf);
 }
 
+/**
+ * @brief Logs a formatted fragment to Serial without terminating the line.
+ * @param msg printf-style format string; trailing args supply the values.
+ * @details Uses the same bounded integer-only formatting as log().
+ */
+HS_FLASH_INLINE inline void log_fragment(const char *msg, ...)
+    __attribute__((format(printf, 1, 2)));
+HS_FLASH_INLINE inline void log_fragment(const char *msg, ...) {
+  va_list args;
+  va_start(args, msg);
+  char buf[256];
+  vsniprintf(buf, sizeof(buf), msg, args);
+  va_end(args);
+  Serial.print(buf);
+}
+
 /** @brief Blocks until pending Serial output has drained (used before trap). */
 inline void flush_log() { Serial.flush(); }
 } // namespace hs
@@ -69,6 +85,19 @@ inline void log(const char *fmt, ...) {
   vprintf(fmt, args);
   va_end(args);
   printf("\n");
+}
+
+/**
+ * @brief Logs a formatted fragment to stdout without terminating the line.
+ * @param fmt printf-style format string; trailing args supply the values.
+ */
+inline void log_fragment(const char *fmt, ...)
+    __attribute__((format(printf, 1, 2)));
+inline void log_fragment(const char *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  vprintf(fmt, args);
+  va_end(args);
 }
 
 /** @brief Flushes stdout (used before trap so the breadcrumb is not lost). */
