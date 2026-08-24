@@ -43,6 +43,7 @@
 
 #include "death_guard_sites.h" // generated HS_CHECK census; see tests/CMakeLists.txt
 #include "tests/test_fixture.h"
+#include "tests/test_effects.h"
 #include "tests/test_harness.h"
 #include "tests/test_shader_workbench.h" // ShaderWorkbenchWhiteBox, for the effect-side traps
 
@@ -3912,6 +3913,8 @@ inline const Case *all_cases(int &n) {
  *          a real case might — so shape detection never rests on a real case.
  */
 inline constexpr const char *SHAPE_PROBE_CASE = "__shape_probe__";
+inline constexpr const char *DETERMINISM_PROBE_CASE =
+    "__cross_process_determinism__";
 
 /**
  * @brief Child entry point: runs exactly one named death case, then returns.
@@ -3927,6 +3930,14 @@ inline void run_child_case(const char *name) {
 #endif
   if (std::strcmp(name, SHAPE_PROBE_CASE) == 0) {
     HS_CHECK(false, "death-harness trap-shape probe"); // always traps
+    return;
+  }
+  if (std::strcmp(name, DETERMINISM_PROBE_CASE) == 0) {
+    std::vector<Pixel> frame;
+    uint64_t fold = 0;
+    effects_tests::render_capture<Comets, effects_tests::SMALL_W,
+                                  effects_tests::SMALL_H>(frame, 8, &fold);
+    std::printf("%016llx\n", static_cast<unsigned long long>(fold));
     return;
   }
   int n;
@@ -4482,6 +4493,14 @@ inline int run_death_tests() {
     set_case_env("");
     return fixture.result();
   }
+
+  const int determinism_a = spawn_child(DETERMINISM_PROBE_CASE);
+  const std::string fold_a = child_output();
+  const int determinism_b = spawn_child(DETERMINISM_PROBE_CASE);
+  const std::string fold_b = child_output();
+  HS_EXPECT_TRUE(child_exited_clean(determinism_a));
+  HS_EXPECT_TRUE(child_exited_clean(determinism_b));
+  HS_EXPECT_EQ(fold_a, fold_b);
 
   for (int i = 0; i < n; ++i) {
     int rc = spawn_child(cs[i].name);
