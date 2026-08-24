@@ -639,7 +639,8 @@ def _tree_rows(source: PurePosixPath, fence: Fence,
 
 def _tree_omissions(source: PurePosixPath, fence: Fence,
                     rows: list[tuple[int, str]],
-                    entries: set[PurePosixPath]) -> list[Issue]:
+                    entries: set[PurePosixPath],
+                    unmapped: tuple[str, ...]) -> list[Issue]:
     """Reports tracked paths under a drawn directory that no row names.
 
     A directory whose rows name none of its children is a summary row and its
@@ -668,14 +669,15 @@ def _tree_omissions(source: PurePosixPath, fence: Fence,
         if not any(is_drawn(child) for child in siblings):
             continue
         omitted.update(child for child in siblings
-                       if not is_drawn(child) and not _tree_unmapped(child))
+                       if not is_drawn(child)
+                       and not _tree_unmapped(child, unmapped))
     return [Issue(source.as_posix(), fence.start,
                   f"tree omits tracked path {path!r}") for path in sorted(omitted)]
 
 
-def _tree_unmapped(candidate: str) -> bool:
+def _tree_unmapped(candidate: str, prefixes: tuple[str, ...]) -> bool:
     return any(candidate == prefix or candidate.startswith(prefix)
-               for prefix in _TREE_UNMAPPED)
+               for prefix in prefixes)
 
 
 def _tree_issues(source: PurePosixPath, fences: list[Fence],
@@ -705,9 +707,11 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
                 continue
             prefixes = _CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ())
             allowed = functools.partial(_checkout_allowance, prefixes=prefixes)
+            unmapped = ()
         else:
             target = entries
             allowed = functools.partial(_untracked_allowance, used=used)
+            unmapped = _TREE_UNMAPPED
         rows, row_issues = _tree_rows(source, fence, target)
         issues.extend(row_issues)
         issues.extend(
@@ -716,7 +720,8 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
             for line_number, candidate in rows
             if not _tree_entry_exists(candidate, target, allowed))
         if directive.exhaustive:
-            issues.extend(_tree_omissions(source, fence, rows, target))
+            issues.extend(_tree_omissions(source, fence, rows, target,
+                                          unmapped))
     return issues
 
 
