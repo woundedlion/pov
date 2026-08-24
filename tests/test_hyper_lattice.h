@@ -45,6 +45,9 @@ inline void test_periodic_distance() {
   HS_EXPECT_EQ(HL::periodic_distance(0.0f), 0.0f);
   HS_EXPECT_EQ(HL::periodic_distance(1.0f), 0.0f);
   HS_EXPECT_NEAR(HL::periodic_distance(-1.25f), 0.25f, 1e-6f);
+  HS_EXPECT_EQ(HL::periodic_distance(-0.5f), 0.5f);
+  HS_EXPECT_EQ(HL::periodic_distance(1.5f), 0.5f);
+  HS_EXPECT_EQ(HL::periodic_distance(2.5f), 0.5f);
   HS_EXPECT_NEAR(HL::periodic_distance(3.5f), 0.5f, 1e-6f);
 }
 
