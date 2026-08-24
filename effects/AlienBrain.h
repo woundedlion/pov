@@ -33,7 +33,7 @@ public:
   using Params = AlienBrainParams;
   static constexpr std::string_view EFFECT_ID = "alien-brain";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "140b1f0f6b94d90dfd60cdb1534d315b14a3d70b491cec9d7d1b611cf884f7a0";
+      "f064eb4f839eac55f03af2c64102d933e4c373cff1804d24de58aa64d55c12b4";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "463a8eddd452f7b0b04bda8d2736e92ccc979fac6fe88121b82e7cda888ca0e9";
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

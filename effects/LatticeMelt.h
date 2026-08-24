@@ -51,7 +51,7 @@ public:
   /// `patterns/lattice_melt.shader.json`; the browser editor matches it to
   /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "2fbb1ce2494770cb41990191655314e86497bcde2ab3eda86bcee93da404afa2";
+      "a1a63a515040bbcb17f44a09dc53b739cc45edbe575ecd4eaf497df0f6ffa7c7";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "02944fbbca0274490f9d63d233d4ad27989c03b32fa10d20b23cd61f0a579438";
