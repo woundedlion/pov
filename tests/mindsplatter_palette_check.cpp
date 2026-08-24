@@ -26,10 +26,10 @@ namespace {
 
 // Per-channel slack in 16-bit linear units. Measured worst delta over the bank
 // is 1 at -O0 and at -O2 -ffast-math -fno-finite-math-only, so the band is
-// almost entirely margin for a libm whose cbrtf/powf last bits differ. It stays
-// tight against real drift: a 0.03% shift in one recipe field already reaches
-// 31 and a 0.3% shift reaches 312.
-constexpr int MAX_CHANNEL_DELTA = 96;
+// almost entirely margin for a libm whose cbrtf/powf last bits differ. Sixteen
+// linear units remain below one sRGB code step at the bank's dark end while a
+// 0.03% shift in one recipe field already reaches 31.
+constexpr int MAX_CHANNEL_DELTA = 16;
 
 int channel_delta(const Pixel &a, const Pixel &b) {
   const int dr = std::abs(static_cast<int>(a.r) - static_cast<int>(b.r));
