@@ -156,8 +156,10 @@ private:
     if (change.origin == PresetChangeOrigin::MANUAL) {
       node->orientation.set(Quaternion());
       node->trail.clear();
-      motion->rewind();
-      motion->reanchor();
+      if (motion) {
+        motion->rewind();
+        motion->reanchor();
+      }
     }
     return true;
   }
