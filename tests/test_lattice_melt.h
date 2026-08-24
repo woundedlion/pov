@@ -36,6 +36,12 @@ struct LatticeMeltWhiteBox {
   static void tick_choreography(FX &effect) {
     effect.begin_automatic_transition();
   }
+  static void saturate_timeline(FX &effect, float &sink) {
+    while (Timeline::remaining() > 0)
+      effect.timeline.add(0,
+                          Animation::Transition(sink, 1.0f, 10, ease_linear));
+  }
+  static void clear_timeline(FX &effect) { effect.timeline.clear(); }
   static void drive_transition(FX &effect, float progress) {
     effect.preset_blend.lerp(effect.preset_blend, effect.preset_blend,
                              progress);
@@ -194,6 +200,28 @@ inline void test_lattice_melt_transition_contract() {
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
+inline void test_lattice_melt_full_timeline_retries_transition() {
+  using WB = LatticeMeltWhiteBox;
+  using FX = WB::FX;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  float sink = 0.0f;
+  WB::saturate_timeline(effect, sink);
+  const uint32_t dropped_before = Timeline::dropped_events();
+
+  for (uint16_t f = 0; f < FX::PRESET_DWELL_FRAMES; ++f)
+    WB::tick_choreography(effect);
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 1);
+  HS_EXPECT_FALSE(WB::transition_active(effect));
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+
+  WB::clear_timeline(effect);
+  WB::tick_choreography(effect);
+  HS_EXPECT_TRUE(WB::transition_active(effect));
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+}
+
 /**
  * @brief Pins the dwell restart a manual parameter write owes the choreography.
  */
@@ -275,6 +303,7 @@ inline int run_lattice_melt_tests() {
   ModuleFixture fixture("lattice_melt");
   test_lattice_melt_identity_and_presets();
   test_lattice_melt_transition_contract();
+  test_lattice_melt_full_timeline_retries_transition();
   test_lattice_melt_manual_write_restarts_dwell();
   test_lattice_melt_parameter_serialization();
   test_lattice_melt_shader_workbench_equivalence();
