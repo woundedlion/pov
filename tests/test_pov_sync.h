@@ -986,8 +986,9 @@ inline void test_flywheel_position() {
    * @return The signed column index (unfolded), computed via floor-division.
    */
   auto ref_cols = [](int64_t delta, uint32_t period) {
-    return static_cast<int64_t>(
-        floor_div(delta * 144, static_cast<int64_t>(period)));
+    const long double columns = static_cast<long double>(delta) * 144.0L /
+                                static_cast<long double>(period);
+    return static_cast<int64_t>(std::floor(columns));
   };
 
   // Position over one half-rev, at nominal and trim-extreme periods
