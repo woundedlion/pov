@@ -458,6 +458,14 @@ template <int Tag> struct CountModel {
   }
 };
 
+inline constexpr auto OUT_OF_RANGE_DEFAULT_SCHEMA = [] {
+  auto schema = In::SCHEMA<CountModel<0>>;
+  schema[0].def = 1.5f;
+  return schema;
+}();
+static_assert(In::defaults_in_range(In::SCHEMA<CountModel<0>>));
+static_assert(!In::defaults_in_range(OUT_OF_RANGE_DEFAULT_SCHEMA));
+
 inline constexpr auto FAT_SCHEMA = [] {
   std::array<In::ParamFieldInfo, In::MAX_CHAIN_PARAMS + 1> out{};
   for (auto &field : out)
