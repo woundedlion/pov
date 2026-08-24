@@ -14,6 +14,14 @@
 
 namespace Pullback {
 
+/** @brief Projection-coverage modes consumed by the Sample crossing. */
+enum class ProjectionCoverageMode : uint8_t {
+  NONE = 0,
+  WEIGHT = 1,
+  WEIGHT_SQUARED = 2,
+  EDGE_FADE = 3
+};
+
 namespace Weight {
 
 struct None : ApproximationDefaults {

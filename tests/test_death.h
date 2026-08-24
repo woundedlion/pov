@@ -3196,6 +3196,27 @@ inline void case_chain_table_rank_decreases() {
       std::span<const Pullback::Interp::OperatorDescriptor>(&descriptor, 1));
 }
 
+/** @brief Death case: a Sample operator rejects an unknown coverage mode. */
+inline void case_pullback_operator_invalid_coverage_mode() {
+  Pullback::ProjectionProvenance provenance{};
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::projection_coverage(
+          opaque<uint8_t>(0xff), provenance, 0.1f, context) != 0.0f)
+    std::printf("x");
+}
+
+/** @brief Death case: the generated-palette operator rejects an unknown hue mode. */
+inline void case_pullback_operator_invalid_hue_mode() {
+  Pullback::Interp::Op::GeneratedPaletteParams params;
+  params.hue_mode = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::ColorClockState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::ColorizeGeneratedPalette::prepare(context, params,
+                                                              state)
+          .palette != nullptr)
+    std::printf("x");
+}
+
 /**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
@@ -3801,6 +3822,13 @@ inline const Case *all_cases(int &n) {
        "OpLeg: gated swap leg has an incomplete palette handoff"},
       {"opleg_shading_face_out_of_range", case_opleg_shading_face_out_of_range,
        "opleg.h", "(face < faces) OpLeg::Shading: ramp face out of range"},
+      {"pullback_operator_invalid_coverage_mode",
+       case_pullback_operator_invalid_coverage_mode, "operators_common.h",
+       "(false) sample operator: invalid projection coverage mode"},
+      {"pullback_operator_invalid_hue_mode",
+       case_pullback_operator_invalid_hue_mode, "operators.h",
+       "(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH)) "
+       "colorize.generated-palette: invalid hue shift mode"},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
@@ -4378,7 +4406,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 186;
+  constexpr int DEATH_CASE_COUNT = 188;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
