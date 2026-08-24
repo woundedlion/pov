@@ -4154,6 +4154,30 @@ inline constexpr Solids::Recipe ICOSAHEDRON_AMBO_DUAL_RECIPE = {
 inline constexpr Solids::Recipe DODECAHEDRON_HK62_DUAL_RECIPE = {
     Solids::SEED_DODECAHEDRON, CHAIN_HK62_DUAL, std::size(CHAIN_HK62_DUAL)};
 
+/** @brief Hashes the pre-relax source of a dodecahedron bevel recipe. */
+inline uint32_t dodecahedron_bevel_source_hash(float depth) {
+  Arena a(morph_target_buf, sizeof(morph_target_buf));
+  Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+  PolyMesh source =
+      Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
+          .bevel(depth)
+          .build();
+  return MeshOps::relax_source_hash(source);
+}
+
+/** @brief Source identity separates the bakes whose topology hashes collide. */
+inline void test_relax_source_hash_separates_bevel_inputs() {
+  const uint32_t truncated = dodecahedron_bevel_source_hash(T_TRUNC_ICOS);
+  const uint32_t bevel20 = dodecahedron_bevel_source_hash(0.2f);
+
+  HS_EXPECT_EQ(
+      truncated,
+      Solids::RelaxBakes::truncated_icosidodecahedron_converged.source_hash);
+  HS_EXPECT_EQ(bevel20,
+               Solids::RelaxBakes::dodecahedron_bevel20_converged.source_hash);
+  HS_EXPECT_TRUE(truncated != bevel20);
+}
+
 /**
  * @brief Replays every registry recipe plus the partition chains leg by leg.
  */
@@ -4340,6 +4364,7 @@ inline int run_conway_morph_tests() {
   test_opleg_edge_leg_crossfade();
   test_unsweepable_recipe_steps_are_gated();
 
+  test_relax_source_hash_separates_bevel_inputs();
   test_recipe_chain_build_replay();
   test_reconcile_bijection_wellposed();
 

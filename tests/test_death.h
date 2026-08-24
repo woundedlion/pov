@@ -944,7 +944,7 @@ build_matching_relax_bake(PolyMesh &mesh, Arena &arena, uint32_t *bits) {
   bake.face_count = static_cast<uint16_t>(mesh.get_face_counts_size());
   bake.index_count = static_cast<uint16_t>(mesh.get_faces_size());
   bake.iterations = 0;
-  bake.source_hash = MeshOps::relax_vertex_hash(mesh);
+  bake.source_hash = MeshOps::relax_source_hash(mesh);
   bake.topology_hash = MeshOps::relax_topology_hash(mesh);
   bake.output_hash = output_hash;
   return bake;
@@ -3355,7 +3355,7 @@ inline const Case *all_cases(int &n) {
        "topology differs"},
       {"relax_baked_source_mismatch", case_relax_baked_source_mismatch,
        "conway.h",
-       "(relax_vertex_hash(mesh) == bake.source_hash) relax_baked: source "
+       "(relax_source_hash(mesh) == bake.source_hash) relax_baked: source "
        "vertices differ"},
       {"relax_baked_output_hash_mismatch",
        case_relax_baked_output_hash_mismatch, "conway.h",
