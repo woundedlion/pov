@@ -55,6 +55,11 @@ struct SyncBoardTestAccess;
 namespace pov {
 namespace sync {
 
+inline void saturating_increment(uint32_t &counter) {
+  if (counter != UINT32_MAX)
+    ++counter;
+}
+
 // ── The per-board engine ────────────────────────────────────────────────────
 
 /**
@@ -224,9 +229,9 @@ public:
       suspect_pending = false;
       // The gate exists only in LOCKED; note_rejection() no-ops in ACQUIRE.
       if (fly.lock() == LockState::LOCKED) {
-        ++telemetry_counters.symbols_rejected_gate;
+        saturating_increment(telemetry_counters.symbols_rejected_gate);
         if (fly.note_rejection())
-          ++telemetry_counters.lock_transitions;
+          saturating_increment(telemetry_counters.lock_transitions);
       }
     }
 
@@ -249,7 +254,7 @@ public:
       // lone digit is the isolated boundary symbol ACQUIRE feeds to both paths,
       // not a train, so a dropped frame needs two.
       if (beacon_parser.digit_count() >= 2)
-        ++telemetry_counters.beacons_rejected;
+        saturating_increment(telemetry_counters.beacons_rejected);
       beacon_parser.reset();
     }
 
@@ -258,7 +263,7 @@ public:
     // count it. Downstream boards instead recover through the gate's ACQUIRE
     // fallback, which re-bases the epoch on the next symbol.
     if (is_master_board && fly.fold_stalled(now)) {
-      ++telemetry_counters.master_stalls;
+      saturating_increment(telemetry_counters.master_stalls);
       fly.seed(now);
       fly.force_lock();
       // The re-seed stamps ZERO regardless of the pre-stall identity, so the
@@ -293,7 +298,7 @@ public:
     if (is_master_board && emitter.tick(now, protocol_config, &aborted))
       a.pulse = true;
     if (aborted)
-      ++telemetry_counters.emit_aborted;
+      saturating_increment(telemetry_counters.emit_aborted);
 
     // Render decision: dark when phase/identity is missing or during the epoch
     // construction window (spec §6.1).
@@ -439,7 +444,7 @@ private:
       return;
     a.flip = true;
     a.zero_crossing = b == Boundary::ZERO;
-    ++telemetry_counters.flips;
+    saturating_increment(telemetry_counters.flips);
     if (!a.zero_crossing)
       return;
     beacon_done_this_rev = false;
@@ -524,7 +529,7 @@ private:
 
     const Symbol sym = classify_count(s.count);
     if (sym == Symbol::INVALID) {
-      ++telemetry_counters.symbols_discarded_invalid;
+      saturating_increment(telemetry_counters.symbols_discarded_invalid);
       return;
     }
     const Boundary b = symbol_boundary(sym);
@@ -532,14 +537,14 @@ private:
     int32_t err = 0;
     const Flywheel::SnapOutcome r = fly.snap(b, s.first_cycles, &err);
     if (r != Flywheel::SnapOutcome::ACCEPTED) {
-      ++telemetry_counters.symbols_rejected_gate;
+      saturating_increment(telemetry_counters.symbols_rejected_gate);
       if (r == Flywheel::SnapOutcome::REJECTED_FELL_BACK)
-        ++telemetry_counters.lock_transitions;
+        saturating_increment(telemetry_counters.lock_transitions);
       return;
     }
-    ++telemetry_counters.symbols_accepted;
+    saturating_increment(telemetry_counters.symbols_accepted);
     if (!was_locked)
-      ++telemetry_counters.lock_transitions;
+      saturating_increment(telemetry_counters.lock_transitions);
     halves_since_snap = 0;
     // MUST precede on_epoch_symbol: a ZERO_EPOCH folds rev_in_effect here so the
     // j-inference below reads the post-fold rev (§6.3.1). Deduped against the
@@ -552,7 +557,7 @@ private:
           publish_build((content_tracker.effect_index + 1) %
                         protocol_config.effect_count);
       } else {
-        ++telemetry_counters.epochs_refractory_ignored;
+        saturating_increment(telemetry_counters.epochs_refractory_ignored);
       }
     }
   }
@@ -567,17 +572,17 @@ private:
     bool rejected = false;
     const bool ok = beacon_parser.feed(s, protocol_config, &f, &rejected);
     if (rejected)
-      ++telemetry_counters.beacons_rejected;
+      saturating_increment(telemetry_counters.beacons_rejected);
     if (!ok)
       return;
     // An index past the roster is corruption the checksum missed (p = 1/8):
     // drop the frame whole (§6.4 rejection) rather than fold it onto a real
     // effect.
     if (f.effect_index >= protocol_config.effect_count) {
-      ++telemetry_counters.beacons_rejected;
+      saturating_increment(telemetry_counters.beacons_rejected);
       return;
     }
-    ++telemetry_counters.beacons_ok;
+    saturating_increment(telemetry_counters.beacons_ok);
     const int32_t idx = f.effect_index;
     if (!content_tracker.identity_known) {
       // Join (spec §6.4): adopt (effect, rev). Never assume index 0.
@@ -601,7 +606,7 @@ private:
       // Missed epoch (all repeats): correct within ≤16 revs (spec §6.3.2).
       content_tracker.effect_index = idx;
       content_tracker.rev_in_effect = f.rev_count;
-      ++telemetry_counters.beacon_index_corrections;
+      saturating_increment(telemetry_counters.beacon_index_corrections);
       publish_build(idx);
     } else {
       beacon_index_candidate = -1;
@@ -610,7 +615,7 @@ private:
         // skews every later epoch commit by mis-inferred j. Resync via the
         // signed mod-64 difference, which recovers any slip under 32
         // revolutions.
-        ++telemetry_counters.beacon_rev_mismatches;
+        saturating_increment(telemetry_counters.beacon_rev_mismatches);
         const int32_t d =
             beacon_rev_resync_delta(f.rev_count, content_tracker.rev_in_effect);
         const int64_t fixed =
@@ -659,16 +664,16 @@ private:
     // the emitter's overlap trap.
     switch (emitter.drop_pending_emission()) {
     case SymbolEmitter::DroppedBurst::BEACON:
-      ++telemetry_counters.beacons_overrun_dropped;
+      saturating_increment(telemetry_counters.beacons_overrun_dropped);
       break;
     case SymbolEmitter::DroppedBurst::BOUNDARY:
-      ++telemetry_counters.boundary_bursts_dropped;
+      saturating_increment(telemetry_counters.boundary_bursts_dropped);
       break;
     case SymbolEmitter::DroppedBurst::NONE:
       break;
     }
     if (!emitter.schedule_boundary(sym, c.at_cycles, now, protocol_config))
-      ++telemetry_counters.emit_censored;
+      saturating_increment(telemetry_counters.emit_censored);
   }
 
   /**
@@ -721,7 +726,7 @@ private:
         protocol_config.late_censor_cycles();
     if (static_cast<int32_t>(frame_cycles) > fly.cycles_to_next_boundary(now)) {
       if (!beacon_late_counted_this_rev) {
-        ++telemetry_counters.beacons_late_dropped;
+        saturating_increment(telemetry_counters.beacons_late_dropped);
         beacon_late_counted_this_rev = true;
       }
       return;
@@ -729,7 +734,7 @@ private:
     if (emitter.schedule_beacon(digits, now, protocol_config))
       beacon_done_this_rev = true;
     else if (!beacon_busy_counted_this_rev) {
-      ++telemetry_counters.beacons_busy_dropped;
+      saturating_increment(telemetry_counters.beacons_busy_dropped);
       beacon_busy_counted_this_rev = true;
     }
   }
