@@ -1230,6 +1230,7 @@ namespace sdf_subtract_detail {
  *   touched by a combinator's ctor + interval path.
  */
 struct MockIntervalShape {
+  static constexpr bool BLENDS_SMOOTHLY = true;
   const std::vector<std::pair<float, float>>
       *ivs; /**< Interval list this mock replays. */
   static constexpr bool is_solid =
