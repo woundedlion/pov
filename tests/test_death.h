@@ -4101,7 +4101,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"mesh_classes.h", 6},
     {"mesh_state.h", 3},
     {"recipe.h", 13},
-    {"solid_generators.h", 6},
+    {"solid_generators.h", 5},
     {"solids.h", 2},
     {"kd_tree.h", 5},
     {"canvas.h", 29},

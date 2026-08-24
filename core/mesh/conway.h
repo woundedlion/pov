@@ -98,6 +98,17 @@ inline uint32_t relax_source_hash(const PolyMesh &mesh) {
 }
 
 /**
+ * @brief Checks that a relax bake belongs to the source mesh's vertices.
+ * @param mesh Source mesh to identify.
+ * @param bake Bake carrying the expected source identity.
+ */
+inline void check_relax_bake_source(const PolyMesh &mesh,
+                                    const RelaxBake &bake) {
+  HS_CHECK(relax_source_hash(mesh) == bake.source_hash,
+           "relax_baked: source vertices differ");
+}
+
+/**
  * @brief Compute the centroid of a face by walking its half-edge loop.
  * @tparam MeshT Mesh type exposing a `vertices` indexable by topology index.
  * @param he_mesh Half-edge connectivity describing the face loops.
@@ -1408,8 +1419,7 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
            "relax_baked: source dimensions differ");
   HS_CHECK(relax_topology_hash(mesh) == bake.topology_hash,
            "relax_baked: source topology differs");
-  HS_CHECK(relax_source_hash(mesh) == bake.source_hash,
-           "relax_baked: source vertices differ");
+  check_relax_bake_source(mesh, bake);
 
   PolyMesh out_mesh;
   out_mesh.vertices.bind(target, V);
