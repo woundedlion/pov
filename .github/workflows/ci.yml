@@ -1,6 +1,6 @@
 # Presubmit CI — builds and runs the native unit suite, and compiles the WASM
 # module, on master pushes and pull-request updates. This is the cloud
-# counterpart of the local .githooks/pre-commit gate (opt-out / on by default).
+# counterpart of the local .githooks/pre-commit gate.
 name: CI
 
 on:
@@ -1463,10 +1463,9 @@ jobs:
             /tmp/ratchet-prev-death.h "$DEATH" --previous-ref "$PREV"
   clang-format:
     name: Formatting (clang-format)
-    # Cloud counterpart of the .githooks/pre-commit format check. That hook is
-    # opt-out (HS_SKIP_FORMAT=1 / --no-verify), silently skips itself on a
-    # machine without clang-format, and every CI job disables the hooks
-    # entirely — so until this job, formatting was enforced nowhere on a push.
+    # Cloud counterpart of the .githooks/pre-commit format check. The hook
+    # refuses a missing or mismatched formatter, while CI disables local hooks
+    # and checks the whole tree independently.
     # Same invocation as the hook (--dry-run --Werror --style=file) over the
     # same first-party C++ set, but across the whole tracked tree instead of one
     # commit's staged paths.
