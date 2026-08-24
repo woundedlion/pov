@@ -4577,7 +4577,6 @@ inline void test_shader_workbench_operator_catalog_census() {
                 std::is_empty_v<Equirectangular> && std::is_empty_v<Vortex> &&
                 std::is_empty_v<Curl> && std::is_empty_v<ProjectedNoise> &&
                 std::is_empty_v<SphericalNoise> && std::is_empty_v<Generated>);
-  HS_EXPECT_TRUE(true);
 }
 
 inline void test_shader_workbench_inverse_pipeline_manifest() {
