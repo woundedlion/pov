@@ -17,7 +17,7 @@
 
 /**
  * @brief Edge graph for animated Conway-operator transitions between the
- * simple-registry solids (docs/conway_morph_spec.md).
+ * simple-registry solids (docs/specs/conway_morph_spec.md).
  * @details A node is a simple-registry solid; an edge is one animated operator
  * sweep between two parameter values on one seed. The table plus the pure walk
  * and seed-reconciliation helpers here are consumed by Animation::OpLeg

@@ -32,7 +32,7 @@
  * without a LUT, or a degenerate alignment all degrade to the exact path.
  *
  * Design and the measurements behind the deformation restriction:
- * docs/congruence_class_lut_spec.md.
+ * docs/specs/congruence_class_lut_spec.md.
  */
 namespace MeshOps {
 

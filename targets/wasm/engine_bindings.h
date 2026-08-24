@@ -452,8 +452,9 @@ public:
    *          with no range check in a release build, installing an empty band
    *          under an APPLIED result. Segment workers always pass
    *          valid, ordered, in-range bounds. A cross-segment stateful effect
-   *          (Effect::needs_full_frame()) keeps the full-canvas clip instead of
-   *          narrowing to the band — see docs/segmented_stateful_effects_spec.md.
+   *          (Effect::needs_full_frame()) keeps the full-canvas clip instead
+   *          of narrowing to the band — see
+   *          docs/specs/segmented_stateful_effects_spec.md.
    */
   ClipSetResult setClip(double x0, double x1, double y0, double y1) {
     if (!current_effect)
@@ -469,7 +470,7 @@ public:
     }
     // Cross-segment stateful effects must render the FULL canvas in every worker
     // (a band-clipped worker has stale cv.prev outside its band, so trails seam);
-    // keep the full clip. See docs/segmented_stateful_effects_spec.md.
+    // keep the full clip. See docs/specs/segmented_stateful_effects_spec.md.
     if (current_effect->needs_full_frame())
       return ClipSetResult::FULL_FRAME_KEPT;
     current_effect->set_clip(static_cast<int>(y0), static_cast<int>(y1),
@@ -532,7 +533,7 @@ public:
    * @details The simulator's dot mesh inherently renders discrete columns with
    *          gaps — already the strobe == true look — so daydream reads this to
    *          decide whether to fill the inter-column gap (false) or leave it
-   *          dark (true). See docs/strobe_columns_audit.md.
+   *          dark (true). See Effect::strobe_columns (core/render/canvas.h).
    */
   bool strobeColumns() const {
     return current_effect ? current_effect->strobe_columns() : false;

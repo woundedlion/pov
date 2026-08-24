@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Pre-flight measurements for the OpChainMorph pure-inflate roster
- * (docs/opchain_morph_spec.md sections 2, 2.4, 8.3).
+ * (docs/specs/opchain_morph_spec.md).
  *
  * Coverage:
  *   - Chamfer zero-area birth limit: newborn hexagon area and preserved-face
@@ -326,7 +326,8 @@ inline void test_chamfer_sweep_holds_topology() {
 }
 
 // ---------------------------------------------------------------------------
-// Truncate sub-T_EPS birth (opchain_morph_spec section 5.1): the two
+// Truncate sub-T_EPS birth (docs/specs/opchain_morph_spec.md, "Truncate edge
+// cases"): the two
 // truncatedIcosahedron_ambo_relax_truncate001_hankin{59,73} recipes truncate at
 // 0.01, below the flat T_EPS birth floor. Both share the same truncate seed
 // (truncatedIcosahedron.ambo().relax()) and truncate param, so the leg is
@@ -469,7 +470,8 @@ inline void test_truncate001_birth_sweep_holds_topology() {
 }
 
 // ---------------------------------------------------------------------------
-// Far-side truncate sweep (opchain_morph_spec section 5.1): the two
+// Far-side truncate sweep (docs/specs/opchain_morph_spec.md, "Truncate edge
+// cases"): the two
 // truncatedIcos{ahedron,idodecahedron}_truncate50d_ambo_dual recipes truncate
 // at t = 0.873, PAST the ambo pinch (t = 0.5). truncate emits a constant
 // topology (2E vertices, F+V faces, 3I indices) for every t != 0.5; only the
@@ -1008,7 +1010,7 @@ inline void test_build_chain_provenance_ambiguity() {
 }
 
 // ---------------------------------------------------------------------------
-// Needle gated-swap chain (opchain_morph_spec section 3.3): the
+// Needle gated-swap chain (docs/specs/opchain_morph_spec.md, "Leg kinds"): the
 // truncatedIcosahedron_ambo_relax_hk54_needle recipe ends in needle, which
 // expand_to_primitives lowers to a DUAL then a KIS gated swap
 // (core/mesh/recipe.h). No shipping recipe runs dual or kis on a hankin mesh,

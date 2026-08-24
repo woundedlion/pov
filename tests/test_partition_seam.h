@@ -2,9 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Partition-op rasterizer seam calibration (docs/opchain_morph_spec.md §9 gate
- * 6). Measures, at the shipping canvas size, the framebuffer delta a `kis` or
- * `dual` swap produces under a single flat fill colour, which isolates the
+ * Partition-op rasterizer seam calibration
+ * (docs/specs/opchain_morph_spec.md, "Validation contract"). Measures, at the
+ * shipping canvas size, the framebuffer delta a `kis` or `dual` swap produces
+ * under a single flat fill colour, which isolates the
  * coverage discontinuity from the shading gradient.
  *
  * Doubles as the gated swap's seam regression: every swap is asserted against

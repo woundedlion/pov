@@ -80,8 +80,9 @@ public:
    * @return True if any tweened copy of the edge could intersect the clip band.
    * @details Mirrors plot()'s tween so the cull spans the same motion-blur sweep
    *          the renderer draws. Without it the rasterizer would cull by the
-   *          un-rotated latitude and drop geometry an off-axis orientation moves
-   *          into a segment band (docs/segmented_stateful_effects_spec.md).
+   *          un-rotated latitude and drop geometry an off-axis orientation
+   *          moves into a segment band
+   *          (docs/specs/segmented_stateful_effects_spec.md).
    */
   template <typename FwdFn>
   bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,

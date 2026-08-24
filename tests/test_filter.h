@@ -3126,7 +3126,8 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
 }
 
 // ============================================================================
-// Segmented-mode rendering bound (docs/segmented_stateful_effects_spec.md)
+// Segmented-mode rendering bound
+// (docs/specs/segmented_stateful_effects_spec.md)
 // ============================================================================
 
 /**

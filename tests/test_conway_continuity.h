@@ -3,9 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Boundary color-continuity tests for the OpLeg transition design
- * (docs/conway_morph_spec.md §7.6): every mesh swap at a leg or cycle boundary
- * must exchange geometrically matching meshes whose positive-area faces keep
- * their colors.
+ * (docs/specs/conway_morph_spec.md §7.6): every mesh swap at a leg or cycle
+ * boundary must exchange geometrically matching meshes whose positive-area
+ * faces keep their colors.
  *
  * Coverage:
  *   - Bookend angle pin: driving HankinSolids to a hankin-cycle end forces the

@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Operator-level tests for the OpLeg transition design
- * (docs/conway_morph_spec.md §7.1–§7.5).
+ * (docs/specs/conway_morph_spec.md §7.1–§7.5).
  *
  * Coverage:
  *   - Endpoint exactness: every ConwayGraph edge endpoint on the registry code
@@ -1316,10 +1316,10 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
 }
 
 // ---------------------------------------------------------------------------
-// Ambo-on-hankin probe (docs/opchain_morph_spec.md section 10 Phase 0): every
-// ambo leg the Islamic recipes run on a hankin mesh is a truncate sweep whose
-// compiled face count must not move within the leg and whose swept mesh must
-// stay a closed genus-0 manifold at every parameter.
+// Ambo-on-hankin probe (docs/specs/opchain_morph_spec.md, "Validation
+// contract"): every ambo leg the Islamic recipes run on a hankin mesh is a
+// truncate sweep whose compiled face count must not move within the leg and
+// whose swept mesh must stay a closed genus-0 manifold at every parameter.
 // ---------------------------------------------------------------------------
 
 /** @brief One ambo-on-hankin sweep seed from the Islamic registry chains. */
@@ -1453,7 +1453,7 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
 }
 
 // ---------------------------------------------------------------------------
-// Hankin-sweep probe (docs/opchain_morph_spec.md section 5.1): the four
+// Hankin-sweep probe (docs/specs/opchain_morph_spec.md, "Leg kinds"): the four
 // Phase-1 hankin legs re-run the one-shot MeshOps::hankin (the update-path
 // geometry) per sampled angle; V/F/I and the compiled face count must not
 // move from THETA_EPS to the recipe's arrival angle, and every sample must
@@ -2115,7 +2115,7 @@ inline void test_opleg_hankin_sweep_smoke() {
 }
 
 // ---------------------------------------------------------------------------
-// Recipe-step leg kinds (docs/opchain_morph_spec.md sections 2.1/2.2): the
+// Recipe-step leg kinds (docs/specs/opchain_morph_spec.md, "Leg kinds"): the
 // truncate, snub and relax legs the pure-inflate recipes need. Topology
 // constancy is sampled on the chain prefixes the shipping recipes actually
 // reach; the smoke tests drive a whole leg through OpLeg on the same seeds.
@@ -3562,12 +3562,12 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::AMBO}));
   // 0.01 is below T_EPS but sweepable: the leg births at the derived
   // per-arrival floor instead of clamping to a still image
-  // (opchain_morph_spec 5.1).
+  // (docs/specs/opchain_morph_spec.md, "Truncate edge cases").
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.001f}));
   // 0.873 is a far-side arrival past the ambo pinch: now a real sweeping leg
-  // (opchain_morph_spec 5.1), not a clamped clean-swap. A fully-crossed t == 1
-  // stays blocked (cut faces collapse).
+  // (docs/specs/opchain_morph_spec.md, "Truncate edge cases"), not a clamped
+  // clean-swap. A fully-crossed t == 1 stays blocked (cut faces collapse).
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, TRUNCATE_T_FAR}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 1.0f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
@@ -3578,9 +3578,10 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 }
 
 // ---------------------------------------------------------------------------
-// Recipe chain build replay (docs/opchain_morph_spec.md sections 9.2/9.3):
-// every registry entry with a non-null recipe is lowered and replayed leg by
-// leg exactly as IslamicStars builds it — same crossfading handoff and
+// Recipe chain build replay (docs/specs/opchain_morph_spec.md, "Validation
+// contract"): every registry entry with a non-null recipe is lowered and
+// replayed leg by leg exactly as IslamicStars builds it — same crossfading
+// handoff and
 // bookend — stepping every leg frame by frame with a recording draw callback.
 // Gates per-leg compiled-face-count constancy, the crossfade colour model
 // (every frame of every leg draws every face's (from, to) ramp bit-exact at

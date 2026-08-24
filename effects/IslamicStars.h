@@ -29,7 +29,8 @@ struct IslamicBuildProbe;
  *        Entries with a non-null recipe are built op by op on screen: the
  *        recipe's seed solid sweeps in, one OpLeg per lowered primitive step
  *        morphs it into the finished pattern, then the usual still/ripple/fade
- *        choreography runs (docs/opchain_morph_spec.md, section 6).
+ *        choreography runs
+ *        (docs/specs/opchain_morph_spec.md, "Recipe model").
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
  */
@@ -158,8 +159,8 @@ private:
   static constexpr int SPRITE_FADE_FRAMES = 16;
   static constexpr int STILL_FRAMES =
       16; /**< 1 s hold (16 fps) between fade and ripple stages. */
-  // Recipe-build leg lengths (docs/opchain_morph_spec.md section 7); divided
-  // by the Trans Speed divisor like every other stage.
+  // Recipe-build leg lengths; divided by the Trans Speed divisor like every
+  // other stage.
   static constexpr int HANKIN_LEG_FRAMES = 32;
   static constexpr int SWEEP_LEG_FRAMES =
       24; /**< ambo / truncate / snub / chamfer. */
@@ -168,7 +169,7 @@ private:
       24; /**< identity-mesh -> authored kis/needle slerp. */
   /** Identity-mesh truncate depth of the smooth kis/needle path: the "uniform"
    * Conway depth at which dual(truncate(X)) matches kis(dual(X)) exactly on
-   * regular seeds (docs/opchain_morph_spec.md, smooth kis/needle). */
+   * regular seeds (docs/specs/opchain_morph_spec.md, smooth kis/needle). */
   static constexpr float MACRO_TRUNCATE_T = 1.0f / 3.0f;
   static constexpr size_t MAX_BUILD_STEPS = 8; /**< Lowered-primitive cap. */
   static_assert(Solids::max_lowered_step_count(Solids::islamic_registry) <=
@@ -456,7 +457,7 @@ private:
 
   /**
    * @brief Leg frame budget of one lowered primitive step, before the Trans
-   *        Speed divisor (docs/opchain_morph_spec.md, section 7).
+   *        Speed divisor.
    * @param op Lowered primitive op.
    * @return Frames the leg runs for.
    */
@@ -732,8 +733,7 @@ private:
 
     // Recipe entries insert a build phase on the segue's phase-1 plateau:
     // duration is lengthened by the build span rather than the carousel
-    // growing an asymmetric-window API (docs/opchain_morph_spec.md,
-    // section 6.1).
+    // growing an asymmetric-window API.
     const int build_span = recipe ? plan_build_legs(sp) : 0;
 
     int duration = fade + build_span + still + burst_span + still + fade;
@@ -782,10 +782,11 @@ private:
     const size_t k = build_step;
     const Solids::OpStep &step = build_step_chain[k];
 
-    // Smooth kis/needle macros (docs/opchain_morph_spec.md, smooth kis/needle):
-    // a trailing dual,kis is the dt macro (spanning both steps), a standalone
-    // kis is the dtd macro; each ends on a reconcile leg onto the exact authored
-    // mesh. The recipe/expand_to_primitives still lower needle to {DUAL,KIS}.
+    // Smooth kis/needle macros (docs/specs/opchain_morph_spec.md, smooth
+    // kis/needle): a trailing dual,kis is the dt macro (spanning both steps),
+    // a standalone kis is the dtd macro; each ends on a reconcile leg onto the
+    // exact authored mesh. The recipe/expand_to_primitives still lower needle
+    // to {DUAL,KIS}.
     if (dt_pair_at(k)) {
       schedule_dt_macro();
       return;
@@ -809,7 +810,7 @@ private:
     // the mesh its baked topology already carries. Colours re-key per leg: the
     // arrival's classification maps to a freshly shuffled palette set, and
     // every face crossfades from the previous leg's landing over the leg
-    // (docs/islamicstars_palette_crossfade_plan.md).
+    // (Animation::OpLeg palette handoff, core/animation/opleg.h).
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {

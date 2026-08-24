@@ -4236,8 +4236,9 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
  *          a polar meridian, so the rendered arc reaches the bottom band the
  *          source arc never touches; a band-clipped worker there must match the
  *          full render. Without the pipeline-routed cull the edge is bounded by
- *          its un-rotated (equatorial) latitude and dropped — the segmented-mode
- *          filter-orientation clipping bug (docs/segmented_stateful_effects_spec.md).
+ *          its un-rotated (equatorial) latitude and dropped — the
+ *          segmented-mode filter-orientation clipping bug
+ *          (docs/specs/segmented_stateful_effects_spec.md).
  */
 inline void test_rasterize_cull_follows_filter_orientation() {
   constexpr int W = 128, H = 64;

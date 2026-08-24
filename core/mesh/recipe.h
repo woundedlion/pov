@@ -36,8 +36,8 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * two truncate50d recipes arrive at 0.873), up to
  * T_EPS_TRUNCATE_FAR_MAX; behaviour in [T_EPS_TRUNCATE_MIN, 0.5] is unchanged.
  * CHAMFER is characterized up to CHAMFER_T_MAX. KIS and DUAL run as gated swaps
- * (docs/opchain_morph_spec.md, section 3.3). EXPAND has a leg kind but no
- * recipe and no sweep coverage on a hankin seed.
+ * (docs/specs/opchain_morph_spec.md, "Leg kinds"). EXPAND has a leg kind but
+ * no recipe and no sweep coverage on a hankin seed.
  */
 inline constexpr bool is_morphable_step(const OpStep &step) {
   switch (step.op) {
