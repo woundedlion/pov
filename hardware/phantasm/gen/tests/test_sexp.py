@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest import mock
 
 GEN = Path(__file__).resolve().parent.parent
+ROUTED = GEN.parent / "phantasm.kicad_pcb"
 sys.path.insert(0, str(GEN))
 
 import sexp  # noqa: E402
@@ -38,9 +39,27 @@ class StringEscapeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unterminated string"):
             sexp.parse('(a "value')
 
-    def test_rejects_unsupported_escape(self):
-        with self.assertRaisesRegex(ValueError, r"unsupported escape: \\q"):
-            sexp.parse('(a "value\\q")')
+    def test_accepts_kicad_c_hex_octal_and_unknown_escapes(self):
+        source = r'(a "\a\b\f\v\x41\101\q")'
+
+        parsed = sexp.parse(source)
+
+        self.assertEqual(parsed[0][1], "\a\b\f\vAA" + r"\q")
+        self.assertEqual(sexp.dumps(parsed[0]), source)
+
+    def test_constructed_control_bytes_are_escaped(self):
+        node = [sexp.Sym("a"), "\x01\x7f"]
+
+        self.assertEqual(sexp.dumps(node), r'(a "\x01\x7f")')
+        self.assertEqual(sexp.parse(sexp.dumps(node))[0], node)
+
+    def test_hex_and_octal_escapes_form_utf8(self):
+        source = r'(a "\xC3\xA9 \303\251")'
+
+        parsed = sexp.parse(source)
+
+        self.assertEqual(parsed[0][1], "é é")
+        self.assertEqual(sexp.dumps(parsed[0]), source)
 
 
 class QuotingTests(unittest.TestCase):
@@ -106,6 +125,31 @@ class ParseTests(unittest.TestCase):
     def test_truncated_list_reports_token_offset(self):
         with self.assertRaisesRegex(ValueError, r"unexpected end of input at token 5"):
             sexp.parse("(root (child)")
+
+
+class FormattingTests(unittest.TestCase):
+    def test_shipped_board_round_trip_preserves_every_byte(self):
+        source = ROUTED.read_text(encoding="utf-8")
+
+        dumped = sexp.dumps(sexp.parse(source)[0]) + "\n"
+
+        self.assertEqual(dumped, source)
+
+    def test_edit_preserves_the_surrounding_board_layout(self):
+        source = ROUTED.read_text(encoding="utf-8")
+        root = sexp.parse(source)[0]
+        version = next(child for child in root
+                       if isinstance(child, list) and child[0] == "version")
+        original_version = str(version[1])
+        version[1] = sexp.Sym("99999999")
+
+        dumped = sexp.dumps(root) + "\n"
+        changed = [(before, after) for before, after in
+                   zip(source.splitlines(), dumped.splitlines())
+                   if before != after]
+
+        self.assertEqual(changed, [(f"\t(version {original_version})",
+                                    "\t(version 99999999)")])
 
 
 class FindKicadDataDirTests(unittest.TestCase):
