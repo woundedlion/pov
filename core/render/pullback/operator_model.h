@@ -285,6 +285,15 @@ topology_wellformed(const std::array<ParamFieldInfo, N> &schema) {
   return true;
 }
 
+/** @brief Whether every float default lies within its declared range. */
+template <size_t N>
+consteval bool defaults_in_range(const std::array<ParamFieldInfo, N> &schema) {
+  for (const ParamFieldInfo &field : schema)
+    if (!field.topology && !(field.def >= field.min && field.def <= field.max))
+      return false;
+  return true;
+}
+
 /** @brief The registered schema of @p Model: family fields, then topology. */
 template <typename Model>
 inline constexpr auto SCHEMA = Detail::make_schema<Model>();
@@ -435,6 +444,8 @@ constexpr OperatorDescriptor make_operator_descriptor() {
   static_assert(field_ids_unique<Params>());
   static_assert(schema_ids_unique(SCHEMA<Model>));
   static_assert(topology_wellformed(SCHEMA<Model>));
+  static_assert(defaults_in_range(SCHEMA<Model>),
+                "operator model: parameter default outside declared range");
   static_assert(
       Detail::model_approximate<Model>()
           ? (Detail::model_oracle<Model>() != ApproximationOracleId::NONE &&
