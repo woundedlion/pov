@@ -6,11 +6,14 @@ import assert from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { afterEach, beforeEach } from 'node:test';
 
 const dir = process.env.HS_ASSERTION_COUNTS;
 const file = process.argv[1];
 if (dir && file && process.env.NODE_TEST_CONTEXT) {
   let count = 0;
+  let countBeforeCase = 0;
+  let emptyCases = 0;
   // `node:assert/strict`'s default export is assert.strict, so wrapping both
   // objects covers either specifier. Capitalized keys are the AssertionError
   // and CallTracker classes and `strict` is the other object; every remaining
@@ -32,12 +35,18 @@ if (dir && file && process.env.NODE_TEST_CONTEXT) {
       };
     }
   }
+  beforeEach(() => {
+    countBeforeCase = count;
+  });
+  afterEach(() => {
+    if (count === countBeforeCase) emptyCases += 1;
+  });
   // A random name rather than the pid: pids are recycled within one run, and a
   // reused name would drop the earlier file's count.
   process.on('exit', () => {
     writeFileSync(
       join(dir, `${randomUUID()}.json`),
-      JSON.stringify({ file, count }),
+      JSON.stringify({ file, count, emptyCases }),
     );
   });
 }
