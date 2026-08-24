@@ -160,6 +160,14 @@ class InlinePins(unittest.TestCase):
     def test_the_tracked_spellings_agree(self):
         self.assertEqual(bp.check_inline_pins(), [])
 
+    def test_the_hook_compares_against_its_pinned_format_major(self):
+        lines = (bp.ROOT / ".githooks/pre-commit").read_text(
+            encoding="utf-8").splitlines()
+        major = bp.INLINE_PINS["clang-format"].split(".")[0]
+        self.assertIn(f"HS_CLANG_FORMAT_MAJOR={major}", lines)
+        self.assertIn(
+            '  if [ "$major" != "$HS_CLANG_FORMAT_MAJOR" ]; then', lines)
+
 
 class ConsumerCallSites(unittest.TestCase):
     def test_every_build_pin_gate_entry_point_is_required(self):
