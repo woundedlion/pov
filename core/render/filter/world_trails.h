@@ -181,12 +181,7 @@ private:
   void check_storage_alive() const {
 #ifndef NDEBUG
     constexpr size_t BYTES = Capacity * sizeof(Item);
-    assert(!stamp.arena_reset() && "World::Trails use-after-free!");
-    assert(!stamp.block_uncovered(items, BYTES) &&
-           "World::Trails use-after-free (arena rewound below block)!");
-    assert(!stamp.block_reissued(items, BYTES) &&
-           "World::Trails use-after-free (block reclaimed by a rewind and "
-           "reissued)!");
+    assert(stamp.block_alive(items, BYTES) && "World::Trails use-after-free!");
 #endif
   }
 
