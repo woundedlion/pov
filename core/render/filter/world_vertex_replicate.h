@@ -73,7 +73,7 @@ public:
    * @return True if any vertex copy of the edge could intersect the clip band.
    * @details Mirrors plot(). The rotations move latitude, so culling by the
    *          un-rotated endpoints would drop copies the fan-out places inside a
-   *          segment band (docs/segmented_stateful_effects_spec.md).
+   *          segment band (docs/specs/segmented_stateful_effects_spec.md).
    */
   template <typename FwdFn>
   bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
