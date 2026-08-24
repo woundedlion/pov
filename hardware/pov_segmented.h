@@ -313,6 +313,9 @@ public:
     HS_CHECK(bad_invariant == nullptr, "pov::sync::Config invariant: %s",
              bad_invariant);
     sync.configure(cfg);
+    gap_timeout_cycles = sync.gap_timeout_cycles();
+    max_burst_cycles = sync.max_burst_cycles();
+    glitch_filter_cycles = sync.glitch_filter_cycles();
 
     const bool master = (segment_id == 0);
     if (master) {
@@ -613,13 +616,11 @@ private:
           pov::sync::BurstSnapshot burst;
           const pov::sync::BurstSnapshot *bp = nullptr;
           if (segment_id != 0) {
-            const uint32_t gap_timeout = sync.gap_timeout_cycles();
-            const uint32_t max_burst = sync.max_burst_cycles();
-            const uint32_t glitch_filter = sync.glitch_filter_cycles();
             const uint32_t primask = hs::save_disable_interrupts();
-            if (sync.mailbox().try_claim(now, gap_timeout, max_burst, &burst))
+            if (sync.mailbox().try_claim(now, gap_timeout_cycles,
+                                         max_burst_cycles, &burst))
               bp = &burst;
-            sync.mailbox().age_prior(now, glitch_filter);
+            sync.mailbox().age_prior(now, glitch_filter_cycles);
             hs::restore_interrupts(primask);
           }
           return sync.tick(now, bp);
@@ -720,6 +721,9 @@ private:
    *          reads are single aligned words (build_word) or debug telemetry.
    */
   static pov::sync::SyncBoard sync;
+  static uint32_t gap_timeout_cycles;
+  static uint32_t max_burst_cycles;
+  static uint32_t glitch_filter_cycles;
   static IntervalTimer timer; /**< Flywheel wake-up timer (PIT channel).   */
   /** @brief Roster of effect constructors (HS_EFFECT_LIST order). */
   static const EffectFactory *effect_factories;
@@ -758,6 +762,15 @@ private:
 
 template <int S, int N, int RPM>
 pov::sync::SyncBoard POVSegmented<S, N, RPM>::sync{pov::sync::Config{}};
+
+template <int S, int N, int RPM>
+uint32_t POVSegmented<S, N, RPM>::gap_timeout_cycles = 0;
+
+template <int S, int N, int RPM>
+uint32_t POVSegmented<S, N, RPM>::max_burst_cycles = 0;
+
+template <int S, int N, int RPM>
+uint32_t POVSegmented<S, N, RPM>::glitch_filter_cycles = 0;
 
 template <int S, int N, int RPM> IntervalTimer POVSegmented<S, N, RPM>::timer;
 
