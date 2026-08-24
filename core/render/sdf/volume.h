@@ -434,6 +434,13 @@ template <typename SDF, typename Warp> struct WarpedVolume {
   static constexpr bool TORUS_TWIST = std::is_same_v<SDF, ::SDF::Torus> &&
                                       std::is_same_v<Warp, ::SDF::Warp::Twist>;
 
+  void check_trace_preconditions() const {
+    if constexpr (TORUS_TWIST)
+      HS_CHECK(base.r <= base.R * 0.5f,
+               "WarpedVolume Torus minor radius must not exceed half its "
+               "major radius");
+  }
+
   /**
    * @brief Cheap lower bound on the warped distance.
    * @param p Query point in Cartesian ray-space.
