@@ -778,6 +778,8 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
            "medial input vertices must not alias output vertices");
   HS_CHECK(&out_a.vertices != &out_b,
            "medial output vertex arrays must not alias");
+  out_a = PolyMesh();
+  out_b = ArenaVector<Vector>();
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
