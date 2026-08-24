@@ -140,6 +140,11 @@ protected:
                   "Derived::PRESET_SEGUE is not a Segue preset policy");
     const Params target = preset_target(change.to);
     if constexpr (Segue::PresetBlends<SegueT>) {
+      static_assert(
+          Derived::PRESET_DWELL_FRAMES > Derived::PRESET_SEGUE.frames,
+          "PRESET_DWELL_FRAMES must outlast PRESET_SEGUE.frames, or a "
+          "cancelled crossfade's lerp outlives its own transition and "
+          "completes the next one early");
       if (change.origin == PresetChangeOrigin::AUTOMATIC) {
         transition = {params, target, true};
         derived().transition_armed(target);
@@ -168,10 +173,12 @@ protected:
    * @details The blend rewrites the whole parameter set every frame, so a
    * transition left running would overwrite the write that just landed. Pause
    * alone does not stop it — a started transition runs to its endpoint — but a
-   * manual edit does, exactly as a manual preset change snaps.
+   * manual edit does, exactly as a manual preset change snaps, and the preset
+   * dwell restarts with it.
    */
   HS_COLD_MEMBER void animated_parameter_written() override {
     transition.active = false;
+    preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
   }
 
   /// Retires the preset dwell and starts the next automatic preset transition.
