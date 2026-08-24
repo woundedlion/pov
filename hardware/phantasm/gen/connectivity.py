@@ -239,8 +239,13 @@ def islands(items):
 
 
 def opens(root):
-    """{net: [[(ref, pad), ...], ...]} per net whose pads span several islands."""
+    """{net: [[(ref, pad), ...], ...]} per net whose pads span several islands.
+
+    Raises ValueError when the board contains no netted pads.
+    """
     copper, pads = board_copper(root)
+    if not pads:
+        raise ValueError("nothing to analyze: no netted pads")
     broken = {}
     for net, net_pads in pads.items():
         if len(net_pads) < 2:
@@ -274,8 +279,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("board", nargs="?", default=default)
     args = parser.parse_args(argv)
-    with open(args.board, encoding="utf-8") as handle:
-        broken = opens(sexp.parse(handle.read())[0])
+    try:
+        with open(args.board, encoding="utf-8") as handle:
+            broken = opens(sexp.parse(handle.read())[0])
+    except ValueError as error:
+        print(f"{args.board}: {error}", file=sys.stderr)
+        return 2
     print(report(broken))
     return 1 if broken else 0
 
