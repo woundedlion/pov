@@ -157,9 +157,9 @@ inline float spherical_harmonic(int l, int m, const Vector &p, float N) {
 inline std::pair<int, int> decode_lm(int idx) {
   HS_CHECK(idx >= 0, "decode_lm: flat index %d is negative", idx);
   int l = static_cast<int>(sqrtf(static_cast<float>(idx)));
-  while ((l + 1) * (l + 1) <= idx)
+  while (static_cast<int64_t>(l + 1) * (l + 1) <= idx)
     ++l;
-  while (l > 0 && l * l > idx)
+  while (l > 0 && static_cast<int64_t>(l) * l > idx)
     --l;
   return {l, idx - l * l - l};
 }
