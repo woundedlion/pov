@@ -26,7 +26,8 @@ file(GLOB_RECURSE _hs_installed_pngs
   "${_hs_mirror_destination}/*.png")
 
 foreach(_hs_relative_path IN LISTS _hs_installed_pngs)
-  if(NOT _hs_relative_path IN_LIST _hs_source_pngs)
+  list(FIND _hs_source_pngs "${_hs_relative_path}" _hs_source_index)
+  if(_hs_source_index EQUAL -1)
     file(REMOVE "${_hs_mirror_destination}/${_hs_relative_path}")
     message(STATUS "Removed stale mirrored screenshot: ${_hs_relative_path}")
   endif()
