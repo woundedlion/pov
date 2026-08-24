@@ -148,6 +148,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   float *zy = scratch.allocate_n<float>(MAX_VERTS);
   int *order = scratch.allocate_n<int>(MAX_CONGRUENCE_CLASSES);
   float worst_res_px = 0.0f;
+  int class_overflow_faces = 0;
 
   for (size_t f = 0; f < F; ++f) {
     const int count = fc[f];
@@ -232,8 +233,10 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       continue;
     }
 
-    if (out.classes.size() >= MAX_CONGRUENCE_CLASSES)
+    if (out.classes.size() >= MAX_CONGRUENCE_CLASSES) {
+      ++class_overflow_faces;
       continue; // degrade to NO_CLASS; the exact path is always correct
+    }
 
     // Found a new class from this face's own centered projection.
     float *canon = persistent.allocate_n<float>(2 * count);
@@ -394,15 +397,16 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   const int pred_hit_permille =
       static_cast<int>(1000.0f * out.predicted_hit_share);
   hs::log("mesh class bake: F=%d classes=%d shared=%d.%d%% worst=%d.%03dpx "
-          "concave=%d luts=%d/%d lut_faces=%d.%d%% (dropped %d cls/%d faces, "
+          "overflow=%d faces concave=%d luts=%d/%d lut_faces=%d.%d%% "
+          "(dropped %d cls/%d faces, "
           "%d low-quality, %dB left) pred_hit=%d.%d%% aux=%dB",
           (int)F, (int)out.classes.size(), shared_permille / 10,
           shared_permille % 10, worst_res_milli_px / 1000,
-          worst_res_milli_px % 1000, (int)out.concave_faces,
-          (int)out.luts_built, n_elig, lut_face_permille / 10,
-          lut_face_permille % 10, dropped_classes, dropped_faces, lowq_classes,
-          (int)budget, pred_hit_permille / 10, pred_hit_permille % 10,
-          (int)out.aux_bytes);
+          worst_res_milli_px % 1000, class_overflow_faces,
+          (int)out.concave_faces, (int)out.luts_built, n_elig,
+          lut_face_permille / 10, lut_face_permille % 10, dropped_classes,
+          dropped_faces, lowq_classes, (int)budget, pred_hit_permille / 10,
+          pred_hit_permille % 10, (int)out.aux_bytes);
 }
 
 } // namespace MeshOps
