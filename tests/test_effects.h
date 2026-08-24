@@ -883,6 +883,8 @@ inline void test_sh_cartesian_matches_spherical() {
 struct SphericalHarmonicsWhiteBox {
   using SH = SphericalHarmonics<SMALL_W, SMALL_H>;
   using Field = SH::HarmonicField;
+  using Pipeline = SH::RenderPipeline;
+  using PipelineFrame = Pipeline::Frame;
 
   static int current_idx(const SH &fx) { return fx.current_idx; }
   static int next_idx(const SH &fx) { return fx.next_idx; }
@@ -890,6 +892,24 @@ struct SphericalHarmonicsWhiteBox {
   static Quaternion orientation(const SH &fx) { return fx.orientation.get(); }
   static const BakedPalette &palette(const SH &fx) { return fx.baked_palette; }
   static float amplitude(const SH &fx) { return fx.params.amplitude; }
+  static constexpr int max_mode_idx() { return SH::MAX_MODE_IDX; }
+
+  static PipelineFrame prepare_pipeline(const SH &fx, int l1, int m1, int l2,
+                                        int m2, float blend,
+                                        const Quaternion &orientation,
+                                        float amplitude, bool debug) {
+    return Pipeline::prepare({{l1, m1, l2, m2, blend, orientation},
+                              {&fx.baked_palette, amplitude, debug}});
+  }
+
+  static Color4 shade_pipeline(const Vector &view, const PipelineFrame &frame) {
+    return Pipeline::evaluate(view, frame.ctx, frame.prepared);
+  }
+
+  static Color4 shade_legacy(const SH &fx, float value, float amplitude,
+                             bool debug) {
+    return SH::colorize_harmonic(value, {&fx.baked_palette, amplitude, debug});
+  }
 
   // Pinning both morph endpoints on one mode makes the blend an identity, so a
   // frame renders one pure harmonic whatever morph_alpha has reached. The
@@ -958,6 +978,95 @@ inline void test_sh_field_write_through_and_endpoints() {
   HS_EXPECT_EQ(worst_start, 0.0);
   HS_EXPECT_LT(worst_end, 1e-5);
   HS_EXPECT_LT(worst_frame, 1e-5);
+}
+
+/** @brief Keeps every shipped harmonic morph inside SampleSphere's signed range. */
+inline void test_sh_field_stays_inside_unit_range() {
+  using WB = SphericalHarmonicsWhiteBox;
+  const Quaternion orientation =
+      make_rotation(Vector(0.3f, 0.8f, -0.5f).normalized(), 1.1f);
+  constexpr std::array<float, 5> BLENDS{0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+  constexpr int PHI_STEPS = 48;
+  constexpr int THETA_STEPS = 64;
+  float peak = 0.0f;
+
+  for (int first = 1; first <= WB::max_mode_idx(); ++first) {
+    const int second = first % WB::max_mode_idx() + 1;
+    auto [l1, m1] = SHMath::decode_lm(first);
+    auto [l2, m2] = SHMath::decode_lm(second);
+    for (float blend : BLENDS) {
+      const WB::Field field(l1, m1, l2, m2, blend, orientation);
+      for (int i = 0; i <= PHI_STEPS; ++i) {
+        const float phi = PI_F * i / PHI_STEPS;
+        for (int j = 0; j < THETA_STEPS; ++j) {
+          const float theta = TWO_PI_F * j / THETA_STEPS;
+          const Vector point(sinf(phi) * cosf(theta), cosf(phi),
+                             sinf(phi) * sinf(theta));
+          peak = std::max(peak, std::fabs(field.sample(point)));
+        }
+      }
+    }
+  }
+
+  std::printf("  SH field bound: peak %.6f\n", static_cast<double>(peak));
+  HS_EXPECT_LT(peak, 1.0f);
+}
+
+/** @brief Bounds color drift from the signed-to-unit carrier round trip. */
+inline void test_sh_pullback_matches_legacy_shader() {
+  using WB = SphericalHarmonicsWhiteBox;
+  reset_effect_globals();
+  WB::SH fx;
+  fx.init();
+
+  const Quaternion orientation =
+      make_rotation(Vector(-0.4f, 0.2f, 0.9f).normalized(), 0.83f);
+  constexpr std::array<float, 3> BLENDS{0.0f, 0.5f, 1.0f};
+  constexpr std::array<float, 3> AMPLITUDES{0.2f, 3.2f, 7.0f};
+  constexpr int PHI_STEPS = 24;
+  constexpr int THETA_STEPS = 32;
+  int max_channel_delta = 0;
+  int differing_pixels = 0;
+
+  for (int first = 1; first <= WB::max_mode_idx(); ++first) {
+    const int second = first % WB::max_mode_idx() + 1;
+    auto [l1, m1] = SHMath::decode_lm(first);
+    auto [l2, m2] = SHMath::decode_lm(second);
+    for (float blend : BLENDS) {
+      const WB::Field legacy_field(l1, m1, l2, m2, blend, orientation);
+      for (float amplitude : AMPLITUDES) {
+        for (bool debug : {false, true}) {
+          const WB::PipelineFrame frame = WB::prepare_pipeline(
+              fx, l1, m1, l2, m2, blend, orientation, amplitude, debug);
+          for (int i = 0; i <= PHI_STEPS; ++i) {
+            const float phi = PI_F * i / PHI_STEPS;
+            for (int j = 0; j < THETA_STEPS; ++j) {
+              const float theta = TWO_PI_F * j / THETA_STEPS;
+              const Vector point(sinf(phi) * cosf(theta), cosf(phi),
+                                 sinf(phi) * sinf(theta));
+              const Color4 legacy = WB::shade_legacy(
+                  fx, legacy_field.sample(point), amplitude, debug);
+              const Color4 pullback = WB::shade_pipeline(point, frame);
+              const int red = std::abs(static_cast<int>(legacy.color.r) -
+                                       static_cast<int>(pullback.color.r));
+              const int green = std::abs(static_cast<int>(legacy.color.g) -
+                                         static_cast<int>(pullback.color.g));
+              const int blue = std::abs(static_cast<int>(legacy.color.b) -
+                                        static_cast<int>(pullback.color.b));
+              const int delta = std::max({red, green, blue});
+              max_channel_delta = std::max(max_channel_delta, delta);
+              differing_pixels += static_cast<int>(delta != 0);
+              HS_EXPECT_EQ(legacy.alpha, pullback.alpha);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  std::printf("  SH pullback parity: max channel delta %d, differing %d\n",
+              max_channel_delta, differing_pixels);
+  HS_EXPECT_LE(max_channel_delta, 1);
 }
 
 /**
@@ -6597,6 +6706,8 @@ inline int run_effects_tests() {
     test_sh_reduced_legendre_matches_closed_form();
     test_sh_cartesian_matches_spherical();
     test_sh_field_write_through_and_endpoints();
+    test_sh_field_stays_inside_unit_range();
+    test_sh_pullback_matches_legacy_shader();
     test_sh_polarity_split_and_ao_shaping();
     test_sh_morph_chain_rearms();
     test_gs_q16_roundtrip();
