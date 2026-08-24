@@ -15,6 +15,7 @@
 // temp file and diffs it against the committed header).
 // (unit_color's test_linear_to_srgb8_decode_matches_lut re-checks the
 // equivalence in CI).
+#define HS_ENABLE_TEST_ORACLES 1
 #include "core/color/color_luts.h"
 #include "core/color/srgb_decode.h"
 #include <cstdint>
