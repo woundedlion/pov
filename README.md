@@ -463,6 +463,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── engine_catalog.json     Source operator catalog behind native chain validation
 │   ├── export_engine_catalog.mjs Exports the installed WASM module's operator catalog
 │   ├── sha256.mjs              Shared SHA-256 implementation for shader documents
+│   ├── engine_bindings_contract.test.mjs Node contract tests for WASM engine binding invariants
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
 │   ├── wasm_smoke_predicates.mjs Module-free smoke decisions: dark band, stack creep budget, param zip
 │   ├── wasm_smoke_predicates.test.mjs Node unit test for those three decisions
