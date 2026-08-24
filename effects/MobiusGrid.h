@@ -69,7 +69,6 @@ public:
     return value;
   }
 
-public:
   HS_COLD_MEMBER void after_composed_init() {
     this->start_mobius_animation(1.0f, 160);
   }
