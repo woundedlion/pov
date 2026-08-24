@@ -234,8 +234,29 @@ private:
   static constexpr float GRAVITY = 0.001f;
   static constexpr float PARTICLE_LIFETIME_FRAMES = 160.0f;
   static constexpr float ATTRACTOR_KILL_RADIUS = 0.003f;
-  static_assert(EVENT_HORIZON < PI_F * 0.25f,
-                "MindSplatter event-horizon caps must not overlap");
+
+  template <size_t N>
+  static consteval bool
+  event_horizons_do_not_overlap(const std::array<Vector, N> &vertices) {
+    constexpr float MIN_CHORD_SQUARED = 4.0f * EVENT_HORIZON * EVENT_HORIZON;
+    for (size_t i = 0; i < N; ++i) {
+      for (size_t j = i + 1; j < N; ++j) {
+        const float dx = vertices[i].x - vertices[j].x;
+        const float dy = vertices[i].y - vertices[j].y;
+        const float dz = vertices[i].z - vertices[j].z;
+        if (dx * dx + dy * dy + dz * dz <= MIN_CHORD_SQUARED)
+          return false;
+      }
+    }
+    return true;
+  }
+  static_assert(
+      event_horizons_do_not_overlap(Solids::Tetrahedron::vertices) &&
+          event_horizons_do_not_overlap(Solids::Cube::vertices) &&
+          event_horizons_do_not_overlap(Solids::Octahedron::vertices) &&
+          event_horizons_do_not_overlap(Solids::Dodecahedron::vertices) &&
+          event_horizons_do_not_overlap(Solids::Icosahedron::vertices),
+      "MindSplatter event-horizon caps must not overlap");
 
   static consteval bool attractors_are_signed_axes() {
     constexpr std::array<Vector, 6> AXES = {X_AXIS,  -X_AXIS, Y_AXIS,
@@ -275,9 +296,26 @@ private:
         continue;
       const float distance = fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f));
       alpha *= quintic_kernel(distance / EVENT_HORIZON);
+      if (alpha != 1.0f)
+        return alpha;
     }
     return alpha;
   }
+
+#if HS_ENABLE_TEST_ORACLES
+  float reference_attractor_hole_alpha(const Vector &p,
+                                       float cos_event_horizon) const {
+    float alpha = 1.0f;
+    for (const auto &attractor : particle_system.attractors) {
+      const float cos_distance = dot(p, attractor.position);
+      if (cos_distance < cos_event_horizon)
+        continue;
+      const float distance = fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f));
+      alpha *= quintic_kernel(distance / EVENT_HORIZON);
+    }
+    return alpha;
+  }
+#endif
 
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
@@ -519,7 +557,7 @@ private:
     auto hole_shader = [&](FragmentRegisters f, const Vector &original_pos) {
 #if HS_ENABLE_TEST_ORACLES
       if (reference_hole_kernel) {
-        f.v3 *= attractor_hole_alpha(original_pos, cos_event_horizon);
+        f.v3 *= reference_attractor_hole_alpha(original_pos, cos_event_horizon);
         return;
       }
 #endif
