@@ -3985,38 +3985,14 @@ inline bool child_exited_clean(int rc) {
 }
 
 /**
- * @brief Reports whether the suite is running under CI.
- * @return True iff the CI environment variable is set and non-empty.
- * @details GitHub Actions (and most CI providers) set CI=true. Under CI a death
- *          suite that cannot run must FAIL loudly, not skip silently.
- */
-inline bool in_ci() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *ci = std::getenv("CI");
-#pragma clang diagnostic pop
-  return ci && ci[0] != '\0';
-}
-
-/**
  * @brief Reports that the death suite could not run.
  * @param why Human-readable reason the suite is unrunnable.
  * @param rc The associated child return code, for diagnostics.
- * @details Loud (counts as a failure) under CI, quiet skip otherwise.
+ * @details An unrunnable death tier is a test failure on every host.
  */
 inline void report_unrunnable(const char *why, int rc) {
-  if (in_ci()) {
-    std::printf("  [FAIL] death tests: %s (rc=%d, CI=on)\n", why, rc);
-    HS_EXPECT_TRUE(false && "death suite must run under CI");
-  } else {
-    // Count a skip — never a pass — so a green local run cannot be mistaken for
-    // trap coverage; the banner is unmistakable and CI is the hard gate. It is
-    // a whole-suite skip so the module's zero-assertion guard does not fire.
-    hs_test::skip_suite();
-    std::printf("  [SKIPPED] death tests: %s (rc=%d) — 0 trap cases executed; "
-                "CI is the hard gate\n",
-                why, rc);
-  }
+  std::printf("  [FAIL] death tests: %s (rc=%d)\n", why, rc);
+  HS_EXPECT_TRUE(false && "death suite must run");
 }
 
 /**
