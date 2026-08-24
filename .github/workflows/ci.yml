@@ -1825,9 +1825,8 @@ jobs:
     # fails when one is missing.
     # `if: always()` is load-bearing: a failed dependency SKIPS a plain job, and
     # a skipped required check does not block a merge.
-    # Only `success` counts below. No job here carries an `if:`, so a skip means
-    # a job dropped out of the run — the exact way coverage is lost silently. A
-    # job that legitimately must skip needs an entry in ALLOW_SKIPPED.
+    # Only `success` counts below except for the explicitly allowlisted jobs
+    # whose own conditions skip them outside their supported event or platform.
     needs:
       - tests
       - sanitizers
