@@ -35,7 +35,7 @@ public:
   using Params = KaleidoscopeHexBrightParams;
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-hex-bright";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "33838bda65308b0a1ba6973a4785c480e09174416c1fdc1a063543207465bda8";
+      "9f358f79f3949773f83be985dfb80ca884f9d25ab10436848a84ebe095cc0634";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "a69686e051b4d46949179a00b82e08df04f1b5abd7b5317376da86753670719b";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
