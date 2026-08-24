@@ -136,11 +136,13 @@ INLINE_USES = (
 FORMAT_EXTENSIONS = ("h", "hpp", "cpp", "cc", "inl")
 
 # The float flags both shipping targets build with: the device firmware
-# (platformio.ini), the WASM modules (CMakeLists.txt) and the CI leg that runs
-# the suite under them (ci.yml). -fno-finite-math-only must follow -ffast-math,
-# which otherwise implies -ffinite-math-only and folds every std::isfinite()
-# boundary predicate to constant true; a spelling that loses it builds green.
+# (platformio.ini) and the WASM modules (CMakeLists.txt). The CI leg runs the
+# suite under the same pair and defines which test contract applies.
+# -fno-finite-math-only must follow -ffast-math, which otherwise implies
+# -ffinite-math-only and folds every std::isfinite() boundary predicate to
+# constant true; a spelling that loses it builds green.
 FLOAT_FLAGS = ("-ffast-math", "-fno-finite-math-only")
+FAST_MATH_TEST_FLAGS = (*FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1")
 
 # Strings that must read identically in several build files. The pre-commit hook
 # is POSIX shell run per commit, ci.yml is workflow YAML and the justfile is a
@@ -160,6 +162,7 @@ SHARED_LITERALS = {
     # A flag list (platformio.ini's build_flags, ci.yml's matrix entry) and the
     # CMake quoted-argument form of the same pair.
     "float-flags": " ".join(FLOAT_FLAGS),
+    "float-test-flags": " ".join(FAST_MATH_TEST_FLAGS),
     "float-flags-cmake": " ".join(f'"{flag}"' for flag in FLOAT_FLAGS),
 }
 
@@ -172,11 +175,12 @@ SHARED_LITERAL_USES = (
     (r"grep -vE '([^']*)'", "format-exclude", 3),
     (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs", 2),
     (r"grep -E '([^']*)'", "format-extensions", 1),
-    # Anchored on the start of a flag line (platformio.ini) or on the matrix key
-    # that carries the pair (ci.yml), so the prose spellings the same files
-    # comment the pair with are not swept in. The capture runs to end of line: a
-    # flag added to one target and not the other reads as a difference.
-    (r"(?:float_flags:|^)\s+(-ffast-math\b.*)$", "float-flags", 2),
+    # Anchored on the start of a flag line (platformio.ini) and on the matrix key
+    # that carries the pair plus its test-contract define (ci.yml), so prose
+    # spellings are not swept in. Captures run to end of line: a partial edit
+    # reads as a difference.
+    (r"^\s+(-ffast-math\b.*)$", "float-flags", 1),
+    (r"float_flags:\s+(-ffast-math\b.*)$", "float-test-flags", 1),
     # Every WASM target's compile and link line.
     (r'("-ffast-math" "[^"]+")', "float-flags-cmake", 4),
 )
