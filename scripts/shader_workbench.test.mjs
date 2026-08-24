@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import {
+  DEFAULT_LIMITS,
   ShaderDocumentError,
   canonicalPresetBank,
   classifyExport,
@@ -183,6 +184,23 @@ test('strict parsing enforces byte, depth, BOM, and finite-number bounds', () =>
   assert.throws(() => parseShaderDocument('{"value":1e999}'), /finite/u);
   assert.throws(() => parseShaderDocument('[[[]]]', { depth: 1 }), /nesting limit/u);
   assert.throws(() => parseShaderDocument('{"long":"abcd"}', { bytes: 4 }), /byte limit/u);
+});
+
+test('decoded documents enforce the parser depth limit', () => {
+  const document = example();
+  document.effect_metadata = {};
+  let nested = document.effect_metadata;
+  for (let depth = 1; depth < DEFAULT_LIMITS.depth; ++depth) {
+    nested.child = {};
+    nested = nested.child;
+  }
+  assert.equal(compile(document).status, 'VALID');
+
+  nested.child = {};
+  const compiled = compile(document);
+  assert.equal(compiled.status, 'INVALID');
+  assert.deepEqual(compiled.diagnostics.map(({ phase, code }) => [phase, code]),
+    [['parse', 'DEPTH_LIMIT']]);
 });
 
 test('strict parsing skips only RFC 8259 whitespace', () => {
