@@ -86,8 +86,10 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
 
 FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
                                     size_t new_capacity) {
-  hs::log("ArenaVector grow abandons %zu bytes (cap %zu -> %zu)", bytes,
-          old_capacity, new_capacity);
+  hs::log("ArenaVector grow abandons %lu bytes (cap %lu -> %lu)",
+          static_cast<unsigned long>(bytes),
+          static_cast<unsigned long>(old_capacity),
+          static_cast<unsigned long>(new_capacity));
 }
 
 namespace {
@@ -129,17 +131,21 @@ HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
                                  size_t scratch_a, size_t scratch_b) {
   HS_CHECK(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE &&
                scratch_b <= GLOBAL_ARENA_SIZE,
-           "split_bases: %s asked %zu/%zu/%zu B (persistent/A/B) of a %zu B "
+           "split_bases: %s asked %lu/%lu/%lu B (persistent/A/B) of a %lu B "
            "block",
-           who, persistent, scratch_a, scratch_b, GLOBAL_ARENA_SIZE);
+           who, static_cast<unsigned long>(persistent),
+           static_cast<unsigned long>(scratch_a),
+           static_cast<unsigned long>(scratch_b),
+           static_cast<unsigned long>(GLOBAL_ARENA_SIZE));
   constexpr size_t A = alignof(std::max_align_t);
   auto align_up = [](size_t n) { return (n + (A - 1)) & ~(A - 1); };
   size_t a_base = align_up(persistent);
   size_t b_base = align_up(a_base + scratch_a);
   size_t total = b_base + scratch_b;
   if (total > GLOBAL_ARENA_SIZE) {
-    hs::log("[OOM] %s: requested %zu > available %zu", who, total,
-            GLOBAL_ARENA_SIZE);
+    hs::log("[OOM] %s: requested %lu > available %lu", who,
+            static_cast<unsigned long>(total),
+            static_cast<unsigned long>(GLOBAL_ARENA_SIZE));
     HS_CHECK(false);
   }
   return {a_base, b_base};
