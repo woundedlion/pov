@@ -10,7 +10,7 @@
 // The large static buffers below are defined here, not next to their
 // declarations: this TU is linked into every target, so gathering them keeps
 // every DMAMEM/large-static placement decision in one file the linker map points
-// at. Look here, not in animation.h / canvas.h, for where the storage actually
+// at. Look here, not in timeline.h / canvas.h, for where the storage actually
 // lands. The arena block is the one exception -- it is file-local to memory.cpp,
 // which partitions it.
 
@@ -25,18 +25,18 @@ bool global_timeline_live = false;
 /**
  * @brief Shared singleton playhead cursor into global_timeline_events.
  * @details Free global so every Timeline instance reads/writes the same cursor
- * (see animation.h).
+ * (see timeline.h).
  */
 uint32_t global_timeline_t = 0;
 /**
  * @brief Shared singleton event count for global_timeline_events.
  * @details Free global so every Timeline instance reads/writes the same count
- * (see animation.h).
+ * (see timeline.h).
  */
 int global_timeline_num_events = 0;
 /**
  * @brief Monotonic count of animations rejected because the timeline was full.
- * @details Never reset, including across Timeline instances (see animation.h).
+ * @details Never reset, including across Timeline instances (see timeline.h).
  */
 uint32_t global_timeline_dropped = 0;
 /** @brief Front pixel buffer for the double-buffered effect framebuffer. */
