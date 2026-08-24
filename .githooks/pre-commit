@@ -1,20 +1,25 @@
 #!/bin/sh
-# Fast local feedback only. CI and the protected-branch `CI green` check are
-# authoritative for builds, tests, firmware budgets and documentation.
+# Staged-only checks that predict the fast, deterministic CI gates.
 set -eu
 
 CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 PRESENT="$(git diff --cached --name-only --diff-filter=ACMR)"
+[ -n "$CHANGED" ] || exit 0
 
-FORMAT="$(printf '%s\n' "$CHANGED" \
+if ! git diff --cached --check; then
+  echo "[pre-commit] staged whitespace errors must be fixed."
+  exit 1
+fi
+
+FORMAT="$(printf '%s\n' "$PRESENT" \
   | grep -E '\.(h|hpp|cpp|cc|inl)$' \
   | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
   || true)"
 
-if [ -n "$FORMAT" ] && [ -z "${HS_SKIP_FORMAT:-}" ]; then
+if [ -n "$FORMAT" ]; then
   CF="${CLANG_FORMAT:-clang-format}"
   if ! command -v "$CF" >/dev/null 2>&1; then
-    echo "[pre-commit] $CF not found (install clang-format 22 or use --no-verify)."
+    echo "[pre-commit] $CF not found; install clang-format 22."
     exit 1
   fi
   major="$("$CF" --version | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
@@ -24,7 +29,6 @@ if [ -n "$FORMAT" ] && [ -z "${HS_SKIP_FORMAT:-}" ]; then
   fi
   failed=
   while IFS= read -r file; do
-    git cat-file -e ":$file" 2>/dev/null || continue
     git show ":$file" \
       | "$CF" --dry-run --Werror --style=file --assume-filename="$file" \
         >/dev/null 2>&1 \
@@ -38,14 +42,63 @@ EOF
   fi
 fi
 
-PYTHON="$(printf '%s\n' "$PRESENT" | sed -n '/\.py$/p')"
-if [ -n "$PYTHON" ] && command -v ruff >/dev/null 2>&1; then
-  printf '%s\n' "$PYTHON" | xargs ruff check --no-cache
+PYTHON_FILES="$(printf '%s\n' "$PRESENT" | sed -n '/\.py$/p')"
+if [ -n "$PYTHON_FILES" ]; then
+  if ! command -v ruff >/dev/null 2>&1; then
+    echo "[pre-commit] ruff not found; install the version pinned in package.json."
+    exit 1
+  fi
+  while IFS= read -r file; do
+    git show ":$file" | ruff check --no-cache --stdin-filename "$file" -
+  done <<EOF
+$PYTHON_FILES
+EOF
 fi
 
-JAVASCRIPT="$(printf '%s\n' "$PRESENT" | sed -n '/\.mjs$/p')"
-if [ -n "$JAVASCRIPT" ] && [ -x node_modules/.bin/eslint ]; then
-  printf '%s\n' "$JAVASCRIPT" | xargs node_modules/.bin/eslint
+JAVASCRIPT_FILES="$(printf '%s\n' "$PRESENT" | sed -n '/\.mjs$/p')"
+if [ -n "$JAVASCRIPT_FILES" ]; then
+  if [ ! -x node_modules/.bin/eslint ]; then
+    echo "[pre-commit] node_modules is missing; run npm ci."
+    exit 1
+  fi
+  while IFS= read -r file; do
+    git show ":$file" \
+      | node_modules/.bin/eslint --stdin --stdin-filename "$file"
+  done <<EOF
+$JAVASCRIPT_FILES
+EOF
 fi
 
-exit 0
+PYTHON_BIN="${PYTHON:-python}"
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  echo "[pre-commit] $PYTHON_BIN not found; Python is required for documentation checks."
+  exit 1
+fi
+
+SNAPSHOT_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/hs-pre-commit.XXXXXX")"
+SNAPSHOT="$SNAPSHOT_ROOT/repo"
+trap 'rm -rf "$SNAPSHOT_ROOT"' EXIT INT TERM
+mkdir "$SNAPSHOT"
+git checkout-index --all --force --prefix="$SNAPSHOT/"
+LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
+
+(
+  for name in $LOCAL_GIT_ENV; do unset "$name"; done
+  git -C "$SNAPSHOT" init --quiet
+  cp "$INDEX_PATH" "$SNAPSHOT/.git/index"
+
+  if [ -d "${DAYDREAM_CHECKOUT:-$REPO_ROOT/../daydream}" ]; then
+    "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" \
+      --checkout "daydream=${DAYDREAM_CHECKOUT:-$REPO_ROOT/../daydream}"
+  else
+    "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" \
+      --skip-checkout daydream
+  fi
+  "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --repo-root "$SNAPSHOT"
+  "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check
+  "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py"
+)
+
+echo "[pre-commit] staged formatting, lint, and documentation checks passed."
