@@ -210,7 +210,7 @@ inline void test_construction_dims_and_clear() {
   TestEffect fx(96, 20);
   HS_EXPECT_EQ(fx.width(), 96);
   HS_EXPECT_EQ(fx.height(), 20);
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(10, 5), 0, 0, 0));
+  HS_EXPECT_PIXEL(fx.get_pixel(10, 5), 0, 0, 0);
   HS_EXPECT_TRUE(fx.buffer_free());
   HS_EXPECT_TRUE(fx.clip().is_full());
   HS_EXPECT_EQ(fx.clip().y_end, 20);
@@ -225,13 +225,13 @@ inline void test_construction_dimension_boundaries() {
     TestEffect fx(1, 1);
     HS_EXPECT_EQ(fx.width(), 1);
     HS_EXPECT_EQ(fx.height(), 1);
-    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), 0, 0, 0));
+    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), 0, 0, 0);
   }
   {
     TestEffect fx(MAX_W, MAX_H);
     HS_EXPECT_EQ(fx.width(), MAX_W);
     HS_EXPECT_EQ(fx.height(), MAX_H);
-    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(MAX_W - 1, MAX_H - 1), 0, 0, 0));
+    HS_EXPECT_PIXEL(fx.get_pixel(MAX_W - 1, MAX_H - 1), 0, 0, 0);
   }
 }
 
@@ -239,12 +239,12 @@ inline void test_output_envelope_endpoints() {
   TestEffect fx(8, 8);
   const Pixel source{65535, 32768, 1};
   fx.set_output_envelope(0.0f);
-  HS_EXPECT_TRUE(pix_eq(fx.apply_output_envelope(source), 0, 0, 0));
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(source), 0, 0, 0);
   fx.set_output_envelope(1.0f);
-  HS_EXPECT_TRUE(pix_eq(fx.apply_output_envelope(source), 65535, 32768, 1));
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(source), 65535, 32768, 1);
   fx.set_output_envelope(0.5f);
   HS_EXPECT_EQ(fx.output_envelope_u16(), uint16_t(32768));
-  HS_EXPECT_TRUE(pix_eq(fx.apply_output_envelope(source), 32768, 16384, 1));
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(source), 32768, 16384, 1);
 }
 
 inline void test_effect_transition_fenced_commit() {
@@ -467,16 +467,16 @@ inline void test_frame_visible_only_after_advance_display() {
     Canvas c(fx);
     c(3, 3) = Pixel(100, 200, 300);
     // Mid-frame: the display still shows the OLD (black) buffer.
-    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(3, 3), 0, 0, 0));
+    HS_EXPECT_PIXEL(fx.get_pixel(3, 3), 0, 0, 0);
   } // ~Canvas queues the frame
 
   // Queued but not displayed: buffer busy, pixel still old.
   HS_EXPECT_FALSE(fx.buffer_free());
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(3, 3), 0, 0, 0));
+  HS_EXPECT_PIXEL(fx.get_pixel(3, 3), 0, 0, 0);
 
   fx.advance_display();
   HS_EXPECT_TRUE(fx.buffer_free());
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(3, 3), 100, 200, 300));
+  HS_EXPECT_PIXEL(fx.get_pixel(3, 3), 100, 200, 300);
 }
 
 /**
@@ -491,7 +491,7 @@ inline void test_consecutive_frames_alternate_buffers() {
     c(1, 1) = Pixel(11, 0, 0);
   }
   fx.advance_display();
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 11, 0, 0));
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 11, 0, 0);
 
   // Non-persist clears the new buffer, so the first frame's pixel is gone.
   {
@@ -499,8 +499,8 @@ inline void test_consecutive_frames_alternate_buffers() {
     c(2, 2) = Pixel(0, 22, 0);
   }
   fx.advance_display();
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 0, 22, 0));
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 0, 0, 0));
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 2), 0, 22, 0);
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 0, 0, 0);
 }
 
 /** @brief Clip clearing touches the display rectangle but not its margin. */
@@ -533,8 +533,8 @@ inline void test_clip_clear_exact_rectangle() {
     }
   }
   fx.advance_display();
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 1), 0, 0, 0));
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 11, 22, 33));
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 1), 0, 0, 0);
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 11, 22, 33);
 }
 
 /** @brief Alternating POV clips clear the recycled buffer before publication. */
@@ -605,7 +605,7 @@ inline void test_clip_clear_full_clip_matches_full_clear() {
 
   Canvas c(fx);
   for (int i = 0; i < 32; ++i)
-    HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
+    HS_EXPECT_PIXEL(c(i), 0, 0, 0);
 }
 
 /** @brief A full-width band clears contiguously at the correct row offset. */
@@ -655,14 +655,14 @@ inline void test_clip_clear_constructor_zeroes_both_buffers() {
   {
     Canvas c(fx);
     for (int i = 0; i < 32; ++i)
-      HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
+      HS_EXPECT_PIXEL(c(i), 0, 0, 0);
   }
   fx.advance_display();
   fx.set_clip(0, 1, 0, 1);
   {
     Canvas c(fx);
     for (int i = 0; i < 32; ++i)
-      HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
+      HS_EXPECT_PIXEL(c(i), 0, 0, 0);
   }
 }
 
@@ -679,7 +679,7 @@ inline void test_clip_clear_does_not_change_persistence() {
   fx.set_clip(1, 3, 2, 6);
   Canvas c(fx);
   for (int i = 0; i < 32; ++i)
-    HS_EXPECT_TRUE(pix_eq(c(i), 7, 8, 9));
+    HS_EXPECT_PIXEL(c(i), 7, 8, 9);
 }
 
 /**
@@ -729,7 +729,7 @@ inline void test_clip_clear_outside_band_reader_clears_full_buffer() {
   fx.set_clip(1, 3, 2, 6);
   Canvas c(fx);
   for (int i = 0; i < 32; ++i)
-    HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
+    HS_EXPECT_PIXEL(c(i), 0, 0, 0);
 }
 
 /**
@@ -745,14 +745,14 @@ inline void test_persist_pixels_copies_previous_frame() {
     c(2, 2) = Pixel(10, 20, 30);
   }
   fx.advance_display();
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 2), 10, 20, 30);
 
   // With persist, the undrawn next frame carries the previous content over.
   {
     Canvas c(fx); /* draw nothing */
   }
   fx.advance_display();
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 2), 10, 20, 30);
 }
 
 /**
@@ -792,7 +792,7 @@ inline void test_double_buffer_handoff_no_aliasing() {
   fx.advance_display();
   record_ptr(fx.display_buffer());
   HS_EXPECT_TRUE(fx.buffer_free());
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), 10, 0, 0));
+  HS_EXPECT_PIXEL(fx.get_pixel(0, 0), 10, 0, 0);
 
   for (int f = 1; f < 6; ++f) {
     const Pixel *display_before = fx.display_buffer();
@@ -808,8 +808,8 @@ inline void test_double_buffer_handoff_no_aliasing() {
     // shows the previous frame.
     HS_EXPECT_FALSE(fx.buffer_free());
     HS_EXPECT_TRUE(fx.display_buffer() == display_before);
-    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), colors[f - 1].r, colors[f - 1].g,
-                          colors[f - 1].b));
+    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), colors[f - 1].r, colors[f - 1].g,
+                    colors[f - 1].b);
 
     fx.advance_display();
 
@@ -969,7 +969,7 @@ inline void test_ctor_spin_waits_for_buffer_free() {
   HS_EXPECT_TRUE(ctor_blocked_when_checked.load(std::memory_order_relaxed));
   HS_EXPECT_TRUE(released.load(std::memory_order_relaxed));
   // Frame 0 is now the displayed buffer, so its pixel is live.
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), 1, 2, 3));
+  HS_EXPECT_PIXEL(fx.get_pixel(0, 0), 1, 2, 3);
 }
 
 // ============================================================================
@@ -993,11 +993,11 @@ inline void test_canvas_2d_and_1d_access_and_prev() {
     c(1, 1) = Pixel(5, 6, 7);
     c(2 * 8 + 3) = Pixel(8, 9, 10); // 1D index → (x=3, y=2)
     // prev() reads the previously displayed (black) buffer.
-    HS_EXPECT_TRUE(pix_eq(c.prev(1, 1), 0, 0, 0));
+    HS_EXPECT_PIXEL(c.prev(1, 1), 0, 0, 0);
   }
   fx.advance_display();
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 5, 6, 7));
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(3, 2), 8, 9, 10));
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 5, 6, 7);
+  HS_EXPECT_PIXEL(fx.get_pixel(3, 2), 8, 9, 10);
 }
 
 // ============================================================================
