@@ -557,12 +557,11 @@ struct LayerComposite {
   float remaining = 1.0f;
 
   void add(const Pixel &color, float coverage) {
-    const float layer_coverage = hs::clamp(coverage, 0.0f, 1.0f);
-    const float weight = remaining * layer_coverage;
+    const float weight = remaining * coverage;
     red += static_cast<float>(color.r) * weight;
     green += static_cast<float>(color.g) * weight;
     blue += static_cast<float>(color.b) * weight;
-    remaining *= 1.0f - layer_coverage;
+    remaining *= 1.0f - coverage;
   }
 
   Color4 finish() const {
