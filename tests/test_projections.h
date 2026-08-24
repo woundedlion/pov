@@ -358,7 +358,7 @@ inline void test_airocean_face_planes() {
       const AiroceanVector &v = AIROCEAN_FACES[face][vertex];
       HS_EXPECT_NEAR(v.x * normal.x + v.y * normal.y + v.z * normal.z, offset,
                      1e-6f);
-      HS_EXPECT_TRUE(airocean_contains(v, AIROCEAN_FACES[face]));
+      HS_EXPECT_TRUE(airocean_contains(v, face));
       centroid.x += v.x / 3.0f;
       centroid.y += v.y / 3.0f;
       centroid.z += v.z / 3.0f;
@@ -394,9 +394,8 @@ inline void test_airocean_projection_stays_inside_its_face() {
       const ProjectionKernelResult net = airocean_projection(v, 0.0f, false);
       const size_t face = net.region_id;
       HS_EXPECT_LT(face, AIROCEAN_FACE_COUNT);
-      HS_EXPECT_TRUE(airocean_contains(airocean_axes(v), AIROCEAN_FACES[face]));
-      HS_EXPECT_EQ(
-          airocean_outside_score(airocean_axes(v), AIROCEAN_FACES[face]), 0.0f);
+      HS_EXPECT_TRUE(airocean_contains(airocean_axes(v), face));
+      HS_EXPECT_EQ(airocean_outside_score(airocean_axes(v), face), 0.0f);
       const AiroceanPoint point{net.coords.re, net.coords.im};
       for (size_t edge = 0; edge < 3; ++edge)
         HS_EXPECT_LE(planar_cross(planar_vertex(face, edge),
