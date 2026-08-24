@@ -131,6 +131,11 @@ async function main() {
     process.exitCode = 1;
     return;
   }
+  if (RESOLUTIONS.length < 2) {
+    console.error('wasm_smoke: at least two supported resolutions are required');
+    process.exitCode = 1;
+    return;
+  }
 
   // setResolution/setEffect report their outcome as embind enums; pin the value
   // rosters so a dropped/renamed enumerator fails here. RESIZED and
