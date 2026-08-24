@@ -63,12 +63,12 @@ test:
 # reports per-file objects, so a report naming no file is an empty selection.
 lint:
     {{py}} tools/build_pins.py --check-tool ruff
-    bash -c "ruff check --no-cache --show-files . > /tmp/hs-ruff-files.txt; test -s /tmp/hs-ruff-files.txt || { echo 'ruff selected no files -- the ruff.toml exclude list or a .gitignore rule is broken'; exit 1; }"
+    bash -c 'tmp=$(mktemp); trap "rm -f -- \"$tmp\"" EXIT; ruff check --no-cache --show-files . > "$tmp"; test -s "$tmp" || { echo "ruff selected no files -- the ruff.toml exclude list or a .gitignore rule is broken"; exit 1; }'
     ruff check --no-cache .
-    bash -c "npx eslint . --format json > /tmp/hs-eslint-report.json || true; grep -q filePath /tmp/hs-eslint-report.json || { echo 'eslint selected no files -- the eslint.config.mjs ignores list is broken'; exit 1; }"
+    bash -c 'tmp=$(mktemp); trap "rm -f -- \"$tmp\"" EXIT; npx eslint . --format json > "$tmp" || true; grep -q filePath "$tmp" || { echo "eslint selected no files -- the eslint.config.mjs ignores list is broken"; exit 1; }'
     npm run lint
     {{py}} tools/build_pins.py --check-tool shellcheck
-    bash -c "git ls-files -- '*.sh' '.githooks/*' > /tmp/hs-shell-files.txt; test -s /tmp/hs-shell-files.txt || { echo 'no shell files selected -- the shell path list is broken'; exit 1; }; xargs shellcheck --exclude=SC1091,SC2034 < /tmp/hs-shell-files.txt"
+    bash -c "tmp=\$(mktemp); trap 'rm -f -- \"\$tmp\"' EXIT; git ls-files -- '*.sh' '.githooks/*' > \"\$tmp\"; test -s \"\$tmp\" || { echo 'no shell files selected -- the shell path list is broken'; exit 1; }; xargs shellcheck --exclude=SC1091,SC2034 < \"\$tmp\""
     bash tools/profile_sweep.sh check
 
 # Formatting gate over the whole tracked first-party C++ set: the ci.yml
@@ -79,7 +79,7 @@ lint:
 # xargs handed an empty list runs nothing and exits 0.
 clang-format:
     {{py}} tools/build_pins.py --check-tool clang-format
-    bash -c "git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' > /tmp/hs-format-files.txt || true; test -s /tmp/hs-format-files.txt || { echo 'no files selected -- the pathspec or exclusion regex is broken'; exit 1; }; xargs clang-format --dry-run --Werror --style=file < /tmp/hs-format-files.txt"
+    bash -c "tmp=\$(mktemp); trap 'rm -f -- \"\$tmp\"' EXIT; git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' > \"\$tmp\" || true; test -s \"\$tmp\" || { echo 'no files selected -- the pathspec or exclusion regex is broken'; exit 1; }; xargs clang-format --dry-run --Werror --style=file < \"\$tmp\""
 
 # Every tracked C/C++ source carries the header LICENSE grants it, plus the
 # checker's own unit tests -- the ci.yml license-headers job.
