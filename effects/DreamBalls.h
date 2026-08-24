@@ -11,6 +11,7 @@
  *        presets.
  */
 
+#include "core/control/choreography.h"
 #include "core/engine/engine.h"
 
 #include <algorithm>
@@ -26,18 +27,12 @@ struct DreamBallsWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Orbiting copies of a polyhedral wireframe, cycling through ten
- *        solid presets.
- * @tparam W Canvas width in pixels.
- * @tparam H Canvas height in pixels.
- * @details Each vertex is displaced in its own tangent plane and
- *          Mobius-warped before being re-projected onto the sphere.
+ * @brief DreamBalls' live, slider-bound render parameters; also the per-preset
+ *        value set. The per-preset palette lives beside the effect's preset
+ *        table, not here, so parameter snapshots stay pointer-free.
  */
-template <int W, int H> class DreamBalls : public Effect {
-public:
+struct DreamBallsParams {
   using BaseMesh = Solids::BaseMesh;
-
-  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
 
   /** @brief Selects automatic, source, or forced-medial weave topology. */
   enum class WeaveTopology : uint8_t {
@@ -46,20 +41,46 @@ public:
     MEDIAL,
   };
 
-  /**
-   * @brief Live, slider-bound render parameters; also the per-preset value set.
-   */
-  struct Params {
-    BaseMesh base_mesh = BaseMesh::TETRAHEDRON;
-    WeaveTopology weave_topology = WeaveTopology::AUTOMATIC;
-    float weave_gap = WEAVE_GAP_DEFAULT;
-    float num_copies = COPIES_MIN;
-    float offset_radius = RADIUS_MIN;
-    float offset_speed = SPEED_MIN;
-    float warp_scale = WARP_MIN;
-    const Palette *palette = nullptr;
-    float alpha = ALPHA_MIN;
-  };
+  BaseMesh base_mesh = BaseMesh::TETRAHEDRON;
+  WeaveTopology weave_topology = WeaveTopology::AUTOMATIC;
+  float weave_gap = 0.18f;
+  float num_copies = 1.0f;
+  float offset_radius = 0.0f;
+  float offset_speed = 0.0f;
+  float warp_scale = 0.0f;
+  float alpha = 0.0f;
+};
+
+/**
+ * @brief Orbiting copies of a polyhedral wireframe, cycling through ten
+ *        solid presets.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Each vertex is displaced in its own tangent plane and
+ *          Mobius-warped before being re-projected onto the sphere.
+ */
+template <int W, int H>
+class DreamBalls
+    : public ChoreographedEffect<DreamBalls<W, H>, DreamBallsParams> {
+  using Choreography = ChoreographedEffect<DreamBalls<W, H>, DreamBallsParams>;
+  friend Choreography;
+
+public:
+  using Params = DreamBallsParams;
+  using BaseMesh = Solids::BaseMesh;
+  using WeaveTopology = Params::WeaveTopology;
+
+  /** Preset policy: every origin snaps. The sprite chain owns the automatic
+      cadence — a preset advances at each sprite hand-off, so the dwell
+      countdown never runs and step_choreography() is never called. */
+  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** Bookkeeping only (see PRESET_SEGUE); mirrors the sprite hand-off period. */
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
+
+  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
+
+  static bool valid_params(const Params &p) { return preset_in_ranges(p); }
 
   /**
    * @brief Constructs the effect with the anti-alias screen filter.
@@ -67,39 +88,30 @@ public:
    *          in step.
    */
   HS_COLD_MEMBER DreamBalls()
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
-        filters(Filter::Screen::AntiAlias<W, H>()), mobius_gen(timeline) {}
+      : Choreography(W, H,
+                     pipeline_config<decltype(filters)>({.strobe = true})),
+        filters(Filter::Screen::AntiAlias<W, H>()), mobius_gen(this->timeline) {
+  }
 
   /**
    * @brief Builds mesh data, bakes palette LUTs, registers live sliders, and
    *        starts the spawn/spin/orbit animation chain.
    */
   void init() override {
-    configure_presets(PRESETS.size());
+    begin_choreography();
     mobius_gen.init_storage(persistent_arena);
     loaded_solids = persistent_arena.make_n<SolidData>(SOLID_COUNT);
     setup_solids();
 
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
-    std::span<PresetEntry<Params>> entries = preset_manager.get_entries();
-    entries[0].params.palette = &blood_stream_falloff;
-    entries[1].params.palette = &blood_stream_falloff;
-    entries[2].params.palette = &Palettes::RICH_SUNSET;
-    entries[3].params.palette = &Palettes::LAVENDER_LAKE;
-    entries[4].params.palette = &Palettes::CORAL_BLUE;
-    entries[5].params.palette = &Palettes::CORAL_BLUE;
-    entries[6].params.palette = &Palettes::CORAL_BLUE;
-    entries[7].params.palette = &Palettes::CORAL_BLUE;
-    entries[8].params.palette = &Palettes::CORAL_BLUE;
-    entries[9].params.palette = &Palettes::CORAL_BLUE;
-    for (const auto &entry : entries) {
-      HS_CHECK(entry.params.palette,
-               "DreamBalls preset table left a null palette unpatched");
-    }
-
-    params = preset_manager.get();
-    baked_palettes[0].bake(persistent_arena, *params.palette);
-    baked_palettes[1].bake(persistent_arena, *params.palette);
+    preset_palettes = {&blood_stream_falloff,  &blood_stream_falloff,
+                       &Palettes::RICH_SUNSET, &Palettes::LAVENDER_LAKE,
+                       &Palettes::CORAL_BLUE,  &Palettes::CORAL_BLUE,
+                       &Palettes::CORAL_BLUE,  &Palettes::CORAL_BLUE,
+                       &Palettes::CORAL_BLUE,  &Palettes::CORAL_BLUE};
+    live_palette = preset_palettes[0];
+    baked_palettes[0].bake(persistent_arena, *live_palette);
+    baked_palettes[1].bake(persistent_arena, *live_palette);
 
     register_animated_param("Base Mesh", &params.base_mesh,
                             Solids::BASE_MESH_OPTIONS,
@@ -149,12 +161,30 @@ public:
   }
 
 private:
-  HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {
-    if (!preset_manager.select(change.to))
-      return false;
-    if (change.origin != PresetChangeOrigin::AUTOMATIC)
-      apply_selected_preset();
-    return true;
+  using Choreography::anims_paused;
+  using Choreography::begin_choreography;
+  using Choreography::params;
+  using Choreography::register_animated_param;
+  using Choreography::timeline;
+
+  /**
+   * @brief Tracks the committed preset's palette; a non-automatic change also
+   *        retargets the live sprite.
+   * @details An automatic advance leaves the rebake to the spawn_sprite() call
+   * that follows it in the hand-off timer, so the new palette lands on the
+   * fresh sprite's slot rather than the finished one's.
+   */
+  HS_FLASH_MEMBER void
+  preset_changed(const Effect::PresetChange &change) override {
+    live_palette = preset_palettes[change.to];
+    if (change.origin != Effect::PresetChangeOrigin::AUTOMATIC) {
+      baked_palettes[active_bake].rebake(*live_palette);
+      param_slots[active_bake] = params;
+    }
+#ifdef HS_PROFILE_ENABLE
+    hs::log("Preset: %u/%u", static_cast<unsigned>(change.to + 1),
+            static_cast<unsigned>(this->getPresetCount()));
+#endif
   }
 
   friend struct ::hs_test::effects_tests::DreamBallsWhiteBox;
@@ -180,15 +210,6 @@ private:
 
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
-  int last_preset_idx =
-      -1; /**< Last preset whose values were copied into params. */
-
-  void apply_selected_preset() {
-    params = preset_manager.get();
-    last_preset_idx = static_cast<int>(preset_manager.current_index());
-    baked_palettes[active_bake].rebake(*params.palette);
-    param_slots[active_bake] = params;
-  }
 
   /** Per-vertex phase increment (radians) for the orbit stagger, so the surface
        ripples instead of pulsing in unison. */
@@ -216,7 +237,6 @@ private:
                 "a baked solid must fit the wireframe edge-dedup bitset");
 
   FastNoiseLite noise;
-  Timeline timeline;
 
   Orientation<> global_orientation;
 
@@ -293,26 +313,32 @@ private:
 
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{BaseMesh::RHOMBICUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 18.0f, 0.3f, 0.4f, 0.3f, nullptr, 0.7f}},
+        WEAVE_GAP_DEFAULT, 18.0f, 0.3f, 0.4f, 0.3f, 0.7f}},
       {{BaseMesh::RHOMBICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 6.0f, 0.05f, 1.0f, 1.8f, nullptr, 0.7f}},
+        WEAVE_GAP_DEFAULT, 6.0f, 0.05f, 1.0f, 1.8f, 0.7f}},
       {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 6.0f, 0.16f, 1.0f, 2.0f, nullptr, 0.3f}},
+        WEAVE_GAP_DEFAULT, 6.0f, 0.16f, 1.0f, 2.0f, 0.3f}},
       {{BaseMesh::ICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 10.0f, 0.16f, 1.0f, 0.5f, nullptr, 0.3f}},
+        WEAVE_GAP_DEFAULT, 10.0f, 0.16f, 1.0f, 0.5f, 0.3f}},
       {{BaseMesh::SNUB_CUBE, WeaveTopology::AUTOMATIC, WEAVE_GAP_DEFAULT,
-        4.534f, 0.153f, 2.025f, 0.0f, nullptr, 0.3f}},
+        4.534f, 0.153f, 2.025f, 0.0f, 0.3f}},
       {{BaseMesh::TRUNCATED_DODECAHEDRON, WeaveTopology::AUTOMATIC, 0.18f,
-        4.515f, 0.179f, 1.89f, 1.535f, nullptr, 0.7f}},
+        4.515f, 0.179f, 1.89f, 1.535f, 0.7f}},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 4.515f,
-        0.131f, 1.89f, 1.535f, nullptr, 0.7f}},
+        0.131f, 1.89f, 1.535f, 0.7f}},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
-        0.078f, 1.0f, 0.0f, nullptr, 0.3f}},
+        0.078f, 1.0f, 0.0f, 0.3f}},
       {{BaseMesh::DISDYAKIS_TRIACONTAHEDRON, WeaveTopology::AUTOMATIC, 0.18f,
-        6.0f, 0.03f, 1.0f, 1.795f, nullptr, 0.3f}},
+        6.0f, 0.03f, 1.0f, 1.795f, 0.3f}},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
-        0.03f, 1.0f, 1.795f, nullptr, 0.3f}},
+        0.03f, 1.0f, 1.795f, 0.3f}},
   }};
+
+  /** @brief Per-preset palette, patched at init(); kept beside PRESETS rather
+   *  than inside Params so parameter snapshots carry no pointer. */
+  std::array<const Palette *, PRESET_COUNT> preset_palettes = {};
+  /** @brief The committed preset's palette; spawns bake from this. */
+  const Palette *live_palette = nullptr;
 
   static constexpr bool preset_in_ranges(const Params &p) {
     return static_cast<size_t>(p.base_mesh) < SOLID_COUNT &&
@@ -329,8 +355,6 @@ private:
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
                 "a DreamBalls preset drives a param outside its registered "
                 "slider range; widen the range to accommodate the preset");
-
-  Presets<Params, PRESET_COUNT> preset_manager{PRESETS};
 
   HS_COLD_MEMBER static bool source_is_four_regular(const MeshState &mesh,
                                                     Arena &scratch) {
@@ -504,24 +528,15 @@ private:
   /**
    * @brief Spawns one fading sprite for the current preset and schedules the
    *        next spawn one period later.
-   * @details Rebakes the inactive palette slot and reseeds the live params only
-   *          when the preset actually changes.
+   * @details The preset's params were adopted when it was committed; the spawn
+   *          rebakes the inactive palette slot for the fresh sprite.
    */
   HS_COLD_MEMBER void spawn_sprite() {
-    auto entries = preset_manager.get_entries();
-    int safe_idx = static_cast<int>(preset_manager.current_index());
-
-    // Reseed the slider-bound params only when the preset actually changes, so a
-    // paused re-spawn of the same preset keeps the user's live edits.
-    if (safe_idx != last_preset_idx) {
-      params = entries[safe_idx].params;
-      last_preset_idx = safe_idx;
-    }
     // Ping-pong to the inactive slot so the rebake never lands on the previous
     // sprite's palette and params. draw_frame() keeps the active slot tracking
     // sliders.
     active_bake ^= 1;
-    baked_palettes[active_bake].rebake(*params.palette);
+    baked_palettes[active_bake].rebake(*live_palette);
     const int bake_slot = active_bake;
     param_slots[bake_slot] = params;
 
@@ -553,7 +568,7 @@ private:
                           Animation::PeriodicTimer(
                               0,
                               [this](Canvas &) {
-                                const bool advanced = advancePreset();
+                                const bool advanced = this->advancePreset();
                                 HS_CHECK(advanced);
                                 this->spawn_sprite();
                               },
@@ -753,9 +768,6 @@ private:
     timeline.add(0, Animation::Rotation<W>(global_orientation, axis, 2 * PI_F,
                                            80, ease_in_out_sin, false));
   }
-
-  /** @brief Live, slider-bound render parameters for the active preset. */
-  Params params;
 };
 
 #include "core/control/registry.h"

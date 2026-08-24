@@ -2563,19 +2563,22 @@ struct DreamBallsWhiteBox {
   static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
 
   static int active_bake(const DB &db) { return db.active_bake; }
-  static int last_preset_idx(const DB &db) { return db.last_preset_idx; }
-  // Not-paused step: advance the selector, then re-spawn (the scheduler's path).
+  // Not-paused step: advance the choreography, then re-spawn (the scheduler's
+  // path).
   static void advance(DB &db) {
-    db.preset_manager.next();
+    HS_EXPECT_TRUE(db.advancePreset());
     db.spawn_sprite();
   }
   // Re-spawn of the current preset (no advance).
   static void respawn(DB &db) { db.spawn_sprite(); }
-  static DB::BaseMesh preset_mesh(const DB &db, int idx) {
-    return db.preset_manager.get_entries()[idx].params.base_mesh;
+  static DB::BaseMesh preset_mesh(int idx) {
+    return DB::PRESETS[idx].params.base_mesh;
   }
-  static const DB::Params &preset_params(const DB &db, int idx) {
-    return db.preset_manager.get_entries()[idx].params;
+  static const DB::Params &preset_params(int idx) {
+    return DB::PRESETS[idx].params;
+  }
+  static const Palette *preset_palette(const DB &db, int idx) {
+    return db.preset_palettes[idx];
   }
   static const Palette *blood_stream_falloff(const DB &db) {
     return &db.blood_stream_falloff;
@@ -2639,8 +2642,8 @@ struct DreamBallsWhiteBox {
  * @brief Drives spawn_sprite across a full preset cycle and asserts the bake-slot
  *        ping-pong, the modulo preset advance, and the reseed-on-change guard.
  * @details Drives the advance without the 320-frame wait, following the same
- *          selector progression the periodic callback uses: each step calls
- *          Presets::next() then re-spawns, so the active preset walks modulo
+ *          progression the periodic callback uses: each step calls
+ *          advancePreset() then re-spawns, so the active preset walks modulo
  *          the preset count.
  *          Each spawn must flip the bake slot (so a fading-out sprite keeps its
  *          own LUT) and, when the preset actually changes, reseed params to the
@@ -2654,13 +2657,12 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   WB::DB db;
   db.init(); // runs spawn_sprite() at preset 0
 
-  // init() spawned preset 0: it reseeded params (last_preset_idx -1 -> 0) and
-  // flipped the bake slot once (0 -> 1).
-  HS_EXPECT_EQ(WB::last_preset_idx(db), 0);
+  // init() spawned preset 0 and flipped the bake slot once (0 -> 1).
+  HS_EXPECT_EQ(db.getPresetIndex(), 0u);
   HS_EXPECT_EQ(WB::active_bake(db), 1);
-  HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(db, 0));
+  HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(0));
 
-  const auto &snub_cube = WB::preset_params(db, 4);
+  const auto &snub_cube = WB::preset_params(4);
   HS_EXPECT_EQ(snub_cube.base_mesh, WB::DB::BaseMesh::SNUB_CUBE);
   HS_EXPECT_EQ(snub_cube.weave_topology, WB::DB::WeaveTopology::AUTOMATIC);
   HS_EXPECT_NEAR(snub_cube.weave_gap, 0.18f, 1e-6f);
@@ -2670,7 +2672,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(snub_cube.warp_scale, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(snub_cube.alpha, 0.3f, 1e-6f);
 
-  const auto &truncated_dodecahedron = WB::preset_params(db, 5);
+  const auto &truncated_dodecahedron = WB::preset_params(5);
   HS_EXPECT_EQ(truncated_dodecahedron.base_mesh,
                WB::DB::BaseMesh::TRUNCATED_DODECAHEDRON);
   HS_EXPECT_EQ(truncated_dodecahedron.weave_topology,
@@ -2682,7 +2684,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(truncated_dodecahedron.warp_scale, 1.535f, 1e-6f);
   HS_EXPECT_NEAR(truncated_dodecahedron.alpha, 0.7f, 1e-6f);
 
-  const auto &triakis_icosahedron = WB::preset_params(db, 6);
+  const auto &triakis_icosahedron = WB::preset_params(6);
   HS_EXPECT_EQ(triakis_icosahedron.base_mesh,
                WB::DB::BaseMesh::TRIAKIS_ICOSAHEDRON);
   HS_EXPECT_EQ(triakis_icosahedron.weave_topology,
@@ -2694,7 +2696,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(triakis_icosahedron.warp_scale, 1.535f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron.alpha, 0.7f, 1e-6f);
 
-  const auto &triakis_icosahedron_six_copies = WB::preset_params(db, 7);
+  const auto &triakis_icosahedron_six_copies = WB::preset_params(7);
   HS_EXPECT_EQ(triakis_icosahedron_six_copies.base_mesh,
                WB::DB::BaseMesh::TRIAKIS_ICOSAHEDRON);
   HS_EXPECT_EQ(triakis_icosahedron_six_copies.weave_topology,
@@ -2706,7 +2708,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(triakis_icosahedron_six_copies.warp_scale, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron_six_copies.alpha, 0.3f, 1e-6f);
 
-  const auto &disdyakis_triacontahedron = WB::preset_params(db, 8);
+  const auto &disdyakis_triacontahedron = WB::preset_params(8);
   HS_EXPECT_EQ(disdyakis_triacontahedron.base_mesh,
                WB::DB::BaseMesh::DISDYAKIS_TRIACONTAHEDRON);
   HS_EXPECT_EQ(disdyakis_triacontahedron.weave_topology,
@@ -2718,7 +2720,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(disdyakis_triacontahedron.warp_scale, 1.795f, 1e-6f);
   HS_EXPECT_NEAR(disdyakis_triacontahedron.alpha, 0.3f, 1e-6f);
 
-  const auto &triakis_icosahedron_compact = WB::preset_params(db, 9);
+  const auto &triakis_icosahedron_compact = WB::preset_params(9);
   HS_EXPECT_EQ(triakis_icosahedron_compact.base_mesh,
                WB::DB::BaseMesh::TRIAKIS_ICOSAHEDRON);
   HS_EXPECT_EQ(triakis_icosahedron_compact.weave_topology,
@@ -2730,18 +2732,16 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(triakis_icosahedron_compact.warp_scale, 1.795f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron_compact.alpha, 0.3f, 1e-6f);
 
-  HS_EXPECT_TRUE(WB::preset_params(db, 0).palette ==
-                 WB::blood_stream_falloff(db));
-  HS_EXPECT_TRUE(WB::preset_params(db, 1).palette ==
-                 WB::blood_stream_falloff(db));
-  HS_EXPECT_TRUE(WB::preset_params(db, 2).palette == &Palettes::RICH_SUNSET);
-  HS_EXPECT_TRUE(WB::preset_params(db, 3).palette == &Palettes::LAVENDER_LAKE);
-  HS_EXPECT_TRUE(WB::preset_params(db, 4).palette == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_params(db, 5).palette == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_params(db, 6).palette == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_params(db, 7).palette == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_params(db, 8).palette == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_params(db, 9).palette == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 0) == WB::blood_stream_falloff(db));
+  HS_EXPECT_TRUE(WB::preset_palette(db, 1) == WB::blood_stream_falloff(db));
+  HS_EXPECT_TRUE(WB::preset_palette(db, 2) == &Palettes::RICH_SUNSET);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 3) == &Palettes::LAVENDER_LAKE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 4) == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 5) == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 6) == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 7) == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 8) == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 9) == &Palettes::CORAL_BLUE);
 
   // Not-paused advance chain: each step advances the selector then re-spawns, so
   // the preset is step modulo the preset count. Drive two full cycles; the bake
@@ -2752,21 +2752,21 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
     expect_bake ^= 1;
     const int safe = step % WB::PRESETS;
     HS_EXPECT_EQ(WB::active_bake(db), expect_bake);
-    HS_EXPECT_EQ(WB::last_preset_idx(db), safe);
-    HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(db, safe));
+    HS_EXPECT_EQ(db.getPresetIndex(), static_cast<size_t>(safe));
+    HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(safe));
   }
 
-  // Same-preset path: re-spawn without advancing, so the reseed guard
-  // (safe_idx == last_preset_idx) holds and a live slider edit must survive the
-  // re-spawn — while the bake slot still flips. last_preset_idx is now 0.
+  // Same-preset path: re-spawn without advancing; params are only adopted on a
+  // preset change, so a live slider edit must survive the re-spawn — while the
+  // bake slot still flips.
   const float sentinel = WB::num_copies(db) + 5.0f;
   WB::num_copies(db) = sentinel;
-  const int held_idx = WB::last_preset_idx(db);
+  const size_t held_idx = db.getPresetIndex();
   expect_bake ^= 1;
   WB::respawn(db);
-  HS_EXPECT_EQ(WB::last_preset_idx(db), held_idx); // preset unchanged
-  HS_EXPECT_EQ(WB::num_copies(db), sentinel);      // live edit preserved
-  HS_EXPECT_EQ(WB::active_bake(db), expect_bake);  // bake slot still flipped
+  HS_EXPECT_EQ(db.getPresetIndex(), held_idx);    // preset unchanged
+  HS_EXPECT_EQ(WB::num_copies(db), sentinel);     // live edit preserved
+  HS_EXPECT_EQ(WB::active_bake(db), expect_bake); // bake slot still flipped
 }
 
 /** @brief Verifies the Base Mesh dropdown covers every simple solid family. */
@@ -3039,7 +3039,7 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
     db.draw_frame();
     db.advance_display();
   }
-  HS_EXPECT_EQ(WB::last_preset_idx(db), 0);
+  HS_EXPECT_EQ(db.getPresetIndex(), 0u);
   HS_EXPECT_EQ(WB::active_bake(db), held_bake);
 
   db.setAnimationsPaused(false);
@@ -3047,7 +3047,7 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
     db.draw_frame();
     db.advance_display();
   }
-  HS_EXPECT_EQ(WB::last_preset_idx(db), 1);
+  HS_EXPECT_EQ(db.getPresetIndex(), 1u);
   HS_EXPECT_EQ(WB::active_bake(db), held_bake ^ 1);
 }
 
