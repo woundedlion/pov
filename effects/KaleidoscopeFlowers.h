@@ -19,6 +19,11 @@ using KaleidoscopeFlowersSpec =
                    Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
+/**
+ * @brief Dodecahedral grids mapped continuously around the equator.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class KaleidoscopeFlowers
     : public Pullback::ComposedEffect<

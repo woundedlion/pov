@@ -18,6 +18,11 @@ using AlienBrainSpec =
                    Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
+/**
+ * @brief Glitch-folded grids pulled through an animated wave shear.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class AlienBrain : public Pullback::ComposedEffect<
                        W, H, AlienBrain<W, H>, AlienBrainParams, AlienBrainSpec,

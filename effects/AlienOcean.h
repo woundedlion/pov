@@ -19,6 +19,11 @@ using AlienOceanSpec =
                    Pullback::Lens::Kaleidoscope, Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::EDGE_FADE>;
 
+/**
+ * @brief A broad folded grid with slow mirrored drift.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class AlienOcean : public Pullback::ComposedEffect<
                        W, H, AlienOcean<W, H>, AlienOceanParams, AlienOceanSpec,
