@@ -2470,18 +2470,20 @@ inline void test_bz_raster_matches_reference() {
  */
 inline void test_bz_render_center_matches_reference() {
   hs_test::reset_globals();
-  BZWhiteBox::BZ bz;
-  bz.init();
-  for (int frame = 0; frame < 4; ++frame) {
-    bz.draw_frame();
-    bz.advance_display();
+  {
+    BZWhiteBox::BZ bz;
+    bz.init();
+    for (int frame = 0; frame < 4; ++frame) {
+      bz.draw_frame();
+      bz.advance_display();
+    }
+    auto error = BZWhiteBox::render_center_error<DEFAULT_W, DEFAULT_H>(bz);
+    std::printf("BZ render centers: pixels=%d refined_seeds=%d mismatches=%d\n",
+                error.pixels, error.refined_seeds, error.center_mismatches);
+    HS_EXPECT_EQ(error.pixels, DEFAULT_W * DEFAULT_H);
+    HS_EXPECT_GT(error.refined_seeds, 0);
+    HS_EXPECT_EQ(error.center_mismatches, 0);
   }
-  auto error = BZWhiteBox::render_center_error<DEFAULT_W, DEFAULT_H>(bz);
-  std::printf("BZ render centers: pixels=%d refined_seeds=%d mismatches=%d\n",
-              error.pixels, error.refined_seeds, error.center_mismatches);
-  HS_EXPECT_EQ(error.pixels, DEFAULT_W * DEFAULT_H);
-  HS_EXPECT_GT(error.refined_seeds, 0);
-  HS_EXPECT_EQ(error.center_mismatches, 0);
   reset_effect_globals();
 }
 
