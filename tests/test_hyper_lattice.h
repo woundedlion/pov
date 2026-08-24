@@ -101,6 +101,14 @@ inline void test_resolution_aware_wire_coverage() {
   HS_EXPECT_GT(grazing, frontal);
 }
 
+inline void test_near_field_fade() {
+  constexpr float RADIUS = 0.1f;
+  HS_EXPECT_EQ(HL::near_field_coverage(0.15f, RADIUS), 0.0f);
+  HS_EXPECT_GT(HL::near_field_coverage(0.275f, RADIUS), 0.0f);
+  HS_EXPECT_LT(HL::near_field_coverage(0.275f, RADIUS), 1.0f);
+  HS_EXPECT_EQ(HL::near_field_coverage(0.4f, RADIUS), 1.0f);
+}
+
 inline void test_pause_does_not_stop_motion() {
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
@@ -125,30 +133,52 @@ inline void test_pause_does_not_stop_motion() {
 }
 
 inline void test_next_plane_is_strict() {
-  HL::FrameState frame{};
-  frame.params.far_cells = 8.0f;
-  frame.origin = {{0.0f, 0.25f, 0.5f, 0.75f}};
-  const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  HS_EXPECT_EQ(prepared.positive_offset[0], 1.0f);
-  HS_EXPECT_EQ(prepared.negative_offset[0], 1.0f);
-  HS_EXPECT_EQ(prepared.positive_offset[1], 0.75f);
-  HS_EXPECT_EQ(prepared.negative_offset[1], 0.25f);
+  HS_EXPECT_EQ(HL::next_plane_offset(0.0f, true), 1.0f);
+  HS_EXPECT_EQ(HL::next_plane_offset(0.0f, false), 1.0f);
+  HS_EXPECT_EQ(HL::next_plane_offset(0.25f, true), 0.75f);
+  HS_EXPECT_EQ(HL::next_plane_offset(0.25f, false), 0.25f);
 }
 
-inline void test_trace_carrier() {
+inline void test_trace_layers_are_front_to_back() {
   HL::FrameState frame{};
   frame.params = HyperLattice<96, 20>::preset_params(0);
   frame.origin = {{0.25f, 0.0f, 0.31f, 0.43f}};
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  const Pullback::SphereSample input{X_AXIS, 0.25f};
-  const Pullback::FieldSample output =
-      HL::TraceStage::Bind<HL::Binding>::run(input, frame, prepared);
-  HS_EXPECT_GT(output.coverage, 0.0f);
-  HS_EXPECT_LE(output.coverage, 1.0f);
-  HS_EXPECT_GE(output.value, 0.0f);
-  HS_EXPECT_LE(output.value, 1.0f);
-  HS_EXPECT_GT(output.path_length, input.path_length);
-  HS_EXPECT_EQ(output.sphere.x, input.dir.x);
+  float previous_distance = 0.0f;
+  int layers = 0;
+  HL::trace_layers(X_AXIS, prepared, [&](const HL::TraceHit &hit) {
+    HS_EXPECT_GT(hit.coverage, 0.0f);
+    HS_EXPECT_LE(hit.coverage, 1.0f);
+    HS_EXPECT_GT(hit.distance, previous_distance);
+    previous_distance = hit.distance;
+    ++layers;
+    return true;
+  });
+  HS_EXPECT_EQ(layers, 2);
+}
+
+inline void test_layer_composite_reveals_background() {
+  HL::LayerComposite composite;
+  composite.add(Pixel(65535, 0, 0), 0.5f);
+  composite.add(Pixel(0, 65535, 0), 1.0f);
+  const Color4 result = composite.finish();
+  HS_EXPECT_EQ(result.alpha, 1.0f);
+  HS_EXPECT_NEAR(result.color.r, 32768, 1);
+  HS_EXPECT_NEAR(result.color.g, 32768, 1);
+  HS_EXPECT_EQ(result.color.b, 0);
+}
+
+inline void test_surface_origin_parallax() {
+  HL::FrameState frame{};
+  frame.params = HyperLattice<96, 20>::preset_params(0);
+  frame.params.reflection = HL::ReflectionMode::RADIAL;
+  frame.params.sphere_radius = 0.0f;
+  frame.origin = {{0.25f, 0.0f, 0.31f, 0.43f}};
+  const HL::TraceHit centered = HL::trace(X_AXIS, HL::prepare_trace(frame));
+  frame.params.sphere_radius = 0.4f;
+  const HL::TraceHit surfaced = HL::trace(X_AXIS, HL::prepare_trace(frame));
+  HS_EXPECT_NEAR(centered.distance, 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(surfaced.distance, 0.35f, 1e-6f);
 }
 
 inline void test_hyperplane_event() {
@@ -161,12 +191,12 @@ inline void test_hyperplane_event() {
   const HL::TraceHit hit = HL::trace(X_AXIS, prepared);
   HS_EXPECT_GT(hit.coverage, 0.0f);
   HS_EXPECT_EQ(hit.free_axis, uint8_t(2));
-  HS_EXPECT_NEAR(hit.distance, 0.75f, 3e-4f);
+  HS_EXPECT_NEAR(hit.distance, 0.35f, 3e-4f);
 }
 
 inline void test_presets_and_pipeline() {
   using Effect = HyperLattice<96, 20>;
-  static_assert(HL::RenderPipeline::STAGE_COUNT == 2);
+  static_assert(HL::RenderPipeline::STAGE_COUNT == 1);
   static_assert(HL::RenderPipeline::Validation::MONOTONE);
   static_assert(HL::RenderPipeline::Validation::ENTRY);
   static_assert(HL::RenderPipeline::Validation::EXIT);
@@ -181,9 +211,12 @@ inline int run_hyper_lattice_tests() {
   test_so4_rotation();
   test_reflection_convention();
   test_resolution_aware_wire_coverage();
+  test_near_field_fade();
   test_pause_does_not_stop_motion();
   test_next_plane_is_strict();
-  test_trace_carrier();
+  test_trace_layers_are_front_to_back();
+  test_layer_composite_reveals_background();
+  test_surface_origin_parallax();
   test_hyperplane_event();
   test_presets_and_pipeline();
   return fixture.result();
