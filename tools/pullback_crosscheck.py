@@ -39,6 +39,11 @@ def _load_capture(path: Path) -> dict:
     return capture
 
 
+def _file_sha256(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
 def _canonical_frame_bytes(frame: dict) -> bytes:
     resolution = frame.get("resolution")
     if (
@@ -442,6 +447,47 @@ def compare_captures(
                 )
 
 
+def _compare_capture_paths(
+    base_path: Path,
+    candidate_path: Path,
+    programs: dict,
+    digest: str,
+    base_sha: str,
+    candidate_sha: str,
+    strict_base_path: Path | None = None,
+    strict_candidate_path: Path | None = None,
+    *,
+    oracles: list[dict],
+) -> tuple[bool, dict[str, dict]]:
+    """Compare captures loaded for this call; return strict request and toolchains."""
+    base = _load_capture(base_path)
+    candidate = _load_capture(candidate_path)
+    strict_base = _load_capture(strict_base_path) if strict_base_path else None
+    strict_candidate = (
+        _load_capture(strict_candidate_path) if strict_candidate_path else None
+    )
+    try:
+        compare_captures(
+            base,
+            candidate,
+            programs,
+            digest,
+            base_sha,
+            candidate_sha,
+            strict_base,
+            strict_candidate,
+            oracles=oracles,
+        )
+    except StrictFpRequired:
+        return True, {base["configuration"]: dict(base["toolchain"])}
+    observed_toolchains = {base["configuration"]: dict(base["toolchain"])}
+    if strict_base is not None:
+        observed_toolchains[strict_base["configuration"]] = dict(
+            strict_base["toolchain"]
+        )
+    return False, observed_toolchains
+
+
 def _run(command: list[str], cwd: Path, environment: dict) -> None:
     subprocess.run(command, cwd=cwd, env=environment, check=True)
 
@@ -593,8 +639,8 @@ def orchestrate(
                 environment,
             )
             try:
-                captures = {}
                 capture_paths = {}
+                observed_toolchains = {}
                 for configuration in ("native-debug", "wasm-release"):
                     for name in ("base", "candidate"):
                         _build_capture_backend(
@@ -614,28 +660,22 @@ def orchestrate(
                             path,
                             environment,
                         )
-                        captures[(name, configuration)] = _load_capture(path)
                         capture_paths[(name, configuration)] = path
-                compare_captures(
-                    captures[("base", "native-debug")],
-                    captures[("candidate", "native-debug")],
-                    programs,
-                    digest,
-                    base_sha,
-                    candidate_sha,
-                    oracles=oracles,
-                )
-                try:
-                    compare_captures(
-                        captures[("base", "wasm-release")],
-                        captures[("candidate", "wasm-release")],
+                    strict_required, compared_toolchains = _compare_capture_paths(
+                        capture_paths[("base", configuration)],
+                        capture_paths[("candidate", configuration)],
                         programs,
                         digest,
                         base_sha,
                         candidate_sha,
                         oracles=oracles,
                     )
-                except StrictFpRequired:
+                    observed_toolchains.update(compared_toolchains)
+                    if configuration == "native-debug" and strict_required:
+                        raise CrosscheckError(
+                            "native comparison requested strict-FP captures"
+                        )
+                if strict_required:
                     for name in ("base", "candidate"):
                         configuration = "wasm-strict-fp"
                         _build_capture_backend(
@@ -655,36 +695,35 @@ def orchestrate(
                             path,
                             environment,
                         )
-                        captures[(name, configuration)] = _load_capture(path)
                         capture_paths[(name, configuration)] = path
-                    compare_captures(
-                        captures[("base", "wasm-release")],
-                        captures[("candidate", "wasm-release")],
+                    strict_required, compared_toolchains = _compare_capture_paths(
+                        capture_paths[("base", "wasm-release")],
+                        capture_paths[("candidate", "wasm-release")],
                         programs,
                         digest,
                         base_sha,
                         candidate_sha,
-                        captures[("base", "wasm-strict-fp")],
-                        captures[("candidate", "wasm-strict-fp")],
+                        capture_paths[("base", "wasm-strict-fp")],
+                        capture_paths[("candidate", "wasm-strict-fp")],
                         oracles=oracles,
                     )
+                    observed_toolchains.update(compared_toolchains)
+                    if strict_required:
+                        raise CrosscheckError(
+                            "strict-FP comparison requested strict-FP captures"
+                        )
                 summary = {
                     "schema_version": 1,
                     "base_sha": base_sha,
                     "candidate_sha": candidate_sha,
                     "manifest_sha256": digest,
                     "toolchains": programs["toolchains"],
-                    "observed_toolchains": {
-                        configuration: captures[("base", configuration)]["toolchain"]
-                        for configuration in sorted(
-                            {configuration for _, configuration in capture_paths}
-                        )
-                    },
+                    "observed_toolchains": observed_toolchains,
                     "configurations": sorted(
                         {configuration for _, configuration in capture_paths}
                     ),
                     "capture_sha256": {
-                        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                        path.name: _file_sha256(path)
                         for path in capture_paths.values()
                     },
                 }
