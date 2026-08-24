@@ -2477,6 +2477,7 @@ inline int run_color_tests() {
   test_generative_palette_deterministic();
   test_effect_palette_recipe_roster();
   test_generative_palette_recipe_validation();
+  test_generative_palette_canonical_ignores_inactive_fields();
   test_generative_palette_input_window();
   test_generative_palette_resolves_axes_and_harmony();
   test_generative_palette_hue_torsion();

@@ -129,6 +129,37 @@ inline void test_generative_palette_recipe_validation() {
   }
 }
 
+inline void test_generative_palette_canonical_ignores_inactive_fields() {
+  PaletteRecipe first;
+  first.hue.mode = HueMode::SWEEP;
+
+  PaletteRecipe second = first;
+  second.hue.harmony = static_cast<PaletteHarmony>(255);
+  second.hue.spread_turns = std::numeric_limits<float>::quiet_NaN();
+  second.hue.custom_turns.fill(std::numeric_limits<float>::quiet_NaN());
+  second.lightness.custom.fill(std::numeric_limits<float>::quiet_NaN());
+  second.chroma.custom.fill(std::numeric_limits<float>::quiet_NaN());
+  second.falloff_start = std::numeric_limits<float>::quiet_NaN();
+
+  GenerativePalette first_palette;
+  GenerativePalette second_palette;
+  PaletteRecipe first_canonical;
+  PaletteRecipe second_canonical;
+  PaletteCompileStatus status;
+  HS_EXPECT_TRUE(GenerativePalette::try_compile(first, first_palette,
+                                                first_canonical, status));
+  HS_EXPECT_TRUE(GenerativePalette::try_compile(second, second_palette,
+                                                second_canonical, status));
+  HS_EXPECT_EQ(
+      std::memcmp(&first_canonical, &second_canonical, sizeof(first_canonical)),
+      0);
+  const auto first_snapshot = first_palette.snapshot();
+  const auto second_snapshot = second_palette.snapshot();
+  HS_EXPECT_EQ(
+      std::memcmp(&first_snapshot, &second_snapshot, sizeof(first_snapshot)),
+      0);
+}
+
 inline void test_generative_palette_input_window() {
   PaletteRecipe recipe =
       PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
