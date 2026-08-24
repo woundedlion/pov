@@ -348,6 +348,8 @@ struct Volume {
        FragmentShaderFn frag_fn, int max_steps = 15, float aa_width = 0.01f) {
     check_canvas_dims<W, H>(canvas);
     check_fragment_shader(frag_fn);
+    if constexpr (requires { shape.check_trace_preconditions(); })
+      shape.check_trace_preconditions();
 
     float vd_len = sqrtf(view_dir.x * view_dir.x + view_dir.y * view_dir.y +
                          view_dir.z * view_dir.z);
