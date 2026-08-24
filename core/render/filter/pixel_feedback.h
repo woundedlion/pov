@@ -780,16 +780,9 @@ private:
   void check_storage_alive() const {
 #ifndef NDEBUG
     constexpr size_t FIELD_BYTES = CACHE_CELLS * sizeof(int16_t);
-    assert(!stamp.arena_reset() &&
+    assert(stamp.block_alive(cached_warp_x, FIELD_BYTES) &&
+           stamp.block_alive(cached_warp_y, FIELD_BYTES) &&
            "Pixel::Feedback warp cache use-after-free!");
-    assert(!stamp.block_uncovered(cached_warp_x, FIELD_BYTES) &&
-           !stamp.block_uncovered(cached_warp_y, FIELD_BYTES) &&
-           "Pixel::Feedback warp cache use-after-free (arena rewound below "
-           "block)!");
-    assert(!stamp.block_reissued(cached_warp_x, FIELD_BYTES) &&
-           !stamp.block_reissued(cached_warp_y, FIELD_BYTES) &&
-           "Pixel::Feedback warp cache use-after-free (block reclaimed by a "
-           "rewind and reissued)!");
 #endif
   }
 };

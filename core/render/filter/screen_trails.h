@@ -166,12 +166,8 @@ private:
   void check_storage_alive() const {
 #ifndef NDEBUG
     constexpr size_t BYTES = MAX_PIXELS * sizeof(DecayPixel);
-    assert(!stamp.arena_reset() && "Screen::Trails use-after-free!");
-    assert(!stamp.block_uncovered(points, BYTES) &&
-           "Screen::Trails use-after-free (arena rewound below block)!");
-    assert(!stamp.block_reissued(points, BYTES) &&
-           "Screen::Trails use-after-free (block reclaimed by a rewind and "
-           "reissued)!");
+    assert(stamp.block_alive(points, BYTES) &&
+           "Screen::Trails use-after-free!");
 #endif
   }
 };

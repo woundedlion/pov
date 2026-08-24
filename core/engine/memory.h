@@ -520,6 +520,12 @@ struct ArenaBlockStamp {
            source_arena->reclaimed_since(p, bytes, birth_rewind_floor,
                                          birth_rewind_seq);
   }
+
+  /** @brief Whether the stamped block remains owned and live. */
+  bool block_alive(const void *p, size_t bytes) const {
+    return !arena_reset() && !block_uncovered(p, bytes) &&
+           !block_reissued(p, bytes);
+  }
 };
 #endif
 
