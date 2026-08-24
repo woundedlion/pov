@@ -237,6 +237,23 @@ class TestDocumentationChecker(unittest.TestCase):
         ])
         self.assertEqual({issue.line for issue in issues}, {2})
 
+    def test_checkout_tree_does_not_inherit_primary_unmapped_paths(self):
+        text = ("<!-- docs-check: tree daydream exhaustive -->\n"
+                "```\n"
+                "└── daydream.js                 App entry\n"
+                "```\n")
+        checkouts = {"daydream": {
+            PurePosixPath(".gitattributes"),
+            PurePosixPath(".gitignore"),
+            PurePosixPath("daydream.js"),
+        }}
+        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
+                               checkouts=checkouts)
+        self.assertEqual([issue.message for issue in issues], [
+            "tree omits tracked path '.gitattributes'",
+            "tree omits tracked path '.gitignore'",
+        ])
+
     def test_checkout_tree_without_a_root_is_recorded_as_skipped(self):
         text = ("<!-- docs-check: tree daydream -->\n"
                 "```\n"

@@ -645,7 +645,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── vendor/                     Optional self-hosted fonts (CDN fallback)
 ├── node_modules/lil-gui/       Optional local lil-gui (npm install)
 ├── package.json
-└── package-lock.json           Committed dependency pin (the optional trees above are gitignored)
+├── package-lock.json           Committed dependency pin (the optional trees above are gitignored)
+├── .gitattributes              Text and generated-binary attribute rules
+└── .gitignore                  Local dependency, build, and installed-engine exclusions
 ```
 
 [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) resolves libraries from jsdelivr, which is the committed default the Pages deploy and a fresh checkout serve; `npm run importmap:local` switches it to the vendored copies for offline dev. See [§10.8](#108-vendor-importmap-cdn-by-default--local-opt-in).
