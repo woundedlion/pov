@@ -157,9 +157,6 @@ public:
    * @details Applies color/temperature/brightness corrections in linear 16-bit
    *          space then converts to sRGB 8-bit in a single pass (no intermediate
    *          CRGB).
-   * @note Carries no FASTRUN: the linker's .text.itcm already collects
-   *       *(.text*), so ITCM residency does not depend on it, and the explicit
-   *       section blocks the -O3 attribute (comdat section type conflict).
    */
   HS_O3_FN inline void packPixel(int index, const Pixel &p) {
     assert(index >= 0 && index < N);
