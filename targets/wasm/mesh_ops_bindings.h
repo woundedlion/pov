@@ -21,9 +21,10 @@
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <cstdlib> // std::malloc for the lazily-allocated tooling arenas
 #include <cmath>   // std::isfinite — validate MeshOps args at the JS boundary
+#include <cstddef>
 #include <memory>
 #include <string>
-#include <vector>
+#include <type_traits>
 
 using namespace emscripten;
 
@@ -340,20 +341,24 @@ public:
    * @return Float32Array of flattened [x,y,z] triples, copied out of the mesh,
    *         or null if a clearToolingMemory() reclaimed this wrapper's storage;
    *         getLastResult() then reports STALE_WRAPPER.
+   * @details Copies directly from packed arena storage without allocating in
+   *          WASM, so this readback cannot detach outstanding memory views.
    */
   val getVertices() const {
     begin_mesh_op();
     if (!wrapper_live())
       return val::null();
-    std::vector<float> data;
-    data.reserve(mesh.vertices.size() * 3);
-    for (const auto &v : mesh.vertices) {
-      data.push_back(v.x);
-      data.push_back(v.y);
-      data.push_back(v.z);
-    }
+    static_assert(std::is_standard_layout_v<Vector> &&
+                      offsetof(Vector, x) == 0 &&
+                      offsetof(Vector, y) == sizeof(float) &&
+                      offsetof(Vector, z) == 2 * sizeof(float) &&
+                      sizeof(Vector) == 3 * sizeof(float) &&
+                      alignof(Vector) == alignof(float),
+                  "flat [x,y,z] view requires tightly packed vertices");
     return val::global("Float32Array")
-        .new_(val(typed_memory_view(data.size(), data.data())));
+        .new_(val(typed_memory_view(
+            mesh.vertices.size() * 3,
+            reinterpret_cast<const float *>(mesh.vertices.data()))));
   }
 
   /**

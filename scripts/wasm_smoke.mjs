@@ -884,6 +884,22 @@ async function main() {
               `re-fetch is live and byte-identical (${before.length} channels)`);
           }
         }
+
+        const reader = Module.MeshOps.fromSolidName(growSolid);
+        if (!reader) {
+          fail(`growth-seam: could not recreate "${growSolid}" for vertex readback`);
+        } else {
+          const pixelsBeforeReadback = engine.getPixels();
+          const vertices = reader.getVertices();
+          if (!vertices || vertices.length === 0) {
+            fail('growth-seam: getVertices() returned no data');
+          }
+          if (pixelsBeforeReadback.byteLength === 0) {
+            fail('growth-seam: getVertices() detached the held pixel view');
+          }
+          reader.delete();
+          Module.MeshOps.clearToolingMemory();
+        }
       }
     }
 
