@@ -283,8 +283,10 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   // Staging buffer: LUTs are built here first and promoted to the persistent
   // arena only if their predicted hit share clears the quality bar, so a
   // low-value LUT never spends persistent budget.
+  const size_t minimum_lut_bytes =
+      CLASS_LUT_MIN_N * CLASS_LUT_MIN_N * sizeof(int16_t);
   int16_t *staging =
-      n_elig > 0
+      n_elig > 0 && budget >= minimum_lut_bytes
           ? scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N)
           : nullptr;
   for (int e = 0; e < n_elig; ++e) {
