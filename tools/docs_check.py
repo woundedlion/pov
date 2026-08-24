@@ -491,15 +491,19 @@ def _path_span_issue(source: PurePosixPath, line: int, span: str,
         return None
     if _untracked_allowance(candidate, used):
         return None
-    # Scope to paths rooted at a real tracked directory, so references to build
-    # output, external checkouts, and illustrative paths stay out of the gate.
-    root = PurePosixPath(posixpath.normpath(candidate)).parts[0]
-    if PurePosixPath(root) not in entries:
-        return None
+    in_scope = False
     for base in (PurePosixPath(""), source.parent):
-        resolved = posixpath.normpath(posixpath.join(base.as_posix(), candidate))
-        if PurePosixPath(resolved) in entries:
+        resolved = PurePosixPath(posixpath.normpath(
+            posixpath.join(base.as_posix(), candidate)))
+        # Scope each interpretation to its first directory under that base.
+        scope = PurePosixPath(*resolved.parts[:len(base.parts) + 1])
+        if scope not in entries:
+            continue
+        in_scope = True
+        if resolved in entries:
             return None
+    if not in_scope:
+        return None
     return Issue(source.as_posix(), line, f"backticked path {candidate!r} does not exist")
 
 
