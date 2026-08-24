@@ -76,6 +76,7 @@ struct FragmentDrawParams {
  * outlive the rasterize call (the arena backs the fragments).
  *
  * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam PipelineT Render pipeline type.
  * @tparam FillFn Callable (Fragments &) -> void supplying the primitive's
  *                sampling.
  * @param pipeline Render pipeline.
@@ -85,8 +86,8 @@ struct FragmentDrawParams {
  * @param params Per-primitive capacity / close-loop / planar-basis options.
  * @param fill Fills the bound Fragments buffer with the primitive's samples.
  */
-template <int W, int H, typename FillFn>
-inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
+template <int W, int H, typename PipelineT, typename FillFn>
+inline void draw_fragments(PipelineT &pipeline, Canvas &canvas,
                            VertexShaderRef vertex_shader,
                            FragmentShaderFn fragment_shader,
                            const FragmentDrawParams &params, FillFn &&fill) {
@@ -188,6 +189,7 @@ struct Line {
   /**
    * @brief Draws a geodesic line.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param f1 Start fragment.
@@ -195,8 +197,8 @@ struct Line {
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
@@ -207,14 +209,15 @@ struct Line {
   /**
    * @brief Draws a geodesic line without a vertex shader.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param f1 Start fragment.
    * @param f2 End fragment.
    * @param fragment_shader Shader function.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader) {
     draw<W, H>(pipeline, canvas, f1, f2, fragment_shader, {});
   }
@@ -310,6 +313,7 @@ struct Multiline {
   /**
    * @brief Draws a multiline path.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param vertices Iterable container of Fragment.
@@ -317,8 +321,8 @@ struct Multiline {
    * @param vertex_shader Optional vertex shader.
    * @param closed If true, connects the last point to the first.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, bool closed = false) {
     Fragment loop_seam;
@@ -334,14 +338,15 @@ struct Multiline {
   /**
    * @brief Draws a multiline path without a vertex shader.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param vertices Iterable container of Fragment.
    * @param fragment_shader Shader function.
    * @param closed If true, connects the last point to the first.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader, bool closed = false) {
     draw<W, H>(pipeline, canvas, vertices, fragment_shader, {}, closed);
   }
@@ -578,6 +583,7 @@ struct Ring {
   /**
    * @brief Draws a ring.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -586,8 +592,8 @@ struct Ring {
    * @param vertex_shader Optional vertex shader.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(
@@ -599,6 +605,7 @@ struct Ring {
   /**
    * @brief Draws a ring without a vertex shader.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -606,8 +613,8 @@ struct Ring {
    * @param fragment_shader Shader function.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, fragment_shader, {}, phase);
@@ -668,6 +675,7 @@ template <typename Projection> struct Polygon {
   /**
    * @brief Draws a polygon.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -677,8 +685,8 @@ template <typename Projection> struct Polygon {
    * @param vertex_shader Optional vertex shader.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
@@ -699,6 +707,7 @@ template <typename Projection> struct Polygon {
   /**
    * @brief Draws a polygon without a vertex shader.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -707,8 +716,8 @@ template <typename Projection> struct Polygon {
    * @param fragment_shader Shader function.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
@@ -800,6 +809,7 @@ struct DistortedRing {
   /**
    * @brief Draws a distorted ring.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -809,8 +819,8 @@ struct DistortedRing {
    * @param vertex_shader Optional vertex shader.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
@@ -824,6 +834,7 @@ struct DistortedRing {
   /**
    * @brief Draws a distorted ring without a vertex shader.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -832,8 +843,8 @@ struct DistortedRing {
    * @param fragment_shader Shader function.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, shift_fn, fragment_shader, {},
@@ -1038,6 +1049,7 @@ public:
   /**
    * @brief Draws a star.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -1047,8 +1059,8 @@ public:
    * @param vertex_shader Optional vertex shader.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
@@ -1067,8 +1079,8 @@ public:
   }
 
   /** @brief Draws a Star level that continues across the equator. */
-  template <int W, int H>
-  static void draw_continuous(PipelineRef pipeline, Canvas &canvas,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw_continuous(PipelineT &pipeline, Canvas &canvas,
                               const Basis &basis, float radius, int num_sides,
                               FragmentShaderFn fragment_shader,
                               float phase = 0) {
@@ -1090,6 +1102,7 @@ public:
   /**
    * @brief Draws a star without a vertex shader.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -1098,8 +1111,8 @@ public:
    * @param fragment_shader Shader function.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
@@ -1157,6 +1170,7 @@ struct Flower {
   /**
    * @brief Draws a flower.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -1166,8 +1180,8 @@ struct Flower {
    * @param vertex_shader Optional vertex shader.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
@@ -1190,6 +1204,7 @@ struct Flower {
   /**
    * @brief Draws a flower without a vertex shader.
    * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
@@ -1198,8 +1213,8 @@ struct Flower {
    * @param fragment_shader Shader function.
    * @param phase Rotation phase.
    */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, typename PipelineT = PipelineRef>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
