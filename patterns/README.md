@@ -50,15 +50,15 @@ and a bank-owned easing and positive duration.
 
 Twelve of the sixteen documents are generated. `node
 scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
-`contour_lattice`, `cosmic_eyeball`, `equator_grid`, `facet_wave`,
-`glitch_grid`, `hex_wave`, `kaleido_wave`, `mobius_grid`, `prism_lattice`,
-`signal_weave` and `vector_facets` from the effect specs the script holds, so a
+`grid_space`, `cosmic_eyeball`, `kaleidoscope_flowers`, `kaleidoscope_mandala`,
+`alien_core`, `kaleidoscope_hex_bright`, `kaleidoscope_hex_soft`, `mobius_grid`, `kaleidoscope_pent_bright`,
+`alien_brain` and `kaleidoscope_stained_glass` from the effect specs the script holds, so a
 hand edit to those files is lost on the next run — change the spec instead. The
 specs are written in the v1 six-role shape and the committed file is their
 canonical v2 expansion.
 
-The remaining four are hand-authored and no rerun writes them: `curl_lattice`,
-`facet_grid` and `prism_spiral`, promoted from workbench snapshots, and
+The remaining four are hand-authored and no rerun writes them: `lattice_melt`,
+`kaleidoscope_smooth` and `kaleidoscope_hex_oil`, promoted from workbench snapshots, and
 `example.shader.json`.
 
 `shaderball_migration.json` is a manifest, not a shader document, and the CLI
@@ -69,12 +69,12 @@ its device-second budget, and `destinations` maps every retired legacy
 `scripts/shader_workbench.test.mjs` gates the tree against it: a document that
 backs an effect must appear in `source_documents`.
 
-`curl_lattice.shader.json` is the editable source for the `CurlLattice`
+`lattice_melt.shader.json` is the editable source for the `LatticeMelt`
 comparison effect. Its two presets share one descriptor and vary only the
 linearly interpolated sphere-noise scale.
 
-`facet_grid.shader.json` describes the fixed stereographic dodecahedral-grid
-pipeline used by `FacetGrid`. Its four presets differ only in source,
+`kaleidoscope_smooth.shader.json` describes the fixed stereographic dodecahedral-grid
+pipeline used by `KaleidoscopeSmooth`. Its four presets differ only in source,
 projection, warp, and color parameters.
 
 `example.shader.json` carries no `effect_id`: it is the CLI's sample document
@@ -88,17 +88,17 @@ specialization. A document maps to its effect by `effect_id` == the effect's
 | Document | Effect |
 | --- | --- |
 | `alien_ocean` | `AlienOcean` |
-| `contour_lattice` | `ContourLattice` |
+| `grid_space` | `GridSpace` |
 | `cosmic_eyeball` | `CosmicEyeball` |
-| `curl_lattice` | `CurlLattice` |
-| `equator_grid` | `EquatorGrid` |
-| `facet_grid` | `FacetGrid` |
-| `facet_wave` | `FacetWave` |
-| `glitch_grid` | `GlitchGrid` |
-| `hex_wave` | `HexWave` |
-| `kaleido_wave` | `KaleidoWave` |
+| `lattice_melt` | `LatticeMelt` |
+| `kaleidoscope_flowers` | `KaleidoscopeFlowers` |
+| `kaleidoscope_smooth` | `KaleidoscopeSmooth` |
+| `kaleidoscope_mandala` | `KaleidoscopeMandala` |
+| `alien_core` | `AlienCore` |
+| `kaleidoscope_hex_bright` | `KaleidoscopeHexBright` |
+| `kaleidoscope_hex_soft` | `KaleidoscopeHexSoft` |
 | `mobius_grid` | `MobiusGrid` |
-| `prism_lattice` | `PrismLattice` |
-| `prism_spiral` | `PrismSpiral` |
-| `signal_weave` | `SignalWeave` |
-| `vector_facets` | `VectorFacets` |
+| `kaleidoscope_pent_bright` | `KaleidoscopePentBright` |
+| `kaleidoscope_hex_oil` | `KaleidoscopeHexOil` |
+| `alien_brain` | `AlienBrain` |
+| `kaleidoscope_stained_glass` | `KaleidoscopeStainedGlass` |

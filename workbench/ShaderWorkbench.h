@@ -2337,17 +2337,17 @@ private:
     GLITCH_NOISE_GRID_WAVE_SHEAR,
     KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
     GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
-    GNOMONIC_GLITCH_GRID_MIRROR,
+    GNOMONIC_ALIEN_CORE_MIRROR,
     PEIRCE_DODECAHEDRAL_GRID,
     GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
     GNOMONIC_AFFINE_LATTICE_CONTOUR,
-    SINUSOIDAL_CURL_LATTICE,
+    SINUSOIDAL_LATTICE_MELT,
     STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
     GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
     STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
     STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR,
     EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR,
-    STEREOGRAPHIC_GLITCH_GRID_MIRROR,
+    STEREOGRAPHIC_ALIEN_CORE_MIRROR,
     STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR,
     COUNT,
     NONE = 0xff
@@ -2631,7 +2631,7 @@ private:
       SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::EDGE_FADE>,
       ColorStage>;
-  using GnomonicGlitchGridMirrorPipeline = InversePipeline<
+  using GnomonicAlienCoreMirrorPipeline = InversePipeline<
       OuterCameraStage, SelectedLensStage<SurfaceLens::GLITCH>,
       SelectedProjectStage<Projection::GNOMONIC, SurfaceLens::GLITCH>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, true>,
@@ -2696,7 +2696,7 @@ private:
                           ValueTransfer::ISO_CONTOUR,
                           CoveragePolicy::PROJECTION_WEIGHT>,
       IsoContourTransferStage, ColorStage>;
-  using SinusoidalCurlLatticePipeline = InversePipeline<
+  using SinusoidalLatticeMeltPipeline = InversePipeline<
       OuterCameraStage, SinusoidalCurlSphereRun,
       SelectedSampleStage<Function::PRIMITIVE_LATTICE, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT>,
@@ -2731,7 +2731,7 @@ private:
       SelectedSampleStage<Function::GRID, ValueTransfer::NONE,
                           CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
       ColorStage>;
-  using StereographicGlitchGridMirrorPipeline = InversePipeline<
+  using StereographicAlienCoreMirrorPipeline = InversePipeline<
       OuterCameraStage, SelectedLensStage<SurfaceLens::GLITCH>,
       SelectedProjectStage<Projection::STEREOGRAPHIC, SurfaceLens::GLITCH>,
       SelectedWarpStage<WarpStageKind::MIRROR_TILE, true>,
@@ -3671,16 +3671,16 @@ private:
       return "KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR";
     case InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR:
       return "GNOMONIC_KALEIDOSCOPE_GRID_MIRROR";
-    case InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR:
-      return "GNOMONIC_GLITCH_GRID_MIRROR";
+    case InversePipelineId::GNOMONIC_ALIEN_CORE_MIRROR:
+      return "GNOMONIC_ALIEN_CORE_MIRROR";
     case InversePipelineId::PEIRCE_DODECAHEDRAL_GRID:
       return "PEIRCE_DODECAHEDRAL_GRID";
     case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR:
       return "GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR";
     case InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR:
       return "GNOMONIC_AFFINE_LATTICE_CONTOUR";
-    case InversePipelineId::SINUSOIDAL_CURL_LATTICE:
-      return "SINUSOIDAL_CURL_LATTICE";
+    case InversePipelineId::SINUSOIDAL_LATTICE_MELT:
+      return "SINUSOIDAL_LATTICE_MELT";
     case InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE:
       return "STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE";
     case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR:
@@ -3692,8 +3692,8 @@ private:
       return "STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR";
     case InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR:
       return "EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR";
-    case InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR:
-      return "STEREOGRAPHIC_GLITCH_GRID_MIRROR";
+    case InversePipelineId::STEREOGRAPHIC_ALIEN_CORE_MIRROR:
+      return "STEREOGRAPHIC_ALIEN_CORE_MIRROR";
     case InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR:
       return "STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR";
     case InversePipelineId::COUNT:
@@ -3843,8 +3843,8 @@ private:
                      make_topology_key(
                          gnomonic_kaleidoscope_grid_mirror_preset())>(
             &all_continuous_parameters_supported),
-        make_program<GnomonicGlitchGridMirrorPipeline,
-                     InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR,
+        make_program<GnomonicAlienCoreMirrorPipeline,
+                     InversePipelineId::GNOMONIC_ALIEN_CORE_MIRROR,
                      make_topology_key(
                          gnomonic_grid_mirror_preset(SurfaceLens::GLITCH))>(
             &all_continuous_parameters_supported),
@@ -3861,8 +3861,8 @@ private:
                      make_topology_key(
                          gnomonic_affine_lattice_contour_preset())>(
             &all_continuous_parameters_supported),
-        make_program<SinusoidalCurlLatticePipeline,
-                     InversePipelineId::SINUSOIDAL_CURL_LATTICE,
+        make_program<SinusoidalLatticeMeltPipeline,
+                     InversePipelineId::SINUSOIDAL_LATTICE_MELT,
                      make_topology_key(sinusoidal_lattice_curl_preset(1.0f))>(
             &all_continuous_parameters_supported),
         make_program<StereographicPrismPolarWaveLatticePipeline,
@@ -3895,10 +3895,10 @@ private:
             make_topology_key(
                 equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset())>(
             &all_continuous_parameters_supported),
-        make_program<StereographicGlitchGridMirrorPipeline,
-                     InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR,
+        make_program<StereographicAlienCoreMirrorPipeline,
+                     InversePipelineId::STEREOGRAPHIC_ALIEN_CORE_MIRROR,
                      make_topology_key(
-                         stereographic_glitch_grid_mirror_preset())>(
+                         stereographic_alien_core_mirror_preset())>(
             &all_continuous_parameters_supported),
         make_program<
             StereographicMobiusTwinWaveInnerMirrorPipeline,
@@ -7054,7 +7054,7 @@ private:
     return {slots, params};
   }
 
-  static constexpr Config stereographic_glitch_grid_mirror_preset() {
+  static constexpr Config stereographic_alien_core_mirror_preset() {
     Slots slots{Function::GRID,
                 Projection::STEREOGRAPHIC,
                 ProjectionFramePolicy::IDENTITY,
@@ -7115,7 +7115,7 @@ private:
       {gnomonic_kaleidoscope_grid_mirror_preset(),
        InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR},
       {gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
-       InversePipelineId::GNOMONIC_GLITCH_GRID_MIRROR},
+       InversePipelineId::GNOMONIC_ALIEN_CORE_MIRROR},
       {peirce_dodecahedral_generated_preset(),
        InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
       {gnomonic_wave_shear_grid_preset(),
@@ -7123,9 +7123,9 @@ private:
       {gnomonic_affine_lattice_contour_preset(),
        InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR},
       {sinusoidal_lattice_curl_preset(1.78815627f),
-       InversePipelineId::SINUSOIDAL_CURL_LATTICE},
+       InversePipelineId::SINUSOIDAL_LATTICE_MELT},
       {sinusoidal_lattice_curl_preset(3.29720306f),
-       InversePipelineId::SINUSOIDAL_CURL_LATTICE},
+       InversePipelineId::SINUSOIDAL_LATTICE_MELT},
       {stereographic_prism_polar_wave_lattice_preset(),
        InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE},
       {gnomonic_dodecahedral_vector_mirror_grid_preset(),
@@ -7144,8 +7144,8 @@ private:
        InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
       {equirectangular_dodecahedral_fine_grid_inner_mirror_preset(),
        InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
-      {stereographic_glitch_grid_mirror_preset(),
-       InversePipelineId::STEREOGRAPHIC_GLITCH_GRID_MIRROR},
+      {stereographic_alien_core_mirror_preset(),
+       InversePipelineId::STEREOGRAPHIC_ALIEN_CORE_MIRROR},
       {stereographic_mobius_twin_wave_inner_mirror_preset(),
        InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR},
       {stereographic_mobius_animated_inner_mirror_preset(),

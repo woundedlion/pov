@@ -164,7 +164,7 @@ inline void test_bootstrap_rows() {
 
 /** @brief Checks registry-owned stable preset identities without Effect vtable cost. */
 inline void test_fixed_preset_ids() {
-  const FactoryEntry *curl = find_factory_entry<96, 20>("curl-lattice");
+  const FactoryEntry *curl = find_factory_entry<96, 20>("lattice-melt");
   HS_EXPECT_TRUE(curl != nullptr);
   HS_EXPECT_TRUE(curl && curl->preset_id != nullptr);
   if (curl && curl->preset_id) {

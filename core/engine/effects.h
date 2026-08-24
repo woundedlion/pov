@@ -20,24 +20,24 @@
 #include "effects/AlienOcean.h"
 #include "effects/Fishbowl.h"
 #include "effects/Comets.h"
-#include "effects/CurlFacets.h"
-#include "effects/CurlLattice.h"
+#include "effects/AshCloud.h"
+#include "effects/LatticeMelt.h"
 #include "effects/DisplacementField.h"
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
-#include "effects/ContourLattice.h"
+#include "effects/GridSpace.h"
 #include "effects/CosmicEyeball.h"
-#include "effects/EquatorGrid.h"
-#include "effects/FacetGrid.h"
-#include "effects/FacetWave.h"
-#include "effects/GlitchGrid.h"
-#include "effects/HexWave.h"
-#include "effects/KaleidoWave.h"
+#include "effects/KaleidoscopeFlowers.h"
+#include "effects/KaleidoscopeSmooth.h"
+#include "effects/KaleidoscopeMandala.h"
+#include "effects/AlienCore.h"
+#include "effects/KaleidoscopeHexBright.h"
+#include "effects/KaleidoscopeHexSoft.h"
 #include "effects/MobiusGrid.h"
-#include "effects/PrismLattice.h"
-#include "effects/PrismSpiral.h"
-#include "effects/SignalWeave.h"
-#include "effects/VectorFacets.h"
+#include "effects/KaleidoscopePentBright.h"
+#include "effects/KaleidoscopeHexOil.h"
+#include "effects/AlienBrain.h"
+#include "effects/KaleidoscopeStainedGlass.h"
 #include "effects/GnomonicStars.h"
 #include "effects/GSReactionDiffusion.h"
 #include "effects/HankinSolids.h"
@@ -86,42 +86,42 @@
   X(BZReactionDiffusion)                                                       \
   X(Fishbowl)                                                                  \
   X(Comets)                                                                    \
-  X(ContourLattice)                                                            \
-  X(CurlFacets)                                                                \
-  X(CurlLattice)                                                               \
+  X(GridSpace)                                                                 \
+  X(AshCloud)                                                                  \
+  X(LatticeMelt)                                                               \
   X(DisplacementField)                                                         \
   X(DreamBalls)                                                                \
   X(Dynamo)                                                                    \
-  X(EquatorGrid)                                                               \
-  X(FacetGrid)                                                                 \
-  X(FacetWave)                                                                 \
+  X(KaleidoscopeFlowers)                                                       \
+  X(KaleidoscopeSmooth)                                                        \
+  X(KaleidoscopeMandala)                                                       \
   X(GnomonicStars)                                                             \
   X(GSReactionDiffusion)                                                       \
-  X(GlitchGrid)                                                                \
+  X(AlienCore)                                                                 \
   X(HankinSolids)                                                              \
   X(HopfFibration)                                                             \
   X(IslamicStars)                                                              \
-  X(HexWave)                                                                   \
+  X(KaleidoscopeHexBright)                                                     \
   X(AlienOcean)                                                                \
-  X(KaleidoWave)                                                               \
+  X(KaleidoscopeHexSoft)                                                       \
   X(MeshFeedback)                                                              \
   X(MindSplatter)                                                              \
   X(MobiusGrid)                                                                \
   X(MobiusRings)                                                               \
   X(PetalFlow)                                                                 \
-  X(PrismLattice)                                                              \
-  X(PrismSpiral)                                                               \
+  X(KaleidoscopePentBright)                                                    \
+  X(KaleidoscopeHexOil)                                                        \
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
   HS_SHADER_WORKBENCH_EFFECT(X)                                                \
   HS_CHAIN_INTERPRETER_EFFECT(X)                                               \
   X(ShapeShifter)                                                              \
-  X(SignalWeave)                                                               \
+  X(AlienBrain)                                                                \
   X(SphericalHarmonics)                                                        \
   X(CosmicEyeball)                                                             \
   X(Thrusters)                                                                 \
-  X(VectorFacets)                                                              \
+  X(KaleidoscopeStainedGlass)                                                  \
   X(Voronoi)
 
 /// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
@@ -158,56 +158,60 @@ constexpr int hs_preset_window_seconds() {
   X(BZReactionDiffusion, 120)                                                  \
   X(Fishbowl, 120)                                                             \
   X(Comets, 120)                                                               \
-  X(ContourLattice, hs_preset_window_seconds<ContourLattice>())                \
-  X(CurlFacets, hs_preset_window_seconds<CurlFacets>())                        \
-  X(CurlLattice, hs_preset_window_seconds<CurlLattice>())                      \
+  X(GridSpace, hs_preset_window_seconds<GridSpace>())                          \
+  X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
+  X(LatticeMelt, hs_preset_window_seconds<LatticeMelt>())                      \
   X(DisplacementField, 120)                                                    \
   X(DreamBalls, 120)                                                           \
-  X(EquatorGrid, hs_preset_window_seconds<EquatorGrid>())                      \
-  X(FacetGrid, hs_preset_window_seconds<FacetGrid>())                          \
-  X(FacetWave, hs_preset_window_seconds<FacetWave>())                          \
+  X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
+  X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
+  X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
   X(GnomonicStars, 120)                                                        \
   X(GSReactionDiffusion, 120)                                                  \
-  X(GlitchGrid, hs_preset_window_seconds<GlitchGrid>())                        \
+  X(AlienCore, hs_preset_window_seconds<AlienCore>())                          \
   X(HankinSolids, 120)                                                         \
   X(HopfFibration, 120)                                                        \
-  X(HexWave, hs_preset_window_seconds<HexWave>())                              \
+  X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
   X(IslamicStars, 120)                                                         \
   X(AlienOcean, hs_preset_window_seconds<AlienOcean>())                        \
-  X(KaleidoWave, hs_preset_window_seconds<KaleidoWave>())                      \
+  X(KaleidoscopeHexSoft, hs_preset_window_seconds<KaleidoscopeHexSoft>())      \
   X(MeshFeedback, 181)                                                         \
   X(MindSplatter, 120)                                                         \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
   X(PetalFlow, 120)                                                            \
-  X(PrismLattice, hs_preset_window_seconds<PrismLattice>())                    \
-  X(PrismSpiral, hs_preset_window_seconds<PrismSpiral>())                      \
+  X(KaleidoscopePentBright,                                                    \
+    hs_preset_window_seconds<KaleidoscopePentBright>())                        \
+  X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
   X(Raymarch, 120)                                                             \
   X(RingShower, 120)                                                           \
   X(RingSpin, 120)                                                             \
   X(ShapeShifter, 135)                                                         \
-  X(SignalWeave, hs_preset_window_seconds<SignalWeave>())                      \
+  X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
   X(SphericalHarmonics, 120)                                                   \
   X(CosmicEyeball, hs_preset_window_seconds<CosmicEyeball>())                  \
-  X(VectorFacets, hs_preset_window_seconds<VectorFacets>())                    \
+  X(KaleidoscopeStainedGlass,                                                  \
+    hs_preset_window_seconds<KaleidoscopeStainedGlass>())                      \
   X(Voronoi, 120)
 
 /** Shader promotion product group in gallery and fixed-pipeline roster
  * order; the device show order is HS_PHANTASM_EFFECT_LIST's. */
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
-  X(SignalWeave, hs_preset_window_seconds<SignalWeave>())                      \
-  X(KaleidoWave, hs_preset_window_seconds<KaleidoWave>())                      \
+  X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
+  X(KaleidoscopeHexSoft, hs_preset_window_seconds<KaleidoscopeHexSoft>())      \
   X(AlienOcean, hs_preset_window_seconds<AlienOcean>())                        \
-  X(GlitchGrid, hs_preset_window_seconds<GlitchGrid>())                        \
-  X(FacetWave, hs_preset_window_seconds<FacetWave>())                          \
-  X(ContourLattice, hs_preset_window_seconds<ContourLattice>())                \
-  X(CurlLattice, hs_preset_window_seconds<CurlLattice>())                      \
-  X(CurlFacets, hs_preset_window_seconds<CurlFacets>())                        \
-  X(PrismLattice, hs_preset_window_seconds<PrismLattice>())                    \
-  X(PrismSpiral, hs_preset_window_seconds<PrismSpiral>())                      \
-  X(VectorFacets, hs_preset_window_seconds<VectorFacets>())                    \
-  X(FacetGrid, hs_preset_window_seconds<FacetGrid>())                          \
-  X(HexWave, hs_preset_window_seconds<HexWave>())                              \
-  X(EquatorGrid, hs_preset_window_seconds<EquatorGrid>())                      \
+  X(AlienCore, hs_preset_window_seconds<AlienCore>())                          \
+  X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
+  X(GridSpace, hs_preset_window_seconds<GridSpace>())                          \
+  X(LatticeMelt, hs_preset_window_seconds<LatticeMelt>())                      \
+  X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
+  X(KaleidoscopePentBright,                                                    \
+    hs_preset_window_seconds<KaleidoscopePentBright>())                        \
+  X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
+  X(KaleidoscopeStainedGlass,                                                  \
+    hs_preset_window_seconds<KaleidoscopeStainedGlass>())                      \
+  X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
+  X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
+  X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
   X(CosmicEyeball, hs_preset_window_seconds<CosmicEyeball>())                  \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())
 
