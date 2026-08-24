@@ -1114,6 +1114,7 @@ inline void test_sh_morph_chain_rearms() {
   fx.init();
 
   const int seed = WB::current_idx(fx);
+  HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
   HS_EXPECT_GT(seed, 0); // never the constant harmonic
   HS_EXPECT_TRUE(WB::next_idx(fx) != seed);
 
@@ -1139,6 +1140,9 @@ inline void test_sh_morph_chain_rearms() {
     if (now != held) {
       ++commits;
       held = now;
+      const size_t expected_preset =
+          now == 6 ? 0u : static_cast<size_t>(now - (now > 6));
+      HS_EXPECT_EQ(fx.getPresetIndex(), expected_preset);
       // A committed leg rewinds the blend and schedules the next one.
       if (alpha == 0.0f)
         ++rearmed_at_zero;
@@ -1159,6 +1163,27 @@ inline void test_sh_morph_chain_rearms() {
   HS_EXPECT_GT(alpha_peak, 0.9f);
 }
 
+/** @brief Maps every runtime preset to its stable harmonic mode. */
+inline void test_sh_preset_mode_mapping() {
+  using WB = SphericalHarmonicsWhiteBox;
+  reset_effect_globals();
+  WB::SH fx;
+  fx.init();
+
+  static constexpr std::array<int, 24> EXPECTED_MODES{
+      6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,
+      13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
+  HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
+  HS_EXPECT_EQ(WB::current_idx(fx), EXPECTED_MODES[0]);
+  for (size_t preset = 0; preset < EXPECTED_MODES.size(); ++preset) {
+    HS_EXPECT_TRUE(fx.selectPreset(preset));
+    HS_EXPECT_EQ(fx.getPresetIndex(), preset);
+    HS_EXPECT_EQ(WB::current_idx(fx), EXPECTED_MODES[preset]);
+    HS_EXPECT_EQ(WB::next_idx(fx), EXPECTED_MODES[preset]);
+    HS_EXPECT_EQ(WB::morph_alpha(fx), 0.0f);
+  }
+}
+
 /** @brief Keeps a manual harmonic selection past the automatic leg it replaces. */
 inline void test_sh_manual_preset_replaces_inflight_morph() {
   using WB = SphericalHarmonicsWhiteBox;
@@ -1168,7 +1193,8 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   fx.init();
 
   HS_EXPECT_EQ(fx.getPresetCount(), 24u);
-  HS_EXPECT_EQ(fx.getPresetIndex(), 5u);
+  HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
+  HS_EXPECT_EQ(WB::current_idx(fx), 6);
   for (int frame = 0; frame < 8; ++frame) {
     hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
                       static_cast<unsigned long>(frame) * FRAME_US);
@@ -1178,11 +1204,8 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   HS_EXPECT_GT(WB::morph_alpha(fx), 0.0f);
   const int replaced_target = WB::next_idx(fx);
 
-  int selected_mode = 24;
-  while (selected_mode == WB::current_idx(fx) ||
-         selected_mode == replaced_target)
-    --selected_mode;
-  const size_t selected_preset = static_cast<size_t>(selected_mode - 1);
+  const size_t selected_preset = replaced_target == 24 ? 22u : 23u;
+  const int selected_mode = static_cast<int>(selected_preset + 1);
   HS_EXPECT_TRUE(fx.selectPreset(selected_preset));
   HS_EXPECT_TRUE(fx.animations_paused());
   HS_EXPECT_EQ(fx.getPresetIndex(), selected_preset);
@@ -6507,6 +6530,7 @@ inline int run_effects_tests() {
   test_gs_dissolve_frontier_fades_before_clear();
   test_gs_substep_matches_scalar_reference();
   test_fishbowl_preset_and_fire_duty_cycle();
+  test_sh_preset_mode_mapping();
   test_sh_manual_preset_replaces_inflight_morph();
   test_shapeshifter_preset_defaults();
   test_shapeshifter_slider_selections_render();
