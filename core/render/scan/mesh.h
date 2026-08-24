@@ -257,7 +257,7 @@ HS_O3_END
  */
 HS_NOINLINE_NOCLONE inline SDF::FaceScratchBuffer *
 new_face_scratch(Arena &arena) {
-  return arena.make_default<SDF::FaceScratchBuffer>();
+  return arena.make_default_initialized<SDF::FaceScratchBuffer>();
 }
 
 HS_O3_BEGIN
