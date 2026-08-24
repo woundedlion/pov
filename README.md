@@ -2359,7 +2359,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 An analytic reflective flight through a cubic lattice that opens into a four-dimensional hypercubic lattice under genuine SO(4) rotation. Transparent integer-coordinate hyperplanes expose several lattice shells without raymarching.
 
-**Parameters**: Dimension, Wire Radius, Softness, Far Cells, Pixel AA, Travel, 3D Spin, 4D Spin, Reflection, Color, Shells
+**Parameters**: Dimension, Sphere Radius, Wire Radius, Softness, Far Cells, AA Strength, Speed, 3D Spin, 4D Spin, Chrome Warp, Reflection, Color, Shells
 
 </td></tr></table>
 
