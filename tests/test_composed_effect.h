@@ -804,6 +804,12 @@ inline void test_composed_periodic_ripple_surface() {
   HS_EXPECT_TRUE(effect.getParameters().find("Ripple Period") != nullptr);
   effect.draw_frame();
   effect.advance_display();
+  size_t lit = 0;
+  for (int i = 0; i < SMALL_W * SMALL_H; ++i) {
+    const Pixel &pixel = effect.display_buffer()[i];
+    lit += pixel.r != 0 || pixel.g != 0 || pixel.b != 0;
+  }
+  HS_EXPECT_GT(lit, size_t(0));
 }
 
 /**
