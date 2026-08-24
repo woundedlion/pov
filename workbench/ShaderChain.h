@@ -188,7 +188,6 @@ private:
     Pullback::Interp::FrameContext ctx;
     ctx.frame = frame_index;
     ctx.time = static_cast<float>(frame_index) * FRAME_SECONDS;
-    ctx.anims_paused = anims_paused;
     ctx.projection_base = make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
     using PaletteMode = Pullback::Interp::Op::PaletteMode;
     ctx.palettes = {&generated_palettes.palette(PaletteMode::TRIADIC),
