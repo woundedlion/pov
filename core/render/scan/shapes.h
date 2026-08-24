@@ -33,7 +33,6 @@ struct DistortedRing {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
-   * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the ring plane.
@@ -45,10 +44,9 @@ struct DistortedRing {
    * @param suppress_pole_fill Drop the degenerate exact-pole row instead of
    *        full-row filling it (dense ring stacks; see get_horizontal_intervals).
    */
-  template <int W, int H, bool ComputeUVs = true,
-            typename PipelineT = PipelineRef>
-  static void draw_flat(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                        float radius, float thickness,
+  template <int W, int H, bool ComputeUVs = true>
+  static void draw_flat(PipelineRef pipeline, Canvas &canvas,
+                        const Basis &basis, float radius, float thickness,
                         FragmentShaderFn fragment_shader, float phase = 0,
                         bool debug_bb = false,
                         bool suppress_pole_fill = false) {
@@ -63,7 +61,6 @@ struct DistortedRing {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
-   * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the ring plane.
@@ -75,9 +72,8 @@ struct DistortedRing {
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
-  template <int W, int H, bool ComputeUVs = true,
-            typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, bool ComputeUVs = true>
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness, ScalarFn shift_fn,
                    float amplitude, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
@@ -93,7 +89,6 @@ struct DistortedRing {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
-   * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the ring plane.
@@ -108,9 +103,8 @@ struct DistortedRing {
    * @param suppress_pole_fill Drop the degenerate exact-pole row instead of
    *        full-row filling it (dense ring stacks; see get_horizontal_intervals).
    */
-  template <int W, int H, bool ComputeUVs = true,
-            typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, bool ComputeUVs = true>
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness, const float *knots, int lut_n,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false, bool suppress_pole_fill = false) {
@@ -388,7 +382,6 @@ struct Ring {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
-   * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the ring plane.
@@ -398,9 +391,8 @@ struct Ring {
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
-  template <int W, int H, bool ComputeUVs = true,
-            typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
+  template <int W, int H, bool ComputeUVs = true>
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
@@ -415,7 +407,6 @@ struct Ring {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
-   * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param normal Plane normal as a world-space vector.
@@ -425,9 +416,8 @@ struct Ring {
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
-  template <int W, int H, bool ComputeUVs = true,
-            typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Vector &normal,
+  template <int W, int H, bool ComputeUVs = true>
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &normal,
                    float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
