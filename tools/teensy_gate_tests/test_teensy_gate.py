@@ -1488,6 +1488,18 @@ class TestGateExtra(unittest.TestCase):
         for path in self.ge.GATE_SOURCES:
             self.assertTrue(Path(path).is_file(), f"missing {path}")
 
+    def test_tool_output_replaces_undecodable_bytes(self):
+        seen = {}
+
+        def run(*args, **kwargs):
+            seen.update(kwargs)
+            return subprocess.CompletedProcess(args, 0, "ok", "")
+
+        with mock_patch(self.ge.subprocess, "run", run):
+            self.assertEqual(self.ge._run(["tool"]), "ok")
+        self.assertEqual(seen["encoding"], "utf-8")
+        self.assertEqual(seen["errors"], "replace")
+
     def test_tool_derives_sibling_arm_tools(self):
         self.assertEqual(self.ge._tool("/opt/arm/bin/arm-none-eabi-gcc", "size"),
                          "/opt/arm/bin/arm-none-eabi-size")
