@@ -15,9 +15,8 @@
  * The child is selected through an inherited env var and spawned shell-free —
  * fork()+execv() on POSIX, _spawnv() on Windows — so no shell can mangle the
  * re-exec path. A control "spawn check" runs first; if the harness cannot
- * re-exec itself, the death tests are SKIPPED — EXCEPT under CI (the CI env var
- * is set), where a suite that cannot run is a hard FAILURE rather than a silent
- * green skip.
+ * re-exec itself, the death tier fails on every host rather than reporting an
+ * unexercised tier as green.
  *
  * Dying by SIGILL alone proves only that SOMETHING trapped: under
  * -fsanitize-trap=undefined any UB in a case body lowers to the same illegal
