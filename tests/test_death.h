@@ -167,6 +167,15 @@ inline void case_arena_zero_size_alloc() {
     std::printf("x");
 }
 
+/** @brief Death case: an overflowing typed allocation must trap. */
+inline void case_arena_allocate_n_overflow() {
+  static uint8_t buf[64];
+  Arena a(buf, sizeof(buf));
+  auto *p = a.allocate_n<uint64_t>(opaque<size_t>(SIZE_MAX / 8 + 1));
+  if (p == reinterpret_cast<uint64_t *>(0x1))
+    std::printf("x");
+}
+
 /**
  * @brief Death case: a non-power-of-two allocation alignment must trap.
  * @details Memory surface — allocate()'s padding math is a modulo against the
@@ -3114,6 +3123,9 @@ inline const Case *all_cases(int &n) {
        "(false) Arena::allocate: out of memory"},
       {"arena_zero_size_alloc", case_arena_zero_size_alloc, "memory.h",
        "(size > 0) Arena::allocate: zero-size request"},
+      {"arena_allocate_n_overflow", case_arena_allocate_n_overflow, "memory.h",
+       "(n <= SIZE_MAX / sizeof(T)) Arena::allocate_n element count overflows "
+       "size_t"},
       {"arena_bad_alignment", case_arena_bad_alignment, "memory.h",
        "(align != 0 && (align & (align - 1)) == 0) Arena::allocate: "
        "alignment "},
