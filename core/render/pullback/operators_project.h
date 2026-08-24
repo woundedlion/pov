@@ -69,8 +69,8 @@ template <typename Derived, typename ParamsT> struct ProjectOpModel {
     Quaternion conjugate;
   };
 
-  static void init(State &state, InstanceId) {
-    init_walk(state, PROJECTION_WALK_SEED);
+  static void init(State &state, InstanceId id) {
+    init_walk(state, static_cast<int32_t>(id.stable_hash));
   }
   static Status migrate(State &dst, const State &src, InstanceId) {
     dst = src;

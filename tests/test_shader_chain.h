@@ -3024,7 +3024,8 @@ inline void test_shader_chain_determinism() {
   arm_default_chain(second->program, 5, ValueSet::MAXIMUMS);
   FastNoiseLite authored_walk_noise;
   authored_walk_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-  authored_walk_noise.SetSeed(PB::CAMERA_WALK_SEED);
+  authored_walk_noise.SetSeed(
+      static_cast<int32_t>(In::instance_hash("camera", "sphere.rotate.v2")));
   authored_walk_noise.SetFrequency(In::Op::WALK_NOISE_SCALE);
   const auto &seeded_walk =
       state_as<In::Op::SpatialWalkState>(first->program, 0);
@@ -3038,7 +3039,7 @@ inline void test_shader_chain_determinism() {
     const Color4 b = second->program.evaluate(view, ctx);
     HS_EXPECT_TRUE(color4_identical(a, b));
   }
-  // Renaming does not change effect-authored walk resources.
+  // Instance labels participate in stateful-resource identity.
   auto relabeled = std::make_unique<ProgramFixture>();
   const In::ChainEntryRequest renamed[] = {
       {"camera2", "sphere.rotate.v2"},
@@ -3055,7 +3056,7 @@ inline void test_shader_chain_determinism() {
   const auto &walk_a = state_as<In::Op::SpatialWalkState>(first->program, 0);
   const auto &walk_b =
       state_as<In::Op::SpatialWalkState>(relabeled->program, 0);
-  HS_EXPECT_EQ(std::memcmp(&walk_a.wander, &walk_b.wander, sizeof(Quaternion)),
+  HS_EXPECT_NE(std::memcmp(&walk_a.wander, &walk_b.wander, sizeof(Quaternion)),
                0);
   first->program.clear();
   second->program.clear();
