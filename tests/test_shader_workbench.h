@@ -2259,7 +2259,7 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(alien_core.params.color.palette_chroma, 0.292f);
   HS_EXPECT_EQ(alien_core.params.outer_camera.wander, 1.0f);
   const auto &mobius_grid = presets[19];
-  constexpr std::array<uint32_t, 141> MOBIUS_GRID_EXPECTED{
+  constexpr std::array<uint32_t, 155> MOBIUS_GRID_EXPECTED{
       0,          1,          1,          4,          0,          0,
       0,          0,          0,          1,          1337,       0,
       7,          0,          0,          0,          0,          1,
@@ -2283,7 +2283,9 @@ inline void test_shader_workbench_preset_bank() {
       1028443341, 1036831949, 1050656375, 1065353216, 0,          1053542056,
       1065353216, 0,          0,          0,          1065353216, 1065353216,
       1065353216, 1065353216, 0,          0,          1337,       1065353216,
-      0,          0,          0};
+      0,          0,          0,          6,          1034147594, 1017370378,
+      0,          1056964608, 8,          0,          3209481421, 1042267767,
+      1082130432, 1065353216, 1025758986, 1017370378, 0};
   HS_EXPECT_TRUE(WB::encode_config(mobius_grid) == MOBIUS_GRID_EXPECTED);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.scale, 0.1f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.speed, 0.5f);
@@ -3196,11 +3198,14 @@ inline void test_shader_workbench_gui_catalog() {
   sb.init();
   HS_EXPECT_LE(sb.getParameters().size(), size_t(80));
   const auto *function = sb.getParameters().find("Function");
-  HS_EXPECT_EQ(function->option_count, 7);
+  HS_EXPECT_EQ(function->option_count, 10);
   HS_EXPECT_TRUE(
       std::strcmp(function->options[4], "Noise Contour (Projected)") == 0);
   HS_EXPECT_TRUE(std::strcmp(function->options[6], "Noise Contour (Sphere)") ==
                  0);
+  HS_EXPECT_TRUE(std::strcmp(function->options[7], "Spherical Rings") == 0);
+  HS_EXPECT_TRUE(std::strcmp(function->options[8], "Escape Fractal") == 0);
+  HS_EXPECT_TRUE(std::strcmp(function->options[9], "Tessellation") == 0);
   HS_EXPECT_TRUE(sb.getParameters().find("Complexity") != nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Mix") != nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Drift") != nullptr);
@@ -3381,6 +3386,9 @@ inline void test_shader_workbench_gui_catalog() {
   HS_EXPECT_EQ(source_noise_scale->max, 2.0f);
   HS_EXPECT_EQ(source_noise_rate->min, -1.0f / 1024.0f);
   HS_EXPECT_EQ(source_noise_rate->max, 1.0f / 1024.0f);
+  select_and_set_all("Function", 7, "Ring Count");
+  select_and_set_all("Function", 8, "Fractal Iterations");
+  select_and_set_all("Function", 9, "Tessellation Kind");
   select_and_set_all("Projection", 2, "Gnomonic Hemisphere");
   select_and_set_all("Projection", 3, "Bonne Hemisphere");
   HS_EXPECT_TRUE(sb.updateParameter("Bonne Standard Parallel", 0.9f) ==
@@ -4524,7 +4532,7 @@ inline void test_shader_workbench_fast_peirce_square() {
 /** @brief The inverse manifest has unique, canonical, selectable programs. */
 inline void test_shader_workbench_operator_catalog_census() {
   using WB = ShaderWorkbenchWhiteBox;
-  static_assert(WB::NUM_FUNCTIONS == 7);
+  static_assert(WB::NUM_FUNCTIONS == 10);
   static_assert(WB::NUM_PROJECTIONS == 7);
   static_assert(WB::NUM_LENSES == 13);
   static_assert(WB::NUM_SURFACE_NOISE == 3);

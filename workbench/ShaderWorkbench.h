@@ -183,7 +183,23 @@ struct ShaderWorkbenchWhiteBox;
   X(SURFACE_NOISE_SCALE, params.surface_noise.scale)                           \
   X(SURFACE_NOISE_STRENGTH, params.surface_noise.strength)                     \
   X(SURFACE_NOISE_RATE, params.surface_noise.rate)                             \
-  X(SURFACE_NOISE_DIRECTION, params.surface_noise.direction)
+  X(SURFACE_NOISE_DIRECTION, params.surface_noise.direction)                   \
+  X(SOURCE_RING_COUNT, params.source.ring_count)                               \
+  X(SOURCE_RING_THICKNESS, params.source.ring_thickness)                       \
+  X(SOURCE_RING_SOFTNESS, params.source.ring_softness)                         \
+  X(SOURCE_RING_WANDER, params.source.ring_wander)                             \
+  X(SOURCE_FRACTAL_SCALE, params.source.fractal_scale)                         \
+  X(SOURCE_FRACTAL_ITERATIONS, params.source.fractal_iterations)               \
+  X(SOURCE_JULIA_MIX, params.source.julia_mix)                                 \
+  X(SOURCE_JULIA_REAL, params.source.julia_real)                               \
+  X(SOURCE_JULIA_IMAGINARY, params.source.julia_imaginary)                     \
+  X(SOURCE_FRACTAL_CONTOURS, params.source.fractal_contours)                   \
+  X(SOURCE_TESSELLATION_CELL_SCALE, params.source.tessellation_cell_scale)     \
+  X(SOURCE_TESSELLATION_LINE_THICKNESS,                                        \
+    params.source.tessellation_line_thickness)                                 \
+  X(SOURCE_TESSELLATION_LINE_SOFTNESS,                                         \
+    params.source.tessellation_line_softness)                                  \
+  X(SOURCE_TESSELLATION_KIND, params.source.tessellation_kind)
 
 /**
  * @brief Slot-based sphere shader with an immutable per-frame pullback state.
@@ -392,7 +408,10 @@ public:
     GRID,
     NOISE_CONTOUR,
     PRIMITIVE_LATTICE,
-    NOISE_CONTOUR_SPHERE
+    NOISE_CONTOUR_SPHERE,
+    SPHERICAL_RINGS,
+    FRACTAL,
+    TESSELLATION
   };
   enum class Projection : uint8_t {
     SINUSOIDAL,
@@ -526,6 +545,21 @@ public:
     NoiseBasis noise_basis = NoiseBasis::SIMPLEX;
     int32_t noise_seed = 2927;
     uint8_t noise_resource_id = 2;
+    uint8_t ring_count = 6;
+    float ring_thickness = 0.08f;
+    float ring_softness = 0.02f;
+    float ring_wander = 0.0f;
+    float fractal_scale = 0.5f;
+    uint8_t fractal_iterations = 8;
+    float julia_mix = 0.0f;
+    float julia_real = -0.8f;
+    float julia_imaginary = 0.156f;
+    float fractal_contours = 4.0f;
+    float tessellation_cell_scale = 1.0f;
+    float tessellation_line_thickness = 0.04f;
+    float tessellation_line_softness = 0.02f;
+    Pullback::Source::TessellationKind tessellation_kind =
+        Pullback::Source::TessellationKind::TRIANGULAR;
 
     HS_COLD_MEMBER constexpr SourceParams() = default;
 
@@ -542,7 +576,7 @@ public:
                              float t) {
       // Trips if the field set changes, so a new field cannot silently go
       // uninterpolated and unsnapped.
-      static_assert(sizeof(SourceParams) == 64,
+      static_assert(sizeof(SourceParams) == 116,
                     "SourceParams field set changed - update lerp");
       pattern_freq = hs::lerp(a.pattern_freq, b.pattern_freq, t);
       speed = hs::lerp(a.speed, b.speed, t);
@@ -562,6 +596,24 @@ public:
       noise_basis = t < 1.0f ? a.noise_basis : b.noise_basis;
       noise_seed = t < 1.0f ? a.noise_seed : b.noise_seed;
       noise_resource_id = t < 1.0f ? a.noise_resource_id : b.noise_resource_id;
+      ring_count = t < 1.0f ? a.ring_count : b.ring_count;
+      ring_thickness = hs::lerp(a.ring_thickness, b.ring_thickness, t);
+      ring_softness = hs::lerp(a.ring_softness, b.ring_softness, t);
+      ring_wander = hs::lerp(a.ring_wander, b.ring_wander, t);
+      fractal_scale = hs::lerp(a.fractal_scale, b.fractal_scale, t);
+      fractal_iterations =
+          t < 1.0f ? a.fractal_iterations : b.fractal_iterations;
+      julia_mix = hs::lerp(a.julia_mix, b.julia_mix, t);
+      julia_real = hs::lerp(a.julia_real, b.julia_real, t);
+      julia_imaginary = hs::lerp(a.julia_imaginary, b.julia_imaginary, t);
+      fractal_contours = hs::lerp(a.fractal_contours, b.fractal_contours, t);
+      tessellation_cell_scale =
+          hs::lerp(a.tessellation_cell_scale, b.tessellation_cell_scale, t);
+      tessellation_line_thickness = hs::lerp(a.tessellation_line_thickness,
+                                             b.tessellation_line_thickness, t);
+      tessellation_line_softness = hs::lerp(a.tessellation_line_softness,
+                                            b.tessellation_line_softness, t);
+      tessellation_kind = t < 1.0f ? a.tessellation_kind : b.tessellation_kind;
     }
   };
 
@@ -899,7 +951,7 @@ public:
   };
   using RequestedConfig = Config;
 
-  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 7;
+  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 8;
 
   /**
    * @brief Reports whether a persisted snapshot's schema version can be
@@ -1488,6 +1540,56 @@ private:
   HS_COLD_MEMBER void register_source_controls(Function function,
                                                SourceParams &params,
                                                float domain_scale) {
+    if (function == Function::SPHERICAL_RINGS) {
+      register_animated_int_param("Ring Count", &params.ring_count, 1, 32);
+      register_clamped_animated_param("Ring Thickness", &params.ring_thickness,
+                                      1.0f / 512.0f, 0.5f);
+      register_clamped_animated_param("Ring Softness", &params.ring_softness,
+                                      SOFTNESS_MIN, 0.25f);
+      register_clamped_animated_param("Ring Speed", &params.speed, -0.5f, 0.5f);
+      register_clamped_animated_param("Ring Spin Speed", &params.angle_rate,
+                                      -0.05f, 0.05f);
+      register_clamped_animated_param("Ring Wander", &params.ring_wander, 0.0f,
+                                      1.0f);
+      return;
+    }
+    if (function == Function::FRACTAL) {
+      register_clamped_animated_param("Fractal Scale", &params.fractal_scale,
+                                      1.0f / 64.0f, 8.0f);
+      register_animated_int_param("Fractal Iterations",
+                                  &params.fractal_iterations, 2, 16);
+      register_clamped_animated_param("Julia Mix", &params.julia_mix, 0.0f,
+                                      1.0f);
+      register_clamped_animated_param("Julia Real", &params.julia_real, -1.5f,
+                                      1.5f);
+      register_clamped_animated_param("Julia Imaginary",
+                                      &params.julia_imaginary, -1.5f, 1.5f);
+      register_clamped_animated_param("Fractal Contours",
+                                      &params.fractal_contours, 0.0f, 16.0f);
+      register_clamped_animated_param("Fractal Speed", &params.speed, -0.05f,
+                                      0.05f);
+      register_clamped_animated_param("Fractal Spin Speed", &params.angle_rate,
+                                      -0.05f, 0.05f);
+      return;
+    }
+    if (function == Function::TESSELLATION) {
+      register_clamped_animated_param(
+          "Cell Scale", &params.tessellation_cell_scale, 1.0f / 64.0f, 8.0f);
+      register_clamped_animated_param("Line Thickness",
+                                      &params.tessellation_line_thickness,
+                                      SOFTNESS_MIN, 0.25f);
+      register_clamped_animated_param("Line Softness",
+                                      &params.tessellation_line_softness,
+                                      SOFTNESS_MIN, 0.25f);
+      register_clamped_animated_param("Tessellation Spin Speed",
+                                      &params.angle_rate, -0.05f, 0.05f);
+      if (!fixed_topology)
+        register_animated_param("Tessellation Kind", &params.tessellation_kind,
+                                TESSELLATION_KIND_OPTIONS,
+                                TESSELLATION_KIND_EXPORT_OPTIONS,
+                                NUM_TESSELLATION_KINDS);
+      return;
+    }
     if (is_noise_contour(function)) {
       register_clamped_animated_param(
           "Source Noise Scale", &params.noise_scale, SOURCE_NOISE_SCALE_MIN,
@@ -1521,10 +1623,10 @@ private:
                                     PATTERN_FREQ_MIN,
                                     pattern_freq_max(function));
     register_clamped_animated_param(
-        "Speed", &params.speed, SPEED_MIN,
+        "Speed", &params.speed, 0.0f,
         domain_scaled_max(SPEED_MAX, 0.5f, domain_scale));
     register_clamped_animated_param(
-        "Source Angle Speed", &params.angle_rate, WAVE_SPIN_MIN,
+        "Source Angle Speed", &params.angle_rate, 0.0f,
         domain_scaled_max(WAVE_SPIN_MAX, 0.03f, domain_scale));
     if (function == Function::GRID) {
       register_animated_param("Complexity", &params.complexity, COMPLEXITY_MIN,
@@ -1931,6 +2033,7 @@ private:
       blob instead. */
   struct DynamicPrepared {
     SourceState source;
+    Pullback::Source::PreparedSphericalRings spherical_rings;
     PreparedWarpProgram warp;
     PreparedSurfaceNoise surface_noise;
   };
@@ -2868,6 +2971,7 @@ private:
     ClockState clocks{};
     Quaternion projection_wander;
     Quaternion outer_wander;
+    Quaternion source_wander;
     PreparedTransforms transforms;
 
     HS_COLD_MEMBER LookRuntime() = default;
@@ -2984,7 +3088,7 @@ private:
 
   /** @brief Tests every slot against the last enumerator its schema admits. */
   static constexpr bool valid_slot_enums(const Slots &slots) {
-    return enum_at_most(slots.function, Function::NOISE_CONTOUR_SPHERE) &&
+    return enum_at_most(slots.function, Function::TESSELLATION) &&
            enum_at_most(slots.projection, Projection::EQUIRECTANGULAR) &&
            enum_at_most(slots.projection_frame,
                         ProjectionFramePolicy::SPIN_WANDER) &&
@@ -3404,6 +3508,13 @@ private:
             fast_cosf(clocks.source_angle), fast_sinf(clocks.source_angle)};
   }
 
+  HS_FLASH_MEMBER static Pullback::Source::PreparedSphericalRings
+  prepare_spherical_rings(const LookRuntime &look) {
+    const Quaternion orientation =
+        make_rotation(X_AXIS, look.clocks.source_angle) * look.source_wander;
+    return {rotate(Y_AXIS, orientation), look.clocks.source_primary};
+  }
+
   HS_FLASH_MEMBER static PreparedSurfaceNoise
   prepare_surface_noise(const ClockState &clocks, const Params &params) {
     const float surface_phase = TWO_PI_F * wrap_t(clocks.surface_noise_time);
@@ -3511,6 +3622,7 @@ private:
                         look.transforms.outer_conj};
     frame.dynamic = {
         prepare_source_state(look.clocks),
+        prepare_spherical_rings(look),
         {prepare_warp_stage(
              config.slots.warp_program.outer, config.params.warp.outer,
              look.clocks.warp_outer_phase, source_cartesian_period(config),
@@ -4386,7 +4498,9 @@ private:
   static Complex condition_source_coords(const Complex &coords,
                                          const FrameState &frame) {
     if (is_noise_contour(frame.slots.function) ||
-        frame.slots.function == Function::PRIMITIVE_LATTICE)
+        frame.slots.function == Function::PRIMITIVE_LATTICE ||
+        frame.slots.function == Function::FRACTAL ||
+        frame.slots.function == Function::TESSELLATION)
       return coords;
     return stereo_pattern_args(coords, frame.params.source.pattern_freq);
   }
@@ -4473,9 +4587,45 @@ private:
 
 #if HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND ||                              \
     (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
+  static Pullback::Source::SphericalRingsSourceParams
+  spherical_rings_params(const SourceParams &params) {
+    return {static_cast<float>(params.ring_count),
+            params.ring_thickness,
+            params.ring_softness,
+            params.speed,
+            params.angle_rate,
+            params.ring_wander};
+  }
+
+  static Pullback::Source::FractalSourceParams
+  fractal_params(const SourceParams &params) {
+    return {
+        params.fractal_scale,   static_cast<float>(params.fractal_iterations),
+        params.julia_mix,       params.julia_real,
+        params.julia_imaginary, params.fractal_contours,
+        params.speed,           params.angle_rate};
+  }
+
+  static Pullback::Source::TessellationSourceParams
+  tessellation_params(const SourceParams &params) {
+    return {params.tessellation_cell_scale, params.tessellation_line_thickness,
+            params.tessellation_line_softness, params.angle_rate};
+  }
+
   HS_FLASH_MEMBER static float sample_source(const Complex &p,
                                              const ProjectedLookup &projected,
                                              const FrameState &frame) {
+    if (frame.slots.function == Function::SPHERICAL_RINGS)
+      return Pullback::Source::spherical_rings(
+          projected.sphere, spherical_rings_params(frame.params.source),
+          frame.dynamic.spherical_rings);
+    if (frame.slots.function == Function::FRACTAL)
+      return Pullback::Source::escape_fractal(
+          p, fractal_params(frame.params.source), frame.dynamic.source);
+    if (frame.slots.function == Function::TESSELLATION)
+      return Pullback::Source::tessellation(
+          p, tessellation_params(frame.params.source),
+          frame.params.source.tessellation_kind, frame.dynamic.source);
     if (frame.slots.function == Function::GRID)
       return grid(p, frame.params.source, frame.dynamic.source);
     if (frame.slots.function == Function::NOISE_CONTOUR)
@@ -4768,6 +4918,9 @@ private:
     case Function::NOISE_CONTOUR:
     case Function::NOISE_CONTOUR_SPHERE:
     case Function::PRIMITIVE_LATTICE:
+    case Function::SPHERICAL_RINGS:
+    case Function::FRACTAL:
+    case Function::TESSELLATION:
       break;
     }
     __builtin_unreachable();
@@ -4817,6 +4970,10 @@ private:
     look.outer_wander =
         (slerp(Quaternion(), deltas.outer, config.params.outer_camera.wander) *
          look.outer_wander)
+            .normalized();
+    look.source_wander =
+        (slerp(Quaternion(), deltas.outer, config.params.source.ring_wander) *
+         look.source_wander)
             .normalized();
     look.transforms.projection_conj =
         (make_rotation(Y_AXIS, look.clocks.projection_spin) * base_orientation *
@@ -5095,6 +5252,11 @@ private:
            function == Function::NOISE_CONTOUR_SPHERE;
   }
 
+  HS_COLD_MEMBER static constexpr bool is_sphere_source(Function function) {
+    return function == Function::NOISE_CONTOUR_SPHERE ||
+           function == Function::SPHERICAL_RINGS;
+  }
+
   HS_COLD_MEMBER static constexpr SourceTraits
   source_traits(Function function) {
     switch (function) {
@@ -5107,6 +5269,9 @@ private:
     case Function::SPIRAL:
     case Function::NOISE_CONTOUR:
     case Function::NOISE_CONTOUR_SPHERE:
+    case Function::SPHERICAL_RINGS:
+    case Function::FRACTAL:
+    case Function::TESSELLATION:
       return {false, false};
     }
     return {false, false};
@@ -5206,7 +5371,7 @@ private:
     const Slots &slots = candidate.slots;
     if (!valid_slot_enums(slots))
       return false;
-    if (slots.function == Function::NOISE_CONTOUR_SPHERE &&
+    if (is_sphere_source(slots.function) &&
         (slots.warp_program.outer.kind != WarpStageKind::NONE ||
          slots.warp_program.inner.kind != WarpStageKind::NONE))
       return false;
@@ -5452,21 +5617,23 @@ private:
                                 const char *edited_name) const {
     const WarpStageSpec &outer = candidate.slots.warp_program.outer;
     const WarpStageSpec &inner = candidate.slots.warp_program.inner;
-    if (candidate.slots.function == Function::NOISE_CONTOUR_SPHERE &&
+    if (is_sphere_source(candidate.slots.function) &&
         outer.kind != WarpStageKind::NONE && inner.kind != WarpStageKind::NONE)
       return begin_warning(
-          "Noise Contour (Sphere) rejects Planar Warp 1 %s and Planar Warp 2 "
-          "%s. Set both warps to None, or select Noise Contour (Projected).",
+          "%s rejects Planar Warp 1 %s and Planar Warp 2 %s. Set both warps "
+          "to None, or select a plane-space Function.",
+          FUNCTION_OPTIONS[static_cast<uint8_t>(candidate.slots.function)],
           warp_option(outer.kind), warp_option(inner.kind));
-    if (candidate.slots.function == Function::NOISE_CONTOUR_SPHERE &&
+    if (is_sphere_source(candidate.slots.function) &&
         (outer.kind != WarpStageKind::NONE ||
          inner.kind != WarpStageKind::NONE)) {
       const bool outer_active = outer.kind != WarpStageKind::NONE;
       const char *position = outer_active ? "Planar Warp 1" : "Planar Warp 2";
       const WarpStageKind kind = outer_active ? outer.kind : inner.kind;
       return begin_warning(
-          "Noise Contour (Sphere) rejects %s %s. Set %s to None, or select "
-          "Noise Contour (Projected).",
+          "%s rejects %s %s. Set %s to None, or select a plane-space "
+          "Function.",
+          FUNCTION_OPTIONS[static_cast<uint8_t>(candidate.slots.function)],
           position, warp_option(kind), position);
     }
     if (outer.kind == WarpStageKind::POLAR_CHART &&
@@ -6073,7 +6240,10 @@ private:
       "Grid",
       "Noise Contour (Projected)",
       "Primitive Lattice",
-      "Noise Contour (Sphere)"};
+      "Noise Contour (Sphere)",
+      "Spherical Rings",
+      "Escape Fractal",
+      "Tessellation"};
   static constexpr const char *FUNCTION_EXPORT_OPTIONS[] = {
       "Function::TWIN_WAVE",
       "Function::RINGS",
@@ -6081,8 +6251,19 @@ private:
       "Function::GRID",
       "Function::NOISE_CONTOUR",
       "Function::PRIMITIVE_LATTICE",
-      "Function::NOISE_CONTOUR_SPHERE"};
+      "Function::NOISE_CONTOUR_SPHERE",
+      "Function::SPHERICAL_RINGS",
+      "Function::FRACTAL",
+      "Function::TESSELLATION"};
   static constexpr int NUM_FUNCTIONS = std::size(FUNCTION_OPTIONS);
+  static constexpr const char *TESSELLATION_KIND_OPTIONS[] = {
+      "Triangular", "Square", "Hexagonal"};
+  static constexpr const char *TESSELLATION_KIND_EXPORT_OPTIONS[] = {
+      "Pullback::Source::TessellationKind::TRIANGULAR",
+      "Pullback::Source::TessellationKind::SQUARE",
+      "Pullback::Source::TessellationKind::HEXAGONAL"};
+  static constexpr int NUM_TESSELLATION_KINDS =
+      std::size(TESSELLATION_KIND_OPTIONS);
   static constexpr const char *PROJECTION_OPTIONS[] = {
       "Folded Sinusoidal",  "Stereographic",       "Gnomonic",       "Bonne",
       "Peirce Quincuncial", "Dymaxion / Airocean", "Equirectangular"};
@@ -6273,7 +6454,7 @@ private:
   static constexpr float PATTERN_FREQ_MIN = 0.1f;
   static constexpr float PATTERN_FREQ_MAX = 20.0f;
   static constexpr float GRID_PATTERN_FREQ_MAX = 64.0f;
-  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
+  static constexpr float SPEED_MIN = -0.5f, SPEED_MAX = 5.0f;
   static constexpr float COMPLEXITY_MIN = 0.0f, COMPLEXITY_MAX = 3.0f;
   static constexpr float PATTERN_MIX_MIN = 0.0f, PATTERN_MIX_MAX = 1.0f;
   static constexpr float PHASE2_RATE_MIN = 0.0f, PHASE2_RATE_MAX = 2.0f;
@@ -6300,7 +6481,7 @@ private:
   static constexpr float BRIGHTNESS_DEPTH_MAX = 1.0f;
   static constexpr float VALUE_OPACITY_MIN = 0.0f;
   static constexpr float VALUE_OPACITY_MAX = 1.0f;
-  static constexpr float WAVE_SPIN_MIN = 0.0f, WAVE_SPIN_MAX = 0.05f;
+  static constexpr float WAVE_SPIN_MIN = -0.05f, WAVE_SPIN_MAX = 0.05f;
   static constexpr float SOURCE_NOISE_SCALE_MIN = 0.0f;
   static constexpr float SOURCE_NOISE_SCALE_MAX = 2.0f;
   static constexpr float SOURCE_NOISE_RATE_MIN = -1.0f / 1024.0f;
@@ -6344,6 +6525,28 @@ private:
            p.source.lattice_radius >= 1.0f / 64.0f &&
            p.source.lattice_radius <= 0.49f &&
            enum_at_most(p.source.noise_basis, NoiseBasis::RIDGED3) &&
+           p.source.ring_count >= 1 && p.source.ring_count <= 32 &&
+           p.source.ring_thickness >= 1.0f / 512.0f &&
+           p.source.ring_thickness <= 0.5f &&
+           p.source.ring_softness >= SOFTNESS_MIN &&
+           p.source.ring_softness <= 0.25f && p.source.ring_wander >= 0.0f &&
+           p.source.ring_wander <= 1.0f &&
+           p.source.fractal_scale >= 1.0f / 64.0f &&
+           p.source.fractal_scale <= 8.0f && p.source.fractal_iterations >= 2 &&
+           p.source.fractal_iterations <= 16 && p.source.julia_mix >= 0.0f &&
+           p.source.julia_mix <= 1.0f && p.source.julia_real >= -1.5f &&
+           p.source.julia_real <= 1.5f && p.source.julia_imaginary >= -1.5f &&
+           p.source.julia_imaginary <= 1.5f &&
+           p.source.fractal_contours >= 0.0f &&
+           p.source.fractal_contours <= 16.0f &&
+           p.source.tessellation_cell_scale >= 1.0f / 64.0f &&
+           p.source.tessellation_cell_scale <= 8.0f &&
+           p.source.tessellation_line_thickness >= SOFTNESS_MIN &&
+           p.source.tessellation_line_thickness <= 0.25f &&
+           p.source.tessellation_line_softness >= SOFTNESS_MIN &&
+           p.source.tessellation_line_softness <= 0.25f &&
+           enum_at_most(p.source.tessellation_kind,
+                        Pullback::Source::TessellationKind::HEXAGONAL) &&
            p.projection.singularity_fade >= SINGULARITY_FADE_MIN &&
            p.projection.singularity_fade <= SINGULARITY_FADE_MAX &&
            p.projection.spin_rate >= SPIN_RATE_MIN &&

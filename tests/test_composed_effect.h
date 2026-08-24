@@ -615,7 +615,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.tessellation.v2", nullptr, {}},
     {"sample.projected-noise.v2", nullptr, {}},
     {"sample.spherical-noise.v3", nullptr, {}},
-    // No WarpPolicyFor specialization carries a curl-flow family.
+    // No WarpPolicyFor specialization carries these warp families.
+    {"warp.vortex.v2", nullptr, {}},
     {"warp.curl-flow.v2", nullptr, {}},
     // TransferKind is NONE or ISO_CONTOUR.
     {"field.transfer.ridge.v2", nullptr, {}},
@@ -755,10 +756,10 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 37u);
-  HS_EXPECT_EQ(unreachable_operators, 13u);
-  HS_EXPECT_EQ(catalog_values, 122u);
-  HS_EXPECT_EQ(unreachable_values, 76u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
+  HS_EXPECT_EQ(unreachable_operators, 14u);
+  HS_EXPECT_EQ(catalog_values, 125u);
+  HS_EXPECT_EQ(unreachable_values, 79u);
 }
 
 using RippleProbeParams =

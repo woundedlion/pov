@@ -533,7 +533,7 @@ inline void test_shader_chain_program_lifetime() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 37u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     // Monotonicity pin: proven at table construction, never re-walked.
@@ -753,9 +753,17 @@ inline void test_shader_chain_schema_and_field_ids() {
   const In::OperatorDescriptor &curl_flow =
       *In::find_operator("warp.curl-flow.v2");
   constexpr size_t CURL_FLOW_FIELDS = In::Op::CurlFlowParams::FIELDS.size();
-  HS_EXPECT_EQ(curl_flow.schema_count, CURL_FLOW_FIELDS + 1);
+  HS_EXPECT_EQ(curl_flow.schema_count, CURL_FLOW_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(curl_flow.schema[CURL_FLOW_FIELDS].id) ==
                  "basis");
+  const In::ParamFieldInfo &curl_integrator =
+      curl_flow.schema[CURL_FLOW_FIELDS + 1];
+  HS_EXPECT_TRUE(std::string_view(curl_integrator.id) == "integrator");
+  HS_EXPECT_EQ(curl_integrator.enum_count, 3);
+  HS_EXPECT_TRUE(std::string_view(curl_integrator.enum_ids[2]) == "midpoint-4");
+  const In::OperatorDescriptor &vortex = *In::find_operator("warp.vortex.v2");
+  HS_EXPECT_EQ(vortex.schema_count, In::Op::VortexWarpParams::FIELDS.size());
+  HS_EXPECT_TRUE(std::string_view(vortex.schema[1].id) == "center-x");
 
   // Projected sample batch: every crossing carries the union edge-width field
   // and the weight/coverage topology pair; only projected-noise adds a basis.
@@ -950,6 +958,7 @@ inline void test_shader_chain_catalog_shape() {
       contains("\"carriers\":[\"sphere\",\"plane\",\"field\",\"color\"]"));
   HS_EXPECT_TRUE(contains("\"id\":\"sphere.rotate.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"project.stereographic.v2\""));
+  HS_EXPECT_TRUE(contains("\"id\":\"warp.vortex.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.grid.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.spherical-rings.v3\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.fractal.v2\""));
@@ -1372,6 +1381,7 @@ struct WarpMirrorFrame {
   const FastNoiseLite *noise = nullptr;
   In::Op::AffineWarpParams affine;
   In::Op::WaveShearWarpParams wave_shear;
+  In::Op::VortexWarpParams vortex;
   In::Op::VectorNoiseWarpParams vector_noise;
   In::Op::MirrorWarpParams mirror;
   In::Op::PolarChartParams polar;
@@ -1423,6 +1433,21 @@ struct VectorNoiseMirrorProvider {
   static float phase(const FrameState &frame) { return frame.phase; }
   static const FastNoiseLite &noise(const FrameState &frame) {
     return *frame.noise;
+  }
+  static bool path_length_required(const FrameState &) { return true; }
+};
+
+struct VortexMirrorProvider {
+  using Binding = WarpMirrorBinding;
+  using FrameState = WarpMirrorFrame;
+  static In::Op::PreparedVortexWarp prepare(const FrameState &frame) {
+    const float phase = TWO_PI_F * frame.phase;
+    return {{{frame.vortex.center_x +
+                  frame.vortex.center_orbit_radius * cosf(phase),
+              frame.vortex.center_y +
+                  frame.vortex.center_orbit_radius * sinf(phase),
+              frame.vortex.radius * frame.vortex.radius,
+              TWO_PI_F * frame.vortex.turns}}};
   }
   static bool path_length_required(const FrameState &) { return true; }
 };
@@ -1546,6 +1571,8 @@ inline WarpMirrorFrame warp_mirror(In::ChainProgram &program) {
     mirror.phase = state_as<In::Op::WarpPhaseState>(program, 2).phase;
     if (id == In::Op::WarpWaveShear::ID)
       mirror.wave_shear = param_as<In::Op::WaveShearWarpParams>(program, 2);
+    else if (id == In::Op::WarpVortex::ID)
+      mirror.vortex = param_as<In::Op::VortexWarpParams>(program, 2);
     else if (id == In::Op::WarpMirrorTile::ID)
       mirror.mirror = param_as<In::Op::MirrorWarpParams>(program, 2);
     else if (id == In::Op::WarpPolarChart::ID)
@@ -1602,6 +1629,22 @@ inline void test_shader_chain_parity_warp_wave_shear() {
         program, ctx, In::Op::WarpEnvelope::PROJECTION_WEIGHT);
     run_wave_shear_variant<PB::Warp::EdgeFadeEnvelope>(
         program, ctx, In::Op::WarpEnvelope::EDGE_FADE);
+    program.clear();
+  }
+}
+
+inline void test_shader_chain_parity_warp_vortex() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_warp_op_chain<In::Op::VortexWarpParams>(program, In::Op::WarpVortex::ID,
+                                                4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    using Bound =
+        typename PB::Stage::Warp<PB::Warp::Vortex<VortexMirrorProvider>>::
+            template Bind<WarpMirrorBinding>;
+    expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
     program.clear();
   }
 }
@@ -1727,15 +1770,25 @@ inline void test_shader_chain_parity_warp_polar_chart() {
   }
 }
 
-template <::NoiseBasis Basis>
+template <::NoiseBasis Basis, typename Integrator>
 inline void run_curl_flow_variant(In::ChainProgram &program,
-                                  const In::FrameContext &ctx) {
-  param_as<In::Op::CurlFlowParams>(program, 2).basis =
-      static_cast<uint8_t>(Basis);
+                                  const In::FrameContext &ctx,
+                                  uint8_t integrator) {
+  auto &params = param_as<In::Op::CurlFlowParams>(program, 2);
+  params.basis = static_cast<uint8_t>(Basis);
+  params.integrator = integrator;
   using Bound = typename PB::Stage::Warp<
       PB::Warp::CurlFlow<CurlFlowMirrorProvider, Basis,
-                         PB::Warp::Euler1>>::template Bind<WarpMirrorBinding>;
+                         Integrator>>::template Bind<WarpMirrorBinding>;
   expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
+}
+
+template <::NoiseBasis Basis>
+inline void run_curl_flow_basis(In::ChainProgram &program,
+                                const In::FrameContext &ctx) {
+  run_curl_flow_variant<Basis, PB::Warp::Euler1>(program, ctx, 0);
+  run_curl_flow_variant<Basis, PB::Warp::Midpoint2>(program, ctx, 1);
+  run_curl_flow_variant<Basis, PB::Warp::Midpoint4>(program, ctx, 2);
 }
 
 inline void test_shader_chain_parity_warp_curl_flow() {
@@ -1746,9 +1799,9 @@ inline void test_shader_chain_parity_warp_curl_flow() {
     arm_warp_op_chain<In::Op::CurlFlowParams>(program, In::Op::WarpCurlFlow::ID,
                                               4, set);
     const In::FrameContext ctx = shared_resources().context();
-    run_curl_flow_variant<::NoiseBasis::SIMPLEX>(program, ctx);
-    run_curl_flow_variant<::NoiseBasis::FBM3>(program, ctx);
-    run_curl_flow_variant<::NoiseBasis::RIDGED3>(program, ctx);
+    run_curl_flow_basis<::NoiseBasis::SIMPLEX>(program, ctx);
+    run_curl_flow_basis<::NoiseBasis::FBM3>(program, ctx);
+    run_curl_flow_basis<::NoiseBasis::RIDGED3>(program, ctx);
     program.clear();
   }
 }
@@ -2799,11 +2852,9 @@ inline void test_shader_chain_refusal_shape() {
   expect_refusal(program, too_long, In::ChainStatus::TOO_LONG, -1, ctx,
                  baseline);
 
-  // Warp::Vortex is deferred (no shipped FIELDS family), so the id stays
-  // unknown as the operator set builds out.
   const In::ChainEntryRequest unknown[] = {
       {"camera", "sphere.rotate.v2"},
-      {"warp", "warp.vortex.v2"},
+      {"warp", "warp.unknown.v2"},
   };
   expect_refusal(program, unknown, In::ChainStatus::UNKNOWN_OPERATOR, 1, ctx,
                  baseline);
@@ -3255,7 +3306,7 @@ inline void test_shader_chain_effect_refusal_keeps_schema() {
   const size_t param_count = effect.getParameters().size();
   const In::ChainEntryRequest unknown[] = {
       {"camera", "sphere.rotate.v2"},
-      {"warp", "warp.vortex.v2"},
+      {"warp", "warp.unknown.v2"},
   };
   const In::ChainRefusal refusal = effect.set_chain(unknown);
   HS_EXPECT_EQ(static_cast<int>(refusal.code),
@@ -3343,6 +3394,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_field_ops();
   test_shader_chain_parity_warp_affine_mirror();
   test_shader_chain_parity_warp_wave_shear();
+  test_shader_chain_parity_warp_vortex();
   test_shader_chain_parity_warp_vector_noise();
   test_shader_chain_noise_instances_decorrelate();
   test_shader_chain_parity_warp_polar_chart();
