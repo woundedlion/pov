@@ -21,8 +21,9 @@
 #include <utility>
 #include <concepts>
 
-// Device/simulator arena budget is 298 KiB. Host effect harnesses use an 8 MiB
-// configuration so they can exercise every effect's full render path. The
+// Device arena budget is 298 KiB; the WASM simulator uses 512 KiB. Host effect
+// harnesses use an 8 MiB configuration so they can exercise every effect's full
+// render path. The
 // native harness is a 64-bit build, so per-effect footprints measured there
 // can be LARGER than on the 32-bit device wherever a pooled struct embeds a
 // POINTER (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut). Do not
