@@ -1200,6 +1200,8 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 
 The `Timeline` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase` and support method chaining via `.then()` for sequencing.
 
+Animation pause is opt-in per timeline event, not a global stop. Effects schedule parameter drivers and preset choreography with `timeline.add_pausable(..., &anims_paused)`; while the flag is set, both the animation step and any pending start delay are frozen. Passing a pause pointer to an animation constructor freezes only its `step()` call, so the timeline event's start delay still elapses. Events added with `add()` and motion advanced directly by `draw_frame()` continue to run, which lets the GUI pause animated controls without stopping ambient motion.
+
 `animation.h` defines the contract every animation implements — `IAnimation`, the CRTP `AnimationBase`, and `Animation::Space` — and then includes nine fragment headers grouped by what they animate:
 
 | Header | Subject | Contents |
