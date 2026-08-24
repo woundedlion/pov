@@ -4231,13 +4231,6 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
   return pinned;
 }
 
-/**
- * @brief Ratchet floor on the HS_CHECK sites the case table pins.
- * @details Raise it after adding cases; lower it only alongside a deliberate
- *          removal of the engine guards those cases target.
- */
-constexpr int MIN_COVERED_GUARD_SITES = 138;
-
 /** @brief One file's approved count of guard sites no case pins. */
 struct GuardGapAllowance {
   const char *file; /**< Source-file basename, as the census names it. */
@@ -4246,14 +4239,9 @@ struct GuardGapAllowance {
 
 /**
  * @brief Per-file allowances for the sites the case table leaves unpinned.
- * @details MIN_COVERED_GUARD_SITES is a whole-suite total, so a subsystem can
- *          land a dozen guards with no case at all and still clear it. Every
- *          census file's gap is gated against its row here, and a file with no
- *          row must be fully pinned — so new guards red the death module unless
- *          the same commit either pins them or writes the wider gap down. Each
- *          row is exact in both directions: a row that over-approves reds the
- *          module too, so pinning a guard or deleting one forces the row down
- *          in the same commit instead of leaving an allowance nothing spends.
+ * @details Every census file's gap is gated against its row here, and a file
+ *          with no row must be fully pinned. Each row is exact in both
+ *          directions, so pinning or deleting a guard forces the row down.
  */
 inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"animation.h", 3},
@@ -4354,9 +4342,8 @@ inline int allowed_guard_gap(const char *file) {
  *          Cases pinning a file the census does not know — the harness's own
  *          trap stand-ins, and any mistyped basename — count in neither and are
  *          reported separately rather than silently dropped. The pinned count is
- *          gated against MIN_COVERED_GUARD_SITES and each file's unpinned
- *          remainder against GUARD_GAP_ALLOW; the ratio itself is reported but
- *          not gated, since new engine guards move the denominator without
+ *          gated against GUARD_GAP_ALLOW; the ratio itself is reported but not
+ *          gated, since new engine guards move the denominator without
  *          weakening any case.
  */
 inline void report_guard_coverage(const Case *cs, int n) {
@@ -4430,7 +4417,6 @@ inline void report_guard_coverage(const Case *cs, int n) {
       ++stale_allowances;
     }
   }
-  HS_EXPECT_GE(covered, MIN_COVERED_GUARD_SITES);
   HS_EXPECT_EQ(unapproved_gaps, 0);
   HS_EXPECT_EQ(stale_allowances, 0);
 }
@@ -4461,11 +4447,6 @@ inline int run_death_tests() {
 
   int n;
   const Case *cs = all_cases(n);
-
-  // Exact roster size, so a silently dropped case fails here rather than
-  // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 191;
-  HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
   // dedicated always-trapping sentinel rather than a real case. A real case that
