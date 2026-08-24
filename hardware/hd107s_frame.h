@@ -29,6 +29,16 @@
 
 namespace hd107s {
 
+#if HS_ENABLE_TEST_HOOKS
+inline const void *last_flushed_data = nullptr;
+inline uint32_t last_flushed_bytes = 0;
+
+inline void reset_flush_observation() {
+  last_flushed_data = nullptr;
+  last_flushed_bytes = 0;
+}
+#endif
+
 /**
  * @brief Cleans a DMA source buffer out of the data cache.
  * @param data First byte of the buffer the DMA engine reads.
@@ -39,6 +49,10 @@ namespace hd107s {
  *          is a no-op there.
  */
 inline void dcache_flush(void *data, uint32_t bytes) {
+#if HS_ENABLE_TEST_HOOKS
+  last_flushed_data = data;
+  last_flushed_bytes = bytes;
+#endif
 #ifdef ARDUINO
   arm_dcache_flush(data, bytes);
 #else

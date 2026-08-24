@@ -236,17 +236,24 @@ inline void test_overrun_drop() {
  */
 inline void test_withbg_length() {
   hd107s_tests::reset_correction<N>();
+  hd107s::reset_flush_observation();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
   HS_EXPECT_TRUE(ctl.submitFrame(/*withBg=*/true));
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::COMPOSITE_SIZE));
+  HS_EXPECT_EQ(hd107s::last_flushed_data, MockStrip::state().last_data);
+  HS_EXPECT_EQ(hd107s::last_flushed_bytes,
+               static_cast<uint32_t>(MockStrip::state().last_len));
 
   MockStrip::state().complete = true;
   HS_EXPECT_TRUE(ctl.submitFrame(/*withBg=*/false));
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::BUFFER_SIZE));
+  HS_EXPECT_EQ(hd107s::last_flushed_data, MockStrip::state().last_data);
+  HS_EXPECT_EQ(hd107s::last_flushed_bytes,
+               static_cast<uint32_t>(MockStrip::state().last_len));
 }
 
 /**
