@@ -5402,6 +5402,30 @@ inline void test_mindsplatter_manual_preset_survives_unpause() {
   HS_EXPECT_NEAR(live.warp_scale, chosen.warp_scale, 1e-6f);
 }
 
+inline void test_mindsplatter_full_timeline_retries_transition() {
+  using MS = MindSplatter<SMALL_W, SMALL_H>;
+  using WB = MindSplatterWhiteBox;
+  reset_effect_globals();
+  MS effect;
+  effect.init();
+  float sink = 0.0f;
+  WB::saturate_timeline(effect, sink);
+  const uint32_t dropped_before = Timeline::dropped_events();
+
+  constexpr int INITIAL_DWELL =
+      MS::PRESET_DWELL_FRAMES + MS::PRESET_SEGUE.frames;
+  for (int f = 0; f < INITIAL_DWELL; ++f)
+    WB::tick_choreography(effect);
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 1);
+  HS_EXPECT_FALSE(WB::transition_active(effect));
+  HS_EXPECT_EQ(WB::preset_index(effect), size_t{0});
+
+  WB::clear_timeline(effect);
+  WB::tick_choreography(effect);
+  HS_EXPECT_TRUE(WB::transition_active(effect));
+  HS_EXPECT_EQ(WB::preset_index(effect), size_t{1});
+}
+
 /** @brief Fusing the vertex pass into trail materialization is pixel exact. */
 inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
   constexpr int W = SMALL_W;
@@ -6850,6 +6874,7 @@ inline int run_effects_tests() {
   test_shapeshifter_slider_selections_render();
   test_manual_preset_navigation();
   test_mindsplatter_manual_preset_survives_unpause();
+  test_mindsplatter_full_timeline_retries_transition();
   test_hankinsolids_manual_pause_holds_morph();
   test_every_effect_renders_while_paused();
   // Arena budgets both tiers run: a mesh or fragment-count change reds these,
