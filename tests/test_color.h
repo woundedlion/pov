@@ -2152,6 +2152,9 @@ inline void test_static_palette_composition() {
   float quarter = 0.25f;
   CycleModifier quarter_cycle(&quarter);
   WrapModifier fold_unit;
+  HS_EXPECT_NEAR(fold_unit.modify(-0.25f), 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(fold_unit.modify(1.25f), 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(fold_unit.modify(1.0f), 0.0f, 1e-6f);
   StaticPalette<Gradient, Coords<CycleModifier, WrapModifier, MirrorModifier>,
                 Colors<>, /*Wrap=*/false>
       scrolled_mirror;
