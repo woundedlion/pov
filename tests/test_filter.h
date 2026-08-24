@@ -68,6 +68,20 @@ struct pipeline_contains<T, Pipeline<W, H, Head, Tail...>>
                          pipeline_contains<T, Pipeline<W, H, Tail...>>::value> {
 };
 
+template <typename P>
+concept RawFramePlotter = requires(P &pipeline, Canvas &canvas) {
+  pipeline.plot(canvas, 0, 0, Pixel{}, 0.0f, 1.0f);
+};
+
+template <typename P>
+concept TerminalFlusher =
+    requires(P &pipeline, Canvas &canvas) { pipeline.flush(canvas, 1.0f); };
+
+template <typename P>
+concept ReplacementFrameStarter = requires(P &pipeline, Canvas &canvas) {
+  pipeline.begin_frame(canvas, 1.0f);
+};
+
 // ============================================================================
 // Trait structs — direct member values
 // ============================================================================
@@ -299,8 +313,21 @@ inline void test_pipeline_sink_is_2d() {
   HS_EXPECT_FALSE((Pipeline<32, 32>::is_terminal));
   using Terminal = Pipeline<32, 32, Filter::Pixel::Feedback<32, 32>>;
   using NonTerminal = Pipeline<32, 32, Filter::Screen::AntiAlias<32, 32>>;
+  using Prepared =
+      std::remove_reference_t<decltype(std::declval<Terminal &>().begin_frame(
+          std::declval<Canvas &>(), 1.0f))>;
   static_assert(Terminal::is_terminal);
   static_assert(!NonTerminal::is_terminal);
+  static_assert(!RawFramePlotter<Terminal>);
+  static_assert(!TerminalFlusher<Terminal>);
+  static_assert(ReplacementFrameStarter<Terminal>);
+  static_assert(std::is_empty_v<Prepared>);
+  static_assert(PipelineFoldSurface<Prepared>);
+  static_assert(RawFramePlotter<Prepared>);
+  static_assert(!TerminalFlusher<Prepared>);
+  static_assert(!ReplacementFrameStarter<Prepared>);
+  static_assert(RawFramePlotter<NonTerminal>);
+  static_assert(!ReplacementFrameStarter<NonTerminal>);
 }
 
 /**
@@ -1681,7 +1708,7 @@ inline void test_feedback_flush_blends_prev_frame() {
   // Frame 2: empty buffer; flush warps+blends the prev band into it.
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1698,7 +1725,7 @@ inline void test_feedback_flush_blends_prev_frame() {
   pipe.get<Filter::Pixel::Feedback<W, H>>().set_enabled(false);
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
   HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 8)));
@@ -1760,7 +1787,7 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1793,7 +1820,7 @@ inline void test_feedback_south_pole_uses_single_physical_sample() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1833,7 +1860,7 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1894,7 +1921,7 @@ inline void test_feedback_flush_respects_clip() {
   // Frame 2: empty buffer; clipped flush warps+blends only within the band.
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -1962,7 +1989,7 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   // Frame 2: empty buffer; the melt flush warps + blends the band into it.
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2100,7 +2127,7 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
 
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2153,7 +2180,7 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
 
     {
       Canvas c(fx);
-      pipe.flush(c, 1.0f);
+      (void)pipe.begin_frame(c, 1.0f);
     }
     fx.advance_display();
 
@@ -2190,7 +2217,7 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
   fx.advance_display();
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2234,7 +2261,7 @@ inline void test_feedback_spherical_ring_control_rows() {
 
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2469,7 +2496,7 @@ inline void test_feedback_seam_warp_keeps_its_latitude_row() {
   fx.set_clip(0, H, 0, W);
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -2527,7 +2554,7 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   fx.set_clip(0, 2, 0, W);
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
   expect_rows(0, 2);
@@ -2536,7 +2563,7 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   fx.set_clip(2, 4, 0, W);
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
   expect_rows(2, 4);
@@ -2605,7 +2632,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
 
       {
         Canvas c(fx);
-        pipe.flush(c, 1.0f);
+        (void)pipe.begin_frame(c, 1.0f);
       }
       fx.advance_display();
 
@@ -2686,7 +2713,7 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   // Frame 2: empty buffer; flush pulls the warped prev frame into it.
   {
     Canvas c(fx);
-    pipe.flush(c, 1.0f);
+    (void)pipe.begin_frame(c, 1.0f);
   }
   fx.advance_display();
 
@@ -3344,16 +3371,17 @@ inline void test_feedback_banded_diverges_from_full() {
     // pipeline, so a band-clipped worker only seeds rows inside its band.
     {
       Canvas c(fx);
+      auto &frame = pipe.begin_frame(c, 1.0f);
       for (int y = MID - 4; y < MID + 4; ++y)
         for (int x = 0; x < W; ++x)
-          pipe.plot(c, x, y, Pixel(40000, 40000, 40000), 0.0f, 1.0f);
+          frame.plot(c, x, y, Pixel(40000, 40000, 40000), 0.0f, 1.0f);
     }
     fx.advance_display();
 
     for (int f = 0; f < K; ++f) {
       {
         Canvas c(fx);
-        pipe.flush(c, 1.0f);
+        (void)pipe.begin_frame(c, 1.0f);
       }
       fx.advance_display();
     }
