@@ -1462,10 +1462,16 @@ jobs:
 
           HARNESS=tools/relax_bake_harness.cpp
           DEATH=tests/test_death.h
-          git show "$PREV:$HARNESS" > /tmp/ratchet-prev-harness.cpp 2>/dev/null \
-            || : > /tmp/ratchet-prev-harness.cpp
-          git show "$PREV:$DEATH" > /tmp/ratchet-prev-death.h 2>/dev/null \
-            || : > /tmp/ratchet-prev-death.h
+          if ! git cat-file -e "$PREV:$HARNESS" 2>/dev/null; then
+            echo "::error file=$HARNESS::$HARNESS is absent in $PREV - domain ratchet comparison unavailable"
+            exit 1
+          fi
+          if ! git cat-file -e "$PREV:$DEATH" 2>/dev/null; then
+            echo "::error file=$DEATH::$DEATH is absent in $PREV - domain ratchet comparison unavailable"
+            exit 1
+          fi
+          git show "$PREV:$HARNESS" > /tmp/ratchet-prev-harness.cpp
+          git show "$PREV:$DEATH" > /tmp/ratchet-prev-death.h
           python tools/check_domain_ratchets.py \
             /tmp/ratchet-prev-harness.cpp "$HARNESS" \
             /tmp/ratchet-prev-death.h "$DEATH" --previous-ref "$PREV"
