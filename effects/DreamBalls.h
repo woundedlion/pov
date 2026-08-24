@@ -349,6 +349,25 @@ private:
     return cubic_kernel((1.0f - edge_t) / gap);
   }
 
+  HS_FLASH_MEMBER static void
+  assign_woven_start_owners(const ArenaVector<Plot::Mesh::Edge> &edges,
+                            uint16_t *owners, size_t vertex_count) {
+    std::fill_n(owners, vertex_count, UINT16_MAX);
+    for (size_t edge_index = 0; edge_index < edges.size(); ++edge_index) {
+      const uint16_t vertex = edges[edge_index].u;
+      HS_CHECK(vertex < vertex_count);
+      if (owners[vertex] == UINT16_MAX)
+        owners[vertex] = static_cast<uint16_t>(edge_index);
+    }
+  }
+
+  static bool
+  owns_woven_start_sample(const ArenaVector<Plot::Mesh::Edge> &edges,
+                          const uint16_t *owners, size_t edge_index) {
+    HS_CHECK(edge_index < edges.size());
+    return owners[edges[edge_index].u] == edge_index;
+  }
+
   HS_FLASH_MEMBER static Vector woven_vertex(const SolidData &solid,
                                              bool medial, size_t vertex) {
     if (!medial)
@@ -581,7 +600,7 @@ private:
   }
 
   void draw_woven_scene(Canvas &canvas, const Params &p, const SolidData &solid,
-                        bool medial, FragmentShaderFn fragment_shader) {
+                        bool medial, float opacity, const BakedPalette &baked) {
     const auto &edges = medial && solid.four_regular ? solid.medial_edges
                                                      : solid.automatic_edges;
     const size_t vertex_count =
@@ -596,6 +615,20 @@ private:
     ArenaVector<Plot::Mesh::Edge> framed_edges;
     prepare_woven_buffers(solid, medial, edges, base_vertices, frame_u, offsets,
                           framed_mesh, framed_edges);
+
+    uint16_t *start_owners = scratch_arena_b.allocate_n<uint16_t>(vertex_count);
+    assign_woven_start_owners(edges, start_owners, vertex_count);
+
+    auto woven_shader = [&](const Vector &, Fragment &f) {
+      Color4 c = baked.get(f.v0);
+      c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
+      if (f.v0 == 0.0f) {
+        const size_t edge_index = static_cast<size_t>(f.v2);
+        if (!owns_woven_start_sample(edges, start_owners, edge_index))
+          c.alpha = 0.0f;
+      }
+      f.color = c;
+    };
 
     const int num_copies_raw = static_cast<int>(p.num_copies);
     const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
@@ -638,7 +671,7 @@ private:
       {
         HS_PROFILE(db_mesh_plot);
         Plot::Mesh::draw<W, H>(filters, canvas, framed_mesh, framed_edges,
-                               fragment_shader);
+                               woven_shader);
       }
     }
   }
@@ -693,18 +726,17 @@ private:
                   const SolidData &solid, const BakedPalette &baked) {
     HS_PROFILE(db_draw_scene);
 
-    auto fragment_shader = [&](const Vector &, Fragment &f) {
-      Color4 c = baked.get(f.v0);
-      c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
-      f.color = c;
-    };
-
     if (p.weave_topology == WeaveTopology::ORIGINAL_WITH_DEFECTS) {
+      auto fragment_shader = [&](const Vector &, Fragment &f) {
+        Color4 c = baked.get(f.v0);
+        c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
+        f.color = c;
+      };
       draw_original_scene(canvas, p, solid, fragment_shader);
     } else {
       const bool medial =
           p.weave_topology == WeaveTopology::MEDIAL || !solid.four_regular;
-      draw_woven_scene(canvas, p, solid, medial, fragment_shader);
+      draw_woven_scene(canvas, p, solid, medial, opacity, baked);
     }
   }
 
