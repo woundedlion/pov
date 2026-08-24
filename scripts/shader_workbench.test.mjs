@@ -97,6 +97,22 @@ test('the native golden and the wasm mirror differ only in pointer-block width',
     'the two accountings can disagree by a whole arena');
 });
 
+test('the catalog exposes the complete workbench warp and source vocabulary', () => {
+  const operators = new Map(
+    CATALOG.operators.map((operator) => [operator.id, operator]));
+  assert.equal(operators.get('warp.vortex.v2')?.name, 'Vortex');
+  assert.deepEqual(
+    operators.get('warp.curl-flow.v2')?.params
+      .find((parameter) => parameter.id === 'integrator')?.values,
+    ['euler-1', 'midpoint-2', 'midpoint-4'],
+  );
+  for (const id of [
+    'sample.spherical-rings.v3',
+    'sample.fractal.v2',
+    'sample.tessellation.v2',
+  ]) assert.ok(operators.has(id), id);
+});
+
 test('every promoted shader document matches its compiled effect identity', async () => {
   const migration = JSON.parse(await readFile(
     new URL('../patterns/shaderball_migration.json', import.meta.url), 'utf8'));
