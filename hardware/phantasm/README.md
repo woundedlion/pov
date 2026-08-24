@@ -245,9 +245,13 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
 - **J1 ships unkeyed — R-PWR-7 is not met on this board.** Both committed artifacts
   carry `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical`, a plain 0.1″
   header with no key, no shroud and no locking ramp, so nothing mechanically stops the
-  +5 V/GND feed going on backwards — the condition R-PWR-7 calls out (“a reversed feed
-  destroys the Teensy + '125”). `Q_REV` is series protection on the logic rail, not the
-  polarising feature that requirement asks for. `gen/board.py` names the keyed
+  +5 V/GND feed going on backwards. `Q_REV` is oriented to block that reversed feed from
+  the logic rail, so it protects the Teensy and '125. The residual fault is on the return:
+  reversal puts +5 V on the board's GND plane, and a connected Teensy USB cable ties that
+  plane to host ground, shorting the supply through the cable. `F1` is only in J1's +5 V
+  leg, so this fault path is unfused; cutting VIN/VUSB per R-ASM-7 does not disconnect USB
+  ground. Do not energize J1 with USB attached until its polarity is verified.
+  `gen/board.py` names the keyed
   `Connector_JST:JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical` (mates XAP-02V-1 +
   SXA-001T-P0.6); it reaches copper only after a re-place and a re-route, because the
   JST body and its 2.50 mm pitch do not fit the header's routed pads. Until then the

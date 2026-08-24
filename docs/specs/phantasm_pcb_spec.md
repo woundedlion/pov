@@ -94,8 +94,10 @@ clean to **≥30 MHz** so headroom exists.
 - **R-PWR-7 — Reverse protection collapses to logic-only.** The card carries ~0.15 A, so a **small
   series Schottky or P-FET (Q_REV) on the logic feed** is enough — the 4.4 A ideal-diode problem (and
   its body-diode-orientation / SOA subtleties) is **gone with the LED current**. Still **key/polarize
-  J1** (a reversed feed destroys the Teensy + '125). The **LED-power harness gets its own
-  protection/keying off-board** (§2.3).
+  J1**. Q_REV blocks a reversed feed from the logic rail, but reversal drives the card's GND plane to
+  +5 V. If USB is attached, the Teensy's USB ground ties that plane to host ground and shorts the
+  supply through the cable; F1 is in the +5 V leg and does not fuse this path. The **LED-power harness
+  gets its own protection/keying off-board** (§2.3).
 - **R-PWR-8 — Per-card overcurrent.** The card's ~0.15 A logic feed wants only a **small fuse/PTC (F1,
   ~0.5–1 A)** at J1, or documentation that it's covered upstream. (Strip overcurrent lives with the
   power harness — §2.3, R-PWR-12.)
