@@ -122,6 +122,7 @@ inline EdgeMetric edge_metric_4d(const Vec4 &point, int plane_axis) {
 
 struct Params {
   float dimension = 0.0f;
+  float sphere_radius = 0.4f;
   float wire_radius = 0.055f;
   float softness = 0.012f;
   float far_cells = 7.0f;
@@ -135,6 +136,7 @@ struct Params {
 
   void lerp(const Params &start, const Params &target, float amount) {
     dimension = hs::lerp(start.dimension, target.dimension, amount);
+    sphere_radius = hs::lerp(start.sphere_radius, target.sphere_radius, amount);
     wire_radius = hs::lerp(start.wire_radius, target.wire_radius, amount);
     softness = hs::lerp(start.softness, target.softness, amount);
     far_cells = hs::lerp(start.far_cells, target.far_cells, amount);
@@ -165,8 +167,6 @@ struct PreparedTrace {
   Params params;
   Vec4 origin;
   Mat4 world_to_lattice;
-  float positive_offset[DIMENSIONS];
-  float negative_offset[DIMENSIONS];
   float inv_far;
   float pixel_half_angle;
 };
@@ -189,6 +189,17 @@ inline float projected_half_width(float distance, float plane_component,
          aa_strength * pixel_half_angle * distance / fabsf(plane_component);
 }
 
+inline float near_field_coverage(float distance, float wire_radius) {
+  return smooth_ramp(1.5f * wire_radius, 4.0f * wire_radius, distance);
+}
+
+inline float next_plane_offset(float origin, bool positive) {
+  const float fraction = wrap_t(origin);
+  if (fraction == 0.0f)
+    return 1.0f;
+  return positive ? 1.0f - fraction : fraction;
+}
+
 inline PreparedTrace prepare_trace(const FrameState &frame) {
   PreparedTrace prepared;
   prepared.params = frame.params;
@@ -204,11 +215,6 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
                dimension * frame.rotation_phase[4]);
   rotate_plane(prepared.world_to_lattice, 2, 3,
                dimension * frame.rotation_phase[5]);
-  for (int axis = 0; axis < DIMENSIONS; ++axis) {
-    const float fraction = wrap_t(frame.origin[axis]);
-    prepared.positive_offset[axis] = fraction == 0.0f ? 1.0f : 1.0f - fraction;
-    prepared.negative_offset[axis] = fraction == 0.0f ? 1.0f : fraction;
-  }
   prepared.inv_far = 1.0f / frame.params.far_cells;
   prepared.pixel_half_angle = frame.pixel_half_angle;
   return prepared;
@@ -228,69 +234,166 @@ struct TraceHit {
   uint8_t free_axis = 0;
 };
 
-inline TraceHit trace(const Vector &normal, const PreparedTrace &prepared) {
+inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
+                            int plane_axis, float distance,
+                            const PreparedTrace &prepared) {
+  Vec4 point;
+  for (int axis = 0; axis < DIMENSIONS; ++axis)
+    point[axis] = ray_origin[axis] + distance * direction[axis];
+
+  float metric_sq;
+  uint8_t free_axis;
+  float dimensional_coverage = 1.0f;
+  if (prepared.params.dimension == 0.0f) {
+    const EdgeMetric metric_3d = edge_metric_3d(point, plane_axis);
+    metric_sq = metric_3d.distance_sq;
+    free_axis = metric_3d.free_axis;
+  } else {
+    const EdgeMetric metric_4d = edge_metric_4d(point, plane_axis);
+    metric_sq = metric_4d.distance_sq;
+    free_axis = metric_4d.free_axis;
+    if (plane_axis < 3 && prepared.params.dimension < 1.0f) {
+      const EdgeMetric metric_3d = edge_metric_3d(point, plane_axis);
+      metric_sq = hs::lerp(metric_3d.distance_sq, metric_4d.distance_sq,
+                           prepared.params.dimension);
+      if (prepared.params.dimension < 0.5f)
+        free_axis = metric_3d.free_axis;
+    } else if (plane_axis == 3) {
+      dimensional_coverage = prepared.params.dimension;
+    }
+  }
+
+  const float half_width = projected_half_width(
+      distance, direction[plane_axis], prepared.pixel_half_angle,
+      prepared.params.aa_strength, prepared.params.softness);
+  const float edge =
+      wire_coverage(metric_sq, prepared.params.wire_radius, half_width);
+  const float fog = std::max(0.0f, 1.0f - distance * prepared.inv_far);
+  const float near = near_field_coverage(distance, prepared.params.wire_radius);
+  return {edge * fog * fog * near * dimensional_coverage, distance, free_axis};
+}
+
+struct TraceCursor {
+  float distance = 0.0f;
+  float step = 0.0f;
+  uint8_t shell = 0;
+  bool active = false;
+};
+
+template <typename ConsumeFn>
+inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
+                         ConsumeFn consume) {
+  constexpr float GROUP_EPSILON = 1.0e-4f;
+  const Vec4 surface_normal =
+      prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
+  Vec4 ray_origin = prepared.origin;
+  for (int axis = 0; axis < DIMENSIONS; ++axis)
+    ray_origin[axis] += prepared.params.sphere_radius * surface_normal[axis];
   const Vec4 direction = prepared.world_to_lattice.apply(
       reflected_direction(normal, prepared.params.reflection));
-  const int shell_count = static_cast<int>(prepared.params.shells) + 1;
-  TraceHit best;
-
-  for (int plane_axis = 0; plane_axis < DIMENSIONS; ++plane_axis) {
-    if (plane_axis == 3 && prepared.params.dimension == 0.0f)
+  const uint8_t shell_count = static_cast<uint8_t>(prepared.params.shells) + 1;
+  TraceCursor cursors[DIMENSIONS];
+  for (int axis = 0; axis < DIMENSIONS; ++axis) {
+    if (axis == 3 && prepared.params.dimension == 0.0f)
       continue;
-    const float component = direction[plane_axis];
+    const float component = direction[axis];
     const float magnitude = fabsf(component);
     if (magnitude < DIRECTION_EPSILON)
       continue;
-    const float inverse = 1.0f / magnitude;
-    float distance = (component > 0.0f ? prepared.positive_offset[plane_axis]
-                                       : prepared.negative_offset[plane_axis]) *
-                     inverse;
-    for (int shell = 0; shell < MAX_SHELLS; ++shell, distance += inverse) {
-      if (shell >= shell_count || distance >= prepared.params.far_cells)
-        break;
-      Vec4 point;
-      for (int axis = 0; axis < DIMENSIONS; ++axis)
-        point[axis] = prepared.origin[axis] + distance * direction[axis];
-
-      float metric_sq;
-      uint8_t free_axis;
-      float dimensional_coverage = 1.0f;
-      if (prepared.params.dimension == 0.0f) {
-        const EdgeMetric metric_3d = edge_metric_3d(point, plane_axis);
-        metric_sq = metric_3d.distance_sq;
-        free_axis = metric_3d.free_axis;
-      } else {
-        const EdgeMetric metric_4d = edge_metric_4d(point, plane_axis);
-        metric_sq = metric_4d.distance_sq;
-        free_axis = metric_4d.free_axis;
-        if (plane_axis < 3 && prepared.params.dimension < 1.0f) {
-          const EdgeMetric metric_3d = edge_metric_3d(point, plane_axis);
-          metric_sq = hs::lerp(metric_3d.distance_sq, metric_4d.distance_sq,
-                               prepared.params.dimension);
-          if (prepared.params.dimension < 0.5f)
-            free_axis = metric_3d.free_axis;
-        } else if (plane_axis == 3) {
-          dimensional_coverage = prepared.params.dimension;
-        }
-      }
-
-      const float half_width = projected_half_width(
-          distance, component, prepared.pixel_half_angle,
-          prepared.params.aa_strength, prepared.params.softness);
-      const float edge =
-          wire_coverage(metric_sq, prepared.params.wire_radius, half_width);
-      const float fog = std::max(0.0f, 1.0f - distance * prepared.inv_far);
-      const float coverage = edge * fog * fog * dimensional_coverage;
-      if (coverage > best.coverage)
-        best = {coverage, distance, free_axis};
-    }
+    TraceCursor &cursor = cursors[axis];
+    cursor.step = 1.0f / magnitude;
+    cursor.distance =
+        next_plane_offset(ray_origin[axis], component > 0.0f) * cursor.step;
+    cursor.active = cursor.distance < prepared.params.far_cells;
   }
-  return best;
+
+  for (int event = 0; event < DIMENSIONS * MAX_SHELLS; ++event) {
+    float nearest = prepared.params.far_cells;
+    for (const TraceCursor &cursor : cursors)
+      if (cursor.active && cursor.distance < nearest)
+        nearest = cursor.distance;
+    if (nearest >= prepared.params.far_cells)
+      break;
+
+    const float tolerance = GROUP_EPSILON * std::max(1.0f, nearest);
+    TraceHit layer;
+    for (int axis = 0; axis < DIMENSIONS; ++axis) {
+      TraceCursor &cursor = cursors[axis];
+      if (!cursor.active || fabsf(cursor.distance - nearest) > tolerance)
+        continue;
+      const TraceHit candidate =
+          trace_plane(ray_origin, direction, axis, cursor.distance, prepared);
+      if (candidate.coverage > layer.coverage)
+        layer = candidate;
+      ++cursor.shell;
+      cursor.distance += cursor.step;
+      cursor.active = cursor.shell < shell_count &&
+                      cursor.distance < prepared.params.far_cells;
+    }
+    if (layer.coverage > 0.0f && !consume(layer))
+      return;
+  }
 }
 
-struct TraceStage
-    : Pullback::Stage::Contract<TraceStage, Pullback::SphereSample,
-                                Pullback::FieldSample> {
+inline TraceHit trace(const Vector &normal, const PreparedTrace &prepared) {
+  TraceHit nearest;
+  trace_layers(normal, prepared, [&](const TraceHit &hit) {
+    nearest = hit;
+    return false;
+  });
+  return nearest;
+}
+
+struct LayerComposite {
+  float red = 0.0f;
+  float green = 0.0f;
+  float blue = 0.0f;
+  float remaining = 1.0f;
+
+  void add(const Pixel &color, float coverage) {
+    const float layer_coverage = hs::clamp(coverage, 0.0f, 1.0f);
+    const float weight = remaining * layer_coverage;
+    red += static_cast<float>(color.r) * weight;
+    green += static_cast<float>(color.g) * weight;
+    blue += static_cast<float>(color.b) * weight;
+    remaining *= 1.0f - layer_coverage;
+  }
+
+  Color4 finish() const {
+    const float alpha = 1.0f - remaining;
+    if (alpha <= 0.0f)
+      return {};
+    const float inverse_alpha = 1.0f / alpha;
+    const Pixel color{static_cast<uint16_t>(hs::clamp(
+                          red * inverse_alpha + 0.5f, 0.0f, 65535.0f)),
+                      static_cast<uint16_t>(hs::clamp(
+                          green * inverse_alpha + 0.5f, 0.0f, 65535.0f)),
+                      static_cast<uint16_t>(hs::clamp(
+                          blue * inverse_alpha + 0.5f, 0.0f, 65535.0f))};
+    return {color, alpha};
+  }
+};
+
+inline Color4 shade(const Pullback::SphereSample &input,
+                    const FrameState &frame, const PreparedTrace &prepared) {
+  LayerComposite composite;
+  trace_layers(input.dir, prepared, [&](const TraceHit &hit) {
+    const float path_length = input.path_length + hit.distance;
+    const float depth = hs::clamp(path_length * prepared.inv_far, 0.0f, 1.0f);
+    const float value =
+        prepared.params.color == ColorMode::DEPTH
+            ? 1.0f - depth
+            : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
+    Color4 color = frame.palette->get(value);
+    color.color = color.color * (0.45f + 0.55f * (1.0f - depth));
+    composite.add(color.color, hit.coverage * color.alpha);
+    return composite.remaining > MIN_ENCODABLE_ALPHA;
+  });
+  return composite.finish();
+}
+
+struct ShadeStage
+    : Pullback::Stage::Contract<ShadeStage, Pullback::SphereSample, Color4> {
   using Policies = std::tuple<>;
 
   template <typename PipelineBinding>
@@ -300,41 +403,15 @@ struct TraceStage
   }
 
   template <typename PipelineBinding>
-  __attribute__((always_inline)) static Pullback::FieldSample
-  run(const Pullback::SphereSample &input,
-      const typename PipelineBinding::FrameState &,
-      const PreparedTrace &prepared) {
-    const TraceHit hit = trace(input.dir, prepared);
-    if (hit.coverage <= 0.0f)
-      return {0.0f, 0.0f, input.dir, input.path_length};
-    const float depth = hs::clamp(hit.distance * prepared.inv_far, 0.0f, 1.0f);
-    const float value =
-        prepared.params.color == ColorMode::DEPTH
-            ? 1.0f - depth
-            : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
-    return {value, hit.coverage, input.dir, input.path_length + hit.distance};
-  }
-};
-
-struct ColorStage
-    : Pullback::Stage::Contract<ColorStage, Pullback::FieldSample, Color4> {
-  using Policies = std::tuple<>;
-
-  template <typename PipelineBinding>
   __attribute__((always_inline)) static Color4
-  run(const Pullback::FieldSample &input,
+  run(const Pullback::SphereSample &input,
       const typename PipelineBinding::FrameState &frame,
-      const Pullback::NoPrepared &) {
-    Color4 color = frame.palette->get(input.value);
-    const float depth =
-        hs::clamp(input.path_length / frame.params.far_cells, 0.0f, 1.0f);
-    color.color = color.color * (0.45f + 0.55f * (1.0f - depth));
-    color.alpha *= input.coverage;
-    return color;
+      const PreparedTrace &prepared) {
+    return shade(input, frame, prepared);
   }
 };
 
-using RenderPipeline = Pullback::Pipeline<Binding, TraceStage, ColorStage>;
+using RenderPipeline = Pullback::Pipeline<Binding, ShadeStage>;
 
 } // namespace HyperLatticeDetail
 
@@ -356,7 +433,7 @@ public:
   static constexpr Segue::Lerp PRESET_SEGUE{240, ease_in_out_sin,
                                             /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   static constexpr Params initial_params() { return {}; }
 
@@ -397,6 +474,7 @@ public:
 
   static bool valid_params(const Params &value) {
     return value.dimension >= 0.0f && value.dimension <= 1.0f &&
+           value.sphere_radius >= 0.0f && value.sphere_radius <= 1.5f &&
            value.wire_radius >= 0.015f && value.wire_radius <= 0.18f &&
            value.softness >= 0.002f && value.softness <= 0.08f &&
            value.far_cells >= 2.0f && value.far_cells <= 16.0f &&
@@ -417,6 +495,7 @@ public:
   void init() override {
     configure_presets(PRESET_IDS.size());
     register_animated_param("Dimension", &params.dimension, 0.0f, 1.0f);
+    register_animated_param("Sphere Radius", &params.sphere_radius, 0.0f, 1.5f);
     register_animated_param("Wire Radius", &params.wire_radius, 0.015f, 0.18f);
     register_animated_param("Softness", &params.softness, 0.002f, 0.08f);
     register_animated_param("Far Cells", &params.far_cells, 2.0f, 16.0f);
