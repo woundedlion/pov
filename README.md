@@ -635,6 +635,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── record-module-loads.mjs NODE_OPTIONS shim recording loaded test modules
 │   ├── require-tests.mjs       `pretest` guard against empty globs, unreachable tests, and shadow installs
 │   ├── serve-manifest.mjs      Local static server constrained to the published site manifest
+│   ├── verify-ci-green.mjs     Verifies every CI job is covered by the required aggregate check
 │   ├── workbench-probe.mjs     Headless pointer-level probe of the shader workbench's pipeline strip; run it for any tools/ UI change
 │   ├── panel-probe.mjs         Headless probe of the effect panel's real scroll clamping and scroll restore across a rebuild
 │   ├── solids-probe.mjs        Headless pointer-level probe of the solids page's op-chain row reordering
