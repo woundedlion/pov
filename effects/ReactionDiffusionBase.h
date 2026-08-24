@@ -257,7 +257,7 @@ protected:
    * refine_render_center).
    */
   void seed_face_lut(Fragment &frag) {
-    Vector rv = orientation.unorient(frag.pos);
+    Vector rv = inverse_orientation.apply(frag.pos);
     frag.v0 = static_cast<float>(cube_lut.lookup(rv));
   }
 
@@ -343,7 +343,9 @@ protected:
   Vector *orient_lattice() {
     Vector *world = static_cast<Vector *>(
         scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
-    orient_nodes(nodes, world, RD_N, orientation.get());
+    const Quaternion &current = orientation.get();
+    inverse_orientation = RotationMatrix(current.conjugate());
+    orient_nodes(nodes, world, RD_N, current);
     return world;
   }
 
@@ -429,7 +431,8 @@ private:
 
 protected:
   Orientation<> orientation; /**< Current view orientation on the sphere. */
-  FastNoiseLite noise;       /**< Noise source driving the orientation walk. */
+  RotationMatrix inverse_orientation{Quaternion()};
+  FastNoiseLite noise; /**< Noise source driving the orientation walk. */
   ReactionGraph::CubemapLUT
       cube_lut;      /**< Cubemap LUT for fast nearest-node seeding. */
   Timeline timeline; /**< Animation timeline advancing the orientation. */
