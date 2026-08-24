@@ -1041,6 +1041,7 @@ public:
    * @param owner The effect instance owning the buffer.
    */
   explicit Canvas(Effect &owner) : effect(owner) {
+    HS_CHECK(!effect.canvas_active, "Canvas already active for this Effect");
     wait_for_free_buffer();
     // Ordering is load-bearing: the hook runs post-wait but pre-clear, so the
     // clip it sets is the one clear_stale_pixels() honours.
