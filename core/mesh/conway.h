@@ -287,7 +287,8 @@ inline void emit_edge_midpoints(const HalfEdgeMesh &he_mesh,
     uint16_t v2 = he_mesh.half_edges[he.prev].vertex;
 
     Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
-    out_mesh.vertices.push_back(normalized_or(mid, mesh.vertices[v1]));
+    out_mesh.vertices.push_back(
+        normalized_or(mid, normalized_or(mesh.vertices[v1], X_AXIS)));
 
     uint16_t new_idx = narrow_index(out_mesh.vertices.size() - 1);
     edge_to_vert[i] = new_idx;
