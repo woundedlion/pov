@@ -78,7 +78,7 @@ inline void rotate_plane(Mat4 &matrix, int a, int b, float angle) {
   }
 }
 
-inline float periodic_distance(float value) {
+__attribute__((always_inline)) inline float periodic_distance(float value) {
   return fabsf(value - floorf(value + 0.5f));
 }
 
