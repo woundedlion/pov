@@ -127,6 +127,18 @@ inline void test_kdtree_k_nearest_sorted() {
   HS_EXPECT_VEC(r[2].point, Vector(2, 0, 0), 1e-6f);
 }
 
+inline void test_kdtree_ties_prefer_source_index() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+  Vector pts[] = {Vector(1, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 0),
+                  Vector(0, -1, 0)};
+  KDTree tree(arena, std::span<Vector>(pts));
+
+  const auto result = tree.nearest(Vector(0, 0, 0), 2);
+  HS_EXPECT_SIZE_OR_RETURN(result, 2);
+  HS_EXPECT_EQ(result[0].original_index, 0);
+  HS_EXPECT_EQ(result[1].original_index, 1);
+}
+
 /**
  * @brief Verifies requesting more neighbors than exist returns all available
  *        points, not k.
@@ -621,6 +633,7 @@ inline int run_spatial_tests() {
   test_kdtree_single_point();
   test_kdtree_nearest_known_set();
   test_kdtree_k_nearest_sorted();
+  test_kdtree_ties_prefer_source_index();
   test_kdtree_k_caps_at_size();
   test_kdtree_default_unbuilt();
   test_kdtree_matches_brute_force();
