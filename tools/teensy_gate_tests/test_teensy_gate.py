@@ -1506,6 +1506,13 @@ class TestGateExtra(unittest.TestCase):
                                 "packages", "tool-teensy", "teensy_size.exe")
         self.assertIn(expected, cands)
 
+    def test_candidates_surface_platform_lookup_failures(self):
+        env = self._env()
+        env.PioPlatform = lambda: types.SimpleNamespace(
+            get_package_dir=lambda name: (_ for _ in ()).throw(RuntimeError(name)))
+        with self.assertRaisesRegex(RuntimeError, "tool-teensy"):
+            self.ge._teensy_size_candidates(env)
+
     def test_find_teensy_size_resolves_from_the_tool_package(self):
         # Only the packaged binary exists; a PATH-only probe would return None
         # and drop the gate to the uncalibrated fallback.
