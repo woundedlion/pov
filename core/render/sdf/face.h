@@ -680,10 +680,10 @@ struct Face {
     for (int i = 0; i < count; ++i) {
       const Vector &v1 = scratch.poly_2d[i];
       const Vector &edge = scratch.edge_vectors[i];
-      float edge_len_sq = scratch.edge_lengths_sq[i];
       float t = 0.0f;
-      if (edge_len_sq > 1e-9f) {
-        t = dot(-v1, edge) / edge_len_sq;
+      const float inv_edge_len_sq = scratch.inv_edge_lengths_sq[i];
+      if (inv_edge_len_sq > 0.0f) {
+        t = dot(-v1, edge) * inv_edge_len_sq;
         t = __builtin_fmaxf(0.0f, __builtin_fminf(1.0f, t));
       }
       Vector closest = v1 + edge * t;
