@@ -1053,7 +1053,8 @@ constexpr float distance_squared(const Vector &a, const Vector &b) {
 inline float angle_between(const Vector &v1, const Vector &v2) {
   float m1 = dot(v1, v1);
   float m2 = dot(v2, v2);
-  HS_CHECK(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ);
+  HS_CHECK(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ,
+           "angle_between: degenerate vector");
   float d = dot(v1, v2) / sqrtf(m1 * m2);
   return fast_acos(hs::clamp(d, -1.0f, 1.0f));
 }
