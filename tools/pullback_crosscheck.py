@@ -708,7 +708,7 @@ def orchestrate(
             )
 
 
-def main() -> int:
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     compare = commands.add_parser("compare")
@@ -727,7 +727,7 @@ def main() -> int:
     run.add_argument("--base-sha", required=True)
     run.add_argument("--candidate-sha", required=True)
     run.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         if args.command == "run":
             orchestrate(

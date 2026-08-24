@@ -136,6 +136,11 @@ def _test_manifest():
 
 
 class ManifestValidation(unittest.TestCase):
+    def test_generator_main_returns_success_for_validation(self):
+        self.assertEqual(generator.main([
+            "--manifest-dir", str(MANIFEST_DIR), "--validate-only"
+        ]), 0)
+
     def test_generation_is_deterministic(self):
         programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
         first = generator.generate_header(programs, oracles, schema)
@@ -307,6 +312,17 @@ class ManifestValidation(unittest.TestCase):
 
 
 class CaptureComparison(unittest.TestCase):
+    def test_crosscheck_main_returns_failure_for_vacuous_run(self):
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            status = crosscheck.main([
+                "run", "--repository", ".", "--controller", ".",
+                "--base-sha", "a" * 40, "--candidate-sha", "a" * 40,
+                "--output", "output",
+            ])
+        self.assertEqual(status, 1)
+        self.assertIn("must differ", stderr.getvalue())
+
     def test_orchestration_rejects_identical_revisions(self):
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "must differ"):
             crosscheck.orchestrate(
