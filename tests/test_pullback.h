@@ -844,6 +844,13 @@ inline void test_pullback_rank_skip_crossing() {
   HS_EXPECT_EQ(sky.alpha, 0.5f);
 }
 
+struct FieldSnapParams {
+  float value = 0.0f;
+  uint8_t topology = 0;
+  static constexpr auto FIELDS = std::array{Pullback::Field<FieldSnapParams>{
+      "value", &FieldSnapParams::value, "Value", 0.0f, 1.0f}};
+};
+
 /**
  * @brief Pins the periodic field curves against the linear one.
  * @details A turns-valued field takes the short arc over a unit period, a
@@ -870,6 +877,13 @@ inline void test_pullback_field_curves() {
       Pullback::Fields::interpolate(from, to, 0.25f);
   HS_EXPECT_NEAR(mid.direction, 0.95f, 1e-6f);
   HS_EXPECT_TRUE(Pullback::Fields::valid(mid));
+
+  FieldSnapParams snap_from{0.0f, 3};
+  FieldSnapParams snap_to{1.0f, 7};
+  HS_EXPECT_EQ(Pullback::Fields::interpolate(snap_from, snap_to, 0.5f).topology,
+               snap_from.topology);
+  HS_EXPECT_EQ(Pullback::Fields::interpolate(snap_from, snap_to, 1.0f).topology,
+               snap_to.topology);
 }
 
 inline int run_pullback_tests() {
