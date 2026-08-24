@@ -420,6 +420,11 @@ class SchematicParityTests(unittest.TestCase):
          "items": [{"description": f"Footprint {ref}"}]}
         for (kind, ref), description in sorted(fab.KNOWN_PARITY_ITEMS.items())
     ]
+    KNOWN_WARNINGS = [
+        {"type": kind, "description": "Known warning"}
+        for kind, count in sorted(fab.KNOWN_PARITY_WARNING_COUNTS.items())
+        for _ in range(count)
+    ]
 
     def require_report(self, report):
         with tempfile.TemporaryDirectory() as directory:
@@ -427,8 +432,12 @@ class SchematicParityTests(unittest.TestCase):
             path.write_text(json.dumps(report), encoding="utf-8")
             return fab.require_schematic_parity(path)
 
-    def require(self, entries):
-        return self.require_report({"schematic_parity": entries})
+    def require(self, entries, violations=None):
+        return self.require_report({
+            "schematic_parity": entries,
+            "violations": (self.KNOWN_WARNINGS if violations is None
+                           else violations),
+        })
 
     def test_accepts_known_differences(self):
         self.assertEqual(self.require(self.KNOWN), len(self.KNOWN))
@@ -438,6 +447,29 @@ class SchematicParityTests(unittest.TestCase):
                 fab.SchematicParityError,
                 "no schematic_parity section"):
             self.require_report({"coordinate_units": "mm"})
+
+    def test_rejects_report_without_a_violations_section(self):
+        with self.assertRaisesRegex(
+                fab.SchematicParityError,
+                "no violations section"):
+            self.require_report({"schematic_parity": self.KNOWN})
+
+    def test_rejects_unexpected_warning_type(self):
+        violations = self.KNOWN_WARNINGS + [{
+            "type": "via_dangling",
+            "description": "Through via has no connection",
+        }]
+
+        with self.assertRaisesRegex(
+                fab.SchematicParityError,
+                r"via_dangling: reported 1 times .* expected 0"):
+            self.require(self.KNOWN, violations)
+
+    def test_rejects_known_warning_count_drift(self):
+        with self.assertRaisesRegex(
+                fab.SchematicParityError,
+                r"lib_footprint_mismatch: reported 11 times .* expected 12"):
+            self.require(self.KNOWN, self.KNOWN_WARNINGS[:-1])
 
     def test_rejects_report_missing_known_differences(self):
         with self.assertRaisesRegex(

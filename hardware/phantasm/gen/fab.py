@@ -189,6 +189,9 @@ KNOWN_PARITY_ITEMS = {
     ("footprint_symbol_mismatch", "JP_SHLD"): "Exclude from bill of materials",
     ("footprint_symbol_mismatch", "U_MCU"): "phantasm:Teensy4.0",
 }
+KNOWN_PARITY_WARNING_COUNTS = {
+    "lib_footprint_mismatch": 12,
+}
 
 # JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
 # the schematic so the JLC assembly output owns the supplier mapping. R_D1/R_D2
@@ -386,12 +389,30 @@ def require_schematic_parity(report_path):
         raise SchematicParityError(
             f"cannot read parity report: {report_path}") from exc
 
-    if not isinstance(report, dict) or "schematic_parity" not in report:
+    if (not isinstance(report, dict) or
+            not isinstance(report.get("schematic_parity"), list)):
         raise SchematicParityError(
             f"parity report has no schematic_parity section: {report_path}")
+    if not isinstance(report.get("violations"), list):
+        raise SchematicParityError(
+            f"parity report has no violations section: {report_path}")
     entries = report["schematic_parity"]
+    violations = report["violations"]
 
     diagnostics = []
+    warning_counts = {}
+    for violation in violations:
+        kind = str(violation.get("type", ""))
+        warning_counts[kind] = warning_counts.get(kind, 0) + 1
+    for kind in sorted(set(warning_counts) |
+                       set(KNOWN_PARITY_WARNING_COUNTS)):
+        actual = warning_counts.get(kind, 0)
+        expected = KNOWN_PARITY_WARNING_COUNTS.get(kind, 0)
+        if actual != expected:
+            diagnostics.append(
+                f"{kind}: reported {actual} times in {report_path}, "
+                f"expected {expected}")
+
     seen = {}
     for entry in entries:
         kind = str(entry.get("type", ""))
