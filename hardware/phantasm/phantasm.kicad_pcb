@@ -224,7 +224,7 @@
 			)
 		)
 		(path "/d5b855a5-4b7e-4ef2-9011-f761d030d0ff")
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -2.659698 -2.315)
@@ -3231,7 +3231,7 @@
 			)
 		)
 		(path "/6437fe53-4edf-46f4-85f4-e50e52170d48")
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.38 -1.38)
@@ -3607,7 +3607,7 @@
 			)
 		)
 		(path "/ddbd0f39-9b8e-46ba-8527-acd2b4b109a1")
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_rect
 			(start -18.5 -9.5)
@@ -5748,7 +5748,7 @@
 			)
 		)
 		(path "/212c1b61-7885-4042-9ed4-0c9b6cc7a45b")
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.38 -1.38)
@@ -6138,7 +6138,7 @@
 			)
 		)
 		(path "/53a324a2-0386-459f-98ab-4cc19136695b")
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.38 -1.38)
@@ -7008,7 +7008,7 @@
 			)
 		)
 		(path "/82ee319b-3364-4d57-b56e-878bfca2fd0b")
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.38 -1.38)
@@ -7366,7 +7366,7 @@
 			)
 		)
 		(path "/c071cedb-affe-4035-8735-50b90f99e24d")
-		(attr through_hole)
+		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.38 -1.38)

@@ -337,6 +337,9 @@ class AssemblyMetadataTests(unittest.TestCase):
 class AssemblyPolicyTests(unittest.TestCase):
     """JLC reflows top-side SMD only; every hand-soldered part stays out."""
 
+    NATIVE_EXCLUDED_REFS = {"U_MCU", "J1", "J2", "J3A", "J3B", "J4", "C_IN"}
+    NATIVE_EXCLUSION_FLAGS = {"exclude_from_pos_files", "exclude_from_bom"}
+
     def component(self, footprint, value="", dnp=False):
         return {"footprint": footprint, "value": value, "dnp": dnp}
 
@@ -362,6 +365,25 @@ class AssemblyPolicyTests(unittest.TestCase):
     def test_excludes_dnp(self):
         self.assertFalse(fab.is_assembled(
             self.component("Resistor_SMD:R_0603_1608Metric", dnp=True)))
+
+    def test_board_marks_hand_soldered_parts_as_excluded(self):
+        root = fab.read_board(fab.PCB)
+        attrs_by_ref = {}
+        for footprint in fab.F(root, "footprint"):
+            ref = next(
+                (prop[2] for prop in fab.F(footprint, "property")
+                 if prop[1] == "Reference"),
+                None,
+            )
+            if ref in self.NATIVE_EXCLUDED_REFS:
+                attrs_by_ref[ref] = {
+                    str(value) for value in fab.sexp.val(footprint, "attr", [])
+                }
+
+        self.assertEqual(set(attrs_by_ref), self.NATIVE_EXCLUDED_REFS)
+        for ref, attrs in attrs_by_ref.items():
+            with self.subTest(ref=ref):
+                self.assertLessEqual(self.NATIVE_EXCLUSION_FLAGS, attrs)
 
     def test_accepts_exact_assigned_part_set(self):
         fab.validate_assembled_refs(fab.LCSC_BY_REF)
