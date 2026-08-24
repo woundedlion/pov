@@ -28,6 +28,17 @@ class CandidateBoardTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "0 found"):
                 analyze_candidates.candidate_board(directory)
 
+    def test_default_discovery_matches_quilter_folder_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            candidates = Path(directory) / "candidates"
+            expected = candidates / "Candidate 1"
+            expected.mkdir(parents=True)
+            (candidates / "Candidate_2").mkdir()
+
+            with mock.patch.object(analyze_candidates, "PROJ", directory):
+                self.assertEqual(analyze_candidates.default_candidates(),
+                                 [str(expected)])
+
     def test_rejects_ambiguous_boards(self):
         with tempfile.TemporaryDirectory() as directory:
             Path(directory, "a.kicad_pcb").touch()
@@ -56,6 +67,14 @@ class ParserTests(unittest.TestCase):
 SYNTHETIC_BOARD = """
 (kicad_pcb
   (segment (start 0 0) (end 10 0) (width 0.25) (layer "F.Cu") (net "/DATA"))
+  (segment (start 0 1) (end 1 1) (width 0.25) (layer "F.Cu") (net "/CLK"))
+  (segment (start 0 2) (end 1 2) (width 0.25) (layer "F.Cu") (net "/DATA_IN"))
+  (segment (start 0 3) (end 1 3) (width 0.25) (layer "F.Cu") (net "/CLK_IN"))
+  (segment (start 0 4) (end 1 4) (width 0.25) (layer "F.Cu") (net "/DATA_SRC"))
+  (segment (start 0 5) (end 1 5) (width 0.25) (layer "F.Cu") (net "/CLK_SRC"))
+  (segment (start 0 6) (end 1 6) (width 0.25) (layer "F.Cu") (net "/SYNC_BUS"))
+  (segment (start 0 7) (end 1 7) (width 0.25) (layer "F.Cu") (net "/FRAME_SYNC"))
+  (segment (start 0 8) (end 1 8) (width 0.25) (layer "F.Cu") (net "/SYNC_SRC"))
   (via (at 3 4) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net "GND"))
   (footprint "Resistor_SMD:R_0402"
     (at 10 20)
@@ -75,9 +94,9 @@ class AnalyzeTests(unittest.TestCase):
     def test_reads_segment_via_and_footprint(self):
         r = self.analyze_source(SYNTHETIC_BOARD)
 
-        self.assertEqual(r["nseg"], 1)
+        self.assertEqual(r["nseg"], len(analyze_candidates.CRIT))
         self.assertEqual(r["nvia"], 1)
-        self.assertAlmostEqual(r["total_len"], 10.0)
+        self.assertAlmostEqual(r["total_len"], 18.0)
         # net_of strips the hierarchical path prefix
         self.assertAlmostEqual(r["netlen"]["DATA"], 10.0)
         self.assertEqual(r["netseg"]["DATA"], 1)
@@ -99,14 +118,70 @@ class AnalyzeTests(unittest.TestCase):
         r = self.analyze_source(source)
 
         self.assertAlmostEqual(r["netlen"]["DATA"], 10.0)
-        self.assertAlmostEqual(r["crit_len"], 10.0)
+        self.assertAlmostEqual(r["crit_len"], 18.0)
         self.assertEqual(r["netvias"]["GND"], 1)
 
     def test_rejects_a_board_whose_nets_are_ids_only(self):
-        source = SYNTHETIC_BOARD.replace('(net "/DATA")', "(net 9)")
+        source = SYNTHETIC_BOARD
+        for net in analyze_candidates.CRIT:
+            source = source.replace(f'(net "/{net}")', "(net 9)")
 
         with self.assertRaisesRegex(ValueError, "no critical net"):
             self.analyze_source(source)
+
+    def test_rejects_a_missing_critical_net(self):
+        source = SYNTHETIC_BOARD.replace(
+            '  (segment (start 0 0) (end 10 0) (width 0.25) '
+            '(layer "F.Cu") (net "/DATA"))\n', '')
+
+        with self.assertRaisesRegex(ValueError, "unrouted critical nets.*DATA"):
+            self.analyze_source(source)
+
+    def test_rejects_a_zero_length_critical_net(self):
+        source = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 0 0)")
+
+        with self.assertRaisesRegex(ValueError, "unrouted critical nets.*DATA"):
+            self.analyze_source(source)
+
+
+class ScoreTests(unittest.TestCase):
+    def test_fully_routed_candidates_keep_the_shorter_copper_ordering(self):
+        base = {
+            "spi_vias": 0,
+            "sync_vias": 0,
+            "ergo": {
+                "decap_u1": 0.0,
+                "divider": 0.0,
+                "term_j2": 0.0,
+            },
+        }
+
+        short = analyze_candidates.score({**base, "crit_len": 90.0})
+        long = analyze_candidates.score({**base, "crit_len": 180.0})
+
+        self.assertEqual(short, (9.0, 10.0))
+        self.assertEqual(long, (8.0, 10.0))
+        self.assertGreater(short[0], long[0])
+
+
+class MainTests(unittest.TestCase):
+    def test_unrouted_candidate_stops_before_skew_or_score_reports(self):
+        source = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 0 0)")
+        with tempfile.TemporaryDirectory() as directory:
+            board = Path(directory) / "Candidate 1.kicad_pcb"
+            board.write_text(source, encoding="utf-8")
+
+            with mock.patch("builtins.print") as emit, \
+                    mock.patch.object(analyze_candidates, "run_drc") as run_drc:
+                result = analyze_candidates.main(["analyze_candidates.py", str(board)])
+
+        output = "\n".join(" ".join(map(str, call.args))
+                           for call in emit.call_args_list)
+        self.assertEqual(result, 1)
+        self.assertIn("unrouted critical nets", output)
+        self.assertNotIn("PAIR SKEW", output)
+        self.assertNotIn("COMPOSITE SCORE", output)
+        run_drc.assert_not_called()
 
 
 class ClosestSpacingTests(unittest.TestCase):
