@@ -31,9 +31,9 @@ struct HankinPauseWhiteBox;
  * @details Sweeps the interlace angle continuously, then transitions by
  * walking the Conway edge graph: each leg sweeps the destination solid's own
  * operator parameter, so faces visibly truncate, expand, and twist into the
- * next solid (docs/conway_morph_spec.md). Exactly one mesh is on screen at
- * all times; faces are colored by topology class via shuffled mesh palettes
- * with per-leg crossfades.
+ * next solid (docs/specs/conway_morph_spec.md). Exactly one mesh is on
+ * screen at all times; faces are colored by topology class via shuffled mesh
+ * palettes with per-leg crossfades.
  */
 template <int W, int H> class HankinSolids : public Effect {
 public:
