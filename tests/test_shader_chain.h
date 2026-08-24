@@ -961,15 +961,16 @@ inline void test_shader_chain_param_address_channel() {
   constexpr size_t GRID_FIELDS = In::Op::GridSampleParams::FIELDS.size();
   auto *coverage_mode = static_cast<uint8_t *>(
       sample_op.runtime.param_address(block, GRID_FIELDS + 1));
-  *coverage_mode = static_cast<uint8_t>(In::Op::CoverageMode::EDGE_FADE);
+  *coverage_mode =
+      static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE);
   HS_EXPECT_EQ(typed.coverage_mode,
-               static_cast<uint8_t>(In::Op::CoverageMode::EDGE_FADE));
+               static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE));
   // The write is visible to the render: identical view, different coverage.
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
   const Vector view = Vector(1, 1, 1).normalized();
   const Color4 faded = program.evaluate(view, ctx);
-  *coverage_mode = static_cast<uint8_t>(In::Op::CoverageMode::NONE);
+  *coverage_mode = static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
   program.prepare(ctx);
   const Color4 full = program.evaluate(view, ctx);
   HS_EXPECT_GE(full.alpha, faded.alpha);
@@ -2062,7 +2063,7 @@ inline void test_shader_chain_parity_field_ops() {
             SmoothBandsFieldMirror>>::template Bind<FieldMirrorBinding>,
         In::Op::SmoothBandsChainParams>(In::Op::TransferSmoothBands::ID, set);
     run_field_parity<
-        typename PB::Stage::Coverage<PB::Coverage::ValueCutout<
+        typename PB::Stage::ApplyCoverage<PB::ValueCoverage::ValueCutout<
             ValueCutoutFieldMirror>>::template Bind<FieldMirrorBinding>,
         In::Op::ValueCutoutChainParams>(In::Op::CoverageValueCutout::ID, set);
   }
@@ -2373,27 +2374,27 @@ template <typename SourceP, typename WeightP>
 inline void run_sample_coverage_cases(In::ChainProgram &program,
                                       const In::FrameContext &ctx,
                                       uint8_t coverage) {
-  using EdgeP = PB::ProjectedCoverage::EdgeFade<SampleEdgeMirror>;
-  switch (static_cast<In::Op::CoverageMode>(coverage)) {
-  case In::Op::CoverageMode::NONE:
+  using EdgeP = PB::ProjectionCoverage::EdgeFade<SampleEdgeMirror>;
+  switch (static_cast<In::Op::ProjectionCoverageMode>(coverage)) {
+  case In::Op::ProjectionCoverageMode::NONE:
     expect_sample_op_parity<typename PB::Stage::Sample<
         SourceP, WeightP,
-        PB::ProjectedCoverage::None>::template Bind<SampleMirrorBinding>>(
+        PB::ProjectionCoverage::None>::template Bind<SampleMirrorBinding>>(
         program, ctx);
     break;
-  case In::Op::CoverageMode::WEIGHT:
+  case In::Op::ProjectionCoverageMode::WEIGHT:
     expect_sample_op_parity<typename PB::Stage::Sample<
         SourceP, WeightP,
-        PB::ProjectedCoverage::Weight>::template Bind<SampleMirrorBinding>>(
+        PB::ProjectionCoverage::Weight>::template Bind<SampleMirrorBinding>>(
         program, ctx);
     break;
-  case In::Op::CoverageMode::WEIGHT_SQUARED:
+  case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
     expect_sample_op_parity<typename PB::Stage::Sample<
-        SourceP, WeightP, PB::ProjectedCoverage::WeightSquared>::
+        SourceP, WeightP, PB::ProjectionCoverage::WeightSquared>::
                                 template Bind<SampleMirrorBinding>>(program,
                                                                     ctx);
     break;
-  case In::Op::CoverageMode::EDGE_FADE:
+  case In::Op::ProjectionCoverageMode::EDGE_FADE:
     expect_sample_op_parity<typename PB::Stage::Sample<
         SourceP, WeightP, EdgeP>::template Bind<SampleMirrorBinding>>(program,
                                                                       ctx);
@@ -2572,7 +2573,7 @@ inline void test_shader_chain_parity_sample_spherical_noise() {
 inline void run_sample_variant(In::ChainProgram &program,
                                const In::FrameContext &ctx,
                                In::Op::WeightMode weight,
-                               In::Op::CoverageMode coverage) {
+                               In::Op::ProjectionCoverageMode coverage) {
   auto &params = param_as<In::Op::GridSampleParams>(program, 2);
   params.weight_mode = static_cast<uint8_t>(weight);
   params.coverage_mode = static_cast<uint8_t>(coverage);
@@ -2580,42 +2581,42 @@ inline void run_sample_variant(In::ChainProgram &program,
   constexpr auto ENV = PB::Color::BrightnessEnvelope::NONE;
   if (weight == In::Op::WeightMode::NONE) {
     switch (coverage) {
-    case In::Op::CoverageMode::NONE:
-      expect_parity<PB::Weight::None, PB::ProjectedCoverage::None, HUE, ENV>(
+    case In::Op::ProjectionCoverageMode::NONE:
+      expect_parity<PB::Weight::None, PB::ProjectionCoverage::None, HUE, ENV>(
           program, ctx);
       break;
-    case In::Op::CoverageMode::WEIGHT:
-      expect_parity<PB::Weight::None, PB::ProjectedCoverage::Weight, HUE, ENV>(
+    case In::Op::ProjectionCoverageMode::WEIGHT:
+      expect_parity<PB::Weight::None, PB::ProjectionCoverage::Weight, HUE, ENV>(
           program, ctx);
       break;
-    case In::Op::CoverageMode::WEIGHT_SQUARED:
-      expect_parity<PB::Weight::None, PB::ProjectedCoverage::WeightSquared, HUE,
-                    ENV>(program, ctx);
+    case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
+      expect_parity<PB::Weight::None, PB::ProjectionCoverage::WeightSquared,
+                    HUE, ENV>(program, ctx);
       break;
-    case In::Op::CoverageMode::EDGE_FADE:
+    case In::Op::ProjectionCoverageMode::EDGE_FADE:
       expect_parity<PB::Weight::None,
-                    PB::ProjectedCoverage::EdgeFade<MirrorValue>, HUE, ENV>(
+                    PB::ProjectionCoverage::EdgeFade<MirrorValue>, HUE, ENV>(
           program, ctx);
       break;
     }
   } else {
     switch (coverage) {
-    case In::Op::CoverageMode::NONE:
-      expect_parity<PB::Weight::Projection, PB::ProjectedCoverage::None, HUE,
+    case In::Op::ProjectionCoverageMode::NONE:
+      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::None, HUE,
                     ENV>(program, ctx);
       break;
-    case In::Op::CoverageMode::WEIGHT:
-      expect_parity<PB::Weight::Projection, PB::ProjectedCoverage::Weight, HUE,
+    case In::Op::ProjectionCoverageMode::WEIGHT:
+      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight, HUE,
                     ENV>(program, ctx);
       break;
-    case In::Op::CoverageMode::WEIGHT_SQUARED:
+    case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
       expect_parity<PB::Weight::Projection,
-                    PB::ProjectedCoverage::WeightSquared, HUE, ENV>(program,
-                                                                    ctx);
+                    PB::ProjectionCoverage::WeightSquared, HUE, ENV>(program,
+                                                                     ctx);
       break;
-    case In::Op::CoverageMode::EDGE_FADE:
+    case In::Op::ProjectionCoverageMode::EDGE_FADE:
       expect_parity<PB::Weight::Projection,
-                    PB::ProjectedCoverage::EdgeFade<MirrorValue>, HUE, ENV>(
+                    PB::ProjectionCoverage::EdgeFade<MirrorValue>, HUE, ENV>(
           program, ctx);
       break;
     }
@@ -2631,10 +2632,11 @@ inline void test_shader_chain_parity_sample_variants() {
     const In::FrameContext ctx = shared_resources().context();
     for (const In::Op::WeightMode weight :
          {In::Op::WeightMode::NONE, In::Op::WeightMode::PROJECTION})
-      for (const In::Op::CoverageMode coverage :
-           {In::Op::CoverageMode::NONE, In::Op::CoverageMode::WEIGHT,
-            In::Op::CoverageMode::WEIGHT_SQUARED,
-            In::Op::CoverageMode::EDGE_FADE})
+      for (const In::Op::ProjectionCoverageMode coverage :
+           {In::Op::ProjectionCoverageMode::NONE,
+            In::Op::ProjectionCoverageMode::WEIGHT,
+            In::Op::ProjectionCoverageMode::WEIGHT_SQUARED,
+            In::Op::ProjectionCoverageMode::EDGE_FADE})
         run_sample_variant(program, ctx, weight, coverage);
     program.clear();
   }
@@ -2652,7 +2654,7 @@ inline void run_colorize_variant(In::ChainProgram &program,
     for (uint8_t mapping = 0; mapping < 4; ++mapping) {
       params.mapping_mode = mapping;
       using WeightP = PB::Weight::Projection;
-      using CoverageP = PB::ProjectedCoverage::Weight;
+      using CoverageP = PB::ProjectionCoverage::Weight;
       if (hue == In::Op::HueShiftMode::NOISE) {
         if (envelope == In::Op::EnvelopeMode::NONE)
           expect_parity<WeightP, CoverageP, PB::Color::HueMode::NOISE,

@@ -31,8 +31,8 @@ namespace Pullback {
 // per-stage headers.
 using Color::ColorParams;
 using Color::HueMode;
-using Coverage::CutoutValueParams;
-using Coverage::EdgeValueParams;
+using ValueCoverage::CutoutValueParams;
+using ValueCoverage::EdgeValueParams;
 using Lens::MobiusLensParams;
 using Lens::NoLensParams;
 using Projection::ProjectionParams;
@@ -296,7 +296,7 @@ template <typename BindingT> struct SourceProvider {
 
 /**
  * @brief Supplies the value-family fields to the Pullback::Transfer and
- *        Pullback::Coverage policies.
+ *        Pullback::ValueCoverage policies.
  * @details Names all three fields the value families define; an effect's material
  * stage instantiates only the accessors its transfer and coverage policies
  * call, so an IsoValueParams effect never touches `edge_width` and vice versa.
@@ -632,14 +632,14 @@ template <typename B> struct TransferStageFor<TransferKind::ISO_CONTOUR, B> {
 
 template <CoverageKind CoverageV, typename Binding> struct CoveragePolicyFor;
 template <typename B> struct CoveragePolicyFor<CoverageKind::PROJECTION, B> {
-  using Type = Pullback::ProjectedCoverage::Weight;
+  using Type = Pullback::ProjectionCoverage::Weight;
 };
 template <typename B>
 struct CoveragePolicyFor<CoverageKind::PROJECTION_SQUARED, B> {
-  using Type = Pullback::ProjectedCoverage::WeightSquared;
+  using Type = Pullback::ProjectionCoverage::WeightSquared;
 };
 template <typename B> struct CoveragePolicyFor<CoverageKind::EDGE_FADE, B> {
-  using Type = Pullback::ProjectedCoverage::EdgeFade<ValueProvider<B>>;
+  using Type = Pullback::ProjectionCoverage::EdgeFade<ValueProvider<B>>;
 };
 
 template <FieldCoverageKind CoverageV, typename Binding>
@@ -649,8 +649,8 @@ template <typename B> struct FieldCoverageStageFor<FieldCoverageKind::NONE, B> {
 };
 template <typename B>
 struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
-  using Type = Pullback::Stage::Coverage<
-      Pullback::Coverage::ValueCutout<ValueProvider<B>>>;
+  using Type = Pullback::Stage::ApplyCoverage<
+      Pullback::ValueCoverage::ValueCutout<ValueProvider<B>>>;
 };
 
 /**

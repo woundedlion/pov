@@ -149,7 +149,7 @@ Pullback::Warp::*                  planar-warp policies
 Pullback::Source::*                scalar-source policies
 Pullback::Weight::*                signal-weight policies
 Pullback::Transfer::*              value-transfer policies
-Pullback::Coverage::*              coverage policies
+Pullback::ProjectionCoverage::*         projection-coverage policies
 Pullback::Color::*                 colorization policies and kernels
 ```
 
@@ -1070,7 +1070,7 @@ using Material = ShaderWorkbenchMatchedStage<
         ShaderWorkbenchBinding,
         Pullback::Weight::Projection,
         Pullback::Transfer::Ridge,
-        Pullback::Coverage::EdgeFade<ValueStateProvider>>,
+        Pullback::ProjectionCoverage::EdgeFade<ValueStateProvider>>,
     ProjectionLinearEdgeFadeMatcher>;
 
 using Outer = ShaderWorkbenchMatchedStage<
