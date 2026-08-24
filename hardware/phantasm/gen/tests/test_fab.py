@@ -416,9 +416,18 @@ class AssemblyPolicyTests(unittest.TestCase):
 
 class SchematicParityTests(unittest.TestCase):
     KNOWN = [
-        {"type": kind, "description": description,
+        {"type": "extra_footprint", "description": "Extra footprint",
+         "items": [{"description": f"Footprint H{index}"}]}
+        for index in range(1, 5)
+    ] + [
+        {"type": "footprint_symbol_mismatch",
+         "description": "Exclude from bill of materials",
          "items": [{"description": f"Footprint {ref}"}]}
-        for (kind, ref), description in sorted(fab.KNOWN_PARITY_ITEMS.items())
+        for ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD")
+    ] + [
+        {"type": "footprint_symbol_mismatch",
+         "description": "phantasm:Teensy4.0",
+         "items": [{"description": "Footprint U_MCU"}]},
     ]
     KNOWN_WARNINGS = [
         {"type": kind, "description": "Known warning"}
