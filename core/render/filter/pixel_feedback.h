@@ -415,7 +415,7 @@ private:
              "feedback fade %d/1000 must be finite and non-negative",
              (fade > -1.0e6f && fade < 1.0e6f)
                  ? static_cast<int>(fade * 1000.0f)
-                 : INT32_MIN);
+                 : static_cast<int>(INT32_MIN));
     feedback_style->sync_hue();
     const bool black_skips_color =
         feedback_style->color_fn == &::Feedback::hue_fade;
