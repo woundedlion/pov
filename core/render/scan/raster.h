@@ -440,10 +440,11 @@ walk_clip_columns(ClipRegion::XClip xc, BodyFn &&body) {
  * @param intervals The row's emitted spans, in fractional column units.
  * @param norm Scratch for the seam split; clobbered.
  * @param xc Column-arc clip applied to every run before it is emitted.
- * @param emit Sink receiving the runs, ascending and disjoint.
+ * @param emit Sink receiving clipped pieces; empty pieces are no-ops.
  * @details Shared by scan_region and by the fused RingGroup walk, which cannot
- * call scan_region itself. Runs arrive in ascending column order, so a sink may
- * treat them as one left-to-right sweep.
+ * call scan_region itself. With a non-wrapping clip, non-empty runs arrive in
+ * ascending column order. A wrapping clip does not provide a global ordering
+ * guarantee across callbacks.
  */
 template <int W, typename IntervalBufT, typename NormBufT, typename EmitFn>
 __attribute__((always_inline)) inline void
