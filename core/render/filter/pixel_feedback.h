@@ -410,8 +410,12 @@ private:
     constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
     const float inverse_downsample = 1.0f / grid.downsample;
     const float fade = feedback_style->fade;
+    // Guard the float-to-int conversion independently of the check condition.
     HS_CHECK(std::isfinite(fade) && fade >= 0.0f,
-             "feedback fade %f must be finite and non-negative", fade);
+             "feedback fade %d/1000 must be finite and non-negative",
+             (fade > -1.0e6f && fade < 1.0e6f)
+                 ? static_cast<int>(fade * 1000.0f)
+                 : INT32_MIN);
     feedback_style->sync_hue();
     const bool black_skips_color =
         feedback_style->color_fn == &::Feedback::hue_fade;
