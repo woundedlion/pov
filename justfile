@@ -69,6 +69,7 @@ lint:
     npm run lint
     {{py}} tools/build_pins.py --check-tool shellcheck
     bash -c "git ls-files -- '*.sh' '.githooks/*' > /tmp/hs-shell-files.txt; test -s /tmp/hs-shell-files.txt || { echo 'no shell files selected -- the shell path list is broken'; exit 1; }; xargs shellcheck --exclude=SC1091,SC2034 < /tmp/hs-shell-files.txt"
+    bash tools/profile_sweep.sh check
 
 # Formatting gate over the whole tracked first-party C++ set: the ci.yml
 # clang-format job's invocation. Majors reflow differently, so the
