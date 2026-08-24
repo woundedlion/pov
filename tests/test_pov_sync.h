@@ -992,19 +992,16 @@ inline void test_flywheel_position() {
   // Position over one half-rev, at nominal and trim-extreme periods
   // (±40 ppm ≈ ±1500 cycles): zero truncation drift vs the reference.
   for (int32_t trim : {0, +1500, -1500}) {
+    HS_CONTEXT("trim", trim);
     const uint32_t period = PERIOD + trim;
     Flywheel f(cfg);
     f.set_cycles_per_half_rev(period);
     f.seed(1000000u);
-    bool ok = true;
     for (int64_t delta = 0; delta < period; delta += 12347) {
+      HS_CONTEXT("delta", delta);
       const int32_t want = static_cast<int32_t>(ref_cols(delta, period) % 288);
-      if (f.position(1000000u + static_cast<uint32_t>(delta)) != want) {
-        ok = false;
-        break;
-      }
+      HS_EXPECT_EQ(f.position(1000000u + static_cast<uint32_t>(delta)), want);
     }
-    HS_EXPECT_TRUE(ok);
   }
 
   // Signed past: a timestamp slightly before the epoch lands just below W.
@@ -1045,17 +1042,15 @@ inline void test_flywheel_position() {
     Flywheel f(cfg);
     uint32_t t = 0xFFFFFFFFu - PERIOD / 3; // wrap almost immediately
     f.seed(t);
-    bool ok = true;
     for (int k = 1; k <= 5000; ++k) { // ~5.2 minutes of mock time, 43 wraps
+      HS_CONTEXT("fold", k);
       t += PERIOD;
       const Crossing c = f.fold(t);
-      if (!c.crossed || c.at_cycles != t || f.fold(t).crossed ||
-          f.position(t) != boundary_column(c.boundary, 288)) {
-        ok = false;
-        break;
-      }
+      HS_EXPECT_TRUE(c.crossed);
+      HS_EXPECT_EQ(c.at_cycles, t);
+      HS_EXPECT_FALSE(f.fold(t).crossed);
+      HS_EXPECT_EQ(f.position(t), boundary_column(c.boundary, 288));
     }
-    HS_EXPECT_TRUE(ok);
   }
 }
 
