@@ -55,7 +55,7 @@ jobs:
             test_exclude: &generated_exclude "^unit_(color_luts|color_luts_check|gamut_lut)$"
           - &shard2_entry
             shard: 2
-            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|gamut_lut|palettes|easing_waves|interpolate|platform|profiling|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|relax_bake_verify|relax_bake_form)$"
+            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|gamut_lut|mindsplatter_palette_form|palettes|easing_waves|interpolate|platform|profiling|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|relax_bake_verify|relax_bake_form)$"
             test_exclude: *generated_exclude
           - &shard3_entry
             shard: 3
