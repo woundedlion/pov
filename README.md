@@ -2215,7 +2215,7 @@ Hankin interlace patterns over the Platonic and Archimedean solids. The interlac
 
 Visualizes the real spherical harmonics Yˡₘ(θ, φ) as a colored scalar field over the sphere: the harmonic value drives a positive/negative palette split — negative lobes recolor the positive palette by swapping its red and blue channels and dimming its green — with ambient-occlusion shading. Continuously morphs between (l, m) modes.
 
-**Parameters**: Amplitude, Debug BB
+**Parameters**: Amplitude
 
 </td></tr></table>
 
