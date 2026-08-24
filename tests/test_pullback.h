@@ -571,6 +571,64 @@ struct CountingColorPolicy : Pullback::ApproximationDefaults {
   }
 };
 
+struct PreparedOrientationPolicy {
+  using Binding = CountingBinding;
+  using FrameState = TestFrame;
+  using Prepared = int;
+  static Prepared prepare(const FrameState &) { return 1; }
+  static const Quaternion &conjugate(const FrameState &, const Prepared &) {
+    static constexpr Quaternion IDENTITY;
+    return IDENTITY;
+  }
+};
+
+struct PreparedLensPolicy : Pullback::ApproximationDefaults {
+  using Prepared = int;
+  static Prepared prepare(const TestFrame &) { return 2; }
+  static Vector apply(const Vector &input, const TestFrame &,
+                      const Prepared &p) {
+    return input + Vector(static_cast<float>(p), 0.0f, 0.0f);
+  }
+};
+
+struct PreparedProjectionPolicy : Pullback::ApproximationDefaults {
+  using Prepared = int;
+  static Prepared prepare(const TestFrame &) { return 3; }
+  static const Quaternion &frame_conjugate(const TestFrame &,
+                                           const Prepared &) {
+    static constexpr Quaternion IDENTITY;
+    return IDENTITY;
+  }
+  static Pullback::ProjectionResult
+  project(const Vector &input, const TestFrame &, const Prepared &p) {
+    return {Complex(input.x + static_cast<float>(p), input.y),
+            {0, 0, 0, 1.0f, 1.0f, 0}};
+  }
+};
+
+struct PreparedTransferPolicy : Pullback::ApproximationDefaults {
+  using Prepared = float;
+  static Prepared prepare(const TestFrame &) { return 0.25f; }
+  static float apply(float value, const TestFrame &, const Prepared &p) {
+    return value + p;
+  }
+};
+
+struct PreparedCoveragePolicy : Pullback::ApproximationDefaults {
+  using Prepared = float;
+  static Prepared prepare(const TestFrame &) { return 0.5f; }
+  static float apply(float, const TestFrame &, const Prepared &p) { return p; }
+};
+
+struct PreparedColorPolicy : Pullback::ApproximationDefaults {
+  using Prepared = uint8_t;
+  static Prepared prepare(const TestFrame &) { return 11; }
+  static Color4 apply(const Pullback::FieldSample &input, const TestFrame &,
+                      const Prepared &p) {
+    return Color4(Pixel(p, 0, 0), input.coverage);
+  }
+};
+
 using CountingPipeline =
     Pullback::Pipeline<CountingBinding,
                        Pullback::Stage::Rotate<CountingOrientationState>,
@@ -600,6 +658,47 @@ inline void test_pullback_counting_instrumentation() {
   HS_EXPECT_EQ(CountingInstrumentation::count, EXPECTED.size());
   for (size_t index = 0; index < EXPECTED.size(); ++index)
     HS_EXPECT_EQ(CountingInstrumentation::events[index], EXPECTED[index]);
+}
+
+inline void test_pullback_prepared_stage_policies() {
+  const TestFrame frame;
+  const Pullback::SphereSample sphere{Vector(1.0f, 2.0f, 3.0f), 0.0f};
+
+  using BoundRotate =
+      Pullback::Stage::Rotate<PreparedOrientationPolicy>::Bind<CountingBinding>;
+  const auto rotate_prepared = BoundRotate::prepare(frame);
+  HS_EXPECT_EQ(rotate_prepared, 1);
+  static_cast<void>(BoundRotate::run(sphere, frame, rotate_prepared));
+
+  using BoundLens =
+      Pullback::Stage::Lens<PreparedLensPolicy>::Bind<CountingBinding>;
+  const auto lens_prepared = BoundLens::prepare(frame);
+  HS_EXPECT_EQ(lens_prepared, 2);
+  HS_EXPECT_EQ(BoundLens::run(sphere, frame, lens_prepared).dir.x, 3.0f);
+
+  using BoundProject =
+      Pullback::Stage::Project<PreparedProjectionPolicy>::Bind<CountingBinding>;
+  const auto project_prepared = BoundProject::prepare(frame);
+  HS_EXPECT_EQ(project_prepared, 3);
+  HS_EXPECT_EQ(BoundProject::run(sphere, frame, project_prepared).coords.re,
+               4.0f);
+
+  const Pullback::FieldSample field{0.25f, 0.8f, X_AXIS, 0.0f};
+  using BoundTransfer =
+      Pullback::Stage::Transfer<PreparedTransferPolicy>::Bind<CountingBinding>;
+  const auto transfer_prepared = BoundTransfer::prepare(frame);
+  HS_EXPECT_EQ(BoundTransfer::run(field, frame, transfer_prepared).value, 0.5f);
+
+  using BoundCoverage =
+      Pullback::Stage::Coverage<PreparedCoveragePolicy>::Bind<CountingBinding>;
+  const auto coverage_prepared = BoundCoverage::prepare(frame);
+  HS_EXPECT_EQ(BoundCoverage::run(field, frame, coverage_prepared).coverage,
+               0.4f);
+
+  using BoundColorize =
+      Pullback::Stage::Colorize<PreparedColorPolicy>::Bind<CountingBinding>;
+  const auto color_prepared = BoundColorize::prepare(frame);
+  HS_EXPECT_EQ(BoundColorize::run(field, frame, color_prepared).color.r, 11);
 }
 
 inline void test_pullback_stage_combinators() {
@@ -895,6 +994,7 @@ inline int run_pullback_tests() {
   test_pullback_public_surface();
   test_pullback_no_instrumentation();
   test_pullback_counting_instrumentation();
+  test_pullback_prepared_stage_policies();
   test_pullback_stage_combinators();
   test_pullback_provider_contracts();
   test_pullback_concrete_catalog();
