@@ -215,8 +215,23 @@ template <typename Params> consteval auto topology_of() {
     return std::array<TopologyField<Params>, 0>{};
 }
 
+} // namespace Detail
+
+/** @brief Whether topology catalog defaults match the parameter defaults. */
+template <typename Params> consteval bool topology_defaults_match() {
+  constexpr auto TOPOLOGY = Detail::topology_of<Params>();
+  constexpr Params DEFAULTS{};
+  for (const auto &field : TOPOLOGY)
+    if (DEFAULTS.*(field.member) != field.def)
+      return false;
+  return true;
+}
+
+namespace Detail {
+
 template <typename Model> consteval auto make_schema() {
   using Params = typename Model::Params;
+  static_assert(topology_defaults_match<Params>());
   constexpr auto TOPOLOGY = topology_of<Params>();
   constexpr size_t FIELD_COUNT = Params::FIELDS.size();
   std::array<ParamFieldInfo, FIELD_COUNT + TOPOLOGY.size()> out{};
