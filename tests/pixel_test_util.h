@@ -42,6 +42,9 @@ inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
   return p.r == r && p.g == g && p.b == b;
 }
 
+#define HS_EXPECT_PIXEL(actual, red, green, blue)                              \
+  HS_EXPECT_EQ((actual), Pixel((red), (green), (blue)))
+
 /**
  * @brief Counts the non-black pixels across the effect's reported canvas.
  * @param fx Effect whose framebuffer is scanned, fx.width() by fx.height().

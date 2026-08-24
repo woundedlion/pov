@@ -1428,9 +1428,9 @@ inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
       pipe.plot(c, 7.4f, 1.6f, Pixel(1, 2, 3), 0.0f, 1.0f);
     }
     fx.advance_display();
-    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(4, 3), 100, 200, 300));
-    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 5), 10, 20, 30)); // wrapped
-    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(7, 2), 1, 2, 3));    // rounded
+    HS_EXPECT_PIXEL(fx.get_pixel(4, 3), 100, 200, 300);
+    HS_EXPECT_PIXEL(fx.get_pixel(2, 5), 10, 20, 30); // wrapped
+    HS_EXPECT_PIXEL(fx.get_pixel(7, 2), 1, 2, 3);    // rounded
   }
 
   // A second frame: a plot outside the clip band is dropped.
@@ -1444,7 +1444,7 @@ inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
   }
   fx2.advance_display();
   HS_EXPECT_TRUE(is_black(fx2.get_pixel(8, 6)));
-  HS_EXPECT_TRUE(pix_eq(fx2.get_pixel(8, 3), 0, 500, 0));
+  HS_EXPECT_PIXEL(fx2.get_pixel(8, 3), 0, 500, 0);
 }
 
 /**
@@ -1468,7 +1468,7 @@ inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
   PixelCoords pc = vector_to_pixel<W, H>(v);
   int ex = fast_wrap(static_cast<int>(std::round(pc.x)), W);
   int ey = static_cast<int>(std::round(pc.y));
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(ex, ey), 40000, 20000, 10000));
+  HS_EXPECT_PIXEL(fx.get_pixel(ex, ey), 40000, 20000, 10000);
 }
 
 /**
@@ -1560,7 +1560,7 @@ inline void test_pipeline_screen_antialias_routes_to_sink() {
   }
   fx.advance_display();
   HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)1);
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(10, 5), 50000, 0, 25000));
+  HS_EXPECT_PIXEL(fx.get_pixel(10, 5), 50000, 0, 25000);
 }
 
 struct AASinkSample {
