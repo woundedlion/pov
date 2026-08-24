@@ -52,6 +52,12 @@ template <typename Owner> struct Field {
   FieldGate gate = FieldGate::ALWAYS;
 };
 
+template <typename Owner>
+constexpr Field<Owner> edge_width_field(float Owner::*member,
+                                        const char *name = "Edge Width") {
+  return {"edge-width", member, name, 0.0f, 1.0f, FieldCurve::LERP};
+}
+
 /** @brief Whether @p T carries a field-descriptor table. */
 template <typename T>
 concept HasFields = requires { T::FIELDS; };

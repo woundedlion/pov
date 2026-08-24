@@ -206,8 +206,7 @@ struct EdgeValueParams {
   float edge_width = 0.1f;
 
   static constexpr auto FIELDS = std::array{
-      Field<EdgeValueParams>{"edge-width", &EdgeValueParams::edge_width,
-                             "Edge Width", 0.0f, 1.0f, FieldCurve::LERP},
+      edge_width_field(&EdgeValueParams::edge_width),
   };
 };
 static_assert(field_ids_unique<EdgeValueParams>());
