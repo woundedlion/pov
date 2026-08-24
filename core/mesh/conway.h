@@ -31,8 +31,8 @@ HS_O3_BEGIN
  * same converged mesh; a count short of convergence deliberately freezes a
  * pre-converged configuration). The same bits are loaded on host and device, so
  * the two platforms render bit-identically. `source_hash` and `topology_hash`
- * guard that the live source mesh's vertex bits and connectivity still match
- * what was baked against.
+ * guard that the live source mesh's quantized vertices and connectivity still
+ * match what was baked against.
  */
 struct RelaxBake {
   const char *name;
@@ -75,13 +75,24 @@ inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
   return hash;
 }
 
-/** @brief Hashes the exact vertex bits identifying a relax source mesh. */
-inline uint32_t relax_vertex_hash(const PolyMesh &mesh) {
+/**
+ * @brief Hashes fixed-point-rounded vertices identifying a relax source mesh.
+ * @details A 1/4096-radius grid absorbs endpoint reconstruction roundoff while
+ * retaining vertex order and parameterized geometry in the identity.
+ */
+inline uint32_t relax_source_hash(const PolyMesh &mesh) {
+  constexpr float SCALE = 4096.0f;
   uint32_t hash = FNV1A_BASIS;
+  auto mix = [&](float coordinate) {
+    const float scaled = coordinate * SCALE;
+    const int32_t quantized =
+        static_cast<int32_t>(scaled + (scaled < 0.0f ? -0.5f : 0.5f));
+    hash = fnv1a_step(hash, static_cast<uint32_t>(quantized));
+  };
   for (const Vector &v : mesh.vertices) {
-    hash = fnv1a_step(hash, std::bit_cast<uint32_t>(v.x));
-    hash = fnv1a_step(hash, std::bit_cast<uint32_t>(v.y));
-    hash = fnv1a_step(hash, std::bit_cast<uint32_t>(v.z));
+    mix(v.x);
+    mix(v.y);
+    mix(v.z);
   }
   return hash;
 }
@@ -1380,8 +1391,8 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
  * @details The payload's vertex bits are loaded verbatim on host and device;
  * neither recomputes them, so neither platform's own arithmetic has to
  * reproduce them.
- * @param mesh Source mesh; its dimensions, connectivity, and vertex bits must
- * match the bake, and its face list is copied through to the output.
+ * @param mesh Source mesh; its dimensions, connectivity, and quantized vertices
+ * must match the bake, and its face list is copied through to the output.
  * @param target Arena receiving the baked vertices and the copied face list.
  * @param bake Expected source dimensions, identity hashes, and raw output vertex
  * bits, which are re-hashed on load against bake.output_hash.
@@ -1397,7 +1408,7 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
            "relax_baked: source dimensions differ");
   HS_CHECK(relax_topology_hash(mesh) == bake.topology_hash,
            "relax_baked: source topology differs");
-  HS_CHECK(relax_vertex_hash(mesh) == bake.source_hash,
+  HS_CHECK(relax_source_hash(mesh) == bake.source_hash,
            "relax_baked: source vertices differ");
 
   PolyMesh out_mesh;
