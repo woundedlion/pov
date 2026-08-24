@@ -30,13 +30,9 @@
 # because they tax every effect's numbers). A deep capture writes its own
 # _deep.log so it cannot overwrite the roster log the standard reports cite.
 #
-# HS_PROFILE_TREE=<path> builds that checkout instead of the main one, so a
-# branch can be profiled before it lands. Everything this script writes is
-# relative to the tree (build/prof, .pio), so a worktree keeps its own logs and
-# object dir and cannot mix results with the main tree's. Without it the main
-# checkout is built no matter which directory the script is invoked from —
-# profiling a worktree's code under master's name (or the reverse) would leave
-# nothing in the capture to say so.
+# The checkout containing this script is built by default, so linked worktrees
+# keep their logs and object directories isolated. HS_PROFILE_TREE=<path>
+# explicitly selects another checkout.
 # HS_PROFILE_MINDSPLATTER=counts|stalls builds a dedicated MindSplatter
 # instrumentation image and writes a suffixed log. Count images also enable the
 # generic Plot counters; neither image is valid for timing comparisons.
@@ -141,16 +137,12 @@ PHANTASM_MAP=$ATTEST_DIR/phantasm.map
 ARM_READELF=${HS_ARM_READELF:-$HOME/.platformio/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-readelf.exe}
 ATTESTED_COMPILER=
 
-# The main checkout: git's common dir is the main repo's .git from every
-# worktree, so its parent is that checkout wherever this script is invoked from.
-main_tree() {
-  local common
-  common=$(git -C "$(dirname "$0")" rev-parse --path-format=absolute \
-             --git-common-dir) || return 1
-  dirname "$common"
+# The checkout containing the invoked script, including a linked worktree.
+profile_tree() {
+  git -C "$(dirname "$0")" rev-parse --path-format=absolute --show-toplevel
 }
-TREE=${HS_PROFILE_TREE:-$(main_tree)} ||
-  { echo "cannot resolve the main checkout from $(dirname "$0")" >&2; exit 1; }
+TREE=${HS_PROFILE_TREE:-$(profile_tree)} ||
+  { echo "cannot resolve the profile checkout from $(dirname "$0")" >&2; exit 1; }
 cd "$TREE" || { echo "no such tree: $TREE" >&2; exit 1; }
 mkdir -p "$(dirname "$OUT")"
 export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $MSP_FLAGS $EXTRA"
