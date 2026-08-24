@@ -227,11 +227,10 @@ inline float wire_coverage(float metric_sq, float radius, float half_width) {
   return 1.0f - lattice_ramp(-half_width, half_width, signed_distance);
 }
 
-inline float projected_half_width(float distance, float plane_component,
+inline float projected_half_width(float distance, float plane_step,
                                   float pixel_half_angle, float aa_strength,
                                   float softness) {
-  return softness +
-         aa_strength * pixel_half_angle * distance / fabsf(plane_component);
+  return softness + aa_strength * pixel_half_angle * distance * plane_step;
 }
 
 inline float near_field_coverage(float distance, float wire_radius) {
@@ -239,11 +238,12 @@ inline float near_field_coverage(float distance, float wire_radius) {
 }
 
 inline float shell_horizon_coverage(uint8_t shell, uint8_t shell_count,
-                                    float distance, float step) {
+                                    float distance, float magnitude) {
   if (shell + 1 < shell_count)
     return 1.0f;
   return 1.0f - lattice_ramp(static_cast<float>(shell_count - 1),
-                             static_cast<float>(shell_count), distance / step);
+                             static_cast<float>(shell_count),
+                             distance * magnitude);
 }
 
 inline float next_plane_offset(float origin, bool positive) {
@@ -299,7 +299,7 @@ struct TraceHit {
 };
 
 inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
-                            int plane_axis, float distance,
+                            int plane_axis, float distance, float plane_step,
                             const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_plane_eval);
   const Vec4 point{{ray_origin[0] + distance * direction[0],
@@ -329,7 +329,7 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
   }
 
   const float half_width = projected_half_width(
-      distance, direction[plane_axis], prepared.pixel_half_angle,
+      distance, plane_step, prepared.pixel_half_angle,
       prepared.params.aa_strength, prepared.params.softness);
   const float edge =
       wire_coverage(metric_sq, prepared.params.wire_radius, half_width);
@@ -341,6 +341,7 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
 struct TraceCursor {
   float distance;
   float step;
+  float magnitude;
   uint8_t shell;
   bool active;
 };
@@ -369,6 +370,7 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
     if (magnitude < DIRECTION_EPSILON)
       continue;
     cursor.step = 1.0f / magnitude;
+    cursor.magnitude = magnitude;
     cursor.distance =
         next_plane_offset(ray_origin[axis], component > 0.0f) * cursor.step;
     cursor.shell = 0;
@@ -390,10 +392,10 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
       TraceCursor &cursor = cursors[axis];
       if (!cursor.active || fabsf(cursor.distance - nearest) > tolerance)
         continue;
-      TraceHit candidate =
-          trace_plane(ray_origin, direction, axis, cursor.distance, prepared);
+      TraceHit candidate = trace_plane(ray_origin, direction, axis,
+                                       cursor.distance, cursor.step, prepared);
       candidate.coverage *= shell_horizon_coverage(
-          cursor.shell, shell_count, cursor.distance, cursor.step);
+          cursor.shell, shell_count, cursor.distance, cursor.magnitude);
       if (candidate.coverage > layer.coverage)
         layer = candidate;
       ++cursor.shell;
