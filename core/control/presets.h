@@ -73,7 +73,7 @@ public:
    * @brief Returns the params of the currently selected entry.
    * @return Const reference to the current entry's params.
    */
-  const Params &get() const { return entries[current_idx].params; }
+  constexpr const Params &get() const { return entries[current_idx].params; }
 
   /**
    * @brief Advances to the next entry, wrapping past the end.
@@ -115,7 +115,7 @@ public:
    * @brief Returns a read-only view over all entries.
    * @return Span covering all Size entries in order.
    */
-  std::span<const Entry> get_entries() const {
+  constexpr std::span<const Entry> get_entries() const {
     return std::span<const Entry>(entries);
   }
 
@@ -126,15 +126,15 @@ public:
   std::span<Entry> get_entries() { return std::span<Entry>(entries); }
 
   /** @brief Index of the currently selected entry; always in [0, Size). */
-  size_t current_index() const { return current_idx; }
+  constexpr size_t current_index() const { return current_idx; }
   /** @brief Index active before the last next()/prev(); always in [0, Size). */
-  size_t prev_index() const { return prev_idx; }
+  constexpr size_t prev_index() const { return prev_idx; }
 
   /**
    * @brief Returns the params of the entry active before the last move.
    * @return Const reference to the previous entry's params; for crossfades.
    */
-  const Params &prev_get() const { return entries[prev_idx].params; }
+  constexpr const Params &prev_get() const { return entries[prev_idx].params; }
 
 private:
   /**
