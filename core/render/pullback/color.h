@@ -77,6 +77,8 @@ struct ColorParams {
       Field<ColorParams>{"value-opacity-high", &ColorParams::opacity_high,
                          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
   };
+
+  constexpr bool operator==(const ColorParams &) const = default;
 };
 static_assert(field_ids_unique<ColorParams>());
 
