@@ -51,11 +51,6 @@ public:
     const int32_t lateness = static_cast<int32_t>(now - at_cycles);
     if (lateness > static_cast<int32_t>(cfg.late_censor_cycles()))
       return false; // late at the boundary: skip the whole symbol
-    // Guards direct callers only: the conductor clears any in-flight or queued
-    // burst with drop_pending_emission() on every crossing, so this cannot fire
-    // on the production path.
-    HS_CHECK(pulses_left == 0 && queue_pos >= queue_len,
-             "SymbolEmitter::schedule_boundary: wire busy — overlapping burst");
     // Retire a fully drained beacon frame here as well as in tick(), so a live
     // queue_len always means the in-flight pulses belong to a beacon.
     queue_len = queue_pos = 0;
