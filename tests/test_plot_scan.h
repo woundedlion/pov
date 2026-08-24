@@ -2524,6 +2524,30 @@ inline void test_ring_draw_stride_tracks_full_grid() {
   }
 }
 
+/** @brief Verifies a stroke primitive draws through a direct anti-alias sink. */
+inline void test_ring_draw_accepts_direct_sink() {
+  constexpr int W = 64, H = 32;
+  hs_test::StubEffect fx(W, H);
+  Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  {
+    Canvas canvas(fx);
+    sink.prepare(canvas);
+    const Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
+    auto shade = [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
+    };
+    Plot::Ring::draw<W, H>(sink, canvas, basis, 0.5f, shade);
+  }
+  fx.advance_display();
+
+  size_t lit = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      if (!is_black(fx.get_pixel(x, y)))
+        ++lit;
+  HS_EXPECT_GT(lit, size_t{0});
+}
+
 // ============================================================================
 // Plot::DistortedRing::sample  — angle-addition identity (LUT) vs direct
 // ============================================================================
@@ -5538,6 +5562,7 @@ inline int run_plot_scan_tests() {
   test_ring_sample_unit_length_and_progress();
   test_ring_sample_lut_matches_direct();
   test_ring_draw_stride_tracks_full_grid();
+  test_ring_draw_accepts_direct_sink();
 
   test_distorted_ring_sample_angle_addition_identity();
 
