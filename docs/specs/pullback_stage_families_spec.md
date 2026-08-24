@@ -274,9 +274,9 @@ its callable logic. The mechanical signature edits — this list is
 normative and intended to be exhaustive; if the cut-over finds another,
 the spec is what changes: projection policies retype their return
 `ProjectionSample` → `ProjectionResult` (they never set the removed
-fields); source policies retype `SourceInput` → `PlaneSample` (field
-path `input.warped.coords` → `input.coords`; `SphericalNoise`
-additionally `input.projected.sphere` → `input.sphere`); warp and
+fields); planar source policies retype `SourceInput` → `PlaneSample` (field
+path `input.warped.coords` → `input.coords`), while spherical source policies
+consume `SphereSample`; warp and
 weight policies retype their
 `const ProjectionSample &` parameter to `const ProjectionProvenance &`;
 color policies retype `MaterialSample` → `FieldSample` (`sample.sphere`
@@ -300,6 +300,7 @@ SPHERE  Stage::Rotate<OrientationProvider>    SphereSample -> SphereSample
         Stage::Displace<SurfacePolicy>        (wraps Surface::*)
         Stage::Lens<LensPolicy>               (wraps Lens::*)
 crossing Stage::Project<ProjectionPolicy>     SphereSample -> PlaneSample
+         Stage::SampleSphere<SourcePolicy>    SphereSample -> FieldSample
 PLANE   Stage::Warp<WarpPolicy>               PlaneSample -> PlaneSample
 crossing Stage::Sample<SourcePolicy,
                        WeightPolicy = Weight::Projection,
@@ -327,6 +328,8 @@ Warp      step = Policy::apply(in.coords, in.provenance, frame[, prepared])
           out = {step.coords, in.provenance, in.sphere,      // provenance, sphere unchanged
                  in.path_length + step.path_length}
 Sample    normative pseudocode in the bullet below
+SampleSphere out = {clamp_unit((Policy::sample(in) + 1) / 2), 1,
+                    in.dir, in.path_length}
 Transfer  out = in;  out.value = Policy::apply(in.value, frame)
 Coverage  out = in;  out.coverage = in.coverage * Policy::apply(in.value, frame)
 Colorize  Policy::apply(in, frame) -> Color4
@@ -367,6 +370,10 @@ the semantics cannot fork between the two execution paths.
   Instrumentation::template span<ProfileEvent::MATERIAL>(material_span);
   return out;
   ```
+
+  `Stage::SampleSphere` establishes the same invariant without projection.
+  Its source consumes `SphereSample`; the signed field is ramped directly,
+  coverage is `1`, and the input direction and path length are preserved.
 
   This is the distillation today's Material combinator performs
   (including the `domain_coverage` seed), relocated to the boundary
@@ -1217,10 +1224,9 @@ At the pipeline layer (hand-written effects, ShaderWorkbench studies, the
 workbench interpreter), **immediately, with the shipped vocabulary
 recombined**: lens sandwiches and double Mobius; displacement at any
 depth relative to lenses; any warp count and order; transfer and
-value-cutout chains. **Admitted by the rules but awaiting a new
-combinator**: projection-free sphere-sampled sources (today's
-`SphericalNoise` is a plane-family source reading `provenance.sphere` —
-a true `SPHERE→FIELD` crossing is a new stage), sky shaders
+value-cutout chains; projection-free sphere-sampled sources use the
+`SPHERE→FIELD` `Stage::SampleSphere` crossing. **Admitted by the rules but
+awaiting a new combinator**: sky shaders
 (`SPHERE→COLOR`), and COLOR grading stages (the family ships empty).
 The rules make these one-combinator additions instead of schema changes;
 they are not day-one capabilities. At the ComposedEffect layer: any
