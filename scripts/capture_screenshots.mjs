@@ -15,10 +15,16 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
 import {
+  captureIsBlank,
+  captureLitFraction,
   captureOffsetMs,
-  GALLERY_HEIGHT,
+  COVERAGE_SAMPLE_HEIGHT,
+  COVERAGE_SAMPLE_WIDTH,
+  DEFAULT_BLANK_FLOOR,
   DEFAULT_CAPTURE_OFFSET_MS,
+  GALLERY_HEIGHT,
   GALLERY_WIDTH,
+  minimumLitPixels,
 } from './screenshot_capture_config.mjs';
 import { descendToHonoredResolution } from './screenshot_resolution.mjs';
 
@@ -42,7 +48,7 @@ const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
 const OUT_DIR = join(REPO_ROOT, 'docs', 'screenshots');
 const WAIT_MS = await numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS);
 const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
-const BLANK_FLOOR = await numEnv('BLANK_FLOOR', 0.0005);
+const BLANK_FLOOR = await numEnv('BLANK_FLOOR', DEFAULT_BLANK_FLOOR);
 
 const { chromium } = await import('playwright');
 
@@ -167,14 +173,18 @@ try {
   // floor. Daydream's driver suppresses the PiP under navigator.webdriver, so no
   // post-crop is needed.
   async function grabFrame() {
-    return await page.evaluate(({ outWidth, outHeight }) => {
+    return await page.evaluate(({
+      outWidth,
+      outHeight,
+      sampleWidth,
+      sampleHeight,
+    }) => {
       const canvas = document.querySelector('#canvas');
-      const SW = 96, SH = 72;
       const off = document.createElement('canvas');
-      off.width = SW; off.height = SH;
+      off.width = sampleWidth; off.height = sampleHeight;
       const g = off.getContext('2d');
-      g.drawImage(canvas, 0, 0, SW, SH);
-      const data = g.getImageData(0, 0, SW, SH).data;
+      g.drawImage(canvas, 0, 0, sampleWidth, sampleHeight);
+      const data = g.getImageData(0, 0, sampleWidth, sampleHeight).data;
       let lit = 0;
       for (let i = 0; i < data.length; i += 4) {
         if (data[i] > 12 || data[i + 1] > 12 || data[i + 2] > 12) lit++;
@@ -183,8 +193,13 @@ try {
       thumb.width = outWidth;
       thumb.height = outHeight;
       thumb.getContext('2d').drawImage(canvas, 0, 0, thumb.width, thumb.height);
-      return { dataUrl: thumb.toDataURL('image/png'), lit: lit / (SW * SH) };
-    }, { outWidth: GALLERY_WIDTH, outHeight: GALLERY_HEIGHT });
+      return { dataUrl: thumb.toDataURL('image/png'), litPixels: lit };
+    }, {
+      outWidth: GALLERY_WIDTH,
+      outHeight: GALLERY_HEIGHT,
+      sampleWidth: COVERAGE_SAMPLE_WIDTH,
+      sampleHeight: COVERAGE_SAMPLE_HEIGHT,
+    });
   }
 
   // Loads one effect at one resolution and reports the effect the app actually
@@ -221,12 +236,16 @@ try {
       const offsetMs = captureOffsetMs(effect, WAIT_MS_OVERRIDE);
       await page.waitForTimeout(offsetMs);
 
-      const { dataUrl, lit } = await grabFrame();
+      const { dataUrl, litPixels } = await grabFrame();
+      const lit = captureLitFraction(litPixels);
       const pct = (lit * 100).toFixed(2);
-      if (lit < BLANK_FLOOR) {
+      if (captureIsBlank(litPixels, BLANK_FLOOR)) {
         blanks.push(effect);
-        console.log(`SKIPPED — fixed ${offsetMs}ms capture was blank (${pct}% lit); ` +
-          'kept existing PNG');
+        console.log(
+          `SKIPPED — fixed ${offsetMs}ms capture was blank ` +
+            `(${litPixels} lit pixels; minimum ${minimumLitPixels(BLANK_FLOOR)}); ` +
+            'kept existing PNG',
+        );
         continue;
       }
 
