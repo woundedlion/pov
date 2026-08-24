@@ -94,6 +94,17 @@ constexpr float face_azimuth_pad(int w) {
   return 1.25f * (TWO_PI_F / static_cast<float>(w));
 }
 
+/**
+ * @brief Converts the face AA reach to azimuth at one latitude.
+ * @param w Canvas width in columns.
+ * @param sin_phi Sine of the row's colatitude.
+ * @return Azimuth half-width, or pi when the reach spans the whole row.
+ */
+inline float face_azimuth_pad(int w, float sin_phi) {
+  const float pad = face_azimuth_pad(w);
+  return sin_phi <= pad ? PI_F : asinf(pad / sin_phi);
+}
+
 // Scanline interval protocol. get_horizontal_intervals returns true when the
 // spans it emitted describe the row, and false to request a full-row scan. A
 // false return MUST emit nothing: the caller walks every column instead, so a
