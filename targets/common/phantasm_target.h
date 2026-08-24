@@ -58,6 +58,7 @@ POV *g_pov; // g_ prefix: a bare `pov` collides with hardware `namespace pov`
 FLASHMEM void boot_serial() {
   Serial.begin(9600);
   delay(1000);
+  hs::configure_debug_telemetry();
 }
 
 /**

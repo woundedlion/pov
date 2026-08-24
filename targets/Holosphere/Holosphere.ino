@@ -32,6 +32,7 @@ POVDisplay<NUM_PIXELS, RPM> *
 void setup() {
   Serial.begin(9600);
   delay(1000);
+  hs::configure_debug_telemetry();
   Serial.println("Hello");
   g_pov = new POVDisplay<NUM_PIXELS, RPM>();
 }
