@@ -1,18 +1,35 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   loadEffectRoster,
   loadPhantasmEffectRoster,
   REPO_ROOT,
 } from './effect_roster.mjs';
 
-const PROFILES_DIR = join(REPO_ROOT, 'docs', 'profiles');
-const REPORT_RE = /^profile_([a-z0-9]+)_teensy_\d{4}-\d{2}-\d{2}\.md$/;
+export const PROFILES_DIR = join(REPO_ROOT, 'docs', 'profiles');
+export const REPORT_RE =
+  /^profile_([a-z0-9]+)_teensy_(\d{4}-\d{2}-\d{2})\.md$/;
+const REQUIRED_SECTIONS = [
+  '## Setup',
+  '## Frame cadence',
+  '## Summary ranking',
+  '## Harness',
+];
 
-const errors = [];
+export async function profileDirectories(profilesDir) {
+  const entries = await readdir(profilesDir, { withFileTypes: true });
+  const directories = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const files = await readdir(join(profilesDir, entry.name));
+    if (files.includes('README.md')) directories.push(entry.name);
+  }
+  return directories.sort();
+}
 
-async function reportsIn(directory) {
-  const entries = await readdir(join(PROFILES_DIR, directory));
+export async function reportsIn(profilesDir, directory, errors) {
+  const entries = await readdir(join(profilesDir, directory));
   const reports = new Map();
   for (const file of entries) {
     if (file === 'README.md') continue;
@@ -24,12 +41,41 @@ async function reportsIn(directory) {
     const key = match[1];
     if (reports.has(key))
       errors.push(`${directory} has multiple reports for ${key}`);
-    reports.set(key, file);
+    reports.set(key, { date: match[2], file });
   }
+  if (reports.size === 0)
+    errors.push(`${directory} has no profile reports`);
   return reports;
 }
 
-function compareSets(subject, actual, expected) {
+export function validateReport(report, directory, key, date, file, errors) {
+  const subject = `${directory}/${file}`;
+  const title =
+    /^# ([A-Za-z0-9]+) on-device profile\b[^\r\n]*\((\d{4}-\d{2}-\d{2})(?:,|\))/
+      .exec(report);
+  if (!title || title[1].toLowerCase() !== key)
+    errors.push(`${subject} title does not match its filename`);
+  if (!title || title[2] !== date)
+    errors.push(`${subject} title date does not match its filename`);
+
+  const positions = REQUIRED_SECTIONS.map(heading => report.indexOf(heading));
+  for (let i = 0; i < REQUIRED_SECTIONS.length; ++i) {
+    if (positions[i] < 0) {
+      errors.push(`${subject} is missing ${REQUIRED_SECTIONS[i]}`);
+      continue;
+    }
+    if (i > 0 && positions[i] < positions[i - 1])
+      errors.push(`${subject} has out-of-order profile sections`);
+    const end = positions[i + 1] < 0 || i + 1 === positions.length
+      ? report.length
+      : positions[i + 1];
+    const bodyStart = report.indexOf('\n', positions[i]) + 1;
+    if (bodyStart === 0 || report.slice(bodyStart, end).trim() === '')
+      errors.push(`${subject} has no content under ${REQUIRED_SECTIONS[i]}`);
+  }
+}
+
+function compareSets(subject, actual, expected, errors) {
   const missing = [...expected].filter(name => !actual.has(name));
   const orphan = [...actual].filter(name => !expected.has(name));
   if (missing.length) errors.push(`${subject} is missing: ${missing.join(', ')}`);
@@ -44,69 +90,94 @@ function linkedReports(text, prefix) {
   return new Set([...text.matchAll(pattern)].map(match => match[1]));
 }
 
-function checkCount(text, pattern, expected, subject) {
+function checkCount(text, pattern, expected, subject, errors) {
   const match = pattern.exec(text);
   if (!match) errors.push(`${subject} count is not stated`);
   else if (Number(match[1]) !== expected)
     errors.push(`${subject} states ${match[1]}, roster has ${expected}`);
 }
 
-const [effectRoster, phantasmRoster] = await Promise.all([
-  loadEffectRoster(),
-  loadPhantasmEffectRoster(),
-]);
-const effectKeys = new Set(effectRoster.map(name => name.toLowerCase()));
-const phantasmKeys = new Set(phantasmRoster.map(name => name.toLowerCase()));
-const shipping = await reportsIn('shipping');
-const o3 = await reportsIn('O3');
-const retired = await reportsIn('retired');
+export async function checkProfiles(profilesDir = PROFILES_DIR) {
+  const errors = [];
+  const [effectRoster, phantasmRoster, directories, index] = await Promise.all([
+    loadEffectRoster(),
+    loadPhantasmEffectRoster(),
+    profileDirectories(profilesDir),
+    readFile(join(profilesDir, 'README.md'), 'utf8'),
+  ]);
+  const effectKeys = new Set(effectRoster.map(name => name.toLowerCase()));
+  const phantasmKeys = new Set(phantasmRoster.map(name => name.toLowerCase()));
+  const reportSets = new Map();
 
-compareSets('shipping profiles', new Set(shipping.keys()), phantasmKeys);
-for (const name of o3.keys()) {
-  if (!phantasmKeys.has(name))
-    errors.push(`O3 profile names a non-Phantasm effect: ${name}`);
-}
-for (const name of retired.keys()) {
-  if (effectKeys.has(name))
-    errors.push(`retired profile still names a registered effect: ${name}`);
+  for (const directory of directories)
+    reportSets.set(directory, await reportsIn(profilesDir, directory, errors));
+
+  const shipping = reportSets.get('shipping');
+  const o3 = reportSets.get('O3');
+  const retired = reportSets.get('retired');
+  if (!shipping) errors.push('shipping profile directory is missing');
+  else compareSets('shipping profiles', new Set(shipping.keys()), phantasmKeys,
+    errors);
+  if (!o3) errors.push('O3 profile directory is missing');
+  else {
+    for (const name of o3.keys()) {
+      if (!phantasmKeys.has(name))
+        errors.push(`O3 profile names a non-Phantasm effect: ${name}`);
+    }
+  }
+  if (!retired) errors.push('retired profile directory is missing');
+  else {
+    for (const name of retired.keys()) {
+      if (effectKeys.has(name))
+        errors.push(`retired profile still names a registered effect: ${name}`);
+    }
+  }
+
+  for (const [directory, reports] of reportSets) {
+    for (const [key, { date, file }] of reports) {
+      const report = await readFile(join(profilesDir, directory, file), 'utf8');
+      validateReport(report, directory, key, date, file, errors);
+    }
+    const directoryIndex = await readFile(
+      join(profilesDir, directory, 'README.md'), 'utf8');
+    const filenames = new Set([...reports.values()].map(report => report.file));
+    compareSets(`main ${directory} index`,
+      linkedReports(index, `${directory}/`), filenames, errors);
+    compareSets(`${directory} index`, linkedReports(directoryIndex, ''),
+      filenames, errors);
+  }
+
+  checkCount(index,
+    /On-device timing for the \*\*(\d+) effects in the Phantasm image\*\*/,
+    phantasmRoster.length, 'main profile index', errors);
+  if (shipping) {
+    const shippingIndex = await readFile(
+      join(profilesDir, 'shipping', 'README.md'), 'utf8');
+    checkCount(shippingIndex, /covering the\s+(\d+)\s+effects/,
+      phantasmRoster.length, 'shipping profile index', errors);
+  }
+
+  return {
+    directories,
+    errors,
+    o3Count: o3?.size ?? 0,
+    phantasmCount: phantasmRoster.length,
+    retiredCount: retired?.size ?? 0,
+  };
 }
 
-for (const [directory, reports] of [['shipping', shipping], ['O3', o3],
-  ['retired', retired]]) {
-  for (const [key, file] of reports) {
-    const report = await readFile(join(PROFILES_DIR, directory, file), 'utf8');
-    const title = /^# (\w+) on-device profile\b/.exec(report)?.[1];
-    if (!title || title.toLowerCase() !== key)
-      errors.push(`${directory}/${file} title does not match its filename`);
+async function main() {
+  const result = await checkProfiles();
+  if (result.errors.length) {
+    for (const error of result.errors) console.error(`::error::${error}`);
+    process.exitCode = 1;
+  } else {
+    console.log(
+      `Profile archive covers all ${result.phantasmCount} Phantasm effects; `
+      + `${result.o3Count} O3 and ${result.retiredCount} retired reports are indexed.`,
+    );
   }
 }
 
-const [index, shippingIndex, o3Index, retiredIndex] = await Promise.all([
-  readFile(join(PROFILES_DIR, 'README.md'), 'utf8'),
-  readFile(join(PROFILES_DIR, 'shipping', 'README.md'), 'utf8'),
-  readFile(join(PROFILES_DIR, 'O3', 'README.md'), 'utf8'),
-  readFile(join(PROFILES_DIR, 'retired', 'README.md'), 'utf8'),
-]);
-compareSets('main shipping index', linkedReports(index, 'shipping/'),
-  new Set(shipping.values()));
-compareSets('shipping index', linkedReports(shippingIndex, ''),
-  new Set(shipping.values()));
-compareSets('main O3 index', linkedReports(index, 'O3/'), new Set(o3.values()));
-compareSets('O3 index', linkedReports(o3Index, ''), new Set(o3.values()));
-compareSets('main retired index', linkedReports(index, 'retired/'),
-  new Set(retired.values()));
-compareSets('retired index', linkedReports(retiredIndex, ''),
-  new Set(retired.values()));
-checkCount(index,
-  /On-device timing for the \*\*(\d+) effects in the Phantasm image\*\*/,
-  phantasmRoster.length, 'main profile index');
-checkCount(shippingIndex, /covering the\s+(\d+)\s+effects/, phantasmRoster.length,
-  'shipping profile index');
-
-if (errors.length) {
-  for (const error of errors) console.error(`::error::${error}`);
-  process.exitCode = 1;
-} else {
-  console.log(`Profile archive covers all ${phantasmRoster.length} Phantasm effects; `
-    + `${o3.size} O3 and ${retired.size} retired reports are indexed.`);
-}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+  await main();
