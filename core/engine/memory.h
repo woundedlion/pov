@@ -95,7 +95,6 @@ size_t arena_vector_abandon_count();
 class Arena {
   uint8_t *buffer;
   size_t capacity;
-  size_t extent;
   size_t offset;
   size_t high_water_mark;
   size_t lifetime_high_water_mark;
@@ -112,21 +111,9 @@ public:
    * @param buf Pointer to the backing buffer.
    * @param size Capacity of the buffer in bytes.
    */
-  Arena(uint8_t *buf, size_t size) : Arena(buf, size, size) {}
-
-  /**
-   * @brief Constructs an arena over part of a larger backing buffer.
-   * @param buf Pointer to the backing buffer.
-   * @param size Starting capacity in bytes.
-   * @param buffer_extent Bytes of backing storage at `buf` this arena may ever
-   *        claim; bounds every later set_capacity() grow.
-   */
-  Arena(uint8_t *buf, size_t size, size_t buffer_extent)
-      : buffer(buf), capacity(size), extent(buffer_extent), offset(0),
-        high_water_mark(0), lifetime_high_water_mark(0) {
-    HS_CHECK(size <= buffer_extent,
-             "Arena capacity exceeds its backing buffer");
-  }
+  Arena(uint8_t *buf, size_t size)
+      : buffer(buf), capacity(size), offset(0), high_water_mark(0),
+        lifetime_high_water_mark(0) {}
 
   /**
    * @brief Non-copyable: a copy would alias one buffer under two independent
@@ -320,26 +307,11 @@ public:
    * @param buf Pointer to the new backing buffer.
    * @param new_capacity Capacity of the new buffer in bytes.
    * @details Used by configure_arenas to repartition the global budget at
-   * runtime. The new capacity is also the new extent, so a later set_capacity()
-   * cannot grow past it.
+   * runtime.
    */
   void rebind(uint8_t *buf, size_t new_capacity) {
-    rebind(buf, new_capacity, new_capacity);
-  }
-
-  /**
-   * @brief Point the arena at a different buffer, reserving room to grow later.
-   * @param buf Pointer to the new backing buffer.
-   * @param new_capacity Capacity in bytes.
-   * @param buffer_extent Bytes of backing storage at `buf` this arena may ever
-   *        claim; bounds every later set_capacity() grow.
-   */
-  void rebind(uint8_t *buf, size_t new_capacity, size_t buffer_extent) {
-    HS_CHECK(new_capacity <= buffer_extent,
-             "Arena::rebind capacity exceeds its backing buffer");
     buffer = buf;
     capacity = new_capacity;
-    extent = buffer_extent;
     offset = 0;
     fold_lifetime_peak();
     high_water_mark = 0;
@@ -348,29 +320,6 @@ public:
     rewind_floor = SIZE_MAX;
     last_rewind_target = SIZE_MAX;
 #endif
-  }
-
-  /**
-   * @brief Moves only the capacity boundary, preserving base, offset, content,
-   * and generation.
-   * @param new_capacity New capacity in bytes; must be >= the live offset and
-   *        <= the extent the arena was constructed/rebound with.
-   * @details A repartition that keeps everything already allocated valid --
-   * unlike rebind(), it neither resets the offset nor bumps the generation, so
-   * ArenaVectors bound below the offset stay live. Used to shrink/grow the
-   * persistent boundary mid-run while its long-lived content survives; the
-   * caller must ensure the buffer region beyond the new capacity is not
-   * simultaneously claimed by another arena. The extent is a hard bound here:
-   * a repartition that has to claim storage past it goes through
-   * rebind_capacity(), which only resplit_arenas() can reach.
-   */
-  void set_capacity(size_t new_capacity) {
-    HS_CHECK(offset <= new_capacity,
-             "Arena::set_capacity below the live offset would strand content");
-    HS_CHECK(new_capacity <= extent,
-             "Arena::set_capacity past the backing buffer would hand out bytes "
-             "the arena does not own");
-    capacity = new_capacity;
   }
 
   /**
@@ -485,12 +434,11 @@ private:
   }
 
   /**
-   * @brief Moves the capacity boundary AND the extent together, preserving
+   * @brief Moves the capacity boundary while preserving
    * base, offset, content, and generation.
-   * @param new_capacity New capacity and extent in bytes; must be >= the live
+   * @param new_capacity New capacity in bytes; must be >= the live
    *        offset.
-   * @details The privileged path set_capacity() refuses: it claims backing
-   * storage past the current extent, so the caller must have vacated whatever
+   * @details The caller must have vacated whatever
    * else held those bytes. resplit_arenas() alone reaches it — it re-bases both
    * scratch arenas onto the new split and bounds the request against the global
    * block.
@@ -500,7 +448,6 @@ private:
              "Arena::rebind_capacity below the live offset would strand "
              "content");
     capacity = new_capacity;
-    extent = new_capacity;
   }
 };
 

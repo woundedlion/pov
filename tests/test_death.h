@@ -191,43 +191,6 @@ inline void case_arena_bad_alignment() {
 }
 
 /**
- * @brief Death case: shrinking capacity below the live offset must trap.
- * @details Memory surface — set_capacity moves only the boundary, so a new
- *          capacity under the live offset would strand already-allocated
- *          content outside the arena instead of freeing it.
- */
-inline void case_arena_set_capacity_below_offset() {
-  static uint8_t buf[64];
-  Arena a(buf, sizeof(buf));
-  a.allocate(opaque<size_t>(32), 1);
-  a.set_capacity(opaque<size_t>(16)); // < offset 32 -> HS_CHECK
-}
-
-/**
- * @brief Death case: growing capacity past the backing buffer must trap.
- * @details Memory surface — allocate() bounds-checks against the capacity, so a
- *          capacity beyond the buffer's real end would authorize allocations
- *          past it with no further guard.
- */
-inline void case_arena_set_capacity_above_extent() {
-  static uint8_t buf[64];
-  Arena a(buf, sizeof(buf));
-  a.set_capacity(opaque<size_t>(128)); // > extent 64 -> HS_CHECK
-}
-
-/**
- * @brief Death case: rebinding to a capacity past the buffer extent must trap.
- * @details Memory surface — the extent is the ceiling every later set_capacity()
- *          grow is bounded by, so a rebind that starts above it would authorize
- *          allocations past the backing buffer from the first call on.
- */
-inline void case_arena_rebind_capacity_over_extent() {
-  static uint8_t buf[64];
-  Arena a(buf, sizeof(buf));
-  a.rebind(buf, opaque<size_t>(128), opaque<size_t>(64)); // -> HS_CHECK
-}
-
-/**
  * @brief Death case: a mid-run resplit with live scratch content must trap.
  * @details Config surface — resplit_arenas rebases both scratch arenas, and a
  *          ScratchScope saved at offset 0 restores to 0 either way, so live
@@ -3303,18 +3266,6 @@ inline const Case *all_cases(int &n) {
       {"arena_bad_alignment", case_arena_bad_alignment, "memory.h",
        "(align != 0 && (align & (align - 1)) == 0) Arena::allocate: "
        "alignment "},
-      {"arena_set_capacity_below_offset", case_arena_set_capacity_below_offset,
-       "memory.h",
-       "(offset <= new_capacity) Arena::set_capacity below the live offset "
-       "would strand content"},
-      {"arena_set_capacity_above_extent", case_arena_set_capacity_above_extent,
-       "memory.h",
-       "(new_capacity <= extent) Arena::set_capacity past the backing buffer "
-       "would hand out bytes the arena does not own"},
-      {"arena_rebind_capacity_over_extent",
-       case_arena_rebind_capacity_over_extent, "memory.h",
-       "(new_capacity <= buffer_extent) Arena::rebind capacity exceeds its "
-       "backing buffer"},
       {"resplit_scratch_not_empty", case_resplit_scratch_not_empty,
        "memory.cpp",
        "(scratch_arena_a.get_offset() == 0 && scratch_arena_b.get_offset() "
@@ -4282,7 +4233,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"palette_cycler.h", 8},
     {"choreography.h", 1},
     {"memory.cpp", 1},
-    {"memory.h", 2},
+    {"memory.h", 1},
     {"reaction_graph.h", 2},
     {"static_circular_buffer.h", 4},
     {"transformer.h", 4},
