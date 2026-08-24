@@ -154,6 +154,38 @@ consteval bool spherical_source_policy_callable() {
 }
 
 template <typename Policy, typename FrameState>
+consteval bool weight_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(float field, const ProjectionProvenance &provenance,
+                    const FrameState &frame,
+                    const typename Policy::Prepared &prepared) {
+      {
+        Policy::apply(field, provenance, frame, prepared)
+      } -> std::same_as<float>;
+    };
+  else
+    return requires(float field, const ProjectionProvenance &provenance,
+                    const FrameState &frame) {
+      { Policy::apply(field, provenance, frame) } -> std::same_as<float>;
+    };
+}
+
+template <typename Policy, typename FrameState>
+consteval bool projection_coverage_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(const ProjectionProvenance &provenance,
+                    const FrameState &frame,
+                    const typename Policy::Prepared &prepared) {
+      { Policy::apply(provenance, frame, prepared) } -> std::same_as<float>;
+    };
+  else
+    return requires(const ProjectionProvenance &provenance,
+                    const FrameState &frame) {
+      { Policy::apply(provenance, frame) } -> std::same_as<float>;
+    };
+}
+
+template <typename Policy, typename FrameState>
 consteval bool orientation_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
     return requires(const FrameState &frame,
@@ -449,38 +481,69 @@ struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
   static constexpr bool PROVIDER_VALID =
       Detail::source_policy_callable<SourcePolicyT,
                                      typename Binding::FrameState>() &&
-      requires(float field, const ProjectionProvenance &provenance,
-               const typename Binding::FrameState &frame) {
-        {
-          WeightPolicyT::apply(field, provenance, frame)
-        } -> std::same_as<float>;
-        { CoveragePolicyT::apply(provenance, frame) } -> std::same_as<float>;
-      };
+      Detail::weight_policy_callable<WeightPolicyT,
+                                     typename Binding::FrameState>() &&
+      Detail::projection_coverage_policy_callable<
+          CoveragePolicyT, typename Binding::FrameState>();
+
+  template <typename Binding>
+  static constexpr bool MATERIAL_PREPARES =
+      Detail::PolicyPrepares<WeightPolicyT, typename Binding::FrameState> ||
+      Detail::PolicyPrepares<CoveragePolicyT, typename Binding::FrameState>;
+
+  template <typename Binding>
+  using Prepared = std::conditional_t<
+      MATERIAL_PREPARES<Binding>,
+      std::tuple<
+          Detail::PolicyPrepared<SourcePolicyT, typename Binding::FrameState>,
+          Detail::PolicyPrepared<WeightPolicyT, typename Binding::FrameState>,
+          Detail::PolicyPrepared<CoveragePolicyT,
+                                 typename Binding::FrameState>>,
+      Detail::PolicyPrepared<SourcePolicyT, typename Binding::FrameState>>;
 
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<SourcePolicyT>(frame);
+    if constexpr (MATERIAL_PREPARES<Binding>)
+      return Prepared<Binding>{Detail::prepare_policy<SourcePolicyT>(frame),
+                               Detail::prepare_policy<WeightPolicyT>(frame),
+                               Detail::prepare_policy<CoveragePolicyT>(frame)};
+    else
+      return Detail::prepare_policy<SourcePolicyT>(frame);
   }
 
   template <typename Binding>
   __attribute__((always_inline)) static FieldSample
   run(const PlaneSample &input, const typename Binding::FrameState &frame,
-      const Detail::PolicyPrepared<SourcePolicyT, typename Binding::FrameState>
-          &prepared) {
+      const Prepared<Binding> &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto source_span = Instrumentation::mark();
     float raw;
     if constexpr (Detail::PolicyPrepares<SourcePolicyT,
-                                         typename Binding::FrameState>)
-      raw = SourcePolicyT::sample(input, frame, prepared);
-    else
+                                         typename Binding::FrameState>) {
+      if constexpr (MATERIAL_PREPARES<Binding>)
+        raw = SourcePolicyT::sample(input, frame, std::get<0>(prepared));
+      else
+        raw = SourcePolicyT::sample(input, frame, prepared);
+    } else
       raw = SourcePolicyT::sample(input, frame);
     Instrumentation::template span<ProfileEvent::SOURCE>(source_span);
     const auto material_span = Instrumentation::mark();
-    const float weighted = WeightPolicyT::apply(raw, input.provenance, frame);
-    const FieldSample output = Kernel::sample(
-        input, weighted, CoveragePolicyT::apply(input.provenance, frame));
+    float weighted;
+    if constexpr (Detail::PolicyPrepares<WeightPolicyT,
+                                         typename Binding::FrameState>)
+      weighted = WeightPolicyT::apply(raw, input.provenance, frame,
+                                      std::get<1>(prepared));
+    else
+      weighted = WeightPolicyT::apply(raw, input.provenance, frame);
+    float coverage;
+    if constexpr (Detail::PolicyPrepares<CoveragePolicyT,
+                                         typename Binding::FrameState>)
+      coverage = CoveragePolicyT::apply(input.provenance, frame,
+                                        std::get<2>(prepared));
+    else
+      coverage = CoveragePolicyT::apply(input.provenance, frame);
+    const FieldSample output = Kernel::sample(input, weighted, coverage);
     Instrumentation::template span<ProfileEvent::MATERIAL>(material_span);
     return output;
   }
