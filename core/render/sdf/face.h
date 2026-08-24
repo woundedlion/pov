@@ -469,11 +469,12 @@ struct Face {
       compute_azimuth_intervals(scratch);
     }
 
-    // Azimuth half of the cull, ahead of the bounds pass. Only
-    // apply_pole_containment can still widen the coverage these intervals
-    // describe, so the circumcircle guard must clear first. The row half stays
-    // below, where the bounds are exact.
-    if (clip && !pole_within_circumcircle() && clip_rejects_azimuth(*clip)) {
+    // Azimuth half of the cull, ahead of the bounds pass. The clip row band is
+    // conservative until the exact face bounds are available below.
+    if (clip && clip->render_y_start() < clip->render_y_end() &&
+        !pole_within_circumcircle() &&
+        clip_rejects_azimuth(*clip, clip->render_y_start(),
+                             clip->render_y_end() - 1)) {
       count = 0;
       y_min = 1;
       y_max = 0;
@@ -539,24 +540,31 @@ struct Face {
   bool clip_rejects(const ClipRegion &cr) const {
     if (y_max < cr.render_y_start() || y_min > cr.render_y_end() - 1)
       return true;
-    return clip_rejects_azimuth(cr);
+    return clip_rejects_azimuth(cr, std::max(y_min, cr.render_y_start()),
+                                std::min(y_max, cr.render_y_end() - 1));
   }
 
   /**
    * @brief Horizontal half of the clip cull.
    * @param cr Clip region (display bounds plus render margin).
+   * @param band_y_min First row whose azimuth coverage is relevant.
+   * @param band_y_max Last row whose azimuth coverage is relevant.
    * @return True when the face's azimuth coverage lies outside the render
-   *         columns. A full-width face, a pole-touching face (whose coverage
-   *         widens per row) or an inactive x-clip never rejects.
+   *         columns. A full-width face or an inactive x-clip never rejects.
    */
-  bool clip_rejects_azimuth(const ClipRegion &cr) const {
-    if (full_width || pole_touch)
+  bool clip_rejects_azimuth(const ClipRegion &cr, int band_y_min,
+                            int band_y_max) const {
+    if (full_width)
       return false;
     const ClipRegion::XClip xc = cr.x_clip();
     if (!xc.active)
       return false;
     const int Wd = cr.w;
-    const float pw = face_azimuth_pad(Wd);
+    const int h_virt = cr.h + hs::H_OFFSET;
+    const float phi_scale = PI_F / static_cast<float>(h_virt - 1);
+    const float sin_phi =
+        std::min(sinf(band_y_min * phi_scale), sinf(band_y_max * phi_scale));
+    const float pw = face_azimuth_pad(Wd, sin_phi);
     const int band_len = xc.length(Wd);
     for (const auto &iv : intervals) {
       // Mirrors get_horizontal_intervals' radians->column mapping, so the cull
@@ -1255,6 +1263,46 @@ struct Face {
   }
 
   /**
+   * @brief Reports whether rounded azimuth intervals change across a row band.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @param y_lo First row in the band.
+   * @param y_hi Last row in the band.
+   * @return True when the band requires per-row interval construction.
+   */
+  template <int W, int H>
+  bool horizontal_intervals_vary_by_row(int y_lo, int y_hi) const {
+    if (full_width || y_lo >= y_hi)
+      return false;
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+
+    const float sin_lo = TrigLUT<W, H>::sin_phi[y_lo];
+    const float sin_hi = TrigLUT<W, H>::sin_phi[y_hi];
+    const float sin_min = std::min(sin_lo, sin_hi);
+    float sin_max = std::max(sin_lo, sin_hi);
+    constexpr int H_VIRT = H + hs::H_OFFSET;
+    constexpr int EQUATOR_LO = (H_VIRT - 1) / 2;
+    constexpr int EQUATOR_HI = H_VIRT / 2;
+    if (y_lo <= EQUATOR_LO && EQUATOR_LO <= y_hi)
+      sin_max = std::max(sin_max, TrigLUT<W, H>::sin_phi[EQUATOR_LO]);
+    if (y_lo <= EQUATOR_HI && EQUATOR_HI <= y_hi)
+      sin_max = std::max(sin_max, TrigLUT<W, H>::sin_phi[EQUATOR_HI]);
+
+    const float narrow_pad = face_azimuth_pad(W, sin_max);
+    const float wide_pad = face_azimuth_pad(W, sin_min);
+    const float column_scale = W / TWO_PI_F;
+    for (const auto &iv : intervals) {
+      if (floorf((iv.first - narrow_pad) * column_scale) !=
+              floorf((iv.first - wide_pad) * column_scale) ||
+          ceilf((iv.second + narrow_pad) * column_scale) !=
+              ceilf((iv.second + wide_pad) * column_scale))
+        return true;
+    }
+    return false;
+  }
+
+  /**
    * @brief Emits the face's azimuth-coverage intervals for a row.
    * @tparam W Canvas width in columns; must match the clip width the
    * construction-time azimuth cull ran against.
@@ -1262,13 +1310,11 @@ struct Face {
    * @tparam OutputIt Sink type invoked as out(float start, float end).
    * @param y Row index, which sets the pole widening below.
    * @param out Sink accepting (float start, float end).
-   * @return True if intervals were emitted; false (full scan) for full-width
-   * faces and for the rows a pole-touching face cannot bound.
+   * @return True if intervals were emitted; false when the row requires a full
+   * scan.
    * @details The pad is an azimuth angle, so it holds a whole pixel of AA reach
    * only at the equator; at colatitude phi one pad p of great-circle reach
-   * subtends asin(sin p / sin phi), the whole row once sin phi <= sin p. A face
-   * that meets a pole spans those rows, so widen its pad by the bound
-   * asin(x) <= (pi/2) x rather than force it full width everywhere.
+   * subtends asin(p / sin phi), reaching the whole row once sin phi <= p.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -1278,15 +1324,13 @@ struct Face {
         "azimuth cull ran against");
     if (full_width)
       return false;
-    float pad = face_azimuth_pad(W);
-    if (pole_touch) {
-      if (!TrigLUT<W, H>::initialized)
-        TrigLUT<W, H>::init();
-      const float sin_phi = TrigLUT<W, H>::sin_phi[y];
-      if (sin_phi <= pad)
-        return false;
-      pad *= (0.5f * PI_F) / sin_phi;
-    }
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    const float sin_phi = TrigLUT<W, H>::sin_phi[y];
+    const float base_pad = face_azimuth_pad(W);
+    if (sin_phi <= base_pad)
+      return false;
+    const float pad = asinf(base_pad / sin_phi);
     for (const auto &iv : intervals) {
       float f_x1 = (iv.first - pad) * W / TWO_PI_F;
       float f_x2 = (iv.second + pad) * W / TWO_PI_F;
