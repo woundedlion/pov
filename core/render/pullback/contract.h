@@ -305,6 +305,10 @@ struct PoliciesBindable<std::tuple<Policies...>, Binding>
     : std::bool_constant<(policy_provider_valid<Policies, Binding>() && ...)> {
 };
 
+template <typename T> struct IsPolicyTuple : std::false_type {};
+template <typename... Policies>
+struct IsPolicyTuple<std::tuple<Policies...>> : std::true_type {};
+
 template <typename State, typename Binding>
 concept ProviderFor =
     std::is_empty_v<State> && std::is_trivially_constructible_v<State> &&
@@ -345,7 +349,7 @@ concept StageDescriptor = requires {
   typename Descriptor::Output;
   typename Descriptor::Policies;
   typename Descriptor::template Bind<Detail::ProbeBinding>;
-};
+} && Detail::IsPolicyTuple<typename Descriptor::Policies>::value;
 
 /**
  * @brief Whether @p Descriptor's policies and providers agree with @p Binding.
