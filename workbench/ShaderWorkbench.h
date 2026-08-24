@@ -174,8 +174,8 @@ struct ShaderWorkbenchWhiteBox;
   X(COLOR_PHASE_OSCILLATION_DEPTH, params.color.phase_oscillation_depth)       \
   X(COLOR_PHASE_OSCILLATION_SPEED, params.color.phase_oscillation_speed)       \
   X(COLOR_BRIGHTNESS_DEPTH, params.color.brightness_depth)                     \
-  X(COLOR_VALUE_OPACITY_LOW, params.color.value_opacity_low)                   \
-  X(COLOR_VALUE_OPACITY_HIGH, params.color.value_opacity_high)                 \
+  X(COLOR_VALUE_OPACITY_LOW, params.color.opacity_low)                         \
+  X(COLOR_VALUE_OPACITY_HIGH, params.color.opacity_high)                       \
   X(CAMERA_WANDER, params.outer_camera.wander)                                 \
   X(SURFACE_NOISE_BASIS, params.surface_noise.basis)                           \
   X(SURFACE_NOISE_INTEGRATOR, params.surface_noise.integrator)                 \
@@ -786,47 +786,7 @@ public:
     }
   };
 
-  struct ColorParams {
-    float hue_shift_amount = 0.0f;
-    float hue_noise_scale = 1.0f;
-    float hue_noise_speed = 0.0f;
-    float palette_chroma = 0.62f;
-    float mapping_frequency = 1.0f;
-    float mapping_phase = 0.0f;
-    float phase_oscillation_depth = 0.0f;
-    float phase_oscillation_speed = 0.0f;
-    float brightness_depth = 1.0f;
-    float value_opacity_low = 1.0f;
-    float value_opacity_high = 1.0f;
-
-    HS_COLD_MEMBER constexpr ColorParams() = default;
-
-    constexpr ColorParams(float amount, float scale, float speed)
-        : hue_shift_amount(amount), hue_noise_scale(scale),
-          hue_noise_speed(speed) {}
-
-    HS_COLD_MEMBER bool operator==(const ColorParams &) const = default;
-
-    HS_COLD_MEMBER void lerp(const ColorParams &a, const ColorParams &b,
-                             float t) {
-      static_assert(sizeof(ColorParams) == 44,
-                    "ColorParams field set changed - update lerp");
-      hue_shift_amount = hs::lerp(a.hue_shift_amount, b.hue_shift_amount, t);
-      hue_noise_scale = hs::lerp(a.hue_noise_scale, b.hue_noise_scale, t);
-      hue_noise_speed = hs::lerp(a.hue_noise_speed, b.hue_noise_speed, t);
-      palette_chroma = hs::lerp(a.palette_chroma, b.palette_chroma, t);
-      mapping_frequency = hs::lerp(a.mapping_frequency, b.mapping_frequency, t);
-      mapping_phase = hs::lerp(a.mapping_phase, b.mapping_phase, t);
-      phase_oscillation_depth =
-          hs::lerp(a.phase_oscillation_depth, b.phase_oscillation_depth, t);
-      phase_oscillation_speed =
-          hs::lerp(a.phase_oscillation_speed, b.phase_oscillation_speed, t);
-      brightness_depth = hs::lerp(a.brightness_depth, b.brightness_depth, t);
-      value_opacity_low = hs::lerp(a.value_opacity_low, b.value_opacity_low, t);
-      value_opacity_high =
-          hs::lerp(a.value_opacity_high, b.value_opacity_high, t);
-    }
-  };
+  using ColorParams = Pullback::Color::ColorParams;
 
   struct OuterCameraParams {
     float wander = 0.0f;
@@ -872,7 +832,9 @@ public:
       surface_lens.lerp(a.surface_lens, b.surface_lens, t);
       surface_noise.lerp(a.surface_noise, b.surface_noise, t);
       value.lerp(a.value, b.value, t);
-      color.lerp(a.color, b.color, t);
+      color = Pullback::Fields::interpolate(a.color, b.color, t);
+      color.palette_mapping =
+          t < 1.0f ? a.color.palette_mapping : b.color.palette_mapping;
       outer_camera.lerp(a.outer_camera, b.outer_camera, t);
     }
 
@@ -906,8 +868,12 @@ public:
                           phase_t(t, phase++, phase_count));
       if (a.value != b.value)
         value.lerp(a.value, b.value, phase_t(t, phase++, phase_count));
-      if (a.color != b.color)
-        color.lerp(a.color, b.color, phase_t(t, phase++, phase_count));
+      if (a.color != b.color) {
+        const float color_t = phase_t(t, phase++, phase_count);
+        color = Pullback::Fields::interpolate(a.color, b.color, color_t);
+        color.palette_mapping =
+            color_t < 1.0f ? a.color.palette_mapping : b.color.palette_mapping;
+      }
       if (a.outer_camera != b.outer_camera)
         outer_camera.lerp(a.outer_camera, b.outer_camera,
                           phase_t(t, phase++, phase_count));
@@ -1201,10 +1167,10 @@ private:
                               &requested_config.params.color.brightness_depth,
                               BRIGHTNESS_DEPTH_MIN, BRIGHTNESS_DEPTH_MAX);
     register_animated_param("Value Opacity Low",
-                            &requested_config.params.color.value_opacity_low,
+                            &requested_config.params.color.opacity_low,
                             VALUE_OPACITY_MIN, VALUE_OPACITY_MAX);
     register_animated_param("Value Opacity High",
-                            &requested_config.params.color.value_opacity_high,
+                            &requested_config.params.color.opacity_high,
                             VALUE_OPACITY_MIN, VALUE_OPACITY_MAX);
     if (!fixed_topology)
       register_animated_param("Hue Shift Mode", &slots.hue_shift,
@@ -2285,10 +2251,10 @@ private:
       return frame.params.color.brightness_depth;
     }
     static float opacity_low(const FrameState &frame) {
-      return frame.params.color.value_opacity_low;
+      return frame.params.color.opacity_low;
     }
     static float opacity_high(const FrameState &frame) {
-      return frame.params.color.value_opacity_high;
+      return frame.params.color.opacity_high;
     }
   };
 
@@ -6410,10 +6376,10 @@ private:
            p.color.phase_oscillation_speed <= PHASE_OSCILLATION_SPEED_MAX &&
            p.color.brightness_depth >= BRIGHTNESS_DEPTH_MIN &&
            p.color.brightness_depth <= BRIGHTNESS_DEPTH_MAX &&
-           p.color.value_opacity_low >= VALUE_OPACITY_MIN &&
-           p.color.value_opacity_low <= VALUE_OPACITY_MAX &&
-           p.color.value_opacity_high >= VALUE_OPACITY_MIN &&
-           p.color.value_opacity_high <= VALUE_OPACITY_MAX;
+           p.color.opacity_low >= VALUE_OPACITY_MIN &&
+           p.color.opacity_low <= VALUE_OPACITY_MAX &&
+           p.color.opacity_high >= VALUE_OPACITY_MIN &&
+           p.color.opacity_high <= VALUE_OPACITY_MAX;
   }
 
   HS_COLD_MEMBER static constexpr bool

@@ -67,8 +67,8 @@ struct LatticeMeltWhiteBox {
                     frame.params.color.phase_oscillation_depth,
                     frame.params.color.phase_oscillation_speed,
                     frame.params.color.brightness_depth,
-                    frame.params.color.value_opacity_low,
-                    frame.params.color.value_opacity_high,
+                    frame.params.color.opacity_low,
+                    frame.params.color.opacity_high,
                     static_cast<Pullback::Color::PaletteMapping>(
                         frame.slots.palette_mapping)};
     return {frame.transforms.projection_conj,

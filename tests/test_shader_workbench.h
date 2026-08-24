@@ -1874,8 +1874,8 @@ inline void test_shader_workbench_preset_bank() {
         signal.color.mapping_phase,
         signal.color.phase_oscillation_depth,
         signal.color.phase_oscillation_speed,
-        signal.color.value_opacity_low,
-        signal.color.value_opacity_high,
+        signal.color.opacity_low,
+        signal.color.opacity_high,
         signal.color.hue_shift_amount,
         signal.color.hue_noise_scale,
         signal.color.hue_noise_speed,
@@ -1948,8 +1948,8 @@ inline void test_shader_workbench_preset_bank() {
       mirror.params.color.mapping_phase,
       mirror.params.color.phase_oscillation_depth,
       mirror.params.color.phase_oscillation_speed,
-      mirror.params.color.value_opacity_low,
-      mirror.params.color.value_opacity_high,
+      mirror.params.color.opacity_low,
+      mirror.params.color.opacity_high,
       mirror.params.color.hue_shift_amount,
       mirror.params.color.hue_noise_scale,
       mirror.params.color.hue_noise_speed,
@@ -2014,8 +2014,8 @@ inline void test_shader_workbench_preset_bank() {
       kaleido_grid.color.mapping_phase,
       kaleido_grid.color.phase_oscillation_depth,
       kaleido_grid.color.phase_oscillation_speed,
-      kaleido_grid.color.value_opacity_low,
-      kaleido_grid.color.value_opacity_high,
+      kaleido_grid.color.opacity_low,
+      kaleido_grid.color.opacity_high,
       kaleido_grid.color.hue_shift_amount,
       kaleido_grid.color.hue_noise_scale,
       kaleido_grid.color.hue_noise_speed,
@@ -2408,10 +2408,10 @@ inline void test_shader_workbench_config_admission() {
     candidate.params.color.brightness_depth = 1.01f;
     HS_EXPECT_FALSE(WB::valid_config(candidate));
     candidate = WB::legacy_config();
-    candidate.params.color.value_opacity_low = -0.01f;
+    candidate.params.color.opacity_low = -0.01f;
     HS_EXPECT_FALSE(WB::valid_config(candidate));
     candidate = WB::legacy_config();
-    candidate.params.color.value_opacity_high = 1.01f;
+    candidate.params.color.opacity_high = 1.01f;
     HS_EXPECT_FALSE(WB::valid_config(candidate));
 
     const WB::RequestedConfig legacy_config = WB::legacy_config();
@@ -3552,8 +3552,8 @@ fixed_reference_config(ShaderWorkbenchWhiteBox::RequestedConfig destination,
   destination.params.color.phase_oscillation_speed =
       source.color.phase_oscillation_speed;
   destination.params.color.brightness_depth = source.color.brightness_depth;
-  destination.params.color.value_opacity_low = source.color.opacity_low;
-  destination.params.color.value_opacity_high = source.color.opacity_high;
+  destination.params.color.opacity_low = source.color.opacity_low;
+  destination.params.color.opacity_high = source.color.opacity_high;
   destination.slots.palette_mapping =
       static_cast<WB::PaletteMapping>(source.color.palette_mapping);
   return destination;
@@ -5673,8 +5673,8 @@ inline void test_shader_workbench_brightness_envelopes() {
                  normalized_ratio(shifted_without_brightness.color.b,
                                   shifted_without_brightness.color.g),
                  0.01f);
-  config.params.color.value_opacity_low = 0.2f;
-  config.params.color.value_opacity_high = 0.8f;
+  config.params.color.opacity_low = 0.2f;
+  config.params.color.opacity_high = 0.8f;
   const Color4 faded =
       WB::colorize(shifted_sample, WB::config_frame(sb, config));
   HS_EXPECT_NEAR(faded.alpha, sample.coverage * 0.5f, 1e-6f);
