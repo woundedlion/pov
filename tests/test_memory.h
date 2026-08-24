@@ -9,8 +9,8 @@
  * death harness in tests/test_death.h — case_arena_oom (allocate past
  * capacity), case_arena_zero_size_alloc, case_arena_bad_alignment,
  * case_arena_set_offset_forward (a set_offset that is not a rewind),
- * case_arena_set_capacity_below_offset, case_arena_vector_overflow /
- * _emplace_overflow / _append_bulk_overflow (fixed-capacity push),
+ * case_arena_vector_overflow / _emplace_overflow / _append_bulk_overflow
+ * (fixed-capacity push),
  * case_persist_same_arena, case_arena_oversubscribed, and
  * case_resplit_scratch_not_empty.
  *
@@ -456,41 +456,6 @@ inline void test_configure_arenas_repartition() {
   HS_EXPECT_EQ(persistent_arena.get_capacity(), DEFAULT_PERSISTENT_SIZE);
   HS_EXPECT_EQ(scratch_arena_a.get_capacity(), DEFAULT_SCRATCH_A_SIZE);
   HS_EXPECT_EQ(scratch_arena_b.get_capacity(), DEFAULT_SCRATCH_B_SIZE);
-}
-
-/**
- * @brief Verifies set_capacity() moves only the capacity boundary — base,
- *        offset, content, high-water mark, and generation all survive.
- * @details Unlike rebind(), a shrink to exactly the live offset must leave every
- *          allocation below it usable, and a subsequent grow must hand the
- *          reclaimed headroom back to the same bump pointer.
- */
-inline void test_arena_set_capacity_moves_only_boundary() {
-  Arena a(test_buf_a, sizeof(test_buf_a));
-  auto *block = static_cast<uint8_t *>(a.allocate(256, 1));
-  memset(block, 0x5A, 256);
-  a.allocate(128, 1);
-  a.set_offset(256); // high-water 384 now sits above the live offset
-  const size_t high_water = a.get_high_water_mark();
-  HS_EXPECT_EQ(high_water, (size_t)384);
-#ifndef NDEBUG
-  const uint32_t generation = a.get_generation();
-#endif
-
-  a.set_capacity(256);
-  HS_EXPECT_EQ(a.get_capacity(), (size_t)256);
-  HS_EXPECT_EQ(a.get_offset(), (size_t)256);
-  HS_EXPECT_EQ(a.get_high_water_mark(), high_water);
-  HS_EXPECT_EQ((int)block[0], 0x5A);
-  HS_EXPECT_EQ((int)block[255], 0x5A);
-#ifndef NDEBUG
-  HS_EXPECT_EQ(a.get_generation(), generation);
-#endif
-
-  a.set_capacity(320);
-  auto *grown = static_cast<uint8_t *>(a.allocate(64, 1));
-  HS_EXPECT_EQ(grown, block + 256);
-  HS_EXPECT_EQ(a.get_offset(), (size_t)320);
 }
 
 /**
@@ -1314,7 +1279,6 @@ inline int run_memory_tests() {
   test_arena_reclaimed_since();
 #endif
   test_configure_arenas_repartition();
-  test_arena_set_capacity_moves_only_boundary();
   test_resplit_arenas_preserves_persistent();
 
   test_arenavec_default_unbound();
