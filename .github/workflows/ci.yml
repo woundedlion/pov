@@ -1121,6 +1121,9 @@ jobs:
       - name: Gallery covers every registered effect
         run: node scripts/check_screenshots.mjs
 
+      - name: Profile archive covers every Phantasm effect
+        run: node scripts/check_profiles.mjs
+
       # Cross-check the HS_EFFECT_LIST X-macro roster against the REGISTER_EFFECT
       # calls in effects/*.h. The WASM count check can't see an effect that is
       # never #included from core/engine/effects.h (absent from both registry and
