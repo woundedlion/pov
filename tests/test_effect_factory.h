@@ -44,9 +44,12 @@ template <int W, int H> inline void verify_factory_table() {
   HS_EXPECT_EQ(table.size(), static_cast<size_t>(HS_EFFECT_COUNT));
   HS_EXPECT_TRUE(&table == &again);
 
-  for (const FactoryEntry &entry : table) {
+  for (size_t index = 0; index < table.size(); ++index) {
+    const FactoryEntry &entry = table[index];
     HS_EXPECT_TRUE(!entry.name.empty());
     HS_EXPECT_TRUE(!entry.stable_id.empty());
+    HS_EXPECT_TRUE(entry.stable_id ==
+                   EffectRegistry::entries()[index].stable_id);
     HS_EXPECT_TRUE(static_cast<bool>(entry.creator));
     HS_EXPECT_TRUE(entry.size > 0);
   }

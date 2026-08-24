@@ -97,6 +97,8 @@ struct EffectRegistration {
 #define HS_REG_FILL_FIELD(W, H) FillFn fill_##W##_##H;
   HS_RESOLUTIONS(HS_REG_FILL_FIELD)
 #undef HS_REG_FILL_FIELD
+  std::string_view stable_id{}; /**< Persisted identity shared by every
+                                   resolution's FactoryEntry. */
 };
 
 /**
@@ -118,6 +120,8 @@ public:
    * @brief Appends a registration to the global table.
    * @param reg Registration record to append.
    * @return Dummy 0, so this can be used as a static-init expression.
+   * @details Class names and stable IDs share the factory lookup namespace and
+   *          must be pairwise unique across registrations.
    * @warning The append order is the static-init order of the REGISTER_EFFECT
    *          objects, which is link/translation-unit-order dependent and therefore
    *          NOT stable across builds. The index of an entry in `entries()` carries
@@ -126,10 +130,32 @@ public:
    *          instead, or sort `entries()` by name at use.
    */
   static int add(EffectRegistration reg) {
+    if (reg.stable_id.empty()) {
+      FactoryEntry identity;
+      const EffectRegistration::FillFn fills[] = {
+#define HS_REG_ID_FILL(W, H) reg.fill_##W##_##H,
+          HS_RESOLUTIONS(HS_REG_ID_FILL)
+#undef HS_REG_ID_FILL
+      };
+      fills[0](identity);
+      reg.stable_id = identity.stable_id;
+    }
+
     for (const auto &existing : entries()) {
       HS_CHECK(existing.name != reg.name,
                "effect header included by more than one translation unit: "
                "effects/%.*s.h",
+               static_cast<int>(reg.name.size()), reg.name.data());
+      HS_CHECK(existing.stable_id != reg.stable_id,
+               "duplicate effect stable id \"%.*s\": effects/%.*s.h and "
+               "effects/%.*s.h",
+               static_cast<int>(reg.stable_id.size()), reg.stable_id.data(),
+               static_cast<int>(existing.name.size()), existing.name.data(),
+               static_cast<int>(reg.name.size()), reg.name.data());
+      HS_CHECK(existing.name != reg.stable_id && existing.stable_id != reg.name,
+               "effect stable id collides with a class name: effects/%.*s.h "
+               "and effects/%.*s.h",
+               static_cast<int>(existing.name.size()), existing.name.data(),
                static_cast<int>(reg.name.size()), reg.name.data());
     }
     entries().push_back(reg);
