@@ -117,6 +117,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [AlienCore](#aliencore)
      - [KaleidoscopeMandala](#kaleidoscopemandala)
      - [GridSpace](#gridspace)
+     - [HyperLattice](#hyperlattice)
      - [LatticeMelt](#latticemelt)
      - [KaleidoscopePentBright](#kaleidoscopepentbright)
      - [KaleidoscopeHexOil](#kaleidoscopehexoil)
@@ -376,7 +377,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    39 headers covering 38 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    40 headers covering 39 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                shared base ReactionDiffusionBase.h; the
 │                                composed-effect base is
@@ -662,7 +663,7 @@ Three build targets share a common engine:
 │  │ Holosphere/  │   │  Effects → Canvas → Filter Pipeline          │    │
 │  │  .ino        │   │      → SDF/Plot → Pixel Buffer               │    │
 │  │              │   │                                              │    │
-│  │ Phantasm/    │   │  effects/  (38 visual algorithms)            │    │
+│  │ Phantasm/    │   │  effects/  (39 visual algorithms)            │    │
 │  │  .ino        │   │                                              │    │
 │  │              │   ├──────────────────────────────────────────────┤    │
 │  │ wasm/        │   │          hardware/  (Drivers)                │    │
@@ -2341,6 +2342,18 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 </td></tr></table>
 
 <table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=HyperLattice" target="_blank"><img src="docs/screenshots/HyperLattice.png" alt="HyperLattice" width="280"></a></td>
+<td valign="top">
+
+#### HyperLattice
+
+An analytic reflective flight through a cubic lattice that opens into a four-dimensional hypercubic lattice under genuine SO(4) rotation. Transparent integer-coordinate hyperplanes expose several lattice shells without raymarching.
+
+**Parameters**: Dimension, Wire Radius, Softness, Far Cells, Pixel AA, Travel, 3D Spin, 4D Spin, Reflection, Color, Shells
+
+</td></tr></table>
+
+<table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=LatticeMelt" target="_blank"><img src="docs/screenshots/LatticeMelt.png" alt="LatticeMelt" width="280"></a></td>
 <td valign="top">
 
@@ -2633,6 +2646,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `alien-core` | `AlienCore` | 1 | 3 |
 | `kaleidoscope-mandala` | `KaleidoscopeMandala` | 2 | 5, plus `cup-hue` |
 | `grid-space` | `GridSpace` | 1 | 6 |
+| `hyper-lattice` | `HyperLattice` | 4 | — |
 | `lattice-melt` | `LatticeMelt` | 2 | 7–8 |
 | `kaleidoscope-pent-bright` | `KaleidoscopePentBright` | 1 | 9 |
 | `kaleidoscope-hex-oil` | `KaleidoscopeHexOil` | 2 | — |

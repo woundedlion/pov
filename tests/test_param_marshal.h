@@ -240,6 +240,7 @@ inline void check_roster_order_pinned() {
                                               "Fishbowl",
                                               "Comets",
                                               "GridSpace",
+                                              "HyperLattice",
                                               "AshCloud",
                                               "LatticeMelt",
                                               "DisplacementField",

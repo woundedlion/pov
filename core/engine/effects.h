@@ -26,6 +26,7 @@
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
 #include "effects/GridSpace.h"
+#include "effects/HyperLattice.h"
 #include "effects/CosmicEyeball.h"
 #include "effects/KaleidoscopeFlowers.h"
 #include "effects/KaleidoscopeSmooth.h"
@@ -87,6 +88,7 @@
   X(Fishbowl)                                                                  \
   X(Comets)                                                                    \
   X(GridSpace)                                                                 \
+  X(HyperLattice)                                                              \
   X(AshCloud)                                                                  \
   X(LatticeMelt)                                                               \
   X(DisplacementField)                                                         \
@@ -159,6 +161,7 @@ constexpr int hs_preset_window_seconds() {
   X(Fishbowl, 120)                                                             \
   X(Comets, 120)                                                               \
   X(GridSpace, hs_preset_window_seconds<GridSpace>())                          \
+  X(HyperLattice, hs_preset_window_seconds<HyperLattice>())                    \
   X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
   X(LatticeMelt, hs_preset_window_seconds<LatticeMelt>())                      \
   X(DisplacementField, 120)                                                    \
