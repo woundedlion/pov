@@ -572,6 +572,15 @@ const validatePresetBank = (bank, parameters, pathPolicies, report, guard) => {
     if (order.length !== presetIds.size || new Set(order).size !== presetIds.size ||
         order.some((presetId) => !presetIds.has(presetId)))
       fail('semantic', 'INVALID_GENERATED_ORDER', '$.preset_bank.choreography.generated_order', 'Generated order must contain every preset exactly once.');
+    if (bank.choreography.dwell !== undefined) {
+      const dwell = object(bank.choreography.dwell, '$.preset_bank.choreography.dwell');
+      if (Object.keys(dwell).length !== presetIds.size ||
+          Object.keys(dwell).some((presetId) => !presetIds.has(presetId)))
+        fail('semantic', 'INVALID_DWELL', '$.preset_bank.choreography.dwell', 'Dwell must contain every preset exactly once.');
+      for (const [presetId, duration] of Object.entries(dwell))
+        if (!Number.isInteger(duration) || duration <= 0)
+          fail('semantic', 'INVALID_DWELL', `$.preset_bank.choreography.dwell.${presetId}`, 'Dwell must be a positive tick count.');
+    }
   });
 };
 
