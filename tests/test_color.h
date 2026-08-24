@@ -21,6 +21,7 @@
 
 #include "core/color/color.h"
 #include "core/color/effect_palette_recipes.h"
+#include "core/color/noise_hue_palette.h"
 #include "core/color/srgb_decode.h"
 #include "tests/color_test_util.h"
 #include "tests/test_fixture.h"
@@ -2271,6 +2272,41 @@ inline void test_palette_shade_coord_policy() {
   HS_EXPECT_NEAR(unwrapped_lookup.get(0.25f).alpha, 0.75f, 1e-5f);
 }
 
+/**
+ * @brief Verifies the reusable noise-hue palette resolves spatial hue shifts
+ *        from its prepared LUTs and preserves the source palette's alpha.
+ */
+inline void test_noise_hue_palette() {
+  static std::array<Pixel, HueRotationLutView::SIZE> hue_rotation;
+  static std::array<int8_t, HueNoiseLutView::SIZE> hue_noise;
+  Gradient source{{0.0f, CPixel(255u, 40u, 10u)},
+                  {1.0f, CPixel(10u, 80u, 255u)}};
+  prepare_hue_rotation_lut(
+      std::span<Pixel, HueRotationLutView::SIZE>(hue_rotation), source);
+  FastNoiseLite noise;
+  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  noise.SetSeed(6047);
+  noise.SetFrequency(1.0f);
+  prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE>(hue_noise),
+                        noise, 2.0f, 0.0f);
+
+  NoiseHuePalette<Gradient> palette(&source, hue_rotation.data(),
+                                    hue_noise.data());
+  const float value = 0.375f;
+  const float shift =
+      palette.hue_shift(Vector(1.0f, 2.0f, 3.0f).normalized(), 0.4f);
+  const Color4 actual = palette.get(value, shift);
+  const Pixel expected =
+      sample_hue_rotation_lut({hue_rotation.data(), true}, value, shift);
+  HS_EXPECT_EQ(actual.color.r, expected.r);
+  HS_EXPECT_EQ(actual.color.g, expected.g);
+  HS_EXPECT_EQ(actual.color.b, expected.b);
+  HS_EXPECT_NEAR(actual.alpha, source.get(value).alpha, 1e-6f);
+  HS_EXPECT_GT(
+      fabsf(palette.hue_shift(X_AXIS, 1.0f) - palette.hue_shift(Y_AXIS, 1.0f)),
+      1e-3f);
+}
+
 // Clamp-before-cast / NaN-saturation checks whose contract must also hold under
 // the shipping WASM fast-math codegen. fastmath_clamp_check.cpp iterates this
 // same list, so adding a case here automatically extends both the default-IEEE
@@ -2394,6 +2430,7 @@ inline int run_color_tests() {
   test_static_palette_composition();
   test_palette_wrappers();
   test_palette_shade_coord_policy();
+  test_noise_hue_palette();
 
   // Clamp-before-cast / NaN-saturation checks, shared with the fast-math pass.
   const int before_clamp = hs_test::stats().passed + hs_test::stats().failed;
