@@ -286,6 +286,7 @@ inline void test_full_graph_walk_soak() {
     ++legs;
     // Per-leg render floor: a leg that went dark cannot hide behind the rest of
     // the run still being lit.
+    HS_EXPECT_NE(leg_min_energy, UINT64_MAX);
     if (leg_min_energy != UINT64_MAX) {
       HS_EXPECT_GE(leg_min_lit, SOAK_MIN_LIT_PIXELS);
       HS_EXPECT_GE(leg_min_energy, SOAK_MIN_FRAME_ENERGY);
