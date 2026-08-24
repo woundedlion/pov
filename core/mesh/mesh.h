@@ -827,7 +827,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         float ang = 0.0f;
         if (m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ) {
           const float d = hs::clamp(dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
-          ang = fast_acos(d);
+          ang = acosf(d);
         }
         angles[k] = static_cast<int>(std::round(ang * 180.0f / PI_F));
       }
