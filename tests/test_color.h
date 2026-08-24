@@ -122,6 +122,17 @@ inline void test_color4_lerp_straight_alpha() {
   HS_EXPECT_NEAR(after.alpha, opaque_blue.alpha, 1e-6f);
 }
 
+inline void test_blend_outputs_denormal_alpha() {
+  const float alpha = std::numeric_limits<float>::denorm_min();
+  const Color4 from(Pixel(1000, 2000, 3000), alpha);
+  const Color4 to(Pixel(3000, 4000, 5000), alpha);
+  const Color4 blended = blend_outputs(from, to, 0.5f);
+  HS_EXPECT_NEAR(static_cast<float>(blended.color.r), 2000.0f, 1.0f);
+  HS_EXPECT_NEAR(static_cast<float>(blended.color.g), 3000.0f, 1.0f);
+  HS_EXPECT_NEAR(static_cast<float>(blended.color.b), 4000.0f, 1.0f);
+  HS_EXPECT_NEAR(blended.alpha, alpha, alpha);
+}
+
 /**
  * @brief Round-to-nearest div-by-65535 lerp reference computed in double.
  * @param a First endpoint channel value in [0, 65535].
@@ -2371,6 +2382,7 @@ inline int run_color_tests() {
   test_lerp16_midpoint();
   test_lerp16_rounds_to_nearest();
   test_color4_lerp_straight_alpha();
+  test_blend_outputs_denormal_alpha();
   test_wrap_angle_pi_large_arguments();
   test_lerp16_full_range_correct();
   test_lerp16_bounded();
