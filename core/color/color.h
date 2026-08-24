@@ -1608,9 +1608,20 @@ HS_FLASH_INLINE inline Color4 blend_outputs(const Color4 &from,
   const float alpha = hs::lerp(from.alpha, to.alpha, mix);
   if (alpha == 0.0f)
     return Color4();
-  const float from_weight = from.alpha * (1.0f - mix);
-  const float to_weight = to.alpha * mix;
-  const float inv_alpha = 1.0f / alpha;
+  constexpr float MIN_NORMAL_ALPHA = 0x1p-126f;
+  float from_weight;
+  float to_weight;
+  float denominator = alpha;
+  if (alpha < MIN_NORMAL_ALPHA) {
+    const float scale = MIN_NORMAL_ALPHA / alpha;
+    from_weight = (from.alpha * scale) * (1.0f - mix);
+    to_weight = (to.alpha * scale) * mix;
+    denominator *= scale;
+  } else {
+    from_weight = from.alpha * (1.0f - mix);
+    to_weight = to.alpha * mix;
+  }
+  const float inv_alpha = 1.0f / denominator;
   return Color4(
       Pixel(static_cast<uint16_t>(hs::clamp(
                 (from.color.r * from_weight + to.color.r * to_weight) *
