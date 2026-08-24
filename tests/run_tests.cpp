@@ -201,6 +201,15 @@ static bool runs_effects(int argc, char **argv) {
   return false;
 }
 
+/** @brief Reports whether CI-only runner depth levers must be enforced. */
+static bool runs_in_ci() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *ci = std::getenv("CI");
+#pragma clang diagnostic pop
+  return ci && ci[0] != '\0';
+}
+
 /**
  * @brief Verifies the environment carries the depth levers a CI run must set.
  * @param argc Argument count as passed to main.
@@ -214,7 +223,7 @@ static bool runs_effects(int argc, char **argv) {
  * jobs that select other modules are untouched.
  */
 static int check_ci_levers(int argc, char **argv) {
-  if (!hs_test::death_tests::in_ci())
+  if (!runs_in_ci())
     return 0;
 
   int missing = 0;
