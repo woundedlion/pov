@@ -182,6 +182,30 @@ inline void test_fixed_preset_ids() {
     HS_EXPECT_TRUE(mobius->preset_id(0) == "mobius-grid");
     HS_EXPECT_TRUE(mobius->preset_id(1) == "mobius-grid-2");
   }
+
+  const FactoryEntry *harmonics =
+      find_factory_entry<96, 20>("SphericalHarmonics");
+  HS_EXPECT_TRUE(harmonics != nullptr);
+  HS_EXPECT_TRUE(harmonics && harmonics->preset_id != nullptr);
+  if (harmonics && harmonics->preset_id) {
+    HS_EXPECT_EQ(harmonics->preset_count, 24u);
+    for (size_t index = 0; index < harmonics->preset_count; ++index) {
+      const auto [l, m] = SHMath::decode_lm(static_cast<int>(index + 1));
+      char expected[24];
+      std::snprintf(expected, sizeof(expected), "sh-l%d-m%d", l, m);
+      HS_EXPECT_TRUE(harmonics->preset_id(index) == expected);
+    }
+    HS_EXPECT_TRUE(harmonics->preset_id(24).empty());
+  }
+
+  const FactoryEntry *fishbowl = find_factory_entry<96, 20>("Fishbowl");
+  HS_EXPECT_TRUE(fishbowl != nullptr);
+  HS_EXPECT_TRUE(fishbowl && fishbowl->preset_id != nullptr);
+  if (fishbowl && fishbowl->preset_id) {
+    HS_EXPECT_EQ(fishbowl->preset_count, 1u);
+    HS_EXPECT_TRUE(fishbowl->preset_id(0) == "fire-trail");
+    HS_EXPECT_TRUE(fishbowl->preset_id(1).empty());
+  }
 }
 
 /**
