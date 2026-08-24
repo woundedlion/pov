@@ -150,6 +150,76 @@ struct WarpWaveShear {
   }
 };
 
+/** @brief Parameter family of warp.vortex.v2. */
+struct VortexWarpParams {
+  float speed = 0.0f;
+  float center_x = 0.0f;
+  float center_y = 0.0f;
+  float radius = 1.0f;
+  float turns = 0.0f;
+  float center_orbit_radius = 0.0f;
+
+  static constexpr auto FIELDS = std::array{
+      Field<VortexWarpParams>{"speed", &VortexWarpParams::speed, nullptr,
+                              -0.02f, 0.02f, FieldCurve::LERP},
+      Field<VortexWarpParams>{"center-x", &VortexWarpParams::center_x,
+                              "Vortex Center X", -4.0f, 4.0f, FieldCurve::LERP},
+      Field<VortexWarpParams>{"center-y", &VortexWarpParams::center_y,
+                              "Vortex Center Y", -4.0f, 4.0f, FieldCurve::LERP},
+      Field<VortexWarpParams>{"radius", &VortexWarpParams::radius,
+                              "Vortex Radius", 1.0f / 64.0f, 8.0f,
+                              FieldCurve::LOG_POSITIVE},
+      Field<VortexWarpParams>{"turns", &VortexWarpParams::turns, "Vortex Turns",
+                              -4.0f, 4.0f, FieldCurve::LERP},
+      Field<VortexWarpParams>{
+          "center-orbit-radius", &VortexWarpParams::center_orbit_radius,
+          "Vortex Center Orbit", 0.0f, 4.0f, FieldCurve::LERP},
+  };
+};
+static_assert(field_ids_unique<VortexWarpParams>());
+
+struct PreparedVortexWarp {
+  struct {
+    struct {
+      float center_x;
+      float center_y;
+      float radius_sq;
+      float angle_numerator;
+    } vortex;
+  } transform;
+};
+
+/** @brief PLANE endomorphism: the orbiting radial vortex. */
+struct WarpVortex {
+  static constexpr const char *ID = "warp.vortex.v2";
+  static constexpr const char *NAME = "Vortex";
+  using Input = PlaneSample;
+  using Output = PlaneSample;
+  using Params = VortexWarpParams;
+  using State = WarpPhaseState;
+  using Prepared = PreparedVortexWarp;
+
+  static void init(State &, InstanceId) {}
+  static Status migrate(State &dst, const State &src, InstanceId) {
+    dst = src;
+    return Status::OK;
+  }
+  static void advance(State &state, const Params &params) {
+    state.phase = wrap_t(state.phase + params.speed);
+  }
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &state) {
+    const float phase = TWO_PI_F * state.phase;
+    return {{{params.center_x + params.center_orbit_radius * cosf(phase),
+              params.center_y + params.center_orbit_radius * sinf(phase),
+              params.radius * params.radius, TWO_PI_F * params.turns}}};
+  }
+  static PlaneSample run(const PlaneSample &input, const FrameContext &,
+                         const Params &, const Prepared &prepared) {
+    return Kernel::warp(input, Warp::vortex(input.coords, prepared, true));
+  }
+};
+
 /** @brief Parameter family of warp.vector-noise.v2. */
 struct VectorNoiseWarpParams : Warp::VectorNoiseParams {
   uint8_t basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
@@ -309,12 +379,16 @@ struct WarpPolarChart {
   }
 };
 
+inline constexpr const char *CURL_INTEGRATOR_IDS[] = {"euler-1", "midpoint-2",
+                                                      "midpoint-4"};
+
 /** @brief Parameter family of warp.curl-flow.v2. */
 struct CurlFlowParams {
   float speed = 0.0f;    /**< Per-frame advance of the flow's loop phase. */
   float strength = 0.0f; /**< Flow distance; 0 skips the stage. */
   float scale = 1.0f;    /**< Spatial scale of the sampled field. */
   uint8_t basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
+  uint8_t integrator = 0;
 
   static constexpr auto FIELDS = std::array{
       Field<CurlFlowParams>{"speed", &CurlFlowParams::speed, nullptr, -0.02f,
@@ -328,6 +402,8 @@ struct CurlFlowParams {
       TopologyField<CurlFlowParams>{
           "basis", &CurlFlowParams::basis, NOISE_BASIS_IDS, 3,
           static_cast<uint8_t>(::NoiseBasis::SIMPLEX)},
+      TopologyField<CurlFlowParams>{"integrator", &CurlFlowParams::integrator,
+                                    CURL_INTEGRATOR_IDS, 3, 0},
   };
 };
 static_assert(field_ids_unique<CurlFlowParams>());
@@ -337,6 +413,7 @@ static_assert(field_ids_unique<CurlFlowParams>());
 struct PreparedCurlFlow {
   const FastNoiseLite *noise;
   float phase;
+  uint8_t intervals;
 };
 
 /** @brief PLANE endomorphism: the divergence-free curl flow, on the
@@ -358,16 +435,17 @@ struct WarpCurlFlow {
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    return {&state.noise, state.phase};
+    return {&state.noise, state.phase,
+            static_cast<uint8_t>(1U << params.integrator)};
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
     return Kernel::warp(input,
                         Warp::curl_flow(input.coords, *prepared.noise,
                                         static_cast<::NoiseBasis>(params.basis),
-                                        Warp::Euler1::INTERVALS, params.scale,
+                                        prepared.intervals, params.scale,
                                         params.strength, prepared.phase, true));
   }
 };
