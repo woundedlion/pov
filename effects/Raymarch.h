@@ -7,12 +7,12 @@
 
 /**
  * @file Raymarch.h
- * @brief Twisted-torus SDFs ray-marched at every vertex of a disdyakis
- *        dodecahedron.
+ * @brief Twisted-torus SDFs ray-marched at every vertex of a selectable solid.
  */
 
 #include "core/color/effect_palette_recipes.h"
 #include "core/color/noise_hue_palette.h"
+#include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/render/sdf/volume.h"
 
@@ -24,30 +24,182 @@ struct RaymarchWhiteBox;
 } // namespace effects_tests
 } // namespace hs_test
 
+/** Solids whose vertex counts fit Raymarch's copy and timeline capacity. */
+enum class RaymarchPlacementSolid : uint8_t {
+  TETRAHEDRON,
+  CUBE,
+  OCTAHEDRON,
+  DODECAHEDRON,
+  ICOSAHEDRON,
+  TRUNCATED_TETRAHEDRON,
+  CUBOCTAHEDRON,
+  TRUNCATED_CUBE,
+  TRUNCATED_OCTAHEDRON,
+  RHOMBICUBOCTAHEDRON,
+  SNUB_CUBE,
+  ICOSIDODECAHEDRON,
+  TRIAKIS_TETRAHEDRON,
+  RHOMBIC_DODECAHEDRON,
+  TRIAKIS_OCTAHEDRON,
+  TETRAKIS_HEXAHEDRON,
+  DELTOIDAL_ICOSITETRAHEDRON,
+  DISDYAKIS_DODECAHEDRON,
+  RHOMBIC_TRIACONTAHEDRON,
+  TRIAKIS_ICOSAHEDRON,
+  PENTAKIS_DODECAHEDRON,
+  COUNT
+};
+
+/** @brief Raymarch preset and live-control state. */
+struct RaymarchParams {
+  RaymarchPlacementSolid base_solid =
+      RaymarchPlacementSolid::DISDYAKIS_DODECAHEDRON;
+  float pulse_speed = 5.0f;
+  float fill = 0.75f;
+  uint8_t max_steps = 18;
+  float diffuse = 0.4f;
+  float specular = 1.2f;
+  float fresnel = 0.2f;
+  float twist = 2.0f;
+  float aa_mult = 0.5f;
+  float hue_shift = 0.76f;
+  float hue_noise_scale = 0.3f;
+  float hue_noise_speed = 0.0002f;
+};
+
 /**
- * @brief Ray-marches a twisted torus SDF at each vertex of a disdyakis
- *        dodecahedron, shading each with a metallic headlight model and a baked
- *        OKLCH palette under a sphere-domain noise hue field. Each torus has an
- *        independent random-walk tumble and is auto-sized to its own
- *        nearest-neighbour gap (scaled by the live Fill param), so they pack
- *        without overlap.
+ * @brief Ray-marches a twisted torus SDF at each vertex of a selectable solid,
+ *        shading each with a metallic headlight model and a baked OKLCH palette
+ *        under a seamless torus-UV noise hue field. Each torus has an independent
+ *        random-walk tumble and is auto-sized to its own nearest-neighbour gap
+ *        (scaled by the live Fill param), so they pack without overlap.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
  */
-template <int W, int H> class Raymarch : public Effect {
+template <int W, int H>
+class Raymarch : public ChoreographedEffect<Raymarch<W, H>, RaymarchParams> {
 public:
+  using Choreography = ChoreographedEffect<Raymarch<W, H>, RaymarchParams>;
+  using Params = RaymarchParams;
+  using PlacementSolid = RaymarchPlacementSolid;
+
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{
+      "uv-surface-noise"};
+  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+
+  static constexpr int MAX_POINTS = 32;
+  static constexpr size_t PLACEMENT_SOLID_COUNT =
+      static_cast<size_t>(PlacementSolid::COUNT);
+
+  static constexpr const char *PLACEMENT_SOLID_OPTIONS[] = {
+      "Tetrahedron",
+      "Cube",
+      "Octahedron",
+      "Dodecahedron",
+      "Icosahedron",
+      "Truncated Tetrahedron",
+      "Cuboctahedron",
+      "Truncated Cube",
+      "Truncated Octahedron",
+      "Rhombicuboctahedron",
+      "Snub Cube",
+      "Icosidodecahedron",
+      "Triakis Tetrahedron",
+      "Rhombic Dodecahedron",
+      "Triakis Octahedron",
+      "Tetrakis Hexahedron",
+      "Deltoidal Icositetrahedron",
+      "Disdyakis Dodecahedron",
+      "Rhombic Triacontahedron",
+      "Triakis Icosahedron",
+      "Pentakis Dodecahedron"};
+
+  static constexpr const char *PLACEMENT_SOLID_EXPORT_OPTIONS[] = {
+      "RaymarchPlacementSolid::TETRAHEDRON",
+      "RaymarchPlacementSolid::CUBE",
+      "RaymarchPlacementSolid::OCTAHEDRON",
+      "RaymarchPlacementSolid::DODECAHEDRON",
+      "RaymarchPlacementSolid::ICOSAHEDRON",
+      "RaymarchPlacementSolid::TRUNCATED_TETRAHEDRON",
+      "RaymarchPlacementSolid::CUBOCTAHEDRON",
+      "RaymarchPlacementSolid::TRUNCATED_CUBE",
+      "RaymarchPlacementSolid::TRUNCATED_OCTAHEDRON",
+      "RaymarchPlacementSolid::RHOMBICUBOCTAHEDRON",
+      "RaymarchPlacementSolid::SNUB_CUBE",
+      "RaymarchPlacementSolid::ICOSIDODECAHEDRON",
+      "RaymarchPlacementSolid::TRIAKIS_TETRAHEDRON",
+      "RaymarchPlacementSolid::RHOMBIC_DODECAHEDRON",
+      "RaymarchPlacementSolid::TRIAKIS_OCTAHEDRON",
+      "RaymarchPlacementSolid::TETRAKIS_HEXAHEDRON",
+      "RaymarchPlacementSolid::DELTOIDAL_ICOSITETRAHEDRON",
+      "RaymarchPlacementSolid::DISDYAKIS_DODECAHEDRON",
+      "RaymarchPlacementSolid::RHOMBIC_TRIACONTAHEDRON",
+      "RaymarchPlacementSolid::TRIAKIS_ICOSAHEDRON",
+      "RaymarchPlacementSolid::PENTAKIS_DODECAHEDRON"};
+
+  static constexpr std::array<Solids::BaseMesh, PLACEMENT_SOLID_COUNT>
+      PLACEMENT_SOLIDS{Solids::BaseMesh::TETRAHEDRON,
+                       Solids::BaseMesh::CUBE,
+                       Solids::BaseMesh::OCTAHEDRON,
+                       Solids::BaseMesh::DODECAHEDRON,
+                       Solids::BaseMesh::ICOSAHEDRON,
+                       Solids::BaseMesh::TRUNCATED_TETRAHEDRON,
+                       Solids::BaseMesh::CUBOCTAHEDRON,
+                       Solids::BaseMesh::TRUNCATED_CUBE,
+                       Solids::BaseMesh::TRUNCATED_OCTAHEDRON,
+                       Solids::BaseMesh::RHOMBICUBOCTAHEDRON,
+                       Solids::BaseMesh::SNUB_CUBE,
+                       Solids::BaseMesh::ICOSIDODECAHEDRON,
+                       Solids::BaseMesh::TRIAKIS_TETRAHEDRON,
+                       Solids::BaseMesh::RHOMBIC_DODECAHEDRON,
+                       Solids::BaseMesh::TRIAKIS_OCTAHEDRON,
+                       Solids::BaseMesh::TETRAKIS_HEXAHEDRON,
+                       Solids::BaseMesh::DELTOIDAL_ICOSITETRAHEDRON,
+                       Solids::BaseMesh::DISDYAKIS_DODECAHEDRON,
+                       Solids::BaseMesh::RHOMBIC_TRIACONTAHEDRON,
+                       Solids::BaseMesh::TRIAKIS_ICOSAHEDRON,
+                       Solids::BaseMesh::PENTAKIS_DODECAHEDRON};
+
+  static_assert(std::size(PLACEMENT_SOLID_OPTIONS) == PLACEMENT_SOLID_COUNT);
+  static_assert(std::size(PLACEMENT_SOLID_EXPORT_OPTIONS) ==
+                PLACEMENT_SOLID_COUNT);
+
+  static constexpr Params initial_params() { return {}; }
+
+  static constexpr bool valid_params(const Params &value) {
+    return static_cast<size_t>(value.base_solid) < PLACEMENT_SOLID_COUNT &&
+           value.pulse_speed >= 0.0f && value.pulse_speed <= 10.0f &&
+           value.fill >= 0.3f && value.fill <= 1.3f && value.max_steps >= 4 &&
+           value.max_steps <= 30 && value.diffuse >= 0.0f &&
+           value.diffuse <= 1.0f && value.specular >= 0.0f &&
+           value.specular <= 1.5f && value.fresnel >= 0.0f &&
+           value.fresnel <= 1.0f && value.twist >= 0.0f &&
+           value.twist <= 8.0f && value.aa_mult >= 0.1f &&
+           value.aa_mult <= 1.5f && value.hue_shift >= -4.0f &&
+           value.hue_shift <= 4.0f && value.hue_noise_scale >= 1.0f / 64.0f &&
+           value.hue_noise_scale <= 8.0f && value.hue_noise_speed >= -0.001f &&
+           value.hue_noise_speed <= 0.001f;
+  }
+
   /**
    * @brief Constructs the effect at the templated render dimensions.
    */
   HS_COLD_MEMBER Raymarch()
-      : Effect(W, H, pipeline_config<decltype(pipeline)>({.strobe = true})) {}
+      : Choreography(W, H,
+                     pipeline_config<decltype(pipeline)>({.strobe = true})) {}
 
   /**
-   * @brief Registers tunable params, builds the disdyakis-dodecahedron vertex
-   *        set, bakes the palette LUT, and installs the camera walk and phase
-   *        drivers on the timeline.
+   * @brief Registers tunable params, builds the placement-solid vertices,
+   *        bakes the palette LUT, and installs the camera walk and phase drivers
+   *        on the timeline.
    */
   void init() override {
+    configure_presets(PRESET_IDS.size());
+    register_animated_param(
+        "Base Solid", &params.base_solid, PLACEMENT_SOLID_OPTIONS,
+        PLACEMENT_SOLID_EXPORT_OPTIONS, PLACEMENT_SOLID_COUNT);
     register_param("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
     // Fraction of the half nearest-neighbour gap the ring's outer edge reaches:
     // < 1 leaves a gap, 1 makes neighbours touch, > 1 overlaps them deliberately.
@@ -66,7 +218,7 @@ public:
     build_points();
 
     baked_palette.bake(persistent_arena, palette);
-    volume_spins = persistent_arena.make_n<VolumeSpin>(active_count);
+    volume_spins = persistent_arena.make_n<VolumeSpin>(MAX_POINTS);
     palette_state = persistent_arena.make<PaletteState>();
     palette_state->noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     palette_state->noise.SetSeed(6047);
@@ -79,7 +231,7 @@ public:
     refresh_hue_noise();
 
     timeline.add(0, Animation::RandomWalk<W>(camera, Y_AXIS, camera_noise));
-    for (int i = 0; i < active_count; ++i) {
+    for (int i = 0; i < MAX_POINTS; ++i) {
       VolumeSpin &spin = volume_spins[i];
       timeline.add(0, Animation::RandomWalk<W>(
                           spin.orientation, random_vector(), spin.noise,
@@ -101,6 +253,8 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
+    begin_automatic_transition();
+    refresh_points();
     {
       HS_PROFILE(rm_timeline_step);
       timeline.step(canvas);
@@ -111,10 +265,17 @@ public:
   }
 
 private:
+  friend Choreography;
   friend struct ::hs_test::effects_tests::RaymarchWhiteBox;
 
-  /** Vertex-array capacity; the disdyakis dodecahedron has 26. */
-  static constexpr int MAX_POINTS = 32;
+  using Choreography::begin_automatic_transition;
+  using Choreography::configure_presets;
+  using Choreography::params;
+  using Choreography::register_animated_param;
+  using Choreography::register_int_param;
+  using Choreography::register_param;
+  using Choreography::timeline;
+
   static_assert(MAX_POINTS + 3 <= Timeline::MAX_EVENTS,
                 "Raymarch animations exceed the timeline capacity");
 
@@ -143,9 +304,20 @@ private:
   HS_COLD_MEMBER void build_points() {
     ScratchScope a_guard(scratch_arena_a);
     ScratchScope b_guard(scratch_arena_b);
+    const size_t placement_index = static_cast<size_t>(params.base_solid);
+    HS_CHECK(placement_index < PLACEMENT_SOLID_COUNT,
+             "Raymarch placement solid is out of range");
+    const Solids::Entry &entry = Solids::get_entry(
+        static_cast<size_t>(PLACEMENT_SOLIDS[placement_index]));
     active_count = Solids::build_vertex_directions(
-        scratch_arena_a, scratch_arena_b, "disdyakisDodecahedron", MAX_POINTS,
-        points.data(), raw_quats.data(), nn_angle.data());
+        scratch_arena_a, scratch_arena_b, entry.name, MAX_POINTS, points.data(),
+        raw_quats.data(), nn_angle.data());
+    active_base_solid = params.base_solid;
+  }
+
+  HS_COLD_MEMBER void refresh_points() {
+    if (params.base_solid != active_base_solid)
+      build_points();
   }
 
   HS_FLASH_MEMBER void refresh_hue_noise() {
@@ -272,12 +444,12 @@ private:
   float spin_phase = 0.0f;    // torus tumble phase, [0,1) -> [0,2pi) radians
   float palette_phase = 0.0f; // baked-palette scroll offset, [0,1) cycles
   float hue_noise_phase = 0.0f;
-  int active_count = 0; // vertices built (disdyakis dodecahedron = 26)
+  int active_count = 0;
+  PlacementSolid active_base_solid = PlacementSolid::COUNT;
   std::array<Vector, MAX_POINTS> points;
   std::array<Quaternion, MAX_POINTS> raw_quats;
-  std::array<float, MAX_POINTS>
-      nn_angle; // per-vertex nearest-neighbour gap (rad)
-  Timeline timeline;
+  /** Per-vertex nearest-neighbour gaps in radians. */
+  std::array<float, MAX_POINTS> nn_angle;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{EffectPaletteRecipes::raymarch()};
   BakedPalette baked_palette;
@@ -290,23 +462,6 @@ private:
       alignof(VolumeSpin) + sizeof(PaletteState) + alignof(PaletteState);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Raymarch persistent footprint exceeds the default partition");
-
-  /**
-   * @brief Tunable shader and animation parameters exposed via register_param.
-   */
-  struct Params {
-    float pulse_speed = 5.0f;
-    float fill = 0.75f;
-    uint8_t max_steps = 18;
-    float diffuse = 0.4f;
-    float specular = 1.2f;
-    float fresnel = 0.2f;
-    float twist = 2.0f;
-    float aa_mult = 0.5f;
-    float hue_shift = 0.4f;
-    float hue_noise_scale = 2.0f;
-    float hue_noise_speed = 0.0f;
-  } params;
 };
 
 #include "core/control/registry.h"

@@ -3772,6 +3772,7 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
  */
 struct RaymarchWhiteBox {
   using RM = Raymarch<DEFAULT_W, DEFAULT_H>;
+  static constexpr int MAX_POINTS = RM::MAX_POINTS;
   static constexpr float MAJOR = RM::MAJOR_K;
   static constexpr float MINOR = RM::MINOR_K;
   static constexpr float TWIST = RM::TWIST_K;
@@ -3791,6 +3792,16 @@ struct RaymarchWhiteBox {
   template <int W, int H>
   static int animation_count(const Raymarch<W, H> &effect) {
     return effect.timeline.event_count();
+  }
+
+  template <int W, int H> static void refresh_points(Raymarch<W, H> &effect) {
+    effect.refresh_points();
+  }
+
+  template <int W, int H>
+  static RaymarchPlacementSolid
+  active_base_solid(const Raymarch<W, H> &effect) {
+    return effect.active_base_solid;
   }
 
   template <int W, int H>
@@ -3814,7 +3825,8 @@ inline void test_raymarch_volume_random_walks_are_independent() {
   effect.init();
   const int count = RaymarchWhiteBox::volume_count(effect);
   HS_EXPECT_EQ(count, 26);
-  HS_EXPECT_EQ(RaymarchWhiteBox::animation_count(effect), count + 3);
+  HS_EXPECT_EQ(RaymarchWhiteBox::animation_count(effect),
+               RaymarchWhiteBox::MAX_POINTS + 3);
 
   effect.draw_frame();
   effect.advance_display();
@@ -3828,6 +3840,71 @@ inline void test_raymarch_volume_random_walks_are_independent() {
       ++distinct;
   }
   HS_EXPECT_EQ(distinct, count - 1);
+}
+
+/** @brief Pins Raymarch's named preset and selectable placement solids. */
+inline void test_raymarch_preset_and_placement_solids() {
+  using RM = Raymarch<SMALL_W, SMALL_H>;
+  reset_effect_globals();
+  RM effect;
+  effect.init();
+
+  auto value = [&](const char *name) {
+    const auto *def = effect.getParameters().find(name);
+    HS_EXPECT(def != nullptr, "Raymarch parameter is missing");
+    return def ? def->get() : -1.0f;
+  };
+
+  HS_EXPECT_EQ(effect.getPresetCount(), 1u);
+  HS_EXPECT_EQ(effect.getPresetIndex(), 0u);
+  HS_EXPECT_EQ(RM::PRESET_IDS[0], std::string_view("uv-surface-noise"));
+  HS_EXPECT_NEAR(value("Pulse Speed"), 5.0f, 1e-6f);
+  HS_EXPECT_NEAR(value("Fill"), 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(value("Max Steps"), 18.0f, 1e-6f);
+  HS_EXPECT_NEAR(value("Diffuse"), 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(value("Specular"), 1.2f, 1e-6f);
+  HS_EXPECT_NEAR(value("Fresnel"), 0.2f, 1e-6f);
+  HS_EXPECT_NEAR(value("Twist"), 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(value("AA Width"), 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(value("Hue Shift"), 0.76f, 1e-6f);
+  HS_EXPECT_NEAR(value("Hue Noise Scale"), 0.3f, 1e-6f);
+  HS_EXPECT_NEAR(value("Hue Noise Speed"), 0.0002f, 1e-8f);
+
+  const auto *base_solid = effect.getParameters().find("Base Solid");
+  HS_EXPECT_TRUE(base_solid != nullptr);
+  if (!base_solid)
+    return;
+  HS_EXPECT_TRUE(base_solid->animated);
+  HS_EXPECT_TRUE(base_solid->preset);
+  HS_EXPECT_EQ(base_solid->option_count,
+               static_cast<int>(RM::PLACEMENT_SOLID_COUNT));
+  HS_EXPECT_EQ(std::string_view(base_solid->options[0]), "Tetrahedron");
+  HS_EXPECT_EQ(std::string_view(base_solid->options[17]),
+               "Disdyakis Dodecahedron");
+  HS_EXPECT_EQ(std::string_view(base_solid->options[20]),
+               "Pentakis Dodecahedron");
+  HS_EXPECT_EQ(std::string_view(base_solid->export_options[17]),
+               "RaymarchPlacementSolid::DISDYAKIS_DODECAHEDRON");
+  HS_EXPECT_EQ(value("Base Solid"), 17.0f);
+
+  static constexpr std::array<int, RM::PLACEMENT_SOLID_COUNT> VERTEX_COUNTS{
+      4,  8, 6,  20, 12, 12, 12, 24, 24, 24, 24,
+      30, 8, 14, 14, 14, 26, 26, 32, 32, 32};
+  for (size_t i = 0; i < RM::PLACEMENT_SOLID_COUNT; ++i) {
+    HS_EXPECT_TRUE(
+        effect.updateParameter("Base Solid", static_cast<float>(i)) ==
+        ParamSetResult::APPLIED);
+    RaymarchWhiteBox::refresh_points(effect);
+    HS_EXPECT_EQ(RaymarchWhiteBox::volume_count(effect), VERTEX_COUNTS[i]);
+    HS_EXPECT_EQ(
+        static_cast<size_t>(RaymarchWhiteBox::active_base_solid(effect)), i);
+  }
+
+  HS_EXPECT_TRUE(effect.selectPreset(0));
+  HS_EXPECT_EQ(value("Base Solid"), 17.0f);
+  HS_EXPECT_NEAR(value("Hue Shift"), 0.76f, 1e-6f);
+  effect.draw_frame();
+  HS_EXPECT_EQ(RaymarchWhiteBox::volume_count(effect), 26);
 }
 
 /**
@@ -6716,6 +6793,7 @@ inline int run_effects_tests() {
   test_hankinsolids_arena_budget_covers_every_solid();
   test_dreamballs_max_edge_solid_render();
   test_raymarch_volume_random_walks_are_independent();
+  test_raymarch_preset_and_placement_solids();
   test_raymarch_surface_frame_uv();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The QUICK tier
