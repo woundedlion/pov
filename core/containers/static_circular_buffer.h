@@ -86,9 +86,13 @@ public:
    * `explicit` so the forwarding pack cannot be an implicit single-argument
    * conversion to StaticCircularBuffer.
    */
-  template <typename... Args, typename = std::enable_if_t<
-                                  (sizeof...(Args) > 0) &&
-                                  (std::is_constructible_v<T, Args &&> && ...)>>
+  template <
+      typename... Args,
+      typename = std::enable_if_t<
+          (sizeof...(Args) > 0) &&
+          (!std::is_same_v<StaticCircularBuffer, std::remove_cvref_t<Args>> &&
+           ...) &&
+          (std::is_constructible_v<T, Args &&> && ...)>>
   explicit StaticCircularBuffer(Args &&...args) : head(0), tail(0), count(0) {
     static_assert(sizeof...(Args) <= N,
                   "StaticCircularBuffer initializer list exceeds capacity N");
