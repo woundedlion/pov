@@ -32,9 +32,20 @@ class MainTests(unittest.TestCase):
                     self.assertEqual(heal_clearance.main(), 1)
         self.assertIn("cannot process phantasm.kicad_pro", stderr.getvalue())
 
+    def test_missing_default_net_class_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project = Path(temp_dir) / "phantasm.kicad_pro"
+            project.write_text("{}", encoding="utf-8")
+            with mock.patch.object(heal_clearance, "OUT", temp_dir):
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    self.assertEqual(heal_clearance.main(), 1)
+        self.assertIn("missing Default net class", stderr.getvalue())
+
     def test_manifested_snapshot_is_left_untouched(self):
-        zeroed = json.dumps(
-            {"board": {"design_settings": {"rules": {"min_clearance": 0}}}})
+        zeroed = json.dumps({
+            "board": {"design_settings": {"rules": {"min_clearance": 0}}},
+            "net_settings": {"classes": [{"name": "Default"}]}})
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             (root / "phantasm.kicad_pro").write_text(zeroed, encoding="utf-8")
@@ -67,7 +78,8 @@ class MainTests(unittest.TestCase):
             return project.read_bytes()
 
     ZEROED = json.dumps(
-        {"board": {"design_settings": {"rules": {"min_clearance": 0}}}},
+        {"board": {"design_settings": {"rules": {"min_clearance": 0}}},
+         "net_settings": {"classes": [{"name": "Default"}]}},
         indent=2)
 
     def test_crlf_project_stays_crlf(self):
