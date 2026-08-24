@@ -25,6 +25,10 @@ class CrosscheckError(RuntimeError):
     """Cross-checkout capture provenance or output is invalid."""
 
 
+class StrictFpRequired(CrosscheckError):
+    """Release captures differ and require strict-FP attribution."""
+
+
 def _load_capture(path: Path) -> dict:
     try:
         capture = json.loads(path.read_text(encoding="utf-8"))
@@ -426,7 +430,7 @@ def compare_captures(
         release_differences.append((key, maximum, differing, count, limits))
     if release_differences:
         if strict_frames is None:
-            raise CrosscheckError("release mismatch requires strict-FP captures")
+            raise StrictFpRequired("release mismatch requires strict-FP captures")
         for key, maximum, differing, count, limits in release_differences:
             if maximum > limits["max_channel_delta_u16"]:
                 raise CrosscheckError(f"release channel delta exceeds limit: {key}")
@@ -611,9 +615,7 @@ def orchestrate(
                         candidate_sha,
                         oracles=oracles,
                     )
-                except CrosscheckError as error:
-                    if "requires strict-FP" not in str(error):
-                        raise
+                except StrictFpRequired:
                     for name in ("base", "candidate"):
                         configuration = "wasm-strict-fp"
                         _build_capture_backend(
