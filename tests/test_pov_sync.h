@@ -3347,6 +3347,10 @@ inline void test_effect_output_envelope() {
     const float fade_in = effect_output_envelope(rev, DURATION_REVS, x, WIDTH);
     const float fade_out =
         effect_output_envelope(46 + rev, DURATION_REVS, x, WIDTH);
+    HS_EXPECT_GE(fade_in, 0.0f);
+    HS_EXPECT_LE(fade_in, 1.0f);
+    HS_EXPECT_GE(fade_out, 0.0f);
+    HS_EXPECT_LE(fade_out, 1.0f);
     HS_EXPECT_GE(fade_in, previous_in);
     HS_EXPECT_LE(fade_out, previous_out);
     previous_in = fade_in;
