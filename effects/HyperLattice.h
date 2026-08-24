@@ -585,6 +585,7 @@ struct LayerComposite {
   }
 };
 
+template <bool ZERO_PATH = false>
 inline Color4 shade(const Pullback::SphereSample &input,
                     const FrameState &frame, const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_shade);
@@ -594,7 +595,8 @@ inline Color4 shade(const Pullback::SphereSample &input,
                                                   : frame.axis_palette);
   trace_layers(input.dir, prepared, [&](const TraceHit &hit) {
     HS_PROFILE_DEEP(hl_layer_composite);
-    const float path_length = input.path_length + hit.distance;
+    const float path_length =
+        (ZERO_PATH ? 0.0f : input.path_length) + hit.distance;
     const float depth = hs::clamp(path_length * prepared.inv_far, 0.0f, 1.0f);
     const float value =
         prepared.params.color == ColorMode::DEPTH
@@ -623,7 +625,7 @@ struct ShadeStage
   run(const Pullback::SphereSample &input,
       const typename PipelineBinding::FrameState &frame,
       const PreparedTrace &prepared) {
-    return shade(input, frame, prepared);
+    return shade<true>(input, frame, prepared);
   }
 };
 
