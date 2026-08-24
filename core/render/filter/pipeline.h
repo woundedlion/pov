@@ -308,7 +308,7 @@ template <int W, int H> struct Pipeline<W, H> {
   /**
    * @brief Writes a float-coordinate 2D sample to the canvas (sink).
    * @param cv Target canvas.
-   * @param x Column; rounded then required to land in [-W, 2W) and wrapped.
+   * @param x Column; must round into [-W, 2W), then wrapped.
    * @param y Row; rounded to nearest pixel.
    * @param c Source color to blend in.
    * @param alpha Blend alpha in [0, 1].
@@ -318,6 +318,7 @@ template <int W, int H> struct Pipeline<W, H> {
             float alpha) {
     // Non-finite coords make the int casts below UB and bypass the wrap.
     assert(std::isfinite(x) && std::isfinite(y));
+    assert(x > -W - 0.5f && x < 2 * W - 0.5f);
     // y never wraps; bounded only so the cast below stays in range.
     assert(y >= -H && y < 2 * H);
     const float xr = std::round(x);
