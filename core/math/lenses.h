@@ -91,6 +91,8 @@ inline Vector glitch_lens(const Vector &v) {
  * @brief Rotates a direction about the Y axis in proportion to its height.
  * @param v Unit direction on the sphere.
  * @return The direction rotated by TWIST_RATE * v.y radians.
+ * @note The fast trigonometric approximation can move a unit input up to
+ *       1.7e-3 away from unit length; the result is not renormalized.
  */
 inline Vector twist_lens(const Vector &v) {
   const float angle = TWIST_RATE * v.y;
