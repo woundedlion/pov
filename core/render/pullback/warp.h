@@ -99,8 +99,7 @@ struct WaveShearParams {
       Field<WaveShearParams>{"field-angle", &WaveShearParams::field_angle,
                              "Warp Field Angle", 0.0f, TWO_PI_F,
                              FieldCurve::SHORTEST_PERIODIC},
-      Field<WaveShearParams>{"edge-width", &WaveShearParams::edge_width,
-                             nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      edge_width_field(&WaveShearParams::edge_width, nullptr),
   };
 };
 static_assert(field_ids_unique<WaveShearParams>());
@@ -130,8 +129,7 @@ struct VectorNoiseParams {
       Field<VectorNoiseParams>{"vector-angle", &VectorNoiseParams::vector_angle,
                                "Warp Vector Angle", 0.0f, TWO_PI_F,
                                FieldCurve::SHORTEST_PERIODIC},
-      Field<VectorNoiseParams>{"edge-width", &VectorNoiseParams::edge_width,
-                               nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      edge_width_field(&VectorNoiseParams::edge_width, nullptr),
   };
 };
 static_assert(field_ids_unique<VectorNoiseParams>());

@@ -33,9 +33,7 @@ struct GridSampleParams : Source::GridSourceParams {
 
   static constexpr auto FIELDS = concat_fields<GridSampleParams>(
       Source::GridSourceParams::FIELDS,
-      std::array{
-          Field<GridSampleParams>{"edge-width", &GridSampleParams::edge_width,
-                                  "Edge Width", 0.0f, 1.0f, FieldCurve::LERP}});
+      std::array{edge_width_field(&GridSampleParams::edge_width)});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<GridSampleParams>{
           "weight-mode", &GridSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
@@ -94,9 +92,7 @@ struct TwinWaveSampleParams : Source::TwinWaveSourceParams {
 
   static constexpr auto FIELDS = concat_fields<TwinWaveSampleParams>(
       Source::TwinWaveSourceParams::FIELDS,
-      std::array{Field<TwinWaveSampleParams>{
-          "edge-width", &TwinWaveSampleParams::edge_width, "Edge Width", 0.0f,
-          1.0f, FieldCurve::LERP}});
+      std::array{edge_width_field(&TwinWaveSampleParams::edge_width)});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<TwinWaveSampleParams>{
           "weight-mode", &TwinWaveSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
@@ -159,8 +155,7 @@ struct RingsSampleParams {
                                "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
       Field<RingsSampleParams>{"speed", &RingsSampleParams::speed, "Speed",
                                0.0f, 0.5f, FieldCurve::LERP},
-      Field<RingsSampleParams>{"edge-width", &RingsSampleParams::edge_width,
-                               "Edge Width", 0.0f, 1.0f, FieldCurve::LERP},
+      edge_width_field(&RingsSampleParams::edge_width),
   };
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<RingsSampleParams>{
@@ -266,9 +261,7 @@ struct SpiralSampleParams : Source::SpiralSourceParams {
 
   static constexpr auto FIELDS = concat_fields<SpiralSampleParams>(
       Source::SpiralSourceParams::FIELDS,
-      std::array{Field<SpiralSampleParams>{
-          "edge-width", &SpiralSampleParams::edge_width, "Edge Width", 0.0f,
-          1.0f, FieldCurve::LERP}});
+      std::array{edge_width_field(&SpiralSampleParams::edge_width)});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<SpiralSampleParams>{
           "weight-mode", &SpiralSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
@@ -324,9 +317,7 @@ struct LatticeSampleParams : Source::LatticeSourceParams {
 
   static constexpr auto FIELDS = concat_fields<LatticeSampleParams>(
       Source::LatticeSourceParams::FIELDS,
-      std::array{Field<LatticeSampleParams>{
-          "edge-width", &LatticeSampleParams::edge_width, "Edge Width", 0.0f,
-          1.0f, FieldCurve::LERP}});
+      std::array{edge_width_field(&LatticeSampleParams::edge_width)});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<LatticeSampleParams>{
           "weight-mode", &LatticeSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
@@ -371,9 +362,7 @@ struct FractalSampleParams : Source::FractalSourceParams {
 
   static constexpr auto FIELDS = concat_fields<FractalSampleParams>(
       Source::FractalSourceParams::FIELDS,
-      std::array{Field<FractalSampleParams>{
-          "edge-width", &FractalSampleParams::edge_width, "Edge Width", 0.0f,
-          1.0f, FieldCurve::LERP}});
+      std::array{edge_width_field(&FractalSampleParams::edge_width)});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<FractalSampleParams>{
           "weight-mode", &FractalSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
@@ -434,9 +423,7 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
 
   static constexpr auto FIELDS = concat_fields<TessellationSampleParams>(
       Source::TessellationSourceParams::FIELDS,
-      std::array{Field<TessellationSampleParams>{
-          "edge-width", &TessellationSampleParams::edge_width, "Edge Width",
-          0.0f, 1.0f, FieldCurve::LERP}});
+      std::array{edge_width_field(&TessellationSampleParams::edge_width)});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<TessellationSampleParams>{
           "weight-mode", &TessellationSampleParams::weight_mode,
@@ -497,9 +484,7 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
 
   static constexpr auto FIELDS = concat_fields<ProjectedNoiseSampleParams>(
       Source::NoiseSourceParams::FIELDS,
-      std::array{Field<ProjectedNoiseSampleParams>{
-          "edge-width", &ProjectedNoiseSampleParams::edge_width, "Edge Width",
-          0.0f, 1.0f, FieldCurve::LERP}});
+      std::array{edge_width_field(&ProjectedNoiseSampleParams::edge_width)});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<ProjectedNoiseSampleParams>{
           "weight-mode", &ProjectedNoiseSampleParams::weight_mode,
