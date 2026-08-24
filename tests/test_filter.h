@@ -2855,6 +2855,39 @@ inline void test_world_trails_ring_evicts_oldest() {
 }
 
 /**
+ * @brief Exercises the maximum reachable wrapped index with the head in the
+ *        ring's final slot and every slot live.
+ */
+inline void test_world_trails_wraps_from_last_slot() {
+  constexpr int Cap = 3;
+  static uint8_t buf[Cap * 16];
+  Arena arena(buf, sizeof(buf));
+  Filter::World::Trails<Cap> trails(/*lifetime=*/100);
+  trails.init_storage(arena);
+
+  const Vector points[] = {
+      Vector(1, 0, 0),  Vector(0, 1, 0),  Vector(0, 0, 1),
+      Vector(-1, 0, 0), Vector(0, -1, 0),
+  };
+  auto noop = [](const Vector &, const Pixel &, float, float) {};
+  for (const Vector &point : points)
+    trails.plot(point, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
+
+  std::vector<Vector> decoded;
+  auto trail = [](const Vector &, float) {
+    return Color4(Pixel(1, 1, 1), 1.0f);
+  };
+  trails.flush(WorldTrailFn(trail), 1.0f,
+               [&](const Vector &v, const Pixel &, float, float) {
+                 decoded.push_back(v);
+               });
+
+  HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
+  for (int i = 0; i < Cap; ++i)
+    HS_EXPECT_GT(dot(decoded[i], points[i + 2]), 0.999f);
+}
+
+/**
  * @brief Verifies each flush decrements an entry's ttl and the entry is popped
  *        once ttl reaches 0.
  */
@@ -3485,6 +3518,7 @@ inline int run_filter_tests() {
   test_world_trails_int16_quantization_roundtrip();
   test_world_trails_clamps_out_of_range();
   test_world_trails_ring_evicts_oldest();
+  test_world_trails_wraps_from_last_slot();
   test_world_trails_ttl_expiry();
   test_world_trails_set_lifetime_shrink_clamps_t();
   test_world_trails_midbuffer_expiry_reclaims_slot();

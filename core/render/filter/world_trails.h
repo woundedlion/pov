@@ -26,6 +26,7 @@ namespace World {
  */
 template <int Capacity> class Trails : public Is3DWithHistory {
 public:
+  static_assert(Capacity > 0, "World::Trails capacity must be positive");
   static constexpr bool emits_nonunit_world = true;
   static constexpr bool reads_outside_band = false;
 
@@ -220,13 +221,19 @@ private:
    * @param i Index into the live range [0, count).
    * @return Mutable reference to the buffered Item.
    */
-  Item &at(size_t i) { return items[(head + i) % Capacity]; }
+  Item &at(size_t i) { return items[physical_index(i)]; }
   /**
    * @brief Returns the i-th logical live item.
    * @param i Index into the live range [0, count).
    * @return Const reference to the buffered Item.
    */
-  const Item &at(size_t i) const { return items[(head + i) % Capacity]; }
+  const Item &at(size_t i) const { return items[physical_index(i)]; }
+
+  /** @brief Maps a live logical index onto its physical ring slot. */
+  size_t physical_index(size_t i) const {
+    const size_t index = head + i;
+    return index >= Capacity ? index - Capacity : index;
+  }
 
   /**
    * @brief Appends an item, evicting a live item of arbitrary age at capacity.
