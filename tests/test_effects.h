@@ -919,6 +919,10 @@ struct SphericalHarmonicsWhiteBox {
     fx.current_idx = idx;
     fx.next_idx = idx;
   }
+  static void set_next_idx(SH &fx, int idx) { fx.next_idx = idx; }
+  static void step_timeline(SH &fx, Canvas &canvas) {
+    fx.timeline.step(canvas);
+  }
 };
 
 /**
@@ -2606,6 +2610,11 @@ struct DreamBallsWhiteBox {
                                size_t edge_index) {
     return DB::owns_woven_start_sample(edges, owners.data(), edge_index);
   }
+  static void
+  assign_woven_start_owners(const ArenaVector<Plot::Mesh::Edge> &edges,
+                            uint16_t *owners, size_t vertex_count) {
+    DB::assign_woven_start_owners(edges, owners, vertex_count);
+  }
   static size_t source_vertex_count(const DB &db, size_t idx) {
     return db.loaded_solids[idx].mesh_state.vertices.size();
   }
@@ -3800,6 +3809,14 @@ struct RaymarchWhiteBox {
 
   template <int W, int H> static void refresh_points(Raymarch<W, H> &effect) {
     effect.refresh_points();
+  }
+  template <int W, int H> static void build_points(Raymarch<W, H> &effect) {
+    effect.build_points();
+  }
+  template <int W, int H>
+  static void set_base_solid(Raymarch<W, H> &effect,
+                             RaymarchPlacementSolid solid) {
+    effect.params.base_solid = solid;
   }
 
   template <int W, int H>
@@ -6452,6 +6469,19 @@ struct IslamicBuildProbe {
   static void spawn_entry(IslamicStars<W, H> &e, const Solids::Entry &entry) {
     e.timeline.clear();
     e.spawn_entry(entry);
+  }
+  template <int W, int H>
+  static PolyMesh clean_endpoint(IslamicStars<W, H> &e,
+                                 const Solids::OpStep &step, Arena &a,
+                                 Arena &b) {
+    return e.clean_endpoint(step, a, b);
+  }
+  template <int W, int H>
+  static void build_reconcile_endpoint(IslamicStars<W, H> &e,
+                                       const PolyMesh &identity,
+                                       const PolyMesh &authored, PolyMesh &out,
+                                       Arena &target, Arena &scratch) {
+    e.build_reconcile_endpoint(identity, authored, out, target, scratch);
   }
 };
 
