@@ -166,6 +166,7 @@ public:
   /**
    * @brief Frees the back slot and compacts, preserving only the front slot.
    * @tparam AfterReset Callable type invoked as `void(Arena&)`.
+   * @param back_slot Slot to discard; must still be opposite the front slot.
    * @param after_reset Callback run immediately after the reset, while the
    * front slot is still evacuated.
    * @details Runs `after_reset(persistent_arena)` immediately after the reset —
@@ -178,9 +179,10 @@ public:
    * front one, so it is the slot this preserves.
    */
   template <typename AfterReset>
-  void compact_keep_front(AfterReset after_reset) {
-    int back = 1 - front;
-    slots[back] = MeshState();
+  void compact_keep_front(int back_slot, AfterReset after_reset) {
+    HS_CHECK(back_slot == 1 - front,
+             "MeshCarousel compacted after the incoming slot flip");
+    slots[back_slot] = MeshState();
     Persist<MeshState> p(slots[front], scratch_arena_b, persistent_arena);
     ArenaResetHook::run_all();
     persistent_arena.reset();

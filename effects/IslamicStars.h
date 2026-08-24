@@ -664,7 +664,7 @@ private:
     if (recipe)
       carousel.compact_drop_all(rebake);
     else
-      carousel.compact_keep_front(rebake);
+      carousel.compact_keep_front(back, rebake);
 
     resplit_for_spawn(recipe != nullptr);
 

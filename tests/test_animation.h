@@ -2863,7 +2863,7 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
 
   bool after_reset_ran = false;
   const void *bake_ptr = nullptr;
-  carousel.compact_keep_front([&](Arena &a) {
+  carousel.compact_keep_front(1, [&](Arena &a) {
     after_reset_ran = true;
     bake_ptr = a.allocate(64);
   });
