@@ -260,9 +260,16 @@ template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
 /** True when a shape's distance() reports a usable signed distance outside its
  * surface, which is what SmoothUnion's weld term needs. Ring, DistortedRing,
  * FlatDistortedRing and Face instead clamp to FAR_SENTINEL past their reject
- * band. A combinator blends only if every child does; an
- * unrecognized shape is assumed to. */
-template <typename T> inline constexpr bool blends_smoothly = true;
+ * band. A combinator blends only if every child does; an unrecognized shape
+ * is rejected. */
+template <typename T>
+inline constexpr bool blends_smoothly =
+    requires { T::BLENDS_SMOOTHLY; } && T::BLENDS_SMOOTHLY;
+template <> inline constexpr bool blends_smoothly<PlanarPolygon> = true;
+template <> inline constexpr bool blends_smoothly<SphericalPolygon> = true;
+template <> inline constexpr bool blends_smoothly<Star> = true;
+template <> inline constexpr bool blends_smoothly<Flower> = true;
+template <> inline constexpr bool blends_smoothly<Line> = true;
 template <> inline constexpr bool blends_smoothly<Ring> = false;
 template <> inline constexpr bool blends_smoothly<DistortedRing> = false;
 template <> inline constexpr bool blends_smoothly<FlatDistortedRing> = false;
@@ -289,7 +296,12 @@ inline constexpr bool blends_smoothly<Subtract<A, B>> =
  * a run of columns from one probe may do so only while the clearance it tests
  * stays under this margin. A shape that never substitutes reports FLT_MAX; a
  * combinator takes the tightest of its children. */
-template <typename T> inline constexpr float reject_margin = FLT_MAX;
+template <typename T> inline constexpr float reject_margin = 0.0f;
+template <> inline constexpr float reject_margin<PlanarPolygon> = FLT_MAX;
+template <> inline constexpr float reject_margin<SphericalPolygon> = FLT_MAX;
+template <> inline constexpr float reject_margin<Star> = FLT_MAX;
+template <> inline constexpr float reject_margin<Flower> = FLT_MAX;
+template <> inline constexpr float reject_margin<Line> = FLT_MAX;
 // The bounding annulus is the stroke band itself, so every probe outside the
 // stroke is a candidate for the sentinel.
 template <> inline constexpr float reject_margin<Ring> = 0.0f;
