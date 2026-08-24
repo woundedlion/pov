@@ -155,6 +155,16 @@ class SharedLiterals(unittest.TestCase):
         self.assertEqual(sorted(carriers),
                          ["ci.yml", "justfile", "pre-commit"])
 
+    def test_fast_math_axis_marks_its_test_contract(self):
+        self.assertEqual(
+            bp.FAST_MATH_TEST_FLAGS,
+            (*bp.FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1"),
+        )
+        self.assertEqual(
+            bp.SHARED_LITERALS["float-test-flags"],
+            "-ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1",
+        )
+
 
 class InlinePins(unittest.TestCase):
     def test_the_tracked_spellings_agree(self):
