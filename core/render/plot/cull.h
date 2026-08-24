@@ -490,6 +490,11 @@ struct GeodesicEdgeSpan {
   Vector axis;    /**< Unit arc pole (valid iff have_axis). */
 };
 
+#if HS_ENABLE_TEST_ORACLES
+/** @brief Number of geodesic edge spans built since the last test reset. */
+inline uint32_t g_geodesic_edge_span_builds = 0;
+#endif
+
 /**
  * @brief Computes the shared geodesic edge setup once per edge.
  * @param a Edge start (unit sphere point).
@@ -501,6 +506,9 @@ struct GeodesicEdgeSpan {
  */
 static __attribute__((always_inline)) inline GeodesicEdgeSpan
 make_geodesic_edge_span(const Vector &a, const Vector &b) {
+#if HS_ENABLE_TEST_ORACLES
+  ++g_geodesic_edge_span_builds;
+#endif
   GeodesicEdgeSpan es;
   es.total = angle_between(a, b);
   if (es.total < EPS_GEODESIC_SEGMENT) {
@@ -1479,6 +1487,24 @@ static inline bool antialiased_dot_visible_in_clip(const ClipRegion &cr,
           (visible(x0, y1, (1.0f - xs) * wy1) || visible(x1, y1, xs * wy1)));
 }
 
+template <typename PipelineT, typename Pred>
+static inline bool
+edge_visible_in_clip_dispatch(PipelineT &pipeline, const Vector &a,
+                              const Vector &b, const Basis *pb, Pred &&pred) {
+  if constexpr (requires {
+                  pipeline.could_intersect_clip(a, b, pb,
+                                                std::forward<Pred>(pred));
+                }) {
+    return pipeline.could_intersect_clip(a, b, pb, std::forward<Pred>(pred));
+  } else {
+    static_assert(
+        !requires { PipelineT::any_crosses_segments; },
+        "pipeline exposes any_crosses_segments but not "
+        "could_intersect_clip (signature drift)");
+    return pred(a, b, pb);
+  }
+}
+
 /**
  * @brief Tier-3 clip visibility of one polyline edge, routed through the
  *        pipeline's world stages.
@@ -1514,17 +1540,36 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
     const PlanarEdgeSpan ps = make_planar_edge_span(ea, eb, *bp);
     return planar_edge_visible_in_clip<W, H>(cr, xc, ea, eb, *bp, ps);
   };
-  if constexpr (requires { pipeline.could_intersect_clip(a, b, pb, pred); }) {
-    return pipeline.could_intersect_clip(a, b, pb, pred);
-  } else {
-    // A filter pipeline (has any_crosses_segments) must answer the clip
-    // query; a signature drift would else silently fall back to raw culling.
-    static_assert(
-        !requires { PipelineT::any_crosses_segments; },
-        "pipeline exposes any_crosses_segments but not "
-        "could_intersect_clip (signature drift)");
-    return pred(a, b, pb);
-  }
+  return edge_visible_in_clip_dispatch(pipeline, a, b, pb, pred);
+}
+
+/**
+ * @brief Tier-3 clip visibility from a precomputed geodesic edge span.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam PipelineT Pipeline type with no world cull stage.
+ * @param pipeline Render pipeline.
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param es Shared setup from make_geodesic_edge_span(a, b).
+ * @return True if the rendered edge could produce a pixel inside the clip.
+ */
+template <int W, int H, typename PipelineT>
+static inline bool
+edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
+                     const ClipRegion::XClip &xc, const Vector &a,
+                     const Vector &b, const GeodesicEdgeSpan &es) {
+  static_assert(pipeline_hoistable_cull<PipelineT>(),
+                "a precomputed geodesic span requires a hoistable cull");
+  auto pred = [&](const Vector &ea, const Vector &eb, const Basis *) {
+    return exact_geodesic_edge_visible<W, H>(
+        cr, xc, y_to_screen_row<H>(ea.y), y_to_screen_row<H>(eb.y), ea, eb, es,
+        [&](int &col_s, int &col_len) {
+          return geodesic_col_span<W>(ea, eb, es, col_s, col_len);
+        });
+  };
+  return edge_visible_in_clip_dispatch(pipeline, a, b, nullptr, pred);
 }
 
 /**
