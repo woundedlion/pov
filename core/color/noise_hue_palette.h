@@ -122,7 +122,9 @@ prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
 __attribute__((always_inline)) inline Pixel
 sample_hue_rotation_lut(const HueRotationLutView &view, float value,
                         float amount) {
-  const float value_position = value * (HueRotationLutView::VALUE_STEPS - 1);
+  const float value_position =
+      hs::clamp(value * (HueRotationLutView::VALUE_STEPS - 1), 0.0f,
+                static_cast<float>(HueRotationLutView::VALUE_STEPS - 1));
   const int value_low = static_cast<int>(value_position);
   const int value_high =
       std::min(value_low + 1, HueRotationLutView::VALUE_STEPS - 1);

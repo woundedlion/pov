@@ -2354,6 +2354,22 @@ inline void test_noise_hue_palette() {
   HS_EXPECT_NEAR(uv_a, palette.noise_uv(1.0f, -0.0f, 1.0f, -0.0f), 1e-6f);
 }
 
+inline void test_hue_rotation_lut_clamps_out_of_range_value() {
+  static std::array<Pixel, 3 * HueRotationLutView::SIZE> storage;
+  storage.fill(Pixel(0, 0, 65535));
+  Pixel *const lut = storage.data() + HueRotationLutView::SIZE;
+  for (int hue = 0; hue < HueRotationLutView::HUE_STEPS; ++hue) {
+    lut[hue] = Pixel(65535, 0, 0);
+    lut[(HueRotationLutView::VALUE_STEPS - 1) * HueRotationLutView::HUE_STEPS +
+        hue] = Pixel(0, 65535, 0);
+  }
+
+  const HueRotationLutView view{lut, true};
+  HS_EXPECT_EQ(sample_hue_rotation_lut(view, -0.5f, 0.25f), Pixel(65535, 0, 0));
+  HS_EXPECT_EQ(sample_hue_rotation_lut(view, 1.5f, 0.25f), Pixel(0, 65535, 0));
+  HS_EXPECT_EQ(sample_hue_rotation_lut(view, NAN, 0.25f), Pixel(0, 65535, 0));
+}
+
 inline void test_wrap_angle_pi_large_arguments() {
   for (float angle : {25700.0f, -25700.0f, 1000.0f * TWO_PI_F + 0.25f}) {
     const float wrapped = wrap_angle_pi(angle);
@@ -2376,6 +2392,7 @@ inline void test_wrap_angle_pi_large_arguments() {
   X(test_pixel_scale_clamps_before_cast)                                       \
   X(test_gradient_get_clamps_out_of_range)                                     \
   X(test_generative_palette_get_clamps_out_of_range)                           \
+  X(test_hue_rotation_lut_clamps_out_of_range_value)                           \
   X(test_mobius_longitude_singularity_saturates_to_endpoint)
 
 // ============================================================================
