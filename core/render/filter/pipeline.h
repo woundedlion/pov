@@ -122,6 +122,7 @@ concept PipelineFoldSurface = requires {
   requires std::is_same_v<decltype(T::any_terminal_history), const bool>;
   requires std::is_same_v<decltype(T::has_world_cull), const bool>;
   requires std::is_same_v<decltype(T::has_world_stage), const bool>;
+  requires std::is_same_v<decltype(T::direct_raster_path), const bool>;
   requires std::is_same_v<decltype(T::segment_margin), const int>;
   requires std::is_same_v<decltype(T::total_segment_margin), const int>;
 };
@@ -162,6 +163,7 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr int domain_rank = 2;
   static constexpr bool is_2d = true;
   static constexpr bool is_pipeline = true;
+  static constexpr bool direct_raster_path = false;
   static constexpr bool is_terminal = false;
   // Stage vocabulary, so a Pipeline nested inside a Pipeline<> reaches the
   // is_pipeline diagnostic instead of failing in the trait folds first.
@@ -345,6 +347,7 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
   static constexpr int domain_rank = Head::domain_rank;
   static constexpr bool is_2d = Head::is_2d;
   static constexpr bool is_pipeline = true;
+  static constexpr bool direct_raster_path = false;
   static constexpr bool is_terminal = Head::is_terminal || Next::is_terminal;
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
