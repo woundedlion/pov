@@ -25,7 +25,8 @@ class KaleidoscopeMandala
     : public Pullback::ComposedEffect<
           W, H, KaleidoscopeMandala<W, H>, KaleidoscopeMandalaParams,
           KaleidoscopeMandalaSpec, PaletteHarmony::TRIADIC,
-          Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::NONE> {
+          Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::NONE,
+          false> {
 
 public:
   using Params = KaleidoscopeMandalaParams;
@@ -38,8 +39,6 @@ public:
                                                               "cup-hue"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
-  static constexpr bool ANIMATED_PROJECTION = false;
-
   static HS_HOT_FLASH_MEMBER Color4
   shade(const Vector &view,
         const typename KaleidoscopeMandala::FrameState &frame) {

@@ -28,7 +28,7 @@ template <int W, int H>
 class AlienCore : public Pullback::ComposedEffect<
                       W, H, AlienCore<W, H>, AlienCoreParams, AlienCoreSpec,
                       PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
-                      Pullback::Color::BrightnessEnvelope::NONE> {
+                      Pullback::Color::BrightnessEnvelope::NONE, false> {
 
 public:
   using Params = AlienCoreParams;
@@ -40,8 +40,6 @@ public:
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"folded-glitch"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
-  static constexpr bool ANIMATED_PROJECTION = false;
-
   static constexpr Params initial_params() {
     Params value;
     value.source = {.pattern_freq = 3.565f,
