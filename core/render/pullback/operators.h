@@ -87,14 +87,21 @@ enum class PaletteMode : uint8_t {
   ANALOGOUS = 2
 };
 enum class HueShiftMode : uint8_t { NOISE = 0, PATH_LENGTH = 1 };
-enum class EnvelopeMode : uint8_t { NONE = 0, CUP = 1 };
+enum class EnvelopeMode : uint8_t {
+  NONE = 0,
+  CUP = 1,
+  BELL = 2,
+  ASCENDING = 3,
+  DESCENDING = 4
+};
 
 inline constexpr const char *PALETTE_MODE_IDS[] = {"triadic", "complementary",
                                                    "analogous"};
 inline constexpr const char *PALETTE_MAPPING_IDS[] = {"cup", "bell", "linear",
                                                       "reverse"};
 inline constexpr const char *HUE_SHIFT_MODE_IDS[] = {"noise", "path-length"};
-inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {"none", "cup"};
+inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
+    "none", "cup", "bell", "ascending", "descending"};
 
 /** @brief Parameter family of colorize.generated-palette.v2.
     @details The mapping topology enum8 supersedes the base family's
@@ -121,7 +128,7 @@ struct GeneratedPaletteParams : Color::ColorParams {
           HUE_SHIFT_MODE_IDS, 2, static_cast<uint8_t>(HueShiftMode::NOISE)},
       TopologyField<GeneratedPaletteParams>{
           "brightness-envelope", &GeneratedPaletteParams::envelope_mode,
-          BRIGHTNESS_ENVELOPE_IDS, 2, static_cast<uint8_t>(EnvelopeMode::NONE)},
+          BRIGHTNESS_ENVELOPE_IDS, 5, static_cast<uint8_t>(EnvelopeMode::NONE)},
   };
 };
 static_assert(field_ids_unique<GeneratedPaletteParams>());
@@ -177,25 +184,25 @@ struct ColorizeGeneratedPalette {
                 static_cast<uint8_t>(Color::PaletteMapping::REVERSE)
             ? params.mapping_mode
             : static_cast<uint8_t>(Color::PaletteMapping::LINEAR);
-    return {Color::PaletteMappingWeights::single(
-                static_cast<Color::PaletteMapping>(mapping)),
-            params.mapping_frequency,
-            params.mapping_phase,
-            params.phase_oscillation_depth,
-            state.oscillation_phase,
-            palette,
-            mode,
-            params.hue_shift_amount,
-            {ctx.hue_rotation_lut, rotation_active},
-            {ctx.hue_noise_lut, mode == Color::HueMode::NOISE &&
-                                    rotation_active &&
-                                    ctx.hue_noise_lut != nullptr},
-            static_cast<EnvelopeMode>(params.envelope_mode) == EnvelopeMode::CUP
-                ? Color::BrightnessEnvelope::CUP
-                : Color::BrightnessEnvelope::NONE,
-            params.brightness_depth,
-            params.opacity_low,
-            params.opacity_high};
+    return {
+        Color::PaletteMappingWeights::single(
+            static_cast<Color::PaletteMapping>(mapping)),
+        params.mapping_frequency,
+        params.mapping_phase,
+        params.phase_oscillation_depth,
+        state.oscillation_phase,
+        palette,
+        mode,
+        params.hue_shift_amount,
+        {ctx.hue_rotation_lut, rotation_active},
+        {ctx.hue_noise_lut, mode == Color::HueMode::NOISE && rotation_active &&
+                                ctx.hue_noise_lut != nullptr},
+        params.envelope_mode <= static_cast<uint8_t>(EnvelopeMode::DESCENDING)
+            ? static_cast<Color::BrightnessEnvelope>(params.envelope_mode)
+            : Color::BrightnessEnvelope::NONE,
+        params.brightness_depth,
+        params.opacity_low,
+        params.opacity_high};
   }
   static Color4 run(const FieldSample &input, const FrameContext &,
                     const Params &, const Prepared &prepared) {
