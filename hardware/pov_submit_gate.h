@@ -145,4 +145,58 @@ private:
   bool low_pending = false; /**< Pulse held HIGH; drop it at the next wake. */
 };
 
+/**
+ * @brief Runs one segmented-driver wake in ISR order.
+ * @param sync_pulse Sync-pin pulse-width state.
+ * @param submit_gate LED-submit retry state.
+ * @param handoff Effect ownership and display-window state.
+ * @param tick Claims pending sync input and advances the flywheel.
+ * @param wire_gen Reads the generation advertised on the sync wire.
+ * @param drive_sync Drives the sync pin to the requested level.
+ * @param commit_failure Handles a missed epoch commit deadline.
+ * @param set_envelope Applies the current column's output envelope.
+ * @param submit Performs the selected LED transport action.
+ */
+template <typename Handoff, typename Tick, typename WireGen, typename DriveSync,
+          typename CommitFailure, typename SetEnvelope, typename Submit>
+__attribute__((always_inline)) inline void
+run_wake_sequence(SyncPulseGate &sync_pulse, SubmitGate &submit_gate,
+                  Handoff &handoff, Tick tick, WireGen wire_gen,
+                  DriveSync drive_sync, CommitFailure commit_failure,
+                  SetEnvelope set_envelope, Submit submit) {
+  if (sync_pulse.take_deferred_low())
+    drive_sync(false);
+
+  const auto actions = tick();
+  if (actions.pulse)
+    drive_sync(true);
+
+  const uint32_t generation = wire_gen();
+  const auto wake = handoff.apply_wake({.commit = actions.commit,
+                                        .join_boundary = actions.join_boundary,
+                                        .dark = actions.dark,
+                                        .flip = actions.flip,
+                                        .zero_crossing = actions.zero_crossing,
+                                        .wire_gen = generation});
+  if (!wake.commit_ok) {
+    commit_failure();
+    return;
+  }
+
+  auto *effect = wake.live;
+  if (wake.advance)
+    effect->advance_display();
+  if (effect != nullptr && actions.render_column >= 0)
+    set_envelope(effect, actions.render_column);
+
+  const SubmitAction action =
+      submit_gate.choose(wake.dark, actions.render_column);
+  const bool accepted = action != SubmitAction::NONE
+                            ? submit(action, effect, actions.render_column)
+                            : false;
+  const bool did_render = submit_gate.settle(action, accepted);
+  if (sync_pulse.settle(actions.pulse, did_render))
+    drive_sync(false);
+}
+
 } // namespace pov
