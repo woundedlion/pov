@@ -1,4 +1,8 @@
+import contextlib
+import io
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -82,6 +86,24 @@ class TestHeaderIssue(unittest.TestCase):
         head = "// " + "x" * lc.HEAD_BYTES + "\n" + POLYFORM_HEADER
         self.assertIsNotNone(lc.header_issue("core/math/3dmath.h",
                                              head[:lc.HEAD_BYTES]))
+
+
+class TestMain(unittest.TestCase):
+    def test_main_checks_tracked_sources_and_returns_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            source = root / "sample.h"
+            source.write_text(POLYFORM_HEADER, encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "sample.h"],
+                           check=True)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lc.main(["--root", str(root)]), 0)
+
+            source.write_text("#pragma once\n", encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(lc.main(["--root", str(root)]), 1)
 
 
 if __name__ == "__main__":
