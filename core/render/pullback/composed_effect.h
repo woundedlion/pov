@@ -463,7 +463,8 @@ inline bool valid(const MobiusLensParams &p) {
                           p.mobius.b.im, p.mobius.c.re, p.mobius.c.im,
                           p.mobius.d.re, p.mobius.d.im};
   for (float value : values)
-    if (!std::isfinite(value))
+    if (!std::isfinite(value) ||
+        fabsf(value) > MobiusLensParams::COEFFICIENT_LIMIT)
       return false;
   return true;
 }
@@ -998,22 +999,23 @@ private:
     register_warp_fields(params.inner_warp, "Planar Warp 2 Speed");
     register_fields(params.value);
     if constexpr (requires { params.lens.mobius; }) {
-      register_animated_param("Mobius A Re", &params.lens.mobius.a.re, -4.0f,
-                              4.0f);
-      register_animated_param("Mobius A Im", &params.lens.mobius.a.im, -4.0f,
-                              4.0f);
-      register_animated_param("Mobius B Re", &params.lens.mobius.b.re, -4.0f,
-                              4.0f);
-      register_animated_param("Mobius B Im", &params.lens.mobius.b.im, -4.0f,
-                              4.0f);
-      register_animated_param("Mobius C Re", &params.lens.mobius.c.re, -4.0f,
-                              4.0f);
-      register_animated_param("Mobius C Im", &params.lens.mobius.c.im, -4.0f,
-                              4.0f);
-      register_animated_param("Mobius D Re", &params.lens.mobius.d.re, -4.0f,
-                              4.0f);
-      register_animated_param("Mobius D Im", &params.lens.mobius.d.im, -4.0f,
-                              4.0f);
+      constexpr float LIMIT = MobiusLensParams::COEFFICIENT_LIMIT;
+      register_animated_param("Mobius A Re", &params.lens.mobius.a.re, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius A Im", &params.lens.mobius.a.im, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius B Re", &params.lens.mobius.b.re, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius B Im", &params.lens.mobius.b.im, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius C Re", &params.lens.mobius.c.re, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius C Im", &params.lens.mobius.c.im, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius D Re", &params.lens.mobius.d.re, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius D Im", &params.lens.mobius.d.im, -LIMIT,
+                              LIMIT);
     }
     register_animated_param("Palette Chroma", &params.color.palette_chroma,
                             0.0f, 1.0f);

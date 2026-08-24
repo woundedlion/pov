@@ -23,6 +23,8 @@ struct NoLensParams {
 static_assert(field_ids_unique<NoLensParams>());
 /** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
 struct MobiusLensParams {
+  static constexpr float COEFFICIENT_LIMIT = 4.0f;
+
   /** Mobius coefficients; the default is the identity map. */
   MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                       0.7071067811865475f, 0.0f};
