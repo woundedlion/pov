@@ -64,18 +64,26 @@ inline void test_so4_rotation() {
 
 inline void test_reflection_convention() {
   const HL::Vec4 center =
-      HL::reflected_direction(X_AXIS, HL::ReflectionMode::CHROME);
-  HS_EXPECT_EQ(center[0], 1.0f);
+      HL::reflected_direction(X_AXIS, HL::ReflectionMode::CHROME, 1.0f);
+  HS_EXPECT_NEAR(center[0], 1.0f, 2e-4f);
   HS_EXPECT_EQ(center[1], 0.0f);
   HS_EXPECT_EQ(center[2], 0.0f);
 
   const HL::Vec4 rim =
-      HL::reflected_direction(Y_AXIS, HL::ReflectionMode::CHROME);
-  HS_EXPECT_EQ(rim[0], -1.0f);
-  HS_EXPECT_EQ(rim[1], 0.0f);
+      HL::reflected_direction(Y_AXIS, HL::ReflectionMode::CHROME, 1.0f);
+  HS_EXPECT_NEAR(rim[0], -0.5547f, 2e-3f);
+  HS_EXPECT_NEAR(rim[1], 0.83205f, 2e-3f);
   const HL::Vec4 radial =
-      HL::reflected_direction(Y_AXIS, HL::ReflectionMode::RADIAL);
+      HL::reflected_direction(Y_AXIS, HL::ReflectionMode::RADIAL, 1.0f);
   HS_EXPECT_EQ(radial[1], 1.0f);
+
+  const HL::Vec4 open =
+      HL::reflected_direction(Y_AXIS, HL::ReflectionMode::CHROME, 0.0f);
+  HS_EXPECT_NEAR(open[0], 0.0f, 2e-4f);
+  HS_EXPECT_NEAR(open[1], 1.0f, 2e-4f);
+  const HL::Vec4 back = HL::reflected_direction(
+      Vector(-1.0f, 0.0f, 0.0f), HL::ReflectionMode::CHROME, 1.0f);
+  HS_EXPECT_NEAR(back[0], -1.0f, 2e-4f);
 }
 
 inline void test_resolution_aware_wire_coverage() {
@@ -107,6 +115,13 @@ inline void test_near_field_fade() {
   HS_EXPECT_GT(HL::near_field_coverage(0.275f, RADIUS), 0.0f);
   HS_EXPECT_LT(HL::near_field_coverage(0.275f, RADIUS), 1.0f);
   HS_EXPECT_EQ(HL::near_field_coverage(0.4f, RADIUS), 1.0f);
+}
+
+inline void test_far_shell_fade() {
+  HS_EXPECT_EQ(HL::shell_horizon_coverage(0, 2, 0.75f, 1.0f), 1.0f);
+  HS_EXPECT_EQ(HL::shell_horizon_coverage(1, 2, 1.0f, 1.0f), 1.0f);
+  HS_EXPECT_NEAR(HL::shell_horizon_coverage(1, 2, 1.5f, 1.0f), 0.5f, 1e-6f);
+  HS_EXPECT_EQ(HL::shell_horizon_coverage(1, 2, 2.0f, 1.0f), 0.0f);
 }
 
 inline void test_pause_does_not_stop_motion() {
@@ -212,6 +227,7 @@ inline int run_hyper_lattice_tests() {
   test_reflection_convention();
   test_resolution_aware_wire_coverage();
   test_near_field_fade();
+  test_far_shell_fade();
   test_pause_does_not_stop_motion();
   test_next_plane_is_strict();
   test_trace_layers_are_front_to_back();
