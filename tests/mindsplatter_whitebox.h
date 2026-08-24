@@ -22,7 +22,7 @@ struct MindSplatterWhiteBox {
   using MS = MindSplatter<288, 144>;
 
   static constexpr uint32_t REPLAY_MAGIC = 0x3152534du;
-  static constexpr uint16_t REPLAY_VERSION = 2;
+  static constexpr uint16_t REPLAY_VERSION = 3;
 
   template <typename T>
   using ObjectBytes = std::array<unsigned char, sizeof(T)>;
@@ -31,6 +31,7 @@ struct MindSplatterWhiteBox {
     using EffectType = MindSplatter<W, H>;
     using Particle = Animation::Particle<EffectType::TRAIL_LEN>;
     using Attractor = typename EffectType::ParticleSystem::Attractor;
+    using BaseMesh = typename EffectType::BaseMesh;
     using Params = typename EffectType::Params;
     using Transition = typename EffectType::Transition;
 
@@ -46,6 +47,7 @@ struct MindSplatterWhiteBox {
     float friction = 0.0f;
     float gravity = 0.0f;
     uint16_t max_life = 0;
+    BaseMesh active_base_mesh = BaseMesh::CUBE;
   };
 
   template <typename T>
@@ -86,6 +88,7 @@ struct MindSplatterWhiteBox {
     append_u16(bytes, static_cast<uint16_t>(sizeof(MobiusParams)));
     append_u16(bytes, static_cast<uint16_t>(snapshot.particles.size()));
     append_u16(bytes, snapshot.max_life);
+    bytes.push_back(static_cast<unsigned char>(snapshot.active_base_mesh));
     append_object<Orientation<>>(bytes, snapshot.orientation);
     append_object<MobiusParams>(bytes, snapshot.mobius);
     for (const ObjectBytes<Particle> &particle : snapshot.particles)
@@ -109,6 +112,11 @@ struct MindSplatterWhiteBox {
     uint32_t read_u32() {
       const uint32_t low = read_u16();
       return low | static_cast<uint32_t>(read_u16()) << 16;
+    }
+
+    uint8_t read_u8() {
+      require(1);
+      return bytes[offset++];
     }
 
     template <typename T> ObjectBytes<T> read_object() {
@@ -166,6 +174,7 @@ struct MindSplatterWhiteBox {
     snapshot.friction = ms.particle_system.friction;
     snapshot.gravity = ms.particle_system.gravity;
     snapshot.max_life = ms.particle_system.max_life;
+    snapshot.active_base_mesh = ms.active_base_mesh;
     static_assert(std::is_trivially_copyable_v<Particle>);
     return snapshot;
   }
@@ -177,6 +186,7 @@ struct MindSplatterWhiteBox {
     using Particle = typename Snapshot::Particle;
     HS_CHECK(ms.particle_system.active() == 0);
     HS_CHECK(snapshot.particles.size() <= ms.particle_system.pool.capacity());
+    ms.configure_particle_geometry(snapshot.active_base_mesh);
     HS_CHECK(snapshot.attractors.size() ==
              ms.particle_system.attractors.size());
 
@@ -222,9 +232,15 @@ struct MindSplatterWhiteBox {
              "MindSplatter replay Mobius layout differs");
     const uint16_t particle_count = reader.read_u16();
     const uint16_t max_life = reader.read_u16();
+    const auto active_base_mesh =
+        static_cast<typename Snapshot::BaseMesh>(reader.read_u8());
+    HS_CHECK(static_cast<size_t>(active_base_mesh) <
+                 Solids::PLATONIC_BASE_MESH_COUNT,
+             "MindSplatter replay base mesh differs");
     HS_CHECK(ms.particle_system.active() == 0);
     HS_CHECK(particle_count <= ms.particle_system.pool.capacity());
 
+    ms.configure_particle_geometry(active_base_mesh);
     restore_object(ms.orientation, reader.read_object<Orientation<>>());
     restore_object(ms.mobius, reader.read_object<MobiusParams>());
     ms.particle_system.max_life = max_life;
@@ -255,6 +271,9 @@ struct MindSplatterWhiteBox {
   static void step_state_without_render(MindSplatter<W, H> &ms) {
     Canvas canvas(ms);
     ms.timeline.step(canvas);
+    if (!ms.particle_geometry_ready ||
+        ms.params.base_mesh != ms.active_base_mesh)
+      ms.configure_particle_geometry(ms.params.base_mesh);
     ms.particle_system.friction = ms.params.friction;
     for (size_t i = 0; i < ms.particle_system.attractors.size(); ++i)
       ms.particle_system.attractors[i].strength = ms.params.well_strength;
@@ -274,7 +293,8 @@ struct MindSplatterWhiteBox {
         std::memcmp(&a.clip, &b.clip, sizeof(a.clip)) != 0 ||
         std::memcmp(&a.friction, &b.friction, sizeof(a.friction)) != 0 ||
         std::memcmp(&a.gravity, &b.gravity, sizeof(a.gravity)) != 0 ||
-        a.max_life != b.max_life || a.palette_sequence != b.palette_sequence)
+        a.max_life != b.max_life || a.palette_sequence != b.palette_sequence ||
+        a.active_base_mesh != b.active_base_mesh)
       return false;
     return true;
   }
