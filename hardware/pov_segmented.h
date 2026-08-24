@@ -607,83 +607,46 @@ private:
   static FASTRUN void flywheel_isr() {
     HS_ISR_PROFILE(hs::g_flywheel_wake_cycles);
     const uint32_t now = ARM_DWT_CYCCNT;
-
-    // Complete a deferred sync pulse from the previous wake: a wake that
-    // submitted no frame has a ~1 µs body, too short to width a same-wake
-    // pulse (spec §5.2), so it holds the pin HIGH and drops it here.
-    if (sync_pulse.take_deferred_low())
-      digitalWriteFast(PIN_FRAME_SYNC, LOW);
-
-    // Mailbox handoff (spec §8.2): a brief IRQ-off copy in the consumer.
-    pov::sync::BurstSnapshot burst;
-    const pov::sync::BurstSnapshot *bp = nullptr;
-    if (segment_id != 0) {
-      // Config-derived cycle counts carry integer divisions; the bracket only
-      // holds the mailbox reads.
-      const uint32_t gap_timeout = sync.gap_timeout_cycles();
-      const uint32_t max_burst = sync.max_burst_cycles();
-      const uint32_t glitch_filter = sync.glitch_filter_cycles();
-      __disable_irq();
-      if (sync.mailbox().try_claim(now, gap_timeout, max_burst, &burst))
-        bp = &burst;
-      // Retire a stale glitch-filter reference so the cycle counter cannot wrap
-      // out from under it during a long wire silence (spec §8).
-      sync.mailbox().age_prior(now, glitch_filter);
-      __enable_irq();
-    }
-
-    const pov::sync::TickActions a = sync.tick(now, bp);
-
-    // Pin write first, LED work after (spec §5.2).
-    if (a.pulse)
-      digitalWriteFast(PIN_FRAME_SYNC, HIGH);
-
-    // Teardown handshake, then the pending-effect swap (commit at the B+R+K
-    // epoch deadline, join at the next join-grid boundary), then the
-    // display-window publish. The sequence lives in pov_handoff.h, host-tested
-    // and shared with the multi-board simulator.
-    const auto w = handoff.apply_wake(
-        {.commit = a.commit,
-         .join_boundary = a.join_boundary,
-         .dark = a.dark,
-         .flip = a.flip,
-         .zero_crossing = a.zero_crossing,
-         .wire_gen = pov::sync::SyncBoard::build_gen_of(sync.build_word())});
-    HS_CHECK(w.commit_ok,
-             "epoch commit: effect init exceeded the K-revolution window");
-
-    // Flip whenever the effect is live, even during the dark commit window:
-    // advance_display() is what releases a foreground blocked in buffer_free().
-    Effect *e = w.live;
-    if (w.advance)
-      e->advance_display();
-    if (e != nullptr && a.render_column >= 0)
-      e->set_output_envelope(sync.effect_envelope(a.render_column, CANVAS_W));
-
-    // Both submit paths clear their pending state only on an accepted frame, so
-    // a DMA-overrun drop is retried on the next wake (spec §5.3/§6.3 fail-dark
-    // for BLACK, the dropped image column for COLUMN/RESUBMIT).
-    const pov::SubmitAction action =
-        submit_gate.choose(w.dark, a.render_column);
-    bool accepted = false;
-    switch (action) {
-    case pov::SubmitAction::BLACK:
-      accepted = render_black();
-      break;
-    case pov::SubmitAction::COLUMN:
-      accepted = render_column(e, a.render_column);
-      break;
-    case pov::SubmitAction::RESUBMIT:
-      accepted = resubmit_frame(e->strobe_columns());
-      break;
-    case pov::SubmitAction::NONE:
-      break;
-    }
-    const bool did_render = submit_gate.settle(action, accepted);
-
-    // A body too short to width the pulse holds it HIGH for the next wake.
-    if (sync_pulse.settle(a.pulse, did_render))
-      digitalWriteFast(PIN_FRAME_SYNC, LOW);
+    pov::run_wake_sequence(
+        sync_pulse, submit_gate, handoff,
+        [&] {
+          pov::sync::BurstSnapshot burst;
+          const pov::sync::BurstSnapshot *bp = nullptr;
+          if (segment_id != 0) {
+            const uint32_t gap_timeout = sync.gap_timeout_cycles();
+            const uint32_t max_burst = sync.max_burst_cycles();
+            const uint32_t glitch_filter = sync.glitch_filter_cycles();
+            __disable_irq();
+            if (sync.mailbox().try_claim(now, gap_timeout, max_burst, &burst))
+              bp = &burst;
+            sync.mailbox().age_prior(now, glitch_filter);
+            __enable_irq();
+          }
+          return sync.tick(now, bp);
+        },
+        [] { return pov::sync::SyncBoard::build_gen_of(sync.build_word()); },
+        [](bool high) { digitalWriteFast(PIN_FRAME_SYNC, high ? HIGH : LOW); },
+        [] {
+          HS_CHECK(
+              false,
+              "epoch commit: effect init exceeded the K-revolution window");
+        },
+        [](Effect *e, int32_t column) {
+          e->set_output_envelope(sync.effect_envelope(column, CANVAS_W));
+        },
+        [](pov::SubmitAction action, Effect *e, int32_t column) {
+          switch (action) {
+          case pov::SubmitAction::BLACK:
+            return render_black();
+          case pov::SubmitAction::COLUMN:
+            return render_column(e, column);
+          case pov::SubmitAction::RESUBMIT:
+            return resubmit_frame(e->strobe_columns());
+          case pov::SubmitAction::NONE:
+            break;
+          }
+          return false;
+        });
   }
 
   // ── Pixel packing ───────────────────────────────────────────────────

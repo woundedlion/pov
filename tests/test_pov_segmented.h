@@ -278,6 +278,32 @@ inline void test_segment_clip() {
 // ownership by address, so an empty tag type exercises every code path.
 struct FakeEffect {};
 
+enum class WakeStep : uint8_t {
+  LOW,
+  TICK,
+  HIGH,
+  WIRE_GEN,
+  ADVANCE,
+  ENVELOPE,
+  SUBMIT,
+};
+
+struct WakeEffect {
+  std::vector<WakeStep> *steps = nullptr;
+
+  void advance_display() { steps->push_back(WakeStep::ADVANCE); }
+};
+
+struct WakeActions {
+  bool pulse = false;
+  bool commit = false;
+  bool join_boundary = false;
+  bool dark = false;
+  bool flip = false;
+  bool zero_crossing = false;
+  int32_t render_column = -1;
+};
+
 /**
  * @brief Teardown handshake: request, then ISR service acks and drops the live
  * pointer.
@@ -545,6 +571,61 @@ inline void test_apply_wake_sequence() {
     HS_EXPECT_TRUE(empty.dark);
     HS_EXPECT_EQ(empty.live, nullptr);
   }
+}
+
+/** @brief The host and device execute the same composed wake ordering. */
+inline void test_composed_wake_sequence() {
+  std::vector<WakeStep> steps;
+  WakeEffect effect{&steps};
+  EffectHandoff<WakeEffect> handoff;
+  SubmitGate submit_gate;
+  SyncPulseGate sync_pulse;
+
+  handoff.publish(&effect, 9);
+  HS_EXPECT_FALSE(sync_pulse.settle(/*pulse=*/true, /*did_render=*/false));
+
+  pov::run_wake_sequence(
+      sync_pulse, submit_gate, handoff,
+      [&] {
+        steps.push_back(WakeStep::TICK);
+        return WakeActions{.pulse = true,
+                           .commit = true,
+                           .flip = true,
+                           .zero_crossing = true,
+                           .render_column = 17};
+      },
+      [&] {
+        steps.push_back(WakeStep::WIRE_GEN);
+        return 9u;
+      },
+      [&](bool high) {
+        steps.push_back(high ? WakeStep::HIGH : WakeStep::LOW);
+      },
+      [] { HS_EXPECT_TRUE(false); },
+      [&](WakeEffect *live, int32_t column) {
+        HS_EXPECT_EQ(live, &effect);
+        HS_EXPECT_EQ(column, 17);
+        steps.push_back(WakeStep::ENVELOPE);
+      },
+      [&](SubmitAction action, WakeEffect *live, int32_t column) {
+        HS_EXPECT_EQ(action, SubmitAction::COLUMN);
+        HS_EXPECT_EQ(live, &effect);
+        HS_EXPECT_EQ(column, 17);
+        steps.push_back(WakeStep::SUBMIT);
+        return true;
+      });
+
+  const std::vector<WakeStep> expected = {
+      WakeStep::LOW,      WakeStep::TICK,    WakeStep::HIGH,
+      WakeStep::WIRE_GEN, WakeStep::ADVANCE, WakeStep::ENVELOPE,
+      WakeStep::SUBMIT,   WakeStep::LOW,
+  };
+  HS_EXPECT_EQ(steps.size(), expected.size());
+  for (size_t i = 0; i < steps.size() && i < expected.size(); ++i)
+    HS_EXPECT_EQ(steps[i], expected[i]);
+  HS_EXPECT_EQ(handoff.live(), &effect);
+  HS_EXPECT_FALSE(sync_pulse.low_deferred());
+  HS_EXPECT_FALSE(submit_gate.resubmit_pending());
 }
 
 class PhaseEffect : public Effect {
@@ -1043,6 +1124,7 @@ inline int run_pov_segmented_tests() {
   test_full_handoff_cycle();
   test_window_alternation();
   test_apply_wake_sequence();
+  test_composed_wake_sequence();
   test_clip_phase_after_buffer_release();
   test_handoff_release_acquire_across_threads();
 
