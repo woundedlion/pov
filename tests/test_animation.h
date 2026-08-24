@@ -1222,7 +1222,7 @@ inline void test_motion_codriven_survives_repeat_seam() {
 // ParticleSystem
 // ----------------------------------------------------------------------------
 // Covers the pool-state transitions: spawn (+ capacity guard), life-expiry with
-// trail drain, and attractor kill-radius removal.
+// life expiry and attractor kill-radius removal.
 // ============================================================================
 
 /**
@@ -1267,30 +1267,29 @@ inline void test_particle_system_lifetime_boundaries() {
 }
 
 /**
- * @brief Verifies a particle is removed only after its life reaches 0 and its
- * recorded trail drains to empty.
+ * @brief Verifies a particle is reclaimed as soon as its life reaches 0, even
+ *        with recorded trail points, so the invisible history holds no slot.
  */
-inline void test_particle_system_expires_after_life_and_trail_drain() {
+inline void test_particle_system_reclaims_at_life_expiry() {
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
-  Animation::ParticleSystem<32, 4> ps;
-  // gravity 0 + zero velocity => the particle never moves; only life reaching 0
-  // and its trail draining to empty ends it.
+  Animation::ParticleSystem<32, 1> ps;
+  // Gravity 0 + zero velocity isolates life expiry from physics kills.
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/3.0f);
   ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
 
   ps.step(fake_canvas());
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
 
-  // life=3 records 2 trail frames (life stays >0 after the decrement on frames
-  // 1,2), then drains one per frame: reclaimed exactly on frame 2*(life-1)=4.
-  const int reclaim_frame = 2 * (3 - 1);
-  for (int frame = 2; frame < reclaim_frame; ++frame) {
-    ps.step(fake_canvas());
-    HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
-  }
-  ps.step(fake_canvas()); // frame reclaim_frame
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
+  HS_EXPECT_GT(ps.pool[0].history.length(), (size_t)0);
+  ps.step(fake_canvas());
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 0);
+
+  ps.spawn(Vector(0, 1, 0), Vector(0, 0, 0), 1);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
+  HS_EXPECT_EQ(ps.dropped_spawns(), (uint32_t)0);
 }
 
 /**
@@ -3622,7 +3621,7 @@ inline int run_animation_tests() {
   test_particle_system_lifetime_boundaries();
   test_particle_system_spawn_initializes_and_steps();
   test_particle_system_sparse_trail_sampling();
-  test_particle_system_expires_after_life_and_trail_drain();
+  test_particle_system_reclaims_at_life_expiry();
   test_particle_system_attractor_kills_within_radius();
   test_particle_system_attractor_kill_radius_boundary();
   test_particle_system_signed_axis_one_step_equivalence();
