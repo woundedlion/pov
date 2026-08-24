@@ -504,7 +504,7 @@ public:
     return value;
   }
 
-  static bool valid_params(const Params &value) {
+  static constexpr bool valid_params(const Params &value) {
     return value.dimension >= 0.0f && value.dimension <= 1.0f &&
            value.sphere_radius >= 0.0f && value.sphere_radius <= 1.5f &&
            value.wire_radius >= 0.015f && value.wire_radius <= 0.18f &&
@@ -652,6 +652,16 @@ private:
                 "HyperLattice persistent footprint exceeds the default "
                 "partition");
 };
+
+static_assert(
+    [] {
+      using Effect = HyperLattice<1, 1>;
+      for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
+        if (!Effect::valid_params(Effect::preset_params(index)))
+          return false;
+      return true;
+    }(),
+    "HyperLattice preset is outside a registered slider range");
 
 #include "core/control/registry.h"
 REGISTER_EFFECT(HyperLattice)
