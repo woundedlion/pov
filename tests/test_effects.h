@@ -1159,6 +1159,56 @@ inline void test_sh_morph_chain_rearms() {
   HS_EXPECT_GT(alpha_peak, 0.9f);
 }
 
+/** @brief Keeps a manual harmonic selection past the automatic leg it replaces. */
+inline void test_sh_manual_preset_replaces_inflight_morph() {
+  using WB = SphericalHarmonicsWhiteBox;
+  reset_effect_globals();
+  hs::set_mock_time(0, 0);
+  WB::SH fx;
+  fx.init();
+
+  HS_EXPECT_EQ(fx.getPresetCount(), 24u);
+  HS_EXPECT_EQ(fx.getPresetIndex(), 5u);
+  for (int frame = 0; frame < 8; ++frame) {
+    hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
+                      static_cast<unsigned long>(frame) * FRAME_US);
+    fx.draw_frame();
+    fx.advance_display();
+  }
+  HS_EXPECT_GT(WB::morph_alpha(fx), 0.0f);
+  const int replaced_target = WB::next_idx(fx);
+
+  int selected_mode = 24;
+  while (selected_mode == WB::current_idx(fx) ||
+         selected_mode == replaced_target)
+    --selected_mode;
+  const size_t selected_preset = static_cast<size_t>(selected_mode - 1);
+  HS_EXPECT_TRUE(fx.selectPreset(selected_preset));
+  HS_EXPECT_TRUE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.getPresetIndex(), selected_preset);
+  HS_EXPECT_EQ(WB::current_idx(fx), selected_mode);
+  HS_EXPECT_EQ(WB::next_idx(fx), selected_mode);
+  HS_EXPECT_EQ(WB::morph_alpha(fx), 0.0f);
+
+  fx.draw_frame();
+  fx.advance_display();
+  HS_EXPECT_EQ(WB::morph_alpha(fx), 0.0f);
+
+  fx.setAnimationsPaused(false);
+  for (int frame = 0; frame < 64; ++frame) {
+    hs::set_mock_time(static_cast<unsigned long>(frame + 9) * FRAME_MS,
+                      static_cast<unsigned long>(frame + 9) * FRAME_US);
+    fx.draw_frame();
+    fx.advance_display();
+  }
+  hs::clear_mock_time();
+
+  HS_EXPECT_EQ(WB::current_idx(fx), selected_mode);
+  HS_EXPECT_TRUE(WB::current_idx(fx) != replaced_target);
+  HS_EXPECT_EQ(fx.getPresetIndex(), selected_preset);
+  HS_EXPECT_TRUE(WB::next_idx(fx) != selected_mode);
+}
+
 // ---------------------------------------------------------------------------
 // Gray-Scott reaction-diffusion: white-box dynamics coverage
 // ---------------------------------------------------------------------------
@@ -3883,6 +3933,17 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
   HS_EXPECT_EQ(value("Scale Factor"), 84.832001f);
   HS_EXPECT_EQ(value("Cycle Speed"), 0.672f);
   HS_EXPECT_EQ(value("Duty Cycle"), 0.5f);
+  HS_EXPECT_EQ(fx.getPresetCount(), 1u);
+  HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
+
+  HS_EXPECT_TRUE(fx.updateParameter("Cycle Dur", 111.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(fx.updateParameter("Duty Cycle", 0.25f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(fx.selectPreset(0));
+  HS_EXPECT_TRUE(fx.animations_paused());
+  HS_EXPECT_EQ(value("Cycle Dur"), 80.0f);
+  HS_EXPECT_EQ(value("Duty Cycle"), 0.5f);
 
   const Pixel black(0, 0, 0);
   const Color4 red = WB::sample_fire(fx, 0.20f);
@@ -6446,6 +6507,7 @@ inline int run_effects_tests() {
   test_gs_dissolve_frontier_fades_before_clear();
   test_gs_substep_matches_scalar_reference();
   test_fishbowl_preset_and_fire_duty_cycle();
+  test_sh_manual_preset_replaces_inflight_morph();
   test_shapeshifter_preset_defaults();
   test_shapeshifter_slider_selections_render();
   test_manual_preset_navigation();
