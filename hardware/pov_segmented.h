@@ -417,11 +417,12 @@ public:
         const unsigned long window_us =
             (done_cycles - poll_prev_cycles) / cycles_per_us;
         const unsigned long budget_us = commit_budget_cycles / cycles_per_us;
-        hs::log(
-            "build idx=%ld build=%lu window=%lu budget=%lu margin=%ld us",
-            (long)effect_index,
-            (unsigned long)((done_cycles - build_start_cycles) / cycles_per_us),
-            window_us, budget_us, (long)budget_us - (long)window_us);
+        if (hs::debug)
+          hs::log("build idx=%ld build=%lu window=%lu budget=%lu margin=%ld us",
+                  (long)effect_index,
+                  (unsigned long)((done_cycles - build_start_cycles) /
+                                  cycles_per_us),
+                  window_us, budget_us, (long)budget_us - (long)window_us);
       }
       poll_prev_cycles = poll_cycles;
 
