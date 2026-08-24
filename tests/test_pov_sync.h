@@ -2607,8 +2607,7 @@ inline void test_sim_forged_burst() {
                rejected_before);
   // Flip cadence unbroken: 2 per revolution, no extra content advance.
   const uint64_t df = sim.boards[1].flips - flips_before;
-  HS_EXPECT_GE(df, 7u);
-  HS_EXPECT_LE(df, 9u);
+  HS_EXPECT_EQ(df, 8u);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
