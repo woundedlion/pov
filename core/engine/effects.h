@@ -283,6 +283,14 @@ constexpr int hs_phantasm_effect_list_count(const char *name) {
 #undef HS_PHANTASM_NAME_COUNT
 }
 
+/** @brief Occurrences of `name` in HS_SHADER_PRODUCT_GROUP. */
+constexpr int hs_shader_product_group_count(const char *name) {
+#define HS_SHADER_PRODUCT_NAME_COUNT(cls, duration_seconds)                    \
+  +(hs_effect_name_eq(name, #cls) ? 1 : 0)
+  return 0 HS_SHADER_PRODUCT_GROUP(HS_SHADER_PRODUCT_NAME_COUNT);
+#undef HS_SHADER_PRODUCT_NAME_COUNT
+}
+
 /**
  * @brief Show duration HS_PHANTASM_EFFECT_LIST assigns `name`, 0 when absent.
  * @param name Effect class name to look up.
@@ -300,6 +308,14 @@ constexpr bool hs_phantasm_effect_list_is_distinct() {
   &&(hs_phantasm_effect_list_count(#cls) == 1)
   return true HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_ONCE);
 #undef HS_PHANTASM_NAME_ONCE
+}
+
+/** @brief True when no HS_SHADER_PRODUCT_GROUP name appears twice. */
+constexpr bool hs_shader_product_group_is_distinct() {
+#define HS_SHADER_PRODUCT_NAME_ONCE(cls, duration_seconds)                     \
+  &&(hs_shader_product_group_count(#cls) == 1)
+  return true HS_SHADER_PRODUCT_GROUP(HS_SHADER_PRODUCT_NAME_ONCE);
+#undef HS_SHADER_PRODUCT_NAME_ONCE
 }
 
 /** @brief True when every HS_PHANTASM_EFFECT_LIST name is in HS_EFFECT_LIST. */
@@ -320,6 +336,8 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
 static_assert(hs_phantasm_effect_list_is_distinct(),
               "HS_PHANTASM_EFFECT_LIST names an effect twice — the duplicate "
               "is masking an omitted effect");
+static_assert(hs_shader_product_group_is_distinct(),
+              "HS_SHADER_PRODUCT_GROUP names an effect twice");
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
