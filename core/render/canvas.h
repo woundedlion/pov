@@ -223,6 +223,7 @@ public:
    * @param x1 Exclusive end column of the owned segment.
    */
   void set_clip(int y0, int y1, int x0, int x1) {
+    check_clip_mutable();
     HS_CHECK(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 &&
                  x0 <= x1 && x1 <= clip_region.w,
              "set_clip band must be non-inverted and within canvas bounds");
@@ -240,6 +241,7 @@ public:
    * @param x1 Exclusive end column of the horizontal clip band.
    */
   void set_clip_x(int x0, int x1) {
+    check_clip_mutable();
     HS_CHECK(x0 >= 0 && x0 <= x1 && x1 <= clip_region.w,
              "set_clip_x band must be non-inverted and within canvas width");
     clip_region.x_start = x0;
@@ -254,6 +256,7 @@ public:
    *          the per-fragment clip predicates.
    */
   void set_margin(int m) {
+    check_clip_mutable();
     HS_CHECK(m >= 0 && m < clip_region.w,
              "render margin must be in [0, canvas width)");
     clip_region.margin = m;
@@ -992,6 +995,11 @@ private:
   int frame_width;          /**< The width of the effect. */
   int frame_height;         /**< The height of the effect. */
   ClipRegion clip_region; /**< Segment clip region (display + render margin). */
+  bool canvas_active = false; /**< A Canvas is currently drawing a frame. */
+
+  void check_clip_mutable() const {
+    HS_CHECK(!canvas_active, "clip cannot change while a frame is active");
+  }
   // Shared static storage for the double buffer. PRECONDITION: at most one Effect
   // live at a time (s_alive guard); a second would alias these arrays and the
   // prev/cur/next indices.
@@ -1030,12 +1038,16 @@ public:
       HS_PROFILE(canvas_clear);
       clear_stale_pixels();
     }
+    effect.canvas_active = true;
   }
 
   /**
    * @brief Destructor. Queues the finished frame to be displayed.
    */
-  ~Canvas() { effect.queue_frame(); }
+  ~Canvas() {
+    effect.queue_frame();
+    effect.canvas_active = false;
+  }
 
   Canvas(const Canvas &) = delete;
   Canvas(Canvas &&) = delete;
