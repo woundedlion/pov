@@ -329,6 +329,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
                   name, def.name, static_cast<double>(target),
                   static_cast<double>(now));
     HS_EXPECT(persisted, "editable param must persist across frames");
+    HS_EXPECT_TRUE(effect.updateParameter(def.name, cur) ==
+                   ParamSetResult::APPLIED);
   }
 }
 
