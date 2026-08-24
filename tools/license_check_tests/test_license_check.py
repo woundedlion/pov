@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
@@ -20,6 +21,23 @@ RESERVED_HEADER = ("/*\n"
                    f" * {lc.RESERVED} No redistribution or use without explicit\n"
                    " * permission.\n"
                    " */\n")
+LICENSE_HEADING = ("Exceptions outside `effects/`, each carrying its own terms "
+                   "in its own header:\n\n")
+
+
+class TestLicenseExceptions(unittest.TestCase):
+    def test_repository_license_matches_executable_exceptions(self):
+        license_text = (TOOLS.parent / "LICENSE").read_text(encoding="utf-8")
+        self.assertEqual(lc.license_exception_paths(license_text),
+                         set(lc.EXCEPTIONS))
+
+    def test_paths_must_match_in_both_directions(self):
+        license_text = LICENSE_HEADING + "- `licensed.h` — its own terms\n"
+        with mock.patch.object(lc, "EXCEPTIONS", {"configured.h": lc.RESERVED}):
+            issues = lc.license_exception_issues(license_text)
+        self.assertEqual(len(issues), 2)
+        self.assertIn("licensed.h", issues[0])
+        self.assertIn("configured.h", issues[1])
 
 
 class TestExpectedMarker(unittest.TestCase):
@@ -95,13 +113,32 @@ class TestMain(unittest.TestCase):
             subprocess.run(["git", "init", "-q", str(root)], check=True)
             source = root / "sample.h"
             source.write_text(POLYFORM_HEADER, encoding="utf-8")
+            (root / "LICENSE").write_text(LICENSE_HEADING, encoding="utf-8")
             subprocess.run(["git", "-C", str(root), "add", "sample.h"],
                            check=True)
-            with contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(lc.main(["--root", str(root)]), 0)
+            with mock.patch.object(lc, "EXCEPTIONS", {}):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(lc.main(["--root", str(root)]), 0)
 
-            source.write_text("#pragma once\n", encoding="utf-8")
-            with contextlib.redirect_stdout(io.StringIO()), \
+                source.write_text("#pragma once\n", encoding="utf-8")
+                with contextlib.redirect_stdout(io.StringIO()), \
+                        contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(lc.main(["--root", str(root)]), 1)
+
+    def test_stale_exception_is_a_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            source = root / "sample.h"
+            source.write_text(POLYFORM_HEADER, encoding="utf-8")
+            (root / "LICENSE").write_text(
+                LICENSE_HEADING + "- `retired.h` — retired terms\n",
+                encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "sample.h"],
+                           check=True)
+            exceptions = {"retired.h": lc.RESERVED}
+            with mock.patch.object(lc, "EXCEPTIONS", exceptions), \
+                    contextlib.redirect_stdout(io.StringIO()), \
                     contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(lc.main(["--root", str(root)]), 1)
 
