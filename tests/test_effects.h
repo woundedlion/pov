@@ -897,18 +897,17 @@ struct SphericalHarmonicsWhiteBox {
   static PipelineFrame prepare_pipeline(const SH &fx, int l1, int m1, int l2,
                                         int m2, float blend,
                                         const Quaternion &orientation,
-                                        float amplitude, bool debug) {
-    return Pipeline::prepare({{l1, m1, l2, m2, blend, orientation},
-                              {&fx.baked_palette, amplitude, debug}});
+                                        float amplitude) {
+    return Pipeline::prepare(
+        {{l1, m1, l2, m2, blend, orientation}, {&fx.baked_palette, amplitude}});
   }
 
   static Color4 shade_pipeline(const Vector &view, const PipelineFrame &frame) {
     return Pipeline::evaluate(view, frame.ctx, frame.prepared);
   }
 
-  static Color4 shade_legacy(const SH &fx, float value, float amplitude,
-                             bool debug) {
-    return SH::colorize_harmonic(value, {&fx.baked_palette, amplitude, debug});
+  static Color4 shade_legacy(const SH &fx, float value, float amplitude) {
+    return SH::colorize_harmonic(value, {&fx.baked_palette, amplitude});
   }
 
   // Pinning both morph endpoints on one mode makes the blend an identity, so a
@@ -1035,29 +1034,27 @@ inline void test_sh_pullback_matches_legacy_shader() {
     for (float blend : BLENDS) {
       const WB::Field legacy_field(l1, m1, l2, m2, blend, orientation);
       for (float amplitude : AMPLITUDES) {
-        for (bool debug : {false, true}) {
-          const WB::PipelineFrame frame = WB::prepare_pipeline(
-              fx, l1, m1, l2, m2, blend, orientation, amplitude, debug);
-          for (int i = 0; i <= PHI_STEPS; ++i) {
-            const float phi = PI_F * i / PHI_STEPS;
-            for (int j = 0; j < THETA_STEPS; ++j) {
-              const float theta = TWO_PI_F * j / THETA_STEPS;
-              const Vector point(sinf(phi) * cosf(theta), cosf(phi),
-                                 sinf(phi) * sinf(theta));
-              const Color4 legacy = WB::shade_legacy(
-                  fx, legacy_field.sample(point), amplitude, debug);
-              const Color4 pullback = WB::shade_pipeline(point, frame);
-              const int red = std::abs(static_cast<int>(legacy.color.r) -
-                                       static_cast<int>(pullback.color.r));
-              const int green = std::abs(static_cast<int>(legacy.color.g) -
-                                         static_cast<int>(pullback.color.g));
-              const int blue = std::abs(static_cast<int>(legacy.color.b) -
-                                        static_cast<int>(pullback.color.b));
-              const int delta = std::max({red, green, blue});
-              max_channel_delta = std::max(max_channel_delta, delta);
-              differing_pixels += static_cast<int>(delta != 0);
-              HS_EXPECT_EQ(legacy.alpha, pullback.alpha);
-            }
+        const WB::PipelineFrame frame = WB::prepare_pipeline(
+            fx, l1, m1, l2, m2, blend, orientation, amplitude);
+        for (int i = 0; i <= PHI_STEPS; ++i) {
+          const float phi = PI_F * i / PHI_STEPS;
+          for (int j = 0; j < THETA_STEPS; ++j) {
+            const float theta = TWO_PI_F * j / THETA_STEPS;
+            const Vector point(sinf(phi) * cosf(theta), cosf(phi),
+                               sinf(phi) * sinf(theta));
+            const Color4 legacy =
+                WB::shade_legacy(fx, legacy_field.sample(point), amplitude);
+            const Color4 pullback = WB::shade_pipeline(point, frame);
+            const int red = std::abs(static_cast<int>(legacy.color.r) -
+                                     static_cast<int>(pullback.color.r));
+            const int green = std::abs(static_cast<int>(legacy.color.g) -
+                                       static_cast<int>(pullback.color.g));
+            const int blue = std::abs(static_cast<int>(legacy.color.b) -
+                                      static_cast<int>(pullback.color.b));
+            const int delta = std::max({red, green, blue});
+            max_channel_delta = std::max(max_channel_delta, delta);
+            differing_pixels += static_cast<int>(delta != 0);
+            HS_EXPECT_EQ(legacy.alpha, pullback.alpha);
           }
         }
       }
@@ -1278,6 +1275,12 @@ inline void test_sh_preset_mode_mapping() {
   reset_effect_globals();
   WB::SH fx;
   fx.init();
+
+  HS_EXPECT_EQ(fx.getParameters().size(), 1u);
+  HS_EXPECT_TRUE(fx.getParameters().find("Amplitude") != nullptr);
+  HS_EXPECT_TRUE(fx.getParameters().find("Debug BB") == nullptr);
+  HS_EXPECT_TRUE(fx.updateParameter("Debug BB", 1.0f) ==
+                 ParamSetResult::UNKNOWN_PARAM);
 
   static constexpr std::array<int, 24> EXPECTED_MODES{
       6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,
