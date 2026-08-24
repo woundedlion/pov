@@ -74,6 +74,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check out daydream tree-fence target
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          repository: woundedlion/daydream
+          path: daydream
+          persist-credentials: false
+
       # build_pins.py selects the theme commit this job publishes, and
       # docs_images.py resolves the artifact's images. Pin their interpreter as
       # the ci.yml jobs do rather than taking the image's default python.
@@ -84,13 +91,9 @@ jobs:
       # The Markdown this job is about to publish is validated before it is
       # served: a broken link or a stale repository-map fence would otherwise
       # deploy from a commit whose ci.yml docs-markdown job is red, and `deploy`
-      # needs this job. No --checkout: the `tree daydream` fence is drawn from a
-      # sibling repository whose HEAD moves independently, and blocking a docs
-      # deploy on that would couple this workflow to another repo's churn.
-      # ci.yml gates that fence unfiltered, so the skip is named here rather
-      # than taken by default, which the checker fails.
+      # needs this job.
       - name: Validate tracked Markdown
-        run: python tools/docs_check.py --skip-checkout daydream
+        run: python tools/docs_check.py --checkout daydream=daydream
 
       # Pin Doxygen to an exact release binary (apt's version trails and lacks
       # newer config tags this Doxyfile uses). Graphviz comes from the pinned
