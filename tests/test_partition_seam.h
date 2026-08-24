@@ -342,6 +342,14 @@ inline void expect_within_envelope(const SeamStats &st,
   HS_EXPECT_LE(st.max_dark, MAX_PIXEL_DELTA);
   HS_EXPECT_GE(st.max_dark, MIN_PIXEL_DELTA);
   HS_EXPECT_LE(st.max_bright, MAX_PIXEL_DELTA);
+  HS_EXPECT_GE(st.mean_band, 2.0);
+  HS_EXPECT_LE(st.mean_band, 4.5);
+  HS_EXPECT_LE(st.max_band, PS_W / 2);
+  HS_EXPECT_GT(st.changed_near_v, size_t(0));
+  HS_EXPECT_LT(st.changed_near_v, st.changed);
+  HS_EXPECT_LE(st.changed_near_v * 10, st.changed);
+  HS_EXPECT_GT(st.mean_near, 0.0);
+  HS_EXPECT_GT(st.mean_far, 0.0);
 }
 
 /**
