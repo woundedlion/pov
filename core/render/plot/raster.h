@@ -353,7 +353,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
            "hoisted point projections take both rows and columns");
 
   size_t count = close_loop ? len : len - 1;
-  assert(edge_flags == nullptr || opts.edge_flags_len == count);
+  HS_CHECK(edge_flags == nullptr || opts.edge_flags_len == count,
+           "edge_flags length must match the rasterized edge count");
   HS_PLOT_ADD(edges, count);
   // SCRATCH ARENA CONTRACT (load-bearing): scratch_arena_a is a LIFO bump
   // allocator shared with Pixel::Feedback::flush; do not let a raw pointer into
