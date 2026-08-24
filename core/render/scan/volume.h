@@ -204,8 +204,9 @@ struct Volume {
    */
   struct Occluder {
     bool solid; /**< A solid surface sits behind the halo (behind is valid). */
-    Vector behind; /**< Local-space hit point when solid, else the grazed
+    Vector behind;  /**< Local-space hit point when solid, else the grazed
                         background edge's closest approach when soft > 0. */
+    float distance; /**< Signed distance at behind. */
     float
         soft; /**< Coverage of a grazed background edge, for the corner fill. */
   };
@@ -251,7 +252,7 @@ struct Volume {
         break;
       float pd = shape.distance(probe);
       if (pd < hit_threshold)
-        return {true, probe, 0.0f}; // solid surface behind the edge
+        return {true, probe, pd, 0.0f}; // solid surface behind the edge
       if (need_aft) {
         aft_s = s;
         aft_pd = pd;
@@ -301,7 +302,7 @@ struct Volume {
             min_pos = rp;
           }
           if (min_behind < hit_threshold)
-            return {true, min_pos, 0.0f};
+            return {true, min_pos, min_behind, 0.0f};
         }
       }
     }
@@ -310,7 +311,7 @@ struct Volume {
                      ? quintic_kernel(1.0f - (min_behind - hit_threshold) /
                                                  (aa_width - hit_threshold))
                      : 0.0f;
-    return {false, min_pos, soft};
+    return {false, min_pos, min_behind, soft};
   }
 
   /**
@@ -484,7 +485,7 @@ struct Volume {
               // or snapping to opaque (jagged).
               Fragment bg;
               bg.pos = occ.behind;
-              bg.size = 0.0f;
+              bg.size = occ.distance;
               {
                 HS_PROFILE_DEEP(vol_shade);
                 frag_fn(occ.behind, bg);
@@ -507,7 +508,7 @@ struct Volume {
             if (occ.soft > MIN_ALPHA) {
               Fragment bg;
               bg.pos = occ.behind;
-              bg.size = 0.0f;
+              bg.size = occ.distance;
               {
                 HS_PROFILE_DEEP(vol_shade);
                 frag_fn(occ.behind, bg);
