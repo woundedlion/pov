@@ -33,6 +33,12 @@ struct HyperLatticeWhiteBox {
   static Pixel axis_color(const Effect &effect, float amount) {
     return effect.axis_palette.get(amount).color;
   }
+  static const BakedPalette *depth_palette(const Effect &effect) {
+    return &effect.depth_palette.palette();
+  }
+  static const BakedPalette *axis_palette(const Effect &effect) {
+    return &effect.axis_palette;
+  }
 };
 
 inline void test_periodic_distance() {
@@ -237,6 +243,60 @@ inline void test_hyperplane_event() {
   HS_EXPECT_NEAR(hit.distance, 0.35f, 3e-4f);
 }
 
+inline void test_render_signature() {
+  static constexpr Vector DIRECTIONS[] = {
+      {1.0f, 0.0f, 0.0f},
+      {-1.0f, 0.0f, 0.0f},
+      {0.0f, 1.0f, 0.0f},
+      {0.0f, 0.0f, 1.0f},
+      {0.577350269f, 0.577350269f, 0.577350269f},
+      {-0.707106781f, 0.707106781f, 0.0f},
+      {0.301511345f, -0.904534034f, 0.301511345f},
+      {0.267261242f, 0.534522484f, 0.801783726f},
+      {-0.408248290f, 0.816496581f, -0.408248290f},
+      {0.923879533f, 0.382683432f, 0.0f},
+      {-0.270598050f, 0.653281482f, 0.707106781f},
+      {0.5f, -0.5f, 0.707106781f},
+  };
+  static constexpr HL::Vec4 ORIGINS[] = {
+      {{0.17f, 0.31f, 0.43f, 0.59f}},
+      {{0.91f, 0.07f, 0.73f, 0.37f}},
+      {{0.003f, 0.499f, 0.997f, 0.251f}},
+      {{0.625f, 0.875f, 0.125f, 0.375f}},
+  };
+  static constexpr std::array<float, 6> ROTATIONS[] = {
+      {0.0f, 0.3f, 0.7f, 0.0f, 0.0f, 0.0f},
+      {1.1f, 2.3f, 0.4f, 0.0f, 0.0f, 0.0f},
+      {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f},
+      {2.9f, 0.6f, 1.4f, 2.2f, 0.8f, 1.9f},
+  };
+
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  uint64_t signature = hs_test::FNV1A64_BASIS;
+  for (size_t preset = 0; preset < std::size(ORIGINS); ++preset) {
+    const HL::FrameState frame{
+        HyperLatticeWhiteBox::Effect::preset_params(preset),
+        ORIGINS[preset],
+        ROTATIONS[preset],
+        HL::pixel_half_angle<288, 144>(),
+        HyperLatticeWhiteBox::depth_palette(effect),
+        HyperLatticeWhiteBox::axis_palette(effect),
+    };
+    const HL::PreparedTrace prepared = HL::prepare_trace(frame);
+    for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
+      const Color4 color = HL::shade(
+          {DIRECTIONS[sample], 0.125f * static_cast<float>(sample % 5)}, frame,
+          prepared);
+      signature = hs_test::fnv1a64_channel(signature, color.color.r);
+      signature = hs_test::fnv1a64_channel(signature, color.color.g);
+      signature = hs_test::fnv1a64_channel(signature, color.color.b);
+      signature = hs_test::fnv1a64_channel(signature, frac_to_q16(color.alpha));
+    }
+  }
+  HS_EXPECT_EQ(signature, uint64_t(11689046063414106200ull));
+}
+
 inline void test_presets_and_pipeline() {
   using Effect = HyperLattice<96, 20>;
   static_assert(HL::RenderPipeline::STAGE_COUNT == 1);
@@ -263,6 +323,7 @@ inline int run_hyper_lattice_tests() {
   test_layer_composite_reveals_background();
   test_surface_origin_parallax();
   test_hyperplane_event();
+  test_render_signature();
   test_presets_and_pipeline();
   return fixture.result();
 }
