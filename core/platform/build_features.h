@@ -126,6 +126,9 @@
 #if (HS_ENABLE_SHADER_WORKBENCH != 0) && (HS_ENABLE_SHADER_WORKBENCH != 1)
 #error "HS_ENABLE_SHADER_WORKBENCH must be 0 or 1"
 #endif
+#if HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND && !HS_ENABLE_SHADER_WORKBENCH
+#error "Shader workbench dynamic backend requires HS_ENABLE_SHADER_WORKBENCH"
+#endif
 #if defined(ARDUINO) && HS_ENABLE_SHADER_WORKBENCH
 #error "Shader workbench is simulator-only"
 #endif
