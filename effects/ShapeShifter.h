@@ -206,8 +206,8 @@ private:
   static constexpr int PRESET_SEGUE_FRAMES = 16;
   /** Fade preset policy: params snap inside the envelope's dark frame, so the
       two parameter sets never render on the same frame. */
-  static constexpr Segue::Fade PRESET_SEGUE{
-      {}, PRESET_FRAMES, PRESET_SEGUE_FRAMES / 2};
+  static constexpr Segue::Fade PRESET_SEGUE{PRESET_FRAMES,
+                                            PRESET_SEGUE_FRAMES / 2};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Required by the base's snap path; the dwell countdown never runs under a
       Fade policy. */

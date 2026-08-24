@@ -887,14 +887,20 @@ struct Snap {};
 /**
  * @brief Preset policy: a single render path fades through zero opacity — fade
  * out, adopt the target parameters in the dark, fade in.
- * @details Sequential Base scheduling with the fade envelope as opacity: one
+ * @details Sequential scheduling with the fade envelope as opacity: one
  * sprite per preset, window-frame edges, no overlap. ChoreographedEffect's
  * envelope loop feeds the opacity to Derived::set_preset_opacity and advances
  * the preset as each sprite ends; both freeze with anims_paused.
  */
-struct Fade : Base {
+struct Fade {
   int frames = 0; /**< Frames each preset holds the sphere, fades included. */
   int window = 0; /**< Fade length on each side of the swap, in frames. */
+  /** @brief Schedules the preset's opacity envelope. */
+  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration,
+               int fade_window, const bool *paused = nullptr) {
+    return schedule_sequential(timeline, std::move(draw_fn), duration,
+                               fade_window, paused);
+  }
   /** @brief Global alpha: the fade envelope itself. */
   float opacity(float phase) const { return phase; }
 };
