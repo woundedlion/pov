@@ -165,14 +165,14 @@ public:
     palette_speed = palette_phase_speed(params.cycle_speed, params.scale_factor,
                                         node->trail.length());
     {
-      HS_PROFILE(cs_timeline_step);
+      HS_PROFILE(fish_timeline_step);
       timeline.step(canvas);
     }
 
     // Push live slider values onto the noise template; prepare_frame() copies
     // them into each active entity (refresh_from) and re-syncs the generator.
     {
-      HS_PROFILE(cs_noise_prepare);
+      HS_PROFILE(fish_noise_prepare);
       noise_xform.template_params.frequency = params.noise_freq;
       noise_xform.template_params.amplitude = params.jitter_amp;
       noise_xform.template_params.speed = params.speed;
@@ -195,7 +195,7 @@ public:
     const float fill_scale = palette_fill_scale(node->trail.length());
 
     {
-      HS_PROFILE(cs_build_vertices);
+      HS_PROFILE(fish_build_vertices);
       Quaternion previous_q;
       Vector previous_pos;
       float previous_t = 0.0f;
@@ -226,7 +226,7 @@ public:
     };
 
     {
-      HS_PROFILE(cs_multiline_draw);
+      HS_PROFILE(fish_multiline_draw);
       Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
     }
   }
