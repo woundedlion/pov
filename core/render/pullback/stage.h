@@ -153,6 +153,66 @@ consteval bool spherical_source_policy_callable() {
     };
 }
 
+template <typename Policy, typename FrameState>
+consteval bool orientation_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(const FrameState &frame,
+                    const typename Policy::Prepared &prepared) {
+      {
+        Policy::conjugate(frame, prepared)
+      } -> std::same_as<const Quaternion &>;
+    };
+  else
+    return requires(const FrameState &frame) {
+      { Policy::conjugate(frame) } -> std::same_as<const Quaternion &>;
+    };
+}
+
+template <typename Policy, typename FrameState>
+consteval bool lens_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(const Vector &input, const FrameState &frame,
+                    const typename Policy::Prepared &prepared) {
+      { Policy::apply(input, frame, prepared) } -> std::same_as<Vector>;
+    };
+  else
+    return requires(const Vector &input, const FrameState &frame) {
+      { Policy::apply(input, frame) } -> std::same_as<Vector>;
+    };
+}
+
+template <typename Policy, typename FrameState>
+consteval bool projection_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(const Vector &input, const FrameState &frame,
+                    const typename Policy::Prepared &prepared) {
+      {
+        Policy::frame_conjugate(frame, prepared)
+      } -> std::same_as<const Quaternion &>;
+      {
+        Policy::project(input, frame, prepared)
+      } -> std::same_as<ProjectionResult>;
+    };
+  else
+    return requires(const Vector &input, const FrameState &frame) {
+      { Policy::frame_conjugate(frame) } -> std::same_as<const Quaternion &>;
+      { Policy::project(input, frame) } -> std::same_as<ProjectionResult>;
+    };
+}
+
+template <typename Policy, typename Input, typename Output, typename FrameState>
+consteval bool apply_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(const Input &input, const FrameState &frame,
+                    const typename Policy::Prepared &prepared) {
+      { Policy::apply(input, frame, prepared) } -> std::same_as<Output>;
+    };
+  else
+    return requires(const Input &input, const FrameState &frame) {
+      { Policy::apply(input, frame) } -> std::same_as<Output>;
+    };
+}
+
 } // namespace Detail
 
 namespace Stage {
@@ -170,17 +230,26 @@ struct Rotate
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<OrientationProvider, Binding> &&
-      requires(const typename Binding::FrameState &frame) {
-        {
-          OrientationProvider::conjugate(frame)
-        } -> std::same_as<const Quaternion &>;
-      };
+      Detail::orientation_policy_callable<OrientationProvider,
+                                          typename Binding::FrameState>();
+
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<OrientationProvider>(frame);
+  }
 
   template <typename Binding>
   __attribute__((always_inline)) static SphereSample
   run(const SphereSample &input, const typename Binding::FrameState &frame,
-      const NoPrepared &) {
-    return Kernel::rotate_dir(input, OrientationProvider::conjugate(frame));
+      const Detail::PolicyPrepared<OrientationProvider,
+                                   typename Binding::FrameState> &prepared) {
+    if constexpr (Detail::PolicyPrepares<OrientationProvider,
+                                         typename Binding::FrameState>)
+      return Kernel::rotate_dir(
+          input, OrientationProvider::conjugate(frame, prepared));
+    else
+      return Kernel::rotate_dir(input, OrientationProvider::conjugate(frame));
   }
 };
 
@@ -234,17 +303,27 @@ struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      requires(const Vector &input, const typename Binding::FrameState &frame) {
-        { LensPolicyT::apply(input, frame) } -> std::same_as<Vector>;
-      };
+      Detail::lens_policy_callable<LensPolicyT, typename Binding::FrameState>();
+
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<LensPolicyT>(frame);
+  }
 
   template <typename Binding>
   __attribute__((always_inline)) static SphereSample
   run(const SphereSample &input, const typename Binding::FrameState &frame,
-      const NoPrepared &) {
+      const Detail::PolicyPrepared<LensPolicyT, typename Binding::FrameState>
+          &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    const Vector lensed = LensPolicyT::apply(input.dir, frame);
+    Vector lensed;
+    if constexpr (Detail::PolicyPrepares<LensPolicyT,
+                                         typename Binding::FrameState>)
+      lensed = LensPolicyT::apply(input.dir, frame, prepared);
+    else
+      lensed = LensPolicyT::apply(input.dir, frame);
     Instrumentation::template span<ProfileEvent::LENS>(start);
     return Kernel::lens(input, lensed);
   }
@@ -273,24 +352,33 @@ struct Project
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      requires(const Vector &input, const typename Binding::FrameState &frame) {
-        {
-          ProjectionPolicyT::frame_conjugate(frame)
-        } -> std::same_as<const Quaternion &>;
-        {
-          ProjectionPolicyT::project(input, frame)
-        } -> std::same_as<ProjectionResult>;
-      };
+      Detail::projection_policy_callable<ProjectionPolicyT,
+                                         typename Binding::FrameState>();
+
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<ProjectionPolicyT>(frame);
+  }
 
   template <typename Binding>
   __attribute__((always_inline)) static PlaneSample
   run(const SphereSample &input, const typename Binding::FrameState &frame,
-      const NoPrepared &) {
+      const Detail::PolicyPrepared<ProjectionPolicyT,
+                                   typename Binding::FrameState> &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    const Vector local =
-        rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
-    const ProjectionResult result = ProjectionPolicyT::project(local, frame);
+    Vector local;
+    ProjectionResult result;
+    if constexpr (Detail::PolicyPrepares<ProjectionPolicyT,
+                                         typename Binding::FrameState>) {
+      local = rotate(input.dir,
+                     ProjectionPolicyT::frame_conjugate(frame, prepared));
+      result = ProjectionPolicyT::project(local, frame, prepared);
+    } else {
+      local = rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
+      result = ProjectionPolicyT::project(local, frame);
+    }
     const PlaneSample output = Kernel::project(input, local, result);
     Instrumentation::template span<ProfileEvent::PROJECTION>(start);
     return output;
@@ -453,18 +541,29 @@ struct Transfer
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      requires(float value, const typename Binding::FrameState &frame) {
-        { TransferPolicyT::apply(value, frame) } -> std::same_as<float>;
-      };
+      Detail::apply_policy_callable<TransferPolicyT, float, float,
+                                    typename Binding::FrameState>();
+
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<TransferPolicyT>(frame);
+  }
 
   template <typename Binding>
   __attribute__((always_inline)) static FieldSample
   run(const FieldSample &input, const typename Binding::FrameState &frame,
-      const NoPrepared &) {
+      const Detail::PolicyPrepared<TransferPolicyT,
+                                   typename Binding::FrameState> &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    const FieldSample output =
-        Kernel::transfer(input, TransferPolicyT::apply(input.value, frame));
+    float value;
+    if constexpr (Detail::PolicyPrepares<TransferPolicyT,
+                                         typename Binding::FrameState>)
+      value = TransferPolicyT::apply(input.value, frame, prepared);
+    else
+      value = TransferPolicyT::apply(input.value, frame);
+    const FieldSample output = Kernel::transfer(input, value);
     Instrumentation::template span<ProfileEvent::MATERIAL>(start);
     return output;
   }
@@ -486,18 +585,29 @@ struct Coverage
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      requires(float value, const typename Binding::FrameState &frame) {
-        { CoveragePolicyT::apply(value, frame) } -> std::same_as<float>;
-      };
+      Detail::apply_policy_callable<CoveragePolicyT, float, float,
+                                    typename Binding::FrameState>();
+
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<CoveragePolicyT>(frame);
+  }
 
   template <typename Binding>
   __attribute__((always_inline)) static FieldSample
   run(const FieldSample &input, const typename Binding::FrameState &frame,
-      const NoPrepared &) {
+      const Detail::PolicyPrepared<CoveragePolicyT,
+                                   typename Binding::FrameState> &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    const FieldSample output =
-        Kernel::coverage(input, CoveragePolicyT::apply(input.value, frame));
+    float factor;
+    if constexpr (Detail::PolicyPrepares<CoveragePolicyT,
+                                         typename Binding::FrameState>)
+      factor = CoveragePolicyT::apply(input.value, frame, prepared);
+    else
+      factor = CoveragePolicyT::apply(input.value, frame);
+    const FieldSample output = Kernel::coverage(input, factor);
     Instrumentation::template span<ProfileEvent::MATERIAL>(start);
     return output;
   }
@@ -513,18 +623,29 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, Color4> {
   using ColorPolicy = ColorPolicyT;
 
   template <typename Binding>
-  static constexpr bool PROVIDER_VALID = requires(
-      const FieldSample &input, const typename Binding::FrameState &frame) {
-    { ColorPolicyT::apply(input, frame) } -> std::same_as<Color4>;
-  };
+  static constexpr bool PROVIDER_VALID =
+      Detail::apply_policy_callable<ColorPolicyT, FieldSample, Color4,
+                                    typename Binding::FrameState>();
+
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<ColorPolicyT>(frame);
+  }
 
   template <typename Binding>
   __attribute__((always_inline)) static Color4
   run(const FieldSample &input, const typename Binding::FrameState &frame,
-      const NoPrepared &) {
+      const Detail::PolicyPrepared<ColorPolicyT, typename Binding::FrameState>
+          &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    const Color4 result = ColorPolicyT::apply(input, frame);
+    Color4 result;
+    if constexpr (Detail::PolicyPrepares<ColorPolicyT,
+                                         typename Binding::FrameState>)
+      result = ColorPolicyT::apply(input, frame, prepared);
+    else
+      result = ColorPolicyT::apply(input, frame);
     Instrumentation::template span<ProfileEvent::COLOR>(start);
     return result;
   }
