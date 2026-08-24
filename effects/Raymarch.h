@@ -196,7 +196,7 @@ public:
    *        on the timeline.
    */
   void init() override {
-    configure_presets(PRESET_IDS.size());
+    begin_choreography();
     register_animated_param(
         "Base Solid", &params.base_solid, PLACEMENT_SOLID_OPTIONS,
         PLACEMENT_SOLID_EXPORT_OPTIONS, PLACEMENT_SOLID_COUNT);
@@ -253,7 +253,7 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
-    begin_automatic_transition();
+    step_choreography();
     refresh_points();
     {
       HS_PROFILE(rm_timeline_step);
@@ -268,8 +268,8 @@ private:
   friend Choreography;
   friend struct ::hs_test::effects_tests::RaymarchWhiteBox;
 
-  using Choreography::begin_automatic_transition;
-  using Choreography::configure_presets;
+  using Choreography::begin_choreography;
+  using Choreography::step_choreography;
   using Choreography::params;
   using Choreography::register_animated_param;
   using Choreography::register_int_param;

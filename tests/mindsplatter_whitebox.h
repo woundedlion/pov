@@ -398,7 +398,7 @@ struct MindSplatterWhiteBox {
   }
   template <int W, int H>
   static void tick_choreography(MindSplatter<W, H> &ms) {
-    ms.begin_automatic_transition();
+    ms.step_choreography();
   }
   template <int W, int H>
   static void saturate_timeline(MindSplatter<W, H> &ms, float &sink) {

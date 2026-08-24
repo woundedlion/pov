@@ -30,9 +30,7 @@ struct KaleidoscopeSmoothWhiteBox {
   static bool transition_active(const FX &effect) {
     return effect.transition.active;
   }
-  static bool begin_automatic_transition(FX &effect) {
-    return effect.advancePreset();
-  }
+  static bool advance_preset(FX &effect) { return effect.advancePreset(); }
   static void drive_transition(FX &effect, float progress) {
     effect.preset_blend.lerp(effect.preset_blend, effect.preset_blend,
                              progress);
@@ -167,7 +165,7 @@ inline void test_kaleidoscope_smooth_transition_contract() {
   FX effect;
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), size_t{4});
-  HS_EXPECT_TRUE(WB::begin_automatic_transition(effect));
+  HS_EXPECT_TRUE(WB::advance_preset(effect));
   HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 

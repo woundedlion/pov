@@ -674,8 +674,6 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
-  static constexpr Params initial_params() { return {}; }
-
   static constexpr Params preset_params(size_t index) {
     Params value;
     switch (index) {
@@ -733,7 +731,7 @@ public:
   HS_COLD_MEMBER HyperLattice() : Choreography(W, H, {.strobe = true}) {}
 
   void init() override {
-    configure_presets(PRESET_IDS.size());
+    begin_choreography();
     register_animated_param("Dimension", &params.dimension, 0.0f, 1.0f);
     register_animated_param("Sphere Radius", &params.sphere_radius, 0.0f, 1.5f);
     register_animated_param("Wire Radius", &params.wire_radius, 0.015f, 0.18f);
@@ -764,7 +762,7 @@ public:
       HS_PROFILE(hl_timeline_step);
       timeline.step(canvas);
     }
-    begin_automatic_transition();
+    step_choreography();
     advance_state();
     depth_palette.step();
     const HyperLatticeDetail::FrameState context{
@@ -798,9 +796,9 @@ public:
 #endif
 
 private:
-  using Choreography::begin_automatic_transition;
-  using Choreography::configure_presets;
+  using Choreography::begin_choreography;
   using Choreography::params;
+  using Choreography::step_choreography;
   using Choreography::register_animated_param;
   using Choreography::timeline;
   using Choreography::transition;

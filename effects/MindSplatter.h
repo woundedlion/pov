@@ -106,7 +106,7 @@ public:
    *        and kicks off the warp scheduler.
    */
   void init() override {
-    configure_presets(PRESETS.size());
+    begin_choreography();
     static constexpr size_t SCRATCH_BYTES = 6 * 1024;
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
 
@@ -165,7 +165,7 @@ public:
       HS_PROFILE(msp_timeline_step);
       timeline.step(canvas);
     }
-    begin_automatic_transition();
+    step_choreography();
 
     if (!particle_geometry_ready || params.base_mesh != active_base_mesh)
       configure_particle_geometry(params.base_mesh);
@@ -185,9 +185,9 @@ public:
   }
 
 private:
-  using Choreography::begin_automatic_transition;
-  using Choreography::configure_presets;
+  using Choreography::begin_choreography;
   using Choreography::hold_initial_preset;
+  using Choreography::step_choreography;
   using Choreography::params;
   using Choreography::register_animated_param;
   using Choreography::register_readonly_param;
@@ -387,9 +387,6 @@ private:
                 "a MindSplatter preset drives a param outside its registered "
                 "slider range; widen the range to accommodate the preset (the "
                 "range exposes the presets, it does not clamp them)");
-
-  /** @brief Params for the preset at @p index. */
-  static Params preset_params(size_t index) { return PRESETS[index].params; }
 
   // orientation/noise/mobius are borrowed by timeline-resident animations.
   Orientation<> orientation;

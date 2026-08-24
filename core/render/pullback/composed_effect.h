@@ -812,7 +812,7 @@ public:
    * animation.
    */
   HS_COLD_MEMBER void init() override {
-    configure_presets(Derived::PRESET_IDS.size());
+    this->begin_choreography();
     state = persistent_arena.make<State>();
     use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
@@ -856,7 +856,7 @@ public:
     }
     {
       HS_PROFILE(fx_advance);
-      begin_automatic_transition();
+      step_choreography();
       advance_runtime();
       update_spatial_frames();
       update_palette_chroma();
@@ -893,9 +893,8 @@ protected:
   static constexpr size_t PARAM_CAPACITY = 48;
 
   using Choreography::anims_paused;
-  using Choreography::begin_automatic_transition;
-  using Choreography::configure_presets;
   using Choreography::params;
+  using Choreography::step_choreography;
   using Choreography::register_animated_param;
   using Choreography::register_fields;
   using Choreography::timeline;
