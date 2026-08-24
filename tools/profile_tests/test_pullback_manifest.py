@@ -207,14 +207,33 @@ class ManifestValidation(unittest.TestCase):
             schema = generator._load(schema_path)
             schema["$defs"]["sha"]["pattern"] = ".*"
             schema_path.write_text(json.dumps(schema), encoding="utf-8")
-            for name in ("programs.json", *generator.ORACLE_FILES):
-                path = manifest_dir / name
+            for path in manifest_dir.glob("*.json"):
+                if path.name == "schema.json":
+                    continue
                 document = generator._load(path)
                 document["base_sha"] = "invalid"
                 path.write_text(json.dumps(document), encoding="utf-8")
             with self.assertRaisesRegex(
                 generator.ManifestError, "base_sha must be a full lowercase Git SHA"
             ):
+                generator.load_and_validate(manifest_dir)
+
+    def test_new_oracle_is_discovered_and_validated(self):
+        with _staged_manifest() as manifest_dir:
+            path = manifest_dir / "new_oracle.json"
+            path.write_text(json.dumps({"kind": "pullback-oracle"}),
+                            encoding="utf-8")
+            with self.assertRaisesRegex(generator.ManifestError,
+                                        "new_oracle.json"):
+                generator.load_and_validate(manifest_dir)
+
+    def test_oracle_set_must_be_nonempty(self):
+        with _staged_manifest() as manifest_dir:
+            for path in manifest_dir.glob("*.json"):
+                if path.name not in {"schema.json", "programs.json"}:
+                    path.unlink()
+            with self.assertRaisesRegex(generator.ManifestError,
+                                        "at least one oracle manifest"):
                 generator.load_and_validate(manifest_dir)
 
     def test_nested_schema_rejects_unknown_fields(self):
@@ -320,7 +339,10 @@ class ManifestValidation(unittest.TestCase):
 
     def test_oracle_aggregation_is_checked_through_loader(self):
         _, oracles, _ = generator.load_and_validate(MANIFEST_DIR)
-        broken = copy.deepcopy(oracles[1])
+        broken = copy.deepcopy(next(
+            oracle for oracle in oracles
+            if oracle["oracle_id"] == "HUE_ROTATION_AND_NOISE_LUTS"
+        ))
         framebuffer = next(
             metric for metric in broken["metrics"] if metric["domain"] == "FRAMEBUFFER"
         )

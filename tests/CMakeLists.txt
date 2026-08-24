@@ -412,6 +412,8 @@ target_compile_definitions(run_tests PRIVATE HS_HAVE_PULLBACK_MANIFEST=1)
 set(PULLBACK_MANIFEST_DIR ${HS_ROOT}/tests/data/pullback)
 set(PULLBACK_MANIFEST_HEADER
     ${CMAKE_CURRENT_BINARY_DIR}/pullback_manifest.generated.h)
+file(GLOB PULLBACK_MANIFEST_FILES CONFIGURE_DEPENDS
+     ${PULLBACK_MANIFEST_DIR}/*.json)
 add_custom_command(
   OUTPUT ${PULLBACK_MANIFEST_HEADER}
   COMMAND ${HS_PYTHON} ${HS_ROOT}/tools/generate_pullback_manifest_header.py
@@ -419,10 +421,7 @@ add_custom_command(
           --output ${PULLBACK_MANIFEST_HEADER}
   DEPENDS
     ${HS_ROOT}/tools/generate_pullback_manifest_header.py
-    ${PULLBACK_MANIFEST_DIR}/schema.json
-    ${PULLBACK_MANIFEST_DIR}/programs.json
-    ${PULLBACK_MANIFEST_DIR}/peirce_fast_square.json
-    ${PULLBACK_MANIFEST_DIR}/hue_rotation_noise_luts.json
+    ${PULLBACK_MANIFEST_FILES}
   VERBATIM)
 add_custom_target(pullback_manifest_header DEPENDS ${PULLBACK_MANIFEST_HEADER})
 add_dependencies(run_tests pullback_manifest_header)
