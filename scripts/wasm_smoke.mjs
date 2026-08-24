@@ -10,7 +10,7 @@
 // Defaults to the wasm-release build output; override with the arg or WASM_JS.
 import { pathToFileURL } from 'node:url';
 import { join, isAbsolute } from 'node:path';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import {
   darknessProblems,
   paramStreamProblems,
@@ -20,6 +20,8 @@ import {
 const DEFAULT_JS = 'build/wasm-release/holosphere_wasm.js';
 const jsArg = process.argv[2] || process.env.WASM_JS || DEFAULT_JS;
 const jsPath = isAbsolute(jsArg) ? jsArg : join(process.cwd(), jsArg);
+const EXPECTED_OPERATOR_CATALOG = JSON.parse(await readFile(
+  new URL('./engine_catalog.json', import.meta.url), 'utf8'));
 
 // The gate depth, spelled once here so CI and `just smoke` drive the same run:
 // 120 frames reaches the late-lifecycle events (frame-48 ShapeShifter cut, arena
@@ -504,6 +506,9 @@ async function main() {
         fail('shader-chain: getShaderChainCatalog() is not valid JSON');
       }
       if (catalog) {
+        if (JSON.stringify(catalog) !== JSON.stringify(EXPECTED_OPERATOR_CATALOG)) {
+          fail('shader-chain: runtime operator catalog differs from scripts/engine_catalog.json');
+        }
         if (catalog.catalog_version !== 2) {
           fail(`shader-chain: catalog_version ${catalog.catalog_version}, expected 2`);
         }
