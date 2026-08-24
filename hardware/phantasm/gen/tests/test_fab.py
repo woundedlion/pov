@@ -424,10 +424,6 @@ class SchematicParityTests(unittest.TestCase):
          "description": "Exclude from bill of materials",
          "items": [{"description": f"Footprint {ref}"}]}
         for ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD")
-    ] + [
-        {"type": "footprint_symbol_mismatch",
-         "description": "phantasm:Teensy4.0",
-         "items": [{"description": "Footprint U_MCU"}]},
     ]
     KNOWN_WARNINGS = [
         {"type": kind, "description": "Known warning"}
