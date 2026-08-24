@@ -48,6 +48,21 @@ struct ScopedPoleLod {
   ScopedPoleLod &operator=(const ScopedPoleLod &) = delete;
 };
 
+/** Sphere probe that records how often the volume marcher evaluates it. */
+struct CountingSphere {
+  static constexpr float REJECT_MARGIN = FLT_MAX;
+  Vector center;
+  float radius;
+  long long *calls;
+  float distance(const Vector &p) const {
+    ++*calls;
+    return (p - center).length() - radius;
+  }
+};
+static_assert(SDF::reject_margin<CountingSphere> == FLT_MAX);
+static_assert(SDF::reject_margin<Scan::TransformedVolume<CountingSphere>> ==
+              FLT_MAX);
+
 // ============================================================================
 // Scan::Shader::draw — full-sphere per-pixel shader
 // ============================================================================
@@ -2194,18 +2209,6 @@ inline void test_volume_pole_lod_matches_undecimated() {
   const Vector center(0.0f, 1.0f, 0.0f);
   const Vector view_dir(0.0f, -1.0f, 0.0f);
   const float bounds_radius = 0.45f;
-
-  // Counts the traces the walk actually runs, so the block skip is shown to
-  // fire rather than assumed.
-  struct CountingSphere {
-    Vector center;
-    float radius;
-    long long *calls;
-    float distance(const Vector &p) const {
-      ++*calls;
-      return (p - center).length() - radius;
-    }
-  };
 
   long long traced = 0;
   auto render = [&](float lod) {
