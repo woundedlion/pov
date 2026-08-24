@@ -25,6 +25,7 @@ HS_O3_BEGIN
 template <int W, int H> class AntiAlias : public Is2D {
 public:
   static constexpr int segment_margin = 1;
+  static constexpr bool emits_pixel_centers = true;
   /** @brief The whole splat is the sub-pixel fraction: at an integer
    * coordinate the four taps collapse to one at full weight. */
   static constexpr bool requires_subpixel_input = true;
