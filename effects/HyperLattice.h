@@ -183,9 +183,14 @@ template <int W, int H> constexpr float pixel_half_angle() {
   return 0.5f * (HORIZONTAL > VERTICAL ? HORIZONTAL : VERTICAL);
 }
 
+__attribute__((always_inline)) inline float
+lattice_ramp(float edge0, float edge1, float value) {
+  return cubic_kernel((value - edge0) / (edge1 - edge0));
+}
+
 inline float wire_coverage(float metric_sq, float radius, float half_width) {
   const float signed_distance = sqrtf(metric_sq) - radius;
-  return 1.0f - smooth_ramp(-half_width, half_width, signed_distance);
+  return 1.0f - lattice_ramp(-half_width, half_width, signed_distance);
 }
 
 inline float projected_half_width(float distance, float plane_component,
@@ -196,15 +201,15 @@ inline float projected_half_width(float distance, float plane_component,
 }
 
 inline float near_field_coverage(float distance, float wire_radius) {
-  return smooth_ramp(1.5f * wire_radius, 4.0f * wire_radius, distance);
+  return lattice_ramp(1.5f * wire_radius, 4.0f * wire_radius, distance);
 }
 
 inline float shell_horizon_coverage(uint8_t shell, uint8_t shell_count,
                                     float distance, float step) {
   if (shell + 1 < shell_count)
     return 1.0f;
-  return 1.0f - smooth_ramp(static_cast<float>(shell_count - 1),
-                            static_cast<float>(shell_count), distance / step);
+  return 1.0f - lattice_ramp(static_cast<float>(shell_count - 1),
+                             static_cast<float>(shell_count), distance / step);
 }
 
 inline float next_plane_offset(float origin, bool positive) {
