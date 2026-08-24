@@ -21,8 +21,20 @@ class FindKicadCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             cli = Path(directory) / "kicad-cli"
             cli.touch()
-            with mock.patch.dict(os.environ, {"KICAD_CLI": str(cli)}):
+            with mock.patch.dict(os.environ, {"KICAD_CLI": str(cli)}), \
+                    mock.patch.object(kicad_common, "kicad_cli_major",
+                                      return_value=sexp.KICAD_MAJOR):
                 self.assertEqual(kicad_common.find_kicad_cli(), str(cli))
+
+    def test_env_override_rejects_another_major(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cli = Path(directory) / "kicad-cli"
+            cli.touch()
+            with mock.patch.dict(os.environ, {"KICAD_CLI": str(cli)}), \
+                    mock.patch.object(kicad_common, "kicad_cli_major",
+                                      return_value=sexp.KICAD_MAJOR + 1), \
+                    self.assertRaisesRegex(SystemExit, "fab gates require"):
+                kicad_common.find_kicad_cli()
 
     def test_falls_back_to_the_path_name(self):
         with mock.patch.dict(os.environ, {"KICAD_CLI": "missing-kicad-cli"}), \

@@ -50,7 +50,11 @@ def find_kicad_cli():
     """
     env = os.environ.get("KICAD_CLI")
     if env and os.path.exists(env):
-        return env
+        major = kicad_cli_major(env)
+        if major == sexp.KICAD_MAJOR:
+            return env
+        sys.exit(f"KICAD_CLI reports KiCad {major or 'unknown'}; the fab gates "
+                 f"require KiCad {sexp.KICAD_MAJOR}: {env}")
     hits = [hit for pattern in KICAD_CLI_PATTERNS for hit in glob.glob(pattern)]
     pinned = [hit for hit in hits if kicad_cli_major(hit) == sexp.KICAD_MAJOR]
     if pinned:
