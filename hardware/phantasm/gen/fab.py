@@ -161,10 +161,14 @@ ASSEMBLY_SIDE = "top"
 MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
 MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
 MIN_VIA_TO_VIA_COPPER_SPACING_MM = 0.15
-# Smallest copper feature the fab resolves (4 mil), matching the board's
-# min_clearance. Applies to pour fill features as well as tracks.
-MIN_ZONE_FEATURE_MM = RULE_MINIMUMS["min_clearance"]
+MIN_ZONE_GAP_MM = RULE_MINIMUMS["min_clearance"]
+MIN_ZONE_WIDTH_MM = RULE_MINIMUMS["min_track_width"]
 ZONE_FILL_FEATURES = ("thermal_gap", "thermal_bridge_width")
+ZONE_FEATURE_MINIMUMS = {
+    "min_thickness": MIN_ZONE_WIDTH_MM,
+    "thermal_gap": MIN_ZONE_GAP_MM,
+    "thermal_bridge_width": MIN_ZONE_WIDTH_MM,
+}
 # Floors on what a routed board holds: the committed board carries 99 vias
 # (gen/board_metadata.py) and pours the In1/In2 reference planes.
 MIN_BOARD_VIAS = 99
@@ -687,10 +691,11 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
             except (IndexError, TypeError, ValueError):
                 diagnostics.append(f"zone {label}: {key} is missing or invalid")
                 continue
-            if feature_mm + 1e-9 < MIN_ZONE_FEATURE_MM:
+            minimum_mm = ZONE_FEATURE_MINIMUMS[key]
+            if feature_mm + 1e-9 < minimum_mm:
                 diagnostics.append(
                     f"zone {label}: {key} {feature_mm:g} mm is below "
-                    f"{MIN_ZONE_FEATURE_MM:g} mm")
+                    f"{minimum_mm:g} mm")
 
     if diagnostics:
         raise ZoneGeometryError(
@@ -823,7 +828,8 @@ def main():
         sys.exit(str(exc))
     print(
         f"  zone geometry: {num_zones} copper pours relieve their pads and "
-        f"meet the {MIN_ZONE_FEATURE_MM:g} mm minimum fill feature")
+        f"meet the {MIN_ZONE_GAP_MM:g} mm gap and "
+        f"{MIN_ZONE_WIDTH_MM:g} mm width minimums")
     os.makedirs(OUT, exist_ok=True)
     print("[4/9] DRC report + schematic parity")
     rpt = os.path.join(OUT, "phantasm-drc.json")
