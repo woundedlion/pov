@@ -295,6 +295,12 @@ class ManifestValidation(unittest.TestCase):
 
 
 class CaptureComparison(unittest.TestCase):
+    def test_orchestration_rejects_identical_revisions(self):
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "must differ"):
+            crosscheck.orchestrate(
+                Path("repository"), Path("controller"), "a" * 40, "a" * 40,
+                Path("output"))
+
     def test_toolchain_mismatch_is_refused(self):
         programs, digest = _test_manifest()
         base = _capture(programs, digest)
