@@ -43,8 +43,14 @@ template <typename Derived, typename ParamsT>
 class ChoreographedEffect : public Effect {
 public:
   using Params = ParamsT;
-  /** Frames an automatic Segue::Lerp preset transition spans. */
-  static constexpr uint16_t TRANSITION_DURATION = Derived::PRESET_SEGUE.frames;
+  /** Frames an automatic Segue::Lerp preset transition spans; zero for a
+      non-blending policy. */
+  static constexpr uint16_t TRANSITION_DURATION = [] {
+    using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
+    if constexpr (Segue::PresetBlends<SegueT>)
+      return static_cast<uint16_t>(Derived::PRESET_SEGUE.frames);
+    return uint16_t{0};
+  }();
 
   /** @brief A parameter set tagged with the schema version that produced it. */
   struct ParameterSnapshot {
