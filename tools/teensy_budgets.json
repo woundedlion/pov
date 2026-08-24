@@ -8,8 +8,8 @@
   // 15.2.1), PlatformIO 6.1.19, FastLED 3.4.0. Both shipping images pass.
   // Holosphere keeps the bench-parity -O3 configuration. Phantasm uses -Os,
   // newlib-nano, a flash-routing linker script, and the measured 298 KiB arena;
-  // it uses 510,784 B of RAM1 (variables 314,176 + code 194,200 rounded up to a
-  // whole 32 KiB FlexRAM bank, 196,608) with 13,504 B free for locals — the
+  // it uses 510,368 B of RAM1 (variables 313,760 + code 193,496 rounded up to a
+  // whole 32 KiB FlexRAM bank, 196,608) with 13,920 B free for locals — the
   // 32 KiB bank the arena cut freed was spent on ITCM -O3
   // promotions (see docs/ledgers/itcm_ledger.md). These figures move with every code
   // landing AND with the pinned toolchain; re-measure rather than trusting them
