@@ -476,7 +476,7 @@ def generate_runtime_manifest(programs: dict, oracles: list[dict],
     return json.dumps(runtime, indent=2, sort_keys=True) + "\n"
 
 
-def main() -> int:
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest-dir", type=Path,
                         default=Path(__file__).resolve().parents[1] /
@@ -485,7 +485,7 @@ def main() -> int:
     parser.add_argument("--runtime-output", type=Path)
     parser.add_argument("--capture-sha")
     parser.add_argument("--validate-only", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         programs, oracles, schema = load_and_validate(args.manifest_dir)
     except ManifestError as error:
