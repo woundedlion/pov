@@ -23,7 +23,6 @@ TOPOLOGY_FIELDS = (
     "inner_warp_basis", "inner_warp_envelope", "inner_polar_mode",
     "inner_curl_integrator", "inner_polar_harmonic",
 )
-ORACLE_FILES = ("peirce_fast_square.json", "hue_rotation_noise_luts.json")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 CASE_IDS = {"default", "endpoint_min", "endpoint_max", "interior"}
 PRESET_COUNT = 24
@@ -381,9 +380,13 @@ def load_and_validate(directory: Path) -> tuple[dict, list[dict], dict]:
     programs = _load(programs_path)
     _validate_schema(programs, schema, schema, str(programs_path))
     _validate_programs(programs, programs_path)
+    oracle_paths = sorted(
+        path for path in directory.glob("*.json")
+        if path.name not in {schema_path.name, programs_path.name}
+    )
+    _require(oracle_paths, f"{directory}: at least one oracle manifest is required")
     oracles = []
-    for filename in ORACLE_FILES:
-        path = directory / filename
+    for path in oracle_paths:
         oracle = _load(path)
         _validate_schema(oracle, schema, schema, str(path))
         _validate_oracle(oracle, path)
