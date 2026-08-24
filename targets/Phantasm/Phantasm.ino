@@ -22,6 +22,9 @@
 
 #include "../common/phantasm_target.h"
 
+FLASHMEM void setup();
+void loop();
+
 namespace {
 // Generated from the Phantasm playlist roster; table order is identical on
 // every board (spec §6.1).
