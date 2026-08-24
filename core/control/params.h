@@ -294,6 +294,8 @@ private:
  *   no work while the slider sits still. The animation setters it usually feeds
  *   (`set_duration`/`set_period`) guard the no-change case themselves, so this
  *   is a work filter, not a correctness gate.
+ * @note Floating-point callers must reject non-finite values upstream. A NaN
+ *   never compares equal to the latched NaN, so it invokes `apply` on every call.
  * @param current The latest parameter value to test against the cached one.
  * @param last The cached value; updated to `current` when they differ.
  * @param apply Callable receiving the new value; run only on change.
