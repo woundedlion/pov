@@ -105,7 +105,7 @@ constexpr float face_azimuth_pad(int w) {
 /** Maximum disjoint scanline spans a single shape (leaf) emits per row.
  *  scan_region's `intervals` buffer holds a top-level CSG emission, and its
  *  seam-split `norm` buffer is 2x intervals (one span can split in two at the
- *  x=0 seam); see the static_asserts there. */
+ *  x=0 seam); render/scan/raster.h statically checks both capacities. */
 inline constexpr size_t INTERVAL_SPAN_CAP = 32;
 
 /** A scanline span [first, second) in fractional column units. An aggregate, so
