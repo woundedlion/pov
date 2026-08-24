@@ -223,7 +223,7 @@ target_compile_options(mindsplatter_replay_gen PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(mindsplatter_replay_gen)
 
-add_executable(mindsplatter_palette_gen EXCLUDE_FROM_ALL
+add_executable(mindsplatter_palette_gen
   ${HS_ROOT}/tools/mindsplatter_palette_gen.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
@@ -231,6 +231,12 @@ add_executable(mindsplatter_palette_gen EXCLUDE_FROM_ALL
 target_include_directories(mindsplatter_palette_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_link_libraries(mindsplatter_palette_gen PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_gen)
+
+add_test(NAME unit_mindsplatter_palette_form COMMAND ${CMAKE_COMMAND}
+  -DGENERATOR=$<TARGET_FILE:mindsplatter_palette_gen>
+  -DCOMMITTED=${HS_ROOT}/core/color/triadic_palette_luts.h
+  -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/triadic_palette_luts.generated.h
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_palette_form.cmake)
 
 # Tolerance pin for the bank mindsplatter_palette_gen emits. Its own TU rather
 # than a run_tests module: the committed bank is 393,216 B of static data no
