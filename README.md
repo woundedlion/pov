@@ -2668,7 +2668,6 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `alien-core` | `AlienCore` | 1 | 3 |
 | `kaleidoscope-mandala` | `KaleidoscopeMandala` | 2 | 5, plus `cup-hue` |
 | `grid-space` | `GridSpace` | 1 | 6 |
-| `hyper-lattice` | `HyperLattice` | 4 | — |
 | `lattice-melt` | `LatticeMelt` | 2 | 7–8 |
 | `ash-cloud` | `AshCloud` | 1 | — |
 | `kaleidoscope-pent-bright` | `KaleidoscopePentBright` | 1 | 9 |
