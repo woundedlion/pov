@@ -718,6 +718,104 @@ inline void test_clip_phase_after_buffer_release() {
   HS_EXPECT_EQ(clipped_clear.offband_kept, 16);
 }
 
+/** @brief Payload whose access is ordered only by EffectHandoff. */
+struct HandoffCell {
+  uint32_t gen = 0;
+  uint32_t check = 0;
+};
+
+/** @brief Checksum a correctly published generation carries. */
+inline uint32_t handoff_check(uint32_t gen) { return gen * 2654435761u + 17u; }
+
+/** @brief Result of a two-thread handoff run. */
+struct HandoffRun {
+  int adopted = 0;
+  int live_reads = 0;
+  int payload_faults = 0;
+  bool timed_out = false;
+};
+
+/**
+ * @brief Drives publish/adopt and the teardown handshake from two real threads.
+ * @details Reuses one payload slot so TSan observes the protocol's ordering
+ * between the ISR's reads and the foreground's next write.
+ */
+inline HandoffRun run_concurrent_handoff(int generations) {
+  HandoffRun result;
+  EffectHandoff<HandoffCell> handoff;
+  HandoffCell cell;
+  std::atomic<uint32_t> wire_gen{0};
+  std::atomic<bool> stop{false};
+  std::atomic<int> adopted{0};
+  std::atomic<int> live_reads{0};
+  std::atomic<int> payload_faults{0};
+
+  std::thread isr([&] {
+    while (!stop.load(std::memory_order_relaxed)) {
+      const auto wake = handoff.apply_wake(
+          {.join_boundary = true,
+           .flip = true,
+           .zero_crossing = true,
+           .wire_gen = wire_gen.load(std::memory_order_relaxed)});
+      if (wake.adopted)
+        adopted.fetch_add(1, std::memory_order_relaxed);
+      if (wake.live != nullptr) {
+        const uint32_t gen = wake.live->gen;
+        const uint32_t check = wake.live->check;
+        live_reads.fetch_add(1, std::memory_order_relaxed);
+        if (check != handoff_check(gen))
+          payload_faults.fetch_add(1, std::memory_order_relaxed);
+      }
+      std::this_thread::yield();
+    }
+  });
+
+  // Bound a broken handshake below the test shard's timeout.
+  const auto spin_until = [&result](auto &&done) {
+    const auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (!done()) {
+      if (std::chrono::steady_clock::now() >= deadline) {
+        result.timed_out = true;
+        return;
+      }
+      std::this_thread::yield();
+    }
+  };
+
+  for (int g = 1; g <= generations && !result.timed_out; ++g) {
+    const uint32_t gen = static_cast<uint32_t>(g);
+    cell.gen = gen;
+    cell.check = handoff_check(gen);
+    wire_gen.store(gen, std::memory_order_relaxed);
+    handoff.publish(&cell, gen);
+
+    spin_until([&] { return handoff.consumed(gen); });
+
+    handoff.request_release();
+    spin_until([&] { return handoff.release_complete(); });
+    handoff.clear_pending();
+  }
+
+  stop.store(true, std::memory_order_relaxed);
+  isr.join();
+
+  result.adopted = adopted.load(std::memory_order_relaxed);
+  result.live_reads = live_reads.load(std::memory_order_relaxed);
+  result.payload_faults = payload_faults.load(std::memory_order_relaxed);
+  return result;
+}
+
+/** @brief Runs the acquire/release protocol against a concurrent ISR thread. */
+inline void test_handoff_release_acquire_across_threads() {
+  constexpr int GENERATIONS = 32;
+  const HandoffRun run = run_concurrent_handoff(GENERATIONS);
+  HS_EXPECT_FALSE(run.timed_out);
+  HS_EXPECT_EQ(run.adopted, GENERATIONS);
+  HS_EXPECT_GE(run.live_reads, GENERATIONS);
+  HS_EXPECT_EQ(run.payload_faults, 0);
+}
+
 /**
  * @brief A column dropped on DMA overrun is re-submitted on the next wake.
  * @details The flywheel reports render_column < 0 for the ~7 remaining wakes of
@@ -946,6 +1044,7 @@ inline int run_pov_segmented_tests() {
   test_window_alternation();
   test_apply_wake_sequence();
   test_clip_phase_after_buffer_release();
+  test_handoff_release_acquire_across_threads();
 
   test_submit_retries_dropped_column();
   test_submit_fresh_column_supersedes_retry();
