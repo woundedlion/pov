@@ -123,7 +123,7 @@ inline void test_resolution_aware_wire_coverage() {
   const float frontal =
       HL::projected_half_width(2.0f, 1.0f, HIGH_RES, 1.0f, 0.01f);
   const float grazing =
-      HL::projected_half_width(2.0f, 0.25f, HIGH_RES, 1.0f, 0.01f);
+      HL::projected_half_width(2.0f, 4.0f, HIGH_RES, 1.0f, 0.01f);
   HS_EXPECT_GT(grazing, frontal);
 }
 
