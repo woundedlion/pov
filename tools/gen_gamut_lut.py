@@ -385,18 +385,17 @@ def _cpp_expr_to_python(expr, names):
     return expr
 
 
-def _cpp_float_fn(body, params):
+def _cpp_float_fn(body, params, outputs=()):
     """Compiles a straight-line C++ float function body into a callable.
 
-    Accepts float locals, brace-less single-statement ifs and returns -- the
-    shape the mirrored helpers are written in. Anything else raises ValueError,
-    so a rewrite on the C++ side surfaces as a parse failure rather than as a
-    silently stale mirror.
+    Accepts float locals, named output assignments, brace-less single-statement
+    ifs and returns. Anything else raises ValueError.
     """
     text = re.sub(r"//[^\n]*", " ", body).strip().lstrip("{")
     text = " ".join(text.split())
     names = set(params) | {"abs"}
     program = []
+    assigned = set()
     while text:
         conds = []
         while re.match(r"if\s*\(", text):
@@ -408,17 +407,32 @@ def _cpp_float_fn(body, params):
         stmt = stmt.strip()
         text = text.strip()
         ret = re.match(r"^return\s+(.+)$", stmt)
-        decl = re.match(r"^(?:const\s+)?float\s+(\w+)\s*=\s*(.+)$", stmt)
+        decl = re.match(r"^(?:const\s+)?float\s+(.+)$", stmt)
+        assignment = re.match(r"^(\w+)\s*=\s*(.+)$", stmt)
         if ret:
-            target, source = None, ret.group(1)
+            statements = ((None, ret.group(1)),)
         elif decl:
-            target, source = decl.group(1), decl.group(2)
+            statements = []
+            for item in decl.group(1).split(","):
+                match = re.match(r"^(\w+)\s*=\s*(.+)$", item.strip())
+                if match is None:
+                    raise ValueError("unsupported declaration %r" % item)
+                statements.append((match.group(1), match.group(2)))
+        elif assignment and assignment.group(1) in outputs:
+            target = assignment.group(1)
+            statements = ((target, assignment.group(2)),)
+            assigned.add(target)
         else:
             raise ValueError("unsupported statement %r" % stmt)
-        code = compile(_cpp_expr_to_python(source, names), "<cpp>", "eval")
-        program.append((conds, target, code))
-        if target is not None:
-            names.add(target)
+        for target, source in statements:
+            code = compile(_cpp_expr_to_python(source, names), "<cpp>", "eval")
+            program.append((conds, target, code))
+            if target is not None:
+                names.add(target)
+
+    missing = set(outputs) - assigned
+    if missing:
+        raise ValueError("missing output assignments %s" % sorted(missing))
 
     def call(*args):
         env = {"abs": abs}
@@ -429,6 +443,8 @@ def _cpp_float_fn(body, params):
             if target is None:
                 return eval(code, env)
             env[target] = eval(code, env)
+        if outputs:
+            return tuple(env[name] for name in outputs)
         raise ValueError("control fell off the end of the parsed body")
 
     return call
@@ -503,16 +519,32 @@ def check_mirrors(color_h_path, math_h_path):
         text = f.read()
 
     ok = True
-    pairs = (("inline void oklab_to_lms_cbrt(", OKLAB_TO_LMS),
-             ("inline void lms_cbrt_to_linear_rgb(", LMS_TO_RGB))
-    for signature, expected in pairs:
-        body = _function_body(text, signature)
-        found = [float(s + v)
-                 for s, v in re.findall(r"([-+])\s*(\d+\.\d+)f", body)]
-        want = [c for row in expected for c in row]
-        if found != want:
-            sys.stderr.write("mirror drift in %s\n  color.h: %s\n  here:    %s\n"
-                             % (signature, found, want))
+    pairs = (
+        ("inline void oklab_to_lms_cbrt(", ("L", "a", "b"),
+         ("l_cbrt", "m_cbrt", "s_cbrt"), oklab_to_lms_cbrt),
+        ("inline void lms_cbrt_to_linear_rgb(",
+         ("l_cbrt", "m_cbrt", "s_cbrt"), ("r", "g", "b"),
+         lms_cbrt_to_linear_rgb),
+    )
+    samples = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+               (0.0, 1.0, 0.0), (0.0, 0.0, 1.0),
+               (0.37, -0.61, 0.83), (-0.42, 0.29, -0.73))
+    for signature, params, outputs, mirror in pairs:
+        try:
+            body = _function_body(text, signature)
+            body = body.replace("lab.L", "L").replace("lab.a", "a")
+            body = body.replace("lab.b", "b")
+            cpp = _cpp_float_fn(body, params, outputs)
+        except (ValueError, IndexError) as exc:
+            sys.stderr.write("could not parse %s: %s\n" % (signature, exc))
+            ok = False
+            continue
+        err = max(abs(found - want)
+                  for sample in samples
+                  for found, want in zip(cpp(*sample), mirror(*sample)))
+        if err > 1e-12:
+            sys.stderr.write("mirror drift in %s (worst error %g)\n"
+                             % (signature, err))
             ok = False
 
     gamut = _function_body(text, "inline bool linear_rgb_in_gamut(")
