@@ -1049,6 +1049,8 @@ constexpr float distance_squared(const Vector &a, const Vector &b) {
  * @return The angle in radians.
  * @note Traps on a degenerate input: both vectors must have length squared at
  * least math::EPS_LEN_SQ. The check stays on in per-pixel callers (README §2).
+ * This is 10^6 stricter than normalized(): angles become numerically unstable
+ * while a direction can still be normalized reliably.
  */
 inline float angle_between(const Vector &v1, const Vector &v2) {
   float m1 = dot(v1, v1);
