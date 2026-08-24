@@ -161,6 +161,21 @@ class InlinePins(unittest.TestCase):
         self.assertEqual(bp.check_inline_pins(), [])
 
 
+class ConsumerCallSites(unittest.TestCase):
+    def test_every_build_pin_gate_entry_point_is_required(self):
+        paths = (bp.ROOT / ".github/workflows/ci.yml",
+                 bp.ROOT / "justfile",
+                 bp.ROOT / ".githooks/pre-commit")
+        for path in paths:
+            calls = [line.strip()
+                     for line in path.read_text(encoding="utf-8").splitlines()
+                     if not line.lstrip().startswith("#")
+                     and "tools/build_pins.py" in line
+                     and line.strip().endswith("--check")]
+            self.assertEqual(len(calls), 1, path)
+            self.assertIn(calls[0], bp.CONSUMERS.get(path, ()), path)
+
+
 class CheckTool(unittest.TestCase):
     """--check-tool holds PATH to the pin, so it must be able to reach it.
 
