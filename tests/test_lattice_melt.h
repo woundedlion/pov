@@ -33,6 +33,9 @@ struct LatticeMeltWhiteBox {
   static bool begin_automatic_transition(FX &effect) {
     return effect.advancePreset();
   }
+  static void tick_choreography(FX &effect) {
+    effect.begin_automatic_transition();
+  }
   static void drive_transition(FX &effect, float progress) {
     effect.preset_blend.lerp(effect.preset_blend, effect.preset_blend,
                              progress);
@@ -191,6 +194,32 @@ inline void test_lattice_melt_transition_contract() {
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
+/**
+ * @brief Pins the dwell restart a manual parameter write owes the choreography.
+ */
+inline void test_lattice_melt_manual_write_restarts_dwell() {
+  using WB = LatticeMeltWhiteBox;
+  using FX = WB::FX;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+
+  for (uint16_t f = 0; f < FX::PRESET_DWELL_FRAMES; ++f)
+    WB::tick_choreography(effect);
+  HS_EXPECT_TRUE(WB::transition_active(effect));
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+
+  WB::drive_transition(effect, 0.5f);
+  HS_EXPECT_TRUE(effect.updateParameter("Surface Noise Scale", 1.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_FALSE(WB::transition_active(effect));
+
+  effect.setAnimationsPaused(false);
+  for (int f = 0; f <= FX::PRESET_SEGUE.frames; ++f)
+    WB::tick_choreography(effect);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+}
+
 inline void test_lattice_melt_parameter_serialization() {
   using WB = LatticeMeltWhiteBox;
   reset_effect_globals();
@@ -246,6 +275,7 @@ inline int run_lattice_melt_tests() {
   ModuleFixture fixture("lattice_melt");
   test_lattice_melt_identity_and_presets();
   test_lattice_melt_transition_contract();
+  test_lattice_melt_manual_write_restarts_dwell();
   test_lattice_melt_parameter_serialization();
   test_lattice_melt_shader_workbench_equivalence();
   return fixture.result();
