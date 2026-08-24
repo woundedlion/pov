@@ -136,6 +136,9 @@ def parse_teensy_size(text: str) -> dict[str, dict[str, int]]:
     out: dict[str, dict[str, int]] = {}
     for m in _TS_REGION_RE.finditer(text):
         region = m.group(1).lower()
+        if region in out:
+            raise TeensySizeFormatError(
+                f"region {region.upper()} appears more than once")
         components = {k.lower(): int(v) for k, v in _TS_PAIR_RE.findall(m.group(2))}
         if not components:
             raise TeensySizeFormatError(
