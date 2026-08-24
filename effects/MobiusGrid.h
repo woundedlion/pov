@@ -18,6 +18,11 @@ using MobiusGridSpec =
                    Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
+/**
+ * @brief A continuously animated Mobius lens over a mirrored twin wave.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class MobiusGrid
     : public Pullback::ComposedEffect<
