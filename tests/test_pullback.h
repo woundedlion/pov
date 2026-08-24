@@ -547,6 +547,12 @@ struct CountingSourcePolicy : Pullback::ApproximationDefaults {
   }
 };
 
+struct CountingSphericalSourcePolicy : Pullback::ApproximationDefaults {
+  static float sample(const Pullback::SphereSample &input, const TestFrame &) {
+    return input.dir.x;
+  }
+};
+
 struct CountingValueState {
   using Binding = CountingBinding;
   using FrameState = TestFrame;
@@ -633,6 +639,15 @@ inline void test_pullback_stage_combinators() {
   HS_EXPECT_EQ(sampled.coverage, 0.5f);
   HS_EXPECT_EQ(sampled.sphere.x, warped.sphere.x);
   HS_EXPECT_EQ(sampled.path_length, 3.5f);
+
+  using BoundSphereSample = Pullback::Stage::SampleSphere<
+      CountingSphericalSourcePolicy>::Bind<CountingBinding>;
+  const Pullback::FieldSample sphere_sampled =
+      BoundSphereSample::run(view, frame, BoundSphereSample::prepare(frame));
+  HS_EXPECT_EQ(sphere_sampled.value, 1.0f);
+  HS_EXPECT_EQ(sphere_sampled.coverage, 1.0f);
+  HS_EXPECT_EQ(sphere_sampled.sphere.x, view.dir.x);
+  HS_EXPECT_EQ(sphere_sampled.path_length, view.path_length);
 
   using BoundTransfer = Pullback::Stage::Transfer<
       Pullback::Transfer::Ridge>::Bind<CountingBinding>;

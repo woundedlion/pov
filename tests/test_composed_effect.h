@@ -607,11 +607,11 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.airocean.v2", nullptr, {}},
     // SourcePolicyFor covers Grid, TwinWave, Spiral and PrimitiveLattice only.
     {"sample.rings.v2", nullptr, {}},
-    {"sample.spherical-rings.v2", nullptr, {}},
+    {"sample.spherical-rings.v3", nullptr, {}},
     {"sample.fractal.v2", nullptr, {}},
     {"sample.tessellation.v2", nullptr, {}},
     {"sample.projected-noise.v2", nullptr, {}},
-    {"sample.spherical-noise.v2", nullptr, {}},
+    {"sample.spherical-noise.v3", nullptr, {}},
     // No WarpPolicyFor specialization carries a curl-flow family.
     {"warp.curl-flow.v2", nullptr, {}},
     // TransferKind is NONE or ISO_CONTOUR.
@@ -755,8 +755,8 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 37u);
   HS_EXPECT_EQ(unreachable_operators, 14u);
-  HS_EXPECT_EQ(catalog_values, 130u);
-  HS_EXPECT_EQ(unreachable_values, 85u);
+  HS_EXPECT_EQ(catalog_values, 118u);
+  HS_EXPECT_EQ(unreachable_values, 73u);
 }
 
 using RippleProbeParams =
