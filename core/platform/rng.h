@@ -80,6 +80,18 @@ constexpr uint64_t epoch_seed(uint32_t epoch) {
   return z ^ (z >> 31);
 }
 
+/**
+ * @brief Returns an effect type's persisted ID, falling back to its class name.
+ * @tparam EffectType Concrete effect type at a fixed resolution.
+ * @param class_name Effect class name.
+ */
+template <typename EffectType>
+constexpr std::string_view stable_effect_id(std::string_view class_name) {
+  if constexpr (requires { EffectType::EFFECT_ID; })
+    return EffectType::EFFECT_ID;
+  return class_name;
+}
+
 /** @brief Derives a roster-position-independent seed from an effect ID. */
 constexpr uint64_t stable_effect_seed(std::string_view effect_id) {
   uint64_t hash = 1469598103934665603ULL;
