@@ -14,33 +14,13 @@ from pathlib import Path
 
 from generate_pullback_manifest_header import (
     ManifestError,
+    OPERATION_CODES,
     load_and_validate,
     manifest_sha256,
 )
 from pullback_crosscheck import _expected_toolchain
 
 
-OPERATION_CODES = {
-    "CASE_DEFAULT": 0,
-    "CASE_ENDPOINT_MIN": 1,
-    "CASE_ENDPOINT_MAX": 2,
-    "CASE_INTERIOR": 3,
-    "COLUMN_ZERO": 4,
-    "WRAP_COLUMNS": 5,
-    "NORTH_ROW": 6,
-    "SOUTH_ROW": 7,
-    "POLE_BANDS": 8,
-    "HORIZON_COLUMNS": 9,
-    "OCTANT_COLUMNS": 10,
-    "MIRROR_GRID": 11,
-    "CARDINAL_POINTS": 12,
-    "FRAME_PERIMETER": 13,
-    "EQUATOR_ROW": 14,
-    "FRONT_AXIS_POINT": 15,
-    "THROUGH_CLEAR_FROM": 16,
-    "THROUGH_CLEAR_TO": 17,
-    "FULL_FRAME": 18,
-}
 CASE_OPERATIONS = {
     "default": "CASE_DEFAULT",
     "endpoint_min": "CASE_ENDPOINT_MIN",
