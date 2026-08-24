@@ -425,7 +425,7 @@ class CaptureComparison(unittest.TestCase):
             candidate["frames"][0]["probe"],
             2,
         )
-        with self.assertRaisesRegex(crosscheck.CrosscheckError, "strict-FP"):
+        with self.assertRaisesRegex(crosscheck.StrictFpRequired, "strict-FP"):
             crosscheck.compare_captures(
                 base, candidate, programs, digest, "a" * 40, "b" * 40,
                 oracles=ORACLES,
