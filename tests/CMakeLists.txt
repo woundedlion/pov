@@ -544,6 +544,7 @@ add_executable(fastmath_clamp_check
   ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_link_libraries(fastmath_clamp_check PRIVATE hs_host_abi)
+target_compile_definitions(fastmath_clamp_check PRIVATE HS_ENABLE_TEST_ORACLES=1)
 # The WASM release math flags (CMakeLists.txt). -fno-finite-math-only MUST follow
 # -ffast-math: it re-enables the NaN/Inf semantics the contract needs. If a future
 # edit drops it, core/platform/platform.h's #error makes this TU fail to compile — exactly
