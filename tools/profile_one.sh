@@ -50,18 +50,18 @@ set -eo pipefail
 }
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
 case "$EFFECT" in
-  signal-weave) EFFECT=SignalWeave;;
-  kaleido-wave) EFFECT=KaleidoWave;;
+  alien-brain) EFFECT=AlienBrain;;
+  kaleidoscope-hex-soft) EFFECT=KaleidoscopeHexSoft;;
   alien-ocean) EFFECT=AlienOcean;;
-  glitch-grid) EFFECT=GlitchGrid;;
-  facet-wave) EFFECT=FacetWave;;
-  contour-lattice) EFFECT=ContourLattice;;
-  curl-lattice) EFFECT=CurlLattice;;
-  prism-lattice) EFFECT=PrismLattice;;
-  vector-facets) EFFECT=VectorFacets;;
-  facet-grid) EFFECT=FacetGrid;;
-  hex-wave) EFFECT=HexWave;;
-  equator-grid) EFFECT=EquatorGrid;;
+  alien-core) EFFECT=AlienCore;;
+  kaleidoscope-mandala) EFFECT=KaleidoscopeMandala;;
+  grid-space) EFFECT=GridSpace;;
+  lattice-melt) EFFECT=LatticeMelt;;
+  kaleidoscope-pent-bright) EFFECT=KaleidoscopePentBright;;
+  kaleidoscope-stained-glass) EFFECT=KaleidoscopeStainedGlass;;
+  kaleidoscope-smooth) EFFECT=KaleidoscopeSmooth;;
+  kaleidoscope-hex-bright) EFFECT=KaleidoscopeHexBright;;
+  kaleidoscope-flowers) EFFECT=KaleidoscopeFlowers;;
   cosmic-eyeball) EFFECT=CosmicEyeball;;
   mobius-grid) EFFECT=MobiusGrid;;
 esac
@@ -156,7 +156,7 @@ mkdir -p "$(dirname "$OUT")"
 export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $MSP_FLAGS $EXTRA"
 
 # Cyclers emit a per-advance marker; a capture of one must contain it.
-CYCLERS="SignalWeave CurlLattice FacetGrid EquatorGrid MobiusGrid ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
+CYCLERS="AlienBrain LatticeMelt KaleidoscopeSmooth KaleidoscopeFlowers MobiusGrid ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
 MARKER=""
 case " $CYCLERS " in *" $EFFECT "*)
   case "$EFFECT" in

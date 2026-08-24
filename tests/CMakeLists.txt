@@ -284,7 +284,7 @@ set(_hs_test_modules
     plot_scan canvas
     scan mesh_raster transformers noise noise_field projections
     animation effects
-    effects_smoke effect_factory shader_workbench curl_lattice facet_grid
+    effects_smoke effect_factory shader_workbench lattice_melt kaleidoscope_smooth
     composed_effect
     shapeshifter_oracle shapeshifter_tiles dma_core hd107s
     dma_controller
