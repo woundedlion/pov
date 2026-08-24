@@ -558,6 +558,7 @@ if (CHECK) {
     }
     console.error(
       'Regenerate with: node scripts/generate_promoted_shader_documents.mjs');
+    await new Promise((resolve) => process.stderr.write('', resolve));
     process.exit(1);
   }
   const noncanonical = [];
@@ -574,6 +575,7 @@ if (CHECK) {
     console.error('::error::patterns/ contains noncanonical shader documents');
     for (const name of noncanonical)
       console.error(`  patterns/${name}`);
+    await new Promise((resolve) => process.stderr.write('', resolve));
     process.exit(1);
   }
   console.log(
