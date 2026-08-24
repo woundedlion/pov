@@ -477,10 +477,10 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
     float nearest = prepared.params.far_cells;
     float second_nearest = prepared.params.far_cells;
     int nearest_axis = -1;
-    for (int axis = 0; axis < DIMENSIONS; ++axis) {
+    const auto consider_cursor = [&](int axis) __attribute__((always_inline)) {
       const TraceCursor &cursor = cursors[axis];
       if (!cursor.active)
-        continue;
+        return;
       if (cursor.distance < nearest) {
         second_nearest = nearest;
         nearest = cursor.distance;
@@ -488,7 +488,11 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
       } else if (cursor.distance < second_nearest) {
         second_nearest = cursor.distance;
       }
-    }
+    };
+    consider_cursor(0);
+    consider_cursor(1);
+    consider_cursor(2);
+    consider_cursor(3);
     if (nearest >= prepared.params.far_cells)
       break;
 
