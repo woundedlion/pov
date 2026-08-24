@@ -72,7 +72,7 @@ const prefix = (name, values) => Object.fromEntries(
   Object.entries(values).map(([key, value]) => [`${name}-${key}`, value]),
 );
 
-const parameterSpec = (id, value, hue, source) => {
+const parameterSpec = (id, value, source) => {
   if (id === 'palette-mapping') return {
     id, binding: 'color.palette-mapping', classification: 'preset',
     storage: 'enum8', unit: 'mapping',
@@ -85,13 +85,15 @@ const parameterSpec = (id, value, hue, source) => {
   const positive = id.endsWith('cell-x') || id.endsWith('cell-y') ||
     id.endsWith('scale-x') || id.endsWith('scale-y') || id.endsWith('radial-scale') ||
     id === 'lattice-cell-scale' || id === 'lattice-softness' ||
-    id === 'lattice-radius' || id.endsWith('frequency') || id === 'hue-noise-scale';
+    id === 'iso-width' || id.endsWith('frequency') || id === 'hue-noise-scale' ||
+    id.endsWith('-scale');
   let domain = { minimum: -30, maximum: 30 };
   let unit = 'ratio';
   if (id === 'pattern-freq')
     domain = { minimum: 0.1, maximum: source === 'grid' ? 64 : 20 };
   else if (id === 'speed') domain = { minimum: 0, maximum: 0.5 };
   else if (id === 'source-angle-speed') domain = { minimum: 0, maximum: Math.fround(0.05) };
+  else if (id === 'phase-oscillation-speed') domain = { minimum: -0.01, maximum: 0.01 };
   else if (id.endsWith('-speed')) domain = id === 'hue-noise-speed'
     ? { minimum: -0.001, maximum: 0.001 }
     : id === 'projection-spin-speed'
@@ -114,19 +116,18 @@ const parameterSpec = (id, value, hue, source) => {
   else if (id === 'lattice-softness' || id === 'iso-width')
     domain = { minimum: 1 / 1024, maximum: 1 };
   else if (id === 'lattice-radius') domain = { minimum: 1 / 64, maximum: 0.49 };
+  else if (id === 'mapping-frequency') domain = { minimum: 1, maximum: 32 };
+  else if (id === 'hue-noise-scale') domain = { minimum: 1 / 64, maximum: 8 };
   else if (id.endsWith('frequency')) domain = { minimum: 0.01, maximum: 32 };
+  else if (id.endsWith('-scale')) domain = { minimum: 1 / 64, maximum: 64 };
   else if (id.endsWith('rotation-rate')) domain = { minimum: -TAU, maximum: TAU };
   else if (id.endsWith('translation-x') || id.endsWith('translation-y') ||
            id.endsWith('shear')) domain = { minimum: -4, maximum: 4 };
-  else if (angle) domain = id === 'central-meridian'
-    ? { minimum: 0, maximum: TAU } : { minimum: -TAU, maximum: TAU };
+  else if (angle) domain = id.endsWith('radial-phase') || id.endsWith('angular-phase')
+    ? { minimum: -TAU, maximum: TAU } : { minimum: 0, maximum: TAU };
   else if (id === 'palette-chroma') domain = { minimum: 0, maximum: 1 };
-  else if (id === 'mapping-frequency') domain = { minimum: 1, maximum: 32 };
   else if (id === 'mapping-phase') domain = { minimum: -1, maximum: 1 };
-  else if (id === 'phase-oscillation-speed') domain = { minimum: -0.01, maximum: 0.01 };
-  else if (id === 'hue-shift-amount') domain = hue === 'path-length'
-    ? { minimum: -4, maximum: 4 } : { minimum: -1, maximum: 1 };
-  else if (id === 'hue-noise-scale') domain = { minimum: 1 / 64, maximum: 8 };
+  else if (id === 'hue-shift-amount') domain = { minimum: -4, maximum: 4 };
   else if (id.startsWith('mobius-')) domain = { minimum: -4, maximum: 4 };
   if (id.includes('speed')) unit = 'turn-per-frame';
   else if (angle || id.endsWith('rotation-rate')) unit = 'radian';
@@ -231,7 +232,7 @@ const bank = (spec, base) => {
 const documentFor = (spec) => {
   const values = baseValues(spec);
   const parameters = Object.entries(values)
-    .map(([id, value]) => parameterSpec(id, value, spec.hue, spec.source));
+    .map(([id, value]) => parameterSpec(id, value, spec.source));
   const resources = [{ id: `${spec.palette}-palette`, kind: `generated-${spec.palette}-palette`,
     settings: { hue_step: 159 } }];
   if (spec.hue === 'noise') resources.push({

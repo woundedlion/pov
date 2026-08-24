@@ -196,6 +196,18 @@ test('the example chain document validates against the catalog', () => {
   assert.deepEqual(validate(example()), []);
 });
 
+test('scalar parameter bindings match catalog domains and curves', () => {
+  const domain = example();
+  domain.descriptor.parameters[0].domain.maximum = 7;
+  assert.deepEqual(validate(domain).map((diagnostic) => diagnostic.code),
+    ['SCALAR_DOMAIN_MISMATCH']);
+
+  const curve = example();
+  curve.descriptor.parameters[0].interpolation.kind = 'LINEAR';
+  assert.deepEqual(validate(curve).map((diagnostic) => diagnostic.code),
+    ['SCALAR_DOMAIN_MISMATCH']);
+});
+
 test('preset dwell names every preset with a positive duration', () => {
   const diagnose = (dwell) => {
     const document = example();
@@ -387,8 +399,8 @@ const V1_EXAMPLE = {
     parameters: [
       {
         id: 'pattern-freq', binding: 'source.pattern-freq', classification: 'preset',
-        storage: 'binary32', unit: 'ratio', domain: { minimum: 0.01, maximum: 10 },
-        interpolation: { kind: 'LOG_POSITIVE' }, default: 1,
+        storage: 'binary32', unit: 'ratio', domain: { minimum: 0.1, maximum: 64 },
+        interpolation: { kind: 'LINEAR' }, default: 1,
       },
       {
         id: 'central-meridian', binding: 'projection.central-meridian', classification: 'preset',
@@ -481,13 +493,13 @@ test('known but target-unavailable effects remain distinguishable', () => {
 });
 
 test('linear and log interpolation preserve exact stored endpoints', () => {
-  const scale = example().descriptor.parameters
+  const linear = example().descriptor.parameters
     .find((parameter) => parameter.id === 'sample.pattern-freq');
-  const linear = structuredClone(scale);
-  linear.interpolation = { kind: 'LINEAR' };
   assert.equal(interpolateValue(linear, 1, 4, -1), Math.fround(1));
   assert.equal(interpolateValue(linear, 1, 4, 2), Math.fround(4));
-  assert.equal(interpolateValue(scale, 1, 4, 0.5), Math.fround(2));
+  const log = structuredClone(linear);
+  log.interpolation = { kind: 'LOG_POSITIVE' };
+  assert.equal(interpolateValue(log, 1, 4, 0.5), Math.fround(2));
 });
 
 test('mixed enum parameters expose blend state between distinct endpoints', () => {

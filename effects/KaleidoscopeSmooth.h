@@ -52,7 +52,7 @@ public:
   /// `patterns/kaleidoscope_smooth.shader.json`; the browser editor matches it to
   /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "3cea8df41109cef9be20b9a8e26c0edaa2728c2c0defa6ffb352ebf56ff5c0d1";
+      "9059272fb82ec3cd0f98e50937641cbb84365d6b5fb8e4db923ea20e6253986a";
   /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "6ce5e7188843b4f091b9c3cc2689798e3f2e77420c9f3d688f5b2ca50485ec4a";
