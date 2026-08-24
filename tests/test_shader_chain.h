@@ -26,6 +26,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <type_traits>
 
 #include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/interpreter.h"
@@ -486,6 +487,29 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
 }
 
 // --- cases ----------------------------------------------------------------
+
+inline void test_shader_chain_program_lifetime() {
+  static_assert(!std::is_copy_constructible_v<In::ChainProgram>);
+  static_assert(!std::is_copy_assignable_v<In::ChainProgram>);
+
+  CountLifecycle::reset();
+  auto fixture =
+      std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, extended_table());
+  const In::ChainEntryRequest chain[] = {
+      {"counter", "test.count-a.v2"},
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v2"},
+  };
+  HS_EXPECT_EQ(static_cast<int>(fixture->program.compile(chain).code),
+               static_cast<int>(In::ChainStatus::OK));
+  HS_EXPECT_EQ(CountLifecycle::inits, 1);
+  HS_EXPECT_EQ(CountLifecycle::destroys, 0);
+
+  fixture.reset();
+  HS_EXPECT_EQ(CountLifecycle::destroys, 1);
+}
 
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
@@ -3297,6 +3321,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_colorize_variants();
   test_shader_chain_refusal_shape();
   test_shader_chain_refusal_budget_overflows();
+  test_shader_chain_program_lifetime();
   test_shader_chain_refusal_migrate_failed();
   test_shader_chain_state_identity_migration();
   test_shader_chain_state_continuity_slice();

@@ -168,6 +168,11 @@ inline bool instance_id_wellformed(std::string_view id) {
  */
 class ChainProgram {
 public:
+  ChainProgram() = default;
+  ~ChainProgram() { clear(); }
+  ChainProgram(const ChainProgram &) = delete;
+  ChainProgram &operator=(const ChainProgram &) = delete;
+
   /** @brief One compiled entry; offsets index the owning side's block. */
   struct ChainOp {
     const OperatorDescriptor *op;
