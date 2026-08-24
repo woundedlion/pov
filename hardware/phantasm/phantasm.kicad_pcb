@@ -2868,7 +2868,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "adb415f7-bcb0-4996-8144-ef5d2fc34cd7")
 		)
 		(fp_line
@@ -2878,7 +2878,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "339d4b27-d074-433c-ab1c-4d744d192285")
 		)
 		(fp_line
@@ -2888,7 +2888,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "3c13a9ad-abf9-4891-8f73-cbebbf939c1d")
 		)
 		(fp_line
@@ -2898,7 +2898,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "98a5f8cc-a9b2-42ae-a5fb-75497240d085")
 		)
 		(fp_arc
@@ -2909,7 +2909,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "782bcfff-9d9a-494f-9fbb-1d3acd9eec19")
 		)
 		(fp_arc
@@ -2920,7 +2920,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "918a26bc-295b-4351-a3b8-b7653062866a")
 		)
 		(fp_arc
@@ -2931,7 +2931,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "4d95d2f4-a4ee-44a6-8c72-f601562462d2")
 		)
 		(fp_arc
@@ -2942,7 +2942,7 @@
 				(width 0.15)
 				(type solid)
 			)
-			(layer "F.Fab")
+			(layer "F.SilkS")
 			(uuid "6e77106a-6e65-46d3-bfc2-cb92b29b04be")
 		)
 		(pad "1" smd custom
@@ -8362,7 +8362,7 @@
 			)
 		)
 	)
-	(gr_text "MASTER = ALL ID OPEN   SHLD = MASTER ONLY"
+	(gr_text "N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M"
 		(at 29.14 17 0)
 		(layer "B.SilkS")
 		(uuid "6314c943-ee53-4e2b-8430-24802a960034")

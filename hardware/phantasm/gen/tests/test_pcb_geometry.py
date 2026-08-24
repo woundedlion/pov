@@ -2,6 +2,7 @@ import math
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -10,6 +11,9 @@ import sexp
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+ROUTED = REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
+UNPLACED = (REPO_ROOT / "hardware" / "phantasm" / "unplaced" /
+            "phantasm_unplaced.kicad_pcb")
 
 
 def _child(node, key):
@@ -18,6 +22,38 @@ def _child(node, key):
         for child in node
         if isinstance(child, list) and child and child[0] == key
     )
+
+
+def _footprint(board, ref):
+    return next(
+        node
+        for node in board
+        if isinstance(node, list) and node and node[0] == "footprint"
+        and any(isinstance(child, list) and child
+                and child[0] == "property"
+                and child[1:3] == ["Reference", ref]
+                for child in node)
+    )
+
+
+def _without_uuids(node):
+    if not isinstance(node, list):
+        return node
+    return tuple(
+        _without_uuids(child)
+        for child in node
+        if not (isinstance(child, list) and child and child[0] == "uuid")
+    )
+
+
+def _silk_outline(footprint):
+    return [
+        node
+        for node in footprint
+        if isinstance(node, list) and node
+        and node[0] in ("fp_line", "fp_arc")
+        and _child(node, "layer")[0] == "F.SilkS"
+    ]
 
 
 class FootprintBoundsTests(unittest.TestCase):
@@ -116,6 +152,47 @@ class CathodeMarkTests(unittest.TestCase):
                     float(_child(node, "end")[0])) <= cathode_x
         ]
         self.assertEqual(len(bars), 1)
+
+
+class IdStrapSilkscreenTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.boards = {
+            path: sexp.parse(path.read_text(encoding="utf-8"))[0]
+            for path in (ROUTED, UNPLACED)
+        }
+
+    def test_every_id_strap_has_the_same_outline(self):
+        for path, board in self.boards.items():
+            expected = [_without_uuids(node)
+                        for node in _silk_outline(_footprint(board, "JP_ID0"))]
+            self.assertEqual(
+                [node[0] for node in expected].count("fp_line"), 4)
+            self.assertEqual(
+                [node[0] for node in expected].count("fp_arc"), 4)
+            for ref in ("JP_ID1", "JP_ID2", "JP_SHLD"):
+                with self.subTest(board=path.name, ref=ref):
+                    actual = [_without_uuids(node) for node in
+                              _silk_outline(_footprint(board, ref))]
+                    self.assertEqual(actual, expected)
+
+    def test_generator_keeps_jp_id2_outline_on_silkscreen(self):
+        source = _footprint(self.boards[ROUTED], "JP_ID0")
+        libid = "Test:Jumper"
+        with mock.patch.dict(pcb._MOD_CACHE, {libid: source}):
+            generated = pcb.embed(libid, "JP_ID2", "Jumper", 0, 0, 0,
+                                  {}, {})
+        self.assertEqual(len(_silk_outline(generated)), 8)
+
+    def test_boards_describe_the_id2_half_of_the_truth_table(self):
+        expected = "N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M"
+        for path, board in self.boards.items():
+            texts = [str(node[1]) for node in board
+                     if isinstance(node, list) and node
+                     and node[0] == "gr_text"
+                     and _child(node, "layer")[0] == "B.SilkS"]
+            with self.subTest(board=path.name):
+                self.assertIn(expected, texts)
 
 
 class MountingKeepoutTests(unittest.TestCase):

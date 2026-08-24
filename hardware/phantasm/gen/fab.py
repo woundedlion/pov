@@ -192,7 +192,7 @@ KNOWN_PARITY_ITEMS = {
     ("footprint_symbol_mismatch", "U_MCU"): "phantasm:Teensy4.0",
 }
 KNOWN_PARITY_WARNING_COUNTS = {
-    "lib_footprint_mismatch": 12,
+    "lib_footprint_mismatch": 11,
 }
 
 # JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
