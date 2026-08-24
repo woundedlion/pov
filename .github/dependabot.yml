@@ -1,6 +1,5 @@
-# Bump path for the SHA-pinned actions in .github/workflows/. Dependabot
-# rewrites the SHA and its `# vN` comment together, so a pinned action stays
-# reviewable as an ordinary pull request instead of being resolved by hand.
+# Automated bump paths for the SHA-pinned actions and the locked Node/Python
+# development toolchains.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -11,5 +10,20 @@ updates:
     # a per-action PR would re-run the full matrix for each.
     groups:
       actions:
+        patterns:
+          - "*"
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      node-development:
+        dependency-type: development
+  - package-ecosystem: pip
+    directory: /requirements
+    schedule:
+      interval: monthly
+    groups:
+      python-toolchain:
         patterns:
           - "*"
