@@ -164,24 +164,30 @@ periodic_distance_at(const Vec4 &ray_origin, const Vec4 &direction, int axis,
   return periodic_distance(ray_origin[axis] + distance * direction[axis]);
 }
 
+template <int AXIS0, int AXIS1>
+__attribute__((always_inline)) EdgeMetric edge_metric_3d_axes(
+    const Vec4 &ray_origin, const Vec4 &direction, float distance) {
+  const float component0 =
+      periodic_distance_at(ray_origin, direction, AXIS0, distance);
+  const float component1 =
+      periodic_distance_at(ray_origin, direction, AXIS1, distance);
+  const float component0_sq = component0 * component0;
+  const float component1_sq = component1 * component1;
+  return {std::min(component0_sq, component1_sq),
+          static_cast<uint8_t>(component1_sq > component0_sq ? AXIS1 : AXIS0)};
+}
+
 inline EdgeMetric edge_metric_3d_at(const Vec4 &ray_origin,
                                     const Vec4 &direction, int plane_axis,
                                     float distance) {
-  float best_fixed = 1.0f;
-  float farthest = -1.0f;
-  uint8_t free_axis = 0;
-  for (int index = 0; index < 2; ++index) {
-    const int axis = index + (index >= plane_axis);
-    const float component =
-        periodic_distance_at(ray_origin, direction, axis, distance);
-    const float component_sq = component * component;
-    best_fixed = std::min(best_fixed, component_sq);
-    if (component_sq > farthest) {
-      farthest = component_sq;
-      free_axis = static_cast<uint8_t>(axis);
-    }
+  switch (plane_axis) {
+  case 0:
+    return edge_metric_3d_axes<1, 2>(ray_origin, direction, distance);
+  case 1:
+    return edge_metric_3d_axes<0, 2>(ray_origin, direction, distance);
+  default:
+    return edge_metric_3d_axes<0, 1>(ray_origin, direction, distance);
   }
-  return {best_fixed, free_axis};
 }
 
 template <int AXIS0, int AXIS1, int AXIS2>
@@ -225,35 +231,46 @@ inline EdgeMetric edge_metric_4d_at(const Vec4 &ray_origin,
   }
 }
 
+template <int AXIS0, int AXIS1>
+__attribute__((always_inline)) TransitionalMetrics transitional_metrics_axes(
+    const Vec4 &ray_origin, const Vec4 &direction, float distance) {
+  const float component0 =
+      periodic_distance_at(ray_origin, direction, AXIS0, distance);
+  const float component1 =
+      periodic_distance_at(ray_origin, direction, AXIS1, distance);
+  const float component2 =
+      periodic_distance_at(ray_origin, direction, 3, distance);
+  const float component0_sq = component0 * component0;
+  const float component1_sq = component1 * component1;
+  const float component2_sq = component2 * component2;
+  const float sum_4d = component0_sq + component1_sq + component2_sq;
+  float farthest_4d = component0_sq;
+  uint8_t free_axis_4d = AXIS0;
+  if (component1_sq > farthest_4d) {
+    farthest_4d = component1_sq;
+    free_axis_4d = AXIS1;
+  }
+  if (component2_sq > farthest_4d) {
+    farthest_4d = component2_sq;
+    free_axis_4d = 3;
+  }
+  return {{std::min(component0_sq, component1_sq),
+           static_cast<uint8_t>(component1_sq > component0_sq ? AXIS1 : AXIS0)},
+          {sum_4d - farthest_4d, free_axis_4d}};
+}
+
 inline TransitionalMetrics transitional_metrics_at(const Vec4 &ray_origin,
                                                    const Vec4 &direction,
                                                    int plane_axis,
                                                    float distance) {
-  float best_fixed = 1.0f;
-  float farthest_3d = -1.0f;
-  float sum_4d = 0.0f;
-  float farthest_4d = -1.0f;
-  uint8_t free_axis_3d = 0;
-  uint8_t free_axis_4d = 0;
-  for (int index = 0; index < 3; ++index) {
-    const int axis = index + (index >= plane_axis);
-    const float component =
-        periodic_distance_at(ray_origin, direction, axis, distance);
-    const float component_sq = component * component;
-    sum_4d += component_sq;
-    if (component_sq > farthest_4d) {
-      farthest_4d = component_sq;
-      free_axis_4d = static_cast<uint8_t>(axis);
-    }
-    if (axis < 3) {
-      best_fixed = std::min(best_fixed, component_sq);
-      if (component_sq > farthest_3d) {
-        farthest_3d = component_sq;
-        free_axis_3d = static_cast<uint8_t>(axis);
-      }
-    }
+  switch (plane_axis) {
+  case 0:
+    return transitional_metrics_axes<1, 2>(ray_origin, direction, distance);
+  case 1:
+    return transitional_metrics_axes<0, 2>(ray_origin, direction, distance);
+  default:
+    return transitional_metrics_axes<0, 1>(ray_origin, direction, distance);
   }
-  return {{best_fixed, free_axis_3d}, {sum_4d - farthest_4d, free_axis_4d}};
 }
 
 struct Params {
