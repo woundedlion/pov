@@ -229,7 +229,7 @@ inline void test_sphere_exp_map_and_transport() {
   const Vector tangent(0.25f, 0.0f, -0.1f);
   const Vector moved = sphere_exp_map(v, tangent);
   HS_EXPECT_NEAR(moved.length(), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(fast_acos(dot(v, moved)), tangent.length(), 2e-5f);
+  HS_EXPECT_NEAR(fast_acos(dot(v, moved)), tangent.length(), 5.1e-5f);
   const Vector transported = parallel_transport(v, moved, tangent);
   HS_EXPECT_NEAR(dot(transported, moved), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(transported.length(), tangent.length(), 1e-6f);

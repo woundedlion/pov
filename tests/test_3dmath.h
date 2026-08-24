@@ -77,7 +77,7 @@ inline void test_quintic_kernel() {
 
 // ============================================================================
 // fast_atan2 / fast_acos / fast_sinf / fast_cosf
-// (measured peak errors: atan2 ~3.8e-3 rad, acos ~1.3e-4 rad, sin ~1.6e-3)
+// (measured peak errors: atan2 ~3.8e-3 rad, acos ~5.0e-5 rad, sin ~1.6e-3)
 // ============================================================================
 
 /**
@@ -184,8 +184,8 @@ inline void test_fast_acos() {
     HS_EXPECT_NEAR(fast_acos(x), std::acos(x), 2e-4f);
   }
 
-  // Peak error (~1.26e-4) near x = 0.1226, between the sweep's samples.
-  HS_EXPECT_NEAR(fast_acos(0.1226f), std::acos(0.1226f), 2e-4f);
+  // Peak error (~5.0e-5) near x = 0.0807, between the sweep's samples.
+  HS_EXPECT_NEAR(fast_acos(0.0807f), std::acos(0.0807f), 5.1e-5f);
 }
 
 /**

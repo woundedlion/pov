@@ -237,7 +237,7 @@ inline constexpr float TOPOLOGY_ANGLE_MARGIN_DEG = 5e-4f;
  * @param k Corner to measure.
  * @return The value classify_faces_impl rounds to a whole degree.
  * @details Mirrors classify_faces_impl (core/mesh/mesh.h) term for term:
- *          unnormalized edges, the same degenerate-edge cutoff, fast_acos.
+ *          unnormalized edges, the same degenerate-edge cutoff, acosf.
  */
 inline float classifier_angle_deg(const PolyMesh &m, const uint16_t *idx,
                                   int count, int k) {
@@ -250,7 +250,7 @@ inline float classifier_angle_deg(const PolyMesh &m, const uint16_t *idx,
   if (!(m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ))
     return 0.0f;
   const float d = hs::clamp(dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
-  return fast_acos(d) * 180.0f / PI_F;
+  return acosf(d) * 180.0f / PI_F;
 }
 
 /**
@@ -259,13 +259,11 @@ inline float classifier_angle_deg(const PolyMesh &m, const uint16_t *idx,
  * @param idx Start of the face's index run.
  * @param count Sides in the face.
  * @param k Corner to measure.
- * @return The same expression, including fast_acos's polynomial, in double.
- * @details Rounding-uncertainty oracle for the margin floor. fast_acos's
- *          approximation error is a property of the polynomial and cancels in
- *          the difference, so what is left is how far float intermediate
- *          rounding alone can move the angle — the same lever -ffast-math pulls
- *          on device via reassociation, FMA contraction, and reciprocal
- *          division.
+ * @return The same expression in double.
+ * @details Rounding-uncertainty oracle for the margin floor. The difference
+ *          isolates how far float intermediate rounding can move the angle —
+ *          the same lever -ffast-math pulls on device via reassociation, FMA
+ *          contraction, and reciprocal division.
  */
 inline double classifier_angle_deg_ref(const PolyMesh &m, const uint16_t *idx,
                                        int count, int k) {
@@ -287,11 +285,7 @@ inline double classifier_angle_deg_ref(const PolyMesh &m, const uint16_t *idx,
     return 0.0;
   double d = (e1x * e2x + e1y * e2y + e1z * e2z) / std::sqrt(m1 * m2);
   d = d < -1.0 ? -1.0 : (d > 1.0 ? 1.0 : d);
-  const double ax = d < 0.0 ? -d : d;
-  const double r =
-      std::sqrt(1.0 - ax) *
-      (1.5707963 + ax * (-0.2121144 + ax * (0.0742610 + ax * -0.0187293)));
-  return (d < 0.0 ? PI_D - r : r) * 180.0 / PI_D;
+  return std::acos(d) * 180.0 / PI_D;
 }
 
 /**

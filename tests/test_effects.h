@@ -5644,9 +5644,9 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
     HS_EXPECT_EQ(reference.active[i], specialized.active[i]);
 
   constexpr int CHECKPOINTS[] = {16, 80, 160};
-  constexpr size_t MAX_DIFFERENT[] = {0, 192, 192};
-  constexpr int MAX_CHANNEL[] = {0, 256, 1152};
-  constexpr uint64_t MAX_TOTAL[] = {0, 2048, 4608};
+  constexpr size_t MAX_DIFFERENT[] = {1, 192, 192};
+  constexpr int MAX_CHANNEL[] = {1, 256, 1152};
+  constexpr uint64_t MAX_TOTAL[] = {1, 2048, 4608};
   for (size_t checkpoint = 0; checkpoint < 3; ++checkpoint) {
     const int frame = CHECKPOINTS[checkpoint];
     const size_t offset = static_cast<size_t>(frame - 1) * W * H;

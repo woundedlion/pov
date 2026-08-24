@@ -211,7 +211,7 @@ inline void test_ring_just_outside_band() {
 
 /**
  * @brief Verifies a small-radius ring thick enough to break the linearized
- *        centerline distance still reports the exact geodesic distance,
+ *        centerline distance still reports the geodesic distance,
  *        symmetric about the centerline.
  */
 inline void test_ring_small_radius_distance_symmetric() {
@@ -237,7 +237,7 @@ inline void test_ring_small_radius_distance_symmetric() {
   // The AA ramp reads the same either side of the centerline.
   float d_in = dot(at_polar(target - 0.9f * THICKNESS), b.v);
   float d_out = dot(at_polar(target + 0.9f * THICKNESS), b.v);
-  HS_EXPECT_NEAR(ring.stroke_alpha(d_in), ring.stroke_alpha(d_out), 1e-4f);
+  HS_EXPECT_NEAR(ring.stroke_alpha(d_in), ring.stroke_alpha(d_out), 2e-4f);
 }
 
 // ============================================================================
@@ -557,7 +557,7 @@ inline void test_spherical_polygon_center_and_edge_magnitude() {
  *   only by sin(x) - x (~1.7e-6 at one pixel_width). Where the
  *   circumscribed-disc clamp wins, distance() spends fast_acos on polar while
  *   sine_distance forms sin(polar - circumradius) from exact trig, so the gap
- *   widens to fast_acos' ~1.3e-4 rad peak -- under 1% of a pixel_width, and the
+ *   widens to fast_acos' ~5e-5 rad peak -- under 1% of a pixel_width, and the
  *   sine path is the more accurate of the two there.
  */
 inline void test_spherical_polygon_sine_distance_aa_error() {

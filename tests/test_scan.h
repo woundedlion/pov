@@ -1840,7 +1840,7 @@ inline void test_solid_color_path_matches_generic() {
 
 /**
  * @brief Bounds spherical sine-distance framebuffer error at device resolution.
- * @details The two paths' distance gap is fast_acos' ~1.3e-4 rad wherever the
+ * @details The two paths' distance gap is fast_acos' ~5e-5 rad wherever the
  *   circumscribed-disc clamp wins (see the sine-domain note on
  *   SphericalPolygon::sine_distance); the coverage ramp scales that by the
  *   quintic kernel's slope over 2*pixel_width, so a channel may swing a few
