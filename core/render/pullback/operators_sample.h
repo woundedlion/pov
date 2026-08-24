@@ -205,26 +205,11 @@ struct SampleRings {
   }
 };
 
-/** @brief Parameter family of sample.spherical-rings.v2. */
+/** @brief Parameter family of sample.spherical-rings.v3. */
 struct SphericalRingsSampleParams : Source::SphericalRingsSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
-
   static constexpr auto FIELDS = concat_fields<SphericalRingsSampleParams>(
       Source::SphericalRingsSourceParams::FIELDS,
-      std::array{Field<SphericalRingsSampleParams>{
-          "edge-width", &SphericalRingsSampleParams::edge_width, "Edge Width",
-          0.0f, 1.0f, FieldCurve::LERP}});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<SphericalRingsSampleParams>{
-          "weight-mode", &SphericalRingsSampleParams::weight_mode,
-          WEIGHT_MODE_IDS, 2, static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<SphericalRingsSampleParams>{
-          "coverage-mode", &SphericalRingsSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
-  };
+      std::array<Field<SphericalRingsSampleParams>, 0>{});
 };
 static_assert(field_ids_unique<SphericalRingsSampleParams>());
 
@@ -234,11 +219,11 @@ struct SphericalRingsState {
   float phase = 0.0f;
 };
 
-/** @brief PLANE→FIELD crossing: latitude bands on a wandering, spinning axis. */
+/** @brief SPHERE→FIELD crossing: latitude bands on a wandering, spinning axis. */
 struct SampleSphericalRings {
-  static constexpr const char *ID = "sample.spherical-rings.v2";
+  static constexpr const char *ID = "sample.spherical-rings.v3";
   static constexpr const char *NAME = "Spherical Rings";
-  using Input = PlaneSample;
+  using Input = SphereSample;
   using Output = FieldSample;
   using Params = SphericalRingsSampleParams;
   using State = SphericalRingsState;
@@ -261,16 +246,13 @@ struct SampleSphericalRings {
         make_rotation(X_AXIS, state.walk.spin_phase) * state.walk.wander;
     return {rotate(Y_AXIS, orientation), state.phase};
   }
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+  static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::spherical_rings(
-        input.sphere,
+        input.dir,
         static_cast<const Source::SphericalRingsSourceParams &>(params),
         prepared);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return Kernel::sample(input, raw);
   }
 };
 
@@ -527,28 +509,13 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
 };
 static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
 
-/** @brief Parameter family of sample.spherical-noise.v2.
+/** @brief Parameter family of sample.spherical-noise.v3.
     @details No basis topology: the plan pins the spherical contour to the
     simplex basis. */
 struct SphericalNoiseSampleParams : Source::NoiseSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(CoverageMode::WEIGHT);
-
   static constexpr auto FIELDS = concat_fields<SphericalNoiseSampleParams>(
       Source::NoiseSourceParams::FIELDS,
-      std::array{Field<SphericalNoiseSampleParams>{
-          "edge-width", &SphericalNoiseSampleParams::edge_width, "Edge Width",
-          0.0f, 1.0f, FieldCurve::LERP}});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<SphericalNoiseSampleParams>{
-          "weight-mode", &SphericalNoiseSampleParams::weight_mode,
-          WEIGHT_MODE_IDS, 2, static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<SphericalNoiseSampleParams>{
-          "coverage-mode", &SphericalNoiseSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4, static_cast<uint8_t>(CoverageMode::WEIGHT)},
-  };
+      std::array<Field<SphericalNoiseSampleParams>, 0>{});
 };
 static_assert(field_ids_unique<SphericalNoiseSampleParams>());
 
@@ -595,11 +562,11 @@ struct SampleProjectedNoise {
   }
 };
 
-/** @brief PLANE→FIELD crossing: the sphere-space noise contour source. */
+/** @brief SPHERE→FIELD crossing: the sphere-space noise contour source. */
 struct SampleSphericalNoise {
-  static constexpr const char *ID = "sample.spherical-noise.v2";
+  static constexpr const char *ID = "sample.spherical-noise.v3";
   static constexpr const char *NAME = "Spherical Noise";
-  using Input = PlaneSample;
+  using Input = SphereSample;
   using Output = FieldSample;
   using Params = SphericalNoiseSampleParams;
   using State = NoisePhaseState;
@@ -617,17 +584,13 @@ struct SampleSphericalNoise {
                           const State &state) {
     return {&state.noise, state.phase};
   }
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+  static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::noise_contour(
         *prepared.noise, ::NoiseBasis::SIMPLEX,
-        noise_sphere_coordinate(input.sphere, params.noise_scale,
-                                prepared.time),
+        noise_sphere_coordinate(input.dir, params.noise_scale, prepared.time),
         params.noise_contrast);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        provenance_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return Kernel::sample(input, raw);
   }
 };
 

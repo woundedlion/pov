@@ -66,6 +66,14 @@ sample(const PlaneSample &input, float weighted, float coverage) {
           input.path_length};
 }
 
+/** @brief The spherical Sample crossing ramps a signed field with opaque
+    coverage. */
+__attribute__((always_inline)) inline FieldSample
+sample(const SphereSample &input, float field) {
+  return {Detail::clamp_unit((field + 1.0f) * 0.5f), 1.0f, input.dir,
+          input.path_length};
+}
+
 /** @brief A transfer replaces the field value; @p value must already be in
     [0, 1], which this does not re-clamp. */
 __attribute__((always_inline)) inline FieldSample
@@ -128,6 +136,19 @@ consteval bool source_policy_callable() {
     };
   else
     return requires(const PlaneSample &input, const FrameState &frame) {
+      { Policy::sample(input, frame) } -> std::same_as<float>;
+    };
+}
+
+template <typename Policy, typename FrameState>
+consteval bool spherical_source_policy_callable() {
+  if constexpr (PolicyPrepares<Policy, FrameState>)
+    return requires(const SphereSample &input, const FrameState &frame,
+                    const typename Policy::Prepared &prepared) {
+      { Policy::sample(input, frame, prepared) } -> std::same_as<float>;
+    };
+  else
+    return requires(const SphereSample &input, const FrameState &frame) {
       { Policy::sample(input, frame) } -> std::same_as<float>;
     };
 }
@@ -372,6 +393,49 @@ struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
     const float weighted = WeightPolicyT::apply(raw, input.provenance, frame);
     const FieldSample output = Kernel::sample(
         input, weighted, CoveragePolicyT::apply(input.provenance, frame));
+    Instrumentation::template span<ProfileEvent::MATERIAL>(material_span);
+    return output;
+  }
+};
+
+/**
+ * @brief SPHERE→FIELD crossing: samples a signed spherical field, ramps it,
+ *        and seeds an opaque field carrier.
+ * @tparam SourcePolicyT Scalar source policy over SphereSample.
+ */
+template <typename SourcePolicyT>
+struct SampleSphere
+    : Contract<SampleSphere<SourcePolicyT>, SphereSample, FieldSample> {
+  using Policies = std::tuple<SourcePolicyT>;
+  using SourcePolicy = SourcePolicyT;
+
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::spherical_source_policy_callable<SourcePolicyT,
+                                               typename Binding::FrameState>();
+
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    return Detail::prepare_policy<SourcePolicyT>(frame);
+  }
+
+  template <typename Binding>
+  __attribute__((always_inline)) static FieldSample
+  run(const SphereSample &input, const typename Binding::FrameState &frame,
+      const Detail::PolicyPrepared<SourcePolicyT, typename Binding::FrameState>
+          &prepared) {
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto source_span = Instrumentation::mark();
+    float raw;
+    if constexpr (Detail::PolicyPrepares<SourcePolicyT,
+                                         typename Binding::FrameState>)
+      raw = SourcePolicyT::sample(input, frame, prepared);
+    else
+      raw = SourcePolicyT::sample(input, frame);
+    Instrumentation::template span<ProfileEvent::SOURCE>(source_span);
+    const auto material_span = Instrumentation::mark();
+    const FieldSample output = Kernel::sample(input, raw);
     Instrumentation::template span<ProfileEvent::MATERIAL>(material_span);
     return output;
   }
