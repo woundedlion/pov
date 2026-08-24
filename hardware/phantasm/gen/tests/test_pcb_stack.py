@@ -28,6 +28,13 @@ def declared_layer_names(path):
     return names
 
 
+def declared_layer_types(path):
+    """Canonical layer name -> KiCad layer type from a committed board."""
+    root = sexp.parse(path.read_text(encoding="utf-8"))[0]
+    return {str(entry[1]): str(entry[2])
+            for entry in F(root, "layers")[0][1:]}
+
+
 def stackup_copper():
     """(name, thickness) of every copper layer the emitted stackup declares."""
     root = sexp.parse("(stackup " + " ".join(pcb.STACKUP) + ")")[0]
@@ -70,6 +77,15 @@ class CopperStackTests(unittest.TestCase):
     def test_ground_planes_sit_on_declared_copper(self):
         for name in pcb.GROUND_PLANE_LAYERS:
             self.assertIn(name, pcb.copper_layer_names())
+
+    def test_committed_boards_declare_inner_planes_as_power(self):
+        for board, path in BOARDS.items():
+            types = declared_layer_types(path)
+            with self.subTest(board=board):
+                self.assertEqual(types["F.Cu"], "signal")
+                self.assertEqual(types["B.Cu"], "signal")
+                for name in pcb.GROUND_PLANE_LAYERS:
+                    self.assertEqual(types[name], "power")
 
     def test_every_plotted_copper_layer_is_declared(self):
         plotted = [name for name in fab.GERBER_LAYERS.split(",")
