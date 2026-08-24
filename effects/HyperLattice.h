@@ -526,8 +526,9 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
       TraceCursor &cursor = cursors[axis];
       TraceHit candidate = trace_plane(ray_origin, direction, axis,
                                        cursor.distance, cursor.step, prepared);
-      candidate.coverage *= shell_horizon_coverage(
-          cursor.shell, shell_count, cursor.distance, cursor.magnitude);
+      if (candidate.coverage > 0.0f)
+        candidate.coverage *= shell_horizon_coverage(
+            cursor.shell, shell_count, cursor.distance, cursor.magnitude);
       if (candidate.coverage > layer.coverage)
         layer = candidate;
       ++cursor.shell;
