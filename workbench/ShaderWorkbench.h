@@ -5956,11 +5956,13 @@ private:
     Slots to_slots = to.slots;
     from_slots.palette_mapping = PaletteMapping::LINEAR;
     to_slots.palette_mapping = PaletteMapping::LINEAR;
+    from_slots.warp_program.outer.resource_id = 0;
+    from_slots.warp_program.inner.resource_id = 0;
+    to_slots.warp_program.outer.resource_id = 0;
+    to_slots.warp_program.inner.resource_id = 0;
     return from_slots == to_slots &&
            from.params.source.noise_basis == to.params.source.noise_basis &&
            from.params.source.noise_seed == to.params.source.noise_seed &&
-           from.params.source.noise_resource_id ==
-               to.params.source.noise_resource_id &&
            from.params.value.band_count == to.params.value.band_count &&
            from.params.surface_noise.basis == to.params.surface_noise.basis &&
            from.params.surface_noise.integrator ==
