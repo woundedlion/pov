@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import hashlib
+import io
 import json
 import struct
 import sys
@@ -146,6 +148,30 @@ class ManifestValidation(unittest.TestCase):
         )
         self.assertEqual(runtime["capture_sha"], "a" * 40)
         self.assertEqual(len(runtime["manifest_sha256"]), 64)
+
+    def test_validate_only_runs_header_generation(self):
+        programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
+        broken = copy.deepcopy(oracles)
+        broken[0]["metrics"][0].pop("aggregation")
+        stderr = io.StringIO()
+        with (
+            mock.patch.object(
+                generator,
+                "load_and_validate",
+                return_value=(programs, broken, schema),
+            ),
+            mock.patch.object(
+                sys,
+                "argv",
+                ["generate_pullback_manifest_header.py", "--validate-only"],
+            ),
+            contextlib.redirect_stderr(stderr),
+            self.assertRaises(SystemExit) as caught,
+        ):
+            generator.main()
+        self.assertEqual(caught.exception.code, 2)
+        self.assertIn("header generation failed", stderr.getvalue())
+        self.assertIn("aggregation", stderr.getvalue())
 
     def test_manifest_completeness_is_checked(self):
         programs, _, _ = generator.load_and_validate(MANIFEST_DIR)

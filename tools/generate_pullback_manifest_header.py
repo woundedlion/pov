@@ -490,14 +490,19 @@ def main() -> int:
         programs, oracles, schema = load_and_validate(args.manifest_dir)
     except ManifestError as error:
         parser.error(str(error))
+    header = None
+    if args.validate_only or args.output is not None:
+        try:
+            header = generate_header(programs, oracles, schema)
+        except (KeyError, TypeError) as error:
+            parser.error(f"header generation failed: {error}")
     if args.validate_only:
         return 0
     if args.output is None and args.runtime_output is None:
         parser.error("--output or --runtime-output is required")
     if args.output is not None:
-        output = generate_header(programs, oracles, schema)
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(output, encoding="utf-8", newline="\n")
+        args.output.write_text(header, encoding="utf-8", newline="\n")
     if args.runtime_output is not None:
         if args.capture_sha is None:
             parser.error("--runtime-output requires --capture-sha")
