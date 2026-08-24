@@ -4282,7 +4282,7 @@
 			(at 53.34 76.2 0)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Footprint" ""
+		(property "Footprint" "phantasm:Teensy4.0"
 			(at 53.34 78.74 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)

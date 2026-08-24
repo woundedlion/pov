@@ -178,7 +178,7 @@ MIN_COPPER_POURS = 2
 
 # Parity items KiCad reports on a board that IS in sync with the schematic:
 # the mounting holes have no symbol, the ID/shield jumpers are excluded from
-# the BOM on the board only, and the Teensy symbol carries no footprint field.
+# the BOM on the board only.
 # Anything else means the routed copper predates the current schematic.
 KNOWN_PARITY_ITEMS = {
     ("extra_footprint", "H1"): "Extra footprint",
@@ -189,7 +189,6 @@ KNOWN_PARITY_ITEMS = {
     ("footprint_symbol_mismatch", "JP_ID1"): "Exclude from bill of materials",
     ("footprint_symbol_mismatch", "JP_ID2"): "Exclude from bill of materials",
     ("footprint_symbol_mismatch", "JP_SHLD"): "Exclude from bill of materials",
-    ("footprint_symbol_mismatch", "U_MCU"): "phantasm:Teensy4.0",
 }
 KNOWN_PARITY_WARNING_COUNTS = {
     "lib_footprint_mismatch": 11,

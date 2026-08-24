@@ -490,19 +490,6 @@ class SchematicParityTests(unittest.TestCase):
                 r"extra_footprint: H2 reported 0 times"):
             self.require(entries)
 
-    def test_rejects_known_reference_with_wrong_description(self):
-        entries = [
-            {**entry, "description": "Resistor_SMD:R_0603_1608Metric doesn't "
-                                     "match footprint given by symbol ()"}
-            if entry["items"][0]["description"] == "Footprint U_MCU" else entry
-            for entry in self.KNOWN
-        ]
-
-        with self.assertRaisesRegex(
-                fab.SchematicParityError,
-                r"footprint_symbol_mismatch: U_MCU reported 0 times"):
-            self.require(entries)
-
     def test_rejects_net_drift(self):
         entries = self.KNOWN + [{
             "type": "net_conflict",

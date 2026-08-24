@@ -188,8 +188,7 @@ class TeensyLibraryTests(unittest.TestCase):
 
 
 class SchematicFootprintTests(unittest.TestCase):
-    """A blank Footprint field is the Teensy's marker, so any other symbol that
-    loses one would be embedded as the 37x19 mm through-hole Teensy land."""
+    """Only the legacy Teensy fallback may resolve a blank Footprint field."""
 
     def components(self, text):
         path = Path(self.enterContext(tempfile.TemporaryDirectory())) / "s.kicad_sch"
