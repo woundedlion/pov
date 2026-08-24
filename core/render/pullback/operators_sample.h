@@ -229,8 +229,8 @@ struct SampleSphericalRings {
   using State = SphericalRingsState;
   using Prepared = Source::PreparedSphericalRings;
 
-  static void init(State &state, InstanceId) {
-    init_walk(state.walk, SOURCE_WALK_SEED);
+  static void init(State &state, InstanceId id) {
+    init_walk(state.walk, static_cast<int32_t>(id.stable_hash));
   }
   static Status migrate(State &dst, const State &src, InstanceId) {
     dst = src;
