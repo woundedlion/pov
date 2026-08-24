@@ -30,6 +30,21 @@ BOARD = """(kicad_pcb
 \t(segment (start 0 0) (end 10 0) (width 0.2) (layer "F.Cu") (net "/DATA"))
 )"""
 
+NATIVE_BOARD = (BOARD
+                .replace("\t(layers", '\t(net 1 "/DATA")\n\t(layers')
+                .replace('(net "/DATA"))', '(net 1 "/DATA"))', 2)
+                .replace('(net "/DATA"))', '(net 1))'))
+
+ROUND_PAD_BOARD = """(kicad_pcb
+\t(layers (0 "F.Cu" signal))
+\t(footprint "J"
+\t\t(at 0 0)
+\t\t(property "Reference" "J1")
+\t\t(pad "1" smd circle (at 0 0) (size 2.7 2.7) (layers "F.Cu") (net "/ROUND"))
+\t\t(pad "2" smd circle (at 3.818 0) (size 2.7 2.7) (layers "F.Cu") (net "/ROUND"))
+\t)
+)"""
+
 # A through-hole pad on GND whose only copper is the In1 pour it sits in, with
 # the pour voided around the drill the way KiCad thermally relieves it.
 POUR_BOARD = """(kicad_pcb
@@ -79,6 +94,14 @@ class SyntheticBoardTests(unittest.TestCase):
     def test_deleting_the_track_splits_the_net(self):
         broken = connectivity.opens(drop(parse(BOARD), "segment", "DATA"))
         self.assertEqual(broken, {"DATA": [[("R1", "1")], [("R1", "2")]]})
+
+    def test_native_numeric_net_references_join_named_pads(self):
+        self.assertEqual(connectivity.opens(parse(NATIVE_BOARD)), {})
+
+    def test_round_pads_do_not_bridge_bare_laminate(self):
+        broken = connectivity.opens(parse(ROUND_PAD_BOARD))
+        self.assertEqual(broken,
+                         {"ROUND": [[("J1", "1")], [("J1", "2")]]})
 
     def test_a_pour_carries_through_hole_pads_it_voids_around(self):
         self.assertEqual(connectivity.opens(parse(POUR_BOARD)), {})
