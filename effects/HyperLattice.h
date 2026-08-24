@@ -39,7 +39,7 @@ enum class ColorMode : uint8_t { DEPTH, AXIS };
 enum class ShellCount : uint8_t { ONE, TWO, THREE };
 
 struct Vec4 {
-  float v[DIMENSIONS]{};
+  float v[DIMENSIONS];
 
   constexpr float &operator[](int index) { return v[index]; }
   constexpr float operator[](int index) const { return v[index]; }
@@ -56,11 +56,14 @@ struct Mat4 {
   }
 
   Vec4 apply(const Vec4 &input) const {
-    Vec4 result;
-    for (int row = 0; row < DIMENSIONS; ++row)
-      result[row] = m[row][0] * input[0] + m[row][1] * input[1] +
-                    m[row][2] * input[2] + m[row][3] * input[3];
-    return result;
+    return {{m[0][0] * input[0] + m[0][1] * input[1] + m[0][2] * input[2] +
+                 m[0][3] * input[3],
+             m[1][0] * input[0] + m[1][1] * input[1] + m[1][2] * input[2] +
+                 m[1][3] * input[3],
+             m[2][0] * input[0] + m[2][1] * input[1] + m[2][2] * input[2] +
+                 m[2][3] * input[3],
+             m[3][0] * input[0] + m[3][1] * input[1] + m[3][2] * input[2] +
+                 m[3][3] * input[3]}};
   }
 };
 
@@ -260,9 +263,10 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
                             int plane_axis, float distance,
                             const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_plane_eval);
-  Vec4 point;
-  for (int axis = 0; axis < DIMENSIONS; ++axis)
-    point[axis] = ray_origin[axis] + distance * direction[axis];
+  const Vec4 point{{ray_origin[0] + distance * direction[0],
+                    ray_origin[1] + distance * direction[1],
+                    ray_origin[2] + distance * direction[2],
+                    ray_origin[3] + distance * direction[3]}};
 
   float metric_sq;
   uint8_t free_axis;
@@ -297,10 +301,10 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
 }
 
 struct TraceCursor {
-  float distance = 0.0f;
-  float step = 0.0f;
-  uint8_t shell = 0;
-  bool active = false;
+  float distance;
+  float step;
+  uint8_t shell;
+  bool active;
 };
 
 template <typename ConsumeFn>
@@ -318,16 +322,18 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
   const uint8_t shell_count = static_cast<uint8_t>(prepared.params.shells) + 1;
   TraceCursor cursors[DIMENSIONS];
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
+    TraceCursor &cursor = cursors[axis];
+    cursor.active = false;
     if (axis == 3 && prepared.params.dimension == 0.0f)
       continue;
     const float component = direction[axis];
     const float magnitude = fabsf(component);
     if (magnitude < DIRECTION_EPSILON)
       continue;
-    TraceCursor &cursor = cursors[axis];
     cursor.step = 1.0f / magnitude;
     cursor.distance =
         next_plane_offset(ray_origin[axis], component > 0.0f) * cursor.step;
+    cursor.shell = 0;
     cursor.active = cursor.distance < prepared.params.far_cells;
   }
 
