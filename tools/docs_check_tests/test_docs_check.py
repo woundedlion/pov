@@ -526,6 +526,56 @@ class TestDocumentationChecker(unittest.TestCase):
             (8, "PREDEFINED defines HS_DEAD, which no documented source names"),
         ])
 
+    _PLAYLIST_HEADER = ("#define HS_EFFECT_LIST(X) \\\n"
+                        "  X(Comets)               \\\n"
+                        "  X(Voronoi)\n"
+                        "#define HS_PHANTASM_EFFECT_LIST(X) \\\n"
+                        "  X(Comets, 120)                  \\\n"
+                        "  X(Voronoi,                      \\\n"
+                        "    hs_preset_window_seconds<Voronoi>())\n")
+
+    @staticmethod
+    def _roster_prose(roster, playlist, sync):
+        return (f"The compile-time roster and tests carry {roster} "
+                f"firmware-capable effects. The playlist contains {playlist} "
+                f"effects across the {sync}-entry roster.\n")
+
+    def _roster_issues(self, prose):
+        header = self._PLAYLIST_HEADER
+        return dc.roster_claim_issues(
+            {PurePosixPath("README.md"): prose}, dc.effect_roster(header),
+            dc.phantasm_roster(header))
+
+    def test_phantasm_roster_reads_literal_and_derived_durations(self):
+        self.assertEqual(dc.phantasm_roster(self._PLAYLIST_HEADER),
+                         {"Comets", "Voronoi"})
+
+    def test_matching_roster_prose_is_clean(self):
+        self.assertEqual(
+            self._roster_issues(self._roster_prose(2, 2, 2)), [])
+
+    def test_roster_prose_counts_are_checked_against_the_macros(self):
+        issues = self._roster_issues(self._roster_prose(3, 4, 5))
+        messages = [issue.message for issue in issues]
+        self.assertEqual(len(messages), 3)
+        self.assertIn("stated as 3, HS_EFFECT_LIST names 2", messages[0])
+        self.assertIn("stated as 4, HS_PHANTASM_EFFECT_LIST names 2",
+                      messages[1])
+        self.assertIn("stated as 5, HS_PHANTASM_EFFECT_LIST names 2",
+                      messages[2])
+
+    def test_deleted_roster_prose_is_reported(self):
+        messages = [issue.message for issue in self._roster_issues("none")]
+        self.assertEqual(len(messages), 3)
+        self.assertTrue(all("goes unchecked" in message
+                            for message in messages))
+
+    def test_unreadable_playlist_fails_every_claim(self):
+        issues = dc.roster_claim_issues(
+            {PurePosixPath("README.md"): ""}, {"Comets"}, set())
+        self.assertEqual(len(issues), 1)
+        self.assertIn("no HS_PHANTASM_EFFECT_LIST", issues[0].message)
+
     def test_repository_without_markdown_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
