@@ -4391,50 +4391,16 @@ private:
     return stereo_pattern_args(coords, frame.params.source.pattern_freq);
   }
 
-  /**
-   * @brief Turns the signed source field into a shaped value and a coverage.
-   * @param field Signed source sample, nominally in [-1, 1].
-   * @param projected Projection output; supplies the signal weight, edge
-   *        distance, and out-of-domain coverage.
-   * @param warped Warp output from the coordinate stage.
-   * @param frame Frame snapshot.
-   * @return Value and coverage in [0, 1], plus the surface coordinate.
-   * @details The signal weight scales the signed field before the remap to
-   * [0, 1], so it changes value rather than alpha; coverage is the separate
-   * alpha channel.
-   */
-  HS_FLASH_MEMBER static FieldSample
-  shape_nontrivial_material(float value, const ProjectedLookup &projected,
-                            const PlanarWarpResult &warped,
-                            const FrameState &frame) {
-    switch (frame.slots.value_transfer) {
-    case ValueTransfer::NONE:
-      break;
-    case ValueTransfer::RIDGE:
-      value = unit_bell(value);
-      break;
-    case ValueTransfer::ISO_CONTOUR:
-      value = Pullback::Transfer::iso_contour(
-          value, frame.params.value.iso_level, frame.params.value.iso_width);
-      break;
-    case ValueTransfer::SMOOTH_BANDS:
-      value = Pullback::Transfer::smooth_bands(
-          value, static_cast<float>(frame.params.value.band_count),
-          frame.params.value.band_phase);
-      break;
-    }
+  __attribute__((always_inline)) static float
+  sample_coverage(const ProjectedLookup &projected, const FrameState &frame) {
     float coverage = 1.0f;
     switch (frame.slots.coverage) {
     case CoveragePolicy::OPAQUE:
+    case CoveragePolicy::VALUE_CUTOUT:
       break;
     case CoveragePolicy::PROJECTION_WEIGHT_SQUARED:
       coverage =
           projected.provenance.value_weight * projected.provenance.value_weight;
-      break;
-    case CoveragePolicy::VALUE_CUTOUT:
-      coverage = Pullback::ValueCoverage::value_cutout(
-          value, frame.params.value.cutout_threshold,
-          frame.params.value.cutout_softness);
       break;
     case CoveragePolicy::EDGE_FADE:
       coverage = Pullback::ProjectionCoverage::edge_fade(
@@ -4444,8 +4410,34 @@ private:
       coverage = projected.provenance.value_weight;
       break;
     }
-    coverage *= projected.provenance.domain_coverage;
-    return {value, coverage, projected.sphere, warped.path_length};
+    return coverage;
+  }
+
+  HS_FLASH_MEMBER static FieldSample
+  shape_nontrivial_material(FieldSample sampled, const FrameState &frame) {
+    switch (frame.slots.value_transfer) {
+    case ValueTransfer::NONE:
+      break;
+    case ValueTransfer::RIDGE:
+      sampled.value = unit_bell(sampled.value);
+      break;
+    case ValueTransfer::ISO_CONTOUR:
+      sampled.value = Pullback::Transfer::iso_contour(
+          sampled.value, frame.params.value.iso_level,
+          frame.params.value.iso_width);
+      break;
+    case ValueTransfer::SMOOTH_BANDS:
+      sampled.value = Pullback::Transfer::smooth_bands(
+          sampled.value, static_cast<float>(frame.params.value.band_count),
+          frame.params.value.band_phase);
+      break;
+    }
+    if (frame.slots.coverage != CoveragePolicy::VALUE_CUTOUT)
+      return sampled;
+    return Pullback::Kernel::coverage(
+        sampled, Pullback::ValueCoverage::value_cutout(
+                     sampled.value, frame.params.value.cutout_threshold,
+                     frame.params.value.cutout_softness));
   }
 
   static FieldSample shape_material(float field,
@@ -4455,12 +4447,14 @@ private:
     const float weight = frame.slots.signal_weight == SignalWeight::PROJECTION
                              ? projected.provenance.value_weight
                              : 1.0f;
-    const float value = hs::clamp((field * weight + 1.0f) * 0.5f, 0.0f, 1.0f);
+    const ProjectedLookup sample_input{warped.coords, projected.provenance,
+                                       projected.sphere, warped.path_length};
+    const FieldSample sampled = Pullback::Kernel::sample(
+        sample_input, field * weight, sample_coverage(projected, frame));
     if (frame.slots.value_transfer == ValueTransfer::NONE &&
         frame.slots.coverage == CoveragePolicy::OPAQUE)
-      return {value, projected.provenance.domain_coverage, projected.sphere,
-              warped.path_length};
-    return shape_nontrivial_material(value, projected, warped, frame);
+      return sampled;
+    return shape_nontrivial_material(sampled, frame);
   }
 #endif
 
