@@ -24,9 +24,7 @@ namespace Screen {
  */
 template <int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
-  // Trail points are seeded from and re-emitted into the same band, so they
-  // never sample a neighbor segment.
-  static constexpr bool crosses_segments = false;
+  // Re-emits each point at its own coordinate; never samples the framebuffer.
   static constexpr bool reads_outside_band = false;
 
   /**
