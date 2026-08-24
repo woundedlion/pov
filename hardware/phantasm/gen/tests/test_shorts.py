@@ -212,7 +212,7 @@ class EmptyScanTests(unittest.TestCase):
             path = Path(tmp) / "empty.kicad_sch"
             path.write_text("(kicad_sch)", encoding="utf-8")
             with contextlib.redirect_stderr(io.StringIO()):
-                self.assertNotEqual(shorts.main(["shorts.py", str(path)]), 0)
+                self.assertNotEqual(shorts.main([str(path)]), 0)
 
 
 class UnscannedConnectivityTests(unittest.TestCase):
