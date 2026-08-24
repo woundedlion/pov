@@ -196,6 +196,17 @@ test('the example chain document validates against the catalog', () => {
   assert.deepEqual(validate(example()), []);
 });
 
+test('preset dwell names every preset with a positive duration', () => {
+  const diagnose = (dwell) => {
+    const document = example();
+    document.preset_bank.choreography.dwell = dwell;
+    return validate(document).map((diagnostic) => diagnostic.code);
+  };
+  assert.deepEqual(diagnose({ calm: 600 }), ['INVALID_DWELL']);
+  assert.deepEqual(diagnose({ calm: 600, fast: 0 }), ['INVALID_DWELL']);
+  assert.deepEqual(diagnose({ calm: 600, fast: 600, ghost: 600 }), ['INVALID_DWELL']);
+});
+
 test('unknown semantic fields are rejected', () => {
   const document = example();
   document.descriptor.chain[0].surprise = true;
