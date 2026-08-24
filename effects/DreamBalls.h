@@ -315,7 +315,10 @@ private:
   }};
 
   static constexpr bool preset_in_ranges(const Params &p) {
-    return p.weave_gap >= WEAVE_GAP_MIN && p.weave_gap <= WEAVE_GAP_MAX &&
+    return static_cast<size_t>(p.base_mesh) < SOLID_COUNT &&
+           static_cast<size_t>(p.weave_topology) <
+               std::size(WEAVE_TOPOLOGY_OPTIONS) &&
+           p.weave_gap >= WEAVE_GAP_MIN && p.weave_gap <= WEAVE_GAP_MAX &&
            p.num_copies >= COPIES_MIN && p.num_copies <= COPIES_MAX &&
            p.offset_radius >= RADIUS_MIN && p.offset_radius <= RADIUS_MAX &&
            p.offset_speed >= SPEED_MIN && p.offset_speed <= SPEED_MAX &&
