@@ -564,7 +564,8 @@ private:
     if (!enum_in_range(recipe.hue.mode, HueMode::CUSTOM))
       return fail(status, PaletteCompileCode::INVALID_ENUM,
                   PaletteRecipeField::HUE_MODE);
-    if (!enum_in_range(recipe.hue.harmony, PaletteHarmony::SQUARE))
+    if (recipe.hue.mode == HueMode::HARMONY &&
+        !enum_in_range(recipe.hue.harmony, PaletteHarmony::SQUARE))
       return fail(status, PaletteCompileCode::INVALID_ENUM,
                   PaletteRecipeField::HARMONY);
     if (!enum_in_range(recipe.hue.direction, HueDirection::COUNTERCLOCKWISE))
@@ -607,14 +608,19 @@ private:
 
   static bool validate_finite(const PaletteRecipe &recipe,
                               PaletteCompileStatus &status) {
-    if (!finite(recipe.hue.base_turns, PaletteRecipeField::BASE_TURNS,
-                status) ||
+    if (recipe.hue.mode != HueMode::CUSTOM &&
+        !finite(recipe.hue.base_turns, PaletteRecipeField::BASE_TURNS, status))
+      return false;
+    if (recipe.hue.mode == HueMode::HARMONY &&
         !finite(recipe.hue.spread_turns, PaletteRecipeField::SPREAD_TURNS,
-                status) ||
+                status))
+      return false;
+    if (recipe.hue.mode == HueMode::SWEEP &&
         !finite(recipe.hue.sweep_turns, PaletteRecipeField::SWEEP_TURNS,
                 status))
       return false;
-    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
+    const uint8_t key_count = control_key_count(recipe);
+    for (int i = 0; recipe.hue.mode == HueMode::CUSTOM && i < key_count; ++i) {
       if (!finite(
               recipe.hue.custom_turns[i],
               static_cast<PaletteRecipeField>(
@@ -622,12 +628,14 @@ private:
               status))
         return false;
     }
-    if (!finite(recipe.lightness.center, PaletteRecipeField::LIGHTNESS_CENTER,
-                status) ||
-        !finite(recipe.lightness.range, PaletteRecipeField::LIGHTNESS_RANGE,
-                status))
+    if (recipe.lightness.curve != AxisCurve::CUSTOM &&
+        (!finite(recipe.lightness.center, PaletteRecipeField::LIGHTNESS_CENTER,
+                 status) ||
+         !finite(recipe.lightness.range, PaletteRecipeField::LIGHTNESS_RANGE,
+                 status)))
       return false;
-    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
+    for (int i = 0;
+         recipe.lightness.curve == AxisCurve::CUSTOM && i < key_count; ++i) {
       if (!finite(
               recipe.lightness.custom[i],
               static_cast<PaletteRecipeField>(
@@ -636,11 +644,14 @@ private:
               status))
         return false;
     }
-    if (!finite(recipe.chroma.center, PaletteRecipeField::CHROMA_CENTER,
-                status) ||
-        !finite(recipe.chroma.range, PaletteRecipeField::CHROMA_RANGE, status))
+    if (recipe.chroma.curve != AxisCurve::CUSTOM &&
+        (!finite(recipe.chroma.center, PaletteRecipeField::CHROMA_CENTER,
+                 status) ||
+         !finite(recipe.chroma.range, PaletteRecipeField::CHROMA_RANGE,
+                 status)))
       return false;
-    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
+    for (int i = 0; recipe.chroma.curve == AxisCurve::CUSTOM && i < key_count;
+         ++i) {
       if (!finite(
               recipe.chroma.custom[i],
               static_cast<PaletteRecipeField>(
@@ -649,12 +660,14 @@ private:
               status))
         return false;
     }
-    return finite(recipe.chroma.headroom, PaletteRecipeField::CHROMA_HEADROOM,
-                  status) &&
+    return (recipe.chroma.basis == ChromaBasis::ABSOLUTE ||
+            finite(recipe.chroma.headroom, PaletteRecipeField::CHROMA_HEADROOM,
+                   status)) &&
            finite(recipe.hue_torsion, PaletteRecipeField::HUE_TORSION,
                   status) &&
-           finite(recipe.falloff_start, PaletteRecipeField::FALLOFF_START,
-                  status) &&
+           (recipe.domain != PaletteDomain::FALLOFF ||
+            finite(recipe.falloff_start, PaletteRecipeField::FALLOFF_START,
+                   status)) &&
            finite(recipe.input.offset, PaletteRecipeField::INPUT_OFFSET,
                   status) &&
            finite(recipe.input.span, PaletteRecipeField::INPUT_SPAN, status);
@@ -667,11 +680,70 @@ private:
     if (input.schema_version != PaletteRecipe::SCHEMA_VERSION)
       return fail(status, PaletteCompileCode::INVALID_SCHEMA,
                   PaletteRecipeField::SCHEMA_VERSION);
-    if (!validate_enums(input, status) || !validate_finite(input, status))
+    if (!validate_enums(input, status))
       return false;
 
     PaletteRecipe recipe = input;
     const uint8_t key_count = control_key_count(recipe);
+    const PaletteRecipe defaults;
+    auto canonicalize_field = [&](auto &value, const auto &replacement,
+                                  PaletteRecipeField field) {
+      if (value != replacement) {
+        value = replacement;
+        status.adjustments.canonicalized_fields |= field_bit(field);
+      }
+    };
+    if (recipe.hue.mode != HueMode::HARMONY) {
+      canonicalize_field(recipe.hue.harmony, defaults.hue.harmony,
+                         PaletteRecipeField::HARMONY);
+      canonicalize_field(recipe.hue.spread_turns, defaults.hue.spread_turns,
+                         PaletteRecipeField::SPREAD_TURNS);
+    }
+    if (recipe.hue.mode == HueMode::CUSTOM)
+      canonicalize_field(recipe.hue.base_turns, defaults.hue.base_turns,
+                         PaletteRecipeField::BASE_TURNS);
+    if (recipe.hue.mode != HueMode::SWEEP)
+      canonicalize_field(recipe.hue.sweep_turns, defaults.hue.sweep_turns,
+                         PaletteRecipeField::SWEEP_TURNS);
+    for (int i = recipe.hue.mode == HueMode::CUSTOM ? key_count : 0;
+         i < PALETTE_MAX_KEYS; ++i)
+      canonicalize_field(
+          recipe.hue.custom_turns[i], defaults.hue.custom_turns[i],
+          static_cast<PaletteRecipeField>(
+              static_cast<uint8_t>(PaletteRecipeField::CUSTOM_TURNS_0) + i));
+    if (recipe.lightness.curve == AxisCurve::CUSTOM) {
+      canonicalize_field(recipe.lightness.center, defaults.lightness.center,
+                         PaletteRecipeField::LIGHTNESS_CENTER);
+      canonicalize_field(recipe.lightness.range, defaults.lightness.range,
+                         PaletteRecipeField::LIGHTNESS_RANGE);
+    }
+    for (int i = recipe.lightness.curve == AxisCurve::CUSTOM ? key_count : 0;
+         i < PALETTE_MAX_KEYS; ++i)
+      canonicalize_field(
+          recipe.lightness.custom[i], defaults.lightness.custom[i],
+          static_cast<PaletteRecipeField>(
+              static_cast<uint8_t>(PaletteRecipeField::LIGHTNESS_CUSTOM_0) +
+              i));
+    if (recipe.chroma.curve == AxisCurve::CUSTOM) {
+      canonicalize_field(recipe.chroma.center, defaults.chroma.center,
+                         PaletteRecipeField::CHROMA_CENTER);
+      canonicalize_field(recipe.chroma.range, defaults.chroma.range,
+                         PaletteRecipeField::CHROMA_RANGE);
+    }
+    for (int i = recipe.chroma.curve == AxisCurve::CUSTOM ? key_count : 0;
+         i < PALETTE_MAX_KEYS; ++i)
+      canonicalize_field(
+          recipe.chroma.custom[i], defaults.chroma.custom[i],
+          static_cast<PaletteRecipeField>(
+              static_cast<uint8_t>(PaletteRecipeField::CHROMA_CUSTOM_0) + i));
+    if (recipe.domain != PaletteDomain::FALLOFF)
+      canonicalize_field(recipe.falloff_start, defaults.falloff_start,
+                         PaletteRecipeField::FALLOFF_START);
+    if (recipe.chroma.basis == ChromaBasis::ABSOLUTE)
+      canonicalize_field(recipe.chroma.headroom, 1.0f,
+                         PaletteRecipeField::CHROMA_HEADROOM);
+    if (!validate_finite(recipe, status))
+      return false;
     clamp_field(recipe.input.offset, 0.0f, 1.0f,
                 PaletteRecipeField::INPUT_OFFSET, status);
     clamp_field(recipe.input.span, 0.0f, 1.0f - recipe.input.offset,
@@ -685,11 +757,12 @@ private:
     }
     clamp_field(recipe.hue.spread_turns, 0.0f, 0.25f,
                 PaletteRecipeField::SPREAD_TURNS, status);
-    if (fabsf(recipe.hue.sweep_turns) > MAX_SWEEP_TURNS)
+    if (recipe.hue.mode == HueMode::SWEEP &&
+        fabsf(recipe.hue.sweep_turns) > MAX_SWEEP_TURNS)
       return fail(status, PaletteCompileCode::HUE_LIMIT,
                   PaletteRecipeField::SWEEP_TURNS);
 
-    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
+    for (int i = 0; recipe.hue.mode == HueMode::CUSTOM && i < key_count; ++i) {
       if (fabsf(recipe.hue.custom_turns[i]) > MAX_CUSTOM_ABS_INPUT)
         return fail(
             status, PaletteCompileCode::HUE_LIMIT,
