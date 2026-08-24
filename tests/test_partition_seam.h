@@ -299,11 +299,11 @@ inline SeamStats compare(const std::vector<Pixel> &a,
  * pixel instead. Every bound is two-sided around its measured value: a widened
  * band and a collapsed seam — children that no longer partition the parent, and
  * so leave the capture untouched — are both out of envelope. Each swap's
- * changed fraction is bracketed by its own measured value plus or minus two
- * percentage points, enough for rounding drift either way. Fraction and energy
+ * changed fraction is bracketed within ten percent of its measured value.
+ * Fraction and energy
  * both count only pixels past DELTA_THRESH, so a uniform sub-threshold shift is
  * invisible to the gate. */
-constexpr double CHANGED_FRAC_MARGIN = 0.02;
+constexpr double CHANGED_FRAC_RELATIVE_MARGIN = 0.10;
 constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
 constexpr double MEASURED_CHANGED_FRAC_KIS_CUBE = 0.1019;
 constexpr double MEASURED_CHANGED_FRAC_KIS_DODECA = 0.1448;
@@ -330,13 +330,14 @@ constexpr float MIN_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA - PIXEL_DELTA_MARGIN;
  * @brief Asserts one swap's statistics against the gated-swap envelope.
  * @param st Statistics of the swap.
  * @param measured_changed_frac The swap's calibrated changed fraction; its
- *        bracket is that plus or minus CHANGED_FRAC_MARGIN.
+ *        bracket is that value plus or minus CHANGED_FRAC_RELATIVE_MARGIN.
  */
 inline void expect_within_envelope(const SeamStats &st,
                                    double measured_changed_frac) {
   const double frac = st.changed / (double(PS_W) * PS_H);
-  HS_EXPECT_LE(frac, measured_changed_frac + CHANGED_FRAC_MARGIN);
-  HS_EXPECT_GE(frac, measured_changed_frac - CHANGED_FRAC_MARGIN);
+  const double margin = measured_changed_frac * CHANGED_FRAC_RELATIVE_MARGIN;
+  HS_EXPECT_LE(frac, measured_changed_frac + margin);
+  HS_EXPECT_GE(frac, measured_changed_frac - margin);
   HS_EXPECT_LE(st.abs_energy, MAX_ABS_ENERGY);
   HS_EXPECT_GE(st.abs_energy, MIN_ABS_ENERGY);
   HS_EXPECT_LE(st.max_dark, MAX_PIXEL_DELTA);
