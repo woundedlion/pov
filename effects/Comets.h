@@ -89,16 +89,17 @@ public:
         Animation::Motion<W, ORIENTATION_SUBSTEPS>(
             node->orientation, path, (int)params.cycle_duration, true),
         Timeline::Pin::PINNED);
-    cycle_timer = timeline.add_get(0,
-                                   Animation::PeriodicTimer(
-                                       2 * (int)params.cycle_duration,
-                                       [this](Canvas &) {
-                                         const bool advanced = advancePreset();
-                                         HS_CHECK(advanced);
-                                         update_palette();
-                                       },
-                                       true),
-                                   Timeline::Pin::PINNED, &anims_paused);
+    cycle_timer = timeline.add_get(
+        0,
+        Animation::PeriodicTimer(
+            2 * (int)params.cycle_duration,
+            [this](Canvas &) {
+              const bool advanced = advancePreset();
+              HS_CHECK(advanced, "Comets preset advance failed");
+              update_palette();
+            },
+            true),
+        Timeline::Pin::PINNED, &anims_paused);
   }
 
   /**
