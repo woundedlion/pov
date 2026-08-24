@@ -35,8 +35,8 @@ struct SphericalHarmonicsWhiteBox;
 template <int W, int H> class SphericalHarmonics : public Effect {
 public:
   static constexpr std::array<std::string_view, 24> PRESET_IDS{
-      "sh-l1-m-1", "sh-l1-m0",  "sh-l1-m1",  "sh-l2-m-2", "sh-l2-m-1",
-      "sh-l2-m0",  "sh-l2-m1",  "sh-l2-m2",  "sh-l3-m-3", "sh-l3-m-2",
+      "sh-l2-m0",  "sh-l1-m-1", "sh-l1-m0",  "sh-l1-m1",  "sh-l2-m-2",
+      "sh-l2-m-1", "sh-l2-m1",  "sh-l2-m2",  "sh-l3-m-3", "sh-l3-m-2",
       "sh-l3-m-1", "sh-l3-m0",  "sh-l3-m1",  "sh-l3-m2",  "sh-l3-m3",
       "sh-l4-m-4", "sh-l4-m-3", "sh-l4-m-2", "sh-l4-m-1", "sh-l4-m0",
       "sh-l4-m1",  "sh-l4-m2",  "sh-l4-m3",  "sh-l4-m4"};
@@ -106,7 +106,6 @@ public:
     baked_palette.bake(persistent_arena, Palettes::RICH_SUNSET);
 
     current_idx = SEED_MODE_IDX;
-    HS_CHECK(synchronizePreset(SEED_MODE_IDX - 1));
 
     Vector axis = Vector(0.5f, 1.0f, 0.2f).normalized();
     timeline.add(0, Animation::Rotation<W>(orientation, axis,
@@ -180,9 +179,22 @@ public:
   }
 
 private:
+  static constexpr int mode_index_for_preset(size_t preset_index) {
+    if (preset_index == 0)
+      return SEED_MODE_IDX;
+    return static_cast<int>(preset_index) +
+           (preset_index < static_cast<size_t>(SEED_MODE_IDX) ? 0 : 1);
+  }
+
+  static constexpr size_t preset_index_for_mode(int mode_index) {
+    if (mode_index == SEED_MODE_IDX)
+      return 0;
+    return static_cast<size_t>(mode_index - (mode_index > SEED_MODE_IDX));
+  }
+
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     ++morph_generation;
-    current_idx = static_cast<int>(change.to) + 1;
+    current_idx = mode_index_for_preset(change.to);
     next_idx = current_idx;
     morph_alpha = 0.0f;
     return true;
@@ -232,7 +244,7 @@ private:
               }
               current_idx = next_idx;
               morph_alpha = 0.0f;
-              HS_CHECK(synchronizePreset(current_idx - 1));
+              HS_CHECK(synchronizePreset(preset_index_for_mode(current_idx)));
               start_morph();
             }),
         &anims_paused);
