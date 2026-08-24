@@ -4016,11 +4016,24 @@ private:
         frame.params.projection.singularity_fade);
   }
 
+  static constexpr Pullback::Projection::GnomonicHemisphere
+  pullback_gnomonic_hemisphere(GnomonicHemispherePolicy policy) {
+    switch (policy) {
+    case GnomonicHemispherePolicy::FOLDED:
+      return Pullback::Projection::GnomonicHemisphere::FOLDED;
+    case GnomonicHemispherePolicy::FRONT_HEMISPHERE:
+      return Pullback::Projection::GnomonicHemisphere::FRONT;
+    case GnomonicHemispherePolicy::BACK_HEMISPHERE:
+      return Pullback::Projection::GnomonicHemisphere::BACK;
+    }
+    __builtin_unreachable();
+  }
+
   HS_FLASH_MEMBER static Pullback::ProjectionResult
   project_gnomonic(const Vector &local, const FrameState &frame) {
-    return finalize_projection(local, gnomonic(local), Projection::GNOMONIC,
-                               frame.params.projection.singularity_fade,
-                               frame.slots.gnomonic_hemisphere);
+    return Pullback::Projection::gnomonic(
+        local, frame.params.projection.singularity_fade,
+        pullback_gnomonic_hemisphere(frame.slots.gnomonic_hemisphere));
   }
 
   HS_FLASH_MEMBER static Pullback::ProjectionResult
@@ -4724,10 +4737,9 @@ private:
   }
 
   HS_FLASH_MEMBER static Complex gnomonic(const Vector &v) {
-    float y = v.y;
-    if (std::fabs(y) < GNOMONIC_AXIS_EPS)
-      y = y < 0.0f ? -GNOMONIC_AXIS_EPS : GNOMONIC_AXIS_EPS;
-    return {v.x / y, v.z / y};
+    return Pullback::Projection::gnomonic(
+               v, 0.0f, Pullback::Projection::GnomonicHemisphere::FOLDED)
+        .coords;
   }
 
   HS_FLASH_MEMBER static float sample_function(Function function,
