@@ -497,8 +497,7 @@ private:
    * @param max_delta Per-frame surface-rotation cap (radians), one display
    * column wide; the move below clamps to it so a fast particle never jumps more
    * than one column per frame (trail/motion-blur aliasing).
-   * @return True once the particle is dead AND its trail has fully drained (so
-   * the caller can remove it).
+   * @return True once the particle is dead, so the caller can remove it.
    * @details Ages, drags velocity, applies attractor gravity/steering, rotates
    * position+velocity along the surface, and updates the trail.
    *
@@ -650,15 +649,9 @@ private:
       } else if ((age - 1) % TRAIL_SAMPLE_STRIDE_ == 0) {
         p.history.record(p.position);
       }
-    } else {
-      if (p.history.length() > 0) {
-        p.history.expire();
-      }
     }
 
-    // Reclaimable only once dead AND the trail has drained, so a killed particle
-    // holds its slot for up to TRAIL_LEN more frames — size CAPACITY accordingly.
-    return !active && p.history.length() == 0;
+    return !active;
   }
 };
 
