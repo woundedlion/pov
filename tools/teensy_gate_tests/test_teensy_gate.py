@@ -461,6 +461,11 @@ class TestBudgetSchema(unittest.TestCase):
              ["max_banks_from_stack_floor"]["bank_bytes"])
         with self.assertRaises(tg.BudgetSchemaError):
             self._load(no_bank)
+        no_headroom = copy.deepcopy(BUDGETS)
+        del (no_headroom["phantasm"]["regions"]["ram1"]["components"]["code"]
+             ["max_banks_from_stack_floor"]["min_headroom_bytes"])
+        with self.assertRaises(tg.BudgetSchemaError):
+            self._load(no_headroom)
 
     def test_boundary_headroom_must_be_a_non_negative_integer(self):
         for value in (-1, 1.5, True):
@@ -596,8 +601,8 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         # test class (TestLayoutInvariantsFail).
         budget = copy.deepcopy(BUDGETS["phantasm"])
         budget.pop("symbols", None)
-        del (budget["regions"]["ram1"]["components"]["code"]
-             ["max_banks_from_stack_floor"]["min_headroom_bytes"])
+        (budget["regions"]["ram1"]["components"]["code"]
+         ["max_banks_from_stack_floor"]["min_headroom_bytes"]) = 0
         return budget
 
     def _eval_ts(self, text, budget=None):
@@ -632,17 +637,18 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         self.assertIn("component-over-derived-ceiling", _codes(over))
 
     def test_shipping_budget_reserves_boundary_headroom(self):
-        budget = self._budget()
+        budget = copy.deepcopy(BUDGETS["phantasm"])
+        budget.pop("symbols", None)
         derived = (budget["regions"]["ram1"]["components"]["code"]
                    ["max_banks_from_stack_floor"])
-        derived["min_headroom_bytes"] = 648
-        at = self._eval_ts(self._ts(312704, 195960, 14976), budget)
+        self.assertEqual(derived["min_headroom_bytes"], 3072)
+        at = self._eval_ts(self._ts(312704, 193536, 14976), budget)
         self.assertTrue(at.passed, msg=_codes(at))
-        short = self._eval_ts(self._ts(312704, 195961, 14976), budget)
+        short = self._eval_ts(self._ts(312704, 193537, 14976), budget)
         self.assertIn("component-over-derived-ceiling", _codes(short))
         message = next(v.message for v in short.violations
                        if v.code == "component-over-derived-ceiling")
-        self.assertIn("648 B of boundary headroom", message)
+        self.assertIn("3,072 B of boundary headroom", message)
 
     def test_variables_crossing_a_bank_shrinks_the_ceiling(self):
         # variables 315,392 + 12,288 = 327,680 = exactly 10 banks -> ceiling

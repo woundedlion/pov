@@ -558,7 +558,8 @@ _REGION_KEYS = frozenset({"max_bytes", "free_min_bytes", "components"})
 _COMPONENT_KEYS = frozenset({"max_bytes", "max_banks_from_stack_floor"})
 _DERIVED_KEYS = frozenset(
     {"bank_bytes", "total_banks", "min_headroom_bytes"})
-_DERIVED_REQUIRED_KEYS = frozenset({"bank_bytes", "total_banks"})
+_DERIVED_REQUIRED_KEYS = frozenset(
+    {"bank_bytes", "total_banks", "min_headroom_bytes"})
 _SYMBOL_KEYS = frozenset({"name", "region", "min_bytes", "max_bytes"})
 
 # Keys whose absence would leave the enclosing object schema-valid but inert:
