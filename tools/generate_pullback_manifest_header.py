@@ -343,6 +343,9 @@ def _validate_oracle(document: dict, path: Path) -> None:
                      f"{path}: only framebuffer metrics have configuration baselines")
     _require("FRAMEBUFFER" in domains,
              f"{path}: a final-framebuffer metric is required")
+    _require(any(metric.get("domain") == "FRAMEBUFFER" and
+                 metric.get("aggregation") == "MAXIMUM" for metric in metrics),
+             f"{path}: a FRAMEBUFFER/MAXIMUM metric is required")
 
 
 def _validate_schema_shape(schema: dict, path: Path) -> None:

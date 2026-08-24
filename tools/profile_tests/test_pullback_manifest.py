@@ -145,6 +145,19 @@ def _staged_manifest():
         yield staged
 
 
+def _replace_framebuffer_maximum(manifest_dir):
+    for path in manifest_dir.glob("*.json"):
+        if path.name in {"schema.json", "programs.json"}:
+            continue
+        oracle = generator._load(path)
+        for metric in oracle["metrics"]:
+            if (metric["domain"], metric["aggregation"]) == (
+                "FRAMEBUFFER", "MAXIMUM"
+            ):
+                metric["aggregation"] = "MEAN"
+        path.write_text(json.dumps(oracle), encoding="utf-8")
+
+
 class ManifestValidation(unittest.TestCase):
     def test_generator_main_returns_success_for_validation(self):
         self.assertEqual(generator.main([
@@ -353,6 +366,46 @@ class ManifestValidation(unittest.TestCase):
             path.write_text(json.dumps(broken), encoding="utf-8")
             with self.assertRaisesRegex(generator.ManifestError, "aggregate"):
                 generator.load_and_validate(manifest_dir)
+
+    def test_framebuffer_maximum_is_required(self):
+        with _staged_manifest() as manifest_dir:
+            _replace_framebuffer_maximum(manifest_dir)
+            with self.assertRaisesRegex(generator.ManifestError,
+                                        "FRAMEBUFFER/MAXIMUM"):
+                generator.load_and_validate(manifest_dir)
+
+    def test_capture_reports_missing_framebuffer_maximum(self):
+        with _staged_manifest() as manifest_dir:
+            _replace_framebuffer_maximum(manifest_dir)
+            stderr = io.StringIO()
+            with (
+                mock.patch.object(sys, "argv", [
+                    "pullback_capture.py",
+                    "--manifest-dir", str(manifest_dir),
+                    "--operations-output", str(manifest_dir / "operations.txt"),
+                ]),
+                contextlib.redirect_stderr(stderr),
+                self.assertRaises(SystemExit) as caught,
+            ):
+                capture.main()
+            self.assertEqual(caught.exception.code, 2)
+            self.assertIn("FRAMEBUFFER/MAXIMUM", stderr.getvalue())
+
+    def test_crosscheck_reports_missing_framebuffer_maximum(self):
+        with _staged_manifest() as manifest_dir:
+            _replace_framebuffer_maximum(manifest_dir)
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                status = crosscheck.main([
+                    "compare",
+                    "--manifest-dir", str(manifest_dir),
+                    "--base", str(manifest_dir / "base.json"),
+                    "--candidate", str(manifest_dir / "candidate.json"),
+                    "--base-sha", "a" * 40,
+                    "--candidate-sha", "b" * 40,
+                ])
+            self.assertEqual(status, 1)
+            self.assertIn("FRAMEBUFFER/MAXIMUM", stderr.getvalue())
 
 
 class CaptureComparison(unittest.TestCase):
