@@ -367,7 +367,7 @@ jobs:
           -R "^unit_(canvas|pov_segmented)$"
 
   optimized-tests:
-    name: Native unit tests (Clang, -O2) / shard ${{ matrix.shard }}
+    name: Native unit tests (Clang, optimized) / shard ${{ matrix.shard }}
     strategy:
       fail-fast: false
       matrix:
@@ -387,6 +387,7 @@ jobs:
           - shard: fastmath
             test_regex: "."
             effects_full: 1
+            optimization: -Os -g
             # These modules contain IEEE-sensitive reference or assertion-count
             # checks. The exclusions are anchored, so unit_effects_smoke — the
             # roster-wide smoke, cross-run determinism and clip-clear parity
@@ -457,7 +458,7 @@ jobs:
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g ${{ matrix.float_flags }}"
+          "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${{ matrix.optimization || '-O2 -g' }} ${{ matrix.float_flags }}"
           -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
