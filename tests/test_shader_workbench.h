@@ -666,9 +666,6 @@ struct ShaderWorkbenchWhiteBox {
     return SB::finalize_projection(v, coords, projection, singularity_fade,
                                    hemisphere);
   }
-  static void canonicalize_mobius(MobiusParams &params) {
-    SB::canonicalize_mobius(params);
-  }
   static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
                              NoiseBasis basis, float scale, float time) {
     return SB::curl_vector(p, noise, basis, scale, time);
@@ -4795,23 +4792,6 @@ inline void test_shader_workbench_projection_and_admission_contracts() {
   HS_EXPECT_TRUE(WB::valid_config(bonne));
 
   MobiusParams mobius(1.0f, 0.2f, 0.3f, -0.1f, -0.2f, 0.1f, 0.9f, -0.15f);
-  WB::canonicalize_mobius(mobius);
-  const Complex coefficients[] = {mobius.a, mobius.b, mobius.c, mobius.d};
-  float norm_sq = 0.0f;
-  size_t pivot = 0;
-  float pivot_magnitude = 0.0f;
-  for (size_t index = 0; index < std::size(coefficients); ++index) {
-    const float magnitude = coefficients[index].re * coefficients[index].re +
-                            coefficients[index].im * coefficients[index].im;
-    norm_sq += magnitude;
-    if (magnitude > pivot_magnitude) {
-      pivot_magnitude = magnitude;
-      pivot = index;
-    }
-  }
-  HS_EXPECT_NEAR(norm_sq, 1.0f, 2e-5f);
-  HS_EXPECT_NEAR(coefficients[pivot].im, 0.0f, 2e-5f);
-  HS_EXPECT_GT(coefficients[pivot].re, 0.0f);
   WB::RequestedConfig mobius_config = WB::legacy_config();
   mobius_config.slots.surface_lens = WB::SurfaceLens::MOBIUS;
   mobius_config.params.surface_lens.mobius = mobius;

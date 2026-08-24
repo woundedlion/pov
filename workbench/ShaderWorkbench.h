@@ -4963,29 +4963,6 @@ private:
     rebind_parameters();
   }
 
-  static void canonicalize_mobius(MobiusParams &params) {
-    Complex *coefficients[] = {&params.a, &params.b, &params.c, &params.d};
-    Complex pivot = params.a;
-    float pivot_magnitude_sq = pivot.re * pivot.re + pivot.im * pivot.im;
-    float norm_sq = pivot_magnitude_sq;
-    for (size_t index = 1; index < std::size(coefficients); ++index) {
-      const Complex candidate = *coefficients[index];
-      const float magnitude_sq =
-          candidate.re * candidate.re + candidate.im * candidate.im;
-      norm_sq += magnitude_sq;
-      if (magnitude_sq > pivot_magnitude_sq) {
-        pivot = candidate;
-        pivot_magnitude_sq = magnitude_sq;
-      }
-    }
-    if (norm_sq == 0.0f || pivot_magnitude_sq == 0.0f)
-      return;
-    const float factor = 1.0f / sqrtf(norm_sq * pivot_magnitude_sq);
-    const Complex inverse(pivot.re * factor, -pivot.im * factor);
-    for (Complex *coefficient : coefficients)
-      *coefficient = *coefficient * inverse;
-  }
-
   HS_COLD_MEMBER bool try_apply_config(const Config &candidate,
                                        uint16_t duration, bool staggered,
                                        bool continue_choreo) {
