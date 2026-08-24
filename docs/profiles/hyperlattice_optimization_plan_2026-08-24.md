@@ -2,12 +2,94 @@
 
 ## Outcome
 
-HyperLattice needs an algorithmic optimization, not a compiler-flag change.
-The full-cycle shipping capture peaks at **172.06 ms render time** and spills
-all 2,672 frames. Global `-O3` lowers the peak to **148.24 ms** and still
-spills all 2,816 frames. Reaching 59 ms therefore requires a **2.92x shipping
-speedup** at the measured worst case; even the non-shippable global-`O3`
-ceiling still needs **2.51x**.
+The quality-neutral implementation pass cuts the full-cycle shipping peak from
+**172.06 ms to 81.21 ms**, a **52.8% reduction**. It preserves the render
+algorithm and deterministic output signature, but does not reach the strict
+59 ms target. The remaining full-cycle gap is **22.21 ms**, or **27.3% of the
+current render time**.
+
+Work stopped at that boundary. No sample reduction, shell reduction,
+approximate distance function, altered coverage curve, perceptual pruning, or
+mixed-resolution rendering has been applied. Continuing toward 59 ms now
+requires explicit approval for a visual-error budget.
+
+### Exact-only implementation result
+
+All measurements below are shipping builds on the same Teensy 4.0 at 600 MHz,
+using 16-frame windows and the real segmented POV driver.
+
+| Capture | Before | After | Reduction |
+|---|---:|---:|---:|
+| Full four-preset cycle, worst-window mean | 172.06 ms | 81.21 ms | 52.8% |
+| Fixed preset 3, worst-window mean | 149.24 ms | 71.84 ms | 51.9% |
+
+The final fixed-preset sweep separates steady-state cost from transition cost:
+
+| Preset | Worst-window mean | Maximum frame |
+|---:|---:|---:|
+| 0 `cubic-flight` | 41.63 ms | 41.92 ms |
+| 1 `deep-grid` | 54.84 ms | 55.83 ms |
+| 2 `dimensional-rift` | 56.28 ms | 60.11 ms |
+| 3 `hypercube-flight` | 71.84 ms | 72.35 ms |
+| Full cycle, including transitions | **81.21 ms** | **81.87 ms** |
+
+Raw final captures:
+
+- `build/prof/hyperlattice_exact_preset0_ship.log`
+- `build/prof/hyperlattice_exact_preset1_ship.log`
+- `build/prof/hyperlattice_exact_preset2_ship.log`
+- `build/prof/hyperlattice_exact_final_preset3_ship.log`
+- `build/prof/hyperlattice_exact_final_full_cycle_ship.log`
+
+The accepted changes remove redundant construction, inline exact coverage and
+coordinate transforms, use the opaque palette path, fuse transitional metrics,
+reuse direction reciprocals, specialize periodic coordinate evaluation, unroll
+the fixed-size edge metrics and event minimum, precompute frame invariants, and
+fuse layer compositing into the cached-flash shader. The deterministic native
+render signature covers every preset with multiple origins, rotations, and ray
+directions; all 74 HyperLattice tests pass. The final Phantasm release image
+also passes the Teensy memory gate at 190,600 bytes of RAM1 code, leaving 2,936
+bytes below the 193,536-byte derived ceiling.
+
+Code generation, not source-level operation count alone, constrained the final
+pass. Inlining layer compositing moved the complete hot shader into
+`Scan::Shader::draw_cached` in cached flash and produced the largest late-stage
+gain, from 80.74 ms to 72.74 ms on fixed preset 3. Conversely, compile-time
+dispatch of the 4D kernel removed runtime branches but expanded the generated
+path and regressed the same capture to 88.86 ms. Two alternative ordered-event
+schedulers, a sentinel cursor layout, partial metric bounds, forced outlining,
+and broader optimization attributes also regressed or were neutral and were
+discarded.
+
+### Permission-gated continuation plan
+
+If a visual-error budget is approved, evaluate changes one at a time in this
+order:
+
+1. Replace the square-root wire-distance ramp with a fitted squared-distance
+   ramp. This removes roughly one square root per evaluated plane while keeping
+   geometry and sampling unchanged.
+2. Add a conservative contribution cutoff based on remaining transmittance,
+   fog, and the minimum encodable output alpha. This may omit contributions
+   that cannot normally survive quantization, but it is not mathematically
+   identical to the current floating-point composite.
+3. Render only distant shells at 2x2 resolution and bilinearly reconstruct
+   their premultiplied contribution. Keep the nearest shell at full resolution
+   and widen its distant AA footprint consistently.
+
+For each candidate, compare all presets and transitions against the pinned
+reference with per-channel error histograms, changed-pixel counts, temporal
+difference captures, and side-by-side on-device video. Accept a candidate only
+after the visual threshold is agreed and two full 380-second captures both
+remain below 59.0 ms. Uniform whole-frame resolution reduction is a fallback,
+not the first recommendation.
+
+## Original analysis and implementation rationale
+
+The original profile showed that HyperLattice needed an algorithmic
+optimization, not a compiler-flag change. The full-cycle shipping capture
+peaked at 172.06 ms render time and spilled all 2,672 frames. Global `-O3`
+lowered the peak to 148.24 ms and still spilled all 2,816 frames.
 
 The deep capture attributes the work to two multiplicative terms:
 
