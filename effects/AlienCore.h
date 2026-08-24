@@ -19,6 +19,11 @@ using AlienCoreSpec =
                    Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::EDGE_FADE>;
 
+/**
+ * @brief A mirrored grid folded by the glitch lens.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class AlienCore : public Pullback::ComposedEffect<
                       W, H, AlienCore<W, H>, AlienCoreParams, AlienCoreSpec,

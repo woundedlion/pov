@@ -19,6 +19,11 @@ using CosmicEyeballSpec =
                    Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::EDGE_FADE>;
 
+/**
+ * @brief A high-contrast mirrored grid with displacement-driven hue.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class CosmicEyeball
     : public Pullback::ComposedEffect<

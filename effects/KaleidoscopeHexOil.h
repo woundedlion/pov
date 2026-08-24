@@ -20,6 +20,11 @@ using KaleidoscopeHexOilSpec =
                    Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
+/**
+ * @brief A rotating spiral folded through a hexagonal prism kaleidoscope.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class KaleidoscopeHexOil
     : public Pullback::ComposedEffect<

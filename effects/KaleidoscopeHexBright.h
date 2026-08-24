@@ -19,6 +19,11 @@ using KaleidoscopeHexBrightSpec =
                    Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
+/**
+ * @brief A twin wave folded through a hexagonal prism.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class KaleidoscopeHexBright
     : public Pullback::ComposedEffect<

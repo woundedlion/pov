@@ -19,6 +19,11 @@ using KaleidoscopePentBrightSpec =
                    Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
+/**
+ * @brief A polar lattice folded through a pentagonal prism.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class KaleidoscopePentBright
     : public Pullback::ComposedEffect<

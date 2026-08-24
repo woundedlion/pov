@@ -19,6 +19,11 @@ using KaleidoscopeStainedGlassSpec =
                    Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
+/**
+ * @brief A vector-noise grid refracted across dodecahedral facets.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class KaleidoscopeStainedGlass
     : public Pullback::ComposedEffect<

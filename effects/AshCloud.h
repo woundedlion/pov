@@ -20,6 +20,11 @@ using AshCloudSpec = Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                                     Pullback::CoverageKind::PROJECTION,
                                     Pullback::FieldCoverageKind::VALUE_CUTOUT>;
 
+/**
+ * @brief A softly cut lattice curled across dodecahedral facets.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class AshCloud : public Pullback::ComposedEffect<
                      W, H, AshCloud<W, H>, AshCloudParams, AshCloudSpec,

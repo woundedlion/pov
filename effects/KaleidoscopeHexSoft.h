@@ -18,6 +18,11 @@ using KaleidoscopeHexSoftSpec =
                    Pullback::Lens::Kaleidoscope, Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
+/**
+ * @brief A drifting twin wave reflected through a kaleidoscope.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class KaleidoscopeHexSoft
     : public Pullback::ComposedEffect<
