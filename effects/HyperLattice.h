@@ -259,6 +259,7 @@ struct TraceHit {
 inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
                             int plane_axis, float distance,
                             const PreparedTrace &prepared) {
+  HS_PROFILE_DEEP(hl_plane_eval);
   Vec4 point;
   for (int axis = 0; axis < DIMENSIONS; ++axis)
     point[axis] = ray_origin[axis] + distance * direction[axis];
@@ -305,6 +306,7 @@ struct TraceCursor {
 template <typename ConsumeFn>
 inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
                          ConsumeFn consume) {
+  HS_PROFILE_DEEP(hl_trace_layers);
   constexpr float GROUP_EPSILON = 1.0e-4f;
   const Vec4 surface_normal =
       prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
@@ -330,6 +332,7 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
   }
 
   for (int event = 0; event < DIMENSIONS * MAX_SHELLS; ++event) {
+    HS_PROFILE_DEEP(hl_event_step);
     float nearest = prepared.params.far_cells;
     for (const TraceCursor &cursor : cursors)
       if (cursor.active && cursor.distance < nearest)
@@ -400,8 +403,10 @@ struct LayerComposite {
 
 inline Color4 shade(const Pullback::SphereSample &input,
                     const FrameState &frame, const PreparedTrace &prepared) {
+  HS_PROFILE_DEEP(hl_shade);
   LayerComposite composite;
   trace_layers(input.dir, prepared, [&](const TraceHit &hit) {
+    HS_PROFILE_DEEP(hl_layer_composite);
     const float path_length = input.path_length + hit.distance;
     const float depth = hs::clamp(path_length * prepared.inv_far, 0.0f, 1.0f);
     const float value =
@@ -572,6 +577,17 @@ public:
       });
     }
   }
+
+#if HS_ENABLE_EFFECT_CONTROL_API
+  void profile_select_preset(size_t index) {
+    HS_CHECK(index < PRESET_IDS.size(),
+             "HyperLattice profile preset index out of range");
+    HS_CHECK(this->selectPreset(index),
+             "HyperLattice profile preset selection failed");
+    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
+            static_cast<unsigned>(PRESET_IDS.size()));
+  }
+#endif
 
 private:
   using Choreography::begin_automatic_transition;
