@@ -1559,8 +1559,8 @@ class TestGateExtra(unittest.TestCase):
         self.assertNotIn("PASS", out)
 
     def test_size_a_fallback_pass_exits_advisory_not_zero(self):
-        # The workflow doc and the pre-commit hook accept a build on this gate's
-        # status, so a bucketed guess must not report as a calibrated PASS.
+        # CI accepts the build on this status, so a bucketed guess must not
+        # report as a calibrated PASS.
         self.ge._find_teensy_size = lambda env: None
 
         def _run(args, check=True):

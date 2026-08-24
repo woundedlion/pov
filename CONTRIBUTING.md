@@ -81,17 +81,16 @@ the authoritative correctness gate.
   `python tools/docs_images.py` resolves every documented `<img>` against the
   tracked tree. It only reports; `--stage` copies the images into a built
   Doxygen tree and is the sole mode that writes.
-- **License headers:** `python tools/license_check.py`. No hook runs it; `just
-  license-headers` does, alongside the checker's own unit tests — otherwise the
-  first evidence of a missing header is a red `License headers match LICENSE`
-  job.
+- **License headers:** `python tools/license_check.py`. The staged-tree
+  pre-commit check runs it; `just license-headers` also runs the checker's own
+  unit tests.
 - **Simulator:** in the daydream checkout, `npm ci` then `npm test`; its
   `pre-push` hook runs lint, typecheck, the import-map check and the JS suite,
   and refuses a push from a tree that cannot run them. This repository's CI
   never runs it, so a green `CI green` says nothing about the simulator.
 
-`HS_SKIP_FORMAT=1` skips the staged format check for one commit; `--no-verify`
-skips the local prefilter entirely. Neither bypasses protected-branch CI.
+`--no-verify` is the explicit emergency escape from the local prefilter. It
+does not bypass protected-branch CI.
 
 ## Reporting a vulnerability
 

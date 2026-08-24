@@ -176,9 +176,8 @@ def run_gate(source, target, env):
     if not result.passed:
         sys.exit(1)
     if used_size_a_fallback:
-        # A bucketed guess must never read as a shipped verdict: the workflow doc
-        # and the pre-commit hook accept this build on the gate's exit status, so
-        # an uncalibrated PASS exits non-zero (advisory code) and fails the build.
+        # A bucketed guess must never read as a shipped verdict: CI accepts this
+        # build on the gate's exit status, so an uncalibrated PASS exits non-zero.
         print("::error::teensy-gate: PASS is UNCALIBRATED - teensy_size was not "
               "found, so region totals come from `size -A` VMA bucketing. Install "
               "the Teensy platform tools (tool-teensy package) and re-run; do not "

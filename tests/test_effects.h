@@ -91,7 +91,7 @@ using hs_test::smoke_frames;
  * 41,472-pixel frames. The QUICK tier (default) runs only the small-aspect
  * <96,20> smoke + determinism passes, ~1,920-pixel frames that cover every
  * effect's construct/init/render/read-back and cross-run determinism in ~2 s —
- * the fast path for the local pre-commit hook. CI opts into the full suite on
+ * the default for a quick local run. CI opts into the full suite on
  * every master push by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
  * full-resolution passes and the white-box correctness block are the
  * authoritative gate there, not locally. Set HS_EFFECTS_FULL=1 to reproduce the
@@ -6421,10 +6421,8 @@ inline int run_effects_tests() {
   test_dreamballs_max_edge_solid_render();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The QUICK tier
-  // (default, local pre-commit) skips the block below entirely, so a green local
-  // commit is NOT authoritative for the full-resolution paths or the white-box
-  // invariants — CI is (same split as HS_SMOKE_FRAMES's cyclic-window coverage;
-  // see the pre-commit hook header).
+  // skips the block below; CI is authoritative for the full-resolution paths
+  // and white-box invariants.
   if (effects_full_suite()) {
     test_needs_full_frame_gate();
     test_voronoi_axes_use_uniform_sampler();
