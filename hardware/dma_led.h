@@ -170,7 +170,7 @@ private:
    * @brief DMA completion ISR: clears the interrupt and marks the transfer done.
    * @details Dispatched via the singleton instance; runs in interrupt context.
    */
-  static void FASTRUN dma_isr() {
+  static void dma_isr() {
     if (instance) {
       instance->dma_channel.clearInterrupt();
       instance->transfer_complete.store(true, std::memory_order_relaxed);

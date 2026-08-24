@@ -201,7 +201,7 @@ private:
    * @brief Static function called by the IntervalTimer to display one column of
    * the frame.
    */
-  static FASTRUN void show_col() {
+  static void show_col() {
     // Top half reads column x; bottom half reads the opposite column (x+W/2).
     const int w = effect->width();
     const int x_top = x;
