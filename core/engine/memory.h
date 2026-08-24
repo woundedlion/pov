@@ -784,8 +784,9 @@ public:
     // Rebinding a still-bound vector after its source arena was reset, or to a
     // different arena, is a contract violation (the old block is already dead). A
     // same-arena/same-generation grow is not stale and reallocates below.
-    assert((!bound || (stamp.source_arena == &arena &&
-                       stamp.birth_generation == arena.get_generation())) &&
+    assert((!bound || element_capacity == 0 ||
+            (stamp.source_arena == &arena &&
+             stamp.birth_generation == arena.get_generation())) &&
            "ArenaVector::bind() on a stale binding: clear the handle before "
            "resetting or changing its arena");
 #endif
@@ -817,7 +818,8 @@ public:
     element_capacity = min_capacity;
     bound = true;
 #ifndef NDEBUG
-    stamp.record(arena);
+    if (min_capacity > 0)
+      stamp.record(arena);
     rebind_generation++;
 #endif
   }
