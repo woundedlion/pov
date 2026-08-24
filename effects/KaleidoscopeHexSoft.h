@@ -34,7 +34,7 @@ public:
   using Params = KaleidoscopeHexSoftParams;
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-hex-soft";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "91cfc76b555a31074b7529c5f46520ccec95e1e465b486c8d84146945722a669";
+      "71a5d574965aefea6b30b5a961c6b43ed010b5b997319e8d3ac04acf16f72a47";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "a54f426490227b6ad95b64d0a18bbd0bb65beaab6fb4053f37f85bb435a6e7ed";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"twin-wave"};
