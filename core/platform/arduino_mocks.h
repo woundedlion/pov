@@ -263,11 +263,7 @@ inline FastLEDMock FastLED;
  * @details Guards a degenerate range like the device: Arduino's random(0)
  *          returns 0, so the host avoids a modulo-by-zero SIGFPE and matches.
  */
-inline int random(int max) {
-  if (max <= 0)
-    return 0;
-  return hs::random()() % max;
-}
+inline int random(int max) { return hs::rand_int(0, max); }
 /**
  * @brief Returns a pseudo-random integer in [min, max) (Arduino random()).
  * @param min Inclusive lower bound.
@@ -278,12 +274,7 @@ inline int random(int max) {
  * @note The span is computed unsigned: `max - min` overflows int for a span
  *       wider than INT_MAX.
  */
-inline int random(int min, int max) {
-  if (max <= min)
-    return min;
-  const uint32_t span = static_cast<uint32_t>(max) - static_cast<uint32_t>(min);
-  return static_cast<int>(static_cast<uint32_t>(min) + (hs::random()() % span));
-}
+inline int random(int min, int max) { return hs::rand_int(min, max); }
 /**
  * @brief Re-maps a value from one integer range to another (Arduino map()).
  * @param x Value to map.
