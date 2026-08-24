@@ -600,6 +600,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── kb_format.js            Dependency-free kilobyte formatter shared by the stat readouts
 │   ├── lissajous_math.js       Pure Lissajous curve math from lissajous.html
 │   ├── lissajous_page.js       Page module extracted from lissajous.html's inline script
+│   ├── mobius_page.js          Controller for the Möbius tool page
 │   ├── mobius_transforms.js    Pure Möbius coefficient presets from mobius.html
 │   ├── page_lifecycle.js       Animation-frame recompute coalescer + bfcache-aware teardown hook
 │   ├── pointer_drag.js         Pointer-drag lifecycle shared by standalone tools
@@ -607,11 +608,13 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── palette_controls.js     DOM-free zoom history and locked-slider delta capping for palettes.html
 │   ├── palette_math.js         ProceduralPalette / GenerativePalette mirror + the PaletteOps bridge
 │   ├── palette_wheel.js        Hue-key wheel raster, markers and pointer arithmetic for palettes.html
+│   ├── palettes_page.js        Controller for the palette tuner page
 │   ├── solid_build.js          Mesh construction and validation for solids.html
 │   ├── solid_codegen.js        Op dispatch, codegen, and op-chain sequencing for solids.html
 │   ├── solid_op_rows.js        DOM construction for one op-chain row of solids.html
 │   ├── solid_registry_codegen.js  Registry-paste emitter: the solids.h Entry, OpStep table, Recipe, and (when solids.h declares none) the seed's SEED_* constant
 │   ├── solid_render.js         Scene construction for solids.html: faces, vertices, edges, normals, index labels
+│   ├── solids_page.js          Controller for the Conway operator tool page
 │   ├── tailwind.css            Prebuilt utility classes the five tool pages use, served same-origin
 │   └── tools.css               Shared design tokens and control styling for the tool pages
 │
