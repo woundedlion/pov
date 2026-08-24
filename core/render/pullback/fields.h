@@ -89,12 +89,12 @@ HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
 
 /**
  * @brief Interpolates every tabled field of a family.
- * @details Fields the table does not cover are left value-initialized; a
- * family with such members wraps this with its own overload.
+ * @details Members the table does not cover — topology enum8s, non-float
+ * carriers — snap: they hold @p a's value until progress reaches 1.
  */
 template <HasFields T>
 HS_FLASH_INLINE inline T interpolate(const T &a, const T &b, float t) {
-  T out{};
+  T out = t < 1.0f ? a : b;
   for (const auto &field : T::FIELDS)
     out.*(field.member) =
         apply_curve(field.curve, a.*(field.member), b.*(field.member), t);
