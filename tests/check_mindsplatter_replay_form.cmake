@@ -39,9 +39,10 @@ if(_generated_size LESS 100000)
 endif()
 
 # The replay's RandomWalk orientation uses libm under -ffast-math. CPU-specific
-# low-bit results amplify over the particle simulation, so only invariant form,
-# identity, and revision are portable. unit_mindsplatter_replay validates the
-# committed payload against the live renderer.
+# low-bit results amplify over the particle simulation, while instrumentation
+# changes can select a different worst-workload frame. Only form and revision
+# are portable. unit_mindsplatter_replay validates the committed payload against
+# the live renderer.
 foreach(_symbol IN ITEMS
     "HEAVY_SEARCH_V1_STATE"
     "HEAVY_SEARCH_V1_FRAMEBUFFER"
@@ -54,17 +55,14 @@ foreach(_symbol IN ITEMS
   endif()
 endforeach()
 
-foreach(_identity_pattern IN ITEMS
-    "heavy_search_v1_p[0-9]+_f[0-9]+"
-    "msp-heavy-search-v[0-9]+")
-  string(REGEX MATCH "${_identity_pattern}" _committed_identity "${_committed}")
-  string(REGEX MATCH "${_identity_pattern}" _generated_identity "${_generated}")
-  if(NOT _committed_identity STREQUAL _generated_identity)
-    message(FATAL_ERROR
-      "MindSplatter replay identity drift for ${_identity_pattern}: committed "
-      "${_committed_identity}, generated ${_generated_identity}")
-  endif()
-endforeach()
+set(_revision_pattern "msp-heavy-search-v[0-9]+")
+string(REGEX MATCH "${_revision_pattern}" _committed_revision "${_committed}")
+string(REGEX MATCH "${_revision_pattern}" _generated_revision "${_generated}")
+if(NOT _committed_revision STREQUAL _generated_revision)
+  message(FATAL_ERROR
+    "MindSplatter replay revision drift: committed ${_committed_revision}, "
+    "generated ${_generated_revision}")
+endif()
 
 message(STATUS
-  "MindSplatter replay generator emitted ${_generated_identity} in canonical form")
+  "MindSplatter replay generator emitted ${_generated_revision} in canonical form")
