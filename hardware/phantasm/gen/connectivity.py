@@ -35,6 +35,13 @@ def net_name(node):
     return str(net[-1]).lstrip("/") if net else None
 
 
+def net_id(node):
+    net = sexp.val(node, "net")
+    if not net or str(net[0]) == "0":
+        return None
+    return str(net[0]).lstrip("/")
+
+
 def _xy(values):
     return float(values[0]), float(values[1])
 
@@ -142,8 +149,10 @@ def pad_capsule(pad, origin, rotation, stack):
     offset = _rotate(_xy(sexp.val(pad, "at")), rotation)
     centre = (origin[0] + offset[0], origin[1] + offset[1])
     width, height = _xy(sexp.val(pad, "size"))
-    radius = math.hypot(width, height) / 2
-    if str(pad[3]) == "custom":
+    shape = str(pad[3])
+    radius = (max(width, height) / 2 if shape in {"circle", "oval"}
+              else math.hypot(width, height) / 2)
+    if shape == "custom":
         for primitive in pad[1:]:
             if not isinstance(primitive, list) or not primitive:
                 continue
@@ -184,31 +193,33 @@ def footprint_reference(footprint):
 
 
 def board_copper(root):
-    """({net: [copper item]}, {net: [((ref, pad), item)]}) over the board."""
+    """Returns copper, netted pads, and native net-id-to-name mappings."""
     stack = copper_layers(root)
     copper, pads = {}, {}
+    names = {net_id(node): net_name(node) for node in F(root, "net")
+             if net_id(node) is not None}
     for footprint in F(root, "footprint"):
         reference = footprint_reference(footprint)
         placement = sexp.val(footprint, "at")
         origin = _xy(placement)
         rotation = float(placement[2]) if len(placement) > 2 else 0.0
         for pad in F(footprint, "pad"):
-            net = net_name(pad)
+            net = net_id(pad)
             if net is None:
                 continue
             item = pad_capsule(pad, origin, rotation, stack)
             copper.setdefault(net, []).append(item)
             pads.setdefault(net, []).append(((reference, str(pad[1])), item))
     for segment in F(root, "segment"):
-        net = net_name(segment)
+        net = net_id(segment)
         if net is not None:
             copper.setdefault(net, []).append(segment_capsule(segment))
     for via in F(root, "via"):
-        net = net_name(via)
+        net = net_id(via)
         if net is not None:
             copper.setdefault(net, []).append(via_capsule(via, stack))
     for zone in F(root, "zone"):
-        net = net_name(zone)
+        net = net_id(zone)
         if net is None or not is_copper_pour(zone):
             continue
         layer = str(sexp.val(zone, "layer")[0])
@@ -216,7 +227,7 @@ def board_copper(root):
             polygon = [_xy(vertex[1:]) for vertex in F(F(filled, "pts")[0], "xy")]
             if polygon:
                 copper.setdefault(net, []).append(Fill(polygon, layer))
-    return copper, pads
+    return copper, pads, names
 
 
 def islands(items):
@@ -243,7 +254,7 @@ def opens(root):
 
     Raises ValueError when the board contains no netted pads.
     """
-    copper, pads = board_copper(root)
+    copper, pads, names = board_copper(root)
     if not pads:
         raise ValueError("nothing to analyze: no netted pads")
     broken = {}
@@ -257,7 +268,8 @@ def opens(root):
         for node, item in net_pads:
             grouped.setdefault(roots[position[id(item)]], []).append(node)
         if len(grouped) > 1:
-            broken[net] = sorted(sorted(group) for group in grouped.values())
+            broken[names.get(net, net)] = sorted(
+                sorted(group) for group in grouped.values())
     return broken
 
 
