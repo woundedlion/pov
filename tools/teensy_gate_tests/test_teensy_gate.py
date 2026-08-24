@@ -705,6 +705,18 @@ class TestWarningRatchet(unittest.TestCase):
             "warning: comparison is always true [-Wtype-limits]")
         self.assertTrue(got.startswith("hardware/dma_led.h:"))
 
+    def test_fileless_diagnostics_are_normalized(self):
+        lines = [
+            '<command-line>: warning: "HS_PROFILE" redefined',
+            "cc1plus: warning: command-line option '-Wmissing-prototypes' is valid for C",
+            "ld: warning: firmware.elf has a LOAD segment with RWX permissions",
+        ]
+        self.assertEqual(tw.extract_warnings("\n".join(lines)), {
+            '<command-line>: warning: "HS_PROFILE" redefined',
+            "cc1plus: warning: command-line option '-Wmissing-prototypes' is valid for C",
+            "ld: warning: firmware.elf has a LOAD segment with RWX permissions",
+        })
+
     def test_library_warning_excluded(self):
         self.assertIsNone(tw.normalize(
             "/root/.platformio/lib/FastLED/FastLED.h:9:1: warning: foo [-Wbar]"))
