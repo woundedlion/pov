@@ -215,7 +215,7 @@ static_assert(field_ids_unique<EdgeValueParams>());
     half-width of @p width. */
 __attribute__((always_inline)) inline float
 value_cutout(float value, float threshold, float width) {
-  return ::smooth_ramp(threshold - width, threshold + width, value);
+  return Detail::smooth_ramp(threshold - width, threshold + width, value);
 }
 
 /**
