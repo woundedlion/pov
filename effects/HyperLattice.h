@@ -593,22 +593,24 @@ inline Color4 shade(const Pullback::SphereSample &input,
   const BakedPalette &palette =
       *(prepared.params.color == ColorMode::DEPTH ? frame.depth_palette
                                                   : frame.axis_palette);
-  trace_layers(input.dir, prepared, [&](const TraceHit &hit) {
-    HS_PROFILE_DEEP(hl_layer_composite);
-    const float path_length =
-        (ZERO_PATH ? 0.0f : input.path_length) + hit.distance;
-    const float depth =
-        ZERO_PATH ? path_length * prepared.inv_far
-                  : hs::clamp(path_length * prepared.inv_far, 0.0f, 1.0f);
-    const float value =
-        prepared.params.color == ColorMode::DEPTH
-            ? 1.0f - depth
-            : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
-    Pixel color = palette.get_color_unit(value);
-    color = color * (0.45f + 0.55f * (1.0f - depth));
-    composite.add(color, hit.coverage);
-    return composite.remaining > MIN_ENCODABLE_ALPHA;
-  });
+  trace_layers(
+      input.dir, prepared,
+      [&](const TraceHit &hit) __attribute__((always_inline)) {
+        HS_PROFILE_DEEP(hl_layer_composite);
+        const float path_length =
+            (ZERO_PATH ? 0.0f : input.path_length) + hit.distance;
+        const float depth =
+            ZERO_PATH ? path_length * prepared.inv_far
+                      : hs::clamp(path_length * prepared.inv_far, 0.0f, 1.0f);
+        const float value =
+            prepared.params.color == ColorMode::DEPTH
+                ? 1.0f - depth
+                : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
+        Pixel color = palette.get_color_unit(value);
+        color = color * (0.45f + 0.55f * (1.0f - depth));
+        composite.add(color, hit.coverage);
+        return composite.remaining > MIN_ENCODABLE_ALPHA;
+      });
   return composite.finish();
 }
 
