@@ -78,7 +78,7 @@
 #endif
 #endif
 
-#include "../common/phantasm_target.h"
+#include "../Phantasm/phantasm_target.h"
 
 #ifdef HS_MINDSPLATTER_REPLAY
 #include "tests/mindsplatter_replay_corpus.h"

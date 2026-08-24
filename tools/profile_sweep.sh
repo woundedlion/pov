@@ -21,7 +21,7 @@
 # the epoch to 150 s rather than lose a regime to a shorter capture.
 set -u
 P="$(dirname "$0")/profile_one.sh"
-EFFECTS_H="$(dirname "$0")/../core/engine/effects.h"
+PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
 FAILED=()
 GROUP=${1:-}
 
@@ -32,7 +32,7 @@ GROUP=${1:-}
 # cannot silently shrink one roster reader's count. Anchoring at the line start
 # is what excludes a commented-out row.
 playlist_roster() {
-  tr -d '\r' < "$EFFECTS_H" \
+  tr -d '\r' < "$PLAYLIST_H" \
     | sed -n '/^#define HS_PHANTASM_EFFECT_LIST(X)/,/[^\\]$/p' \
     | sed -nE 's/^[[:space:]]*X\([[:space:]]*([A-Za-z0-9_]+)[[:space:]]*,.*/\1/p'
 }
@@ -47,7 +47,7 @@ check_roster() {
   playlist="$(playlist_roster | sort)"
   swept="$(swept_roster | sort -u)"
   if [ -z "$playlist" ]; then
-    echo "profile_sweep: parsed no effects from $EFFECTS_H — the roster scan broke" >&2
+    echo "profile_sweep: parsed no effects from $PLAYLIST_H — the roster scan broke" >&2
     return 1
   fi
   missing="$(comm -23 <(printf '%s\n' "$playlist") <(printf '%s\n' "$swept"))"
