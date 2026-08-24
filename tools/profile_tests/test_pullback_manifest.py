@@ -268,6 +268,14 @@ class ManifestValidation(unittest.TestCase):
         schema["$defs"].pop("sha")
         with self.assertRaisesRegex(generator.ManifestError,
                                     "missing schema definitions"):
+                generator._validate_schema_shape(schema, schema_path)
+
+    def test_schema_shape_rejects_unsupported_keywords(self):
+        schema_path = MANIFEST_DIR / "schema.json"
+        schema = generator._load(schema_path)
+        schema["$defs"]["program"]["properties"]["id"]["format"] = "uuid"
+        with self.assertRaisesRegex(generator.ManifestError,
+                                    "unsupported schema keywords.*format"):
             generator._validate_schema_shape(schema, schema_path)
 
     def test_schema_const_rejects_boolean_versions(self):
