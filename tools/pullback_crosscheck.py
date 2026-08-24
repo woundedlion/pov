@@ -544,6 +544,8 @@ def _produce_capture(
 def orchestrate(
     repository: Path, controller: Path, base_sha: str, candidate_sha: str, output: Path
 ) -> None:
+    if base_sha == candidate_sha:
+        raise CrosscheckError("base and candidate revisions must differ")
     programs, oracles, schema = load_and_validate(controller / "tests/data/pullback")
     digest = manifest_sha256(programs, oracles, schema)
     environment = os.environ.copy()
