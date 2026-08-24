@@ -83,11 +83,11 @@ def attest_toolchains(profile_compiler, phantasm_compiler):
     )
 
 
-class MainTreeResolution(unittest.TestCase):
-    """The build tree must be the main checkout from anywhere, worktrees too."""
+class ProfileTreeResolution(unittest.TestCase):
+    """The build tree follows the checkout containing the invoked script."""
 
-    def _main_tree_from(self, script_dir):
-        script = f"{shell_function('main_tree')}\nmain_tree\n"
+    def _profile_tree_from(self, script_dir):
+        script = f"{shell_function('profile_tree')}\nprofile_tree\n"
         result = subprocess.run(
             ["bash", "-c", script, str(Path(script_dir) / "profile_one.sh")],
             capture_output=True, text=True)
@@ -95,14 +95,10 @@ class MainTreeResolution(unittest.TestCase):
         return Path(result.stdout.strip())
 
     def test_resolves_this_checkout(self):
-        self.assertEqual(self._main_tree_from(REPO / "tools").resolve(),
-                         Path(subprocess.run(
-                             ["git", "-C", str(REPO), "rev-parse",
-                              "--path-format=absolute", "--git-common-dir"],
-                             capture_output=True, text=True, check=True
-                         ).stdout.strip()).parent.resolve())
+        self.assertEqual(self._profile_tree_from(REPO / "tools").resolve(),
+                         REPO.resolve())
 
-    def test_worktree_resolves_to_its_main_checkout(self):
+    def test_worktree_resolves_to_itself(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "main"
             tree = Path(directory) / "wt"
@@ -114,8 +110,8 @@ class MainTreeResolution(unittest.TestCase):
                           "commit", "-qm", "seed"],
                          ["worktree", "add", "-q", str(tree), "-b", "branch"]):
                 subprocess.run(["git", "-C", str(root)] + args, check=True)
-            self.assertEqual(self._main_tree_from(tree).resolve(),
-                             root.resolve())
+            self.assertEqual(self._profile_tree_from(tree).resolve(),
+                             tree.resolve())
 
 
 ARTIFACT_VARS = ("OUT", "PROVENANCE_OUT", "PROFILE_BUILD_LOG",
