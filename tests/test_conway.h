@@ -1153,6 +1153,33 @@ inline void test_transform_applies_translation_chain() {
   HS_EXPECT_EQ(dst.get_topology_data()[0], (uint16_t)7);
 }
 
+/** @brief Verifies transform_in_place rewrites vertices and preserves topology. */
+inline void test_transform_in_place_preserves_topology() {
+  Arena arena(conway_target_buf, sizeof(conway_target_buf));
+  MeshState mesh;
+  mesh.vertices.bind(arena, 2);
+  mesh.vertices.push_back(Vector(1, 0, 0));
+  mesh.vertices.push_back(Vector(0, 1, 0));
+  mesh.face_counts.bind(arena, 1);
+  mesh.face_counts.push_back(2);
+  mesh.faces.bind(arena, 2);
+  mesh.faces.push_back(0);
+  mesh.faces.push_back(1);
+  mesh.topology.bind(arena, 1);
+  mesh.topology.push_back(7);
+
+  auto scale = [](const Vector &v) { return v * 2.0f; };
+  auto shift = [](const Vector &v) { return v + Vector(1, 0, 0); };
+  MeshOps::transform_in_place(mesh, scale, shift);
+
+  HS_EXPECT_EQ(mesh.vertices[0], Vector(3, 0, 0));
+  HS_EXPECT_EQ(mesh.vertices[1], Vector(1, 2, 0));
+  HS_EXPECT_EQ(mesh.face_counts[0], 2);
+  HS_EXPECT_EQ(mesh.faces[0], 0);
+  HS_EXPECT_EQ(mesh.faces[1], 1);
+  HS_EXPECT_EQ(mesh.topology[0], 7);
+}
+
 /**
  * @brief Verifies transform resets stale owned topology when reusing a dst.
  * @details transform() yields a BORROWED-mode mesh (owned vertices, topology
@@ -1370,6 +1397,7 @@ inline int run_conway_tests() {
   test_conway_ops_drop_degenerate_primary_faces();
   test_conway_ops_reuse_prebuilt_half_edges();
   test_transform_applies_translation_chain();
+  test_transform_in_place_preserves_topology();
   test_transform_unbinds_stale_owned_topology_on_reuse();
   test_face_centroid_for_cube_top_face();
 
