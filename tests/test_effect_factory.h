@@ -188,9 +188,12 @@ inline void test_fixed_preset_ids() {
   HS_EXPECT_TRUE(harmonics != nullptr);
   HS_EXPECT_TRUE(harmonics && harmonics->preset_id != nullptr);
   if (harmonics && harmonics->preset_id) {
+    static constexpr std::array<int, 24> EXPECTED_MODES{
+        6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,
+        13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
     HS_EXPECT_EQ(harmonics->preset_count, 24u);
     for (size_t index = 0; index < harmonics->preset_count; ++index) {
-      const auto [l, m] = SHMath::decode_lm(static_cast<int>(index + 1));
+      const auto [l, m] = SHMath::decode_lm(EXPECTED_MODES[index]);
       char expected[24];
       std::snprintf(expected, sizeof(expected), "sh-l%d-m%d", l, m);
       HS_EXPECT_TRUE(harmonics->preset_id(index) == expected);
