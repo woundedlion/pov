@@ -132,7 +132,8 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
   const int max_sides = static_cast<int>(he_mesh.half_edges.size());
   int sides = 0;
   do {
-    HS_CHECK(sides++ < max_sides, "face_normal: corrupt face loop");
+    HS_CHECK(sides < max_sides, "face_normal: corrupt face loop");
+    ++sides;
     const HalfEdge &he = he_mesh.half_edges[he_idx];
     HS_CHECK(he.next != HE_NONE, "face_normal: HE_NONE in face loop");
     const Vector &curr = mesh.vertices[he.vertex];
@@ -225,7 +226,8 @@ inline void emit_shrunk_face(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
   uint16_t he_idx = start;
   int walked = 0; // anti-hang guard: face has `count` half-edges
   do {
-    HS_CHECK(walked++ < count, "face re-walk overran side count");
+    HS_CHECK(walked < count, "face re-walk overran side count");
+    ++walked;
     out_mesh.vertices.push_back(pos_fn(he_idx));
     uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
     map_fn(he_idx, idx);
@@ -321,7 +323,8 @@ inline void emit_primary_faces(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
     uint16_t he_idx = start;
     int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
     do {
-      HS_CHECK(emitted++ < count, "face re-walk overran side count");
+      HS_CHECK(emitted < count, "face re-walk overran side count");
+      ++emitted;
       emit_fn(he_idx);
       he_idx = he_mesh.half_edges[he_idx].next;
     } while (he_idx != HE_NONE && he_idx != start);
