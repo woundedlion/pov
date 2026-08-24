@@ -13,6 +13,7 @@ header today, and this checker does not invent one for it.
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
@@ -46,6 +47,42 @@ EXCEPTIONS = {
 # Markers that cannot stand beside each other: a header granting PolyForm while
 # reserving all rights tells a licensee two incompatible things.
 CONTRADICTIONS = {POLYFORM: RESERVED, RESERVED: POLYFORM}
+
+LICENSE_EXCEPTIONS_HEADING = (
+    "Exceptions outside `effects/`, each carrying its own terms in its own header:"
+)
+
+
+def license_exception_paths(text: str) -> set[str]:
+    """Paths named in LICENSE's exceptions block."""
+    _, separator, remainder = text.partition(LICENSE_EXCEPTIONS_HEADING)
+    if not separator:
+        return set()
+
+    paths = set()
+    for line in remainder.splitlines():
+        match = re.match(r"^- `([^`]+)`(?: |$)", line)
+        if match:
+            paths.add(match.group(1))
+        elif paths and line and not line.startswith("  "):
+            break
+    return paths
+
+
+def license_exception_issues(text: str) -> list[str]:
+    """Differences between LICENSE and the executable exception map."""
+    licensed = license_exception_paths(text)
+    configured = set(EXCEPTIONS)
+    issues = []
+    missing = licensed - configured
+    if missing:
+        issues.append("LICENSE names exceptions absent from EXCEPTIONS: "
+                      + ", ".join(sorted(missing)))
+    extra = configured - licensed
+    if extra:
+        issues.append("EXCEPTIONS names paths absent from LICENSE's exceptions "
+                      "block: " + ", ".join(sorted(extra)))
+    return issues
 
 
 def tracked_sources(root: Path) -> list[str]:
@@ -87,7 +124,14 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     sources = tracked_sources(args.root)
-    issues = []
+    try:
+        license_text = (args.root / "LICENSE").read_text(encoding="utf-8")
+    except OSError as error:
+        print(f"[license-check] tooling error: LICENSE is unreadable: {error}",
+              file=sys.stderr)
+        return 2
+
+    issues = license_exception_issues(license_text)
     stale = []
     for path in sources:
         # A tracked source can be absent from the working tree (an interrupted
@@ -106,8 +150,8 @@ def main(argv=None) -> int:
             stale.append(prefix)
 
     if stale:
-        print("::warning::EXCEPTIONS in tools/license_check.py names paths that "
-              f"no longer exist: {', '.join(sorted(stale))}")
+        issues.append("EXCEPTIONS names paths with no tracked C/C++ source: "
+                      + ", ".join(sorted(stale)))
     if issues:
         for issue in issues:
             print(issue)
