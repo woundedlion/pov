@@ -22,7 +22,7 @@ namespace Animation {
 /**
  * @brief Animates one operator-sweep leg: a Conway-operator parameter sweep
  * along a graph edge or a recipe step, or a hankin contact-angle sweep on a
- * fixed seed (docs/opchain_morph_spec.md, "Leg kinds").
+ * fixed seed (docs/specs/opchain_morph_spec.md, "Leg kinds").
  * @details Per frame: produce the swept mesh (the edge's single op at
  * t(frame) settle-slerped toward the relaxed endpoint inside the settle
  * window, or update_hankin at theta(frame)) in scratch, compile, attach the
@@ -59,7 +59,8 @@ public:
 
   /**
    * @brief Graph-edge Conway sweep: the edge's single op swept between the
-   * edge's endpoint parameters (docs/opchain_morph_spec.md, "Leg kinds").
+   * edge's endpoint parameters (docs/specs/opchain_morph_spec.md,
+   * "Leg kinds").
    */
   struct EdgeSweepSpec {
     const ConwayGraph::EdgeSpec *edge =
@@ -72,7 +73,8 @@ public:
 
   /**
    * @brief Recipe-step Conway sweep: one primitive op swept t_start -> t_end
-   * on a fixed seed, no graph edge (docs/opchain_morph_spec.md, "Leg kinds").
+   * on a fixed seed, no graph edge
+   * (docs/specs/opchain_morph_spec.md, "Leg kinds").
    */
   struct ParamSweepSpec {
     ConwayGraph::MorphOp op;  /**< Swept operator. */
@@ -107,7 +109,7 @@ public:
 
   /**
    * @brief Relax leg: every vertex slerps from its seed position to its
-   * relaxed one (docs/opchain_morph_spec.md, "Leg kinds").
+   * relaxed one (docs/specs/opchain_morph_spec.md, "Leg kinds").
    */
   struct RelaxSpec {
     int iterations = 0; /**< Spring-relaxation passes of the arrival form. */
@@ -350,7 +352,7 @@ public:
   /**
    * @brief Constructs a recipe-step Conway sweep leg: one primitive op swept
    * t_start -> t_end on a fixed seed, no graph edge
-   * (docs/opchain_morph_spec.md, "Leg kinds").
+   * (docs/specs/opchain_morph_spec.md, "Leg kinds").
    * @param seed Seed mesh the op sweeps on (cloned unless spec.borrow_seed).
    * @param spec Swept operator, parameter endpoints and frame count.
    * @param arena Leg arena backing the cloned seed and hoisted state.
@@ -526,7 +528,7 @@ public:
   /**
    * @brief Constructs a relax leg: clones the seed, relaxes it once, and
    * slerps every vertex from its seed position to its relaxed one
-   * (docs/opchain_morph_spec.md, "Leg kinds").
+   * (docs/specs/opchain_morph_spec.md, "Leg kinds").
    * @param seed Mesh being relaxed; its geometry is cloned, its class ids are
    * not.
    * @param spec Relaxation source (live iterations or bake) and frame count.
@@ -697,7 +699,8 @@ public:
    * @brief Constructs the reconcile leg closing a smooth kis/needle path: slerps
    * every vertex of the topology-exact identity mesh (dt/dtd) onto its
    * counterpart in the authored kis/needle mesh, along the caller's
-   * nearest-vertex bijection (docs/opchain_morph_spec.md, smooth kis/needle).
+   * nearest-vertex bijection
+   * (docs/specs/opchain_morph_spec.md, smooth kis/needle).
    * @param from_mesh Identity mesh (dual(truncate(...))): its connectivity and
    * vertex order are the leg's fixed emission order. Cloned, not borrowed.
    * @param spec Authored slerp endpoints and frame count.
@@ -789,8 +792,9 @@ public:
    * @param easing_fn Unused by the gate (no sweep); kept for the shared
    * constructor signature.
    * @note Radial and apex motion are invisible to SDF::Face
-   * (docs/opchain_morph_spec.md, "Renderer constraints retained from the
-   * design investigation"), so there is no sweep segment; the leg's compiled
+   * (docs/specs/opchain_morph_spec.md, "Renderer constraints retained from
+   * the design investigation"), so there is no sweep segment; the leg's
+   * compiled
    * face count is constant on each side of the swap and changes exactly once,
    * at it.
    */
@@ -1370,8 +1374,8 @@ private:
    * by source face, and a dual face's vertex list is exactly its source
    * vertex's face orbit, so the orbit needs no second walk. Colour locality is
    * the goal: pixel identity is not available across a partition
-   * (docs/opchain_morph_spec.md, "Renderer constraints retained from the
-   * design investigation").
+   * (docs/specs/opchain_morph_spec.md, "Renderer constraints retained from
+   * the design investigation").
    */
   HS_COLD_MEMBER static void dual_provenance(const Transients &tr,
                                              const PolyMesh &arrival,

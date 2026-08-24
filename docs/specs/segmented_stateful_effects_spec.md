@@ -1,0 +1,306 @@
+# Stateful Effects in Segmented Mode — Design Spec
+
+*Status: IMPLEMENTED. This document describes the design — now in the engine —
+for making history-reading pixel effects (today only `MeshFeedback`, via the
+`Pixel::Feedback` filter) render correctly under segmented mode, without
+dropping pixels, while non-stateful effects keep the full clipping win. The
+seam is the WASM driver boundary (`targets/wasm/engine_bindings.h` `setClip`)
+and the
+device driver (`hardware/pov_segmented.h` `clip_to_segment`), plus two
+compile-time filter traits. Both drivers gate on `Effect::needs_full_frame()`;
+the device additionally excludes `persists_pixels()` effects (§2).*
+
+---
+
+## 1. Goal
+
+`MeshFeedback` — and any future effect whose per-frame state depends on
+*other segments'* pixels — must produce identical output whether rendered as
+one full-canvas instance or as N segment workers. Non-stateful effects must
+retain segmented rendering's clipping win (out-of-band pixels never shaded).
+
+---
+
+## 2. Where segmentation actually lives
+
+Segmentation-by-clipping runs on **both** paths, but their quadrants differ:
+
+- **Device (`hardware/pov_segmented.h`).** Each Teensy clips to its own
+  quadrant per displayed frame (`clip_to_segment`, gated on
+  `needs_full_frame()` and `persists_pixels()`); the flywheel ISR's
+  `render_column()` then packs that board's LEDs out of the clipped buffer.
+  A buffer flips at each half-rev boundary, so an arm sweeps only half the
+  columns per displayed frame — the device quadrants therefore **alternate**
+  (arm A and arm B trade column halves every window), unlike the simulator's
+  fixed assignment. That alternation is why a persisting effect cannot be
+  clipped here: its trail base for a quadrant would jump between the two arms'
+  independent buffers. `needs_full_frame()` effects (e.g. `MeshFeedback`) stay
+  full-canvas and remain correct — each board computes the whole frame and
+  samples its slice.
+
+- **Simulator (`segment_worker.js` → `targets/wasm/wasm.cpp`).** Daydream
+  reproduces the *partitioning* in software: one isolated WASM module instance
+  per segment, each calling `setClip(x0, x1, y0, y1)` (gated on
+  `needs_full_frame()`) so the rasterizer's scanline culling skips out-of-clip
+  rows/columns. Each worker owns a **fixed** quadrant for the whole effect; the
+  readback copies the full canvas and `segment_layout.js:105` extracts just the
+  quadrant rectangle (`blitSegmentRect`) before transfer (README §10.7).
+
+Both clip non-stateful effects to a quadrant and leave `needs_full_frame()`
+effects at full canvas; the device's quadrant alternates per frame because it
+is true POV (two arms 180° apart), whereas the simulator composites fixed
+quadrants. The clipping is *wrong* for unbounded-reach feedback, which is why
+the gate exists.
+
+---
+
+## 3. Why clipping drops pixels for feedback
+
+The feedback flush iterates only the clip band (filter.h:1767-1792) but reads
+`cv.prev` at warp offsets up to **±W/2 horizontally and ±H vertically**
+(filter.h:1960-2032 — a melt/swirl warp can pull a row most of the way across the
+canvas). That reach is **unbounded relative to a segment band**: a worker
+clipped to its band has stale or zero `prev` outside the band, so cross-band
+trails read as black → dropped pixels and visible seams at the band edges.
+
+Two consequences, both load-bearing for the design:
+
+1. **The flush must run full-frame.** Correct output in a band requires a
+   correct full prior frame, which requires the flush to have advanced the
+   whole canvas last frame — recursively, every frame.
+
+2. **The mesh draw must also run full-frame.** The mesh is the *source* that
+   seeds the trails. If a worker skips drawing the mesh outside its band, the
+   warp pulls that missing content into the band over successive frames, and
+   the band's own display loses trail content that originated elsewhere.
+
+There is therefore **no per-worker rasterization win for an unbounded-reach
+feedback effect** — both the flush and its source draw are inherently
+full-frame. The clipping win survives only for (a) non-stateful effects
+(clip everything) and (b) the per-segment output slice, which is already done
+JS-side and shades nothing. This is not a limitation of the design; it is the
+same cost the device pays for distributed memory, and segmented WASM currently
+*violates* the sim-mirrors-device invariant by pretending otherwise.
+
+A finer reach distinction still matters for *other* history filters
+(§5): `Screen::Trails` decays pixels in place (reach 0 — band clipping is
+already correct), whereas `Pixel::Feedback` (warp) and `World::Trails`
+(reprojected under rotation) move content across bands.
+
+---
+
+## 4. Design
+
+### 4.1 Derive cross-segment reach as a compile-time trait
+
+Statefulness is already a compile-time filter trait (`has_history`, with the
+`Pipeline` constexpr-folding the history/terminal static-asserts at
+filter.h:452-476). Add a sibling trait that captures the property that actually
+matters here — whether a filter's state *moves across segment boundaries*:
+
+- `static constexpr bool crosses_segments`, defaulting to `has_history`
+  (fail-safe: a new history filter is treated as cross-segment until proven
+  bounded). Add it to `FilterTraits` — the base `Is2D`/`Is3D`/
+  `Is2DWithHistory`/`Is3DWithHistory` all alias — as `= has_history`.
+- `true` on `Pixel::Feedback` — the load-bearing case, and the only one that
+  *must* be `true`. It reads `cv.prev` (other segments' pixels).
+- `true` on `World::Trails` — already `true` by default (`has_history`), so
+  this is documentation, not a required override. Its store happens at
+  `plot()` time (filter.h:1129-1152), upstream of projection; whether band clipping
+  would actually corrupt it depends on whether the rasterizer culls
+  out-of-band fragments *before* that store. Left `true` as the fail-safe
+  default rather than relying on that analysis.
+- `false` on `Screen::Trails` — the **only non-fail-safe override**: it turns
+  full-frame *off* for a history filter, justified solely by reach 0 (decays
+  in place, redraws at the same screen coordinate). If that reasoning is
+  wrong, it drops pixels — so it must be tested directly (§8).
+
+`Pipeline` does **not** today expose any aggregate trait constant — the
+existing folding is per-node recursive `static_assert`s on `Head::has_history`
+(filter.h:452-476), nothing more. So this trait needs a new recursive OR-fold
+written from scratch: `static constexpr bool any_crosses_segments =
+Head::crosses_segments || NextPipeline::any_crosses_segments;` in the recursive
+node, **plus a `false` base case in the terminal `Pipeline<W,H>`**
+(filter.h:114-120). There is no existing `any_*` member to mirror.
+
+### 4.2 Expose it as one runtime query on `Effect`
+
+`Effect` carries the answer as a construction-time flag, not a virtual. The
+`EffectConfig` aggregate the base constructor takes holds it
+(`core/render/canvas.h:46`):
+
+```
+bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
+```
+
+The constructor copies it into the `full_frame` member
+(`core/render/canvas.h:87-88`) and a non-virtual accessor publishes it
+(`core/render/canvas.h:150`):
+
+```
+[[nodiscard]] bool needs_full_frame() const { return full_frame; }
+```
+
+Each filtered effect supplies the value in its base initializer, e.g.
+`effects/MeshFeedback.h:86-88`:
+
+```
+Effect(W, H, {.strobe = true,
+              .full_frame = decltype(filters)::any_crosses_segments})
+```
+
+The value is fully trait-derived (no per-effect judgment): it reads the
+pipeline's compile-time `any_crosses_segments` fold, so adding or removing a
+filter updates the answer automatically. Only the one-line bridge is manual,
+because `Effect` is type-erased — the driver holds an `Effect*` and the fold
+lives in the derived effect's `filters` member, so the base cannot read it
+without the derived type passing it up. `HopfFibration` names its pipeline
+`trail_pipeline` and
+`Raymarch` names its `pipeline`. Effects with no filter pipeline omit the field
+and take the `false` default.
+
+Because the flag is fixed at construction, an effect cannot change its answer
+mid-run — the drivers may read it once per frame without a re-clip hazard.
+
+Of the shipped roster the fold evaluates `true` for exactly `MeshFeedback`
+(`Pixel::Feedback`) and the `World::Trails` effect `Dynamo`; everything else is
+`false`. The roster test (§8) pins that set so a new cross-segment effect that
+forgets the field is caught.
+
+### 4.3 Honor it at the driver boundary (the only behavioral change)
+
+In `targets/wasm/engine_bindings.h` `setClip`: if
+`currentEffect->needs_full_frame()`, leave the clip at the full canvas
+(optionally record the requested band for telemetry) and return; otherwise
+apply the band as today.
+
+"Leave at full" is safe because the clip is already full when this fires: the
+`Effect` constructor resets `clip` to the whole canvas (canvas.h:87-110), and the
+worker re-applies the band *only* after `setEffect` rebuilds the effect
+(`segment_worker.js` `applyClip`). So a full-frame effect's clip is never
+narrowed in the first place — the early return preserves the constructor's
+full clip rather than relying on resetting a stale band. (If that lifecycle
+ever changes, harden this to an explicit `set_clip(0, H, 0, W)` instead.)
+
+The elegance is that **the hot-path filter code needs no change**. With a
+full clip, `XClip::active` is false and the coarse-row band spans every row,
+so the flush's existing band-pruning (filter.h:1767-1792, filter.h:2038-2061) already
+degrades to full-frame — the comments there note "a full canvas... does the
+same work either way." `blitSegmentRect` still slices each worker's quadrant
+from the full readback, unchanged. Every worker computes the bit-identical
+full frame; only the slice differs — matching the device exactly.
+
+**Precondition (existing invariant this rests on).** "Bit-identical full
+frame across workers" holds only because per-worker frame inputs are already
+deterministic: animations are *frame-stepped*, not wall-clock-stepped
+(`AnimationBase::step` counts frames, `core/animation/animation.h:165`;
+`drawFrame()` advances exactly one, `targets/wasm/engine_bindings.h` — the
+`elapsed` timing is telemetry and never feeds
+animation), the RNG is fixed-seed (`hs::Pcg32(1337)`), and params are
+broadcast to every worker. The same invariant non-stateful segmented effects
+already depend on; the design adds nothing new to it but is wholly dependent
+on it.
+
+### 4.4 `set_margin` carries the bounded tier
+
+A bounded spatial reach renders band + a declared margin instead of full-frame.
+The reach is a filter trait, `static constexpr int segment_margin` on the four
+trait bases (default 0), sum-folded by `Pipeline` into `total_segment_margin`
+alongside the `any_*` OR-folds. Effects pass it as `EffectConfig::margin`
+beside `.full_frame` / `.reads_outside_band`; the `Effect` constructor widens
+`ClipRegion::margin` to it through `set_margin`, never below the ClipRegion
+default of 1, so a pipeline folding to 0 keeps the coverage every effect
+already has.
+
+`Pixel::ChromaticShift` declares `segment_margin = 3` (its +1/+2/+3 column taps
+leave the plotted position) and stays `crosses_segments = false` — 3 columns of
+padding, not a full-canvas render. `MeshFeedback` is unbounded and skips this
+tier. The only margin-declaring filters a roster effect uses today are the
+±1 splatters (`Screen::AntiAlias`, `Screen::DirectAntiAliasSink`), which the
+ClipRegion default already covers, so every effect's clip margin is 1.
+
+---
+
+## 5. Policy summary
+
+| Effect class | Reach | Simulator render bound |
+|---|---|---|
+| Non-stateful | none | segment band (+1 AA margin) — full clipping win |
+| In-place history (`Screen::Trails`) | 0 (redraws at same coord) | sim: segment band, `crosses_segments = false`. Device alternation halves a quadrant's redraw cadence, so a device-clipped in-place-history effect would decay at the wrong rate — none ship today; flag `persists_pixels()` or full-frame before adding one |
+| Bounded spatial neighborhood (AntiAlias ±1, `ChromaticShift` +3) | finite | band + the pipeline's `total_segment_margin` (§4.4) |
+| Cross-segment history (`Pixel::Feedback`, `World::Trails`) | unbounded | full canvas; output sliced JS-side |
+
+---
+
+## 6. What changes, what does not
+
+| Layer | Change |
+|---|---|
+| `core/render/filter.h` traits | add `crosses_segments = has_history` to the trait bases; `false` on `Screen::Trails`; add a **new** recursive `any_crosses_segments` OR-fold to `Pipeline` + a `false` base case in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
+| `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor; `margin` config field applied to `ClipRegion::margin` through `set_margin`, widen-only |
+| each filtered effect's constructor | pass `.full_frame = decltype(filters)::any_crosses_segments` and `.margin = decltype(filters)::total_segment_margin` in the `Effect` base initializer |
+| `targets/wasm/engine_bindings.h` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
+| flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
+| `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |
+| `segment_worker.js` slicing | **none** |
+
+---
+
+## 7. Open decision: redundant workers vs single-instance
+
+The design above runs **N redundant, identical full-frame workers** for a
+stateful effect. It is the simplest path, mirrors the device's independent
+per-board compute, and is bit-identical to it.
+
+The alternative: because all N workers compute the bit-identical frame for a
+cross-segment effect, render it **once** and let all quadrants slice that
+single readback, recovering the (N−1)× browser compute. This is faster in the
+simulator but diverges the sim's topology from the device (hardware genuinely
+has N independent computes) and complicates worker orchestration (a mixed
+segmented / single-instance mode keyed on `needs_full_frame()`).
+
+**Recommendation:** take the redundant-workers path, consistent with the
+project's sim-mirrors-device doctrine. The single-instance variant is the
+lever to pull only if browser cost during stateful effects outweighs
+topological fidelity.
+
+---
+
+## 8. Test plan
+
+Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
+`tests/test_effects.h`:
+
+- **Trait fold** (`test_crosses_segments_trait_and_fold`, test_filter.h): pins
+  the per-filter `crosses_segments` values (incl. the `Screen::Trails == false`
+  override) and the `Pipeline::any_crosses_segments` OR-fold — `true` for the
+  MeshFeedback stack, `false` for a non-stateful stack and a `Screen::Trails`
+  stack — so a future filter addition can't silently regress the gate. Also pins
+  `segment_margin` (`ChromaticShift == 3`, the ±1 splatters 1, everything else
+  0) and the `total_segment_margin` sum-fold.
+- **Margin wiring** (`test_effect_config_margin`, test_canvas.h): asserts
+  `EffectConfig::margin` reaches `ClipRegion::margin` and that a fold of 0 does
+  not shrink it below the default. `smoke_one` asserts the roster's clip margin
+  is still the default, so a widened margin — which costs rendered pixels —
+  cannot appear without a filter asking for it.
+- **Roster gate** (`test_needs_full_frame_gate`, test_effects.h): constructs the
+  real effects and asserts `needs_full_frame()` is `true` for exactly the
+  cross-segment set (`MeshFeedback`, `Dynamo`) and `false` for
+  representative non-stateful effects. This is the end-to-end equivalent of a
+  `setClip` test — the WASM driver reads exactly this query, and `setClip` itself
+  lives in the Emscripten-only TU, which the native suite cannot link. A new
+  cross-segment effect that forgets the `full_frame` field is caught here.
+- **`Screen::Trails` banded-vs-full bit-identity**
+  (`test_screen_trails_banded_matches_full`, test_filter.h): the load-bearing
+  proof of the one non-fail-safe override. The same multi-frame seed sequence is
+  driven through one full-canvas instance and two band-clipped instances; the
+  stitched banded output must equal the full output byte-for-byte. This is the
+  override that drops pixels if the reach-0 reasoning is wrong.
+- **Feedback band-clip divergence**
+  (`test_feedback_banded_diverges_from_full`, test_filter.h): the inverse for an
+  unbounded-reach filter — a melt warp drips content across the segment boundary,
+  so a band-clipped `Pixel::Feedback` worker's bottom band differs from the
+  full-frame render. Demonstrates *why* full-frame is required: band clipping
+  here is not equivalent, so the gate is load-bearing, not cosmetic.
+- `test_effect_needs_full_frame_default_false` (`tests/test_filter.h:2777`) pins
+  the `EffectConfig::full_frame` default an effect gets when it omits the field.
