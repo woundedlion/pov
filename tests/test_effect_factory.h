@@ -221,6 +221,24 @@ inline void test_factory_tables() {
   verify_factory_lookup<288, 144>();
 }
 
+/** @brief Verifies Phantasm and the registry derive the same per-effect seed. */
+inline void test_phantasm_seed_identity() {
+#define HS_VERIFY_PHANTASM_SEED(name, duration_seconds)                        \
+  do {                                                                         \
+    const FactoryEntry *entry = find_factory_entry<288, 144>(#name);           \
+    HS_EXPECT_TRUE(entry != nullptr);                                          \
+    if (entry) {                                                               \
+      constexpr std::string_view id =                                          \
+          hs::stable_effect_id<name<288, 144>>(#name);                         \
+      HS_EXPECT_TRUE(entry->stable_id == id);                                  \
+      HS_EXPECT_EQ(hs::stable_effect_seed(entry->stable_id),                   \
+                   hs::stable_effect_seed(id));                                \
+    }                                                                          \
+  } while (false);
+  HS_PHANTASM_EFFECT_LIST(HS_VERIFY_PHANTASM_SEED)
+#undef HS_VERIFY_PHANTASM_SEED
+}
+
 /**
  * @brief Drives the create/render/destroy lifecycle at every resolution.
  * @details The 288x144 leg carries the FULL tier's cost (a heap instance of
@@ -242,6 +260,7 @@ inline int run_effect_factory_tests() {
   test_bootstrap_rows();
   test_resolution_dispatch();
   test_factory_tables();
+  test_phantasm_seed_identity();
   test_fixed_preset_ids();
   test_factory_lifecycle();
   return fixture.result();
