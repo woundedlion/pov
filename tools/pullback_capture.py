@@ -291,7 +291,14 @@ def _compiler_metadata(build_dir: Path) -> tuple[Path, str]:
 
 def _first_line(command: list[str]) -> str:
     try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        result = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
     except (OSError, subprocess.CalledProcessError) as error:
         raise CaptureError(f"toolchain query failed: {command[0]}") from error
     lines = result.stdout.splitlines()
@@ -429,6 +436,8 @@ def produce(
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     ).stdout.strip()
     backend_records = {}
     oracle_totals = {
