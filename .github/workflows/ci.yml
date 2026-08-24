@@ -1005,7 +1005,10 @@ jobs:
         # ctest unit_gamut_lut runs the same --check inside the sharded unit-test
         # job (which provisions numpy and sets -DHS_REQUIRE_GENERATORS=ON, so it
         # cannot skip); this job runs it standalone, independent of that build.
-        run: python3 tools/gen_gamut_lut.py --check
+        run: |
+          bash tools/require_test_files.sh 'tools/gamut_lut_tests/test*.py'
+          python3 -m unittest discover -s tools/gamut_lut_tests
+          python3 tools/gen_gamut_lut.py --check
 
   srgb-decode-provenance:
     name: Generated sRGB decode tables match committed header
