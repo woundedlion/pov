@@ -2589,6 +2589,41 @@ inline void test_shader_workbench_mode_specific_parameter_warnings() {
   HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
 }
 
+/** @brief Curl integrator edits immediately update the strength range. */
+inline void test_shader_workbench_curl_integrator_range_rebind() {
+  using WB = ShaderWorkbenchWhiteBox;
+  for (const auto [warp, scale, integrator, strength] :
+       {std::array<const char *, 4>{"Planar Warp 1", "Planar Warp 1 Scale",
+                                    "Planar Warp 1 Curl Integrator",
+                                    "Planar Warp 1 Strength"},
+        std::array<const char *, 4>{"Planar Warp 2", "Planar Warp 2 Scale",
+                                    "Planar Warp 2 Curl Integrator",
+                                    "Planar Warp 2 Strength"}}) {
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    HS_EXPECT_EQ(sb.updateParameter(
+                     warp, static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter(scale, 1.0f), ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter(
+                     warp, static_cast<float>(WB::WarpStageKind::CURL_FLOW)),
+                 ParamSetResult::APPLIED);
+
+    const auto *before = sb.getParameters().find(strength);
+    HS_EXPECT_TRUE(before != nullptr);
+    HS_EXPECT_NEAR(before->max, 0.125f, 1e-7f);
+    HS_EXPECT_EQ(
+        sb.updateParameter(integrator,
+                           static_cast<float>(WB::CurlIntegrator::MIDPOINT_4)),
+        ParamSetResult::APPLIED);
+    const auto *after = sb.getParameters().find(strength);
+    HS_EXPECT_TRUE(after != nullptr);
+    HS_EXPECT_NEAR(after->min, -0.5f, 1e-7f);
+    HS_EXPECT_NEAR(after->max, 0.5f, 1e-7f);
+  }
+}
+
 /** @brief A function edit preserves both warp stages in the dodecahedral hold. */
 inline void test_shader_workbench_dodecahedral_lattice_edit() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -6015,6 +6050,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_config_admission();
   test_shader_workbench_deterministic_gui_edits();
   test_shader_workbench_mode_specific_parameter_warnings();
+  test_shader_workbench_curl_integrator_range_rebind();
   test_shader_workbench_dodecahedral_lattice_edit();
   test_shader_workbench_polar_gui_repair();
   test_shader_workbench_structural_admission();

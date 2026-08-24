@@ -1448,7 +1448,9 @@ private:
            std::strcmp(name, "Surface Noise Placement") == 0 ||
            std::strcmp(name, "Lens") == 0 ||
            std::strcmp(name, "Planar Warp 1") == 0 ||
+           std::strcmp(name, "Planar Warp 1 Curl Integrator") == 0 ||
            std::strcmp(name, "Planar Warp 2") == 0 ||
+           std::strcmp(name, "Planar Warp 2 Curl Integrator") == 0 ||
            std::strcmp(name, "Value Transfer") == 0 ||
            std::strcmp(name, "Coverage") == 0 ||
            std::strcmp(name, "Palette") == 0 ||
