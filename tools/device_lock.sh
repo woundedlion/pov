@@ -140,15 +140,15 @@ _hs_lock_is_stale() {  # <dir>
   return 1
 }
 
-# _hs_break_lock <dir> — takes the right to evict a claim. rc 0 = ours to break.
+# _hs_break_lock <dir> <token> — evicts only the claim identified by token.
 # rename is the arbiter, not rm: two peers that both judged the same claim stale
 # both attempt it and exactly one succeeds, so the loser can never delete the
 # winner's fresh lock and hand two sessions one board. The token re-read rejects
 # a claim released and re-taken between the judgement and the rename; that one is
 # put back rather than consumed.
 _hs_break_lock() {
-  local d=$1 token broken
-  token=$(_hs_lock_field "$d" token)
+  local d=$1 token=$2 broken
+  [ -n "$token" ] && [ "$(_hs_lock_field "$d" token)" = "$token" ] || return 1
   broken="$d.breaking.$$-$RANDOM"
   mv "$d" "$broken" 2>/dev/null || return 1
   if [ "$(_hs_lock_field "$broken" token)" != "$token" ]; then
@@ -227,10 +227,11 @@ hs_device_acquire() {
     for p in $ports; do
       port=$([ "$p" = "-" ] && echo "" || echo "$p")
       d=$(_hs_lock_dir "$port")
+      local token; token=$(_hs_lock_field "$d" token)
       if _hs_lock_is_stale "$d"; then
         # Read while the claim still exists; the break destroys its info.
         local desc; desc=$(_hs_holder_desc "$d")
-        if _hs_break_lock "$d"; then
+        if _hs_break_lock "$d" "$token"; then
           echo "device lock is stale (holder gone or past its ETA) — breaking it" >&2
           echo "$desc" >&2
           _hs_try_claim "$d" "$port" "$effect" "$env" "$eta" && {
@@ -247,7 +248,7 @@ hs_device_acquire() {
       _hs_holder_desc "$d" >&2
       # Losing the rename means a peer holds it now; report busy instead of
       # spinning the retry loop.
-      _hs_break_lock "$d" && continue
+      _hs_break_lock "$d" "$(_hs_lock_field "$d" token)" && continue
     fi
     if [ "$wait_for" -gt 0 ] && [ "$waited" -lt "$wait_for" ]; then
       [ "$waited" = 0 ] && { echo "ALL DEVICES BUSY — waiting up to ${wait_for}s" >&2
