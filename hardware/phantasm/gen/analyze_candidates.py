@@ -7,7 +7,7 @@ strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair) plus placement quality
 Usage:
     python analyze_candidates.py [DIR ...]
 
-With no args it globs `../candidates/Candidate_*`. Pass explicit candidate
+With no args it globs `../candidates/Candidate *`. Pass explicit candidate
 folders (or .kicad_pcb files) to override.
 
 A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
@@ -238,6 +238,11 @@ def analyze(path):
             f"no critical net ({', '.join(CRIT)}) resolved by name in {path}; "
             "copper is present but its nets are unnamed, so the SI ranking "
             "would be scored on zeroes")
+    unrouted = [n for n in CRIT if netlen.get(n, 0) <= 0]
+    if unrouted:
+        raise ValueError(
+            f"unrouted critical nets in {path}: {', '.join(unrouted)}; "
+            "every critical net needs positive routed copper before scoring")
 
     # fast-net vias with a GND stitching via within 1 mm (clean return-path hop)
     near = sum(1 for p in crit_via_pts
@@ -313,22 +318,27 @@ def candidate_board(path):
     return matches[0]
 
 
+def default_candidates():
+    """Return Quilter's default space-separated candidate folders."""
+    pattern = os.path.join(PROJ, "candidates", "Candidate *")
+    return sorted(path for path in glob.glob(pattern) if os.path.isdir(path))
+
+
 def main(argv):
     args = argv[1:]
     if args:
         dirs = args
     else:
-        dirs = sorted(glob.glob(os.path.join(
-            PROJ, "candidates", "Candidate_*")))
+        dirs = default_candidates()
     if not dirs:
         print("no candidate folders found (pass them as args)")
         return 1
 
     R = {}
     for d in dirs:
-        # name from the Candidate_N anywhere in the path (works whether a folder or a
-        # .kicad_pcb file was passed, and regardless of the board's filename)
-        m = re.search(r"Candidate_(\w+)", d)
+        # Read the Quilter candidate label anywhere in the path, whether a folder
+        # or a board file was passed and regardless of the board's filename.
+        m = re.search(r"Candidate[ _-]+(\w+)", d)
         name = m.group(1) if m else os.path.splitext(os.path.basename(d))[0]
         try:
             f = candidate_board(d)
