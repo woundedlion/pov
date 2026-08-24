@@ -12,6 +12,7 @@ reproduce.
 """
 import contextlib
 import io
+import json
 import os
 import sys
 import tempfile
@@ -26,6 +27,7 @@ import board    # noqa: E402
 import builder  # noqa: E402
 import sexp     # noqa: E402
 import shorts   # noqa: E402
+from constraints import RULE_MINIMUMS  # noqa: E402
 from kicad_common import F  # noqa: E402
 
 STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
@@ -158,6 +160,14 @@ class GeneratedSchematicTests(unittest.TestCase):
     def test_writes_every_project_file(self):
         for name in PROJECT_FILES:
             self.assertTrue(os.path.exists(os.path.join(self.out.name, name)), name)
+
+    def test_project_uses_fabrication_rule_minimums(self):
+        project = Path(self.out.name, "phantasm.kicad_pro")
+        rules = json.loads(project.read_text(encoding="utf-8"))[
+            "board"]["design_settings"]["rules"]
+        for field, minimum in RULE_MINIMUMS.items():
+            with self.subTest(field=field):
+                self.assertEqual(rules[field], minimum)
 
     def test_no_two_named_nets_share_a_group(self):
         conflicts, _ = shorts.analyze(self.root)

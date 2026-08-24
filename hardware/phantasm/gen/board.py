@@ -435,6 +435,7 @@ def main(force=False):
                 f'{RULE_MINIMUMS["min_clearance"]},\n'
                 f'    "min_through_hole_diameter": '
                 f'{RULE_MINIMUMS["min_through_hole_diameter"]}, '
+                f'"min_track_width": {RULE_MINIMUMS["min_track_width"]},\n'
                 f'"min_via_annular_width": {RULE_MINIMUMS["min_via_annular_width"]},\n'
                 f'    "min_via_diameter": {RULE_MINIMUMS["min_via_diameter"]} }} }} }},\n'
                 '  "boards": [],\n  "cvpcb": { "equivalence_files": [] },\n'
