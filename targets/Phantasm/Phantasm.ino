@@ -37,7 +37,8 @@ constexpr uint32_t EFFECT_REVOLUTIONS[] = {
     HS_PHANTASM_EFFECT_LIST(HS_DURATION_ONE)};
 #undef HS_DURATION_ONE
 
-#define HS_SEED_ONE(name, duration_seconds) hs::stable_effect_seed(#name),
+#define HS_SEED_ONE(name, duration_seconds)                                    \
+  hs::stable_effect_seed(hs::stable_effect_id<name<CANVAS_W, CANVAS_H>>(#name)),
 constexpr uint64_t EFFECT_SEEDS[] = {HS_PHANTASM_EFFECT_LIST(HS_SEED_ONE)};
 #undef HS_SEED_ONE
 
