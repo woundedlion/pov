@@ -556,10 +556,10 @@ template <typename State> struct SphericalRings : ApproximationDefaults {
     return State::prepare(frame);
   }
 
-  __attribute__((always_inline)) static float sample(const PlaneSample &input,
+  __attribute__((always_inline)) static float sample(const SphereSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
-    return spherical_rings(input.sphere, State::params(frame), prepared);
+    return spherical_rings(input.dir, State::params(frame), prepared);
   }
 };
 
@@ -746,10 +746,10 @@ struct SphericalNoise : ApproximationDefaults {
   static constexpr bool PROVIDER_VALID =
       ProjectedNoise<State, BasisV>::template PROVIDER_VALID<CandidateBinding>;
 
-  __attribute__((always_inline)) static float sample(const PlaneSample &input,
+  __attribute__((always_inline)) static float sample(const SphereSample &input,
                                                      const FrameState &frame) {
     return noise_contour(State::noise(frame), BasisV,
-                         noise_sphere_coordinate(input.sphere,
+                         noise_sphere_coordinate(input.dir,
                                                  State::noise_scale(frame),
                                                  State::noise_time(frame)),
                          State::noise_contrast(frame));
