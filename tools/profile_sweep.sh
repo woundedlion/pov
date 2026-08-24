@@ -113,6 +113,7 @@ g5_ship)
   run AlienCore profile 70 32
   run KaleidoscopeMandala profile 70 32
   run GridSpace profile 70 32
+  run HyperLattice profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
   run LatticeMelt profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   run AshCloud profile 70 32
   ;;
