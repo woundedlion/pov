@@ -251,7 +251,8 @@ inline void test_effect_transition_fenced_commit() {
   TransitionAdapter adapter;
   hs::EffectTransitionController controller(adapter);
   const hs::EffectTransitionRequest request{
-      "facet-grid", "coupled-grid", hs::EffectTransitionOrigin::MANUAL, 2};
+      "kaleidoscope-smooth", "coupled-grid", hs::EffectTransitionOrigin::MANUAL,
+      2};
   HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
   controller.tick();
   controller.tick();
@@ -289,12 +290,12 @@ inline void test_effect_transition_fenced_commit() {
 inline void test_effect_transition_replacement_pause_and_restore() {
   TransitionAdapter adapter;
   hs::EffectTransitionController controller(adapter);
-  hs::EffectTransitionRequest first{"signal-weave", "signal-weave",
+  hs::EffectTransitionRequest first{"alien-brain", "alien-brain",
                                     hs::EffectTransitionOrigin::AUTOMATIC, 2};
   HS_EXPECT_EQ(controller.request(first), hs::EffectTransitionStatus::OK);
   controller.tick();
   const size_t pre_replacement_envelopes = adapter.envelopes.size();
-  first.effect_id = "kaleido-wave";
+  first.effect_id = "kaleidoscope-hex-soft";
   HS_EXPECT_EQ(controller.request(first), hs::EffectTransitionStatus::OK);
   // Replacing the destination mid-fade writes no envelope of its own: the fade
   // carries on down from where it stood instead of snapping back to full.
@@ -360,7 +361,7 @@ inline void test_effect_transition_failsafe_retry() {
   adapter.construct_status = hs::EffectTransitionStatus::RESOURCE_REJECTED;
   hs::EffectTransitionController controller(adapter);
   const hs::EffectTransitionRequest request{
-      "signal-weave", "signal-weave", hs::EffectTransitionOrigin::AUTOMATIC, 1};
+      "alien-brain", "alien-brain", hs::EffectTransitionOrigin::AUTOMATIC, 1};
   HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
   for (int i = 0; i < 5; ++i)
     controller.tick();

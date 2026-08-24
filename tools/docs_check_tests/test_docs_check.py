@@ -446,7 +446,7 @@ class TestDocumentationChecker(unittest.TestCase):
                + self._diagram(3))
         self.assertEqual(
             dc.effects_row_issues(
-                row, entries, {"Comets", "SignalWeave", "KaleidoWave"}), [])
+                row, entries, {"Comets", "AlienBrain", "KaleidoscopeHexSoft"}), [])
 
     def test_effects_row_counts_are_checked_against_tree_and_roster(self):
         entries = {PurePosixPath("effects"),

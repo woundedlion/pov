@@ -58,34 +58,34 @@ peak.
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-09.md) | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-07-25.md) | volume ray-march (`-O3` march path) | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
-| [VectorFacets](shipping/profile_vectorfacets_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
-| [CurlLattice](shipping/profile_curllattice_teensy_2026-08-18.md)§ ● | curl-noise surface lattice | 🟢 45.18 (2) | 🟢 0/1728 (0%) | 2026-08-18 17:46 |
+| [KaleidoscopeStainedGlass](shipping/profile_kaleidoscopestainedglass_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
+| [LatticeMelt](shipping/profile_latticemelt_teensy_2026-08-18.md)§ ● | curl-noise surface lattice | 🟢 45.18 (2) | 🟢 0/1728 (0%) | 2026-08-18 17:46 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
 | [HankinSolids](shipping/profile_hankinsolids_teensy_2026-07-25.md)§ | per-face SDF (`-O3` driver + `ConwayMorph`) | 🟢 43.0 (19) | 🟢 0/3328 (0%) | 2026-07-26 11:55 |
 | [Comets](shipping/profile_comets_teensy_2026-07-25.md)§ | point raster | 🟢 41.56 (12) | 🟢 0/4128 (0%) | 2026-07-26 11:43 |
-| [PrismSpiral](shipping/profile_prismspiral_teensy_2026-08-17.md)§ ● | stereographic hex-prism spiral + direct noise | 🟢 40.52 (2) | 🟢 0/2208 (0%) | 2026-08-17 23:03 |
+| [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-08-17.md)§ ● | stereographic hex-prism spiral + direct noise | 🟢 40.52 (2) | 🟢 0/2208 (0%) | 2026-08-17 23:03 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-07.md)§ | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 0/1728 (0%) | 2026-08-07 23:03 |
 | [GnomonicStars](shipping/profile_gnomonicstars_teensy_2026-07-25.md) | star raster | 🟢 38.15 | 🟢 0/1088 (0%) | 2026-07-26 11:29 |
-| [EquatorGrid](shipping/profile_equatorgrid_teensy_2026-08-17.md)§ ● | equirectangular dodecahedral grid | 🟢 36.51 (3) | 🟢 0/4128 (0%) | 2026-08-17 19:42 |
-| [FacetWave](shipping/profile_facetwave_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral wave mirror | 🟢 36.01 | 🟢 0/1088 (0%) | 2026-08-16 08:34 |
-| [FacetGrid](shipping/profile_facetgrid_teensy_2026-08-16.md)§ ● | stereographic dodecahedral grid mirror | 🟢 35.52 (4) | 🟢 0/4128 (0%) | 2026-08-16 08:34 |
-| [HexWave](shipping/profile_hexwave_teensy_2026-08-16.md) ● | stereographic hex-prism twin-wave | 🟢 34.45 | 🟢 0/1088 (0%) | 2026-08-16 08:36 |
-| [SignalWeave](shipping/profile_signalweave_teensy_2026-08-16.md)§ ● | stereographic glitch wave-shear grid | 🟢 31.95 (4) | 🟢 0/4768 (0%) | 2026-08-16 08:44 |
-| [PrismLattice](shipping/profile_prismlattice_teensy_2026-08-16.md) ● | stereographic prism polar lattice | 🟢 30.79 | 🟢 0/1088 (0%) | 2026-08-16 08:28 |
-| [ContourLattice](shipping/profile_contourlattice_teensy_2026-08-16.md) ● | folded gnomonic affine lattice | 🟢 28.56 | 🟢 0/1088 (0%) | 2026-08-16 08:35 |
+| [KaleidoscopeFlowers](shipping/profile_kaleidoscopeflowers_teensy_2026-08-17.md)§ ● | equirectangular dodecahedral grid | 🟢 36.51 (3) | 🟢 0/4128 (0%) | 2026-08-17 19:42 |
+| [KaleidoscopeMandala](shipping/profile_kaleidoscopemandala_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral wave mirror | 🟢 36.01 | 🟢 0/1088 (0%) | 2026-08-16 08:34 |
+| [KaleidoscopeSmooth](shipping/profile_kaleidoscopesmooth_teensy_2026-08-16.md)§ ● | stereographic dodecahedral grid mirror | 🟢 35.52 (4) | 🟢 0/4128 (0%) | 2026-08-16 08:34 |
+| [KaleidoscopeHexBright](shipping/profile_kaleidoscopehexbright_teensy_2026-08-16.md) ● | stereographic hex-prism twin-wave | 🟢 34.45 | 🟢 0/1088 (0%) | 2026-08-16 08:36 |
+| [AlienBrain](shipping/profile_alienbrain_teensy_2026-08-16.md)§ ● | stereographic glitch wave-shear grid | 🟢 31.95 (4) | 🟢 0/4768 (0%) | 2026-08-16 08:44 |
+| [KaleidoscopePentBright](shipping/profile_kaleidoscopepentbright_teensy_2026-08-16.md) ● | stereographic prism polar lattice | 🟢 30.79 | 🟢 0/1088 (0%) | 2026-08-16 08:28 |
+| [GridSpace](shipping/profile_gridspace_teensy_2026-08-16.md) ● | folded gnomonic affine lattice | 🟢 28.56 | 🟢 0/1088 (0%) | 2026-08-16 08:35 |
 | [AlienOcean](shipping/profile_alienocean_teensy_2026-08-16.md) ● | folded gnomonic kaleidoscope grid | 🟢 28.20 | 🟢 0/1088 (0%) | 2026-08-16 08:30 |
-| [KaleidoWave](shipping/profile_kaleidowave_teensy_2026-08-16.md) ● | stereographic kaleidoscope twin-wave | 🟢 27.89 | 🟢 0/1088 (0%) | 2026-08-16 08:28 |
+| [KaleidoscopeHexSoft](shipping/profile_kaleidoscopehexsoft_teensy_2026-08-16.md) ● | stereographic kaleidoscope twin-wave | 🟢 27.89 | 🟢 0/1088 (0%) | 2026-08-16 08:28 |
 | [CosmicEyeball](shipping/profile_cosmiceyeball_teensy_2026-08-16.md) ● | stereographic glitch mirror grid | 🟢 25.61 | 🟢 0/1088 (0%) | 2026-08-16 08:43 |
 | [Fishbowl](shipping/profile_fishbowl_teensy_2026-08-02.md) | adaptive vertex build | 🟢 24.85 | 🟢 0/1088 (0%) | 2026-08-02 22:21 |
 | [MobiusGrid](shipping/profile_mobiusgrid_teensy_2026-08-16.md)§ ● | stereographic Möbius twin-wave | 🟢 24.20 (2) | 🟢 0/2688 (0%) | 2026-08-16 08:46 |
-| [GlitchGrid](shipping/profile_glitchgrid_teensy_2026-08-16.md) ● | folded gnomonic glitch mirror grid | 🟢 23.30 | 🟢 0/1088 (0%) | 2026-08-16 08:32 |
+| [AlienCore](shipping/profile_aliencore_teensy_2026-08-16.md) ● | folded gnomonic glitch mirror grid | 🟢 23.30 | 🟢 0/1088 (0%) | 2026-08-16 08:32 |
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-08-21.md)§ | full-sphere harmonic shade | 🟢 12.29 (24) | 🟢 0/3488 (0%) | 2026-08-21 16:00 |
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-07-25.md) | ring raster | 🟢 11.71 | 🟢 0/1088 (0%) | 2026-07-26 11:37 |
 | [Voronoi](shipping/profile_voronoi_teensy_2026-07-25.md) | block-union top-2 shade | 🟢 9.90 | 🟢 0/1088 (0%) | 2026-07-26 11:46 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
 
 **●** — the composed effects. Fourteen were first profiled in the
-2026-08-16 sweep; PrismSpiral joined 2026-08-17; CurlLattice was re-captured
+2026-08-16 sweep; KaleidoscopeHexOil joined 2026-08-17; LatticeMelt was re-captured
 2026-08-18 as the stage-families cut-over A/B gate. The other rows keep their
 own `Captured` dates.
 
@@ -140,19 +140,19 @@ on them.
 **All thirty-four effects spill nothing** in their current shipping captures.
 
 **The fifteen composed effects are green, and none is near the
-ceiling.** Their peaks run 23.30 ms (GlitchGrid) to 47.20 ms (VectorFacets), so
+ceiling.** Their peaks run 23.30 ms (AlienCore) to 47.20 ms (KaleidoscopeStainedGlass), so
 the heaviest of them keeps 15.30 ms of the 62.5 ms window — the widest margin
 any pullback-shaded effect has held on this bench.
 
 The two heaviest are the only ones doing per-sample noise work on top of a
-closed-form pullback: VectorFacets carries a `Warp::VectorNoise` lookup in its
-outer warp (47.20 ms) and CurlLattice integrates a simplex curl-noise surface
+closed-form pullback: KaleidoscopeStainedGlass carries a `Warp::VectorNoise` lookup in its
+outer warp (47.20 ms) and LatticeMelt integrates a simplex curl-noise surface
 (45.47 ms). They are roughly 9 ms clear of the rest. The other twelve
 run 23.30 to 36.51 ms on closed-form stages alone, where the shade scope is a
 third to a half of the frame and the remainder is display-sync idle.
 
-Five of them cycle presets, and their spreads are narrow — EquatorGrid 1.03×
-across three presets, FacetGrid 1.19× across four, SignalWeave 1.03× across
+Five of them cycle presets, and their spreads are narrow — KaleidoscopeFlowers 1.03×
+across three presets, KaleidoscopeSmooth 1.19× across four, AlienBrain 1.03× across
 four. A preset morph is a 480-frame parameter interpolation, not a structural
 change, so a transition is bounded by its two endpoints rather than being a
 cost peak of its own — a preset bank cannot introduce a cost outlier the way a
