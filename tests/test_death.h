@@ -4435,9 +4435,7 @@ inline int run_death_tests() {
     return fixture.result();
   }
 
-  // Control: a child given an unknown case must exit cleanly. If it doesn't,
-  // this harness can't reliably spawn itself here (e.g. a sandbox) — skip
-  // (or FAIL under CI) rather than emit false results for every case.
+  // Control: a child given an unknown case must exit cleanly.
   int control = spawn_child("__spawn_check__");
   if (!child_exited_clean(control)) {
     report_unrunnable("cannot re-exec self", control);
