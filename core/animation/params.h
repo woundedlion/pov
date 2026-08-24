@@ -723,6 +723,7 @@ public:
     this->params.get().phase = 0.0f;
     // Start at 0 to prevent 1-frame singularity before first step()
     this->params.get().amplitude = 0.0f;
+    this->params.get().sync();
   }
 
   /**
