@@ -210,7 +210,7 @@ endif()
 
 _hs_sanitize(run_tests)
 
-add_executable(mindsplatter_replay_gen EXCLUDE_FROM_ALL
+add_executable(mindsplatter_replay_gen
   ${HS_ROOT}/tools/mindsplatter_replay_gen.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
@@ -222,6 +222,17 @@ target_include_directories(mindsplatter_replay_gen PRIVATE ${HS_ROOT} ${HS_ROOT}
 target_compile_options(mindsplatter_replay_gen PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(mindsplatter_replay_gen)
+
+add_test(NAME unit_mindsplatter_replay_form COMMAND ${CMAKE_COMMAND}
+  -DGENERATOR=$<TARGET_FILE:mindsplatter_replay_gen>
+  -DCOMMITTED=${HS_ROOT}/tests/mindsplatter_replay_corpus.h
+  -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/mindsplatter_replay_corpus.generated.h
+  -DCOMPILER_ID=${CMAKE_CXX_COMPILER_ID}
+  -DCOMPILER_VERSION=${CMAKE_CXX_COMPILER_VERSION}
+  -DREQUIRE_COMPILER_MATCH=${HS_REQUIRE_GENERATORS}
+  -DSKIP_CODE=77
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_form.cmake)
+set_tests_properties(unit_mindsplatter_replay_form PROPERTIES SKIP_RETURN_CODE 77)
 
 add_executable(mindsplatter_palette_gen
   ${HS_ROOT}/tools/mindsplatter_palette_gen.cpp
