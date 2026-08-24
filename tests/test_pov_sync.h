@@ -1940,19 +1940,33 @@ public:
     return boards[i].board.flywheel().position(local_now(boards[i], g));
   }
 
+  double board_phase(int i) const {
+    const SimBoard &board = boards[i];
+    const Flywheel &flywheel = board.board.flywheel();
+    const uint32_t now = local_now(board, g);
+    const double elapsed =
+        double(cfg.cycles_per_half_rev) - flywheel.cycles_to_next_boundary(now);
+    double phase = boundary_column(flywheel.current_boundary(), cfg.W) +
+                   elapsed * (cfg.W / 2) / cfg.cycles_per_half_rev;
+    phase = std::fmod(phase, cfg.W);
+    return phase < 0.0 ? phase + cfg.W : phase;
+  }
+
   /**
    * @brief Computes the largest circular column distance of any locked board
    *        from the master.
    * @return The worst-case phase error in columns; 0 if no downstream board is
    *         locked.
    */
-  int32_t max_phase_err() const {
-    const int32_t mp = board_pos(0);
-    int32_t worst = 0;
+  double max_phase_err() const {
+    const double master_phase = board_phase(0);
+    double worst = 0.0;
     for (size_t i = 1; i < boards.size(); ++i) {
       if (boards[i].board.lock() != LockState::LOCKED)
         continue;
-      const int32_t d = circ_dist(board_pos(static_cast<int>(i)), mp, cfg.W);
+      const double direct =
+          std::abs(board_phase(static_cast<int>(i)) - master_phase);
+      const double d = std::min(direct, cfg.W - direct);
       if (d > worst)
         worst = d;
     }
@@ -2135,7 +2149,7 @@ inline void test_sim_boot_and_phase() {
     // board's ZERO flip for this rev has long settled.
     HS_EXPECT_TRUE(
         sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
-    HS_EXPECT_LE(sim.max_phase_err(), 2);
+    HS_EXPECT_LE(sim.max_phase_err(), 0.006);
     for (int i = 0; i < 4; ++i) {
       const uint64_t df = sim.boards[i].flips - flips_before[i];
       HS_EXPECT_GE(df, 8u); // ~2 flips/rev over the ≥4-rev slice
@@ -2173,7 +2187,7 @@ inline void test_sim_eight_board_boot_and_phase() {
   sim.run_revs(8.0);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
-  HS_EXPECT_LE(sim.max_phase_err(), 2);
+  HS_EXPECT_LE(sim.max_phase_err(), 0.006);
   for (size_t i = 1; i < sim.boards.size(); ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
@@ -2997,10 +3011,10 @@ inline void test_construction_window_predicates() {
  * @return The worst locked-board phase error (columns vs the master) observed
  *         at any step.
  */
-inline int32_t max_err_over(Sim &sim, double revs) {
+inline double max_err_over(Sim &sim, double revs) {
   const uint64_t until =
       sim.g + static_cast<uint64_t>(revs * 2 * sim.cfg.cycles_per_half_rev);
-  int32_t worst = 0;
+  double worst = 0.0;
   while (sim.g < until) {
     sim.step();
     worst = std::max(worst, sim.max_phase_err());
@@ -3071,7 +3085,7 @@ inline void test_budget_emi_accepted_seam() {
 
   // The seam engages (≥2 col — clear of truncation noise, proving the
   // forged snap was really accepted) and is bounded by the gate.
-  const int32_t seam = max_err_over(sim, 0.45);
+  const double seam = max_err_over(sim, 0.45);
   HS_EXPECT_GE(seam, 2);
   HS_EXPECT_LE(seam, cfg.gate_cols);
   // Recovery: the next real boundary symbol (err ≈ 3 ≤ G) re-snaps.
