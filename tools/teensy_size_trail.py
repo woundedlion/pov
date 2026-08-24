@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Per-commit Teensy 4 firmware size trail (ELF parser / recorder / classifier).
 
-The pre-commit hook already links all three images to run the size gate
-(tools/teensy_gate.py) and then discards the numbers. This module captures them
-so a later ITCM/RAM1 regression can be attributed to a commit.
+The record command captures already-linked firmware images so a later
+ITCM/RAM1 regression can be attributed to a commit.
 
 Like teensy_gate.py it holds NO PlatformIO dependency and shells out to no ARM
 toolchain: section sizes are read straight out of the ELF32 section-header table
@@ -22,9 +21,8 @@ Storage (deliberately NOT a tracked file):
     It holds ONE commit in flight, so sharing it across worktrees lets two
     overlapping commits stamp each other's section sizes onto the wrong sha.
 
-Capture is two-phase because pre-commit does not know the commit sha yet:
-  * `record`  — pre-commit, after the gate passes: parse the built ELFs into a
-    pending JSON record.
+Capture is two-phase because the recorder does not know the next commit sha:
+  * `record`  — before committing, parse the built ELFs into a pending record.
   * `commit`  — post-commit: stamp the pending record with HEAD's sha, committer
     date and subject, append one row per environment, drop the pending file.
 
@@ -133,7 +131,7 @@ _RAM1_PARTS = ("itcm", "data", "bss")
 #: Every column the trail carries a byte count for.
 REGIONS: tuple[str, ...] = tuple(r for _, r in _SECTION_REGION) + ("ram1",)
 
-#: Environments the pre-commit hook links, hence the default record set.
+#: Firmware environments recorded together by default.
 DEFAULT_ENVIRONMENTS: tuple[str, ...] = (
     "holosphere", "phantasm", "holosphere_dma")
 

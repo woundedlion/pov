@@ -1,5 +1,5 @@
 #!/bin/sh
-# Holosphere post-commit hook — append the pre-commit Teensy size capture to the
+# Holosphere post-commit hook — append a pending Teensy size capture to the
 # local per-commit size trail.
 #
 # The trail lives at $(git rev-parse --git-common-dir)/teensy-size-trail.tsv:
@@ -9,8 +9,7 @@
 #     python tools/teensy_size_trail.py regressions --region itcm
 #
 # The commit already exists when this runs, so nothing here may fail: every path
-# exits 0. No pending record (doc-only commit, Teensy gate skipped, no
-# PlatformIO) is the normal quiet case.
+# exits 0. No pending manual record is the normal quiet case.
 
 COMMON="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
 [ -n "$COMMON" ] || exit 0
