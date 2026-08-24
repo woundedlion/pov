@@ -41,9 +41,15 @@ STAGE_PREFIX = "phantasm-jlc-"
 # Layers JLCPCB needs (this board names silk "F.SilkS" / "B.SilkS").
 GERBER_LAYERS = ("F.Cu,In1.Cu,In2.Cu,B.Cu,F.SilkS,B.SilkS,"
                  "F.Mask,B.Mask,F.Paste,B.Paste,Edge.Cuts")
-# Fab-layer + drill extensions that belong in the JLC upload zip.
-ZIP_EXT = {".gtl", ".g1", ".g2", ".gbl", ".gto", ".gbo", ".gts", ".gbs",
-           ".gtp", ".gbp", ".gm1", ".drl", ".gbrjob"}
+# Fab-layer and drill files that belong in the JLC upload zip.
+ZIP_MEMBERS = {
+    "phantasm-F_Cu.gtl", "phantasm-In1_Cu.g1", "phantasm-In2_Cu.g2",
+    "phantasm-B_Cu.gbl", "phantasm-F_Silkscreen.gto",
+    "phantasm-B_Silkscreen.gbo", "phantasm-F_Mask.gts",
+    "phantasm-B_Mask.gbs", "phantasm-F_Paste.gtp", "phantasm-B_Paste.gbp",
+    "phantasm-Edge_Cuts.gm1", "phantasm-PTH.drl", "phantasm-NPTH.drl",
+    "phantasm-job.gbrjob",
+}
 # Everything else the run writes into jlc/: assembly data and the zip itself.
 ZIP_EXCLUDED = {"phantasm-BOM.csv", "phantasm-CPL.csv",
                 "phantasm-jlc-gerbers.zip"}
@@ -129,24 +135,20 @@ class UploadPackageError(ValueError):
 
 
 def zip_members(names):
-    """Sorted upload-zip members; every ZIP_EXT extension present, no others.
+    """Sorted upload-zip members; every ZIP_MEMBERS file present, no others.
 
-    The layer -> extension mapping is KiCad's Protel convention, so a layer
-    added to GERBER_LAYERS exports an extension ZIP_EXT need not carry. Without
-    this the file is left out of the upload and the boards come back missing a
-    layer. The converse is as costly: an export that quietly wrote no file for
-    a layer, or no drill, zips clean and fabricates wrong, so ZIP_EXT is also
-    the required set.
+    The names bind every GERBER_LAYERS export plus both plated and unplated drill
+    files. An omitted layer or drill would otherwise zip clean and fabricate an
+    incomplete board.
     """
-    members = sorted(n for n in names
-                     if os.path.splitext(n)[1].lower() in ZIP_EXT)
+    members = sorted(n for n in names if n in ZIP_MEMBERS)
     dropped = sorted(set(names) - set(members) - ZIP_EXCLUDED)
     if dropped:
         raise UploadPackageError(
             "exported fab artifacts the JLC upload zip would drop: "
             + ", ".join(dropped)
-            + " - add the extension to ZIP_EXT, or the name to ZIP_EXCLUDED.")
-    absent = sorted(ZIP_EXT - {os.path.splitext(n)[1].lower() for n in members})
+            + " - add the name to ZIP_MEMBERS or ZIP_EXCLUDED.")
+    absent = sorted(ZIP_MEMBERS - set(members))
     if absent:
         raise UploadPackageError(
             "the export produced no fab artifact for: " + ", ".join(absent)
