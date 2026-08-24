@@ -102,7 +102,6 @@ public:
   void init() override {
     configure_presets(PRESET_IDS.size());
     register_param("Amplitude", &params.amplitude, 0.1f, 10.0f);
-    register_param("Debug BB", &params.debug_bb);
 
     baked_palette.bake(persistent_arena, Palettes::RICH_SUNSET);
 
@@ -133,8 +132,7 @@ public:
     auto [l2, m2] = SHMath::decode_lm(next_idx);
     const typename RenderPipeline::Frame frame = RenderPipeline::prepare(
         {{l1, m1, l2, m2, morph_alpha, orientation.get()},
-         {&baked_palette, params.amplitude,
-          params.debug_bb || canvas.debug()}});
+         {&baked_palette, params.amplitude}});
 
     {
       HS_PROFILE(sh_rasterize);
@@ -190,7 +188,6 @@ private:
   struct HarmonicMaterialState {
     const BakedPalette *palette;
     float amplitude;
-    bool debug;
   };
 
   struct HarmonicFrameState {
@@ -240,11 +237,6 @@ private:
     const float shadow =
         hs::clamp((abs_val * material.amplitude) / AO_FALLOFF, 0.0f, 1.0f);
     base.color = base.color * (AO_AMBIENT + AO_RANGE * shadow);
-
-    if (material.debug) {
-      base.color = base.color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
-      base.alpha = 1.0f;
-    }
     return base;
   }
 
@@ -345,7 +337,6 @@ private:
    */
   struct Params {
     float amplitude = 3.2f; /**< Field-value gain applied before coloring. */
-    bool debug_bb = false;  /**< Whether to draw bounding-box debug overlay. */
   } params;
 };
 
