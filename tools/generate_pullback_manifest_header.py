@@ -461,6 +461,7 @@ def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
         "",
         f'inline constexpr std::string_view BASE_SHA = "{programs["base_sha"]}";',
         f'inline constexpr std::string_view MANIFEST_SHA256 = "{digest}";',
+        f"inline constexpr uint32_t PRESET_COUNT = {PRESET_COUNT};",
         f"inline constexpr std::array<ProgramEntry, {len(entries)}> PROGRAMS{{{{",
         *entries,
         "}};",
