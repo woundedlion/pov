@@ -15,7 +15,7 @@ sys.path.insert(0, str(TOOLS))
 import relax_bakes  # noqa: E402
 
 
-def make_dump(name, iterations, verts, topology_hash):
+def make_dump(name, iterations, verts, topology_hash, source_hash=0x1234ABCD):
     """Build a RELAX_BAKE block whose declared output hash matches its bits."""
     words = []
     for x, y, z in verts:
@@ -23,7 +23,7 @@ def make_dump(name, iterations, verts, topology_hash):
     out = relax_bakes.vertex_hash(words)
     lines = [
         f"RELAX_BAKE_BEGIN {name} {iterations} {len(verts)} 2 6 "
-        f"{topology_hash:08x} {out:08x}"
+        f"{topology_hash:08x} {source_hash:08x} {out:08x}"
     ]
     for x, y, z in verts:
         lines.append(f"RELAX_BAKE_DATA {x:08x} {y:08x} {z:08x}")
@@ -41,6 +41,7 @@ class ParseDump(unittest.TestCase):
         self.assertEqual(b["iterations"], 100)
         self.assertEqual(b["vertices"], 2)
         self.assertEqual(b["topology_hash"], 0xABCD1234)
+        self.assertEqual(b["source_hash"], 0x1234ABCD)
         self.assertEqual(b["output_hash"], out)
         self.assertEqual(b["bits"], [1, 2, 3, 4, 5, 6])
 
@@ -120,6 +121,7 @@ class EmitHeader(unittest.TestCase):
             header,
         )
         self.assertIn(f".topology_hash = 0x{0xC0FFEE:08x}u,", header)
+        self.assertIn(f".source_hash = 0x{0x1234ABCD:08x}u,", header)
         self.assertIn(f".output_hash = 0x{out:08x}u}};", header)
         self.assertIn(
             "static_assert(std::size(foo_bar_bits) == "

@@ -562,8 +562,13 @@ public:
    */
   HS_COLD_MEMBER SolidBuilder &relax_baked(const MeshOps::RelaxBake &bake) {
 #if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
+    const uint32_t source_hash = MeshOps::relax_vertex_hash(mesh);
     HS_CHECK(MeshOps::relax_topology_hash(mesh) == bake.topology_hash,
              "relax bake: source topology differs");
+#if defined(HS_RELAX_BAKE_VERIFY)
+    HS_CHECK(source_hash == bake.source_hash,
+             "relax bake verify: source differs");
+#endif
     mesh = MeshOps::relax(mesh, *output_arena, *scratch_arena, bake.iterations);
     uint32_t output_hash = MeshOps::FNV1A_BASIS;
     for (const Vector &v : mesh.vertices) {
@@ -592,12 +597,13 @@ public:
     }
     ++relax_bakes_verified;
 #else // HS_RELAX_BAKE_EXTRACT: emit the payload for the generated header.
-    hs::log("RELAX_BAKE_BEGIN %s %d %lu %lu %lu %08lx %08lx", bake.name,
+    hs::log("RELAX_BAKE_BEGIN %s %d %lu %lu %lu %08lx %08lx %08lx", bake.name,
             static_cast<int>(bake.iterations),
             static_cast<unsigned long>(mesh.vertices.size()),
             static_cast<unsigned long>(mesh.face_counts.size()),
             static_cast<unsigned long>(mesh.faces.size()),
             static_cast<unsigned long>(bake.topology_hash),
+            static_cast<unsigned long>(source_hash),
             static_cast<unsigned long>(output_hash));
     for (const Vector &v : mesh.vertices)
       hs::log("RELAX_BAKE_DATA %08lx %08lx %08lx",

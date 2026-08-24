@@ -53,7 +53,7 @@ def parse_dump(text: str) -> list[dict]:
         if parts[0] == "RELAX_BAKE_BEGIN":
             if meta is not None:
                 raise unterminated_block(meta, words)
-            name, iterations, v, f, i, topo, out = parts[1:8]
+            name, iterations, v, f, i, topo, source, out = parts[1:9]
             meta = {
                 "name": name,
                 "iterations": int(iterations),
@@ -61,6 +61,7 @@ def parse_dump(text: str) -> list[dict]:
                 "faces": int(f),
                 "indices": int(i),
                 "topology_hash": int(topo, 16),
+                "source_hash": int(source, 16),
                 "output_hash": int(out, 16),
             }
             words = []
@@ -132,6 +133,7 @@ def emit_header(bakes: list[dict]) -> str:
             f'.face_count = {bake["faces"]}, '
             f'.index_count = {bake["indices"]}, '
             f'.iterations = {bake["iterations"]},',
+            f'    .source_hash = 0x{bake["source_hash"]:08x}u,',
             f'    .topology_hash = 0x{bake["topology_hash"]:08x}u,',
             f'    .output_hash = 0x{bake["output_hash"]:08x}u}};',
             f"static_assert(std::size({name}_bits) == 3u * {name}.vertex_count);",
