@@ -235,7 +235,7 @@ jobs:
           fi
 
       - name: Upload mismatched MindSplatter replay corpus
-        if: ${{ steps.mindsplatter_corpus_mismatch.outputs.mismatch == 'true' }}
+        if: ${{ always() && steps.mindsplatter_corpus_mismatch.outputs.mismatch == 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: mindsplatter-replay-corpus-${{ github.run_id }}-${{ github.run_attempt }}
