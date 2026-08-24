@@ -120,6 +120,7 @@ _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
 _EFFECT_ROSTER_ENTRY_RE = re.compile(r"^\s*X\(\s*(\w+)\s*\)")
 
 # The device playlist repeats the full roster's cardinality in README prose.
+_PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
 _PHANTASM_ROSTER_DEFINE = "#define HS_PHANTASM_EFFECT_LIST(X)"
 _PHANTASM_ROSTER_ENTRY_RE = re.compile(r"^\s*X\(\s*(\w+)\s*,")
 _CARDINALITY_CLAIMS = (
@@ -887,7 +888,7 @@ def roster_claim_issues(sources: dict[PurePosixPath, str], roster: set[str],
                         playlist: set[str]) -> list[Issue]:
     """Checks prose roster cardinalities against their source macros."""
     if not playlist:
-        return [Issue(_EFFECT_ROSTER_SOURCE.as_posix(), 1,
+        return [Issue(_PHANTASM_PLAYLIST_SOURCE.as_posix(), 1,
                       "no HS_PHANTASM_EFFECT_LIST, so every playlist count "
                       "restated in prose goes unchecked")]
     counts = {"HS_EFFECT_LIST": len(roster),
@@ -1028,8 +1029,13 @@ def check_repository(
         issues.extend(effects_row_issues(
             sources.get(PurePosixPath(_EFFECTS_TREE_ROW), ""), entries,
             roster or None))
+        try:
+            playlist_header = root.joinpath(
+                *_PHANTASM_PLAYLIST_SOURCE.parts).read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            playlist_header = ""
         issues.extend(roster_claim_issues(
-            sources, roster, phantasm_roster(header)))
+            sources, roster, phantasm_roster(playlist_header)))
     if _DOXYFILE in entries:
         try:
             doxyfile = root.joinpath(*_DOXYFILE.parts).read_text(encoding="utf-8")

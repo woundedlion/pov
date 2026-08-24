@@ -799,7 +799,7 @@ pov::SegmentMap POVSegmented<S, N, RPM>::segment{false, 0, 1};
 // ledController has no out-of-line definition: DMAMEM survives only on an
 // explicit specialization (see DMALEDController in dma_led_controller.h). Each
 // instantiating target invokes HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)
-// once at file scope — see targets/common/phantasm_target.h.
+// once at file scope — see targets/Phantasm/phantasm_target.h.
 #define HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)                      \
   template <>                                                                  \
   DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController {  \
