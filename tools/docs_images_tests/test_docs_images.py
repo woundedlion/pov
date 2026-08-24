@@ -122,6 +122,14 @@ class TestDocsImagesVerify(unittest.TestCase):
         self.assertIn("names no file", errors[0])
         self.assertFalse((self.repo / "docs/screenshots/Gone.png").exists())
 
+    def test_missing_git_is_reported_without_a_traceback(self):
+        with unittest.mock.patch.object(
+                di.subprocess, "run", side_effect=FileNotFoundError("git")):
+            errors, checked = di.verify(self.repo)
+        self.assertEqual(checked, 0)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("git ls-files failed", errors[0])
+
     def test_tracked_markdown_missing_from_the_working_tree_is_reported(self):
         self.track("README.md", '<img src="docs/screenshots/A.png">')
         (self.repo / "README.md").unlink()

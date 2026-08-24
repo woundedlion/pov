@@ -17,6 +17,7 @@ DEFAULT_HTML_ROOT = ROOT / "build" / "docs" / "html"
 _IMG_SRC_RE = re.compile(
     r"<img\b[^>]*?\bsrc[ \t]*=[ \t]*[\"']([^\"']*)[\"']", re.IGNORECASE)
 _MARKDOWN_SUFFIXES = (".md", ".markdown")
+_GIT_TIMEOUT_SECONDS = 30
 
 
 def references(html_root: Path) -> list[tuple[Path, str]]:
@@ -34,9 +35,14 @@ def markdown_references(
     """Return every (tracked Markdown file, <img> src) pair, and read errors."""
     command = ["git", "-c", f"safe.directory={repo_root.as_posix()}",
                "-C", str(repo_root), "ls-files", "-z"]
-    result = subprocess.run(command, check=True, stdout=subprocess.PIPE)
     found: list[tuple[PurePosixPath, str]] = []
     errors: list[str] = []
+    try:
+        result = subprocess.run(
+            command, check=True, stdout=subprocess.PIPE,
+            timeout=_GIT_TIMEOUT_SECONDS)
+    except (OSError, subprocess.SubprocessError) as error:
+        return found, [f"git ls-files failed: {error}"]
     for name in sorted(result.stdout.decode("utf-8").split("\0")):
         if not name or not name.casefold().endswith(_MARKDOWN_SUFFIXES):
             continue

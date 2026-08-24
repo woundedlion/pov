@@ -298,8 +298,9 @@ def _first_line(command: list[str]) -> str:
             text=True,
             encoding="utf-8",
             errors="replace",
+            timeout=30,
         )
-    except (OSError, subprocess.CalledProcessError) as error:
+    except (OSError, subprocess.SubprocessError) as error:
         raise CaptureError(f"toolchain query failed: {command[0]}") from error
     lines = result.stdout.splitlines()
     if not lines:
@@ -438,6 +439,7 @@ def produce(
         text=True,
         encoding="utf-8",
         errors="replace",
+        timeout=30,
     ).stdout.strip()
     backend_records = {}
     oracle_totals = {
@@ -460,6 +462,7 @@ def produce(
                 ),
                 cwd=checkout,
                 check=True,
+                timeout=900,
             )
             actual_resolution, records, oracle_metrics = load_backend(
                 backend_output, programs, oracles
@@ -618,7 +621,7 @@ def main() -> int:
         CaptureError,
         ManifestError,
         OSError,
-        subprocess.CalledProcessError,
+        subprocess.SubprocessError,
     ) as error:
         parser.error(str(error))
     return 0

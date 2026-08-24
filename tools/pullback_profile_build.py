@@ -12,12 +12,12 @@ if env["PIOENV"] in ("profile", "profile_o3"):
     try:
         short_sha = subprocess.run(
             ["git", "-C", project_dir, "rev-parse", "--short=12", "HEAD"],
-            check=True, capture_output=True, text=True).stdout.strip()
+            check=True, capture_output=True, text=True, timeout=30).stdout.strip()
         dirty = subprocess.run(
             ["git", "-C", project_dir, "status", "--porcelain=v1",
              "--untracked-files=normal"],
-            check=True, capture_output=True, text=True).stdout
-    except (OSError, subprocess.CalledProcessError) as error:
+            check=True, capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError) as error:
         raise SystemExit(f"pullback_profile_build: cannot resolve Git SHA: {error}")
     if dirty:
         short_sha += "-dirty"
