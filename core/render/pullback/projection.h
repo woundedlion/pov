@@ -52,6 +52,9 @@ static_assert(field_ids_unique<ProjectionParams>());
 enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
 
 inline constexpr uint8_t FOLDED_FLAG = 1U << 0;
+/** Render-space divisor floor that caps gnomonic coordinates near 1000. The
+ * math primitive uses STEREO_EQUATOR_EPS only to avoid division by zero before
+ * clamping to its much larger point-at-infinity sentinel. */
 inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
 
 __attribute__((always_inline)) inline float
