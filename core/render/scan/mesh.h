@@ -194,7 +194,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         int span = 1;
         if constexpr (pole_lod_blocks<SDF::Face>) {
           if (stride > 1 && x % stride == 0 && x + stride <= rx2 &&
-              (d <= -pixel_width - block_slack ||
+              (pole_lod_block_settles<SDF::Face>(-d, pixel_width,
+                                                 block_slack) ||
                pole_lod_block_settles<SDF::Face>(d, pixel_width, block_slack)))
             span = stride;
         }
