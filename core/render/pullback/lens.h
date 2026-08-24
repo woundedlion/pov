@@ -30,31 +30,9 @@ struct MobiusLensParams {
                       0.7071067811865475f, 0.0f};
 };
 
-template <typename Params>
-__attribute__((always_inline)) inline Vector mobius(const Vector &input,
-                                                    const Params &params) {
-  float px = input.x;
-  float pz = input.z;
-  float scale = 1.0f - input.y;
-  if (px * px + pz * pz < STEREO_DIV_NUM_EPS_SQ &&
-      scale < STEREO_DIV_NUM_EPS_SQ) {
-    px = 1.0f;
-    pz = 0.0f;
-    scale = 0.0f;
-  }
-  const float n_re = params.a.re * px - params.a.im * pz + params.b.re * scale;
-  const float n_im = params.a.re * pz + params.a.im * px + params.b.im * scale;
-  const float m_re = params.c.re * px - params.c.im * pz + params.d.re * scale;
-  const float m_im = params.c.re * pz + params.c.im * px + params.d.im * scale;
-  const float n_sq = n_re * n_re + n_im * n_im;
-  const float m_sq = m_re * m_re + m_im * m_im;
-  const float denominator = n_sq + m_sq;
-  if (denominator < STEREO_DIV_NUM_EPS_SQ)
-    return Vector(0.0f, 1.0f, 0.0f);
-  const float inverse = 1.0f / denominator;
-  return Vector(2.0f * (n_re * m_re + n_im * m_im) * inverse,
-                (n_sq - m_sq) * inverse,
-                2.0f * (n_im * m_re - n_re * m_im) * inverse);
+__attribute__((always_inline)) inline Vector
+mobius(const Vector &input, const MobiusParams &params) {
+  return ::mobius_transform(input, params);
 }
 
 struct Glitch : ApproximationDefaults {
