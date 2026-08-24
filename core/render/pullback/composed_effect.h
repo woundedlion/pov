@@ -748,8 +748,8 @@ public:
       out of line in flash when the effect displaces so the hot scan keeps a
       single flash-call boundary. */
   using SphereRun = Pullback::Stage::Placed<
-      HAS_SURFACE ? Pullback::CodeEmission::OUT_OF_LINE_FLASH
-                  : Pullback::CodeEmission::INLINE_ONLY,
+      HAS_SURFACE_NOISE ? Pullback::CodeEmission::OUT_OF_LINE_FLASH
+                        : Pullback::CodeEmission::INLINE_ONLY,
       PreDisplaceStage, LensStage, PostDisplaceStage, ProjectStage>;
   using OuterWarpStage =
       std::conditional_t<std::is_void_v<OuterWarpPolicy>, void,
