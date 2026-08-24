@@ -37,6 +37,7 @@ constexpr float DIRECTION_EPSILON = 1.0e-4f;
 enum class ReflectionMode : uint8_t { CHROME, RADIAL };
 enum class ColorMode : uint8_t { DEPTH, AXIS };
 enum class ShellCount : uint8_t { ONE, TWO, THREE };
+enum class DimensionMode : uint8_t { CUBIC, TRANSITIONAL, HYPER };
 
 struct Vec4 {
   float v[DIMENSIONS];
@@ -309,6 +310,7 @@ struct PreparedTrace {
   float aa_scale;
   float near_start;
   float near_inv_span;
+  DimensionMode dimension_mode;
 };
 
 template <int W, int H> constexpr float pixel_half_angle() {
@@ -373,6 +375,9 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   prepared.near_start = 1.5f * frame.params.wire_radius;
   const float near_end = 4.0f * frame.params.wire_radius;
   prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
+  prepared.dimension_mode = dimension == 0.0f  ? DimensionMode::CUBIC
+                            : dimension < 1.0f ? DimensionMode::TRANSITIONAL
+                                               : DimensionMode::HYPER;
   return prepared;
 }
 
@@ -411,12 +416,13 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
   float metric_sq;
   uint8_t free_axis;
   float dimensional_coverage = 1.0f;
-  if (prepared.params.dimension == 0.0f) {
+  if (prepared.dimension_mode == DimensionMode::CUBIC) {
     const EdgeMetric metric_3d =
         edge_metric_3d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_3d.distance_sq;
     free_axis = metric_3d.free_axis;
-  } else if (plane_axis < 3 && prepared.params.dimension < 1.0f) {
+  } else if (plane_axis < 3 &&
+             prepared.dimension_mode == DimensionMode::TRANSITIONAL) {
     const TransitionalMetrics metrics =
         transitional_metrics_at(ray_origin, direction, plane_axis, distance);
     metric_sq = hs::lerp(metrics.cubic.distance_sq, metrics.hyper.distance_sq,
@@ -470,7 +476,7 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
     TraceCursor &cursor = cursors[axis];
     cursor.active = false;
-    if (axis == 3 && prepared.params.dimension == 0.0f)
+    if (axis == 3 && prepared.dimension_mode == DimensionMode::CUBIC)
       continue;
     const float component = direction[axis];
     const float magnitude = fabsf(component);
