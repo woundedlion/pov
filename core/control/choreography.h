@@ -91,9 +91,10 @@ public:
 protected:
   /** @brief An automatic preset transition's endpoints. */
   struct Transition {
-    Params from{};       /**< Parameters the transition departs from. */
-    Params to{};         /**< Parameters it lands on. */
-    bool active = false; /**< False when no transition is in flight. */
+    Params from{};               /**< Parameters the transition departs from. */
+    Params to{};                 /**< Parameters it lands on. */
+    bool active = false;         /**< False when no transition is in flight. */
+    uint16_t elapsed_frames = 0; /**< Unpaused interpolation steps elapsed. */
   };
 
   /**
@@ -286,8 +287,9 @@ private:
   HS_COLD_MEMBER void run_blend(float progress) {
     if (!transition.active)
       return;
-    derived().blend_params(progress);
-    if (progress >= 1.0f) {
+    const bool complete = ++transition.elapsed_frames >= TRANSITION_DURATION;
+    derived().blend_params(complete ? 1.0f : progress);
+    if (complete) {
       transition.active = false;
       preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
     }

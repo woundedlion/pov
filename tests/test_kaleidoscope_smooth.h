@@ -192,6 +192,12 @@ inline void test_kaleidoscope_smooth_transition_contract() {
   WB::drive_transition(effect, 1.0f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
                  FX::preset_params(1).source.complexity, 0.0f);
+  HS_EXPECT_TRUE(WB::transition_active(effect));
+
+  for (uint16_t frame = 4; frame < FX::TRANSITION_DURATION; ++frame)
+    WB::drive_transition(effect, 0.5f);
+  HS_EXPECT_NEAR(WB::params(effect).source.complexity,
+                 FX::preset_params(1).source.complexity, 0.0f);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
