@@ -15,6 +15,7 @@ rewriting one breaks its manifest.
 
     python gen/heal_clearance.py
 """
+import argparse
 import glob
 import json
 import os
@@ -30,7 +31,9 @@ def is_manifested(path):
     return os.path.exists(os.path.join(os.path.dirname(path), "SHA256SUMS.txt"))
 
 
-def project_files():
+def project_files(paths=()):
+    if paths:
+        return [os.path.abspath(path) for path in paths if not is_manifested(path)]
     candidates = glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
         + glob.glob(os.path.join(OUT, "unplaced", "phantasm*.kicad_pro")) \
         + glob.glob(os.path.join(OUT, "quilter_incremental", "phantasm*.kicad_pro"))
@@ -44,7 +47,7 @@ def minimums_for(p):
     return RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS
 
 
-def heal_project(p):
+def heal_project(p, dry_run=False):
     rule_minimums, class_minimums = minimums_for(p)
     with open(p, encoding="utf-8") as project_file:
         d = json.load(project_file)
@@ -70,21 +73,32 @@ def heal_project(p):
             changes[f"Default.{field}"] = (current, minimum)
 
     if changes:
-        with open(p, "w", encoding="utf-8", newline=newline) as project_file:
-            json.dump(d, project_file, indent=2)
-            project_file.write("\n")
+        if not dry_run:
+            with open(p, "w", encoding="utf-8", newline=newline) as project_file:
+                json.dump(d, project_file, indent=2)
+                project_file.write("\n")
         summary = ", ".join(
             f"{field} {old} -> {new}"
             for field, (old, new) in changes.items()
         )
-        print(f"healed {os.path.relpath(p, OUT)}: {summary}")
+        action = "would heal" if dry_run else "healed"
+        print(f"{action} {os.path.relpath(p, OUT)}: {summary}")
     else:
         print(f"ok     {os.path.relpath(p, OUT)}")
     return bool(changes)
 
 
-def main():
-    pros = project_files()
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("projects", nargs="*", help="project files to heal")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="report changes without rewriting files")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    pros = project_files(args.projects)
     if not pros:
         print(f"error: no uploadable project files found under {OUT}", file=sys.stderr)
         return 1
@@ -92,13 +106,16 @@ def main():
     healed = 0
     for p in pros:
         try:
-            healed += heal_project(p)
+            healed += heal_project(p, args.dry_run)
         except (OSError, ValueError) as error:
             print(f"error: cannot process {os.path.relpath(p, OUT)}: {error}",
                   file=sys.stderr)
             return 1
 
-    print(f"\n{healed} file(s) healed. Upload-ready for Quilter.")
+    if args.dry_run:
+        print(f"\n{healed} file(s) would be healed.")
+    else:
+        print(f"\n{healed} file(s) healed. Upload-ready for Quilter.")
     return 0
 
 
