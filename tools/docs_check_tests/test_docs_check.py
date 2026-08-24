@@ -82,6 +82,26 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues[1].line, 5)
         self.assertIn("scripts/run-tests.mjs", issues[1].message)
 
+    def test_backticked_document_relative_path_resolves(self):
+        entries = {
+            PurePosixPath("docs"),
+            PurePosixPath("docs/fixtures"),
+            PurePosixPath("docs/fixtures/example.py"),
+        }
+        issues = dc.check_text(PurePosixPath("docs/guide.md"),
+                               "See `fixtures/example.py`.\n", entries)
+        self.assertEqual(issues, [])
+
+    def test_missing_backticked_document_relative_path_is_reported(self):
+        entries = {
+            PurePosixPath("docs"),
+            PurePosixPath("docs/fixtures"),
+        }
+        issues = dc.check_text(PurePosixPath("docs/guide.md"),
+                               "See `fixtures/missing.py`.\n", entries)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("fixtures/missing.py", issues[0].message)
+
     def test_backticked_firmware_linker_and_board_paths_are_linted(self):
         text = (FIXTURES / "native_format_paths.txt").read_text(encoding="utf-8")
         entries = {
