@@ -757,8 +757,8 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 37u);
   HS_EXPECT_EQ(unreachable_operators, 13u);
-  HS_EXPECT_EQ(catalog_values, 118u);
-  HS_EXPECT_EQ(unreachable_values, 73u);
+  HS_EXPECT_EQ(catalog_values, 121u);
+  HS_EXPECT_EQ(unreachable_values, 76u);
 }
 
 using RippleProbeParams =
