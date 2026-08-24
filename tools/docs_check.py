@@ -119,6 +119,19 @@ _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
 # `/* X(Foo) */` row, matching the comment stripping effect_roster.mjs does.
 _EFFECT_ROSTER_ENTRY_RE = re.compile(r"^\s*X\(\s*(\w+)\s*\)")
 
+# The device playlist repeats the full roster's cardinality in README prose.
+_PHANTASM_ROSTER_DEFINE = "#define HS_PHANTASM_EFFECT_LIST(X)"
+_PHANTASM_ROSTER_ENTRY_RE = re.compile(r"^\s*X\(\s*(\w+)\s*,")
+_CARDINALITY_CLAIMS = (
+    ("README.md",
+     re.compile(r"compile-time roster and tests carry (\d+) firmware-capable"),
+     "HS_EFFECT_LIST", "the firmware-capable roster size"),
+    ("README.md", re.compile(r"\bcontains (\d+) effects\b"),
+     "HS_PHANTASM_EFFECT_LIST", "the effects-reference playlist size"),
+    ("README.md", re.compile(r"\b(\d+)-entry roster\b"),
+     "HS_PHANTASM_EFFECT_LIST", "the frame-sync playlist size"),
+)
+
 # Names are matched against the source file kinds Doxyfile documents.
 _DOXYFILE = PurePosixPath("Doxyfile")
 _DOXYGEN_SOURCE_SUFFIXES = frozenset({".h", ".cpp", ".ino"})
@@ -835,6 +848,52 @@ def doxyfile_predefined_issues(predefined: list[tuple[int, str]],
             for number, name in predefined if name in unreferenced]
 
 
+def phantasm_roster(source: str) -> set[str]:
+    """Returns the effect names in HS_PHANTASM_EFFECT_LIST."""
+    roster: set[str] = set()
+    inside = False
+    for line in source.splitlines():
+        if not inside:
+            inside = line.startswith(_PHANTASM_ROSTER_DEFINE)
+            continue
+        match = _PHANTASM_ROSTER_ENTRY_RE.match(line)
+        if match:
+            roster.add(match.group(1))
+        if not line.rstrip().endswith("\\"):
+            break
+    return roster
+
+
+def roster_claim_issues(sources: dict[PurePosixPath, str], roster: set[str],
+                        playlist: set[str]) -> list[Issue]:
+    """Checks prose roster cardinalities against their source macros."""
+    if not playlist:
+        return [Issue(_EFFECT_ROSTER_SOURCE.as_posix(), 1,
+                      "no HS_PHANTASM_EFFECT_LIST, so every playlist count "
+                      "restated in prose goes unchecked")]
+    counts = {"HS_EFFECT_LIST": len(roster),
+              "HS_PHANTASM_EFFECT_LIST": len(playlist)}
+    issues = []
+    for document, pattern, macro, subject in _CARDINALITY_CLAIMS:
+        expected = counts[macro]
+        text = sources.get(PurePosixPath(document), "")
+        matched = False
+        for number, line in enumerate(text.splitlines(), 1):
+            for match in pattern.finditer(line):
+                matched = True
+                claimed = int(match.group(1).replace(",", ""))
+                if claimed != expected:
+                    issues.append(Issue(
+                        document, number,
+                        f"{subject} is stated as {claimed}, "
+                        f"{macro} names {expected}"))
+        if not matched:
+            issues.append(Issue(document, 1,
+                                f"no statement of {subject}, so it goes "
+                                f"unchecked"))
+    return issues
+
+
 def check_text(source: PurePosixPath, text: str,
                entries: set[PurePosixPath],
                anchors: dict[PurePosixPath, set[str]] | None = None,
@@ -926,13 +985,16 @@ def check_repository(
     # is not the tree the claim is about.
     if _EFFECT_ROSTER_SOURCE in entries:
         try:
-            roster = effect_roster(root.joinpath(
-                *_EFFECT_ROSTER_SOURCE.parts).read_text(encoding="utf-8"))
+            header = root.joinpath(
+                *_EFFECT_ROSTER_SOURCE.parts).read_text(encoding="utf-8")
         except (OSError, UnicodeError):
-            roster = set()
+            header = ""
+        roster = effect_roster(header)
         issues.extend(effects_row_issues(
             sources.get(PurePosixPath(_EFFECTS_TREE_ROW), ""), entries,
             roster or None))
+        issues.extend(roster_claim_issues(
+            sources, roster, phantasm_roster(header)))
     if _DOXYFILE in entries:
         try:
             doxyfile = root.joinpath(*_DOXYFILE.parts).read_text(encoding="utf-8")
