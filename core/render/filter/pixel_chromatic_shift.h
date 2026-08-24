@@ -22,13 +22,12 @@ namespace Pixel {
  * @brief Splits RGB into per-channel copies offset by 1/2/3 columns,
  * producing a chromatic-aberration fringe.
  */
-template <int W> class ChromaticShift : public Is2D {
+template <int W> class ChromaticShift : public IsPixel {
   // fast_wrap corrects only one ±W step, so the +1/+2/+3 column offsets stay in
   // a single wrap of [0,W) only for W >= 4.
   static_assert(W >= 4, "ChromaticShift requires W >= 4 for fast_wrap offsets");
 
 public:
-  static constexpr int domain_rank = 2;
   /**
    * @brief The +1/+2/+3 column taps land outside the plotted position, so a
    *        segment worker needs 3 columns of render margin to write them.
