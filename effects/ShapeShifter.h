@@ -107,8 +107,6 @@ public:
 
   /** @brief Registers the GUI sliders and starts the preset choreography. */
   void init() override {
-    configure_presets(PRESETS.size());
-
     register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
     mark_global("Alpha");
     register_animated_param("Shape", &params.shape, SHAPE_OPTIONS,
@@ -140,7 +138,7 @@ public:
     prepare_count(hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES));
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
                                              hs::rand_int(0, 65536)));
-    begin_preset_choreography();
+    begin_choreography();
   }
 
   /** @brief Advances the waveform and draws the full radial shape stack. */
@@ -177,8 +175,7 @@ public:
 private:
   friend struct ::hs_test::shapeshifter_oracle_tests::ShapeShifterWhiteBox;
 
-  using Choreography::begin_preset_choreography;
-  using Choreography::configure_presets;
+  using Choreography::begin_choreography;
   using Choreography::mark_global;
   using Choreography::params;
   using Choreography::register_animated_param;
@@ -213,8 +210,6 @@ private:
       Fade policy. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = PRESET_FRAMES;
 
-  static Params initial_params() { return PRESETS[0].params; }
-  static Params preset_params(size_t index) { return PRESETS[index].params; }
   static bool valid_params(const Params &p) { return preset_in_ranges(p); }
 
   static constexpr const char *SHAPE_OPTIONS[] = {

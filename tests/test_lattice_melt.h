@@ -30,12 +30,8 @@ struct LatticeMeltWhiteBox {
   static bool transition_active(const FX &effect) {
     return effect.transition.active;
   }
-  static bool begin_automatic_transition(FX &effect) {
-    return effect.advancePreset();
-  }
-  static void tick_choreography(FX &effect) {
-    effect.begin_automatic_transition();
-  }
+  static bool advance_preset(FX &effect) { return effect.advancePreset(); }
+  static void tick_choreography(FX &effect) { effect.step_choreography(); }
   static void saturate_timeline(FX &effect, float &sink) {
     while (Timeline::remaining() > 0)
       effect.timeline.add(0,
@@ -172,7 +168,7 @@ inline void test_lattice_melt_transition_contract() {
   WB::FX effect;
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), size_t{2});
-  HS_EXPECT_TRUE(WB::begin_automatic_transition(effect));
+  HS_EXPECT_TRUE(WB::advance_preset(effect));
   HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 
@@ -234,7 +230,7 @@ inline void test_lattice_melt_overshoot_finishes_on_frame_count() {
   reset_effect_globals();
   FX effect;
   effect.init();
-  HS_EXPECT_TRUE(WB::begin_automatic_transition(effect));
+  HS_EXPECT_TRUE(WB::advance_preset(effect));
 
   bool saw_overshoot = false;
   for (uint16_t frame = 1; frame < FX::TRANSITION_DURATION; ++frame) {

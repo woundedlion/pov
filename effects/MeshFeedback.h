@@ -130,7 +130,7 @@ public:
    * noise/walk timers.
    */
   void init() override {
-    configure_presets(PRESETS.size());
+    begin_choreography();
 
     // Configure the noise type before apply_params(): it calls sync_noise(),
     // which would otherwise propagate the default noise type on the first frame.
@@ -179,7 +179,7 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
-    begin_automatic_transition();
+    step_choreography();
 
     {
       HS_PROFILE(mf_apply_params);
@@ -209,12 +209,12 @@ private:
   friend Choreography;
   friend struct ::hs_test::effects_tests::MeshFeedbackWhiteBox;
 
-  using Choreography::begin_automatic_transition;
-  using Choreography::configure_presets;
+  using Choreography::begin_choreography;
   using Choreography::mark_global;
   using Choreography::params;
   using Choreography::register_animated_param;
   using Choreography::register_param;
+  using Choreography::step_choreography;
   using Choreography::timeline;
 
   /** @brief Params for the preset at @p index, with the effect-owned noise
