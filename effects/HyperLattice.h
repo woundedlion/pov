@@ -157,7 +157,8 @@ struct FrameState {
   Vec4 origin;
   std::array<float, 6> rotation_phase;
   float pixel_half_angle;
-  const BakedPalette *palette;
+  const BakedPalette *depth_palette;
+  const BakedPalette *axis_palette;
 };
 
 struct Binding {
@@ -407,7 +408,10 @@ inline Color4 shade(const Pullback::SphereSample &input,
         prepared.params.color == ColorMode::DEPTH
             ? 1.0f - depth
             : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
-    Color4 color = frame.palette->get(value);
+    const BakedPalette *palette = prepared.params.color == ColorMode::DEPTH
+                                      ? frame.depth_palette
+                                      : frame.axis_palette;
+    Color4 color = palette->get(value);
     color.color = color.color * (0.45f + 0.55f * (1.0f - depth));
     composite.add(color.color, hit.coverage * color.alpha);
     return composite.remaining > MIN_ENCODABLE_ALPHA;
@@ -538,6 +542,9 @@ public:
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
                                  0, PALETTE_FADE_FRAMES, ease_in_out_sin,
                                  &this->anims_paused);
+    const GenerativePalette fixed_axis_palette{
+        EffectPaletteRecipes::raymarch()};
+    axis_palette.bake(persistent_arena, fixed_axis_palette);
   }
 
   void draw_frame() override {
@@ -550,8 +557,12 @@ public:
     advance_state();
     depth_palette.step();
     const HyperLatticeDetail::FrameState context{
-        params, origin, rotation_phase,
-        HyperLatticeDetail::pixel_half_angle<W, H>(), &depth_palette.palette()};
+        params,
+        origin,
+        rotation_phase,
+        HyperLatticeDetail::pixel_half_angle<W, H>(),
+        &depth_palette.palette(),
+        &axis_palette};
     const auto frame = HyperLatticeDetail::RenderPipeline::prepare(context);
     {
       HS_PROFILE(hl_shader_draw);
@@ -613,11 +624,13 @@ private:
   HyperLatticeDetail::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
+  BakedPalette axis_palette;
 
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
 
   static constexpr size_t FOOTPRINT_BYTES =
-      PaletteCycler::generated_arena_bytes();
+      PaletteCycler::generated_arena_bytes() +
+      BakedPalette::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HyperLattice persistent footprint exceeds the default "
                 "partition");
