@@ -13,6 +13,7 @@
 
 #include "core/engine/engine.h"
 #include "core/math/spherical_harmonics.h"
+#include "core/render/pullback.h"
 #include <array>
 #include <cmath>
 #include <string_view>
@@ -130,51 +131,16 @@ public:
 
     auto [l1, m1] = SHMath::decode_lm(current_idx);
     auto [l2, m2] = SHMath::decode_lm(next_idx);
-    HarmonicField field(l1, m1, l2, m2, morph_alpha, orientation.get());
-    const bool debug = params.debug_bb || canvas.debug();
-
-    // Map the field value to color: diverging positive/negative palettes
-    // crossfaded at the zero-crossing, then AO brightness.
-    auto shader = [&](const Vector &v) {
-      float val = field.sample(v);
-      float abs_val = std::abs(val);
-
-      Color4 pos =
-          baked_palette.get(std::min(1.0f, abs_val * params.amplitude));
-      // Negative palette: recolor pos by swapping R<->B and dimming green so
-      // negative SH lobes read distinct. A stylized polarity cue, not OKLCH.
-      constexpr float NEG_LOBE_GREEN_SCALE = 0.8f;
-      Color4 neg = Color4(Pixel(pos.color.b,
-                                static_cast<uint16_t>(
-                                    pos.color.g * NEG_LOBE_GREEN_SCALE + 0.5f),
-                                pos.color.r),
-                          pos.alpha);
-
-      // Narrow quintic-smoothed seam at the zero-crossing; `transition` is the
-      // half-width (field units) of the anti-aliasing band. blend_t is inverted
-      // (1 - blend_t) below so a positive field maps to pos and a negative to neg.
-      constexpr float transition = 0.03f;
-      float blend_t =
-          quintic_kernel(hs::clamp(val / transition * 0.5f + 0.5f, 0.0f, 1.0f));
-      Color4 base = pos.lerp(neg, 1.0f - blend_t);
-
-      // Ambient Occlusion: scale brightness from an ambient floor up to full as
-      // the (amplitude-weighted) field magnitude saturates.
-      float shadow =
-          hs::clamp((abs_val * params.amplitude) / AO_FALLOFF, 0.0f, 1.0f);
-      float occlusion = AO_AMBIENT + AO_RANGE * shadow;
-      base.color = base.color * occlusion;
-
-      if (debug) {
-        base.color = base.color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
-        base.alpha = 1.0f;
-      }
-      return base;
-    };
+    const typename RenderPipeline::Frame frame = RenderPipeline::prepare(
+        {{l1, m1, l2, m2, morph_alpha, orientation.get()},
+         {&baked_palette, params.amplitude,
+          params.debug_bb || canvas.debug()}});
 
     {
       HS_PROFILE(sh_rasterize);
-      Scan::Shader::draw<W, H>(canvas, shader);
+      Scan::Shader::draw<W, H>(canvas, [&frame](const Vector &view) {
+        return RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
+      });
     }
   }
 
@@ -211,6 +177,89 @@ private:
   static constexpr float AO_FALLOFF = 0.4f;
   static constexpr float AO_AMBIENT = 0.15f;
   static constexpr float AO_RANGE = 0.85f;
+
+  struct HarmonicSourceState {
+    int l1;
+    int m1;
+    int l2;
+    int m2;
+    float blend;
+    Quaternion orientation;
+  };
+
+  struct HarmonicMaterialState {
+    const BakedPalette *palette;
+    float amplitude;
+    bool debug;
+  };
+
+  struct HarmonicFrameState {
+    HarmonicSourceState source;
+    HarmonicMaterialState material;
+  };
+
+  struct HarmonicBinding {
+    using FrameState = HarmonicFrameState;
+    using Instrumentation = Pullback::NoInstrumentation;
+  };
+
+  struct HarmonicSourcePolicy : Pullback::ApproximationDefaults {
+    using Prepared = HarmonicField;
+
+    HS_FLASH_INLINE static Prepared prepare(const HarmonicFrameState &frame) {
+      const HarmonicSourceState &source = frame.source;
+      return {source.l1, source.m1,    source.l2,
+              source.m2, source.blend, source.orientation};
+    }
+
+    __attribute__((always_inline)) static float
+    sample(const Pullback::SphereSample &input, const HarmonicFrameState &,
+           const Prepared &field) {
+      return field.sample(input.dir);
+    }
+  };
+
+  __attribute__((always_inline)) static Color4
+  colorize_harmonic(float val, const HarmonicMaterialState &material) {
+    const float abs_val = std::abs(val);
+    Color4 pos =
+        material.palette->get(std::min(1.0f, abs_val * material.amplitude));
+
+    constexpr float NEG_LOBE_GREEN_SCALE = 0.8f;
+    const Color4 neg = Color4(
+        Pixel(pos.color.b,
+              static_cast<uint16_t>(pos.color.g * NEG_LOBE_GREEN_SCALE + 0.5f),
+              pos.color.r),
+        pos.alpha);
+
+    constexpr float TRANSITION = 0.03f;
+    const float blend_t =
+        quintic_kernel(hs::clamp(val / TRANSITION * 0.5f + 0.5f, 0.0f, 1.0f));
+    Color4 base = pos.lerp(neg, 1.0f - blend_t);
+
+    const float shadow =
+        hs::clamp((abs_val * material.amplitude) / AO_FALLOFF, 0.0f, 1.0f);
+    base.color = base.color * (AO_AMBIENT + AO_RANGE * shadow);
+
+    if (material.debug) {
+      base.color = base.color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
+      base.alpha = 1.0f;
+    }
+    return base;
+  }
+
+  struct HarmonicColorPolicy : Pullback::ApproximationDefaults {
+    __attribute__((always_inline)) static Color4
+    apply(const Pullback::FieldSample &sample,
+          const HarmonicFrameState &frame) {
+      return colorize_harmonic(sample.value * 2.0f - 1.0f, frame.material);
+    }
+  };
+
+  using RenderPipeline =
+      Pullback::Pipeline<HarmonicBinding,
+                         Pullback::Stage::SampleSphere<HarmonicSourcePolicy>,
+                         Pullback::Stage::Colorize<HarmonicColorPolicy>>;
 
   /**
    * @brief Choose the next harmonic and animate the morph toward it.
@@ -265,6 +314,8 @@ private:
   // Highest harmonic degree the morph visits. Modes are flat-indexed
   // idx = l*l + l + m, so degrees [0, MAX_DEGREE] occupy idx [0, MAX_MODE_IDX].
   static constexpr int MAX_DEGREE = 4;
+  static_assert(MAX_DEGREE <= 5,
+                "SampleSphere requires normalized harmonics bounded by one");
   // normalization() divides factorials of up to 2*MAX_DEGREE; float holds exact
   // integers only up to 2^24, first exceeded at 11!.
   static_assert(2 * MAX_DEGREE <= 10,
