@@ -18,18 +18,15 @@ TEENSY_LIBRARY = GEN_DIR.parent / "phantasm.pretty" / "Teensy4.0.kicad_mod"
 
 # Every reference the generator embeds straight from its footprint library.
 LIBRARY_LAND_REFS = ("R1", "R2", "R_PD", "R_S", "R_MEN", "R_D1", "R_D2",
-                     "R_LF", "C_SYNC", "C_DEC1", "C_DEC2", "C_LF")
+                     "R_LF", "C_SYNC", "C_DEC1", "C_DEC2", "C_LF", "F1", "FB")
 
 
 def chip(width, pitch, height=0.95):
     return (("1", -pitch, 0.0, width, height), ("2", pitch, 0.0, width, height))
 
 
-# Pad geometry the routed board ships, per reference. R1/R2/R_PD/R_S carry the
-# stock footprint id with the pads widened in place, so KiCad reports no parity
-# difference and "Update Footprints from Library" would silently restore the
-# library land. That widened geometry does not meet spec 11.1; it is pinned
-# as-built, not as intent.
+# Pad geometry the routed board ships, per reference. A footprint id does not
+# preserve in-place pad edits, so every fitted two-pad SMD land is pinned as-built.
 SHIPPED_CHIP_LANDS = {
     "R1": ("Resistor_SMD:R_0603_1608Metric", chip(1.2, 0.825)),
     "R2": ("Resistor_SMD:R_0603_1608Metric", chip(1.2, 0.825)),
@@ -42,6 +39,10 @@ SHIPPED_CHIP_LANDS = {
     "C_SYNC": ("Capacitor_SMD:C_0603_1608Metric", chip(0.9, 0.775)),
     "C_DEC1": ("Capacitor_SMD:C_0603_1608Metric", chip(0.9, 0.775)),
     "C_DEC2": ("Capacitor_SMD:C_0603_1608Metric", chip(0.9, 0.775)),
+    "C_LF": ("Capacitor_SMD:C_1206_3216Metric", chip(1.15, 1.475, 1.8)),
+    "F1": ("Fuse:Fuse_1206_3216Metric", chip(1.25, 1.4, 1.75)),
+    "FB": ("Inductor_SMD:L_1206_3216Metric", chip(1.05, 1.575, 1.9)),
+    "D_BUS": ("Diode_SMD:D_SOD-323", chip(0.8, 1.1, 0.5)),
 }
 
 CHIP_LIBID = "Test:R_chip"
@@ -91,6 +92,21 @@ def reference(node):
     return None
 
 
+def is_chip_passive(node):
+    """True for a fitted two-terminal surface-mount component."""
+    attrs = {str(value) for value in sexp.val(node, "attr", [])}
+    return "smd" in attrs and len(F(node, "pad")) == 2
+
+
+def routed_chip_lands():
+    root = sexp.parse(ROUTED.read_text(encoding="utf-8"))[0]
+    return {
+        reference(node): (str(node[1]), pad_lands(node))
+        for node in F(root, "footprint")
+        if is_chip_passive(node)
+    }
+
+
 class EmbedLandTests(unittest.TestCase):
     """A per-reference pad override makes two boards carry the same part on
     different lands, so the footprint library is the only land source."""
@@ -126,17 +142,14 @@ class UnplacedBoardLandTests(unittest.TestCase):
 
 class RoutedBoardLandTests(unittest.TestCase):
     """The routed board is the fabrication source of truth, and its chip lands are
-    not all the library ones: the four bench-tuned sync resistors carry widened
-    pads under a stock footprint id, which no parity or DRC gate can see."""
+    not all the library ones: four sync resistors are widened in place and D_BUS
+    carries the Bourns land under a stock footprint id."""
+
+    def test_every_routed_chip_passive_has_a_land_pin(self):
+        self.assertEqual(set(routed_chip_lands()), set(SHIPPED_CHIP_LANDS))
 
     def test_routed_board_ships_the_pinned_lands(self):
-        root = sexp.parse(ROUTED.read_text(encoding="utf-8"))[0]
-        shipped = {}
-        for node in F(root, "footprint"):
-            ref = reference(node)
-            if ref in SHIPPED_CHIP_LANDS:
-                shipped[ref] = (str(node[1]), pad_lands(node))
-        self.assertEqual(shipped, SHIPPED_CHIP_LANDS)
+        self.assertEqual(routed_chip_lands(), SHIPPED_CHIP_LANDS)
 
 
 class PowerInletTests(unittest.TestCase):
