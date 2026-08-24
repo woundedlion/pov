@@ -117,7 +117,8 @@ add_executable(run_tests
 # samples from evaluated ones, so the suite needs them live. See
 # core/platform/platform.h (HS_SCAN_METRIC) and core/render/sdf.h Face::distance.
 target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS
-  "HS_SHADER_CHAIN_CATALOG_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json\"")
+  "HS_SHADER_CHAIN_CATALOG_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json\""
+  "HS_PROMOTED_PATTERNS_DIR=\"${HS_ROOT}/patterns\"")
 target_link_libraries(run_tests PRIVATE hs_test_support)
 
 # Census of the engine's HS_CHECK sites, so the death harness can print how

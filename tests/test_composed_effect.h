@@ -4,10 +4,12 @@
  *
  * Base-contract sweep over every Pullback::ComposedEffect specialization: the
  * slider set init() registers, the schema-versioned parameter snapshot, the
- * preset choreography begin_choreography() wires, and the family-by-family
- * parameter interpolation a preset crossfade runs on. The base owns all four,
- * so each check is expressed against the effect's parameter families and driven
- * over the whole group rather than over one effect.
+ * preset choreography begin_choreography() wires, the family-by-family
+ * parameter interpolation a preset crossfade runs on, and the value-level pin
+ * of each effect's authored parameters against its promoted shader document in
+ * patterns/. The base owns the first four, so each check is expressed against
+ * the effect's parameter families and driven over the whole group rather than
+ * over one effect.
  *
  * The specializations come from HS_SHADER_PRODUCT_GROUP, so a promoted effect
  * joins the sweep with its roster entry instead of a hand-copied list.
@@ -26,9 +28,14 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
+#include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "core/engine/effects.h"
 #include "core/render/pullback/composed_effect.h"
@@ -500,6 +507,578 @@ inline void check_preset_interpolation(const char *name) {
   }
 }
 
+/** @brief Minimal JSON value for reading the promoted shader documents. */
+struct JsonValue {
+  enum class Kind : uint8_t { NUL, BOOLEAN, NUMBER, STRING, ARRAY, OBJECT };
+  Kind kind = Kind::NUL;
+  bool boolean = false;
+  double number = 0.0;
+  std::string text;
+  std::vector<JsonValue> items;
+  std::vector<std::pair<std::string, JsonValue>> members;
+
+  const JsonValue *find(std::string_view key) const {
+    if (kind != Kind::OBJECT)
+      return nullptr;
+    for (const auto &[member_key, member_value] : members)
+      if (member_key == key)
+        return &member_value;
+    return nullptr;
+  }
+};
+
+/** @brief Fail-stop recursive-descent JSON parser over a document string. */
+struct JsonParser {
+  std::string_view source;
+  size_t position = 0;
+  bool failed = false;
+
+  void skip_space() {
+    while (position < source.size() &&
+           (source[position] == ' ' || source[position] == '\t' ||
+            source[position] == '\n' || source[position] == '\r'))
+      ++position;
+  }
+
+  bool consume(char expected) {
+    skip_space();
+    if (position < source.size() && source[position] == expected) {
+      ++position;
+      return true;
+    }
+    failed = true;
+    return false;
+  }
+
+  std::string parse_string() {
+    std::string result;
+    if (!consume('"'))
+      return result;
+    while (position < source.size() && source[position] != '"') {
+      char c = source[position++];
+      if (c != '\\') {
+        result.push_back(c);
+        continue;
+      }
+      if (position >= source.size())
+        break;
+      const char escape = source[position++];
+      switch (escape) {
+      case 'b':
+        result.push_back('\b');
+        break;
+      case 'f':
+        result.push_back('\f');
+        break;
+      case 'n':
+        result.push_back('\n');
+        break;
+      case 'r':
+        result.push_back('\r');
+        break;
+      case 't':
+        result.push_back('\t');
+        break;
+      case 'u': {
+        if (position + 4 > source.size()) {
+          failed = true;
+          return result;
+        }
+        unsigned code = 0;
+        for (int digit = 0; digit < 4; ++digit) {
+          const char h = source[position++];
+          code <<= 4;
+          if (h >= '0' && h <= '9')
+            code |= static_cast<unsigned>(h - '0');
+          else if (h >= 'a' && h <= 'f')
+            code |= static_cast<unsigned>(h - 'a' + 10);
+          else if (h >= 'A' && h <= 'F')
+            code |= static_cast<unsigned>(h - 'A' + 10);
+          else
+            failed = true;
+        }
+        if (code < 0x80) {
+          result.push_back(static_cast<char>(code));
+        } else if (code < 0x800) {
+          result.push_back(static_cast<char>(0xC0 | (code >> 6)));
+          result.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+        } else {
+          result.push_back(static_cast<char>(0xE0 | (code >> 12)));
+          result.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
+          result.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+        }
+        break;
+      }
+      default:
+        result.push_back(escape);
+        break;
+      }
+    }
+    if (!consume('"'))
+      failed = true;
+    return result;
+  }
+
+  JsonValue parse_value() {
+    JsonValue value;
+    skip_space();
+    if (failed || position >= source.size()) {
+      failed = true;
+      return value;
+    }
+    const char c = source[position];
+    if (c == '{') {
+      ++position;
+      value.kind = JsonValue::Kind::OBJECT;
+      skip_space();
+      if (position < source.size() && source[position] == '}') {
+        ++position;
+        return value;
+      }
+      do {
+        skip_space();
+        std::string key = parse_string();
+        if (!consume(':'))
+          return value;
+        value.members.emplace_back(std::move(key), parse_value());
+        skip_space();
+      } while (!failed && position < source.size() && source[position] == ',' &&
+               ++position);
+      consume('}');
+      return value;
+    }
+    if (c == '[') {
+      ++position;
+      value.kind = JsonValue::Kind::ARRAY;
+      skip_space();
+      if (position < source.size() && source[position] == ']') {
+        ++position;
+        return value;
+      }
+      do {
+        value.items.push_back(parse_value());
+        skip_space();
+      } while (!failed && position < source.size() && source[position] == ',' &&
+               ++position);
+      consume(']');
+      return value;
+    }
+    if (c == '"') {
+      value.kind = JsonValue::Kind::STRING;
+      value.text = parse_string();
+      return value;
+    }
+    if (source.substr(position, 4) == "true") {
+      position += 4;
+      value.kind = JsonValue::Kind::BOOLEAN;
+      value.boolean = true;
+      return value;
+    }
+    if (source.substr(position, 5) == "false") {
+      position += 5;
+      value.kind = JsonValue::Kind::BOOLEAN;
+      return value;
+    }
+    if (source.substr(position, 4) == "null") {
+      position += 4;
+      return value;
+    }
+    value.kind = JsonValue::Kind::NUMBER;
+    char *end = nullptr;
+    const std::string number(source.substr(position, 64));
+    value.number = std::strtod(number.c_str(), &end);
+    if (end == number.c_str())
+      failed = true;
+    position += static_cast<size_t>(end - number.c_str());
+    return value;
+  }
+};
+
+/** @brief The whole file as a string, or empty on a read failure. */
+inline std::string read_document(const std::string &path) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  std::FILE *file = std::fopen(path.c_str(), "rb");
+#pragma clang diagnostic pop
+  if (file == nullptr)
+    return {};
+  std::string text;
+  char buffer[4096];
+  for (size_t n; (n = std::fread(buffer, 1, sizeof buffer, file)) > 0;)
+    text.append(buffer, n);
+  std::fclose(file);
+  return text;
+}
+
+/** @brief The parameter family a document chain instance addresses. */
+enum class SlotRole : uint8_t {
+  CAMERA,
+  LENS,
+  SURFACE,
+  PROJECT,
+  WARP,
+  SAMPLE,
+  FIELD,
+  COLORIZE,
+  UNKNOWN
+};
+
+/** @brief One document chain entry, classified by its operator id. */
+struct DocumentSlot {
+  std::string label;
+  SlotRole role = SlotRole::UNKNOWN;
+  int warp_side = 0; /**< 0 = outer warp family, 1 = inner warp family. */
+};
+
+inline SlotRole classify_operator(std::string_view operator_id) {
+  if (operator_id.starts_with("sphere.rotate."))
+    return SlotRole::CAMERA;
+  if (operator_id.starts_with("sphere.lens."))
+    return SlotRole::LENS;
+  if (operator_id.starts_with("sphere.displace."))
+    return SlotRole::SURFACE;
+  if (operator_id.starts_with("project."))
+    return SlotRole::PROJECT;
+  if (operator_id.starts_with("warp."))
+    return SlotRole::WARP;
+  if (operator_id.starts_with("sample."))
+    return SlotRole::SAMPLE;
+  if (operator_id.starts_with("field."))
+    return SlotRole::FIELD;
+  if (operator_id.starts_with("colorize."))
+    return SlotRole::COLORIZE;
+  return SlotRole::UNKNOWN;
+}
+
+/** @brief Writes @p value into the family field tabled under @p id, if any. */
+template <typename Family>
+inline bool assign_field(Family &family, std::string_view id, float value) {
+  if constexpr (Pullback::HasFields<Family>) {
+    for (const auto &field : Family::FIELDS)
+      if (std::string_view(field.id) == id) {
+        family.*(field.member) = value;
+        return true;
+      }
+  }
+  return false;
+}
+
+/** @brief Writes one Mobius coefficient addressed by its chain field id. */
+template <typename Params>
+inline bool assign_mobius(Params &params, std::string_view id, float value) {
+  if constexpr (requires { params.lens.mobius; }) {
+    auto &mobius = params.lens.mobius;
+    const struct {
+      std::string_view id;
+      float *slot;
+    } coefficients[] = {
+        {"mobius-a-re", &mobius.a.re}, {"mobius-a-im", &mobius.a.im},
+        {"mobius-b-re", &mobius.b.re}, {"mobius-b-im", &mobius.b.im},
+        {"mobius-c-re", &mobius.c.re}, {"mobius-c-im", &mobius.c.im},
+        {"mobius-d-re", &mobius.d.re}, {"mobius-d-im", &mobius.d.im},
+    };
+    for (const auto &coefficient : coefficients)
+      if (coefficient.id == id) {
+        *coefficient.slot = value;
+        return true;
+      }
+  }
+  return false;
+}
+
+namespace ChainOp = Pullback::Interp::Op;
+
+/** @brief PALETTE_MODE_IDS entry for @p harmony, or null. */
+constexpr const char *palette_mode_id(PaletteHarmony harmony) {
+  switch (harmony) {
+  case PaletteHarmony::TRIADIC:
+    return ChainOp::PALETTE_MODE_IDS[static_cast<uint8_t>(
+        ChainOp::PaletteMode::TRIADIC)];
+  case PaletteHarmony::COMPLEMENTARY:
+    return ChainOp::PALETTE_MODE_IDS[static_cast<uint8_t>(
+        ChainOp::PaletteMode::COMPLEMENTARY)];
+  case PaletteHarmony::ANALOGOUS:
+    return ChainOp::PALETTE_MODE_IDS[static_cast<uint8_t>(
+        ChainOp::PaletteMode::ANALOGOUS)];
+  default:
+    return nullptr;
+  }
+}
+
+/**
+ * @brief Applies one document preset entry onto @p built, or verifies it
+ *        against the effect's compile-time constants.
+ * @return False when the key addresses nothing this effect owns.
+ * @details Numeric entries write through the owning family's field table (the
+ * same descriptors the sliders and the interpolator use), so a document key the
+ * engine does not table fails loudly instead of being skipped. String entries
+ * are chain topology: the ones with a composed-effect equivalent are checked
+ * against the effect's Spec and base-template arguments; the rest (lens
+ * symmetry, noise basis/integrator, polar mode) have no per-effect constant to
+ * compare and are accepted as covered by the descriptor digest.
+ */
+template <typename FX>
+inline bool
+apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
+                     std::string_view field_id, const JsonValue &value) {
+  using Traits = TraitsOf<FX>;
+  using Spec = typename Traits::Spec;
+  if (value.kind == JsonValue::Kind::NUMBER) {
+    const float number = static_cast<float>(value.number);
+    switch (slot.role) {
+    case SlotRole::CAMERA:
+      if (field_id == "wander")
+        return assign_field(built.projection, "camera-wander", number);
+      if (field_id == "spin-speed") {
+        if constexpr (requires { FX::CAMERA_SPIN_RATE; }) {
+          HS_EXPECT_EQ(bits(number), bits(FX::CAMERA_SPIN_RATE));
+          return true;
+        }
+        return false;
+      }
+      return false;
+    case SlotRole::PROJECT:
+      return assign_field(built.projection, field_id, number);
+    case SlotRole::WARP:
+      return slot.warp_side == 0
+                 ? assign_field(built.outer_warp, field_id, number)
+                 : assign_field(built.inner_warp, field_id, number);
+    case SlotRole::SURFACE:
+      return assign_field(built.surface, field_id, number);
+    case SlotRole::SAMPLE:
+      if (assign_field(built.source, field_id, number) ||
+          assign_field(built.value, field_id, number))
+        return true;
+      // The sample operators always carry an edge-width; without edge-fade
+      // coverage it is inert in the chain and has no composed-effect field.
+      return field_id == "edge-width" &&
+             Spec::COVERAGE != Pullback::CoverageKind::EDGE_FADE;
+    case SlotRole::FIELD:
+      return assign_field(built.value, field_id, number);
+    case SlotRole::LENS:
+      return assign_mobius(built, field_id, number);
+    case SlotRole::COLORIZE:
+      return assign_field(built.color, field_id, number);
+    default:
+      return false;
+    }
+  }
+  if (value.kind != JsonValue::Kind::STRING)
+    return false;
+  const std::string_view text = value.text;
+  switch (slot.role) {
+  case SlotRole::COLORIZE:
+    if (field_id == "palette-mapping") {
+      for (uint8_t index = 0; index < std::size(ChainOp::PALETTE_MAPPING_IDS);
+           ++index)
+        if (text == ChainOp::PALETTE_MAPPING_IDS[index]) {
+          built.color.palette_mapping =
+              static_cast<Pullback::Color::PaletteMapping>(index);
+          return true;
+        }
+      return false;
+    }
+    if (field_id == "palette-mode") {
+      const char *expected = palette_mode_id(Traits::HARMONY);
+      HS_EXPECT_TRUE(expected != nullptr && text == expected);
+      return true;
+    }
+    if (field_id == "hue-shift-mode") {
+      HS_EXPECT_TRUE(
+          text ==
+          ChainOp::HUE_SHIFT_MODE_IDS[static_cast<uint8_t>(Traits::HUE)]);
+      return true;
+    }
+    if (field_id == "brightness-envelope") {
+      HS_EXPECT_TRUE(text ==
+                     ChainOp::BRIGHTNESS_ENVELOPE_IDS[static_cast<uint8_t>(
+                         Traits::BRIGHTNESS)]);
+      return true;
+    }
+    return false;
+  case SlotRole::SAMPLE:
+    if (field_id == "coverage-mode") {
+      HS_EXPECT_TRUE(
+          text ==
+          ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(Spec::COVERAGE) + 1]);
+      return true;
+    }
+    if (field_id == "weight-mode") {
+      HS_EXPECT_TRUE(text == "projection");
+      return true;
+    }
+    return false;
+  case SlotRole::PROJECT:
+    if (field_id == "hemisphere") {
+      HS_EXPECT_TRUE(Spec::PROJECTION ==
+                         Pullback::ProjectionKind::GNOMONIC_FOLDED &&
+                     text == "folded");
+      return true;
+    }
+    return false;
+  case SlotRole::LENS:
+    return field_id == "symmetry";
+  case SlotRole::SURFACE:
+    return field_id == "basis" || field_id == "integrator";
+  case SlotRole::WARP:
+    return field_id == "mode" || field_id == "basis";
+  default:
+    return false;
+  }
+}
+
+/**
+ * @brief Pins one effect's authored parameter values to its shader document.
+ * @tparam E Composed effect class template.
+ * @param name Effect name, for the failure context.
+ * @details The digests pin the promoted header to the document's canonical
+ * JSON, but both are computed from the JSON, so a value edited in
+ * initial_params()/preset_params() alone would leave them green. This check
+ * closes that gap: every preset in patterns/<effect_id>.shader.json is rebuilt
+ * into a Params through the engine's own field tables and compared bit-exactly,
+ * family by family, against the effect's authored preset. The comparison is
+ * two-directional — a document value the header does not reproduce and a
+ * header value the document does not carry both surface as a family mismatch.
+ * The preset roster, dwell and segue durations are pinned too, since they are
+ * authored in both places as well.
+ */
+template <template <int, int> class E>
+inline void check_document_values(const char *name) {
+  using FX = E<SMALL_W, SMALL_H>;
+  using Params = typename FX::Params;
+  HS_CONTEXT(name);
+
+  std::string file_name(FX::EFFECT_ID);
+  for (char &c : file_name)
+    if (c == '-')
+      c = '_';
+  const std::string path =
+      std::string(HS_PROMOTED_PATTERNS_DIR "/") + file_name + ".shader.json";
+  const std::string text = read_document(path);
+  HS_EXPECT(!text.empty(), "promoted shader document is readable");
+  if (text.empty())
+    return;
+
+  JsonParser parser{text};
+  const JsonValue document = parser.parse_value();
+  HS_EXPECT(!parser.failed, "promoted shader document parses");
+  if (parser.failed)
+    return;
+
+  const JsonValue *effect_id = document.find("effect_id");
+  HS_EXPECT_TRUE(effect_id != nullptr && effect_id->text == FX::EFFECT_ID);
+
+  const JsonValue *descriptor = document.find("descriptor");
+  const JsonValue *chain =
+      descriptor != nullptr ? descriptor->find("chain") : nullptr;
+  HS_EXPECT_TRUE(chain != nullptr);
+  if (chain == nullptr)
+    return;
+  std::vector<DocumentSlot> slots;
+  int warps_seen = 0;
+  for (const JsonValue &entry : chain->items) {
+    const JsonValue *label = entry.find("label");
+    const JsonValue *operator_id = entry.find("operator");
+    HS_EXPECT_TRUE(label != nullptr && operator_id != nullptr);
+    if (label == nullptr || operator_id == nullptr)
+      return;
+    DocumentSlot slot;
+    slot.label = label->text;
+    slot.role = classify_operator(operator_id->text);
+    HS_EXPECT(slot.role != SlotRole::UNKNOWN, "chain operator classified");
+    if (slot.role == SlotRole::WARP) {
+      // The v1 expansion keeps the warp's slot position in its label even
+      // when the other slot's identity op is omitted from the chain.
+      if (slot.label == "warp1")
+        slot.warp_side = 0;
+      else if (slot.label == "warp2")
+        slot.warp_side = 1;
+      else
+        slot.warp_side = warps_seen;
+      ++warps_seen;
+    }
+    slots.push_back(std::move(slot));
+  }
+
+  const JsonValue *bank = document.find("preset_bank");
+  const JsonValue *presets = bank != nullptr ? bank->find("presets") : nullptr;
+  HS_EXPECT_TRUE(presets != nullptr);
+  if (presets == nullptr)
+    return;
+  HS_EXPECT_EQ(presets->items.size(), FX::PRESET_IDS.size());
+
+  const JsonValue *choreography = bank->find("choreography");
+  const JsonValue *order =
+      choreography != nullptr ? choreography->find("generated_order") : nullptr;
+  const JsonValue *dwell =
+      choreography != nullptr ? choreography->find("dwell") : nullptr;
+  HS_EXPECT_TRUE(order != nullptr && dwell != nullptr);
+  if (order != nullptr && order->items.size() == FX::PRESET_IDS.size())
+    for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index)
+      HS_EXPECT_TRUE(order->items[index].text == FX::PRESET_IDS[index]);
+  else
+    HS_EXPECT_TRUE(order != nullptr &&
+                   order->items.size() == FX::PRESET_IDS.size());
+  if (dwell != nullptr)
+    for (const auto &[preset_id, frames] : dwell->members) {
+      HS_CONTEXT(preset_id.c_str());
+      HS_EXPECT_EQ(frames.number, double{FX::PRESET_DWELL_FRAMES});
+    }
+  const JsonValue *edges = bank->find("edges");
+  if (edges != nullptr)
+    for (const JsonValue &edge : edges->items) {
+      const JsonValue *duration = edge.find("duration");
+      HS_EXPECT_TRUE(duration != nullptr &&
+                     duration->number == double{FX::TRANSITION_DURATION});
+    }
+
+  for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index) {
+    HS_CONTEXT("preset", static_cast<int>(index));
+    const JsonValue *preset = nullptr;
+    for (const JsonValue &candidate : presets->items) {
+      const JsonValue *preset_id = candidate.find("preset_id");
+      if (preset_id != nullptr && preset_id->text == FX::PRESET_IDS[index])
+        preset = &candidate;
+    }
+    HS_EXPECT_TRUE(preset != nullptr);
+    if (preset == nullptr)
+      continue;
+    const JsonValue *values = preset->find("values");
+    HS_EXPECT_TRUE(values != nullptr);
+    if (values == nullptr)
+      continue;
+
+    Params built{};
+    for (const auto &[key, value] : values->members) {
+      HS_CONTEXT(key.c_str());
+      const size_t dot = key.find('.');
+      HS_EXPECT_TRUE(dot != std::string::npos);
+      if (dot == std::string::npos)
+        continue;
+      const std::string_view label = std::string_view(key).substr(0, dot);
+      const std::string_view field_id = std::string_view(key).substr(dot + 1);
+      const DocumentSlot *slot = nullptr;
+      for (const DocumentSlot &candidate : slots)
+        if (candidate.label == label)
+          slot = &candidate;
+      HS_EXPECT(slot != nullptr, "value key names a chain instance");
+      if (slot == nullptr)
+        continue;
+      HS_EXPECT(apply_document_value<FX>(built, *slot, field_id, value),
+                "document value maps onto the effect");
+    }
+    if constexpr (requires { FX::CAMERA_SPIN_RATE; }) {
+      bool camera_spin_present = false;
+      for (const DocumentSlot &slot : slots)
+        if (slot.role == SlotRole::CAMERA)
+          camera_spin_present =
+              values->find(slot.label + ".spin-speed") != nullptr;
+      HS_EXPECT_TRUE(camera_spin_present);
+    }
+    verify_params_equal(built, preset_params_or_initial<FX>(index));
+  }
+}
+
 /** @brief Sweeps the registered slider set over every specialization. */
 inline void test_composed_slider_registration() {
 #define HS_COMPOSED_SLIDERS(name, seconds)                                     \
@@ -530,6 +1109,13 @@ inline void test_composed_preset_interpolation() {
   check_preset_interpolation<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_INTERP)
 #undef HS_COMPOSED_INTERP
+}
+
+/** @brief Sweeps the shader-document value pin over every specialization. */
+inline void test_composed_document_values() {
+#define HS_COMPOSED_DOCUMENTS(name, seconds) check_document_values<name>(#name);
+  HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_DOCUMENTS)
+#undef HS_COMPOSED_DOCUMENTS
 }
 
 /**
@@ -850,6 +1436,7 @@ inline int run_composed_effect_tests() {
   test_composed_snapshot_contract();
   test_composed_preset_choreography();
   test_composed_preset_interpolation();
+  test_composed_document_values();
   test_composed_derivation_reach();
   test_composed_projection_walk_storage();
   test_composed_periodic_ripple_surface();
