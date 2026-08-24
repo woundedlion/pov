@@ -1095,29 +1095,25 @@ inline void test_needle_gated_swap_builds_on_hankin() {
 
   // KIS leg landing: departs the dual, opens on kis(dual) == the needle
   // arrival.
-  size_t kis_v = 0, kis_f = 0, kis_i = 0, kis_compiled = 0;
+  PolyMesh kis_mesh;
+  size_t kis_compiled = 0;
   {
     ScratchScope fa(a);
     ScratchScope fb(b);
-    PolyMesh kis_mesh = MeshOps::kis(dual_mesh, a, b);
-    kis_v = kis_mesh.vertices.size();
-    kis_f = kis_mesh.face_counts.size();
-    kis_i = kis_mesh.faces.size();
+    kis_mesh = Solids::finalize_solid(MeshOps::kis(dual_mesh, a, b), persist);
     kis_compiled = check_manifold_landing(kis_mesh, a, b);
   }
-  HS_EXPECT_EQ(kis_compiled, kis_f);
+  HS_EXPECT_EQ(kis_compiled, kis_mesh.face_counts.size());
   // kis raises one triangle per parent face-side, so its face count is the
   // dual's total face-index count.
-  HS_EXPECT_EQ(kis_f, dual_mesh.faces.size());
+  HS_EXPECT_EQ(kis_mesh.face_counts.size(), dual_mesh.faces.size());
 
   // The lowering matches the composite: needle n = kd = kis of dual.
   {
     ScratchScope fa(a);
     ScratchScope fb(b);
     PolyMesh needle_mesh = MeshOps::needle(seed, a, b);
-    HS_EXPECT_EQ(needle_mesh.vertices.size(), kis_v);
-    HS_EXPECT_EQ(needle_mesh.face_counts.size(), kis_f);
-    HS_EXPECT_EQ(needle_mesh.faces.size(), kis_i);
+    conway_tests::check_meshes_identical(needle_mesh, kis_mesh);
   }
 
   if (hs_test::stats().failed != failed_before)
@@ -1128,7 +1124,7 @@ inline void test_needle_gated_swap_builds_on_hankin() {
         "  [needle] hk54 seed F=%zu(compiled %zu) -> dual F=%zu(%zu) -> "
         "kis F=%zu(%zu) == needle; closed manifold at each landing\n",
         seed.face_counts.size(), seed_compiled, dual_mesh.face_counts.size(),
-        dual_compiled, kis_f, kis_compiled);
+        dual_compiled, kis_mesh.face_counts.size(), kis_compiled);
 }
 
 /**
