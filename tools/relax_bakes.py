@@ -25,11 +25,26 @@ from __future__ import annotations
 import argparse
 import difflib
 from pathlib import Path
+import struct
 import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSET = ROOT / "core/mesh/relax_bakes_generated.h"
+
+# Exhaustive source scan: this phase keeps every committed bake at least 1e-5
+# from a grid boundary while preserving distinct peer identities.
+SOURCE_SCALE = 2013
+SOURCE_BIAS_BITS = 0x3F3C7774
+SOURCE_MIN_MARGIN_BITS = 0x3727C5AC
+
+
+def float_from_bits(bits: int) -> float:
+    return struct.unpack("!f", struct.pack("!I", bits))[0]
+
+
+def float_bits(value: float) -> int:
+    return struct.unpack("!I", struct.pack("!f", value))[0]
 
 
 def unterminated_block(meta: dict, words: list[int]) -> ValueError:
@@ -53,7 +68,17 @@ def parse_dump(text: str) -> list[dict]:
         if parts[0] == "RELAX_BAKE_BEGIN":
             if meta is not None:
                 raise unterminated_block(meta, words)
-            name, iterations, v, f, i, topo, source, out = parts[1:9]
+            (name, iterations, v, f, i, topo, source, out, scale, bias,
+             required_margin, actual_margin) = parts[1:13]
+            if (int(scale) != SOURCE_SCALE or int(bias, 16) != SOURCE_BIAS_BITS
+                    or int(required_margin, 16) != SOURCE_MIN_MARGIN_BITS):
+                raise ValueError(f"{name}: source identity grid mismatch")
+            margin = float_from_bits(int(actual_margin, 16))
+            if not margin >= float_from_bits(SOURCE_MIN_MARGIN_BITS):
+                raise ValueError(
+                    f"{name}: source quantization margin {margin:.9g} is below "
+                    f"{float_from_bits(SOURCE_MIN_MARGIN_BITS):.9g}"
+                )
             meta = {
                 "name": name,
                 "iterations": int(iterations),
@@ -63,6 +88,7 @@ def parse_dump(text: str) -> list[dict]:
                 "topology_hash": int(topo, 16),
                 "source_hash": int(source, 16),
                 "output_hash": int(out, 16),
+                "source_margin": margin,
             }
             words = []
         elif parts[0] in ("RELAX_BAKE_DATA", "RELAX_BAKE_END") and meta is None:
@@ -82,14 +108,26 @@ def parse_dump(text: str) -> list[dict]:
             if existing is None:
                 order.append(meta["name"])
                 bakes[meta["name"]] = meta
-            elif existing["bits"] != meta["bits"]:
+            elif existing != meta:
                 raise ValueError(f"{meta['name']}: nondeterministic duplicate")
             meta = None
     if meta is not None:
         raise unterminated_block(meta, words)
     if not order:
         raise ValueError("no RELAX_BAKE blocks found in dump")
-    return [bakes[name] for name in order]
+    parsed = [bakes[name] for name in order]
+    peer_hashes: dict[tuple[int, ...], dict[int, str]] = {}
+    for bake in parsed:
+        peer_key = (bake["vertices"], bake["faces"], bake["indices"],
+                    bake["topology_hash"])
+        peers = peer_hashes.setdefault(peer_key, {})
+        collision = peers.get(bake["source_hash"])
+        if collision is not None:
+            raise ValueError(
+                f"{bake['name']}: source identity collides with peer {collision}"
+            )
+        peers[bake["source_hash"]] = bake["name"]
+    return parsed
 
 
 def vertex_hash(words: list[int]) -> int:
@@ -106,6 +144,8 @@ def emit_header(bakes: list[dict]) -> str:
         " * Licensed under the PolyForm Noncommercial License 1.0.0",
         " * GENERATED FILE - DO NOT EDIT. Regenerate from host relax bakes with:",
         " *   <build>/relax_bake_gen | python tools/relax_bakes.py emit --stdin",
+        " * Source identity grid: scale 2013, bias bits 0x3f3c7774,",
+        " * minimum boundary margin 0x3727c5ac (1e-5f).",
         " */",
         "#pragma once",
         "",

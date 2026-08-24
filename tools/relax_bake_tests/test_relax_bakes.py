@@ -15,7 +15,8 @@ sys.path.insert(0, str(TOOLS))
 import relax_bakes  # noqa: E402
 
 
-def make_dump(name, iterations, verts, topology_hash, source_hash=0x1234ABCD):
+def make_dump(name, iterations, verts, topology_hash, source_hash=0x1234ABCD,
+              source_margin=2.0e-5):
     """Build a RELAX_BAKE block whose declared output hash matches its bits."""
     words = []
     for x, y, z in verts:
@@ -23,7 +24,10 @@ def make_dump(name, iterations, verts, topology_hash, source_hash=0x1234ABCD):
     out = relax_bakes.vertex_hash(words)
     lines = [
         f"RELAX_BAKE_BEGIN {name} {iterations} {len(verts)} 2 6 "
-        f"{topology_hash:08x} {source_hash:08x} {out:08x}"
+        f"{topology_hash:08x} {source_hash:08x} {out:08x} "
+        f"{relax_bakes.SOURCE_SCALE} {relax_bakes.SOURCE_BIAS_BITS:08x} "
+        f"{relax_bakes.SOURCE_MIN_MARGIN_BITS:08x} "
+        f"{relax_bakes.float_bits(source_margin):08x}"
     ]
     for x, y, z in verts:
         lines.append(f"RELAX_BAKE_DATA {x:08x} {y:08x} {z:08x}")
@@ -43,6 +47,7 @@ class ParseDump(unittest.TestCase):
         self.assertEqual(b["topology_hash"], 0xABCD1234)
         self.assertEqual(b["source_hash"], 0x1234ABCD)
         self.assertEqual(b["output_hash"], out)
+        self.assertGreaterEqual(b["source_margin"], 1.0e-5)
         self.assertEqual(b["bits"], [1, 2, 3, 4, 5, 6])
 
     def test_dedupes_identical_repeat(self):
@@ -68,6 +73,24 @@ class ParseDump(unittest.TestCase):
     def test_rejects_nondeterministic_duplicate(self):
         a, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
         b, _ = make_dump("foo", 8, [(9, 9, 9)], 0x1)
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump(a + "\n" + b)
+
+    def test_rejects_source_identity_grid_drift(self):
+        dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
+        dump = dump.replace(f" {relax_bakes.SOURCE_SCALE} ", " 2014 ")
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump(dump)
+
+    def test_rejects_insufficient_source_margin(self):
+        dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1,
+                            source_margin=5.0e-6)
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump(dump)
+
+    def test_rejects_peer_source_hash_collision(self):
+        a, _ = make_dump("a", 8, [(1, 1, 1)], 0x1, source_hash=0xA5)
+        b, _ = make_dump("b", 8, [(2, 2, 2)], 0x1, source_hash=0xA5)
         with self.assertRaises(ValueError):
             relax_bakes.parse_dump(a + "\n" + b)
 
@@ -114,6 +137,7 @@ class EmitHeader(unittest.TestCase):
             "HS_PROGMEM_UNIQUE(foo_bar_bits) = {",
             header,
         )
+        self.assertIn("Source identity grid: scale 2013", header)
         self.assertIn('.name = "foo_bar", .vertex_bits = foo_bar_bits,', header)
         self.assertIn(
             ".vertex_count = 1, .face_count = 2, .index_count = 6, "
