@@ -58,6 +58,18 @@ inline int pole_lod_run(float sin_phi) {
 }
 
 /**
+ * @brief First canvas-aligned block anchor at or after a column.
+ * @param x Column a walk starts at; non-negative.
+ * @param stride Columns per block.
+ * @return The anchor. A walk advances it by stride from here, so block heads
+ *         are selected without a per-column divide.
+ */
+__attribute__((always_inline)) inline int pole_lod_block_anchor(int x,
+                                                                int stride) {
+  return x + (stride - x % stride) % stride;
+}
+
+/**
  * @brief Clearance beyond a walk's own threshold at which one probe vouches for
  *        a whole pole-LOD block.
  * @tparam W Canvas width in pixels.
@@ -595,12 +607,10 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   // columns it consumed. A block the run truncates is walked per column, so a
   // settled column is always settled from its own block's anchor.
   auto walk = [&](int x1, int x2, int y, float sp, float cp, int stride) {
-    // The next canvas-aligned block anchor at or after x, advanced by stride,
-    // so block heads are selected without a per-column divide.
     [[maybe_unused]] int next_block = x1;
     if constexpr (POLE_LOD_ENABLED)
       if (stride > 1)
-        next_block = x1 + (stride - x1 % stride) % stride;
+        next_block = pole_lod_block_anchor(x1, stride);
     for (int x = x1; x < x2; ++x) {
       if constexpr (POLE_LOD_ENABLED) {
         if (stride > 1 && x == next_block) {
