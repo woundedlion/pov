@@ -131,13 +131,13 @@ sample_hue_rotation_lut(const HueRotationLutView &view, float value,
   const uint16_t value_weight =
       frac_to_q16(value_position - static_cast<float>(value_low));
 
-  const float hue_position = amount * HueRotationLutView::HUE_STEPS;
-  int hue_low = static_cast<int>(hue_position);
-  if (hue_position < static_cast<float>(hue_low))
-    --hue_low;
+  const float hue_position =
+      hs::clamp((amount - floorf(amount)) * HueRotationLutView::HUE_STEPS, 0.0f,
+                static_cast<float>(HueRotationLutView::HUE_STEPS));
+  const int hue_step = static_cast<int>(hue_position);
   const uint16_t hue_weight =
-      frac_to_q16(hue_position - static_cast<float>(hue_low));
-  const int hue_index_low = hue_low & (HueRotationLutView::HUE_STEPS - 1);
+      frac_to_q16(hue_position - static_cast<float>(hue_step));
+  const int hue_index_low = hue_step & (HueRotationLutView::HUE_STEPS - 1);
   const int hue_index_high =
       (hue_index_low + 1) & (HueRotationLutView::HUE_STEPS - 1);
   const auto sample_row = [&](int row) {
