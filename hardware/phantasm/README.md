@@ -421,7 +421,7 @@ schematic, and the `.kicad_prl` that the KiCad GUI writes is local only. Run
   (groups related parts during placement).
 - Select **Preserve copper on internal layers** and preserve the uploaded
   four-layer stackup. The unplaced project starts with 0.60/0.30 mm vias and
-  enforces a 0.45/0.20 mm minimum.
+  enforces a 0.50/0.30 mm minimum.
 - After downloading candidates, run `python gen/analyze_candidates.py <paths>`.
   Candidates with vias below 0.45/0.20 mm are ineligible even if Quilter's DRC
   accepts them. After promoting the chosen board to `phantasm.kicad_pcb`,
