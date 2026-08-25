@@ -382,7 +382,9 @@ def main(argv: list[str] | None = None) -> int:
                         "--platformio-ini")
     p.add_argument("--platformio-ini", default="platformio.ini")
     p.add_argument("--update-baseline", action="store_true",
-                   help="rewrite the baseline from this build's warning set")
+                   help="rewrite the baseline from this build's warning set; "
+                        "refused unless the capture covers every environment "
+                        "in --platformio-ini")
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
     args = p.parse_args(argv)
 
@@ -403,8 +405,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         audit = audit_capture(build_log)
-        expected = tuple(args.env) if args.env else declared_environments(
-            args.platformio_ini)
+        declared = declared_environments(args.platformio_ini)
+        expected = tuple(args.env) if args.env else declared
     except CaptureError as exc:
         print(f"{prefix}[teensy-warnings] FAIL - {exc} ({args.build_log}).")
         return 1
@@ -445,6 +447,21 @@ def main(argv: list[str] | None = None) -> int:
     current = extract_warnings(build_log)
 
     if args.update_baseline:
+        # The rewrite is whole-file, so the capture behind it has to cover the
+        # whole firmware: regenerating from an --env-narrowed (or short) build
+        # would drop every warning the absent environments carry, turning a
+        # reviewed baseline into a one-environment snapshot.
+        covered = {section.name for section in audit.envs}
+        uncovered = [name for name in declared if name not in covered]
+        if uncovered:
+            print(f"{prefix}[teensy-warnings] FAIL - refusing to rewrite "
+                  f"{args.baseline} from a capture covering {len(covered)} of "
+                  f"{len(declared)} declared environment(s): "
+                  f"{', '.join(uncovered)} absent from {args.build_log}. The "
+                  f"baseline spans every environment, so this rewrite would "
+                  f"delete the warnings those carry. Regenerate it from a cold, "
+                  f"full `pio run` capture.")
+            return 1
         Path(args.baseline).write_text(
             render_baseline(current), encoding="utf-8", newline="\n"
         )
