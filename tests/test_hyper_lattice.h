@@ -144,6 +144,7 @@ inline void test_far_shell_fade() {
 }
 
 inline void test_pause_does_not_stop_motion() {
+  reset_globals();
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
   effect.setAnimationsPaused(true);
@@ -167,6 +168,7 @@ inline void test_pause_does_not_stop_motion() {
 }
 
 inline void test_depth_palette_mutates_slowly_while_paused() {
+  reset_globals();
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
   effect.setAnimationsPaused(true);
@@ -266,6 +268,7 @@ inline void test_coincident_planes_form_one_layer() {
 }
 
 inline void test_render_signature() {
+  reset_globals();
   static constexpr Vector DIRECTIONS[] = {
       {1.0f, 0.0f, 0.0f},
       {-1.0f, 0.0f, 0.0f},
@@ -315,6 +318,7 @@ inline void test_render_signature() {
 }
 
 inline void test_specialized_slice_transition() {
+  reset_globals();
   static constexpr Vector DIRECTIONS[] = {
       {1.0f, 0.0f, 0.0f},
       {0.577350269f, 0.577350269f, 0.577350269f},
@@ -453,6 +457,7 @@ inline void test_presets_and_pipeline() {
 }
 
 inline void test_dimension_dropdown_and_mode_lerp() {
+  reset_globals();
   using Effect = HyperLatticeWhiteBox::Effect;
   Effect effect;
   effect.init();
