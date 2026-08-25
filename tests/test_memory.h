@@ -515,6 +515,65 @@ inline void test_resplit_arenas_preserves_persistent() {
   HS_EXPECT_EQ(scratch_arena_b.get_capacity(), DEFAULT_SCRATCH_B_SIZE);
 }
 
+/** Counters the ArenaResetHook probes below bump; file-scope so the handlers
+    match the registry's plain function-pointer signature. */
+namespace reset_hook_probe {
+inline int outer_calls = 0;
+inline int inner_calls = 0;
+inline void bump_outer() { ++outer_calls; }
+inline void bump_inner() { ++inner_calls; }
+} // namespace reset_hook_probe
+
+/**
+ * @brief Verifies ArenaResetHook registers on construction, dispatches every
+ *        registered handler, and unlinks itself on destruction.
+ * @details The registry is intrusive and its head is private, so registration
+ *          is observable only through run_all(). A hook that failed to unlink
+ *          would call through a dead node on the next arena hand-out.
+ */
+inline void test_arena_reset_hook_dispatch_and_unlink() {
+  using namespace reset_hook_probe;
+  outer_calls = 0;
+  inner_calls = 0;
+  {
+    ArenaResetHook outer(bump_outer);
+    ArenaResetHook::run_all();
+    HS_EXPECT_EQ(outer_calls, 1);
+    HS_EXPECT_EQ(inner_calls, 0);
+    {
+      ArenaResetHook inner(bump_inner);
+      ArenaResetHook::run_all();
+      HS_EXPECT_EQ(outer_calls, 2);
+      HS_EXPECT_EQ(inner_calls, 1);
+    }
+    ArenaResetHook::run_all();
+    HS_EXPECT_EQ(outer_calls, 3);
+    HS_EXPECT_EQ(inner_calls, 1);
+  }
+  ArenaResetHook::run_all();
+  HS_EXPECT_EQ(outer_calls, 3);
+  HS_EXPECT_EQ(inner_calls, 1);
+}
+
+/**
+ * @brief Verifies configure_arenas() runs the hook list before it rebinds.
+ * @details The production seam the registry exists for: the storage under an
+ *          arena-resident global is handed out again here, so every owner must
+ *          have dropped its pointer first. Restores the default split.
+ */
+inline void test_arena_reset_hook_runs_on_configure() {
+  using namespace reset_hook_probe;
+  outer_calls = 0;
+  {
+    ArenaResetHook hook(bump_outer);
+    configure_arenas(48 * 1024, 8 * 1024, 8 * 1024);
+    HS_EXPECT_EQ(outer_calls, 1);
+    configure_arenas_default();
+    HS_EXPECT_EQ(outer_calls, 2);
+  }
+  HS_EXPECT_EQ(persistent_arena.get_capacity(), DEFAULT_PERSISTENT_SIZE);
+}
+
 // ============================================================================
 // ArenaVector
 // ============================================================================
@@ -1280,6 +1339,8 @@ inline int run_memory_tests() {
 #endif
   test_configure_arenas_repartition();
   test_resplit_arenas_preserves_persistent();
+  test_arena_reset_hook_dispatch_and_unlink();
+  test_arena_reset_hook_runs_on_configure();
 
   test_arenavec_default_unbound();
   test_arenavec_bind();
