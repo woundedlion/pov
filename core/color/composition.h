@@ -1360,6 +1360,23 @@ public:
   }
 
   /**
+   * @brief Samples only the interpolated alpha channel.
+   * @param t Lookup coordinate; clamped to [0, 1] (NaN folds to the last entry).
+   * @return The alpha get() gives for the same index.
+   */
+  __attribute__((always_inline)) float get_alpha(float t) const {
+    assert(alpha_q16 != nullptr && "BakedPalette::get_alpha before bake()");
+    float idx =
+        hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
+    const int lo = lut_index_lo(idx);
+    if (lo >= LUT_SIZE - 1)
+      return alpha_q16[LUT_SIZE - 1] * (1.0f / 65535.0f);
+    return lerp_q16(alpha_q16[lo], alpha_q16[lo + 1],
+                    lut_index_weight(idx, lo)) *
+           (1.0f / 65535.0f);
+  }
+
+  /**
    * @brief Samples RGB for a coordinate already clamped to [0, 1].
    * @param t Finite lookup coordinate in [0, 1].
    * @return The pixel get() gives for the same index.
