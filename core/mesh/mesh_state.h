@@ -285,6 +285,8 @@ struct MeshState {
    *   them); otherwise one entry per face.
    * @param topology_span Borrowed per-face topology class ids. Empty when the
    *   source mesh is unclassified; otherwise one entry per face.
+   * @param key MeshOps::connectivity_key the topology span was classified for;
+   *   0 when the span is empty.
    * @details Traps on inconsistent spans: a present offsets array must be one
    *   entry per face, and its last offset plus that face's count must cover the
    *   whole flat faces list. With no offsets the counts must sum to the flat
@@ -296,7 +298,7 @@ struct MeshState {
   void set_borrowed(ArenaSpan<uint8_t> face_counts_span,
                     ArenaSpan<uint16_t> faces_span,
                     ArenaSpan<uint16_t> face_offsets_span,
-                    ArenaSpan<uint16_t> topology_span = {}) {
+                    ArenaSpan<uint16_t> topology_span = {}, uint32_t key = 0) {
     if (!face_offsets_span.is_empty()) {
       HS_CHECK(
           face_offsets_span.size() == face_counts_span.size(),
@@ -324,7 +326,7 @@ struct MeshState {
     faces = {};
     face_offsets = {};
     topology = {};
-    topology_key = 0;
+    topology_key = key;
     face_counts_view = face_counts_span;
     faces_view = faces_span;
     face_offsets_view = face_offsets_span;
