@@ -225,12 +225,15 @@ static bool runs_in_ci() {
  * @param argc Argument count as passed to main.
  * @param argv Argument vector as passed to main.
  * @return 0 when every lever this invocation needs is set, else 1.
- * @details Both levers default to the shallow local tier when unset. A workflow
- * that stops exporting one drops the deep smoke window and the
+ * @details Every lever defaults to the shallow local tier when unset, so a
+ * workflow step that stops exporting one drops the deep smoke window or the
  * full-resolution roster passes while still reporting green. Under CI that is
  * a failure, the same stance the death harness takes on a suite it cannot run.
- * HS_EFFECTS_FULL is required only when an effects module actually runs, so
- * jobs that select other modules are untouched.
+ * The effects tier is scored only when an effects module actually runs, so jobs
+ * selecting other modules are untouched; when one does run, both
+ * HS_EFFECTS_FULL (which tier) and HS_REQUIRE_EFFECTS_FULL (whether FULL is
+ * mandatory for this leg) must carry an explicit value. An absent or blank key
+ * is a step that lost its declaration, not a vote for QUICK.
  */
 static int check_ci_levers(int argc, char **argv) {
   if (!runs_in_ci())
@@ -240,6 +243,7 @@ static int check_ci_levers(int argc, char **argv) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   const char *frames = std::getenv("HS_SMOKE_FRAMES");
+  const char *effects_full = std::getenv("HS_EFFECTS_FULL");
   const char *require_effects_full = std::getenv("HS_REQUIRE_EFFECTS_FULL");
 #pragma clang diagnostic pop
   if (!frames || std::atoi(frames) < CI_MIN_SMOKE_FRAMES) {
@@ -251,15 +255,27 @@ static int check_ci_levers(int argc, char **argv) {
                  CI_MIN_SMOKE_FRAMES);
     ++missing;
   }
-  if (require_effects_full && std::atoi(require_effects_full) > 0 &&
-      runs_effects(argc, argv) &&
-      !hs_test::effects_tests::effects_full_suite()) {
-    std::fprintf(stderr,
-                 "run_tests: CI=on but HS_EFFECTS_FULL is unset or 0 — the "
-                 "effects modules would run the QUICK tier, dropping the "
-                 "288x144 roster passes and the white-box block. Set "
-                 "HS_EFFECTS_FULL=1 in the workflow step's env.\n");
-    ++missing;
+  if (runs_effects(argc, argv)) {
+    const bool tier_declared = effects_full && effects_full[0] != '\0';
+    const bool policy_declared =
+        require_effects_full && require_effects_full[0] != '\0';
+    if (!tier_declared || !policy_declared) {
+      std::fprintf(
+          stderr,
+          "run_tests: CI=on and an effects module is running, but "
+          "HS_EFFECTS_FULL and HS_REQUIRE_EFFECTS_FULL are not both set to an "
+          "explicit value — the effects tier would be chosen by omission. Set "
+          "both in the workflow step's env.\n");
+      ++missing;
+    } else if (std::atoi(require_effects_full) > 0 &&
+               !hs_test::effects_tests::effects_full_suite()) {
+      std::fprintf(stderr,
+                   "run_tests: CI=on and HS_REQUIRE_EFFECTS_FULL is on, but "
+                   "the effects modules would run the QUICK tier, dropping the "
+                   "288x144 roster passes and the white-box block. Set "
+                   "HS_EFFECTS_FULL=1 in the workflow step's env.\n");
+      ++missing;
+    }
   }
   return missing ? 1 : 0;
 }
