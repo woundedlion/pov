@@ -13,6 +13,8 @@
 
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
+#include "core/render/plot.h"
+#include "core/render/scan.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/test_pole_wrap.h"
@@ -158,6 +160,102 @@ inline void test_boundary_energy_independent_of_x_fraction() {
   }
 }
 
+/**
+ * @brief The last physical row shades as a latitude ring under Scan, not a pole.
+ * @details Scan::Shader reconstructs each pixel's direction through the
+ *          H_VIRT-aware trig tables. At the device offset row H-1 sits at
+ *          colatitude (H-1)*PI/(H_VIRT-1), so every column of that row shares
+ *          one latitude well off the pole while its azimuth sweeps a full turn.
+ *          An H_OFFSET == 0 build collapses the whole row onto sin(phi) == 0,
+ *          where every column shades the same direction.
+ */
+inline void test_scan_bottom_row_is_a_latitude_ring() {
+  using LUT = TrigLUT<W, H>;
+  if (!LUT::initialized)
+    LUT::init();
+
+  constexpr float FULL_SCALE = 60000.0f;
+  hs_test::StubEffect fx(W, H);
+  {
+    Canvas c(fx);
+    Scan::Shader::draw<W, H, 1>(c, [](const Vector &v) {
+      float theta = std::atan2(v.z, v.x);
+      if (theta < 0.0f)
+        theta += 2.0f * PI_F;
+      // Latitude in red, azimuth in green.
+      return Color4(
+          Pixel(static_cast<uint16_t>((v.y + 1.0f) * 0.5f * FULL_SCALE),
+                static_cast<uint16_t>(theta * FULL_SCALE / (2.0f * PI_F)), 0),
+          1.0f);
+    });
+  }
+  fx.advance_display();
+
+  const float latitude = (LUT::cos_phi[H - 1] + 1.0f) * 0.5f * FULL_SCALE;
+  HS_EXPECT_GT(latitude, 1000.0f);
+
+  int azimuth_steps = 0;
+  uint16_t previous = fx.get_pixel(W - 1, H - 1).g;
+  for (int x = 0; x < W; ++x) {
+    const Pixel &p = fx.get_pixel(x, H - 1);
+    HS_EXPECT_NEAR(p.r, latitude, 2.0f);
+    if (p.g != previous)
+      ++azimuth_steps;
+    previous = p.g;
+  }
+  HS_EXPECT_EQ(azimuth_steps, W);
+}
+
+/**
+ * @brief Draws the number of lit pixels a short stroke at @p colatitude leaves.
+ * @param colatitude Colatitude of the stroke's endpoints, radians.
+ * @return Count of non-black pixels in the frame.
+ */
+inline int plot_stroke_lit_pixels(float colatitude) {
+  constexpr float AZIMUTH_SPAN = 0.4f;
+  const float sin_phi = std::sin(colatitude);
+  const float cos_phi = std::cos(colatitude);
+
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipe; // bare sink: raw sample placement, no AA spill
+  Fragment f1, f2;
+  f1.pos = Vector(sin_phi, cos_phi, 0.0f);
+  f2.pos = Vector(sin_phi * std::cos(AZIMUTH_SPAN), cos_phi,
+                  sin_phi * std::sin(AZIMUTH_SPAN));
+  {
+    Canvas c(fx);
+    Plot::Line::draw<W, H>(pipe, c, f1, f2, [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+    });
+  }
+  fx.advance_display();
+
+  int lit = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &p = fx.get_pixel(x, y);
+      if ((p.r | p.g | p.b) != 0)
+        ++lit;
+    }
+  return lit;
+}
+
+/**
+ * @brief Plot maps latitude through H_VIRT, so the sub-pole gap holds no data.
+ * @details The LED ring stops H_OFFSET rows short of the south pole. A stroke
+ *          past the last physical row therefore has no hardware to light and
+ *          must be dropped, while one at the bottom row still draws. On an
+ *          H_OFFSET == 0 build both colatitudes land on real rows and the
+ *          distinction does not exist.
+ */
+inline void test_plot_below_last_row_is_clipped() {
+  const float bottom_row_phi = y_to_phi<H>(static_cast<float>(H - 1));
+  const float gap_phi = y_to_phi<H>(static_cast<float>(H + 1));
+
+  HS_EXPECT_GT(plot_stroke_lit_pixels(bottom_row_phi), 0);
+  HS_EXPECT_EQ(plot_stroke_lit_pixels(gap_phi), 0);
+}
+
 /** @brief Rotation about +Y: preserves latitude, shifts longitude. */
 inline constexpr float LONGITUDE_WARP_ANGLE = 0.6f;
 inline Vector longitude_rotation_warp(const Vector &v,
@@ -242,6 +340,8 @@ inline int run_h_offset_renorm_tests() {
   test_energy_conserved_through_clip_boundary();
   test_boundary_row_splits_two_columns_and_conserves();
   test_boundary_energy_independent_of_x_fraction();
+  test_scan_bottom_row_is_a_latitude_ring();
+  test_plot_below_last_row_is_clipped();
   test_feedback_bottom_row_rotates_in_longitude();
   pole_wrap_tests::run_pole_wrap_cases();
   return fixture.result();
