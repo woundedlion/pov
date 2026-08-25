@@ -332,7 +332,7 @@ strip/sync `J2`/`J3A`/`J3B` at the far end, R-CON-4). `MASTER_EN` and
 - **Fast nets:** DATA, CLK, and SYNC routing from the validated input was retained;
   the completed Quilter pass added only the low-rate control routing.
 - Critical routing uses at least **0.13 mm trace width** with the JLCPCB
-  **4 mil clearance** process limit.
+  **0.1016 mm (4 mil) clearance** process limit.
 
 > Routing lives only in `phantasm.kicad_pcb`. **`gen/pcb.py --force` overwrites the
 > board and discards routing** — without `--force` it refuses while that file exists.
@@ -400,7 +400,7 @@ SIG**, 1.6 mm, with 1 oz outer copper, 0.5 oz inner copper, and ENIG. Those gene
 committed routed board; use the generated facts block above for its construction. The
 unplaced stackup is encoded in its file, so Quilter reads it on upload — no need to
 hand-enter dielectric/mil values in its UI. Net class is 0.3 mm track / 0.2 mm clearance /
-0.6 mm via (well above the 3.5 mil fab minimum).
+0.6 mm via (well above the 0.1016 mm (4 mil) fab minimum).
 
 **Running a future unplaced board through Quilter** — upload the contents of
 `unplaced/` together: `phantasm_unplaced.kicad_pcb` and
