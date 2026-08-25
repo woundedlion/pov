@@ -2744,7 +2744,7 @@ inline void case_random_timer_inverted_range() {
 /**
  * @brief A wedged transport: never completes, and traps on the watchdog consult.
  * @details Stands in for a TeensySPIDMA whose completion ISR never fires. Its
- *          checkStaleTransfer() plays the role the real driver's watchdog does on
+ *          check_stale_transfer() plays the role the real driver's watchdog does on
  *          the overrun-drop path — trapping a permanently in-flight channel.
  */
 struct WedgedStrip {
@@ -2760,22 +2760,22 @@ struct WedgedStrip {
    * @brief Always reports the channel busy, so every submit hits the overrun path.
    * @return Always false.
    */
-  bool isComplete() const { return false; }
+  bool is_complete() const { return false; }
   /**
    * @brief Traps: a wedged channel surfaced from the overrun-drop path.
    */
-  void checkStaleTransfer() { HS_CHECK(false, "DMA channel wedged"); }
+  void check_stale_transfer() { HS_CHECK(false, "DMA channel wedged"); }
   /**
    * @brief Unreachable here (the overrun path returns before transmitting).
    */
-  void transmitAsync(const uint8_t *, size_t) {}
+  void transmit_async(const uint8_t *, size_t) {}
 };
 
 /**
- * @brief Death case: submitFrame() consults the watchdog on overrun, so a wedged
+ * @brief Death case: submit_frame() consults the watchdog on overrun, so a wedged
  *        channel traps rather than dropping frames forever.
  * @details Controller surface — pins the ordering that the overrun-drop branch
- *          calls checkStaleTransfer() before bumping the counter and returning
+ *          calls check_stale_transfer() before bumping the counter and returning
  *          false. The transfer-stale predicate itself is covered in-process by
  *          test_dma_core.h; this proves the controller wires the drop path into
  *          the watchdog so a permanently in-flight transport fails fast.
@@ -2783,7 +2783,7 @@ struct WedgedStrip {
 inline void case_dma_controller_wedged_overrun() {
   static DMALEDController<8, WedgedStrip> ctl;
   bool ok =
-      ctl.submitFrame(opaque(false)); // busy -> checkStaleTransfer -> trap
+      ctl.submit_frame(opaque(false)); // busy -> check_stale_transfer -> trap
   if (ok)
     std::printf("x");
 }

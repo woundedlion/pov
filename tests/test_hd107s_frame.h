@@ -50,14 +50,14 @@ inline const uint8_t *pixel(const Frame &f, int i) {
  * Shared with the DMA controller suite, which drives a different S.
  */
 template <int S> inline void reset_correction() {
-  HD107SFrame<S>::setCorrection(255, 255, 255);
-  HD107SFrame<S>::setTemperature(255, 255, 255);
-  HD107SFrame<S>::setBrightness(255);
+  HD107SFrame<S>::set_correction(255, 255, 255);
+  HD107SFrame<S>::set_temperature(255, 255, 255);
+  HD107SFrame<S>::set_brightness(255);
 }
 
 /**
  * @brief Verifies the spec-derived buffer-sizing formulas and that size()/
- * sizeWithBg() agree with the compile-time layout constants.
+ * size_with_bg() agree with the compile-time layout constants.
  */
 inline void test_layout_constants() {
   HS_EXPECT_EQ(Frame::END_FRAME_BYTES, 4);
@@ -66,7 +66,7 @@ inline void test_layout_constants() {
 
   Frame f;
   HS_EXPECT_EQ(static_cast<int>(f.size()), Frame::BUFFER_SIZE);
-  HS_EXPECT_EQ(static_cast<int>(f.sizeWithBg()), Frame::COMPOSITE_SIZE);
+  HS_EXPECT_EQ(static_cast<int>(f.size_with_bg()), Frame::COMPOSITE_SIZE);
   HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(f.data() + Frame::BUFFER_SIZE) %
                    alignof(uint32_t),
                0u);
@@ -87,7 +87,8 @@ inline void test_layout_constants_phantasm() {
 
   PhantasmFrame f;
   HS_EXPECT_EQ(static_cast<int>(f.size()), PhantasmFrame::BUFFER_SIZE);
-  HS_EXPECT_EQ(static_cast<int>(f.sizeWithBg()), PhantasmFrame::COMPOSITE_SIZE);
+  HS_EXPECT_EQ(static_cast<int>(f.size_with_bg()),
+               PhantasmFrame::COMPOSITE_SIZE);
   HS_EXPECT_EQ(
       reinterpret_cast<uintptr_t>(f.data() + PhantasmFrame::BUFFER_SIZE) %
           alignof(uint32_t),
@@ -149,7 +150,7 @@ inline void test_correct_pipeline() {
   HS_EXPECT_EQ(b, 65535u);
 
   // factor(128) is 129, so each channel is (65535*129)>>8.
-  Frame::setBrightness(128);
+  Frame::set_brightness(128);
   uint32_t hr = 65535, hg = 65535, hb = 65535;
   f.correct(hr, hg, hb);
   HS_EXPECT_EQ(hr, 33023u);
@@ -157,7 +158,7 @@ inline void test_correct_pipeline() {
   HS_EXPECT_EQ(hb, 33023u);
 
   // factor(0) is 0, so every channel zeroes regardless of input.
-  Frame::setBrightness(0);
+  Frame::set_brightness(0);
   uint32_t zr = 65535, zg = 65535, zb = 65535;
   f.correct(zr, zg, zb);
   HS_EXPECT_EQ(zr, 0u);
@@ -181,14 +182,14 @@ inline void test_correct_multifactor() {
   Frame f;
 
   // Temperature compounds on top of correction, not instead of it.
-  Frame::setCorrection(255, 176, 240);
-  Frame::setTemperature(255, 255, 255);
-  Frame::setBrightness(255);
+  Frame::set_correction(255, 176, 240);
+  Frame::set_temperature(255, 255, 255);
+  Frame::set_brightness(255);
   uint32_t gr = 0, gg = 65535, gb = 0;
   f.correct(gr, gg, gb);
   const uint32_t g_corr_only = gg;
 
-  Frame::setTemperature(255, 147, 41);
+  Frame::set_temperature(255, 147, 41);
   uint32_t r = 65535, g = 65535, b = 65535;
   f.correct(r, g, b);
   HS_EXPECT_LT(g, g_corr_only); // factors compound
@@ -205,9 +206,9 @@ inline void test_correct_multifactor() {
   // No-overflow invariant: factor 255 maps to multiplier 256 (exact unity), so
   // every stage's (v*256)>>8 returns the input untouched — max gains reach but
   // never breach 65535, keeping every stage a valid linear_to_srgb_lut index.
-  Frame::setCorrection(255, 255, 255);
-  Frame::setTemperature(255, 255, 255);
-  Frame::setBrightness(255);
+  Frame::set_correction(255, 255, 255);
+  Frame::set_temperature(255, 255, 255);
+  Frame::set_brightness(255);
   uint32_t mr = 65535, mg = 65535, mb = 65535;
   f.correct(mr, mg, mb);
   HS_EXPECT_EQ(mr, 65535u);
@@ -218,7 +219,7 @@ inline void test_correct_multifactor() {
 }
 
 /**
- * @brief Verifies packPixel() emits [0xFF][B][G][R] order and writes only the
+ * @brief Verifies pack_pixel() emits [0xFF][B][G][R] order and writes only the
  * targeted pixel slot (each primary lights its own byte, neighbors untouched).
  */
 inline void test_packpixel_wire_order() {
@@ -231,18 +232,18 @@ inline void test_packpixel_wire_order() {
 
   // Wire record is [0xFF][B][G][R]. Under unity correction the lit channel
   // round-trips the sRGB<->linear LUTs back to 255; the rest stay 0.
-  f.packPixel(0, red);
+  f.pack_pixel(0, red);
   HS_EXPECT_EQ(pixel(f, 0)[0], 0xFF);
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);   // B
   HS_EXPECT_EQ(pixel(f, 0)[2], 0);   // G
   HS_EXPECT_EQ(pixel(f, 0)[3], 255); // R
 
-  f.packPixel(1, green);
+  f.pack_pixel(1, green);
   HS_EXPECT_EQ(pixel(f, 1)[1], 0);   // B
   HS_EXPECT_EQ(pixel(f, 1)[2], 255); // G
   HS_EXPECT_EQ(pixel(f, 1)[3], 0);   // R
 
-  f.packPixel(2, blue);
+  f.pack_pixel(2, blue);
   HS_EXPECT_EQ(pixel(f, 2)[1], 255); // B
   HS_EXPECT_EQ(pixel(f, 2)[2], 0);   // G
   HS_EXPECT_EQ(pixel(f, 2)[3], 0);   // R
@@ -252,20 +253,20 @@ inline void test_packpixel_wire_order() {
 }
 
 /**
- * @brief Verifies packPixel()'s wire bytes under the shipped factor set at
+ * @brief Verifies pack_pixel()'s wire bytes under the shipped factor set at
  * non-unity brightness.
  * @details Full-scale white through correction 255,176,240, temperature
  * 255,147,41 and brightness 128 leaves linear (33023, 13199, 5100), which
  * linear_to_srgb8 encodes as R=188, G=124, B=79.
  */
 inline void test_packpixel_shipped_brightness() {
-  Frame::setCorrection(255, 176, 240);
-  Frame::setTemperature(255, 147, 41);
-  Frame::setBrightness(128);
+  Frame::set_correction(255, 176, 240);
+  Frame::set_temperature(255, 147, 41);
+  Frame::set_brightness(128);
   Frame f;
 
   const Pixel white(CRGB(255, 255, 255));
-  f.packPixel(3, white);
+  f.pack_pixel(3, white);
   HS_EXPECT_EQ(pixel(f, 3)[0], 0xFF);
   HS_EXPECT_EQ(pixel(f, 3)[1], 79);  // B
   HS_EXPECT_EQ(pixel(f, 3)[2], 124); // G
