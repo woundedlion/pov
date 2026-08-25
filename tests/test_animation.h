@@ -2304,6 +2304,13 @@ struct TwoArgFacePhaseSegue : Segue::Base {
   float face_phase(float phase, float) const { return phase; }
 };
 
+/** @brief A policy whose face_offset drops the palette-class argument: the
+ * per-face draw path's call site no longer resolves. */
+struct DriftedFaceOffsetSegue : Segue::Base {
+  float face_offset(const Vector &, int) const { return 0.0f; }
+  float face_phase(float phase, float, float) const { return phase; }
+};
+
 /** @brief Policies whose optional hooks carry drifted signatures: each is named
  * but uncallable at the contract's argument list. */
 struct DriftedWarpSegue : Segue::Base {
@@ -2385,6 +2392,10 @@ inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(!Segue::DeclaresReorder<Segue::TerminatorSweep>);
   static_assert(Segue::DeclaresMaskPair<Segue::Dissolve>);
   static_assert(!Segue::DeclaresMaskPair<Segue::Crossfade>);
+  static_assert(Segue::DeclaresFaceOffset<Segue::TerminatorSweep>);
+  static_assert(!Segue::DeclaresFaceOffset<Segue::Crossfade>);
+  static_assert(Segue::DeclaresFacePhase<Segue::Shockwave>);
+  static_assert(!Segue::DeclaresFacePhase<Segue::Crossfade>);
   // A drifted hook is seen by name and rejected by signature, so MeshCarousel
   // traps it instead of compiling the policy off the hook.
   static_assert(Segue::DeclaresWarp<DriftedWarpSegue> &&
@@ -2395,6 +2406,10 @@ inline void test_per_face_segues_satisfy_draw_contract() {
                 !Segue::NeedsClasses<DriftedReorderSegue>);
   static_assert(Segue::DeclaresMaskPair<DriftedMaskPairSegue> &&
                 !Segue::Masked<DriftedMaskPairSegue>);
+  static_assert(Segue::DeclaresFaceOffset<DriftedFaceOffsetSegue> &&
+                !Segue::HasFaceOffset<DriftedFaceOffsetSegue>);
+  static_assert(Segue::DeclaresFacePhase<TwoArgFacePhaseSegue> &&
+                !Segue::HasFacePhase<TwoArgFacePhaseSegue>);
   static_assert(Segue::AllPolicies::CONFORMING);
   static_assert(!Segue::HasPhaseHooks<DriftedVisibleSegue>);
   static_assert(!Segue::HasPhaseHooks<DriftedFillSegue>);
