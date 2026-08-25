@@ -95,14 +95,6 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
                           DEFAULT_SCRATCH_A_SIZE,
                       DEFAULT_SCRATCH_B_SIZE);
 
-FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
-                                    size_t new_capacity) {
-  hs::log("ArenaVector grow abandons %lu bytes (cap %lu -> %lu)",
-          static_cast<unsigned long>(bytes),
-          static_cast<unsigned long>(old_capacity),
-          static_cast<unsigned long>(new_capacity));
-}
-
 namespace {
 size_t abandoned_bytes_total = 0;
 size_t abandon_event_count = 0;
@@ -111,6 +103,15 @@ size_t abandon_event_count = 0;
 void note_arena_vector_abandon(size_t bytes) {
   abandoned_bytes_total += bytes;
   abandon_event_count++;
+}
+
+FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
+                                    size_t new_capacity) {
+  note_arena_vector_abandon(bytes);
+  hs::log("ArenaVector grow abandons %lu bytes (cap %lu -> %lu)",
+          static_cast<unsigned long>(bytes),
+          static_cast<unsigned long>(old_capacity),
+          static_cast<unsigned long>(new_capacity));
 }
 
 FLASHMEM size_t arena_vector_abandoned_bytes() { return abandoned_bytes_total; }
