@@ -47,7 +47,7 @@ public:
   using Params = LatticeMeltParams;
   static constexpr std::string_view EFFECT_ID = "lattice-melt";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "a1a63a515040bbcb17f44a09dc53b739cc45edbe575ecd4eaf497df0f6ffa7c7";
+      "f66b338a7ea3bfe79799d7ec309f4ec261be95c7a9a7d2b0c7cddb018c0c4ffc";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "02944fbbca0274490f9d63d233d4ad27989c03b32fa10d20b23cd61f0a579438";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
