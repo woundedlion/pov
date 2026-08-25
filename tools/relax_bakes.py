@@ -61,13 +61,18 @@ def parse_dump(text: str) -> list[dict]:
     order: list[str] = []
     meta: dict | None = None
     words: list[int] = []
-    for line in text.splitlines():
+    for lineno, line in enumerate(text.splitlines(), 1):
         parts = line.split()
         if not parts:
             continue
         if parts[0] == "RELAX_BAKE_BEGIN":
             if meta is not None:
                 raise unterminated_block(meta, words)
+            if len(parts) < 13:
+                raise ValueError(
+                    f"line {lineno}: RELAX_BAKE_BEGIN carries {len(parts) - 1} "
+                    f"of 12 fields"
+                )
             (name, iterations, v, f, i, topo, source, out, scale, bias,
              required_margin, actual_margin) = parts[1:13]
             if (int(scale) != SOURCE_SCALE or int(bias, 16) != SOURCE_BIAS_BITS
