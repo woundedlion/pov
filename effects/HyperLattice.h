@@ -840,15 +840,20 @@ public:
   static constexpr bool valid_params(const Params &value) {
     return static_cast<uint8_t>(value.mode) <=
                static_cast<uint8_t>(LatticeMode::FOUR_D_SLICE) &&
-           value.sphere_radius >= 0.0f && value.sphere_radius <= 1.5f &&
-           value.wire_radius >= 0.015f && value.wire_radius <= 0.18f &&
-           value.softness >= 0.002f && value.softness <= 0.08f &&
-           value.far_cells >= 2.0f && value.far_cells <= 16.0f &&
-           value.aa_strength >= 0.0f && value.aa_strength <= 2.0f &&
-           value.speed >= 0.0f && value.speed <= 0.05f &&
-           value.spin_3d >= 0.0f && value.spin_3d <= 0.015f &&
-           value.spin_4d >= 0.0f && value.spin_4d <= 0.015f &&
-           value.chrome_warp >= 0.0f && value.chrome_warp <= 1.0f &&
+           value.sphere_radius >= SPHERE_RADIUS_MIN &&
+           value.sphere_radius <= SPHERE_RADIUS_MAX &&
+           value.wire_radius >= WIRE_RADIUS_MIN &&
+           value.wire_radius <= WIRE_RADIUS_MAX &&
+           value.softness >= SOFTNESS_MIN && value.softness <= SOFTNESS_MAX &&
+           value.far_cells >= FAR_CELLS_MIN &&
+           value.far_cells <= FAR_CELLS_MAX &&
+           value.aa_strength >= AA_STRENGTH_MIN &&
+           value.aa_strength <= AA_STRENGTH_MAX && value.speed >= SPEED_MIN &&
+           value.speed <= SPEED_MAX && value.spin_3d >= SPIN_3D_MIN &&
+           value.spin_3d <= SPIN_3D_MAX && value.spin_4d >= SPIN_4D_MIN &&
+           value.spin_4d <= SPIN_4D_MAX &&
+           value.chrome_warp >= CHROME_WARP_MIN &&
+           value.chrome_warp <= CHROME_WARP_MAX &&
            static_cast<uint8_t>(value.reflection) <=
                static_cast<uint8_t>(ReflectionMode::RADIAL) &&
            static_cast<uint8_t>(value.color) <=
@@ -877,15 +882,23 @@ public:
     begin_choreography();
     register_animated_param("Dimension", &params.mode, MODE_OPTIONS,
                             MODE_EXPORT_OPTIONS, std::size(MODE_OPTIONS));
-    register_animated_param("Sphere Radius", &params.sphere_radius, 0.0f, 1.5f);
-    register_animated_param("Wire Radius", &params.wire_radius, 0.015f, 0.18f);
-    register_animated_param("Softness", &params.softness, 0.002f, 0.08f);
-    register_animated_param("Far Cells", &params.far_cells, 2.0f, 16.0f);
-    register_animated_param("AA Strength", &params.aa_strength, 0.0f, 2.0f);
-    register_animated_param("Speed", &params.speed, 0.0f, 0.05f);
-    register_animated_param("3D Spin", &params.spin_3d, 0.0f, 0.015f);
-    register_animated_param("4D Spin", &params.spin_4d, 0.0f, 0.015f);
-    register_animated_param("Chrome Warp", &params.chrome_warp, 0.0f, 1.0f);
+    register_animated_param("Sphere Radius", &params.sphere_radius,
+                            SPHERE_RADIUS_MIN, SPHERE_RADIUS_MAX);
+    register_animated_param("Wire Radius", &params.wire_radius, WIRE_RADIUS_MIN,
+                            WIRE_RADIUS_MAX);
+    register_animated_param("Softness", &params.softness, SOFTNESS_MIN,
+                            SOFTNESS_MAX);
+    register_animated_param("Far Cells", &params.far_cells, FAR_CELLS_MIN,
+                            FAR_CELLS_MAX);
+    register_animated_param("AA Strength", &params.aa_strength, AA_STRENGTH_MIN,
+                            AA_STRENGTH_MAX);
+    register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
+    register_animated_param("3D Spin", &params.spin_3d, SPIN_3D_MIN,
+                            SPIN_3D_MAX);
+    register_animated_param("4D Spin", &params.spin_4d, SPIN_4D_MIN,
+                            SPIN_4D_MAX);
+    register_animated_param("Chrome Warp", &params.chrome_warp, CHROME_WARP_MIN,
+                            CHROME_WARP_MAX);
     register_animated_param("Reflection", &params.reflection,
                             REFLECTION_OPTIONS, REFLECTION_EXPORT_OPTIONS,
                             std::size(REFLECTION_OPTIONS));
@@ -984,6 +997,16 @@ private:
     out = GenerativePalette{EffectPaletteRecipes::raymarch_at(
         PaletteRecipes::hue_turns(BASE_HUE + sequence * HUE_STEP))};
   }
+
+  static constexpr float SPHERE_RADIUS_MIN = 0.0f, SPHERE_RADIUS_MAX = 1.5f;
+  static constexpr float WIRE_RADIUS_MIN = 0.015f, WIRE_RADIUS_MAX = 0.18f;
+  static constexpr float SOFTNESS_MIN = 0.002f, SOFTNESS_MAX = 0.08f;
+  static constexpr float FAR_CELLS_MIN = 2.0f, FAR_CELLS_MAX = 16.0f;
+  static constexpr float AA_STRENGTH_MIN = 0.0f, AA_STRENGTH_MAX = 2.0f;
+  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.05f;
+  static constexpr float SPIN_3D_MIN = 0.0f, SPIN_3D_MAX = 0.015f;
+  static constexpr float SPIN_4D_MIN = 0.0f, SPIN_4D_MAX = 0.015f;
+  static constexpr float CHROME_WARP_MIN = 0.0f, CHROME_WARP_MAX = 1.0f;
 
   static constexpr int PALETTE_FADE_FRAMES = 960;
 
