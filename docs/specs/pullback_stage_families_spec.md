@@ -602,7 +602,7 @@ under eager instantiation. The rows become §2's rules:
 | `ORDER` (fixed kind table) | `MONOTONE`: per stage, `family_of<Input> <= family_of<Output>` |
 | `CARRIERS` (slot-typed)    | adjacency fold, plus `ENTRY` (first Input is `SphereSample`) and `EXIT` (last Output is `Color4`) |
 | `TERMINALS`    | retired — subsumed by `EXIT` + monotonicity; a mid-chain `Color4` producer followed by COLOR endomorphisms is now a feature |
-| `EMPTY_POLICIES`, `RUN_RETURNS`, `EXTRA_VALIDATION` | unchanged, evaluated over the flattened leaf stages |
+| `EMPTY_DESCRIPTORS`, `RUN_RETURNS`, `EXTRA_VALIDATION` | unchanged, evaluated over the flattened leaf stages |
 | `CONTRACTS`, `BINDINGS`, `PREPARES` | reformulated over the descriptor contract (§4): every leaf is bound by the pipeline's bind step; a descriptor whose policy names a foreign binding fails there |
 | `APPROXIMATIONS` | unchanged per leaf stage (`CombinedApproximation`'s ≤1 oracle within one stage's policy list) |
 | —              | `CANONICAL`: every leaf's Input and Output satisfies `CanonicalCarrier<T>` (§2) — membership in the closed `CarrierList`, the same list `family_of` ranks over |
