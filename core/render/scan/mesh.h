@@ -383,6 +383,8 @@ struct Mesh {
       if (bake && shape.y_min <= shape.y_max) {
         const MeshOps::FaceClassRec &rec = bake->face_recs[i];
         if (rec.class_id != MeshOps::NO_CLASS) {
+          HS_CHECK(rec.class_id < bake->classes.size(),
+                   "mesh class bake face record names an unknown class");
           const MeshOps::CongruenceClass &cls = bake->classes[rec.class_id];
           if (cls.lut.data && cls.n_verts == shape.count)
             shape.bind_class_lut(&cls.lut, cls.canon_xy, rec.vert_offset,
