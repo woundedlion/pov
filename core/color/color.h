@@ -911,6 +911,10 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
  *        least GAMUT_LUT_MIN_L_STEPS.
  * @details Optional, and only worth its arena bytes at per-pixel clip rates:
  * the flash master already serves the clip correctly and at higher resolution.
+ * gamut_max_chroma() is the only reader it accelerates;
+ * gamut_continuous_chroma_sample() and gamut_scale_to_boundary_lut() consume
+ * the stored minima directly and stay on the flash master, so an effect that
+ * uses only those two spends the arena for nothing.
  * Call after the arenas are configured, from the owning effect's init(). A
  * coarse cell takes the minimum of the merged minima and the maximum of the
  * merged maxima, so the true boundary of every ray in the cell still lies
