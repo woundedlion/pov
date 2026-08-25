@@ -358,7 +358,7 @@ private:
         from.chroma_curve == to.chroma_curve ? from.chroma_curve
                                              : AxisCurve::CUSTOM,
     };
-    key_count = std::max(from.key_count, to.key_count);
+    key_count = from.key_count;
     std::array<ControlKey, PALETTE_MAX_KEYS> from_keys{};
     std::array<ControlKey, PALETTE_MAX_KEYS> to_keys{};
     for (int i = 0; i < key_count; ++i) {
