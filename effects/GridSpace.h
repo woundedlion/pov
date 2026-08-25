@@ -39,7 +39,6 @@ public:
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"affine-contour"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
-  static constexpr bool ANIMATED_PROJECTION = true;
 
   static constexpr Params initial_params() {
     Params value;
