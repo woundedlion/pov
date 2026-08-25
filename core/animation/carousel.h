@@ -67,6 +67,11 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
   static_assert(!Segue::DeclaresMaskPair<SegueT> || Segue::Masked<SegueT>,
                 "a segue's mask_pair() must be MaskPair mask_pair(float, "
                 "uint32_t) const");
+  static_assert(!Segue::DeclaresLocalSweep<SegueT> ||
+                    Segue::LocalSweeps<SegueT>,
+                "a segue's LOCAL_SWEEP must be static constexpr bool: the "
+                "per-face draw path reads it through a bare requires, which "
+                "reads a non-constant one as absent");
   static_assert(!Segue::PerFace<SegueT> || !SegueT::OVERLAPS,
                 "a per-face segue must schedule sequentially: schedule() and "
                 "retarget() rewrite the single policy instance's "
