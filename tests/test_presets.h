@@ -156,13 +156,14 @@ struct HoldParams {
 
 /**
  * @brief Two-preset snapping effect exposing the choreography's dwell controls.
- * @details Segue::Snap keeps the advance synchronous, so a preset index change
- * lands on the frame the dwell retires with no crossfade in between.
+ * @details Segue::Preset::Snap keeps the advance synchronous, so a preset
+ * index change lands on the frame the dwell retires with no crossfade in
+ * between.
  */
 struct HoldEffect : public ChoreographedEffect<HoldEffect, HoldParams> {
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
                                                               "second"};
-  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 40;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
