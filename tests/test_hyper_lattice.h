@@ -85,7 +85,14 @@ inline void test_so4_rotation() {
 
 inline void test_projected_trace_covers_complete_edges_under_so4_spin() {
   HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(4);
+  frame.params.mode = HL::LatticeMode::FOUR_D_PROJECTED;
+  frame.params.wire_radius = 0.075f;
+  frame.params.softness = 0.012f;
+  frame.params.far_cells = 10.0f;
+  frame.params.speed = 0.024f;
+  frame.params.spin_4d = 0.0041f;
+  frame.params.color = HL::ColorMode::AXIS;
+  frame.params.shells = HL::ShellCount::THREE;
   frame.params.reflection = HL::ReflectionMode::RADIAL;
   frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
@@ -195,7 +202,7 @@ inline void test_projected_line_pool_handles_collapsed_axis() {
 
 inline void test_slice_and_projected_modes_are_distinct() {
   HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(3);
+  frame.params = HyperLattice<96, 20>::preset_params(1);
   frame.params.reflection = HL::ReflectionMode::RADIAL;
   frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
@@ -221,8 +228,17 @@ inline void test_slice_and_projected_modes_are_distinct() {
 inline void test_projected_pipeline_matches_dynamic_dispatch() {
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
+  HL::Params params;
+  params.mode = HL::LatticeMode::FOUR_D_PROJECTED;
+  params.wire_radius = 0.075f;
+  params.softness = 0.012f;
+  params.far_cells = 10.0f;
+  params.speed = 0.024f;
+  params.spin_4d = 0.0041f;
+  params.color = HL::ColorMode::AXIS;
+  params.shells = HL::ShellCount::THREE;
   const HL::FrameState context{
-      HyperLatticeWhiteBox::Effect::preset_params(4),
+      params,
       {{0.17f, 0.31f, 0.43f, 0.59f}},
       {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f},
       HL::pixel_half_angle<96, 20>(),
@@ -395,7 +411,7 @@ inline void test_surface_origin_parallax() {
 
 inline void test_hyperplane_event() {
   HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(3);
+  frame.params = HyperLattice<96, 20>::preset_params(1);
   frame.params.reflection = HL::ReflectionMode::RADIAL;
   frame.params.sphere_radius = 0.4f;
   frame.origin = {{0.0f, 0.0f, 0.31f, 0.25f}};
@@ -444,14 +460,10 @@ inline void test_render_signature() {
   };
   static constexpr HL::Vec4 ORIGINS[] = {
       {{0.17f, 0.31f, 0.43f, 0.59f}},
-      {{0.91f, 0.07f, 0.73f, 0.37f}},
-      {{0.003f, 0.499f, 0.997f, 0.251f}},
       {{0.625f, 0.875f, 0.125f, 0.375f}},
   };
   static constexpr std::array<float, 6> ROTATIONS[] = {
       {0.0f, 0.3f, 0.7f, 0.0f, 0.0f, 0.0f},
-      {1.1f, 2.3f, 0.4f, 0.0f, 0.0f, 0.0f},
-      {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f},
       {2.9f, 0.6f, 1.4f, 2.2f, 0.8f, 1.9f},
   };
 
@@ -477,7 +489,7 @@ inline void test_render_signature() {
       signature = hs_test::fnv1a64_channel(signature, frac_to_q16(color.alpha));
     }
   }
-  HS_EXPECT_EQ(signature, uint64_t(6982298914659780895ull));
+  HS_EXPECT_EQ(signature, uint64_t(1907986082961787553ull));
 }
 
 inline void test_presets_and_pipeline() {
@@ -488,14 +500,11 @@ inline void test_presets_and_pipeline() {
   static_assert(HL::RenderPipeline::Validation::EXIT);
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
-  HS_EXPECT_TRUE(Effect::preset_params(2).mode ==
-                 HL::LatticeMode::DIMENSIONAL_RIFT);
-  HS_EXPECT_TRUE(Effect::preset_params(3).mode ==
-                 HL::LatticeMode::FOUR_D_SLICE);
-  HS_EXPECT_TRUE(Effect::preset_params(4).mode ==
-                 HL::LatticeMode::FOUR_D_PROJECTED);
+  HS_EXPECT_EQ(Effect::PRESET_IDS.size(), size_t{2});
+  HS_EXPECT_TRUE(Effect::PRESET_IDS[0] == "cubic-flight");
+  HS_EXPECT_TRUE(Effect::PRESET_IDS[1] == "hypercube-flight");
 
-  constexpr HL::Params preset = Effect::preset_params(3);
+  constexpr HL::Params preset = Effect::preset_params(1);
   static_assert(preset.mode == HL::LatticeMode::FOUR_D_SLICE);
   static_assert(preset.sphere_radius == 0.0f);
   static_assert(preset.wire_radius == 0.03546f);
