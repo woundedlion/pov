@@ -27,5 +27,6 @@ into preset 0.
 AshCloud is the first composed effect with a paired capture here. The other
 fifteen composed effects have no O3-vs-shipping codegen pair on record.
 
-**● refreshed 2026-08-15, except DisplacementField (2026-08-18) and
-AshCloud (2026-08-23).**
+**●** — capture refreshed 2026-08-15, except DisplacementField
+(2026-08-18) and AshCloud (2026-08-23). Local to this index: the shipping
+index marks composed effects with the same glyph.
