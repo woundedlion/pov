@@ -101,6 +101,9 @@ template <int S, int N, int RPM> class POVSegmented {
   static_assert(N % 2 == 0,
                 "Segment count must be even (equal split across two arms)");
   static_assert(S >= N, "Must have at least one pixel per segment");
+  static_assert(ROWS == CANVAS_H,
+                "S/2 must equal CANVAS_H: effects render the full CANVAS_W x "
+                "CANVAS_H canvas and the ISR packs S/2 rows");
   static_assert(
       (N & (N - 1)) == 0 && N <= 8,
       "N must be a power of two and <= 8: ID is decoded from up to 3 GPIO "
