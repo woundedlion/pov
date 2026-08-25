@@ -82,15 +82,20 @@ def verify(repo_root: Path) -> tuple[list[str], int]:
     return errors, checked
 
 
-def stage(html_root: Path, repo_root: Path) -> tuple[list[str], int]:
-    """Copy in missing repo-relative images; return (errors, staged count)."""
+def stage(html_root: Path, repo_root: Path) -> tuple[list[str], int, int]:
+    """Copy in missing repo-relative images.
+
+    Returns (errors, staged count, references checked).
+    """
     errors: list[str] = []
     staged: set[Path] = set()
+    checked = 0
     for html_file, src in references(html_root):
         where = f"{html_file.relative_to(html_root).as_posix()}: {src!r}"
         parts = urlsplit(src)
         if parts.scheme or parts.netloc:
             continue
+        checked += 1
         if not parts.path:
             errors.append(f"{where} has no path component")
             continue
@@ -107,7 +112,7 @@ def stage(html_root: Path, repo_root: Path) -> tuple[list[str], int]:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
         staged.add(target)
-    return errors, len(staged)
+    return errors, len(staged), checked
 
 
 def report(errors: list[str]) -> None:
@@ -148,10 +153,16 @@ def main() -> int:
     if not html_root.is_dir():
         print(f"{html_root}: no generated HTML — build the docs first")
         return 1
-    errors, staged = stage(html_root, repo_root)
+    errors, staged, checked = stage(html_root, repo_root)
     if errors:
         report(errors)
         return 1
+    # An artifact carrying no image reference is a gallery-less site;
+    # publishing it would certify nothing.
+    if not checked:
+        print(f"[docs-images] tooling error: no repository-relative "
+              f"image references under {html_root}", file=sys.stderr)
+        return 2
     print(f"docs image references all resolve ({staged} staged from the repository)")
     return 0
 

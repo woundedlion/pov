@@ -33,21 +33,21 @@ class TestDocsImagesStage(unittest.TestCase):
     def test_repo_relative_image_is_staged_into_the_artifact(self):
         self.write_page('<img src="docs/screenshots/IslamicStars.png" width="640">')
         self.write_asset("docs/screenshots/IslamicStars.png", b"pixels")
-        errors, staged = di.stage(self.html, self.repo)
+        errors, staged, checked = di.stage(self.html, self.repo)
         self.assertEqual(errors, [])
-        self.assertEqual(staged, 1)
+        self.assertEqual((staged, checked), (1, 1))
         copied = self.html / "docs" / "screenshots" / "IslamicStars.png"
         self.assertEqual(copied.read_bytes(), b"pixels")
 
     def test_image_already_in_the_artifact_is_not_restaged(self):
         self.write_page('<img src="inherit_graph_0.png" alt="">')
         (self.html / "inherit_graph_0.png").write_bytes(b"generated")
-        errors, staged = di.stage(self.html, self.repo)
-        self.assertEqual((errors, staged), ([], 0))
+        errors, staged, checked = di.stage(self.html, self.repo)
+        self.assertEqual((errors, staged, checked), ([], 0, 1))
 
     def test_reference_missing_everywhere_is_reported(self):
         self.write_page('<img alt="gone" src="docs/screenshots/Gone.png">')
-        errors, staged = di.stage(self.html, self.repo)
+        errors, staged, _ = di.stage(self.html, self.repo)
         self.assertEqual(staged, 0)
         self.assertEqual(len(errors), 1)
         self.assertIn("docs/screenshots/Gone.png", errors[0])
@@ -56,36 +56,47 @@ class TestDocsImagesStage(unittest.TestCase):
         self.write_page('<img src="https://example.com/a.png">'
                         '<img src="//example.com/b.png">'
                         '<IMG SRC="data:image/png;base64,AAAA">')
-        self.assertEqual(di.stage(self.html, self.repo), ([], 0))
+        self.assertEqual(di.stage(self.html, self.repo), ([], 0, 0))
 
     def test_reference_escaping_the_artifact_is_reported(self):
         self.write_page('<img src="../../../secrets/key.png">')
         self.write_asset("secrets/key.png")
-        errors, _ = di.stage(self.html, self.repo)
+        errors, _, _ = di.stage(self.html, self.repo)
         self.assertEqual(len(errors), 1)
         self.assertIn("outside the artifact", errors[0])
 
     def test_query_and_fragment_are_stripped_before_resolving(self):
         self.write_page('<img src="docs/screenshots/A.png?v=2#top">')
         self.write_asset("docs/screenshots/A.png")
-        self.assertEqual(di.stage(self.html, self.repo), ([], 1))
+        self.assertEqual(di.stage(self.html, self.repo), ([], 1, 1))
 
     def test_percent_escapes_are_decoded(self):
         self.write_page('<img src="docs/screenshots/Ring%20Spin.png">')
         self.write_asset("docs/screenshots/Ring Spin.png")
-        self.assertEqual(di.stage(self.html, self.repo), ([], 1))
+        self.assertEqual(di.stage(self.html, self.repo), ([], 1, 1))
 
     def test_nested_pages_resolve_against_their_own_directory(self):
         (self.html / "sub").mkdir()
         self.write_page('<img src="../docs/screenshots/B.png">', name="sub/page.html")
         self.write_asset("docs/screenshots/B.png")
-        self.assertEqual(di.stage(self.html, self.repo), ([], 1))
+        self.assertEqual(di.stage(self.html, self.repo), ([], 1, 1))
 
     def test_empty_source_is_reported(self):
         self.write_page('<img src="">')
-        errors, _ = di.stage(self.html, self.repo)
+        errors, _, _ = di.stage(self.html, self.repo)
         self.assertEqual(len(errors), 1)
         self.assertIn("no path component", errors[0])
+
+    def test_an_artifact_with_no_image_reference_is_a_tooling_error(self):
+        # A gallery-less artifact is the vacuous pass --stage must refuse.
+        self.write_page("<p>no images here</p>")
+        argv = ["docs_images.py", "--stage", str(self.html),
+                "--repo-root", str(self.repo)]
+        with unittest.mock.patch.object(sys, "argv", argv):
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                status = di.main()
+        self.assertEqual(status, 2)
+        self.assertIn("tooling error", err.getvalue())
 
 
 class TestDocsImagesVerify(unittest.TestCase):
