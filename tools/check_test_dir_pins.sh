@@ -36,8 +36,11 @@ fi
 
 unpinned=()
 for dir in "${dirs[@]}"; do
-  if ! grep -qE "require_test_files\.sh .*${dir}/" "$workflow" \
-      || ! grep -qF "unittest discover -s ${dir}" "$workflow"; then
+  # Anchor on the ERE-escaped directory: an unanchored discover match lets a
+  # longer sibling (tools/foo_tests_extra) satisfy tools/foo_tests's pin.
+  dir_re=$(printf '%s' "$dir" | sed 's|[^A-Za-z0-9_/-]|\\&|g')
+  if ! grep -qE "require_test_files\.sh .*${dir_re}/" "$workflow" \
+      || ! grep -qE "unittest discover -s ${dir_re}([[:space:]]|\$)" "$workflow"; then
     unpinned+=("$dir")
   fi
 done
