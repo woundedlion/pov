@@ -4,7 +4,7 @@
 carriers, provider concepts, stage combinators, and concrete operator catalog
 specified here ship in `core/render/pullback.h`, which landed in `13186d7c`.
 Its consumers are `workbench/ShaderWorkbench.h` and the composed-effect base
-`core/render/pullback/composed_effect.h` — and through the latter, the fifteen
+`core/render/pullback/composed_effect.h` — and through the latter, the sixteen
 single-effect composed headers in `effects/` (`patterns/README.md` maps
 each to its document). The
 verification artifacts (`tests/test_pullback.h`, `tests/pullback_manifest_check.cpp`,
