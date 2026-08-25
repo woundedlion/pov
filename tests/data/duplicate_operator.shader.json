@@ -1,0 +1,130 @@
+{
+  "catalog_version": 2,
+  "descriptor": {
+    "chain": [
+      {
+        "label": "camera",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "drift",
+        "operator": "sphere.rotate.v2"
+      },
+      {
+        "label": "project",
+        "operator": "project.equirectangular.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.grid.v2"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v2"
+      }
+    ],
+    "parameters": [
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.05000000074505806,
+          "minimum": 0
+        },
+        "id": "camera.spin-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.05000000074505806,
+          "minimum": 0
+        },
+        "id": "drift.spin-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      }
+    ],
+    "path_policies": [
+      {
+        "id": "parallel",
+        "kind": "PARALLEL"
+      }
+    ],
+    "serialization": {
+      "fields": [
+        "camera.spin-speed",
+        "drift.spin-speed"
+      ],
+      "schema_version": 1
+    }
+  },
+  "document_id": "duplicate-operator-study",
+  "effect_id": null,
+  "preset_bank": {
+    "absent_edge_fallback": {
+      "authoring": "SNAP",
+      "automatic": "REJECT",
+      "manual": "SNAP",
+      "restore": "SNAP",
+      "synchronized": "REJECT"
+    },
+    "choreography": {
+      "dwell": {
+        "calm": 600,
+        "fast": 600
+      },
+      "generated_order": [
+        "calm",
+        "fast"
+      ]
+    },
+    "edges": [
+      {
+        "duration": 120,
+        "easing": "EASE_IN_OUT_SIN",
+        "from": "calm",
+        "path_policy": "parallel",
+        "to": "fast"
+      },
+      {
+        "duration": 120,
+        "easing": "EASE_IN_OUT_SIN",
+        "from": "fast",
+        "path_policy": "parallel",
+        "to": "calm"
+      }
+    ],
+    "presets": [
+      {
+        "display_name": "Calm",
+        "preset_id": "calm",
+        "values": {
+          "camera.spin-speed": 0.009999999776482582,
+          "drift.spin-speed": 0.03999999910593033
+        }
+      },
+      {
+        "display_name": "Fast",
+        "preset_id": "fast",
+        "values": {
+          "camera.spin-speed": 0.03999999910593033,
+          "drift.spin-speed": 0.009999999776482582
+        }
+      }
+    ],
+    "schema_version": 1
+  },
+  "schema_version": 2,
+  "study_metadata": {
+    "notes": "Two rotate instances, to pin duplicate-operator digest stability"
+  }
+}
