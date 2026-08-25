@@ -33,6 +33,31 @@ FIX = Path(__file__).resolve().parent / "fixtures"
 REAL_DIR = FIX / "real"
 BUDGETS = tg.load_budgets(TOOLS / "teensy_budgets.json")
 
+# Verbatim toolchain output the synthetic fixtures cannot stand in for. All are
+# committed, so a missing one is a deleted fixture, not an optional capture.
+REAL_CAPTURES = (
+    "cold_env_section.txt",
+    "holosphere_readelf_secs.txt",
+    "holosphere_readelf_syms.txt",
+    "holosphere_size_a.txt",
+    "holosphere_teensy_size.txt",
+    "phantasm_readelf_secs.txt",
+    "phantasm_readelf_syms.txt",
+    "phantasm_size_a.txt",
+    "phantasm_teensy_size.txt",
+    "verbose_build_log.txt",
+    "warm_env_section.txt",
+)
+
+
+def setUpModule():
+    """Fail the suite when a real capture is gone, rather than skipping it."""
+    missing = [name for name in REAL_CAPTURES
+               if not (REAL_DIR / name).exists()]
+    if missing:
+        raise AssertionError(
+            f"missing real captures in {REAL_DIR}: {', '.join(missing)}")
+
 
 def _read(name):
     return (FIX / name).read_text(encoding="utf-8")
@@ -1162,8 +1187,6 @@ class TestRealCapture(unittest.TestCase):
     96x20 canvas the env ships.
     """
 
-    @unittest.skipUnless((REAL_DIR / "holosphere_readelf_syms.txt").exists(),
-                         "real captures not present")
     def test_real_holosphere_build_passes_the_calibrated_gate(self):
         sizes = tg.parse_teensy_size((REAL_DIR / "holosphere_teensy_size.txt").read_text())
         syms = tg.parse_readelf_symbols((REAL_DIR / "holosphere_readelf_syms.txt").read_text())
@@ -1174,16 +1197,12 @@ class TestRealCapture(unittest.TestCase):
         self.assertEqual(arena.region, "DTCM")
         self.assertEqual(arena.size, 305152)  # 0x4a800, parsed from the hex Size column
 
-    @unittest.skipUnless((REAL_DIR / "phantasm_readelf_syms.txt").exists(),
-                         "real captures not present")
     def test_real_phantasm_reaction_graph_is_in_flash(self):
         syms = tg.parse_readelf_symbols((REAL_DIR / "phantasm_readelf_syms.txt").read_text())
         rg = next(s for s in syms if s.name == "_ZN13ReactionGraph9neighborsE")
         self.assertEqual(rg.region, "FLASH")
         self.assertEqual(rg.size, 92160)
 
-    @unittest.skipUnless((REAL_DIR / "phantasm_readelf_syms.txt").exists(),
-                         "real captures not present")
     def test_real_phantasm_dma_tx_buffer_is_in_ocram(self):
         # Spelled from the budget, so a linkage-name drift between the shipped
         # budget and the captured ELF fails here instead of passing on a name
@@ -1193,8 +1212,6 @@ class TestRealCapture(unittest.TestCase):
         led = next(s for s in syms if s.name == name)
         self.assertEqual(led.region, "OCRAM")
 
-    @unittest.skipUnless((REAL_DIR / "phantasm_teensy_size.txt").exists(),
-                         "real captures not present")
     def test_real_phantasm_build_passes_the_calibrated_gate(self):
         sizes = tg.parse_teensy_size((REAL_DIR / "phantasm_teensy_size.txt").read_text())
         syms = tg.parse_readelf_symbols((REAL_DIR / "phantasm_readelf_syms.txt").read_text())
@@ -1206,8 +1223,6 @@ class TestRealCapture(unittest.TestCase):
         # check while leaving that branch unexercised.
         self.assertIn("code", sizes["ram1"]["components"])
 
-    @unittest.skipUnless((REAL_DIR / "phantasm_teensy_size.txt").exists(),
-                         "real captures not present")
     def test_real_phantasm_calibration_prose_matches_the_gate(self):
         sizes = tg.parse_teensy_size(
             (REAL_DIR / "phantasm_teensy_size.txt").read_text())
@@ -1244,8 +1259,6 @@ class TestRealCapture(unittest.TestCase):
             f"and ITCM code {remaining:,} B under its bank-derived ceiling",
             ci_text)
 
-    @unittest.skipUnless((REAL_DIR / "phantasm_readelf_secs.txt").exists(),
-                         "real captures not present")
     def test_real_phantasm_exception_index_is_routed_to_flash(self):
         # tools/phantasm.ld keeps .ARM.exidx out of the FlexRAM banks; in ITCM it
         # would consume the headroom the derived code ceiling hands out.
@@ -1341,8 +1354,6 @@ class TestSizeAFallback(unittest.TestCase):
                 self.assertIn("invalid `size -A` output", out)
                 self.assertIn("tooling/format error", out)
 
-    @unittest.skipUnless((REAL_DIR / "holosphere_size_a.txt").exists(),
-                         "real captures not present")
     def test_real_size_a_captures_parse_through_the_fallback(self):
         # Real `arm-none-eabi-size -A` output opens with a `<path> :` header whose
         # path starts with '.'; the synthetic fixtures' header does not, so only a
@@ -1355,8 +1366,6 @@ class TestSizeAFallback(unittest.TestCase):
                 for region, measured in sizes.items():
                     self.assertGreater(measured["used"], 0, msg=region)
 
-    @unittest.skipUnless((REAL_DIR / "holosphere_size_a.txt").exists(),
-                         "real captures not present")
     def test_real_holosphere_capture_reaches_an_advisory_verdict(self):
         rc, out = self._run_main(
             "--size-a",
