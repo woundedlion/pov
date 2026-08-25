@@ -17,13 +17,10 @@ import {
 } from './shader_workbench.mjs';
 import { sha256Hex } from './sha256.mjs';
 
-// scripts/shader_workbench.mjs, scripts/sha256.mjs and
-// scripts/engine_catalog.json are verbatim mirrors of the daydream
-// repository's shader/ copies (the engine install ships them there — see
-// CMakeLists.txt). CI has no daydream checkout to diff against, so each mirror
-// is pinned by the SHA-256 of its LF bytes instead: drift is a deliberate
-// re-pin, updated together with the daydream master commit it mirrors.
-// Mirrors daydream master 61acb76b6ec2bcb460a5a65c41ec210f2f2cd599.
+// scripts/shader_workbench.mjs and scripts/sha256.mjs are the sources of
+// daydream's shader/ mirrors: the engine install ships them there (see
+// CMakeLists.txt), and daydream's tests/wasm_provenance.test.js diffs its
+// committed copies against the engine checkout it pins.
 // engine_catalog.json states the wasm32 operator ABI, the one the browser
 // workbench's budget math models. tests/data/shader_chain_catalog.json is a
 // separate catalog stating the native ABI the C++ suite pins. Their
