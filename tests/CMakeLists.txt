@@ -649,7 +649,9 @@ add_executable(h_offset_renorm_check
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_H_OFFSET=3)
-target_link_libraries(h_offset_renorm_check PRIVATE hs_host_abi)
+# hs_host_storage, not hs_host_abi: the Scan and Plot cases draw through the
+# global scratch arena.
+target_link_libraries(h_offset_renorm_check PRIVATE hs_host_storage)
 target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 _hs_warnings(h_offset_renorm_check)
 _hs_sanitize(h_offset_renorm_check)
