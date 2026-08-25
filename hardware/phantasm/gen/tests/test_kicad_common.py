@@ -36,10 +36,26 @@ class FindKicadCliTests(unittest.TestCase):
                     self.assertRaisesRegex(SystemExit, "fab gates require"):
                 kicad_common.find_kicad_cli()
 
-    def test_falls_back_to_the_path_name(self):
+    def path_fallback(self, major):
         with mock.patch.dict(os.environ, {"KICAD_CLI": "missing-kicad-cli"}), \
-                mock.patch.object(kicad_common.glob, "glob", return_value=[]):
-            self.assertEqual(kicad_common.find_kicad_cli(), "kicad-cli")
+                mock.patch.object(kicad_common.glob, "glob", return_value=[]), \
+                mock.patch.object(kicad_common, "kicad_cli_major",
+                                  return_value=major):
+            return kicad_common.find_kicad_cli()
+
+    def test_falls_back_to_the_path_name(self):
+        self.assertEqual(self.path_fallback(sexp.KICAD_MAJOR), "kicad-cli")
+
+    def test_a_path_install_off_the_pin_is_refused(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.path_fallback(sexp.KICAD_MAJOR + 1)
+        self.assertIn(f"KiCad {sexp.KICAD_MAJOR + 1}", str(caught.exception))
+        self.assertIn("KICAD_CLI", str(caught.exception))
+
+    def test_no_kicad_cli_on_path_is_refused(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.path_fallback(None)
+        self.assertIn("unknown", str(caught.exception))
 
     def windows_install(self, version):
         return rf"C:\Program Files\KiCad\{version}\bin\kicad-cli.exe"
