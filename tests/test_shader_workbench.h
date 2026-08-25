@@ -1662,11 +1662,10 @@ inline void test_shader_workbench_projection_value_weights() {
                  latitude_weight, 1e-6f);
 
   HS_EXPECT_EQ(
-      Projection::folded_sinusoidal(north, 0.0f, FADE).provenance.value_weight,
+      Projection::folded_sinusoidal(north, 0.0f).provenance.value_weight, 1.0f);
+  HS_EXPECT_EQ(
+      Projection::folded_sinusoidal(latitude_a, 2.0f).provenance.value_weight,
       1.0f);
-  HS_EXPECT_EQ(Projection::folded_sinusoidal(latitude_a, 2.0f, FADE)
-                   .provenance.value_weight,
-               1.0f);
   HS_EXPECT_EQ(Projection::gnomonic(equator, FADE,
                                     Projection::GnomonicHemisphere::FOLDED)
                    .provenance.value_weight,
