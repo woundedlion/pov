@@ -95,6 +95,44 @@ __attribute__((always_inline)) inline float
 report_stretch(const SDF::Face &shape) {
   return 1.0f + shape.max_dist_sq;
 }
+// Declared ahead of their definitions so a nested composite's recursive call
+// resolves against the whole set, not just the overloads above it.
+template <typename A, typename B>
+inline float report_stretch(const SDF::Union<A, B> &shape);
+template <typename A, typename B>
+inline float report_stretch(const SDF::SmoothUnion<A, B> &shape);
+template <typename A, typename B>
+inline float report_stretch(const SDF::Intersection<A, B> &shape);
+template <typename A, typename B>
+inline float report_stretch(const SDF::Subtract<A, B> &shape);
+template <typename Shape>
+inline float report_stretch(const SDF::AngularRepeat<Shape> &shape);
+
+template <typename A, typename B>
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::Union<A, B> &shape) {
+  return std::max(report_stretch(shape.a), report_stretch(shape.b));
+}
+template <typename A, typename B>
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::SmoothUnion<A, B> &shape) {
+  return std::max(report_stretch(shape.a), report_stretch(shape.b));
+}
+template <typename A, typename B>
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::Intersection<A, B> &shape) {
+  return std::max(report_stretch(shape.a), report_stretch(shape.b));
+}
+template <typename A, typename B>
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::Subtract<A, B> &shape) {
+  return std::max(report_stretch(shape.a), report_stretch(shape.b));
+}
+template <typename Shape>
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::AngularRepeat<Shape> &shape) {
+  return report_stretch(shape.shape);
+}
 
 /**
  * @brief Whether a walk over a shape may settle a whole pole-LOD block from one
