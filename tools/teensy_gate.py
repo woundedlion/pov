@@ -41,6 +41,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 # ---------------------------------------------------------------------------
 # Teensy 4 (i.MX RT1062) memory map — the load-bearing address buckets.
@@ -123,7 +124,22 @@ class TeensySizeFormatError(ValueError):
     pass
 
 
-def parse_teensy_size(text: str) -> dict[str, dict[str, int]]:
+class RegionSizes(TypedDict):
+    """One measured memory region.
+
+    `components` is present only when the figures came from `teensy_size`, which
+    breaks each region down; the `size -A` fallback can only total sections, so
+    it omits the key entirely. evaluate() reports every configured per-component
+    ceiling as `component-missing` when it is absent, and main() refuses the
+    fallback outright for a budget that declares components.
+    """
+
+    used: int
+    free: int
+    components: NotRequired[dict[str, int]]
+
+
+def parse_teensy_size(text: str) -> dict[str, RegionSizes]:
     """Parse `teensy_size` stdout into per-region {used, free} byte totals.
 
     `used` is the sum of the region's components (code/data/headers/...); `free`
@@ -133,7 +149,7 @@ def parse_teensy_size(text: str) -> dict[str, dict[str, int]]:
     A region whose component blob yields no `name:bytes` pair raises: summing
     nothing gives `used` 0, which clears every ceiling and reports PASS.
     """
-    out: dict[str, dict[str, int]] = {}
+    out: dict[str, RegionSizes] = {}
     for m in _TS_REGION_RE.finditer(text):
         region = m.group(1).lower()
         if region in out:
@@ -183,7 +199,7 @@ class SizeAFormatError(ValueError):
     pass
 
 
-def fallback_sizes_from_size_a(text: str) -> dict[str, dict[str, int]]:
+def fallback_sizes_from_size_a(text: str) -> dict[str, RegionSizes]:
     """Validate `size -A` output and synthesize Teensy budget regions."""
     malformed = [line.strip() for line in text.splitlines()
                  if line.strip().startswith(".")
@@ -365,7 +381,7 @@ def _check_derived_component_ceiling(
 def evaluate(
     env: str,
     budget: dict,
-    sizes: dict[str, dict[str, int]],
+    sizes: dict[str, RegionSizes],
     symbols: list[Symbol],
     sections: dict[str, tuple[str, int]] | None = None,
 ) -> GateResult:

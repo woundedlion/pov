@@ -576,6 +576,15 @@ class TestComponentCeilings(unittest.TestCase):
         result = tg.evaluate("phantasm", BUDGETS["phantasm"], sizes, symbols, {})
         self.assertIn("component-missing", _codes(result))
 
+    def test_only_teensy_size_reports_region_components(self):
+        # The one shape difference between the two size producers, which every
+        # per-component ceiling and the uncalibrated-pass exit code turn on.
+        parsed = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+        fallback = tg.fallback_sizes_from_size_a(_read("good_size_a.txt"))
+        self.assertTrue(parsed and fallback)
+        self.assertTrue(all("components" in r for r in parsed.values()))
+        self.assertFalse(any("components" in r for r in fallback.values()))
+
 
 class TestDerivedComponentCeiling(unittest.TestCase):
     """The stack-floor-derived ITCM code ceiling: DTCM reserves
