@@ -236,13 +236,17 @@ public:
     }
 
     // Age out a stale previous-burst timestamp once the wire has been quiet past
-    // the ACQUIRE window; otherwise a cycle-counter wrap collapses the quiet-gap
-    // difference and misroutes the first post-silence symbol. Signed re-check
-    // rejects a wrapped modular difference. valid()'s demarcation relation holds
-    // acquire_quiet_cols at or above the widest inter-digit advance, so this
-    // never fires between two digit bursts of one beacon frame.
+    // the ACQUIRE window plus a burst gap; otherwise a cycle-counter wrap
+    // collapses the quiet-gap difference and misroutes the first post-silence
+    // symbol. Signed re-check rejects a wrapped modular difference. valid()'s
+    // demarcation relation holds acquire_quiet_cols at or above the widest
+    // inter-digit advance, and the added gap_timeout_cols is margin against the
+    // emitter's wake-grid quantization of that advance, so this never fires
+    // between two digit bursts of one beacon frame.
     if (have_prev_burst &&
-        (now - prev_burst_end) > protocol_config.acquire_quiet_cycles() &&
+        (now - prev_burst_end) >
+            protocol_config.col_cycles(protocol_config.acquire_quiet_cols +
+                                       protocol_config.gap_timeout_cols) &&
         static_cast<int32_t>(now - prev_burst_end) > 0) {
       have_prev_burst = false;
       // The same silence ends any partial beacon frame: feed()'s staleness test
