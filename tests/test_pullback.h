@@ -881,8 +881,19 @@ inline void test_pullback_provider_contracts() {
                 ValueState>::PROVIDER_VALID<TestBinding>);
   static_assert(!Pullback::ValueCoverage::ValueCutout<
                 MalformedValueState>::PROVIDER_VALID<TestBinding>);
-  HS_EXPECT_TRUE(std::is_empty_v<CountingOrientationState>);
-  HS_EXPECT_TRUE(std::is_empty_v<ValueState>);
+  // Runtime half: a provider that declares no Prepared collapses to an empty
+  // bound prepared state, and the bound stage still runs.
+  const TestFrame frame;
+  const Pullback::SphereSample sphere{Vector(1.0f, 2.0f, 3.0f), 4.0f};
+  using BoundStatelessRotate =
+      Pullback::Stage::Rotate<CountingOrientationState>::Bind<CountingBinding>;
+  HS_EXPECT_TRUE(std::is_empty_v<typename BoundStatelessRotate::Prepared>);
+  const Pullback::SphereSample carried = BoundStatelessRotate::run(
+      sphere, frame, BoundStatelessRotate::prepare(frame));
+  HS_EXPECT_EQ(carried.dir.x, 1.0f);
+  HS_EXPECT_EQ(carried.dir.y, 2.0f);
+  HS_EXPECT_EQ(carried.dir.z, 3.0f);
+  HS_EXPECT_EQ(carried.path_length, 4.0f);
 }
 
 inline void test_pullback_concrete_catalog() {
