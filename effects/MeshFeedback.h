@@ -94,8 +94,6 @@ public:
       {{BaseMesh::PENTAGONAL_HEXECONTAHEDRON, Style::WigglingWormhole()}},
   }};
 
-  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
-
   static_assert(
       all_presets_in_ranges(PRESETS, preset_in_ranges),
       "a MeshFeedback preset drives a style field outside its "
