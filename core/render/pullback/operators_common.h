@@ -98,6 +98,19 @@ inline constexpr const char *WEIGHT_MODE_IDS[] = {"none", "projection"};
 inline constexpr const char *COVERAGE_MODE_IDS[] = {
     "none", "weight", "weight-squared", "edge-fade"};
 
+/**
+ * @brief Bounds the Sample crossing's topology enum8s.
+ * @details Called from prepare(), once per frame, so the per-pixel switches
+ * below stay total and carry no guard.
+ */
+inline void check_sample_topology(uint8_t weight_mode, uint8_t coverage_mode) {
+  HS_CHECK(weight_mode <= static_cast<uint8_t>(WeightMode::PROJECTION),
+           "sample operator: invalid weight mode");
+  HS_CHECK(coverage_mode <=
+               static_cast<uint8_t>(ProjectionCoverageMode::EDGE_FADE),
+           "sample operator: invalid projection coverage mode");
+}
+
 /** @brief The Sample crossing's weight switch over the shared policies. */
 inline float weighted_field(uint8_t weight_mode, float raw,
                             const ProjectionProvenance &provenance,
@@ -106,9 +119,9 @@ inline float weighted_field(uint8_t weight_mode, float raw,
   case WeightMode::NONE:
     return Weight::None::apply(raw, provenance, ctx);
   case WeightMode::PROJECTION:
-  default:
-    return Weight::Projection::apply(raw, provenance, ctx);
+    break;
   }
+  return Weight::Projection::apply(raw, provenance, ctx);
 }
 
 /** @brief The Sample crossing's coverage switch over the shared policies. */
@@ -123,11 +136,9 @@ inline float projection_coverage(uint8_t coverage_mode,
   case ProjectionCoverageMode::EDGE_FADE:
     return ProjectionCoverage::edge_fade(provenance, edge_width);
   case ProjectionCoverageMode::WEIGHT:
-    return ProjectionCoverage::Weight::apply(provenance, ctx);
-  default:
-    HS_CHECK(false, "sample operator: invalid projection coverage mode");
-    return ProjectionCoverage::Weight::apply(provenance, ctx);
+    break;
   }
+  return ProjectionCoverage::Weight::apply(provenance, ctx);
 }
 
 } // namespace Op

@@ -61,8 +61,9 @@ struct SampleGrid : ValueStateModel<SourceClockState> {
         fmodf(state.secondary + params.speed * params.secondary_rate, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
     return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
@@ -114,8 +115,9 @@ struct SampleTwinWave : ValueStateModel<SourceClockState> {
         fmodf(state.secondary + params.speed * params.secondary_rate, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
     return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
@@ -168,8 +170,9 @@ struct SampleRings : ValueStateModel<SourceClockState> {
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
     return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
@@ -264,8 +267,9 @@ struct SampleSpiral : ValueStateModel<SourceClockState> {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
     return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
@@ -310,7 +314,9 @@ struct SampleLattice : StatelessModel {
   using Params = LatticeSampleParams;
   struct Prepared {};
 
-  static Prepared prepare(const FrameContext &, const Params &, const State &) {
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
     return {};
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
@@ -359,8 +365,9 @@ struct SampleFractal : ValueStateModel<SourceClockState> {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
     return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
@@ -416,8 +423,9 @@ struct SampleTessellation : ValueStateModel<SourceClockState> {
   static void advance(State &state, const Params &params) {
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
     return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
@@ -489,8 +497,9 @@ struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.noise_time_rate);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
     return {&state.noise, state.phase};
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
