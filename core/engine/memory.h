@@ -58,6 +58,20 @@ constexpr size_t DEFAULT_PERSISTENT_SIZE =
 constexpr size_t DEVICE_PERSISTENT_BUDGET =
     DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 
+// The browser module's arena (CMakeLists.txt), widened past the device figure
+// for the chain interpreter's two arenas plus ShaderChain's shared color
+// resources. A distinct always-defined constant so a browser-only effect's
+// footprint static_assert checks the real module figure even in the host suite,
+// whose arena is an order of magnitude larger.
+constexpr size_t WASM_GLOBAL_ARENA_SIZE = 512 * 1024;
+#if defined(__EMSCRIPTEN__)
+static_assert(WASM_GLOBAL_ARENA_SIZE == GLOBAL_ARENA_SIZE,
+              "the module's HS_GLOBAL_ARENA_BYTES moved; update "
+              "WASM_GLOBAL_ARENA_SIZE");
+#endif
+constexpr size_t WASM_PERSISTENT_BUDGET =
+    WASM_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+
 // ============================================================================
 // 1. Core Arena Allocator
 // ============================================================================
