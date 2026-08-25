@@ -4704,7 +4704,7 @@ inline void test_shader_workbench_inverse_program_equivalence() {
   }
 
   WB::FrameState peirce = WB::preset_frame(sb, 4);
-  peirce.params.projection.central_meridian = 0.375f;
+  peirce.set_central_meridian(0.375f);
   for (int step = 0; step < 64; ++step) {
     const float longitude = step * (TWO_PI_F / 64.0f);
     const Vector view(cosf(longitude), 0.25f, sinf(longitude));
