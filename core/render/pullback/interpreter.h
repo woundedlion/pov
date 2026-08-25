@@ -425,6 +425,7 @@ public:
     side.count = 0;
     side.used_bytes = 0;
     has_program = false;
+    needs_prepare = false;
   }
 
 private:
