@@ -640,6 +640,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── workbench-probe.mjs     Headless pointer-level probe of the shader workbench's pipeline strip; run it for any tools/ UI change
 │   ├── panel-probe.mjs         Headless probe of the effect panel's real scroll clamping and scroll restore across a rebuild
 │   ├── solids-probe.mjs        Headless pointer-level probe of the solids page's op-chain row reordering
+│   ├── palettes-probe.mjs      Headless pointer-level probe of the palette page's strip zoom and hue-key wheel
+│   ├── mobius-probe.mjs        Headless pointer-level probe of the Möbius page's complex-plane pads
 │   └── run-tests.mjs           `test` script: runs the suite and checks first-party module reachability
 │
 ├── tests/                      Node unit tests (`npm test`)
