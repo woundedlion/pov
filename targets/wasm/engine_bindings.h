@@ -1222,9 +1222,10 @@ public:
 
   /**
    * @brief Enumerates the resolutions the factory can build.
-   * @return JS array of [W, H] pairs, generated from the same
-   *         HS_RESOLUTIONS list that setResolution()/getEffectSizes()
-   *         dispatch through.
+   * @return JS array of [W, H] pairs, read from the same WASM_RESOLUTIONS
+   *         table the constructor bootstraps on, itself generated from the
+   *         HS_RESOLUTIONS list setResolution()/getEffectSizes() dispatch
+   *         through.
    * @details Callers (e.g. the CI smoke test) can enumerate this instead of
    *          hand-mirroring the list, so the supported set can never silently
    *          drift.
@@ -1232,15 +1233,12 @@ public:
   static val getSupportedResolutions() {
     val out = val::array();
     int i = 0;
-#define X(W, H)                                                                \
-  {                                                                            \
-    val pair = val::array();                                                   \
-    pair.set(0, (W));                                                          \
-    pair.set(1, (H));                                                          \
-    out.set(i++, pair);                                                        \
-  }
-    HS_RESOLUTIONS(X)
-#undef X
+    for (const WasmResolution &row : WASM_RESOLUTIONS) {
+      val pair = val::array();
+      pair.set(0, row.w);
+      pair.set(1, row.h);
+      out.set(i++, pair);
+    }
     return out;
   }
 
