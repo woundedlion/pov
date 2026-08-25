@@ -28,12 +28,14 @@ import zipfile
 import check as netlist_spec
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
+from heal_clearance import rule_shortfalls
 from kicad_common import F, is_copper_pour, kicad_cli
 
 GEN = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(GEN)                       # hardware/phantasm
 PCB = os.path.join(PROJ, "phantasm.kicad_pcb")
 SCH = os.path.join(PROJ, "phantasm.kicad_sch")
+PRO = os.path.join(PROJ, "phantasm.kicad_pro")
 OUT = os.path.join(GEN, "out")
 JLC = os.path.join(OUT, "jlc")
 # Prefix of the per-run staging directory the exports are written into, under OUT.
@@ -386,6 +388,41 @@ def require_clean_drc(report_path):
             f"DRC failed: {num_violations} error-severity violations, "
             f"{num_unconnected} unconnected items -> {report_path}")
     return num_violations, num_unconnected
+
+
+class ProjectRulesError(ValueError):
+    pass
+
+
+def validate_project_rules(project_path=PRO):
+    """Require the project's DRC floors to meet the fabrication minimums.
+
+    kicad-cli reads its constraints from the .kicad_pro, and KiCad re-zeroes
+    min_clearance every time the project is opened in the GUI, so a DRC run
+    can report clean against a disabled floor. Gate the file the verdict is
+    computed under, not just the verdict.
+    """
+    try:
+        with open(project_path, encoding="utf-8") as project_file:
+            document = json.load(project_file)
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ProjectRulesError(
+            f"cannot read project file: {project_path}") from exc
+
+    try:
+        shortfalls = rule_shortfalls(document, RULE_MINIMUMS,
+                                     DEFAULT_CLASS_MINIMUMS)
+    except ValueError as exc:
+        raise ProjectRulesError(f"{project_path}: {exc}") from exc
+
+    if shortfalls:
+        summary = "; ".join(
+            f"{field} is {current:g}, below the {minimum:g} mm floor"
+            for field, (current, minimum) in sorted(shortfalls.items()))
+        raise ProjectRulesError(
+            f"{project_path} would compute DRC under relaxed constraints: "
+            f"{summary}. Run gen/heal_clearance.py before fab.py.")
+    return len(RULE_MINIMUMS) + len(DEFAULT_CLASS_MINIMUMS)
 
 
 def run_drc(report_path):
@@ -906,6 +943,12 @@ def main():
         f"{MIN_ZONE_WIDTH_MM:g} mm width minimums")
     os.makedirs(OUT, exist_ok=True)
     print("[4/9] DRC report + schematic parity")
+    try:
+        num_floors = validate_project_rules()
+    except ProjectRulesError as exc:
+        sys.exit(str(exc))
+    print(f"  project rules: {num_floors} DRC floors meet the fabrication "
+          "minimums")
     rpt = os.path.join(OUT, "phantasm-drc.json")
     try:
         num_violations, num_unconnected = run_drc(rpt)

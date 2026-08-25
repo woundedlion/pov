@@ -47,6 +47,31 @@ def minimums_for(p):
     return RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS
 
 
+def rule_shortfalls(d, rule_minimums, class_minimums):
+    """Fields of project document d sitting below their fabrication floor.
+
+    Maps the field name -- Default net class fields prefixed "Default." -- to
+    (current, minimum). A field KiCad has dropped reads as 0, the same as one
+    it re-zeroed.
+    """
+    rules = d.get("board", {}).get("design_settings", {}).get("rules", {})
+    shortfalls = {}
+    for field, minimum in rule_minimums.items():
+        current = rules.get(field, 0) or 0
+        if current < minimum:
+            shortfalls[field] = (current, minimum)
+
+    classes = d.get("net_settings", {}).get("classes", [])
+    default = next((item for item in classes if item.get("name") == "Default"), None)
+    if default is None:
+        raise ValueError("missing Default net class")
+    for field, minimum in class_minimums.items():
+        current = default.get(field, 0) or 0
+        if current < minimum:
+            shortfalls[f"Default.{field}"] = (current, minimum)
+    return shortfalls
+
+
 def heal_project(p, dry_run=False):
     rule_minimums, class_minimums = minimums_for(p)
     with open(p, encoding="utf-8") as project_file:
@@ -54,25 +79,18 @@ def heal_project(p, dry_run=False):
         # Rewrite in the file's own convention; a mixed file gets the repo's.
         seen = project_file.newlines
         newline = seen if isinstance(seen, str) else "\n"
-    rules = d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})
-    changes = {}
-    for field, minimum in rule_minimums.items():
-        current = rules.get(field, 0) or 0
-        if current < minimum:
-            rules[field] = minimum
-            changes[field] = (current, minimum)
-
-    classes = d.setdefault("net_settings", {}).setdefault("classes", [])
-    default = next((item for item in classes if item.get("name") == "Default"), None)
-    if default is None:
-        raise ValueError("missing Default net class")
-    for field, minimum in class_minimums.items():
-        current = default.get(field, 0) or 0
-        if current < minimum:
-            default[field] = minimum
-            changes[f"Default.{field}"] = (current, minimum)
+    changes = rule_shortfalls(d, rule_minimums, class_minimums)
 
     if changes:
+        rules = d.setdefault("board", {}).setdefault(
+            "design_settings", {}).setdefault("rules", {})
+        default = next(item for item in d["net_settings"]["classes"]
+                       if item.get("name") == "Default")
+        for field, (_, minimum) in changes.items():
+            if field.startswith("Default."):
+                default[field[len("Default."):]] = minimum
+            else:
+                rules[field] = minimum
         if not dry_run:
             with open(p, "w", encoding="utf-8", newline=newline) as project_file:
                 json.dump(d, project_file, indent=2)
