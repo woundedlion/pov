@@ -4236,19 +4236,20 @@ inline void test_shader_workbench_projection_catalog() {
   }
 }
 
+/** Headroom the color budgets below leave over their measured baselines: wide
+ * enough for libm drift between the Linux and Windows Clang builds, too narrow
+ * for a doubling to pass. Each sweep prints what it measured. */
+constexpr uint64_t COLOR_BUDGET_HEADROOM_PERCENT = 25;
+
 /** Worst single-channel gap measured between the LUT mapper and the exact
  * gamut refinement, 16-bit scale. */
 constexpr uint16_t MEASURED_HUE_LUT_MAX_ERROR = 5529;
-/** Mean per-channel gap measured over the same sweep. */
+/** Mean per-channel gap measured over the same sweep; 203.9 before truncation. */
 constexpr uint64_t MEASURED_HUE_LUT_MEAN_ERROR = 203;
-/** Headroom over the measured single-pixel worst case. */
-constexpr uint16_t HUE_LUT_PEAK_HEADROOM = 2;
-/** Headroom over the measured whole-sweep mean. */
-constexpr uint64_t HUE_LUT_MEAN_HEADROOM = 2;
-constexpr uint16_t HUE_LUT_MAX_CHANNEL_ERROR =
-    MEASURED_HUE_LUT_MAX_ERROR * HUE_LUT_PEAK_HEADROOM;
+constexpr uint16_t HUE_LUT_MAX_CHANNEL_ERROR = static_cast<uint16_t>(
+    MEASURED_HUE_LUT_MAX_ERROR * (100 + COLOR_BUDGET_HEADROOM_PERCENT) / 100);
 constexpr uint64_t HUE_LUT_MEAN_CHANNEL_ERROR =
-    MEASURED_HUE_LUT_MEAN_ERROR * HUE_LUT_MEAN_HEADROOM;
+    MEASURED_HUE_LUT_MEAN_ERROR * (100 + COLOR_BUDGET_HEADROOM_PERCENT) / 100;
 
 /** @brief The LUT-only hue mapper stays close to the exact gamut refinement. */
 inline void test_shader_workbench_hue_rotate_lut_gamut() {
@@ -4286,6 +4287,18 @@ inline void test_shader_workbench_hue_rotate_lut_gamut() {
   HS_EXPECT_LE(total_error / channels, HUE_LUT_MEAN_CHANNEL_ERROR);
 }
 
+/** Worst single-channel gap measured between the direct and the prepared hue
+ * rotation over the sweep below, 16-bit scale. */
+constexpr uint16_t MEASURED_PREPARED_HUE_ROTATION_MAX_ERROR = 2920;
+/** Mean per-channel gap over the same sweep; 86.5 before truncation. */
+constexpr uint64_t MEASURED_PREPARED_HUE_ROTATION_MEAN_ERROR = 86;
+constexpr uint16_t PREPARED_HUE_ROTATION_MAX_CHANNEL_ERROR =
+    static_cast<uint16_t>(MEASURED_PREPARED_HUE_ROTATION_MAX_ERROR *
+                          (100 + COLOR_BUDGET_HEADROOM_PERCENT) / 100);
+constexpr uint64_t PREPARED_HUE_ROTATION_MEAN_CHANNEL_ERROR =
+    MEASURED_PREPARED_HUE_ROTATION_MEAN_ERROR *
+    (100 + COLOR_BUDGET_HEADROOM_PERCENT) / 100;
+
 /** @brief The prepared hue field tracks direct palette conversion. */
 inline void test_shader_workbench_prepared_hue_rotation() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -4314,9 +4327,31 @@ inline void test_shader_workbench_prepared_hue_rotation() {
       }
     }
   }
-  HS_EXPECT_LE(max_channel_error, uint16_t(5400));
-  HS_EXPECT_LE(total_error / channels, uint64_t(220));
+  std::printf("  [prepared-hue-rotation] max=%u mean=%llu\n", max_channel_error,
+              static_cast<unsigned long long>(total_error / channels));
+  HS_EXPECT_LE(max_channel_error, PREPARED_HUE_ROTATION_MAX_CHANNEL_ERROR);
+  HS_EXPECT_LE(total_error / channels,
+               PREPARED_HUE_ROTATION_MEAN_CHANNEL_ERROR);
+  // The prepared rotation reaches the framebuffer through the color stage, so
+  // its budget has to sit inside the limit that stage publishes.
+  HS_EXPECT_LE(static_cast<float>(PREPARED_HUE_ROTATION_MAX_CHANNEL_ERROR),
+               WB::color_metric_limit(2));
 }
+
+/** Worst gap measured between the prepared spherical hue field and its simplex
+ * source over the sweep below. */
+constexpr float MEASURED_PREPARED_HUE_NOISE_MAX_ERROR = 0.144942f;
+/** Mean gap over the same sweep. */
+constexpr double MEASURED_PREPARED_HUE_NOISE_MEAN_ERROR = 0.0117208;
+/** Budgets for that sweep: 3.5% and 11% over the measured baselines, the least
+ * headroom of any budget here. */
+constexpr float PREPARED_HUE_NOISE_MAX_ERROR = 0.15f;
+constexpr double PREPARED_HUE_NOISE_MEAN_ERROR = 0.013;
+static_assert(MEASURED_PREPARED_HUE_NOISE_MAX_ERROR <
+                      PREPARED_HUE_NOISE_MAX_ERROR &&
+                  MEASURED_PREPARED_HUE_NOISE_MEAN_ERROR <
+                      PREPARED_HUE_NOISE_MEAN_ERROR,
+              "recorded hue-noise baseline is at or above its own budget");
 
 /** @brief The prepared spherical hue field tracks its simplex source. */
 inline void test_shader_workbench_prepared_hue_noise() {
@@ -4351,8 +4386,10 @@ inline void test_shader_workbench_prepared_hue_noise() {
       }
     }
   }
-  HS_EXPECT_LE(max_error, 0.15f);
-  HS_EXPECT_LE(total_error / samples, 0.013);
+  std::printf("  [prepared-hue-noise] max=%.9g mean=%.9g\n",
+              static_cast<double>(max_error), total_error / samples);
+  HS_EXPECT_LE(max_error, PREPARED_HUE_NOISE_MAX_ERROR);
+  HS_EXPECT_LE(total_error / samples, PREPARED_HUE_NOISE_MEAN_ERROR);
 }
 
 #if HS_HAVE_PULLBACK_MANIFEST
