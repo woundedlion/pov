@@ -66,12 +66,25 @@ _hs_now() { date +%s; }
 # nothing, and claiming it locks a port no board answers on — the run then
 # builds two full images before the flash reports the miss. rc 1 = the pin is
 # not attached.
+#
+# rc 2 = the loader is here but its enumeration failed, which is NOT the same
+# outcome as an enumerate-less host: falling back to the portless lock there
+# would let two sessions share one board, or pin a capture to firmware nobody
+# flashed. The loader's output is captured first so its own status is the one
+# read; piping it straight into awk reads awk's, and awk is happy with nothing.
 hs_device_ports() {
   local tools=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}
-  local attached=""
+  local attached="" listing rc=0
   if [ -x "$tools/teensy_ports.exe" ]; then
-    attached=$("$tools/teensy_ports.exe" -L 2>/dev/null |
-               awk '$2 ~ /^COM[0-9]+$/ {print $2}') || attached=""
+    listing=$("$tools/teensy_ports.exe" -L 2>/dev/null) || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      echo "device: $tools/teensy_ports.exe -L failed (rc $rc)." >&2
+      echo "Board enumeration is the lock's authority; without it a flash can" >&2
+      echo "silently pick another session's board or not happen at all." >&2
+      echo "Unplug/replug the boards, or unset HS_TEENSY_TOOLS if it is wrong." >&2
+      return 2
+    fi
+    attached=$(printf '%s\n' "$listing" | awk '$2 ~ /^COM[0-9]+$/ {print $2}')
   fi
   if [ -n "${HS_TEENSY_PORT:-}" ]; then
     if [ -n "$attached" ] &&
@@ -214,7 +227,9 @@ hs_device_acquire() {
   while :; do
     # Re-enumerated every round: a board can be plugged in (or replugged onto a
     # new COM name) while we wait, and that board is a free one.
-    local ports; ports=$(hs_device_ports) || return 1
+    # rc propagated, not flattened: 2 (enumeration broke) must stay tellable
+    # apart from 1 (a pin naming no attached board).
+    local ports; ports=$(hs_device_ports) || return $?
     [ -n "$ports" ] || ports="-"       # "-" = portless: no loader to ask
     for p in $ports; do
       port=$([ "$p" = "-" ] && echo "" || echo "$p")
@@ -277,10 +292,11 @@ hs_device_release() {
   _HS_TOKEN=""; _HS_LOCK_DIR=""; HS_DEVICE_PORT=""
 }
 
-# Reports every attached board. rc 0 if at least one is claimable.
+# Reports every attached board. rc 0 if at least one is claimable, 2 if the
+# boards could not be enumerated at all.
 hs_device_status() {
   local ports p port d free=1
-  ports=$(hs_device_ports) || return 1
+  ports=$(hs_device_ports) || return $?
   [ -n "$ports" ] || ports="-"
   for p in $ports; do
     port=$([ "$p" = "-" ] && echo "" || echo "$p")
