@@ -442,10 +442,10 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
   check(true);
 }
 
-// AA-dust envelope of the fused ring-group scan. Both paths currently agree
-// bit-exactly on all three cases (the per-case line reports the live figure),
-// so these bound the divergence the doc below permits rather than one that is
-// spent: a handful of stroke-edge pixels at 1/128 of full scale.
+// AA-dust ceiling of the fused ring-group scan: a handful of stroke-edge pixels
+// at 1/128 of full scale is the widest divergence the doc below permits. Under
+// IEEE the two paths agree bit-exactly and the test holds them to that; under
+// -ffast-math each loop reassociates on its own, so only the ceiling applies.
 constexpr int GROUP_MAX_CHANNEL_DELTA = 512;
 constexpr int GROUP_MAX_DIFF_PIXELS = 16;
 
@@ -542,6 +542,9 @@ inline void test_ring_group_matches_sequential() {
     std::printf("  [ring-group] diff_px=%d worst_delta=%d\n", diff_px,
                 worst_delta);
     HS_EXPECT_LE(diff_px, GROUP_MAX_DIFF_PIXELS);
+#if !defined(HS_TEST_FAST_MATH)
+    HS_EXPECT_EQ(diff_px, 0);
+#endif
   };
 
   run_case(Vector(0.3f, 0.8f, -0.5f).normalized(), false);
