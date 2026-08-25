@@ -10,11 +10,12 @@
  * tiling tests (test_pov_segmented.h) were written to prevent. Covers the
  * top/bottom strip split (reversed vs straight), the bottom-half
  * opposite-column x offset, that the S LED writes tile the two sampled canvas
- * columns exactly once, the column-period and transfer-time derivations, the
- * overrun relation between them, and the advance/flip cadence.
+ * columns exactly once, the column-period derivation, the overrun relation
+ * against the transport's transfer bound, and the advance/flip cadence.
  */
 #pragma once
 
+#include "hardware/dma_led_core.h"
 #include "hardware/hd107s_frame.h"
 #include "hardware/pov_single_map.h"
 #include "tests/test_fixture.h"
@@ -32,7 +33,6 @@ using pov::step_column;
 using pov::strip_bottom_led;
 using pov::strip_opposite_col;
 using pov::strip_top_led;
-using pov::transfer_us;
 
 // Compile-time proof the mapping folds at compile time (the driver relies on it
 // being branchless, off the ISR hot path).
@@ -43,10 +43,9 @@ static_assert(strip_bottom_led(19, 40) == 39); // y=ROWS-1 -> last LED
 static_assert(strip_opposite_col(0, 96) == 48);
 static_assert(strip_opposite_col(48, 96) == 0); // wraps back at the seam
 
-// The driver's COLUMN_TRANSFER_US is a static constexpr and the IntervalTimer
-// period is derived before the timer starts, so both must fold at compile time.
+// The IntervalTimer period is derived before the timer starts, so it must fold
+// at compile time.
 static_assert(column_interval_us(480ul * 96ul) == 1302);
-static_assert(transfer_us(336, 12000000) == 224);
 static_assert(step_column(95, 96).next_x == 0);
 static_assert(step_column(95, 96).advance);
 static_assert(!step_column(0, 96).advance);
@@ -205,39 +204,16 @@ inline void test_column_interval() {
 }
 
 /**
- * @brief Verify the per-column transfer bound rounds UP, and that it stays
- * under the column period for the shipped single-board configuration.
+ * @brief Verify the shipped single-board column period clears the per-column
+ * transfer bound.
  * @details run() rejects a configuration whose column period does not clear
  * this bound; show_col() then discards submitFrame()'s overrun return with no
- * retry latch, so a bound that rounded down would admit a config that freezes
- * the strip on its last accepted frame.
+ * retry latch, so a configuration that overran would freeze the strip on its
+ * last accepted frame. The bound's own rounding is pinned in test_dma_core.h.
  */
 inline void test_transfer_bound() {
-  // Holosphere: 40 px -> 336-byte composite at 12 MHz = 224 µs exactly.
-  HS_EXPECT_EQ(transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, 12000000ul), 224ul);
-  // Phantasm segment: 72 px -> 600-byte composite at 24 MHz = 200 µs exactly.
-  HS_EXPECT_EQ(transfer_us(HD107SFrame<72>::COMPOSITE_SIZE, 24000000ul), 200ul);
-
-  // Inexact divisions round up, never down: 0.67 -> 1, 10.67 -> 11.
-  HS_EXPECT_EQ(transfer_us(1ul, 12000000ul), 1ul);
-  HS_EXPECT_EQ(transfer_us(4ul, 3000000ul), 11ul);
-
-  // Swept: the bound never under-counts, and never overshoots by a whole µs.
-  for (unsigned long bytes : {1ul, 80ul, 336ul, 600ul, 4096ul}) {
-    for (unsigned long clock : {1000000ul, 6000000ul, 12000000ul, 24000000ul}) {
-      const unsigned long us = transfer_us(bytes, clock);
-      const unsigned long long bits_us = bytes * 8ull * 1000000ull;
-      HS_EXPECT_TRUE(static_cast<unsigned long long>(us) * clock >= bits_us);
-      HS_EXPECT_TRUE(us == 0 ||
-                     (static_cast<unsigned long long>(us) - 1) * clock <
-                         bits_us);
-    }
-  }
-
-  // The shipped single-board relation run() enforces: one composite transfer
-  // fits inside a column period with room to spare.
   HS_EXPECT_TRUE(column_interval_us(480ul * 96ul) >
-                 transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, 12000000ul));
+                 dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, 12000000ul));
 }
 
 /**
