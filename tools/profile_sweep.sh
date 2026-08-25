@@ -95,7 +95,7 @@ g2_ship)
   run Voronoi profile 70 32
   ;;
 g3_ship)
-  run ShapeShifter profile 70 16
+  run ShapeShifter profile 155 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   run MindSplatter profile 110 16
   run HankinSolids profile 210 16 "-D HS_PROFILE_ORDERED_CYCLE -D HS_PROFILE_EPOCH_REVS=1920"
   run SphericalHarmonics profile 220 16 "-D HS_PROFILE_ORDERED_CYCLE -D HS_PROFILE_EPOCH_REVS=2048"
@@ -104,7 +104,7 @@ g4_ship)
   run Comets profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
   run MeshFeedback profile 420 16 "-D HS_PROFILE_EPOCH_REVS=3400"
   run IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"
-  run DreamBalls profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
+  run DreamBalls profile 230 16 "-D HS_PROFILE_EPOCH_REVS=2000"
   ;;
 g5_ship)
   run AlienBrain profile 300 16 "-D HS_PROFILE_EPOCH_REVS=2600"
@@ -113,15 +113,15 @@ g5_ship)
   run AlienCore profile 70 32
   run KaleidoscopeMandala profile 70 32
   run GridSpace profile 70 32
-  run HyperLattice profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
-  run LatticeMelt profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
+  run HyperLattice profile 380 16 "-D HS_PROFILE_EPOCH_REVS=3600"
+  run LatticeMelt profile 110 16 "-D HS_PROFILE_EPOCH_REVS=1200"
   run AshCloud profile 70 32
   ;;
 g6_ship)
   run KaleidoscopePentBright profile 70 32
-  run KaleidoscopeHexOil profile 70 32
+  run KaleidoscopeHexOil profile 140 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   run KaleidoscopeStainedGlass profile 70 32
-  run KaleidoscopeSmooth profile 300 16 "-D HS_PROFILE_EPOCH_REVS=2600"
+  run KaleidoscopeSmooth profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
   run KaleidoscopeHexBright profile 70 32
   run KaleidoscopeFlowers profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
   run CosmicEyeball profile 70 32
