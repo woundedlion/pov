@@ -1411,8 +1411,6 @@ private:
       return FullConfigRestoreResult::APPLIED;
     case SB::ConfigRestoreResult::UNSUPPORTED_VERSION:
       return FullConfigRestoreResult::UNSUPPORTED_VERSION;
-    case SB::ConfigRestoreResult::INVALID_LENGTH:
-      return FullConfigRestoreResult::INVALID_LENGTH;
     case SB::ConfigRestoreResult::INVALID_VALUE:
       return FullConfigRestoreResult::INVALID_VALUE;
     case SB::ConfigRestoreResult::INVALID_ACCEPTED:

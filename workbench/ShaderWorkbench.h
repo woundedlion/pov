@@ -987,7 +987,6 @@ public:
   enum class ConfigRestoreResult : uint8_t {
     APPLIED,
     UNSUPPORTED_VERSION,
-    INVALID_LENGTH,
     INVALID_VALUE,
     INVALID_ACCEPTED,
     INVALID_PENDING
