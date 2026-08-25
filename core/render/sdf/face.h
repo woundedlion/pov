@@ -335,8 +335,8 @@ struct Face {
   int build_width; /**< Clip width the azimuth cull ran against; 0 if unclipped. */
   std::span<Interval> intervals; /**< Azimuth coverage intervals (radians). */
   bool full_width;               /**< True when the face spans all columns. */
-  /** A pole lies on the face boundary, so the azimuth intervals take the
-   *  per-row pole widening instead of full width. */
+  /** A pole lies on the face boundary; the face keeps its azimuth wedge
+   *  instead of taking full width. */
   bool pole_touch = false;
   static constexpr bool is_solid =
       true; /**< Face renders as a filled region. */
@@ -1091,8 +1091,7 @@ struct Face {
    * @param height Canvas height in rows.
    * @details A face enclosing a pole wraps every azimuth, so it takes full
    * width outright. A face that only meets the pole on its boundary keeps its
-   * azimuth wedge and widens it per row instead, which get_horizontal_intervals
-   * does from pole_touch.
+   * azimuth wedge, which get_horizontal_intervals widens per row.
    */
   __attribute__((always_inline)) void apply_pole_containment(int height) {
     if (center.y > 0.01f) {
