@@ -24,6 +24,7 @@
 
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
+#include "core/math/interpolate.h"
 #include "core/math/lenses.h"
 #include "core/math/noise_field.h"
 #include "core/math/projections.h"
@@ -652,20 +653,24 @@ public:
       speed = hs::lerp(a.speed, b.speed, t);
       translation_x = hs::lerp(a.translation_x, b.translation_x, t);
       translation_y = hs::lerp(a.translation_y, b.translation_y, t);
-      rotation = rotation_is_rate ? hs::lerp(a.rotation, b.rotation, t)
-                                  : lerp_angle(a.rotation, b.rotation, t);
+      rotation =
+          rotation_is_rate
+              ? hs::lerp(a.rotation, b.rotation, t)
+              : interp::shortest_periodic(a.rotation, b.rotation, t, TWO_PI_F);
       scale_x = expf(hs::lerp(logf(a.scale_x), logf(b.scale_x), t));
       scale_y = expf(hs::lerp(logf(a.scale_y), logf(b.scale_y), t));
       shear = hs::lerp(a.shear, b.shear, t);
       frequency = hs::lerp(a.frequency, b.frequency, t);
-      field_angle = lerp_angle(a.field_angle, b.field_angle, t);
+      field_angle =
+          interp::shortest_periodic(a.field_angle, b.field_angle, t, TWO_PI_F);
       center_x = hs::lerp(a.center_x, b.center_x, t);
       center_y = hs::lerp(a.center_y, b.center_y, t);
       radius = hs::lerp(a.radius, b.radius, t);
       turns = hs::lerp(a.turns, b.turns, t);
       center_orbit_radius =
           hs::lerp(a.center_orbit_radius, b.center_orbit_radius, t);
-      vector_angle = lerp_angle(a.vector_angle, b.vector_angle, t);
+      vector_angle = interp::shortest_periodic(a.vector_angle, b.vector_angle,
+                                               t, TWO_PI_F);
       cell_x = hs::lerp(a.cell_x, b.cell_x, t);
       cell_y = hs::lerp(a.cell_y, b.cell_y, t);
       offset_x = hs::lerp(a.offset_x, b.offset_x, t);
@@ -674,17 +679,6 @@ public:
       radial_phase = hs::lerp(a.radial_phase, b.radial_phase, t);
       angular_phase = hs::lerp(a.angular_phase, b.angular_phase, t);
       edge_width = hs::lerp(a.edge_width, b.edge_width, t);
-    }
-
-    HS_COLD_MEMBER static float lerp_angle(float a, float b, float t) {
-      if (t == 0.0f)
-        return a;
-      if (t == 1.0f)
-        return b;
-      float delta = fmodf(b - a + PI_F, TWO_PI_F);
-      if (delta < 0.0f)
-        delta += TWO_PI_F;
-      return fmodf(a + (delta - PI_F) * t + TWO_PI_F, TWO_PI_F);
     }
   };
 
@@ -723,17 +717,6 @@ public:
 
     HS_COLD_MEMBER bool operator==(const ProjectionParams &) const = default;
 
-    HS_COLD_MEMBER static float lerp_periodic(float a, float b, float t) {
-      if (t == 0.0f)
-        return a;
-      if (t == 1.0f)
-        return b;
-      float delta = fmodf(b - a + 0.5f, 1.0f);
-      if (delta < 0.0f)
-        delta += 1.0f;
-      return a + (delta - 0.5f) * t;
-    }
-
     HS_COLD_MEMBER void lerp(const ProjectionParams &a,
                              const ProjectionParams &b, float t) {
       static_assert(sizeof(ProjectionParams) == 28,
@@ -741,12 +724,13 @@ public:
       singularity_fade = hs::lerp(a.singularity_fade, b.singularity_fade, t);
       spin_rate = hs::lerp(a.spin_rate, b.spin_rate, t);
       wander = hs::lerp(a.wander, b.wander, t);
-      central_meridian = WarpStageParams::lerp_angle(a.central_meridian,
-                                                     b.central_meridian, t);
+      central_meridian = interp::shortest_periodic(
+          a.central_meridian, b.central_meridian, t, TWO_PI_F);
       coordinate_scale = hs::lerp(a.coordinate_scale, b.coordinate_scale, t);
       bonne_standard_parallel =
           hs::lerp(a.bonne_standard_parallel, b.bonne_standard_parallel, t);
-      layout_scroll = lerp_periodic(a.layout_scroll, b.layout_scroll, t);
+      layout_scroll =
+          interp::shortest_periodic(a.layout_scroll, b.layout_scroll, t, 1.0f);
     }
   };
 
@@ -798,7 +782,7 @@ public:
       scale = hs::lerp(a.scale, b.scale, t);
       strength = hs::lerp(a.strength, b.strength, t);
       rate = hs::lerp(a.rate, b.rate, t);
-      direction = ProjectionParams::lerp_periodic(a.direction, b.direction, t);
+      direction = interp::shortest_periodic(a.direction, b.direction, t, 1.0f);
     }
   };
 
@@ -819,7 +803,8 @@ public:
       iso_level = hs::lerp(a.iso_level, b.iso_level, t);
       iso_width = hs::lerp(a.iso_width, b.iso_width, t);
       band_count = t < 1.0f ? a.band_count : b.band_count;
-      band_phase = WarpStageParams::lerp_angle(a.band_phase, b.band_phase, t);
+      band_phase =
+          interp::shortest_periodic(a.band_phase, b.band_phase, t, TWO_PI_F);
       cutout_threshold = hs::lerp(a.cutout_threshold, b.cutout_threshold, t);
       cutout_softness = hs::lerp(a.cutout_softness, b.cutout_softness, t);
       edge_width = hs::lerp(a.edge_width, b.edge_width, t);

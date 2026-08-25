@@ -3930,10 +3930,15 @@ inline void test_shader_workbench_projection_catalog() {
   scroll_from.layout_scroll = 0.9f;
   scroll_to.layout_scroll = -0.9f;
   const auto scroll_start = WB::lerp_projection(scroll_from, scroll_to, 0.0f);
+  const auto scroll_quarter =
+      WB::lerp_projection(scroll_from, scroll_to, 0.25f);
   const auto scroll_mid = WB::lerp_projection(scroll_from, scroll_to, 0.5f);
   const auto scroll_end = WB::lerp_projection(scroll_from, scroll_to, 1.0f);
   HS_EXPECT_EQ(scroll_start.layout_scroll, 0.9f);
-  HS_EXPECT_NEAR(scroll_mid.layout_scroll, 1.0f, 1e-6f);
+  // The shorter arc crosses the period boundary rather than sweeping through
+  // zero: a straight interpolation would read 0.45 here.
+  HS_EXPECT_NEAR(scroll_quarter.layout_scroll, 0.95f, 1e-6f);
+  HS_EXPECT_NEAR(scroll_mid.layout_scroll, 0.0f, 1e-6f);
   HS_EXPECT_EQ(scroll_end.layout_scroll, -0.9f);
   const auto peirce_scroll_mid = projections::peirce_projection(
       equator_east, 0.0f, 2, scroll_mid.layout_scroll);
