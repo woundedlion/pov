@@ -116,30 +116,22 @@ inline constexpr float NO_EDGE_DISTANCE_SQUARED =
 /** @brief One projection kernel's plane coordinates plus its seam metadata. */
 struct ProjectionKernelResult {
   /** Plane position in the kernel's native units. */
-  Complex coords;
+  Complex coords{};
   /** Which sheet of an interrupted image the point fell in. */
-  uint8_t region_id;
+  uint8_t region_id = 0;
   /** Disconnected component within the region. */
-  uint8_t component_id;
+  uint8_t component_id = 0;
   /** ProjectionBoundary mask for the edge `fade_edge_distance` measures to. */
-  uint8_t boundary_flags;
+  uint8_t boundary_flags = 0;
   /** Distance to the nearest cut in the kernel's own units; NO_EDGE_DISTANCE
    *  when the kernel was asked to skip it or found no cut. */
-  float fade_edge_distance;
+  float fade_edge_distance = NO_EDGE_DISTANCE;
   /** Kernel-specific per-point flags. */
-  uint8_t flags;
+  uint8_t flags = 0;
   /** ProjectionTrait mask for the image as a whole. */
-  uint8_t traits;
+  uint8_t traits = 0;
   /** Identity of the nearest edge, shared by both sides of a glued seam. */
-  uint8_t edge_class;
-
-  constexpr ProjectionKernelResult(Complex coords, uint8_t region_id,
-                                   uint8_t component_id, uint8_t boundary_flags,
-                                   float fade_edge_distance, uint8_t flags,
-                                   uint8_t traits = 0, uint8_t edge_class = 0)
-      : coords(coords), region_id(region_id), component_id(component_id),
-        boundary_flags(boundary_flags), fade_edge_distance(fade_edge_distance),
-        flags(flags), traits(traits), edge_class(edge_class) {}
+  uint8_t edge_class = 0;
 };
 
 /**
@@ -223,14 +215,14 @@ bonne_projection(const Vector &v, float central_meridian,
     coords = Complex(rho * sinf(e), latitude - standard_parallel +
                                         2.0f * rho * half_sine * half_sine);
   }
-  return {coords,
-          static_cast<uint8_t>(longitude < 0.0f),
-          0,
-          projection_boundary(ProjectionBoundary::CUT),
-          std::max(0.0f, cut_distance),
-          0,
-          projection_traits(ProjectionTrait::CUT),
-          0};
+  return {.coords = coords,
+          .region_id = static_cast<uint8_t>(longitude < 0.0f),
+          .component_id = 0,
+          .boundary_flags = projection_boundary(ProjectionBoundary::CUT),
+          .fade_edge_distance = std::max(0.0f, cut_distance),
+          .flags = 0,
+          .traits = projection_traits(ProjectionTrait::CUT),
+          .edge_class = 0};
 }
 
 /**
@@ -394,16 +386,17 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
     edge_class = 4;
   else if (layout == 3)
     edge_class = 5;
-  return {Complex(x, projected_y),
-          region,
-          0,
-          projection_boundary(ProjectionBoundary::SINGULAR),
-          edge,
-          flags,
-          projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
-                            ProjectionTrait::PERIODIC) |
+  return {.coords = Complex(x, projected_y),
+          .region_id = region,
+          .component_id = 0,
+          .boundary_flags = projection_boundary(ProjectionBoundary::SINGULAR),
+          .fade_edge_distance = edge,
+          .flags = flags,
+          .traits =
+              projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
+                                ProjectionTrait::PERIODIC) |
               projection_traits(ProjectionTrait::SINGULAR),
-          edge_class};
+          .edge_class = edge_class};
 }
 
 /**
@@ -496,16 +489,17 @@ peirce_projection_fast_square(const Vector &v) {
     edge = std::min(edge,
                     0.5f * PI_F - fast_acos(hs::clamp(fold_sine, 0.0f, 1.0f)));
   }
-  return {Complex(x, projected_y),
-          region,
-          0,
-          projection_boundary(ProjectionBoundary::SINGULAR),
-          edge,
-          flags,
-          projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
-                            ProjectionTrait::PERIODIC) |
+  return {.coords = Complex(x, projected_y),
+          .region_id = region,
+          .component_id = 0,
+          .boundary_flags = projection_boundary(ProjectionBoundary::SINGULAR),
+          .fade_edge_distance = edge,
+          .flags = flags,
+          .traits =
+              projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
+                                ProjectionTrait::PERIODIC) |
               projection_traits(ProjectionTrait::SINGULAR),
-          edge_class};
+          .edge_class = edge_class};
 }
 
 /**
@@ -1029,17 +1023,17 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
   }
   if (horizontal)
     output = {AIROCEAN_NET_HEIGHT - output.y, output.x};
-  return {Complex(output.x, output.y),
-          face,
-          0,
-          static_cast<uint8_t>(
+  return {.coords = Complex(output.x, output.y),
+          .region_id = face,
+          .component_id = 0,
+          .boundary_flags = static_cast<uint8_t>(
               cut_edge ? projection_boundary(ProjectionBoundary::CUT)
                        : projection_boundary(ProjectionBoundary::NONE)),
-          edge,
-          0,
-          projection_traits(cut_edge ? ProjectionTrait::CUT
-                                     : ProjectionTrait::GLUED),
-          edge_identity};
+          .fade_edge_distance = edge,
+          .flags = 0,
+          .traits = projection_traits(cut_edge ? ProjectionTrait::CUT
+                                               : ProjectionTrait::GLUED),
+          .edge_class = edge_identity};
 }
 
 } // namespace projections
