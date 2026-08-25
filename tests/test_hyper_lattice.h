@@ -311,7 +311,47 @@ inline void test_render_signature() {
       signature = hs_test::fnv1a64_channel(signature, frac_to_q16(color.alpha));
     }
   }
-  HS_EXPECT_EQ(signature, uint64_t(3173600656855287585ull));
+  HS_EXPECT_EQ(signature, uint64_t(8212866959268589050ull));
+}
+
+inline void test_specialized_slice_transition() {
+  static constexpr Vector DIRECTIONS[] = {
+      {1.0f, 0.0f, 0.0f},
+      {0.577350269f, 0.577350269f, 0.577350269f},
+      {-0.270598050f, 0.653281482f, 0.707106781f},
+      {0.5f, -0.5f, 0.707106781f},
+  };
+  static constexpr float AMOUNTS[] = {0.5f, 0.625f, 0.75f, 0.875f};
+
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  const HL::Params start = HyperLatticeWhiteBox::Effect::preset_params(0);
+  const HL::Params target = HyperLatticeWhiteBox::Effect::preset_params(1);
+  for (float amount : AMOUNTS) {
+    HL::FrameState frame{};
+    frame.params.lerp(start, target, amount);
+    frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
+    frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
+    frame.pixel_half_angle = HL::pixel_half_angle<288, 144>();
+    frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
+    frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
+    const HL::PreparedTrace prepared = HL::prepare_trace(frame);
+    for (const Vector &direction : DIRECTIONS) {
+      const Color4 exact = HL::shade({direction, 0.0f}, frame, prepared);
+      const Color4 specialized =
+          HL::shade_mode<true, true>({direction, 0.0f}, frame, prepared);
+      HS_EXPECT_NEAR(static_cast<float>(specialized.color.r) *
+                         specialized.alpha,
+                     static_cast<float>(exact.color.r) * exact.alpha, 512.0f);
+      HS_EXPECT_NEAR(static_cast<float>(specialized.color.g) *
+                         specialized.alpha,
+                     static_cast<float>(exact.color.g) * exact.alpha, 512.0f);
+      HS_EXPECT_NEAR(static_cast<float>(specialized.color.b) *
+                         specialized.alpha,
+                     static_cast<float>(exact.color.b) * exact.alpha, 512.0f);
+      HS_EXPECT_NEAR(specialized.alpha, exact.alpha, 0.03125f);
+    }
+  }
 }
 
 inline void test_presets_and_pipeline() {
@@ -346,7 +386,7 @@ inline void test_presets_and_pipeline() {
   static_assert(preset2.sphere_radius == 0.0f);
   static_assert(preset2.wire_radius == 0.03546f);
   static_assert(preset2.softness == 0.029612f);
-  static_assert(preset2.far_cells == 7.264f);
+  static_assert(preset2.far_cells == 8.0f);
   static_assert(preset2.aa_strength == 1.0f);
   static_assert(preset2.speed == 0.03f);
   static_assert(preset2.spin_3d == 0.01089f);
@@ -354,7 +394,7 @@ inline void test_presets_and_pipeline() {
   static_assert(preset2.chrome_warp == 0.65f);
   static_assert(preset2.reflection == HL::ReflectionMode::CHROME);
   static_assert(preset2.color == HL::ColorMode::DEPTH);
-  static_assert(preset2.shells == HL::ShellCount::THREE);
+  static_assert(preset2.shells == HL::ShellCount::TWO);
 }
 
 inline void test_dimension_dropdown_and_mode_lerp() {
@@ -405,6 +445,7 @@ inline int run_hyper_lattice_tests() {
   test_hyperplane_event();
   test_coincident_planes_form_one_layer();
   test_render_signature();
+  test_specialized_slice_transition();
   test_presets_and_pipeline();
   test_dimension_dropdown_and_mode_lerp();
   return fixture.result();
