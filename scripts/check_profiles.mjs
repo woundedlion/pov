@@ -41,7 +41,8 @@ export async function profileDirectories(profilesDir, errors = []) {
 
 export async function reportsIn(profilesDir, directory, errors) {
   const entries = await readdir(join(profilesDir, directory));
-  const reports = new Map();
+  const reports = [];
+  const keys = new Set();
   for (const file of entries) {
     if (file === 'README.md') continue;
     const match = REPORT_RE.exec(file);
@@ -50,11 +51,12 @@ export async function reportsIn(profilesDir, directory, errors) {
       continue;
     }
     const key = match[1];
-    if (reports.has(key))
+    if (keys.has(key))
       errors.push(`${directory} has multiple reports for ${key}`);
-    reports.set(key, { date: match[2], file });
+    keys.add(key);
+    reports.push({ key, date: match[2], file });
   }
-  if (reports.size === 0)
+  if (reports.length === 0)
     errors.push(`${directory} has no profile reports`);
   return reports;
 }
@@ -132,31 +134,31 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
   const o3 = reportSets.get('O3');
   const retired = reportSets.get('retired');
   if (!shipping) errors.push('shipping profile directory is missing');
-  else compareSets('shipping profiles', new Set(shipping.keys()), phantasmKeys,
-    errors);
+  else compareSets('shipping profiles',
+    new Set(shipping.map(report => report.key)), phantasmKeys, errors);
   if (!o3) errors.push('O3 profile directory is missing');
   else {
-    for (const name of o3.keys()) {
-      if (!phantasmKeys.has(name))
-        errors.push(`O3 profile names a non-Phantasm effect: ${name}`);
+    for (const { key } of o3) {
+      if (!phantasmKeys.has(key))
+        errors.push(`O3 profile names a non-Phantasm effect: ${key}`);
     }
   }
   if (!retired) errors.push('retired profile directory is missing');
   else {
-    for (const name of retired.keys()) {
-      if (effectKeys.has(name))
-        errors.push(`retired profile still names a registered effect: ${name}`);
+    for (const { key } of retired) {
+      if (effectKeys.has(key))
+        errors.push(`retired profile still names a registered effect: ${key}`);
     }
   }
 
   for (const [directory, reports] of reportSets) {
-    for (const [key, { date, file }] of reports) {
+    for (const { key, date, file } of reports) {
       const report = await readFile(join(profilesDir, directory, file), 'utf8');
       validateReport(report, directory, key, date, file, errors);
     }
     const directoryIndex = await readFile(
       join(profilesDir, directory, 'README.md'), 'utf8');
-    const filenames = new Set([...reports.values()].map(report => report.file));
+    const filenames = new Set(reports.map(report => report.file));
     compareSets(`main ${directory} index`,
       linkedReports(index, `${directory}/`), filenames, errors);
     compareSets(`${directory} index`, linkedReports(directoryIndex, ''),
@@ -176,9 +178,9 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
   return {
     directories,
     errors,
-    o3Count: o3?.size ?? 0,
+    o3Count: o3?.length ?? 0,
     phantasmCount: phantasmRoster.length,
-    retiredCount: retired?.size ?? 0,
+    retiredCount: retired?.length ?? 0,
   };
 }
 
