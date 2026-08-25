@@ -12,14 +12,14 @@ dimension value maps to the discrete `LatticeMode::FOUR_D_SLICE` mode:
 ```
 
 The final COM3 capture holds preset 3 directly for 70 seconds under the real
-segmented driver. It validates as preset 3/5 and measures a **64.71 ms** worst
-16-frame shader mean and **70.44 ms** maximum frame, spilling 346/736 frames.
+segmented driver. It validates as preset 3/5 and measures a **64.72 ms** worst
+16-frame shader mean and **70.32 ms** maximum frame, spilling 346/736 frames.
 The strict 59 ms target is therefore not met. The integrated Phantasm image
-passes the memory gate with 191,944 bytes of RAM1 code and 1,592 bytes of ITCM
+passes the memory gate with 192,408 bytes of RAM1 code and 1,128 bytes of ITCM
 headroom.
 
 The corresponding raw capture is
-`build/prof/hyperlattice_new_preset3_final_master_ship.log`. The native
+`build/prof/hyperlattice_preset3_landed_ship.log`. The native
 HyperLattice module passes 840 assertions, including exact preset fields,
 the pinned combined render signature, and equality between dynamic and
 projected shader dispatch.
@@ -38,8 +38,8 @@ projected shader dispatch.
   inflate slice register pressure or instruction-cache footprint.
 
 On the rebased pre-dispatch image, preset 3 measured 67.57 ms worst-window mean
-and 73.11 ms peak. The final split image measures 64.71/70.44 ms, an exact
-2.86 ms mean and 2.67 ms peak recovery. On the superseded first projected-mode
+and 73.11 ms peak. The final split image measures 64.72/70.32 ms, an exact
+2.85 ms mean and 2.79 ms peak recovery. On the superseded first projected-mode
 implementation, the same split also reduced projected preset 4's late-phase
 mean from 119.44 to 91.21 ms and its peak from 123.06 to 94.07 ms. Those preset
 4 figures document the dispatch A/B only; the later screen-coherent projected
@@ -76,7 +76,7 @@ perceptually unobservable. A fixed remaining-alpha cutoff had no measurable
 effect, so the bound must account for the maximum contribution of all pending
 events.
 
-If that does not close the 5.71 ms worst-window gap, test distant-shell-only
+If that does not close the 5.72 ms worst-window gap, test distant-shell-only
 mixed resolution while retaining the nearest shell at full resolution. The
 user has approved imperceptible pixel differences, but each approximation must
 still be judged with full-preset error histograms, temporal diffs, and an
