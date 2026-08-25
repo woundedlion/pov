@@ -384,11 +384,11 @@ private:
 
     // Physics scratch is popped; the raster phase reuses the arena for the
     // oriented lattice so the kernel walks stay in world space.
-    Vector *world_nodes;
-    {
+    auto lattice = [this] {
       HS_PROFILE(bz_orient);
-      world_nodes = orient_lattice();
-    }
+      return orient_lattice();
+    }();
+    Vector *world_nodes = lattice.get();
 
     const FloatRgb &ca = color_a;
     const FloatRgb &cb = color_b;

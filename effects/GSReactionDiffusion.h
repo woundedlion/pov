@@ -536,7 +536,8 @@ private:
     // oriented lattice so the kernel walks stay in world space, plus the
     // two-ring cull flags.
     HS_PROFILE(grd_rasterize);
-    Vector *world_nodes = orient_lattice();
+    auto lattice = orient_lattice();
+    Vector *world_nodes = lattice.get();
     uint8_t *hot1 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *hot2 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));

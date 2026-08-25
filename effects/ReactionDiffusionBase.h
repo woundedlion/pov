@@ -336,17 +336,46 @@ protected:
   }
 
   /**
-   * @brief Carves the per-frame oriented lattice out of scratch and fills it.
-   * @return World-space node positions (RD_N entries), live until the caller's
-   * ScratchScope pops.
+   * @brief One frame's oriented lattice, bundled with the scratch scope it is
+   *        carved from.
+   * @details Ties the scope to the array the way init_lattice() ties the node
+   * reserve to the fill: a caller cannot take the world nodes without taking
+   * the reclaim. Nests LIFO like any other ScratchScope, so allocations made
+   * from the same arena after the handle is constructed must not outlive it.
    */
-  Vector *orient_lattice() {
-    Vector *world = static_cast<Vector *>(
-        scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+  class OrientedLattice {
+  public:
+    /**
+     * @brief Opens the scope, carves RD_N nodes, and fills them.
+     * @param arena Scratch arena to carve from.
+     * @param lattice Source lattice positions (RD_N entries).
+     * @param q Lattice-to-world rotation.
+     */
+    OrientedLattice(Arena &arena, const Vector *lattice, const Quaternion &q)
+        : scope(arena), world(static_cast<Vector *>(arena.allocate(
+                            RD_N * sizeof(Vector), alignof(Vector)))) {
+      orient_nodes(lattice, world, RD_N, q);
+    }
+
+    /**
+     * @brief World-space node positions.
+     * @return RD_N entries, live until this handle is destroyed.
+     */
+    Vector *get() const { return world; }
+
+  private:
+    ScratchScope scope; /**< Reclaims `world` on destruction. */
+    Vector *world;      /**< Oriented positions carved from `scope`. */
+  };
+
+  /**
+   * @brief Carves the per-frame oriented lattice out of scratch and fills it.
+   * @return Handle owning both the scratch scope and the world-space nodes.
+   */
+  [[nodiscard]] OrientedLattice orient_lattice() {
     const Quaternion &current = orientation.get();
     inverse_orientation = RotationMatrix(current.conjugate());
-    orient_nodes(nodes, world, RD_N, current);
-    return world;
+    return OrientedLattice(scratch_arena_a, nodes, current);
   }
 
   /**
