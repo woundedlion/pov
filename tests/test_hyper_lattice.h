@@ -374,6 +374,7 @@ inline void test_hyperplane_event() {
   HL::FrameState frame{};
   frame.params = HyperLattice<96, 20>::preset_params(3);
   frame.params.reflection = HL::ReflectionMode::RADIAL;
+  frame.params.sphere_radius = 0.4f;
   frame.origin = {{0.0f, 0.0f, 0.31f, 0.25f}};
   frame.rotation_phase[3] = 0.5f * PI_F;
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
@@ -470,6 +471,21 @@ inline void test_presets_and_pipeline() {
                  HL::LatticeMode::FOUR_D_SLICE);
   HS_EXPECT_TRUE(Effect::preset_params(4).mode ==
                  HL::LatticeMode::FOUR_D_PROJECTED);
+
+  constexpr HL::Params preset = Effect::preset_params(3);
+  static_assert(preset.mode == HL::LatticeMode::FOUR_D_SLICE);
+  static_assert(preset.sphere_radius == 0.0f);
+  static_assert(preset.wire_radius == 0.03546f);
+  static_assert(preset.softness == 0.029612f);
+  static_assert(preset.far_cells == 7.264f);
+  static_assert(preset.aa_strength == 1.0f);
+  static_assert(preset.speed == 0.03f);
+  static_assert(preset.spin_3d == 0.01089f);
+  static_assert(preset.spin_4d == 0.015f);
+  static_assert(preset.chrome_warp == 0.65f);
+  static_assert(preset.reflection == HL::ReflectionMode::CHROME);
+  static_assert(preset.color == HL::ColorMode::DEPTH);
+  static_assert(preset.shells == HL::ShellCount::THREE);
 }
 
 inline void test_dimension_dropdown_and_mode_lerp() {
