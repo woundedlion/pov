@@ -318,6 +318,29 @@ class BoardSelection(unittest.TestCase):
         run_lock(script, self.base)
         self.assertTrue(self.lock_dir("COM3").is_dir())
 
+    def test_release_restores_a_peers_claim_it_declined_to_free(self):
+        # The declined release goes through the same rename as a break, so the
+        # peer's info must be put back and no scratch directory left behind.
+        script = ('hs_device_acquire E profile 60; '
+                  f'echo token=peer > "{self.base}-COM3.d/info"; '
+                  'hs_device_release; echo "RC=$?"')
+        r = run_lock(script, self.base)
+        self.assertIn("RC=0", r.stdout)
+        self.assertEqual((self.lock_dir("COM3") / "info").read_text().strip(),
+                         "token=peer")
+        self.assertEqual(sorted(x.name for x in self.base.parent.iterdir()),
+                         ["lock-COM3.d"])
+
+    def test_release_survives_errexit(self):
+        # profile_one.sh runs under `set -e`; a declined release must not abort
+        # the caller mid-teardown.
+        script = ('set -e; hs_device_acquire E profile 60; '
+                  f'echo token=peer > "{self.base}-COM3.d/info"; '
+                  'hs_device_release; echo DONE')
+        r = run_lock(script, self.base)
+        self.assertIn("DONE", r.stdout)
+        self.assertEqual(r.returncode, 0)
+
     @staticmethod
     def _dead_pid():
         p, pid = _live_bash()
