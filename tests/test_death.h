@@ -2056,6 +2056,37 @@ inline void case_face_scratch_retargeted() {
 }
 
 /**
+ * @brief Death case: scanning a Face whose scratch buffer a later, culled Face
+ *        claimed.
+ * @details The second build fills the scratch buffer and only then culls on
+ *          collapsed area, so the first face's spans are retargeted even though
+ *          nothing will be drawn for the second.
+ */
+inline void case_face_scratch_retargeted_by_culled_face() {
+  constexpr int H = 16, HV = H + hs::H_OFFSET;
+  Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
+  Vector verts[4];
+  uint16_t idx_a[3], idx_b[3];
+  for (int i = 0; i < 3; ++i) {
+    float a = (2.0f * PI_F * i) / 3.0f;
+    verts[i] = (basis.v * cosf(0.6f) +
+                (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(0.6f))
+                   .normalized();
+    idx_a[i] = static_cast<uint16_t>(i);
+    // Coincident vertices enclose no area: culled after the scratch fill.
+    idx_b[i] = 3;
+  }
+  verts[3] = basis.v;
+  static SDF::FaceScratchBuffer scratch;
+  SDF::Face first(std::span<const Vector>(verts, 4),
+                  std::span<const uint16_t>(idx_a, 3), scratch, HV, H);
+  SDF::Face second(std::span<const Vector>(verts, 4),
+                   std::span<const uint16_t>(idx_b, 3), scratch, HV, H);
+  (void)second;
+  (void)first.get_vertical_bounds<H>();
+}
+
+/**
  * @brief Death case: a scan rejects a canvas that is not its <W, H>.
  * @details Direct construction exercises the guard independently of the draw
  *          primitives that call it.
@@ -3873,6 +3904,10 @@ inline const Case *all_cases(int &n) {
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
        "cr.render_y_end() <= H) "},
       {"face_scratch_retargeted", case_face_scratch_retargeted, "face.h",
+       "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
+       "SDF::Face scanned after a later Face claimed its scratch buffer"},
+      {"face_scratch_retargeted_by_culled_face",
+       case_face_scratch_retargeted_by_culled_face, "face.h",
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
        "SDF::Face scanned after a later Face claimed its scratch buffer"},
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "raster.h",
