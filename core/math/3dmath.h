@@ -127,18 +127,25 @@ HS_FLASH_INLINE inline float smooth_ramp(float edge0, float edge1,
 }
 
 /**
- * @brief Compile-time square root by Newton-Raphson from a unit seed.
+ * @brief Compile-time square root by Newton-Raphson.
  * @param x Radicand.
- * @return sqrt(x), or 0 for a non-positive @p x.
- * @details Eight fixed iterations, which converge over O(1) radicands rather
- *          than the whole float range. For run-time use call sqrtf.
+ * @return sqrt(x) to within one ulp, or 0 for a non-positive @p x.
+ * @details The seed is the first Newton step from 1, which lands at or above
+ *          sqrt(x) for every positive x; the iteration then descends
+ *          monotonically, so it stops at the fixed point instead of after a
+ *          fixed count that only converges over O(1) radicands. For run-time
+ *          use call sqrtf.
  */
 constexpr float constexpr_sqrt(float x) {
   if (x <= 0.0f)
     return 0.0f;
-  float root = 1.0f;
-  for (int i = 0; i < 8; ++i)
-    root = 0.5f * (root + x / root);
+  float root = 0.5f * (1.0f + x);
+  for (int i = 0; i < 128; ++i) {
+    const float next = 0.5f * (root + x / root);
+    if (next >= root)
+      break;
+    root = next;
+  }
   return root;
 }
 
