@@ -471,7 +471,8 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
   HS_EXPECT_GT(SDF::distance_of(ring, p).dist, 50.0f);
 
   Basis poly_basis = make_basis(Quaternion(), p);
-  SDF::PlanarPolygon poly(poly_basis, /*radius=*/0.3f, /*sides=*/6, 0.0f);
+  SDF::PlanarPolygon poly(poly_basis, /*radius=*/0.3f / (PI_F / 2.0f),
+                          /*sides=*/6, 0.0f);
   SDF::Subtract<SDF::PlanarPolygon, SDF::DistortedRing> carved(poly, ring);
   const float solid = SDF::distance_of(poly, p).dist;
   HS_EXPECT_LT(solid, -0.1f);
@@ -485,7 +486,7 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
 /** @brief Verifies the polygon center is inside, with dist equal to the negated apothem. */
 inline void test_polygon_at_center_inside() {
   Basis b = equator_basis();
-  SDF::PlanarPolygon poly(b, /*circumradius*/ 0.5f, /*sides*/ 6,
+  SDF::PlanarPolygon poly(b, /*radius*/ 0.5f / (PI_F / 2.0f), /*sides*/ 6,
                           /*phase*/ 0.0f);
 
   auto r = SDF::distance_of(poly, Vector(0, 1, 0));
@@ -497,7 +498,7 @@ inline void test_polygon_at_center_inside() {
 /** @brief Verifies the antipode of the polygon center is outside (positive dist). */
 inline void test_polygon_far_point_outside() {
   Basis b = equator_basis();
-  SDF::PlanarPolygon poly(b, 0.3f, 6, 0.0f);
+  SDF::PlanarPolygon poly(b, 0.3f / (PI_F / 2.0f), 6, 0.0f);
 
   auto r = SDF::distance_of(poly, Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
@@ -789,7 +790,7 @@ inline void test_inverted_fill_stays_centered() {
   HS_EXPECT_TRUE(SDF::distance_of(star, center).dist < 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(star, far_side).dist > 0.0f);
 
-  SDF::PlanarPolygon pp(fb, fr * (PI_F / 2.0f), 6, 0.0f, /*invert=*/true);
+  SDF::PlanarPolygon pp(fb, fr, 6, 0.0f, /*invert=*/true);
   HS_EXPECT_TRUE(SDF::distance_of(pp, center).dist < 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(pp, far_side).dist > 0.0f);
 
@@ -1345,8 +1346,9 @@ inline void test_subtract_star_notch_columns_survive_the_carve() {
   constexpr int W = 256, H = 128;
   // Axis +Z puts the shared center at column W/4, clear of the theta=0 seam.
   const Basis b{Vector(1, 0, 0), Vector(0, 0, 1), Vector(0, 1, 0)};
-  constexpr float outer = 0.5f;              // star tip radius (radians)
-  SDF::PlanarPolygon poly(b, 0.7f, 5, 0.0f); // apothem 0.566 > outer
+  constexpr float outer = 0.5f; // star tip radius (radians)
+  SDF::PlanarPolygon poly(b, 0.7f / (PI_F / 2.0f), 5,
+                          0.0f); // apothem 0.566 > outer
   SDF::Star star(b, outer / (PI_F / 2.0f), 5, 0.0f);
   SDF::Subtract<SDF::PlanarPolygon, SDF::Star> s(poly, star);
 
@@ -2152,7 +2154,7 @@ inline void test_star_polygon_cull_covers_aa_fringe() {
         SDF::Star star(basis, radius, sides, 0.0f);
         total += expect_cull_covers_fringe<W, H>(star, "star");
 
-        SDF::PlanarPolygon poly(basis, radius * (PI_F / 2.0f), sides, 0.0f);
+        SDF::PlanarPolygon poly(basis, radius, sides, 0.0f);
         total += expect_cull_covers_fringe<W, H>(poly, "planar polygon");
 
         SDF::SphericalPolygon sphpoly(basis, radius, sides, 0.0f);
@@ -2185,8 +2187,8 @@ inline void test_cull_covers_interior_over_orientation_grid() {
       SDF::Star star(basis, radius, /*sides=*/5, 0.0f);
       expect_cull_covers_interior<W, H>(star, "star");
 
-      SDF::PlanarPolygon ppoly(basis, /*circumradius=*/radius, /*sides=*/6,
-                               0.0f);
+      SDF::PlanarPolygon ppoly(basis, /*radius=*/radius / (PI_F / 2.0f),
+                               /*sides=*/6, 0.0f);
       expect_cull_covers_interior<W, H>(ppoly, "planar polygon");
 
       SDF::Flower flower(basis, radius, /*sides=*/5, 0.0f);
@@ -2239,8 +2241,8 @@ inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
   for (const Pose &pose : poses) {
     Basis basis_a = make_basis(Quaternion(), pose.axis_a);
     Basis basis_b = make_basis(Quaternion(), pose.axis_b);
-    Poly poly_a(basis_a, pose.radius_a, /*sides=*/6, 0.0f);
-    Poly poly_b(basis_b, pose.radius_b, /*sides=*/5, 0.4f);
+    Poly poly_a(basis_a, pose.radius_a / (PI_F / 2.0f), /*sides=*/6, 0.0f);
+    Poly poly_b(basis_b, pose.radius_b / (PI_F / 2.0f), /*sides=*/5, 0.4f);
 
     SDF::Intersection<Poly, Poly> both(poly_a, poly_b);
     expect_cull_covers_interior<W, H>(both, "intersection leaf pair");
@@ -2279,7 +2281,7 @@ inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
   for (const Pose &pose : poses) {
     Basis basis_a = make_basis(Quaternion(), pose.axis_a);
     Basis basis_b = make_basis(Quaternion(), pose.axis_b);
-    Poly poly(basis_a, pose.radius_a, /*sides=*/6, 0.0f);
+    Poly poly(basis_a, pose.radius_a / (PI_F / 2.0f), /*sides=*/6, 0.0f);
     Star star(basis_b, pose.radius_b, /*sides=*/5, 0.4f);
 
     SDF::Subtract<Poly, Star> carved(poly, star);
@@ -2314,8 +2316,8 @@ inline void test_smooth_union_cull_covers_interior_over_leaf_pairs() {
   for (const Pose &pose : poses) {
     Basis basis_a = make_basis(Quaternion(), pose.axis_a);
     Basis basis_b = make_basis(Quaternion(), pose.axis_b);
-    Poly poly_a(basis_a, pose.radius_a, /*sides=*/6, 0.0f);
-    Poly poly_b(basis_b, pose.radius_b, /*sides=*/5, 0.4f);
+    Poly poly_a(basis_a, pose.radius_a / (PI_F / 2.0f), /*sides=*/6, 0.0f);
+    Poly poly_b(basis_b, pose.radius_b / (PI_F / 2.0f), /*sides=*/5, 0.4f);
 
     SDF::SmoothUnion<Poly, Poly> welded(poly_a, poly_b, /*k=*/0.15f);
     expect_cull_covers_interior<W, H>(welded, "smooth union leaf pair");
@@ -2336,7 +2338,7 @@ inline void test_smooth_union_scans_rows_past_both_children() {
   init_geometry_luts<W, H>();
   using Poly = SDF::PlanarPolygon;
   Basis basis = make_basis(Quaternion(), Vector(0.2f, 1.0f, 0.1f));
-  Poly poly(basis, /*radius=*/0.5f, /*sides=*/6, 0.0f);
+  Poly poly(basis, /*radius=*/0.5f / (PI_F / 2.0f), /*sides=*/6, 0.0f);
 
   // k/6 = 0.2 rad of dilation, several pixel widths past the polygon's own cap.
   SDF::SmoothUnion<Poly, Poly> welded(poly, poly, /*k=*/1.2f);
