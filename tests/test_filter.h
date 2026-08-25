@@ -37,6 +37,7 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <span>
@@ -3125,6 +3126,43 @@ inline void test_screen_trails_forwards_aged_emission() {
 }
 
 /**
+ * @brief Verifies an at-capacity plot() evicts slot 0 and keeps every other
+ *        buffered point exactly once.
+ * @details The eviction moves the last live point into slot 0 and then writes
+ *          the new point over the slot it vacated, so a mis-ordered swap would
+ *          either duplicate or drop the point that was last.
+ */
+inline void test_screen_trails_at_capacity_evicts_slot_zero() {
+  constexpr int W = 32, MAXP = 4;
+  static uint8_t buf[MAXP * 32];
+  Arena arena(buf, sizeof(buf));
+  Filter::Screen::Trails<MAXP> trails(/*lifetime=*/100);
+  trails.init_storage(arena);
+
+  hs_test::StubEffect fx(W, 8);
+  Canvas c(fx);
+  auto noop = [](float, float, const Pixel &, float, float) {};
+  // x identifies the point; slot 0 holds x = 1 when the buffer fills.
+  for (int i = 0; i < MAXP + 1; ++i)
+    trails.plot(static_cast<float>(i + 1), 2.0f, Pixel(1, 1, 1), 0.0f, 1.0f,
+                noop);
+
+  auto trail = [](float, float, float) {
+    return Color4(Pixel(60000, 60000, 60000), 1.0f);
+  };
+  std::vector<float> emitted;
+  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+               [&](float x, float, const Pixel &, float, float) {
+                 emitted.push_back(x);
+               });
+
+  HS_EXPECT_SIZE_OR_RETURN(emitted, MAXP);
+  std::sort(emitted.begin(), emitted.end());
+  for (int i = 0; i < MAXP; ++i)
+    HS_EXPECT_NEAR(emitted[i], static_cast<float>(i + 2), 1e-6f);
+}
+
+/**
  * @brief Verifies the two-callback flush() drains a pipeline that carries
  *        history in both domains.
  * @details Aging happens inside flush(), so a single-domain flush would leave
@@ -3525,6 +3563,7 @@ inline int run_filter_tests() {
   test_screen_trails_store_emit_decay();
   test_screen_trails_set_lifetime_shrink_clamps_t();
   test_screen_trails_forwards_aged_emission();
+  test_screen_trails_at_capacity_evicts_slot_zero();
   test_mixed_domain_flush_drains_both_buffers();
 
   test_effect_needs_full_frame_default_false();
