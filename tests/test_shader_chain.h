@@ -1446,14 +1446,8 @@ struct VectorNoiseMirrorProvider {
 struct VortexMirrorProvider {
   using Binding = WarpMirrorBinding;
   using FrameState = WarpMirrorFrame;
-  static In::Op::PreparedVortexWarp prepare(const FrameState &frame) {
-    const float phase = TWO_PI_F * frame.phase;
-    return {{{frame.vortex.center_x +
-                  frame.vortex.center_orbit_radius * cosf(phase),
-              frame.vortex.center_y +
-                  frame.vortex.center_orbit_radius * sinf(phase),
-              frame.vortex.radius * frame.vortex.radius,
-              TWO_PI_F * frame.vortex.turns}}};
+  static PB::Warp::PreparedVortexSlot prepare(const FrameState &frame) {
+    return PB::Warp::prepare(frame.vortex, frame.phase);
   }
   static bool path_length_required(const FrameState &) { return true; }
 };

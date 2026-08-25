@@ -201,6 +201,35 @@ struct PolarParams {
 };
 static_assert(field_ids_unique<PolarParams>());
 
+/** @brief Warp parameters for the orbiting vortex (Pullback::Warp::Vortex). */
+struct VortexParams {
+  float speed = 0.0f;    /**< Per-frame advance of the slot's phase, which walks
+                              the center around its orbit. */
+  float center_x = 0.0f; /**< Orbit center along x, in plane units. */
+  float center_y = 0.0f; /**< Orbit center along y, in plane units. */
+  float radius = 1.0f;   /**< Radius at which the twist falls to half. */
+  float turns = 0.0f;    /**< Twist at the center, in turns. */
+  float center_orbit_radius = 0.0f; /**< Radius the center orbits over the
+                                         phase cycle; 0 pins the center. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<VortexParams>{"speed", &VortexParams::speed, nullptr, -0.02f, 0.02f,
+                          FieldCurve::LERP},
+      Field<VortexParams>{"center-x", &VortexParams::center_x,
+                          "Vortex Center X", -4.0f, 4.0f, FieldCurve::LERP},
+      Field<VortexParams>{"center-y", &VortexParams::center_y,
+                          "Vortex Center Y", -4.0f, 4.0f, FieldCurve::LERP},
+      Field<VortexParams>{"radius", &VortexParams::radius, "Vortex Radius",
+                          1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE},
+      Field<VortexParams>{"turns", &VortexParams::turns, "Vortex Turns", -4.0f,
+                          4.0f, FieldCurve::LERP},
+      Field<VortexParams>{"center-orbit-radius",
+                          &VortexParams::center_orbit_radius,
+                          "Vortex Center Orbit", 0.0f, 4.0f, FieldCurve::LERP},
+  };
+};
+static_assert(field_ids_unique<VortexParams>());
+
 /** @brief Affine warp coefficients, with the phase oscillation applied. */
 struct PreparedAffine {
   float translation_x; /**< Translation along x, in plane units. */
@@ -228,6 +257,14 @@ struct PreparedRotation {
   float rotation_sin; /**< Sine of the slot's rotation angle. */
 };
 
+/** @brief Vortex warp coefficients, with the phase orbit applied. */
+struct PreparedVortex {
+  float center_x;        /**< Orbited center along x. */
+  float center_y;        /**< Orbited center along y. */
+  float radius_sq;       /**< Square of the half-twist radius. */
+  float angle_numerator; /**< Twist at the center, in radians. */
+};
+
 /** @brief Mirror slot state: the rotation pair plus the fold offsets. */
 struct PreparedMirrorSlot {
   float rotation_cos;
@@ -252,6 +289,14 @@ struct PreparedVectorNoiseSlot {
   float rotation_sin;
   struct {
     PreparedNoiseLoop noise_loop;
+  } transform;
+};
+
+/** @brief Vortex slot state: the vortex coefficients alone, the kernel spins
+    the plane about the vortex center rather than a slot rotation. */
+struct PreparedVortexSlot {
+  struct {
+    PreparedVortex vortex;
   } transform;
 };
 
@@ -286,6 +331,14 @@ prepare(const VectorNoiseParams &warp, float phase) {
                                        0.7071067811865475f,
                                    NOISE_LOOP_RADIUS * cosf(angle)};
   return prepared;
+}
+
+HS_FLASH_INLINE inline PreparedVortexSlot prepare(const VortexParams &warp,
+                                                  float phase) {
+  const float orbit = TWO_PI_F * wrap_t(phase);
+  return {{{warp.center_x + warp.center_orbit_radius * cosf(orbit),
+            warp.center_y + warp.center_orbit_radius * sinf(orbit),
+            warp.radius * warp.radius, TWO_PI_F * warp.turns}}};
 }
 
 /**
