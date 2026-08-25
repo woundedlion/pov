@@ -290,7 +290,11 @@ hs_device_release() {
   local d=$_HS_LOCK_DIR
   [ -n "$_HS_TOKEN" ] && [ -n "$d" ] || return 0
   _hs_break_lock "$d" "$_HS_TOKEN" || :   # a peer holds it now: leave it alone
-  _HS_TOKEN=""; _HS_LOCK_DIR=""; HS_DEVICE_PORT=""
+  _HS_TOKEN=""
+  _HS_LOCK_DIR=""
+  # Read by whoever sourced this file, not here.
+  # shellcheck disable=SC2034
+  HS_DEVICE_PORT=""
 }
 
 # Reports every attached board. rc 0 if at least one is claimable, 2 if the
