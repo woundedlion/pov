@@ -201,6 +201,11 @@ public:
   static constexpr int DWELL_FRAMES = 0;
   static constexpr int FADE_FRAMES = 600;
 
+  /** @brief Arena bytes init() consumes, one generated cycler per harmony. */
+  static constexpr size_t required_arena_bytes() {
+    return 3 * PaletteCycler::generated_arena_bytes();
+  }
+
   HS_COLD_MEMBER void init(Arena &arena, float chroma, float (*easing)(float)) {
     chroma_ = chroma;
     triadic_.init_generated(arena, next_triadic, this, DWELL_FRAMES,
