@@ -388,11 +388,29 @@ class ManifestValidation(unittest.TestCase):
                     "--operations-output", str(manifest_dir / "operations.txt"),
                 ]),
                 contextlib.redirect_stderr(stderr),
+            ):
+                code = capture.main()
+            # rc 1, not argparse's rc 2, and no usage dump over the diagnostic:
+            # the manifest is wrong, the command line is not.
+            self.assertEqual(code, 1)
+            self.assertIn("FRAMEBUFFER/MAXIMUM", stderr.getvalue())
+            self.assertNotIn("usage:", stderr.getvalue())
+
+    def test_capture_still_reports_a_bad_command_line_as_a_usage_error(self):
+        with _staged_manifest() as manifest_dir:
+            stderr = io.StringIO()
+            with (
+                mock.patch.object(sys, "argv", [
+                    "pullback_capture.py",
+                    "--manifest-dir", str(manifest_dir),
+                    "--backend-audit", str(manifest_dir / "audit.bin"),
+                ]),
+                contextlib.redirect_stderr(stderr),
                 self.assertRaises(SystemExit) as caught,
             ):
                 capture.main()
             self.assertEqual(caught.exception.code, 2)
-            self.assertIn("FRAMEBUFFER/MAXIMUM", stderr.getvalue())
+            self.assertIn("requires --configuration", stderr.getvalue())
 
     def test_crosscheck_reports_missing_framebuffer_maximum(self):
         with _staged_manifest() as manifest_dir:
