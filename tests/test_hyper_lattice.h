@@ -319,18 +319,14 @@ inline void test_render_signature() {
 
 inline void test_specialized_slice_transition() {
   reset_globals();
-  static constexpr Vector DIRECTIONS[] = {
-      {1.0f, 0.0f, 0.0f},
-      {0.577350269f, 0.577350269f, 0.577350269f},
-      {-0.270598050f, 0.653281482f, 0.707106781f},
-      {0.5f, -0.5f, 0.707106781f},
-  };
   static constexpr float AMOUNTS[] = {0.5f, 0.625f, 0.75f, 0.875f};
 
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
   const HL::Params start = HyperLatticeWhiteBox::Effect::preset_params(0);
   const HL::Params target = HyperLatticeWhiteBox::Effect::preset_params(1);
+  float max_visible_error = 0.0f;
+  float max_alpha_error = 0.0f;
   for (float amount : AMOUNTS) {
     HL::FrameState frame{};
     frame.params.lerp(start, target, amount);
@@ -340,22 +336,30 @@ inline void test_specialized_slice_transition() {
     frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
     frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
     const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-    for (const Vector &direction : DIRECTIONS) {
-      const Color4 exact = HL::shade({direction, 0.0f}, frame, prepared);
-      const Color4 specialized =
-          HL::shade_mode<true, true>({direction, 0.0f}, frame, prepared);
-      HS_EXPECT_NEAR(static_cast<float>(specialized.color.r) *
-                         specialized.alpha,
-                     static_cast<float>(exact.color.r) * exact.alpha, 512.0f);
-      HS_EXPECT_NEAR(static_cast<float>(specialized.color.g) *
-                         specialized.alpha,
-                     static_cast<float>(exact.color.g) * exact.alpha, 512.0f);
-      HS_EXPECT_NEAR(static_cast<float>(specialized.color.b) *
-                         specialized.alpha,
-                     static_cast<float>(exact.color.b) * exact.alpha, 512.0f);
-      HS_EXPECT_NEAR(specialized.alpha, exact.alpha, 0.03125f);
-    }
+    for (int y = 0; y < 144; ++y)
+      for (int x = 0; x < 288; ++x) {
+        const Vector direction = pixel_to_vector<288, 144>(x, y);
+        const Color4 exact = HL::shade({direction, 0.0f}, frame, prepared);
+        const Color4 specialized =
+            HL::shade_mode<true, true>({direction, 0.0f}, frame, prepared);
+        max_visible_error = std::max(
+            max_visible_error,
+            fabsf(static_cast<float>(specialized.color.r) * specialized.alpha -
+                  static_cast<float>(exact.color.r) * exact.alpha));
+        max_visible_error = std::max(
+            max_visible_error,
+            fabsf(static_cast<float>(specialized.color.g) * specialized.alpha -
+                  static_cast<float>(exact.color.g) * exact.alpha));
+        max_visible_error = std::max(
+            max_visible_error,
+            fabsf(static_cast<float>(specialized.color.b) * specialized.alpha -
+                  static_cast<float>(exact.color.b) * exact.alpha));
+        max_alpha_error =
+            std::max(max_alpha_error, fabsf(specialized.alpha - exact.alpha));
+      }
   }
+  HS_EXPECT_NEAR(max_visible_error, 0.0f, 1.0f);
+  HS_EXPECT_NEAR(max_alpha_error, 0.0f, 5.0e-6f);
 }
 
 inline void test_specialized_render_signature() {
@@ -409,7 +413,7 @@ inline void test_specialized_render_signature() {
   // flag pair; the IEEE legs carry the pin.
   hs_test::skip_case();
 #else
-  HS_EXPECT_EQ(signature, uint64_t(5793370052802859666ull));
+  HS_EXPECT_EQ(signature, uint64_t(4104013131863787240ull));
 #endif
 }
 

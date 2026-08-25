@@ -33,7 +33,6 @@ namespace HyperLatticeDetail {
 constexpr int DIMENSIONS = 4;
 constexpr int MAX_SHELLS = 3;
 constexpr float DIRECTION_EPSILON = 1.0e-4f;
-constexpr float SPECIALIZED_SLICE_AA_CULL_SCALE = 0.82f;
 
 enum class ReflectionMode : uint8_t { CHROME, RADIAL };
 enum class ColorMode : uint8_t { DEPTH, AXIS };
@@ -522,10 +521,7 @@ trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
       coverage_outer_radius - prepared.params.wire_radius;
   const float depth = distance * prepared.inv_far;
   const float fog = std::max(0.0f, 1.0f - depth);
-  const float cull_scale =
-      SPECIALIZED_SLICE ? SPECIALIZED_SLICE_AA_CULL_SCALE * fog : 1.0f;
-  const float outer_radius =
-      prepared.params.wire_radius + cull_scale * coverage_half_width;
+  const float outer_radius = coverage_outer_radius;
   const float outer_radius_sq = outer_radius * outer_radius;
   float metric_sq;
   uint8_t free_axis;
@@ -865,8 +861,7 @@ public:
    * @brief Whether a parameter set is the shape SpecializedRenderPipeline bakes
    *        in.
    * @param value Parameters to test.
-   * @return true when the specialized trace renders the same image as the
-   *         general one.
+   * @return true when the parameters match the specialized trace assumptions.
    * @details The shape is preset 1's; the assert in draw_frame() ties the two,
    *          so retuning that preset cannot leave the gate behind.
    */
