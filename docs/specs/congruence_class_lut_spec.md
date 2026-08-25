@@ -304,6 +304,13 @@ and per-slot bakes in IslamicStars (rebaked unconditionally after every
   by the rippled render A/B, whose delta envelope now equals the static one
   (max 4% FS at a deliberately steep distance-encoding shader; was 43% FS as
   coverage cracks, then 26% FS as gradient shift at a 6-diagonal cap).
+- **§3's clustering rule is not what shipped.** A face joins the
+  **best**-matching same-topology class over cyclic offset x reflection x
+  optimal rotation — not the first rep within `CONGRUENCE_EPS_PX` — and a
+  class that stays size 1 keeps its `class_id`; only a degenerate vertex
+  count or a class-cap overflow yields `NO_CLASS`. The optional
+  refine-to-class-mean step did not ship either: the worst residual
+  (0.008 px) never approached the epsilon.
 - **§10's class-count trap did not ship.** `MAX_CONGRUENCE_CLASSES` is 32
   (not the 255 the u8 id allows), and faces past the cap degrade to
   `NO_CLASS` instead of trapping: the per-face exact path is always correct,
