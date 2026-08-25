@@ -840,8 +840,8 @@ public:
   /// Pullback stages, ordered from the view vector to the color.
   using RotateStage = Pullback::Stage::Rotate<OuterCameraProvider<Binding>>;
   /** Sphere run: displacement, lens and projection as one placement group,
-      out of line in flash when the effect displaces so the hot scan keeps a
-      single flash-call boundary. */
+      out of line in flash when the effect owns a surface-noise field so the
+      hot scan keeps a single flash-call boundary. */
   using SphereRun = Pullback::Stage::Placed<
       HAS_SURFACE_NOISE ? Pullback::CodeEmission::OUT_OF_LINE_FLASH
                         : Pullback::CodeEmission::INLINE_ONLY,
