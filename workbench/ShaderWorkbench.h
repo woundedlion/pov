@@ -3191,8 +3191,7 @@ public:
 
   /**
    * @brief Atomically restores a versioned ShaderWorkbench configuration snapshot.
-   * @return APPLIED on success; failures leave the effect and import notice
-   * unchanged.
+   * @return APPLIED on success; failures leave the effect unchanged.
    */
   HS_COLD_MEMBER ConfigRestoreResult
   restore_full_config_snapshot(const FullConfigSnapshot &snapshot) {
