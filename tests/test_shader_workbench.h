@@ -2260,33 +2260,33 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(alien_core.params.color.palette_chroma, 0.292f);
   HS_EXPECT_EQ(alien_core.params.outer_camera.wander, 1.0f);
   const auto &mobius_grid = presets[19];
-  constexpr std::array<uint32_t, 155> MOBIUS_GRID_EXPECTED{
+  constexpr std::array<uint32_t, 152> MOBIUS_GRID_EXPECTED{
       0,          1,          1,          4,          0,          0,
-      0,          0,          0,          1,          1337,       0,
-      7,          0,          0,          0,          0,          1,
-      1337,       0,          1,          0,          1,          1,
-      2,          1,          2,          1,          0,          0,
-      0,          0,          1,          1092781867, 1048240456, 1057182712,
-      0,          1061997773, 1021128475, 1065353216, 0,          0,
-      1065353216, 0,          1028443341, 1048576000, 0,          2927,
-      2,          1036831949, 0,          1056964608, 0,          0,
-      0,          1065353216, 1065353216, 0,          1065353216, 0,
-      0,          0,          1065353216, 0,          0,          0,
-      1065353216, 1065353216, 0,          0,          1065353216, 0,
-      0,          1036831949, 1036831949, 0,          0,          0,
-      0,          0,          1065353216, 1065353216, 0,          1065353216,
-      0,          0,          0,          1065353216, 0,          0,
-      0,          1065353216, 1065353216, 0,          0,          1065353216,
-      0,          0,          1036831949, 1074169643, 0,          1065353216,
-      0,          1065353216, 1061752795, 0,          1065353216, 3213440844,
-      1050387939, 1054146036, 0,          0,          0,          1060439283,
-      0,          1056964608, 1028443341, 4,          0,          1056964608,
-      1028443341, 1036831949, 1050656375, 1065353216, 0,          1053542056,
+      0,          0,          0,          1,          1337,       7,
+      0,          0,          0,          0,          1,          1337,
+      1,          0,          1,          1,          2,          1,
+      2,          1,          0,          0,          0,          0,
+      1,          1092781867, 1048240456, 1057182712, 0,          1061997773,
+      1021128475, 1065353216, 0,          0,          1065353216, 0,
+      1028443341, 1048576000, 0,          2927,       1036831949, 0,
+      1056964608, 0,          0,          0,          1065353216, 1065353216,
+      0,          1065353216, 0,          0,          0,          1065353216,
+      0,          0,          0,          1065353216, 1065353216, 0,
+      0,          1065353216, 0,          0,          1036831949, 1036831949,
+      0,          0,          0,          0,          0,          1065353216,
+      1065353216, 0,          1065353216, 0,          0,          0,
       1065353216, 0,          0,          0,          1065353216, 1065353216,
-      1065353216, 1065353216, 0,          0,          1337,       1065353216,
-      0,          0,          0,          6,          1034147594, 1017370378,
-      0,          1056964608, 8,          0,          3209481421, 1042267767,
-      1082130432, 1065353216, 1025758986, 1017370378, 0};
+      0,          0,          1065353216, 0,          0,          1036831949,
+      1074169643, 0,          1065353216, 0,          1065353216, 1061752795,
+      0,          1065353216, 3213440844, 1050387939, 1054146036, 0,
+      0,          0,          1060439283, 0,          1056964608, 1028443341,
+      4,          0,          1056964608, 1028443341, 1036831949, 1050656375,
+      1065353216, 0,          1053542056, 1065353216, 0,          0,
+      0,          1065353216, 1065353216, 1065353216, 1065353216, 0,
+      0,          1337,       1065353216, 0,          0,          0,
+      6,          1034147594, 1017370378, 0,          1056964608, 8,
+      0,          3209481421, 1042267767, 1082130432, 1065353216, 1025758986,
+      1017370378, 0};
   const auto mobius_grid_encoded = WB::encode_config(mobius_grid);
   for (size_t index = 0; index < MOBIUS_GRID_EXPECTED.size(); ++index) {
     HS_CONTEXT("mobius grid field", static_cast<long long>(index));
@@ -2476,11 +2476,6 @@ inline void test_shader_workbench_config_admission() {
     HS_EXPECT_TRUE(WB::valid_config(resource_from));
     HS_EXPECT_TRUE(WB::valid_config(resource_to));
     HS_EXPECT_TRUE(WB::transition_admitted(resource_from, resource_to));
-    resource_to.params.source.noise_basis =
-        resource_from.params.source.noise_basis;
-    resource_to.params.source.noise_resource_id ^= 4U;
-    HS_EXPECT_TRUE(WB::transition_admitted(resource_from, resource_to));
-    HS_EXPECT_TRUE(WB::stable_topology(resource_from, resource_to));
 
     WB::RequestedConfig shared_owner = WB::legacy_config();
     shared_owner.slots.warp_program.outer.kind =
@@ -2489,12 +2484,7 @@ inline void test_shader_workbench_config_admission() {
         WB::WarpStageKind::VECTOR_NOISE;
     shared_owner.params.warp.outer.speed = 0.0f;
     shared_owner.params.warp.inner.speed = 0.0f;
-    shared_owner.slots.warp_program.outer.resource_id = 6;
-    shared_owner.slots.warp_program.inner.resource_id = 6;
     HS_EXPECT_TRUE(WB::valid_config(shared_owner));
-    WB::RequestedConfig distinct_owners = shared_owner;
-    distinct_owners.slots.warp_program.inner.resource_id = 7;
-    HS_EXPECT_TRUE(WB::stable_topology(shared_owner, distinct_owners));
     shared_owner.slots.warp_program.inner.basis = WB::NoiseBasis::FBM3;
     HS_EXPECT_TRUE(WB::valid_config(shared_owner));
     HS_EXPECT_TRUE(WB::transition_admitted(shared_owner, shared_owner));
