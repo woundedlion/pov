@@ -45,8 +45,11 @@ def kicad_cli_major(path):
 def find_kicad_cli():
     """Path to kicad-cli: $KICAD_CLI, else a KICAD_MAJOR install, else the PATH name.
 
-    Exits when installs are present but none is KICAD_MAJOR: a newer KiCad
-    upgrades the board on open and formats the fab outputs differently.
+    Exits unless the resolved binary is KICAD_MAJOR: a newer KiCad upgrades the
+    board on open and formats the fab outputs differently. The PATH name is
+    checked like the rest -- it is how Homebrew, flatpak and snap installs
+    resolve, so leaving it unverified would exempt the majority of Unix
+    machines from the pin.
     """
     env = os.environ.get("KICAD_CLI")
     if env and os.path.exists(env):
@@ -65,7 +68,13 @@ def find_kicad_cli():
                  f"  found: {', '.join(hits)}\n"
                  f"  Install KiCad {sexp.KICAD_MAJOR} or set KICAD_CLI to its "
                  "kicad-cli.")
-    return "kicad-cli"                 # assume on PATH
+    major = kicad_cli_major("kicad-cli")
+    if major == sexp.KICAD_MAJOR:
+        return "kicad-cli"
+    sys.exit(f"kicad-cli on PATH reports KiCad {major or 'unknown'}; the fab "
+             f"gates require KiCad {sexp.KICAD_MAJOR}\n"
+             f"  Install KiCad {sexp.KICAD_MAJOR} or set KICAD_CLI to its "
+             "kicad-cli.")
 
 
 _KCLI = None
