@@ -290,8 +290,15 @@ private:
    * the policy owns the cadence. The sprite feeds
    * `Derived::set_preset_opacity` each frame; both the sprite and the advance
    * timer freeze with anims_paused. begin_choreography() arms this once.
+   * The loop re-arms itself from the advance timer, where a dropped add would
+   * end the choreography for good, so it budgets both slots up front and traps
+   * instead.
    */
   HS_COLD_MEMBER void begin_preset_choreography() {
+    HS_CHECK(Timeline::remaining() >= 2,
+             "preset choreography: the envelope sprite and its advance timer "
+             "need two timeline slots, %d free",
+             Timeline::remaining());
     auto segue = Derived::PRESET_SEGUE;
     const int next_delay = segue.schedule(
         timeline,
