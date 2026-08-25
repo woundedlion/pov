@@ -115,6 +115,16 @@ def F(n, k):
     return [c for c in n if isinstance(c, list) and c and c[0] == k]
 
 
+def net_name(node):
+    """Net name of a pad, track, via or zone.
+
+    Reads either KiCad form, `(net "/DATA")` or `(net 9 "/DATA")`, and drops
+    the root-sheet slash; a hierarchical path keeps its remaining segments.
+    """
+    value = sexp.val(node, "net", [])
+    return str(value[-1]).lstrip("/") if value else None
+
+
 def is_copper_pour(zone):
     """True for a zone that pours copper.
 
