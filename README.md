@@ -1830,9 +1830,9 @@ Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 
 
 | Class | Header | Role |
 |---|---|---|
-| `HD107SFrame<N>` | `hd107s_frame.h` | Pre-formatted DMA buffer for the HD107S protocol. `packPixel()` writes `Pixel` values directly into the frame buffer with inline color correction (color correction → temperature → brightness), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and cleaned with `arm_dcache_flush()` (clean, no invalidate — the buffer is TX-only) for cache coherency. |
+| `HD107SFrame<N>` | `hd107s_frame.h` | Pre-formatted DMA buffer for the HD107S protocol. `pack_pixel()` writes `Pixel` values directly into the frame buffer with inline color correction (color correction → temperature → brightness), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and cleaned with `arm_dcache_flush()` (clean, no invalidate — the buffer is TX-only) for cache coherency. |
 | `TeensySPIDMA` | `dma_led.h` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission. |
-| `DMALEDController<N>` | `dma_led_controller.h` | Double-buffered high-level controller. The ISR packs pixels into `backFrame()`, then `submitFrame()` flushes it and triggers async DMA, returning immediately. If the previous transfer is still in flight, `submitFrame()` **drops** the new frame (bumping `getOverrunCount()`) and returns false rather than spinning; a transfer that never completes is surfaced as a wedged-channel fault. The drop returns before the buffers swap, so `backFrame()` still holds the dropped pixels and a caller can re-submit them without repacking. |
+| `DMALEDController<N>` | `dma_led_controller.h` | Double-buffered high-level controller. The ISR packs pixels into `back_frame()`, then `submit_frame()` flushes it and triggers async DMA, returning immediately. If the previous transfer is still in flight, `submit_frame()` **drops** the new frame (bumping `get_overrun_count()`) and returns false rather than spinning; a transfer that never completes is surfaced as a wedged-channel fault. The drop returns before the buffers swap, so `back_frame()` still holds the dropped pixels and a caller can re-submit them without repacking. |
 | `next_buffer()`, `transfer_len()`, `transfer_stale()` | `dma_led_core.h` | Free `constexpr` framing and watchdog math the controller's decisions derive from, host-tested without the peripherals. |
 
 The 16-bit linear pipeline reaches from the canvas all the way to the SPI wire with no 8-bit intermediate:
@@ -1842,8 +1842,8 @@ The 16-bit linear pipeline reaches from the canvas all the way to the SPI wire w
 const Pixel* buf = effect->display_buffer();               // 16-bit linear pixels
 // Physical LED index comes from the single-source-of-truth map (pov_single_map.h),
 // which applies the top-arm reversal / bottom-arm offset — never the raw row index.
-frame.packPixel(pov::strip_top_led(y, S), buf[y * width + x]); // Pixel → HD107S frame
-(void)ledController.submitFrame();                          // non-blocking DMA; returns false on overrun
+frame.pack_pixel(pov::strip_top_led(y, S), buf[y * width + x]); // Pixel → HD107S frame
+(void)ledController.submit_frame();                          // non-blocking DMA; returns false on overrun
 ```
 
 #### Single-Teensy POV Driver (`pov_single.h`)
@@ -1855,9 +1855,9 @@ Main Loop                              ISR (IntervalTimer)
 ──────────                             ───────────────────
 effect->draw_frame()                   show_col() fires every N µs
   Canvas canvas(*this)                   for y in 0..S/2:
-    render to bufs[cur]                    packPixel(strip_top_led(y,S),    get_pixel(x, y))                      // top arm
-  ~Canvas → queue_frame()                  packPixel(strip_bottom_led(y,S), get_pixel(strip_opposite_col(x,W), y)) // bottom arm
-                                         submitFrame() → async DMA
+    render to bufs[cur]                    pack_pixel(strip_top_led(y,S),    get_pixel(x, y))                      // top arm
+  ~Canvas → queue_frame()                  pack_pixel(strip_bottom_led(y,S), get_pixel(strip_opposite_col(x,W), y)) // bottom arm
+                                         submit_frame() → async DMA
                                          x = (x+1) % width
                                          if x==0 || x==width/2: advance_display()
 ```
@@ -1914,7 +1914,7 @@ The ISR loop has no branches:
 const Pixel* buf = effect->display_buffer();    // fast path: no per-pixel virtual dispatch
 int y = y_base;
 for (int i = 0; i < PPS; ++i, y += y_step) {
-    frame.packPixel(i, buf[y * width + x_col]);
+    frame.pack_pixel(i, buf[y * width + x_col]);
 }
 ```
 

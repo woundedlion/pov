@@ -971,7 +971,7 @@ inline void test_handoff_release_acquire_across_threads() {
  * @details The flywheel reports render_column < 0 for the ~7 remaining wakes of
  * a column it has already decided to draw, so a drop that left no pending state
  * would paint that column dark for a whole revolution. The retry re-submits the
- * frame still packed in backFrame() until the transport takes it.
+ * frame still packed in back_frame() until the transport takes it.
  */
 inline void test_submit_retries_dropped_column() {
   SubmitGate g;
