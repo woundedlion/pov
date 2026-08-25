@@ -40,36 +40,40 @@ inline uint8_t hankin_temp_buf[256 * 1024];
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Verifies compile_hankin fills every CompiledHankin array with the
- *        expected sizes and self-consistent contents for a cube input.
+ * @brief Compiles a seed solid and asserts every CompiledHankin array holds the
+ *        expected size and self-consistent contents.
+ * @tparam Solid Seed solid descriptor to compile.
+ * @param edges Unique edges in the seed: one static vertex and two half-edges
+ *        each.
+ * @details Base vertices are copied through unchanged, static vertices are edge
+ *          midpoints on the unit sphere, star and rosette faces each contribute
+ *          two entries per half-edge, and every face and instruction index
+ *          stays inside the array it addresses.
  */
-inline void test_compile_hankin_populates_arrays() {
+template <typename Solid>
+inline void check_compile_hankin_invariants(size_t edges) {
+  HS_CONTEXT("edges", static_cast<long long>(edges));
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
   Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
 
-  PolyMesh cube;
-  build_solid<Solids::Cube>(cube, temp);
+  PolyMesh base;
+  build_solid<Solid>(base, temp);
 
   CompiledHankin compiled;
-  MeshOps::compile_hankin(cube, compiled, target, temp);
+  MeshOps::compile_hankin(base, compiled, target, temp);
 
-  HS_EXPECT_EQ(compiled.base_vertices.size(), cube.vertices.size());
-  for (size_t i = 0; i < cube.vertices.size(); ++i) {
-    HS_EXPECT_NEAR(compiled.base_vertices[i].x, cube.vertices[i].x, 1e-6f);
-    HS_EXPECT_NEAR(compiled.base_vertices[i].y, cube.vertices[i].y, 1e-6f);
-    HS_EXPECT_NEAR(compiled.base_vertices[i].z, cube.vertices[i].z, 1e-6f);
+  HS_EXPECT_EQ(compiled.base_vertices.size(), base.vertices.size());
+  for (size_t i = 0; i < base.vertices.size(); ++i) {
+    HS_EXPECT_NEAR(compiled.base_vertices[i].x, base.vertices[i].x, 1e-6f);
+    HS_EXPECT_NEAR(compiled.base_vertices[i].y, base.vertices[i].y, 1e-6f);
+    HS_EXPECT_NEAR(compiled.base_vertices[i].z, base.vertices[i].z, 1e-6f);
   }
 
-  // one static vertex per unique edge; cube has 12 edges
-  HS_EXPECT_EQ(compiled.static_vertices.size(), (size_t)12);
-
-  // static vertices are edge midpoints normalised onto the unit sphere
-  for (size_t i = 0; i < compiled.static_vertices.size(); ++i) {
+  HS_EXPECT_EQ(compiled.static_vertices.size(), edges);
+  for (size_t i = 0; i < compiled.static_vertices.size(); ++i)
     HS_EXPECT_NEAR(compiled.static_vertices[i].length(), 1.0f, 1e-3f);
-  }
 
-  // one dynamic vertex per half-edge (twice the edge count)
-  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)24);
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), 2 * edges);
 
   HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
 
@@ -78,13 +82,33 @@ inline void test_compile_hankin_populates_arrays() {
     total += compiled.face_counts[i];
   HS_EXPECT_EQ(total, compiled.faces.size());
 
-  // star and rosette faces each contribute two entries per half-edge
   HS_EXPECT_EQ(compiled.faces.size(), 4 * compiled.dynamic_instructions.size());
 
-  size_t max_v =
+  const size_t max_v =
       compiled.static_vertices.size() + compiled.dynamic_instructions.size();
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     HS_EXPECT_TRUE(compiled.faces[i] < max_v);
+
+  const size_t V = base.vertices.size();
+  const size_t S = compiled.static_vertices.size();
+  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+    const auto &ins = compiled.dynamic_instructions[i];
+    HS_EXPECT_TRUE(ins.v_corner < V);
+    HS_EXPECT_TRUE(ins.v_prev < V);
+    HS_EXPECT_TRUE(ins.v_next < V);
+    HS_EXPECT_TRUE(ins.idx_m1 < S);
+    HS_EXPECT_TRUE(ins.idx_m2 < S);
+  }
+}
+
+/**
+ * @brief Verifies compile_hankin's array invariants on the cube's 4-valent quad
+ *        faces and on the icosahedron's 5-valent triangles, so the star-face
+ *        and rosette-orbit arithmetic is covered on non-quad geometry too.
+ */
+inline void test_compile_hankin_populates_arrays() {
+  check_compile_hankin_invariants<Solids::Cube>(12);
+  check_compile_hankin_invariants<Solids::Icosahedron>(30);
 }
 
 /**
@@ -104,32 +128,6 @@ inline void test_compile_hankin_normalizes_antipodal_fallback() {
 
   for (const Vector &mid : compiled.static_vertices)
     HS_EXPECT_NEAR(mid.length(), 1.0f, 1e-5f);
-}
-
-/**
- * @brief Verifies every dynamic instruction references base-vertex and
- *        static-vertex indices within their respective array bounds.
- */
-inline void test_compile_hankin_instruction_indices_in_range() {
-  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
-  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
-
-  PolyMesh cube;
-  build_solid<Solids::Cube>(cube, temp);
-
-  CompiledHankin compiled;
-  MeshOps::compile_hankin(cube, compiled, target, temp);
-
-  size_t V = cube.vertices.size();
-  size_t S = compiled.static_vertices.size();
-  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
-    const auto &ins = compiled.dynamic_instructions[i];
-    HS_EXPECT_TRUE(ins.v_corner < V);
-    HS_EXPECT_TRUE(ins.v_prev < V);
-    HS_EXPECT_TRUE(ins.v_next < V);
-    HS_EXPECT_TRUE(ins.idx_m1 < S);
-    HS_EXPECT_TRUE(ins.idx_m2 < S);
-  }
 }
 
 /**
@@ -172,61 +170,6 @@ inline void test_compile_hankin_static_vertices_are_edge_midpoints() {
     HS_EXPECT_NEAR(got_m2.x, exp_m2.x, 1e-5f);
     HS_EXPECT_NEAR(got_m2.y, exp_m2.y, 1e-5f);
     HS_EXPECT_NEAR(got_m2.z, exp_m2.z, 1e-5f);
-  }
-}
-
-/**
- * @brief Exercises compile_hankin on the icosahedron (triangular faces,
- *        5-valent vertices) so the star-face and rosette-orbit arithmetic is
- *        covered on non-quad geometry, not just the cube's 4-valent faces.
- * @details Icosahedron: 12 vertices, 30 edges, 20 triangular faces, 60
- *          half-edges. static_vertices == edge count (30), star points ==
- *          half-edge count (60), and the same self-consistency invariants hold.
- */
-inline void test_compile_hankin_icosahedron_triangular_faces() {
-  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
-  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
-
-  PolyMesh ico;
-  build_solid<Solids::Icosahedron>(ico, temp);
-
-  CompiledHankin compiled;
-  MeshOps::compile_hankin(ico, compiled, target, temp);
-
-  HS_EXPECT_EQ(compiled.base_vertices.size(), (size_t)12);
-
-  // one static vertex per unique edge; icosahedron has 30 edges
-  HS_EXPECT_EQ(compiled.static_vertices.size(), (size_t)30);
-  for (size_t i = 0; i < compiled.static_vertices.size(); ++i)
-    HS_EXPECT_NEAR(compiled.static_vertices[i].length(), 1.0f, 1e-3f);
-
-  // one dynamic vertex per half-edge (twice the edge count = 60)
-  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)60);
-
-  HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
-
-  size_t total = 0;
-  for (size_t i = 0; i < compiled.face_counts.size(); ++i)
-    total += compiled.face_counts[i];
-  HS_EXPECT_EQ(total, compiled.faces.size());
-
-  // star and rosette faces each contribute two entries per half-edge
-  HS_EXPECT_EQ(compiled.faces.size(), 4 * compiled.dynamic_instructions.size());
-
-  size_t max_v =
-      compiled.static_vertices.size() + compiled.dynamic_instructions.size();
-  for (size_t i = 0; i < compiled.faces.size(); ++i)
-    HS_EXPECT_TRUE(compiled.faces[i] < max_v);
-
-  size_t V = ico.vertices.size();
-  size_t S = compiled.static_vertices.size();
-  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
-    const auto &ins = compiled.dynamic_instructions[i];
-    HS_EXPECT_TRUE(ins.v_corner < V);
-    HS_EXPECT_TRUE(ins.v_prev < V);
-    HS_EXPECT_TRUE(ins.v_next < V);
-    HS_EXPECT_TRUE(ins.idx_m1 < S);
-    HS_EXPECT_TRUE(ins.idx_m2 < S);
   }
 }
 
@@ -841,9 +784,7 @@ inline int run_hankin_tests() {
 
   test_compile_hankin_populates_arrays();
   test_compile_hankin_normalizes_antipodal_fallback();
-  test_compile_hankin_instruction_indices_in_range();
   test_compile_hankin_static_vertices_are_edge_midpoints();
-  test_compile_hankin_icosahedron_triangular_faces();
   test_compile_hankin_star_faces_first_in_base_face_order();
 
   test_update_hankin_flat_collapses_to_corners();
