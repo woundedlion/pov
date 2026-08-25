@@ -126,6 +126,14 @@ committed board directly need no KiCad and run in CI
 - **Part-catalog gate:** every assigned LCSC number must resolve to a catalog
   entry with a non-blank manufacturer, MPN, and description, so each JLCPCB
   BOM match is independently auditable.
+- **Export-content gate:** the upload zip is assembled by filename, so
+  `gen/fab.py` also reads the exported bytes before packaging them: every
+  plotted Gerber must define an aperture and draw with it (only
+  `phantasm-B_Paste.gbp` may be apertureless — assembly is top-side only), and
+  the Excellon files must drill exactly the holes the board carries, counted
+  off the board rather than pinned to a number: every via plus every plated pad
+  hole in `phantasm-PTH.drl`, the unplated mounting holes in
+  `phantasm-NPTH.drl`.
 - **Fab-package digest gate:** the exports are stamp-normalized and zipped with
   fixed member metadata, so an unchanged board repackages byte for byte, and
   every run writes `SHA256SUMS.txt` beside the upload zip covering each zipped
