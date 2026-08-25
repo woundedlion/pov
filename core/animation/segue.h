@@ -820,7 +820,7 @@ template <typename... Ts> struct PolicyList {
    * @brief Invokes @p fn once per policy, on a default-constructed instance.
    * @param fn Callable taking any policy.
    */
-  template <typename Fn> static void for_each(Fn &&fn) { (fn(Ts{}), ...); }
+  template <typename F> static void for_each(F &&fn) { (fn(Ts{}), ...); }
 };
 
 /** @brief Every shipped policy, Base first. A policy left off this roster is
