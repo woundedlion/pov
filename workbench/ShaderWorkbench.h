@@ -2050,6 +2050,10 @@ private:
     PaletteMappingWeights palette_mapping;
     ClockState clocks;
     PreparedTransforms transforms;
+    /** cos and sin of params.projection.central_meridian; the projections that
+        rotate by it are per-pixel, the meridian is not. */
+    float meridian_cos = 1.0f;
+    float meridian_sin = 0.0f;
     PreparedHueRotation prepared_hue_rotation;
     PreparedHueNoise prepared_hue_noise;
     ResourceBindings resources;
@@ -3626,6 +3630,8 @@ private:
     frame.transforms = {animated_projection ? look.transforms.projection_conj
                                             : Quaternion(),
                         look.transforms.outer_conj};
+    frame.meridian_cos = cosf(config.params.projection.central_meridian);
+    frame.meridian_sin = sinf(config.params.projection.central_meridian);
     frame.dynamic = {
         prepare_source_state(look.clocks),
         prepare_spherical_rings(look),
@@ -4126,7 +4132,8 @@ private:
         frame.params.projection.layout_scroll,
         projection_edge_distance_required(frame),
         frame.params.projection.coordinate_scale,
-        frame.params.projection.singularity_fade);
+        frame.params.projection.singularity_fade, frame.meridian_cos,
+        frame.meridian_sin);
   }
 
   HS_FLASH_MEMBER static Pullback::ProjectionResult
