@@ -48,7 +48,7 @@
   X(IslamicStars, 120)                                                         \
   X(AlienOcean, hs_preset_window_seconds<AlienOcean>())                        \
   X(KaleidoscopeHexSoft, hs_preset_window_seconds<KaleidoscopeHexSoft>())      \
-  X(MeshFeedback, 181)                                                         \
+  X(MeshFeedback, hs_preset_window_seconds<MeshFeedback>())                    \
   X(MindSplatter, 120)                                                         \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
   X(PetalFlow, 120)                                                            \
