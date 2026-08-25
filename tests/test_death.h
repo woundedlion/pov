@@ -1848,6 +1848,24 @@ inline void case_transformer_pool_reclaim_storage_moved() {
 }
 
 /**
+ * @brief Death case: spawning after the pool's arena was reclaimed must trap.
+ * @details Transformer surface — init_storage() must run after
+ *          configure_arenas(), which rebinds the arena and hands its bytes out
+ *          again. The slot pointers stay non-null across that, so the watermark
+ *          is what catches the ordering, in every build.
+ */
+inline void case_transformer_pool_arena_reclaimed() {
+  configure_arenas_default();
+  Timeline tl;
+  RippleTransformer<2> rt(tl);
+  rt.init_storage(persistent_arena);
+  configure_arenas_default(); // rebinds under the live pool
+  Animation::Ripple *p = rt.spawn(0, Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
+  if (p == reinterpret_cast<Animation::Ripple *>(0x1))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a pool outliving its Timeline must trap.
  * @details Transformer surface — the destructor reaches back into the timeline
  *          to drop the pool's clear hook, and the spawned completion callbacks
@@ -3873,6 +3891,11 @@ inline const Case *all_cases(int &n) {
        case_transformer_pool_reclaim_storage_moved, "transformer.h",
        "(e == entities && s == active_slots) TransformerPool: reclaimed "
        "storage moved"},
+      {"transformer_pool_arena_reclaimed",
+       case_transformer_pool_arena_reclaimed, "transformer.h",
+       "(storage_arena->get_offset() >= storage_end) TransformerPool: arena "
+       "reclaimed under a live pool; init_storage() runs after "
+       "configure_arenas()"},
       {"transformer_pool_outlives_timeline",
        case_transformer_pool_outlives_timeline, "transformer.h",
        "(global_timeline_live) TransformerPool outlived its Timeline: declare "
