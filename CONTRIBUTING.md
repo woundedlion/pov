@@ -68,8 +68,10 @@ correctness gate.
   `clang-format-22` binary. Every external tool version is single-sourced
   through `tools/build_pins.py`, whose `--check` fails a partial bump.
 - **Native suite:** `cmake --preset tests && cmake --build --preset tests` then
-  `ctest --preset tests --output-on-failure --no-tests=error`. Set
-  `HS_EFFECTS_FULL=1` to reproduce the full-resolution master leg locally.
+  `ctest --preset tests --output-on-failure --no-tests=error`. Every CI leg
+  drives `HS_SMOKE_FRAMES=120`; at the 8-frame default no preset transition
+  arms. Set `HS_EFFECTS_FULL=1` to reproduce the full-resolution master leg
+  locally.
 - **Node script suite:** `npm test` runs every `scripts/*.test.mjs` — the
   shader-workbench schema and digest contracts, the WASM smoke predicates, the
   engine bindings contract, the profile roster and the PNG probe. CI runs it as
