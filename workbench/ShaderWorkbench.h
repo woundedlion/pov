@@ -4179,8 +4179,7 @@ private:
   HS_FLASH_MEMBER static Pullback::ProjectionResult
   project_sinusoidal(const Vector &local, const FrameState &frame) {
     return Pullback::Projection::folded_sinusoidal(
-        local, frame.params.projection.central_meridian,
-        frame.params.projection.singularity_fade);
+        local, frame.params.projection.central_meridian);
   }
 
   HS_FLASH_MEMBER static Pullback::ProjectionResult
