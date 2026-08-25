@@ -201,6 +201,13 @@ static bool runs_effects(int argc, char **argv) {
   return false;
 }
 
+/**
+ * @brief Smoke window every CI leg has to set.
+ * @details Below this the frame-cyclic paths stay unreached and no preset
+ * transition arms, so a shallower window reports green over untested code.
+ */
+constexpr int CI_MIN_SMOKE_FRAMES = 120;
+
 /** @brief Reports whether CI-only runner depth levers must be enforced. */
 static bool runs_in_ci() {
 #pragma clang diagnostic push
@@ -232,13 +239,13 @@ static int check_ci_levers(int argc, char **argv) {
   const char *frames = std::getenv("HS_SMOKE_FRAMES");
   const char *require_effects_full = std::getenv("HS_REQUIRE_EFFECTS_FULL");
 #pragma clang diagnostic pop
-  if (!frames || std::atoi(frames) <= 0) {
+  if (!frames || std::atoi(frames) < CI_MIN_SMOKE_FRAMES) {
     std::fprintf(stderr,
-                 "run_tests: CI=on but HS_SMOKE_FRAMES is unset or not a "
-                 "positive int — the run would fall back to the %d-frame local "
-                 "window and skip every frame-cyclic path. Set HS_SMOKE_FRAMES "
-                 "in the workflow step's env.\n",
-                 hs_test::DEFAULT_SMOKE_FRAMES);
+                 "run_tests: CI=on but HS_SMOKE_FRAMES is unset or below %d — "
+                 "a shallower window skips frame-cyclic paths and arms no "
+                 "preset transition. Set HS_SMOKE_FRAMES in the workflow "
+                 "step's env.\n",
+                 CI_MIN_SMOKE_FRAMES);
     ++missing;
   }
   if (require_effects_full && std::atoi(require_effects_full) > 0 &&
