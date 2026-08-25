@@ -690,19 +690,20 @@ private:
     // index, and a board joining off it would adopt stale identity.
     if (content_tracker.commit_pending)
       return;
-    // A coalesced coast can jump position from < W/4 straight past the beacon
-    // point (and even past HALF) in one wake, leaving beacon_done_this_rev unset
-    // while current_boundary() has already advanced — so this revolution emits
-    // no beacon. That is an accepted skip, not a missed-emission bug: the
-    // protocol self-heals on the next due beacon, within rejoin_bound_revs().
-    const int32_t x = fly.position(now);
-    if (x < protocol_config.W / 4)
-      return;
+    // Schedule test first: it reads only the revolution counter, while the
+    // position below costs two 64-bit divides on every wake.
     const uint32_t rev = content_tracker.rev_in_effect;
     const bool due = (rev % protocol_config.beacon_period_revs) == 1u ||
                      (rev >= 1u && rev <= static_cast<uint32_t>(
                                               protocol_config.epoch_repeats));
     if (!due)
+      return;
+    // A coalesced coast can jump position from < W/4 straight past the beacon
+    // point (and even past HALF) in one wake, leaving beacon_done_this_rev unset
+    // while current_boundary() has already advanced — so this revolution emits
+    // no beacon. That is an accepted skip, not a missed-emission bug: the
+    // protocol self-heals on the next due beacon, within rejoin_bound_revs().
+    if (fly.position(now) < protocol_config.W / 4)
       return;
     uint8_t digits[5];
     encode_beacon_digits(content_tracker.effect_index, rev, digits);
