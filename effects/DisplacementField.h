@@ -124,7 +124,8 @@ public:
   /**
    * @brief Refreshes the displacement stack from the sliders, advances the
    * NOISE -> BALLS phase machine under the master-gain fade, then renders one
-   * frame.
+   * frame. The phase machine holds while animations are paused; the rings still
+   * render.
    */
   void draw_frame() override {
     color_spin = wrap_t(color_spin + COLOR_SPIN_RATE);
@@ -142,28 +143,33 @@ public:
       noise_field.prepare_frame();
     }
 
-    switch (phase) {
-    case Phase::BALLS:
-      // Slider-paced spawner: the cooldown re-reads Ball Rate on every spawn.
-      if (ball_phase_left > 0) {
-        --ball_phase_left;
-        if (--spawn_cooldown <= 0) {
-          spawn_ball();
-          spawn_cooldown = static_cast<int>(hs::rand_f(0.5f, 1.5f) *
-                                            BALL_RATE_FPS / params.ball_rate);
+    // Ball events freeze with anims_paused and never retire, so the phase
+    // machine freezes with them: spawning against frozen balls saturates the
+    // pool and the zero-active exit never arrives.
+    if (!anims_paused) {
+      switch (phase) {
+      case Phase::BALLS:
+        // Slider-paced spawner: the cooldown re-reads Ball Rate on every spawn.
+        if (ball_phase_left > 0) {
+          --ball_phase_left;
+          if (--spawn_cooldown <= 0) {
+            spawn_ball();
+            spawn_cooldown = static_cast<int>(hs::rand_f(0.5f, 1.5f) *
+                                              BALL_RATE_FPS / params.ball_rate);
+          }
+        } else if (balls.active_count() == 0) {
+          enter_noise();
         }
-      } else if (balls.active_count() == 0) {
-        enter_noise();
+        break;
+      case Phase::NOISE:
+        if (master_gain >= 1.0f && noise_hold > 0 && --noise_hold == 0)
+          timeline.add(0, Animation::Transition(master_gain, 0.0f,
+                                                NOISE_FADE_FRAMES,
+                                                ease_in_out_sin));
+        if (noise_hold == 0 && master_gain <= 0.0f)
+          enter_balls();
+        break;
       }
-      break;
-    case Phase::NOISE:
-      if (master_gain >= 1.0f && noise_hold > 0 && --noise_hold == 0)
-        timeline.add(0,
-                     Animation::Transition(master_gain, 0.0f, NOISE_FADE_FRAMES,
-                                           ease_in_out_sin));
-      if (noise_hold == 0 && master_gain <= 0.0f)
-        enter_balls();
-      break;
     }
 
     Canvas canvas(*this);
