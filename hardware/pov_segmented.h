@@ -333,7 +333,6 @@ public:
       // ramp. pinMode rewrites the pad-control register, so enable HYS afterward.
       *(portControlRegister(PIN_FRAME_SYNC)) |= IOMUXC_PAD_HYS;
     }
-    pinMode(PIN_MASTER_EN, OUTPUT);
     // park_sync_out() already left MASTER_EN an output at its disabled level, so
     // this write is what enables the sync-bus driver: take the board-role level
     // only once PIN_FRAME_SYNC is driven, or a pad keeper puts one spurious edge
