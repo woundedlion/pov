@@ -1443,14 +1443,6 @@ inline void test_scan_shader_v2_contract() {
 }
 
 /**
- * @brief Verifies a CSG composite renders each stroke with its own thickness.
- * @details Each stroke must render with its OWN thickness, not as a hard solid
- * band and not scaled by a sibling's thickness. The formula-independent
- * invariant: a Union<thin, thick> evaluated at a point inside the thin stroke
- * yields the SAME AA alpha as the bare thin Line, and a DIFFERENT alpha from
- * the bare thick Line.
- */
-/**
  * @brief A composite's report_stretch bounds every child, not only the first.
  * @details SDF::Face reports gnomonic-plane distance, whose stretch over an
  * angular step is 1 + max_dist_sq. A Union of two differently sized faces must
@@ -1503,6 +1495,14 @@ inline void test_report_stretch_forwards_through_csg() {
       large_stretch);
 }
 
+/**
+ * @brief Verifies a CSG composite renders each stroke with its own thickness.
+ * @details Each stroke must render with its OWN thickness, not as a hard solid
+ * band and not scaled by a sibling's thickness. The formula-independent
+ * invariant: a Union<thin, thick> evaluated at a point inside the thin stroke
+ * yields the SAME AA alpha as the bare thin Line, and a DIFFERENT alpha from
+ * the bare thick Line.
+ */
 inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   constexpr int W = 288, H = 144;
   hs_test::StubEffect fx(W, H);
