@@ -13,10 +13,12 @@
 # roster-wide sweep drivers and the `int run_*_tests(` entry points, at the
 # start of a line (optionally `inline`/`static` in either order, behind an
 # optional single-line `template <...>` head), which is how every case in the
-# tree is written; `case_*` names the death cases the death module's table
-# drives, and `verify_*`/`expect_*` the per-item bodies a case loops a sweep
-# over, which hold the assertions the loop amplifies. The name may sit on the
-# next line, which is where clang-format puts it when the signature wraps. A
+# tree is written; the head must start at column 0, so an indented member
+# function sharing a case-name prefix is not a case. `case_*` names the death
+# cases the death module's table drives, and `verify_*`/`expect_*` the
+# per-item bodies a case loops a sweep over, which hold the assertions the
+# loop amplifies. The name may sit on the next line, which is where
+# clang-format puts it when the signature wraps. A
 # module's header is the one defining the run_*_tests() entry point its roster
 # row names. Headers no roster row reaches — helper headers included mid-module
 # and entry points only a standalone tool binary runs — are listed in
@@ -55,7 +57,7 @@ set(HS_CROSS_FILE_CASES smoke_one determinism_one clip_clear_parity_one)
 set(_case_names "(test|check|case|verify|expect)_[A-Za-z0-9_]+")
 set(_case_names "${_case_names}|(smoke|determinism|clip_clear_parity)_one")
 set(_entry_name "run_[A-Za-z0-9_]*_tests")
-set(_def_head "\n[ \t]*(template[ \t]*<[^\n]*>[ \t]*)?((inline|static)[ \t]+)*")
+set(_def_head "\n(template[ \t]*<[^\n]*>[ \t]*)?((inline|static)[ \t]+)*")
 set(_def_head "${_def_head}(void[ \t\r\n]+(${_case_names})")
 set(_def_head "${_def_head}|int[ \t\r\n]+(${_entry_name}))\\(")
 # Closes the loop over a header's definition heads on the file's own tail.
