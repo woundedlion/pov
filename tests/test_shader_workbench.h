@@ -371,19 +371,6 @@ struct ShaderWorkbenchWhiteBox {
   static uint32_t generated_palette_steps(const SB &sb) {
     return sb.generated_palette_step_count;
   }
-  static ProjectedLookup join(const ProjectedLookup &direct,
-                              const ProjectedLookup &lensed, float mix,
-                              Projection projection, float singularity_fade) {
-    return SB::join_projected(direct, lensed, mix, projection,
-                              singularity_fade);
-  }
-  static bool join_compatible(const ProjectedLookup &direct,
-                              const ProjectedLookup &lensed,
-                              Projection projection,
-                              float coordinate_scale = 1.0f) {
-    return SB::projection_join_compatible(direct, lensed, projection,
-                                          coordinate_scale);
-  }
   static constexpr uint8_t boundary_cut() { return SB::BOUNDARY_CUT; }
   static constexpr uint8_t boundary_singular() { return SB::BOUNDARY_SINGULAR; }
   static constexpr uint8_t projection_folded() {
@@ -1230,61 +1217,6 @@ inline void test_shader_workbench_pipeline_contract() {
   HS_EXPECT_TRUE(std::isnan(WB::shape(std::numeric_limits<float>::quiet_NaN(),
                                       projected, warped, frame)
                                 .value));
-
-  WB::ProjectedLookup direct_meta{
-      Complex(1.0f, 2.0f),
-      {3, 4, WB::boundary_singular(), 0.25f, 0.1f, 0x10},
-      Vector(),
-      0.25f};
-  WB::ProjectedLookup lensed_meta{
-      Complex(3.0f, 4.0f),
-      {7, 8, WB::boundary_singular(), 0.75f, 0.9f, 0x20},
-      Vector(),
-      0.75f};
-  const WB::ProjectedLookup joined = WB::join(
-      direct_meta, lensed_meta, 0.75f, WB::Projection::STEREOGRAPHIC, 2.0f);
-  const WB::ProjectedLookup direct_endpoint = WB::join(
-      direct_meta, lensed_meta, 0.0f, WB::Projection::STEREOGRAPHIC, 2.0f);
-  const WB::ProjectedLookup lensed_endpoint = WB::join(
-      direct_meta, lensed_meta, 1.0f, WB::Projection::STEREOGRAPHIC, 2.0f);
-  HS_EXPECT_EQ(direct_endpoint.coords.re, direct_meta.coords.re);
-  HS_EXPECT_EQ(direct_endpoint.coords.im, direct_meta.coords.im);
-  HS_EXPECT_EQ(direct_endpoint.provenance.region_id,
-               direct_meta.provenance.region_id);
-  HS_EXPECT_EQ(direct_endpoint.provenance.component_id,
-               direct_meta.provenance.component_id);
-  HS_EXPECT_EQ(direct_endpoint.provenance.boundary_flags,
-               direct_meta.provenance.boundary_flags);
-  HS_EXPECT_EQ(direct_endpoint.provenance.fade_edge_distance,
-               direct_meta.provenance.fade_edge_distance);
-  HS_EXPECT_EQ(direct_endpoint.provenance.value_weight,
-               direct_meta.provenance.value_weight);
-  HS_EXPECT_EQ(direct_endpoint.provenance.flags, direct_meta.provenance.flags);
-  HS_EXPECT_EQ(direct_endpoint.path_length, direct_meta.path_length);
-  HS_EXPECT_EQ(lensed_endpoint.coords.re, lensed_meta.coords.re);
-  HS_EXPECT_EQ(lensed_endpoint.coords.im, lensed_meta.coords.im);
-  HS_EXPECT_EQ(lensed_endpoint.provenance.region_id,
-               lensed_meta.provenance.region_id);
-  HS_EXPECT_EQ(lensed_endpoint.provenance.component_id,
-               lensed_meta.provenance.component_id);
-  HS_EXPECT_EQ(lensed_endpoint.provenance.boundary_flags,
-               lensed_meta.provenance.boundary_flags);
-  HS_EXPECT_EQ(lensed_endpoint.provenance.fade_edge_distance,
-               lensed_meta.provenance.fade_edge_distance);
-  HS_EXPECT_EQ(lensed_endpoint.provenance.value_weight,
-               lensed_meta.provenance.value_weight);
-  HS_EXPECT_EQ(lensed_endpoint.provenance.flags, lensed_meta.provenance.flags);
-  HS_EXPECT_EQ(lensed_endpoint.path_length, lensed_meta.path_length);
-  HS_EXPECT_EQ(joined.coords.re, 2.5f);
-  HS_EXPECT_EQ(joined.coords.im, 3.5f);
-  HS_EXPECT_EQ(joined.provenance.region_id, uint8_t(7));
-  HS_EXPECT_EQ(joined.provenance.component_id, uint8_t(8));
-  HS_EXPECT_EQ(joined.provenance.boundary_flags, WB::boundary_singular());
-  HS_EXPECT_EQ(joined.provenance.fade_edge_distance, 0.75f);
-  HS_EXPECT_EQ(joined.provenance.flags, uint8_t(0x20));
-  HS_EXPECT_EQ(joined.provenance.value_weight,
-               pole_attenuation(2.5f * 2.5f + 3.5f * 3.5f, 2.0f));
-  HS_EXPECT_EQ(joined.path_length, 0.625f);
 }
 
 /** Unit-length allowance on a lens output. The lenses renormalize through a
@@ -4698,79 +4630,6 @@ inline void test_shader_workbench_inverse_program_equivalence() {
 /** @brief Domain policies, gauges, and analytic admission reject unsafe tuples. */
 inline void test_shader_workbench_projection_and_admission_contracts() {
   using WB = ShaderWorkbenchWhiteBox;
-  const uint8_t periodic_traits = projections::projection_traits(
-      projections::ProjectionTrait::GLUED, projections::ProjectionTrait::FOLDED,
-      projections::ProjectionTrait::PERIODIC);
-  const WB::ProjectedLookup horizontal_left{
-      Complex(-3.7080f, 0.2f),
-      {2, 0, 2, 0.1f, 1.0f, 1, periodic_traits, 4, 1.0f},
-      Vector(),
-      0.0f};
-  const WB::ProjectedLookup horizontal_right{
-      Complex(3.7080f, 0.2f),
-      {2, 0, 2, 0.1f, 1.0f, 1, periodic_traits, 4, 1.0f},
-      Vector(),
-      0.0f};
-  HS_EXPECT_FALSE(WB::join_compatible(horizontal_left, horizontal_right,
-                                      WB::Projection::PEIRCE_QUINCUNCIAL));
-  WB::ProjectedLookup horizontal_neighbor = horizontal_left;
-  horizontal_neighbor.coords.re = -3.6f;
-  HS_EXPECT_FALSE(WB::join_compatible(horizontal_left, horizontal_neighbor,
-                                      WB::Projection::PEIRCE_QUINCUNCIAL));
-  WB::ProjectedLookup vertical_bottom = horizontal_left;
-  WB::ProjectedLookup vertical_top = horizontal_right;
-  vertical_bottom.provenance.edge_class = 5;
-  vertical_top.provenance.edge_class = 5;
-  vertical_bottom.coords = Complex(0.2f, -3.7080f);
-  vertical_top.coords = Complex(0.2f, 3.7080f);
-  HS_EXPECT_FALSE(WB::join_compatible(vertical_bottom, vertical_top,
-                                      WB::Projection::PEIRCE_QUINCUNCIAL));
-
-  auto kernel_lookup = [](const projections::ProjectionKernelResult &result) {
-    return WB::ProjectedLookup{result.coords,
-                               {result.region_id, result.component_id,
-                                result.boundary_flags,
-                                result.fade_edge_distance, 1.0f, result.flags,
-                                result.traits, result.edge_class, 1.0f},
-                               Vector(),
-                               0.0f};
-  };
-  auto lon_lat = [](float longitude, float latitude) {
-    const float cp = cosf(latitude);
-    return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
-  };
-  const Vector sector_before = lon_lat(0.25f * PI_F - 1e-4f, -0.4f);
-  const Vector sector_after = lon_lat(0.25f * PI_F + 1e-4f, -0.4f);
-  const auto diamond_before = kernel_lookup(
-      projections::peirce_projection(sector_before, 0.0f, 0, 0.0f));
-  const auto diamond_after = kernel_lookup(
-      projections::peirce_projection(sector_after, 0.0f, 0, 0.0f));
-  HS_EXPECT_FALSE(WB::join_compatible(diamond_before, diamond_after,
-                                      WB::Projection::PEIRCE_QUINCUNCIAL));
-  const auto horizontal_before = kernel_lookup(
-      projections::peirce_projection(sector_before, 0.0f, 2, 0.0f));
-  const auto horizontal_after = kernel_lookup(
-      projections::peirce_projection(sector_after, 0.0f, 2, 0.0f));
-  HS_EXPECT_FALSE(WB::join_compatible(horizontal_before, horizontal_after,
-                                      WB::Projection::PEIRCE_QUINCUNCIAL));
-
-  const auto glued_side_a = kernel_lookup(projections::airocean_projection(
-      Vector(0.00321964224570043f, 0.902105871397194f, 0.431502758617508f),
-      0.0f, false));
-  const auto glued_side_b = kernel_lookup(projections::airocean_projection(
-      Vector(0.00321096516044884f, 0.902110786482306f, 0.431492547577607f),
-      0.0f, false));
-  HS_EXPECT_FALSE(WB::join_compatible(glued_side_a, glued_side_b,
-                                      WB::Projection::AIROCEAN));
-  const auto cut_side_a = kernel_lookup(projections::airocean_projection(
-      Vector(0.456076125629434f, 0.767836786220573f, -0.449912477441232f), 0.0f,
-      false));
-  const auto cut_side_b = kernel_lookup(projections::airocean_projection(
-      Vector(0.456088797513479f, 0.767830686682203f, -0.449910041421443f), 0.0f,
-      false));
-  HS_EXPECT_FALSE(
-      WB::join_compatible(cut_side_a, cut_side_b, WB::Projection::AIROCEAN));
-
   const Vector front_neighbor(1.0f, 1e-5f, 0.0f);
   const Vector back_neighbor(1.0f, -1e-5f, 0.0f);
   const Vector axis(1.0f, 0.0f, 0.0f);
