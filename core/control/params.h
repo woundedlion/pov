@@ -11,6 +11,7 @@
  */
 
 #include "platform/build_features.h"
+#include "platform/platform.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -109,7 +110,8 @@ struct ParamDef {
     case TargetType::INT_U32:
       return get_integer<uint32_t>(source);
     }
-    __builtin_unreachable();
+    HS_CHECK(false, "ParamDef::get_from: unknown target type %u",
+             static_cast<unsigned>(target_type));
   }
 
   /**
@@ -159,7 +161,8 @@ struct ParamDef {
     case TargetType::INT_U32:
       return set_integer<uint32_t>(v);
     }
-    __builtin_unreachable();
+    HS_CHECK(false, "ParamDef::set: unknown target type %u",
+             static_cast<unsigned>(target_type));
   }
 
   /**
