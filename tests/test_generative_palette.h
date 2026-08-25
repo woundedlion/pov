@@ -28,9 +28,12 @@ namespace color_tests {
 
 /**
  * @brief Pins a compiled TRIADIC/BELL ramp to frozen colors at nine stops.
- * @details The tolerance absorbs a last-bit difference in the transcendentals
- *          the OKLab path runs through, and is far tighter than any change to
- *          the recipe compiler, the axis curves or the gamut mapper.
+ * @details The tolerance is relative so the dark stops stay pinned: a flat
+ *          16-bit band wide enough for the bright end would let the smallest
+ *          channels pass as pure black. It absorbs a last-bit difference in the
+ *          transcendentals the OKLab path runs through, and is far tighter than
+ *          any change to the recipe compiler, the axis curves or the gamut
+ *          mapper.
  */
 inline void test_generative_palette_deterministic() {
   const PaletteRecipe recipe = PaletteRecipes::profile(
@@ -41,11 +44,14 @@ inline void test_generative_palette_deterministic() {
       {298, 291, 32},       {1843, 3180, 346},     {1447, 12521, 7570},
       {3228, 28254, 35424}, {28456, 48750, 60539}, {4818, 24745, 55520},
       {9819, 2840, 51712},  {6742, 467, 6101},     {807, 48, 375}};
+  const auto tolerance = [](uint16_t value) {
+    return std::fmax(8.0f, 0.01f * static_cast<float>(value));
+  };
   for (int i = 0; i < 9; ++i) {
     const Pixel got = palette.get(i / 8.0f).color;
-    HS_EXPECT_NEAR(got.r, expected[i][0], 256);
-    HS_EXPECT_NEAR(got.g, expected[i][1], 256);
-    HS_EXPECT_NEAR(got.b, expected[i][2], 256);
+    HS_EXPECT_NEAR(got.r, expected[i][0], tolerance(expected[i][0]));
+    HS_EXPECT_NEAR(got.g, expected[i][1], tolerance(expected[i][1]));
+    HS_EXPECT_NEAR(got.b, expected[i][2], tolerance(expected[i][2]));
   }
 }
 
