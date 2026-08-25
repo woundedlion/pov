@@ -47,7 +47,7 @@ fi
 PYTHON_FILES="$(printf '%s\n' "$PRESENT" | sed -n '/\.py$/p')"
 if [ -n "$PYTHON_FILES" ]; then
   if ! command -v ruff >/dev/null 2>&1; then
-    echo "[pre-commit] ruff not found; install the version pinned in package.json."
+    echo "[pre-commit] ruff not found; pip install -r requirements/ruff.txt"
     exit 1
   fi
   while IFS= read -r file; do
