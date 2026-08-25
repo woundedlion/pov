@@ -81,12 +81,10 @@ equirectangular_weight(float latitude, float singularity_fade) {
 }
 
 __attribute__((always_inline)) inline float
-peirce_weight(const Vector &input, float central_meridian,
+peirce_weight(const Vector &input, float meridian_cos, float meridian_sin,
               float singularity_fade) {
-  const float c = cosf(central_meridian);
-  const float s = sinf(central_meridian);
-  const float rotated_x = input.x * c + input.z * s;
-  const float rotated_z = input.z * c - input.x * s;
+  const float rotated_x = input.x * meridian_cos + input.z * meridian_sin;
+  const float rotated_z = input.z * meridian_cos - input.x * meridian_sin;
   const float largest = std::max(fabsf(rotated_x), fabsf(rotated_z));
   float sin_distance_sq = std::max(0.0f, 1.0f - largest * largest);
   if (input.y < 0.0f) {
@@ -97,6 +95,13 @@ peirce_weight(const Vector &input, float central_meridian,
   return singularity_attenuation(sin_distance_sq,
                                  std::max(0.0f, 1.0f - sin_distance_sq),
                                  singularity_fade);
+}
+
+__attribute__((always_inline)) inline float
+peirce_weight(const Vector &input, float central_meridian,
+              float singularity_fade) {
+  return peirce_weight(input, cosf(central_meridian), sinf(central_meridian),
+                       singularity_fade);
 }
 
 __attribute__((always_inline)) inline ProjectionResult
@@ -181,12 +186,21 @@ bonne(const Vector &input, float central_meridian, float standard_parallel,
 __attribute__((always_inline)) inline ProjectionResult
 peirce(const Vector &input, float central_meridian, uint8_t layout,
        float layout_scroll, bool edge_distance_required, float coordinate_scale,
+       float singularity_fade, float meridian_cos, float meridian_sin) {
+  return from_kernel(
+      projections::peirce_projection(input, central_meridian, layout,
+                                     layout_scroll, edge_distance_required),
+      coordinate_scale,
+      peirce_weight(input, meridian_cos, meridian_sin, singularity_fade));
+}
+
+__attribute__((always_inline)) inline ProjectionResult
+peirce(const Vector &input, float central_meridian, uint8_t layout,
+       float layout_scroll, bool edge_distance_required, float coordinate_scale,
        float singularity_fade) {
-  return from_kernel(projections::peirce_projection(input, central_meridian,
-                                                    layout, layout_scroll,
-                                                    edge_distance_required),
-                     coordinate_scale,
-                     peirce_weight(input, central_meridian, singularity_fade));
+  return peirce(input, central_meridian, layout, layout_scroll,
+                edge_distance_required, coordinate_scale, singularity_fade,
+                cosf(central_meridian), sinf(central_meridian));
 }
 
 __attribute__((always_inline)) inline ProjectionResult
