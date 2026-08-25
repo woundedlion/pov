@@ -90,7 +90,9 @@ trap 'rm -rf "$SNAPSHOT_ROOT"' EXIT INT TERM
 mkdir "$SNAPSHOT"
 git checkout-index --all --force --prefix="$SNAPSHOT/"
 LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+# The sibling checkout hangs off the MAIN worktree: --show-toplevel is
+# whichever worktree the commit runs from, and the landing model is worktrees.
+MAIN_TREE="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
 INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
 
 (
@@ -98,9 +100,9 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
   git -C "$SNAPSHOT" init --quiet
   cp "$INDEX_PATH" "$SNAPSHOT/.git/index"
 
-  if [ -d "${DAYDREAM_CHECKOUT:-$REPO_ROOT/../daydream}" ]; then
+  if [ -d "${DAYDREAM_CHECKOUT:-$MAIN_TREE/../daydream}" ]; then
     "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" \
-      --checkout "daydream=${DAYDREAM_CHECKOUT:-$REPO_ROOT/../daydream}"
+      --checkout "daydream=${DAYDREAM_CHECKOUT:-$MAIN_TREE/../daydream}"
   else
     "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" \
       --skip-checkout daydream
