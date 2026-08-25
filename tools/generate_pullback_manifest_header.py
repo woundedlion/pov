@@ -468,13 +468,11 @@ def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
     metric_entries = []
     for oracle in oracles:
         for metric in oracle["metrics"]:
-            measured = metric["measured_baseline"]
             metric_entries.append(
                 "    {"
                 f'"{oracle["oracle_id"]}", "{metric["domain"]}", '
                 f'"{metric["aggregation"]}", '
-                f'{str(measured is not None).lower()}, '
-                f'{measured if measured is not None else 0.0}, '
+                f'{metric["measured_baseline"]}, '
                 f'{metric["accepted_limit"]}'
                 "},")
     return "\n".join((
@@ -494,7 +492,6 @@ def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
         "  std::string_view oracle_id;",
         "  std::string_view domain;",
         "  std::string_view aggregation;",
-        "  bool measured;",
         "  float measured_baseline;",
         "  float accepted_limit;",
         "};",
