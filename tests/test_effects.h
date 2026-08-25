@@ -478,9 +478,24 @@ inline void perturb_determinism_globals() {
   global_timeline_t = 0x5EED;   // off zero
 }
 
+/** @brief Frames per segment in the clip-clear parity sweep. */
+constexpr int PARITY_FRAMES = 16;
+/**
+ * @brief Frames per segment for an effect that is still allowed to be dark at
+ *        PARITY_FRAMES.
+ * @details Comparing two all-black renders always agrees, so a slow-starting
+ *          effect gets a sweep long enough to leave effect_may_be_dark()'s
+ *          window instead of a pass that means nothing.
+ */
+constexpr int PARITY_FRAMES_SLOW = 64;
+/** @brief Arm segments walked by the clip-clear parity sweep. */
+constexpr int PARITY_SEGMENTS = 4;
+
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void determinism_one(const char *name) {
-  const int frames = smoke_frames();
+  const int window = smoke_frames();
+  const int frames =
+      effect_may_be_dark(name, window) ? PARITY_FRAMES_SLOW : window;
   std::vector<Pixel> a, b;
   uint64_t fold_a = 0, fold_b = 0;
   render_capture<E, W, H>(a, frames, &fold_a);
@@ -520,20 +535,12 @@ inline void determinism_one(const char *name) {
   }
   HS_EXPECT(first_diff < 0,
             "effect must render identically across runs under a fixed clock");
+  // Two all-black renders agree pixel for pixel and fold to the same checksum,
+  // so both comparisons above only mean something once the run has produced
+  // output.
+  HS_EXPECT(!effect_may_be_dark(name, frames),
+            "determinism must run past the all-black exemption window");
 }
-
-/** @brief Frames per segment in the clip-clear parity sweep. */
-constexpr int PARITY_FRAMES = 16;
-/**
- * @brief Frames per segment for an effect that is still allowed to be dark at
- *        PARITY_FRAMES.
- * @details Comparing two all-black renders always agrees, so a slow-starting
- *          effect gets a sweep long enough to leave effect_may_be_dark()'s
- *          window instead of a pass that means nothing.
- */
-constexpr int PARITY_FRAMES_SLOW = 64;
-/** @brief Arm segments walked by the clip-clear parity sweep. */
-constexpr int PARITY_SEGMENTS = 4;
 
 /**
  * @brief Drives one effect under a moving segment clip with each clear scope and
