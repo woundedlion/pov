@@ -1406,11 +1406,12 @@ Phase P adds profile-only telemetry before this protocol is usable. Each image
 emits exactly one boot record:
 
 ```text
-Pullback arm: LEGACY|CORE|LANDED sha=<short-sha>
+Pullback arm: LEGACY|CORE|LANDED sha=<short-sha>[-dirty]
 ```
 
 The branch build supplies `LEGACY` or `CORE`; a normal build defaults to
-`LANDED`. ShaderWorkbench also emits an event whenever the tuple changes:
+`LANDED`. The build hook appends `-dirty` when the image came from a modified
+tree; validation reports such a capture as a dirty build. ShaderWorkbench also emits an event whenever the tuple changes:
 
 ```text
 Pullback program: preset=<i>/<N> pipeline=<InversePipelineId|NONE> \

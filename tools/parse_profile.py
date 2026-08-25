@@ -55,8 +55,10 @@ WALL_RE = re.compile(
     r"frame wall us: min=(\d+) avg=(\d+) max=(\d+) sum=(\d+) \((\d+) frames\)")
 RENDER_RE = re.compile(r"frame render us: avg=(\d+) max=(\d+)")
 FRAME_RE = re.compile(r"^f (\d+) w=(\d+) r=(\d+)$")
+# The build hook appends '-dirty' to the SHA of an image built from a
+# modified tree.
 PULLBACK_ARM_RE = re.compile(
-    r"^Pullback arm: (LEGACY|CORE|LANDED) sha=([0-9a-f]{7,40})$")
+    r"^Pullback arm: (LEGACY|CORE|LANDED) sha=([0-9a-f]{7,40})(-dirty)?$")
 PULLBACK_PROGRAM_RE = re.compile(
     r"^Pullback program: preset=(\d+)/(\d+) pipeline=([A-Z0-9_]+|NONE) "
     r"endpoint=(steady|from|to)$")
@@ -226,7 +228,8 @@ def parse_capture(path):
             line = line.rstrip("\n")
             m = PULLBACK_ARM_RE.match(line)
             if m:
-                pullback["arms"].append({"arm": m.group(1), "sha": m.group(2)})
+                pullback["arms"].append({"arm": m.group(1), "sha": m.group(2),
+                                         "dirty": bool(m.group(3))})
                 continue
             m = PULLBACK_PROGRAM_RE.match(line)
             if m:
@@ -799,6 +802,10 @@ def validate_pullback_telemetry(pullback, expected_arm, manifest, check):
     if arm is not None and expected_arm is not None:
         check(arm["arm"] == expected_arm,
               f"pullback arm is {expected_arm} (found {arm['arm']})")
+    if arm is not None:
+        suffix = "-dirty" if arm.get("dirty") else ""
+        check(not suffix,
+              f"profile image is a clean build (sha={arm['sha']}{suffix})")
     if manifest is None:
         return
     capture_sha = manifest.get("capture_sha")
