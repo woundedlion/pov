@@ -29,9 +29,10 @@ struct ProjectionParams {
                                       that take one, in radians. */
 
   static constexpr auto FIELDS = std::array{
-      Field<ProjectionParams>{
-          "singularity-fade", &ProjectionParams::singularity_fade,
-          "Singularity Fade", 1.0f, 20.0f, FieldCurve::LERP},
+      Field<ProjectionParams>{"singularity-fade",
+                              &ProjectionParams::singularity_fade,
+                              "Singularity Fade", 1.0f, 20.0f, FieldCurve::LERP,
+                              FieldGate::SINGULARITY_FADE},
       Field<ProjectionParams>{"projection-spin-speed",
                               &ProjectionParams::spin_rate,
                               "Projection Spin Speed", 0.0f, 0.05f,
