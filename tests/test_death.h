@@ -3333,6 +3333,17 @@ inline void case_pullback_operator_invalid_coverage_mode() {
     std::printf("x");
 }
 
+/** @brief Death case: the curl-flow operator rejects an unknown integrator. */
+inline void case_pullback_operator_invalid_curl_integrator() {
+  Pullback::Interp::Op::CurlFlowParams params;
+  params.integrator = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::NoisePhaseState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::WarpCurlFlow::prepare(context, params, state)
+          .intervals != 0)
+    std::printf("x");
+}
+
 /** @brief Death case: the generated-palette operator rejects an unknown hue mode. */
 inline void case_pullback_operator_invalid_hue_mode() {
   Pullback::Interp::Op::GeneratedPaletteParams params;
@@ -4027,6 +4038,9 @@ inline const Case *all_cases(int &n) {
       {"pullback_operator_invalid_coverage_mode",
        case_pullback_operator_invalid_coverage_mode, "operators_common.h",
        "(false) sample operator: invalid projection coverage mode"},
+      {"pullback_operator_invalid_curl_integrator",
+       case_pullback_operator_invalid_curl_integrator, "operators_warp.h",
+       "(params.integrator < 3) warp.curl-flow: invalid integrator"},
       {"pullback_operator_invalid_hue_mode",
        case_pullback_operator_invalid_hue_mode, "operators.h",
        "(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH)) "
