@@ -923,6 +923,77 @@ inline void test_shader_workbench_incompatible_config_snapshot() {
       sb.capture_full_config_snapshot(), current));
 }
 
+/** @brief A restored affine snapshot snaps its winding translations, clamps
+ *         them to the authored span, and rejects one that is not finite. */
+inline void test_shader_workbench_affine_snapshot_restore() {
+  using WB = ShaderWorkbenchWhiteBox;
+  // A snapshot layout change without a version bump silently accepts a stale
+  // persisted session, so the accepted version is pinned to a literal.
+  HS_EXPECT_EQ(WB::SB::CONFIG_SCHEMA_VERSION, uint32_t{10});
+
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+
+  constexpr auto PRESETS = WB::presets();
+  const WB::RequestedConfig *affine = nullptr;
+  for (const WB::RequestedConfig &preset : PRESETS)
+    if (preset.slots.warp_program.outer.kind ==
+        WB::WarpStageKind::AFFINE_FRAME) {
+      affine = &preset;
+      break;
+    }
+  HS_EXPECT_TRUE(affine != nullptr);
+  if (affine == nullptr)
+    return;
+
+  const size_t translation_x =
+      static_cast<size_t>(WB::ConfigFieldId::WARP_OUTER_TRANSLATION_X);
+  const size_t translation_y =
+      static_cast<size_t>(WB::ConfigFieldId::WARP_OUTER_TRANSLATION_Y);
+  WB::FullConfigSnapshot snapshot = sb.capture_full_config_snapshot();
+  snapshot.accepted = WB::encode_config(*affine);
+  snapshot.requested = snapshot.accepted;
+  snapshot.pending = {};
+
+  auto restore_translations = [&](float x, float y) {
+    snapshot.accepted[translation_x] = shader_workbench_float_payload(x);
+    snapshot.requested[translation_x] = snapshot.accepted[translation_x];
+    snapshot.accepted[translation_y] = shader_workbench_float_payload(y);
+    snapshot.requested[translation_y] = snapshot.accepted[translation_y];
+    return sb.restore_full_config_snapshot(snapshot);
+  };
+  auto expect_translations = [&](float x, float y) {
+    const WB::FullConfigSnapshot restored = sb.capture_full_config_snapshot();
+    HS_EXPECT_EQ(restored.accepted[translation_x],
+                 shader_workbench_float_payload(x));
+    HS_EXPECT_EQ(restored.requested[translation_x],
+                 shader_workbench_float_payload(x));
+    HS_EXPECT_EQ(restored.accepted[translation_y],
+                 shader_workbench_float_payload(y));
+    HS_EXPECT_EQ(restored.requested[translation_y],
+                 shader_workbench_float_payload(y));
+    HS_EXPECT_EQ(restored.pending[translation_x], uint8_t{0});
+    HS_EXPECT_EQ(restored.pending[translation_y], uint8_t{0});
+  };
+
+  HS_EXPECT_EQ(restore_translations(1.4f, -2.6f),
+               WB::ConfigRestoreResult::APPLIED);
+  expect_translations(1.0f, -3.0f);
+
+  HS_EXPECT_EQ(restore_translations(9.0f, -9.0f),
+               WB::ConfigRestoreResult::APPLIED);
+  expect_translations(4.0f, -4.0f);
+
+  const WB::FullConfigSnapshot before_failure =
+      sb.capture_full_config_snapshot();
+  HS_EXPECT_EQ(
+      restore_translations(std::numeric_limits<float>::quiet_NaN(), 0.0f),
+      WB::ConfigRestoreResult::INVALID_VALUE);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), before_failure));
+}
+
 /** @brief Dense live selectors preserve sparse snapshot storage IDs. */
 inline void test_shader_workbench_selector_storage() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -5877,6 +5948,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_full_config_snapshot();
   test_shader_workbench_surface_noise_range_rebind();
   test_shader_workbench_incompatible_config_snapshot();
+  test_shader_workbench_affine_snapshot_restore();
   test_shader_workbench_selector_storage();
   test_shader_workbench_clocks_wrapped();
   test_shader_workbench_pause_semantics();
