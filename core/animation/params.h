@@ -210,6 +210,9 @@ public:
       if (std::isfinite(s))
         speed = s;
     }
+    // Accepted limit: under wrap = false, past mutant == 2^24 (~77 h at 60 fps
+    // and speed 1, sooner at higher speed) float can't represent consecutive
+    // steps and the value freezes.
     mutant.get() += speed;
     if (wrap) {
       mutant.get() = wrap_t(mutant.get());
