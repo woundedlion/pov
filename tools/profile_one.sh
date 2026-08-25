@@ -374,7 +374,7 @@ trap 'exit 143' TERM
 # ETA covers a clean rebuild + the capture + one retry: overshooting only
 # delays a stale-break (safe), undershooting invites a peer to evict a live
 # capture (not), and a crashed holder is reaped by the PID check regardless.
-hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit 1
+hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit $?
 
 capture
 if ! verify; then
