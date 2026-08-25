@@ -417,6 +417,16 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIsNone(issue)
         self.assertEqual(used, {allowance})
 
+    def test_core_relative_path_is_resolved(self):
+        entries = {PurePosixPath("core"), PurePosixPath("core/control"),
+                   PurePosixPath("core/control/choreography.h")}
+        self.assertIsNone(dc._path_span_issue(
+            PurePosixPath("README.md"), 1, "control/choreography.h", entries))
+        issue = dc._path_span_issue(
+            PurePosixPath("README.md"), 1, "control/ghost.h", entries)
+        self.assertIsNotNone(issue)
+        self.assertIn("'control/ghost.h' does not exist", issue.message)
+
     @staticmethod
     def _checkout_fence_repository(root: Path) -> None:
         subprocess.run(["git", "init", "-q", str(root)], check=True)
