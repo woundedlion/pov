@@ -67,6 +67,24 @@ inline bool clip_bounds_valid(double x0, double x1, double y0, double y1,
 }
 
 /**
+ * @brief Validates a preset index against the active effect's roster.
+ * @param index Requested preset index from the JS boundary, as a double.
+ * @param preset_count Number of presets the effect exposes.
+ * @return true iff the index is integral and in [0, preset_count).
+ * @details The index is taken as a double because a uint32_t embind parameter
+ *          coerces without a range check in a release build: NaN, a negative
+ *          and 2^32 all arrive as 0, which selects preset 0 under a success
+ *          result. Non-integral requests are rejected rather than truncated, so
+ *          a malformed message cannot land on a neighbouring preset.
+ */
+inline bool preset_index_valid(double index, size_t preset_count) {
+  // NaN fails the ordered comparison, so it needs no separate test.
+  if (!(index >= 0.0) || index != std::floor(index))
+    return false;
+  return index < static_cast<double>(preset_count);
+}
+
+/**
  * @brief Clamps a relax iteration count into [0, max_iterations].
  * @param iterations Requested pass count from the JS boundary, as a double.
  * @param max_iterations Inclusive upper bound.
