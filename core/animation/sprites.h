@@ -642,11 +642,12 @@ private:
 
     if (active) {
       // Lowering max_life below a live particle's remaining life would underflow
-      // this uint16_t subtraction.
+      // this uint16_t subtraction. Age 0 is tested on its own because (age - 1)
+      // promotes to -1, which no stride divides.
       const uint16_t age = p.life < max_life ? max_life - p.life : 0;
       if constexpr (TRAIL_SAMPLE_STRIDE_ == 1) {
         p.history.record(p.position);
-      } else if ((age - 1) % TRAIL_SAMPLE_STRIDE_ == 0) {
+      } else if (age == 0 || (age - 1) % TRAIL_SAMPLE_STRIDE_ == 0) {
         p.history.record(p.position);
       }
     }
