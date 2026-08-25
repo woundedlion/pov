@@ -78,10 +78,15 @@ namespace Segue {
  * @param paused Optional event-level pause gate.
  * @return The clamped fade length, from which each policy derives its own
  * return offset.
+ * @details Budgets the sprite's slot up front and traps instead: every
+ * schedule() returns its delay whether or not the add landed, so a dropped
+ * sprite hands the sphere a dark transition while the effect advances on time.
  */
 inline int schedule_faded_sprite(Timeline &timeline, SpriteFn draw_fn,
                                  int duration, int window,
                                  const bool *paused = nullptr) {
+  HS_CHECK(Timeline::remaining() >= 1,
+           "segue: the transition sprite needs a free timeline slot");
   int fade = hs::clamp(window, 0, std::max(duration / 2, 0));
   Animation::Sprite sprite(std::move(draw_fn), duration, fade, ease_linear,
                            fade, ease_linear);
