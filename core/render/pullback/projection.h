@@ -123,7 +123,7 @@ __attribute__((noinline))
 __attribute__((always_inline))
 #endif
 inline ProjectionResult folded_sinusoidal(const Vector &input,
-                                          float central_meridian, float) {
+                                          float central_meridian) {
   const Complex coords =
       projections::folded_sinusoidal(input, central_meridian);
   return {
@@ -286,7 +286,6 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
       FrameProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::central_meridian(frame) } -> std::same_as<float>;
-        { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
   __attribute__((always_inline)) static const Quaternion &
@@ -296,8 +295,7 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
 
   __attribute__((always_inline)) static ProjectionResult
   project(const Vector &input, const FrameState &frame) {
-    return folded_sinusoidal(input, State::central_meridian(frame),
-                             State::singularity_fade(frame));
+    return folded_sinusoidal(input, State::central_meridian(frame));
   }
 };
 
