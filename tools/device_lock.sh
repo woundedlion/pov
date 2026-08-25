@@ -283,12 +283,13 @@ hs_device_acquire() {
 
 # Releasing only our own claim keeps an evicted holder's teardown from
 # unlocking the device out from under whoever legitimately took it next.
+# _hs_break_lock does that check and the delete as one rename: a token test
+# followed by rm re-opens the same window, since a peer can break and re-claim
+# the lock between the two and the rm then frees the board it just won.
 hs_device_release() {
   local d=$_HS_LOCK_DIR
   [ -n "$_HS_TOKEN" ] && [ -n "$d" ] || return 0
-  if [ "$(_hs_lock_field "$d" token)" = "$_HS_TOKEN" ]; then
-    rm -rf "$d"
-  fi
+  _hs_break_lock "$d" "$_HS_TOKEN" || :   # a peer holds it now: leave it alone
   _HS_TOKEN=""; _HS_LOCK_DIR=""; HS_DEVICE_PORT=""
 }
 
