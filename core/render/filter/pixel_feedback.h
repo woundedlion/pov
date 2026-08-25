@@ -780,12 +780,10 @@ private:
    * them.
    */
   void check_storage_alive() const {
-#ifndef NDEBUG
-    constexpr size_t FIELD_BYTES = CACHE_CELLS * sizeof(int16_t);
-    assert(stamp.block_alive(cached_warp_x, FIELD_BYTES) &&
-           stamp.block_alive(cached_warp_y, FIELD_BYTES) &&
-           "Pixel::Feedback warp cache use-after-free!");
-#endif
+    HS_ASSERT_BLOCK_ALIVE(stamp, cached_warp_x, CACHE_CELLS * sizeof(int16_t),
+                          "Pixel::Feedback warp cache");
+    HS_ASSERT_BLOCK_ALIVE(stamp, cached_warp_y, CACHE_CELLS * sizeof(int16_t),
+                          "Pixel::Feedback warp cache");
   }
 };
 
