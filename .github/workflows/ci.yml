@@ -1126,14 +1126,49 @@ jobs:
       - name: Check promoted shader document provenance
         run: node scripts/generate_promoted_shader_documents.mjs --check
 
+  scripts-unit-tests:
+    name: scripts/*.test.mjs unit suite
+    # The Node unit suite gates the shader-workbench schema and digest
+    # contracts, the WASM smoke predicates, the engine bindings contract, the
+    # profile roster and the PNG probe. It is its own job because ci-green
+    # checks which jobs ran, not which steps they contained: as a step inside
+    # another job, narrowing that job would drop the whole suite silently.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
+
+      # The suite has no runtime deps, so no `npm ci` is needed; the Node
+      # running it is pinned like every other tool.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
+
+      # Discovered by glob, not enumerated, so a newly added scripts/*.test.mjs
+      # runs here without a workflow edit; require_test_files.sh prevents an
+      # empty match from being reported as green. Driven through
+      # `npm test` so the package.json entry point is the gated command rather
+      # than a second spelling of it. scripts/run_tests.mjs rejects any
+      # discovered test file that executes no cases or no assertions; node
+      # itself counts a file gutted to a comment as one pass.
+      - name: Every scripts/*.test.mjs unit test runs
+        run: |
+          bash tools/require_test_files.sh 'scripts/*.test.mjs'
+          npm test
+
   screenshot-gallery:
     name: Screenshot gallery is valid and covers every effect
     # The docs/screenshots gallery is installed into daydream and served live,
     # but a full headless re-capture per build is far too slow to gate on. This
     # job is the cheap freshness check instead: it (1) syntax-checks the capture
-    # script and unit-tests the browser-free decisions it makes — the capture
-    # offsets and the resolution descent, which is what keeps a frame from being
-    # saved under a different effect's filename — (2) asserts the committed PNG
+    # script — the browser-free decisions it makes are unit-tested by
+    # scripts-unit-tests — (2) asserts the committed PNG
     # set matches the HS_EFFECT_LIST roster exactly (every effect has a PNG, no
     # orphans) — catching roster drift like an added/renamed effect whose
     # screenshot was never captured — and (3) validates each PNG datastream and
@@ -1161,19 +1196,6 @@ jobs:
 
       - name: Syntax-check the capture script
         run: node --check scripts/capture_screenshots.mjs
-
-      # Discovered by glob, not enumerated, so a newly added scripts/*.test.mjs
-      # runs here without a workflow edit; require_test_files.sh prevents an
-      # empty match from being reported as green. Driven through
-      # `npm test` so the package.json entry point is the gated command rather
-      # than a second spelling of it; the suite has no runtime deps, so no
-      # `npm ci` is needed here. scripts/run_tests.mjs rejects any discovered
-      # test file that executes no cases or no assertions; node itself counts a
-      # file gutted to a comment as one pass.
-      - name: Every scripts/*.test.mjs unit test runs
-        run: |
-          bash tools/require_test_files.sh 'scripts/*.test.mjs'
-          npm test
 
       - name: Gallery covers every registered effect
         run: node scripts/check_screenshots.mjs
@@ -1840,6 +1862,7 @@ jobs:
       - gamut-lut-provenance
       - srgb-decode-provenance
       - patterns-provenance
+      - scripts-unit-tests
       - screenshot-gallery
       - docs-images
       - docs-markdown

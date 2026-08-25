@@ -70,6 +70,10 @@ the authoritative correctness gate.
 - **Native suite:** `cmake --preset tests && cmake --build --preset tests` then
   `ctest --preset tests --output-on-failure --no-tests=error`. Set
   `HS_EFFECTS_FULL=1` to reproduce the full-resolution master leg locally.
+- **Node script suite:** `npm test` runs every `scripts/*.test.mjs` — the
+  shader-workbench schema and digest contracts, the WASM smoke predicates, the
+  engine bindings contract, the profile roster and the PNG probe. CI runs it as
+  its own `scripts-unit-tests` job.
 - **Lint:** the CI `lint` job has five legs — `ruff` over the Python tooling,
   `eslint` over the JavaScript, `shellcheck` over every tracked `*.sh` and
   `.githooks/*`, and a `just --evaluate` / `just --summary` parse of the
