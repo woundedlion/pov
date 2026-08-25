@@ -461,6 +461,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── shader_workbench_cli.mjs Command-line validator for shader workbench documents
 │   ├── shader_workbench.test.mjs Node contract tests for the shader workbench
 │   ├── generate_promoted_shader_documents.mjs Generates canonical promoted-effect documents
+│   ├── promoted_digests.test.mjs Pins each promoted header's descriptor/preset-bank digest to its document
 │   ├── engine_catalog.json     Source operator catalog behind native chain validation
 │   ├── export_engine_catalog.mjs Exports the installed WASM module's operator catalog
 │   ├── sha256.mjs              Shared SHA-256 implementation for shader documents
