@@ -162,13 +162,11 @@ inline void test_lattice_melt_transition_contract() {
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
                  FX::preset_params(0).surface.scale, 0.0f);
 
-  effect.setAnimationsPaused(true);
   WB::drive_transition(effect, 0.25f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
                  interp::linear(FX::preset_params(0).surface.scale,
                                 FX::preset_params(1).surface.scale, 0.25f),
                  1e-6f);
-  effect.setAnimationsPaused(false);
 
   WB::drive_transition(effect, 0.5f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
@@ -254,7 +252,6 @@ inline void test_lattice_melt_manual_write_restarts_dwell() {
                  ParamSetResult::APPLIED);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 
-  effect.setAnimationsPaused(false);
   for (int f = 0; f <= FX::PRESET_SEGUE.frames; ++f)
     WB::tick_choreography(effect);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
