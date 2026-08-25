@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/filter/pipeline.h"
+#include "render/filter/splat.h"
 #include "math/geometry.h"
 #include "color/color.h"
 
@@ -75,10 +76,10 @@ public:
 private:
   /**
    * @brief Falloff below which the attenuated tap is dropped instead of passed.
-   * @details Matches Filter::Screen::SPLAT_TAP_CUTOFF: both gate a raw,
-   * unnormalized weight, unlike Blur's looser cutoff on normalized kernel taps.
+   * @details Shares Screen::SPLAT_TAP_CUTOFF: both gate a raw, unnormalized
+   * weight, unlike Blur's looser cutoff on normalized kernel taps.
    */
-  static constexpr float MASK_CUTOFF = 1e-8f;
+  static constexpr float MASK_CUTOFF = Screen::SPLAT_TAP_CUTOFF;
 
   Vector origin; /**< Center of the hole (unit vector). */
   float radius;  /**< Angular radius of the hole in radians. */
