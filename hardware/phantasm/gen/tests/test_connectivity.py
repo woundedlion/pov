@@ -22,6 +22,7 @@ BOARD = """(kicad_pcb
 \t\t(25 "Edge.Cuts" user)
 \t)
 \t(footprint "R"
+\t\t(layer "F.Cu")
 \t\t(at 0 0)
 \t\t(property "Reference" "R1")
 \t\t(pad "1" smd rect (at 0 0) (size 0.5 0.5) (layers "F.Cu") (net "/DATA"))
@@ -38,6 +39,7 @@ NATIVE_BOARD = (BOARD
 ROUND_PAD_BOARD = """(kicad_pcb
 \t(layers (0 "F.Cu" signal))
 \t(footprint "J"
+\t\t(layer "F.Cu")
 \t\t(at 0 0)
 \t\t(property "Reference" "J1")
 \t\t(pad "1" smd circle (at 0 0) (size 2.7 2.7) (layers "F.Cu") (net "/ROUND"))
@@ -54,6 +56,7 @@ POUR_BOARD = """(kicad_pcb
 \t\t(2 "B.Cu" signal)
 \t)
 \t(footprint "J"
+\t\t(layer "F.Cu")
 \t\t(at 5 5)
 \t\t(property "Reference" "J1")
 \t\t(pad "1" thru_hole circle (at 0 0) (size 1.6 1.6) (layers "*.Cu") (net "/GND"))
@@ -129,6 +132,16 @@ class SyntheticBoardTests(unittest.TestCase):
                               and child[0] == "filled_polygon")]
                 for node in parse(POUR_BOARD)]
         self.assertEqual(sorted(connectivity.opens(root)), ["GND"])
+
+    def test_a_back_side_footprint_is_refused(self):
+        text = BOARD.replace("(layer \"F.Cu\")", "(layer \"B.Cu\")", 1)
+        with self.assertRaisesRegex(ValueError, "R1 layer is B.Cu"):
+            connectivity.opens(parse(text))
+
+    def test_a_footprint_without_a_layer_is_refused(self):
+        text = BOARD.replace("\t\t(layer \"F.Cu\")\n", "", 1)
+        with self.assertRaisesRegex(ValueError, "R1 layer is missing"):
+            connectivity.opens(parse(text))
 
     def test_a_via_bridges_the_layers_it_spans(self):
         text = BOARD.replace(
