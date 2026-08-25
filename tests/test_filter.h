@@ -92,17 +92,17 @@ concept ReplacementFrameStarter = requires(P &pipeline, Canvas &canvas) {
  *        constants.
  */
 inline void test_trait_member_values() {
-  HS_EXPECT_TRUE(Is2D::is_2d);
-  HS_EXPECT_FALSE(Is2D::has_history);
+  HS_EXPECT_TRUE(Filter::Is2D::is_2d);
+  HS_EXPECT_FALSE(Filter::Is2D::has_history);
 
-  HS_EXPECT_FALSE(Is3D::is_2d);
-  HS_EXPECT_FALSE(Is3D::has_history);
+  HS_EXPECT_FALSE(Filter::Is3D::is_2d);
+  HS_EXPECT_FALSE(Filter::Is3D::has_history);
 
-  HS_EXPECT_TRUE(Is2DWithHistory::is_2d);
-  HS_EXPECT_TRUE(Is2DWithHistory::has_history);
+  HS_EXPECT_TRUE(Filter::Is2DWithHistory::is_2d);
+  HS_EXPECT_TRUE(Filter::Is2DWithHistory::has_history);
 
-  HS_EXPECT_FALSE(Is3DWithHistory::is_2d);
-  HS_EXPECT_TRUE(Is3DWithHistory::has_history);
+  HS_EXPECT_FALSE(Filter::Is3DWithHistory::is_2d);
+  HS_EXPECT_TRUE(Filter::Is3DWithHistory::has_history);
 }
 
 // ============================================================================
@@ -323,7 +323,7 @@ inline void test_pipeline_sink_is_2d() {
   static_assert(!TerminalFlusher<Terminal>);
   static_assert(ReplacementFrameStarter<Terminal>);
   static_assert(std::is_empty_v<Prepared>);
-  static_assert(PipelineFoldSurface<Prepared>);
+  static_assert(Filter::PipelineFoldSurface<Prepared>);
   static_assert(RawFramePlotter<Prepared>);
   static_assert(!TerminalFlusher<Prepared>);
   static_assert(!ReplacementFrameStarter<Prepared>);
