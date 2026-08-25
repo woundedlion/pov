@@ -1736,7 +1736,7 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
         W, H, clip.y0, clip.y1, clip.x0, clip.x1, clip.margin, samples);
     HS_EXPECT_EQ(actual.size(), expected.size());
     for (size_t i = 0; i < expected.size(); ++i)
-      HS_EXPECT_TRUE(actual[i] == expected[i]);
+      HS_EXPECT_EQ(actual[i], expected[i]);
   }
 }
 

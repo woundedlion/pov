@@ -1117,8 +1117,8 @@ inline void test_shader_workbench_manual_edit_timing() {
   const float before_speed = WB::active_config(sb).params.source.speed;
 
   sb.setAnimationsPaused(false);
-  HS_EXPECT_TRUE(sb.updateParameter("Speed", before_speed + 0.5f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.updateParameter("Speed", before_speed + 0.5f),
+               ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(sb.animations_paused());
   HS_EXPECT_EQ(WB::active_config(sb).params.source.speed, before_speed);
   sb.draw_frame();
@@ -1130,10 +1130,9 @@ inline void test_shader_workbench_manual_edit_timing() {
   HS_EXPECT_TRUE(WB::published_config(sb) == WB::active_config(sb));
 
   const auto initial_coverage = WB::active_slots(sb).coverage;
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Planar Warp 1",
-                         static_cast<float>(WB::WarpStageKind::NONE)) ==
-      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1",
+                                  static_cast<float>(WB::WarpStageKind::NONE)),
+               ParamSetResult::APPLIED);
   sb.draw_frame();
   sb.advance_display();
 
@@ -1142,8 +1141,8 @@ inline void test_shader_workbench_manual_edit_timing() {
   for (WB::SurfaceLens lens :
        {WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
         WB::SurfaceLens::KALEIDOSCOPE, WB::SurfaceLens::GLITCH}) {
-    HS_EXPECT_TRUE(sb.updateParameter("Lens", static_cast<float>(lens)) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter("Lens", static_cast<float>(lens)),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_NE(WB::active_slots(sb).surface_lens, lens);
     sb.draw_frame();
     sb.advance_display();
@@ -1611,15 +1610,15 @@ inline void test_shader_workbench_equirectangular_projection() {
   HS_EXPECT_TRUE(std::isfinite(color.alpha));
   HS_EXPECT_GE(color.alpha, 0.0f);
   HS_EXPECT_LE(color.alpha, 1.0f);
-  HS_EXPECT_TRUE(
+  HS_EXPECT_EQ(
       sb.updateParameter("Projection",
-                         static_cast<float>(WB::Projection::SINUSOIDAL)) ==
+                         static_cast<float>(WB::Projection::SINUSOIDAL)),
       ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(sb.getParameters().find("Singularity Fade") == nullptr);
-  HS_EXPECT_TRUE(sb.updateParameter(
-                     "Projection",
-                     static_cast<float>(WB::Projection::PEIRCE_QUINCUNCIAL)) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(
+      sb.updateParameter(
+          "Projection", static_cast<float>(WB::Projection::PEIRCE_QUINCUNCIAL)),
+      ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(sb.getParameters().find("Singularity Fade") != nullptr);
 }
 
@@ -2500,8 +2499,8 @@ inline void test_shader_workbench_config_admission() {
     WB::SB lens_change;
     lens_change.init();
     const auto dodecahedral = WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL;
-    HS_EXPECT_TRUE(
-        lens_change.updateParameter("Lens", static_cast<float>(dodecahedral)) ==
+    HS_EXPECT_EQ(
+        lens_change.updateParameter("Lens", static_cast<float>(dodecahedral)),
         ParamSetResult::APPLIED);
     lens_change.draw_frame();
     lens_change.advance_display();
@@ -2510,9 +2509,9 @@ inline void test_shader_workbench_config_admission() {
     HS_EXPECT_EQ(WB::active_slots(lens_change).warp_program.outer.kind,
                  WB::WarpStageKind::WAVE_SHEAR);
     HS_EXPECT_TRUE(WB::parameter_warning(lens_change, "Lens") == nullptr);
-    HS_EXPECT_TRUE(
+    HS_EXPECT_EQ(
         lens_change.updateParameter(
-            "Planar Warp 1", static_cast<float>(WB::WarpStageKind::NONE)) ==
+            "Planar Warp 1", static_cast<float>(WB::WarpStageKind::NONE)),
         ParamSetResult::APPLIED);
     lens_change.draw_frame();
     lens_change.advance_display();
@@ -2557,8 +2556,8 @@ inline void test_shader_workbench_deterministic_gui_edits() {
                             static_cast<float>(WB::WarpStageKind::POLAR_CHART)};
     for (size_t index = 0; index < result.configs.size(); ++index) {
       const uint32_t before = sb.getParameterSchemaGeneration();
-      HS_EXPECT_TRUE(sb.updateParameter(names[index], values[index]) ==
-                     ParamSetResult::APPLIED);
+      HS_EXPECT_EQ(sb.updateParameter(names[index], values[index]),
+                   ParamSetResult::APPLIED);
       result.generation_deltas[index] =
           sb.getParameterSchemaGeneration() - before;
       result.configs[index] = WB::requested_config(sb);
@@ -2675,9 +2674,9 @@ inline void test_shader_workbench_dodecahedral_lattice_edit() {
   HS_EXPECT_EQ(before.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
 
-  HS_EXPECT_TRUE(
+  HS_EXPECT_EQ(
       sb.updateParameter("Function",
-                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)) ==
+                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)),
       ParamSetResult::APPLIED);
   WB::RequestedConfig expected = before;
   expected.slots.function = WB::Function::PRIMITIVE_LATTICE;
@@ -2724,10 +2723,9 @@ inline void test_shader_workbench_polar_gui_repair() {
     const char *density = lattice ? "Lattice Cell Scale" : "Pattern Freq";
     const float repaired = lattice ? 8.0f / (TWO_PI_F * 2.0f) : 1.5f;
 
-    HS_EXPECT_TRUE(
-        sb.updateParameter(
-            root, static_cast<float>(WB::WarpStageKind::POLAR_CHART)) ==
-        ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter(
+                     root, static_cast<float>(WB::WarpStageKind::POLAR_CHART)),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(WB::active_config(sb) == rendered);
     HS_EXPECT_TRUE(sb.getParameters().find(density) != nullptr);
     HS_EXPECT_TRUE(sb.getParameters().find(mode) != nullptr);
@@ -2740,12 +2738,11 @@ inline void test_shader_workbench_polar_gui_repair() {
                      *sb.getParameters().find(root)),
                  static_cast<float>(WB::WarpStageKind::NONE));
 
-    HS_EXPECT_TRUE(sb.updateParameter(harmonic, 2.0f) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter(harmonic, 2.0f), ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(WB::active_config(sb) == rendered);
     HS_EXPECT_TRUE(WB::parameter_warning(sb, root) != nullptr);
-    HS_EXPECT_TRUE(sb.updateParameter(density, repaired) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter(density, repaired),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(WB::parameter_warning(sb, root) == nullptr);
     sb.draw_frame();
     sb.advance_display();
@@ -3279,23 +3276,23 @@ inline void test_shader_workbench_gui_catalog() {
   HS_EXPECT_TRUE(coverage != nullptr);
   HS_EXPECT_EQ(coverage->option_count, 5);
   HS_EXPECT_TRUE(std::strcmp(coverage->options[4], "Projection Weight") == 0);
-  HS_EXPECT_TRUE(
+  HS_EXPECT_EQ(
       sb.updateParameter("Function",
-                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)) ==
+                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)),
       ParamSetResult::APPLIED);
   const auto *lattice_softness = sb.getParameters().find("Lattice Softness");
   HS_EXPECT_TRUE(lattice_softness != nullptr);
   HS_EXPECT_EQ(lattice_softness->max, 1.0f);
-  HS_EXPECT_TRUE(sb.updateParameter("Lattice Softness", 1.0f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.updateParameter("Lattice Softness", 1.0f),
+               ParamSetResult::APPLIED);
   sb.draw_frame();
   sb.advance_display();
   WB::settle_transition(sb);
   HS_EXPECT_EQ(WB::active_config(sb).params.source.lattice_softness, 1.0f);
   const uint32_t schema_before = sb.getParameterSchemaGeneration();
-  HS_EXPECT_TRUE(sb.updateParameter(
-                     "Projection", static_cast<float>(WB::Projection::BONNE)) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.updateParameter("Projection",
+                                  static_cast<float>(WB::Projection::BONNE)),
+               ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(sb.getParameterSchemaGeneration() > schema_before);
   HS_EXPECT_TRUE(sb.getParameters().find("Bonne Hemisphere") != nullptr);
   HS_EXPECT_LT(parameter_index("Projection"),
@@ -3314,15 +3311,15 @@ inline void test_shader_workbench_gui_catalog() {
   };
 
   reset_gui();
-  HS_EXPECT_TRUE(
+  HS_EXPECT_EQ(
       sb.updateParameter("Coverage",
-                         static_cast<float>(WB::CoveragePolicy::EDGE_FADE)) ==
+                         static_cast<float>(WB::CoveragePolicy::EDGE_FADE)),
       ParamSetResult::APPLIED);
   const auto *edge_fade_width = sb.getParameters().find("Edge Fade Width");
   HS_EXPECT_TRUE(edge_fade_width != nullptr);
   HS_EXPECT_EQ(edge_fade_width->min, 0.0f);
-  HS_EXPECT_TRUE(sb.updateParameter("Edge Fade Width", 0.0f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.updateParameter("Edge Fade Width", 0.0f),
+               ParamSetResult::APPLIED);
   sb.draw_frame();
   sb.advance_display();
   HS_EXPECT_EQ(WB::active_config(sb).params.value.edge_width, 0.0f);
@@ -3336,8 +3333,8 @@ inline void test_shader_workbench_gui_catalog() {
     const int option_count = sb.getParameters().find(name)->option_count;
     for (int option = 0; option < option_count; ++option) {
       reset_gui();
-      HS_EXPECT_TRUE(sb.updateParameter(name, static_cast<float>(option)) ==
-                     ParamSetResult::APPLIED);
+      HS_EXPECT_EQ(sb.updateParameter(name, static_cast<float>(option)),
+                   ParamSetResult::APPLIED);
       sb.draw_frame();
       sb.advance_display();
       WB::settle_transition(sb);
@@ -3351,8 +3348,8 @@ inline void test_shader_workbench_gui_catalog() {
   auto select_and_set_all = [&](const char *root, int selection,
                                 const char *subordinate) {
     reset_gui();
-    HS_EXPECT_TRUE(sb.updateParameter(root, static_cast<float>(selection)) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter(root, static_cast<float>(selection)),
+                 ParamSetResult::APPLIED);
     sb.draw_frame();
     sb.advance_display();
     WB::settle_transition(sb);
@@ -3366,9 +3363,8 @@ inline void test_shader_workbench_gui_catalog() {
     const int last = def->option_count > 0 ? def->option_count - 1
                                            : static_cast<int>(def->max);
     for (int value = first; value <= last; ++value) {
-      HS_EXPECT_TRUE(
-          sb.updateParameter(subordinate, static_cast<float>(value)) ==
-          ParamSetResult::APPLIED);
+      HS_EXPECT_EQ(sb.updateParameter(subordinate, static_cast<float>(value)),
+                   ParamSetResult::APPLIED);
       sb.draw_frame();
       sb.advance_display();
       WB::settle_transition(sb);
@@ -3391,8 +3387,8 @@ inline void test_shader_workbench_gui_catalog() {
   select_and_set_all("Function", 9, "Tessellation Kind");
   select_and_set_all("Projection", 2, "Gnomonic Hemisphere");
   select_and_set_all("Projection", 3, "Bonne Hemisphere");
-  HS_EXPECT_TRUE(sb.updateParameter("Bonne Standard Parallel", 0.9f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.updateParameter("Bonne Standard Parallel", 0.9f),
+               ParamSetResult::APPLIED);
   sb.draw_frame();
   sb.advance_display();
   WB::settle_transition(sb);
@@ -3401,8 +3397,8 @@ inline void test_shader_workbench_gui_catalog() {
       1e-6f);
   select_and_set_all("Projection", 4, "Peirce Layout");
   for (int layout = 0; layout < 4; ++layout) {
-    HS_EXPECT_TRUE(
-        sb.updateParameter("Peirce Layout", static_cast<float>(layout)) ==
+    HS_EXPECT_EQ(
+        sb.updateParameter("Peirce Layout", static_cast<float>(layout)),
         ParamSetResult::APPLIED);
     const bool has_scroll =
         sb.getParameters().find("Projection Layout Scroll") != nullptr;
@@ -3417,15 +3413,15 @@ inline void test_shader_workbench_gui_catalog() {
   select_and_set_all("Planar Warp 1", 5, "Planar Warp 1 Curl Integrator");
   {
     reset_gui();
-    HS_EXPECT_TRUE(sb.updateParameter(
-                       "Planar Warp 1",
-                       static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)) ==
-                   ParamSetResult::APPLIED);
-    HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Scale", 0.1f) ==
-                   ParamSetResult::APPLIED);
-    HS_EXPECT_TRUE(
+    HS_EXPECT_EQ(
         sb.updateParameter("Planar Warp 1",
-                           static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
+                           static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)),
+        ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1 Scale", 0.1f),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(
+        sb.updateParameter("Planar Warp 1",
+                           static_cast<float>(WB::WarpStageKind::CURL_FLOW)),
         ParamSetResult::APPLIED);
     sb.draw_frame();
     sb.advance_display();
@@ -3435,8 +3431,8 @@ inline void test_shader_workbench_gui_catalog() {
     const float limit = strength->max;
     HS_EXPECT_NEAR(limit, 1.0f, 1e-6f);
     HS_EXPECT_EQ(strength->min, -limit);
-    HS_EXPECT_TRUE(sb.updateParameter("Planar Warp 1 Strength", 4.0f) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1 Strength", 4.0f),
+                 ParamSetResult::APPLIED);
     sb.draw_frame();
     sb.advance_display();
     WB::settle_transition(sb);
@@ -3445,16 +3441,15 @@ inline void test_shader_workbench_gui_catalog() {
   select_and_set_all("Planar Warp 1", 7, "Planar Warp 1 Polar Mode");
   select_and_set_all("Planar Warp 1", 7, "Planar Warp 1 Polar Harmonic");
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") != nullptr);
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Function", static_cast<float>(WB::Function::RINGS)) ==
+  HS_EXPECT_EQ(
+      sb.updateParameter("Function", static_cast<float>(WB::Function::RINGS)),
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::requested_config(sb).slots.warp_program.outer.kind,
                WB::WarpStageKind::POLAR_CHART);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") != nullptr);
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Planar Warp 1",
-                         static_cast<float>(WB::WarpStageKind::NONE)) ==
-      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.updateParameter("Planar Warp 1",
+                                  static_cast<float>(WB::WarpStageKind::NONE)),
+               ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") == nullptr);
   sb.draw_frame();
   sb.advance_display();
@@ -3820,18 +3815,18 @@ inline void test_shader_workbench_lens_domain_ranges() {
     return definition;
   };
 
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)) ==
+  HS_EXPECT_EQ(
+      sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)),
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Pattern Freq")->max, 64.0f);
   HS_EXPECT_EQ(parameter("Speed")->max, 5.0f);
   HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
-  HS_EXPECT_TRUE(sb.updateParameter("Speed", 5.0f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.updateParameter("Speed", 5.0f), ParamSetResult::APPLIED);
 
-  HS_EXPECT_TRUE(sb.updateParameter(
-                     "Lens", static_cast<float>(
-                                 WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(sb.updateParameter(
+                   "Lens", static_cast<float>(
+                               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)),
+               ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Pattern Freq")->max, 64.0f);
   HS_EXPECT_EQ(parameter("Speed")->max, 0.5f);
   HS_EXPECT_EQ(parameter("Speed")->get_requested(), 0.5f);
@@ -3843,35 +3838,35 @@ inline void test_shader_workbench_lens_domain_ranges() {
   HS_EXPECT_EQ(parameter("Hue Noise Scale")->max, 2.0f);
   HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
 
-  HS_EXPECT_TRUE(
+  HS_EXPECT_EQ(
       sb.updateParameter("Planar Warp 1",
-                         static_cast<float>(WB::WarpStageKind::WAVE_SHEAR)) ==
+                         static_cast<float>(WB::WarpStageKind::WAVE_SHEAR)),
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Speed")->max, 0.005f);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Frequency")->max, 8.0f);
 
-  HS_EXPECT_TRUE(
+  HS_EXPECT_EQ(
       sb.updateParameter("Planar Warp 1",
-                         static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)) ==
+                         static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)),
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 1.0f);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Strength")->max, 1.0f);
 
-  HS_EXPECT_TRUE(
-      sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)) ==
+  HS_EXPECT_EQ(
+      sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)),
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 4.0f);
 
-  HS_EXPECT_TRUE(
+  HS_EXPECT_EQ(
       sb.updateParameter("Planar Warp 1",
-                         static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
+                         static_cast<float>(WB::WarpStageKind::CURL_FLOW)),
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 2.0f);
   HS_EXPECT_EQ(parameter("Planar Warp 1 Strength")->max, 0.125f);
 
-  HS_EXPECT_TRUE(
+  HS_EXPECT_EQ(
       sb.updateParameter("Function",
-                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)) ==
+                         static_cast<float>(WB::Function::PRIMITIVE_LATTICE)),
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Lattice Cell Scale")->max, 8.0f);
 }
@@ -5356,10 +5351,10 @@ inline void test_shader_workbench_discrete_transition() {
 
   const Color4 from_color(Pixel(10000, 20000, 30000), 0.25f);
   const Color4 to_color(Pixel(40000, 50000, 60000), 0.75f);
-  HS_EXPECT_TRUE(::blend_outputs(from_color, to_color, 0.0f).color ==
-                 from_color.color);
-  HS_EXPECT_TRUE(::blend_outputs(from_color, to_color, 1.0f).color ==
-                 to_color.color);
+  HS_EXPECT_EQ(::blend_outputs(from_color, to_color, 0.0f).color,
+               from_color.color);
+  HS_EXPECT_EQ(::blend_outputs(from_color, to_color, 1.0f).color,
+               to_color.color);
   const Color4 middle = ::blend_outputs(from_color, to_color, 0.5f);
   HS_EXPECT_EQ(middle.alpha, 0.5f);
   HS_EXPECT_EQ(middle.color.r, uint16_t(32500));
