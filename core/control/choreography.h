@@ -147,7 +147,9 @@ protected:
    * a user driving the control expects the preset it names immediately. An
    * AUTOMATIC change follows `Derived::PRESET_SEGUE`: Segue::Lerp arms a
    * crossfade from the live parameters, Segue::Snap adopts immediately, and
-   * Segue::Fade adopts immediately inside its envelope's dark frame.
+   * Segue::Fade adopts immediately inside its envelope's dark frame. A
+   * crossfade the timeline has no slot for restarts the dwell, so the next
+   * attempt is a dwell away rather than on the following frame.
    * @param change The requested preset move.
    * @return False if an automatic crossfade cannot be scheduled.
    */
@@ -169,8 +171,10 @@ protected:
                              Animation::Lerp(preset_blend, preset_blend,
                                              preset_blend, SEGUE.frames,
                                              SEGUE.easing),
-                             Timeline::Pin::UNPINNED, paused) == nullptr)
+                             Timeline::Pin::UNPINNED, paused) == nullptr) {
+          preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
           return false;
+        }
         transition = {params, target, true};
         derived().transition_armed(target);
         return true;
