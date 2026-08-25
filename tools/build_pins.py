@@ -34,6 +34,13 @@ import teensy_gate  # noqa: E402
 
 
 PINS = {
+    # The daydream commit the tree-fence and cross-repo jobs check out. Those
+    # jobs validate an exhaustive fence against that tree, so the checkout
+    # tracks a committed pin: daydream's tip moves independently and would both
+    # red unrelated engine changes and make a re-run of an unchanged commit flip
+    # its verdict. daydream pins this repository the same way, in
+    # holosphere_wasm.sha -- so the pair is circular and daydream lands first.
+    "daydream": "3dd3f716fab55e696808d8b1c347f1f4292d5ee8",
     "doxygen-awesome": "568f56cde6ac78b6dfcc14acd380b2e745c301ea",
     "emsdk": "5.0.0",
     # PyPI's rust-just, so the recipe runner is installed and held like ruff.
@@ -212,7 +219,7 @@ SHARED_LITERAL_USES = (
 
 # --check-tool targets: pin name -> (version command, how to install the pin,
 # the form of the pin that command reports). `{pin}` in either is filled with
-# the pin value. A pin absent here has nothing to interrogate: a git ref and
+# the pin value. A pin absent here has nothing to interrogate: two git refs and
 # two file digests name no program, and the emsdk and KiCad pins are checked
 # where they are used (the WASM toolchain marker written beside the build,
 # kicad_common.find_kicad_cli). The targets a recipe runs are invoked from
