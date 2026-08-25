@@ -131,6 +131,9 @@ _CARDINALITY_CLAIMS = (
      "HS_PHANTASM_EFFECT_LIST", "the effects-reference playlist size"),
     ("README.md", re.compile(r"\b(\d+)-entry roster\b"),
      "HS_PHANTASM_EFFECT_LIST", "the frame-sync playlist size"),
+    ("docs/specs/phantasm_frame_sync_spec.md",
+     re.compile(r"\b(\d+)-entry roster\b"),
+     "HS_PHANTASM_EFFECT_LIST", "the frame-sync playlist size"),
 )
 
 # Names are matched against the source file kinds Doxyfile documents.
