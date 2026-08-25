@@ -181,7 +181,7 @@ public:
   template <typename AfterReset>
   void compact_keep_front(int back_slot, AfterReset after_reset) {
     HS_CHECK(back_slot == 1 - front,
-             "MeshCarousel compacted after the incoming slot flip");
+             "MeshCarousel compacted before the incoming slot flip");
     slots[back_slot] = MeshState();
     Persist<MeshState> p(slots[front], scratch_arena_b, persistent_arena);
     ArenaResetHook::run_all();
