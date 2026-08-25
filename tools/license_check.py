@@ -85,10 +85,22 @@ def license_exception_issues(text: str) -> list[str]:
     return issues
 
 
+class ToolingError(Exception):
+    """A condition under which the checker can certify nothing."""
+
+
 def tracked_sources(root: Path) -> list[str]:
     """Repo-relative paths of every tracked C/C++ source under root."""
-    out = subprocess.run(["git", "-C", str(root), "ls-files", "-z"],
-                         capture_output=True, text=True, check=True).stdout
+    try:
+        listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z"],
+                                capture_output=True, text=True)
+    except OSError as error:
+        raise ToolingError(f"cannot run git: {error}") from error
+    if listed.returncode != 0:
+        detail = listed.stderr.strip() or f"git exited {listed.returncode}"
+        raise ToolingError(
+            f"cannot list tracked sources under {root}: {detail}")
+    out = listed.stdout
     return sorted(p for p in out.split("\0")
                   if p and PurePosixPath(p).suffix in SOURCE_SUFFIXES)
 
@@ -123,7 +135,12 @@ def main(argv=None) -> int:
                         help="repository root to check")
     args = parser.parse_args(argv)
 
-    sources = tracked_sources(args.root)
+    try:
+        sources = tracked_sources(args.root)
+    except ToolingError as error:
+        print(f"[license-check] tooling error: {error}", file=sys.stderr)
+        return 2
+
     try:
         license_text = (args.root / "LICENSE").read_text(encoding="utf-8")
     except OSError as error:
