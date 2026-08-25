@@ -7,10 +7,10 @@
 /**
  * @file interpolate.h
  * @brief One interpolator per parameter domain — unconstrained scalar,
- *        positive scale, periodic angle, unit vector — plus the progress clamp
- *        they share. Every interpolator is exact at both endpoints and snaps to
- *        the nearer one outside [0,1], so a caller that has already clamped its
- *        progress pays nothing for the guard.
+ *        positive scale, periodic angle, unit vector — plus a progress clamp
+ *        for callers. Every interpolator carries its own endpoint guard: exact
+ *        at both endpoints and snapping to the nearer one outside [0,1], so a
+ *        caller that has already clamped its progress pays nothing for it.
  */
 
 #include <array>
