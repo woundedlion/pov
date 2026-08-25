@@ -19,7 +19,11 @@ using KaleidoscopeMandalaSpec =
                    Pullback::TransferKind::NONE,
                    Pullback::CoverageKind::PROJECTION_SQUARED>;
 
-/** @brief Folded-gnomonic wave field reflected through a dodecahedral lens. */
+/**
+ * @brief Folded-gnomonic wave field reflected through a dodecahedral lens.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class KaleidoscopeMandala
     : public Pullback::ComposedEffect<
