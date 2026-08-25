@@ -1,5 +1,12 @@
 # PHANTASM Segment Board — PCB Design Specification
 
+**Status: SPECIFIED; the routed board is committed, with two recorded deviations.** The
+schematic and layout this document specifies ship in `hardware/phantasm/` and pass the gates
+that project's README lists, but the committed copper does not meet every requirement here:
+the §11.1 hand-solder lands and R-PWR-7's J1 keying are both unmet, each recorded in a
+deviation block beside the requirement it qualifies. §11.2 collects the order/layout items
+owed before fab. `hardware/phantasm/README.md` is the as-built record.
+
 Source of truth for the KiCad schematic + layout of the per-segment carrier board.
 The qualified configuration builds one identical PCB **×4**; a 2-bit solder
 strap selects segment 0 (master/conductor) or segments 1–3 (flywheel slaves).
