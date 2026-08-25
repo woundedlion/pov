@@ -441,7 +441,7 @@ inline void test_log_all_reports_tree() {
  */
 inline void test_reset_does_not_orphan_subtree() {
   static hs::CycleCounter absent("prof_orphan_parent");
-  static hs::CycleCounter kept("prof_orphan_child");
+  static hs::CycleCounter kept("prof_orphan_kept");
   {
     hs::CycleScope sa(absent);
     hs::CycleScope sk(kept);
@@ -457,7 +457,7 @@ inline void test_reset_does_not_orphan_subtree() {
   }
   HS_EXPECT_EQ(kept.parent, &absent);
   HS_EXPECT_EQ(absent.count, 0u);
-  HS_EXPECT_TRUE(std::strstr(report, "prof_orphan_child") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(report, "prof_orphan_kept") != nullptr);
   HS_EXPECT_TRUE(std::strstr(report, "prof_orphan_parent") == nullptr);
 }
 
