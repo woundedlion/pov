@@ -60,10 +60,6 @@ inline void test_all_presets_in_ranges_folds_predicate() {
   HS_EXPECT_FALSE(all_presets_in_ranges(CONST_ENTRIES, id_above_one));
 }
 
-/**
- * @brief Runs all preset-container test cases.
- * @return The module's failure count, as reported by end_module().
- */
 // --- apply_if_changed -------------------------------------------------------
 
 /**
@@ -217,6 +213,10 @@ inline void test_hold_initial_preset_overrides_first_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 }
 
+/**
+ * @brief Runs all preset-container test cases.
+ * @return The module's failure count, as reported by end_module().
+ */
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 
