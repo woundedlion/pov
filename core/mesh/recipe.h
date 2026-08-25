@@ -6,14 +6,16 @@
 
 /**
  * @file recipe.h
- * @brief Lowering and replay of Solids::Recipe op chains, plus the leg-kind
- *        coverage rules the morph animation depends on.
+ * @brief Lowering and replay of Solids::Recipe op chains (the chain model
+ *        itself is in mesh/recipe_types.h), plus the leg-kind coverage rules
+ *        the morph animation depends on.
  */
 
 #include <cstddef>
 #include <cstdint>
 
 #include "mesh/conway_graph.h"
+#include "mesh/recipe_types.h"
 #include "mesh/solids.h"
 
 namespace Solids {
