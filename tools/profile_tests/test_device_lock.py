@@ -362,6 +362,35 @@ class PinnedPortEnumeration(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertEqual(list(self.base.parent.glob("lock-*.d")), [])
 
+    def fail_loader(self):
+        """A loader that is present but whose enumeration fails."""
+        loader = self.tools / "teensy_ports.exe"
+        loader.write_text("#!/bin/bash\necho 'boom' >&2\nexit 3\n")
+        loader.chmod(0o755)
+
+    def run_unpinned(self, script):
+        return run_lock(script, self.base, ports=None,
+                        env={"HS_TEENSY_TOOLS": str(self.tools)})
+
+    def test_failed_enumeration_is_distinct_from_no_loader(self):
+        """rc 2, not the rc 0 + empty output that means an enumerate-less host."""
+        self.fail_loader()
+        r = self.run_unpinned("hs_device_ports")
+        self.assertEqual(r.returncode, 2)
+        self.assertEqual(r.stdout.strip(), "")
+        self.assertIn("failed", r.stderr)
+
+    def test_acquire_refuses_a_failed_enumeration_without_locking(self):
+        self.fail_loader()
+        r = self.run_unpinned("hs_device_acquire E profile 60")
+        self.assertEqual(r.returncode, 2)
+        self.assertEqual(list(self.base.parent.glob("lock-*.d")), [])
+
+    def test_status_reports_a_failed_enumeration(self):
+        self.fail_loader()
+        r = self.run_unpinned("hs_device_status")
+        self.assertEqual(r.returncode, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
