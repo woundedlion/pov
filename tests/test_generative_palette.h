@@ -28,7 +28,14 @@ namespace color_tests {
 
 /**
  * @brief Pins a compiled TRIADIC/BELL ramp to frozen colors at nine stops.
- * @details The tolerance is relative so the dark stops stay pinned: a flat
+ * @details Provenance: no generator emits this table. It was captured by
+ *          printing `got` from the loop below — GenerativePalette(recipe)
+ *          .get(i / 8.0f).color for i in [0, 8] — under the native clang test
+ *          toolchain (cmake/toolchain-native-clang.cmake), so it detects change
+ *          in the recipe compiler, the axis curves and the gamut mapper rather
+ *          than standing as an independent oracle. Re-derive the same way after
+ *          a deliberate retune, and only then.
+ *          The tolerance is relative so the dark stops stay pinned: a flat
  *          16-bit band wide enough for the bright end would let the smallest
  *          channels pass as pure black. It absorbs a last-bit difference in the
  *          transcendentals the OKLab path runs through, and is far tighter than
