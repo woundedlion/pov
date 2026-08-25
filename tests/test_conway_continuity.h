@@ -406,6 +406,10 @@ template <typename Solid> inline void check_bookend_swap_one() {
   // round up to 2 counts apart (a 1-ulp coverage difference through the
   // 16-bit lerp); a recolored face moves channels by thousands.
   constexpr int AA_LSB_TOL = 2;
+  // Quantization flips are confined to the face-boundary AA band, whose area is
+  // set by the seeds' total edge length at FB_W x FB_H; a drift that moved every
+  // lit pixel by a count or two would land near the canvas count instead.
+  constexpr size_t QUANT_BAND_BUDGET = 6000;
   size_t diff = 0;
   size_t quant_only = 0;
   for (size_t i = 0; i < base_px.size() && i < flat_px.size(); ++i) {
@@ -423,6 +427,7 @@ template <typename Solid> inline void check_bookend_swap_one() {
               "(+%zu quantization-level)\n",
               F, diff, quant_only);
   HS_EXPECT_EQ(diff, (size_t)0);
+  HS_EXPECT_LE(quant_only, QUANT_BAND_BUDGET);
 
   // Rosette isolation: stars painted background-black, rosettes white — any
   // lit pixel is rosette output.
