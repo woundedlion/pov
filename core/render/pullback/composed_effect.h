@@ -531,6 +531,12 @@ constexpr bool uses_central_meridian(ProjectionKind projection) {
          projection == ProjectionKind::FOLDED_SINUSOIDAL;
 }
 
+/** @brief Whether @p projection reads the singularity-fade field. Folded
+    sinusoidal has no singular locus and returns fixed weights. */
+constexpr bool uses_singularity_fade(ProjectionKind projection) {
+  return projection != ProjectionKind::FOLDED_SINUSOIDAL;
+}
+
 /** @brief Optional transfer curve an effect's material stage composes. */
 enum class TransferKind : uint8_t { NONE, ISO_CONTOUR };
 
@@ -998,6 +1004,8 @@ private:
       return AnimatedProjection;
     case Pullback::FieldGate::CENTRAL_MERIDIAN:
       return uses_central_meridian(SpecT::PROJECTION);
+    case Pullback::FieldGate::SINGULARITY_FADE:
+      return uses_singularity_fade(SpecT::PROJECTION);
     }
     return true;
   }
