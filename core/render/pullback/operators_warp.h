@@ -416,8 +416,7 @@ struct PreparedCurlFlow {
   uint8_t intervals;
 };
 
-/** @brief PLANE endomorphism: the divergence-free curl flow, on the
-    single-interval integrator. */
+/** @brief PLANE endomorphism: the divergence-free curl flow. */
 struct WarpCurlFlow {
   static constexpr const char *ID = "warp.curl-flow.v2";
   static constexpr const char *NAME = "Curl Flow";
