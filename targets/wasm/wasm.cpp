@@ -11,8 +11,9 @@
 #include "targets/wasm/math_exports.h"
 
 /**
- * @brief Registers the HolosphereEngine and MeshOps bindings with Embind so
- *        JavaScript can construct and call them.
+ * @brief Registers the HolosphereEngine, MeshOps and PaletteOps classes and the
+ *        free math exports with Embind so JavaScript can construct and call
+ *        them.
  */
 EMSCRIPTEN_BINDINGS(holosphere_engine) {
   bind_engine();
