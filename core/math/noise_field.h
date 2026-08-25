@@ -13,6 +13,7 @@
  */
 
 #include <array>
+#include <cassert>
 
 #include "math/geometry.h"
 #include "math/3dmath.h"
@@ -415,18 +416,34 @@ inline Vector sphere_exp_map(const Vector &v, const Vector &tangent) {
 }
 
 /**
+ * @brief Squared-arc ceiling of sphere_exp_map_half_radian()'s Taylor domain.
+ * @details (0.5 rad)^2, with rounding slack for a caller that reaches the bound
+ *   exactly by scaling a normalized tangent.
+ */
+inline constexpr float EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT = 0.250001f;
+
+/**
  * @brief sphere_exp_map for short arcs, with the transcendentals unrolled.
  * @param v Unit point on the sphere.
- * @param tangent Tangent at @p v; its length is the arc travelled in radians.
+ * @param tangent Tangent at @p v; its length is the arc travelled in radians,
+ *   and must not exceed half a radian (asserted).
  * @return The unit point reached after that arc.
  * @details cos and sin/x carried to their degree-6 Taylor terms, so the arc
  *   must stay within about half a radian: truncation error is under ~1e-7
  *   there, and grows as the eighth power of the arc beyond it. Takes the
  *   squared length, so it needs no sqrt and no branch at a zero tangent.
+ *
+ *   Nothing here clamps the arc; every caller must bound it. The sphere
+ *   displacement stages (Pullback::Surface) hold the bound by construction:
+ *   their tangent kernels return length at most 1 and their "Surface Noise
+ *   Strength" field is registered over [-0.5, 0.5]. Widening that range, or
+ *   feeding a tangent from anywhere else, breaks the approximation silently.
  */
 HS_FLASH_INLINE inline Vector
 sphere_exp_map_half_radian(const Vector &v, const Vector &tangent) {
   const float distance_sq = dot(tangent, tangent);
+  assert(distance_sq <= EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT &&
+         "sphere_exp_map_half_radian arc past its half-radian domain");
   const float cosine =
       1.0f + distance_sq *
                  (-0.5f + distance_sq *
