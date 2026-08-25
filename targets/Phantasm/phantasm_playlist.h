@@ -18,8 +18,8 @@
  */
 
 /**
- * @brief Phantasm playlist: HS_EFFECT_LIST minus Shader, ShaderChain, and the
- *        low-res-only effects Dynamo, MobiusRings, and Thrusters.
+ * @brief Phantasm playlist: HS_EFFECT_LIST minus the build-gated Shader and
+ *        ShaderChain and the HS_PHANTASM_EXCLUDED_EFFECTS entries.
  * @param X Function-like macro applied to each effect type name and its show
  *          duration in seconds.
  * @details Entry order is the device show order, chosen independently of
@@ -124,6 +124,37 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
 #undef HS_PHANTASM_NAME_ON_ROSTER
 }
 
+/**
+ * @brief Roster effects the Phantasm playlist deliberately omits: the
+ *        low-resolution-only entries. Shader and ShaderChain are omitted by
+ *        their own build flags instead.
+ * @param X Function-like macro applied to each excluded effect class name.
+ */
+#define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
+  X(Dynamo)                                                                    \
+  X(MobiusRings)                                                               \
+  X(Thrusters)
+
+#define HS_PHANTASM_EXCLUDED_COUNT_ADD(cls) +1
+/** @brief Number of HS_PHANTASM_EXCLUDED_EFFECTS entries, derived from it. */
+constexpr int HS_PHANTASM_EXCLUDED_COUNT =
+    0 HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_COUNT_ADD);
+#undef HS_PHANTASM_EXCLUDED_COUNT_ADD
+
+/** @brief True when every excluded name is in HS_EFFECT_LIST. */
+constexpr bool hs_phantasm_exclusions_are_on_roster() {
+#define HS_PHANTASM_EXCLUSION_ON_ROSTER(cls) &&hs_in_effect_list(#cls)
+  return true HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUSION_ON_ROSTER);
+#undef HS_PHANTASM_EXCLUSION_ON_ROSTER
+}
+
+/** @brief True when no excluded name appears in HS_PHANTASM_EFFECT_LIST. */
+constexpr bool hs_phantasm_exclusions_are_omitted() {
+#define HS_PHANTASM_EXCLUSION_OMITTED(cls) &&!hs_in_phantasm_effect_list(#cls)
+  return true HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUSION_OMITTED);
+#undef HS_PHANTASM_EXCLUSION_OMITTED
+}
+
 // Drift guard: an effect added to (or removed from) HS_EFFECT_LIST must also be
 // deliberately added to or excluded from the Phantasm playlist above. The count
 // pins the cardinality; the name scans pin which entries are missing, so
@@ -137,27 +168,23 @@ static_assert(hs_phantasm_effect_list_is_distinct(),
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
-static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 3 -
-                                              HS_ENABLE_SHADER_WORKBENCH -
-                                              HS_ENABLE_CHAIN_INTERPRETER,
+static_assert(HS_PHANTASM_EFFECT_COUNT ==
+                  HS_EFFECT_COUNT - HS_PHANTASM_EXCLUDED_COUNT -
+                      HS_ENABLE_SHADER_WORKBENCH - HS_ENABLE_CHAIN_INTERPRETER,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus Shader, ShaderChain, Dynamo, MobiusRings "
-              "and Thrusters)");
+              "(full roster minus the build-gated Shader and ShaderChain and "
+              "the HS_PHANTASM_EXCLUDED_EFFECTS entries)");
 static_assert((!HS_ENABLE_SHADER_WORKBENCH || hs_in_effect_list("Shader")) &&
                   (!HS_ENABLE_CHAIN_INTERPRETER ||
                    hs_in_effect_list("ShaderChain")) &&
-                  hs_in_effect_list("Dynamo") &&
-                  hs_in_effect_list("MobiusRings") &&
-                  hs_in_effect_list("Thrusters"),
+                  hs_phantasm_exclusions_are_on_roster(),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
 static_assert(!hs_in_phantasm_effect_list("Shader") &&
                   !hs_in_phantasm_effect_list("ShaderChain") &&
-                  !hs_in_phantasm_effect_list("Dynamo") &&
-                  !hs_in_phantasm_effect_list("MobiusRings") &&
-                  !hs_in_phantasm_effect_list("Thrusters"),
-              "HS_PHANTASM_EFFECT_LIST must exclude Shader, ShaderChain, "
-              "Dynamo, MobiusRings and Thrusters");
+                  hs_phantasm_exclusions_are_omitted(),
+              "HS_PHANTASM_EFFECT_LIST must exclude Shader, ShaderChain and "
+              "every HS_PHANTASM_EXCLUDED_EFFECTS entry");
 
 // Product-group durations mirror the Phantasm playlist.
 #define HS_SHADER_GROUP_DURATION_MATCHES(cls, duration_seconds)                \
