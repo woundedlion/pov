@@ -1078,7 +1078,10 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena for the operator's own scratch; @p he_mesh may live in it,
  *   as the operator only ever rewinds to its entry offset.
- * @param t Truncation depth in [0..1]; see the single-shot entry.
+ * @param t Truncation depth in [0..1]; see the single-shot entry. Exactly 0.5
+ *   short-circuits to `ambo`, whose face census differs from truncate's at
+ *   every other @p t, so a sweep that must hold one topology stops short of
+ *   it (ConwayGraph::T_EPS_AMBO).
  * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
  *   when t == 0.5).
  */
