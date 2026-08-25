@@ -22,7 +22,6 @@
 #pragma once
 
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -918,27 +917,13 @@ inline void test_shader_chain_catalog_golden() {
   std::string catalog;
   In::append_catalog_json(catalog);
   catalog += '\n';
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const bool regen = std::getenv("HS_SHADER_CHAIN_CATALOG_REGEN") != nullptr;
-#pragma clang diagnostic pop
-  if (regen) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    std::FILE *file = std::fopen(HS_SHADER_CHAIN_CATALOG_PATH, "wb");
-#pragma clang diagnostic pop
-    HS_EXPECT_TRUE(file != nullptr);
-    if (file != nullptr) {
-      std::fwrite(catalog.data(), 1, catalog.size(), file);
-      std::fclose(file);
-    }
-  }
   const std::string golden = read_file(HS_SHADER_CHAIN_CATALOG_PATH);
   HS_EXPECT_FALSE(golden.empty());
   HS_EXPECT_TRUE(catalog == golden);
   if (catalog != golden)
     std::printf("shader_chain catalog drift: %zu generated vs %zu golden "
-                "bytes; regen with HS_SHADER_CHAIN_CATALOG_REGEN=1\n",
+                "bytes; rebuild the regenerate_shader_chain_catalog target"
+                "\n",
                 catalog.size(), golden.size());
 }
 
