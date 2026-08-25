@@ -205,7 +205,7 @@ in before ordering.
 | `J3A`, `J3B` | 2 | 3-pin 0.1″ vertical pin headers — SYNC daisy in / out | `PinHeader_1x03_P2.54mm_Vertical`; one Belden 8451 run per link | **unsourced** |
 | `J4` | 1 | 4-pin 0.1″ vertical pin header — debug (`+3V3`, `GND`, `MASTER_EN`, `SERIAL1_TX`) | `PinHeader_1x04_P2.54mm_Vertical` | **unsourced** |
 | `JP_ID0/1/2`, `JP_SHLD` | 4 | **No part to order** — open solder-bridge pads, closed with solder per board role | `Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm` | — |
-| `H1`–`H4` | 4 | M2.5 rotor mounting hardware (screw + nut or standoff) | 2.7 mm NPTH, centres 3.5 mm in from each corner; 2.7 mm-radius all-copper keepout | **unsourced** |
+| `H1`–`H4` | 4 | M2.5 rotor mounting hardware (screw + nut or standoff) | 2.7 mm NPTH, centres 3.5 mm in from each corner; 5.4 mm square all-copper keepout | **unsourced** |
 
 Off-board and out of this table (spec §2.3 / §9): the 1000 µF `C_BULK` injection bulk at
 the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter-board run.
@@ -283,7 +283,7 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
 - **Mechanical and service access.** The Quilter board retains the existing
   **58.28 × 32 mm** outline and adds four 2.7 mm NPTH M2.5 clearance holes at
   `(3.5, 3.5)`, `(3.5, 28.5)`, `(54.78, 3.5)`, and `(54.78, 28.5)` mm. Each hole
-  has a 2.7 mm-radius all-copper routing/zone keepout. The Teensy footprint includes
+  has a 5.4 mm square all-copper routing/zone keepout. The Teensy footprint includes
   a board-envelope 3D model and an 11.5 × 10 mm mating-USB placement keepout; J1 and
   J4 sit below that approach corridor.
 - **Identification.** Bottom silkscreen contains the N=4 ID0/ID1 truth table,
