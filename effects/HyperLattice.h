@@ -873,6 +873,21 @@ public:
                static_cast<uint8_t>(ShellCount::THREE);
   }
 
+  /**
+   * @brief Whether a parameter set is the shape SpecializedRenderPipeline bakes
+   *        in.
+   * @param value Parameters to test.
+   * @return true when the specialized trace renders the same image as the
+   *         general one.
+   * @details The shape is preset 1's; the assert in draw_frame() ties the two,
+   *          so retuning that preset cannot leave the gate behind.
+   */
+  static constexpr bool uses_specialized_slice(const Params &value) {
+    return value.mode == LatticeMode::FOUR_D_SLICE &&
+           value.reflection == ReflectionMode::CHROME &&
+           value.color == ColorMode::DEPTH && value.shells == ShellCount::TWO;
+  }
+
   HS_COLD_MEMBER HyperLattice() : Choreography(W, H, {.strobe = true}) {}
 
   void init() override {
@@ -921,10 +936,9 @@ public:
     const auto frame = HyperLatticeDetail::RenderPipeline::prepare(context);
     {
       HS_PROFILE(hl_shader_draw);
-      if (frame.ctx.params.mode == LatticeMode::FOUR_D_SLICE &&
-          frame.ctx.params.reflection == ReflectionMode::CHROME &&
-          frame.ctx.params.color == ColorMode::DEPTH &&
-          frame.ctx.params.shells == ShellCount::TWO) {
+      static_assert(uses_specialized_slice(preset_params(1)),
+                    "preset 1 no longer selects the specialized slice trace");
+      if (uses_specialized_slice(frame.ctx.params)) {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&frame](const Vector &view) {
               return HyperLatticeDetail::SpecializedRenderPipeline::evaluate(
