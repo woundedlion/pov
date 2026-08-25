@@ -148,12 +148,81 @@ inline void test_preset_zero_supplies_startup_params() {
   HS_EXPECT_NE(effect.boot_value(), BootParams{}.value);
 }
 
+/** @brief Params for the dwell-override fixture; presets carry distinct
+    values so a snap is observable. */
+struct HoldParams {
+  float value = 0.0f;
+};
+
+/**
+ * @brief Two-preset snapping effect exposing the choreography's dwell controls.
+ * @details Segue::Snap keeps the advance synchronous, so a preset index change
+ * lands on the frame the dwell retires with no crossfade in between.
+ */
+struct HoldEffect : public ChoreographedEffect<HoldEffect, HoldParams> {
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
+                                                              "second"};
+  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 40;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+
+  static constexpr HoldParams preset_params(size_t index) {
+    return {index == 0 ? 1.0f : 2.0f};
+  }
+  static constexpr bool valid_params(const HoldParams &) { return true; }
+
+  HoldEffect() : ChoreographedEffect(8, 8) {}
+  void draw_frame() override {}
+
+  void arm() { begin_choreography(); }
+  void hold(uint16_t frames) { hold_initial_preset(frames); }
+  void tick() { step_choreography(); }
+  float value() const { return params.value; }
+};
+
+/**
+ * @brief Verifies hold_initial_preset() replaces the dwell for the first
+ *        transition only, and that zero holds nothing.
+ * @details The override exists so an effect can stagger its first preset move
+ * off the shared cadence; a hold that leaked into later moves would retune the
+ * whole choreography instead of its opening frame.
+ */
+inline void test_hold_initial_preset_overrides_first_dwell() {
+  hs_test::reset_globals();
+  HoldEffect effect;
+  effect.arm();
+  HS_EXPECT_EQ(effect.getPresetCount(), size_t{2});
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+
+  effect.hold(3);
+  effect.tick();
+  effect.tick();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  effect.tick();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_EQ(effect.value(), HoldEffect::preset_params(1).value);
+
+  // The advance restored the authored dwell, so the next move is a full
+  // PRESET_DWELL_FRAMES away rather than another three frames.
+  for (uint16_t f = 1; f < HoldEffect::PRESET_DWELL_FRAMES; ++f)
+    effect.tick();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  effect.tick();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+
+  // Zero holds nothing: the next frame starts the transition.
+  effect.hold(0);
+  effect.tick();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+}
+
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 
   test_all_presets_in_ranges_folds_predicate();
   test_apply_if_changed();
   test_preset_zero_supplies_startup_params();
+  test_hold_initial_preset_overrides_first_dwell();
 
   return fixture.result();
 }
