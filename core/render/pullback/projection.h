@@ -228,6 +228,8 @@ airocean(const Vector &input, float central_meridian, bool horizontal,
                      coordinate_scale);
 }
 
+/** @brief Bonne pseudoconical equal-area projection; `North` picks the sign of
+    the standard parallel, and so the hemisphere the cone opens toward. */
 template <typename State, bool North> struct Bonne : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -255,6 +257,8 @@ template <typename State, bool North> struct Bonne : ApproximationDefaults {
   }
 };
 
+/** @brief Stereographic projection: conformal, with one singular pole the
+    singularity fade attenuates. */
 template <typename State> struct Stereographic : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -277,6 +281,9 @@ template <typename State> struct Stereographic : ApproximationDefaults {
   }
 };
 
+/** @brief Sinusoidal projection with the azimuth folded about the central
+    meridian: both hemispheres share one image, and there is no singular locus
+    to attenuate. */
 template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -299,6 +306,8 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
   }
 };
 
+/** @brief Equirectangular projection: cut at the antimeridian, with both
+    poles attenuated by the singularity fade. */
 template <typename State> struct Equirectangular : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -323,6 +332,8 @@ template <typename State> struct Equirectangular : ApproximationDefaults {
   }
 };
 
+/** @brief Gnomonic projection about the Y axis, singular on the y = 0 great
+    circle; `Hemisphere` folds the two halves together or keeps one. */
 template <typename State, GnomonicHemisphere Hemisphere>
 struct Gnomonic : ApproximationDefaults {
   using Binding = typename State::Binding;
@@ -346,6 +357,9 @@ struct Gnomonic : ApproximationDefaults {
   }
 };
 
+/** @brief Peirce quincuncial projection, conformal but for four singularities;
+    `Layout` picks diamond, square or strip tiling and `EdgeDistanceRequired`
+    makes the kernel compute edge distance unconditionally. */
 template <typename State, uint8_t Layout, bool EdgeDistanceRequired>
 struct Peirce : ApproximationDefaults {
   using Binding = typename State::Binding;
@@ -388,6 +402,8 @@ inline constexpr std::array<ApproximationMetric, 3> PEIRCE_FAST_SQUARE_METRICS{{
      256.0f, "channel code"},
 }};
 
+/** @brief Approximate square-layout Peirce projection; the provider must pin
+    the central meridian to zero. */
 template <typename State> struct PeirceFastSquare : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -420,6 +436,13 @@ template <typename State> struct PeirceFastSquare : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief Square-layout Peirce projection taking the approximate path only at a
+ *        zero central meridian.
+ * @details The approximation oracle and metrics are inherited from
+ * PeirceFastSquare and so cover the whole policy; off a zero central meridian
+ * it runs the exact quincuncial kernel and those bounds are slack.
+ */
 template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
   using FrameState = typename State::FrameState;
 
@@ -444,6 +467,9 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
   }
 };
 
+/** @brief Airocean icosahedral net; `Horizontal` turns the finished net a
+    quarter turn and `EdgeDistanceRequired` makes the kernel compute the
+    per-edge cut distances unconditionally. */
 template <typename State, bool Horizontal, bool EdgeDistanceRequired>
 struct Airocean : ApproximationDefaults {
   using Binding = typename State::Binding;
