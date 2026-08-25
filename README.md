@@ -478,6 +478,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── png_probe.mjs           Dependency-free PNG chunk/CRC/inflate validator behind the gallery gate
 │   ├── png_probe.test.mjs      Node unit test for the PNG validator (corrupt/empty fixtures)
 │   ├── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster and decodes (CI)
+│   ├── check_screenshots.test.mjs Node unit test for the roster/gallery partition and offset table
 │   ├── check_profiles.mjs      Validates indexed timing reports against their rosters and document contract (CI)
 │   ├── check_profiles.test.mjs Node regression tests for timing report structure and set discovery
 │   ├── run_tests.mjs           `npm test`: runs the .test.mjs suite and rejects empty cases/files
