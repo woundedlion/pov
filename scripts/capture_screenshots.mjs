@@ -95,6 +95,7 @@ let targets = [];
 let failures = 0;
 const blanks = [];
 const wrongRes = [];
+const unconfirmed = [];
 try {
   const ctx = await browser.newContext({
     ignoreHTTPSErrors: true,
@@ -202,19 +203,27 @@ try {
     });
   }
 
-  // Loads one effect at one resolution and reports the effect the app actually
-  // selected: it rewrites the URL's effect param to its choice, so a silent
-  // fallback (requested effect not offered here) shows up as a different name.
-  // descendToHonoredResolution() owns which resolution wins.
+  // The effect the app currently reports as selected: it rewrites the URL's
+  // effect param to its choice, so a silent fallback (requested effect not
+  // offered here) shows up as a different name.
+  async function selectedEffect() {
+    return await page.evaluate(() =>
+      new URLSearchParams(location.search).get('effect'));
+  }
+
+  // Loads one effect at one resolution and reports what the app selected.
+  // descendToHonoredResolution() owns which resolution wins. The 500 ms is only
+  // enough to steer the descent — the URL still carries the requested effect
+  // until hydration rewrites it, so this read cannot distinguish "honored" from
+  // "not yet rewritten". The capture loop re-reads after the settle wait, which
+  // is the read the save is gated on.
   async function loadEffect(effect, resolution) {
     const params = new URLSearchParams({ effect, resolution });
     await page.goto(`${BASE_URL}?${params.toString()}`,
       { waitUntil: 'load', timeout: 60000 });
     await page.waitForSelector('#canvas', { timeout: 30000 });
-    // The fallback rewrite happens during hydration, before the settle wait.
     await page.waitForTimeout(500);
-    return await page.evaluate(() =>
-      new URLSearchParams(location.search).get('effect'));
+    return await selectedEffect();
   }
 
   for (const effect of targets) {
@@ -235,6 +244,19 @@ try {
 
       const offsetMs = captureOffsetMs(effect, WAIT_MS_OVERRIDE);
       await page.waitForTimeout(offsetMs);
+
+      // Authoritative re-read: hydration has long finished by now, so a param
+      // that still names the request really was honored. Saving an unconfirmed
+      // frame would put a fallback effect's thumbnail under this effect's
+      // filename, which the freshness gate cannot detect (names and dimensions
+      // only). Skip the save; the prior PNG stays untouched.
+      const settled = await selectedEffect();
+      if (settled !== effect) {
+        unconfirmed.push(`${effect} (page reports ${JSON.stringify(settled)})`);
+        console.log(`SKIPPED — page reports ${JSON.stringify(settled)} after ` +
+          `${offsetMs}ms, not the requested effect; kept existing PNG`);
+        continue;
+      }
 
       const { dataUrl, litPixels } = await grabFrame();
       const lit = captureLitFraction(litPixels);
@@ -295,6 +317,21 @@ if (wrongRes.length) {
   console.warn('These are in the roster but absent from the app\'s per-resolution');
   console.warn('effect lists, so the live app cannot select them. Add them to a');
   console.warn('resolution\'s effect list (daydream) or remove them from the roster.');
+  console.warn('========================================================');
+  process.exitCode = 1;
+}
+
+// The requested effect was honored during the descent but no longer selected
+// once the frame had settled — a hydration race, or the app switching effects
+// under us. Nothing was saved for it, so the previous capture remains.
+if (unconfirmed.length) {
+  console.warn('========================================================');
+  console.warn(`capture_screenshots: WARNING — ${unconfirmed.length} capture(s) were NOT`);
+  console.warn('confirmed on the requested effect after settling; SKIPPED (kept');
+  console.warn('existing PNG, not regenerated):');
+  console.warn(`  ${unconfirmed.join(', ')}`);
+  console.warn('Re-run these effects; if it repeats, the app is rewriting the effect');
+  console.warn('param after hydration.');
   console.warn('========================================================');
   process.exitCode = 1;
 }
