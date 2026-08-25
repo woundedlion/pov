@@ -12,7 +12,7 @@ edge framing.
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, COM3 |
 | Image | `profile` env: shipping `-Os` plus selective-O3 raster/filter regions |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master, 72 px/arm |
-| Effect | DreamBalls 288×144, single-entry playlist, capture tip `ba6ffe4d` |
+| Effect | DreamBalls 288×144, single-entry playlist, capture tip unrecoverable — an implementation-worktree commit that was never landed, so no sha in this repository resolves to it; see the `99d03ae6` note below |
 | Method | `HS_PROFILE`, window 16, 230 s, `HS_PROFILE_EPOCH_REVS=2000` |
 | Reproduce | `bash tools/profile_one.sh DreamBalls profile 230 16 -D HS_PROFILE_EPOCH_REVS=2000` |
 
