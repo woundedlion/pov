@@ -2431,6 +2431,10 @@ private:
     NONE = 0xff
   };
 
+  // The manifest carries one row per enumerator.
+  static constexpr size_t INVERSE_PROGRAM_COUNT =
+      static_cast<size_t>(InversePipelineId::COUNT);
+
   struct SelectedConfig {
     Config config;
     InversePipelineId pipeline;
@@ -3960,9 +3964,10 @@ private:
             &pipeline_resources_ready};
   }
 
-  HS_COLD_MEMBER static const std::array<ProgramDescriptor, 15> &
+  HS_COLD_MEMBER static const std::array<ProgramDescriptor,
+                                         INVERSE_PROGRAM_COUNT> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, 15> PROGRAMS{{
+    static constexpr std::array<ProgramDescriptor, INVERSE_PROGRAM_COUNT> PROGRAMS{{
         make_program<GlitchNoiseGridWaveShearPipeline,
                      InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
                      make_topology_key(wave_shear_generated_preset())>(
