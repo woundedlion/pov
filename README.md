@@ -119,6 +119,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [GridSpace](#gridspace)
      - [HyperLattice](#hyperlattice)
      - [LatticeMelt](#latticemelt)
+     - [AshCloud](#ashcloud)
      - [KaleidoscopePentBright](#kaleidoscopepentbright)
      - [KaleidoscopeHexOil](#kaleidoscopehexoil)
      - [KaleidoscopeStainedGlass](#kaleidoscopestainedglass)
