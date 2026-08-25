@@ -93,5 +93,20 @@ test('profileDirectories derives timing sets from their local indexes', async t 
   }
   await mkdir(join(root, 'memory'));
   await writeFile(join(root, 'memory', 'arena.md'), '# Arena\n');
-  assert.deepEqual(await profileDirectories(root), ['O3', 'retired', 'shipping']);
+  const errors = [];
+  assert.deepEqual(await profileDirectories(root, errors),
+    ['O3', 'retired', 'shipping']);
+  assert.deepEqual(errors, []);
+});
+
+test('profileDirectories reports an unindexed set of reports', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'holosphere-profiles-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, 'orphan'));
+  await writeFile(join(root, 'orphan', 'profile_example_teensy_2026-08-24.md'),
+    validReport);
+  const errors = [];
+  assert.deepEqual(await profileDirectories(root, errors), []);
+  assert.deepEqual(errors,
+    ['orphan has profile reports but no README.md index']);
 });
