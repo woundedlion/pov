@@ -43,6 +43,12 @@ def float_from_bits(bits: int) -> float:
     return struct.unpack("!f", struct.pack("!I", bits))[0]
 
 
+def c_float_literal(value: float) -> str:
+    """C spelling of a float constant, exponent unpadded."""
+    digits, _, exponent = f"{value:g}".partition("e")
+    return f"{digits}e{int(exponent)}f" if exponent else f"{digits}f"
+
+
 def float_bits(value: float) -> int:
     return struct.unpack("!I", struct.pack("!f", value))[0]
 
@@ -149,8 +155,10 @@ def emit_header(bakes: list[dict]) -> str:
         " * Licensed under the PolyForm Noncommercial License 1.0.0",
         " * GENERATED FILE - DO NOT EDIT. Regenerate from host relax bakes with:",
         " *   <build>/relax_bake_gen | python tools/relax_bakes.py emit --stdin",
-        " * Source identity grid: scale 2013, bias bits 0x3f3c7774,",
-        " * minimum boundary margin 0x3727c5ac (1e-5f).",
+        f" * Source identity grid: scale {SOURCE_SCALE}, "
+        f"bias bits 0x{SOURCE_BIAS_BITS:08x},",
+        f" * minimum boundary margin 0x{SOURCE_MIN_MARGIN_BITS:08x} "
+        f"({c_float_literal(float_from_bits(SOURCE_MIN_MARGIN_BITS))}).",
         " */",
         "#pragma once",
         "",
