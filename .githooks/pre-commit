@@ -57,7 +57,9 @@ $PYTHON_FILES
 EOF
 fi
 
-JAVASCRIPT_FILES="$(printf '%s\n' "$PRESENT" | sed -n '/\.mjs$/p')"
+# sed, not grep -E: build_pins.py --check allows only one quoted grep -E
+# pattern here, the clang-format extension list above.
+JAVASCRIPT_FILES="$(printf '%s\n' "$PRESENT" | sed -n -E '/\.(js|cjs|mjs)$/p')"
 if [ -n "$JAVASCRIPT_FILES" ]; then
   if [ ! -x node_modules/.bin/eslint ]; then
     echo "[pre-commit] node_modules is missing; run npm ci."
