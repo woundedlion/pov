@@ -60,7 +60,8 @@ staged-file format/lint prefilter; the protected branch's `CI green` status is
 the authoritative correctness gate.
 
 - **`.githooks/pre-commit`** — checks staged first-party C++ with clang-format
-  and runs ruff/eslint on staged Python/JavaScript when those tools are present.
+  and runs ruff/eslint on staged Python/JavaScript. A required tool missing for
+  an applicable change fails the commit rather than skipping the check.
   Configuring the `tests` preset points `core.hooksPath` at `.githooks` for you.
 - **clang-format is pinned to major 22.** A different major reflows unrelated
   code, so the hook fails rather than trusting an off-major verdict. Install the
