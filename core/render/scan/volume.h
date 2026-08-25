@@ -78,6 +78,22 @@ template <typename SDF> struct TransformedVolume {
 };
 
 /**
+ * @brief One-sided anti-aliasing coverage ramp for a volume edge.
+ * @param dist Clearance at the sampled point, in world units.
+ * @param hit_threshold Clearance at or below which coverage is full.
+ * @param aa_width Clearance at which coverage reaches zero.
+ * @return Quintic-smoothed coverage in [0, 1].
+ * @details Divides by (aa_width - hit_threshold). Volume::draw traps
+ *          aa_width <= 0 once per draw, and hit_threshold is a tenth of it,
+ *          so the denominator is positive at every call.
+ */
+__attribute__((always_inline)) inline float
+volume_edge_coverage(float dist, float hit_threshold, float aa_width) {
+  return quintic_kernel(1.0f -
+                        (dist - hit_threshold) / (aa_width - hit_threshold));
+}
+
+/**
  * @brief Raymarch volume renderer with orthographic projection.
  * @details The render loop is internal: callers provide a Shape with a
  * `float distance(const Vector&) const` method (evaluated per march step) and a
@@ -307,8 +323,7 @@ struct Volume {
     }
 
     float soft = (min_behind < aa_width)
-                     ? quintic_kernel(1.0f - (min_behind - hit_threshold) /
-                                                 (aa_width - hit_threshold))
+                     ? volume_edge_coverage(min_behind, hit_threshold, aa_width)
                      : 0.0f;
     return {false, min_pos, min_behind, soft};
   }
@@ -387,7 +402,7 @@ struct Volume {
     HS_CHECK(fabsf(dot(bounds_center, bounds_center) - 1.0f) < TOLERANCE);
     const Vector radial_err = cross(bounds_center, vd);
     HS_CHECK(bc_dot_vd < 0.0f && dot(radial_err, radial_err) < TOLERANCE);
-    // aa_width > 0 is the contract: the slow-path AA divides by (aa_width -
+    // aa_width > 0 is the contract: volume_edge_coverage divides by (aa_width -
     // hit_threshold) == 0.9*aa_width, so a zero band-width gives 0/0 -> NaN.
     HS_CHECK(aa_width > 0.0f);
 
@@ -458,8 +473,8 @@ struct Volume {
             edge_alpha = 1.0f;
           } else {
             // SLOW PATH: fuzzy AA border. Standard one-sided AA coverage...
-            edge_alpha = quintic_kernel(1.0f - (closest_d - hit_threshold) /
-                                                   (aa_width - hit_threshold));
+            edge_alpha =
+                volume_edge_coverage(closest_d, hit_threshold, aa_width);
 
             // ...then probe behind the halo for a surface this edge occludes.
             Occluder occ =
