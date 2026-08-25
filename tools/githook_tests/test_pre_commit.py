@@ -120,6 +120,29 @@ class PreCommitHook(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("clang-format failed", done.stdout + done.stderr)
 
+    def test_an_unreadable_staged_blob_fails_the_lint(self):
+        bin_dir = self.repo / "fakebin"
+        bin_dir.mkdir()
+        ruff = bin_dir / "ruff"
+        ruff.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        ruff.chmod(0o755)
+
+        source = self.repo / "sample.py"
+        source.write_bytes(b"x = 1\n")
+        self.git("add", "sample.py")
+        blob = self.git("rev-parse", ":sample.py").stdout.strip()
+        loose = self.repo / ".git" / "objects" / blob[:2] / blob[2:]
+        if not loose.exists():
+            self.skipTest("staged blob is not a loose object")
+        loose.chmod(0o644)
+        loose.unlink()
+
+        done = self.run_hook(
+            PATH=os.pathsep.join([str(bin_dir), self.env["PATH"]]))
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("cannot read staged sample.py",
+                      done.stdout + done.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
