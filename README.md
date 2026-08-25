@@ -591,7 +591,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── tools/                      Standalone design tools (own HTML pages)
 │   ├── lissajous.html          Spherical Lissajous curve designer
 │   ├── mobius.html             Möbius transformation visualizer
+│   ├── mobius.css              Möbius page layout and control styling
 │   ├── palettes.html           Procedural palette tuner
+│   ├── palettes.css            Palette page layout and control styling
 │   ├── shader.html             Pullback Shader authoring workbench
 │   ├── shader.css              Shader workbench layout and control styling
 │   ├── shader_documents.js     Document loading, validation, matching, and engine application
@@ -600,6 +602,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── chain_document_store.js v2 chain document store: span replacement, legality, reconciliation, undo
 │   ├── chain_strip.js          Pipeline strip: the chain as stage chips banded by carrier
 │   ├── solids.html             Conway operator playground (uses MeshOps bridge)
+│   ├── solids.css              Solids page layout and control styling
 │   ├── shared.js               Three.js scene boilerplate for the 3D tool pages
 │   ├── banner.js               Dependency-free page + fatal-error banners (no Three.js)
 │   ├── clipboard.js            Dependency-free copy-to-clipboard helpers
