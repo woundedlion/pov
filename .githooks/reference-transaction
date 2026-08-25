@@ -19,6 +19,7 @@ gitdir=$(git rev-parse --git-common-dir 2>/dev/null) || gitdir=.git
 tokfile="$gitdir/hs-allow-nonff"
 logfile="$gitdir/hs-nonff.log"
 
+# shellcheck disable=SC2034
 while read -r old new ref; do
 	if [ -z "$ref" ]; then
 		ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)

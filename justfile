@@ -70,7 +70,7 @@ lint:
     bash -c 'tmp=$(mktemp); trap "rm -f -- \"$tmp\"" EXIT; npx eslint . --format json > "$tmp" || true; grep -q filePath "$tmp" || { echo "eslint selected no files -- the eslint.config.mjs ignores list is broken"; exit 1; }'
     npm run lint
     {{py}} tools/build_pins.py --check-tool shellcheck
-    bash -c "tmp=\$(mktemp); trap 'rm -f -- \"\$tmp\"' EXIT; git ls-files -- '*.sh' '.githooks/*' > \"\$tmp\"; test -s \"\$tmp\" || { echo 'no shell files selected -- the shell path list is broken'; exit 1; }; xargs shellcheck --exclude=SC1091,SC2034 < \"\$tmp\""
+    bash -c "tmp=\$(mktemp); trap 'rm -f -- \"\$tmp\"' EXIT; git ls-files -- '*.sh' '.githooks/*' > \"\$tmp\"; test -s \"\$tmp\" || { echo 'no shell files selected -- the shell path list is broken'; exit 1; }; xargs shellcheck -x < \"\$tmp\""
     bash tools/profile_sweep.sh check
 
 # Formatting gate over the whole tracked first-party C++ set: the ci.yml

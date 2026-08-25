@@ -37,6 +37,7 @@
 # instrumentation image and writes a suffixed log. Count images also enable the
 # generic Plot counters; neither image is valid for timing comparisons.
 set -eo pipefail
+# shellcheck source-path=SCRIPTDIR source=device_lock.sh
 . "$(dirname "$0")/device_lock.sh"
 # Without this, a short/split argument list makes `shift 4` fail and set -e
 # aborts with no message.
