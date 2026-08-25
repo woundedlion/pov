@@ -3702,11 +3702,11 @@ inline const Case *all_cases(int &n) {
        "(equator_samples >= 0) SphericalFieldLayout: equator_samples -1 must "
        "be >= 0"},
       {"feedback_negative_fade", case_feedback_negative_fade, "styles.h",
-       "(std::isfinite(fade) && fade >= 0.0f) Feedback::Style::fade must be "
-       "finite and >= 0"},
+       "(fade >= 0.0f && fade <= 1.0f) Feedback::Style::fade must be in "
+       "[0, 1]"},
       {"feedback_infinite_fade", case_feedback_infinite_fade, "styles.h",
-       "(std::isfinite(fade) && fade >= 0.0f) Feedback::Style::fade must be "
-       "finite and >= 0"},
+       "(fade >= 0.0f && fade <= 1.0f) Feedback::Style::fade must be in "
+       "[0, 1]"},
       {"gradient_no_stops", case_gradient_no_stops, "color.h",
        "(points.size() > 0) Gradient requires at least one stop"},
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range, "color.h",

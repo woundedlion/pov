@@ -147,12 +147,13 @@ struct Style {
    * @details Each frame applies `hue_shift * -log(fade)` turns, making
    * accumulated hue depend only on remaining brightness. A zero fade uses the
    * identity rotation because no feedback remains visible. Traps on a fade
-   * outside [0, inf) — logf would push NaN through the matrix into every
-   * feedback pixel, which clamps to white.
+   * outside [0, 1]: below 0, logf pushes NaN through the matrix into every
+   * feedback pixel, which clamps to white; above 1 the feedback loop no longer
+   * contracts.
    */
   void sync_hue() {
-    HS_CHECK(std::isfinite(fade) && fade >= 0.0f,
-             "Feedback::Style::fade must be finite and >= 0");
+    HS_CHECK(fade >= 0.0f && fade <= 1.0f,
+             "Feedback::Style::fade must be in [0, 1]");
     float frame_shift = fade == 0.0f ? 0.0f : hue_shift * -logf(fade);
     turn_to_unit_cos_sin(frame_shift, hue_ca, hue_sa);
     hue_rotate_lms_matrix(hue_ca, hue_sa, hue_k);
