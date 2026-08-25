@@ -13,7 +13,7 @@ Raw capture: `build/prof/displacementfield_ship.log`. Replaces
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | DisplacementField 288x144, single-entry playlist, tip `d0514593e` |
 | Method | `HS_PROFILE` cycle scopes, window = 32 frames, 70 s capture |
-| Reproduce | `just profile DisplacementField` |
+| Reproduce | `bash tools/profile_one.sh DisplacementField profile 70 32` |
 
 Image size: `FLASH: code:75632, data:149548, headers:8292` / `RAM1:
 variables:315232, code:40360, padding:25176, free:143520` / `RAM2:
