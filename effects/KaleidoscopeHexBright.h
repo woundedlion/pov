@@ -17,7 +17,7 @@ using KaleidoscopeHexBrightSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                    Pullback::Lens::HexagonalPrismKaleidoscope,
                    Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION_SQUARED>;
+                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
 
 /**
  * @brief A twin wave folded through a hexagonal prism.

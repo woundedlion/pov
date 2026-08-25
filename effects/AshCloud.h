@@ -17,7 +17,7 @@ using AshCloudParams =
 using AshCloudSpec = Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                                     Pullback::Lens::DodecahedralKaleidoscope,
                                     Pullback::TransferKind::NONE,
-                                    Pullback::CoverageKind::PROJECTION,
+                                    Pullback::ProjectionCoverageMode::WEIGHT,
                                     Pullback::FieldCoverageKind::VALUE_CUTOUT>;
 
 /**

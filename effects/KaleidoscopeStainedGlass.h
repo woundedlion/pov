@@ -17,7 +17,7 @@ using KaleidoscopeStainedGlassSpec =
     Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
                    Pullback::Lens::DodecahedralKaleidoscope,
                    Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION_SQUARED>;
+                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
 
 /**
  * @brief A vector-noise grid refracted across dodecahedral facets.

@@ -23,7 +23,7 @@ using LatticeMeltParams =
 using LatticeMeltSpec =
     Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL, void,
                    Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION>;
+                   Pullback::ProjectionCoverageMode::WEIGHT>;
 
 /**
  * @brief Composed folded-sinusoidal lattice displaced by sphere-space curl noise.

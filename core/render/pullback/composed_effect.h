@@ -561,9 +561,6 @@ constexpr bool uses_singularity_fade(ProjectionKind projection) {
 /** @brief Optional transfer curve an effect's material stage composes. */
 enum class TransferKind : uint8_t { NONE, ISO_CONTOUR };
 
-/** @brief Coverage policy an effect's material stage composes. */
-enum class CoverageKind : uint8_t { PROJECTION, PROJECTION_SQUARED, EDGE_FADE };
-
 /** @brief Optional value-dependent coverage stage after sampling. */
 enum class FieldCoverageKind : uint8_t { NONE, VALUE_CUTOUT };
 
@@ -582,13 +579,13 @@ enum class FieldCoverageKind : uint8_t { NONE, VALUE_CUTOUT };
  * @tparam FieldCoverageV Optional value-dependent coverage stage.
  */
 template <ProjectionKind ProjectionV, typename LensPolicyT,
-          TransferKind TransferV, CoverageKind CoverageV,
+          TransferKind TransferV, ProjectionCoverageMode CoverageV,
           FieldCoverageKind FieldCoverageV = FieldCoverageKind::NONE>
 struct Spec {
   static constexpr ProjectionKind PROJECTION = ProjectionV;
   using LensPolicy = LensPolicyT;
   static constexpr TransferKind TRANSFER = TransferV;
-  static constexpr CoverageKind COVERAGE = CoverageV;
+  static constexpr ProjectionCoverageMode COVERAGE = CoverageV;
   static constexpr FieldCoverageKind FIELD_COVERAGE = FieldCoverageV;
 };
 
@@ -687,15 +684,22 @@ template <typename B> struct TransferStageFor<TransferKind::ISO_CONTOUR, B> {
       typename TransferPolicyFor<TransferKind::ISO_CONTOUR, B>::Type>;
 };
 
-template <CoverageKind CoverageV, typename Binding> struct CoveragePolicyFor;
-template <typename B> struct CoveragePolicyFor<CoverageKind::PROJECTION, B> {
+template <ProjectionCoverageMode CoverageV, typename Binding>
+struct CoveragePolicyFor;
+template <typename B>
+struct CoveragePolicyFor<ProjectionCoverageMode::NONE, B> {
+  using Type = Pullback::ProjectionCoverage::None;
+};
+template <typename B>
+struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT, B> {
   using Type = Pullback::ProjectionCoverage::Weight;
 };
 template <typename B>
-struct CoveragePolicyFor<CoverageKind::PROJECTION_SQUARED, B> {
+struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT_SQUARED, B> {
   using Type = Pullback::ProjectionCoverage::WeightSquared;
 };
-template <typename B> struct CoveragePolicyFor<CoverageKind::EDGE_FADE, B> {
+template <typename B>
+struct CoveragePolicyFor<ProjectionCoverageMode::EDGE_FADE, B> {
   using Type = Pullback::ProjectionCoverage::EdgeFade<ValueProvider<B>>;
 };
 

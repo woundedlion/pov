@@ -854,7 +854,7 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       // The sample operators always carry an edge-width; without edge-fade
       // coverage it is inert in the chain and has no composed-effect field.
       return field_id == "edge-width" &&
-             Spec::COVERAGE != Pullback::CoverageKind::EDGE_FADE;
+             Spec::COVERAGE != Pullback::ProjectionCoverageMode::EDGE_FADE;
     case SlotRole::FIELD:
       return assign_field(built.value, field_id, number);
     case SlotRole::LENS:
@@ -902,7 +902,7 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     if (field_id == "coverage-mode") {
       HS_EXPECT_TRUE(
           text ==
-          ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(Spec::COVERAGE) + 1]);
+          ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(Spec::COVERAGE)]);
       return true;
     }
     if (field_id == "weight-mode") {
@@ -1245,7 +1245,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"warp.vector-noise.v2", "envelope", {{"flat"}}},
     {"warp.polar-chart.v2", "mode", {{"linear"}}},
     {"warp.polar-chart.v2", "harmonic", {{"h1"}}},
-    // SampleStage pins Weight::Projection; CoverageKind has no None.
+    // SampleStage pins Weight::Projection; no shipped Spec selects the
+    // none coverage.
     {"sample.grid.v2", "weight-mode", {{"projection"}}},
     {"sample.grid.v2",
      "coverage-mode",
@@ -1376,9 +1377,10 @@ using RippleProbeParams =
     Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
                      Pullback::NoWarpParams, Pullback::NoLensParams,
                      Pullback::NoValueParams, Pullback::PeriodicRippleParams>;
-using RippleProbeSpec = Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
-                                       void, Pullback::TransferKind::NONE,
-                                       Pullback::CoverageKind::PROJECTION>;
+using RippleProbeSpec =
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC, void,
+                   Pullback::TransferKind::NONE,
+                   Pullback::ProjectionCoverageMode::WEIGHT>;
 
 template <int W, int H, bool AnimatedProjection = false>
 class RippleProbe
@@ -1455,7 +1457,7 @@ using NoiseSourceProbeParams =
 using NoiseSourceProbeSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC, void,
                    Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION>;
+                   Pullback::ProjectionCoverageMode::WEIGHT>;
 
 /** @brief Probe deriving a pipeline from a noise source family. */
 template <int W, int H, typename SourceT>

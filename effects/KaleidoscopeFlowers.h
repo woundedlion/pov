@@ -17,7 +17,7 @@ using KaleidoscopeFlowersSpec =
     Pullback::Spec<Pullback::ProjectionKind::EQUIRECTANGULAR,
                    Pullback::Lens::DodecahedralKaleidoscope,
                    Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION_SQUARED>;
+                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
 
 /**
  * @brief Dodecahedral grids mapped continuously around the equator.

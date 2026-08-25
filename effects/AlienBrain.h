@@ -16,7 +16,7 @@ using AlienBrainParams =
 using AlienBrainSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                    Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION_SQUARED>;
+                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
 
 /**
  * @brief Glitch-folded grids pulled through an animated wave shear.

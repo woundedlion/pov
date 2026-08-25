@@ -17,7 +17,7 @@ using CosmicEyeballParams =
 using CosmicEyeballSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                    Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::EDGE_FADE>;
+                   Pullback::ProjectionCoverageMode::EDGE_FADE>;
 
 /**
  * @brief A high-contrast mirrored grid with displacement-driven hue.

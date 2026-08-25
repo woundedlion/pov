@@ -17,7 +17,7 @@ using AlienOceanParams =
 using AlienOceanSpec =
     Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
                    Pullback::Lens::Kaleidoscope, Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::EDGE_FADE>;
+                   Pullback::ProjectionCoverageMode::EDGE_FADE>;
 
 /**
  * @brief A broad folded grid with slow mirrored drift.
