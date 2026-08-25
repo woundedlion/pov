@@ -38,6 +38,12 @@ const EXAMPLE = lf(await readFile(
 /** @returns {Object} A fresh parse of the v2 example document, safe to mutate. */
 const example = () => JSON.parse(EXAMPLE);
 
+const DUPLICATE_OPERATOR = lf(await readFile(
+  new URL('../tests/data/duplicate_operator.shader.json', import.meta.url), 'utf8'));
+
+/** @returns {Object} A fresh parse of the duplicate-operator document. */
+const duplicateOperator = () => JSON.parse(DUPLICATE_OPERATOR);
+
 /** Compiles with the mirrored catalog. @param {*} source @param {Object} [options] */
 const compile = (source, options = {}) =>
   compileShaderDocument(source, { catalog: CATALOG, ...options });
@@ -389,6 +395,35 @@ test('the descriptor digest survives reordering but not a label rename', () => {
   const recompiled = compile(renamed);
   assert.equal(recompiled.status, 'VALID');
   assert.notEqual(recompiled.descriptor_digest, baseline.descriptor_digest);
+});
+
+// v1's role-sorted canonicalizer collapsed on a repeated operator: two of the
+// same stage in either order digested identically. Position in the ordered
+// chain is what separates them.
+test('a duplicate-operator chain digests by position, not by operator set', () => {
+  const baseline = compile(duplicateOperator());
+  assert.equal(baseline.status, 'VALID');
+  const operators = baseline.document.descriptor.chain
+    .map((entry) => entry.operator);
+  assert.equal(new Set(operators).size, operators.length - 1,
+    'the fixture must repeat exactly one operator id');
+
+  const shuffled = duplicateOperator();
+  shuffled.descriptor.parameters.reverse();
+  shuffled.descriptor.serialization.fields.reverse();
+  shuffled.preset_bank.presets.reverse();
+  shuffled.preset_bank.edges.reverse();
+  const reordered = compile(shuffled);
+  assert.equal(reordered.status, 'VALID');
+  assert.equal(reordered.descriptor_digest, baseline.descriptor_digest);
+  assert.equal(reordered.preset_bank_digest, baseline.preset_bank_digest);
+
+  const swapped = duplicateOperator();
+  const chain = swapped.descriptor.chain;
+  [chain[0], chain[1]] = [chain[1], chain[0]];
+  const restaged = compile(swapped);
+  assert.equal(restaged.status, 'VALID');
+  assert.notEqual(restaged.descriptor_digest, baseline.descriptor_digest);
 });
 
 test('serialization fields name every parameter once and do not order the digest', () => {
