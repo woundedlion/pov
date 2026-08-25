@@ -3,7 +3,10 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
+#include <algorithm>
+#include <bitset>
 #include "math/spherical_field.h"
+#include "engine/memory.h"
 #include "engine/styles.h"
 #include "render/filter/pipeline.h"
 
