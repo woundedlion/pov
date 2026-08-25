@@ -169,7 +169,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
                "mesh face vertex index out of range");
       center = center + mesh.vertices[idx[k]];
     }
-    center = normalized_or(center, mesh.vertices[idx[0]]);
+    center =
+        normalized_or(center, normalized_or(mesh.vertices[idx[0]], X_AXIS));
     Vector u = cross(center, least_parallel_axis(center)).normalized();
     Vector w = cross(center, u).normalized();
     float mx = 0.0f, my = 0.0f;
