@@ -66,6 +66,15 @@ INLINE_PINS = {
 }
 
 ROOT = Path(__file__).resolve().parents[1]
+WORKFLOWS = ROOT / ".github/workflows"
+
+
+def workflow_files() -> tuple[Path, ...]:
+    """Every workflow file, so a new one is scanned with no second edit here."""
+    found = set(WORKFLOWS.glob("*.yml")) | set(WORKFLOWS.glob("*.yaml"))
+    return tuple(sorted(found))
+
+
 CONSUMERS = {
     ROOT / ".github/workflows/ci.yml": (
         "build_pins.py --github-output",
@@ -86,10 +95,10 @@ CONSUMERS = {
     ),
 }
 
-# Files scanned for INLINE_PINS occurrences.
+# Files scanned for INLINE_PINS occurrences. Every workflow is covered, so a new
+# one cannot spell a pin its own way and still pass --check.
 INLINE_SCAN = (
-    ROOT / ".github/workflows/ci.yml",
-    ROOT / ".github/workflows/docs.yml",
+    *workflow_files(),
     ROOT / "justfile",
     ROOT / "platformio.ini",
     ROOT / "CMakeLists.txt",
@@ -447,9 +456,7 @@ def check_consumers() -> int:
         for reference in references:
             if reference not in text:
                 errors.append(f"{path.relative_to(ROOT)}: missing {reference!r}")
-    workflow_paths = set((ROOT / ".github/workflows").glob("*.yml"))
-    workflow_paths.update((ROOT / ".github/workflows").glob("*.yaml"))
-    duplicate_paths = workflow_paths | set(CONSUMERS)
+    duplicate_paths = set(workflow_files()) | set(CONSUMERS)
     for path in sorted(duplicate_paths):
         text = path.read_text(encoding="utf-8")
         for name, value in PINS.items():
