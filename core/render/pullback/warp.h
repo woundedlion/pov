@@ -6,6 +6,7 @@
 
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
+#include "math/3dmath.h"
 
 /**
  * @file warp.h
@@ -393,7 +394,11 @@ wave_shear(const Complex &input, const Params &params, float phase,
   const float s = prepared.rotation_sin;
   const float angle =
       params.frequency * (c * input.re + s * input.im) + TWO_PI_F * phase;
-  const float offset = amplitude * sinf(angle);
+  // fast_sinf's reduction loses the low bits past this bound, and the plane
+  // coordinate reaches STEREO_INF at the projection pole.
+  const float offset =
+      amplitude * fast_sinf(hs::clamp(angle, -STEREO_PATTERN_ARG_LIMIT,
+                                      STEREO_PATTERN_ARG_LIMIT));
   const Complex delta(-s * offset, c * offset);
   return {{input.re + delta.re, input.im + delta.im},
           delta,
@@ -434,8 +439,8 @@ vortex(const Complex &input, const Prepared &prepared,
   const float y = input.im - vortex.center_y;
   const float r_sq = x * x + y * y;
   const float angle = vortex.angle_numerator / (1.0f + r_sq / vortex.radius_sq);
-  const float c = cosf(angle);
-  const float s = sinf(angle);
+  const float c = fast_cosf(angle);
+  const float s = fast_sinf(angle);
   return finish_closed_form(
       input, {vortex.center_x + c * x - s * y, vortex.center_y + s * x + c * y},
       path_length_required);
