@@ -47,8 +47,10 @@ smoke: build
 screenshots:
     node scripts/capture_screenshots.mjs
 
-# Native unit-test suite (Clang) + CTest.
-test:
+# Native unit-test suite (Clang) + CTest at the smoke window every CI leg drives.
+# The 8-frame default arms no preset transition, so the pause, slot-reuse and
+# FIFO-expiry paths never run; pass a narrower window for a fast iteration loop.
+test $HS_SMOKE_FRAMES="120":
     cmake --preset tests
     cmake --build --preset tests
     ctest --preset tests
