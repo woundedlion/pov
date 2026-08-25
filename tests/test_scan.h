@@ -1462,6 +1462,59 @@ inline void test_scan_shader_v2_contract() {
  * yields the SAME AA alpha as the bare thin Line, and a DIFFERENT alpha from
  * the bare thick Line.
  */
+/**
+ * @brief A composite's report_stretch bounds every child, not only the first.
+ * @details SDF::Face reports gnomonic-plane distance, whose stretch over an
+ * angular step is 1 + max_dist_sq. A Union of two differently sized faces must
+ * report the larger factor either way round, or a block probe settles columns
+ * its clearance does not bound.
+ */
+inline void test_report_stretch_forwards_through_csg() {
+  constexpr int H = 144, HV = H + hs::H_OFFSET;
+  const Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
+  Vector verts[6];
+  uint16_t small_idx[3], large_idx[3];
+  for (int i = 0; i < 3; ++i) {
+    const float a = (2.0f * PI_F * static_cast<float>(i)) / 3.0f;
+    const auto ring = [&](float polar) {
+      return (basis.v * cosf(polar) +
+              (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(polar))
+          .normalized();
+    };
+    verts[i] = ring(0.15f);
+    verts[i + 3] = ring(0.90f);
+    small_idx[i] = static_cast<uint16_t>(i);
+    large_idx[i] = static_cast<uint16_t>(i + 3);
+  }
+  static SDF::FaceScratchBuffer small_scratch, large_scratch;
+  const SDF::Face small(std::span<const Vector>(verts, 6),
+                        std::span<const uint16_t>(small_idx, 3), small_scratch,
+                        HV, H);
+  const SDF::Face large(std::span<const Vector>(verts, 6),
+                        std::span<const uint16_t>(large_idx, 3), large_scratch,
+                        HV, H);
+
+  const float small_stretch = Scan::report_stretch(small);
+  const float large_stretch = Scan::report_stretch(large);
+  HS_EXPECT_GT(large_stretch, small_stretch);
+
+  HS_EXPECT_EQ(
+      Scan::report_stretch(SDF::Union<SDF::Face, SDF::Face>{small, large}),
+      large_stretch);
+  HS_EXPECT_EQ(
+      Scan::report_stretch(SDF::Union<SDF::Face, SDF::Face>{large, small}),
+      large_stretch);
+  HS_EXPECT_EQ(Scan::report_stretch(
+                   SDF::Intersection<SDF::Face, SDF::Face>{small, large}),
+               large_stretch);
+  HS_EXPECT_EQ(
+      Scan::report_stretch(SDF::Subtract<SDF::Face, SDF::Face>{small, large}),
+      large_stretch);
+  HS_EXPECT_EQ(
+      Scan::report_stretch(SDF::AngularRepeat<SDF::Face>(large, 3, basis.v)),
+      large_stretch);
+}
+
 inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   constexpr int W = 288, H = 144;
   hs_test::StubEffect fx(W, H);
@@ -2667,6 +2720,7 @@ inline int run_scan_tests() {
   test_pole_lod_runs_are_canvas_anchored();
   test_pole_lod_shading_matches_undecimated();
   test_plot_line_over_pole_reaches_row0();
+  test_report_stretch_forwards_through_csg();
   test_csg_stroke_aa_uses_winning_child_thickness();
 
   test_star_pixel_placement();
