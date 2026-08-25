@@ -199,6 +199,57 @@ inline EdgeMetric edge_metric_3d_at(const Vec4 &ray_origin,
 }
 
 template <int AXIS0, int AXIS1, int AXIS2>
+__attribute__((always_inline)) bool
+edge_metric_4d_axes_bounded(const Vec4 &ray_origin, const Vec4 &direction,
+                            float distance, float limit_sq,
+                            EdgeMetric &result) {
+  const float component0 =
+      periodic_distance_at(ray_origin, direction, AXIS0, distance);
+  const float component1 =
+      periodic_distance_at(ray_origin, direction, AXIS1, distance);
+  const float component0_sq = component0 * component0;
+  const float component1_sq = component1 * component1;
+  if (std::min(component0_sq, component1_sq) >= limit_sq)
+    return false;
+  const float component2 =
+      periodic_distance_at(ray_origin, direction, AXIS2, distance);
+  const float component2_sq = component2 * component2;
+  const float sum = component0_sq + component1_sq + component2_sq;
+  float largest = component0_sq;
+  uint8_t free_axis = AXIS0;
+  if (component1_sq > largest) {
+    largest = component1_sq;
+    free_axis = AXIS1;
+  }
+  if (component2_sq > largest) {
+    largest = component2_sq;
+    free_axis = AXIS2;
+  }
+  result = {sum - largest, free_axis};
+  return result.distance_sq < limit_sq;
+}
+
+inline bool edge_metric_4d_at_bounded(const Vec4 &ray_origin,
+                                      const Vec4 &direction, int plane_axis,
+                                      float distance, float limit_sq,
+                                      EdgeMetric &result) {
+  switch (plane_axis) {
+  case 0:
+    return edge_metric_4d_axes_bounded<1, 2, 3>(ray_origin, direction, distance,
+                                                limit_sq, result);
+  case 1:
+    return edge_metric_4d_axes_bounded<0, 2, 3>(ray_origin, direction, distance,
+                                                limit_sq, result);
+  case 2:
+    return edge_metric_4d_axes_bounded<0, 1, 3>(ray_origin, direction, distance,
+                                                limit_sq, result);
+  default:
+    return edge_metric_4d_axes_bounded<0, 1, 2>(ray_origin, direction, distance,
+                                                limit_sq, result);
+  }
+}
+
+template <int AXIS0, int AXIS1, int AXIS2>
 __attribute__((always_inline)) EdgeMetric edge_metric_4d_axes(
     const Vec4 &ray_origin, const Vec4 &direction, float distance) {
   const float component0 =
@@ -338,6 +389,7 @@ struct PreparedTrace {
   Mat4 world_to_lattice;
   float inv_far;
   float aa_scale;
+  float outer_radius_base;
   float near_start;
   float near_inv_span;
   float dimension_mix;
@@ -417,6 +469,7 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
                prepared.dimension_mix * frame.rotation_phase[5]);
   prepared.inv_far = 1.0f / frame.params.far_cells;
   prepared.aa_scale = frame.params.aa_strength * frame.pixel_half_angle;
+  prepared.outer_radius_base = frame.params.wire_radius + frame.params.softness;
   prepared.near_start = 1.5f * frame.params.wire_radius;
   const float near_end = 4.0f * frame.params.wire_radius;
   prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
@@ -451,13 +504,16 @@ struct TraceHit {
   uint8_t free_axis = 0;
 };
 
-inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
-                            int plane_axis, float distance, float plane_step,
-                            const PreparedTrace &prepared) {
+__attribute__((always_inline)) inline TraceHit
+trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
+            float distance, float plane_step, const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_plane_eval);
   if (distance <= prepared.near_start)
     return {0.0f, distance, 0};
 
+  const float outer_radius =
+      prepared.outer_radius_base + prepared.aa_scale * distance * plane_step;
+  const float outer_radius_sq = outer_radius * outer_radius;
   float metric_sq;
   uint8_t free_axis;
   float dimensional_coverage = 1.0f;
@@ -466,6 +522,8 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
         edge_metric_3d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_3d.distance_sq;
     free_axis = metric_3d.free_axis;
+    if (metric_sq >= outer_radius_sq)
+      return {0.0f, distance, free_axis};
   } else if (plane_axis < 3 && prepared.mode == LatticeMode::DIMENSIONAL_RIFT) {
     const TransitionalMetrics metrics =
         transitional_metrics_at(ray_origin, direction, plane_axis, distance);
@@ -473,20 +531,20 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
                          prepared.dimension_mix);
     free_axis = prepared.dimension_mix < 0.5f ? metrics.cubic.free_axis
                                               : metrics.hyper.free_axis;
+    if (metric_sq >= outer_radius_sq)
+      return {0.0f, distance, free_axis};
   } else {
-    const EdgeMetric metric_4d =
-        edge_metric_4d_at(ray_origin, direction, plane_axis, distance);
+    EdgeMetric metric_4d;
+    if (!edge_metric_4d_at_bounded(ray_origin, direction, plane_axis, distance,
+                                   outer_radius_sq, metric_4d))
+      return {0.0f, distance, 0};
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
     if (plane_axis == 3)
       dimensional_coverage = prepared.dimension_mix;
   }
 
-  const float half_width = projected_half_width(
-      distance, plane_step, prepared.aa_scale, prepared.params.softness);
-  const float outer_radius = prepared.params.wire_radius + half_width;
-  if (metric_sq >= outer_radius * outer_radius)
-    return {0.0f, distance, free_axis};
+  const float half_width = outer_radius - prepared.params.wire_radius;
   const float edge =
       wire_coverage(metric_sq, prepared.params.wire_radius, half_width);
   const float fog = std::max(0.0f, 1.0f - distance * prepared.inv_far);
@@ -684,11 +742,13 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
     return;
   }
   constexpr float GROUP_EPSILON = 1.0e-4f;
-  const Vec4 surface_normal =
-      prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
   Vec4 ray_origin = prepared.origin;
-  for (int axis = 0; axis < DIMENSIONS; ++axis)
-    ray_origin[axis] += prepared.params.sphere_radius * surface_normal[axis];
+  if (prepared.params.sphere_radius != 0.0f) {
+    const Vec4 surface_normal =
+        prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
+    for (int axis = 0; axis < DIMENSIONS; ++axis)
+      ray_origin[axis] += prepared.params.sphere_radius * surface_normal[axis];
+  }
   const Vec4 direction = prepared.world_to_lattice.apply(reflected_direction(
       normal, prepared.params.reflection, prepared.params.chrome_warp));
   const uint8_t shell_count = static_cast<uint8_t>(prepared.params.shells) + 1;
@@ -895,12 +955,17 @@ public:
       break;
     case 3:
       value.mode = LatticeMode::FOUR_D_SLICE;
-      value.wire_radius = 0.11f;
-      value.softness = 0.018f;
-      value.far_cells = 10.0f;
-      value.speed = 0.024f;
-      value.spin_4d = 0.0041f;
-      value.color = ColorMode::AXIS;
+      value.sphere_radius = 0.0f;
+      value.wire_radius = 0.03546f;
+      value.softness = 0.029612f;
+      value.far_cells = 7.264f;
+      value.aa_strength = 1.0f;
+      value.speed = 0.03f;
+      value.spin_3d = 0.01089f;
+      value.spin_4d = 0.015f;
+      value.chrome_warp = 0.65f;
+      value.reflection = ReflectionMode::CHROME;
+      value.color = ColorMode::DEPTH;
       value.shells = ShellCount::THREE;
       break;
     case 4:
