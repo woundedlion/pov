@@ -4,17 +4,13 @@
  */
 #pragma once
 #include <cassert>
-#include <utility>
 #include <type_traits>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
-#include <array>
 #include <concepts>
 #include "math/geometry.h"
 #include "render/shading.h"
-#include "platform/constants.h"
 #include "render/clip.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
