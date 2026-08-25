@@ -13,8 +13,8 @@ set windows-shell := ["cmd", "/c"]
 
 # Python interpreter for every recipe that runs one. Stock Linux/macOS ship
 # `python3` only; on Windows a `python3` on PATH is usually the Store execution
-# alias, which resolves and then refuses to run. HS_PYTHON overrides, matching
-# the probe order in .githooks/pre-commit. Exported so the `_doxygen-theme`
+# alias, which resolves and then refuses to run. HS_PYTHON overrides, the same
+# override the .githooks probe loops honour. Exported so the `_doxygen-theme`
 # parameter default can reach it from inside a backtick.
 export py := env_var_or_default("HS_PYTHON", if os_family() == "windows" { "python" } else { "python3" })
 
