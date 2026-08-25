@@ -1239,7 +1239,7 @@ private:
    * @return true iff the callback ran.
    * @details The downcast is admitted by the factory's own type key, so it is
    *          legal by construction: a registry name that no longer maps to
-   *          Shader<W,H> reports "not Shader" instead of casting to
+   *          ShaderWorkbench<W,H> reports "not Shader" instead of casting to
    *          the wrong type.
    */
   template <typename Callback> bool with_shader_workbench(Callback &&callback) {
@@ -1247,14 +1247,10 @@ private:
       return false;
     bool invoked = false;
     dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-#define HS_TRY_SHADER_DERIVED(Type)                                            \
-  if (!invoked && current_effect_type_key == effect_type_key<Type<W, H>>()) {  \
-    callback(static_cast<ShaderWorkbench<W, H> &>(                             \
-        *static_cast<Type<W, H> *>(current_effect.get())));                    \
-    invoked = true;                                                            \
-  }
-      HS_SHADER_DERIVED_EFFECT_LIST(HS_TRY_SHADER_DERIVED)
-#undef HS_TRY_SHADER_DERIVED
+      if (current_effect_type_key == effect_type_key<ShaderWorkbench<W, H>>()) {
+        callback(static_cast<ShaderWorkbench<W, H> &>(*current_effect.get()));
+        invoked = true;
+      }
     });
     return invoked;
   }
