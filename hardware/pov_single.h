@@ -113,7 +113,7 @@ private:
    * at SPI_CLOCK_HZ.
    */
   static constexpr unsigned long COLUMN_TRANSFER_US =
-      pov::transfer_us(HD107SFrame<S>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
+      dma::transfer_us(HD107SFrame<S>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
 #endif
 
   /**
