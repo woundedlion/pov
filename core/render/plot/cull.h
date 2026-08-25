@@ -1210,7 +1210,10 @@ raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
  * edge is bounded below from the samples minus the 1-Lipschitz gap drift; the
  * short-way delta reading is valid only while the per-gap bound stays under
  * W/4, and both that and the near-pole case fall back to no-cull (return
- * false).
+ * false). The sin(φ) reads take the renderer's newton_unit() correction first:
+ * the raw unprojection is off unit by the fast-trig residual, which near a pole
+ * outweighs sin(φ) itself and would shrink the margin. The column mapping is
+ * scale-invariant, so it reads the raw sample.
  */
 template <int W>
 static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
@@ -1235,7 +1238,8 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
       cum_lo = std::min(cum_lo, cum);
       cum_hi = std::max(cum_hi, cum);
       prev = c;
-      min_sp2 = std::min(min_sp2, 1.0f - s.y * s.y);
+      const float sy = newton_unit(s).y;
+      min_sp2 = std::min(min_sp2, 1.0f - sy * sy);
     };
     for (const Vector &s : es.interior)
       step(s);
