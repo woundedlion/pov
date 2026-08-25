@@ -203,6 +203,18 @@ inline bool field_identical(const PB::FieldSample &a,
 /** Writes every tabled float of a family to its low or high endpoint. */
 enum class ValueSet { DEFAULTS, MINIMUMS, MAXIMUMS };
 
+/** Failure-context label for a value set. */
+inline const char *value_set_name(ValueSet set) {
+  switch (set) {
+  case ValueSet::MINIMUMS:
+    return "minimums";
+  case ValueSet::MAXIMUMS:
+    return "maximums";
+  default:
+    return "defaults";
+  }
+}
+
 template <typename T> void apply_value_set(T &params, ValueSet set) {
   if (set == ValueSet::DEFAULTS)
     return;
@@ -364,7 +376,9 @@ void expect_parity(In::ChainProgram &program, const In::FrameContext &ctx) {
   program.prepare(ctx);
   const MirrorFrame mirror = mirror_from(program, ctx);
   const typename Pipe::Frame reference_frame = Pipe::prepare(mirror);
+  int view_index = 0;
   for (const Vector &view : sweep_views()) {
+    HS_CONTEXT("view", view_index++);
     const Color4 erased = program.evaluate(view, ctx);
     const Color4 reference = Pipe::shade(view, reference_frame);
     HS_EXPECT_TRUE(color4_identical(erased, reference));
@@ -1029,6 +1043,7 @@ inline void test_shader_chain_param_address_channel() {
 inline void test_shader_chain_parity_rotate_project() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_default_chain(program, 5, set);
@@ -1181,7 +1196,9 @@ inline void expect_sphere_op_parity(In::ChainProgram &program,
   program.prepare(ctx);
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[1].op;
+  int view_index = 0;
   for (const Vector &view : sweep_views()) {
+    HS_CONTEXT("view", view_index++);
     const PB::SphereSample seed{view, 0.25f};
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
     op.runtime.run(&seed, out, ctx, program.param_block(1),
@@ -1246,6 +1263,7 @@ inline void run_curl_displace_basis(In::ChainProgram &program,
 inline void test_shader_chain_parity_displace_curl() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sphere_op_chain<In::Op::CurlDisplaceParams>(
@@ -1271,6 +1289,7 @@ inline void run_direct_displace_variant(In::ChainProgram &program,
 inline void test_shader_chain_parity_displace_direct() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sphere_op_chain<In::Op::DirectDisplaceParams>(
@@ -1286,6 +1305,7 @@ inline void test_shader_chain_parity_displace_direct() {
 inline void test_shader_chain_parity_displace_ripple() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sphere_op_chain<PB::Surface::PeriodicRippleParams>(
@@ -1324,6 +1344,7 @@ inline void run_kaleidoscope_variant(In::ChainProgram &program,
 inline void test_shader_chain_parity_lens_ops() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     run_lens_parity<PB::Lens::Glitch, PB::Lens::NoLensParams>(
         In::Op::LensGlitch::ID, set);
     run_lens_parity<PB::Lens::Twist, PB::Lens::NoLensParams>(
@@ -1522,7 +1543,9 @@ inline void expect_warp_op_parity(In::ChainProgram &program,
   program.prepare(ctx);
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[2].op;
+  int view_index = 0;
   for (const Vector &view : sweep_views()) {
+    HS_CONTEXT("view", view_index++);
     const PB::PlaneSample input = warp_input(program, ctx, view);
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
     op.runtime.run(&input, out, ctx, program.param_block(2),
@@ -1569,6 +1592,7 @@ inline WarpMirrorFrame warp_mirror(In::ChainProgram &program) {
 inline void test_shader_chain_parity_warp_affine_mirror() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     const In::FrameContext ctx = shared_resources().context();
@@ -1603,6 +1627,7 @@ inline void run_wave_shear_variant(In::ChainProgram &program,
 inline void test_shader_chain_parity_warp_wave_shear() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_warp_op_chain<In::Op::WaveShearWarpParams>(
@@ -1621,6 +1646,7 @@ inline void test_shader_chain_parity_warp_wave_shear() {
 inline void test_shader_chain_parity_warp_vortex() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_warp_op_chain<In::Op::VortexWarpParams>(program, In::Op::WarpVortex::ID,
@@ -1661,6 +1687,7 @@ inline void run_vector_noise_basis(In::ChainProgram &program,
 inline void test_shader_chain_parity_warp_vector_noise() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_warp_op_chain<In::Op::VectorNoiseWarpParams>(
@@ -1744,6 +1771,7 @@ inline void run_polar_harmonics(In::ChainProgram &program,
 inline void test_shader_chain_parity_warp_polar_chart() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_warp_op_chain<In::Op::PolarChartParams>(
@@ -1779,6 +1807,7 @@ inline void run_curl_flow_basis(In::ChainProgram &program,
 inline void test_shader_chain_parity_warp_curl_flow() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_warp_op_chain<In::Op::CurlFlowParams>(program, In::Op::WarpCurlFlow::ID,
@@ -1926,7 +1955,9 @@ inline void expect_project_op_parity(In::ChainProgram &program,
   const ProjMirrorFrame mirror = project_mirror(program, ctx);
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[1].op;
+  int view_index = 0;
   for (const Vector &view : sweep_views()) {
+    HS_CONTEXT("view", view_index++);
     const PB::SphereSample seed{view, 0.25f};
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
     op.runtime.run(&seed, out, ctx, program.param_block(1),
@@ -1953,6 +1984,7 @@ inline void run_project_parity(const char *op_id, ValueSet set) {
 inline void test_shader_chain_parity_project_ops() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     run_project_parity<PB::Projection::FoldedSinusoidal<MeridianProjMirror>,
                        In::Op::MeridianProjectChainParams>(
         In::Op::ProjectFoldedSinusoidal::ID, set);
@@ -1995,6 +2027,7 @@ inline void test_shader_chain_parity_project_hemispheres() {
   using Hemisphere = PB::Projection::GnomonicHemisphere;
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_project_op_chain<In::Op::GnomonicChainParams>(
@@ -2118,7 +2151,9 @@ inline void expect_field_op_parity(In::ChainProgram &program,
   const FieldMirrorFrame mirror = field_mirror(program);
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[3].op;
+  int view_index = 0;
   for (const Vector &view : sweep_views()) {
+    HS_CONTEXT("view", view_index++);
     const PB::FieldSample input = field_input(program, ctx, view);
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
     op.runtime.run(&input, out, ctx, program.param_block(3),
@@ -2143,6 +2178,7 @@ inline void run_field_parity(const char *op_id, ValueSet set) {
 inline void test_shader_chain_parity_field_ops() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     run_field_parity<typename PB::Stage::Transfer<PB::Transfer::Ridge>::
                          template Bind<FieldMirrorBinding>,
                      PB::Transfer::NoValueParams>(In::Op::TransferRidge::ID,
@@ -2414,7 +2450,9 @@ inline void expect_spherical_sample_op_parity(In::ChainProgram &program,
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &rotate_op = *program.ops()[0].op;
   const In::OperatorDescriptor &sample_op = *program.ops()[1].op;
+  int view_index = 0;
   for (const Vector &view : sweep_views()) {
+    HS_CONTEXT("view", view_index++);
     const PB::SphereSample seed{view, 0.0f};
     alignas(In::SLOT_ALIGN) uint8_t rotated_out[In::SLOT_SIZE];
     rotate_op.runtime.run(&seed, rotated_out, ctx, program.param_block(0),
@@ -2439,7 +2477,9 @@ inline void expect_sample_op_parity(In::ChainProgram &program,
   const SampleMirrorFrame mirror = sample_mirror(program);
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[2].op;
+  int view_index = 0;
   for (const Vector &view : sweep_views()) {
+    HS_CONTEXT("view", view_index++);
     const PB::PlaneSample input = warp_input(program, ctx, view);
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
     op.runtime.run(&input, out, ctx, program.param_block(2),
@@ -2518,6 +2558,7 @@ inline void run_sample_op_matrix(In::ChainProgram &program,
 inline void test_shader_chain_parity_sample_twin_wave() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sample_op_chain<In::Op::TwinWaveSampleParams>(
@@ -2532,6 +2573,7 @@ inline void test_shader_chain_parity_sample_twin_wave() {
 inline void test_shader_chain_parity_sample_rings() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sample_op_chain<In::Op::RingsSampleParams>(
@@ -2545,6 +2587,7 @@ inline void test_shader_chain_parity_sample_rings() {
 inline void test_shader_chain_parity_sample_spherical_rings() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_spherical_sample_op_chain<In::Op::SphericalRingsSampleParams>(
@@ -2559,6 +2602,7 @@ inline void test_shader_chain_parity_sample_spherical_rings() {
 inline void test_shader_chain_parity_sample_spiral() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sample_op_chain<In::Op::SpiralSampleParams>(
@@ -2572,6 +2616,7 @@ inline void test_shader_chain_parity_sample_spiral() {
 inline void test_shader_chain_parity_sample_lattice() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sample_op_chain<In::Op::LatticeSampleParams>(
@@ -2586,6 +2631,7 @@ inline void test_shader_chain_parity_sample_lattice() {
 inline void test_shader_chain_parity_sample_fractal() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sample_op_chain<In::Op::FractalSampleParams>(
@@ -2600,6 +2646,7 @@ inline void test_shader_chain_parity_sample_fractal() {
 inline void test_shader_chain_parity_sample_tessellation() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sample_op_chain<In::Op::TessellationSampleParams>(
@@ -2626,6 +2673,7 @@ inline void test_shader_chain_parity_sample_tessellation() {
 inline void test_shader_chain_parity_sample_projected_noise() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sample_op_chain<In::Op::ProjectedNoiseSampleParams>(
@@ -2652,6 +2700,7 @@ inline void test_shader_chain_parity_sample_projected_noise() {
 inline void test_shader_chain_parity_sample_spherical_noise() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_spherical_sample_op_chain<In::Op::SphericalNoiseSampleParams>(
@@ -2719,6 +2768,7 @@ inline void run_sample_variant(In::ChainProgram &program,
 inline void test_shader_chain_parity_sample_variants() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_default_chain(program, 4, set);
@@ -2777,6 +2827,7 @@ inline void run_colorize_variant(In::ChainProgram &program,
 inline void test_shader_chain_parity_colorize_variants() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_default_chain(program, 4, set);
