@@ -388,6 +388,8 @@ public:
         "it has no terminal stage and this overload emits nothing. "
         "Drop the flush() call, or add Pixel::Feedback.");
   }
+
+private:
   /** @brief Terminates the recursive screen-trail flush walk. */
   void flush_stages(Canvas &, const ScreenTrailFn &, float) {}
   /** @brief Terminates the recursive world-trail flush walk. */
@@ -395,6 +397,7 @@ public:
   /** @brief Terminates the recursive terminal-stage flush walk. */
   void flush_stages(Canvas &, float) {}
 
+public:
   /**
    * @brief Clip-cull terminal: the edge has cleared every world stage, so run
    *        the rasterizer's row-span vs clip-band test on it.
@@ -843,6 +846,7 @@ public:
     return *this;
   }
 
+private:
   /**
    * @brief Flushes 2D history for this stage, then recurses into the Tail.
    * @param cv Target canvas.
