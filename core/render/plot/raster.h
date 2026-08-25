@@ -288,8 +288,7 @@ HS_O3_END
  * @param points Fragment polyline to rasterize.
  * @param fragment_shader Per-fragment shader applied before plotting; must be
  *                        non-null (the per-pixel call sites below do not guard
- *                        it, and operator()'s null assert is stripped under
- *                        NDEBUG on-device).
+ *                        it, so an empty ref traps once per pixel instead).
  * @param opts Optional loop/projection/culling behaviors; taken by value (see
  *             RasterOptions).
  */
