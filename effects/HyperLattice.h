@@ -32,6 +32,7 @@ namespace HyperLatticeDetail {
 
 constexpr int DIMENSIONS = 4;
 constexpr int MAX_SHELLS = 3;
+constexpr int MAX_PROJECTED_LINES = 32;
 constexpr float DIRECTION_EPSILON = 1.0e-4f;
 
 enum class ReflectionMode : uint8_t { CHROME, RADIAL };
@@ -326,6 +327,11 @@ struct Binding {
   using Instrumentation = Pullback::NoInstrumentation;
 };
 
+struct ProjectedLine {
+  Vector anchor;
+  uint8_t free_axis;
+};
+
 struct PreparedTrace {
   Params params;
   Vec4 origin;
@@ -336,7 +342,12 @@ struct PreparedTrace {
   float near_inv_span;
   float dimension_mix;
   LatticeMode mode;
+  std::array<Vector, DIMENSIONS> projected_axes;
+  std::array<ProjectedLine, MAX_PROJECTED_LINES> projected_lines;
+  uint8_t projected_line_count;
 };
+
+inline void prepare_projected_lines(PreparedTrace &prepared);
 
 template <int W, int H> constexpr float pixel_half_angle() {
   constexpr float HORIZONTAL = TWO_PI_F / static_cast<float>(W);
@@ -409,6 +420,9 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   prepared.near_start = 1.5f * frame.params.wire_radius;
   const float near_end = 4.0f * frame.params.wire_radius;
   prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
+  prepared.projected_line_count = 0;
+  if (prepared.mode == LatticeMode::FOUR_D_PROJECTED)
+    prepare_projected_lines(prepared);
   return prepared;
 }
 
@@ -489,57 +503,10 @@ struct TraceCursor {
   bool active;
 };
 
-struct ProjectedCandidate {
-  int16_t fixed[DIMENSIONS];
-  float nomination_distance;
-  float horizon_coverage;
-  uint8_t free_axis;
-};
-
 struct ProjectedDistance {
   float distance_sq;
   float ray_distance;
 };
-
-inline bool same_projected_edge(const ProjectedCandidate &left,
-                                const ProjectedCandidate &right) {
-  if (left.free_axis != right.free_axis)
-    return false;
-  for (int axis = 0; axis < DIMENSIONS; ++axis)
-    if (axis != left.free_axis && left.fixed[axis] != right.fixed[axis])
-      return false;
-  return true;
-}
-
-inline void nominate_projected_edge(const Vec4 &ray_origin,
-                                    const Vec4 &direction, int plane_axis,
-                                    float distance, float horizon_coverage,
-                                    ProjectedCandidate *candidates,
-                                    uint8_t &candidate_count) {
-  constexpr uint8_t MAX_CANDIDATES = DIMENSIONS * MAX_SHELLS;
-  const EdgeMetric metric =
-      edge_metric_4d_at(ray_origin, direction, plane_axis, distance);
-  ProjectedCandidate candidate{};
-  candidate.free_axis = metric.free_axis;
-  candidate.nomination_distance = distance;
-  candidate.horizon_coverage = horizon_coverage;
-  for (int axis = 0; axis < DIMENSIONS; ++axis) {
-    if (axis != candidate.free_axis)
-      candidate.fixed[axis] = static_cast<int16_t>(
-          nearbyintf(ray_origin[axis] + distance * direction[axis]));
-  }
-  for (uint8_t index = 0; index < candidate_count; ++index) {
-    if (!same_projected_edge(candidate, candidates[index]))
-      continue;
-    candidates[index].nomination_distance =
-        std::min(candidates[index].nomination_distance, distance);
-    candidates[index].horizon_coverage =
-        std::max(candidates[index].horizon_coverage, horizon_coverage);
-    return;
-  }
-  if (candidate_count < MAX_CANDIDATES)
-    candidates[candidate_count++] = candidate;
-}
 
 inline Vector projected_lattice_axis(const PreparedTrace &prepared, int axis) {
   return Vector(prepared.world_to_lattice.m[axis][0],
@@ -550,8 +517,7 @@ inline Vector projected_lattice_axis(const PreparedTrace &prepared, int axis) {
 inline ProjectedDistance projected_line_distance(const Vector &ray_origin,
                                                  const Vector &direction,
                                                  const Vector &anchor,
-                                                 const Vector &line_direction,
-                                                 float nomination_distance) {
+                                                 const Vector &line_direction) {
   const Vector delta = anchor - ray_origin;
   const float line_length_sq = dot(line_direction, line_direction);
   if (line_length_sq < DIRECTION_EPSILON * DIRECTION_EPSILON) {
@@ -569,7 +535,7 @@ inline ProjectedDistance projected_line_distance(const Vector &ray_origin,
     line_position = (coupling * ray_projection - line_projection) / denominator;
     ray_distance = ray_projection + coupling * line_position;
   } else {
-    ray_distance = nomination_distance;
+    ray_distance = ray_projection;
     line_position =
         (coupling * ray_distance - line_projection) / line_length_sq;
   }
@@ -578,59 +544,107 @@ inline ProjectedDistance projected_line_distance(const Vector &ray_origin,
   return {dot(separation, separation), ray_distance};
 }
 
+inline bool projected_lines_coincident(const ProjectedLine &left,
+                                       const ProjectedLine &right,
+                                       const Vector &line_direction) {
+  if (left.free_axis != right.free_axis)
+    return false;
+  const Vector delta = left.anchor - right.anchor;
+  const float line_length_sq = dot(line_direction, line_direction);
+  Vector separation = delta;
+  if (line_length_sq >= DIRECTION_EPSILON * DIRECTION_EPSILON)
+    separation -=
+        line_direction * (dot(delta, line_direction) / line_length_sq);
+  return dot(separation, separation) < 1.0e-8f;
+}
+
+inline void prepare_projected_lines(PreparedTrace &prepared) {
+  constexpr float HIDDEN_DEPTH_WEIGHT = 0.0625f;
+  constexpr uint8_t QUOTAS[MAX_SHELLS] = {3, 6, 8};
+  struct RankedLine {
+    ProjectedLine line;
+    float score;
+    bool used;
+  };
+
+  const Vec4 hidden_direction =
+      prepared.world_to_lattice.apply({{0.0f, 0.0f, 0.0f, 1.0f}});
+  for (int axis = 0; axis < DIMENSIONS; ++axis)
+    prepared.projected_axes[axis] = projected_lattice_axis(prepared, axis);
+  const uint8_t quota = QUOTAS[static_cast<uint8_t>(prepared.params.shells)];
+  for (uint8_t free_axis = 0; free_axis < DIMENSIONS; ++free_axis) {
+    RankedLine ranked[27];
+    for (int ordinal = 0; ordinal < 27; ++ordinal) {
+      int digits = ordinal;
+      Vector anchor(0.0f, 0.0f, 0.0f);
+      float hidden_anchor = 0.0f;
+      for (int axis = 0; axis < DIMENSIONS; ++axis) {
+        if (axis == free_axis)
+          continue;
+        const int offset = digits % 3 - 1;
+        digits /= 3;
+        const float fixed =
+            nearbyintf(prepared.origin[axis]) + static_cast<float>(offset);
+        const float delta = fixed - prepared.origin[axis];
+        anchor += prepared.projected_axes[axis] * delta;
+        hidden_anchor += hidden_direction[axis] * delta;
+      }
+      const Vector line_direction = prepared.projected_axes[free_axis];
+      const float line_length_sq = dot(line_direction, line_direction);
+      float line_position = 0.0f;
+      float projected_distance_sq = dot(anchor, anchor);
+      if (line_length_sq >= DIRECTION_EPSILON * DIRECTION_EPSILON) {
+        line_position = -dot(anchor, line_direction) / line_length_sq;
+        const Vector separation = anchor + line_direction * line_position;
+        projected_distance_sq = dot(separation, separation);
+      }
+      const float hidden_depth =
+          hidden_anchor + hidden_direction[free_axis] * line_position;
+      ranked[ordinal] = {{anchor, free_axis},
+                         projected_distance_sq +
+                             HIDDEN_DEPTH_WEIGHT * hidden_depth * hidden_depth,
+                         false};
+    }
+
+    uint8_t selected = 0;
+    while (selected < quota) {
+      int best = -1;
+      for (int ordinal = 0; ordinal < 27; ++ordinal)
+        if (!ranked[ordinal].used &&
+            (best < 0 || ranked[ordinal].score < ranked[best].score))
+          best = ordinal;
+      if (best < 0)
+        break;
+      ranked[best].used = true;
+      bool duplicate = false;
+      for (uint8_t index = 0; index < prepared.projected_line_count; ++index)
+        duplicate |= projected_lines_coincident(
+            ranked[best].line, prepared.projected_lines[index],
+            prepared.projected_axes[free_axis]);
+      if (duplicate)
+        continue;
+      prepared.projected_lines[prepared.projected_line_count++] =
+          ranked[best].line;
+      ++selected;
+    }
+  }
+}
+
 template <typename ConsumeFn>
 inline void trace_projected_layers(const Vector &normal,
                                    const PreparedTrace &prepared,
                                    ConsumeFn consume) {
-  constexpr uint8_t MAX_CANDIDATES = DIMENSIONS * MAX_SHELLS;
-  const Vec4 surface_normal =
-      prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
-  Vec4 lattice_origin = prepared.origin;
-  for (int axis = 0; axis < DIMENSIONS; ++axis)
-    lattice_origin[axis] +=
-        prepared.params.sphere_radius * surface_normal[axis];
   const Vec4 reflected = reflected_direction(normal, prepared.params.reflection,
                                              prepared.params.chrome_warp);
-  const Vec4 lattice_direction = prepared.world_to_lattice.apply(reflected);
-  const uint8_t shell_count = static_cast<uint8_t>(prepared.params.shells) + 1;
-  ProjectedCandidate candidates[MAX_CANDIDATES];
-  uint8_t candidate_count = 0;
-  for (int plane_axis = 0; plane_axis < DIMENSIONS; ++plane_axis) {
-    const float component = lattice_direction[plane_axis];
-    const float magnitude = fabsf(component);
-    if (magnitude < DIRECTION_EPSILON)
-      continue;
-    const float step = 1.0f / magnitude;
-    float distance =
-        next_plane_offset(lattice_origin[plane_axis], component > 0.0f) * step;
-    for (uint8_t shell = 0;
-         shell < shell_count && distance < prepared.params.far_cells;
-         ++shell, distance += step) {
-      const float horizon =
-          shell_horizon_coverage(shell, shell_count, distance, magnitude);
-      nominate_projected_edge(lattice_origin, lattice_direction, plane_axis,
-                              distance, horizon, candidates, candidate_count);
-    }
-  }
-
   const Vector ray_origin = normal * prepared.params.sphere_radius;
   const Vector direction(reflected[0], reflected[1], reflected[2]);
-  TraceHit hits[MAX_CANDIDATES];
+  TraceHit hits[MAX_PROJECTED_LINES];
   uint8_t hit_count = 0;
-  for (uint8_t index = 0; index < candidate_count; ++index) {
-    const ProjectedCandidate &candidate = candidates[index];
-    Vector anchor(0.0f, 0.0f, 0.0f);
-    for (int axis = 0; axis < DIMENSIONS; ++axis) {
-      if (axis == candidate.free_axis)
-        continue;
-      const float offset =
-          static_cast<float>(candidate.fixed[axis]) - prepared.origin[axis];
-      anchor += projected_lattice_axis(prepared, axis) * offset;
-    }
-    const ProjectedDistance projected = projected_line_distance(
-        ray_origin, direction, anchor,
-        projected_lattice_axis(prepared, candidate.free_axis),
-        candidate.nomination_distance);
+  for (uint8_t index = 0; index < prepared.projected_line_count; ++index) {
+    const ProjectedLine &line = prepared.projected_lines[index];
+    const ProjectedDistance projected =
+        projected_line_distance(ray_origin, direction, line.anchor,
+                                prepared.projected_axes[line.free_axis]);
     if (projected.ray_distance <= prepared.near_start ||
         projected.ray_distance >= prepared.params.far_cells)
       continue;
@@ -646,8 +660,8 @@ inline void trace_projected_layers(const Vector &normal,
         std::max(0.0f, 1.0f - projected.ray_distance * prepared.inv_far);
     const float near = near_field_coverage(
         projected.ray_distance, prepared.near_start, prepared.near_inv_span);
-    const TraceHit hit{edge * fog * fog * near * candidate.horizon_coverage,
-                       projected.ray_distance, candidate.free_axis};
+    const TraceHit hit{edge * fog * fog * near, projected.ray_distance,
+                       line.free_axis};
     uint8_t position = hit_count;
     while (position > 0 && hits[position - 1].distance > hit.distance) {
       hits[position] = hits[position - 1];
