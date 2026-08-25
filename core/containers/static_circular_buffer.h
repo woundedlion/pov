@@ -270,7 +270,10 @@ public:
    * @details Traps via HS_CHECK if index is out of range.
    */
   T &operator[](size_t index) {
-    HS_CHECK(index < count, "StaticCircularBuffer index out of range");
+    HS_CHECK(index < count,
+             "StaticCircularBuffer::operator[]: index %lu is outside [0, %lu)",
+             static_cast<unsigned long>(index),
+             static_cast<unsigned long>(count));
     return buffer[(head + index) % N];
   }
 
@@ -281,7 +284,10 @@ public:
    * @details Traps via HS_CHECK if index is out of range.
    */
   const T &operator[](size_t index) const {
-    HS_CHECK(index < count, "StaticCircularBuffer index out of range");
+    HS_CHECK(index < count,
+             "StaticCircularBuffer::operator[]: index %lu is outside [0, %lu)",
+             static_cast<unsigned long>(index),
+             static_cast<unsigned long>(count));
     return buffer[(head + index) % N];
   }
 

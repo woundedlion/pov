@@ -3795,7 +3795,8 @@ inline const Case *all_cases(int &n) {
        "(entry) Solids::get_by_name: unknown solid name"},
       {"circular_buffer_oob", case_circular_buffer_oob,
        "static_circular_buffer.h",
-       "(index < count) StaticCircularBuffer index out of range"},
+       "(index < count) StaticCircularBuffer::operator[]: index 5 is "
+       "outside [0, 2)"},
       {"circular_buffer_front_empty", case_circular_buffer_front_empty,
        "static_circular_buffer.h",
        "(!is_empty()) front() on empty StaticCircularBuffer"},
