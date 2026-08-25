@@ -677,8 +677,8 @@ public:
       offset_x = hs::lerp(a.offset_x, b.offset_x, t);
       offset_y = hs::lerp(a.offset_y, b.offset_y, t);
       radial_scale = hs::lerp(a.radial_scale, b.radial_scale, t);
-      radial_phase = lerp_angle(a.radial_phase, b.radial_phase, t);
-      angular_phase = lerp_angle(a.angular_phase, b.angular_phase, t);
+      radial_phase = hs::lerp(a.radial_phase, b.radial_phase, t);
+      angular_phase = hs::lerp(a.angular_phase, b.angular_phase, t);
       edge_width = hs::lerp(a.edge_width, b.edge_width, t);
     }
 
