@@ -13,11 +13,11 @@ import make_quilter_incremental
 
 
 class SnapshotTests(unittest.TestCase):
-    def test_digest_covers_exact_snapshot_bytes(self):
+    def test_digest_reads_a_crlf_file_as_the_lf_bytes_it_snapshots(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "snapshot.txt"
             path.write_bytes(b"first\r\nsecond\r\n")
-            expected = hashlib.sha256(b"first\r\nsecond\r\n").hexdigest()
+            expected = hashlib.sha256(b"first\nsecond\n").hexdigest()
             self.assertEqual(make_quilter_incremental.snapshot_digest(path), expected)
 
     def test_snapshot_copy_and_manifest_use_lf_bytes(self):
