@@ -23,7 +23,7 @@ using KaleidoscopeSmoothSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                    Pullback::Lens::DodecahedralKaleidoscope,
                    Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION_SQUARED>;
+                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
 
 /**
  * @brief Mirrored grids folded through a dodecahedral stereographic lens.

@@ -17,7 +17,7 @@ using AlienCoreParams =
 using AlienCoreSpec =
     Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
                    Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::EDGE_FADE>;
+                   Pullback::ProjectionCoverageMode::EDGE_FADE>;
 
 /**
  * @brief A mirrored grid folded by the glitch lens.
