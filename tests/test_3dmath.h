@@ -1389,18 +1389,81 @@ inline void test_kaleidoscope_lens() {
   HS_EXPECT_NEAR(output.magnitude(), input.magnitude(), 1e-5f);
 }
 
-inline void test_dodecahedral_kaleidoscope_specialization() {
-  const Vector samples[] = {
-      Vector(-0.7f, 0.2f, -0.68f).normalized(),
-      Vector(0.1f, -0.9f, 0.42f).normalized(),
-      Vector(0.8f, 0.5f, -0.3f).normalized(),
+/**
+ * @brief Invokes @p visit with each direction of a latitude-longitude grid
+ *        covering the sphere, poles included.
+ * @param visit Callable taking one unit Vector.
+ */
+template <typename Visit> inline void for_each_sphere_direction(Visit visit) {
+  constexpr int LATITUDE_STEPS = 8;
+  constexpr int LONGITUDE_STEPS = 29;
+  for (int latitude_step = -LATITUDE_STEPS; latitude_step <= LATITUDE_STEPS;
+       ++latitude_step) {
+    const float latitude =
+        latitude_step * (0.5f * PI_F / static_cast<float>(LATITUDE_STEPS));
+    const float radius = cosf(latitude);
+    for (int longitude_step = 0; longitude_step < LONGITUDE_STEPS;
+         ++longitude_step) {
+      const float longitude =
+          longitude_step * (TWO_PI_F / static_cast<float>(LONGITUDE_STEPS));
+      visit(Vector(radius * cosf(longitude), sinf(latitude),
+                   radius * sinf(longitude)));
+    }
+  }
+}
+
+/**
+ * @brief Checks a chamber fold over a whole-sphere direction grid: the result
+ *        satisfies every mirror half-space, the fold is an isometry, and a
+ *        direction already inside is a fixed point.
+ * @param mirrors Inward unit normals bounding the chamber.
+ * @param fold Chamber fold under test.
+ * @details A mistyped normal either leaves the fold non-convergent, which trips
+ * its own reflection-limit check, or opens the chamber past a mirror, which the
+ * half-space assertions catch.
+ */
+template <typename Fold>
+inline void expect_chamber_fold(const std::array<Vector, 3> &mirrors,
+                                Fold fold) {
+  constexpr float WALL_TOLERANCE = 1e-5f;
+  for (const Vector &normal : mirrors)
+    HS_EXPECT_NEAR(normal.magnitude(), 1.0f, 1e-6f);
+  for_each_sphere_direction([&](const Vector &input) {
+    const Vector folded = fold(input);
+    for (const Vector &normal : mirrors)
+      HS_EXPECT_GE(dot(folded, normal), -WALL_TOLERANCE);
+    HS_EXPECT_NEAR(folded.magnitude(), input.magnitude(), 1e-4f);
+    HS_EXPECT_VEC(fold(folded), folded, 1e-6f);
+  });
+}
+
+/**
+ * @brief Sweeps every reflection-group table wired into the lens catalog
+ *        through the generic fold, plus the dodecahedral specialization.
+ */
+inline void test_polyhedral_kaleidoscope_chambers() {
+  const std::array<Vector, 3> tables[] = {
+      lenses::TETRAHEDRAL_MIRRORS,     lenses::OCTAHEDRAL_MIRRORS,
+      lenses::DODECAHEDRAL_MIRRORS,    lenses::TRIANGULAR_PRISM_MIRRORS,
+      lenses::SQUARE_PRISM_MIRRORS,    lenses::PENTAGONAL_PRISM_MIRRORS,
+      lenses::HEXAGONAL_PRISM_MIRRORS, lenses::OCTAGONAL_PRISM_MIRRORS,
   };
-  for (const Vector &input : samples) {
+  for (const std::array<Vector, 3> &mirrors : tables)
+    expect_chamber_fold(mirrors, [&mirrors](const Vector &v) {
+      return lenses::polyhedral_kaleidoscope_lens(v, mirrors);
+    });
+  expect_chamber_fold(lenses::DODECAHEDRAL_MIRRORS, [](const Vector &v) {
+    return lenses::dodecahedral_kaleidoscope_lens(v);
+  });
+}
+
+inline void test_dodecahedral_kaleidoscope_specialization() {
+  for_each_sphere_direction([](const Vector &input) {
     const Vector generic = lenses::polyhedral_kaleidoscope_lens(
         input, lenses::DODECAHEDRAL_MIRRORS);
     const Vector specialized = lenses::dodecahedral_kaleidoscope_lens(input);
     HS_EXPECT_VEC(specialized, generic, 1e-5f);
-  }
+  });
 }
 
 // ============================================================================
@@ -1421,6 +1484,7 @@ inline int run_3dmath_tests() {
   test_value_noise();
   test_twist_lens();
   test_kaleidoscope_lens();
+  test_polyhedral_kaleidoscope_chambers();
   test_dodecahedral_kaleidoscope_specialization();
 
   test_fast_atan2();
