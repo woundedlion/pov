@@ -231,8 +231,14 @@ private:
   static constexpr const char *SPACING_EXPORT_OPTIONS[] = {
       "RadiusSpacing::UNIFORM", "RadiusSpacing::SCREEN_BALANCED"};
 
+  /** @brief Half a turn per frame: the waveform's per-frame Nyquist limit. */
+  static constexpr float NYQUIST_PHASE_STEP = 0.5f;
+
   void advance_phase() {
-    phase = wrap_t(phase + params.speed / params.amplitude);
+    // Dividing by amplitude holds the contour's sweep velocity constant across
+    // the Amplitude slider.
+    phase = wrap_t(
+        phase + std::min(params.speed / params.amplitude, NYQUIST_PHASE_STEP));
   }
 
   float phase_direction(float radius) const {

@@ -842,6 +842,14 @@ inline void test_amplitude_preserves_sweep_velocity() {
                  0.01f, 1e-6f);
 }
 
+inline void test_phase_step_stops_at_the_nyquist_limit() {
+  OracleEffect effect;
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::advance_phase(effect, 0.049f, 0.1f),
+                 0.49f, 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::advance_phase(effect, 0.16f, 0.1f), 0.5f,
+                 1e-6f);
+}
+
 /** @brief Contour midpoint the render path samples the baked palette at. */
 inline float midpoint_radius_t(int index, int count) {
   return (static_cast<float>(index) + 0.5f) / static_cast<float>(count);
@@ -1046,6 +1054,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_high_count_planar_star_caps_cover_chart_centers();
   test_high_count_spherical_star_contours_reach_display_north();
   test_amplitude_preserves_sweep_velocity();
+  test_phase_step_stops_at_the_nyquist_limit();
   test_alpha_falloff_fades_to_equator();
   test_opposite_halves_direction();
   test_folded_shapes_draw_from_equator_to_both_poles();
