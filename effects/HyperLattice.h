@@ -33,7 +33,7 @@ namespace HyperLatticeDetail {
 constexpr int DIMENSIONS = 4;
 constexpr int MAX_SHELLS = 3;
 constexpr float DIRECTION_EPSILON = 1.0e-4f;
-constexpr float PRESET_3_AA_CULL_SCALE = 0.82f;
+constexpr float SPECIALIZED_SLICE_AA_CULL_SCALE = 0.82f;
 
 enum class ReflectionMode : uint8_t { CHROME, RADIAL };
 enum class ColorMode : uint8_t { DEPTH, AXIS };
@@ -500,7 +500,7 @@ struct TraceHit {
   uint8_t free_axis = 0;
 };
 
-template <bool SLICE_4D, bool PRESET_3 = false>
+template <bool SLICE_4D, bool SPECIALIZED_SLICE = false>
 __attribute__((always_inline)) inline TraceHit
 trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
             float distance, float plane_step, const PreparedTrace &prepared) {
@@ -514,7 +514,8 @@ trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
       coverage_outer_radius - prepared.params.wire_radius;
   const float depth = distance * prepared.inv_far;
   const float fog = std::max(0.0f, 1.0f - depth);
-  const float cull_scale = PRESET_3 ? PRESET_3_AA_CULL_SCALE * fog : 1.0f;
+  const float cull_scale =
+      SPECIALIZED_SLICE ? SPECIALIZED_SLICE_AA_CULL_SCALE * fog : 1.0f;
   const float outer_radius =
       prepared.params.wire_radius + cull_scale * coverage_half_width;
   const float outer_radius_sq = outer_radius * outer_radius;
@@ -523,9 +524,9 @@ trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
   float dimensional_coverage = 1.0f;
   if constexpr (SLICE_4D) {
     EdgeMetric metric_4d;
-    if (!edge_metric_4d_at_bounded<!PRESET_3>(ray_origin, direction, plane_axis,
-                                              distance, outer_radius,
-                                              outer_radius_sq, metric_4d))
+    if (!edge_metric_4d_at_bounded<!SPECIALIZED_SLICE>(
+            ray_origin, direction, plane_axis, distance, outer_radius,
+            outer_radius_sq, metric_4d))
       return {0.0f, distance, 0};
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
@@ -557,10 +558,11 @@ trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
   }
 
   const float edge =
-      PRESET_3 ? fast_wire_coverage(metric_sq, prepared.params.wire_radius,
-                                    coverage_half_width)
-               : wire_coverage(metric_sq, prepared.params.wire_radius,
-                               coverage_half_width);
+      SPECIALIZED_SLICE
+          ? fast_wire_coverage(metric_sq, prepared.params.wire_radius,
+                               coverage_half_width)
+          : wire_coverage(metric_sq, prepared.params.wire_radius,
+                          coverage_half_width);
   const float near = near_field_coverage(distance, prepared.near_start,
                                          prepared.near_inv_span);
   return {edge * fog * fog * near * dimensional_coverage, distance, free_axis};
@@ -574,14 +576,15 @@ struct TraceCursor {
   bool active;
 };
 
-template <bool SLICE_4D = false, bool PRESET_3 = false, typename ConsumeFn>
+template <bool SLICE_4D = false, bool SPECIALIZED_SLICE = false,
+          typename ConsumeFn>
 __attribute__((always_inline)) inline void
 trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
                   ConsumeFn consume) {
   HS_PROFILE_DEEP(hl_trace_layers);
   constexpr float GROUP_EPSILON = 1.0e-4f;
   Vec4 ray_origin = prepared.origin;
-  if constexpr (!PRESET_3)
+  if constexpr (!SPECIALIZED_SLICE)
     if (prepared.params.sphere_radius != 0.0f) {
       const Vec4 surface_normal = prepared.world_to_lattice.apply(
           {{normal.x, normal.y, normal.z, 0.0f}});
@@ -592,7 +595,7 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
   const Vec4 direction = prepared.world_to_lattice.apply(reflected_direction(
       normal, prepared.params.reflection, prepared.params.chrome_warp));
   const uint8_t shell_count =
-      PRESET_3 ? 3 : static_cast<uint8_t>(prepared.params.shells) + 1;
+      SPECIALIZED_SLICE ? 3 : static_cast<uint8_t>(prepared.params.shells) + 1;
   TraceCursor cursors[DIMENSIONS];
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
     TraceCursor &cursor = cursors[axis];
@@ -652,7 +655,7 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
       const int axis = __builtin_ctz(static_cast<unsigned>(pending));
       pending &= static_cast<uint8_t>(pending - 1);
       TraceCursor &cursor = cursors[axis];
-      TraceHit candidate = trace_plane<SLICE_4D, PRESET_3>(
+      TraceHit candidate = trace_plane<SLICE_4D, SPECIALIZED_SLICE>(
           ray_origin, direction, axis, cursor.distance, cursor.step, prepared);
       if (candidate.coverage > 0.0f)
         candidate.coverage *= shell_horizon_coverage(
@@ -713,23 +716,23 @@ struct LayerComposite {
   }
 };
 
-template <bool SLICE_4D = false, bool PRESET_3 = false>
+template <bool SLICE_4D = false, bool SPECIALIZED_SLICE = false>
 __attribute__((always_inline)) inline Color4
 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
            const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_shade);
   LayerComposite composite;
   const BakedPalette &palette =
-      *(PRESET_3 || prepared.params.color == ColorMode::DEPTH
+      *(SPECIALIZED_SLICE || prepared.params.color == ColorMode::DEPTH
             ? frame.depth_palette
             : frame.axis_palette);
-  trace_layers_mode<SLICE_4D, PRESET_3>(
+  trace_layers_mode<SLICE_4D, SPECIALIZED_SLICE>(
       input.dir, prepared,
       [&](const TraceHit &hit) __attribute__((always_inline)) {
         HS_PROFILE_DEEP(hl_layer_composite);
         const float depth = hit.distance * prepared.inv_far;
         const float value =
-            PRESET_3 || prepared.params.color == ColorMode::DEPTH
+            SPECIALIZED_SLICE || prepared.params.color == ColorMode::DEPTH
                 ? 1.0f - depth
                 : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
         Pixel color = palette.get_color_unit(value);
@@ -745,9 +748,9 @@ inline Color4 shade(const Pullback::SphereSample &input,
   return shade_mode(input, frame, prepared);
 }
 
-template <bool SLICE_4D = false, bool PRESET_3 = false>
+template <bool SLICE_4D = false, bool SPECIALIZED_SLICE = false>
 struct ModeShadeStage
-    : Pullback::Stage::Contract<ModeShadeStage<SLICE_4D, PRESET_3>,
+    : Pullback::Stage::Contract<ModeShadeStage<SLICE_4D, SPECIALIZED_SLICE>,
                                 Pullback::SphereSample, Color4> {
   using Policies = std::tuple<>;
 
@@ -762,7 +765,7 @@ struct ModeShadeStage
   run(const Pullback::SphereSample &input,
       const typename PipelineBinding::FrameState &frame,
       const PreparedTrace &prepared) {
-    return shade_mode<SLICE_4D, PRESET_3>(input, frame, prepared);
+    return shade_mode<SLICE_4D, SPECIALIZED_SLICE>(input, frame, prepared);
   }
 };
 
@@ -787,7 +790,7 @@ struct ShadeStage
 
 using RenderPipeline = Pullback::Pipeline<Binding, ShadeStage>;
 using SliceRenderPipeline = Pullback::Pipeline<Binding, ModeShadeStage<>>;
-using Preset3RenderPipeline =
+using SpecializedRenderPipeline =
     Pullback::Pipeline<Binding, ModeShadeStage<true, true>>;
 
 } // namespace HyperLatticeDetail
@@ -806,8 +809,8 @@ public:
   using ColorMode = HyperLatticeDetail::ColorMode;
   using ShellCount = HyperLatticeDetail::ShellCount;
 
-  static constexpr std::array<std::string_view, 4> PRESET_IDS{
-      "cubic-flight", "deep-grid", "dimensional-rift", "hypercube-flight"};
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{
+      "cubic-flight", "hypercube-flight"};
   static constexpr Segue::Lerp PRESET_SEGUE{240, ease_in_out_sin,
                                             /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
@@ -816,7 +819,7 @@ public:
   static constexpr Params preset_params(size_t index) {
     Params value;
     switch (index) {
-    case 1:
+    case 0:
       value.mode = LatticeMode::THREE_D;
       value.sphere_radius = 0.4f;
       value.wire_radius = 0.055f;
@@ -831,15 +834,7 @@ public:
       value.color = ColorMode::DEPTH;
       value.shells = ShellCount::TWO;
       break;
-    case 2:
-      value.mode = LatticeMode::DIMENSIONAL_RIFT;
-      value.wire_radius = 0.085f;
-      value.softness = 0.08f;
-      value.far_cells = 9.0f;
-      value.spin_4d = 0.004f;
-      value.color = ColorMode::AXIS;
-      break;
-    case 3:
+    case 1:
       value.mode = LatticeMode::FOUR_D_SLICE;
       value.sphere_radius = 0.0f;
       value.wire_radius = 0.03546f;
@@ -935,7 +930,7 @@ public:
           frame.ctx.params.shells == ShellCount::THREE) {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&frame](const Vector &view) {
-              return HyperLatticeDetail::Preset3RenderPipeline::evaluate(
+              return HyperLatticeDetail::SpecializedRenderPipeline::evaluate(
                   view, frame.ctx, frame.prepared);
             });
       } else {
