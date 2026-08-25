@@ -84,7 +84,7 @@ correctness gate.
   connectivity, fab outputs, routed-board metadata) and the largest suite in
   the job. None of them needs an ARM toolchain or KiCad, so they run locally as
   written. `tools/check_test_dir_pins.sh` fails a suite directory the workflow
-  never names.
+  or the justfile never names.
 - **Lint:** the CI `lint` job has six legs — `ruff` over the Python tooling,
   `eslint` over the JavaScript, `shellcheck` over every tracked `*.sh` and
   `.githooks/*`, `actionlint` over `.github/workflows/*.yml` (which pipes every

@@ -26,9 +26,13 @@ class TestDirPins(unittest.TestCase):
         subprocess.run(["git", "add", "tools/sample_tests/test_sample.py"],
                        cwd=self.repo, check=True)
 
-    def run_check(self, workflow: str) -> subprocess.CompletedProcess[str]:
+    def run_check(self, workflow: str,
+                  justfile: str | None = None
+                  ) -> subprocess.CompletedProcess[str]:
         path = self.repo / ".github" / "workflows" / "ci.yml"
         path.write_text(workflow, encoding="utf-8")
+        (self.repo / "justfile").write_text(
+            workflow if justfile is None else justfile, encoding="utf-8")
         return subprocess.run(
             ["bash", CHECK.as_posix()], cwd=self.repo,
             capture_output=True, text=True, check=False)
@@ -51,6 +55,25 @@ class TestDirPins(unittest.TestCase):
             "python -m unittest discover -s tools/sample_tests_extra -v\n")
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
         self.assertIn("tools/sample_tests", done.stdout)
+
+    def test_the_justfile_is_pinned_as_well_as_the_workflow(self):
+        pinned = (
+            "bash tools/require_test_files.sh 'tools/sample_tests/test*.py'\n"
+            "python -m unittest discover -s tools/sample_tests -v\n"
+        )
+        done = self.run_check(pinned, justfile="")
+        self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
+        self.assertIn("justfile:tools/sample_tests", done.stdout)
+        self.assertNotIn("ci.yml:tools/sample_tests", done.stdout)
+
+    def test_a_missing_justfile_is_a_usage_error(self):
+        (self.repo / ".github" / "workflows" / "ci.yml").write_text(
+            "", encoding="utf-8")
+        done = subprocess.run(
+            ["bash", CHECK.as_posix()], cwd=self.repo,
+            capture_output=True, text=True, check=False)
+        self.assertEqual(done.returncode, 2, done.stdout + done.stderr)
+        self.assertIn("no justfile", done.stderr)
 
 
 if __name__ == "__main__":
