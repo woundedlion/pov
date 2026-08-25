@@ -580,6 +580,9 @@ const validatePresetBank = (bank, parameters, pathPolicies, report, guard) => {
     guard(() => {
       exactKeys(preset, ['preset_id', 'display_name', 'description', 'values'], ['preset_id', 'values'], path);
       id(preset.preset_id, `${path}.preset_id`);
+      for (const field of ['display_name', 'description'])
+        if (preset[field] !== undefined && typeof preset[field] !== 'string')
+          fail('schema', 'INVALID_PRESET_TEXT', `${path}.${field}`, `Expected a string for "${field}".`);
       if (presetIds.has(preset.preset_id))
         fail('semantic', 'DUPLICATE_PRESET', `${path}.preset_id`, `Duplicate preset ID "${preset.preset_id}".`);
       presetIds.add(preset.preset_id);

@@ -348,6 +348,21 @@ test('chain carrier legality distinguishes order from mismatch', () => {
   assert.ok(codes.has('CARRIER_MISMATCH'));
 });
 
+test('a preset display name and description must be strings when present', () => {
+  for (const field of ['display_name', 'description']) {
+    const document = example();
+    document.preset_bank.presets[0][field] = 7;
+    const codes = validate(document).map((diagnostic) => diagnostic.code);
+    assert.ok(codes.includes('INVALID_PRESET_TEXT'),
+      `a non-string ${field} must be reported, not rendered as one`);
+    assert.equal(compile(document).status, 'INVALID');
+  }
+  const optional = example();
+  delete optional.preset_bank.presets[0].display_name;
+  delete optional.preset_bank.presets[0].description;
+  assert.equal(compile(optional).status, 'VALID', 'both fields stay optional');
+});
+
 test('the descriptor digest survives reordering but not a label rename', () => {
   const baseline = compile(example());
   assert.equal(baseline.status, 'VALID');
