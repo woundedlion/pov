@@ -1803,8 +1803,7 @@ jobs:
         run: |
           rm -rf .pio/build_cache .pio/build
           pio run -v 2>&1 | tee teensy_build.log
-          python tools/teensy_warnings.py --build-log teensy_build.log \
-            --baseline /dev/null --github
+          python tools/teensy_warnings.py --build-log teensy_build.log --github
 
   docs-doxygen:
     name: Doxygen build
