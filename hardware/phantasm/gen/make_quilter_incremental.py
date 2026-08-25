@@ -37,14 +37,18 @@ UNMANAGED = (
 )
 
 
+def lf_bytes(path: str | Path) -> bytes:
+    """File contents with CRLF folded to LF, the form the snapshot stores."""
+    return Path(path).read_bytes().replace(b"\r\n", b"\n")
+
+
 def snapshot_digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(lf_bytes(path)).hexdigest()
 
 
 def copy_snapshot_text(source: str | Path, target: str | Path) -> Path:
-    source_path = Path(source)
     target_path = Path(target)
-    target_path.write_bytes(source_path.read_bytes().replace(b"\r\n", b"\n"))
+    target_path.write_bytes(lf_bytes(source))
     return target_path
 
 
