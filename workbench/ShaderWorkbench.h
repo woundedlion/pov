@@ -976,6 +976,12 @@ public:
   static constexpr size_t CONFIG_FIELD_COUNT =
       static_cast<size_t>(ConfigFieldId::COUNT);
 
+  // Trips if Config gains or loses a member, so a field cannot silently stay
+  // out of the snapshot, the field ids and the pending-edit offsets.
+  static_assert(
+      sizeof(Config) == 536,
+      "Config field set changed - update HS_SHADER_WORKBENCH_CONFIG_FIELDS");
+
   struct ConfigFieldLayout {
     size_t offset;
     size_t size;
