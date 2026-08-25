@@ -131,6 +131,8 @@ public:
         alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
         int slots = 0;
         constexpr float pixel_w = 2.0f * PI_F / W;
+        // Trail-slot cut, deliberately above the MIN_ENCODABLE_ALPHA
+        // per-sample encode floor.
         constexpr float MIN_SLOT_ALPHA = 0.001f;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];
