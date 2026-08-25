@@ -41,9 +41,43 @@ const STACK_HWM_CEILING_BYTES = Number(process.env.WASM_SMOKE_STACK_CEILING ?? 2
 // the release stack as headroom under this effect-specific ratchet.
 const SHADER_WORKBENCH_STACK_HWM_CEILING_BYTES = 4096;
 
+// The tool pages' CSP grants 'wasm-unsafe-eval' but not 'unsafe-eval', which
+// holds only while the glue generates no code at runtime — so the probe spans
+// the whole run, not just module creation: it is armed before the glue's own
+// module evaluation and stays armed across every engine, MeshOps and free-
+// function call below. Both routes to a code generator are counted: `Function`
+// as constructor or callee, and `eval` — replacing the global binding turns any
+// glue `eval(s)` into an indirect call through this proxy. A build that lost
+// -sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 fails here instead of throwing CSP
+// errors in the browser.
+function armDynamicExecProbe() {
+  const RealFunction = globalThis.Function;
+  const realEval = globalThis.eval;
+  const probe = {
+    calls: 0,
+    firstSite: null,
+    disarm: () => {
+      globalThis.Function = RealFunction;
+      globalThis.eval = realEval;
+    },
+  };
+  const note = (what) => {
+    probe.calls++;
+    probe.firstSite ??= `${what}\n${new Error().stack}`;
+  };
+  globalThis.Function = new Proxy(RealFunction, {
+    construct: (t, args, nt) => { note('new Function()'); return Reflect.construct(t, args, nt); },
+    apply: (t, self, args) => { note('Function()'); return Reflect.apply(t, self, args); },
+  });
+  globalThis.eval = new Proxy(realEval, {
+    apply: (t, self, args) => { note('eval()'); return Reflect.apply(t, self, args); },
+  });
+  return probe;
+}
+
 // main() lets a fatal precondition set exitCode and return, so buffered stdout
 // flushes rather than being cut off by process.exit().
-async function main() {
+async function main(probe) {
   if (!Number.isInteger(STACK_HWM_CEILING_BYTES) || STACK_HWM_CEILING_BYTES <= 0) {
     console.error(`wasm_smoke: WASM_SMOKE_STACK_CEILING must be a positive integer, ` +
       `got "${process.env.WASM_SMOKE_STACK_CEILING}"`);
@@ -69,49 +103,14 @@ async function main() {
   let failures = 0;
   const fail = (msg) => { console.error(`  FAIL: ${msg}`); failures++; };
 
-  // The tool pages' CSP grants 'wasm-unsafe-eval' but not 'unsafe-eval', which
-  // holds only while the glue generates no code at runtime — so the probe spans
-  // the whole run, not just module creation: it is armed before the glue's own
-  // module evaluation and stays armed across every engine, MeshOps and free-
-  // function call below (restored, and asserted, at the end of main). Both
-  // routes to a code generator are counted: `Function` as constructor or
-  // callee, and `eval` — replacing the global binding turns any glue `eval(s)`
-  // into an indirect call through this proxy. A build that lost
-  // -sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 fails here instead of throwing CSP
-  // errors in the browser.
-  const RealFunction = globalThis.Function;
-  const realEval = globalThis.eval;
-  let dynamicExecCalls = 0;
-  let firstDynamicExec = null;
-  const noteDynamicExec = (what) => {
-    dynamicExecCalls++;
-    firstDynamicExec ??= `${what}\n${new Error().stack}`;
-  };
-  globalThis.Function = new Proxy(RealFunction, {
-    construct: (t, args, nt) => { noteDynamicExec('new Function()'); return Reflect.construct(t, args, nt); },
-    apply: (t, self, args) => { noteDynamicExec('Function()'); return Reflect.apply(t, self, args); },
-  });
-  globalThis.eval = new Proxy(realEval, {
-    apply: (t, self, args) => { noteDynamicExec('eval()'); return Reflect.apply(t, self, args); },
-  });
-  const disarmDynamicExecProbe = () => {
-    globalThis.Function = RealFunction;
-    globalThis.eval = realEval;
-  };
 
-  let Module;
-  try {
-    const { default: createHolosphereModule } = await import(pathToFileURL(jsPath));
-    // Surface engine-side hs::log output and any abort() so a trap is visible in
-    // the CI log rather than a bare non-zero exit.
-    Module = await createHolosphereModule({
-      print: (s) => console.log(`[wasm] ${s}`),
-      printErr: (s) => console.error(`[wasm:err] ${s}`),
-    });
-  } catch (e) {
-    disarmDynamicExecProbe();
-    throw e;
-  }
+  const { default: createHolosphereModule } = await import(pathToFileURL(jsPath));
+  // Surface engine-side hs::log output and any abort() so a trap is visible in
+  // the CI log rather than a bare non-zero exit.
+  const Module = await createHolosphereModule({
+    print: (s) => console.log(`[wasm] ${s}`),
+    printErr: (s) => console.error(`[wasm:err] ${s}`),
+  });
 
   // Per-effect-per-resolution darkness: an effect whose draw path regresses to
   // an all-zero framebuffer is invisible to a run-wide "something lit" flag,
@@ -1475,11 +1474,10 @@ async function main() {
   }
   console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, palette V4 OK');
 
-  disarmDynamicExecProbe();
-  if (dynamicExecCalls > 0) {
-    fail(`the glue generated code ${dynamicExecCalls} time(s) — it needs ` +
+  if (probe.calls > 0) {
+    fail(`the glue generated code ${probe.calls} time(s) — it needs ` +
       `'unsafe-eval', which the tool pages' CSP does not grant. Check the ` +
-      `-sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 link options. First site:\n${firstDynamicExec}`);
+      `-sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 link options. First site:\n${probe.firstSite}`);
   } else {
     console.log('\nCSP: the glue generated no code across the whole run (no eval / new Function)');
   }
@@ -1492,4 +1490,12 @@ async function main() {
   console.log('\nwasm_smoke: OK');
 }
 
-await main();
+// The probe replaces two globals, so it is restored on every exit from main() —
+// a throw included, or Node would report that very crash through mutated
+// globals.
+const dynamicExecProbe = armDynamicExecProbe();
+try {
+  await main(dynamicExecProbe);
+} finally {
+  dynamicExecProbe.disarm();
+}
