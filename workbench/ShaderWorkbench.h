@@ -356,7 +356,7 @@ private:
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     const size_t index = change.to;
     if (change.origin == PresetChangeOrigin::AUTOMATIC) {
-      const Choreo choreo = preset_choreo(change.from);
+      const Choreo choreo = preset_choreo();
       const Preset &to = preset_for_view(index);
       if (!try_apply_config(to.config, choreo.blend_frames, choreo.staggered,
                             true))
@@ -6153,12 +6153,11 @@ private:
     return valid_config(from) && valid_config(to);
   }
 
-  HS_COLD_MEMBER static constexpr Choreo preset_choreo(size_t index) {
+  HS_COLD_MEMBER static constexpr Choreo preset_choreo() {
 #ifdef HS_PROFILE_SHADER_WORKBENCH_FAST_CYCLE
-    (void)index;
     return {32, 32, 2, false};
 #else
-    return CHOREO[index];
+    return CHOREO;
 #endif
   }
 
@@ -6168,7 +6167,7 @@ private:
       preset_dwell_armed = false;
       return;
     }
-    const Choreo choreo = preset_choreo(getPresetIndex());
+    const Choreo choreo = preset_choreo();
     preset_dwell_remaining = static_cast<uint16_t>(
         hs::rand_int(choreo.dwell_min, choreo.dwell_max + 1));
     preset_dwell_armed = true;
@@ -7269,13 +7268,7 @@ private:
       }(),
       "a ShaderWorkbench preset edge lacks continuous transition admission");
 
-  static constexpr std::array<Choreo, PRESETS.size()> CHOREO = [] {
-    std::array<Choreo, PRESETS.size()> choreo;
-    for (Choreo &entry : choreo)
-      entry = {0, 0, 480, false};
-    return choreo;
-  }();
-  static_assert(CHOREO.size() == PRESETS.size());
+  static constexpr Choreo CHOREO{0, 0, 480, false};
 
   Orientation<> projection_walk;
   Orientation<> outer_walk;

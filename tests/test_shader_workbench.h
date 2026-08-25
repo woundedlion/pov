@@ -1854,13 +1854,10 @@ inline void test_shader_workbench_preset_bank() {
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
   HS_EXPECT_EQ(presets.size(), size_t(24));
-  HS_EXPECT_EQ(choreo.size(), presets.size());
-  for (const auto &entry : choreo) {
-    HS_EXPECT_FALSE(entry.staggered);
-    HS_EXPECT_EQ(entry.dwell_min, uint16_t(0));
-    HS_EXPECT_EQ(entry.dwell_max, uint16_t(0));
-    HS_EXPECT_EQ(entry.blend_frames, uint16_t(480));
-  }
+  HS_EXPECT_FALSE(choreo.staggered);
+  HS_EXPECT_EQ(choreo.dwell_min, uint16_t(0));
+  HS_EXPECT_EQ(choreo.dwell_max, uint16_t(0));
+  HS_EXPECT_EQ(choreo.blend_frames, uint16_t(480));
 
   bool has_hue_shift = false;
   for (size_t index = 0; index < presets.size(); ++index) {
