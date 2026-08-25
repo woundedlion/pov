@@ -370,6 +370,14 @@ struct Params {
   }
 };
 
+// lerp() and valid_params() enumerate every Params field by hand; a field added
+// without touching both pins silently at the start value across every
+// transition. Every enum has a fixed uint8_t base, so the size holds under ARM
+// -fshort-enums.
+static_assert(sizeof(Params) == 44,
+              "HyperLattice::Params field set changed — update lerp() and "
+              "valid_params() to match");
+
 struct FrameState {
   Params params;
   Vec4 origin;
