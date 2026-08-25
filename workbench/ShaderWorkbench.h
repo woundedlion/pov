@@ -3335,10 +3335,7 @@ private:
     std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
     std::array<Pixel, PreparedHueRotation::LUT_SIZE> hue_rotation_lut;
     std::array<int8_t, PreparedHueNoise::LUT_SIZE> hue_noise_lut;
-    /** @brief Inputs the resident hue-noise table was built from; scale 0 marks
-     *         it unbuilt. */
-    float hue_noise_lut_scale = 0.0f;
-    float hue_noise_lut_phase = 0.0f;
+    Pullback::Color::HueNoiseBakeCache hue_noise_bake;
     FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
     ParamMorphRuntime param_morph;
@@ -3659,15 +3656,10 @@ private:
         state->hue_noise_lut.data(),
         config.slots.hue_shift == HueShiftMode::NOISE &&
             config.params.color.hue_shift_amount != 0.0f};
-    if (prepared_hue_noise.active && color_noise != nullptr &&
-        (state->hue_noise_lut_scale != config.params.color.hue_noise_scale ||
-         state->hue_noise_lut_phase != endpoint.clocks.hue_noise_phase)) {
-      prepare_hue_noise_lut(prepared_hue_noise, *color_noise,
-                            config.params.color.hue_noise_scale,
-                            endpoint.clocks.hue_noise_phase);
-      state->hue_noise_lut_scale = config.params.color.hue_noise_scale;
-      state->hue_noise_lut_phase = endpoint.clocks.hue_noise_phase;
-    }
+    if (prepared_hue_noise.active && color_noise != nullptr)
+      state->hue_noise_bake.refresh(state->hue_noise_lut, *color_noise,
+                                    config.params.color.hue_noise_scale,
+                                    endpoint.clocks.hue_noise_phase);
     frame.slots = config.slots;
     frame.params = config.params;
     frame.palette_mapping =
@@ -4680,15 +4672,6 @@ private:
   HS_FLASH_MEMBER static Vector hue_noise_face_direction(int face, float u,
                                                          float v) {
     return Pullback::Color::hue_noise_face_direction(face, u, v);
-  }
-
-  HS_FLASH_MEMBER static void prepare_hue_noise_lut(PreparedHueNoise &prepared,
-                                                    const FastNoiseLite &noise,
-                                                    float scale, float phase) {
-    Pullback::Color::prepare_hue_noise_lut(
-        std::span<int8_t, Pullback::Color::HueNoiseLutView::SIZE>(
-            prepared.lut, PreparedHueNoise::LUT_SIZE),
-        noise, scale, phase);
   }
 
   HS_FLASH_MEMBER static float

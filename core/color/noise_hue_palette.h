@@ -113,6 +113,36 @@ prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
 }
 
 /**
+ * @brief The inputs a resident hue-noise table was baked from.
+ * @details Scale 0 marks the table unbuilt; the parameter range starts at
+ * 1/64, so no live scale collides with the sentinel. Owners keep the table
+ * itself, and the `active` decision that says whether anything reads it.
+ */
+struct HueNoiseBakeCache {
+  float scale = 0.0f;
+  float phase = 0.0f;
+
+  /**
+   * @brief Rebakes @p output only when an input moved since the last bake.
+   * @param output Destination LUT.
+   * @param noise Configured noise source.
+   * @param bake_scale Spatial frequency over the sphere.
+   * @param bake_phase Loop phase in turns.
+   * @return Whether the table was rebuilt.
+   */
+  HS_FLASH_INLINE bool refresh(std::span<int8_t, HueNoiseLutView::SIZE> output,
+                               const FastNoiseLite &noise, float bake_scale,
+                               float bake_phase) {
+    if (scale == bake_scale && phase == bake_phase)
+      return false;
+    prepare_hue_noise_lut(output, noise, bake_scale, bake_phase);
+    scale = bake_scale;
+    phase = bake_phase;
+    return true;
+  }
+};
+
+/**
  * @brief Samples a hue-rotation LUT with interpolation over both axes.
  * @param view Prepared hue-rotation LUT.
  * @param value Palette coordinate in [0, 1].
