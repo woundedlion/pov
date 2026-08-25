@@ -47,6 +47,8 @@ inline constexpr float INV_PHI = 1 / PHI;
  *   EPS_NORMAL_SQ  — degenerate face normal (squared) (1e-9f)
  *   EPS_NORMALIZE_SQ — squared length below which normalize() has no reliable
  *                      direction; |v| < 1e-6 amplifies by >1e6 (1e-12f)
+ *   EPS_BLEND_LEN_SQ — squared length below which a direction blend has
+ *                      cancelled and carries no direction (1e-8f)
  *   EPS_UNIT_QUAT_SQ — generous |q|^2 is-unit assertion slack (0.01f)
  *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack (0.02f)
  */
@@ -66,6 +68,13 @@ inline constexpr float EPS_ANTIPARALLEL_SQ = 4e-7f;
 inline constexpr float EPS_CROSS_SQ = 1e-8f;
 inline constexpr float EPS_NORMAL_SQ = 1e-9f;
 inline constexpr float EPS_NORMALIZE_SQ = 1e-12f;
+/**
+ * @brief Squared length below which a blend of two directions has cancelled.
+ * @details Sits above EPS_NORMALIZE_SQ: the residual of two near-opposite unit
+ * inputs is float cancellation noise long before normalize() loses the
+ * direction outright, so a blend bails an order of magnitude earlier.
+ */
+inline constexpr float EPS_BLEND_LEN_SQ = 1e-8f;
 inline constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
 inline constexpr float EPS_UNIT_VEC_SQ = 0.02f;
 /**
@@ -1402,14 +1411,15 @@ __attribute__((always_inline)) inline void fast_sincosf_0_pi(float x, float &s,
  * @param a Starting direction.
  * @param b Ending direction.
  * @param t Interpolation factor (0.0 to 1.0).
- * @return The renormalized blend, or `a` when the blend cancels to near zero.
+ * @return The renormalized blend, or `a` when the blend's squared length falls
+ *         below math::EPS_BLEND_LEN_SQ.
  */
 inline Vector nlerp_unit(const Vector &a, const Vector &b, float t) {
   const Vector mixed(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t,
                      a.z + (b.z - a.z) * t);
   const float length_sq =
       mixed.x * mixed.x + mixed.y * mixed.y + mixed.z * mixed.z;
-  if (length_sq < 1e-8f)
+  if (length_sq < math::EPS_BLEND_LEN_SQ)
     return a;
   const float inv_length = 1.0f / sqrtf(length_sq);
   return Vector(mixed.x * inv_length, mixed.y * inv_length,
