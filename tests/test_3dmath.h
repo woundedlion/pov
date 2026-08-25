@@ -1225,8 +1225,8 @@ inline void test_mobius_params_accessors() {
 }
 
 /**
- * @brief Verifies mobius(z, params): identity, pure translation, and pure
- *        scaling cases.
+ * @brief Verifies mobius(z, params): identity, pure translation, pure scaling,
+ *        and the inverting c != 0 branch including its pole.
  */
 inline void test_mobius_transform() {
   Complex z(0.3f, 0.7f);
@@ -1241,6 +1241,27 @@ inline void test_mobius_transform() {
   // Pure scaling: (3·z) / 1 = 3z
   MobiusParams scl(3, 0, 0, 0, 0, 0, 1, 0);
   HS_EXPECT_COMPLEX(mobius(z, scl), Complex(z.re * 3.0f, z.im * 3.0f), 1e-4f);
+
+  // Inversion: 1/z = conj(z) / |z|^2.
+  MobiusParams inv(0, 0, 1, 0, 1, 0, 0, 0);
+  const float r2 = z.re * z.re + z.im * z.im;
+  HS_EXPECT_COMPLEX(mobius(z, inv), Complex(z.re / r2, -z.im / r2), 1e-4f);
+
+  // General c != 0: (z + 1) / (z - 1).
+  MobiusParams gen(1, 0, 1, 0, 1, 0, -1, 0);
+  HS_EXPECT_COMPLEX(mobius(z, gen), Complex(-0.42857143f, -1.42857143f), 1e-4f);
+
+  // Its pole z = -d/c = 1 vanishes the denominator: project_div substitutes the
+  // point at infinity along the numerator's direction, which inv_stereo reads
+  // back as the north pole.
+  Complex at_pole = mobius(Complex(1, 0), gen);
+  HS_EXPECT_NEAR(at_pole.re, STEREO_INF, 1.0f);
+  HS_EXPECT_NEAR(at_pole.im, 0.0f, 1e-4f);
+  HS_EXPECT_VEC(inv_stereo(at_pole), Vector(0, 1, 0), 1e-6f);
+
+  // A pole of the degenerate map (ad - bc == 0) is the indeterminate 0/0 form.
+  MobiusParams degenerate(1, 0, -1, 0, 1, 0, -1, 0);
+  HS_EXPECT_COMPLEX(mobius(Complex(1, 0), degenerate), Complex(0, 0), 0.0f);
 }
 
 // ============================================================================
