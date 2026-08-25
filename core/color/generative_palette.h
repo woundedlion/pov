@@ -303,14 +303,16 @@ public:
    * @param from Source keys (amount = 0).
    * @param to Target keys (amount = 1).
    * @param amount Blend amount; clamped to [0, 1].
-   * @details Keeps this palette's evaluation policy. Snapshots carry no
-   * closing hue, so a LOOP domain keeps its own closing travel, re-anchored to
-   * the morphed first key.
+   * @details Keeps this palette's evaluation policy. Both snapshots must carry
+   * the same key count, or the endpoints resolve to different palette shapes.
+   * Snapshots carry no closing hue, so a LOOP domain keeps its own closing
+   * travel, re-anchored to the morphed first key.
    */
   HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to,
                            float amount) {
     HS_CHECK(from.key_count >= 2 && from.key_count <= PALETTE_MAX_KEYS &&
-                 to.key_count >= 2 && to.key_count <= PALETTE_MAX_KEYS,
+                 to.key_count >= 2 && to.key_count <= PALETTE_MAX_KEYS &&
+                 from.key_count == to.key_count,
              "GenerativePalette::lerp snapshot key count out of range");
     amount = hs::clamp(amount, 0.0f, 1.0f);
     const float closing_travel = closing_hue - keys[0].h;
