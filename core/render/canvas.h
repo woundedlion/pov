@@ -309,8 +309,8 @@ public:
 
   /** @brief Sets the complete-output transition envelope in [0,1]. */
   void set_output_envelope(float value) {
-    HS_CHECK(std::isfinite(value) && value >= 0.0f && value <= 1.0f,
-             "output envelope must be finite and in [0,1]");
+    HS_AUDIT_CHECK(std::isfinite(value) && value >= 0.0f && value <= 1.0f,
+                   "output envelope must be finite and in [0,1]");
     output_envelope = static_cast<uint16_t>(value * 65535.0f + 0.5f);
   }
 
