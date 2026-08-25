@@ -32,18 +32,13 @@ namespace HyperLatticeDetail {
 
 constexpr int DIMENSIONS = 4;
 constexpr int MAX_SHELLS = 3;
-constexpr int MAX_PROJECTED_LINES = 32;
 constexpr float DIRECTION_EPSILON = 1.0e-4f;
+constexpr float PRESET_3_AA_CULL_SCALE = 0.82f;
 
 enum class ReflectionMode : uint8_t { CHROME, RADIAL };
 enum class ColorMode : uint8_t { DEPTH, AXIS };
 enum class ShellCount : uint8_t { ONE, TWO, THREE };
-enum class LatticeMode : uint8_t {
-  THREE_D,
-  DIMENSIONAL_RIFT,
-  FOUR_D_SLICE,
-  FOUR_D_PROJECTED
-};
+enum class LatticeMode : uint8_t { THREE_D, DIMENSIONAL_RIFT, FOUR_D_SLICE };
 
 constexpr float DIMENSIONAL_RIFT_MIX = 0.55f;
 
@@ -198,23 +193,33 @@ inline EdgeMetric edge_metric_3d_at(const Vec4 &ray_origin,
   }
 }
 
-template <int AXIS0, int AXIS1, int AXIS2>
+template <int AXIS0, int AXIS1, int AXIS2, bool NEED_AXIS = true>
 __attribute__((always_inline)) bool
 edge_metric_4d_axes_bounded(const Vec4 &ray_origin, const Vec4 &direction,
-                            float distance, float limit_sq,
+                            float distance, float limit, float limit_sq,
                             EdgeMetric &result) {
   const float component0 =
       periodic_distance_at(ray_origin, direction, AXIS0, distance);
   const float component1 =
       periodic_distance_at(ray_origin, direction, AXIS1, distance);
-  const float component0_sq = component0 * component0;
-  const float component1_sq = component1 * component1;
-  if (std::min(component0_sq, component1_sq) >= limit_sq)
+  const bool near0 = component0 < limit;
+  const bool near1 = component1 < limit;
+  if (!near0 && !near1)
     return false;
   const float component2 =
       periodic_distance_at(ray_origin, direction, AXIS2, distance);
+  if (component2 >= limit && (!near0 || !near1))
+    return false;
+  const float component0_sq = component0 * component0;
+  const float component1_sq = component1 * component1;
   const float component2_sq = component2 * component2;
   const float sum = component0_sq + component1_sq + component2_sq;
+  if constexpr (!NEED_AXIS) {
+    result = {
+        sum - std::max(component0_sq, std::max(component1_sq, component2_sq)),
+        0};
+    return result.distance_sq < limit_sq;
+  }
   float largest = component0_sq;
   uint8_t free_axis = AXIS0;
   if (component1_sq > largest) {
@@ -229,23 +234,24 @@ edge_metric_4d_axes_bounded(const Vec4 &ray_origin, const Vec4 &direction,
   return result.distance_sq < limit_sq;
 }
 
+template <bool NEED_AXIS = true>
 inline bool edge_metric_4d_at_bounded(const Vec4 &ray_origin,
                                       const Vec4 &direction, int plane_axis,
-                                      float distance, float limit_sq,
-                                      EdgeMetric &result) {
+                                      float distance, float limit,
+                                      float limit_sq, EdgeMetric &result) {
   switch (plane_axis) {
   case 0:
-    return edge_metric_4d_axes_bounded<1, 2, 3>(ray_origin, direction, distance,
-                                                limit_sq, result);
+    return edge_metric_4d_axes_bounded<1, 2, 3, NEED_AXIS>(
+        ray_origin, direction, distance, limit, limit_sq, result);
   case 1:
-    return edge_metric_4d_axes_bounded<0, 2, 3>(ray_origin, direction, distance,
-                                                limit_sq, result);
+    return edge_metric_4d_axes_bounded<0, 2, 3, NEED_AXIS>(
+        ray_origin, direction, distance, limit, limit_sq, result);
   case 2:
-    return edge_metric_4d_axes_bounded<0, 1, 3>(ray_origin, direction, distance,
-                                                limit_sq, result);
+    return edge_metric_4d_axes_bounded<0, 1, 3, NEED_AXIS>(
+        ray_origin, direction, distance, limit, limit_sq, result);
   default:
-    return edge_metric_4d_axes_bounded<0, 1, 2>(ray_origin, direction, distance,
-                                                limit_sq, result);
+    return edge_metric_4d_axes_bounded<0, 1, 2, NEED_AXIS>(
+        ray_origin, direction, distance, limit, limit_sq, result);
   }
 }
 
@@ -378,11 +384,6 @@ struct Binding {
   using Instrumentation = Pullback::NoInstrumentation;
 };
 
-struct ProjectedLine {
-  Vector anchor;
-  uint8_t free_axis;
-};
-
 struct PreparedTrace {
   Params params;
   Vec4 origin;
@@ -394,12 +395,7 @@ struct PreparedTrace {
   float near_inv_span;
   float dimension_mix;
   LatticeMode mode;
-  std::array<Vector, DIMENSIONS> projected_axes;
-  std::array<ProjectedLine, MAX_PROJECTED_LINES> projected_lines;
-  uint8_t projected_line_count;
 };
-
-inline void prepare_projected_lines(PreparedTrace &prepared);
 
 template <int W, int H> constexpr float pixel_half_angle() {
   constexpr float HORIZONTAL = TWO_PI_F / static_cast<float>(W);
@@ -417,9 +413,12 @@ inline float wire_coverage(float metric_sq, float radius, float half_width) {
   return 1.0f - lattice_ramp(-half_width, half_width, signed_distance);
 }
 
-inline float projected_half_width(float distance, float plane_step,
-                                  float aa_scale, float softness) {
-  return softness + aa_scale * distance * plane_step;
+__attribute__((always_inline)) inline float
+fast_wire_coverage(float metric_sq, float radius, float half_width) {
+  const float signed_distance = sqrtf(metric_sq) - radius;
+  const float ramp_position =
+      0.5f + 0.5f * signed_distance * fast_reciprocal(half_width);
+  return 1.0f - cubic_kernel(ramp_position);
 }
 
 inline float near_field_coverage(float distance, float near_start,
@@ -473,9 +472,6 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   prepared.near_start = 1.5f * frame.params.wire_radius;
   const float near_end = 4.0f * frame.params.wire_radius;
   prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
-  prepared.projected_line_count = 0;
-  if (prepared.mode == LatticeMode::FOUR_D_PROJECTED)
-    prepare_projected_lines(prepared);
   return prepared;
 }
 
@@ -504,6 +500,7 @@ struct TraceHit {
   uint8_t free_axis = 0;
 };
 
+template <bool SLICE_4D, bool PRESET_3 = false>
 __attribute__((always_inline)) inline TraceHit
 trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
             float distance, float plane_step, const PreparedTrace &prepared) {
@@ -511,13 +508,28 @@ trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
   if (distance <= prepared.near_start)
     return {0.0f, distance, 0};
 
-  const float outer_radius =
+  const float coverage_outer_radius =
       prepared.outer_radius_base + prepared.aa_scale * distance * plane_step;
+  const float coverage_half_width =
+      coverage_outer_radius - prepared.params.wire_radius;
+  const float depth = distance * prepared.inv_far;
+  const float fog = std::max(0.0f, 1.0f - depth);
+  const float cull_scale = PRESET_3 ? PRESET_3_AA_CULL_SCALE * fog : 1.0f;
+  const float outer_radius =
+      prepared.params.wire_radius + cull_scale * coverage_half_width;
   const float outer_radius_sq = outer_radius * outer_radius;
   float metric_sq;
   uint8_t free_axis;
   float dimensional_coverage = 1.0f;
-  if (prepared.mode == LatticeMode::THREE_D) {
+  if constexpr (SLICE_4D) {
+    EdgeMetric metric_4d;
+    if (!edge_metric_4d_at_bounded<!PRESET_3>(ray_origin, direction, plane_axis,
+                                              distance, outer_radius,
+                                              outer_radius_sq, metric_4d))
+      return {0.0f, distance, 0};
+    metric_sq = metric_4d.distance_sq;
+    free_axis = metric_4d.free_axis;
+  } else if (prepared.mode == LatticeMode::THREE_D) {
     const EdgeMetric metric_3d =
         edge_metric_3d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_3d.distance_sq;
@@ -536,7 +548,7 @@ trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
   } else {
     EdgeMetric metric_4d;
     if (!edge_metric_4d_at_bounded(ray_origin, direction, plane_axis, distance,
-                                   outer_radius_sq, metric_4d))
+                                   outer_radius, outer_radius_sq, metric_4d))
       return {0.0f, distance, 0};
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
@@ -544,10 +556,11 @@ trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
       dimensional_coverage = prepared.dimension_mix;
   }
 
-  const float half_width = outer_radius - prepared.params.wire_radius;
   const float edge =
-      wire_coverage(metric_sq, prepared.params.wire_radius, half_width);
-  const float fog = std::max(0.0f, 1.0f - distance * prepared.inv_far);
+      PRESET_3 ? fast_wire_coverage(metric_sq, prepared.params.wire_radius,
+                                    coverage_half_width)
+               : wire_coverage(metric_sq, prepared.params.wire_radius,
+                               coverage_half_width);
   const float near = near_field_coverage(distance, prepared.near_start,
                                          prepared.near_inv_span);
   return {edge * fog * fog * near * dimensional_coverage, distance, free_axis};
@@ -561,204 +574,32 @@ struct TraceCursor {
   bool active;
 };
 
-struct ProjectedDistance {
-  float distance_sq;
-  float ray_distance;
-};
-
-inline Vector projected_lattice_axis(const PreparedTrace &prepared, int axis) {
-  return Vector(prepared.world_to_lattice.m[axis][0],
-                prepared.world_to_lattice.m[axis][1],
-                prepared.world_to_lattice.m[axis][2]);
-}
-
-inline ProjectedDistance projected_line_distance(const Vector &ray_origin,
-                                                 const Vector &direction,
-                                                 const Vector &anchor,
-                                                 const Vector &line_direction) {
-  const Vector delta = anchor - ray_origin;
-  const float line_length_sq = dot(line_direction, line_direction);
-  if (line_length_sq < DIRECTION_EPSILON * DIRECTION_EPSILON) {
-    const float ray_distance = dot(delta, direction);
-    const Vector separation = delta - direction * ray_distance;
-    return {dot(separation, separation), ray_distance};
-  }
-  const float coupling = dot(direction, line_direction);
-  const float ray_projection = dot(direction, delta);
-  const float line_projection = dot(line_direction, delta);
-  const float denominator = line_length_sq - coupling * coupling;
-  float line_position;
-  float ray_distance;
-  if (denominator > DIRECTION_EPSILON * DIRECTION_EPSILON) {
-    line_position = (coupling * ray_projection - line_projection) / denominator;
-    ray_distance = ray_projection + coupling * line_position;
-  } else {
-    ray_distance = ray_projection;
-    line_position =
-        (coupling * ray_distance - line_projection) / line_length_sq;
-  }
-  const Vector separation =
-      delta + line_direction * line_position - direction * ray_distance;
-  return {dot(separation, separation), ray_distance};
-}
-
-inline bool projected_lines_coincident(const ProjectedLine &left,
-                                       const ProjectedLine &right,
-                                       const Vector &line_direction) {
-  if (left.free_axis != right.free_axis)
-    return false;
-  const Vector delta = left.anchor - right.anchor;
-  const float line_length_sq = dot(line_direction, line_direction);
-  Vector separation = delta;
-  if (line_length_sq >= DIRECTION_EPSILON * DIRECTION_EPSILON)
-    separation -=
-        line_direction * (dot(delta, line_direction) / line_length_sq);
-  return dot(separation, separation) < 1.0e-8f;
-}
-
-inline void prepare_projected_lines(PreparedTrace &prepared) {
-  constexpr float HIDDEN_DEPTH_WEIGHT = 0.0625f;
-  constexpr uint8_t QUOTAS[MAX_SHELLS] = {3, 6, 8};
-  struct RankedLine {
-    ProjectedLine line;
-    float score;
-    bool used;
-  };
-
-  const Vec4 hidden_direction =
-      prepared.world_to_lattice.apply({{0.0f, 0.0f, 0.0f, 1.0f}});
-  for (int axis = 0; axis < DIMENSIONS; ++axis)
-    prepared.projected_axes[axis] = projected_lattice_axis(prepared, axis);
-  const uint8_t quota = QUOTAS[static_cast<uint8_t>(prepared.params.shells)];
-  for (uint8_t free_axis = 0; free_axis < DIMENSIONS; ++free_axis) {
-    RankedLine ranked[27];
-    for (int ordinal = 0; ordinal < 27; ++ordinal) {
-      int digits = ordinal;
-      Vector anchor(0.0f, 0.0f, 0.0f);
-      float hidden_anchor = 0.0f;
-      for (int axis = 0; axis < DIMENSIONS; ++axis) {
-        if (axis == free_axis)
-          continue;
-        const int offset = digits % 3 - 1;
-        digits /= 3;
-        const float fixed =
-            nearbyintf(prepared.origin[axis]) + static_cast<float>(offset);
-        const float delta = fixed - prepared.origin[axis];
-        anchor += prepared.projected_axes[axis] * delta;
-        hidden_anchor += hidden_direction[axis] * delta;
-      }
-      const Vector line_direction = prepared.projected_axes[free_axis];
-      const float line_length_sq = dot(line_direction, line_direction);
-      float line_position = 0.0f;
-      float projected_distance_sq = dot(anchor, anchor);
-      if (line_length_sq >= DIRECTION_EPSILON * DIRECTION_EPSILON) {
-        line_position = -dot(anchor, line_direction) / line_length_sq;
-        const Vector separation = anchor + line_direction * line_position;
-        projected_distance_sq = dot(separation, separation);
-      }
-      const float hidden_depth =
-          hidden_anchor + hidden_direction[free_axis] * line_position;
-      ranked[ordinal] = {{anchor, free_axis},
-                         projected_distance_sq +
-                             HIDDEN_DEPTH_WEIGHT * hidden_depth * hidden_depth,
-                         false};
-    }
-
-    uint8_t selected = 0;
-    while (selected < quota) {
-      int best = -1;
-      for (int ordinal = 0; ordinal < 27; ++ordinal)
-        if (!ranked[ordinal].used &&
-            (best < 0 || ranked[ordinal].score < ranked[best].score))
-          best = ordinal;
-      if (best < 0)
-        break;
-      ranked[best].used = true;
-      bool duplicate = false;
-      for (uint8_t index = 0; index < prepared.projected_line_count; ++index)
-        duplicate |= projected_lines_coincident(
-            ranked[best].line, prepared.projected_lines[index],
-            prepared.projected_axes[free_axis]);
-      if (duplicate)
-        continue;
-      prepared.projected_lines[prepared.projected_line_count++] =
-          ranked[best].line;
-      ++selected;
-    }
-  }
-}
-
-template <typename ConsumeFn>
-__attribute__((always_inline)) inline void
-trace_projected_layers(const Vector &normal, const PreparedTrace &prepared,
-                       ConsumeFn consume) {
-  const Vec4 reflected = reflected_direction(normal, prepared.params.reflection,
-                                             prepared.params.chrome_warp);
-  const Vector ray_origin = normal * prepared.params.sphere_radius;
-  const Vector direction(reflected[0], reflected[1], reflected[2]);
-  TraceHit hits[MAX_PROJECTED_LINES];
-  uint8_t hit_count = 0;
-  for (uint8_t index = 0; index < prepared.projected_line_count; ++index) {
-    const ProjectedLine &line = prepared.projected_lines[index];
-    const ProjectedDistance projected =
-        projected_line_distance(ray_origin, direction, line.anchor,
-                                prepared.projected_axes[line.free_axis]);
-    if (projected.ray_distance <= prepared.near_start ||
-        projected.ray_distance >= prepared.params.far_cells)
-      continue;
-    const float half_width =
-        projected_half_width(projected.ray_distance, 1.0f, prepared.aa_scale,
-                             prepared.params.softness);
-    const float outer_radius = prepared.params.wire_radius + half_width;
-    if (projected.distance_sq >= outer_radius * outer_radius)
-      continue;
-    const float edge = wire_coverage(projected.distance_sq,
-                                     prepared.params.wire_radius, half_width);
-    const float fog =
-        std::max(0.0f, 1.0f - projected.ray_distance * prepared.inv_far);
-    const float near = near_field_coverage(
-        projected.ray_distance, prepared.near_start, prepared.near_inv_span);
-    const TraceHit hit{edge * fog * fog * near, projected.ray_distance,
-                       line.free_axis};
-    uint8_t position = hit_count;
-    while (position > 0 && hits[position - 1].distance > hit.distance) {
-      hits[position] = hits[position - 1];
-      --position;
-    }
-    hits[position] = hit;
-    ++hit_count;
-  }
-  for (uint8_t index = 0; index < hit_count; ++index)
-    if (!consume(hits[index]))
-      return;
-}
-
-template <bool PROJECTED, typename ConsumeFn>
+template <bool SLICE_4D = false, bool PRESET_3 = false, typename ConsumeFn>
 __attribute__((always_inline)) inline void
 trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
                   ConsumeFn consume) {
   HS_PROFILE_DEEP(hl_trace_layers);
-  if constexpr (PROJECTED) {
-    trace_projected_layers(normal, prepared, consume);
-    return;
-  }
   constexpr float GROUP_EPSILON = 1.0e-4f;
   Vec4 ray_origin = prepared.origin;
-  if (prepared.params.sphere_radius != 0.0f) {
-    const Vec4 surface_normal =
-        prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
-    for (int axis = 0; axis < DIMENSIONS; ++axis)
-      ray_origin[axis] += prepared.params.sphere_radius * surface_normal[axis];
-  }
+  if constexpr (!PRESET_3)
+    if (prepared.params.sphere_radius != 0.0f) {
+      const Vec4 surface_normal = prepared.world_to_lattice.apply(
+          {{normal.x, normal.y, normal.z, 0.0f}});
+      for (int axis = 0; axis < DIMENSIONS; ++axis)
+        ray_origin[axis] +=
+            prepared.params.sphere_radius * surface_normal[axis];
+    }
   const Vec4 direction = prepared.world_to_lattice.apply(reflected_direction(
       normal, prepared.params.reflection, prepared.params.chrome_warp));
-  const uint8_t shell_count = static_cast<uint8_t>(prepared.params.shells) + 1;
+  const uint8_t shell_count =
+      PRESET_3 ? 3 : static_cast<uint8_t>(prepared.params.shells) + 1;
   TraceCursor cursors[DIMENSIONS];
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
     TraceCursor &cursor = cursors[axis];
     cursor.active = false;
-    if (axis == 3 && prepared.mode == LatticeMode::THREE_D)
-      continue;
+    if constexpr (!SLICE_4D)
+      if (axis == 3 && prepared.mode == LatticeMode::THREE_D)
+        continue;
     const float component = direction[axis];
     const float magnitude = fabsf(component);
     if (magnitude < DIRECTION_EPSILON)
@@ -811,8 +652,8 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
       const int axis = __builtin_ctz(static_cast<unsigned>(pending));
       pending &= static_cast<uint8_t>(pending - 1);
       TraceCursor &cursor = cursors[axis];
-      TraceHit candidate = trace_plane(ray_origin, direction, axis,
-                                       cursor.distance, cursor.step, prepared);
+      TraceHit candidate = trace_plane<SLICE_4D, PRESET_3>(
+          ray_origin, direction, axis, cursor.distance, cursor.step, prepared);
       if (candidate.coverage > 0.0f)
         candidate.coverage *= shell_horizon_coverage(
             cursor.shell, shell_count, cursor.distance, cursor.magnitude);
@@ -831,10 +672,7 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
 template <typename ConsumeFn>
 inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
                          ConsumeFn consume) {
-  if (prepared.mode == LatticeMode::FOUR_D_PROJECTED)
-    trace_layers_mode<true>(normal, prepared, consume);
-  else
-    trace_layers_mode<false>(normal, prepared, consume);
+  trace_layers_mode(normal, prepared, consume);
 }
 
 inline TraceHit trace(const Vector &normal, const PreparedTrace &prepared) {
@@ -875,22 +713,23 @@ struct LayerComposite {
   }
 };
 
-template <bool PROJECTED>
+template <bool SLICE_4D = false, bool PRESET_3 = false>
 __attribute__((always_inline)) inline Color4
 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
            const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_shade);
   LayerComposite composite;
   const BakedPalette &palette =
-      *(prepared.params.color == ColorMode::DEPTH ? frame.depth_palette
-                                                  : frame.axis_palette);
-  trace_layers_mode<PROJECTED>(
+      *(PRESET_3 || prepared.params.color == ColorMode::DEPTH
+            ? frame.depth_palette
+            : frame.axis_palette);
+  trace_layers_mode<SLICE_4D, PRESET_3>(
       input.dir, prepared,
       [&](const TraceHit &hit) __attribute__((always_inline)) {
         HS_PROFILE_DEEP(hl_layer_composite);
         const float depth = hit.distance * prepared.inv_far;
         const float value =
-            prepared.params.color == ColorMode::DEPTH
+            PRESET_3 || prepared.params.color == ColorMode::DEPTH
                 ? 1.0f - depth
                 : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
         Pixel color = palette.get_color_unit(value);
@@ -903,14 +742,12 @@ shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
 
 inline Color4 shade(const Pullback::SphereSample &input,
                     const FrameState &frame, const PreparedTrace &prepared) {
-  if (prepared.mode == LatticeMode::FOUR_D_PROJECTED)
-    return shade_mode<true>(input, frame, prepared);
-  return shade_mode<false>(input, frame, prepared);
+  return shade_mode(input, frame, prepared);
 }
 
-template <bool PROJECTED>
+template <bool SLICE_4D = false, bool PRESET_3 = false>
 struct ModeShadeStage
-    : Pullback::Stage::Contract<ModeShadeStage<PROJECTED>,
+    : Pullback::Stage::Contract<ModeShadeStage<SLICE_4D, PRESET_3>,
                                 Pullback::SphereSample, Color4> {
   using Policies = std::tuple<>;
 
@@ -925,7 +762,7 @@ struct ModeShadeStage
   run(const Pullback::SphereSample &input,
       const typename PipelineBinding::FrameState &frame,
       const PreparedTrace &prepared) {
-    return shade_mode<PROJECTED>(input, frame, prepared);
+    return shade_mode<SLICE_4D, PRESET_3>(input, frame, prepared);
   }
 };
 
@@ -949,9 +786,9 @@ struct ShadeStage
 };
 
 using RenderPipeline = Pullback::Pipeline<Binding, ShadeStage>;
-using SliceRenderPipeline = Pullback::Pipeline<Binding, ModeShadeStage<false>>;
-using ProjectedRenderPipeline =
-    Pullback::Pipeline<Binding, ModeShadeStage<true>>;
+using SliceRenderPipeline = Pullback::Pipeline<Binding, ModeShadeStage<>>;
+using Preset3RenderPipeline =
+    Pullback::Pipeline<Binding, ModeShadeStage<true, true>>;
 
 } // namespace HyperLatticeDetail
 
@@ -969,17 +806,40 @@ public:
   using ColorMode = HyperLatticeDetail::ColorMode;
   using ShellCount = HyperLatticeDetail::ShellCount;
 
-  static constexpr std::array<std::string_view, 2> PRESET_IDS{
-      "cubic-flight", "hypercube-flight"};
+  static constexpr std::array<std::string_view, 4> PRESET_IDS{
+      "cubic-flight", "deep-grid", "dimensional-rift", "hypercube-flight"};
   static constexpr Segue::Lerp PRESET_SEGUE{240, ease_in_out_sin,
                                             /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 6;
 
   static constexpr Params preset_params(size_t index) {
     Params value;
     switch (index) {
     case 1:
+      value.mode = LatticeMode::THREE_D;
+      value.sphere_radius = 0.4f;
+      value.wire_radius = 0.055f;
+      value.softness = 0.08f;
+      value.far_cells = 4.198f;
+      value.aa_strength = 1.0f;
+      value.speed = 0.05f;
+      value.spin_3d = 0.015f;
+      value.spin_4d = 0.0f;
+      value.chrome_warp = 0.65f;
+      value.reflection = ReflectionMode::RADIAL;
+      value.color = ColorMode::DEPTH;
+      value.shells = ShellCount::TWO;
+      break;
+    case 2:
+      value.mode = LatticeMode::DIMENSIONAL_RIFT;
+      value.wire_radius = 0.085f;
+      value.softness = 0.08f;
+      value.far_cells = 9.0f;
+      value.spin_4d = 0.004f;
+      value.color = ColorMode::AXIS;
+      break;
+    case 3:
       value.mode = LatticeMode::FOUR_D_SLICE;
       value.sphere_radius = 0.0f;
       value.wire_radius = 0.03546f;
@@ -1002,7 +862,7 @@ public:
 
   static constexpr bool valid_params(const Params &value) {
     return static_cast<uint8_t>(value.mode) <=
-               static_cast<uint8_t>(LatticeMode::FOUR_D_PROJECTED) &&
+               static_cast<uint8_t>(LatticeMode::FOUR_D_SLICE) &&
            value.sphere_radius >= 0.0f && value.sphere_radius <= 1.5f &&
            value.wire_radius >= 0.015f && value.wire_radius <= 0.18f &&
            value.softness >= 0.002f && value.softness <= 0.08f &&
@@ -1068,16 +928,20 @@ public:
     const auto frame = HyperLatticeDetail::RenderPipeline::prepare(context);
     {
       HS_PROFILE(hl_shader_draw);
-      if (frame.ctx.params.mode != LatticeMode::FOUR_D_PROJECTED) {
+      if (frame.ctx.params.mode == LatticeMode::FOUR_D_SLICE &&
+          frame.ctx.params.sphere_radius == 0.0f &&
+          frame.ctx.params.reflection == ReflectionMode::CHROME &&
+          frame.ctx.params.color == ColorMode::DEPTH &&
+          frame.ctx.params.shells == ShellCount::THREE) {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&frame](const Vector &view) {
-              return HyperLatticeDetail::SliceRenderPipeline::evaluate(
+              return HyperLatticeDetail::Preset3RenderPipeline::evaluate(
                   view, frame.ctx, frame.prepared);
             });
       } else {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&frame](const Vector &view) HS_HOT_FLASH_MEMBER {
-              return HyperLatticeDetail::ProjectedRenderPipeline::evaluate(
+              return HyperLatticeDetail::SliceRenderPipeline::evaluate(
                   view, frame.ctx, frame.prepared);
             });
       }
@@ -1135,10 +999,10 @@ private:
   static constexpr int PALETTE_FADE_FRAMES = 960;
 
   static constexpr const char *MODE_OPTIONS[] = {"3D", "Dimensional Rift",
-                                                 "4D Slice", "4D Projected"};
+                                                 "4D Slice"};
   static constexpr const char *MODE_EXPORT_OPTIONS[] = {
       "LatticeMode::THREE_D", "LatticeMode::DIMENSIONAL_RIFT",
-      "LatticeMode::FOUR_D_SLICE", "LatticeMode::FOUR_D_PROJECTED"};
+      "LatticeMode::FOUR_D_SLICE"};
   static constexpr const char *REFLECTION_OPTIONS[] = {"Mirror Ball",
                                                        "Embedded Sphere"};
   static constexpr const char *REFLECTION_EXPORT_OPTIONS[] = {
