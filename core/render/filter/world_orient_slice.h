@@ -49,7 +49,7 @@ public:
   template <typename PassFnT>
   void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    if (!enabled) {
+    if (!enabled || orientations.empty()) {
       pass(v, color, age, alpha);
       return;
     }
@@ -59,11 +59,6 @@ public:
     float t = hs::clamp(1.0f - fast_acos(dot_val) / PI_F, 0.0f, 1.0f);
 
     size_t count = orientations.size();
-    if (count == 0) {
-      pass(v, color, age, alpha);
-      return;
-    }
-
     size_t idx = static_cast<size_t>(floorf(t * count));
     if (idx >= count)
       idx = count - 1;
