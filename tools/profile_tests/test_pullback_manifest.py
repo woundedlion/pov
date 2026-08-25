@@ -737,6 +737,34 @@ class CaptureComparison(unittest.TestCase):
                 oracles=ORACLES,
             )
 
+    def test_spatial_probes_aliased_within_one_resolution_are_refused(self):
+        programs, digest = _test_manifest()
+        capture_doc = _capture(programs, digest)
+        # Every spatial frame at a given resolution now hashes the same, which
+        # a corpus carrying no signal reproduces exactly. The two pinned
+        # resolutions still contribute two distinct digests between them.
+        for frame in capture_doc["frames"]:
+            if frame["operation"]["kind"] != "spatial-extract":
+                continue
+            for pixel in frame["pixels"]:
+                pixel[:3] = [0, 0, 0]
+            frame["sha256"] = hashlib.sha256(
+                crosscheck._canonical_frame_bytes(frame)
+            ).hexdigest()
+        pooled = {
+            frame["sha256"]
+            for frame in capture_doc["frames"]
+            if frame["operation"]["kind"] == "spatial-extract"
+        }
+        self.assertGreater(len(pooled), 1)
+        candidate = copy.deepcopy(capture_doc)
+        candidate["checkout_sha"] = "b" * 40
+        with self.assertRaisesRegex(crosscheck.CrosscheckError, "aliases at"):
+            crosscheck.compare_captures(
+                capture_doc, candidate, programs, digest, "a" * 40, "b" * 40,
+                oracles=ORACLES,
+            )
+
     def test_strict_capture_provenance_and_identity_are_checked(self):
         programs, digest = _test_manifest()
         base = _capture(programs, digest, "wasm-release")

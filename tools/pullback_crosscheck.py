@@ -171,7 +171,7 @@ def _validate_frame_operations(frames: dict, programs: dict) -> None:
     mappings = programs["corpus"]["probe_operations"]
     preset_count = sum(len(program["presets"])
                        for program in programs["programs"])
-    spatial_hashes = set()
+    spatial_hashes: dict[tuple, set[str]] = {}
     for key, (frame, digest) in frames.items():
         _, preset, _, resolution, probe = key
         operation = frame["operation"]
@@ -223,9 +223,18 @@ def _validate_frame_operations(frames: dict, programs: dict) -> None:
         }
         if operation != expected or not 0 < selected < total:
             raise CrosscheckError(f"spatial probe operation mismatch: {key}")
-        spatial_hashes.add(digest)
-    if len(spatial_hashes) < 2:
-        raise CrosscheckError("spatial probe frames are aliases")
+        spatial_hashes.setdefault(resolution, set()).add(digest)
+    # Per resolution, not over the pooled set: the corpus pins two resolutions
+    # whose frames differ in pixel count alone, so a pooled count of two is met
+    # by a corpus carrying no signal at all -- an all-black one included.
+    if not spatial_hashes:
+        raise CrosscheckError("capture carries no spatial probe frames")
+    for resolution, digests in sorted(spatial_hashes.items()):
+        if len(digests) < 2:
+            raise CrosscheckError(
+                "spatial probe frames are aliases at "
+                f"{resolution[0]}x{resolution[1]}"
+            )
 
 
 def expected_toolchain(programs: dict, configuration: str) -> dict:
