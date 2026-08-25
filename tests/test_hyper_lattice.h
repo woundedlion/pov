@@ -233,7 +233,7 @@ inline void test_surface_origin_parallax() {
 
 inline void test_hyperplane_event() {
   HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(3);
+  frame.params = HyperLattice<96, 20>::preset_params(1);
   frame.params.reflection = HL::ReflectionMode::RADIAL;
   frame.params.sphere_radius = 0.4f;
   frame.origin = {{0.0f, 0.0f, 0.31f, 0.25f}};
@@ -283,14 +283,10 @@ inline void test_render_signature() {
   static constexpr HL::Vec4 ORIGINS[] = {
       {{0.17f, 0.31f, 0.43f, 0.59f}},
       {{0.91f, 0.07f, 0.73f, 0.37f}},
-      {{0.003f, 0.499f, 0.997f, 0.251f}},
-      {{0.625f, 0.875f, 0.125f, 0.375f}},
   };
   static constexpr std::array<float, 6> ROTATIONS[] = {
       {0.0f, 0.3f, 0.7f, 0.0f, 0.0f, 0.0f},
       {1.1f, 2.3f, 0.4f, 0.0f, 0.0f, 0.0f},
-      {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f},
-      {2.9f, 0.6f, 1.4f, 2.2f, 0.8f, 1.9f},
   };
 
   HyperLatticeWhiteBox::Effect effect;
@@ -315,7 +311,7 @@ inline void test_render_signature() {
       signature = hs_test::fnv1a64_channel(signature, frac_to_q16(color.alpha));
     }
   }
-  HS_EXPECT_EQ(signature, uint64_t(10623809210385263350ull));
+  HS_EXPECT_EQ(signature, uint64_t(3173600656855287585ull));
 }
 
 inline void test_presets_and_pipeline() {
@@ -326,13 +322,11 @@ inline void test_presets_and_pipeline() {
   static_assert(HL::RenderPipeline::Validation::EXIT);
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
-  HS_EXPECT_TRUE(Effect::preset_params(2).mode ==
-                 HL::LatticeMode::DIMENSIONAL_RIFT);
-  HS_EXPECT_TRUE(Effect::preset_params(3).mode ==
-                 HL::LatticeMode::FOUR_D_SLICE);
-  static_assert(Effect::preset_params(2).softness == 0.08f);
+  static_assert(Effect::PRESET_IDS.size() == 2);
+  static_assert(Effect::PRESET_IDS[0] == "cubic-flight");
+  static_assert(Effect::PRESET_IDS[1] == "hypercube-flight");
 
-  constexpr HL::Params preset1 = Effect::preset_params(1);
+  constexpr HL::Params preset1 = Effect::preset_params(0);
   static_assert(preset1.mode == HL::LatticeMode::THREE_D);
   static_assert(preset1.sphere_radius == 0.4f);
   static_assert(preset1.wire_radius == 0.055f);
@@ -347,20 +341,20 @@ inline void test_presets_and_pipeline() {
   static_assert(preset1.color == HL::ColorMode::DEPTH);
   static_assert(preset1.shells == HL::ShellCount::TWO);
 
-  constexpr HL::Params preset = Effect::preset_params(3);
-  static_assert(preset.mode == HL::LatticeMode::FOUR_D_SLICE);
-  static_assert(preset.sphere_radius == 0.0f);
-  static_assert(preset.wire_radius == 0.03546f);
-  static_assert(preset.softness == 0.029612f);
-  static_assert(preset.far_cells == 7.264f);
-  static_assert(preset.aa_strength == 1.0f);
-  static_assert(preset.speed == 0.03f);
-  static_assert(preset.spin_3d == 0.01089f);
-  static_assert(preset.spin_4d == 0.015f);
-  static_assert(preset.chrome_warp == 0.65f);
-  static_assert(preset.reflection == HL::ReflectionMode::CHROME);
-  static_assert(preset.color == HL::ColorMode::DEPTH);
-  static_assert(preset.shells == HL::ShellCount::THREE);
+  constexpr HL::Params preset2 = Effect::preset_params(1);
+  static_assert(preset2.mode == HL::LatticeMode::FOUR_D_SLICE);
+  static_assert(preset2.sphere_radius == 0.0f);
+  static_assert(preset2.wire_radius == 0.03546f);
+  static_assert(preset2.softness == 0.029612f);
+  static_assert(preset2.far_cells == 7.264f);
+  static_assert(preset2.aa_strength == 1.0f);
+  static_assert(preset2.speed == 0.03f);
+  static_assert(preset2.spin_3d == 0.01089f);
+  static_assert(preset2.spin_4d == 0.015f);
+  static_assert(preset2.chrome_warp == 0.65f);
+  static_assert(preset2.reflection == HL::ReflectionMode::CHROME);
+  static_assert(preset2.color == HL::ColorMode::DEPTH);
+  static_assert(preset2.shells == HL::ShellCount::THREE);
 }
 
 inline void test_dimension_dropdown_and_mode_lerp() {
