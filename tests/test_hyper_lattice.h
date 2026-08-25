@@ -267,6 +267,18 @@ inline void test_coincident_planes_form_one_layer() {
   HS_EXPECT_EQ(layers, 2);
 }
 
+/**
+ * @brief Pins shade() over a fixed direction and preset sample as one hash.
+ * @details Folds the RGB channels and Q16 alpha of every sample into an FNV-1a
+ * 64 signature, so a change anywhere in the trace walk, coverage ramp, fog or
+ * palette lookup moves one number. Provenance: no generator emits it. Re-derive
+ * by printing `signature` from this case built by the native clang test
+ * toolchain (cmake/toolchain-native-clang.cmake) and pasting the value back.
+ * Unlike test_specialized_render_signature(), this path takes its coverage ramp
+ * through an IEEE division rather than fast_reciprocal()'s Newton step, so the
+ * hash reproduces under the shipping -ffast-math -fno-finite-math-only pair the
+ * fast-math CI leg builds this module with, and carries no skip.
+ */
 inline void test_render_signature() {
   reset_globals();
   static constexpr Vector DIRECTIONS[] = {
@@ -362,6 +374,13 @@ inline void test_specialized_slice_transition() {
   HS_EXPECT_NEAR(max_alpha_error, 0.0f, 5.0e-6f);
 }
 
+/**
+ * @brief Pins the specialized 4D-slice pipeline over the same style of sample.
+ * @details Same fold as test_render_signature(), over
+ * SpecializedRenderPipeline's prepare/evaluate pair at preset 1. Provenance: no
+ * generator emits it. Re-derive by printing `signature` from an IEEE build of
+ * this case and pasting the value back.
+ */
 inline void test_specialized_render_signature() {
   static constexpr Vector DIRECTIONS[] = {
       {1.0f, 0.0f, 0.0f},
