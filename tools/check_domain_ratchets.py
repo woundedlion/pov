@@ -9,30 +9,28 @@ import re
 from pathlib import Path
 
 
-HARNESS_FLOOR_RE = re.compile(
-    r"constexpr int (MIN_RELAX_BAKES_VERIFIED)\s*=\s*(\d+)\s*;"
-)
-DEATH_FLOOR_RE = re.compile(
-    r"constexpr int (MIN_COVERED_GUARD_SITES)\s*=\s*(\d+)\s*;"
-)
+HARNESS_FLOOR = "MIN_RELAX_BAKES_VERIFIED"
+DEATH_FLOOR = "MIN_COVERED_GUARD_SITES"
+FLOOR_RES = {
+    name: re.compile(rf"constexpr int ({name})\s*=\s*(\d+)\s*;")
+    for name in (HARNESS_FLOOR, DEATH_FLOOR)
+}
 GAP_TABLE_RE = re.compile(r"GUARD_GAP_ALLOW\[\]\s*=\s*\{(.*?)\};", re.S)
 GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
 
 
-def floors(path: Path, pattern: re.Pattern[str]) -> dict[str, int]:
+def floors(path: Path, name: str) -> dict[str, int]:
+    """The named coverage floor, keyed by its name; a rename is fatal."""
     text = path.read_text(encoding="utf-8")
-    result = {name: int(value) for name, value in pattern.findall(text)}
+    result = {key: int(value) for key, value in FLOOR_RES[name].findall(text)}
     if not result:
-        raise SystemExit(f"no domain coverage floor parsed from {path}")
+        raise SystemExit(f"{path}: coverage floor {name} is missing or renamed")
     return result
 
 
 def death_pins(path: Path) -> tuple[dict[str, int], dict[str, int]]:
-    text = path.read_text(encoding="utf-8")
-    result = {name: int(value) for name, value in DEATH_FLOOR_RE.findall(text)}
-    if not result:
-        raise SystemExit(f"no domain coverage floor parsed from {path}")
-    table = GAP_TABLE_RE.search(text)
+    result = floors(path, DEATH_FLOOR)
+    table = GAP_TABLE_RE.search(path.read_text(encoding="utf-8"))
     gaps = {
         f"guard_gap.{name}": int(gap)
         for name, gap in GAP_ROW_RE.findall(table.group(1) if table else "")
@@ -49,16 +47,13 @@ def main() -> int:
     parser.add_argument("--previous-ref", required=True)
     args = parser.parse_args()
 
-    current = floors(args.current_harness, HARNESS_FLOOR_RE)
+    current = floors(args.current_harness, HARNESS_FLOOR)
     death_current, gaps_current = death_pins(args.current_death)
     current.update(death_current)
-    required = {"MIN_RELAX_BAKES_VERIFIED", "MIN_COVERED_GUARD_SITES"}
-    if set(current) != required:
-        raise SystemExit("domain coverage floor missing or renamed")
     if not gaps_current:
         raise SystemExit(f"no GUARD_GAP_ALLOW rows parsed from {args.current_death}")
 
-    previous = floors(args.previous_harness, HARNESS_FLOOR_RE)
+    previous = floors(args.previous_harness, HARNESS_FLOOR)
     death_previous, gaps_previous = death_pins(args.previous_death)
     previous.update(death_previous)
     allow = {

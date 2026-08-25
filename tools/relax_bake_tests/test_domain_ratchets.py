@@ -22,14 +22,14 @@ class ParseFloors(unittest.TestCase):
 
     def test_rejects_harness_without_floor(self):
         path = self.write("harness.cpp", "")
-        with self.assertRaisesRegex(SystemExit, "no domain coverage floor parsed"):
+        with self.assertRaisesRegex(SystemExit, "MIN_RELAX_BAKES_VERIFIED"):
             check_domain_ratchets.floors(
-                path, check_domain_ratchets.HARNESS_FLOOR_RE
+                path, check_domain_ratchets.HARNESS_FLOOR
             )
 
     def test_rejects_death_harness_without_floor(self):
         path = self.write("death.h", "")
-        with self.assertRaisesRegex(SystemExit, "no domain coverage floor parsed"):
+        with self.assertRaisesRegex(SystemExit, "MIN_COVERED_GUARD_SITES"):
             check_domain_ratchets.death_pins(path)
 
 
