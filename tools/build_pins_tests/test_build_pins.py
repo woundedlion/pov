@@ -224,8 +224,8 @@ class CheckTool(unittest.TestCase):
         self.assertEqual(bp.check_consumers(), 0)
 
     def test_pins_with_no_version_to_report_are_not_targets(self):
-        for name in ("doxygen-awesome", "doxygen-sha256", "llvm-key-sha256",
-                     "emsdk", "kicad"):
+        for name in ("daydream", "doxygen-awesome", "doxygen-sha256",
+                     "llvm-key-sha256", "emsdk", "kicad"):
             self.assertIn(name, bp.PINS | bp.INLINE_PINS)
             self.assertNotIn(name, bp.CHECK_TOOLS)
 
