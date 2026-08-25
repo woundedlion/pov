@@ -3276,6 +3276,18 @@ inline void case_sdf_distorted_ring_negative_thickness() {
 }
 
 /**
+ * @brief Death case: a line with a negative stroke half-width must trap.
+ * @details SDF line surface — a negative thickness inverts the angular band
+ *          and shrinks the bounding cap below the arc's own half-length, so
+ *          the cull drops rows the arc covers.
+ */
+inline void case_sdf_line_negative_thickness() {
+  SDF::Line line(Vector(1, 0, 0), Vector(0, 0, 1), opaque(-0.05f));
+  if (line.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a distorted ring built with a null shift callback must
  *        trap.
  * @details SDF ring surface — the callback is invoked per azimuth on every
@@ -4062,6 +4074,8 @@ inline const Case *all_cases(int &n) {
       {"sdf_distorted_ring_negative_thickness",
        case_sdf_distorted_ring_negative_thickness, "rings.h",
        "(thickness >= 0.0f) DistortedRing: negative stroke half-width"},
+      {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
+       "shapes.h", "(thickness >= 0.0f) Line: negative stroke half-width"},
       {"shader_workbench_empty_preset_view",
        case_shader_workbench_empty_preset_view, "ShaderWorkbench.h",
        "(!source_indices.empty()) set_fixed_preset_view: empty preset view"},
