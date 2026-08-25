@@ -1509,31 +1509,31 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void register_stage_slot_controls(bool first,
+  HS_COLD_MEMBER void register_stage_slot_controls(bool outer,
                                                    WarpStageSpec &spec) {
     if (spec.kind == WarpStageKind::VECTOR_NOISE ||
         spec.kind == WarpStageKind::CURL_FLOW) {
-      register_animated_param(first ? "Planar Warp 1 Noise Basis"
+      register_animated_param(outer ? "Planar Warp 1 Noise Basis"
                                     : "Planar Warp 2 Noise Basis",
                               &spec.basis, NOISE_BASIS_OPTIONS,
                               NOISE_BASIS_EXPORT_OPTIONS, NUM_NOISE_BASES);
-      register_animated_param(first ? "Planar Warp 1 Envelope"
+      register_animated_param(outer ? "Planar Warp 1 Envelope"
                                     : "Planar Warp 2 Envelope",
                               &spec.envelope, WARP_ENVELOPE_OPTIONS,
                               WARP_ENVELOPE_EXPORT_OPTIONS, NUM_WARP_ENVELOPES);
     }
     if (spec.kind == WarpStageKind::CURL_FLOW)
-      register_animated_param(first ? "Planar Warp 1 Curl Integrator"
+      register_animated_param(outer ? "Planar Warp 1 Curl Integrator"
                                     : "Planar Warp 2 Curl Integrator",
                               &spec.curl_integrator, CURL_INTEGRATOR_OPTIONS,
                               CURL_INTEGRATOR_EXPORT_OPTIONS,
                               NUM_CURL_INTEGRATORS);
     if (spec.kind == WarpStageKind::POLAR_CHART) {
-      register_animated_param(first ? "Planar Warp 1 Polar Mode"
+      register_animated_param(outer ? "Planar Warp 1 Polar Mode"
                                     : "Planar Warp 2 Polar Mode",
                               &spec.polar_mode, POLAR_MODE_OPTIONS,
                               POLAR_MODE_EXPORT_OPTIONS, NUM_POLAR_MODES);
-      register_animated_int_param(first ? "Planar Warp 1 Polar Harmonic"
+      register_animated_int_param(outer ? "Planar Warp 1 Polar Harmonic"
                                         : "Planar Warp 2 Polar Harmonic",
                                   &spec.polar_harmonic, 1, POLAR_HARMONIC_MAX);
     }
@@ -1764,16 +1764,16 @@ private:
                               NUM_SURFACE_CURL_INTEGRATORS);
   }
 
-  HS_COLD_MEMBER void register_active_warp_controls(bool first,
+  HS_COLD_MEMBER void register_active_warp_controls(bool outer,
                                                     const WarpStageSpec &spec,
                                                     WarpStageParams &params,
                                                     float domain_scale) {
     if (spec.kind == WarpStageKind::NONE)
       return;
     const char *const *names =
-        first ? FIRST_WARP_PARAM_NAMES : SECOND_WARP_PARAM_NAMES;
+        outer ? OUTER_WARP_PARAM_NAMES : INNER_WARP_PARAM_NAMES;
     const char *speed_name =
-        first ? "Planar Warp 1 Speed" : "Planar Warp 2 Speed";
+        outer ? "Planar Warp 1 Speed" : "Planar Warp 2 Speed";
     auto register_current = [&](const char *name, float *target, float minimum,
                                 float maximum) {
       register_clamped_animated_param(name, target, minimum, maximum);
@@ -1782,7 +1782,7 @@ private:
         spec.kind == WarpStageKind::VECTOR_NOISE ||
         spec.kind == WarpStageKind::CURL_FLOW) {
       const char *strength_name =
-          first ? "Planar Warp 1 Strength" : "Planar Warp 2 Strength";
+          outer ? "Planar Warp 1 Strength" : "Planar Warp 2 Strength";
       const bool signed_strength = spec.kind == WarpStageKind::WAVE_SHEAR ||
                                    spec.kind == WarpStageKind::CURL_FLOW;
       float strength_max = spec.kind == WarpStageKind::VECTOR_NOISE
@@ -1834,7 +1834,7 @@ private:
       break;
     case WarpStageKind::VECTOR_NOISE:
     case WarpStageKind::CURL_FLOW:
-      register_current(first ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale",
+      register_current(outer ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale",
                        &params.scale, 1.0f / 64.0f,
                        domain_scaled_max(spec.kind == WarpStageKind::CURL_FLOW
                                              ? CURL_WARP_SCALE_MAX
@@ -6603,7 +6603,7 @@ private:
     WARP_NAME_COUNT,
   };
 
-  static constexpr const char *FIRST_WARP_PARAM_NAMES[] = {
+  static constexpr const char *OUTER_WARP_PARAM_NAMES[] = {
       "Planar Warp 1 Translation X", "Planar Warp 1 Translation Y",
       "Planar Warp 1 Rotation",      "Planar Warp 1 Scale X",
       "Planar Warp 1 Scale Y",       "Planar Warp 1 Shear",
@@ -6615,7 +6615,7 @@ private:
       "Planar Warp 1 Offset Y",      "Planar Warp 1 Radial Scale",
       "Planar Warp 1 Radial Phase",  "Planar Warp 1 Angular Phase",
       "Planar Warp 1 Edge Width",    "Planar Warp 1 Center Orbit"};
-  static constexpr const char *SECOND_WARP_PARAM_NAMES[] = {
+  static constexpr const char *INNER_WARP_PARAM_NAMES[] = {
       "Planar Warp 2 Translation X", "Planar Warp 2 Translation Y",
       "Planar Warp 2 Rotation",      "Planar Warp 2 Scale X",
       "Planar Warp 2 Scale Y",       "Planar Warp 2 Shear",
@@ -6627,12 +6627,12 @@ private:
       "Planar Warp 2 Offset Y",      "Planar Warp 2 Radial Scale",
       "Planar Warp 2 Radial Phase",  "Planar Warp 2 Angular Phase",
       "Planar Warp 2 Edge Width",    "Planar Warp 2 Center Orbit"};
-  static_assert(sizeof(FIRST_WARP_PARAM_NAMES) / sizeof(const char *) ==
+  static_assert(sizeof(OUTER_WARP_PARAM_NAMES) / sizeof(const char *) ==
                     WARP_NAME_COUNT,
-                "first warp name table must match WarpParamName");
-  static_assert(sizeof(SECOND_WARP_PARAM_NAMES) / sizeof(const char *) ==
+                "outer warp name table must match WarpParamName");
+  static_assert(sizeof(INNER_WARP_PARAM_NAMES) / sizeof(const char *) ==
                     WARP_NAME_COUNT,
-                "second warp name table must match WarpParamName");
+                "inner warp name table must match WarpParamName");
   static constexpr Params
   authored_params(SourceParams source, WarpStageParams outer_warp,
                   ProjectionParams projection, SurfaceLensParams surface_lens,
