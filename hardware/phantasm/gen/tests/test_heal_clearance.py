@@ -130,5 +130,22 @@ class MainTests(unittest.TestCase):
             self.assertIn("would heal", stdout.getvalue())
 
 
+    def test_named_manifested_project_is_reported_by_path(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            snapshot = Path(temp_dir) / "quilter_incremental"
+            snapshot.mkdir()
+            project = snapshot / "phantasm.kicad_pro"
+            project.write_text(self.ZEROED, encoding="utf-8")
+            (snapshot / "SHA256SUMS.txt").write_text("", encoding="utf-8")
+            with mock.patch.object(heal_clearance, "OUT", temp_dir):
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    self.assertEqual(heal_clearance.main([str(project)]), 1)
+        message = stderr.getvalue()
+        self.assertIn("quilter_incremental", message)
+        self.assertIn("hash-manifested", message)
+        self.assertNotIn("no uploadable project files found", message)
+
+
 if __name__ == "__main__":
     unittest.main()

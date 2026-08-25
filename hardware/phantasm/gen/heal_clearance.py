@@ -99,8 +99,19 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     pros = project_files(args.projects)
+    protected = [os.path.abspath(path) for path in args.projects
+                 if is_manifested(path)]
+    for path in protected:
+        print(f"skip   {os.path.relpath(path, OUT)}: hash-manifested by "
+              f"SHA256SUMS.txt; healing it would break the manifest",
+              file=sys.stderr)
     if not pros:
-        print(f"error: no uploadable project files found under {OUT}", file=sys.stderr)
+        if protected:
+            print("error: every named project file is hash-manifested",
+                  file=sys.stderr)
+        else:
+            print(f"error: no uploadable project files found under {OUT}",
+                  file=sys.stderr)
         return 1
 
     healed = 0
