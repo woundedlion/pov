@@ -90,8 +90,10 @@ public:
   HS_COLD_MEMBER ChainRefusal
   set_chain(std::span<const ChainEntryRequest> request) {
     const ChainRefusal refusal = program.compile(request);
-    if (refusal.code == ChainStatus::OK)
+    if (refusal.code == ChainStatus::OK) {
+      colorize = find_colorize_tap();
       rebind_chain_parameters();
+    }
     return refusal;
   }
 
@@ -101,7 +103,7 @@ public:
     Canvas canvas(*this);
     ++frame_index;
     program.advance();
-    const ColorizeTap tap = colorize_tap();
+    const ColorizeTap &tap = colorize;
     update_palette_chroma(tap.params != nullptr ? tap.params->palette_chroma
                                                 : DEFAULT_CHROMA);
     step_generated_palettes(tap.params != nullptr ? tap.params->palette_mode
@@ -142,7 +144,7 @@ private:
     const Pullback::Interp::Op::GeneratedPaletteParams *params = nullptr;
   };
 
-  ColorizeTap colorize_tap() {
+  HS_COLD_MEMBER ColorizeTap find_colorize_tap() {
     const auto ops = program.ops();
     for (size_t index = ops.size(); index-- > 0;)
       if (std::string_view(ops[index].op->operator_id) ==
@@ -247,6 +249,9 @@ private:
   static constexpr float FRAME_SECONDS = 1.0f / 30.0f;
 
   Pullback::Interp::ChainProgram program;
+  /** Refreshed on every commit; the param block it points at stays put until
+      the next compile. */
+  ColorizeTap colorize;
   Resources *resources = nullptr;
   EffectPaletteRecipes::GeneratedPaletteBank generated_palettes;
   uint32_t frame_index = 0;
