@@ -16,6 +16,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 
 #include "core/color/color.h"
@@ -2482,6 +2483,54 @@ inline void test_noise_hue_palette() {
 }
 
 /**
+ * @brief Verifies the shared hue-noise bake cache rebuilds the table exactly
+ *        when an input moved, and leaves it untouched otherwise.
+ */
+inline void test_hue_noise_bake_cache() {
+  static std::array<int8_t, HueNoiseLutView::SIZE> hue_noise;
+  FastNoiseLite noise;
+  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  noise.SetSeed(6047);
+  noise.SetFrequency(1.0f);
+  // Unreachable through the quantizer, whose range is [-127, 127].
+  constexpr int8_t POISON = -128;
+  constexpr size_t LAST = HueNoiseLutView::SIZE - 1;
+
+  HueNoiseBakeCache cache;
+  HS_EXPECT_EQ(cache.scale, 0.0f);
+  HS_EXPECT_EQ(cache.phase, 0.0f);
+  HS_EXPECT_TRUE(cache.refresh(hue_noise, noise, 2.0f, 0.25f));
+  HS_EXPECT_EQ(cache.scale, 2.0f);
+  HS_EXPECT_EQ(cache.phase, 0.25f);
+
+  hue_noise[0] = POISON;
+  hue_noise[LAST] = POISON;
+  HS_EXPECT_TRUE(!cache.refresh(hue_noise, noise, 2.0f, 0.25f));
+  HS_EXPECT_EQ(static_cast<int>(hue_noise[0]), static_cast<int>(POISON));
+  HS_EXPECT_EQ(static_cast<int>(hue_noise[LAST]), static_cast<int>(POISON));
+
+  HS_EXPECT_TRUE(cache.refresh(hue_noise, noise, 2.5f, 0.25f));
+  HS_EXPECT_NE(static_cast<int>(hue_noise[0]), static_cast<int>(POISON));
+  HS_EXPECT_NE(static_cast<int>(hue_noise[LAST]), static_cast<int>(POISON));
+  HS_EXPECT_EQ(cache.scale, 2.5f);
+
+  hue_noise[0] = POISON;
+  hue_noise[LAST] = POISON;
+  HS_EXPECT_TRUE(cache.refresh(hue_noise, noise, 2.5f, 0.5f));
+  HS_EXPECT_NE(static_cast<int>(hue_noise[0]), static_cast<int>(POISON));
+  HS_EXPECT_NE(static_cast<int>(hue_noise[LAST]), static_cast<int>(POISON));
+  HS_EXPECT_EQ(cache.phase, 0.5f);
+
+  // A rebuild matches a bake from the same inputs byte for byte.
+  static std::array<int8_t, HueNoiseLutView::SIZE> reference;
+  prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE>(reference),
+                        noise, 2.5f, 0.5f);
+  HS_EXPECT_EQ(
+      std::memcmp(hue_noise.data(), reference.data(), HueNoiseLutView::SIZE),
+      0);
+}
+
+/**
  * @brief Verifies the cube-map hue-noise LUT agrees across a shared face edge
  *        and at a three-face corner, where the face tie-break picks different
  *        faces for neighbouring directions.
@@ -2690,6 +2739,7 @@ inline int run_color_tests() {
   test_palette_shade_coord_policy();
   test_noise_hue_palette();
   test_hue_noise_lut_seamless_across_faces();
+  test_hue_noise_bake_cache();
 
   // Clamp-before-cast / NaN-saturation checks, shared with the fast-math pass.
   const int before_clamp = hs_test::stats().passed + hs_test::stats().failed;

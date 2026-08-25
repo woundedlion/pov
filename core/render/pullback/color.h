@@ -124,6 +124,7 @@ enum class HueMode : uint8_t {
   WARP_DISPLACEMENT = PATH_LENGTH /**< Workbench synonym. */
 };
 
+using ::HueNoiseBakeCache;
 using ::HueNoiseLutView;
 using ::HueRotationLutView;
 using ::hue_noise_face_direction;
