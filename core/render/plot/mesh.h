@@ -142,7 +142,9 @@ struct Mesh {
     if constexpr (pipeline_hoistable_cull<PipelineT>()) {
       if (clip_active) {
         uint8_t bits[EDGE_MAX_POINTS - 1];
-        HS_CHECK(points.size() >= 2 && points.size() <= EDGE_MAX_POINTS);
+        HS_CHECK(points.size() >= 2 && points.size() <= EDGE_MAX_POINTS,
+                 "Mesh::draw_edge: %d cut points outside [2, %d]",
+                 static_cast<int>(points.size()), EDGE_MAX_POINTS);
         if (points.size() == 2 && !vertex_shader) {
           // Uncut, unshaded: the whole-edge test above already ran on it.
           bits[0] = RasterOptions::EDGE_VISIBLE;
@@ -197,7 +199,9 @@ struct Mesh {
 
         // A vertex index past the dedup bitset's capacity is a mesh-sizing bug;
         // trap at the face-walk boundary rather than drop the edge.
-        HS_CHECK(large < DEDUP_CAPACITY);
+        HS_CHECK(large < DEDUP_CAPACITY,
+                 "Mesh edge dedup: vertex index %d >= capacity %d", large,
+                 DEDUP_CAPACITY);
 
         if (!visited.test_and_set(small, large))
           fn(u, v);
@@ -235,7 +239,9 @@ struct Mesh {
       // mesh.vertices[] only asserts in bounds (stripped on device), so guard the
       // per-edge setup boundary here. u,v come from uint16_t face data (non-
       // negative), so max(u,v) in bounds implies both endpoints are valid.
-      HS_CHECK(static_cast<size_t>(std::max(u, v)) < mesh.vertices.size());
+      HS_CHECK(static_cast<size_t>(std::max(u, v)) < mesh.vertices.size(),
+               "Mesh::draw: edge vertex index %d >= vertex count %d",
+               std::max(u, v), static_cast<int>(mesh.vertices.size()));
 
       draw_edge<W, H>(pipeline, canvas, mesh, u, v, edge_index, cb,
                       fragment_shader, vertex_shader);
@@ -426,7 +432,9 @@ struct Mesh {
       // edge list could outlive or mismatch its mesh, and mesh.vertices[] only
       // asserts (compiled out on device).
       HS_CHECK(edges[ei].u < mesh.vertices.size() &&
-               edges[ei].v < mesh.vertices.size());
+                   edges[ei].v < mesh.vertices.size(),
+               "Mesh::draw: edge (%d, %d) outside vertex count %d", edges[ei].u,
+               edges[ei].v, static_cast<int>(mesh.vertices.size()));
 
       draw_edge<W, H>(pipeline, canvas, mesh, edges[ei].u, edges[ei].v,
                       static_cast<int>(ei), cb, fragment_shader, vertex_shader);

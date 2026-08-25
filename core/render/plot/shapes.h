@@ -170,7 +170,7 @@ struct Line {
    */
   static void sample(Fragments &points, const Fragment &f1, const Fragment &f2,
                      const GeodesicEdgeSpan &es, int density = 1) {
-    HS_CHECK(density >= 1);
+    HS_CHECK(density >= 1, "Line::sample: density %d < 1", density);
 
     if (!es.have_axis) {
       Fragment f = f1;
@@ -371,7 +371,7 @@ struct Multiline {
  */
 template <typename PosFn>
 inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
-  HS_CHECK(num_verts >= 1);
+  HS_CHECK(num_verts >= 1, "sample_closed_ring: num_verts %d < 1", num_verts);
   float cumulative_len = 0.0f;
   size_t start_idx = points.size();
   for (int i = 0; i < num_verts; i++) {
@@ -478,7 +478,7 @@ struct Ring {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_samples, float phase = 0) {
-    HS_CHECK(num_samples >= 1);
+    HS_CHECK(num_samples >= 1, "Ring::sample: num_samples %d < 1", num_samples);
     const RingFrame frame = ring_frame(basis, radius);
     const Vector &v = frame.basis.v;
     const Vector &u = frame.basis.u;
@@ -666,7 +666,7 @@ template <typename Projection> struct Polygon {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
-    HS_CHECK(num_sides >= 1);
+    HS_CHECK(num_sides >= 1, "Polygon::sample: num_sides %d < 1", num_sides);
     const size_t start_idx = points.size();
     Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
     Projection::finish_polygon_sample(points, start_idx);
@@ -690,7 +690,7 @@ template <typename Projection> struct Polygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    HS_CHECK(num_sides >= 1);
+    HS_CHECK(num_sides >= 1, "Polygon::draw: num_sides %d < 1", num_sides);
     Basis projection_basis;
     const Basis *edge_basis =
         Projection::edge_basis(basis, radius, projection_basis);
@@ -902,7 +902,7 @@ private:
   template <bool EmitRegisters>
   static void sample_impl(Fragments &points, const Basis &basis, float radius,
                           int num_sides, float phase) {
-    HS_CHECK(num_sides >= 1);
+    HS_CHECK(num_sides >= 1, "Star::sample: num_sides %d < 1", num_sides);
     const RingFrame frame = ring_frame(basis, radius);
     const Vector &v = frame.basis.v;
     const Vector &u = frame.basis.u;
@@ -940,8 +940,13 @@ private:
   template <bool EmitRegisters>
   static void sample_continuous_impl(Fragments &points, const Basis &basis,
                                      float radius, int num_sides, float phase) {
-    HS_CHECK(num_sides >= 1);
-    HS_CHECK(radius >= 0.0f && radius <= 2.0f);
+    HS_CHECK(num_sides >= 1, "Star::sample_continuous: num_sides %d < 1",
+             num_sides);
+    HS_CHECK(radius >= 0.0f && radius <= 2.0f,
+             "Star::sample_continuous: radius %d/1000 outside [0, 2]",
+             (radius > -1.0e6f && radius < 1.0e6f)
+                 ? static_cast<int>(radius * 1000.0f)
+                 : static_cast<int>(INT32_MIN));
 
     const float outer_radius = radius * (PI_F / 2.0f);
     const float inner_radius =
@@ -1027,7 +1032,8 @@ public:
                                float radius, int num_sides, float phase,
                                const RadiusTrig &radius_trig,
                                const StepTrig &step_trig) {
-    HS_CHECK(num_sides >= 1);
+    HS_CHECK(num_sides >= 1, "Star::sample_positions: num_sides %d < 1",
+             num_sides);
     const Basis work_basis = get_antipode(basis, radius).first;
     sample_positions_impl(points, work_basis, num_sides, phase, radius_trig,
                           step_trig);
@@ -1064,7 +1070,7 @@ public:
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    HS_CHECK(num_sides >= 1);
+    HS_CHECK(num_sides >= 1, "Star::draw: num_sides %d < 1", num_sides);
     Basis projection_basis;
     const Basis *edge_basis =
         Projection::edge_basis(basis, radius, projection_basis);
@@ -1084,7 +1090,8 @@ public:
                               const Basis &basis, float radius, int num_sides,
                               FragmentShaderFn fragment_shader,
                               float phase = 0) {
-    HS_CHECK(num_sides >= 1);
+    HS_CHECK(num_sides >= 1, "Star::draw_continuous: num_sides %d < 1",
+             num_sides);
     Basis projection_basis;
     const Basis *edge_basis =
         Projection::edge_basis(basis, radius, projection_basis);
@@ -1142,7 +1149,7 @@ struct Flower {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
-    HS_CHECK(num_sides >= 1);
+    HS_CHECK(num_sides >= 1, "Flower::sample: num_sides %d < 1", num_sides);
     const RingFrame frame = ring_frame(basis, radius);
     const Vector &v = frame.basis.v;
     const Vector &u = frame.basis.u;
@@ -1185,7 +1192,7 @@ struct Flower {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    HS_CHECK(num_sides >= 1);
+    HS_CHECK(num_sides >= 1, "Flower::draw: num_sides %d < 1", num_sides);
     // Center the chart on the antipode pole, opposite the petal ring: projecting
     // the constant-radius ring through the far-pole chart bows its straight edges
     // outward into petals.

@@ -983,7 +983,9 @@ static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
     else if (ang >= 2.0f * PI_F)
       ang -= 2.0f * PI_F;
     if (ang > 0.0f && ang < es.total) {
-      HS_CHECK(found < GEODESIC_CLIP_MAX_SPLITS);
+      HS_CHECK(found < GEODESIC_CLIP_MAX_SPLITS,
+               "geodesic clip: more than %d split roots on one edge",
+               GEODESIC_CLIP_MAX_SPLITS);
       angs[found++] = ang;
     }
   };
