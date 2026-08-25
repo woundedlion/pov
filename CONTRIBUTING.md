@@ -76,6 +76,15 @@ correctness gate.
   shader-workbench schema and digest contracts, the WASM smoke predicates, the
   engine bindings contract, the profile roster and the PNG probe. CI runs it as
   its own `scripts-unit-tests` job.
+- **Host-Python tool suites:** the `teensy-gate-tests` job runs
+  `python -m unittest discover` over every tracked suite directory — the
+  size/layout gate, the coverage gate, the PlatformIO and git hooks, the
+  profile-log parser, the relax-bake generator, and `hardware/phantasm/gen`'s
+  own tests, which are the PCB generator's whole gate set (geometry,
+  connectivity, fab outputs, routed-board metadata) and the largest suite in
+  the job. None of them needs an ARM toolchain or KiCad, so they run locally as
+  written. `tools/check_test_dir_pins.sh` fails a suite directory the workflow
+  never names.
 - **Lint:** the CI `lint` job has six legs — `ruff` over the Python tooling,
   `eslint` over the JavaScript, `shellcheck` over every tracked `*.sh` and
   `.githooks/*`, `actionlint` over `.github/workflows/*.yml` (which pipes every

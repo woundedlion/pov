@@ -72,6 +72,11 @@ enforces the same gate. No `Co-Authored-By` line.
 - `pio run -e phantasm` → `[teensy-gate] phantasm: PASS`, and report RAM1
   `code`, RAM1 `variables` (DTCM), FLASH `data`, **and the per-commit delta of
   each**.
+- After a change under `tools/` or `hardware/phantasm/gen`:
+  `python -m unittest discover -s <suite directory>` for the suite that covers
+  it. The ctest run above covers none of them — CI runs them in the
+  `teensy-gate-tests` job, and the PCB generator's suite under
+  `hardware/phantasm/gen/tests` is the largest of the set.
 
 RAM1 `code` (ITCM) has a 196,608 B ceiling and only a few KB of headroom. It is
 a real constraint that has vetoed changes before.
