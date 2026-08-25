@@ -300,7 +300,7 @@ private:
    * cull.
    */
   HS_O3_FN void render_trails(Canvas &canvas) {
-    // A sub-LSB alpha paints nothing; skip rasterizing. Trails are still
+    // Alpha below one slider LSB: skip rasterizing. Trails are still
     // recorded in draw_frame(), so motion resumes when alpha rises.
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
