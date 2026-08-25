@@ -17,7 +17,7 @@ using KaleidoscopePentBrightSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                    Pullback::Lens::PentagonalPrismKaleidoscope,
                    Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION_SQUARED>;
+                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
 
 /**
  * @brief A polar lattice folded through a pentagonal prism.

@@ -16,7 +16,7 @@ using MobiusGridParams =
 using MobiusGridSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC, void,
                    Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION_SQUARED>;
+                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
 
 /**
  * @brief A continuously animated Mobius lens over a mirrored twin wave.
