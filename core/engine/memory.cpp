@@ -4,6 +4,13 @@
  */
 
 #include "engine/memory.h"
+
+namespace hs {
+[[noreturn]] HS_COLD void function_ref_empty_call() {
+  check_fail(__FILE__, __LINE__, "thunk != empty_thunk",
+             "empty FunctionRef called");
+}
+} // namespace hs
 #ifdef ARDUINO
 #include <exception>
 #endif
