@@ -278,9 +278,9 @@ private:
    *          rollover while a previous wipe is still in flight.
    */
   void update_palette() {
-    // Skip while a wipe is in flight: at the Cycle Dur floor the cycle period
-    // (20) is shorter than WIPE_FRAMES (48), so the timer can fire mid-wipe and a
-    // second wipe would clobber the snapshots the live one still references.
+    // A second wipe would clobber the snapshots the live one still references.
+    // Rollovers arrive on the preset cadence, which outlasts WIPE_FRAMES, so
+    // this only trips if that cadence is shortened.
     if (wipe.in_flight())
       return;
     wipe.arm(palette,
