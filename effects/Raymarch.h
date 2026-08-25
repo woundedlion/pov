@@ -195,7 +195,7 @@ public:
    *        bakes the palette LUT, and installs the camera walk and phase drivers
    *        on the timeline.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     begin_choreography();
     register_animated_param(
         "Base Solid", &params.base_solid, PLACEMENT_SOLID_OPTIONS,

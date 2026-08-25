@@ -73,7 +73,7 @@ public:
    * tunable parameters, bakes the vignette palettes into fast LUTs, and starts
    * each ring's energetic random-walk.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Thickness", &params.thickness, 0.01f, 10.0f);
     register_param("Debug BB", &params.debug_bb);

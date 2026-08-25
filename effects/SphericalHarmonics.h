@@ -99,7 +99,7 @@ public:
    * @details Registers params, bakes the palette, seeds the shape and the
    * continuous spin, and kicks off the first morph.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     configure_presets(PRESET_IDS.size());
     register_param("Amplitude", &params.amplitude, 0.1f, 10.0f);
 

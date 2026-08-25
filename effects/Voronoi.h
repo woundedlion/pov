@@ -52,7 +52,7 @@ public:
    * @brief Configures arenas, registers GUI params, allocates the sites buffer,
    *        and seeds the initial sites.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     // Persistent holds the sites buffer; scratch_arena_a holds the per-frame
     // KD-tree (positions + nodes + build indices).
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);

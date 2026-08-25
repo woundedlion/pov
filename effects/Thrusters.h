@@ -48,7 +48,7 @@ public:
    *          thrusters every 16-48 frames. The palette is immutable, so it is
    *          baked once into a LUT keyed by dot(X, v) (see draw_ring).
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     // Radius 0 and 2 both collapse the ring to a point (ring_vec and its
     // antipode), so the slider stops short of each end.
     register_param("Radius", &params.radius, 0.1f, 1.9f);

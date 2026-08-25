@@ -47,7 +47,7 @@ public:
    *          it in place (rebake, no allocation). 16 * 256 entries amortizes
    *          trivially.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     for (size_t i = 0; i < MAX_RINGS; ++i)
