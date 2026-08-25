@@ -395,10 +395,12 @@ inline void push_interval(StaticCircularBuffer<Interval, N> &buf, float start,
  */
 template <size_t N>
 inline void sort_intervals_by_start(StaticCircularBuffer<Interval, N> &buf) {
+  const size_t n = buf.size();
+  if (n < 2)
+    return;
   HS_CHECK(buf.is_linear(),
            "sort_intervals_by_start: raw linear indexing requires head==0");
   auto *data = &buf[0];
-  size_t n = buf.size();
   for (size_t i = 1; i < n; ++i) {
     auto key = data[i];
     size_t j = i;
