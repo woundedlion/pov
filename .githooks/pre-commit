@@ -107,7 +107,7 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
   fi
   "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --repo-root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check
-  "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py"
+  "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py" --root "$SNAPSHOT"
 )
 
 echo "[pre-commit] staged formatting, lint, and documentation checks passed."
