@@ -748,8 +748,7 @@ private:
                 PaletteRecipeField::INPUT_OFFSET, status);
     clamp_field(recipe.input.span, 0.0f, 1.0f - recipe.input.offset,
                 PaletteRecipeField::INPUT_SPAN, status);
-    const float wrapped_base =
-        recipe.hue.base_turns - floorf(recipe.hue.base_turns);
+    const float wrapped_base = wrap_t(recipe.hue.base_turns);
     if (wrapped_base != recipe.hue.base_turns) {
       recipe.hue.base_turns = wrapped_base;
       status.adjustments.wrapped_fields |=
@@ -847,8 +846,6 @@ private:
     return true;
   }
 
-  static float wrap01(float value) { return value - floorf(value); }
-
   /** @brief Whole turns of a loop's closing travel from the first key. */
   int loop_turns() const {
     return static_cast<int>(
@@ -857,7 +854,7 @@ private:
 
   HS_COLD_MEMBER static float directed_delta(float delta,
                                              HueDirection direction) {
-    const float wrapped = wrap01(delta);
+    const float wrapped = wrap_t(delta);
     switch (direction) {
     case HueDirection::SHORTEST:
       if (wrapped < 0.5f)
