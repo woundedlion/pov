@@ -184,9 +184,13 @@ inline void test_pixel_to_vector_unit_length() {
  */
 inline void test_pixel_to_vector_known_samples() {
   constexpr int W = 32, H = 32;
-  // Integer y rarely lands exactly on phi=π/2 (equator is y=(H_VIRT-1)/2).
+  // Integer y rarely lands exactly on phi=π/2 (equator is y=(H_VIRT-1)/2): the
+  // sampled row sits a half row south, residual 0.051, against 0.151 for a
+  // one-row shift. The magnitude cannot separate the two shift directions
+  // (adjacent rows straddle the equator symmetrically), so the sign does.
   Vector v = pixel_to_vector<W, H>(0, (H + hs::H_OFFSET) / 2);
-  HS_EXPECT_VEC(v, Vector(1, 0, 0), 0.15f);
+  HS_EXPECT_VEC(v, Vector(1, 0, 0), 0.09f);
+  HS_EXPECT_LT(v.y, 0.0f);
 
   // y=0 (north pole): phi=0 ⇒ Vector(0, 1, 0).
   Vector north = pixel_to_vector<W, H>(0, 0);
