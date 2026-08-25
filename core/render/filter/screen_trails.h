@@ -24,6 +24,7 @@ namespace Screen {
  */
 template <int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
+  static_assert(MAX_PIXELS > 0, "Screen::Trails capacity must be positive");
   // Re-emits each point at its own coordinate; never samples the framebuffer.
   static constexpr bool reads_outside_band = false;
 
