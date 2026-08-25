@@ -1023,7 +1023,7 @@ inline void test_world_orient_slice_selects_by_projection() {
   HS_EXPECT_NEAR(got_neg.y, exp_neg.y, 1e-3f);
 
   // Disabled -> verbatim passthrough (no rotation).
-  slice.enabled = false;
+  slice.set_enabled(false);
   Vector pass = first_tap(near_pos);
   HS_EXPECT_NEAR(pass.x, near_pos.x, 1e-6f);
   HS_EXPECT_NEAR(pass.y, near_pos.y, 1e-6f);
@@ -1116,7 +1116,7 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
     ++n;
     return false;
   };
-  slice.enabled = false;
+  slice.set_enabled(false);
   n = 0;
   slice.cull_edge(X_AXIS, X_AXIS, nullptr, record_once);
   HS_EXPECT_EQ(n, 1);
