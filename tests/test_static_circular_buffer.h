@@ -357,6 +357,99 @@ inline void test_emplace_constructs_non_assignable_type() {
   HS_EXPECT_EQ(buf.back().x, 3);
 }
 
+/**
+ * @brief Element that tallies its own constructions and destructions.
+ * @details The eviction path destroys the evicted slot's object before
+ *          constructing the replacement in its storage; the tally is what makes
+ *          that visible.
+ */
+struct LifetimeCounted {
+  static inline int constructed = 0; /**< Constructor calls since reset(). */
+  static inline int destroyed = 0;   /**< Destructor calls since reset(). */
+  int value;                         /**< Payload the assertions read back. */
+  /**
+   * @brief Constructs carrying @p v.
+   * @param v Payload value; zero when default-constructed.
+   */
+  explicit LifetimeCounted(int v = 0) : value(v) { ++constructed; }
+  /**
+   * @brief Copies the payload and counts as a construction.
+   * @param other Source instance.
+   */
+  LifetimeCounted(const LifetimeCounted &other) : value(other.value) {
+    ++constructed;
+  }
+  /**
+   * @brief Defaulted copy assignment.
+   * @param other Source instance.
+   * @return Reference to this.
+   */
+  LifetimeCounted &operator=(const LifetimeCounted &other) = default;
+  /** @brief Counts the destruction. */
+  ~LifetimeCounted() { ++destroyed; }
+  /** @brief Zeroes both tallies. */
+  static void reset() {
+    constructed = 0;
+    destroyed = 0;
+  }
+};
+
+/**
+ * @brief Verifies emplace_back past capacity destroys the evicted element and
+ *        rebuilds the slot in place.
+ */
+inline void test_emplace_back_eviction_rebuilds_slot() {
+  LifetimeCounted::reset();
+  StaticCircularBuffer<LifetimeCounted, 3> buf;
+  // The backing array default-constructs every slot up front.
+  const int base = LifetimeCounted::constructed;
+  HS_EXPECT_EQ(LifetimeCounted::destroyed, 0);
+
+  for (int i = 1; i <= 3; ++i)
+    buf.emplace_back(i);
+  HS_EXPECT_TRUE(buf.is_full());
+  HS_EXPECT_EQ(LifetimeCounted::constructed - base, 3);
+  HS_EXPECT_EQ(LifetimeCounted::destroyed, 3);
+
+  LifetimeCounted &ref = buf.emplace_back(4);
+  HS_EXPECT_EQ(ref.value, 4);
+  HS_EXPECT_EQ(buf.size(), (size_t)3);
+  HS_EXPECT_EQ(buf[0].value, 2);
+  HS_EXPECT_EQ(buf[1].value, 3);
+  HS_EXPECT_EQ(buf[2].value, 4);
+  HS_EXPECT_EQ(buf.front().value, 2);
+  HS_EXPECT_EQ(buf.back().value, 4);
+  HS_EXPECT_EQ(LifetimeCounted::constructed - base, 4);
+  HS_EXPECT_EQ(LifetimeCounted::destroyed, 4);
+}
+
+/**
+ * @brief Verifies emplace_front past capacity evicts the tail and rebuilds the
+ *        reclaimed slot in place.
+ */
+inline void test_emplace_front_eviction_rebuilds_slot() {
+  LifetimeCounted::reset();
+  StaticCircularBuffer<LifetimeCounted, 3> buf;
+  const int base = LifetimeCounted::constructed;
+
+  for (int i = 1; i <= 3; ++i)
+    buf.emplace_front(i);
+  HS_EXPECT_TRUE(buf.is_full());
+  HS_EXPECT_EQ(LifetimeCounted::constructed - base, 3);
+  HS_EXPECT_EQ(LifetimeCounted::destroyed, 3);
+
+  LifetimeCounted &ref = buf.emplace_front(4);
+  HS_EXPECT_EQ(ref.value, 4);
+  HS_EXPECT_EQ(buf.size(), (size_t)3);
+  HS_EXPECT_EQ(buf[0].value, 4);
+  HS_EXPECT_EQ(buf[1].value, 3);
+  HS_EXPECT_EQ(buf[2].value, 2);
+  HS_EXPECT_EQ(buf.front().value, 4);
+  HS_EXPECT_EQ(buf.back().value, 2);
+  HS_EXPECT_EQ(LifetimeCounted::constructed - base, 4);
+  HS_EXPECT_EQ(LifetimeCounted::destroyed, 4);
+}
+
 // ============================================================================
 // pop / pop_back / clear
 // ============================================================================
@@ -891,6 +984,8 @@ inline int run_static_circular_buffer_tests() {
   test_emplace_back_constructs_in_place();
   test_emplace_front_constructs_in_place();
   test_emplace_constructs_non_assignable_type();
+  test_emplace_back_eviction_rebuilds_slot();
+  test_emplace_front_eviction_rebuilds_slot();
 
   test_pop_removes_front();
   test_pop_back_removes_last();
