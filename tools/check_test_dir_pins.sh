@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Assert every Python test-suite directory in the tree has require and discover
-# lines in the CI workflow.
+# lines in both the CI workflow and the justfile.
 #
 # tools/require_test_files.sh proves a discovered suite is non-empty. It says
 # nothing about a suite the workflow never names: a new suite directory has no
@@ -12,20 +12,26 @@
 # parent directories, so one landing outside tools/*_tests -- as
 # hardware/phantasm/gen/tests already does -- is swept without a list to widen.
 #
+# The justfile enumerates the same suites for the documented local run, so
+# pinning the workflow alone lets the local and cloud gates cover different
+# sets. Both files are checked against the one sweep.
+#
 # usage: check_test_dir_pins.sh
 set -eu
 
-workflow=.github/workflows/ci.yml
+gates=".github/workflows/ci.yml justfile"
 
 if [ "$#" -ne 0 ]; then
   echo "usage: $0" >&2
   exit 2
 fi
 
-if [ ! -f "$workflow" ]; then
-  echo "$0: no $workflow -- run from the repository root" >&2
-  exit 2
-fi
+for gate in $gates; do
+  if [ ! -f "$gate" ]; then
+    echo "$0: no $gate -- run from the repository root" >&2
+    exit 2
+  fi
+done
 
 mapfile -t dirs < <(git ls-files -- '*/test*.py' | sed 's:/[^/]*$::' | sort -u)
 
@@ -39,14 +45,16 @@ for dir in "${dirs[@]}"; do
   # Anchor on the ERE-escaped directory: an unanchored discover match lets a
   # longer sibling (tools/foo_tests_extra) satisfy tools/foo_tests's pin.
   dir_re=$(printf '%s' "$dir" | sed 's|[^A-Za-z0-9_/-]|\\&|g')
-  if ! grep -qE "require_test_files\.sh .*${dir_re}/" "$workflow" \
-      || ! grep -qE "unittest discover -s ${dir_re}([[:space:]]|\$)" "$workflow"; then
-    unpinned+=("$dir")
-  fi
+  for gate in $gates; do
+    if ! grep -qE "require_test_files\.sh .*${dir_re}/" "$gate" \
+        || ! grep -qE "unittest discover -s ${dir_re}([[:space:]]|\$)" "$gate"; then
+      unpinned+=("$gate:$dir")
+    fi
+  done
 done
 
 if [ "${#unpinned[@]}" -ne 0 ]; then
-  echo "::error::no require_test_files.sh call in $workflow for: ${unpinned[*]} -- a suite the workflow never names runs nowhere. Add a require call and a discover step."
+  echo "::error::no require_test_files.sh call or discover step for: ${unpinned[*]} -- a suite a gate never names runs nowhere for it. Add a require call and a discover step."
   exit 1
 fi
-echo "$workflow discovers all ${#dirs[@]} test suite(s)."
+echo "$gates discover all ${#dirs[@]} test suite(s)."
