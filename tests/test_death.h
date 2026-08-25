@@ -3079,6 +3079,57 @@ inline void case_sdf_bind_class_lut_offset_out_of_range() {
 }
 
 /**
+ * @brief Death case: a ring wider than the antipode must trap.
+ * @details SDF ring surface — target_angle is radius * PI/2, so past 2 the
+ *          band's cosine limits wrap and the stroke lands at the wrong
+ *          latitude.
+ */
+inline void case_sdf_ring_radius_past_antipode() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  SDF::Ring ring(b, opaque(2.5f), opaque(0.05f));
+  if (ring.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a ring with a negative stroke half-width must trap.
+ * @details SDF ring surface — a negative thickness inverts the angular band,
+ *          so every probe returns the far sentinel and the ring renders
+ *          nothing.
+ */
+inline void case_sdf_ring_negative_thickness() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  SDF::Ring ring(b, opaque(1.0f), opaque(-0.05f));
+  if (ring.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a distorted ring wider than the antipode must trap.
+ * @details SDF ring surface — the shared ring geometry derives its band from
+ *          radius * PI/2, which past 2 wraps its cosine limits.
+ */
+inline void case_sdf_distorted_ring_radius_past_antipode() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  SDF::FlatDistortedRing ring(b, opaque(2.5f), opaque(0.05f));
+  if (ring.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a distorted ring with a negative half-width must trap.
+ * @details SDF ring surface — a negative thickness inverts the angular band,
+ *          so every probe returns the far sentinel and the ring renders
+ *          nothing.
+ */
+inline void case_sdf_distorted_ring_negative_thickness() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  SDF::FlatDistortedRing ring(b, opaque(0.5f), opaque(-0.05f));
+  if (ring.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a distorted ring built with a null shift callback must
  *        trap.
  * @details SDF ring surface — the callback is invoked per azimuth on every
@@ -3813,6 +3864,18 @@ inline const Case *all_cases(int &n) {
        "offset outside the face"},
       {"sdf_distorted_ring_null_shift", case_sdf_distorted_ring_null_shift,
        "rings.h", "(sf) DistortedRing: shift_fn must be non-null"},
+      {"sdf_ring_radius_past_antipode", case_sdf_ring_radius_past_antipode,
+       "rings.h",
+       "(radius >= 0.0f && radius <= 2.0f) Ring: radius outside [0, 2]"},
+      {"sdf_ring_negative_thickness", case_sdf_ring_negative_thickness,
+       "rings.h", "(thickness >= 0.0f) Ring: negative stroke half-width"},
+      {"sdf_distorted_ring_radius_past_antipode",
+       case_sdf_distorted_ring_radius_past_antipode, "rings.h",
+       "(radius >= 0.0f && radius <= 2.0f) DistortedRing: radius outside "
+       "[0, 2]"},
+      {"sdf_distorted_ring_negative_thickness",
+       case_sdf_distorted_ring_negative_thickness, "rings.h",
+       "(thickness >= 0.0f) DistortedRing: negative stroke half-width"},
       {"shader_workbench_empty_preset_view",
        case_shader_workbench_empty_preset_view, "ShaderWorkbench.h",
        "(!source_indices.empty()) set_fixed_preset_view: empty preset view"},

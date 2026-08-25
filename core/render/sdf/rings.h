@@ -54,6 +54,9 @@ struct Ring {
    */
   Ring(const Basis &b, float r, float th, float ph = 0)
       : basis(b), radius(r), thickness(th), phase(ph) {
+    HS_CHECK(radius >= 0.0f && radius <= 2.0f, "Ring: radius outside [0, 2]");
+    // A negative half-width inverts the band, culling every probe.
+    HS_CHECK(thickness >= 0.0f, "Ring: negative stroke half-width");
     normal = basis.v;
     u = basis.u;
     w = basis.w;
@@ -290,6 +293,10 @@ protected:
   DistortedRing(const Basis &b, float r, float th, float md, float ph)
       : basis(b), radius(r), thickness(th), thickness2(th * th),
         max_distortion(md), phase(ph) {
+    HS_CHECK(radius >= 0.0f && radius <= 2.0f,
+             "DistortedRing: radius outside [0, 2]");
+    // A negative half-width inverts the band, culling every probe.
+    HS_CHECK(thickness >= 0.0f, "DistortedRing: negative stroke half-width");
     normal = basis.v;
     u = basis.u;
     w = basis.w;
