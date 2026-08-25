@@ -1136,6 +1136,75 @@ inline void test_polygon_is_concave() {
 }
 
 /**
+ * @brief Cross-pins MeshOps::polygon_is_concave against the rasterizer's own
+ *        turn test over one registry mesh.
+ * @param islamic_idx Index into the islamic registry.
+ * @details The predicate and Face::build_half_planes carry separate copies of
+ *          the same relative-turn scan; a divergence would spend class-LUT
+ *          budget on faces the rasterizer serves from the convex fast path.
+ *          Runs the predicate over each face's own per-frame projection and
+ *          pins it against the verdict Face reached from the same vertices.
+ */
+inline void check_face_concavity_agrees(size_t islamic_idx) {
+  configure_arenas_default();
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+
+  MeshState mesh;
+  MeshOps::MeshClassBake bake;
+  build_islamic_bake(islamic_idx, seed_a, seed_b, geom, mesh, bake);
+
+  constexpr int H = 144;
+  const size_t F = mesh.num_faces();
+  const uint8_t *fc = mesh.get_face_counts_data();
+  const uint16_t *fi = mesh.get_faces_data();
+  const uint16_t *fo = mesh.get_face_offsets_data();
+  std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
+
+  static SDF::FaceScratchBuffer face_scratch;
+  std::vector<float> xy;
+  size_t checked = 0, concave_seen = 0;
+  for (size_t f = 0; f < F; ++f) {
+    SDF::Face face(verts, std::span<const uint16_t>(fi + fo[f], fc[f]),
+                   face_scratch, H + hs::H_OFFSET, H);
+    // A culled face never reached the turn test.
+    if (face.count == 0)
+      continue;
+    xy.clear();
+    for (int k = 0; k < face.count; ++k) {
+      xy.push_back(face.poly_2d[k].x);
+      xy.push_back(face.poly_2d[k].y);
+    }
+    const bool concave = MeshOps::polygon_is_concave(xy.data(), face.count);
+    HS_EXPECT_EQ(face.convex, !concave);
+    // The budget is spent per concave class, so a flagged class must hold no
+    // face the rasterizer serves convex. The converse does not hold: a corner
+    // turning within a hair of TURN_EPS_SQ reads convex on the class
+    // representative and concave on a congruent member's own projection.
+    const MeshOps::FaceClassRec &rec = bake.face_recs[f];
+    if (rec.class_id != MeshOps::NO_CLASS && bake.classes[rec.class_id].concave)
+      HS_EXPECT_FALSE(face.convex);
+    ++checked;
+    concave_seen += concave ? 1u : 0u;
+  }
+
+  // Both verdicts occur in the corpus, so agreement is not agreement on a
+  // constant.
+  HS_EXPECT_GT(checked, (size_t)0);
+  HS_EXPECT_GT(concave_seen, (size_t)0);
+  HS_EXPECT_GT(checked - concave_seen, (size_t)0);
+}
+
+/**
+ * @brief Cross-pins the two turn tests over several registry meshes.
+ */
+inline void test_face_concavity_agrees() {
+  for (size_t i = 0; i < 4; ++i)
+    check_face_concavity_agrees(i);
+}
+
+/**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
  */
@@ -1158,6 +1227,7 @@ inline int run_mesh_raster_tests() {
   test_class_lut_render_matches_exact();
   test_class_lut_render_matches_exact_rippled();
   test_polygon_is_concave();
+  test_face_concavity_agrees();
 
   return fixture.result();
 }
