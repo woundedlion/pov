@@ -1355,7 +1355,7 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
   for (size_t i = 0; i < I; ++i)
     out_mesh.faces.push_back(faces[i]);
 
-  {
+  if (iterations > 0) {
     ScratchScope temp_guard(temp);
 
     ArenaVector<Vector> movements;
