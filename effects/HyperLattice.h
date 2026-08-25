@@ -969,9 +969,8 @@ public:
   using ColorMode = HyperLatticeDetail::ColorMode;
   using ShellCount = HyperLatticeDetail::ShellCount;
 
-  static constexpr std::array<std::string_view, 5> PRESET_IDS{
-      "cubic-flight", "deep-grid", "dimensional-rift", "hypercube-flight",
-      "projected-hypercube"};
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{
+      "cubic-flight", "hypercube-flight"};
   static constexpr Segue::Lerp PRESET_SEGUE{240, ease_in_out_sin,
                                             /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
@@ -981,22 +980,6 @@ public:
     Params value;
     switch (index) {
     case 1:
-      value.wire_radius = 0.035f;
-      value.softness = 0.008f;
-      value.far_cells = 12.0f;
-      value.speed = 0.03f;
-      value.reflection = ReflectionMode::RADIAL;
-      value.shells = ShellCount::THREE;
-      break;
-    case 2:
-      value.mode = LatticeMode::DIMENSIONAL_RIFT;
-      value.wire_radius = 0.085f;
-      value.softness = 0.015f;
-      value.far_cells = 9.0f;
-      value.spin_4d = 0.004f;
-      value.color = ColorMode::AXIS;
-      break;
-    case 3:
       value.mode = LatticeMode::FOUR_D_SLICE;
       value.sphere_radius = 0.0f;
       value.wire_radius = 0.03546f;
@@ -1009,16 +992,6 @@ public:
       value.chrome_warp = 0.65f;
       value.reflection = ReflectionMode::CHROME;
       value.color = ColorMode::DEPTH;
-      value.shells = ShellCount::THREE;
-      break;
-    case 4:
-      value.mode = LatticeMode::FOUR_D_PROJECTED;
-      value.wire_radius = 0.075f;
-      value.softness = 0.012f;
-      value.far_cells = 10.0f;
-      value.speed = 0.024f;
-      value.spin_4d = 0.0041f;
-      value.color = ColorMode::AXIS;
       value.shells = ShellCount::THREE;
       break;
     default:
