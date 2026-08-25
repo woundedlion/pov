@@ -506,8 +506,8 @@ HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * @param op Operator name, interpolated into the trap message on failure.
  * @details The reuse overloads size their output pools from `mesh` and index
  * `mesh`'s vertices through `he_mesh`, so a pair from two different meshes
- * overruns both. Checks the census, the per-face side counts and the vertex
- * range. Runs only on the overload path: the single-shot entries build their
+ * overruns both. Checks the census, the per-face side counts, the vertex
+ * range and each loop's head vertices. Runs only on the overload path: the single-shot entries build their
  * own connectivity and satisfy this by construction.
  */
 HS_COLD static inline void
@@ -528,10 +528,27 @@ require_matching_half_edges(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
              op);
     face_offset += face_counts[fi];
   }
+  HS_CHECK(face_offset == he_mesh.half_edges.size(),
+           "MeshOps::%s: half-edge mesh census differs from the source mesh",
+           op);
+  // Each loop's head vertices are the source face's own indices, which a
+  // census and side-count match against a different mesh would still satisfy.
+  const uint16_t *faces = mesh.get_faces_data();
   const size_t num_verts = mesh.vertices.size();
-  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-    HS_CHECK(he_mesh.half_edges[i].vertex < num_verts,
-             "MeshOps::%s: half-edge mesh vertex outside the source mesh", op);
+  face_offset = 0;
+  for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
+    const size_t count = face_counts[fi];
+    for (size_t k = 0; k < count; ++k) {
+      const uint16_t head = he_mesh.half_edges[face_offset + k].vertex;
+      HS_CHECK(head < num_verts,
+               "MeshOps::%s: half-edge mesh vertex outside the source mesh",
+               op);
+      HS_CHECK(head == faces[face_offset + (k + 1) % count],
+               "MeshOps::%s: half-edge mesh loops different faces than the "
+               "source mesh",
+               op);
+    }
+    face_offset += count;
   }
 }
 
