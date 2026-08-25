@@ -32,14 +32,20 @@ function chunk(type, data) {
 }
 
 // Image with the given header pairing, every scanline filtered as None; `extra`
-// chunks are placed between IHDR and IDAT.
-function makeTypedPng(width, height, depth, colorType, channels, extra = []) {
+// chunks are placed between IHDR and IDAT. The options override the IHDR
+// method bytes and the inflated raster size.
+function makeTypedPng(width, height, depth, colorType, channels, extra = [],
+  { compression = 0, filter = 0, interlace = 0, rawBytes = null } = {}) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
   ihdr[8] = depth;
   ihdr[9] = colorType;
-  const raw = Buffer.alloc(height * (1 + Math.ceil(width * channels * depth / 8)));
+  ihdr[10] = compression;
+  ihdr[11] = filter;
+  ihdr[12] = interlace;
+  const raw = Buffer.alloc(rawBytes ?? height
+    * (1 + Math.ceil(width * channels * depth / 8)));
   return Buffer.concat([
     SIGNATURE,
     chunk('IHDR', ihdr),
@@ -129,6 +135,39 @@ test('a bit depth illegal for its color type is rejected', () => {
 test('a palette image with no PLTE chunk is rejected', () => {
   assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 3, 1)),
     /palette image has no PLTE chunk/);
+});
+
+test('an unknown compression method is rejected', () => {
+  assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 6, 4, [], { compression: 1 })),
+    /compression method 1 is not deflate/);
+});
+
+test('an unknown filter method is rejected', () => {
+  assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 6, 4, [], { filter: 1 })),
+    /filter method 1 is not the adaptive filter set/);
+});
+
+test('an interlace method that does not exist is rejected', () => {
+  assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 6, 4, [], { interlace: 2 })),
+    /interlace method 2 is neither none nor Adam7/);
+});
+
+// The Adam7 pass sizes for 5x3 RGBA8 are 5, 5, 0, 5, 13, 18 and 21 bytes.
+test('an interlaced image is size-checked against its Adam7 passes', () => {
+  assert.deepEqual(
+    inspectPng(makeTypedPng(5, 3, 8, 6, 4, [], { interlace: 1, rawBytes: 67 })),
+    { width: 5, height: 3 });
+  assert.throws(
+    () => inspectPng(makeTypedPng(5, 3, 8, 6, 4, [], { interlace: 1, rawBytes: 15 })),
+    /inflated pixel data is 15 bytes, expected 67/);
+});
+
+// The flat raster length is the module's strongest check; declaring interlace
+// must not switch it off.
+test('an interlaced header does not excuse a stub raster', () => {
+  assert.throws(
+    () => inspectPng(makeTypedPng(640, 539, 8, 6, 4, [], { interlace: 1, rawBytes: 4 })),
+    /inflated pixel data is 4 bytes/);
 });
 
 test('a palette image reports its dimensions once PLTE is present', () => {
