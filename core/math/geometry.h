@@ -104,14 +104,19 @@ inline int fast_wrap(int x, int W) {
  * @param x The value to wrap; must lie in [-W, 2*W).
  * @param W The modulo base (period length).
  * @return The wrapped value in the range [0, W).
+ * @details For tiny negative x, `x + period` rounds up to exactly `period`,
+ *   violating the half-open contract; the guard folds that boundary back to 0.
+ *   It sits inside the negative branch, leaving the in-range path untouched.
  */
 inline float fast_wrap(float x, int W) {
   const float period = static_cast<float>(W);
   assert(x >= -period && x < 2.0f * period);
   if (x >= period)
     return x - period;
-  if (x < 0.0f)
-    return x + period;
+  if (x < 0.0f) {
+    const float r = x + period;
+    return r >= period ? 0.0f : r;
+  }
   return x;
 }
 
