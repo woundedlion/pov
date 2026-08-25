@@ -93,7 +93,7 @@ def _capture(
         "schema_version": 1,
         "checkout_sha": checkout_sha,
         "manifest_sha256": digest,
-        "toolchain": crosscheck._expected_toolchain(programs, configuration),
+        "toolchain": crosscheck.expected_toolchain(programs, configuration),
         "configuration": configuration,
         "corpus": programs["corpus"],
         "oracle_metrics": [
