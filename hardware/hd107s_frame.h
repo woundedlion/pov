@@ -88,7 +88,7 @@ inline constexpr ChannelScale CANDLE{255, 147, 41};
  *                 needs ceil(N/2) extra clocks; at 8 clocks/byte that is
  *                 ceil(N/16) bytes. Padding adds harmless extra zero clocks.
  *
- * Color correction pipeline (packPixel() takes already-linear Pixel input):
+ * Color correction pipeline (pack_pixel() takes already-linear Pixel input):
  *   1. Color correction multiply       (TypicalLEDStrip equivalent)
  *   2. Temperature correction multiply (Candle equivalent)
  *   3. Brightness scaling
@@ -105,7 +105,7 @@ public:
   static constexpr int COMPOSITE_SIZE = BUFFER_SIZE * 2;
 
   // The whole composite buffer can be handed to a single DMA transfer
-  // (submitFrame(withBg=true) → transmitAsync(data(), COMPOSITE_SIZE)). Teensy
+  // (submit_frame(with_bg=true) → transmit_async(data(), COMPOSITE_SIZE)). Teensy
   // 4's eDMA encodes a transfer's major-loop count in the 15-bit CITER/BITER
   // field (minor-loop linking disabled), so one transfer tops out at 32767
   // bytes — past that the count silently truncates and the strip tail goes
@@ -125,7 +125,7 @@ public:
   HD107SFrame() {
     memset(buffer, 0, COMPOSITE_SIZE);
     // Prime the 0xFF brightness byte of every pixel slot in the image frame
-    // (base 4) and the trailing black frame (base BUFFER_SIZE+4). packPixel()
+    // (base 4) and the trailing black frame (base BUFFER_SIZE+4). pack_pixel()
     // never rewrites it, so this is its sole writer.
     const int bases[2] = {4, BUFFER_SIZE + 4};
     for (int base : bases) {
@@ -141,19 +141,19 @@ public:
    * @param r In/out red channel, already-linear 16-bit (0..65535).
    * @param g In/out green channel, already-linear 16-bit (0..65535).
    * @param b In/out blue channel, already-linear 16-bit (0..65535).
-   * @details Inline: packPixel() calls it on the per-column ISR hot path. No
+   * @details Inline: pack_pixel() calls it on the per-column ISR hot path. No
    *          output clamp needed — factor() caps every multiplier at 256 (×1.0),
    *          so each (v*f)>>8 with v ≤ 65535 stays inside linear_to_srgb8's
    *          16-bit input domain.
    */
   HS_O3_FN inline void correct(uint32_t &r, uint32_t &g, uint32_t &b) const {
-    r = (r * corrR) >> 8;
-    g = (g * corrG) >> 8;
-    b = (b * corrB) >> 8;
+    r = (r * corr_r) >> 8;
+    g = (g * corr_g) >> 8;
+    b = (b * corr_b) >> 8;
 
-    r = (r * tempR) >> 8;
-    g = (g * tempG) >> 8;
-    b = (b * tempB) >> 8;
+    r = (r * temp_r) >> 8;
+    g = (g * temp_g) >> 8;
+    b = (b * temp_b) >> 8;
 
     r = (r * brightness_gain) >> 8;
     g = (g * brightness_gain) >> 8;
@@ -172,7 +172,7 @@ public:
    *          space then converts to sRGB 8-bit in a single pass (no intermediate
    *          CRGB).
    */
-  HS_O3_FN inline void packPixel(int index, const Pixel &p) {
+  HS_O3_FN inline void pack_pixel(int index, const Pixel &p) {
     assert(index >= 0 && index < N);
     uint8_t *dest = buffer + 4 + index * 4;
 
@@ -188,7 +188,7 @@ public:
   }
 
   /**
-   * @brief Flushes data cache so DMA sees the buffer. Call after packPixel().
+   * @brief Flushes data cache so DMA sees the buffer. Call after pack_pixel().
    * @param bytes Length of the pending transfer, from the start of the
    *              composite buffer; must cover every byte the DMA engine reads.
    * @details Cleans without invalidating: the buffer is TX-only, so the lines
@@ -212,7 +212,7 @@ public:
    * @brief Returns the composite size including the trailing black frame.
    * @return Composite size in bytes (image frame + black frame, for strobe_columns DMA).
    */
-  constexpr size_t sizeWithBg() const { return COMPOSITE_SIZE; }
+  constexpr size_t size_with_bg() const { return COMPOSITE_SIZE; }
 
   // --- Static correction configuration (shared across all frames) -----------
 
@@ -222,10 +222,10 @@ public:
    * @param g Green temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
    * @param b Blue temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
    */
-  static void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
-    tempR = factor(r);
-    tempG = factor(g);
-    tempB = factor(b);
+  static void set_temperature(uint8_t r, uint8_t g, uint8_t b) {
+    temp_r = factor(r);
+    temp_g = factor(g);
+    temp_b = factor(b);
   }
 
   /**
@@ -234,17 +234,17 @@ public:
    * @param g Green correction factor, 8-bit scale (255 = ×1.0, 0 = off).
    * @param b Blue correction factor, 8-bit scale (255 = ×1.0, 0 = off).
    */
-  static void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
-    corrR = factor(r);
-    corrG = factor(g);
-    corrB = factor(b);
+  static void set_correction(uint8_t r, uint8_t g, uint8_t b) {
+    corr_r = factor(r);
+    corr_g = factor(g);
+    corr_b = factor(b);
   }
 
   /**
    * @brief Sets the global brightness factor (shared across frames).
    * @param brightness Brightness factor, 8-bit scale (255 = full, 0 = off).
    */
-  static void setBrightness(uint8_t brightness) {
+  static void set_brightness(uint8_t brightness) {
     brightness_gain = factor(brightness);
   }
 
@@ -269,16 +269,16 @@ private:
       "cannot grow v past 16 bits and overflow linear_to_srgb8's input");
 
   // Shared correction state — internal multipliers (256 = ×1.0, 0 = off).
-  static uint16_t tempR, tempG, tempB;
-  static uint16_t corrR, corrG, corrB;
+  static uint16_t temp_r, temp_g, temp_b;
+  static uint16_t corr_r, corr_g, corr_b;
   static uint16_t brightness_gain;
 };
 
 // Static member definitions (256 = unity; see factor()).
-template <int N> uint16_t HD107SFrame<N>::tempR = 256;
-template <int N> uint16_t HD107SFrame<N>::tempG = 256;
-template <int N> uint16_t HD107SFrame<N>::tempB = 256;
-template <int N> uint16_t HD107SFrame<N>::corrR = 256;
-template <int N> uint16_t HD107SFrame<N>::corrG = 256;
-template <int N> uint16_t HD107SFrame<N>::corrB = 256;
+template <int N> uint16_t HD107SFrame<N>::temp_r = 256;
+template <int N> uint16_t HD107SFrame<N>::temp_g = 256;
+template <int N> uint16_t HD107SFrame<N>::temp_b = 256;
+template <int N> uint16_t HD107SFrame<N>::corr_r = 256;
+template <int N> uint16_t HD107SFrame<N>::corr_g = 256;
+template <int N> uint16_t HD107SFrame<N>::corr_b = 256;
 template <int N> uint16_t HD107SFrame<N>::brightness_gain = 256;
