@@ -67,24 +67,42 @@ ZIP_EXCLUDED = {"phantasm-BOM.csv", "phantasm-CPL.csv",
 FAB_TIMESTAMP = "1980-01-01T00:00:00+00:00"
 FAB_DATE = "1980-01-01 00:00:00"
 
-#: KiCad's four export-time stamp forms: the Gerber X2 file attribute and its
-#: plain banner, the two Excellon header comments, and the job file's JSON
-#: field. Each substitution keeps the tool-version text so a toolchain upgrade
-#: still shows in the diff, and stops before the line ending: the Gerbers are
-#: CRLF and the Excellon files LF.
+#: KiCad's four export-time stamp forms, each tagged with the stamp kind it
+#: rewrites: the Gerber X2 file attribute and its plain banner, the two Excellon
+#: header comments, and the job file's JSON field. Each substitution keeps the
+#: tool-version text so a toolchain upgrade still shows in the diff, and stops
+#: before the line ending: the Gerbers are CRLF and the Excellon files LF.
 TIMESTAMP_SUBSTITUTIONS = (
-    (re.compile(r"^%TF\.CreationDate,[^\r\n]*\*%(?=\r?$)", re.M),
+    ("gerber attribute",
+     re.compile(r"^%TF\.CreationDate,[^\r\n]*\*%(?=\r?$)", re.M),
      f"%TF.CreationDate,{FAB_TIMESTAMP}*%"),
-    (re.compile(r"^(G04 Created by KiCad \([^\r\n]*\) date )[^\r\n]*\*(?=\r?$)",
+    ("gerber banner",
+     re.compile(r"^(G04 Created by KiCad \([^\r\n]*\) date )[^\r\n]*\*(?=\r?$)",
                 re.M),
      r"\g<1>" + FAB_DATE + "*"),
-    (re.compile(r"^(; DRILL file KiCad [^\r\n]* date )[^\r\n]*(?=\r?$)", re.M),
+    ("drill banner",
+     re.compile(r"^(; DRILL file KiCad [^\r\n]* date )[^\r\n]*(?=\r?$)", re.M),
      r"\g<1>" + FAB_TIMESTAMP),
-    (re.compile(r"^; #@! TF\.CreationDate,[^\r\n]*(?=\r?$)", re.M),
+    ("drill attribute",
+     re.compile(r"^; #@! TF\.CreationDate,[^\r\n]*(?=\r?$)", re.M),
      f"; #@! TF.CreationDate,{FAB_TIMESTAMP}"),
-    (re.compile(r'^([ \t]*"CreationDate": ")[^"\r\n]*(")', re.M),
+    ("job field",
+     re.compile(r'^([ \t]*"CreationDate": ")[^"\r\n]*(")', re.M),
      r"\g<1>" + FAB_TIMESTAMP + r"\g<2>"),
 )
+
+#: The stamp kinds each artifact type records, keyed by file extension. A Gerber
+#: carries the export time twice and so does a drill file, so the full set is
+#: required: a file that matches one form and misses the other would ship a live
+#: export time while reporting itself stamped.
+GERBER_STAMPS = frozenset({"gerber attribute", "gerber banner"})
+REQUIRED_STAMPS = {
+    extension: GERBER_STAMPS
+    for extension in {os.path.splitext(name)[1] for name in ZIP_MEMBERS}
+    - {".drl", ".gbrjob"}
+}
+REQUIRED_STAMPS[".drl"] = frozenset({"drill banner", "drill attribute"})
+REQUIRED_STAMPS[".gbrjob"] = frozenset({"job field"})
 
 
 class TimestampNormalizationError(ValueError):
@@ -99,14 +117,14 @@ def normalize_fab_timestamps(directory):
     re-run tells the reader nothing. The stamps are comments and metadata
     attributes; the copper is untouched.
 
-    Every artifact in the directory must carry a stamp one of
-    TIMESTAMP_SUBSTITUTIONS matches. One that cannot be decoded, or that a
-    KiCad banner respelling puts out of reach of every pattern, raises rather
-    than being skipped: matching nothing leaves the export times in place and
-    only shrinks the reported count.
+    Every artifact must carry the whole REQUIRED_STAMPS set for its type. One
+    that cannot be decoded, that is of no known type, or that a KiCad banner
+    respelling puts out of reach of one of its patterns raises rather than being
+    skipped: an unmatched form leaves that export time in place and only shrinks
+    the reported count.
     """
     stamped_names = []
-    unstamped = []
+    diagnostics = []
     for name in sorted(os.listdir(directory)):
         path = os.path.join(directory, name)
         try:
@@ -117,22 +135,28 @@ def normalize_fab_timestamps(directory):
                 f"cannot read exported artifact {path}: {exc}\n"
                 "  Its export stamp would ship unnormalized and every re-run "
                 "of an unchanged board would differ.") from exc
+        required = REQUIRED_STAMPS.get(os.path.splitext(name)[1])
+        if required is None:
+            diagnostics.append(f"{name}: not a known fab artifact type")
+            continue
         stamped = text
-        matches = 0
-        for pattern, replacement in TIMESTAMP_SUBSTITUTIONS:
+        matched = set()
+        for kind, pattern, replacement in TIMESTAMP_SUBSTITUTIONS:
             stamped, hits = pattern.subn(replacement, stamped)
-            matches += hits
-        if not matches:
-            unstamped.append(name)
+            if hits:
+                matched.add(kind)
+        if missing := sorted(required - matched):
+            diagnostics.append(
+                f"{name}: carries no " + " and no ".join(missing) + " stamp")
             continue
         if stamped != text:
             with open(path, "w", encoding="utf-8", newline="") as fh:
                 fh.write(stamped)
         stamped_names.append(name)
-    if unstamped:
+    if diagnostics:
         raise TimestampNormalizationError(
-            "exported fab artifacts carry no recognized creation stamp: "
-            + ", ".join(unstamped)
+            "exported fab artifacts miss a creation stamp their type records:"
+            "\n  " + "\n  ".join(diagnostics)
             + "\n  They would ship KiCad's export time and every re-run of an "
             "unchanged board would differ. Update TIMESTAMP_SUBSTITUTIONS to "
             "the current kicad-cli banner spellings.")

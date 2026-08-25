@@ -816,6 +816,29 @@ class TimestampNormalizationTests(unittest.TestCase):
         for name in sorted(path.name for path in directory.iterdir()):
             self.assertIn(name, str(caught.exception))
 
+    def test_a_gerber_carrying_only_one_of_its_two_stamps_is_loud(self):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        gerber = self.GERBER.format(stamp="2026-08-12T17:25:19",
+                                    date="2026-08-12 17:25:19")
+        (directory / "phantasm-F_Cu.gtl").write_bytes(
+            gerber.replace("G04 Created by KiCad", "G04 Made by KiCad").encode())
+        with self.assertRaisesRegex(fab.TimestampNormalizationError,
+                                    "gerber banner"):
+            fab.normalize_fab_timestamps(directory)
+
+    def test_an_unknown_artifact_type_is_loud(self):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        (directory / "phantasm-notes.txt").write_bytes(b"G04 gerber*\r\n")
+        with self.assertRaisesRegex(fab.TimestampNormalizationError,
+                                    "phantasm-notes.txt"):
+            fab.normalize_fab_timestamps(directory)
+
+    def test_every_zipped_artifact_type_states_its_stamps(self):
+        for name in sorted(fab.ZIP_MEMBERS):
+            with self.subTest(name=name):
+                self.assertTrue(
+                    fab.REQUIRED_STAMPS[os.path.splitext(name)[1]])
+
     def test_normalizing_an_already_stamped_export_stays_clean(self):
         directory, first = self.export("2026-08-12T17:25:19",
                                        "2026-08-12 17:25:19")
