@@ -2126,15 +2126,6 @@ private:
     };
   };
 
-  struct OuterCameraStateProvider {
-    using Binding = ShaderWorkbenchBinding;
-    using FrameState = typename Binding::FrameState;
-
-    static const Quaternion &conjugate(const FrameState &frame) {
-      return frame.transforms.outer_conj;
-    }
-  };
-
   struct ProjectionStateProvider {
     using Binding = ShaderWorkbenchBinding;
     using FrameState = typename Binding::FrameState;
@@ -4125,20 +4116,6 @@ private:
   }
 #endif
 
-  /**
-   * @brief Rescales a projection kernel's plane coordinates into a lookup.
-   * @param result Kernel output in the projection's native plane units.
-   * @param coordinate_scale Plane-unit scale; applied to the coordinates and,
-   *        as a magnitude, to the edge distance.
-   * @return The kernel result carried over with scaled coordinates and a
-   *         saturated value weight.
-   */
-  __attribute__((always_inline)) static Pullback::ProjectionResult
-  scaled_kernel_lookup(const projections::ProjectionKernelResult &result,
-                       float coordinate_scale) {
-    return Pullback::Projection::from_kernel(result, coordinate_scale);
-  }
-
   HS_FLASH_MEMBER static Pullback::ProjectionResult
   project_bonne(const Vector &local, const FrameState &frame) {
     return Pullback::Projection::bonne(
@@ -4803,32 +4780,6 @@ private:
         v, *frame.resources.surface_noise, frame.params.surface_noise.basis,
         frame.params.surface_noise.scale,
         frame.dynamic.surface_noise.loop_offset);
-  }
-
-  HS_FLASH_MEMBER static SurfaceNoiseResult
-  finish_surface_noise_step(const Vector &v, const Vector &step,
-                            const FrameState &frame) {
-    return Pullback::Surface::finish_step(v, step, tracks_displacement(frame));
-  }
-
-  HS_FLASH_MEMBER static SurfaceNoiseResult
-  apply_simplex_euler_surface_noise_result(const Vector &v,
-                                           const FrameState &frame) {
-    return Pullback::Surface::curl_noise(
-        v, *frame.resources.surface_noise, NoiseBasis::SIMPLEX,
-        Pullback::Surface::Integrator::EULER, frame.params.surface_noise.scale,
-        frame.dynamic.surface_noise.loop_offset,
-        frame.params.surface_noise.strength, tracks_displacement(frame));
-  }
-
-  HS_FLASH_MEMBER static SurfaceNoiseResult
-  midpoint_surface_curl_step(const Vector &v, float distance,
-                             const FrameState &frame) {
-    return Pullback::Surface::curl_midpoint_step(
-        v, *frame.resources.surface_noise, frame.params.surface_noise.basis,
-        frame.params.surface_noise.scale,
-        frame.dynamic.surface_noise.loop_offset, distance,
-        tracks_displacement(frame));
   }
 
   HS_FLASH_MEMBER static SurfaceNoiseResult
@@ -6258,8 +6209,6 @@ private:
   static constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
   static constexpr float WARP_COORD_LIMIT = 65536.0f;
   static constexpr float NOISE_LATTICE_LIMIT = 1048576.0f;
-  static constexpr float SPIRAL_ARMS = 3.0f;
-  static constexpr float ONE_BELOW_UNIT = 0x1.fffffep-1f;
   static constexpr uint32_t HUE_STEP =
       EffectPaletteRecipes::GeneratedPaletteBank::HUE_STEP;
   static constexpr size_t PARAM_CAPACITY = 80;
@@ -6689,12 +6638,6 @@ private:
       GnomonicHemispherePolicy::FOLDED,
       SurfaceNoise::DIRECT,
       SurfaceNoisePlacement::AFTER_LENS};
-  static constexpr Slots KALEIDOSCOPE_GENERATED_SURFACE_NOISE_SLOTS = [] {
-    Slots slots = GENERATED_SURFACE_NOISE_SLOTS;
-    slots.surface_lens = SurfaceLens::KALEIDOSCOPE;
-    return slots;
-  }();
-
   /** @brief Index of a warp parameter name in the per-position name tables. */
   enum WarpParamName : uint8_t {
     WARP_NAME_TRANSLATION_X,
@@ -6789,33 +6732,6 @@ private:
       return value;
     return value < 0.0f ? static_cast<float>(static_cast<int>(value - 0.5f))
                         : static_cast<float>(static_cast<int>(value + 0.5f));
-  }
-
-  static constexpr void
-  author_surface_noise(Params &params, const SourceParams &source,
-                       const WarpStageParams &legacy_warp) {
-    const float scale = legacy_warp.scale * 0.01f;
-    const float strength = legacy_warp.strength / 60.0f;
-    const float rate = source.speed * legacy_warp.speed / 65536.0f;
-    params.surface_noise.scale =
-        scale < LENS_NOISE_SCALE_MIN
-            ? LENS_NOISE_SCALE_MIN
-            : (scale > LENS_NOISE_SCALE_MAX ? LENS_NOISE_SCALE_MAX : scale);
-    params.surface_noise.strength =
-        strength < 0.0f ? 0.0f : (strength > 0.5f ? 0.5f : strength);
-    params.surface_noise.rate =
-        rate < NOISE_RATE_MIN ? NOISE_RATE_MIN
-                              : (rate > NOISE_RATE_MAX ? NOISE_RATE_MAX : rate);
-  }
-
-  static constexpr Params authored_surface_noise_params(
-      SourceParams source, WarpStageParams legacy_warp,
-      ProjectionParams projection, SurfaceLensParams surface_lens,
-      ColorParams color, OuterCameraParams outer_camera) {
-    Params params = authored_params(source, legacy_warp, projection,
-                                    surface_lens, color, outer_camera);
-    author_surface_noise(params, source, legacy_warp);
-    return params;
   }
 
   static constexpr Config wave_shear_generated_preset(
