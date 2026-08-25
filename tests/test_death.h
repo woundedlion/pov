@@ -798,6 +798,22 @@ inline void case_timeline_clear_hook_adds_event() {
   tl.clear();
 }
 
+/**
+ * @brief Death case: scheduling a segue sprite with no free timeline slot must
+ *        trap.
+ * @details Animation surface — every segue policy's schedule() returns the next
+ *          transition's delay whether or not its sprite landed, so a dropped add
+ *          leaves the sphere dark for a whole transition while the effect
+ *          advances on schedule. The budget guard traps at the schedule.
+ */
+inline void case_segue_sprite_no_slot() {
+  Timeline tl;
+  float sink = 0.0f;
+  while (Timeline::remaining() > 0)
+    tl.add(0, Animation::Transition(sink, 1.0f, 1000, ease_linear));
+  Segue::schedule_faded_sprite(tl, [](Canvas &, float) {}, 4, 1);
+}
+
 /** @brief Death case: a segue must target the already-flipped front slot. */
 inline void case_mesh_carousel_unflipped_slot() {
   Timeline tl;
@@ -3831,6 +3847,9 @@ inline const Case *all_cases(int &n) {
        "timeline.h",
        "(global_timeline_num_events == event_count) clear hook added or "
        "removed timeline events"},
+      {"segue_sprite_no_slot", case_segue_sprite_no_slot, "segue.h",
+       "(Timeline::remaining() >= 1) segue: the transition sprite needs a free "
+       "timeline slot"},
       {"mesh_carousel_unflipped_slot", case_mesh_carousel_unflipped_slot,
        "carousel.h",
        "(slot == front) MeshCarousel segue scheduled before incoming slot "
