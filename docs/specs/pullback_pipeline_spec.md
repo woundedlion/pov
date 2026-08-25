@@ -641,7 +641,7 @@ one public wrapper:
 
 ```cpp
 namespace Pullback::Stage {
-template <CodeEmission EmissionV, typename StageImplementationT>
+template <CodeEmission EmissionV, typename... Stages>
 struct Placed;
 }
 ```
@@ -651,8 +651,8 @@ struct Placed;
 `Placed` forwards the complete stage contract, sets `EMISSION = EmissionV`, and
 defines the public `run` through an enum-specialized entry: `always_inline` for
 `INLINE_ONLY`, `HS_FLASH_MEMBER` for `OUT_OF_LINE_FLASH`, and
-`FASTRUN HS_NOINLINE_NOCLONE` for `OUT_OF_LINE_ITCM`. The wrapped implementation
-is inlined into that entry. Metadata that disagrees with actual placement is
+`FASTRUN HS_NOINLINE_NOCLONE` for `OUT_OF_LINE_ITCM`. The wrapped stage run is
+inlined into that entry. Metadata that disagrees with actual placement is
 therefore not representable. ShaderWorkbench uses `Placed` only where the baseline
 stage is not inline, and supplies the exact baseline enum during migration.
 
@@ -888,7 +888,7 @@ spiral, and grid/coupled-grid consume the existing stereographically
 conditioned coordinate. Projected noise contour, spherical noise contour, and
 primitive lattice do not. The compiled types encode the appropriate
 conditioning; a source that consumes raw or spherical coordinates does not pay
-for it. Direct dynamic/core comparisons cover all seven source enumerators.
+for it. Direct dynamic/core comparisons cover all ten source enumerators.
 Source phase and prepared trigonometric state come through providers. Source
 policies own no clocks.
 
@@ -1165,7 +1165,7 @@ conditional `Pipeline::implements(key)` contract and the unchanged manifest
 
 The manifest still binds `&Program::shade` or a placement-specific wrapper to
 the existing `Color4 (*)(const Vector&, const FrameState&)` ABI. It keeps the
-same 11 rows, IDs, keys, and topology/precondition/resource checks.
+same 15 rows, IDs, keys, and topology/precondition/resource checks.
 
 ### 9.4 Dynamic/reference backend
 
@@ -1296,7 +1296,7 @@ The existing `tests/test_shader_workbench.h` suite is updated, not weakened. It 
   inner slots;
 - dynamic/reference dispatch and compiled policies calling identical core
   operator entry points;
-- all 11 program keys, selection IDs, continuous preconditions, resource
+- all 15 program keys, selection IDs, continuous preconditions, resource
   readiness, rejection, and transition endpoints unchanged;
 - stage-boundary comparison for every public carrier;
 - seam, singularity, region, component, parity, and edge metadata coverage;
