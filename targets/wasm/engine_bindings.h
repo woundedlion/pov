@@ -136,9 +136,10 @@ static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
  *          The preset selectors (selectPreset(), synchronizePreset(),
  *          nextPreset(), previousPreset()) keep a bare bool on purpose: they
  *          have one success and no distinguishable failures. Every rejection —
- *          no effect installed, no presets, index out of range — leaves the
- *          preset index, parameter values and pause state exactly as they were,
- *          so the caller's response is the same in all three; and the pair the
+ *          no effect installed, no presets, index malformed or out of range —
+ *          leaves the preset index, parameter values and pause state exactly as
+ *          they were, so the caller's response is the same for each; and the
+ *          pair the
  *          caller would need to tell them apart is already exposed as data by
  *          getPresetCount() and getPresetIndex(). An enum here would name
  *          states the neighbouring getters report better.
@@ -671,25 +672,31 @@ public:
       return false;
     for (size_t index = 0; index < current_effect->getPresetCount(); ++index)
       if (current_factory_entry->preset_id(index) == preset_id)
-        return selectPreset(static_cast<uint32_t>(index));
+        return selectPreset(static_cast<double>(index));
     return false;
   }
 
   /**
    * @brief Selects one preset and freezes the effect's parameter animations.
-   * @param index Preset to select, in [0, getPresetCount()).
+   * @param index Preset to select, in [0, getPresetCount()). Must be integral;
+   *        a fractional, NaN or out-of-range number is rejected.
    * @return true when the preset was applied; false when no effect is set, the
-   *         index is out of range, or the effect refused the preset.
+   *         index is malformed or out of range, or the effect refused the
+   *         preset.
    * @details Engages the animation pause exactly as setAnimationsPaused(true)
    *          would, so the selected preset's values are not immediately
    *          overwritten by the animation — the manual-navigation counterpart
    *          to synchronizePreset(), which leaves the pause alone. The pause is
    *          retained across setEffect(), so a caller mirroring it reads it
    *          back through getAnimationsPaused(). Parameter values move with the
-   *          preset; re-read them via getParamValues().
+   *          preset; re-read them via getParamValues(). The index arrives as a
+   *          double: a uint32_t embind parameter coerces NaN, negative and
+   *          past-2^32 JS numbers to 0 with no range check in a release build,
+   *          pinning the effect to preset 0 under a true result.
    */
-  bool selectPreset(uint32_t index) {
-    if (!current_effect || !current_effect->selectPreset(index))
+  bool selectPreset(double index) {
+    if (!current_effect || !preset_index_accepted(index, "selectPreset") ||
+        !current_effect->selectPreset(static_cast<size_t>(index)))
       return false;
     animations_paused = current_effect->animations_paused();
     return true;
@@ -697,17 +704,20 @@ public:
 
   /**
    * @brief Selects one preset without touching the animation pause state.
-   * @param index Preset to select, in [0, getPresetCount()).
+   * @param index Preset to select, in [0, getPresetCount()). Must be integral;
+   *        a fractional, NaN or out-of-range number is rejected.
    * @return true when the preset is the active one already or was applied;
-   *         false when no effect is set, the index is out of range, or the
-   *         effect refused the preset.
+   *         false when no effect is set, the index is malformed or out of
+   *         range, or the effect refused the preset.
    * @details The call a GUI uses to follow engine-driven preset advancement:
    *          selectPreset() would freeze the choreography it is trying to
    *          mirror, this one leaves it running. A request for the active index
-   *          is a success no-op.
+   *          is a success no-op. The index arrives as a double for the reason
+   *          selectPreset() gives.
    */
-  bool synchronizePreset(uint32_t index) {
-    if (!current_effect || !current_effect->synchronizePreset(index))
+  bool synchronizePreset(double index) {
+    if (!current_effect || !preset_index_accepted(index, "synchronizePreset") ||
+        !current_effect->synchronizePreset(static_cast<size_t>(index)))
       return false;
     animations_paused = current_effect->animations_paused();
     return true;
@@ -1233,6 +1243,21 @@ public:
   }
 
 private:
+  /**
+   * @brief Range-checks a preset index arriving from the untyped JS boundary.
+   * @param index Requested index, as the double the binding takes.
+   * @param call Entry-point name for the rejection log.
+   * @return true iff the index is integral and inside the effect's roster.
+   * @details Rejects and logs rather than trapping, since a trap at the JS
+   *          boundary aborts the whole WASM module. Requires a live effect.
+   */
+  bool preset_index_accepted(double index, const char *call) const {
+    if (hs_wasm::preset_index_valid(index, current_effect->getPresetCount()))
+      return true;
+    hs::log("WASM: %s index out of range (%g) — ignored", call, index);
+    return false;
+  }
+
   /**
    * @brief Runs a callback on the live effect iff it is the Shader workbench.
    * @param callback Templated callable receiving the shader workbench backend.

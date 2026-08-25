@@ -81,6 +81,35 @@ inline void test_clip_bounds() {
 }
 
 /**
+ * @brief Exercises preset_index_valid across in-range and malformed indices.
+ */
+inline void test_preset_index_valid() {
+  constexpr size_t COUNT = 8;
+
+  // Every in-roster index is accepted, both endpoints included.
+  HS_EXPECT_TRUE(hs_wasm::preset_index_valid(0, COUNT));
+  HS_EXPECT_TRUE(hs_wasm::preset_index_valid(COUNT - 1, COUNT));
+
+  // Past the roster and negative are rejected.
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(COUNT, COUNT));
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(-1, COUNT));
+  // An effect with no presets accepts nothing.
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(0, 0));
+
+  // Fractional indices are rejected rather than truncated onto a neighbour.
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(1.5, COUNT));
+  // NaN and infinities are rejected; a uint32_t parameter would coerce them to
+  // 0 and select preset 0 under a true result.
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(NAN, COUNT));
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(INFINITY, COUNT));
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(-INFINITY, COUNT));
+  // Indices past the 32-bit range are rejected, not wrapped into the roster.
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(4294967296.0, COUNT));
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(4294967299.0, COUNT));
+  HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(1e300, COUNT));
+}
+
+/**
  * @brief Exercises clamp_relax_iterations across negative, in-range, and over.
  */
 inline void test_relax_clamp() {
@@ -514,6 +543,7 @@ inline int run_wasm_predicates_tests() {
   hs_test::ModuleFixture fixture("wasm_predicates");
   test_pole_lod_clamp();
   test_clip_bounds();
+  test_preset_index_valid();
   test_relax_clamp();
   test_unit_fraction_clamp();
   test_half_open_fraction_clamp();
