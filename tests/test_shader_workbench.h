@@ -2283,7 +2283,11 @@ inline void test_shader_workbench_preset_bank() {
       0,          0,          0,          6,          1034147594, 1017370378,
       0,          1056964608, 8,          0,          3209481421, 1042267767,
       1082130432, 1065353216, 1025758986, 1017370378, 0};
-  HS_EXPECT_TRUE(WB::encode_config(mobius_grid) == MOBIUS_GRID_EXPECTED);
+  const auto mobius_grid_encoded = WB::encode_config(mobius_grid);
+  for (size_t index = 0; index < MOBIUS_GRID_EXPECTED.size(); ++index) {
+    HS_CONTEXT("mobius grid field", static_cast<long long>(index));
+    HS_EXPECT_EQ(mobius_grid_encoded[index], MOBIUS_GRID_EXPECTED[index]);
+  }
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.scale, 0.1f);
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.speed, 0.5f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.scale, 0.1f);
