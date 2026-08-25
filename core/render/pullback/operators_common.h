@@ -151,6 +151,35 @@ inline float projection_coverage(uint8_t coverage_mode,
   return ProjectionCoverage::Weight::apply(provenance, ctx);
 }
 
+/**
+ * @brief The Sample crossing's shared weight and coverage enum8s, followed by
+ *        any family-specific topology fields in @p extra.
+ */
+template <typename Params, typename... Extra>
+constexpr std::array<TopologyField<Params>, 2 + sizeof...(Extra)>
+sample_crossing_topology(uint8_t Params::*weight_mode,
+                         uint8_t Params::*coverage_mode,
+                         const Extra &...extra) {
+  return {TopologyField<Params>{"weight-mode", weight_mode, WEIGHT_MODE_IDS, 2,
+                                static_cast<uint8_t>(WeightMode::PROJECTION)},
+          TopologyField<Params>{
+              "coverage-mode", coverage_mode, COVERAGE_MODE_IDS, 4,
+              static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
+          extra...};
+}
+
+/** @brief Builds the field carrier from a raw source value under the family's
+    weight and coverage enum8s. */
+template <typename Params>
+__attribute__((always_inline)) inline FieldSample
+finish_sample(const PlaneSample &input, float raw, const Params &params,
+              const FrameContext &ctx) {
+  return Kernel::sample(
+      input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
+      projection_coverage(params.coverage_mode, input.provenance,
+                          params.edge_width, ctx));
+}
+
 } // namespace Op
 
 } // namespace Interp

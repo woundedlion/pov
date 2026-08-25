@@ -34,14 +34,8 @@ struct GridSampleParams : Source::GridSourceParams {
   static constexpr auto FIELDS = concat_fields<GridSampleParams>(
       Source::GridSourceParams::FIELDS,
       std::array{edge_width_field(&GridSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<GridSampleParams>{
-          "weight-mode", &GridSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
-          static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<GridSampleParams>{
-          "coverage-mode", &GridSampleParams::coverage_mode, COVERAGE_MODE_IDS,
-          4, static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
-  };
+  static constexpr auto TOPOLOGY = sample_crossing_topology(
+      &GridSampleParams::weight_mode, &GridSampleParams::coverage_mode);
 };
 static_assert(field_ids_unique<GridSampleParams>());
 
@@ -71,10 +65,7 @@ struct SampleGrid : ValueStateModel<SourceClockState> {
     const float raw = Source::grid(
         stereo_pattern_args(input.coords, params.pattern_freq),
         static_cast<const Source::GridSourceParams &>(params), prepared);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        projection_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return finish_sample(input, raw, params, ctx);
   }
 };
 
@@ -88,15 +79,8 @@ struct TwinWaveSampleParams : Source::TwinWaveSourceParams {
   static constexpr auto FIELDS = concat_fields<TwinWaveSampleParams>(
       Source::TwinWaveSourceParams::FIELDS,
       std::array{edge_width_field(&TwinWaveSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<TwinWaveSampleParams>{
-          "weight-mode", &TwinWaveSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
-          static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<TwinWaveSampleParams>{
-          "coverage-mode", &TwinWaveSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4,
-          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
-  };
+  static constexpr auto TOPOLOGY = sample_crossing_topology(
+      &TwinWaveSampleParams::weight_mode, &TwinWaveSampleParams::coverage_mode);
 };
 static_assert(field_ids_unique<TwinWaveSampleParams>());
 
@@ -124,10 +108,7 @@ struct SampleTwinWave : ValueStateModel<SourceClockState> {
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::twin_wave(
         stereo_pattern_args(input.coords, params.pattern_freq), prepared);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        projection_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return finish_sample(input, raw, params, ctx);
   }
 };
 
@@ -147,14 +128,8 @@ struct RingsSampleParams {
                                0.0f, 0.5f, FieldCurve::LERP},
       edge_width_field(&RingsSampleParams::edge_width),
   };
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<RingsSampleParams>{
-          "weight-mode", &RingsSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
-          static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<RingsSampleParams>{
-          "coverage-mode", &RingsSampleParams::coverage_mode, COVERAGE_MODE_IDS,
-          4, static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
-  };
+  static constexpr auto TOPOLOGY = sample_crossing_topology(
+      &RingsSampleParams::weight_mode, &RingsSampleParams::coverage_mode);
 };
 static_assert(field_ids_unique<RingsSampleParams>());
 
@@ -179,10 +154,7 @@ struct SampleRings : ValueStateModel<SourceClockState> {
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::rings(
         stereo_pattern_args(input.coords, params.pattern_freq), prepared);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        projection_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return finish_sample(input, raw, params, ctx);
   }
 };
 
@@ -242,15 +214,8 @@ struct SpiralSampleParams : Source::SpiralSourceParams {
   static constexpr auto FIELDS = concat_fields<SpiralSampleParams>(
       Source::SpiralSourceParams::FIELDS,
       std::array{edge_width_field(&SpiralSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<SpiralSampleParams>{
-          "weight-mode", &SpiralSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
-          static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<SpiralSampleParams>{
-          "coverage-mode", &SpiralSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4,
-          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
-  };
+  static constexpr auto TOPOLOGY = sample_crossing_topology(
+      &SpiralSampleParams::weight_mode, &SpiralSampleParams::coverage_mode);
 };
 static_assert(field_ids_unique<SpiralSampleParams>());
 
@@ -276,10 +241,7 @@ struct SampleSpiral : ValueStateModel<SourceClockState> {
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::spiral(
         stereo_pattern_args(input.coords, params.pattern_freq), prepared);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        projection_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return finish_sample(input, raw, params, ctx);
   }
 };
 
@@ -293,15 +255,8 @@ struct LatticeSampleParams : Source::LatticeSourceParams {
   static constexpr auto FIELDS = concat_fields<LatticeSampleParams>(
       Source::LatticeSourceParams::FIELDS,
       std::array{edge_width_field(&LatticeSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<LatticeSampleParams>{
-          "weight-mode", &LatticeSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
-          static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<LatticeSampleParams>{
-          "coverage-mode", &LatticeSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4,
-          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
-  };
+  static constexpr auto TOPOLOGY = sample_crossing_topology(
+      &LatticeSampleParams::weight_mode, &LatticeSampleParams::coverage_mode);
 };
 static_assert(field_ids_unique<LatticeSampleParams>());
 
@@ -323,10 +278,7 @@ struct SampleLattice : StatelessModel {
                          const Params &params, const Prepared &) {
     const float raw = Source::primitive_lattice(
         input.coords, static_cast<const Source::LatticeSourceParams &>(params));
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        projection_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return finish_sample(input, raw, params, ctx);
   }
 };
 
@@ -340,15 +292,8 @@ struct FractalSampleParams : Source::FractalSourceParams {
   static constexpr auto FIELDS = concat_fields<FractalSampleParams>(
       Source::FractalSourceParams::FIELDS,
       std::array{edge_width_field(&FractalSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<FractalSampleParams>{
-          "weight-mode", &FractalSampleParams::weight_mode, WEIGHT_MODE_IDS, 2,
-          static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<FractalSampleParams>{
-          "coverage-mode", &FractalSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4,
-          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
-  };
+  static constexpr auto TOPOLOGY = sample_crossing_topology(
+      &FractalSampleParams::weight_mode, &FractalSampleParams::coverage_mode);
 };
 static_assert(field_ids_unique<FractalSampleParams>());
 
@@ -375,10 +320,7 @@ struct SampleFractal : ValueStateModel<SourceClockState> {
     const float raw = Source::escape_fractal(
         input.coords, static_cast<const Source::FractalSourceParams &>(params),
         prepared);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        projection_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return finish_sample(input, raw, params, ctx);
   }
 };
 
@@ -396,18 +338,12 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
   static constexpr auto FIELDS = concat_fields<TessellationSampleParams>(
       Source::TessellationSourceParams::FIELDS,
       std::array{edge_width_field(&TessellationSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<TessellationSampleParams>{
-          "weight-mode", &TessellationSampleParams::weight_mode,
-          WEIGHT_MODE_IDS, 2, static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<TessellationSampleParams>{
-          "coverage-mode", &TessellationSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4,
-          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
+  static constexpr auto TOPOLOGY = sample_crossing_topology(
+      &TessellationSampleParams::weight_mode,
+      &TessellationSampleParams::coverage_mode,
       TopologyField<TessellationSampleParams>{
           "kind", &TessellationSampleParams::kind, TESSELLATION_KIND_IDS, 3,
-          static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)},
-  };
+          static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)});
 };
 static_assert(field_ids_unique<TessellationSampleParams>());
 
@@ -434,10 +370,7 @@ struct SampleTessellation : ValueStateModel<SourceClockState> {
         input.coords,
         static_cast<const Source::TessellationSourceParams &>(params),
         static_cast<Source::TessellationKind>(params.kind), prepared);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        projection_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return finish_sample(input, raw, params, ctx);
   }
 };
 
@@ -452,18 +385,12 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
   static constexpr auto FIELDS = concat_fields<ProjectedNoiseSampleParams>(
       Source::NoiseSourceParams::FIELDS,
       std::array{edge_width_field(&ProjectedNoiseSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<ProjectedNoiseSampleParams>{
-          "weight-mode", &ProjectedNoiseSampleParams::weight_mode,
-          WEIGHT_MODE_IDS, 2, static_cast<uint8_t>(WeightMode::PROJECTION)},
-      TopologyField<ProjectedNoiseSampleParams>{
-          "coverage-mode", &ProjectedNoiseSampleParams::coverage_mode,
-          COVERAGE_MODE_IDS, 4,
-          static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
+  static constexpr auto TOPOLOGY = sample_crossing_topology(
+      &ProjectedNoiseSampleParams::weight_mode,
+      &ProjectedNoiseSampleParams::coverage_mode,
       TopologyField<ProjectedNoiseSampleParams>{
           "basis", &ProjectedNoiseSampleParams::basis, NOISE_BASIS_IDS, 3,
-          static_cast<uint8_t>(::NoiseBasis::SIMPLEX)},
-  };
+          static_cast<uint8_t>(::NoiseBasis::SIMPLEX)});
 };
 static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
 
@@ -510,10 +437,7 @@ struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
         noise_projected_coordinate(input.coords, params.noise_scale,
                                    prepared.time),
         params.noise_contrast);
-    return Kernel::sample(
-        input, weighted_field(params.weight_mode, raw, input.provenance, ctx),
-        projection_coverage(params.coverage_mode, input.provenance,
-                            params.edge_width, ctx));
+    return finish_sample(input, raw, params, ctx);
   }
 };
 
