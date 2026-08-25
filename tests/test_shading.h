@@ -293,14 +293,23 @@ inline void test_shade_mesh_topology_direct() {
 
 /**
  * @brief Verifies FacePaletteShader's rendering defaults and edge-depth lookup.
+ * @details A gradient palette makes the lookup visible: `scale` multiplies the
+ *          inward depth `-v1`, a depth past the far end clamps to t=1, and an
+ *          outward (positive v1) fragment clamps to t=0.
  */
 inline void test_face_palette_shader_defaults() {
-  SolidColorPalette source(Color4(Pixel(1000, 2000, 3000), 1.0f));
+  Gradient source({{0.0f, CPixel(0, 0, 0)}, {1.0f, CPixel(255, 255, 255)}});
   alignas(std::max_align_t) static uint8_t
       buffer[BakedPalette::required_arena_bytes()];
   Arena arena(buffer, sizeof(buffer));
   BakedPalette palette;
   palette.bake(arena, source);
+
+  const Pixel dark = palette.get_color_unit(0.0f);
+  const Pixel mid = palette.get_color_unit(0.5f);
+  const Pixel light = palette.get_color_unit(1.0f);
+  HS_EXPECT_LT(dark.r, mid.r);
+  HS_EXPECT_LT(mid.r, light.r);
 
   FacePaletteShader shader;
   shader.set_palette(&palette);
@@ -308,10 +317,26 @@ inline void test_face_palette_shader_defaults() {
   fragment.v1 = -0.5f;
   shader(Vector(), fragment);
 
-  HS_EXPECT_EQ(fragment.color.color.r, 1000);
-  HS_EXPECT_EQ(fragment.color.color.g, 2000);
-  HS_EXPECT_EQ(fragment.color.color.b, 3000);
+  HS_EXPECT_EQ(fragment.color.color.r, mid.r);
+  HS_EXPECT_EQ(fragment.color.color.g, mid.g);
+  HS_EXPECT_EQ(fragment.color.color.b, mid.b);
   HS_EXPECT_NEAR(fragment.color.alpha, 1.0f, 1e-6f);
+
+  // Half the depth at twice the scale samples the same entry.
+  shader.scale = 2.0f;
+  shader.alpha = 0.25f;
+  fragment.v1 = -0.25f;
+  shader(Vector(), fragment);
+  HS_EXPECT_EQ(fragment.color.color.r, mid.r);
+  HS_EXPECT_NEAR(fragment.color.alpha, 0.25f, 1e-6f);
+
+  fragment.v1 = -3.0f;
+  shader(Vector(), fragment);
+  HS_EXPECT_EQ(fragment.color.color.r, light.r);
+
+  fragment.v1 = 0.5f;
+  shader(Vector(), fragment);
+  HS_EXPECT_EQ(fragment.color.color.r, dark.r);
 }
 
 /**
