@@ -661,6 +661,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── solids-probe.mjs        Headless pointer-level probe of the solids page's op-chain row reordering
 │   ├── palettes-probe.mjs      Headless pointer-level probe of the palette page's strip zoom and hue-key wheel
 │   ├── mobius-probe.mjs        Headless pointer-level probe of the Möbius page's complex-plane pads
+│   ├── lissajous-probe.mjs     Headless pointer-level probe of the Lissajous page's rational frequency lock and the domain it drives
 │   └── run-tests.mjs           `test` script: runs the suite and checks first-party module reachability
 │
 ├── tests/                      Node unit tests (`npm test`)
