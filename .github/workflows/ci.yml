@@ -63,7 +63,7 @@ jobs:
             test_exclude: *generated_exclude
           - &shard3_entry
             shard: 3
-            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|effects_smoke|effect_factory|shader_workbench|lattice_melt|kaleidoscope_smooth|composed_effect|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
+            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|mindsplatter|effects_smoke|effect_factory|shader_workbench|lattice_melt|kaleidoscope_smooth|composed_effect|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
             test_exclude: *generated_exclude
             effects_full: 1
           - &shard4_entry
@@ -420,6 +420,10 @@ jobs:
             # same binary — runs here even though unit_effects does not. That is
             # the whole effect roster's cover under the flag pair both shipping
             # targets build with.
+            # unit_mindsplatter is the MindSplatter white-box block split
+            # out of unit_effects; its framebuffer parities and geometry
+            # replay are the IEEE-sensitive checks, so it is excluded on the
+            # same grounds.
             # unit_shapeshifter_tiles is the mirror case: a mosaic of clipped
             # renders equals the unclipped frame only under IEEE, so it is split
             # out of unit_shapeshifter_oracle and only the split-off module is
@@ -433,7 +437,7 @@ jobs:
             # runs this module at -O2 under IEEE.
             # unit_pullback_capture_determinism selects the native-debug oracle;
             # the Debug and optimized IEEE jobs cover that configuration.
-            test_exclude: "^unit_(3dmath|sdf|effects|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|shader_workbench|pullback_capture_determinism|pov_sync|color_luts|color_luts_check|gamut_lut)$"
+            test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|shader_workbench|pullback_capture_determinism|pov_sync|color_luts|color_luts_check|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1
     # The `tests` preset pins Debug, and the jobs above all reuse it, so every
     # assertion in the suite runs at -O0: UB the optimizer acts on, and FP

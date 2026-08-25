@@ -309,7 +309,7 @@ set(_hs_test_modules
     pullback shader_chain filter
     plot_scan canvas
     scan mesh_raster transformers noise noise_field projections
-    animation effects
+    animation effects mindsplatter
     effects_smoke effect_factory shader_workbench lattice_melt kaleidoscope_smooth
     composed_effect
     shapeshifter_oracle shapeshifter_tiles dma_core hd107s
