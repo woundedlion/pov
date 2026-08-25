@@ -862,8 +862,10 @@ private:
         if constexpr (Head::is_terminal) {
           Head::flush(cv, alpha);
         } else {
-          Head::flush(cv, trailFn, alpha,
-                      [&](auto... args) { next.plot(cv, args...); });
+          Head::flush(
+              cv, trailFn, alpha,
+              [&](float nx, float ny, const ::Pixel &nc, float nage,
+                  float nalpha) { next.plot(cv, nx, ny, nc, nage, nalpha); });
         }
       }
     }
@@ -895,7 +897,8 @@ private:
     if constexpr (Head::has_history) {
       if constexpr (!Head::is_2d) {
         Head::flush(trailFn, alpha,
-                    [&](auto... args) { next.plot(cv, args...); });
+                    [&](const Vector &nv, const ::Pixel &nc, float nage,
+                        float nalpha) { next.plot(cv, nv, nc, nage, nalpha); });
       }
     }
     next.flush_stages(cv, trailFn, alpha);
