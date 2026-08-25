@@ -18,7 +18,7 @@ count after the peak.
 | [Raymarch](profile_raymarch_teensy_2026-07-25.md) | volume ray-march | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-23.md) ● | composed curl-noise shader | 🟢 52.39 | 🟢 0/1088 (0%) | 2026-08-23 22:04 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🟢 49.67 (2) | 🟢 0/2688 (0%) | 2026-08-25 01:12 |
+| [HyperLattice](profile_hyperlattice_teensy_2026-08-25.md)§ | layered reflected-lattice shader | 🟢 49.67 (2) | 🟢 0/2688 (0%) | 2026-08-25 01:12 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
 | [LatticeMelt](profile_latticemelt_teensy_2026-08-18.md)§ ● | curl-noise surface lattice | 🟢 45.18 (2) | 🟢 0/1728 (0%) | 2026-08-18 17:46 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
