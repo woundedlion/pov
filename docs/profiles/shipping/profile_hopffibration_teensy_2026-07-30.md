@@ -23,7 +23,7 @@ capture-to-capture spread.
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | HopfFibration 288×144, single-entry playlist, tip `d6147b06` |
 | Method | `HS_PROFILE` cycle scopes, window = 32 frames, 70 s capture, default 120 s epoch (no straddle windows) |
-| Reproduce | `just profile HopfFibration` |
+| Reproduce | `bash tools/profile_one.sh HopfFibration profile 70 32` |
 
 Image size (`arm-none-eabi-size -A`): `.text.headers 5,120` /
 `.text.code 15,420` / `.text.progmem 535,356` / `.text.csf 3,224` /

@@ -13,7 +13,7 @@ no prior report.
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master (COM3) |
 | Effect | KaleidoscopeHexOil 288×144, single-entry playlist, tip `fd982e2e` (branch `kaleidoscopehexoil/promote`) |
 | Method | Shared composed-effect `HS_PROFILE` scopes, window = 16 frames, 140 s capture, `-D HS_PROFILE_EPOCH_REVS=1600` (200 s epoch so the 2-preset cycle never crosses it) |
-| Reproduce | `just profile KaleidoscopeHexOil` |
+| Reproduce | `bash tools/profile_one.sh KaleidoscopeHexOil profile 140 16 '-D HS_PROFILE_EPOCH_REVS=1600'` |
 
 Image size: `FLASH: code:75648, data:149492, headers:8332` / `RAM1:
 variables:315232, code:40360, padding:25176, free:143520` / `RAM2:
