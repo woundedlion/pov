@@ -97,7 +97,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
    - [7.8 Generators](#78-generators-memoryh)
    - [7.9 The Preset System](#79-the-preset-system-controlchoreographyh)
    - [7.10 Hardware Drivers](#710-hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)
-     - [DMA LED Controller](#dma-led-controller-dma_ledh)
+     - [DMA LED Controller](#dma-led-controller-dma_ledh-hd107s_frameh-dma_led_coreh-dma_led_controllerh)
      - [Single-Teensy POV Driver](#single-teensy-pov-driver-pov_singleh)
      - [Multi-Teensy Segmented POV Driver](#multi-teensy-segmented-pov-driver-pov_segmentedh)
      - [Frame Sync Protocol: 1-Wire Signal Datasheet](#frame-sync-protocol-1-wire-signal-datasheet)
@@ -1822,17 +1822,18 @@ Automatic transitions follow the policy — `Segue::Preset::Lerp` crossfades the
 
 ### 7.10 Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
 
-Three hardware drivers form a layered stack.  `dma_led.h` handles the SPI wire protocol; `pov_single.h` and `pov_segmented.h` sit above it and manage the POV column sweep, differing only in how many Teensys share the work.
+Three hardware drivers form a layered stack. The DMA LED layer handles the SPI wire protocol across four headers: `hd107s_frame.h` (wire format and inline color correction), `dma_led_core.h` (framing, transfer length, stale-transfer predicate), `dma_led_controller.h` (double-buffer orchestration, templated on its transport) and `dma_led.h` (the Teensy SPI/DMA peripheral driver, the only Arduino-only piece). `pov_single.h` and `pov_segmented.h` sit above it and manage the POV column sweep, differing only in how many Teensys share the work; the segmented driver's ISR decisions are split into two further host-tested headers, `pov_handoff.h` and `pov_submit_gate.h`.
 
-#### DMA LED Controller (`dma_led.h`)
+#### DMA LED Controller (`dma_led.h`, `hd107s_frame.h`, `dma_led_core.h`, `dma_led_controller.h`)
 
 Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 4.x.  Enabled by `#define USE_DMA_LEDS` in the target's boilerplate header (`targets/Phantasm/phantasm_target.h`) before it includes the driver; `led.h` stays neutral and the default FastLED/WS2801 path remains as fallback. The FastLED fallback applies only to the single-board `POVDisplay`; the segmented `POVSegmented` driver `#error`s without `USE_DMA_LEDS` (FastLED's bit-bang `show()` masks IRQs for windows that break the sync symbol margins, which are derived from a mask window M ≈ 0), so DMA LEDs are mandatory on Phantasm.
 
-| Class | Role |
-|---|---|
-| `HD107SFrame<N>` | Pre-formatted DMA buffer for the HD107S protocol. `packPixel()` writes `Pixel` values directly into the frame buffer with inline color correction (color correction → temperature → brightness), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and cleaned with `arm_dcache_flush()` (clean, no invalidate — the buffer is TX-only) for cache coherency. |
-| `TeensySPIDMA` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission. |
-| `DMALEDController<N>` | Double-buffered high-level controller. The ISR packs pixels into `backFrame()`, then `submitFrame()` flushes it and triggers async DMA, returning immediately. If the previous transfer is still in flight, `submitFrame()` **drops** the new frame (bumping `getOverrunCount()`) rather than spinning — the in-flight DMA keeps showing the previous column; a transfer that never completes is surfaced as a wedged-channel fault. |
+| Class | Header | Role |
+|---|---|---|
+| `HD107SFrame<N>` | `hd107s_frame.h` | Pre-formatted DMA buffer for the HD107S protocol. `packPixel()` writes `Pixel` values directly into the frame buffer with inline color correction (color correction → temperature → brightness), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and cleaned with `arm_dcache_flush()` (clean, no invalidate — the buffer is TX-only) for cache coherency. |
+| `TeensySPIDMA` | `dma_led.h` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission. |
+| `DMALEDController<N>` | `dma_led_controller.h` | Double-buffered high-level controller. The ISR packs pixels into `backFrame()`, then `submitFrame()` flushes it and triggers async DMA, returning immediately. If the previous transfer is still in flight, `submitFrame()` **drops** the new frame (bumping `getOverrunCount()`) and returns false rather than spinning; a transfer that never completes is surfaced as a wedged-channel fault. The drop returns before the buffers swap, so `backFrame()` still holds the dropped pixels and a caller can re-submit them without repacking. |
+| `next_buffer()`, `transfer_len()`, `transfer_stale()` | `dma_led_core.h` | Free `constexpr` framing and watchdog math the controller's decisions derive from, host-tested without the peripherals. |
 
 The 16-bit linear pipeline reaches from the canvas all the way to the SPI wire with no 8-bit intermediate:
 
@@ -1842,7 +1843,7 @@ const Pixel* buf = effect->display_buffer();               // 16-bit linear pixe
 // Physical LED index comes from the single-source-of-truth map (pov_single_map.h),
 // which applies the top-arm reversal / bottom-arm offset — never the raw row index.
 frame.packPixel(pov::strip_top_led(y, S), buf[y * width + x]); // Pixel → HD107S frame
-ledController.submitFrame();                                // non-blocking DMA, drops on overrun
+(void)ledController.submitFrame();                          // non-blocking DMA; returns false on overrun
 ```
 
 #### Single-Teensy POV Driver (`pov_single.h`)
@@ -1862,6 +1863,8 @@ effect->draw_frame()                   show_col() fires every N µs
 ```
 
 The top arm's physical LED ordering is reversed (LED 0 at the tip, descending in Y), and the bottom arm shows the opposite half of the image (x offset by W/2).
+
+`show_col()` discards `submitFrame()`'s overrun verdict: this driver carries no retry latch and no dark fallback, so a dropped column would freeze the strip on the last accepted frame. `begin()` fail-fast-checks that one composite transfer fits inside a column period, which is what makes discarding it sound.
 
 | Parameter | Value (Holosphere) |
 |---|---|
@@ -1914,6 +1917,13 @@ for (int i = 0; i < PPS; ++i, y += y_step) {
     frame.packPixel(i, buf[y * width + x_col]);
 }
 ```
+
+**ISR state machines**: the wake's non-trivial decisions are split out of the Arduino-only driver into two host-tested headers, which `run_wake_sequence()` drives in ISR order:
+
+| State machine | Header | Role |
+|---|---|---|
+| `EffectHandoff<T>` | `pov_handoff.h` | Foreground↔ISR effect ownership: the teardown counter handshake, the acquire/release publish and adopt of a pending effect, the consumed-generation gate that keeps the ISR off a deleted instance, and the display-window (clip) alternation. The foreground constructs and deletes instances; the ISR only ever dereferences what `live()` handed it. |
+| `SubmitGate`, `SyncPulseGate` | `pov_submit_gate.h` | The LED transport's accept/drop verdict and the sync pin's pulse width. Both submit paths — the fail-dark black frame and the image column — clear their pending state only on an accepted submit, and a dropped column latches a retry that the next wake re-submits without repacking, so a drop costs one flywheel wake (~54 µs) rather than a dark column. A wake that renders nothing has too short a body to carry a scheduled sync pulse, so the pin is held HIGH across the ISR boundary and dropped at the head of the next wake. |
 
 **Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the current display window (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board reseeds the shared `Pcg32` at every effect build from `EFFECT_SEEDS[]`, which `Phantasm.ino` builds as `hs::stable_effect_seed(#name)` (`core/platform/rng.h`) so an entry's stream follows its name rather than its roster position; `hs::epoch_seed(effect index)` (epoch 0 is the identity seed `1337`) is the fallback for a board that supplies no seed table. Either way a board's canvas depends only on the beacon-synchronized index — a mid-show joiner renders bit-identically to boards that have been up for hours.
 
