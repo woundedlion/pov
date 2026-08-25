@@ -2519,6 +2519,13 @@ private:
 
   template <SurfaceLens LensV>
   struct SelectedLensStage : Pullback::Stage::Lens<LensPolicy<LensV>> {
+    static_assert(LensV == SurfaceLens::GLITCH ||
+                  LensV == SurfaceLens::KALEIDOSCOPE ||
+                  LensV == SurfaceLens::MOBIUS ||
+                  LensV == SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL ||
+                  LensV == SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM ||
+                  LensV == SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM ||
+                  LensV == SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM);
     static constexpr bool implements(const TopologyKey &key) {
       return key.surface_lens == LensV;
     }
@@ -2527,6 +2534,11 @@ private:
   template <Projection ProjectionV, SurfaceLens LensV>
   struct SelectedProjectStage
       : Pullback::Stage::Project<ProjectionPolicy<ProjectionV>> {
+    static_assert(ProjectionV == Projection::STEREOGRAPHIC ||
+                  ProjectionV == Projection::GNOMONIC ||
+                  ProjectionV == Projection::BONNE ||
+                  ProjectionV == Projection::EQUIRECTANGULAR ||
+                  ProjectionV == Projection::PEIRCE_QUINCUNCIAL);
     static constexpr bool implements(const TopologyKey &key) {
       return key.projection == ProjectionV && key.surface_lens == LensV &&
              key.surface_noise == SurfaceNoise::NONE &&
@@ -2650,6 +2662,9 @@ private:
       : Pullback::Stage::Sample<SourcePolicy<FunctionV>,
                                 Pullback::Weight::Projection,
                                 CoveragePolicyFor<CoverageV>> {
+    static_assert(FunctionV == Function::GRID ||
+                  FunctionV == Function::PRIMITIVE_LATTICE ||
+                  FunctionV == Function::TWIN_WAVE);
     static_assert(CoverageV == CoveragePolicy::OPAQUE ||
                   CoverageV == CoveragePolicy::EDGE_FADE ||
                   CoverageV == CoveragePolicy::PROJECTION_WEIGHT_SQUARED ||
