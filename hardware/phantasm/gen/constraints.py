@@ -15,10 +15,8 @@ DEFAULT_CLASS_MINIMUMS = {
 
 # unplaced/phantasm_unplaced.kicad_pro is a captured artifact: no generator
 # writes it, and `pcb.py --unplaced` produces only the board and fp-lib-table.
-# Its constraints are wider than the routed board's, so heal_clearance.py --
-# which only raises a value that is BELOW a minimum -- would restore the routed
-# floors into a recreated file and hand Quilter a different constraint set than
-# the candidate boards were produced under. These are the values to restore.
+# Its constraints are wider than the routed board's; these are the values to
+# restore.
 UNPLACED_RULES = {
     "min_clearance": 0.2,
     "min_through_hole_diameter": 0.3,
