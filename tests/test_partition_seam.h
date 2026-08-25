@@ -547,6 +547,7 @@ inline void measure_kis(const char *name, double measured_changed_frac) {
   std::snprintf(tag, sizeof(tag), "kis %s deg=%d F %zu->%zu", name,
                 base.face_counts[0], base.face_counts.size(),
                 kis.face_counts.size());
+  HS_CONTEXT(tag);
   const SeamStats st = compare(a, b, vertex_list(base));
   report(tag, st);
 
@@ -595,6 +596,7 @@ inline void measure_dual(const char *name, double measured_changed_frac) {
   char tag[128];
   std::snprintf(tag, sizeof(tag), "dual %s F %zu->%zu", name,
                 base.face_counts.size(), dual.face_counts.size());
+  HS_CONTEXT(tag);
   const SeamStats st = compare(a, b, vertex_list(base));
   report(tag, st);
 
