@@ -37,8 +37,6 @@ struct ShaderWorkbenchWhiteBox;
 } // namespace shader_workbench_tests
 } // namespace hs_test
 
-#define HS_SHADER_DERIVED_EFFECT_LIST(X) X(Shader)
-
 #define HS_SHADER_WORKBENCH_CONFIG_FIELDS(X)                                   \
   X(SLOTS_FUNCTION, slots.function)                                            \
   X(SLOTS_PROJECTION, slots.projection)                                        \
