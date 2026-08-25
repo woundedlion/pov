@@ -1223,6 +1223,36 @@ inline void case_update_hankin_nonfinite_angle() {
 }
 
 /**
+ * @brief Death case: reading a ParamDef with an unknown target type must trap.
+ * @details Parameter surface — the descriptor records live in arena-backed
+ *          external storage, so a corrupted tag would otherwise index the
+ *          switch's jump table past its end.
+ */
+inline void case_param_def_unknown_get_target_type() {
+  float storage = 0.5f;
+  ParamDef def;
+  def.target = &storage;
+  def.target_type = static_cast<ParamDef::TargetType>(opaque<uint8_t>(9));
+  if (def.get_from(&storage) == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: writing a ParamDef with an unknown target type must trap.
+ * @details Parameter surface — the write reinterprets the void* target by the
+ *          tag, so a corrupted one would store through the wrong type.
+ */
+inline void case_param_def_unknown_set_target_type() {
+  float storage = 0.5f;
+  ParamDef def;
+  def.target = &storage;
+  def.target_type = static_cast<ParamDef::TargetType>(opaque<uint8_t>(9));
+  def.set(opaque(1.0f));
+  if (storage == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: CompiledHankin::clone rejects a self-aliased destination.
  * @details Each vector is rebound from the arena before the copy, so a
  *          self-clone memcpy's a block onto itself from a stale source pointer.
@@ -3694,6 +3724,12 @@ inline const Case *all_cases(int &n) {
        "(m2 >= math::EPS_NORMALIZE_SQ) "},
       {"noise_transform_nan", case_noise_transform_nan, "3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) "},
+      {"param_def_unknown_get_target_type",
+       case_param_def_unknown_get_target_type, "params.h",
+       "(false) ParamDef::get_from: unknown target type "},
+      {"param_def_unknown_set_target_type",
+       case_param_def_unknown_set_target_type, "params.h",
+       "(false) ParamDef::set: unknown target type "},
       {"driver_null_speed_src", case_driver_null_speed_src, "params.h",
        "(speed_src != nullptr) Driver: live speed_src is null"},
       {"path_append_zero_samples", case_path_append_zero_samples, "motion.h",
