@@ -203,10 +203,12 @@ public:
   }
 
   /**
-   * @brief Allocates and default-constructs a contiguous array.
+   * @brief Allocates and value-initializes a contiguous array.
    * @tparam T Element type.
    * @param n Element count (must be > 0, per allocate()).
    * @return Pointer to the first constructed element.
+   * @details Scalar members are zero-filled; `make_default_initialized()` is
+   * the non-zeroing single-object counterpart.
    */
   template <typename T> T *make_n(size_t n) {
     T *elements = allocate_n<T>(n);
