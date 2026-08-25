@@ -197,7 +197,8 @@ struct ShaderWorkbenchWhiteBox;
     params.source.tessellation_line_thickness)                                 \
   X(SOURCE_TESSELLATION_LINE_SOFTNESS,                                         \
     params.source.tessellation_line_softness)                                  \
-  X(SOURCE_TESSELLATION_KIND, params.source.tessellation_kind)
+  X(SOURCE_TESSELLATION_KIND, params.source.tessellation_kind)                 \
+  X(COLOR_PALETTE_MAPPING, params.color.palette_mapping)
 
 /**
  * @brief Slot-based sphere shader with an immutable per-frame pullback state.
@@ -949,7 +950,7 @@ public:
   };
   using RequestedConfig = Config;
 
-  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 8;
+  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 9;
 
   /**
    * @brief Reports whether a persisted snapshot's schema version can be
@@ -974,10 +975,19 @@ public:
   static constexpr size_t CONFIG_FIELD_COUNT =
       static_cast<size_t>(ConfigFieldId::COUNT);
 
-  // Trips if Config gains or loses a member, so a field cannot silently stay
-  // out of the snapshot, the field ids and the pending-edit offsets.
+  static constexpr size_t CONFIG_FIELD_BYTES =
+#define HS_SHADER_WORKBENCH_FIELD_BYTES(name, path)                            \
+  sizeof(std::declval<const Config &>().path) +
+      HS_SHADER_WORKBENCH_CONFIG_FIELDS(HS_SHADER_WORKBENCH_FIELD_BYTES)
+#undef HS_SHADER_WORKBENCH_FIELD_BYTES
+          size_t{0};
+
+  // Config's size and the listed fields' total size pin the snapshot field set
+  // from both ends: an unlisted new member trips the first, a dropped list
+  // entry the second. Their difference is alignment padding, so the list
+  // covers every Config byte that carries a value.
   static_assert(
-      sizeof(Config) == 536,
+      sizeof(Config) == 536 && CONFIG_FIELD_BYTES == 504,
       "Config field set changed - update HS_SHADER_WORKBENCH_CONFIG_FIELDS");
 
   struct ConfigFieldLayout {
@@ -3144,8 +3154,10 @@ private:
   }
 
   static constexpr bool valid_snapshot_config(const Config &config) {
-    return valid_slot_enums(config.slots) && preset_in_ranges(config) &&
-           hue_shift_amount_in_range(config);
+    return valid_slot_enums(config.slots) &&
+           enum_at_most(config.params.color.palette_mapping,
+                        Pullback::Color::PaletteMapping::REVERSE) &&
+           preset_in_ranges(config) && hue_shift_amount_in_range(config);
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
