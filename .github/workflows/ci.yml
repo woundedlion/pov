@@ -1814,7 +1814,7 @@ jobs:
         run: |
           bash tools/require_test_files.sh 'tools/relax_bake_tests/test*.py'
           python -m unittest discover -s tools/relax_bake_tests -v
-      - name: Check routed PCB metadata
+      - name: Run PCB generator self-tests + routed metadata check
         run: |
           bash tools/require_test_files.sh 'hardware/phantasm/gen/tests/test*.py'
           python -m unittest discover -s hardware/phantasm/gen/tests -v
