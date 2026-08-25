@@ -179,21 +179,89 @@ inline constexpr bool base_mesh_labelled(BaseMesh mesh, std::string_view label,
          std::string_view(BASE_MESH_EXPORT_OPTIONS[i]) == export_label;
 }
 
-// Pin the Platonic/Archimedean/Catalan run boundaries: both arrays are consumed
-// positionally as BaseMesh labels, so a run reorder must fail to compile.
+// Pin every entry: both arrays are consumed positionally as BaseMesh labels,
+// so any reorder or transposition must fail to compile.
 static_assert(base_mesh_labelled(BaseMesh::TETRAHEDRON, "Tetrahedron",
                                  "BaseMesh::TETRAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::CUBE, "Cube", "BaseMesh::CUBE"));
+static_assert(base_mesh_labelled(BaseMesh::OCTAHEDRON, "Octahedron",
+                                 "BaseMesh::OCTAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::DODECAHEDRON, "Dodecahedron",
+                                 "BaseMesh::DODECAHEDRON"));
 static_assert(base_mesh_labelled(BaseMesh::ICOSAHEDRON, "Icosahedron",
                                  "BaseMesh::ICOSAHEDRON"));
 static_assert(base_mesh_labelled(BaseMesh::TRUNCATED_TETRAHEDRON,
                                  "Truncated Tetrahedron",
                                  "BaseMesh::TRUNCATED_TETRAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::CUBOCTAHEDRON, "Cuboctahedron",
+                                 "BaseMesh::CUBOCTAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TRUNCATED_CUBE, "Truncated Cube",
+                                 "BaseMesh::TRUNCATED_CUBE"));
+static_assert(base_mesh_labelled(BaseMesh::TRUNCATED_OCTAHEDRON,
+                                 "Truncated Octahedron",
+                                 "BaseMesh::TRUNCATED_OCTAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::RHOMBICUBOCTAHEDRON,
+                                 "Rhombicuboctahedron",
+                                 "BaseMesh::RHOMBICUBOCTAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TRUNCATED_CUBOCTAHEDRON,
+                                 "Truncated Cuboctahedron",
+                                 "BaseMesh::TRUNCATED_CUBOCTAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::SNUB_CUBE, "Snub Cube",
+                                 "BaseMesh::SNUB_CUBE"));
+static_assert(base_mesh_labelled(BaseMesh::ICOSIDODECAHEDRON,
+                                 "Icosidodecahedron",
+                                 "BaseMesh::ICOSIDODECAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TRUNCATED_DODECAHEDRON,
+                                 "Truncated Dodecahedron",
+                                 "BaseMesh::TRUNCATED_DODECAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TRUNCATED_ICOSAHEDRON,
+                                 "Truncated Icosahedron",
+                                 "BaseMesh::TRUNCATED_ICOSAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::RHOMBICOSIDODECAHEDRON,
+                                 "Rhombicosidodecahedron",
+                                 "BaseMesh::RHOMBICOSIDODECAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TRUNCATED_ICOSIDODECAHEDRON,
+                                 "Truncated Icosidodecahedron",
+                                 "BaseMesh::TRUNCATED_ICOSIDODECAHEDRON"));
 static_assert(base_mesh_labelled(BaseMesh::SNUB_DODECAHEDRON,
                                  "Snub Dodecahedron",
                                  "BaseMesh::SNUB_DODECAHEDRON"));
 static_assert(base_mesh_labelled(BaseMesh::TRIAKIS_TETRAHEDRON,
                                  "Triakis Tetrahedron",
                                  "BaseMesh::TRIAKIS_TETRAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::RHOMBIC_DODECAHEDRON,
+                                 "Rhombic Dodecahedron",
+                                 "BaseMesh::RHOMBIC_DODECAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TRIAKIS_OCTAHEDRON,
+                                 "Triakis Octahedron",
+                                 "BaseMesh::TRIAKIS_OCTAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TETRAKIS_HEXAHEDRON,
+                                 "Tetrakis Hexahedron",
+                                 "BaseMesh::TETRAKIS_HEXAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::DELTOIDAL_ICOSITETRAHEDRON,
+                                 "Deltoidal Icositetrahedron",
+                                 "BaseMesh::DELTOIDAL_ICOSITETRAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::DISDYAKIS_DODECAHEDRON,
+                                 "Disdyakis Dodecahedron",
+                                 "BaseMesh::DISDYAKIS_DODECAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::PENTAGONAL_ICOSITETRAHEDRON,
+                                 "Pentagonal Icositetrahedron",
+                                 "BaseMesh::PENTAGONAL_ICOSITETRAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::RHOMBIC_TRIACONTAHEDRON,
+                                 "Rhombic Triacontahedron",
+                                 "BaseMesh::RHOMBIC_TRIACONTAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TRIAKIS_ICOSAHEDRON,
+                                 "Triakis Icosahedron",
+                                 "BaseMesh::TRIAKIS_ICOSAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::PENTAKIS_DODECAHEDRON,
+                                 "Pentakis Dodecahedron",
+                                 "BaseMesh::PENTAKIS_DODECAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::DELTOIDAL_HEXECONTAHEDRON,
+                                 "Deltoidal Hexecontahedron",
+                                 "BaseMesh::DELTOIDAL_HEXECONTAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::DISDYAKIS_TRIACONTAHEDRON,
+                                 "Disdyakis Triacontahedron",
+                                 "BaseMesh::DISDYAKIS_TRIACONTAHEDRON"));
 static_assert(base_mesh_labelled(BaseMesh::PENTAGONAL_HEXECONTAHEDRON,
                                  "Pentagonal Hexecontahedron",
                                  "BaseMesh::PENTAGONAL_HEXECONTAHEDRON"));
