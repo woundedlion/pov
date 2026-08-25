@@ -98,8 +98,6 @@ public:
    *  spherical stars. */
   static constexpr float DENSE_CONTOUR_COUNT = 32.0f;
 
-  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
-
   /** @brief Constructs the Plot-only effect on a WxH canvas. */
   HS_COLD_MEMBER ShapeShifter()
       : Choreography(

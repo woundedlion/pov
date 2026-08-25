@@ -70,8 +70,6 @@ public:
   /** Preset cadence: two default-duration motion cycles. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 160;
 
-  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
-
   static Params initial_params() {
     return {PRESETS[0].params, 1.0f, 2.1f * THICKNESS_PX, 80.0f, false};
   }
