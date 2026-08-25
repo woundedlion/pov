@@ -13,7 +13,7 @@ Raw capture: `build/prof/islamicstars_ship.log`. Replaces
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | IslamicStars 288×144, single-entry playlist, tip `542a5b49` |
 | Method | `HS_PROFILE` cycle scopes, window = 16 frames, 210 s capture, `HS_PROFILE_EPOCH_REVS=1920`, `HS_PROFILE_TRANS_SPEED=4` |
-| Reproduce | `just profile IslamicStars` |
+| Reproduce | `bash tools/profile_one.sh IslamicStars profile 210 16 '-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920'` |
 
 Image size: `FLASH: code:126060, data:577368, headers:8244` / `RAM1:
 variables:314848, code:44104, padding:21432, free:143904` / `RAM2:
