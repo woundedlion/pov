@@ -59,7 +59,7 @@ public:
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
                                                               "dense-curl"};
   /// Bumped whenever the `Params` layout changes, rejecting stale snapshots.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
   /// Frames a preset holds before the runtime begins the next transition.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr int32_t SURFACE_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
