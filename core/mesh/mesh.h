@@ -12,6 +12,7 @@
 
 #include "engine/concepts.h"
 #include "math/3dmath.h"
+#include "math/geometry.h"
 #include "mesh/mesh_state.h"
 #include "engine/memory.h"
 
@@ -441,6 +442,22 @@ inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
       curr_idx = he_mesh.half_edges[curr_he.pair].next;
     }
   } while (curr_idx != start_idx);
+}
+
+/**
+ * @brief Unit midpoint of the undirected edge a half-edge lies on.
+ * @param he_mesh Half-edge connectivity supplying the tail vertex.
+ * @param mesh Source mesh supplying the endpoint positions.
+ * @param he_idx Half-edge to measure; its pair yields the same position.
+ * @return The normalized midpoint, or the head endpoint's direction when the
+ *   endpoints are antipodal and the midpoint is degenerate.
+ */
+inline Vector edge_midpoint(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
+                            uint16_t he_idx) {
+  const HalfEdge &he = he_mesh.half_edges[he_idx];
+  const Vector &head = mesh.vertices[he.vertex];
+  const Vector &tail = mesh.vertices[he_mesh.half_edges[he.prev].vertex];
+  return normalized_or((head + tail) * 0.5f, normalized_or(head, X_AXIS));
 }
 
 /**
