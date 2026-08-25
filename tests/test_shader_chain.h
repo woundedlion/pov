@@ -26,6 +26,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/interpreter.h"
@@ -2779,46 +2780,35 @@ inline void test_shader_chain_parity_sample_variants() {
   }
 }
 
-inline void run_colorize_variant(In::ChainProgram &program,
-                                 const In::FrameContext &ctx,
-                                 In::Op::HueShiftMode hue,
-                                 In::Op::EnvelopeMode envelope) {
+template <In::Op::HueShiftMode HueV, In::Op::EnvelopeMode EnvelopeV>
+void run_colorize_variant(In::ChainProgram &program,
+                          const In::FrameContext &ctx) {
   auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
-  params.hue_mode = static_cast<uint8_t>(hue);
-  params.envelope_mode = static_cast<uint8_t>(envelope);
+  params.hue_mode = static_cast<uint8_t>(HueV);
+  params.envelope_mode = static_cast<uint8_t>(EnvelopeV);
   for (uint8_t palette_mode = 0; palette_mode < 3; ++palette_mode) {
     params.palette_mode = palette_mode;
     for (uint8_t mapping = 0; mapping < 4; ++mapping) {
       params.mapping_mode = mapping;
-      using WeightP = PB::Weight::Projection;
-      using CoverageP = PB::ProjectionCoverage::Weight;
-      if (hue == In::Op::HueShiftMode::NONE) {
-        if (envelope == In::Op::EnvelopeMode::NONE)
-          expect_parity<WeightP, CoverageP, PB::Color::HueMode::NONE,
-                        PB::Color::BrightnessEnvelope::NONE>(program, ctx);
-        else
-          expect_parity<WeightP, CoverageP, PB::Color::HueMode::NONE,
-                        PB::Color::BrightnessEnvelope::CUP>(program, ctx);
-      } else if (hue == In::Op::HueShiftMode::NOISE) {
-        if (envelope == In::Op::EnvelopeMode::NONE)
-          expect_parity<WeightP, CoverageP, PB::Color::HueMode::NOISE,
-                        PB::Color::BrightnessEnvelope::NONE>(program, ctx);
-        else
-          expect_parity<WeightP, CoverageP, PB::Color::HueMode::NOISE,
-                        PB::Color::BrightnessEnvelope::CUP>(program, ctx);
-      } else {
-        if (envelope == In::Op::EnvelopeMode::NONE)
-          expect_parity<WeightP, CoverageP, PB::Color::HueMode::PATH_LENGTH,
-                        PB::Color::BrightnessEnvelope::NONE>(program, ctx);
-        else
-          expect_parity<WeightP, CoverageP, PB::Color::HueMode::PATH_LENGTH,
-                        PB::Color::BrightnessEnvelope::CUP>(program, ctx);
-      }
+      expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
+                    HueV, EnvelopeV>(program, ctx);
     }
   }
 }
 
+/** Runs one hue mode against every brightness envelope. */
+template <In::Op::HueShiftMode HueV, size_t... Envelopes>
+void run_colorize_envelopes(In::ChainProgram &program,
+                            const In::FrameContext &ctx,
+                            std::index_sequence<Envelopes...>) {
+  (run_colorize_variant<HueV, static_cast<In::Op::EnvelopeMode>(Envelopes)>(
+       program, ctx),
+   ...);
+}
+
 inline void test_shader_chain_parity_colorize_variants() {
+  constexpr auto ENVELOPES = std::make_index_sequence<
+      static_cast<size_t>(In::Op::EnvelopeMode::DESCENDING) + 1>{};
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
     HS_CONTEXT(value_set_name(set));
@@ -2826,12 +2816,11 @@ inline void test_shader_chain_parity_colorize_variants() {
     In::ChainProgram &program = fixture->program;
     arm_default_chain(program, 4, set);
     const In::FrameContext ctx = shared_resources().context();
-    for (const In::Op::HueShiftMode hue :
-         {In::Op::HueShiftMode::NONE, In::Op::HueShiftMode::NOISE,
-          In::Op::HueShiftMode::PATH_LENGTH})
-      for (const In::Op::EnvelopeMode envelope :
-           {In::Op::EnvelopeMode::NONE, In::Op::EnvelopeMode::CUP})
-        run_colorize_variant(program, ctx, hue, envelope);
+    run_colorize_envelopes<In::Op::HueShiftMode::NONE>(program, ctx, ENVELOPES);
+    run_colorize_envelopes<In::Op::HueShiftMode::NOISE>(program, ctx,
+                                                        ENVELOPES);
+    run_colorize_envelopes<In::Op::HueShiftMode::PATH_LENGTH>(program, ctx,
+                                                              ENVELOPES);
     program.clear();
   }
 }
