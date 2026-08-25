@@ -26,6 +26,8 @@
  * that folds a stage list down onto the canvas sink.
  */
 
+namespace Filter {
+
 /** @brief Callback that forwards a 2D plot (x, y, pixel, age, alpha) downstream. */
 using PassFn2D = FunctionRef<void(float, float, const ::Pixel &, float, float)>;
 /** @brief Callback that forwards a 3D plot (vector, pixel, age, alpha) downstream. */
@@ -140,6 +142,8 @@ concept PipelineFoldSurface = requires {
   requires std::is_same_v<decltype(T::total_segment_margin), const int>;
 };
 
+} // namespace Filter
+
 /**
  * @brief Recursive template pipeline for processing render commands.
  * @tparam W Canvas width in pixels.
@@ -230,7 +234,7 @@ HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
   template <int, int, typename...> friend struct Pipeline;
 
-  static constexpr int domain_rank = IsPixel::domain_rank;
+  static constexpr int domain_rank = Filter::IsPixel::domain_rank;
   static constexpr bool is_2d = true;
   static constexpr bool is_pipeline = true;
   static constexpr bool direct_raster_path = false;
@@ -682,16 +686,15 @@ public:
 
   static_assert(
       !Head::has_history || Head::is_2d ||
-          requires(Head h, const WorldTrailFn &w, PassFn3D p) {
+          requires(Head h, const WorldTrailFn &w, Filter::PassFn3D p) {
             h.flush(w, 1.0f, p);
           },
       "3D history filter must define "
       "flush(const WorldTrailFn&, float, PassFn3D)");
   static_assert(
       !Head::has_history || !Head::is_2d || Head::is_terminal ||
-          requires(Head h, Canvas &cv, const ScreenTrailFn &s, PassFn2D p) {
-            h.flush(cv, s, 1.0f, p);
-          },
+          requires(Head h, Canvas &cv, const ScreenTrailFn &s,
+                   Filter::PassFn2D p) { h.flush(cv, s, 1.0f, p); },
       "2D history filter must define "
       "flush(Canvas&, const ScreenTrailFn&, float, PassFn2D)");
   static_assert(
