@@ -31,6 +31,16 @@ enum class WarpEnvelope : uint8_t {
 inline constexpr const char *WARP_ENVELOPE_IDS[] = {"flat", "projection-weight",
                                                     "edge-fade"};
 
+/**
+ * @brief Bounds a warp operator's envelope enum8.
+ * @details Called from prepare(), once per frame, so warp_envelope() below
+ * carries no per-pixel guard.
+ */
+inline void check_warp_envelope(uint8_t envelope) {
+  HS_CHECK(envelope <= static_cast<uint8_t>(WarpEnvelope::EDGE_FADE),
+           "warp operator: invalid envelope");
+}
+
 /** @brief The envelope switch over the shared warp envelope kernel. */
 inline float warp_envelope(uint8_t envelope,
                            const ProjectionProvenance &provenance,
@@ -125,6 +135,7 @@ struct WarpWaveShear : ValueStateModel<WarpPhaseState> {
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_warp_envelope(params.envelope);
     return {Warp::prepare(params, state.phase), state.phase};
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
@@ -243,6 +254,7 @@ struct WarpVectorNoise : ValueStateModel<NoisePhaseState> {
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_warp_envelope(params.envelope);
     return {&state.noise, Warp::prepare(params, state.phase)};
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
@@ -330,8 +342,12 @@ struct WarpPolarChart : ValueStateModel<WarpPhaseState> {
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    HS_CHECK(params.mode <= static_cast<uint8_t>(PolarMode::LOGARITHMIC),
+             "warp.polar-chart: invalid polar mode");
+    HS_CHECK(params.harmonic < Warp::MAX_POLAR_HARMONIC,
+             "warp.polar-chart: invalid harmonic");
     return {state.phase};
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
