@@ -2368,6 +2368,9 @@ inline void test_hue_rotation_lut_clamps_out_of_range_value() {
   HS_EXPECT_EQ(sample_hue_rotation_lut(view, -0.5f, 0.25f), Pixel(65535, 0, 0));
   HS_EXPECT_EQ(sample_hue_rotation_lut(view, 1.5f, 0.25f), Pixel(0, 65535, 0));
   HS_EXPECT_EQ(sample_hue_rotation_lut(view, NAN, 0.25f), Pixel(0, 65535, 0));
+  for (float amount : {-4.75f, -1e-7f, 3.5e8f, -3.5e8f, INFINITY, NAN})
+    HS_EXPECT_EQ(sample_hue_rotation_lut(view, 0.0f, amount),
+                 Pixel(65535, 0, 0));
 }
 
 inline void test_wrap_angle_pi_large_arguments() {
