@@ -264,7 +264,7 @@ private:
       alignof(Resources) +
       2 * (Pullback::Interp::CHAIN_ARENA_BYTES + alignof(std::max_align_t)) +
       gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS) +
-      3 * PaletteCycler::generated_arena_bytes();
+      EffectPaletteRecipes::GeneratedPaletteBank::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= WASM_PERSISTENT_BUDGET,
                 "ShaderChain persistent footprint exceeds the browser "
                 "module's default partition");
