@@ -1494,6 +1494,49 @@ inline void case_mesh_require_matching_face_sides() {
 }
 
 /**
+ * @brief Death case: side counts that outrun the flat index list must trap.
+ * @details Mesh-topology surface -- the entry census compares the half-edge
+ *          count against the flat index length, so a source whose own side
+ *          counts sum past that length clears it and then indexes past the
+ *          end of every later face.
+ */
+inline void case_mesh_require_matching_half_edge_census() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t he_counts[] = {3, 3};
+  const uint8_t mesh_counts[] = {3, 4};
+  const uint16_t indices[] = {0, 1, 2, 3, 4, 5};
+  PolyMesh he_source;
+  build_polymesh(he_source, arena, 7, he_counts, 2, indices, 6);
+  HalfEdgeMesh half_edges(arena, he_source);
+  PolyMesh mesh;
+  // counts sum to 7 over a 6-entry index list -> HS_CHECK
+  build_polymesh(mesh, arena, 7, mesh_counts, 2, indices, 6);
+  MeshOps::require_matching_half_edges(half_edges, mesh, "death");
+}
+
+/**
+ * @brief Death case: loops naming a different mesh's faces must trap.
+ * @details Mesh-topology surface -- census, side counts and vertex range all
+ *          match between two meshes over the same vertex set, so only the loop
+ *          head vertices distinguish a connectivity built from the wrong mesh.
+ */
+inline void case_mesh_require_matching_half_edge_loops() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3, 3};
+  const uint16_t he_indices[] = {0, 1, 2, 3, 4, 5};
+  const uint16_t mesh_indices[] = {0, 2, 1, 3, 4, 5};
+  PolyMesh he_source;
+  build_polymesh(he_source, arena, 6, counts, 2, he_indices, 6);
+  HalfEdgeMesh half_edges(arena, he_source);
+  PolyMesh mesh;
+  // face 0 winds 0,2,1 in mesh and 0,1,2 in he_source -> HS_CHECK
+  build_polymesh(mesh, arena, 6, counts, 2, mesh_indices, 6);
+  MeshOps::require_matching_half_edges(half_edges, mesh, "death");
+}
+
+/**
  * @brief Death case: a HANKIN step with no contact angle must trap.
  * @details Recipe-replay surface — the zero default collapses every star point
  *          onto its corner, so an authored step that forgot its angle replays
@@ -1662,6 +1705,23 @@ inline void case_transformer_pool_spawn_before_init() {
   Timeline tl;
   RippleTransformer<2> rt(tl);
   Animation::Ripple *p = rt.spawn(0, Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
+  if (p == reinterpret_cast<Animation::Ripple *>(0x1))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a pausable spawn with no pause flag must trap.
+ * @details Transformer surface -- spawn_pausable() exists only to hand the
+ *          animation a gate to read every frame; a null flag would schedule an
+ *          event that can never pause, which is what plain spawn() is for.
+ */
+inline void case_transformer_pool_spawn_pausable_null_flag() {
+  configure_arenas_default();
+  Timeline tl;
+  RippleTransformer<2> rt(tl);
+  rt.init_storage(persistent_arena);
+  Animation::Ripple *p =
+      rt.spawn_pausable(nullptr, 0, Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
   if (p == reinterpret_cast<Animation::Ripple *>(0x1))
     std::printf("x");
 }
@@ -3538,6 +3598,9 @@ inline const Case *all_cases(int &n) {
       {"transformer_pool_spawn_before_init",
        case_transformer_pool_spawn_before_init, "transformer.h",
        "(entities) TransformerPool: call init_storage() before spawn"},
+      {"transformer_pool_spawn_pausable_null_flag",
+       case_transformer_pool_spawn_pausable_null_flag, "transformer.h",
+       "(paused != nullptr) pausable spawn needs a pause flag"},
       {"transformer_pool_active_index_oob",
        case_transformer_pool_active_index_oob, "transformer.h",
        "(k >= 0 && k < active_slot_count) TransformerPool: active index out of "
@@ -3714,6 +3777,15 @@ inline const Case *all_cases(int &n) {
        case_mesh_require_matching_face_sides, "mesh.h",
        "(static_cast<size_t>(he_mesh.faces[fi].half_edge) == face_offset) "
        "MeshOps::death: half-edge mesh face sides differ from the source mesh"},
+      {"mesh_require_matching_half_edge_census",
+       case_mesh_require_matching_half_edge_census, "mesh.h",
+       "(face_offset == he_mesh.half_edges.size()) "
+       "MeshOps::death: half-edge mesh census differs from the source mesh"},
+      {"mesh_require_matching_half_edge_loops",
+       case_mesh_require_matching_half_edge_loops, "mesh.h",
+       "(head == faces[face_offset + (k + 1) % count]) "
+       "MeshOps::death: half-edge mesh loops different faces than the "
+       "source mesh"},
       {"apply_step_hankin_no_angle", case_apply_step_hankin_no_angle,
        "recipe.h",
        "(step.param > 0.0f) apply_step: HANKIN step has no contact angle"},
@@ -3904,7 +3976,7 @@ inline const Case *all_cases(int &n) {
        "geometry.h", "(i >= 0 && i < num_frames) "},
       {"make_basis_nonunit_quaternion", case_make_basis_nonunit_quaternion,
        "geometry.h",
-       "(std::abs(orientation.squared_magnitude() - 1.0f) < "
+       "(std::abs(orientation_norm_sq - 1.0f) < "
        "math::EPS_UNIT_QUAT_SQ) "},
       {"sdf_polygon_side_count", case_sdf_polygon_side_count, "shapes.h",
        "(sides >= 3) "},

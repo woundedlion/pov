@@ -507,8 +507,9 @@ HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * @details The reuse overloads size their output pools from `mesh` and index
  * `mesh`'s vertices through `he_mesh`, so a pair from two different meshes
  * overruns both. Checks the census, the per-face side counts, the vertex
- * range and each loop's head vertices. Runs only on the overload path: the single-shot entries build their
- * own connectivity and satisfy this by construction.
+ * range and each loop's head vertices. Runs only on the overload path: the
+ * single-shot entries build their own connectivity and satisfy this by
+ * construction.
  */
 HS_COLD static inline void
 require_matching_half_edges(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
