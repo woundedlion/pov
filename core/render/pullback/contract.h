@@ -326,8 +326,16 @@ __attribute__((always_inline)) inline float clamp_unit(float value) {
   return value;
 }
 
-__attribute__((always_inline)) inline float smooth_ramp(float low, float high,
-                                                        float value) {
+/**
+ * @brief Smoothstep that degenerates to a hard step at low == high, where the
+ *        global ::smooth_ramp yields NaN.
+ * @param low Value mapped to 0.
+ * @param high Value mapped to 1; may equal @p low.
+ * @param value Argument to ramp.
+ * @return The ramp in 0.0 - 1.0.
+ */
+__attribute__((always_inline)) inline float
+smooth_ramp_or_step(float low, float high, float value) {
   if (low == high)
     return static_cast<float>(value > low);
   const float t = clamp_unit((value - low) / (high - low));
