@@ -800,6 +800,8 @@ inline void test_shader_workbench_full_config_snapshot() {
       static_cast<size_t>(WB::ConfigFieldId::SLOTS_PALETTE_MAPPING);
   const size_t mapping_frequency =
       static_cast<size_t>(WB::ConfigFieldId::COLOR_MAPPING_FREQUENCY);
+  const size_t color_palette_mapping =
+      static_cast<size_t>(WB::ConfigFieldId::COLOR_PALETTE_MAPPING);
 
   snapshot.accepted[source_seed] = 0x80000000u;
   snapshot.requested[source_seed] = 0x80000000u;
@@ -811,6 +813,10 @@ inline void test_shader_workbench_full_config_snapshot() {
       static_cast<uint32_t>(WB::PaletteMapping::CUP);
   snapshot.accepted[mapping_frequency] = shader_workbench_float_payload(2.5f);
   snapshot.requested[mapping_frequency] = shader_workbench_float_payload(2.5f);
+  snapshot.accepted[color_palette_mapping] =
+      static_cast<uint32_t>(Pullback::Color::PaletteMapping::BELL);
+  snapshot.requested[color_palette_mapping] =
+      static_cast<uint32_t>(Pullback::Color::PaletteMapping::BELL);
   snapshot.runtime = {0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f,
                       1.75f, 2.0f, 2.25f, 2.5f, 2.75f, 3.0f};
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
