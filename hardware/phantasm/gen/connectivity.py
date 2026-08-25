@@ -127,7 +127,14 @@ class Fill:
         if self.layers.isdisjoint(other.layers):
             return False
         if isinstance(other, Fill):
-            return any(_point_in_polygon(p, self.polygon) for p in other.polygon)
+            if any(_point_in_polygon(p, self.polygon) for p in other.polygon):
+                return True
+            if any(_point_in_polygon(p, other.polygon) for p in self.polygon):
+                return True
+            # Two pours can overlap edge-on with no vertex of either inside the
+            # other (a cross), which neither containment pass sees.
+            return any(_segment_distance(a, b, c, d) <= TOUCH_TOLERANCE
+                       for a, b in self.edges() for c, d in other.edges())
         if any(_point_in_polygon(p, self.polygon) for p in other.points()):
             return True
         reach = other.radius + TOUCH_TOLERANCE
