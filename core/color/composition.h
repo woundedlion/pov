@@ -137,7 +137,7 @@ struct RippleModifier {
    * @param amp Distortion amplitude; defaults to 0.1.
    * @details Mandatory phase driver (no default) — trap a null one at
    * construction rather than silently passing t through on every pixel. The
-   * driver must keep |phase| under PALETTE_PHASE_ARG_LIMIT.
+   * caller must keep |t * freq * 2pi + phase| under PALETTE_PHASE_ARG_LIMIT.
    */
   RippleModifier(const float *phase, float freq = 3.0f, float amp = 0.1f)
       : phase(phase), frequency(freq), amplitude(amp) {
@@ -150,8 +150,9 @@ struct RippleModifier {
    * @return t plus the local sine distortion.
    */
   float modify(float t) const {
-    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
-    return t + fast_sinf(t * frequency * PI_F * 2.0f + *phase) * amplitude;
+    const float arg = t * frequency * PI_F * 2.0f + *phase;
+    assert(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
+    return t + fast_sinf(arg) * amplitude;
   }
 };
 
@@ -567,7 +568,8 @@ struct HueWobbleShade {
    * @param phase Pointer to the per-frame phase; must not be null.
    * @param freq Wobble frequency over the domain; defaults to 1.0.
    * @param depth Peak hue rotation in turns; defaults to 0.1.
-   * @details The driver must keep |phase| under PALETTE_PHASE_ARG_LIMIT.
+   * @details The caller must keep |t * freq * 2pi + phase| under
+   * PALETTE_PHASE_ARG_LIMIT.
    */
   HueWobbleShade(const float *phase, float freq = 1.0f, float depth = 0.1f)
       : phase(phase), frequency(freq), depth(depth) {
@@ -582,9 +584,9 @@ struct HueWobbleShade {
    * @return The hue-rotated sample.
    */
   Color4 shade(Color4 c, float t) const {
-    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
-    return hue_rotate(c,
-                      depth * fast_sinf(t * frequency * PI_F * 2.0f + *phase));
+    const float arg = t * frequency * PI_F * 2.0f + *phase;
+    assert(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
+    return hue_rotate(c, depth * fast_sinf(arg));
   }
 };
 
@@ -746,7 +748,8 @@ struct IridescentShade {
    * @param phase Pointer to the per-frame phase; must not be null.
    * @param freq Sheen frequency over the domain; defaults to 3.0.
    * @param weight Overlay strength; defaults to 0.25.
-   * @details The driver must keep |phase| under PALETTE_PHASE_ARG_LIMIT.
+   * @details The caller must keep |t * freq * 2pi + phase| under
+   * PALETTE_PHASE_ARG_LIMIT.
    */
   IridescentShade(const float *phase, float freq = 3.0f, float weight = 0.25f)
       : phase(phase), frequency(freq), weight(weight) {
@@ -761,8 +764,8 @@ struct IridescentShade {
    *         untouched.
    */
   Color4 shade(Color4 c, float t) const {
-    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
-    float arg = t * frequency * PI_F * 2.0f + *phase;
+    const float arg = t * frequency * PI_F * 2.0f + *phase;
+    assert(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
     constexpr float THIRD = 2.0f * PI_F / 3.0f;
     Pixel sheen(
         srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg)),
