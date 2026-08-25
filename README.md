@@ -500,7 +500,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── check_coverage.py       Catastrophic llvm-cov line-floor gate
 │   ├── check_domain_ratchets.py  Relax-bake and death-harness coverage ratchets
 │   ├── require_test_files.sh   Non-empty guard for glob-discovered test suites (CI)
-│   ├── check_test_dir_pins.sh  Asserts every Python test-suite directory is discovered by CI
+│   ├── check_test_dir_pins.sh  Asserts every Python test-suite directory is discovered by CI and the justfile
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate on every link
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces

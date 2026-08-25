@@ -1795,7 +1795,8 @@ jobs:
         with:
           python-version: '3.12'
       # A suite directory named nowhere has no discovery step and runs nowhere;
-      # this cross-check ensures every tracked suite directory is wired here.
+      # this cross-check ensures every tracked suite directory is wired here and
+      # in the justfile, so the local and cloud runs cover one set.
       - name: Every test-suite directory is discovered
         run: bash tools/check_test_dir_pins.sh
       # Discover finds test files by pattern, so one deleted or renamed out of
