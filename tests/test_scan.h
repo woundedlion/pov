@@ -1118,8 +1118,8 @@ inline void test_pole_lod_shading_matches_undecimated() {
       const Basis poly_basis = make_basis(Quaternion(), Vector(0, 1, 0));
       const Vector ring_axis = Vector(0.12f, 1.0f, 0.0f).normalized();
       const Basis ring_basis = make_basis(Quaternion(), ring_axis);
-      SDF::PlanarPolygon poly(poly_basis, /*circumradius=*/0.35f, /*sides=*/5,
-                              0.0f);
+      SDF::PlanarPolygon poly(poly_basis, /*radius=*/0.35f / (PI_F / 2.0f),
+                              /*sides=*/5, 0.0f);
       // Centerline through the canvas pole: the stroke crosses the decimated
       // rows the polygon's interior covers.
       SDF::Ring ring(ring_basis, /*radius=*/0.12f / (PI_F / 2.0f),
@@ -1428,7 +1428,7 @@ inline void test_scan_shader_v2_contract() {
   HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * expected_coverage, 1e-6f);
   HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * legacy_factor, 2e-6f);
 
-  SDF::PlanarPolygon solid(basis, 0.5f, 6, 0.0f);
+  SDF::PlanarPolygon solid(basis, 0.5f / (PI_F / 2.0f), 6, 0.0f);
   AlphaSink solid_sink;
   float solid_v2 = -1.0f;
   Scan::process_pixel<W, H, false>(

@@ -20,10 +20,6 @@ namespace SDF {
 /**
  * @brief Calculates signed distance to a planar polygon.
  * @details Register semantics: the DistanceResult table (row: PlanarPolygon).
- *          Sizing unit diverges from the sibling leaves: this constructor takes
- *          the circumradius as an angle in radians, while SphericalPolygon,
- *          Star and Flower take a hemisphere fraction and scale it by PI/2.
- *          Scan::PlanarPolygon takes the fraction and converts.
  */
 struct PlanarPolygon {
   const Basis &basis; /**< Orientation frame (v = polygon axis); retained by
@@ -43,25 +39,24 @@ struct PlanarPolygon {
       true; /**< Polygon renders as a filled region. */
 
   /**
-   * @brief Builds a planar polygon from its basis, circumradius, side count,
-   * phase.
+   * @brief Builds a planar polygon from its basis, radius, side count, phase.
    * @param b Orientation frame (v = polygon axis); retained by reference and
    *          read by every distance() call, so it must outlive the shape.
-   * @param cr Angular circumradius of the polygon in radians, NOT the
-   *        hemisphere fraction the sibling leaves take.
+   * @param radius Circumradius as a fraction of the hemisphere.
    * @param s Number of polygon sides (must be >= 3).
    * @param ph Azimuth phase offset (radians).
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
-  PlanarPolygon(const Basis &b, float cr, int s, float ph, bool invert = false)
-      : basis(b), circumradius(cr), sides(s), phase(ph),
-        sign(invert ? -1.0f : 1.0f) {
+  PlanarPolygon(const Basis &b, float radius, int s, float ph,
+                bool invert = false)
+      : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
-    HS_CHECK(circumradius > 0.0f); // t = polar / circumradius
+    HS_CHECK(radius > 0.0f); // t = polar / circumradius
     // arc_stretch<PlanarPolygon> = 2 holds only within a hemisphere; a wider
     // shape must be built inverted, about its antipode.
-    HS_CHECK(circumradius <= PI_F / 2.0f);
+    HS_CHECK(radius <= 1.0f);
+    circumradius = radius * (PI_F / 2.0f);
     sector = TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     apothem = circumradius * cosf(PI_F / sides);
