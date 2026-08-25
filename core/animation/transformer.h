@@ -257,7 +257,7 @@ public:
    * Params& argument).
    * @return Pointer to the spawned animation, or nullptr if no pool slot or
    * timeline event is available.
-   * @details pin=false: the returned pointer is transient (used at the call
+   * @details Pin::UNPINNED: the returned pointer is transient (used at the call
    * site, not retained across frames). These animations are often finite and
    * are compacted normally; pinning them would trap on routine completion.
    * The pool claims the animation's single then() slot to recycle the entity,
