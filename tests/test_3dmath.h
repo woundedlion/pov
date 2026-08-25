@@ -997,6 +997,36 @@ inline void test_vector_slerp() {
 }
 
 /**
+ * @brief Verifies nlerp_unit: endpoints, the unit-length midpoint, and the
+ *        cancelling-blend fallback at math::EPS_BLEND_LEN_SQ.
+ */
+inline void test_vector_nlerp_unit() {
+  const Vector a(1, 0, 0), b(0, 1, 0);
+  HS_EXPECT_VEC(nlerp_unit(a, b, 0.0f), a, 1e-5f);
+  HS_EXPECT_VEC(nlerp_unit(a, b, 1.0f), b, 1e-5f);
+
+  const Vector mid = nlerp_unit(a, b, 0.5f);
+  HS_EXPECT_NEAR(mid.x, std::sqrt(2.0f) * 0.5f, 1e-5f);
+  HS_EXPECT_NEAR(mid.y, std::sqrt(2.0f) * 0.5f, 1e-5f);
+  HS_EXPECT_NEAR(mid.z, 0.0f, 1e-5f);
+
+  for (int i = 0; i <= 10; ++i)
+    HS_EXPECT_NEAR(nlerp_unit(a, b, static_cast<float>(i) / 10.0f).length(),
+                   1.0f, 1e-5f);
+
+  // Antipodal endpoints cancel: the blend carries no direction, so it holds a.
+  const Vector p(0, 1, 0), ap(0, -1, 0);
+  HS_EXPECT_VEC(nlerp_unit(p, ap, 0.5f), p, 1e-5f);
+  HS_EXPECT_VEC(nlerp_unit(p, ap, 0.5f + 1e-5f), p, 1e-5f);
+  HS_EXPECT_VEC(nlerp_unit(p, ap, 0.5f + 1e-3f), ap, 1e-5f);
+
+  // Near-antipodal but non-cancelling: the residual still resolves to a unit
+  // direction.
+  const Vector near_ap = Vector(0.01f, -1.0f, 0.0f).normalized();
+  HS_EXPECT_NEAR(nlerp_unit(p, near_ap, 0.5f).length(), 1.0f, 1e-4f);
+}
+
+/**
  * @brief Verifies Quaternion slerp: endpoints (q and -q are the same
  *        orientation), unit-length interpolants, the q^0.5-squared==q property,
  *        and the long_way (long-arc) variant.
@@ -1549,6 +1579,7 @@ inline int run_3dmath_tests() {
   test_rotation_matrix_matches_rotate();
 
   test_vector_slerp();
+  test_vector_nlerp_unit();
   test_vector_slerp_antipodal_monotonic();
   test_quaternion_slerp();
   test_scaled_rotation_delta();
