@@ -120,6 +120,58 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
 }
 
 /**
+ * @brief Verifies the split vertex/fragment draw averages SAMPLES==4 sub-samples
+ *        over one per-pixel vertex seed.
+ * @details The vertex shader runs once at the pixel center and the fragment
+ * shader four times at the sub-pixel offsets, each sub-fragment inheriting the
+ * seeded registers. Two of the four sub-samples land opaque (the same
+ * theta-phase split the single-callback SSAA case uses), so the written pixel is
+ * half the seeded intensity -- a value the SAMPLES==1 path cannot produce.
+ */
+inline void test_shader_split_ssaa_averages_subsamples() {
+  constexpr int W = 16, H = 8;
+  int vertex_calls = 0;
+  int fragment_calls = 0;
+  hs_test::StubEffect fx(W, H);
+  {
+    Canvas c(fx);
+    Scan::Shader::draw<W, H, 4>(
+        c,
+        [&](const Vector &v, Fragment &f) {
+          ++fragment_calls;
+          float theta = std::atan2(v.z, v.x);
+          if (theta < 0.0f)
+            theta += 2.0f * PI_F;
+          float g = theta * W / (2.0f * PI_F);
+          bool opaque = (g - std::floor(g)) < 0.5f;
+          // Green carries the vertex seed: a sub-fragment that missed it reads 0.
+          f.color = opaque
+                        ? Color4(Pixel(0, static_cast<uint16_t>(f.v0), 0), 1.0f)
+                        : Color4(Pixel(0, 0, 0), 0.0f);
+        },
+        [&](Fragment &f) {
+          ++vertex_calls;
+          f.v0 = 60000.0f;
+        });
+  }
+  fx.advance_display();
+
+  HS_EXPECT_EQ(vertex_calls, W * H);
+  HS_EXPECT_EQ(fragment_calls, 4 * W * H);
+
+  // Premultiplied: (60000*1 + 60000*1 + 0 + 0) / 4 = 30000.
+  for (int y = 0; y < H; ++y) {
+    for (int x = 0; x < W; ++x) {
+      HS_CONTEXT("px", x, y);
+      const Pixel &p = fx.get_pixel(x, y);
+      HS_EXPECT_NEAR((int)p.g, 30000, 2);
+      HS_EXPECT_EQ((int)p.r, 0);
+      HS_EXPECT_EQ((int)p.b, 0);
+    }
+  }
+}
+
+/**
  * @brief Verifies a position-reading shader maps the sphere's latitude.
  * @details The +Y pole (top row) must render brighter than the -Y pole (bottom
  * row), confirming the shader receives the correct surface position.
@@ -184,8 +236,8 @@ inline void test_shader_clip_arc_matches_predicate() {
                   1.0f);
   };
 
-  // 0/1: single-callback draw at 1x and 4x. 2: split vertex/fragment draw.
-  // 3: draw_grid.
+  // 0/1: single-callback draw at 1x and 4x. 2/3: split vertex/fragment draw
+  // at 1x and 4x. 4: draw_grid.
   auto draw_variant = [&](Canvas &c, int variant) {
     switch (variant) {
     case 0:
@@ -196,6 +248,11 @@ inline void test_shader_clip_arc_matches_predicate() {
       break;
     case 2:
       Scan::Shader::draw<W, H, 1>(
+          c, [&](const Vector &v, Fragment &f) { f.color = positional(v); },
+          [](Fragment &f) { f.v0 = 1.0f; });
+      break;
+    case 3:
+      Scan::Shader::draw<W, H, 4>(
           c, [&](const Vector &v, Fragment &f) { f.color = positional(v); },
           [](Fragment &f) { f.v0 = 1.0f; });
       break;
@@ -232,7 +289,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   // A plain arc, and one whose margin underflows column 0 into a wrapped band.
   const Band bands[] = {{8, 20, 2}, {0, 10, 3}};
 
-  for (int variant = 0; variant < 4; ++variant) {
+  for (int variant = 0; variant < 5; ++variant) {
     HS_CONTEXT("variant", variant, 0);
     // One live Effect at a time: read the unclipped render back before the
     // clipped fixture exists.
@@ -2660,6 +2717,7 @@ inline int run_scan_tests() {
 
   test_shader_constant_fills_canvas();
   test_shader_ssaa_premultiplies_partial_coverage();
+  test_shader_split_ssaa_averages_subsamples();
   test_shader_positional_maps_latitude();
   test_shader_respects_clip_band();
   test_shader_clip_arc_matches_predicate();
