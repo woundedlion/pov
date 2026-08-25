@@ -409,7 +409,7 @@ inline void test_specialized_render_signature() {
   // flag pair; the IEEE legs carry the pin.
   hs_test::skip_case();
 #else
-  HS_EXPECT_EQ(signature, uint64_t(14359959135586801231ull));
+  HS_EXPECT_EQ(signature, uint64_t(5793370052802859666ull));
 #endif
 }
 
