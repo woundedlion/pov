@@ -18,23 +18,32 @@
 using namespace emscripten;
 
 /**
- * @brief Adds one arena's {usage, high_water_mark, capacity} entry to a report.
+ * @brief Adds one arena's {usage, high_water_mark, lifetime_high_water_mark,
+ *        capacity} entry to a report.
  * @param metrics Report object to extend.
  * @param name Key the entry is stored under.
  * @param arena Arena to measure.
+ * @details Both peaks are published: high_water_mark is the window since the
+ *          last reset/rebind, which an effect that re-splits the arenas mid-run
+ *          (IslamicStars, on every shape spawn) restarts, while
+ *          lifetime_high_water_mark folds every discarded window in and is the
+ *          figure to size a budget against. It can exceed capacity legitimately
+ *          — a re-split moves the boundary — so an overrun gate reads the
+ *          windowed mark.
  */
 static void add_arena_metrics(val &metrics, const char *name,
                               const Arena &arena) {
   val m = val::object();
   m.set("usage", arena.get_offset());
   m.set("high_water_mark", arena.get_high_water_mark());
+  m.set("lifetime_high_water_mark", arena.get_lifetime_high_water_mark());
   m.set("capacity", arena.get_capacity());
   metrics.set(name, m);
 }
 
 /**
- * @brief Builds a {usage, high_water_mark, capacity} report for the three engine
- *        arenas.
+ * @brief Builds a {usage, high_water_mark, lifetime_high_water_mark, capacity}
+ *        report for the three engine arenas.
  * @return JS object mapping each engine arena name to its metrics, in bytes.
  * @details The per-frame HUD path. Every entry costs an embind round-trip, so
  *          this covers only the arenas an engine instance can move; the tooling
