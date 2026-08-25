@@ -400,7 +400,7 @@ def main(force=False):
     with open(SCH, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(b.dumps())
 
-    lib_lines = ['(kicad_symbol_lib', f'\t(version {sexp.SCHEMATIC_FORMAT})',
+    lib_lines = ['(kicad_symbol_lib', f'\t(version {sexp.SYMBOL_LIB_FORMAT})',
                  '\t(generator "phantasm-gen")',
                  f'\t(generator_version "{sexp.GENERATOR_VERSION}")']
     for lib_id in sorted(b.lib_defs):
