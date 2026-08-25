@@ -810,6 +810,27 @@ inline void test_fast_wrap() {
   }
 }
 
+/**
+ * @brief Verifies the float fast_wrap overload folds into the half-open [0, W).
+ * @details Mirrors the integer cases, then pins the boundary the naive add
+ *          misses: a tiny negative x rounds `x + W` up to exactly W.
+ */
+inline void test_fast_wrap_float() {
+  constexpr int W = 8;
+  constexpr float PERIOD = static_cast<float>(W);
+  HS_EXPECT_EQ(fast_wrap(3.5f, W), 3.5f);
+  HS_EXPECT_EQ(fast_wrap(PERIOD, W), 0.0f);
+  HS_EXPECT_EQ(fast_wrap(PERIOD + 2.25f, W), 2.25f);
+  HS_EXPECT_EQ(fast_wrap(-1.5f, W), PERIOD - 1.5f);
+  HS_EXPECT_EQ(fast_wrap(-PERIOD, W), 0.0f);
+  // -1e-9f + 8.0f is exactly 8.0f in float; the fold must return 0.
+  HS_EXPECT_EQ(fast_wrap(-1e-9f, W), 0.0f);
+  for (int i = -79; i < 160; ++i) {
+    float w = fast_wrap(i * 0.1f, W);
+    HS_EXPECT_TRUE(w >= 0.0f && w < PERIOD);
+  }
+}
+
 // --- shortest_distance ------------------------------------------------------
 
 /**
@@ -882,6 +903,7 @@ inline int run_geometry_tests() {
   test_wrap_int();
   test_wrap_mixed_type();
   test_fast_wrap();
+  test_fast_wrap_float();
   test_shortest_distance();
 
   return fixture.result();
