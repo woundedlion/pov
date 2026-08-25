@@ -1047,7 +1047,7 @@ inline void test_shipping_recipe_lowering_is_identity() {
     if (n != e->recipe->count)
       continue;
     for (size_t i = 0; i < n; ++i) {
-      HS_EXPECT_TRUE(lowered[i].op == e->recipe->steps[i].op);
+      HS_EXPECT_EQ(lowered[i].op, e->recipe->steps[i].op);
       HS_EXPECT_EQ(lowered[i].param, e->recipe->steps[i].param);
       HS_EXPECT_EQ(lowered[i].twist, e->recipe->steps[i].twist);
     }
@@ -1104,8 +1104,8 @@ inline void test_composite_lowering_matches_composites() {
   size_t n = Solids::expand_to_primitives(recipe, lowered, MAX_LOWERED_STEPS);
   HS_EXPECT_EQ(n, (size_t)2);
   if (n == 2) {
-    HS_EXPECT_TRUE(lowered[0].op == Solids::Op::AMBO);
-    HS_EXPECT_TRUE(lowered[1].op == Solids::Op::AMBO);
+    HS_EXPECT_EQ(lowered[0].op, Solids::Op::AMBO);
+    HS_EXPECT_EQ(lowered[1].op, Solids::Op::AMBO);
   }
 }
 
