@@ -753,6 +753,19 @@ add_executable(srgb_decode_gen EXCLUDE_FROM_ALL
 target_include_directories(srgb_decode_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 _hs_warnings(srgb_decode_gen)
 
+
+# Generator of record for tests/data/shader_chain_catalog.json, which
+# unit_shader_chain diffs the freshly generated catalog against.
+# EXCLUDE_FROM_ALL: running it rewrites that committed golden, so the default
+# build only compiles it and regenerate_shader_chain_catalog below runs it.
+add_executable(shader_chain_catalog_gen EXCLUDE_FROM_ALL
+  ${CMAKE_CURRENT_SOURCE_DIR}/shader_chain_catalog_gen.cpp
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+target_include_directories(shader_chain_catalog_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_link_libraries(shader_chain_catalog_gen PRIVATE hs_test_support)
+_hs_warnings(shader_chain_catalog_gen)
 # Compile coverage for every EXCLUDE_FROM_ALL target above. Those targets are
 # out of the default build (their run rewrites a committed artifact, or is too
 # noisy to gate), so an API rename breaks their sources while every job stays
@@ -774,3 +787,12 @@ endif()
 message(STATUS "EXCLUDE_FROM_ALL compile coverage: ${_hs_excluded}")
 add_custom_target(excluded_targets)
 add_dependencies(excluded_targets ${_hs_excluded})
+
+# Defined after the aggregation above so it stays out of excluded_targets: CI
+# builds that target in the same workspace it then runs ctest in, and a
+# regeneration there would rewrite the golden unit_shader_chain compares.
+add_custom_target(regenerate_shader_chain_catalog
+  COMMAND $<TARGET_FILE:shader_chain_catalog_gen>
+          ${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json
+  DEPENDS shader_chain_catalog_gen
+  VERBATIM)
