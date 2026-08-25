@@ -1357,6 +1357,20 @@ jobs:
           path: daydream
           persist-credentials: false
 
+      # docs_check --checkout validates the daydream tree fence's rows, never
+      # the README's bytes, and the wasm job's cmp targets a scratch install
+      # written from this same file. Neither can see the committed mirror drift
+      # from its source, so compare them directly. A README change lands in
+      # daydream first, then the pin moves here -- the same order every other
+      # mirrored artifact takes.
+      - name: Engine README matches the daydream mirror
+        run: |
+          if ! cmp -s README.md daydream/README.md; then
+            echo "::error::daydream's committed README.md has drifted from the engine source"
+            diff -u README.md daydream/README.md | head -60
+            exit 1
+          fi
+
       # Discover finds test files by pattern, so one deleted or renamed out of
       # it can run no suite and stay green; require_test_files.sh fails instead.
       - name: Validate tracked Markdown
