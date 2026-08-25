@@ -5589,24 +5589,7 @@ private:
         static_cast<double>(NOISE_LATTICE_LIMIT / bound));
   }
 
-  const char *resource_warning(const Config &candidate) const {
-    std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
-    size_t count = 0;
-    auto add = [&](const NoiseFieldKey &key) {
-      return !append_resource_key(key, keys, count);
-    };
-    if (warp_uses_noise(candidate.slots.warp_program.outer.kind) &&
-        add(warp_resource_key(candidate.slots.warp_program.outer)))
-      return warning_text.data();
-    if (warp_uses_noise(candidate.slots.warp_program.inner.kind) &&
-        add(warp_resource_key(candidate.slots.warp_program.inner)))
-      return warning_text.data();
-    if (is_noise_contour(candidate.slots.function) &&
-        add(source_resource_key(candidate)))
-      return warning_text.data();
-    if (candidate.slots.surface_noise != SurfaceNoise::NONE &&
-        add(surface_noise_resource_key(candidate)))
-      return warning_text.data();
+  const char *resource_warning() const {
     return begin_warning(
         "The active noise consumers exceed the resource limit of %u. Disable "
         "one noise Function, Lens, or Warp.",
@@ -5794,7 +5777,7 @@ private:
           static_cast<double>(sqrtf(det_re * det_re + det_im * det_im)));
     }
     if (!resource_union_fits(candidate, candidate))
-      return resource_warning(candidate);
+      return resource_warning();
     if (!HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND &&
         find_inverse_program(candidate) == nullptr)
       return uncompiled_program_warning(candidate, edited_name);
