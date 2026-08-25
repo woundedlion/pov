@@ -595,6 +595,45 @@ inline void test_blur_full_kernel_sums_to_alpha() {
 }
 
 /**
+ * @brief Verifies Blur wraps its column taps around the seam instead of
+ *        emitting an out-of-range column.
+ * @details The kernel reaches one column either side of the sample, so a plot
+ *          at x = 0 must reach W-1 and one at x = W-1 must reach 0. Rows are
+ *          interior, so all nine taps fire at their unrenormalized weights.
+ */
+inline void test_blur_wraps_column_taps() {
+  constexpr int W = 32, H = 32;
+  Filter::Screen::Blur<W, H> blur(1.0f);
+  const float in_alpha = 0.5f;
+
+  auto expect_seam = [&](int column, int left, int right) {
+    HS_CONTEXT("column", column);
+    bool hit[W] = {};
+    bool all_in_range = true;
+    int count = 0;
+    float sum = 0.0f;
+    blur.plot(static_cast<float>(column), 16.0f, Pixel(1, 1, 1), 0.0f, in_alpha,
+              [&](float x, float, const Pixel &, float, float a) {
+                ++count;
+                sum += a;
+                if (x < 0.0f || x >= static_cast<float>(W))
+                  all_in_range = false;
+                else
+                  hit[static_cast<int>(x)] = true;
+              });
+    HS_EXPECT_EQ(count, 9);
+    HS_EXPECT_TRUE(all_in_range);
+    HS_EXPECT_TRUE(hit[left]);
+    HS_EXPECT_TRUE(hit[column]);
+    HS_EXPECT_TRUE(hit[right]);
+    HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+  };
+
+  expect_seam(0, W - 1, 1);
+  expect_seam(W - 1, W - 2, 0);
+}
+
+/**
  * @brief Verifies update() rebuilds the kernel: update(0) collapses a full blur
  *        back to identity.
  */
@@ -3529,6 +3568,7 @@ inline int run_filter_tests() {
   test_blur_factor_zero_is_identity();
   test_blur_full_kernel_sums_to_alpha();
   test_blur_update_changes_kernel();
+  test_blur_wraps_column_taps();
   test_blur_pole_row_renormalizes();
 
   test_chromatic_shift_fanout();
