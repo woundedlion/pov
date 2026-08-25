@@ -4237,8 +4237,7 @@ struct ReconcileSite {
 };
 
 inline const ReconcileSite RECONCILE_SITES[] = {
-    {"needle", &Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE,
-     false},
+    {"needle", &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE, false},
     {"gyro_kis", &Solids::TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE, false},
     {"icosahedron_kis_gyro", &Solids::ICOSAHEDRON_KIS_GYRO_RECIPE, true},
 };

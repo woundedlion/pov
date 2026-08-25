@@ -34,10 +34,26 @@ inline void build_solid(PolyMesh &mesh, Arena &arena) {
     mesh.faces.push_back(static_cast<uint16_t>(fi));
 }
 
+/** Step table for the ambo/relax/hk54/needle recipe: a test fixture, not in
+ * islamic_registry; the reconcile tests' canonical needle-ending recipe. */
+inline constexpr Solids::OpStep
+    TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS[] = {
+        {Solids::Op::AMBO},
+        {.op = Solids::Op::RELAX,
+         .bake = &Solids::RelaxBakes::truncated_icosahedron_ambo_converged},
+        {Solids::Op::HANKIN, 54.0f * Solids::IslamicStarPatterns::D2R},
+        {Solids::Op::NEEDLE}};
+inline constexpr Solids::Recipe
+    TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE = {
+        Solids::SEED_TRUNCATED_ICOSAHEDRON,
+        TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS,
+        static_cast<uint8_t>(
+            std::size(TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS))};
+
 /**
  * @brief Builds the seed of the needle recipe's gated swaps: the ambo /
  *        relax(100) / hankin(54 deg) prefix of
- *        Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS.
+ *        TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS.
  * @param a Output arena for the built mesh.
  * @param b Scratch arena for the intermediate meshes.
  * @return The hankin(54 deg) arrival, allocated in @p a.
