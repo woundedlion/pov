@@ -45,6 +45,13 @@ class TestDirPins(unittest.TestCase):
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
         self.assertIn("tools/sample_tests", done.stdout)
 
+    def test_a_longer_sibling_directory_does_not_satisfy_the_pin(self):
+        done = self.run_check(
+            "bash tools/require_test_files.sh 'tools/sample_tests/test*.py'\n"
+            "python -m unittest discover -s tools/sample_tests_extra -v\n")
+        self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
+        self.assertIn("tools/sample_tests", done.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
