@@ -11,6 +11,8 @@
  */
 #pragma once
 
+#include <iterator>
+
 #include "core/engine/styles.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -494,12 +496,12 @@ inline void test_hue_fade_apply2_tracks_scalar() {
                                {50000.0f, 2000.0f, 2000.0f},
                                {65535.0f, 65535.0f, 65535.0f},
                                {12345.0f, 54321.0f, 999.0f}};
-  const int n = (int)(sizeof(channels) / sizeof(channels[0]));
+  const int n = (int)std::size(channels);
   const float fades[] = {0.58f, 0.75f, 0.9f, 0.99f};
   const float shifts[] = {0.0f, 0.01f, 0.1f, 0.33f, 0.75f};
 
-  for (int si = 0; si < 5; ++si)
-    for (int fi = 0; fi < 4; ++fi) {
+  for (int si = 0; si < (int)std::size(shifts); ++si)
+    for (int fi = 0; fi < (int)std::size(fades); ++fi) {
       HS_CONTEXT("shift/fade", si, fi);
       const float shift = shifts[si];
       const float fade = fades[fi];
