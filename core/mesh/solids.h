@@ -314,20 +314,6 @@ inline constexpr Recipe DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE = {
     static_cast<uint8_t>(
         std::size(DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS))};
 
-/** Step table for the ambo/relax/hk54/needle recipe: not in islamic_registry;
- * the reconcile tests' canonical needle-ending recipe. */
-inline constexpr OpStep TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS[] = {
-    {Op::AMBO},
-    {.op = Op::RELAX,
-     .bake = &RelaxBakes::truncated_icosahedron_ambo_converged},
-    {Op::HANKIN, 54.0f * IslamicStarPatterns::D2R},
-    {Op::NEEDLE}};
-inline constexpr Recipe TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE = {
-    SEED_TRUNCATED_ICOSAHEDRON,
-    TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS,
-    static_cast<uint8_t>(
-        std::size(TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS))};
-
 /** Step table for truncatedIcosahedron_hk58_chamfer63. */
 inline constexpr OpStep TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[] = {
     {Op::HANKIN, 58.0f * IslamicStarPatterns::D2R}, {Op::CHAMFER, 0.63f}};
