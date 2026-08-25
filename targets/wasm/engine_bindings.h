@@ -964,6 +964,7 @@ public:
     return counts;
   }
 
+#if HS_ENABLE_SHADER_WORKBENCH
   /**
    * @brief Returns the current Shader workbench's versioned full-state snapshot.
    * @return JS object {schemaVersion, accepted, requested, pendingFieldIds,
@@ -1148,6 +1149,7 @@ public:
     with_shader_workbench(
         [&]<typename SB>(SB &shader) { shader.clear_config_import_notice(); });
   }
+#endif // HS_ENABLE_SHADER_WORKBENCH
 
 #if HS_ENABLE_CHAIN_INTERPRETER
   /**
@@ -1247,6 +1249,7 @@ public:
   }
 
 private:
+#if HS_ENABLE_SHADER_WORKBENCH
   /**
    * @brief Range-checks a preset index arriving from the untyped JS boundary.
    * @param index Requested index, as the double the binding takes.
@@ -1283,6 +1286,7 @@ private:
     });
     return invoked;
   }
+#endif // HS_ENABLE_SHADER_WORKBENCH
 
 #if HS_ENABLE_CHAIN_INTERPRETER
   /**
@@ -1502,6 +1506,7 @@ static void bind_engine() {
       .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
       .function("getEffectPresetCounts",
                 &HolosphereEngine::getEffectPresetCounts)
+#if HS_ENABLE_SHADER_WORKBENCH
       .function("getFullConfigSnapshot",
                 &HolosphereEngine::getFullConfigSnapshot)
       .function("restoreFullConfigSnapshot",
@@ -1512,6 +1517,7 @@ static void bind_engine() {
                 &HolosphereEngine::getConfigImportNotice)
       .function("clearConfigImportNotice",
                 &HolosphereEngine::clearConfigImportNotice)
+#endif
 #if HS_ENABLE_CHAIN_INTERPRETER
       .function("setShaderChain", &HolosphereEngine::setShaderChain)
       .class_function("getShaderChainCatalog",
