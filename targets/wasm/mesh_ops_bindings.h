@@ -893,9 +893,9 @@ public:
   /**
    * @brief Reports why the most recent MeshOps call answered null.
    * @return OK when that call produced a result, otherwise its rejection reason.
-   * @details Covers fromSolidName, getVertices, getFaces, classifyFaces and the
-   *          operator methods. Read it immediately after the null; the next such
-   *          call overwrites it.
+   * @details Covers fromSolidName, getVertices, getFaces, classifyFaces,
+   *          getRecipe and the operator methods. Read it immediately after the
+   *          null; the next such call overwrites it.
    */
   static MeshOpResult getLastResult() { return last_mesh_op_result; }
 
