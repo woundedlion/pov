@@ -491,7 +491,7 @@ private:
    * @brief Samples the raw ID straps (ID_STRAPS bits, LSB = ID0).
    * @return Raw reading; floating (HIGH) bits set, grounded bits clear.
    */
-  static int sample_strap() {
+  HS_COLD_MEMBER static int sample_strap() {
     int raw = digitalReadFast(PIN_ID0);
     if constexpr (ID_STRAPS >= 2)
       raw |= digitalReadFast(PIN_ID1) << 1;
@@ -530,7 +530,7 @@ private:
    * unique soldered ID links elsewhere, per PCB rules R-ID-2 (soldered links)
    * and R-ID-4 (silkscreen truth table).
    */
-  static void read_id() {
+  HS_COLD_MEMBER static void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
     if constexpr (ID_STRAPS >= 2)
       pinMode(PIN_ID1, INPUT_PULLUP);
