@@ -539,7 +539,7 @@ public:
    * @return The rotated vector.
    */
   Vector orient(const Vector &v) const {
-    HS_CHECK(num_frames >= 1);
+    HS_CHECK(num_frames >= 1, "Orientation: no frames");
     return rotate(v, orientations[num_frames - 1]);
   }
 
@@ -551,7 +551,7 @@ public:
    * @return The rotated vector.
    */
   Vector orient(const Vector &v, int i) const {
-    HS_CHECK(i >= 0 && i < num_frames);
+    HS_CHECK(i >= 0 && i < num_frames, "Orientation: frame index out of range");
     return rotate(v, orientations[i]);
   }
 
@@ -562,7 +562,7 @@ public:
    * @return The unrotated vector.
    */
   Vector unorient(const Vector &v) const {
-    HS_CHECK(num_frames >= 1);
+    HS_CHECK(num_frames >= 1, "Orientation: no frames");
     return rotate(v, orientations[num_frames - 1].conjugate());
   }
 
@@ -574,7 +574,7 @@ public:
    * @return The unrotated vector.
    */
   Vector unorient(const Vector &v, int i) const {
-    HS_CHECK(i >= 0 && i < num_frames);
+    HS_CHECK(i >= 0 && i < num_frames, "Orientation: frame index out of range");
     return rotate(v, orientations[i].conjugate());
   }
 
@@ -583,7 +583,7 @@ public:
    * @return The Quaternion reference.
    */
   const Quaternion &get() const {
-    HS_CHECK(num_frames >= 1);
+    HS_CHECK(num_frames >= 1, "Orientation: no frames");
     return orientations[num_frames - 1];
   }
 
@@ -593,7 +593,7 @@ public:
    * @return The Quaternion reference.
    */
   const Quaternion &get(int i) const {
-    HS_CHECK(i >= 0 && i < num_frames);
+    HS_CHECK(i >= 0 && i < num_frames, "Orientation: frame index out of range");
     return orientations[i];
   }
 
@@ -604,7 +604,8 @@ public:
    * @return Reference to the Orientation object.
    */
   Orientation &set(const Quaternion &q) {
-    HS_CHECK(std::abs(q.squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ);
+    HS_CHECK(std::abs(q.squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ,
+             "Orientation: non-unit quaternion");
     orientations[0] = q;
     num_frames = 1;
     return *this;
@@ -617,8 +618,9 @@ public:
    * @return Reference to the Orientation object.
    */
   Orientation &push(const Quaternion &q) {
-    HS_CHECK(std::abs(q.squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ);
-    HS_CHECK(num_frames < CAPACITY);
+    HS_CHECK(std::abs(q.squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ,
+             "Orientation: non-unit quaternion");
+    HS_CHECK(num_frames < CAPACITY, "Orientation: history full");
     orientations[num_frames++] = q;
     return *this;
   }
@@ -651,8 +653,9 @@ public:
    * @param q Unit-length replacement quaternion.
    */
   void set_at(int i, const Quaternion &q) {
-    HS_CHECK(i >= 0 && i < num_frames);
-    HS_CHECK(std::abs(q.squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ);
+    HS_CHECK(i >= 0 && i < num_frames, "Orientation: frame index out of range");
+    HS_CHECK(std::abs(q.squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ,
+             "Orientation: non-unit quaternion");
     orientations[i] = q;
   }
 
@@ -662,7 +665,7 @@ public:
    * @param q Replacement quaternion; must have nonzero magnitude.
    */
   void set_at_normalized(int i, Quaternion q) {
-    HS_CHECK(i >= 0 && i < num_frames);
+    HS_CHECK(i >= 0 && i < num_frames, "Orientation: frame index out of range");
     q.normalize();
     orientations[i] = q;
   }
@@ -685,7 +688,7 @@ public:
    * than spreading evenly along the arc.
    */
   void upsample(int count) {
-    HS_CHECK(count >= 1);
+    HS_CHECK(count >= 1, "Orientation: upsample count below 1");
     if (count > CAPACITY)
       count = CAPACITY;
     if (num_frames >= count)
