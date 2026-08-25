@@ -182,10 +182,8 @@ private:
    * and writes Capacity Items through it.
    */
   void check_storage_alive() const {
-#ifndef NDEBUG
-    constexpr size_t BYTES = Capacity * sizeof(Item);
-    assert(stamp.block_alive(items, BYTES) && "World::Trails use-after-free!");
-#endif
+    HS_ASSERT_BLOCK_ALIVE(stamp, items, Capacity * sizeof(Item),
+                          "World::Trails");
   }
 
   static constexpr float Q =

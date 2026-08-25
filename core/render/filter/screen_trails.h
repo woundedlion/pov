@@ -165,11 +165,8 @@ private:
    * and writes MAX_PIXELS DecayPixels through it.
    */
   void check_storage_alive() const {
-#ifndef NDEBUG
-    constexpr size_t BYTES = MAX_PIXELS * sizeof(DecayPixel);
-    assert(stamp.block_alive(points, BYTES) &&
-           "Screen::Trails use-after-free!");
-#endif
+    HS_ASSERT_BLOCK_ALIVE(stamp, points, MAX_PIXELS * sizeof(DecayPixel),
+                          "Screen::Trails");
   }
 };
 

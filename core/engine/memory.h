@@ -550,6 +550,21 @@ struct ArenaBlockStamp {
            !block_reissued(p, bytes);
   }
 };
+
+/**
+ * @brief Faults when an arena-owned block has been reset, rewound below or
+ *        reissued since it was stamped.
+ * @param stamp ArenaBlockStamp recorded by the owner's init_storage().
+ * @param ptr First byte of the block.
+ * @param bytes Block length in bytes.
+ * @param owner String literal naming the owner in the failure message.
+ * @details The owner's stamp member is itself debug-only, so this expands to
+ * nothing under NDEBUG rather than to a call that would name it.
+ */
+#define HS_ASSERT_BLOCK_ALIVE(stamp, ptr, bytes, owner)                        \
+  assert((stamp).block_alive(ptr, bytes) && owner " use-after-free!")
+#else
+#define HS_ASSERT_BLOCK_ALIVE(stamp, ptr, bytes, owner) ((void)0)
 #endif
 
 // ============================================================================
