@@ -4424,6 +4424,8 @@ struct RingSpinWhiteBox {
   static Vector axis(const RS &fx, int i, int s) {
     return fx.rings[i].orientation.orient(fx.rings[i].normal, s).normalized();
   }
+  /** @brief Ring-pool size. */
+  static int num_rings() { return RS::NUM_RINGS; }
   /** @brief Half-width in radians of the trail-head stroke. */
   static float head_half_width(const RS &fx) {
     return 2.0f * (2.0f * PI_F / DEFAULT_W) * fx.params.thickness;
@@ -4464,7 +4466,7 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
       ++lit;
       const Vector v = pixel_to_vector<DEFAULT_W, DEFAULT_H>(x, y);
       float nearest = 1.0f;
-      for (int i = 0; i < WB::RS::NUM_RINGS; ++i)
+      for (int i = 0; i < WB::num_rings(); ++i)
         for (int s = 0; s < WB::substeps(fx, i); ++s)
           nearest = std::min(nearest, std::abs(dot(v, WB::axis(fx, i, s))));
       worst = std::max(worst, nearest);
