@@ -98,12 +98,16 @@ export function stackCreepBudget(stack, ceiling, maxFill = STACK_MAX_FILL) {
  * than compared directly, and they carry no min/max.
  *
  * @param {unknown} defs getParameterDefinitions() result.
- * @param {ArrayLike<number>} values getParamValues() result.
+ * @param {unknown} values getParamValues() result.
  * @returns {string[]} One message per problem; empty means the seam is intact.
  */
 export function paramStreamProblems(defs, values) {
   if (!Array.isArray(defs)) {
     return ['getParameterDefinitions() did not return an array'];
+  }
+  if (values === null || values === undefined
+    || typeof values.length !== 'number') {
+    return ['getParamValues() did not return an indexable value stream'];
   }
   const problems = [];
   if (values.length !== defs.length) {
@@ -112,6 +116,10 @@ export function paramStreamProblems(defs, values) {
   }
   for (let i = 0; i < defs.length; i++) {
     const d = defs[i];
+    if (d === null || typeof d !== 'object') {
+      problems.push(`param ${i} is not a definition object`);
+      continue;
+    }
     if (typeof d.name !== 'string' || d.name.length === 0) {
       problems.push(`param ${i} has no name`);
     }
