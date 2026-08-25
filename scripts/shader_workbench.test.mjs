@@ -234,9 +234,13 @@ test('scalar parameter bindings match catalog domains and curves', () => {
     ['SCALAR_DOMAIN_MISMATCH']);
 
   const curve = example();
-  curve.descriptor.parameters[0].interpolation.kind = 'LINEAR';
+  curve.descriptor.parameters[0].interpolation = { kind: 'LINEAR' };
   assert.deepEqual(validate(curve).map((diagnostic) => diagnostic.code),
     ['SCALAR_DOMAIN_MISMATCH']);
+
+  const inertPeriod = example();
+  inertPeriod.descriptor.parameters[2].interpolation.period = 1;
+  assert.equal(validate(inertPeriod)[0].code, 'UNKNOWN_FIELD');
 });
 
 test('a snap-curve catalog field is authorable', () => {
