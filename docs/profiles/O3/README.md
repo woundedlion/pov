@@ -12,7 +12,7 @@ image or a guaranteed speed ceiling.
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:57 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.90 | 🟢 0/2048 (0%) | 2026-08-03 00:36 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-23.md) ● | composed curl-noise shader | 🟢 48.35 | 🟢 0/1088 (0%) | 2026-08-23 22:06 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🟢 47.79 (2) | 🟢 0/2688 (0%) | 2026-08-25 01:16 |
+| [HyperLattice](profile_hyperlattice_teensy_2026-08-25.md)§ | layered reflected-lattice shader | 🟢 47.79 (2) | 🟢 0/2688 (0%) | 2026-08-25 01:16 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-09.md)§ ● | wireframe raster | 🟢 42.94 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:41 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-07.md)§ ● | direct AA trail raster + clip gate | 🟢 38.78 (8) | 🟢 0/1728 (0%) | 2026-08-07 23:02 |
 | [Fishbowl](profile_fishbowl_teensy_2026-08-02.md) ● | adaptive vertex build | 🟢 22.16 | 🟢 0/1088 (0%) | 2026-08-02 22:23 |
