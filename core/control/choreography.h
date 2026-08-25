@@ -246,9 +246,14 @@ private:
   /** @brief Preset count: `PRESET_IDS` when present, else the `PRESETS`
       table, else one. */
   static consteval size_t preset_count_of() {
-    if constexpr (requires { Derived::PRESET_IDS; })
+    if constexpr (requires { Derived::PRESET_IDS; }) {
+      if constexpr (requires { Derived::PRESETS; })
+        static_assert(Derived::PRESET_IDS.size() == Derived::PRESETS.size(),
+                      "PRESET_IDS and PRESETS must name the same presets: "
+                      "preset_target() indexes the table with a PRESET_IDS "
+                      "index");
       return Derived::PRESET_IDS.size();
-    else if constexpr (requires { Derived::PRESETS; })
+    } else if constexpr (requires { Derived::PRESETS; })
       return Derived::PRESETS.size();
     else
       return 1;
