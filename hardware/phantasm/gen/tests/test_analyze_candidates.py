@@ -183,6 +183,28 @@ class MainTests(unittest.TestCase):
         self.assertNotIn("COMPOSITE SCORE", output)
         run_drc.assert_not_called()
 
+    def test_two_runs_of_one_label_stop_rather_than_rank_one(self):
+        with tempfile.TemporaryDirectory() as directory:
+            boards = []
+            for run in ("runA", "runB"):
+                folder = Path(directory) / run / "Candidate 1"
+                folder.mkdir(parents=True)
+                board = folder / "phantasm.kicad_pcb"
+                board.write_text(SYNTHETIC_BOARD, encoding="utf-8")
+                boards.append(str(folder))
+
+            with mock.patch("builtins.print") as emit, \
+                    mock.patch.object(analyze_candidates, "run_drc") as run_drc:
+                result = analyze_candidates.main(boards)
+
+        output = "\n".join(" ".join(map(str, call.args))
+                           for call in emit.call_args_list)
+        self.assertEqual(result, 1)
+        self.assertIn("names two boards", output)
+        for board in boards:
+            self.assertIn(board, output)
+        self.assertEqual(run_drc.call_count, 1)
+
 
 class ClosestSpacingTests(unittest.TestCase):
     NAN = float("nan")

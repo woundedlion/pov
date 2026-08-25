@@ -338,13 +338,22 @@ def main(argv=None):
         return 1
 
     R = {}
+    source = {}
     for d in dirs:
         # Read the Quilter candidate label anywhere in the path, whether a folder
         # or a board file was passed and regardless of the board's filename.
         m = re.search(r"Candidate[ _-]+(\w+)", d)
         name = m.group(1) if m else os.path.splitext(os.path.basename(d))[0]
         try:
+            # The label is scraped from the path, so two runs supply the same
+            # one: without this the later board silently replaces the earlier
+            # and the ranking covers fewer boards than were analyzed.
+            if name in source:
+                raise ValueError(
+                    f"candidate label {name!r} names two boards: {source[name]}"
+                    f" and {d} - rename one folder so every board is ranked")
             f = candidate_board(d)
+            source[name] = d
             R[name] = analyze(f)
         except ValueError as exc:
             print(exc)
