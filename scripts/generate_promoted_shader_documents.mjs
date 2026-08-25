@@ -269,9 +269,9 @@ const documentFor = (spec) => {
   };
 };
 
-// The twelve promoted documents this generator owns. patterns/ holds three
-// more — lattice_melt, kaleidoscope_smooth and kaleidoscope_hex_oil — hand-authored from
-// workbench snapshots, which no rerun writes.
+// The twelve promoted documents this generator owns. patterns/ holds five more
+// — ash_cloud, example, kaleidoscope_hex_oil, kaleidoscope_smooth and
+// lattice_melt — hand-authored, which no rerun writes.
 const effects = [
   {
     id: 'alien-brain', display: 'Alien Brain', source: 'grid', sourceKey: 'grid',
