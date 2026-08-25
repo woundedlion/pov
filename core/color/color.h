@@ -447,13 +447,15 @@ inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2) {
 }
 
 /**
- * @brief Returns a blend functor that lerps c1->c2 by alpha.
- * @param a Blend weight in [0, 1]; NaN maps to the hi bound.
- * @return A functor taking (c1, c2) Pixels and returning the lerped Pixel.
+ * @brief Returns a straight-alpha "over" functor.
+ * @param a Source coverage in [0, 1]; NaN maps to the hi bound.
+ * @return A functor taking (dst, src) Pixels and returning src * a +
+ *         dst * (1 - a).
  */
 inline auto blend_alpha(float a) {
   uint16_t ai = frac_to_q16(a);
-  return [ai](const Pixel &c1, const Pixel &c2) { return c1.lerp16(c2, ai); };
+  return
+      [ai](const Pixel &dst, const Pixel &src) { return dst.lerp16(src, ai); };
 }
 
 ///////////////////////////////////////////////////////////////////////////////
