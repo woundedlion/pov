@@ -599,6 +599,13 @@ hook symbol or instruction.
 
 ## 8. Concrete core operator and stage catalog
 
+Superseded, and retained as the design record the shipped operators were
+derived from: the six-role `Stage::*` catalog below -- `SurfaceProject`,
+`Stage::Source`, `Stage::Material` and the `ProjectionSample` / `SourceInput`
+/ `MaterialInput` / `MaterialSample` carriers -- has no occurrence anywhere in
+the tree. The shipped stage vocabulary is the ranked family chain in
+[pullback_stage_families_spec.md](pullback_stage_families_spec.md) §4.
+
 The catalog is public template inventory. Defining a policy in the header does
 not instantiate it. Only a pipeline alias or a direct dynamic/reference call
 emits code.
@@ -1099,6 +1106,10 @@ This boundary is normative. Moving a listed effect-policy type to core requires
 a separate specification explaining its independent semantics.
 
 ### 9.3 Assembly example
+
+Superseded along with the catalog it assembles: the `Stage::*` names below are
+those retired in §8. The shipped assembly is the ranked family chain in
+[pullback_stage_families_spec.md](pullback_stage_families_spec.md) §4.
 
 Illustrative assembly follows. Public `Pullback` family names and roles are
 normative; private provider, matcher, and program-alias names may differ:
