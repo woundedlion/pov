@@ -500,6 +500,121 @@ private:
   Space space;      /**< The coordinate space for rotation. */
 };
 
+namespace Detail {
+
+[[nodiscard]] __attribute__((noinline)) inline float
+stable_rotation_squared_magnitude(const Quaternion &q) {
+  return q.r * q.r + q.v.x * q.v.x + q.v.y * q.v.y + q.v.z * q.v.z;
+}
+
+[[nodiscard]] __attribute__((noinline)) inline Quaternion
+stable_rotation_normalized(const Quaternion &q) {
+  float m2 = stable_rotation_squared_magnitude(q);
+  HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+  float m = sqrtf(m2);
+  return Quaternion(q.r / m, q.v / m);
+}
+
+[[nodiscard]] __attribute__((noinline)) inline Quaternion
+make_stable_rotation(const Vector &axis, float theta) {
+  return stable_rotation_normalized(
+      Quaternion(cosf(theta / 2), sinf(theta / 2) * axis));
+}
+
+} // namespace Detail
+
+/**
+ * @brief Tunable parameters for the sphere random walk.
+ */
+struct RandomWalkOptions {
+  float speed = 0.02f; /**< Movement speed per frame. */
+  float pivot_strength =
+      0.1f; /**< Strength of the direction change (noise amplitude). */
+  float noise_scale = 0.02f; /**< Frequency of the Perlin noise. */
+  float smoothing =
+      0.85f;          /**< Angular momentum (0 = none, 0.95 = very sluggish). */
+  float drift = 0.5f; /**< Temporal drift speed for spatial noise. */
+
+  /**
+   * @brief Preset for slow, gentle motion.
+   * @return Options tuned for a languid walk.
+   */
+  static RandomWalkOptions Languid() {
+    return {0.02f, 0.1f, 0.02f, 0.85f, 0.5f};
+  }
+
+  /**
+   * @brief Preset for fast, lively motion.
+   * @return Options tuned for an energetic walk.
+   */
+  static RandomWalkOptions Energetic() {
+    return {0.05f, 0.4f, 0.08f, 0.7f, 1.0f};
+  }
+};
+
+/** @brief The rotation one random-walk step applied to its cursor. */
+struct RandomWalkDelta {
+  Vector axis;         /**< Great-circle axis the step advanced about. */
+  Quaternion rotation; /**< Rotation of `axis` by the step's speed. */
+};
+
+/**
+ * @brief Advances a random-walk cursor one frame across the unit sphere.
+ * @tparam STABLE_ROTATION Preserve rotation helper call boundaries.
+ * @param position Current forward direction; advanced in place.
+ * @param direction Current pivoting direction, orthogonal to @p position;
+ *   advanced in place.
+ * @param angular_velocity Smoothed pivot rate (angular momentum); updated in
+ *   place.
+ * @param noise Noise generator; the caller owns its type, frequency and seed.
+ * @param options Walk tuning.
+ * @param t Frame counter, incremented by the caller before this call.
+ * @return The axis the step advanced about and the rotation it applied.
+ * @details The single definition of the walk recurrence: RandomWalk drives an
+ * Orientation from it, and the chain interpreter's spin-and-wander operators
+ * accumulate its delta directly.
+ */
+template <bool STABLE_ROTATION>
+__attribute__((always_inline)) inline RandomWalkDelta
+step_random_walk(Vector &position, Vector &direction, float &angular_velocity,
+                 FastNoiseLite &noise, const RandomWalkOptions &options,
+                 uint32_t t) {
+  // noise_scale is applied once via SetFrequency() by the caller; the 100x is a
+  // fixed base sample scale (scaling coords by noise_scale here too would make
+  // the spatial frequency quadratic in it).
+  // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher drift)
+  // float can't represent consecutive frames and the drift coordinate freezes.
+  const float target_pivot =
+      noise.GetNoise(position.x * 100.0f, position.y * 100.0f,
+                     position.z * 100.0f +
+                         static_cast<float>(t) * options.drift) *
+      options.pivot_strength;
+  angular_velocity = angular_velocity * options.smoothing +
+                     target_pivot * (1.0f - options.smoothing);
+  if constexpr (STABLE_ROTATION) {
+    direction = rotate(direction,
+                       Detail::make_stable_rotation(position, angular_velocity))
+                    .normalized();
+  } else {
+    direction = rotate(direction, make_rotation(position, angular_velocity))
+                    .normalized();
+  }
+  // If position and direction drift near-parallel the cross collapses to zero;
+  // fall back to a deterministic perpendicular of position.
+  const Vector axis_seed = least_parallel_axis(position);
+  const Vector walk_axis = normalized_or(
+      cross(position, direction), cross(position, axis_seed).normalized());
+  Quaternion walk_q;
+  if constexpr (STABLE_ROTATION) {
+    walk_q = Detail::make_stable_rotation(walk_axis, options.speed);
+  } else {
+    walk_q = make_rotation(walk_axis, options.speed);
+  }
+  position = rotate(position, walk_q).normalized();
+  direction = rotate(direction, walk_q).normalized();
+  return {walk_axis, walk_q};
+}
+
 /**
  * @brief An animation that simulates a particle/camera performing a random walk
  * across the sphere's surface.
@@ -516,30 +631,7 @@ private:
 template <int W, int CAP = 4, bool STABLE_ROTATION = false>
 class RandomWalk : public AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>> {
 public:
-  /**
-   * @brief Tunable parameters for the random walk.
-   */
-  struct Options {
-    float speed = 0.02f; /**< Movement speed per frame. */
-    float pivot_strength =
-        0.1f; /**< Strength of the direction change (noise amplitude). */
-    float noise_scale = 0.02f; /**< Frequency of the Perlin noise. */
-    float smoothing =
-        0.85f; /**< Angular momentum (0 = none, 0.95 = very sluggish). */
-    float drift = 0.5f; /**< Temporal drift speed for spatial noise. */
-
-    /**
-     * @brief Preset for slow, gentle motion.
-     * @return Options tuned for a languid walk.
-     */
-    static Options Languid() { return {0.02f, 0.1f, 0.02f, 0.85f, 0.5f}; }
-
-    /**
-     * @brief Preset for fast, lively motion.
-     * @return Options tuned for an energetic walk.
-     */
-    static Options Energetic() { return {0.05f, 0.4f, 0.08f, 0.7f, 1.0f}; }
-  };
+  using Options = RandomWalkOptions;
 
   /**
    * @brief Constructs a RandomWalk animation.
@@ -624,62 +716,14 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>>::step(canvas);
-    // noise_scale is applied once via SetFrequency() in the ctor; the 100x is a
-    // fixed base sample scale (scaling coords by noise_scale here too would make
-    // the spatial frequency quadratic in it).
-    // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher drift)
-    // float can't represent consecutive frames and the drift coordinate freezes.
-    float target_pivot =
-        noise_generator.get().GetNoise(
-            v.x * 100.0f, v.y * 100.0f,
-            v.z * 100.0f + static_cast<float>(this->t) * options.drift) *
-        options.pivot_strength;
-    angular_velocity = angular_velocity * options.smoothing +
-                       target_pivot * (1.0f - options.smoothing);
-    if constexpr (STABLE_ROTATION) {
-      direction = rotate(direction, make_stable_rotation(v, angular_velocity))
-                      .normalized();
-    } else {
-      direction =
-          rotate(direction, make_rotation(v, angular_velocity)).normalized();
-    }
-    // If v and direction drift near-parallel the cross collapses to zero; fall
-    // back to a deterministic perpendicular of v.
-    const Vector axis_seed = least_parallel_axis(v);
-    Vector walk_axis =
-        normalized_or(cross(v, direction), cross(v, axis_seed).normalized());
-    Quaternion walk_q;
-    if constexpr (STABLE_ROTATION) {
-      walk_q = make_stable_rotation(walk_axis, options.speed);
-    } else {
-      walk_q = make_rotation(walk_axis, options.speed);
-    }
-    v = rotate(v, walk_q).normalized();
-    direction = rotate(direction, walk_q).normalized();
-    Rotation<W, CAP>::animate(canvas, orientation, walk_axis, options.speed,
+    const RandomWalkDelta delta = step_random_walk<STABLE_ROTATION>(
+        v, direction, angular_velocity, noise_generator.get(), options,
+        this->t);
+    Rotation<W, CAP>::animate(canvas, orientation, delta.axis, options.speed,
                               ease_linear);
   }
 
 private:
-  [[nodiscard]] static __attribute__((noinline)) float
-  stable_rotation_squared_magnitude(const Quaternion &q) {
-    return q.r * q.r + q.v.x * q.v.x + q.v.y * q.v.y + q.v.z * q.v.z;
-  }
-
-  [[nodiscard]] static __attribute__((noinline)) Quaternion
-  stable_rotation_normalized(const Quaternion &q) {
-    float m2 = stable_rotation_squared_magnitude(q);
-    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
-    float m = sqrtf(m2);
-    return Quaternion(q.r / m, q.v / m);
-  }
-
-  [[nodiscard]] static __attribute__((noinline)) Quaternion
-  make_stable_rotation(const Vector &axis, float theta) {
-    return stable_rotation_normalized(
-        Quaternion(cosf(theta / 2), sinf(theta / 2) * axis));
-  }
-
   std::reference_wrapper<Orientation<CAP>>
       orientation;  /**< Reference to the global Orientation state. */
   Vector v;         /**< Current forward direction vector. */

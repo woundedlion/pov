@@ -3127,7 +3127,7 @@ inline void test_shader_chain_determinism() {
   authored_walk_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
   authored_walk_noise.SetSeed(
       static_cast<int32_t>(In::instance_hash("camera", "sphere.rotate.v2")));
-  authored_walk_noise.SetFrequency(In::Op::WALK_NOISE_SCALE);
+  authored_walk_noise.SetFrequency(In::Op::WALK_OPTIONS.noise_scale);
   const auto &seeded_walk =
       state_as<In::Op::SpatialWalkState>(first->program, 0);
   HS_EXPECT_EQ(seeded_walk.walk_noise.GetNoise(0.25f, -0.5f, 0.75f),
