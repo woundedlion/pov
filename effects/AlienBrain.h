@@ -40,7 +40,6 @@ public:
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "alien-brain", "alien-brain-2", "alien-brain-3", "alien-brain-4"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr bool ANIMATED_PROJECTION = true;
 
   static HS_HOT_FLASH_MEMBER Color4
   shade(const Vector &view, const typename AlienBrain::FrameState &frame) {
