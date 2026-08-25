@@ -14,7 +14,6 @@
  */
 #pragma once
 
-#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -859,12 +858,28 @@ inline void test_gamut_lut_release_and_passthrough() {
   HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
 }
 
-/** @brief Pins the single-step normalization used by the LUT gamut path. */
+/**
+ * @brief Pins the single-step normalization used by the LUT gamut path.
+ * @details Provenance: no generator emits the reference chroma pair. It was
+ * captured by printing scaled.a and scaled.b from this case built by the native
+ * clang test toolchain (cmake/toolchain-native-clang.cmake), and is re-derived
+ * the same way. The tolerance is relative rather than bit-exact because this
+ * module also runs under the shipping -ffast-math -fno-finite-math-only pair,
+ * which contracts and reassociates the Newton step; the rsqrt seed itself is
+ * integer arithmetic on the exponent and cannot move. Hue and the one-sided-low
+ * landing are asserted as form rather than as pinned bits.
+ */
 inline void test_gamut_lut_boundary_scale_rounding() {
   const OKLab scaled = gamut_scale_to_boundary_lut({0.5f, 0.4f, 0.3f});
-  HS_EXPECT_EQ(std::bit_cast<uint32_t>(scaled.L), 0x3f000000u);
-  HS_EXPECT_EQ(std::bit_cast<uint32_t>(scaled.a), 0x3e064870u);
-  HS_EXPECT_EQ(std::bit_cast<uint32_t>(scaled.b), 0x3dc96ca9u);
+  HS_EXPECT_EQ(scaled.L, 0.5f);
+  HS_EXPECT_NEAR_REL(scaled.a, 0.13113570f, 1e-6);
+  HS_EXPECT_NEAR_REL(scaled.b, 0.09835178f, 1e-6);
+  // One scale factor on (a, b): the input 0.4:0.3 ratio survives.
+  HS_EXPECT_NEAR(scaled.a * 0.3f, scaled.b * 0.4f, 1e-7f);
+  // The single Newton step is one-sided low, so the rescale lands in gamut.
+  float r, g, b;
+  oklab_to_linear_rgb(scaled, r, g, b);
+  HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
 }
 
 /**
