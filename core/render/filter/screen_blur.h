@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include "render/filter/pipeline.h"
+#include "render/filter/splat.h"
 #include "color/color.h"
 #include "math/geometry.h"
 
@@ -110,10 +111,13 @@ private:
   /**
    * @brief Kernel weight below which a tap contributes nothing worth emitting,
    * and the reciprocal guard on the edge-renormalization sum.
-   * @details Looser than SPLAT_TAP_CUTOFF (1e-8) because these weights are
-   * normalized 3x3 kernel taps, not raw bilinear coverage products.
+   * @details Looser than SPLAT_TAP_CUTOFF because these weights are normalized
+   * 3x3 kernel taps, not raw bilinear coverage products.
    */
   static constexpr float TAP_CUTOFF = 1e-5f;
+  static_assert(TAP_CUTOFF > SPLAT_TAP_CUTOFF,
+                "Blur's normalized-kernel cutoff must stay looser than the raw "
+                "splat coverage cutoff");
 
   std::array<float, 9> kernel; /**< Row-major 3x3 blur weights, summing to 1. */
 };
