@@ -185,15 +185,14 @@ private:
    * @param y Longitude height along the pole axis, in [-1, 1].
    * @param phase Scroll offset subtracted from the coordinate.
    * @return Palette coordinate in [0, 1]; the poles y = +/-1 saturate to 1.0
-   *         before the singular conformal radius R = sqrt((1+y)/(1-y)) is formed,
-   *         so no non-finite intermediate is produced.
+   *         before the singular conformal radius R = sqrt((1+y)/(1-y)) is
+   *         formed, so no non-finite intermediate is produced.
    */
   static float conformal_coord(float y, float phase) {
     constexpr float POLE_EPS = 1e-6f;
     if (1.0f - fabsf(y) < POLE_EPS)
       return 1.0f;
-    float R = sqrtf((1.0f + y) / (1.0f - y));
-    float log_r = logf(R);
+    float log_r = 0.5f * logf((1.0f + y) / (1.0f - y));
     float t =
         (log_r - CONFORMAL_LOG_MIN) / (CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN);
     return wrap(t - phase, 1.0f);
