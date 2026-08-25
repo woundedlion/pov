@@ -41,9 +41,9 @@ only pairs actually used by a leg allocate scratch ramps.
 ## Truncate edge cases
 
 The small-arrival and far-side recipe classes are both supported.
-`T_EPS_TRUNCATE_FRAC` gives a `truncate(0.01)` leg a smaller positive birth so
+`TRUNCATE_BIRTH_FRAC` gives a `truncate(0.01)` leg a smaller positive birth so
 it visibly sweeps instead of collapsing to a still image.
-`T_EPS_TRUNCATE_FAR_MAX` bounds arrivals above 0.5, and
+`T_TRUNCATE_FAR_MAX` bounds arrivals above 0.5, and
 `truncate_off_pinch()` keeps a far-side sample on the constant-topology
 truncate branch when it lands exactly on the ambo short-circuit.
 
