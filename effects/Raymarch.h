@@ -14,6 +14,7 @@
 #include "core/color/noise_hue_palette.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
+#include "core/render/pullback/runtime_seeds.h"
 #include "core/render/sdf/volume.h"
 
 // Unit-test accessor reaching the private torus proportions, so a test can pin
@@ -221,7 +222,7 @@ public:
     volume_spins = persistent_arena.make_n<VolumeSpin>(MAX_POINTS);
     palette_state = persistent_arena.make<PaletteState>();
     palette_state->noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    palette_state->noise.SetSeed(6047);
+    palette_state->noise.SetSeed(Pullback::HUE_NOISE_SEED);
     palette_state->noise.SetFrequency(1.0f);
     prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(
                                  palette_state->hue_rotation_lut),
