@@ -14,6 +14,7 @@ kicad-cli is found via $KICAD_CLI, else common install paths, else PATH.
 """
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
@@ -50,9 +51,13 @@ ZIP_MEMBERS = {
     "phantasm-Edge_Cuts.gm1", "phantasm-PTH.drl", "phantasm-NPTH.drl",
     "phantasm-job.gbrjob",
 }
-# Everything else the run writes into jlc/: assembly data and the zip itself.
+#: Digest manifest written beside the upload zip, never inside it.
+SUMS_FILE = "SHA256SUMS.txt"
+
+# Everything else the run writes into jlc/: assembly data, the zip itself,
+# and the zip's digest manifest.
 ZIP_EXCLUDED = {"phantasm-BOM.csv", "phantasm-CPL.csv",
-                "phantasm-jlc-gerbers.zip"}
+                "phantasm-jlc-gerbers.zip", SUMS_FILE}
 
 
 #: Creation stamp written over KiCad's wall clock in every exported artifact,
@@ -144,6 +149,26 @@ def zip_member(name):
     info.create_system = 3
     info.external_attr = 0o644 << 16
     return info
+
+
+def sha256_file(path):
+    """SHA-256 of a file, over the bytes the upload zip stores."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def package_manifest(directory, members, archive):
+    """`sha256sum -c` lines for every zipped artifact and the archive itself.
+
+    zip_member() and normalize_fab_timestamps() make the package
+    byte-reproducible; the manifest is what a rebuild is checked against.
+    """
+    return "".join(
+        f"{sha256_file(os.path.join(directory, name))}  {name}\n"
+        for name in list(members) + [archive])
 
 
 class UploadPackageError(ValueError):
@@ -1001,9 +1026,15 @@ def main():
             with open(os.path.join(JLC, f), "rb") as fh:
                 z.writestr(zip_member(f), fh.read())
 
+    manifest_path = os.path.join(JLC, SUMS_FILE)
+    with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(package_manifest(JLC, members, os.path.basename(zpath)))
+
     print(f"\nDone. {len(assembled)} assembled SMD parts; "
           f"{len(groups)} BOM lines.")
     print(f"  fab package: {zpath}")
+    print(f"  package sha256: {sha256_file(zpath)}")
+    print(f"  digest manifest: {manifest_path}")
 
 
 if __name__ == "__main__":
