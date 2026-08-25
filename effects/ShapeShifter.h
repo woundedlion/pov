@@ -104,7 +104,7 @@ public:
             W, H, pipeline_config<decltype(plot_filters)>({.strobe = true})) {}
 
   /** @brief Registers the GUI sliders and starts the preset choreography. */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
     mark_global("Alpha");
     register_animated_param("Shape", &params.shape, SHAPE_OPTIONS,

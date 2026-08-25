@@ -48,7 +48,7 @@ public:
    * @details next_hue resets here so hue assignment is deterministic on every
    * (re)init.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     register_param("Twist", &params.twist_factor, 0.0f, 5.0f);
     register_param("Speed", &params.speed, 0.0f, SPEED_MAX);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
