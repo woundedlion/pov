@@ -1160,7 +1160,26 @@ concept DerivableSource = requires {
 // Derivation-side half of the reach table: widening one of these narrowings
 // reds here before the catalog-side counts below go stale.
 static_assert(DerivableSource<Pullback::GridSourceParams>);
-static_assert(!DerivableSource<Pullback::NoiseSourceParams>);
+// The shared noise field group is not itself a family: it carries the fields
+// for both noise sources, so it names no single policy.
+static_assert(!DerivableSource<Pullback::Source::NoiseSourceParams>);
+static_assert(DerivableSource<Pullback::ProjectedNoiseSourceParams>);
+static_assert(DerivableSource<Pullback::SphericalNoiseSourceParams>);
+// SphericalRings stays chain-only: its policy needs a prepared axis and
+// phase the composed frame does not carry.
+static_assert(!DerivableSource<Pullback::Source::SphericalRingsSourceParams>);
+static_assert(
+    std::is_same_v<
+        typename Pullback::SourcePolicyFor<Pullback::SphericalNoiseSourceParams,
+                                           ReachBinding>::Type,
+        Pullback::Source::SphericalNoise<Pullback::SourceProvider<ReachBinding>,
+                                         ::NoiseBasis::SIMPLEX>>);
+static_assert(
+    std::is_same_v<
+        typename Pullback::SourcePolicyFor<Pullback::ProjectedNoiseSourceParams,
+                                           ReachBinding>::Type,
+        Pullback::Source::ProjectedNoise<Pullback::SourceProvider<ReachBinding>,
+                                         ::NoiseBasis::SIMPLEX>>);
 static_assert(
     std::is_same_v<typename Pullback::WarpPolicyFor<
                        Pullback::PolarParams, ReachBinding, true, false>::Type,
@@ -1196,13 +1215,11 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.peirce-square-fast.v2", nullptr, {}},
     {"project.bonne.v2", nullptr, {}},
     {"project.airocean.v2", nullptr, {}},
-    // SourcePolicyFor covers Grid, TwinWave, Spiral and PrimitiveLattice only.
+    // SourcePolicyFor has no policy for these plane samplers.
     {"sample.rings.v2", nullptr, {}},
     {"sample.spherical-rings.v3", nullptr, {}},
     {"sample.fractal.v2", nullptr, {}},
     {"sample.tessellation.v2", nullptr, {}},
-    {"sample.projected-noise.v2", nullptr, {}},
-    {"sample.spherical-noise.v3", nullptr, {}},
     // No WarpPolicyFor specialization carries these warp families.
     {"warp.vortex.v2", nullptr, {}},
     {"warp.curl-flow.v2", nullptr, {}},
@@ -1241,6 +1258,11 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.spiral.v2",
      "coverage-mode",
      {{"weight", "weight-squared", "edge-fade"}}},
+    {"sample.projected-noise.v2", "weight-mode", {{"projection"}}},
+    {"sample.projected-noise.v2",
+     "coverage-mode",
+     {{"weight", "weight-squared", "edge-fade"}}},
+    {"sample.projected-noise.v2", "basis", {{"simplex"}}},
     {"sample.lattice.v2", "weight-mode", {{"projection"}}},
     {"sample.lattice.v2",
      "coverage-mode",
@@ -1345,9 +1367,9 @@ inline void test_composed_derivation_reach() {
   }
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
-  HS_EXPECT_EQ(unreachable_operators, 14u);
+  HS_EXPECT_EQ(unreachable_operators, 12u);
   HS_EXPECT_EQ(catalog_values, 125u);
-  HS_EXPECT_EQ(unreachable_values, 79u);
+  HS_EXPECT_EQ(unreachable_values, 74u);
 }
 
 using RippleProbeParams =
@@ -1427,6 +1449,89 @@ inline void test_composed_periodic_ripple_surface() {
   HS_EXPECT_GT(lit, size_t(0));
 }
 
+template <typename SourceT>
+using NoiseSourceProbeParams =
+    Pullback::Params<SourceT, Pullback::NoWarpParams, Pullback::NoWarpParams>;
+using NoiseSourceProbeSpec =
+    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC, void,
+                   Pullback::TransferKind::NONE,
+                   Pullback::CoverageKind::PROJECTION>;
+
+/** @brief Probe deriving a pipeline from a noise source family. */
+template <int W, int H, typename SourceT>
+class NoiseSourceProbe
+    : public Pullback::ComposedEffect<
+          W, H, NoiseSourceProbe<W, H, SourceT>,
+          NoiseSourceProbeParams<SourceT>, NoiseSourceProbeSpec,
+          PaletteHarmony::TRIADIC, Pullback::HueMode::NONE,
+          Pullback::Color::BrightnessEnvelope::NONE, false> {
+public:
+  using Params = NoiseSourceProbeParams<SourceT>;
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"noise"};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr int SOURCE_NOISE_SEED = 1337;
+
+  static constexpr Params initial_params() {
+    Params value;
+    value.source.noise_scale = 8.0f;
+    value.source.noise_contrast = 1.0f;
+    value.source.noise_time_rate = 1.0f / 128.0f;
+    return value;
+  }
+};
+
+/**
+ * @brief Both noise source families reach the derivation path.
+ * @details Each owns a source-noise field without the effect naming
+ * HasSourceNoise; the plane-domain and sphere-domain contours light the
+ * frame and differ from each other on the same seed and parameters.
+ */
+inline void test_composed_noise_sources() {
+  using Projected =
+      NoiseSourceProbe<SMALL_W, SMALL_H, Pullback::ProjectedNoiseSourceParams>;
+  using Spherical =
+      NoiseSourceProbe<SMALL_W, SMALL_H, Pullback::SphericalNoiseSourceParams>;
+  static_assert(Projected::HAS_SOURCE_NOISE);
+  static_assert(Spherical::HAS_SOURCE_NOISE);
+
+  std::array<Pixel, SMALL_W * SMALL_H> projected{};
+  size_t lit = 0;
+  {
+    reset_effect_globals();
+    Projected effect;
+    effect.init();
+    HS_EXPECT_TRUE(effect.getParameters().find("Source Noise Scale") !=
+                   nullptr);
+    HS_EXPECT_TRUE(effect.getParameters().find("Source Noise Speed") !=
+                   nullptr);
+    effect.draw_frame();
+    effect.advance_display();
+    for (int i = 0; i < SMALL_W * SMALL_H; ++i) {
+      projected[i] = effect.display_buffer()[i];
+      lit += projected[i].r != 0 || projected[i].g != 0 || projected[i].b != 0;
+    }
+  }
+  HS_EXPECT_GT(lit, size_t(0));
+
+  size_t spherical_lit = 0;
+  size_t differing = 0;
+  {
+    reset_effect_globals();
+    Spherical effect;
+    effect.init();
+    effect.draw_frame();
+    effect.advance_display();
+    for (int i = 0; i < SMALL_W * SMALL_H; ++i) {
+      const Pixel &pixel = effect.display_buffer()[i];
+      spherical_lit += pixel.r != 0 || pixel.g != 0 || pixel.b != 0;
+      differing += pixel.r != projected[i].r || pixel.g != projected[i].g ||
+                   pixel.b != projected[i].b;
+    }
+  }
+  HS_EXPECT_GT(spherical_lit, size_t(0));
+  HS_EXPECT_GT(differing, size_t(0));
+}
 /** @brief Parameter set of the ChoreographedEffect probes: one animated float. */
 struct ChoreoProbeParams {
   float level = 0.0f;
@@ -1647,6 +1752,7 @@ inline int run_composed_effect_tests() {
   test_composed_derivation_reach();
   test_composed_projection_walk_storage();
   test_composed_periodic_ripple_surface();
+  test_composed_noise_sources();
   test_choreography_fade_envelope();
   test_choreography_lerp_transition_hooks();
   return fixture.result();
