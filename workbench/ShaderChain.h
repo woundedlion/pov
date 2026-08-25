@@ -134,8 +134,7 @@ private:
         hue_rotation_lut{};
     std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut{};
     FastNoiseLite hue_noise;
-    float baked_noise_scale = 0.0f; /**< 0 forces the first active bake. */
-    float baked_noise_phase = 0.0f;
+    Pullback::Color::HueNoiseBakeCache hue_noise_bake;
   };
 
   /** @brief The committed program's colorize entry, when present. */
@@ -216,16 +215,9 @@ private:
     const auto &clocks =
         *static_cast<const Pullback::Interp::Op::ColorClockState *>(
             program.state_block(static_cast<size_t>(tap.index)));
-    if (resources->baked_noise_scale != tap.params->hue_noise_scale ||
-        resources->baked_noise_phase != clocks.hue_noise_phase) {
-      Pullback::Color::prepare_hue_noise_lut(
-          std::span<int8_t, Pullback::Color::HueNoiseLutView::SIZE>(
-              resources->hue_noise_lut),
-          resources->hue_noise, tap.params->hue_noise_scale,
-          clocks.hue_noise_phase);
-      resources->baked_noise_scale = tap.params->hue_noise_scale;
-      resources->baked_noise_phase = clocks.hue_noise_phase;
-    }
+    resources->hue_noise_bake.refresh(
+        resources->hue_noise_lut, resources->hue_noise,
+        tap.params->hue_noise_scale, clocks.hue_noise_phase);
     ctx.hue_noise_lut = resources->hue_noise_lut.data();
     return ctx;
   }
