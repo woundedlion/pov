@@ -591,9 +591,11 @@ struct PreparedOrientationPolicy {
   using FrameState = TestFrame;
   using Prepared = int;
   static Prepared prepare(const FrameState &) { return 1; }
-  static const Quaternion &conjugate(const FrameState &, const Prepared &) {
-    static constexpr Quaternion IDENTITY;
-    return IDENTITY;
+  // Index 1, what prepare() returns, is a half turn about y.
+  static const Quaternion &conjugate(const FrameState &, const Prepared &p) {
+    static constexpr Quaternion ROTATIONS[] = {
+        Quaternion(), Quaternion(0.0f, 0.0f, 1.0f, 0.0f)};
+    return ROTATIONS[p];
   }
 };
 
@@ -727,7 +729,12 @@ inline void test_pullback_prepared_stage_policies() {
       Pullback::Stage::Rotate<PreparedOrientationPolicy>::Bind<CountingBinding>;
   const auto rotate_prepared = BoundRotate::prepare(frame);
   HS_EXPECT_EQ(rotate_prepared, 1);
-  static_cast<void>(BoundRotate::run(sphere, frame, rotate_prepared));
+  const Pullback::SphereSample rotated =
+      BoundRotate::run(sphere, frame, rotate_prepared);
+  HS_EXPECT_EQ(rotated.dir.x, -1.0f);
+  HS_EXPECT_EQ(rotated.dir.y, 2.0f);
+  HS_EXPECT_EQ(rotated.dir.z, -3.0f);
+  HS_EXPECT_EQ(rotated.path_length, sphere.path_length);
 
   using BoundLens =
       Pullback::Stage::Lens<PreparedLensPolicy>::Bind<CountingBinding>;
