@@ -107,6 +107,18 @@ test('a non-array definition stream is the only problem reported', () => {
     ['getParameterDefinitions() did not return an array']);
 });
 
+test('a non-indexable value stream is the only problem reported', () => {
+  const expected = ['getParamValues() did not return an indexable value stream'];
+  assert.deepEqual(paramStreamProblems([floatDef('Speed', 0.25)], undefined),
+    expected);
+  assert.deepEqual(paramStreamProblems([floatDef('Speed', 0.25)], {}), expected);
+});
+
+test('a definition entry that is not an object is reported', () => {
+  const problems = paramStreamProblems([null], [0.25]);
+  assert.deepEqual(problems, ['param 0 is not a definition object']);
+});
+
 test('a length split is reported', () => {
   const problems = paramStreamProblems([floatDef('Speed', 0.25)], []);
   assert.ok(problems.some((p) => /param order seam drifted/.test(p)));
