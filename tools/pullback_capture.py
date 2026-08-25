@@ -18,7 +18,7 @@ from generate_pullback_manifest_header import (
     load_and_validate,
     manifest_sha256,
 )
-from pullback_crosscheck import _expected_toolchain
+from pullback_crosscheck import expected_toolchain
 
 
 CASE_OPERATIONS = {
@@ -319,7 +319,7 @@ def attest_toolchain(build_dir: Path, configuration: str, programs: dict) -> dic
         "cmake_preset": cache.get("HS_PULLBACK_CAPTURE_PRESET", ""),
         "configuration": cache.get("CMAKE_BUILD_TYPE", ""),
     }
-    expected = _expected_toolchain(programs, configuration)
+    expected = expected_toolchain(programs, configuration)
     if observed != expected:
         raise CaptureError(
             f"observed toolchain differs from manifest pin: {observed} != {expected}"

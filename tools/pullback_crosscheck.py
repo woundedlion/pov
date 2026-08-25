@@ -228,7 +228,7 @@ def _validate_frame_operations(frames: dict, programs: dict) -> None:
         raise CrosscheckError("spatial probe frames are aliases")
 
 
-def _expected_toolchain(programs: dict, configuration: str) -> dict:
+def expected_toolchain(programs: dict, configuration: str) -> dict:
     if configuration == "native-debug":
         pin = programs["toolchains"]["native"]
         keys = ("compiler", "cmake", "cmake_preset", "configuration")
@@ -353,7 +353,7 @@ def _validate_capture(
         raise CrosscheckError("capture checkout SHA mismatch")
     if capture["manifest_sha256"] != digest:
         raise CrosscheckError("capture manifest hash mismatch")
-    if capture["toolchain"] != _expected_toolchain(programs, configuration):
+    if capture["toolchain"] != expected_toolchain(programs, configuration):
         raise CrosscheckError("observed capture toolchain differs from manifest pin")
     if capture["configuration"] != configuration:
         raise CrosscheckError("capture configuration mismatch")
