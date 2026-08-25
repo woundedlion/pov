@@ -196,6 +196,9 @@ SHARED_LITERALS = {
     "float-flags": " ".join(FLOAT_FLAGS),
     "float-test-flags": " ".join(FAST_MATH_TEST_FLAGS),
     "float-flags-cmake": " ".join(f'"{flag}"' for flag in FLOAT_FLAGS),
+    # The per-effect smoke window every CI leg drives. The justfile and
+    # CONTRIBUTING repeat it because neither can read the workflow.
+    "smoke-frames": "120",
 }
 
 # (pattern, literal name, occurrences required across INLINE_SCAN). The
@@ -215,6 +218,9 @@ SHARED_LITERAL_USES = (
     (r"float_flags:\s+(-ffast-math\b.*)$", "float-test-flags", 1),
     # Every WASM target's compile and link line.
     (r'("-ffast-math" "[^"]+")', "float-flags-cmake", 4),
+    # ci.yml declares the window once and aliases it into every other job; the
+    # justfile spells it as a recipe parameter and CONTRIBUTING as prose.
+    (r'HS_SMOKE_FRAMES(?:: &\w+ |="?)(\d+)', "smoke-frames", 3),
 )
 
 # --check-tool targets: pin name -> (version command, how to install the pin,
