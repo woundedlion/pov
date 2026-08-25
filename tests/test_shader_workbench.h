@@ -69,7 +69,7 @@ struct ShaderWorkbenchWhiteBox {
   using PlanarWarpResult = SB::PlanarWarpResult;
   using FieldSample = SB::FieldSample;
   using ClockState = SB::ClockState;
-  using LookRuntime = SB::LookRuntime;
+  using EndpointRuntime = SB::EndpointRuntime;
   using WalkDeltas = SB::WalkDeltas;
   using ThroughClearPhase = SB::ThroughClearPhase;
   using ConfigFieldId = SB::ConfigFieldId;
@@ -277,10 +277,10 @@ struct ShaderWorkbenchWhiteBox {
     return SB::transition_mix(sb.state->transition.elapsed,
                               sb.state->transition.duration);
   }
-  static const LookRuntime &transition_from_runtime(const SB &sb) {
+  static const EndpointRuntime &transition_from_runtime(const SB &sb) {
     return sb.state->transition.from_runtime;
   }
-  static const LookRuntime &transition_to_runtime(const SB &sb) {
+  static const EndpointRuntime &transition_to_runtime(const SB &sb) {
     return sb.state->transition.to_runtime;
   }
   static const RequestedConfig &transition_from_config(const SB &sb) {
@@ -317,12 +317,12 @@ struct ShaderWorkbenchWhiteBox {
     sb.state->transition.to_pipeline =
         to_program == nullptr ? InversePipelineId::NONE : to_program->id;
   }
-  static const LookRuntime &runtime(const SB &sb) { return sb.runtime; }
+  static const EndpointRuntime &runtime(const SB &sb) { return sb.runtime; }
   static Quaternion projection_walk(const SB &sb) {
     return sb.projection_walk.get();
   }
   static Quaternion outer_walk(const SB &sb) { return sb.outer_walk.get(); }
-  static void advance_runtime(SB &sb, LookRuntime &runtime,
+  static void advance_runtime(SB &sb, EndpointRuntime &runtime,
                               const RequestedConfig &config,
                               const WalkDeltas &deltas) {
     sb.advance_runtime(runtime, config, deltas);
@@ -5013,7 +5013,7 @@ inline void test_shader_workbench_planar_warp_animation() {
   lattice_scroll.params.warp.outer.scale_x = 1.0f;
   lattice_scroll.params.warp.outer.scale_y = 1.0f;
   lattice_scroll.params.warp.outer.shear = 0.0f;
-  WB::LookRuntime stationary;
+  WB::EndpointRuntime stationary;
   for (int frame_index = 0; frame_index < 16; ++frame_index)
     WB::advance_runtime(sb, stationary, lattice_scroll,
                         {Quaternion(), Quaternion()});
@@ -5024,12 +5024,12 @@ inline void test_shader_workbench_planar_warp_animation() {
   rotating.params.warp.outer.rotation = TWO_PI_F;
   WB::RequestedConfig zero_speed = rotating;
   zero_speed.params.warp.outer.speed = 0.0f;
-  WB::LookRuntime zero_speed_runtime;
+  WB::EndpointRuntime zero_speed_runtime;
   WB::advance_runtime(sb, zero_speed_runtime, zero_speed,
                       {Quaternion(), Quaternion()});
   HS_EXPECT_EQ(zero_speed_runtime.clocks.warp_outer_rotation, 0.0f);
-  WB::LookRuntime clockwise;
-  WB::LookRuntime counterclockwise;
+  WB::EndpointRuntime clockwise;
+  WB::EndpointRuntime counterclockwise;
   for (int step = 1; step <= 4; ++step) {
     WB::advance_runtime(sb, clockwise, rotating, {Quaternion(), Quaternion()});
     const float expected = step * rotating.params.warp.outer.speed *
@@ -5060,7 +5060,7 @@ inline void test_shader_workbench_planar_warp_animation() {
       WB::WarpStageKind::AFFINE_FRAME;
   inner_rotating.params.warp.inner.speed = 1.0f / 64.0f;
   inner_rotating.params.warp.inner.rotation = -TWO_PI_F;
-  WB::LookRuntime inner_runtime;
+  WB::EndpointRuntime inner_runtime;
   WB::advance_runtime(sb, inner_runtime, inner_rotating,
                       {Quaternion(), Quaternion()});
   const auto prepared_inner = WB::prepared_warp_stage(
@@ -5350,7 +5350,7 @@ inline void test_shader_workbench_stable_preset_transition() {
   }
 }
 
-/** @brief Discrete look changes preserve continuous dual-runtime handoff. */
+/** @brief Discrete config changes preserve continuous dual-runtime handoff. */
 inline void test_shader_workbench_discrete_transition() {
   using WB = ShaderWorkbenchWhiteBox;
 
@@ -5443,8 +5443,8 @@ inline void test_shader_workbench_discrete_transition() {
     reset_effect_globals();
     WB::SB sb;
     sb.init();
-    WB::LookRuntime authored_runtime;
-    WB::LookRuntime generated_runtime;
+    WB::EndpointRuntime authored_runtime;
+    WB::EndpointRuntime generated_runtime;
     const WB::WalkDeltas deltas{make_rotation(Y_AXIS, 0.2f),
                                 make_rotation(X_AXIS, 0.3f)};
     const WB::RequestedConfig authored = WB::presets()[10];
@@ -5460,7 +5460,7 @@ inline void test_shader_workbench_discrete_transition() {
 
     const size_t original_index = WB::preset_index(sb);
     // Both transition endpoints must compile a pipeline, so the destination
-    // is an authored topology carrying the generated-look source speed.
+    // is an authored topology carrying the generated preset's source speed.
     WB::RequestedConfig discrete = WB::presets()[1];
     discrete.params.source.speed = 0.05f;
     WB::force_transition(sb, discrete, 60, true);
