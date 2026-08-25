@@ -1342,6 +1342,8 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
   const auto *face_counts = mesh.get_face_counts_data();
   const auto *faces = mesh.get_faces_data();
 
+  require_flat_face_length(face_counts, F, I);
+
   out_mesh.vertices.bind(target, V);
   out_mesh.face_counts.bind(target, F);
   out_mesh.faces.bind(target, I);
