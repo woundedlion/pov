@@ -56,6 +56,24 @@ const { chromium } = await import('playwright');
 // is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
 const EFFECTS = await loadEffectRoster();
 
+// argv names index docs/screenshots/<name>.png, so only roster spellings are
+// accepted: a typo stops here instead of after a full resolution descent, and no
+// path fragment ever reaches join().
+const REQUESTED = process.argv.slice(2);
+const OFF_ROSTER = REQUESTED.filter(name => !EFFECTS.includes(name));
+if (OFF_ROSTER.length) {
+  console.error('========================================================');
+  console.error('capture_screenshots: ERROR — not effect roster names:');
+  console.error(`  ${OFF_ROSTER.join(', ')}`);
+  console.error('Roster spellings come from HS_EFFECT_LIST (effects.h); run with no');
+  console.error('arguments to capture the whole gallery.');
+  console.error('========================================================');
+  process.exitCode = 2;
+  // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
+  await new Promise((resolve) => process.stderr.write('', resolve));
+  process.exit();
+}
+
 await mkdir(OUT_DIR, { recursive: true });
 
 // A launch failure (browser not installed) would otherwise throw a raw stack
@@ -165,7 +183,7 @@ try {
   if (RESOLUTIONS.length === 0) throw new UnresolvedResolutions();
   console.log(`Capture resolutions (high→low): ${RESOLUTIONS.join(', ')}`);
 
-  targets = process.argv.slice(2).length ? process.argv.slice(2) : EFFECTS;
+  targets = REQUESTED.length ? REQUESTED : EFFECTS;
 
   // Grab the current #canvas frame and measure how much of it is lit. With
   // preserveDrawingBuffer:true forced via addInitScript, toDataURL is safe after
