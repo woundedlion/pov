@@ -301,15 +301,22 @@ concept HasRetarget = requires(S &s, const Vector &v) {
   { s.retarget(v) } -> std::same_as<void>;
 };
 
+/** @brief Whether a policy's LOCAL_SWEEP is a constant-usable bool. */
+template <typename S>
+concept LocalSweeps = requires {
+  requires std::same_as<std::remove_cv_t<decltype(S::LOCAL_SWEEP)>, bool>;
+  typename std::bool_constant<S::LOCAL_SWEEP>;
+};
+
 /**
  * @brief Signature-agnostic "the policy declares this hook name" probes.
- * @details Each carrier declares one hook name; merged into a policy, the name
- * is ambiguous exactly when the policy declares it too — whatever signature it
- * carries, and including a template member the call-shaped concepts above
- * cannot see. MeshCarousel pairs each Declares* with its hook concept, so a
- * drifted signature is a compile error instead of a policy silently dropped off
- * the hook. A final or non-class policy cannot be merged into and reports
- * false.
+ * @details Each carrier declares one hook or trait name; merged into a policy,
+ * the name is ambiguous exactly when the policy declares it too — whatever
+ * signature or type it carries, and including a template member the call-shaped
+ * concepts above cannot see. MeshCarousel pairs each Declares* with its hook
+ * concept, so a drifted signature is a compile error instead of a policy
+ * silently dropped off the hook. A final or non-class policy cannot be merged
+ * into and reports false.
  */
 namespace detail {
 
@@ -324,6 +331,9 @@ struct ReorderName {
 };
 struct MaskPairName {
   void mask_pair();
+};
+struct LocalSweepName {
+  static constexpr int LOCAL_SWEEP = 0;
 };
 
 template <typename S, typename Name> struct Merged : S, Name {};
@@ -355,6 +365,12 @@ concept DeclaresReorder = detail::Mergeable<S> && !requires {
 template <typename S>
 concept DeclaresMaskPair = detail::Mergeable<S> && !requires {
   &detail::Merged<S, detail::MaskPairName>::mask_pair;
+};
+
+/** @brief Whether a policy declares a `LOCAL_SWEEP` member of any type. */
+template <typename S>
+concept DeclaresLocalSweep = detail::Mergeable<S> && !requires {
+  detail::Merged<S, detail::LocalSweepName>::LOCAL_SWEEP;
 };
 
 /**
