@@ -239,6 +239,12 @@ private:
 
   friend struct ::hs_test::effects_tests::FishbowlWhiteBox;
 
+  /**
+   * @brief Palette-coordinate modifier lighting only part of each cycle.
+   * @details Compresses the whole gradient into the leading `duty_cycle`
+   * fraction of every cycle; the remainder holds t = 1, the gradient's black
+   * stop.
+   */
   struct DutyCycleModifier {
     static constexpr bool bounded_output = true;
     static constexpr bool rebounds_input = true;
@@ -252,10 +258,29 @@ private:
     }
   };
 
+  /**
+   * @brief Palette-coordinate scale for a partly filled trail.
+   * @param trail_length Recorded trail length after this frame's record().
+   * @return Recorded length over capacity, so a sample's coordinate depends on
+   * its absolute slot rather than its normalized position.
+   */
   static float palette_fill_scale(size_t trail_length) {
     return static_cast<float>(trail_length) / TRAIL_LENGTH;
   }
 
+  /**
+   * @brief Cycle-phase advance per frame, compensated while the trail fills.
+   * @param cycle_speed Slider phase advance per frame.
+   * @param scale_factor Palette coordinate scale factor.
+   * @param trail_length Recorded trail length *before* this frame's record().
+   * @return Phase advance to drive `cycle_phase` with this frame.
+   * @details A full trail evicts its oldest sample each frame, dropping every
+   * survivor one slot and shifting its palette coordinate for free; while
+   * filling, slots are static and the driver must supply that shift itself.
+   * Hence the pre-record length here against palette_fill_scale()'s
+   * post-record one: the frame that fills the last slot still evicts nothing
+   * and must stay compensated.
+   */
   static float palette_phase_speed(float cycle_speed, float scale_factor,
                                    size_t trail_length) {
     if (trail_length < TRAIL_LENGTH)
@@ -263,12 +288,27 @@ private:
     return cycle_speed;
   }
 
+  /**
+   * @brief Trail sample oriented into the view frame and warped by the noise
+   *        field.
+   * @param q Recorded trail orientation.
+   * @return Unit position on the sphere.
+   */
   Vector warped_position(const Quaternion &q) const {
     const Vector pos =
         noise_xform.transform(orientation.orient(rotate(node->v, q)));
     return normalized_or(pos, Vector(1, 0, 0));
   }
 
+  /**
+   * @brief True when a warped segment bows far enough to need a midpoint
+   *        vertex.
+   * @param a Segment start.
+   * @param mid Warped midpoint of the segment.
+   * @param b Segment end.
+   * @return True once `mid` strays a quarter pixel-column from the geodesic
+   * midpoint of `a` and `b`.
+   */
   static bool needs_adaptive_midpoint(const Vector &a, const Vector &mid,
                                       const Vector &b) {
     constexpr float MAX_ERROR = 0.25f * 2.0f * PI_F / W;
@@ -276,6 +316,14 @@ private:
     return angle_between(mid, geodesic_mid) > MAX_ERROR;
   }
 
+  /**
+   * @brief Samples the fire palette and applies the trail fade.
+   * @param palette_t Fill-scaled palette coordinate.
+   * @param age_t Normalized trail age, 0 at the tail and 1 at the head.
+   * @return Palette colour faded by the age kernel and master alpha.
+   * @details The gradient's black stops read as transparent, not as black
+   * over the background.
+   */
   Color4 shade_trail(float palette_t, float age_t) const {
     Color4 color = static_palette.get(palette_t);
     if (color.color == Pixel())
