@@ -45,22 +45,14 @@ class LatticeMelt
 
 public:
   using Params = LatticeMeltParams;
-  /// Registry identity.
   static constexpr std::string_view EFFECT_ID = "lattice-melt";
-  /// SHA-256 of the canonicalized descriptor of
-  /// `patterns/lattice_melt.shader.json`; the browser editor matches it to
-  /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "a1a63a515040bbcb17f44a09dc53b739cc45edbe575ecd4eaf497df0f6ffa7c7";
-  /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "02944fbbca0274490f9d63d233d4ad27989c03b32fa10d20b23cd61f0a579438";
-  /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
                                                               "dense-curl"};
-  /// Bumped whenever the `Params` layout changes, rejecting stale snapshots.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
-  /// Frames a preset holds before the runtime begins the next transition.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr int32_t SURFACE_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 

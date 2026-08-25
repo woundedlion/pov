@@ -46,22 +46,14 @@ class KaleidoscopeSmooth
 
 public:
   using Params = KaleidoscopeSmoothParams;
-  /// Registry identity.
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-smooth";
-  /// SHA-256 of the canonicalized descriptor of
-  /// `patterns/kaleidoscope_smooth.shader.json`; the browser editor matches it to
-  /// recognize an imported document as this composed effect.
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "b57d2c75c5384cd232d87ca03c58d13ab492d3db06fbb008c1ae6ff45cf5615b";
-  /// SHA-256 of that document's canonicalized preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "6ce5e7188843b4f091b9c3cc2689798e3f2e77420c9f3d688f5b2ca50485ec4a";
-  /// Immutable preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "coupled-grid", "direct-grid", "double-map", "stretched-grid"};
-  /// Bumped whenever the `Params` layout changes, rejecting stale snapshots.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
-  /// Frames a preset holds before the runtime begins the next transition.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
 
   /// Params the effect starts on, and the base every preset varies from.
