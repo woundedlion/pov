@@ -319,6 +319,13 @@ int main(int argc, char **argv) {
       << "inline const Corpus *const CORPUS_MANIFEST[] = {&HEAVY_SEARCH_V1};\n\n"
       << "} // namespace mindsplatter_replay\n";
   hs::clear_mock_time();
+  // Closed explicitly: the destructor's flush swallows its own failure, and a
+  // short write would leave a truncated header behind an exit status of 0.
+  out.close();
+  if (!out) {
+    std::fprintf(stderr, "cannot write %s\n", argv[1]);
+    return 1;
+  }
   std::printf(
       "%s revision=%s preset=%u frame=%u particles=%zu score=%llu "
       "adaptive=%llu long=%llu peak_clip=%u[%d,%d,%d,%d] "
@@ -335,5 +342,5 @@ int main(int argc, char **argv) {
       static_cast<unsigned long long>(selected->peak_clip_workload.score),
       state.size(), framebuffer.size() * sizeof(uint16_t),
       static_cast<unsigned long long>(corpus_hash));
-  return out ? 0 : 1;
+  return 0;
 }
