@@ -35,7 +35,9 @@ namespace Scan {
  * darkens the pixel instead of blending with what is under it, and no
  * plot-time filter stage (Filter::World / Filter::Pixel) sees it. These entry
  * points take no pipeline; an effect needing the filter chain must plot
- * through it itself.
+ * through it itself. They take no debug flag and do not read canvas.debug():
+ * every pixel is covered, so there is no scan bound for the bounding-box tint
+ * to mark.
  */
 struct Shader {
   // --- Shared SSAA helpers (used by every entry point) -----------------------
