@@ -348,7 +348,8 @@ envelope(const ProjectionProvenance &provenance, float edge_width,
   if (projection_weight)
     return provenance.value_weight;
   if (edge_fade)
-    return Detail::smooth_ramp(0.0f, edge_width, provenance.fade_edge_distance);
+    return Detail::smooth_ramp_or_step(0.0f, edge_width,
+                                       provenance.fade_edge_distance);
   return 1.0f;
 }
 
@@ -358,8 +359,8 @@ fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
   if constexpr (std::is_same_v<Envelope, ProjectionWeightEnvelope>)
     return provenance.value_weight;
   else if constexpr (std::is_same_v<Envelope, EdgeFadeEnvelope>)
-    return Detail::smooth_ramp(0.0f, params.edge_width,
-                               provenance.fade_edge_distance);
+    return Detail::smooth_ramp_or_step(0.0f, params.edge_width,
+                                       provenance.fade_edge_distance);
   else
     return 1.0f;
 }

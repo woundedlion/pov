@@ -82,7 +82,7 @@ struct Ridge : ApproximationDefaults {
 __attribute__((always_inline)) inline float
 iso_contour(float value, float level, float width) {
   const float distance = fabsf(value - level);
-  return 1.0f - Detail::smooth_ramp(width, 2.0f * width, distance);
+  return 1.0f - Detail::smooth_ramp_or_step(width, 2.0f * width, distance);
 }
 
 /** @brief Shared banding kernel: @p band_count cosine bands over the unit
@@ -160,7 +160,8 @@ struct WeightSquared : ApproximationDefaults {
 /** @brief Shared edge-fade kernel; width 0 makes the edge a hard cut. */
 __attribute__((always_inline)) inline float
 edge_fade(const ProjectionProvenance &provenance, float width) {
-  return Detail::smooth_ramp(0.0f, width, provenance.fade_edge_distance);
+  return Detail::smooth_ramp_or_step(0.0f, width,
+                                     provenance.fade_edge_distance);
 }
 
 template <typename State> struct EdgeFade : ApproximationDefaults {
@@ -215,7 +216,8 @@ static_assert(field_ids_unique<EdgeValueParams>());
     half-width of @p width. */
 __attribute__((always_inline)) inline float
 value_cutout(float value, float threshold, float width) {
-  return Detail::smooth_ramp(threshold - width, threshold + width, value);
+  return Detail::smooth_ramp_or_step(threshold - width, threshold + width,
+                                     value);
 }
 
 /**
