@@ -103,7 +103,7 @@ template <typename ParamsT> struct FrameState {
   Quaternion projection_conjugate;
   /** Conjugate of the outer camera orientation. */
   Quaternion outer_conjugate;
-  const FastNoiseLite *outer_noise;   /**< Null unless `HasOuterNoise`. */
+  const FastNoiseLite *outer_noise;   /**< Null unless `HAS_OUTER_NOISE`. */
   const FastNoiseLite *source_noise;  /**< Null unless `HAS_SOURCE_NOISE`. */
   const FastNoiseLite *surface_noise; /**< Null unless the effect displaces. */
   const BakedPalette *palette;        /**< The cycler's current bake. */
@@ -180,8 +180,8 @@ template <typename BindingT> struct LensProvider {
 /**
  * @brief Supplies one planar warp slot to the Pullback::Warp policies.
  * @details `noise()` returns the outer noise field for either slot, so a
- * noise-driven warp in the inner slot still requires the runtime's
- * `HasOuterNoise`.
+ * noise-driven warp in the inner slot also raises the runtime's
+ * `HAS_OUTER_NOISE`.
  * @tparam BindingT The effect's Binding.
  * @tparam Outer True to read the first warp slot, false for the second.
  * @tparam TrackPath Whether the stage accumulates path length, which the color
@@ -717,7 +717,8 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * @tparam HueV Hue-rotation source: none, noise field, or path length.
  * @tparam BrightnessV Brightness envelope applied by the color stage.
  * @tparam AnimatedProjection Whether the projection owns a random walk.
- * @tparam HasOuterNoise Whether the outer-camera stage owns a noise field.
+ * @tparam HasOuterNoise Forces an outer-camera noise field on an effect
+ *         whose warp slots do not themselves imply one.
  * @tparam HasSourceNoise Forces a source-noise field on a source family that
  *         does not itself imply one.
  */
@@ -744,6 +745,14 @@ public:
   static constexpr bool HAS_SURFACE_NOISE =
       std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams> ||
       std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
+
+  /** Whether the effect owns an outer-camera noise field and seed: the
+      template argument, or implied by a warp slot that samples one. Both warp
+      slots read the outer field (see WarpProvider::noise). */
+  static constexpr bool HAS_OUTER_NOISE =
+      HasOuterNoise ||
+      std::is_same_v<typename ParamsT::outer_warp_type, VectorNoiseParams> ||
+      std::is_same_v<typename ParamsT::inner_warp_type, VectorNoiseParams>;
 
   /** Whether the effect owns a source-noise field and seed: the template
       argument, or implied by a source family that samples one. */
@@ -841,7 +850,7 @@ public:
     use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     configure_noise(state->color_noise, HUE_NOISE_SEED);
-    if constexpr (HasOuterNoise)
+    if constexpr (HAS_OUTER_NOISE)
       configure_noise(state->outer.noise, Derived::OUTER_NOISE_SEED);
     if constexpr (HAS_SOURCE_NOISE)
       configure_noise(state->source.noise, Derived::SOURCE_NOISE_SEED);
@@ -986,7 +995,7 @@ private:
         hue_rotation_lut;
     std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut;
     FastNoiseLite color_noise;
-    OptionalNoise<HasOuterNoise> outer;
+    OptionalNoise<HAS_OUTER_NOISE> outer;
     OptionalNoise<HAS_SOURCE_NOISE> source;
     OptionalNoise<HAS_SURFACE_NOISE> surface;
     FastNoiseLite outer_walk_noise;
@@ -1215,7 +1224,7 @@ private:
           palette_cycler.palette());
     const FastNoiseLite *outer_noise = nullptr;
     const FastNoiseLite *source_noise = nullptr;
-    if constexpr (HasOuterNoise)
+    if constexpr (HAS_OUTER_NOISE)
       outer_noise = &state->outer.noise;
     if constexpr (HAS_SOURCE_NOISE)
       source_noise = &state->source.noise;

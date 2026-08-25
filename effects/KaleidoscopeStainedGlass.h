@@ -30,7 +30,7 @@ class KaleidoscopeStainedGlass
           W, H, KaleidoscopeStainedGlass<W, H>, KaleidoscopeStainedGlassParams,
           KaleidoscopeStainedGlassSpec, PaletteHarmony::TRIADIC,
           Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::CUP,
-          false, true> {
+          /*AnimatedProjection=*/false> {
 
 public:
   using Params = KaleidoscopeStainedGlassParams;
