@@ -223,7 +223,26 @@ public:
    * so the caller must not attach one (Animation::then() traps on a second).
    */
   template <typename... Args> AnimT *spawn(int in_frames, Args &&...args) {
-    return spawn_impl(Timeline::Pin::UNPINNED, in_frames,
+    return spawn_impl(Timeline::Pin::UNPINNED, nullptr, in_frames,
+                      std::forward<Args>(args)...);
+  }
+
+  /**
+   * @brief Like spawn(), but gates the timeline event on a pause flag.
+   * @tparam Args Constructor argument types forwarded to the Animation.
+   * @param paused Pause flag that must outlive the event.
+   * @param in_frames Delay in frames before the animation starts.
+   * @param args Arguments forwarded to the Animation constructor (after the
+   * Params& argument).
+   * @return Pointer to the spawned animation, or nullptr if no pool slot or
+   * timeline event is available.
+   * @details Freezes the whole event, delay included, the way
+   * Timeline::add_pausable does. Effects pass `&anims_paused`.
+   */
+  template <typename... Args>
+  AnimT *spawn_pausable(const bool *paused, int in_frames, Args &&...args) {
+    HS_CHECK(paused != nullptr, "pausable spawn needs a pause flag");
+    return spawn_impl(Timeline::Pin::UNPINNED, paused, in_frames,
                       std::forward<Args>(args)...);
   }
 
@@ -248,7 +267,7 @@ public:
    */
   template <typename... Args>
   AnimT *spawn_pinned(int in_frames, Args &&...args) {
-    return spawn_impl(Timeline::Pin::PINNED, in_frames,
+    return spawn_impl(Timeline::Pin::PINNED, nullptr, in_frames,
                       std::forward<Args>(args)...);
   }
 
@@ -404,6 +423,7 @@ private:
    * @brief Allocates a free slot and schedules its animation on the timeline.
    * @tparam Args Constructor argument types forwarded to the Animation.
    * @param pin Whether the timeline event is pinned (retained-handle contract).
+   * @param paused Event-level pause gate, or nullptr for none.
    * @param in_frames Delay in frames before the animation starts.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
@@ -411,7 +431,8 @@ private:
    * timeline event is available.
    */
   template <typename... Args>
-  AnimT *spawn_impl(Timeline::Pin pin, int in_frames, Args &&...args) {
+  AnimT *spawn_impl(Timeline::Pin pin, const bool *paused, int in_frames,
+                    Args &&...args) {
     HS_CHECK(entities, "TransformerPool: call init_storage() before spawn");
     check_storage_alive();
     // Linear scan for a free slot (cold path).
@@ -431,7 +452,7 @@ private:
         if constexpr (HAS_SYNC) {
           e.params.sync();
         }
-        AnimT *p = timeline.add_get(in_frames, std::move(anim), pin);
+        AnimT *p = timeline.add_get(in_frames, std::move(anim), pin, paused);
         if (p) {
           // A non-pinned spawn keeps no retained handle, so the slot is reclaimed
           // only by the one-shot then() below, which fires when the animation

@@ -591,8 +591,8 @@ private:
       logged_pool_full = true;
       hs::log("DisplacementField: ball pool full, dropping spawn");
     }
-    balls.spawn(0, orientation, STACK_AXIS, hs::rand_f(0.0f, 2.0f * PI_F),
-                fall_frames);
+    balls.spawn_pausable(&anims_paused, 0, orientation, STACK_AXIS,
+                         hs::rand_f(0.0f, 2.0f * PI_F), fall_frames);
   }
 
   /**
