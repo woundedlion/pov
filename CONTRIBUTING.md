@@ -53,11 +53,10 @@ it.
 
 ## Gates
 
-Every gate below except the simulator suite runs in `.github/workflows/ci.yml`
-behind one aggregate `CI green` check; the simulator suite runs in daydream's
-own workflows, and no check here covers it. `.githooks/pre-commit` is a fast
-staged-file format/lint prefilter; the protected branch's `CI green` status is
-the authoritative correctness gate.
+Every gate below runs in `.github/workflows/ci.yml` behind one aggregate
+`CI green` check. `.githooks/pre-commit` is a fast staged-file format/lint
+prefilter; the protected branch's `CI green` status is the authoritative
+correctness gate.
 
 - **`.githooks/pre-commit`** — checks staged first-party C++ with clang-format
   and runs ruff/eslint on staged Python/JavaScript. A required tool missing for
@@ -92,8 +91,12 @@ the authoritative correctness gate.
   unit tests.
 - **Simulator:** in the daydream checkout, `npm ci` then `npm test`; its
   `pre-push` hook runs lint, typecheck, the import-map check and the JS suite,
-  and refuses a push from a tree that cannot run them. This repository's CI
-  never runs it, so a green `CI green` says nothing about the simulator.
+  and refuses a push from a tree that cannot run them. The `daydream-consumer`
+  job runs the same suite here: it installs the verified bundle the `wasm` job
+  built over a daydream checkout pinned in `tools/build_pins.py`, so a change to
+  anything this repository installs there fails before it is mirrored. daydream
+  pins this repository the other way round in `holosphere_wasm.sha`, which makes
+  the pair circular — land the daydream side first, then move the pin here.
 
 `--no-verify` is the explicit emergency escape from the local prefilter. It
 does not bypass protected-branch CI.
