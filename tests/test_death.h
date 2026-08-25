@@ -1297,6 +1297,44 @@ inline void case_update_hankin_dual_seed_topology() {
 }
 
 /**
+ * @brief Death case: update_hankin rejects a borrowed-mode topology from a
+ *        different compiled pattern.
+ * @details A borrowed MeshState reports its topology through the view, not the
+ *          owned array, and update_hankin drops that view on entry — so the
+ *          reuse check has to sample the size before the drop or a borrowed
+ *          mesh walks past it.
+ */
+inline void case_update_hankin_borrowed_stale_topology() {
+  static uint8_t geom_buf[192 * 1024];
+  static uint8_t scratch_buf[128 * 1024];
+  Arena geom(geom_buf, sizeof(geom_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, geom);
+  CompiledHankin cube_pattern;
+  MeshOps::compile_hankin(cube, cube_pattern, geom, scratch);
+
+  MeshState source;
+  MeshOps::update_hankin(cube_pattern, source, geom, opaque(0.0f));
+  MeshOps::classify_faces_by_topology(source, scratch, scratch, geom);
+
+  MeshState mesh;
+  mesh.set_borrowed(ArenaSpan<uint8_t>(source.face_counts),
+                    ArenaSpan<uint16_t>(source.faces),
+                    ArenaSpan<uint16_t>(source.face_offsets),
+                    ArenaSpan<uint16_t>(source.topology), source.topology_key);
+
+  PolyMesh octa;
+  build_solid<Solids::Octahedron>(octa, geom);
+  CompiledHankin octa_pattern;
+  MeshOps::compile_hankin(octa, octa_pattern, geom, scratch);
+  MeshOps::update_hankin(octa_pattern, mesh, geom, opaque(0.0f));
+  if (mesh.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: update_hankin rejects a non-finite contact angle.
  * @details Hankin surface — the half-angle sine and cosine carry a NaN into
  *          every star point, and normalized_or's dot(v, v) < EPS guard is
@@ -4015,12 +4053,17 @@ inline const Case *all_cases(int &n) {
        "16-bit index range"},
       {"update_hankin_stale_topology", case_update_hankin_stale_topology,
        "hankin.h",
-       "(out_mesh.topology.size() == 0 || out_mesh.topology_key == "
+       "(prior_topology_size == 0 || out_mesh.topology_key == "
        "compiled.topology_key) update_hankin: reused out_mesh carries "
        "a topology from a different compiled pattern (clear it first)"},
       {"update_hankin_dual_seed_topology",
        case_update_hankin_dual_seed_topology, "hankin.h",
-       "(out_mesh.topology.size() == 0 || out_mesh.topology_key == "
+       "(prior_topology_size == 0 || out_mesh.topology_key == "
+       "compiled.topology_key) update_hankin: reused out_mesh carries "
+       "a topology from a different compiled pattern (clear it first)"},
+      {"update_hankin_borrowed_stale_topology",
+       case_update_hankin_borrowed_stale_topology, "hankin.h",
+       "(prior_topology_size == 0 || out_mesh.topology_key == "
        "compiled.topology_key) update_hankin: reused out_mesh carries "
        "a topology from a different compiled pattern (clear it first)"},
       {"update_hankin_nonfinite_angle", case_update_hankin_nonfinite_angle,
