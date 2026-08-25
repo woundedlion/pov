@@ -407,24 +407,6 @@ inline void report_near_rel(double a, double b, double rel_tol,
 }
 
 /**
- * @brief Accessor for the "this module skipped its entire case set" flag.
- * @return Reference to the flag; begin_module clears it for every module.
- */
-inline bool &suite_skipped() {
-  static bool s = false;
-  return s;
-}
-
-/**
- * @brief Records a skip that stands for the module's ENTIRE case set.
- * @details Tallies the skip and marks the module as intentionally unrunnable.
- */
-inline void skip_suite() {
-  ++stats().skipped;
-  suite_skipped() = true;
-}
-
-/**
  * @brief Records one skipped sub-case.
  */
 inline void skip_case() { ++stats().skipped; }
@@ -449,7 +431,6 @@ struct ModuleScope {
 inline ModuleScope begin_module(const char *name) {
   std::printf("=== %s ===\n", name);
   fail_print_budget() = FailPrintBudget{};
-  suite_skipped() = false;
   return {name, stats().passed, stats().failed, stats().skipped};
 }
 
@@ -457,15 +438,15 @@ inline ModuleScope begin_module(const char *name) {
  * @brief Prints the module's pass/fail delta since begin_module.
  * @param m The scope returned by begin_module for this module.
  * @return The module's failure count (delta since begin_module), or one if it
- * ran no assertions without reporting a whole-suite skip.
+ * ran no assertions at all.
  */
 inline int end_module(const ModuleScope &m) {
   int passed = stats().passed - m.passed_before;
   int failed = stats().failed - m.failed_before;
   int skipped = stats().skipped - m.skipped_before;
-  // A module that ran no assertion and did not skip its whole case set did no
-  // work; count it as a failure so an emptied runner goes red, not green.
-  if (passed + failed == 0 && !suite_skipped()) {
+  // A module that ran no assertion did no work; count it as a failure so an
+  // emptied runner goes red, not green.
+  if (passed + failed == 0) {
     std::printf("=== %s: NO ASSERTIONS RAN — counting as FAILURE ===\n",
                 m.name);
     return 1;
