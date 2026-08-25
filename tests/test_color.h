@@ -2354,6 +2354,46 @@ inline void test_noise_hue_palette() {
   HS_EXPECT_NEAR(uv_a, palette.noise_uv(1.0f, -0.0f, 1.0f, -0.0f), 1e-6f);
 }
 
+/**
+ * @brief Verifies the cube-map hue-noise LUT agrees across a shared face edge
+ *        and at a three-face corner, where the face tie-break picks different
+ *        faces for neighbouring directions.
+ */
+inline void test_hue_noise_lut_seamless_across_faces() {
+  static std::array<int8_t, HueNoiseLutView::SIZE> hue_noise;
+  FastNoiseLite noise;
+  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  noise.SetSeed(1301);
+  noise.SetFrequency(1.0f);
+  prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE>(hue_noise),
+                        noise, 3.0f, 0.0f);
+  const HueNoiseLutView view{hue_noise.data(), true};
+
+  constexpr float NUDGE = 1e-4f;
+  float edge_low = 1.0f;
+  float edge_high = -1.0f;
+  for (int step = 0; step <= 16; ++step) {
+    const float t = -1.0f + 0.125f * step;
+    const float x_face =
+        sample_hue_noise_lut(view, Vector(1.0f, 1.0f - NUDGE, t).normalized());
+    const float y_face =
+        sample_hue_noise_lut(view, Vector(1.0f - NUDGE, 1.0f, t).normalized());
+    HS_EXPECT_NEAR(x_face, y_face, 2e-3f);
+    edge_low = std::min(edge_low, x_face);
+    edge_high = std::max(edge_high, x_face);
+  }
+  HS_EXPECT_GT(edge_high - edge_low, 1e-2f);
+
+  const float corner_x = sample_hue_noise_lut(
+      view, Vector(1.0f, 1.0f - NUDGE, 1.0f - NUDGE).normalized());
+  const float corner_y = sample_hue_noise_lut(
+      view, Vector(1.0f - NUDGE, 1.0f, 1.0f - NUDGE).normalized());
+  const float corner_z = sample_hue_noise_lut(
+      view, Vector(1.0f - NUDGE, 1.0f - NUDGE, 1.0f).normalized());
+  HS_EXPECT_NEAR(corner_x, corner_y, 2e-3f);
+  HS_EXPECT_NEAR(corner_x, corner_z, 2e-3f);
+}
+
 inline void test_hue_rotation_lut_clamps_out_of_range_value() {
   static std::array<Pixel, 3 * HueRotationLutView::SIZE> storage;
   storage.fill(Pixel(0, 0, 65535));
@@ -2519,6 +2559,7 @@ inline int run_color_tests() {
   test_palette_wrappers();
   test_palette_shade_coord_policy();
   test_noise_hue_palette();
+  test_hue_noise_lut_seamless_across_faces();
 
   // Clamp-before-cast / NaN-saturation checks, shared with the fast-math pass.
   const int before_clamp = hs_test::stats().passed + hs_test::stats().failed;
