@@ -26,10 +26,12 @@ permissions:
 # Cancel superseded PR runs on the same ref to save CI minutes. Master pushes
 # queue instead: back-to-back landings share refs/heads/master, and cancelling
 # leaves the earlier commit with a cancelled — neither green nor visibly red —
-# verdict.
+# verdict. master is also the only ref that runs windows-tests and the FULL
+# effects tier (optimized-tests shard 3 under IEEE, and its fastmath entry under
+# the shipping float pair), so a cancelled landing takes their sole run with it.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests:
