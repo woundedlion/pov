@@ -820,11 +820,15 @@ inline void test_arenavec_rebind_grows() {
   ArenaVector<int> v(a, 8);
   v.push_back(7);
   int *data_before = v.data();
+  const size_t bytes_before = arena_vector_abandoned_bytes();
+  const size_t count_before = arena_vector_abandon_count();
 
   v.bind(a, 32);
   HS_EXPECT_EQ(v.size(), (size_t)0);
   HS_EXPECT_EQ(v.capacity(), (size_t)32);
   HS_EXPECT_NE(v.data(), data_before);
+  HS_EXPECT_EQ(arena_vector_abandoned_bytes(), bytes_before + 8 * sizeof(int));
+  HS_EXPECT_EQ(arena_vector_abandon_count(), count_before + 1);
 }
 
 /**
