@@ -106,6 +106,17 @@ test('profileDirectories derives timing sets from their local indexes', async t 
   assert.deepEqual(errors, []);
 });
 
+test('profileDirectories reports a report loose in the archive root', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'holosphere-profiles-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'profile_example_teensy_2026-08-24.md'), validReport);
+  await writeFile(join(root, 'notes.md'), '# Notes\n');
+  const errors = [];
+  assert.deepEqual(await profileDirectories(root, errors), []);
+  assert.deepEqual(errors,
+    ['profile_example_teensy_2026-08-24.md is a profile report outside a timing set']);
+});
+
 test('profileDirectories reports an unindexed set of reports', async t => {
   const root = await mkdtemp(join(tmpdir(), 'holosphere-profiles-'));
   t.after(() => rm(root, { recursive: true, force: true }));
