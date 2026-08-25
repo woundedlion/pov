@@ -242,6 +242,12 @@ test('scalar parameter bindings match catalog domains and curves', () => {
   const inertPeriod = example();
   inertPeriod.descriptor.parameters[2].interpolation.period = 1;
   assert.equal(validate(inertPeriod)[0].code, 'UNKNOWN_FIELD');
+
+  const inertGroup = example();
+  inertGroup.descriptor.parameters[2].interpolation.group = 'axis';
+  const inertGroupDiagnostic = validate(inertGroup)[0];
+  assert.deepEqual([inertGroupDiagnostic.code, inertGroupDiagnostic.path],
+    ['UNKNOWN_FIELD', '$.descriptor.parameters[2].interpolation.group']);
 });
 
 test('a snap-curve catalog field is authorable', () => {
