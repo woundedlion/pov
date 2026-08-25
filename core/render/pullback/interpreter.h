@@ -209,9 +209,15 @@ public:
                  0,
              "ChainProgram::bind_storage: block_b misaligned");
     HS_CHECK(blocks[0] == nullptr, "ChainProgram::bind_storage: rebinding");
-    for (const OperatorDescriptor &entry : operator_table)
+    for (const OperatorDescriptor &entry : operator_table) {
       HS_CHECK(entry.input <= entry.output,
                "ChainProgram::bind_storage: operator family rank decreases");
+      for (uint16_t field = 0; field < entry.schema_count; ++field)
+        HS_CHECK(std::string_view(entry.schema[field].id).size() <=
+                     MAX_FIELD_ID,
+                 "ChainProgram::bind_storage: schema field id exceeds "
+                 "MAX_FIELD_ID");
+    }
     blocks[0] = block_a;
     blocks[1] = block_b;
     capacity = block_capacity;
@@ -482,8 +488,6 @@ private:
         for (uint16_t field = 0; field < resolved[index]->schema_count;
              ++field) {
           const std::string_view field_id{resolved[index]->schema[field].id};
-          HS_CHECK(field_id.size() <= MAX_FIELD_ID,
-                   "chain compile: schema field id exceeds MAX_FIELD_ID");
           char *slot = names + field * PER_PARAM_NAME_BYTES;
           std::memcpy(slot, instance.data(), instance.size());
           slot[instance.size()] = '.';
