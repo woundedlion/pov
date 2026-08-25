@@ -27,13 +27,21 @@ public:
   static constexpr bool world_transform_is_identity = true;
   /**
    * @brief Constructs a hole centered at @p origin with angular @p radius.
-   * @param origin Center of the hole (unit vector).
+   * @param origin Center of the hole (any non-zero length; renormalized
+   *        internally to the unit contract the angular mask assumes).
    * @param radius Angular radius of the hole in radians.
    */
-  Hole(const Vector &origin, float radius) : origin(origin), radius(radius) {}
+  Hole(const Vector &origin, float radius)
+      : origin(origin.normalized()), radius(radius) {}
 
-  /** @brief Moves the hole center to a new unit vector. */
-  void set_origin(const Vector &new_origin) { origin = new_origin; }
+  /**
+   * @brief Moves the hole center, renormalizing to enforce the unit-length
+   * contract the angular mask assumes.
+   * @param new_origin New center (any non-zero length; renormalized internally).
+   */
+  void set_origin(const Vector &new_origin) {
+    origin = new_origin.normalized();
+  }
 
   /**
    * @brief Changes the hole's angular radius in radians.
