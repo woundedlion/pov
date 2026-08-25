@@ -39,6 +39,9 @@
  * derive from PROJ at the commit named in the header above.
  */
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <type_traits>
 
 #include "math/3dmath.h"

@@ -12,6 +12,9 @@
  *        clamping.
  */
 
+#include <algorithm>
+#include <cmath>
+
 #include "math/3dmath.h"
 
 /**

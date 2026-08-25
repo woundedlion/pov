@@ -9,6 +9,8 @@
  * @brief KDTree and its nearest-point query structures.
  */
 
+#include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include "math/3dmath.h"
 #include <algorithm>

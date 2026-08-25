@@ -13,6 +13,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 
 #include "platform/platform.h"
 #include "math/3dmath.h"
