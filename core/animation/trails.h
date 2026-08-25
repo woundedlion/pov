@@ -59,8 +59,8 @@ public:
    * @param fn Invoked as `void(const T &, uint32_t i)`, i being the same index
    *        get() takes. Walks the ring directly, without re-deriving i.
    */
-  template <typename Fn> void for_each(Fn &&fn) const {
-    snapshots.for_each(std::forward<Fn>(fn));
+  template <typename F> void for_each(F &&fn) const {
+    snapshots.for_each(std::forward<F>(fn));
   }
 
   /**
