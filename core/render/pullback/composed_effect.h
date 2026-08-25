@@ -771,7 +771,7 @@ public:
   using Binding = Pullback::Binding<FrameState>;
   /** Preset policy: an automatic change crossfades the parameters; pause
       never freezes an in-flight crossfade. */
-  static constexpr Segue::Lerp PRESET_SEGUE{480, ease_in_out_sin};
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{480, ease_in_out_sin};
   static constexpr bool ANIMATED_PROJECTION = AnimatedProjection;
   /** Whether the effect owns a surface-noise field and seed. */
   static constexpr bool HAS_SURFACE_NOISE =
