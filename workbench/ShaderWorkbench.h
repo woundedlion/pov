@@ -209,7 +209,7 @@ struct ShaderWorkbenchWhiteBox;
 template <int W, int H> class ShaderWorkbench : public Effect {
 private:
   struct FrameState;
-  struct LookRuntime;
+  struct EndpointRuntime;
   struct WalkDeltas;
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &,
                                    const void *);
@@ -2969,14 +2969,14 @@ private:
 
   enum class ProfileEndpoint : uint8_t { STEADY, FROM, TO };
 
-  struct LookRuntime {
+  struct EndpointRuntime {
     ClockState clocks{};
     Quaternion projection_wander;
     Quaternion outer_wander;
     Quaternion source_wander;
     PreparedTransforms transforms;
 
-    HS_COLD_MEMBER LookRuntime() = default;
+    HS_COLD_MEMBER EndpointRuntime() = default;
   };
 
   template <typename T> static uint32_t encode_field_value(const T &value) {
@@ -3292,8 +3292,8 @@ private:
   struct TransitionRuntime {
     Config from_config;
     Config to_config;
-    LookRuntime from_runtime;
-    LookRuntime to_runtime;
+    EndpointRuntime from_runtime;
+    EndpointRuntime to_runtime;
     uint16_t elapsed = 0;
     uint16_t duration = 0;
     bool continue_choreo = false;
@@ -3541,10 +3541,11 @@ private:
   }
 
   HS_FLASH_MEMBER static Pullback::Source::PreparedSphericalRings
-  prepare_spherical_rings(const LookRuntime &look) {
+  prepare_spherical_rings(const EndpointRuntime &endpoint) {
     const Quaternion orientation =
-        make_rotation(X_AXIS, look.clocks.source_angle) * look.source_wander;
-    return {rotate(Y_AXIS, orientation), look.clocks.source_primary};
+        make_rotation(X_AXIS, endpoint.clocks.source_angle) *
+        endpoint.source_wander;
+    return {rotate(Y_AXIS, orientation), endpoint.clocks.source_primary};
   }
 
   HS_FLASH_MEMBER static PreparedSurfaceNoise
@@ -3609,15 +3610,15 @@ private:
     return frame;
   }
 
-  HS_COLD_MEMBER FrameState prepare_frame(const Config &config,
-                                          const LookRuntime &look) const {
+  HS_COLD_MEMBER FrameState
+  prepare_frame(const Config &config, const EndpointRuntime &endpoint) const {
     FrameState frame;
-    prepare_frame(config, look, frame);
+    prepare_frame(config, endpoint, frame);
     return frame;
   }
 
   HS_COLD_MEMBER void prepare_frame(const Config &config,
-                                    const LookRuntime &look,
+                                    const EndpointRuntime &endpoint,
                                     FrameState &frame) const {
     const bool animated_projection =
         config.slots.projection_frame == ProjectionFramePolicy::SPIN_WANDER;
@@ -3635,12 +3636,12 @@ private:
             config.params.color.hue_shift_amount != 0.0f};
     if (prepared_hue_noise.active && color_noise != nullptr &&
         (state->hue_noise_lut_scale != config.params.color.hue_noise_scale ||
-         state->hue_noise_lut_phase != look.clocks.hue_noise_phase)) {
+         state->hue_noise_lut_phase != endpoint.clocks.hue_noise_phase)) {
       prepare_hue_noise_lut(prepared_hue_noise, *color_noise,
                             config.params.color.hue_noise_scale,
-                            look.clocks.hue_noise_phase);
+                            endpoint.clocks.hue_noise_phase);
       state->hue_noise_lut_scale = config.params.color.hue_noise_scale;
-      state->hue_noise_lut_phase = look.clocks.hue_noise_phase;
+      state->hue_noise_lut_phase = endpoint.clocks.hue_noise_phase;
     }
     frame.slots = config.slots;
     frame.params = config.params;
@@ -3648,24 +3649,25 @@ private:
         state->param_morph.active
             ? blend.palette_mapping
             : palette_mapping_weights(config.slots.palette_mapping);
-    frame.clocks = look.clocks;
-    frame.transforms = {animated_projection ? look.transforms.projection_conj
-                                            : Quaternion(),
-                        look.transforms.outer_conj};
+    frame.clocks = endpoint.clocks;
+    frame.transforms = {animated_projection
+                            ? endpoint.transforms.projection_conj
+                            : Quaternion(),
+                        endpoint.transforms.outer_conj};
     frame.meridian_cos = cosf(config.params.projection.central_meridian);
     frame.meridian_sin = sinf(config.params.projection.central_meridian);
     frame.dynamic = {
-        prepare_source_state(look.clocks),
-        prepare_spherical_rings(look),
+        prepare_source_state(endpoint.clocks),
+        prepare_spherical_rings(endpoint),
         {prepare_warp_stage(
              config.slots.warp_program.outer, config.params.warp.outer,
-             look.clocks.warp_outer_phase, source_cartesian_period(config),
-             look.clocks.warp_outer_rotation),
+             endpoint.clocks.warp_outer_phase, source_cartesian_period(config),
+             endpoint.clocks.warp_outer_rotation),
          prepare_warp_stage(
              config.slots.warp_program.inner, config.params.warp.inner,
-             look.clocks.warp_inner_phase, source_cartesian_period(config),
-             look.clocks.warp_inner_rotation)},
-        prepare_surface_noise(look.clocks, config.params)};
+             endpoint.clocks.warp_inner_phase, source_cartesian_period(config),
+             endpoint.clocks.warp_inner_rotation)},
+        prepare_surface_noise(endpoint.clocks, config.params)};
     frame.prepared_hue_rotation = prepared_hue_rotation;
     frame.prepared_hue_noise = prepared_hue_noise;
     frame.resources = {resolve_warp_resource(config.slots.warp_program.outer),
@@ -3698,22 +3700,23 @@ private:
     PreparedEndpoint prepared;
     const Config &config = phase.from_endpoint ? state->transition.from_config
                                                : state->transition.to_config;
-    const LookRuntime &look = phase.from_endpoint
-                                  ? state->transition.from_runtime
-                                  : state->transition.to_runtime;
+    const EndpointRuntime &endpoint = phase.from_endpoint
+                                          ? state->transition.from_runtime
+                                          : state->transition.to_runtime;
     const InversePipelineId pipeline = phase.from_endpoint
                                            ? state->transition.from_pipeline
                                            : state->transition.to_pipeline;
-    HS_CHECK(prepare_endpoint(config, look, phase.alpha, pipeline, prepared),
-             "ShaderWorkbench transition endpoint has no renderer");
+    HS_CHECK(
+        prepare_endpoint(config, endpoint, phase.alpha, pipeline, prepared),
+        "ShaderWorkbench transition endpoint has no renderer");
     draw_endpoint(canvas, prepared,
                   phase.from_endpoint ? ProfileEndpoint::FROM
                                       : ProfileEndpoint::TO);
   }
 
   HS_COLD_MEMBER bool prepare_endpoint(const Config &config,
-                                       const LookRuntime &look, float alpha,
-                                       InversePipelineId selected,
+                                       const EndpointRuntime &endpoint,
+                                       float alpha, InversePipelineId selected,
                                        PreparedEndpoint &prepared) const {
     const ProgramDescriptor *program = get_inverse_program(selected);
     ShadeFunction shade;
@@ -3735,7 +3738,7 @@ private:
 #endif
     }
     prepared.frame = &state->frame;
-    prepare_frame(config, look, *prepared.frame);
+    prepare_frame(config, endpoint, *prepared.frame);
     if (!resources_ready(*prepared.frame))
       return false;
     if (program != nullptr) {
@@ -4954,67 +4957,69 @@ private:
     return {projection_delta.normalized(), outer_delta.normalized()};
   }
 
-  HS_COLD_MEMBER void update_spatial_frames(LookRuntime &look,
+  HS_COLD_MEMBER void update_spatial_frames(EndpointRuntime &endpoint,
                                             const Config &config,
                                             const WalkDeltas &deltas) const {
-    look.projection_wander = (slerp(Quaternion(), deltas.projection,
-                                    config.params.projection.wander) *
-                              look.projection_wander)
-                                 .normalized();
-    look.outer_wander =
+    endpoint.projection_wander = (slerp(Quaternion(), deltas.projection,
+                                        config.params.projection.wander) *
+                                  endpoint.projection_wander)
+                                     .normalized();
+    endpoint.outer_wander =
         (slerp(Quaternion(), deltas.outer, config.params.outer_camera.wander) *
-         look.outer_wander)
+         endpoint.outer_wander)
             .normalized();
-    look.source_wander =
+    endpoint.source_wander =
         (slerp(Quaternion(), deltas.outer, config.params.source.ring_wander) *
-         look.source_wander)
+         endpoint.source_wander)
             .normalized();
-    look.transforms.projection_conj =
-        (make_rotation(Y_AXIS, look.clocks.projection_spin) * base_orientation *
-         look.projection_wander)
+    endpoint.transforms.projection_conj =
+        (make_rotation(Y_AXIS, endpoint.clocks.projection_spin) *
+         base_orientation * endpoint.projection_wander)
             .conjugate();
-    look.transforms.outer_conj = look.outer_wander.conjugate();
+    endpoint.transforms.outer_conj = endpoint.outer_wander.conjugate();
   }
 
-  HS_COLD_MEMBER void advance_runtime(LookRuntime &look, const Config &config,
+  HS_COLD_MEMBER void advance_runtime(EndpointRuntime &endpoint,
+                                      const Config &config,
                                       const WalkDeltas &deltas) const {
     const Params &params = config.params;
-    look.clocks.source_primary =
-        fmodf(look.clocks.source_primary + params.source.speed, TWO_PI_F);
-    look.clocks.source_secondary =
-        fmodf(look.clocks.source_secondary +
+    endpoint.clocks.source_primary =
+        fmodf(endpoint.clocks.source_primary + params.source.speed, TWO_PI_F);
+    endpoint.clocks.source_secondary =
+        fmodf(endpoint.clocks.source_secondary +
                   params.source.speed * params.source.secondary_rate,
               TWO_PI_F);
-    look.clocks.source_angle =
-        fmodf(look.clocks.source_angle + params.source.angle_rate, TWO_PI_F);
-    look.clocks.projection_spin = fmodf(
-        look.clocks.projection_spin + params.projection.spin_rate, TWO_PI_F);
-    look.clocks.hue_noise_phase =
-        wrap_t(look.clocks.hue_noise_phase + params.color.hue_noise_speed);
-    look.clocks.source_noise_time =
-        wrap_t(look.clocks.source_noise_time + params.source.noise_time_rate);
-    look.clocks.surface_noise_time =
-        wrap_t(look.clocks.surface_noise_time + params.surface_noise.rate);
+    endpoint.clocks.source_angle = fmodf(
+        endpoint.clocks.source_angle + params.source.angle_rate, TWO_PI_F);
+    endpoint.clocks.projection_spin =
+        fmodf(endpoint.clocks.projection_spin + params.projection.spin_rate,
+              TWO_PI_F);
+    endpoint.clocks.hue_noise_phase =
+        wrap_t(endpoint.clocks.hue_noise_phase + params.color.hue_noise_speed);
+    endpoint.clocks.source_noise_time = wrap_t(
+        endpoint.clocks.source_noise_time + params.source.noise_time_rate);
+    endpoint.clocks.surface_noise_time =
+        wrap_t(endpoint.clocks.surface_noise_time + params.surface_noise.rate);
     if (config.slots.warp_program.outer.kind == WarpStageKind::AFFINE_FRAME)
-      look.clocks.warp_outer_rotation =
+      endpoint.clocks.warp_outer_rotation =
           TWO_PI_F *
-          wrap_t((look.clocks.warp_outer_rotation +
+          wrap_t((endpoint.clocks.warp_outer_rotation +
                   params.warp.outer.speed * params.warp.outer.rotation) /
                  TWO_PI_F);
     if (config.slots.warp_program.inner.kind == WarpStageKind::AFFINE_FRAME)
-      look.clocks.warp_inner_rotation =
+      endpoint.clocks.warp_inner_rotation =
           TWO_PI_F *
-          wrap_t((look.clocks.warp_inner_rotation +
+          wrap_t((endpoint.clocks.warp_inner_rotation +
                   params.warp.inner.speed * params.warp.inner.rotation) /
                  TWO_PI_F);
-    look.clocks.warp_outer_phase =
-        wrap_t(look.clocks.warp_outer_phase + params.warp.outer.speed);
-    look.clocks.warp_inner_phase =
-        wrap_t(look.clocks.warp_inner_phase + params.warp.inner.speed);
-    look.clocks.palette_oscillation_phase =
-        wrap_t(look.clocks.palette_oscillation_phase +
+    endpoint.clocks.warp_outer_phase =
+        wrap_t(endpoint.clocks.warp_outer_phase + params.warp.outer.speed);
+    endpoint.clocks.warp_inner_phase =
+        wrap_t(endpoint.clocks.warp_inner_phase + params.warp.inner.speed);
+    endpoint.clocks.palette_oscillation_phase =
+        wrap_t(endpoint.clocks.palette_oscillation_phase +
                params.color.phase_oscillation_speed);
-    update_spatial_frames(look, config, deltas);
+    update_spatial_frames(endpoint, config, deltas);
   }
 
   HS_COLD_MEMBER void prepare_param_morph() {
@@ -7269,7 +7274,7 @@ private:
   bool preset_dwell_armed = false;
   Blend blend{PRESETS[0].config.params,
               palette_mapping_weights(PRESETS[0].config.slots.palette_mapping)};
-  LookRuntime runtime;
+  EndpointRuntime runtime;
 #if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;
   uint32_t generated_palette_step_count = 0;
