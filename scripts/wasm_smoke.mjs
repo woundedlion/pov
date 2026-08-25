@@ -226,9 +226,18 @@ async function main(probe) {
         // each region's high-water mark and capacity.
         const m = engine.getArenaMetrics();
         for (const region of Object.keys(m)) {
-          const { high_water_mark: hwm, capacity } = m[region];
+          const { high_water_mark: hwm, lifetime_high_water_mark: lifetime, capacity } = m[region];
           if (hwm > capacity) {
             fail(`${name}: ${region} high-water mark ${hwm} exceeds capacity ${capacity}`);
+          }
+          // Arena entries carry both peaks; the stack entry has no lifetime
+          // mark. A re-split can leave the lifetime figure above the current
+          // capacity, so it is checked against the window, not against capacity.
+          if (region === 'stack') continue;
+          if (typeof lifetime !== 'number') {
+            fail(`${name}: ${region} omits lifetime_high_water_mark`);
+          } else if (lifetime < hwm) {
+            fail(`${name}: ${region} lifetime high-water mark ${lifetime} is below the windowed ${hwm}`);
           }
         }
         // The stack traps nowhere: guard it with the creep budget, not
