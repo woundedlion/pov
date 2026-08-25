@@ -37,6 +37,11 @@ enum class Operation : uint16_t {
   COUNT,
 };
 
+// The parameter cases are selected as an ordinal range below.
+static_assert(static_cast<uint16_t>(Operation::CASE_DEFAULT) == 0 &&
+                  static_cast<uint16_t>(Operation::CASE_INTERIOR) == 3,
+              "CASE_DEFAULT..CASE_INTERIOR must lead pullback_operations.def");
+
 template <int W, int H> bool selected_pixel(Operation operation, int x, int y) {
   switch (operation) {
   case Operation::FULL_FRAME:
