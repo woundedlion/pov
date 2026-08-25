@@ -9,6 +9,7 @@ REPO_ROOT = GEN.parents[2]
 sys.path.insert(0, str(GEN))
 
 import check  # noqa: E402
+import kicad_common  # noqa: E402
 import sexp  # noqa: E402
 
 
@@ -56,9 +57,8 @@ def committed_board_nets():
         for pad in (
                 node for node in footprint if isinstance(node, list) and node
                 and node[0] == "pad"):
-            net = sexp.val(pad, "net")
-            if reference and net:
-                name = str(net[-1]).lstrip("/")
+            name = kicad_common.net_name(pad)
+            if reference and name:
                 nets.setdefault(name, set()).add(check.node_key(reference, str(pad[1])))
     return nets
 

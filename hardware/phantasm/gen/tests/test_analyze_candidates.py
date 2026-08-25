@@ -97,7 +97,7 @@ class AnalyzeTests(unittest.TestCase):
         self.assertEqual(r["nseg"], len(analyze_candidates.CRIT))
         self.assertEqual(r["nvia"], 1)
         self.assertAlmostEqual(r["total_len"], 18.0)
-        # net_of strips the hierarchical path prefix
+        # net_name drops the leading slash
         self.assertAlmostEqual(r["netlen"]["DATA"], 10.0)
         self.assertEqual(r["netseg"]["DATA"], 1)
         self.assertEqual(r["netlayers"]["DATA"], {"F.Cu"})
