@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+// Under the gitignored build tree: run_tests.mjs resolves the case relative
+// to ROOT, and an interrupted run strands nothing `git add -A` would commit.
+const FIXTURE_ROOT = join(ROOT, 'build');
 
 test('runner rejects cases without assertions', () => {
-  const fixtureDir = mkdtempSync(join(ROOT, 'run-tests-fixture-'));
+  mkdirSync(FIXTURE_ROOT, { recursive: true });
+  const fixtureDir = mkdtempSync(join(FIXTURE_ROOT, 'run-tests-fixture-'));
   try {
     const fixture = join(fixtureDir, 'empty.test.mjs');
     writeFileSync(
