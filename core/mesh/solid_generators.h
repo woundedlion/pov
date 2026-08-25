@@ -12,6 +12,7 @@
  */
 
 #include <array>
+#include <string_view>
 #include "math/geometry.h"
 #include "mesh/mesh.h" // For MeshOps
 #include "mesh/hankin.h"
@@ -161,6 +162,41 @@ inline constexpr const char *BASE_MESH_EXPORT_OPTIONS[] = {
 
 static_assert(BASE_MESH_COUNT == std::size(BASE_MESH_OPTIONS));
 static_assert(BASE_MESH_COUNT == std::size(BASE_MESH_EXPORT_OPTIONS));
+static_assert(PLATONIC_BASE_MESH_COUNT ==
+              static_cast<size_t>(BaseMesh::ICOSAHEDRON) + 1);
+
+/**
+ * @brief Checks both label arrays carry the expected strings for one BaseMesh.
+ * @param mesh Enum value indexing both arrays.
+ * @param label Expected picker label.
+ * @param export_label Expected export spelling.
+ * @return True when both arrays match at that index.
+ */
+inline constexpr bool base_mesh_labelled(BaseMesh mesh, std::string_view label,
+                                         std::string_view export_label) {
+  const size_t i = static_cast<size_t>(mesh);
+  return std::string_view(BASE_MESH_OPTIONS[i]) == label &&
+         std::string_view(BASE_MESH_EXPORT_OPTIONS[i]) == export_label;
+}
+
+// Pin the Platonic/Archimedean/Catalan run boundaries: both arrays are consumed
+// positionally as BaseMesh labels, so a run reorder must fail to compile.
+static_assert(base_mesh_labelled(BaseMesh::TETRAHEDRON, "Tetrahedron",
+                                 "BaseMesh::TETRAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::ICOSAHEDRON, "Icosahedron",
+                                 "BaseMesh::ICOSAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TRUNCATED_TETRAHEDRON,
+                                 "Truncated Tetrahedron",
+                                 "BaseMesh::TRUNCATED_TETRAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::SNUB_DODECAHEDRON,
+                                 "Snub Dodecahedron",
+                                 "BaseMesh::SNUB_DODECAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::TRIAKIS_TETRAHEDRON,
+                                 "Triakis Tetrahedron",
+                                 "BaseMesh::TRIAKIS_TETRAHEDRON"));
+static_assert(base_mesh_labelled(BaseMesh::PENTAGONAL_HEXECONTAHEDRON,
+                                 "Pentagonal Hexecontahedron",
+                                 "BaseMesh::PENTAGONAL_HEXECONTAHEDRON"));
 
 HS_O3_BEGIN
 
