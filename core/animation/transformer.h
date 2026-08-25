@@ -23,6 +23,8 @@
 #include "vendor/FastNoiseLite.h"
 #include "animation/animation.h"
 
+namespace transformer_detail {
+
 /**
  * @brief A params type's declared refresh_from-hook intent, false when
  *        undeclared.
@@ -45,6 +47,8 @@ template <typename T> constexpr bool declared_needs_sync() {
   else
     return false;
 }
+
+} // namespace transformer_detail
 
 /**
  * @brief Fixed-capacity pool of animation-driven parameter entities.
@@ -91,13 +95,14 @@ public:
       "ParamsT must declare `static constexpr bool NEEDS_SYNC`: true if it "
       "carries prepare_frame()'s sync() hook, false if it does not.");
   static_assert(
-      declared_needs_refresh_from<ParamsT>() == HAS_REFRESH_FROM,
+      transformer_detail::declared_needs_refresh_from<ParamsT>() ==
+          HAS_REFRESH_FROM,
       "ParamsT::NEEDS_REFRESH_FROM disagrees with whether ParamsT exposes "
       "refresh_from(). prepare_frame() finds each hook by detection "
       "independently, so a renamed hook or a drifted signature would leave the "
       "entity unrefreshed with no other signal.");
   static_assert(
-      declared_needs_sync<ParamsT>() == HAS_SYNC,
+      transformer_detail::declared_needs_sync<ParamsT>() == HAS_SYNC,
       "ParamsT::NEEDS_SYNC disagrees with whether ParamsT exposes sync(). "
       "prepare_frame() finds each hook by detection independently, so a "
       "renamed hook or a drifted signature would leave the entity's derived "
