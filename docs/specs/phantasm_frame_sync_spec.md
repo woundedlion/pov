@@ -100,8 +100,8 @@ Hardware constants (`targets/Phantasm/phantasm_target.h`, `core/platform/platfor
 | Effect duration     | 38–240 s | per-effect; 304–1,920 revolutions  |
 
 **Effect duration is per-entry, not uniform.** `HS_PHANTASM_EFFECT_LIST`
-(`core/engine/effects.h`) carries a duration in seconds beside every roster
-name; `targets/Phantasm/Phantasm.ino` turns that column into
+(`targets/Phantasm/phantasm_playlist.h`) carries a duration in seconds beside
+every roster name; `targets/Phantasm/Phantasm.ino` turns that column into
 `EFFECT_REVOLUTIONS[]` as `seconds · RPM / 60`, and `run_show()` counts down
 that entry's own budget. Across the 36-entry roster the durations run 38 s
 (304 revolutions, the shortest shader-group entries) to 240 s (1,920
