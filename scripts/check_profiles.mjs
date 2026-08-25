@@ -17,13 +17,20 @@ const REQUIRED_SECTIONS = [
   '## Harness',
 ];
 
-export async function profileDirectories(profilesDir) {
+export async function profileDirectories(profilesDir, errors = []) {
   const entries = await readdir(profilesDir, { withFileTypes: true });
   const directories = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const files = await readdir(join(profilesDir, entry.name));
-    if (files.includes('README.md')) directories.push(entry.name);
+    if (files.includes('README.md')) {
+      directories.push(entry.name);
+      continue;
+    }
+    // A report set without an index is unreachable and unchecked; a
+    // directory holding no report at all is not a timing set.
+    if (files.some(file => REPORT_RE.test(file)))
+      errors.push(`${entry.name} has profile reports but no README.md index`);
   }
   return directories.sort();
 }
@@ -102,7 +109,7 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
   const [effectRoster, phantasmRoster, directories, index] = await Promise.all([
     loadEffectRoster(),
     loadPhantasmEffectRoster(),
-    profileDirectories(profilesDir),
+    profileDirectories(profilesDir, errors),
     readFile(join(profilesDir, 'README.md'), 'utf8'),
   ]);
   const effectKeys = new Set(effectRoster.map(name => name.toLowerCase()));
