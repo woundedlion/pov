@@ -39,28 +39,6 @@ struct RingSpinWhiteBox;
  */
 template <int W, int H> class RingSpin : public Effect {
 public:
-  static constexpr int TRAIL_LENGTH = 19; // trail samples per ring
-  static constexpr int NUM_RINGS = 4;
-  static constexpr int NUM_PALETTES = 4;
-
-  /**
-   * @brief One ring: great-circle plane, palette, orientation, and trail.
-   * @details Bundles the ring's great-circle plane normal, palette, current
-   * orientation, and the history trail used to render the fading motion blur.
-   */
-  struct Ring {
-    Vector normal;
-    BakedPalette *palette;
-    Orientation<> orientation;
-    Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
-    FastNoiseLite noise;
-    /**
-     * @brief Constructs a ring on the Y-axis great-circle plane.
-     * @param p Baked palette used to color the ring's trail.
-     */
-    Ring(BakedPalette *p) : normal(Y_AXIS), palette(p) {}
-  };
-
   /**
    * @brief Constructs the effect at the W x H canvas resolution.
    */
@@ -169,6 +147,28 @@ public:
 
 private:
   friend struct ::hs_test::effects_tests::RingSpinWhiteBox;
+
+  static constexpr int TRAIL_LENGTH = 19; // trail samples per ring
+  static constexpr int NUM_RINGS = 4;
+  static constexpr int NUM_PALETTES = 4;
+
+  /**
+   * @brief One ring: great-circle plane, palette, orientation, and trail.
+   * @details Bundles the ring's great-circle plane normal, palette, current
+   * orientation, and the history trail used to render the fading motion blur.
+   */
+  struct Ring {
+    Vector normal;
+    BakedPalette *palette;
+    Orientation<> orientation;
+    Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
+    FastNoiseLite noise;
+    /**
+     * @brief Constructs a ring on the Y-axis great-circle plane.
+     * @param p Baked palette used to color the ring's trail.
+     */
+    Ring(BakedPalette *p) : normal(Y_AXIS), palette(p) {}
+  };
 
   Timeline timeline;
   Pipeline<W, H> filters;
