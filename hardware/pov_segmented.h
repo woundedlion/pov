@@ -44,7 +44,6 @@
 #pragma once
 #include "render/led.h"
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
-#include "pov_single_map.h"  // pov::transfer_us (host-tested)
 #include "pov_sync.h"    // pure sync protocol (host-testable; see that file)
 #include "pov_handoff.h" // pure effect-handoff state machine (host-testable)
 #include "pov_submit_gate.h" // pure LED-submit decision (host-testable)
@@ -185,7 +184,7 @@ template <int S, int N, int RPM> class POVSegmented {
    * below never under-counts.
    */
   static constexpr unsigned long COLUMN_TRANSFER_US =
-      pov::transfer_us(HD107SFrame<PPS>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
+      dma::transfer_us(HD107SFrame<PPS>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
 
   // A transfer wider than the column period overruns every column; the submit
   // gate absorbs the drops, so it surfaces as a dim image, not as a fault.

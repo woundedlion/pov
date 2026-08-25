@@ -28,7 +28,6 @@
  * physical builds — do not assume one map's top-arm direction carries over.
  */
 #pragma once
-#include <cstdint>
 
 namespace pov {
 
@@ -72,22 +71,6 @@ constexpr int strip_opposite_col(int x, int w) { return (x + w / 2) % w; }
  */
 constexpr unsigned long column_interval_us(unsigned long cols_per_min) {
   return (60000000UL + cols_per_min / 2) / cols_per_min;
-}
-
-/**
- * @brief Worst-case duration of one column's LED transfer, in µs.
- * @param bytes Bytes clocked out for the column (image plus any black strobe).
- * @param clock_hz Bit clock the transport runs at, in Hz.
- * @return Ceiling of bytes·8 / clock_hz converted to µs.
- * @pre clock_hz > 0.
- * @details Rounded up so the driver's `column_interval_us > transfer_us` check
- *          never under-counts the transfer and admits a configuration that
- *          overruns the DMA every column.
- */
-constexpr unsigned long transfer_us(unsigned long bytes,
-                                    unsigned long clock_hz) {
-  return static_cast<unsigned long>(
-      (static_cast<uint64_t>(bytes) * 8u * 1000000u + clock_hz - 1) / clock_hz);
 }
 
 /**

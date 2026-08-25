@@ -6,15 +6,17 @@
 
 /**
  * @file dma_led_core.h
- * @brief Pure double-buffer / transfer-length / stale-transfer math for the DMA
- *        LED controller. No Teensy peripherals — split out of dma_led.h so the
- *        framing and watchdog decisions are host-unit-testable without a Teensy
- *        (see tests/test_dma_core.h). The Arduino-only TeensySPIDMA /
+ * @brief Pure double-buffer / transfer-length / transfer-duration /
+ *        stale-transfer math for the DMA LED controller. No Teensy
+ *        peripherals — split out of dma_led.h so the framing and watchdog
+ *        decisions are host-unit-testable without a Teensy (see
+ *        tests/test_dma_core.h). The Arduino-only TeensySPIDMA /
  *        DMALEDController in dma_led.h derive their behavior from these
  *        functions, so the host tests cover the real arithmetic.
  */
 
 #include <cstddef>
+#include <cstdint>
 
 namespace dma {
 
@@ -37,6 +39,22 @@ constexpr int next_buffer(int active) { return 1 - active; }
 constexpr std::size_t transfer_len(std::size_t base_size,
                                    std::size_t composite_size, bool with_bg) {
   return with_bg ? composite_size : base_size;
+}
+
+/**
+ * @brief Worst-case duration of one column's LED transfer, in µs.
+ * @param bytes Bytes clocked out for the column (image plus any black strobe).
+ * @param clock_hz Bit clock the transport runs at, in Hz.
+ * @return Ceiling of bytes·8 / clock_hz converted to µs.
+ * @pre clock_hz > 0.
+ * @details Rounded up so the driver's `column_interval_us > transfer_us` check
+ *          never under-counts the transfer and admits a configuration that
+ *          overruns the DMA every column.
+ */
+constexpr unsigned long transfer_us(unsigned long bytes,
+                                    unsigned long clock_hz) {
+  return static_cast<unsigned long>(
+      (static_cast<uint64_t>(bytes) * 8u * 1000000u + clock_hz - 1) / clock_hz);
 }
 
 /**
