@@ -557,8 +557,14 @@ Every other chip passive uses the stock IPC-nominal land; D_BUS uses the Bourns 
 ### 11.2 Order/layout action items (do before fab)
 
 - **R-ASM-1 — SMD footprints + part numbers.** Swap every pre-assembled symbol from the TH packages
-  named in §3/§9 to its SMD footprint and assign a **manufacturer / LCSC part number** in the
-  schematic (the PCBA house places from these). Passives are all JLC **basic parts**.
+  named in §3/§9 to its SMD footprint. **Supplier data is not schematic-borne:**
+  `hardware/phantasm/gen/fab.py` is the location of record — `LCSC_BY_REF` assigns each assembled
+  reference its LCSC number and `PART_BY_LCSC` carries the manufacturer / MPN / description — and
+  the assembly BOM the PCBA house places from is emitted from those two tables. The schematic's
+  LCSC field is never consulted, so writing part numbers there changes nothing. Both tables are
+  filled in and gate-enforced (`fab.py` rejects the assembly outputs unless the assembled
+  references match `LCSC_BY_REF` exactly and every catalog entry is complete), so no order waits
+  on this half. Passives are all JLC **basic parts**.
 - **R-ASM-2 — All SMD on one side.** Place every reflow part on the **top** side; double-sided
   assembly carries a surcharge. Teensy, electrolytics, and connectors go on whichever side suits hand
   assembly (typically bottom or the same top edge), but **no SMD on the second side**.
