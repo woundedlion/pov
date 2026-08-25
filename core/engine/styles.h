@@ -35,7 +35,10 @@ using SpaceFn = Vector (*)(const Vector &, const Style &);
 /**
  * @brief Pointer type for a color (fade) transform.
  * @details Receives the pixel, the per-frame fade value, and the Style,
- * returning the faded/shifted pixel.
+ * returning the faded/shifted pixel. The feedback filter's near-black floor,
+ * which forces a decaying trail the last few LSBs to zero, engages only for
+ * the built-in hue_fade; a custom transform must reach exact black on its own
+ * or its residue persists for the life of the frame buffer.
  */
 using ColorFn = Pixel (*)(const Pixel &, float fade, const Style &);
 
