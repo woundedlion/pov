@@ -200,8 +200,13 @@ def board_copper(root):
     """Returns copper, netted pads, and native net-id-to-name mappings."""
     stack = copper_layers(root)
     copper, pads = {}, {}
-    names = {net_id(node): net_name(node) for node in F(root, "net")
-             if net_id(node) is not None}
+    # A `(net id "name")` declaration is itself the node net_id and net_name
+    # look up as a child, so read it through a one-element parent.
+    names = {}
+    for declaration in F(root, "net"):
+        key = net_id([declaration])
+        if key is not None:
+            names[key] = net_name([declaration])
     for footprint in F(root, "footprint"):
         reference = footprint_reference(footprint)
         side = sexp.val(footprint, "layer", [None])[0]
