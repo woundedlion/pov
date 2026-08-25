@@ -497,6 +497,13 @@ class TestDocumentationChecker(unittest.TestCase):
                   "  X(Voronoi)\n")
         self.assertEqual(dc.effect_roster(source), {"Voronoi"})
 
+    def test_effect_roster_skips_a_multi_line_block_comment(self):
+        source = ("#define HS_EFFECT_LIST(X) \\\n"
+                  "  /* X(Retired)           \\\n"
+                  "     X(AlsoRetired) */    \\\n"
+                  "  X(Voronoi)\n")
+        self.assertEqual(dc.effect_roster(source), {"Voronoi"})
+
     @staticmethod
     def _diagram(count):
         return f"│  │  effects/  ({count} visual algorithms)     │  │\n"
