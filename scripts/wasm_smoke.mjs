@@ -371,7 +371,7 @@ async function main(probe) {
         const R = Module.ParamSetResult;
         for (const reason of
              ['APPLIED', 'NO_EFFECT', 'UNKNOWN_PARAM', 'READONLY', 'NON_FINITE']) {
-          if (!R || !R[reason]) {
+          if (!R || R[reason] === undefined) {
             fail(`write-seam: Module.ParamSetResult.${reason} is not bound`);
           }
         }
