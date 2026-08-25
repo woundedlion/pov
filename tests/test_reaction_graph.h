@@ -73,10 +73,10 @@ inline void test_nodes_on_unit_sphere() {
 }
 
 /**
- * @brief Pins node() to frozen coordinates and verifies adjacent indices stay
- *        distinct.
+ * @brief Pins node() to frozen coordinates and verifies the lattice walks
+ *        strictly southward with no coincident neighbors.
  */
-inline void test_node_deterministic_and_distinct() {
+inline void test_node_ordered_and_distinct() {
   // Frozen goldens: double-folded Fibonacci-lattice points cast to float32
   // (host/device agree to the cast per the provenance contract). radius*i — the
   // sensitivity of x/z to a theta error — peaks at i = 3*(RD_N-1)/4, and RD_N-2
@@ -90,18 +90,18 @@ inline void test_node_deterministic_and_distinct() {
                 Vector(-0.00214281073f, -0.999739528f, -0.0227209534f), 1e-6f);
   // The walk stops at RD_N-1 so node(i+1) never reads past [0, RD_N).
   Vector prev = node(0);
-  int nondeterministic = 0;
+  int out_of_order = 0;
   int coincident = 0;
   int walked = 0;
   for (int i = 0; i < RD_N - 1; ++i) {
-    Vector cur = node(i);
-    nondeterministic += cur.x != prev.x || cur.y != prev.y || cur.z != prev.z;
     Vector next = node(i + 1);
-    coincident += chord2(cur, next) <= 0.0f;
+    // y = 1 - 2i/(RD_N-1): index order is the north-to-south sweep order.
+    out_of_order += next.y >= prev.y;
+    coincident += chord2(prev, next) <= 0.0f;
     prev = next;
     ++walked;
   }
-  HS_EXPECT_EQ(nondeterministic, 0);
+  HS_EXPECT_EQ(out_of_order, 0);
   HS_EXPECT_EQ(coincident, 0);
   HS_EXPECT_EQ(walked, RD_N - 1);
 }
@@ -528,7 +528,7 @@ inline int run_reaction_graph_tests() {
   hs_test::ModuleFixture fixture("reaction_graph");
 
   test_nodes_on_unit_sphere();
-  test_node_deterministic_and_distinct();
+  test_node_ordered_and_distinct();
   test_d_avg_matches_rd_n();
   test_table_shape_matches_constants();
 
