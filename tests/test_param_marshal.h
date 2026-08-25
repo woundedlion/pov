@@ -322,12 +322,12 @@ inline void check_hyper_lattice_dimension_dropdown() {
   HS_EXPECT_TRUE(dimension != nullptr);
   HS_EXPECT_FALSE(dimension->is_bool);
   HS_EXPECT_TRUE(dimension->is_integer);
-  HS_EXPECT_EQ(dimension->option_count, 4);
+  HS_EXPECT_EQ(dimension->option_count, 3);
   HS_EXPECT_EQ(std::string_view(dimension->options[0]), std::string_view("3D"));
-  HS_EXPECT_EQ(std::string_view(dimension->options[3]),
-               std::string_view("4D Projected"));
-  HS_EXPECT_EQ(std::string_view(dimension->export_options[3]),
-               std::string_view("LatticeMode::FOUR_D_PROJECTED"));
+  HS_EXPECT_EQ(std::string_view(dimension->options[2]),
+               std::string_view("4D Slice"));
+  HS_EXPECT_EQ(std::string_view(dimension->export_options[2]),
+               std::string_view("LatticeMode::FOUR_D_SLICE"));
 }
 
 inline int run_param_marshal_tests() {
