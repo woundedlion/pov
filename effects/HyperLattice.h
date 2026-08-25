@@ -767,27 +767,7 @@ struct ModeShadeStage
   }
 };
 
-struct ShadeStage
-    : Pullback::Stage::Contract<ShadeStage, Pullback::SphereSample, Color4> {
-  using Policies = std::tuple<>;
-
-  template <typename PipelineBinding>
-  static PreparedTrace
-  prepare(const typename PipelineBinding::FrameState &frame) {
-    return prepare_trace(frame);
-  }
-
-  template <typename PipelineBinding>
-  __attribute__((always_inline)) static Color4
-  run(const Pullback::SphereSample &input,
-      const typename PipelineBinding::FrameState &frame,
-      const PreparedTrace &prepared) {
-    return shade(input, frame, prepared);
-  }
-};
-
-using RenderPipeline = Pullback::Pipeline<Binding, ShadeStage>;
-using SliceRenderPipeline = Pullback::Pipeline<Binding, ModeShadeStage<>>;
+using RenderPipeline = Pullback::Pipeline<Binding, ModeShadeStage<>>;
 using SpecializedRenderPipeline =
     Pullback::Pipeline<Binding, ModeShadeStage<true, true>>;
 
@@ -947,7 +927,7 @@ public:
       } else {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&frame](const Vector &view) HS_HOT_FLASH_MEMBER {
-              return HyperLatticeDetail::SliceRenderPipeline::evaluate(
+              return HyperLatticeDetail::RenderPipeline::evaluate(
                   view, frame.ctx, frame.prepared);
             });
       }
