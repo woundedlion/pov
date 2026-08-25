@@ -138,37 +138,42 @@ node, **plus a `false` base case in the terminal `Pipeline<W,H>`**
 
 `Effect` carries the answer as a construction-time flag, not a virtual. The
 `EffectConfig` aggregate the base constructor takes holds it
-(`core/render/canvas.h:46`):
+(`EffectConfig::full_frame` in `core/render/canvas.h`):
 
 ```
 bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
 ```
 
-The constructor copies it into the `full_frame` member
-(`core/render/canvas.h:87-88`) and a non-virtual accessor publishes it
-(`core/render/canvas.h:150`):
+The constructor copies it into the `full_frame` member and a non-virtual
+accessor publishes it (`Effect::needs_full_frame`):
 
 ```
 [[nodiscard]] bool needs_full_frame() const { return full_frame; }
 ```
 
-Each filtered effect supplies the value in its base initializer, e.g.
-`effects/MeshFeedback.h:86-88`:
+Each filtered effect hands its pipeline to the `pipeline_config<>` helper in its
+base initializer, e.g. `effects/MeshFeedback.h`:
 
 ```
-Effect(W, H, {.strobe = true,
-              .full_frame = decltype(filters)::any_crosses_segments})
+Choreography(W, H, pipeline_config<decltype(filters)>({.strobe = true}))
 ```
 
-The value is fully trait-derived (no per-effect judgment): it reads the
-pipeline's compile-time `any_crosses_segments` fold, so adding or removing a
-filter updates the answer automatically. Only the one-line bridge is manual,
-because `Effect` is type-erased — the driver holds an `Effect*` and the fold
-lives in the derived effect's `filters` member, so the base cannot read it
-without the derived type passing it up. `HopfFibration` names its pipeline
-`trail_pipeline` and
-`Raymarch` names its `pipeline`. Effects with no filter pipeline omit the field
-and take the `false` default.
+`pipeline_config<PipelineT>` is the single definition of the fold, so no effect
+restates a trait: it widens the config the effect passes in with
+`any_crosses_segments` into `full_frame`, `any_reads_outside_band` into
+`reads_outside_band`, and `total_segment_margin` into `margin`. All three are
+"at least this much" requirements — the helper never clears a flag the effect
+set for its own reasons.
+
+The values are fully trait-derived (no per-effect judgment): they read the
+pipeline's compile-time folds, so adding or removing a filter updates the answer
+automatically. Only the one-line bridge is manual, because `Effect` is
+type-erased — the driver holds an `Effect*` and the folds live in the derived
+effect's `filters` member, so the base cannot read them without the derived type
+passing them up. `HopfFibration` names its pipeline `trail_pipeline` and
+`Raymarch` names its `pipeline`, so each names its own in the helper's template
+argument. Effects with no filter pipeline skip the helper and take the
+`EffectConfig` defaults.
 
 Because the flag is fixed at construction, an effect cannot change its answer
 mid-run — the drivers may read it once per frame without a re-clip hazard.
@@ -176,7 +181,7 @@ mid-run — the drivers may read it once per frame without a re-clip hazard.
 Of the shipped roster the fold evaluates `true` for exactly `MeshFeedback`
 (`Pixel::Feedback`) and the `World::Trails` effect `Dynamo`; everything else is
 `false`. The roster test (§8) pins that set so a new cross-segment effect that
-forgets the field is caught.
+forgets the helper is caught.
 
 ### 4.3 Honor it at the driver boundary (the only behavioral change)
 
@@ -217,8 +222,9 @@ on it.
 A bounded spatial reach renders band + a declared margin instead of full-frame.
 The reach is a filter trait, `static constexpr int segment_margin` on the four
 trait bases (default 0), sum-folded by `Pipeline` into `total_segment_margin`
-alongside the `any_*` OR-folds. Effects pass it as `EffectConfig::margin`
-beside `.full_frame` / `.reads_outside_band`; the `Effect` constructor widens
+alongside the `any_*` OR-folds. `pipeline_config<>` carries it into
+`EffectConfig::margin` beside `full_frame` and `reads_outside_band`; the
+`Effect` constructor widens
 `ClipRegion::margin` to it through `set_margin`, never below the ClipRegion
 default of 1, so a pipeline folding to 0 keeps the coverage every effect
 already has.
@@ -249,7 +255,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 |---|---|
 | `core/render/filter/pipeline.h` traits | add `crosses_segments` and `reads_outside_band` to `FilterTraits`, both defaulting to `has_history`; override `reads_outside_band = false` on `Screen::Trails` and `World::Trails`, `crosses_segments = true` on `World::Mobius`; add the recursive `any_crosses_segments` / `any_reads_outside_band` OR-folds to `Pipeline` + `false` base cases in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
 | `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor; `margin` config field applied to `ClipRegion::margin` through `set_margin`, widen-only |
-| each filtered effect's constructor | pass `.full_frame = decltype(filters)::any_crosses_segments` and `.margin = decltype(filters)::total_segment_margin` in the `Effect` base initializer |
+| each filtered effect's constructor | wrap its `EffectConfig` in `pipeline_config<decltype(filters)>(...)` in the `Effect` base initializer, which folds in all three pipeline traits |
 | `targets/wasm/engine_bindings.h` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
 | flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
 | `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |
@@ -301,7 +307,7 @@ Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
   representative non-stateful effects. This is the end-to-end equivalent of a
   `setClip` test — the WASM driver reads exactly this query, and `setClip` itself
   lives in the Emscripten-only TU, which the native suite cannot link. A new
-  cross-segment effect that forgets the `full_frame` field is caught here.
+  cross-segment effect that forgets `pipeline_config<>` is caught here.
 - **`Screen::Trails` banded-vs-full bit-identity**
   (`test_screen_trails_banded_matches_full`, test_filter.h): the reach-0 proof
   that backs the `reads_outside_band = false` override and would be the
