@@ -44,6 +44,19 @@ struct Fragment;
 struct FragmentRegisters;
 template <typename Signature> class FunctionRef;
 
+namespace hs {
+/**
+ * @brief Diverges when an empty FunctionRef is invoked.
+ * @details One out-of-line routine every instantiation's empty thunk tail-calls,
+ * so the trapping empty state costs a branch per signature rather than a
+ * formatted call site.
+ */
+[[noreturn]] HS_COLD inline void function_ref_empty_call() {
+  check_fail(__FILE__, __LINE__, "thunk != empty_thunk",
+             "empty FunctionRef called");
+}
+} // namespace hs
+
 /**
  * @brief Non-owning, type-erased reference to any callable matching Ret(Args...).
  * @tparam Ret Return type of the wrapped callable.
@@ -52,8 +65,14 @@ template <typename Signature> class FunctionRef;
  * heap allocation. The referenced callable must outlive the FunctionRef.
  */
 template <typename Ret, typename... Args> class FunctionRef<Ret(Args...)> {
+  // Empty state's thunk, mirroring hs::inplace_function's empty vtable: an
+  // empty ref diverges with a breadcrumb instead of calling through null.
+  [[noreturn]] static Ret empty_thunk(void *, Args...) {
+    ::hs::function_ref_empty_call();
+  }
+
   void *ctx = nullptr;
-  Ret (*thunk)(void *, Args...) = nullptr;
+  Ret (*thunk)(void *, Args...) = &empty_thunk;
 
 public:
   /**
@@ -101,9 +120,9 @@ public:
    * *conditionally-supported* by the standard ([expr.reinterpret.cast]) but holds
    * on every target this engine builds for (ARM Cortex-M7, x86-64, wasm32 all
    * share pointer width); the static_assert turns any future target where that
-   * stops being true into a compile error. A null `func` produces an *empty* ref
-   * (thunk stays null), matching a default-constructed FunctionRef, so a null
-   * func cannot install a thunk that dereferences null on the first call.
+   * stops being true into a compile error. A null `func` produces an *empty*
+   * ref, matching a default-constructed FunctionRef, so a null func cannot
+   * install a thunk that dereferences null on the first call.
    */
   FunctionRef(Ret (*func)(Args...)) noexcept
       : ctx(reinterpret_cast<void *>(func)) {
@@ -174,13 +193,11 @@ public:
    * @brief Invokes the wrapped callable.
    * @param args Arguments forwarded to the callable.
    * @return Result of the wrapped callable.
-   * @details Per-pixel hot path (trail/transform callbacks): the null check is a
-   * debug-only assert, deliberately NOT HS_CHECK to avoid an always-on per-call
-   * branch on-device.
+   * @details Per-pixel hot path (trail/transform callbacks): the empty state
+   * carries a trapping thunk rather than a null one, so this costs no per-call
+   * branch on-device and an empty ref still fails fast.
    */
   inline Ret operator()(Args... args) const {
-    assert(thunk != nullptr &&
-           "FunctionRef called on null/default-constructed ref");
     return thunk(ctx, std::forward<Args>(args)...);
   }
 
@@ -188,7 +205,7 @@ public:
    * @brief Tests whether this FunctionRef refers to a callable.
    * @return True if a callable is bound, false if empty.
    */
-  [[nodiscard]] explicit operator bool() const { return thunk != nullptr; }
+  [[nodiscard]] explicit operator bool() const { return thunk != &empty_thunk; }
 };
 
 /**
