@@ -259,20 +259,16 @@ private:
    */
   HS_COLD_MEMBER static int find_nearest_node(const Vector &p,
                                               const Vector *lattice) {
-    auto dist2 = [](const Vector &a, const Vector &b) {
-      float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-      return dx * dx + dy * dy + dz * dz;
-    };
     int cur =
         static_cast<int>(hs::clamp((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f,
                                    0.0f, static_cast<float>(RD_N - 1)));
-    float best_d = dist2(p, lattice[cur]);
+    float best_d = distance_squared(p, lattice[cur]);
     bool converged = false;
     for (int iter = 0; iter < 64; ++iter) {
       bool improved = false;
       for (int k = 0; k < RD_K; ++k) {
         int ni = neighbors[cur][k];
-        float d = dist2(p, lattice[ni]);
+        float d = distance_squared(p, lattice[ni]);
         if (d < best_d) {
           best_d = d;
           cur = ni;
