@@ -3249,6 +3249,45 @@ inline void case_pullback_operator_invalid_hue_mode() {
     std::printf("x");
 }
 
+/** @brief Death case: the generated-palette operator rejects an unknown palette
+    mode. */
+inline void case_pullback_operator_invalid_palette_mode() {
+  Pullback::Interp::Op::GeneratedPaletteParams params;
+  params.palette_mode = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::ColorClockState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::ColorizeGeneratedPalette::prepare(context, params,
+                                                              state)
+          .palette != nullptr)
+    std::printf("x");
+}
+
+/** @brief Death case: the generated-palette operator rejects an unknown palette
+    mapping. */
+inline void case_pullback_operator_invalid_palette_mapping() {
+  Pullback::Interp::Op::GeneratedPaletteParams params;
+  params.mapping_mode = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::ColorClockState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::ColorizeGeneratedPalette::prepare(context, params,
+                                                              state)
+          .palette != nullptr)
+    std::printf("x");
+}
+
+/** @brief Death case: the generated-palette operator rejects an unknown
+    brightness envelope. */
+inline void case_pullback_operator_invalid_brightness_envelope() {
+  Pullback::Interp::Op::GeneratedPaletteParams params;
+  params.envelope_mode = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::ColorClockState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::ColorizeGeneratedPalette::prepare(context, params,
+                                                              state)
+          .palette != nullptr)
+    std::printf("x");
+}
+
 /**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
@@ -3875,6 +3914,20 @@ inline const Case *all_cases(int &n) {
        case_pullback_operator_invalid_hue_mode, "operators.h",
        "(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH)) "
        "colorize.generated-palette: invalid hue shift mode"},
+      {"pullback_operator_invalid_palette_mode",
+       case_pullback_operator_invalid_palette_mode, "operators.h",
+       "(params.palette_mode < ctx.palettes.size()) "
+       "colorize.generated-palette: invalid palette mode"},
+      {"pullback_operator_invalid_palette_mapping",
+       case_pullback_operator_invalid_palette_mapping, "operators.h",
+       "(params.mapping_mode <= static_cast<uint8_t>("
+       "Color::PaletteMapping::REVERSE)) "
+       "colorize.generated-palette: invalid palette mapping"},
+      {"pullback_operator_invalid_brightness_envelope",
+       case_pullback_operator_invalid_brightness_envelope, "operators.h",
+       "(params.envelope_mode <= static_cast<uint8_t>("
+       "EnvelopeMode::DESCENDING)) "
+       "colorize.generated-palette: invalid brightness envelope"},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
