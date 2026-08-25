@@ -1,6 +1,6 @@
 # HyperLattice on-device profile — Teensy 4.0, segmented mode (2026-08-25, **global -O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_hyperlattice_teensy_2026-08-24.md).
+Global-O3 twin of the [shipping report](../shipping/profile_hyperlattice_teensy_2026-08-25.md).
 Raw capture: `build/prof/hyperlattice_transition_o3.log`. This replaces the
 2026-08-24 two-preset transition report.
 
