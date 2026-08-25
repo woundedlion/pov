@@ -65,7 +65,12 @@ export function validateReport(report, directory, key, date, file, errors) {
   if (!title || title[2] !== date)
     errors.push(`${subject} title date does not match its filename`);
 
-  const positions = REQUIRED_SECTIONS.map(heading => report.indexOf(heading));
+  // Line-anchored: a '### Setup' subheading contains '## Setup' and would
+  // otherwise satisfy the requirement and skew every span below.
+  const positions = REQUIRED_SECTIONS.map(heading => {
+    const found = new RegExp(`^${heading}\\r?$`, 'm').exec(report);
+    return found ? found.index : -1;
+  });
   for (let i = 0; i < REQUIRED_SECTIONS.length; ++i) {
     if (positions[i] < 0) {
       errors.push(`${subject} is missing ${REQUIRED_SECTIONS[i]}`);
