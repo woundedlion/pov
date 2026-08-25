@@ -46,8 +46,7 @@ struct MindSplatterParams {
    */
   void lerp(const MindSplatterParams &start, const MindSplatterParams &target,
             float t) {
-    // Trips if the field set changes, so a new preset float can't silently go
-    // un-interpolated (engine-written active_count is excluded on purpose).
+    // Width pin; pin_field_set() is what catches an added or removed field.
     static_assert(sizeof(MindSplatterParams) == 7 * sizeof(float),
                   "MindSplatter::Params field set changed — update lerp");
     base_mesh = t < 0.5f ? start.base_mesh : target.base_mesh;
@@ -59,6 +58,20 @@ struct MindSplatterParams {
     angular_speed =
         start.angular_speed + (target.angular_speed - start.angular_speed) * t;
     warp_scale = start.warp_scale + (target.warp_scale - start.warp_scale) * t;
+  }
+
+  /**
+   * @brief Compile-time field-set pin for lerp(); never called.
+   * @details The binding names every member, so adding or removing a field is a
+   *          build error here. sizeof() cannot stand in: base_mesh's tail
+   *          padding absorbs an added small field and leaves the size
+   *          unchanged. Engine-written active_count is excluded from lerp() on
+   *          purpose.
+   */
+  static void pin_field_set(const MindSplatterParams &p) {
+    const auto &[mesh, fric, well, speed, angular, warp, active] = p;
+    (void)mesh, (void)fric, (void)well, (void)speed, (void)angular, (void)warp,
+        (void)active;
   }
 };
 
