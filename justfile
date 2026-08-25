@@ -104,7 +104,7 @@ gamut-lut:
 teensy-warnings:
     {{py}} tools/build_pins.py --check-tool platformio
     bash -c "set -o pipefail; rm -rf .pio/build_cache .pio/build && pio run -v 2>&1 | tee teensy_build.log"
-    {{py}} tools/teensy_warnings.py --build-log teensy_build.log --baseline /dev/null
+    {{py}} tools/teensy_warnings.py --build-log teensy_build.log
 
 # The README's `tree daydream` fence draws the sibling checkout's tracked tree;
 # docs_check.py can only validate it against a --checkout root (ci.yml checks the
