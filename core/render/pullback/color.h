@@ -227,7 +227,7 @@ apply_generated_palette(const FieldSample &sample,
     color = palette.get(palette_value, sample.sphere, state.hue_shift_amount);
   } else {
     color = state.palette->get(palette_value);
-    if (state.hue_rotation.active) {
+    if (state.hue_rotation.active && state.hue_mode == HueMode::PATH_LENGTH) {
       const float amount = wrap_t(state.hue_shift_amount * sample.path_length);
       if (amount != 0.0f)
         color.color =
