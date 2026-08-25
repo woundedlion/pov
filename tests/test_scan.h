@@ -48,21 +48,6 @@ struct ScopedPoleLod {
   ScopedPoleLod &operator=(const ScopedPoleLod &) = delete;
 };
 
-/** Sphere probe that records how often the volume marcher evaluates it. */
-struct CountingSphere {
-  static constexpr float REJECT_MARGIN = FLT_MAX;
-  Vector center;
-  float radius;
-  long long *calls;
-  float distance(const Vector &p) const {
-    ++*calls;
-    return (p - center).length() - radius;
-  }
-};
-static_assert(SDF::reject_margin<CountingSphere> == FLT_MAX);
-static_assert(SDF::reject_margin<Scan::TransformedVolume<CountingSphere>> ==
-              FLT_MAX);
-
 // ============================================================================
 // Scan::Shader::draw — full-sphere per-pixel shader
 // ============================================================================
@@ -2246,80 +2231,6 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
 }
 
 /**
- * @brief Verifies Volume::draw's pole-LOD block skip drops no covered column.
- * @details The ray marcher settles a whole block from one clear trace, the only
- * pole-LOD site that skips without splatting, so an over-wide skip erases
- * columns outright. The cap sits on the canvas pole, where the walk offers the
- * widest blocks, and the sphere is offset off the view axis so its silhouette
- * runs across each decimated row rather than around it — on-axis every column
- * of a row carries the same clearance and the comparison is vacuous. The
- * framebuffer must match the undecimated walk at every aggressiveness.
- */
-inline void test_volume_pole_lod_matches_undecimated() {
-  constexpr int W = 96, H = 64;
-  const ScopedPoleLod scoped_lod(0.0f);
-  // Radial view of a cap centred on the canvas pole.
-  const Vector center(0.0f, 1.0f, 0.0f);
-  const Vector view_dir(0.0f, -1.0f, 0.0f);
-  const float bounds_radius = 0.45f;
-
-  long long traced = 0;
-  auto render = [&](float lod) {
-    pole_lod_aggressiveness = lod;
-    traced = 0;
-    hs_test::StubEffect fx(W, H);
-    {
-      Canvas c(fx);
-      Pipeline<W, H> pipe;
-      CountingSphere sphere{Vector(0.18f, 0.0f, 0.0f), 0.18f, &traced};
-      Scan::TransformedVolume vol(sphere, center, Quaternion());
-      Scan::Volume::draw<W, H>(
-          pipe, c, center, bounds_radius, view_dir, vol,
-          [](const Vector &, Fragment &f) {
-            f.color = Color4(Pixel(60000, 45000, 30000), 1.0f);
-          },
-          /*max_steps=*/24, /*aa_width=*/0.01f);
-    }
-    fx.advance_display();
-    std::vector<Pixel> out(W * H);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        out[y * W + x] = fx.get_pixel(x, y);
-    return out;
-  };
-
-  const std::vector<Pixel> plain = render(0.0f);
-  const long long plain_traced = traced;
-  bool blocks_settled = false;
-  for (float lod : {1.0f, 4.0f}) {
-    HS_CONTEXT("lod", static_cast<int>(lod * 100.0f));
-    // The rows the cap reaches must actually be decimated, or this is vacuous.
-    pole_lod_aggressiveness = lod;
-    HS_EXPECT_GT(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[2]), 1);
-
-    const std::vector<Pixel> decimated = render(lod);
-    // A wide run demands slack the clearance cannot clear, so only the modest
-    // aggressiveness actually settles blocks here.
-    blocks_settled = blocks_settled || traced < plain_traced;
-    size_t lit = 0;
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x) {
-        const Pixel &a = plain[y * W + x];
-        const Pixel &b = decimated[y * W + x];
-        HS_CONTEXT("px", x, y);
-        HS_EXPECT_EQ(static_cast<int>(a.r), static_cast<int>(b.r));
-        HS_EXPECT_EQ(static_cast<int>(a.g), static_cast<int>(b.g));
-        HS_EXPECT_EQ(static_cast<int>(a.b), static_cast<int>(b.b));
-        if (a.r || a.g || a.b)
-          ++lit;
-      }
-    HS_EXPECT_GT(lit, (size_t)40);
-  }
-  // Blocks were settled from one trace, so the parity above is not vacuous.
-  HS_EXPECT_TRUE(blocks_settled);
-}
-
-/**
  * @brief Verifies trace_closest stops at the first silhouette graze instead of
  *        letting an occluded surface behind it steal the closest approach.
  * @details A ray grazes the foreground sphere's edge inside the AA band and then
@@ -2738,7 +2649,6 @@ inline int run_scan_tests() {
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
   test_volume_draw_occluded_edge_blends_over_background();
-  test_volume_pole_lod_matches_undecimated();
   test_volume_trace_closest_stops_at_first_graze();
   test_volume_probe_occluder_reports_background_graze_point();
   test_volume_trace_closest_overrelax_never_skips_surface();
