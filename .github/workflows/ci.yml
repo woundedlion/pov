@@ -1226,16 +1226,24 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
+
+      # The fence is exhaustive over the daydream tree, so the checkout tracks
+      # the committed pin: daydream's tip moves independently and would red an
+      # unrelated engine change and flip a re-run of an unchanged commit.
       - name: Check out daydream tree-fence target
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           repository: woundedlion/daydream
+          ref: ${{ steps.pins.outputs.daydream }}
           path: daydream
           persist-credentials: false
-
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.12'
 
       - name: Every documented image reference resolves
         run: python tools/docs_images.py
@@ -1255,16 +1263,24 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
+
+      # The fence is exhaustive over the daydream tree, so the checkout tracks
+      # the committed pin: daydream's tip moves independently and would red an
+      # unrelated engine change and flip a re-run of an unchanged commit.
       - name: Check out daydream tree-fence target
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           repository: woundedlion/daydream
+          ref: ${{ steps.pins.outputs.daydream }}
           path: daydream
           persist-credentials: false
-
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.12'
 
       # Discover finds test files by pattern, so one deleted or renamed out of
       # it can run no suite and stay green; require_test_files.sh fails instead.
