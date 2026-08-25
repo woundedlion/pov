@@ -4515,7 +4515,7 @@ struct PetalFlowWhiteBox {
   static float live_spacing(const PF &pf) { return pf.spacing(); }
   static float move_dist(const PF &pf) { return pf.move_dist(); }
   static int spawns(const PF &pf) { return pf.spawns; }
-  static int dropped_spawns(const PF &pf) { return pf.dropped_spawns; }
+  static uint32_t pool_full_drops(const PF &pf) { return pf.pool_full_drops; }
   static int max_rings() { return PF::MAX_RINGS; }
   static int rings_on_path() { return PF::RINGS_ON_PATH; }
   static int active_rings(const PF &pf) {
@@ -4573,7 +4573,8 @@ inline void test_petalflow_spawn_gap_bounded() {
     worst_burst = std::max(worst_burst, spawns - previous_spawns);
     previous_spawns = spawns;
     worst_active = std::max(worst_active, WB::active_rings(pf));
-    HS_EXPECT_EQ(WB::dropped_spawns(pf), 0); // every spawn found a free slot
+    // every spawn found a free slot
+    HS_EXPECT_EQ(WB::pool_full_drops(pf), (uint32_t)0);
   }
   HS_EXPECT_GE(worst_burst, 2); // the multi-spawn branch actually ran
   HS_EXPECT_LE(worst_active, WB::rings_on_path());
