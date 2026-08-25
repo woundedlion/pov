@@ -94,6 +94,10 @@ public:
     return true;
   }
 
+  /** @brief Authored preset count, for the effect registry: the same
+      count preset_target() indexes. */
+  static consteval size_t authored_preset_count() { return preset_count_of(); }
+
 protected:
   /** @brief An automatic preset transition's endpoints. */
   struct Transition {

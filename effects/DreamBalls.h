@@ -78,8 +78,6 @@ public:
   /** Bookkeeping only (see PRESET_SEGUE); mirrors the sprite hand-off period. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
 
-  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
-
   static bool valid_params(const Params &p) { return preset_in_ranges(p); }
 
   /**
