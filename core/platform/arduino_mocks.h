@@ -327,32 +327,32 @@ struct SerialMock {
    * @brief Writes a signed integer without a trailing newline.
    * @param val Value to write.
    */
-  void print(int val) { printf("%d", val); }
+  void print(int val) { ::printf("%d", val); }
   /**
    * @brief Writes an unsigned long without a trailing newline.
    * @param val Value to write.
    */
-  void print(unsigned long val) { printf("%lu", val); }
+  void print(unsigned long val) { ::printf("%lu", val); }
   /**
    * @brief Writes a float without a trailing newline.
    * @param val Value to write.
    */
-  void print(float val) { printf("%g", static_cast<double>(val)); }
+  void print(float val) { ::printf("%g", static_cast<double>(val)); }
   /**
    * @brief Writes a C string followed by a newline.
    * @param msg Text to write.
    */
-  void println(const char *msg) { printf("%s\n", msg); }
+  void println(const char *msg) { ::printf("%s\n", msg); }
   /**
    * @brief Writes a signed integer followed by a newline.
    * @param val Value to write.
    */
-  void println(int val) { printf("%d\n", val); }
+  void println(int val) { ::printf("%d\n", val); }
   /**
    * @brief Writes an unsigned long followed by a newline.
    * @param val Value to write.
    */
-  void println(unsigned long val) { printf("%lu\n", val); }
+  void println(unsigned long val) { ::printf("%lu\n", val); }
   /**
    * @brief Formats and writes a printf-style message (Arduino Serial.printf).
    * @param fmt printf-style format string.
