@@ -39,6 +39,8 @@
  * derive from PROJ at the commit named in the header above.
  */
 
+#include <type_traits>
+
 #include "math/3dmath.h"
 
 namespace projections {
@@ -59,24 +61,16 @@ enum class ProjectionTrait : uint8_t {
 };
 
 /**
- * @brief Widens one trait to the packed trait mask.
- * @param a Trait to encode.
- * @return The mask holding just that trait.
+ * @brief Packs any number of traits into one mask.
+ * @tparam Traits Deduced ProjectionTrait pack.
+ * @param traits Traits to encode.
+ * @return The union of the given traits; 0 for none.
  */
-constexpr uint8_t projection_traits(ProjectionTrait a) {
-  return static_cast<uint8_t>(a);
-}
-
-/**
- * @brief Packs two or three traits into one mask.
- * @param a First trait.
- * @param b Second trait.
- * @param c Optional third trait.
- * @return The union of the given traits.
- */
-constexpr uint8_t projection_traits(ProjectionTrait a, ProjectionTrait b,
-                                    ProjectionTrait c = ProjectionTrait::NONE) {
-  return projection_traits(a) | projection_traits(b) | projection_traits(c);
+template <typename... Traits>
+constexpr uint8_t projection_traits(Traits... traits) {
+  static_assert((std::is_same_v<Traits, ProjectionTrait> && ...),
+                "projection_traits packs ProjectionTrait values");
+  return static_cast<uint8_t>((0u | ... | static_cast<uint8_t>(traits)));
 }
 
 /**
@@ -392,10 +386,9 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
           .boundary_flags = projection_boundary(ProjectionBoundary::SINGULAR),
           .fade_edge_distance = edge,
           .flags = flags,
-          .traits =
-              projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
-                                ProjectionTrait::PERIODIC) |
-              projection_traits(ProjectionTrait::SINGULAR),
+          .traits = projection_traits(
+              ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
+              ProjectionTrait::PERIODIC, ProjectionTrait::SINGULAR),
           .edge_class = edge_class};
 }
 
@@ -495,10 +488,9 @@ peirce_projection_fast_square(const Vector &v) {
           .boundary_flags = projection_boundary(ProjectionBoundary::SINGULAR),
           .fade_edge_distance = edge,
           .flags = flags,
-          .traits =
-              projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
-                                ProjectionTrait::PERIODIC) |
-              projection_traits(ProjectionTrait::SINGULAR),
+          .traits = projection_traits(
+              ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
+              ProjectionTrait::PERIODIC, ProjectionTrait::SINGULAR),
           .edge_class = edge_class};
 }
 
