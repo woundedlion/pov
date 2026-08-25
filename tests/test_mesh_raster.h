@@ -760,6 +760,52 @@ inline void test_class_bake_census_invariants() {
 }
 
 /**
+ * @brief Sweeps the whole islamic registry and pins what
+ *        MeshOps::MAX_CONGRUENCE_CLASSES is sized from.
+ * @details Per mesh the clustering must fit the class table, leaving no face
+ * degraded to NO_CLASS by a full one. The registry-wide maximum is gated too:
+ * the capacity is headroom over that census, and a build-path change that
+ * pushes a shape past it spends the headroom without tripping any per-mesh
+ * assertion.
+ */
+inline void test_class_bake_registry_capacity() {
+  configure_arenas_default();
+  // Observed class-count maximum over the registry.
+  constexpr size_t CENSUS_MAX_CLASSES = 24;
+
+  const auto islamic = Solids::Collections::get_islamic_solids();
+  HS_EXPECT_TRUE(!islamic.empty());
+
+  size_t worst_classes = 0;
+  const char *worst_name = "";
+  for (size_t i = 0; i < islamic.size(); ++i) {
+    Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+    Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+    Arena geom(mr_geom, sizeof(mr_geom));
+
+    MeshState mesh;
+    MeshOps::MeshClassBake bake;
+    build_islamic_bake(i, seed_a, seed_b, geom, mesh, bake);
+
+    HS_EXPECT_EQ(bake.face_recs.size(), mesh.num_faces());
+    HS_EXPECT_GT(bake.classes.size(), (size_t)0);
+    HS_EXPECT_LE(bake.classes.size(), (size_t)MeshOps::MAX_CONGRUENCE_CLASSES);
+    HS_EXPECT_EQ(bake.overflow_faces, (uint16_t)0);
+
+    if (bake.classes.size() > worst_classes) {
+      worst_classes = bake.classes.size();
+      worst_name = islamic[i].name;
+    }
+  }
+
+  std::printf("  [class census] %zu meshes, worst %zu classes (%s), "
+              "capacity %d\n",
+              islamic.size(), worst_classes, worst_name,
+              MeshOps::MAX_CONGRUENCE_CLASSES);
+  HS_EXPECT_LE(worst_classes, CENSUS_MAX_CLASSES);
+}
+
+/**
  * @brief Fragment shader encoding the signed distance (v1) as brightness, so
  *        interior-gradient deviations become channel deltas.
  * @param f Fragment whose color is overwritten from its v1 register.
@@ -1106,6 +1152,7 @@ inline int run_mesh_raster_tests() {
   test_truncated_icosahedron_wireframe_and_fill();
   test_clip_band_matches_full();
   test_class_bake_census_invariants();
+  test_class_bake_registry_capacity();
   test_class_bake_borrowed_mode();
   test_class_bake_budget_accounting();
   test_class_lut_render_matches_exact();
