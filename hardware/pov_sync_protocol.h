@@ -353,17 +353,20 @@ struct Config {
     // then the widest digit burst (7 * beacon_pitch_cols), then the terminating
     // gap the mailbox waits out before claiming it (gap_timeout_cols).
     // beacon_span_cols() / 4 is the mean advance, not this bound. Held with
-    // equality at the shipped constants, and acquire_quiet_cols cannot grow —
-    // beacon_frame_cols() < W/4 above has one column of slack — so widening
-    // this margin has to come out of the pitch or the gap.
+    // equality at the shipped constants; tick() polls at acquire_quiet_cols +
+    // gap_timeout_cols, so the achieved margin against the advance is
+    // gap_timeout_cols, which absorbs the emitter's wake-grid quantization.
+    // acquire_quiet_cols cannot grow — beacon_frame_cols() < W/4 above has one
+    // column of slack — so widening it further has to come out of the pitch.
     if (!(acquire_quiet_cols >=
           2 * gap_timeout_cols + 7 * beacon_pitch_cols + 1))
       return "acquire_quiet_cols >= 2*gap_timeout + 7*beacon_pitch + 1";
     // Stale-frame window order: tick()'s poll-path reset must be the tighter
     // one, so a truncated train drops on wire silence rather than waiting for
     // the next burst to reach BeaconParser::feed.
-    if (!(acquire_quiet_cols < beacon_interdigit_timeout_cols))
-      return "acquire_quiet_cols < beacon_interdigit_timeout_cols";
+    if (!(acquire_quiet_cols + gap_timeout_cols <
+          beacon_interdigit_timeout_cols))
+      return "acquire_quiet_cols + gap_timeout < beacon_interdigit_timeout";
     if (!(effect_count > 0))
       return "effect_count > 0";
     if (!(effect_count <= 64))
