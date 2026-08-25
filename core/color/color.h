@@ -1157,8 +1157,8 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float a,
   const float v10 = vertex_minimum(0, 1);
   const float v01 = vertex_minimum(1, 0);
   const float v11 = vertex_minimum(1, 1);
-  const float angle_blend = af * af * (3.0f - 2.0f * af);
-  const float lightness_blend = lf * lf * (3.0f - 2.0f * lf);
+  const float angle_blend = cubic_kernel(af);
+  const float lightness_blend = cubic_kernel(lf);
   const float low = v00 + (v10 - v00) * angle_blend;
   const float high = v01 + (v11 - v01) * angle_blend;
   return low + (high - low) * lightness_blend;
