@@ -2360,9 +2360,9 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 #### HyperLattice
 
-An analytic reflective flight through a cubic lattice that opens into a four-dimensional hypercubic lattice under genuine SO(4) rotation. Transparent integer-coordinate hyperplanes expose several lattice shells without raymarching.
+An analytic reflective flight through cubic and four-dimensional lattices under genuine SO(4) rotation. The 4D Slice mode preserves the fragmentary cross-section aesthetic, while 4D Projected nominates nearby lattice edges at integer-plane crossings and analytically projects each complete supporting wire. Bounding the candidates keeps the view sparse; the exact projection of the entire unbounded 4D integer lattice would be dense in 3D.
 
-**Parameters**: Dimension, Sphere Radius, Wire Radius, Softness, Far Cells, AA Strength, Speed, 3D Spin, 4D Spin, Chrome Warp, Reflection, Color, Shells
+**Parameters**: Dimension (3D, Dimensional Rift, 4D Slice, 4D Projected), Sphere Radius, Wire Radius, Softness, Far Cells, AA Strength, Speed, 3D Spin, 4D Spin, Chrome Warp, Reflection, Color, Shells
 
 </td></tr></table>
 

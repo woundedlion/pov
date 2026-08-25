@@ -64,7 +64,7 @@ inline void test_edge_metrics() {
 
 inline void test_so4_rotation() {
   HL::FrameState frame{};
-  frame.params.dimension = 1.0f;
+  frame.params.mode = HL::LatticeMode::FOUR_D_SLICE;
   frame.params.far_cells = 8.0f;
   frame.rotation_phase[3] = 0.5f * PI_F;
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
@@ -77,10 +77,57 @@ inline void test_so4_rotation() {
     norm_sq += rotated[axis] * rotated[axis];
   HS_EXPECT_NEAR(norm_sq, 1.0f, 2e-4f);
 
-  frame.params.dimension = 0.0f;
+  frame.params.mode = HL::LatticeMode::THREE_D;
   const HL::Vec4 cubic = HL::prepare_trace(frame).world_to_lattice.apply(
       {{1.0f, 0.0f, 0.0f, 0.0f}});
   HS_EXPECT_EQ(cubic[3], 0.0f);
+}
+
+inline void test_projected_edges_remain_complete_under_so4_spin() {
+  HL::FrameState frame{};
+  frame.params = HyperLattice<96, 20>::preset_params(4);
+  frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
+  frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
+  const HL::PreparedTrace prepared = HL::prepare_trace(frame);
+  const Vector anchor =
+      HL::projected_lattice_axis(prepared, 0) * (1.0f - frame.origin[0]) +
+      HL::projected_lattice_axis(prepared, 1) * (0.0f - frame.origin[1]) +
+      HL::projected_lattice_axis(prepared, 3) * (1.0f - frame.origin[3]);
+  const Vector edge = HL::projected_lattice_axis(prepared, 2);
+  const float positions[] = {-1.5f, 0.0f, 1.5f};
+  for (float position : positions) {
+    const Vector point = anchor + edge * position;
+    const Vector direction = point * fast_rsqrt(dot(point, point));
+    const HL::ProjectedDistance projected = HL::projected_line_distance(
+        Vector(0.0f, 0.0f, 0.0f), direction, anchor, edge, 1.0f);
+    HS_EXPECT_NEAR(projected.distance_sq, 0.0f, 2e-5f);
+    HS_EXPECT_GT(projected.ray_distance, 0.0f);
+  }
+}
+
+inline void test_slice_and_projected_modes_are_distinct() {
+  HL::FrameState frame{};
+  frame.params = HyperLattice<96, 20>::preset_params(3);
+  frame.params.reflection = HL::ReflectionMode::RADIAL;
+  frame.params.sphere_radius = 0.0f;
+  frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
+  frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
+  const HL::PreparedTrace slice = HL::prepare_trace(frame);
+  frame.params.mode = HL::LatticeMode::FOUR_D_PROJECTED;
+  const HL::PreparedTrace projected = HL::prepare_trace(frame);
+  int projected_only = 0;
+  for (int latitude = 1; latitude < 8; ++latitude) {
+    const float phi = PI_F * static_cast<float>(latitude) / 8.0f;
+    for (int longitude = 0; longitude < 24; ++longitude) {
+      const float theta = TWO_PI_F * static_cast<float>(longitude) / 24.0f;
+      const Vector direction = Vector::from_spherical(theta, phi);
+      const HL::TraceHit slice_hit = HL::trace(direction, slice);
+      const HL::TraceHit projected_hit = HL::trace(direction, projected);
+      projected_only +=
+          projected_hit.coverage > 0.0f && slice_hit.coverage == 0.0f;
+    }
+  }
+  HS_EXPECT_GT(projected_only, 0);
 }
 
 inline void test_reflection_convention() {
@@ -330,6 +377,44 @@ inline void test_presets_and_pipeline() {
   static_assert(HL::RenderPipeline::Validation::EXIT);
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
+  HS_EXPECT_TRUE(Effect::preset_params(2).mode ==
+                 HL::LatticeMode::DIMENSIONAL_RIFT);
+  HS_EXPECT_TRUE(Effect::preset_params(3).mode ==
+                 HL::LatticeMode::FOUR_D_SLICE);
+  HS_EXPECT_TRUE(Effect::preset_params(4).mode ==
+                 HL::LatticeMode::FOUR_D_PROJECTED);
+}
+
+inline void test_dimension_dropdown_and_mode_lerp() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  Effect effect;
+  effect.init();
+  const ParamDef *dimension = effect.getParameters().find("Dimension");
+  HS_EXPECT_TRUE(dimension != nullptr);
+  HS_EXPECT_TRUE(dimension->is_enum());
+  HS_EXPECT_EQ(dimension->option_count, 4);
+  HS_EXPECT_EQ(std::string_view(dimension->options[0]), std::string_view("3D"));
+  HS_EXPECT_EQ(std::string_view(dimension->options[1]),
+               std::string_view("Dimensional Rift"));
+  HS_EXPECT_EQ(std::string_view(dimension->options[2]),
+               std::string_view("4D Slice"));
+  HS_EXPECT_EQ(std::string_view(dimension->options[3]),
+               std::string_view("4D Projected"));
+  HS_EXPECT_EQ(std::string_view(dimension->export_options[3]),
+               std::string_view("LatticeMode::FOUR_D_PROJECTED"));
+  HS_EXPECT_TRUE(effect.updateParameter("Dimension", 2.6f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(HyperLatticeWhiteBox::params(effect).mode ==
+                 HL::LatticeMode::FOUR_D_PROJECTED);
+
+  HL::Params start;
+  HL::Params target;
+  target.mode = HL::LatticeMode::FOUR_D_PROJECTED;
+  HL::Params blended;
+  blended.lerp(start, target, 0.49f);
+  HS_EXPECT_TRUE(blended.mode == HL::LatticeMode::THREE_D);
+  blended.lerp(start, target, 0.5f);
+  HS_EXPECT_TRUE(blended.mode == HL::LatticeMode::FOUR_D_PROJECTED);
 }
 
 inline int run_hyper_lattice_tests() {
@@ -337,6 +422,8 @@ inline int run_hyper_lattice_tests() {
   test_periodic_distance();
   test_edge_metrics();
   test_so4_rotation();
+  test_projected_edges_remain_complete_under_so4_spin();
+  test_slice_and_projected_modes_are_distinct();
   test_reflection_convention();
   test_resolution_aware_wire_coverage();
   test_near_field_fade();
@@ -351,6 +438,7 @@ inline int run_hyper_lattice_tests() {
   test_coincident_planes_form_one_layer();
   test_render_signature();
   test_presets_and_pipeline();
+  test_dimension_dropdown_and_mode_lerp();
   return fixture.result();
 }
 

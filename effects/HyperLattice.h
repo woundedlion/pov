@@ -37,7 +37,14 @@ constexpr float DIRECTION_EPSILON = 1.0e-4f;
 enum class ReflectionMode : uint8_t { CHROME, RADIAL };
 enum class ColorMode : uint8_t { DEPTH, AXIS };
 enum class ShellCount : uint8_t { ONE, TWO, THREE };
-enum class DimensionMode : uint8_t { CUBIC, TRANSITIONAL, HYPER };
+enum class LatticeMode : uint8_t {
+  THREE_D,
+  DIMENSIONAL_RIFT,
+  FOUR_D_SLICE,
+  FOUR_D_PROJECTED
+};
+
+constexpr float DIMENSIONAL_RIFT_MIX = 0.55f;
 
 struct Vec4 {
   float v[DIMENSIONS];
@@ -274,7 +281,7 @@ inline TransitionalMetrics transitional_metrics_at(const Vec4 &ray_origin,
 }
 
 struct Params {
-  float dimension = 0.0f;
+  LatticeMode mode = LatticeMode::THREE_D;
   float sphere_radius = 0.4f;
   float wire_radius = 0.055f;
   float softness = 0.012f;
@@ -289,7 +296,7 @@ struct Params {
   ShellCount shells = ShellCount::TWO;
 
   void lerp(const Params &start, const Params &target, float amount) {
-    dimension = hs::lerp(start.dimension, target.dimension, amount);
+    mode = amount < 0.5f ? start.mode : target.mode;
     sphere_radius = hs::lerp(start.sphere_radius, target.sphere_radius, amount);
     wire_radius = hs::lerp(start.wire_radius, target.wire_radius, amount);
     softness = hs::lerp(start.softness, target.softness, amount);
@@ -327,7 +334,8 @@ struct PreparedTrace {
   float aa_scale;
   float near_start;
   float near_inv_span;
-  DimensionMode dimension_mode;
+  float dimension_mix;
+  LatticeMode mode;
 };
 
 template <int W, int H> constexpr float pixel_half_angle() {
@@ -372,6 +380,14 @@ inline float next_plane_offset(float origin, bool positive) {
   return positive ? 1.0f - fraction : fraction;
 }
 
+inline float dimension_mix(LatticeMode mode) {
+  if (mode == LatticeMode::THREE_D)
+    return 0.0f;
+  if (mode == LatticeMode::DIMENSIONAL_RIFT)
+    return DIMENSIONAL_RIFT_MIX;
+  return 1.0f;
+}
+
 inline PreparedTrace prepare_trace(const FrameState &frame) {
   PreparedTrace prepared;
   prepared.params = frame.params;
@@ -380,21 +396,19 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   rotate_plane(prepared.world_to_lattice, 0, 1, frame.rotation_phase[0]);
   rotate_plane(prepared.world_to_lattice, 0, 2, frame.rotation_phase[1]);
   rotate_plane(prepared.world_to_lattice, 1, 2, frame.rotation_phase[2]);
-  const float dimension = frame.params.dimension;
+  prepared.mode = frame.params.mode;
+  prepared.dimension_mix = dimension_mix(frame.params.mode);
   rotate_plane(prepared.world_to_lattice, 0, 3,
-               dimension * frame.rotation_phase[3]);
+               prepared.dimension_mix * frame.rotation_phase[3]);
   rotate_plane(prepared.world_to_lattice, 1, 3,
-               dimension * frame.rotation_phase[4]);
+               prepared.dimension_mix * frame.rotation_phase[4]);
   rotate_plane(prepared.world_to_lattice, 2, 3,
-               dimension * frame.rotation_phase[5]);
+               prepared.dimension_mix * frame.rotation_phase[5]);
   prepared.inv_far = 1.0f / frame.params.far_cells;
   prepared.aa_scale = frame.params.aa_strength * frame.pixel_half_angle;
   prepared.near_start = 1.5f * frame.params.wire_radius;
   const float near_end = 4.0f * frame.params.wire_radius;
   prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
-  prepared.dimension_mode = dimension == 0.0f  ? DimensionMode::CUBIC
-                            : dimension < 1.0f ? DimensionMode::TRANSITIONAL
-                                               : DimensionMode::HYPER;
   return prepared;
 }
 
@@ -433,26 +447,25 @@ inline TraceHit trace_plane(const Vec4 &ray_origin, const Vec4 &direction,
   float metric_sq;
   uint8_t free_axis;
   float dimensional_coverage = 1.0f;
-  if (prepared.dimension_mode == DimensionMode::CUBIC) {
+  if (prepared.mode == LatticeMode::THREE_D) {
     const EdgeMetric metric_3d =
         edge_metric_3d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_3d.distance_sq;
     free_axis = metric_3d.free_axis;
-  } else if (plane_axis < 3 &&
-             prepared.dimension_mode == DimensionMode::TRANSITIONAL) {
+  } else if (plane_axis < 3 && prepared.mode == LatticeMode::DIMENSIONAL_RIFT) {
     const TransitionalMetrics metrics =
         transitional_metrics_at(ray_origin, direction, plane_axis, distance);
     metric_sq = hs::lerp(metrics.cubic.distance_sq, metrics.hyper.distance_sq,
-                         prepared.params.dimension);
-    free_axis = prepared.params.dimension < 0.5f ? metrics.cubic.free_axis
-                                                 : metrics.hyper.free_axis;
+                         prepared.dimension_mix);
+    free_axis = prepared.dimension_mix < 0.5f ? metrics.cubic.free_axis
+                                              : metrics.hyper.free_axis;
   } else {
     const EdgeMetric metric_4d =
         edge_metric_4d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
     if (plane_axis == 3)
-      dimensional_coverage = prepared.params.dimension;
+      dimensional_coverage = prepared.dimension_mix;
   }
 
   const float half_width = projected_half_width(
@@ -476,10 +489,186 @@ struct TraceCursor {
   bool active;
 };
 
+struct ProjectedCandidate {
+  int16_t fixed[DIMENSIONS];
+  float nomination_distance;
+  float horizon_coverage;
+  uint8_t free_axis;
+};
+
+struct ProjectedDistance {
+  float distance_sq;
+  float ray_distance;
+};
+
+inline bool same_projected_edge(const ProjectedCandidate &left,
+                                const ProjectedCandidate &right) {
+  if (left.free_axis != right.free_axis)
+    return false;
+  for (int axis = 0; axis < DIMENSIONS; ++axis)
+    if (axis != left.free_axis && left.fixed[axis] != right.fixed[axis])
+      return false;
+  return true;
+}
+
+inline void nominate_projected_edge(const Vec4 &ray_origin,
+                                    const Vec4 &direction, int plane_axis,
+                                    float distance, float horizon_coverage,
+                                    ProjectedCandidate *candidates,
+                                    uint8_t &candidate_count) {
+  constexpr uint8_t MAX_CANDIDATES = DIMENSIONS * MAX_SHELLS;
+  const EdgeMetric metric =
+      edge_metric_4d_at(ray_origin, direction, plane_axis, distance);
+  ProjectedCandidate candidate{};
+  candidate.free_axis = metric.free_axis;
+  candidate.nomination_distance = distance;
+  candidate.horizon_coverage = horizon_coverage;
+  for (int axis = 0; axis < DIMENSIONS; ++axis) {
+    if (axis != candidate.free_axis)
+      candidate.fixed[axis] = static_cast<int16_t>(
+          nearbyintf(ray_origin[axis] + distance * direction[axis]));
+  }
+  for (uint8_t index = 0; index < candidate_count; ++index) {
+    if (!same_projected_edge(candidate, candidates[index]))
+      continue;
+    candidates[index].nomination_distance =
+        std::min(candidates[index].nomination_distance, distance);
+    candidates[index].horizon_coverage =
+        std::max(candidates[index].horizon_coverage, horizon_coverage);
+    return;
+  }
+  if (candidate_count < MAX_CANDIDATES)
+    candidates[candidate_count++] = candidate;
+}
+
+inline Vector projected_lattice_axis(const PreparedTrace &prepared, int axis) {
+  return Vector(prepared.world_to_lattice.m[axis][0],
+                prepared.world_to_lattice.m[axis][1],
+                prepared.world_to_lattice.m[axis][2]);
+}
+
+inline ProjectedDistance projected_line_distance(const Vector &ray_origin,
+                                                 const Vector &direction,
+                                                 const Vector &anchor,
+                                                 const Vector &line_direction,
+                                                 float nomination_distance) {
+  const Vector delta = anchor - ray_origin;
+  const float line_length_sq = dot(line_direction, line_direction);
+  if (line_length_sq < DIRECTION_EPSILON * DIRECTION_EPSILON) {
+    const float ray_distance = dot(delta, direction);
+    const Vector separation = delta - direction * ray_distance;
+    return {dot(separation, separation), ray_distance};
+  }
+  const float coupling = dot(direction, line_direction);
+  const float ray_projection = dot(direction, delta);
+  const float line_projection = dot(line_direction, delta);
+  const float denominator = line_length_sq - coupling * coupling;
+  float line_position;
+  float ray_distance;
+  if (denominator > DIRECTION_EPSILON * DIRECTION_EPSILON) {
+    line_position = (coupling * ray_projection - line_projection) / denominator;
+    ray_distance = ray_projection + coupling * line_position;
+  } else {
+    ray_distance = nomination_distance;
+    line_position =
+        (coupling * ray_distance - line_projection) / line_length_sq;
+  }
+  const Vector separation =
+      delta + line_direction * line_position - direction * ray_distance;
+  return {dot(separation, separation), ray_distance};
+}
+
+template <typename ConsumeFn>
+inline void trace_projected_layers(const Vector &normal,
+                                   const PreparedTrace &prepared,
+                                   ConsumeFn consume) {
+  constexpr uint8_t MAX_CANDIDATES = DIMENSIONS * MAX_SHELLS;
+  const Vec4 surface_normal =
+      prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
+  Vec4 lattice_origin = prepared.origin;
+  for (int axis = 0; axis < DIMENSIONS; ++axis)
+    lattice_origin[axis] +=
+        prepared.params.sphere_radius * surface_normal[axis];
+  const Vec4 reflected = reflected_direction(normal, prepared.params.reflection,
+                                             prepared.params.chrome_warp);
+  const Vec4 lattice_direction = prepared.world_to_lattice.apply(reflected);
+  const uint8_t shell_count = static_cast<uint8_t>(prepared.params.shells) + 1;
+  ProjectedCandidate candidates[MAX_CANDIDATES];
+  uint8_t candidate_count = 0;
+  for (int plane_axis = 0; plane_axis < DIMENSIONS; ++plane_axis) {
+    const float component = lattice_direction[plane_axis];
+    const float magnitude = fabsf(component);
+    if (magnitude < DIRECTION_EPSILON)
+      continue;
+    const float step = 1.0f / magnitude;
+    float distance =
+        next_plane_offset(lattice_origin[plane_axis], component > 0.0f) * step;
+    for (uint8_t shell = 0;
+         shell < shell_count && distance < prepared.params.far_cells;
+         ++shell, distance += step) {
+      const float horizon =
+          shell_horizon_coverage(shell, shell_count, distance, magnitude);
+      nominate_projected_edge(lattice_origin, lattice_direction, plane_axis,
+                              distance, horizon, candidates, candidate_count);
+    }
+  }
+
+  const Vector ray_origin = normal * prepared.params.sphere_radius;
+  const Vector direction(reflected[0], reflected[1], reflected[2]);
+  TraceHit hits[MAX_CANDIDATES];
+  uint8_t hit_count = 0;
+  for (uint8_t index = 0; index < candidate_count; ++index) {
+    const ProjectedCandidate &candidate = candidates[index];
+    Vector anchor(0.0f, 0.0f, 0.0f);
+    for (int axis = 0; axis < DIMENSIONS; ++axis) {
+      if (axis == candidate.free_axis)
+        continue;
+      const float offset =
+          static_cast<float>(candidate.fixed[axis]) - prepared.origin[axis];
+      anchor += projected_lattice_axis(prepared, axis) * offset;
+    }
+    const ProjectedDistance projected = projected_line_distance(
+        ray_origin, direction, anchor,
+        projected_lattice_axis(prepared, candidate.free_axis),
+        candidate.nomination_distance);
+    if (projected.ray_distance <= prepared.near_start ||
+        projected.ray_distance >= prepared.params.far_cells)
+      continue;
+    const float half_width =
+        projected_half_width(projected.ray_distance, 1.0f, prepared.aa_scale,
+                             prepared.params.softness);
+    const float outer_radius = prepared.params.wire_radius + half_width;
+    if (projected.distance_sq >= outer_radius * outer_radius)
+      continue;
+    const float edge = wire_coverage(projected.distance_sq,
+                                     prepared.params.wire_radius, half_width);
+    const float fog =
+        std::max(0.0f, 1.0f - projected.ray_distance * prepared.inv_far);
+    const float near = near_field_coverage(
+        projected.ray_distance, prepared.near_start, prepared.near_inv_span);
+    const TraceHit hit{edge * fog * fog * near * candidate.horizon_coverage,
+                       projected.ray_distance, candidate.free_axis};
+    uint8_t position = hit_count;
+    while (position > 0 && hits[position - 1].distance > hit.distance) {
+      hits[position] = hits[position - 1];
+      --position;
+    }
+    hits[position] = hit;
+    ++hit_count;
+  }
+  for (uint8_t index = 0; index < hit_count; ++index)
+    if (!consume(hits[index]))
+      return;
+}
+
 template <typename ConsumeFn>
 inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
                          ConsumeFn consume) {
   HS_PROFILE_DEEP(hl_trace_layers);
+  if (prepared.mode == LatticeMode::FOUR_D_PROJECTED) {
+    trace_projected_layers(normal, prepared, consume);
+    return;
+  }
   constexpr float GROUP_EPSILON = 1.0e-4f;
   const Vec4 surface_normal =
       prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
@@ -493,7 +682,7 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
     TraceCursor &cursor = cursors[axis];
     cursor.active = false;
-    if (axis == 3 && prepared.dimension_mode == DimensionMode::CUBIC)
+    if (axis == 3 && prepared.mode == LatticeMode::THREE_D)
       continue;
     const float component = direction[axis];
     const float magnitude = fabsf(component);
@@ -663,16 +852,18 @@ class HyperLattice : public ChoreographedEffect<HyperLattice<W, H>,
 
 public:
   using Params = HyperLatticeDetail::Params;
+  using LatticeMode = HyperLatticeDetail::LatticeMode;
   using ReflectionMode = HyperLatticeDetail::ReflectionMode;
   using ColorMode = HyperLatticeDetail::ColorMode;
   using ShellCount = HyperLatticeDetail::ShellCount;
 
-  static constexpr std::array<std::string_view, 4> PRESET_IDS{
-      "cubic-flight", "deep-grid", "dimensional-rift", "hypercube-flight"};
+  static constexpr std::array<std::string_view, 5> PRESET_IDS{
+      "cubic-flight", "deep-grid", "dimensional-rift", "hypercube-flight",
+      "projected-hypercube"};
   static constexpr Segue::Lerp PRESET_SEGUE{240, ease_in_out_sin,
                                             /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
 
   static constexpr Params preset_params(size_t index) {
     Params value;
@@ -686,7 +877,7 @@ public:
       value.shells = ShellCount::THREE;
       break;
     case 2:
-      value.dimension = 0.55f;
+      value.mode = LatticeMode::DIMENSIONAL_RIFT;
       value.wire_radius = 0.085f;
       value.softness = 0.015f;
       value.far_cells = 9.0f;
@@ -694,9 +885,19 @@ public:
       value.color = ColorMode::AXIS;
       break;
     case 3:
-      value.dimension = 1.0f;
+      value.mode = LatticeMode::FOUR_D_SLICE;
       value.wire_radius = 0.11f;
       value.softness = 0.018f;
+      value.far_cells = 10.0f;
+      value.speed = 0.024f;
+      value.spin_4d = 0.0041f;
+      value.color = ColorMode::AXIS;
+      value.shells = ShellCount::THREE;
+      break;
+    case 4:
+      value.mode = LatticeMode::FOUR_D_PROJECTED;
+      value.wire_radius = 0.075f;
+      value.softness = 0.012f;
       value.far_cells = 10.0f;
       value.speed = 0.024f;
       value.spin_4d = 0.0041f;
@@ -710,7 +911,8 @@ public:
   }
 
   static constexpr bool valid_params(const Params &value) {
-    return value.dimension >= 0.0f && value.dimension <= 1.0f &&
+    return static_cast<uint8_t>(value.mode) <=
+               static_cast<uint8_t>(LatticeMode::FOUR_D_PROJECTED) &&
            value.sphere_radius >= 0.0f && value.sphere_radius <= 1.5f &&
            value.wire_radius >= 0.015f && value.wire_radius <= 0.18f &&
            value.softness >= 0.002f && value.softness <= 0.08f &&
@@ -732,7 +934,8 @@ public:
 
   void init() override {
     begin_choreography();
-    register_animated_param("Dimension", &params.dimension, 0.0f, 1.0f);
+    register_animated_param("Dimension", &params.mode, MODE_OPTIONS,
+                            MODE_EXPORT_OPTIONS, std::size(MODE_OPTIONS));
     register_animated_param("Sphere Radius", &params.sphere_radius, 0.0f, 1.5f);
     register_animated_param("Wire Radius", &params.wire_radius, 0.015f, 0.18f);
     register_animated_param("Softness", &params.softness, 0.002f, 0.08f);
@@ -832,6 +1035,11 @@ private:
 
   static constexpr int PALETTE_FADE_FRAMES = 960;
 
+  static constexpr const char *MODE_OPTIONS[] = {"3D", "Dimensional Rift",
+                                                 "4D Slice", "4D Projected"};
+  static constexpr const char *MODE_EXPORT_OPTIONS[] = {
+      "LatticeMode::THREE_D", "LatticeMode::DIMENSIONAL_RIFT",
+      "LatticeMode::FOUR_D_SLICE", "LatticeMode::FOUR_D_PROJECTED"};
   static constexpr const char *REFLECTION_OPTIONS[] = {"Mirror Ball",
                                                        "Embedded Sphere"};
   static constexpr const char *REFLECTION_EXPORT_OPTIONS[] = {
