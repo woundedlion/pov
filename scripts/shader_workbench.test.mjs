@@ -594,6 +594,32 @@ test('export classification compares exact descriptors after the digest', () => 
   assert.equal(classifyExport(compiled, registry, 'wasm-authoring').kind, 'CREATE_EFFECT_CANDIDATE');
 });
 
+test('a malformed registry reports a phase, code and path', () => {
+  const compiled = compile(example());
+  const entry = () => ({
+    effect_id: 'lattice-melt',
+    descriptor_digest: compiled.descriptor_digest,
+    descriptor: compiled.descriptor,
+    capability_profiles: ['wasm-authoring'],
+  });
+  const refuses = (registry, code, path) => assert.throws(
+    () => classifyExport(compiled, registry, 'wasm-authoring'),
+    (error) => error instanceof ShaderDocumentError && error.phase === 'schema' &&
+      error.code === code && error.path === path,
+  );
+  refuses(null, 'EXPECTED_OBJECT', 'registry');
+  refuses({}, 'EXPECTED_ARRAY', 'registry.effects');
+  refuses({ effects: [null] }, 'EXPECTED_OBJECT', 'registry.effects[0]');
+  refuses({ effects: [{ ...entry(), effect_id: 7 }] },
+    'INVALID_EFFECT_ID', 'registry.effects[0].effect_id');
+  refuses({ effects: [{ ...entry(), descriptor: undefined }] },
+    'EXPECTED_OBJECT', 'registry.effects[0].descriptor');
+  refuses({ effects: [{ ...entry(), descriptor: {} }] },
+    'EXPECTED_ARRAY', 'registry.effects[0].descriptor.parameters');
+  refuses({ effects: [{ ...entry(), capability_profiles: 'wasm-authoring' }] },
+    'EXPECTED_ARRAY', 'registry.effects[0].capability_profiles');
+});
+
 test('known but target-unavailable effects remain distinguishable', () => {
   const compiled = compile(example());
   const result = classifyExport(compiled, { effects: [{
