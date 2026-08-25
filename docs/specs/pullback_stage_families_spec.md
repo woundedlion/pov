@@ -1162,7 +1162,7 @@ concern.
   shared resources (the palette bake, LUTs, noise fields). Its pointers
   alias engine-owned storage and are valid only within the
   `draw_frame()` that built it — the same lifetime contract as
-  ComposedEffect's `Frame`.
+  ComposedEffect's `FrameState`.
 
   The callbacks are thin adapters over the **shared carrier kernels of
   §4** — the same free functions the template combinators call — with

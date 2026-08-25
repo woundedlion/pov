@@ -3632,7 +3632,7 @@ void verify_fixed_shader_export(
   const WB::RequestedConfig config =
       fixed_reference_config<FixedEffect>(base, fixed_preset);
   const WB::FrameState dynamic = WB::config_frame(shader, config);
-  const typename FixedEffect::FrameState compiled =
+  const typename FixedEffect::Frame compiled =
       FixedEffect::RenderPipeline::prepare(
           fixed_reference_frame<FixedEffect>(dynamic, fixed_preset));
   HS_CONTEXT("effect preset", static_cast<long long>(fixed_preset));

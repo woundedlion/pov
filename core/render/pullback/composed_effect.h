@@ -767,8 +767,8 @@ class ComposedEffect : public ChoreographedEffect<Derived, ParamsT>,
 public:
   using Params = ParamsT;
   using Spec = SpecT;
-  using Frame = Pullback::FrameState<ParamsT>;
-  using Binding = Pullback::Binding<Frame>;
+  using FrameState = Pullback::FrameState<ParamsT>;
+  using Binding = Pullback::Binding<FrameState>;
   /** Preset policy: an automatic change crossfades the parameters; pause
       never freezes an in-flight crossfade. */
   static constexpr Segue::Lerp PRESET_SEGUE{480, ease_in_out_sin};
@@ -863,7 +863,7 @@ public:
       Pullback::Pipeline<Binding, RotateStage, SphereRun, OuterWarpStage,
                          InnerWarpStage, SampleStage, TransferStage,
                          FieldCoverageStage, ColorizeStage>;
-  using FrameState = typename RenderPipeline::Frame;
+  using Frame = typename RenderPipeline::Frame;
 
   /** @brief Constructs the effect at W x H with the POV column strobe on. */
   HS_COLD_MEMBER ComposedEffect() : Choreography(W, H, {.strobe = true}) {}
@@ -942,8 +942,7 @@ public:
    * @param view Unit view direction for the pixel.
    * @param frame Per-frame transforms, params and LUTs from the runtime.
    */
-  static HS_FLASH_INLINE Color4 shade(const Vector &view,
-                                      const FrameState &frame) {
+  static HS_FLASH_INLINE Color4 shade(const Vector &view, const Frame &frame) {
     return RenderPipeline::shade(view, frame);
   }
 
@@ -1248,7 +1247,7 @@ private:
    * hands the color stage.
    * @return The frame state for this draw, valid until the next draw_frame().
    */
-  HS_COLD_MEMBER Frame prepare_frame() {
+  HS_COLD_MEMBER FrameState prepare_frame() {
     HS_PROFILE(fx_prepare_frame);
     if constexpr (HueV == HueMode::NOISE) {
       if (state->hue_noise_lut_scale != params.color.hue_noise_scale ||

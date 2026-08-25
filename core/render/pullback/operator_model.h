@@ -85,7 +85,7 @@ constexpr uint32_t instance_hash(std::string_view instance,
  *        and transforms the operators read.
  * @details Pointers alias engine-owned storage and are valid only within the
  * draw_frame() that built the context — the same lifetime contract as
- * ComposedEffect's Frame.
+ * ComposedEffect's FrameState.
  */
 struct FrameContext {
   uint32_t frame = 0;

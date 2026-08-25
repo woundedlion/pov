@@ -21,7 +21,7 @@ using ShaderWorkbenchWB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
 
 struct KaleidoscopeSmoothWhiteBox {
   using FX = KaleidoscopeSmooth<SMALL_W, SMALL_H>;
-  using FrameState = FX::FrameState;
+  using Frame = FX::Frame;
   using Params = FX::Params;
 
   static constexpr size_t PARAM_CAPACITY = FX::PARAM_CAPACITY;
@@ -101,8 +101,7 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
   HS_EXPECT_TRUE(FX::EFFECT_ID == "kaleidoscope-smooth");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{4});
   HS_EXPECT_EQ(sizeof(WB::Params), 31 * sizeof(float));
-  HS_EXPECT_TRUE(sizeof(WB::FrameState) <
-                 sizeof(ShaderWorkbenchWB::FrameState));
+  HS_EXPECT_TRUE(sizeof(WB::Frame) < sizeof(ShaderWorkbenchWB::FrameState));
 
   reset_effect_globals();
   FX effect;
