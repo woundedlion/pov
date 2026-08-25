@@ -1074,6 +1074,46 @@ inline void test_timeline_full_guard_rejects_overflow() {
   HS_EXPECT_NEAR(rejected, 0.0f, 1e-6f); // never ran
 }
 
+/** @brief Clear hook that counts its invocations through its own ctx. */
+inline void count_clear_hook(void *ctx) { ++*static_cast<int *>(ctx); }
+
+/**
+ * @brief Verifies remove_clear_hook() unregisters by ctx, leaves the surviving
+ *        hooks registered, and ignores a ctx that was never added.
+ * @details The removal backfills the hole with the last entry, so dropping the
+ * first of several must not drop the one moved into its place — the pattern
+ * TransformerPool's destructor relies on when several pools share a Timeline.
+ */
+inline void test_timeline_remove_clear_hook_unregisters_by_ctx() {
+  Timeline tl;
+  int first = 0;
+  int second = 0;
+  tl.add_clear_hook(&first, count_clear_hook);
+  tl.add_clear_hook(&second, count_clear_hook);
+
+  tl.clear();
+  HS_EXPECT_EQ(first, 1);
+  HS_EXPECT_EQ(second, 1);
+
+  // Removing the first entry backfills it with the second.
+  tl.remove_clear_hook(&first);
+  tl.clear();
+  HS_EXPECT_EQ(first, 1);
+  HS_EXPECT_EQ(second, 2);
+
+  // An unregistered ctx is a no-op, not a removal of whatever is left.
+  int absent = 0;
+  tl.remove_clear_hook(&absent);
+  tl.clear();
+  HS_EXPECT_EQ(absent, 0);
+  HS_EXPECT_EQ(second, 3);
+
+  tl.remove_clear_hook(&second);
+  tl.clear();
+  HS_EXPECT_EQ(first, 1);
+  HS_EXPECT_EQ(second, 3);
+}
+
 /**
  * @brief Verifies Orientation::upsample SLERP-interpolates the recorded
  * sub-frames up to a target count (preserving endpoints) and collapse()
@@ -3626,6 +3666,7 @@ inline int run_animation_tests() {
   test_timeline_clear_destroys_events_keeping_frame();
   test_timeline_instance_boundary_reclaims_pinned_event();
   test_timeline_full_guard_rejects_overflow();
+  test_timeline_remove_clear_hook_unregisters_by_ctx();
   test_orientation_upsample_then_collapse();
   test_motion_repeating_does_not_drift();
   test_motion_codriven_survives_repeat_seam();
