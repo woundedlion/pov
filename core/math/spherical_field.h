@@ -346,14 +346,8 @@ public:
    * @param y Latitude row, clamped to [0, H-1].
    */
   constexpr int ring_index_at_or_before(float y) const {
-    const float bounded_y = hs::clamp(y, 0.0f, static_cast<float>(H - 1));
-    int index = 0;
-    int current_y = 0;
-    while (current_y < H - 1 && next_ring_y(current_y) <= bounded_y) {
-      current_y = next_ring_y(current_y);
-      ++index;
-    }
-    return index;
+    return ring_at_or_before(hs::clamp(y, 0.0f, static_cast<float>(H - 1)))
+        .index;
   }
 
   /**
