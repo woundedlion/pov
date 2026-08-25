@@ -790,6 +790,83 @@ inline void test_row_span_covers_arc_bulge() {
   }
 }
 
+/**
+ * @brief Verifies cap_may_touch_clip never rejects a cap that reaches the
+ *        clip's render region.
+ * @details A rejecting predicate wired into a shipping effect drops geometry on
+ *          a false negative, so only false positives are admissible. Sweeps
+ *          random caps against the device band shapes and grids each cap in
+ *          (azimuth, polar offset) for ground truth, mapping every sample the
+ *          way the predicate maps its own center. Counts genuine rejections and
+ *          genuine reaches so neither branch is vacuous.
+ */
+inline void test_cap_may_touch_clip_is_conservative() {
+  constexpr int W = 288, H = 144;
+  hs::random().seed(0xCA9C);
+
+  const int clips[][5] = {
+      {0, H / 2, 0, W / 2, 0},  {0, H / 2, W / 2, W, 2},
+      {H / 2, H, 0, W / 2, 0},  {H / 2, H, W / 2, W, 1},
+      {20, H - 20, 40, 200, 0}, {0, H, 0, W, 0},
+  };
+
+  int rejects = 0, reaches = 0;
+  for (const auto &bounds : clips) {
+    ClipRegion cr;
+    cr.w = W;
+    cr.h = H;
+    cr.y_start = bounds[0];
+    cr.y_end = bounds[1];
+    cr.x_start = bounds[2];
+    cr.x_end = bounds[3];
+    cr.margin = bounds[4];
+
+    for (int trial = 0; trial < 300; ++trial) {
+      const float dx = hs::rand_f(-1, 1);
+      const float dy = hs::rand_f(-1, 1);
+      const float dz = hs::rand_f(-1, 1);
+      Vector d(dx, dy, dz);
+      if (d.length() < 0.1f)
+        continue;
+      const Vector dir = d.normalized();
+      const float half_angle = hs::rand_f(0.01f, 1.2f);
+      const bool passed = Plot::cap_may_touch_clip<H>(cr, dir, half_angle);
+      if (!passed)
+        rejects++;
+
+      const Basis basis = basis_from_normal(dir);
+      bool reached = false;
+      for (int i = 0; i <= 24 && !reached; ++i) {
+        const float t = half_angle * static_cast<float>(i) / 24.0f;
+        for (int j = 0; j < 64; ++j) {
+          const float az = 2.0f * PI_F * static_cast<float>(j) / 64.0f;
+          const Vector rim = basis.u * cosf(az) + basis.w * sinf(az);
+          const Vector p = (dir * cosf(t) + rim * sinf(t)).normalized();
+          const float row = phi_to_y<H>(acosf(hs::clamp(p.y, -1.0f, 1.0f)));
+          float lam = atan2f(p.z, p.x);
+          if (lam < 0.0f)
+            lam += 2.0f * PI_F;
+          const int col =
+              std::min(W - 1, static_cast<int>(lam * W / (2.0f * PI_F)));
+          if (row >= cr.render_y_start() && row < cr.render_y_end() &&
+              cr.contains_x(col)) {
+            reached = true;
+            break;
+          }
+        }
+      }
+      if (reached) {
+        reaches++;
+        HS_EXPECT_TRUE(passed);
+      }
+    }
+  }
+
+  // Non-vacuity guards: the sweep must exercise both verdicts.
+  HS_EXPECT_GT(rejects, 100);
+  HS_EXPECT_GT(reaches, 100);
+}
+
 // ============================================================================
 // ClipRegion::arcs_overlap + the col-span helpers — column-arc clip cull
 // ============================================================================
@@ -5724,6 +5801,7 @@ inline int run_plot_scan_tests() {
   test_clip_x_band_topologies();
   test_clip_x_wrap_matches_modulo();
   test_row_span_covers_arc_bulge();
+  test_cap_may_touch_clip_is_conservative();
   test_clip_arcs_overlap();
   test_col_span_covers_arc();
   test_edge_visible_in_clip_matches_span_composition();
