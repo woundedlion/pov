@@ -584,18 +584,16 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
   HS_PROFILE_DEEP(hl_trace_layers);
   constexpr float GROUP_EPSILON = 1.0e-4f;
   Vec4 ray_origin = prepared.origin;
-  if constexpr (!SPECIALIZED_SLICE)
-    if (prepared.params.sphere_radius != 0.0f) {
-      const Vec4 surface_normal = prepared.world_to_lattice.apply(
-          {{normal.x, normal.y, normal.z, 0.0f}});
-      for (int axis = 0; axis < DIMENSIONS; ++axis)
-        ray_origin[axis] +=
-            prepared.params.sphere_radius * surface_normal[axis];
-    }
+  if (prepared.params.sphere_radius != 0.0f) {
+    const Vec4 surface_normal =
+        prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
+    for (int axis = 0; axis < DIMENSIONS; ++axis)
+      ray_origin[axis] += prepared.params.sphere_radius * surface_normal[axis];
+  }
   const Vec4 direction = prepared.world_to_lattice.apply(reflected_direction(
       normal, prepared.params.reflection, prepared.params.chrome_warp));
   const uint8_t shell_count =
-      SPECIALIZED_SLICE ? 3 : static_cast<uint8_t>(prepared.params.shells) + 1;
+      SPECIALIZED_SLICE ? 2 : static_cast<uint8_t>(prepared.params.shells) + 1;
   TraceCursor cursors[DIMENSIONS];
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
     TraceCursor &cursor = cursors[axis];
@@ -839,7 +837,7 @@ public:
       value.sphere_radius = 0.0f;
       value.wire_radius = 0.03546f;
       value.softness = 0.029612f;
-      value.far_cells = 7.264f;
+      value.far_cells = 8.0f;
       value.aa_strength = 1.0f;
       value.speed = 0.03f;
       value.spin_3d = 0.01089f;
@@ -847,7 +845,7 @@ public:
       value.chrome_warp = 0.65f;
       value.reflection = ReflectionMode::CHROME;
       value.color = ColorMode::DEPTH;
-      value.shells = ShellCount::THREE;
+      value.shells = ShellCount::TWO;
       break;
     default:
       break;
@@ -924,10 +922,9 @@ public:
     {
       HS_PROFILE(hl_shader_draw);
       if (frame.ctx.params.mode == LatticeMode::FOUR_D_SLICE &&
-          frame.ctx.params.sphere_radius == 0.0f &&
           frame.ctx.params.reflection == ReflectionMode::CHROME &&
           frame.ctx.params.color == ColorMode::DEPTH &&
-          frame.ctx.params.shells == ShellCount::THREE) {
+          frame.ctx.params.shells == ShellCount::TWO) {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&frame](const Vector &view) {
               return HyperLatticeDetail::SpecializedRenderPipeline::evaluate(
