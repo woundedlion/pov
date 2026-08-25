@@ -949,6 +949,81 @@ jobs:
           path: ${{ runner.temp }}/holosphere-engine
           if-no-files-found: error
 
+  daydream-consumer:
+    name: Simulator suite runs against this engine
+    needs: wasm
+    # The engine installs seven kinds of file into a daydream checkout
+    # (CMakeLists.txt's DAYDREAM_DIR rules) and nothing here ever ran the
+    # consumer's own suite: a shader-workbench, segment-map or promoted-document
+    # change lands green in this repository and surfaces as a red run in the
+    # other one once its engine pin moves. This job closes that direction by
+    # driving daydream's tests over the verified bundle the wasm job published.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
+
+      # Pinned for the same reason as the tree-fence checkouts: daydream's tip
+      # moves independently, so an unpinned consumer would red an unrelated
+      # engine change and flip a re-run of an unchanged commit.
+      - name: Check out the pinned daydream consumer
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          repository: woundedlion/daydream
+          ref: ${{ steps.pins.outputs.daydream }}
+          path: daydream
+          persist-credentials: false
+
+      # The engine's node pin, not daydream's: it is the newer of the two and
+      # satisfies the floor daydream's package.json declares.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
+          cache: npm
+          cache-dependency-path: daydream/package-lock.json
+
+      - name: Download the verified engine bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: holosphere-engine-${{ github.sha }}
+          path: engine-bundle
+
+      - name: Install the bundle over the daydream checkout
+        # The bundle's own manifest is the install set, so a file added to the
+        # DAYDREAM_DIR rules reaches the consumer with no second edit here.
+        run: |
+          ( cd engine-bundle && sha256sum -c holosphere_engine.sha256 )
+          while read -r _ path; do
+            path="${path#\*}"
+            path="${path#./}"
+            mkdir -p "daydream/$(dirname "$path")"
+            cp "engine-bundle/$path" "daydream/$path"
+          done < engine-bundle/holosphere_engine.sha256
+          ( cd daydream && sha256sum -c holosphere_wasm.wasm.sha256 )
+
+      - name: Run the simulator suite against this engine
+        # HOLOSPHERE_ENGINE_DIR names this checkout, and _REQUIRED turns the
+        # cross-repo comparisons from skip-when-absent into hard failures: those
+        # tests read engine HEAD directly (git show), so they measure the commit
+        # under test rather than the bundle alone.
+        working-directory: daydream
+        env:
+          HOLOSPHERE_ENGINE_DIR: ${{ github.workspace }}
+          HOLOSPHERE_ENGINE_REQUIRED: '1'
+        run: |
+          npm ci
+          npm test
+
   lut-provenance:
     name: Generated LUTs match committed header
     runs-on: ubuntu-24.04
@@ -1859,6 +1934,7 @@ jobs:
       - code-coverage
       - windows-tests
       - wasm
+      - daydream-consumer
       - lut-provenance
       - reaction-graph-provenance
       - gamut-lut-provenance
