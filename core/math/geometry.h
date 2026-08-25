@@ -520,6 +520,10 @@ inline Vector fib_spiral(int n, float eps, int i) {
  * current frame step.
  */
 template <int CAP = 4> class Orientation {
+  static_assert(CAP >= 1, "Orientation requires CAP >= 1: the constructors "
+                          "seed frame 0, so a zero-capacity history would "
+                          "write past the storage array.");
+
 public:
   static constexpr int CAPACITY = CAP;
   /**
