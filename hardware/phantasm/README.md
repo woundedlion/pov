@@ -126,6 +126,15 @@ committed board directly need no KiCad and run in CI
 - **Part-catalog gate:** every assigned LCSC number must resolve to a catalog
   entry with a non-blank manufacturer, MPN, and description, so each JLCPCB
   BOM match is independently auditable.
+- **Fab-package digest gate:** the exports are stamp-normalized and zipped with
+  fixed member metadata, so an unchanged board repackages byte for byte, and
+  every run writes `SHA256SUMS.txt` beside the upload zip covering each zipped
+  artifact and the zip itself. `python gen/fab.py --verify` re-hashes an
+  already-generated package against that manifest and against
+  `fab-SHA256SUMS.txt` — the baseline recording what was ordered, kept beside
+  the board because `gen/out/` is gitignored. That baseline is **not yet
+  recorded**: the shipped package predates this gate and re-exporting it needs
+  KiCad 10, so commit the manifest the next fab run writes.
 
 ## How connectivity is drawn
 
