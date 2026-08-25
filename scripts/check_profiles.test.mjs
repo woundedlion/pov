@@ -66,6 +66,13 @@ test('validateReport rejects a plausible two-line report', () => {
   assert.ok(errors.some(error => error.includes('## Harness')));
 });
 
+test('validateReport does not accept a subheading as a required section', () => {
+  const errors = [];
+  validateReport(validReport.replace('## Setup', '### Setup'), 'O3',
+    'example', '2026-08-24', 'profile_example_teensy_2026-08-24.md', errors);
+  assert.ok(errors.some(error => error.includes('missing ## Setup')));
+});
+
 test('validateReport binds the heading date to the filename', () => {
   const errors = [];
   validateReport(validReport.replace('2026-08-24', '2026-08-23'), 'O3',
