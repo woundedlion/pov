@@ -98,6 +98,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
    - [Self-Registering Factory](#self-registering-factory-controlregistryh)
    - [Parameter Registration](#parameter-registration)
    - [The `EffectConfig` Flags](#the-effectconfig-flags)
+   - [Fenced Effect-to-Effect Transition](#fenced-effect-to-effect-transition-controltransitionh)
 9. [Effects Reference](#9-effects-reference)
    - [Core Effects (Modern Engine)](#core-effects-modern-engine)
      - [BZReactionDiffusion](#bzreactiondiffusion)
@@ -2146,6 +2147,12 @@ An effect passes construction-time settings to its base as `Effect(W, H, {.strob
 With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the new write buffer before rendering, enabling trail/decay effects without explicit trail storage — each frame partially overwrites the last. When false (the default), the buffer is zeroed each frame. `.strobe` drives the POV column strobe (`strobe_columns()`) and `.full_frame` forces full-canvas rendering under segmented drivers (`needs_full_frame()`). `.reads_outside_band` declares that the effect samples framebuffer pixels outside the display band, so `Canvas` clears the whole buffer instead of just the display clip. `.margin` is the render-bound expansion past the display edges in pixels (`ClipRegion::margin`), raised to the `ClipRegion` default when a lower value is passed.
 
 `pipeline_config<PipelineT>(base)` folds a filter pipeline's compile-time segment traits into the last three, so an effect stacking a filter that crosses segment boundaries, samples outside the band, or lands taps away from the plotted position need not restate those requirements at its base initializer. All three fold as "at least this much": the pipeline widens them and never clears what the effect asked for.
+
+### Fenced Effect-to-Effect Transition (`control/transition.h`)
+
+**Reserved surface — no shipping consumer.** `EffectTransitionController` sequences one effect out and the next one in behind a display fence, so no frame ever shows a half-built effect: fade the output to dark, publish and wait out a clear frame, destroy the outgoing effect, construct the incoming one and render its first frame while the envelope is still 0, wait out that hidden frame, commit the identity, then fade back in. Any failure while constructing or preparing the incoming effect destroys it and rolls back through the outgoing effect's restore token; a rollback that itself fails, or one whose token declares no restorable state, lands in `CLEAR_FAILSAFE` — dark output, nothing installed — which only a fresh `request()` leaves. The controller holds no effect and renders nothing: `request()` arms a destination and each `tick()` takes exactly one edge of `EffectTransitionState`.
+
+Every host-side operation the graph needs is a pure virtual on `EffectTransitionAdapter` — envelope, presentation fence, construct/destroy, handoff import, frame prepare/publish, identity commit, restore and fail-safe. The engine ships no implementation of it: today's effect swaps are unfenced, and the only adapter in the tree is the recording fixture in `tests/test_canvas.h` that drives every edge and failure branch. The header is kept as the design of record for a fenced swap, not as live machinery.
 
 ---
 
