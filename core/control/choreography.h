@@ -37,9 +37,7 @@
  * `preset_params(index)` — static, or a member when the effect patches preset
  * entries at runtime — overrides the `PRESETS` table lookup, and its static
  * form is also the startup default; `initial_params()` overrides both.
- * `register_fields()` additionally
- * requires a `field_gate_open(gate)` predicate. A `Derived` keeping its hooks
- * non-public befriends this base.
+ * A `Derived` keeping its hooks non-public befriends this base.
  * @tparam Derived The effect class deriving from this base.
  * @tparam ParamsT The effect's parameter-set type.
  */
@@ -233,14 +231,6 @@ protected:
 #endif
       }
     }
-  }
-
-  /** @brief Registers a slider for every named field in the family's table. */
-  template <typename T> HS_COLD_MEMBER void register_fields(T &family) {
-    for (const auto &field : T::FIELDS)
-      if (field.name != nullptr && Derived::field_gate_open(field.gate))
-        register_animated_param(field.name, &(family.*(field.member)),
-                                field.min, field.max);
   }
 
   /** Live parameters; the registered sliders write straight into these. */
