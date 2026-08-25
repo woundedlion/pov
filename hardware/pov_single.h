@@ -63,12 +63,12 @@ public:
         1337); // FastLED LCG only; modern effects use hs::random() (platform.h)
 #ifdef USE_DMA_LEDS
     ledController.begin();
-    ledController.setCorrection(hd107s::TYPICAL_LED_STRIP.r,
-                                hd107s::TYPICAL_LED_STRIP.g,
-                                hd107s::TYPICAL_LED_STRIP.b);
-    ledController.setTemperature(hd107s::CANDLE.r, hd107s::CANDLE.g,
-                                 hd107s::CANDLE.b);
-    ledController.setBrightness(255);
+    ledController.set_correction(hd107s::TYPICAL_LED_STRIP.r,
+                                 hd107s::TYPICAL_LED_STRIP.g,
+                                 hd107s::TYPICAL_LED_STRIP.b);
+    ledController.set_temperature(hd107s::CANDLE.r, hd107s::CANDLE.g,
+                                  hd107s::CANDLE.b);
+    ledController.set_brightness(255);
 #else
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds,
                                                                         S);
@@ -163,7 +163,7 @@ private:
     HS_CHECK(interval_us >= 1,
              "column interval rounded to 0 µs (RPM/width too high)");
 #if defined(USE_DMA_LEDS)
-    // show_col() discards submitFrame()'s overrun return, and unlike the
+    // show_col() discards submit_frame()'s overrun return, and unlike the
     // segmented driver it has no retry latch and no dark fallback — a dropped
     // column would freeze the strip on the last accepted frame. Sound only
     // while one composite transfer fits inside a column period.
@@ -174,7 +174,7 @@ private:
     HS_CHECK(timer.begin(show_col, interval_us),
              "column IntervalTimer failed to start (no PIT channel)");
 #if defined(USE_DMA_LEDS)
-    uint32_t last_overrun = ledController.getOverrunCount();
+    uint32_t last_overrun = ledController.get_overrun_count();
 #endif
     while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
@@ -184,7 +184,7 @@ private:
         Serial.print("ft ");
         Serial.println(dt);
 #if defined(USE_DMA_LEDS)
-        const uint32_t overruns = ledController.getOverrunCount();
+        const uint32_t overruns = ledController.get_overrun_count();
         if (overruns != last_overrun) {
           Serial.print("overrun ");
           Serial.println(overruns);
@@ -214,17 +214,17 @@ private:
     const Pixel *buf = slow ? nullptr : effect->display_buffer();
 
 #if defined(USE_DMA_LEDS)
-    auto &frame = ledController.backFrame();
+    auto &frame = ledController.back_frame();
     for (int y = 0; y < S / 2; ++y) {
       // Top half is wired reversed, bottom half straight.
-      frame.packPixel(pov::strip_top_led(y, S),
-                      slow ? effect->get_pixel(x_top, y) : buf[y * w + x_top]);
-      frame.packPixel(pov::strip_bottom_led(y, S),
-                      slow ? effect->get_pixel(x_bot, y) : buf[y * w + x_bot]);
+      frame.pack_pixel(pov::strip_top_led(y, S),
+                       slow ? effect->get_pixel(x_top, y) : buf[y * w + x_top]);
+      frame.pack_pixel(pov::strip_bottom_led(y, S),
+                       slow ? effect->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
     // Overrun result discarded: run() rejects any configuration whose column
     // period does not clear COLUMN_TRANSFER_US, so no overrun watchdog here.
-    (void)ledController.submitFrame(effect->strobe_columns());
+    (void)ledController.submit_frame(effect->strobe_columns());
 #else
     for (int y = 0; y < S / 2; ++y) {
       leds[pov::strip_top_led(y, S)] = static_cast<CRGB>(

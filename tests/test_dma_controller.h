@@ -50,8 +50,8 @@ public:
     uint32_t clock = 0; /**< Clock the controller forwarded at construction. */
     bool complete = true;      /**< Completion flag; a fresh channel is idle. */
     int init_calls = 0;        /**< init() invocations. */
-    int transmit_calls = 0;    /**< transmitAsync() invocations. */
-    int check_stale_calls = 0; /**< checkStaleTransfer() invocations. */
+    int transmit_calls = 0;    /**< transmit_async() invocations. */
+    int check_stale_calls = 0; /**< check_stale_transfer() invocations. */
     const uint8_t *last_data =
         nullptr;         /**< Pointer handed to the last transmit. */
     size_t last_len = 0; /**< Length handed to the last transmit. */
@@ -88,12 +88,12 @@ public:
    * @brief Reports whether the in-flight transfer has finished.
    * @return The test-driven completion flag.
    */
-  bool isComplete() const { return state().complete; }
+  bool is_complete() const { return state().complete; }
 
   /**
    * @brief Counts a watchdog consult on the overrun-drop path.
    */
-  void checkStaleTransfer() { ++state().check_stale_calls; }
+  void check_stale_transfer() { ++state().check_stale_calls; }
 
   /**
    * @brief Records a transfer and snapshots its bytes.
@@ -101,9 +101,9 @@ public:
    * @param len Number of bytes in the transfer.
    * @details Marks the channel in-flight; the test completes it via complete().
    */
-  void transmitAsync(const uint8_t *data, size_t len) {
+  void transmit_async(const uint8_t *data, size_t len) {
     HS_CHECK(state().complete,
-             "MockStrip: transmitAsync while a transfer is still in flight");
+             "MockStrip: transmit_async while a transfer is still in flight");
     State &s = state();
     s.last_data = data;
     s.last_len = len;
@@ -157,12 +157,12 @@ inline void test_submit_happy_path() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
-  ctl.backFrame().packPixel(0, Pixel(CRGB(255, 0, 0)));
-  bool ok = ctl.submitFrame(/*withBg=*/false);
+  ctl.back_frame().pack_pixel(0, Pixel(CRGB(255, 0, 0)));
+  bool ok = ctl.submit_frame(/*with_bg=*/false);
 
   HS_EXPECT_TRUE(ok);
-  HS_EXPECT_EQ(ctl.getTransferCount(), 1u);
-  HS_EXPECT_EQ(ctl.getOverrunCount(), 0u);
+  HS_EXPECT_EQ(ctl.get_transfer_count(), 1u);
+  HS_EXPECT_EQ(ctl.get_overrun_count(), 0u);
   HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::BUFFER_SIZE));
@@ -171,7 +171,7 @@ inline void test_submit_happy_path() {
 
 /**
  * @brief Successive submits alternate buffers, and the buffer just handed to DMA
- * is never the one the next backFrame() exposes for writing.
+ * is never the one the next back_frame() exposes for writing.
  */
 inline void test_double_buffer_flip() {
   hd107s_tests::reset_correction<N>();
@@ -179,26 +179,26 @@ inline void test_double_buffer_flip() {
   DMALEDController<N, MockStrip> ctl;
 
   const uint8_t *write0 =
-      reinterpret_cast<const uint8_t *>(ctl.backFrame().data());
-  HS_EXPECT_TRUE(ctl.submitFrame(false));
+      reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
+  HS_EXPECT_TRUE(ctl.submit_frame(false));
   const uint8_t *dma1 = MockStrip::state().last_data;
   HS_EXPECT_EQ(dma1, write0); // the frame just written is the one DMA'd
 
   // Front buffer is in flight; the exposed back buffer must be the other one.
   const uint8_t *write1 =
-      reinterpret_cast<const uint8_t *>(ctl.backFrame().data());
+      reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
   HS_EXPECT_NE(write1, dma1);
 
   MockStrip::state().complete = true; // signal the prior transfer done
-  HS_EXPECT_TRUE(ctl.submitFrame(false));
+  HS_EXPECT_TRUE(ctl.submit_frame(false));
   const uint8_t *dma2 = MockStrip::state().last_data;
   HS_EXPECT_EQ(dma2, write1);
   HS_EXPECT_NE(dma2, dma1); // buffers alternate
 
   MockStrip::state().complete = true;
-  HS_EXPECT_TRUE(ctl.submitFrame(false));
+  HS_EXPECT_TRUE(ctl.submit_frame(false));
   HS_EXPECT_EQ(MockStrip::state().last_data, dma1); // back to the first buffer
-  HS_EXPECT_EQ(ctl.getTransferCount(), 3u);
+  HS_EXPECT_EQ(ctl.get_transfer_count(), 3u);
 }
 
 /**
@@ -210,24 +210,24 @@ inline void test_overrun_drop() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
-  HS_EXPECT_TRUE(ctl.submitFrame(false)); // first transfer, now in flight
+  HS_EXPECT_TRUE(ctl.submit_frame(false)); // first transfer, now in flight
   const uint8_t *back_before =
-      reinterpret_cast<const uint8_t *>(ctl.backFrame().data());
+      reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
 
-  bool ok = ctl.submitFrame(false); // prior still in flight -> overrun
+  bool ok = ctl.submit_frame(false); // prior still in flight -> overrun
   HS_EXPECT_FALSE(ok);
-  HS_EXPECT_EQ(ctl.getOverrunCount(), 1u);
-  HS_EXPECT_EQ(ctl.getTransferCount(), 1u);              // unchanged
+  HS_EXPECT_EQ(ctl.get_overrun_count(), 1u);
+  HS_EXPECT_EQ(ctl.get_transfer_count(), 1u);            // unchanged
   HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);    // no new transmit
   HS_EXPECT_EQ(MockStrip::state().check_stale_calls, 1); // watchdog consulted
 
   const uint8_t *back_after =
-      reinterpret_cast<const uint8_t *>(ctl.backFrame().data());
+      reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
   HS_EXPECT_EQ(back_after, back_before); // no buffer flip on a drop
 }
 
 /**
- * @brief withBg selects the composite (image + trailing black) transfer length.
+ * @brief with_bg selects the composite (image + trailing black) transfer length.
  */
 inline void test_withbg_length() {
   hd107s_tests::reset_correction<N>();
@@ -235,7 +235,7 @@ inline void test_withbg_length() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
-  HS_EXPECT_TRUE(ctl.submitFrame(/*withBg=*/true));
+  HS_EXPECT_TRUE(ctl.submit_frame(/*with_bg=*/true));
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::COMPOSITE_SIZE));
   HS_EXPECT_EQ(hd107s::last_flushed_data, MockStrip::state().last_data);
@@ -243,7 +243,7 @@ inline void test_withbg_length() {
                static_cast<uint32_t>(MockStrip::state().last_len));
 
   MockStrip::state().complete = true;
-  HS_EXPECT_TRUE(ctl.submitFrame(/*withBg=*/false));
+  HS_EXPECT_TRUE(ctl.submit_frame(/*with_bg=*/false));
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::BUFFER_SIZE));
   HS_EXPECT_EQ(hd107s::last_flushed_data, MockStrip::state().last_data);
@@ -268,11 +268,11 @@ inline void test_end_to_end_wire_bytes() {
 
   Frame ref;
   for (int i = 0; i < N; ++i)
-    ref.packPixel(i, Pixel(colors[i]));
+    ref.pack_pixel(i, Pixel(colors[i]));
 
   for (int i = 0; i < N; ++i)
-    ctl.backFrame().packPixel(i, Pixel(colors[i]));
-  HS_EXPECT_TRUE(ctl.submitFrame(false));
+    ctl.back_frame().pack_pixel(i, Pixel(colors[i]));
+  HS_EXPECT_TRUE(ctl.submit_frame(false));
 
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::BUFFER_SIZE));

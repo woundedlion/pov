@@ -31,7 +31,7 @@ constexpr int next_buffer(int active) { return 1 - active; }
  * @brief Selects the DMA transfer length for a frame.
  * @param base_size Image-frame size in bytes (HD107SFrame::size()).
  * @param composite_size Composite size including the trailing black frame
- *        (HD107SFrame::sizeWithBg()).
+ *        (HD107SFrame::size_with_bg()).
  * @param with_bg If true, transmit the composite buffer; otherwise the image
  *        frame only.
  * @return composite_size when with_bg, else base_size.

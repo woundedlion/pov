@@ -36,15 +36,15 @@
  * @tparam T Candidate transport type.
  * @details Mirrors what TeensySPIDMA exposes. Asserted on DMALEDController's
  *          template parameter, so a non-conforming transport fails at the
- *          instantiation site rather than inside submitFrame().
+ *          instantiation site rather than inside submit_frame().
  */
 template <class T>
 concept LedTransport = std::constructible_from<T, uint32_t> &&
                        requires(T t, const uint8_t *data, std::size_t len) {
                          t.init();
-                         { t.isComplete() } -> std::convertible_to<bool>;
-                         t.checkStaleTransfer();
-                         t.transmitAsync(data, len);
+                         { t.is_complete() } -> std::convertible_to<bool>;
+                         t.check_stale_transfer();
+                         t.transmit_async(data, len);
                        };
 
 /**
@@ -62,9 +62,9 @@ concept LedTransport = std::constructible_from<T, uint32_t> &&
  *       ordinary strong linkage keeps the attribute.
  *
  * Typical ISR usage (per column):
- *   auto& f = controller.backFrame();  // back buffer (not being DMA'd)
- *   // ... pack pixels into f via packPixel() ...
- *   controller.submitFrame();          // triggers async DMA, returns immediately
+ *   auto& f = controller.back_frame();  // back buffer (not being DMA'd)
+ *   // ... pack pixels into f via pack_pixel() ...
+ *   controller.submit_frame();          // triggers async DMA, returns immediately
  *   // ISR exits → DMA transfers in background → main loop gets more CPU
  */
 template <int N, LedTransport Transport
@@ -83,7 +83,7 @@ public:
    *              The Phantasm driver passes 24 MHz (see pov_segmented.h).
    */
   explicit DMALEDController(uint32_t clock = DEFAULT_CLOCK_HZ)
-      : spi(clock), activeBuffer(0), transferCount(0), overrunCount(0) {}
+      : spi(clock), active_buffer(0), transfer_count(0), overrun_count(0) {}
 
   /**
    * @brief One-time hardware initialization. Call from setup().
@@ -92,53 +92,55 @@ public:
 
   /**
    * @brief Returns the back frame (not currently being DMA'd).
-   * @return Reference to the back-buffer frame; pack pixels via packPixel(),
-   *         then call submitFrame().
+   * @return Reference to the back-buffer frame; pack pixels via pack_pixel(),
+   *         then call submit_frame().
    */
-  HD107SFrame<N> &backFrame() { return frames[dma::next_buffer(activeBuffer)]; }
+  HD107SFrame<N> &back_frame() {
+    return frames[dma::next_buffer(active_buffer)];
+  }
 
   /**
    * @brief Flushes the back frame and triggers async DMA transfer.
-   * Call after all packPixel() calls on backFrame().
-   * @param withBg If true, DMAs the composite buffer (image + trailing
+   * Call after all pack_pixel() calls on back_frame().
+   * @param with_bg If true, DMAs the composite buffer (image + trailing
    *               black frame) in a single transfer — zero gap, no spin.
    * @return true if the frame was handed to the DMA engine; false if dropped on
    *         overrun (prior transfer still in flight). The fail-dark latch gates
    *         on this; the steady-state column path ignores it (self-heals).
    */
-  [[nodiscard]] bool submitFrame(bool withBg = false) {
-    if (!spi.isComplete()) {
+  [[nodiscard]] bool submit_frame(bool with_bg = false) {
+    if (!spi.is_complete()) {
       // Drop on overrun. A transfer that NEVER completes is a wedged channel,
       // not a transient, so surface it here — the drop path is where it shows.
-      spi.checkStaleTransfer();
-      overrunCount.fetch_add(1, std::memory_order_relaxed);
+      spi.check_stale_transfer();
+      overrun_count.fetch_add(1, std::memory_order_relaxed);
       return false;
     }
-    int back = dma::next_buffer(activeBuffer);
+    int back = dma::next_buffer(active_buffer);
     std::size_t len = dma::transfer_len(frames[back].size(),
-                                        frames[back].sizeWithBg(), withBg);
+                                        frames[back].size_with_bg(), with_bg);
     frames[back].flush(len);
-    spi.transmitAsync(frames[back].data(), len);
-    activeBuffer = back;
-    transferCount.fetch_add(1, std::memory_order_relaxed);
+    spi.transmit_async(frames[back].data(), len);
+    active_buffer = back;
+    transfer_count.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
 
   // --- Diagnostics ---
   /**
    * @brief Returns the count of frames handed to the DMA engine since start.
-   * @return Monotonic transfer counter (number of successful submitFrame()s).
+   * @return Monotonic transfer counter (number of successful submit_frame()s).
    */
-  uint32_t getTransferCount() const {
-    return transferCount.load(std::memory_order_relaxed);
+  uint32_t get_transfer_count() const {
+    return transfer_count.load(std::memory_order_relaxed);
   }
   /**
    * @brief Returns the count of frames dropped on overrun since start.
    * @return Monotonic overrun counter (frames dropped because a prior transfer
    *         was still in flight).
    */
-  uint32_t getOverrunCount() const {
-    return overrunCount.load(std::memory_order_relaxed);
+  uint32_t get_overrun_count() const {
+    return overrun_count.load(std::memory_order_relaxed);
   }
 
   // --- Configuration pass-throughs ---
@@ -149,8 +151,8 @@ public:
    * @brief Sets the global brightness applied to every packed pixel.
    * @param brightness Global brightness scale in [0, 255].
    */
-  static void setBrightness(uint8_t brightness) {
-    HD107SFrame<N>::setBrightness(brightness);
+  static void set_brightness(uint8_t brightness) {
+    HD107SFrame<N>::set_brightness(brightness);
   }
 
   /**
@@ -159,8 +161,8 @@ public:
    * @param g Green temperature gain in [0, 255].
    * @param b Blue temperature gain in [0, 255].
    */
-  static void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
-    HD107SFrame<N>::setTemperature(r, g, b);
+  static void set_temperature(uint8_t r, uint8_t g, uint8_t b) {
+    HD107SFrame<N>::set_temperature(r, g, b);
   }
 
   /**
@@ -169,8 +171,8 @@ public:
    * @param g Green correction gain in [0, 255].
    * @param b Blue correction gain in [0, 255].
    */
-  static void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
-    HD107SFrame<N>::setCorrection(r, g, b);
+  static void set_correction(uint8_t r, uint8_t g, uint8_t b) {
+    HD107SFrame<N>::set_correction(r, g, b);
   }
 
 private:
@@ -182,13 +184,13 @@ private:
    * @details Plain int: every access is in the single column-ISR context; the
    *          completion ISR never touches it, so no barrier is needed.
    */
-  int activeBuffer;
+  int active_buffer;
   /**
    * @brief Monotonic count of frames successfully handed to the DMA engine.
    * @details Atomic (ISR RMW + cross-context read); relaxed — an independent
    *          counter, not a happens-before signal.
    */
-  std::atomic<uint32_t> transferCount;
+  std::atomic<uint32_t> transfer_count;
   std::atomic<uint32_t>
-      overrunCount; /**< Monotonic count of frames dropped on overrun. */
+      overrun_count; /**< Monotonic count of frames dropped on overrun. */
 };

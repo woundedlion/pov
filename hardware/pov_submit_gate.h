@@ -11,7 +11,7 @@
  * host, exactly as pov_handoff.h is for the effect handoff. The transport is
  * not modelled here: the verdict is injected as a bool.
  *
- * DMALEDController::submitFrame() drops a frame when the previous transfer is
+ * DMALEDController::submit_frame() drops a frame when the previous transfer is
  * still in flight, so both submit paths — the fail-dark black frame and the
  * image column — clear their pending state only on an accepted submit. A drop
  * then costs one flywheel wake (~54 µs at 8× oversampling) rather than a whole
@@ -20,7 +20,7 @@
  * would otherwise all be no-ops and the column would paint dark.
  *
  * Re-submission needs no repack — an overrun returns before the controller
- * swaps buffers, so the dropped frame's pixels are still packed in backFrame().
+ * swaps buffers, so the dropped frame's pixels are still packed in back_frame().
  */
 #pragma once
 
@@ -67,7 +67,7 @@ public:
   /**
    * @brief Records the transport's verdict for the action choose() returned.
    * @param action The action just performed.
-   * @param accepted submitFrame()'s return value; ignored for NONE.
+   * @param accepted submit_frame()'s return value; ignored for NONE.
    * @return True once this wake's LED work is complete — the caller's gate for
    *         dropping a same-wake sync pulse instead of deferring it.
    */

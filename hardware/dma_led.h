@@ -48,9 +48,9 @@
  *        byte-stream transmission.
  *
  * Usage (both production callers run in the column ISR, where spinning on
- * completion deadlocks — see transmitAsync's @pre):
- *   if (spi.isComplete())
- *     spi.transmitAsync(buffer, length);  // returns immediately
+ * completion deadlocks — see transmit_async's @pre):
+ *   if (spi.is_complete())
+ *     spi.transmit_async(buffer, length);  // returns immediately
  *   else
  *     ...                                 // drop this frame, retry next column
  */
@@ -109,20 +109,20 @@ public:
    * @brief Starts an async DMA transfer. Returns immediately.
    * @param data Pointer to byte buffer (must remain valid until complete).
    * @param len  Number of bytes to transmit.
-   * @pre The caller has cleaned the buffer from cache (submitFrame() does this
+   * @pre The caller has cleaned the buffer from cache (submit_frame() does this
    *      via frames[back].flush()); this method only enables the DMA and does
    *      not flush.
-   * @pre No transfer is in flight (isComplete()). Callers must test and skip,
+   * @pre No transfer is in flight (is_complete()). Callers must test and skip,
    *      never spin: this runs in the column ISR, which the DMA-completion ISR
    *      cannot preempt, so a spin never ends.
    */
-  void transmitAsync(const uint8_t *data, size_t len) {
+  void transmit_async(const uint8_t *data, size_t len) {
     // Trap rather than spin on an in-flight transfer: this runs in the column
     // ISR, where spinning would deadlock — the DMA-completion ISR that marks
     // transfer_complete true cannot preempt an equal/lower-priority ISR.
     HS_CHECK(transfer_complete.load(std::memory_order_relaxed),
-             "transmitAsync entered with a transfer still in flight — "
-             "submitFrame() must guard with isComplete()");
+             "transmit_async entered with a transfer still in flight — "
+             "submit_frame() must guard with is_complete()");
     transfer_complete.store(false, std::memory_order_relaxed);
     transfer_start_us = micros();
     dma_channel.sourceBuffer(data, len);
@@ -133,18 +133,18 @@ public:
    * @brief Reports whether the in-flight transfer has finished.
    * @return true once the in-flight transfer's completion ISR has fired.
    */
-  bool isComplete() const {
+  bool is_complete() const {
     return transfer_complete.load(std::memory_order_relaxed);
   }
 
   /**
    * @brief Surfaces a permanently wedged DMA channel from the overrun-drop path.
-   * @details submitFrame() drops on overrun rather than spinning, so a channel
+   * @details submit_frame() drops on overrun rather than spinning, so a channel
    *          whose completion ISR never fires would otherwise stay masked
    *          forever. Traps once the in-flight transfer outlives the watchdog.
-   *          Only fires while submitFrame() is being called.
+   *          Only fires while submit_frame() is being called.
    */
-  void checkStaleTransfer() {
+  void check_stale_transfer() {
     if (transfer_complete.load(std::memory_order_relaxed))
       return;
     HS_CHECK(
@@ -155,7 +155,7 @@ public:
 
 private:
   /**
-   * @brief Watchdog bound for checkStaleTransfer(), in µs.
+   * @brief Watchdog bound for check_stale_transfer(), in µs.
    * @details Covers both shipping configurations. Holosphere: 40 px → 336-byte
    *          composite at the 12 MHz default clock = 224 µs, column period
    *          1302 µs. Phantasm: 72 px → 600-byte composite at 24 MHz = 200 µs,
@@ -187,13 +187,13 @@ private:
    *        main/column thread.
    * @details Single-observer (ISR preempts the thread), so relaxed ordering
    *          suffices. Does NOT order the buffer for the DMA engine — the
-   *          caller's arm_dcache_flush() before transmitAsync() does that.
+   *          caller's arm_dcache_flush() before transmit_async() does that.
    */
   std::atomic<bool> transfer_complete;
   /**
    * @brief micros() at which the in-flight transfer was enabled.
-   * @details Touched only in column-ISR context (transmitAsync /
-   *          checkStaleTransfer), never the completion ISR, so a plain scalar is
+   * @details Touched only in column-ISR context (transmit_async /
+   *          check_stale_transfer), never the completion ISR, so a plain scalar is
    *          correct. Only meaningful while transfer_complete is false.
    */
   unsigned long transfer_start_us = 0;

@@ -69,7 +69,7 @@
 #ifdef HS_PROFILE_ENABLE
 namespace hs {
 /** Column-ISR profiling accumulators (see IsrCycleStats): the whole flywheel
- *  wake, render_column's pixel pack, and the submitFrame DMA marshal+kick.
+ *  wake, render_column's pixel pack, and the submit_frame DMA marshal+kick.
  *  ISR-written; read + reset from the foreground under IRQ-off. */
 inline IsrCycleStats g_flywheel_wake_cycles;
 inline IsrCycleStats g_column_pack_cycles;
@@ -240,12 +240,12 @@ public:
     configure_segment();
 
     ledController.begin();
-    ledController.setCorrection(hd107s::TYPICAL_LED_STRIP.r,
-                                hd107s::TYPICAL_LED_STRIP.g,
-                                hd107s::TYPICAL_LED_STRIP.b);
-    ledController.setTemperature(hd107s::CANDLE.r, hd107s::CANDLE.g,
-                                 hd107s::CANDLE.b);
-    ledController.setBrightness(255);
+    ledController.set_correction(hd107s::TYPICAL_LED_STRIP.r,
+                                 hd107s::TYPICAL_LED_STRIP.g,
+                                 hd107s::TYPICAL_LED_STRIP.b);
+    ledController.set_temperature(hd107s::CANDLE.r, hd107s::CANDLE.g,
+                                  hd107s::CANDLE.b);
+    ledController.set_brightness(255);
 
     // Enable the DWT cycle counter the flywheel timebase reads: TRCENA gates the
     // DWT block on, then CYCCNTENA starts the counter.
@@ -353,7 +353,7 @@ public:
     // ── Foreground: construct effects on request, render, report ────────
     Effect *cur = nullptr;
     uint32_t built_gen = 0;
-    uint32_t last_overrun = ledController.getOverrunCount();
+    uint32_t last_overrun = ledController.get_overrun_count();
     pov::sync::Telemetry last_tm{};
     unsigned long last_report = millis();
     // The K-revolution construction budget, in the flywheel's own timebase.
@@ -475,7 +475,7 @@ public:
               (unsigned long)tm.beacon_rev_mismatches);
           last_tm = tm;
         }
-        const uint32_t overruns = ledController.getOverrunCount();
+        const uint32_t overruns = ledController.get_overrun_count();
         if (overruns != last_overrun) {
           Serial.print("overrun ");
           Serial.println(overruns);
@@ -674,32 +674,32 @@ private:
     // virtual get_pixel() dispatches. No effect on this path overrides get_pixel.
     const Pixel *buf = e->display_buffer();
 
-    auto &frame = ledController.backFrame();
+    auto &frame = ledController.back_frame();
     {
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
       const int stride = pov::segment_row_stride(segment, w);
       int off = pov::segment_pixel_base(segment, x_col, w);
       if (e->output_envelope_u16() == 65535u)
         for (int i = 0; i < PPS; ++i, off += stride)
-          frame.packPixel(i, buf[off]);
+          frame.pack_pixel(i, buf[off]);
       else
         for (int i = 0; i < PPS; ++i, off += stride)
-          frame.packPixel(i, e->apply_output_envelope(buf[off]));
+          frame.pack_pixel(i, e->apply_output_envelope(buf[off]));
     }
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
-    return ledController.submitFrame(e->strobe_columns());
+    return ledController.submit_frame(e->strobe_columns());
   }
 
   /**
    * @brief Re-submits the frame a previous wake had dropped on overrun.
    * @param strobe Whether the live effect wants the trailing black frame.
    * @return true if the transport accepted it this time.
-   * @details No repack: submitFrame() returns before swapping buffers on an
-   *          overrun, so backFrame() still holds the dropped column's pixels.
+   * @details No repack: submit_frame() returns before swapping buffers on an
+   *          overrun, so back_frame() still holds the dropped column's pixels.
    */
   [[nodiscard]] static bool resubmit_frame(bool strobe) {
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
-    return ledController.submitFrame(strobe);
+    return ledController.submit_frame(strobe);
   }
 
   /**
@@ -708,15 +708,15 @@ private:
    *         if it was dropped on a DMA overrun (caller must retry, not latch).
    */
   [[nodiscard]] static bool render_black() {
-    auto &frame = ledController.backFrame();
+    auto &frame = ledController.back_frame();
     {
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
       for (int i = 0; i < PPS; ++i) {
-        frame.packPixel(i, Pixel(0, 0, 0));
+        frame.pack_pixel(i, Pixel(0, 0, 0));
       }
     }
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
-    return ledController.submitFrame(false);
+    return ledController.submit_frame(false);
   }
 
   // ── Static state ────────────────────────────────────────────────────
