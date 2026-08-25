@@ -86,8 +86,9 @@ committed board directly need no KiCad and run in CI
   non-zero drill/place origin (`aux_axis_origin`) — that would move only the
   origin-relative exports and place every assembled part off-board.
 - **Zone-geometry gate:** `gen/fab.py` rejects a copper pour whose
-  `min_thickness`, `thermal_gap`, or `thermal_bridge_width` is below the
-  0.1016 mm (4 mil) minimum feature the fab resolves. KiCad DRC never flags
+  `min_thickness` or `thermal_bridge_width` is below the 0.13 mm minimum
+  copper feature, or whose `thermal_gap` is below the 0.1016 mm (4 mil)
+  minimum spacing the fab resolves. KiCad DRC never flags
   these — thermal reliefs are same-net geometry — so a sub-process gap would
   export clean gerbers the fab fills as a solid pour, tying every
   through-hole GND pad to the full plane and starving the hand-soldered
