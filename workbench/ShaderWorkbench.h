@@ -50,7 +50,6 @@ struct ShaderWorkbenchWhiteBox;
     slots.warp_program.outer.curl_integrator)                                  \
   X(SLOTS_WARP_OUTER_POLAR_HARMONIC, slots.warp_program.outer.polar_harmonic)  \
   X(SLOTS_WARP_OUTER_SEED, slots.warp_program.outer.seed)                      \
-  X(SLOTS_WARP_OUTER_RESOURCE_ID, slots.warp_program.outer.resource_id)        \
   X(SLOTS_WARP_INNER_KIND, slots.warp_program.inner.kind)                      \
   X(SLOTS_WARP_INNER_BASIS, slots.warp_program.inner.basis)                    \
   X(SLOTS_WARP_INNER_ENVELOPE, slots.warp_program.inner.envelope)              \
@@ -59,7 +58,6 @@ struct ShaderWorkbenchWhiteBox;
     slots.warp_program.inner.curl_integrator)                                  \
   X(SLOTS_WARP_INNER_POLAR_HARMONIC, slots.warp_program.inner.polar_harmonic)  \
   X(SLOTS_WARP_INNER_SEED, slots.warp_program.inner.seed)                      \
-  X(SLOTS_WARP_INNER_RESOURCE_ID, slots.warp_program.inner.resource_id)        \
   X(SLOTS_SIGNAL_WEIGHT, slots.signal_weight)                                  \
   X(SLOTS_VALUE_TRANSFER, slots.value_transfer)                                \
   X(SLOTS_COVERAGE, slots.coverage)                                            \
@@ -88,7 +86,6 @@ struct ShaderWorkbenchWhiteBox;
   X(SOURCE_LATTICE_RADIUS, params.source.lattice_radius)                       \
   X(SOURCE_NOISE_BASIS, params.source.noise_basis)                             \
   X(SOURCE_NOISE_SEED, params.source.noise_seed)                               \
-  X(SOURCE_NOISE_RESOURCE_ID, params.source.noise_resource_id)                 \
   X(WARP_OUTER_SCALE, params.warp.outer.scale)                                 \
   X(WARP_OUTER_STRENGTH, params.warp.outer.strength)                           \
   X(WARP_OUTER_SPEED, params.warp.outer.speed)                                 \
@@ -470,7 +467,6 @@ public:
     CurlIntegrator curl_integrator = CurlIntegrator::EULER_1;
     uint8_t polar_harmonic = 1;
     int32_t seed = 1337;
-    uint8_t resource_id = 0;
 
     constexpr bool operator==(const WarpStageSpec &) const = default;
   };
@@ -543,7 +539,6 @@ public:
     float lattice_radius = 0.25f;
     NoiseBasis noise_basis = NoiseBasis::SIMPLEX;
     int32_t noise_seed = 2927;
-    uint8_t noise_resource_id = 2;
     uint8_t ring_count = 6;
     float ring_thickness = 0.08f;
     float ring_softness = 0.02f;
@@ -594,7 +589,6 @@ public:
       lattice_radius = hs::lerp(a.lattice_radius, b.lattice_radius, t);
       noise_basis = t < 1.0f ? a.noise_basis : b.noise_basis;
       noise_seed = t < 1.0f ? a.noise_seed : b.noise_seed;
-      noise_resource_id = t < 1.0f ? a.noise_resource_id : b.noise_resource_id;
       ring_count = t < 1.0f ? a.ring_count : b.ring_count;
       ring_thickness = hs::lerp(a.ring_thickness, b.ring_thickness, t);
       ring_softness = hs::lerp(a.ring_softness, b.ring_softness, t);
@@ -987,7 +981,7 @@ public:
   // entry the second. Their difference is alignment padding, so the list
   // covers every Config byte that carries a value.
   static_assert(
-      sizeof(Config) == 536 && CONFIG_FIELD_BYTES == 504,
+      sizeof(Config) == 528 && CONFIG_FIELD_BYTES == 501,
       "Config field set changed - update HS_SHADER_WORKBENCH_CONFIG_FIELDS");
 
   struct ConfigFieldLayout {
@@ -6133,10 +6127,6 @@ private:
     Slots to_slots = to.slots;
     from_slots.palette_mapping = PaletteMapping::LINEAR;
     to_slots.palette_mapping = PaletteMapping::LINEAR;
-    from_slots.warp_program.outer.resource_id = 0;
-    from_slots.warp_program.inner.resource_id = 0;
-    to_slots.warp_program.outer.resource_id = 0;
-    to_slots.warp_program.inner.resource_id = 0;
     return from_slots == to_slots &&
            from.params.source.noise_basis == to.params.source.noise_basis &&
            from.params.source.noise_seed == to.params.source.noise_seed &&
