@@ -1002,8 +1002,11 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
  * shape that reports FAR_SENTINEL past a zero-margin reject band bounds
  * nothing, so an ungated block test drops whole runs of opaque columns here.
  * Drives the stroke path (Scan::Ring, whose bounding annulus is the stroke band
- * itself), both face rasterizers, and the folded-sector solids down both the
- * shaded and the constant-color scan, across rows whose stride exceeds 1.
+ * itself), both face rasterizers, the folded-sector solids, and an
+ * AngularRepeat whose child straddles a sector boundary -- across a boundary
+ * the domain fold measures to the folded copy rather than the nearest one, so
+ * its report jumps in position -- down both the shaded and the constant-color
+ * scan, across rows whose stride exceeds 1.
  */
 inline void test_pole_lod_shading_matches_undecimated() {
   constexpr int W = 96, H = 64;
@@ -1136,6 +1139,41 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return readback(fx);
   };
 
+  // A polygon repeated about the canvas pole with its centre on a sector
+  // boundary. Across a boundary the fold snaps to the next copy, so distance()
+  // steps in position: it reports the distance to the folded copy rather than
+  // to the nearest one, over-reporting clearance right where a copy's fringe
+  // lies. A block settled from one such probe drops that fringe. Sector
+  // boundaries converge at the pole, so a block on a decimated row spans them.
+  auto draw_repeat = [&](float lod, bool typed, int reps) {
+    pole_lod_aggressiveness = lod;
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas c(fx);
+      // Azimuth in the fold's own perpendicular frame, where the sector
+      // boundaries sit at +/- PI / reps. rho holds the copies over the
+      // decimated rows, close enough to the pole that the circumradius spans
+      // most of a sector in azimuth.
+      const float rho = 0.30f;
+      const float theta = PI_F / static_cast<float>(reps);
+      const Vector centre(sinf(rho) * cosf(theta), cosf(rho),
+                          -sinf(rho) * sinf(theta));
+      const Basis child_basis = make_basis(Quaternion(), centre);
+      SDF::PlanarPolygon child(child_basis, /*circumradius=*/0.15f, /*sides=*/5,
+                               0.0f);
+      SDF::AngularRepeat<SDF::PlanarPolygon> rep(child, reps, Vector(0, 1, 0));
+      if (typed)
+        Scan::rasterize_solid<W, H>(pipe, c, rep, color);
+      else
+        Scan::rasterize<W, H, false>(
+            pipe, c, rep,
+            [&](const Vector &, Fragment &f) { f.color = color; });
+    }
+    fx.advance_display();
+    return readback(fx);
+  };
+
   // A sliver, posed so the decimated rows are the ones its projection stretches
   // most: the circumradius reaches 0.7 gnomonic-plane units while the inradius
   // keeps the face on the plane-distance path, whose report runs up to 1 + r^2
@@ -1201,6 +1239,13 @@ inline void test_pole_lod_shading_matches_undecimated() {
       HS_CONTEXT("carved", static_cast<int>(lod), typed);
       compare(draw_carved(0.0f, typed), draw_carved(lod, typed));
     }
+
+  for (int reps : {4, 5, 6})
+    for (float lod : {1.0f, 4.0f})
+      for (bool typed : {false, true}) {
+        HS_CONTEXT("repeat", reps, static_cast<int>(lod) * 2 + typed);
+        compare(draw_repeat(0.0f, typed, reps), draw_repeat(lod, typed, reps));
+      }
 
   for (float tilt : {0.12f, 0.3f}) {
     HS_CONTEXT("ring", static_cast<int>(tilt * 100.0f));
