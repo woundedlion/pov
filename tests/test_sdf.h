@@ -1325,7 +1325,7 @@ inline void test_subtract_solid_b_leaves_the_minuend_uncarved() {
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
 
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+  HS_EXPECT_SIZE_OR_RETURN(out, 2);
   HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 40.0f, 1e-4f);
   HS_EXPECT_NEAR(out[1].first, 60.0f, 1e-4f);
@@ -1393,7 +1393,7 @@ inline void test_subtract_empty_b_passes_a_through_verbatim() {
   std::vector<P> out;
   s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+  HS_EXPECT_SIZE_OR_RETURN(out, 2);
   HS_EXPECT_NEAR(out[0].first, 50.0f, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 60.0f, 1e-4f);
   HS_EXPECT_NEAR(out[1].first, 0.0f, 1e-4f);
@@ -1419,7 +1419,7 @@ inline void test_subtract_full_width_b_still_emits_the_minuend() {
   bool ok = s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
+  HS_EXPECT_SIZE_OR_RETURN(out, 1);
   HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 100.0f, 1e-4f);
 }
@@ -1442,7 +1442,7 @@ inline void test_subtract_seam_straddle_splits_the_minuend_into_frame() {
   bool ok = s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+  HS_EXPECT_SIZE_OR_RETURN(out, 2);
   HS_EXPECT_NEAR(out[0].first, 246.0f, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 256.0f, 1e-4f);
   HS_EXPECT_NEAR(out[1].first, 0.0f, 1e-4f);
@@ -1481,7 +1481,7 @@ inline void test_subtract_many_arc_seam_split_within_bound() {
 
   // Twelve arcs, two of them split at the seam. Reaching here means
   // push_interval never trapped.
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(14));
+  HS_EXPECT_SIZE_OR_RETURN(out, 14);
   for (size_t i = 0; i < out.size(); ++i) {
     HS_EXPECT_TRUE(out[i].first >= 0.0f && out[i].second <= W);
     HS_EXPECT_TRUE(out[i].first < out[i].second);
@@ -1532,7 +1532,7 @@ inline void test_intersection_unsorted_child_yields_sorted_result() {
   HS_EXPECT_TRUE(ok);
 
   // [0,100] ∩ {[20,40],[60,80]} = [20,40],[60,80], start-sorted.
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+  HS_EXPECT_SIZE_OR_RETURN(out, 2);
   HS_EXPECT_NEAR(out[0].first, 20.0f, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 40.0f, 1e-4f);
   HS_EXPECT_NEAR(out[1].first, 60.0f, 1e-4f);
@@ -1560,7 +1560,7 @@ inline void test_intersection_full_width_child_replays_other() {
     bool ok = s.get_horizontal_intervals<256, 128>(
         0, [&](float st, float en) { out.push_back({st, en}); });
     HS_EXPECT_TRUE(ok);
-    HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+    HS_EXPECT_SIZE_OR_RETURN(out, 2);
     HS_EXPECT_NEAR(out[0].first, 60.0f, 1e-4f);
     HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
   }
@@ -1572,7 +1572,7 @@ inline void test_intersection_full_width_child_replays_other() {
     bool ok = s.get_horizontal_intervals<256, 128>(
         0, [&](float st, float en) { out.push_back({st, en}); });
     HS_EXPECT_TRUE(ok);
-    HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+    HS_EXPECT_SIZE_OR_RETURN(out, 2);
     HS_EXPECT_NEAR(out[0].first, 60.0f, 1e-4f);
     HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
   }
@@ -1796,7 +1796,7 @@ inline void test_union_merges_overlapping_intervals() {
   bool ok = u.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
+  HS_EXPECT_SIZE_OR_RETURN(out, 1);
   HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 70.0f, 1e-4f);
 }
@@ -1819,7 +1819,7 @@ inline void test_union_seam_straddle_merges_overlapping_intervals() {
   bool ok = u.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
+  HS_EXPECT_SIZE_OR_RETURN(out, 1);
   HS_EXPECT_NEAR(out[0].first, -10.0f, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 12.0f, 1e-4f);
 }
@@ -1901,7 +1901,7 @@ inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   bool ok = su.get_horizontal_intervals<W, H>(
       row, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
+  HS_EXPECT_SIZE_OR_RETURN(out, 1);
   HS_EXPECT_NEAR(out[0].first, -10.0f - pad, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 12.0f + pad, 1e-4f);
   // Independent of the pad formula: the weld must cover both raw spans and
