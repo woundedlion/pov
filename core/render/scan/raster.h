@@ -28,8 +28,8 @@
  * instantiation per <W,H> that erasure buys (see the PipelineRef note in
  * concepts.h). The bodies with no erased call — the constant-color
  * rasterize_solid and draw_solid family, the fused RingGroup and
- * DistortedRingStack walks, rasterize_face and Mesh — name PipelineT with no
- * default, so the caller's sink types the whole body.
+ * DistortedRingStack walks, rasterize_face and Mesh::draw_specialized — name
+ * PipelineT with no default, so the caller's sink types the whole body.
  */
 namespace Scan {
 
