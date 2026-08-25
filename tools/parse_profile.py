@@ -45,7 +45,8 @@ import re
 import sys
 from collections import Counter
 
-CPU_HZ = 600_000_000  # 600 MHz; cyc / 600 = us
+CPU_HZ = 600_000_000
+CYC_PER_US = CPU_HZ // 1_000_000
 DISPLAY_WINDOW_US = 62_500  # half-revolution at 480 RPM
 
 HEADER_RE = re.compile(
@@ -922,7 +923,7 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
           + (": the effect opens no *_buffer_wait scope)" if wall_render
              else ")"))
 
-    # Exactness: root cyc/600 vs wall sum for the richest window.
+    # Exactness: root cycles converted to us vs wall sum, richest window.
     # Every check above is skip-on-absent, so this one carries the whole
     # certification: without it a capture holding no counters at all is VALID.
     scoped = [w for w in windows if scope in w.counters]
@@ -934,11 +935,11 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
     check(have, "richest window carries a root 'frame' counter and a wall sum"
                 + ("" if have else " — nothing in this capture is measurable"))
     if have:
-        model_us = root["cyc"] / 600.0
+        model_us = root["cyc"] / float(CYC_PER_US)
         ppm = abs(model_us - w.wall[3]) / w.wall[3] * 1e6
         check(ppm <= 5,
-              f"root cyc/600 vs wall sum within 5 ppm ({ppm:.1f} ppm, "
-              f"frames {w.f_start}-{w.f_end})")
+              f"root cyc/{CYC_PER_US} vs wall sum within 5 ppm "
+              f"({ppm:.1f} ppm, frames {w.f_start}-{w.f_end})")
 
     if expected_arm is not None or shader_workbench_program_manifest is not None:
         validate_pullback_telemetry(
