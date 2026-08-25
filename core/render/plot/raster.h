@@ -81,6 +81,16 @@ inline uint32_t g_planar_position_samples = 0;
 inline constexpr float COS_PLANAR_ANTIPODE = 0.999f;
 
 /**
+ * @brief Adaptive sub-step slots rasterize caches for one segment.
+ * @tparam W Rasterization width.
+ * @return The slot count: the 2*W screen sweep, floored at 64.
+ */
+template <int W> inline constexpr size_t rasterize_step_budget() {
+  constexpr size_t SWEEP = 2 * static_cast<size_t>(W);
+  return SWEEP > 64 ? SWEEP : 64;
+}
+
+/**
  * @brief Upper bound on the scratch_arena_a bytes rasterize binds for its own
  * caches, on top of the caller's Fragments buffer, which stays live across the
  * call.
@@ -103,9 +113,7 @@ inline constexpr float COS_PLANAR_ANTIPODE = 0.999f;
 template <int W>
 inline constexpr size_t rasterize_scratch_a_bytes(size_t planar_segments = 0,
                                                   size_t trail_points = 0) {
-  constexpr size_t STEPS =
-      2 * static_cast<size_t>(W) > 64 ? 2 * static_cast<size_t>(W) : 64;
-  return STEPS * sizeof(float) +
+  return rasterize_step_budget<W>() * sizeof(float) +
          planar_segments * (sizeof(float) + sizeof(uint8_t)) +
          (trail_points == 0
               ? 0
@@ -371,7 +379,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // chart line can bow farther, so the simulation loop retains its capacity
   // backstop. Single-pass emits as it goes and takes max_cache only as that
   // backstop, so it never binds the storage.
-  size_t max_cache = rasterize_scratch_a_bytes<W>() / sizeof(float);
+  size_t max_cache = rasterize_step_budget<W>();
 #if HS_ENABLE_TEST_ORACLES
   if (g_step_budget_override != 0 && g_step_budget_override < max_cache)
     max_cache = g_step_budget_override;
