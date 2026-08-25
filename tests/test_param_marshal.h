@@ -122,7 +122,8 @@ inline bool check_one(const char *, FieldCoverage &coverage) {
   int target = -1;
   for (size_t k = 0; k < views.size(); ++k) {
     const auto &v = views[k];
-    if (!v.is_bool && !v.readonly && !v.animated && v.max > v.min) {
+    if (!v.is_bool && !v.is_integer && !v.readonly && !v.animated &&
+        v.max > v.min) {
       target = static_cast<int>(k);
       break;
     }
