@@ -45,9 +45,9 @@
  *
  * A policy defining face_offset must define face_phase; face_fade_frac is
  * Base's (1 = fade over the whole window) unless the policy shadows it.
- * MeshCarousel pairs each of the other optional hooks with a signature-agnostic
- * name probe, so declaring one at the wrong signature is a compile error rather
- * than a policy silently dropped off that hook.
+ * MeshCarousel pairs each optional hook with a signature-agnostic name probe,
+ * so declaring one at the wrong signature is a compile error rather than a
+ * policy silently dropped off that hook.
  *
  * reorder and mask_pair are contracts on the effect, not the draw path: a
  * NeedsClasses policy left un-reordered fades every class as one, and a Masked
@@ -266,10 +266,14 @@ template <typename S>
 concept HasFaceOffset =
     requires(const S &s, const Vector &c) { s.face_offset(c, 0, 0); };
 
+/** @brief Whether a policy defines the face-local phase hook at the arity the
+ * per-face draw path calls. */
+template <typename S>
+concept HasFacePhase = requires(const S &s) { s.face_phase(0.5f, 0.5f, 0.1f); };
+
 /** @brief Whether a policy defines the per-face hook set. */
 template <typename S>
-concept PerFace = HasFaceOffset<S> &&
-                  requires(const S &s) { s.face_phase(0.5f, 0.5f, 0.1f); };
+concept PerFace = HasFaceOffset<S> && HasFacePhase<S>;
 
 /** @brief Whether a policy orders faces by topology class, so the effect must
  * hand it the per-face classes before each transition. */
@@ -332,6 +336,12 @@ struct ReorderName {
 struct MaskPairName {
   void mask_pair();
 };
+struct FaceOffsetName {
+  void face_offset();
+};
+struct FacePhaseName {
+  void face_phase();
+};
 struct LocalSweepName {
   static constexpr int LOCAL_SWEEP = 0;
 };
@@ -365,6 +375,18 @@ concept DeclaresReorder = detail::Mergeable<S> && !requires {
 template <typename S>
 concept DeclaresMaskPair = detail::Mergeable<S> && !requires {
   &detail::Merged<S, detail::MaskPairName>::mask_pair;
+};
+
+/** @brief Whether a policy declares a `face_offset` hook of any signature. */
+template <typename S>
+concept DeclaresFaceOffset = detail::Mergeable<S> && !requires {
+  &detail::Merged<S, detail::FaceOffsetName>::face_offset;
+};
+
+/** @brief Whether a policy declares a `face_phase` hook of any signature. */
+template <typename S>
+concept DeclaresFacePhase = detail::Mergeable<S> && !requires {
+  &detail::Merged<S, detail::FacePhaseName>::face_phase;
 };
 
 /** @brief Whether a policy declares a `LOCAL_SWEEP` member of any type. */

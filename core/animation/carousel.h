@@ -55,7 +55,15 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
       Segue::detail::Mergeable<SegueT>,
       "a segue must be a non-final class: the Declares* probes below "
       "merge a name carrier into it, and a final policy answers false "
-      "to all four, passing them vacuously");
+      "to every one of them, passing them vacuously");
+  static_assert(!Segue::DeclaresFaceOffset<SegueT> ||
+                    Segue::HasFaceOffset<SegueT>,
+                "a segue's face_offset() must be float face_offset(const "
+                "Vector&, int, int) const");
+  static_assert(!Segue::DeclaresFacePhase<SegueT> ||
+                    Segue::HasFacePhase<SegueT>,
+                "a segue's face_phase() must be float face_phase(float, float, "
+                "float) const");
   static_assert(!Segue::DeclaresWarp<SegueT> || Segue::HasWarp<SegueT>,
                 "a segue's warp() must be Vector warp(const Vector&, float) "
                 "const");
