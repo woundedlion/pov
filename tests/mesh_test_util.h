@@ -51,6 +51,19 @@ inline constexpr Solids::Recipe
             std::size(TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS))};
 
 /**
+ * @brief Adapts the plain dodecahedron to the seed function-pointer signature
+ *        the mesh probe site tables hold.
+ * @param a Output arena for the built mesh.
+ * @param b Scratch arena for the intermediate meshes.
+ * @return The dodecahedron, allocated in @p a.
+ * @details Shared by the morph and opchain probe suites, whose site tables both
+ *          name it as an un-transformed seed.
+ */
+inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
+  return Solids::Platonic::dodecahedron(a, b);
+}
+
+/**
  * @brief Builds the seed of the needle recipe's gated swaps: the ambo /
  *        relax(100) / hankin(54 deg) prefix of
  *        TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS.

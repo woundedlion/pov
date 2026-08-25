@@ -117,9 +117,6 @@ struct ChamferSite {
 inline PolyMesh probe_cube(Arena &a, Arena &b) {
   return Solids::Platonic::cube(a, b);
 }
-inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
-  return Solids::Platonic::dodecahedron(a, b);
-}
 inline PolyMesh probe_ticosa(Arena &a, Arena &b) {
   return Solids::Archimedean::truncatedIcosahedron(a, b);
 }
