@@ -25,6 +25,7 @@
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/mesh_test_util.h"
 #include "tests/mindsplatter_whitebox.h"
 
 #include <algorithm>
@@ -6629,7 +6630,7 @@ struct IslamicBuildProbe {
 /** Whole-solid generator of the needle-ending recipe. */
 inline PolyMesh generate_needle_recipe_solid(Arena &a, Arena &b) {
   return Solids::build_recipe(
-      Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE, a, b);
+      TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE, a, b);
 }
 
 /** The needle-ending recipe as a spawnable entry. It is not in
@@ -6638,7 +6639,7 @@ inline PolyMesh generate_needle_recipe_solid(Arena &a, Arena &b) {
 inline constexpr Solids::Entry NEEDLE_ENTRY = {
     "truncatedIcosahedron_ambo_relax_hk54_needle", generate_needle_recipe_solid,
     Solids::Category::Complex,
-    &Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE};
+    &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE};
 
 /**
  * @brief Verifies the first recipe seed uses the Sprite envelope's 16-frame
