@@ -771,6 +771,10 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
 
 
 def validate_part_catalog(assembly_metadata):
+    """Check every assignment against the catalog, and the catalog for orphans.
+
+    An entry no reference names is drift the assignment side cannot report.
+    """
     diagnostics = []
     required = ("manufacturer", "mpn", "description")
     for ref, metadata in assembly_metadata.items():
@@ -783,6 +787,9 @@ def validate_part_catalog(assembly_metadata):
             if not str(part.get(field, "")).strip():
                 diagnostics.append(
                     f"{ref}: LCSC {lcsc} catalog {field} is blank")
+    for lcsc in sorted(set(PART_BY_LCSC) - set(LCSC_BY_REF.values())):
+        diagnostics.append(
+            f"LCSC {lcsc}: catalog entry no reference is assigned")
     if diagnostics:
         raise PartCatalogError(
             "supplier catalog validation failed:\n  " +

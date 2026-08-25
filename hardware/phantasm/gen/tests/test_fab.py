@@ -607,6 +607,23 @@ class PartCatalogTests(unittest.TestCase):
                 "X1: LCSC C999999999 has no catalog entry"):
             fab.validate_part_catalog({"X1": {"lcsc": "C999999999"}})
 
+    def test_rejects_a_catalog_entry_no_reference_names(self):
+        catalog = dict(fab.PART_BY_LCSC)
+        catalog["C999999999"] = {
+            "manufacturer": "ACME",
+            "mpn": "NOPART",
+            "description": "unassigned",
+        }
+        metadata = {
+            ref: {"lcsc": lcsc}
+            for ref, lcsc in fab.LCSC_BY_REF.items()
+        }
+        with unittest.mock.patch.object(fab, "PART_BY_LCSC", catalog):
+            with self.assertRaisesRegex(
+                    fab.PartCatalogError,
+                    "LCSC C999999999: catalog entry no reference is assigned"):
+                fab.validate_part_catalog(metadata)
+
 
 class CommandRunTests(unittest.TestCase):
     def invoke(self, error):
