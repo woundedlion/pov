@@ -664,8 +664,8 @@ private:
       }
     }
     // A wire still busy at a boundary carries a stale burst left over from a
-    // masked-ISR coast; drop it so the on-time boundary symbol is not blocked by
-    // the emitter's overlap trap.
+    // masked-ISR coast. schedule_boundary would clobber it silently, so drop it
+    // here to count what was discarded.
     switch (emitter.drop_pending_emission()) {
     case SymbolEmitter::DroppedBurst::BEACON:
       saturating_increment(telemetry_counters.beacons_overrun_dropped);
@@ -715,13 +715,13 @@ private:
     // [W/4, W/2), but this payload's frame plus the tail quiet the receiver
     // needs must fit before HALF. A last pulse closer than that to the boundary
     // is appended to the last digit burst instead of terminating it, so the HALF
-    // symbol is consumed rather than decoded; a tail past the boundary also
-    // leaves the wire busy when the on-time HALF symbol schedules, tripping the
-    // emitter's overlap trap. Skip a too-late start, mirroring the boundary
-    // symbol's own lateness self-censor. The fit is measured in cycles against
-    // the boundary instant, not in whole columns from x: the frame is anchored
-    // on this tick, which lands part-way through column x, and its last pulse
-    // may still go out up to the emitter's lateness budget after its due time.
+    // symbol is consumed rather than decoded; a tail past the boundary is
+    // dropped when the on-time HALF symbol schedules, truncating the frame on
+    // the wire. Skip a too-late start, mirroring the boundary symbol's own
+    // lateness self-censor. The fit is measured in cycles against the boundary
+    // instant, not in whole columns from x: the frame is anchored on this tick,
+    // which lands part-way through column x, and its last pulse may still go
+    // out up to the emitter's lateness budget after its due time.
     int32_t digit_sum = 0;
     for (int i = 0; i < 5; ++i)
       digit_sum += digits[i];
