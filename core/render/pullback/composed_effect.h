@@ -38,7 +38,8 @@ using Lens::NoLensParams;
 using Projection::ProjectionParams;
 using Source::GridSourceParams;
 using Source::LatticeSourceParams;
-using Source::NoiseSourceParams;
+using Source::ProjectedNoiseSourceParams;
+using Source::SphericalNoiseSourceParams;
 using Source::SpiralSourceParams;
 using Source::TwinWaveSourceParams;
 using Surface::DirectSurfaceParams;
@@ -103,7 +104,7 @@ template <typename ParamsT> struct FrameState {
   /** Conjugate of the outer camera orientation. */
   Quaternion outer_conjugate;
   const FastNoiseLite *outer_noise;   /**< Null unless `HasOuterNoise`. */
-  const FastNoiseLite *source_noise;  /**< Null unless `HasSourceNoise`. */
+  const FastNoiseLite *source_noise;  /**< Null unless `HAS_SOURCE_NOISE`. */
   const FastNoiseLite *surface_noise; /**< Null unless the effect displaces. */
   const BakedPalette *palette;        /**< The cycler's current bake. */
   /** Hue-rotation LUT base; current only when hue_rotation_active(). */
@@ -584,6 +585,14 @@ template <typename B> struct SourcePolicyFor<SpiralSourceParams, B> {
 template <typename B> struct SourcePolicyFor<LatticeSourceParams, B> {
   using Type = Pullback::Source::PrimitiveLattice<SourceProvider<B>>;
 };
+template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
+  using Type = Pullback::Source::ProjectedNoise<SourceProvider<B>,
+                                                ::NoiseBasis::SIMPLEX>;
+};
+template <typename B> struct SourcePolicyFor<SphericalNoiseSourceParams, B> {
+  using Type = Pullback::Source::SphericalNoise<SourceProvider<B>,
+                                                ::NoiseBasis::SIMPLEX>;
+};
 
 template <typename Family, typename Binding, bool Outer, bool TrackPath>
 struct WarpPolicyFor;
@@ -709,7 +718,8 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * @tparam BrightnessV Brightness envelope applied by the color stage.
  * @tparam AnimatedProjection Whether the projection owns a random walk.
  * @tparam HasOuterNoise Whether the outer-camera stage owns a noise field.
- * @tparam HasSourceNoise Whether the source stage owns a noise field.
+ * @tparam HasSourceNoise Forces a source-noise field on a source family that
+ *         does not itself imply one.
  */
 template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
           PaletteHarmony Harmony, HueMode HueV,
@@ -734,6 +744,14 @@ public:
   static constexpr bool HAS_SURFACE_NOISE =
       std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams> ||
       std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
+
+  /** Whether the effect owns a source-noise field and seed: the template
+      argument, or implied by a source family that samples one. */
+  static constexpr bool HAS_SOURCE_NOISE =
+      HasSourceNoise ||
+      std::is_same_v<typename ParamsT::source_type,
+                     ProjectedNoiseSourceParams> ||
+      std::is_same_v<typename ParamsT::source_type, SphericalNoiseSourceParams>;
 
 private:
   static constexpr bool HAS_SURFACE =
@@ -825,7 +843,7 @@ public:
     configure_noise(state->color_noise, HUE_NOISE_SEED);
     if constexpr (HasOuterNoise)
       configure_noise(state->outer.noise, Derived::OUTER_NOISE_SEED);
-    if constexpr (HasSourceNoise)
+    if constexpr (HAS_SOURCE_NOISE)
       configure_noise(state->source.noise, Derived::SOURCE_NOISE_SEED);
     if constexpr (HAS_SURFACE_NOISE)
       configure_noise(state->surface.noise, Derived::SURFACE_NOISE_SEED);
@@ -969,7 +987,7 @@ private:
     std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut;
     FastNoiseLite color_noise;
     OptionalNoise<HasOuterNoise> outer;
-    OptionalNoise<HasSourceNoise> source;
+    OptionalNoise<HAS_SOURCE_NOISE> source;
     OptionalNoise<HAS_SURFACE_NOISE> surface;
     FastNoiseLite outer_walk_noise;
     /** Inputs the hue-noise LUT was last baked from; the negative seeds match
@@ -1199,7 +1217,7 @@ private:
     const FastNoiseLite *source_noise = nullptr;
     if constexpr (HasOuterNoise)
       outer_noise = &state->outer.noise;
-    if constexpr (HasSourceNoise)
+    if constexpr (HAS_SOURCE_NOISE)
       source_noise = &state->source.noise;
     const FastNoiseLite *surface_noise = nullptr;
     if constexpr (HAS_SURFACE_NOISE)
