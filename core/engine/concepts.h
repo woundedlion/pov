@@ -51,10 +51,7 @@ namespace hs {
  * so the trapping empty state costs a branch per signature rather than a
  * formatted call site.
  */
-[[noreturn]] HS_COLD inline void function_ref_empty_call() {
-  check_fail(__FILE__, __LINE__, "thunk != empty_thunk",
-             "empty FunctionRef called");
-}
+[[noreturn]] void function_ref_empty_call();
 } // namespace hs
 
 /**
