@@ -2014,18 +2014,15 @@ private:
   };
 
   struct PreparedHueRotation {
-    static constexpr int VALUE_STEPS = 64;
-    static constexpr int HUE_STEPS = 16;
-    static constexpr size_t LUT_SIZE = VALUE_STEPS * HUE_STEPS;
+    static constexpr size_t LUT_SIZE =
+        Pullback::Color::HueRotationLutView::SIZE;
 
     Pixel *lut;
     bool active;
   };
 
   struct PreparedHueNoise {
-    static constexpr int FACE_STEPS = 24;
-    static constexpr int FACE_SIZE = FACE_STEPS * FACE_STEPS;
-    static constexpr size_t LUT_SIZE = 6 * FACE_SIZE;
+    static constexpr size_t LUT_SIZE = Pullback::Color::HueNoiseLutView::SIZE;
 
     int8_t *lut;
     bool active;
