@@ -500,6 +500,7 @@ struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_sample_topology(params.weight_mode, params.coverage_mode);
+    check_noise_basis(params.basis);
     return {&state.noise, state.phase};
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,

@@ -91,6 +91,16 @@ struct SourceClockState {
 /** @brief Noise-basis topology values, in ::NoiseBasis order. */
 inline constexpr const char *NOISE_BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
 
+/**
+ * @brief Bounds a noise-driven operator's basis enum8.
+ * @details Called from prepare(), once per frame, so the per-pixel basis
+ * switches stay total and carry no guard.
+ */
+inline void check_noise_basis(uint8_t basis) {
+  HS_CHECK(basis <= static_cast<uint8_t>(::NoiseBasis::RIDGED3),
+           "pullback operator: invalid noise basis");
+}
+
 enum class WeightMode : uint8_t { NONE = 0, PROJECTION = 1 };
 using ProjectionCoverageMode = Pullback::ProjectionCoverageMode;
 

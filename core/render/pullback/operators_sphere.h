@@ -66,8 +66,9 @@ struct DisplaceCurl : ValueStateModel<NoisePhaseState> {
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_noise_basis(params.basis);
     return {&state.noise, Surface::prepare(state.phase)};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
@@ -118,6 +119,7 @@ struct DisplaceDirect : ValueStateModel<NoisePhaseState> {
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_noise_basis(params.basis);
     return {&state.noise,
             Surface::prepare_direct(state.phase, params.direction)};
   }
