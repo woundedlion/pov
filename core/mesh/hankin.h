@@ -354,6 +354,8 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
            "update_hankin: reused out_mesh carries a topology from a different "
            "compiled pattern (clear it first)");
 
+  HS_CHECK(std::isfinite(angle), "update_hankin: contact angle must be finite");
+
   bool is_flat = std::abs(angle) < math::TOLERANCE;
 
   // Star points are computed straight into the output: nothing reads them back
