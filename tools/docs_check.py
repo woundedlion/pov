@@ -165,6 +165,11 @@ _CHECKOUT_UNTRACKED_ALLOWED = {
 }
 
 
+# Prose also spells engine headers relative to core/ (`render/shading.h`), so
+# every backticked candidate is resolved under this root as well.
+_IMPLICIT_PATH_ROOT = PurePosixPath("core")
+
+
 def _untracked_allowance(candidate: str, used: set[str] | None) -> bool:
     """Reports whether an _UNTRACKED_ALLOWED prefix exempts candidate, recording it."""
     for prefix in _UNTRACKED_ALLOWED:
@@ -493,7 +498,7 @@ def _path_span_issue(source: PurePosixPath, line: int, span: str,
     if _untracked_allowance(candidate, used):
         return None
     in_scope = False
-    for base in (PurePosixPath(""), source.parent):
+    for base in (PurePosixPath(""), source.parent, _IMPLICIT_PATH_ROOT):
         resolved = PurePosixPath(posixpath.normpath(
             posixpath.join(base.as_posix(), candidate)))
         # Scope each interpretation to its first directory under that base.
