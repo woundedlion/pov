@@ -85,6 +85,8 @@ struct MeshClassBake {
       0; /**< Faces in dropped classes (kept the exact path). */
   uint16_t lowq_classes =
       0; /**< Classes whose built LUT missed MIN_CLASS_HIT_SHARE and was discarded. */
+  uint16_t overflow_faces =
+      0; /**< Faces left NO_CLASS because the class table was already full. */
   size_t lut_bytes =
       0; /**< Persistent bytes charged to kept LUTs (<= the byte budget). */
   size_t aux_bytes =
