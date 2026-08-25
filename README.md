@@ -646,6 +646,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── eslint.config.mjs           JavaScript lint rules (recommended set) — the js-unit-suite.yml lint step
 ├── .githooks/                  staged pre-commit checks, a pre-push mirror of the JS/browser suites, and the master fast-forward guard
 ├── .github/workflows/          ci.yml (PR aggregate), deploy.yml (engine gate → Pages), js-unit-suite.yml + browser-smoke.yml (reusable suites)
+├── .github/dependabot.yml      Monthly grouped bump pull requests for the SHA-pinned actions and the locked Node dependencies
 │
 ├── three.js/                   Optional vendored Three.js checkout
 ├── vendor/                     Optional self-hosted fonts (CDN fallback)
