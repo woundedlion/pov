@@ -54,20 +54,15 @@ struct PreparedDisplace {
 };
 
 /** @brief SPHERE endomorphism: the divergence-free curl-noise displacement. */
-struct DisplaceCurl {
+struct DisplaceCurl : ValueStateModel<NoisePhaseState> {
   static constexpr const char *ID = "sphere.displace.curl.v2";
   static constexpr const char *NAME = "Curl Displace";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = CurlDisplaceParams;
-  using State = NoisePhaseState;
   using Prepared = PreparedDisplace;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
@@ -109,20 +104,15 @@ struct PreparedDirectDisplace {
 };
 
 /** @brief SPHERE endomorphism: the direction-steered noise displacement. */
-struct DisplaceDirect {
+struct DisplaceDirect : ValueStateModel<NoisePhaseState> {
   static constexpr const char *ID = "sphere.displace.direct.v2";
   static constexpr const char *NAME = "Direct Displace";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = DirectDisplaceParams;
-  using State = NoisePhaseState;
   using Prepared = PreparedDirectDisplace;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
@@ -149,20 +139,14 @@ struct RipplePhaseState {
 };
 
 /** @brief SPHERE endomorphism: a periodically expanding Ricker-wave ripple. */
-struct DisplaceRipple {
+struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   static constexpr const char *ID = "sphere.displace.ripple.v2";
   static constexpr const char *NAME = "Ripple Displace";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = Surface::PeriodicRippleParams;
-  using State = RipplePhaseState;
   using Prepared = Surface::PreparedRipple;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = fmodf(state.phase + 1.0f, params.period);
   }

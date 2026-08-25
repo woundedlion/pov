@@ -47,20 +47,14 @@ static_assert(field_ids_unique<GridSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
     weight and coverage modes. */
-struct SampleGrid {
+struct SampleGrid : ValueStateModel<SourceClockState> {
   static constexpr const char *ID = "sample.grid.v2";
   static constexpr const char *NAME = "Grid";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = GridSampleParams;
-  using State = SourceClockState;
   using Prepared = Source::PreparedSource;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.secondary =
@@ -106,20 +100,14 @@ struct TwinWaveSampleParams : Source::TwinWaveSourceParams {
 static_assert(field_ids_unique<TwinWaveSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the two-wave interference source. */
-struct SampleTwinWave {
+struct SampleTwinWave : ValueStateModel<SourceClockState> {
   static constexpr const char *ID = "sample.twin-wave.v2";
   static constexpr const char *NAME = "Twin Wave";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = TwinWaveSampleParams;
-  using State = SourceClockState;
   using Prepared = Source::PreparedSource;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.secondary =
@@ -169,20 +157,14 @@ struct RingsSampleParams {
 static_assert(field_ids_unique<RingsSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the expanding concentric ring source. */
-struct SampleRings {
+struct SampleRings : ValueStateModel<SourceClockState> {
   static constexpr const char *ID = "sample.rings.v2";
   static constexpr const char *NAME = "Rings";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = RingsSampleParams;
-  using State = SourceClockState;
   using Prepared = Source::PreparedSource;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
   }
@@ -216,21 +198,16 @@ struct SphericalRingsState {
 };
 
 /** @brief SPHERE→FIELD crossing: latitude bands on a wandering, spinning axis. */
-struct SampleSphericalRings {
+struct SampleSphericalRings : ValueStateModel<SphericalRingsState> {
   static constexpr const char *ID = "sample.spherical-rings.v3";
   static constexpr const char *NAME = "Spherical Rings";
   using Input = SphereSample;
   using Output = FieldSample;
   using Params = SphericalRingsSampleParams;
-  using State = SphericalRingsState;
   using Prepared = Source::PreparedSphericalRings;
 
   static void init(State &state, InstanceId id) {
     init_walk(state.walk, static_cast<int32_t>(id.stable_hash));
-  }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
   }
   static void advance(State &state, const Params &params) {
     advance_walk(state.walk, params.wander, params.spin_rate);
@@ -275,20 +252,14 @@ struct SpiralSampleParams : Source::SpiralSourceParams {
 static_assert(field_ids_unique<SpiralSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the rotating spiral source. */
-struct SampleSpiral {
+struct SampleSpiral : ValueStateModel<SourceClockState> {
   static constexpr const char *ID = "sample.spiral.v2";
   static constexpr const char *NAME = "Spiral";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = SpiralSampleParams;
-  using State = SourceClockState;
   using Prepared = Source::PreparedSource;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
@@ -376,20 +347,14 @@ struct FractalSampleParams : Source::FractalSourceParams {
 static_assert(field_ids_unique<FractalSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the animated quadratic escape-time fractal. */
-struct SampleFractal {
+struct SampleFractal : ValueStateModel<SourceClockState> {
   static constexpr const char *ID = "sample.fractal.v2";
   static constexpr const char *NAME = "Escape Fractal";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = FractalSampleParams;
-  using State = SourceClockState;
   using Prepared = Source::PreparedSource;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
@@ -440,20 +405,14 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
 static_assert(field_ids_unique<TessellationSampleParams>());
 
 /** @brief PLANE→FIELD crossing: rotating polygon edge tessellations. */
-struct SampleTessellation {
+struct SampleTessellation : ValueStateModel<SourceClockState> {
   static constexpr const char *ID = "sample.tessellation.v2";
   static constexpr const char *NAME = "Tessellation";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = TessellationSampleParams;
-  using State = SourceClockState;
   using Prepared = Source::PreparedSource;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
   }
@@ -518,20 +477,15 @@ struct PreparedNoiseSource {
 };
 
 /** @brief PLANE→FIELD crossing: the projected-plane noise contour source. */
-struct SampleProjectedNoise {
+struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
   static constexpr const char *ID = "sample.projected-noise.v2";
   static constexpr const char *NAME = "Projected Noise";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = ProjectedNoiseSampleParams;
-  using State = NoisePhaseState;
   using Prepared = PreparedNoiseSource;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.noise_time_rate);
   }
@@ -554,20 +508,15 @@ struct SampleProjectedNoise {
 };
 
 /** @brief SPHERE→FIELD crossing: the sphere-space noise contour source. */
-struct SampleSphericalNoise {
+struct SampleSphericalNoise : ValueStateModel<NoisePhaseState> {
   static constexpr const char *ID = "sample.spherical-noise.v3";
   static constexpr const char *NAME = "Spherical Noise";
   using Input = SphereSample;
   using Output = FieldSample;
   using Params = SphericalNoiseSampleParams;
-  using State = NoisePhaseState;
   using Prepared = PreparedNoiseSource;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.noise_time_rate);
   }

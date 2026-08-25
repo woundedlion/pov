@@ -402,13 +402,28 @@ template <typename Model> consteval bool model_final_framebuffer_metric() {
 
 } // namespace Detail
 
-/** @brief State and defaulted lifecycle for a model with no instance state. */
-struct StatelessModel {
-  struct State {};
+/** @brief Instance state of a model that owns nothing. */
+struct EmptyState {};
+
+/**
+ * @brief State and defaulted lifecycle for a model whose instance state is a
+ *        plain value.
+ * @details `init` leaves the default-constructed state; `migrate` clones by
+ * assignment, so `dst` is fully constructed and `src` untouched. A model that
+ * seeds instance-owned resources declares its own `init`.
+ * @tparam S The model's State type.
+ */
+template <typename S> struct ValueStateModel {
+  using State = S;
   static void init(State &, InstanceId) {}
-  static Status migrate(State &, const State &, InstanceId) {
+  static Status migrate(State &dst, const State &src, InstanceId) {
+    dst = src;
     return Status::OK;
   }
+};
+
+/** @brief State and defaulted lifecycle for a model with no instance state. */
+struct StatelessModel : ValueStateModel<EmptyState> {
   template <typename Params> static void advance(State &, const Params &) {}
 };
 
