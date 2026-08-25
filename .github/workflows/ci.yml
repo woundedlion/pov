@@ -1543,10 +1543,9 @@ jobs:
       # shellcheck-class defect there passes a gate silently rather than failing
       # it. The file list is enumerated from the index, so an empty one is a
       # broken gate, like the steps above.
-      # SC1091 (a source path built at runtime cannot be followed) and SC2034
-      # (device_lock.sh sets HS_DEVICE_PORT for whoever sources it, and the
-      # reference-transaction hook names a positional field it ignores) are the
-      # two checks that cannot see past one file; everything else is on.
+      # No check is excluded tree-wide: -x follows the one sourced file through
+      # its `shellcheck source=` directive, and the two variables read outside
+      # the file that declares them carry their own disable.
       - name: Lint shell
         run: |
           mapfile -t FILES < <(git ls-files -- '*.sh' '.githooks/*')
@@ -1554,7 +1553,7 @@ jobs:
             echo "::error::no files selected — the shell path list is broken"
             exit 1
           fi
-          shellcheck --exclude=SC1091,SC2034 "${FILES[@]}"
+          shellcheck -x "${FILES[@]}"
           echo "shellcheck clean: ${#FILES[@]} files linted."
 
       # actionlint-py is the PyPI distribution of the same binary, pinned like
