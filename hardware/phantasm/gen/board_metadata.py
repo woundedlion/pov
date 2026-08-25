@@ -331,7 +331,8 @@ def main(argv=None):
             if args.check:
                 check_facts(readme, facts)
             else:
-                args.readme.write_text(replace_facts(readme, facts), encoding="utf-8")
+                args.readme.write_text(replace_facts(readme, facts),
+                                       encoding="utf-8", newline="\n")
         else:
             print(facts)
     except (MetadataError, OSError) as error:
