@@ -496,6 +496,23 @@ template <> struct OptionalNoise<true> {
   FastNoiseLite noise;
 };
 
+/** @brief Hue-rotation LUT storage; empty when the effect never rotates hue. */
+template <bool Enabled> struct OptionalHueRotationLut {};
+template <> struct OptionalHueRotationLut<true> {
+  std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE> hue_rotation_lut;
+};
+
+/** @brief Hue-noise LUT and the inputs it was baked from; empty unless the
+    hue source is the noise field. */
+template <bool Enabled> struct OptionalHueNoiseLut {};
+template <> struct OptionalHueNoiseLut<true> {
+  std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut;
+  /** Inputs the resident table was built from; the negative seeds match no
+      admissible parameter, forcing the first bake. */
+  float hue_noise_lut_scale = -1.0f;
+  float hue_noise_lut_phase = -1.0f;
+};
+
 /** @brief Projection-walk noise storage; empty when disabled. */
 template <bool Enabled> struct ProjectionWalkNoise {};
 template <> struct ProjectionWalkNoise<true> {
@@ -990,19 +1007,14 @@ protected:
   }
 
 private:
-  struct State : ProjectionWalkNoise<AnimatedProjection> {
-    std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
-        hue_rotation_lut;
-    std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut;
+  struct State : ProjectionWalkNoise<AnimatedProjection>,
+                 OptionalHueRotationLut<HueV != HueMode::NONE>,
+                 OptionalHueNoiseLut<HueV == HueMode::NOISE> {
     FastNoiseLite color_noise;
     OptionalNoise<HAS_OUTER_NOISE> outer;
     OptionalNoise<HAS_SOURCE_NOISE> source;
     OptionalNoise<HAS_SURFACE_NOISE> surface;
     FastNoiseLite outer_walk_noise;
-    /** Inputs the hue-noise LUT was last baked from; the negative seeds match
-        no admissible parameter, forcing the first bake. */
-    float hue_noise_lut_scale = -1.0f;
-    float hue_noise_lut_phase = -1.0f;
   };
 
   // init() takes the gamut LUT, the palette cycler's generated arena, the
@@ -1150,7 +1162,8 @@ private:
           fmodf(this->projection_spin + params.projection.spin_rate, TWO_PI_F);
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       camera_spin = fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, TWO_PI_F);
-    hue_noise_phase = wrap_t(hue_noise_phase + params.color.hue_noise_speed);
+    if constexpr (HueV == HueMode::NOISE)
+      hue_noise_phase = wrap_t(hue_noise_phase + params.color.hue_noise_speed);
     if constexpr (std::is_same_v<typename Params::outer_warp_type,
                                  AffineParams>)
       outer_rotation =
@@ -1196,6 +1209,22 @@ private:
       outer_conjugate = outer_wander.conjugate();
   }
 
+  /** @brief The hue-rotation LUT base, or null when no hue mode reads one. */
+  const Pixel *hue_rotation_lut_data() const {
+    if constexpr (HueV != HueMode::NONE)
+      return state->hue_rotation_lut.data();
+    else
+      return nullptr;
+  }
+
+  /** @brief The hue-noise LUT base, or null outside HueMode::NOISE. */
+  const int8_t *hue_noise_lut_data() const {
+    if constexpr (HueV == HueMode::NOISE)
+      return state->hue_noise_lut.data();
+    else
+      return nullptr;
+  }
+
   /**
    * @brief Bakes the frame's LUTs and snapshots everything the scan reads.
    * @details The hue-noise LUT is rebuilt only when its scale or phase moved,
@@ -1217,11 +1246,12 @@ private:
         state->hue_noise_lut_phase = hue_noise_phase;
       }
     }
-    if (hue_rotation_active<HueV>(params.color))
-      Pullback::Color::prepare_hue_rotation_lut(
-          std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
-              state->hue_rotation_lut),
-          palette_cycler.palette());
+    if constexpr (HueV != HueMode::NONE)
+      if (hue_rotation_active<HueV>(params.color))
+        Pullback::Color::prepare_hue_rotation_lut(
+            std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
+                state->hue_rotation_lut),
+            palette_cycler.palette());
     const FastNoiseLite *outer_noise = nullptr;
     const FastNoiseLite *source_noise = nullptr;
     if constexpr (HAS_OUTER_NOISE)
@@ -1237,8 +1267,8 @@ private:
             source_noise,
             surface_noise,
             &palette_cycler.palette(),
-            state->hue_rotation_lut.data(),
-            state->hue_noise_lut.data(),
+            hue_rotation_lut_data(),
+            hue_noise_lut_data(),
             params,
             palette_mapping,
             source_primary,
