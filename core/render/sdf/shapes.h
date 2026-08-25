@@ -20,6 +20,10 @@ namespace SDF {
 /**
  * @brief Calculates signed distance to a planar polygon.
  * @details Register semantics: the DistanceResult table (row: PlanarPolygon).
+ *          Sizing unit diverges from the sibling leaves: this constructor takes
+ *          the circumradius as an angle in radians, while SphericalPolygon,
+ *          Star and Flower take a hemisphere fraction and scale it by PI/2.
+ *          Scan::PlanarPolygon takes the fraction and converts.
  */
 struct PlanarPolygon {
   const Basis &basis; /**< Orientation frame (v = polygon axis); retained by
@@ -43,7 +47,8 @@ struct PlanarPolygon {
    * phase.
    * @param b Orientation frame (v = polygon axis); retained by reference and
    *          read by every distance() call, so it must outlive the shape.
-   * @param cr Angular circumradius of the polygon (radians).
+   * @param cr Angular circumradius of the polygon in radians, NOT the
+   *        hemisphere fraction the sibling leaves take.
    * @param s Number of polygon sides (must be >= 3).
    * @param ph Azimuth phase offset (radians).
    * @param invert When true, fill the complement (a shape spanning more than a
