@@ -2171,6 +2171,44 @@ inline void case_scan_mesh_face_index_out_of_range() {
 }
 
 /**
+ * @brief Death case: a class bake naming a class the class table does not hold.
+ * @details ArenaVector::operator[] only asserts, so an out-of-range class id
+ *          would read arbitrary memory as a CongruenceClass and hand its LUT to
+ *          the per-pixel probe. Scan::Mesh bounds the id per face.
+ */
+inline void case_scan_mesh_class_id_out_of_range() {
+  constexpr int W = 32, H = 16;
+  static uint8_t geom_buf[4096];
+  static uint8_t scratch_buf[64 * 1024];
+  Arena geom(geom_buf, sizeof(geom_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+
+  MeshState mesh;
+  mesh.vertices.bind(geom, 3);
+  mesh.vertices.push_back(Vector(1.0f, 0.0f, 0.0f));
+  mesh.vertices.push_back(Vector(0.0f, 1.0f, 0.0f));
+  mesh.vertices.push_back(Vector(0.0f, 0.0f, 1.0f));
+  mesh.face_counts.bind(geom, 1);
+  mesh.face_counts.push_back(static_cast<uint8_t>(3));
+  mesh.face_offsets.bind(geom, 1);
+  mesh.face_offsets.push_back(static_cast<uint16_t>(0));
+  mesh.faces.bind(geom, 3);
+  for (uint16_t v = 0; v < 3; ++v)
+    mesh.faces.push_back(v);
+
+  MeshOps::MeshClassBake bake;
+  bake.classes.bind(geom, 1);
+  bake.face_recs.bind(geom, 1);
+  bake.face_recs.push_back({opaque<uint8_t>(0), 0, 0}); // no class founded
+
+  DeathEffect fx(W, H);
+  Canvas c(fx);
+  Pipeline<W, H> pipe;
+  Scan::Mesh::draw<W, H>(
+      pipe, c, mesh, [](const Vector &, Fragment &) {}, scratch, &bake);
+}
+
+/**
  * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
  *        exceeds the TriangularBitset<128> capacity. Shared by both the
  *        face-walk draw() and the extract_edges over-capacity death cases so the
@@ -3996,6 +4034,10 @@ inline const Case *all_cases(int &n) {
        case_scan_mesh_face_index_out_of_range, "mesh.h",
        "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
        "the vertex pool"},
+      {"scan_mesh_class_id_out_of_range", case_scan_mesh_class_id_out_of_range,
+       "mesh.h",
+       "(rec.class_id < bake->classes.size()) mesh class bake face record "
+       "names an unknown class"},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
        "mesh.h", "(large < DEDUP_CAPACITY) "},
       {"plot_extract_edges_vertex_over_capacity",
