@@ -34,6 +34,7 @@
  */
 #pragma once
 
+#include <array>
 #include <bit>
 #include <cstdio>
 #include <cstdlib>
@@ -56,6 +57,8 @@
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
+#include "core/control/choreography.h"
+#include "core/control/presets.h"
 #include "core/control/registry.h"
 #include "core/engine/memory.h"
 #include "core/render/led.h"
@@ -702,6 +705,66 @@ inline void case_timeline_clear_during_step() {
     tl.clear();
   }));
   tl.step(canvas); // t=1: completes -> callback -> clear() while stepping
+}
+
+/** @brief Parameter set of the Segue::Fade preset-choreography fixture. */
+struct FadeChoreoDeathParams {
+  float level = 0.0f;
+};
+
+/**
+ * @brief Segue::Fade effect for the preset-choreography capacity death case.
+ * @details begin_preset_choreography() is private to the base and reached only
+ *          through begin_choreography(), so the fixture exposes arm(); fill()
+ *          leaves the shared timeline short of the two slots the envelope
+ *          sprite and its advance timer need.
+ */
+struct FadeChoreoDeathEffect
+    : public ChoreographedEffect<FadeChoreoDeathEffect, FadeChoreoDeathParams> {
+  using Choreography =
+      ChoreographedEffect<FadeChoreoDeathEffect, FadeChoreoDeathParams>;
+  using Params = FadeChoreoDeathParams;
+
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr Segue::Fade PRESET_SEGUE{12, 4};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
+  static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
+      {{{0.0f}}, {{1.0f}}}};
+
+  static bool valid_params(const Params &p) {
+    return p.level >= 0.0f && p.level <= 1.0f;
+  }
+
+  FadeChoreoDeathEffect() : Choreography(32, 16) {}
+
+  void draw_frame() override {}
+  void set_preset_opacity(float) {}
+
+  /** @brief Fills the timeline down to @p free slots. */
+  void fill(int free) {
+    while (Timeline::remaining() > free)
+      timeline.add(0, Animation::Transition(sink, 1.0f, 1000, ease_linear));
+  }
+
+  /** @brief Arms the choreography, which the Fade policy routes into the
+      envelope loop. */
+  void arm() { begin_choreography(); }
+
+  float sink = 0.0f; /**< Sink the filler animations write. */
+};
+
+/**
+ * @brief Death case: arming a Segue::Fade preset choreography without two free
+ *        timeline slots must trap.
+ * @details Animation surface — the envelope loop re-arms itself from its own
+ *          advance timer, so a dropped add would end the choreography for good
+ *          instead of degrading it. The budget guard traps at the arm.
+ */
+inline void case_preset_choreography_no_slots() {
+  effects_tests::reset_effect_globals();
+  FadeChoreoDeathEffect effect;
+  effect.fill(opaque(1));
+  effect.arm(); // HS_CHECK(Timeline::remaining() >= 2) -> trap
 }
 
 /** @brief Death case: finite parameter animations reject the -1 sentinel. */
@@ -3723,6 +3786,10 @@ inline const Case *all_cases(int &n) {
        "timeline.h",
        "(!stepping) clear() from inside step() would destroy the animation "
        "whose callback is running"},
+      {"preset_choreography_no_slots", case_preset_choreography_no_slots,
+       "choreography.h",
+       "(Timeline::remaining() >= 2) preset choreography: the envelope sprite "
+       "and its advance timer need two timeline slots, "},
       {"timeline_clear_hook_adds_event", case_timeline_clear_hook_adds_event,
        "timeline.h",
        "(global_timeline_num_events == event_count) clear hook added or "
@@ -4695,7 +4762,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"composition.h", 33},
     {"generative_palette.h", 4},
     {"palette_cycler.h", 8},
-    {"choreography.h", 2},
+    {"choreography.h", 1},
     {"memory.h", 2},
     {"reaction_graph.h", 2},
     {"static_circular_buffer.h", 4},
