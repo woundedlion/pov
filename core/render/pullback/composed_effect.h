@@ -714,8 +714,8 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * constants; every stage typedef, the render pipeline, shade() and the shared
  * lifecycle — parameter registration, preset choreography, palette cycling,
  * camera walks and noise clocks — are assembled here. Required `Derived`
- * members are `PRESET_IDS`, `PARAMETER_SCHEMA_VERSION`, `PRESET_DWELL_FRAMES`
- * and `initial_params`, plus an `OUTER_NOISE_SEED` /
+ * members are the identity constants and `initial_params`, plus an
+ * `OUTER_NOISE_SEED` /
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` for each noise field the parameter
  * set and `Has*Noise` flags request. Optional members, detected by `requires`
  * and defaulted when absent, are `preset_params` (absent, every preset takes
@@ -725,6 +725,16 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * `HS_HOT_FLASH_MEMBER` and `HS_FLASH_MEMBER` both take the pipeline body out
  * of line into a flash section, and the cold one also compiles it for size. A
  * surface-noise family places its surface stage out of line in flash.
+ *
+ * The identity constants are six: `EFFECT_ID`, the registry identity;
+ * `DESCRIPTOR_DIGEST`, the SHA-256 of the canonicalized descriptor of
+ * `patterns/<effect>.shader.json`, which the browser editor matches to
+ * recognize an imported document as this composed effect;
+ * `PRESET_BANK_DIGEST`, the SHA-256 of that document's canonicalized preset
+ * bank; `PRESET_IDS`, the immutable preset identities indexed by preset
+ * number; `PARAMETER_SCHEMA_VERSION`, bumped whenever the `Params` layout
+ * changes so stale snapshots are rejected; and `PRESET_DWELL_FRAMES`, the
+ * frames a preset holds before the runtime begins the next transition.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam Derived The effect class deriving from this base.
