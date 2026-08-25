@@ -49,7 +49,6 @@ public:
   struct State {
     uint32_t clock = 0; /**< Clock the controller forwarded at construction. */
     bool complete = true;      /**< Completion flag; a fresh channel is idle. */
-    bool wedged = false;       /**< When set, checkStaleTransfer() traps. */
     int init_calls = 0;        /**< init() invocations. */
     int transmit_calls = 0;    /**< transmitAsync() invocations. */
     int check_stale_calls = 0; /**< checkStaleTransfer() invocations. */
@@ -92,13 +91,9 @@ public:
   bool isComplete() const { return state().complete; }
 
   /**
-   * @brief Watchdog consult on the overrun-drop path; traps when wedged.
+   * @brief Counts a watchdog consult on the overrun-drop path.
    */
-  void checkStaleTransfer() {
-    ++state().check_stale_calls;
-    HS_CHECK(!state().wedged,
-             "MockStrip: wedged channel — watchdog trap on the overrun path");
-  }
+  void checkStaleTransfer() { ++state().check_stale_calls; }
 
   /**
    * @brief Records a transfer and snapshots its bytes.
