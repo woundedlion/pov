@@ -48,7 +48,7 @@ public:
   using Params = KaleidoscopeSmoothParams;
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-smooth";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "b57d2c75c5384cd232d87ca03c58d13ab492d3db06fbb008c1ae6ff45cf5615b";
+      "a4b9f37e82a889a89516041b3c5d7827c05d1590a79f1648e70c1a9cdee60af3";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "6ce5e7188843b4f091b9c3cc2689798e3f2e77420c9f3d688f5b2ca50485ec4a";
   static constexpr std::array<std::string_view, 4> PRESET_IDS{

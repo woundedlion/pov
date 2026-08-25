@@ -33,7 +33,7 @@ public:
   using Params = GridSpaceParams;
   static constexpr std::string_view EFFECT_ID = "grid-space";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "68bbab1e12f11d4f090bd79055e0270dfd6c27d74e4e9a25d8ff325228e4f74d";
+      "0bbd880ffdbf2a692be33fabaee6fc6c20506519b162908090b73c043789ccbe";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "2229900cf32e7beedb2f68925a97a71598abc3b045fdbda07d8c0ad8cab9f32b";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"affine-contour"};

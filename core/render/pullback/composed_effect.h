@@ -728,8 +728,10 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  *
  * The identity constants are six: `EFFECT_ID`, the registry identity;
  * `DESCRIPTOR_DIGEST`, the SHA-256 of the canonicalized descriptor of
- * `patterns/<effect>.shader.json`, which the browser editor matches to
- * recognize an imported document as this composed effect;
+ * `patterns/<effect>.shader.json` minus each parameter's `unit`, which the
+ * browser editor matches to recognize an imported document as this composed
+ * effect; a unit is an editor label the engine never reads, so a document
+ * carrying a different one is still this effect;
  * `PRESET_BANK_DIGEST`, the SHA-256 of that document's canonicalized preset
  * bank; `PRESET_IDS`, the immutable preset identities indexed by preset
  * number; `PARAMETER_SCHEMA_VERSION`, bumped whenever the `Params` layout
