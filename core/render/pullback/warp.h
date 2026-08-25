@@ -192,10 +192,10 @@ struct PolarParams {
                          FieldCurve::LOG_POSITIVE},
       Field<PolarParams>{"radial-phase", &PolarParams::radial_phase,
                          "Polar Radial Phase", -TWO_PI_F, TWO_PI_F,
-                         FieldCurve::SHORTEST_PERIODIC},
+                         FieldCurve::LERP},
       Field<PolarParams>{"angular-phase", &PolarParams::angular_phase,
                          "Polar Angular Phase", -TWO_PI_F, TWO_PI_F,
-                         FieldCurve::SHORTEST_PERIODIC},
+                         FieldCurve::LERP},
   };
 };
 static_assert(field_ids_unique<PolarParams>());

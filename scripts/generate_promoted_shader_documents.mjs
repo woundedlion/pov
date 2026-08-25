@@ -79,9 +79,10 @@ const parameterSpec = (id, value, source) => {
     domain: { values: ['cup', 'bell', 'linear', 'reverse'] },
     interpolation: { kind: 'MIXED_ENUM' }, default: value,
   };
+  // The polar phases offset a chart coordinate: radian-valued, not periodic.
+  const phase = id.endsWith('radial-phase') || id.endsWith('angular-phase');
   const angle = id.endsWith('rotation') || id.endsWith('field-angle') ||
-    id.endsWith('vector-angle') || id.endsWith('radial-phase') ||
-    id.endsWith('angular-phase') || id === 'central-meridian';
+    id.endsWith('vector-angle') || phase || id === 'central-meridian';
   const positive = id.endsWith('cell-x') || id.endsWith('cell-y') ||
     id.endsWith('scale-x') || id.endsWith('scale-y') || id.endsWith('radial-scale') ||
     id === 'lattice-cell-scale' || id === 'lattice-softness' ||
@@ -123,7 +124,7 @@ const parameterSpec = (id, value, source) => {
   else if (id.endsWith('rotation-rate')) domain = { minimum: -TAU, maximum: TAU };
   else if (id.endsWith('translation-x') || id.endsWith('translation-y') ||
            id.endsWith('shear')) domain = { minimum: -4, maximum: 4 };
-  else if (angle) domain = id.endsWith('radial-phase') || id.endsWith('angular-phase')
+  else if (angle) domain = phase
     ? { minimum: -TAU, maximum: TAU } : { minimum: 0, maximum: TAU };
   else if (id === 'palette-chroma') domain = { minimum: 0, maximum: 1 };
   else if (id === 'mapping-phase') domain = { minimum: -1, maximum: 1 };
@@ -134,7 +135,7 @@ const parameterSpec = (id, value, source) => {
   return {
     id, binding: id.replaceAll('-', '.'), classification: 'preset',
     storage: 'binary32', unit, domain,
-    interpolation: angle
+    interpolation: angle && !phase
       ? { kind: 'SHORTEST_PERIODIC', period: TAU }
       : { kind: positive ? 'LOG_POSITIVE' : 'LINEAR' },
     default: value,
