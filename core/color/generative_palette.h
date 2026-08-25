@@ -304,11 +304,9 @@ public:
    * @param to Target keys (amount = 1).
    * @param amount Blend amount; clamped to [0, 1].
    * @details Keeps this palette's evaluation policy. Both snapshots must carry
-   * the same key count, or the endpoints resolve to different palette shapes,
-   * and the same axis curves: an endpoint assigns its snapshot outright while
-   * the interior interpolates the axes, so mismatched curves have no
-   * continuous morph. Snapshots carry no closing hue, so a LOOP domain keeps
-   * its own closing travel, re-anchored to the morphed first key.
+   * the same key count, or the endpoints resolve to different palette shapes.
+   * Snapshots carry no closing hue, so a LOOP domain keeps its own closing
+   * travel, re-anchored to the morphed first key.
    */
   HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to,
                            float amount) {
@@ -316,9 +314,6 @@ public:
                  to.key_count >= 2 && to.key_count <= PALETTE_MAX_KEYS &&
                  from.key_count == to.key_count,
              "GenerativePalette::lerp snapshot key count out of range");
-    HS_CHECK(from.lightness_curve == to.lightness_curve &&
-                 from.chroma_curve == to.chroma_curve,
-             "GenerativePalette::lerp snapshot axis curves differ");
     amount = hs::clamp(amount, 0.0f, 1.0f);
     const float closing_travel = closing_hue - keys[0].h;
     if (amount == 0.0f)
@@ -346,18 +341,22 @@ public:
 private:
   HS_COLD_MEMBER void lerp_keys(const Snapshot &from, const Snapshot &to,
                                 float amount) {
-    // The caller guards both curves equal, so the interpolated axes meet
-    // assign()'s at either endpoint.
+    // Mixed axis curves morph through CUSTOM: the per-key samples below carry
+    // each side's own curve, while a non-CUSTOM curve would ignore them and
+    // evaluate the lerped low/high — wrong for the CUSTOM side, and a pop at
+    // the endpoint copy.
     lightness_axis = {
         from.lightness_low + (to.lightness_low - from.lightness_low) * amount,
         from.lightness_high +
             (to.lightness_high - from.lightness_high) * amount,
-        from.lightness_curve,
+        from.lightness_curve == to.lightness_curve ? from.lightness_curve
+                                                   : AxisCurve::CUSTOM,
     };
     chroma_axis = {
         from.chroma_low + (to.chroma_low - from.chroma_low) * amount,
         from.chroma_high + (to.chroma_high - from.chroma_high) * amount,
-        from.chroma_curve,
+        from.chroma_curve == to.chroma_curve ? from.chroma_curve
+                                             : AxisCurve::CUSTOM,
     };
     key_count = from.key_count;
     std::array<ControlKey, PALETTE_MAX_KEYS> from_keys{};

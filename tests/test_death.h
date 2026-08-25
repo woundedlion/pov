@@ -2625,21 +2625,6 @@ inline void case_noise_hue_palette_null_noise_lut() {
 }
 
 /**
- * @brief Death case: morphing snapshots whose axis curves differ must trap.
- * @details Color surface — an endpoint assigns its snapshot outright while the
- *          interior interpolates the axes, so mismatched curves would pop on
- *          the first and last frame of a wipe instead of morphing.
- */
-inline void case_generative_palette_lerp_curve_mismatch() {
-  PaletteRecipe recipe;
-  const GenerativePalette from(recipe);
-  recipe.lightness.curve = opaque(AxisCurve::ASCENDING);
-  recipe.lightness.range = 0.3f;
-  GenerativePalette morph(recipe);
-  morph.lerp(from.snapshot(), morph.snapshot(), 0.5f); // -> HS_CHECK
-}
-
-/**
  * @brief Death case: rebaking an endpoint-aliasing blend result must trap.
  * @details Color surface — bake_palette_blend's w <= 0 fast path hands @c dst
  *          the @c from endpoint's LUT storage rather than baking a copy, so a
@@ -4168,10 +4153,6 @@ inline const Case *all_cases(int &n) {
        case_noise_hue_palette_null_noise_lut, "noise_hue_palette.h",
        "(hue_noise_lut != nullptr) NoiseHuePalette bound to null hue-noise "
        "LUT"},
-      {"generative_palette_lerp_curve_mismatch",
-       case_generative_palette_lerp_curve_mismatch, "generative_palette.h",
-       "(from.lightness_curve == to.lightness_curve && from.chroma_curve == "
-       "to.chroma_curve) GenerativePalette::lerp snapshot axis curves differ"},
       {"baked_palette_rebake_aliased", case_baked_palette_rebake_aliased,
        "composition.h",
        "(!aliased) BakedPalette::rebake through an aliasing handle"},
