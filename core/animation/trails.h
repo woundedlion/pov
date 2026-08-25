@@ -139,7 +139,7 @@ public:
    * @brief Visits decoded snapshots with normalized oldest-to-newest progress.
    * @param callback Invoked as `void(const Vector &, float t)`.
    */
-  void __attribute__((noinline)) tween(VectorTweenFn callback) const {
+  HS_NOINLINE_NOCLONE void tween(VectorTweenFn callback) const {
     const size_t len = snapshots.length();
     if (len == 0)
       return;
