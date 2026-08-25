@@ -133,6 +133,24 @@ class SyntheticBoardTests(unittest.TestCase):
         # (size 1 0.5) circumscribes to 0.559; the poly corner is 0.901 out.
         self.assertAlmostEqual(capsule.radius, math.hypot(0.5, 0.75))
 
+    def test_fill_overlap_is_symmetric(self):
+        big = connectivity.Fill([(0, 0), (10, 0), (10, 10), (0, 10)], "In1.Cu")
+        small = connectivity.Fill([(4, 4), (6, 4), (6, 6), (4, 6)], "In1.Cu")
+        self.assertTrue(big.touches(small))
+        self.assertTrue(small.touches(big))
+
+    def test_fills_crossing_edge_on_overlap(self):
+        across = connectivity.Fill([(0, 4), (10, 4), (10, 6), (0, 6)], "In1.Cu")
+        down = connectivity.Fill([(4, 0), (6, 0), (6, 10), (4, 10)], "In1.Cu")
+        self.assertTrue(across.touches(down))
+        self.assertTrue(down.touches(across))
+
+    def test_disjoint_fills_do_not_overlap(self):
+        left = connectivity.Fill([(0, 0), (1, 0), (1, 1), (0, 1)], "In1.Cu")
+        right = connectivity.Fill([(5, 0), (6, 0), (6, 1), (5, 1)], "In1.Cu")
+        self.assertFalse(left.touches(right))
+        self.assertFalse(right.touches(left))
+
     def test_touch_tolerance_is_one_micron(self):
         left = connectivity.Capsule((0, 0), (0, 0), 0.5, {"F.Cu"})
         within = connectivity.Capsule((1.0005, 0), (1.0005, 0), 0.5,
