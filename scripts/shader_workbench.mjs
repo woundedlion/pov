@@ -1304,10 +1304,27 @@ export function compileShaderDocument(source, options = {}) {
   }
 }
 
+// The effect registry: the hand-maintained table an export is matched against.
+// Only the fields the digest-then-descriptor match reads are checked.
+const requireRegistry = (registry) => {
+  object(registry, 'registry');
+  array(registry.effects, 'registry.effects');
+  registry.effects.forEach((effect, index) => {
+    const path = `registry.effects[${index}]`;
+    object(effect, path);
+    if (typeof effect.effect_id !== 'string')
+      fail('schema', 'INVALID_EFFECT_ID', `${path}.effect_id`, 'Expected a string.');
+    object(effect.descriptor, `${path}.descriptor`);
+    array(effect.descriptor.parameters, `${path}.descriptor.parameters`);
+    array(effect.capability_profiles ?? [], `${path}.capability_profiles`);
+  });
+  return registry.effects;
+};
+
 export function classifyExport(compiled, registry, capabilityProfile) {
   if (compiled.status !== 'VALID')
     return { kind: 'REJECTED', diagnostics: compiled.diagnostics };
-  const matches = registry.effects.filter((effect) =>
+  const matches = requireRegistry(registry).filter((effect) =>
     effect.descriptor_digest === compiled.descriptor_digest &&
     stableStringify(descriptorIdentity(effect.descriptor)) === compiled.descriptor_json);
   if (matches.length > 1)
