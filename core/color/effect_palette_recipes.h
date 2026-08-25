@@ -207,41 +207,41 @@ public:
   }
 
   HS_COLD_MEMBER void init(Arena &arena, float chroma, float (*easing)(float)) {
-    chroma_ = chroma;
-    triadic_.init_generated(arena, next_triadic, this, DWELL_FRAMES,
-                            FADE_FRAMES, easing);
-    complementary_.init_generated(arena, next_complementary, this, DWELL_FRAMES,
-                                  FADE_FRAMES, easing);
-    analogous_.init_generated(arena, next_analogous, this, DWELL_FRAMES,
-                              FADE_FRAMES, easing);
+    this->chroma = chroma;
+    triadic.init_generated(arena, next_triadic, this, DWELL_FRAMES, FADE_FRAMES,
+                           easing);
+    complementary.init_generated(arena, next_complementary, this, DWELL_FRAMES,
+                                 FADE_FRAMES, easing);
+    analogous.init_generated(arena, next_analogous, this, DWELL_FRAMES,
+                             FADE_FRAMES, easing);
   }
 
   template <typename PaletteMode> void step(PaletteMode visible) {
-    step_one(triadic_, visible == PaletteMode::TRIADIC);
-    step_one(complementary_, visible == PaletteMode::COMPLEMENTARY);
-    step_one(analogous_, visible == PaletteMode::ANALOGOUS);
+    step_one(triadic, visible == PaletteMode::TRIADIC);
+    step_one(complementary, visible == PaletteMode::COMPLEMENTARY);
+    step_one(analogous, visible == PaletteMode::ANALOGOUS);
   }
 
   template <typename PaletteMode>
   HS_COLD_MEMBER const BakedPalette &palette(PaletteMode mode) const {
     switch (mode) {
     case PaletteMode::TRIADIC:
-      return triadic_.palette();
+      return triadic.palette();
     case PaletteMode::COMPLEMENTARY:
-      return complementary_.palette();
+      return complementary.palette();
     case PaletteMode::ANALOGOUS:
-      return analogous_.palette();
+      return analogous.palette();
     }
     __builtin_unreachable();
   }
 
   HS_COLD_MEMBER void set_chroma(float chroma) {
-    if (chroma == chroma_)
+    if (chroma == this->chroma)
       return;
-    chroma_ = chroma;
-    triadic_.set_generated_chroma(chroma);
-    complementary_.set_generated_chroma(chroma);
-    analogous_.set_generated_chroma(chroma);
+    this->chroma = chroma;
+    triadic.set_generated_chroma(chroma);
+    complementary.set_generated_chroma(chroma);
+    analogous.set_generated_chroma(chroma);
   }
 
   static void next_palette(uint32_t &hue, uint32_t sequence,
@@ -265,31 +265,31 @@ private:
   static void next_triadic(void *context, uint32_t sequence,
                            GenerativePalette &out) {
     auto &bank = *static_cast<GeneratedPaletteBank *>(context);
-    next_palette(bank.triadic_hue_, sequence, PaletteHarmony::TRIADIC,
-                 bank.chroma_, out);
+    next_palette(bank.triadic_hue, sequence, PaletteHarmony::TRIADIC,
+                 bank.chroma, out);
   }
 
   static void next_complementary(void *context, uint32_t sequence,
                                  GenerativePalette &out) {
     auto &bank = *static_cast<GeneratedPaletteBank *>(context);
-    next_palette(bank.complementary_hue_, sequence,
-                 PaletteHarmony::COMPLEMENTARY, bank.chroma_, out);
+    next_palette(bank.complementary_hue, sequence,
+                 PaletteHarmony::COMPLEMENTARY, bank.chroma, out);
   }
 
   static void next_analogous(void *context, uint32_t sequence,
                              GenerativePalette &out) {
     auto &bank = *static_cast<GeneratedPaletteBank *>(context);
-    next_palette(bank.analogous_hue_, sequence, PaletteHarmony::ANALOGOUS,
-                 bank.chroma_, out);
+    next_palette(bank.analogous_hue, sequence, PaletteHarmony::ANALOGOUS,
+                 bank.chroma, out);
   }
 
-  PaletteCycler triadic_;
-  PaletteCycler complementary_;
-  PaletteCycler analogous_;
-  uint32_t triadic_hue_ = 0;
-  uint32_t complementary_hue_ = 0;
-  uint32_t analogous_hue_ = 0;
-  float chroma_ = 0.62f;
+  PaletteCycler triadic;
+  PaletteCycler complementary;
+  PaletteCycler analogous;
+  uint32_t triadic_hue = 0;
+  uint32_t complementary_hue = 0;
+  uint32_t analogous_hue = 0;
+  float chroma = 0.62f;
 };
 
 /** @brief One row of the authoring tool's preset roster. */
