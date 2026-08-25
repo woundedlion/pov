@@ -789,6 +789,12 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
                     Arena &persistent) {
   // Topology via accessors (borrowed-mode safe); vertices/topology are direct.
   size_t F = mesh.get_face_counts_size();
+  const uint8_t *face_counts = mesh.get_face_counts_data();
+  const uint16_t *faces = mesh.get_faces_data();
+  size_t I = mesh.get_faces_size();
+  // Above the topology_key publish: a key over connectivity that disagrees with
+  // its counts must never be handed out.
+  require_flat_face_length(face_counts, F, I);
 
   // Bound above the scratch guard: persistent may alias scratch_a, whose rewind
   // would free the topology block on return. Binding unconditionally reuses the
@@ -796,9 +802,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   // bind()'s stale-binding contract if a different arena is passed while
   // capacity happens to suffice.
   mesh.topology.bind(persistent, F);
-  mesh.topology_key =
-      connectivity_key(mesh.get_face_counts_data(), F, mesh.get_faces_data(),
-                       mesh.get_faces_size());
+  mesh.topology_key = connectivity_key(face_counts, F, faces, I);
   // A face-less mesh has nothing to classify, and the half-edge and node
   // allocations below reject zero-size requests.
   if (F == 0)
@@ -809,10 +813,6 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 
   ScratchScope scratch_a_guard(scratch_a);
 
-  size_t I = mesh.get_faces_size();
-  const uint8_t *face_counts = mesh.get_face_counts_data();
-  const uint16_t *faces = mesh.get_faces_data();
-  require_flat_face_length(face_counts, F, I);
   // All faces zero-sided: no edges to hash, and the half-edge allocations below
   // reject zero-size requests. Every face keeps the class 0 pushed above.
   if (I == 0)
