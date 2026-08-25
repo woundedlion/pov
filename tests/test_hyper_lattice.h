@@ -354,6 +354,61 @@ inline void test_specialized_slice_transition() {
   }
 }
 
+inline void test_specialized_render_signature() {
+  static constexpr Vector DIRECTIONS[] = {
+      {1.0f, 0.0f, 0.0f},
+      {0.0f, 1.0f, 0.0f},
+      {0.0f, 0.0f, 1.0f},
+      {0.577350269f, 0.577350269f, 0.577350269f},
+      {-0.707106781f, 0.707106781f, 0.0f},
+      {0.301511345f, -0.904534034f, 0.301511345f},
+      {0.267261242f, 0.534522484f, 0.801783726f},
+      {-0.408248290f, 0.816496581f, -0.408248290f},
+      {0.923879533f, 0.382683432f, 0.0f},
+      {-0.270598050f, 0.653281482f, 0.707106781f},
+      {0.5f, -0.5f, 0.707106781f},
+      {-1.0f, 0.0f, 0.0f},
+  };
+  static constexpr HL::Vec4 ORIGINS[] = {
+      {{0.17f, 0.31f, 0.43f, 0.59f}},
+      {{0.91f, 0.07f, 0.73f, 0.37f}},
+  };
+  static constexpr std::array<float, 6> ROTATIONS[] = {
+      {0.0f, 0.3f, 0.7f, 0.11f, 0.23f, 0.41f},
+      {1.1f, 2.3f, 0.4f, 0.53f, 0.19f, 0.87f},
+  };
+
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  uint64_t signature = hs_test::FNV1A64_BASIS;
+  for (size_t index = 0; index < std::size(ORIGINS); ++index) {
+    const HL::FrameState context{
+        HyperLatticeWhiteBox::Effect::preset_params(1),
+        ORIGINS[index],
+        ROTATIONS[index],
+        HL::pixel_half_angle<288, 144>(),
+        HyperLatticeWhiteBox::depth_palette(effect),
+        HyperLatticeWhiteBox::axis_palette(effect),
+    };
+    const auto frame = HL::SpecializedRenderPipeline::prepare(context);
+    for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
+      const Color4 color = HL::SpecializedRenderPipeline::evaluate(
+          DIRECTIONS[sample], frame.ctx, frame.prepared);
+      signature = hs_test::fnv1a64_channel(signature, color.color.r);
+      signature = hs_test::fnv1a64_channel(signature, color.color.g);
+      signature = hs_test::fnv1a64_channel(signature, color.color.b);
+      signature = hs_test::fnv1a64_channel(signature, frac_to_q16(color.alpha));
+    }
+  }
+#if defined(HS_TEST_FAST_MATH)
+  // fast_wire_coverage's Newton reciprocal reassociates under the shipping
+  // flag pair; the IEEE legs carry the pin.
+  hs_test::skip_case();
+#else
+  HS_EXPECT_EQ(signature, uint64_t(14359959135586801231ull));
+#endif
+}
+
 inline void test_presets_and_pipeline() {
   using Effect = HyperLattice<96, 20>;
   static_assert(HL::RenderPipeline::STAGE_COUNT == 1);
@@ -446,6 +501,7 @@ inline int run_hyper_lattice_tests() {
   test_coincident_planes_form_one_layer();
   test_render_signature();
   test_specialized_slice_transition();
+  test_specialized_render_signature();
   test_presets_and_pipeline();
   test_dimension_dropdown_and_mode_lerp();
   return fixture.result();
