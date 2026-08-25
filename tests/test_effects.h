@@ -2671,6 +2671,54 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_EQ(WB::active_bake(db), 1);
   HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(0));
 
+  const auto &rhombicuboctahedron = WB::preset_params(0);
+  HS_EXPECT_EQ(rhombicuboctahedron.base_mesh,
+               WB::DB::BaseMesh::RHOMBICUBOCTAHEDRON);
+  HS_EXPECT_EQ(rhombicuboctahedron.weave_topology,
+               WB::DB::WeaveTopology::AUTOMATIC);
+  HS_EXPECT_NEAR(rhombicuboctahedron.weave_gap, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicuboctahedron.num_copies, 18.0f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicuboctahedron.offset_radius, 0.3f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicuboctahedron.offset_speed, 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicuboctahedron.warp_scale, 0.3f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicuboctahedron.alpha, 0.7f, 1e-6f);
+
+  const auto &rhombicosidodecahedron = WB::preset_params(1);
+  HS_EXPECT_EQ(rhombicosidodecahedron.base_mesh,
+               WB::DB::BaseMesh::RHOMBICOSIDODECAHEDRON);
+  HS_EXPECT_EQ(rhombicosidodecahedron.weave_topology,
+               WB::DB::WeaveTopology::AUTOMATIC);
+  HS_EXPECT_NEAR(rhombicosidodecahedron.weave_gap, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicosidodecahedron.num_copies, 6.0f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicosidodecahedron.offset_radius, 0.05f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicosidodecahedron.offset_speed, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicosidodecahedron.warp_scale, 1.8f, 1e-6f);
+  HS_EXPECT_NEAR(rhombicosidodecahedron.alpha, 0.7f, 1e-6f);
+
+  const auto &truncated_cuboctahedron = WB::preset_params(2);
+  HS_EXPECT_EQ(truncated_cuboctahedron.base_mesh,
+               WB::DB::BaseMesh::TRUNCATED_CUBOCTAHEDRON);
+  HS_EXPECT_EQ(truncated_cuboctahedron.weave_topology,
+               WB::DB::WeaveTopology::AUTOMATIC);
+  HS_EXPECT_NEAR(truncated_cuboctahedron.weave_gap, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_cuboctahedron.num_copies, 6.0f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_cuboctahedron.offset_radius, 0.16f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_cuboctahedron.offset_speed, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_cuboctahedron.warp_scale, 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(truncated_cuboctahedron.alpha, 0.3f, 1e-6f);
+
+  const auto &icosidodecahedron = WB::preset_params(3);
+  HS_EXPECT_EQ(icosidodecahedron.base_mesh,
+               WB::DB::BaseMesh::ICOSIDODECAHEDRON);
+  HS_EXPECT_EQ(icosidodecahedron.weave_topology,
+               WB::DB::WeaveTopology::AUTOMATIC);
+  HS_EXPECT_NEAR(icosidodecahedron.weave_gap, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(icosidodecahedron.num_copies, 10.0f, 1e-6f);
+  HS_EXPECT_NEAR(icosidodecahedron.offset_radius, 0.16f, 1e-6f);
+  HS_EXPECT_NEAR(icosidodecahedron.offset_speed, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(icosidodecahedron.warp_scale, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(icosidodecahedron.alpha, 0.3f, 1e-6f);
+
   const auto &snub_cube = WB::preset_params(4);
   HS_EXPECT_EQ(snub_cube.base_mesh, WB::DB::BaseMesh::SNUB_CUBE);
   HS_EXPECT_EQ(snub_cube.weave_topology, WB::DB::WeaveTopology::AUTOMATIC);
