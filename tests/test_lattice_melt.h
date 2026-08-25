@@ -202,7 +202,18 @@ inline void test_lattice_melt_full_timeline_retries_transition() {
   HS_EXPECT_FALSE(WB::transition_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
 
+  // The rejection restarts the dwell, so the retry costs one drop per dwell
+  // rather than one per frame.
+  for (uint16_t f = 1; f < FX::PRESET_DWELL_FRAMES; ++f)
+    WB::tick_choreography(effect);
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 1);
+  WB::tick_choreography(effect);
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 2);
+
   WB::clear_timeline(effect);
+  for (uint16_t f = 1; f < FX::PRESET_DWELL_FRAMES; ++f)
+    WB::tick_choreography(effect);
+  HS_EXPECT_FALSE(WB::transition_active(effect));
   WB::tick_choreography(effect);
   HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
