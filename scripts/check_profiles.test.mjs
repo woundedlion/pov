@@ -35,7 +35,7 @@ test('validateReport accepts the checked-in timing report contract', async () =>
   let reportCount = 0;
   for (const directory of directories) {
     const reports = await reportsIn(PROFILES_DIR, directory, errors);
-    for (const [key, { date, file }] of reports) {
+    for (const { key, date, file } of reports) {
       const report = await readFile(join(PROFILES_DIR, directory, file), 'utf8');
       validateReport(report, directory, key, date, file, errors);
       ++reportCount;
@@ -87,8 +87,26 @@ test('reportsIn rejects an empty profile set', async t => {
   await writeFile(join(root, 'O3', 'README.md'), '# Global-O3 profiles\n');
   const errors = [];
   const reports = await reportsIn(root, 'O3', errors);
-  assert.equal(reports.size, 0);
+  assert.equal(reports.length, 0);
   assert.deepEqual(errors, ['O3 has no profile reports']);
+});
+
+test('reportsIn keeps both reports when two share an effect key', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'holosphere-profiles-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, 'O3'));
+  await writeFile(join(root, 'O3', 'README.md'), '# Global-O3 profiles\n');
+  for (const date of ['2026-08-23', '2026-08-24']) {
+    await writeFile(join(root, 'O3', `profile_example_teensy_${date}.md`),
+      validReport);
+  }
+  const errors = [];
+  const reports = await reportsIn(root, 'O3', errors);
+  assert.deepEqual(reports.map(report => report.file), [
+    'profile_example_teensy_2026-08-23.md',
+    'profile_example_teensy_2026-08-24.md',
+  ]);
+  assert.deepEqual(errors, ['O3 has multiple reports for example']);
 });
 
 test('profileDirectories derives timing sets from their local indexes', async t => {
