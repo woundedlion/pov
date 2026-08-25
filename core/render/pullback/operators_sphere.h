@@ -194,6 +194,11 @@ struct LensTwist : FixedLensModel<LensTwist> {
   static Vector lens(const Vector &input) { return lenses::twist_lens(input); }
 };
 
+/** @brief Slider range of each flat Mobius coefficient, single-sourced from
+    the lens family the composed path registers over. */
+inline constexpr float MOBIUS_COEFFICIENT_LIMIT =
+    Lens::MobiusLensParams::COEFFICIENT_LIMIT;
+
 /** @brief Parameter family of sphere.lens.mobius.v2: the flat coefficient
     fields the chain registers.
     @details The composed-effect path registers the same eight coefficients by
@@ -212,21 +217,29 @@ struct MobiusChainParams {
 
   static constexpr auto FIELDS = std::array{
       Field<MobiusChainParams>{"mobius-a-re", &MobiusChainParams::a_re,
-                               "Mobius A Re", -4.0f, 4.0f, FieldCurve::LERP},
+                               "Mobius A Re", -MOBIUS_COEFFICIENT_LIMIT,
+                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::LERP},
       Field<MobiusChainParams>{"mobius-a-im", &MobiusChainParams::a_im,
-                               "Mobius A Im", -4.0f, 4.0f, FieldCurve::LERP},
+                               "Mobius A Im", -MOBIUS_COEFFICIENT_LIMIT,
+                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::LERP},
       Field<MobiusChainParams>{"mobius-b-re", &MobiusChainParams::b_re,
-                               "Mobius B Re", -4.0f, 4.0f, FieldCurve::LERP},
+                               "Mobius B Re", -MOBIUS_COEFFICIENT_LIMIT,
+                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::LERP},
       Field<MobiusChainParams>{"mobius-b-im", &MobiusChainParams::b_im,
-                               "Mobius B Im", -4.0f, 4.0f, FieldCurve::LERP},
+                               "Mobius B Im", -MOBIUS_COEFFICIENT_LIMIT,
+                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::LERP},
       Field<MobiusChainParams>{"mobius-c-re", &MobiusChainParams::c_re,
-                               "Mobius C Re", -4.0f, 4.0f, FieldCurve::LERP},
+                               "Mobius C Re", -MOBIUS_COEFFICIENT_LIMIT,
+                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::LERP},
       Field<MobiusChainParams>{"mobius-c-im", &MobiusChainParams::c_im,
-                               "Mobius C Im", -4.0f, 4.0f, FieldCurve::LERP},
+                               "Mobius C Im", -MOBIUS_COEFFICIENT_LIMIT,
+                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::LERP},
       Field<MobiusChainParams>{"mobius-d-re", &MobiusChainParams::d_re,
-                               "Mobius D Re", -4.0f, 4.0f, FieldCurve::LERP},
+                               "Mobius D Re", -MOBIUS_COEFFICIENT_LIMIT,
+                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::LERP},
       Field<MobiusChainParams>{"mobius-d-im", &MobiusChainParams::d_im,
-                               "Mobius D Im", -4.0f, 4.0f, FieldCurve::LERP},
+                               "Mobius D Im", -MOBIUS_COEFFICIENT_LIMIT,
+                               MOBIUS_COEFFICIENT_LIMIT, FieldCurve::LERP},
   };
 };
 static_assert(field_ids_unique<MobiusChainParams>());
