@@ -359,8 +359,12 @@ template <> inline constexpr float arc_stretch<Star> = 2.0f;
 // no disc clamp, so its azimuth term carries (PI - scan_dist)/sin(scan_dist)
 // and the fold axis itself is on the surface: every petal meets there.
 template <> inline constexpr float arc_stretch<Flower> = ARC_STRETCH_UNBOUNDED;
+// The signed sector fold is discontinuous in position at every boundary: a
+// probe either side folds to opposite ends of the sector, so the child's
+// distance jumps unless it is mirror-symmetric about the bisector.
 template <typename Shape>
-inline constexpr float arc_stretch<AngularRepeat<Shape>> = arc_stretch<Shape>;
+inline constexpr float arc_stretch<AngularRepeat<Shape>> =
+    ARC_STRETCH_UNBOUNDED;
 template <typename A, typename B>
 inline constexpr float arc_stretch<Union<A, B>> =
     std::max(arc_stretch<A>, arc_stretch<B>);
