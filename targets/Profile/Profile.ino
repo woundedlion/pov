@@ -702,9 +702,15 @@ Effect *construct_profiled() {
 #endif
 #endif
 #ifdef HS_PROFILE_TRANS_SPEED
-  // Per-run knob (e.g. IslamicStars carousel speed-up so a single epoch walks the
-  // whole shape roster). No-op for effects that don't register "Trans Speed".
-  e->updateParameter("Trans Speed", (float)(HS_PROFILE_TRANS_SPEED));
+  // Per-run knob (e.g. IslamicStars carousel speed-up so a single epoch walks
+  // the whole shape roster). The name is resolved at runtime, so this is the
+  // counterpart of the HS_PROFILE_PRESET static_assert: a capture whose knob
+  // never landed would report timings for the default speed.
+  const ParamSetResult trans_speed_set =
+      e->updateParameter("Trans Speed", (float)(HS_PROFILE_TRANS_SPEED));
+  HS_CHECK(trans_speed_set == ParamSetResult::APPLIED,
+           "HS_PROFILE_TRANS_SPEED target does not accept a \"Trans Speed\" "
+           "write");
 #endif
   return e;
 }
