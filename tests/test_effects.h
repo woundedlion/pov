@@ -3972,10 +3972,11 @@ inline void test_raymarch_surface_frame_uv() {
 
 /**
  * @brief Pins the constexpr Newton square root behind UNIT_BOUNDS against libm.
- * @details Eight fixed iterations from a unit seed. It runs only at compile
- *          time, so nothing else would notice it under-converging, and its one
- *          consumer is the cull-sphere radius — where a low answer culls real
- *          surface. A non-positive radicand short-circuits to 0.
+ * @details It runs only at compile time, so nothing else would notice it
+ *          under-converging, and its consumers are the Raymarch cull-sphere
+ *          radius — where a low answer culls real surface — and Voronoi's
+ *          coherence-block floor at MAX_SITES. A non-positive radicand
+ *          short-circuits to 0.
  */
 inline void test_raymarch_constexpr_sqrt_converges() {
   using WB = RaymarchWhiteBox;
@@ -3990,6 +3991,16 @@ inline void test_raymarch_constexpr_sqrt_converges() {
   const float radicand = WB::MAJOR * WB::MAJOR + WB::TWIST * WB::TWIST;
   HS_EXPECT_NEAR(constexpr_sqrt(radicand), std::sqrt(radicand), 1e-7);
 
+  // Radicands far outside O(1), where a fixed iteration count stops short.
+  for (int i = 0; i < 6; ++i) {
+    const float x = std::pow(10.0f, static_cast<float>(4 * i + 2));
+    HS_CONTEXT("decade", static_cast<long long>(4 * i + 2));
+    HS_EXPECT_NEAR_REL(static_cast<double>(constexpr_sqrt(x)),
+                       std::sqrt(static_cast<double>(x)), 1e-6);
+  }
+
+  static_assert(constexpr_sqrt(400.0f) == 20.0f);
+  static_assert(constexpr_sqrt(1.0e4f) == 100.0f);
   static_assert(constexpr_sqrt(0.0f) == 0.0f);
   static_assert(constexpr_sqrt(-1.0f) == 0.0f);
   HS_EXPECT_EQ(constexpr_sqrt(0.0f), 0.0f);
