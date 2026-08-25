@@ -1,5 +1,87 @@
 # HyperLattice optimization plan — sub-59 ms/frame
 
+## Preset 3 retarget and current result
+
+Preset 3 now uses the requested values exactly. The former leading `1.0f`
+dimension value maps to the discrete `LatticeMode::FOUR_D_SLICE` mode:
+
+```cpp
+{LatticeMode::FOUR_D_SLICE, 0.0f, 0.03546f, 0.029612f, 7.264f,
+ 1.0f, 0.03f, 0.01089f, 0.015f, 0.65f,
+ ReflectionMode::CHROME, ColorMode::DEPTH, ShellCount::THREE}
+```
+
+The final COM3 capture holds preset 3 directly for 70 seconds under the real
+segmented driver. It validates as preset 3/5 and measures a **64.71 ms** worst
+16-frame shader mean and **70.44 ms** maximum frame, spilling 346/736 frames.
+The strict 59 ms target is therefore not met. The integrated Phantasm image
+passes the memory gate with 191,944 bytes of RAM1 code and 1,592 bytes of ITCM
+headroom.
+
+The corresponding raw capture is
+`build/prof/hyperlattice_new_preset3_final_master_ship.log`. The native
+HyperLattice module passes 840 assertions, including exact preset fields,
+the pinned combined render signature, and equality between dynamic and
+projected shader dispatch.
+
+### Exact changes retained
+
+- Reject 4D plane metrics once their two smallest periodic components already
+  exceed the squared outer radius. This preserves the exact metric for every
+  plane that can contribute and avoids the remaining component work for
+  misses.
+- Skip the surface-origin matrix transform when `sphere_radius == 0`, as in
+  this preset.
+- Precompute the radius-plus-softness frame invariant.
+- Dispatch slice and projected modes once per frame. Their per-pixel shaders
+  are emitted as separate cached-flash blocks, so projected tracing cannot
+  inflate slice register pressure or instruction-cache footprint.
+
+On the rebased pre-dispatch image, preset 3 measured 67.57 ms worst-window mean
+and 73.11 ms peak. The final split image measures 64.71/70.44 ms, an exact
+2.86 ms mean and 2.67 ms peak recovery. On the superseded first projected-mode
+implementation, the same split also reduced projected preset 4's late-phase
+mean from 119.44 to 91.21 ms and its peak from 123.06 to 94.07 ms. Those preset
+4 figures document the dispatch A/B only; the later screen-coherent projected
+line redesign needs its own current baseline.
+
+### What the preset-specific deep profile says
+
+One segmented frame shades 10,658 pixels. In the hot preset-3 window it runs
+about 108,000 ordered-event iterations, 98,000 plane evaluations, and 18,000
+visible-layer composites. Roughly 5.4 plane candidates are rejected for every
+one composited, so the dominant opportunity remains eliminating rejected
+plane work rather than changing palette lookup or final compositing.
+
+The square roots are not the culprit that source inspection suggests. Device
+GCC emits `sqrtf` as one Cortex-M7 `vsqrt.f32`. A two-Newton reciprocal-square-
+root replacement regressed timing and increased spills; a one-Newton version
+also regressed and changed up to 169/65,535 in a sampled channel. Squared-domain
+coverage ramps produced plainly unacceptable sampled errors, up to 67.8% of a
+channel. Hardware square root remains the best implementation.
+
+Selective `-O3`/fast-math on the hot cached shader remains appropriate. Global
+`-O3` was slightly slower on the requested preset (60.65 vs 60.36 ms worst mean
+in the pre-projected-code matched pair), so broadening optimization attributes
+is rejected. Compile-time specialization of every lattice mode was also
+rejected: it shrank the slice instruction stream but expanded the live stack
+from 196 to 276 bytes and regressed the measured worst mean to 70.58 ms.
+
+### Next work toward 59 ms
+
+The next candidate should be a conservative event-level contribution bound:
+combine remaining transmittance, maximum possible fog/near coverage, and the
+16-bit output threshold to stop only when all later layers are provably or
+perceptually unobservable. A fixed remaining-alpha cutoff had no measurable
+effect, so the bound must account for the maximum contribution of all pending
+events.
+
+If that does not close the 5.71 ms worst-window gap, test distant-shell-only
+mixed resolution while retaining the nearest shell at full resolution. The
+user has approved imperceptible pixel differences, but each approximation must
+still be judged with full-preset error histograms, temporal diffs, and an
+on-device side-by-side before acceptance.
+
 ## Outcome
 
 The quality-neutral implementation pass cuts the full-cycle shipping peak from
