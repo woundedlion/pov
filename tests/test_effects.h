@@ -499,6 +499,8 @@ inline void determinism_one(const char *name) {
             "effect must render identically every frame across runs under a "
             "fixed clock");
 
+  HS_EXPECT_SIZE_OR_RETURN(b, a.size());
+
   int first_diff = -1;
   for (size_t i = 0; i < a.size(); ++i)
     if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b) {
