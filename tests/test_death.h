@@ -807,6 +807,42 @@ inline void case_bevel_aliased_arenas() {
   MeshOps::bevel(mesh, arena, arena);
 }
 
+/** @brief Death case: ambo rejects one arena passed as both target and temp. */
+inline void case_ambo_aliased_arenas() {
+  static uint8_t buf[64];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh mesh;
+  MeshOps::ambo(mesh, arena, arena);
+}
+
+/**
+ * @brief Death case: MeshOps::compile rejects one arena passed as both the
+ *        geometry arena and the scratch arena.
+ */
+inline void case_mesh_compile_aliased_arenas() {
+  static uint8_t buf[64];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh src;
+  MeshState dst;
+  MeshOps::compile(src, dst, arena, arena);
+}
+
+/** @brief Death case: MeshOps::clone rejects a self-aliased destination. */
+inline void case_mesh_ops_clone_aliases_dst() {
+  static uint8_t buf[64];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh mesh;
+  MeshOps::clone(mesh, mesh, arena);
+}
+
+/** @brief Death case: MeshState::clone rejects a self-aliased destination. */
+inline void case_mesh_state_clone_aliases_dst() {
+  static uint8_t buf[64];
+  Arena arena(buf, sizeof(buf));
+  MeshState mesh;
+  MeshState::clone(mesh, mesh, arena);
+}
+
 /**
  * @brief Death case: MeshOps::transform rejects a self-aliased destination.
  * @details set_borrowed() drops the source's owned topology before it is read,
@@ -3419,6 +3455,18 @@ inline const Case *all_cases(int &n) {
        "(&target != &temp) gyro: target and temp must differ"},
       {"bevel_aliased_arenas", case_bevel_aliased_arenas, "conway.h",
        "(&target != &temp) bevel: target and temp must differ"},
+      {"ambo_aliased_arenas", case_ambo_aliased_arenas, "conway.h",
+       "(&target != &temp) ambo: target and temp must differ"},
+      {"mesh_compile_aliased_arenas", case_mesh_compile_aliased_arenas,
+       "mesh.h",
+       "(&geom_arena != &scratch) MeshOps::compile geom_arena must not alias "
+       "scratch"},
+      {"mesh_ops_clone_aliases_dst", case_mesh_ops_clone_aliases_dst, "mesh.h",
+       "(&src != &dst) MeshOps::clone src must not alias dst"},
+      {"mesh_state_clone_aliases_dst", case_mesh_state_clone_aliases_dst,
+       "mesh_state.h",
+       "(&src != &dst) MeshState::clone src must not alias "
+       "dst"},
       {"mesh_transform_aliases_source", case_mesh_transform_aliases_source,
        "conway.h",
        "(&mesh != &transformed) MeshOps::transform source mesh must not alias "
@@ -4218,12 +4266,12 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"lenses.h", 2},
     {"spherical_field.h", 2},
     {"waves.h", 1},
-    {"conway.h", 31},
+    {"conway.h", 30},
     {"conway_graph.h", 1},
     {"hankin.h", 9},
-    {"mesh.h", 21},
+    {"mesh.h", 19},
     {"mesh_classes.h", 6},
-    {"mesh_state.h", 3},
+    {"mesh_state.h", 2},
     {"recipe.h", 13},
     {"solid_generators.h", 5},
     {"solids.h", 2},
