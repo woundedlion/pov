@@ -9,6 +9,7 @@ import json
 import re
 import struct
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -603,7 +604,11 @@ def main() -> int:
         OSError,
         subprocess.SubprocessError,
     ) as error:
-        parser.error(str(error))
+        # Not parser.error: these are oracle/manifest violations, not argument
+        # mistakes, and its usage dump buries them under an exit code the
+        # caller cannot tell from a typo on the command line.
+        print(f"pullback_capture: {error}", file=sys.stderr)
+        return 1
     return 0
 
 
