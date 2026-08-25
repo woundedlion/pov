@@ -960,10 +960,17 @@ protected:
   using Choreography::params;
   using Choreography::step_choreography;
   using Choreography::register_animated_param;
-  using Choreography::register_fields;
   using Choreography::timeline;
   using Choreography::transition;
   using Choreography::use_parameter_storage;
+
+  /** @brief Registers a slider for every named field in the family's table. */
+  template <typename T> HS_COLD_MEMBER void register_fields(T &family) {
+    for (const auto &field : T::FIELDS)
+      if (field.name != nullptr && Derived::field_gate_open(field.gate))
+        register_animated_param(field.name, &(family.*(field.member)),
+                                field.min, field.max);
+  }
 
   /** @brief Adopts a snap target and re-derives the palette mapping weights. */
   HS_COLD_MEMBER void adopt_params(const Params &target) {
