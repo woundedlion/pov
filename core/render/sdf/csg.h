@@ -686,15 +686,27 @@ template <typename Shape> struct AngularRepeat {
   AngularRepeat(const Shape &&, int) = delete;
 
   /**
+   * @brief Reports whether the fold axis is Y closely enough for the cull.
+   * @return True when the axis' off-Y components are within the tolerated tilt.
+   * @details Gates on the components perpendicular to Y, which are the cross
+   * product with Y: an axis.y threshold is a squared bound on the same
+   * quantity, so it admits a far larger tilt than it reads as. Independent of
+   * the axis' normalization, which the constructor only bounds loosely.
+   */
+  bool folds_about_y() const {
+    return axis.x * axis.x + axis.z * axis.z <= ANGULAR_REPEAT_Y_AXIS_TOL_SQ;
+  }
+
+  /**
    * @brief Row bounds for the repeated shape.
    * @tparam H Canvas height in rows.
    * @return The child's band for a Y-axis fold; the full canvas otherwise.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    // Only a Y-axis fold (axis.y near ±1) preserves latitude; any other axis
-    // sweeps latitudes the child never occupies, so its band cannot bound the
-    // copies and every row must be scanned.
-    if (fabsf(axis.y) < 1.0f - TOLERANCE)
+    // Only a Y-axis fold preserves latitude; any other axis sweeps latitudes
+    // the child never occupies, so its band cannot bound the copies and every
+    // row must be scanned.
+    if (!folds_about_y())
       return {0, H - 1};
     return shape.template get_vertical_bounds<H>();
   }
@@ -718,7 +730,7 @@ template <typename Shape> struct AngularRepeat {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (fabsf(axis.y) < 1.0f - TOLERANCE)
+    if (!folds_about_y())
       return false;
 
     ScratchScope scratch(scratch_arena_b);

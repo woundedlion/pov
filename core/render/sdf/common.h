@@ -142,6 +142,12 @@ inline constexpr size_t ANGULAR_REPEAT_SPAN_CAP = 8;
  *  fast_sinf/fast_cosf reconstruction of the folded direction. */
 inline constexpr float ANGULAR_REPEAT_FOLD_SLOP = 0.01f;
 
+/** Largest squared off-axis magnitude (|axis x Y|^2 = x^2 + z^2) that still
+ *  counts as a Y-axis fold for AngularRepeat's cull: a tilt of 1e-4 rad, whose
+ *  induced azimuth displacement stays inside ANGULAR_REPEAT_FOLD_SLOP even on
+ *  the near-pole rows where the 1 / sin(phi) amplification peaks. */
+inline constexpr float ANGULAR_REPEAT_Y_AXIS_TOL_SQ = 1e-8f;
+
 /** Per-row accumulator for a binary CSG op that merges BOTH children's spans
  *  into one buffer (Union/SmoothUnion). Each child can contribute up to
  *  INTERVAL_SPAN_CAP spans, so the union accumulator is sized to hold both. */

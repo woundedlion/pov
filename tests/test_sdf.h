@@ -2410,6 +2410,30 @@ inline void test_angular_repeat_y_axis_cull_narrows_rows() {
 }
 
 /**
+ * @brief Verifies a slightly tilted fold axis forfeits the Y-fold cull.
+ * @details The copies of a tilted fold drift in latitude and azimuth by the
+ *   tilt, past what the fold slop pads, so the child's band and spans no longer
+ *   bound them. An axis.y threshold is a squared bound on the tilt and lets
+ *   such an axis through; the off-axis test must reject it.
+ */
+inline void test_angular_repeat_tilted_axis_forfeits_cull() {
+  constexpr int W = 288, H = 144;
+  constexpr int REPS = 5;
+  init_geometry_luts<W, H>();
+  // ~5e-3 rad off +Y: well inside a 1e-4 axis.y threshold, well outside the
+  // tilt the padded spans can absorb.
+  const float tilt = 5e-3f;
+  SDF::Line ln(Vector(0.25f, 1, 0).normalized(),
+               Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
+  SDF::AngularRepeat<SDF::Line> rep(ln, REPS, Vector(tilt, 1, 0).normalized());
+  auto bounds = rep.get_vertical_bounds<H>();
+  HS_EXPECT_EQ(bounds.y_min, 0);
+  HS_EXPECT_EQ(bounds.y_max, H - 1);
+  bool handled = rep.get_horizontal_intervals<W, H>(H / 2, [](float, float) {});
+  HS_EXPECT_FALSE(handled);
+}
+
+/**
  * @brief Verifies the arc-extrema cull widens phi to a Line's great-circle bulge.
  * @details The Line's two endpoints share a latitude but its great-circle arc
  *   bulges to a pole between them. Endpoint-only vertical bounds clip the polar
@@ -3258,6 +3282,7 @@ inline int run_sdf_tests() {
   test_smooth_union_scans_rows_past_both_children();
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_angular_repeat_y_axis_cull_narrows_rows();
+  test_angular_repeat_tilted_axis_forfeits_cull();
   test_line_arc_bulge_cull_covers_interior();
   test_line_antipodal_cull_covers_interior();
   test_line_thick_cap_past_pi_cull_covers_interior();
