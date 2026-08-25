@@ -31,7 +31,7 @@ TEENSY_LIBRARY_REASON = (
     "  against this library file.")
 TEENSY_LIBID = "phantasm:Teensy4.0"
 MOUNTING_HOLE_FOOTPRINT = "MountingHole:MountingHole_2.7mm_M2.5"
-MOUNTING_KEEPOUT_RADIUS = 2.7
+MOUNTING_KEEPOUT_HALF_SIDE = 2.7
 MOUNTING_HOLE_INSET = 3.5
 
 # R-SI-1: SIG/GND/GND/SIG, so a trace on either outer layer has an adjacent
@@ -89,8 +89,8 @@ def mounting_holes(L):
 def keepout_rects(L):
     """All-copper keepout square (screw head) around each mounting hole, as
     ref -> (min x, min y, max x, max y)."""
-    kr = MOUNTING_KEEPOUT_RADIUS
-    return {ref: (x - kr, y - kr, x + kr, y + kr)
+    half = MOUNTING_KEEPOUT_HALF_SIDE
+    return {ref: (x - half, y - half, x + half, y + half)
             for ref, (x, y) in mounting_holes(L).items()}
 
 
@@ -567,12 +567,12 @@ def pack(bxs, width, edge=1.0, gap=1.2):
         return merged
 
     # 0) hub-end screw heads: block their squares before anything is placed
-    kr = MOUNTING_KEEPOUT_RADIUS
+    half = MOUNTING_KEEPOUT_HALF_SIDE
     for cy in (MOUNTING_HOLE_INSET, width - MOUNTING_HOLE_INSET):
-        yb = max(0.0, cy - kr - edge)
-        yt = min(usable, cy + kr - edge)
+        yb = max(0.0, cy - half - edge)
+        yt = min(usable, cy + half - edge)
         if yt > yb:
-            sky = reserve(yb, 2 * kr, yt - yb, MOUNTING_HOLE_INSET - kr - edge)
+            sky = reserve(yb, 2 * half, yt - yb, MOUNTING_HOLE_INSET - half - edge)
 
     # 1) hub connectors: column at the left edge; reserve it so the interior packs right
     if hub:
@@ -622,7 +622,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
     # 4) length: enough tail for the far-end screw heads to clear every part
     extent = max((x + _rot_bb(bxs[ref], rot)[2] for ref, (x, _, rot) in place.items()),
                  default=edge + right)
-    tail = max(edge, MOUNTING_HOLE_INSET + MOUNTING_KEEPOUT_RADIUS)
+    tail = max(edge, MOUNTING_HOLE_INSET + MOUNTING_KEEPOUT_HALF_SIDE)
     return place, math.ceil((extent + tail) * 100 - 1e-9) / 100
 
 
