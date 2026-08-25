@@ -93,35 +93,6 @@ struct TransitionalMetrics {
   EdgeMetric hyper;
 };
 
-inline TransitionalMetrics transitional_metrics(const Vec4 &point,
-                                                int plane_axis) {
-  float best_fixed = 1.0f;
-  float farthest_3d = -1.0f;
-  float sum_4d = 0.0f;
-  float farthest_4d = -1.0f;
-  uint8_t free_axis_3d = 0;
-  uint8_t free_axis_4d = 0;
-  for (int axis = 0; axis < DIMENSIONS; ++axis) {
-    if (axis == plane_axis)
-      continue;
-    const float distance = periodic_distance(point[axis]);
-    const float distance_sq = distance * distance;
-    sum_4d += distance_sq;
-    if (distance_sq > farthest_4d) {
-      farthest_4d = distance_sq;
-      free_axis_4d = static_cast<uint8_t>(axis);
-    }
-    if (axis < 3) {
-      best_fixed = std::min(best_fixed, distance_sq);
-      if (distance_sq > farthest_3d) {
-        farthest_3d = distance_sq;
-        free_axis_3d = static_cast<uint8_t>(axis);
-      }
-    }
-  }
-  return {{best_fixed, free_axis_3d}, {sum_4d - farthest_4d, free_axis_4d}};
-}
-
 __attribute__((always_inline)) inline float
 periodic_distance_at(const Vec4 &ray_origin, const Vec4 &direction, int axis,
                      float distance) {
@@ -213,47 +184,6 @@ inline bool edge_metric_4d_at_bounded(const Vec4 &ray_origin,
   default:
     return edge_metric_4d_axes_bounded<0, 1, 2, NEED_AXIS>(
         ray_origin, direction, distance, limit, limit_sq, result);
-  }
-}
-
-template <int AXIS0, int AXIS1, int AXIS2>
-__attribute__((always_inline)) EdgeMetric edge_metric_4d_axes(
-    const Vec4 &ray_origin, const Vec4 &direction, float distance) {
-  const float component0 =
-      periodic_distance_at(ray_origin, direction, AXIS0, distance);
-  const float component1 =
-      periodic_distance_at(ray_origin, direction, AXIS1, distance);
-  const float component2 =
-      periodic_distance_at(ray_origin, direction, AXIS2, distance);
-  const float component0_sq = component0 * component0;
-  const float component1_sq = component1 * component1;
-  const float component2_sq = component2 * component2;
-  const float sum = component0_sq + component1_sq + component2_sq;
-  float largest = component0_sq;
-  uint8_t free_axis = AXIS0;
-  if (component1_sq > largest) {
-    largest = component1_sq;
-    free_axis = AXIS1;
-  }
-  if (component2_sq > largest) {
-    largest = component2_sq;
-    free_axis = AXIS2;
-  }
-  return {sum - largest, free_axis};
-}
-
-inline EdgeMetric edge_metric_4d_at(const Vec4 &ray_origin,
-                                    const Vec4 &direction, int plane_axis,
-                                    float distance) {
-  switch (plane_axis) {
-  case 0:
-    return edge_metric_4d_axes<1, 2, 3>(ray_origin, direction, distance);
-  case 1:
-    return edge_metric_4d_axes<0, 2, 3>(ray_origin, direction, distance);
-  case 2:
-    return edge_metric_4d_axes<0, 1, 3>(ray_origin, direction, distance);
-  default:
-    return edge_metric_4d_axes<0, 1, 2>(ray_origin, direction, distance);
   }
 }
 
