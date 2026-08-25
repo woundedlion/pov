@@ -724,12 +724,26 @@ class TimestampNormalizationTests(unittest.TestCase):
                                     "cannot read exported artifact"):
             fab.normalize_fab_timestamps(directory)
 
-    def test_an_artifact_without_a_stamp_is_untouched(self):
+    def test_an_artifact_no_pattern_reaches_is_loud(self):
         directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        (directory / "phantasm-BOM.csv").write_bytes(b"Comment,Designator\r\n")
-        self.assertEqual(fab.normalize_fab_timestamps(directory), [])
-        self.assertEqual((directory / "phantasm-BOM.csv").read_bytes(),
-                         b"Comment,Designator\r\n")
+        (directory / "phantasm-F_Cu.gtl").write_bytes(
+            b"%TF.Creation-Date,2026-08-12T17:25:19-07:00*%\r\n")
+        with self.assertRaisesRegex(fab.TimestampNormalizationError,
+                                    "phantasm-F_Cu.gtl"):
+            fab.normalize_fab_timestamps(directory)
+
+    def test_a_respelled_banner_cannot_report_a_clean_run(self):
+        directory, _ = self.export("2026-08-12T17:25:19", "2026-08-12 17:25:19")
+        with unittest.mock.patch.object(fab, "TIMESTAMP_SUBSTITUTIONS", ()):
+            with self.assertRaises(fab.TimestampNormalizationError) as caught:
+                fab.normalize_fab_timestamps(directory)
+        for name in sorted(path.name for path in directory.iterdir()):
+            self.assertIn(name, str(caught.exception))
+
+    def test_normalizing_an_already_stamped_export_stays_clean(self):
+        directory, first = self.export("2026-08-12T17:25:19",
+                                       "2026-08-12 17:25:19")
+        self.assertEqual(fab.normalize_fab_timestamps(directory), first)
 
 
 class ZipMembershipTests(unittest.TestCase):

@@ -81,21 +81,25 @@ TIMESTAMP_SUBSTITUTIONS = (
 
 
 class TimestampNormalizationError(ValueError):
-    """An exported fab artifact could not be read for stamp normalization."""
+    """An exported fab artifact would ship KiCad's export stamp."""
 
 
 def normalize_fab_timestamps(directory):
-    """Stamp FAB_TIMESTAMP over KiCad's export time; return the names rewritten.
+    """Stamp FAB_TIMESTAMP over KiCad's export time; return the names stamped.
 
     Every Gerber, drill file and job file records the wall clock, so without
     this two exports of an unchanged board differ in every artifact and a
     re-run tells the reader nothing. The stamps are comments and metadata
     attributes; the copper is untouched.
 
-    An artifact that cannot be decoded raises rather than being skipped: it
-    would keep its export stamp and only shrink the reported count.
+    Every artifact in the directory must carry a stamp one of
+    TIMESTAMP_SUBSTITUTIONS matches. One that cannot be decoded, or that a
+    KiCad banner respelling puts out of reach of every pattern, raises rather
+    than being skipped: matching nothing leaves the export times in place and
+    only shrinks the reported count.
     """
-    rewritten = []
+    stamped_names = []
+    unstamped = []
     for name in sorted(os.listdir(directory)):
         path = os.path.join(directory, name)
         try:
@@ -107,13 +111,25 @@ def normalize_fab_timestamps(directory):
                 "  Its export stamp would ship unnormalized and every re-run "
                 "of an unchanged board would differ.") from exc
         stamped = text
+        matches = 0
         for pattern, replacement in TIMESTAMP_SUBSTITUTIONS:
-            stamped = pattern.sub(replacement, stamped)
+            stamped, hits = pattern.subn(replacement, stamped)
+            matches += hits
+        if not matches:
+            unstamped.append(name)
+            continue
         if stamped != text:
             with open(path, "w", encoding="utf-8", newline="") as fh:
                 fh.write(stamped)
-            rewritten.append(name)
-    return rewritten
+        stamped_names.append(name)
+    if unstamped:
+        raise TimestampNormalizationError(
+            "exported fab artifacts carry no recognized creation stamp: "
+            + ", ".join(unstamped)
+            + "\n  They would ship KiCad's export time and every re-run of an "
+            "unchanged board would differ. Update TIMESTAMP_SUBSTITUTIONS to "
+            "the current kicad-cli banner spellings.")
+    return stamped_names
 
 
 def zip_member(name):
