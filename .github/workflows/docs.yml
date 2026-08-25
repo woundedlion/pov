@@ -64,7 +64,7 @@ jobs:
     # every deployable commit produces an artifact.
     concurrency:
       group: docs-build-${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     # Pinned image (not ubuntu-latest) so the doxygen/graphviz versions are
     # deterministic, matching the rest of CI.
     runs-on: ubuntu-24.04
