@@ -309,7 +309,7 @@ def _check_derived_component_ceiling(
     FlexRAM splits RAM1 into `total_banks` banks of `bank_bytes` between ITCM
     (code) and DTCM (variables + stack). The invariant is minimum stack headroom,
     not a static code cap: DTCM must keep ceil((variables + free_min_bytes) /
-    bank_bytes) banks. An optional minimum boundary headroom ratchet is removed
+    bank_bytes) banks. A minimum boundary headroom ratchet is removed
     from that bank allocation before admitting the component. Any input the
     derivation needs that is absent is a hard failure, never a silent pass. On
     success an informational note reports the measured size, ratcheted ceiling,
@@ -339,7 +339,7 @@ def _check_derived_component_ceiling(
     dtcm_banks = -(-(variables + floor) // bank)  # ceil
     itcm_banks = total_banks - dtcm_banks
     bank_ceiling = itcm_banks * bank
-    min_headroom = derived.get("min_headroom_bytes", 0)
+    min_headroom = derived["min_headroom_bytes"]
     ceiling = bank_ceiling - min_headroom
     if cmeasured > ceiling:
         v.append(Violation(
@@ -556,9 +556,8 @@ class BudgetSchemaError(ValueError):
 _BUDGET_KEYS = frozenset({"regions", "symbols"})
 _REGION_KEYS = frozenset({"max_bytes", "free_min_bytes", "components"})
 _COMPONENT_KEYS = frozenset({"max_bytes", "max_banks_from_stack_floor"})
+# Every key is also required: the derivation reads all three unconditionally.
 _DERIVED_KEYS = frozenset(
-    {"bank_bytes", "total_banks", "min_headroom_bytes"})
-_DERIVED_REQUIRED_KEYS = frozenset(
     {"bank_bytes", "total_banks", "min_headroom_bytes"})
 _SYMBOL_KEYS = frozenset({"name", "region", "min_bytes", "max_bytes"})
 
@@ -648,8 +647,8 @@ def validate_budgets(budgets: object) -> dict:
                 if derived is not None:
                     _check_keys(derived, _DERIVED_KEYS,
                                 f"{cwhere} max_banks_from_stack_floor",
-                                required=_DERIVED_REQUIRED_KEYS)
-                    min_headroom = derived.get("min_headroom_bytes", 0)
+                                required=_DERIVED_KEYS)
+                    min_headroom = derived["min_headroom_bytes"]
                     if (not isinstance(min_headroom, int) or
                             isinstance(min_headroom, bool) or
                             min_headroom < 0):
