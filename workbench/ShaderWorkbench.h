@@ -2201,17 +2201,18 @@ private:
         return frame.params.warp.inner;
     }
     static PreparedWarpStage prepare(const FrameState &frame) {
-      const Config config{frame.slots, frame.params};
+      const Complex period = source_cartesian_period(
+          frame.slots.function, frame.params.source.lattice_cell_scale);
       if constexpr (Outer)
-        return prepare_warp_stage(
-            frame.slots.warp_program.outer, frame.params.warp.outer,
-            frame.clocks.warp_outer_phase, source_cartesian_period(config),
-            frame.clocks.warp_outer_rotation);
+        return prepare_warp_stage(frame.slots.warp_program.outer,
+                                  frame.params.warp.outer,
+                                  frame.clocks.warp_outer_phase, period,
+                                  frame.clocks.warp_outer_rotation);
       else
-        return prepare_warp_stage(
-            frame.slots.warp_program.inner, frame.params.warp.inner,
-            frame.clocks.warp_inner_phase, source_cartesian_period(config),
-            frame.clocks.warp_inner_rotation);
+        return prepare_warp_stage(frame.slots.warp_program.inner,
+                                  frame.params.warp.inner,
+                                  frame.clocks.warp_inner_phase, period,
+                                  frame.clocks.warp_inner_rotation);
     }
     static float phase(const FrameState &frame) {
       if constexpr (Outer)
@@ -5291,12 +5292,17 @@ private:
   }
 
   HS_COLD_MEMBER static constexpr Complex
-  source_cartesian_period(const Config &config) {
-    if (config.slots.function != Function::PRIMITIVE_LATTICE ||
-        !(config.params.source.lattice_cell_scale > 0.0f))
+  source_cartesian_period(Function function, float lattice_cell_scale) {
+    if (function != Function::PRIMITIVE_LATTICE || !(lattice_cell_scale > 0.0f))
       return {};
-    const float period = 1.0f / config.params.source.lattice_cell_scale;
+    const float period = 1.0f / lattice_cell_scale;
     return {period, period};
+  }
+
+  HS_COLD_MEMBER static constexpr Complex
+  source_cartesian_period(const Config &config) {
+    return source_cartesian_period(config.slots.function,
+                                   config.params.source.lattice_cell_scale);
   }
 
   HS_COLD_MEMBER static constexpr bool
