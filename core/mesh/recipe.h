@@ -28,13 +28,13 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * @param step Lowered primitive step.
  * @return True when a leg can sweep or gate the step; false leaves the whole
  *   recipe to the caller's whole-generate fallback.
- * @details TRUNCATE below ConwayGraph::T_EPS_TRUNCATE_MIN sweeps too few pixels
- * to read as motion. A sub-T_EPS arrival (0.01) still sweeps: the leg births at
- * the derived per-arrival floor (min(T_EPS, arrival * T_EPS_TRUNCATE_FRAC))
- * rather than clamping both endpoints to T_EPS. Above 0.5 is a far-side leg: it
- * sweeps through the ambo pinch on the constant-topology truncate branch (the
- * two truncate50d recipes arrive at 0.873), up to
- * T_EPS_TRUNCATE_FAR_MAX; behaviour in [T_EPS_TRUNCATE_MIN, 0.5] is unchanged.
+ * @details TRUNCATE below ConwayGraph::T_TRUNCATE_ARRIVAL_MIN sweeps too few
+ * pixels to read as motion. A sub-T_EPS arrival (0.01) still sweeps: the leg
+ * births at the derived per-arrival floor (min(T_EPS, arrival *
+ * TRUNCATE_BIRTH_FRAC)) rather than clamping both endpoints to T_EPS. Above 0.5
+ * is a far-side leg: it sweeps through the ambo pinch on the constant-topology
+ * truncate branch (the two truncate50d recipes arrive at 0.873), up to
+ * T_TRUNCATE_FAR_MAX; behaviour in [T_TRUNCATE_ARRIVAL_MIN, 0.5] is unchanged.
  * CHAMFER is characterized up to CHAMFER_T_MAX. KIS and DUAL run as gated swaps
  * (docs/specs/opchain_morph_spec.md, "Leg kinds"). EXPAND has a leg kind but
  * no recipe and no sweep coverage on a hankin seed.
@@ -42,8 +42,8 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
 inline constexpr bool is_morphable_step(const OpStep &step) {
   switch (step.op) {
   case Op::TRUNCATE:
-    return step.param >= ConwayGraph::T_EPS_TRUNCATE_MIN &&
-           step.param <= ConwayGraph::T_EPS_TRUNCATE_FAR_MAX;
+    return step.param >= ConwayGraph::T_TRUNCATE_ARRIVAL_MIN &&
+           step.param <= ConwayGraph::T_TRUNCATE_FAR_MAX;
   case Op::CHAMFER:
     return step.param >= ConwayGraph::T_EPS && step.param <= CHAMFER_T_MAX;
   case Op::SNUB:
@@ -70,11 +70,11 @@ static_assert(is_morphable_step(TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[1]),
               "shipped chamfer thickness exceeds CHAMFER_T_MAX");
 static_assert(is_morphable_step(
                   TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[0]),
-              "shipped far-side truncate exceeds T_EPS_TRUNCATE_FAR_MAX");
+              "shipped far-side truncate exceeds T_TRUNCATE_FAR_MAX");
 static_assert(
     is_morphable_step(
         TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS[2]),
-    "shipped sub-T_EPS truncate falls below T_EPS_TRUNCATE_MIN");
+    "shipped sub-T_EPS truncate falls below T_TRUNCATE_ARRIVAL_MIN");
 
 /**
  * @brief Number of primitive steps a recipe lowers to.
