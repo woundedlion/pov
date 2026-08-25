@@ -26,6 +26,37 @@
 namespace transformer_detail {
 
 /**
+ * @brief Out-of-class declaration of a params type's prepare_frame() hook
+ *        intent.
+ * @tparam T Params type.
+ * @details Params types owned by this layer declare `NEEDS_REFRESH_FROM` and
+ *          `NEEDS_SYNC` as members. A params type owned by a layer below
+ *          animation specializes this instead, so the pool's contract stays out
+ *          of that layer's header. A specialization must declare both constants.
+ */
+template <typename T> struct ExternalParamsHooks {};
+
+/** @brief MobiusParams (math/stereographic.h) carries neither hook. */
+template <> struct ExternalParamsHooks<MobiusParams> {
+  static constexpr bool NEEDS_REFRESH_FROM = false;
+  static constexpr bool NEEDS_SYNC = false;
+};
+
+/**
+ * @brief Whether a params type declares its hook intent at all.
+ * @tparam T Candidate params type.
+ */
+template <typename T> constexpr bool declares_hooks() {
+  constexpr bool refresh_declared = requires {
+    T::NEEDS_REFRESH_FROM;
+  } || requires { ExternalParamsHooks<T>::NEEDS_REFRESH_FROM; };
+  constexpr bool sync_declared = requires { T::NEEDS_SYNC; } || requires {
+    ExternalParamsHooks<T>::NEEDS_SYNC;
+  };
+  return refresh_declared && sync_declared;
+}
+
+/**
  * @brief A params type's declared refresh_from-hook intent, false when
  *        undeclared.
  * @tparam T Candidate params type.
@@ -33,6 +64,8 @@ namespace transformer_detail {
 template <typename T> constexpr bool declared_needs_refresh_from() {
   if constexpr (requires { T::NEEDS_REFRESH_FROM; })
     return T::NEEDS_REFRESH_FROM;
+  else if constexpr (requires { ExternalParamsHooks<T>::NEEDS_REFRESH_FROM; })
+    return ExternalParamsHooks<T>::NEEDS_REFRESH_FROM;
   else
     return false;
 }
@@ -44,6 +77,8 @@ template <typename T> constexpr bool declared_needs_refresh_from() {
 template <typename T> constexpr bool declared_needs_sync() {
   if constexpr (requires { T::NEEDS_SYNC; })
     return T::NEEDS_SYNC;
+  else if constexpr (requires { ExternalParamsHooks<T>::NEEDS_SYNC; })
+    return ExternalParamsHooks<T>::NEEDS_SYNC;
   else
     return false;
 }
@@ -86,14 +121,12 @@ public:
   static constexpr bool HAS_SYNC = requires(ParamsT &p) { p.sync(); };
 
   static_assert(
-      requires { ParamsT::NEEDS_REFRESH_FROM; },
-      "ParamsT must declare `static constexpr bool NEEDS_REFRESH_FROM`: true "
-      "if it carries prepare_frame()'s refresh_from() hook, false if it does "
-      "not.");
-  static_assert(
-      requires { ParamsT::NEEDS_SYNC; },
-      "ParamsT must declare `static constexpr bool NEEDS_SYNC`: true if it "
-      "carries prepare_frame()'s sync() hook, false if it does not.");
+      transformer_detail::declares_hooks<ParamsT>(),
+      "ParamsT must declare `static constexpr bool NEEDS_REFRESH_FROM` and "
+      "`NEEDS_SYNC` as members - true if it carries the matching "
+      "prepare_frame() hook, false if it does not - or, when ParamsT belongs to "
+      "a layer below animation, specialize "
+      "transformer_detail::ExternalParamsHooks for it.");
   static_assert(
       transformer_detail::declared_needs_refresh_from<ParamsT>() ==
           HAS_REFRESH_FROM,
