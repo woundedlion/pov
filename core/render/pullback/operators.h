@@ -82,13 +82,7 @@ enum class PaletteMode : uint8_t {
   ANALOGOUS = 2
 };
 using HueShiftMode = Color::HueMode;
-enum class EnvelopeMode : uint8_t {
-  NONE = 0,
-  CUP = 1,
-  BELL = 2,
-  ASCENDING = 3,
-  DESCENDING = 4
-};
+using EnvelopeMode = Color::BrightnessEnvelope;
 
 inline constexpr const char *PALETTE_MODE_IDS[] = {"triadic", "complementary",
                                                    "analogous"};
