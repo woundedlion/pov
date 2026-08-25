@@ -3206,7 +3206,7 @@ After populating them, run `npm run importmap:local` to point [`vendor-importmap
 
 This project is split-licensed: the rendering engine and the visual effects carry different terms.
 
-**Engine — non-commercial.** The core infrastructure — the rendering engine, math, scan/raster, hardware drivers, and test harness, which in the Holosphere repository is everything outside `effects/` and `workbench/` — is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) (see [`LICENSE`](LICENSE)). You may use, modify, and distribute it for any non-commercial purpose; commercial use is not granted.
+**Engine — non-commercial.** The core infrastructure — the rendering engine, math, scan/raster, hardware drivers, and test harness, which in the Holosphere repository is everything outside `effects/` and `workbench/` — is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) (see [`LICENSE`](https://github.com/woundedlion/pov/blob/master/LICENSE)). You may use, modify, and distribute it for any non-commercial purpose; commercial use is not granted.
 
 **Effects — proprietary.** The visual effects — the Holosphere repository's `effects/` and `workbench/` sources, and their compiled form in any distributed build artifact, including the `holosphere_wasm.wasm` module daydream ships — are Copyright 2025 Gabriel Levy. All rights reserved. They are not covered by the PolyForm license — no rights to use, copy, modify, or distribute them are granted.
 
