@@ -236,7 +236,8 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
                 "stage; route others through edge_visible_in_clip");
   constexpr int H_VIRT = H + hs::H_OFFSET;
   const size_t n = trail.size();
-  HS_CHECK(n >= 2);
+  HS_CHECK(n >= 2, "gate_trail_edges: trail has %d points, needs >= 2",
+           static_cast<int>(n));
   const size_t edges = n - 1;
 
   ScratchScope span_guard(scratch_arena_a);
@@ -748,7 +749,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // normalized replay stretches the cached steps back to exactly total_dist.
     // On the backstop break path sim_dist can fall short (scale > 1) and the
     // replay stretches over the remaining segment instead.
-    HS_CHECK(sim_dist > 0.0f);
+    HS_CHECK(sim_dist > 0.0f,
+             "rasterize: simulated segment length is not positive");
     float scale = total_dist / sim_dist;
     bool omit_last = close_loop || !is_last_segment || omit_end;
 
