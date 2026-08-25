@@ -51,6 +51,7 @@
 #include "tests/test_projections.h"
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
+#include "tests/test_mindsplatter.h"
 #include "tests/test_effects_smoke.h"
 #include "tests/test_effect_factory.h"
 #include "tests/test_shader_workbench.h"
@@ -134,6 +135,7 @@ struct TestModule {
   X("projections", hs_test::projections_tests::run_projections_tests)          \
   X("animation", hs_test::animation_tests::run_animation_tests)                \
   X("effects", hs_test::effects_tests::run_effects_tests)                      \
+  X("mindsplatter", hs_test::mindsplatter_tests::run_mindsplatter_tests)       \
   X("effects_smoke", hs_test::effects_smoke_tests::run_effects_smoke_tests)    \
   X("effect_factory", hs_test::effect_factory_tests::run_effect_factory_tests) \
   X("shader_workbench",                                                        \
@@ -188,15 +190,16 @@ static void print_modules(std::FILE *out) {
  * @brief Reports whether this invocation runs an effects module.
  * @param argc Argument count as passed to main.
  * @param argv Argument vector as passed to main; names the modules to run.
- * @return True for an unfiltered run, or a filtered run naming effects or
- * effects_smoke.
+ * @return True for an unfiltered run, or a filtered run naming effects,
+ * effects_smoke or mindsplatter.
  */
 static bool runs_effects(int argc, char **argv) {
   if (argc <= 1)
     return true;
   for (int i = 1; i < argc; ++i)
     if (std::strcmp(argv[i], "effects") == 0 ||
-        std::strcmp(argv[i], "effects_smoke") == 0)
+        std::strcmp(argv[i], "effects_smoke") == 0 ||
+        std::strcmp(argv[i], "mindsplatter") == 0)
       return true;
   return false;
 }
