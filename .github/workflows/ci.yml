@@ -1863,7 +1863,7 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
           # Space-separated jobs allowed to report `skipped` on pull requests.
-          ALLOW_SKIPPED: 'windows-tests teensy-size teensy-warnings'
+          ALLOW_SKIPPED: 'windows-tests'
         run: |
           WF=.github/workflows/ci.yml
 
