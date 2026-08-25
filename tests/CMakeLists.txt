@@ -243,6 +243,7 @@ add_executable(mindsplatter_palette_gen
 target_include_directories(mindsplatter_palette_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_link_libraries(mindsplatter_palette_gen PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_gen)
+_hs_sanitize(mindsplatter_palette_gen)
 
 add_custom_target(regenerate_mindsplatter_palette
   COMMAND $<TARGET_FILE:mindsplatter_palette_gen>
