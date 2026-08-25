@@ -242,6 +242,29 @@ test('scalar parameter bindings match catalog domains and curves', () => {
     ['SCALAR_DOMAIN_MISMATCH']);
 });
 
+test('a snap-curve catalog field is authorable', () => {
+  const document = example();
+  document.descriptor.chain.splice(3, 0,
+    { label: 'bands', operator: 'field.transfer.smooth-bands.v2' });
+  const parameter = {
+    id: 'bands.band-count',
+    classification: 'preset',
+    storage: 'binary32',
+    unit: 'ratio',
+    domain: { minimum: 1, maximum: 32 },
+    interpolation: { kind: 'SNAP' },
+    default: 4,
+  };
+  document.descriptor.parameters.push(parameter);
+  document.descriptor.serialization.fields.push(parameter.id);
+  for (const preset of document.preset_bank.presets) preset.values[parameter.id] = 4;
+  assert.deepEqual(validate(document), []);
+
+  assert.equal(interpolateValue(parameter, 4, 9, 0), 4);
+  assert.equal(interpolateValue(parameter, 4, 9, 0.99), 4);
+  assert.equal(interpolateValue(parameter, 4, 9, 1), 9);
+});
+
 test('preset dwell names every preset with a positive duration', () => {
   const diagnose = (dwell) => {
     const document = example();
