@@ -126,8 +126,8 @@ inline void test_functionref_empty_and_copy() {
  * @details A StoredFunctionRef must accept an lvalue callable (it outlives the
  *          call) but reject an rvalue temporary (binding one would dangle past
  *          the call); plain FunctionRef, by contrast, deliberately accepts the
- *          rvalue borrow. The constructibility traits double as a compile-time
- *          tripwire and a runtime-visible regression check.
+ *          rvalue borrow. Constructibility is a compile-time property, so the
+ *          static_asserts are the whole pin; the call below is the runtime half.
  */
 inline void test_stored_functionref_rvalue_rejection() {
   static_assert(
@@ -138,12 +138,6 @@ inline void test_stored_functionref_rvalue_rejection() {
       "StoredFunctionRef must reject an rvalue temporary (dangling-store guard)");
   static_assert(std::is_constructible_v<FunctionRef<int(int)>, DualCall &&>,
                 "FunctionRef must accept an rvalue (call-scoped borrow)");
-
-  HS_EXPECT_TRUE(
-      (std::is_constructible_v<StoredFunctionRef<int(int)>, DualCall &>));
-  HS_EXPECT_FALSE(
-      (std::is_constructible_v<StoredFunctionRef<int(int)>, DualCall &&>));
-  HS_EXPECT_TRUE((std::is_constructible_v<FunctionRef<int(int)>, DualCall &&>));
 
   DualCall f;
   StoredFunctionRef<int(int)> s = f;
@@ -269,8 +263,8 @@ struct FlatTweenableModel {
 /**
  * @brief Pins the Tweenable concept: only a two-level frame container satisfies
  *        it — a flat container and a scalar do not.
- * @details The static_asserts are the compile-time tripwire; the runtime checks
- *          mirror them so a regression is also reported by the harness.
+ * @details Concept satisfaction is a compile-time property, so the
+ *          static_asserts are the whole pin.
  */
 inline void test_tweenable_concept() {
   static_assert(Tweenable<TweenableModel>,
@@ -278,10 +272,6 @@ inline void test_tweenable_concept() {
   static_assert(!Tweenable<FlatTweenableModel>,
                 "a flat length()/get() container must not satisfy Tweenable");
   static_assert(!Tweenable<int>, "a scalar must not satisfy Tweenable");
-
-  HS_EXPECT_TRUE(Tweenable<TweenableModel>);
-  HS_EXPECT_FALSE(Tweenable<FlatTweenableModel>);
-  HS_EXPECT_FALSE(Tweenable<int>);
 }
 
 /**
