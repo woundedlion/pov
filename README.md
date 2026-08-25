@@ -1158,7 +1158,7 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | `Scan::DistortedRingStack` | Fused single-pass rasterizer for an evenly spaced same-axis stack of distorted rings — the per-pixel frame every ring shares is computed once and the candidate rings fall out of its polar angle by arithmetic; the shader takes a ring slot alongside the fragment |
 | `Scan::PlanarPolygon` | Regular N-gon in the tangent plane |
 | `Scan::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
-| `Scan::Mesh` | Rasterizes all faces of a `MeshState` or `PolyMesh` |
+| `Scan::Mesh` | Rasterizes all faces of a `MeshState` |
 | `Scan::Shader` | Full-screen per-pixel shaders with configurable SSAA (super-sample anti-aliasing), across three entry points. `draw(canvas, shader)` takes a single fragment shader. `draw(canvas, fragment_shader, vertex_shader)` separates a per-pixel vertex shader (called once at pixel center) from a per-subsample fragment shader (called SAMPLES×), so expensive per-pixel work is computed once — both callables are required, and a null one traps. No shipping effect takes this path; the SSAA reaction-diffusion effects use `draw_grid`. `draw_grid(canvas, vertex_shader, pixel_shader)` hands the seeded fragment and the row's sub-pixel grid to a templated pixel shader that owns the sampling and returns the finished pixel (used by BZReactionDiffusion). |
 | `Scan::TransformedVolume` | Wraps an SDF shape with a world-space position and orientation quaternion for volumetric rendering |
 | `Scan::Volume` | Volumetric ray-marcher that steps along the view direction through a `TransformedVolume`, applying a fragment shader at the hit point with configurable step count and AA width |
