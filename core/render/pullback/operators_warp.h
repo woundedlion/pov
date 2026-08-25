@@ -150,43 +150,11 @@ struct WarpWaveShear : ValueStateModel<WarpPhaseState> {
 };
 
 /** @brief Parameter family of warp.vortex.v2. */
-struct VortexWarpParams {
-  float speed = 0.0f;
-  float center_x = 0.0f;
-  float center_y = 0.0f;
-  float radius = 1.0f;
-  float turns = 0.0f;
-  float center_orbit_radius = 0.0f;
-
-  static constexpr auto FIELDS = std::array{
-      Field<VortexWarpParams>{"speed", &VortexWarpParams::speed, nullptr,
-                              -0.02f, 0.02f, FieldCurve::LERP},
-      Field<VortexWarpParams>{"center-x", &VortexWarpParams::center_x,
-                              "Vortex Center X", -4.0f, 4.0f, FieldCurve::LERP},
-      Field<VortexWarpParams>{"center-y", &VortexWarpParams::center_y,
-                              "Vortex Center Y", -4.0f, 4.0f, FieldCurve::LERP},
-      Field<VortexWarpParams>{"radius", &VortexWarpParams::radius,
-                              "Vortex Radius", 1.0f / 64.0f, 8.0f,
-                              FieldCurve::LOG_POSITIVE},
-      Field<VortexWarpParams>{"turns", &VortexWarpParams::turns, "Vortex Turns",
-                              -4.0f, 4.0f, FieldCurve::LERP},
-      Field<VortexWarpParams>{
-          "center-orbit-radius", &VortexWarpParams::center_orbit_radius,
-          "Vortex Center Orbit", 0.0f, 4.0f, FieldCurve::LERP},
-  };
+struct VortexWarpParams : Warp::VortexParams {
+  static constexpr auto FIELDS = concat_fields<VortexWarpParams>(
+      Warp::VortexParams::FIELDS, std::array<Field<VortexWarpParams>, 0>{});
 };
 static_assert(field_ids_unique<VortexWarpParams>());
-
-struct PreparedVortexWarp {
-  struct {
-    struct {
-      float center_x;
-      float center_y;
-      float radius_sq;
-      float angle_numerator;
-    } vortex;
-  } transform;
-};
 
 /** @brief PLANE endomorphism: the orbiting radial vortex. */
 struct WarpVortex : ValueStateModel<WarpPhaseState> {
@@ -195,17 +163,14 @@ struct WarpVortex : ValueStateModel<WarpPhaseState> {
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = VortexWarpParams;
-  using Prepared = PreparedVortexWarp;
+  using Prepared = Warp::PreparedVortexSlot;
 
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    const float phase = TWO_PI_F * state.phase;
-    return {{{params.center_x + params.center_orbit_radius * cosf(phase),
-              params.center_y + params.center_orbit_radius * sinf(phase),
-              params.radius * params.radius, TWO_PI_F * params.turns}}};
+    return Warp::prepare(params, state.phase);
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &, const Prepared &prepared) {
