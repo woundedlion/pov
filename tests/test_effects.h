@@ -6285,8 +6285,10 @@ inline void test_voronoi_axes_use_uniform_sampler() {
   Voronoi<SMALL_W, SMALL_H> effect;
   effect.init();
 
+  const size_t sites = WB::site_count(effect);
+  HS_EXPECT_GT(sites, 0u);
   hs::random().seed(1337u);
-  for (size_t i = 0; i < WB::site_count(effect); ++i)
+  for (size_t i = 0; i < sites; ++i)
     HS_EXPECT_VEC(WB::site_axis(effect, i), random_vector(), 0.0f);
 }
 
