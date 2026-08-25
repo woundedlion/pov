@@ -328,55 +328,107 @@ the effect owns frame layout and maps it into those algorithms.
 
 ## 6. Pipeline and stage contract
 
+The fixed six-role sequence this section was drafted against is superseded by
+the ranked family chain in
+[pullback_stage_families_spec.md](pullback_stage_families_spec.md) §§4-5. The
+contract below is the shipped one: `Pullback::Pipeline` and its validation
+surface in `core/render/pullback/contract.h`, the stage vocabulary in
+`core/render/pullback/stage.h`.
+
 ### 6.1 Pipeline type
 
 The public coordinator is:
 
 ```cpp
-template <typename BindingT, typename... Stages>
+template <typename BindingT, typename... Entries>
 struct Pipeline {
   using Binding = BindingT;
-  using FrameState = typename BindingT::FrameState;
+  using FrameState = typename Binding::FrameState;
+  using Validation = PipelineValidation<BindingT, Entries...>;
+
+  /** One frame's shading state: public context plus private prepared state. */
+  struct Frame {
+    FrameState ctx;
+    PreparedTuple prepared;
+  };
+
+  HS_FLASH_MEMBER static PreparedTuple prepare_stages(const FrameState &ctx);
+  HS_FLASH_MEMBER static Frame prepare(const FrameState &ctx);
+  HS_FLASH_MEMBER static void prepare_into(const FrameState &ctx, void *storage);
 
   __attribute__((always_inline))
-  static Color4 evaluate(const Vector &view, const FrameState &frame);
+  static Color4 evaluate(const Vector &view, const FrameState &ctx,
+                         const PreparedTuple &prepared);
 
   HS_FLASH_MEMBER
-  static Color4 shade(const Vector &view, const FrameState &frame);
+  static Color4 shade(const Vector &view, const Frame &frame);
+  HS_FLASH_MEMBER
+  static Color4 shade_prepared(const Vector &view, const FrameState &ctx,
+                               const void *storage);
 };
 ```
 
-`evaluate` recursively invokes the six stages and is the entry point used by a
-consumer wrapper that needs custom placement. `shade` preserves the ordinary
-two-argument ABI and calls `evaluate`. ShaderWorkbench may retain derived/named
-wrappers where its accepted manifest requires `FASTRUN`, `noinline`, or
-alignment attributes; those wrappers call `evaluate` and do not reimplement
-any stage.
+`Entries` are stage descriptors and `Stage::Placed<>` placement nodes in
+authored order. The pipeline keeps two views over them: the semantic leaf view
+(`STAGE_COUNT`, `stage_at`, and every validation row), which placement wrappers
+are invisible to, and the execution view (`NODE_COUNT`, `node_at`,
+`PreparedTuple`), which they define.
 
-The coordinator and recursive carrier fold are `always_inline` and shall emit
-no symbols, frames, or stored stage objects. `shade` is the only default
-address-taken wrapper.
+`evaluate` seeds the entry carrier — `SphereSample{view, 0}` — and recurses over
+the execution nodes. It takes the prepared tuple as its third argument: per-frame
+stage state is resolved once by `prepare_stages` and passed down, never
+recomputed per pixel. `shade` is the address-taken wrapper over a prepared
+`Frame`; `shade_prepared` is its type-erased form over `prepare_into`'s storage,
+for dynamic program dispatch. ShaderWorkbench may retain derived/named wrappers
+where its accepted manifest requires `FASTRUN`, `noinline`, or alignment
+attributes; those wrappers call `evaluate` and do not reimplement any stage.
+
+`evaluate` and the recursive carrier fold under it are `always_inline` and shall
+emit no symbols, frames, or stored stage objects. The flash-resident entry
+points — `prepare`, `prepare_stages`, `prepare_into`, `shade`, and
+`shade_prepared` — are the only wrappers whose address is taken by default.
 
 ### 6.2 Stage contract
 
-Every top-level stage provides:
+A stage is an empty descriptor type, conventionally derived from
+`Stage::Contract`, which supplies the carriers and the `Bind<Binding>` template
+the pipeline instantiates:
 
 ```cpp
-using Binding = /* pipeline binding */;
-using FrameState = typename Binding::FrameState;
-using Input = /* exact public carrier */;
-using Output = /* exact public carrier */;
+struct MyStage : Pullback::Stage::Contract<MyStage, PlaneSample, FieldSample> {
+  using Policies = std::tuple<SourcePolicyT>;  // may be empty
 
-static constexpr Pullback::StageKind KIND;
-static constexpr Pullback::CodeEmission EMISSION;
-static constexpr bool APPROXIMATE;
-static constexpr bool TERMINAL;
-static constexpr bool NON_FLOATING_FIELDS_EXACT;
-static constexpr Pullback::ApproximationOracleId ORACLE;
-static constexpr std::array<Pullback::ApproximationMetric, N> METRICS;
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID = /* optional provider check */;
 
-static Output run(const Input &, const FrameState &);
+  template <typename Binding>                  // optional
+  static auto prepare(const typename Binding::FrameState &);
+
+  template <typename Binding>
+  static Output run(const Input &, const typename Binding::FrameState &,
+                    const Prepared &);
+};
 ```
+
+`StageDescriptor` is exactly that surface: `Input`, `Output`, a `Policies`
+tuple, and `Bind`. The bound stage adds `Binding`, `FrameState`, `Prepared`, and
+the `prepare`/`run` the pipeline calls; a descriptor declaring no `prepare` gets
+`NoPrepared`.
+
+There is no stage kind and no terminal flag. A stage's place in the chain is its
+carrier pair — the ranked families of
+[pullback_stage_families_spec.md](pullback_stage_families_spec.md) §2 — and the
+end of the chain is the `EXIT` row, not a per-stage declaration.
+
+Approximation metadata is a property of the policies, not of the stage: the
+bound stage inherits `APPROXIMATE`, `NON_FLOATING_FIELDS_EXACT`, `ORACLE`, and
+`METRICS` from the one approximate policy in its `Policies` list through
+`Detail::TupleApproximation`. At most one such policy per stage; more require an
+explicit combined oracle.
+
+`CodeEmission` is likewise a placement property: `Stage::Placed<emission,
+Stages...>` wraps a contiguous run of stages into one call unit — inline, out of
+line in flash, or out of line in ITCM — and is the only carrier of `EMISSION`.
 
 Stages are empty policy types. They allocate nothing, retain no frame
 reference, have no mutable static or function-local state, and read no runtime
@@ -389,32 +441,40 @@ deliberately runtime color controls remain immutable frame reads.
 `HUE_ROTATION_AND_NOISE_LUTS`; future core approximate operators extend the
 enumeration with their oracle and tests in the same change.
 
-An exact stage declares `ORACLE == NONE` and an empty metric list. An
-approximate stage declares a non-`NONE` oracle, a non-empty metric list
+An exact stage combines to `ORACLE == NONE` and an empty metric list. An
+approximate stage combines to a non-`NONE` oracle, a non-empty metric list
 including a final-framebuffer metric, and
 `NON_FLOATING_FIELDS_EXACT == true`. Approximation approval belongs to the
 operator/stage that calls the approximation, not to the consumer.
 
 ### 6.3 Validation
 
-Validation retains the shipped two-level design. Detection-only Level 1 checks
-arity and member presence/types without indexing a malformed pack. Level 2 is
-formed only after Level 1 succeeds and checks:
+Validation is staged: each level gates the next, so a malformed descriptor
+reports through its own named row instead of detonating a later fold.
+`PipelineValidation` publishes one boolean per row, over the flattened leaf list
+— placement wrappers perturb nothing:
 
-- exactly six stages;
-- each `Stage::Binding` is exactly the pipeline `Binding`;
-- kinds occur in the Section 5.1 order;
-- the first input is `Vector` and final output is `Color4`;
-- each `run(const Input&, const FrameState&)` returns exactly `Output`;
-- adjacent output/input carrier types match exactly;
-- only the color stage is terminal;
-- every stage is empty;
-- approximation metadata is well formed;
-- optional `Binding::ExtraValidation<Stages...>::value` is true.
+- `NONEMPTY` — at least one stage; it gates every row below;
+- `CONTRACTS` — every leaf satisfies `StageDescriptor`;
+- `CANONICAL` — every leaf `Input`/`Output` is a canonical carrier
+  (`SphereSample`, `PlaneSample`, `FieldSample`, `Color4`);
+- `MONOTONE` — no stage decreases its family rank;
+- `CARRIERS` — adjacent output/input carrier types match exactly;
+- `ENTRY` / `EXIT` — the first input is `SphereSample`, the last output is
+  `Color4`;
+- `BINDINGS` — each descriptor's policies and providers accept the pipeline
+  `Binding`;
+- `EMPTY_DESCRIPTORS` — every leaf is empty;
+- `RUN_RETURNS` / `PREPARES` — the bound `run` and `prepare` return exactly
+  `Output` and `Prepared`;
+- `APPROXIMATIONS` — approximation metadata is well formed;
+- `EXTRA_VALIDATION` — optional `Binding::ExtraValidation<Stages...>::value` is
+  true.
 
-Named `static_assert` diagnostics cover: wrong arity, missing/mistyped stage
-contract, binding mismatch, wrong order, wrong return type, carrier mismatch,
-non-empty policy, terminal misuse, malformed approximation metadata, and
+Named `static_assert` diagnostics cover each row: empty chain, missing/mistyped
+stage contract, a carrier outside the canonical set, a rank decrease, carrier
+mismatch, wrong entry or exit carrier, binding mismatch, non-empty descriptor,
+wrong `run`/`prepare` return type, malformed approximation metadata, and
 consumer validation failure.
 
 The validation booleans remain publicly testable without instantiating a
