@@ -2720,9 +2720,10 @@ inline std::pair<int, int> face_fringe_misses(const SDF::Face &face) {
 
 /**
  * @brief Pins the reduction from converting Face's AA reach to azimuth by row.
- * @details The widened mask closes 92-97% of the fixed-pad misses in this
- * deterministic sample. A nonzero residual keeps the test scoped to widening
- * rather than folding interval construction into its contract.
+ * @details The widened mask closes at least 92% of the fixed-pad misses in this
+ * deterministic sample and no configuration in it regresses. The bounds are
+ * one-sided, so a cull that drops fewer pixels still passes, down to a residual
+ * of zero.
  */
 inline void test_face_latitude_pad_reduces_fringe_drops() {
   constexpr int W = 288, H = 144, HV = H + hs::H_OFFSET;
@@ -2757,13 +2758,13 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
     SDF::Face face(std::span<const Vector>(verts, cfg.sides),
                    std::span<const uint16_t>(idx, cfg.sides), scratch, HV, H);
     const auto misses = face_fringe_misses<W, H>(face);
+    HS_EXPECT_LE(misses.second, misses.first);
     fixed_misses += misses.first;
     widened_misses += misses.second;
   }
   HS_EXPECT_GE(fixed_misses, 100);
-  HS_EXPECT_GT(widened_misses, 0);
+  HS_EXPECT_LT(widened_misses, fixed_misses);
   HS_EXPECT_LE(widened_misses * 100, fixed_misses * 8);
-  HS_EXPECT_GE(widened_misses * 100, fixed_misses * 3);
 }
 
 /**
