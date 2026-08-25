@@ -168,7 +168,7 @@ namespace detail {
  * @brief Structural detection for the engine's small value types so
  * print_operand can show components without test_harness.h depending on the
  * engine headers. Pixel exposes r/g/b; Vector exposes x/y/z; Quaternion
- * exposes r/v; Color4 exposes color/alpha.
+ * exposes r/v; Color4 exposes color/alpha; Complex exposes re/im.
  */
 template <class T, class = void> struct has_rgb : std::false_type {};
 template <class T>
@@ -188,6 +188,12 @@ template <class T, class = void> struct has_r_v : std::false_type {};
 template <class T>
 struct has_r_v<T, std::void_t<decltype(std::declval<const T &>().r),
                               decltype(std::declval<const T &>().v)>>
+    : std::true_type {};
+
+template <class T, class = void> struct has_re_im : std::false_type {};
+template <class T>
+struct has_re_im<T, std::void_t<decltype(std::declval<const T &>().re),
+                                decltype(std::declval<const T &>().im)>>
     : std::true_type {};
 
 template <class T, class = void> struct has_color_alpha : std::false_type {};
@@ -274,10 +280,11 @@ private:
  * engine's r/g/b and x/y/z value types are formatted specially.
  * @param v The operand value to print.
  * @details Lets a failing HS_EXPECT_* line show the actual values, not just the
- * stringified expr. Pixel (r,g,b), Vector (x,y,z), Quaternion (r,v),
- * and Color4 (color,alpha) are detected structurally — so an HS_EXPECT_EQ/CMP on
- * those prints components rather than "?" — and their fields recurse through this
- * same printer. Any other non-arithmetic operand still falls back to "?".
+ * stringified expr. Pixel (r,g,b), Vector (x,y,z), Quaternion (r,v), Complex
+ * (re,im) and Color4 (color,alpha) are detected structurally — so an
+ * HS_EXPECT_EQ/CMP on those prints components rather than "?" — and their fields
+ * recurse through this same printer. Any other non-arithmetic operand still
+ * falls back to "?".
  */
 template <class T> inline void print_operand(const T &v) {
   if constexpr (std::is_same_v<T, bool>) {
@@ -315,6 +322,12 @@ template <class T> inline void print_operand(const T &v) {
     print_operand(v.r);
     std::printf(" v=");
     print_operand(v.v);
+    std::printf(")");
+  } else if constexpr (detail::has_re_im<T>::value) {
+    std::printf("(re=");
+    print_operand(v.re);
+    std::printf(" im=");
+    print_operand(v.im);
     std::printf(")");
   } else if constexpr (detail::has_color_alpha<T>::value) {
     std::printf("(color=");
