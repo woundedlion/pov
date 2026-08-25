@@ -135,6 +135,8 @@ template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
     return FX::ANIMATED_PROJECTION;
   case Pullback::FieldGate::CENTRAL_MERIDIAN:
     return Pullback::uses_central_meridian(FX::Spec::PROJECTION);
+  case Pullback::FieldGate::SINGULARITY_FADE:
+    return Pullback::uses_singularity_fade(FX::Spec::PROJECTION);
   }
   return false;
 }
