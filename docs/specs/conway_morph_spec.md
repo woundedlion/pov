@@ -328,7 +328,7 @@ contains both endpoints:
 - The **octahedron** at (0.5, −π/3): the 12 vertices merge pairwise onto the
   6 octahedron vertices (cover 3.7e-8) and exactly the 12 edge-orbit faces go
   zero-area (hidden by the `SDF::Face` zero-area cull — endpoint render vs
-  the clean octahedron measured **0 px**). Legs clamp at `T_EPS_JITTERBUG`
+  the clean octahedron measured **0 px**). Legs clamp at `T_JITTERBUG_OCTA_MIN`
   (collapsing edge = 0.02 chord, T_EPS-sized), then clean-swap to the held
   octahedron; `ambo(tetra)` equals the registry octahedron exactly, so the
   octa endpoint is the held-octahedron invariant.

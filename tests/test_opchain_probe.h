@@ -332,7 +332,7 @@ inline void test_chamfer_sweep_holds_topology() {
 // 0.01, below the flat T_EPS birth floor. Both share the same truncate seed
 // (truncatedIcosahedron.ambo().relax()) and truncate param, so the leg is
 // identical; the hankin angle that differs is a later leg. The leg births at
-// min(T_EPS, 0.01 * T_EPS_TRUNCATE_FRAC) = 0.002 and sweeps to 0.01. This must
+// min(T_EPS, 0.01 * TRUNCATE_BIRTH_FRAC) = 0.002 and sweeps to 0.01. This must
 // be a real, well-formed animation, not a still image or an inverted birth.
 // ---------------------------------------------------------------------------
 
@@ -372,10 +372,10 @@ inline void test_truncate001_birth_sweep_holds_topology() {
   constexpr int SAMPLES = 32;
   const float birth =
       std::min(ConwayGraph::T_EPS,
-               TRUNCATE001_T_STAR * ConwayGraph::T_EPS_TRUNCATE_FRAC);
+               TRUNCATE001_T_STAR * ConwayGraph::TRUNCATE_BIRTH_FRAC);
   // A real animation, not a still image.
   HS_EXPECT_TRUE(birth < TRUNCATE001_T_STAR);
-  HS_EXPECT_TRUE(TRUNCATE001_T_STAR >= ConwayGraph::T_EPS_TRUNCATE_MIN);
+  HS_EXPECT_TRUE(TRUNCATE001_T_STAR >= ConwayGraph::T_TRUNCATE_ARRIVAL_MIN);
 
   for (const TruncateSite &site : TRUNCATE_SITES) {
     const int failed_before = hs_test::stats().failed;
@@ -506,8 +506,8 @@ inline constexpr float FAR_SIDE_NEAR_LIMIT = 0.49f;
  *        the ambo pinch to 0.873 on both truncate50d seeds, asserting the leg
  *        does not trap and does not change topology across the pinch.
  * @details Mirrors the OpLeg recipe-step clamp: the leg births at min(T_EPS,
- * arrival * T_EPS_TRUNCATE_FRAC) and the far-side arrival passes through
- * unclamped (below T_EPS_TRUNCATE_FAR_MAX). Every per-frame sample is routed
+ * arrival * TRUNCATE_BIRTH_FRAC) and the far-side arrival passes through
+ * unclamped (below T_TRUNCATE_FAR_MAX). Every per-frame sample is routed
  * through ConwayGraph::truncate_off_pinch, so a sample landing exactly on 0.5
  * is nudged off the ambo short-circuit and the frame keeps the truncate
  * topology. STRUCTURAL checks only past 0.5 (self-intersecting by design): no
@@ -517,12 +517,12 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
   constexpr int SAMPLES = 48;
   const float birth =
       std::min(ConwayGraph::T_EPS,
-               TRUNCATE50D_T_STAR * ConwayGraph::T_EPS_TRUNCATE_FRAC);
+               TRUNCATE50D_T_STAR * ConwayGraph::TRUNCATE_BIRTH_FRAC);
   // A real animation across the pinch: birth on the near side, arrival past it,
   // arrival unclamped (below the far-side cap).
   HS_EXPECT_TRUE(birth < 0.5f);
   HS_EXPECT_TRUE(TRUNCATE50D_T_STAR > 0.5f);
-  HS_EXPECT_TRUE(TRUNCATE50D_T_STAR <= ConwayGraph::T_EPS_TRUNCATE_FAR_MAX);
+  HS_EXPECT_TRUE(TRUNCATE50D_T_STAR <= ConwayGraph::T_TRUNCATE_FAR_MAX);
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, TRUNCATE50D_T_STAR}));
   // The guard moves an exact-0.5 sample onto the truncate branch.
   HS_EXPECT_TRUE(ConwayGraph::truncate_off_pinch(0.5f) != 0.5f);
