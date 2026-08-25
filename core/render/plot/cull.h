@@ -721,9 +721,10 @@ static inline void geodesic_row_span(const Vector &a, const Vector &b,
  * extended over the shared samples and widened by the arc's Lipschitz bound.
  * The cull and renderer do NOT take bit-identical samples, so gap-freeness
  * comes from the Lipschitz + one-row margin: phi is 1-Lipschitz in angular
- * distance, so between samples |Δrow| ≤ (Δarc)·(H_VIRT−1)/π. The one-row
- * epsilon absorbs the sub-pixel difference between the unprojected sample
- * (≈unit to fast-math precision) and the renderer's normalized plot position.
+ * distance, so between samples |Δrow| ≤ (Δarc)·(H_VIRT−1)/π. The samples take
+ * the renderer's newton_unit() correction first: phi = acos(y) amplifies the
+ * fast-trig residual on the raw unprojection past the one-row epsilon once
+ * sin(phi) falls under a few hundredths.
  */
 template <int H>
 static inline void planar_row_span(const Vector &a, const Vector &b,
@@ -735,7 +736,7 @@ static inline void planar_row_span(const Vector &a, const Vector &b,
   row_lo = std::min(ra, rb);
   row_hi = std::max(ra, rb);
   for (const Vector &s : es.interior) {
-    float r = y_to_screen_row<H>(s.y);
+    float r = y_to_screen_row<H>(newton_unit(s).y);
     row_lo = std::min(row_lo, r);
     row_hi = std::max(row_hi, r);
   }
