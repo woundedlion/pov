@@ -195,6 +195,12 @@ private:
                     &generated_palettes.palette(PaletteMode::ANALOGOUS)};
     if (tap.params == nullptr || tap.params->hue_shift_amount == 0.0f)
       return ctx;
+    // The colorize stage reads neither table under HueShiftMode::NONE, so a
+    // leftover amount must not buy a palette resample.
+    const auto hue_mode =
+        static_cast<Pullback::Interp::Op::HueShiftMode>(tap.params->hue_mode);
+    if (hue_mode == Pullback::Interp::Op::HueShiftMode::NONE)
+      return ctx;
     const size_t palette_index = tap.params->palette_mode < ctx.palettes.size()
                                      ? tap.params->palette_mode
                                      : 0;
@@ -203,8 +209,7 @@ private:
             resources->hue_rotation_lut),
         *ctx.palettes[palette_index]);
     ctx.hue_rotation_lut = resources->hue_rotation_lut.data();
-    if (static_cast<Pullback::Interp::Op::HueShiftMode>(tap.params->hue_mode) !=
-        Pullback::Interp::Op::HueShiftMode::NOISE)
+    if (hue_mode != Pullback::Interp::Op::HueShiftMode::NOISE)
       return ctx;
     const auto &clocks =
         *static_cast<const Pullback::Interp::Op::ColorClockState *>(
