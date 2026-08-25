@@ -11,6 +11,7 @@ otherwise).
 """
 
 import argparse
+import contextlib
 import os
 import sys
 import time
@@ -74,11 +75,15 @@ def main():
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
 
     ser = open_port(args.connect_timeout, args.port)
-    print(f"profile_capture: reading {ser.port} for {args.seconds:.0f} s",
+    port = ser.port
+    print(f"profile_capture: reading {port} for {args.seconds:.0f} s",
           flush=True)
     end = time.monotonic() + args.seconds
     captured = 0
-    with open(args.out, "w", encoding="utf-8", newline="\n") as f:
+    # An interrupted capture must still release the port: profile_one.sh
+    # retries immediately, and a held port fails that retry too.
+    with contextlib.closing(ser), \
+            open(args.out, "w", encoding="utf-8", newline="\n") as f:
         while time.monotonic() < end:
             line = ser.readline()  # 1 s timeout keeps the deadline responsive
             if not line:
@@ -87,8 +92,6 @@ def main():
             print(text, flush=True)
             f.write(text + "\n")
             captured += 1
-    port = ser.port
-    ser.close()
     # A board that enumerates but never streams is a wrong or hung image, not
     # a capture: an empty log left behind reads downstream as a real one.
     if not captured:
