@@ -236,7 +236,8 @@ template <int H> inline float y_to_phi(int y) {
   if (!PhiLUT<H>::initialized) {
     PhiLUT<H>::init();
   }
-  HS_CHECK(y >= 0 && y < PhiLUT<H>::H_VIRT);
+  HS_CHECK(y >= 0 && y < PhiLUT<H>::H_VIRT, "y_to_phi: row %d outside [0, %d)",
+           y, PhiLUT<H>::H_VIRT);
   return PhiLUT<H>::data[y];
 }
 
@@ -794,8 +795,12 @@ inline Basis rotate(const Basis &b, const Quaternion &q) {
  * @return The constructed Basis.
  */
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
-  HS_CHECK(std::abs(orientation.squared_magnitude() - 1.0f) <
-           math::EPS_UNIT_QUAT_SQ);
+  const float orientation_norm_sq = orientation.squared_magnitude();
+  HS_CHECK(std::abs(orientation_norm_sq - 1.0f) < math::EPS_UNIT_QUAT_SQ,
+           "make_basis: orientation |q|^2 is %d/1000, not unit",
+           orientation_norm_sq < 1.0e6f
+               ? static_cast<int>(orientation_norm_sq * 1000.0f)
+               : static_cast<int>(INT32_MIN));
   Vector v = rotate(normal, orientation).normalized();
   // rotate preserves dot, so least_parallel_axis(normal) picks the same body
   // axis as the rotated frame; rotate it into the frame for the cross. Only its
