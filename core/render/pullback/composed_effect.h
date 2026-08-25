@@ -204,8 +204,11 @@ struct WarpProvider {
           requires { frame.params.source.lattice_cell_scale; },
           "the affine warp stage translates in lattice cells and requires a "
           "LatticeSourceParams source");
+      static_assert(Outer,
+                    "the affine warp stage consumes the rotation clock, which "
+                    "only the outer warp slot carries");
       return Pullback::Warp::prepare(
-          params(frame), phase(frame), Outer ? frame.outer_rotation : 0.0f,
+          params(frame), phase(frame), frame.outer_rotation,
           1.0f / frame.params.source.lattice_cell_scale);
     } else if constexpr (std::is_same_v<WarpT, NoWarpParams> ||
                          std::is_same_v<WarpT, PolarParams>) {
