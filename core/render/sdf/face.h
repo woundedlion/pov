@@ -453,6 +453,9 @@ struct Face {
         area2 +=
             poly_2d[i].x * poly_2d[i + 1].y - poly_2d[i + 1].x * poly_2d[i].y;
       if (fabsf(area2) <= COLLAPSED_AREA_RATIO * radius * radius) {
+        // Scratch already holds this face's geometry, so retire any earlier
+        // face's claim on the way out.
+        ++scratch.claim_seq;
         count = 0;
         y_min = 1;
         y_max = 0;
@@ -475,6 +478,7 @@ struct Face {
         !pole_within_circumcircle() &&
         clip_rejects_azimuth(*clip, clip->render_y_start(),
                              clip->render_y_end() - 1)) {
+      ++scratch.claim_seq;
       count = 0;
       y_min = 1;
       y_max = 0;
@@ -506,6 +510,7 @@ struct Face {
     // the scan would draw, so a face disjoint from the clip band yields no
     // in-band pixel.
     if (clip && clip_rejects(*clip)) {
+      ++scratch.claim_seq;
       count = 0;
       y_min = 1;
       y_max = 0;
