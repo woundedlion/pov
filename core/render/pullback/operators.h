@@ -171,39 +171,38 @@ struct ColorizeGeneratedPalette {
                           const State &state) {
     HS_CHECK(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH),
              "colorize.generated-palette: invalid hue shift mode");
+    HS_CHECK(params.palette_mode < ctx.palettes.size(),
+             "colorize.generated-palette: invalid palette mode");
+    HS_CHECK(params.mapping_mode <=
+                 static_cast<uint8_t>(Color::PaletteMapping::REVERSE),
+             "colorize.generated-palette: invalid palette mapping");
+    HS_CHECK(params.envelope_mode <=
+                 static_cast<uint8_t>(EnvelopeMode::DESCENDING),
+             "colorize.generated-palette: invalid brightness envelope");
     const Color::HueMode mode = static_cast<HueShiftMode>(params.hue_mode);
     const bool rotation_active = mode != Color::HueMode::NONE &&
                                  params.hue_shift_amount != 0.0f &&
                                  ctx.hue_rotation_lut != nullptr;
-    const size_t palette_index =
-        params.palette_mode < ctx.palettes.size() ? params.palette_mode : 0;
-    const BakedPalette *palette = ctx.palettes[palette_index];
+    const BakedPalette *palette = ctx.palettes[params.palette_mode];
     HS_CHECK(palette != nullptr,
              "colorize.generated-palette: frame context carries no palette");
-    const uint8_t mapping =
-        params.mapping_mode <=
-                static_cast<uint8_t>(Color::PaletteMapping::REVERSE)
-            ? params.mapping_mode
-            : static_cast<uint8_t>(Color::PaletteMapping::LINEAR);
-    return {
-        Color::PaletteMappingWeights::single(
-            static_cast<Color::PaletteMapping>(mapping)),
-        params.mapping_frequency,
-        params.mapping_phase,
-        params.phase_oscillation_depth,
-        state.oscillation_phase,
-        palette,
-        mode,
-        params.hue_shift_amount,
-        {ctx.hue_rotation_lut, rotation_active},
-        {ctx.hue_noise_lut, mode == Color::HueMode::NOISE && rotation_active &&
-                                ctx.hue_noise_lut != nullptr},
-        params.envelope_mode <= static_cast<uint8_t>(EnvelopeMode::DESCENDING)
-            ? static_cast<Color::BrightnessEnvelope>(params.envelope_mode)
-            : Color::BrightnessEnvelope::NONE,
-        params.brightness_depth,
-        params.opacity_low,
-        params.opacity_high};
+    return {Color::PaletteMappingWeights::single(
+                static_cast<Color::PaletteMapping>(params.mapping_mode)),
+            params.mapping_frequency,
+            params.mapping_phase,
+            params.phase_oscillation_depth,
+            state.oscillation_phase,
+            palette,
+            mode,
+            params.hue_shift_amount,
+            {ctx.hue_rotation_lut, rotation_active},
+            {ctx.hue_noise_lut, mode == Color::HueMode::NOISE &&
+                                    rotation_active &&
+                                    ctx.hue_noise_lut != nullptr},
+            static_cast<Color::BrightnessEnvelope>(params.envelope_mode),
+            params.brightness_depth,
+            params.opacity_low,
+            params.opacity_high};
   }
   static Color4 run(const FieldSample &input, const FrameContext &,
                     const Params &, const Prepared &prepared) {
