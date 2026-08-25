@@ -11,11 +11,9 @@ on:
   # direct-to-master pushes that open no PR.
   push:
     branches: [master]
+  # No path filter: a docs-only PR must still run the Markdown, image,
+  # license-header, and screenshot-gallery gates.
   pull_request:
-    paths-ignore:
-      - '*.md'
-      - '**/*.md'
-      - 'docs/**'
 
 # Every actions/checkout step below also passes persist-credentials: false. The
 # token authenticates the fetch and is not wanted afterwards: no job here
