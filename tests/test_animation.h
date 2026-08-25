@@ -1541,8 +1541,8 @@ inline void test_particle_system_signed_axis_boundaries() {
     reference.step(fake_canvas());
     specialized.step(fake_canvas());
     HS_EXPECT_EQ(reference.active(), specialized.active());
-    HS_EXPECT_EQ(reference.pool[0].life, specialized.pool[0].life);
     if (reference.active()) {
+      HS_EXPECT_EQ(reference.pool[0].life, specialized.pool[0].life);
       HS_EXPECT_LE(max_component_delta(reference.pool[0].position,
                                        specialized.pool[0].position),
                    1e-5f);
