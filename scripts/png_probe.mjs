@@ -27,18 +27,50 @@ function crc32(bytes) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
+// Adam7 pass origins and strides, in transmission order.
+const ADAM7_PASSES = [
+  [0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4],
+  [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2],
+];
+
 function readHeader(data) {
   if (data.length !== 13) throw new Error('IHDR is not 13 bytes');
   const width = data.readUInt32BE(0);
   const height = data.readUInt32BE(4);
   const depth = data[8];
   const colorType = data[9];
+  const compression = data[10];
+  const filter = data[11];
+  const interlace = data[12];
   const spec = COLOR_TYPES.get(colorType);
   if (width === 0 || height === 0) throw new Error('IHDR declares a zero dimension');
   if (spec === undefined) throw new Error(`IHDR color type ${colorType} is not a PNG color type`);
   if (!spec.depths.includes(depth))
     throw new Error(`IHDR bit depth ${depth} is not legal for color type ${colorType}`);
-  return { width, height, depth, colorType, channels: spec.channels, interlace: data[12] };
+  // Deflate and the five adaptive filters are the only methods PNG defines; a
+  // stream declaring anything else is not decodable by any conforming reader.
+  if (compression !== 0)
+    throw new Error(`IHDR compression method ${compression} is not deflate`);
+  if (filter !== 0)
+    throw new Error(`IHDR filter method ${filter} is not the adaptive filter set`);
+  if (interlace > 1)
+    throw new Error(`IHDR interlace method ${interlace} is neither none nor Adam7`);
+  return { width, height, depth, colorType, channels: spec.channels, interlace };
+}
+
+// Bytes the filtered raster must occupy: one filter byte per scanline plus its
+// padded samples, summed over the Adam7 passes when interlaced.
+function rasterBytes({ width, height, depth, channels, interlace }) {
+  const pass = (cols, rows) =>
+    rows * (1 + Math.ceil(cols * channels * depth / 8));
+  if (interlace === 0) return pass(width, height);
+  let total = 0;
+  for (const [x0, y0, dx, dy] of ADAM7_PASSES) {
+    const cols = Math.ceil((width - x0) / dx);
+    const rows = Math.ceil((height - y0) / dy);
+    if (cols > 0 && rows > 0) total += pass(cols, rows);
+  }
+  return total;
 }
 
 /**
@@ -89,13 +121,8 @@ export function inspectPng(bytes) {
   } catch {
     throw new Error('IDAT pixel data does not inflate');
   }
-  // Adam7 splits the raster into seven passes with their own row padding; the
-  // gallery is never interlaced, so only the flat layout is size-checked.
-  if (header.interlace === 0) {
-    const stride = Math.ceil(header.width * header.channels * header.depth / 8);
-    const expected = header.height * (stride + 1);
-    if (raw.length !== expected)
-      throw new Error(`inflated pixel data is ${raw.length} bytes, expected ${expected}`);
-  }
+  const expected = rasterBytes(header);
+  if (raw.length !== expected)
+    throw new Error(`inflated pixel data is ${raw.length} bytes, expected ${expected}`);
   return { width: header.width, height: header.height };
 }
