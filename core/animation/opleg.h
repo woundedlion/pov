@@ -335,7 +335,7 @@ public:
       if (edge.op == ConwayGraph::MorphOp::TRUNCATE)
         t = std::min(t, 0.5f - ConwayGraph::T_EPS_AMBO);
       if (ConwayGraph::is_jitterbug_edge(edge))
-        t = std::max(t, ConwayGraph::T_EPS_JITTERBUG);
+        t = std::max(t, ConwayGraph::T_JITTERBUG_OCTA_MIN);
       return t;
     };
     tr.t_start = clamp_param(spec.reverse ? edge.t_to : edge.t_from);
@@ -409,11 +409,11 @@ public:
              "OpLeg: truncate sweep needs a positive endpoint");
     const float trunc_floor =
         std::min(ConwayGraph::T_EPS, std::max(spec.t_start, spec.t_end) *
-                                         ConwayGraph::T_EPS_TRUNCATE_FRAC);
+                                         ConwayGraph::TRUNCATE_BIRTH_FRAC);
     auto clamp_param = [&](float t) {
       t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
       if (truncate)
-        t = std::min(t, far_side ? ConwayGraph::T_EPS_TRUNCATE_FAR_MAX
+        t = std::min(t, far_side ? ConwayGraph::T_TRUNCATE_FAR_MAX
                                  : 0.5f - ConwayGraph::T_EPS_AMBO);
       return t;
     };
