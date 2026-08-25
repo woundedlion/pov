@@ -274,14 +274,18 @@ Landed as `core/mesh/mesh_classes.h` (clustering + bake) with the hybrid branch 
 and per-slot bakes in IslamicStars (rebaked unconditionally after every
 `compact_keep_front`). Deviations from the design above:
 
-- **§6 is wrong about WASM**: the WASM release build uses the device
-  298 KiB `GLOBAL_ARENA_SIZE` (the 8 MiB figure is `HS_TEST_BUILD` only), so
-  the "f32 n=96, no policy" host row applies nowhere that ships. The device
-  policy is the only policy: **int16, n adaptive 32-64 (degrading to fit
-  before dropping a class), 18 KB/mesh budget on every target** — 20 KB
-  overflowed the 136 KB device persistent partition by 2 KB once the
-  per-face records and both slots' bakes were counted (now pinned by
-  test_solids' persistent-budget sweep: peak 137.2 KB / 139.3 KB).
+- **§6 is wrong about WASM**: nothing that ships gets the 8 MiB arena the
+  "f32 n=96, no policy" host row assumes — that is the native suite's
+  `HS_GLOBAL_ARENA_BYTES` override. The device builds against
+  `DEVICE_GLOBAL_ARENA_SIZE` (298 KiB) and the WASM module against 512 KiB, so
+  the device policy is the only policy: **int16, n adaptive 32-64 (degrading to
+  fit before dropping a class), 18 KB/mesh budget on every target** — 20 KB
+  overflowed the device persistent partition once the per-face records and both
+  slots' bakes were counted. That partition is what IslamicStars' split leaves:
+  `DEVICE_GLOBAL_ARENA_SIZE` minus its 116 KiB / 74 KiB scratch pair, 108 KiB.
+  `test_islamic_solids_fit_islamicstars_persistent_budget`
+  (`tests/test_solids.h`) prints and pins the peak — the palette bank plus the
+  worst registry-adjacent carousel pair — under that figure.
 - A class whose bake-predicted hit share is under 40% is not kept
   (small faces are mostly fallback band; the LUT would cost its guard on
   every probe and then walk anyway). No registry mesh currently trips this.
