@@ -626,6 +626,8 @@ struct AiroceanEdgeNormals {
 
 inline constexpr AiroceanEdgeNormals AIROCEAN_EDGE_NORMALS{};
 inline constexpr float AIROCEAN_CONTAINS_EPS = 1e-7f;
+/** Floor on the gnomonic ray's plane component; see airocean_projection. */
+inline constexpr float AIROCEAN_RAY_EPS = 1e-6f;
 /**
  * @brief Each face's vertex centroid, unnormalized.
  * @details Supplies the plane offset the gnomonic ray is scaled onto.
@@ -976,7 +978,11 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
   const float plane =
       center.x * normal.x + center.y * normal.y + center.z * normal.z;
   const float ray = p.x * normal.x + p.y * normal.y + p.z * normal.z;
-  const float scale = plane / ray;
+  // The outside-score fallback can settle on a face the ray does not cross, so
+  // floor the divisor; copysignf keys on the sign bit, so -0.0f floors negative.
+  const float divisor =
+      fabsf(ray) < AIROCEAN_RAY_EPS ? copysignf(AIROCEAN_RAY_EPS, ray) : ray;
+  const float scale = plane / divisor;
   const AiroceanVector q{p.x * scale, p.y * scale, p.z * scale};
   const float (&transform)[2][4] = AIROCEAN_TRANSFORMS[face];
   AiroceanPoint output{transform[0][0] * q.x + transform[0][1] * q.y +
