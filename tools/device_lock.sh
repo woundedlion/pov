@@ -145,10 +145,12 @@ _hs_lock_is_stale() {  # <dir>
 # both attempt it and exactly one succeeds, so the loser can never delete the
 # winner's fresh lock and hand two sessions one board. The token re-read rejects
 # a claim released and re-taken between the judgement and the rename; that one is
-# put back rather than consumed.
+# put back rather than consumed. An empty token matches only a directory with no
+# readable claim, the same one _hs_lock_is_stale dates by its own mtime; a lock
+# that does carry a token still rejects the empty request.
 _hs_break_lock() {
   local d=$1 token=$2 broken
-  [ -n "$token" ] && [ "$(_hs_lock_field "$d" token)" = "$token" ] || return 1
+  [ "$(_hs_lock_field "$d" token)" = "$token" ] || return 1
   broken="$d.breaking.$$-$RANDOM"
   mv "$d" "$broken" 2>/dev/null || return 1
   if [ "$(_hs_lock_field "$broken" token)" != "$token" ]; then
