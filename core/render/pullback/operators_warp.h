@@ -408,8 +408,8 @@ struct CurlFlowParams {
 };
 static_assert(field_ids_unique<CurlFlowParams>());
 
-/** @brief The curl flow's prepared block: the owned noise field plus the loop
-    phase. */
+/** @brief The curl flow's prepared block: the owned noise field, the loop
+    phase, and the integration sub-step count decoded from the integrator. */
 struct PreparedCurlFlow {
   const FastNoiseLite *noise;
   float phase;
