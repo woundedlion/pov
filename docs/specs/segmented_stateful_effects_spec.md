@@ -6,7 +6,7 @@ for making history-reading pixel effects (today only `MeshFeedback`, via the
 dropping pixels, while non-stateful effects keep the full clipping win. The
 seam is the WASM driver boundary (`targets/wasm/engine_bindings.h` `setClip`)
 and the
-device driver (`hardware/pov_segmented.h` `clip_to_segment`), plus two
+device driver (`hardware/pov_segmented.h` `clip_to_segment`), plus three
 compile-time filter traits. Both drivers gate on `Effect::needs_full_frame()`;
 the device additionally excludes `persists_pixels()` effects (§2).*
 
@@ -96,7 +96,8 @@ already correct), whereas `Pixel::Feedback` (warp) and `World::Trails`
 Statefulness is already a compile-time filter trait (`has_history`, with the
 `Pipeline` constexpr-folding the history/terminal static-asserts at
 filter.h:452-476). Add a sibling trait that captures the property that actually
-matters here — whether a filter's state *moves across segment boundaries*:
+matters here — whether a filter's state *moves across segment boundaries* —
+plus a second for whether it *samples* pixels outside its band:
 
 - `static constexpr bool crosses_segments`, defaulting to `has_history`
   (fail-safe: a new history filter is treated as cross-segment until proven
@@ -110,10 +111,20 @@ matters here — whether a filter's state *moves across segment boundaries*:
   would actually corrupt it depends on whether the rasterizer culls
   out-of-band fragments *before* that store. Left `true` as the fail-safe
   default rather than relying on that analysis.
-- `false` on `Screen::Trails` — the **only non-fail-safe override**: it turns
-  full-frame *off* for a history filter, justified solely by reach 0 (decays
-  in place, redraws at the same screen coordinate). If that reasoning is
-  wrong, it drops pixels — so it must be tested directly (§8).
+- `true` on `Screen::Trails` — also the `has_history` default, kept even though
+  its reach is 0 (it decays in place and redraws at the same screen
+  coordinate). Turning full-frame *off* for a history filter is the one move
+  that drops pixels if the reach argument is wrong, so the trait stays
+  fail-safe; §8's banded-vs-full bit-identity test pins the reach-0 property
+  that would justify the override, and no shipped effect stacks the filter.
+- `static constexpr bool reads_outside_band` — the sibling trait, same
+  `has_history` default: whether the stage *samples* framebuffer pixels beyond
+  the display band. `true` on `Pixel::Feedback` (it reads `cv.prev` at warp
+  offsets); overridden to `false` on both `Screen::Trails` and `World::Trails`,
+  which re-emit their own buffered points and never sample the framebuffer. It
+  gates `Canvas::clear_stale_pixels` between a whole-buffer clear and a
+  display-clip-only one, independently of the full-frame gate that
+  `crosses_segments` drives.
 
 `Pipeline` does **not** today expose any aggregate trait constant — the
 existing folding is per-node recursive `static_assert`s on `Head::has_history`
@@ -226,7 +237,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 | Effect class | Reach | Simulator render bound |
 |---|---|---|
 | Non-stateful | none | segment band (+1 AA margin) — full clipping win |
-| In-place history (`Screen::Trails`) | 0 (redraws at same coord) | sim: segment band, `crosses_segments = false`. Device alternation halves a quadrant's redraw cadence, so a device-clipped in-place-history effect would decay at the wrong rate — none ship today; flag `persists_pixels()` or full-frame before adding one |
+| In-place history (`Screen::Trails`) | 0 (redraws at same coord) | full canvas: `crosses_segments` keeps its fail-safe `has_history` default, only `reads_outside_band` is overridden to `false`. Device alternation halves a quadrant's redraw cadence, so a device-clipped in-place-history effect would decay at the wrong rate — none ship today; flag `persists_pixels()` or full-frame before adding one |
 | Bounded spatial neighborhood (AntiAlias ±1, `ChromaticShift` +3) | finite | band + the pipeline's `total_segment_margin` (§4.4) |
 | Cross-segment history (`Pixel::Feedback`, `World::Trails`) | unbounded | full canvas; output sliced JS-side |
 
@@ -236,7 +247,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 
 | Layer | Change |
 |---|---|
-| `core/render/filter.h` traits | add `crosses_segments = has_history` to the trait bases; `false` on `Screen::Trails`; add a **new** recursive `any_crosses_segments` OR-fold to `Pipeline` + a `false` base case in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
+| `core/render/filter/pipeline.h` traits | add `crosses_segments` and `reads_outside_band` to `FilterTraits`, both defaulting to `has_history`; override `reads_outside_band = false` on `Screen::Trails` and `World::Trails`, `crosses_segments = true` on `World::Mobius`; add the recursive `any_crosses_segments` / `any_reads_outside_band` OR-folds to `Pipeline` + `false` base cases in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
 | `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor; `margin` config field applied to `ClipRegion::margin` through `set_margin`, widen-only |
 | each filtered effect's constructor | pass `.full_frame = decltype(filters)::any_crosses_segments` and `.margin = decltype(filters)::total_segment_margin` in the `Effect` base initializer |
 | `targets/wasm/engine_bindings.h` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
@@ -272,12 +283,13 @@ Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
 `tests/test_effects.h`:
 
 - **Trait fold** (`test_crosses_segments_trait_and_fold`, test_filter.h): pins
-  the per-filter `crosses_segments` values (incl. the `Screen::Trails == false`
-  override) and the `Pipeline::any_crosses_segments` OR-fold — `true` for the
-  MeshFeedback stack, `false` for a non-stateful stack and a `Screen::Trails`
-  stack — so a future filter addition can't silently regress the gate. Also pins
-  `segment_margin` (`ChromaticShift == 3`, the ±1 splatters 1, everything else
-  0) and the `total_segment_margin` sum-fold.
+  the per-filter `crosses_segments` and `reads_outside_band` values (incl. the
+  `Screen::Trails` pair, `true` and `false`) and both OR-folds — a
+  `Screen::Trails` stack folds to `any_crosses_segments == true` and
+  `any_reads_outside_band == false` — so a future filter addition can't
+  silently regress either gate. Also pins `segment_margin`
+  (`ChromaticShift == 3`, the ±1 splatters 1, everything else 0) and the
+  `total_segment_margin` sum-fold.
 - **Margin wiring** (`test_effect_config_margin`, test_canvas.h): asserts
   `EffectConfig::margin` reaches `ClipRegion::margin` and that a fold of 0 does
   not shrink it below the default. `smoke_one` asserts the roster's clip margin
@@ -291,11 +303,12 @@ Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
   lives in the Emscripten-only TU, which the native suite cannot link. A new
   cross-segment effect that forgets the `full_frame` field is caught here.
 - **`Screen::Trails` banded-vs-full bit-identity**
-  (`test_screen_trails_banded_matches_full`, test_filter.h): the load-bearing
-  proof of the one non-fail-safe override. The same multi-frame seed sequence is
-  driven through one full-canvas instance and two band-clipped instances; the
-  stitched banded output must equal the full output byte-for-byte. This is the
-  override that drops pixels if the reach-0 reasoning is wrong.
+  (`test_screen_trails_banded_matches_full`, test_filter.h): the reach-0 proof
+  that backs the `reads_outside_band = false` override and would be the
+  precondition for ever dropping `crosses_segments` to `false`. The same
+  multi-frame seed sequence is driven through one full-canvas instance and two
+  band-clipped instances; the stitched banded output must equal the full output
+  byte-for-byte.
 - **Feedback band-clip divergence**
   (`test_feedback_banded_diverges_from_full`, test_filter.h): the inverse for an
   unbounded-reach filter — a melt warp drips content across the segment boundary,
