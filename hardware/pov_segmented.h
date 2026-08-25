@@ -44,6 +44,7 @@
 #pragma once
 #include "render/led.h"
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
+#include "pov_single_map.h"  // pov::transfer_us (host-tested)
 #include "pov_sync.h"    // pure sync protocol (host-testable; see that file)
 #include "pov_handoff.h" // pure effect-handoff state machine (host-testable)
 #include "pov_submit_gate.h" // pure LED-submit decision (host-testable)
@@ -177,11 +178,11 @@ template <int S, int N, int RPM> class POVSegmented {
   /**
    * @brief Worst-case duration of one column's LED transfer, in µs.
    * @details Image frame plus the trailing black frame strobe_columns() appends,
-   * eight clocks per byte at SPI_CLOCK_HZ.
+   * eight clocks per byte at SPI_CLOCK_HZ, rounded up so the overrun check
+   * below never under-counts.
    */
-  static constexpr float COLUMN_TRANSFER_US =
-      float(HD107SFrame<PPS>::COMPOSITE_SIZE) * 8.0f * 1000000.0f /
-      float(SPI_CLOCK_HZ);
+  static constexpr unsigned long COLUMN_TRANSFER_US =
+      pov::transfer_us(HD107SFrame<PPS>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
 
   // A transfer wider than the column period overruns every column; the submit
   // gate absorbs the drops, so it surfaces as a dim image, not as a fault.
