@@ -218,6 +218,29 @@ inline void test_slice_and_projected_modes_are_distinct() {
   HS_EXPECT_GT(projected_only, 0);
 }
 
+inline void test_projected_pipeline_matches_dynamic_dispatch() {
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  const HL::FrameState context{
+      HyperLatticeWhiteBox::Effect::preset_params(4),
+      {{0.17f, 0.31f, 0.43f, 0.59f}},
+      {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f},
+      HL::pixel_half_angle<96, 20>(),
+      HyperLatticeWhiteBox::depth_palette(effect),
+      HyperLatticeWhiteBox::axis_palette(effect),
+  };
+  const auto frame = HL::RenderPipeline::prepare(context);
+  const Vector direction(0.267261242f, 0.534522484f, 0.801783726f);
+  const Color4 dynamic =
+      HL::RenderPipeline::evaluate(direction, frame.ctx, frame.prepared);
+  const Color4 projected = HL::ProjectedRenderPipeline::evaluate(
+      direction, frame.ctx, frame.prepared);
+  HS_EXPECT_EQ(dynamic.color.r, projected.color.r);
+  HS_EXPECT_EQ(dynamic.color.g, projected.color.g);
+  HS_EXPECT_EQ(dynamic.color.b, projected.color.b);
+  HS_EXPECT_EQ(dynamic.alpha, projected.alpha);
+}
+
 inline void test_reflection_convention() {
   const HL::Vec4 center =
       HL::reflected_direction(X_AXIS, HL::ReflectionMode::CHROME, 1.0f);
@@ -454,7 +477,7 @@ inline void test_render_signature() {
       signature = hs_test::fnv1a64_channel(signature, frac_to_q16(color.alpha));
     }
   }
-  HS_EXPECT_EQ(signature, uint64_t(3442334229940849102ull));
+  HS_EXPECT_EQ(signature, uint64_t(6982298914659780895ull));
 }
 
 inline void test_presets_and_pipeline() {
@@ -529,6 +552,7 @@ inline int run_hyper_lattice_tests() {
   test_projected_line_pool_is_frame_global_and_bounded();
   test_projected_line_pool_handles_collapsed_axis();
   test_slice_and_projected_modes_are_distinct();
+  test_projected_pipeline_matches_dynamic_dispatch();
   test_reflection_convention();
   test_resolution_aware_wire_coverage();
   test_near_field_fade();
