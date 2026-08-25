@@ -137,8 +137,8 @@ private:
   /**
    * @brief Concentration-sum floor below which a location is treated as empty.
    * @details Distinct from KERNEL_MIN_TOTAL_WEIGHT: that guards the Wendland
-   * weight sum, this the blended concentration (a full-weight kernel can still
-   * average to ~0 if all species are absent), and sample_kernel culls below it.
+   * weight sum, this the blended concentration; a full-weight kernel can still
+   * average to ~0 if all species are absent.
    */
   static constexpr float SPECIES_EMPTY_EPS = 1e-6f;
 
