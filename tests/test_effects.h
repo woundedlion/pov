@@ -6942,10 +6942,17 @@ inline int run_effects_tests() {
   test_raymarch_volume_random_walks_are_independent();
   test_raymarch_preset_and_placement_solids();
   test_raymarch_surface_frame_uv();
+  // Resolution-independent white-box math: excluding these from the QUICK tier
+  // would buy no PR runtime.
+  test_sh_decode_lm_valid_order();
+  test_sh_cartesian_matches_spherical();
   test_sh_reduced_legendre_matches_closed_form();
   test_gs_q16_roundtrip();
+  test_gs_rest_state_is_fixed_point();
+  test_gs_substep_signs_and_clamp();
   test_bz_q16_roundtrip();
   test_bz_advance_species_signs_and_clamp();
+  test_bz_perturb_state_draw_count_pinned();
   test_hopf_projection_math();
   test_raymarch_constexpr_sqrt_converges();
 
@@ -6957,15 +6964,11 @@ inline int run_effects_tests() {
     test_voronoi_axes_use_uniform_sampler();
     test_voronoi_union_candidates_cover_nearest();
     test_voronoi_segment_render_matches_full_frame();
-    test_sh_decode_lm_valid_order();
-    test_sh_cartesian_matches_spherical();
     test_sh_field_write_through_and_endpoints();
     test_sh_field_stays_inside_unit_range();
     test_sh_pullback_matches_legacy_shader();
     test_sh_polarity_split_and_ao_shaping();
     test_sh_morph_chain_rearms();
-    test_gs_rest_state_is_fixed_point();
-    test_gs_substep_signs_and_clamp();
     test_gs_evolution_stays_bounded();
     test_gs_reaction_corner_stays_bounded();
     test_gs_dissolve_clears_and_reseeds();
@@ -6973,7 +6976,6 @@ inline int run_effects_tests() {
     test_bz_legacy_palette();
     test_bz_min_diffusion_step_survives_quantization();
     test_bz_perturb_state_saturates_and_nudges();
-    test_bz_perturb_state_draw_count_pinned();
     test_bz_perturb_scales_with_timestep();
     test_bz_substep_diffuses();
     test_bz_raster_matches_reference();
