@@ -7296,7 +7296,7 @@ private:
 
   static constexpr size_t FOOTPRINT_BYTES =
       gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
-      3 * PaletteCycler::generated_arena_bytes() +
+      EffectPaletteRecipes::GeneratedPaletteBank::required_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(StateBundle) +
       alignof(StateBundle);
   static_assert(
