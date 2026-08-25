@@ -17,7 +17,12 @@ namespace projections_tests {
 using namespace projections;
 
 constexpr float PEIRCE_QUARTER_PERIOD = 1.8540746773013719f;
-constexpr size_t AIROCEAN_FACE_COUNT = 23;
+constexpr size_t AIROCEAN_FACE_COUNT = std::size(AIROCEAN_FACES);
+static_assert(std::size(AIROCEAN_CENTERS) == AIROCEAN_FACE_COUNT);
+static_assert(std::size(AIROCEAN_NORMALS) == AIROCEAN_FACE_COUNT);
+static_assert(std::size(AIROCEAN_PLANAR_FACES) == AIROCEAN_FACE_COUNT);
+static_assert(std::size(AIROCEAN_TRANSFORMS) == AIROCEAN_FACE_COUNT);
+static_assert(std::size(AIROCEAN_CUT_MASKS) == AIROCEAN_FACE_COUNT);
 
 inline Vector direction(float latitude, float longitude) {
   const float radius = cosf(latitude);
