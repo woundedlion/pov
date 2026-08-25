@@ -195,6 +195,11 @@ def board_copper(root):
              if net_id(node) is not None}
     for footprint in F(root, "footprint"):
         reference = footprint_reference(footprint)
+        side = sexp.val(footprint, "layer", [None])[0]
+        if str(side) != "F.Cu":
+            raise ValueError(
+                f"footprint {reference} layer is {side or 'missing'}, not F.Cu; "
+                "pads are placed by rotation alone, never mirrored")
         placement = sexp.val(footprint, "at")
         origin = _xy(placement)
         rotation = float(placement[2]) if len(placement) > 2 else 0.0
