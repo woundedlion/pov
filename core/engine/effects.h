@@ -137,10 +137,10 @@ constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
 template <template <int, int> class EffectT>
 constexpr int hs_preset_window_seconds() {
   using Effect = EffectT<96, 20>;
-  constexpr size_t PRESET_COUNT = Effect::PRESET_IDS.size();
+  constexpr size_t PRESET_COUNT = Effect::authored_preset_count();
   static_assert(PRESET_COUNT > 0);
   constexpr size_t FRAMES = PRESET_COUNT * Effect::PRESET_DWELL_FRAMES +
-                            (PRESET_COUNT - 1) * Effect::PRESET_SEGUE.frames;
+                            (PRESET_COUNT - 1) * Effect::TRANSITION_DURATION;
   return static_cast<int>((FRAMES + HS_SHOW_FRAMES_PER_SECOND - 1) /
                           HS_SHOW_FRAMES_PER_SECOND);
 }
