@@ -4,6 +4,9 @@
  */
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include "render/sdf.h"
