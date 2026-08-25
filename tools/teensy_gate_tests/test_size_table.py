@@ -9,8 +9,11 @@ test_teensy_gate.py.
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """
 
+import contextlib
+import io
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
@@ -81,6 +84,38 @@ class RenderTable(unittest.TestCase):
         # phantasm8 produced no size output -> '-' cells, not a dropped column.
         self.assertTrue(rows["FLASH code"].rstrip().endswith("-"))
 
+
+class Main(unittest.TestCase):
+    class _FakePio:
+        def __init__(self, lines, rc):
+            self.stdout = io.StringIO("".join(f"{line}\n" for line in lines))
+            self.rc = rc
+
+        def wait(self):
+            return self.rc
+
+    def _run(self, lines, rc):
+        for target, name, value in (
+                (tst.shutil, "which", "pio"),
+                (tst.subprocess, "Popen", self._FakePio(lines, rc))):
+            patcher = mock.patch.object(target, name, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()):
+            with contextlib.redirect_stderr(err):
+                return tst.main(["holosphere"]), err.getvalue()
+
+    def test_malformed_size_line_still_propagates_the_pio_exit_code(self):
+        log = _env_chunk("holosphere", extra=[
+            "teensy_size:   FLASH: unavailable   free for files: 1883136"])
+        rc, err = self._run(log, 3)
+        self.assertEqual(rc, 3)
+        self.assertIn("unparsable teensy_size output", err)
+
+    def test_a_clean_run_returns_the_pio_exit_code(self):
+        log = _env_chunk("holosphere", "good_teensy_size.txt")
+        self.assertEqual(self._run(log, 0)[0], 0)
 
 if __name__ == "__main__":
     unittest.main()

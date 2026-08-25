@@ -127,7 +127,12 @@ def main(argv: list[str] | None = None) -> int:
         lines.append(line.rstrip("\n"))
     rc = proc.wait()
 
-    order, sizes_by_env = collect_sizes(lines)
+    try:
+        order, sizes_by_env = collect_sizes(lines)
+    except teensy_gate.TeensySizeFormatError as exc:
+        print(f"error: unparsable teensy_size output ({exc}); table omitted",
+              file=sys.stderr)
+        return rc
     if order:
         print()
         print(render_table(order, sizes_by_env))
