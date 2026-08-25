@@ -17,6 +17,64 @@ sys.path.insert(0, str(GEN))
 import fab  # noqa: E402
 
 
+class ProjectRulesTests(unittest.TestCase):
+    def write_project(self, directory, rules=None, default=None):
+        document = {
+            "board": {"design_settings": {"rules": dict(fab.RULE_MINIMUMS)}},
+            "net_settings": {
+                "classes": [dict(fab.DEFAULT_CLASS_MINIMUMS, name="Default")]
+            },
+        }
+        document["board"]["design_settings"]["rules"].update(rules or {})
+        document["net_settings"]["classes"][0].update(default or {})
+        project = Path(directory) / "phantasm.kicad_pro"
+        project.write_text(json.dumps(document), encoding="utf-8")
+        return project
+
+    def test_accepts_project_at_the_floor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = self.write_project(directory)
+            self.assertEqual(
+                fab.validate_project_rules(project),
+                len(fab.RULE_MINIMUMS) + len(fab.DEFAULT_CLASS_MINIMUMS))
+
+    def test_rejects_gui_rezeroed_clearance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = self.write_project(directory, rules={"min_clearance": 0})
+            with self.assertRaises(fab.ProjectRulesError) as caught:
+                fab.validate_project_rules(project)
+        self.assertIn("min_clearance", str(caught.exception))
+        self.assertIn("heal_clearance.py", str(caught.exception))
+
+    def test_rejects_relaxed_default_net_class(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = self.write_project(directory, default={"via_drill": 0.1})
+            with self.assertRaises(fab.ProjectRulesError) as caught:
+                fab.validate_project_rules(project)
+        self.assertIn("Default.via_drill", str(caught.exception))
+
+    def test_rejects_project_without_default_net_class(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "phantasm.kicad_pro"
+            project.write_text(
+                json.dumps({"net_settings": {"classes": []}}), encoding="utf-8")
+            with self.assertRaises(fab.ProjectRulesError) as caught:
+                fab.validate_project_rules(project)
+        self.assertIn("Default net class", str(caught.exception))
+
+    def test_rejects_unreadable_project(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "phantasm.kicad_pro"
+            project.write_text("{", encoding="utf-8")
+            with self.assertRaises(fab.ProjectRulesError):
+                fab.validate_project_rules(project)
+
+    def test_committed_project_meets_the_fabrication_floors(self):
+        self.assertEqual(
+            fab.validate_project_rules(),
+            len(fab.RULE_MINIMUMS) + len(fab.DEFAULT_CLASS_MINIMUMS))
+
+
 class ViaGeometryTests(unittest.TestCase):
     def validate_source(self, source, min_vias=1):
         with tempfile.TemporaryDirectory() as directory:
