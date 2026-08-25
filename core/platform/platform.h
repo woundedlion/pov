@@ -448,7 +448,7 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
 template <typename Sig, size_t Cap = 16>
 using Fn = teensy::inplace_function<Sig, Cap>;
 #else
-#include "platform/inplace_function.h" // hs::inplace_function (declared after check_fail)
+#include "platform/inplace_function.h" // hs::inplace_function
 /**
  * @brief Platform-aware callable wrapper (host/WASM: heap-free inplace_function).
  * @tparam Sig Call signature, e.g. void(int).
