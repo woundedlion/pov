@@ -1312,12 +1312,12 @@ export function classifyExport(compiled, registry, capabilityProfile) {
 const clampUnit = (value) => value <= 0 ? 0 : value >= 1 ? 1 : value;
 
 export function applyEasing(kind, progress) {
+  if (!EASING_KINDS.has(kind))
+    fail('transition', 'UNKNOWN_EASING', '$.easing', `Unknown easing "${kind}".`);
   const t = clampUnit(Math.fround(progress));
   if (t === 0 || t === 1) return t;
   if (kind === 'LINEAR') return t;
-  if (kind === 'EASE_IN_OUT_SIN')
-    return Math.fround((1 - Math.cos(Math.PI * t)) * 0.5);
-  fail('transition', 'UNKNOWN_EASING', '$.easing', `Unknown easing "${kind}".`);
+  return Math.fround((1 - Math.cos(Math.PI * t)) * 0.5);
 }
 
 export function interpolateValue(parameter, from, to, progress) {
