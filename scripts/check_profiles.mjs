@@ -21,7 +21,11 @@ export async function profileDirectories(profilesDir, errors = []) {
   const entries = await readdir(profilesDir, { withFileTypes: true });
   const directories = [];
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory()) {
+      if (REPORT_RE.test(entry.name))
+        errors.push(`${entry.name} is a profile report outside a timing set`);
+      continue;
+    }
     const files = await readdir(join(profilesDir, entry.name));
     if (files.includes('README.md')) {
       directories.push(entry.name);
