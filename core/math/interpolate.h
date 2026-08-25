@@ -101,8 +101,10 @@ inline float shortest_periodic(float a, float b, float progress, float period) {
  * @tparam Size Component count of the interpolated vector.
  */
 template <size_t Size> struct NormalizedLinearResult {
-  std::array<float, Size> values; /**< Interpolated vector; unit-length when
-                                       valid, un-normalized otherwise. */
+  std::array<float, Size> values; /**< Interpolated vector; unit-length only
+                                       for 0 < progress < 1 with valid true —
+                                       a snapped endpoint is returned as
+                                       supplied. */
   bool valid; /**< False when the interpolant passed through the origin. */
 };
 
