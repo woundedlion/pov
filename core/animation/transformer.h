@@ -155,6 +155,8 @@ public:
     entities = arena.make_n<Entity>(CAPACITY);
     active_slots = arena.allocate_n<int>(CAPACITY);
     active_slot_count = 0;
+    storage_arena = &arena;
+    storage_end = arena.get_offset();
 #ifndef NDEBUG
     stamp.record(arena);
 #endif
@@ -184,6 +186,7 @@ public:
     int *s = arena.allocate_n<int>(CAPACITY);
     HS_CHECK(e == entities && s == active_slots,
              "TransformerPool: reclaimed storage moved");
+    storage_end = arena.get_offset();
 #ifndef NDEBUG
     assert(stamp.source_arena == &arena &&
            "TransformerPool::reclaim_storage() on a different arena than "
@@ -321,6 +324,8 @@ private:
       timeline; /**< Timeline that schedules and steps the spawned animations. */
   bool clear_hook_registered =
       false; /**< Whether init_storage() registered the timeline clear hook. */
+  Arena *storage_arena = nullptr; /**< Arena init_storage() allocated from. */
+  size_t storage_end = 0; /**< Arena offset just past the pool's blocks. */
 
   static inline TransformerPool *live_head =
       nullptr; /**< Head of the live-pool list. */
@@ -356,6 +361,22 @@ private:
       }
     }
     HS_CHECK(false, "TransformerPool: destroyed pool not in the live list");
+  }
+
+  /**
+   * @brief Traps if the pool's arena was reclaimed under the live slots.
+   * @details Always on, so a device build detects it too. A rebind
+   * (configure_arenas), a reset and a rewind below the blocks all drop the
+   * arena offset under the watermark, so an init_storage() that ran before
+   * configure_arenas() is caught at the first spawn. Only the debug stamp below
+   * separates the three cases. Cold callers only: the compositions read the
+   * slots per pixel and must not pay for it. Requires entities, which every
+   * caller checks first.
+   */
+  HS_COLD_MEMBER void check_storage_watermark() const {
+    HS_CHECK(storage_arena->get_offset() >= storage_end,
+             "TransformerPool: arena reclaimed under a live pool; "
+             "init_storage() runs after configure_arenas()");
   }
 
 #ifndef NDEBUG
@@ -396,6 +417,7 @@ private:
   HS_COLD_MEMBER void release_all() {
     HS_CHECK(entities,
              "TransformerPool: call init_storage() before release_all");
+    check_storage_watermark();
     check_storage_alive();
     for (int i = 0; i < CAPACITY; ++i)
       entities[i].active = false;
@@ -439,6 +461,7 @@ private:
   AnimT *spawn_impl(Timeline::Pin pin, const bool *paused, int in_frames,
                     Args &&...args) {
     HS_CHECK(entities, "TransformerPool: call init_storage() before spawn");
+    check_storage_watermark();
     check_storage_alive();
     // Linear scan for a free slot (cold path).
     for (int idx = 0; idx < CAPACITY; ++idx) {
