@@ -497,7 +497,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   └── report_cases.mjs        node:test reporter tallying per-file case counts
 ├── tools/                      Firmware gates, device profiling, and asset bakes
 │   ├── build_pins.py           Shared external-tool version pins for CI and `just`
-│   ├── check_coverage.py       Catastrophic llvm-cov line-floor gate
+│   ├── check_coverage.py       Catastrophic llvm-cov line-floor gate, repo-wide and per core/ subtree
 │   ├── check_domain_ratchets.py  Relax-bake and death-harness coverage ratchets
 │   ├── require_test_files.sh   Non-empty guard for glob-discovered test suites (CI)
 │   ├── check_test_dir_pins.sh  Asserts every Python test-suite directory is discovered by CI and the justfile

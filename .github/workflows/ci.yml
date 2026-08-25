@@ -579,10 +579,14 @@ jobs:
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
 
-      - name: Build coverage reports and enforce floor
+      - name: Build coverage reports and enforce the floors
         # An explicit `shell: bash` is what enables pipefail — GitHub's implicit
         # shell is `bash -e {0}`, under which tee's status 0 masks a failed
         # llvm-cov and an empty code fence is published instead.
+        # A repo-wide aggregate holds while a whole subsystem falls to zero, so
+        # the largest core/ subtrees carry their own floors, derived from the
+        # measured coverage. A directory the report names no file under fails
+        # rather than passing vacuously.
         shell: bash
         run: |
           llvm-profdata-22 merge -sparse -o cov/run_tests.profdata cov/*.profraw
@@ -598,7 +602,12 @@ jobs:
             -instr-profile=cov/run_tests.profdata \
             -ignore-filename-regex='(^/usr/|/tests/)' \
             -format=html -output-dir=cov/html
-          python tools/check_coverage.py cov/summary.json --min-lines 70
+          python tools/check_coverage.py cov/summary.json --min-lines 70 \
+            --min-directory core/animation=90 \
+            --min-directory core/color=85 \
+            --min-directory core/math=95 \
+            --min-directory core/mesh=80 \
+            --min-directory core/render=90
           {
             echo '## Native suite coverage'
             echo

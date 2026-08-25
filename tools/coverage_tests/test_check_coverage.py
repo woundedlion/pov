@@ -25,6 +25,37 @@ class LineCoverage(unittest.TestCase):
             check_coverage.line_coverage(document)
 
 
+def document_with(files, percent=90.0):
+    """An llvm-cov export whose files are (name, count, covered) triples."""
+    return {"data": [{
+        "totals": {"lines": {"percent": percent}},
+        "files": [{"filename": name,
+                   "summary": {"lines": {"count": count, "covered": covered}}}
+                  for name, count, covered in files],
+    }]}
+
+
+class DirectoryCoverage(unittest.TestCase):
+    def test_aggregates_only_files_under_the_directory(self):
+        document = document_with([
+            ("/w/pov/core/render/scan.h", 100, 90),
+            ("/w/pov/core/render/deep/raster.h", 100, 50),
+            ("/w/pov/core/mesh/mesh.h", 100, 0),
+        ])
+        self.assertEqual(
+            check_coverage.directory_coverage(document, "core/render"), 70.0)
+
+    def test_rejects_a_directory_the_report_never_names(self):
+        document = document_with([("/w/pov/core/mesh/mesh.h", 10, 10)])
+        with self.assertRaisesRegex(ValueError, "core/render"):
+            check_coverage.directory_coverage(document, "core/render")
+
+    def test_rejects_a_report_with_no_per_file_summaries(self):
+        with self.assertRaisesRegex(ValueError, "per-file summaries"):
+            check_coverage.directory_coverage(
+                {"data": [{"totals": {}}]}, "core/render")
+
+
 class Main(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -37,9 +68,11 @@ class Main(unittest.TestCase):
     def stage_percentage(self, percent):
         self.stage({"data": [{"totals": {"lines": {"percent": percent}}}]})
 
-    def main_with(self, minimum):
+    def main_with(self, minimum, *directories):
         """Invoke main() against the staged report, capturing its streams."""
         argv = ["check_coverage.py", str(self.report), "--min-lines", minimum]
+        for floor in directories:
+            argv += ["--min-directory", floor]
         self.stdout, self.stderr = io.StringIO(), io.StringIO()
         with unittest.mock.patch.object(sys, "argv", argv), \
                 contextlib.redirect_stdout(self.stdout), \
@@ -87,6 +120,27 @@ class Main(unittest.TestCase):
             self.main_with("101")
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("between 0 and 100", self.stderr.getvalue())
+
+    def test_a_directory_below_its_floor_fails_a_passing_aggregate(self):
+        self.stage(document_with([
+            ("/w/pov/core/render/scan.h", 100, 99),
+            ("/w/pov/core/mesh/mesh.h", 100, 10),
+        ], percent=90.0))
+        self.assertEqual(
+            self.main_with("70", "core/render=90", "core/mesh=80"), 1)
+        self.assertIn("core/mesh: 10.00% (minimum 80.00%)",
+                      self.stdout.getvalue())
+
+    def test_every_directory_on_its_floor_passes(self):
+        self.stage(document_with([("/w/pov/core/mesh/mesh.h", 100, 80)]))
+        self.assertEqual(self.main_with("70", "core/mesh=80"), 0)
+
+    def test_rejects_a_malformed_directory_floor(self):
+        self.stage_percentage(78.25)
+        with self.assertRaises(SystemExit) as raised:
+            self.main_with("70", "core/mesh")
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("<directory>=<percent>", self.stderr.getvalue())
 
 
 if __name__ == "__main__":
