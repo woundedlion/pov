@@ -17,6 +17,7 @@
 #include "platform/constants.h"
 #include "render/clip.h"
 #include "render/canvas.h"
+#include "render/filter/splat.h"
 #include "engine/concepts.h"
 #include "engine/memory.h"
 #include "containers/triangular_bitset.h"
@@ -1449,42 +1450,31 @@ HS_O3_END
  * @param xc Precomputed x-clip predicate for @p cr.
  * @param row Precomputed projected row.
  * @param col Precomputed projected column; unused when x clipping is inactive.
- * @details Mirrors Screen::AntiAlias's edge renormalization and 1e-8 tap
- * cutoff. The gate runs before shading, so it tests tap geometry only.
+ * @details Tests the taps Screen::AntiAlias would emit, sharing splat_taps and
+ * SPLAT_TAP_CUTOFF with it. The gate runs before shading, so it tests tap
+ * geometry only.
  */
 template <int W, int H>
 static inline bool antialiased_dot_visible_in_clip(const ClipRegion &cr,
                                                    const ClipRegion::XClip &xc,
                                                    float row, float col) {
-  const float y_floor = floorf(row);
-  const int y0 = static_cast<int>(y_floor);
+  const int y0 = static_cast<int>(floorf(row));
   const int y1 = y0 + 1;
   const bool y0_ok = y0 >= 0 && y0 < H;
   const bool y1_ok = y1 >= 0 && y1 < H;
   if ((!y0_ok || !cr.contains_y(y0)) && (!y1_ok || !cr.contains_y(y1)))
     return false;
 
-  const float x_floor = floorf(col);
-  const int x0 = fast_wrap(static_cast<int>(x_floor), W);
-  const int x1 = fast_wrap(x0 + 1, W);
-  const float xs = quintic_kernel(col - x_floor);
-  const float ys = quintic_kernel(row - y_floor);
-  float wy0 = 1.0f - ys;
-  float wy1 = ys;
-  if (y0_ok && !y1_ok) {
-    wy0 = 1.0f;
-    wy1 = 0.0f;
-  } else if (!y0_ok && y1_ok) {
-    wy0 = 0.0f;
-    wy1 = 1.0f;
-  }
+  const Filter::Screen::SplatTaps t =
+      Filter::Screen::splat_taps<W, H>(col, row);
   auto visible = [&](int x, int y, float weight) {
-    return weight > 1e-8f && cr.contains_y(y) && !xc.clipped(x);
+    return weight > Filter::Screen::SPLAT_TAP_CUTOFF && cr.contains_y(y) &&
+           !xc.clipped(x);
   };
-  return (y0_ok &&
-          (visible(x0, y0, (1.0f - xs) * wy0) || visible(x1, y0, xs * wy0))) ||
-         (y1_ok &&
-          (visible(x0, y1, (1.0f - xs) * wy1) || visible(x1, y1, xs * wy1)));
+  return (t.y0_physical &&
+          (visible(t.x0, t.y0, t.v00) || visible(t.x1, t.y0, t.v10))) ||
+         (t.y1_physical &&
+          (visible(t.x0, t.y1, t.v01) || visible(t.x1, t.y1, t.v11)));
 }
 
 template <typename PipelineT, typename Pred>
