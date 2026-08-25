@@ -80,6 +80,7 @@ const codePointCompare = (left, right) => {
 // space separators, U+2028/U+2029 and U+FEFF, so this reader would accept
 // documents every conforming JSON parser rejects.
 const JSON_WHITESPACE = new Set([' ', '\t', '\n', '\r']);
+const JSON_NUMBER_PATTERN = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/uy;
 
 class JsonReader {
   constructor(source, limits) {
@@ -194,7 +195,8 @@ class JsonReader {
   }
 
   number(path) {
-    const match = this.source.slice(this.index).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/u);
+    JSON_NUMBER_PATTERN.lastIndex = this.index;
+    const match = JSON_NUMBER_PATTERN.exec(this.source);
     if (!match)
       fail('parse', 'INVALID_NUMBER', path, 'The JSON number is malformed.');
     this.index += match[0].length;
