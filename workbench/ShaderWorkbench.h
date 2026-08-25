@@ -2056,6 +2056,16 @@ private:
     PreparedHueNoise prepared_hue_noise;
     ResourceBindings resources;
     DynamicPrepared dynamic;
+
+    /** @brief Writes the central meridian and its trig pair together.
+        @details The pair is what the per-pixel projections rotate by;
+                 assigning params.projection.central_meridian alone leaves
+                 them stale and the shade diverges from the interpreter. */
+    HS_COLD_MEMBER void set_central_meridian(float radians) {
+      params.projection.central_meridian = radians;
+      meridian_cos = cosf(radians);
+      meridian_sin = sinf(radians);
+    }
   };
 
   struct ShaderWorkbenchInstrumentation {
