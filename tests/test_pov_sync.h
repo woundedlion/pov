@@ -199,11 +199,13 @@ inline void test_helpers() {
   id.beacon_interdigit_timeout_cols = id.beacon_span_cols() / 4 - 1;
   HS_EXPECT_TRUE(id.valid() != nullptr);
 
-  // Stale-frame window order: tick()'s poll-path parser reset must be tighter
-  // than BeaconParser::feed's interdigit test. Boundary is exclusive (equal
-  // windows are rejected).
+  // Stale-frame window order: tick()'s poll-path parser reset, which fires at
+  // acquire_quiet_cols + gap_timeout_cols, must be tighter than
+  // BeaconParser::feed's interdigit test. Boundary is exclusive (equal windows
+  // are rejected).
   Config so = test_config();
-  so.beacon_interdigit_timeout_cols = so.acquire_quiet_cols;
+  so.beacon_interdigit_timeout_cols =
+      so.acquire_quiet_cols + so.gap_timeout_cols;
   HS_EXPECT_TRUE(so.valid() != nullptr);
   ++so.beacon_interdigit_timeout_cols;
   HS_EXPECT_TRUE(so.valid() == nullptr);
