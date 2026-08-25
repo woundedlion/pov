@@ -13,6 +13,14 @@
  *   - FastNoiseLite OpenSimplex2 2D/3D sample grids (default seed 1337, fixed
  *     frequency 0.125): tolerance-checked sample grids.
  *   - noise_transform: pinned displaced output for fixed params and inputs.
+ *
+ * Provenance: no generator emits these arrays. Each was captured by running the
+ * sample expression stated beside it against the vendored FastNoiseLite
+ * (upstream VERSION 1.1.1 plus the in-tree patches core/vendor/
+ * FastNoiseLite_config.h records), built by the native clang test toolchain
+ * (cmake/toolchain-native-clang.cmake). To re-derive after a vendor bump, print
+ * `actual` from expect_noise_grid() and `r` from the noise_transform loop, then
+ * paste the printed values back.
  */
 #pragma once
 
