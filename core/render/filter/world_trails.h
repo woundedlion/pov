@@ -79,7 +79,8 @@ public:
    * @brief Forwards the current sample and seeds a fading trail point.
    * @param v World-space point on the unit sphere.
    * @param color Source color, forwarded unchanged this frame.
-   * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
+   * @param age Incoming age (frames), non-negative; ttl = lifetime - age,
+   * seeded only if positive.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged and NOT gated: a
    * transparent sample still consumes a ring slot. Screen::Trails deliberately
    * differs, dropping samples at its own MIN_TRAIL_ALPHA.
@@ -93,6 +94,8 @@ public:
   template <typename PassFnT>
   void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
+    assert(age >= 0.0f &&
+           "World::Trails: a negative age narrows ttl past the uint8_t range");
     pass(v, color, age, alpha);
 
     // round, not truncate (ttl is an integer byte)
