@@ -218,5 +218,16 @@ constexpr bool hs_shader_product_group_is_distinct() {
 #undef HS_SHADER_PRODUCT_NAME_ONCE
 }
 
+/** @brief True when every HS_SHADER_PRODUCT_GROUP name is in HS_EFFECT_LIST. */
+constexpr bool hs_shader_product_group_is_subset() {
+#define HS_SHADER_PRODUCT_NAME_ON_ROSTER(cls, duration_seconds)                \
+  &&hs_in_effect_list(#cls)
+  return true HS_SHADER_PRODUCT_GROUP(HS_SHADER_PRODUCT_NAME_ON_ROSTER);
+#undef HS_SHADER_PRODUCT_NAME_ON_ROSTER
+}
+
 static_assert(hs_shader_product_group_is_distinct(),
               "HS_SHADER_PRODUCT_GROUP names an effect twice");
+static_assert(hs_shader_product_group_is_subset(),
+              "HS_SHADER_PRODUCT_GROUP names an effect that is not in "
+              "HS_EFFECT_LIST — a rename or typo left the group off-roster");
