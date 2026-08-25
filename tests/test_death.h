@@ -2387,6 +2387,17 @@ inline void case_screen_trails_set_lifetime_nonpositive() {
 }
 
 /**
+ * @brief Death case: a world trail lifetime past the ttl byte must trap.
+ * @details Filter surface — World::Trails packs the remaining lifetime into a
+ *          uint8_t ttl, so a lifetime above 255 would wrap on seeding and give
+ *          a near-dead trail instead of the long one asked for.
+ */
+inline void case_world_trails_lifetime_over_max() {
+  Filter::World::Trails<8> trails(opaque(256)); // lifetime > 255 -> HS_CHECK
+  (void)trails;
+}
+
+/**
  * @brief Death case: a ring index past the last ring must trap.
  * @details SphericalFieldLayout surface — the chain walk saturates at row H-1
  *          while the offset keeps accumulating, so an out-of-range index would
@@ -4117,6 +4128,10 @@ inline const Case *all_cases(int &n) {
       {"screen_trails_set_lifetime_nonpositive",
        case_screen_trails_set_lifetime_nonpositive, "screen_trails.h",
        "(new_lifetime > 0) Screen::Trails: lifetime 0 must be positive"},
+      {"world_trails_lifetime_over_max", case_world_trails_lifetime_over_max,
+       "world_trails.h",
+       "(lifetime > 0 && lifetime <= 255) World::Trails: lifetime 256 outside "
+       "[1, 255]"},
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
        "spherical_field.h",
        "(y < H - 1) SphericalFieldLayout: ring index 5 out of range"},
@@ -4798,7 +4813,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"shading.h", 1},
     {"shapes.h", 32},
     {"volume.h", 8},
-    {"world_trails.h", 3},
+    {"world_trails.h", 2},
     {"Fishbowl.h", 1},
     {"Comets.h", 1},
     {"DisplacementField.h", 1},
