@@ -445,24 +445,27 @@ private:
 };
 
 /**
- * @brief Animates the Mobius parameters for a warping effect pulling the poles
- * together.
+ * @brief Shared body of the Mobius warp animations: one easing cycle per
+ *        duration driving a live-bindable magnitude into param b.
+ * @tparam Derived Concrete warp supplying
+ *         `static void write_b(MobiusParams &, float scale, float angle)`.
  */
-class MobiusWarp : public FiniteParamAnimationBase<MobiusWarp> {
+template <typename Derived>
+class MobiusWarpBase : public FiniteParamAnimationBase<Derived> {
 public:
   /**
-   * @brief Constructs a MobiusWarp animation.
+   * @brief Constructs a Mobius warp animation.
    * @param params Reference to the MobiusParams to animate.
    * @param scale The magnitude of the warp effect.
    * @param duration Duration of the warp.
    * @param repeat Whether to repeat.
    * @param easing The easing function to use (default: ease_in_out_sin).
    */
-  MobiusWarp(MobiusParams &params, float scale, int duration,
-             bool repeat = true, EasingFn easing = ease_in_out_sin)
-      : FiniteParamAnimationBase(duration, repeat), params(params),
+  MobiusWarpBase(MobiusParams &params, float scale, int duration,
+                 bool repeat = true, EasingFn easing = ease_in_out_sin)
+      : FiniteParamAnimationBase<Derived>(duration, repeat), params(params),
         scale(scale), easing(easing) {
-    HS_CHECK(std::isfinite(scale), "MobiusWarp scale must be finite");
+    HS_CHECK(std::isfinite(scale), "Mobius warp scale must be finite");
   }
 
   /**
@@ -479,8 +482,8 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
-    FiniteParamAnimationBase::step(canvas);
-    float progress = easing(normalized_progress());
+    FiniteParamAnimationBase<Derived>::step(canvas);
+    float progress = easing(this->normalized_progress());
     float angle = progress * 2 * PI_F;
     float s = scale;
     if (scale_ref) {
@@ -488,8 +491,7 @@ public:
       if (std::isfinite(s2))
         s = s2;
     }
-    params.get().b.re = s * (cosf(angle) - 1.0f);
-    params.get().b.im = s * sinf(angle);
+    Derived::write_b(params.get(), s, angle);
   }
 
 private:
@@ -500,57 +502,36 @@ private:
 };
 
 /**
- * @brief Animates the Mobius parameters for a circular warping effect.
+ * @brief Animates the Mobius parameters for a warping effect pulling the poles
+ * together.
  */
-class MobiusWarpCircular : public FiniteParamAnimationBase<MobiusWarpCircular> {
+class MobiusWarp : public MobiusWarpBase<MobiusWarp> {
 public:
-  /**
-   * @brief Constructs a MobiusWarpCircular animation.
-   * @param params Reference to the MobiusParams to animate.
-   * @param scale The magnitude of the warp effect.
-   * @param duration Duration of the warp.
-   * @param repeat Whether to repeat.
-   * @param easing The easing function to use (default: ease_in_out_sin).
-   */
-  MobiusWarpCircular(MobiusParams &params, float scale, int duration,
-                     bool repeat = true, EasingFn easing = ease_in_out_sin)
-      : FiniteParamAnimationBase(duration, repeat), params(params),
-        scale(scale), easing(easing) {
-    HS_CHECK(std::isfinite(scale), "MobiusWarpCircular scale must be finite");
-  }
-
-  /**
-   * @brief Binds the warp magnitude to a live external float.
-   * @param live_scale The external float to read each frame as the magnitude.
-   * @details Binding makes step() read the referent every frame, so a wired GUI
-   * slider takes effect immediately. The referent must outlive the animation.
-   */
-  void bind_scale(const float &live_scale) { scale_ref = &live_scale; }
-  void bind_scale(const float &&) = delete;
-
-  /**
-   * @brief Steps the animation, updating param b.
-   * @param canvas The canvas buffer (forwarded to the base step).
-   */
-  void step(Canvas &canvas) override {
-    FiniteParamAnimationBase::step(canvas);
-    float progress = easing(normalized_progress());
-    float angle = progress * 2 * PI_F;
-    float s = scale;
-    if (scale_ref) {
-      float s2 = *scale_ref;
-      if (std::isfinite(s2))
-        s = s2;
-    }
-    params.get().b.re = s * cosf(angle);
-    params.get().b.im = -s * sinf(angle);
-  }
+  using MobiusWarpBase::MobiusWarpBase;
 
 private:
-  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-  float scale;                                 /**< Warp magnitude. */
-  EasingFn easing;                             /**< Easing curve. */
-  const float *scale_ref = nullptr; /**< Optional live magnitude source. */
+  friend class MobiusWarpBase<MobiusWarp>;
+
+  static void write_b(MobiusParams &params, float scale, float angle) {
+    params.b.re = scale * (cosf(angle) - 1.0f);
+    params.b.im = scale * sinf(angle);
+  }
+};
+
+/**
+ * @brief Animates the Mobius parameters for a circular warping effect.
+ */
+class MobiusWarpCircular : public MobiusWarpBase<MobiusWarpCircular> {
+public:
+  using MobiusWarpBase::MobiusWarpBase;
+
+private:
+  friend class MobiusWarpBase<MobiusWarpCircular>;
+
+  static void write_b(MobiusParams &params, float scale, float angle) {
+    params.b.re = scale * cosf(angle);
+    params.b.im = -scale * sinf(angle);
+  }
 };
 
 /**
