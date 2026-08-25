@@ -85,10 +85,12 @@ peak.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-07-25.md) | block-union top-2 shade | 🟢 9.90 | 🟢 0/1088 (0%) | 2026-07-26 11:46 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-07-25.md) | ring raster | 🟢 4.07 | 🟢 0/1088 (0%) | 2026-07-26 11:40 |
 
-**●** — the composed effects. Fourteen were first profiled in the
-2026-08-16 sweep; KaleidoscopeHexOil joined 2026-08-17; LatticeMelt was re-captured
-2026-08-18 as the stage-families cut-over A/B gate. The other rows keep their
-own `Captured` dates.
+**●** — the composed effects, in both tables on this page. Fourteen were
+first profiled in the 2026-08-16 sweep; KaleidoscopeHexOil joined 2026-08-17 and
+AshCloud 2026-08-23; LatticeMelt was re-captured 2026-08-18 as the
+stage-families cut-over A/B gate. The other rows keep their own `Captured`
+dates. The O3 index marks refresh dates with the same glyph; the two are
+unrelated.
 
 **Eight rows carry a 2026-07-26 log** — RingSpin, Raymarch, HankinSolids,
 Comets, GnomonicStars, PetalFlow, Voronoi and RingShower. Their
@@ -108,7 +110,7 @@ other fifteen composed effects have no codegen pair on record.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [DisplacementField](O3/profile_displacementfield_teensy_2026-08-18.md) ● | fused ring-stack raster | 🟢 59.84 | 🟢 58.96 | 🟢 0/1408 (0%) | 🟢 0/1408 (0%) | +25,216 B | +21,600 B | ship 2026-08-18 21:55<br>O3 2026-08-18 21:55 |
+| [DisplacementField](O3/profile_displacementfield_teensy_2026-08-18.md) | fused ring-stack raster | 🟢 59.84 | 🟢 58.96 | 🟢 0/1408 (0%) | 🟢 0/1408 (0%) | +25,216 B | +21,600 B | ship 2026-08-18 21:55<br>O3 2026-08-18 21:55 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [AshCloud](O3/profile_ashcloud_teensy_2026-08-23.md) ● | composed curl-noise shader | 🟢 52.39 | 🟢 48.35 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +14,344 B | +11,888 B | ship 2026-08-23 22:04<br>O3 2026-08-23 22:06 |
