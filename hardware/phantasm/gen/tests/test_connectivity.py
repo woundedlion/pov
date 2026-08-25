@@ -170,6 +170,10 @@ class SyntheticBoardTests(unittest.TestCase):
     def test_native_numeric_net_references_join_named_pads(self):
         self.assertEqual(connectivity.opens(parse(NATIVE_BOARD)), {})
 
+    def test_a_numeric_board_reports_the_open_by_declared_name(self):
+        broken = connectivity.opens(drop(parse(NATIVE_BOARD), "segment", "1"))
+        self.assertEqual(broken, {"DATA": [[("R1", "1")], [("R1", "2")]]})
+
     def test_round_pads_do_not_bridge_bare_laminate(self):
         broken = connectivity.opens(parse(ROUND_PAD_BOARD))
         self.assertEqual(broken,
