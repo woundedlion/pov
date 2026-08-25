@@ -1208,6 +1208,21 @@ inline void case_update_hankin_dual_seed_topology() {
 }
 
 /**
+ * @brief Death case: update_hankin rejects a non-finite contact angle.
+ * @details Hankin surface — the half-angle sine and cosine carry a NaN into
+ *          every star point, and normalized_or's dot(v, v) < EPS guard is
+ *          false for NaN, so the whole pattern mesh reaches the rasterizer.
+ */
+inline void case_update_hankin_nonfinite_angle() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  CompiledHankin compiled;
+  MeshState mesh;
+  MeshOps::update_hankin(compiled, mesh, arena,
+                         opaque(std::numeric_limits<float>::quiet_NaN()));
+}
+
+/**
  * @brief Death case: CompiledHankin::clone rejects a self-aliased destination.
  * @details Each vector is rebound from the arena before the copy, so a
  *          self-clone memcpy's a block onto itself from a stale source pointer.
@@ -3616,6 +3631,9 @@ inline const Case *all_cases(int &n) {
        "(out_mesh.topology.size() == 0 || out_mesh.topology_key == "
        "compiled.topology_key) update_hankin: reused out_mesh carries "
        "a topology from a different compiled pattern (clear it first)"},
+      {"update_hankin_nonfinite_angle", case_update_hankin_nonfinite_angle,
+       "hankin.h",
+       "(std::isfinite(angle)) update_hankin: contact angle must be finite"},
       {"hankin_clone_aliases_dst", case_hankin_clone_aliases_dst, "hankin.h",
        "(&src != &dst) CompiledHankin::clone src must not alias dst"},
       {"mesh_state_set_borrowed_offsets_count_mismatch",
